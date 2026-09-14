@@ -49,6 +49,24 @@ describe("AgentView", () => {
     expect(screen.getByLabelText("agent.start.goal")).toHaveFocus()
   })
 
+  it("starts with Enter and keeps Shift+Enter for a new line", () => {
+    const start = vi.fn()
+    render(
+      <AgentView
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
+        tab={{ title: "Example", url: "https://example.com" }}
+        goal="Close this issue"
+        onStart={start}
+      />
+    )
+
+    const input = screen.getByLabelText("agent.start.goal")
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true })
+    expect(start).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(start).toHaveBeenCalledWith("Close this issue", true)
+  })
+
   it("enforces remote-observation acknowledgement before start", () => {
     const acknowledge = vi.fn()
     const start = vi.fn()

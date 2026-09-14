@@ -791,6 +791,27 @@ describe("vision decisions", () => {
     await port.vision?.(state, { aborted: false })
     expect(resolveCompatibility).toHaveBeenCalledTimes(1)
   })
+
+  it("reuses run compatibility for vision and every decision", async () => {
+    const resolveCompatibility = vi.fn(async () => ({
+      ...supported,
+      vision: true
+    }))
+    const port = createProviderAgentModelPort({
+      resolveProvider: async () =>
+        provider(vi.fn(async (_r, emit) => emit(validChunk))),
+      resolveCompatibility
+    })
+
+    await port.vision?.(state, { aborted: false })
+    await port.decide({ state, observation }, { aborted: false })
+    await port.decide(
+      { state: { ...state, observationCount: 2 }, observation },
+      { aborted: false }
+    )
+
+    expect(resolveCompatibility).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe("usable agent prompt", () => {

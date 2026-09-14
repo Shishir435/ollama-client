@@ -164,6 +164,7 @@ const AGENT_FAILURE_CODES = new Set([
 
 export interface AgentWorkLogItem {
   id: string
+  at: number
   label: AgentActionLabel
   status: AgentStepRecord["status"]
   /**
@@ -208,6 +209,7 @@ export const toAgentWorkLog = (
     .sort((first, second) => first.sequence - second.sequence)
     .map((step) => ({
       id: step.stepId,
+      at: step.at,
       label: agentActionLabel(step.command),
       status: step.status,
       ...(step.target?.name

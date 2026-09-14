@@ -6,7 +6,7 @@ import {
   type AgentTakeoverRequest,
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
-import { Bot, Eye, MessageSquareWarning } from "lucide-react"
+import { Bot, Eye, FileText, MessageSquareWarning } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -253,8 +253,6 @@ export const AgentView = ({
         */}
         {run && !settled && <AgentProgressBar used={run.observationCount} />}
 
-        <AgentRunDetailsCard provider={provider} run={run} tab={tab} />
-
         {/*
           What the browser will do, before anything is asked of it. Chromium
           shows its own debugging banner the moment a run attaches, and a
@@ -273,18 +271,25 @@ export const AgentView = ({
         */}
         {run && !settled && (
           <section
-            className="mb-3 rounded-panel border border-border p-2.5"
+            className="mb-3 flex gap-2.5 rounded-panel border border-border bg-surface-sunken p-2.5"
             aria-labelledby="agent-running-goal-label">
-            <h2
-              id="agent-running-goal-label"
-              className="text-2xs font-medium text-muted-foreground">
-              {t("agent.running_goal")}
-            </h2>
-            <p className="mt-0.5 wrap-break-word text-xs">
-              {agentPlainText(run.goal, AGENT_PAGE_TEXT_LIMIT)}
-            </p>
+            <span className="grid size-8 shrink-0 place-items-center rounded-control border border-border bg-background text-muted-foreground">
+              <FileText className="icon-sm" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2
+                id="agent-running-goal-label"
+                className="text-2xs font-medium text-muted-foreground">
+                {t("agent.running_goal")}
+              </h2>
+              <p className="mt-0.5 wrap-break-word text-sm">
+                {agentPlainText(run.goal, AGENT_PAGE_TEXT_LIMIT)}
+              </p>
+            </div>
           </section>
         )}
+
+        <AgentRunDetailsCard provider={provider} run={run} tab={tab} />
 
         {(!run || settled) && (
           /* The goal's own label lives on the composer that holds it; what
@@ -391,7 +396,27 @@ export const AgentView = ({
           </section>
         )}
 
-        <AgentWorkLog items={toAgentWorkLog(steps)} live={liveRow} />
+        <AgentWorkLog
+          items={toAgentWorkLog(steps)}
+          live={liveRow}
+          liveAt={run?.updatedAt}
+          controls={
+            run && (
+              <AgentRunControls
+                inline
+                status={run.status}
+                resumeDisabled={
+                  run.pauseReason === "unresolved_effect" ||
+                  run.pauseReason === "question"
+                }
+                onPause={onPause}
+                onResume={onResume}
+                onStop={onStop}
+                onTakeoverComplete={onTakeoverComplete}
+              />
+            )
+          }
+        />
         {run && onExport && (
           <Button type="button" variant="outline" size="sm" onClick={onExport}>
             {t("agent.export_report")}
@@ -428,20 +453,6 @@ export const AgentView = ({
         onGoalChange={onGoalChange}
         onStart={() => onStart?.(goal.trim(), allowRoutineActions)}
       />
-
-      {run && !settled && (
-        <AgentRunControls
-          status={run.status}
-          resumeDisabled={
-            run.pauseReason === "unresolved_effect" ||
-            run.pauseReason === "question"
-          }
-          onPause={onPause}
-          onResume={onResume}
-          onStop={onStop}
-          onTakeoverComplete={onTakeoverComplete}
-        />
-      )}
     </main>
   )
 }

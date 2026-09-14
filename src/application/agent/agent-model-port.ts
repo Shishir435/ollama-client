@@ -615,19 +615,23 @@ export const createProviderAgentModelPort = (
    * Resolved once per run: a run's model does not change, and asking the
    * provider's catalog before every capture would cost a round trip per step.
    */
-  const visionByRun = new Map<string, boolean>()
+  const compatibilityByRun = new Map<string, AgentModelCompatibility>()
 
   const compatibilityFor = async (
     state: AgentRunState,
     signal: AgentCancellationSignal
   ): Promise<AgentModelCompatibility> => {
+    const known = compatibilityByRun.get(state.id)
+    if (known) return known
     const scope = providerSignal(signal)
     try {
-      return await resolveCompatibility(
+      const compatibility = await resolveCompatibility(
         state.providerId,
         state.modelId,
         scope.signal
       )
+      if (!signal.aborted) compatibilityByRun.set(state.id, compatibility)
+      return compatibility
     } finally {
       scope.cleanup()
     }
@@ -635,12 +639,8 @@ export const createProviderAgentModelPort = (
 
   return {
     async vision(state, signal) {
-      const known = visionByRun.get(state.id)
-      if (known !== undefined) return known
       const compatibility = await compatibilityFor(state, signal)
-      const vision = compatibility.vision === true
-      visionByRun.set(state.id, vision)
-      return vision
+      return compatibility.vision === true
     },
     async decide(
       {
@@ -664,7 +664,6 @@ export const createProviderAgentModelPort = (
         compatibility,
         options.allowExperimental === true
       )
-      visionByRun.set(state.id, compatibility.vision === true)
       const provider = await resolveProvider(state.modelId, state.providerId)
       assertProviderEnabled(provider, state.modelId)
       return retryUntilWellFormed({

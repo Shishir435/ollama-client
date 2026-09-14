@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { type ReactNode, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
 import { SettingsButton } from "@/components/settings-button"
@@ -34,7 +34,7 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
   const [screenshotsAcknowledged, setScreenshotsAcknowledged] = useSetting(
     SETTINGS.AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED
   )
-  const { goal, setGoal } = useAgentDraft()
+  const { goal, setGoal, clearGoal } = useAgentDraft()
   const candidateTab = useAgentCandidateTab()
   const connection = useAgentRun({
     providerId: selectedProviderId || undefined,
@@ -43,6 +43,13 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
   })
   useAgentDebugReport(connection.debugReport)
   const { snapshot } = connection
+
+  useEffect(() => {
+    const run = snapshot.run
+    if (run?.status === "completed" && goal.trim() === run.goal.trim()) {
+      clearGoal()
+    }
+  }, [clearGoal, goal, snapshot.run])
 
   return (
     <div className="flex h-full min-h-0 flex-col">
