@@ -65,7 +65,7 @@ describe("ReasoningEffortMenu", () => {
       (element) => element.tagName === "INPUT"
     ) as HTMLInputElement
 
-    /** auto, none, low, medium, high — the model's own levels, in order. */
+    /** none, auto, low, medium, high — the model's own levels, in order. */
     fireEvent.change(slider, { target: { value: "4" } })
 
     expect(updateModelConfigMock).toHaveBeenCalledWith({
@@ -85,7 +85,7 @@ describe("ReasoningEffortMenu", () => {
       "settings.model.parameters.reasoning_effort.label"
     )
 
-    /** auto, none, low, medium, high. */
+    /** none, auto, low, medium, high. */
     expect(document.querySelectorAll("[data-slot=slider-mark]")).toHaveLength(5)
   })
 

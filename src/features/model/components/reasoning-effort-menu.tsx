@@ -79,10 +79,11 @@ const ReasoningEffortControl = ({
       : label
   const controlLabel = t("settings.model.parameters.reasoning_effort.label")
 
-  const select = (next: number) => {
-    const effort = scale[Math.min(Math.max(next, 0), scale.length - 1)]
+  const select = (effort: ReasoningEffort | undefined) => {
     if (effort && effort !== value) updateConfig({ reasoning_effort: effort })
   }
+  const selectStop = (next: number) =>
+    select(scale[Math.min(Math.max(next, 0), scale.length - 1)])
 
   return (
     <Popover>
@@ -122,7 +123,12 @@ const ReasoningEffortControl = ({
             iconClassName="icon-xs"
             labelKey="settings.model.parameters.reasoning_effort.reset"
             disabled={value === "auto"}
-            onClick={() => select(0)}
+            /**
+             * The default is a value on the scale, not a position on it: the
+             * stops are ordered by how hard the model thinks, and off sits
+             * below auto rather than beside it.
+             */
+            onClick={() => select("auto")}
           />
         </div>
         <Slider
@@ -135,7 +141,7 @@ const ReasoningEffortControl = ({
             t(`settings.model.parameters.reasoning_effort.options.${effort}`)
           )}
           onValueChange={(next) =>
-            select(Array.isArray(next) ? (next[0] ?? 0) : next)
+            selectStop(Array.isArray(next) ? (next[0] ?? 0) : next)
           }
           thumbProps={{
             getAriaLabel: () => controlLabel,

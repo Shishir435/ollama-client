@@ -37,8 +37,8 @@ export const getReasoningEffortOptions = (
  * on.
  */
 const REASONING_EFFORT_SCALE: ReasoningEffort[] = [
-  "auto",
   "none",
+  "auto",
   "minimal",
   "low",
   "medium",
