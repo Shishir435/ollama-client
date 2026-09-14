@@ -22,6 +22,8 @@ const listSourceFiles = (dir: string): string[] => {
 }
 
 const sourceFiles = listSourceFiles(sourceRoot)
+const handAuthoredSemanticAlpha =
+  /\b(?:bg-(?:muted|input|background|black|warning|primary|destructive|accent|status-(?:success|warning|info|danger))|border-border|text-muted-foreground|ring-(?:ring|foreground|destructive))\/(?:\d+(?:\.\d+)?|\[[^\]]+\])(?![\w-])/
 const location = (path: string, source: ts.SourceFile, position: number) => {
   const { line } = source.getLineAndCharacterOfPosition(position)
   return `${relative(repoRoot, path)}:${line + 1}`
@@ -112,8 +114,19 @@ const isWrappedIconButton = (node: ts.Node, source: ts.SourceFile): boolean => {
 
 describe("design-system source contracts", () => {
   it("uses named tokens for shared alpha states and surfaces", () => {
-    const handAuthoredSemanticAlpha =
-      /\b(?:hover:bg-(?:muted(?:\/(?:20|35|40|45|50|55|60|80))?|accent\/50)|(?:aria-expanded|aria-pressed|data-open|data-selected):bg-muted(?:\/(?:20|50))?|data-\[state=on\]:bg-muted|bg-(?:muted\/(?:5|15|20|25|30|40|50|55|60)|input\/20|background\/(?:35|40|45|50|60|70|80|85|90)|black\/80|warning\/10|status-(?:warning|info|success)\/10|primary\/(?:5|10|15)|destructive\/(?:10|15|20|30|40))|border-border\/(?:20|25|30|35|40|45|50|60|70|80)|text-muted-foreground\/(?:40|50|55|60|65|70|75|80)|(?:focus-visible|focus-within):ring-ring\/(?:30|40|50)|ring-foreground\/10|dark:(?:hover:)?bg-input\/(?:30|50))\b/
+    const bypassExamples = [
+      "bg-primary/30",
+      "dark:data-unchecked:bg-input/80",
+      "bg-background/20",
+      "hover:bg-muted/72",
+      "bg-muted/[0.12]"
+    ]
+    expect(
+      bypassExamples.filter((utility) =>
+        handAuthoredSemanticAlpha.test(utility)
+      )
+    ).toEqual(bypassExamples)
+
     const offenders = sourceFiles.flatMap((path) => {
       const text = readFileSync(path, "utf8")
       return text

@@ -153,7 +153,7 @@ export const ExcludedUrls = ({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="size-8 p-0 opacity-60 transition-all hover:bg-tint-danger hover:text-destructive group-hover:opacity-100"
+                    className="size-8 p-0 opacity-60 transition-all hover:bg-tint-danger-hover hover:text-destructive group-hover:opacity-100"
                     onClick={() => handleRemove(pattern)}>
                     <Trash2 className="icon-xs" />
                   </Button>

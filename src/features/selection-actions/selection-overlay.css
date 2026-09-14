@@ -36,10 +36,16 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-tint-danger: var(--tint-danger);
+  --color-tint-danger-hover: var(--tint-danger-hover);
   --color-tint-warning: var(--tint-warning);
   --color-tint-info: var(--tint-info);
   --color-tint-success: var(--tint-success);
   --color-tint-accent: var(--tint-accent);
+  --color-tint-accent-strong: var(--tint-accent-strong);
+  --color-primary-hover: var(--primary-hover);
+  --color-status-success-hover: var(--status-success-hover);
+  --color-status-danger-hover: var(--status-danger-hover);
+  --color-surface-tooltip-key: var(--surface-tooltip-key);
   --color-border: var(--border);
   --color-border-invalid: var(--border-invalid);
   --color-input: var(--input);

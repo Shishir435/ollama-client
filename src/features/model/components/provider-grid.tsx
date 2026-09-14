@@ -97,8 +97,8 @@ export const ProviderGrid = ({
             className={cn(
               "h-11 justify-start px-3 transition-colors",
               isSelected
-                ? "border-primary/40 bg-accent/20 text-accent-foreground"
-                : "border-border bg-card text-card-foreground hover:bg-accent/10"
+                ? "border-primary/40 bg-state-selected text-accent-foreground"
+                : "border-border bg-card text-card-foreground hover:bg-state-hover"
             )}>
             <span className="flex items-center gap-2 min-w-0">
               <span
@@ -157,7 +157,7 @@ export const ProviderGrid = ({
         onClick={onAdd}
         data-settings-focus="true"
         data-settings-focus-id="provider-add"
-        className="h-11 justify-start border-dashed px-3 text-muted-foreground transition-colors hover:text-foreground border-border bg-card hover:bg-accent/10">
+        className="h-11 justify-start border-dashed px-3 text-muted-foreground transition-colors hover:text-foreground border-border bg-card hover:bg-state-hover">
         <span className="flex items-center gap-2">
           <Plus className="icon-sm" />
           <span className="font-medium">

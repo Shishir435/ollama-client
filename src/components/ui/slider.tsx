@@ -137,7 +137,7 @@ function Slider({
             key={index}
             {...thumbProps}
             className={cn(
-              "relative block shrink-0 cursor-pointer rounded-control border border-ring bg-white ring-ring/30 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-2 focus-visible:ring-2 focus-visible:outline-hidden active:ring-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+              "relative block shrink-0 cursor-pointer rounded-control border border-ring bg-white ring-focus transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-2 focus-visible:ring-2 focus-visible:outline-hidden active:ring-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
               sizing.thumb,
               thumbProps?.className as string | undefined
             )}

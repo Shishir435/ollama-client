@@ -96,7 +96,7 @@ export const ChatSessionActions = ({
             <DropdownMenuItem
               onClick={destructiveAction.onClick}
               aria-label={destructiveAction.ariaLabel}
-              className="gap-2 rounded-control text-destructive hover:bg-tint-danger focus:bg-tint-danger focus:text-destructive">
+              className="gap-2 rounded-control text-destructive hover:bg-tint-danger-hover focus:bg-tint-danger-hover focus:text-destructive">
               {destructiveAction.icon}
               <span>{destructiveAction.label}</span>
             </DropdownMenuItem>

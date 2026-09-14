@@ -83,7 +83,7 @@ export const PromptTemplateList = ({
                       <TooltipActionButton
                         variant="ghost"
                         size="icon"
-                        className="size-8 text-destructive hover:bg-tint-danger hover:text-destructive"
+                        className="size-8 text-destructive hover:bg-tint-danger-hover hover:text-destructive"
                         label={t("settings.prompts.delete_dialog.confirm")}
                         icon={<Trash2 className="icon-md" />}
                         onClick={(e) => {

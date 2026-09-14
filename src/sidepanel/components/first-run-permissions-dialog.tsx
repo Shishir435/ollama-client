@@ -336,7 +336,7 @@ export const FirstRunPermissionsDialog = () => {
                   })}
                 </DialogDescription>
                 {selectedProvider && !isLocalProvider(selectedProvider) && (
-                  <div className="rounded-control bg-tint-warning p-2 text-xs text-status-warning-foreground">
+                  <div className="rounded-control bg-tint-warning p-2 text-xs text-foreground">
                     {t("onboarding.provider.remote_disclosure")}
                   </div>
                 )}

@@ -9,7 +9,7 @@ export const HeroCard = () => {
     <Card className="flex w-full max-w-xl flex-col items-center text-center ring-0 bg-transparent p-0 border-0 shadow-none">
       <div className="group relative mb-5 flex cursor-default items-center gap-2 rounded-full border border-border bg-surface-sunken py-1.5 pl-1.5 pr-4 text-xs font-medium uppercase tracking-widest transition-all duration-500 hover:border-primary/40 hover:bg-state-hover hover:shadow-md">
         <div className="relative flex size-7 items-center justify-center rounded-full bg-linear-to-br from-foreground to-muted-foreground shadow-sm transition-all duration-500 group-hover:scale-110 group-hover:shadow-primary/30">
-          <div className="absolute inset-0 rounded-full bg-primary/30 opacity-0 transition-opacity duration-300 group-hover:animate-ping group-hover:opacity-100" />
+          <div className="absolute inset-0 rounded-full bg-tint-accent-strong opacity-0 transition-opacity duration-300 group-hover:animate-ping group-hover:opacity-100" />
           <Sparkles className="relative z-10 icon-sm text-background transition-transform duration-500 group-hover:rotate-12" />
         </div>
         <span className="relative bg-linear-to-r from-foreground to-foreground/80 bg-clip-text text-xs font-bold text-transparent transition-all duration-300 group-hover:from-primary group-hover:to-primary/80">

@@ -122,7 +122,7 @@ export const VoiceInputButton = ({ disabled }: VoiceInputButtonProps) => {
       className={cn(
         "shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground",
         listening &&
-          "bg-tint-danger text-destructive hover:bg-tint-danger hover:text-destructive"
+          "bg-tint-danger text-destructive hover:bg-tint-danger-hover hover:text-destructive"
       )}
       onClick={handleClick}
       disabled={disabled || preparing}
