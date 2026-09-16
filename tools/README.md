@@ -42,11 +42,17 @@ or a fresh registry security audit.
 CI's browser work starts as soon as `static-checks` and the build it boots are
 green rather than waiting for coverage to be merged, splits
 `e2e:chromium:critical` across three shards, and runs
-`e2e:chromium:agent-benchmark` beside them. The unit suite shards three ways
-for the same reason. Playwright itself stays at one worker: a second one
-splits a shard's scenarios evenly and gains nothing, because each test slows
-by as much as the parallelism saves on a four-core runner. Shards run on
-separate runners, which is why they do help. The production and benchmark Chrome
+`e2e:chromium:agent-benchmark` beside them in two. The unit suite shards three
+ways for the same reason. Playwright itself stays at one worker: a second one
+splits a shard's scenarios evenly and gains nothing, because each test slows by
+as much as the parallelism saves on a four-core runner. Shards run on separate
+runners, which is why they do help.
+
+Each benchmark shard uploads its own partial record, and the aggregate
+`Critical browser gates` job runs `pnpm benchmark:merge` over them: it joins the
+partials, checks the total against what the suite declares, and fails when a
+pass is short or a shard is counted twice. That check used to run inside the
+worker that wrote the report, which could only ever see its own attempts. The production and benchmark Chrome
 targets build in parallel jobs and upload separately, so each gate downloads
 only the one it runs against. The
 job named `Critical browser gates` is the aggregate of all three and is what

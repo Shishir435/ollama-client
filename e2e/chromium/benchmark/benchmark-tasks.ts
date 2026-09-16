@@ -30,6 +30,18 @@ export const benchmarkAttempts = Math.max(
   Number.parseInt(process.env.AGENT_BENCHMARK_ATTEMPTS ?? "1", 10) || 1
 )
 
+/**
+ * Frozen: what the suite declares, plus the report task that closes it.
+ *
+ * It lives beside the instrument rather than in the suite because the suite is
+ * no longer the only reader. A sharded pass has no process that sees every
+ * attempt, so the completeness check moved to the merge, and the merge needs
+ * the same number the suite is written against.
+ */
+export const benchmarkTaskCount = 30
+export const benchmarkExpectedAttempts =
+  (benchmarkTaskCount + 1) * benchmarkAttempts
+
 export const benchmarkModel = process.env.AGENT_HOSTED_MODEL ?? "fixture-agent"
 
 export interface BenchmarkTask

@@ -49,6 +49,7 @@
     "verify:browser-automation": "pnpm verify:browser-smoke && pnpm exec tsx tools/verify/verify-browser-automation-local.ts",
     "benchmark:persistence": "tsx tools/benchmarks/benchmark-sqlite-persistence.ts",
     "benchmark:performance": "tsx tools/benchmarks/benchmark-performance.ts",
+    "benchmark:merge": "tsx tools/benchmarks/merge-agent-benchmark.ts",
     "benchmark:build": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/chrome-mv3-benchmark wxt build",
     "benchmark:build:firefox": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/firefox-mv2-benchmark wxt build -b firefox --mv2 --mode production",
     "bundle:report": "tsx tools/checks/check-bundle-size.ts",

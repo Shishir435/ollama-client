@@ -287,28 +287,91 @@ export const renderAgentBenchmarkMarkdown = (
   return `${lines.join("\n")}\n`
 }
 
-export const writeAgentBenchmarkReport = (
+export const buildAgentBenchmarkReport = (
   attempts: AgentAttemptRecord[],
   backend: string,
   model = backend
+): AgentBenchmarkReport => ({
+  measuredAt: new Date().toISOString(),
+  backend,
+  model,
+  attempts,
+  families: summarizeAttempts(attempts)
+})
+
+/**
+ * One pass's attempts, as far as this process saw them.
+ *
+ * A sharded pass has no process that sees all of them, so what a worker writes
+ * is a partial and `label` is what keeps two of them from colliding. The
+ * completeness check that used to sit beside this write now happens in
+ * `mergeAgentBenchmarkReports`, against the whole set.
+ */
+export const writeAgentBenchmarkReport = (
+  attempts: AgentAttemptRecord[],
+  backend: string,
+  model = backend,
+  label?: string
 ): string => {
-  const report: AgentBenchmarkReport = {
-    measuredAt: new Date().toISOString(),
-    backend,
-    model,
-    attempts,
-    families: summarizeAttempts(attempts)
-  }
+  const report = buildAgentBenchmarkReport(attempts, backend, model)
   const directory = resolve("artifacts/e2e/benchmark")
   mkdirSync(directory, { recursive: true })
+  const suffix = label ? `-${label}` : ""
   const stamp = Date.now()
-  const path = resolve(directory, `agent-benchmark-${stamp}.json`)
+  const path = resolve(directory, `agent-benchmark-${stamp}${suffix}.json`)
   writeFileSync(path, JSON.stringify(report, null, 2))
   writeFileSync(
-    resolve(directory, `agent-benchmark-${stamp}.md`),
+    resolve(directory, `agent-benchmark-${stamp}${suffix}.md`),
     renderAgentBenchmarkMarkdown(report)
   )
   return path
+}
+
+export interface AgentBenchmarkMerge {
+  report: AgentBenchmarkReport
+  /** Attempts found, against the count the suite declares. */
+  found: number
+  expected: number
+  complete: boolean
+  /** Attempts recorded twice — a shard uploaded under two names, say. */
+  duplicates: string[]
+}
+
+/**
+ * Every shard's partial, read back as one record.
+ *
+ * This carries the guard that used to live in the suite: a pass that lost a
+ * task to a retry must not produce a report that looks complete. Checking it
+ * here is stricter than checking it in the worker, because a worker only ever
+ * knew about its own shard, and a shard that never ran at all produced no
+ * assertion to fail.
+ */
+export const mergeAgentBenchmarkReports = (
+  partials: AgentBenchmarkReport[],
+  expected: number
+): AgentBenchmarkMerge => {
+  const attempts = partials.flatMap((partial) => partial.attempts)
+  const seen = new Set<string>()
+  const duplicates: string[] = []
+  for (const attempt of attempts) {
+    const key = `${attempt.family}\u0000${attempt.scenario}\u0000${attempt.backend}\u0000${attempt.attempt}`
+    if (seen.has(key)) duplicates.push(`${attempt.family}/${attempt.scenario}`)
+    seen.add(key)
+  }
+  const first = partials[0]
+  return {
+    report: {
+      measuredAt: new Date().toISOString(),
+      backend: first?.backend ?? "unknown",
+      model: first?.model ?? "unknown",
+      attempts,
+      families: summarizeAttempts(attempts)
+    },
+    found: attempts.length,
+    expected,
+    complete: attempts.length === expected && duplicates.length === 0,
+    duplicates: [...new Set(duplicates)]
+  }
 }
 
 export const approvalsAsked = (messages: AgentPanelMessage[]): string[] => [

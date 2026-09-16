@@ -72,6 +72,14 @@ export default defineConfig({
         "**/benchmark-agent.spec.ts",
         "build/chrome-mv3-prod"
       ),
+      /**
+       * Every task its own group, so `--shard` can divide them: they are all
+       * declared in one spec file, and file-level grouping makes one group
+       * that no shard can split. Workers stay at one, so a shard still runs
+       * its tasks one at a time — what this buys is divisibility, not
+       * concurrency.
+       */
+      fullyParallel: true,
       metadata: {
         extensionBuildPath: "build/chrome-mv3-prod",
         agentObservationGrant: true,
@@ -90,6 +98,14 @@ export default defineConfig({
         "**/benchmark-agent.spec.ts",
         "build/chrome-mv3-prod"
       ),
+      /**
+       * Every task its own group, so `--shard` can divide them: they are all
+       * declared in one spec file, and file-level grouping makes one group
+       * that no shard can split. Workers stay at one, so a shard still runs
+       * its tasks one at a time — what this buys is divisibility, not
+       * concurrency.
+       */
+      fullyParallel: true,
       metadata: {
         extensionBuildPath: "build/chrome-mv3-prod",
         agentObservationGrant: true,
