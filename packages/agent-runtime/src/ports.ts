@@ -13,6 +13,7 @@ import type {
   AgentScreenshot,
   AgentSnapshotIdentity,
   AgentStepStatus,
+  AgentStepTelemetry,
   AgentTakeoverRequest
 } from "@ollama-client/contracts"
 
@@ -465,6 +466,12 @@ export interface AgentStepWrite {
   sourceUrl?: string
   /** Model-authored note attached to the step it belongs to. */
   finding?: string
+  /**
+   * What the step cost, in numbers only. Optional because a step a worker
+   * restart settled measured nothing, and an absent record must read as
+   * unmeasured rather than as zero.
+   */
+  telemetry?: AgentStepTelemetry
 }
 
 /** A step as it is read back, carrying the durable order it was written in. */

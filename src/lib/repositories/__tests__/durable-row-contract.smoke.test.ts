@@ -164,6 +164,14 @@ describe("durable job rows decode as their writers wrote them", () => {
         },
         sourceUrl: "https://example.com/start",
         finding: "f".repeat(900),
+        telemetry: {
+          decideMs: 2_140,
+          observeMs: 180,
+          promptTokens: 7_412,
+          promptTokensEstimated: 7_100,
+          numCtx: 16_384,
+          observations: 2
+        },
         at: createdAt + 4
       })
       const written = await repo.listAgentSteps("agent-row-1")
@@ -177,6 +185,20 @@ describe("durable job rows decode as their writers wrote them", () => {
       })
       expect(written[0]?.target?.name).toHaveLength(120)
       expect(written[0]?.finding).toHaveLength(500)
+      /**
+       * Telemetry is durable on the receipt because the receipts are what an
+       * MV3 worker restart leaves behind, and an interrupted run is the one
+       * worth measuring. Reported and estimated counts stay apart through the
+       * write, so an estimate can never be read back as a measurement.
+       */
+      expect(written[0]?.telemetry).toEqual({
+        decideMs: 2_140,
+        observeMs: 180,
+        promptTokens: 7_412,
+        promptTokensEstimated: 7_100,
+        numCtx: 16_384,
+        observations: 2
+      })
       await repo.claimAgentRunPhase({
         runId: "agent-row-1",
         phase: "awaiting_approval",

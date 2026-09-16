@@ -18,6 +18,7 @@ import {
   type AgentRunStatus,
   AgentRunStatusSchema,
   AgentStepStatusSchema,
+  AgentStepTelemetrySchema,
   MAX_AGENT_FINDING_CHARS,
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
@@ -106,7 +107,13 @@ const AgentStepReceiptSchema = z
     verification: AgentVerificationSchema.optional(),
     target: AgentStepTargetSchema.optional(),
     sourceUrl: z.string().max(2_048).optional(),
-    finding: z.string().max(MAX_AGENT_FINDING_CHARS).optional()
+    finding: z.string().max(MAX_AGENT_FINDING_CHARS).optional(),
+    /**
+     * Numbers only, and bounded by its own schema. It rides the receipt
+     * because the receipts are what a worker restart leaves behind, and an
+     * interrupted run is the one worth measuring.
+     */
+    telemetry: AgentStepTelemetrySchema.optional()
   })
   .strict()
 
