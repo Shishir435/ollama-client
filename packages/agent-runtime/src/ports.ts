@@ -549,6 +549,17 @@ export interface AgentModelPort {
     state: AgentRunState,
     signal: AgentCancellationSignal
   ): Promise<boolean>
+  /**
+   * What the decision that just resolved cost, for the run named.
+   *
+   * A reader rather than part of `decide`'s result because the provider's own
+   * usage is the only thing the controller cannot measure for itself, and
+   * widening the return type would rewrite every test double of this port for
+   * a field most of them do not produce. Read it immediately after the await,
+   * while the answer still belongs to that decision; a port that measured
+   * nothing returns nothing.
+   */
+  decisionTelemetry?(runId: string): AgentStepTelemetry | undefined
 }
 
 /** What a resolver may ground a command in besides the DOM observation. */
