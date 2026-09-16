@@ -550,7 +550,7 @@ jobs:
           if-no-files-found: ignore
 
   agent-benchmark:
-    name: Agent benchmark (shard ${{ matrix.shard }}/2)
+    name: Agent benchmark (shard ${{ matrix.shard }}/3)
     # Split out of the browser gates, which it shares nothing with but the
     # packaged build. Run in sequence there it added its whole ~198s to the
     # longest job in the run, for work that could have happened beside it.
@@ -570,7 +570,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -618,7 +618,7 @@ jobs:
           fi
 
       - name: Record the agent benchmark on the fixture model
-        run: pnpm e2e:chromium:agent-benchmark --shard=${{ matrix.shard }}/2
+        run: pnpm e2e:chromium:agent-benchmark --shard=${{ matrix.shard }}/3
 
       # A shard's own attempts, and only those. Whether the pass is complete is
       # not a question this runner can answer, so it is asked once over every

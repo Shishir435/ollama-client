@@ -42,7 +42,7 @@ or a fresh registry security audit.
 CI's browser work starts as soon as `static-checks` and the build it boots are
 green rather than waiting for coverage to be merged, splits
 `e2e:chromium:critical` across three shards, and runs
-`e2e:chromium:agent-benchmark` beside them in two. The unit suite shards three
+`e2e:chromium:agent-benchmark` beside them in three. The unit suite shards three
 ways for the same reason. Playwright itself stays at one worker: a second one
 splits a shard's scenarios evenly and gains nothing, because each test slows by
 as much as the parallelism saves on a four-core runner. Shards run on separate
