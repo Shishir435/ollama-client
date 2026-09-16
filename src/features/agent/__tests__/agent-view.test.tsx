@@ -49,6 +49,24 @@ describe("AgentView", () => {
     expect(screen.getByLabelText("agent.start.goal")).toHaveFocus()
   })
 
+  it("starts with Enter and keeps Shift+Enter for a new line", () => {
+    const start = vi.fn()
+    render(
+      <AgentView
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
+        tab={{ title: "Example", url: "https://example.com" }}
+        goal="Close this issue"
+        onStart={start}
+      />
+    )
+
+    const input = screen.getByLabelText("agent.start.goal")
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true })
+    expect(start).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(start).toHaveBeenCalledWith("Close this issue", true)
+  })
+
   it("enforces remote-observation acknowledgement before start", () => {
     const acknowledge = vi.fn()
     const start = vi.fn()
@@ -138,6 +156,31 @@ describe("AgentView", () => {
     expect(start).toHaveBeenCalledWith("Find the red square", true)
   })
 
+  it("keeps required remote acknowledgement reachable after a run settles", () => {
+    const acknowledge = vi.fn()
+    render(
+      <AgentView
+        run={run("completed")}
+        provider={{
+          name: "Remote",
+          model: "llava",
+          location: "remote",
+          screenshots: true
+        }}
+        tab={{ title: "Example", url: "https://example.com" }}
+        goal="Run it again"
+        onAcknowledgePrivacy={acknowledge}
+        onStart={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.getByRole("button", { name: "agent.start.action" })
+    ).toBeDisabled()
+    fireEvent.click(screen.getByText("agent.privacy.acknowledge"))
+    expect(acknowledge).toHaveBeenCalledWith("screenshots")
+  })
+
   it("keeps a failed run on screen with the reason it recorded", () => {
     render(
       <AgentView
@@ -162,6 +205,8 @@ describe("AgentView", () => {
     expect(
       screen.getByRole("button", { name: "agent.start.action" })
     ).toBeInTheDocument()
+    // Finished history does not turn back into the setup screen above its log.
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
     expect(screen.queryByText("agent.controls.stop")).not.toBeInTheDocument()
   })
 

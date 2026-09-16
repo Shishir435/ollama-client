@@ -3,8 +3,9 @@ import { useShallow } from "zustand/react/shallow"
 
 interface AgentDraftState {
   goal: string
+  handledCompletionRunId?: string
   setGoal: (goal: string) => void
-  clearGoal: () => void
+  completeGoal: (runId: string, completedGoal: string) => void
 }
 
 /**
@@ -17,7 +18,14 @@ interface AgentDraftState {
 export const agentDraftStore = create<AgentDraftState>((set) => ({
   goal: "",
   setGoal: (goal) => set({ goal }),
-  clearGoal: () => set({ goal: "" })
+  completeGoal: (runId, completedGoal) =>
+    set((state) => {
+      if (state.handledCompletionRunId === runId) return state
+      return {
+        handledCompletionRunId: runId,
+        goal: state.goal.trim() === completedGoal.trim() ? "" : state.goal
+      }
+    })
 }))
 
 export const useAgentDraft = () =>
@@ -25,6 +33,6 @@ export const useAgentDraft = () =>
     useShallow((state) => ({
       goal: state.goal,
       setGoal: state.setGoal,
-      clearGoal: state.clearGoal
+      completeGoal: state.completeGoal
     }))
   )

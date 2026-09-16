@@ -6,8 +6,8 @@ import {
   type AgentTakeoverRequest,
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
-import { Bot, Eye, MessageSquareWarning } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { Bot, Eye, FileText, MessageSquareWarning } from "lucide-react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { AgentApprovalCard } from "./components/agent-approval-card"
@@ -160,6 +160,66 @@ const AgentProgressBar = ({ used }: { used: number }) => (
   </div>
 )
 
+const AgentStartConsent = ({
+  showAutoActions,
+  showRemoteNotice,
+  allowRoutineActions,
+  provider,
+  onAllowRoutineActions,
+  onAcknowledgePrivacy
+}: {
+  showAutoActions: boolean
+  showRemoteNotice: boolean
+  allowRoutineActions: boolean
+  provider?: AgentProviderPresentation
+  onAllowRoutineActions: (allowed: boolean) => void
+  onAcknowledgePrivacy: (scope: "observations" | "screenshots") => void
+}) => {
+  const { t } = useTranslation()
+  if (!showAutoActions && !showRemoteNotice) return null
+
+  return (
+    <section className="space-y-2">
+      {showAutoActions && (
+        <label className="flex items-start gap-2 rounded-panel border border-border p-2.5 text-xs">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={allowRoutineActions}
+            onChange={(event) => onAllowRoutineActions(event.target.checked)}
+          />
+          <span>
+            <span className="font-medium">{t("agent.start.auto_actions")}</span>
+            <span className="mt-1 block text-muted-foreground">
+              {t("agent.start.auto_actions_description")}
+            </span>
+          </span>
+        </label>
+      )}
+      {showRemoteNotice && (
+        <div className="rounded-panel border border-status-warning/40 bg-tint-warning p-2.5 text-xs">
+          <p>{t(remoteNoticeKey(provider))}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() =>
+              onAcknowledgePrivacy(
+                agentScreenshotsMayTravel(provider)
+                  ? "screenshots"
+                  : "observations"
+              )
+            }>
+            <Eye className="icon-xs" aria-hidden="true" />
+            {t("agent.privacy.acknowledge")}
+          </Button>
+        </div>
+      )}
+    </section>
+  )
+}
+
 export const AgentView = ({
   leading,
   run = null,
@@ -190,6 +250,9 @@ export const AgentView = ({
 }: AgentViewProps) => {
   const { t } = useTranslation()
   const [allowRoutineActions, setAllowRoutineActions] = useState(true)
+  const activity = useRef<HTMLDivElement>(null)
+  const followActivity = useRef(true)
+  const followedRunId = useRef<string | undefined>(undefined)
   const settled =
     run !== null && ["completed", "failed", "cancelled"].includes(run.status)
   const remoteNeedsAcknowledgement = needsRemoteAcknowledgement(
@@ -211,9 +274,21 @@ export const AgentView = ({
     !remoteNeedsAcknowledgement &&
     !busy
 
+  useEffect(() => {
+    if (followedRunId.current !== run?.id) {
+      followedRunId.current = run?.id
+      followActivity.current = true
+    }
+    const region = activity.current
+    if (!region || !followActivity.current) return
+    region.scrollTop = region.scrollHeight
+  })
+
   return (
     <main className="flex h-full min-h-0 flex-col bg-surface-chat">
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      {/* Run identity and context stay put. Only activity below scrolls, so a
+          long run never makes the task, status, or controlled tab disappear. */}
+      <div className="shrink-0 border-b border-border px-3 pt-3">
         <header className="mb-3 flex min-w-0 items-start gap-2">
           <span className="grid size-8 shrink-0 place-items-center rounded-control bg-app-primary-soft text-app-agent">
             <Bot className="icon-sm" aria-hidden="true" />
@@ -253,18 +328,6 @@ export const AgentView = ({
         */}
         {run && !settled && <AgentProgressBar used={run.observationCount} />}
 
-        <AgentRunDetailsCard provider={provider} run={run} tab={tab} />
-
-        {/*
-          What the browser will do, before anything is asked of it. Chromium
-          shows its own debugging banner the moment a run attaches, and a
-          banner with nothing beside it is what sends someone to ask a
-          developer.
-        */}
-        {(!run || settled) && browser && (
-          <AgentBrowserDisclosureCard browser={browser} />
-        )}
-
         {/*
           The goal, while the run is working on it. It was on screen only in
           the box it was typed into, which the running panel replaces — so the
@@ -273,63 +336,50 @@ export const AgentView = ({
         */}
         {run && !settled && (
           <section
-            className="mb-3 rounded-panel border border-border p-2.5"
+            className="mb-3 flex gap-2.5 rounded-panel border border-border bg-surface-sunken p-2.5"
             aria-labelledby="agent-running-goal-label">
-            <h2
-              id="agent-running-goal-label"
-              className="text-2xs font-medium text-muted-foreground">
-              {t("agent.running_goal")}
-            </h2>
-            <p className="mt-0.5 wrap-break-word text-xs">
-              {agentPlainText(run.goal, AGENT_PAGE_TEXT_LIMIT)}
-            </p>
+            <span className="grid size-8 shrink-0 place-items-center rounded-control border border-border bg-background text-muted-foreground">
+              <FileText className="icon-sm" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2
+                id="agent-running-goal-label"
+                className="text-2xs font-medium text-muted-foreground">
+                {t("agent.running_goal")}
+              </h2>
+              <p className="mt-0.5 wrap-break-word text-sm">
+                {agentPlainText(run.goal, AGENT_PAGE_TEXT_LIMIT)}
+              </p>
+            </div>
           </section>
         )}
 
-        {(!run || settled) && (
-          /* The goal's own label lives on the composer that holds it; what
-             is left here is the consent this run needs before it starts. */
-          <section className="space-y-2">
-            <label className="flex items-start gap-2 rounded-panel border border-border p-2.5 text-xs">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={allowRoutineActions}
-                onChange={(event) =>
-                  setAllowRoutineActions(event.target.checked)
-                }
-              />
-              <span>
-                <span className="font-medium">
-                  {t("agent.start.auto_actions")}
-                </span>
-                <span className="mt-1 block text-muted-foreground">
-                  {t("agent.start.auto_actions_description")}
-                </span>
-              </span>
-            </label>
-            {remoteNeedsAcknowledgement && (
-              <div className="rounded-panel border border-status-warning/40 bg-tint-warning p-2.5 text-xs">
-                <p>{t(remoteNoticeKey(provider))}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() =>
-                    onAcknowledgePrivacy(
-                      agentScreenshotsMayTravel(provider)
-                        ? "screenshots"
-                        : "observations"
-                    )
-                  }>
-                  <Eye className="icon-xs" aria-hidden="true" />
-                  {t("agent.privacy.acknowledge")}
-                </Button>
-              </div>
-            )}
-          </section>
-        )}
+        {run && <AgentRunDetailsCard provider={provider} run={run} tab={tab} />}
+      </div>
+
+      <div
+        ref={activity}
+        className="min-h-0 flex-1 overflow-y-auto px-3 pt-3 pb-3"
+        onScroll={(event) => {
+          const region = event.currentTarget
+          followActivity.current =
+            region.scrollHeight - region.scrollTop - region.clientHeight < 48
+        }}>
+        {/* Setup belongs to the empty surface. A settled run remains a run
+            history, not a second setup screen stacked above its receipts. */}
+        {!run && browser && <AgentBrowserDisclosureCard browser={browser} />}
+        {!run && <AgentRunDetailsCard provider={provider} tab={tab} />}
+
+        {/* A retained settled run must not hide consent required by the next
+            start. Routine-action setup remains exclusive to the empty view. */}
+        <AgentStartConsent
+          showAutoActions={!run}
+          showRemoteNotice={startable && remoteNeedsAcknowledgement}
+          allowRoutineActions={allowRoutineActions}
+          provider={provider}
+          onAllowRoutineActions={setAllowRoutineActions}
+          onAcknowledgePrivacy={onAcknowledgePrivacy}
+        />
 
         {approval && run?.status === "awaiting_approval" && (
           <AgentApprovalCard
@@ -391,7 +441,27 @@ export const AgentView = ({
           </section>
         )}
 
-        <AgentWorkLog items={toAgentWorkLog(steps)} live={liveRow} />
+        <AgentWorkLog
+          items={toAgentWorkLog(steps)}
+          live={liveRow}
+          liveAt={run?.updatedAt}
+          controls={
+            run && (
+              <AgentRunControls
+                inline
+                status={run.status}
+                resumeDisabled={
+                  run.pauseReason === "unresolved_effect" ||
+                  run.pauseReason === "question"
+                }
+                onPause={onPause}
+                onResume={onResume}
+                onStop={onStop}
+                onTakeoverComplete={onTakeoverComplete}
+              />
+            )
+          }
+        />
         {run && onExport && (
           <Button type="button" variant="outline" size="sm" onClick={onExport}>
             {t("agent.export_report")}
@@ -428,20 +498,6 @@ export const AgentView = ({
         onGoalChange={onGoalChange}
         onStart={() => onStart?.(goal.trim(), allowRoutineActions)}
       />
-
-      {run && !settled && (
-        <AgentRunControls
-          status={run.status}
-          resumeDisabled={
-            run.pauseReason === "unresolved_effect" ||
-            run.pauseReason === "question"
-          }
-          onPause={onPause}
-          onResume={onResume}
-          onStop={onStop}
-          onTakeoverComplete={onTakeoverComplete}
-        />
-      )}
     </main>
   )
 }

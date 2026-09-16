@@ -78,6 +78,17 @@ export const AgentGoalComposer = ({
           maxLength={20_000}
           placeholder={t("agent.start.placeholder")}
           onChange={(event) => onGoalChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (
+              event.key !== "Enter" ||
+              event.shiftKey ||
+              event.nativeEvent.isComposing ||
+              !canStart
+            )
+              return
+            event.preventDefault()
+            onStart()
+          }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           /*
