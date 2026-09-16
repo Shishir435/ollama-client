@@ -40,11 +40,27 @@ import { traceAgentRun } from "./agent-trace"
  */
 const DECISION_TIMEOUT_MS = AGENT_DECISION_TIMEOUT_MS
 
-const withDecisionTimeout = (
+/**
+ * Spread first, override second.
+ *
+ * This wrapper bounds a decision's time, and it used to rebuild the port by
+ * naming each method it wanted to keep — so an optional method it did not
+ * name stopped existing, silently, because optional means absent is legal.
+ * `decisionTelemetry` was added to the port, measured correctly, and proven
+ * by the port's own tests and a real-engine run, and still reported nothing
+ * through the extension: this literal and the one in `buildAgentController`
+ * both dropped it on the way past.
+ *
+ * Spreading forwards whatever the port has now and whatever it gains later,
+ * which is a property of the construction rather than a rule someone has to
+ * remember. The provider port's methods close over their own state and never
+ * read `this`, so a copied reference behaves the same as a bound one.
+ */
+export const withDecisionTimeout = (
   model: AgentModelPort,
   timeoutMs: number
 ): AgentModelPort => ({
-  ...(model.vision ? { vision: model.vision.bind(model) } : {}),
+  ...model,
   async decide(input, signal) {
     const scope = new AbortController()
     let timedOut = false
@@ -159,6 +175,8 @@ export const buildAgentController: BuildAgentController = (input) => {
     trace: traceAgentRun,
     ...(adapters.screenshot ? { screenshot: adapters.screenshot } : {}),
     model: {
+      /** Spread for the same reason `withDecisionTimeout` does. */
+      ...model,
       ...(vision
         ? {
             async vision(state, signal) {
