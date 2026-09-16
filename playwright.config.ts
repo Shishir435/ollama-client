@@ -14,19 +14,22 @@ export default defineConfig({
   testDir: "./e2e/chromium",
   outputDir: "artifacts/e2e/test-results",
   /**
-   * Off by default, and deliberately: the benchmark projects accumulate their
-   * attempts in one module-level array and assert its length before writing
-   * the record, which only holds while their single spec file runs start to
-   * finish in one worker. File-level grouping is what guarantees that, so the
-   * projects that can be parallelised opt in one at a time below.
+   * One worker on one runner, measured rather than assumed. Two were tried:
+   * the fourteen agent scenarios in a shard split evenly across both workers
+   * and finished 1.96x faster than their summed duration — real parallelism —
+   * while each test slowed from 6.7s to 13.2s under the contention of a
+   * second browser, landing the shard within a second of where serial had it.
+   * A scenario drives a browser, an extension worker and an offscreen
+   * document, so two of them do not fit in four cores.
+   *
+   * Parallelism across runners is what buys anything here, and the workflow
+   * shards three ways for it. `fullyParallel` stays off with the same
+   * evidence, and the benchmark projects need it off regardless: they
+   * accumulate attempts in a module-level array and assert its length before
+   * writing the record, which only holds inside a single worker.
    */
   fullyParallel: false,
-  /**
-   * Two on CI, where the runner has four cores and every test builds its own
-   * browser profile anyway. One locally, so a developer watching a run still
-   * reads it in order.
-   */
-  workers: process.env.CI ? 2 : 1,
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   forbidOnly: Boolean(process.env.CI),
   timeout: 60_000,
@@ -53,15 +56,6 @@ export default defineConfig({
         "**/agent-*.spec.ts",
         "build/chrome-mv3-prod"
       ),
-      /**
-       * Thirty scenarios that Playwright attributes to the one fixture file
-       * they are declared in, so without this they share a single worker
-       * however many are free. Each builds its own mkdtemp profile, its own
-       * persistent context and its own ephemeral-port fixture server, and the
-       * fixture holds no module-level state, so there is nothing for two of
-       * them to collide over.
-       */
-      fullyParallel: true,
       metadata: {
         extensionBuildPath: "build/chrome-mv3-prod",
         agentObservationGrant: true
