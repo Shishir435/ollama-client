@@ -418,7 +418,7 @@ jobs:
           if-no-files-found: error
 
   e2e:
-    name: Critical browser gates (shard ${{ matrix.shard }}/3)
+    name: Critical browser gates (shard ${{ matrix.shard }}/5)
     # Runs on the exact bytes `build` packaged rather than a rebuild, so what
     # boots here is what would ship.
     #
@@ -431,10 +431,13 @@ jobs:
     #
     # Sharded because the suite is 42 tests, and the fixture already gives
     # every test its own mkdtemp profile and persistent context, so the
-    # isolation separate runners need is already paid for. Three shards rather
-    # than two because `--shard` balances test counts and not seconds: the
-    # agent scenarios cost ~6.7s each against ~2.9s for everything else, so two
-    # shards left a 45s gap between them that a third closes.
+    # isolation separate runners need is already paid for.
+    #
+    # Five, because `--shard` divides groups rather than tests and the balance
+    # that follows is not monotonic. Measured largest shard: three ways 14,
+    # four ways 17, five ways 11, six ways 11. Four is worse than three, six
+    # buys nothing over five, and the count is worth re-measuring rather than
+    # raising whenever a spec file is added or split.
     needs: [static-checks, build, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
@@ -448,7 +451,7 @@ jobs:
       # nothing at all.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -513,7 +516,7 @@ jobs:
       # the 60s timeout and the CI retry ran each of them twice. Five failures
       # is already the answer.
       - name: Run critical browser gates
-        run: pnpm e2e:chromium:critical --shard=${{ matrix.shard }}/3 --max-failures=5
+        run: pnpm e2e:chromium:critical --shard=${{ matrix.shard }}/5 --max-failures=5
 
       # Not sharded: together they are seven seconds, and a job of their own
       # would pay half a minute of setup to save none.
@@ -550,7 +553,7 @@ jobs:
           if-no-files-found: ignore
 
   agent-benchmark:
-    name: Agent benchmark (shard ${{ matrix.shard }}/3)
+    name: Agent benchmark (shard ${{ matrix.shard }}/4)
     # Split out of the browser gates, which it shares nothing with but the
     # packaged build. Run in sequence there it added its whole ~198s to the
     # longest job in the run, for work that could have happened beside it.
@@ -570,7 +573,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -618,7 +621,7 @@ jobs:
           fi
 
       - name: Record the agent benchmark on the fixture model
-        run: pnpm e2e:chromium:agent-benchmark --shard=${{ matrix.shard }}/3
+        run: pnpm e2e:chromium:agent-benchmark --shard=${{ matrix.shard }}/4
 
       # A shard's own attempts, and only those. Whether the pass is complete is
       # not a question this runner can answer, so it is asked once over every

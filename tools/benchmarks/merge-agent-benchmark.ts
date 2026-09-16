@@ -29,7 +29,7 @@ import {
   mergeAgentBenchmarkReports,
   renderAgentBenchmarkMarkdown
 } from "../../e2e/chromium/benchmark/agent-benchmark"
-import { benchmarkExpectedAttempts } from "../../e2e/chromium/benchmark/benchmark-tasks"
+import { benchmarkExpectedAttempts } from "../../e2e/chromium/benchmark/benchmark-counts"
 
 const inputDir = resolve(process.argv[2] ?? "artifacts/e2e/benchmark-partials")
 const outputDir = resolve(process.argv[3] ?? "artifacts/e2e/benchmark")
