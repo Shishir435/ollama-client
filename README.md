@@ -249,7 +249,7 @@ Runtime flow:
 - [Changelog](https://www.ollamaclient.in/about/changelog/)
 - [Privacy policy](https://www.ollamaclient.in/legal/privacy-policy/)
 - [Contributing guide](./CONTRIBUTING.md)
-- [AI assistant guide](./AGENTS.md)
+- [AI assistant guide](./AGENTS.md) — with [browser agent internals](./AGENT_INTERNALS.md) and [olc CLI rules](./packages/olc/AGENTS.md)
 
 Search provider API references:
 
