@@ -8,6 +8,7 @@ import {
   MAX_AGENT_OBSERVATIONS
 } from "./agent"
 import { AgentCommandSchema } from "./agent-command"
+import { AgentStepTelemetrySchema } from "./agent-telemetry"
 
 export const AGENT_PANEL_PROTOCOL_VERSION = 1 as const
 
@@ -56,7 +57,13 @@ export const AgentStepRecordSchema = z
       .strict()
       .optional(),
     sourceUrl: z.string().max(2_048).optional(),
-    finding: z.string().max(500).optional()
+    finding: z.string().max(500).optional(),
+    /**
+     * What the step cost. Numbers only by its own schema, so it crosses the
+     * panel port under the same rule as everything else here: a record is
+     * rendered and exported, and nothing page-derived may ride it.
+     */
+    telemetry: AgentStepTelemetrySchema.optional()
   })
   .strict()
 export type AgentStepRecord = z.infer<typeof AgentStepRecordSchema>

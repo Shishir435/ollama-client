@@ -235,7 +235,8 @@ export const registerAgentPanelPort = (
         verification: step.verification,
         target: step.target,
         sourceUrl: step.sourceUrl,
-        finding: step.finding
+        finding: step.finding,
+        telemetry: step.telemetry
       })),
       pending: snapshot.pending,
       provider,
