@@ -170,21 +170,45 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-      # The persistence gates drive a benchmark build, which exposes the
-      # lifecycle harness the production build strips. Built here so the whole
-      # CI run pays for each build exactly once.
-      - name: Build benchmark target for the browser gates
-        if: matrix.target == 'chrome'
-        run: pnpm benchmark:build
-
-      - name: Upload builds for the browser gates
+      - name: Upload the Chrome build for the browser gates
         if: matrix.target == 'chrome'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: chrome-e2e-builds
-          path: |
-            build/chrome-mv3-prod
-            build/chrome-mv3-benchmark
+          name: chrome-build-prod
+          path: build/chrome-mv3-prod
+          retention-days: 1
+          if-no-files-found: error
+
+  build-benchmark:
+    name: Build (chrome benchmark)
+    # The benchmark target exposes the lifecycle harness the production build
+    # strips, and every browser gate boots it. It used to be a second build
+    # step inside `Build (chrome)`, which meant the artifact the whole back
+    # half of the run waits on arrived twenty-six seconds later than it had
+    # to, for no reason but sharing a runner with a build it does not need.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the benchmark target
+        run: pnpm benchmark:build
+
+      - name: Upload the benchmark build for the browser gates
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: chrome-build-benchmark
+          path: build/chrome-mv3-benchmark
           retention-days: 1
           if-no-files-found: error
 
@@ -266,7 +290,7 @@ jobs:
     # Gated on `static-checks` rather than `checks` for the reason spelled
     # out on the browser gates below: the browser work waits on the verdict
     # that a branch compiles and lints, not on coverage being merged.
-    needs: [static-checks, build]
+    needs: [static-checks, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
@@ -286,11 +310,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download packaged builds
+      - name: Download the benchmark build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: chrome-e2e-builds
-          path: build
+          name: chrome-build-benchmark
+          path: build/chrome-mv3-benchmark
 
       - name: Resolve Playwright version
         id: playwright
@@ -298,6 +322,7 @@ jobs:
           echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
@@ -308,10 +333,19 @@ jobs:
       # mirror serves a stale index often enough to fail the whole gate for a
       # repository nothing here reads, so it is dropped first.
       - name: Install Chromium
+        # `--with-deps` is apt, which is most of this step even when the
+        # browser cache hit and nothing is downloaded. The runner image
+        # already ships Chromium's shared libraries, so only a cold cache
+        # needs them. A launch failing on a missing shared object means this
+        # branch was wrong: run `--with-deps` unconditionally again.
         run: |
           sudo rm -f /etc/apt/sources.list.d/google-chrome*.list \
             /etc/apt/sources.list.d/google*.list
-          pnpm exec playwright install --with-deps chromium
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm exec playwright install chromium
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
 
       # Under xvfb so the runner's own headless→headful retry has a display to
       # fall back to when extension-id resolution fails headless.
@@ -335,7 +369,7 @@ jobs:
     # Gated on `static-checks` rather than `checks` for the reason spelled
     # out on the browser gates below: the browser work waits on the verdict
     # that a branch compiles and lints, not on coverage being merged.
-    needs: [static-checks, build]
+    needs: [static-checks]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
@@ -399,7 +433,7 @@ jobs:
     # fixture already gives every test its own mkdtemp profile and persistent
     # context, so the isolation that makes two runners safe is already paid
     # for.
-    needs: [static-checks, build]
+    needs: [static-checks, build, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
       (github.event.pull_request.draft == false &&
@@ -426,11 +460,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download packaged builds
+      - name: Download the Chrome build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: chrome-e2e-builds
-          path: build
+          name: chrome-build-prod
+          path: build/chrome-mv3-prod
+
+      - name: Download the benchmark build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: chrome-build-benchmark
+          path: build/chrome-mv3-benchmark
 
       - name: Resolve Playwright version
         id: playwright
@@ -440,6 +480,7 @@ jobs:
       # Keyed on the Playwright version, so a browser download happens only when
       # that dependency actually changes.
       - name: Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
@@ -450,10 +491,19 @@ jobs:
       # mirror serves a stale index often enough to fail the whole gate for a
       # repository nothing here reads, so it is dropped first.
       - name: Install Chromium
+        # `--with-deps` is apt, which is most of this step even when the
+        # browser cache hit and nothing is downloaded. The runner image
+        # already ships Chromium's shared libraries, so only a cold cache
+        # needs them. A launch failing on a missing shared object means this
+        # branch was wrong: run `--with-deps` unconditionally again.
         run: |
           sudo rm -f /etc/apt/sources.list.d/google-chrome*.list \
             /etc/apt/sources.list.d/google*.list
-          pnpm exec playwright install --with-deps chromium
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm exec playwright install chromium
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
 
       # `--max-failures` bounds a branch that is simply broken rather than
       # flaky. Across ninety-nine runs this step's median was ~225s and its p95
@@ -528,11 +578,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download packaged builds
+      - name: Download the Chrome build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: chrome-e2e-builds
-          path: build
+          name: chrome-build-prod
+          path: build/chrome-mv3-prod
 
       - name: Resolve Playwright version
         id: playwright
@@ -540,16 +590,26 @@ jobs:
           echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
       - name: Install Chromium
+        # `--with-deps` is apt, which is most of this step even when the
+        # browser cache hit and nothing is downloaded. The runner image
+        # already ships Chromium's shared libraries, so only a cold cache
+        # needs them. A launch failing on a missing shared object means this
+        # branch was wrong: run `--with-deps` unconditionally again.
         run: |
           sudo rm -f /etc/apt/sources.list.d/google-chrome*.list \
             /etc/apt/sources.list.d/google*.list
-          pnpm exec playwright install --with-deps chromium
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm exec playwright install chromium
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
 
       - name: Record the agent benchmark on the fixture model
         run: pnpm e2e:chromium:agent-benchmark
@@ -595,7 +655,7 @@ jobs:
     # Gated on `static-checks` rather than `checks` for the reason spelled
     # out on the browser gates above: the browser work waits on the verdict
     # that a branch compiles and lints, not on coverage being merged.
-    needs: [static-checks, build]
+    needs: [static-checks, build-benchmark]
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -612,11 +672,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download packaged builds
+      - name: Download the benchmark build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: chrome-e2e-builds
-          path: build
+          name: chrome-build-benchmark
+          path: build/chrome-mv3-benchmark
 
       - name: Resolve Playwright version
         id: playwright
@@ -624,6 +684,7 @@ jobs:
           echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
@@ -634,10 +695,19 @@ jobs:
       # mirror serves a stale index often enough to fail the whole gate for a
       # repository nothing here reads, so it is dropped first.
       - name: Install Chromium
+        # `--with-deps` is apt, which is most of this step even when the
+        # browser cache hit and nothing is downloaded. The runner image
+        # already ships Chromium's shared libraries, so only a cold cache
+        # needs them. A launch failing on a missing shared object means this
+        # branch was wrong: run `--with-deps` unconditionally again.
         run: |
           sudo rm -f /etc/apt/sources.list.d/google-chrome*.list \
             /etc/apt/sources.list.d/google*.list
-          pnpm exec playwright install --with-deps chromium
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm exec playwright install chromium
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
 
       - name: Run full provider stream matrix
         run: pnpm e2e:chromium:provider-full

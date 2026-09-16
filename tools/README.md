@@ -39,9 +39,12 @@ same coverage thresholds as `verify:ci`. Clean-checkout parity does not
 reproduce browser tests, packaging, hosted CI, OS differences, bundle budgets,
 or a fresh registry security audit.
 
-CI's browser work starts as soon as `static-checks` and `build` are green
-rather than waiting for coverage to be merged, splits `e2e:chromium:critical`
-across two shards, and runs `e2e:chromium:agent-benchmark` beside them. The
+CI's browser work starts as soon as `static-checks` and the build it boots are
+green rather than waiting for coverage to be merged, splits
+`e2e:chromium:critical` across two shards, and runs
+`e2e:chromium:agent-benchmark` beside them. The production and benchmark Chrome
+targets build in parallel jobs and upload separately, so each gate downloads
+only the one it runs against. The
 job named `Critical browser gates` is the aggregate of all three and is what
 `release.yml` resolves a trusted run by, so it stays named that. Every run
 uploads per-test timings as `e2e-timings-shard-*` and the benchmark's counts as
