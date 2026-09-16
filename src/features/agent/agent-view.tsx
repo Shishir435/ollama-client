@@ -7,7 +7,7 @@ import {
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
 import { Bot, Eye, FileText, MessageSquareWarning } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { AgentApprovalCard } from "./components/agent-approval-card"
@@ -190,6 +190,9 @@ export const AgentView = ({
 }: AgentViewProps) => {
   const { t } = useTranslation()
   const [allowRoutineActions, setAllowRoutineActions] = useState(true)
+  const activity = useRef<HTMLDivElement>(null)
+  const followActivity = useRef(true)
+  const followedRunId = useRef<string | undefined>(undefined)
   const settled =
     run !== null && ["completed", "failed", "cancelled"].includes(run.status)
   const remoteNeedsAcknowledgement = needsRemoteAcknowledgement(
@@ -211,9 +214,21 @@ export const AgentView = ({
     !remoteNeedsAcknowledgement &&
     !busy
 
+  useEffect(() => {
+    if (followedRunId.current !== run?.id) {
+      followedRunId.current = run?.id
+      followActivity.current = true
+    }
+    const region = activity.current
+    if (!region || !followActivity.current) return
+    region.scrollTop = region.scrollHeight
+  })
+
   return (
     <main className="flex h-full min-h-0 flex-col bg-surface-chat">
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      {/* Run identity and context stay put. Only activity below scrolls, so a
+          long run never makes the task, status, or controlled tab disappear. */}
+      <div className="shrink-0 border-b border-border px-3 pt-3">
         <header className="mb-3 flex min-w-0 items-start gap-2">
           <span className="grid size-8 shrink-0 place-items-center rounded-control bg-app-primary-soft text-app-agent">
             <Bot className="icon-sm" aria-hidden="true" />
@@ -254,16 +269,6 @@ export const AgentView = ({
         {run && !settled && <AgentProgressBar used={run.observationCount} />}
 
         {/*
-          What the browser will do, before anything is asked of it. Chromium
-          shows its own debugging banner the moment a run attaches, and a
-          banner with nothing beside it is what sends someone to ask a
-          developer.
-        */}
-        {(!run || settled) && browser && (
-          <AgentBrowserDisclosureCard browser={browser} />
-        )}
-
-        {/*
           The goal, while the run is working on it. It was on screen only in
           the box it was typed into, which the running panel replaces — so the
           one question a supervisor is answering, "is it still doing what I
@@ -289,9 +294,23 @@ export const AgentView = ({
           </section>
         )}
 
-        <AgentRunDetailsCard provider={provider} run={run} tab={tab} />
+        {run && <AgentRunDetailsCard provider={provider} run={run} tab={tab} />}
+      </div>
 
-        {(!run || settled) && (
+      <div
+        ref={activity}
+        className="min-h-0 flex-1 overflow-y-auto px-3 pt-3 pb-3"
+        onScroll={(event) => {
+          const region = event.currentTarget
+          followActivity.current =
+            region.scrollHeight - region.scrollTop - region.clientHeight < 48
+        }}>
+        {/* Setup belongs to the empty surface. A settled run remains a run
+            history, not a second setup screen stacked above its receipts. */}
+        {!run && browser && <AgentBrowserDisclosureCard browser={browser} />}
+        {!run && <AgentRunDetailsCard provider={provider} tab={tab} />}
+
+        {!run && (
           /* The goal's own label lives on the composer that holds it; what
              is left here is the consent this run needs before it starts. */
           <section className="space-y-2">

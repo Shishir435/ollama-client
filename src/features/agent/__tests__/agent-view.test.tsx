@@ -180,6 +180,8 @@ describe("AgentView", () => {
     expect(
       screen.getByRole("button", { name: "agent.start.action" })
     ).toBeInTheDocument()
+    // Finished history does not turn back into the setup screen above its log.
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
     expect(screen.queryByText("agent.controls.stop")).not.toBeInTheDocument()
   })
 
