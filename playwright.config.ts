@@ -23,7 +23,13 @@ export default defineConfig({
   },
   reporter: [
     ["list"],
-    ["html", { outputFolder: "artifacts/e2e/html", open: "never" }]
+    ["html", { outputFolder: "artifacts/e2e/html", open: "never" }],
+    /**
+     * Per-test durations, retries included, written on every run. The HTML
+     * report is only uploaded when something failed, which left a slow green
+     * gate with nothing to read afterwards but the job's own total.
+     */
+    ["json", { outputFile: "artifacts/e2e/results.json" }]
   ],
   // The extension fixture launches its own persistent context so profiles can
   // survive full browser restarts. It therefore owns trace, screenshot, and
