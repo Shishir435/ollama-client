@@ -3,11 +3,10 @@ import type {
   AgentScenarioOutcome
 } from "../../fixtures/agent-scenario"
 import { agentFixtureElement } from "../../fixtures/agent-scenario"
-import { expect } from "../../fixtures/extension"
+import { expect, test } from "../../fixtures/extension"
 import type { AgentAttemptRecord } from "../agent-benchmark"
 import { writeAgentBenchmarkReport } from "../agent-benchmark"
 import {
-  benchmarkAttempts,
   benchmarkModel,
   benchmarkTask,
   clickNamed,
@@ -43,8 +42,35 @@ import {
 
 const attempts: AgentAttemptRecord[] = []
 
-/** Frozen: what the suite declares, checked before a report is written. */
-const TASKS = 30
+/**
+ * One partial per worker, written whatever else happened.
+ *
+ * Sharded, no process sees every attempt, so the completeness check moved to
+ * the merge and this only has to record what it saw. A hook rather than the
+ * last task, because a shard that lost a task to a retry still owes the merge
+ * the attempts it did make — that is how the merge can say the pass was short
+ * instead of quietly reporting fewer rows.
+ */
+let partialsWritten = 0
+
+test.afterAll(() => {
+  const first = attempts[0]
+  if (!first) return
+  const { shard } = test.info().config
+  const label = shard
+    ? `shard-${shard.current}-of-${shard.total}-${++partialsWritten}`
+    : `part-${++partialsWritten}`
+  writeAgentBenchmarkReport(attempts, first.backend, benchmarkModel, label)
+  /**
+   * Drained, because nothing here controls how many times this hook runs: a
+   * worker that takes several groups may end several of them. Writing what has
+   * accumulated since the last write means every attempt lands in exactly one
+   * partial whatever that arrangement turns out to be, and the merge's
+   * duplicate check stays a real check rather than a thing this file has to
+   * avoid tripping.
+   */
+  attempts.length = 0
+})
 
 const task = (input: Parameters<typeof benchmarkTask>[1]) =>
   benchmarkTask(attempts, input)
@@ -706,25 +732,16 @@ task({
 // ── the report ──────────────────────────────────────────────────────────────
 
 /**
- * Written by the last task, after the count is checked: a pass that lost a
- * task to a retry must not produce a report that looks complete.
+ * The suite's own last task, and nothing more. Writing the record is the
+ * afterAll hook's job now, so that a shard which never reached this task still
+ * reports what it did.
  */
-benchmarkTask(
-  attempts,
-  {
-    family: "report",
-    name: "write",
-    goal: "Report the status shown on the page.",
-    status: "completed",
-    html: () => page("<p>Status: Active</p>"),
-    decide: () => ({ type: "complete", summary: "Status: Active" }),
-    succeeded: reportsFact("Status: Active")
-  },
-  (outcome) => {
-    if (outcome.attempt < benchmarkAttempts) return
-    expect(attempts).toHaveLength((TASKS + 1) * benchmarkAttempts)
-    expect(
-      writeAgentBenchmarkReport(attempts, outcome.backend, benchmarkModel)
-    ).toContain("agent-benchmark-")
-  }
-)
+benchmarkTask(attempts, {
+  family: "report",
+  name: "write",
+  goal: "Report the status shown on the page.",
+  status: "completed",
+  html: () => page("<p>Status: Active</p>"),
+  decide: () => ({ type: "complete", summary: "Status: Active" }),
+  succeeded: reportsFact("Status: Active")
+})

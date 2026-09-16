@@ -69,13 +69,13 @@ jobs:
         run: pnpm docs:build
 
   test-shards:
-    name: Unit tests and coverage (shard ${{ matrix.shard }}/2)
+    name: Unit tests and coverage (shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -90,7 +90,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run test shard
-        run: pnpm test:coverage --shard=${{ matrix.shard }}/2 --reporter=blob
+        run: pnpm test:coverage --shard=${{ matrix.shard }}/3 --reporter=blob
         env:
           VITEST_COVERAGE_SHARD: "true"
 
@@ -418,7 +418,7 @@ jobs:
           if-no-files-found: error
 
   e2e:
-    name: Critical browser gates (shard ${{ matrix.shard }}/2)
+    name: Critical browser gates (shard ${{ matrix.shard }}/5)
     # Runs on the exact bytes `build` packaged rather than a rebuild, so what
     # boots here is what would ship.
     #
@@ -429,10 +429,15 @@ jobs:
     # coverage could be merged — about ninety seconds of the whole back half of
     # the run spent on an answer this job never reads.
     #
-    # Sharded because the suite is 42 tests run one worker at a time: the
-    # fixture already gives every test its own mkdtemp profile and persistent
-    # context, so the isolation that makes two runners safe is already paid
-    # for.
+    # Sharded because the suite is 42 tests, and the fixture already gives
+    # every test its own mkdtemp profile and persistent context, so the
+    # isolation separate runners need is already paid for.
+    #
+    # Five, because `--shard` divides groups rather than tests and the balance
+    # that follows is not monotonic. Measured largest shard: three ways 14,
+    # four ways 17, five ways 11, six ways 11. Four is worse than three, six
+    # buys nothing over five, and the count is worth re-measuring rather than
+    # raising whenever a spec file is added or split.
     needs: [static-checks, build, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
@@ -446,7 +451,7 @@ jobs:
       # nothing at all.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -511,7 +516,7 @@ jobs:
       # the 60s timeout and the CI retry ran each of them twice. Five failures
       # is already the answer.
       - name: Run critical browser gates
-        run: pnpm e2e:chromium:critical --shard=${{ matrix.shard }}/2 --max-failures=5
+        run: pnpm e2e:chromium:critical --shard=${{ matrix.shard }}/5 --max-failures=5
 
       # Not sharded: together they are seven seconds, and a job of their own
       # would pay half a minute of setup to save none.
@@ -548,7 +553,7 @@ jobs:
           if-no-files-found: ignore
 
   agent-benchmark:
-    name: Agent benchmark (fixture model)
+    name: Agent benchmark (shard ${{ matrix.shard }}/4)
     # Split out of the browser gates, which it shares nothing with but the
     # packaged build. Run in sequence there it added its whole ~198s to the
     # longest job in the run, for work that could have happened beside it.
@@ -565,6 +570,10 @@ jobs:
        !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -612,7 +621,67 @@ jobs:
           fi
 
       - name: Record the agent benchmark on the fixture model
-        run: pnpm e2e:chromium:agent-benchmark
+        run: pnpm e2e:chromium:agent-benchmark --shard=${{ matrix.shard }}/4
+
+      # A shard's own attempts, and only those. Whether the pass is complete is
+      # not a question this runner can answer, so it is asked once over every
+      # partial in the aggregate job below.
+      - name: Upload benchmark partial
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: agent-benchmark-partial-${{ matrix.shard }}
+          path: artifacts/e2e/benchmark
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: agent-benchmark-artifacts-${{ matrix.shard }}
+          path: artifacts/e2e
+          retention-days: 7
+          if-no-files-found: ignore
+
+  browser-gates:
+    # The stable name, kept deliberately. `release.yml` resolves a trusted CI
+    # run by looking for a job called exactly this, and it used to be the one
+    # job that ran every browser check. Sharding the suite and splitting the
+    # benchmark out would have left that lookup matching nothing — a release
+    # gate that silently stops gating — so the name survives as the aggregate
+    # instead: it succeeds only when every shard and the benchmark did.
+    #
+    # It also merges the benchmark partials, which is where the suite's
+    # completeness guard now lives. A worker could only ever check the attempts
+    # it made itself; here a short pass, a doubled shard and a shard that never
+    # ran at all are all visible, and all of them fail the job that gates a
+    # release.
+    name: Critical browser gates
+    needs: [e2e, agent-benchmark]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download benchmark partials
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: agent-benchmark-partial-*
+          path: artifacts/e2e/benchmark-partials
+
+      - name: Merge the benchmark record
+        run: pnpm benchmark:merge
 
       # The counts the benchmark writes are the record, and a record that only
       # exists on the runner that produced it cannot be read. Uploaded on
@@ -625,30 +694,6 @@ jobs:
           path: artifacts/e2e/benchmark
           retention-days: 30
           if-no-files-found: ignore
-
-      - name: Upload failure artifacts
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: agent-benchmark-artifacts
-          path: artifacts/e2e
-          retention-days: 7
-          if-no-files-found: ignore
-
-  browser-gates:
-    # The stable name, kept deliberately. `release.yml` resolves a trusted CI
-    # run by looking for a job called exactly this, and it used to be the one
-    # job that ran every browser check. Sharding the suite and splitting the
-    # benchmark out would have left that lookup matching nothing — a release
-    # gate that silently stops gating — so the name survives as the aggregate
-    # instead: it succeeds only when every shard and the benchmark did.
-    name: Critical browser gates
-    needs: [e2e, agent-benchmark]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Report
-        run: echo "Every browser shard and the agent benchmark passed."
 
   provider-e2e-full:
     name: Provider stream matrix (scheduled)
