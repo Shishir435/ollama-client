@@ -69,13 +69,13 @@ jobs:
         run: pnpm docs:build
 
   test-shards:
-    name: Unit tests and coverage (shard ${{ matrix.shard }}/2)
+    name: Unit tests and coverage (shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -90,7 +90,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run test shard
-        run: pnpm test:coverage --shard=${{ matrix.shard }}/2 --reporter=blob
+        run: pnpm test:coverage --shard=${{ matrix.shard }}/3 --reporter=blob
         env:
           VITEST_COVERAGE_SHARD: "true"
 
@@ -418,7 +418,7 @@ jobs:
           if-no-files-found: error
 
   e2e:
-    name: Critical browser gates (shard ${{ matrix.shard }}/2)
+    name: Critical browser gates (shard ${{ matrix.shard }}/3)
     # Runs on the exact bytes `build` packaged rather than a rebuild, so what
     # boots here is what would ship.
     #
@@ -429,10 +429,12 @@ jobs:
     # coverage could be merged — about ninety seconds of the whole back half of
     # the run spent on an answer this job never reads.
     #
-    # Sharded because the suite is 42 tests run one worker at a time: the
-    # fixture already gives every test its own mkdtemp profile and persistent
-    # context, so the isolation that makes two runners safe is already paid
-    # for.
+    # Sharded because the suite is 42 tests, and the fixture already gives
+    # every test its own mkdtemp profile and persistent context, so the
+    # isolation separate runners need is already paid for. Three shards rather
+    # than two because `--shard` balances test counts and not seconds: the
+    # agent scenarios cost ~6.7s each against ~2.9s for everything else, so two
+    # shards left a 45s gap between them that a third closes.
     needs: [static-checks, build, build-benchmark]
     if: >-
       github.event_name != 'pull_request' ||
@@ -446,7 +448,7 @@ jobs:
       # nothing at all.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -511,7 +513,7 @@ jobs:
       # the 60s timeout and the CI retry ran each of them twice. Five failures
       # is already the answer.
       - name: Run critical browser gates
-        run: pnpm e2e:chromium:critical --shard=${{ matrix.shard }}/2 --max-failures=5
+        run: pnpm e2e:chromium:critical --shard=${{ matrix.shard }}/3 --max-failures=5
 
       # Not sharded: together they are seven seconds, and a job of their own
       # would pay half a minute of setup to save none.

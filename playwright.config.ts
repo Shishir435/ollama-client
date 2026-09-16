@@ -13,8 +13,20 @@ const chromiumProject = (
 export default defineConfig({
   testDir: "./e2e/chromium",
   outputDir: "artifacts/e2e/test-results",
+  /**
+   * Off by default, and deliberately: the benchmark projects accumulate their
+   * attempts in one module-level array and assert its length before writing
+   * the record, which only holds while their single spec file runs start to
+   * finish in one worker. File-level grouping is what guarantees that, so the
+   * projects that can be parallelised opt in one at a time below.
+   */
   fullyParallel: false,
-  workers: 1,
+  /**
+   * Two on CI, where the runner has four cores and every test builds its own
+   * browser profile anyway. One locally, so a developer watching a run still
+   * reads it in order.
+   */
+  workers: process.env.CI ? 2 : 1,
   retries: process.env.CI ? 1 : 0,
   forbidOnly: Boolean(process.env.CI),
   timeout: 60_000,
@@ -41,6 +53,15 @@ export default defineConfig({
         "**/agent-*.spec.ts",
         "build/chrome-mv3-prod"
       ),
+      /**
+       * Thirty scenarios that Playwright attributes to the one fixture file
+       * they are declared in, so without this they share a single worker
+       * however many are free. Each builds its own mkdtemp profile, its own
+       * persistent context and its own ephemeral-port fixture server, and the
+       * fixture holds no module-level state, so there is nothing for two of
+       * them to collide over.
+       */
+      fullyParallel: true,
       metadata: {
         extensionBuildPath: "build/chrome-mv3-prod",
         agentObservationGrant: true
