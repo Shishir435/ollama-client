@@ -1,7 +1,10 @@
 # Browser agent internals
 
 Detail for work touching `src/lib/browser-agent/`, `src/background/agent/`,
-`src/application/agent/`, `packages/agent-runtime/` or `src/features/agent/`.
+`src/application/agent/`, `packages/agent-runtime/` or `src/features/agent/`,
+plus three files these rules also govern from outside those directories:
+`packages/contracts/src/agent-keys.ts`, `src/lib/browser-sessions.ts` and
+`src/lib/tools/internal/browser-session-tools.ts`.
 
 `AGENTS.md` carries the agent invariants an assistant must not violate without
 reading further. This file carries the reasons — each rule exists because
@@ -23,10 +26,10 @@ Read the section your change touches; you do not need the whole file.
 - [Screenshots](#screenshots)
 - [Supervision receipts and the work log](#supervision-receipts-and-the-work-log)
 - [Recovery evidence](#recovery-evidence)
-- [Read-only session tools and capture](#readonly-session-tools-and-capture)
+- [Read-only session tools and capture](#read-only-session-tools-and-capture)
 - [Panel supervision surface](#panel-supervision-surface)
 - [Measured behaviour and benchmarks](#measured-behaviour-and-benchmarks)
-- [Task-completion contracts](#taskcompletion-contracts)
+- [Task-completion contracts](#task-completion-contracts)
 
 ## Session lifecycle and attachment
 
