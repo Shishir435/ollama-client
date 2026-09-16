@@ -275,8 +275,16 @@ const budgets: Budget[] = [
      * sentence or a durable field that has to ship: a refusal the run cannot
      * name is a failure nobody can diagnose. Firefox gains only the provider
      * busy failure and stays well under its own ceiling.
+     *
+     * Step telemetry — the durable numbers schema, the per-phase accumulator
+     * in the controller, and the provider usage the decision collector now
+     * keeps instead of discarding — took it to 263,390. It is the smallest
+     * raise in this list and the one the rest of the release depends on:
+     * every remaining gate is stated as a comparison against a baseline, and
+     * a baseline cannot be read from a run that measured nothing. Firefox
+     * carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 263_000
+    max: isFirefox ? 210_000 : 264_000
   }
 ]
 
