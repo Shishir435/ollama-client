@@ -34,7 +34,7 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
   const [screenshotsAcknowledged, setScreenshotsAcknowledged] = useSetting(
     SETTINGS.AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED
   )
-  const { goal, setGoal, clearGoal } = useAgentDraft()
+  const { goal, setGoal, completeGoal } = useAgentDraft()
   const candidateTab = useAgentCandidateTab()
   const connection = useAgentRun({
     providerId: selectedProviderId || undefined,
@@ -46,10 +46,8 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
 
   useEffect(() => {
     const run = snapshot.run
-    if (run?.status === "completed" && goal.trim() === run.goal.trim()) {
-      clearGoal()
-    }
-  }, [clearGoal, goal, snapshot.run])
+    if (run?.status === "completed") completeGoal(run.id, run.goal)
+  }, [completeGoal, snapshot.run])
 
   return (
     <div className="flex h-full min-h-0 flex-col">

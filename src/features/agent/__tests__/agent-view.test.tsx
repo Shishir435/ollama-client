@@ -156,6 +156,31 @@ describe("AgentView", () => {
     expect(start).toHaveBeenCalledWith("Find the red square", true)
   })
 
+  it("keeps required remote acknowledgement reachable after a run settles", () => {
+    const acknowledge = vi.fn()
+    render(
+      <AgentView
+        run={run("completed")}
+        provider={{
+          name: "Remote",
+          model: "llava",
+          location: "remote",
+          screenshots: true
+        }}
+        tab={{ title: "Example", url: "https://example.com" }}
+        goal="Run it again"
+        onAcknowledgePrivacy={acknowledge}
+        onStart={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.getByRole("button", { name: "agent.start.action" })
+    ).toBeDisabled()
+    fireEvent.click(screen.getByText("agent.privacy.acknowledge"))
+    expect(acknowledge).toHaveBeenCalledWith("screenshots")
+  })
+
   it("keeps a failed run on screen with the reason it recorded", () => {
     render(
       <AgentView

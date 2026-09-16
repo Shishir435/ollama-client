@@ -160,6 +160,66 @@ const AgentProgressBar = ({ used }: { used: number }) => (
   </div>
 )
 
+const AgentStartConsent = ({
+  showAutoActions,
+  showRemoteNotice,
+  allowRoutineActions,
+  provider,
+  onAllowRoutineActions,
+  onAcknowledgePrivacy
+}: {
+  showAutoActions: boolean
+  showRemoteNotice: boolean
+  allowRoutineActions: boolean
+  provider?: AgentProviderPresentation
+  onAllowRoutineActions: (allowed: boolean) => void
+  onAcknowledgePrivacy: (scope: "observations" | "screenshots") => void
+}) => {
+  const { t } = useTranslation()
+  if (!showAutoActions && !showRemoteNotice) return null
+
+  return (
+    <section className="space-y-2">
+      {showAutoActions && (
+        <label className="flex items-start gap-2 rounded-panel border border-border p-2.5 text-xs">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={allowRoutineActions}
+            onChange={(event) => onAllowRoutineActions(event.target.checked)}
+          />
+          <span>
+            <span className="font-medium">{t("agent.start.auto_actions")}</span>
+            <span className="mt-1 block text-muted-foreground">
+              {t("agent.start.auto_actions_description")}
+            </span>
+          </span>
+        </label>
+      )}
+      {showRemoteNotice && (
+        <div className="rounded-panel border border-status-warning/40 bg-tint-warning p-2.5 text-xs">
+          <p>{t(remoteNoticeKey(provider))}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() =>
+              onAcknowledgePrivacy(
+                agentScreenshotsMayTravel(provider)
+                  ? "screenshots"
+                  : "observations"
+              )
+            }>
+            <Eye className="icon-xs" aria-hidden="true" />
+            {t("agent.privacy.acknowledge")}
+          </Button>
+        </div>
+      )}
+    </section>
+  )
+}
+
 export const AgentView = ({
   leading,
   run = null,
@@ -310,50 +370,16 @@ export const AgentView = ({
         {!run && browser && <AgentBrowserDisclosureCard browser={browser} />}
         {!run && <AgentRunDetailsCard provider={provider} tab={tab} />}
 
-        {!run && (
-          /* The goal's own label lives on the composer that holds it; what
-             is left here is the consent this run needs before it starts. */
-          <section className="space-y-2">
-            <label className="flex items-start gap-2 rounded-panel border border-border p-2.5 text-xs">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={allowRoutineActions}
-                onChange={(event) =>
-                  setAllowRoutineActions(event.target.checked)
-                }
-              />
-              <span>
-                <span className="font-medium">
-                  {t("agent.start.auto_actions")}
-                </span>
-                <span className="mt-1 block text-muted-foreground">
-                  {t("agent.start.auto_actions_description")}
-                </span>
-              </span>
-            </label>
-            {remoteNeedsAcknowledgement && (
-              <div className="rounded-panel border border-status-warning/40 bg-tint-warning p-2.5 text-xs">
-                <p>{t(remoteNoticeKey(provider))}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() =>
-                    onAcknowledgePrivacy(
-                      agentScreenshotsMayTravel(provider)
-                        ? "screenshots"
-                        : "observations"
-                    )
-                  }>
-                  <Eye className="icon-xs" aria-hidden="true" />
-                  {t("agent.privacy.acknowledge")}
-                </Button>
-              </div>
-            )}
-          </section>
-        )}
+        {/* A retained settled run must not hide consent required by the next
+            start. Routine-action setup remains exclusive to the empty view. */}
+        <AgentStartConsent
+          showAutoActions={!run}
+          showRemoteNotice={startable && remoteNeedsAcknowledgement}
+          allowRoutineActions={allowRoutineActions}
+          provider={provider}
+          onAllowRoutineActions={setAllowRoutineActions}
+          onAcknowledgePrivacy={onAcknowledgePrivacy}
+        />
 
         {approval && run?.status === "awaiting_approval" && (
           <AgentApprovalCard
