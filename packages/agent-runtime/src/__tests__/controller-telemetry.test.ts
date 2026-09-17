@@ -284,6 +284,37 @@ describe("controller step telemetry", () => {
   })
 
   /**
+   * A write cannot appear in the row it is writing, so a step's persistence
+   * cost lands on that same step's next receipt — and on nothing else. Parked
+   * alongside the phases still waiting for a step id, it was claimed by the
+   * next step to write one, which read as that step having paid for it.
+   */
+  it("charges a write to the step that was written", async () => {
+    const read = (generation: number) => ({
+      type: "command" as const,
+      command: {
+        type: "read" as const,
+        snapshotId: `snapshot-${generation}`,
+        generation
+      }
+    })
+    const run = harness({
+      tickingClock: true,
+      decisions: [read(1), read(2), { type: "complete", summary: "Done" }]
+    })
+    await run.controller.start("run-1")
+
+    const first = run.written().filter((s) => s.stepId === "run-1:1")
+    const second = run.written().filter((s) => s.stepId === "run-1:2")
+    expect(first.length).toBeGreaterThan(1)
+    expect(second.length).toBeGreaterThan(1)
+    /** Its own later receipts carry it, because by then a write has happened. */
+    expect(first[first.length - 1]?.telemetry?.persistMs).toBeGreaterThan(0)
+    /** Nothing of the second step has been written when its first one is. */
+    expect(second[0]?.telemetry?.persistMs).toBeUndefined()
+  })
+
+  /**
    * A second step must not inherit the first step's execute and verify
    * timings, which are measured after the first step's own receipts are
    * already written.

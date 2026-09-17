@@ -550,7 +550,22 @@ export const createAgentController = (
       ...write,
       ...(carried ? { telemetry: carried } : {})
     })
-    measure({ persistMs: dependencies.clock.now() - startedAt })
+    /**
+     * Charged to the step that was written, never to whatever comes next.
+     *
+     * A write cannot appear in the row it is writing, so this lands on the
+     * same step's following receipt — a step is written two or three times,
+     * and the last one carries the running total. Only the final write of a
+     * step has no successor, and its own duration stays unmeasured. Absent is
+     * the honest answer there; parking it in `pendingTelemetry` instead would
+     * have moved it onto an unrelated later step, where it reads as that
+     * step's cost.
+     */
+    const persisted = mergeAgentStepTelemetry(
+      telemetryByStep.get(write.stepId),
+      { persistMs: dependencies.clock.now() - startedAt }
+    )
+    if (persisted) telemetryByStep.set(write.stepId, persisted)
   }
 
   const decide = async (
