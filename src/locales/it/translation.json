@@ -119,6 +119,7 @@
     },
     "status": {
       "submitted": "Avvio",
+      "planning": "Analisi dell'attività",
       "observing": "Osservazione pagina",
       "deciding": "Scelta passaggio",
       "awaiting_approval": "In attesa di approvazione",
@@ -129,6 +130,7 @@
       "paused": "In pausa",
       "cancelling": "Interruzione",
       "completed": "Completato",
+      "partial": "Parzialmente completato",
       "failed": "Non riuscito",
       "cancelled": "Interrotto"
     },
@@ -167,7 +169,12 @@
     },
     "correction": "In pausa. Descrivi cosa cambiare, poi continua.",
     "export_report": "Esporta rapporto (include il testo della pagina)",
-    "running_goal": "In lavorazione"
+    "running_goal": "In lavorazione",
+    "requirements": {
+      "title": "Cosa chiedeva l'attività",
+      "met": "Fatto",
+      "unmet": "Non fatto"
+    }
   },
   "common": {
     "theme": {

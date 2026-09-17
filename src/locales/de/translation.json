@@ -119,6 +119,7 @@
     },
     "status": {
       "submitted": "Startet",
+      "planning": "Aufgabe wird erfasst",
       "observing": "Seite wird beobachtet",
       "deciding": "Nächster Schritt",
       "awaiting_approval": "Wartet auf Genehmigung",
@@ -129,6 +130,7 @@
       "paused": "Pausiert",
       "cancelling": "Wird gestoppt",
       "completed": "Abgeschlossen",
+      "partial": "Teilweise erledigt",
       "failed": "Fehlgeschlagen",
       "cancelled": "Gestoppt"
     },
@@ -167,7 +169,12 @@
     },
     "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
     "export_report": "Laufbericht exportieren (enthält Seitentext)",
-    "running_goal": "Arbeitet an"
+    "running_goal": "Arbeitet an",
+    "requirements": {
+      "title": "Was die Aufgabe verlangt hat",
+      "met": "Erledigt",
+      "unmet": "Nicht erledigt"
+    }
   },
   "common": {
     "theme": {

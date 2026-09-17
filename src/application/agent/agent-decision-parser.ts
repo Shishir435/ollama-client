@@ -54,9 +54,21 @@ const VARIANT_FIELDS: Record<string, string> = {
   fail: "reason"
 }
 
+/**
+ * A whitelist, so it has to agree with the schema it filters for.
+ *
+ * `outcomes` was added to the `complete` variant and not here, and the result
+ * was silent: the decision parsed, the field was gone, and the judge refused
+ * every completion for not answering requirements the model had answered.
+ * `agent-decision-parser.test.ts` now asserts the two agree rather than
+ * trusting the next person to edit both.
+ */
 const VARIANT_OPTIONAL_FIELDS: Record<string, readonly string[]> = {
-  complete: ["evidence"]
+  complete: ["evidence", "outcomes"]
 }
+
+/** Read by the contract test that keeps this table level with the schema. */
+export const AGENT_DECISION_OPTIONAL_FIELDS = VARIANT_OPTIONAL_FIELDS
 
 /**
  * The tool advertises one flat object covering every variant, so a model may

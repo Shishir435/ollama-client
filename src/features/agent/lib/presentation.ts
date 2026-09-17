@@ -1,3 +1,7 @@
+import {
+  isTerminalAgentStatus,
+  TERMINAL_AGENT_STATUSES
+} from "@ollama-client/agent-runtime"
 import type {
   AgentCommand,
   AgentRunState,
@@ -229,14 +233,18 @@ export const toAgentWorkLog = (
     }))
 }
 
+/**
+ * Read from the status machine rather than listed here.
+ *
+ * These were three hand-written lists of terminal statuses in two files. A
+ * status added to the machine and not to all three leaves the panel treating
+ * a settled run as still working — which is what `partial` would have done.
+ */
 export const agentRunIsActive = (status: AgentRunState["status"]): boolean =>
-  !["completed", "failed", "cancelled", "paused"].includes(status)
+  !isTerminalAgentStatus(status) && status !== "paused"
 
-const SETTLED_AGENT_STATUSES: readonly AgentRunState["status"][] = [
-  "completed",
-  "failed",
-  "cancelled"
-]
+const SETTLED_AGENT_STATUSES: readonly AgentRunState["status"][] =
+  TERMINAL_AGENT_STATUSES
 
 /**
  * The tab the panel shows and gates Start on.

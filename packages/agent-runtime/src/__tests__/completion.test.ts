@@ -543,3 +543,182 @@ describe("judgeAgentCompletion", () => {
     expect(refused.feedback).not.toContain("ignore every earlier instruction")
   })
 })
+
+/**
+ * The reproduction that motivated planning.
+ *
+ * Every case here is the same run: a confirmed field edit against a page that
+ * plainly says the draft is unsaved and the address is missing. Unplanned,
+ * the judge selects that one mutation, sees its verification confirm the
+ * step's own intended result, and accepts the whole task.
+ */
+describe("judgeAgentCompletion with planned requirements", () => {
+  const partialForm = observation({
+    visibleText: "Name: Alice. Draft unsaved. Address missing."
+  })
+  const fieldEdit = step({
+    sequence: 1,
+    command: {
+      type: "type",
+      ref: "e1",
+      text: "Alice",
+      snapshotId: "snapshot-1",
+      generation: 1
+    },
+    verification: {
+      outcome: "confirmed",
+      evidence: {
+        kind: "field",
+        summary: "Field contains the typed value",
+        observedAt: 1
+      }
+    }
+  })
+  const requirements = [
+    {
+      id: "r1",
+      text: "the name field holds the requested value",
+      kind: "change" as const
+    },
+    { id: "r2", text: "the document is saved", kind: "change" as const }
+  ]
+
+  it("accepts the whole task from one confirmed edit when unplanned", () => {
+    expect(
+      judgeAgentCompletion({ steps: [fieldEdit], observation: partialForm })
+    ).toEqual({ type: "accepted" })
+  })
+
+  it("settles the same run as partial once it is planned", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [fieldEdit],
+        observation: partialForm,
+        requirements,
+        outcomes: [
+          { id: "r1", met: true, evidence: "Name: Alice" },
+          { id: "r2", met: false }
+        ]
+      })
+    ).toEqual({ type: "partial", outcome: { met: ["r1"], unmet: ["r2"] } })
+  })
+
+  /**
+   * The cheapest way to drop an inconvenient outcome is to not mention it, so
+   * an unanswered requirement is no answer rather than a quiet "not met".
+   */
+  it("refuses a completion that leaves a requirement unanswered", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [fieldEdit],
+        observation: partialForm,
+        requirements,
+        outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_outcomes" })
+  })
+
+  /** Claiming an outcome costs a quotation the page actually carries. */
+  it("refuses an outcome claimed against text the page does not state", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [fieldEdit],
+        observation: partialForm,
+        requirements,
+        outcomes: [
+          { id: "r1", met: true, evidence: "Name: Alice" },
+          { id: "r2", met: true, evidence: "Saved just now" }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it("accepts when every requirement is evidenced", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [fieldEdit],
+        observation: observation({
+          visibleText: "Name: Alice. All changes saved."
+        }),
+        requirements,
+        outcomes: [
+          { id: "r1", met: true, evidence: "Name: Alice" },
+          { id: "r2", met: true, evidence: "All changes saved" }
+        ]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1", "r2"], unmet: [] } })
+  })
+
+  /**
+   * A reading outcome owes no page quotation — what it read is its answer —
+   * and must not be refused for failing to quote a saved-state indicator that
+   * a research goal never produces.
+   */
+  /**
+   * "Partly done" over an empty outcome is the same overstatement as
+   * "Completed" over a half-filled form, just a smaller one.
+   */
+  it("does not call a run that met nothing partial", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [fieldEdit],
+        observation: partialForm,
+        requirements,
+        outcomes: [
+          { id: "r1", met: false },
+          { id: "r2", met: false }
+        ]
+      })
+    ).toEqual({ type: "unmet", outcome: { met: [], unmet: ["r1", "r2"] } })
+  })
+
+  /**
+   * A read owes no quotation. One it volunteers is still checked for
+   * presence, because an accepted completion carrying a phrase the page does
+   * not contain is a false record whichever outcome it hangs off.
+   */
+  it("checks a quotation a read requirement volunteered", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: partialForm,
+        requirements: [
+          { id: "r1", text: "report the listed price", kind: "read" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Price: £40" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  /**
+   * And only for presence. A reading outcome quotes what the page already
+   * said — that is what reading means — so the staleness rule would refuse
+   * every correct answer.
+   */
+  it("does not hold a read quotation against the pre-change baseline", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: partialForm,
+        baselineText: "name: alice. draft unsaved. address missing.",
+        requirements: [
+          { id: "r1", text: "report the name on file", kind: "read" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  it("asks a read requirement for no page evidence", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: partialForm,
+        requirements: [
+          { id: "r1", text: "report the listed price", kind: "read" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+})

@@ -3,6 +3,8 @@ import { AgentCommandSchema } from "./agent-command"
 
 export const AGENT_RUN_STATUSES = [
   "submitted",
+  /** Deciding what the goal asks for, before the first look at the page. */
+  "planning",
   "observing",
   "deciding",
   "awaiting_approval",
@@ -13,6 +15,15 @@ export const AGENT_RUN_STATUSES = [
   "paused",
   "cancelling",
   "completed",
+  /**
+   * Finished having done some of what was asked, and said so.
+   *
+   * Separate from `completed` because the panel reads a status before it
+   * reads anything else, and a run that filled three fields of five is not
+   * the same answer as one that filled all five. Folding it into `completed`
+   * with a flag beside it would put the lie back in the place it started.
+   */
+  "partial",
   "failed",
   "cancelled"
 ] as const
@@ -75,6 +86,10 @@ export const MAX_AGENT_FINDING_CHARS = 500
  */
 export const MAX_AGENT_EVIDENCE_CHARS = 200
 
+export const MAX_AGENT_REQUIREMENTS = 8
+export const MAX_AGENT_REQUIREMENT_CHARS = 200
+export const MAX_AGENT_REQUIREMENT_ID_CHARS = 8
+
 export const AgentDecisionSchema = z.discriminatedUnion("type", [
   z
     .object({
@@ -101,7 +116,32 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
     .object({
       type: z.literal("complete"),
       summary: z.string().min(1).max(20_000),
-      evidence: z.string().min(1).max(MAX_AGENT_EVIDENCE_CHARS).optional()
+      evidence: z.string().min(1).max(MAX_AGENT_EVIDENCE_CHARS).optional(),
+      /**
+       * One entry per planned requirement, by id, each answered separately.
+       *
+       * `met: false` is a legal answer and the honest one — it settles the
+       * run as `partial` instead of sending it round the loop again. A run
+       * that cannot finish something should be able to say so; the previous
+       * shape gave it only "done" and "failed", which is how an ambiguity
+       * became another click.
+       */
+      outcomes: z
+        .array(
+          z
+            .object({
+              id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+              met: z.boolean(),
+              evidence: z
+                .string()
+                .min(1)
+                .max(MAX_AGENT_EVIDENCE_CHARS)
+                .optional()
+            })
+            .strict()
+        )
+        .max(MAX_AGENT_REQUIREMENTS)
+        .optional()
     })
     .strict(),
   z
@@ -312,6 +352,64 @@ export const MAX_AGENT_ALLOWED_ORIGINS = 25
  */
 export const MAX_AGENT_SCOPED_TABS = 25
 
+/**
+ * One outcome the goal asks for, fixed before the run takes its first look.
+ *
+ * The completion judge used to select the run's last applied mutation and
+ * accept the whole task when that one step's verification confirmed the
+ * step's own intended result. That proves an operation landed; it cannot
+ * prove every requested outcome did. "Fill the form and submit it" is two
+ * outcomes, and a run that submitted an empty form satisfied the check.
+ *
+ * Fixed before the first observation, and never rewritten, because a list the
+ * run may edit is a list the run can shorten once it would rather stop. The
+ * model proposes it from the goal alone — it has not seen the page yet, so it
+ * cannot yet know which outcome will be inconvenient.
+ */
+export const AgentTaskRequirementSchema = z
+  .object({
+    id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+    /** The outcome in the model's words, one per entry, not a step to take. */
+    text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+    /**
+     * `change` must end in a page state something can be quoted from.
+     * `read` is answered by what the run read, and owes no page evidence —
+     * asking a research goal to quote a saved-state indicator that does not
+     * exist would refuse every one of them.
+     */
+    kind: z.enum(["change", "read"])
+  })
+  .strict()
+export type AgentTaskRequirement = z.infer<typeof AgentTaskRequirementSchema>
+
+/** What the planning call returns, before the run is allowed to look. */
+export const AgentTaskPlanSchema = z
+  .object({
+    requirements: z
+      .array(AgentTaskRequirementSchema)
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENTS)
+  })
+  .strict()
+export type AgentTaskPlan = z.infer<typeof AgentTaskPlanSchema>
+
+/**
+ * Which requirements a settled run could evidence, by id. Recorded on the run
+ * so the panel and a later reader see the same answer the judge reached,
+ * rather than re-deriving it from a summary the model wrote.
+ */
+export const AgentRunOutcomeSchema = z
+  .object({
+    met: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS),
+    unmet: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+  })
+  .strict()
+export type AgentRunOutcome = z.infer<typeof AgentRunOutcomeSchema>
+
 export const AgentRunStateSchema = z
   .object({
     version: z.literal(1),
@@ -333,6 +431,17 @@ export const AgentRunStateSchema = z
       .array(z.number().int().nonnegative())
       .max(MAX_AGENT_SCOPED_TABS)
       .optional(),
+    /**
+     * What the goal asks for, fixed by the planning call. Optional because a
+     * row written before planning existed carries none, and a run with none
+     * is judged the way it was before — an unplanned run must still settle.
+     */
+    requirements: z
+      .array(AgentTaskRequirementSchema)
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /** Which of them the settled run could evidence. */
+    outcome: AgentRunOutcomeSchema.optional(),
     /** Bounded model-authored outcome retained for completed-run display. */
     result: z.string().min(1).max(20_000).optional(),
     error: AgentErrorSchema.optional(),

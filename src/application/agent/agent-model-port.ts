@@ -38,6 +38,12 @@ import {
   resolveAgentModelCompatibility
 } from "./agent-model-compatibility"
 import { projectAgentObservation } from "./agent-observation-projection"
+import {
+  AGENT_PLAN_SYSTEM_PROMPT,
+  AGENT_PLAN_TOOL,
+  agentPlanPrompt,
+  parseAgentTaskPlan
+} from "./agent-plan"
 
 type StreamChunkMetrics = NonNullable<
   Parameters<Parameters<LLMProvider["streamChat"]>[1]>[0]["metrics"]
@@ -741,6 +747,64 @@ export const createProviderAgentModelPort = (
     async vision(state, signal) {
       const compatibility = await compatibilityFor(state, signal)
       return compatibility.vision === true
+    },
+    /**
+     * One call, before the run has looked at anything, retried once.
+     *
+     * Retried because the alternative is worse than it looks: a plan that
+     * fails leaves the run unplanned, and an unplanned run is judged by the
+     * weaker pre-requirements rule. A small model that fumbles the shape once
+     * should not quietly buy itself the easier gate.
+     */
+    async plan(state, signal) {
+      const compatibility = await compatibilityFor(state, signal)
+      assertAgentModelCompatibility(
+        compatibility,
+        options.allowExperimental === true
+      )
+      const provider = await resolveProvider(state.modelId, state.providerId)
+      assertProviderEnabled(provider, state.modelId)
+      const prompt = agentPlanPrompt(state.goal)
+      let lastError: unknown
+      for (let attempt = 0; attempt <= 1; attempt += 1) {
+        if (signal.aborted) throw new Error("Agent model request cancelled")
+        const calls = new Map<string, ToolCall>()
+        const scoped = providerSignal(signal)
+        try {
+          await provider.streamChat(
+            {
+              model: state.modelId,
+              messages: [
+                { role: "system", content: AGENT_PLAN_SYSTEM_PROMPT },
+                { role: "user", content: prompt }
+              ],
+              tools: [AGENT_PLAN_TOOL],
+              tool_choice: "required",
+              think: false,
+              num_predict: AGENT_RESPONSE_TOKENS,
+              num_ctx: agentContextWindow(prompt, false)
+            },
+            (chunk) => {
+              for (const call of chunk.toolCalls ?? []) calls.set(call.id, call)
+            },
+            scoped.signal
+          )
+          return parseAgentTaskPlan([...calls.values()])
+        } catch (error) {
+          /**
+           * The stream's failure is retried on the same terms as a malformed
+           * answer. Only the parse was caught before, so a provider that
+           * dropped one connection skipped the second attempt and left the
+           * run unplanned — which is to say it bought the weaker completion
+           * gate with a transient error.
+           */
+          if (signal.aborted) throw error
+          lastError = error
+        } finally {
+          scoped.cleanup()
+        }
+      }
+      throw lastError
     },
     async decide(
       {

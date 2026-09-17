@@ -119,6 +119,7 @@
     },
     "status": {
       "submitted": "Starting",
+      "planning": "Working out the task",
       "observing": "Observing page",
       "deciding": "Choosing next step",
       "awaiting_approval": "Waiting for approval",
@@ -129,6 +130,7 @@
       "paused": "Paused",
       "cancelling": "Stopping",
       "completed": "Completed",
+      "partial": "Partly done",
       "failed": "Failed",
       "cancelled": "Stopped"
     },
@@ -167,7 +169,12 @@
     },
     "correction": "Paused. Describe what should change, then continue.",
     "export_report": "Export run report (includes page text)",
-    "running_goal": "Working on"
+    "running_goal": "Working on",
+    "requirements": {
+      "title": "What the task asked for",
+      "met": "Done",
+      "unmet": "Not done"
+    }
   },
   "common": {
     "theme": {

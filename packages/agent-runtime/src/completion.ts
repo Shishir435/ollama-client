@@ -1,7 +1,9 @@
 import type {
   AgentCommand,
   AgentObservation,
-  AgentStepStatus
+  AgentRunOutcome,
+  AgentStepStatus,
+  AgentTaskRequirement
 } from "@ollama-client/contracts"
 
 import {
@@ -91,7 +93,25 @@ export const agentEffectChangesPage = (effect: ResolvedAgentEffect): boolean =>
  * not exist would refuse every research goal.
  */
 export type AgentCompletionJudgement =
-  | { type: "accepted" }
+  | { type: "accepted"; outcome?: AgentRunOutcome }
+  /**
+   * Some of what was asked, and the run said so itself.
+   *
+   * Not a refusal: a refusal sends the run back to look again, and a run that
+   * has correctly reported it could not do one of three things would loop
+   * forever on the one it cannot do. This settles it, and the status it
+   * settles into is not `completed`.
+   */
+  | { type: "partial"; outcome: AgentRunOutcome }
+  /**
+   * The run reached an answer and the answer was "none of it".
+   *
+   * Separate from `partial` because partial says some of the task was done,
+   * and a run that met nothing showing as "Partly done" is the same kind of
+   * overstatement the whole gate exists to stop — just a smaller one. The
+   * controller settles this as a failure.
+   */
+  | { type: "unmet"; outcome: AgentRunOutcome }
   | {
       type: "refused"
       reason:
@@ -100,6 +120,7 @@ export type AgentCompletionJudgement =
         | "absent_evidence"
         | "self_evidence"
         | "stale_evidence"
+        | "missing_outcomes"
       /** Written for the model, from templates and its own words only. */
       feedback: string
     }
@@ -122,6 +143,21 @@ export interface AgentCompletionInput {
    * rather than guessed at.
    */
   baselineText?: string
+  /**
+   * What the goal asks for, as the planning call fixed it. Absent means the
+   * run was never planned — a host with no plan port, or a plan call that
+   * failed — and the judge falls back to the single-evidence rule below,
+   * which is weaker and is why planning exists.
+   */
+  requirements?: readonly AgentTaskRequirement[]
+  /** The model's answer for each requirement, by id. */
+  outcomes?: readonly AgentCompletionOutcomeClaim[]
+}
+
+export interface AgentCompletionOutcomeClaim {
+  id: string
+  met: boolean
+  evidence?: string
 }
 
 /**
@@ -269,10 +305,148 @@ const isSelfEvidence = (
  * failure: nothing was done to the page and the run can look again, so it is
  * fed back to the model rather than ending the run.
  */
+const MISSING_OUTCOMES_FEEDBACK =
+  "Answer every requirement the task was planned with, by id, saying for each whether it is met and quoting the page text that shows it."
+
+/**
+ * The checks a single quotation has to survive, shared by both paths.
+ *
+ * Presence is necessary and not sufficient. Nothing here can judge whether a
+ * phrase demonstrates an outcome — that is the claim the model is making, and
+ * a deterministic rule cannot check it. What it can refuse is evidence that
+ * was already true before the change, which therefore cannot be evidence of
+ * it: the acted-on control's own label, and anything the page already said
+ * when the change was decided.
+ */
+const judgeEvidence = (
+  evidence: string | undefined,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable",
+  /**
+   * A reading outcome's quotation is something the page already said — that
+   * is what reading it means — so it owes presence and nothing else. Running
+   * the staleness rule over it would refuse every correct answer, since the
+   * text it names was on the page before the run touched anything.
+   */
+  produced = true
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  const quoted = evidence?.trim()
+  if (!quoted)
+    return {
+      type: "refused",
+      reason: "missing_evidence",
+      feedback: MISSING_EVIDENCE_FEEDBACK
+    }
+  if (!agentObservationStates(quoted, input.observation))
+    return {
+      type: "refused",
+      reason: "absent_evidence",
+      feedback: ABSENT_EVIDENCE_FEEDBACK
+    }
+  if (!produced) return undefined
+  if (change !== "unreadable" && isSelfEvidence(quoted, change))
+    return {
+      type: "refused",
+      reason: "self_evidence",
+      feedback: SELF_EVIDENCE_FEEDBACK
+    }
+  if (
+    input.baselineText !== undefined &&
+    agentHaystackStates(quoted, input.baselineText)
+  )
+    return {
+      type: "refused",
+      reason: "stale_evidence",
+      feedback: STALE_EVIDENCE_FEEDBACK
+    }
+  return undefined
+}
+
+/**
+ * Judged requirement by requirement, which is the whole point of planning.
+ *
+ * The rule this replaces selected the run's last applied mutation and
+ * accepted the entire task when that one step's verification confirmed the
+ * step's own intended result. A run told to fill a form and submit it could
+ * submit an empty one and pass, because submitting is a mutation and the
+ * verifier confirmed a submission had happened.
+ *
+ * Each `change` requirement now owes its own quotation, and each quotation
+ * faces the same four checks the single one used to. A `read` requirement
+ * owes none: what it read is its answer, and asking a research goal to quote
+ * a saved-state indicator that does not exist would refuse every one.
+ */
+const judgePlanned = (
+  input: AgentCompletionInput,
+  requirements: readonly AgentTaskRequirement[],
+  change: AgentStepReadout | "unreadable" | undefined
+): AgentCompletionJudgement => {
+  /**
+   * The verification gate applies once, before any requirement is read: a
+   * change nobody checked is a change nothing can be quoted about, and
+   * per-requirement evidence cannot substitute for it.
+   */
+  if (change !== undefined && change !== "unreadable") {
+    const verified = change.verification?.outcome
+    if (verified !== "confirmed" && verified !== "ambiguous")
+      return {
+        type: "refused",
+        reason: "unverified_change",
+        feedback: UNVERIFIED_CHANGE_FEEDBACK
+      }
+  }
+  const claims = new Map(
+    (input.outcomes ?? []).map((claim) => [claim.id, claim])
+  )
+  /**
+   * Every requirement answered, or the run is sent back to answer them. A
+   * silent omission is the cheapest way to drop the inconvenient one, so it
+   * cannot be read as "not met" — it has to be read as no answer at all.
+   */
+  if (requirements.some((requirement) => !claims.has(requirement.id)))
+    return {
+      type: "refused",
+      reason: "missing_outcomes",
+      feedback: MISSING_OUTCOMES_FEEDBACK
+    }
+  const met: string[] = []
+  const unmet: string[] = []
+  for (const requirement of requirements) {
+    const claim = claims.get(requirement.id)
+    if (!claim?.met) {
+      unmet.push(requirement.id)
+      continue
+    }
+    if (requirement.kind === "read") {
+      /**
+       * A read owes no quotation, but one it volunteers must still be real.
+       * An accepted completion carrying a phrase the page does not contain is
+       * a false record whichever kind of outcome it was attached to.
+       */
+      const refusal = claim.evidence
+        ? judgeEvidence(claim.evidence, input, change ?? "unreadable", false)
+        : undefined
+      if (refusal) return refusal
+      met.push(requirement.id)
+      continue
+    }
+    const refusal = judgeEvidence(claim.evidence, input, change ?? "unreadable")
+    if (refusal) return refusal
+    met.push(requirement.id)
+  }
+  const outcome = { met, unmet }
+  if (unmet.length === 0) return { type: "accepted", outcome }
+  return met.length === 0
+    ? { type: "unmet", outcome }
+    : { type: "partial", outcome }
+}
+
 export const judgeAgentCompletion = (
   input: AgentCompletionInput
 ): AgentCompletionJudgement => {
   const change = input.steps ? lastChange(input.steps) : "unreadable"
+  if (input.requirements?.length)
+    return judgePlanned(input, input.requirements, change)
   /** Only a run whose receipts say it changed nothing completes unevidenced. */
   if (change === undefined) {
     // A read needs no change evidence, but a supplied page quote must still be real.

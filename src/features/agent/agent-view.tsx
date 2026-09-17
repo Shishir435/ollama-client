@@ -1,3 +1,4 @@
+import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import {
   type AgentApprovalRequest,
   type AgentBrowserDisclosure,
@@ -253,8 +254,7 @@ export const AgentView = ({
   const activity = useRef<HTMLDivElement>(null)
   const followActivity = useRef(true)
   const followedRunId = useRef<string | undefined>(undefined)
-  const settled =
-    run !== null && ["completed", "failed", "cancelled"].includes(run.status)
+  const settled = run !== null && isTerminalAgentStatus(run.status)
   const remoteNeedsAcknowledgement = needsRemoteAcknowledgement(
     provider,
     privacyAcknowledged,

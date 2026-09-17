@@ -997,5 +997,53 @@ describe("usable agent prompt", () => {
       })
       expect(port.decisionTelemetry?.(state.id)).toBeUndefined()
     })
+
+    /**
+     * A plan that fails leaves the run unplanned, which is to say judged by
+     * the weaker pre-requirements rule. Only the parse was retried, so a
+     * provider that dropped one connection bought the easier gate.
+     */
+    it("retries a planning call whose stream failed", async () => {
+      let attempts = 0
+      const streamChat = vi.fn(async (_request, emit) => {
+        attempts += 1
+        if (attempts === 1) throw new Error("connection reset")
+        emit({
+          toolCalls: [
+            {
+              id: "call-plan",
+              name: "agent_plan",
+              arguments: {
+                requirements: [
+                  { text: "the form is submitted", kind: "change" }
+                ]
+              }
+            }
+          ],
+          done: true
+        })
+      })
+      const port = modelPort(streamChat)
+
+      expect(await port.plan?.(state, { aborted: false })).toEqual({
+        requirements: [
+          { id: "r1", text: "the form is submitted", kind: "change" }
+        ]
+      })
+      expect(attempts).toBe(2)
+    })
+
+    /** A cancellation is not a fumble, so the second attempt is not owed. */
+    it("does not retry a planning call the run cancelled mid-flight", async () => {
+      const signal = { aborted: false }
+      const streamChat = vi.fn(async () => {
+        signal.aborted = true
+        throw new Error("cancelled")
+      })
+      const port = modelPort(streamChat)
+
+      await expect(port.plan?.(state, signal)).rejects.toThrow("cancelled")
+      expect(streamChat).toHaveBeenCalledTimes(1)
+    })
   })
 })

@@ -26,6 +26,7 @@ import {
   resumeAgentDeadlines,
   suspendAgentDeadlines
 } from "./budgets"
+import type { AgentCompletionJudgement } from "./completion"
 import {
   agentEffectChangesPage,
   isAppliedAgentStepStatus,
@@ -981,18 +982,26 @@ export const createAgentController = (
       )
       const action = classifyVerificationOutcome(verification, policy.risk)
       /**
-       * The evidence baseline is the page as it read before the last change
-       * the run *applied* — so it is promoted here, against the status that
-       * step actually settled on, and never where the command was chosen. A
-       * mutating command policy refused, or one that executed and then
-       * verified negative, is not that change: a baseline captured for it
-       * would measure a later completion against a page already holding the
-       * previous change's own result, and every honest quotation of that
-       * result would be refused as stale until the run ran out of budget.
+       * The evidence baseline is the page as it read before the *first*
+       * change the run applied, and it does not move after that.
+       *
+       * What the staleness refusal claims is that the quoted text "was
+       * already on the page before this run changed anything". Re-capturing
+       * on every applied change measured something narrower — before the
+       * *last* one — which is the same thing only for a run that changes one
+       * thing. A run told to fill two fields and submit quotes the first
+       * field's value at the end, entirely honestly, and a baseline taken
+       * before the submit already contains it.
+       *
+       * Promoted here rather than where the command was chosen, and against
+       * the status the step actually settled on: a mutating command policy
+       * refused, or one that executed and then verified negative, changed
+       * nothing and must not start the baseline.
        */
       if (
         agentEffectChangesPage(effect) &&
-        isAppliedAgentStepStatus(action.stepStatus)
+        isAppliedAgentStepStatus(action.stepStatus) &&
+        changeBaseline?.runId !== state.id
       ) {
         changeBaseline = {
           runId: state.id,
@@ -1157,7 +1166,12 @@ export const createAgentController = (
   ) => {
     let judgement = judgeAgentCompletion(input)
     let observation = input.observation
-    if (!dependencies.clock.wait || judgement.type === "accepted")
+    /**
+     * A settled answer, accepted or partial, is not waited on. Re-reading the
+     * page cannot turn a requirement the run itself reported it could not do
+     * into one it did.
+     */
+    if (!dependencies.clock.wait || judgement.type !== "refused")
       return { judgement, observation }
     const delays =
       judgement.reason === "missing_evidence"
@@ -1171,9 +1185,46 @@ export const createAgentController = (
       if (!fresh) return undefined
       observation = fresh
       judgement = judgeAgentCompletion({ ...input, observation })
-      if (judgement.type === "accepted") break
+      if (judgement.type !== "refused") break
     }
     return { judgement, observation }
+  }
+
+  /**
+   * Three answers, three statuses, written out rather than defaulted.
+   *
+   * `partial` settles into its own terminal status, not `completed` with a
+   * note, because the panel reads a status before it reads a summary. A run
+   * that met nothing is a failure, not a small partial: "Partly done" over an
+   * empty outcome is the same overstatement as "Completed" over a half-filled
+   * form. This was a ternary once, and the third answer fell through it to
+   * `completed` while typechecking cleanly.
+   */
+  const settleJudgedRun = async (
+    state: AgentRunState,
+    judgement: Exclude<AgentCompletionJudgement, { type: "refused" }>,
+    summary: string
+  ): Promise<void> => {
+    const settled =
+      judgement.type === "partial"
+        ? "partial"
+        : judgement.type === "unmet"
+          ? "failed"
+          : "completed"
+    const patch: AgentStatePatch = {
+      result: summary,
+      updatedAt: dependencies.clock.now()
+    }
+    if (judgement.outcome) patch.outcome = judgement.outcome
+    if (judgement.type === "unmet") {
+      patch.error = {
+        code: "goal_failed",
+        message: "The Agent met none of what the task asked for.",
+        /** The run answered; trying the same goal again is the user's call. */
+        retryable: false
+      }
+    }
+    await transition(state, settled, patch)
   }
 
   const processCompletion = async (
@@ -1202,18 +1253,17 @@ export const createAgentController = (
         steps,
         observation,
         evidence: decision.evidence,
-        baselineText: baseline
+        baselineText: baseline,
+        ...(state.requirements ? { requirements: state.requirements } : {}),
+        ...(decision.outcomes ? { outcomes: decision.outcomes } : {})
       },
       signal
     )
     if (!settled) return undefined
     const { judgement } = settled
     observation = settled.observation
-    if (judgement.type === "accepted") {
-      await transition(state, "completed", {
-        result: decision.summary,
-        updatedAt: dependencies.clock.now()
-      })
+    if (judgement.type !== "refused") {
+      await settleJudgedRun(state, judgement, decision.summary)
       return undefined
     }
     if (await exhaustedNoProgressBudget(state, observation, decision))
@@ -1493,6 +1543,54 @@ export const createAgentController = (
     return { state: deciding, observation, decision, context }
   }
 
+  /**
+   * One model call, before the run is allowed to look at the page.
+   *
+   * The list it produces is what the completion judge measures the run
+   * against, and it is fixed here rather than asked for at the end because a
+   * model deciding at the end what the task required will decide it required
+   * whatever it managed to do.
+   *
+   * A host with no `plan` port, or a plan call that fails, leaves the run
+   * unplanned rather than killing it — a small model that cannot produce a
+   * well-formed plan should still be able to attempt the task. That run is
+   * judged the weaker, pre-requirements way, and the trace says so, because
+   * the difference matters when reading why a run was allowed to finish.
+   */
+  const planRequirements = async (
+    state: AgentRunState,
+    signal: AgentCancellationController["signal"]
+  ): Promise<AgentRunState | undefined> => {
+    if (state.status !== "submitted") return state
+    if (state.requirements || !dependencies.model.plan) return state
+    const planning = await transition(state, "planning", {
+      updatedAt: dependencies.clock.now()
+    })
+    if (!planning) return undefined
+    const startedAt = dependencies.clock.now()
+    let requirements: AgentRunState["requirements"]
+    try {
+      requirements = (await dependencies.model.plan(planning, signal))
+        .requirements
+    } catch (error) {
+      if (signal.aborted) return undefined
+      dependencies.trace?.(state.id, "plan_unavailable", {
+        name: error instanceof Error ? error.name : typeof error
+      })
+    }
+    measure({ planMs: dependencies.clock.now() - startedAt })
+    if (!requirements?.length) return planning
+    dependencies.trace?.(state.id, "planned", {
+      requirements: requirements.length
+    })
+    return (
+      (await transition(planning, "observing", {
+        requirements,
+        updatedAt: dependencies.clock.now()
+      })) ?? undefined
+    )
+  }
+
   const runLoop = async (
     initialState: AgentRunState,
     controller: AgentCancellationController,
@@ -1580,7 +1678,15 @@ export const createAgentController = (
        */
       if (state.pauseReason === "question" && !observingClaimed) return
       if (state.status === "awaiting_takeover" && !afterTakeover) return
-      await runLoop(state, controller, afterTakeover, observingClaimed)
+      const planned = await planRequirements(state, controller.signal)
+      if (!planned) return
+      await runLoop(
+        planned,
+        controller,
+        afterTakeover,
+        /** The planning transition already claimed the first observation. */
+        observingClaimed || planned.status === "observing"
+      )
     } finally {
       if (active.get(runId) === controller) active.delete(runId)
     }

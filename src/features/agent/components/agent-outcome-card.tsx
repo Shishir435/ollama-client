@@ -1,5 +1,5 @@
 import type { AgentRunState } from "@ollama-client/contracts"
-import { ExternalLink } from "lucide-react"
+import { Check, ExternalLink, Minus } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -35,6 +35,41 @@ export const AgentOutcomeCard = ({
         <p className="mb-2 whitespace-pre-wrap wrap-break-word">
           {agentPlainText(run.result, 20_000)}
         </p>
+      )}
+      {run.requirements && run.requirements.length > 0 && (
+        <>
+          <p className="mb-1 font-medium">{t("agent.requirements.title")}</p>
+          <ul className="mb-2 flex flex-col gap-1">
+            {run.requirements.map((requirement) => {
+              const met = run.outcome?.met.includes(requirement.id) === true
+              return (
+                <li key={requirement.id} className="flex items-start gap-1.5">
+                  {met ? (
+                    <Check
+                      className="icon-xs mt-0.5 shrink-0"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Minus
+                      className="icon-xs mt-0.5 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className={met ? undefined : "text-muted-foreground"}>
+                    <span className="sr-only">
+                      {t(
+                        met
+                          ? "agent.requirements.met"
+                          : "agent.requirements.unmet"
+                      )}
+                    </span>{" "}
+                    {agentPlainText(requirement.text, 200)}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </>
       )}
       {run.error && (
         <>
