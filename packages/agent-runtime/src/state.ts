@@ -2,6 +2,7 @@ import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
 
 export const TERMINAL_AGENT_STATUSES = [
   "completed",
+  "partial",
   "failed",
   "cancelled"
 ] as const satisfies readonly AgentRunStatus[]
@@ -12,6 +13,8 @@ export const TERMINAL_AGENT_STATUSES = [
  */
 export const AGENT_STATUS_PREDECESSORS = {
   submitted: [],
+  /** One model call, before the run is allowed to look at anything. */
+  planning: ["submitted"],
   /**
    * `deciding` is here because a decision can now be declined without
    * anything happening to the page: a completion the run cannot support is a
@@ -20,6 +23,7 @@ export const AGENT_STATUS_PREDECESSORS = {
    */
   observing: [
     "submitted",
+    "planning",
     "deciding",
     "verifying",
     "paused",
@@ -32,6 +36,7 @@ export const AGENT_STATUS_PREDECESSORS = {
   verifying: ["executing"],
   pause_requested: [
     "submitted",
+    "planning",
     "observing",
     "deciding",
     "awaiting_approval",
@@ -47,6 +52,7 @@ export const AGENT_STATUS_PREDECESSORS = {
   ],
   cancelling: [
     "submitted",
+    "planning",
     "observing",
     "deciding",
     "awaiting_approval",
@@ -57,8 +63,15 @@ export const AGENT_STATUS_PREDECESSORS = {
     "paused"
   ],
   completed: ["deciding", "cancelling"],
+  /**
+   * Only from `deciding`, and only on the model's own word that an outcome
+   * was not met. A cancelled or failed run is not a partial one: partial
+   * means the run reached an answer and the answer was "some of it".
+   */
+  partial: ["deciding"],
   failed: [
     "submitted",
+    "planning",
     "observing",
     "deciding",
     "awaiting_approval",
