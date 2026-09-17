@@ -117,6 +117,17 @@ export interface AgentScenarioOutcome {
 
 export interface AgentScenario {
   /**
+   * What the scripted model answers the planning call with, if anything.
+   *
+   * Absent means it answers with no outcomes, which leaves the run unplanned
+   * and judged the way runs were judged before requirements existed. That is
+   * the default on purpose: every scenario written before planning scripts
+   * its decisions by step index, and a plan the scenario did not ask for
+   * would have to be evidenced by `complete` decisions it does not carry.
+   * A task testing the completion gate declares one.
+   */
+  plan?: readonly { text: string; kind: "change" | "read" }[]
+  /**
    * How the panel answers an approval. `run_origin` widens it to the origin
    * for the rest of the run, which is what a user checking the box does.
    */
@@ -134,7 +145,7 @@ export interface AgentScenario {
   name: string
   goal: string
   /** The terminal run status the scenario is finished at. */
-  status: "completed" | "paused" | "failed"
+  status: "completed" | "partial" | "paused" | "failed"
   /** Included in the hosted-model matrix, which only runs a couple of tasks. */
   hosted?: boolean
   /** The fixture model reports itself as reading images. */
@@ -308,8 +319,37 @@ const runAgentScenarioAttempt = (
       return { status: upstream.status, body: text }
     }
 
+    /**
+     * The planning call, answered without touching the step counter.
+     *
+     * A run asks the provider for two different things now, and the scripted
+     * model answers by step index. Letting a plan request through here spent
+     * a scripted step on it and shifted every later decision by one.
+     */
+    const answerPlan = (parsed: {
+      tools?: { function?: { name?: string } }[]
+    }) =>
+      `${JSON.stringify({
+        model,
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              function: {
+                name: "agent_plan",
+                arguments: { requirements: scenario.plan ?? [] }
+              }
+            }
+          ]
+        },
+        done: true
+      })}\n`
+
     const answerDecision = async (body: string): Promise<string> => {
       const parsed = JSON.parse(body)
+      if (parsed.tools?.[0]?.function?.name === "agent_plan")
+        return answerPlan(parsed)
       step += 1
       const lastMessage = parsed.messages?.at(-1) as
         | { images?: unknown[] }
