@@ -981,18 +981,26 @@ export const createAgentController = (
       )
       const action = classifyVerificationOutcome(verification, policy.risk)
       /**
-       * The evidence baseline is the page as it read before the last change
-       * the run *applied* — so it is promoted here, against the status that
-       * step actually settled on, and never where the command was chosen. A
-       * mutating command policy refused, or one that executed and then
-       * verified negative, is not that change: a baseline captured for it
-       * would measure a later completion against a page already holding the
-       * previous change's own result, and every honest quotation of that
-       * result would be refused as stale until the run ran out of budget.
+       * The evidence baseline is the page as it read before the *first*
+       * change the run applied, and it does not move after that.
+       *
+       * What the staleness refusal claims is that the quoted text "was
+       * already on the page before this run changed anything". Re-capturing
+       * on every applied change measured something narrower — before the
+       * *last* one — which is the same thing only for a run that changes one
+       * thing. A run told to fill two fields and submit quotes the first
+       * field's value at the end, entirely honestly, and a baseline taken
+       * before the submit already contains it.
+       *
+       * Promoted here rather than where the command was chosen, and against
+       * the status the step actually settled on: a mutating command policy
+       * refused, or one that executed and then verified negative, changed
+       * nothing and must not start the baseline.
        */
       if (
         agentEffectChangesPage(effect) &&
-        isAppliedAgentStepStatus(action.stepStatus)
+        isAppliedAgentStepStatus(action.stepStatus) &&
+        changeBaseline?.runId !== state.id
       ) {
         changeBaseline = {
           runId: state.id,
