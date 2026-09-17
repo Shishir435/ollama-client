@@ -35,10 +35,11 @@ describe("mergeAgentStepTelemetry", () => {
     ).toEqual({ numCtx: 32_768, promptChars: 20_000 })
   })
 
-  it("keeps a screenshot recorded once it has been taken", () => {
-    expect(
-      mergeAgentStepTelemetry({ screenshot: true }, { verifyMs: 5 })
-    ).toEqual({ screenshot: true, verifyMs: 5 })
+  it("keeps the vision flag once an image has travelled", () => {
+    expect(mergeAgentStepTelemetry({ vision: true }, { verifyMs: 5 })).toEqual({
+      vision: true,
+      verifyMs: 5
+    })
   })
 
   /**

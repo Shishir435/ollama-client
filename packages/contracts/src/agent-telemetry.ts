@@ -70,8 +70,17 @@ export const AgentStepTelemetrySchema = z
     observations: count.optional(),
     /** Malformed-decision retries spent inside this step. */
     retries: count.optional(),
-    /** Whether a screenshot travelled with the decision. */
-    screenshot: z.boolean().optional()
+    /**
+     * Whether an image travelled with the decision.
+     *
+     * Named for the path rather than the picture because a durable agent
+     * receipt rejects any field whose name normalizes to `screenshot`
+     * (`assertPrivacySafe`), and that guard is right: it is what stops image
+     * bytes reaching a row by any route, and it cannot know that this one is
+     * a boolean. Calling it `screenshot` cost two silent e2e hangs — the
+     * write threw, and the run waited for a receipt that never arrived.
+     */
+    vision: z.boolean().optional()
   })
   .strict()
 
