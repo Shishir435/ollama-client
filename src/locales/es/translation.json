@@ -119,6 +119,7 @@
     },
     "status": {
       "submitted": "Iniciando",
+      "planning": "Analizando la tarea",
       "observing": "Observando página",
       "deciding": "Eligiendo siguiente paso",
       "awaiting_approval": "Esperando aprobación",
@@ -129,6 +130,7 @@
       "paused": "En pausa",
       "cancelling": "Deteniendo",
       "completed": "Completado",
+      "partial": "Parcialmente hecho",
       "failed": "Falló",
       "cancelled": "Detenido"
     },
@@ -167,7 +169,12 @@
     },
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
     "export_report": "Exportar informe (incluye texto de la página)",
-    "running_goal": "Trabajando en"
+    "running_goal": "Trabajando en",
+    "requirements": {
+      "title": "Lo que pedía la tarea",
+      "met": "Hecho",
+      "unmet": "No hecho"
+    }
   },
   "common": {
     "theme": {

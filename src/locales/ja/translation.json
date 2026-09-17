@@ -119,6 +119,7 @@
     },
     "status": {
       "submitted": "開始中",
+      "planning": "タスクを整理中",
       "observing": "ページを観測中",
       "deciding": "次の手順を選択中",
       "awaiting_approval": "承認待ち",
@@ -129,6 +130,7 @@
       "paused": "一時停止",
       "cancelling": "停止中",
       "completed": "完了",
+      "partial": "一部完了",
       "failed": "失敗",
       "cancelled": "停止済み"
     },
@@ -167,7 +169,12 @@
     },
     "correction": "一時停止中です。変更点を説明してから続行してください。",
     "export_report": "実行レポートを出力（ページのテキストを含む）",
-    "running_goal": "実行中のタスク"
+    "running_goal": "実行中のタスク",
+    "requirements": {
+      "title": "タスクが求めていたこと",
+      "met": "完了",
+      "unmet": "未完了"
+    }
   },
   "common": {
     "theme": {
