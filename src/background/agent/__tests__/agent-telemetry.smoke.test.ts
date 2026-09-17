@@ -139,7 +139,11 @@ describe("Agent step telemetry against the real engine", () => {
 
       const decisions = [
         { type: "read" },
-        { type: "complete", summary: "Read the page." }
+        {
+          type: "complete",
+          summary: "Read the page.",
+          outcomes: [{ id: "r1", met: true }]
+        }
       ]
       const provider = {
         id: "ollama",
@@ -160,16 +164,28 @@ describe("Agent step telemetry against the real engine", () => {
           providerVersion: true,
           toolCalling: true
         },
-        async streamChat(_request, emit) {
+        /**
+         * Answers whichever tool it was offered. A run now asks the provider
+         * twice for different things — once to plan, then once per step — and
+         * a double that answers every call with a decision hands the planning
+         * call a decision and eats a queued step.
+         */
+        async streamChat(request, emit) {
+          const planning = request.tools?.[0]?.name === "agent_plan"
           emit({
             toolCalls: [
               {
                 id: `call-${decisions.length}`,
-                name: "agent_decision",
-                arguments: decisions.shift() ?? {
-                  type: "complete",
-                  summary: "Read the page."
-                }
+                name: planning ? "agent_plan" : "agent_decision",
+                arguments: planning
+                  ? {
+                      requirements: [{ text: "report the page", kind: "read" }]
+                    }
+                  : (decisions.shift() ?? {
+                      type: "complete",
+                      summary: "Read the page.",
+                      outcomes: [{ id: "r1", met: true }]
+                    })
               }
             ],
             done: true,

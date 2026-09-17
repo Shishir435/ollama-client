@@ -1,6 +1,8 @@
 import type { AgentObservation } from "@ollama-client/contracts"
+import { AgentDecisionSchema } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
+  AGENT_DECISION_OPTIONAL_FIELDS,
   AGENT_DECISION_TOOL_NAME,
   AgentDecisionFormatError,
   parseAgentDecisionToolCalls
@@ -463,5 +465,34 @@ describe("visual commands need a screenshot", () => {
         generation: 1
       }
     })
+  })
+})
+
+/**
+ * The normalizer keeps a whitelist per decision variant and drops everything
+ * else, which is right — the tool advertises one flat object covering every
+ * variant, so a model may answer with siblings it did not use. But a
+ * whitelist has to agree with the schema it filters for, and nothing made it.
+ *
+ * `outcomes` was added to `complete` and not to the table. The decision
+ * parsed, the field was gone by the time anything read it, and the completion
+ * judge refused every run for not answering requirements the model had in
+ * fact answered. Derived from the schema here so the next field cannot.
+ */
+describe("optional decision fields", () => {
+  it("passes through every optional field the complete variant declares", () => {
+    const complete = AgentDecisionSchema.options.find(
+      (option) => option.shape.type.value === "complete"
+    )
+    expect(complete).toBeDefined()
+    const declared = Object.entries(complete?.shape ?? {})
+      .filter(
+        ([name, field]) => name !== "type" && field.safeParse(undefined).success
+      )
+      .map(([name]) => name)
+    expect(declared.length).toBeGreaterThan(0)
+    expect([...(AGENT_DECISION_OPTIONAL_FIELDS.complete ?? [])].sort()).toEqual(
+      declared.sort()
+    )
   })
 })

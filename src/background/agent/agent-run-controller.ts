@@ -59,51 +59,80 @@ const DECISION_TIMEOUT_MS = AGENT_DECISION_TIMEOUT_MS
 export const withDecisionTimeout = (
   model: AgentModelPort,
   timeoutMs: number
-): AgentModelPort => ({
-  ...model,
-  async decide(input, signal) {
-    const scope = new AbortController()
-    let timedOut = false
-    const abort = () => scope.abort()
-    if (signal.aborted) scope.abort()
-    else signal.addEventListener?.("abort", abort, { once: true })
-    const timer = setTimeout(() => {
-      timedOut = true
-      abort()
-    }, timeoutMs)
-    const startedAt = Date.now()
-    try {
-      const decision = await model.decide(input, scope.signal)
-      logger.info("Agent decision received", "Agent", {
-        runId: input.state.id,
-        model: input.state.modelId,
-        elapsedMs: Date.now() - startedAt,
-        decision: decision.type
-      })
-      return decision
-    } catch (error) {
-      /*
-       * A decision that ends without an answer is the hardest failure to read
-       * from the outside: an aborted stream looks the same whether the run was
-       * stopped, the bound deadline fired, or something else cancelled it. The
-       * three are recorded apart here so the next one does not need a HAR.
-       */
-      logger.warn("Agent decision failed", "Agent", {
-        runId: input.state.id,
-        model: input.state.modelId,
-        elapsedMs: Date.now() - startedAt,
-        cancelledByRun: signal.aborted,
-        timedOut,
-        name: error instanceof Error ? error.name : typeof error,
-        message: error instanceof Error ? error.message : "unknown"
-      })
-      throw error
-    } finally {
-      clearTimeout(timer)
-      signal.removeEventListener?.("abort", abort)
-    }
+): AgentModelPort => {
+  /** Captured once, so the bounded wrapper below is not itself optional. */
+  const plan = model.plan?.bind(model)
+  return {
+    ...model,
+    async decide(input, signal) {
+      const scope = new AbortController()
+      let timedOut = false
+      const abort = () => scope.abort()
+      if (signal.aborted) scope.abort()
+      else signal.addEventListener?.("abort", abort, { once: true })
+      const timer = setTimeout(() => {
+        timedOut = true
+        abort()
+      }, timeoutMs)
+      const startedAt = Date.now()
+      try {
+        const decision = await model.decide(input, scope.signal)
+        logger.info("Agent decision received", "Agent", {
+          runId: input.state.id,
+          model: input.state.modelId,
+          elapsedMs: Date.now() - startedAt,
+          decision: decision.type
+        })
+        return decision
+      } catch (error) {
+        /*
+         * A decision that ends without an answer is the hardest failure to read
+         * from the outside: an aborted stream looks the same whether the run was
+         * stopped, the bound deadline fired, or something else cancelled it. The
+         * three are recorded apart here so the next one does not need a HAR.
+         */
+        logger.warn("Agent decision failed", "Agent", {
+          runId: input.state.id,
+          model: input.state.modelId,
+          elapsedMs: Date.now() - startedAt,
+          cancelledByRun: signal.aborted,
+          timedOut,
+          name: error instanceof Error ? error.name : typeof error,
+          message: error instanceof Error ? error.message : "unknown"
+        })
+        throw error
+      } finally {
+        clearTimeout(timer)
+        signal.removeEventListener?.("abort", abort)
+      }
+    },
+    /**
+     * Bounded on the same deadline as a decision.
+     *
+     * Planning happens before the run loop, so none of the step or run budget
+     * checks have run yet. An unbounded plan call against a wedged provider
+     * would hold the run at `planning` with nothing watching it — the one
+     * status where nothing else is.
+     */
+    ...(plan
+      ? {
+          async plan(state, signal) {
+            const scope = new AbortController()
+            const abort = () => scope.abort()
+            if (signal.aborted) scope.abort()
+            else signal.addEventListener?.("abort", abort, { once: true })
+            const timer = setTimeout(abort, timeoutMs)
+            try {
+              return await plan(state, scope.signal)
+            } finally {
+              clearTimeout(timer)
+              signal.removeEventListener?.("abort", abort)
+            }
+          }
+        }
+      : {})
   }
-})
+}
 
 export interface BuildAgentControllerInput {
   runId: string
