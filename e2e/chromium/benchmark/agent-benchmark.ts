@@ -60,6 +60,17 @@ export interface AgentAttemptRecord {
   /** Tokens the provider reported; absent on a scripted fixture. */
   promptTokens?: number
   completionTokens?: number
+  /**
+   * Where the attempt's time went, summed from the steps' own durable
+   * telemetry. A total elapsed figure cannot separate model time from browser
+   * work from a human deciding on an approval, and those are three different
+   * problems with three different fixes.
+   */
+  decideMs?: number
+  observeMs?: number
+  verifyMs?: number
+  /** Malformed answers the run paid for and did not use. */
+  retries?: number
 }
 
 export interface AgentFamilySummary {
@@ -85,6 +96,11 @@ export interface AgentFamilySummary {
   /** Absent where nothing reported tokens. */
   medianPromptTokens?: number
   medianCompletionTokens?: number
+  /** Absent where no step measured the phase. */
+  medianDecideMs?: number
+  medianObserveMs?: number
+  medianVerifyMs?: number
+  retries: number
 }
 
 export interface AgentBenchmarkReport {
@@ -93,6 +109,49 @@ export interface AgentBenchmarkReport {
   model: string
   attempts: AgentAttemptRecord[]
   families: AgentFamilySummary[]
+}
+
+/**
+ * What the steps say the attempt cost.
+ *
+ * Read from the durable receipts rather than from the model wire, because the
+ * wire is one provider's frames and a receipt is every provider's — and
+ * because a receipt survives the worker restart that makes a run worth
+ * measuring in the first place. A field no step measured stays absent, since
+ * unmeasured and zero are different claims.
+ */
+export const attemptTelemetry = (
+  steps: readonly { telemetry?: Record<string, number | boolean | undefined> }[]
+): Partial<
+  Pick<
+    AgentAttemptRecord,
+    | "promptTokens"
+    | "completionTokens"
+    | "decideMs"
+    | "observeMs"
+    | "verifyMs"
+    | "retries"
+  >
+> => {
+  const total = (key: string): number | undefined => {
+    let sum: number | undefined
+    for (const step of steps) {
+      const value = step.telemetry?.[key]
+      if (typeof value === "number") sum = (sum ?? 0) + value
+    }
+    return sum
+  }
+  const entries = {
+    promptTokens: total("promptTokens"),
+    completionTokens: total("outputTokens"),
+    decideMs: total("decideMs"),
+    observeMs: total("observeMs"),
+    verifyMs: total("verifyMs"),
+    retries: total("retries")
+  }
+  return Object.fromEntries(
+    Object.entries(entries).filter(([, value]) => value !== undefined)
+  )
 }
 
 const median = (values: number[]): number => {
@@ -172,6 +231,17 @@ export const summarizeAttempts = (
         .filter((value): value is number => value !== undefined)
       const medianPrompt = medianOf(promptTokens)
       const medianCompletion = medianOf(completionTokens)
+      const phase = (
+        key: "decideMs" | "observeMs" | "verifyMs"
+      ): number | undefined =>
+        medianOf(
+          records
+            .map((record) => record[key])
+            .filter((value): value is number => value !== undefined)
+        )
+      const medianDecide = phase("decideMs")
+      const medianObserve = phase("observeMs")
+      const medianVerify = phase("verifyMs")
       return {
         family: records[0].family,
         backend: records[0].backend,
@@ -207,7 +277,16 @@ export const summarizeAttempts = (
           : { medianPromptTokens: medianPrompt }),
         ...(medianCompletion === undefined
           ? {}
-          : { medianCompletionTokens: medianCompletion })
+          : { medianCompletionTokens: medianCompletion }),
+        ...(medianDecide === undefined ? {} : { medianDecideMs: medianDecide }),
+        ...(medianObserve === undefined
+          ? {}
+          : { medianObserveMs: medianObserve }),
+        ...(medianVerify === undefined ? {} : { medianVerifyMs: medianVerify }),
+        retries: records.reduce(
+          (total, record) => total + (record.retries ?? 0),
+          0
+        )
       }
     })
     .sort(
@@ -256,12 +335,12 @@ export const renderAgentBenchmarkMarkdown = (
     "",
     "Counts, not rates. `n` is the attempts behind each row.",
     "",
-    "| family | backend | n | completed | goal met | false completions | missed completions | approvals | repeated targets | median ms | median prompt tk | median output tk |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    "| family | backend | n | completed | goal met | false completions | missed completions | approvals | repeated targets | median ms | median decide ms | median observe ms | median verify ms | median prompt tk | median output tk | retries |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
   ]
   for (const family of report.families) {
     lines.push(
-      `| ${family.family} | ${family.backend} | ${family.attempts} | ${family.completed} | ${family.succeeded} | ${family.falseCompletions} | ${family.missedCompletions} | ${family.approvalsAsked} | ${family.repeatedTargets} | ${family.medianWallMs} | ${family.medianPromptTokens ?? "—"} | ${family.medianCompletionTokens ?? "—"} |`
+      `| ${family.family} | ${family.backend} | ${family.attempts} | ${family.completed} | ${family.succeeded} | ${family.falseCompletions} | ${family.missedCompletions} | ${family.approvalsAsked} | ${family.repeatedTargets} | ${family.medianWallMs} | ${family.medianDecideMs ?? "—"} | ${family.medianObserveMs ?? "—"} | ${family.medianVerifyMs ?? "—"} | ${family.medianPromptTokens ?? "—"} | ${family.medianCompletionTokens ?? "—"} | ${family.retries} |`
     )
   }
   const totals = report.families.reduce(

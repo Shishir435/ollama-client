@@ -10,11 +10,14 @@ import {
   agentRemainingBudget,
   agentTabScope
 } from "@ollama-client/agent-runtime"
-import type {
-  AgentDecision,
-  AgentObservation,
-  AgentRunState,
-  AgentScreenshot
+import {
+  type AgentDecision,
+  type AgentObservation,
+  type AgentRunState,
+  type AgentScreenshot,
+  type AgentStepTelemetry,
+  agentStepTelemetry,
+  agentTelemetryMillis
 } from "@ollama-client/contracts"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
@@ -35,6 +38,10 @@ import {
   resolveAgentModelCompatibility
 } from "./agent-model-compatibility"
 import { projectAgentObservation } from "./agent-observation-projection"
+
+type StreamChunkMetrics = NonNullable<
+  Parameters<Parameters<LLMProvider["streamChat"]>[1]>[0]["metrics"]
+>
 
 const MAX_RETRIES_PER_DECISION = 2
 const MAX_MALFORMED_PER_RUN = 5
@@ -432,6 +439,10 @@ const providerSignal = (
   }
 }
 
+/** Absent plus absent is still absent; a zero here would read as measured. */
+const sum = (a?: number, b?: number): number | undefined =>
+  a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0)
+
 const AGENT_RESPONSE_TOKENS = 4_096
 
 /**
@@ -494,12 +505,24 @@ const collectDecision = async (input: {
   findings?: readonly AgentFinding[]
   screenshot?: AgentScreenshot
   signal: AgentCancellationSignal
+  measured: (telemetry: AgentStepTelemetry) => void
 }): Promise<AgentDecision> => {
   const calls = new Map<string, ToolCall>()
   const prompt = decisionPrompt(input)
   let streamError: string | undefined
   const scoped = providerSignal(input.signal)
   const withScreenshot = input.screenshot !== undefined
+  const numCtx = agentContextWindow(prompt, withScreenshot)
+  /**
+   * Measured here because this is the only place that can see it. The chunk
+   * carries the provider's own usage — Ollama's `prompt_eval_count` and the
+   * OpenAI-compatible SSE `usage` frame both arrive as `metrics` — and the
+   * collector used to keep errors and tool calls and drop the rest, which is
+   * why the benchmark had no token column to report.
+   */
+  const startedAt = Date.now()
+  let firstChunkAt: number | undefined
+  let metrics: StreamChunkMetrics | undefined
   try {
     await input.provider.streamChat(
       {
@@ -525,9 +548,11 @@ const collectDecision = async (input: {
         tool_choice: "required",
         think: false,
         num_predict: AGENT_RESPONSE_TOKENS,
-        num_ctx: agentContextWindow(prompt, withScreenshot)
+        num_ctx: numCtx
       },
       (chunk) => {
+        firstChunkAt ??= Date.now()
+        if (chunk.metrics) metrics = chunk.metrics
         if (chunk.error) {
           streamError = chunk.error.message || "Agent model request failed"
         }
@@ -537,6 +562,28 @@ const collectDecision = async (input: {
     )
   } finally {
     scoped.cleanup()
+    /**
+     * Reported from the `finally` because a stream that rejects still spent
+     * what it spent. A cancelled or failed decision is the expensive one —
+     * the run waited the full deadline and paid for the prefill — and
+     * measuring only the answers that arrived would leave every slow failure
+     * out of the baseline it belongs in.
+     */
+    input.measured({
+      decideMs: Date.now() - startedAt,
+      ...(firstChunkAt === undefined
+        ? {}
+        : { firstTokenMs: firstChunkAt - startedAt }),
+      promptChars: prompt.length,
+      promptTokensEstimated: estimateTokens(prompt),
+      numCtx,
+      ...(withScreenshot ? { vision: true } : {}),
+      promptTokens: metrics?.prompt_eval_count,
+      outputTokens: metrics?.eval_count,
+      loadMs: agentTelemetryMillis(metrics?.load_duration),
+      prefillMs: agentTelemetryMillis(metrics?.prompt_eval_duration),
+      decodeMs: agentTelemetryMillis(metrics?.eval_duration)
+    })
   }
   if (streamError) throw new Error(streamError)
   return parseAgentDecisionToolCalls([...calls.values()], input.observation, {
@@ -560,31 +607,68 @@ const retryUntilWellFormed = async (input: {
   screenshot?: AgentScreenshot
   signal: AgentCancellationSignal
   malformedByRun: Map<string, number>
+  report: (telemetry: AgentStepTelemetry | undefined) => void
 }): Promise<AgentDecision> => {
   const { malformedByRun, state, signal } = input
   let feedback: string | undefined
-  for (let retry = 0; retry <= MAX_RETRIES_PER_DECISION; retry += 1) {
-    if (signal.aborted) throw new Error("Agent model request cancelled")
-    try {
-      return await collectDecision({
-        ...input,
-        retry,
-        ...(feedback ? { feedback } : {})
-      })
-    } catch (error) {
-      if (!(error instanceof AgentDecisionFormatError)) throw error
-      feedback = error.feedback
-      const malformed = (malformedByRun.get(state.id) ?? 0) + 1
-      malformedByRun.set(state.id, malformed)
-      if (
-        malformed >= MAX_MALFORMED_PER_RUN ||
-        retry >= MAX_RETRIES_PER_DECISION
-      ) {
-        throw error
-      }
+  /**
+   * Accumulated rather than overwritten: a malformed answer still spent the
+   * model's time and the provider's tokens, so a step that retried twice must
+   * not report only its successful attempt. The last attempt's own figures
+   * win where they are not additive — the context window and the prompt size
+   * describe the request that produced the decision.
+   */
+  let spent: AgentStepTelemetry = {}
+  const measured = (attempt: AgentStepTelemetry): void => {
+    spent = {
+      ...spent,
+      ...attempt,
+      decideMs: (spent.decideMs ?? 0) + (attempt.decideMs ?? 0),
+      promptTokens: sum(spent.promptTokens, attempt.promptTokens),
+      outputTokens: sum(spent.outputTokens, attempt.outputTokens),
+      promptTokensEstimated: sum(
+        spent.promptTokensEstimated,
+        attempt.promptTokensEstimated
+      )
     }
   }
-  throw new AgentDecisionFormatError("The model returned no decision")
+  /**
+   * Reported once, from a `finally`, so every way out of this function leaves
+   * a fresh answer behind. Reporting at the two exits that were easy to see —
+   * a decision, and a malformed budget running out — left a provider error
+   * and a cancellation reporting nothing at all, and the reader is a map
+   * keyed by run: saying nothing there is not the same as saying zero, it
+   * hands the controller whatever the previous step measured.
+   */
+  let retries = 0
+  try {
+    for (let retry = 0; retry <= MAX_RETRIES_PER_DECISION; retry += 1) {
+      retries = retry
+      if (signal.aborted) throw new Error("Agent model request cancelled")
+      try {
+        return await collectDecision({
+          ...input,
+          retry,
+          measured,
+          ...(feedback ? { feedback } : {})
+        })
+      } catch (error) {
+        if (!(error instanceof AgentDecisionFormatError)) throw error
+        feedback = error.feedback
+        const malformed = (malformedByRun.get(state.id) ?? 0) + 1
+        malformedByRun.set(state.id, malformed)
+        if (
+          malformed >= MAX_MALFORMED_PER_RUN ||
+          retry >= MAX_RETRIES_PER_DECISION
+        ) {
+          throw error
+        }
+      }
+    }
+    throw new AgentDecisionFormatError("The model returned no decision")
+  } finally {
+    input.report(agentStepTelemetry({ ...spent, retries }))
+  }
 }
 
 export interface ProviderAgentModelPortOptions {
@@ -605,6 +689,11 @@ export const createProviderAgentModelPort = (
   options: ProviderAgentModelPortOptions
 ): AgentModelPort => {
   const malformedByRun = new Map<string, number>()
+  /**
+   * Keyed by run because one port serves every run in the worker, and read
+   * once by the controller on the step it belongs to.
+   */
+  const telemetryByRun = new Map<string, AgentStepTelemetry>()
   const resolveProvider =
     options.resolveProvider ??
     ((modelId: string, providerId: string) =>
@@ -638,6 +727,17 @@ export const createProviderAgentModelPort = (
   }
 
   return {
+    decisionTelemetry(runId) {
+      /**
+       * Consumed, not read. What it holds belongs to the decision that just
+       * resolved; leaving it in place lets a later step that measured nothing
+       * — a decision cancelled before the provider answered — be handed the
+       * previous step's tokens and timings and persist them a second time.
+       */
+      const telemetry = telemetryByRun.get(runId)
+      telemetryByRun.delete(runId)
+      return telemetry
+    },
     async vision(state, signal) {
       const compatibility = await compatibilityFor(state, signal)
       return compatibility.vision === true
@@ -677,7 +777,11 @@ export const createProviderAgentModelPort = (
         /* A picture is only forwarded to a model known to read one. */
         ...(screenshot && compatibility.vision === true ? { screenshot } : {}),
         signal,
-        malformedByRun
+        malformedByRun,
+        report: (telemetry) => {
+          if (telemetry) telemetryByRun.set(state.id, telemetry)
+          else telemetryByRun.delete(state.id)
+        }
       })
     }
   }

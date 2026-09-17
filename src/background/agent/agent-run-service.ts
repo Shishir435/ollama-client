@@ -572,7 +572,27 @@ export const createAgentRunService = (input?: {
           await settle(state.id)
           throw error
         }
-        void drive(state, (controller) => controller.start(state.id))
+        /**
+         * Detached on purpose — `start` returns once the run is admitted, not
+         * once it finishes — but its rejection is not. Every other `drive`
+         * call site is awaited by a caller that reports the failure; this one
+         * discarded it, so a run that threw on its first step left no error
+         * on the row, no line in the log and a panel that waited. That cost
+         * two browser gates thirty seconds each and an afternoon to find.
+         *
+         * Logging is all this does. The run is still left where it stopped:
+         * transitioning it to `failed` needs the predecessor it stopped in,
+         * which this layer does not know, and is its own change.
+         */
+        void drive(state, (controller) => controller.start(state.id)).catch(
+          (error: unknown) => {
+            logger.error("Agent run stopped without settling", "Agent", {
+              runId: state.id,
+              name: error instanceof Error ? error.name : typeof error,
+              message: error instanceof Error ? error.message : "unknown"
+            })
+          }
+        )
         return state
       } finally {
         admitting = false

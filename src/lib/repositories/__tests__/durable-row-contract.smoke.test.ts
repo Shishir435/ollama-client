@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
+import type { AgentStepTelemetry } from "@ollama-client/contracts"
+import { AgentStepTelemetrySchema } from "@ollama-client/contracts"
 import {
   afterEach,
   beforeAll,
@@ -103,6 +105,24 @@ const boot = async () => {
   return facade
 }
 
+/**
+ * Every telemetry field the contract declares, derived from the schema rather
+ * than listed, so a field added later cannot reach a receipt without passing
+ * this write.
+ *
+ * Listing them is what let one through: a `screenshot: boolean` flag parsed,
+ * typechecked and unit-tested cleanly, and was then refused by the row's own
+ * privacy guard, which reads field names and cannot tell a boolean from an
+ * image. Nothing failed loudly — the write threw inside the run loop and two
+ * browser gates sat for thirty seconds waiting on a receipt.
+ */
+const everyTelemetryField = Object.fromEntries(
+  Object.entries(AgentStepTelemetrySchema.shape).map(([key, field], index) => [
+    key,
+    field.safeParse(true).success ? true : index + 1
+  ])
+) as AgentStepTelemetry
+
 describe("durable job rows decode as their writers wrote them", () => {
   it(
     "round-trips agent ownership and claims execution before effect evidence",
@@ -164,6 +184,7 @@ describe("durable job rows decode as their writers wrote them", () => {
         },
         sourceUrl: "https://example.com/start",
         finding: "f".repeat(900),
+        telemetry: everyTelemetryField,
         at: createdAt + 4
       })
       const written = await repo.listAgentSteps("agent-row-1")
@@ -177,6 +198,13 @@ describe("durable job rows decode as their writers wrote them", () => {
       })
       expect(written[0]?.target?.name).toHaveLength(120)
       expect(written[0]?.finding).toHaveLength(500)
+      /**
+       * Telemetry is durable on the receipt because the receipts are what an
+       * MV3 worker restart leaves behind, and an interrupted run is the one
+       * worth measuring. Reported and estimated counts stay apart through the
+       * write, so an estimate can never be read back as a measurement.
+       */
+      expect(written[0]?.telemetry).toEqual(everyTelemetryField)
       await repo.claimAgentRunPhase({
         runId: "agent-row-1",
         phase: "awaiting_approval",

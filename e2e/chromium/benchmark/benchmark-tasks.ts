@@ -11,6 +11,7 @@ import {
 import type { AgentAttemptRecord } from "./agent-benchmark"
 import {
   approvalsAsked,
+  attemptTelemetry,
   countRepeatedTargets,
   recordAttempt
 } from "./agent-benchmark"
@@ -101,12 +102,19 @@ export const recordBenchmarkAttempt = async (input: {
     ...(met === undefined
       ? {}
       : { falseCompletion: run?.status === "completed" && !met }),
+    /**
+     * The steps' own durable telemetry first: it covers every provider rather
+     * than one wire format, and it survives the worker restart that makes a
+     * run worth measuring. The fixture wire stays as the fallback for a run
+     * whose steps recorded nothing.
+     */
     ...(outcome.tokens
       ? {
           promptTokens: outcome.tokens.prompt,
           completionTokens: outcome.tokens.completion
         }
       : {}),
+    ...attemptTelemetry(steps),
     ...(run?.error?.code
       ? { firstLimitation: run.error.code }
       : run?.pauseReason

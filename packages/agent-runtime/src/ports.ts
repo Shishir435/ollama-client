@@ -13,6 +13,7 @@ import type {
   AgentScreenshot,
   AgentSnapshotIdentity,
   AgentStepStatus,
+  AgentStepTelemetry,
   AgentTakeoverRequest
 } from "@ollama-client/contracts"
 
@@ -465,6 +466,12 @@ export interface AgentStepWrite {
   sourceUrl?: string
   /** Model-authored note attached to the step it belongs to. */
   finding?: string
+  /**
+   * What the step cost, in numbers only. Optional because a step a worker
+   * restart settled measured nothing, and an absent record must read as
+   * unmeasured rather than as zero.
+   */
+  telemetry?: AgentStepTelemetry
 }
 
 /** A step as it is read back, carrying the durable order it was written in. */
@@ -542,6 +549,17 @@ export interface AgentModelPort {
     state: AgentRunState,
     signal: AgentCancellationSignal
   ): Promise<boolean>
+  /**
+   * What the decision that just resolved cost, for the run named.
+   *
+   * A reader rather than part of `decide`'s result because the provider's own
+   * usage is the only thing the controller cannot measure for itself, and
+   * widening the return type would rewrite every test double of this port for
+   * a field most of them do not produce. Read it immediately after the await,
+   * while the answer still belongs to that decision; a port that measured
+   * nothing returns nothing.
+   */
+  decisionTelemetry?(runId: string): AgentStepTelemetry | undefined
 }
 
 /** What a resolver may ground a command in besides the DOM observation. */

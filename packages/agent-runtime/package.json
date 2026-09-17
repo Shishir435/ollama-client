@@ -11,6 +11,7 @@
     "./ports": "./src/ports.ts",
     "./reducer": "./src/reducer.ts",
     "./state": "./src/state.ts",
+    "./telemetry": "./src/telemetry.ts",
     "./verification": "./src/verification.ts"
   },
   "dependencies": {

@@ -869,4 +869,133 @@ describe("usable agent prompt", () => {
       Math.ceil(String(sent.messages[1].content).length / 3.5) + fixed + 4096
     expect(sent.num_ctx).toBeGreaterThanOrEqual(estimated)
   })
+  describe("decision telemetry", () => {
+    it("keeps the provider's own usage the collector used to discard", async () => {
+      const streamChat = vi.fn(async (_request, emit) => {
+        emit({
+          ...validChunk,
+          metrics: {
+            prompt_eval_count: 7_412,
+            eval_count: 118,
+            load_duration: 1_500_000,
+            prompt_eval_duration: 840_000_000,
+            eval_duration: 1_200_000_000
+          }
+        })
+      })
+      const port = modelPort(streamChat)
+
+      await port.decide({ state, observation }, { aborted: false })
+
+      const telemetry = port.decisionTelemetry?.(state.id)
+      expect(telemetry).toMatchObject({
+        promptTokens: 7_412,
+        outputTokens: 118,
+        loadMs: 2,
+        prefillMs: 840,
+        decodeMs: 1_200,
+        retries: 0
+      })
+      /** The estimate is recorded beside the measurement, never instead of it. */
+      expect(telemetry?.promptTokensEstimated).toBeGreaterThan(0)
+      expect(telemetry?.promptTokensEstimated).not.toBe(telemetry?.promptTokens)
+      expect(telemetry?.numCtx).toBe(streamChat.mock.calls[0][0].num_ctx)
+    })
+
+    it("records what a provider that reports no usage still cost", async () => {
+      const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+      const port = modelPort(streamChat)
+
+      await port.decide({ state, observation }, { aborted: false })
+
+      const telemetry = port.decisionTelemetry?.(state.id)
+      expect(telemetry?.promptTokens).toBeUndefined()
+      expect(telemetry?.outputTokens).toBeUndefined()
+      expect(telemetry?.promptChars).toBeGreaterThan(0)
+      expect(telemetry?.decideMs).toBeGreaterThanOrEqual(0)
+    })
+
+    /**
+     * A malformed answer spent the model's time and the provider's tokens. A
+     * step that reported only its successful attempt would make a run that
+     * retried twice look as cheap as one that answered first time.
+     */
+    it("accumulates the cost of malformed attempts", async () => {
+      let attempt = 0
+      const streamChat = vi.fn(async (_request, emit) => {
+        attempt += 1
+        emit(
+          attempt === 1
+            ? {
+                toolCalls: [
+                  {
+                    id: "call-bad",
+                    name: AGENT_DECISION_TOOL_NAME,
+                    arguments: { type: "not-a-command" }
+                  }
+                ],
+                done: true,
+                metrics: { prompt_eval_count: 100, eval_count: 10 }
+              }
+            : {
+                ...validChunk,
+                metrics: { prompt_eval_count: 120, eval_count: 12 }
+              }
+        )
+      })
+      const port = modelPort(streamChat)
+
+      await port.decide({ state, observation }, { aborted: false })
+
+      expect(streamChat).toHaveBeenCalledTimes(2)
+      expect(port.decisionTelemetry?.(state.id)).toMatchObject({
+        promptTokens: 220,
+        outputTokens: 22,
+        retries: 1
+      })
+    })
+
+    /**
+     * A decision that failed is the expensive one — the run waited on it and
+     * the provider had already prefilled the prompt — and it was the one the
+     * collector reported nothing for, because the report sat after the
+     * `await` that threw.
+     */
+    it("records what a decision that never answered cost", async () => {
+      const streamChat = vi.fn(async () => {
+        throw new Error("provider unreachable")
+      })
+      const port = modelPort(streamChat)
+
+      await expect(
+        port.decide({ state, observation }, { aborted: false })
+      ).rejects.toThrow("provider unreachable")
+      const telemetry = port.decisionTelemetry?.(state.id)
+      expect(telemetry?.promptChars).toBeGreaterThan(0)
+      expect(telemetry?.numCtx).toBeGreaterThan(0)
+      expect(telemetry?.decideMs).toBeGreaterThanOrEqual(0)
+    })
+
+    /**
+     * Read once, by the step it belongs to. Left in place, a step that
+     * measured nothing is handed the previous step's tokens and persists
+     * them a second time, which doubles a run's reported cost.
+     */
+    it("answers one reader per decision", async () => {
+      const streamChat = vi.fn(async (_request, emit) =>
+        emit({
+          ...validChunk,
+          metrics: { prompt_eval_count: 90, eval_count: 9 }
+        })
+      )
+      const port = modelPort(streamChat)
+
+      await port.decide({ state, observation }, { aborted: false })
+
+      expect(port.decisionTelemetry?.(state.id)).toMatchObject({
+        promptTokens: 90
+      })
+      expect(port.decisionTelemetry?.(state.id)).toBeUndefined()
+    })
+  })
 })

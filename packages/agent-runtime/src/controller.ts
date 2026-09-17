@@ -8,6 +8,7 @@ import {
   type AgentPauseReason,
   type AgentRunState,
   type AgentRunStatus,
+  type AgentStepTelemetry,
   MAX_AGENT_ALLOWED_ORIGINS,
   MAX_AGENT_ANSWER_CHARS,
   MAX_AGENT_ANSWERS,
@@ -68,6 +69,7 @@ import {
   agentTabScope,
   isTerminalAgentStatus
 } from "./state"
+import { mergeAgentStepTelemetry } from "./telemetry"
 import { classifyVerificationOutcome } from "./verification"
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
@@ -491,6 +493,81 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * What the step in flight has cost so far, before it has a step id.
+   *
+   * Observation and decision both happen before a command is grounded, so
+   * their measurements have nowhere to live yet. They accumulate here and the
+   * next receipt written claims them — which is also what keeps a step's
+   * execute and verify timings, taken after its first receipt, on the step
+   * they belong to rather than on the next one.
+   */
+  let pendingTelemetry: AgentStepTelemetry | undefined
+  const telemetryByStep = new Map<string, AgentStepTelemetry>()
+
+  const measure = (telemetry: AgentStepTelemetry | undefined): void => {
+    pendingTelemetry = mergeAgentStepTelemetry(pendingTelemetry, telemetry)
+  }
+
+  /**
+   * Timed around a phase, reporting even when it threw: a resolve that
+   * refused and an execute that failed both spent the time they spent, and a
+   * step measured only on its happy path would flatter every slow failure.
+   */
+  const timed = async <T>(
+    key: "observeMs" | "resolveMs" | "executeMs" | "verifyMs" | "captureMs",
+    work: () => Promise<T>
+  ): Promise<T> => {
+    const startedAt = dependencies.clock.now()
+    try {
+      return await work()
+    } finally {
+      measure({ [key]: dependencies.clock.now() - startedAt })
+    }
+  }
+
+  /**
+   * Every receipt carries the step's running total, because the panel, the
+   * history and the completion judge all collapse a step's receipts to the
+   * latest one — so the latest is where a complete picture has to be.
+   */
+  const appendStep = async (write: AgentStepWrite): Promise<void> => {
+    const startedAt = dependencies.clock.now()
+    const carried = mergeAgentStepTelemetry(
+      telemetryByStep.get(write.stepId),
+      pendingTelemetry
+    )
+    pendingTelemetry = undefined
+    if (carried) {
+      telemetryByStep.set(write.stepId, carried)
+      /** One run cannot grow this past its own step ceiling. */
+      if (telemetryByStep.size > MAX_AGENT_OBSERVATIONS + 5) {
+        const oldest = telemetryByStep.keys().next().value
+        if (oldest !== undefined) telemetryByStep.delete(oldest)
+      }
+    }
+    await dependencies.persistence.appendStep({
+      ...write,
+      ...(carried ? { telemetry: carried } : {})
+    })
+    /**
+     * Charged to the step that was written, never to whatever comes next.
+     *
+     * A write cannot appear in the row it is writing, so this lands on the
+     * same step's following receipt — a step is written two or three times,
+     * and the last one carries the running total. Only the final write of a
+     * step has no successor, and its own duration stays unmeasured. Absent is
+     * the honest answer there; parking it in `pendingTelemetry` instead would
+     * have moved it onto an unrelated later step, where it reads as that
+     * step's cost.
+     */
+    const persisted = mergeAgentStepTelemetry(
+      telemetryByStep.get(write.stepId),
+      { persistMs: dependencies.clock.now() - startedAt }
+    )
+    if (persisted) telemetryByStep.set(write.stepId, persisted)
+  }
+
   const decide = async (
     state: AgentRunState,
     observation: AgentObservation,
@@ -511,9 +588,16 @@ export const createAgentController = (
         signal
       )
     } catch (error) {
+      measure(dependencies.model.decisionTelemetry?.(state.id))
       if (error instanceof AgentMalformedDecisionError) return undefined
       throw error
     }
+    /**
+     * Read here rather than returned by `decide`, because the provider's own
+     * usage is the only part of a step the controller cannot time itself, and
+     * the answer stops being this decision's the moment another starts.
+     */
+    measure(dependencies.model.decisionTelemetry?.(state.id))
     return AgentDecisionSchema.safeParse(raw).data
   }
 
@@ -524,24 +608,27 @@ export const createAgentController = (
   ): Promise<AgentObservation | undefined> => {
     try {
       const observation = AgentObservationSchema.parse(
-        await dependencies.observation.observe(
-          {
-            runId: state.id,
-            tabId: state.controlledTabId,
-            minimumGeneration: minimumGeneration.get(state.id) ?? 0,
-            allowedOrigins: state.allowedOrigins,
-            ...(inspection?.text
-              ? {
-                  extraction: {
-                    offset: inspection.offset ?? 0,
-                    frameId: inspection.frameId ?? 0
+        await timed("observeMs", () =>
+          dependencies.observation.observe(
+            {
+              runId: state.id,
+              tabId: state.controlledTabId,
+              minimumGeneration: minimumGeneration.get(state.id) ?? 0,
+              allowedOrigins: state.allowedOrigins,
+              ...(inspection?.text
+                ? {
+                    extraction: {
+                      offset: inspection.offset ?? 0,
+                      frameId: inspection.frameId ?? 0
+                    }
                   }
-                }
-              : {})
-          },
-          signal
+                : {})
+            },
+            signal
+          )
         )
       )
+      measure({ observations: 1 })
       const minimum = minimumGeneration.get(state.id) ?? 0
       if (
         observation.tabId !== state.controlledTabId ||
@@ -643,7 +730,9 @@ export const createAgentController = (
 
     let effect: ResolvedAgentEffect
     try {
-      effect = await dependencies.effect.resolve(command, observation, context)
+      effect = await timed("resolveMs", () =>
+        dependencies.effect.resolve(command, observation, context)
+      )
     } catch (error) {
       /**
        * Nothing was done to the page, so the run has lost track of nothing —
@@ -738,7 +827,7 @@ export const createAgentController = (
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {
-      await dependencies.persistence.appendStep({
+      await appendStep({
         runId: state.id,
         stepId,
         status: "failed",
@@ -791,7 +880,7 @@ export const createAgentController = (
         updatedAt: dependencies.clock.now()
       })
       if (!verifying) return undefined
-      await dependencies.persistence.appendStep({
+      await appendStep({
         runId: state.id,
         stepId,
         status: "failed",
@@ -838,7 +927,7 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     grants?: AgentRunState["grants"]
   ): Promise<AgentRunState | undefined> => {
-    await dependencies.persistence.appendStep({
+    await appendStep({
       runId: state.id,
       stepId,
       status: "approved",
@@ -862,11 +951,10 @@ export const createAgentController = (
     let failureState = executing
 
     try {
-      const receipt = await dependencies.effect.execute(
-        authorizedEffect,
-        signal
+      const receipt = await timed("executeMs", () =>
+        dependencies.effect.execute(authorizedEffect, signal)
       )
-      await dependencies.persistence.appendStep({
+      await appendStep({
         runId: state.id,
         stepId,
         status: "executed",
@@ -880,14 +968,16 @@ export const createAgentController = (
       })
       if (!verifying) return undefined
       failureState = verifying
-      const verification = await dependencies.effect.verify(
-        {
-          effect: authorizedEffect,
-          receipt,
-          before: observation,
-          allowedOrigins: executing.allowedOrigins
-        },
-        signal
+      const verification = await timed("verifyMs", () =>
+        dependencies.effect.verify(
+          {
+            effect: authorizedEffect,
+            receipt,
+            before: observation,
+            allowedOrigins: executing.allowedOrigins
+          },
+          signal
+        )
       )
       const action = classifyVerificationOutcome(verification, policy.risk)
       /**
@@ -909,7 +999,7 @@ export const createAgentController = (
           text: agentObservationHaystack(observation)
         }
       }
-      await dependencies.persistence.appendStep({
+      await appendStep({
         runId: state.id,
         stepId,
         status: action.stepStatus,
@@ -1002,7 +1092,7 @@ export const createAgentController = (
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
     const stepId = `${state.id}:${stepNumber}`
-    await dependencies.persistence.appendStep({
+    await appendStep({
       runId: state.id,
       stepId,
       status: "planned",
@@ -1140,7 +1230,7 @@ export const createAgentController = (
       reason: judgement.reason,
       refusals
     })
-    await dependencies.persistence.appendStep({
+    await appendStep({
       runId: state.id,
       stepId: `${state.id}:completion:${state.observationCount}`,
       status: "rejected",
@@ -1192,7 +1282,7 @@ export const createAgentController = (
     refusedCommandCounts.set(state.id, refusals)
     const now = dependencies.clock.now()
     dependencies.trace?.(state.id, "command_refused", { refusals })
-    await dependencies.persistence.appendStep({
+    await appendStep({
       runId: state.id,
       stepId: `${state.id}:refused:${state.observationCount}:${refusals}`,
       status: "rejected",
