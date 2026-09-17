@@ -954,5 +954,48 @@ describe("usable agent prompt", () => {
         retries: 1
       })
     })
+
+    /**
+     * A decision that failed is the expensive one — the run waited on it and
+     * the provider had already prefilled the prompt — and it was the one the
+     * collector reported nothing for, because the report sat after the
+     * `await` that threw.
+     */
+    it("records what a decision that never answered cost", async () => {
+      const streamChat = vi.fn(async () => {
+        throw new Error("provider unreachable")
+      })
+      const port = modelPort(streamChat)
+
+      await expect(
+        port.decide({ state, observation }, { aborted: false })
+      ).rejects.toThrow("provider unreachable")
+      const telemetry = port.decisionTelemetry?.(state.id)
+      expect(telemetry?.promptChars).toBeGreaterThan(0)
+      expect(telemetry?.numCtx).toBeGreaterThan(0)
+      expect(telemetry?.decideMs).toBeGreaterThanOrEqual(0)
+    })
+
+    /**
+     * Read once, by the step it belongs to. Left in place, a step that
+     * measured nothing is handed the previous step's tokens and persists
+     * them a second time, which doubles a run's reported cost.
+     */
+    it("answers one reader per decision", async () => {
+      const streamChat = vi.fn(async (_request, emit) =>
+        emit({
+          ...validChunk,
+          metrics: { prompt_eval_count: 90, eval_count: 9 }
+        })
+      )
+      const port = modelPort(streamChat)
+
+      await port.decide({ state, observation }, { aborted: false })
+
+      expect(port.decisionTelemetry?.(state.id)).toMatchObject({
+        promptTokens: 90
+      })
+      expect(port.decisionTelemetry?.(state.id)).toBeUndefined()
+    })
   })
 })

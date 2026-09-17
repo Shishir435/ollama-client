@@ -562,22 +562,29 @@ const collectDecision = async (input: {
     )
   } finally {
     scoped.cleanup()
+    /**
+     * Reported from the `finally` because a stream that rejects still spent
+     * what it spent. A cancelled or failed decision is the expensive one —
+     * the run waited the full deadline and paid for the prefill — and
+     * measuring only the answers that arrived would leave every slow failure
+     * out of the baseline it belongs in.
+     */
+    input.measured({
+      decideMs: Date.now() - startedAt,
+      ...(firstChunkAt === undefined
+        ? {}
+        : { firstTokenMs: firstChunkAt - startedAt }),
+      promptChars: prompt.length,
+      promptTokensEstimated: estimateTokens(prompt),
+      numCtx,
+      ...(withScreenshot ? { vision: true } : {}),
+      promptTokens: metrics?.prompt_eval_count,
+      outputTokens: metrics?.eval_count,
+      loadMs: agentTelemetryMillis(metrics?.load_duration),
+      prefillMs: agentTelemetryMillis(metrics?.prompt_eval_duration),
+      decodeMs: agentTelemetryMillis(metrics?.eval_duration)
+    })
   }
-  input.measured({
-    decideMs: Date.now() - startedAt,
-    ...(firstChunkAt === undefined
-      ? {}
-      : { firstTokenMs: firstChunkAt - startedAt }),
-    promptChars: prompt.length,
-    promptTokensEstimated: estimateTokens(prompt),
-    numCtx,
-    ...(withScreenshot ? { screenshot: true } : {}),
-    promptTokens: metrics?.prompt_eval_count,
-    outputTokens: metrics?.eval_count,
-    loadMs: agentTelemetryMillis(metrics?.load_duration),
-    prefillMs: agentTelemetryMillis(metrics?.prompt_eval_duration),
-    decodeMs: agentTelemetryMillis(metrics?.eval_duration)
-  })
   if (streamError) throw new Error(streamError)
   return parseAgentDecisionToolCalls([...calls.values()], input.observation, {
     screenshot: withScreenshot
@@ -625,33 +632,43 @@ const retryUntilWellFormed = async (input: {
       )
     }
   }
-  for (let retry = 0; retry <= MAX_RETRIES_PER_DECISION; retry += 1) {
-    if (signal.aborted) throw new Error("Agent model request cancelled")
-    try {
-      const decision = await collectDecision({
-        ...input,
-        retry,
-        measured,
-        ...(feedback ? { feedback } : {})
-      })
-      input.report(agentStepTelemetry({ ...spent, retries: retry }))
-      return decision
-    } catch (error) {
-      if (!(error instanceof AgentDecisionFormatError)) throw error
-      feedback = error.feedback
-      const malformed = (malformedByRun.get(state.id) ?? 0) + 1
-      malformedByRun.set(state.id, malformed)
-      if (
-        malformed >= MAX_MALFORMED_PER_RUN ||
-        retry >= MAX_RETRIES_PER_DECISION
-      ) {
-        /** A decision that never came still cost what it cost. */
-        input.report(agentStepTelemetry({ ...spent, retries: retry }))
-        throw error
+  /**
+   * Reported once, from a `finally`, so every way out of this function leaves
+   * a fresh answer behind. Reporting at the two exits that were easy to see —
+   * a decision, and a malformed budget running out — left a provider error
+   * and a cancellation reporting nothing at all, and the reader is a map
+   * keyed by run: saying nothing there is not the same as saying zero, it
+   * hands the controller whatever the previous step measured.
+   */
+  let retries = 0
+  try {
+    for (let retry = 0; retry <= MAX_RETRIES_PER_DECISION; retry += 1) {
+      retries = retry
+      if (signal.aborted) throw new Error("Agent model request cancelled")
+      try {
+        return await collectDecision({
+          ...input,
+          retry,
+          measured,
+          ...(feedback ? { feedback } : {})
+        })
+      } catch (error) {
+        if (!(error instanceof AgentDecisionFormatError)) throw error
+        feedback = error.feedback
+        const malformed = (malformedByRun.get(state.id) ?? 0) + 1
+        malformedByRun.set(state.id, malformed)
+        if (
+          malformed >= MAX_MALFORMED_PER_RUN ||
+          retry >= MAX_RETRIES_PER_DECISION
+        ) {
+          throw error
+        }
       }
     }
+    throw new AgentDecisionFormatError("The model returned no decision")
+  } finally {
+    input.report(agentStepTelemetry({ ...spent, retries }))
   }
-  throw new AgentDecisionFormatError("The model returned no decision")
 }
 
 export interface ProviderAgentModelPortOptions {
@@ -711,7 +728,15 @@ export const createProviderAgentModelPort = (
 
   return {
     decisionTelemetry(runId) {
-      return telemetryByRun.get(runId)
+      /**
+       * Consumed, not read. What it holds belongs to the decision that just
+       * resolved; leaving it in place lets a later step that measured nothing
+       * — a decision cancelled before the provider answered — be handed the
+       * previous step's tokens and timings and persist them a second time.
+       */
+      const telemetry = telemetryByRun.get(runId)
+      telemetryByRun.delete(runId)
+      return telemetry
     },
     async vision(state, signal) {
       const compatibility = await compatibilityFor(state, signal)
