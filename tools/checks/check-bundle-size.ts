@@ -283,8 +283,17 @@ const budgets: Budget[] = [
      * every remaining gate is stated as a comparison against a baseline, and
      * a baseline cannot be read from a run that measured nothing. Firefox
      * carries no Agent code and is unchanged.
+     *
+     * Task requirements — the planning call and its tool, the per-requirement
+     * completion judge, and the panel list a settled run shows — took it to
+     * 265,089. Most of it is the planning prompt and the outcome vocabulary,
+     * both of which are text that has to reach the model or the reader. It
+     * buys the release's largest correctness gate: before this, a run told to
+     * fill a form and submit it could submit an empty one and report success,
+     * because submitting is a mutation and the verifier confirmed it. Firefox
+     * carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 264_000
+    max: isFirefox ? 210_000 : 266_000
   }
 ]
 
