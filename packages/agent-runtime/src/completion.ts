@@ -103,6 +103,15 @@ export type AgentCompletionJudgement =
    * settles into is not `completed`.
    */
   | { type: "partial"; outcome: AgentRunOutcome }
+  /**
+   * The run reached an answer and the answer was "none of it".
+   *
+   * Separate from `partial` because partial says some of the task was done,
+   * and a run that met nothing showing as "Partly done" is the same kind of
+   * overstatement the whole gate exists to stop — just a smaller one. The
+   * controller settles this as a failure.
+   */
+  | { type: "unmet"; outcome: AgentRunOutcome }
   | {
       type: "refused"
       reason:
@@ -312,7 +321,14 @@ const MISSING_OUTCOMES_FEEDBACK =
 const judgeEvidence = (
   evidence: string | undefined,
   input: AgentCompletionInput,
-  change: AgentStepReadout | "unreadable"
+  change: AgentStepReadout | "unreadable",
+  /**
+   * A reading outcome's quotation is something the page already said — that
+   * is what reading it means — so it owes presence and nothing else. Running
+   * the staleness rule over it would refuse every correct answer, since the
+   * text it names was on the page before the run touched anything.
+   */
+  produced = true
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   const quoted = evidence?.trim()
   if (!quoted)
@@ -327,6 +343,7 @@ const judgeEvidence = (
       reason: "absent_evidence",
       feedback: ABSENT_EVIDENCE_FEEDBACK
     }
+  if (!produced) return undefined
   if (change !== "unreadable" && isSelfEvidence(quoted, change))
     return {
       type: "refused",
@@ -401,6 +418,15 @@ const judgePlanned = (
       continue
     }
     if (requirement.kind === "read") {
+      /**
+       * A read owes no quotation, but one it volunteers must still be real.
+       * An accepted completion carrying a phrase the page does not contain is
+       * a false record whichever kind of outcome it was attached to.
+       */
+      const refusal = claim.evidence
+        ? judgeEvidence(claim.evidence, input, change ?? "unreadable", false)
+        : undefined
+      if (refusal) return refusal
       met.push(requirement.id)
       continue
     }
@@ -409,8 +435,9 @@ const judgePlanned = (
     met.push(requirement.id)
   }
   const outcome = { met, unmet }
-  return unmet.length === 0
-    ? { type: "accepted", outcome }
+  if (unmet.length === 0) return { type: "accepted", outcome }
+  return met.length === 0
+    ? { type: "unmet", outcome }
     : { type: "partial", outcome }
 }
 

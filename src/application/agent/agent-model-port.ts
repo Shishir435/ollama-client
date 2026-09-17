@@ -789,13 +789,19 @@ export const createProviderAgentModelPort = (
             },
             scoped.signal
           )
-        } finally {
-          scoped.cleanup()
-        }
-        try {
           return parseAgentTaskPlan([...calls.values()])
         } catch (error) {
+          /**
+           * The stream's failure is retried on the same terms as a malformed
+           * answer. Only the parse was caught before, so a provider that
+           * dropped one connection skipped the second attempt and left the
+           * run unplanned — which is to say it bought the weaker completion
+           * gate with a transient error.
+           */
+          if (signal.aborted) throw error
           lastError = error
+        } finally {
+          scoped.cleanup()
         }
       }
       throw lastError

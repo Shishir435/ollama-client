@@ -326,9 +326,7 @@ const runAgentScenarioAttempt = (
      * model answers by step index. Letting a plan request through here spent
      * a scripted step on it and shifted every later decision by one.
      */
-    const answerPlan = (parsed: {
-      tools?: { function?: { name?: string } }[]
-    }) =>
+    const answerPlan = () =>
       `${JSON.stringify({
         model,
         message: {
@@ -349,7 +347,7 @@ const runAgentScenarioAttempt = (
     const answerDecision = async (body: string): Promise<string> => {
       const parsed = JSON.parse(body)
       if (parsed.tools?.[0]?.function?.name === "agent_plan")
-        return answerPlan(parsed)
+        return answerPlan()
       step += 1
       const lastMessage = parsed.messages?.at(-1) as
         | { images?: unknown[] }

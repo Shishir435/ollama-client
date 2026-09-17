@@ -26,6 +26,7 @@ import {
   resumeAgentDeadlines,
   suspendAgentDeadlines
 } from "./budgets"
+import type { AgentCompletionJudgement } from "./completion"
 import {
   agentEffectChangesPage,
   isAppliedAgentStepStatus,
@@ -1189,6 +1190,43 @@ export const createAgentController = (
     return { judgement, observation }
   }
 
+  /**
+   * Three answers, three statuses, written out rather than defaulted.
+   *
+   * `partial` settles into its own terminal status, not `completed` with a
+   * note, because the panel reads a status before it reads a summary. A run
+   * that met nothing is a failure, not a small partial: "Partly done" over an
+   * empty outcome is the same overstatement as "Completed" over a half-filled
+   * form. This was a ternary once, and the third answer fell through it to
+   * `completed` while typechecking cleanly.
+   */
+  const settleJudgedRun = async (
+    state: AgentRunState,
+    judgement: Exclude<AgentCompletionJudgement, { type: "refused" }>,
+    summary: string
+  ): Promise<void> => {
+    const settled =
+      judgement.type === "partial"
+        ? "partial"
+        : judgement.type === "unmet"
+          ? "failed"
+          : "completed"
+    const patch: AgentStatePatch = {
+      result: summary,
+      updatedAt: dependencies.clock.now()
+    }
+    if (judgement.outcome) patch.outcome = judgement.outcome
+    if (judgement.type === "unmet") {
+      patch.error = {
+        code: "goal_failed",
+        message: "The Agent met none of what the task asked for.",
+        /** The run answered; trying the same goal again is the user's call. */
+        retryable: false
+      }
+    }
+    await transition(state, settled, patch)
+  }
+
   const processCompletion = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
@@ -1225,21 +1263,7 @@ export const createAgentController = (
     const { judgement } = settled
     observation = settled.observation
     if (judgement.type !== "refused") {
-      /**
-       * `partial` settles into its own terminal status, not into `completed`
-       * with a note. The panel reads a status before it reads a summary, and
-       * a run that filled three fields of five saying "Completed" is the
-       * claim this whole gate exists to stop.
-       */
-      await transition(
-        state,
-        judgement.type === "partial" ? "partial" : "completed",
-        {
-          result: decision.summary,
-          ...(judgement.outcome ? { outcome: judgement.outcome } : {}),
-          updatedAt: dependencies.clock.now()
-        }
-      )
+      await settleJudgedRun(state, judgement, decision.summary)
       return undefined
     }
     if (await exhaustedNoProgressBudget(state, observation, decision))

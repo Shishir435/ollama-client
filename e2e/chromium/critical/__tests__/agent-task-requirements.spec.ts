@@ -147,3 +147,35 @@ runAgentScenario({
     expect(wire.filter((entry) => entry.decision !== undefined)).toHaveLength(3)
   }
 })
+
+/**
+ * A run that met nothing is a failure, not a small partial.
+ *
+ * The status mapping is a three-way choice written out in the controller, and
+ * a default on that choice sent an all-unmet answer to `completed` while
+ * typechecking cleanly. Asserted here rather than in a unit test because the
+ * mapping is the part a unit test of the judge cannot see.
+ */
+runAgentScenario({
+  name: "requirements-nothing",
+  goal: "Put Alice in the name field and Baker Street in the address field.",
+  status: "failed",
+  html: () => FORM_PAGE,
+  plan: [
+    { text: "the name field holds Alice", kind: "change" },
+    { text: "the address field holds Baker Street", kind: "change" }
+  ],
+  decide: () => ({
+    type: "complete",
+    summary: "The fields are not editable here.",
+    outcomes: [
+      { id: "r1", met: false },
+      { id: "r2", met: false }
+    ]
+  }),
+  verify: async ({ snapshot }) => {
+    expect(snapshot?.run?.status).toBe("failed")
+    expect(snapshot?.run?.outcome).toEqual({ met: [], unmet: ["r1", "r2"] })
+    expect(snapshot?.run?.error?.code).toBe("goal_failed")
+  }
+})

@@ -654,6 +654,61 @@ describe("judgeAgentCompletion with planned requirements", () => {
    * and must not be refused for failing to quote a saved-state indicator that
    * a research goal never produces.
    */
+  /**
+   * "Partly done" over an empty outcome is the same overstatement as
+   * "Completed" over a half-filled form, just a smaller one.
+   */
+  it("does not call a run that met nothing partial", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [fieldEdit],
+        observation: partialForm,
+        requirements,
+        outcomes: [
+          { id: "r1", met: false },
+          { id: "r2", met: false }
+        ]
+      })
+    ).toEqual({ type: "unmet", outcome: { met: [], unmet: ["r1", "r2"] } })
+  })
+
+  /**
+   * A read owes no quotation. One it volunteers is still checked for
+   * presence, because an accepted completion carrying a phrase the page does
+   * not contain is a false record whichever outcome it hangs off.
+   */
+  it("checks a quotation a read requirement volunteered", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: partialForm,
+        requirements: [
+          { id: "r1", text: "report the listed price", kind: "read" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Price: £40" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  /**
+   * And only for presence. A reading outcome quotes what the page already
+   * said — that is what reading means — so the staleness rule would refuse
+   * every correct answer.
+   */
+  it("does not hold a read quotation against the pre-change baseline", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: partialForm,
+        baselineText: "name: alice. draft unsaved. address missing.",
+        requirements: [
+          { id: "r1", text: "report the name on file", kind: "read" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
   it("asks a read requirement for no page evidence", () => {
     expect(
       judgeAgentCompletion({
