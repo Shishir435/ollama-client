@@ -14,7 +14,8 @@ import type {
   AgentSnapshotIdentity,
   AgentStepStatus,
   AgentStepTelemetry,
-  AgentTakeoverRequest
+  AgentTakeoverRequest,
+  AgentTaskPlan
 } from "@ollama-client/contracts"
 
 export type AgentRisk = "low" | "medium" | "high" | "critical"
@@ -409,8 +410,10 @@ export type AgentStatePatch = Partial<
     | "error"
     | "grants"
     | "observationCount"
+    | "outcome"
     | "pauseReason"
     | "question"
+    | "requirements"
     | "result"
     | "scopedTabIds"
     | "stepCount"
@@ -560,6 +563,22 @@ export interface AgentModelPort {
    * nothing returns nothing.
    */
   decisionTelemetry?(runId: string): AgentStepTelemetry | undefined
+  /**
+   * What the goal asks for, decided before the run looks at anything.
+   *
+   * Taken from the goal alone and on purpose: the model has not seen the page
+   * yet, so it cannot yet know which of the outcomes will turn out to be the
+   * inconvenient one. A list proposed after the first look is a list that can
+   * be shaped around what the page makes easy.
+   *
+   * Optional because a host that cannot plan must still be able to run. That
+   * run is judged the way runs were judged before requirements existed, which
+   * is weaker — so a host that can plan should.
+   */
+  plan?(
+    state: AgentRunState,
+    signal: AgentCancellationSignal
+  ): Promise<AgentTaskPlan>
 }
 
 /** What a resolver may ground a command in besides the DOM observation. */

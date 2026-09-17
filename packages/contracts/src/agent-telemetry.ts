@@ -33,6 +33,16 @@ export const AgentStepTelemetrySchema = z
   .object({
     /** Wall-clock the model took to answer, including malformed retries. */
     decideMs: duration.optional(),
+    /**
+     * Wall-clock the run's planning call took, on the first step's receipt.
+     *
+     * Its own field rather than folded into `decideMs`: planning happens once
+     * per run and a step's decision happens every step, so adding them would
+     * make the first step look slow and hide what the plan actually cost —
+     * which is the number that says whether the extra round trip was worth
+     * it. Absent on every step but the first, and on an unplanned run.
+     */
+    planMs: duration.optional(),
     /** Wall-clock spent taking the decision's observation. */
     observeMs: duration.optional(),
     /** Wall-clock spent capturing and masking the screenshot, when one was taken. */

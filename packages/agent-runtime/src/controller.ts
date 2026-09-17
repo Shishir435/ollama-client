@@ -1157,7 +1157,12 @@ export const createAgentController = (
   ) => {
     let judgement = judgeAgentCompletion(input)
     let observation = input.observation
-    if (!dependencies.clock.wait || judgement.type === "accepted")
+    /**
+     * A settled answer, accepted or partial, is not waited on. Re-reading the
+     * page cannot turn a requirement the run itself reported it could not do
+     * into one it did.
+     */
+    if (!dependencies.clock.wait || judgement.type !== "refused")
       return { judgement, observation }
     const delays =
       judgement.reason === "missing_evidence"
@@ -1171,7 +1176,7 @@ export const createAgentController = (
       if (!fresh) return undefined
       observation = fresh
       judgement = judgeAgentCompletion({ ...input, observation })
-      if (judgement.type === "accepted") break
+      if (judgement.type !== "refused") break
     }
     return { judgement, observation }
   }
@@ -1202,18 +1207,31 @@ export const createAgentController = (
         steps,
         observation,
         evidence: decision.evidence,
-        baselineText: baseline
+        baselineText: baseline,
+        ...(state.requirements ? { requirements: state.requirements } : {}),
+        ...(decision.outcomes ? { outcomes: decision.outcomes } : {})
       },
       signal
     )
     if (!settled) return undefined
     const { judgement } = settled
     observation = settled.observation
-    if (judgement.type === "accepted") {
-      await transition(state, "completed", {
-        result: decision.summary,
-        updatedAt: dependencies.clock.now()
-      })
+    if (judgement.type !== "refused") {
+      /**
+       * `partial` settles into its own terminal status, not into `completed`
+       * with a note. The panel reads a status before it reads a summary, and
+       * a run that filled three fields of five saying "Completed" is the
+       * claim this whole gate exists to stop.
+       */
+      await transition(
+        state,
+        judgement.type === "partial" ? "partial" : "completed",
+        {
+          result: decision.summary,
+          ...(judgement.outcome ? { outcome: judgement.outcome } : {}),
+          updatedAt: dependencies.clock.now()
+        }
+      )
       return undefined
     }
     if (await exhaustedNoProgressBudget(state, observation, decision))
@@ -1493,6 +1511,54 @@ export const createAgentController = (
     return { state: deciding, observation, decision, context }
   }
 
+  /**
+   * One model call, before the run is allowed to look at the page.
+   *
+   * The list it produces is what the completion judge measures the run
+   * against, and it is fixed here rather than asked for at the end because a
+   * model deciding at the end what the task required will decide it required
+   * whatever it managed to do.
+   *
+   * A host with no `plan` port, or a plan call that fails, leaves the run
+   * unplanned rather than killing it — a small model that cannot produce a
+   * well-formed plan should still be able to attempt the task. That run is
+   * judged the weaker, pre-requirements way, and the trace says so, because
+   * the difference matters when reading why a run was allowed to finish.
+   */
+  const planRequirements = async (
+    state: AgentRunState,
+    signal: AgentCancellationController["signal"]
+  ): Promise<AgentRunState | undefined> => {
+    if (state.status !== "submitted") return state
+    if (state.requirements || !dependencies.model.plan) return state
+    const planning = await transition(state, "planning", {
+      updatedAt: dependencies.clock.now()
+    })
+    if (!planning) return undefined
+    const startedAt = dependencies.clock.now()
+    let requirements: AgentRunState["requirements"]
+    try {
+      requirements = (await dependencies.model.plan(planning, signal))
+        .requirements
+    } catch (error) {
+      if (signal.aborted) return undefined
+      dependencies.trace?.(state.id, "plan_unavailable", {
+        name: error instanceof Error ? error.name : typeof error
+      })
+    }
+    measure({ planMs: dependencies.clock.now() - startedAt })
+    if (!requirements?.length) return planning
+    dependencies.trace?.(state.id, "planned", {
+      requirements: requirements.length
+    })
+    return (
+      (await transition(planning, "observing", {
+        requirements,
+        updatedAt: dependencies.clock.now()
+      })) ?? undefined
+    )
+  }
+
   const runLoop = async (
     initialState: AgentRunState,
     controller: AgentCancellationController,
@@ -1580,7 +1646,15 @@ export const createAgentController = (
        */
       if (state.pauseReason === "question" && !observingClaimed) return
       if (state.status === "awaiting_takeover" && !afterTakeover) return
-      await runLoop(state, controller, afterTakeover, observingClaimed)
+      const planned = await planRequirements(state, controller.signal)
+      if (!planned) return
+      await runLoop(
+        planned,
+        controller,
+        afterTakeover,
+        /** The planning transition already claimed the first observation. */
+        observingClaimed || planned.status === "observing"
+      )
     } finally {
       if (active.get(runId) === controller) active.delete(runId)
     }
