@@ -1226,12 +1226,26 @@ describe("scoped reads", () => {
     expect(scoped.elements.length).toBeGreaterThan(0)
   })
 
+  /**
+   * Exactly the group name the observation publishes, not a substring of it.
+   * `unmatchedFocus` has always matched regions exactly — a near miss like
+   * `form` for `form "search"` is a miss, and saying so is the point — so a
+   * looser rule here would have the walk find what the projection then calls
+   * unmatched.
+   */
   it("matches a region by the group name the overview already showed", () => {
     document.body.innerHTML =
       '<nav aria-label="Account menu"><button>Sign out</button></nav>' +
       "<main><button>Sign out</button></main>"
-    const scoped = buildScoped({ kind: "region", value: "account menu" })
+    const group = build().elements[0]?.group
+    expect(group).toBeDefined()
+
+    const scoped = buildScoped({ kind: "region", value: group ?? "" })
     expect(scoped.elements).toHaveLength(1)
     expect(scoped.scope?.kind).toBe("region")
+
+    /** A near miss is a miss, and answers with the page instead. */
+    const near = buildScoped({ kind: "region", value: "nav" })
+    expect(near.scope).toMatchObject({ returned: 0 })
   })
 })
