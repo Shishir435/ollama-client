@@ -508,6 +508,41 @@ describe("optional decision fields", () => {
    * the fixture writes `outcomes` straight into the decision and never reads
    * the advertised schema.
    */
+  /**
+   * The tool offers the key, so a model answering `met: false` fills it with
+   * an empty string. Refusing that spends a malformed retry on a decision
+   * that was perfectly usable.
+   */
+  it("drops an outcome's empty evidence instead of refusing the decision", () => {
+    const decision = parseAgentDecisionToolCalls(
+      [
+        {
+          id: "call-1",
+          name: AGENT_DECISION_TOOL_NAME,
+          arguments: {
+            type: "complete",
+            summary: "Done what I could.",
+            outcomes: [
+              { id: "r1", met: true, evidence: "  Saved  " },
+              { id: "r2", met: false, evidence: "" },
+              { id: "r3", met: false, evidence: "   " }
+            ]
+          }
+        }
+      ],
+      observation
+    )
+
+    expect(decision).toMatchObject({
+      type: "complete",
+      outcomes: [
+        { id: "r1", met: true, evidence: "Saved" },
+        { id: "r2", met: false },
+        { id: "r3", met: false }
+      ]
+    })
+  })
+
   it("advertises every optional complete field in the tool the model sees", () => {
     const advertised = Object.keys(AGENT_DECISION_TOOL.parameters.properties)
     for (const field of AGENT_DECISION_OPTIONAL_FIELDS.complete ?? []) {

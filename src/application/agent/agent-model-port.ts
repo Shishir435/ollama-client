@@ -111,6 +111,7 @@ const agentDecisionParameters = (vision: boolean): ToolParameterSchema => ({
           },
           evidence: {
             type: "string",
+            minLength: 1,
             maxLength: MAX_AGENT_EVIDENCE_CHARS,
             description:
               "Text quoted from the page showing this outcome holds. Required when met is true and the requirement changes the page."
