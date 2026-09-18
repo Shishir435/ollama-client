@@ -1,6 +1,38 @@
+import { STORAGE_KEYS } from "@/lib/constants"
 import type { SettingsEntryDefinition } from "./types"
 
 export const BROWSER_SETTINGS = [
+  // ---- Browser agent -----------------------------------------------------
+  {
+    id: "agent-context-window",
+    sectionId: "agent",
+    labelKey: "agent.settings.context_window.label",
+    descriptionKey: "agent.settings.context_window.description",
+    storageKey: STORAGE_KEYS.AGENT.CONTEXT_WINDOW,
+    level: "power",
+    searchKeys: [
+      "agent.settings.title",
+      "agent.settings.context_window.auto",
+      "agent.settings.context_window.custom"
+    ],
+    keywords: ["agent", "context", "window", "tokens"],
+    aliases: ["num_ctx", "context length", "prompt size", "agent memory"]
+  },
+  {
+    id: "agent-vision",
+    sectionId: "agent",
+    labelKey: "agent.settings.vision.label",
+    descriptionKey: "agent.settings.vision.description",
+    storageKey: STORAGE_KEYS.AGENT.VISION,
+    level: "advanced",
+    searchKeys: [
+      "agent.settings.vision.auto",
+      "agent.settings.vision.always",
+      "agent.settings.vision.never"
+    ],
+    keywords: ["agent", "screenshot", "vision", "image"],
+    aliases: ["agent screenshots", "picture the page", "see the page"]
+  },
   // ---- Content Extraction ------------------------------------------------
   {
     id: "content-extraction-enabled",

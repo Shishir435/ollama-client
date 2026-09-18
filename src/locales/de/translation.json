@@ -174,6 +174,23 @@
       "title": "Was die Aufgabe verlangt hat",
       "met": "Erledigt",
       "unmet": "Nicht erledigt"
+    },
+    "settings": {
+      "title": "Browser-Agent",
+      "description": "Wie viel Kontext ein Lauf von seinem Modell anfordern darf und wann er die Seite abbildet.",
+      "context_window": {
+        "label": "Kontextfenster",
+        "description": "Automatisch nimmt das kleinste Fenster, das dieses Modell und dieser Server melden, und greift auf eine konservative Größe zurück, wenn keiner etwas sagt. Lege selbst eine Größe fest, wenn du das Limit deines Servers erhöht hast oder einem Lauf der Speicher ausgegangen ist.",
+        "auto": "Automatisch",
+        "custom": "Größe festlegen"
+      },
+      "vision": {
+        "label": "Screenshots",
+        "description": "Ein Bild kostet bei jedem Schritt, der eines aufnimmt, ein Bild-Prefill im Fenster des Modells. Automatisch nimmt eines beim ersten Schritt auf, nach einem Schritt, der nicht gegriffen hat, und bei Seiten, die die Seitenstruktur nicht beschreiben kann.",
+        "auto": "Wenn der Schritt eines braucht",
+        "always": "Bei jedem Schritt",
+        "never": "Nie"
+      }
     }
   },
   "common": {

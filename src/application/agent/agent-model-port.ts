@@ -4,7 +4,8 @@ import type {
   AgentHistoryEntry,
   AgentInspectionFocus,
   AgentModelPort,
-  AgentVerificationResult
+  AgentVerificationResult,
+  AgentVisionPolicy
 } from "@ollama-client/agent-runtime"
 import {
   agentRemainingBudget,
@@ -36,6 +37,7 @@ import {
   AGENT_CONTEXT_MAX_TOKENS,
   AGENT_CONTEXT_MIN_TOKENS,
   readAgentContextWindowSetting,
+  readAgentVisionSetting,
   resolveAgentContextWindow
 } from "./agent-context-window"
 import {
@@ -907,6 +909,7 @@ export const createProviderAgentModelPort = (
    * local runner reloads the model when it does.
    */
   const windowByRun = new Map<string, number>()
+  const visionByRun = new Map<string, AgentVisionPolicy>()
 
   const windowFor = async (
     state: AgentRunState,
@@ -958,6 +961,18 @@ export const createProviderAgentModelPort = (
     async vision(state, signal) {
       const compatibility = await compatibilityFor(state, signal)
       return compatibility.vision === true
+    },
+    /**
+     * Read once per run, beside the window and for the same reason: it does
+     * not change while a run is in flight, and a storage read per step to
+     * learn a constant is a storage read per step.
+     */
+    async visionPolicy(state) {
+      const known = visionByRun.get(state.id)
+      if (known) return known
+      const policy = await readAgentVisionSetting()
+      visionByRun.set(state.id, policy)
+      return policy
     },
     /**
      * One call, before the run has looked at anything, retried once.

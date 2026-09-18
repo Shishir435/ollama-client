@@ -18,6 +18,7 @@ import type {
   AgentTakeoverRequest,
   AgentTaskPlan
 } from "@ollama-client/contracts"
+import type { AgentVisionPolicy } from "./vision"
 
 export type AgentRisk = "low" | "medium" | "high" | "critical"
 
@@ -599,6 +600,18 @@ export interface AgentModelPort {
     state: AgentRunState,
     signal: AgentCancellationSignal
   ): Promise<boolean>
+  /**
+   * When the run may picture the page, as the user asked for it.
+   *
+   * Separate from `vision`, which answers a fact about the model. This
+   * answers a preference about the run, and the two are different questions:
+   * a model that can see does not have to be shown everything. Absent means
+   * `always`, which is what every port did before this existed.
+   */
+  visionPolicy?(
+    state: AgentRunState,
+    signal: AgentCancellationSignal
+  ): Promise<AgentVisionPolicy>
   /**
    * What the decision that just resolved cost, for the run named.
    *

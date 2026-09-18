@@ -174,6 +174,23 @@
       "title": "What the task asked for",
       "met": "Done",
       "unmet": "Not done"
+    },
+    "settings": {
+      "title": "Browser agent",
+      "description": "How much context a run may ask its model for, and when it pictures the page.",
+      "context_window": {
+        "label": "Context window",
+        "description": "Automatic reads the smallest window this model and this server both report, and falls back to a conservative size when neither says. Set a size yourself if you have raised your server's own limit, or if a run has run out of memory.",
+        "auto": "Automatic",
+        "custom": "Set a size"
+      },
+      "vision": {
+        "label": "Screenshots",
+        "description": "A picture costs an image prefill in the model's window on every step that takes one. Automatic takes one on the first step, after a step that did not land, and on pages the page structure cannot describe.",
+        "auto": "When the step needs one",
+        "always": "Every step",
+        "never": "Never"
+      }
     }
   },
   "common": {
