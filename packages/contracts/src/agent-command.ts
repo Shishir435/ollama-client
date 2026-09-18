@@ -33,11 +33,14 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
    */
   GroundedCommandSchema.extend({
     type: z.literal("inspect"),
-    target: z.string().min(1).max(80)
+    target: z.string().min(1).max(80),
+    /** Where to resume when a previous answer stopped with more to give. */
+    offset: z.number().int().min(0).max(100_000).optional()
   }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("find"),
-    query: z.string().min(1).max(100)
+    query: z.string().min(1).max(100),
+    offset: z.number().int().min(0).max(100_000).optional()
   }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("extract_text"),

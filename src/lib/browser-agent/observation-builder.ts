@@ -23,6 +23,12 @@ export const AGENT_OBSERVATION_LIMITS = {
   modals: 10,
   modalLabelChars: 200,
   groupChars: 80,
+  /**
+   * Matches one scoped read returns. Small on purpose: prompt size is what a
+   * decision's latency is mostly made of, and a query answering with two
+   * hundred rows would cost more than the omission it exists to fix.
+   */
+  scopeMatches: 50,
   passBudgetMs: 500,
   budgetCheckInterval: 256
 } as const
@@ -1460,6 +1466,82 @@ const scrollState = (
   }
 }
 
+/**
+ * What a scoped read asks the page for.
+ *
+ * `query` matches a control's own words — its accessible name, its value, its
+ * placeholder. `region` matches the group a control sits in, which is the
+ * same grouping the overview labels its rows with, so the model asks for a
+ * region using the name it was already shown.
+ */
+export interface AgentObservationScope {
+  kind: "query" | "region"
+  value: string
+  offset?: number
+}
+
+const scopeHaystack = (
+  element: Element,
+  pass: AgentObservationPass
+): string => {
+  const parts = [
+    accessibleName(element, pass),
+    element.getAttribute("placeholder"),
+    element.getAttribute("aria-placeholder"),
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement
+      ? element.value
+      : undefined
+  ]
+  return parts.filter(Boolean).join(" ").toLowerCase()
+}
+
+/**
+ * The whole document, filtered, rather than the overview's first page of it.
+ *
+ * `find` and `inspect` used to re-rank `observation.elements` — the list the
+ * overview had already capped at 2,000 under a 500ms budget. A control the
+ * capture never reached could not be recovered by any later query or any
+ * context window, because nothing went back to the page. This walks the
+ * document itself and keeps only what the scope matches, so the cap bounds
+ * one answer instead of the run's whole sight of the page.
+ *
+ * Running out of budget stops the walk and is reported as `nextOffset`,
+ * where the overview throws. The overview throwing is right — a truncated
+ * overview is a snapshot that silently omits what the run needs. Here the
+ * continuation *is* the feature, and refusing to answer a large page would
+ * refuse exactly the page this was built for.
+ */
+const selectScopedCandidates = (
+  document: Document,
+  pass: AgentObservationPass,
+  scope: AgentObservationScope,
+  modalIds: Map<Element, string>,
+  limit: number
+): { matches: Element[]; nextOffset?: number } => {
+  const offset = Math.max(0, scope.offset ?? 0)
+  const needle = scope.value.trim().toLowerCase()
+  const matches: Element[] = []
+  let seen = 0
+  if (limit <= 0 || needle.length === 0) return { matches }
+
+  for (const node of composedDescendants(document.documentElement)) {
+    const candidate = asElement(node)
+    if (!candidate?.matches(INTERACTIVE_SELECTOR)) continue
+    if (pass.exhausted()) return { matches, nextOffset: seen }
+    const hit =
+      scope.kind === "region"
+        ? groupOf(candidate, modalIds)?.toLowerCase().includes(needle) === true
+        : scopeHaystack(candidate, pass).includes(needle)
+    if (!hit) continue
+    seen += 1
+    if (seen <= offset) continue
+    matches.push(candidate)
+    if (matches.length >= limit) return { matches, nextOffset: seen }
+  }
+  return { matches }
+}
+
 const selectObservedCandidates = (
   document: Document,
   pass: AgentObservationPass,
@@ -1540,6 +1622,12 @@ export const buildAgentObservation = (input: {
    * spreading its controls across frames.
    */
   elementLimit?: number
+  /**
+   * A scoped read. When present the elements are the scope's matches rather
+   * than the page's overview, because the two answer different questions and
+   * returning both would spend the element cap twice.
+   */
+  scope?: AgentObservationScope
   textOffset?: number
   capturedAt?: number
   createSnapshotId?: () => string
@@ -1562,10 +1650,18 @@ export const buildAgentObservation = (input: {
   })
   const pass = createObservationPass(input.now)
   const { modals, ids: modalIds } = collectModals(input.document, pass)
-  const elements = selectObservedCandidates(
-    input.document,
-    pass,
-    elementLimit
+  const scoped = input.scope
+    ? selectScopedCandidates(
+        input.document,
+        pass,
+        input.scope,
+        modalIds,
+        Math.min(elementLimit, AGENT_OBSERVATION_LIMITS.scopeMatches)
+      )
+    : undefined
+  const elements = (
+    scoped?.matches ??
+    selectObservedCandidates(input.document, pass, elementLimit)
   ).map((element) =>
     buildElementObservation(
       element,
@@ -1622,6 +1718,19 @@ export const buildAgentObservation = (input: {
       }
     ],
     elements,
+    ...(input.scope && scoped
+      ? {
+          scope: {
+            kind: input.scope.kind,
+            value: input.scope.value,
+            offset: Math.max(0, input.scope.offset ?? 0),
+            returned: scoped.matches.length,
+            ...(scoped.nextOffset === undefined
+              ? {}
+              : { nextOffset: scoped.nextOffset })
+          }
+        }
+      : {}),
     visibleText,
     ...(input.textOffset === undefined || !input.document.body
       ? {}
