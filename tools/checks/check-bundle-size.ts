@@ -292,8 +292,16 @@ const budgets: Budget[] = [
      * fill a form and submit it could submit an empty one and report success,
      * because submitting is a mutation and the verifier confirmed it. Firefox
      * carries no Agent code and is unchanged.
+     *
+     * Scoped reads — the document walk behind `find` and `inspect`, the scope
+     * carried down the control port, and the prompt lines that tell the model
+     * how to continue one and how to reach what it found — took it to 266,005.
+     * Five bytes over, and worth the raise rather than the trim: before this a
+     * control past the 2,000-element capture cap was unreachable by any query
+     * and any context window, because nothing went back to the page. Firefox
+     * carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 266_000
+    max: isFirefox ? 210_000 : 268_000
   }
 ]
 
