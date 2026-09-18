@@ -833,3 +833,56 @@ describe("projectAgentObservation on a page of below-fold controls", () => {
     ).toMatchObject({ value: "drafted" })
   })
 })
+
+/**
+ * Two rules meet in the scope count and the naive combination lies in both
+ * directions: the projection trims rows to a character budget, and a scope
+ * that matched nothing answers with the overview instead of an empty page.
+ */
+describe("projectAgentObservation scope counts", () => {
+  const scoped = (
+    scope: NonNullable<AgentObservation["scope"]>,
+    elements: AgentElement[]
+  ) => projectAgentObservation(observation({ scope, elements })).scope
+
+  it("reports what the page matched when every row fits", () => {
+    expect(
+      scoped({ kind: "query", value: "continue", offset: 0, returned: 1 }, [
+        element()
+      ])
+    ).toMatchObject({ returned: 1 })
+  })
+
+  /**
+   * A miss carries the overview so the model can see the page it missed on.
+   * Counting those rows as matches would tell it unrelated controls answered
+   * its query — the one thing a miss has to be able to deny.
+   */
+  it("keeps a miss at zero even though the overview answered", () => {
+    const projected = scoped(
+      { kind: "region", value: "checkout", offset: 0, returned: 0 },
+      [element(), element({ ref: "e2" }), element({ ref: "e3" })]
+    )
+    expect(projected).toMatchObject({ returned: 0 })
+    expect(projected?.nextOffset).toBeUndefined()
+  })
+
+  /**
+   * A trimmed answer resumes at the first row that did not fit, rather than
+   * pointing past matches the model was never shown.
+   */
+  it("resumes at the first row the budget cut", () => {
+    const many = Array.from({ length: 40 }, (_unused, index) =>
+      element({ ref: `e${index + 1}`, name: `Row ${index} pick` })
+    )
+    const projected = projectAgentObservation(
+      observation({
+        scope: { kind: "query", value: "pick", offset: 10, returned: 40 },
+        elements: many
+      }),
+      { pageContentChars: 200 }
+    ).scope
+    expect(projected?.returned).toBeLessThan(40)
+    expect(projected?.nextOffset).toBe(10 + (projected?.returned ?? 0))
+  })
+})

@@ -376,20 +376,27 @@ const projectedScope = (
 ): Pick<AgentProjectedObservation, "scope"> => {
   if (!scope) return {}
   /**
-   * The counts describe the rows the model can actually see, not the rows the
-   * page found. The projection trims to a character budget, so copying the
-   * page's figures told the model to continue past matches it was never
-   * shown — and those rows were then skipped for good. A trimmed answer
-   * resumes at the first row that did not fit.
+   * The count describes the rows the model can actually see, and never more
+   * than the page matched.
+   *
+   * Two rules meet here and the naive combination lies in both directions.
+   * The projection trims to a character budget, so copying the page's figure
+   * told the model to continue past matches it was never shown, and those
+   * rows were skipped for good — a trimmed answer resumes at the first row
+   * that did not fit. But a scope that matched nothing answers with the
+   * overview instead, and reporting *those* rows as the count would tell the
+   * model that unrelated controls matched its query, which is the one thing
+   * a miss has to be able to say it did not.
    */
-  const trimmed = shown < scope.returned
-  const nextOffset = trimmed ? scope.offset + shown : scope.nextOffset
+  const returned = Math.min(shown, scope.returned)
+  const trimmed = returned < scope.returned
+  const nextOffset = trimmed ? scope.offset + returned : scope.nextOffset
   return {
     scope: {
       kind: scope.kind,
       value: scope.value,
       offset: scope.offset,
-      returned: shown,
+      returned,
       ...(nextOffset === undefined ? {} : { nextOffset })
     }
   }
@@ -559,7 +566,14 @@ export const projectAgentObservation = (
         : {}),
       elements: observation.elements.map((element) =>
         projectAgentElement(element, originOf(element))
-      )
+      ),
+      /**
+       * Carried here too. Nothing is trimmed on this path, so the page's own
+       * figures stand — but dropping the descriptor entirely left a scoped
+       * answer indistinguishable from an ordinary one, with no way to tell
+       * the model more matches remained.
+       */
+      ...projectedScope(observation.scope, observation.elements.length)
     }
   }
   /**
