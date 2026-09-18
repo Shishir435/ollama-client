@@ -129,18 +129,32 @@ Read the section your change touches; you do not need the whole file.
 
 ## Projection and targeted reads
 
+- **The window is resolved from the model, not written beside it.**
+  `resolveAgentContextWindow` (`agent-context-window.ts`) takes the *smallest*
+  figure the server's own allocation (`/api/show` `num_ctx`), the weights'
+  metadata (`*.context_length`) and the catalog report, and falls back to what
+  the agent has always reached when told nothing. A user setting overrides all
+  of it in both directions. Resolved **once per run** — recomputing it per
+  request made `num_ctx` drift step to step, and a local runner reloads the
+  model when it moves.
 - **The page is one budget claimant, not the whole prompt.** The context
   window is partitioned across instructions, tools, history, output and page
   content (`agent-model-port.ts`); the page gets the remainder and is projected
-  to fit it. A large application does not send every control — the overview
+  to fit it. Every other claimant is bounded against the window too — the
+  history keeps its newest entries, the answer allowance is sized by whether
+  the page holds an editable text control at all. Bounding only the page held
+  while the window was a literal at least as large as the others could grow;
+  once it is resolved, an 8k model meets a twelve-step history and the page is
+  trimmed to nothing while the request still overflows. A large application does not send every control — the overview
   keeps the focused control, the reachable ones and whatever fits in document
   order, and reports the rest in `omittedByGroup` so a control the budget
   dropped is discoverable, not silently absent. No budget preserves the whole
   projection.
-- **A bounded overview is drilled into, not scrolled through.** Three read-only
+- **A bounded overview is drilled into, not scrolled through.** Four read-only
   commands reveal what the overview summarised: `inspect` expands a region by
-  its group, `find` surfaces controls matching a query, `extract_text` returns
-  the page's full text — the below-fold document the overview omits. None
+  its group, `find` surfaces controls matching a query, `extract` answers up to
+  six queries in one walk of the document, `extract_text` returns the page's
+  full text — the below-fold document the overview omits. None
   mutates the page, so all resolve as `read` and ask no approval. What to expand
   is derived from the previous step's own durable command
   (`currentAgentInspection`), so the next observation shows exactly what was
@@ -255,6 +269,31 @@ Read the section your change touches; you do not need the whole file.
   then needs page evidence, since no delivery record exists.
 
 ## Forms, editors and drags
+
+- **A batch changes who asks, never what is checked.** `fill_form` sets up to
+  twelve controls from one decision, because a decision costs seconds and an
+  observation costs tens of milliseconds. Each field carries a whole grounded
+  command and goes through the same executor, the same target recheck and the
+  same refusal vocabulary as the single-field command it mirrors; the
+  classifier answers every per-field question before anything is attempted and
+  reports the **index** of the field it refused, since a twelve-field batch
+  refused without one is unactionable.
+- **A batch cannot click, so it cannot submit.** That is what makes one
+  approval for it honest: the submission stays its own step with its own
+  prompt. A sensitive control is refused out of the batch by name, so the
+  model repeats that field alone and the takeover path can offer it properly.
+- **A batch re-baselines the payload it is changing.** Both the private form
+  state and the wire target's `formFingerprint` hash the form's values, so the
+  batch's own first edit moves them and its second field is refused for the
+  change it just made. Each applied edit refreshes both for the fields still
+  to come. Anything *this batch did not do*, arriving between two of its own
+  edits, still moves them and is still caught.
+- **A batch never throws away how far it got.** It stops at the first field it
+  cannot place and reports the count, which is the one fact the run cannot
+  reconstruct from the page afterwards — a run that cannot tell three fields
+  written from none writes three of them twice. A batch that placed *nothing*
+  is a refusal like any other: nothing happened, so the run records a rejected
+  step and looks again.
 
 - **A submission runs the page's handlers first, then enforces the
   destination.** `submitThroughPageHandlers` calls the form's own
