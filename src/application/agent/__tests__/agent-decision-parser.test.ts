@@ -7,6 +7,7 @@ import {
   AgentDecisionFormatError,
   parseAgentDecisionToolCalls
 } from "../agent-decision-parser"
+import { AGENT_DECISION_TOOL } from "../agent-model-port"
 
 const observation: AgentObservation = {
   snapshotId: "snapshot-2",
@@ -494,5 +495,23 @@ describe("optional decision fields", () => {
     expect([...(AGENT_DECISION_OPTIONAL_FIELDS.complete ?? [])].sort()).toEqual(
       declared.sort()
     )
+  })
+
+  /**
+   * And the model has to be offered them.
+   *
+   * Three things must agree: the decision schema, the normalizer's whitelist,
+   * and the tool the model actually sees. `outcomes` reached the first two and
+   * not the third, so a planned run could not complete against a real model —
+   * it was refused for not answering requirements it was never shown, and the
+   * refusal escalated into a question to the user. Every gate passed, because
+   * the fixture writes `outcomes` straight into the decision and never reads
+   * the advertised schema.
+   */
+  it("advertises every optional complete field in the tool the model sees", () => {
+    const advertised = Object.keys(AGENT_DECISION_TOOL.parameters.properties)
+    for (const field of AGENT_DECISION_OPTIONAL_FIELDS.complete ?? []) {
+      expect(advertised).toContain(field)
+    }
   })
 })
