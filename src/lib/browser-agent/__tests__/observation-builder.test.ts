@@ -1198,6 +1198,19 @@ describe("scoped reads", () => {
     expect(() => build(0, stalledClock())).toThrow(/budget/)
   })
 
+  /**
+   * A miss answers with the page it missed on. An empty observation gives the
+   * model nothing to correct itself against, which is how a run spent
+   * twenty-one observations asking for the same region that was never there.
+   */
+  it("answers a scope that matched nothing with the page anyway", () => {
+    document.body.innerHTML =
+      '<nav aria-label="Account menu"><button>Sign out</button></nav>'
+    const scoped = buildScoped({ kind: "region", value: "checkout" })
+    expect(scoped.scope).toMatchObject({ returned: 0 })
+    expect(scoped.elements.length).toBeGreaterThan(0)
+  })
+
   it("matches a region by the group name the overview already showed", () => {
     document.body.innerHTML =
       '<nav aria-label="Account menu"><button>Sign out</button></nav>' +

@@ -1485,7 +1485,13 @@ const scopeHaystack = (
   pass: AgentObservationPass
 ): string => {
   const parts = [
-    accessibleName(element, pass),
+    /**
+     * Rendered, not viewport. A scoped read exists to reach controls the
+     * overview could not carry, and those are below the fold by definition —
+     * asking for their names under viewport scope returns nothing, so the
+     * query matched zero on the very page it was built for.
+     */
+    accessibleName(element, pass, "rendered"),
     element.getAttribute("placeholder"),
     element.getAttribute("aria-placeholder"),
     element instanceof HTMLInputElement ||
@@ -1659,9 +1665,20 @@ export const buildAgentObservation = (input: {
         Math.min(elementLimit, AGENT_OBSERVATION_LIMITS.scopeMatches)
       )
     : undefined
+  /**
+   * A scope that matched nothing falls back to the overview.
+   *
+   * Otherwise the answer to a misnamed region is an empty page, and the model
+   * has nothing to correct itself against — which is how a run spent
+   * twenty-one observations asking for `inspect form` over and over. The
+   * scope descriptor still says `returned: 0`, so the miss is stated; what
+   * comes back with it is the page it missed on, and the regions that page
+   * actually has.
+   */
   const elements = (
-    scoped?.matches ??
-    selectObservedCandidates(input.document, pass, elementLimit)
+    scoped?.matches.length
+      ? scoped.matches
+      : selectObservedCandidates(input.document, pass, elementLimit)
   ).map((element) =>
     buildElementObservation(
       element,

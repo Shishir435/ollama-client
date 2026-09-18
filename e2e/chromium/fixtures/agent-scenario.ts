@@ -71,6 +71,14 @@ export interface AgentFixtureObservation {
   omittedByGroup?: { group: string; count: number }[]
   /** Set when the inspect or find this observation answers matched nothing. */
   unmatched?: { region?: string; query?: string; regions?: string[] }
+  /** The answer to a scoped read, when the observation was taken for one. */
+  scope?: {
+    kind: "query" | "region"
+    value: string
+    offset: number
+    returned: number
+    nextOffset?: number
+  }
   dialogs?: { id: string; type: string; message: string }[]
   elements: AgentFixtureElement[]
 }

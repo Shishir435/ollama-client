@@ -115,6 +115,23 @@ export interface AgentProjectedObservation {
     query?: string
     regions?: string[]
   }
+  /**
+   * The answer to a scoped read: these elements are the page's matches for
+   * one question, not its overview.
+   *
+   * `nextOffset` is the part the model cannot infer. Fifty matches with more
+   * behind them and fifty that are all of them look identical on the page,
+   * and a model that cannot tell them apart either stops early on a list it
+   * has not finished or keeps asking for a page that does not exist.
+   */
+  scope?: {
+    kind: "query" | "region"
+    value: string
+    /** Where this answer starts, so a continued read is self-describing. */
+    offset: number
+    returned: number
+    nextOffset?: number
+  }
 }
 
 /** A region the model asked to see in full; its controls survive the budget. */
@@ -347,6 +364,28 @@ const pageRegions = (elements: readonly AgentElement[]): string[] => {
  * near miss — `form` for `form "search"` — is a miss, and saying so is the
  * whole point.
  */
+/**
+ * The scope's answer, echoed to the model. `nextOffset` is the part it cannot
+ * infer: fifty matches with more behind them and fifty that are all of them
+ * look identical on the page.
+ */
+const projectedScope = (
+  scope: AgentObservation["scope"]
+): Pick<AgentProjectedObservation, "scope"> =>
+  scope
+    ? {
+        scope: {
+          kind: scope.kind,
+          value: scope.value,
+          offset: scope.offset,
+          returned: scope.returned,
+          ...(scope.nextOffset === undefined
+            ? {}
+            : { nextOffset: scope.nextOffset })
+        }
+      }
+    : {}
+
 const unmatchedFocus = (
   elements: readonly AgentElement[],
   focus: AgentOverviewFocus
@@ -574,6 +613,7 @@ export const projectAgentObservation = (
     ...(documentTextTruncated ? { documentTextTruncated: true } : {}),
     elements: shown,
     ...(omittedByGroup.length ? { omittedByGroup } : {}),
-    ...(unmatched ? { unmatched } : {})
+    ...(unmatched ? { unmatched } : {}),
+    ...projectedScope(observation.scope)
   }
 }
