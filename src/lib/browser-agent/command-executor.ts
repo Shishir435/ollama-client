@@ -840,13 +840,14 @@ export const executeAgentFormFillInDocument = (input: {
   references: AgentElementReferenceStore
   signal: AgentCancellationSignal
 }): AgentFormFillOutcome => {
+  const fields = [...input.instruction.fields]
   let applied = 0
-  for (const field of input.instruction.fields) {
+  for (let index = 0; index < fields.length; index += 1) {
     try {
       executeAgentDomMutationInDocument({
         effect: {
-          command: field.command,
-          target: field.target,
+          command: fields[index].command,
+          target: fields[index].target,
           snapshotIdentity: input.instruction.snapshotIdentity,
           frame: input.instruction.frame
         },
@@ -868,8 +869,52 @@ export const executeAgentFormFillInDocument = (input: {
     }
     applied += 1
     input.references.refreshFormState()
+    rebaselineBatchFingerprints(fields, index + 1, input)
   }
   return { applied }
+}
+
+/**
+ * The remaining fields' expected form fingerprint, recomputed from the form as
+ * this batch has just left it.
+ *
+ * The twin of `refreshFormState`, and needed for the same reason at a
+ * different layer: the fingerprint is checked against the wire target the
+ * background resolved, and it hashes the form's control values, so the edit
+ * that just landed moves it. Without this a batch refused its own second
+ * field as `target_changed` on `formFingerprint` — the payload had indeed
+ * changed, and this run was what changed it.
+ *
+ * A change nobody in this batch made still moves the value away from what was
+ * recorded here a moment ago, so the check keeps doing its job.
+ */
+const rebaselineBatchFingerprints = (
+  fields: AgentFormFillInstruction["fields"][number][],
+  from: number,
+  input: {
+    instruction: AgentFormFillInstruction
+    references: AgentElementReferenceStore
+  }
+): void => {
+  for (let index = from; index < fields.length; index += 1) {
+    const field = fields[index]
+    if (field.target.formFingerprint === undefined) continue
+    const element = input.references.resolve(
+      field.target.ref,
+      input.instruction.frame
+    )
+    if (!element) continue
+    const current = buildAgentElementObservation(
+      element,
+      field.target.ref,
+      input.instruction.frame.frameId
+    )
+    if (current.formFingerprint === undefined) continue
+    fields[index] = {
+      ...field,
+      target: { ...field.target, formFingerprint: current.formFingerprint }
+    }
+  }
 }
 
 /** Executes a previously resolved mutation against the still-live snapshot. */

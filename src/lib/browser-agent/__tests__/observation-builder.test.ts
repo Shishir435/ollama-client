@@ -1109,6 +1109,88 @@ describe("paginated document reading", () => {
  * context window, because those re-ranked the captured list and nothing went
  * back to the document.
  */
+/**
+ * Several questions, one walk of the document.
+ *
+ * `find` already reads the live page, so asking it three questions cost three
+ * decisions and three walks — and a decision is the expensive unit, by three
+ * orders of magnitude on a measured run.
+ */
+describe("multi-query lookups", () => {
+  const buildLookup = (queries: string[], now = unhurried) =>
+    buildAgentObservation({
+      document,
+      tabId: 7,
+      documentId: "document-1",
+      minimumGeneration: 0,
+      references: createAgentElementReferenceStore({
+        documentId: "document-1",
+        frameId: 0
+      }),
+      createSnapshotId: () => "snapshot-1",
+      capturedAt: 1,
+      lookup: { queries },
+      now
+    })
+
+  it("answers every question from one pass, grouped by the question asked", () => {
+    document.body.innerHTML = `
+      <button>Add to basket</button>
+      <button>Save for later</button>
+      <input aria-label="Promo code" />
+    `
+    const observed = buildLookup(["basket", "promo"])
+    expect(observed.lookup?.queries).toHaveLength(2)
+    expect(observed.lookup?.queries[0]?.query).toBe("basket")
+    expect(observed.lookup?.queries[1]?.query).toBe("promo")
+    const refs = new Set(observed.elements.map((element) => element.ref))
+    for (const group of observed.lookup?.queries ?? []) {
+      for (const ref of group.refs) expect(refs.has(ref)).toBe(true)
+    }
+    expect(observed.lookup?.queries[0]?.refs).toHaveLength(1)
+    expect(observed.lookup?.queries[1]?.refs).toHaveLength(1)
+  })
+
+  it("keeps a question that matched nothing, because that is an answer", () => {
+    /**
+     * "This page has no SKU field" is usually the more useful of the two
+     * answers, and a run that could not tell an unanswered question from an
+     * unasked one would keep asking it.
+     */
+    document.body.innerHTML = `<button>Add to basket</button>`
+    const observed = buildLookup(["basket", "serial number"])
+    expect(observed.lookup?.queries[1]).toMatchObject({
+      query: "serial number",
+      refs: []
+    })
+  })
+
+  it("falls back to the overview when no question matched, and says so", () => {
+    /**
+     * A misnamed query reads as an empty page otherwise, which is how a run
+     * spent twenty-one observations asking the same thing. The groups stay
+     * empty, so the fallback rows are never reported as matches.
+     */
+    document.body.innerHTML = `<button>Add to basket</button>`
+    const observed = buildLookup(["nothing here matches this"])
+    expect(observed.elements.length).toBeGreaterThan(0)
+    expect(observed.lookup?.queries[0]?.refs).toEqual([])
+  })
+
+  it("marks a question with more matches than one answer carries", () => {
+    const rows = Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.lookupMatches + 4 },
+      (_value, index) => `<button>Row ${index} pick</button>`
+    )
+    document.body.innerHTML = rows.join("")
+    const observed = buildLookup(["pick"])
+    expect(observed.lookup?.queries[0]?.refs).toHaveLength(
+      AGENT_OBSERVATION_LIMITS.lookupMatches
+    )
+    expect(observed.lookup?.queries[0]?.truncated).toBe(true)
+  })
+})
+
 describe("scoped reads", () => {
   const buildScoped = (
     scope: { kind: "query" | "region"; value: string; offset?: number },

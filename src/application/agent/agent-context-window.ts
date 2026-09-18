@@ -40,12 +40,20 @@ export const AGENT_CONTEXT_AUTO_MAX_TOKENS = 32_768
 export const AGENT_CONTEXT_MAX_TOKENS = 131_072
 
 /**
- * Used when nothing is known. Deliberately not the auto maximum: an unknown
- * window is not evidence of a large one, and the failure it guards against —
- * asking a small model for four times what it has — is the more expensive of
- * the two.
+ * Used when nothing is known, and equal to the automatic maximum on purpose.
+ *
+ * It is tempting to be more cautious here — an unknown window is not evidence
+ * of a large one — but the figure is not a guess: it is what this agent has
+ * always been able to reach, and every shipped run is evidence for it. Setting
+ * it lower silently halved the page budget for exactly the models that report
+ * nothing, which is most hosted ones, and a browser gate caught the run
+ * re-reading a page it had already found the control on.
+ *
+ * A model that does report is believed instead, in both directions, which is
+ * the whole point: the resolution changes behaviour where there is evidence
+ * and leaves it alone where there is none.
  */
-export const AGENT_CONTEXT_FALLBACK_TOKENS = 16_384
+export const AGENT_CONTEXT_FALLBACK_TOKENS = AGENT_CONTEXT_AUTO_MAX_TOKENS
 
 export type AgentContextWindowSetting = "auto" | number
 
