@@ -370,21 +370,30 @@ const pageRegions = (elements: readonly AgentElement[]): string[] => {
  * look identical on the page.
  */
 const projectedScope = (
-  scope: AgentObservation["scope"]
-): Pick<AgentProjectedObservation, "scope"> =>
-  scope
-    ? {
-        scope: {
-          kind: scope.kind,
-          value: scope.value,
-          offset: scope.offset,
-          returned: scope.returned,
-          ...(scope.nextOffset === undefined
-            ? {}
-            : { nextOffset: scope.nextOffset })
-        }
-      }
-    : {}
+  scope: AgentObservation["scope"],
+  /** How many of the page's matches survived the character budget. */
+  shown: number
+): Pick<AgentProjectedObservation, "scope"> => {
+  if (!scope) return {}
+  /**
+   * The counts describe the rows the model can actually see, not the rows the
+   * page found. The projection trims to a character budget, so copying the
+   * page's figures told the model to continue past matches it was never
+   * shown — and those rows were then skipped for good. A trimmed answer
+   * resumes at the first row that did not fit.
+   */
+  const trimmed = shown < scope.returned
+  const nextOffset = trimmed ? scope.offset + shown : scope.nextOffset
+  return {
+    scope: {
+      kind: scope.kind,
+      value: scope.value,
+      offset: scope.offset,
+      returned: shown,
+      ...(nextOffset === undefined ? {} : { nextOffset })
+    }
+  }
+}
 
 const unmatchedFocus = (
   elements: readonly AgentElement[],
@@ -614,6 +623,6 @@ export const projectAgentObservation = (
     elements: shown,
     ...(omittedByGroup.length ? { omittedByGroup } : {}),
     ...(unmatched ? { unmatched } : {}),
-    ...projectedScope(observation.scope)
+    ...projectedScope(observation.scope, shown.length)
   }
 }

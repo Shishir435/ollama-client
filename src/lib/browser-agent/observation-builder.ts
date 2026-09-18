@@ -1524,7 +1524,7 @@ const selectScopedCandidates = (
   scope: AgentObservationScope,
   modalIds: Map<Element, string>,
   limit: number
-): { matches: Element[]; nextOffset?: number } => {
+): { matches: Element[]; nextOffset?: number; cut?: boolean } => {
   const offset = Math.max(0, scope.offset ?? 0)
   const needle = scope.value.trim().toLowerCase()
   const matches: Element[] = []
@@ -1534,7 +1534,8 @@ const selectScopedCandidates = (
   for (const node of composedDescendants(document.documentElement)) {
     const candidate = asElement(node)
     if (!candidate?.matches(INTERACTIVE_SELECTOR)) continue
-    if (pass.exhausted()) return { matches, nextOffset: seen }
+    if (pass.exhausted())
+      return { matches, nextOffset: offset + matches.length, cut: true }
     const hit =
       scope.kind === "region"
         ? groupOf(candidate, modalIds)?.toLowerCase().includes(needle) === true
@@ -1542,8 +1543,15 @@ const selectScopedCandidates = (
     if (!hit) continue
     seen += 1
     if (seen <= offset) continue
+    /**
+     * The match past the limit is what proves there is a next page, so it is
+     * looked for rather than assumed. Setting `nextOffset` on a full page
+     * claimed more whenever a total landed on a multiple of the limit, and
+     * the model spent a decision and an observation collecting nothing.
+     */
+    if (matches.length >= limit)
+      return { matches, nextOffset: offset + matches.length }
     matches.push(candidate)
-    if (matches.length >= limit) return { matches, nextOffset: seen }
   }
   return { matches }
 }
@@ -1614,6 +1622,29 @@ const assertFrameRole = (document: Document, frameId: number): void => {
   }
 }
 
+/**
+ * Whether a scoped walk's answer stands as the observation, or the page
+ * should be described instead.
+ *
+ * A miss falls back to the overview, so the model has the page it missed on
+ * rather than an empty answer — otherwise a misnamed region reads as an empty
+ * page, which is how a run spent twenty-one observations asking for the same
+ * region over and over. The descriptor says `returned: 0` either way, so the
+ * miss is stated.
+ *
+ * Not when the budget is gone, though: building an overview then throws, and
+ * a run that only asked for the next page of a scoped read fails. The pass is
+ * asked directly rather than trusting the walk to have noticed, because the
+ * budget is checked on an interval and a walk can finish just past the
+ * deadline without ever observing it.
+ */
+const scopedAnswerStands = (
+  scoped: { matches: Element[]; cut?: boolean } | undefined,
+  pass: AgentObservationPass
+): scoped is { matches: Element[]; cut?: boolean } =>
+  scoped !== undefined &&
+  (scoped.matches.length > 0 || scoped.cut === true || pass.exhausted())
+
 export const buildAgentObservation = (input: {
   document: Document
   tabId: number
@@ -1665,18 +1696,8 @@ export const buildAgentObservation = (input: {
         Math.min(elementLimit, AGENT_OBSERVATION_LIMITS.scopeMatches)
       )
     : undefined
-  /**
-   * A scope that matched nothing falls back to the overview.
-   *
-   * Otherwise the answer to a misnamed region is an empty page, and the model
-   * has nothing to correct itself against — which is how a run spent
-   * twenty-one observations asking for `inspect form` over and over. The
-   * scope descriptor still says `returned: 0`, so the miss is stated; what
-   * comes back with it is the page it missed on, and the regions that page
-   * actually has.
-   */
   const elements = (
-    scoped?.matches.length
+    scopedAnswerStands(scoped, pass)
       ? scoped.matches
       : selectObservedCandidates(input.document, pass, elementLimit)
   ).map((element) =>

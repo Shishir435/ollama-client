@@ -1199,6 +1199,21 @@ describe("scoped reads", () => {
   })
 
   /**
+   * A total that lands exactly on the limit has no next page, and saying it
+   * does costs a decision and an observation that collect nothing.
+   */
+  it("does not claim a next page when the limit is the last match", () => {
+    document.body.innerHTML = Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.scopeMatches },
+      (_unused, index) => `<button>Row ${index} pick</button>`
+    ).join("")
+
+    const scoped = buildScoped({ kind: "query", value: "pick" })
+    expect(scoped.elements).toHaveLength(AGENT_OBSERVATION_LIMITS.scopeMatches)
+    expect(scoped.scope?.nextOffset).toBeUndefined()
+  })
+
+  /**
    * A miss answers with the page it missed on. An empty observation gives the
    * model nothing to correct itself against, which is how a run spent
    * twenty-one observations asking for the same region that was never there.

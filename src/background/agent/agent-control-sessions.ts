@@ -283,7 +283,16 @@ export const createAgentControlSessionRegistry = (input?: {
         await listFrames(tabId)
       )
       const children: AgentChildFrameResult[] = []
-      for (const frame of selected) {
+      /**
+       * A scoped read is answered by the root alone.
+       *
+       * The scope reaches only the root document, so a child frame asked at
+       * the same time answers with its ordinary overview — and composition
+       * appended those unrelated controls to the matches while `scope.returned`
+       * still counted only the root's. The model was handed rows that did not
+       * match what it asked for, inside an answer that said they did.
+       */
+      for (const frame of scope ? [] : selected) {
         const child = await observeChild(
           runId,
           tabId,
