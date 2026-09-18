@@ -285,8 +285,12 @@ describe("Agent control port", () => {
       sender: { tabId: 7, frameId: 0, documentId: "document-1" }
     })
 
-    await expect(session.observe(0)).resolves.toMatchObject({ generation: 1 })
-    await expect(session.observe(2)).resolves.toMatchObject({ generation: 2 })
+    await expect(
+      session.observe({ minimumGeneration: 0 })
+    ).resolves.toMatchObject({ generation: 1 })
+    await expect(
+      session.observe({ minimumGeneration: 2 })
+    ).resolves.toMatchObject({ generation: 2 })
     expect(
       vi
         .mocked(port.postMessage)
@@ -330,7 +334,7 @@ describe("Agent control port", () => {
       binding,
       sender: { tabId: 7, frameId: 0, documentId: "document-1" }
     })
-    const pending = session.observe(0)
+    const pending = session.observe({ minimumGeneration: 0 })
     await expect(
       session.executeDomMutation(mutationInstruction())
     ).rejects.toThrow("already in flight")
@@ -366,7 +370,9 @@ describe("Agent control port", () => {
       binding,
       sender: { tabId: 7, frameId: 0, documentId: "document-1" }
     })
-    await expect(session.observe(2)).rejects.toThrow("generation is stale")
+    await expect(session.observe({ minimumGeneration: 2 })).rejects.toThrow(
+      "generation is stale"
+    )
     expect(port.disconnect).toHaveBeenCalledOnce()
   })
 
@@ -824,7 +830,7 @@ describe("Agent control failures", () => {
       binding,
       sender: { tabId: 7, frameId: 0, documentId: "document-1" }
     })
-    const observing = session.observe(0)
+    const observing = session.observe({ minimumGeneration: 0 })
     onMessage.emit(failure({ reason: "observation_build_failed", issues: [] }))
     await expect(observing).rejects.toMatchObject({
       name: "AgentControlFailedError",

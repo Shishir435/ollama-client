@@ -328,6 +328,22 @@ export type AgentModalState = z.infer<typeof AgentModalStateSchema>
 /** Elements one observation may carry, across every frame it read. */
 export const MAX_AGENT_OBSERVED_ELEMENTS = 2_000
 
+/**
+ * What a scoped read asks the page for.
+ *
+ * Shared by the request and the answer so the two cannot drift: the
+ * observation echoes the scope it was taken for, and a reader comparing them
+ * is comparing the same shape.
+ */
+export const AgentObservationScopeSchema = z
+  .object({
+    kind: z.enum(["query", "region"]),
+    value: z.string().min(1).max(100),
+    offset: z.number().int().min(0).max(100_000).optional()
+  })
+  .strict()
+export type AgentObservationScope = z.infer<typeof AgentObservationScopeSchema>
+
 export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   url: z.url(),
   origin: z.url(),

@@ -50,6 +50,7 @@ export const installAgentControlContentScript = (): void => {
           minimumGeneration: request.minimumGeneration,
           elementLimit: request.elementLimit,
           textOffset: request.textOffset,
+          ...(request.scope ? { scope: request.scope } : {}),
           references
         })
       },

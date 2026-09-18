@@ -7,6 +7,7 @@ import type {
   AgentGrant,
   AgentImageRect,
   AgentObservation,
+  AgentObservationScope,
   AgentPauseReason,
   AgentRunState,
   AgentRunStatus,
@@ -110,6 +111,12 @@ export interface AgentScreenshotPort {
 
 export interface AgentObserveRequest {
   extraction?: { offset: number; frameId: number }
+  /**
+   * A scoped read of the page, when the last decision asked for one. The
+   * elements that come back are the scope's matches rather than the page's
+   * overview, and the observation echoes the scope it was taken for.
+   */
+  scope?: AgentObservationScope
   runId: string
   tabId: number
   minimumGeneration: number

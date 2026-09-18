@@ -11,6 +11,8 @@ import {
   AgentElementSchema,
   type AgentObservation,
   AgentObservationSchema,
+  type AgentObservationScope,
+  AgentObservationScopeSchema,
   AgentSnapshotIdentitySchema,
   MAX_AGENT_OBSERVED_ELEMENTS,
   MAX_AGENT_TEXT_CHARS
@@ -46,6 +48,8 @@ export const AgentObserveRequestSchema = z
     documentId: z.string().min(1),
     minimumGeneration: z.number().int().nonnegative(),
     textOffset: z.number().int().min(0).max(10_000_000).optional(),
+    /** A scoped read: the elements are the matches, not the overview. */
+    scope: AgentObservationScopeSchema.optional(),
     /** Elements this frame may contribute to a composed observation. */
     elementLimit: z
       .number()
@@ -654,13 +658,24 @@ export interface AgentControlSenderEvidence {
   documentId: string
 }
 
+export interface AgentControlObserveOptions {
+  minimumGeneration: number
+  /** Elements this frame may contribute to a composed observation. */
+  elementLimit?: number
+  textOffset?: number
+  scope?: AgentObservationScope
+}
+
 export interface AgentControlSession {
   readonly frameId: number
+  /**
+   * Named rather than positional. This took four optional positionals and had
+   * already produced `observe(generation, signal, undefined, textOffset)` at
+   * one call site; a fifth would be a question of counting commas.
+   */
   observe(
-    minimumGeneration: number,
-    signal?: AbortSignal,
-    elementLimit?: number,
-    textOffset?: number
+    request: AgentControlObserveOptions,
+    signal?: AbortSignal
   ): Promise<AgentObservation>
   executeDomMutation(
     instruction: AgentDomMutationInstruction,
@@ -1016,7 +1031,8 @@ export const createAgentControlSession = (input: {
 
   return {
     frameId: input.binding.frameId,
-    observe(minimumGeneration, signal, elementLimit, textOffset) {
+    observe(options, signal) {
+      const { minimumGeneration, elementLimit, textOffset, scope } = options
       if (inFlight) {
         return Promise.reject(
           new Error("Agent control request already in flight")
@@ -1031,7 +1047,8 @@ export const createAgentControlSession = (input: {
         sequence: expectedSequence,
         minimumGeneration,
         ...(elementLimit === undefined ? {} : { elementLimit }),
-        ...(textOffset === undefined ? {} : { textOffset })
+        ...(textOffset === undefined ? {} : { textOffset }),
+        ...(scope === undefined ? {} : { scope })
       }
 
       return exchange(
