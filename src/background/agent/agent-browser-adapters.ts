@@ -7,6 +7,7 @@ import type {
 import type {
   AgentDialogState,
   AgentObservation,
+  AgentObservationScope,
   AgentSnapshotIdentity
 } from "@ollama-client/contracts"
 
@@ -351,7 +352,8 @@ export const createAgentBrowserAdapters = (input: {
     minimumGeneration: number,
     allowedOrigins: readonly string[],
     signal: AgentCancellationSignal,
-    extraction?: { offset: number; frameId: number }
+    extraction?: { offset: number; frameId: number },
+    scope?: AgentObservationScope
   ): Promise<AgentObservation> => {
     const dialog = input.browserSessions?.openDialog(input.runId, tabId)
     if (dialog) {
@@ -366,7 +368,8 @@ export const createAgentBrowserAdapters = (input: {
         tabId,
         minimumGeneration,
         allowedOrigins,
-        ...(extraction ? { extraction } : {})
+        ...(extraction ? { extraction } : {}),
+        ...(scope ? { scope } : {})
       },
       abortSignal(signal)
     )
@@ -560,7 +563,8 @@ export const createAgentBrowserAdapters = (input: {
           request.minimumGeneration,
           request.allowedOrigins,
           signal,
-          request.extraction
+          request.extraction,
+          request.scope
         )
         lastViewport.set(request.tabId, {
           x: observation.scroll.x,

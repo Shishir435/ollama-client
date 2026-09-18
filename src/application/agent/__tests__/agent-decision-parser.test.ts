@@ -1,7 +1,11 @@
 import type { AgentObservation } from "@ollama-client/contracts"
-import { AgentDecisionSchema } from "@ollama-client/contracts"
+import {
+  AgentCommandSchema,
+  AgentDecisionSchema
+} from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
+  AGENT_COMMAND_FIELDS,
   AGENT_DECISION_OPTIONAL_FIELDS,
   AGENT_DECISION_TOOL_NAME,
   AgentDecisionFormatError,
@@ -541,6 +545,29 @@ describe("optional decision fields", () => {
         { id: "r3", met: false }
       ]
     })
+  })
+
+  /**
+   * The same agreement, for every command variant. `offset` reached the
+   * `find` and `inspect` schemas and not this table, so a continued scoped
+   * read silently asked for page one again — forever.
+   */
+  it("keeps every command field the schema declares", () => {
+    const commands = AgentCommandSchema.options
+    expect(commands.length).toBeGreaterThan(0)
+    for (const option of commands) {
+      const type = option.shape.type.value as string
+      const declared = Object.keys(option.shape).filter(
+        (name) => !["type", "snapshotId", "generation"].includes(name)
+      )
+      expect({
+        type,
+        fields: [...(AGENT_COMMAND_FIELDS[type] ?? [])].sort()
+      }).toEqual({
+        type,
+        fields: declared.sort()
+      })
+    }
   })
 
   it("advertises every optional complete field in the tool the model sees", () => {

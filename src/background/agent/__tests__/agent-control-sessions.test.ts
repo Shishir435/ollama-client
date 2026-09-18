@@ -323,12 +323,12 @@ describe("Agent control session registry across frames", () => {
     const root = session({ observe: vi.fn(async () => rootObservation) })
     const child = session({
       frameId: 2,
-      observe: vi.fn(async (_generation, _signal, _limit, offset) => ({
+      observe: vi.fn(async (request) => ({
         ...childObservation(2),
         elements: [],
         textPage: {
           text: "Selected frame tail",
-          offset: offset ?? 0,
+          offset: request.textOffset ?? 0,
           frameId: 2
         }
       }))
@@ -362,12 +362,13 @@ describe("Agent control session registry across frames", () => {
       frameId: 2
     })
     expect(root.observe).toHaveBeenCalledWith(
-      1,
-      undefined,
-      undefined,
+      { minimumGeneration: 1 },
       undefined
     )
-    expect(child.observe).toHaveBeenCalledWith(1, undefined, 0, 24_000)
+    expect(child.observe).toHaveBeenCalledWith(
+      { minimumGeneration: 1, elementLimit: 0, textOffset: 24_000 },
+      undefined
+    )
     expect(open).toHaveBeenCalledTimes(2)
   })
 
@@ -503,7 +504,10 @@ describe("Agent control session registry across frames", () => {
       allowedOrigins
     })
 
-    expect(child.observe).toHaveBeenCalledWith(4, undefined, 1_997, undefined)
+    expect(child.observe).toHaveBeenCalledWith(
+      { minimumGeneration: 4, elementLimit: 1_997 },
+      undefined
+    )
   })
 
   it("routes page work to the frame the instruction binds", async () => {

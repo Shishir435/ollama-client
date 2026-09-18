@@ -328,6 +328,22 @@ export type AgentModalState = z.infer<typeof AgentModalStateSchema>
 /** Elements one observation may carry, across every frame it read. */
 export const MAX_AGENT_OBSERVED_ELEMENTS = 2_000
 
+/**
+ * What a scoped read asks the page for.
+ *
+ * Shared by the request and the answer so the two cannot drift: the
+ * observation echoes the scope it was taken for, and a reader comparing them
+ * is comparing the same shape.
+ */
+export const AgentObservationScopeSchema = z
+  .object({
+    kind: z.enum(["query", "region"]),
+    value: z.string().min(1).max(100),
+    offset: z.number().int().min(0).max(100_000).optional()
+  })
+  .strict()
+export type AgentObservationScope = z.infer<typeof AgentObservationScopeSchema>
+
 export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   url: z.url(),
   origin: z.url(),
@@ -352,6 +368,30 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
    * budget.
    */
   documentText: z.string().max(30_000).optional(),
+  /**
+   * The answer to a scoped read, when the observation was taken for one.
+   *
+   * `find` and `inspect` used to re-rank the elements the overview had
+   * already captured, which caps at 2,000 under a 500ms pass budget. A
+   * control the capture never reached was invisible to every later query and
+   * no context window could recover it, because nothing went back to the
+   * document. A scoped observation walks the page itself and returns the
+   * matches, so the cap bounds one answer rather than the whole run's sight.
+   *
+   * `nextOffset` present means the walk stopped with more to give. Absent
+   * means it reached the end — the difference between "no more matches" and
+   * "we stopped looking", which the model has to be able to tell apart.
+   */
+  scope: z
+    .object({
+      kind: z.enum(["query", "region"]),
+      value: z.string().min(1).max(100),
+      offset: z.number().int().nonnegative(),
+      returned: z.number().int().nonnegative(),
+      nextOffset: z.number().int().nonnegative().optional()
+    })
+    .strict()
+    .optional(),
   /** Explicit extraction page, read from one authorized frame. */
   textPage: z
     .object({

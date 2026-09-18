@@ -1,6 +1,7 @@
 import { AgentControlFailedError } from "@ollama-client/agent-runtime"
 import type {
   AgentObservation,
+  AgentObservationScope,
   AgentSnapshotIdentity
 } from "@ollama-client/contracts"
 
@@ -57,6 +58,12 @@ export interface AgentControlSessionRegistry {
       minimumGeneration: number
       allowedOrigins: readonly string[]
       extraction?: { offset: number; frameId: number }
+      /**
+       * A scoped read of the root frame. Child frames keep contributing their
+       * overview: a scope is a question about one document, and answering it
+       * from several at once would return refs the model cannot tell apart.
+       */
+      scope?: AgentObservationScope
     },
     signal?: AbortSignal
   ): Promise<AgentObservation>
@@ -179,16 +186,17 @@ export const createAgentControlSessionRegistry = (input?: {
     tabId: number,
     minimumGeneration: number,
     signal?: AbortSignal,
-    textOffset?: number
+    textOffset?: number,
+    scope?: AgentObservationScope
   ): Promise<AgentObservation> => {
     const session = await acquire(runId, tabId, 0)
+    const request = {
+      minimumGeneration,
+      ...(textOffset === undefined ? {} : { textOffset }),
+      ...(scope === undefined ? {} : { scope })
+    }
     try {
-      return await session.observe(
-        minimumGeneration,
-        signal,
-        undefined,
-        textOffset
-      )
+      return await session.observe(request, signal)
     } catch (error) {
       if (signal?.aborted) throw error
       drop(runId, tabId, 0)
@@ -201,7 +209,7 @@ export const createAgentControlSessionRegistry = (input?: {
         throw error
       }
       const reopened = await acquire(runId, tabId, 0)
-      return reopened.observe(minimumGeneration, signal, undefined, textOffset)
+      return reopened.observe(request, signal)
     }
   }
 
@@ -238,10 +246,12 @@ export const createAgentControlSessionRegistry = (input?: {
     try {
       const session = await acquire(runId, tabId, frame.frameId)
       const observation = await session.observe(
-        minimumGeneration,
-        signal,
-        elementLimit,
-        textOffset
+        {
+          minimumGeneration,
+          elementLimit,
+          ...(textOffset === undefined ? {} : { textOffset })
+        },
+        signal
       )
       return { ...result, observation }
     } catch (error) {
@@ -258,7 +268,7 @@ export const createAgentControlSessionRegistry = (input?: {
 
   return {
     async observe(
-      { runId, tabId, minimumGeneration, allowedOrigins, extraction },
+      { runId, tabId, minimumGeneration, allowedOrigins, extraction, scope },
       signal
     ) {
       const root = await observeRoot(
@@ -266,13 +276,23 @@ export const createAgentControlSessionRegistry = (input?: {
         tabId,
         minimumGeneration,
         signal,
-        extraction?.frameId === 0 ? extraction.offset : undefined
+        extraction?.frameId === 0 ? extraction.offset : undefined,
+        scope
       )
       const { selected, omitted } = selectAgentChildFrames(
         await listFrames(tabId)
       )
       const children: AgentChildFrameResult[] = []
-      for (const frame of selected) {
+      /**
+       * A scoped read is answered by the root alone.
+       *
+       * The scope reaches only the root document, so a child frame asked at
+       * the same time answers with its ordinary overview — and composition
+       * appended those unrelated controls to the matches while `scope.returned`
+       * still counted only the root's. The model was handed rows that did not
+       * match what it asked for, inside an answer that said they did.
+       */
+      for (const frame of scope ? [] : selected) {
         const child = await observeChild(
           runId,
           tabId,

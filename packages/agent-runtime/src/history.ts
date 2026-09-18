@@ -259,8 +259,16 @@ export const currentAgentInspection = (
 ): AgentInspectionFocus | undefined => {
   const command = latestByStep(steps).at(-1)?.command
   if (!command) return undefined
-  if (command.type === "inspect") return { region: command.target }
-  if (command.type === "find") return { query: command.query }
+  if (command.type === "inspect")
+    return {
+      region: command.target,
+      ...(command.offset === undefined ? {} : { offset: command.offset })
+    }
+  if (command.type === "find")
+    return {
+      query: command.query,
+      ...(command.offset === undefined ? {} : { offset: command.offset })
+    }
   if (command.type === "extract_text")
     return {
       text: true,

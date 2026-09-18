@@ -115,6 +115,23 @@ export interface AgentProjectedObservation {
     query?: string
     regions?: string[]
   }
+  /**
+   * The answer to a scoped read: these elements are the page's matches for
+   * one question, not its overview.
+   *
+   * `nextOffset` is the part the model cannot infer. Fifty matches with more
+   * behind them and fifty that are all of them look identical on the page,
+   * and a model that cannot tell them apart either stops early on a list it
+   * has not finished or keeps asking for a page that does not exist.
+   */
+  scope?: {
+    kind: "query" | "region"
+    value: string
+    /** Where this answer starts, so a continued read is self-describing. */
+    offset: number
+    returned: number
+    nextOffset?: number
+  }
 }
 
 /** A region the model asked to see in full; its controls survive the budget. */
@@ -347,6 +364,44 @@ const pageRegions = (elements: readonly AgentElement[]): string[] => {
  * near miss — `form` for `form "search"` — is a miss, and saying so is the
  * whole point.
  */
+/**
+ * The scope's answer, echoed to the model. `nextOffset` is the part it cannot
+ * infer: fifty matches with more behind them and fifty that are all of them
+ * look identical on the page.
+ */
+const projectedScope = (
+  scope: AgentObservation["scope"],
+  /** How many of the page's matches survived the character budget. */
+  shown: number
+): Pick<AgentProjectedObservation, "scope"> => {
+  if (!scope) return {}
+  /**
+   * The count describes the rows the model can actually see, and never more
+   * than the page matched.
+   *
+   * Two rules meet here and the naive combination lies in both directions.
+   * The projection trims to a character budget, so copying the page's figure
+   * told the model to continue past matches it was never shown, and those
+   * rows were skipped for good — a trimmed answer resumes at the first row
+   * that did not fit. But a scope that matched nothing answers with the
+   * overview instead, and reporting *those* rows as the count would tell the
+   * model that unrelated controls matched its query, which is the one thing
+   * a miss has to be able to say it did not.
+   */
+  const returned = Math.min(shown, scope.returned)
+  const trimmed = returned < scope.returned
+  const nextOffset = trimmed ? scope.offset + returned : scope.nextOffset
+  return {
+    scope: {
+      kind: scope.kind,
+      value: scope.value,
+      offset: scope.offset,
+      returned,
+      ...(nextOffset === undefined ? {} : { nextOffset })
+    }
+  }
+}
+
 const unmatchedFocus = (
   elements: readonly AgentElement[],
   focus: AgentOverviewFocus
@@ -511,7 +566,14 @@ export const projectAgentObservation = (
         : {}),
       elements: observation.elements.map((element) =>
         projectAgentElement(element, originOf(element))
-      )
+      ),
+      /**
+       * Carried here too. Nothing is trimmed on this path, so the page's own
+       * figures stand — but dropping the descriptor entirely left a scoped
+       * answer indistinguishable from an ordinary one, with no way to tell
+       * the model more matches remained.
+       */
+      ...projectedScope(observation.scope, observation.elements.length)
     }
   }
   /**
@@ -574,6 +636,7 @@ export const projectAgentObservation = (
     ...(documentTextTruncated ? { documentTextTruncated: true } : {}),
     elements: shown,
     ...(omittedByGroup.length ? { omittedByGroup } : {}),
-    ...(unmatched ? { unmatched } : {})
+    ...(unmatched ? { unmatched } : {}),
+    ...projectedScope(observation.scope, shown.length)
   }
 }

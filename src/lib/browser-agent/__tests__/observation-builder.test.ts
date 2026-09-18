@@ -1100,3 +1100,152 @@ describe("paginated document reading", () => {
     )
   })
 })
+
+/**
+ * The omission this whole path exists to fix.
+ *
+ * The overview caps at 2,000 elements under a 500ms budget. A control past
+ * that point could not be recovered by `find`, by `inspect`, or by any
+ * context window, because those re-ranked the captured list and nothing went
+ * back to the document.
+ */
+describe("scoped reads", () => {
+  const buildScoped = (
+    scope: { kind: "query" | "region"; value: string; offset?: number },
+    now = unhurried
+  ) =>
+    buildAgentObservation({
+      document,
+      tabId: 7,
+      documentId: "document-1",
+      minimumGeneration: 0,
+      references: createAgentElementReferenceStore({
+        documentId: "document-1",
+        frameId: 0
+      }),
+      createSnapshotId: () => "snapshot-1",
+      capturedAt: 1,
+      scope,
+      now
+    })
+
+  const manyControls = (count: number, needleAt: number) => {
+    const html: string[] = []
+    for (let index = 0; index < count; index += 1) {
+      html.push(
+        `<button>${index === needleAt ? "Delete my account" : `Filler ${index}`}</button>`
+      )
+    }
+    document.body.innerHTML = html.join("")
+  }
+
+  it("reaches a control the overview's element cap never captured", () => {
+    const beyond = AGENT_OBSERVATION_LIMITS.elements + 500
+    manyControls(beyond + 1, beyond)
+
+    /** The overview cannot see it: the cap is spent long before that index. */
+    expect(
+      build().elements.some((element) => element.name === "Delete my account")
+    ).toBe(false)
+
+    const scoped = buildScoped({ kind: "query", value: "delete my account" })
+    expect(scoped.elements.map((element) => element.name)).toEqual([
+      "Delete my account"
+    ])
+    /** Absent means the walk reached the end, not that it gave up. */
+    expect(scoped.scope?.nextOffset).toBeUndefined()
+    expect(scoped.scope).toMatchObject({ kind: "query", returned: 1 })
+  })
+
+  it("pages a scope with more matches than one answer carries", () => {
+    manyControls(10, -1)
+    document.body.innerHTML += Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.scopeMatches + 5 },
+      (_unused, index) => `<button>Row ${index} pick</button>`
+    ).join("")
+
+    const first = buildScoped({ kind: "query", value: "pick" })
+    expect(first.elements).toHaveLength(AGENT_OBSERVATION_LIMITS.scopeMatches)
+    expect(first.scope?.nextOffset).toBe(AGENT_OBSERVATION_LIMITS.scopeMatches)
+
+    const second = buildScoped({
+      kind: "query",
+      value: "pick",
+      offset: first.scope?.nextOffset
+    })
+    expect(second.elements).toHaveLength(5)
+    expect(second.scope?.nextOffset).toBeUndefined()
+    expect(second.elements[0]?.name).toBe(
+      `Row ${AGENT_OBSERVATION_LIMITS.scopeMatches} pick`
+    )
+  })
+
+  /**
+   * The overview throws when it runs out of budget, because a silently short
+   * overview is a snapshot missing the control the run needs. A scoped read
+   * says where it stopped instead: continuing is the feature, and refusing to
+   * answer a large page would refuse the page this was built for.
+   */
+  it("reports where it stopped rather than failing on a spent budget", () => {
+    /** Past `budgetCheckInterval`, or the pass never reads the clock at all. */
+    manyControls(AGENT_OBSERVATION_LIMITS.budgetCheckInterval * 3, -1)
+    const scoped = buildScoped(
+      { kind: "query", value: "filler" },
+      stalledClock()
+    )
+    expect(scoped.scope?.nextOffset).toBeDefined()
+    /** The overview still refuses the same page, which is its own contract. */
+    expect(() => build(0, stalledClock())).toThrow(/budget/)
+  })
+
+  /**
+   * A total that lands exactly on the limit has no next page, and saying it
+   * does costs a decision and an observation that collect nothing.
+   */
+  it("does not claim a next page when the limit is the last match", () => {
+    document.body.innerHTML = Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.scopeMatches },
+      (_unused, index) => `<button>Row ${index} pick</button>`
+    ).join("")
+
+    const scoped = buildScoped({ kind: "query", value: "pick" })
+    expect(scoped.elements).toHaveLength(AGENT_OBSERVATION_LIMITS.scopeMatches)
+    expect(scoped.scope?.nextOffset).toBeUndefined()
+  })
+
+  /**
+   * A miss answers with the page it missed on. An empty observation gives the
+   * model nothing to correct itself against, which is how a run spent
+   * twenty-one observations asking for the same region that was never there.
+   */
+  it("answers a scope that matched nothing with the page anyway", () => {
+    document.body.innerHTML =
+      '<nav aria-label="Account menu"><button>Sign out</button></nav>'
+    const scoped = buildScoped({ kind: "region", value: "checkout" })
+    expect(scoped.scope).toMatchObject({ returned: 0 })
+    expect(scoped.elements.length).toBeGreaterThan(0)
+  })
+
+  /**
+   * Exactly the group name the observation publishes, not a substring of it.
+   * `unmatchedFocus` has always matched regions exactly — a near miss like
+   * `form` for `form "search"` is a miss, and saying so is the point — so a
+   * looser rule here would have the walk find what the projection then calls
+   * unmatched.
+   */
+  it("matches a region by the group name the overview already showed", () => {
+    document.body.innerHTML =
+      '<nav aria-label="Account menu"><button>Sign out</button></nav>' +
+      "<main><button>Sign out</button></main>"
+    const group = build().elements[0]?.group
+    expect(group).toBeDefined()
+
+    const scoped = buildScoped({ kind: "region", value: group ?? "" })
+    expect(scoped.elements).toHaveLength(1)
+    expect(scoped.scope?.kind).toBe("region")
+
+    /** A near miss is a miss, and answers with the page instead. */
+    const near = buildScoped({ kind: "region", value: "nav" })
+    expect(near.scope).toMatchObject({ returned: 0 })
+  })
+})

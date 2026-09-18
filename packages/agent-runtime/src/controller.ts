@@ -1,4 +1,7 @@
-import type { AgentCommand } from "@ollama-client/contracts"
+import type {
+  AgentCommand,
+  AgentObservationScope
+} from "@ollama-client/contracts"
 import {
   type AgentDecision,
   AgentDecisionSchema,
@@ -602,6 +605,30 @@ export const createAgentController = (
     return AgentDecisionSchema.safeParse(raw).data
   }
 
+  /**
+   * The scope a `find` or `inspect` asks the page for, if the last decision was
+   * one. `extract_text` keeps its own `extraction` path: it reads the document's
+   * prose, not its controls, and the two answer different questions.
+   */
+  const agentObservationScope = (
+    inspection?: AgentInspectionFocus
+  ): AgentObservationScope | undefined => {
+    const offset = inspection?.offset
+    if (inspection?.query)
+      return {
+        kind: "query",
+        value: inspection.query,
+        ...(offset === undefined ? {} : { offset })
+      }
+    if (inspection?.region)
+      return {
+        kind: "region",
+        value: inspection.region,
+        ...(offset === undefined ? {} : { offset })
+      }
+    return undefined
+  }
+
   const observe = async (
     state: AgentRunState,
     signal: AgentCancellationController["signal"],
@@ -623,6 +650,17 @@ export const createAgentController = (
                       frameId: inspection.frameId ?? 0
                     }
                   }
+                : {}),
+              /**
+               * A `find` or an `inspect` is a question about the document, so
+               * it is asked of the document. Both used to be answered by
+               * re-ranking the overview's own element list, which meant a
+               * control the capture never reached could not be found by
+               * either — the query looked only where the answer had already
+               * been ruled out.
+               */
+              ...(agentObservationScope(inspection)
+                ? { scope: agentObservationScope(inspection) }
                 : {})
             },
             signal

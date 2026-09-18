@@ -101,10 +101,18 @@ export const AGENT_DECISION_OPTIONAL_FIELDS = VARIANT_OPTIONAL_FIELDS
  * belonging to the stated type is kept, and everything else about the answer
  * is still validated.
  */
+/**
+ * Another whitelist that has to agree with the schema it filters for, and the
+ * fourth one on this branch to be found disagreeing. `offset` was added to
+ * `find` and `inspect` for continuing a scoped read; the table did not have
+ * it, so every continuation silently asked for page one again and the model
+ * paged forever. `agent-decision-parser.test.ts` derives this against the
+ * command schema now rather than trusting the next edit to touch both.
+ */
 const COMMAND_FIELDS: Record<string, readonly string[]> = {
   read: [],
-  inspect: ["target"],
-  find: ["query"],
+  inspect: ["target", "offset"],
+  find: ["query", "offset"],
   extract_text: ["offset", "frameId"],
   click: ["ref"],
   click_point: ["x", "y"],
@@ -128,6 +136,9 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   forward: [],
   wait: ["condition", "timeoutMs"]
 }
+
+/** Read by the contract test that keeps this table level with the schema. */
+export const AGENT_COMMAND_FIELDS = COMMAND_FIELDS
 
 const DECISION_FIELDS = new Set([
   "type",
