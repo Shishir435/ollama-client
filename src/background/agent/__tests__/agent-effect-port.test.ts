@@ -72,6 +72,7 @@ const adapters = (): AgentBrowserAdapters => ({
     classifyAccess: async () => "ok",
     scroll: vi.fn(async () => undefined),
     mutate: vi.fn(async () => undefined),
+    fillForm: vi.fn(async () => ({ applied: 0 })),
     activateTab: vi.fn(async () => undefined),
     goHistory: vi.fn(async () => undefined),
     resolveHistoryDestination: async () => undefined,

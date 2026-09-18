@@ -217,6 +217,24 @@ const dialogAction = (
   }
 }
 
+/**
+ * How a batched fill reads to the user.
+ *
+ * One approval covers every field, so the prompt has to say how many there
+ * are: "Allow fill_form" is the same sentence whether it sets one control or
+ * twelve, and the number is the whole of what the user is being asked to
+ * weigh. The fields' own values are not named — they are page-derived or
+ * model-composed text, and the panel shows the target's accessible name as
+ * evidence the same way every other approval does.
+ */
+const batchAction = (input: AgentPolicyInput): string | undefined => {
+  const fields = input.effect.batch?.fields.length
+  if (input.effect.command.type !== "fill_form" || !fields) return undefined
+  return fields === 1
+    ? "Set 1 form field"
+    : `Set ${fields} form fields in one step`
+}
+
 const makeApprovalRequest = (
   input: AgentPolicyInput,
   risk: Exclude<AgentRisk, "low">
@@ -226,6 +244,7 @@ const makeApprovalRequest = (
   const dialog = dialogAction(input)
   const action =
     dialog?.action ??
+    batchAction(input) ??
     (adopting
       ? `Adopt tab ${adopting} at ${destination}`
       : destination
@@ -242,9 +261,11 @@ const makeApprovalRequest = (
       dialog?.consequence ??
       (destination
         ? `The browser will use the complete destination URL: ${destination}`
-        : hasNoSubmitStep(input)
-          ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
-          : "The browser will perform the resolved page effect shown above."),
+        : batchAction(input)
+          ? "The browser will enter these values into the controls shown above, in order. It stops at the first one it cannot set, and nothing is submitted."
+          : hasNoSubmitStep(input)
+            ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
+            : "The browser will perform the resolved page effect shown above."),
     pageEvidence: input.effect.target.accessibleName,
     createdAt: input.now
   }

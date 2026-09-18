@@ -143,6 +143,7 @@ const executorAdapter = (
   classifyAccess: async () => "ok",
   scroll: vi.fn(),
   mutate: vi.fn(),
+  fillForm: vi.fn(async () => ({ applied: 0 })),
   activateTab: vi.fn(),
   goHistory: vi.fn(),
   resolveHistoryDestination: async () => undefined,

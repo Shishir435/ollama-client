@@ -103,6 +103,24 @@ const authoredByCommand = (
   ) {
     return command.text
   }
+  /**
+   * A batch writes as much text as a dozen single edits do, and the egress
+   * rule asks whether a destination carries words the run supplied itself.
+   * Leaving the batch out would make the run's own search terms read as page
+   * data the moment they were typed through `fill_form` instead of `type`.
+   */
+  if (command.type === "fill_form") {
+    return command.fields
+      .map((field) =>
+        field.type === "select"
+          ? field.value
+          : field.type === "check" || field.type === "uncheck"
+            ? undefined
+            : field.text
+      )
+      .filter((value): value is string => value !== undefined)
+      .join(" ")
+  }
   return command.type === "select" ? command.value : undefined
 }
 

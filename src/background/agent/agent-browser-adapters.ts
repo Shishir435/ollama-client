@@ -12,7 +12,10 @@ import type {
 } from "@ollama-client/contracts"
 
 import type { AgentCommandExecutorAdapter } from "@/lib/browser-agent/command-executor"
-import type { AgentDomMutationInstruction } from "@/lib/browser-agent/control-port"
+import type {
+  AgentDomMutationInstruction,
+  AgentFormFillInstruction
+} from "@/lib/browser-agent/control-port"
 import type { AgentEffectVerifierAdapter } from "@/lib/browser-agent/effect-verifier"
 import {
   type AgentInputPlatform,
@@ -226,6 +229,43 @@ export const createAgentBrowserAdapters = (input: {
       frame,
       ...(point ? { point } : {})
     } as AgentDomMutationInstruction
+  }
+
+  /**
+   * The batch as the page receives it: whole grounded commands and strict wire
+   * targets, with the frame carried once on the instruction. Each field is
+   * stripped exactly as a lone mutation's target is — `frame` and
+   * `noSubmitStep` are ours, not the page's, and a strict schema rejects them
+   * before a byte is sent.
+   */
+  const formFillInstruction = (
+    effect: AuthorizedAgentEffect
+  ): AgentFormFillInstruction => {
+    const fields = effect.batch?.fields ?? []
+    if (fields.length === 0) {
+      throw new Error("Agent form fill has no resolved fields")
+    }
+    const frame = fields[0].target.frame ?? effect.snapshotIdentity
+    return {
+      command: effect.command,
+      snapshotIdentity: effect.snapshotIdentity,
+      frame,
+      fields: fields.map((field) => {
+        if (!field.target.ref || !field.target.tag) {
+          throw new Error("Agent form fill target is not an observed element")
+        }
+        const {
+          frame: _fieldFrame,
+          point: _point,
+          noSubmitStep: _noSubmitStep,
+          ...target
+        } = field.target
+        return {
+          command: field.command,
+          target: { ...target, ref: field.target.ref, frameId: frame.frameId }
+        }
+      })
+    } as AgentFormFillInstruction
   }
 
   const getTab = async (tabId: number) => {
@@ -619,6 +659,16 @@ export const createAgentBrowserAdapters = (input: {
             runId: input.runId,
             tabId: effect.snapshotIdentity.tabId,
             instruction: mutationInstruction(effect)
+          },
+          abortSignal(signal)
+        )
+      },
+      async fillForm(effect, signal) {
+        return input.sessions.executeFormFill(
+          {
+            runId: input.runId,
+            tabId: effect.snapshotIdentity.tabId,
+            instruction: formFillInstruction(effect)
           },
           abortSignal(signal)
         )

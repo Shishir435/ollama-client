@@ -30,6 +30,8 @@ export type AgentRisk = "low" | "medium" | "high" | "critical"
 export interface AgentInspectionFocus {
   region?: string
   query?: string
+  /** Several scoped questions, answered by one walk of the document. */
+  queries?: readonly string[]
   text?: boolean
   offset?: number
   frameId?: number
@@ -117,6 +119,12 @@ export interface AgentObserveRequest {
    * overview, and the observation echoes the scope it was taken for.
    */
   scope?: AgentObservationScope
+  /**
+   * Several scoped questions asked together, when the last decision was an
+   * `extract`. Answered by one walk of the document, and grouped by question
+   * so the model can tell which rows answered which.
+   */
+  lookup?: { queries: readonly string[] }
   runId: string
   tabId: number
   minimumGeneration: number
@@ -222,9 +230,33 @@ export type AgentSemanticEffect =
   /** Opening the browser's file chooser, which only the user can answer. */
   | "file_selection"
 
-export interface ResolvedAgentEffect {
+/**
+ * One control a batched fill sets, resolved and checked exactly as the
+ * single-field command it mirrors. The command is grounded and complete, so
+ * the executor and the page treat it as the lone edit it would otherwise be.
+ */
+export interface ResolvedAgentBatchField {
   command: AgentCommand
   target: ResolvedAgentTarget
+}
+
+export interface ResolvedAgentEffect {
+  command: AgentCommand
+  /**
+   * The step's representative target. For a batch it is the first field's,
+   * because policy asks its questions of one control and the resolver has
+   * already refused any batch whose fields disagree on the answers that
+   * matter — none is sensitive, none sits in another frame, and all carry
+   * the same class of effect.
+   */
+  target: ResolvedAgentTarget
+  /**
+   * Every control a batched fill sets, in the order it sets them. Present
+   * only for `fill_form`; the approval names the count and the verifier
+   * checks each one, so a batch cannot be approved as one edit and then
+   * verified as another.
+   */
+  batch?: { fields: readonly ResolvedAgentBatchField[] }
   destination?: AgentDestination
   /**
    * The native dialog this effect answers, for the one command that answers
@@ -301,6 +333,14 @@ export type AgentInputDelivery =
 export interface AgentExecutionReceipt {
   /** Ephemeral exact native submission destination. Contains form values; never persist or log. */
   submissionUrl?: string
+  /**
+   * How many fields of a batched fill the page actually applied, in the order
+   * they were sent. A batch stops at the first field it cannot place, so this
+   * is what tells the verifier which fields to check and the model where to
+   * resume — the one fact about a partial batch that cannot be read off the
+   * page afterwards.
+   */
+  fieldsApplied?: number
   executedAt: number
   details?: string
   controlledTabId?: number

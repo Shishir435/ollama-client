@@ -177,7 +177,10 @@ const verify = async (
 }
 
 const executorAdapter = (
-  mutate: AgentCommandExecutorAdapter["mutate"]
+  mutate: AgentCommandExecutorAdapter["mutate"],
+  fillForm: AgentCommandExecutorAdapter["fillForm"] = vi.fn(async () => ({
+    applied: 0
+  }))
 ): AgentCommandExecutorAdapter => ({
   getTab: async (tabId) => ({ id: tabId, url: observation().url }),
   getFrame: async () => ({
@@ -187,6 +190,7 @@ const executorAdapter = (
   classifyAccess: async () => "ok",
   scroll: vi.fn(),
   mutate,
+  fillForm,
   activateTab: vi.fn(),
   goHistory: vi.fn(),
   resolveHistoryDestination: async () => undefined,

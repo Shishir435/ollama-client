@@ -48,6 +48,7 @@ const session = (
   frameId: 0,
   observe: vi.fn(async () => observation()),
   executeDomMutation: vi.fn(async () => undefined),
+  executeFormFill: vi.fn(async () => ({ applied: 0 })),
   executeScroll: vi.fn(async () => undefined),
   prepareNativeInput: vi.fn(async () => ({
     point: { x: 10, y: 10 },

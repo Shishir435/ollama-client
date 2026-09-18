@@ -35,6 +35,7 @@ export const READ_ONLY_AGENT_ACTIONS = [
   "read",
   "inspect",
   "find",
+  "extract",
   "extract_text",
   "zoom",
   "wait",
@@ -901,6 +902,142 @@ const findVisualElement = async (
     throw new AgentGroundingError({ refusal: refused })
   }
   return { element, point }
+}
+
+export const FORM_FILL_AGENT_ACTIONS = ["fill_form"] as const
+
+/**
+ * What one field of a batch expects to hold afterwards, in the same terms the
+ * lone command would have produced. Sharing `expectedTextValue` is what keeps
+ * the truncation and not-found refusals identical between the two paths.
+ */
+const batchFieldExpectation = (
+  field: Extract<AgentCommand, { type: "fill_form" }>["fields"][number],
+  element: AgentElement
+): { value?: string; checked?: boolean } => {
+  switch (field.type) {
+    case "type":
+      return {
+        value: expectedTextValue(
+          element,
+          (current) => `${current}${field.text}`
+        )
+      }
+    case "clear_and_type":
+      return { value: field.text }
+    case "select":
+      return { value: field.value }
+    case "check":
+    case "uncheck":
+      return { checked: field.type === "check" }
+  }
+}
+
+/**
+ * Resolves a batch of value edits as one effect.
+ *
+ * Every field is grounded against the same observation, given the same
+ * expectation the lone command would have produced, and carried as a whole
+ * command so the page applies it through the ordinary path. What this adds
+ * is the uniformity policy needs in order to price the batch once: no field
+ * may be sensitive, none may sit on a form holding a sensitive control, and
+ * none may submit. A batch that broke any of those would have to be priced
+ * per field, and a single approval would then be an approval for the
+ * cheapest of them.
+ *
+ * The classifier has already refused duplicates, cross-frame batches,
+ * unknown refs and every per-field affordance, so what arrives here is a list
+ * this observation supports.
+ */
+export const resolveFormFillAgentEffect = async (input: {
+  command: AgentCommand
+  observation: AgentObservation
+  adapter: AgentEffectResolverAdapter
+}): Promise<ResolvedAgentEffect> => {
+  const { command, observation } = input
+  if (command.type !== "fill_form") {
+    throw new Error(`Unsupported Agent form fill action: ${command.type}`)
+  }
+  const source = await assertLiveObservation(
+    command,
+    observation,
+    input.adapter
+  )
+  const refused = classifyAgentAffordance(command, observation)
+  if (refused) throw new AgentGroundingError({ refusal: refused })
+
+  const fields = command.fields.map((field) => {
+    const element = observation.elements.find(
+      (candidate) => candidate.ref === field.ref
+    )
+    if (!element)
+      throw new AgentGroundingError({
+        refusal: { reason: "unknown_ref", ref: field.ref }
+      })
+    /**
+     * A sensitive control, or one on a form that holds one, is the user's own
+     * step. The classifier already refuses the first by name; the second is
+     * refused here, because it is a fact about the form rather than about the
+     * field the model named.
+     */
+    if (element.sensitive || element.formHasSensitiveControl) {
+      throw new AgentGroundingError({
+        refusal: { reason: "sensitive_in_batch", ref: field.ref }
+      })
+    }
+    return {
+      command: {
+        ...field,
+        snapshotId: command.snapshotId,
+        generation: command.generation
+      } as AgentCommand,
+      target: targetFromElement(
+        element,
+        observation,
+        batchFieldExpectation(field, element)
+      )
+    }
+  })
+
+  const first = fields[0]
+  const element = observation.elements.find(
+    (candidate) => candidate.ref === first.target.ref
+  )
+  const effects: AgentSemanticEffect[] = ["form_mutation"]
+  const frame = element ? agentFramePage(observation, element) : undefined
+  addPageClassifications(
+    effects,
+    new URL(source.url),
+    undefined,
+    frame ? new URL(frame.url) : undefined
+  )
+  /**
+   * A batch has no submit step of its own — it cannot click — so the wording
+   * the user reads is decided by whether the *form* has one. Every field
+   * shares the answer, because they share the form.
+   */
+  const noSubmitStep = command.fields.every((field) => {
+    const target = observation.elements.find(
+      (candidate) => candidate.ref === field.ref
+    )
+    return Boolean(
+      target && !target.maySubmit && target.formFingerprint === undefined
+    )
+  })
+
+  return {
+    command,
+    target: {
+      ...first.target,
+      ...(noSubmitStep ? { noSubmitStep: true } : {})
+    },
+    batch: { fields },
+    semanticEffects: [...new Set(effects)],
+    snapshotIdentity: rootAgentSnapshotIdentity(observation),
+    sourceUrl: source.url,
+    sourceOrigin: source.origin,
+    ...(frame ? { frameUrl: frame.url, frameOrigin: frame.origin } : {})
+  }
 }
 
 /**

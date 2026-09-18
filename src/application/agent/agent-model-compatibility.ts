@@ -16,6 +16,7 @@ import {
 } from "@/lib/providers/model-discovery"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { LLMProvider } from "@/lib/providers/types"
+import type { AgentContextWindowEvidence } from "./agent-context-window"
 
 export type AgentModelCompatibility = (
   | {
@@ -39,6 +40,16 @@ export type AgentModelCompatibility = (
    * capability is a text-only run, which is offered no visual command.
    */
   vision?: boolean
+  /**
+   * What this model and this server say about how much context there is.
+   *
+   * Carried on compatibility because it is resolved from exactly the same two
+   * round trips — the catalog and `/api/show` — and cached for exactly the
+   * same lifetime: a run's model does not change, so asking again per step
+   * would cost a request to learn a constant. It is evidence, not a decision;
+   * `resolveAgentContextWindow` decides.
+   */
+  context?: AgentContextWindowEvidence
 }
 
 export class AgentModelCompatibilityError extends Error {
@@ -65,11 +76,13 @@ export const deriveAgentModelCompatibility = (input: {
   toolCalling: ModelCapabilityState
   vision?: ModelCapabilityState
   probe?: CapabilityProbeResult | null
+  context?: AgentContextWindowEvidence
 }): AgentModelCompatibility => {
   /** Only stated when vision evidence was supplied; callers without it stay text-only. */
-  const vision = input.vision
-    ? { vision: input.vision.status === "supported" }
-    : {}
+  const vision = {
+    ...(input.vision ? { vision: input.vision.status === "supported" } : {}),
+    ...(input.context ? { context: input.context } : {})
+  }
   if (input.toolCalling.status === "unsupported") {
     return { status: "unsupported", reason: "reported_unsupported", ...vision }
   }
@@ -162,9 +175,22 @@ export const resolveAgentModelCompatibility = async (
     override,
     probed: probe
   })
+  /**
+   * Only attached when something was actually learned. An empty evidence bag
+   * and no bag at all are the same statement, and the resolver reads absence
+   * as "nothing known" either way — but a stated empty object reads, to
+   * anyone comparing two compatibilities, as a fact that was checked.
+   */
+  const context = {
+    ...(model?.capabilityHints?.contextLength
+      ? { catalogContextLength: model.capabilityHints.contextLength }
+      : {}),
+    ...(details ? { details } : {})
+  }
   return deriveAgentModelCompatibility({
     toolCalling: states.toolCalling,
     vision: states.vision,
-    probe
+    probe,
+    ...(Object.keys(context).length > 0 ? { context } : {})
   })
 }

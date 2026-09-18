@@ -132,6 +132,20 @@ export interface AgentProjectedObservation {
     returned: number
     nextOffset?: number
   }
+  /**
+   * The answer to a multi-query `extract`: one group per question, in the
+   * order asked, each naming the refs above that answered it.
+   *
+   * A group with no refs is the page saying it holds no such control, which
+   * is an answer and frequently the one the run needed. `truncated` means the
+   * page or the budget had more to give for that question — the model is told
+   * to narrow it with `find` rather than left to assume it saw everything.
+   */
+  lookup?: {
+    query: string
+    refs: string[]
+    truncated?: boolean
+  }[]
 }
 
 /** A region the model asked to see in full; its controls survive the budget. */
@@ -402,6 +416,36 @@ const projectedScope = (
   }
 }
 
+/**
+ * The lookup's answer, restricted to rows the model can actually see.
+ *
+ * The budget trims elements after the walk has already matched them, so a
+ * group copied verbatim would name refs that are not in the list above it.
+ * A ref the model cannot see is worse than a missing one: it reads as a
+ * control it may act on, and acting on it fails grounding. Dropped rows are
+ * reported as `truncated`, which is what the model needs in order to ask a
+ * narrower question rather than conclude the page changed.
+ */
+const projectedLookup = (
+  lookup: AgentObservation["lookup"],
+  shown: readonly { ref: string }[]
+): Pick<AgentProjectedObservation, "lookup"> => {
+  if (!lookup) return {}
+  const visible = new Set(shown.map((element) => element.ref))
+  return {
+    lookup: lookup.queries.map((group) => {
+      const refs = group.refs.filter((ref) => visible.has(ref))
+      return {
+        query: group.query,
+        refs,
+        ...(group.truncated || refs.length < group.refs.length
+          ? { truncated: true }
+          : {})
+      }
+    })
+  }
+}
+
 const unmatchedFocus = (
   elements: readonly AgentElement[],
   focus: AgentOverviewFocus
@@ -573,7 +617,8 @@ export const projectAgentObservation = (
        * answer indistinguishable from an ordinary one, with no way to tell
        * the model more matches remained.
        */
-      ...projectedScope(observation.scope, observation.elements.length)
+      ...projectedScope(observation.scope, observation.elements.length),
+      ...projectedLookup(observation.lookup, observation.elements)
     }
   }
   /**
@@ -637,6 +682,7 @@ export const projectAgentObservation = (
     elements: shown,
     ...(omittedByGroup.length ? { omittedByGroup } : {}),
     ...(unmatched ? { unmatched } : {}),
-    ...projectedScope(observation.scope, shown.length)
+    ...projectedScope(observation.scope, shown.length),
+    ...projectedLookup(observation.lookup, shown)
   }
 }

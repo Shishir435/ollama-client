@@ -656,10 +656,16 @@ describe("createProviderAgentModelPort", () => {
     expect(request?.num_ctx).toBeLessThanOrEqual(32_768)
   })
 
-  it("grows the window with the page and stops at the ceiling", () => {
-    expect(agentContextWindow("")).toBe(8_192)
-    expect(agentContextWindow("x".repeat(40_000))).toBeGreaterThan(8_192)
-    expect(agentContextWindow("x".repeat(4_000_000))).toBe(32_768)
+  it("holds the resolved window inside the bounds a window has to have", () => {
+    /**
+     * The window is the run's, not the prompt's. It used to be recomputed
+     * from the request in 2,048-token steps, so a run whose page grew asked
+     * its runner for a different num_ctx almost every step — and a local
+     * runner reloads the model when that number moves.
+     */
+    expect(agentContextWindow(200_000)).toBe(131_072)
+    expect(agentContextWindow(1_024)).toBe(8_192)
+    expect(agentContextWindow(24_576)).toBe(24_576)
   })
 
   it("sends the projected observation, not the executor's bookkeeping", async () => {

@@ -329,6 +329,15 @@ export type AgentModalState = z.infer<typeof AgentModalStateSchema>
 export const MAX_AGENT_OBSERVED_ELEMENTS = 2_000
 
 /**
+ * The bounds a multi-query lookup answers within. They mirror the command's
+ * own caps rather than importing them: this schema describes what the page
+ * may send back, and a wire schema that trusted a request's bound to police a
+ * response would be trusting the wrong side of the boundary.
+ */
+export const MAX_AGENT_LOOKUP_QUERIES = 6
+export const MAX_AGENT_LOOKUP_MATCHES = 10
+
+/**
  * What a scoped read asks the page for.
  *
  * Shared by the request and the answer so the two cannot drift: the
@@ -389,6 +398,33 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
       offset: z.number().int().nonnegative(),
       returned: z.number().int().nonnegative(),
       nextOffset: z.number().int().nonnegative().optional()
+    })
+    .strict()
+    .optional(),
+  /**
+   * The answer to a multi-query lookup: one group per question asked, in the
+   * order they were asked, each naming the refs it matched.
+   *
+   * A group with no refs is an answer. The page carries no control matching
+   * that question, which is frequently the fact the run needed — and a run
+   * that could not tell an unanswered question from an unasked one would
+   * keep asking it.
+   */
+  lookup: z
+    .object({
+      queries: z
+        .array(
+          z
+            .object({
+              query: z.string().min(1).max(100),
+              refs: z.array(z.string().min(1)).max(MAX_AGENT_LOOKUP_MATCHES),
+              /** More rows matched than the per-question bound carries. */
+              truncated: z.boolean().optional()
+            })
+            .strict()
+        )
+        .min(1)
+        .max(MAX_AGENT_LOOKUP_QUERIES)
     })
     .strict()
     .optional(),

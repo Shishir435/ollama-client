@@ -462,6 +462,7 @@ describe("editing on the DOM backend", () => {
       }),
       classifyAccess: async () => "ok",
       scroll: vi.fn(),
+      fillForm: vi.fn(async () => ({ applied: 0 })),
       mutate: async () => {
         executeAgentDomMutationInDocument({
           effect,
@@ -504,6 +505,7 @@ describe("editing on the DOM backend", () => {
       }),
       classifyAccess: async () => "ok",
       scroll: vi.fn(),
+      fillForm: vi.fn(async () => ({ applied: 0 })),
       mutate: async () => {
         executeAgentDomMutationInDocument({
           effect,

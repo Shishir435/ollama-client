@@ -634,6 +634,7 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     inspection?: AgentInspectionFocus
   ): Promise<AgentObservation | undefined> => {
+    const scope = agentObservationScope(inspection)
     try {
       const observation = AgentObservationSchema.parse(
         await timed("observeMs", () =>
@@ -659,8 +660,15 @@ export const createAgentController = (
                * either — the query looked only where the answer had already
                * been ruled out.
                */
-              ...(agentObservationScope(inspection)
-                ? { scope: agentObservationScope(inspection) }
+              ...(scope ? { scope } : {}),
+              /**
+               * Six questions in one walk rather than six decisions. The
+               * walk is the expensive half of a scoped read and the round
+               * trip is the expensive half of a step, so asking them
+               * together is the only one of the two that scales.
+               */
+              ...(inspection?.queries?.length
+                ? { lookup: { queries: inspection.queries } }
                 : {})
             },
             signal

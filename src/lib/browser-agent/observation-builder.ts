@@ -7,7 +7,10 @@ import {
 } from "@ollama-client/contracts"
 
 import { agentEditorText, isAgentEditingHost } from "./editor-page"
-import type { AgentElementReferenceStore } from "./element-references"
+import type {
+  AgentElementReferenceSnapshot,
+  AgentElementReferenceStore
+} from "./element-references"
 
 export const AGENT_OBSERVATION_LIMITS = {
   elements: 2_000,
@@ -29,6 +32,15 @@ export const AGENT_OBSERVATION_LIMITS = {
    * hundred rows would cost more than the omission it exists to fix.
    */
   scopeMatches: 50,
+  /**
+   * Matches one question of a multi-query lookup returns.
+   *
+   * Ten rather than fifty, because six questions share one answer: a lookup
+   * exists to replace six decisions with one, and an answer six times the
+   * size of a scoped read would spend on prompt what it saved on round
+   * trips. A question with more matches than this is one `find` away.
+   */
+  lookupMatches: 10,
   passBudgetMs: 500,
   budgetCheckInterval: 256
 } as const
@@ -1556,6 +1568,129 @@ const selectScopedCandidates = (
   return { matches }
 }
 
+/** What a multi-query lookup asks the page for, in one walk. */
+export interface AgentObservationLookup {
+  queries: readonly string[]
+}
+
+/**
+ * Several questions answered by one pass of the document.
+ *
+ * `find` already walks the page, so asking it three questions costs three
+ * decisions, three walks and three full observations. This tests every needle
+ * against each candidate as it goes: the walk is the expensive half and it
+ * happens once, and the answer stays grouped so the model can tell which
+ * question each row belongs to.
+ *
+ * A question that matched nothing keeps its group with no rows. Dropping it
+ * would leave the model unable to distinguish a question it never asked from
+ * one the page did not answer — and "this page has no SKU field" is usually
+ * the more useful of the two answers.
+ */
+interface LookupGroup {
+  query: string
+  needle: string
+  elements: Element[]
+  truncated: boolean
+}
+
+interface LookupAnswer {
+  matches: Element[]
+  groups: { query: string; elements: Element[]; truncated?: boolean }[]
+  cut?: boolean
+}
+
+/** The groups as they leave, without the needle the walk matched them by. */
+const publishedLookupGroups = (
+  groups: readonly LookupGroup[]
+): LookupAnswer["groups"] =>
+  groups.map(({ query, elements, truncated }) => ({
+    query,
+    elements,
+    ...(truncated ? { truncated: true } : {})
+  }))
+
+/**
+ * Every group the budget cut short is marked, not only the ones that filled
+ * up. A question abandoned mid-walk has an incomplete answer, and one that
+ * looks complete is the difference between narrowing the query and believing
+ * the page holds nothing more.
+ */
+const markUnfinishedGroups = (
+  groups: readonly LookupGroup[],
+  perQuery: number
+): void => {
+  for (const group of groups) {
+    if (group.elements.length >= perQuery) continue
+    group.truncated = true
+  }
+}
+
+/** Files one candidate under every question whose needle it answers. */
+const collectLookupMatch = (
+  candidate: Element,
+  haystack: string,
+  groups: readonly LookupGroup[],
+  perQuery: number,
+  collected: { matches: Element[]; seen: Set<Element> }
+): void => {
+  for (const group of groups) {
+    if (group.needle.length === 0) continue
+    if (!haystack.includes(group.needle)) continue
+    if (group.elements.length >= perQuery) {
+      group.truncated = true
+      continue
+    }
+    group.elements.push(candidate)
+    if (collected.seen.has(candidate)) continue
+    collected.seen.add(candidate)
+    collected.matches.push(candidate)
+  }
+}
+
+const selectLookupCandidates = (
+  document: Document,
+  pass: AgentObservationPass,
+  lookup: AgentObservationLookup,
+  limit: number
+): LookupAnswer => {
+  const perQuery = Math.max(
+    0,
+    Math.min(limit, AGENT_OBSERVATION_LIMITS.lookupMatches)
+  )
+  const groups: LookupGroup[] = lookup.queries.map((query) => ({
+    query,
+    needle: query.trim().toLowerCase(),
+    elements: [],
+    truncated: false
+  }))
+  const collected = { matches: [] as Element[], seen: new Set<Element>() }
+  if (perQuery === 0) {
+    return { matches: collected.matches, groups: publishedLookupGroups(groups) }
+  }
+
+  for (const node of composedDescendants(document.documentElement)) {
+    const candidate = asElement(node)
+    if (!candidate?.matches(INTERACTIVE_SELECTOR)) continue
+    if (pass.exhausted()) {
+      markUnfinishedGroups(groups, perQuery)
+      return {
+        matches: collected.matches,
+        groups: publishedLookupGroups(groups),
+        cut: true
+      }
+    }
+    collectLookupMatch(
+      candidate,
+      scopeHaystack(candidate, pass),
+      groups,
+      perQuery,
+      collected
+    )
+  }
+  return { matches: collected.matches, groups: publishedLookupGroups(groups) }
+}
+
 const selectObservedCandidates = (
   document: Document,
   pass: AgentObservationPass,
@@ -1645,6 +1780,121 @@ const scopedAnswerStands = (
   scoped !== undefined &&
   (scoped.matches.length > 0 || scoped.cut === true || pass.exhausted())
 
+/**
+ * Which elements this observation carries: a scope's matches, a lookup's, or
+ * the page's own overview.
+ *
+ * Both scoped forms fall back to the overview when they matched nothing and
+ * the budget still holds, because a misnamed region or an unanswered question
+ * reads as an empty page otherwise — and an empty page is the one answer that
+ * makes a run ask the same thing again. The descriptors still report zero, so
+ * the miss is stated rather than hidden behind the rows it fell back to.
+ */
+/**
+ * The descriptors that say what question this observation answers.
+ *
+ * Present only when one was asked, and reporting the page's own figures —
+ * the projection trims them later against what the model can actually see.
+ * A scoped read carries its offset and continuation; a lookup carries its
+ * groups, empty ones included, because an unanswered question and an unasked
+ * one are different facts.
+ */
+const scopedAnswerFields = (
+  scope: AgentObservationScope | undefined,
+  scoped: { matches: Element[]; nextOffset?: number } | undefined,
+  lookupGroups:
+    | { query: string; refs: string[]; truncated?: boolean }[]
+    | undefined
+): Partial<AgentObservation> => ({
+  ...(lookupGroups ? { lookup: { queries: lookupGroups } } : {}),
+  ...(scope && scoped
+    ? {
+        scope: {
+          kind: scope.kind,
+          value: scope.value,
+          offset: Math.max(0, scope.offset ?? 0),
+          returned: scoped.matches.length,
+          ...(scoped.nextOffset === undefined
+            ? {}
+            : { nextOffset: scoped.nextOffset })
+        }
+      }
+    : {})
+})
+
+/**
+ * A group names the rows it matched by the refs this observation just assigned
+ * them.
+ *
+ * When the lookup matched nothing the walk fell back to an overview and the
+ * groups are empty — which is the answer, not a gap: the model is told the
+ * page carries no control matching any of its questions, and is handed the
+ * overview to work out why. A ref the snapshot never assigned is dropped
+ * rather than invented, because a group naming a row the model cannot see is
+ * worse than a group that is short.
+ */
+const publishedLookupRefs = (
+  looked: LookupAnswer | undefined,
+  snapshot: AgentElementReferenceSnapshot
+): { query: string; refs: string[]; truncated?: boolean }[] | undefined =>
+  looked?.groups.map((group) => ({
+    query: group.query,
+    refs: group.elements
+      .map((element) => snapshot.referenceOf(element))
+      .filter((ref): ref is string => ref !== undefined),
+    ...(group.truncated ? { truncated: true } : {})
+  }))
+
+const selectObservationCandidates = (input: {
+  document: Document
+  pass: AgentObservationPass
+  modalIds: Map<Element, string>
+  elementLimit: number
+  scope?: AgentObservationScope
+  lookup?: AgentObservationLookup
+}): {
+  scoped?: { matches: Element[]; nextOffset?: number; cut?: boolean }
+  looked?: LookupAnswer
+  candidates: Element[]
+} => {
+  const bound = Math.min(
+    input.elementLimit,
+    AGENT_OBSERVATION_LIMITS.scopeMatches
+  )
+  const scoped = input.scope
+    ? selectScopedCandidates(
+        input.document,
+        input.pass,
+        input.scope,
+        input.modalIds,
+        bound
+      )
+    : undefined
+  if (scopedAnswerStands(scoped, input.pass)) {
+    return { scoped, candidates: scoped.matches }
+  }
+  const looked =
+    input.lookup && !input.scope
+      ? selectLookupCandidates(input.document, input.pass, input.lookup, bound)
+      : undefined
+  if (scopedAnswerStands(looked, input.pass)) {
+    return {
+      ...(scoped ? { scoped } : {}),
+      looked,
+      candidates: looked.matches
+    }
+  }
+  return {
+    ...(scoped ? { scoped } : {}),
+    ...(looked ? { looked } : {}),
+    candidates: selectObservedCandidates(
+      input.document,
+      input.pass,
+      input.elementLimit
+    )
+  }
+}
+
 export const buildAgentObservation = (input: {
   document: Document
   tabId: number
@@ -1665,6 +1915,13 @@ export const buildAgentObservation = (input: {
    * returning both would spend the element cap twice.
    */
   scope?: AgentObservationScope
+  /**
+   * Several scoped questions answered together. Mutually exclusive with
+   * `scope` in practice — both replace the overview with their own matches,
+   * and a request carrying both would spend the element cap twice — and the
+   * caller that builds them never sets both.
+   */
+  lookup?: AgentObservationLookup
   textOffset?: number
   capturedAt?: number
   createSnapshotId?: () => string
@@ -1687,20 +1944,15 @@ export const buildAgentObservation = (input: {
   })
   const pass = createObservationPass(input.now)
   const { modals, ids: modalIds } = collectModals(input.document, pass)
-  const scoped = input.scope
-    ? selectScopedCandidates(
-        input.document,
-        pass,
-        input.scope,
-        modalIds,
-        Math.min(elementLimit, AGENT_OBSERVATION_LIMITS.scopeMatches)
-      )
-    : undefined
-  const elements = (
-    scopedAnswerStands(scoped, pass)
-      ? scoped.matches
-      : selectObservedCandidates(input.document, pass, elementLimit)
-  ).map((element) =>
+  const { scoped, looked, candidates } = selectObservationCandidates({
+    document: input.document,
+    pass,
+    modalIds,
+    elementLimit,
+    ...(input.scope ? { scope: input.scope } : {}),
+    ...(input.lookup ? { lookup: input.lookup } : {})
+  })
+  const elements = candidates.map((element) =>
     buildElementObservation(
       element,
       snapshot.reference(element),
@@ -1710,6 +1962,7 @@ export const buildAgentObservation = (input: {
       modalIds
     )
   )
+  const lookupGroups = publishedLookupRefs(looked, snapshot)
   const visibleText = input.document.body
     ? collectVisibleText(
         input.document.body,
@@ -1756,19 +2009,7 @@ export const buildAgentObservation = (input: {
       }
     ],
     elements,
-    ...(input.scope && scoped
-      ? {
-          scope: {
-            kind: input.scope.kind,
-            value: input.scope.value,
-            offset: Math.max(0, input.scope.offset ?? 0),
-            returned: scoped.matches.length,
-            ...(scoped.nextOffset === undefined
-              ? {}
-              : { nextOffset: scoped.nextOffset })
-          }
-        }
-      : {}),
+    ...scopedAnswerFields(input.scope, scoped, lookupGroups),
     visibleText,
     ...(input.textOffset === undefined || !input.document.body
       ? {}

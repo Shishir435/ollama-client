@@ -425,6 +425,7 @@ describe("Agent control port", () => {
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
       executeDomMutation: vi.fn(),
+      executeFormFill: vi.fn(),
       executeScroll,
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
@@ -453,6 +454,7 @@ describe("Agent control port", () => {
     attachAgentControlContentPort(live.port, {
       buildObservation: () => observation(),
       executeDomMutation: vi.fn(),
+      executeFormFill: vi.fn(),
       executeScroll,
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
@@ -478,6 +480,7 @@ describe("Agent control port", () => {
       attachAgentControlContentPort(port, {
         buildObservation: () => observation(),
         executeDomMutation: vi.fn(),
+        executeFormFill: vi.fn(),
         executeScroll: vi.fn(),
         prepareNativeInput: vi.fn(),
         settleNativeInput: vi.fn(),
@@ -510,6 +513,7 @@ describe("Agent control port", () => {
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
       executeDomMutation,
+      executeFormFill: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
@@ -546,6 +550,7 @@ describe("Agent control port", () => {
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
       executeDomMutation,
+      executeFormFill: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
@@ -655,6 +660,7 @@ describe("Agent control failures", () => {
         throw new Error("Agent observations are main-frame only")
       },
       executeDomMutation: vi.fn(),
+      executeFormFill: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
@@ -687,6 +693,7 @@ describe("Agent control failures", () => {
       buildObservation: () =>
         observation({ visibleText: secret }) as AgentObservation,
       executeDomMutation: vi.fn(),
+      executeFormFill: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
@@ -719,6 +726,7 @@ describe("Agent control failures", () => {
         return observation()
       },
       executeDomMutation: vi.fn(),
+      executeFormFill: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
@@ -754,6 +762,7 @@ describe("Agent control failures", () => {
       executeDomMutation: () => {
         throw new Error("detached")
       },
+      executeFormFill: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
@@ -887,6 +896,7 @@ describe("Agent control port across frames", () => {
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
       executeDomMutation,
+      executeFormFill: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),

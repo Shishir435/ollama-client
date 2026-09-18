@@ -113,6 +113,7 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   read: [],
   inspect: ["target", "offset"],
   find: ["query", "offset"],
+  extract: ["queries"],
   extract_text: ["offset", "frameId"],
   click: ["ref"],
   click_point: ["x", "y"],
@@ -134,7 +135,8 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   handle_dialog: ["dialogId", "accept", "promptText"],
   back: [],
   forward: [],
-  wait: ["condition", "timeoutMs"]
+  wait: ["condition", "timeoutMs"],
+  fill_form: ["fields"]
 }
 
 /** Read by the contract test that keeps this table level with the schema. */

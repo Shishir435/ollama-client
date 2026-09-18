@@ -57,7 +57,15 @@ export const AGENT_AFFORDANCE_REASONS = [
   "point_outside_image",
   "visual_unavailable",
   "point_on_nothing",
-  "point_in_frame"
+  "point_in_frame",
+  /**
+   * Batched editing: rules that only exist because several edits travel
+   * together. Each names the batch as a whole; the per-field reasons above
+   * are reported with the index of the field they belong to.
+   */
+  "duplicate_field",
+  "cross_frame_batch",
+  "sensitive_in_batch"
 ] as const
 export type AgentAffordanceReason = (typeof AGENT_AFFORDANCE_REASONS)[number]
 
@@ -79,6 +87,13 @@ export interface AgentAffordanceRefusal {
   tag?: string
   role?: string
   inputType?: string
+  /**
+   * Which field of a batch the refusal is about, zero-based. A twelve-field
+   * fill refused for `not_text_field` is unactionable without it: the model
+   * would have to guess which control it got wrong, and guessing is what the
+   * batch was supposed to remove.
+   */
+  field?: number
 }
 
 /**
@@ -379,6 +394,62 @@ const classifyDialogState = (
 }
 
 /**
+ * What a batch of edits requires beyond what each edit requires alone.
+ *
+ * Three rules, and each exists because the batch is approved once. Two edits
+ * to one control would have the second silently win, and the user would have
+ * approved a value that never landed. Edits spread across frames are not one
+ * form and cannot be checked as one. And a sensitive control is the user's
+ * own step — it is refused here by name so the model repeats that one field
+ * as its own command, where the takeover path can ask for it properly,
+ * rather than being told the whole batch is impossible.
+ */
+const classifyFormFill = (
+  command: Extract<AgentCommand, { type: "fill_form" }>,
+  observation: AgentObservation
+): AgentAffordanceRefusal | undefined => {
+  const seen = new Set<string>()
+  let batchFrameId: number | undefined
+  for (const [index, field] of command.fields.entries()) {
+    if (seen.has(field.ref))
+      return { reason: "duplicate_field", ref: field.ref, field: index }
+    seen.add(field.ref)
+    const candidates = observation.elements.filter(
+      (element) => element.ref === field.ref
+    )
+    if (candidates.length === 0)
+      return { reason: "unknown_ref", ref: field.ref, field: index }
+    if (candidates.length > 1)
+      return { reason: "ambiguous_ref", ref: field.ref, field: index }
+    const element = candidates[0]
+    if (batchFrameId === undefined) batchFrameId = element.frameId
+    else if (element.frameId !== batchFrameId)
+      return { ...refusal("cross_frame_batch", element), field: index }
+    if (element.sensitive)
+      return { ...refusal("sensitive_in_batch", element), field: index }
+    if (!element.visible)
+      return { ...refusal("hidden_target", element), field: index }
+    if (!element.enabled)
+      return { ...refusal("disabled_target", element), field: index }
+    /**
+     * The same rules the single-field command answers to. A batch that
+     * accepted what `select` refuses would be a second copy of the
+     * vocabulary, and the two would drift the first time either changed.
+     */
+    const refused = classifyTarget(
+      {
+        ...field,
+        snapshotId: command.snapshotId,
+        generation: command.generation
+      },
+      element
+    )
+    if (refused) return { ...refused, field: index }
+  }
+  return undefined
+}
+
+/**
  * `undefined` means the observation supports the command. A command with no
  * ref is not this function's business: only the resolver knows whether a
  * destination or a tab is reachable.
@@ -402,6 +473,8 @@ export const classifyAgentAffordance = (
     return { reason: "unavailable_frame" }
   if (command.type === "scroll" && command.container && !command.ref)
     return { reason: "not_scrollable" }
+  if (command.type === "fill_form")
+    return classifyFormFill(command, observation)
   if (!("ref" in command) || command.ref === undefined) return undefined
   /**
    * References are unique across frames — a child frame's carry its frame in
@@ -489,7 +562,12 @@ const described = (refused: AgentAffordanceRefusal): string => {
  */
 export const agentAffordanceFeedback = (
   refused: AgentAffordanceRefusal
-): string => {
+): string =>
+  refused.field === undefined
+    ? affordanceReason(refused)
+    : `Field ${refused.field + 1} of the batch: ${affordanceReason(refused)}`
+
+const affordanceReason = (refused: AgentAffordanceRefusal): string => {
   const ref = refused.ref ? `Ref "${refused.ref}"` : "That element"
   switch (refused.reason) {
     case "not_scrollable":
@@ -556,6 +634,12 @@ export const agentAffordanceFeedback = (
       return "No dialog with that dialogId is open. Use the dialogId the current observation lists, or act on the page if it lists none."
     case "prompt_text_unsupported":
       return "promptText belongs to a prompt dialog only. Answer this dialog with accept alone."
+    case "duplicate_field":
+      return `${ref} appears twice in this batch. Each control may be set once; the later value would silently replace the earlier one.`
+    case "cross_frame_batch":
+      return `${ref} is in a different frame from the other fields. One fill_form covers one frame; send a separate command for the other frame's fields.`
+    case "sensitive_in_batch":
+      return `${ref} is a sensitive control, which the user fills in themselves. Leave it out of the batch and name it in its own command, so the handover can be offered for that field alone.`
   }
 }
 

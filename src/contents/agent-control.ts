@@ -1,6 +1,7 @@
 import type { Runtime } from "webextension-polyfill"
 import {
   executeAgentDomMutationInDocument,
+  executeAgentFormFillInDocument,
   executeAgentScrollInDocument
 } from "@/lib/browser-agent/command-executor"
 import {
@@ -51,6 +52,7 @@ export const installAgentControlContentScript = (): void => {
           elementLimit: request.elementLimit,
           textOffset: request.textOffset,
           ...(request.scope ? { scope: request.scope } : {}),
+          ...(request.lookup ? { lookup: request.lookup } : {}),
           references
         })
       },
@@ -60,6 +62,17 @@ export const installAgentControlContentScript = (): void => {
         }
         return executeAgentDomMutationInDocument({
           effect: request.instruction,
+          document,
+          references,
+          signal: { aborted: false }
+        })
+      },
+      executeFormFill(request) {
+        if (!references) {
+          throw new Error("Agent form fill has no observed snapshot")
+        }
+        return executeAgentFormFillInDocument({
+          instruction: request.instruction,
           document,
           references,
           signal: { aborted: false }

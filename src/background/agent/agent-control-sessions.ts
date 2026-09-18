@@ -10,6 +10,8 @@ import type {
   AgentControlBrowserFrame,
   AgentControlSession,
   AgentDomMutationInstruction,
+  AgentFormFillInstruction,
+  AgentFormFillOutcome,
   AgentHitTestResult,
   AgentInputTraceWire,
   AgentNativeInputPreparedResult,
@@ -64,6 +66,13 @@ export interface AgentControlSessionRegistry {
        * from several at once would return refs the model cannot tell apart.
        */
       scope?: AgentObservationScope
+      /**
+       * Several scoped questions asked of the root frame at once. Bounded the
+       * same way a scope is, and root-only for the same reason: the answer
+       * names refs, and refs from two documents cannot be told apart by the
+       * model reading one list.
+       */
+      lookup?: { queries: readonly string[] }
     },
     signal?: AbortSignal
   ): Promise<AgentObservation>
@@ -75,6 +84,19 @@ export interface AgentControlSessionRegistry {
     },
     signal?: AbortSignal
   ): Promise<string | undefined>
+  /**
+   * A batch of value edits, applied in the page in one exchange. Never
+   * retried for the same reason a mutation is not: a batch whose port died
+   * may have written some of its fields, and repeating it writes them twice.
+   */
+  executeFormFill(
+    input: {
+      runId: string
+      tabId: number
+      instruction: AgentFormFillInstruction
+    },
+    signal?: AbortSignal
+  ): Promise<AgentFormFillOutcome>
   executeScroll(
     input: {
       runId: string
@@ -187,13 +209,15 @@ export const createAgentControlSessionRegistry = (input?: {
     minimumGeneration: number,
     signal?: AbortSignal,
     textOffset?: number,
-    scope?: AgentObservationScope
+    scope?: AgentObservationScope,
+    lookup?: { queries: readonly string[] }
   ): Promise<AgentObservation> => {
     const session = await acquire(runId, tabId, 0)
     const request = {
       minimumGeneration,
       ...(textOffset === undefined ? {} : { textOffset }),
-      ...(scope === undefined ? {} : { scope })
+      ...(scope === undefined ? {} : { scope }),
+      ...(lookup === undefined ? {} : { lookup })
     }
     try {
       return await session.observe(request, signal)
@@ -268,7 +292,15 @@ export const createAgentControlSessionRegistry = (input?: {
 
   return {
     async observe(
-      { runId, tabId, minimumGeneration, allowedOrigins, extraction, scope },
+      {
+        runId,
+        tabId,
+        minimumGeneration,
+        allowedOrigins,
+        extraction,
+        scope,
+        lookup
+      },
       signal
     ) {
       const root = await observeRoot(
@@ -277,7 +309,8 @@ export const createAgentControlSessionRegistry = (input?: {
         minimumGeneration,
         signal,
         extraction?.frameId === 0 ? extraction.offset : undefined,
-        scope
+        scope,
+        lookup
       )
       const { selected, omitted } = selectAgentChildFrames(
         await listFrames(tabId)
@@ -291,8 +324,12 @@ export const createAgentControlSessionRegistry = (input?: {
        * appended those unrelated controls to the matches while `scope.returned`
        * still counted only the root's. The model was handed rows that did not
        * match what it asked for, inside an answer that said they did.
+       *
+       * A multi-query lookup is answered the same way and for the same
+       * reason: its groups name refs, and a group that silently mixed two
+       * documents' refs would be unusable for the thing it exists to do.
        */
-      for (const frame of scope ? [] : selected) {
+      for (const frame of scope || lookup ? [] : selected) {
         const child = await observeChild(
           runId,
           tabId,
@@ -312,6 +349,16 @@ export const createAgentControlSessionRegistry = (input?: {
       const session = await acquire(runId, tabId, frameId)
       try {
         return await session.executeDomMutation(instruction, signal)
+      } catch (error) {
+        drop(runId, tabId, frameId)
+        throw error
+      }
+    },
+    async executeFormFill({ runId, tabId, instruction }, signal) {
+      const frameId = instruction.frame.frameId
+      const session = await acquire(runId, tabId, frameId)
+      try {
+        return await session.executeFormFill(instruction, signal)
       } catch (error) {
         drop(runId, tabId, frameId)
         throw error
@@ -366,7 +413,7 @@ export const createAgentControlSessionRegistry = (input?: {
       }
     },
     release(runId) {
-      for (const sessionKey of [...sessions.keys()]) {
+      for (const sessionKey of sessions.keys()) {
         if (!sessionKey.startsWith(`${runId}::`)) continue
         const session = sessions.get(sessionKey)
         sessions.delete(sessionKey)
