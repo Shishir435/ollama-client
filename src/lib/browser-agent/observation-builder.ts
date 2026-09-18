@@ -1538,7 +1538,7 @@ const selectScopedCandidates = (
       return { matches, nextOffset: offset + matches.length, cut: true }
     const hit =
       scope.kind === "region"
-        ? groupOf(candidate, modalIds)?.toLowerCase().includes(needle) === true
+        ? groupOf(candidate, modalIds)?.toLowerCase() === needle
         : scopeHaystack(candidate, pass).includes(needle)
     if (!hit) continue
     seen += 1
