@@ -492,6 +492,16 @@ const decisionPrompt = (input: {
     controlledTabId: input.state.controlledTabId,
     scopedTabIds: agentTabScope(input.state),
     allowedOrigins: input.state.allowedOrigins,
+    maxSteps: remaining.maxObservations,
+    /**
+     * Everything above holds still for the whole run; everything below this
+     * line changes every step.
+     *
+     * Ordered that way on purpose. A provider that caches a prompt prefix
+     * keeps it only as far as the first byte that moved, and `step` sat above
+     * the goal's tab scope and the run's origin list — so the counter
+     * invalidated the cache for every stable field beneath it, every step.
+     */
     step: input.state.stepCount + 1,
     /**
      * What the run has left. A model told only which step it is on has no
@@ -499,7 +509,6 @@ const decisionPrompt = (input: {
      * same page fails on a budget it was never shown.
      */
     stepsRemaining: remaining.stepsRemaining,
-    maxSteps: remaining.maxObservations,
     retry: input.retry,
     ...(input.feedback ? { previousAttemptRefused: input.feedback } : {}),
     /**
@@ -592,6 +601,22 @@ const sum = (a?: number, b?: number): number | undefined =>
  * what the tool could legally be called with. A page that does hold one gets
  * room for a maximal edit.
  */
+/**
+ * How long a local runner should hold the model between this run's steps.
+ *
+ * A supervised run pauses: an approval, a question, a takeover. Those suspend
+ * the run's own deadlines and say nothing to the runner, whose default is to
+ * evict after five minutes — so a user who took six minutes to read an
+ * approval came back to a reload before the next step. Bounded rather than
+ * indefinite, because the model is the machine's memory and a finished run
+ * has no claim on it.
+ *
+ * Ollama only. The OpenAI-compatible adapter drops the field, which is the
+ * right outcome: residency is a local runner's concern and a hosted endpoint
+ * has no such thing.
+ */
+const AGENT_KEEP_ALIVE = "15m"
+
 const AGENT_SHORT_RESPONSE_TOKENS = 1_024
 const AGENT_LONG_RESPONSE_TOKENS = 6_144
 
@@ -744,7 +769,8 @@ const collectDecision = async (input: {
         tool_choice: "required",
         think: false,
         num_predict: numPredict,
-        num_ctx: numCtx
+        num_ctx: numCtx,
+        keep_alive: AGENT_KEEP_ALIVE
       },
       (chunk) => {
         firstChunkAt ??= Date.now()
@@ -1009,7 +1035,8 @@ export const createProviderAgentModelPort = (
               tool_choice: "required",
               think: false,
               num_predict: agentResponseTokens(window),
-              num_ctx: agentContextWindow(window)
+              num_ctx: agentContextWindow(window),
+              keep_alive: AGENT_KEEP_ALIVE
             },
             (chunk) => {
               for (const call of chunk.toolCalls ?? []) calls.set(call.id, call)
