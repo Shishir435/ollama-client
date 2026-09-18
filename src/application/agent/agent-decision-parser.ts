@@ -67,6 +67,29 @@ const VARIANT_OPTIONAL_FIELDS: Record<string, readonly string[]> = {
   complete: ["evidence", "outcomes"]
 }
 
+/**
+ * An outcome's evidence is optional, and a model answering `met: false`
+ * naturally writes `evidence: ""` beside it — the tool offers the key, so it
+ * fills the key. The schema requires a non-empty string once the key is
+ * present, so that entirely reasonable answer parsed as malformed and spent a
+ * retry; enough of them fail the run.
+ *
+ * Dropped rather than refused, for the same reason the flat tool schema's
+ * unused siblings are dropped: rejecting a usable decision over a key the
+ * schema itself invited is not integrity. The advertised schema carries the
+ * minimum too, so a model that reads it never sends one.
+ */
+const normalizeOutcomes = (value: unknown): unknown => {
+  if (!Array.isArray(value)) return value
+  return value.map((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry))
+      return entry
+    const { evidence, ...rest } = entry as Record<string, unknown>
+    const quoted = typeof evidence === "string" ? evidence.trim() : undefined
+    return quoted ? { ...rest, evidence: quoted } : rest
+  })
+}
+
 /** Read by the contract test that keeps this table level with the schema. */
 export const AGENT_DECISION_OPTIONAL_FIELDS = VARIANT_OPTIONAL_FIELDS
 
@@ -215,7 +238,10 @@ const normalizeDecisionArguments = (
   const optional = Object.fromEntries(
     (VARIANT_OPTIONAL_FIELDS[String(record.type)] ?? [])
       .filter((name) => record[name] !== undefined)
-      .map((name) => [name, record[name]])
+      .map((name) => [
+        name,
+        name === "outcomes" ? normalizeOutcomes(record[name]) : record[name]
+      ])
   )
   return value === undefined
     ? { type: record.type, ...optional }

@@ -1045,5 +1045,36 @@ describe("usable agent prompt", () => {
       await expect(port.plan?.(state, signal)).rejects.toThrow("cancelled")
       expect(streamChat).toHaveBeenCalledTimes(1)
     })
+
+    /**
+     * The ids the completion gate measures against have to reach the model.
+     * Without them it is refused for not answering requirements it was never
+     * shown, and a real model escalated that refusal into a question: the run
+     * did the task, could not say so, and asked the user what to do.
+     */
+    it("sends the run's planned requirements to the model", async () => {
+      let sent: string | undefined
+      const streamChat = vi.fn(async (request, emit) => {
+        sent = request.messages.at(-1)?.content as string
+        emit(validChunk)
+      })
+      const port = modelPort(streamChat)
+
+      await port.decide(
+        {
+          state: {
+            ...state,
+            requirements: [
+              { id: "r1", text: "the field holds Alice", kind: "change" }
+            ]
+          },
+          observation
+        },
+        { aborted: false }
+      )
+
+      expect(sent).toContain("r1")
+      expect(sent).toContain("the field holds Alice")
+    })
   })
 })
