@@ -1,5 +1,10 @@
 import type { AgentObservation, AgentRunState } from "@ollama-client/contracts"
-import type { AgentInspectionFocus, AgentVerificationResult } from "./ports"
+import { agentStepSourceUrl } from "./history"
+import type {
+  AgentHistoryEntry,
+  AgentInspectionFocus,
+  AgentVerificationResult
+} from "./ports"
 
 /**
  * Whether this step is worth a picture.
@@ -24,6 +29,8 @@ export interface AgentPictureContext {
   observation: AgentObservation
   inspection?: AgentInspectionFocus
   previousVerification?: AgentVerificationResult
+  /** What the run has already done, newest last, as the model reads it. */
+  history?: readonly AgentHistoryEntry[]
 }
 
 /**
@@ -55,6 +62,34 @@ const recovering = (
   previousVerification !== undefined &&
   previousVerification.outcome !== "confirmed"
 
+/**
+ * The run is looking at a page it has not seen a picture of.
+ *
+ * A navigation lands somewhere the element list may describe poorly — a map,
+ * a viewer, a canvas application — and the rule above would skip it for
+ * having more than four controls. The first step on a page is the same
+ * argument as the first step of a run: it is the baseline the model reasons
+ * against, and it is the only thing that makes `zoom` reachable, because that
+ * command is offered only once a screenshot exists. Skipping it left a run
+ * that had navigated to a rendered page with no way to ask to see it.
+ *
+ * One picture per page, not per step: the comparison is against the page the
+ * last recorded step acted on, in the same shortened form the history carries,
+ * so a query or a fragment changing underneath the run does not buy another.
+ */
+const arrivedSomewhereNew = (
+  observation: AgentObservation,
+  history: readonly AgentHistoryEntry[] | undefined
+): boolean => {
+  let previous: string | undefined
+  for (const entry of history ?? []) {
+    if (entry.url) previous = entry.url
+  }
+  /** No record is not evidence of a new page; the first step already gets one. */
+  if (previous === undefined) return false
+  return previous !== agentStepSourceUrl(observation.url)
+}
+
 export const agentPictureWarranted = (input: AgentPictureContext): boolean => {
   /** An explicit zoom is the model asking, and it names a region to magnify. */
   if (input.inspection?.zoom) return true
@@ -66,5 +101,6 @@ export const agentPictureWarranted = (input: AgentPictureContext): boolean => {
    */
   if (input.state.stepCount === 0) return true
   if (recovering(input.previousVerification)) return true
+  if (arrivedSomewhereNew(input.observation, input.history)) return true
   return looksSparse(input.observation)
 }

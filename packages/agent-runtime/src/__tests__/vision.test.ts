@@ -119,6 +119,58 @@ describe("agentPictureWarranted", () => {
     ).toBe(false)
   })
 
+  it("takes one on a page it has not seen yet", () => {
+    /**
+     * A navigation that landed on a map, a viewer or a canvas application:
+     * the element list says little, the page has more than four controls, and
+     * the old rule skipped it. `zoom` is offered only where a screenshot
+     * exists, so skipping the first step on a new page left the model with no
+     * way to ask to see the thing it had just navigated to.
+     */
+    expect(
+      agentPictureWarranted({
+        state: { stepCount: 4 },
+        observation: observation({ url: "https://example.com/viewer" }),
+        previousVerification: {
+          outcome: "confirmed",
+          evidence: { kind: "field", summary: "", observedAt: 1 }
+        },
+        history: [
+          {
+            step: 1,
+            action: "click",
+            outcome: "confirmed",
+            url: "https://example.com/"
+          }
+        ]
+      })
+    ).toBe(true)
+  })
+
+  it("does not take a second one for staying where it is", () => {
+    expect(
+      agentPictureWarranted({
+        state: { stepCount: 4 },
+        observation: observation({
+          url: "https://example.com/viewer?page=2#top"
+        }),
+        previousVerification: {
+          outcome: "confirmed",
+          evidence: { kind: "field", summary: "", observedAt: 1 }
+        },
+        history: [
+          {
+            step: 1,
+            action: "click",
+            outcome: "confirmed",
+            url: "https://example.com/viewer"
+          },
+          { step: 2, action: "read", outcome: "confirmed" }
+        ]
+      })
+    ).toBe(false)
+  })
+
   it("takes one when the model asked to magnify a region", () => {
     expect(
       agentPictureWarranted({

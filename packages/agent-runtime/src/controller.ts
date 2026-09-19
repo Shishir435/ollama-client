@@ -721,7 +721,8 @@ export const createAgentController = (
     observation: AgentObservation,
     signal: AgentCancellationController["signal"],
     inspection: AgentModelInput["inspection"],
-    previousVerification?: AgentVerificationResult
+    previousVerification?: AgentVerificationResult,
+    history?: AgentModelInput["history"]
   ): Promise<boolean> => {
     if (!(await dependencies.model.vision?.(state, signal))) return false
     const policy =
@@ -733,7 +734,8 @@ export const createAgentController = (
         state,
         observation,
         ...(inspection ? { inspection } : {}),
-        ...(previousVerification ? { previousVerification } : {})
+        ...(previousVerification ? { previousVerification } : {}),
+        ...(history ? { history } : {})
       })
     )
       return true
@@ -746,7 +748,8 @@ export const createAgentController = (
     observation: AgentObservation,
     inspection: AgentModelInput["inspection"],
     signal: AgentCancellationController["signal"],
-    previousVerification?: AgentVerificationResult
+    previousVerification?: AgentVerificationResult,
+    history?: AgentModelInput["history"]
   ): Promise<AgentModelInput["screenshot"]> => {
     // Native dialogs freeze the renderer; its debugger-held text is the observation.
     if (
@@ -762,7 +765,8 @@ export const createAgentController = (
           observation,
           signal,
           inspection,
-          previousVerification
+          previousVerification,
+          history
         ))
       )
         return undefined
@@ -1593,7 +1597,8 @@ export const createAgentController = (
         observation,
         recalled.inspection,
         signal,
-        recalled.previousVerification
+        recalled.previousVerification,
+        recalled.history
       )
       if (screenshot) context.screenshot = screenshot
       decision = await decide(deciding, observation, signal, {
