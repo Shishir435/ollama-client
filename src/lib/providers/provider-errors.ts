@@ -131,6 +131,24 @@ export const classifyProviderError = (
       recoveryAction: "reduce-input"
     }
   }
+  /**
+   * Matched on text rather than status: older proxies forward the refusal
+   * with the upstream's 502, and the status alone cannot tell a policy
+   * refusal from a gateway that is down.
+   */
+  if (
+    includesAny(value, [
+      /free tier can only be used from within OpenCode/i,
+      /FreeTierError/
+    ])
+  ) {
+    return {
+      code: "OLC-FREE-TIER-REFUSED",
+      reason:
+        "OpenCode's free tier refused this request from a third-party client. Use a model from a key-backed provider, or run this model in OpenCode's own app.",
+      recoveryAction: "choose-model"
+    }
+  }
   if (status === 401 || status === 403) {
     return {
       code: "OLC-AUTH-FAILED",

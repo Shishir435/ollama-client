@@ -105,7 +105,20 @@ export type TurnResult =
       finish?: string | null
     }
   | { status: "suspended" }
-  | { status: "failed"; error: { message: string; type: string } }
+  | {
+      status: "failed"
+      error: {
+        message: string
+        type: string
+        /**
+         * The upstream status for this failure, when the backend knows it. The
+         * core answers 502 otherwise — a backend that watched its runtime
+         * refuse with 403 says so, so a policy refusal is not reported as a
+         * gateway that is down (and is not retried as one).
+         */
+        status?: number
+      }
+    }
 
 export interface BackendTurn {
   readonly id: string

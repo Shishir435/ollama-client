@@ -30,7 +30,7 @@ import { createRequestQueue } from "../queue.js"
  * runtime can be checked against the same expectations.
  */
 interface FakeBackendOptions {
-  mode: "answer" | "tool" | "fail" | "image"
+  mode: "answer" | "tool" | "fail" | "refused" | "image"
   answer?: string
 }
 
@@ -93,6 +93,17 @@ const createFakeBackend = (
         return {
           status: "failed",
           error: { message: "upstream exploded", type: "FakeError" }
+        }
+      }
+
+      if (options.mode === "refused") {
+        return {
+          status: "failed",
+          error: {
+            message: "policy refused this request",
+            type: "PolicyRefused",
+            status: 403
+          }
         }
       }
 
@@ -495,6 +506,28 @@ describe("chat completions", () => {
 
     expect(turn.content).toContain("[Proxy Error] FakeError: upstream exploded")
     expect(turn.finishReason).toBe("stop")
+    expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("answers a backend-stated upstream status instead of 502", async () => {
+    harness = await startHarness({ mode: "refused" })
+    const response = await fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: false,
+        messages: askedForTabs
+      })
+    })
+
+    // A policy refusal is not a gateway that is down: the client must see the
+    // upstream status so it neither retries what cannot succeed nor reports
+    // the proxy as broken.
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({
+      error: { message: "policy refused this request", type: "PolicyRefused" }
+    })
     expect(harness.calls.dispose).toBe(1)
   })
 

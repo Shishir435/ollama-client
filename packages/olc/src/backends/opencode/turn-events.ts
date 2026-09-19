@@ -61,7 +61,13 @@ interface MessagePart {
 export interface MessageFailure {
   name?: string
   message?: string
-  data?: { message?: string }
+  /**
+   * The provider error payload OpenCode attached, when it did. `message` is
+   * the sentence; `responseBody` carries the gateway's own code (such as
+   * Zen's `FreeTierError`) and `statusCode` its own status, so a refusal can
+   * be told apart from a backend that is down without parsing sentences.
+   */
+  data?: { message?: string; responseBody?: unknown; statusCode?: number }
 }
 
 interface MessageInfo {

@@ -42,6 +42,11 @@ import {
   resolveReasoningVariant
 } from "./catalog.js"
 import { resolveOpencodeConfig } from "./config.js"
+import {
+  FREE_TIER_REFUSAL_TYPE,
+  freeTierRefusalMessage,
+  isFreeTierRefusal
+} from "./free-tier-refusal.js"
 import { createBackendSupervisor } from "./server.js"
 import { ToolManifest } from "./tool-manifest.js"
 import { createTurnReader, type TurnOutcome } from "./turn-events.js"
@@ -334,6 +339,19 @@ export const createOpencodeBackend = (
 
         if (final.error && !final.content && !final.reasoning) {
           const failure = final.error
+          if (isFreeTierRefusal(failure)) {
+            const model = this.promptBody.model
+            return {
+              status: "failed",
+              error: {
+                message: freeTierRefusalMessage(
+                  `${model.providerID}/${model.modelID}`
+                ),
+                type: FREE_TIER_REFUSAL_TYPE,
+                status: 403
+              }
+            }
+          }
           return {
             status: "failed",
             error: {

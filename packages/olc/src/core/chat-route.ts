@@ -669,6 +669,11 @@ export const registerChatRoutes = (
         if (result.status === "suspended") return
         settled = true
         if (result.status === "failed") {
+          // A backend that states its upstream status (a policy refusal, not
+          // a gateway that is down) is answered with it, so the client
+          // neither retries what cannot succeed nor debugs the proxy.
+          // Anything else stays a 502.
+          const status = result.error.status ?? 502
           if (emitter.streamMode) {
             emitter.delta(
               `[Proxy Error] ${result.error.type}: ${result.error.message}`,
@@ -676,7 +681,12 @@ export const registerChatRoutes = (
             )
             emitter.finish("stop")
           } else {
-            sendJson(response, 502, { error: result.error })
+            sendJson(response, status, {
+              error: {
+                message: result.error.message,
+                type: result.error.type
+              }
+            })
           }
           await discardTurn(turn as BackendTurn)
           return
