@@ -1020,6 +1020,10 @@ export interface AgentCommandExecutorAdapter {
     effect: AuthorizedAgentEffect,
     signal: AgentCancellationSignal
   ): Promise<AgentFormFillOutcome>
+  executePageTool?(
+    effect: AuthorizedAgentEffect,
+    signal: AgentCancellationSignal
+  ): Promise<{ result: string; navigation: boolean }>
   /**
    * Native input, in the order the executor calls it: the facts a backend is
    * chosen on, the page-side recheck that arms the input record and yields the

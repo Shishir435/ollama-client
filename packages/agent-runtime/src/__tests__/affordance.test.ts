@@ -222,7 +222,9 @@ const PAGE_SCOPED_REASONS = [
   "unavailable_frame",
   "dialog_open",
   "unknown_dialog",
-  "prompt_text_unsupported"
+  "prompt_text_unsupported",
+  "unknown_page_tool",
+  "page_tool_changed"
 ] as const
 
 describe("agentAffordanceFeedback", () => {

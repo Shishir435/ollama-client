@@ -139,6 +139,40 @@ describe("agent debug report gate", () => {
   })
 })
 
+describe("WebMCP experiment gate", () => {
+  it("requires explicit opt-in and remains absent from Firefox", () => {
+    const previous = process.env.WXT_AGENT_WEBMCP
+    try {
+      delete process.env.WXT_AGENT_WEBMCP
+      expect(
+        persistenceDefines({
+          browser: "chrome",
+          spikeOwner: false,
+          development: false
+        }).__AGENT_WEBMCP_ENABLED__
+      ).toBe("false")
+      process.env.WXT_AGENT_WEBMCP = "1"
+      expect(
+        persistenceDefines({
+          browser: "chrome",
+          spikeOwner: false,
+          development: false
+        }).__AGENT_WEBMCP_ENABLED__
+      ).toBe("true")
+      expect(
+        persistenceDefines({
+          browser: "firefox",
+          spikeOwner: false,
+          development: true
+        }).__AGENT_WEBMCP_ENABLED__
+      ).toBe("false")
+    } finally {
+      if (previous === undefined) delete process.env.WXT_AGENT_WEBMCP
+      else process.env.WXT_AGENT_WEBMCP = previous
+    }
+  })
+})
+
 describe("persistenceDefines", () => {
   it("registers no spike owner in a store build", () => {
     for (const browser of ["chrome", "firefox"]) {

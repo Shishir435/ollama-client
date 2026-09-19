@@ -74,9 +74,11 @@ vi.mock("../add-vector-cleanup-receipts-table", () => ({
     ensureVectorCleanupReceiptsTable(db)
 }))
 
-const ensureAgentRunsTables = vi.fn()
-vi.mock("../add-agent-runs-tables", () => ({
-  ensureAgentRunsTables: (db: unknown) => ensureAgentRunsTables(db)
+const rebuildAgentRunsTables = vi.fn()
+const agentRunsTablesAreStale = vi.fn<(db: unknown) => boolean>(() => false)
+vi.mock("../rebuild-agent-runs-tables", () => ({
+  agentRunsTablesAreStale: (db: unknown) => agentRunsTablesAreStale(db),
+  rebuildAgentRunsTables: (db: unknown) => rebuildAgentRunsTables(db)
 }))
 
 import {
@@ -194,7 +196,9 @@ beforeEach(() => {
   ensureIngestionRunsTable.mockClear()
   ensureModelPullRunsTable.mockClear()
   ensureVectorCleanupReceiptsTable.mockClear()
-  ensureAgentRunsTables.mockClear()
+  rebuildAgentRunsTables.mockClear()
+  agentRunsTablesAreStale.mockReset()
+  agentRunsTablesAreStale.mockReturnValue(false)
 })
 
 describe("migration-runner", () => {
@@ -238,11 +242,12 @@ describe("migration-runner", () => {
     expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureIngestionRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
-    expect(ensureAgentRunsTables).toHaveBeenCalledTimes(1)
+    expect(rebuildAgentRunsTables).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
   it("rebuilds Agent tables a pre-release build left behind", () => {
+    agentRunsTablesAreStale.mockReturnValue(true)
     const db = makeDb(LATEST_SCHEMA_VERSION, {
       agentRunColumns: ["id", "status", "state", "createdAt", "updatedAt"]
     })
@@ -250,8 +255,7 @@ describe("migration-runner", () => {
     const repaired = repairSchemaDrift(db as never)
 
     expect(repaired).toBeGreaterThan(0)
-    expect(db.run).toHaveBeenCalledWith("DROP TABLE IF EXISTS agent_runs")
-    expect(ensureAgentRunsTables).toHaveBeenCalledTimes(1)
+    expect(rebuildAgentRunsTables).toHaveBeenCalledTimes(1)
   })
 
   it("leaves Agent tables alone when their shape is current", () => {
@@ -259,14 +263,14 @@ describe("migration-runner", () => {
 
     repairSchemaDrift(db as never)
 
-    expect(ensureAgentRunsTables).not.toHaveBeenCalled()
+    expect(rebuildAgentRunsTables).not.toHaveBeenCalled()
   })
 
   it("only runs migrations above the current version", () => {
     // A database already at v1 should skip v1 and run the later migrations.
     const db = makeDb(1)
     const applied = runMigrations(db as never)
-    expect(applied).toBe(LATEST_SCHEMA_VERSION - 1)
+    expect(applied).toBe(MIGRATIONS.filter(({ version }) => version > 1).length)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(ensureSessionsPinnedColumn).toHaveBeenCalledTimes(1)
     expect(ensureSessionsSystemPromptColumn).toHaveBeenCalledTimes(1)
@@ -278,7 +282,7 @@ describe("migration-runner", () => {
     expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureIngestionRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
-    expect(ensureAgentRunsTables).toHaveBeenCalledTimes(1)
+    expect(rebuildAgentRunsTables).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -317,7 +321,7 @@ describe("migration-runner", () => {
     expect(ensureIngestionRunsTable).toHaveBeenCalledWith(db)
     expect(ensureModelPullRunsTable).toHaveBeenCalledWith(db)
     expect(ensureVectorCleanupReceiptsTable).toHaveBeenCalledWith(db)
-    expect(ensureAgentRunsTables).toHaveBeenCalledWith(db)
+    expect(rebuildAgentRunsTables).toHaveBeenCalledWith(db)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
@@ -337,6 +341,6 @@ describe("migration-runner", () => {
     expect(ensureIngestionRunsTable).not.toHaveBeenCalled()
     expect(ensureModelPullRunsTable).not.toHaveBeenCalled()
     expect(ensureVectorCleanupReceiptsTable).not.toHaveBeenCalled()
-    expect(ensureAgentRunsTables).not.toHaveBeenCalled()
+    expect(rebuildAgentRunsTables).not.toHaveBeenCalled()
   })
 })

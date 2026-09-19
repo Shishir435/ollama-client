@@ -65,7 +65,9 @@ export const AGENT_AFFORDANCE_REASONS = [
    */
   "duplicate_field",
   "cross_frame_batch",
-  "sensitive_in_batch"
+  "sensitive_in_batch",
+  "unknown_page_tool",
+  "page_tool_changed"
 ] as const
 export type AgentAffordanceReason = (typeof AGENT_AFFORDANCE_REASONS)[number]
 
@@ -454,7 +456,7 @@ const classifyFormFill = (
  * ref is not this function's business: only the resolver knows whether a
  * destination or a tab is reachable.
  */
-export const classifyAgentAffordance = (
+const classifyNonPageToolAffordance = (
   command: AgentCommand,
   observation: AgentObservation
 ): AgentAffordanceRefusal | undefined => {
@@ -510,6 +512,22 @@ export const classifyAgentAffordance = (
   if (command.type === "drag")
     return classifyDrag(command, element, observation)
   return classifyTarget(command, element)
+}
+
+export const classifyAgentAffordance = (
+  command: AgentCommand,
+  observation: AgentObservation
+): AgentAffordanceRefusal | undefined => {
+  if (command.type !== "call_page_tool") {
+    return classifyNonPageToolAffordance(command, observation)
+  }
+  const named = observation.pageTools?.find(
+    (tool) => tool.name === command.toolName
+  )
+  if (!named) return { reason: "unknown_page_tool" }
+  return named.schemaRevision === command.schemaRevision
+    ? undefined
+    : { reason: "page_tool_changed" }
 }
 
 /**
@@ -640,6 +658,10 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
       return `${ref} is in a different frame from the other fields. One fill_form covers one frame; send a separate command for the other frame's fields.`
     case "sensitive_in_batch":
       return `${ref} is a sensitive control, which the user fills in themselves. Leave it out of the batch and name it in its own command, so the handover can be offered for that field alone.`
+    case "unknown_page_tool":
+      return "That page tool is not in observation.pageTools. Use an exact advertised tool name, or use ordinary page controls."
+    case "page_tool_changed":
+      return "That page tool's schema changed. Use the current schemaRevision and rebuild its input from the current inputSchema."
   }
 }
 

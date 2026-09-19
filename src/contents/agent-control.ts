@@ -15,10 +15,15 @@ import {
 } from "@/lib/browser-agent/native-input-page"
 import { buildAgentObservation } from "@/lib/browser-agent/observation-builder"
 import {
+  discoverAgentPageTools,
+  executeAgentPageTool
+} from "@/lib/browser-agent/page-tools"
+import {
   collectAgentSensitiveRegionsInDocument,
   hitTestAgentPointInDocument
 } from "@/lib/browser-agent/visual-grounding-page"
 import { browser } from "@/lib/browser-api"
+import { AGENT_WEBMCP_COMPILED } from "@/lib/feature-flags"
 
 const INSTALL_MARKER = "__ollamaClientAgentControlInstalled__"
 
@@ -116,6 +121,28 @@ export const installAgentControlContentScript = (): void => {
           references
         })
       },
+      ...(AGENT_WEBMCP_COMPILED
+        ? {
+            discoverPageTools(request) {
+              return discoverAgentPageTools({
+                document,
+                frameId: request.frameId,
+                documentId: request.documentId
+              })
+            },
+            executePageTool(request, signal) {
+              return executeAgentPageTool({
+                document,
+                frameId: request.frameId,
+                documentId: request.documentId,
+                name: request.toolName,
+                schemaRevision: request.schemaRevision,
+                args: request.input,
+                signal
+              })
+            }
+          }
+        : {}),
       settleNativeInput() {
         const trace = watch.settle()
         return trace

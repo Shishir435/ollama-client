@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest"
-import { ensureAgentRunsTables } from "../add-agent-runs-tables"
 import { ensureIngestionRunsTable } from "../add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "../add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "../add-message-replay-artifact-column"
@@ -7,6 +6,7 @@ import { ensureModelPullRunsTable } from "../add-model-pull-runs-table"
 import { ensurePromptTemplatesTable } from "../add-prompt-templates-table"
 import { ensureMessagesThinkingColumn } from "../add-thinking-column"
 import { ensureTurnRunsTable } from "../add-turn-runs-table"
+import { rebuildAgentRunsTables } from "../rebuild-agent-runs-tables"
 
 // ─── add-thinking-column ──────────────────────────────────────────────────────
 
@@ -174,10 +174,10 @@ describe("ensureModelPullRunsTable", () => {
   })
 })
 
-describe("ensureAgentRunsTables", () => {
+describe("rebuildAgentRunsTables", () => {
   it("creates isolated run ownership, append-only evidence, and indexes", () => {
-    const db = { run: vi.fn() }
-    ensureAgentRunsTables(db as never)
+    const db = makeDb([])
+    rebuildAgentRunsTables(db as never)
     const statements = db.run.mock.calls.map(([sql]) => String(sql))
 
     expect(statements[0]).toContain("CREATE TABLE IF NOT EXISTS agent_runs")

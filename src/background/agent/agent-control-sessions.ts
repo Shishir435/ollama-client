@@ -2,9 +2,11 @@ import { AgentControlFailedError } from "@ollama-client/agent-runtime"
 import {
   type AgentObservation,
   type AgentObservationScope,
+  type AgentPageTool,
   type AgentSnapshotIdentity,
   MAX_AGENT_LOOKUP_MATCHES,
-  MAX_AGENT_OBSERVED_ELEMENTS
+  MAX_AGENT_OBSERVED_ELEMENTS,
+  MAX_AGENT_PAGE_TOOLS
 } from "@ollama-client/contracts"
 
 import type {
@@ -30,6 +32,7 @@ import {
 } from "@/lib/browser-agent/frame-observation"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
+import { AGENT_WEBMCP_COMPILED } from "@/lib/feature-flags"
 import { logger } from "@/lib/logger"
 
 /**
@@ -142,6 +145,25 @@ export interface AgentControlSessionRegistry {
     },
     signal?: AbortSignal
   ): Promise<AgentHitTestResult>
+  discoverPageTools?(
+    input: {
+      runId: string
+      tabId: number
+      allowedOrigins: readonly string[]
+    },
+    signal?: AbortSignal
+  ): Promise<AgentPageTool[]>
+  executePageTool?(
+    input: {
+      runId: string
+      tabId: number
+      frameId: number
+      toolName: string
+      schemaRevision: string
+      args: Record<string, unknown>
+    },
+    signal?: AbortSignal
+  ): Promise<{ result: string; navigation: boolean }>
   release(runId: string): void
 }
 
@@ -489,6 +511,52 @@ export const createAgentControlSessionRegistry = (input?: {
         throw error
       }
     },
+    ...(AGENT_WEBMCP_COMPILED
+      ? {
+          async discoverPageTools({ runId, tabId, allowedOrigins }, signal) {
+            const tools: AgentPageTool[] = []
+            const discover = async (frameId: number) => {
+              const session = await acquire(runId, tabId, frameId)
+              if (!session.discoverPageTools) return
+              tools.push(...(await session.discoverPageTools(signal)))
+            }
+            await discover(0)
+            const { selected } = selectAgentChildFrames(await listFrames(tabId))
+            for (const frame of selected) {
+              if (tools.length >= MAX_AGENT_PAGE_TOOLS) break
+              const authorized = await authorizeAgentFrame(frame, {
+                allowedOrigins,
+                classifyAccess: frameAdapter.classifyAccess
+              })
+              if (authorized?.access !== "ok") continue
+              try {
+                await discover(frame.frameId)
+              } catch {
+                drop(runId, tabId, frame.frameId)
+              }
+            }
+            return tools.slice(0, MAX_AGENT_PAGE_TOOLS)
+          },
+          async executePageTool(
+            { runId, tabId, frameId, toolName, schemaRevision, args },
+            signal
+          ) {
+            const session = await acquire(runId, tabId, frameId)
+            try {
+              if (!session.executePageTool) {
+                throw new Error("Agent page-tool execution is unavailable")
+              }
+              return await session.executePageTool(
+                { toolName, schemaRevision, args },
+                signal
+              )
+            } catch (error) {
+              drop(runId, tabId, frameId)
+              throw error
+            }
+          }
+        }
+      : {}),
     release(runId) {
       for (const sessionKey of sessions.keys()) {
         if (!sessionKey.startsWith(`${runId}::`)) continue

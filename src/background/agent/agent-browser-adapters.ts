@@ -33,6 +33,7 @@ import {
   classifyAgentTabAccess,
   queryActiveTab
 } from "@/lib/browser-tab-access"
+import { AGENT_WEBMCP_COMPILED, FEATURE_FLAGS } from "@/lib/feature-flags"
 import type {
   AgentBrowserSessionManager,
   AgentExtensionFrame
@@ -168,6 +169,8 @@ export const createAgentBrowserAdapters = (input: {
   listFrames?: (tabId: number) => Promise<readonly AgentExtensionFrame[]>
   /** Defaults to the worker's OffscreenCanvas; absent means no screenshots. */
   imageEditor?: AgentImageEditor
+  /** Injectable so the experimental adapter can be crossed in tests. */
+  pageToolsEnabled?: boolean
 }): AgentBrowserAdapters => {
   const now = input.now ?? (() => Date.now())
   const imageEditor =
@@ -175,6 +178,7 @@ export const createAgentBrowserAdapters = (input: {
       ? input.imageEditor
       : createOffscreenAgentImageEditor()
   const platform = input.platform ?? detectPlatform()
+  const pageToolsEnabled = input.pageToolsEnabled ?? FEATURE_FLAGS.agentWebMcp
   const listFrames =
     input.listFrames ??
     (async (tabId: number): Promise<AgentExtensionFrame[]> => {
@@ -616,13 +620,29 @@ export const createAgentBrowserAdapters = (input: {
            */
           request.lookup
         )
+        const pageTools =
+          pageToolsEnabled && input.sessions.discoverPageTools
+            ? await input.sessions
+                .discoverPageTools(
+                  {
+                    runId: input.runId,
+                    tabId: request.tabId,
+                    allowedOrigins: request.allowedOrigins
+                  },
+                  abortSignal(signal)
+                )
+                .catch(() => [])
+            : []
+        const enriched = pageTools.length
+          ? { ...observation, pageTools }
+          : observation
         lastViewport.set(request.tabId, {
           x: observation.scroll.x,
           y: observation.scroll.y,
           width: observation.scroll.viewportWidth,
           height: observation.scroll.viewportHeight
         })
-        return observation
+        return enriched
       }
     },
     ...(screenshot ? { screenshot } : {}),
@@ -683,6 +703,40 @@ export const createAgentBrowserAdapters = (input: {
           abortSignal(signal)
         )
       },
+      ...(AGENT_WEBMCP_COMPILED
+        ? {
+            async executePageTool(effect, signal) {
+              const command = effect.command
+              const tool = effect.pageTool
+              if (command.type !== "call_page_tool" || !tool) {
+                throw new Error("Agent page-tool effect is incomplete")
+              }
+              const frame = (await browser.webNavigation.getFrame({
+                tabId: effect.snapshotIdentity.tabId,
+                frameId: tool.frameId
+              })) as { documentId?: string } | null
+              if (!frame || frame.documentId !== tool.documentId) {
+                throw new Error(
+                  "Agent page-tool document changed before execution"
+                )
+              }
+              if (!input.sessions.executePageTool) {
+                throw new Error("Agent page-tool execution is unavailable")
+              }
+              return input.sessions.executePageTool(
+                {
+                  runId: input.runId,
+                  tabId: effect.snapshotIdentity.tabId,
+                  frameId: tool.frameId,
+                  toolName: command.toolName,
+                  schemaRevision: command.schemaRevision,
+                  args: command.input
+                },
+                abortSignal(signal)
+              )
+            }
+          }
+        : {}),
       ...(input.browserSessions ? nativeAdapter : {}),
       ...(input.browserSessions
         ? {

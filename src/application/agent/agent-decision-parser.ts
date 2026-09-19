@@ -115,6 +115,7 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   find: ["query", "offset"],
   extract: ["queries"],
   extract_text: ["offset", "frameId"],
+  call_page_tool: ["toolName", "schemaRevision", "input"],
   click: ["ref"],
   click_point: ["x", "y"],
   zoom: ["x", "y", "width", "height"],

@@ -1,4 +1,3 @@
-import { ensureAgentRunsTables } from "./add-agent-runs-tables"
 import type { MigrationDatabase } from "./database"
 
 const AGENT_RUN_COLUMNS = [
@@ -17,6 +16,35 @@ const AGENT_STEP_COLUMNS = [
   "receipt",
   "createdAt"
 ] as const
+
+const createAgentRunsTables = (db: MigrationDatabase): void => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      checkpoint TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    )
+  `)
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status)"
+  )
+  db.run(`
+    CREATE TABLE IF NOT EXISTS agent_steps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      runId TEXT NOT NULL,
+      stepId TEXT NOT NULL,
+      status TEXT NOT NULL,
+      receipt TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      FOREIGN KEY(runId) REFERENCES agent_runs(id) ON DELETE CASCADE
+    )
+  `)
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_agent_steps_runId ON agent_steps(runId, id)"
+  )
+}
 
 const columnsOf = (db: MigrationDatabase, table: string): Set<string> => {
   const stmt = db.prepare(`PRAGMA table_info(${table})`)
@@ -45,7 +73,7 @@ export const agentRunsTablesAreStale = (db: MigrationDatabase): boolean =>
   !shapeMatches(db, "agent_steps", AGENT_STEP_COLUMNS)
 
 /**
- * Migration 17: rebuild the Agent tables when they carry an older shape.
+ * Migration 17: create the Agent tables, rebuilding a pre-release shape.
  *
  * A create-if-absent statement is a no-op against a table that already
  * exists, so a profile that ran a pre-release Agent build keeps whatever
@@ -65,5 +93,5 @@ export const rebuildAgentRunsTables = (db: MigrationDatabase): void => {
   const missing =
     columnsOf(db, "agent_runs").size === 0 ||
     columnsOf(db, "agent_steps").size === 0
-  if (stale || missing) ensureAgentRunsTables(db)
+  if (stale || missing) createAgentRunsTables(db)
 }

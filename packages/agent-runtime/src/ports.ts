@@ -8,6 +8,7 @@ import type {
   AgentImageRect,
   AgentObservation,
   AgentObservationScope,
+  AgentPageTool,
   AgentPauseReason,
   AgentRunState,
   AgentRunStatus,
@@ -258,6 +259,8 @@ export interface ResolvedAgentEffect {
    * verified as another.
    */
   batch?: { fields: readonly ResolvedAgentBatchField[] }
+  /** WebMCP descriptor bound to the document and schema the model saw. */
+  pageTool?: AgentPageTool
   destination?: AgentDestination
   /**
    * The native dialog this effect answers, for the one command that answers
@@ -355,6 +358,10 @@ export interface AgentExecutionReceipt {
   fileChooser?: boolean
   /** A held native dialog interrupted this activation; no input is replayed. */
   dialogOpened?: string
+  /** Ephemeral, bounded page-authored WebMCP result; verification labels it untrusted. */
+  pageToolResult?: string
+  /** The WebMCP API reports navigation by resolving the invocation to null. */
+  pageToolNavigation?: boolean
 }
 
 export interface AgentVerificationEvidence {
