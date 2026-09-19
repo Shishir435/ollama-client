@@ -37,6 +37,7 @@ export const AGENT_AFFORDANCE_REASONS = [
   "not_focused",
   /** Editing: the text a command names is not there, or the field cannot hold it. */
   "newline_in_single_line",
+  "missing_text_separator",
   "text_not_found",
   "text_ambiguous",
   "value_truncated",
@@ -247,6 +248,32 @@ const classifyTypedText = (
   return undefined
 }
 
+/**
+ * `type` appends its payload byte-for-byte. In a multiline prose editor, two
+ * non-whitespace word boundaries almost always mean the model forgot the
+ * separator it intended (for example `agentAgreed`). Leading punctuation is
+ * allowed because appending `!`, `.com`, or a closing quote is intentional.
+ * Refuse before execution so prose can be retried with the separator explicit.
+ */
+const classifyAppendedText = (
+  element: AgentElement,
+  text: string
+): AgentAffordanceRefusal | undefined => {
+  const typed = classifyTypedText(element, text)
+  if (typed) return typed
+  if (element.sensitive || !element.multiline) return undefined
+  const current = element.value ?? ""
+  if (
+    current.length > 0 &&
+    text.length > 0 &&
+    !/\s/u.test(current.at(-1) ?? "") &&
+    !/[\s\p{P}]/u.test(text[0] ?? "")
+  ) {
+    return refusal("missing_text_separator", element)
+  }
+  return undefined
+}
+
 const countOccurrences = (value: string, find: string): number => {
   let count = 0
   let from = 0
@@ -335,6 +362,7 @@ const classifyTarget = (
     case "hover":
       return undefined
     case "type":
+      return classifyAppendedText(element, command.text)
     case "clear_and_type":
       return classifyTypedText(element, command.text)
     case "replace_text":
@@ -625,6 +653,8 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
       return `${ref} is not focused, so a key press would not reach it. Click or type into it first.`
     case "newline_in_single_line":
       return `${ref} is a single-line field, so typed text cannot contain a line break. Type the text without it; to confirm or send, use press_key with Enter on the focused field.`
+    case "missing_text_separator":
+      return `${ref} already ends in text, and type appends exactly as given. Start text with a space or line break so the values do not run together; use clear_and_type only when replacing the whole field.`
     case "text_not_found":
       return `${ref} does not contain the text named in find. Use an exact run of its observed value.`
     case "text_ambiguous":

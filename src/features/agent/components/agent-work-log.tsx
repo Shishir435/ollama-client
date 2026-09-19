@@ -1,4 +1,10 @@
-import { CircleCheck, CircleDashed, CircleX, ShieldAlert } from "lucide-react"
+import {
+  ChevronDown,
+  CircleCheck,
+  CircleDashed,
+  CircleX,
+  ShieldAlert
+} from "lucide-react"
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/class-names"
@@ -43,18 +49,55 @@ export const AgentWorkLog = ({
         {items.map((item, index) => {
           const Icon = iconFor(item.status)
           const last = index === items.length - 1
+          const hasDetails = Boolean(item.target || item.note || item.detail)
+          const needsAttention = ["failed", "rejected", "uncertain"].includes(
+            item.status
+          )
           const active = [
             "planned",
             "approved",
             "executing",
             "executed"
           ].includes(item.status)
+          const heading = (
+            <>
+              <span className="min-w-0 flex-1 wrap-break-word text-xs">
+                {t(item.label.key, item.label.values)}
+              </span>
+              <span className="sr-only">
+                {t(`agent.step_status.${item.status}`)}
+              </span>
+              <time
+                className="shrink-0 text-micro text-muted-foreground"
+                dateTime={new Date(item.at).toISOString()}>
+                {new Date(item.at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit"
+                })}
+              </time>
+            </>
+          )
+          const details = (
+            <div className="mt-1 space-y-0.5 pl-5 text-2xs text-muted-foreground">
+              {item.target && (
+                <p className="wrap-break-word">
+                  {t("agent.work_log.target", { name: item.target })}
+                </p>
+              )}
+              {item.note && (
+                <p className="wrap-break-word border-l-2 border-border pl-2">
+                  {item.note}
+                </p>
+              )}
+              {item.detail && <p className="wrap-break-word">{item.detail}</p>}
+            </div>
+          )
           return (
             <li key={item.id} className="flex min-w-0 items-stretch gap-2">
-              <div className="relative flex w-5 shrink-0 justify-center pt-2">
+              <div className="relative flex w-5 shrink-0 justify-center pt-1.5">
                 {(index < items.length - 1 || live) && (
                   <span
-                    className="absolute top-5 bottom-0 w-px bg-border"
+                    className="absolute top-4 -bottom-1 w-px bg-border"
                     aria-hidden="true"
                   />
                 )}
@@ -69,49 +112,25 @@ export const AgentWorkLog = ({
                   aria-hidden="true"
                 />
               </div>
-              <div className="min-w-0 flex-1 border-b border-border-subtle py-1.5 last:border-b-0">
-                <div className="flex min-w-0 items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="wrap-break-word text-xs">
-                      {t(item.label.key, item.label.values)}
-                    </p>
-                    <span className="sr-only">
-                      {t(`agent.step_status.${item.status}`)}
-                    </span>
-                    {/*
-                    The control's own name, quoted so it reads as the page's
-                    words rather than as part of the sentence above it.
-                  */}
-                    {item.target && (
-                      <p className="mt-0.5 wrap-break-word text-2xs text-muted-foreground">
-                        {t("agent.work_log.target", { name: item.target })}
-                      </p>
-                    )}
-                    {/*
-                    The model's own note for the step. It is why the run did
-                    this, in its words, and it was durable long before it was
-                    ever shown.
-                  */}
-                    {item.note && (
-                      <p className="mt-1 wrap-break-word border-l-2 border-border pl-2 text-2xs text-muted-foreground">
-                        {item.note}
-                      </p>
-                    )}
-                    {item.detail && (
-                      <p className="mt-0.5 wrap-break-word text-2xs text-muted-foreground">
-                        {item.detail}
-                      </p>
-                    )}
+              <div className="min-w-0 flex-1 py-1">
+                {hasDetails ? (
+                  <details
+                    className="group/step"
+                    open={needsAttention || active ? true : undefined}>
+                    <summary className="flex min-w-0 cursor-pointer list-none items-start gap-2 rounded-control outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
+                      <ChevronDown
+                        className="icon-xs mt-0.5 shrink-0 -rotate-90 text-muted-foreground transition-transform group-open/step:rotate-0"
+                        aria-hidden="true"
+                      />
+                      {heading}
+                    </summary>
+                    {details}
+                  </details>
+                ) : (
+                  <div className="flex min-w-0 items-start gap-2 pl-5">
+                    {heading}
                   </div>
-                  <time
-                    className="shrink-0 text-micro text-muted-foreground"
-                    dateTime={new Date(item.at).toISOString()}>
-                    {new Date(item.at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit"
-                    })}
-                  </time>
-                </div>
+                )}
                 {!live && last && active && controls}
               </div>
             </li>
@@ -119,13 +138,13 @@ export const AgentWorkLog = ({
         })}
         {live && (
           <li className="flex min-w-0 items-stretch gap-2">
-            <div className="relative flex w-5 shrink-0 justify-center pt-2">
+            <div className="relative flex w-5 shrink-0 justify-center pt-1.5">
               <span
                 className="size-2.5 animate-pulse rounded-full bg-app-agent ring-4 ring-app-primary-soft"
                 aria-hidden="true"
               />
             </div>
-            <div className="min-w-0 flex-1 py-1.5">
+            <div className="min-w-0 flex-1 py-1">
               <div className="flex min-w-0 items-start gap-2">
                 <p className="min-w-0 flex-1 wrap-break-word text-xs font-medium">
                   {live}

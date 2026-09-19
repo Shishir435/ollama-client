@@ -212,13 +212,13 @@ const agentDecisionParameters = (vision: boolean): ToolParameterSchema => ({
             type: "string",
             enum: ["clear_and_type", "type", "select", "check", "uncheck"],
             description:
-              "What to do to this control. clear_and_type replaces its value, type appends, select picks an observed option value, check and uncheck set a checkbox."
+              "What to do to this control. clear_and_type replaces its value; type appends text verbatim, so include any leading space or line break needed to separate it from the current value; select picks an observed option value; check and uncheck set a checkbox."
           },
           text: {
             type: "string",
             maxLength: MAX_AGENT_FORM_FIELD_CHARS,
             description:
-              "For clear_and_type or type in a batch: the text for this field, at most 1000 characters."
+              "For clear_and_type or type in a batch: the text for this field, at most 1000 characters. For type, include the leading space or line break needed before appended text."
           },
           value: {
             type: "string",
@@ -231,7 +231,7 @@ const agentDecisionParameters = (vision: boolean): ToolParameterSchema => ({
     text: {
       type: "string",
       description:
-        "Text to enter for type, clear_and_type or replace_text (at most 20000 characters). A line break is allowed only in a multiline field and starts a new paragraph; it never presses Enter."
+        "Text to enter for type, clear_and_type or replace_text (at most 20000 characters). type appends this text verbatim, so include any leading space or line break needed to separate it from the current value; clear_and_type is the exact whole replacement. A line break is allowed only in a multiline field and starts a new paragraph; it never presses Enter."
     },
     value: { type: "string", description: "Observed option value for select." },
     key: {
@@ -365,7 +365,7 @@ An href shown as a path belongs to the page's own site. Follow it by clicking it
 The extension attaches snapshot identity; do not return a nested command or opaque IDs.
 Use ask_user when the goal is ambiguous. Complete only after ALL requested work is done: if asked to click a control, revealing it or being ready to click is not completion.
 Custom dropdowns, menus and tab strips are ordinary clicks: click the combobox or button that opens them, then click the option it reveals; hover reveals menus that open on pointer rest, and press_key with ArrowDown or Enter moves through a focused list.
-An element with type "contenteditable" is a rich-text editor whose value is its text: type appends, clear_and_type replaces everything, replace_text replaces one exact occurrence of find. Typed text never presses Enter; to send or confirm, press_key Enter on the focused field on purpose.
+An element with type "contenteditable" is a rich-text editor whose value is its text: type appends verbatim, so its text must begin with any space or line break needed after the current value; clear_and_type replaces everything; replace_text replaces one exact occurrence of find. Typed text never presses Enter; to send or confirm, press_key Enter on the focused field on purpose.
 drag moves ref onto to: a board item onto a column, a row onto another row. Elements marked draggable are where a drag starts.
 observation.dialogs lists native dialogs holding the page. While one is listed the page itself is frozen: it has no controls and no other command can run. Answer it with handle_dialog, naming its dialogId; accept false dismisses it, which confirms nothing. Accepting a confirm, prompt or beforeunload dialog asks the user first, because the page's own words are the only clue to what it commits to.
 A dialog's origin is the document that opened it, which may be an embedded frame rather than the page. One marked unauthorizedOrigin came from a frame this run may not read, so its text was withheld: dismiss it, or ask the user what to do, but never guess what it says.

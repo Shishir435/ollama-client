@@ -36,7 +36,7 @@ const THEME_TOKENS: ThemeToken[] = [
   { key: "--secondary", label: "Secondary", group: "Controls" },
   { key: "--muted", label: "Muted", group: "Controls" },
   { key: "--border", label: "Border", group: "Controls" },
-  { key: "--border-strong", label: "Border strong", group: "Controls" },
+  { key: "--stroke-strong", label: "Border strong", group: "Controls" },
   { key: "--input", label: "Input", group: "Controls" },
   { key: "--ring", label: "Ring", group: "Controls" }
 ]

@@ -75,7 +75,7 @@ describe("editor affordances", () => {
   it("accepts typed text into an editing host and refuses it into a plain div", () => {
     expect(
       classifyAgentAffordance(
-        command({ type: "type", text: "hi" }),
+        command({ type: "type", text: " hi" }),
         observation([element()])
       )
     ).toBeUndefined()
@@ -85,6 +85,83 @@ describe("editor affordances", () => {
         observation([element({ type: undefined, editable: false })])
       )?.reason
     ).toBe("not_text_field")
+  })
+
+  it("requires an explicit separator when appending to multiline prose", () => {
+    const refused = classifyAgentAffordance(
+      command({ type: "type", text: "again" }),
+      observation([element()])
+    )
+    expect(refused?.reason).toBe("missing_text_separator")
+    expect(agentAffordanceFeedback(refused as never)).toContain(
+      "space or line break"
+    )
+
+    for (const text of [" again", "\nagain", "!", ".com"]) {
+      expect(
+        classifyAgentAffordance(
+          command({ type: "type", text }),
+          observation([element()])
+        )
+      ).toBeUndefined()
+    }
+    expect(
+      classifyAgentAffordance(
+        command({ type: "clear_and_type", text: "again" }),
+        observation([element()])
+      )
+    ).toBeUndefined()
+    expect(
+      classifyAgentAffordance(
+        command({ type: "type", text: ".com" }),
+        observation([
+          element({ tag: "input", type: "text", multiline: undefined })
+        ])
+      )
+    ).toBeUndefined()
+  })
+
+  it("allows append boundaries that are already separated", () => {
+    for (const current of ["", "Hello ", "Hello\n", "Hello\u00a0"]) {
+      expect(
+        classifyAgentAffordance(
+          command({ type: "type", text: "again" }),
+          observation([element({ value: current })])
+        )
+      ).toBeUndefined()
+    }
+
+    expect(
+      classifyAgentAffordance(
+        command({ type: "type", text: "\u00a0again" }),
+        observation([element()])
+      )
+    ).toBeUndefined()
+  })
+
+  it("keeps stronger editing refusals ahead of the separator check", () => {
+    expect(
+      classifyAgentAffordance(
+        command({ type: "type", text: "again" }),
+        observation([element({ valueTruncated: true })])
+      )?.reason
+    ).toBe("value_truncated")
+  })
+
+  it("applies the append separator rule inside a form batch", () => {
+    const refused = classifyAgentAffordance(
+      command({
+        type: "fill_form",
+        fields: [{ ref: "e1", type: "type", text: "again" }]
+      }),
+      observation([element()])
+    )
+
+    expect(refused).toMatchObject({
+      reason: "missing_text_separator",
+      ref: "e1",
+      field: 0
+    })
   })
 
   it("refuses a line break into a single-line field and says how to confirm instead", () => {
@@ -104,7 +181,7 @@ describe("editor affordances", () => {
     ).toBe("newline_in_single_line")
     expect(
       classifyAgentAffordance(
-        command({ type: "type", text: "a\nb" }),
+        command({ type: "type", text: "\na\nb" }),
         observation([element({ tag: "textarea", type: "textarea" })])
       )
     ).toBeUndefined()
