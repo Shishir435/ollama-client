@@ -53,6 +53,10 @@ export const persistenceDefines = (
    * means Firefox bundles contain neither its UI nor its background runtime.
    */
   __AGENT_PREVIEW_ENABLED__: JSON.stringify(target.browser !== "firefox"),
+  /** Experimental WebMCP adapter; explicit opt-in until the API stabilizes. */
+  __AGENT_WEBMCP_ENABLED__: JSON.stringify(
+    target.browser !== "firefox" && process.env.WXT_AGENT_WEBMCP === "1"
+  ),
   /**
    * The Agent run-record dump, reachable from the background console.
    *

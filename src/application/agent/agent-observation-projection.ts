@@ -2,8 +2,10 @@ import { matchesAgentInspection } from "@ollama-client/agent-runtime/budgets"
 import type {
   AgentDialogState,
   AgentElement,
-  AgentObservation
+  AgentObservation,
+  AgentPageTool
 } from "@ollama-client/contracts"
+import { MAX_AGENT_PAGE_TOOL_PROJECTION_CHARS } from "@ollama-client/contracts"
 
 /**
  * What the model is actually given for a page.
@@ -66,6 +68,7 @@ export interface AgentProjectedFrame {
 export interface AgentProjectedObservation {
   url: string
   title: string
+  pageTools?: AgentPageTool[]
   /** Present only when the page has frames beyond its root. */
   frames?: AgentProjectedFrame[]
   /** Child frames the frame cap left unread and unlisted. */
@@ -565,6 +568,27 @@ const frameOrigins = (
   return (element) => origins.get(element.frameId) ?? observation.origin
 }
 
+/** Page-authored schemas share a fixed prompt allowance. */
+const projectPageTools = (tools: readonly AgentPageTool[]): AgentPageTool[] => {
+  const projected: AgentPageTool[] = []
+  let used = 0
+  for (const tool of tools) {
+    const cost = JSON.stringify(tool).length
+    if (used + cost > MAX_AGENT_PAGE_TOOL_PROJECTION_CHARS) break
+    projected.push(tool)
+    used += cost
+  }
+  return projected
+}
+
+const projectedPageTools = (
+  tools: readonly AgentPageTool[] | undefined
+): { pageTools?: AgentPageTool[] } => {
+  if (!tools?.length) return {}
+  const projected = projectPageTools(tools)
+  return projected.length ? { pageTools: projected } : {}
+}
+
 export const projectAgentObservation = (
   observation: AgentObservation,
   options: AgentProjectionOptions = {}
@@ -573,6 +597,7 @@ export const projectAgentObservation = (
   const base = {
     url: observation.url,
     title: observation.title,
+    ...projectedPageTools(observation.pageTools),
     ...(observation.frames.length > 1
       ? {
           frames: observation.frames

@@ -1,5 +1,4 @@
 import { logger } from "@/lib/logger"
-import { ensureAgentRunsTables } from "./add-agent-runs-tables"
 import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
@@ -121,13 +120,8 @@ export const MIGRATIONS: Migration[] = [
     up: ensureVectorCleanupReceiptsTable
   },
   {
-    version: 16,
-    name: "add-agent-runs-tables",
-    up: ensureAgentRunsTables
-  },
-  {
     version: 17,
-    name: "rebuild-agent-runs-tables",
+    name: "ensure-agent-runs-tables",
     up: rebuildAgentRunsTables
   }
 ]

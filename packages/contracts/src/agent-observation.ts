@@ -353,6 +353,53 @@ export const AgentObservationScopeSchema = z
   .strict()
 export type AgentObservationScope = z.infer<typeof AgentObservationScopeSchema>
 
+export const MAX_AGENT_PAGE_TOOLS = 20
+export const MAX_AGENT_PAGE_TOOL_SCHEMA_CHARS = 12_000
+export const MAX_AGENT_PAGE_TOOL_PROJECTION_CHARS = 8_000
+export const MAX_AGENT_PAGE_TOOL_RESULT_CHARS = 1_800
+
+const hasBoundedSerializedForm = (value: unknown): boolean => {
+  try {
+    const serialized = JSON.stringify(value)
+    return (
+      serialized !== undefined &&
+      serialized.length <= MAX_AGENT_PAGE_TOOL_SCHEMA_CHARS
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * One feature-detected WebMCP tool exposed by the observed document.
+ *
+ * Descriptions and schemas are page-authored, bounded untrusted data. The
+ * revision binds a later call to exactly the schema the model saw.
+ */
+export const AgentPageToolSchema = z
+  .object({
+    name: z.string().min(1).max(128),
+    title: z.string().max(200).optional(),
+    description: z.string().min(1).max(1_000),
+    inputSchema: z
+      .record(z.string(), z.unknown())
+      .refine(hasBoundedSerializedForm, "Page-tool schema is too large"),
+    schemaRevision: z.string().regex(/^[0-9a-f]{8}$/),
+    frameId: z.number().int().nonnegative(),
+    documentId: z.string().min(1),
+    origin: z.url(),
+    annotations: z
+      .object({
+        readOnlyHint: z.boolean().optional(),
+        consequentialHint: z.boolean().optional(),
+        untrustedContentHint: z.boolean().optional()
+      })
+      .strict()
+      .optional()
+  })
+  .strict()
+export type AgentPageTool = z.infer<typeof AgentPageToolSchema>
+
 export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   url: z.url(),
   origin: z.url(),
@@ -369,6 +416,8 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   /** Child frames with an origin that the frame cap left unread and unlisted. */
   omittedFrames: z.number().int().positive().optional(),
   elements: z.array(AgentElementSchema).max(MAX_AGENT_OBSERVED_ELEMENTS),
+  /** Feature-detected WebMCP tools on readable documents; absent when unsupported. */
+  pageTools: z.array(AgentPageToolSchema).max(MAX_AGENT_PAGE_TOOLS).optional(),
   visibleText: z.string().max(100_000),
   /**
    * The document's own text, beyond the viewport, so a question the page
@@ -489,6 +538,22 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
           code: "custom",
           path: ["elements", index, "frameId"],
           message: "Elements may only come from a frame the run read"
+        })
+      }
+    })
+    observation.pageTools?.forEach((tool, index) => {
+      const frame = observation.frames.find(
+        (candidate) => candidate.frameId === tool.frameId
+      )
+      if (
+        frame?.access !== "ok" ||
+        frame.documentId !== tool.documentId ||
+        frame.origin !== tool.origin
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["pageTools", index],
+          message: "Page tools must belong to a readable observed frame"
         })
       }
     })

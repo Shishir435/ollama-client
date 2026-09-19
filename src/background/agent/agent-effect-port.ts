@@ -20,6 +20,12 @@ import {
   verifyReadOnlyAgentEffect
 } from "@/lib/browser-agent/effect-verifier"
 import {
+  executePageToolAgentEffect,
+  PAGE_TOOL_AGENT_ACTIONS,
+  resolvePageToolAgentEffect,
+  verifyPageToolAgentEffect
+} from "@/lib/browser-agent/page-tool-effect"
+import {
   DIALOG_AGENT_ACTIONS,
   DOM_MUTATION_AGENT_ACTIONS,
   FORM_FILL_AGENT_ACTIONS,
@@ -31,6 +37,7 @@ import {
   resolveNavigationAgentEffect,
   resolveReadOnlyAgentEffect
 } from "@/lib/browser-agent/resolved-effect"
+import { AGENT_WEBMCP_COMPILED } from "@/lib/feature-flags"
 import type { AgentBrowserAdapters } from "./agent-browser-adapters"
 
 type AgentActionFamily =
@@ -39,8 +46,23 @@ type AgentActionFamily =
   | "dom_mutation"
   | "form_fill"
   | "dialog"
+  | "page_tool"
+
+const PAGE_TOOL_EFFECTS = AGENT_WEBMCP_COMPILED
+  ? {
+      resolve: resolvePageToolAgentEffect,
+      execute: executePageToolAgentEffect,
+      verify: verifyPageToolAgentEffect
+    }
+  : undefined
 
 const familyOf = (type: AgentCommand["type"]): AgentActionFamily => {
+  if (
+    AGENT_WEBMCP_COMPILED &&
+    (PAGE_TOOL_AGENT_ACTIONS as readonly string[]).includes(type)
+  ) {
+    return "page_tool"
+  }
   if ((READ_ONLY_AGENT_ACTIONS as readonly string[]).includes(type)) {
     return "read_only"
   }
@@ -74,6 +96,9 @@ export const createAgentEffectPort = (
   async resolve(command, observation, context) {
     const input = { command, observation, adapter: adapters.resolver, context }
     switch (familyOf(command.type)) {
+      case "page_tool":
+        if (!PAGE_TOOL_EFFECTS) throw new Error("WebMCP is not compiled")
+        return PAGE_TOOL_EFFECTS.resolve(input)
       case "read_only":
         return resolveReadOnlyAgentEffect(input)
       case "navigation":
@@ -89,6 +114,9 @@ export const createAgentEffectPort = (
   async execute(effect, signal): Promise<AgentExecutionReceipt> {
     const input = { effect, adapter: adapters.executor, signal }
     switch (familyOf(effect.command.type)) {
+      case "page_tool":
+        if (!PAGE_TOOL_EFFECTS) throw new Error("WebMCP is not compiled")
+        return PAGE_TOOL_EFFECTS.execute(input)
       case "read_only":
         return executeReadOnlyAgentEffect(input)
       case "navigation":
@@ -104,6 +132,9 @@ export const createAgentEffectPort = (
   async verify(verification, signal): Promise<AgentVerificationResult> {
     const input = { verification, adapter: adapters.verifier, signal }
     switch (familyOf(verification.effect.command.type)) {
+      case "page_tool":
+        if (!PAGE_TOOL_EFFECTS) throw new Error("WebMCP is not compiled")
+        return PAGE_TOOL_EFFECTS.verify(input)
       case "read_only":
         return verifyReadOnlyAgentEffect(input)
       case "navigation":

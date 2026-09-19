@@ -13,7 +13,15 @@ export const AGENT_PREVIEW_ENABLED =
 export const AGENT_DEBUG_REPORT_ENABLED =
   typeof __AGENT_DEBUG_REPORT__ !== "undefined" && __AGENT_DEBUG_REPORT__
 
+export const AGENT_WEBMCP_ENABLED =
+  typeof __AGENT_WEBMCP_ENABLED__ !== "undefined" && __AGENT_WEBMCP_ENABLED__
+
+/** True in tests without injected defines; folded away in disabled builds. */
+export const AGENT_WEBMCP_COMPILED =
+  typeof __AGENT_WEBMCP_ENABLED__ === "undefined" || __AGENT_WEBMCP_ENABLED__
+
 export const FEATURE_FLAGS = Object.freeze({
   agentPreview: AGENT_PREVIEW_ENABLED,
+  agentWebMcp: AGENT_WEBMCP_ENABLED,
   agentDebugReport: AGENT_DEBUG_REPORT_ENABLED
 })

@@ -13,10 +13,15 @@ import {
   AgentObservationSchema,
   type AgentObservationScope,
   AgentObservationScopeSchema,
+  type AgentPageTool,
+  AgentPageToolInputSchema,
+  AgentPageToolSchema,
   AgentSnapshotIdentitySchema,
   MAX_AGENT_FORM_FIELDS,
   MAX_AGENT_LOOKUP_QUERIES,
   MAX_AGENT_OBSERVED_ELEMENTS,
+  MAX_AGENT_PAGE_TOOL_RESULT_CHARS,
+  MAX_AGENT_PAGE_TOOLS,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
 import { z } from "zod"
@@ -27,6 +32,7 @@ import {
   type TabAccess
 } from "@/lib/browser-tab-access"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { AGENT_WEBMCP_COMPILED } from "@/lib/feature-flags"
 import {
   AGENT_EFFECT_REJECTION_FIELDS,
   AGENT_EFFECT_REJECTION_REASONS,
@@ -729,6 +735,76 @@ export const AgentHitTestResponseSchema = z
   .strict()
 export type AgentHitTestResponse = z.infer<typeof AgentHitTestResponseSchema>
 
+export const AgentDiscoverPageToolsRequestSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_discover_page_tools"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1)
+  })
+  .strict()
+export type AgentDiscoverPageToolsRequest = z.infer<
+  typeof AgentDiscoverPageToolsRequestSchema
+>
+
+export const AgentDiscoverPageToolsResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_page_tools_discovered"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    tools: z.array(AgentPageToolSchema).max(MAX_AGENT_PAGE_TOOLS)
+  })
+  .strict()
+export type AgentDiscoverPageToolsResponse = z.infer<
+  typeof AgentDiscoverPageToolsResponseSchema
+>
+
+export const AgentExecutePageToolRequestSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_execute_page_tool"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    toolName: z.string().min(1).max(128),
+    schemaRevision: z.string().regex(/^[0-9a-f]{8}$/),
+    input: AgentPageToolInputSchema
+  })
+  .strict()
+export type AgentExecutePageToolRequest = z.infer<
+  typeof AgentExecutePageToolRequestSchema
+>
+
+export const AgentExecutePageToolResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.enum(["agent_page_tool_executed", "agent_page_tool_stale"]),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    result: z.string().max(MAX_AGENT_PAGE_TOOL_RESULT_CHARS).optional(),
+    navigation: z.boolean().optional()
+  })
+  .strict()
+export type AgentExecutePageToolResponse = z.infer<
+  typeof AgentExecutePageToolResponseSchema
+>
+
 const AgentControlRequestSchema = z.union([
   AgentObserveRequestSchema,
   AgentExecuteRequestSchema,
@@ -737,7 +813,9 @@ const AgentControlRequestSchema = z.union([
   AgentPrepareNativeInputRequestSchema,
   AgentSettleNativeInputRequestSchema,
   AgentSensitiveRegionsRequestSchema,
-  AgentHitTestRequestSchema
+  AgentHitTestRequestSchema,
+  AgentDiscoverPageToolsRequestSchema,
+  AgentExecutePageToolRequestSchema
 ])
 type AgentControlRequest = z.infer<typeof AgentControlRequestSchema>
 
@@ -816,6 +894,15 @@ export interface AgentControlSession {
     point: { x: number; y: number },
     signal?: AbortSignal
   ): Promise<AgentHitTestResult>
+  discoverPageTools?(signal?: AbortSignal): Promise<AgentPageTool[]>
+  executePageTool?(
+    input: {
+      toolName: string
+      schemaRevision: string
+      args: Record<string, unknown>
+    },
+    signal?: AbortSignal
+  ): Promise<{ result: string; navigation: boolean }>
   disconnect(): void
 }
 
@@ -1114,6 +1201,47 @@ export const validateAgentHitTestResponse = (
   return response.hit
 }
 
+export const validateAgentDiscoverPageToolsResponse = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): AgentPageTool[] => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
+  const response = AgentDiscoverPageToolsResponseSchema.parse(raw)
+  assertBoundResponse(response, binding, sequence, "page-tool discovery")
+  if (
+    response.tools.some(
+      (tool) =>
+        tool.frameId !== binding.frameId ||
+        tool.documentId !== binding.documentId
+    )
+  ) {
+    throw new Error("Agent page tool escaped its document binding")
+  }
+  return response.tools
+}
+
+export const validateAgentExecutePageToolResponse = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): { result: string; navigation: boolean } => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
+  const response = AgentExecutePageToolResponseSchema.parse(raw)
+  assertBoundResponse(response, binding, sequence, "page-tool execution")
+  if (response.type === "agent_page_tool_stale") {
+    throw new AgentEffectNotAppliedError(
+      "Page tool changed before it could be called"
+    )
+  }
+  return {
+    result: response.result ?? "",
+    navigation: response.navigation === true
+  }
+}
+
 export const createAgentControlSession = (input: {
   port: AgentControlPort
   binding: AgentControlBinding
@@ -1393,6 +1521,63 @@ export const createAgentControlSession = (input: {
         signal
       )
     },
+    ...(AGENT_WEBMCP_COMPILED
+      ? {
+          discoverPageTools(signal) {
+            if (inFlight) {
+              return Promise.reject(
+                new Error("Agent control request already in flight")
+              )
+            }
+            sequence += 1
+            const expectedSequence = sequence
+            const request: AgentDiscoverPageToolsRequest = {
+              version: AGENT_CONTROL_VERSION,
+              type: "agent_discover_page_tools",
+              ...input.binding,
+              sequence: expectedSequence
+            }
+            return exchange(
+              request,
+              (raw) =>
+                validateAgentDiscoverPageToolsResponse(
+                  raw,
+                  input.binding,
+                  expectedSequence
+                ),
+              signal
+            )
+          },
+          executePageTool(tool, signal) {
+            if (inFlight) {
+              return Promise.reject(
+                new Error("Agent control request already in flight")
+              )
+            }
+            sequence += 1
+            const expectedSequence = sequence
+            const request: AgentExecutePageToolRequest = {
+              version: AGENT_CONTROL_VERSION,
+              type: "agent_execute_page_tool",
+              ...input.binding,
+              sequence: expectedSequence,
+              toolName: tool.toolName,
+              schemaRevision: tool.schemaRevision,
+              input: tool.args
+            }
+            return exchange(
+              request,
+              (raw) =>
+                validateAgentExecutePageToolResponse(
+                  raw,
+                  input.binding,
+                  expectedSequence
+                ),
+              signal
+            )
+          }
+        }
+      : {}),
     disconnect() {
       input.port.disconnect()
     }
@@ -1560,6 +1745,16 @@ export interface AgentControlContentHandlers {
   ): AgentInputTraceWire | undefined
   sensitiveRegions(request: AgentSensitiveRegionsRequest): AgentSensitiveRegions
   hitTest(request: AgentHitTestRequest): AgentHitTestResult
+  discoverPageTools?(
+    request: AgentDiscoverPageToolsRequest
+  ): Promise<AgentPageTool[]>
+  executePageTool?(
+    request: AgentExecutePageToolRequest,
+    signal: AbortSignal
+  ): Promise<
+    | { type: "executed"; result: string; navigation: boolean }
+    | { type: "stale" }
+  >
 }
 
 type AgentControlResponse =
@@ -1571,6 +1766,8 @@ type AgentControlResponse =
   | AgentSettleNativeInputResponse
   | AgentSensitiveRegionsResponse
   | AgentHitTestResponse
+  | AgentDiscoverPageToolsResponse
+  | AgentExecutePageToolResponse
   | AgentControlFailureResponse
 
 const answerAccepted = (
@@ -1584,6 +1781,9 @@ const answerAccepted = (
     sequence: request.sequence
   } as const
   switch (request.type) {
+    case "agent_discover_page_tools":
+    case "agent_execute_page_tool":
+      throw new Error("Page-tool requests use the asynchronous responder")
     case "agent_prepare_native_input":
       return {
         ...envelope,
@@ -1646,6 +1846,48 @@ const answerAccepted = (
   }
 }
 
+const answerPageToolRequest = async (
+  request: AgentDiscoverPageToolsRequest | AgentExecutePageToolRequest,
+  binding: AgentControlBinding,
+  handlers: AgentControlContentHandlers,
+  signal: AbortSignal
+): Promise<AgentControlResponse> => {
+  const envelope = {
+    version: AGENT_CONTROL_VERSION,
+    ...binding,
+    sequence: request.sequence
+  } as const
+  try {
+    if (request.type === "agent_discover_page_tools") {
+      return {
+        ...envelope,
+        type: "agent_page_tools_discovered",
+        tools: handlers.discoverPageTools
+          ? await handlers.discoverPageTools(request)
+          : []
+      }
+    }
+    const outcome = handlers.executePageTool
+      ? await handlers.executePageTool(request, signal)
+      : { type: "stale" as const }
+    return outcome.type === "stale"
+      ? { ...envelope, type: "agent_page_tool_stale" }
+      : {
+          ...envelope,
+          type: "agent_page_tool_executed",
+          result: outcome.result,
+          ...(outcome.navigation ? { navigation: true } : {})
+        }
+  } catch (error) {
+    return {
+      ...envelope,
+      type: "agent_control_failed",
+      reason: "execution_failed",
+      issues: agentControlSchemaIssues(error)
+    }
+  }
+}
+
 /**
  * The reply to one accepted request, or the bound failure that stands in for
  * it when the handler threw. Either way the reply carries the request's own
@@ -1677,6 +1919,7 @@ export const attachAgentControlContentPort = (
   if (port.name !== MESSAGE_KEYS.AGENT.CONTROL_PORT) return false
   let binding: AgentControlBinding | undefined
   let lastSequence = 0
+  let activePageTool: AbortController | undefined
 
   port.onMessage.addListener((raw) => {
     const parsed = AgentControlRequestSchema.safeParse(raw)
@@ -1741,7 +1984,26 @@ export const attachAgentControlContentPort = (
 
     binding = nextBinding
     lastSequence = request.sequence
+    if (
+      request.type === "agent_discover_page_tools" ||
+      request.type === "agent_execute_page_tool"
+    ) {
+      activePageTool?.abort()
+      const controller = new AbortController()
+      activePageTool = controller
+      void answerPageToolRequest(
+        request,
+        nextBinding,
+        handlers,
+        controller.signal
+      ).then((response) => {
+        if (!controller.signal.aborted) port.postMessage(response)
+        if (activePageTool === controller) activePageTool = undefined
+      })
+      return
+    }
     port.postMessage(answerControlRequest(request, nextBinding, handlers))
   })
+  port.onDisconnect.addListener(() => activePageTool?.abort())
   return true
 }

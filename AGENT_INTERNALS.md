@@ -129,6 +129,20 @@ Read the section your change touches; you do not need the whole file.
 
 ## Projection and targeted reads
 
+- **WebMCP is an optional page capability, never an authority.**
+  `WXT_AGENT_WEBMCP=1` includes the experimental Chromium adapter; the runtime
+  still feature-detects `document.modelContext` in each readable frame and
+  ordinary DOM control remains the fallback. Tool names, descriptions,
+  schemas, annotations and results are page-authored untrusted data.
+  `readOnlyHint` never lowers policy and `consequentialHint` may only raise it.
+  Until a trusted classifier exists, every page-tool call is conservatively
+  classified as destructive and requires fresh critical approval.
+- **A page-tool call is bound twice.** Discovery records the tab frame,
+  browser document id and a digest of the advertised schema; execution
+  re-discovers immediately before calling page code and refuses a changed
+  digest. A rejected or aborted invocation is never replayed through DOM: once
+  page code may have run, any lost acknowledgement stays an unresolved effect.
+
 - **The window is resolved from the model, not written beside it.**
   `resolveAgentContextWindow` (`agent-context-window.ts`) takes the *smallest*
   figure the server's own allocation (`/api/show` `num_ctx`), the weights'

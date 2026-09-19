@@ -40,6 +40,27 @@ export const MAX_AGENT_FORM_FIELD_CHARS = 1_000
  */
 export const MAX_AGENT_EXTRACT_QUERIES = 6
 
+/** A page-tool call stays small enough to review, persist and retry safely. */
+export const MAX_AGENT_PAGE_TOOL_INPUT_CHARS = 20_000
+
+export const AgentPageToolInputSchema = z
+  .record(z.string().min(1).max(100), z.unknown())
+  .superRefine((value, context) => {
+    try {
+      if (JSON.stringify(value).length > MAX_AGENT_PAGE_TOOL_INPUT_CHARS) {
+        context.addIssue({
+          code: "custom",
+          message: "Page-tool input exceeds its serialized bound"
+        })
+      }
+    } catch {
+      context.addIssue({
+        code: "custom",
+        message: "Page-tool input must be JSON serializable"
+      })
+    }
+  })
+
 const GroundedCommandSchema = z.object({
   snapshotId: z.string().min(1),
   generation: z.number().int().nonnegative()
@@ -256,6 +277,15 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
       .array(z.string().min(1).max(100))
       .min(1)
       .max(MAX_AGENT_EXTRACT_QUERIES)
+  }).strict(),
+  /** Execute one WebMCP tool from this exact document and schema revision. */
+  GroundedCommandSchema.extend({
+    type: z.literal("call_page_tool"),
+    toolName: z.string().min(1).max(128),
+    schemaRevision: z.string().regex(/^[0-9a-f]{8}$/),
+    frameId: z.number().int().nonnegative(),
+    documentId: z.string().min(1),
+    input: AgentPageToolInputSchema
   }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("wait"),
