@@ -459,11 +459,17 @@ export const ReasoningTrace = ({
             </ol>
           )}
           {context.hasThinking && (
-            <details className="rounded-control border border-border-subtle bg-surface-sunken px-2.5 py-2">
-              <summary className="cursor-pointer text-2xs font-medium text-foreground-tertiary">
+            <details className="group/debug">
+              <summary className="flex cursor-pointer list-none items-center gap-1 rounded-control px-1 py-0.5 text-2xs font-medium text-foreground-tertiary outline-none transition-colors hover:bg-state-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
+                <ChevronDown
+                  className="icon-xs shrink-0 -rotate-90 transition-transform group-open/debug:rotate-0"
+                  aria-hidden="true"
+                />
                 {t("chat.reasoning.debug")}
               </summary>
-              <ThinkingEvent content={message.thinking ?? ""} />
+              <div className="ml-1 border-l border-border-subtle pl-2">
+                <ThinkingEvent content={message.thinking ?? ""} />
+              </div>
             </details>
           )}
         </div>
