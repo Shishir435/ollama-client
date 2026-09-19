@@ -654,7 +654,7 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
     case "newline_in_single_line":
       return `${ref} is a single-line field, so typed text cannot contain a line break. Type the text without it; to confirm or send, use press_key with Enter on the focused field.`
     case "missing_text_separator":
-      return `${ref} already ends in text, and type appends exactly as given. Start text with a space or line break so the values do not run together; use clear_and_type only when replacing the whole field.`
+      return `${ref} contains text. type appends verbatim; start with a space or line break, or use clear_and_type to replace all.`
     case "text_not_found":
       return `${ref} does not contain the text named in find. Use an exact run of its observed value.`
     case "text_ambiguous":
