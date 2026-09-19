@@ -222,10 +222,10 @@ const dialogAction = (
  *
  * One approval covers every field, so the prompt has to say how many there
  * are: "Allow fill_form" is the same sentence whether it sets one control or
- * twelve, and the number is the whole of what the user is being asked to
- * weigh. The fields' own values are not named — they are page-derived or
- * model-composed text, and the panel shows the target's accessible name as
- * evidence the same way every other approval does.
+ * twelve, and the number is the first thing the user is being asked to weigh.
+ * The second is which controls, and that is `batchEvidence` below — a batch
+ * that named one of twelve was a weaker disclosure than the twelve separate
+ * approvals it replaces, which is the one thing batching may not cost.
  */
 const batchAction = (input: AgentPolicyInput): string | undefined => {
   const fields = input.effect.batch?.fields.length
@@ -233,6 +233,53 @@ const batchAction = (input: AgentPolicyInput): string | undefined => {
   return fields === 1
     ? "Set 1 form field"
     : `Set ${fields} form fields in one step`
+}
+
+/** What the evidence block may hold, from the approval request's own bound. */
+const MAX_EVIDENCE_CHARS = 1_000
+
+/**
+ * Every control the batch will set, in the order it sets them.
+ *
+ * The same disclosure the single-field approval makes — the control's
+ * accessible name — repeated once per field, because one approval standing
+ * in for twelve has to show what all twelve would have shown. A control the
+ * page gave no name is listed by its role or tag rather than skipped: the
+ * user is owed the count they are approving even where the page will not say
+ * what a control is called.
+ *
+ * The values are not listed, exactly as they are not for a lone edit. They
+ * are model-composed or page-derived text of up to a thousand characters
+ * each, and a prompt the user has to read past to reach the buttons is a
+ * prompt they stop reading.
+ */
+const batchEvidence = (input: AgentPolicyInput): string | undefined => {
+  const fields = input.effect.batch?.fields
+  if (!fields?.length) return undefined
+  const lines = fields.map((field, index) => {
+    const target = field.target
+    const name =
+      target.accessibleName?.trim() ||
+      target.role ||
+      target.inputType ||
+      target.tag ||
+      "an unnamed control"
+    return `${index + 1}. ${name}`
+  })
+  const listed: string[] = []
+  let used = 0
+  for (const line of lines) {
+    /** The remainder is named as a count rather than silently cut short. */
+    const rest = lines.length - listed.length
+    const tail = `… and ${rest} more`
+    if (used + line.length + 1 > MAX_EVIDENCE_CHARS - tail.length) {
+      listed.push(tail)
+      break
+    }
+    listed.push(line)
+    used += line.length + 1
+  }
+  return listed.join("\n")
 }
 
 const makeApprovalRequest = (
@@ -262,11 +309,11 @@ const makeApprovalRequest = (
       (destination
         ? `The browser will use the complete destination URL: ${destination}`
         : batchAction(input)
-          ? "The browser will enter these values into the controls shown above, in order. It stops at the first one it cannot set, and nothing is submitted."
+          ? "The browser will set each control listed above, in order, and stops at the first one it cannot set. The batch presses nothing, so it cannot submit the form — but a page that saves as you type may store each change as it is made."
           : hasNoSubmitStep(input)
             ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
             : "The browser will perform the resolved page effect shown above."),
-    pageEvidence: input.effect.target.accessibleName,
+    pageEvidence: batchEvidence(input) ?? input.effect.target.accessibleName,
     createdAt: input.now
   }
 }
