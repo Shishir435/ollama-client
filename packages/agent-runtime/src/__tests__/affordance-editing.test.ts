@@ -139,6 +139,48 @@ describe("editor affordances", () => {
     ).toBeUndefined()
   })
 
+  it("leaves non-prose appends verbatim", () => {
+    /* A lone token is not prose: extending it cannot run two words together. */
+    expect(
+      classifyAgentAffordance(
+        command({ type: "type", text: "0" }),
+        observation([element({ value: "Version2" })])
+      )
+    ).toBeUndefined()
+    /* Unspaced CJK text joins without separators by convention. */
+    expect(
+      classifyAgentAffordance(
+        command({ type: "type", text: "追加" }),
+        observation([element({ value: "日本語のテキスト" })])
+      )
+    ).toBeUndefined()
+    /* Emoji and symbols are not word continuations. */
+    for (const text of ["👍", "+1", "#tag"]) {
+      expect(
+        classifyAgentAffordance(
+          command({ type: "type", text }),
+          observation([element()])
+        )
+      ).toBeUndefined()
+    }
+    /* A code boundary joined by punctuation is not a missing space. */
+    expect(
+      classifyAgentAffordance(
+        command({ type: "type", text: "bar)" }),
+        observation([element({ value: "call foo(" })])
+      )
+    ).toBeUndefined()
+  })
+
+  it("still guards prose joined at a word boundary", () => {
+    expect(
+      classifyAgentAffordance(
+        command({ type: "type", text: "again" }),
+        observation([element({ value: "Chapter 2" })])
+      )?.reason
+    ).toBe("missing_text_separator")
+  })
+
   it("keeps stronger editing refusals ahead of the separator check", () => {
     expect(
       classifyAgentAffordance(

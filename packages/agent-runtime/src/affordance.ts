@@ -250,11 +250,19 @@ const classifyTypedText = (
 
 /**
  * `type` appends its payload byte-for-byte. In a multiline prose editor, two
- * non-whitespace word boundaries almost always mean the model forgot the
- * separator it intended (for example `agentAgreed`). Leading punctuation is
- * allowed because appending `!`, `.com`, or a closing quote is intentional.
+ * word characters meeting almost always mean the model forgot the separator
+ * it intended (for example `agentAgreed`).
+ *
+ * The check is deliberately narrow, because a false positive blocks a valid
+ * edit and burns a decision cycle: it answers only when the field already
+ * reads as prose (its value holds whitespace, so a lone token like `Version2`
+ * and an unspaced CJK run are exempt) and both boundary characters are
+ * letters or digits. Appending punctuation (`.com`, `!`), symbols and emoji
+ * therefore stays verbatim, as does extending a value that was never prose.
  * Refuse before execution so prose can be retried with the separator explicit.
  */
+const PROSE_WORD_CHAR = /[\p{L}\p{N}]/u
+
 const classifyAppendedText = (
   element: AgentElement,
   text: string
@@ -266,8 +274,9 @@ const classifyAppendedText = (
   if (
     current.length > 0 &&
     text.length > 0 &&
-    !/\s/u.test(current.at(-1) ?? "") &&
-    !/[\s\p{P}]/u.test(text[0] ?? "")
+    /\s/u.test(current) &&
+    PROSE_WORD_CHAR.test(current.at(-1) ?? "") &&
+    PROSE_WORD_CHAR.test(text[0] ?? "")
   ) {
     return refusal("missing_text_separator", element)
   }

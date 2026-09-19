@@ -55,6 +55,38 @@ describe("AgentWorkLog", () => {
     expect(container.querySelectorAll("details[open]")).toHaveLength(2)
   })
 
+  it("keeps a user-collapsed row closed across rerenders", () => {
+    const running = item({ id: "active", status: "executing" })
+    const { container, rerender } = render(<AgentWorkLog items={[running]} />)
+
+    expect(container.querySelector("details")).toHaveAttribute("open")
+
+    fireEvent.click(screen.getByText("agent.action.click"))
+
+    expect(container.querySelector("details")).not.toHaveAttribute("open")
+
+    rerender(<AgentWorkLog items={[running]} />)
+
+    expect(container.querySelector("details")).not.toHaveAttribute("open")
+  })
+
+  it("reopens a row whose status moves to attention-needed", () => {
+    const running = item({ id: "active", status: "executing" })
+    const { container, rerender } = render(<AgentWorkLog items={[running]} />)
+
+    fireEvent.click(screen.getByText("agent.action.click"))
+
+    expect(container.querySelector("details")).not.toHaveAttribute("open")
+
+    rerender(
+      <AgentWorkLog
+        items={[{ ...running, status: "failed" as const, detail: "Nope" }]}
+      />
+    )
+
+    expect(container.querySelector("details")).toHaveAttribute("open")
+  })
+
   it("keeps rows without evidence compact and preserves their controls", () => {
     const controls = <button type="button">Resume</button>
     const { container } = render(

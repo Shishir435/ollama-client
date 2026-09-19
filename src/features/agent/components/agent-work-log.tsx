@@ -6,6 +6,7 @@ import {
   ShieldAlert
 } from "lucide-react"
 import type { ReactNode } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/class-names"
 import type { AgentWorkLogItem } from "../lib/presentation"
@@ -15,6 +16,42 @@ const iconFor = (status: AgentWorkLogItem["status"]) => {
   if (status === "failed" || status === "rejected") return CircleX
   if (status === "uncertain") return ShieldAlert
   return CircleDashed
+}
+
+/**
+ * A step's evidence disclosure.
+ *
+ * The open state lives here, seeded from the step's status, so a snapshot or
+ * heartbeat rerender keeps the user's choice: the parent reasserting `open`
+ * on every render reopened rows the user had collapsed. The parent keys by
+ * step id and status, so a status move (an executing row that fails)
+ * remounts and re-establishes the default.
+ */
+const StepDisclosure = ({
+  openByDefault,
+  heading,
+  children
+}: {
+  openByDefault: boolean
+  heading: ReactNode
+  children: ReactNode
+}) => {
+  const [open, setOpen] = useState(openByDefault)
+  return (
+    <details
+      className="group/step"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="flex min-w-0 cursor-pointer list-none items-start gap-2 rounded-control outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
+        <ChevronDown
+          className="icon-xs mt-0.5 shrink-0 -rotate-90 text-muted-foreground transition-transform group-open/step:rotate-0"
+          aria-hidden="true"
+        />
+        {heading}
+      </summary>
+      {children}
+    </details>
+  )
 }
 
 export const AgentWorkLog = ({
@@ -114,18 +151,12 @@ export const AgentWorkLog = ({
               </div>
               <div className="min-w-0 flex-1 py-1">
                 {hasDetails ? (
-                  <details
-                    className="group/step"
-                    open={needsAttention || active ? true : undefined}>
-                    <summary className="flex min-w-0 cursor-pointer list-none items-start gap-2 rounded-control outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
-                      <ChevronDown
-                        className="icon-xs mt-0.5 shrink-0 -rotate-90 text-muted-foreground transition-transform group-open/step:rotate-0"
-                        aria-hidden="true"
-                      />
-                      {heading}
-                    </summary>
+                  <StepDisclosure
+                    key={`${item.id}:${item.status}`}
+                    openByDefault={needsAttention || active}
+                    heading={heading}>
                     {details}
-                  </details>
+                  </StepDisclosure>
                 ) : (
                   <div className="flex min-w-0 items-start gap-2 pl-5">
                     {heading}
