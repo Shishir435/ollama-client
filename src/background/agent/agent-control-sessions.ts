@@ -1,8 +1,9 @@
 import { AgentControlFailedError } from "@ollama-client/agent-runtime"
-import type {
-  AgentObservation,
-  AgentObservationScope,
-  AgentSnapshotIdentity
+import {
+  type AgentObservation,
+  type AgentObservationScope,
+  type AgentSnapshotIdentity,
+  MAX_AGENT_LOOKUP_MATCHES
 } from "@ollama-client/contracts"
 
 import type {
@@ -67,10 +68,12 @@ export interface AgentControlSessionRegistry {
        */
       scope?: AgentObservationScope
       /**
-       * Several scoped questions asked of the root frame at once. Bounded the
-       * same way a scope is, and root-only for the same reason: the answer
-       * names refs, and refs from two documents cannot be told apart by the
-       * model reading one list.
+       * Several scoped questions asked at once, of the root frame and of
+       * every child frame the run may read. Unlike a scope, a lookup answer
+       * composes: its groups name refs, a ref carries its frame in its
+       * prefix, and an empty group is read as "the page holds no such
+       * control" — which would be a lie about a control sitting in an
+       * authorized iframe.
        */
       lookup?: { queries: readonly string[] }
     },
@@ -256,7 +259,8 @@ export const createAgentControlSessionRegistry = (input?: {
     allowedOrigins: readonly string[],
     elementLimit: number,
     signal?: AbortSignal,
-    textOffset?: number
+    textOffset?: number,
+    lookup?: { queries: readonly string[] }
   ): Promise<AgentChildFrameResult | undefined> => {
     const authorized = await authorizeAgentFrame(frame, {
       allowedOrigins,
@@ -273,7 +277,8 @@ export const createAgentControlSessionRegistry = (input?: {
         {
           minimumGeneration,
           elementLimit,
-          ...(textOffset === undefined ? {} : { textOffset })
+          ...(textOffset === undefined ? {} : { textOffset }),
+          ...(lookup === undefined ? {} : { lookup })
         },
         signal
       )
@@ -288,6 +293,27 @@ export const createAgentControlSessionRegistry = (input?: {
       })
       return { ...result, access: "unreadable" }
     }
+  }
+
+  /**
+   * What one child frame may add to this observation.
+   *
+   * Ordinarily the whole remaining element budget: an overview wants every
+   * control the page has. A lookup is the exception — a frame that matched
+   * none of the questions answers with its overview instead, so an unbounded
+   * budget would spend a query's prompt on five frames' worth of controls
+   * nobody asked about. Its matches can never exceed one group per question,
+   * so that is what it gets.
+   */
+  const childElementBudget = (
+    root: AgentObservation,
+    children: readonly AgentChildFrameResult[],
+    lookup?: { queries: readonly string[] }
+  ): number => {
+    const remaining = remainingAgentElementBudget(root, children)
+    return lookup
+      ? Math.min(remaining, lookup.queries.length * MAX_AGENT_LOOKUP_MATCHES)
+      : remaining
   }
 
   return {
@@ -325,20 +351,25 @@ export const createAgentControlSessionRegistry = (input?: {
        * still counted only the root's. The model was handed rows that did not
        * match what it asked for, inside an answer that said they did.
        *
-       * A multi-query lookup is answered the same way and for the same
-       * reason: its groups name refs, and a group that silently mixed two
-       * documents' refs would be unusable for the thing it exists to do.
+       * A multi-query lookup is asked of the child frames too, with the same
+       * questions, and composition merges each frame's matches into the group
+       * that asked for them. Its answer composes where a scope's does not: a
+       * group names refs rather than a count and a continuation, and a ref
+       * carries the frame it came from. Root-only was the more dangerous of
+       * the two answers, because an empty group means "no such control on
+       * this page" and the model stops asking.
        */
-      for (const frame of scope || lookup ? [] : selected) {
+      for (const frame of scope ? [] : selected) {
         const child = await observeChild(
           runId,
           tabId,
           frame,
           minimumGeneration,
           allowedOrigins,
-          remainingAgentElementBudget(root, children),
+          childElementBudget(root, children, lookup),
           signal,
-          extraction?.frameId === frame.frameId ? extraction.offset : undefined
+          extraction?.frameId === frame.frameId ? extraction.offset : undefined,
+          lookup
         )
         if (child) children.push(child)
       }

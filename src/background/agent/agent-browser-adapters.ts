@@ -393,7 +393,8 @@ export const createAgentBrowserAdapters = (input: {
     allowedOrigins: readonly string[],
     signal: AgentCancellationSignal,
     extraction?: { offset: number; frameId: number },
-    scope?: AgentObservationScope
+    scope?: AgentObservationScope,
+    lookup?: { queries: readonly string[] }
   ): Promise<AgentObservation> => {
     const dialog = input.browserSessions?.openDialog(input.runId, tabId)
     if (dialog) {
@@ -409,7 +410,8 @@ export const createAgentBrowserAdapters = (input: {
         minimumGeneration,
         allowedOrigins,
         ...(extraction ? { extraction } : {}),
-        ...(scope ? { scope } : {})
+        ...(scope ? { scope } : {}),
+        ...(lookup ? { lookup } : {})
       },
       abortSignal(signal)
     )
@@ -604,7 +606,15 @@ export const createAgentBrowserAdapters = (input: {
           request.allowedOrigins,
           signal,
           request.extraction,
-          request.scope
+          request.scope,
+          /**
+           * Forwarded, and covered by a browser gate rather than a unit test:
+           * this adapter dropped it, so `extract` reached the page as a plain
+           * read and every group came back absent. Nothing in the runtime or
+           * the page could see the gap — both halves were correct — which is
+           * what an adapter seam looks like when it loses a field.
+           */
+          request.lookup
         )
         lastViewport.set(request.tabId, {
           x: observation.scroll.x,

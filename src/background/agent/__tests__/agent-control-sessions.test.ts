@@ -511,6 +511,131 @@ describe("Agent control session registry across frames", () => {
     )
   })
 
+  it("asks every readable frame the same lookup and merges what they matched", async () => {
+    /**
+     * An empty group is read as "the page holds no such control", so a lookup
+     * that only ever walked the root document told the model a control inside
+     * an authorized iframe was not there. Refs carry their frame, so one
+     * group can name matches from several documents without ambiguity.
+     */
+    const root = session({
+      observe: vi.fn(async () =>
+        observation({
+          elements: [
+            {
+              ref: "e5",
+              frameId: 0,
+              tag: "button",
+              name: "Buy",
+              visible: true,
+              enabled: true,
+              editable: false,
+              sensitive: false
+            }
+          ],
+          lookup: {
+            queries: [
+              { query: "price", refs: [] },
+              { query: "buy", refs: ["e5"] }
+            ]
+          }
+        })
+      )
+    })
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async () => ({
+        ...childObservation(2),
+        lookup: {
+          queries: [
+            { query: "price", refs: ["f2e1"] },
+            { query: "buy", refs: [] }
+          ]
+        }
+      }))
+    })
+    const registry = createAgentControlSessionRegistry({
+      open: openByFrame({ 0: root, 2: child }) as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            url: "https://example.com/child"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    const observed = await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 1,
+      allowedOrigins,
+      lookup: { queries: ["price", "buy"] }
+    })
+
+    /**
+     * The child's budget is what its answer can be worth, not what the root
+     * left: a frame that matched nothing answers with its overview, and six
+     * questions must not buy five frames' worth of unrelated controls.
+     */
+    expect(child.observe).toHaveBeenCalledWith(
+      {
+        minimumGeneration: 1,
+        elementLimit: 20,
+        lookup: { queries: ["price", "buy"] }
+      },
+      undefined
+    )
+    expect(observed.lookup?.queries).toEqual([
+      { query: "price", refs: ["f2e1"] },
+      { query: "buy", refs: ["e5"] }
+    ])
+  })
+
+  it("still answers a scoped read from the root document alone", async () => {
+    const root = session()
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async () => childObservation(2))
+    })
+    const open = openByFrame({ 0: root, 2: child })
+    const registry = createAgentControlSessionRegistry({
+      open: open as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            url: "https://example.com/child"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 1,
+      allowedOrigins,
+      scope: { kind: "query", value: "price" }
+    })
+
+    /**
+     * A scope answers with a count and a continuation offset, and neither
+     * composes across documents — which is why this one stays where it was
+     * while the lookup moved.
+     */
+    expect(open.mock.calls.map(([call]) => call.frameId)).toEqual([0])
+  })
+
   it("routes page work to the frame the instruction binds", async () => {
     const root = session()
     const child = session({ frameId: 2 })

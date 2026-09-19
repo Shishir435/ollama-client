@@ -136,8 +136,9 @@ export interface AgentProjectedObservation {
    * The answer to a multi-query `extract`: one group per question, in the
    * order asked, each naming the refs above that answered it.
    *
-   * A group with no refs is the page saying it holds no such control, which
-   * is an answer and frequently the one the run needed. `truncated` means the
+   * A group with no refs is the page saying it holds no such control, in the
+   * root document and in every frame the run was allowed to read — which is
+   * an answer, and frequently the one the run needed. `truncated` means the
    * page or the budget had more to give for that question — the model is told
    * to narrow it with `find` rather than left to assume it saw everything.
    */

@@ -405,10 +405,11 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
    * The answer to a multi-query lookup: one group per question asked, in the
    * order they were asked, each naming the refs it matched.
    *
-   * A group with no refs is an answer. The page carries no control matching
-   * that question, which is frequently the fact the run needed — and a run
-   * that could not tell an unanswered question from an unasked one would
-   * keep asking it.
+   * A group with no refs is an answer. No frame the observation read carries
+   * a control matching that question, which is frequently the fact the run
+   * needed — and a run that could not tell an unanswered question from an
+   * unasked one would keep asking it. Refs from a child frame carry their
+   * frame in their prefix, so one group may name matches from several.
    */
   lookup: z
     .object({
