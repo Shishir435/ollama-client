@@ -333,6 +333,48 @@ describe("a lookup answered by more than one frame", () => {
     expect(composed.lookup?.queries[0]?.truncated).toBe(true)
   })
 
+  it("says the answer is short when the budget stopped a frame being asked", () => {
+    /**
+     * `truncated` is the difference between "nothing matched" and "we stopped
+     * looking", and a frame skipped for room is the second. Without it the
+     * model reads an empty group as proof the control is not on the page.
+     */
+    const composed = composeAgentFrameObservations({
+      root: root([{ query: "price", refs: [] }]),
+      children: [
+        {
+          frame: child(2, "https://example.com/child"),
+          origin: "https://example.com",
+          access: "element_budget" as const
+        }
+      ]
+    })
+    expect(composed.lookup?.queries[0]).toEqual({
+      query: "price",
+      refs: [],
+      truncated: true
+    })
+  })
+
+  it("does not call an answer short for a frame it was never allowed to read", () => {
+    /**
+     * The frame list already says the run may not read it. Marking every
+     * answer incomplete because a page embeds an advertising frame would make
+     * the flag mean nothing on most of the web.
+     */
+    const composed = composeAgentFrameObservations({
+      root: root([{ query: "price", refs: [] }]),
+      children: [
+        {
+          frame: child(3, "https://ads.example/slot"),
+          origin: "https://ads.example",
+          access: "unauthorized_origin" as const
+        }
+      ]
+    })
+    expect(composed.lookup?.queries[0]).toEqual({ query: "price", refs: [] })
+  })
+
   it("ignores a frame that answered a different list of questions", () => {
     const composed = composeAgentFrameObservations({
       root: root([{ query: "price", refs: [] }]),

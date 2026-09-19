@@ -134,7 +134,23 @@ const mergeLookupAnswers = (
 ): AgentObservation["lookup"] => {
   const asked = root.lookup?.queries
   if (!asked) return undefined
-  const merged = asked.map((group) => ({ ...group, refs: [...group.refs] }))
+  /**
+   * A frame the element budget stopped before it could answer is not a frame
+   * that answered nothing. Every group is marked `truncated`, because the
+   * bound is what ended the search rather than the page — the distinction the
+   * model needs in order to keep looking instead of concluding the control is
+   * not there. An unreadable or unauthorized frame is *not* counted here: the
+   * frame list already says the run may not read it, and marking every answer
+   * incomplete for an advertising frame would make the flag mean nothing.
+   */
+  const stoppedByBudget = children.some(
+    (child) => child.access === "element_budget"
+  )
+  const merged = asked.map((group) => ({
+    ...group,
+    refs: [...group.refs],
+    ...(stoppedByBudget ? { truncated: true } : {})
+  }))
   for (const child of children) {
     const answered = child.observation?.lookup?.queries
     if (!answered) continue

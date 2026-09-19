@@ -172,7 +172,13 @@ Read the section your change touches; you do not need the whole file.
   continuation offset, neither of which composes across documents. A frame
   answering a lookup is capped at one group per question rather than the whole
   remaining element budget, since a frame that matched nothing falls back to
-  its overview.
+  its overview — and that room is *reserved before the root is asked*, because
+  the root falls back the same way and on a crowded page its consolation
+  overview spent the whole budget before any frame was reached. A frame the
+  budget still stopped marks every group `truncated`: the bound ended the
+  search, not the page. A frame the run may not read does not, since the frame
+  list already says so and an advertising frame would otherwise make the flag
+  meaningless.
 - **A read-only request that matched nothing says so.** A region is matched by
   the exact group name the observation publishes — `page` included, which is
   the name omissions outside any landmark are reported under and was for a

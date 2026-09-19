@@ -3,7 +3,8 @@ import {
   type AgentObservation,
   type AgentObservationScope,
   type AgentSnapshotIdentity,
-  MAX_AGENT_LOOKUP_MATCHES
+  MAX_AGENT_LOOKUP_MATCHES,
+  MAX_AGENT_OBSERVED_ELEMENTS
 } from "@ollama-client/contracts"
 
 import type {
@@ -213,14 +214,16 @@ export const createAgentControlSessionRegistry = (input?: {
     signal?: AbortSignal,
     textOffset?: number,
     scope?: AgentObservationScope,
-    lookup?: { queries: readonly string[] }
+    lookup?: { queries: readonly string[] },
+    elementLimit?: number
   ): Promise<AgentObservation> => {
     const session = await acquire(runId, tabId, 0)
     const request = {
       minimumGeneration,
       ...(textOffset === undefined ? {} : { textOffset }),
       ...(scope === undefined ? {} : { scope }),
-      ...(lookup === undefined ? {} : { lookup })
+      ...(lookup === undefined ? {} : { lookup }),
+      ...(elementLimit === undefined ? {} : { elementLimit })
     }
     try {
       return await session.observe(request, signal)
@@ -295,6 +298,38 @@ export const createAgentControlSessionRegistry = (input?: {
     }
   }
 
+  /** The most one frame's answer to a lookup can be worth, in rows. */
+  const lookupFrameAllowance = (lookup: {
+    queries: readonly string[]
+  }): number => lookup.queries.length * MAX_AGENT_LOOKUP_MATCHES
+
+  /**
+   * Room the root may not spend, held back for the frames' own answers.
+   *
+   * A frame that matched none of the questions answers with its overview, and
+   * so does the root — which is the case a page-wide question is most often
+   * asked in, since the control the run is looking for is the one it cannot
+   * find. On a crowded page that fallback overview filled the whole element
+   * budget before a single frame was asked, and the frame holding the control
+   * was skipped for having no room: an empty group, reported as an answer.
+   *
+   * So the reserve is taken before the root is asked rather than after. It
+   * costs the root's *fallback* rows only — a lookup's own matches are bounded
+   * far below this — and it is held for every frame the run might read, since
+   * whether a frame is authorized is not known until it is asked. Unspent
+   * room stays unspent; a consolation overview is not worth a second pass.
+   */
+  const lookupFrameReserve = (
+    frames: number,
+    lookup?: { queries: readonly string[] }
+  ): number =>
+    lookup
+      ? Math.min(
+          frames * lookupFrameAllowance(lookup),
+          Math.floor(MAX_AGENT_OBSERVED_ELEMENTS / 2)
+        )
+      : 0
+
   /**
    * What one child frame may add to this observation.
    *
@@ -312,7 +347,7 @@ export const createAgentControlSessionRegistry = (input?: {
   ): number => {
     const remaining = remainingAgentElementBudget(root, children)
     return lookup
-      ? Math.min(remaining, lookup.queries.length * MAX_AGENT_LOOKUP_MATCHES)
+      ? Math.min(remaining, lookupFrameAllowance(lookup))
       : remaining
   }
 
@@ -329,6 +364,17 @@ export const createAgentControlSessionRegistry = (input?: {
       },
       signal
     ) {
+      /**
+       * Listed before the root is read, for a lookup only: the reserve its
+       * frames need has to be withheld from the root's own request, and the
+       * number of frames is what decides how much. Every other read keeps the
+       * old order, where the root is asked first and the frame list is what
+       * the remaining budget is divided between.
+       */
+      const listed = lookup
+        ? selectAgentChildFrames(await listFrames(tabId))
+        : undefined
+      const reserve = lookupFrameReserve(listed?.selected.length ?? 0, lookup)
       const root = await observeRoot(
         runId,
         tabId,
@@ -336,11 +382,11 @@ export const createAgentControlSessionRegistry = (input?: {
         signal,
         extraction?.frameId === 0 ? extraction.offset : undefined,
         scope,
-        lookup
+        lookup,
+        reserve > 0 ? MAX_AGENT_OBSERVED_ELEMENTS - reserve : undefined
       )
-      const { selected, omitted } = selectAgentChildFrames(
-        await listFrames(tabId)
-      )
+      const { selected, omitted } =
+        listed ?? selectAgentChildFrames(await listFrames(tabId))
       const children: AgentChildFrameResult[] = []
       /**
        * A scoped read is answered by the root alone.
