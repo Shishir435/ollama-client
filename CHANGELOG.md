@@ -9,6 +9,17 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.13.4]
+
+### Fixed
+
+- OpenCode Zen free-tier refusals are answered with `403` and an actionable
+  message instead of a generic `502`. The gateway rejects free-tier requests
+  carrying per-tool disable flags, which this proxy always sends to keep the
+  runtime's native tools off; the refusal now names the model and the working
+  paths (a key-backed provider model, or OpenCode's own TUI/Desktop) so the
+  extension no longer reports the proxy as down.
+
 ## [0.13.3]
 
 ### Added
