@@ -5,6 +5,10 @@ import { describe, expect, it } from "vitest"
 
 const repoRoot = process.cwd()
 const sourceRoot = join(repoRoot, "src")
+const themeStylesheets = [
+  join(sourceRoot, "globals.css"),
+  join(sourceRoot, "features/selection-actions/selection-overlay.css")
+]
 
 const listSourceFiles = (dir: string): string[] => {
   const files: string[] = []
@@ -113,6 +117,50 @@ const isWrappedIconButton = (node: ts.Node, source: ts.SourceFile): boolean => {
 }
 
 describe("design-system source contracts", () => {
+  it("keeps color token backings distinct from Tailwind utility namespaces", () => {
+    const ambiguousBacking = /--color-(border|ring)-([\w-]+):\s*var\(--\1-\2\)/g
+    const offenders = themeStylesheets.flatMap((path) => {
+      const text = readFileSync(path, "utf8")
+      return Array.from(text.matchAll(ambiguousBacking), (match) =>
+        location(
+          path,
+          ts.createSourceFile(
+            path,
+            text,
+            ts.ScriptTarget.Latest,
+            true,
+            ts.ScriptKind.TS
+          ),
+          match.index
+        )
+      )
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  it("names semantic colors after their Tailwind utility suffixes", () => {
+    const sharedMappings = [
+      "--color-focus: var(--focus-ring);",
+      "--color-surface: var(--surface-ring);",
+      "--color-border-invalid: var(--stroke-invalid);",
+      "--color-ring-invalid: var(--invalid-ring);"
+    ]
+
+    for (const path of themeStylesheets) {
+      const text = readFileSync(path, "utf8")
+      for (const mapping of sharedMappings) expect(text).toContain(mapping)
+    }
+
+    const globals = readFileSync(themeStylesheets[0], "utf8")
+    expect(globals).toContain(
+      "@utility border-border-subtle {\n  border-color: var(--stroke-subtle);\n}"
+    )
+    expect(globals).toContain(
+      "@utility border-border-strong {\n  border-color: var(--stroke-strong);\n}"
+    )
+  })
+
   it("uses named tokens for shared alpha states and surfaces", () => {
     const bypassExamples = [
       "bg-primary/30",

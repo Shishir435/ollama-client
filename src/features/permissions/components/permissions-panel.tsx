@@ -81,7 +81,8 @@ const SCHEDULED_JOB_LABELS: Record<
  * for the ~900px options page; stacked six deep in a ~400px sheet that reads
  * as six boxes rather than a list.
  */
-const COMPACT_ROW = "gap-2 border-0 bg-transparent p-0 py-1.5"
+const COMPACT_ROW =
+  "gap-2 rounded-none bg-transparent p-0 py-1.5 ring-0 hover:bg-transparent focus-within:ring-0"
 
 const TabAccessSettings = ({ compact }: { compact?: boolean }) => {
   const { t } = useTranslation()

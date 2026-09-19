@@ -216,6 +216,18 @@ describe("ContextSettingsMenu", () => {
     expect(mocks.updateWebSearchConfig).not.toHaveBeenCalled()
   })
 
+  it("fades permission rows at the bounded sub-view edges", () => {
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /Permissions & privacy/ })
+    )
+
+    expect(
+      document.querySelector('[data-slot="context-permissions-scroll"]')
+    ).toHaveClass("scroll-fade-y", "overscroll-contain")
+  })
+
   it("selects every listed tab from the list header", () => {
     render(<ContextSettingsMenu />)
     fireEvent.click(screen.getByRole("button", { name: "Context" }))

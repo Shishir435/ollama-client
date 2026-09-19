@@ -77,15 +77,13 @@
   --color-feature-4: var(--feature-4);
 
   /* Border system */
-  --color-border-subtle: var(--border-subtle);
   --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-border-invalid: var(--border-invalid);
+  --color-border-invalid: var(--stroke-invalid);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-ring-focus: var(--ring-focus);
-  --color-ring-invalid: var(--ring-invalid);
-  --color-ring-surface: var(--ring-surface);
+  --color-focus: var(--focus-ring);
+  --color-ring-invalid: var(--invalid-ring);
+  --color-surface: var(--surface-ring);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -207,15 +205,15 @@
   --status-danger-hover: hsl(0 84.2% 60.2% / 90%);
   --surface-tooltip-key: oklch(1 0 0 / 20%);
 
-  --border-subtle: oklch(0.92 0.004 286.32 / 50%);
+  --stroke-subtle: oklch(0.92 0.004 286.32 / 50%);
   --border: oklch(0.92 0.004 286.32);
-  --border-strong: oklch(0.87 0.006 286.32);
-  --border-invalid: oklch(0.577 0.245 27.325);
+  --stroke-strong: oklch(0.87 0.006 286.32);
+  --stroke-invalid: oklch(0.577 0.245 27.325);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
-  --ring-focus: oklch(0.705 0.015 286.067 / 30%);
-  --ring-invalid: oklch(0.577 0.245 27.325 / 20%);
-  --ring-surface: oklch(0.141 0.005 285.823 / 10%);
+  --focus-ring: oklch(0.705 0.015 286.067 / 30%);
+  --invalid-ring: oklch(0.577 0.245 27.325 / 20%);
+  --surface-ring: oklch(0.141 0.005 285.823 / 10%);
 
   --app-primary: var(--primary);
   --app-primary-soft: var(--secondary);
@@ -293,15 +291,15 @@
   --status-danger-hover: hsl(0 75% 57% / 90%);
   --surface-tooltip-key: oklch(0.128 0.01 235 / 10%);
 
-  --border-subtle: oklch(1 0 0 / 5%);
+  --stroke-subtle: oklch(1 0 0 / 5%);
   --border: oklch(1 0 0 / 10%);
-  --border-strong: oklch(1 0 0 / 18%);
-  --border-invalid: oklch(0.704 0.191 22.216 / 50%);
+  --stroke-strong: oklch(1 0 0 / 18%);
+  --stroke-invalid: oklch(0.704 0.191 22.216 / 50%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
-  --ring-focus: oklch(0.552 0.016 285.938 / 30%);
-  --ring-invalid: oklch(0.704 0.191 22.216 / 40%);
-  --ring-surface: oklch(0.985 0 0 / 10%);
+  --focus-ring: oklch(0.552 0.016 285.938 / 30%);
+  --invalid-ring: oklch(0.704 0.191 22.216 / 40%);
+  --surface-ring: oklch(0.985 0 0 / 10%);
 
   --app-primary: var(--primary);
   --app-primary-soft: var(--secondary);
@@ -560,6 +558,14 @@
 
 }
 
+
+@utility border-border-subtle {
+  border-color: var(--stroke-subtle);
+}
+
+@utility border-border-strong {
+  border-color: var(--stroke-strong);
+}
 
 @utility icon-micro {
   width: var(--icon-micro);

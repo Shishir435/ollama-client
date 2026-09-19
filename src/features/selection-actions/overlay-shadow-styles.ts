@@ -77,12 +77,12 @@ export const buildShadowStyles = (appStyles: string): string => `
     --status-danger-hover: hsl(0 84.2% 60.2% / 90%);
     --surface-tooltip-key: oklch(1 0 0 / 20%);
     --border: oklch(0.92 0.004 286.32);
-    --border-invalid: oklch(0.577 0.245 27.325);
+    --stroke-invalid: oklch(0.577 0.245 27.325);
     --input: oklch(0.92 0.004 286.32);
     --ring: oklch(0.705 0.015 286.067);
-    --ring-focus: oklch(0.705 0.015 286.067 / 30%);
-    --ring-invalid: oklch(0.577 0.245 27.325 / 20%);
-    --ring-surface: oklch(0.141 0.005 285.823 / 10%);
+    --focus-ring: oklch(0.705 0.015 286.067 / 30%);
+    --invalid-ring: oklch(0.577 0.245 27.325 / 20%);
+    --surface-ring: oklch(0.141 0.005 285.823 / 10%);
 
     /* sa- aliases */
     --sa-radius-lg: var(--radius-lg);
@@ -133,12 +133,12 @@ export const buildShadowStyles = (appStyles: string): string => `
     --status-danger-hover: hsl(0 75% 57% / 90%);
     --surface-tooltip-key: oklch(0.141 0.005 285.823 / 10%);
     --border: oklch(1 0 0 / 10%);
-    --border-invalid: oklch(0.704 0.191 22.216 / 50%);
+    --stroke-invalid: oklch(0.704 0.191 22.216 / 50%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.552 0.016 285.938);
-    --ring-focus: oklch(0.552 0.016 285.938 / 30%);
-    --ring-invalid: oklch(0.704 0.191 22.216 / 40%);
-    --ring-surface: oklch(0.985 0 0 / 10%);
+    --focus-ring: oklch(0.552 0.016 285.938 / 30%);
+    --invalid-ring: oklch(0.704 0.191 22.216 / 40%);
+    --surface-ring: oklch(0.985 0 0 / 10%);
     --sa-shadow: 0 4px 24px oklch(0 0 0 / 0.36);
   }
 

@@ -37,6 +37,7 @@ export const AGENT_AFFORDANCE_REASONS = [
   "not_focused",
   /** Editing: the text a command names is not there, or the field cannot hold it. */
   "newline_in_single_line",
+  "missing_text_separator",
   "text_not_found",
   "text_ambiguous",
   "value_truncated",
@@ -247,6 +248,41 @@ const classifyTypedText = (
   return undefined
 }
 
+/**
+ * `type` appends its payload byte-for-byte. In a multiline prose editor, two
+ * word characters meeting almost always mean the model forgot the separator
+ * it intended (for example `agentAgreed`).
+ *
+ * The check is deliberately narrow, because a false positive blocks a valid
+ * edit and burns a decision cycle: it answers only when the field already
+ * reads as prose (its value holds whitespace, so a lone token like `Version2`
+ * and an unspaced CJK run are exempt) and both boundary characters are
+ * letters or digits. Appending punctuation (`.com`, `!`), symbols and emoji
+ * therefore stays verbatim, as does extending a value that was never prose.
+ * Refuse before execution so prose can be retried with the separator explicit.
+ */
+const PROSE_WORD_CHAR = /[\p{L}\p{N}]/u
+
+const classifyAppendedText = (
+  element: AgentElement,
+  text: string
+): AgentAffordanceRefusal | undefined => {
+  const typed = classifyTypedText(element, text)
+  if (typed) return typed
+  if (element.sensitive || !element.multiline) return undefined
+  const current = element.value ?? ""
+  if (
+    current.length > 0 &&
+    text.length > 0 &&
+    /\s/u.test(current) &&
+    PROSE_WORD_CHAR.test(current.at(-1) ?? "") &&
+    PROSE_WORD_CHAR.test(text[0] ?? "")
+  ) {
+    return refusal("missing_text_separator", element)
+  }
+  return undefined
+}
+
 const countOccurrences = (value: string, find: string): number => {
   let count = 0
   let from = 0
@@ -335,6 +371,7 @@ const classifyTarget = (
     case "hover":
       return undefined
     case "type":
+      return classifyAppendedText(element, command.text)
     case "clear_and_type":
       return classifyTypedText(element, command.text)
     case "replace_text":
@@ -625,6 +662,8 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
       return `${ref} is not focused, so a key press would not reach it. Click or type into it first.`
     case "newline_in_single_line":
       return `${ref} is a single-line field, so typed text cannot contain a line break. Type the text without it; to confirm or send, use press_key with Enter on the focused field.`
+    case "missing_text_separator":
+      return `${ref} contains text. type appends verbatim; start with a space or line break, or use clear_and_type to replace all.`
     case "text_not_found":
       return `${ref} does not contain the text named in find. Use an exact run of its observed value.`
     case "text_ambiguous":
