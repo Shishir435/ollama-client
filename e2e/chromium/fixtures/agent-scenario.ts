@@ -71,6 +71,12 @@ export interface AgentFixtureObservation {
   omittedByGroup?: { group: string; count: number }[]
   /** Set when the inspect or find this observation answers matched nothing. */
   unmatched?: { region?: string; query?: string; regions?: string[] }
+  /**
+   * The answer to a multi-query `extract`: one group per question, in the
+   * order asked, each naming the refs that answered it across every frame the
+   * run was able to read.
+   */
+  lookup?: { query: string; refs: string[]; truncated?: boolean }[]
   /** The answer to a scoped read, when the observation was taken for one. */
   scope?: {
     kind: "query" | "region"

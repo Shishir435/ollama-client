@@ -8,28 +8,37 @@ import type { AgentCommand } from "@ollama-client/contracts"
 import {
   executeDialogAgentEffect,
   executeDomMutationAgentEffect,
+  executeFormFillAgentEffect,
   executeNavigationAgentEffect,
   executeReadOnlyAgentEffect
 } from "@/lib/browser-agent/command-executor"
 import {
   verifyDialogAgentEffect,
   verifyDomMutationAgentEffect,
+  verifyFormFillAgentEffect,
   verifyNavigationAgentEffect,
   verifyReadOnlyAgentEffect
 } from "@/lib/browser-agent/effect-verifier"
 import {
   DIALOG_AGENT_ACTIONS,
   DOM_MUTATION_AGENT_ACTIONS,
+  FORM_FILL_AGENT_ACTIONS,
   NAVIGATION_AGENT_ACTIONS,
   READ_ONLY_AGENT_ACTIONS,
   resolveDialogAgentEffect,
   resolveDomMutationAgentEffect,
+  resolveFormFillAgentEffect,
   resolveNavigationAgentEffect,
   resolveReadOnlyAgentEffect
 } from "@/lib/browser-agent/resolved-effect"
 import type { AgentBrowserAdapters } from "./agent-browser-adapters"
 
-type AgentActionFamily = "read_only" | "navigation" | "dom_mutation" | "dialog"
+type AgentActionFamily =
+  | "read_only"
+  | "navigation"
+  | "dom_mutation"
+  | "form_fill"
+  | "dialog"
 
 const familyOf = (type: AgentCommand["type"]): AgentActionFamily => {
   if ((READ_ONLY_AGENT_ACTIONS as readonly string[]).includes(type)) {
@@ -41,6 +50,9 @@ const familyOf = (type: AgentCommand["type"]): AgentActionFamily => {
   if ((DOM_MUTATION_AGENT_ACTIONS as readonly string[]).includes(type)) {
     return "dom_mutation"
   }
+  if ((FORM_FILL_AGENT_ACTIONS as readonly string[]).includes(type)) {
+    return "form_fill"
+  }
   if ((DIALOG_AGENT_ACTIONS as readonly string[]).includes(type)) {
     return "dialog"
   }
@@ -48,7 +60,7 @@ const familyOf = (type: AgentCommand["type"]): AgentActionFamily => {
 }
 
 /**
- * One port over the four shipped action families.
+ * One port over the five shipped action families.
  *
  * Dispatch is by the command's own family and nothing else: an action with no
  * family has no resolver, so it can never reach an executor, and resolve,
@@ -66,6 +78,8 @@ export const createAgentEffectPort = (
         return resolveReadOnlyAgentEffect(input)
       case "navigation":
         return resolveNavigationAgentEffect(input)
+      case "form_fill":
+        return resolveFormFillAgentEffect(input)
       case "dialog":
         return resolveDialogAgentEffect(input)
       default:
@@ -79,6 +93,8 @@ export const createAgentEffectPort = (
         return executeReadOnlyAgentEffect(input)
       case "navigation":
         return executeNavigationAgentEffect(input)
+      case "form_fill":
+        return executeFormFillAgentEffect(input)
       case "dialog":
         return executeDialogAgentEffect(input)
       default:
@@ -92,6 +108,8 @@ export const createAgentEffectPort = (
         return verifyReadOnlyAgentEffect(input)
       case "navigation":
         return verifyNavigationAgentEffect(input)
+      case "form_fill":
+        return verifyFormFillAgentEffect(input)
       case "dialog":
         return verifyDialogAgentEffect(input)
       default:

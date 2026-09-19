@@ -38,6 +38,8 @@ export const SETTINGS_REGISTRY_ORDER = [
   "clear-memory",
   "backfill-embeddings",
   "max-tab-context-chars",
+  "agent-context-window",
+  "agent-vision",
   "max-rag-context-chars",
   "max-tool-result-chars",
   "auto-refresh-tab-context",

@@ -398,3 +398,63 @@ describe("observing a tab a native dialog is holding", () => {
     })
   })
 })
+
+describe("what a targeted read carries to the page", () => {
+  /**
+   * This seam lost a field once, and neither side could see it: the runtime
+   * asked for a lookup, the page could answer one, and the adapter between
+   * them forwarded `scope` and dropped `lookup`. Every `extract` reached the
+   * page as a plain read and every group came back absent — which the model
+   * reads as "the page holds no such control".
+   */
+  const withReadableTab = () => {
+    const sessions = createAgentControlSessionRegistry({
+      open: (async () => {
+        throw new Error("no session in this test")
+      }) as never
+    })
+    const observe = vi
+      .spyOn(sessions, "observe")
+      .mockResolvedValue(observation())
+    const adapters = createAgentBrowserAdapters({
+      runId: "run-1",
+      sessions,
+      history: createAgentTabHistory(),
+      imageEditor: undefined,
+      now: () => 5
+    })
+    return { adapters, observe }
+  }
+
+  it("forwards a multi-query lookup, the way it forwards a scope", async () => {
+    const { adapters, observe } = withReadableTab()
+    await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 2,
+        allowedOrigins: ["https://example.com"],
+        lookup: { queries: ["price", "stock"] }
+      },
+      { aborted: false }
+    )
+    expect(observe.mock.calls[0]?.[0]).toMatchObject({
+      tabId: 7,
+      lookup: { queries: ["price", "stock"] }
+    })
+  })
+
+  it("sends no lookup when none was asked for", async () => {
+    const { adapters, observe } = withReadableTab()
+    await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 2,
+        allowedOrigins: ["https://example.com"]
+      },
+      { aborted: false }
+    )
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty("lookup")
+  })
+})

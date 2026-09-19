@@ -56,6 +56,7 @@ import type {
   AgentStatePatch,
   AgentStepReadout,
   AgentStepWrite,
+  AgentVerificationResult,
   AuthorizedAgentEffect,
   ResolvedAgentEffect
 } from "./ports"
@@ -75,6 +76,7 @@ import {
 } from "./state"
 import { mergeAgentStepTelemetry } from "./telemetry"
 import { classifyVerificationOutcome } from "./verification"
+import { agentPictureWarranted } from "./vision"
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
 
@@ -634,6 +636,7 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     inspection?: AgentInspectionFocus
   ): Promise<AgentObservation | undefined> => {
+    const scope = agentObservationScope(inspection)
     try {
       const observation = AgentObservationSchema.parse(
         await timed("observeMs", () =>
@@ -659,8 +662,15 @@ export const createAgentController = (
                * either — the query looked only where the answer had already
                * been ruled out.
                */
-              ...(agentObservationScope(inspection)
-                ? { scope: agentObservationScope(inspection) }
+              ...(scope ? { scope } : {}),
+              /**
+               * Six questions in one walk rather than six decisions. The
+               * walk is the expensive half of a scoped read and the round
+               * trip is the expensive half of a step, so asking them
+               * together is the only one of the two that scales.
+               */
+              ...(inspection?.queries?.length
+                ? { lookup: { queries: inspection.queries } }
                 : {})
             },
             signal
@@ -697,11 +707,49 @@ export const createAgentController = (
    * the decision to the DOM alone; it never fails the run, and the picture
    * lives only in the memory of this step.
    */
+  /**
+   * Whether this step gets a picture: what the model can read, what the user
+   * asked for, and — under `auto` — whether this particular step warrants
+   * one.
+   *
+   * A capture costs an encode, a masking pass and, far the largest of the
+   * three, an image prefill in the model's own window. Most steps decide from
+   * text, so most of those pictures were paid for and never looked at.
+   */
+  const wantsPicture = async (
+    state: AgentRunState,
+    observation: AgentObservation,
+    signal: AgentCancellationController["signal"],
+    inspection: AgentModelInput["inspection"],
+    previousVerification?: AgentVerificationResult,
+    history?: AgentModelInput["history"]
+  ): Promise<boolean> => {
+    if (!(await dependencies.model.vision?.(state, signal))) return false
+    const policy =
+      (await dependencies.model.visionPolicy?.(state, signal)) ?? "always"
+    if (policy === "never") return false
+    if (policy === "always") return true
+    if (
+      agentPictureWarranted({
+        state,
+        observation,
+        ...(inspection ? { inspection } : {}),
+        ...(previousVerification ? { previousVerification } : {}),
+        ...(history ? { history } : {})
+      })
+    )
+      return true
+    dependencies.trace?.(state.id, "screenshot_skipped")
+    return false
+  }
+
   const picture = async (
     state: AgentRunState,
     observation: AgentObservation,
     inspection: AgentModelInput["inspection"],
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    previousVerification?: AgentVerificationResult,
+    history?: AgentModelInput["history"]
   ): Promise<AgentModelInput["screenshot"]> => {
     // Native dialogs freeze the renderer; its debugger-held text is the observation.
     if (
@@ -711,7 +759,17 @@ export const createAgentController = (
     )
       return undefined
     try {
-      if (!(await dependencies.model.vision(state, signal))) return undefined
+      if (
+        !(await wantsPicture(
+          state,
+          observation,
+          signal,
+          inspection,
+          previousVerification,
+          history
+        ))
+      )
+        return undefined
       const screenshot = await dependencies.screenshot.capture(
         {
           runId: state.id,
@@ -1538,7 +1596,9 @@ export const createAgentController = (
         deciding,
         observation,
         recalled.inspection,
-        signal
+        signal,
+        recalled.previousVerification,
+        recalled.history
       )
       if (screenshot) context.screenshot = screenshot
       decision = await decide(deciding, observation, signal, {

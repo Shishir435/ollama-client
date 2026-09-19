@@ -96,6 +96,7 @@ const startService = (
     sessions: {
       observe: vi.fn(),
       executeDomMutation: vi.fn(),
+      executeFormFill: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
@@ -286,6 +287,7 @@ describe("starting an Agent run against the real engine", () => {
         sessions: {
           observe: vi.fn(),
           executeDomMutation: vi.fn(),
+          executeFormFill: vi.fn(),
           executeScroll: vi.fn(),
           prepareNativeInput: vi.fn(),
           settleNativeInput: vi.fn(),
@@ -337,6 +339,7 @@ describe("starting an Agent run against the real engine", () => {
         sessions: {
           observe: vi.fn(),
           executeDomMutation: vi.fn(),
+          executeFormFill: vi.fn(),
           executeScroll: vi.fn(),
           prepareNativeInput: vi.fn(),
           settleNativeInput: vi.fn(),

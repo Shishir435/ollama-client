@@ -1,8 +1,10 @@
 import { AgentControlFailedError } from "@ollama-client/agent-runtime"
-import type {
-  AgentObservation,
-  AgentObservationScope,
-  AgentSnapshotIdentity
+import {
+  type AgentObservation,
+  type AgentObservationScope,
+  type AgentSnapshotIdentity,
+  MAX_AGENT_LOOKUP_MATCHES,
+  MAX_AGENT_OBSERVED_ELEMENTS
 } from "@ollama-client/contracts"
 
 import type {
@@ -10,6 +12,8 @@ import type {
   AgentControlBrowserFrame,
   AgentControlSession,
   AgentDomMutationInstruction,
+  AgentFormFillInstruction,
+  AgentFormFillOutcome,
   AgentHitTestResult,
   AgentInputTraceWire,
   AgentNativeInputPreparedResult,
@@ -64,6 +68,15 @@ export interface AgentControlSessionRegistry {
        * from several at once would return refs the model cannot tell apart.
        */
       scope?: AgentObservationScope
+      /**
+       * Several scoped questions asked at once, of the root frame and of
+       * every child frame the run may read. Unlike a scope, a lookup answer
+       * composes: its groups name refs, a ref carries its frame in its
+       * prefix, and an empty group is read as "the page holds no such
+       * control" — which would be a lie about a control sitting in an
+       * authorized iframe.
+       */
+      lookup?: { queries: readonly string[] }
     },
     signal?: AbortSignal
   ): Promise<AgentObservation>
@@ -75,6 +88,19 @@ export interface AgentControlSessionRegistry {
     },
     signal?: AbortSignal
   ): Promise<string | undefined>
+  /**
+   * A batch of value edits, applied in the page in one exchange. Never
+   * retried for the same reason a mutation is not: a batch whose port died
+   * may have written some of its fields, and repeating it writes them twice.
+   */
+  executeFormFill(
+    input: {
+      runId: string
+      tabId: number
+      instruction: AgentFormFillInstruction
+    },
+    signal?: AbortSignal
+  ): Promise<AgentFormFillOutcome>
   executeScroll(
     input: {
       runId: string
@@ -187,13 +213,17 @@ export const createAgentControlSessionRegistry = (input?: {
     minimumGeneration: number,
     signal?: AbortSignal,
     textOffset?: number,
-    scope?: AgentObservationScope
+    scope?: AgentObservationScope,
+    lookup?: { queries: readonly string[] },
+    elementLimit?: number
   ): Promise<AgentObservation> => {
     const session = await acquire(runId, tabId, 0)
     const request = {
       minimumGeneration,
       ...(textOffset === undefined ? {} : { textOffset }),
-      ...(scope === undefined ? {} : { scope })
+      ...(scope === undefined ? {} : { scope }),
+      ...(lookup === undefined ? {} : { lookup }),
+      ...(elementLimit === undefined ? {} : { elementLimit })
     }
     try {
       return await session.observe(request, signal)
@@ -232,7 +262,8 @@ export const createAgentControlSessionRegistry = (input?: {
     allowedOrigins: readonly string[],
     elementLimit: number,
     signal?: AbortSignal,
-    textOffset?: number
+    textOffset?: number,
+    lookup?: { queries: readonly string[] }
   ): Promise<AgentChildFrameResult | undefined> => {
     const authorized = await authorizeAgentFrame(frame, {
       allowedOrigins,
@@ -249,7 +280,8 @@ export const createAgentControlSessionRegistry = (input?: {
         {
           minimumGeneration,
           elementLimit,
-          ...(textOffset === undefined ? {} : { textOffset })
+          ...(textOffset === undefined ? {} : { textOffset }),
+          ...(lookup === undefined ? {} : { lookup })
         },
         signal
       )
@@ -266,22 +298,95 @@ export const createAgentControlSessionRegistry = (input?: {
     }
   }
 
+  /** The most one frame's answer to a lookup can be worth, in rows. */
+  const lookupFrameAllowance = (lookup: {
+    queries: readonly string[]
+  }): number => lookup.queries.length * MAX_AGENT_LOOKUP_MATCHES
+
+  /**
+   * Room the root may not spend, held back for the frames' own answers.
+   *
+   * A frame that matched none of the questions answers with its overview, and
+   * so does the root — which is the case a page-wide question is most often
+   * asked in, since the control the run is looking for is the one it cannot
+   * find. On a crowded page that fallback overview filled the whole element
+   * budget before a single frame was asked, and the frame holding the control
+   * was skipped for having no room: an empty group, reported as an answer.
+   *
+   * So the reserve is taken before the root is asked rather than after. It
+   * costs the root's *fallback* rows only — a lookup's own matches are bounded
+   * far below this — and it is held for every frame the run might read, since
+   * whether a frame is authorized is not known until it is asked. Unspent
+   * room stays unspent; a consolation overview is not worth a second pass.
+   */
+  const lookupFrameReserve = (
+    frames: number,
+    lookup?: { queries: readonly string[] }
+  ): number =>
+    lookup
+      ? Math.min(
+          frames * lookupFrameAllowance(lookup),
+          Math.floor(MAX_AGENT_OBSERVED_ELEMENTS / 2)
+        )
+      : 0
+
+  /**
+   * What one child frame may add to this observation.
+   *
+   * Ordinarily the whole remaining element budget: an overview wants every
+   * control the page has. A lookup is the exception — a frame that matched
+   * none of the questions answers with its overview instead, so an unbounded
+   * budget would spend a query's prompt on five frames' worth of controls
+   * nobody asked about. Its matches can never exceed one group per question,
+   * so that is what it gets.
+   */
+  const childElementBudget = (
+    root: AgentObservation,
+    children: readonly AgentChildFrameResult[],
+    lookup?: { queries: readonly string[] }
+  ): number => {
+    const remaining = remainingAgentElementBudget(root, children)
+    return lookup
+      ? Math.min(remaining, lookupFrameAllowance(lookup))
+      : remaining
+  }
+
   return {
     async observe(
-      { runId, tabId, minimumGeneration, allowedOrigins, extraction, scope },
+      {
+        runId,
+        tabId,
+        minimumGeneration,
+        allowedOrigins,
+        extraction,
+        scope,
+        lookup
+      },
       signal
     ) {
+      /**
+       * Listed before the root is read, for a lookup only: the reserve its
+       * frames need has to be withheld from the root's own request, and the
+       * number of frames is what decides how much. Every other read keeps the
+       * old order, where the root is asked first and the frame list is what
+       * the remaining budget is divided between.
+       */
+      const listed = lookup
+        ? selectAgentChildFrames(await listFrames(tabId))
+        : undefined
+      const reserve = lookupFrameReserve(listed?.selected.length ?? 0, lookup)
       const root = await observeRoot(
         runId,
         tabId,
         minimumGeneration,
         signal,
         extraction?.frameId === 0 ? extraction.offset : undefined,
-        scope
+        scope,
+        lookup,
+        reserve > 0 ? MAX_AGENT_OBSERVED_ELEMENTS - reserve : undefined
       )
-      const { selected, omitted } = selectAgentChildFrames(
-        await listFrames(tabId)
-      )
+      const { selected, omitted } =
+        listed ?? selectAgentChildFrames(await listFrames(tabId))
       const children: AgentChildFrameResult[] = []
       /**
        * A scoped read is answered by the root alone.
@@ -291,6 +396,14 @@ export const createAgentControlSessionRegistry = (input?: {
        * appended those unrelated controls to the matches while `scope.returned`
        * still counted only the root's. The model was handed rows that did not
        * match what it asked for, inside an answer that said they did.
+       *
+       * A multi-query lookup is asked of the child frames too, with the same
+       * questions, and composition merges each frame's matches into the group
+       * that asked for them. Its answer composes where a scope's does not: a
+       * group names refs rather than a count and a continuation, and a ref
+       * carries the frame it came from. Root-only was the more dangerous of
+       * the two answers, because an empty group means "no such control on
+       * this page" and the model stops asking.
        */
       for (const frame of scope ? [] : selected) {
         const child = await observeChild(
@@ -299,9 +412,10 @@ export const createAgentControlSessionRegistry = (input?: {
           frame,
           minimumGeneration,
           allowedOrigins,
-          remainingAgentElementBudget(root, children),
+          childElementBudget(root, children, lookup),
           signal,
-          extraction?.frameId === frame.frameId ? extraction.offset : undefined
+          extraction?.frameId === frame.frameId ? extraction.offset : undefined,
+          lookup
         )
         if (child) children.push(child)
       }
@@ -312,6 +426,16 @@ export const createAgentControlSessionRegistry = (input?: {
       const session = await acquire(runId, tabId, frameId)
       try {
         return await session.executeDomMutation(instruction, signal)
+      } catch (error) {
+        drop(runId, tabId, frameId)
+        throw error
+      }
+    },
+    async executeFormFill({ runId, tabId, instruction }, signal) {
+      const frameId = instruction.frame.frameId
+      const session = await acquire(runId, tabId, frameId)
+      try {
+        return await session.executeFormFill(instruction, signal)
       } catch (error) {
         drop(runId, tabId, frameId)
         throw error
@@ -366,7 +490,7 @@ export const createAgentControlSessionRegistry = (input?: {
       }
     },
     release(runId) {
-      for (const sessionKey of [...sessions.keys()]) {
+      for (const sessionKey of sessions.keys()) {
         if (!sessionKey.startsWith(`${runId}::`)) continue
         const session = sessions.get(sessionKey)
         sessions.delete(sessionKey)

@@ -14,6 +14,8 @@ import {
   type AgentObservationScope,
   AgentObservationScopeSchema,
   AgentSnapshotIdentitySchema,
+  MAX_AGENT_FORM_FIELDS,
+  MAX_AGENT_LOOKUP_QUERIES,
   MAX_AGENT_OBSERVED_ELEMENTS,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
@@ -50,6 +52,16 @@ export const AgentObserveRequestSchema = z
     textOffset: z.number().int().min(0).max(10_000_000).optional(),
     /** A scoped read: the elements are the matches, not the overview. */
     scope: AgentObservationScopeSchema.optional(),
+    /** Several scoped questions, answered by one walk of the document. */
+    lookup: z
+      .object({
+        queries: z
+          .array(z.string().min(1).max(100))
+          .min(1)
+          .max(MAX_AGENT_LOOKUP_QUERIES)
+      })
+      .strict()
+      .optional(),
     /** Elements this frame may contribute to a composed observation. */
     elementLimit: z
       .number()
@@ -339,6 +351,103 @@ export const AgentExecuteResponseSchema = z
   .strict()
 export type AgentExecuteResponse = z.infer<typeof AgentExecuteResponseSchema>
 
+const AgentFormFillCommandSchema = AgentCommandSchema.refine(
+  (command) => command.type === "fill_form",
+  "Control-port form filling accepts only fill_form commands"
+)
+
+/**
+ * A batch of value edits, each already resolved and approved as the
+ * single-field command it mirrors.
+ *
+ * The fields carry whole grounded commands rather than a shorthand, so the
+ * page applies each one through exactly the path a lone `clear_and_type` takes
+ * — same target recheck, same sensitivity refusal, same rejection vocabulary.
+ * A batch that spoke its own dialect would be a second executor, and the two
+ * would disagree the first time either changed.
+ */
+export const AgentFormFillInstructionSchema = z
+  .object({
+    command: AgentFormFillCommandSchema,
+    snapshotIdentity: AgentSnapshotIdentitySchema,
+    frame: AgentSnapshotIdentitySchema,
+    fields: z
+      .array(
+        z
+          .object({
+            command: AgentDomMutationCommandSchema,
+            target: AgentDomMutationTargetSchema
+          })
+          .strict()
+      )
+      .min(1)
+      .max(MAX_AGENT_FORM_FIELDS)
+  })
+  .strict()
+  .superRefine(assertFrameBinding)
+  .superRefine((instruction, context) => {
+    for (const [index, field] of instruction.fields.entries()) {
+      if (field.target.frameId === instruction.frame.frameId) continue
+      context.addIssue({
+        code: "custom",
+        path: ["fields", index, "target", "frameId"],
+        message: "A batched fill stays within one frame"
+      })
+    }
+  })
+export type AgentFormFillInstruction = z.infer<
+  typeof AgentFormFillInstructionSchema
+>
+
+export const AgentExecuteFormFillRequestSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_execute_form_fill"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    instruction: AgentFormFillInstructionSchema
+  })
+  .strict()
+export type AgentExecuteFormFillRequest = z.infer<
+  typeof AgentExecuteFormFillRequestSchema
+>
+
+/**
+ * What the page did, as counts and a closed reason.
+ *
+ * `applied` is how many fields landed, in the order they were sent, so a
+ * partial batch is legible without the page getting to describe itself: the
+ * run already knows which field is which, and a count is the only thing it
+ * cannot work out for itself. Nothing page-authored travels.
+ */
+export const AgentFormFillResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_form_fill_executed"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    applied: z.number().int().nonnegative().max(MAX_AGENT_FORM_FIELDS),
+    /** Why the batch stopped, when it stopped before the end. */
+    rejection: z.enum(AGENT_EFFECT_REJECTION_REASONS).optional(),
+    rejectionField: z.enum(AGENT_EFFECT_REJECTION_FIELDS).optional()
+  })
+  .strict()
+export type AgentFormFillResponse = z.infer<typeof AgentFormFillResponseSchema>
+
+export interface AgentFormFillOutcome {
+  applied: number
+  rejection?: (typeof AGENT_EFFECT_REJECTION_REASONS)[number]
+  rejectionField?: (typeof AGENT_EFFECT_REJECTION_FIELDS)[number]
+}
+
 const AgentScrollCommandSchema = AgentCommandSchema.refine(
   (command) => command.type === "scroll",
   "Control-port scrolling accepts only scroll commands"
@@ -624,6 +733,7 @@ const AgentControlRequestSchema = z.union([
   AgentObserveRequestSchema,
   AgentExecuteRequestSchema,
   AgentExecuteScrollRequestSchema,
+  AgentExecuteFormFillRequestSchema,
   AgentPrepareNativeInputRequestSchema,
   AgentSettleNativeInputRequestSchema,
   AgentSensitiveRegionsRequestSchema,
@@ -664,6 +774,7 @@ export interface AgentControlObserveOptions {
   elementLimit?: number
   textOffset?: number
   scope?: AgentObservationScope
+  lookup?: { queries: readonly string[] }
 }
 
 export interface AgentControlSession {
@@ -681,6 +792,10 @@ export interface AgentControlSession {
     instruction: AgentDomMutationInstruction,
     signal?: AbortSignal
   ): Promise<string | undefined>
+  executeFormFill(
+    instruction: AgentFormFillInstruction,
+    signal?: AbortSignal
+  ): Promise<AgentFormFillOutcome>
   executeScroll(
     instruction: AgentScrollInstruction,
     signal?: AbortSignal
@@ -848,6 +963,41 @@ export const validateAgentExecuteResponse = (
     )
   }
   return response.submissionUrl
+}
+
+/**
+ * A batch answers with how far it got, never by throwing.
+ *
+ * A rejection that reached here as an exception would take the applied count
+ * with it, and the count is the difference between a run that knows three
+ * fields are written and one that writes them again. The page still refuses
+ * per field; the refusal travels beside the count rather than instead of it.
+ */
+export const validateAgentFormFillResponse = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): AgentFormFillOutcome => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
+  const response = AgentFormFillResponseSchema.parse(raw)
+  if (
+    response.runId !== binding.runId ||
+    response.tabId !== binding.tabId ||
+    response.frameId !== binding.frameId ||
+    response.nonce !== binding.nonce ||
+    response.sequence !== sequence ||
+    response.documentId !== binding.documentId
+  ) {
+    throw new Error("Agent form fill response binding mismatch")
+  }
+  return {
+    applied: response.applied,
+    ...(response.rejection ? { rejection: response.rejection } : {}),
+    ...(response.rejectionField
+      ? { rejectionField: response.rejectionField }
+      : {})
+  }
 }
 
 export const validateAgentScrollResponse = (
@@ -1032,7 +1182,8 @@ export const createAgentControlSession = (input: {
   return {
     frameId: input.binding.frameId,
     observe(options, signal) {
-      const { minimumGeneration, elementLimit, textOffset, scope } = options
+      const { minimumGeneration, elementLimit, textOffset, scope, lookup } =
+        options
       if (inFlight) {
         return Promise.reject(
           new Error("Agent control request already in flight")
@@ -1048,7 +1199,10 @@ export const createAgentControlSession = (input: {
         minimumGeneration,
         ...(elementLimit === undefined ? {} : { elementLimit }),
         ...(textOffset === undefined ? {} : { textOffset }),
-        ...(scope === undefined ? {} : { scope })
+        ...(scope === undefined ? {} : { scope }),
+        ...(lookup === undefined
+          ? {}
+          : { lookup: { queries: [...lookup.queries] } })
       }
 
       return exchange(
@@ -1091,6 +1245,28 @@ export const createAgentControlSession = (input: {
             expectedSequence
           )
         },
+        signal
+      )
+    },
+    executeFormFill(instruction, signal) {
+      if (inFlight) {
+        return Promise.reject(
+          new Error("Agent control request already in flight")
+        )
+      }
+      sequence += 1
+      const expectedSequence = sequence
+      const request: AgentExecuteFormFillRequest = {
+        version: AGENT_CONTROL_VERSION,
+        type: "agent_execute_form_fill",
+        ...input.binding,
+        sequence: expectedSequence,
+        instruction: AgentFormFillInstructionSchema.parse(instruction)
+      }
+      return exchange(
+        request,
+        (raw) =>
+          validateAgentFormFillResponse(raw, input.binding, expectedSequence),
         signal
       )
     },
@@ -1374,6 +1550,7 @@ const runContentPreparation = (
 export interface AgentControlContentHandlers {
   buildObservation(request: AgentObserveRequest): AgentObservation
   executeDomMutation(request: AgentExecuteRequest): string | undefined
+  executeFormFill(request: AgentExecuteFormFillRequest): AgentFormFillOutcome
   executeScroll(request: AgentExecuteScrollRequest): void
   prepareNativeInput(
     request: AgentPrepareNativeInputRequest
@@ -1388,6 +1565,7 @@ export interface AgentControlContentHandlers {
 type AgentControlResponse =
   | AgentObserveResponse
   | AgentExecuteResponse
+  | AgentFormFillResponse
   | AgentScrollResponse
   | AgentPrepareNativeInputResponse
   | AgentSettleNativeInputResponse
@@ -1439,6 +1617,24 @@ const answerAccepted = (
         ...envelope,
         ...runContentMutation(() => handlers.executeDomMutation(request))
       }
+    /**
+     * A batch never rejects as a whole: it stops where it stopped and says
+     * how far it got. An exception here would discard the count, which is the
+     * one fact the run cannot reconstruct — and a run that cannot tell three
+     * fields written from none is a run that will write three of them twice.
+     */
+    case "agent_execute_form_fill": {
+      const outcome = handlers.executeFormFill(request)
+      return {
+        ...envelope,
+        type: "agent_form_fill_executed",
+        applied: outcome.applied,
+        ...(outcome.rejection ? { rejection: outcome.rejection } : {}),
+        ...(outcome.rejectionField
+          ? { rejectionField: outcome.rejectionField }
+          : {})
+      }
+    }
     case "agent_observe":
       return {
         ...envelope,
@@ -1516,6 +1712,7 @@ export const attachAgentControlContentPort = (
     const boundFrame =
       request.type === "agent_execute_dom_mutation" ||
       request.type === "agent_execute_scroll" ||
+      request.type === "agent_execute_form_fill" ||
       request.type === "agent_prepare_native_input"
         ? request.instruction.frame
         : request.type === "agent_sensitive_regions" ||
@@ -1534,6 +1731,7 @@ export const attachAgentControlContentPort = (
     if (
       (request.type === "agent_execute_dom_mutation" ||
         request.type === "agent_execute_scroll" ||
+        request.type === "agent_execute_form_fill" ||
         request.type === "agent_prepare_native_input") &&
       request.instruction.snapshotIdentity.tabId !== request.tabId
     ) {

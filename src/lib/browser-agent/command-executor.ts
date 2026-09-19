@@ -10,6 +10,10 @@ import {
 } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
+import type {
+  AgentFormFillInstruction,
+  AgentFormFillOutcome
+} from "./control-port"
 import { executeAgentSyntheticDrag } from "./drag-page"
 import {
   insertAgentEditableText,
@@ -19,7 +23,9 @@ import {
 } from "./editor-page"
 import {
   AGENT_EFFECT_REJECTIONS,
-  agentRejectionMessage
+  agentRejectionField,
+  agentRejectionMessage,
+  agentRejectionReason
 } from "./effect-rejection"
 import type { AgentElementReferenceStore } from "./element-references"
 import {
@@ -807,6 +813,110 @@ const executeSyntheticPointClick = (
   element.dispatchEvent(new MouseEvent("click", { ...init, detail: 1 }))
 }
 
+/**
+ * Applies a batch of resolved value edits in order, stopping at the first one
+ * the page refuses.
+ *
+ * Every field goes through `executeAgentDomMutationInDocument`, so each gets
+ * the target recheck, the sensitivity refusal and the rejection vocabulary a
+ * lone edit gets. What the batch adds is two things a single command has no
+ * need of.
+ *
+ * It re-baselines the form payload after each edit it lands. `matchesFormState`
+ * exists to catch the payload moving between approval and effect — and the
+ * batch moves it itself, so without this field two is refused for the change
+ * field one made, every time, and a multi-field fill could never do more than
+ * one field. Rebasing immediately after each applied edit leaves the check
+ * pointed at what it is for: a change this run did not make.
+ *
+ * And it never throws for a field past the first. A thrown batch would discard
+ * how far it got, which is the one fact the run cannot reconstruct from the
+ * page — and a run that cannot tell three fields written from none is a run
+ * that writes three of them twice.
+ */
+export const executeAgentFormFillInDocument = (input: {
+  instruction: AgentFormFillInstruction
+  document: Document
+  references: AgentElementReferenceStore
+  signal: AgentCancellationSignal
+}): AgentFormFillOutcome => {
+  const fields = [...input.instruction.fields]
+  let applied = 0
+  for (let index = 0; index < fields.length; index += 1) {
+    try {
+      executeAgentDomMutationInDocument({
+        effect: {
+          command: fields[index].command,
+          target: fields[index].target,
+          snapshotIdentity: input.instruction.snapshotIdentity,
+          frame: input.instruction.frame
+        },
+        document: input.document,
+        references: input.references,
+        signal: input.signal
+      })
+    } catch (error) {
+      if (applied === 0) throw error
+      return {
+        applied,
+        ...(agentRejectionReason(error)
+          ? { rejection: agentRejectionReason(error) }
+          : {}),
+        ...(agentRejectionField(error)
+          ? { rejectionField: agentRejectionField(error) }
+          : {})
+      }
+    }
+    applied += 1
+    input.references.refreshFormState()
+    rebaselineBatchFingerprints(fields, index + 1, input)
+  }
+  return { applied }
+}
+
+/**
+ * The remaining fields' expected form fingerprint, recomputed from the form as
+ * this batch has just left it.
+ *
+ * The twin of `refreshFormState`, and needed for the same reason at a
+ * different layer: the fingerprint is checked against the wire target the
+ * background resolved, and it hashes the form's control values, so the edit
+ * that just landed moves it. Without this a batch refused its own second
+ * field as `target_changed` on `formFingerprint` — the payload had indeed
+ * changed, and this run was what changed it.
+ *
+ * A change nobody in this batch made still moves the value away from what was
+ * recorded here a moment ago, so the check keeps doing its job.
+ */
+const rebaselineBatchFingerprints = (
+  fields: AgentFormFillInstruction["fields"][number][],
+  from: number,
+  input: {
+    instruction: AgentFormFillInstruction
+    references: AgentElementReferenceStore
+  }
+): void => {
+  for (let index = from; index < fields.length; index += 1) {
+    const field = fields[index]
+    if (field.target.formFingerprint === undefined) continue
+    const element = input.references.resolve(
+      field.target.ref,
+      input.instruction.frame
+    )
+    if (!element) continue
+    const current = buildAgentElementObservation(
+      element,
+      field.target.ref,
+      input.instruction.frame.frameId
+    )
+    if (current.formFingerprint === undefined) continue
+    fields[index] = {
+      ...field,
+      target: { ...field.target, formFingerprint: current.formFingerprint }
+    }
+  }
+}
+
 /** Executes a previously resolved mutation against the still-live snapshot. */
 export const executeAgentDomMutationInDocument = (input: {
   effect: AgentDomMutationInstruction
@@ -905,6 +1015,11 @@ export interface AgentCommandExecutorAdapter {
     effect: AuthorizedAgentEffect,
     signal: AgentCancellationSignal
   ): Promise<string | undefined>
+  /** Applies a batch of value edits in one page exchange; never retried. */
+  fillForm(
+    effect: AuthorizedAgentEffect,
+    signal: AgentCancellationSignal
+  ): Promise<AgentFormFillOutcome>
   /**
    * Native input, in the order the executor calls it: the facts a backend is
    * chosen on, the page-side recheck that arms the input record and yields the
@@ -1317,6 +1432,15 @@ export const READ_ONLY_AGENT_EXECUTORS = {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "find")
   },
+  /**
+   * Several questions, one walk. Like every other inspection this touches
+   * nothing: it steers the next observation, which the run rebuilds from the
+   * step's own durable command, so a worker restart asks the same questions.
+   */
+  async extract(effect, adapter) {
+    await assertSource(effect, adapter, true)
+    return receipt(adapter, "extract")
+  },
   async extract_text(effect, adapter) {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "extract_text")
@@ -1394,6 +1518,43 @@ export const executeReadOnlyAgentEffect = async (input: {
   ] as Executor | undefined
   if (!executor) throw new Error("Agent action has no read-only executor")
   return executor(input.effect, input.adapter, input.signal)
+}
+
+/**
+ * Applies a batch and reports how far it got.
+ *
+ * A batch that placed nothing is a refusal: nothing happened, so the run
+ * records a rejected step and looks again, exactly as a single refused edit
+ * does. A batch that placed some of its fields is a *receipt* — the page has
+ * changed — and the count travels on it so the verifier checks the fields
+ * that landed and the model is told where to resume. Turning a partial batch
+ * into an exception would lose that count, and a run that cannot tell three
+ * fields written from none writes three of them twice.
+ */
+export const executeFormFillAgentEffect = async (input: {
+  effect: AuthorizedAgentEffect
+  adapter: AgentCommandExecutorAdapter
+  signal: AgentCancellationSignal
+}): Promise<AgentExecutionReceipt> => {
+  const { effect, adapter } = input
+  if (effect.command.type !== "fill_form") {
+    throw new Error("Invalid Agent form fill effect")
+  }
+  await assertSource(effect, adapter, true)
+  const total = effect.batch?.fields.length ?? 0
+  const outcome = await adapter.fillForm(effect, input.signal)
+  if (outcome.applied === 0) {
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(
+        outcome.rejection ?? AGENT_EFFECT_REJECTIONS.unspecified,
+        outcome.rejectionField
+      )
+    )
+  }
+  return {
+    ...receipt(adapter, `fill_form ${outcome.applied}/${total}`),
+    fieldsApplied: outcome.applied
+  }
 }
 
 export const NAVIGATION_AGENT_EXECUTORS = {

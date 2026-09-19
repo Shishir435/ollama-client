@@ -174,6 +174,23 @@
       "title": "Lo que pedía la tarea",
       "met": "Hecho",
       "unmet": "No hecho"
+    },
+    "settings": {
+      "title": "Agente del navegador",
+      "description": "Cuánto contexto puede pedir una ejecución a su modelo y cuándo fotografía la página.",
+      "context_window": {
+        "label": "Ventana de contexto",
+        "description": "Automático toma la ventana más pequeña que informan este modelo y este servidor, y recurre a un tamaño conservador cuando ninguno lo dice. Fija un tamaño tú mismo si has subido el límite de tu servidor o si a una ejecución se le ha agotado la memoria.",
+        "auto": "Automático",
+        "custom": "Fijar un tamaño"
+      },
+      "vision": {
+        "label": "Capturas de pantalla",
+        "description": "Una imagen cuesta un prellenado de imagen en la ventana del modelo en cada paso que la toma. Automático toma una en el primer paso, tras un paso que no ha cuajado y en páginas que la estructura no puede describir.",
+        "auto": "Cuando el paso la necesita",
+        "always": "En cada paso",
+        "never": "Nunca"
+      }
     }
   },
   "common": {

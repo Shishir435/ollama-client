@@ -20,6 +20,7 @@ export interface AgentElementReferenceSnapshot extends AgentReferenceIdentity {
   referenceOf(element: Element): string | undefined
   verificationId(element: Element): string
   matchesFormState(ref: string, identity: AgentReferenceIdentity): boolean
+  refreshFormState(): void
   resolve(ref: string, identity: AgentReferenceIdentity): Element | undefined
 }
 
@@ -48,6 +49,19 @@ export interface AgentElementReferenceStore {
   ): string | undefined
   verificationIdOf(element: Element): string
   matchesFormState(ref: string, identity: AgentReferenceIdentity): boolean
+  /**
+   * Take the form's current payload as the new baseline for every reference
+   * this snapshot holds.
+   *
+   * Only a batched fill calls it, and only immediately after one of its own
+   * edits landed. `matchesFormState` exists to catch the payload moving
+   * between the approval and the effect, and a multi-field fill moves it
+   * itself: field two would be refused for the change field one made. Rebasing
+   * after each applied edit keeps the check pointed at what it is for — a
+   * change this run did not make, arriving between two of its own — instead
+   * of turning the batch into a self-refusal.
+   */
+  refreshFormState(): void
   resolve(ref: string, identity: AgentReferenceIdentity): Element | undefined
 }
 
@@ -177,6 +191,12 @@ export const createAgentElementReferenceStore = (input: {
           if (!element || !formStateByRef.has(ref)) return false
           return formStateByRef.get(ref) === privateFormState(element)
         },
+        refreshFormState() {
+          for (const [ref, element] of byRef) {
+            if (!formStateByRef.has(ref)) continue
+            formStateByRef.set(ref, privateFormState(element))
+          }
+        },
         resolve(ref, candidate) {
           if (active !== snapshot) return undefined
           if (
@@ -209,6 +229,9 @@ export const createAgentElementReferenceStore = (input: {
     },
     matchesFormState(ref, identity) {
       return active?.matchesFormState(ref, identity) ?? false
+    },
+    refreshFormState() {
+      active?.refreshFormState()
     },
     resolve(ref, identity) {
       return active?.resolve(ref, identity)

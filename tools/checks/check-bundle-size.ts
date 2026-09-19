@@ -181,8 +181,14 @@ const budgets: Budget[] = [
      * gate and its bounded waiting; the measured figure is 9,502,623. Raised
      * to the next step rather than rounded generously, so the next thing to
      * cross it is measured too.
+     *
+     * Batched form filling, multi-query lookups and the resolved context
+     * window took it to 9,626,409. Most of that is prose rather than code:
+     * the tool schema the model reads, the refusal vocabulary a batch needs
+     * in order to say which of twelve fields was wrong, and the settings copy
+     * in nine locales.
      */
-    max: isFirefox ? 11_800_000 : 9_600_000
+    max: isFirefox ? 11_800_000 : 9_700_000
   },
   {
     metric: "zip",
@@ -300,8 +306,16 @@ const budgets: Budget[] = [
      * control past the 2,000-element capture cap was unreachable by any query
      * and any context window, because nothing went back to the page. Firefox
      * carries no Agent code and is unchanged.
+     *
+     * Batched filling, multi-query lookups and the resolved context window —
+     * the fifth action family with its own resolve, execute and verify, the
+     * batch's wire schema, the one-walk lookup, and the window resolution
+     * that replaced two literals — took it to 269,969. The largest single
+     * part of it is text the model reads: the batch's own tool schema and the
+     * per-field refusals, without which a twelve-field batch can be refused
+     * but not corrected. Firefox carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 268_000
+    max: isFirefox ? 210_000 : 272_000
   }
 ]
 

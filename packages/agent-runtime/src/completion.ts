@@ -182,6 +182,7 @@ const CHANGING_COMMANDS = new Set<AgentCommand["type"]>([
   "check",
   "uncheck",
   "press_key",
+  "fill_form",
   "handle_dialog"
 ])
 

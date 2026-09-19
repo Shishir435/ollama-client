@@ -50,6 +50,7 @@ const service = (
   const sessions = {
     observe: vi.fn(),
     executeDomMutation: vi.fn(),
+    executeFormFill: vi.fn(),
     executeScroll: vi.fn(),
     prepareNativeInput: vi.fn(),
     settleNativeInput: vi.fn(),

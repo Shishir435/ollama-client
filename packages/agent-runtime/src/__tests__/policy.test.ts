@@ -643,3 +643,115 @@ describe("child frame policy", () => {
     })
   })
 })
+
+describe("a batched fill's approval", () => {
+  const field = (name: string, value: string) => ({
+    command: {
+      type: "clear_and_type" as const,
+      ref: name,
+      text: value,
+      snapshotId: "snapshot-1",
+      generation: 1
+    },
+    target: {
+      ref: name,
+      sensitive: false,
+      maySubmit: false,
+      accessibleName: name
+    }
+  })
+
+  type BatchField = {
+    command: AgentCommand
+    target: ResolvedAgentEffect["target"]
+  }
+
+  const batch = (fields: BatchField[]): ReturnType<typeof effect> =>
+    effect(["form_mutation"], {
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: fields.map((entry) => entry.command)
+      } as AgentCommand,
+      target: fields[0].target,
+      batch: { fields }
+    })
+
+  it("names every control it will set, not just the first", () => {
+    /**
+     * One approval stands in for the several the user would otherwise have
+     * answered, so it owes the disclosure all of them would have made. Naming
+     * the first of six and a count was a weaker prompt than the six it
+     * replaced, which is the one thing batching may not cost.
+     */
+    const decision = evaluateAgentPolicy(
+      input(
+        batch([
+          field("Given name", "Ada"),
+          field("Family name", "Lovelace"),
+          field("City", "London")
+        ])
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+    const request =
+      decision.type === "approval_required" ? decision.request : undefined
+    expect(request?.action).toBe("Set 3 form fields in one step")
+    expect(request?.pageEvidence).toBe("1. Given name\n2. Family name\n3. City")
+  })
+
+  it("says what a batch cannot do without promising what the page will not", () => {
+    /**
+     * It cannot click, so it cannot press submit — that much the run knows.
+     * Whether the page stored anything is the page's business: a field that
+     * saves as you type has already saved by the time the batch moves on, and
+     * an approval that said "nothing is submitted" invited the user to read
+     * that as "nothing is kept".
+     */
+    const decision = evaluateAgentPolicy(
+      input(batch([field("City", "London")]))
+    )
+    const request =
+      decision.type === "approval_required" ? decision.request : undefined
+    expect(request?.consequence).toContain("cannot submit the form")
+    expect(request?.consequence).toContain("saves as you type")
+    expect(request?.consequence).not.toContain("nothing is submitted")
+  })
+
+  it("names an unnamed control by what the page does say about it", () => {
+    const anonymous = {
+      command: {
+        type: "check" as const,
+        ref: "e9",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      target: {
+        ref: "e9",
+        sensitive: false,
+        maySubmit: false,
+        tag: "input",
+        inputType: "checkbox"
+      }
+    }
+    const decision = evaluateAgentPolicy(
+      input(batch([field("City", "London"), anonymous]))
+    )
+    const request =
+      decision.type === "approval_required" ? decision.request : undefined
+    expect(request?.pageEvidence).toBe("1. City\n2. checkbox")
+  })
+
+  it("keeps the list inside the bound the request schema allows", () => {
+    const many = Array.from({ length: 12 }, (_value, index) =>
+      field(`Field ${index} ${"n".repeat(120)}`, "x")
+    )
+    const decision = evaluateAgentPolicy(input(batch(many)))
+    const request =
+      decision.type === "approval_required" ? decision.request : undefined
+    expect(request?.pageEvidence?.length).toBeLessThanOrEqual(1_000)
+    /** Cut short is said, never silently done. */
+    expect(request?.pageEvidence).toContain("more")
+  })
+})

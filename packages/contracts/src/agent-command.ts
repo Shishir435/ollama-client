@@ -11,6 +11,35 @@ export const MAX_AGENT_DESTINATION_URL_CHARS = 2_048
 /** Bounded text editing supports ordinary documents, not only short fields. */
 export const MAX_AGENT_TEXT_CHARS = 20_000
 
+/**
+ * How many controls one `fill_form` may set.
+ *
+ * Twelve covers the forms this is for — an address, a profile, a checkout
+ * step — without becoming a general action script. The bound is what keeps a
+ * batch reviewable: the user approves it once, so what they are approving has
+ * to fit in one prompt, and a partial result has to stay legible as a list.
+ */
+export const MAX_AGENT_FORM_FIELDS = 12
+
+/**
+ * How much text a batched field may carry.
+ *
+ * Far below `MAX_AGENT_TEXT_CHARS`, and deliberately: a batch is for the
+ * predictable fields of a form, not for composing a document. A long edit is
+ * its own step, where it gets its own approval and its own verification
+ * rather than being one line of a twelve-part receipt.
+ */
+export const MAX_AGENT_FORM_FIELD_CHARS = 1_000
+
+/**
+ * How many questions one `extract` may ask.
+ *
+ * Six, because the answer is bounded as a whole: every query shares one
+ * match budget, and a model that asks twelve questions gets two rows each,
+ * which answers none of them.
+ */
+export const MAX_AGENT_EXTRACT_QUERIES = 6
+
 const GroundedCommandSchema = z.object({
   snapshotId: z.string().min(1),
   generation: z.number().int().nonnegative()
@@ -19,6 +48,42 @@ const GroundedCommandSchema = z.object({
 const ElementCommandSchema = GroundedCommandSchema.extend({
   ref: z.string().min(1)
 })
+
+/**
+ * One control a `fill_form` sets, and the value to set it to.
+ *
+ * The four operations are the ones whose whole effect is a value: text,
+ * selection and the two checkbox directions. Clicking, pressing a key,
+ * navigating and submitting are deliberately absent — a batch that could
+ * click could submit, and the submission is the step the user is asked
+ * about. Keeping it out is what makes one approval for the batch honest.
+ */
+export const AgentFormFieldSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("clear_and_type"),
+      ref: z.string().min(1),
+      text: z.string().max(MAX_AGENT_FORM_FIELD_CHARS)
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("type"),
+      ref: z.string().min(1),
+      text: z.string().min(1).max(MAX_AGENT_FORM_FIELD_CHARS)
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("select"),
+      ref: z.string().min(1),
+      value: z.string().max(2_000)
+    })
+    .strict(),
+  z.object({ type: z.literal("check"), ref: z.string().min(1) }).strict(),
+  z.object({ type: z.literal("uncheck"), ref: z.string().min(1) }).strict()
+])
+export type AgentFormField = z.infer<typeof AgentFormFieldSchema>
 
 export const AgentCommandSchema = z.discriminatedUnion("type", [
   GroundedCommandSchema.extend({ type: z.literal("read") }).strict(),
@@ -158,6 +223,39 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     dialogId: z.string().min(1).max(80),
     accept: z.boolean(),
     promptText: z.string().max(500).optional()
+  }).strict(),
+  /**
+   * Set several controls from one decision.
+   *
+   * The point is the round trip, not the milliseconds: a decision costs
+   * seconds and an observation costs tens of milliseconds, so ten predictable
+   * fields are ten model calls and almost no browser work. Each field is
+   * resolved, approved and verified exactly as the single-field command it
+   * mirrors — the batch changes who asks, never what is checked.
+   *
+   * It stops at the first field that cannot be applied and reports what it
+   * did, because a form half-filled by a run that claimed success is worse
+   * than one that stopped and said where.
+   */
+  GroundedCommandSchema.extend({
+    type: z.literal("fill_form"),
+    fields: z.array(AgentFormFieldSchema).min(1).max(MAX_AGENT_FORM_FIELDS)
+  }).strict(),
+  /**
+   * Several scoped queries answered by one walk of the document.
+   *
+   * `find` already reads the live page, so asking it three questions costs
+   * three decisions and three walks. This asks them together: one pass
+   * collects every needle, and the answer is grouped by query so the model
+   * can tell which question each row belongs to. Read-only, like every other
+   * member of the inspection family.
+   */
+  GroundedCommandSchema.extend({
+    type: z.literal("extract"),
+    queries: z
+      .array(z.string().min(1).max(100))
+      .min(1)
+      .max(MAX_AGENT_EXTRACT_QUERIES)
   }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("wait"),

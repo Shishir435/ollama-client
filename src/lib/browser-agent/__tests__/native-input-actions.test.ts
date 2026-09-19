@@ -128,6 +128,7 @@ const adapter = (
   classifyAccess: async () => "ok",
   scroll: vi.fn(),
   mutate: vi.fn(async () => undefined),
+  fillForm: vi.fn(async () => ({ applied: 0 })),
   nativeControl: vi.fn(async () => facts()),
   prepareNativeInput: vi.fn(async () => ({
     point: { x: 5, y: 5 },

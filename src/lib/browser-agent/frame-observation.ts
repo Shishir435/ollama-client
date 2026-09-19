@@ -3,6 +3,7 @@ import {
   type AgentFrameObservation,
   type AgentObservation,
   AgentObservationSchema,
+  MAX_AGENT_LOOKUP_MATCHES,
   MAX_AGENT_OBSERVED_ELEMENTS,
   MAX_AGENT_OBSERVED_FRAMES
 } from "@ollama-client/contracts"
@@ -113,6 +114,68 @@ const blockedFrame = (
 })
 
 /**
+ * One group per question, holding what every frame it was asked of matched.
+ *
+ * A lookup group names refs, and a ref carries its frame in its prefix, so
+ * matches from two documents in one group stay tellable apart — which is what
+ * lets the question be asked of the whole page rather than of its main
+ * document alone. It has to be: an empty group is read as "the page holds no
+ * such control", and a run told that about a control sitting in an authorized
+ * iframe would stop looking for something that is there.
+ *
+ * Root matches come first, and the per-question bound is applied after the
+ * merge rather than before, so a frame's matches cannot push the cap up. A
+ * group the merge had to cut says `truncated`, exactly as one the page cut
+ * does.
+ */
+const mergeLookupAnswers = (
+  root: AgentObservation,
+  children: readonly AgentChildFrameResult[]
+): AgentObservation["lookup"] => {
+  const asked = root.lookup?.queries
+  if (!asked) return undefined
+  /**
+   * A frame the element budget stopped before it could answer is not a frame
+   * that answered nothing. Every group is marked `truncated`, because the
+   * bound is what ended the search rather than the page — the distinction the
+   * model needs in order to keep looking instead of concluding the control is
+   * not there. An unreadable or unauthorized frame is *not* counted here: the
+   * frame list already says the run may not read it, and marking every answer
+   * incomplete for an advertising frame would make the flag mean nothing.
+   */
+  const stoppedByBudget = children.some(
+    (child) => child.access === "element_budget"
+  )
+  const merged = asked.map((group) => ({
+    ...group,
+    refs: [...group.refs],
+    ...(stoppedByBudget ? { truncated: true } : {})
+  }))
+  for (const child of children) {
+    const answered = child.observation?.lookup?.queries
+    if (!answered) continue
+    for (const [index, group] of merged.entries()) {
+      const answer = answered[index]
+      /** Index and text both, so a frame that answered a different list is ignored. */
+      if (!answer || answer.query !== group.query) continue
+      group.refs.push(...answer.refs)
+      if (answer.truncated) group.truncated = true
+    }
+  }
+  return {
+    queries: merged.map((group) =>
+      group.refs.length <= MAX_AGENT_LOOKUP_MATCHES
+        ? group
+        : {
+            ...group,
+            refs: group.refs.slice(0, MAX_AGENT_LOOKUP_MATCHES),
+            truncated: true
+          }
+    )
+  }
+}
+
+/**
  * One observation for the page, from the root frame's observation and every
  * child the run read or refused. The root keeps its identity, url, title,
  * scroll and document text — the composite is that page, seen more fully —
@@ -152,10 +215,12 @@ export const composeAgentFrameObservations = (input: {
     input.children.find(
       (child) => child.access === "ok" && child.observation?.textPage
     )?.observation?.textPage
+  const lookup = mergeLookupAnswers(input.root, input.children)
   return AgentObservationSchema.parse({
     ...input.root,
     frames,
     ...(textPage ? { textPage } : {}),
+    ...(lookup ? { lookup } : {}),
     ...(input.omitted ? { omittedFrames: input.omitted } : {}),
     elements,
     visibleText: texts

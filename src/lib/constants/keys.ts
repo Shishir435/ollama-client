@@ -80,7 +80,11 @@ export const STORAGE_KEYS = {
     /** One-time acknowledgement before page observations reach a remote model. */
     REMOTE_OBSERVATION_ACKNOWLEDGED: "agent-remote-observation-acknowledged-v1",
     /** Separate acknowledgement before viewport screenshots reach a remote model. */
-    REMOTE_SCREENSHOT_ACKNOWLEDGED: "agent-remote-screenshot-acknowledged-v1"
+    REMOTE_SCREENSHOT_ACKNOWLEDGED: "agent-remote-screenshot-acknowledged-v1",
+    /** The window a run decides in: "auto", or an explicit token count. */
+    CONTEXT_WINDOW: "agent-context-window-v1",
+    /** Whether the run may picture the page for a model that can see. */
+    VISION: "agent-vision-v1"
   },
   BACKUP: {
     /** Durable rollback state for interrupted portable-settings imports. */

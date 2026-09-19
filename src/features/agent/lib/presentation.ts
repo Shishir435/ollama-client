@@ -10,6 +10,13 @@ import type {
 
 export const AGENT_PAGE_TEXT_LIMIT = 240
 export const AGENT_LOG_TEXT_LIMIT = 500
+/**
+ * The evidence an approval shows is not an excerpt of the page — it is the
+ * thing being approved, and a batched fill's is one line per control. Bounded
+ * by what the approval schema already allows, and shown in a box that scrolls
+ * rather than one that clips.
+ */
+export const AGENT_EVIDENCE_TEXT_LIMIT = 1_000
 
 /** Page-derived text is flattened before display so it cannot imitate controls. */
 export const agentPlainText = (value: string, limit: number): string => {

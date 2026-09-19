@@ -1,7 +1,8 @@
 import type {
   AgentCancellationSignal,
   AgentVerificationInput,
-  AgentVerificationResult
+  AgentVerificationResult,
+  ResolvedAgentBatchField
 } from "@ollama-client/agent-runtime"
 import { agentObservationStates } from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
@@ -280,6 +281,7 @@ export const READ_ONLY_AGENT_VERIFIERS = {
   read: verifyPureRead,
   inspect: verifyPureRead,
   find: verifyPureRead,
+  extract: verifyPureRead,
   extract_text: verifyPureRead,
   zoom: verifyPureRead,
   /**
@@ -1229,6 +1231,89 @@ const verifyDrag: Verifier = async (input, adapter, signal) => {
         adapter.now()
       )
 }
+
+/**
+ * Whether one field of a batch holds what it was set to.
+ *
+ * The same two comparisons the single-field verifiers make, against the same
+ * resolved expectation, matched by the same element semantics. Sharing the
+ * question is the point: a batch confirmed on rules of its own would be a
+ * second definition of "the field holds the value", and the two would
+ * disagree the first time either moved.
+ */
+const batchFieldHolds = (
+  field: ResolvedAgentBatchField,
+  after: AgentObservation
+): boolean => {
+  const matches = after.elements.filter(
+    (element) =>
+      element.frameId === (field.target.frameId ?? 0) &&
+      (field.target.verificationId === undefined ||
+        element.verificationId === field.target.verificationId) &&
+      element.tag === field.target.tag &&
+      element.role === field.target.role &&
+      element.name === field.target.accessibleName &&
+      element.type === field.target.inputType
+  )
+  if (matches.length !== 1) return false
+  const element = matches[0]
+  if (field.target.expectedChecked !== undefined) {
+    return element.checked === field.target.expectedChecked
+  }
+  if (element.sensitive || element.valueTruncated) return false
+  if (element.value === undefined) return false
+  return sameFieldValue(field.target, element.value, field.target.expectedValue)
+}
+
+/**
+ * A batch is confirmed when every field the page said it applied holds its
+ * value, and nothing weaker.
+ *
+ * The receipt carries how many landed, so the verifier checks exactly those:
+ * crediting a field the page never reached would be the batch version of the
+ * failure this whole release is about — claiming a task finished because one
+ * part of it did. A batch that stopped early is reported as `negative` with
+ * its count, which leaves the run holding a true statement about a page it
+ * half changed, and the model free to send the rest.
+ */
+const verifyFormFill: Verifier = async (input, adapter, signal) => {
+  const fields = input.effect.batch?.fields ?? []
+  const applied = input.receipt.fieldsApplied ?? 0
+  if (applied === 0 || fields.length === 0) {
+    return result("negative", "fields", "No field was applied", adapter.now())
+  }
+  const after = await observeAfter(input, adapter, signal)
+  const checked = fields.slice(0, applied)
+  const held = checked.filter((field) => batchFieldHolds(field, after)).length
+  if (held < checked.length) {
+    return result(
+      "ambiguous",
+      "fields",
+      `${held} of ${checked.length} applied fields hold the resolved value`,
+      adapter.now()
+    )
+  }
+  return applied < fields.length
+    ? result(
+        "negative",
+        "fields",
+        `${applied} of ${fields.length} fields were applied; the rest were refused`,
+        adapter.now()
+      )
+    : result(
+        "confirmed",
+        "fields",
+        `All ${applied} fields hold the resolved value`,
+        adapter.now()
+      )
+}
+
+export const verifyFormFillAgentEffect = async (input: {
+  verification: AgentVerificationInput
+  adapter: AgentEffectVerifierAdapter
+  signal: AgentCancellationSignal
+}): Promise<AgentVerificationResult> =>
+  settling(verifyFormFill)(input.verification, input.adapter, input.signal)
 
 export const DOM_MUTATION_AGENT_VERIFIERS = {
   click: withDelivery("activation", settling(verifyActivation)),

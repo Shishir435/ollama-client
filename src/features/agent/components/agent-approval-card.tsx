@@ -2,7 +2,11 @@ import type { AgentApprovalRequest } from "@ollama-client/contracts"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
-import { AGENT_PAGE_TEXT_LIMIT, agentPlainText } from "../lib/presentation"
+import {
+  AGENT_EVIDENCE_TEXT_LIMIT,
+  AGENT_PAGE_TEXT_LIMIT,
+  agentPlainText
+} from "../lib/presentation"
 
 /**
  * One effect awaiting the user's decision.
@@ -35,8 +39,15 @@ export const AgentApprovalCard = ({
         {agentPlainText(request.consequence, AGENT_PAGE_TEXT_LIMIT)}
       </p>
       {request.pageEvidence && (
-        <p className="mt-1 max-h-12 overflow-hidden wrap-break-word rounded-control bg-surface-sunken px-2 py-1">
-          {agentPlainText(request.pageEvidence, AGENT_PAGE_TEXT_LIMIT)}
+        /**
+         * What the user is being asked to approve, so it is shown whole and
+         * scrolled rather than cut: a batched fill names every control it
+         * sets, and a list clipped at the third one is the disclosure the
+         * batch was supposed to keep. Still flattened, still bounded by the
+         * request schema's own cap, and still no taller than this box.
+         */
+        <p className="mt-1 max-h-32 overflow-y-auto wrap-break-word rounded-control bg-surface-sunken px-2 py-1">
+          {agentPlainText(request.pageEvidence, AGENT_EVIDENCE_TEXT_LIMIT)}
         </p>
       )}
       <div className="mt-2 flex gap-1.5">

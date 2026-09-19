@@ -656,10 +656,45 @@ describe("createProviderAgentModelPort", () => {
     expect(request?.num_ctx).toBeLessThanOrEqual(32_768)
   })
 
-  it("grows the window with the page and stops at the ceiling", () => {
-    expect(agentContextWindow("")).toBe(8_192)
-    expect(agentContextWindow("x".repeat(40_000))).toBeGreaterThan(8_192)
-    expect(agentContextWindow("x".repeat(4_000_000))).toBe(32_768)
+  it("keeps the run's stable fields ahead of its per-step counters", async () => {
+    /**
+     * A provider that caches a prompt prefix keeps it only as far as the
+     * first byte that moved. `step` sat above the tab scope and the origin
+     * list, so the counter invalidated the cache for every stable field
+     * beneath it on every single step.
+     */
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide({ state, observation }, { aborted: false })
+    const prompt = String(streamChat.mock.calls[0]?.[0]?.messages[1]?.content)
+    for (const stable of ["allowedOrigins", "maxSteps"]) {
+      expect(prompt.indexOf(stable)).toBeGreaterThan(-1)
+      expect(prompt.indexOf(stable)).toBeLessThan(prompt.indexOf('"step"'))
+    }
+  })
+
+  it("asks a local runner to hold the model across a supervised pause", async () => {
+    /**
+     * An approval suspends the run's deadlines and says nothing to the
+     * runner, whose default is to evict after five minutes — so a user who
+     * took six minutes over an approval came back to a reload.
+     */
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide({ state, observation }, { aborted: false })
+    expect(streamChat.mock.calls[0]?.[0]?.keep_alive).toBe("15m")
+  })
+
+  it("holds the resolved window inside the bounds a window has to have", () => {
+    /**
+     * The window is the run's, not the prompt's. It used to be recomputed
+     * from the request in 2,048-token steps, so a run whose page grew asked
+     * its runner for a different num_ctx almost every step — and a local
+     * runner reloads the model when that number moves.
+     */
+    expect(agentContextWindow(200_000)).toBe(131_072)
+    expect(agentContextWindow(1_024)).toBe(8_192)
+    expect(agentContextWindow(24_576)).toBe(24_576)
   })
 
   it("sends the projected observation, not the executor's bookkeeping", async () => {

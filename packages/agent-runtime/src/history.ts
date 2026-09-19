@@ -269,6 +269,7 @@ export const currentAgentInspection = (
       query: command.query,
       ...(command.offset === undefined ? {} : { offset: command.offset })
     }
+  if (command.type === "extract") return { queries: command.queries }
   if (command.type === "extract_text")
     return {
       text: true,

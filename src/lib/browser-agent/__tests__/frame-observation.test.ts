@@ -251,6 +251,139 @@ describe("composeAgentFrameObservations", () => {
   })
 })
 
+describe("a lookup answered by more than one frame", () => {
+  const answered = (
+    frameId: number,
+    refs: string[],
+    groups: { query: string; refs: string[]; truncated?: boolean }[]
+  ) => ({
+    frame: child(frameId, "https://example.com/child"),
+    origin: "https://example.com",
+    access: "ok" as const,
+    observation: {
+      ...frameObservation({
+        frameId,
+        documentId: `document-${frameId}`,
+        url: "https://example.com/child",
+        refs
+      }),
+      lookup: { queries: groups }
+    }
+  })
+
+  const root = (groups: { query: string; refs: string[] }[]) => ({
+    ...frameObservation({
+      frameId: 0,
+      documentId: "document-0",
+      url: "https://example.com/",
+      refs: ["e1"]
+    }),
+    lookup: { queries: groups }
+  })
+
+  it("puts each frame's matches under the question that asked for them", () => {
+    const composed = composeAgentFrameObservations({
+      root: root([
+        { query: "price", refs: [] },
+        { query: "buy", refs: ["e1"] }
+      ]),
+      children: [
+        answered(
+          2,
+          ["f2e1"],
+          [
+            { query: "price", refs: ["f2e1"] },
+            { query: "buy", refs: [] }
+          ]
+        )
+      ]
+    })
+    expect(composed.lookup?.queries).toEqual([
+      { query: "price", refs: ["f2e1"] },
+      { query: "buy", refs: ["e1"] }
+    ])
+  })
+
+  it("applies the per-question bound after the merge, and says it cut", () => {
+    /**
+     * Ten is what one question may carry, whoever matched it. Applying the
+     * bound per frame instead would let a page with three iframes return
+     * thirty rows for one question and call none of them truncated.
+     */
+    const composed = composeAgentFrameObservations({
+      root: root([{ query: "price", refs: ["e1"] }]),
+      children: [
+        answered(
+          2,
+          Array.from({ length: 12 }, (_value, index) => `f2e${index + 1}`),
+          [
+            {
+              query: "price",
+              refs: Array.from(
+                { length: 12 },
+                (_value, index) => `f2e${index + 1}`
+              )
+            }
+          ]
+        )
+      ]
+    })
+    expect(composed.lookup?.queries[0]?.refs).toHaveLength(10)
+    expect(composed.lookup?.queries[0]?.refs[0]).toBe("e1")
+    expect(composed.lookup?.queries[0]?.truncated).toBe(true)
+  })
+
+  it("says the answer is short when the budget stopped a frame being asked", () => {
+    /**
+     * `truncated` is the difference between "nothing matched" and "we stopped
+     * looking", and a frame skipped for room is the second. Without it the
+     * model reads an empty group as proof the control is not on the page.
+     */
+    const composed = composeAgentFrameObservations({
+      root: root([{ query: "price", refs: [] }]),
+      children: [
+        {
+          frame: child(2, "https://example.com/child"),
+          origin: "https://example.com",
+          access: "element_budget" as const
+        }
+      ]
+    })
+    expect(composed.lookup?.queries[0]).toEqual({
+      query: "price",
+      refs: [],
+      truncated: true
+    })
+  })
+
+  it("does not call an answer short for a frame it was never allowed to read", () => {
+    /**
+     * The frame list already says the run may not read it. Marking every
+     * answer incomplete because a page embeds an advertising frame would make
+     * the flag mean nothing on most of the web.
+     */
+    const composed = composeAgentFrameObservations({
+      root: root([{ query: "price", refs: [] }]),
+      children: [
+        {
+          frame: child(3, "https://ads.example/slot"),
+          origin: "https://ads.example",
+          access: "unauthorized_origin" as const
+        }
+      ]
+    })
+    expect(composed.lookup?.queries[0]).toEqual({ query: "price", refs: [] })
+  })
+
+  it("ignores a frame that answered a different list of questions", () => {
+    const composed = composeAgentFrameObservations({
+      root: root([{ query: "price", refs: [] }]),
+      children: [answered(2, ["f2e1"], [{ query: "postage", refs: ["f2e1"] }])]
+    })
+    expect(composed.lookup?.queries).toEqual([{ query: "price", refs: [] }])
+  })
+})
+
 describe("remainingAgentElementBudget", () => {
   it("hands a child what the frames before it left", () => {
     const root = frameObservation({

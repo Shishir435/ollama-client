@@ -96,6 +96,7 @@ const connected = (handlers: {
   attachAgentControlContentPort(content.port, {
     buildObservation: vi.fn(),
     executeDomMutation: vi.fn(),
+    executeFormFill: vi.fn(),
     executeScroll: vi.fn(),
     prepareNativeInput,
     settleNativeInput,
@@ -179,6 +180,7 @@ describe("Agent control port native input", () => {
     attachAgentControlContentPort(content.port, {
       buildObservation: vi.fn(),
       executeDomMutation: vi.fn(),
+      executeFormFill: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput,
       settleNativeInput: vi.fn(),

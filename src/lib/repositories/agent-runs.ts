@@ -138,6 +138,23 @@ const redactAgentStepCommand = (
   if (command.type === "select") {
     return { ...command, value: REDACTED_AGENT_VALUE }
   }
+  /**
+   * A batch carries up to twelve field values, and a durable receipt is read
+   * back into a prompt. Redacted field by field rather than dropped, so the
+   * receipt still records which controls the step set and in what order.
+   */
+  if (command.type === "fill_form") {
+    return {
+      ...command,
+      fields: command.fields.map((field) =>
+        field.type === "select"
+          ? { ...field, value: REDACTED_AGENT_VALUE }
+          : field.type === "check" || field.type === "uncheck"
+            ? field
+            : { ...field, text: REDACTED_AGENT_VALUE }
+      )
+    }
+  }
   return command
 }
 

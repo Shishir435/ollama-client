@@ -886,3 +886,54 @@ describe("projectAgentObservation scope counts", () => {
     expect(projected?.nextOffset).toBe(10 + (projected?.returned ?? 0))
   })
 })
+
+describe("projectAgentObservation lookups", () => {
+  const many = (count: number): AgentElement[] =>
+    Array.from({ length: count }, (_value, index) =>
+      element({ ref: `e${index + 1}`, name: `Field ${index + 1}` })
+    )
+
+  it("carries every group, empty ones included", () => {
+    /**
+     * A question the page did not answer is an answer. Dropping the group
+     * would leave the model unable to tell it from a question it never asked.
+     */
+    const projected = projectAgentObservation(
+      observation({
+        elements: many(3),
+        lookup: {
+          queries: [
+            { query: "price", refs: ["e1", "e2"] },
+            { query: "serial", refs: [] }
+          ]
+        }
+      })
+    )
+    expect(projected.lookup).toEqual([
+      { query: "price", refs: ["e1", "e2"] },
+      { query: "serial", refs: [] }
+    ])
+  })
+
+  it("never names a row the model cannot see", () => {
+    /**
+     * The budget trims elements after the walk has already matched them. A
+     * ref that survives into a group but not into the list above it reads as
+     * a control the model may act on, and acting on it fails grounding —
+     * worse than a group that is honestly short.
+     */
+    const projected = projectAgentObservation(
+      observation({
+        elements: many(500),
+        visibleText: "",
+        lookup: { queries: [{ query: "field", refs: ["e1", "e499"] }] }
+      }),
+      { pageContentChars: 600 }
+    )
+    const shown = new Set(projected.elements.map((entry) => entry.ref))
+    for (const ref of projected.lookup?.[0]?.refs ?? []) {
+      expect(shown.has(ref)).toBe(true)
+    }
+    expect(projected.lookup?.[0]?.truncated).toBe(true)
+  })
+})
