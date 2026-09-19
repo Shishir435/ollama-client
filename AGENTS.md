@@ -380,10 +380,11 @@ editing the agent itself.
   from the model and the server rather than written down; every claimant on it
   — page, history, answer — is bounded against the resolved figure.
 - **A batched command is the same checks with one approval, never fewer
-  checks.** `fill_form` resolves, approves and verifies each field as the
-  single-field command it mirrors. It cannot click and therefore cannot
-  submit, it refuses a sensitive control by name, and it reports how many
-  fields it placed rather than throwing that count away.
+  checks — and never a smaller disclosure.** `fill_form` resolves, approves
+  and verifies each field as the single-field command it mirrors. It cannot
+  click and therefore cannot submit, it refuses a sensitive control by name,
+  it reports how many fields it placed rather than throwing that count away,
+  and its one approval names **every** control it will set.
 - **A screenshot is an observation's companion, never a record.** Sensitive
   regions and child frames are masked before it leaves the page; it is held for
   one decision and never persisted, logged, traced or shown, and it needs its

@@ -162,6 +162,17 @@ Read the section your change touches; you do not need the whole file.
   is still bounded by a hard ceiling (`pageContentMaxChars`, set from the
   context ceiling), so a two-thousand-control region or a maximal text extract
   cannot push the prompt past the window and truncate the system prompt.
+- **A lookup is asked of every frame the run may read; a scope is not.**
+  `extract` sends its questions to the root document and to each authorized
+  child frame, and composition merges the answers into the group that asked
+  for them, applying the per-question bound *after* the merge. It has to reach
+  the frames: an empty group means "no such control", and a run told that
+  about a control inside an authorized iframe stops looking for something that
+  is there. A scope stays root-only because its answer is a count and a
+  continuation offset, neither of which composes across documents. A frame
+  answering a lookup is capped at one group per question rather than the whole
+  remaining element budget, since a frame that matched nothing falls back to
+  its overview.
 - **A read-only request that matched nothing says so.** A region is matched by
   the exact group name the observation publishes — `page` included, which is
   the name omissions outside any landmark are reported under and was for a
@@ -282,6 +293,16 @@ Read the section your change touches; you do not need the whole file.
   approval for it honest: the submission stays its own step with its own
   prompt. A sensitive control is refused out of the batch by name, so the
   model repeats that field alone and the takeover path can offer it properly.
+- **One approval, the disclosure of all of them.** The prompt names the count
+  *and* every control the batch will set, one line per field, from each
+  resolved target's own accessible name (`batchEvidence` in `policy.ts`);
+  a control the page left unnamed is listed by its role, input type or tag
+  rather than dropped. Naming the first of twelve was a weaker prompt than the
+  twelve it replaced, which is the one thing batching may not cost. What the
+  consequence claims stops at what the run knows: the batch presses nothing,
+  so it cannot submit — but a page that saves as you type may have stored each
+  change already, and the old wording ("nothing is submitted") read as
+  "nothing is kept".
 - **A batch re-baselines the payload it is changing.** Both the private form
   state and the wire target's `formFingerprint` hash the form's values, so the
   batch's own first edit moves them and its second field is refused for the
@@ -615,6 +636,19 @@ Read the section your change touches; you do not need the whole file.
   message's image attachment, and is held for that decision and the resolution
   that follows — never persisted, logged, traced or shown. A capture that
   fails leaves the decision to the DOM; it never fails the run.
+- **`auto` is the default, and it is a question about the step.** A capture
+  costs an encode, a masking pass and — far the largest — an image prefill in
+  the model's own window, and most steps decide from text and never look at
+  it. `agentPictureWarranted` (`vision.ts`) takes one on an explicit `zoom`,
+  on the first step of the run, after a step that did not confirm, on the
+  first step on a **page the run has not seen** (compared against the last
+  recorded step's source URL, so a query or fragment moving buys nothing), and
+  on a page the DOM can barely describe — four controls or fewer with a
+  document half again taller than its viewport. The new-page rule is what
+  keeps recovery reachable: `zoom` and `click_point` are offered only where a
+  screenshot exists, so a run that navigated to a canvas application and was
+  refused a picture for having five buttons had no way left to ask to see it.
+  `always` and `never` remain the user's to choose.
 - **Nothing leaves unmasked.** `screenshot-capture.ts` asks the page for
   every region a picture must cover (`agent_sensitive_regions`): each sensitive
   control in the *whole composed tree* — never the bounded observation, which
