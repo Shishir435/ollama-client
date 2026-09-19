@@ -68,6 +68,45 @@ const classify = (
 ) => classifyAgentAffordance(command(overrides), observation(elements))
 
 describe("classifyAgentAffordance", () => {
+  it("binds page tools to the advertised frame, document and schema", () => {
+    const observed = {
+      ...observation([]),
+      pageTools: [
+        {
+          name: "publish",
+          description: "Publish",
+          inputSchema: {},
+          schemaRevision: "1234abcd",
+          frameId: 4,
+          documentId: "child-doc",
+          origin: "https://example.com"
+        }
+      ]
+    }
+    const pageToolCommand = command({
+      type: "call_page_tool",
+      toolName: "publish",
+      schemaRevision: "1234abcd",
+      frameId: 4,
+      documentId: "child-doc",
+      input: {}
+    }) as Extract<AgentCommand, { type: "call_page_tool" }>
+
+    expect(classifyAgentAffordance(pageToolCommand, observed)).toBeUndefined()
+    expect(
+      classifyAgentAffordance(
+        { ...pageToolCommand, documentId: "other-doc" },
+        observed
+      )
+    ).toEqual({ reason: "unknown_page_tool" })
+    expect(
+      classifyAgentAffordance(
+        { ...pageToolCommand, schemaRevision: "deadbeef" },
+        observed
+      )
+    ).toEqual({ reason: "page_tool_changed" })
+  })
+
   it("accepts a command its target supports", () => {
     expect(classify({ type: "click", ref: "e1" })).toBeUndefined()
     expect(

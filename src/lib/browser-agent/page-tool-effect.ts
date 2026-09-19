@@ -38,13 +38,22 @@ export const resolvePageToolAgentEffect = async (input: {
     (candidate) =>
       candidate.name === command.toolName &&
       candidate.schemaRevision === command.schemaRevision &&
-      candidate.frameId === observation.frameId &&
-      candidate.documentId === observation.documentId
+      candidate.frameId === command.frameId &&
+      candidate.documentId === command.documentId
   )
   if (!tool) throw new Error("Agent page tool is no longer advertised")
   const toolFrame = observation.frames.find(
     (frame) => frame.frameId === tool.frameId
   )
+  if (!toolFrame || toolFrame.access !== "ok") {
+    throw new Error("Agent page-tool frame is no longer readable")
+  }
+  if (
+    tool.frameId !== observation.frameId &&
+    (await input.adapter.classifyAccess(toolFrame.url)) !== "ok"
+  ) {
+    throw new Error("Agent page-tool frame is no longer readable")
+  }
   return {
     command,
     target: {
@@ -53,9 +62,7 @@ export const resolvePageToolAgentEffect = async (input: {
       maySubmit: false
     },
     pageTool: tool,
-    semanticEffects: tool.annotations?.consequentialHint
-      ? ["activation", "destructive"]
-      : ["activation"],
+    semanticEffects: ["activation", "destructive"],
     snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.href,
     sourceOrigin: source.origin,

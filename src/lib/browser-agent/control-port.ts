@@ -20,6 +20,7 @@ import {
   MAX_AGENT_FORM_FIELDS,
   MAX_AGENT_LOOKUP_QUERIES,
   MAX_AGENT_OBSERVED_ELEMENTS,
+  MAX_AGENT_PAGE_TOOL_RESULT_CHARS,
   MAX_AGENT_PAGE_TOOLS,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
@@ -796,7 +797,7 @@ export const AgentExecutePageToolResponseSchema = z
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
-    result: z.string().max(1_800).optional(),
+    result: z.string().max(MAX_AGENT_PAGE_TOOL_RESULT_CHARS).optional(),
     navigation: z.boolean().optional()
   })
   .strict()

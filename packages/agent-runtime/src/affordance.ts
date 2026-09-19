@@ -522,7 +522,10 @@ export const classifyAgentAffordance = (
     return classifyNonPageToolAffordance(command, observation)
   }
   const named = observation.pageTools?.find(
-    (tool) => tool.name === command.toolName
+    (tool) =>
+      tool.name === command.toolName &&
+      tool.frameId === command.frameId &&
+      tool.documentId === command.documentId
   )
   if (!named) return { reason: "unknown_page_tool" }
   return named.schemaRevision === command.schemaRevision

@@ -63,11 +63,13 @@ const command = AgentCommandSchema.parse({
   generation: 1,
   toolName: "publish",
   schemaRevision: "1234abcd",
+  frameId: 0,
+  documentId: "doc-1",
   input: { id: "draft-1" }
 })
 
 describe("page-tool effect family", () => {
-  it("binds the advertised tool and only lets annotations raise policy", async () => {
+  it("binds the advertised tool and classifies it conservatively", async () => {
     const effect = await resolvePageToolAgentEffect({
       command,
       observation,
@@ -80,6 +82,82 @@ describe("page-tool effect family", () => {
 
     expect(effect.pageTool?.documentId).toBe("doc-1")
     expect(effect.semanticEffects).toEqual(["activation", "destructive"])
+  })
+
+  it.each([
+    undefined,
+    false,
+    true
+  ])("never lets consequentialHint=%s weaken authorization", async (consequentialHint) => {
+    const pageTools = observation.pageTools?.map((tool) => ({
+      ...tool,
+      annotations: consequentialHint === undefined ? {} : { consequentialHint }
+    }))
+    const effect = await resolvePageToolAgentEffect({
+      command,
+      observation: { ...observation, pageTools },
+      adapter: {
+        getTab: vi.fn(),
+        classifyAccess: vi.fn().mockResolvedValue("ok"),
+        resolveHistoryDestination: vi.fn()
+      }
+    })
+
+    expect(effect.semanticEffects).toEqual(["activation", "destructive"])
+  })
+
+  it("grounds an advertised child-frame tool to its own document", async () => {
+    const childObservation = AgentObservationSchema.parse({
+      ...observation,
+      frames: [
+        ...observation.frames,
+        {
+          frameId: 4,
+          documentId: "child-doc",
+          origin: "https://widgets.example",
+          url: "https://widgets.example/editor",
+          access: "ok",
+          snapshotId: "child-snapshot",
+          generation: 3
+        }
+      ],
+      pageTools: [
+        {
+          ...observation.pageTools?.[0],
+          frameId: 4,
+          documentId: "child-doc",
+          origin: "https://widgets.example"
+        }
+      ]
+    })
+    const childCommand = AgentCommandSchema.parse({
+      ...command,
+      frameId: 4,
+      documentId: "child-doc"
+    })
+    const classifyAccess = vi.fn().mockResolvedValue("ok")
+
+    const effect = await resolvePageToolAgentEffect({
+      command: childCommand,
+      observation: childObservation,
+      adapter: {
+        getTab: vi.fn(),
+        classifyAccess,
+        resolveHistoryDestination: vi.fn()
+      }
+    })
+
+    expect(effect.pageTool).toMatchObject({
+      frameId: 4,
+      documentId: "child-doc"
+    })
+    expect(effect).toMatchObject({
+      frameUrl: "https://widgets.example/editor",
+      frameOrigin: "https://widgets.example"
+    })
+    expect(classifyAccess).toHaveBeenCalledWith(
+      "https://widgets.example/editor"
+    )
   })
 
   it("keeps a bounded result ephemeral until verification labels it untrusted", async () => {

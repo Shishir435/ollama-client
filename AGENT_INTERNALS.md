@@ -135,6 +135,8 @@ Read the section your change touches; you do not need the whole file.
   ordinary DOM control remains the fallback. Tool names, descriptions,
   schemas, annotations and results are page-authored untrusted data.
   `readOnlyHint` never lowers policy and `consequentialHint` may only raise it.
+  Until a trusted classifier exists, every page-tool call is conservatively
+  classified as destructive and requires fresh critical approval.
 - **A page-tool call is bound twice.** Discovery records the tab frame,
   browser document id and a digest of the advertised schema; execution
   re-discovers immediately before calling page code and refuses a changed

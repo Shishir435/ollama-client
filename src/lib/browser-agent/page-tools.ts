@@ -1,11 +1,13 @@
 import {
   type AgentPageTool,
   AgentPageToolSchema,
+  MAX_AGENT_PAGE_TOOL_RESULT_CHARS,
   MAX_AGENT_PAGE_TOOL_SCHEMA_CHARS,
   MAX_AGENT_PAGE_TOOLS
 } from "@ollama-client/contracts"
 
-const MAX_PAGE_TOOL_RESULT_CHARS = 1_800
+const UNSERIALIZABLE_PAGE_TOOL_RESULT =
+  "Page tool completed; its result could not be serialized"
 
 interface RegisteredPageTool {
   name: string
@@ -107,6 +109,21 @@ export type AgentPageToolExecution =
   | { type: "executed"; result: string; navigation: boolean }
   | { type: "stale" }
 
+const serializePageToolResult = (value: unknown): string => {
+  if (value === null) return ""
+  if (typeof value === "string") {
+    return value.slice(0, MAX_AGENT_PAGE_TOOL_RESULT_CHARS)
+  }
+  try {
+    return (JSON.stringify(value) ?? "").slice(
+      0,
+      MAX_AGENT_PAGE_TOOL_RESULT_CHARS
+    )
+  } catch {
+    return UNSERIALIZABLE_PAGE_TOOL_RESULT
+  }
+}
+
 /**
  * Re-discover immediately before execution. A `toolchange` or navigation
  * therefore invalidates the revision the model chose before page code runs.
@@ -137,15 +154,9 @@ export const executeAgentPageTool = async (input: {
     signal: input.signal
   })
   const navigation = value === null
-  const serialized =
-    typeof value === "string"
-      ? value
-      : value === null
-        ? ""
-        : (JSON.stringify(value) ?? "")
   return {
     type: "executed",
-    result: serialized.slice(0, MAX_PAGE_TOOL_RESULT_CHARS),
+    result: serializePageToolResult(value),
     navigation
   }
 }

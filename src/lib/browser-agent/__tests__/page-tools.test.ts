@@ -117,4 +117,38 @@ describe("WebMCP page tools", () => {
     ).resolves.toEqual({ type: "executed", result: "", navigation: true })
     expect(receivedSignal).toBe(controller.signal)
   })
+
+  it("retains acknowledgement when the page returns an unserializable result", async () => {
+    const tool = {
+      name: "save",
+      description: "Save the item",
+      inputSchema: { type: "object" }
+    }
+    const cyclic: Record<string, unknown> = {}
+    cyclic.self = cyclic
+    install({
+      getTools: vi.fn().mockResolvedValue([tool]),
+      executeTool: vi.fn().mockResolvedValue(cyclic)
+    })
+    const [advertised] = await discoverAgentPageTools({
+      document,
+      frameId: 0,
+      documentId: "doc-1"
+    })
+
+    await expect(
+      executeAgentPageTool({
+        document,
+        frameId: 0,
+        documentId: "doc-1",
+        name: tool.name,
+        schemaRevision: advertised.schemaRevision,
+        args: {}
+      })
+    ).resolves.toEqual({
+      type: "executed",
+      result: "Page tool completed; its result could not be serialized",
+      navigation: false
+    })
+  })
 })

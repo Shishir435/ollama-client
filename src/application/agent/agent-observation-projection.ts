@@ -5,6 +5,7 @@ import type {
   AgentObservation,
   AgentPageTool
 } from "@ollama-client/contracts"
+import { MAX_AGENT_PAGE_TOOL_PROJECTION_CHARS } from "@ollama-client/contracts"
 
 /**
  * What the model is actually given for a page.
@@ -573,7 +574,7 @@ const projectPageTools = (tools: readonly AgentPageTool[]): AgentPageTool[] => {
   let used = 0
   for (const tool of tools) {
     const cost = JSON.stringify(tool).length
-    if (used + cost > 8_000) break
+    if (used + cost > MAX_AGENT_PAGE_TOOL_PROJECTION_CHARS) break
     projected.push(tool)
     used += cost
   }

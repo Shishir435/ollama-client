@@ -355,6 +355,8 @@ export type AgentObservationScope = z.infer<typeof AgentObservationScopeSchema>
 
 export const MAX_AGENT_PAGE_TOOLS = 20
 export const MAX_AGENT_PAGE_TOOL_SCHEMA_CHARS = 12_000
+export const MAX_AGENT_PAGE_TOOL_PROJECTION_CHARS = 8_000
+export const MAX_AGENT_PAGE_TOOL_RESULT_CHARS = 1_800
 
 const hasBoundedSerializedForm = (value: unknown): boolean => {
   try {

@@ -283,6 +283,8 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     type: z.literal("call_page_tool"),
     toolName: z.string().min(1).max(128),
     schemaRevision: z.string().regex(/^[0-9a-f]{8}$/),
+    frameId: z.number().int().nonnegative(),
+    documentId: z.string().min(1),
     input: AgentPageToolInputSchema
   }).strict(),
   GroundedCommandSchema.extend({
