@@ -323,8 +323,12 @@ const budgets: Budget[] = [
      * vouching for the effect, and the slider's answer on planning and
      * decision requests — took it to 272,557. Firefox carries no Agent code
      * and is unchanged.
+     *
+     * Boundary-aware, negation-safe requirement/result binding took the
+     * measured Chrome baseline to 273,173. Firefox carries no Agent code and
+     * is unchanged.
      */
-    max: isFirefox ? 210_000 : 273_000
+    max: isFirefox ? 210_000 : 274_000
   }
 ]
 
