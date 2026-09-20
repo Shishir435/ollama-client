@@ -326,6 +326,55 @@ const requirementNamesReceiptTarget = (
   )
 }
 
+const CHECKED_OFF_PATTERN =
+  /\b(uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b/
+const CHECKED_ON_PATTERN = /\b(check|checked|tick|ticked|select|selected|on)\b/
+
+/**
+ * Whether the requirement asserts the state the receipt confirmed, not its
+ * opposite.
+ *
+ * The receipt proves the control holds its resolved state but does not carry
+ * what that state was — a confirmed `checked` verification vouches for
+ * checked and for unchecked alike. The binding above is not enough: "Agree
+ * is unchecked" names Agree, so without this a run that checked the box
+ * satisfies a claim it is unchecked. For checkbox receipts the requirement
+ * must not assert the opposite direction; for value receipts (select, typed
+ * text) it must name the resolved value, which a quotation could also carry
+ * — values are quotable page text, so refusing here only sends the run to
+ * quote what it could have quoted. Both fail safe: an uncertain match
+ * refuses, and a refusal sends the run back to look again.
+ */
+const receiptResultAgrees = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): boolean => {
+  const text = agentNormalizedClaim(requirement.text)
+  const command = receipt.command
+  const kind = receipt.verification?.evidence.kind
+  if (
+    kind === "checked" &&
+    (command?.type === "check" || command?.type === "uncheck")
+  ) {
+    const opposite =
+      command.type === "check" ? CHECKED_OFF_PATTERN : CHECKED_ON_PATTERN
+    return !opposite.test(text)
+  }
+  if (kind === "field" && command?.type === "select" && command.value) {
+    return text.includes(agentNormalizedClaim(command.value))
+  }
+  if (
+    kind === "field" &&
+    (command?.type === "type" ||
+      command?.type === "clear_and_type" ||
+      command?.type === "replace_text") &&
+    command.text
+  ) {
+    return text.includes(agentNormalizedClaim(command.text))
+  }
+  return true
+}
+
 /**
  * Whether the quotation names the control the receipt acted on — the only
  * link a quoted label has to the step that changed it. Compared exactly
@@ -389,10 +438,11 @@ const evidencePlannedChange = (
    * ticking a checkbox leave exactly the label that was already there — so
    * a quotation rule alone can never accept them. A confirmed
    * result-verified receipt is the evidence instead, but only when the
-   * requirement is about that receipt's control; a missing quotation
-   * consumes the earliest such receipt the plan names, and a label
-   * quotation must additionally name the receipt's own control. An invented
-   * phrase is never rescued.
+   * requirement is about that receipt's control and asserts the state it
+   * confirmed rather than its opposite; a missing quotation consumes the
+   * earliest such receipt the plan names, and a label quotation must
+   * additionally name the receipt's own control. An invented phrase is never
+   * rescued.
    */
   if (
     refusal.reason === "missing_evidence" ||
@@ -404,6 +454,7 @@ const evidencePlannedChange = (
         !consumed.has(candidate.stepId) &&
         isResultVerifiedChange(candidate) &&
         requirementNamesReceiptTarget(requirement, candidate) &&
+        receiptResultAgrees(requirement, candidate) &&
         (quoted === undefined || quotationNamesReceiptTarget(quoted, candidate))
     )
     if (receipt) {

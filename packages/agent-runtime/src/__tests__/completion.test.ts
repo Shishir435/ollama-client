@@ -908,6 +908,92 @@ describe("judgeAgentCompletion with planned requirements", () => {
   })
 
   /**
+   * A confirmed `checked` verification vouches for checked and for unchecked
+   * alike — the receipt does not carry which. The requirement must therefore
+   * assert the state the step produced, not its opposite.
+   */
+  it.each([
+    ["Agree is unchecked", "check"],
+    ["Agree is checked", "uncheck"]
+  ])("refuses %s evidenced only by %s", (requirementText, commandType) => {
+    const receipt = step({
+      sequence: 1,
+      command: {
+        type: commandType as "check" | "uncheck",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      target: { ref: "e1", tag: "input", role: "checkbox", name: "Agree" },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "checked",
+          summary: "Checkbox is checked",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: checkboxPage,
+        requirements: [
+          { id: "r1", text: requirementText, kind: "change" as const }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
+  })
+
+  /**
+   * A value receipt must name its value in the requirement: "Blue is
+   * selected" is not evidenced by a confirmed selection of Red, even on the
+   * right control.
+   */
+  it.each([
+    { value: "red", accepted: false },
+    { value: "blue", accepted: true }
+  ])("binds a selection to its value ($value)", ({ value, accepted }) => {
+    const receipt = step({
+      sequence: 1,
+      command: {
+        type: "select",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        value
+      },
+      target: { ref: "e1", tag: "select", role: "listbox", name: "Color" },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "field",
+          summary: "Field contains the resolved value",
+          observedAt: 1
+        }
+      }
+    })
+    const judgement = judgeAgentCompletion({
+      steps: [receipt],
+      observation: observation({ visibleText: "Color picker" }),
+      requirements: [
+        {
+          id: "r1",
+          text: "Blue is selected from Color",
+          kind: "change" as const
+        }
+      ],
+      outcomes: [{ id: "r1", met: true }]
+    })
+    expect(judgement).toMatchObject(
+      accepted
+        ? { type: "accepted" }
+        : { type: "refused", reason: "missing_evidence" }
+    )
+  })
+
+  /**
    * A quotation names the current page, and only it. A phrase from a page
    * the run has left is unverifiable — and the run's own notes are the
    * model's words, not observed page evidence, so they cannot stand in for
