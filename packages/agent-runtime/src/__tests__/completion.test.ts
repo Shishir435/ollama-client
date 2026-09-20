@@ -1030,6 +1030,42 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "missing_evidence" })
   })
 
+  it("does not apply another value's negation to the selected value", () => {
+    const receipt = step({
+      sequence: 1,
+      command: {
+        type: "select",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        value: "blue"
+      },
+      target: { ref: "e1", tag: "select", role: "listbox", name: "Color" },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "field",
+          summary: "Field contains the resolved value",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({ visibleText: "Color picker" }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Color should be blue and not red",
+            kind: "change"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
   it("does not bind typed value to a substring", () => {
     const receipt = step({
       sequence: 1,

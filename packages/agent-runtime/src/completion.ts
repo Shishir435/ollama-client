@@ -382,7 +382,10 @@ const NEGATED_OFF_PATTERN_GLOBAL = new RegExp(NEGATED_OFF_PATTERN.source, "g")
  * negation beside it is refused, and the run quotes what it meant instead —
  * values are page text, so the quotation exists.
  */
-const NEGATION_TOKEN_PATTERN = /\b(?:not|never|neither|nor|without)\b|n['’]t/
+const VALUE_NEGATED_BEFORE_PATTERN =
+  /(?:\b(?:not|never|neither|nor|without)\b|n['’]t)(?:\s+[\p{L}\p{N}_'-]+){0,3}\s*$/u
+const VALUE_NEGATED_AFTER_PATTERN =
+  /^\s+(?:(?:is|are|was|were|be|been|being|should|must|does|do|did|has|have|had|can|could|would|will|may|might)\s+(?:not|never)\b|(?:is|are|was|were|should|must|does|do|did|has|have|had|can|could|would|will|may|might)n['’]t\b)/u
 
 /** The state the requirement asserts, once negations flip what they scope. */
 const requirementAssertsOff = (text: string): boolean => {
@@ -402,9 +405,10 @@ const requirementAssertsOn = (text: string): boolean => {
 }
 
 /**
- * Whether one complete value occurrence sits in a short negated predicate.
- * Clause boundaries keep "not red, but blue" from negating blue, while both
- * "not blue" and "blue is not selected" remain refusals.
+ * Whether one complete value occurrence is the subject of a negated
+ * predicate. A negation before the value ("not blue") scopes forward; one
+ * after it must begin with an auxiliary ("blue is not selected"). Merely
+ * finding `not` nearby would misread "blue and not red" as negating blue.
  */
 const valueOccurrenceIsNegated = (
   text: string,
@@ -417,11 +421,9 @@ const valueOccurrenceIsNegated = (
   const afterClause = text
     .slice(occurrence.end, occurrence.end + 80)
     .split(/[.!?,;:]|\b(?:but|instead|rather)\b/u)[0]
-  const beforeWords = beforeClause?.trim().split(/\s+/u).slice(-4).join(" ")
-  const afterWords = afterClause?.trim().split(/\s+/u).slice(0, 4).join(" ")
   return (
-    NEGATION_TOKEN_PATTERN.test(beforeWords ?? "") ||
-    NEGATION_TOKEN_PATTERN.test(afterWords ?? "")
+    VALUE_NEGATED_BEFORE_PATTERN.test(beforeClause ?? "") ||
+    VALUE_NEGATED_AFTER_PATTERN.test(afterClause ?? "")
   )
 }
 
