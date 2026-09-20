@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro"
+import { notFoundMarkdown } from "@/lib/agent-routing"
 
 const title = "404 — Page not found | Ollama Client"
 const description =
@@ -23,12 +24,8 @@ const description =
       <li><a class="underline underline-offset-4" href="/llms.txt">llms.txt — concise Markdown docs map</a></li>
       <li><a class="underline underline-offset-4" href="/sitemap-index.xml">XML sitemap</a></li>
       <li><a class="underline underline-offset-4" href="/developers/">Developer portal and OpenAPI resources</a></li>
+      <li><a class="underline underline-offset-4" href="/404.md">Markdown recovery map</a></li>
     </ul>
-    <pre class="mt-10 max-w-2xl overflow-x-auto rounded-sm border border-border bg-muted/40 p-4 font-mono text-xs leading-relaxed"><code># 404 — Ollama Client page not found
-
-- Docs: https://www.ollamaclient.in/
-- Agent map: https://www.ollamaclient.in/llms.txt
-- Sitemap: https://www.ollamaclient.in/sitemap-index.xml
-- Developers: https://www.ollamaclient.in/developers/</code></pre>
+    <pre class="mt-10 max-w-2xl overflow-x-auto rounded-sm border border-border bg-muted/40 p-4 font-mono text-xs leading-relaxed"><code>{notFoundMarkdown()}</code></pre>
   </section>
 </BaseLayout>

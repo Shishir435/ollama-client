@@ -343,6 +343,43 @@ custom-provider flow.
   catalog caching, CORS — are in [`packages/olc/AGENTS.md`](./packages/olc/AGENTS.md).
   `packages/olc/README.md` has the options, endpoints and known limits.
 
+### Docs site and its agent surface
+
+`docs/` is an Astro static build deployed by Vercel from `vercel.json`. Two
+rules decide where a change goes.
+
+- **Vercel evaluates `rewrites` after the filesystem.** Every documentation page
+  is a built file, so nothing in `rewrites` can reshape its response. An
+  `Accept`-conditioned rewrite there is dead config; an `Accept`-conditioned
+  *header* there is worse, because it relabels a body it never replaced. That is
+  what stamped `Content-Type: text/markdown` on the HTML homepage.
+- **Request-time behaviour lives in `docs/proxy.ts`**, the Routing Middleware
+  named by `vercel.json`'s `proxy` entry, which runs before the filesystem. It is
+  an adapter only: every decision is in `docs/src/lib/agent-routing.ts` so it can
+  be tested without a deployment (`src/lib/__tests__/agent-routing.test.ts`). Its
+  `config.matcher` excludes assets, `og/`, `.well-known/`, `reference/`, and any
+  path with a file extension — which is also what stops a `.md` rewrite from
+  re-entering it.
+
+The published contract, and where each piece is owned:
+
+| Surface | Owner |
+|---|---|
+| Markdown twin of every page, negotiated at the same URL | `agent-routing.ts` + the `.md` files `generate-llms-docs.ts` writes |
+| `llms.txt`, `llms-full.txt`, `ai.txt`, `index.md`, `404.md`, `.well-known/api-catalog` | `tools/generate/generate-llms-docs.ts`, gitignored under `docs/public/` |
+| `openapi.json` | `tools/generate/generate-openapi.ts` over `tools/generate/openapi/olc-openapi.template.json`, versioned from `packages/olc` |
+| JSON body of `/api` and `/api/health` | `docs/src/pages/`, prerendered |
+| Headers of those two paths | `vercel.json`, because a static build discards the headers an endpoint module sets. `agent-routing.test.ts` asserts they match `apiHeaders()` exactly |
+| JSON errors for `/api/*` (404, 405, 406) | `agent-routing.ts`; a static file cannot answer them |
+
+- A page's Markdown twin exists because its slug is in `DOC_ORDER`
+  (`docs/src/seo/doc-ia.mjs`), which is also the sidebar and the `llms.txt`
+  order. A route that is published but has no twin goes in
+  `NON_NEGOTIABLE_ROUTES`, or a Markdown client gets a 404 for a page it can
+  plainly load.
+- `pnpm verify:agent-endpoints [baseUrl]` proves the contract against a real
+  deployment. Routing order, middleware execution and CDN variant caching are
+  the parts no unit test can reach.
 
 ### Browser agent
 
@@ -496,6 +533,8 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 | `config/__tests__/documentation-comments.test.ts` | module/declaration prose uses JSDoc instead of `//` blocks |
 | `config/__tests__/wxt-build-config.test.ts` | which dev pages and WASM assets a store build carries |
 | `config/__tests__/package-versions.test.ts` | workspace packages carry the extension version |
+| `lib/__tests__/agent-routing.test.ts` | Accept negotiation, agent 404s, JSON API errors, and that `vercel.json` restates `apiHeaders()` exactly |
+| `lib/__tests__/agent-docs.test.ts` | OpenAPI operations carry typed inputs and a rate-limit contract; negotiation stays out of post-filesystem rewrites |
 
 ### Lint and formatting
 

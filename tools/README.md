@@ -92,6 +92,7 @@ only after merging the reports.
 | `pnpm verify:sw-agent-recovery` | Kill a real MV3 worker mid-effect; a fresh one must settle the Agent run as unresolved without reissuing it. Needs `benchmark:build` |
 | `pnpm e2e:release` | Build all four targets and run the release browser gates |
 | `pnpm verify:release` | Static checks + coverage, all four builds, manifest/bundle checks, docs build, and release browser gates; each browser target builds once |
+| `pnpm verify:agent-endpoints [baseUrl]` | Probe a deployed docs site for the agent contract: Markdown negotiation, 404 status and body, JSON API errors, rate-limit headers, and every machine-readable file. Defaults to production; pass a preview URL to check a deploy before promoting it. Needs network, no build |
 
 Browser gates need the corresponding installed browsers. Chromium automation
 uses Playwright; the Firefox migration gate uses Firefox and geckodriver.
