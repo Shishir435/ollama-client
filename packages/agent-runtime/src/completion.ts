@@ -305,11 +305,11 @@ const isResultVerifiedChange = (step: AgentStepReadout): boolean =>
  * plan is fixed before the first observation, so it cannot be rewritten
  * mid-run to bless whatever happened to verify: a verified change to
  * checkbox B cannot satisfy a claim about checkbox A, because the plan's
- * words for A do not name B's control. Compared by containment rather than
- * exactly — a requirement is a sentence ("Agree is checked") while a target
- * name is a label ("Agree") — in either direction, so neither a terse plan
- * nor a verbose label defeats it. A receipt with no control name binds to
- * nothing: without a name there is no requirement it can be shown to serve.
+ * words for A do not name B's control. The requirement must contain the full
+ * target name as a complete phrase: a shorter `Address` requirement cannot
+ * consume a `Billing Address` receipt. A receipt with no control name binds
+ * to nothing: without a name there is no requirement it can be shown to
+ * serve.
  */
 const requirementNamesReceiptTarget = (
   requirement: AgentTaskRequirement,
@@ -320,9 +320,7 @@ const requirementNamesReceiptTarget = (
   const want = agentNormalizedClaim(name)
   const text = agentNormalizedClaim(requirement.text)
   return (
-    want.length > 0 &&
-    text.length > 0 &&
-    (containsCompletePhrase(text, want) || containsCompletePhrase(want, text))
+    want.length > 0 && text.length > 0 && containsCompletePhrase(text, want)
   )
 }
 
