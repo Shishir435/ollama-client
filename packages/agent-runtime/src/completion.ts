@@ -205,37 +205,54 @@ const APPLIED_STATUSES = new Set<AgentStepStatus>([
 export const isAppliedAgentStepStatus = (status: AgentStepStatus): boolean =>
   APPLIED_STATUSES.has(status)
 
-const isChange = (step: AgentStepReadout): boolean => {
+/**
+ * Whether a receipt is a change the completion gate reads.
+ *
+ * Exported because recovery reconciliation has to find the same receipts the
+ * judge will: a supervisor disposition belongs on exactly the recovered
+ * change rows a later completion is judged against, and two copies of this
+ * rule would be two places for that to drift.
+ */
+export const isAgentChangeReceipt = (
+  step: Pick<AgentStepReadout, "status" | "mutating" | "command">
+): boolean => {
   if (!isAppliedAgentStepStatus(step.status)) return false
   if (step.mutating !== undefined) return step.mutating
   return step.command !== undefined && CHANGING_COMMANDS.has(step.command.type)
 }
 
+const isChange = (step: AgentStepReadout): boolean => isAgentChangeReceipt(step)
+
 /**
- * The last change the run applied, by durable order.
+ * Every change the run applied, oldest first.
  *
- * A step is appended once per lifecycle change, so the receipts hold several
+ * Steps are appended once per lifecycle change, so the receipts hold several
  * rows for one step and only the newest says how it ended: reading them all
  * would let a step's superseded `executed` receipt stand for a step that went
  * on to fail, which is an applied change with no verification and refuses
  * every completion after it. Collapsed to the last receipt per step first,
  * the same way history is.
- *
- * Only the last change is then asked about: an earlier one that was
- * superseded says nothing about whether the run is finished, while the most
- * recent is the state the completion is claiming about.
  */
-const lastChange = (
-  steps: readonly AgentStepReadout[]
-): AgentStepReadout | undefined => {
+const allChanges = (steps: readonly AgentStepReadout[]): AgentStepReadout[] => {
   const latest = new Map<string, AgentStepReadout>()
   for (const step of [...steps].sort(
     (first, second) => first.sequence - second.sequence
   )) {
     latest.set(step.stepId, step)
   }
-  return [...latest.values()].filter(isChange).at(-1)
+  return [...latest.values()].filter(isChange)
 }
+
+/**
+ * The last change the run applied, by durable order.
+ *
+ * Only the last change is asked about on the unplanned path: an earlier one
+ * that was superseded says nothing about whether the run is finished, while
+ * the most recent is the state the completion is claiming about.
+ */
+const lastChange = (
+  steps: readonly AgentStepReadout[]
+): AgentStepReadout | undefined => allChanges(steps).at(-1)
 
 /**
  * Verification evidence that answers what the step was for, rather than that
@@ -264,6 +281,129 @@ const provesItsOwnResult = (
   verification !== undefined &&
   RESULT_VERIFIED_EVIDENCE.has(verification.evidence.kind)
 
+/**
+ * A change whose verified state answers its requirement without a quotation:
+ * confirmed, and of a kind the verifier compared against the step's own
+ * intended result. `ambiguous` is excluded — the effect landed and the page
+ * has not shown its consequence, so nothing here vouches for the outcome.
+ */
+const isResultVerifiedChange = (step: AgentStepReadout): boolean =>
+  step.verification?.outcome === "confirmed" &&
+  provesItsOwnResult(step.verification)
+
+/**
+ * Whether the run wrote down the quoted phrase while it could still see it:
+ * a model finding or verifier summary on the receipt, both recorded against
+ * the page the step acted on. The record must contain the quotation, not the
+ * reverse — a long invented phrase absorbing a short true note proves nothing.
+ */
+const historicalRecordStates = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const record = agentNormalizedClaim(
+    [receipt.finding ?? "", receipt.verification?.evidence.summary ?? ""].join(
+      " "
+    )
+  )
+  return agentHaystackStates(quoted, record)
+}
+
+/**
+ * Whether the quotation names the control the receipt acted on — the only
+ * link a quoted label has to the step that changed it. Compared exactly
+ * after normalising, the way self-evidence is.
+ */
+const quotationNamesReceiptTarget = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const name = receipt.target?.name
+  return (
+    name !== undefined &&
+    agentNormalizedClaim(name).length > 0 &&
+    agentNormalizedClaim(name) === agentNormalizedClaim(quoted)
+  )
+}
+
+/**
+ * One met `read` requirement. A read owes no quotation, but one it
+ * volunteers must still be real: an accepted completion carrying a phrase
+ * the page does not contain is a false record whichever kind of outcome it
+ * was attached to.
+ */
+const refusePlannedReadClaim = (
+  evidence: string | undefined,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
+  evidence
+    ? judgeEvidence(evidence, input, change ?? "unreadable", false)
+    : undefined
+
+/**
+ * One met `change` requirement, after its quotation failed.
+ *
+ * Returns the receipt that evidences it, or the refusal to send back.
+ * Receipts are consumed by identity across requirements, so one verified
+ * state vouches for one requirement — never the whole plan.
+ */
+const evidencePlannedChange = (
+  quoted: string | undefined,
+  refusal: Extract<AgentCompletionJudgement, { type: "refused" }>,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>
+):
+  | AgentStepReadout
+  | Extract<AgentCompletionJudgement, { type: "refused" }> => {
+  /**
+   * A quotation the current page no longer states still evidences its
+   * requirement when the run recorded what it saw while it saw it — a
+   * multi-page task whose indicator lived on the previous page. The record
+   * is consumed, so one contemporaneous note cannot evidence two outcomes.
+   */
+  if (refusal.reason === "absent_evidence" && quoted) {
+    const record = changes.find(
+      (receipt) =>
+        !consumed.has(receipt.stepId) &&
+        (receipt.verification?.outcome === "confirmed" ||
+          receipt.verification?.outcome === "ambiguous") &&
+        historicalRecordStates(quoted, receipt)
+    )
+    if (record) {
+      consumed.add(record.stepId)
+      return record
+    }
+    return refusal
+  }
+  /**
+   * A state-only change adds no new words to the page — selecting Blue and
+   * ticking a checkbox leave exactly the label that was already there — so
+   * a quotation rule alone can never accept them. A confirmed
+   * result-verified receipt is the evidence instead. A missing quotation
+   * consumes the earliest such receipt; a label quotation must additionally
+   * name the receipt's own control, or any verified field would vouch for
+   * any claimed outcome. An invented phrase is never rescued.
+   */
+  if (
+    refusal.reason === "missing_evidence" ||
+    refusal.reason === "self_evidence" ||
+    refusal.reason === "stale_evidence"
+  ) {
+    const receipt = changes.find(
+      (candidate) =>
+        !consumed.has(candidate.stepId) &&
+        isResultVerifiedChange(candidate) &&
+        (quoted === undefined || quotationNamesReceiptTarget(quoted, candidate))
+    )
+    if (receipt) {
+      consumed.add(receipt.stepId)
+      return receipt
+    }
+  }
+  return refusal
+}
+
 const MISSING_EVIDENCE_FEEDBACK =
   "This run changed the page, so complete needs evidence: a short phrase that is visible on the page now and shows the goal is met, such as a saved-state indicator or the new value itself. Observe the page and complete again with evidence, or keep working."
 
@@ -271,7 +411,7 @@ const ABSENT_EVIDENCE_FEEDBACK =
   "The evidence string does not occur on the current page. Copy ONLY an exact phrase from observation text or an element value into evidence, without explanation or quotation marks. For an edit use the changed words themselves. Do not quote history or verifier commentary. If the result has not appeared, wait for it."
 
 const UNVERIFIED_CHANGE_FEEDBACK =
-  "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator, or make the change again — before completing."
+  "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator — before completing."
 
 const SELF_EVIDENCE_FEEDBACK =
   "The evidence named for complete is the label of the control this run acted on, which was on the page before the action and shows nothing about its outcome. Name what the page says now that it did not say before."
@@ -412,6 +552,16 @@ const judgePlanned = (
     }
   const met: string[] = []
   const unmet: string[] = []
+  /**
+   * One verified state vouches for one requirement — never the whole plan.
+   * Each exemption consumes a distinct change receipt by identity, so a run
+   * that verified a single field still owes quotations (or further receipts)
+   * for everything else it claimed. The receipts are the bounded record: they
+   * carry the verified state, the source URL and the step identity, and the
+   * judge re-derives the same answer from them every time.
+   */
+  const changes = allChanges(input.steps ?? [])
+  const consumed = new Set<string>()
   for (const requirement of requirements) {
     const claim = claims.get(requirement.id)
     if (!claim?.met) {
@@ -419,21 +569,27 @@ const judgePlanned = (
       continue
     }
     if (requirement.kind === "read") {
-      /**
-       * A read owes no quotation, but one it volunteers must still be real.
-       * An accepted completion carrying a phrase the page does not contain is
-       * a false record whichever kind of outcome it was attached to.
-       */
-      const refusal = claim.evidence
-        ? judgeEvidence(claim.evidence, input, change ?? "unreadable", false)
-        : undefined
+      const refusal = refusePlannedReadClaim(
+        claim.evidence,
+        input,
+        change ?? "unreadable"
+      )
       if (refusal) return refusal
       met.push(requirement.id)
       continue
     }
     const refusal = judgeEvidence(claim.evidence, input, change ?? "unreadable")
-    if (refusal) return refusal
-    met.push(requirement.id)
+    if (!refusal) {
+      met.push(requirement.id)
+      continue
+    }
+    const quoted = claim.evidence?.trim() || undefined
+    const evidenced = evidencePlannedChange(quoted, refusal, changes, consumed)
+    if ("stepId" in evidenced) {
+      met.push(requirement.id)
+      continue
+    }
+    return evidenced
   }
   const outcome = { met, unmet }
   if (unmet.length === 0) return { type: "accepted", outcome }

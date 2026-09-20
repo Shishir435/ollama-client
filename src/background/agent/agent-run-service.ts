@@ -306,6 +306,8 @@ export const createAgentRunService = (input?: {
   const controllers = new Map<string, AgentController>()
   const experimental = new Set<string>()
   const interruptedBrowserSessions = new Set<string>()
+  /** In-flight Done presses, so two of them converge on one resume. */
+  const takeoverCompletions = new Map<string, Promise<void>>()
   let admitting = false
   let activeRunId: string | undefined
   let lastRunId: string | undefined
@@ -418,6 +420,63 @@ export const createAgentRunService = (input?: {
     const state = await persistence.load(runId)
     if (!state) throw new AgentRunError("unknown_run", "Agent run is unknown")
     return state
+  }
+
+  /**
+   * One Done press, run to completion.
+   *
+   * Done pressed before Started still holds the run loop inside its parked
+   * takeover wait, and the completion call below no-ops against that guard —
+   * the stall that left file and sensitive-input handoffs in
+   * `awaiting_takeover` with no new observation. Answering started here
+   * releases the loop first; the answer is idempotent, so an already
+   * acknowledged Started is answered nothing twice.
+   *
+   * The settle announces synchronously while the loop unwinds on microtasks
+   * already queued ahead of the waiter, so the wait below ends after the run
+   * is free rather than while it is still guarded. The timeout is deadlock
+   * insurance only: even if it fires, the next Done press converges, because
+   * the parked wait is already settled and cannot stall twice.
+   */
+  const runTakeoverCompletion = async (runId: string): Promise<void> => {
+    const state = await loadRunning(runId)
+    if (state.status !== "awaiting_takeover") return
+    const pending = supervision.pending(runId)
+    if (pending?.kind === "takeover") {
+      let settled = false
+      let release: () => void = () => undefined
+      const unsubscribe = supervision.subscribe((announced) => {
+        if (announced !== runId || settled) return
+        settled = true
+        unsubscribe()
+        release()
+      })
+      const exited = new Promise<void>((resolve) => {
+        release = () => resolve()
+        setTimeout(() => {
+          if (settled) return
+          settled = true
+          unsubscribe()
+          resolve()
+        }, 10_000)
+      })
+      const answered = supervision.answerTakeover({
+        runId,
+        requestId: pending.request.id,
+        decision: { type: "takeover_started" }
+      })
+      if (answered) await exited
+      else if (!settled) {
+        // A Started press won the race and its settle already announced
+        // before this subscription existed: nothing to wait for.
+        settled = true
+        unsubscribe()
+      }
+    }
+    const fresh = await loadRunning(runId)
+    if (fresh.status !== "awaiting_takeover") return
+    if (!(await attachBrowserSession(fresh))) return
+    await drive(fresh, (controller) => controller.completeTakeover(runId))
   }
 
   const attachBrowserSession = async (
@@ -631,10 +690,19 @@ export const createAgentRunService = (input?: {
       )
     },
     async completeTakeover(runId) {
-      const state = await loadRunning(runId)
-      if (state.status !== "awaiting_takeover") return
-      if (!(await attachBrowserSession(state))) return
-      await drive(state, (controller) => controller.completeTakeover(runId))
+      const ongoing = takeoverCompletions.get(runId)
+      if (ongoing) {
+        await ongoing
+        return
+      }
+      const completion = runTakeoverCompletion(runId)
+      takeoverCompletions.set(runId, completion)
+      try {
+        await completion
+      } finally {
+        if (takeoverCompletions.get(runId) === completion)
+          takeoverCompletions.delete(runId)
+      }
     },
     /**
      * Browser control was released when the run paused, so it is re-attached

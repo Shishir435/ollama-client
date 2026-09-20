@@ -25,14 +25,21 @@ import {
   MAX_AGENT_FORM_FIELDS,
   MAX_AGENT_REQUIREMENTS
 } from "@ollama-client/contracts"
+import {
+  getStoredModelConfig,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
-import type { LLMProvider } from "@/lib/providers/types"
+import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type {
   ToolCall,
   ToolDefinition,
   ToolParameterSchema
 } from "@/lib/tools/types"
+import type { ReasoningEffort } from "@/types/model"
 import {
   AGENT_CONTEXT_MAX_TOKENS,
   AGENT_CONTEXT_MIN_TOKENS,
@@ -734,6 +741,52 @@ const screenshotAttachment = (screenshot: AgentScreenshot) => ({
   origin: "tool-result" as const
 })
 
+/**
+ * The Agent slider's answer, resolved from the provider/model-scoped config
+ * the same way the chat path resolves it, and read once per run beside the
+ * window and for the same reason: neither moves while a run is in flight. An
+ * unreadable setting resolves to no choice, which is today's wire.
+ */
+const reasoningEffortByRun = new Map<string, ReasoningEffort | undefined>()
+
+const reasoningEffortFor = async (
+  state: AgentRunState
+): Promise<ReasoningEffort | undefined> => {
+  if (reasoningEffortByRun.has(state.id))
+    return reasoningEffortByRun.get(state.id)
+  try {
+    const configs = await readSetting(SETTINGS.MODEL_CONFIGS)
+    const effort = resolveModelConfig(
+      getStoredModelConfig(configs, state.modelId, state.providerId)
+    ).reasoning_effort
+    reasoningEffortByRun.set(state.id, effort)
+    return effort
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Deliberate thinking policy, not a copy of the chat parameters.
+ *
+ * Unset and `auto` keep today's wire exactly — thinking off, no effort
+ * field — so a run whose slider was never moved behaves as every shipped
+ * run did. An explicit level (or `enabled`) travels as `reasoningEffort`
+ * with `think` left for the provider to derive from it: Ollama maps the
+ * level onto its own think range, OpenAI-compatible adapters forward the
+ * effort field, and forcing `think: false` on top would switch the setting
+ * back off on the one provider that reads both. `none` is the off switch:
+ * thinking disabled, with the value carried so adapters that gate sampling
+ * or reasoning fields on it stay consistent with the chat path.
+ */
+const agentThinkingFields = (
+  effort: ReasoningEffort | undefined
+): Pick<ChatRequest, "think" | "reasoningEffort"> => {
+  if (effort === undefined || effort === "auto") return { think: false }
+  if (effort === "none") return { think: false, reasoningEffort: effort }
+  return { reasoningEffort: effort }
+}
+
 const collectDecision = async (input: {
   provider: LLMProvider
   state: AgentRunState
@@ -756,6 +809,7 @@ const collectDecision = async (input: {
   const withScreenshot = input.screenshot !== undefined
   const numCtx = agentContextWindow(input.window)
   const numPredict = agentResponseTokens(input.window, input.observation)
+  const thinking = agentThinkingFields(await reasoningEffortFor(input.state))
   /**
    * Measured here because this is the only place that can see it. The chunk
    * carries the provider's own usage — Ollama's `prompt_eval_count` and the
@@ -789,7 +843,7 @@ const collectDecision = async (input: {
           withScreenshot ? AGENT_VISION_DECISION_TOOL : AGENT_DECISION_TOOL
         ],
         tool_choice: "required",
-        think: false,
+        ...thinking,
         num_predict: numPredict,
         num_ctx: numCtx,
         keep_alive: AGENT_KEEP_ALIVE
@@ -1040,6 +1094,7 @@ export const createProviderAgentModelPort = (
       assertProviderEnabled(provider, state.modelId)
       const window = await windowFor(state, compatibility)
       const prompt = agentPlanPrompt(state.goal)
+      const thinking = agentThinkingFields(await reasoningEffortFor(state))
       let lastError: unknown
       for (let attempt = 0; attempt <= 1; attempt += 1) {
         if (signal.aborted) throw new Error("Agent model request cancelled")
@@ -1055,7 +1110,7 @@ export const createProviderAgentModelPort = (
               ],
               tools: [AGENT_PLAN_TOOL],
               tool_choice: "required",
-              think: false,
+              ...thinking,
               num_predict: agentResponseTokens(window),
               num_ctx: agentContextWindow(window),
               keep_alive: AGENT_KEEP_ALIVE

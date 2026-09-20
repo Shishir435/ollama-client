@@ -721,4 +721,166 @@ describe("judgeAgentCompletion with planned requirements", () => {
       })
     ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
   })
+
+  /**
+   * Ticking a checkbox adds no new words to the page: every phrase the model
+   * could quote is the label (self-evidence), older text (stale) or absent.
+   * The confirmed checked state is the evidence instead — but only for the
+   * requirement that consumes that receipt, never the whole plan.
+   */
+  const checkedBox = step({
+    sequence: 1,
+    command: {
+      type: "check",
+      ref: "e1",
+      snapshotId: "snapshot-1",
+      generation: 1
+    },
+    target: { ref: "e1", tag: "input", role: "checkbox", name: "Agree" },
+    verification: {
+      outcome: "confirmed",
+      evidence: {
+        kind: "checked",
+        summary: "Checkbox is checked",
+        observedAt: 1
+      }
+    }
+  })
+  const checkboxPage = observation({ visibleText: "Agree to receive updates" })
+  const checkboxRequirement = [
+    { id: "r1", text: "Agree is checked", kind: "change" as const }
+  ]
+
+  it("accepts a planned checkbox with no quotation once its state verified", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [checkedBox],
+        observation: checkboxPage,
+        requirements: checkboxRequirement,
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  it("accepts a planned checkbox quoting its own label", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [checkedBox],
+        observation: checkboxPage,
+        requirements: checkboxRequirement,
+        outcomes: [{ id: "r1", met: true, evidence: "Agree" }]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  it("does not accept a whole plan on one verification", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [fieldEdit],
+        observation: partialForm,
+        requirements,
+        outcomes: [
+          { id: "r1", met: true },
+          { id: "r2", met: true }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
+  })
+
+  it("does not rescue an invented phrase with a real verification", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [checkedBox],
+        observation: checkboxPage,
+        requirements: checkboxRequirement,
+        outcomes: [{ id: "r1", met: true, evidence: "Saved just now" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it("does not vouch a result on an ambiguous verification alone", () => {
+    const wobbling = step({
+      sequence: 1,
+      command: {
+        type: "check",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      target: { ref: "e1", tag: "input", role: "checkbox", name: "Agree" },
+      verification: {
+        outcome: "ambiguous",
+        evidence: { kind: "checked", summary: "Unclear", observedAt: 1 }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [wobbling],
+        observation: checkboxPage,
+        requirements: checkboxRequirement,
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
+  })
+
+  /**
+   * A multi-page task whose indicator lived on the previous page: the quote
+   * is absent from the current observation but the run wrote down what it saw
+   * while it saw it, anchored to the confirmed change that produced it.
+   */
+  const savedOnPageA = step({
+    sequence: 1,
+    command: {
+      type: "click",
+      ref: "e1",
+      snapshotId: "snapshot-1",
+      generation: 1
+    },
+    sourceUrl: "https://example.com/form",
+    finding: "Saw indicator Alpha saved",
+    verification: {
+      outcome: "confirmed",
+      evidence: { kind: "activation", summary: "Clicked Save", observedAt: 1 }
+    }
+  })
+  const pageB = observation({ visibleText: "Dashboard home" })
+  const saveRequirement = [
+    { id: "r1", text: "Alpha is saved", kind: "change" as const }
+  ]
+
+  it("accepts a previous-page quote the run recorded at the time", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [savedOnPageA],
+        observation: pageB,
+        requirements: saveRequirement,
+        outcomes: [{ id: "r1", met: true, evidence: "Alpha saved" }]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  it("refuses a previous-page quote nothing recorded", () => {
+    const unrecorded = step({
+      sequence: 1,
+      command: {
+        type: "click",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      sourceUrl: "https://example.com/form",
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "activation", summary: "Clicked Save", observedAt: 1 }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [unrecorded],
+        observation: pageB,
+        requirements: saveRequirement,
+        outcomes: [{ id: "r1", met: true, evidence: "Alpha saved" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
 })

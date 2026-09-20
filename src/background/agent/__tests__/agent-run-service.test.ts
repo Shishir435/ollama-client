@@ -624,4 +624,53 @@ describe("Agent run service tab scope", () => {
       expect(order).toEqual(["attach:7", "detach", "attach:9", "claimed:true"])
     )
   })
+
+  /**
+   * Done pressed before Started still holds the run loop inside its parked
+   * takeover wait, and a bare completion call no-ops against that guard. The
+   * service answers started first so the loop exits, then resumes the run —
+   * one Done press, no stall, no supervision leak.
+   */
+  it("releases a parked takeover wait before completing it", async () => {
+    const supervision = createAgentSupervision()
+    const { service: agent, controller } = service({ supervision })
+    await agent.start(startInput)
+    runs.set("run-1", {
+      ...(runs.get("run-1") as AgentRunState),
+      status: "awaiting_takeover"
+    })
+    const parked = supervision.takeover.request(
+      {
+        id: "takeover-1",
+        runId: "run-1",
+        stepId: "run-1:1",
+        reason: "file_upload",
+        instruction: "Choose the file, then continue.",
+        createdAt: 1_000
+      },
+      { aborted: false }
+    )
+
+    await agent.completeTakeover("run-1")
+
+    await expect(parked).resolves.toEqual({ type: "takeover_started" })
+    expect(supervision.pending("run-1")).toBeUndefined()
+    expect(controller.completeTakeover).toHaveBeenCalledWith("run-1")
+  })
+
+  it("completes an acknowledged takeover without answering anything", async () => {
+    const supervision = createAgentSupervision()
+    const answerTakeover = vi.spyOn(supervision, "answerTakeover")
+    const { service: agent, controller } = service({ supervision })
+    await agent.start(startInput)
+    runs.set("run-1", {
+      ...(runs.get("run-1") as AgentRunState),
+      status: "awaiting_takeover"
+    })
+
+    await agent.completeTakeover("run-1")
+
+    expect(answerTakeover).not.toHaveBeenCalled()
+    expect(controller.completeTakeover).toHaveBeenCalledWith("run-1")
+  })
 })

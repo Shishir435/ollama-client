@@ -190,13 +190,15 @@ interface HarnessOptions {
   execute?: AgentControllerDependencies["effect"]["execute"]
   stepsFail?: boolean
   trace?: AgentControllerDependencies["trace"]
+  /** Rows a worker restart (or an older build) left behind. */
+  seedSteps?: AgentStepWrite[]
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
   let state = options.state ?? runState()
   const calls: string[] = []
   const steps: string[] = []
-  const written: AgentStepWrite[] = []
+  const written: AgentStepWrite[] = [...(options.seedSteps ?? [])]
   const decisions = [
     ...(options.decisions ?? [
       { type: "command", command: command() },
@@ -1397,6 +1399,119 @@ describe("agent controller", () => {
     expect(harness.calls.filter((call) => call === "execute")).toHaveLength(
       executed
     )
+  })
+
+  /**
+   * A recovered change nobody verified refuses every later completion on its
+   * own — even after the user reviewed the page and a read-only wait
+   * confirmed the outcome. The review is recorded on the recovered row, which
+   * lifts the refusal without vouching for the effect: the run still owes a
+   * quotation, and nothing is replayed.
+   */
+  it("reconciles an unverified recovered change on review", async () => {
+    const harness = createHarness({
+      verification: [],
+      decisions: [
+        { type: "command", command: command() },
+        { type: "complete", summary: "Saved", evidence: "All changes saved" }
+      ],
+      observations: [
+        observation(),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          visibleText: "All changes saved"
+        }),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          visibleText: "All changes saved"
+        }),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          visibleText: "All changes saved"
+        })
+      ],
+      seedSteps: [
+        {
+          runId: "run-1",
+          stepId: "run-1:recovered",
+          status: "uncertain",
+          at: 5,
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          mutating: true
+        }
+      ]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
+    const executed = harness.calls.filter((call) => call === "execute").length
+
+    await harness.controller.resolveEffect({
+      runId: "run-1",
+      pausedAt: harness.getState().updatedAt
+    })
+
+    const rows = harness.writtenSteps.filter(
+      (step) => step.stepId === "run-1:recovered"
+    )
+    // The interruption's row is preserved; the disposition is a new row.
+    expect(rows).toHaveLength(2)
+    expect(rows[1]).toMatchObject({
+      status: "uncertain",
+      verification: {
+        outcome: "ambiguous",
+        evidence: { kind: "resolution" }
+      }
+    })
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(
+      executed
+    )
+    expect(harness.getState().status).toBe("completed")
+  })
+
+  it("leaves a verifier's own ambiguous record alone on review", async () => {
+    const harness = createHarness({
+      verification: [],
+      seedSteps: [
+        {
+          runId: "run-1",
+          stepId: "run-1:recovered",
+          status: "uncertain",
+          at: 5,
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          mutating: true,
+          verification: {
+            outcome: "ambiguous",
+            evidence: { kind: "activation", summary: "Unclear", observedAt: 5 }
+          }
+        }
+      ]
+    })
+    await harness.controller.start("run-1")
+
+    await harness.controller.resolveEffect({
+      runId: "run-1",
+      pausedAt: harness.getState().updatedAt
+    })
+
+    expect(
+      harness.writtenSteps.filter((step) => step.stepId === "run-1:recovered")
+    ).toHaveLength(1)
   })
 
   it("refuses to resolve a moment the panel was not showing", async () => {

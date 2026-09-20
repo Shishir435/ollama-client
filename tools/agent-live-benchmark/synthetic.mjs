@@ -9,6 +9,7 @@ import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
+import { scoreSyntheticTask, scoreVerdict } from "./score-answer.mjs"
 
 const model =
   process.env.AUDIT_MODEL ?? "opencode/muse-spark-1.3-contributor-free"
@@ -301,18 +302,38 @@ try {
       .catch(() => ({}))
     const answer = final?.run?.result ?? ""
     const completed = final?.run?.status === "completed"
-    let success = completed && answer.includes("Active")
-    if (kind === "read") success = completed && answer.includes("0.14.0")
-    if (kind === "select") success = completed && field.value === "blue"
-    if (kind === "checkbox" || kind === "uncheck")
-      success = completed && field.checked === (kind === "checkbox")
-    if (kind === "keypress") success = completed && field.focus === "second"
-    if (kind === "memory")
-      success =
-        completed && answer.includes("QP-719") && answer.includes("ZX-482")
-    if (kind === "ambiguous")
-      success =
-        final?.run?.pauseReason === "unresolved_effect" && current.effects === 1
+    const status = final?.run?.status ?? "harness_timeout"
+    // The opener page never shows the status for open_tab; the new tab must.
+    let openTabActive = false
+    if (kind === "open_tab") {
+      for (const p of context.pages()) {
+        if (p === fixture) continue
+        if (!/\/details(\/|$)/.test(p.url())) continue
+        const text = await p
+          .locator("body")
+          .innerText()
+          .catch(() => "")
+        if (text.includes("Active")) {
+          openTabActive = true
+          break
+        }
+      }
+    }
+    const scored = scoreSyntheticTask({
+      kind,
+      completed,
+      answer,
+      body,
+      field,
+      effects: current.effects,
+      url: fixture.url(),
+      pauseReason: final?.run?.pauseReason,
+      openTabActive
+    })
+    const success = scored.success
+    const predicate = scored.predicate
+    const expectedPause = kind === "ambiguous"
+    const verdict = scoreVerdict({ status, success })
     const calls = wire.filter((w) => w.path.endsWith("/chat/completions"))
     const row = {
       task: kind,
@@ -322,6 +343,9 @@ try {
         (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"),
       model,
       success,
+      verdict,
+      predicate,
+      expectedPause,
       status: final?.run?.status ?? "harness_timeout",
       reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
       steps: final?.run?.stepCount,
