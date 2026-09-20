@@ -5,7 +5,8 @@ import {
   scoreInbodyAnswer,
   scoreSyntheticTask,
   scoreVerdict,
-  scoreWikiSearch
+  scoreWikiSearch,
+  statesActive
 } from "../score-answer.mjs"
 
 const HN_BODY =
@@ -58,6 +59,22 @@ describe("real-site scorer", () => {
       }).success,
       true
     )
+  })
+
+  it("rejects the Firefox path on any other host", () => {
+    const { success, reason } = scoreWikiSearch({
+      answer: "Firefox",
+      url: "https://example.com/wiki/Firefox"
+    })
+    assert.equal(success, false)
+    assert.equal(reason, "wrong_host")
+  })
+
+  it("reads the status case-insensitively and rejects its negation", () => {
+    assert.equal(statesActive("Status: Active"), true)
+    assert.equal(statesActive("status: active"), true)
+    assert.equal(statesActive("Status: Not Active"), false)
+    assert.equal(statesActive("nothing to report"), false)
   })
 
   it("separates false completions from misses and safe pauses", () => {

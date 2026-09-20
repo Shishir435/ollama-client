@@ -9,7 +9,11 @@ import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
-import { scoreSyntheticTask, scoreVerdict } from "./score-answer.mjs"
+import {
+  scoreSyntheticTask,
+  scoreVerdict,
+  statesActive
+} from "./score-answer.mjs"
 
 const model =
   process.env.AUDIT_MODEL ?? "opencode/muse-spark-1.3-contributor-free"
@@ -313,7 +317,7 @@ try {
           .locator("body")
           .innerText()
           .catch(() => "")
-        if (text.includes("Active")) {
+        if (statesActive(text)) {
           openTabActive = true
           break
         }

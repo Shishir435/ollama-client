@@ -93,6 +93,15 @@ export const scoreInbodyAnswer = (answer, body, rule) => {
 
 /** wiki_search is deterministic: the run must land on the Firefox article. */
 export const scoreWikiSearch = ({ answer, url }) => {
+  let host = ""
+  try {
+    host = new URL(String(url ?? "")).hostname.toLowerCase()
+  } catch {
+    host = ""
+  }
+  // The path alone proves nothing: any host can serve /wiki/Firefox.
+  if (!/(^|\.)wikipedia\.org$/.test(host))
+    return { success: false, reason: "wrong_host" }
   const landed = /\/wiki\/Firefox($|[?#])/i.test(String(url ?? ""))
   const namesIt = normalizeText(answer).includes("firefox")
   const success = landed && namesIt
@@ -119,11 +128,18 @@ export const scoreVerdict = ({ status, success }) => {
 }
 
 /**
- * Task-specific predicates for the synthetic suite. The old default —
- * `completed && answer.includes("Active")` — recorded page/effect data
- * without asserting it, so a run that never clicked passed every action
- * task. Each predicate names what it grounds on in `predicate`.
+ * Whether a text reports the Active status the synthetic fixtures render.
+ *
+ * A case-sensitive substring check fails a correct lowercase answer and
+ * passes "Status: Not Active", which states the opposite. Match `active` as
+ * a whole word, case-insensitively, and reject an explicit negation.
  */
+export const statesActive = (text) => {
+  const norm = String(text ?? "").toLowerCase()
+  if (!/\bactive\b/.test(norm)) return false
+  if (/\bnot\s+active\b/.test(norm)) return false
+  return true
+}
 export const scoreSyntheticTask = ({
   kind,
   completed,
@@ -135,8 +151,8 @@ export const scoreSyntheticTask = ({
   pauseReason,
   openTabActive = false
 }) => {
-  const saysActive = String(answer).includes("Active")
-  const pageShowsActive = String(body).includes("Active")
+  const saysActive = statesActive(answer)
+  const pageShowsActive = statesActive(body)
   const detailsUrl = /\/details(\/|$)/.test(String(url))
   switch (kind) {
     case "read":

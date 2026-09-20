@@ -232,6 +232,11 @@ const isChange = (step: AgentStepReadout): boolean => isAgentChangeReceipt(step)
  * on to fail, which is an applied change with no verification and refuses
  * every completion after it. Collapsed to the last receipt per step first,
  * the same way history is.
+ *
+ * The collapsed rows are re-sorted because map order is first-seen order,
+ * not durable order: a step with receipts at sequences 1 and 3 would
+ * otherwise sort before a step first seen at 2, and the last change would be
+ * the wrong one.
  */
 const allChanges = (steps: readonly AgentStepReadout[]): AgentStepReadout[] => {
   const latest = new Map<string, AgentStepReadout>()
@@ -240,7 +245,9 @@ const allChanges = (steps: readonly AgentStepReadout[]): AgentStepReadout[] => {
   )) {
     latest.set(step.stepId, step)
   }
-  return [...latest.values()].filter(isChange)
+  return [...latest.values()]
+    .sort((first, second) => first.sequence - second.sequence)
+    .filter(isChange)
 }
 
 /**
@@ -292,21 +299,31 @@ const isResultVerifiedChange = (step: AgentStepReadout): boolean =>
   provesItsOwnResult(step.verification)
 
 /**
- * Whether the run wrote down the quoted phrase while it could still see it:
- * a model finding or verifier summary on the receipt, both recorded against
- * the page the step acted on. The record must contain the quotation, not the
- * reverse — a long invented phrase absorbing a short true note proves nothing.
+ * Whether the plan's own words are about the receipt's control.
+ *
+ * The binding between a requirement and the receipt that evidences it. The
+ * plan is fixed before the first observation, so it cannot be rewritten
+ * mid-run to bless whatever happened to verify: a verified change to
+ * checkbox B cannot satisfy a claim about checkbox A, because the plan's
+ * words for A do not name B's control. Compared by containment rather than
+ * exactly — a requirement is a sentence ("Agree is checked") while a target
+ * name is a label ("Agree") — in either direction, so neither a terse plan
+ * nor a verbose label defeats it. A receipt with no control name binds to
+ * nothing: without a name there is no requirement it can be shown to serve.
  */
-const historicalRecordStates = (
-  quoted: string,
+const requirementNamesReceiptTarget = (
+  requirement: AgentTaskRequirement,
   receipt: AgentStepReadout
 ): boolean => {
-  const record = agentNormalizedClaim(
-    [receipt.finding ?? "", receipt.verification?.evidence.summary ?? ""].join(
-      " "
-    )
+  const name = receipt.target?.name
+  if (name === undefined) return false
+  const want = agentNormalizedClaim(name)
+  const text = agentNormalizedClaim(requirement.text)
+  return (
+    want.length > 0 &&
+    text.length > 0 &&
+    (text.includes(want) || want.includes(text))
   )
-  return agentHaystackStates(quoted, record)
 }
 
 /**
@@ -340,15 +357,17 @@ const refusePlannedReadClaim = (
   evidence
     ? judgeEvidence(evidence, input, change ?? "unreadable", false)
     : undefined
-
 /**
  * One met `change` requirement, after its quotation failed.
  *
  * Returns the receipt that evidences it, or the refusal to send back.
- * Receipts are consumed by identity across requirements, so one verified
- * state vouches for one requirement — never the whole plan.
+ * Receipts are consumed by identity across requirements, and every exemption
+ * additionally binds the plan's words to the receipt's control, so one
+ * verified state vouches for one requirement — never the whole plan, and
+ * never a requirement about another control.
  */
 const evidencePlannedChange = (
+  requirement: AgentTaskRequirement,
   quoted: string | undefined,
   refusal: Extract<AgentCompletionJudgement, { type: "refused" }>,
   changes: readonly AgentStepReadout[],
@@ -357,33 +376,23 @@ const evidencePlannedChange = (
   | AgentStepReadout
   | Extract<AgentCompletionJudgement, { type: "refused" }> => {
   /**
-   * A quotation the current page no longer states still evidences its
-   * requirement when the run recorded what it saw while it saw it — a
-   * multi-page task whose indicator lived on the previous page. The record
-   * is consumed, so one contemporaneous note cannot evidence two outcomes.
+   * A quotation names the current page, and only it. A phrase from a page
+   * the run has left cannot be checked against anything the run can still
+   * see — not against findings, which are the model's own words, and not
+   * against verifier summaries, which are fixed template sentences. An
+   * outcome that must outlive its navigation needs result-verified state,
+   * which is page-independent, rather than a quotation.
    */
-  if (refusal.reason === "absent_evidence" && quoted) {
-    const record = changes.find(
-      (receipt) =>
-        !consumed.has(receipt.stepId) &&
-        (receipt.verification?.outcome === "confirmed" ||
-          receipt.verification?.outcome === "ambiguous") &&
-        historicalRecordStates(quoted, receipt)
-    )
-    if (record) {
-      consumed.add(record.stepId)
-      return record
-    }
-    return refusal
-  }
+  if (refusal.reason === "absent_evidence") return refusal
   /**
    * A state-only change adds no new words to the page — selecting Blue and
    * ticking a checkbox leave exactly the label that was already there — so
    * a quotation rule alone can never accept them. A confirmed
-   * result-verified receipt is the evidence instead. A missing quotation
-   * consumes the earliest such receipt; a label quotation must additionally
-   * name the receipt's own control, or any verified field would vouch for
-   * any claimed outcome. An invented phrase is never rescued.
+   * result-verified receipt is the evidence instead, but only when the
+   * requirement is about that receipt's control; a missing quotation
+   * consumes the earliest such receipt the plan names, and a label
+   * quotation must additionally name the receipt's own control. An invented
+   * phrase is never rescued.
    */
   if (
     refusal.reason === "missing_evidence" ||
@@ -394,6 +403,7 @@ const evidencePlannedChange = (
       (candidate) =>
         !consumed.has(candidate.stepId) &&
         isResultVerifiedChange(candidate) &&
+        requirementNamesReceiptTarget(requirement, candidate) &&
         (quoted === undefined || quotationNamesReceiptTarget(quoted, candidate))
     )
     if (receipt) {
@@ -584,7 +594,13 @@ const judgePlanned = (
       continue
     }
     const quoted = claim.evidence?.trim() || undefined
-    const evidenced = evidencePlannedChange(quoted, refusal, changes, consumed)
+    const evidenced = evidencePlannedChange(
+      requirement,
+      quoted,
+      refusal,
+      changes,
+      consumed
+    )
     if ("stepId" in evidenced) {
       met.push(requirement.id)
       continue

@@ -153,6 +153,43 @@ describe("judgeAgentCompletion", () => {
     ).toEqual({ type: "accepted" })
   })
 
+  /**
+   * Collapsing to the last receipt per step must not disturb durable order:
+   * step A wrote at sequences 1 and 3 while step B wrote at 2, so the last
+   * change is A's third receipt — not B, which map insertion order would
+   * leave last.
+   */
+  it("judges the last change by durable order across interleaved steps", () => {
+    const first = step({
+      sequence: 1,
+      stepId: "run-1:A",
+      status: "executed",
+      verification: undefined
+    })
+    const middle = step({
+      sequence: 2,
+      stepId: "run-1:B",
+      status: "executed",
+      verification: undefined
+    })
+    const last = step({
+      sequence: 3,
+      stepId: "run-1:A",
+      status: "verified",
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "activation", summary: "Page changed", observedAt: 3 }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [last, middle, first],
+        observation: observation({ visibleText: "All changes saved" }),
+        evidence: "All changes saved"
+      })
+    ).toEqual({ type: "accepted" })
+  })
+
   it("accepts a run whose only steps were reads", () => {
     const reads = [
       step({
@@ -824,9 +861,57 @@ describe("judgeAgentCompletion with planned requirements", () => {
   })
 
   /**
-   * A multi-page task whose indicator lived on the previous page: the quote
-   * is absent from the current observation but the run wrote down what it saw
-   * while it saw it, anchored to the confirmed change that produced it.
+   * A verified change to one control cannot satisfy a claim about another.
+   * The exemption binds the plan's words to the receipt's control: a run
+   * that verified "Newsletter" still owes evidence for "Agree".
+   */
+  it("does not satisfy one requirement with another control's verification", () => {
+    const newsletter = step({
+      sequence: 1,
+      command: {
+        type: "check",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      target: { ref: "e1", tag: "input", role: "checkbox", name: "Newsletter" },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "checked",
+          summary: "Checkbox is checked",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [newsletter],
+        observation: checkboxPage,
+        requirements: checkboxRequirement,
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
+  })
+
+  it("does not let a quoted label vouch for a requirement about another outcome", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [checkedBox],
+        observation: checkboxPage,
+        requirements: [
+          { id: "r1", text: "the document is saved", kind: "change" as const }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Agree" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "self_evidence" })
+  })
+
+  /**
+   * A quotation names the current page, and only it. A phrase from a page
+   * the run has left is unverifiable — and the run's own notes are the
+   * model's words, not observed page evidence, so they cannot stand in for
+   * it either.
    */
   const savedOnPageA = step({
     sequence: 1,
@@ -848,7 +933,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
     { id: "r1", text: "Alpha is saved", kind: "change" as const }
   ]
 
-  it("accepts a previous-page quote the run recorded at the time", () => {
+  it("refuses a previous-page quote even when the run noted it", () => {
     expect(
       judgeAgentCompletion({
         steps: [savedOnPageA],
@@ -856,7 +941,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
         requirements: saveRequirement,
         outcomes: [{ id: "r1", met: true, evidence: "Alpha saved" }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 
   it("refuses a previous-page quote nothing recorded", () => {

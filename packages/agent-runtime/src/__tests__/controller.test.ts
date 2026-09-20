@@ -1514,6 +1514,28 @@ describe("agent controller", () => {
     ).toHaveLength(1)
   })
 
+  it("stays paused when the review cannot be recorded", async () => {
+    const harness = createHarness({ verification: [], stepsFail: true })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
+
+    await harness.controller.resolveEffect({
+      runId: "run-1",
+      pausedAt: harness.getState().updatedAt
+    })
+
+    // Resuming without the disposition returns the run to a completion that
+    // refuses it as unverified, which no later observation can clear.
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
+    expect(harness.calls).not.toContain("transition:observing")
+  })
+
   it("refuses to resolve a moment the panel was not showing", async () => {
     const harness = createHarness({ verification: [] })
     await harness.controller.start("run-1")

@@ -742,31 +742,6 @@ const screenshotAttachment = (screenshot: AgentScreenshot) => ({
 })
 
 /**
- * The Agent slider's answer, resolved from the provider/model-scoped config
- * the same way the chat path resolves it, and read once per run beside the
- * window and for the same reason: neither moves while a run is in flight. An
- * unreadable setting resolves to no choice, which is today's wire.
- */
-const reasoningEffortByRun = new Map<string, ReasoningEffort | undefined>()
-
-const reasoningEffortFor = async (
-  state: AgentRunState
-): Promise<ReasoningEffort | undefined> => {
-  if (reasoningEffortByRun.has(state.id))
-    return reasoningEffortByRun.get(state.id)
-  try {
-    const configs = await readSetting(SETTINGS.MODEL_CONFIGS)
-    const effort = resolveModelConfig(
-      getStoredModelConfig(configs, state.modelId, state.providerId)
-    ).reasoning_effort
-    reasoningEffortByRun.set(state.id, effort)
-    return effort
-  } catch {
-    return undefined
-  }
-}
-
-/**
  * Deliberate thinking policy, not a copy of the chat parameters.
  *
  * Unset and `auto` keep today's wire exactly — thinking off, no effort
@@ -792,6 +767,7 @@ const collectDecision = async (input: {
   state: AgentRunState
   observation: AgentObservation
   retry: number
+  reasoningEffort: ReasoningEffort | undefined
   feedback?: string
   history?: readonly AgentHistoryEntry[]
   previousVerification?: AgentVerificationResult
@@ -809,7 +785,7 @@ const collectDecision = async (input: {
   const withScreenshot = input.screenshot !== undefined
   const numCtx = agentContextWindow(input.window)
   const numPredict = agentResponseTokens(input.window, input.observation)
-  const thinking = agentThinkingFields(await reasoningEffortFor(input.state))
+  const thinking = agentThinkingFields(input.reasoningEffort)
   /**
    * Measured here because this is the only place that can see it. The chunk
    * carries the provider's own usage — Ollama's `prompt_eval_count` and the
@@ -899,6 +875,7 @@ const retryUntilWellFormed = async (input: {
   state: AgentRunState
   observation: AgentObservation
   window: number
+  reasoningEffort: ReasoningEffort | undefined
   history?: readonly AgentHistoryEntry[]
   previousVerification?: AgentVerificationResult
   inspection?: AgentInspectionFocus
@@ -1012,6 +989,34 @@ export const createProviderAgentModelPort = (
    */
   const windowByRun = new Map<string, number>()
   const visionByRun = new Map<string, AgentVisionPolicy>()
+  /**
+   * The Agent slider's answer, resolved from the provider/model-scoped config
+   * the same way the chat path resolves it. Read once per run beside the
+   * window and for the same reason: neither moves while a run is in flight.
+   * Scoped to this port instance like every other per-run cache, so it dies
+   * with the run's controller rather than accumulating across runs — and the
+   * fallback is cached too, so a transient read failure cannot change one
+   * run's wire between planning and deciding.
+   */
+  const reasoningEffortByRun = new Map<string, ReasoningEffort | undefined>()
+
+  const reasoningEffortFor = async (
+    state: AgentRunState
+  ): Promise<ReasoningEffort | undefined> => {
+    if (reasoningEffortByRun.has(state.id))
+      return reasoningEffortByRun.get(state.id)
+    try {
+      const configs = await readSetting(SETTINGS.MODEL_CONFIGS)
+      const effort = resolveModelConfig(
+        getStoredModelConfig(configs, state.modelId, state.providerId)
+      ).reasoning_effort
+      reasoningEffortByRun.set(state.id, effort)
+      return effort
+    } catch {
+      reasoningEffortByRun.set(state.id, undefined)
+      return undefined
+    }
+  }
 
   const windowFor = async (
     state: AgentRunState,
@@ -1166,6 +1171,7 @@ export const createProviderAgentModelPort = (
         state,
         observation,
         window: await windowFor(state, compatibility),
+        reasoningEffort: await reasoningEffortFor(state),
         ...(history ? { history } : {}),
         ...(previousVerification ? { previousVerification } : {}),
         ...(inspection ? { inspection } : {}),

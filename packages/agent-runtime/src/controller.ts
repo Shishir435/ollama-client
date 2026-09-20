@@ -1304,14 +1304,19 @@ export const createAgentController = (
    * keeps `uncertain`, so history still shows the effect unresolved, and the
    * completion gate reads it as reviewed rather than unchecked. Appended, like
    * every lifecycle row: the uncertain receipt it supersedes stays in history.
+   *
+   * Reports whether the record landed. A disposition that could not be read
+   * back or written leaves the run paused: resuming without it returns the
+   * run to a completion that refuses it as unverified, which no read-only
+   * observation afterwards can clear.
    */
-  const recordReviewedDisposition = async (runId: string): Promise<void> => {
+  const recordReviewedDisposition = async (runId: string): Promise<boolean> => {
     let steps: readonly AgentStepReadout[]
     try {
       steps = await dependencies.persistence.steps(runId)
     } catch {
       dependencies.trace?.(runId, "completion_receipts_unreadable")
-      return
+      return false
     }
     const now = dependencies.clock.now()
     const latest = new Map<string, AgentStepReadout>()
@@ -1346,6 +1351,7 @@ export const createAgentController = (
         }
       })
     }
+    return true
   }
 
   /**
@@ -2031,7 +2037,7 @@ export const createAgentController = (
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
       minimumGeneration.set(runId, (lastGeneration.get(runId) ?? 0) + 1)
-      await recordReviewedDisposition(state.id)
+      if (!(await recordReviewedDisposition(state.id))) return
       const recorded = await transition(state, "observing", {
         ...(state.deadline
           ? {
