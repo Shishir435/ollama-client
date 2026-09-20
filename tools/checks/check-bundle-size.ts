@@ -314,8 +314,21 @@ const budgets: Budget[] = [
      * part of it is text the model reads: the batch's own tool schema and the
      * per-field refusals, without which a twelve-field batch can be refused
      * but not corrected. Firefox carries no Agent code and is unchanged.
+     *
+     * Requirement-scoped completion evidence, the atomic takeover resume, the
+     * reviewed-effect disposition, and the Agent reasoning-effort wiring — one
+     * verified state per requirement instead of one quotation rule for
+     * state-only controls, a Done-before-Started that converges on a single
+     * resume, a recorded review that lifts the unverified refusal without
+     * vouching for the effect, and the slider's answer on planning and
+     * decision requests — took it to 272,557. Firefox carries no Agent code
+     * and is unchanged.
+     *
+     * Boundary-aware, negation-safe requirement/result binding took the
+     * measured Chrome baseline to 273,173. Firefox carries no Agent code and
+     * is unchanged.
      */
-    max: isFirefox ? 210_000 : 272_000
+    max: isFirefox ? 210_000 : 274_000
   }
 ]
 

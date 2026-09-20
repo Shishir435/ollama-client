@@ -509,6 +509,8 @@ export interface AgentStepWrite {
   status: AgentStepStatus
   at: number
   command?: AgentCommand
+  /** Planned outcome this step was chosen to advance. */
+  requirementId?: string
   risk?: AgentRisk
   /**
    * Whether this step changed the page rather than read it, taken from the

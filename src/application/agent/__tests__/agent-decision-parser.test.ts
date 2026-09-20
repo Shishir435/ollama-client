@@ -485,6 +485,15 @@ describe("visual commands need a screenshot", () => {
  * fact answered. Derived from the schema here so the next field cannot.
  */
 describe("optional decision fields", () => {
+  it("keeps a command's planned requirement binding", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "click", ref: "e1", requirementId: "r1" })],
+        observation
+      )
+    ).toMatchObject({ type: "command", requirementId: "r1" })
+  })
+
   it("passes through every optional field the complete variant declares", () => {
     const complete = AgentDecisionSchema.options.find(
       (option) => option.shape.type.value === "complete"

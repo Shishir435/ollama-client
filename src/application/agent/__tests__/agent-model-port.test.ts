@@ -1,7 +1,9 @@
 import type { AgentObservation, AgentRunState } from "@ollama-client/contracts"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import { ProviderType } from "@/lib/providers/types"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ToolDefinition } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types"
 import { AGENT_DECISION_TOOL_NAME } from "../agent-decision-parser"
@@ -117,6 +119,24 @@ const modelPort = (
     resolveCompatibility: async () => compatibility,
     allowExperimental
   })
+
+vi.mock("@/lib/storage/setting-access", () => ({ readSetting: vi.fn() }))
+
+/** Provider/model-scoped stored config the Agent slider writes. */
+const storeReasoningEffort = (effort: string | undefined) => {
+  vi.mocked(readSetting).mockImplementation(async (setting) =>
+    setting === SETTINGS.MODEL_CONFIGS
+      ? {
+          [`${state.providerId}::${state.modelId}`]:
+            effort === undefined ? {} : { reasoning_effort: effort }
+        }
+      : undefined
+  )
+}
+
+beforeEach(() => {
+  vi.mocked(readSetting).mockReset()
+})
 
 describe("createProviderAgentModelPort", () => {
   it("fails closed before contacting an incompatible model", async () => {
@@ -780,8 +800,10 @@ describe("vision decisions", () => {
       height: 600,
       maskedRegions: 1
     })
+    const [decisionTool] = request.tools ?? []
+    if (!decisionTool) throw new Error("No decision tool on the request")
     const actions = (
-      request.tools?.[0]?.parameters as unknown as {
+      decisionTool.parameters as unknown as {
         properties: { type: { enum: string[] } }
       }
     ).properties.type.enum
@@ -803,8 +825,10 @@ describe("vision decisions", () => {
     await port.decide({ state, observation, screenshot }, { aborted: false })
     const request = requests[0]
     expect(request.messages.at(-1)?.images).toBeUndefined()
+    const [textOnlyTool] = request.tools ?? []
+    if (!textOnlyTool) throw new Error("No decision tool on the request")
     const actions = (
-      request.tools?.[0]?.parameters as unknown as {
+      textOnlyTool.parameters as unknown as {
         properties: { type: { enum: string[] } }
       }
     ).properties.type.enum
@@ -1111,5 +1135,113 @@ describe("usable agent prompt", () => {
       expect(sent).toContain("r1")
       expect(sent).toContain("the field holds Alice")
     })
+  })
+})
+
+describe("agent reasoning effort", () => {
+  const planChunk: ChatStreamMessage = {
+    toolCalls: [
+      {
+        id: "call-plan",
+        name: "agent_plan",
+        arguments: {
+          requirements: [{ text: "the page is read", kind: "read" }]
+        }
+      }
+    ],
+    done: true
+  }
+
+  it("forwards a stored effort on decisions instead of forcing thinking off", async () => {
+    storeReasoningEffort("medium")
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+
+    await port.decide(
+      { state: { ...state, id: "run-effort-decide" }, observation },
+      { aborted: false }
+    )
+
+    const request = streamChat.mock.calls[0]?.[0]
+    expect(request?.reasoningEffort).toBe("medium")
+    expect(request?.think).toBeUndefined()
+  })
+
+  it("keeps today's wire when no effort is stored", async () => {
+    storeReasoningEffort(undefined)
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+
+    await port.decide(
+      { state: { ...state, id: "run-effort-unset" }, observation },
+      { aborted: false }
+    )
+
+    const request = streamChat.mock.calls[0]?.[0]
+    expect(request?.think).toBe(false)
+    expect(request?.reasoningEffort).toBeUndefined()
+  })
+
+  it("treats auto like unset and none like off", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+
+    storeReasoningEffort("auto")
+    await port.decide(
+      { state: { ...state, id: "run-effort-auto" }, observation },
+      { aborted: false }
+    )
+    expect(streamChat.mock.calls[0]?.[0]?.think).toBe(false)
+    expect(streamChat.mock.calls[0]?.[0]?.reasoningEffort).toBeUndefined()
+
+    storeReasoningEffort("none")
+    await port.decide(
+      { state: { ...state, id: "run-effort-none" }, observation },
+      { aborted: false }
+    )
+    expect(streamChat.mock.calls[1]?.[0]?.think).toBe(false)
+    expect(streamChat.mock.calls[1]?.[0]?.reasoningEffort).toBe("none")
+  })
+
+  it("forwards a stored effort on the planning call too", async () => {
+    storeReasoningEffort("medium")
+    const streamChat = vi.fn(async (_request, emit) => emit(planChunk))
+    const port = modelPort(streamChat)
+
+    await port.plan?.({ ...state, id: "run-effort-plan" }, { aborted: false })
+
+    const request = streamChat.mock.calls[0]?.[0]
+    expect(request?.reasoningEffort).toBe("medium")
+    expect(request?.think).toBeUndefined()
+  })
+
+  it("keeps the planning call on today's wire when no effort is stored", async () => {
+    storeReasoningEffort(undefined)
+    const streamChat = vi.fn(async (_request, emit) => emit(planChunk))
+    const port = modelPort(streamChat)
+
+    await port.plan?.(
+      { ...state, id: "run-effort-plan-unset" },
+      { aborted: false }
+    )
+
+    const request = streamChat.mock.calls[0]?.[0]
+    expect(request?.think).toBe(false)
+    expect(request?.reasoningEffort).toBeUndefined()
+  })
+
+  it("resolves the stored effort once per run", async () => {
+    storeReasoningEffort("medium")
+    const streamChat = vi.fn(async (_request, emit) => emit(planChunk))
+    const port = modelPort(streamChat)
+    const run = { ...state, id: "run-effort-once" }
+
+    await port.plan?.(run, { aborted: false })
+    await port.plan?.(run, { aborted: false })
+
+    const configReads = vi
+      .mocked(readSetting)
+      .mock.calls.filter(([setting]) => setting === SETTINGS.MODEL_CONFIGS)
+    expect(configReads).toHaveLength(1)
   })
 })

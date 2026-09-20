@@ -74,7 +74,7 @@ runAgentScenario({
      */
     return archive.hidden
       ? { type: "scroll", ref: archive.ref, direction: "down" }
-      : { type: "click", ref: archive.ref }
+      : { type: "click", ref: archive.ref, requirementId: "r1" }
   },
   verify: async ({ page, snapshot, wire }) => {
     const [overview, scoped] = observations(wire)

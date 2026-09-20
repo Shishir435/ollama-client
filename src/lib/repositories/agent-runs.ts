@@ -20,7 +20,8 @@ import {
   AgentStepStatusSchema,
   AgentStepTelemetrySchema,
   MAX_AGENT_FINDING_CHARS,
-  MAX_AGENT_OBSERVATIONS
+  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_REQUIREMENT_ID_CHARS
 } from "@ollama-client/contracts"
 import { z } from "zod"
 import { logger } from "@/lib/logger"
@@ -101,6 +102,11 @@ const AgentStepReceiptSchema = z
     status: AgentStepStatusSchema,
     at: z.number().int().nonnegative(),
     command: AgentCommandSchema.optional(),
+    requirementId: z
+      .string()
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENT_ID_CHARS)
+      .optional(),
     risk: z.enum(["low", "medium", "high", "critical"]).optional(),
     /** Whether the step changed the page; a completion is judged against it. */
     mutating: z.boolean().optional(),
