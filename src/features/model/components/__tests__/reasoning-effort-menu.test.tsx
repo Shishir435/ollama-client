@@ -48,23 +48,67 @@ describe("ReasoningEffortMenu", () => {
     })
   })
 
-  it("keeps the selected model's effort control visible beside the composer", async () => {
+  it("moves the selected model's effort along its own scale", async () => {
     render(<ReasoningEffortMenu />)
 
-    const effortSelect = screen.getByRole("combobox", {
+    const trigger = screen.getByRole("combobox", {
       name: "settings.model.parameters.reasoning_effort.label"
     })
     expect(useModelConfigMock).toHaveBeenCalledWith("gpt-5.6-sol", "openai")
 
-    fireEvent.click(effortSelect)
-    const highOption = await screen.findByRole("option", {
-      name: "settings.model.parameters.reasoning_effort.options.high"
-    })
-    fireEvent.pointerDown(highOption, { pointerType: "mouse" })
-    fireEvent.click(highOption)
+    fireEvent.click(trigger)
+    /** The trigger carries the same label, so pick the range input. */
+    const controls = await screen.findAllByLabelText(
+      "settings.model.parameters.reasoning_effort.label"
+    )
+    const slider = controls.find(
+      (element) => element.tagName === "INPUT"
+    ) as HTMLInputElement
+
+    /** none, auto, low, medium, high — the model's own levels, in order. */
+    fireEvent.change(slider, { target: { value: "4" } })
 
     expect(updateModelConfigMock).toHaveBeenCalledWith({
       reasoning_effort: "high"
+    })
+  })
+
+  it("draws one stop per level the model offers", async () => {
+    render(<ReasoningEffortMenu />)
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "settings.model.parameters.reasoning_effort.label"
+      })
+    )
+    await screen.findAllByLabelText(
+      "settings.model.parameters.reasoning_effort.label"
+    )
+
+    /** none, auto, low, medium, high. */
+    expect(document.querySelectorAll("[data-slot=slider-mark]")).toHaveLength(5)
+  })
+
+  it("returns the effort to the provider's own default", async () => {
+    useModelConfigMock.mockReturnValue([
+      { reasoning_effort: "high" },
+      updateModelConfigMock
+    ])
+    render(<ReasoningEffortMenu />)
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "settings.model.parameters.reasoning_effort.label"
+      })
+    )
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "settings.model.parameters.reasoning_effort.reset"
+      })
+    )
+
+    expect(updateModelConfigMock).toHaveBeenCalledWith({
+      reasoning_effort: "auto"
     })
   })
 

@@ -10,7 +10,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import {
   plasmoDeviceStorage,
-  plasmoGlobalStorage
+  plasmoSyncStorage
 } from "@/lib/plasmo-global-storage"
 import {
   resetProviderStorageUnlocked,
@@ -59,7 +59,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoDeviceStorage: {
     clear: vi.fn().mockResolvedValue(undefined)
   },
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     clear: vi.fn().mockResolvedValue(undefined),
     remove: vi.fn().mockResolvedValue(undefined)
   },
@@ -77,7 +77,7 @@ describe("app-reset", () => {
 
     expect(resetSQLiteDatabase).toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).toHaveBeenCalled()
-    expect(plasmoGlobalStorage.clear).toHaveBeenCalled()
+    expect(plasmoSyncStorage.clear).toHaveBeenCalled()
     expect(plasmoDeviceStorage.clear).toHaveBeenCalled()
     expect(withProviderPersistenceLock).toHaveBeenCalledOnce()
     expect(resetProviderStorageUnlocked).toHaveBeenCalled()
@@ -88,7 +88,7 @@ describe("app-reset", () => {
 
     expect(resetSQLiteDatabase).toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).not.toHaveBeenCalled()
-    expect(plasmoGlobalStorage.clear).not.toHaveBeenCalled()
+    expect(plasmoSyncStorage.clear).not.toHaveBeenCalled()
   })
 
   it("scheduleDestructiveReset persists the flag then reloads", async () => {

@@ -49,7 +49,7 @@ export const ModelCapabilityBadges = ({
                   <Badge
                     variant="outline"
                     aria-label={label}
-                    className="h-4 gap-0.5 px-1 text-micro font-medium text-muted-foreground border-border/50">
+                    className="h-4 gap-0.5 px-1 text-micro font-medium text-muted-foreground border-border">
                     <Icon className="icon-xs" aria-hidden="true" />
                   </Badge>
                 }

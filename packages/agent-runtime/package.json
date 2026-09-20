@@ -1,0 +1,20 @@
+{
+  "name": "@ollama-client/agent-runtime",
+  "version": "0.14.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./budgets": "./src/budgets.ts",
+    "./controller": "./src/controller.ts",
+    "./policy": "./src/policy.ts",
+    "./ports": "./src/ports.ts",
+    "./reducer": "./src/reducer.ts",
+    "./state": "./src/state.ts",
+    "./telemetry": "./src/telemetry.ts",
+    "./verification": "./src/verification.ts"
+  },
+  "dependencies": {
+    "@ollama-client/contracts": "workspace:*"
+  }
+}

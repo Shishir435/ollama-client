@@ -19,7 +19,7 @@ const { mockEmbed, route } = vi.hoisted(() => ({
 // Mock plasmo storage
 vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: vi.fn().mockResolvedValue(undefined),
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue(undefined)
   }

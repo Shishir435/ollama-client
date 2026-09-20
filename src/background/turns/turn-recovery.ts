@@ -3,6 +3,7 @@ import {
   abortAndClearController,
   clearAbortController
 } from "@/background/lib/abort-controller-registry"
+import { claimTurnExecution } from "@/background/turns/turn-execution"
 import { persistTurnFailure } from "@/background/turns/turn-generation"
 import { cleanupTurnRuntimeState } from "@/background/turns/turn-observers"
 import {
@@ -24,6 +25,8 @@ const resumeTurn = async (
 ): Promise<void> => {
   const abort = () => abortAndClearController(turn.id)
   if (signal?.aborted) signal.throwIfAborted()
+  const release = claimTurnExecution(turn.id)
+  if (!release) return
   signal?.addEventListener("abort", abort, { once: true })
   try {
     const service = createTurnService()
@@ -33,9 +36,13 @@ const resumeTurn = async (
       signal
     )
   } finally {
-    signal?.removeEventListener("abort", abort)
-    clearAbortController(turn.id)
-    cleanupTurnRuntimeState(turn.id)
+    try {
+      signal?.removeEventListener("abort", abort)
+      clearAbortController(turn.id)
+      cleanupTurnRuntimeState(turn.id)
+    } finally {
+      release()
+    }
   }
 }
 

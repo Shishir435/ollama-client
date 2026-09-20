@@ -1,0 +1,72 @@
+import type { AgentApprovalRequest } from "@ollama-client/contracts"
+import { useTranslation } from "react-i18next"
+
+import { Button } from "@/components/ui/button"
+import {
+  AGENT_EVIDENCE_TEXT_LIMIT,
+  AGENT_PAGE_TEXT_LIMIT,
+  agentPlainText
+} from "../lib/presentation"
+
+/**
+ * One effect awaiting the user's decision.
+ *
+ * Widening is offered only when the request carries an origin and the classes
+ * policy already decided were grantable. That is deliberate: filling three
+ * fields cost three prompts, which trains a user to approve without reading,
+ * but whether an effect may be pre-authorized is not a question the panel
+ * gets to answer — a critical effect arrives with no offer attached.
+ */
+export const AgentApprovalCard = ({
+  request,
+  onApprove,
+  onReject
+}: {
+  request: AgentApprovalRequest
+  onApprove: (scope?: "run_origin") => void
+  onReject: () => void
+}) => {
+  const { t } = useTranslation()
+  const grantable = Boolean(request.origin && request.grantable?.length)
+
+  return (
+    <section className="mb-3 rounded-panel border border-status-warning/40 bg-tint-warning p-2.5 text-xs">
+      <h2 className="font-medium">{t("agent.approval.title")}</h2>
+      <p className="mt-1 wrap-break-word">
+        {agentPlainText(request.action, AGENT_PAGE_TEXT_LIMIT)}
+      </p>
+      <p className="mt-1 wrap-break-word text-muted-foreground">
+        {agentPlainText(request.consequence, AGENT_PAGE_TEXT_LIMIT)}
+      </p>
+      {request.pageEvidence && (
+        /**
+         * What the user is being asked to approve, so it is shown whole and
+         * scrolled rather than cut: a batched fill names every control it
+         * sets, and a list clipped at the third one is the disclosure the
+         * batch was supposed to keep. Still flattened, still bounded by the
+         * request schema's own cap, and still no taller than this box.
+         */
+        <p className="mt-1 max-h-32 overflow-y-auto wrap-break-word rounded-control bg-surface-sunken px-2 py-1">
+          {agentPlainText(request.pageEvidence, AGENT_EVIDENCE_TEXT_LIMIT)}
+        </p>
+      )}
+      <div className="mt-2 flex gap-1.5">
+        <Button onClick={() => onApprove()} type="button">
+          {t("agent.approval.allow")}
+        </Button>
+        <Button onClick={onReject} type="button" variant="outline">
+          {t("agent.approval.reject")}
+        </Button>
+      </div>
+      {grantable && (
+        <Button
+          className="mt-1.5 h-auto justify-start whitespace-normal px-0 text-left text-xs"
+          onClick={() => onApprove("run_origin")}
+          type="button"
+          variant="ghost">
+          {t("agent.approval.allowForRun", { origin: request.origin })}
+        </Button>
+      )}
+    </section>
+  )
+}

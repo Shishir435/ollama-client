@@ -14,6 +14,10 @@ import { ensureTurnRunsTable } from "./add-turn-runs-table"
 import { ensureVectorCleanupReceiptsTable } from "./add-vector-cleanup-receipts-table"
 import { compactTerminalTurnRequests } from "./compact-terminal-turn-requests"
 import type { MigrationDatabase } from "./database"
+import {
+  agentRunsTablesAreStale,
+  rebuildAgentRunsTables
+} from "./rebuild-agent-runs-tables"
 import { renameBuildingContextStatus } from "./rename-building-context-status"
 
 /**
@@ -114,6 +118,11 @@ export const MIGRATIONS: Migration[] = [
     version: 15,
     name: "add-vector-cleanup-receipts-table",
     up: ensureVectorCleanupReceiptsTable
+  },
+  {
+    version: 17,
+    name: "ensure-agent-runs-tables",
+    up: rebuildAgentRunsTables
   }
 ]
 
@@ -165,6 +174,8 @@ const hasTable = (
     | "ingestion_runs"
     | "model_pull_runs"
     | "vector_cleanup_receipts"
+    | "agent_runs"
+    | "agent_steps"
 ) => {
   const stmt = db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1"
@@ -238,6 +249,18 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
     {
       missing: !hasTable(db, "vector_cleanup_receipts"),
       apply: () => ensureVectorCleanupReceiptsTable(db)
+    },
+    {
+      /*
+       * Shape, not just presence: a table left behind by a pre-release Agent
+       * build exists and answers `no such column` to every shipped query, and
+       * a version stamp cannot tell the two apart.
+       */
+      missing:
+        !hasTable(db, "agent_runs") ||
+        !hasTable(db, "agent_steps") ||
+        agentRunsTablesAreStale(db),
+      apply: () => rebuildAgentRunsTables(db)
     }
   ]
 

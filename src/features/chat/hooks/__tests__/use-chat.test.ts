@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { useChat } from "../use-chat"
 
 const toastMock = vi.hoisted(() => vi.fn())
@@ -124,7 +124,7 @@ vi.mock("@/lib/knowledge/knowledge-sets", () => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: vi.fn()
   },
   getPlasmoStorageForKey: vi.fn(() => ({
@@ -340,7 +340,7 @@ describe("useChat", () => {
     const setIsLoading = vi.fn()
     const setIsStreaming = vi.fn()
 
-    vi.mocked(plasmoGlobalStorage.get).mockRejectedValueOnce(
+    vi.mocked(plasmoSyncStorage.get).mockRejectedValueOnce(
       new Error("storage unavailable")
     )
     vi.mocked(useLoadStream).mockReturnValue({
@@ -428,7 +428,7 @@ describe("useChat", () => {
       .mockRejectedValueOnce(new Error("assistant save failed"))
     const startStream = vi.fn(() => true)
 
-    vi.mocked(plasmoGlobalStorage.get).mockRejectedValueOnce(
+    vi.mocked(plasmoSyncStorage.get).mockRejectedValueOnce(
       new Error("storage unavailable")
     )
     vi.mocked(useChatStream).mockReturnValue({
@@ -888,7 +888,7 @@ describe("useChat", () => {
         releaseStreamClaim: vi.fn()
       })
 
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true) // RAG enabled
+      vi.mocked(plasmoSyncStorage.get).mockResolvedValue(true) // RAG enabled
       vi.mocked(retrieveContext).mockResolvedValue({
         documents: [
           {
@@ -976,7 +976,7 @@ describe("useChat", () => {
         releaseStreamClaim: vi.fn()
       })
 
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
+      vi.mocked(plasmoSyncStorage.get).mockResolvedValue(true)
       vi.mocked(retrieveContext).mockRejectedValue(new Error("RAG Error"))
       vi.mocked(useSelectedTabs).mockReturnValue({
         selectedTabIds: [],
@@ -1046,7 +1046,7 @@ describe("useChat", () => {
         releaseStreamClaim: vi.fn()
       })
 
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
+      vi.mocked(plasmoSyncStorage.get).mockResolvedValue(true)
       vi.mocked(retrieveContext).mockResolvedValue({
         documents: [],
         formattedContext: "",

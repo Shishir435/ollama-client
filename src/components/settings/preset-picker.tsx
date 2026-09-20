@@ -73,7 +73,7 @@ export const PresetPicker = () => {
             key={preset.id}
             type="button"
             onClick={() => choose(preset)}
-            className="flex flex-col items-start gap-0.5 rounded-control border border-border bg-accent/20 p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40">
+            className="flex flex-col items-start gap-0.5 rounded-control border border-border bg-surface-sunken p-3 text-left transition-colors hover:border-primary/40 hover:bg-state-hover">
             <span className="text-sm font-medium">{t(preset.labelKey)}</span>
             <span className="text-xs text-muted-foreground">
               {t(preset.descriptionKey)}

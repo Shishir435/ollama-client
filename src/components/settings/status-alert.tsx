@@ -22,7 +22,7 @@ export const StatusAlert = ({
   actions
 }: StatusAlertProps) => {
   const variantStyles = {
-    default: "border-primary/20 bg-primary/5 text-primary",
+    default: "border-primary/20 bg-tint-accent text-primary",
     destructive: cn(
       STATUS_STYLES.danger.borderSoft,
       STATUS_STYLES.danger.bgSoft,

@@ -70,8 +70,8 @@ export const EmbeddingTestGeneration = ({
           className={cn(
             "px-2 py-2 text-xs rounded border",
             result.startsWith("✅")
-              ? "border-primary/20 bg-primary/10 text-primary"
-              : "border-destructive/20 bg-destructive/10 text-destructive"
+              ? "border-primary/20 bg-tint-accent text-primary"
+              : "border-destructive/20 bg-tint-danger text-destructive"
           )}>
           {result}
         </div>

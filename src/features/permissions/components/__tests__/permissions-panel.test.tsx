@@ -167,6 +167,34 @@ describe("PermissionsPanel", () => {
     ).toBeNull()
   })
 
+  it("flattens compact permission and model-tool cards into lists", async () => {
+    render(<PermissionsPanel compact />)
+
+    const permissionCard = document.querySelector(
+      '[data-settings-focus-id="permissions"]'
+    )
+    const permissionRow = document
+      .getElementById("permission-bookmarks")
+      ?.closest('[data-slot="card"]')
+    expect(permissionCard).toHaveClass("ring-0")
+    expect(permissionRow).toHaveClass(
+      "ring-0",
+      "rounded-none",
+      "hover:bg-transparent"
+    )
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-settings-focus-id="model-tools"]')
+      ).toHaveClass("ring-0")
+    )
+    expect(
+      document
+        .getElementById("model-tools-master")
+        ?.closest('[data-slot="card"]')
+    ).toHaveClass("ring-0", "rounded-none", "hover:bg-transparent")
+  })
+
   it("requests the API permission when its switch is enabled", () => {
     render(<PermissionsPanel />)
     fireEvent.click(document.getElementById("permission-bookmarks") as Element)

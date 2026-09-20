@@ -1,6 +1,6 @@
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { sanitizeStoredProviders } from "./provider-compat-migration"
 import { parseStoredProviderConfigs } from "./provider-config-schema"
 import { DEFAULT_PROVIDERS } from "./provider-defaults"
@@ -18,10 +18,10 @@ const migrateLegacyOllamaUrl = async (
 ): Promise<ProviderConfig[]> => {
   let stored = providers
   try {
-    const legacyStoredUrl = await plasmoGlobalStorage.get<string>(
+    const legacyStoredUrl = await plasmoSyncStorage.get<string>(
       LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
     )
-    const globalStoredUrl = await plasmoGlobalStorage.get<string>(
+    const globalStoredUrl = await plasmoSyncStorage.get<string>(
       STORAGE_KEYS.PROVIDER.BASE_URL
     )
     const legacyUrl = legacyStoredUrl?.trim()
@@ -52,8 +52,8 @@ const migrateLegacyOllamaUrl = async (
       }
     }
     if (legacyStoredUrl !== undefined || globalStoredUrl !== undefined) {
-      await plasmoGlobalStorage.remove(LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL)
-      await plasmoGlobalStorage.remove(STORAGE_KEYS.PROVIDER.BASE_URL)
+      await plasmoSyncStorage.remove(LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL)
+      await plasmoSyncStorage.remove(STORAGE_KEYS.PROVIDER.BASE_URL)
     }
   } catch (error) {
     logger.warn(
@@ -71,7 +71,7 @@ export const getProviderConfigsUnlocked = async (): Promise<
 > => {
   await recoverProviderResetUnlocked()
   await recoverProviderPersistenceUnlocked()
-  const rawStored = await plasmoGlobalStorage.get<unknown>(
+  const rawStored = await plasmoSyncStorage.get<unknown>(
     ProviderStorageKey.CONFIG
   )
   const parsedStored = parseStoredProviderConfigs(rawStored)

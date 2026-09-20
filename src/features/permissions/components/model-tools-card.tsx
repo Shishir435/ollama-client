@@ -220,8 +220,20 @@ export const ModelToolsCard = ({ compact }: { compact: boolean }) => {
     setSettings(await setToolFamilyEnabled(family, next))
   }
 
+  const cardProps = compact
+    ? {
+        className: "gap-2 bg-transparent py-0 ring-0",
+        headerClassName: "px-0 pb-2",
+        contentClassName: "space-y-3 px-0"
+      }
+    : {}
+  const rowClassName = compact
+    ? "gap-2 rounded-none bg-transparent p-0 py-1.5 ring-0 hover:bg-transparent focus-within:ring-0"
+    : undefined
+
   return (
     <SettingsCard
+      {...cardProps}
       focusId="model-tools"
       icon={Bot}
       title={t("settings.permissions.tools.title")}
@@ -232,6 +244,7 @@ export const ModelToolsCard = ({ compact }: { compact: boolean }) => {
         description={t("settings.permissions.tools.master.description")}
         checked={settings.enabled}
         onCheckedChange={onMaster}
+        className={rowClassName}
       />
       <div
         className={settings.enabled ? undefined : "opacity-60"}
@@ -247,6 +260,7 @@ export const ModelToolsCard = ({ compact }: { compact: boolean }) => {
               )}
               checked={settings.families[family]}
               onCheckedChange={onFamily(family)}
+              className={rowClassName}
             />
           ))}
         </div>

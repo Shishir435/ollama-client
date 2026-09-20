@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
@@ -12,6 +13,7 @@ import {
 import { usePendingChatSend } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { cn } from "@/lib/class-names"
 import { requestPermissions } from "@/lib/permissions"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
@@ -22,7 +24,14 @@ import { ChatMessageList } from "./chat-message-list"
 import { PendingToolConfirmation } from "./pending-tool-confirmation"
 import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 
-export const Chat = () => {
+export const Chat = ({
+  embedded = false,
+  leading
+}: {
+  embedded?: boolean
+  /** The surface toggle, rendered in the composer's control row. */
+  leading?: ReactNode
+}) => {
   const { t } = useTranslation()
   const {
     messages,
@@ -233,7 +242,11 @@ export const Chat = () => {
   const hasSession = !!currentSessionId
 
   return (
-    <div className="flex h-screen flex-col bg-surface-chat">
+    <div
+      className={cn(
+        "flex min-h-0 flex-col bg-surface-chat",
+        embedded ? "h-full" : "h-screen"
+      )}>
       <ChatHeader messages={messages} />
 
       {hasSession ? (
@@ -255,10 +268,11 @@ export const Chat = () => {
             onNavigate={handleNavigateBranch}
           />
 
-          <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
+          <div className="sticky bottom-0 z-10 w-full border-t border-border-subtle bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
             <PendingToolConfirmation messages={messages} />
             <div className="mx-auto max-w-4xl px-2">
               <ChatInputBox
+                leading={leading}
                 onSend={sendMessage}
                 stopGeneration={stopGeneration}
               />
@@ -266,7 +280,7 @@ export const Chat = () => {
           </div>
         </>
       ) : (
-        <WelcomeScreen />
+        <WelcomeScreen leading={leading} />
       )}
       <SemanticChatSearchDialog
         open={isSearchOpen}

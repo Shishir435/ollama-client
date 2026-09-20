@@ -76,6 +76,7 @@ export class ToolManifest {
   private definitions: BridgeToolDefinition[] = []
   private signature = manifestSignature([])
   private installed = false
+  private warnedUninstalled = false
 
   constructor({
     directory,
@@ -165,18 +166,39 @@ export class ToolManifest {
    * Record the tools of one request. Returns `changed: true` when OpenCode has to
    * reload before it can call them, which is the caller's cue to dispose the
    * instance.
+   *
+   * `names` is what the caller may offer the model, and it is empty until the
+   * plugin has been installed. A manifest that was never installed has no file
+   * to write into, so its tools exist only in this object: reporting them as
+   * registrable let a proxy publish tools nowhere and advertise them anyway,
+   * which is how a model ends up calling a tool whose only possible result is
+   * an error string. `installed` says which of the two answers this is.
    */
-  sync(tools: unknown): { changed: boolean; names: string[] } {
+  sync(tools: unknown): {
+    changed: boolean
+    names: string[]
+    installed: boolean
+  } {
     const definitions = normalizeToolDefinitions(tools)
     const signature = manifestSignature(definitions)
-    if (signature === this.signature) {
-      return { changed: false, names: this.names }
+    const changed = signature !== this.signature
+    if (changed) {
+      this.definitions = definitions
+      this.signature = signature
     }
 
-    this.definitions = definitions
-    this.signature = signature
-    if (this.installed) this.writeManifest()
-    return { changed: true, names: this.names }
+    if (!this.installed) {
+      if (definitions.length > 0 && !this.warnedUninstalled) {
+        this.warnedUninstalled = true
+        this.log(
+          `The bridge plugin is not installed at ${this.directory}, so ${definitions.length} client tool(s) cannot be published and will not be offered to the model.`
+        )
+      }
+      return { changed, names: [], installed: false }
+    }
+
+    if (changed) this.writeManifest()
+    return { changed, names: this.names, installed: true }
   }
 
   /** Names the manifest declares that OpenCode does not report as registered. */

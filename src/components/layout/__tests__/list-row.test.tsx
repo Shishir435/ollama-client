@@ -113,8 +113,8 @@ describe("ListRow state", () => {
       </ListRow>
     )
     const { className } = rowOf("row")
-    expect(className).not.toContain("hover:bg-muted")
-    expect(className).not.toContain("bg-muted/55")
+    expect(className).not.toContain("hover:bg-state-hover")
+    expect(className).not.toContain("bg-state-selected")
   })
 
   it("tints a selectable row and still offers hover when unselected", () => {
@@ -123,16 +123,16 @@ describe("ListRow state", () => {
         <ListRowTitle>Title</ListRowTitle>
       </ListRow>
     )
-    expect(rowOf("row").className).toContain("hover:bg-muted/35")
+    expect(rowOf("row").className).toContain("hover:bg-state-hover")
     expect(rowOf("row").className).toContain("text-muted-foreground")
-    expect(rowOf("row").className).not.toContain("bg-muted/55")
+    expect(rowOf("row").className).not.toContain("bg-state-selected")
 
     rerender(
       <ListRow data-testid="row" active>
         <ListRowTitle>Title</ListRowTitle>
       </ListRow>
     )
-    expect(rowOf("row").className).toContain("bg-muted/55")
+    expect(rowOf("row").className).toContain("bg-state-selected")
   })
 
   it("gives every whole-row button hover feedback without a selection state", () => {
@@ -141,8 +141,8 @@ describe("ListRow state", () => {
         <ListRowTitle>Title</ListRowTitle>
       </ListRowButton>
     )
-    expect(rowOf("row").className).toContain("hover:bg-muted/35")
-    expect(rowOf("row").className).not.toContain("bg-muted/55")
+    expect(rowOf("row").className).toContain("hover:bg-state-hover")
+    expect(rowOf("row").className).not.toContain("bg-state-selected")
   })
 })
 

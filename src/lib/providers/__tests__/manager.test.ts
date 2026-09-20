@@ -15,7 +15,7 @@ const stores = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: stores.sync,
+  plasmoSyncStorage: stores.sync,
   plasmoDeviceStorage: stores.local,
   removePlasmoStoredValue: vi.fn(async (key: string) =>
     key.startsWith("llm_provider_")

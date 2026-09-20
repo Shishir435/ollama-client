@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
+import type { AgentStepTelemetry } from "@ollama-client/contracts"
+import { AgentStepTelemetrySchema } from "@ollama-client/contracts"
 import {
   afterEach,
   beforeAll,
@@ -13,7 +15,7 @@ import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
 
 /**
- * Writer/reader alignment for every durable job repository (RELEASE_ROADMAP H7).
+ * Writer/reader alignment for every durable job repository.
  *
  * Each of these modules writes rows with one SQL statement and decodes them with
  * a Zod schema written by hand beside it. Nothing makes the two agree — a column
@@ -103,7 +105,363 @@ const boot = async () => {
   return facade
 }
 
+/**
+ * Every telemetry field the contract declares, derived from the schema rather
+ * than listed, so a field added later cannot reach a receipt without passing
+ * this write.
+ *
+ * Listing them is what let one through: a `screenshot: boolean` flag parsed,
+ * typechecked and unit-tested cleanly, and was then refused by the row's own
+ * privacy guard, which reads field names and cannot tell a boolean from an
+ * image. Nothing failed loudly — the write threw inside the run loop and two
+ * browser gates sat for thirty seconds waiting on a receipt.
+ */
+const everyTelemetryField = Object.fromEntries(
+  Object.entries(AgentStepTelemetrySchema.shape).map(([key, field], index) => [
+    key,
+    field.safeParse(true).success ? true : index + 1
+  ])
+) as AgentStepTelemetry
+
 describe("durable job rows decode as their writers wrote them", () => {
+  it(
+    "round-trips agent ownership and claims execution before effect evidence",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const createdAt = 1_700_000_000_000
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-row-1",
+        goal: "Inspect the current page",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 0,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt,
+        updatedAt: createdAt
+      })
+
+      const observing = await repo.claimAgentRunPhase({
+        runId: "agent-row-1",
+        phase: "observing",
+        expected: ["submitted"],
+        patch: { updatedAt: createdAt + 1 }
+      })
+      expect(observing.claimed).toBe(true)
+
+      const losingOwner = await repo.claimAgentRunPhase({
+        runId: "agent-row-1",
+        phase: "observing",
+        expected: ["submitted"],
+        patch: { updatedAt: createdAt + 2 }
+      })
+      expect(losingOwner.claimed).toBe(false)
+
+      await repo.transitionAgentRun({
+        runId: "agent-row-1",
+        from: "observing",
+        to: "deciding",
+        patch: { updatedAt: createdAt + 3 }
+      })
+      await repo.appendAgentStep({
+        runId: "agent-row-1",
+        stepId: "agent-row-1:1",
+        status: "planned",
+        command: {
+          type: "back",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        target: {
+          ref: "e1",
+          tag: "input",
+          role: "textbox",
+          name: "n".repeat(400)
+        },
+        sourceUrl: "https://example.com/start",
+        finding: "f".repeat(900),
+        telemetry: everyTelemetryField,
+        at: createdAt + 4
+      })
+      const written = await repo.listAgentSteps("agent-row-1")
+      /**
+       * A receipt is read back into a prompt, so its page-derived parts are
+       * bounded at the write and not only where they are assembled.
+       */
+      expect(written[0]).toMatchObject({
+        target: { ref: "e1", tag: "input", role: "textbox" },
+        sourceUrl: "https://example.com/start"
+      })
+      expect(written[0]?.target?.name).toHaveLength(120)
+      expect(written[0]?.finding).toHaveLength(500)
+      /**
+       * Telemetry is durable on the receipt because the receipts are what an
+       * MV3 worker restart leaves behind, and an interrupted run is the one
+       * worth measuring. Reported and estimated counts stay apart through the
+       * write, so an estimate can never be read back as a measurement.
+       */
+      expect(written[0]?.telemetry).toEqual(everyTelemetryField)
+      await repo.claimAgentRunPhase({
+        runId: "agent-row-1",
+        phase: "awaiting_approval",
+        expected: ["deciding"],
+        patch: { updatedAt: createdAt + 5 }
+      })
+      await repo.appendAgentStep({
+        runId: "agent-row-1",
+        stepId: "agent-row-1:1",
+        status: "approved",
+        risk: "low",
+        at: createdAt + 6
+      })
+      const executing = await repo.claimAgentRunPhase({
+        runId: "agent-row-1",
+        phase: "executing",
+        expected: ["awaiting_approval"],
+        patch: {
+          allowedOrigins: ["https://example.com", "https://other.example"],
+          stepCount: 1,
+          updatedAt: createdAt + 7
+        }
+      })
+
+      expect(executing.claimed).toBe(true)
+      /**
+       * An origin the user approved is durable from the claim that opened
+       * execution, so a worker lost mid-effect does not re-prompt for it.
+       */
+      await expect(
+        repo
+          .getAgentRun("agent-row-1")
+          .then((run) => run?.state?.allowedOrigins)
+      ).resolves.toEqual(["https://example.com", "https://other.example"])
+      await expect(repo.listAgentSteps("agent-row-1")).resolves.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ status: "executing" })
+        ])
+      )
+    },
+    TIMEOUT
+  )
+
+  it(
+    "compacts an agent checkpoint in the terminal CAS statement",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const db = await import("@/lib/sqlite/db")
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-terminal-1",
+        goal: "Finish safely",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 1,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt: 1,
+        updatedAt: 2
+      })
+
+      await repo.claimAgentRunPhase({
+        runId: "agent-terminal-1",
+        phase: "observing",
+        expected: ["submitted"],
+        patch: { updatedAt: 2 }
+      })
+      await repo.transitionAgentRun({
+        runId: "agent-terminal-1",
+        from: "observing",
+        to: "deciding",
+        patch: { updatedAt: 2 }
+      })
+      await repo.transitionAgentRun({
+        runId: "agent-terminal-1",
+        from: "deciding",
+        to: "completed",
+        patch: { updatedAt: 3 }
+      })
+
+      const rows = await db.query(
+        "SELECT status, checkpoint FROM agent_runs WHERE id = ?",
+        ["agent-terminal-1"]
+      )
+      expect(rows[0]?.status).toBe("completed")
+      expect(JSON.parse(String(rows[0]?.checkpoint))).toMatchObject({
+        version: 1,
+        compacted: true,
+        terminalAt: 3,
+        state: {
+          id: "agent-terminal-1",
+          status: "completed",
+          observationCount: 1
+        }
+      })
+      await expect(repo.getAgentRun("agent-terminal-1")).resolves.toMatchObject(
+        {
+          status: "completed",
+          compacted: true,
+          state: { id: "agent-terminal-1", status: "completed" }
+        }
+      )
+    },
+    TIMEOUT
+  )
+
+  it(
+    "redacts typed and selected values before durable step storage",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const db = await import("@/lib/sqlite/db")
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-redaction-1",
+        goal: "Prepare a form",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 1,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt: 1,
+        updatedAt: 1
+      })
+      await repo.appendAgentStep({
+        runId: "agent-redaction-1",
+        stepId: "agent-redaction-1:1",
+        status: "planned",
+        command: {
+          type: "clear_and_type",
+          ref: "e1",
+          text: "private-profile-value",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        at: 2
+      })
+      await repo.appendAgentStep({
+        runId: "agent-redaction-1",
+        stepId: "agent-redaction-1:2",
+        status: "planned",
+        command: {
+          type: "select",
+          ref: "e2",
+          value: "private-option-value",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        at: 3
+      })
+
+      const stored = await db.query(
+        "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id",
+        ["agent-redaction-1"]
+      )
+      const serialized = JSON.stringify(stored)
+      expect(serialized).not.toContain("private-profile-value")
+      expect(serialized).not.toContain("private-option-value")
+      expect(serialized).toContain("[redacted]")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "persists valid long editing commands as redacted receipts",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      await repo.createAgentRun({
+        version: 1,
+        id: "long-edit-agent",
+        goal: "Edit a long document",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 1,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt: 1,
+        updatedAt: 1
+      })
+      for (const command of [
+        {
+          type: "type",
+          ref: "field-1",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          text: "x".repeat(20_000)
+        },
+        {
+          type: "clear_and_type",
+          ref: "field-1",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          text: "y".repeat(20_000)
+        },
+        {
+          type: "replace_text",
+          ref: "field-1",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          find: "needle",
+          text: "z".repeat(20_000)
+        }
+      ] as const) {
+        await repo.appendAgentStep({
+          runId: "long-edit-agent",
+          stepId: `long-edit-agent:${command.type}`,
+          status: "planned",
+          command,
+          at: 1
+        })
+      }
+      const stored = await repo.listAgentSteps("long-edit-agent")
+      expect(stored).toHaveLength(3)
+      const serialized = JSON.stringify(stored)
+      expect(serialized).not.toContain("x".repeat(100))
+      expect(serialized).not.toContain("y".repeat(100))
+      expect(serialized).not.toContain("z".repeat(100))
+      expect(serialized).toContain("[redacted]")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "rejects oversized agent evidence before writing it",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      await expect(
+        repo.appendAgentStep({
+          runId: "missing-agent",
+          stepId: "missing-agent:1",
+          status: "planned",
+          command: {
+            type: "call_page_tool",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            toolName: "search",
+            schemaRevision: "12345678",
+            frameId: 0,
+            documentId: "doc-1",
+            input: { blob: "x".repeat(17_000) }
+          },
+          at: 1
+        })
+      ).rejects.toThrow(/byte limit/)
+    },
+    TIMEOUT
+  )
+
   it(
     "round-trips an ingestion run through both of its readers",
     async () => {

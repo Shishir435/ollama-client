@@ -281,6 +281,31 @@ const QwenBrandIcon = ({ className }: ProviderBrandIconProps) => (
   </svg>
 )
 
+/**
+ * OpenCode's square mark: the "o" of its wordmark, which is also its favicon.
+ *
+ * Their own artwork is a 24x30 frame drawn from y=6, so it is shifted to the
+ * origin and scaled uniformly to fill a 24-square box — squashing it into the
+ * viewBox would letter-press the one shape that makes it recognisable. Drawn
+ * as a ring in `currentColor` like every other mark here; the wordmark's
+ * two-tone counter has no meaning at a glyph's size.
+ */
+const OpenCodeBrandIcon = ({ className }: ProviderBrandIconProps) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    focusable="false">
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      transform="translate(2.4 0) scale(0.8) translate(0 -6)"
+      d="M18 12H6V30H18V12ZM24 36H0V6H24V36Z"
+    />
+  </svg>
+)
+
 /** Brand id to its mark. Every id in `PROVIDER_BRANDS` has one entry. */
 export const PROVIDER_BRAND_ICONS: Record<
   ProviderBrandId,
@@ -301,5 +326,6 @@ export const PROVIDER_BRAND_ICONS: Record<
   gemini: GeminiBrandIcon,
   perplexity: PerplexityBrandIcon,
   vllm: VllmBrandIcon,
-  qwen: QwenBrandIcon
+  qwen: QwenBrandIcon,
+  opencode: OpenCodeBrandIcon
 }

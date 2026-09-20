@@ -32,11 +32,22 @@ import { createRequestQueue } from "../queue.js"
 interface FakeBackendOptions {
   mode: "answer" | "tool" | "fail" | "image"
   answer?: string
+  /** Holds `ensureReady` so a caller can leave while the backend is starting. */
+  readyDelayMs?: number
 }
 
 /** A prompt that makes the fake backend hold the queue for a while. */
 const SLOW_TURN_MARKER = "please-be-slow"
 const SLOW_TURN_MS = 300
+
+/**
+ * A prompt whose turn ends only when the core cancels it.
+ *
+ * The backend port's `signals.abort` is the only thing that can end it, so a
+ * request using this marker hangs until its deadline if the core ever stops
+ * threading that signal through — which is exactly the failure it guards.
+ */
+const HELD_TURN_MARKER = "hold-until-cancelled"
 
 const MODEL: CatalogModel = {
   id: "fake/model-a",
@@ -58,26 +69,54 @@ const createFakeBackend = (
     startTurn: number
     dispose: number
     abort: number
+    ensureReady: number
+    cancelledByAbort: number
     reasoningEfforts: Array<ReasoningEffort | undefined>
-  } = { startTurn: 0, dispose: 0, abort: 0, reasoningEfforts: [] }
+    startedMessages: unknown[][]
+  } = {
+    startTurn: 0,
+    dispose: 0,
+    abort: 0,
+    ensureReady: 0,
+    cancelledByAbort: 0,
+    reasoningEfforts: [],
+    startedMessages: [] as unknown[][]
+  }
   let nextId = 0
 
   class FakeTurn implements BackendTurn {
     readonly id: string
     readonly slow: boolean
+    readonly held: boolean
     private toolPromise: Promise<string> | null = null
     private toolOutput = ""
     private streamed = ""
 
-    constructor(id: string, slow = false) {
+    constructor(id: string, slow = false, held = false) {
       this.id = id
       this.slow = slow
+      this.held = held
     }
 
     async run(
       handlers: TurnStreamHandlers,
       signals: TurnRunSignals
     ): Promise<TurnResult> {
+      if (this.held) {
+        this.emit(handlers, "reading. ")
+        await new Promise<void>((resolve) => {
+          if (signals.abort?.aborted) {
+            resolve()
+            return
+          }
+          signals.abort?.addEventListener("abort", () => resolve(), {
+            once: true
+          })
+        })
+        calls.cancelledByAbort += 1
+        throw new Error("the turn was cancelled")
+      }
+
       if (this.slow) {
         await new Promise((resolve) => setTimeout(resolve, SLOW_TURN_MS))
         this.emit(handlers, "took a while")
@@ -183,7 +222,13 @@ const createFakeBackend = (
 
   const backend: AgentBackend = {
     id: "fake",
-    ensureReady: async () => {},
+    ensureReady: async () => {
+      calls.ensureReady += 1
+      if (options.readyDelayMs)
+        await new Promise((resolve) =>
+          setTimeout(resolve, options.readyDelayMs)
+        )
+    },
     listModels: async () => [MODEL],
     resolveModel: async (requested) =>
       requested === "fake/model-a"
@@ -192,10 +237,13 @@ const createFakeBackend = (
     startTurn: async (input) => {
       calls.startTurn += 1
       calls.reasoningEfforts.push(input.reasoningEffort)
+      calls.startedMessages.push(input.messages as unknown[])
       nextId += 1
+      const serialized = JSON.stringify(input.messages)
       const turn = new FakeTurn(
         `turn_${nextId}`,
-        JSON.stringify(input.messages).includes(SLOW_TURN_MARKER)
+        serialized.includes(SLOW_TURN_MARKER),
+        serialized.includes(HELD_TURN_MARKER)
       )
       turns.set(turn.id, turn)
       return turn
@@ -210,11 +258,17 @@ const createFakeBackend = (
 interface Harness {
   url: string
   server: Server
+  routes: ReturnType<typeof registerChatRoutes>
   calls: {
     startTurn: number
     dispose: number
     abort: number
+    ensureReady: number
+    /** Turns the backend ended because the core aborted them. */
+    cancelledByAbort: number
     reasoningEfforts: Array<ReasoningEffort | undefined>
+    /** The messages each turn was started with, in order. */
+    startedMessages: unknown[][]
   }
   pending: PendingToolCalls
 }
@@ -249,7 +303,7 @@ const startHarness = async (
   router.get("/health", (_request, response) =>
     sendJson(response, 200, { status: "ok" })
   )
-  registerChatRoutes(router, {
+  const routes = registerChatRoutes(router, {
     backend,
     config,
     log: () => {},
@@ -264,7 +318,7 @@ const startHarness = async (
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   const { port } = server.address() as AddressInfo
 
-  return { url: `http://127.0.0.1:${port}`, server, calls, pending }
+  return { url: `http://127.0.0.1:${port}`, server, calls, pending, routes }
 }
 
 interface StreamedTurn {
@@ -276,6 +330,7 @@ interface StreamedTurn {
     function: { name: string; arguments: string }
   }[]
   images: string[]
+  error?: { message: string; type: string; status: number }
 }
 
 const streamTurn = async (
@@ -310,7 +365,12 @@ const streamTurn = async (
     if (!line.startsWith("data: ")) continue
     const payload = line.slice(6).trim()
     if (payload === "[DONE]") continue
-    const choice = JSON.parse(payload).choices?.[0]
+    const frame = JSON.parse(payload)
+    if (frame.error) {
+      result.error = frame.error
+      continue
+    }
+    const choice = frame.choices?.[0]
     if (typeof choice?.delta?.content === "string") {
       result.content += choice.delta.content
     }
@@ -485,7 +545,7 @@ describe("chat completions", () => {
     )
   })
 
-  it("reports a backend failure in the stream without leaking the turn", async () => {
+  it("reports a backend failure as an error event, not as an answer", async () => {
     harness = await startHarness({ mode: "fail" })
     const turn = await streamTurn(harness.url, {
       model: "fake/model-a",
@@ -493,9 +553,117 @@ describe("chat completions", () => {
       messages: askedForTabs
     })
 
-    expect(turn.content).toContain("[Proxy Error] FakeError: upstream exploded")
-    expect(turn.finishReason).toBe("stop")
+    // A failure finished with `stop` reads as a completed turn to every
+    // OpenAI-compatible client, which is how a provider error became a
+    // decision with no tool call.
+    expect(turn.error).toEqual({
+      message: "upstream exploded",
+      type: "FakeError",
+      status: 502
+    })
+    expect(turn.content).toBe("")
+    expect(turn.finishReason).toBeNull()
     expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("reports a backend failure in the non-streaming envelope too", async () => {
+    harness = await startHarness({ mode: "fail" })
+    const response = await fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: false,
+        messages: askedForTabs
+      })
+    })
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      error: { message: "upstream exploded", type: "FakeError" }
+    })
+    expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("never starts a request whose client left while it was queued", async () => {
+    harness = await startHarness({ mode: "answer" })
+    const holding = streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [{ role: "user", content: SLOW_TURN_MARKER }]
+    })
+    const abandoned = new AbortController()
+    const queued = fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: true,
+        messages: askedForTabs
+      }),
+      signal: abandoned.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    abandoned.abort()
+    await queued
+    await holding
+    await new Promise((resolve) => setTimeout(resolve, 200))
+
+    expect(harness.calls.startTurn).toBe(1)
+  })
+
+  it("unwinds a cancelled stream before admitting the next request", async () => {
+    harness = await startHarness({ mode: "answer" })
+    const leaving = new AbortController()
+    const cancelled = fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: true,
+        messages: [{ role: "user", content: SLOW_TURN_MARKER }]
+      }),
+      signal: leaving.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    leaving.abort()
+    await cancelled
+
+    const next = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+
+    expect(next.content).toBe("working. done")
+    expect(harness.calls.abort).toBe(1)
+    expect(harness.calls.startTurn).toBe(2)
+  })
+
+  it("does not spend a turn when the client leaves during backend startup", async () => {
+    harness = await startHarness({ mode: "answer", readyDelayMs: 150 })
+    const leaving = new AbortController()
+    const cancelled = fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: true,
+        messages: askedForTabs
+      }),
+      signal: leaving.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    leaving.abort()
+    await cancelled
+    await new Promise((resolve) => setTimeout(resolve, 250))
+
+    // Startup itself is shared and is not cancelled; the turn behind it is.
+    expect(harness.calls.ensureReady).toBe(1)
+    expect(harness.calls.startTurn).toBe(0)
   })
 
   it("rejects an unknown model and an empty conversation", async () => {
@@ -775,5 +943,339 @@ describe("chat completions", () => {
       { Authorization: "Bearer secret" }
     )
     expect(accepted.finishReason).toBe("stop")
+  })
+})
+
+/**
+ * A browser-agent run, as the proxy sees it.
+ *
+ * Every step is one request that declares a decision tool, gets the call back
+ * as a `tool_calls` delta, and never returns a result: the extension parses
+ * the decision and starts the next step as a fresh conversation. Nothing in
+ * the wire says so, which is why the proxy cannot conclude the client has
+ * moved on — it can only refuse to hold an unbounded number of the sessions
+ * such a run leaves behind.
+ */
+const oneShotDecision = (harness: Harness, step: number) =>
+  streamTurn(harness.url, {
+    model: "fake/model-a",
+    stream: true,
+    messages: [
+      { role: "system", content: "decide one action" },
+      { role: "user", content: `step ${step}` }
+    ],
+    tools: [{ type: "function", function: { name: "list_tabs" } }]
+  })
+
+describe("a client that never resumes its turns", () => {
+  it("does not accumulate a parked session per decision", async () => {
+    harness = await startHarness({ mode: "tool" })
+
+    for (let step = 1; step <= 12; step += 1) {
+      const decision = await oneShotDecision(harness, step)
+      expect(decision.finishReason).toBe("tool_calls")
+      expect(decision.toolCalls).toHaveLength(1)
+    }
+
+    // Bounded by the cap rather than growing with the run: twelve steps used
+    // to leave twelve live backend sessions parked for ten minutes each.
+    const held = harness.routes.inspect()
+    expect(held.parkedTurns).toBeLessThanOrEqual(
+      resolveConfig({}).MAX_PARKED_TURNS
+    )
+    expect(held.pendingCalls).toBe(held.parkedTurns)
+  })
+
+  it("keeps answering after a long run rather than blocking on what it left", async () => {
+    harness = await startHarness({ mode: "tool" })
+    for (let step = 1; step <= 12; step += 1) {
+      await oneShotDecision(harness, step)
+    }
+    // The queue slot is released when a turn suspends, so the run's own steps
+    // never queued behind each other; this asserts the twelfth answers as the
+    // first did rather than waiting behind eleven parked sessions.
+    const last = await oneShotDecision(harness, 13)
+    expect(last.status).toBe(200)
+    expect(last.finishReason).toBe("tool_calls")
+  })
+
+  it("discards the oldest parked turn first", async () => {
+    harness = await startHarness({ mode: "tool" }, { MAX_PARKED_TURNS: 2 })
+    const first = await oneShotDecision(harness, 1)
+    const second = await oneShotDecision(harness, 2)
+    await oneShotDecision(harness, 3)
+
+    // The oldest is gone, so its result is refused rather than joined to
+    // whatever turn happens to be live now.
+    const stale = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        { role: "user", content: "step 1" },
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              id: first.toolCalls[0]?.id,
+              type: "function",
+              function: first.toolCalls[0]?.function
+            }
+          ]
+        },
+        {
+          role: "tool",
+          tool_call_id: first.toolCalls[0]?.id,
+          content: "two tabs"
+        }
+      ],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    expect(stale.status).toBe(400)
+    expect(stale.content).toContain("StaleToolResults")
+    expect(second.toolCalls[0]?.id).toBeDefined()
+  })
+
+  it("settles a turn whose resume is still queued when the proxy shuts down", async () => {
+    /**
+     * A resuming turn is taken out of the parked map — a request carrying its
+     * results already exists, so its deadlines are suspended — which meant a
+     * shutdown that walked that map alone left the session, the hold and the
+     * suspended calls behind. The calls were the worst of it: their timers
+     * were cleared on the way in, so nothing was ever going to settle them.
+     */
+    harness = await startHarness({ mode: "tool" })
+    const first = await oneShotDecision(harness, 1)
+    const call = first.toolCalls[0]
+
+    // Occupy the single-flight slot so the resume below waits behind it, which
+    // is the window the hold exists for.
+    const slow = streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [{ role: "user", content: SLOW_TURN_MARKER }]
+    })
+    const resumed = streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        { role: "user", content: "step 1" },
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            { id: call?.id, type: "function", function: call?.function }
+          ]
+        },
+        { role: "tool", tool_call_id: call?.id, content: "two tabs" }
+      ],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    expect(harness.routes.inspect()).toMatchObject({
+      parkedTurns: 0,
+      resumeHolds: 1,
+      pendingCalls: 1
+    })
+
+    await harness.routes.shutdown()
+    expect(harness.routes.inspect()).toEqual({
+      parkedTurns: 0,
+      pendingCalls: 0,
+      resumeHolds: 0
+    })
+    await slow
+    await resumed
+  })
+
+  it("leaves nothing held once the proxy shuts down", async () => {
+    harness = await startHarness({ mode: "tool" })
+    await oneShotDecision(harness, 1)
+    await oneShotDecision(harness, 2)
+    expect(harness.routes.inspect().parkedTurns).toBeGreaterThan(0)
+
+    await harness.routes.shutdown()
+
+    // Both the parked turn and its call settle, and the backend is told to
+    // drop the session rather than being left to a timer nobody will see.
+    expect(harness.routes.inspect()).toEqual({
+      parkedTurns: 0,
+      pendingCalls: 0,
+      resumeHolds: 0
+    })
+    expect(harness.calls.dispose).toBeGreaterThanOrEqual(2)
+  })
+})
+
+/**
+ * Every way a turn can end has to leave the proxy holding nothing.
+ *
+ * A response that stopped is not a session that settled: a backend turn is a
+ * live session and a parked call is a promise something is awaiting, and a
+ * test that asserted only the response body could not tell one from the
+ * other. `inspect` is what makes the difference visible.
+ */
+describe("terminal paths settle the session and the slot", () => {
+  const held = () => harness?.routes.inspect()
+
+  /** Poll rather than sleep: the point is that it settles, and quickly. */
+  const waitFor = async (
+    condition: () => boolean,
+    ms: number
+  ): Promise<void> => {
+    const deadline = Date.now() + ms
+    while (Date.now() < deadline && !condition()) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+  }
+
+  /**
+   * A client that leaves mid-stream is the ordinary end of an agent decision,
+   * and the turn behind it has to stop. The backend here ends only on
+   * `signals.abort`, so a core that does not pass it through holds this
+   * request until its deadline and leaves the session live.
+   */
+  it("settles a turn whose client left mid-stream", async () => {
+    harness = await startHarness({ mode: "answer" })
+    const leaving = new AbortController()
+    const cancelled = fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: true,
+        messages: [{ role: "user", content: HELD_TURN_MARKER }]
+      }),
+      signal: leaving.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    leaving.abort()
+    await cancelled
+
+    await waitFor(() => harness?.calls.cancelledByAbort === 1, 2000)
+    expect(harness.calls.cancelledByAbort).toBe(1)
+    expect(held()).toEqual({
+      parkedTurns: 0,
+      pendingCalls: 0,
+      resumeHolds: 0
+    })
+    expect(harness.calls.dispose).toBeGreaterThanOrEqual(1)
+
+    // And the slot is free: the next request is served, not refused.
+    const next = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+    expect(next.content).toBe("working. done")
+  })
+
+  it("settles a plain answer", async () => {
+    harness = await startHarness({ mode: "answer", answer: "all good" })
+    const turn = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+    expect(turn.finishReason).toBe("stop")
+    expect(held()).toEqual({
+      parkedTurns: 0,
+      pendingCalls: 0,
+      resumeHolds: 0
+    })
+    expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("settles a turn the backend failed", async () => {
+    harness = await startHarness({ mode: "fail" })
+    const turn = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+    expect(turn.error ?? turn.status).toBeTruthy()
+    expect(held()).toEqual({
+      parkedTurns: 0,
+      pendingCalls: 0,
+      resumeHolds: 0
+    })
+  })
+
+  it("settles a model the catalog does not have", async () => {
+    harness = await startHarness({ mode: "answer" })
+    const turn = await streamTurn(harness.url, {
+      model: "fake/not-a-model",
+      stream: true,
+      messages: askedForTabs
+    })
+    expect(turn.status).toBe(400)
+    // Refused before a session was ever started, so nothing to settle.
+    expect(harness.calls.startTurn).toBe(0)
+    expect(held()).toEqual({
+      parkedTurns: 0,
+      pendingCalls: 0,
+      resumeHolds: 0
+    })
+  })
+
+  it("settles a resumed turn once its result is delivered", async () => {
+    harness = await startHarness({ mode: "tool" })
+    const first = await oneShotDecision(harness, 1)
+    const call = first.toolCalls[0]
+    expect(held()).toMatchObject({ parkedTurns: 1, pendingCalls: 1 })
+
+    const resumed = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        { role: "user", content: "step 1" },
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            { id: call?.id, type: "function", function: call?.function }
+          ]
+        },
+        { role: "tool", tool_call_id: call?.id, content: "two tabs" }
+      ],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    expect(resumed.finishReason).toBe("stop")
+    expect(held()).toEqual({
+      parkedTurns: 0,
+      pendingCalls: 0,
+      resumeHolds: 0
+    })
+  })
+})
+
+describe("images the client attached", () => {
+  it("reaches the backend as a part, not flattened into the text", async () => {
+    /**
+     * An `image_url` part carries no `text`, so a message flattened to a
+     * string drops it and leaves the model answering about a picture it never
+     * saw. Asserted here, through the route, and not only over the wire
+     * helper: this is the path a vision agent decision actually takes.
+     */
+    harness = await startHarness({ mode: "answer", answer: "a cat" })
+    const dataUrl = "data:image/png;base64,AAAA"
+    await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "what is in this picture?" },
+            { type: "image_url", image_url: { url: dataUrl } }
+          ]
+        }
+      ]
+    })
+
+    const started = JSON.stringify(harness.calls.startedMessages.at(-1))
+    expect(started).toContain("what is in this picture?")
+    expect(started).toContain(dataUrl)
   })
 })

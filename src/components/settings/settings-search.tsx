@@ -113,7 +113,7 @@ export const SettingsSearch = ({
             }
           }}
           className={cn(
-            "h-9 w-full rounded-control border border-input bg-background pl-8 text-sm outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40",
+            "h-9 w-full rounded-control border border-input bg-background pl-8 text-sm outline-hidden focus-visible:ring-2 focus-visible:ring-focus",
             showShortcutHint ? "pr-20" : "pr-3"
           )}
         />

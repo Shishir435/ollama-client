@@ -1,12 +1,12 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import type { useThemeStore as UseThemeStoreType } from "../theme"
 
 // Mock plasmo storage
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(undefined),
     remove: vi.fn().mockResolvedValue(undefined)
@@ -100,15 +100,15 @@ describe("theme store", () => {
     act(() => {
       result.current.setTheme("dark")
     })
-    await waitFor(() => expect(plasmoGlobalStorage.set).toHaveBeenCalled())
-    vi.mocked(plasmoGlobalStorage.set).mockClear()
+    await waitFor(() => expect(plasmoSyncStorage.set).toHaveBeenCalled())
+    vi.mocked(plasmoSyncStorage.set).mockClear()
 
     act(() => {
       onStorageChanged(themeEvent("dark"), "sync")
     })
 
     await Promise.resolve()
-    expect(plasmoGlobalStorage.set).not.toHaveBeenCalled()
+    expect(plasmoSyncStorage.set).not.toHaveBeenCalled()
     expect(result.current.theme).toBe("dark")
   })
 

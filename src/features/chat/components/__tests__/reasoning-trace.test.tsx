@@ -90,8 +90,12 @@ describe("ReasoningTrace", () => {
     ).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
-    expect(screen.getByText("Debug reasoning")).toBeInTheDocument()
-    fireEvent.click(screen.getByText("Debug reasoning"))
+    const debugLabel = screen.getByText("Debug reasoning")
+    const debugSummary = debugLabel.closest("summary")
+    const debugDetails = debugLabel.closest("details")
+    expect(debugSummary).toHaveClass("outline-none", "focus-visible:ring-focus")
+    expect(debugDetails).not.toHaveClass("border", "bg-surface-sunken")
+    fireEvent.click(debugLabel)
     expect(screen.getByText("private reasoning detail")).toBeInTheDocument()
   })
 

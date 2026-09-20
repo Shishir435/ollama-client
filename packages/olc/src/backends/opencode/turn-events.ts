@@ -14,10 +14,25 @@
  */
 import type { OpencodeClient } from "@opencode-ai/sdk"
 import type { ProxyLogger, RetryAsync } from "../../types.js"
-import { sleep } from "../../util.js"
+import {
+  anySignal,
+  OperationAbortedError,
+  sleep,
+  untilAborted,
+  withTimeout
+} from "../../util.js"
 
 const DEFAULT_POLL_INTERVAL_MS = 500
 const HEARTBEAT_MS = 10_000
+
+/**
+ * How long opening the event feed may take.
+ *
+ * The subscription is awaited before any of the turn's own timers exist, so an
+ * `event.subscribe` that never resolves is an await with nothing behind it.
+ * Opening a feed on a loopback server is a sub-second operation.
+ */
+const EVENT_SUBSCRIBE_TIMEOUT_MS = 15_000
 
 export const TERMINAL_FINISH_REASONS = new Set([
   "stop",
@@ -213,7 +228,8 @@ export const createTurnReader = ({
       idleTimeoutMs,
       onDelta,
       onPatch,
-      suspendPromise
+      suspendPromise,
+      abortSignal
     }: {
       timeoutMs: number
       firstDeltaTimeoutMs?: number
@@ -221,12 +237,23 @@ export const createTurnReader = ({
       onDelta?: (text: string, isReasoning: boolean) => void
       onPatch?: (payload: PatchPayload) => void | Promise<void>
       suspendPromise?: Promise<void>
+      /** Aborted when the core has ended the request this feed belongs to. */
+      abortSignal?: AbortSignal
     }
   ): Promise<{ done: Promise<TurnOutcome>; controller: AbortController }> => {
     const controller = new AbortController()
-    const subscription = await client.event.subscribe({
-      signal: controller.signal
-    })
+    const subscribeLabel = `event.subscribe(${sessionId})`
+    const subscription = await withTimeout(
+      untilAborted(
+        client.event.subscribe({
+          signal: anySignal([controller.signal, abortSignal])
+        }),
+        abortSignal,
+        subscribeLabel
+      ),
+      EVENT_SUBSCRIBE_TIMEOUT_MS,
+      subscribeLabel
+    )
     const stream = (
       subscription as unknown as { stream: AsyncIterable<unknown> }
     ).stream
@@ -281,6 +308,24 @@ export const createTurnReader = ({
           })
           settle({ content, reasoning, idleTimeout: true, receivedDelta })
         }, idleTimeoutMs)
+      }
+
+      /**
+       * A cancelled request must end this feed itself. Aborting the
+       * subscription may simply end the iterator, and a `for await` that runs
+       * out settles nothing — `done` would then never resolve and the caller
+       * would hold the queue's slot waiting for it.
+       */
+      if (abortSignal) {
+        const onAbort = () => {
+          if (finished) return
+          finished = true
+          clearTimers()
+          controller.abort()
+          reject(new OperationAbortedError(`turn ${sessionId}`))
+        }
+        if (abortSignal.aborted) onAbort()
+        else abortSignal.addEventListener("abort", onAbort, { once: true })
       }
 
       if (suspendPromise) {
@@ -520,7 +565,8 @@ export const createTurnReader = ({
       requireFinalOrContent = false,
       onProgress,
       onPatch,
-      isSuspended
+      isSuspended,
+      abortSignal
     }: {
       timeoutMs: number
       intervalMs?: number
@@ -528,6 +574,8 @@ export const createTurnReader = ({
       onProgress?: (content: string, reasoning: string) => void
       onPatch?: (payload: PatchPayload) => void | Promise<void>
       isSuspended?: () => boolean
+      /** Aborted when the core has ended the request this poll belongs to. */
+      abortSignal?: AbortSignal
     }
   ): Promise<TurnOutcome> => {
     const cursors = { content: 0, reasoning: 0 }
@@ -536,6 +584,16 @@ export const createTurnReader = ({
     let lastHeartbeatAt = startedAt
 
     while (Date.now() - startedAt < timeoutMs) {
+      /**
+       * A cancelled turn is not polled for. The session it reads may already
+       * have been deleted by the abandonment path, and the whole retry budget
+       * would otherwise be spent asking a server about a session nobody wants
+       * an answer for.
+       */
+      if (abortSignal?.aborted) {
+        log("Polling cancelled", { sessionId, ms: Date.now() - startedAt })
+        throw new OperationAbortedError(`poll ${sessionId}`)
+      }
       if (isSuspended?.()) {
         return { content: "", reasoning: "", toolErrors: [], suspended: true }
       }
@@ -596,7 +654,9 @@ export const createTurnReader = ({
       } catch (error) {
         const message = (error as Error).message
         const isTimeout = /Request timeout after \d+ms/.test(message)
-        if (!isTimeout || attempt > retries) throw error
+        if (options.abortSignal?.aborted || !isTimeout || attempt > retries) {
+          throw error
+        }
         console.warn(
           `[Proxy][Retry] Session ${sessionId} did not finish within ${options.timeoutMs}ms (attempt ${attempt}/${retries + 1}). Retrying...`
         )

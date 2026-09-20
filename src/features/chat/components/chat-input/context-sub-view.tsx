@@ -41,7 +41,12 @@ export const ContextSubView = ({
         </span>
         {headerActions}
       </div>
-      {children}
+      {/*
+        The sheet keeps one content edge, and the back chevron sits on it, so
+        the view's own content lines up with the glyph above it rather than
+        with the sheet's outer padding.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col px-2.5">{children}</div>
     </div>
   )
 }

@@ -4,12 +4,14 @@ Guidance for AI coding assistants (Claude Code, Cursor, Warp, Copilot, etc.) wor
 
 Rules here are stated as rules. Where a rule exists because something broke, the reason is one clause, not a story — `git log` has the rest.
 
+Two subsystems keep their detail in their own file, because neither is needed for most changes and both are long: [`AGENT_INTERNALS.md`](./AGENT_INTERNALS.md) for the browser agent, [`packages/olc/AGENTS.md`](./packages/olc/AGENTS.md) for the olc CLI. Read the one your change touches.
+
 ## Contents
 
 - [Project overview](#project-overview)
 - [Commands](#commands)
 - [Architecture](#architecture) — entrypoints, packages, chat round-trip, providers, RPC, storage, features
-- [Subsystems](#subsystems) — RAG, web search, tools, agent runtimes, browser sessions
+- [Subsystems](#subsystems) — RAG, web search, internal tools, olc proxy, browser agent
 - [Conventions](#conventions) — messaging, UI, i18n, testing, lint, git hooks
 - [Constraints](#constraints)
 - [Provider API reference](#provider-api-reference)
@@ -84,9 +86,10 @@ WXT discovers entrypoints from `src/entrypoints/`. Each is a thin bootstrapper t
 | `@ollama-client/contracts` | environment-independent Zod schemas, RPC/stream envelopes, durable turn/context/tool-loop contracts |
 | `@ollama-client/runtime-core` | deterministic stream reduction, thinking parsing, cancellation, retry, checkpoint, sender-evidence primitives |
 | `@ollama-client/chat-runtime` | port-driven durable turn, context-build, and tool-loop orchestration |
+| `@ollama-client/agent-runtime` | pure supervised-agent controller: run state machine, affordance layer, policy, completion judge, history ([details](./AGENT_INTERNALS.md)) |
 | `@ollama-client/olc` | standalone Node CLI: native Ollama setup and explicit OpenAI-compatible agent proxies ([details](#agent-runtimes-via-the-olc-proxy)) |
 
-- The first three never import React, WXT, browser APIs, persistence adapters, feature UI, background composition, or concrete providers. Those stay in `src/` and connect through package ports.
+- Every package except `olc` never imports React, WXT, browser APIs, persistence adapters, feature UI, background composition, or concrete providers. Those stay in `src/` and connect through package ports.
 - Every package carries the extension's version; `config/__tests__/package-versions.test.ts` fails on drift.
 
 ### Chat round-trip
@@ -147,7 +150,27 @@ Differs sharply by server, so check before assuming a field exists.
 #### Vendor marks and favicons
 
 - **Vendor marks are display-only.** `provider-brand.ts` resolves a `ProviderBrandId` from built-in id, then base-URL host, then service profile, then display name; `mergeProviderModels` stamps it on every model row as `providerBrand`. Host beats profile, or every OpenAI-compatible provider would wear OpenAI's mark. An unrecognized provider gets no brand and falls back to the registry glyph. Never guess one, and never derive routing or capabilities from it.
+- **A model id may name its own vendor, and that beats the provider's mark on
+  a model row.** `resolveModelBrand` reads the segment before the first slash
+  against a closed table — an OpenRouter-style `anthropic/claude-3`, an olc
+  proxy's `codex/gpt-5.6-luna` — which is the catalog's own word for where the
+  model comes from rather than an inference from one, and is what separates
+  reading it from guessing. It is display-only like every other mark. Across
+  providers the provider's mark is what tells two same-named models apart and
+  still takes the slot; inside one provider that mark is identical on every
+  row and says nothing, which is how five models under one heading came to
+  wear five identical generic glyphs while each id had named its vendor in
+  plain text above them. A segment with no mark of its own — `opencode`, a
+  user's own namespace — resolves to nothing and keeps the generic icon.
 - Marks are inline monochrome SVG in `src/components/icons/provider-brand-icons.tsx` (from MIT-licensed `@lobehub/icons`), rendered through `<ProviderIcon>`, not imported directly.
+- **Initials sit between a favicon and the generic glyph.** A custom provider
+  with no curated mark and no reachable favicon — which is every loopback
+  proxy, since those hosts are refused — drew the same server icon as every
+  other one, so a rail holding three said only that three existed.
+  `providerMonogram` takes the first letter of a one-word name and two for a
+  longer one, drawn as SVG text in the mark's own 24-square box so it scales
+  with the size class like a curated mark would. It is offered only for a
+  `custom:` id: a built-in with a real icon must never be reduced to a letter.
 - **Favicons are the tier below**, for unrecognized *remote* providers only (`provider-favicon.ts`, served by `providers.icons`). Rules, all load-bearing:
   - The configured base URL is asked first. Its parent site is asked **only** after a settled "nothing here" (401/403/404/410, or a 200 carrying non-image bytes — a gateway guards `/favicon.ico` behind its key like every other path). Timeouts and 5xx are never chased.
   - Exactly one label is stripped (`api.acme.com` → `acme.com`), never down to a public suffix.
@@ -204,6 +227,7 @@ Chat history is **SQLite-only**, on one engine and one writer: official sqlite-w
   - `updateTurnRun` resolving false means another owner has the turn: `TurnRuntime` then does no provider work.
   - A stop commits `cancelling` **before** aborting the controller, so a worker lost mid-stop restarts into recovery rather than handing a `generating` row back to the provider.
   - Startup finalizes interrupted cancellations without reissuing anything, and terminally fails an unparseable row with a content-free diagnostic.
+  - Live starts and recovery share a worker-local execution claim, held through cleanup. A status CAS permits `generating` → `generating` for restart recovery; it cannot prevent delayed startup recovery from duplicating a turn this worker already owns.
 - **A settled turn keeps no resumable input.** `turn_runs.request` holds the whole prior conversation, file text, page bodies and base64 images — necessary while resumable, and O(n²) bytes per chat once it is not.
   - `compactedTurnRequest(...)` replaces it **in the same statement that writes the terminal status** (`updateTurnRun`, `finalizeCancelledTurn`, `quarantineTurnRun`), never in a later pass a dying worker could skip. Migration 14 cleared the backlog.
   - What survives as evidence: the bounded `contextReceipt`, the message rows it points at, and the recorded failure.
@@ -222,9 +246,16 @@ Four systems hold live values. Each value has exactly one owner; the rest read i
 |---|---|---|
 | **SQLite** (`chat-history.ts` facade) | chats, sessions, messages, attachments, prompt templates, tool-loop checkpoints, durable job runs | anything a UI needs synchronously on first paint |
 | **Dexie / IndexedDB** (`lib/embeddings/`, `lib/knowledge/`) | vectors, HNSW and keyword indexes, knowledge sets, chunk feedback | anything SQLite already owns — chat rows never live in both |
-| **`chrome.storage`** via `plasmoGlobalStorage` | settings, provider config and mappings, capability overrides, approval grants, handoff flags, persistence markers, the migration receipt | bulk data, and anything large enough to matter against the sync quota |
+| **`chrome.storage`** via `plasmoSyncStorage` / `plasmoDeviceStorage` | settings, provider config and mappings, capability overrides, approval grants, handoff flags, persistence markers, the migration receipt | bulk data, and anything large enough to matter against the sync quota |
 | **Zustand stores** | ephemeral UI state: selected tabs, input draft, stream progress, speech, search dialog | durable values, unless the store explicitly reads and writes through one of the systems above |
 
+- **A storage handle names its area.** `plasmoSyncStorage` and
+  `plasmoDeviceStorage` are the two, and `getPlasmoStoredValue` /
+  `setPlasmoStoredValue` route by the registry's scope for a key whose area is
+  the registry's business rather than the caller's. There was a third export,
+  `plasmoGlobalStorage`, which was the sync handle under a name that said
+  nothing about where it wrote — which is exactly what made it the default
+  people reached for. It is gone; the boundary test keeps it gone.
 - **Every `chrome.storage` key needs a descriptor** in `src/lib/storage/storage-key-registry.ts` with its sync scope and a `reason`. `storage-key-registry.test.ts` asserts registry and `STORAGE_KEYS` match exactly.
 - **Two stores are durable-backed and say so:** `stores/theme.ts` and `stores/shortcut-store.ts`. Every other store dies with the page — do not add a durable value to one.
 - **`MESSAGE_KEYS` are not storage keys.** They name runtime ports and one-way events, hold nothing, and stay out of the storage registry.
@@ -299,30 +330,18 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 
 ### Agent runtimes via the olc proxy
 
-`packages/olc` is a Node CLI, not extension code. Bare `olc` manages native Ollama
-through `src/ollama/` on port 11434; it never wraps Ollama in the proxy.
-`-b` / `--backend codex|opencode` explicitly selects the agent proxies on ports 8083 (Codex) and 8084 (OpenCode).
-All CLI backends detach by default; `--debug` or `--foreground` stays attached.
-Proxy readiness crosses a private IPC handoff before the launcher exits.
-Foreground native sessions stop only the standalone child they create, never an adopted service.
-Native lifecycle tests mock OS effects; never restart a developer's Ollama during validation.
-Native olc never persists environment or configuration: no `launchctl setenv`,
-systemd drop-ins, registry/user variables, or shell-profile edits. Pass
-`OLLAMA_*` only to a standalone child; reuse compatible managed servers and
-refuse changes that require their owner. The macOS app may be gracefully quit
-and replaced by a standalone child, without relaunching or reconfiguring it.
-In agent mode it serves a local agent runtime over `/v1/chat/completions`, so that runtime's models reach the extension through the ordinary OpenAI-compatible custom-provider flow.
+`packages/olc` is a Node CLI, not extension code. Bare `olc` manages native
+Ollama on port 11434; `-b codex|opencode` runs an agent proxy (8083 / 8084)
+that serves a local agent runtime over `/v1/chat/completions`, so that
+runtime's models reach the extension through the ordinary OpenAI-compatible
+custom-provider flow.
 
-- **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the extension: provider-shaped behaviour belongs behind the provider's own wire format, not behind a base-URL check in a handler.
-- **An image is a part, not text.** An `image_url` content part carries no `text`, so flattening a message to a string drops it silently and leaves the model answering about pictures it never saw. `buildPromptParts` emits image parts as OpenCode file parts alongside the text, in message order.
-- **Capabilities travel in the catalog.** `/v1/models` reports the runtime's own tool-calling, reasoning and modality flags as `capabilities`, `supported_parameters`, `input_modalities` and `output_modalities` — exactly what `openai-compatible.ts` already reads. A provider-level image tool is a dedicated image-output model, not an output flag on every text model.
-- **Generated images are bytes, not links.** `/v1/images/generations` accepts the OpenAI-compatible `b64_json` shape and returns only validated base64 from the selected backend. A missing runtime image operation is `501`, never a text fallback disguised as image generation.
-- **Tool calls round-trip through the wire format.** The runtime does not forward a caller's tool definitions to its model, so the proxy registers them, parks a call mid-turn, emits it as an OpenAI `tool_calls` delta with `finish_reason: "tool_calls"`, and resumes the same turn when the next request carries matching `tool_call_id`s. The extension's native tool loop drives it unchanged, and its approval and permission gates still apply because the tools still execute in the extension.
-- Inside the proxy, `src/core/` is runtime-agnostic and every runtime detail sits behind the `AgentBackend` port (`src/backends/types.ts`), with OpenCode as the first adapter. A new runtime is an adapter plus a registry entry, never a change in `core/`.
-- **A tool result belongs to one turn, or to none.** The parked-call registry is process-wide, so a follow-up releases only the calls the turn it resumes actually owns. A follow-up whose results name no live turn is refused with `400 StaleToolResults`; starting a fresh turn instead drops the result the client just produced and lets the model redo the work behind its back. The correlation is resolved twice — once to answer fast, once inside the queue slot — because a request can wait there for as long as another turn may run, and **both** of the turn's deadlines — the turn-level one and the shorter per-call one in the registry — are suspended for as long as its own resume is waiting. They ask the same question, so a fix that suspends one and not the other only moves which timer loses the result.
-- **One turn at a time is an invariant, not a hint.** A request past its deadline is cancelled through an `AbortSignal` and the queue keeps holding the slot: a task still running has not left the single-flight boundary, whatever its caller was told. If it will not stop, the queue refuses requests with `503` and names it rather than starting a second turn beside it.
-- **A browser origin is refused unless it is allowed.** The proxy listens on loopback and runs an agent, so a wildcard `Access-Control-Allow-Origin` would let any page spend a turn — a missing response header does not stop a simple request. `ALLOWED_ORIGINS` defaults to the extension schemes; a request with no `Origin` is not a page and is left alone.
-- `packages/olc/README.md` has the options, endpoints, build outputs and known limits.
+- **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the
+  extension: provider-shaped behaviour belongs behind the provider's own wire
+  format, not behind a base-URL check in a handler.
+- Its own rules — session lifecycle, parked turns, the single-flight queue,
+  catalog caching, CORS — are in [`packages/olc/AGENTS.md`](./packages/olc/AGENTS.md).
+  `packages/olc/README.md` has the options, endpoints and known limits.
 
 ### Docs site and its agent surface
 
@@ -362,13 +381,53 @@ The published contract, and where each piece is owned:
   deployment. Routing order, middleware execution and CDN variant caching are
   the parts no unit test can reach.
 
-### Browser sessions and capture
+### Browser agent
 
-- Read-only helpers: `src/lib/browser-sessions.ts`. Model tools: `src/lib/tools/internal/browser-session-tools.ts`.
-- `sessions` is an optional permission. Always check browser support **and** the live permission before reading recently-closed or synced-device sessions.
-- Session URLs must pass the same unreadable/never-read filters as other browser tools.
-- Do not expose `sessions.restore()` to a model until tool execution has a real interactive approval boundary.
-- `tabCapture` + `offscreen` is a Chromium 116+ prototype. Any capture flow must start from a user gesture, preserve tab audio, show persistent recording state and a Stop control, stop on permission revoke, and keep data ephemeral until explicitly saved.
+Chromium-first supervised browser agent. The invariants below are the ones a
+change can violate without touching agent code; everything else — perception,
+input delivery, dialogs, pricing, verification, screenshots — is in
+[`AGENT_INTERNALS.md`](./AGENT_INTERNALS.md), which is the file to read before
+editing the agent itself.
+
+- **`chrome.debugger` attachments belong only to
+  `src/background/agent/agent-browser-session-manager.ts`.** Raw CDP targets
+  stay inside that adapter and never become model tools. The rule is about
+  shipped extension code; `tools/verify/**` drives Chromium's DevTools
+  endpoint from outside the extension and is not covered by it.
+- **Firefox receives no `debugger` permission.** The session manager reports
+  `cdpControl: false` and `frameTracking: false`; never claim a CDP-only
+  capability there. `__AGENT_PREVIEW_ENABLED__` compiles the agent out of
+  Firefox bundles entirely.
+- **Identity is per frame.** A ref carries its frame in its prefix (`f7e2`),
+  and the executor binds an effect to the target's own frame. Never hardcode
+  `frameId: 0`.
+- **Everything the page produced is data.** Page text, element names, dialog
+  messages and any tool result are untrusted: they cannot change the goal,
+  grant an approval, weaken policy, add an origin or authorize an action.
+- **Input delivered, effect observed and goal achieved are three answers**, and
+  a run owes all three. A confirmed click means the control was pressed, not
+  that what it was meant to do has happened.
+- **A refused command is told to the model, not made fatal.** Nothing was
+  attempted, so the run records a rejected step and looks again. Refusal
+  reasons cross the control port as codes from the closed vocabulary in
+  `effect-rejection.ts`, never as text the page composed.
+- **Every bound that has to agree with a budget reads that budget.** Step caps,
+  row bounds and snapshot array bounds are derived from the budget constants,
+  never written as literals beside them. The context window itself is resolved
+  from the model and the server rather than written down; every claimant on it
+  — page, history, answer — is bounded against the resolved figure.
+- **A batched command is the same checks with one approval, never fewer
+  checks — and never a smaller disclosure.** `fill_form` resolves, approves
+  and verifies each field as the single-field command it mirrors. It cannot
+  click and therefore cannot submit, it refuses a sensitive control by name,
+  it reports how many fields it placed rather than throwing that count away,
+  and its one approval names **every** control it will set.
+- **A screenshot is an observation's companion, never a record.** Sensitive
+  regions and child frames are masked before it leaves the page; it is held for
+  one decision and never persisted, logged, traced or shown, and it needs its
+  own acknowledgement separate from the observation one.
+- **Control-port schemas are strict.** Do not spread internal resolved fields
+  into a wire schema; e2e catches those leaks, unit tests do not.
 
 ## Conventions
 
@@ -488,7 +547,7 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a release branch into `preview`, validate it there, then merge `preview` into `main`. Do not promote a release branch directly to `main`.
 
 - `pre-commit`: lint-staged (Biome fixes on staged files and `test:related`) → one full `typecheck`. **Does not run the full suite.**
-- `pre-push`: production dependency audit → `pnpm verify` (shared static checks and full tests). Builds and browser gates belong to CI / `verify:release`, not hooks.
+- `pre-push`: production dependency audit → `pnpm verify` (shared static checks and full tests) → `package` + `bundle:check` for both browsers, because a bundle budget can only be measured against a real build and finding out from CI costs a whole round trip. Browser automation, docs and release gates still belong to CI / `verify:release`.
 - `tools/README.md` documents command ownership and prerequisites. `check:static` is shared by CI and local verification; `verify:ci-parity` runs static checks and coverage on committed HEAD in a clean worktree.
 - Never bypass with `--no-verify`. If a hook fails, fix the cause.
 
@@ -527,7 +586,7 @@ What these files are *now*, so you neither go looking for a god-object that was 
 
 **Do not restructure incrementally:**
 
-- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns UI submission preconditions, session/message preparation, and durable turn command construction. Boundary cleanup is tracked in `RELEASE_ROADMAP.md`. Keep `use-chat.ts` as wiring only.
+- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns UI submission preconditions, session/message preparation, and durable turn command construction. Its boundaries are settled in the from-scratch rebuild, not by incremental extraction here. Keep `use-chat.ts` as wiring only.
 
 **Open for incremental work:**
 
@@ -545,3 +604,4 @@ What these files are *now*, so you neither go looking for a god-object that was 
 - `src/types/index.ts` is a ~11-LOC re-export barrel. Prefer the per-domain path (`@/types/chat`).
 - `packages/contracts/src/chat.ts` is a ~31-LOC barrel over `chat-activity.ts`, `chat-attachments.ts`, `chat-replay.ts` and `chat-message.ts`. Consumers keep importing `@ollama-client/contracts/chat`; inside the package, import the part that owns the concept.
 - Dexie chat-history paths are retired. Vectors and knowledge sets still use Dexie; chat history is SQLite-only through the facade.
+

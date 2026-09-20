@@ -9,6 +9,30 @@ export interface StorageKeyMetadata {
 }
 
 export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
+  [STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED]: {
+    key: STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED,
+    scope: "sync-safe",
+    reason:
+      "One-time privacy acknowledgement for continuous remote page observation; contains no page or provider data."
+  },
+  [STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED]: {
+    key: STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED,
+    scope: "sync-safe",
+    reason:
+      "Separate acknowledgement that viewport screenshots may reach a remote model; the runtime refuses to send one without it. Contains no page or provider data."
+  },
+  [STORAGE_KEYS.AGENT.CONTEXT_WINDOW]: {
+    key: STORAGE_KEYS.AGENT.CONTEXT_WINDOW,
+    scope: "device-local",
+    reason:
+      "How much context a run may ask its model for. Device-local because it is a statement about this machine's memory and this server's allocation, not about the account."
+  },
+  [STORAGE_KEYS.AGENT.VISION]: {
+    key: STORAGE_KEYS.AGENT.VISION,
+    scope: "sync-safe",
+    reason:
+      "Whether a run may picture the page for a model that can see. A preference about the agent, carrying no page or provider data."
+  },
   [STORAGE_KEYS.BACKUP.IMPORT_JOURNAL]: {
     key: STORAGE_KEYS.BACKUP.IMPORT_JOURNAL,
     scope: "device-local",

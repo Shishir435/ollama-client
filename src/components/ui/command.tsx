@@ -67,7 +67,7 @@ function CommandInput({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="h-8! bg-input/20 dark:bg-input/30">
+      <InputGroup className="h-8! bg-surface-sunken ">
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
@@ -151,7 +151,7 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex min-h-7 cursor-default items-center gap-2 rounded-control px-2.5 py-1.5 text-xs/relaxed outline-hidden select-none in-data-[slot=dialog-content]:rounded-control data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='icon-'])]:icon-sm data-selected:*:[svg]:text-foreground",
+        "group/command-item relative flex min-h-7 cursor-default items-center gap-2 rounded-control px-2.5 py-1.5 text-xs/relaxed outline-hidden select-none in-data-[slot=dialog-content]:rounded-control data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-state-selected data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='icon-'])]:icon-sm data-selected:*:[svg]:text-foreground",
         className
       )}
       {...props}>

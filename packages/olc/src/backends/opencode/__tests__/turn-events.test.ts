@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { OperationAbortedError } from "../../../util.js"
 import { createTurnReader, extractFromParts } from "../turn-events.js"
 
 const retryAsync = async <T>(operation: () => Promise<T>): Promise<T> =>
@@ -297,6 +298,54 @@ describe("OpenCode turn reader", () => {
       suspended: true
     })
     expect(client.session.messages).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A cancelled turn used to poll a session the abandonment path had already
+   * deleted, for the whole timeout times the whole retry budget — fifteen
+   * minutes of a slot nobody was waiting for.
+   */
+  it("stops polling as soon as the turn is aborted", async () => {
+    const client = clientWith({ messages: [] })
+    const reader = createTurnReader({
+      client: client as never,
+      retryAsync,
+      pollIntervalMs: 0
+    })
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      reader.pollForAssistantResponseWithRetries(
+        "session-1",
+        { timeoutMs: 60_000, intervalMs: 0, abortSignal: controller.signal },
+        5
+      )
+    ).rejects.toThrow(OperationAbortedError)
+    expect(client.session.messages).not.toHaveBeenCalled()
+  })
+
+  it("does not spend its retry budget on a turn aborted mid-poll", async () => {
+    const client = clientWith({ messages: [] })
+    const reader = createTurnReader({
+      client: client as never,
+      retryAsync,
+      pollIntervalMs: 0
+    })
+    const controller = new AbortController()
+    client.session.messages.mockImplementation(async () => {
+      controller.abort()
+      return []
+    })
+
+    await expect(
+      reader.pollForAssistantResponseWithRetries(
+        "session-1",
+        { timeoutMs: 60_000, intervalMs: 0, abortSignal: controller.signal },
+        5
+      )
+    ).rejects.toThrow(OperationAbortedError)
+    expect(client.session.messages).toHaveBeenCalledTimes(1)
   })
 
   it("retries only polling timeouts", async () => {

@@ -1,16 +1,25 @@
-import {
-  resolveExcludedUrlPatterns,
-  urlMatchesAny
-} from "@/contents/url-filter"
 import { browser } from "@/lib/browser-api"
 import {
-  blockedTabAccessMessage,
-  isContentScriptReadableUrl
+  accessDeniedMessage,
+  classifyTabAccess,
+  getAllTabs,
+  listReadableTabs,
+  type OpenTab,
+  queryActiveTab,
+  type TabAccess
 } from "@/lib/browser-tab-access"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { isNeverReadUrl } from "@/lib/per-site-profiles"
 import type { ChromeResponse } from "@/types"
+
+export type { OpenTab, TabAccess }
+export {
+  accessDeniedMessage,
+  classifyTabAccess,
+  getAllTabs,
+  listReadableTabs,
+  queryActiveTab
+}
 
 /** Runtime-only extractor injected when a readable tab is requested. */
 const CONTENT_SCRIPT_FILE = "content-scripts/content.js"
@@ -183,79 +192,4 @@ export const readTabContent = async (
     logger.debug("readTabContent: recovery failed", "tabUtils", { error })
     throw error
   }
-}
-
-export interface OpenTab {
-  id: number
-  title: string
-  url: string
-  active: boolean
-}
-
-export type TabAccess =
-  /** Readable by the extension. */
-  | "ok"
-  /** Browser-internal/unsupported scheme (chrome://, web store, etc.). */
-  | "restricted"
-  /** Readable scheme, but the user excluded it via settings. */
-  | "excluded"
-
-/** Classify whether a tab's URL can be read, honoring the user's exclude list. */
-export const classifyTabAccess = async (url?: string): Promise<TabAccess> => {
-  if (!isContentScriptReadableUrl(url)) return "restricted"
-  const patterns = await resolveExcludedUrlPatterns()
-  return urlMatchesAny(url as string, patterns) ||
-    (await isNeverReadUrl(url as string))
-    ? "excluded"
-    : "ok"
-}
-
-/** Human-facing explanation the model can relay when a tab can't be read. */
-export const accessDeniedMessage = (
-  access: "restricted" | "excluded",
-  label: string
-): string =>
-  access === "restricted"
-    ? blockedTabAccessMessage(label)
-    : `Can't read ${label} — this site is excluded in your content-extraction settings.`
-
-const toOpenTab = (tab: {
-  id?: number
-  title?: string
-  url?: string
-  active?: boolean
-}): OpenTab => ({
-  id: tab.id as number,
-  title: tab.title || "Untitled",
-  url: tab.url || "",
-  active: Boolean(tab.active)
-})
-
-/**
- * The active tab of the user's focused window (falling back to the current
- * window). A bare `{ active: true }` could return an active tab from a
- * NON-focused window, which is never what "the visible tab" means.
- */
-export const queryActiveTab = async () =>
-  (await browser.tabs.query({ active: true, lastFocusedWindow: true }))[0] ??
-  (await browser.tabs.query({ active: true, currentWindow: true }))[0]
-
-/** Every tab that has an id, across all normal windows (any scheme). */
-export const getAllTabs = async (): Promise<OpenTab[]> => {
-  const tabs = await browser.tabs.query({})
-  return tabs.filter((tab) => tab.id !== undefined).map(toOpenTab)
-}
-
-/** Tabs the extension can actually read: readable scheme and not excluded. */
-export const listReadableTabs = async (): Promise<OpenTab[]> => {
-  const tabs = await getAllTabs()
-  const patterns = await resolveExcludedUrlPatterns()
-  const readable: OpenTab[] = []
-  for (const tab of tabs) {
-    if (!isContentScriptReadableUrl(tab.url)) continue
-    if (urlMatchesAny(tab.url, patterns)) continue
-    if (await isNeverReadUrl(tab.url)) continue
-    readable.push(tab)
-  }
-  return readable
 }

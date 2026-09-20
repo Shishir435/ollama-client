@@ -30,11 +30,35 @@ export const DEFAULTS = {
     "moz-extension://*",
     "safari-web-extension://*"
   ],
-  REQUEST_TIMEOUT_MS: 1_800_000,
+  /**
+   * A caller's own deadline is shorter than this: the extension abandons an
+   * agent decision after two minutes. Thirty minutes therefore only bought a
+   * slot that outlived every client that could hold it. Five aligns with the
+   * bridge and parked-call deadlines while still covering a long reasoning turn.
+   */
+  REQUEST_TIMEOUT_MS: 300_000,
   BRIDGE_PATH: "/bridge/call",
   BRIDGE_CALL_TIMEOUT_MS: 300_000,
   BRIDGE_BATCH_MS: 150,
-  SUSPENDED_TURN_TTL_MS: 600_000
+  SUSPENDED_TURN_TTL_MS: 600_000,
+  /**
+   * A parked turn is a live backend session, and its own TTL is ten minutes —
+   * fine for one turn a client abandoned, wrong for a client whose every
+   * request is a single decision it never resumes. Four leaves room for a
+   * client that legitimately interleaves a fresh turn with one it is still
+   * computing a tool result for, and stops a long run holding a session per
+   * step.
+   */
+  MAX_PARKED_TURNS: 4,
+  /**
+   * How long a cancelled turn is waited for before the queue refuses work, and
+   * how long before its slot is released whatever it is doing. The first is a
+   * pause for a turn that unwinds slowly; the second is the admission that a
+   * turn ignoring its abort is never going to report back, and that refusing
+   * every later request is worse than writing this one off.
+   */
+  QUEUE_CANCEL_GRACE_MS: 10_000,
+  QUEUE_FORCE_RELEASE_MS: 60_000
 } as const
 
 /** Options as they arrive from a config file or the command line. */
@@ -184,11 +208,39 @@ export const resolveConfig = (
       fileOptions.BRIDGE_BATCH_MS,
       DEFAULTS.BRIDGE_BATCH_MS
     ),
+    /**
+     * At least one. A cap of zero cannot mean "park nothing": parking is how
+     * a tool call reaches the client at all, so zero would disable client
+     * tool calling rather than bound it — and the pre-admission sweep could
+     * not deliver it anyway, since the turn it makes room for parks
+     * afterwards. One means only the turn in flight may be parked.
+     */
+    MAX_PARKED_TURNS: Math.max(
+      1,
+      numberOption(
+        options.MAX_PARKED_TURNS,
+        env.OLC_MAX_PARKED_TURNS,
+        fileOptions.MAX_PARKED_TURNS,
+        DEFAULTS.MAX_PARKED_TURNS
+      )
+    ),
     SUSPENDED_TURN_TTL_MS: numberOption(
       options.SUSPENDED_TURN_TTL_MS,
       env.OLC_SUSPENDED_TURN_TTL_MS,
       fileOptions.SUSPENDED_TURN_TTL_MS,
       DEFAULTS.SUSPENDED_TURN_TTL_MS
+    ),
+    QUEUE_CANCEL_GRACE_MS: numberOption(
+      options.QUEUE_CANCEL_GRACE_MS,
+      env.OLC_QUEUE_CANCEL_GRACE_MS,
+      fileOptions.QUEUE_CANCEL_GRACE_MS,
+      DEFAULTS.QUEUE_CANCEL_GRACE_MS
+    ),
+    QUEUE_FORCE_RELEASE_MS: numberOption(
+      options.QUEUE_FORCE_RELEASE_MS,
+      env.OLC_QUEUE_FORCE_RELEASE_MS,
+      fileOptions.QUEUE_FORCE_RELEASE_MS,
+      DEFAULTS.QUEUE_FORCE_RELEASE_MS
     ),
     DEBUG: boolOption(
       [

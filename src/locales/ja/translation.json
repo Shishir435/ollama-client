@@ -1,4 +1,198 @@
 {
+  "agent": {
+    "action": {
+      "step": "エージェントのステップ",
+      "navigate": "移動: {{url}}",
+      "open_tab": "タブを開く: {{url}}",
+      "scroll_up": "上にスクロール",
+      "scroll_down": "下にスクロール",
+      "scroll_left": "左にスクロール",
+      "scroll_right": "右にスクロール",
+      "switch_tab": "タブ {{tab}} に切り替え",
+      "wait": "{{condition}} を待機",
+      "clear_and_type": "フィールドのテキストを置き換え",
+      "press_key": "{{key}} を押す",
+      "type": "フィールドに入力",
+      "replace_text": "フィールドのテキストを編集",
+      "drag": "コントロールをドロップ先にドラッグ",
+      "select": "オプションを選択",
+      "check": "チェックボックスをオン",
+      "uncheck": "チェックボックスをオフ",
+      "back": "戻る",
+      "forward": "進む",
+      "click": "コントロールをクリック",
+      "double_click": "コントロールをダブルクリック",
+      "click_point": "スクリーンショット上の座標をクリック",
+      "zoom": "スクリーンショットを拡大",
+      "hover": "コントロールにホバー",
+      "read": "ページを読む",
+      "inspect": "{{region}} を詳しく見る",
+      "find": "「{{query}}」を検索",
+      "extract_text": "ページのテキストを読む",
+      "handle_dialog_accept": "ページのダイアログを承認",
+      "handle_dialog_dismiss": "ページのダイアログを閉じる"
+    },
+    "approval": {
+      "title": "承認が必要です",
+      "allow": "今回のみ許可",
+      "reject": "拒否",
+      "allowForRun": "この実行中は {{origin}} でこの種の操作を常に許可する"
+    },
+    "attachment": {
+      "title": "このブラウザーでできること",
+      "attaches": "実行を開始すると、Chrome のデバッガーが選択したタブに接続します。接続中は Chrome 自身のバナーが表示され、停止・操作の引き継ぎ・完了のいずれかで接続は解除されます。",
+      "no_debugger": "このブラウザーにはデバッガーがないため、実行は拡張機能のコンテンツスクリプトを通じてページを操作します。"
+    },
+    "browser_disconnected": "ブラウザー制御が切断されたため、Agent を一時停止しました。再開前にページを確認してください。",
+    "completion": {
+      "summary": "この実行では、{{count}} 件のページ観測が {{provider}} に送信されました。"
+    },
+    "controls": {
+      "label": "エージェント操作",
+      "pause": "一時停止",
+      "resume": "再開",
+      "stop": "停止",
+      "takeover_done": "操作完了 — 続行"
+    },
+    "error": {
+      "already_running": "Agent の実行は既に進行中です。",
+      "browser_control_unavailable": "Agent はブラウザー制御に接続できませんでした。DevTools または別のデバッガーを閉じて再試行してください。",
+      "permission_denied": "開始する前に、ページ観測の権限が必要です。",
+      "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
+      "unreadable_update": "パネルは読み取れない更新を受け取りました。",
+      "unknown": "Agent はその要求を完了できませんでした。"
+    },
+    "failure": {
+      "budget_exhausted": "実行がステップの上限をすべて使い切りました。目標を絞るか、現在のページの状態から始め直してください。",
+      "command_refused": "モデルがページにない要素を選び続けました — 非表示、画面外、あるいはすでに消えたものです。必要な位置までスクロールするか、ページをより丁寧に読むモデルをお試しください。",
+      "goal_failed": "モデルがこれはできないと報告しました。目標をより明確にするか、別のモデルを試してください。",
+      "invalid_decision": "モデルが使用できない形式で応答し続けました。ツール呼び出しに対応した大きめのモデルにすると解決することが多いです。",
+      "model_unavailable": "モデルに接続できませんでした。プロバイダーが動作しているか確認し、もう一度開始してください。",
+      "observation_failed": "ページを読み取れませんでした。再読み込みし、ブラウザーやストアのページでないことを確認して、もう一度お試しください。",
+      "policy_blocked": "ポリシーが拒否する操作が要求されました。それを必要としない目標にするか、その手順はご自身で行ってください。",
+      "stale_snapshot": "実行中にページが変わりました。現在のページの状態から始め直してください。",
+      "unsupported_page": "このページでは実行できません。通常のウェブページに移動してから始め直してください。",
+      "verification_failed": "直前の操作の結果を確認できませんでした。始め直す前にページをご確認ください。",
+      "unknown": "理由を特定できないまま実行が停止しました。ページを確認してから、もう一度開始してください。"
+    },
+    "feedback": "フィードバックを送信",
+    "limits": {
+      "no_native_input": "マウスとキーボードの入力は合成されたものです。実際の入力にしか反応しないページは動作しないことがあります。",
+      "no_screenshots": "スクリーンショットは取得しないため、ページを見ることでしか行えない作業はできません。",
+      "no_dialogs": "ネイティブの alert・confirm・prompt ダイアログは、実行から見ることも応答することもできません。"
+    },
+    "model": {
+      "label": "モデル"
+    },
+    "observations": "観測 {{count}} 回",
+    "privacy": {
+      "remote_notice": "エージェントの実行中、ページ観測はこのリモートプロバイダーへ継続的に送信されます。",
+      "acknowledge": "理解しました",
+      "remote_notice_screenshots": "エージェントの実行中、ページの観測結果とビューポートのスクリーンショットがこのリモートプロバイダーへ継続的に送信されます。"
+    },
+    "progress": "{{budget}} 回中 {{count}} 回の観測",
+    "provider": {
+      "label": "プロバイダー",
+      "local": "ローカル",
+      "remote": "リモート",
+      "missing": "先にモデルを選択"
+    },
+    "question": {
+      "title": "Agent が回答を求めています",
+      "inputLabel": "あなたの回答",
+      "placeholder": "回答を入力",
+      "send": "回答を送信"
+    },
+    "screenshots": {
+      "label": "スクリーンショット",
+      "sent": "ビューポートのスクリーンショットをモデルに送信します",
+      "unused": "テキスト専用モデルでは使用しません",
+      "unknown": "未確定"
+    },
+    "start": {
+      "description": "このパネルからブラウザー作業を監督します。",
+      "goal": "エージェントに何をさせますか？",
+      "placeholder": "ブラウザー作業を1つ説明…",
+      "action": "エージェントを開始",
+      "auto_actions": "このタスクの日常的な操作を許可",
+      "auto_actions_description": "このサイトでのクリックと入力は自動で行います。投稿、削除、新しいサイト、機密情報を扱う操作は引き続き確認します。"
+    },
+    "status": {
+      "submitted": "開始中",
+      "planning": "タスクを整理中",
+      "observing": "ページを観測中",
+      "deciding": "次の手順を選択中",
+      "awaiting_approval": "承認待ち",
+      "awaiting_takeover": "あなたの操作待ち",
+      "executing": "操作中",
+      "verifying": "結果を検証中",
+      "pause_requested": "一時停止中",
+      "paused": "一時停止",
+      "cancelling": "停止中",
+      "completed": "完了",
+      "partial": "一部完了",
+      "failed": "失敗",
+      "cancelled": "停止済み"
+    },
+    "step_status": {
+      "planned": "計画済み",
+      "approved": "承認済み",
+      "executing": "実行中",
+      "executed": "実行済み",
+      "verified": "検証済み",
+      "rejected": "拒否",
+      "failed": "失敗",
+      "uncertain": "要確認"
+    },
+    "surface": {
+      "chat": "チャット",
+      "agent": "エージェント",
+      "preview": "プレビュー"
+    },
+    "tab": {
+      "label": "操作対象タブ",
+      "missing": "対応するウェブページを開いてください"
+    },
+    "tabs": {
+      "label": "操作中のタブ",
+      "count": "{{count}} 個のタブ"
+    },
+    "takeover": {
+      "title": "この手順を引き継ぐ"
+    },
+    "title": "監督付きエージェント",
+    "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
+    "unresolved_reviewed": "ページを確認した — 続行",
+    "work_log": {
+      "title": "作業ログ",
+      "target": "「{{name}}」"
+    },
+    "correction": "一時停止中です。変更点を説明してから続行してください。",
+    "export_report": "実行レポートを出力（ページのテキストを含む）",
+    "running_goal": "実行中のタスク",
+    "requirements": {
+      "title": "タスクが求めていたこと",
+      "met": "完了",
+      "unmet": "未完了"
+    },
+    "settings": {
+      "title": "ブラウザエージェント",
+      "description": "実行がモデルに要求できるコンテキスト量と、ページを画像として捉えるタイミング。",
+      "context_window": {
+        "label": "コンテキストウィンドウ",
+        "description": "自動は、このモデルとこのサーバーが報告するうち最も小さいウィンドウを取り、どちらも示さない場合は控えめなサイズに戻ります。サーバー側の上限を引き上げた場合や、実行がメモリ不足になった場合は、自分でサイズを指定してください。",
+        "auto": "自動",
+        "custom": "サイズを指定"
+      },
+      "vision": {
+        "label": "スクリーンショット",
+        "description": "画像を撮るステップごとに、モデルのウィンドウでイメージのプリフィル分を消費します。自動では、最初のステップ、うまくいかなかったステップの後、そしてページ構造では説明できないページで撮影します。",
+        "auto": "ステップに必要なとき",
+        "always": "毎ステップ",
+        "never": "撮らない"
+      }
+    }
+  },
   "common": {
     "theme": {
       "toggle": "テーマを切り替え",
@@ -232,7 +426,8 @@
       "tooltip_tokens": "このセッションで使用された合計トークン",
       "tooltip_time": "合計応答生成時間",
       "tooltip_speed": "平均生成速度",
-      "tooltip_messages": "AI応答数"
+      "tooltip_messages": "AI応答数",
+      "speed_average": "平均 {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "アクティビティログ",
@@ -420,6 +615,7 @@
       "response_failed_title": "応答の生成に失敗しました",
       "unknown_error_description": "不明なエラーが発生しました",
       "provider_replay_invalid": "この応答を安全に続行できません。プロバイダーのコンテキストを再構築するため、このターンを再試行してください。",
+      "provider_busy": "ローカルのエンドポイントは前のリクエストをまだ処理中で、別のリクエストを開始できません。1 分ほど待つか、再起動してください。",
       "report_issue": "問題を報告",
       "open_issue": "Issueを開く",
       "copy_diagnostics": "診断情報をコピー",
@@ -476,7 +672,6 @@
       "empty": "アーティファクトの内容がありません"
     },
     "system_prompt": {
-      "button": "チャットの指示",
       "title": "チャットの指示",
       "description": "このチャットのみのシステムプロンプト。モデルの既定プロンプトを上書きします。",
       "placeholder": "例: 箇条書きで簡潔に答えるアシスタントです。",
@@ -872,6 +1067,8 @@
         "chat_count": "{{sessions}} セッション · {{messages}} メッセージ",
         "knowledge": "ナレッジとメモリ",
         "knowledge_count": "{{files}} ファイル · {{vectors}} ベクトル",
+        "agent": "エージェント実行",
+        "agent_count": "保存済み実行と復旧記録 {{runs}} 件",
         "settings": "ローカル設定とプロバイダーの秘密情報",
         "settings_description": "エンドポイント、APIキー、権限、デバイス状態",
         "preferences": "同期可能な設定",
@@ -1056,6 +1253,7 @@
           "description_reported": "このモデルのプロバイダーが報告したレベルです。",
           "description_profile": "このプロバイダーとモデルファミリーで確認済みのレベルです。",
           "description_unknown": "このプロバイダーは信頼できる推論制御を公開していません。",
+          "reset": "自動にリセット",
           "options": {
             "auto": "自動（プロバイダーの既定値）",
             "auto_short": "自動",

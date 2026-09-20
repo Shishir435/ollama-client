@@ -1,5 +1,10 @@
 import { z } from "zod"
 import {
+  AGENT_CONTEXT_MAX_TOKENS,
+  AGENT_CONTEXT_MIN_TOKENS,
+  type AgentContextWindowSetting
+} from "@/application/agent/agent-context-window"
+import {
   DEFAULT_AUTO_REFRESH_TAB_CONTEXT,
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   DEFAULT_EMBEDDING_CONFIG,
@@ -48,6 +53,45 @@ import {
 } from "./setting-schemas"
 
 export const SETTINGS = {
+  AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED: defineSetting<boolean>(
+    STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED,
+    { defaultValue: false, parser: z.boolean() }
+  ),
+  AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED: defineSetting<boolean>(
+    STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED,
+    { defaultValue: false, parser: z.boolean() }
+  ),
+  /**
+   * `auto` resolves the window from what the model and the server report and
+   * holds it inside a conservative maximum; a number overrides both, because
+   * a user who raised their own `num_ctx` knows something no catalog does.
+   */
+  AGENT_CONTEXT_WINDOW: defineSetting<AgentContextWindowSetting>(
+    STORAGE_KEYS.AGENT.CONTEXT_WINDOW,
+    {
+      defaultValue: "auto",
+      parser: z.union([
+        z.literal("auto"),
+        z
+          .number()
+          .int()
+          .min(AGENT_CONTEXT_MIN_TOKENS)
+          .max(AGENT_CONTEXT_MAX_TOKENS)
+      ])
+    }
+  ),
+  /**
+   * `auto` pictures the page only when the step needs it; `always` keeps the
+   * old behaviour of one capture per step; `never` refuses regardless of what
+   * the model can see.
+   */
+  AGENT_VISION: defineSetting<"auto" | "always" | "never">(
+    STORAGE_KEYS.AGENT.VISION,
+    {
+      defaultValue: "auto",
+      parser: z.enum(["auto", "always", "never"])
+    }
+  ),
   LANGUAGE: defineSetting<string>(STORAGE_KEYS.LANGUAGE, {
     defaultValue: "en"
   }),

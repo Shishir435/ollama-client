@@ -1,0 +1,180 @@
+---
+title: Agent (Preview)
+description: What the supervised browser agent does, what it refuses, and where it stops.
+---
+
+Agent drives one browser tab towards a goal you write. Routine clicks and typing
+can run automatically; posting, destructive actions and sensitive steps still
+require your decision. It is a Preview: success depends on the website and the
+selected model, and every step is checked against the page.
+
+It is off unless you turn it on, and it never reads a page without the
+page-observation permission you grant explicitly.
+
+## How a step works
+
+Every step is the same six things, in order, and none of them is skipped.
+
+1. **Observe** — the tab's own content script reports the page: its URL, title,
+   the text you can see, the rest of the document's text, open dialogs, and
+   every interactive control with a short reference like `e1`.
+2. **Decide** — your selected model is asked for exactly one next action,
+   naming a control by its reference. Page content is supplied as data, never
+   as instructions.
+3. **Ground** — the action is resolved against the exact control the
+   observation reported. A reference the page no longer holds, or a command the
+   control cannot accept, is refused and the model is told why.
+4. **Authorize** — policy classifies what the action would actually do and
+   decides whether you are asked.
+5. **Execute** — the resolved action runs against that control and no other.
+6. **Verify** — the page is observed again and compared. A step is *confirmed*,
+   *refused*, or *unresolved* — and an unresolved step pauses the run rather
+   than being retried, because repeating an action that may already have
+   happened is how one click becomes two.
+
+## What it asks you about
+
+| Action | What happens |
+| --- | --- |
+| Reading, scrolling | Runs without asking |
+| Following a link within a site you already allowed | Runs without asking |
+| Clicking a control, typing into a field | Runs automatically on the starting site when routine actions are enabled |
+| Submitting a form, anything destructive | Asks every time |
+| Payment, sign-in, one-time codes, file pickers | Hands the page to you |
+
+Before starting, **Allow routine actions for this task** is selected by default.
+It authorizes clicks and typing on the starting site for this run only. Clear
+it to review each change instead. Forms that post or send, destructive actions,
+new sites, and sensitive steps still require your decision. An empty attachment
+picker does not force manual takeover; choosing a file does.
+
+When Agent asks about a click or a field, you can also allow that kind of action
+on that site for the rest of the run. This never carries over to another run.
+
+Anything Agent hands to you is yours to finish. It does not type a password, a
+card number or a one-time code, and it will not choose a file for you.
+
+## What it will not do
+
+- **One tab at a time, from a known set.** Agent drives the tab it currently
+  controls. The tab you started on and any tab it opened itself are the tabs it
+  may switch between; switching to any other tab — one you were working in —
+  asks you first, whatever site it is on. Every tab it acts on also has to be
+  readable and on a site you allowed.
+- **Only frames on sites you allowed.** Content inside an iframe is observed
+  when the frame is on a site the run may read; a frame on any other site is
+  reported to the model by its origin and left alone.
+- **Only sites you allowed.** A destination on a new site is a new decision.
+- **Only what the page rendered.** Destinations come from links the page
+  actually showed; a URL the model composed carrying data from your page is
+  refused outright when that data is something you typed.
+- **Nothing it cannot verify.** A step whose effect cannot be observed pauses
+  the run and is reported as unresolved, not as done.
+
+## What your browser allows
+
+Agent works differently in Chromium and Firefox, and the panel says which
+before you start a run.
+
+**Chromium.** Starting a run attaches Chrome's debugger to the tab you chose.
+Chrome shows its own banner while that lasts — that banner is this extension,
+and it is the browser telling you the truth about what is attached. The
+attachment ends when the run stops, when it hands the tab to you to take
+over, and when it finishes. With it, the run can send real pointer and
+keyboard input a page cannot tell from yours, take screenshots for a model
+that reads them, and see and answer native dialogs.
+
+**Firefox.** There is no debugger, so the run drives pages through the
+extension's content scripts instead. Input is synthetic, which a page built
+around real input may not react to; no screenshots are taken, so a task that
+can only be done by looking will not work; and native dialogs can be neither
+seen nor answered.
+
+## Where it stops
+
+These are current limits, not design decisions.
+
+- **Closed shadow roots.** Open shadow roots are observed like any other
+  content, including the text they slot in. A closed one reads as nothing and
+  stays unread rather than guessed at.
+- **Frame limits.** A page with more than eleven child frames has the rest
+  counted but not read, and a very large page can leave a frame no room to
+  report its controls; both are reported to the model as such. A frame with
+  no origin of its own — `srcdoc`, `about:blank` — cannot be read at all.
+- **Native dialogs need Chromium.** A click that opens `alert`, `confirm`
+  or `prompt` is handed from the input executor to the debugger's dialog
+  state. Agent can then answer the dialog, with approval before accepting a
+  confirmation. An interrupted edit whose value cannot be verified still
+  pauses; the input is never replayed automatically.
+- **Document editing is bounded.** Text fields and rich-text documents support
+  up to 20,000 characters. Appending or replacing text beyond that bound is
+  refused because the full resulting value cannot be verified. A model's
+  output budget can require a long insertion to be split into smaller edits.
+  Composer lookup recognizes both its accessibility label and the placeholder
+  shown inside an empty rich-text editor.
+- **Long documents are read in pages.** `extract_text` returns up to 12,000
+  characters and a continuation offset. Agent can keep reading past the
+  initial 30,000-character overview, including inside an authorized frame.
+  Each page reads the current document; content changing between reads can
+  change its offsets. A scan that runs out of time reports that explicitly.
+- **Scroll inside a pane.** Scrollable regions have their own references and
+  scroll positions. Agent can scroll a selected pane without moving the rest
+  of the page. Firefox uses the page's programmatic scrolling for this too.
+- **Vision needs a model that reads images.** A screenshot travels only to a
+  model whose provider reports it can read one; a text-only model is sent no
+  picture and is offered no visual action, so a canvas or an image region is
+  out of reach for it.
+- **Large pages cost tokens.** A page with a thousand controls is a large
+  prompt. The page is projected to fit a budget and the model can ask to
+  expand a region, but a small local model may still run out of room.
+- **Fifty steps, forty minutes.** A run that passes either stops.
+- **A restart pauses the run.** If the browser stops the extension's worker
+  mid-step, the run comes back paused, with the interrupted step marked
+  unresolved, and waits for you. This one is verified against a real
+  terminated worker rather than assumed.
+
+## What has actually been measured
+
+Thirty frozen tasks across ten families run with the debugger and without it,
+each scored by a predicate that reads the page rather than by what the run
+claimed, plus a live-model suite against real websites. Both live in the
+repository and write their counts to `artifacts/` when you run them; that
+output is the only record, so the figures you get are from your own run rather
+than from a table someone copied out of theirs.
+
+## Choosing a model
+
+Agent needs a model that supports tool calling, and a small one will struggle
+regardless. Tool calling is checked before a run starts and refused if
+missing. A model that answers but cannot follow the one-action-at-a-time
+contract will exhaust its retries and stop visibly rather than act on a
+half-understood answer.
+
+## If a run stops
+
+The panel keeps the reason, and says what you can do about it: narrow the
+goal, reload the page, pick a model that can call tools, or take the tab over
+and finish the step yourself. A paused run tells you why it paused; a failed
+run leads with the recovery and keeps the underlying message beneath it, so
+the words the run used are still there if you report the problem. Both stay
+on screen after the run ends, because the record is the only account of what
+happened.
+
+## Correcting a run and exporting its record
+
+Pause a run between actions to give it a correction, then submit the correction
+and continue. Answers to Agent's questions also travel to the next decision,
+with the question they answer. These instructions do not change permission or
+approval rules. Time spent answering or correcting a paused run does not count
+against its active-time budget.
+
+Repeated decisions, including short alternating loops, pause for your guidance.
+Repeated grounding refusals do the same. A premature completion gives a delayed
+save a bounded chance to produce evidence; it still cannot be accepted without
+that evidence. An unresolved side effect remains paused and cannot be resumed
+through the correction field.
+
+Use **Export run report** to download the current run and its redacted step
+records as JSON. The report includes your goal, clarifications and page-derived
+text. It is saved locally only when you click the export button; nothing is
+sent to a feedback service automatically.

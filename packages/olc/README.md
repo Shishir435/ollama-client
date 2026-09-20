@@ -67,8 +67,20 @@ olc -b opencode --debug       # attached proxy, verbose logs
 - A detached proxy prints its URL, PID, log path, and stop instruction after
   both its HTTP listener and backend are ready. Logs are private per-run files
   under `~/.olc/logs/`; `OLC_LOG_DIR` overrides that directory. Startup failure
-  returns a nonzero exit code and names the log. An occupied port is an error;
-  olc never stops an existing proxy to replace it.
+  returns a nonzero exit code, states the child's own reason, and names the log.
+- An occupied port is an error; olc never stops an existing proxy to replace it.
+  The port is checked before anything is launched, and the failure names the
+  occupant — its PID, and whether it answered `/` as an olc proxy and for which
+  backend — plus a nearby port that is actually free:
+
+  ```
+  olc: Port 8084 is already in use. It is an olc opencode proxy (PID 73241) —
+       the extension can use it at http://127.0.0.1:8084 as it is.
+       Stop it with `kill -TERM 73241`, or run this one on a free port:
+       olc -b opencode --port 8085.
+  ```
+
+  A process that does not answer as an olc proxy is reported and left alone.
 - Proxy configuration is handed to the child over private IPC, not written to
   disk or duplicated in child arguments. Parent loss before accepting startup
   shuts down the new child. After handoff, closing the terminal leaves it running.
@@ -188,10 +200,51 @@ threads, and maps its streamed messages, reasoning, model catalog, and dynamic
 tool calls onto the same OpenAI-compatible API. Codex account entitlements and
 usage limits still apply.
 
+### Updating
+
+```bash
+olc --version              # what is installed
+olc update                 # install the latest release
+olc update 0.13.3          # install a specific release
+olc update --check         # report what is available; install nothing
+olc update --json          # one JSON result on stdout, errors included
+```
+
+`olc update` downloads the same checksum-verified archive the installers use,
+from the release the GitHub API named — never a URL assembled from the argument.
+It replaces the directory it is running from, keeping the previous version until
+the new one is in place, so a failed download or a refused rename leaves the
+working installation exactly as it was.
+
+What it refuses, and why:
+
+- **A version with no release**, by name, listing the versions that do exist:
+  `Version 9.9.9 does not exist. Recent releases: 0.13.3, 0.13.2, ...`
+- **An argument that is not a version number**, before it reaches a URL.
+- **A repository checkout** - there is nothing to replace, and overwriting the
+  directory would take a working tree with it. Use `git pull`.
+- **Walking a development build backwards.** If the installed version is ahead of
+  every release, `olc update` says so instead of downgrading; naming that release
+  explicitly still installs it, because then it was asked for.
+
+`olc update --check` never touches the installation. Windows may refuse to
+replace a directory olc is running from; the failure says so and the previous
+version stays in place.
+
+One update runs per installation at a time, held by an exclusive lock file
+beside it (`.olc-update-<name>.lock`); a lock whose owner has exited, or that is
+older than ten minutes, is taken over rather than left to block. The directory
+swap holds off `SIGINT` and `SIGTERM` for the moment the installation is being
+renamed. A kill that cannot be caught leaves the previous version at
+`.olc-previous-<name>` beside the installation, and the next `olc update`
+restores it; if `olc` itself is gone, move that directory back by hand.
+
 ### Versioning
 
 olc ships with Ollama Client and carries the same version number; a contract test
-(`config/__tests__/package-versions.test.ts`) fails if the two drift.
+(`config/__tests__/package-versions.test.ts`) fails if the two drift - including
+the literal in `src/version.ts`, which is the only copy a release archive
+carries, since it ships no `package.json`.
 
 ### Use it from Ollama Client
 
@@ -274,10 +327,35 @@ readiness reporting. Ollama itself is installed separately.
 | `SYSTEM_PROMPT` | `--system-prompt` | `OLC_SYSTEM_PROMPT` | the client's |
 | `BRIDGE_ENABLED` | `--no-bridge` to disable | `OLC_BRIDGE_ENABLED` | `true` |
 | `DEBUG` | `--debug` | `OLC_DEBUG` | `false` |
+| `REQUEST_TIMEOUT_MS` | — | `OLC_REQUEST_TIMEOUT_MS` | `300000` |
+| `MAX_PARKED_TURNS` | — | `OLC_MAX_PARKED_TURNS` | `4` |
+| `QUEUE_CANCEL_GRACE_MS` | — | `OLC_QUEUE_CANCEL_GRACE_MS` | `10000` |
+| `QUEUE_FORCE_RELEASE_MS` | — | `OLC_QUEUE_FORCE_RELEASE_MS` | `60000` |
 
-`REQUEST_TIMEOUT_MS`, `BRIDGE_CALL_TIMEOUT_MS`, `BRIDGE_BATCH_MS` and
-`SUSPENDED_TURN_TTL_MS` follow the same precedence with `OLC_`-prefixed
+`REQUEST_TIMEOUT_MS`, `BRIDGE_CALL_TIMEOUT_MS`, `BRIDGE_BATCH_MS`,
+`SUSPENDED_TURN_TTL_MS`, `MAX_PARKED_TURNS`, `QUEUE_CANCEL_GRACE_MS` and
+`QUEUE_FORCE_RELEASE_MS` follow the same precedence with `OLC_`-prefixed
 environment variables.
+
+#### Parked turns
+
+A request whose tools the runtime calls is answered with a `tool_calls` delta
+and left parked: the backend session stays alive waiting for the result, and
+whichever later request carries it resumes that same turn.
+
+A client is not obliged to come back. The browser agent, for one, sends a full
+conversation per step and treats the tool call it gets as the step's answer —
+each decision is an isolated session it never resumes. Nothing in the wire
+says so in advance, and it must not be guessed at: a client may legitimately
+start fresh work while still computing a result for a turn it left parked.
+
+So the number of parked turns is bounded instead. `MAX_PARKED_TURNS` (default
+`4`) is how many may sit parked at once; admitting a fresh turn discards the
+oldest above that, never one whose resume request already exists. Each turn
+still carries its own `SUSPENDED_TURN_TTL_MS` deadline. Raise the cap for a
+client that genuinely interleaves several tool-calling turns; it is clamped to
+at least one, because parking is how a tool call reaches the client and zero
+would disable client tool calling rather than bound it.
 
 #### Who may call it
 
@@ -361,11 +439,21 @@ observed search events, but never logs the query text.
 
 | Route | Purpose |
 | --- | --- |
-| `GET /health`, `GET /` | liveness and which backend is serving |
+| `GET /health`, `GET /` | liveness, which backend is serving, and what the proxy is holding |
 | `GET /v1/models`, `GET /v1/models/:id` | the backend's catalog with capability metadata |
 | `POST /v1/chat/completions` | streaming and non-streaming completions, tool calls included |
 | `POST /v1/images/generations` | one native generated image as `b64_json` when the backend advertises image output |
 | `POST /bridge/call` | registered by the OpenCode backend; loopback-only, requires the per-run bridge token |
+
+`GET /health` answers `200` with `status: "ok"` whenever the process is up, so a
+probe that only reads `status` keeps working. What it is actually doing is
+alongside: `degraded` (a stalled or force-released queue, or a bridge whose
+plugin could not be confirmed), `queue` (running label, depth, stalled flag and
+age, orphaned tasks, last failure), `turns` (parked turns, pending tool calls,
+resume holds), `bridge` (enabled, plugin linked, plugin confirmed) and
+`managedRuntime`. The route is authentication-exempt, so it carries counts,
+flags, request ids and durations only — never session ids, prompt text or
+tokens.
 
 ## Layout
 
@@ -431,8 +519,19 @@ new adapter's expectations.
 - **One turn at a time.** Requests are serialized, because a single OpenCode
   instance runs one agent loop. A request that outlives `REQUEST_TIMEOUT_MS` is
   cancelled, not merely failed, and the next request waits for it to unwind. A
-  cancelled turn that does not stop is never overtaken: after ten seconds the
-  queue refuses requests with `503` and names it, until it stops.
+  cancelled turn that does not stop is not overtaken straight away: after
+  `QUEUE_CANCEL_GRACE_MS` (ten seconds) the queue refuses requests with `503`
+  and names it. That refusal is a window, not a verdict — after
+  `QUEUE_FORCE_RELEASE_MS` (one minute) the slot is released whatever the turn
+  is doing and the next request is served, because a turn that ignored its own
+  cancellation is not going to report back and a proxy that refuses everything
+  from then on is worse than one that writes that turn off. Anything the
+  abandoned turn still produces is discarded.
+- **A departed client releases its slot.** A request whose connection closes
+  while it is still queued is dropped and never starts; one that has already
+  started is cancelled the same way a deadline cancels it, and the slot is held
+  until it unwinds. Backend startup is not cancelled — the next request reuses
+  it — but a request whose caller left does not spend a turn behind it.
 - **A turn per user message.** Conversation history is replayed from the client's
   messages; only a tool exchange reuses its turn. Trailing tool results whose turn
   the proxy no longer holds — expired, cancelled, or from an earlier run — are
@@ -447,6 +546,16 @@ new adapter's expectations.
   the generated plugin; if it cannot be found, tools are dropped from the request
   and a warning names them. Point `OPENCODE_PLUGIN_RUNTIME_DIR` at the
   `node_modules` directory containing `@opencode-ai/plugin` to fix it.
+- **Client tools need the server this proxy configured.** A proxy that adopts an
+  OpenCode server it did not start told that server nothing: the plugin the
+  server has loaded belongs to whoever started it, and points at that proxy's
+  bridge endpoint and token. `tool.ids()` cannot tell the two apart, so the
+  running server's own config is asked whether this proxy's plugin entry is
+  among its plugins. Anything short of a clear yes means client tools are not
+  offered to the model at all, with one warning naming the server — a tool whose
+  every result is `No client is attached to session …` is worse than no tool.
+  Two proxies against one OpenCode server is therefore a single-bridge
+  arrangement: give the second one its own server, or none of its tools work.
 
 ## Tests
 

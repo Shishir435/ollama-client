@@ -90,7 +90,7 @@ export const ChatSessionSelector = () => {
                 }}
                 placeholder={t("sessions.selector.search_placeholder")}
                 aria-label={t("sessions.selector.search_placeholder")}
-                className="h-9 bg-background/70 pl-8 pr-8 [&::-webkit-search-cancel-button]:appearance-none"
+                className="h-9 bg-surface-sunken pl-8 pr-8 [&::-webkit-search-cancel-button]:appearance-none"
               />
               {sessionQuery && (
                 <TooltipActionButton

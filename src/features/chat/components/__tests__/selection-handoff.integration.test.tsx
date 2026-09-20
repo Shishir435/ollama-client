@@ -50,6 +50,19 @@ const boundary = vi.hoisted(() => {
   }
 })
 
+/*
+ * The context sheet holds the chat instruction, which reads the session store.
+ * Without this, mounting the sheet reaches SQLite through the persistence
+ * client and the test logs an unhandled rejection it never asked for.
+ */
+vi.mock("@/features/sessions/stores/chat-session-store", () => ({
+  useChatSessions: () => ({
+    currentSessionId: undefined,
+    sessions: [],
+    setSessionSystemPrompt: vi.fn()
+  })
+}))
+
 vi.mock("@/lib/browser-api", () => ({
   browser: {
     contextMenus: {
@@ -106,7 +119,7 @@ vi.mock("@/features/tabs/stores/selected-tabs-store", () => ({
 vi.mock("@/features/chat/components/chat-input/chat-input-toolbar", () => ({
   ChatInputToolbar: () => null
 }))
-vi.mock("@/features/chat/components/chat-input/composer-shell", () => ({
+vi.mock("@/components/layout/composer-shell", () => ({
   ComposerShell: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   )

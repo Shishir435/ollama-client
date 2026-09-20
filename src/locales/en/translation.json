@@ -1,4 +1,198 @@
 {
+  "agent": {
+    "action": {
+      "step": "Agent step",
+      "navigate": "Navigate: {{url}}",
+      "open_tab": "Open tab: {{url}}",
+      "scroll_up": "Scroll up",
+      "scroll_down": "Scroll down",
+      "scroll_left": "Scroll left",
+      "scroll_right": "Scroll right",
+      "switch_tab": "Switch to tab {{tab}}",
+      "wait": "Wait for {{condition}}",
+      "clear_and_type": "Replace text in field",
+      "press_key": "Press {{key}}",
+      "type": "Type in field",
+      "replace_text": "Edit text in field",
+      "drag": "Drag control to a drop target",
+      "select": "Select option",
+      "check": "Check control",
+      "uncheck": "Uncheck control",
+      "back": "Go back",
+      "forward": "Go forward",
+      "click": "Click control",
+      "double_click": "Double-click control",
+      "click_point": "Click at a point in the screenshot",
+      "zoom": "Zoom into the screenshot",
+      "hover": "Hover over control",
+      "read": "Read page",
+      "inspect": "Inspect {{region}}",
+      "find": "Find “{{query}}”",
+      "extract_text": "Read page text",
+      "handle_dialog_accept": "Accept the page’s dialog",
+      "handle_dialog_dismiss": "Dismiss the page’s dialog"
+    },
+    "approval": {
+      "title": "Approval required",
+      "allow": "Allow once",
+      "reject": "Reject",
+      "allowForRun": "Always allow this kind of action on {{origin}} for this run"
+    },
+    "attachment": {
+      "title": "What this browser allows",
+      "attaches": "Starting a run attaches Chrome's debugger to the tab you choose. Chrome shows its own banner while it is attached, and the run detaches when it stops, pauses for you to take over, or finishes.",
+      "no_debugger": "This browser has no debugger, so the run drives pages through the extension's content scripts instead."
+    },
+    "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",
+    "completion": {
+      "summary": "{{count}} page observations were sent to {{provider}} during this run."
+    },
+    "controls": {
+      "label": "Agent controls",
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop": "Stop",
+      "takeover_done": "I’m done — continue"
+    },
+    "error": {
+      "already_running": "An Agent run is already in progress.",
+      "browser_control_unavailable": "Agent could not attach browser control. Close DevTools or another debugger and try again.",
+      "permission_denied": "Agent needs page-observation permission before it can start.",
+      "tab_unsupported": "Agent cannot run on this page. Open a normal web page and try again.",
+      "unreadable_update": "The panel received an update it could not read.",
+      "unknown": "Agent could not complete that request."
+    },
+    "failure": {
+      "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",
+      "command_refused": "The model kept naming controls the page does not offer — hidden, off-screen or already gone. Scroll to what you need first, or try a model that reads pages more carefully.",
+      "goal_failed": "The model reported it cannot do this. Try a clearer goal, or a different model.",
+      "invalid_decision": "The model kept answering in a form the run could not use. A larger or tool-calling model usually fixes this.",
+      "model_unavailable": "The model could not be reached. Check the provider is running, then start the run again.",
+      "observation_failed": "The page could not be read. Reload it, make sure it is not a browser or store page, and try again.",
+      "policy_blocked": "The run asked for something policy refuses. Set a goal that does not need it, or do that step yourself.",
+      "stale_snapshot": "The page changed underneath the run. Start it again from the page as it is now.",
+      "unsupported_page": "The run cannot work on this page. Move to an ordinary web page and start again.",
+      "verification_failed": "The run could not confirm what its last action did. Check the page before starting again.",
+      "unknown": "The run stopped for a reason it could not name. Check the page, then start again."
+    },
+    "feedback": "Send feedback",
+    "limits": {
+      "no_native_input": "Pointer and keyboard input is synthetic, so a page that only reacts to real input may not respond.",
+      "no_screenshots": "No screenshots are taken, so a task that can only be done by looking at the page will not work.",
+      "no_dialogs": "Native alert, confirm and prompt dialogs cannot be seen or answered by the run."
+    },
+    "model": {
+      "label": "Model"
+    },
+    "observations": "{{count}} observations",
+    "privacy": {
+      "remote_notice": "Page observations will be sent continuously to this remote provider while Agent runs.",
+      "acknowledge": "I understand",
+      "remote_notice_screenshots": "Page observations and viewport screenshots will be sent continuously to this remote provider while Agent runs."
+    },
+    "progress": "{{count}} of {{budget}} observations",
+    "provider": {
+      "label": "Provider",
+      "local": "Local",
+      "remote": "Remote",
+      "missing": "Select a model first"
+    },
+    "question": {
+      "title": "Agent needs an answer",
+      "inputLabel": "Your answer",
+      "placeholder": "Type your answer",
+      "send": "Send answer"
+    },
+    "screenshots": {
+      "label": "Screenshots",
+      "sent": "Viewport screenshots are sent to the model",
+      "unused": "Not used with a text-only model",
+      "unknown": "Not determined yet"
+    },
+    "start": {
+      "description": "Supervise a browser task from this panel.",
+      "goal": "What should Agent do?",
+      "placeholder": "Describe one browser task…",
+      "action": "Start Agent",
+      "auto_actions": "Allow routine actions for this task",
+      "auto_actions_description": "Clicks and typing on this site run automatically. Posting, deleting, new sites and sensitive steps still ask."
+    },
+    "status": {
+      "submitted": "Starting",
+      "planning": "Working out the task",
+      "observing": "Observing page",
+      "deciding": "Choosing next step",
+      "awaiting_approval": "Waiting for approval",
+      "awaiting_takeover": "Waiting for you",
+      "executing": "Performing action",
+      "verifying": "Verifying result",
+      "pause_requested": "Pausing",
+      "paused": "Paused",
+      "cancelling": "Stopping",
+      "completed": "Completed",
+      "partial": "Partly done",
+      "failed": "Failed",
+      "cancelled": "Stopped"
+    },
+    "step_status": {
+      "planned": "Planned",
+      "approved": "Approved",
+      "executing": "Running",
+      "executed": "Done",
+      "verified": "Verified",
+      "rejected": "Rejected",
+      "failed": "Failed",
+      "uncertain": "Review"
+    },
+    "surface": {
+      "chat": "Chat",
+      "agent": "Agent",
+      "preview": "Preview"
+    },
+    "tab": {
+      "label": "Controlled tab",
+      "missing": "Open a supported web page"
+    },
+    "tabs": {
+      "label": "Controlled tabs",
+      "count": "{{count}} tabs"
+    },
+    "takeover": {
+      "title": "Take over this step"
+    },
+    "title": "Supervised Agent",
+    "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
+    "unresolved_reviewed": "I've reviewed the page — continue",
+    "work_log": {
+      "title": "Work log",
+      "target": "“{{name}}”"
+    },
+    "correction": "Paused. Describe what should change, then continue.",
+    "export_report": "Export run report (includes page text)",
+    "running_goal": "Working on",
+    "requirements": {
+      "title": "What the task asked for",
+      "met": "Done",
+      "unmet": "Not done"
+    },
+    "settings": {
+      "title": "Browser agent",
+      "description": "How much context a run may ask its model for, and when it pictures the page.",
+      "context_window": {
+        "label": "Context window",
+        "description": "Automatic reads the smallest window this model and this server both report, and falls back to a conservative size when neither says. Set a size yourself if you have raised your server's own limit, or if a run has run out of memory.",
+        "auto": "Automatic",
+        "custom": "Set a size"
+      },
+      "vision": {
+        "label": "Screenshots",
+        "description": "A picture costs an image prefill in the model's window on every step that takes one. Automatic takes one on the first step, after a step that did not land, and on pages the page structure cannot describe.",
+        "auto": "When the step needs one",
+        "always": "Every step",
+        "never": "Never"
+      }
+    }
+  },
   "common": {
     "theme": {
       "toggle": "Toggle Theme",
@@ -194,7 +388,6 @@
       "preparing": "Preparing on-device speech…"
     },
     "system_prompt": {
-      "button": "Chat instructions",
       "title": "Chat instructions",
       "description": "A system prompt for this chat only. It overrides the model's default prompt.",
       "placeholder": "e.g. You are a concise assistant that answers in bullet points.",
@@ -266,7 +459,8 @@
       "tooltip_tokens": "Total tokens used in this session",
       "tooltip_time": "Total response generation time",
       "tooltip_speed": "Average generation speed",
-      "tooltip_messages": "Number of AI responses"
+      "tooltip_messages": "Number of AI responses",
+      "speed_average": "avg {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "Activity log",
@@ -454,6 +648,7 @@
       "response_failed_title": "Response Generation Failed",
       "unknown_error_description": "An unknown error occurred",
       "provider_replay_invalid": "This response cannot be continued safely. Retry the turn to rebuild its provider context.",
+      "provider_busy": "The local endpoint is still finishing an earlier request and cannot start another. Wait about a minute, or restart it.",
       "report_issue": "Report issue",
       "open_issue": "Open an issue",
       "issue_draft_notice": "Prefilled locally. Review before submitting.",
@@ -872,6 +1067,8 @@
         "chat_count": "{{sessions}} sessions · {{messages}} messages",
         "knowledge": "Knowledge and memory",
         "knowledge_count": "{{files}} files · {{vectors}} vectors",
+        "agent": "Agent runs",
+        "agent_count": "{{runs}} saved runs and recovery receipts",
         "settings": "Local settings and provider secrets",
         "settings_description": "Endpoints, API keys, permissions, and device state",
         "preferences": "Portable preferences",
@@ -1062,6 +1259,7 @@
           "description_reported": "Levels reported by this model's provider.",
           "description_profile": "Levels verified for this provider and model family.",
           "description_unknown": "This provider does not advertise a reliable reasoning control.",
+          "reset": "Reset to Auto",
           "options": {
             "auto": "Auto (provider default)",
             "auto_short": "Auto",

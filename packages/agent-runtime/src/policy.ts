@@ -1,0 +1,498 @@
+import {
+  AGENT_GRANTABLE_EFFECTS,
+  type AgentApprovalRequest,
+  type AgentGrant,
+  type AgentTakeoverRequest
+} from "@ollama-client/contracts"
+import type {
+  AgentPolicyDecision,
+  AgentPolicyInput,
+  AgentRisk,
+  AgentSemanticEffect
+} from "./ports"
+import { isAgentAuthoredDestination } from "./provenance"
+
+const RISK_ORDER: readonly AgentRisk[] = ["low", "medium", "high", "critical"]
+
+const urlScheme = (url: string): string | undefined =>
+  /^([a-z][a-z\d+.-]*):/i.exec(url)?.[1]?.toLowerCase()
+
+const hasQuery = (url: string): boolean => {
+  const queryStart = url.indexOf("?")
+  if (queryStart < 0) return false
+  const fragmentStart = url.indexOf("#", queryStart)
+  return fragmentStart < 0
+    ? queryStart < url.length - 1
+    : fragmentStart > queryStart + 1
+}
+
+const raiseRisk = (current: AgentRisk, candidate: AgentRisk): AgentRisk =>
+  RISK_ORDER.indexOf(candidate) > RISK_ORDER.indexOf(current)
+    ? candidate
+    : current
+
+const effectRisk = (effect: AgentSemanticEffect): AgentRisk => {
+  switch (effect) {
+    case "read":
+    case "scroll":
+    case "hover":
+    /**
+     * Answering a dialog is low in itself: dismissing one is the safe
+     * direction and closing an alert is the only way past it. What accepting
+     * a confirm, a prompt or a beforeunload commits to is carried as
+     * `destructive` by whatever resolved it, and priced there.
+     */
+    case "dialog":
+      return "low"
+    case "navigation":
+      return "medium"
+    case "activation":
+    case "form_mutation":
+    /** A drop rearranges or hands off whatever was picked up; never granted. */
+    case "drag":
+      return "high"
+    case "download":
+      return "high"
+    /**
+     * High rather than critical, which is what makes it grantable. A
+     * submission is a real decision and still costs an approval by default —
+     * but critical can never be widened, so an agent asked to post ten
+     * comments had to ask a human for the final click ten times with no way
+     * to say yes once. A prompt that can never be answered in advance is not
+     * read more carefully; it is read less. The floor below is unmoved:
+     * destroying, paying, authenticating, a sensitive control and a file
+     * chooser stay critical.
+     */
+    case "submission":
+      return "high"
+    case "destructive":
+    case "authentication":
+    case "payment":
+    case "sensitive_input":
+    case "file_selection":
+      return "critical"
+  }
+}
+
+const takeoverReason = (
+  input: AgentPolicyInput
+): AgentTakeoverRequest["reason"] | undefined => {
+  const effects = input.effect.semanticEffects
+  /**
+   * A file chooser names the user's own files; the run neither sees them nor
+   * chooses among them, so opening one is the user's step from the start. It
+   * is decided before the sensitive-input class a file input also carries,
+   * because the takeover instruction the user reads has to be about the file.
+   */
+  if (effects.includes("file_selection")) return "file_upload"
+  if (input.effect.target.sensitive || effects.includes("sensitive_input")) {
+    return "sensitive_input"
+  }
+  if (effects.includes("authentication")) return "authentication"
+  if (effects.includes("payment")) return "payment"
+  return undefined
+}
+
+const takeoverInstruction = (reason: AgentTakeoverRequest["reason"]): string =>
+  reason === "file_upload"
+    ? "Take control of the page, choose the file yourself, then explicitly continue."
+    : "Take control of the page, complete the sensitive step, then explicitly continue."
+
+const makeTakeoverRequest = (
+  input: AgentPolicyInput,
+  reason: AgentTakeoverRequest["reason"]
+): AgentTakeoverRequest => ({
+  id: `${input.stepId}:takeover`,
+  runId: input.runId,
+  stepId: input.stepId,
+  reason,
+  instruction: takeoverInstruction(reason),
+  createdAt: input.now
+})
+
+/**
+ * Which classes this approval may be widened to, if any.
+ *
+ * Decided here rather than in the panel: the panel renders what it is given,
+ * and a UI that worked out for itself when widening is safe would be a second
+ * copy of this rule. Critical risk, a class outside the grantable set, or a
+ * destination leaving the origin all mean the offer is simply absent.
+ */
+/**
+ * The origin an effect acts on. A target in a child frame acts on that
+ * frame's origin; a grant for the page around it does not reach in, and an
+ * approval given here is offered for the frame's site, not the page's.
+ */
+const actingOrigin = (input: AgentPolicyInput): string =>
+  input.effect.frameOrigin ?? input.effect.sourceOrigin
+
+const grantableFor = (
+  input: AgentPolicyInput,
+  risk: Exclude<AgentRisk, "low">
+): Pick<AgentApprovalRequest, "origin" | "grantable"> => {
+  const origin = actingOrigin(input)
+  const destination = input.effect.destination
+  const grantable: readonly string[] = AGENT_GRANTABLE_EFFECTS
+  if (
+    risk === "critical" ||
+    !input.allowedOrigins.includes(origin) ||
+    (destination && destination.origin !== origin) ||
+    !input.effect.semanticEffects.every((effect) => grantable.includes(effect))
+  ) {
+    return {}
+  }
+  return {
+    origin,
+    grantable: input.effect
+      .semanticEffects as unknown as AgentApprovalRequest["grantable"]
+  }
+}
+
+/**
+ * Whether this step's change has no submission behind it.
+ *
+ * A form is prepared and then submitted, and the submission is the prompt
+ * that matters. A control belonging to no form has no such step, so this
+ * approval is the only one the user will be asked for — and on a page that
+ * saves as you type, the change is stored by the typing.
+ *
+ * What is claimed stops there. Verification compares the control's value and
+ * nothing else, so whether the page stored anything is not something the run
+ * knows; a standalone filter box with no submit step persists nothing at all.
+ * The risk is a form mutation either way — the wording exists so the user is
+ * not left expecting a confirmation that is never going to be asked for.
+ */
+const hasNoSubmitStep = (input: AgentPolicyInput): boolean =>
+  input.effect.target.noSubmitStep === true &&
+  input.effect.semanticEffects.includes("form_mutation")
+
+/**
+ * How a dialog answer reads to the user. The command's name says nothing —
+ * what is being decided is whether the page gets its OK — so the dialog's own
+ * kind and the direction of the answer are what the prompt states. The
+ * dialog's message travels separately as page evidence.
+ */
+const dialogAction = (
+  input: AgentPolicyInput
+): { action: string; consequence: string } | undefined => {
+  const command = input.effect.command
+  if (command.type !== "handle_dialog") return undefined
+  const kind = input.effect.dialog?.type ?? "dialog"
+  /**
+   * Whose dialog it is, named whenever the answer is anything but "the page
+   * the user started on asking its own question": an embedded frame, or a
+   * top-level document on an origin this run was never approved for. Either
+   * reads nothing like the site the user thinks they are looking at, and the
+   * panel shows no URL of its own.
+   */
+  const frameOrigin = input.effect.frameOrigin
+  const origin = actingOrigin(input)
+  const whose =
+    frameOrigin !== undefined || !input.allowedOrigins.includes(origin)
+      ? `${origin}'s`
+      : "the page's"
+  /**
+   * An embedded frame the run was not authorized to read had its dialog text
+   * withheld, so neither the model nor the panel can show what is being
+   * agreed to. The user is told that, rather than being shown a prompt with
+   * an empty quotation and left to assume the dialog was empty.
+   */
+  const unreadable =
+    frameOrigin !== undefined && !input.allowedOrigins.includes(frameOrigin)
+      ? " Its text was not read: the dialog belongs to a frame this run is not authorized to read."
+      : ""
+  if (!command.accept) {
+    return {
+      action: `Dismiss ${whose} ${kind} dialog`,
+      consequence: `The dialog is told it was dismissed and nothing is confirmed.${unreadable}`
+    }
+  }
+  return {
+    action: `Accept ${whose} ${kind} dialog`,
+    consequence:
+      (kind === "beforeunload"
+        ? "The page is allowed to leave; anything it has not saved is discarded."
+        : "The page proceeds as though the user pressed its confirm button, whatever that action is.") +
+      unreadable
+  }
+}
+
+/**
+ * How a batched fill reads to the user.
+ *
+ * One approval covers every field, so the prompt has to say how many there
+ * are: "Allow fill_form" is the same sentence whether it sets one control or
+ * twelve, and the number is the first thing the user is being asked to weigh.
+ * The second is which controls, and that is `batchEvidence` below — a batch
+ * that named one of twelve was a weaker disclosure than the twelve separate
+ * approvals it replaces, which is the one thing batching may not cost.
+ */
+const batchAction = (input: AgentPolicyInput): string | undefined => {
+  const fields = input.effect.batch?.fields.length
+  if (input.effect.command.type !== "fill_form" || !fields) return undefined
+  return fields === 1
+    ? "Set 1 form field"
+    : `Set ${fields} form fields in one step`
+}
+
+/** What the evidence block may hold, from the approval request's own bound. */
+const MAX_EVIDENCE_CHARS = 1_000
+
+/**
+ * Every control the batch will set, in the order it sets them.
+ *
+ * The same disclosure the single-field approval makes — the control's
+ * accessible name — repeated once per field, because one approval standing
+ * in for twelve has to show what all twelve would have shown. A control the
+ * page gave no name is listed by its role or tag rather than skipped: the
+ * user is owed the count they are approving even where the page will not say
+ * what a control is called.
+ *
+ * The values are not listed, exactly as they are not for a lone edit. They
+ * are model-composed or page-derived text of up to a thousand characters
+ * each, and a prompt the user has to read past to reach the buttons is a
+ * prompt they stop reading.
+ */
+const batchEvidence = (input: AgentPolicyInput): string | undefined => {
+  const fields = input.effect.batch?.fields
+  if (!fields?.length) return undefined
+  const lines = fields.map((field, index) => {
+    const target = field.target
+    const name =
+      target.accessibleName?.trim() ||
+      target.role ||
+      target.inputType ||
+      target.tag ||
+      "an unnamed control"
+    return `${index + 1}. ${name}`
+  })
+  const listed: string[] = []
+  let used = 0
+  for (const line of lines) {
+    /** The remainder is named as a count rather than silently cut short. */
+    const rest = lines.length - listed.length
+    const tail = `… and ${rest} more`
+    if (used + line.length + 1 > MAX_EVIDENCE_CHARS - tail.length) {
+      listed.push(tail)
+      break
+    }
+    listed.push(line)
+    used += line.length + 1
+  }
+  return listed.join("\n")
+}
+
+const makeApprovalRequest = (
+  input: AgentPolicyInput,
+  risk: Exclude<AgentRisk, "low">
+): AgentApprovalRequest => {
+  const destination = input.effect.destination?.url
+  const adopting = adoptsTab(input)
+  const dialog = dialogAction(input)
+  const action =
+    dialog?.action ??
+    batchAction(input) ??
+    (adopting
+      ? `Adopt tab ${adopting} at ${destination}`
+      : destination
+        ? `Allow navigation to ${destination}`
+        : `Allow ${input.effect.command.type}`)
+  return {
+    ...grantableFor(input, risk),
+    id: `${input.stepId}:approval`,
+    runId: input.runId,
+    stepId: input.stepId,
+    risk,
+    action,
+    consequence:
+      dialog?.consequence ??
+      (destination
+        ? `The browser will use the complete destination URL: ${destination}`
+        : batchAction(input)
+          ? "The browser will set each control listed above, in order, and stops at the first one it cannot set. The batch presses nothing, so it cannot submit the form — but a page that saves as you type may store each change as it is made."
+          : hasNoSubmitStep(input)
+            ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
+            : "The browser will perform the resolved page effect shown above."),
+    pageEvidence: batchEvidence(input) ?? input.effect.target.accessibleName,
+    createdAt: input.now
+  }
+}
+
+/**
+ * Whether a grant the user already gave covers this effect.
+ *
+ * Deliberately narrow. The grant has to name the origin the effect happens
+ * on; every semantic effect the step carries has to be one of the grantable
+ * classes, so a submission riding along inside an activation is not covered;
+ * and a critical risk is never covered at all, however it got there. A
+ * destination leaving the granted origin is a different site and a different
+ * decision.
+ */
+const grantFor = (
+  input: AgentPolicyInput,
+  risk: AgentRisk
+): AgentGrant | undefined => {
+  if (risk === "critical" || !input.grants?.length) return undefined
+  const origin = actingOrigin(input)
+  if (!input.allowedOrigins.includes(origin)) return undefined
+  const destination = input.effect.destination
+  if (destination && destination.origin !== origin) return undefined
+  const grantable: readonly string[] = AGENT_GRANTABLE_EFFECTS
+  if (
+    !input.effect.semanticEffects.every((effect) => grantable.includes(effect))
+  ) {
+    return undefined
+  }
+  return input.grants.find(
+    (grant) =>
+      grant.origin === origin &&
+      input.effect.semanticEffects.every((effect) =>
+        (grant.effects as readonly string[]).includes(effect)
+      )
+  )
+}
+
+/**
+ * The tab a switch would adopt, when it is one the run does not drive yet. A
+ * tab outside the scope is a page the user was working in, and reading it is
+ * the user's to grant whatever its origin — the site allowlist answers a
+ * different question.
+ */
+const adoptsTab = (input: AgentPolicyInput): number | undefined => {
+  const command = input.effect.command
+  if (command.type !== "switch_tab") return undefined
+  return input.scopedTabIds.includes(command.tabId) ? undefined : command.tabId
+}
+
+/**
+ * The risk an effect carries before its destination is considered: what it
+ * does to the page, whether it adopts a tab the run does not drive, and
+ * whether it acts inside a frame on a site outside the allowlist — a frame
+ * the run reads is on an allowed origin, so anything else is a new site.
+ *
+ * Submission is priced as the `submission` class the resolver attaches to the
+ * commands that actually submit — a click on a submitter, Enter in a field
+ * that submits on it — and that class is `high`, so the user may widen it to
+ * this origin for this run. It used to be priced a second time from the target's
+ * `maySubmit`, which says only that the control sits on a submit path: every
+ * character typed into an ordinary single-field form was therefore critical,
+ * and critical is never grantable, so filling in a search box cost one
+ * unskippable prompt per keystroke-batch and trained the user to approve
+ * without reading. Typing is a form mutation and priced as one.
+ */
+const baselineRisk = (input: AgentPolicyInput): AgentRisk => {
+  let risk: AgentRisk = "low"
+  for (const effect of input.effect.semanticEffects) {
+    risk = raiseRisk(risk, effectRisk(effect))
+  }
+  if (adoptsTab(input) !== undefined) risk = raiseRisk(risk, "high")
+  if (
+    input.effect.frameOrigin !== undefined &&
+    !input.allowedOrigins.includes(input.effect.frameOrigin)
+  ) {
+    risk = raiseRisk(risk, "high")
+  }
+  /**
+   * A dialog is priced against the site that raised it, root frame included.
+   *
+   * Every other effect on an unapproved top-level origin already costs an
+   * approval by its own class — an activation is high whatever page it is on
+   * — but a dismissal is low, so without this a page that navigated itself
+   * somewhere the run never approved could have its dialogs answered for
+   * free. The rule above covers a child frame and this one covers the
+   * document the tab shows; both ask the same question of the origin that
+   * actually asked.
+   */
+  if (
+    input.effect.command.type === "handle_dialog" &&
+    !input.allowedOrigins.includes(actingOrigin(input))
+  ) {
+    risk = raiseRisk(risk, "high")
+  }
+  return risk
+}
+
+export const evaluateAgentPolicy = (
+  input: AgentPolicyInput
+): AgentPolicyDecision => {
+  const destination = input.effect.destination
+  if (destination) {
+    const scheme = urlScheme(destination.url)
+    if (scheme !== "http" && scheme !== "https") {
+      return { type: "blocked", risk: "critical", reason: "unsupported_scheme" }
+    }
+    /**
+     * A destination the page rendered may carry the page's own data back to
+     * its own site; one the model composed may not, because observing the
+     * user's page is the only way it could have learned that data. A value
+     * the page put in a field is refused outright; rendered text is what an
+     * ordinary research task carries into a search, so it is escalated below
+     * rather than blocked.
+     *
+     * What the run itself put in a field is neither. A search box holds a
+     * field value like any other control, so typing the user's own query and
+     * then following the site's own search URL read as exfiltration and
+     * killed the run — the one thing the task had asked for. The rule is
+     * about data the run *read*, and authorship is something it can answer
+     * from the goal, the user's answers and its own receipts.
+     */
+    if (
+      destination.source !== "observed" &&
+      destination.pageDataEvidence === "field_value" &&
+      !isAgentAuthoredDestination(destination.url, input.authoredText)
+    ) {
+      return {
+        type: "blocked",
+        risk: "critical",
+        reason: "private_data_egress"
+      }
+    }
+  }
+
+  const takeover = takeoverReason(input)
+  if (takeover) {
+    return {
+      type: "takeover_required",
+      risk: "critical",
+      request: makeTakeoverRequest(input, takeover)
+    }
+  }
+
+  let risk = baselineRisk(input)
+
+  if (destination) {
+    const newOrigin = !input.allowedOrigins.includes(destination.origin)
+    if (newOrigin) risk = raiseRisk(risk, "high")
+    if (destination.source === "model" && hasQuery(destination.url)) {
+      risk = raiseRisk(risk, "high")
+    }
+    /**
+     * Page text the model carried into a destination it composed is the shape
+     * an exfiltration attempt takes, and also the shape an ordinary search
+     * takes. The user decides, against the complete URL.
+     */
+    if (
+      destination.source !== "observed" &&
+      destination.pageDataEvidence === "visible_text"
+    ) {
+      risk = raiseRisk(risk, "critical")
+    }
+  }
+
+  if (risk === "low") return { type: "allow", risk }
+  if (
+    risk === "medium" &&
+    !input.effect.semanticEffects.includes("form_mutation")
+  ) {
+    return { type: "allow", risk }
+  }
+
+  const granted = grantFor(input, risk)
+  if (granted) return { type: "granted", risk, origin: granted.origin }
+
+  return {
+    type: "approval_required",
+    risk,
+    request: makeApprovalRequest(input, risk)
+  }
+}

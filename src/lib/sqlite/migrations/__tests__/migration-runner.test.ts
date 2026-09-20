@@ -74,6 +74,13 @@ vi.mock("../add-vector-cleanup-receipts-table", () => ({
     ensureVectorCleanupReceiptsTable(db)
 }))
 
+const rebuildAgentRunsTables = vi.fn()
+const agentRunsTablesAreStale = vi.fn<(db: unknown) => boolean>(() => false)
+vi.mock("../rebuild-agent-runs-tables", () => ({
+  agentRunsTablesAreStale: (db: unknown) => agentRunsTablesAreStale(db),
+  rebuildAgentRunsTables: (db: unknown) => rebuildAgentRunsTables(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -90,6 +97,7 @@ const makeDb = (
     messages?: string[]
     sessions?: string[]
     tables?: string[]
+    agentRunColumns?: string[]
   } = {}
 ) => {
   let userVersion = initialVersion
@@ -109,7 +117,9 @@ const makeDb = (
       "turn_runs",
       "ingestion_runs",
       "model_pull_runs",
-      "vector_cleanup_receipts"
+      "vector_cleanup_receipts",
+      "agent_runs",
+      "agent_steps"
     ]
   )
   return {
@@ -125,14 +135,33 @@ const makeDb = (
       if (match) userVersion = Number(match[1])
     }),
     prepare: vi.fn((sql: string) => {
-      const tableInfoMatch = /PRAGMA table_info\((messages|sessions)\)/.exec(
-        sql
-      )
-      const rows = tableInfoMatch
-        ? columns[tableInfoMatch[1] as "messages" | "sessions"].map((name) => ({
-            name
-          }))
-        : []
+      const tableInfoMatch =
+        /PRAGMA table_info\((messages|sessions|agent_runs|agent_steps)\)/.exec(
+          sql
+        )
+      const infoTable = tableInfoMatch?.[1]
+      /*
+       * The agent tables answer their own shape, because the drift repair asks
+       * for columns rather than presence: a table left by an older build is
+       * there and still wrong.
+       */
+      const agentColumns: Record<string, string[]> = {
+        agent_runs: schema.agentRunColumns ?? [
+          "id",
+          "status",
+          "checkpoint",
+          "createdAt",
+          "updatedAt"
+        ],
+        agent_steps: ["id", "runId", "stepId", "status", "receipt", "createdAt"]
+      }
+      const names =
+        infoTable === "messages" || infoTable === "sessions"
+          ? columns[infoTable]
+          : infoTable && tables.has(infoTable)
+            ? agentColumns[infoTable]
+            : []
+      const rows = names.map((name) => ({ name }))
       let index = -1
       let boundTable = ""
       return {
@@ -166,6 +195,10 @@ beforeEach(() => {
   ensureTurnRunsTable.mockClear()
   ensureIngestionRunsTable.mockClear()
   ensureModelPullRunsTable.mockClear()
+  ensureVectorCleanupReceiptsTable.mockClear()
+  rebuildAgentRunsTables.mockClear()
+  agentRunsTablesAreStale.mockReset()
+  agentRunsTablesAreStale.mockReturnValue(false)
 })
 
 describe("migration-runner", () => {
@@ -209,14 +242,35 @@ describe("migration-runner", () => {
     expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureIngestionRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
+    expect(rebuildAgentRunsTables).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
+  })
+
+  it("rebuilds Agent tables a pre-release build left behind", () => {
+    agentRunsTablesAreStale.mockReturnValue(true)
+    const db = makeDb(LATEST_SCHEMA_VERSION, {
+      agentRunColumns: ["id", "status", "state", "createdAt", "updatedAt"]
+    })
+
+    const repaired = repairSchemaDrift(db as never)
+
+    expect(repaired).toBeGreaterThan(0)
+    expect(rebuildAgentRunsTables).toHaveBeenCalledTimes(1)
+  })
+
+  it("leaves Agent tables alone when their shape is current", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION)
+
+    repairSchemaDrift(db as never)
+
+    expect(rebuildAgentRunsTables).not.toHaveBeenCalled()
   })
 
   it("only runs migrations above the current version", () => {
     // A database already at v1 should skip v1 and run the later migrations.
     const db = makeDb(1)
     const applied = runMigrations(db as never)
-    expect(applied).toBe(LATEST_SCHEMA_VERSION - 1)
+    expect(applied).toBe(MIGRATIONS.filter(({ version }) => version > 1).length)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(ensureSessionsPinnedColumn).toHaveBeenCalledTimes(1)
     expect(ensureSessionsSystemPromptColumn).toHaveBeenCalledTimes(1)
@@ -228,6 +282,7 @@ describe("migration-runner", () => {
     expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureIngestionRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
+    expect(rebuildAgentRunsTables).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -256,7 +311,7 @@ describe("migration-runner", () => {
 
     const repaired = repairSchemaDrift(db as never)
 
-    expect(repaired).toBe(9)
+    expect(repaired).toBe(10)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledWith(db)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledWith(db)
@@ -266,6 +321,7 @@ describe("migration-runner", () => {
     expect(ensureIngestionRunsTable).toHaveBeenCalledWith(db)
     expect(ensureModelPullRunsTable).toHaveBeenCalledWith(db)
     expect(ensureVectorCleanupReceiptsTable).toHaveBeenCalledWith(db)
+    expect(rebuildAgentRunsTables).toHaveBeenCalledWith(db)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
@@ -285,5 +341,6 @@ describe("migration-runner", () => {
     expect(ensureIngestionRunsTable).not.toHaveBeenCalled()
     expect(ensureModelPullRunsTable).not.toHaveBeenCalled()
     expect(ensureVectorCleanupReceiptsTable).not.toHaveBeenCalled()
+    expect(rebuildAgentRunsTables).not.toHaveBeenCalled()
   })
 })

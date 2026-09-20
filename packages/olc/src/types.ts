@@ -99,6 +99,12 @@ export interface ProxyConfig {
   BRIDGE_CALL_TIMEOUT_MS: number
   BRIDGE_BATCH_MS: number
   SUSPENDED_TURN_TTL_MS: number
+  /** How many turns may sit parked on a client tool result at once. */
+  MAX_PARKED_TURNS: number
+  /** How long a cancelled request is waited for before work is refused. */
+  QUEUE_CANCEL_GRACE_MS: number
+  /** How long before a cancelled request's slot is released regardless. */
+  QUEUE_FORCE_RELEASE_MS: number
   DEBUG: boolean
 }
 
@@ -106,5 +112,5 @@ export type ProxyLogger = (message: string, details?: unknown) => void
 
 export type RetryAsync = <T>(
   operation: () => Promise<T>,
-  options?: { label?: string }
+  options?: { label?: string; timeoutMs?: number }
 ) => Promise<T>

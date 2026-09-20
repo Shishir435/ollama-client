@@ -94,6 +94,13 @@ export interface TurnRunSignals {
   hasUnannouncedToolCalls: () => boolean
   /** Hand the client's tool results to the parked calls. Resume only. */
   releaseToolResults?: () => void
+  /**
+   * Aborted when the core has ended this request — its deadline passed or its
+   * caller left. A backend must stop reading the turn when it fires: the core
+   * holds its single-flight slot until `run`/`resume` settles, so a read that
+   * ignores this is what turns one stuck turn into a proxy that serves nobody.
+   */
+  abort?: AbortSignal
 }
 
 export type TurnResult =
@@ -157,6 +164,28 @@ export type ResolvedModel =
   | { providerId: string; modelId: string }
   | { error: string }
 
+/**
+ * What a backend can say about itself for the proxy's `/health` body.
+ *
+ * `/health` is authentication-exempt, so this may carry counts, flags and
+ * codes only — never session ids, prompt text or credentials.
+ */
+export interface BackendHealth {
+  /** Whether this proxy started the runtime rather than adopting a running one. */
+  managed: boolean
+  /** Whether the client-tool bridge is usable for this runtime right now. */
+  bridge: {
+    enabled: boolean
+    /** Whether the plugin runtime this proxy's plugin needs was linked. */
+    pluginLinked: boolean
+    /**
+     * Whether the running runtime is known to have loaded this proxy's plugin
+     * entry. `null` means it could not be determined.
+     */
+    pluginConfirmed: boolean | null
+  }
+}
+
 export interface AgentBackend {
   readonly id: string
   /** Start or adopt the runtime. Called before the first turn of a request. */
@@ -171,6 +200,8 @@ export interface AgentBackend {
   findTurn: (turnId: string) => BackendTurn | undefined
   /** Routes only this backend needs, such as a callback its runtime posts to. */
   registerRoutes?: (router: Router) => void
+  /** Liveness details for `/health`. Reported as-is; nothing is inferred. */
+  inspect?: () => BackendHealth
   shutdown: () => Promise<void>
 }
 

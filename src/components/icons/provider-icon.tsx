@@ -5,6 +5,7 @@ import {
   type ProviderBrandId
 } from "@/lib/providers/provider-brand"
 import { getProviderMeta } from "@/lib/providers/registry"
+import { isCustomProviderId } from "@/lib/providers/types"
 import { useIconMask } from "./use-icon-mask"
 
 /**
@@ -29,6 +30,68 @@ const BrandGlyph = lazy(async () => {
   }
 })
 
+/**
+ * Initials for a provider that has no mark and no icon of its own.
+ *
+ * Every custom provider fell back to one identical server glyph, so a rail
+ * holding three of them said only that three existed. The name the user gave
+ * is the one thing that distinguishes them, and its first letters are the part
+ * that survives at sixteen pixels — a second letter only for a name that has a
+ * second word, because two glyphs at this size are already close to unreadable.
+ */
+export const providerMonogram = (name?: string): string | undefined => {
+  const words =
+    name
+      ?.trim()
+      .split(/[\s._/-]+/)
+      .filter(Boolean) ?? []
+  if (words.length === 0) return undefined
+  const initials =
+    words.length > 1 ? `${words[0][0]}${words[1][0]}` : words[0][0]
+  return initials.toUpperCase()
+}
+
+/**
+ * Drawn as SVG text in the mark's own 24-square box so it scales with whatever
+ * size class the caller passes, exactly as every curated mark does. A span with
+ * a font size could not follow the box.
+ */
+const ProviderMonogram = ({
+  initials,
+  className
+}: {
+  initials: string
+  className?: string
+}) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+    focusable="false">
+    <rect
+      x="1.5"
+      y="1.5"
+      width="21"
+      height="21"
+      rx="5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      opacity="0.5"
+    />
+    <text
+      x="12"
+      y="12.5"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={initials.length > 1 ? 10 : 13}
+      fontWeight="600"
+      fill="currentColor">
+      {initials}
+    </text>
+  </svg>
+)
+
 export interface ProviderIconProps {
   providerId?: string
   /**
@@ -49,9 +112,11 @@ export interface ProviderIconProps {
 
 /**
  * One glyph for a provider, in descending order of confidence: the vendor's
- * curated mark, then the icon its own endpoint served, then the registry's
- * generic icon. Falling back rather than guessing keeps a self-hosted endpoint
- * from wearing some hosted vendor's logo.
+ * curated mark, then the icon its own endpoint served, then the initials of a
+ * custom provider's own name, then the registry's generic icon. Falling back
+ * rather than guessing keeps a self-hosted endpoint from wearing some hosted
+ * vendor's logo, and the initials keep a rail of unrecognised providers from
+ * being a row of one repeated glyph.
  */
 export const ProviderIcon = ({
   providerId,
@@ -129,6 +194,19 @@ export const ProviderIcon = ({
 
   if (meta.icon.kind === "asset") {
     return <img src={meta.icon.src} alt={meta.icon.alt} className={className} />
+  }
+
+  /*
+   * Initials before the generic glyph. A custom provider has no curated mark
+   * and, on loopback, no favicon either, so every one of them drew the same
+   * server icon — a rail of three said only that three existed.
+   */
+  const monogram =
+    providerId && isCustomProviderId(providerId)
+      ? providerMonogram(fallbackName)
+      : undefined
+  if (monogram) {
+    return <ProviderMonogram initials={monogram} className={className} />
   }
 
   const Icon = meta.icon.icon

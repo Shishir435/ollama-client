@@ -28,6 +28,7 @@ describe("devEntrypointsToStrip", () => {
       "spike-owner",
       "spike-owner-offscreen",
       "persistence-verify",
+      "agent-perception-harness",
       "ingestion-processor"
     ])
   })
@@ -109,10 +110,77 @@ describe("publicWasmAssets", () => {
   })
 })
 
+describe("agent debug report gate", () => {
+  it("is off in every store build and on for a Chromium dev build", () => {
+    /**
+     * The record it dumps quotes page text, so a shipped extension must not
+     * carry the code that reads it out of the database.
+     */
+    for (const browser of ["chrome", "firefox"]) {
+      expect(
+        persistenceDefines({ browser, spikeOwner: false, development: false })
+          .__AGENT_DEBUG_REPORT__
+      ).toBe("false")
+    }
+    expect(
+      persistenceDefines({
+        browser: "firefox",
+        spikeOwner: false,
+        development: true
+      }).__AGENT_DEBUG_REPORT__
+    ).toBe("false")
+    expect(
+      persistenceDefines({
+        browser: "chrome",
+        spikeOwner: false,
+        development: true
+      }).__AGENT_DEBUG_REPORT__
+    ).toBe("true")
+  })
+})
+
+describe("WebMCP experiment gate", () => {
+  it("requires explicit opt-in and remains absent from Firefox", () => {
+    const previous = process.env.WXT_AGENT_WEBMCP
+    try {
+      delete process.env.WXT_AGENT_WEBMCP
+      expect(
+        persistenceDefines({
+          browser: "chrome",
+          spikeOwner: false,
+          development: false
+        }).__AGENT_WEBMCP_ENABLED__
+      ).toBe("false")
+      process.env.WXT_AGENT_WEBMCP = "1"
+      expect(
+        persistenceDefines({
+          browser: "chrome",
+          spikeOwner: false,
+          development: false
+        }).__AGENT_WEBMCP_ENABLED__
+      ).toBe("true")
+      expect(
+        persistenceDefines({
+          browser: "firefox",
+          spikeOwner: false,
+          development: true
+        }).__AGENT_WEBMCP_ENABLED__
+      ).toBe("false")
+    } finally {
+      if (previous === undefined) delete process.env.WXT_AGENT_WEBMCP
+      else process.env.WXT_AGENT_WEBMCP = previous
+    }
+  })
+})
+
 describe("persistenceDefines", () => {
   it("registers no spike owner in a store build", () => {
     for (const browser of ["chrome", "firefox"]) {
-      const defines = persistenceDefines({ browser, spikeOwner: false })
+      const defines = persistenceDefines({
+        browser,
+        spikeOwner: false,
+        development: false
+      })
 
       expect(defines.__SPIKE_OPFS_OWNER__).toBe("false")
       expect(defines.__SPIKE_OPFS_OWNER_MV2__).toBe("false")
@@ -120,8 +188,16 @@ describe("persistenceDefines", () => {
   })
 
   it("hands the slot to the spike host only under WXT_SPIKE_OWNER", () => {
-    const chromium = persistenceDefines({ browser: "chrome", spikeOwner: true })
-    const firefox = persistenceDefines({ browser: "firefox", spikeOwner: true })
+    const chromium = persistenceDefines({
+      browser: "chrome",
+      spikeOwner: true,
+      development: false
+    })
+    const firefox = persistenceDefines({
+      browser: "firefox",
+      spikeOwner: true,
+      development: false
+    })
 
     expect(chromium.__SPIKE_OPFS_OWNER__).toBe("true")
     expect(chromium.__SPIKE_OPFS_OWNER_MV2__).toBe("false")
@@ -133,7 +209,11 @@ describe("persistenceDefines", () => {
   it("never enables both spike owners at once", () => {
     for (const browser of ["chrome", "firefox"]) {
       for (const spikeOwner of [true, false]) {
-        const defines = persistenceDefines({ browser, spikeOwner })
+        const defines = persistenceDefines({
+          browser,
+          spikeOwner,
+          development: false
+        })
         const enabled = [
           defines.__SPIKE_OPFS_OWNER__,
           defines.__SPIKE_OPFS_OWNER_MV2__
@@ -146,12 +226,35 @@ describe("persistenceDefines", () => {
 
   it("resolves the production owner topology from the browser alone", () => {
     expect(
-      persistenceDefines({ browser: "firefox", spikeOwner: false })
-        .__FIREFOX_BG_OWNER__
+      persistenceDefines({
+        browser: "firefox",
+        spikeOwner: false,
+        development: false
+      }).__FIREFOX_BG_OWNER__
     ).toBe("true")
     expect(
-      persistenceDefines({ browser: "chrome", spikeOwner: true })
-        .__FIREFOX_BG_OWNER__
+      persistenceDefines({
+        browser: "chrome",
+        spikeOwner: true,
+        development: false
+      }).__FIREFOX_BG_OWNER__
+    ).toBe("false")
+  })
+
+  it("includes Agent Preview only in Chromium builds", () => {
+    expect(
+      persistenceDefines({
+        browser: "chrome",
+        spikeOwner: false,
+        development: false
+      }).__AGENT_PREVIEW_ENABLED__
+    ).toBe("true")
+    expect(
+      persistenceDefines({
+        browser: "firefox",
+        spikeOwner: false,
+        development: false
+      }).__AGENT_PREVIEW_ENABLED__
     ).toBe("false")
   })
 })
@@ -200,6 +303,8 @@ describe("env wiring", () => {
       { name: "spike-owner" },
       { name: "spike-owner-offscreen" },
       { name: "persistence-verify" },
+      { name: "agent-perception-harness" },
+      { name: "agent-control" },
       { name: "persistence-host" },
       { name: "ingestion-processor" },
       { name: "background" }
@@ -246,6 +351,9 @@ describe("env wiring", () => {
     delete process.env.WXT_SPIKE_OWNER
 
     expect(strippedFor("chrome")).toContain("persistence-verify")
+    expect(strippedFor("chrome")).toContain("agent-perception-harness")
+    expect(strippedFor("chrome")).not.toContain("agent-control")
+    expect(strippedFor("firefox")).toContain("agent-control")
     expect(definesFor("chrome").__SPIKE_OPFS_OWNER__).toBe("false")
     expect(definesFor("firefox").__SPIKE_OPFS_OWNER_MV2__).toBe("false")
   })

@@ -290,7 +290,7 @@ export const FirstRunPermissionsDialog = () => {
                       <button
                         type="button"
                         key={provider.id}
-                        className="rounded-control border p-3 text-left hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+                        className="rounded-control border p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => void chooseProvider(provider.id)}>
                         <div className="flex items-center gap-2 font-medium">
                           <ProviderIcon className="icon-sm" />
@@ -311,7 +311,7 @@ export const FirstRunPermissionsDialog = () => {
                   })}
                   <button
                     type="button"
-                    className="rounded-control border border-dashed p-3 text-left hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+                    className="rounded-control border border-dashed p-3 text-left hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => setAddProviderOpen(true)}>
                     <div className="flex items-center gap-2 font-medium">
                       <Globe className="icon-sm" />
@@ -336,12 +336,12 @@ export const FirstRunPermissionsDialog = () => {
                   })}
                 </DialogDescription>
                 {selectedProvider && !isLocalProvider(selectedProvider) && (
-                  <div className="rounded-control bg-warning/10 p-2 text-xs text-warning-foreground">
+                  <div className="rounded-control bg-tint-warning p-2 text-xs text-foreground">
                     {t("onboarding.provider.remote_disclosure")}
                   </div>
                 )}
                 {errorSupportCode && (
-                  <div className="space-y-1 rounded-control bg-destructive/10 p-2 text-xs text-destructive">
+                  <div className="space-y-1 rounded-control bg-tint-danger p-2 text-xs text-destructive">
                     <div className="flex gap-2">
                       <TriangleAlert className="icon-sm shrink-0" />
                       {connectionError?.messageKey
@@ -362,7 +362,7 @@ export const FirstRunPermissionsDialog = () => {
                   {t("onboarding.model.description")}
                 </DialogDescription>
                 {models.length === 0 ? (
-                  <div className="rounded-control bg-warning/10 p-2 text-xs">
+                  <div className="rounded-control bg-tint-warning p-2 text-xs">
                     {t("onboarding.model.none")}
                   </div>
                 ) : (
@@ -398,7 +398,7 @@ export const FirstRunPermissionsDialog = () => {
                   {t("onboarding.test_chat.prompt")}
                 </div>
                 {selectedProvider && !isLocalProvider(selectedProvider) && (
-                  <div className="rounded-control bg-warning/10 p-2 text-xs">
+                  <div className="rounded-control bg-tint-warning p-2 text-xs">
                     {t("onboarding.test_chat.cost")}
                   </div>
                 )}

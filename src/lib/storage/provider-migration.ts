@@ -2,11 +2,11 @@ import { z } from "zod"
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { ModelConfigMapSchema } from "@/lib/model-config-utils"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { ProviderStorageKey } from "@/lib/providers/types"
 import { SelectedModelRefSchema } from "@/lib/storage/setting-schemas"
 
-type StorageLike = typeof plasmoGlobalStorage
+type StorageLike = typeof plasmoSyncStorage
 
 const LEGACY_PROVIDER_MAPPINGS = [
   {
@@ -30,7 +30,7 @@ const LEGACY_PROVIDER_MAPPINGS = [
 const ProviderMappingsSchema = z.record(z.string().min(1), z.string().min(1))
 
 export const migrateLegacyProviderStorage = async (
-  storage: StorageLike = plasmoGlobalStorage,
+  storage: StorageLike = plasmoSyncStorage,
   signal?: AbortSignal
 ): Promise<{ migrated: boolean; migratedKeys: string[] }> => {
   const migratedKeys: string[] = []

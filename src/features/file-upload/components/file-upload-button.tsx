@@ -67,8 +67,8 @@ export const FileUploadButton = ({
         size="icon"
         className={cn(
           "shrink-0 rounded-control text-muted-foreground transition-all duration-200",
-          "hover:bg-muted hover:text-foreground",
-          "focus:bg-muted focus:text-foreground focus:opacity-100",
+          "hover:bg-state-hover hover:text-foreground",
+          "focus:bg-state-hover focus:text-foreground focus:opacity-100",
           disabled && "opacity-50 cursor-not-allowed",
           className
         )}

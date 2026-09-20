@@ -5,9 +5,10 @@ import type { ChatMessage } from "@/types"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) =>
+    t: (key: string, values?: Record<string, string>) =>
       ({
         "chat.metrics.speed_unit": "t/s",
+        "chat.session_metrics.speed_average": `avg ${values?.value} ${values?.unit}`,
         "chat.session_metrics.label_tokens": "Tokens",
         "chat.session_metrics.label_time": "Time",
         "chat.session_metrics.label_speed": "Speed",
@@ -42,7 +43,12 @@ describe("SessionMetricsBar", () => {
 
     const trigger = screen.getByRole("button", { name: /Session Metrics/ })
     expect(trigger).toHaveAccessibleName(/Speed/)
-    expect(trigger).toHaveTextContent("40.0 t/s")
+    /*
+     * Marked as an average: every assistant message shows its own rate in the
+     * same unit and the same type, so a bare number here reads as that number
+     * disagreeing with itself.
+     */
+    expect(trigger).toHaveTextContent("avg 40.0 t/s")
 
     fireEvent.click(trigger)
 

@@ -65,7 +65,7 @@ describe("storage API boundary", () => {
       const source = readFileSync(join(ROOT, file), "utf8")
       expect(source, file).toContain('from "@/hooks/use-setting"')
       expect(source, file).not.toContain("@plasmohq/storage/hook")
-      expect(source, file).not.toContain("plasmoGlobalStorage")
+      expect(source, file).not.toContain("plasmoSyncStorage")
       expect(source, file).not.toContain("getPlasmoStorageForKey")
     }
   })
@@ -87,10 +87,10 @@ describe("storage API boundary", () => {
     }
   })
 
-  it("keeps migrated structured consumers off the deprecated sync alias", () => {
+  it("keeps migrated structured consumers off the raw sync handle", () => {
     for (const file of VALIDATED_STRUCTURED_CONSUMERS) {
       const source = readFileSync(join(ROOT, file), "utf8")
-      expect(source, file).not.toContain("plasmoGlobalStorage")
+      expect(source, file).not.toContain("plasmoSyncStorage")
     }
   })
 
@@ -99,16 +99,20 @@ describe("storage API boundary", () => {
     const source = readFileSync(join(ROOT, file), "utf8")
     expect(source).toContain('from "@/lib/repositories/prompt-templates"')
     expect(source).not.toContain("@plasmohq/storage")
-    expect(source).not.toContain("plasmoGlobalStorage")
+    expect(source).not.toContain("plasmoSyncStorage")
   })
 
-  it("marks raw global sync alias deprecated", () => {
+  it("keeps the vague global alias gone", () => {
+    /*
+     * `plasmoGlobalStorage` was `plasmoSyncStorage` under a name that said
+     * nothing about which area it wrote to, which is what made it the thing
+     * people reached for by default. Every call site now names the area it
+     * means, so the alias has no reason to come back.
+     */
     const source = readFileSync(
       join(ROOT, "src/lib/plasmo-global-storage.ts"),
       "utf8"
     )
-    expect(source).toMatch(
-      /@deprecated[\s\S]*export const plasmoGlobalStorage = plasmoSyncStorage/
-    )
+    expect(source).not.toContain("export const plasmoGlobalStorage")
   })
 })
