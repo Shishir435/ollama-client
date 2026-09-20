@@ -132,7 +132,11 @@ const redactAgentStepCommand = (
   command?: AgentCommand
 ): AgentCommand | undefined => {
   if (!command) return undefined
-  if (command.type === "type" || command.type === "clear_and_type") {
+  if (
+    command.type === "type" ||
+    command.type === "clear_and_type" ||
+    command.type === "replace_text"
+  ) {
     return { ...command, text: REDACTED_AGENT_VALUE }
   }
   if (command.type === "select") {
@@ -354,11 +358,6 @@ const appendStepInTransaction = async (
   tx: SqlExecutor,
   input: AgentStepWrite
 ): Promise<void> => {
-  serializeBounded(
-    { version: 1, ...input },
-    MAX_AGENT_STEP_RECEIPT_BYTES,
-    "Agent step receipt"
-  )
   const receipt = AgentStepReceiptSchema.parse({
     version: 1,
     ...input,

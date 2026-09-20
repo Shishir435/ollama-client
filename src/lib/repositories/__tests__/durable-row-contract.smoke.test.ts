@@ -374,6 +374,68 @@ describe("durable job rows decode as their writers wrote them", () => {
   )
 
   it(
+    "persists valid long editing commands as redacted receipts",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      await repo.createAgentRun({
+        version: 1,
+        id: "long-edit-agent",
+        goal: "Edit a long document",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 1,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt: 1,
+        updatedAt: 1
+      })
+      for (const command of [
+        {
+          type: "type",
+          ref: "field-1",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          text: "x".repeat(20_000)
+        },
+        {
+          type: "clear_and_type",
+          ref: "field-1",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          text: "y".repeat(20_000)
+        },
+        {
+          type: "replace_text",
+          ref: "field-1",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          find: "needle",
+          text: "z".repeat(20_000)
+        }
+      ] as const) {
+        await repo.appendAgentStep({
+          runId: "long-edit-agent",
+          stepId: `long-edit-agent:${command.type}`,
+          status: "planned",
+          command,
+          at: 1
+        })
+      }
+      const stored = await repo.listAgentSteps("long-edit-agent")
+      expect(stored).toHaveLength(3)
+      const serialized = JSON.stringify(stored)
+      expect(serialized).not.toContain("x".repeat(100))
+      expect(serialized).not.toContain("y".repeat(100))
+      expect(serialized).not.toContain("z".repeat(100))
+      expect(serialized).toContain("[redacted]")
+    },
+    TIMEOUT
+  )
+
+  it(
     "rejects oversized agent evidence before writing it",
     async () => {
       await boot()
@@ -384,11 +446,14 @@ describe("durable job rows decode as their writers wrote them", () => {
           stepId: "missing-agent:1",
           status: "planned",
           command: {
-            type: "type",
-            ref: "field-1",
+            type: "call_page_tool",
             snapshotId: "snapshot-1",
             generation: 1,
-            text: "x".repeat(20_000)
+            toolName: "search",
+            schemaRevision: "12345678",
+            frameId: 0,
+            documentId: "doc-1",
+            input: { blob: "x".repeat(17_000) }
           },
           at: 1
         })
