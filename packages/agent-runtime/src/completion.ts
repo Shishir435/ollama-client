@@ -322,13 +322,116 @@ const requirementNamesReceiptTarget = (
   return (
     want.length > 0 &&
     text.length > 0 &&
-    (text.includes(want) || want.includes(text))
+    (containsCompletePhrase(text, want) || containsCompletePhrase(want, text))
   )
 }
+
+const CLAIM_WORD_CHARACTER = /[\p{L}\p{N}_]/u
+
+/**
+ * Every occurrence whose neighbours are punctuation, whitespace, or string
+ * ends. Normalised values remain page text rather than regex source: `red`
+ * matches "use red," but never the `red` inside "infrared".
+ */
+const completePhraseOccurrences = (
+  text: string,
+  phrase: string
+): Array<{ start: number; end: number }> => {
+  const matches: Array<{ start: number; end: number }> = []
+  if (phrase.length === 0) return matches
+  let start = text.indexOf(phrase)
+  while (start !== -1) {
+    const end = start + phrase.length
+    const before = start === 0 ? undefined : text[start - 1]
+    const after = end === text.length ? undefined : text[end]
+    if (
+      (before === undefined || !CLAIM_WORD_CHARACTER.test(before)) &&
+      (after === undefined || !CLAIM_WORD_CHARACTER.test(after))
+    ) {
+      matches.push({ start, end })
+    }
+    start = text.indexOf(phrase, start + 1)
+  }
+  return matches
+}
+
+const containsCompletePhrase = (text: string, phrase: string): boolean =>
+  completePhraseOccurrences(text, phrase).length > 0
 
 const CHECKED_OFF_PATTERN =
   /\b(uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b/
 const CHECKED_ON_PATTERN = /\b(check|checked|tick|ticked|select|selected|on)\b/
+
+/**
+ * A state word scoped by a negation ("not checked", "isn't selected", "never
+ * ticked"). The negation sits up to three words before the state it flips —
+ * "not currently checked" still asserts off — so a bare opposite-word test
+ * that ignores it reads "not checked" as silence and lets a checked receipt
+ * vouch for it.
+ */
+const NEGATED_ON_PATTERN =
+  /\b(?:not|never|neither|nor|without)\b(?:\s+\w+){0,3}?\s+(?:check|checked|tick|ticked|select|selected|on)\b|n['’]t(?:\s+\w+){0,3}?\s+(?:check|checked|tick|ticked|select|selected|on)\b/
+const NEGATED_OFF_PATTERN =
+  /\b(?:not|never|neither|nor|without)\b(?:\s+\w+){0,3}?\s+(?:uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b|n['’]t(?:\s+\w+){0,3}?\s+(?:uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b/
+const NEGATED_ON_PATTERN_GLOBAL = new RegExp(NEGATED_ON_PATTERN.source, "g")
+const NEGATED_OFF_PATTERN_GLOBAL = new RegExp(NEGATED_OFF_PATTERN.source, "g")
+
+/**
+ * A bare negation near a resolved value ("not blue", "blue is not selected").
+ * The window is deliberately small and fail-safe: a quoted value with a
+ * negation beside it is refused, and the run quotes what it meant instead —
+ * values are page text, so the quotation exists.
+ */
+const NEGATION_TOKEN_PATTERN = /\b(?:not|never|neither|nor|without)\b|n['’]t/
+
+/** The state the requirement asserts, once negations flip what they scope. */
+const requirementAssertsOff = (text: string): boolean => {
+  if (NEGATED_ON_PATTERN.test(text)) return true
+  const unnegated = text
+    .replace(NEGATED_ON_PATTERN_GLOBAL, " ")
+    .replace(NEGATED_OFF_PATTERN_GLOBAL, " ")
+  return CHECKED_OFF_PATTERN.test(unnegated)
+}
+
+const requirementAssertsOn = (text: string): boolean => {
+  if (NEGATED_OFF_PATTERN.test(text)) return true
+  const unnegated = text
+    .replace(NEGATED_ON_PATTERN_GLOBAL, " ")
+    .replace(NEGATED_OFF_PATTERN_GLOBAL, " ")
+  return CHECKED_ON_PATTERN.test(unnegated)
+}
+
+/**
+ * Whether one complete value occurrence sits in a short negated predicate.
+ * Clause boundaries keep "not red, but blue" from negating blue, while both
+ * "not blue" and "blue is not selected" remain refusals.
+ */
+const valueOccurrenceIsNegated = (
+  text: string,
+  occurrence: { start: number; end: number }
+): boolean => {
+  const beforeClause = text
+    .slice(Math.max(0, occurrence.start - 80), occurrence.start)
+    .split(/[.!?,;:]|\b(?:but|instead|rather)\b/u)
+    .at(-1)
+  const afterClause = text
+    .slice(occurrence.end, occurrence.end + 80)
+    .split(/[.!?,;:]|\b(?:but|instead|rather)\b/u)[0]
+  const beforeWords = beforeClause?.trim().split(/\s+/u).slice(-4).join(" ")
+  const afterWords = afterClause?.trim().split(/\s+/u).slice(0, 4).join(" ")
+  return (
+    NEGATION_TOKEN_PATTERN.test(beforeWords ?? "") ||
+    NEGATION_TOKEN_PATTERN.test(afterWords ?? "")
+  )
+}
+
+/** Whether the resolved value is named as a complete, non-negated phrase. */
+const valueAssertedWithoutNegation = (text: string, value: string): boolean => {
+  const needle = agentNormalizedClaim(value)
+  return completePhraseOccurrences(text, needle).some(
+    (occurrence) => !valueOccurrenceIsNegated(text, occurrence)
+  )
+}
 
 /**
  * Whether the requirement asserts the state the receipt confirmed, not its
@@ -356,12 +459,11 @@ const receiptResultAgrees = (
     kind === "checked" &&
     (command?.type === "check" || command?.type === "uncheck")
   ) {
-    const opposite =
-      command.type === "check" ? CHECKED_OFF_PATTERN : CHECKED_ON_PATTERN
-    return !opposite.test(text)
+    if (command.type === "check") return !requirementAssertsOff(text)
+    return !requirementAssertsOn(text)
   }
   if (kind === "field" && command?.type === "select" && command.value) {
-    return text.includes(agentNormalizedClaim(command.value))
+    return valueAssertedWithoutNegation(text, command.value)
   }
   if (
     kind === "field" &&
@@ -370,7 +472,7 @@ const receiptResultAgrees = (
       command?.type === "replace_text") &&
     command.text
   ) {
-    return text.includes(agentNormalizedClaim(command.text))
+    return valueAssertedWithoutNegation(text, command.text)
   }
   return true
 }

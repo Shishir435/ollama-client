@@ -914,7 +914,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
    */
   it.each([
     ["Agree is unchecked", "check"],
-    ["Agree is checked", "uncheck"]
+    ["Agree is not checked", "check"],
+    ["Agree isn't selected", "check"],
+    ["Agree is checked", "uncheck"],
+    ["Agree is not unchecked", "uncheck"]
   ])("refuses %s evidenced only by %s", (requirementText, commandType) => {
     const receipt = step({
       sequence: 1,
@@ -991,6 +994,72 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ? { type: "accepted" }
         : { type: "refused", reason: "missing_evidence" }
     )
+  })
+
+  it.each([
+    "Color must use infrared",
+    "Blue is not selected from Color",
+    "Color must not be blue"
+  ])("does not bind a selection to a near or negated value: %s", (text) => {
+    const receipt = step({
+      sequence: 1,
+      command: {
+        type: "select",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        value: text.includes("infrared") ? "red" : "blue"
+      },
+      target: { ref: "e1", tag: "select", role: "listbox", name: "Color" },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "field",
+          summary: "Field contains the resolved value",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({ visibleText: "Color picker" }),
+        requirements: [{ id: "r1", text, kind: "change" }],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
+  })
+
+  it("does not bind typed value to a substring", () => {
+    const receipt = step({
+      sequence: 1,
+      command: {
+        type: "type",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        text: "on"
+      },
+      target: { ref: "e1", tag: "input", name: "Status" },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "field",
+          summary: "Field contains the typed value",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({ visibleText: "Status button" }),
+        requirements: [
+          { id: "r1", text: "Status button is updated", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
   })
 
   /**
