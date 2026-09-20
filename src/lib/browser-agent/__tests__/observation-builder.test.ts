@@ -1227,7 +1227,9 @@ describe("scoped reads", () => {
 
     /** The overview cannot see it: the cap is spent long before that index. */
     expect(
-      build().elements.some((element) => element.name === "Delete my account")
+      build(0, unhurried).elements.some(
+        (element) => element.name === "Delete my account"
+      )
     ).toBe(false)
 
     const scoped = buildScoped({ kind: "query", value: "delete my account" })
