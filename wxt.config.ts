@@ -67,7 +67,7 @@ export default defineConfig({
       // the single SQLite worker owning durable chat history (Chromium only).
       ...(browser === "firefox"
         ? []
-        : ["sidePanel", "declarativeNetRequest", "offscreen"])
+        : ["sidePanel", "declarativeNetRequest", "offscreen", "debugger"])
     ],
     // Optional API permissions requested from the Permissions UI.
     // Declared so they can be requested at runtime via src/lib/permissions.ts;
@@ -80,7 +80,8 @@ export default defineConfig({
       "downloads",
       "tabGroups",
       "alarms",
-      "sessions"
+      "sessions",
+      "webNavigation"
     ],
     // Browser-level keyboard command. Uses the reserved
     // `_execute_action` so the hotkey mirrors a toolbar-icon click: with

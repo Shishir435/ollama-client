@@ -21,7 +21,7 @@ interface StatusCalloutProps {
 }
 
 const variantStyles: Record<StatusCalloutVariant, string> = {
-  default: "border-primary/20 bg-primary/5 text-primary",
+  default: "border-primary/20 bg-tint-accent text-primary",
   success: cn(
     STATUS_STYLES.success.borderSoft,
     STATUS_STYLES.success.bgSoft,

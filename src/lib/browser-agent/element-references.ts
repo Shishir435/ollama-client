@@ -1,0 +1,253 @@
+export interface AgentReferenceIdentity {
+  snapshotId: string
+  generation: number
+  documentId: string
+  frameId: number
+}
+
+/**
+ * The reference prefix a frame's elements carry. The root frame keeps the
+ * bare `e1` the model already knows; a child frame's references name the
+ * frame, so two identical controls in two frames are two references, and the
+ * frame an effect belongs to is legible in the command itself.
+ */
+export const agentReferencePrefix = (frameId: number): string =>
+  frameId === 0 ? "e" : `f${frameId}e`
+
+export interface AgentElementReferenceSnapshot extends AgentReferenceIdentity {
+  reference(element: Element): string
+  /** The ref this snapshot already gave an element, or nothing. */
+  referenceOf(element: Element): string | undefined
+  verificationId(element: Element): string
+  matchesFormState(ref: string, identity: AgentReferenceIdentity): boolean
+  refreshFormState(): void
+  resolve(ref: string, identity: AgentReferenceIdentity): Element | undefined
+}
+
+export interface AgentElementReferenceStore {
+  beginSnapshot(input: {
+    minimumGeneration: number
+    createSnapshotId: () => string
+  }): AgentElementReferenceSnapshot
+  invalidate(): void
+  currentGeneration(): number
+  matches(identity: AgentReferenceIdentity): boolean
+  /**
+   * The active snapshot's ref for an element, or a new one when the snapshot
+   * in hand is the identity given and the element has none yet. This is how a
+   * control the overview never listed — one found under a pointer — joins the
+   * snapshot it was found in, bound like every other ref to that generation.
+   */
+  referenceIn(
+    element: Element,
+    identity: AgentReferenceIdentity
+  ): string | undefined
+  /** The active snapshot's ref for an element, never assigning one. */
+  existingReference(
+    element: Element,
+    identity: AgentReferenceIdentity
+  ): string | undefined
+  verificationIdOf(element: Element): string
+  matchesFormState(ref: string, identity: AgentReferenceIdentity): boolean
+  /**
+   * Take the form's current payload as the new baseline for every reference
+   * this snapshot holds.
+   *
+   * Only a batched fill calls it, and only immediately after one of its own
+   * edits landed. `matchesFormState` exists to catch the payload moving
+   * between the approval and the effect, and a multi-field fill moves it
+   * itself: field two would be refused for the change field one made. Rebasing
+   * after each applied edit keeps the check pointed at what it is for — a
+   * change this run did not make, arriving between two of its own — instead
+   * of turning the batch into a self-refusal.
+   */
+  refreshFormState(): void
+  resolve(ref: string, identity: AgentReferenceIdentity): Element | undefined
+}
+
+const associatedForm = (element: Element): HTMLFormElement | null =>
+  element instanceof HTMLButtonElement ||
+  element instanceof HTMLInputElement ||
+  element instanceof HTMLSelectElement ||
+  element instanceof HTMLTextAreaElement
+    ? element.form
+    : null
+
+/**
+ * What this form would submit, as the payload it would submit it as.
+ *
+ * The state never crosses the content-script boundary, so hidden and
+ * sensitive values are compared exactly here rather than exposed in an
+ * observation or weakened into a public, attacker-visible checksum. It exists
+ * to catch the payload changing between the approval and the submission: a
+ * field edited elsewhere in the form, a hidden routing token rewritten, a
+ * control disabled so it stops being successful.
+ *
+ * It deliberately does **not** hash presentation. It used to hash every
+ * attribute of the form and of every control in it, which meant a search
+ * widget flipping `aria-expanded` as its suggestion list opened changed the
+ * fingerprint and the run refused to press Enter in the box it had just
+ * filled in. Class and ARIA state cannot reach the wire, so comparing them
+ * bought nothing and cost every live form on the web. The attributes kept
+ * below are the ones that decide what is sent and where.
+ */
+const SUBMISSION_ATTRIBUTES = [
+  "name",
+  "type",
+  "value",
+  "disabled",
+  "checked",
+  "multiple",
+  "formaction",
+  "formmethod",
+  "formenctype",
+  "formnovalidate"
+] as const
+
+const privateFormState = (element: Element): string | undefined => {
+  const form = associatedForm(element)
+  if (!form) return undefined
+  return JSON.stringify({
+    action: form.action,
+    method: form.method,
+    enctype: form.enctype,
+    noValidate: form.noValidate,
+    target: form.target,
+    controls: Array.from(form.elements).map((control) => {
+      if (!(control instanceof Element)) return null
+      const input = control as HTMLInputElement
+      return {
+        tag: control.tagName.toLowerCase(),
+        type: input.type?.toLowerCase() ?? "",
+        attributes: SUBMISSION_ATTRIBUTES.map((name) => [
+          name,
+          control.getAttribute(name)
+        ]),
+        value: "value" in control ? String(input.value) : "",
+        checked: "checked" in control ? Boolean(input.checked) : undefined,
+        disabled: "disabled" in control ? Boolean(input.disabled) : undefined,
+        selected:
+          control instanceof HTMLSelectElement
+            ? Array.from(control.options).map((option) => option.selected)
+            : undefined
+      }
+    })
+  })
+}
+
+export const createAgentElementReferenceStore = (input: {
+  documentId: string
+  frameId: number
+  createVerificationId?: () => string
+}): AgentElementReferenceStore => {
+  const prefix = agentReferencePrefix(input.frameId)
+  let generation = 0
+  let active: AgentElementReferenceSnapshot | undefined
+  const verificationIds = new WeakMap<Element, string>()
+  const createVerificationId =
+    input.createVerificationId ??
+    (() =>
+      Array.from(globalThis.crypto.getRandomValues(new Uint32Array(2)))
+        .map((value) => value.toString(16).padStart(8, "0"))
+        .join(""))
+
+  return {
+    beginSnapshot({ minimumGeneration, createSnapshotId }) {
+      generation = Math.max(generation + 1, minimumGeneration)
+      const snapshotId = createSnapshotId()
+      const byElement = new WeakMap<Element, string>()
+      const byRef = new Map<string, Element>()
+      const formStateByRef = new Map<string, string | undefined>()
+      let nextRef = 0
+      const identity: AgentReferenceIdentity = {
+        snapshotId,
+        generation,
+        documentId: input.documentId,
+        frameId: input.frameId
+      }
+      const snapshot: AgentElementReferenceSnapshot = {
+        ...identity,
+        reference(element) {
+          const existing = byElement.get(element)
+          if (existing) return existing
+          const ref = `${prefix}${++nextRef}`
+          byElement.set(element, ref)
+          byRef.set(ref, element)
+          formStateByRef.set(ref, privateFormState(element))
+          return ref
+        },
+        referenceOf(element) {
+          return byElement.get(element)
+        },
+        verificationId(element) {
+          const existing = verificationIds.get(element)
+          if (existing) return existing
+          const id = createVerificationId()
+          verificationIds.set(element, id)
+          return id
+        },
+        matchesFormState(ref, candidate) {
+          const element = snapshot.resolve(ref, candidate)
+          if (!element || !formStateByRef.has(ref)) return false
+          return formStateByRef.get(ref) === privateFormState(element)
+        },
+        refreshFormState() {
+          for (const [ref, element] of byRef) {
+            if (!formStateByRef.has(ref)) continue
+            formStateByRef.set(ref, privateFormState(element))
+          }
+        },
+        resolve(ref, candidate) {
+          if (active !== snapshot) return undefined
+          if (
+            candidate.snapshotId !== snapshotId ||
+            candidate.generation !== generation ||
+            candidate.documentId !== input.documentId ||
+            candidate.frameId !== input.frameId
+          ) {
+            return undefined
+          }
+          return byRef.get(ref)
+        }
+      }
+      active = snapshot
+      return snapshot
+    },
+    invalidate() {
+      generation += 1
+      active = undefined
+    },
+    currentGeneration: () => generation,
+    matches(identity) {
+      return Boolean(
+        active &&
+          active.snapshotId === identity.snapshotId &&
+          active.generation === identity.generation &&
+          active.documentId === identity.documentId &&
+          identity.frameId === input.frameId
+      )
+    },
+    matchesFormState(ref, identity) {
+      return active?.matchesFormState(ref, identity) ?? false
+    },
+    refreshFormState() {
+      active?.refreshFormState()
+    },
+    resolve(ref, identity) {
+      return active?.resolve(ref, identity)
+    },
+    referenceIn(element, identity) {
+      return this.matches(identity) ? active?.reference(element) : undefined
+    },
+    existingReference(element, identity) {
+      return this.matches(identity) ? active?.referenceOf(element) : undefined
+    },
+    verificationIdOf(element) {
+      const existing = verificationIds.get(element)
+      if (existing) return existing
+      const id = createVerificationId()
+      verificationIds.set(element, id)
+      return id
+    }
+  }
+}

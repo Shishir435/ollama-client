@@ -1,11 +1,13 @@
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
-  statSync
+  statSync,
+  writeFileSync
 } from "node:fs"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
@@ -145,8 +147,36 @@ const createExtensionSession = async (
   close: () => Promise<void>
   logs: string[]
 }> => {
-  const buildPath = extensionBuildPathFor(testInfo)
+  let buildPath = extensionBuildPathFor(testInfo)
   const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-e2e-`)
+  // Headless Chromium cannot accept the native optional-permission bubble.
+  // Install identical production JS with a test-only install-time grant.
+  // This does not test the permission prompt; all runtime permission checks run.
+  if (testInfo.project.metadata.agentObservationGrant === true) {
+    const copiedBuild = resolve(userDataDir, "extension")
+    cpSync(buildPath, copiedBuild, { recursive: true })
+    const manifestPath = resolve(copiedBuild, "manifest.json")
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
+    manifest.permissions.push("webNavigation")
+    manifest.optional_permissions = manifest.optional_permissions.filter(
+      (permission: string) => permission !== "webNavigation"
+    )
+    /**
+     * A project may ask for the browser Firefox gives us: no debugger, so the
+     * session manager reports `backend: "dom"` and every action runs through
+     * the content script. Removing the permission is the only honest way to
+     * get that on Chromium — a flag the extension read would be a second code
+     * path, and the point of measuring the two is that they are the same code
+     * seeing a different browser.
+     */
+    if (testInfo.project.metadata.agentDomBackend === true) {
+      manifest.permissions = manifest.permissions.filter(
+        (permission: string) => permission !== "debugger"
+      )
+    }
+    writeFileSync(manifestPath, JSON.stringify(manifest))
+    buildPath = copiedBuild
+  }
   const artifactDir = testInfo.outputPath("persistent-context")
   const videoDir = resolve(artifactDir, "videos")
   mkdirSync(videoDir, { recursive: true })
@@ -236,7 +266,11 @@ const createExtensionSession = async (
             `failure-page-${index + 1}.png`
           )
           await page
-            .screenshot({ path: screenshotPath, fullPage: true })
+            .screenshot({
+              path: screenshotPath,
+              fullPage: true,
+              timeout: 5_000
+            })
             .then(() => screenshots.push(screenshotPath))
             .catch(() => {})
         })

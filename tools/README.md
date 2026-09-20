@@ -31,13 +31,35 @@ consume their documented builds and never build implicitly.
 | `pnpm verify:ci-parity` | Install the frozen lockfile and run `verify:ci` in a disposable checkout of committed HEAD; may need network; excludes uncommitted work |
 
 Pre-commit formats/lints staged supported files, runs related tests, then
-performs one full typecheck. Pre-push audits production dependencies and runs
-`verify`. Neither hook builds browser packages or documentation. CI and
-explicit release verification own the expensive build and browser gates.
-Never bypass hooks. CI uses `check:static` and shards `test:coverage`, then
-merges reports to enforce the same coverage thresholds as `verify:ci`.
-Clean-checkout parity does not reproduce browser tests, packaging, hosted CI,
-OS differences, or a fresh registry security audit.
+performs one full typecheck. Pre-push audits production dependencies, runs
+`verify`, packages Chrome and Firefox, and enforces both bundle budgets. It does
+not build documentation or run browser automation. Never bypass hooks. CI uses
+`check:static` and shards `test:coverage`, then merges reports to enforce the
+same coverage thresholds as `verify:ci`. Clean-checkout parity does not
+reproduce browser tests, packaging, hosted CI, OS differences, bundle budgets,
+or a fresh registry security audit.
+
+CI's browser work starts as soon as `static-checks` and the build it boots are
+green rather than waiting for coverage to be merged, splits
+`e2e:chromium:critical` across five shards, and runs
+`e2e:chromium:agent-benchmark` beside them in four. The unit suite shards three
+ways for the same reason. Playwright itself stays at one worker: a second one
+splits a shard's scenarios evenly and gains nothing, because each test slows by
+as much as the parallelism saves on a four-core runner. Shards run on separate
+runners, which is why they do help.
+
+Each benchmark shard uploads its own partial record, and the aggregate
+`Critical browser gates` job runs `pnpm benchmark:merge` over them: it joins the
+partials, checks the total against what the suite declares, and fails when a
+pass is short or a shard is counted twice. That check used to run inside the
+worker that wrote the report, which could only ever see its own attempts. The production and benchmark Chrome
+targets build in parallel jobs and upload separately, so each gate downloads
+only the one it runs against. The
+job named `Critical browser gates` is the aggregate of all three and is what
+`release.yml` resolves a trusted run by, so it stays named that. Every run
+uploads per-test timings as `e2e-timings-shard-*` and the benchmark's counts as
+`agent-benchmark-report`, on success as well as failure — a gate whose evidence
+only exists on the runner that produced it cannot be read afterwards.
 
 ## Coverage scope
 
@@ -65,7 +87,9 @@ only after merging the reports.
 | `pnpm verify:browser-automation` | Browser smoke workflow plus local browser/UI checks; see runner environment options for Ollama |
 | `pnpm e2e` | Build Chrome production and benchmark artifacts, then run critical Chromium tests |
 | `pnpm e2e:build:release` | Build production and benchmark artifacts for both browsers once each |
-| `pnpm e2e:release:run` | Consume those four builds; run critical Chromium, worker recovery, and Chrome/Firefox migration gates |
+| `pnpm e2e:release:run` | Consume those four builds; run critical Chromium, both worker-recovery gates, and Chrome/Firefox migration gates |
+| `pnpm verify:sw-turn-recovery` | Kill a real MV3 worker mid-turn; a fresh one must resume the durable turn exactly once. Needs `benchmark:build` |
+| `pnpm verify:sw-agent-recovery` | Kill a real MV3 worker mid-effect; a fresh one must settle the Agent run as unresolved without reissuing it. Needs `benchmark:build` |
 | `pnpm e2e:release` | Build all four targets and run the release browser gates |
 | `pnpm verify:release` | Static checks + coverage, all four builds, manifest/bundle checks, docs build, and release browser gates; each browser target builds once |
 | `pnpm verify:agent-endpoints [baseUrl]` | Probe a deployed docs site for the agent contract: Markdown negotiation, 404 status and body, JSON API errors, rate-limit headers, and every machine-readable file. Defaults to production; pass a preview URL to check a deploy before promoting it. Needs network, no build |
@@ -73,7 +97,10 @@ only after merging the reports.
 Browser gates need the corresponding installed browsers. Chromium automation
 uses Playwright; the Firefox migration gate uses Firefox and geckodriver.
 Headful Linux runs need a display or Xvfb. Recovery runners document additional
-environment flags in their module headers. Reports go under `artifacts/`.
+environment flags in their module headers, and share their launch, attach and
+worker-termination mechanics through `tools/verify/lib/chromium-extension-harness.ts` —
+Playwright pins extension service workers alive, so those runners drive
+Chromium directly. Reports go under `artifacts/`.
 Release CI separately audits the distributable OLC package on Linux/Windows
 and retains the exact extension ZIPs used for publishing.
 

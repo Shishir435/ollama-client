@@ -34,7 +34,7 @@ export function PreviewSheet({
           "w-[min(42rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0",
           className
         )}>
-        <SheetHeader className="min-w-0 shrink-0 border-b border-border/35 px-4 py-3">
+        <SheetHeader className="min-w-0 shrink-0 border-b border-border px-4 py-3">
           <SheetTitle className="truncate pr-8">{title}</SheetTitle>
           {(meta || actions) && (
             <div className="flex items-center justify-between gap-2">

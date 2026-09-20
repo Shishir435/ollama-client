@@ -28,14 +28,14 @@ import type { ChatMessage } from "@/types"
  * sibling out of the row.
  */
 const errorChipCls =
-  "h-6 min-w-0 gap-1 rounded-chip border px-2 text-micro shadow-none hover:border-border/50"
+  "h-6 min-w-0 gap-1 rounded-chip border px-2 text-micro shadow-none hover:border-border"
 const recoveryChipCls = cn(
   errorChipCls,
-  "shrink-0 border-border/30 bg-muted/25 text-foreground hover:bg-muted/45"
+  "shrink-0 border-border-subtle bg-surface-sunken text-foreground hover:bg-state-hover"
 )
 const supportChipCls = cn(
   errorChipCls,
-  "shrink border-border/30 bg-muted/25 text-foreground hover:bg-muted/45"
+  "shrink border-border-subtle bg-surface-sunken text-foreground hover:bg-state-hover"
 )
 
 const settingsTabForFocusId = (focusId: string): string | undefined =>
@@ -390,7 +390,7 @@ export const ChatErrorReportAction = ({
           size="sm"
           className={cn(
             supportChipCls,
-            "border-border/25 bg-transparent text-muted-foreground hover:bg-muted/35 hover:text-foreground"
+            "border-border-subtle bg-transparent text-muted-foreground hover:bg-state-hover hover:text-foreground"
           )}
           disabled={preparing}
           onPointerEnter={prefetchDiagnostics}
@@ -415,10 +415,10 @@ export const ChatErrorReportAction = ({
         {copied ? t("chat.errors.diagnostics_copied") : ""}
       </span>
 
-      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-muted-foreground/65">
+      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-foreground-tertiary">
         <span>{t("chat.errors.issue_draft_notice")}</span>
         {msg.error?.code && (
-          <code className="select-all font-mono text-micro tracking-tight text-muted-foreground/60">
+          <code className="select-all font-mono text-micro tracking-tight text-foreground-tertiary">
             {msg.error.code}
             {msg.error.incidentId ? ` · ${msg.error.incidentId}` : ""}
           </code>

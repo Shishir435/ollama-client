@@ -10,10 +10,12 @@ import {
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { ProviderIcon } from "@/components/icons"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
 import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import { cn } from "@/lib/class-names"
+import { resolveModelBrand } from "@/lib/providers/provider-brand"
 import type { ChatMessage } from "@/types"
 import { CopyButton } from "./copy-button"
 import { RegenerateButton } from "./regenerate-button"
@@ -81,7 +83,7 @@ export const ChatMessageFooter = ({
 
       {/* Branch Navigation */}
       {canShowBranchNavigation && (
-        <div className="flex h-6 shrink-0 items-center gap-0 rounded-chip bg-background/45 px-0">
+        <div className="flex h-6 shrink-0 items-center gap-0 rounded-chip bg-surface-sunken px-0">
           <TooltipActionButton
             variant="ghost"
             ariaLabel={t("chat.actions.previous_branch")}
@@ -196,7 +198,7 @@ export const ChatMessageFooter = ({
       </div>
 
       {isUser ? (
-        <div className="ml-auto shrink-0 text-micro text-muted-foreground/55 tabular-nums">
+        <div className="ml-auto shrink-0 text-micro text-foreground-tertiary tabular-nums">
           {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit"
@@ -208,8 +210,17 @@ export const ChatMessageFooter = ({
             trigger={<span className="ml-auto min-w-0 shrink" />}
             tooltip={msg.model}
             icon={
-              <span className="inline-flex h-6 min-w-0 max-w-[clamp(5rem,24vw,14rem)] items-center gap-1 rounded-control px-1 text-micro text-muted-foreground/70 hover:bg-muted/35 hover:text-foreground">
-                <Bot className="icon-xs shrink-0" />
+              <span className="inline-flex h-6 min-w-0 max-w-[clamp(5rem,24vw,14rem)] items-center gap-1 rounded-control px-1 text-micro text-foreground-tertiary hover:bg-state-hover hover:text-foreground">
+                {/* The vendor the model id names, so the reply is attributed
+                    with the same mark the model menu shows. */}
+                {resolveModelBrand(msg.model) ? (
+                  <ProviderIcon
+                    brand={resolveModelBrand(msg.model)}
+                    className="icon-xs shrink-0"
+                  />
+                ) : (
+                  <Bot className="icon-xs shrink-0" />
+                )}
                 <span className="truncate">{msg.model}</span>
               </span>
             }

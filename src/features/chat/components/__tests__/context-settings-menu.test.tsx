@@ -17,6 +17,19 @@ const mocks = vi.hoisted(() => ({
   perSiteProfiles: { profiles: [] as unknown[] }
 }))
 
+/*
+ * The context sheet holds the chat instruction, which reads the session store.
+ * Without this, mounting the sheet reaches SQLite through the persistence
+ * client and the test logs an unhandled rejection it never asked for.
+ */
+vi.mock("@/features/sessions/stores/chat-session-store", () => ({
+  useChatSessions: () => ({
+    currentSessionId: undefined,
+    sessions: [],
+    setSessionSystemPrompt: vi.fn()
+  })
+}))
+
 vi.mock("@/hooks/use-setting", () => ({
   useSetting: vi.fn((descriptor: { key: string; defaultValue: unknown }) => {
     if (descriptor.key === "embeddings-use-rag") {
@@ -201,6 +214,18 @@ describe("ContextSettingsMenu", () => {
     // (config.enabled) is never written from the chat tray.
     expect(mocks.setWebSearchActive).toHaveBeenCalledWith(false)
     expect(mocks.updateWebSearchConfig).not.toHaveBeenCalled()
+  })
+
+  it("fades permission rows at the bounded sub-view edges", () => {
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: /Permissions & privacy/ })
+    )
+
+    expect(
+      document.querySelector('[data-slot="context-permissions-scroll"]')
+    ).toHaveClass("scroll-fade-y", "overscroll-contain")
   })
 
   it("selects every listed tab from the list header", () => {

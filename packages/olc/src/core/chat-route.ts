@@ -37,8 +37,13 @@ import {
   type ReasoningEffort,
   type ToolResultMessage
 } from "../types.js"
-import { isRecord, sleep } from "../util.js"
-import { type Router, sendJson, startEventStream } from "./http.js"
+import { isRecord, sleep, withTimeout } from "../util.js"
+import {
+  bindRequestAbort,
+  type Router,
+  sendJson,
+  startEventStream
+} from "./http.js"
 import {
   contentChunk,
   extractTrailingToolResults,
@@ -52,7 +57,20 @@ import {
 } from "./openai-wire.js"
 import type { PendingToolCalls } from "./pending-tool-calls.js"
 import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
-import { QueueStalledError, type RequestQueue } from "./queue.js"
+import {
+  ClientClosedError,
+  QueueStalledError,
+  type RequestQueue
+} from "./queue.js"
+
+/**
+ * How long the proxy waits for a backend to let a turn go.
+ *
+ * Deliberately shorter than the queue's cancel grace: a request that is being
+ * cancelled must have finished releasing its turn before the queue would
+ * otherwise conclude that it will not stop.
+ */
+const TURN_DISCARD_TIMEOUT_MS = 8_000
 
 const createRequestId = () =>
   `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
@@ -135,6 +153,18 @@ export const unsentTail = (stored: string, streamed: string): string => {
   return streamed ? "" : stored
 }
 
+/**
+ * A failure is a terminal event of its own, not a sentence in the answer.
+ * Streaming `[Proxy Error] ...` as content and finishing with `stop` looked
+ * like a completed turn to every OpenAI-compatible client: the extension read
+ * a decision with no tool call rather than an error it could report.
+ */
+export interface TurnFailure {
+  message: string
+  type: string
+  status: number
+}
+
 interface TurnEmitter {
   readonly streamMode: boolean
   start: () => void
@@ -143,6 +173,7 @@ interface TurnEmitter {
   auxiliary: (payload: unknown) => void
   toolCalls: (calls: PendingToolCall[]) => void
   finish: (reason: string) => void
+  fail: (failure: TurnFailure) => void
   readonly content: string
   readonly reasoning: string
   readonly images: readonly GeneratedImage[]
@@ -196,6 +227,19 @@ const createStreamEmitter = (
     },
     finish(reason) {
       write(finishChunk(id, model, reason))
+      if (!response.writableEnded) {
+        response.write("data: [DONE]\n\n")
+        response.end()
+      }
+    },
+    fail(failure) {
+      if (!response.headersSent) {
+        sendJson(response, failure.status, {
+          error: { message: failure.message, type: failure.type }
+        })
+        return
+      }
+      write({ error: failure })
       if (!response.writableEnded) {
         response.write("data: [DONE]\n\n")
         response.end()
@@ -292,6 +336,15 @@ const createBufferEmitter = (
         )
       )
     },
+    fail(failure) {
+      if (response.headersSent) {
+        if (!response.writableEnded) response.end()
+        return
+      }
+      sendJson(response, failure.status, {
+        error: { message: failure.message, type: failure.type }
+      })
+    },
     get content() {
       return content
     },
@@ -329,10 +382,34 @@ export const registerChatRoutes = (
     parkedTurns.delete(turnId)
   }
 
+  /**
+   * Let a turn go, bounded.
+   *
+   * A backend's abort and dispose reach a runtime over the network, and a
+   * runtime that has stopped answering will not answer these either. This runs
+   * on the cancellation path, inside the queue's single-flight slot, so a wait
+   * here is the slot being held: bounding it well under the queue's cancel
+   * grace is what keeps one hung `session.delete` from becoming the next stall.
+   * The calls are left to finish on their own; only the waiting stops.
+   */
   const discardTurn = async (turn: BackendTurn, { abort = false } = {}) => {
     clearParked(turn.id)
-    if (abort) await turn.abort()
-    await turn.dispose()
+    const release = async () => {
+      if (abort) await turn.abort()
+      await turn.dispose()
+    }
+    try {
+      await withTimeout(
+        release(),
+        TURN_DISCARD_TIMEOUT_MS,
+        `discard ${turn.id}`
+      )
+    } catch (error) {
+      log("Gave up waiting for a turn to be discarded", {
+        turnId: turn.id,
+        message: (error as Error).message
+      })
+    }
   }
 
   const parkTurn = (turn: BackendTurn) => {
@@ -385,6 +462,50 @@ export const registerChatRoutes = (
     // still waiting on a client tool result; a resumed or discarded turn has nothing
     // left to reap.
     if (backend.findTurn(turn.id) && pending.hasPending(turn.id)) parkTurn(turn)
+  }
+
+  /**
+   * Bound how many turns may sit parked on a client tool result.
+   *
+   * A parked turn is a live backend session, and only its own ten-minute TTL
+   * used to end one. That is fine for a turn a client abandoned once, and
+   * wrong for a client whose every request is a single decision it never
+   * resumes: a browser-agent run left one session parked per step, all of
+   * them at once, and the runtime's own session bookkeeping pays for that.
+   *
+   * A bound rather than a guess. "This request carries no tool results, so
+   * the client has moved on" is not true — a client may legitimately start a
+   * fresh turn while still computing the result for one it left parked, and
+   * discarding on that basis throws away work it is about to hand back.
+   * What can be said without guessing is that unbounded is wrong, so the
+   * oldest parked turns above the cap are discarded when a fresh one is
+   * admitted, oldest first.
+   *
+   * A turn with an outstanding resume hold is never reaped: a request
+   * carrying its results already exists and may be queued behind this one.
+   */
+  const reapExcessParkedTurns = async (requestId: string): Promise<number> => {
+    const reapable = [...parkedTurns.keys()].filter(
+      (turnId) => !resumeHolds.has(turnId)
+    )
+    /** Room for the turn about to be admitted, so the steady state is the cap. */
+    const excess = reapable.length - Math.max(0, config.MAX_PARKED_TURNS - 1)
+    if (excess <= 0) return 0
+    for (const turnId of reapable.slice(0, excess)) {
+      clearParked(turnId)
+      pending.failTurn(
+        turnId,
+        "The proxy discarded this parked turn to stay within its parked-turn limit"
+      )
+      const turn = backend.findTurn(turnId)
+      if (turn) await discardTurn(turn, { abort: true })
+    }
+    log("Discarded parked turns above the limit", {
+      requestId,
+      discarded: excess,
+      limit: config.MAX_PARKED_TURNS
+    })
+    return excess
   }
 
   /**
@@ -593,7 +714,12 @@ export const registerChatRoutes = (
 
     try {
       if (!turn) {
+        // Startup is shared infrastructure the next request will reuse, so a
+        // departed caller does not cancel it — it only stops this request from
+        // spending a turn behind it.
+        signal?.throwIfAborted()
         await backend.ensureReady()
+        signal?.throwIfAborted()
         turn = await backend.startTurn({
           requestId,
           model: target,
@@ -633,7 +759,13 @@ export const registerChatRoutes = (
           if (pending.hasUnemitted(activeTurn.id)) suspension.trigger()
           const signals = {
             suspended: suspension.promise,
-            hasUnannouncedToolCalls: () => pending.hasUnemitted(activeTurn.id)
+            hasUnannouncedToolCalls: () => pending.hasUnemitted(activeTurn.id),
+            /**
+             * The same signal the queue cancels this request with. Without it a
+             * backend reads on against a turn nobody is waiting for, and the
+             * slot it holds is never released.
+             */
+            ...(signal ? { abort: signal } : {})
           }
           const results = pendingResults
           pendingResults = []
@@ -669,15 +801,11 @@ export const registerChatRoutes = (
         if (result.status === "suspended") return
         settled = true
         if (result.status === "failed") {
-          if (emitter.streamMode) {
-            emitter.delta(
-              `[Proxy Error] ${result.error.type}: ${result.error.message}`,
-              false
-            )
-            emitter.finish("stop")
-          } else {
-            sendJson(response, 502, { error: result.error })
-          }
+          emitter.fail({
+            message: result.error.message,
+            type: result.error.type,
+            status: 502
+          })
           await discardTurn(turn as BackendTurn)
           return
         }
@@ -715,22 +843,17 @@ export const registerChatRoutes = (
           await discardTurn(turn, { abort: true })
         }
 
-        if (emitter.streamMode && response.headersSent) {
-          emitter.delta(`[Proxy Error] ${message}`, false)
-          emitter.finish("stop")
-          return
-        }
+        // Cancellation is now an ordinary way for a request to end. Reporting it
+        // means writing to a socket whose reader is gone, so the turn is cleaned
+        // up and logged and nothing is sent.
+        if (response.destroyed || error instanceof ClientClosedError) return
+
         const inputError = error instanceof BackendInputError
-        sendJson(
-          response,
-          inputError ? 400 : /Request timeout/.test(message) ? 504 : 500,
-          {
-            error: {
-              message,
-              type: inputError ? "BadRequest" : "ProxyError"
-            }
-          }
-        )
+        emitter.fail({
+          message,
+          type: inputError ? "BadRequest" : "ProxyError",
+          status: inputError ? 400 : /Request timeout/.test(message) ? 504 : 500
+        })
       }
       await handleRequestFailure()
     }
@@ -769,6 +892,8 @@ export const registerChatRoutes = (
 
     if (resumeTurn) holdTurn(resumeTurn.id)
 
+    const clientGone = bindRequestAbort(request, response)
+
     await lock(
       (signal) => {
         // The queue may have held this request for as long as another turn was
@@ -788,6 +913,16 @@ export const registerChatRoutes = (
           sendStaleToolResults(response, requestId, toolResults)
           return Promise.resolve()
         }
+        if (!current.resumeTurn) {
+          return reapExcessParkedTurns(requestId).then(() =>
+            runChatRequest({
+              body,
+              response,
+              requestId,
+              signal
+            })
+          )
+        }
         return runChatRequest({
           body,
           response,
@@ -797,9 +932,17 @@ export const registerChatRoutes = (
           signal
         })
       },
-      config.REQUEST_TIMEOUT_MS + 60_000,
-      `chat-completions:${requestId}`
+      {
+        timeoutMs: config.REQUEST_TIMEOUT_MS + 60_000,
+        label: `chat-completions:${requestId}`,
+        signal: clientGone.signal
+      }
     ).catch((error: unknown) => {
+      if (error instanceof ClientClosedError) {
+        log("The client left before this request was served", { requestId })
+        if (!response.writableEnded) response.end()
+        return
+      }
       const message = (error as Error).message
       console.error("[Proxy] Request handler error:", message)
       // A stalled queue is a temporary refusal, not a failure of this request: it
@@ -822,10 +965,40 @@ export const registerChatRoutes = (
   })
 
   return {
+    /**
+     * What the route is still holding. Every terminal path is supposed to
+     * leave both at zero, and a test that asserts the response alone cannot
+     * tell a settled turn from one that merely stopped answering.
+     */
+    inspect: () => ({
+      parkedTurns: parkedTurns.size,
+      pendingCalls: pending.size,
+      resumeHolds: resumeHolds.size
+    }),
+    /**
+     * Settle everything still held, not just what is parked.
+     *
+     * `holdTurn` takes a resuming turn out of `parkedTurns` — its deadline is
+     * suspended because a request carrying its results already exists — so a
+     * shutdown that walked that map alone left a live session, its suspended
+     * calls and its hold behind. The calls are the worst of the three: their
+     * timers were cleared on the way in, so nothing was ever going to settle
+     * them and whatever the backend awaited would hang for the life of the
+     * process. The registry is asked as well, for a call parked against a
+     * turn that is neither parked nor held.
+     */
     shutdown: async () => {
-      for (const turnId of parkedTurns.keys()) {
-        pending.failTurn(turnId, "The proxy is shutting down")
+      const held = new Set([
+        ...parkedTurns.keys(),
+        ...resumeHolds.keys(),
+        ...pending.turnIds()
+      ])
+      for (const turnId of held) {
         clearParked(turnId)
+        resumeHolds.delete(turnId)
+        pending.failTurn(turnId, "The proxy is shutting down")
+        const turn = backend.findTurn(turnId)
+        if (turn) await discardTurn(turn, { abort: true })
       }
     }
   }

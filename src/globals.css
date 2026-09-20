@@ -28,6 +28,19 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
 
+  /* Interaction states */
+  --color-state-hover: var(--state-hover);
+  --color-state-active: var(--state-active);
+  --color-state-selected: var(--state-selected);
+
+  /* Layered surfaces */
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-scrim: var(--scrim);
+
+  /* Supporting text */
+  --color-foreground-tertiary: var(--foreground-tertiary);
+
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
 
@@ -44,6 +57,19 @@
   --color-status-danger: var(--status-danger);
   --color-status-danger-foreground: var(--status-danger-foreground);
 
+  /* Status and product tints */
+  --color-tint-danger: var(--tint-danger);
+  --color-tint-danger-hover: var(--tint-danger-hover);
+  --color-tint-warning: var(--tint-warning);
+  --color-tint-info: var(--tint-info);
+  --color-tint-success: var(--tint-success);
+  --color-tint-accent: var(--tint-accent);
+  --color-tint-accent-strong: var(--tint-accent-strong);
+  --color-primary-hover: var(--primary-hover);
+  --color-status-success-hover: var(--status-success-hover);
+  --color-status-danger-hover: var(--status-danger-hover);
+  --color-surface-tooltip-key: var(--surface-tooltip-key);
+
   /* Feature card accent colors */
   --color-feature-1: var(--feature-1);
   --color-feature-2: var(--feature-2);
@@ -51,11 +77,13 @@
   --color-feature-4: var(--feature-4);
 
   /* Border system */
-  --color-border-subtle: var(--border-subtle);
   --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
+  --color-border-invalid: var(--stroke-invalid);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-focus: var(--focus-ring);
+  --color-ring-invalid: var(--invalid-ring);
+  --color-surface: var(--surface-ring);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -145,6 +173,13 @@
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.967 0.001 286.375);
   --muted-foreground: oklch(0.552 0.016 285.938);
+  --state-hover: oklch(0.21 0.006 285.885 / 7%);
+  --state-active: oklch(0.21 0.006 285.885 / 12%);
+  --state-selected: oklch(0.21 0.006 285.885 / 10%);
+  --surface-sunken: oklch(0.21 0.006 285.885 / 5%);
+  --surface-overlay: oklch(1 0 0 / 85%);
+  --scrim: oklch(0.141 0.005 285.823 / 45%);
+  --foreground-tertiary: oklch(0.62 0.014 286);
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
@@ -158,12 +193,27 @@
   --status-info-foreground: hsl(0 0% 98%);
   --status-danger: hsl(0 84.2% 60.2%);
   --status-danger-foreground: hsl(0 0% 98%);
+  --tint-danger: oklch(0.577 0.245 27.325 / 10%);
+  --tint-danger-hover: oklch(0.577 0.245 27.325 / 20%);
+  --tint-warning: hsl(45 93% 47% / 12%);
+  --tint-info: hsl(214 84% 52% / 10%);
+  --tint-success: hsl(142 72% 33% / 10%);
+  --tint-accent: oklch(0.21 0.006 285.885 / 6%);
+  --tint-accent-strong: oklch(0.21 0.006 285.885 / 30%);
+  --primary-hover: oklch(0.21 0.006 285.885 / 80%);
+  --status-success-hover: hsl(142 72% 33% / 90%);
+  --status-danger-hover: hsl(0 84.2% 60.2% / 90%);
+  --surface-tooltip-key: oklch(1 0 0 / 20%);
 
-  --border-subtle: oklch(0.92 0.004 286.32 / 50%);
+  --stroke-subtle: oklch(0.92 0.004 286.32 / 50%);
   --border: oklch(0.92 0.004 286.32);
-  --border-strong: oklch(0.87 0.006 286.32);
+  --stroke-strong: oklch(0.87 0.006 286.32);
+  --stroke-invalid: oklch(0.577 0.245 27.325);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
+  --focus-ring: oklch(0.705 0.015 286.067 / 30%);
+  --invalid-ring: oklch(0.577 0.245 27.325 / 20%);
+  --surface-ring: oklch(0.141 0.005 285.823 / 10%);
 
   --app-primary: var(--primary);
   --app-primary-soft: var(--secondary);
@@ -209,6 +259,13 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.274 0.006 286.033);
   --muted-foreground: oklch(0.705 0.015 286.067);
+  --state-hover: oklch(1 0 0 / 8%);
+  --state-active: oklch(1 0 0 / 14%);
+  --state-selected: oklch(1 0 0 / 12%);
+  --surface-sunken: oklch(1 0 0 / 6%);
+  --surface-overlay: oklch(0.172 0.01 235 / 85%);
+  --scrim: oklch(0 0 0 / 70%);
+  --foreground-tertiary: oklch(0.6 0.014 286);
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
@@ -222,12 +279,27 @@
   --status-info-foreground: hsl(0 0% 8%);
   --status-danger: hsl(0 75% 57%);
   --status-danger-foreground: hsl(0 0% 98%);
+  --tint-danger: oklch(0.704 0.191 22.216 / 18%);
+  --tint-danger-hover: oklch(0.704 0.191 22.216 / 30%);
+  --tint-warning: hsl(45 95% 58% / 18%);
+  --tint-info: hsl(213 94% 68% / 16%);
+  --tint-success: hsl(142 67% 45% / 16%);
+  --tint-accent: oklch(0.92 0.004 286.32 / 10%);
+  --tint-accent-strong: oklch(0.92 0.004 286.32 / 30%);
+  --primary-hover: oklch(0.92 0.004 286.32 / 80%);
+  --status-success-hover: hsl(142 67% 45% / 90%);
+  --status-danger-hover: hsl(0 75% 57% / 90%);
+  --surface-tooltip-key: oklch(0.128 0.01 235 / 10%);
 
-  --border-subtle: oklch(1 0 0 / 5%);
+  --stroke-subtle: oklch(1 0 0 / 5%);
   --border: oklch(1 0 0 / 10%);
-  --border-strong: oklch(1 0 0 / 18%);
+  --stroke-strong: oklch(1 0 0 / 18%);
+  --stroke-invalid: oklch(0.704 0.191 22.216 / 50%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
+  --focus-ring: oklch(0.552 0.016 285.938 / 30%);
+  --invalid-ring: oklch(0.704 0.191 22.216 / 40%);
+  --surface-ring: oklch(0.985 0 0 / 10%);
 
   --app-primary: var(--primary);
   --app-primary-soft: var(--secondary);
@@ -486,6 +558,14 @@
 
 }
 
+
+@utility border-border-subtle {
+  border-color: var(--stroke-subtle);
+}
+
+@utility border-border-strong {
+  border-color: var(--stroke-strong);
+}
 
 @utility icon-micro {
   width: var(--icon-micro);

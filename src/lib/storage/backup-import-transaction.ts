@@ -4,7 +4,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import {
   plasmoDeviceStorage,
-  plasmoGlobalStorage
+  plasmoSyncStorage
 } from "@/lib/plasmo-global-storage"
 import { ProviderConfigSchema } from "@/lib/providers/provider-config-schema"
 import {
@@ -78,7 +78,7 @@ const providerCommitMatches = async (
 ): Promise<boolean> => {
   signal?.throwIfAborted()
   const [publicConfigs, secrets] = await Promise.all([
-    plasmoGlobalStorage.get<unknown>(ProviderStorageKey.CONFIG),
+    plasmoSyncStorage.get<unknown>(ProviderStorageKey.CONFIG),
     plasmoDeviceStorage.get<unknown>(STORAGE_KEYS.PROVIDER.SECRETS)
   ])
   signal?.throwIfAborted()

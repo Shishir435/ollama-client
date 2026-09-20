@@ -9,6 +9,54 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.14.0]
+
+### Development
+
+- Supervised Agent Preview begins behind a disabled-by-default release gate.
+  Versioned contracts now define its commands, observations, lifecycle,
+  approvals, takeovers, and safe error vocabulary, while a new pure runtime
+  package enforces legal run transitions and strict isolation from Chat. This
+  foundation adds no browser permission, browser mutation, or visible Agent UI.
+- Agent Preview now completes ordinary tasks rather than only passing fixtures.
+  A page whose markup the observation could not read is observed; a wrong
+  command costs one retry with the reason instead of ending the run; each
+  decision sees what the run already did and why it turned out that way; the
+  model receives a page rather than the executor's bookkeeping, with the
+  context window sized to fit it; and an approval can be widened to a site for
+  the rest of one run, while a question the model asks is durable and
+  answerable. Submissions, destructive actions, payments, sign-ins and
+  sensitive fields keep asking every time. Startup recovery is now proven
+  against the real database at every phase a worker can be lost in, and a
+  frozen benchmark records what each task family actually costs.
+- Agent Preview on Chromium owns its debugger sessions: attached when a run
+  starts on an authorized tab, released on pause, takeover, stop, completion
+  and failure, and paused clearly when the debugger disconnects or the tab
+  closes. Firefox keeps the DOM backend and says so.
+- Agent Preview knows which frame a control is in. Every reference is bound to
+  its tab, frame, document and observation generation; child frames on
+  allowed sites are read through their own sessions and composed into one
+  page, frames on other sites are listed by origin and left alone, and a frame
+  that navigates invalidates only its own references. A run drives the tab it
+  started on and the tabs it opened; adopting any other tab asks first. The
+  debugger's frame tree is tracked and mapped onto extension frames only when
+  the join is exact.
+- Agent Preview sees controls inside web components and knows which ones a
+  cover blocks. Observation now descends into open shadow roots, so a
+  component's controls and text are read like any other, while a closed root
+  stays unread rather than guessed at. A visible control whose click points are
+  all covered by an unrelated element is reported to the model as covered, so
+  it dismisses the overlay or scrolls rather than clicking where the pointer
+  cannot reach.
+- Agent Preview keeps a large application within its context budget. The
+  window is partitioned across instructions, tools, history, output and page
+  content, and the page is projected to fit its share: an overview keeps the
+  controls a decision acts on and reports the rest by region. Three read-only
+  actions reveal what it summarised — inspect a region, find controls by a
+  query, or extract the page's full text — none of which mutates the page or
+  asks approval. A fact the model records is now kept past the recent-step
+  window, with the page it came from, and stays untrusted page data.
+
 ## [0.13.3]
 
 ### Added

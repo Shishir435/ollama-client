@@ -1,6 +1,7 @@
 import type { TurnToast } from "@ollama-client/contracts/turns"
 import type { TurnSubmission } from "@/application/turns/turn-contract"
 import { clearAbortController } from "@/background/lib/abort-controller-registry"
+import { claimTurnExecution } from "@/background/turns/turn-execution"
 import { persistTurnFailure } from "@/background/turns/turn-generation"
 import {
   attachDurableTurnObserver,
@@ -58,6 +59,8 @@ export const startDurableTurn = async (
   output: TurnOutput
 ): Promise<void> => {
   attachDurableTurnObserver(submission.id, output)
+  const release = claimTurnExecution(submission.id)
+  if (!release) return
   const contextOptions = withLiveCallbacks(submission)
   try {
     await createTurnService().start({
@@ -78,7 +81,11 @@ export const startDurableTurn = async (
     await persistTurnFailure(assistantMessageId, submission.model, error)
     throw error
   } finally {
-    clearAbortController(submission.id)
-    cleanupTurnRuntimeState(submission.id)
+    try {
+      clearAbortController(submission.id)
+      cleanupTurnRuntimeState(submission.id)
+    } finally {
+      release()
+    }
   }
 }

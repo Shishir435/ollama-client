@@ -214,7 +214,7 @@ export const ChatMessageList = ({
             size="icon"
             variant="secondary"
             label={t("chat.scroll_to_bottom")}
-            className="pointer-events-auto size-8 rounded-full border border-border/60 shadow-md"
+            className="pointer-events-auto size-8 rounded-full border border-border-strong shadow-md"
             icon={<ChevronDown className="icon-sm" />}
             onClick={() => {
               setUserDetachedFromBottom(false)

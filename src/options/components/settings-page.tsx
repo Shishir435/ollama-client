@@ -414,7 +414,7 @@ export const SettingsPage = () => {
               <PageBody>
                 <Suspense
                   fallback={
-                    <div className="h-24 animate-pulse rounded-panel bg-muted/40" />
+                    <div className="h-24 animate-pulse rounded-panel bg-surface-sunken" />
                   }>
                   <div key={activeTab}>{tabContent[activeTab]}</div>
                 </Suspense>

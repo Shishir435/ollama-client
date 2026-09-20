@@ -88,7 +88,7 @@ export const EmbeddingTestSearch = ({
             })}
           </p>
           {results.length === 0 ? (
-            <div className="text-xs text-muted-foreground italic p-2 border rounded bg-background/50">
+            <div className="text-xs text-muted-foreground italic p-2 border rounded bg-surface-sunken">
               {t("settings.embeddings.test_search.no_results")}
             </div>
           ) : (
@@ -96,7 +96,7 @@ export const EmbeddingTestSearch = ({
               {results.map((result) => (
                 <div
                   key={result.document.id}
-                  className="text-xs p-2 rounded border bg-background/50 space-y-1">
+                  className="text-xs p-2 rounded border bg-surface-sunken space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="font-medium truncate max-w-[180px]">
                       {result.document.metadata.title || "Untitled"}

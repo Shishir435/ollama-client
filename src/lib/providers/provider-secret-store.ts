@@ -3,7 +3,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import {
   plasmoDeviceStorage,
-  plasmoGlobalStorage,
+  plasmoSyncStorage,
   removePlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
@@ -179,7 +179,7 @@ export const recoverProviderPersistenceUnlocked = async (
   }
   const journal: ProviderPersistenceJournal = parsed.data
 
-  const syncedConfig = await plasmoGlobalStorage.get<unknown>(
+  const syncedConfig = await plasmoSyncStorage.get<unknown>(
     ProviderStorageKey.CONFIG
   )
   signal?.throwIfAborted()
@@ -221,7 +221,7 @@ export const persistProviderConfigsUnlocked = async (
   await plasmoDeviceStorage.set(STORAGE_KEYS.PROVIDER.SECRETS, snapshot.secrets)
 
   try {
-    await plasmoGlobalStorage.set(
+    await plasmoSyncStorage.set(
       ProviderStorageKey.CONFIG,
       snapshot.publicConfigs
     )

@@ -19,7 +19,7 @@ export const SettingsMobileNav = ({
     <nav
       className={cn("lg:hidden", className)}
       aria-label="Settings navigation">
-      <div className="scroll-fade-x flex gap-0.5 overflow-x-auto rounded-panel bg-muted/60 p-1 scrollbar-none">
+      <div className="scroll-fade-x flex gap-0.5 overflow-x-auto rounded-panel bg-surface-sunken p-1 scrollbar-none">
         {items.map((item) => {
           const Icon = item.icon
           const isActive = activeTab === item.key
@@ -33,7 +33,7 @@ export const SettingsMobileNav = ({
                 "inline-flex items-center gap-1.5 whitespace-nowrap rounded-control px-3 py-1.5 text-sm font-medium transition-all duration-150",
                 isActive
                   ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                  : "text-muted-foreground hover:text-foreground hover:bg-state-hover"
               )}>
               <Icon className="icon-sm shrink-0" />
               {item.label}

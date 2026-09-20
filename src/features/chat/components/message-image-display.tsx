@@ -40,8 +40,8 @@ export const MessageImageDisplay = ({
             aria-label={t("chat.message.images.view", { name: image.fileName })}
             className={
               generated
-                ? "max-h-[32rem] w-fit max-w-full overflow-hidden rounded-control border border-border/40 bg-muted/30 transition-opacity hover:opacity-90"
-                : "size-20 overflow-hidden rounded-control border border-border/40 bg-muted/30 transition-opacity hover:opacity-90"
+                ? "max-h-[32rem] w-fit max-w-full overflow-hidden rounded-control border border-border bg-surface-sunken transition-opacity hover:opacity-90"
+                : "size-20 overflow-hidden rounded-control border border-border bg-surface-sunken transition-opacity hover:opacity-90"
             }>
             <img
               src={toDataUrl(image.mimeType, image.base64)}

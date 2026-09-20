@@ -1,7 +1,8 @@
-import { createServer, type Server } from "node:http"
+import { createServer, type Server, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { afterEach, describe, expect, it } from "vitest"
 import {
+  bindRequestAbort,
   createRouter,
   isOriginAllowed,
   matchRoute,
@@ -201,5 +202,49 @@ describe("router origin policy", () => {
 
     expect(first.status).toBe(200)
     expect(second.status).toBe(429)
+  })
+})
+
+describe("bindRequestAbort", () => {
+  const request = () =>
+    ({ raw: { once: () => {}, destroyed: true } }) as unknown as RouteRequest
+
+  const response = (state: {
+    destroyed?: boolean
+    closed?: boolean
+    writableEnded?: boolean
+  }) =>
+    ({
+      once: () => {},
+      destroyed: false,
+      closed: false,
+      writableEnded: false,
+      ...state
+    }) as unknown as ServerResponse
+
+  it.each([
+    ["a destroyed socket", { destroyed: true }],
+    ["a response closed with nothing written", { closed: true }]
+  ])("reports a caller that left before binding: %s", (_label, state) => {
+    // A listener only hears what has not happened yet, so the state has to be
+    // read as well — a caller can leave during an earlier await.
+    expect(bindRequestAbort(request(), response(state)).signal.aborted).toBe(
+      true
+    )
+  })
+
+  it("stays live for a consumed request whose response is untouched", () => {
+    // Node destroys a fully read request stream by itself, so the request side
+    // says nothing about the connection and must not be consulted.
+    expect(bindRequestAbort(request(), response({})).signal.aborted).toBe(false)
+  })
+
+  it("ignores a response that closed after it was written", () => {
+    expect(
+      bindRequestAbort(
+        request(),
+        response({ closed: true, writableEnded: true })
+      ).signal.aborted
+    ).toBe(false)
   })
 })

@@ -877,7 +877,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       const status = streamErrorStatus(data.error)
       const retryAfterMs = streamErrorRetryAfter(data.error)
       const baseUrl = resolveProviderBaseUrl(this.config)
-      const classification = classifyProviderError(status, message)
+      const classification = classifyProviderError(status, message, baseUrl)
       throw createAppError(
         message ||
           "The provider reported an error while generating the response.",

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
   ...(() => {
@@ -7,7 +7,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
     const set = vi.fn().mockResolvedValue(undefined)
     const remove = vi.fn().mockResolvedValue(undefined)
     return {
-      plasmoGlobalStorage: { get, set, remove },
+      plasmoSyncStorage: { get, set, remove },
       getPlasmoStoredValue: get,
       setPlasmoStoredValue: set,
       removePlasmoStoredValue: remove
@@ -33,7 +33,7 @@ import {
   updateKnowledgeSet
 } from "../knowledge-sets"
 
-const mockedStorage = plasmoGlobalStorage as unknown as {
+const mockedStorage = plasmoSyncStorage as unknown as {
   get: ReturnType<typeof vi.fn>
   set: ReturnType<typeof vi.fn>
   remove: ReturnType<typeof vi.fn>
@@ -232,7 +232,7 @@ describe("getActiveKnowledgeSetId / setActiveKnowledgeSetId", () => {
     expect(id).toBe(DEFAULT_KNOWLEDGE_SET_ID)
   })
 
-  it("returns the stored id when plasmoGlobalStorage.get returns a value", async () => {
+  it("returns the stored id when plasmoSyncStorage.get returns a value", async () => {
     mockedStorage.get.mockResolvedValue("my-custom-set")
 
     const id = await getActiveKnowledgeSetId()

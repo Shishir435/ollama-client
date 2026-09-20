@@ -1,4 +1,198 @@
 {
+  "agent": {
+    "action": {
+      "step": "Étape de l’agent",
+      "navigate": "Naviguer : {{url}}",
+      "open_tab": "Ouvrir un onglet : {{url}}",
+      "scroll_up": "Défiler vers le haut",
+      "scroll_down": "Défiler vers le bas",
+      "scroll_left": "Défiler vers la gauche",
+      "scroll_right": "Défiler vers la droite",
+      "switch_tab": "Passer à l’onglet {{tab}}",
+      "wait": "Attendre {{condition}}",
+      "clear_and_type": "Remplacer le texte du champ",
+      "press_key": "Appuyer sur {{key}}",
+      "type": "Saisir dans le champ",
+      "replace_text": "Modifier le texte du champ",
+      "drag": "Faire glisser le contrôle vers une cible",
+      "select": "Choisir une option",
+      "check": "Cocher la case",
+      "uncheck": "Décocher la case",
+      "back": "Revenir en arrière",
+      "forward": "Aller en avant",
+      "click": "Cliquer sur le contrôle",
+      "double_click": "Double-cliquer sur le contrôle",
+      "click_point": "Cliquer sur un point de la capture",
+      "zoom": "Agrandir la capture",
+      "hover": "Survoler le contrôle",
+      "read": "Lire la page",
+      "inspect": "Inspecter {{region}}",
+      "find": "Rechercher « {{query}} »",
+      "extract_text": "Lire le texte de la page",
+      "handle_dialog_accept": "Accepter la boîte de dialogue de la page",
+      "handle_dialog_dismiss": "Fermer la boîte de dialogue de la page"
+    },
+    "approval": {
+      "title": "Approbation requise",
+      "allow": "Autoriser une fois",
+      "reject": "Refuser",
+      "allowForRun": "Toujours autoriser ce type d'action sur {{origin}} pour cette exécution"
+    },
+    "attachment": {
+      "title": "Ce que permet ce navigateur",
+      "attaches": "Au démarrage, le débogueur de Chrome se connecte à l'onglet choisi. Chrome affiche son propre bandeau pendant ce temps, et la connexion cesse à l'arrêt, lors d'une reprise en main ou à la fin.",
+      "no_debugger": "Ce navigateur n'a pas de débogueur : l'exécution pilote les pages via les scripts de contenu de l'extension."
+    },
+    "browser_disconnected": "Le contrôle du navigateur s’est déconnecté. Agent est donc en pause. Vérifiez la page avant de reprendre.",
+    "completion": {
+      "summary": "{{count}} observations de page ont été envoyées à {{provider}} pendant cette exécution."
+    },
+    "controls": {
+      "label": "Commandes de l’Agent",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "stop": "Arrêter",
+      "takeover_done": "Terminé — continuer"
+    },
+    "error": {
+      "already_running": "Une exécution d’Agent est déjà en cours.",
+      "browser_control_unavailable": "Agent n’a pas pu connecter le contrôle du navigateur. Fermez DevTools ou un autre débogueur, puis réessayez.",
+      "permission_denied": "Agent a besoin de l’autorisation d’observation de page avant de démarrer.",
+      "tab_unsupported": "Agent ne peut pas s’exécuter sur cette page. Ouvre une page web normale et réessaie.",
+      "unreadable_update": "Le panneau a reçu une mise à jour qu’il n’a pas pu lire.",
+      "unknown": "Agent n’a pas pu exécuter cette demande."
+    },
+    "failure": {
+      "budget_exhausted": "L'exécution a épuisé son budget d'étapes. Restreignez l'objectif ou reprenez depuis l'état actuel de la page.",
+      "command_refused": "Le modèle a continué à désigner des contrôles que la page ne propose pas : masqués, hors écran ou déjà disparus. Faites d'abord défiler jusqu'à ce dont vous avez besoin, ou essayez un modèle qui lit les pages plus attentivement.",
+      "goal_failed": "Le modèle indique qu'il ne peut pas le faire. Essayez un objectif plus clair ou un autre modèle.",
+      "invalid_decision": "Le modèle a répondu de façon inexploitable à plusieurs reprises. Un modèle plus grand, capable d'appeler des outils, résout généralement cela.",
+      "model_unavailable": "Le modèle est injoignable. Vérifiez que le fournisseur fonctionne, puis relancez.",
+      "observation_failed": "La page n'a pas pu être lue. Rechargez-la, vérifiez qu'il ne s'agit pas d'une page du navigateur ou du store, puis réessayez.",
+      "policy_blocked": "L'exécution a demandé quelque chose que la politique refuse. Choisissez un objectif qui ne l'exige pas, ou faites cette étape vous-même.",
+      "stale_snapshot": "La page a changé sous l'exécution. Reprenez depuis la page telle qu'elle est maintenant.",
+      "unsupported_page": "L'exécution ne peut pas travailler sur cette page. Passez à une page web ordinaire et recommencez.",
+      "verification_failed": "L'exécution n'a pas pu confirmer l'effet de sa dernière action. Vérifiez la page avant de relancer.",
+      "unknown": "L'exécution s'est arrêtée sans raison identifiable. Vérifiez la page, puis relancez."
+    },
+    "feedback": "Envoyer un avis",
+    "limits": {
+      "no_native_input": "Les entrées souris et clavier sont synthétiques ; une page qui ne réagit qu'à de vraies entrées peut ne pas répondre.",
+      "no_screenshots": "Aucune capture d'écran n'est prise : une tâche qui exige de regarder la page ne fonctionnera pas.",
+      "no_dialogs": "L'exécution ne peut ni voir ni répondre aux boîtes natives alert, confirm et prompt."
+    },
+    "model": {
+      "label": "Modèle"
+    },
+    "observations": "{{count}} observations",
+    "privacy": {
+      "remote_notice": "Les observations de page seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent.",
+      "acknowledge": "J’ai compris",
+      "remote_notice_screenshots": "Les observations de page et les captures de la zone visible seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent."
+    },
+    "progress": "{{count}} observations sur {{budget}}",
+    "provider": {
+      "label": "Fournisseur",
+      "local": "Local",
+      "remote": "Distant",
+      "missing": "Sélectionnez d’abord un modèle"
+    },
+    "question": {
+      "title": "Agent a besoin d'une réponse",
+      "inputLabel": "Votre réponse",
+      "placeholder": "Saisissez votre réponse",
+      "send": "Envoyer la réponse"
+    },
+    "screenshots": {
+      "label": "Captures d’écran",
+      "sent": "Les captures de la zone visible sont envoyées au modèle",
+      "unused": "Non utilisées avec un modèle texte seul",
+      "unknown": "Pas encore déterminé"
+    },
+    "start": {
+      "description": "Supervisez une tâche du navigateur depuis ce panneau.",
+      "goal": "Que doit faire l’Agent ?",
+      "placeholder": "Décrivez une tâche du navigateur…",
+      "action": "Démarrer l’Agent",
+      "auto_actions": "Autoriser les actions courantes pour cette tâche",
+      "auto_actions_description": "Les clics et la saisie sur ce site sont automatiques. Les publications, suppressions, nouveaux sites et étapes sensibles demandent encore votre accord."
+    },
+    "status": {
+      "submitted": "Démarrage",
+      "planning": "Analyse de la tâche",
+      "observing": "Observation de la page",
+      "deciding": "Choix de l’étape suivante",
+      "awaiting_approval": "En attente d’approbation",
+      "awaiting_takeover": "En attente de vous",
+      "executing": "Action en cours",
+      "verifying": "Vérification du résultat",
+      "pause_requested": "Mise en pause",
+      "paused": "En pause",
+      "cancelling": "Arrêt",
+      "completed": "Terminé",
+      "partial": "Partiellement effectué",
+      "failed": "Échec",
+      "cancelled": "Arrêté"
+    },
+    "step_status": {
+      "planned": "Planifié",
+      "approved": "Approuvé",
+      "executing": "En cours",
+      "executed": "Effectué",
+      "verified": "Vérifié",
+      "rejected": "Refusé",
+      "failed": "Échec",
+      "uncertain": "À vérifier"
+    },
+    "surface": {
+      "chat": "Chat",
+      "agent": "Agent",
+      "preview": "Aperçu"
+    },
+    "tab": {
+      "label": "Onglet contrôlé",
+      "missing": "Ouvrez une page prise en charge"
+    },
+    "tabs": {
+      "label": "Onglets contrôlés",
+      "count": "{{count}} onglets"
+    },
+    "takeover": {
+      "title": "Prenez le contrôle de cette étape"
+    },
+    "title": "Agent supervisé",
+    "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
+    "unresolved_reviewed": "J'ai vérifié la page — continuer",
+    "work_log": {
+      "title": "Journal de travail",
+      "target": "« {{name}} »"
+    },
+    "correction": "En pause. Décrivez le changement souhaité, puis continuez.",
+    "export_report": "Exporter le rapport (contient le texte de la page)",
+    "running_goal": "Tâche en cours",
+    "requirements": {
+      "title": "Ce que la tâche demandait",
+      "met": "Fait",
+      "unmet": "Non fait"
+    },
+    "settings": {
+      "title": "Agent de navigation",
+      "description": "Quelle quantité de contexte une exécution peut demander à son modèle, et quand elle photographie la page.",
+      "context_window": {
+        "label": "Fenêtre de contexte",
+        "description": "Automatique prend la plus petite fenêtre que ce modèle et ce serveur signalent, et se rabat sur une taille prudente quand aucun ne se prononce. Fixez vous-même une taille si vous avez relevé la limite de votre serveur ou si une exécution a manqué de mémoire.",
+        "auto": "Automatique",
+        "custom": "Fixer une taille"
+      },
+      "vision": {
+        "label": "Captures d'écran",
+        "description": "Une image coûte un préremplissage d'image dans la fenêtre du modèle à chaque étape qui en prend une. Automatique en prend une à la première étape, après une étape qui n'a pas abouti, et sur les pages que la structure ne peut pas décrire.",
+        "auto": "Quand l'étape en a besoin",
+        "always": "À chaque étape",
+        "never": "Jamais"
+      }
+    }
+  },
   "common": {
     "theme": {
       "toggle": "Basculer le Thème",
@@ -232,7 +426,8 @@
       "tooltip_tokens": "Total des tokens utilisés dans cette session",
       "tooltip_time": "Temps total de génération des réponses",
       "tooltip_speed": "Vitesse moyenne de génération",
-      "tooltip_messages": "Nombre de réponses IA"
+      "tooltip_messages": "Nombre de réponses IA",
+      "speed_average": "moy. {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "Journal d'activité",
@@ -420,6 +615,7 @@
       "response_failed_title": "Échec de la génération de la réponse",
       "unknown_error_description": "Une erreur inconnue est survenue",
       "provider_replay_invalid": "Cette réponse ne peut pas être poursuivie en toute sécurité. Réessayez ce tour pour reconstruire le contexte du fournisseur.",
+      "provider_busy": "Le point de terminaison local termine encore une requête précédente et ne peut pas en démarrer une autre. Patiente environ une minute ou redémarre-le.",
       "report_issue": "Signaler un problème",
       "open_issue": "Ouvrir un ticket",
       "copy_diagnostics": "Copier le diagnostic",
@@ -476,7 +672,6 @@
       "empty": "Aucun contenu d'artefact"
     },
     "system_prompt": {
-      "button": "Instructions du chat",
       "title": "Instructions du chat",
       "description": "Un prompt système pour ce chat uniquement. Il remplace le prompt par défaut du modèle.",
       "placeholder": "ex. Tu es un assistant concis qui répond par points.",
@@ -872,6 +1067,8 @@
         "chat_count": "{{sessions}} sessions · {{messages}} messages",
         "knowledge": "Connaissances et mémoire",
         "knowledge_count": "{{files}} fichiers · {{vectors}} vecteurs",
+        "agent": "Exécutions de l’agent",
+        "agent_count": "{{runs}} exécutions enregistrées et reçus de récupération",
         "settings": "Réglages locaux et secrets des fournisseurs",
         "settings_description": "Endpoints, clés API, autorisations et état de l’appareil",
         "preferences": "Préférences portables",
@@ -1056,6 +1253,7 @@
           "description_reported": "Niveaux indiqués par le fournisseur de ce modèle.",
           "description_profile": "Niveaux vérifiés pour ce fournisseur et cette famille de modèles.",
           "description_unknown": "Ce fournisseur n'indique aucun contrôle fiable du raisonnement.",
+          "reset": "Réinitialiser sur Automatique",
           "options": {
             "auto": "Automatique (valeur du fournisseur)",
             "auto_short": "Automatique",

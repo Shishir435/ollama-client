@@ -6,6 +6,7 @@ import { ensureModelPullRunsTable } from "../add-model-pull-runs-table"
 import { ensurePromptTemplatesTable } from "../add-prompt-templates-table"
 import { ensureMessagesThinkingColumn } from "../add-thinking-column"
 import { ensureTurnRunsTable } from "../add-turn-runs-table"
+import { rebuildAgentRunsTables } from "../rebuild-agent-runs-tables"
 
 // ─── add-thinking-column ──────────────────────────────────────────────────────
 
@@ -170,5 +171,21 @@ describe("ensureModelPullRunsTable", () => {
     expect(statements[0]).toContain("progress INTEGER")
     expect(statements[0]).toContain("failure TEXT")
     expect(statements[1]).toContain("idx_model_pull_runs_status")
+  })
+})
+
+describe("rebuildAgentRunsTables", () => {
+  it("creates isolated run ownership, append-only evidence, and indexes", () => {
+    const db = makeDb([])
+    rebuildAgentRunsTables(db as never)
+    const statements = db.run.mock.calls.map(([sql]) => String(sql))
+
+    expect(statements[0]).toContain("CREATE TABLE IF NOT EXISTS agent_runs")
+    expect(statements[0]).toContain("checkpoint TEXT NOT NULL")
+    expect(statements[1]).toContain("idx_agent_runs_status")
+    expect(statements[2]).toContain("CREATE TABLE IF NOT EXISTS agent_steps")
+    expect(statements[2]).toContain("receipt TEXT NOT NULL")
+    expect(statements[2]).toContain("REFERENCES agent_runs(id)")
+    expect(statements[3]).toContain("idx_agent_steps_runId")
   })
 })

@@ -57,7 +57,7 @@ export function AttachmentList({
           {images.map((image) => (
             <div
               key={image.imageId}
-              className="group relative aspect-square overflow-hidden rounded-panel border border-border/35 bg-background/35">
+              className="group relative aspect-square overflow-hidden rounded-panel border border-border bg-surface-sunken">
               <img
                 src={toDataUrl(image.mimeType, image.base64)}
                 alt={image.fileName}
@@ -68,7 +68,7 @@ export function AttachmentList({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="absolute right-0.5 top-0.5 size-5 rounded-full bg-background/80 text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
+                  className="absolute right-0.5 top-0.5 size-5 rounded-full bg-surface-overlay text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
                   onClick={() => onRemoveImage(image.imageId)}
                   label={t("chat.input.images.remove", {
                     name: image.fileName
@@ -85,7 +85,7 @@ export function AttachmentList({
           density="compact"
           icon={FileText}
           title={t("file_upload.area.files_ready", { count: 0 })}
-          className="rounded-control border border-border/35 bg-background/35"
+          className="rounded-control border border-border bg-surface-sunken"
         />
       )}
       {successfulStates.map((state) => {
@@ -100,7 +100,7 @@ export function AttachmentList({
             onOpenChange={(nextOpen) =>
               setExpandedFile(nextOpen ? state.file.name : null)
             }>
-            <div className="overflow-hidden rounded-panel border border-border/35 bg-background/35">
+            <div className="overflow-hidden rounded-panel border border-border bg-surface-sunken">
               <div className="flex min-w-0 items-center gap-2 px-3 py-2">
                 {state.status === "processing" ? (
                   <Loader2 className="icon-sm shrink-0 animate-spin text-primary" />
@@ -137,7 +137,7 @@ export function AttachmentList({
                 />
               </div>
               <CollapsibleContent>
-                <div className="border-t border-border/35">
+                <div className="border-t border-border">
                   <div className="max-h-[min(22rem,45vh)] overflow-y-auto overflow-x-hidden">
                     <PreviewTextBlock
                       text={previewText}

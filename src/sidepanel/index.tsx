@@ -9,7 +9,6 @@ import { DevThemePane } from "@/components/dev-theme-pane"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { Chat } from "@/features/chat/components/chat"
 import { useEmbeddingMigration } from "@/features/chat/hooks/use-embedding-migration"
 import { useInterruptedTurnRecovery } from "@/features/chat/hooks/use-interrupted-turn-recovery"
 import { useLanguageSync } from "@/hooks/use-language-sync"
@@ -17,6 +16,7 @@ import { useProviderStorageMigration } from "@/hooks/use-provider-storage-migrat
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
 import { queryClient } from "@/lib/query-client"
 import { FirstRunPermissionsDialog } from "@/sidepanel/components/first-run-permissions-dialog"
+import { SidepanelWorkspace } from "@/sidepanel/components/sidepanel-workspace"
 import { createSidepanelRuntimeMessageListener } from "@/sidepanel/runtime-message-listener"
 
 const IndexSidePanel = () => {
@@ -36,7 +36,7 @@ const IndexSidePanel = () => {
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <TooltipProvider>
-          <Chat />
+          <SidepanelWorkspace />
           <FirstRunPermissionsDialog />
           <DevThemePane />
           <Toaster position={"top-center"} closeButton={true} />

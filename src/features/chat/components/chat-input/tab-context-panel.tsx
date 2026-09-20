@@ -72,8 +72,8 @@ const TabOptionRow = ({
           className={cn(
             "w-full truncate rounded-control px-1.5 py-0.5 text-left text-2xs transition-colors",
             content
-              ? "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-              : "text-muted-foreground/70 italic hover:text-muted-foreground"
+              ? "bg-surface-sunken text-muted-foreground hover:bg-state-hover hover:text-foreground"
+              : "text-foreground-tertiary italic hover:text-muted-foreground"
           )}
           onClick={onPreview}>
           {content ? trimPreview(content, 90) : t("tabs.inspector.no_content")}
@@ -117,7 +117,7 @@ export const TabContextPanel = ({
   const visibleIds = new Set(filteredTabOptions.map((option) => option.value))
   const selectedCount = selectedTabIds.filter((id) => visibleIds.has(id)).length
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-1.5 border-t border-border/40 pt-1.5">
+    <div className="flex min-h-0 flex-1 flex-col gap-1.5 border-t border-border pt-1.5">
       <div className="flex shrink-0 items-center justify-between gap-2 pl-2.5 pr-1 text-2xs font-medium text-muted-foreground">
         {/* How many tabs are actually going into the prompt, rather than a static
             "Select open tabs" instruction — the count is the thing that changes
@@ -179,7 +179,7 @@ export const TabContextPanel = ({
           keeps the list usable when the controls above it are all visible. */}
       <ScrollArea
         hideScrollbar
-        className="min-h-32 flex-1 rounded-control border border-border/35 bg-background/35">
+        className="min-h-32 flex-1 rounded-control border border-border bg-surface-sunken">
         <div className="grid gap-1 p-1">
           {filteredTabOptions.map((option) => {
             const tabId = parseInt(option.value, 10)

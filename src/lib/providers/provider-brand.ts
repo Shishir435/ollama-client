@@ -22,7 +22,8 @@ export const PROVIDER_BRANDS = [
   "gemini",
   "perplexity",
   "qwen",
-  "vllm"
+  "vllm",
+  "opencode"
 ] as const
 
 export type ProviderBrandId = (typeof PROVIDER_BRANDS)[number]
@@ -65,7 +66,8 @@ const BRAND_NAME_TOKENS: ReadonlyArray<readonly [ProviderBrandId, string[]]> = [
   ["lm-studio", ["lmstudio", "lm studio"]],
   ["vllm", ["vllm"]],
   ["openrouter", ["openrouter", "open router"]],
-  ["openai", ["openai", "open ai", "chatgpt"]],
+  /* Codex is OpenAI's, so a provider a user named for it wears OpenAI's mark. */
+  ["openai", ["openai", "open ai", "chatgpt", "codex"]],
   ["anthropic", ["anthropic", "claude"]],
   ["deepseek", ["deepseek", "deep seek"]],
   ["zhipu", ["zhipu", "bigmodel", "glm", "z.ai"]],
@@ -76,7 +78,8 @@ const BRAND_NAME_TOKENS: ReadonlyArray<readonly [ProviderBrandId, string[]]> = [
   ["xai", ["xai", "x.ai", "grok"]],
   ["gemini", ["gemini", "google ai", "vertex"]],
   ["perplexity", ["perplexity"]],
-  ["qwen", ["qwen", "dashscope", "tongyi"]]
+  ["qwen", ["qwen", "dashscope", "tongyi"]],
+  ["opencode", ["opencode", "open code"]]
 ]
 
 const PROFILE_BRANDS: Partial<Record<ProviderServiceProfile, ProviderBrandId>> =
@@ -112,6 +115,68 @@ export interface ProviderBrandInput {
   baseUrl?: string
   name?: string
   serviceProfile?: ProviderServiceProfile
+}
+
+/**
+ * Vendor segments a model id may carry, as catalogs actually namespace them.
+ *
+ * An OpenRouter-style id states its vendor before the slash — `anthropic/
+ * claude-3`, `deepseek/deepseek-chat` — and so does an olc proxy, which names
+ * the runtime the model reaches (`codex/gpt-5.6-luna`). That segment is the
+ * catalog's own word for where the model comes from, not an inference from
+ * one, which is what separates reading it from guessing a mark.
+ *
+ * Codex resolves to OpenAI's mark because Codex is OpenAI's. A segment with no
+ * mark of its own — `opencode`, a self-hosted namespace, a user's folder —
+ * resolves to nothing and falls back like any other unknown.
+ */
+const MODEL_VENDOR_BRANDS: Record<string, ProviderBrandId> = {
+  openai: "openai",
+  codex: "openai",
+  anthropic: "anthropic",
+  claude: "anthropic",
+  google: "gemini",
+  "google-vertex": "gemini",
+  gemini: "gemini",
+  deepseek: "deepseek",
+  qwen: "qwen",
+  alibaba: "qwen",
+  mistral: "mistral",
+  mistralai: "mistral",
+  "x-ai": "xai",
+  xai: "xai",
+  moonshot: "moonshot",
+  moonshotai: "moonshot",
+  zhipu: "zhipu",
+  zhipuai: "zhipu",
+  thudm: "zhipu",
+  perplexity: "perplexity",
+  groq: "groq",
+  together: "together",
+  togethercomputer: "together",
+  openrouter: "openrouter",
+  ollama: "ollama",
+  lmstudio: "lm-studio",
+  "lm-studio": "lm-studio",
+  vllm: "vllm"
+}
+
+/**
+ * The vendor mark a model id states for itself, if it states one.
+ *
+ * Display-only, like every other mark here, and more specific than the
+ * provider's: one endpoint serves many vendors' models, so a provider mark
+ * repeated down a list says only what the user already picked. Inside a single
+ * provider it said nothing at all — five models under one heading wore five
+ * identical generic glyphs — while the id above each one named its vendor in
+ * plain text the whole time.
+ */
+export const resolveModelBrand = (
+  modelId?: string
+): ProviderBrandId | undefined => {
+  const separator = modelId?.indexOf("/") ?? -1
+  if (!modelId || separator <= 0) return undefined
+  return MODEL_VENDOR_BRANDS[modelId.slice(0, separator).toLowerCase()]
 }
 
 /**

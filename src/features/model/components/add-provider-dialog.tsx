@@ -248,7 +248,7 @@ export const AddProviderDialog = ({
                       "rounded-control border p-3 text-left transition-colors",
                       selected
                         ? "border-primary bg-app-primary-soft"
-                        : "border-border bg-card hover:bg-accent/30"
+                        : "border-border bg-card hover:bg-state-hover"
                     )}>
                     <Icon
                       className={cn(

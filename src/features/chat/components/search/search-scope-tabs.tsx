@@ -22,13 +22,13 @@ export const SearchScopeTabs = ({
       value={value}
       onValueChange={(v) => onValueChange(v as "all" | "current")}
       className={cn("w-full", className)}>
-      <TabsList className="grid w-full grid-cols-2 h-9 p-1 bg-muted/50 border shadow-inner">
+      <TabsList className="grid w-full grid-cols-2 h-9 p-1 bg-surface-sunken border shadow-inner">
         <TabsTrigger
           value="all"
           disabled={disabled}
           className={cn(
             "text-xs transition-all duration-200",
-            "data-active:bg-background data-active:text-foreground data-active:shadow-sm data-active:border-border/50",
+            "data-active:bg-state-selected data-active:text-foreground data-active:shadow-sm data-active:border-border",
             "hover:text-foreground/80"
           )}>
           {t("chat.search.scope_all")}
@@ -38,7 +38,7 @@ export const SearchScopeTabs = ({
           disabled={disabled}
           className={cn(
             "text-xs transition-all duration-200",
-            "data-active:bg-background data-active:text-foreground data-active:shadow-sm data-active:border-border/50",
+            "data-active:bg-state-selected data-active:text-foreground data-active:shadow-sm data-active:border-border",
             "hover:text-foreground/80"
           )}>
           {t("chat.search.scope_current")}

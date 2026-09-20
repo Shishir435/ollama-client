@@ -40,10 +40,10 @@ export const WebSearchToggle = () => {
           className={cn(
             "size-7 p-0",
             blockedByModel
-              ? "text-muted-foreground/50"
+              ? "text-foreground-tertiary"
               : active
-                ? "bg-transparent text-foreground hover:bg-muted/55 aria-pressed:bg-transparent data-[state=on]:bg-transparent"
-                : "text-muted-foreground hover:bg-muted/55"
+                ? "bg-transparent text-foreground hover:bg-state-hover aria-pressed:bg-transparent data-[state=on]:bg-transparent"
+                : "text-muted-foreground hover:bg-state-hover"
           )}
         />
       }

@@ -1,5 +1,7 @@
+import type { ReactNode } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
 import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
@@ -24,7 +26,6 @@ import { SETTINGS } from "@/lib/storage/settings"
 import type { ChromeMessage, ImageAttachment } from "@/types"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
-import { ComposerShell } from "./chat-input/composer-shell"
 import {
   fileListFromFiles,
   splitDropFiles
@@ -37,8 +38,11 @@ const pendingSelectionStorage = getPlasmoStorageForKey(
 
 export const ChatInputBox = ({
   onSend,
-  stopGeneration
+  stopGeneration,
+  leading
 }: {
+  /** The surface toggle, rendered first in the control row. */
+  leading?: ReactNode
   onSend: (
     customInput?: string,
     customModel?: string,
@@ -419,12 +423,13 @@ export const ChatInputBox = ({
             "max-h-75 min-h-11 w-full resize-none border-0 bg-transparent",
             "pb-14 pl-4 pr-14 pt-3 text-sm leading-relaxed scrollbar-none",
             "focus-visible:ring-0 focus-visible:ring-offset-0",
-            "placeholder:text-muted-foreground/70"
+            "placeholder:text-foreground-tertiary"
           )}
           autoFocus
         />
 
         <ChatInputToolbar
+          leading={leading}
           inputLength={input.length}
           isLoading={isLoading}
           onFilesSelected={handleFilesSelected}

@@ -37,11 +37,11 @@ export const FilePreview = ({
     switch (status) {
       case "processing":
       case "success":
-        return "border-border/50 bg-muted/30"
+        return "border-border bg-surface-sunken"
       case "error":
-        return "border-destructive/50 bg-destructive/10"
+        return "border-destructive/50 bg-tint-danger"
       default:
-        return "border-border/50 bg-muted/30"
+        return "border-border bg-surface-sunken"
     }
   }
 
@@ -59,7 +59,7 @@ export const FilePreview = ({
       case FILE_UPLOAD.EXTENSIONS.HTM:
         return <FileText className="icon-md text-status-warning/80" />
       default:
-        return <FileText className="icon-md text-muted-foreground/50" />
+        return <FileText className="icon-md text-foreground-tertiary" />
     }
   }
 
@@ -181,7 +181,7 @@ export const FilePreview = ({
             </div>
           )}
           {status === "success" && (
-            <div className="mt-3 max-h-64 overflow-y-auto rounded-control border border-border/35 bg-background/35">
+            <div className="mt-3 max-h-64 overflow-y-auto rounded-control border border-border bg-surface-sunken">
               <pre className="whitespace-pre-wrap wrap-break-word p-2 font-sans text-xs leading-relaxed text-muted-foreground">
                 {previewText || t("file_upload.area.files_ready", { count: 1 })}
               </pre>

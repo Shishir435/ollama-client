@@ -10,6 +10,8 @@ Usage: olc [options]
   olc --lan                   Native Ollama, 0.0.0.0:11434
   olc -b codex                Codex proxy, 127.0.0.1:8083
   olc -b opencode             OpenCode proxy, 127.0.0.1:8084
+  olc update                  Install the latest release
+  olc update 0.13.3           Install a specific release
 
 Shared options:
   -b, --backend <name>        ollama (default), codex, or opencode
@@ -21,6 +23,7 @@ Shared options:
   -D, --detached              Run in background (default)
   -f, --foreground            Stay attached to the terminal
   -d, --debug                 Verbose diagnostics; implies --foreground
+  -V, --version               Print the installed version
   -h, --help                  Show help
 
 Native Ollama options:
@@ -38,6 +41,17 @@ standalone server olc starts; global, app, and service environments are never
 changed. An incompatible macOS app is quit and replaced by a standalone server;
 other managed services must be stopped or configured by their owner.
 LAN access has no authentication: use only on a trusted network.
+
+Update options (olc update [version]):
+  -k, --check                 Report what is available; install nothing
+  -j, --json                  One JSON result on stdout (including errors)
+
+olc installs from its GitHub releases, not from a registry, so olc update
+downloads the same checksum-verified archive the installers use and replaces the
+directory it is running from. The previous version is kept until the new one is
+in place. A version that has no release is refused by name, with the versions
+that do exist. Running from a repository checkout is refused too: update that
+with git. olc update --check never touches the installation.
 
 Proxy-only options (require -b codex or -b opencode):
   -K, --api-key <key>         Require a bearer token
@@ -91,7 +105,8 @@ export const SHORT_FLAG_ALIASES = {
   "-C": "--codex",
   "-W": "--codex-project-dir",
   "-w": "--codex-web-search",
-  "-h": "--help"
+  "-h": "--help",
+  "-V": "--version"
 } as const
 
 const VALUE_FLAGS: Record<string, string> = {
@@ -121,14 +136,49 @@ const BOOLEAN_FLAGS: Record<string, [string, boolean]> = {
   "--lan": ["LAN", true],
   "--local": ["LOCAL", true],
   "--check": ["CHECK", true],
-  "--json": ["JSON", true]
+  "--json": ["JSON", true],
+  "--version": ["VERSION", true]
+}
+
+/** Subcommands are the first token or nothing, so a flag can never be mistaken for one. */
+export const COMMANDS = ["update"] as const
+export type Command = "serve" | (typeof COMMANDS)[number]
+
+/** Narrows a raw token to a command without asserting that it is one. */
+function isCommand(value: string): value is (typeof COMMANDS)[number] {
+  return COMMANDS.some((name) => name === value)
+}
+
+/** What `olc update` may be given; every other option belongs to a server. */
+const UPDATE_FLAGS = new Set(["CHECK", "JSON", "VERSION"])
+
+/**
+ * Read a leading subcommand and its one positional argument.
+ *
+ * Only the first token is considered, so `--agent update` stays a flag value and
+ * a backend named like a command stays a backend.
+ */
+function readCommand(argv: string[]): {
+  command: Command
+  target?: string
+  start: number
+} {
+  const first = argv[0]
+  if (first === undefined || !isCommand(first))
+    return { command: "serve", start: 0 }
+  const second = argv[1]
+  /** The one positional olc has: the version `update` should install. */
+  return second !== undefined && !second.startsWith("-")
+    ? { command: first, target: second, start: 2 }
+    : { command: first, start: 1 }
 }
 
 /** Reject missing values and repeated options instead of guessing user intent. */
 export function parseArgs(argv: string[]) {
   const options: ProxyOptions = {}
   let help = false
-  for (let index = 0; index < argv.length; index++) {
+  const { command, target, start } = readCommand(argv)
+  for (let index = start; index < argv.length; index++) {
     const token = argv[index] as string
     const equals = token.startsWith("--") ? token.indexOf("=") : -1
     const flag = equals < 0 ? token : token.slice(0, equals)
@@ -155,9 +205,33 @@ export function parseArgs(argv: string[]) {
     options[key] = value
   }
   validatePort(options.PORT)
+  /** Checked before CONFIG_PATH is removed, so --config cannot slip through. */
+  if (command === "update") assertUpdateOptions(options)
   const configPath = options.CONFIG_PATH as string | undefined
   delete options.CONFIG_PATH
-  return { options, help, configPath }
+  return { options, help, configPath, command, target }
+}
+
+/** Name the option the way the user typed it, not the way it is stored. */
+function flagFor(key: string): string {
+  const boolean = Object.entries(BOOLEAN_FLAGS).find(
+    ([, [name]]) => name === key
+  )
+  if (boolean) return boolean[0]
+  return (
+    Object.entries(VALUE_FLAGS).find(([, name]) => name === key)?.[0] ?? key
+  )
+}
+
+/** Server options say nothing about an update, so accepting them would mislead. */
+function assertUpdateOptions(options: ProxyOptions): void {
+  const stray = Object.keys(options)
+    .filter((key) => !UPDATE_FLAGS.has(key))
+    .map(flagFor)[0]
+  if (stray)
+    throw new Error(
+      `olc update takes a version and --check/--json; ${stray} configures a server. See olc --help.`
+    )
 }
 
 /** An explicit missing or invalid config is an error; never silently fall back. */

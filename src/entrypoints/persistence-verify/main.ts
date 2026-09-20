@@ -1,3 +1,4 @@
+import type { AgentRunStatus } from "@ollama-client/contracts"
 import {
   RPC_PROTOCOL_VERSION,
   RPC_REQUEST_MESSAGE_TYPE,
@@ -24,6 +25,13 @@ import {
 import { DURABLE_TABLES } from "@/lib/persistence/durable-tables"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderId } from "@/lib/providers/types"
+import {
+  appendAgentStep,
+  createAgentRun,
+  getAgentRun,
+  listAgentSteps,
+  transitionAgentRun
+} from "@/lib/repositories/agent-runs"
 import * as chatHistory from "@/lib/repositories/sqlite-chat-history"
 import { getToolLoopRun } from "@/lib/repositories/tool-loop-runs"
 import {
@@ -778,6 +786,111 @@ const verifyApi = {
     return {
       byteLength: bytes.byteLength,
       magic: new TextDecoder().decode(bytes.slice(0, 15))
+    }
+  },
+
+  /**
+   * Leaves a run exactly where a worker that died mid-effect leaves one:
+   * `executing`, with the step it was applying still open. Nothing is
+   * executed — the point is the durable state, because that is all a fresh
+   * worker gets to see, and recovery has to settle it without running any
+   * Agent work at all.
+   *
+   * A run has to be walked there: it may only be created `submitted`, and
+   * every hop is a compare-and-set against the status the row actually
+   * holds. The walk is a loop rather than a list because it races the thing
+   * the gate measures — a worker that boots mid-seed runs startup recovery,
+   * which pauses whatever incomplete run it finds — so being knocked back to
+   * `paused` is expected and is walked forward again rather than failing.
+   */
+  async seedInterruptedAgentRun(runId: string): Promise<void> {
+    const now = Date.now()
+    await createAgentRun({
+      version: 1,
+      id: runId,
+      goal: "Submit the form and report the result.",
+      status: "submitted",
+      stepCount: 1,
+      observationCount: 1,
+      controlledTabId: 1,
+      providerId: "ollama",
+      modelId: "verify-model",
+      allowedOrigins: ["https://example.com"],
+      createdAt: now,
+      updatedAt: now
+    })
+    const nextHop: Partial<Record<string, AgentRunStatus>> = {
+      submitted: "observing",
+      observing: "deciding",
+      deciding: "awaiting_approval",
+      awaiting_approval: "executing",
+      pause_requested: "paused",
+      paused: "observing"
+    }
+    let planned = false
+    for (let hop = 0; hop < 24; hop += 1) {
+      const current = (await getAgentRun(runId))?.state
+      if (!current) throw new Error("Seeded agent run disappeared")
+      if (current.status === "executing") return
+      /**
+       * The `executing` receipt is not written here: entering execution is
+       * the durable effect-ownership boundary, and the claim copies the
+       * latest command receipt into it inside the same transaction. What the
+       * seed owes is the planned step that claim reads — the same thing the
+       * controller writes before asking policy.
+       */
+      if (current.status === "deciding" && !planned) {
+        await appendAgentStep({
+          runId,
+          stepId: `${runId}:1`,
+          status: "planned",
+          mutating: true,
+          risk: "critical",
+          at: Date.now(),
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        })
+        planned = true
+      }
+      const to = nextHop[current.status]
+      if (!to) {
+        throw new Error(`Seeded agent run reached ${current.status}`)
+      }
+      await transitionAgentRun({
+        runId,
+        from: current.status,
+        to,
+        patch: { updatedAt: Date.now() }
+      })
+    }
+    throw new Error("Seeded agent run never reached executing")
+  },
+
+  async agentRunOutcome(runId: string): Promise<{
+    status?: string
+    pauseReason?: string
+    stepStatuses: string[]
+    /**
+     * Distinct step ids, not receipts. A step is appended once per lifecycle
+     * change, so counting receipts would call recovery's own `uncertain`
+     * receipt a second effect; a second *step* is what reissuing would look
+     * like.
+     */
+    stepIds: string[]
+  }> {
+    const [run, steps] = await Promise.all([
+      getAgentRun(runId),
+      listAgentSteps(runId)
+    ])
+    return {
+      status: run?.state?.status,
+      pauseReason: run?.state?.pauseReason,
+      stepStatuses: steps.map((step) => step.status),
+      stepIds: [...new Set(steps.map((step) => step.stepId))]
     }
   },
 

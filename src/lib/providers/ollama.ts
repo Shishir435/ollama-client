@@ -596,7 +596,11 @@ export class OllamaProvider implements LLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text()
-      const classification = classifyProviderError(response.status, errorText)
+      const classification = classifyProviderError(
+        response.status,
+        errorText,
+        resolveProviderBaseUrl(this.config)
+      )
       throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
         kind: "provider",
         status: response.status,

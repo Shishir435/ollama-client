@@ -1,0 +1,738 @@
+import { AgentControlFailedError } from "@ollama-client/agent-runtime"
+import type { AgentObservation } from "@ollama-client/contracts"
+import { describe, expect, it, vi } from "vitest"
+
+import type { AgentControlSession } from "@/lib/browser-agent/control-port"
+import { createAgentControlSessionRegistry } from "../agent-control-sessions"
+
+const observation = (
+  overrides: Partial<AgentObservation> = {}
+): AgentObservation => ({
+  snapshotId: "snapshot-1",
+  generation: 1,
+  tabId: 7,
+  frameId: 0,
+  documentId: "document-1",
+  url: "https://example.com/start",
+  origin: "https://example.com",
+  title: "Example",
+  frames: [
+    {
+      frameId: 0,
+      documentId: "document-1",
+      origin: "https://example.com",
+      url: "https://example.com/start",
+      access: "ok",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+  ],
+  elements: [],
+  visibleText: "Initial content",
+  scroll: {
+    x: 0,
+    y: 0,
+    viewportWidth: 100,
+    viewportHeight: 100,
+    documentWidth: 100,
+    documentHeight: 200
+  },
+  dialogs: [],
+  capturedAt: 1,
+  ...overrides
+})
+
+const session = (
+  overrides: Partial<AgentControlSession> = {}
+): AgentControlSession => ({
+  frameId: 0,
+  observe: vi.fn(async () => observation()),
+  executeDomMutation: vi.fn(async () => undefined),
+  executeFormFill: vi.fn(async () => ({ applied: 0 })),
+  executeScroll: vi.fn(async () => undefined),
+  prepareNativeInput: vi.fn(async () => ({
+    point: { x: 10, y: 10 },
+    focused: false
+  })),
+  settleNativeInput: vi.fn(async () => undefined),
+  sensitiveRegions: vi.fn(async () => null),
+  hitTest: vi.fn(async () => null),
+  disconnect: vi.fn(),
+  ...overrides
+})
+
+const mutationInstruction = () =>
+  ({
+    command: {
+      type: "click",
+      ref: "e1",
+      snapshotId: "snapshot-1",
+      generation: 1
+    },
+    target: {
+      ref: "e1",
+      frameId: 0,
+      tag: "button",
+      sensitive: false,
+      maySubmit: false
+    },
+    snapshotIdentity: {
+      snapshotId: "snapshot-1",
+      generation: 1,
+      tabId: 7,
+      frameId: 0,
+      documentId: "document-1"
+    },
+    frame: {
+      snapshotId: "snapshot-1",
+      generation: 1,
+      tabId: 7,
+      frameId: 0,
+      documentId: "document-1"
+    }
+  }) as Parameters<
+    ReturnType<typeof createAgentControlSessionRegistry>["executeDomMutation"]
+  >[0]["instruction"]
+
+describe("Agent control session registry", () => {
+  it("reuses one session per run and tab", async () => {
+    const open = vi.fn(async () => session())
+    const registry = createAgentControlSessionRegistry({ open })
+
+    await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 0,
+      allowedOrigins: ["https://example.com"]
+    })
+    await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 0,
+      allowedOrigins: ["https://example.com"]
+    })
+
+    expect(open).toHaveBeenCalledOnce()
+  })
+
+  it("reopens once when the bound document is gone", async () => {
+    const dead = session({
+      observe: vi.fn(async () => {
+        throw new Error("Agent control port closed")
+      })
+    })
+    const live = session({
+      observe: vi.fn(async () => observation({ documentId: "document-2" }))
+    })
+    const open = vi
+      .fn<() => Promise<AgentControlSession>>()
+      .mockResolvedValueOnce(dead)
+      .mockResolvedValueOnce(live)
+    const registry = createAgentControlSessionRegistry({ open })
+
+    const observed = await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 0,
+      allowedOrigins: ["https://example.com"]
+    })
+
+    expect(observed.documentId).toBe("document-2")
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(dead.disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("gives up rather than reopening a second time", async () => {
+    const failing = () =>
+      session({
+        observe: vi.fn(async () => {
+          throw new Error("Agent control port closed")
+        })
+      })
+    const open = vi.fn(async () => failing())
+    const registry = createAgentControlSessionRegistry({ open })
+
+    await expect(
+      registry.observe({
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 0,
+        allowedOrigins: ["https://example.com"]
+      })
+    ).rejects.toThrow("closed")
+    expect(open).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not reopen for an observation the caller cancelled", async () => {
+    const controller = new AbortController()
+    const cancelled = session({
+      observe: vi.fn(async () => {
+        controller.abort()
+        throw new Error("Agent control request cancelled")
+      })
+    })
+    const open = vi.fn(async () => cancelled)
+    const registry = createAgentControlSessionRegistry({ open })
+
+    await expect(
+      registry.observe(
+        {
+          runId: "run-1",
+          tabId: 7,
+          minimumGeneration: 0,
+          allowedOrigins: ["https://example.com"]
+        },
+        controller.signal
+      )
+    ).rejects.toThrow("cancelled")
+    expect(open).toHaveBeenCalledOnce()
+  })
+
+  it("does not reopen for a failure the page already answered", async () => {
+    const answered = session({
+      observe: vi.fn(async () => {
+        throw new AgentControlFailedError({
+          reason: "observation_invalid",
+          issues: [{ path: "elements.0.editable", code: "invalid_type" }]
+        })
+      })
+    })
+    const open = vi.fn(async () => answered)
+    const registry = createAgentControlSessionRegistry({ open })
+
+    await expect(
+      registry.observe({
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 0,
+        allowedOrigins: ["https://example.com"]
+      })
+    ).rejects.toMatchObject({ reason: "observation_invalid" })
+    expect(open).toHaveBeenCalledOnce()
+    expect(answered.observe).toHaveBeenCalledOnce()
+    expect(answered.disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("never repeats a mutation whose port died", async () => {
+    const executeDomMutation = vi.fn(async () => {
+      throw new Error("Agent control port closed")
+    })
+    const failing = session({ executeDomMutation })
+    const open = vi.fn(async () => failing)
+    const registry = createAgentControlSessionRegistry({ open })
+
+    await expect(
+      registry.executeDomMutation({
+        runId: "run-1",
+        tabId: 7,
+        instruction: mutationInstruction()
+      })
+    ).rejects.toThrow("closed")
+    expect(executeDomMutation).toHaveBeenCalledOnce()
+    expect(failing.disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("releases only the sessions of the run it was asked about", async () => {
+    const first = session()
+    const second = session()
+    const open = vi
+      .fn<() => Promise<AgentControlSession>>()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second)
+    const registry = createAgentControlSessionRegistry({ open })
+
+    await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 0,
+      allowedOrigins: ["https://example.com"]
+    })
+    await registry.observe({
+      runId: "run-2",
+      tabId: 7,
+      minimumGeneration: 0,
+      allowedOrigins: ["https://example.com"]
+    })
+    registry.release("run-1")
+
+    expect(first.disconnect).toHaveBeenCalledOnce()
+    expect(second.disconnect).not.toHaveBeenCalled()
+  })
+})
+
+describe("Agent control session registry across frames", () => {
+  const allowedOrigins = ["https://example.com"]
+  const rootFrame = {
+    frameId: 0,
+    parentFrameId: -1,
+    documentId: "document-1",
+    url: "https://example.com/start"
+  }
+  const childObservation = (frameId: number): AgentObservation => ({
+    ...observation({
+      snapshotId: `snapshot-f${frameId}`,
+      frameId,
+      documentId: `document-${frameId}`,
+      url: "https://example.com/child",
+      visibleText: "Child content"
+    }),
+    frames: [
+      {
+        frameId,
+        documentId: `document-${frameId}`,
+        origin: "https://example.com",
+        url: "https://example.com/child",
+        access: "ok",
+        snapshotId: `snapshot-f${frameId}`,
+        generation: 1
+      }
+    ],
+    elements: [
+      {
+        ref: `f${frameId}e1`,
+        frameId,
+        tag: "button",
+        name: "Continue",
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      }
+    ]
+  })
+  const openByFrame = (
+    sessions: Record<number, AgentControlSession>
+  ): ReturnType<typeof vi.fn> =>
+    vi.fn(async ({ frameId }: { frameId?: number }) => {
+      const found = sessions[frameId ?? 0]
+      if (!found) throw new Error(`no session for frame ${frameId}`)
+      return found
+    })
+
+  it("paginates only the requested authorized frame even when controls filled the budget", async () => {
+    const rootObservation = observation({
+      elements: Array.from({ length: 2_000 }, (_, index) => ({
+        ref: `e${index}`,
+        frameId: 0,
+        tag: "button",
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      }))
+    })
+    const root = session({ observe: vi.fn(async () => rootObservation) })
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async (request) => ({
+        ...childObservation(2),
+        elements: [],
+        textPage: {
+          text: "Selected frame tail",
+          offset: request.textOffset ?? 0,
+          frameId: 2
+        }
+      }))
+    })
+    const open = openByFrame({ 0: root, 2: child })
+    const registry = createAgentControlSessionRegistry({
+      open: open as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          { frameId: 2, parentFrameId: 0, url: "https://example.com/child" },
+          {
+            frameId: 3,
+            parentFrameId: 0,
+            url: "https://unapproved.example/child"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+    const observed = await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 1,
+      allowedOrigins,
+      extraction: { offset: 24_000, frameId: 2 }
+    })
+    expect(observed.textPage).toEqual({
+      text: "Selected frame tail",
+      offset: 24_000,
+      frameId: 2
+    })
+    expect(root.observe).toHaveBeenCalledWith(
+      { minimumGeneration: 1 },
+      undefined
+    )
+    expect(child.observe).toHaveBeenCalledWith(
+      { minimumGeneration: 1, elementLimit: 0, textOffset: 24_000 },
+      undefined
+    )
+    expect(open).toHaveBeenCalledTimes(2)
+  })
+
+  it("reads authorized child frames through their own sessions and lists the rest", async () => {
+    const root = session()
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async () => childObservation(2))
+    })
+    const open = openByFrame({ 0: root, 2: child })
+    const registry = createAgentControlSessionRegistry({
+      open: open as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 3,
+            parentFrameId: 0,
+            documentId: "document-3",
+            url: "https://ads.example/slot?id=secret"
+          },
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            url: "https://example.com/child"
+          },
+          { frameId: 4, parentFrameId: 0, url: "about:blank" }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    const observed = await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 0,
+      allowedOrigins
+    })
+
+    expect(open.mock.calls.map(([input]) => input.frameId)).toEqual([0, 2])
+    expect(
+      observed.frames.map((frame) => [frame.frameId, frame.access])
+    ).toEqual([
+      [0, "ok"],
+      [2, "ok"],
+      [3, "unauthorized_origin"]
+    ])
+    expect(observed.frames[2]).not.toHaveProperty("url")
+    expect(observed.elements.map((element) => element.ref)).toEqual(["f2e1"])
+    expect(observed.visibleText).toBe("Initial content\nChild content")
+  })
+
+  it("lists a child whose observation failed as unreadable without retrying it", async () => {
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async () => {
+        throw new Error("port closed")
+      })
+    })
+    const open = openByFrame({ 0: session(), 2: child })
+    const registry = createAgentControlSessionRegistry({
+      open: open as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            url: "https://example.com/child"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    const observed = await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 0,
+      allowedOrigins
+    })
+
+    expect(observed.frames[1]).toMatchObject({
+      frameId: 2,
+      access: "unreadable"
+    })
+    expect(child.observe).toHaveBeenCalledOnce()
+    expect(child.disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("hands a child only the element budget the root left", async () => {
+    const root = session({
+      observe: vi.fn(async () =>
+        observation({
+          elements: Array.from({ length: 3 }, (_, index) => ({
+            ref: `e${index + 1}`,
+            frameId: 0,
+            tag: "button",
+            visible: true,
+            enabled: true,
+            editable: false,
+            sensitive: false
+          }))
+        })
+      )
+    })
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async () => childObservation(2))
+    })
+    const registry = createAgentControlSessionRegistry({
+      open: openByFrame({ 0: root, 2: child }) as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            url: "https://example.com/child"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 4,
+      allowedOrigins
+    })
+
+    expect(child.observe).toHaveBeenCalledWith(
+      { minimumGeneration: 4, elementLimit: 1_997 },
+      undefined
+    )
+  })
+
+  it("asks every readable frame the same lookup and merges what they matched", async () => {
+    /**
+     * An empty group is read as "the page holds no such control", so a lookup
+     * that only ever walked the root document told the model a control inside
+     * an authorized iframe was not there. Refs carry their frame, so one
+     * group can name matches from several documents without ambiguity.
+     */
+    const root = session({
+      observe: vi.fn(async () =>
+        observation({
+          elements: [
+            {
+              ref: "e5",
+              frameId: 0,
+              tag: "button",
+              name: "Buy",
+              visible: true,
+              enabled: true,
+              editable: false,
+              sensitive: false
+            }
+          ],
+          lookup: {
+            queries: [
+              { query: "price", refs: [] },
+              { query: "buy", refs: ["e5"] }
+            ]
+          }
+        })
+      )
+    })
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async () => ({
+        ...childObservation(2),
+        lookup: {
+          queries: [
+            { query: "price", refs: ["f2e1"] },
+            { query: "buy", refs: [] }
+          ]
+        }
+      }))
+    })
+    const registry = createAgentControlSessionRegistry({
+      open: openByFrame({ 0: root, 2: child }) as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            url: "https://example.com/child"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    const observed = await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 1,
+      allowedOrigins,
+      lookup: { queries: ["price", "buy"] }
+    })
+
+    /**
+     * The child's budget is what its answer can be worth, not what the root
+     * left: a frame that matched nothing answers with its overview, and six
+     * questions must not buy five frames' worth of unrelated controls.
+     */
+    expect(child.observe).toHaveBeenCalledWith(
+      {
+        minimumGeneration: 1,
+        elementLimit: 20,
+        lookup: { queries: ["price", "buy"] }
+      },
+      undefined
+    )
+    expect(observed.lookup?.queries).toEqual([
+      { query: "price", refs: ["f2e1"] },
+      { query: "buy", refs: ["e5"] }
+    ])
+  })
+
+  it("keeps room for the frames' answers before the root can spend it", async () => {
+    /**
+     * A lookup is most often asked when the control cannot be found, so the
+     * root matches nothing and falls back to its overview — and on a crowded
+     * page that overview filled the whole element budget before a single
+     * frame was asked. The frame holding the control was skipped for having
+     * no room, and its group came back empty, which reads as "not there".
+     */
+    const root = session({
+      observe: vi.fn(async (request) =>
+        observation({
+          elements: Array.from(
+            { length: request.elementLimit ?? 2_000 },
+            (_value, index) => ({
+              ref: `e${index + 1}`,
+              frameId: 0,
+              tag: "button",
+              visible: true,
+              enabled: true,
+              editable: false,
+              sensitive: false
+            })
+          ),
+          lookup: { queries: [{ query: "price", refs: [] }] }
+        })
+      )
+    })
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async () => ({
+        ...childObservation(2),
+        lookup: { queries: [{ query: "price", refs: ["f2e1"] }] }
+      }))
+    })
+    const registry = createAgentControlSessionRegistry({
+      open: openByFrame({ 0: root, 2: child }) as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            url: "https://example.com/child"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    const observed = await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 1,
+      allowedOrigins,
+      lookup: { queries: ["price"] }
+    })
+
+    /** One frame, one question: ten rows held back, and the root told so. */
+    expect(root.observe).toHaveBeenCalledWith(
+      {
+        minimumGeneration: 1,
+        lookup: { queries: ["price"] },
+        elementLimit: 1_990
+      },
+      undefined
+    )
+    expect(child.observe).toHaveBeenCalledOnce()
+    expect(observed.lookup?.queries[0]?.refs).toEqual(["f2e1"])
+  })
+
+  it("still answers a scoped read from the root document alone", async () => {
+    const root = session()
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async () => childObservation(2))
+    })
+    const open = openByFrame({ 0: root, 2: child })
+    const registry = createAgentControlSessionRegistry({
+      open: open as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            url: "https://example.com/child"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 1,
+      allowedOrigins,
+      scope: { kind: "query", value: "price" }
+    })
+
+    /**
+     * A scope answers with a count and a continuation offset, and neither
+     * composes across documents — which is why this one stays where it was
+     * while the lookup moved.
+     */
+    expect(open.mock.calls.map(([call]) => call.frameId)).toEqual([0])
+  })
+
+  it("routes page work to the frame the instruction binds", async () => {
+    const root = session()
+    const child = session({ frameId: 2 })
+    const open = openByFrame({ 0: root, 2: child })
+    const registry = createAgentControlSessionRegistry({ open: open as never })
+    const instruction = mutationInstruction()
+    const bound = {
+      ...instruction,
+      target: { ...instruction.target, ref: "f2e1", frameId: 2 },
+      frame: {
+        snapshotId: "snapshot-f2",
+        generation: 1,
+        tabId: 7,
+        frameId: 2,
+        documentId: "document-2"
+      }
+    }
+
+    await registry.executeDomMutation({
+      runId: "run-1",
+      tabId: 7,
+      instruction: bound
+    })
+
+    expect(open).toHaveBeenCalledWith({ runId: "run-1", tabId: 7, frameId: 2 })
+    expect(child.executeDomMutation).toHaveBeenCalledWith(bound, undefined)
+    expect(root.executeDomMutation).not.toHaveBeenCalled()
+  })
+})

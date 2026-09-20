@@ -210,7 +210,7 @@
   }
 
   .typeset :where(kbd) {
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--stroke-strong);
     border-block-end-width: 2px;
     border-radius: calc(var(--radius) - 2px);
     background: var(--background);
@@ -223,7 +223,7 @@
   }
 
   .typeset :where(blockquote) {
-    border-inline-start: 0.22em solid var(--border-strong);
+    border-inline-start: 0.22em solid var(--stroke-strong);
     color: var(--muted-foreground);
     padding-inline-start: 1em;
   }

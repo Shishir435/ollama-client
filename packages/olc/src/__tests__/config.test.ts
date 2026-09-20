@@ -21,6 +21,25 @@ describe("resolveConfig", () => {
     expect(resolveConfig().PORT).toBe(8084)
   })
 
+  it("bounds parked turns, overridably", () => {
+    // The default is what stops a client whose every request is one
+    // unresumed decision from holding a backend session per step.
+    expect(resolveConfig().MAX_PARKED_TURNS).toBe(4)
+    process.env.OLC_MAX_PARKED_TURNS = "2"
+    expect(resolveConfig().MAX_PARKED_TURNS).toBe(2)
+    expect(resolveConfig({ MAX_PARKED_TURNS: 6 }).MAX_PARKED_TURNS).toBe(6)
+  })
+
+  it("never lets the parked-turn cap reach zero", () => {
+    // Parking is how a tool call reaches the client, so zero would disable
+    // client tool calling rather than bound it — and the sweep runs before
+    // the turn it makes room for parks, so it could not deliver zero anyway.
+    expect(resolveConfig({ MAX_PARKED_TURNS: 0 }).MAX_PARKED_TURNS).toBe(1)
+    // A negative is not a smaller cap, it is invalid input, so the shared
+    // number reader passes it over and the default stands.
+    expect(resolveConfig({ MAX_PARKED_TURNS: -3 }).MAX_PARKED_TURNS).toBe(4)
+  })
+
   it("still reads the legacy OPENCODE_PROXY_ environment names", () => {
     process.env.OPENCODE_PROXY_PORT = "9200"
     expect(resolveConfig().PORT).toBe(9200)

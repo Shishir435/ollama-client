@@ -6,7 +6,10 @@ unclear, open a draft PR or an issue and ask.
 
 If you're using an AI coding assistant (Claude Code, Cursor, Copilot,
 etc.), read `AGENTS.md` first — it has the architecture map and the
-project-specific conventions an agent needs to be useful.
+project-specific conventions an agent needs to be useful. Two subsystems
+keep their detail elsewhere so the main file stays readable:
+`AGENT_INTERNALS.md` for the browser agent, `packages/olc/AGENTS.md` for
+the olc CLI.
 
 ## 1. Local setup
 

@@ -206,7 +206,7 @@ export const ShortcutsSettings = () => {
           bindings, so they can't be rebound from this page. */}
       <div
         data-settings-focus-id="browser-shortcuts"
-        className="rounded-control border border-border/60 bg-muted/30 px-3 py-2.5">
+        className="rounded-control border border-border-strong bg-surface-sunken px-3 py-2.5">
         <p className="text-sm font-medium">
           {t("settings.shortcuts.browser.title")}
         </p>
@@ -236,7 +236,7 @@ export const ShortcutsSettings = () => {
 
       {/* Conflict warning */}
       {conflictWarning && (
-        <div className="rounded-control bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="rounded-control bg-tint-danger px-3 py-2 text-sm text-destructive">
           {conflictWarning}
         </div>
       )}
@@ -265,7 +265,7 @@ export const ShortcutsSettings = () => {
                       data-settings-focus="true"
                       data-settings-focus-id={shortcutFocusId(shortcut.id)}
                       className={cn(
-                        "group flex w-full cursor-pointer items-center justify-between rounded-control px-3 py-2 text-left transition-colors hover:bg-accent/50",
+                        "group flex w-full cursor-pointer items-center justify-between rounded-control px-3 py-2 text-left transition-colors hover:bg-state-hover",
                         isRecording && "bg-accent ring-2 ring-primary"
                       )}
                       onClick={() => {

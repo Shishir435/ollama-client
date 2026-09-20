@@ -20,7 +20,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
       storageState.local.delete(key)
     })
   },
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: vi.fn(async (key: string) => storageState.providerSync.get(key)),
     set: vi.fn(async (key: string, value: unknown) => {
       storageState.providerSync.set(key, structuredClone(value))

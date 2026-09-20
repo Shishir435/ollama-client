@@ -1,10 +1,17 @@
-import { Database, HardDrive, MessageSquare, ShieldCheck } from "lucide-react"
+import {
+  Bot,
+  Database,
+  HardDrive,
+  MessageSquare,
+  ShieldCheck
+} from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { getStorageStats } from "@/lib/embeddings/vector-store"
 import { knowledgeDb } from "@/lib/knowledge/knowledge-sets"
+import { countAgentRuns } from "@/lib/repositories/agent-runs"
 import { countMessages, getAllSessions } from "@/lib/repositories/chat-history"
 
 interface InventoryCounts {
@@ -12,13 +19,15 @@ interface InventoryCounts {
   messages: number
   vectors: number
   knowledgeFiles: number
+  agentRuns: number
 }
 
 const EMPTY_COUNTS: InventoryCounts = {
   sessions: 0,
   messages: 0,
   vectors: 0,
-  knowledgeFiles: 0
+  knowledgeFiles: 0,
+  agentRuns: 0
 }
 
 export const PrivacyDataInventory = () => {
@@ -31,15 +40,17 @@ export const PrivacyDataInventory = () => {
       getAllSessions(),
       countMessages(),
       getStorageStats(),
-      knowledgeDb.knowledgeFiles.count()
+      knowledgeDb.knowledgeFiles.count(),
+      countAgentRuns()
     ])
-      .then(([sessions, messages, vectors, knowledgeFiles]) => {
+      .then(([sessions, messages, vectors, knowledgeFiles, agentRuns]) => {
         if (!active) return
         setCounts({
           sessions: sessions.length,
           messages,
           vectors: vectors.totalVectors,
-          knowledgeFiles
+          knowledgeFiles,
+          agentRuns
         })
       })
       .catch(() => {
@@ -70,6 +81,14 @@ export const PrivacyDataInventory = () => {
       })
     },
     {
+      key: "agent",
+      icon: Bot,
+      label: t("settings.privacy_spine.inventory.agent"),
+      value: t("settings.privacy_spine.inventory.agent_count", {
+        runs: counts.agentRuns
+      })
+    },
+    {
       key: "settings",
       icon: HardDrive,
       label: t("settings.privacy_spine.inventory.settings"),
@@ -89,7 +108,7 @@ export const PrivacyDataInventory = () => {
           return (
             <div
               key={row.key}
-              className="flex items-center gap-3 rounded-control border border-border/45 p-3">
+              className="flex items-center gap-3 rounded-control border border-border p-3">
               <Icon className="icon-md shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{row.label}</p>
@@ -101,7 +120,7 @@ export const PrivacyDataInventory = () => {
             </div>
           )
         })}
-        <div className="flex items-center justify-between rounded-control border border-border/45 p-3">
+        <div className="flex items-center justify-between rounded-control border border-border p-3">
           <div>
             <p className="text-sm font-medium">
               {t("settings.privacy_spine.inventory.preferences")}

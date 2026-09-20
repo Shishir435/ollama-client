@@ -4,13 +4,13 @@ import { STORAGE_KEYS } from "@/lib/constants"
 
 vi.unmock("@/lib/plasmo-global-storage")
 
-describe("plasmoGlobalStorage", () => {
+describe("plasmoSyncStorage", () => {
   it("exposes the legacy sync storage handle", async () => {
-    const { plasmoGlobalStorage } = await import("../plasmo-global-storage")
+    const { plasmoSyncStorage } = await import("../plasmo-global-storage")
 
-    expect(plasmoGlobalStorage).toBeDefined()
-    expect(typeof plasmoGlobalStorage.get).toBe("function")
-    expect(typeof plasmoGlobalStorage.set).toBe("function")
+    expect(plasmoSyncStorage).toBeDefined()
+    expect(typeof plasmoSyncStorage.get).toBe("function")
+    expect(typeof plasmoSyncStorage.set).toBe("function")
   })
 
   it("routes device-local keys to local storage", async () => {
@@ -51,10 +51,10 @@ describe("plasmoGlobalStorage", () => {
     const oversized = "x".repeat(9_000)
 
     it("rejects an over-quota write made through the deprecated alias", async () => {
-      const { plasmoGlobalStorage } = await import("../plasmo-global-storage")
+      const { plasmoSyncStorage } = await import("../plasmo-global-storage")
 
       await expect(
-        plasmoGlobalStorage.set(STORAGE_KEYS.LANGUAGE, oversized)
+        plasmoSyncStorage.set(STORAGE_KEYS.LANGUAGE, oversized)
       ).rejects.toMatchObject({
         name: "SyncStorageQuotaError",
         kind: "item"
@@ -108,10 +108,10 @@ describe("plasmoGlobalStorage", () => {
    */
   describe("device-local scope enforcement", () => {
     it("refuses a device-local key written through the sync handle", async () => {
-      const { plasmoGlobalStorage } = await import("../plasmo-global-storage")
+      const { plasmoSyncStorage } = await import("../plasmo-global-storage")
 
       await expect(
-        plasmoGlobalStorage.set(STORAGE_KEYS.PROVIDER.SECRETS, {
+        plasmoSyncStorage.set(STORAGE_KEYS.PROVIDER.SECRETS, {
           openai: "sk-secret"
         })
       ).rejects.toMatchObject({

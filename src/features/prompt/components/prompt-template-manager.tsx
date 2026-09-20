@@ -140,7 +140,7 @@ export const PromptTemplateManager = () => {
         {/* Create Form Collapsible */}
         <Collapsible open={showCreateForm} onOpenChange={setShowCreateForm}>
           <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-            <div className="rounded-panel border border-primary/20 bg-accent/5 p-4">
+            <div className="rounded-panel border border-primary/20 bg-tint-accent p-4">
               <CollapsibleTrigger
                 render={
                   <Button
@@ -231,11 +231,11 @@ export const PromptTemplateManager = () => {
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <FileText className="mb-3 size-10 text-muted-foreground/40" />
+            <FileText className="mb-3 size-10 text-foreground-tertiary" />
             <p className="text-sm text-muted-foreground">
               {t("settings.prompts.empty_state.title")}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground/60">
+            <p className="mt-1 text-xs text-foreground-tertiary">
               {t("settings.prompts.empty_state.description")}
             </p>
           </div>

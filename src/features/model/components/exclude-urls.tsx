@@ -137,7 +137,7 @@ export const ExcludedUrls = ({
             {patterns.map((pattern) => (
               <Card
                 key={pattern}
-                className="group flex-row items-center justify-between bg-sidebar-accent gap-3 ring-0 p-3 transition-colors hover:bg-accent/50">
+                className="group flex-row items-center justify-between bg-sidebar-accent gap-3 ring-0 p-3 transition-colors hover:bg-state-hover">
                 <div className="flex items-start gap-2 min-w-0 flex-1">
                   <code className="truncate bg-muted px-1.5 py-0.5 font-mono text-xs">
                     {pattern}
@@ -153,7 +153,7 @@ export const ExcludedUrls = ({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="size-8 p-0 opacity-60 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                    className="size-8 p-0 opacity-60 transition-all hover:bg-tint-danger-hover hover:text-destructive group-hover:opacity-100"
                     onClick={() => handleRemove(pattern)}>
                     <Trash2 className="icon-xs" />
                   </Button>

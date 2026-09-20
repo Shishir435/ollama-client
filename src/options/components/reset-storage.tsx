@@ -262,7 +262,7 @@ const ModuleResetItem = ({
     <Card
       data-settings-focus="true"
       data-settings-focus-id={focusId}
-      className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-accent/50">
+      className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-state-hover">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <ModuleIcon className="icon-md shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">

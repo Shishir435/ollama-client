@@ -429,3 +429,93 @@ describe("provider-specific server errors", () => {
     }
   })
 })
+
+describe("wedged local provider (503)", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const WEDGED_BODY = JSON.stringify({
+    error: {
+      message:
+        'The previous request ("chat-completions:req_01H") has not stopped since it was cancelled, so this one cannot start without overlapping it. The runtime may need a restart.',
+      type: "ServiceUnavailable"
+    }
+  })
+
+  it("separates a busy local endpoint from an unreachable one", () => {
+    expect(
+      classifyProviderError(503, WEDGED_BODY, "http://127.0.0.1:8084/v1")
+    ).toEqual({
+      code: "OLC-PROVIDER-BUSY",
+      reason:
+        "The local endpoint is still finishing an earlier request and cannot start another.",
+      recoveryAction: "wait-retry"
+    })
+  })
+
+  it("leaves every other local server error on the existing advice", () => {
+    expect(
+      classifyProviderError(500, "internal error", "http://127.0.0.1:8084/v1")
+    ).toEqual({
+      code: "OLC-PROVIDER-HTTP",
+      recoveryAction: "retry"
+    })
+    expect(
+      classifyProviderError(502, "bad gateway", "http://localhost:8084/v1")
+    ).toEqual({
+      code: "OLC-PROVIDER-HTTP",
+      recoveryAction: "retry"
+    })
+  })
+
+  it("keeps a hosted 503 as genuine overload", () => {
+    expect(
+      classifyProviderError(503, "upstream busy", "https://api.example.com/v1")
+    ).toEqual({
+      code: "OLC-PROVIDER-HTTP",
+      recoveryAction: "retry"
+    })
+    expect(
+      providerErrorUserMessage(503, { baseUrl: "https://api.example.com/v1" })
+    ).toContain("hosted provider")
+  })
+
+  it("tells the user to wait or restart, without quoting the provider", () => {
+    const msg = providerErrorUserMessage(503, {
+      baseUrl: "http://127.0.0.1:8084/v1",
+      providerName: "OpenCode"
+    })
+
+    expect(msg).toContain("still finishing an earlier request")
+    expect(msg).toContain("Wait about a minute, or restart it.")
+    expect(msg).not.toContain("chat-completions:req_")
+    expect(msg).not.toContain("overlapping")
+    expect(msg).not.toMatch(/[{}]/)
+  })
+
+  it("carries a localized key and keeps the raw body in debug only", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(WEDGED_BODY, { status: 503 })
+    )
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:olc",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "http://127.0.0.1:8084/v1",
+      name: "OpenCode"
+    })
+
+    try {
+      await provider.streamChat({ model: "m", messages: [] }, () => {})
+      throw new Error("Expected streamChat to fail")
+    } catch (error) {
+      expect(isAppError(error)).toBe(true)
+      if (isAppError(error)) {
+        expect(error.code).toBe("OLC-PROVIDER-BUSY")
+        expect(error.recoveryAction).toBe("wait-retry")
+        expect(error.messageKey).toBe("chat.errors.provider_busy")
+        expect(error.userMessage).not.toContain("chat-completions:req_")
+        expect(error.debug).toContain("chat-completions:req_")
+      }
+    }
+  })
+})

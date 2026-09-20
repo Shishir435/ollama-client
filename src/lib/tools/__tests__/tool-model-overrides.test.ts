@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const store = new Map<string, unknown>()
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: async (key: string) => store.get(key),
     set: async (key: string, value: unknown) => {
       store.set(key, value)

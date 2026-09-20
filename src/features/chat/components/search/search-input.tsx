@@ -34,7 +34,7 @@ export const SearchInput = ({
       />
       {isSearching && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          <Loader2 className="icon-md animate-spin text-muted-foreground/60" />
+          <Loader2 className="icon-md animate-spin text-foreground-tertiary" />
         </div>
       )}
     </div>

@@ -236,7 +236,7 @@ export const ModelInfo = ({
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger
           render={
-            <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20" />
+            <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-state-hover" />
           }>
           <div className="flex items-center gap-2">
             <Cpu className="icon-md text-muted-foreground" />
@@ -304,13 +304,13 @@ export const ModelInfo = ({
           <div className="border-t border-border px-4 pb-4 pt-4">
             {!modelInfo || error ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
-                <Cpu className="mb-2 icon-3xl text-muted-foreground/50" />
+                <Cpu className="mb-2 icon-3xl text-foreground-tertiary" />
                 <p className="text-sm text-muted-foreground">
                   {error
                     ? t("settings.model_info.error_fetching")
                     : t("settings.model_info.no_data_available")}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground/70">
+                <p className="mt-1 text-xs text-foreground-tertiary">
                   {error ? error : t("settings.model_info.error_details")}
                 </p>
               </div>

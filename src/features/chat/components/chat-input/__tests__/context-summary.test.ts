@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildContextSummary } from "../context-summary"
+import { buildContextSummary, countContextSources } from "../context-summary"
 
 const t = (key: string, options?: Record<string, unknown>) =>
   options?.count === undefined ? key : `${key}:${options.count}`
@@ -68,5 +68,40 @@ describe("buildContextSummary", () => {
         t
       )
     ).toBe("chat.context.tabs:2 · chat.context.files:1 · chat.context.web")
+  })
+})
+
+describe("countContextSources", () => {
+  const none = {
+    tabAccess: false,
+    selectedTabCount: 0,
+    attachmentCount: 0,
+    useRAG: false,
+    webSearchActive: false,
+    showWebSearch: false
+  }
+
+  it("counts nothing when everything is at its default", () => {
+    expect(countContextSources(none)).toBe(0)
+  })
+
+  it("counts the sources the summary names, and no more", () => {
+    /*
+     * Files displace the knowledge label rather than adding to it, so the two
+     * are one source. The badge and the sentence inside the sheet read the
+     * same rules for that reason.
+     */
+    expect(
+      countContextSources({ ...none, attachmentCount: 2, useRAG: true })
+    ).toBe(1)
+    expect(
+      countContextSources({
+        ...none,
+        tabAccess: true,
+        attachmentCount: 2,
+        showWebSearch: true,
+        webSearchActive: true
+      })
+    ).toBe(3)
   })
 })

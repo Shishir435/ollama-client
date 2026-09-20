@@ -5,6 +5,7 @@ import { startPersistenceTopology } from "@/background/persistence-readiness"
 import { registerPortRouter } from "@/background/port-router"
 import { initializeBackgroundStartup } from "@/background/startup"
 import { registerTabLifecycle } from "@/background/tab-lifecycle"
+import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 
 /**
  * The persistence topology starts first and hands its readiness to startup,
@@ -14,8 +15,13 @@ import { registerTabLifecycle } from "@/background/tab-lifecycle"
  * these lines happen to run in.
  */
 const persistenceReady = startPersistenceTopology()
+const databaseReady = initializeBackgroundStartup(persistenceReady)
 
-initializeBackgroundStartup(persistenceReady)
+if (AGENT_PREVIEW_ENABLED) {
+  void import("@/background/agent/agent-composition").then(
+    ({ createAgentComposition }) => createAgentComposition(databaseReady)
+  )
+}
 registerPortRouter()
 registerMessageRouter()
 registerTabLifecycle()

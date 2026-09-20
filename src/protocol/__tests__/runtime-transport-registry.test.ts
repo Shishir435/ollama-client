@@ -54,6 +54,19 @@ describe("runtime transport registry", () => {
     ])
   })
 
+  it("classifies Agent control as background-initiated rather than RPC", () => {
+    expect(
+      RUNTIME_TRANSPORT_DEFINITIONS.find(
+        (definition) => definition.type === MESSAGE_KEYS.AGENT.CONTROL_PORT
+      )
+    ).toEqual({
+      type: MESSAGE_KEYS.AGENT.CONTROL_PORT,
+      transport: "port",
+      operation: "control",
+      allowedSources: ["background"]
+    })
+  })
+
   it("denies unregistered content-script traffic", () => {
     expect(
       isRuntimeTransportAllowed(

@@ -55,7 +55,7 @@ export function ChunkFeedbackButton({
         className={cn(
           "size-6",
           feedback === true &&
-            "bg-status-success text-status-success-foreground hover:bg-status-success/90"
+            "bg-status-success text-status-success-foreground hover:bg-status-success-hover"
         )}
         onClick={() => handleFeedback(true)}
         disabled={submitting}
@@ -68,7 +68,7 @@ export function ChunkFeedbackButton({
         className={cn(
           "size-6",
           feedback === false &&
-            "bg-status-danger text-status-danger-foreground hover:bg-status-danger/90"
+            "bg-status-danger text-status-danger-foreground hover:bg-status-danger-hover"
         )}
         onClick={() => handleFeedback(false)}
         disabled={submitting}

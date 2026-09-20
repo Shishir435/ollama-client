@@ -176,7 +176,19 @@ const budgets: Budget[] = [
   {
     metric: "total",
     field: "bytes",
-    max: isFirefox ? 11_800_000 : 9_500_000
+    /**
+     * Chrome's uncompressed total crossed 9.5MB with the Agent completion
+     * gate and its bounded waiting; the measured figure is 9,502,623. Raised
+     * to the next step rather than rounded generously, so the next thing to
+     * cross it is measured too.
+     *
+     * Batched form filling, multi-query lookups and the resolved context
+     * window took it to 9,626,409. Most of that is prose rather than code:
+     * the tool schema the model reads, the refusal vocabulary a batch needs
+     * in order to say which of twelve fields was wrong, and the settings copy
+     * in nine locales.
+     */
+    max: isFirefox ? 11_800_000 : 9_700_000
   },
   {
     metric: "zip",
@@ -186,12 +198,124 @@ const budgets: Budget[] = [
   {
     metric: "background",
     field: "gzipBytes",
-    // Generated-image responses plus embedding route validation, cancellation,
-    // cache safeguards, retry metadata, native web-search routing, and the
-    // complexity-helper split live
-    // in the background owner. Keep Chrome narrow while leaving deterministic
-    // build headroom.
-    max: isFirefox ? 210_000 : 202_400
+    /**
+     * Generated-image responses plus embedding route validation,
+     * cancellation, cache safeguards, retry metadata, native web-search
+     * routing, Agent recovery/composition, and the complexity-helper split
+     * live in the background owner.
+     *
+     * The Chrome service worker is a classic worker, so WXT inlines every
+     * dynamic import into background.js: the Agent run loop, its effect layer
+     * and its provider decision port cannot be split out of the startup
+     * bundle, and wiring them raised the measured Chrome baseline from
+     * 205,819 to 223,794. Firefox carries no Agent code and stays at its
+     * measured 204,177.
+     *
+     * The shared affordance classifier, the vocabularies that keep page text
+     * out of its feedback, and the resolution-failure mapping raised the
+     * measured Chrome baseline to 227,848: every refusal the model can be
+     * corrected on is a sentence that ships. Firefox is unchanged.
+     *
+     * Durable step history — the receipt fields that survive a snapshot, the
+     * bounded record built from them, and the prompt that carries it — took
+     * the measured Chrome baseline to 228,969.
+     *
+     * The model-visible projection, the modal and grouping reporting, and the
+     * document-text collection took the measured Chrome baseline to 229,855.
+     *
+     * Run-scoped grants and the durable question channel — contracts, the
+     * policy grant path, the two panel cards — took it to 230,700.
+     *
+     * The Chromium debugger session manager — attach ownership, the tab and
+     * detach listeners, the ownership gate on page-work claims — took it to
+     * 232,235. Firefox is unchanged.
+     *
+     * Frame-aware identity — per-frame control sessions composed into one
+     * observation, frame authorization, the debugger frame tree and its
+     * explicit mapping, and per-run tab scope — took it to 235,751.
+     *
+     * Context budgeting and progressive inspection — the bounded overview and
+     * its budget partition, the three read-only inspection commands, and the
+     * durable findings store — took it to 237,205. Firefox carries no Agent
+     * code and is unchanged.
+     *
+     * Native input — the plan builder and its key table, the cancellation-safe
+     * runner, the delivery matcher, the debugger input channel with its frame
+     * placement, and the two new control-port messages — took it to 243,113.
+     * Firefox carries no Agent code and is unchanged.
+     *
+     * Screenshots and visual grounding — the capture pipeline with its masking
+     * and geometry, the OffscreenCanvas editor, the debugger capture, hit-test
+     * and rect messages, and the vision variant of the decision tool — took it
+     * to 248,454. Firefox carries no Agent code and is unchanged.
+     *
+     * Editors and drag interactions — the editing-host reader and its
+     * selection/insertion helpers, the shared text normalization, the
+     * synthetic and debugger-driven drag with its HTML5 interception, the
+     * arrangement verifier, and the file-chooser hold-back — took it to
+     * 251,314. Firefox carries no Agent code and is unchanged.
+     *
+     * Dialogs and action-specific approvals — the held-dialog record and its
+     * answering path in the session manager, the blocked-page observation,
+     * the dialog action family with its own resolver, executor and verifier,
+     * and the dialog rules in the classifier and the policy — took it to
+     * 253,519. Firefox carries no Agent code and is unchanged.
+     *
+     * Task outcomes and recovery — the completion judge and its shared
+     * observed-text matcher, the durable `mutating` receipt field, and the
+     * bounded wait poll — took it to 255,224. Firefox carries no Agent code
+     * and is unchanged.
+     *
+     * The unmatched-request report — the region miss and the region names
+     * that answer it, plus the prompt line that tells the model what they
+     * mean — took it to 256,035. Firefox carries no Agent code and is
+     * unchanged.
+     *
+     * Task recovery, paginated reads, pane scrolling and dialog handling took
+     * it to 259,597.
+     *
+     * Live-run reliability — the closed refusal vocabulary carried across the
+     * control port, the authorship record the egress rule reads, the settle
+     * window around an ambiguous verification, and the supervisor's path out
+     * of an unresolved effect — took it to 262,135. Every one of those is a
+     * sentence or a durable field that has to ship: a refusal the run cannot
+     * name is a failure nobody can diagnose. Firefox gains only the provider
+     * busy failure and stays well under its own ceiling.
+     *
+     * Step telemetry — the durable numbers schema, the per-phase accumulator
+     * in the controller, and the provider usage the decision collector now
+     * keeps instead of discarding — took it to 263,390. It is the smallest
+     * raise in this list and the one the rest of the release depends on:
+     * every remaining gate is stated as a comparison against a baseline, and
+     * a baseline cannot be read from a run that measured nothing. Firefox
+     * carries no Agent code and is unchanged.
+     *
+     * Task requirements — the planning call and its tool, the per-requirement
+     * completion judge, and the panel list a settled run shows — took it to
+     * 265,089. Most of it is the planning prompt and the outcome vocabulary,
+     * both of which are text that has to reach the model or the reader. It
+     * buys the release's largest correctness gate: before this, a run told to
+     * fill a form and submit it could submit an empty one and report success,
+     * because submitting is a mutation and the verifier confirmed it. Firefox
+     * carries no Agent code and is unchanged.
+     *
+     * Scoped reads — the document walk behind `find` and `inspect`, the scope
+     * carried down the control port, and the prompt lines that tell the model
+     * how to continue one and how to reach what it found — took it to 266,005.
+     * Five bytes over, and worth the raise rather than the trim: before this a
+     * control past the 2,000-element capture cap was unreachable by any query
+     * and any context window, because nothing went back to the page. Firefox
+     * carries no Agent code and is unchanged.
+     *
+     * Batched filling, multi-query lookups and the resolved context window —
+     * the fifth action family with its own resolve, execute and verify, the
+     * batch's wire schema, the one-walk lookup, and the window resolution
+     * that replaced two literals — took it to 269,969. The largest single
+     * part of it is text the model reads: the batch's own tool schema and the
+     * per-field refusals, without which a twelve-field batch can be refused
+     * but not corrected. Firefox carries no Agent code and is unchanged.
+     */
+    max: isFirefox ? 210_000 : 272_000
   }
 ]
 
@@ -211,7 +335,35 @@ console.log(
   )
 )
 
+/**
+ * Symbols a shipped bundle must not contain, whatever the build did.
+ *
+ * `__agentReport` dumps a run's durable record — every step's command and the
+ * page text its verifier quoted — and exists for a developer at a console. It
+ * is gated on a compile-time constant, and the gate silently did nothing the
+ * first time: it was read through a frozen object, which no bundler can fold,
+ * so the store bundle carried the dump and the repository imports behind it.
+ * A define is a claim about the output, so it is checked against the output.
+ */
+const FORBIDDEN_IN_STORE_BUILD = ["__agentReport"] as const
+
+const storeBuildLeaks = (): string[] => {
+  const sources = collectFiles(outputDir)
+    .filter((file) => file.endsWith(".js"))
+    .map((file) => fs.readFileSync(file, "utf8"))
+  return FORBIDDEN_IN_STORE_BUILD.filter((symbol) =>
+    sources.some((source) => source.includes(symbol))
+  )
+}
+
 if (shouldCheck) {
+  const leaked = storeBuildLeaks()
+  for (const symbol of leaked) {
+    console.error(
+      `${symbol} is present in a store build; it must be compile-time absent`
+    )
+  }
+  if (leaked.length > 0) process.exitCode = 1
   const failures = budgets.filter(
     (budget) => report[budget.metric][budget.field] > budget.max
   )
