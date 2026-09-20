@@ -958,6 +958,38 @@ describe("agent controller", () => {
     ).toHaveLength(1)
   })
 
+  it("lets a page-changing reveal bind to a read requirement", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Read the account details", kind: "read" },
+          { id: "r2", text: "Update the address", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          command: command(),
+          requirementId: "r1"
+        },
+        { type: "fail", reason: "The requested details are unavailable." }
+      ],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "rejected")
+    ).toHaveLength(0)
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "executed")
+    ).toHaveLength(1)
+    expect(
+      harness.writtenSteps.find((step) => step.status === "planned")
+    ).toMatchObject({ requirementId: "r1" })
+  })
+
   it("does not let pressing Save alone complete saving the document", async () => {
     /**
      * The three layers, kept apart. The click is delivered and the goal is

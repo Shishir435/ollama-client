@@ -1194,18 +1194,16 @@ export const createAgentController = (
     if (resolution.type === "refused") return resolution.state
     if (resolution.type === "stopped") return undefined
     const { effect } = resolution
-    const changeRequirements = state.requirements?.filter(
-      (requirement) => requirement.kind === "change"
-    )
-    if (agentEffectChangesPage(effect) && changeRequirements?.length) {
-      const bound = changeRequirements.some(
+    const requirements = state.requirements
+    if (agentEffectChangesPage(effect) && requirements?.length) {
+      const bound = requirements.some(
         (requirement) => requirement.id === decision.requirementId
       )
       if (!bound)
         return refuseCommand(
           state,
           decision.command,
-          "A page-changing command must name the planned change requirement it advances in requirementId."
+          "A page-changing command must name the planned requirement it advances in requirementId."
         )
     }
     /** The last point a run may stop without owing an account of an effect. */
