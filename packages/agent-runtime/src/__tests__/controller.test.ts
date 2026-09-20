@@ -921,6 +921,43 @@ describe("agent controller", () => {
     ).toHaveLength(0)
   })
 
+  it("binds a planned change before executing it", async () => {
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [{ id: "r1", text: "Address is checked", kind: "change" }]
+      }),
+      effectOverrides: { semanticEffects: ["form_mutation"] },
+      verification: [confirmedValue],
+      observations: [observation(), observation(), observation()],
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1) return { type: "command", command: command() }
+        if (decisions === 2)
+          return {
+            type: "command",
+            command: command(),
+            requirementId: "r1"
+          }
+        return {
+          type: "complete",
+          summary: "Address checked",
+          outcomes: [{ id: "r1", met: true }]
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).toBe("completed")
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "rejected")
+    ).toHaveLength(1)
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "executed")
+    ).toHaveLength(1)
+  })
+
   it("does not let pressing Save alone complete saving the document", async () => {
     /**
      * The three layers, kept apart. The click is delivered and the goal is

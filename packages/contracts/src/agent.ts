@@ -95,6 +95,12 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
     .object({
       type: z.literal("command"),
       command: AgentCommandSchema,
+      /** Planned outcome this command advances; binds later verification. */
+      requirementId: z
+        .string()
+        .min(1)
+        .max(MAX_AGENT_REQUIREMENT_ID_CHARS)
+        .optional(),
       finding: z.string().min(1).max(MAX_AGENT_FINDING_CHARS).optional()
     })
     .strict(),

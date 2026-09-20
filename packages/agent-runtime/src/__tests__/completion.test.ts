@@ -894,9 +894,47 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "missing_evidence" })
   })
 
-  it("requires the full receipt target name in the requirement", () => {
+  it("binds a brief plan label through the command's requirement id", () => {
     const billingAddress = step({
       sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "check",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      target: {
+        ref: "e1",
+        tag: "input",
+        role: "checkbox",
+        name: "Billing Address"
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "checked",
+          summary: "Checkbox is checked",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [billingAddress],
+        observation: observation({ visibleText: "Billing Address" }),
+        requirements: [
+          { id: "r1", text: "Address is checked", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  it("does not let a bound receipt satisfy another requirement", () => {
+    const billingAddress = step({
+      sequence: 1,
+      requirementId: "r2",
       command: {
         type: "check",
         ref: "e1",

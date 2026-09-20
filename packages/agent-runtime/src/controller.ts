@@ -1194,6 +1194,20 @@ export const createAgentController = (
     if (resolution.type === "refused") return resolution.state
     if (resolution.type === "stopped") return undefined
     const { effect } = resolution
+    const changeRequirements = state.requirements?.filter(
+      (requirement) => requirement.kind === "change"
+    )
+    if (agentEffectChangesPage(effect) && changeRequirements?.length) {
+      const bound = changeRequirements.some(
+        (requirement) => requirement.id === decision.requirementId
+      )
+      if (!bound)
+        return refuseCommand(
+          state,
+          decision.command,
+          "A page-changing command must name the planned change requirement it advances in requirementId."
+        )
+    }
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
@@ -1203,6 +1217,9 @@ export const createAgentController = (
       stepId,
       status: "planned",
       command: decision.command,
+      ...(decision.requirementId
+        ? { requirementId: decision.requirementId }
+        : {}),
       ...stepEvidence(effect),
       ...(decision.finding ? { finding: decision.finding } : {}),
       at: dependencies.clock.now()

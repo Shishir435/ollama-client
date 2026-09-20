@@ -243,7 +243,13 @@ const allChanges = (steps: readonly AgentStepReadout[]): AgentStepReadout[] => {
   for (const step of [...steps].sort(
     (first, second) => first.sequence - second.sequence
   )) {
-    latest.set(step.stepId, step)
+    const previous = latest.get(step.stepId)
+    latest.set(
+      step.stepId,
+      previous?.requirementId && !step.requirementId
+        ? { ...step, requirementId: previous.requirementId }
+        : step
+    )
   }
   return [...latest.values()]
     .sort((first, second) => first.sequence - second.sequence)
@@ -305,16 +311,18 @@ const isResultVerifiedChange = (step: AgentStepReadout): boolean =>
  * plan is fixed before the first observation, so it cannot be rewritten
  * mid-run to bless whatever happened to verify: a verified change to
  * checkbox B cannot satisfy a claim about checkbox A, because the plan's
- * words for A do not name B's control. The requirement must contain the full
- * target name as a complete phrase: a shorter `Address` requirement cannot
- * consume a `Billing Address` receipt. A receipt with no control name binds
- * to nothing: without a name there is no requirement it can be shown to
- * serve.
+ * words for A do not name B's control. New receipts carry the requirement id
+ * the command explicitly advanced, so a brief plan label can bind to a longer
+ * accessible name without guessing. Legacy receipts fall back to requiring
+ * the full target name as a complete phrase. A receipt with neither binding
+ * binds to nothing.
  */
 const requirementNamesReceiptTarget = (
   requirement: AgentTaskRequirement,
   receipt: AgentStepReadout
 ): boolean => {
+  if (receipt.requirementId !== undefined)
+    return receipt.requirementId === requirement.id
   const name = receipt.target?.name
   if (name === undefined) return false
   const want = agentNormalizedClaim(name)
