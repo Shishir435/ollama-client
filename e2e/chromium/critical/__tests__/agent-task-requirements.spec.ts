@@ -28,14 +28,16 @@ const FORM_PAGE = `<!doctype html>
 const fill = (
   observation: AgentFixtureObservation,
   name: string,
-  text: string
+  text: string,
+  requirementId: string
 ) => ({
   type: "type",
   ref: agentFixtureElement(
     observation,
     (element) => element.name?.includes(name) === true
   )?.ref,
-  text
+  text,
+  requirementId
 })
 
 runAgentScenario({
@@ -53,13 +55,13 @@ runAgentScenario({
    * outcomes met. Two of the three claims quote text the page does not carry.
    */
   decide: (observation: AgentFixtureObservation, { step }) => {
-    if (step === 1) return fill(observation, "Name", "Alice")
+    if (step === 1) return fill(observation, "Name", "Alice", "r1")
     if (step === 2) {
       const submit = agentFixtureElement(
         observation,
         (element) => element.name === "Submit"
       )
-      return { type: "click", ref: submit?.ref }
+      return { type: "click", ref: submit?.ref, requirementId: "r3" }
     }
     /**
      * The over-claim. Refused on evidence, because the page says nothing
@@ -120,13 +122,13 @@ runAgentScenario({
     { text: "the form is submitted", kind: "change" }
   ],
   decide: (observation: AgentFixtureObservation, { step }) => {
-    if (step === 1) return fill(observation, "Name", "Alice")
+    if (step === 1) return fill(observation, "Name", "Alice", "r1")
     if (step === 2) {
       const submit = agentFixtureElement(
         observation,
         (element) => element.name === "Submit"
       )
-      return { type: "click", ref: submit?.ref }
+      return { type: "click", ref: submit?.ref, requirementId: "r2" }
     }
     return {
       type: "complete",
