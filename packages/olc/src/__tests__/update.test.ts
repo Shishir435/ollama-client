@@ -6,6 +6,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync
 } from "node:fs"
 import os from "node:os"
@@ -287,7 +288,7 @@ describe("installing over a working olc", () => {
   /** The published checksum of CONTENT, so the happy path verifies for real. */
   const DIGEST = createHash("sha256").update(CONTENT).digest("hex")
 
-  function scenario(overrides: { digest?: string } = {}) {
+  function scenario(overrides: { digest?: string; payload?: string[] } = {}) {
     const parent = mkdtempSync(path.join(os.tmpdir(), "olc-install-"))
     directories.push(parent)
     const root = path.join(parent, "olc")
@@ -303,12 +304,14 @@ describe("installing over a working olc", () => {
         },
         fetchText: async () => `${overrides.digest ?? DIGEST}  olc.tar.gz\n`,
         extract: async (_archive: string, destination: string) => {
-          mkdirSync(path.join(destination, "olc", "dist"), { recursive: true })
-          mkdirSync(path.join(destination, "olc", "bin"), { recursive: true })
-          writeFileSync(
-            path.join(destination, "olc", "dist", "olc.mjs"),
-            CONTENT
-          )
+          for (const relative of overrides.payload ?? [
+            "dist/olc.mjs",
+            "bin/olc"
+          ]) {
+            const file = path.join(destination, "olc", relative)
+            mkdirSync(path.dirname(file), { recursive: true })
+            writeFileSync(file, CONTENT)
+          }
         }
       }
     }
@@ -320,6 +323,11 @@ describe("installing over a working olc", () => {
     expect(readFileSync(path.join(root, "dist", "olc.mjs"), "utf8")).toBe(
       CONTENT
     )
+    if (process.platform !== "win32") {
+      for (const relative of ["bin/olc", "dist/olc.mjs"]) {
+        expect(statSync(path.join(root, relative)).mode & 0o111).toBe(0o111)
+      }
+    }
     expect(
       readdirSync(parent).filter((name) => name.startsWith(".olc-"))
     ).toEqual([])
@@ -343,6 +351,32 @@ describe("installing over a working olc", () => {
     await expect(
       installRelease({ root }, release("0.15.0", ["notes.txt"]), deps)
     ).rejects.toThrow("has no olc.")
+  })
+
+  it("refuses a release whose payload lacks the launcher", async () => {
+    const { parent, root, deps } = scenario({ payload: ["dist/olc.mjs"] })
+    await expect(
+      installRelease({ root }, release("0.15.0"), deps)
+    ).rejects.toThrow("bin/olc")
+    expect(readFileSync(path.join(root, "dist", "olc.mjs"), "utf8")).toBe(
+      "old bundle"
+    )
+    expect(
+      readdirSync(parent).filter((name) => name.startsWith(".olc-"))
+    ).toEqual([])
+  })
+
+  it("refuses a release whose payload lacks the bundle", async () => {
+    const { parent, root, deps } = scenario({ payload: ["bin/olc"] })
+    await expect(
+      installRelease({ root }, release("0.15.0"), deps)
+    ).rejects.toThrow("dist/olc.mjs")
+    expect(readFileSync(path.join(root, "dist", "olc.mjs"), "utf8")).toBe(
+      "old bundle"
+    )
+    expect(
+      readdirSync(parent).filter((name) => name.startsWith(".olc-"))
+    ).toEqual([])
   })
 })
 

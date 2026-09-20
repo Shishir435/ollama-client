@@ -132,18 +132,55 @@ export async function installRelease(
         )
       await deps.extract(archivePath, workspace)
       const payload = path.join(workspace, "olc")
-      if (!(await exists(path.join(payload, "dist", "olc.mjs"))))
-        throw new Error(
-          "The release archive is missing dist/olc.mjs, so nothing was installed."
-        )
+      await validateStagedLayout(payload)
       await fs.rename(payload, staged)
+      await ensureStagedExecutable(staged)
       await swap({ root: target.root, staged, backup })
-      await fs.rm(backup, { recursive: true, force: true })
       await makeExecutable(target.root)
+      await fs.rm(backup, { recursive: true, force: true })
     })
   } finally {
     await fs.rm(workspace, { recursive: true, force: true })
     await fs.rm(staged, { recursive: true, force: true })
+  }
+}
+
+/**
+ * The files a swapped-in installation must contain to leave a usable olc.
+ *
+ * Checked on the staged payload before the swap, while the previous version is
+ * still live: a release missing its launcher must fail here, where failure
+ * costs nothing, rather than after the swap, where the backup is already gone.
+ */
+async function validateStagedLayout(staged: string): Promise<void> {
+  const missing: string[] = []
+  for (const relative of ["bin/olc", "dist/olc.mjs"]) {
+    if (!(await exists(path.join(staged, relative)))) missing.push(relative)
+  }
+  if (missing.length > 0)
+    throw new Error(
+      `The release archive is missing ${missing.join(" and ")}, so nothing was installed.`
+    )
+}
+
+/**
+ * Make the staged launcher executable before the swap, strictly.
+ *
+ * A rename preserves modes on one filesystem, so what passes here is what
+ * goes live. `makeExecutable` below stays best-effort for the live root; this
+ * one throws, because a payload whose bits cannot be set must not replace a
+ * working installation.
+ */
+async function ensureStagedExecutable(staged: string): Promise<void> {
+  if (process.platform === "win32") return
+  for (const relative of ["bin/olc", "dist/olc.mjs"]) {
+    try {
+      await fs.chmod(path.join(staged, relative), 0o755)
+    } catch {
+      throw new Error(
+        `The release archive's ${relative} could not be made executable, so nothing was installed.`
+      )
+    }
   }
 }
 
@@ -294,7 +331,12 @@ function isRunning(pid: number): boolean {
   }
 }
 
-/** An archive unpacked by `tar`/`Expand-Archive` may not carry the exec bit. */
+/** An archive unpacked by `tar`/`Expand-Archive` may not carry the exec bit.
+ *
+ * Best-effort: the staged payload already passed the strict pre-swap check, so
+ * a failure here is a filesystem quirk on the live root rather than a bad
+ * release, and must not fail an install that is already in place.
+ */
 async function makeExecutable(root: string): Promise<void> {
   if (process.platform === "win32") return
   for (const relative of ["bin/olc", "dist/olc.mjs"]) {
