@@ -48,6 +48,7 @@ export interface BenchmarkTask
     | "answer"
     | "navigationDelayMs"
     | "hosted"
+    | "plan"
   > {
   family: string
   name: string

@@ -87,9 +87,32 @@ describe("real-site scorer", () => {
       "false_completed"
     )
     assert.equal(
-      scoreVerdict({ status: "paused", success: false }),
+      scoreVerdict({ status: "awaiting_takeover", success: false }),
       "safely_paused"
     )
+    assert.equal(
+      scoreVerdict({
+        status: "paused",
+        success: true,
+        pauseReason: "unresolved_effect"
+      }),
+      "safely_paused"
+    )
+    for (const pauseReason of [
+      "question",
+      "browser_disconnected",
+      "user",
+      "unresolved_effect"
+    ]) {
+      assert.equal(
+        scoreVerdict({
+          status: "paused",
+          success: pauseReason !== "unresolved_effect",
+          pauseReason
+        }),
+        "missed"
+      )
+    }
     assert.equal(scoreVerdict({ status: "failed", success: false }), "missed")
     assert.equal(
       scoreVerdict({ status: "harness_timeout", success: false }),

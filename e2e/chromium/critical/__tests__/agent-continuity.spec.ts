@@ -75,6 +75,7 @@ runAgentScenario({
 runAgentScenario({
   name: "compare",
   goal: "Read the price on both pages and say which is cheaper.",
+  plan: [{ text: "report which page has the cheaper price", kind: "read" }],
   status: "completed",
   html: (path) => {
     if (path.startsWith("/second"))

@@ -183,7 +183,24 @@ describe("starting an Agent run against the real engine", () => {
           providerVersion: true,
           toolCalling: true
         },
-        async streamChat(_request, emit) {
+        async streamChat(request, emit) {
+          if (request.tools?.some((tool) => tool.name === "agent_plan")) {
+            emit({
+              toolCalls: [
+                {
+                  id: "plan-1",
+                  name: "agent_plan",
+                  arguments: {
+                    requirements: [
+                      { text: "the pricing page is found", kind: "read" }
+                    ]
+                  }
+                }
+              ],
+              done: true
+            })
+            return
+          }
           emit({
             toolCalls: [
               {
@@ -191,7 +208,8 @@ describe("starting an Agent run against the real engine", () => {
                 name: "agent_decision",
                 arguments: {
                   type: "complete",
-                  summary: "Pricing page found."
+                  summary: "Pricing page found.",
+                  outcomes: [{ id: "r1", met: true }]
                 }
               }
             ],

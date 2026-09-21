@@ -75,6 +75,7 @@ runAgentScenario({
 runAgentScenario({
   name: "text-only model",
   goal: "Report the status shown on the page.",
+  plan: [{ text: "report the status shown on the page", kind: "read" }],
   status: "completed",
   html: () => canvasPage,
   decide(observation: AgentFixtureObservation, context) {

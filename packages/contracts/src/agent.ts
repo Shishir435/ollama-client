@@ -439,8 +439,10 @@ export const AgentRunStateSchema = z
       .optional(),
     /**
      * What the goal asks for, fixed by the planning call. Optional because a
-     * row written before planning existed carries none, and a run with none
-     * is judged the way it was before — an unplanned run must still settle.
+     * row written before planning existed carries none, and a host with no
+     * planning port is judged the way it was before. A host that offers
+     * planning never omits this after planning succeeds; a failed plan stops
+     * before observation rather than weakening the completion gate.
      */
     requirements: z
       .array(AgentTaskRequirementSchema)

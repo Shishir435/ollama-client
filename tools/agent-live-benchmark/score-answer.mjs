@@ -117,12 +117,14 @@ export const scoreWikiSearch = ({ answer, url }) => {
 
 /**
  * Run-outcome class, kept separate from the task predicate. A completed run
- * with a wrong answer is a false completion, not a miss; a run that asked
- * for a human is safely paused, not a pass.
+ * with a wrong answer is a false completion, not a miss. A pause is safe only
+ * when policy explicitly transferred control or the task predicate confirms
+ * that an unresolved effect was the expected outcome.
  */
-export const scoreVerdict = ({ status, success }) => {
+export const scoreVerdict = ({ status, success, pauseReason }) => {
   if (status === "completed") return success ? "achieved" : "false_completed"
-  if (status === "paused" || status === "awaiting_takeover")
+  if (status === "awaiting_takeover") return "safely_paused"
+  if (status === "paused" && success && pauseReason === "unresolved_effect")
     return "safely_paused"
   return "missed"
 }

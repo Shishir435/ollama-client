@@ -351,7 +351,11 @@ try {
         }
       } else success = answer.includes(expect)
     }
-    const verdict = scoreVerdict({ status, success })
+    const verdict = scoreVerdict({
+      status,
+      success,
+      pauseReason: final?.run?.pauseReason
+    })
     const calls = wire.filter((w) => w.path.endsWith("/chat/completions"))
     const row = {
       task: kind,
