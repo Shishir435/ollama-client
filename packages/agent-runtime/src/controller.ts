@@ -1737,21 +1737,42 @@ export const createAgentController = (
    * the run the weaker pre-requirements completion gate: malformed plans and
    * provider failures settle the run before it is allowed to observe or act.
    */
+  const preparePlanningState = async (
+    state: AgentRunState
+  ): Promise<AgentRunState | null | undefined> => {
+    if (state.requirements) return null
+    if (state.status !== "submitted" && state.status !== "planning") return null
+    if (!dependencies.model.plan) {
+      if (state.status === "planning") {
+        await fail(
+          state,
+          "model_unavailable",
+          "The selected model could not resume Agent task planning."
+        )
+        return undefined
+      }
+      return null
+    }
+    return state.status === "planning"
+      ? state
+      : await transition(state, "planning", {
+          updatedAt: dependencies.clock.now()
+        })
+  }
+
   const planRequirements = async (
     state: AgentRunState,
     signal: AgentCancellationController["signal"]
   ): Promise<AgentRunState | undefined> => {
-    if (state.status !== "submitted") return state
-    if (state.requirements || !dependencies.model.plan) return state
-    const planning = await transition(state, "planning", {
-      updatedAt: dependencies.clock.now()
-    })
+    const planning = await preparePlanningState(state)
+    if (planning === null) return state
     if (!planning) return undefined
+    const plan = dependencies.model.plan
+    if (!plan) return undefined
     const startedAt = dependencies.clock.now()
     let requirements: AgentRunState["requirements"]
     try {
-      requirements = (await dependencies.model.plan(planning, signal))
-        .requirements
+      requirements = (await plan(planning, signal)).requirements
     } catch (error) {
       if (signal.aborted) return undefined
       dependencies.trace?.(state.id, "plan_unavailable", {

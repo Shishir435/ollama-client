@@ -1092,6 +1092,25 @@ describe("usable agent prompt", () => {
       expect(attempts).toBe(2)
     })
 
+    it("preserves provider errors emitted as planning stream chunks", async () => {
+      const providerFailure = {
+        status: 503,
+        message: "private provider detail",
+        messageKey: "provider.errors.serverUnavailable",
+        userMessage: "The provider is temporarily unavailable.",
+        retryable: true
+      }
+      const streamChat = vi.fn(async (_request, emit) => {
+        emit({ error: providerFailure, done: true })
+      })
+      const port = modelPort(streamChat)
+
+      await expect(port.plan?.(state, { aborted: false })).rejects.toBe(
+        providerFailure
+      )
+      expect(streamChat).toHaveBeenCalledTimes(2)
+    })
+
     /** A cancellation is not a fumble, so the second attempt is not owed. */
     it("does not retry a planning call the run cancelled mid-flight", async () => {
       const signal = { aborted: false }

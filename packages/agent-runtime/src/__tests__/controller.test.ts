@@ -431,6 +431,33 @@ describe("agent controller", () => {
     expect(harness.calls).not.toContain("decide")
   })
 
+  it("retries planning after a worker restart left the row in planning", async () => {
+    const plan = vi.fn(async () => ({
+      requirements: [{ id: "r1", text: "Read the page", kind: "read" as const }]
+    }))
+    const harness = createHarness({
+      state: runState({ status: "planning" }),
+      plan,
+      decisions: [
+        {
+          type: "complete",
+          summary: "Page text",
+          outcomes: [{ id: "r1", met: true, evidence: "Page text" }]
+        }
+      ],
+      observations: [observation()]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(plan).toHaveBeenCalledTimes(1)
+    expect(harness.getState()).toMatchObject({
+      status: "completed",
+      requirements: [{ id: "r1", kind: "read" }]
+    })
+    expect(harness.calls).toContain("transition:observing")
+  })
+
   it("never asks the frozen renderer for a screenshot while a native dialog is held", async () => {
     const capture = vi.fn(async () => undefined)
     const vision = vi.fn(async () => true)

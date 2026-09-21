@@ -39,6 +39,7 @@ import type {
   ToolDefinition,
   ToolParameterSchema
 } from "@/lib/tools/types"
+import type { ChatStreamMessage } from "@/types/chat"
 import type { ReasoningEffort } from "@/types/model"
 import {
   AGENT_CONTEXT_MAX_TOKENS,
@@ -1110,6 +1111,7 @@ export const createProviderAgentModelPort = (
       for (let attempt = 0; attempt <= 1; attempt += 1) {
         if (signal.aborted) throw new Error("Agent model request cancelled")
         const calls = new Map<string, ToolCall>()
+        let streamError: ChatStreamMessage["error"]
         const scoped = providerSignal(signal)
         try {
           await provider.streamChat(
@@ -1127,10 +1129,12 @@ export const createProviderAgentModelPort = (
               keep_alive: AGENT_KEEP_ALIVE
             },
             (chunk) => {
+              if (chunk.error) streamError = chunk.error
               for (const call of chunk.toolCalls ?? []) calls.set(call.id, call)
             },
             scoped.signal
           )
+          if (streamError) throw streamError
           return parseAgentTaskPlan([...calls.values()])
         } catch (error) {
           /**
