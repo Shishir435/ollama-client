@@ -337,7 +337,11 @@ try {
     const success = scored.success
     const predicate = scored.predicate
     const expectedPause = kind === "ambiguous"
-    const verdict = scoreVerdict({ status, success })
+    const verdict = scoreVerdict({
+      status,
+      success,
+      pauseReason: final?.run?.pauseReason
+    })
     const calls = wire.filter((w) => w.path.endsWith("/chat/completions"))
     const row = {
       task: kind,

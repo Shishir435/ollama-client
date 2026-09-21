@@ -104,6 +104,7 @@ runAgentScenario({
   name: "useful-paginated-reading",
   hosted: true,
   goal: "Read the document through to its end and report the final reference code.",
+  plan: [{ text: "report the final reference code", kind: "read" }],
   status: "completed",
   html: () =>
     `<!doctype html><title>Long document</title><main><p>${"ordinary text ".repeat(3000)}Final reference code: ZEBRA-742.</p></main>`,

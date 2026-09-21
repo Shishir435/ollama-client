@@ -60,7 +60,9 @@ Each row also carries `verdict` (`achieved`, `false_completed`,
 `safely_paused`, `missed`) and `predicate` (which check produced `success`).
 Completion and correctness never share one headline score: the ambiguous
 synthetic task is `success: true` with verdict `safely_paused`, and a
-completed run with a wrong answer is `false_completed`, not a miss.
+completed run with a wrong answer is `false_completed`, not a miss. Other
+pauses are `missed`; a generic user, question, or browser-disconnection pause
+is not evidence that the run stopped safely.
 
 Predicate notes: real-site `__inbody__` tasks require a multi-word verbatim
 span minus page-chrome boilerplate (`score-answer.mjs:INBODY_RULES`), so
