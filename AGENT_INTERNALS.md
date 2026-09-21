@@ -564,6 +564,16 @@ Read the section your change touches; you do not need the whole file.
   decided on, read by the same matcher `wait` uses (`observed-text.ts`) so a
   run cannot complete on evidence its own wait would reject. A run that only
   read owes none — what it read is its answer.
+  A planned page-changing command names the requirement id it advances, and
+  that id is durable on the step receipt. This is the binding for result-verified
+  state: planning happens before observation, so `Address` may legitimately
+  lead to a `Billing Address` control, while label containment alone cannot
+  distinguish that alias from the wrong control. The id may name any planned
+  requirement: opening an accordion or applying a filter can change page state
+  only to reveal information for a `read` requirement. A page-changing command
+  in a planned run is refused before execution when the id is absent or unknown.
+  Legacy receipts have no id and use the conservative full-label fallback;
+  never restore reverse label containment.
   Changes are counted from the resolved effect's own classes and recorded
   durably on the receipt as `mutating`, because a worker restart keeps the
   receipts and loses everything else; navigation is not a change, or every

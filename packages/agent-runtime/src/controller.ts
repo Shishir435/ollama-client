@@ -32,6 +32,7 @@ import {
 import type { AgentCompletionJudgement } from "./completion"
 import {
   agentEffectChangesPage,
+  isAgentChangeReceipt,
   isAppliedAgentStepStatus,
   judgeAgentCompletion
 } from "./completion"
@@ -1193,6 +1194,18 @@ export const createAgentController = (
     if (resolution.type === "refused") return resolution.state
     if (resolution.type === "stopped") return undefined
     const { effect } = resolution
+    const requirements = state.requirements
+    if (agentEffectChangesPage(effect) && requirements?.length) {
+      const bound = requirements.some(
+        (requirement) => requirement.id === decision.requirementId
+      )
+      if (!bound)
+        return refuseCommand(
+          state,
+          decision.command,
+          "A page-changing command must name the planned requirement it advances in requirementId."
+        )
+    }
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
@@ -1202,6 +1215,9 @@ export const createAgentController = (
       stepId,
       status: "planned",
       command: decision.command,
+      ...(decision.requirementId
+        ? { requirementId: decision.requirementId }
+        : {}),
       ...stepEvidence(effect),
       ...(decision.finding ? { finding: decision.finding } : {}),
       at: dependencies.clock.now()
@@ -1284,6 +1300,73 @@ export const createAgentController = (
       if (judgement.type !== "refused") break
     }
     return { judgement, observation }
+  }
+
+  /**
+   * Fixed template for a supervisor's review, carrying no page text: it must
+   * never become a quotation a later completion matches against itself.
+   */
+  const REVIEWED_DISPOSITION_SUMMARY =
+    "Supervisor reviewed the page after an interrupted step and continued. " +
+    "The effect is still unverified: completing still requires quoting the current page."
+
+  /**
+   * Records the review on the recovered rows themselves.
+   *
+   * Only change receipts an interruption left `uncertain` with no verification
+   * get one — a verifier's own ambiguous record is never overwritten, and
+   * receipts that already say how they ended are left alone. The disposition
+   * keeps `uncertain`, so history still shows the effect unresolved, and the
+   * completion gate reads it as reviewed rather than unchecked. Appended, like
+   * every lifecycle row: the uncertain receipt it supersedes stays in history.
+   *
+   * Reports whether the record landed. A disposition that could not be read
+   * back or written leaves the run paused: resuming without it returns the
+   * run to a completion that refuses it as unverified, which no read-only
+   * observation afterwards can clear.
+   */
+  const recordReviewedDisposition = async (runId: string): Promise<boolean> => {
+    let steps: readonly AgentStepReadout[]
+    try {
+      steps = await dependencies.persistence.steps(runId)
+    } catch {
+      dependencies.trace?.(runId, "completion_receipts_unreadable")
+      return false
+    }
+    const now = dependencies.clock.now()
+    const latest = new Map<string, AgentStepReadout>()
+    for (const step of [...steps].sort((a, b) => a.sequence - b.sequence)) {
+      latest.set(step.stepId, step)
+    }
+    for (const step of latest.values()) {
+      if (
+        step.status !== "uncertain" ||
+        step.verification !== undefined ||
+        !isAgentChangeReceipt(step)
+      ) {
+        continue
+      }
+      await appendStep({
+        runId,
+        stepId: step.stepId,
+        status: "uncertain",
+        ...(step.command ? { command: step.command } : {}),
+        ...(step.mutating !== undefined ? { mutating: step.mutating } : {}),
+        ...(step.target ? { target: step.target } : {}),
+        ...(step.sourceUrl ? { sourceUrl: step.sourceUrl } : {}),
+        ...(step.finding ? { finding: step.finding } : {}),
+        at: now,
+        verification: {
+          outcome: "ambiguous",
+          evidence: {
+            kind: "resolution",
+            summary: REVIEWED_DISPOSITION_SUMMARY,
+            observedAt: now
+          }
+        }
+      })
+    }
+    return true
   }
 
   /**
@@ -1944,6 +2027,14 @@ export const createAgentController = (
      * stopped run is started again from the goal, and the new run carries no
      * memory that the click already landed — so refusing to continue here is
      * what made the action likely to happen twice.
+     *
+     * The review is also recorded, because a recovered change nobody verified
+     * refuses every later completion on its own: the disposition below lifts
+     * that refusal without vouching for the effect. The row keeps the
+     * `uncertain` status the interruption wrote, carries a fixed template
+     * rather than any page text, and still owes a quotation for every outcome
+     * it served — a reviewed click is permission to continue, not proof the
+     * click worked.
      */
     async resolveEffect({ runId, pausedAt }) {
       const state = await dependencies.persistence.load(runId)
@@ -1961,6 +2052,7 @@ export const createAgentController = (
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
       minimumGeneration.set(runId, (lastGeneration.get(runId) ?? 0) + 1)
+      if (!(await recordReviewedDisposition(state.id))) return
       const recorded = await transition(state, "observing", {
         ...(state.deadline
           ? {

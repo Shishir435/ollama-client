@@ -52,6 +52,7 @@
       "pause": "暂停",
       "resume": "继续",
       "stop": "停止",
+      "takeover_start": "这一步由我来操作",
       "takeover_done": "我已完成 — 继续"
     },
     "error": {

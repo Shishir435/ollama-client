@@ -1,0 +1,39 @@
+reviews:
+  # Quiet means only the most important feedback. This repo already enforces
+  # style, types and layout through Biome, tsc and contract tests in CI, so
+  # review comments should be reserved for functional correctness, broken
+  # invariants and security — never style, formatting or summaries of the
+  # diff. Anything CI already gates is noise here.
+  profile: quiet
+  high_level_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  suggested_labels: false
+  suggested_reviewers: false
+  related_issues: false
+  related_prs: false
+  poem: false
+  in_progress_fortune: false
+  enable_prompt_for_ai_agents: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    base_branches:
+      - "preview"
+      - "main"
+      - "release/.*"
+  path_instructions:
+    - path: "packages/agent-runtime/**"
+      instructions: >-
+        Completion-gate changes must bind evidence to the claimed requirement:
+        flag any acceptance that one verified state extends to a requirement
+        about another control, state or value. Flag model-authored text
+        (findings, summaries the model wrote) used as page evidence.
+    - path: "tools/agent-live-benchmark/**"
+      instructions: >-
+        Benchmark scorers must assert page or effect state, never answer text
+        alone. Flag substring and case-sensitive checks, unanchored hosts, and
+        shared headline scores for completion and correctness.

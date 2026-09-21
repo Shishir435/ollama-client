@@ -80,6 +80,7 @@ runAgentScenario({
       const news = named("Send me news")
       return {
         type: "fill_form",
+        requirementId: "r1",
         fields: [
           ...FIELDS.map((field) => ({
             type: "clear_and_type" as const,
@@ -94,7 +95,9 @@ runAgentScenario({
       }
     }
     const save = named("Save profile")
-    return save ? { type: "click", ref: save.ref } : { type: "read" }
+    return save
+      ? { type: "click", ref: save.ref, requirementId: "r2" }
+      : { type: "read" }
   },
   verify: async ({ page, snapshot, wire }) => {
     /** Every value landed, from one decision. */
@@ -192,6 +195,7 @@ runAgentScenario({
     const withFamily = context.step === 1 && family
     return {
       type: "fill_form",
+      requirementId: "r1",
       fields: [
         { type: "clear_and_type", ref: given?.ref ?? "", text: "Ada" },
         ...(withFamily

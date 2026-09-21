@@ -56,6 +56,20 @@ completion was accepted. A row can be `status: "completed"` and `success:
 false`; that is a false completion and it is the most important thing either
 script can tell you.
 
+Each row also carries `verdict` (`achieved`, `false_completed`,
+`safely_paused`, `missed`) and `predicate` (which check produced `success`).
+Completion and correctness never share one headline score: the ambiguous
+synthetic task is `success: true` with verdict `safely_paused`, and a
+completed run with a wrong answer is `false_completed`, not a miss.
+
+Predicate notes: real-site `__inbody__` tasks require a multi-word verbatim
+span minus page-chrome boilerplate (`score-answer.mjs:INBODY_RULES`), so
+"Hacker News" cannot pass as a story title; `wiki_search` additionally
+requires landing on the Firefox article. Synthetic action tasks assert the
+effect counter and page state, navigation tasks assert the landed URL, and
+`open_tab` asserts the new tab — never just the answer text. Pinned by
+`node --test tools/agent-live-benchmark/__tests__/score-answer.test.mjs`.
+
 Both scripts approve every approval request automatically, so they measure the
 loop rather than the consent UI. A task that ends `awaiting_takeover` is
 reporting that the policy floor asked for a human, which is a result, not an

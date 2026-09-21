@@ -134,6 +134,7 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
           onResume={connection.resume}
           onCorrect={connection.correct}
           onStop={connection.stop}
+          onTakeoverStart={connection.beginTakeover}
           onTakeoverComplete={connection.completeTakeover}
           onResolveEffect={connection.resolveEffect}
           onExport={() => {

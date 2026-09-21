@@ -52,6 +52,7 @@
       "pause": "一時停止",
       "resume": "再開",
       "stop": "停止",
+      "takeover_start": "この手順は自分で操作する",
       "takeover_done": "操作完了 — 続行"
     },
     "error": {

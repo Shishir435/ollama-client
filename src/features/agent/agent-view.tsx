@@ -96,6 +96,7 @@ export interface AgentViewProps {
   onResume?: () => void
   onCorrect?: (text: string) => void
   onStop?: () => void
+  onTakeoverStart?: () => void
   onTakeoverComplete?: () => void
   onResolveEffect?: () => void
   onFeedback?: () => void
@@ -244,6 +245,7 @@ export const AgentView = ({
   onResume = noop,
   onCorrect,
   onStop = noop,
+  onTakeoverStart = noop,
   onTakeoverComplete = noop,
   onResolveEffect,
   onFeedback = noop,
@@ -454,9 +456,13 @@ export const AgentView = ({
                   run.pauseReason === "unresolved_effect" ||
                   run.pauseReason === "question"
                 }
+                takeoverStarted={
+                  run.status === "awaiting_takeover" && !takeover
+                }
                 onPause={onPause}
                 onResume={onResume}
                 onStop={onStop}
+                onTakeoverStart={onTakeoverStart}
                 onTakeoverComplete={onTakeoverComplete}
               />
             )

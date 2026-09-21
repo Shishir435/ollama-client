@@ -9,6 +9,12 @@ import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
+import {
+  INBODY_RULES,
+  scoreInbodyAnswer,
+  scoreVerdict,
+  scoreWikiSearch
+} from "./score-answer.mjs"
 
 const model =
   process.env.AUDIT_MODEL ?? "opencode/muse-spark-1.3-contributor-free"
@@ -322,39 +328,30 @@ try {
       .catch(() => ({}))
     const answer = final?.run?.result ?? ""
     const completed = final?.run?.status === "completed"
-    const norm = (s) =>
-      s
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
+    const status = final?.run?.status ?? "harness_timeout"
     let success = false
+    let predicate = `answer:${expect}`
     if (completed) {
       if (expect === "__inbody__") {
-        const a = norm(answer)
-        /**
-         * The deliverable is a fact the page states, so the answer has to
-         * quote the page — not be quoted by it. Scored as the longest run of
-         * consecutive answer words that appears verbatim in the page: a
-         * headline like "JetKVM Mini" is two words and eleven characters, so
-         * any fixed three-word or twelve-character rule scores a perfectly
-         * correct reading as a miss.
-         */
-        const haystack = norm(body)
-        const words = a.split(" ").filter(Boolean)
-        let longest = 0
-        for (let i = 0; i < words.length; i += 1) {
-          for (let j = words.length; j > i + longest; j -= 1) {
-            const span = words.slice(i, j).join(" ")
-            if (span.length >= 8 && haystack.includes(span)) {
-              longest = Math.max(longest, j - i)
-              break
-            }
+        if (kind === "wiki_search") {
+          // Deterministic task: the run must land on the Firefox article.
+          // A title match alone proves nothing — the model already knows it.
+          const scored = scoreWikiSearch({ answer, url: fixture.url() })
+          success = scored.success
+          predicate = `landed+answer:Firefox (${scored.reason})`
+        } else {
+          const rule = INBODY_RULES[kind] ?? {
+            minWords: 3,
+            minChars: 15,
+            deny: []
           }
+          const scored = scoreInbodyAnswer(answer, body, rule)
+          success = scored.success
+          predicate = `inbody:${rule.minWords}w/${rule.minChars}c (${scored.reason})`
         }
-        success = longest >= 2
       } else success = answer.includes(expect)
     }
+    const verdict = scoreVerdict({ status, success })
     const calls = wire.filter((w) => w.path.endsWith("/chat/completions"))
     const row = {
       task: kind,
@@ -364,6 +361,8 @@ try {
         (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"),
       model,
       success,
+      verdict,
+      predicate,
       status: final?.run?.status ?? "harness_timeout",
       reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
       steps: final?.run?.stepCount,

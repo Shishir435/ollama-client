@@ -48,7 +48,7 @@ runAgentScenario({
       return { type: "extract", queries: ["subscribe", "unsubscribe"] }
     }
     const ref = observation.lookup[0]?.refs[0]
-    return ref ? { type: "click", ref } : { type: "read" }
+    return ref ? { type: "click", ref, requirementId: "r1" } : { type: "read" }
   },
   verify: async ({ page, snapshot, wire }) => {
     const answered = observations(wire).find((entry) => entry.lookup)

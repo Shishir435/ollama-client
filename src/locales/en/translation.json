@@ -52,6 +52,7 @@
       "pause": "Pause",
       "resume": "Resume",
       "stop": "Stop",
+      "takeover_start": "I’ll do this step",
       "takeover_done": "I’m done — continue"
     },
     "error": {

@@ -276,6 +276,45 @@ describe("AgentView", () => {
     expect(complete).toHaveBeenCalledOnce()
   })
 
+  it("offers Started while the takeover is unacknowledged, Done-only after", () => {
+    const start = vi.fn()
+    const pending = {
+      id: "takeover-1",
+      runId: "agent-1",
+      stepId: "step-1",
+      reason: "authentication" as const,
+      instruction: "Sign in, then continue.",
+      createdAt: 2
+    }
+    const { rerender } = render(
+      <AgentView
+        run={run("awaiting_takeover")}
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
+        tab={{ title: "Sign in", url: "https://example.com/login" }}
+        takeover={pending}
+        onTakeoverStart={start}
+      />
+    )
+
+    // The supervision wait is still parked: the run loop has not exited.
+    fireEvent.click(screen.getByText("agent.controls.takeover_start"))
+    expect(start).toHaveBeenCalledOnce()
+
+    // Acknowledged: the wait settled, the loop exited, only Done resumes.
+    rerender(
+      <AgentView
+        run={run("awaiting_takeover")}
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
+        tab={{ title: "Sign in", url: "https://example.com/login" }}
+        onTakeoverStart={start}
+      />
+    )
+    expect(
+      screen.queryByText("agent.controls.takeover_start")
+    ).not.toBeInTheDocument()
+    expect(screen.getByText("agent.controls.takeover_done")).toBeInTheDocument()
+  })
+
   it("answers an open question instead of offering to resume past it", () => {
     const answer = vi.fn()
     render(
