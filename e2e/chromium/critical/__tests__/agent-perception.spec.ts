@@ -89,6 +89,7 @@ runAgentScenario({
 runAgentScenario({
   name: "unmatched-region",
   goal: "Find the weather control.",
+  plan: [{ text: "find the weather control", kind: "read" }],
   status: "paused",
   html: () =>
     `<!doctype html><title>Agent unmatched region</title><nav aria-label="Primary"><a href="/help">Help</a></nav><main><form aria-label="Search"><input name="q" aria-label="Query"><button type="submit">Go</button></form></main>`,

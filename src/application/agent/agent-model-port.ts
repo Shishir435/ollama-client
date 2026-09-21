@@ -39,6 +39,7 @@ import type {
   ToolDefinition,
   ToolParameterSchema
 } from "@/lib/tools/types"
+import type { ChatStreamMessage } from "@/types/chat"
 import type { ReasoningEffort } from "@/types/model"
 import {
   AGENT_CONTEXT_MAX_TOKENS,
@@ -1090,10 +1091,10 @@ export const createProviderAgentModelPort = (
     /**
      * One call, before the run has looked at anything, retried once.
      *
-     * Retried because the alternative is worse than it looks: a plan that
-     * fails leaves the run unplanned, and an unplanned run is judged by the
-     * weaker pre-requirements rule. A small model that fumbles the shape once
-     * should not quietly buy itself the easier gate.
+     * Retried because a transient stream failure or one malformed response
+     * should not end an otherwise viable run. If both attempts fail, the
+     * controller stops the run before observation; planning failure must
+     * never buy the weaker pre-requirements completion gate.
      */
     async plan(state, signal) {
       const compatibility = await compatibilityFor(state, signal)
@@ -1110,6 +1111,7 @@ export const createProviderAgentModelPort = (
       for (let attempt = 0; attempt <= 1; attempt += 1) {
         if (signal.aborted) throw new Error("Agent model request cancelled")
         const calls = new Map<string, ToolCall>()
+        let streamError: ChatStreamMessage["error"]
         const scoped = providerSignal(signal)
         try {
           await provider.streamChat(
@@ -1127,18 +1129,20 @@ export const createProviderAgentModelPort = (
               keep_alive: AGENT_KEEP_ALIVE
             },
             (chunk) => {
+              if (chunk.error) streamError = chunk.error
               for (const call of chunk.toolCalls ?? []) calls.set(call.id, call)
             },
             scoped.signal
           )
+          if (streamError) throw streamError
           return parseAgentTaskPlan([...calls.values()])
         } catch (error) {
           /**
            * The stream's failure is retried on the same terms as a malformed
            * answer. Only the parse was caught before, so a provider that
-           * dropped one connection skipped the second attempt and left the
-           * run unplanned — which is to say it bought the weaker completion
-           * gate with a transient error.
+           * dropped one connection skipped the second attempt and reached
+           * the controller as a planning failure without the retry it was
+           * promised.
            */
           if (signal.aborted) throw error
           lastError = error

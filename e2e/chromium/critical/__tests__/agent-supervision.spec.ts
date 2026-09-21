@@ -91,11 +91,23 @@ runAgentScenario({
   status: "completed",
   answer: "Use the second account.",
   html: () =>
-    "<!doctype html><title>Agent ambiguous</title><main><h1>Accounts</h1><p>Two accounts exist.</p></main>",
-  decide(_observation: AgentFixtureObservation, { step }) {
+    '<!doctype html><title>Agent ambiguous</title><main><h1>Accounts</h1><button type="button">First account</button><button type="button" onclick="this.parentElement.insertAdjacentHTML(\'beforeend\', \'<p>Selected account: second</p>\');this.disabled=true">Second account</button></main>',
+  decide(observation: AgentFixtureObservation, { step }) {
     if (step === 1)
       return { type: "ask_user", question: "Which of the two accounts?" }
-    return { type: "complete", summary: "Used the second account." }
+    if (observation.text.includes("Selected account: second"))
+      return {
+        type: "complete",
+        summary: "Used the second account.",
+        evidence: "Selected account: second"
+      }
+    return {
+      type: "click",
+      ref: agentFixtureElement(
+        observation,
+        (element) => element.name === "Second account"
+      )?.ref
+    }
   },
   async verify({ snapshot, messages, wire }) {
     expect(snapshot?.run?.result).toContain("second account")

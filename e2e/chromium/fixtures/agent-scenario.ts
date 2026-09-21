@@ -133,12 +133,10 @@ export interface AgentScenario {
   /**
    * What the scripted model answers the planning call with, if anything.
    *
-   * Absent means it answers with no outcomes, which leaves the run unplanned
-   * and judged the way runs were judged before requirements existed. That is
-   * the default on purpose: every scenario written before planning scripts
-   * its decisions by step index, and a plan the scenario did not ask for
-   * would have to be evidenced by `complete` decisions it does not carry.
-   * A task testing the completion gate declares one.
+   * Scenarios testing the completion gate declare their exact requirements.
+   * Older scenarios default to one change requirement and the fixture supplies
+   * its matching completion outcome; their `verify` callback independently
+   * proves the page result, while every run still exercises a valid plan.
    */
   plan?: readonly { text: string; kind: "change" | "read" }[]
   /**
@@ -205,6 +203,44 @@ const readObservation = (request: {
 }): AgentFixtureObservation =>
   JSON.parse(request.messages.at(-1)?.content ?? "{}")
     .observation as AgentFixtureObservation
+
+/** Supply the bookkeeping older one-requirement fixture scripts predate. */
+const normalizeScriptedDecision = (
+  scenario: AgentScenario,
+  scripted: unknown
+): unknown => {
+  if (
+    typeof scripted !== "object" ||
+    scripted === null ||
+    !("type" in scripted)
+  )
+    return scripted
+  if (
+    scripted.type === "complete" &&
+    (scenario.plan?.length ?? 1) === 1 &&
+    !("outcomes" in scripted)
+  ) {
+    return {
+      ...scripted,
+      outcomes: [
+        {
+          id: "r1",
+          met: true,
+          ...("evidence" in scripted && typeof scripted.evidence === "string"
+            ? { evidence: scripted.evidence }
+            : {})
+        }
+      ]
+    }
+  }
+  if (
+    scenario.plan === undefined &&
+    scripted.type !== "complete" &&
+    !("requirementId" in scripted)
+  )
+    return { ...scripted, requirementId: "r1" }
+  return scripted
+}
 
 /**
  * Tokens the provider charged for the whole run.
@@ -350,7 +386,11 @@ const runAgentScenarioAttempt = (
             {
               function: {
                 name: "agent_plan",
-                arguments: { requirements: scenario.plan ?? [] }
+                arguments: {
+                  requirements: scenario.plan ?? [
+                    { text: scenario.goal, kind: "change" }
+                  ]
+                }
               }
             }
           ]
@@ -372,7 +412,7 @@ const runAgentScenarioAttempt = (
         userAnswers?: { text: string; question?: string }[]
         screenshot?: { width: number; height: number }
       }
-      const decision = await scenario.decide(readObservation(parsed), {
+      const scriptedDecision = await scenario.decide(readObservation(parsed), {
         step,
         page: fixturePage as Page,
         images: lastMessage?.images?.length ?? 0,
@@ -380,6 +420,7 @@ const runAgentScenarioAttempt = (
         ...(envelope.userAnswers ? { userAnswers: envelope.userAnswers } : {}),
         ...(envelope.screenshot ? { screenshot: envelope.screenshot } : {})
       })
+      const decision = normalizeScriptedDecision(scenario, scriptedDecision)
       wire.push({ request: parsed, decision })
       return `${JSON.stringify({
         model,

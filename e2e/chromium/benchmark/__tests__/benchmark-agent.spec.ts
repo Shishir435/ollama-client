@@ -81,6 +81,7 @@ task({
   family: "read-and-extract",
   name: "visible-status",
   goal: "Report the status shown on the page.",
+  plan: [{ text: "report the status shown on the page", kind: "read" }],
   status: "completed",
   html: () => page("<h1>Account</h1><p>Status: Active</p>"),
   decide: () => ({ type: "complete", summary: "Status: Active" }),
@@ -91,6 +92,7 @@ task({
   family: "read-and-extract",
   name: "below-the-fold",
   goal: "Report the account number, which is further down the page.",
+  plan: [{ text: "report the account number", kind: "read" }],
   status: "completed",
   html: () =>
     page(`<h1>Account</h1>${"<p>filler</p>".repeat(120)}<p>Account 4471</p>`),
@@ -106,6 +108,7 @@ task({
   family: "read-and-extract",
   name: "region-inspection",
   goal: "Report the status inside the details region.",
+  plan: [{ text: "report the status inside the details region", kind: "read" }],
   status: "completed",
   html: () =>
     page(
@@ -740,6 +743,7 @@ benchmarkTask(attempts, {
   family: "report",
   name: "write",
   goal: "Report the status shown on the page.",
+  plan: [{ text: "report the status shown on the page", kind: "read" }],
   status: "completed",
   html: () => page("<p>Status: Active</p>"),
   decide: () => ({ type: "complete", summary: "Status: Active" }),

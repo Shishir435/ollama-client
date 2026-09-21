@@ -947,6 +947,10 @@ run that produced it can always be repeated.
   because a timeout elapsed. Repeated or alternating decisions pause for a
   correction; user/question pauses suspend active-time accounting. A supplied
   completion quote is checked even for a run that only read or scrolled.
+- Planning is optional only at the host boundary. A host with no planning port
+  retains the legacy completion path, but once the port exists an exhausted or
+  empty plan fails the run before its first observation. Planning failure must
+  never buy the weaker pre-requirements judge.
 - `agent-useful-workflows.spec.ts` exercises composer lookup, long editing, pane scrolling,
   paginated extraction, clarification, delayed save and native confirmation.
   Its hosted flag also runs these tasks against a real provider. Scripted

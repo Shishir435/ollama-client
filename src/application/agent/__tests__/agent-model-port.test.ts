@@ -1058,9 +1058,9 @@ describe("usable agent prompt", () => {
     })
 
     /**
-     * A plan that fails leaves the run unplanned, which is to say judged by
-     * the weaker pre-requirements rule. Only the parse was retried, so a
-     * provider that dropped one connection bought the easier gate.
+     * A plan that fails now stops the run before observation. Only the parse
+     * was retried, so a provider that dropped one connection skipped the
+     * retry promised by the planning boundary.
      */
     it("retries a planning call whose stream failed", async () => {
       let attempts = 0
@@ -1090,6 +1090,25 @@ describe("usable agent prompt", () => {
         ]
       })
       expect(attempts).toBe(2)
+    })
+
+    it("preserves provider errors emitted as planning stream chunks", async () => {
+      const providerFailure = {
+        status: 503,
+        message: "private provider detail",
+        messageKey: "provider.errors.serverUnavailable",
+        userMessage: "The provider is temporarily unavailable.",
+        retryable: true
+      }
+      const streamChat = vi.fn(async (_request, emit) => {
+        emit({ error: providerFailure, done: true })
+      })
+      const port = modelPort(streamChat)
+
+      await expect(port.plan?.(state, { aborted: false })).rejects.toBe(
+        providerFailure
+      )
+      expect(streamChat).toHaveBeenCalledTimes(2)
     })
 
     /** A cancellation is not a fumble, so the second attempt is not owed. */

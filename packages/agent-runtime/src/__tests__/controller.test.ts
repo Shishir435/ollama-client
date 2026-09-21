@@ -25,7 +25,10 @@ import type {
   AgentVerificationResult,
   ResolvedAgentEffect
 } from "../ports"
-import { AgentEffectNotAppliedError } from "../ports"
+import {
+  AgentEffectNotAppliedError,
+  AgentMalformedDecisionError
+} from "../ports"
 import {
   AgentStaleObservationError,
   AgentUnreadablePageError
@@ -182,6 +185,7 @@ interface HarnessOptions {
   failClaim?: AgentRunStatus
   observe?: AgentControllerDependencies["observation"]["observe"]
   decide?: AgentControllerDependencies["model"]["decide"]
+  plan?: AgentControllerDependencies["model"]["plan"]
   vision?: AgentControllerDependencies["model"]["vision"]
   screenshot?: AgentControllerDependencies["screenshot"]
   createCancellationController?: () => AgentCancellationController
@@ -265,6 +269,7 @@ const createHarness = (options: HarnessOptions = {}) => {
     screenshot: options.screenshot,
     model: {
       vision: options.vision,
+      plan: options.plan,
       decide:
         options.decide ??
         (async () => {
@@ -364,6 +369,95 @@ const newOriginEffect: Partial<ResolvedAgentEffect> = {
 }
 
 describe("agent controller", () => {
+  it("stops before observing when a planner returns no requirements", async () => {
+    const harness = createHarness({
+      plan: async () => ({ requirements: [] })
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "invalid_decision" }
+    })
+    expect(harness.calls).not.toContain("observe:0")
+    expect(harness.calls).not.toContain("decide")
+  })
+
+  it("does not fall back to the unplanned judge after a malformed plan", async () => {
+    const harness = createHarness({
+      plan: async () => {
+        throw new AgentMalformedDecisionError("bad plan")
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "invalid_decision" }
+    })
+    expect(harness.calls).not.toContain("observe:0")
+    expect(harness.calls).not.toContain("decide")
+  })
+
+  it("preserves provider failures raised while planning", async () => {
+    const providerFailure = Object.assign(
+      new Error("private provider detail"),
+      {
+        messageKey: "provider.errors.serverUnavailable",
+        userMessage: "The provider is temporarily unavailable.",
+        retryable: true
+      }
+    )
+    const harness = createHarness({
+      plan: async () => {
+        throw providerFailure
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: {
+        code: "model_unavailable",
+        messageKey: "provider.errors.serverUnavailable",
+        message: "The provider is temporarily unavailable.",
+        retryable: true
+      }
+    })
+    expect(harness.calls).not.toContain("observe:0")
+    expect(harness.calls).not.toContain("decide")
+  })
+
+  it("retries planning after a worker restart left the row in planning", async () => {
+    const plan = vi.fn(async () => ({
+      requirements: [{ id: "r1", text: "Read the page", kind: "read" as const }]
+    }))
+    const harness = createHarness({
+      state: runState({ status: "planning" }),
+      plan,
+      decisions: [
+        {
+          type: "complete",
+          summary: "Page text",
+          outcomes: [{ id: "r1", met: true, evidence: "Page text" }]
+        }
+      ],
+      observations: [observation()]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(plan).toHaveBeenCalledTimes(1)
+    expect(harness.getState()).toMatchObject({
+      status: "completed",
+      requirements: [{ id: "r1", kind: "read" }]
+    })
+    expect(harness.calls).toContain("transition:observing")
+  })
+
   it("never asks the frozen renderer for a screenshot while a native dialog is held", async () => {
     const capture = vi.fn(async () => undefined)
     const vision = vi.fn(async () => true)
