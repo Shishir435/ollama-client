@@ -1732,11 +1732,10 @@ export const createAgentController = (
    * model deciding at the end what the task required will decide it required
    * whatever it managed to do.
    *
-   * A host with no `plan` port, or a plan call that fails, leaves the run
-   * unplanned rather than killing it — a small model that cannot produce a
-   * well-formed plan should still be able to attempt the task. That run is
-   * judged the weaker, pre-requirements way, and the trace says so, because
-   * the difference matters when reading why a run was allowed to finish.
+   * A host with no `plan` port keeps the legacy unplanned path for backwards
+   * compatibility. Once a host offers planning, however, failure cannot buy
+   * the run the weaker pre-requirements completion gate: malformed plans and
+   * provider failures settle the run before it is allowed to observe or act.
    */
   const planRequirements = async (
     state: AgentRunState,
@@ -1758,9 +1757,34 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "plan_unavailable", {
         name: error instanceof Error ? error.name : typeof error
       })
+      measure({ planMs: dependencies.clock.now() - startedAt })
+      if (error instanceof AgentMalformedDecisionError) {
+        await fail(
+          planning,
+          "invalid_decision",
+          "The selected model could not produce a valid Agent task plan."
+        )
+      } else {
+        await failWith(
+          planning,
+          agentProviderFailure(
+            "model_unavailable",
+            error,
+            "The selected model could not produce an Agent task plan."
+          )
+        )
+      }
+      return undefined
     }
     measure({ planMs: dependencies.clock.now() - startedAt })
-    if (!requirements?.length) return planning
+    if (!requirements?.length) {
+      await fail(
+        planning,
+        "invalid_decision",
+        "The selected model produced an empty Agent task plan."
+      )
+      return undefined
+    }
     dependencies.trace?.(state.id, "planned", {
       requirements: requirements.length
     })

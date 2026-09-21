@@ -1058,9 +1058,9 @@ describe("usable agent prompt", () => {
     })
 
     /**
-     * A plan that fails leaves the run unplanned, which is to say judged by
-     * the weaker pre-requirements rule. Only the parse was retried, so a
-     * provider that dropped one connection bought the easier gate.
+     * A plan that fails now stops the run before observation. Only the parse
+     * was retried, so a provider that dropped one connection skipped the
+     * retry promised by the planning boundary.
      */
     it("retries a planning call whose stream failed", async () => {
       let attempts = 0

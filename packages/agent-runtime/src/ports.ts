@@ -642,7 +642,9 @@ export interface AgentModelPort {
    *
    * Optional because a host that cannot plan must still be able to run. That
    * run is judged the way runs were judged before requirements existed, which
-   * is weaker — so a host that can plan should.
+   * is weaker. Once a host supplies this port, planning is part of the safety
+   * boundary: a failed or empty plan stops the run rather than silently
+   * falling back to that weaker judge.
    */
   plan?(
     state: AgentRunState,

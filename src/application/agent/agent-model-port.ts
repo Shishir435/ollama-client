@@ -1090,10 +1090,10 @@ export const createProviderAgentModelPort = (
     /**
      * One call, before the run has looked at anything, retried once.
      *
-     * Retried because the alternative is worse than it looks: a plan that
-     * fails leaves the run unplanned, and an unplanned run is judged by the
-     * weaker pre-requirements rule. A small model that fumbles the shape once
-     * should not quietly buy itself the easier gate.
+     * Retried because a transient stream failure or one malformed response
+     * should not end an otherwise viable run. If both attempts fail, the
+     * controller stops the run before observation; planning failure must
+     * never buy the weaker pre-requirements completion gate.
      */
     async plan(state, signal) {
       const compatibility = await compatibilityFor(state, signal)
@@ -1136,9 +1136,9 @@ export const createProviderAgentModelPort = (
           /**
            * The stream's failure is retried on the same terms as a malformed
            * answer. Only the parse was caught before, so a provider that
-           * dropped one connection skipped the second attempt and left the
-           * run unplanned — which is to say it bought the weaker completion
-           * gate with a transient error.
+           * dropped one connection skipped the second attempt and reached
+           * the controller as a planning failure without the retry it was
+           * promised.
            */
           if (signal.aborted) throw error
           lastError = error
