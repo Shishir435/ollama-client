@@ -938,6 +938,31 @@ export const deleteSettledAgentRunsForSession = async (
 }
 
 /**
+ * Runs whose chat is gone.
+ *
+ * The delete that removed the chat tells the background directly, and that is
+ * the path that stops a run while it is still driving something. This is the
+ * answer for the message that was never delivered — a worker asleep, a page
+ * closed mid-delete — and it is read at startup, where the runs are no longer
+ * driving anything and settling them is safe.
+ */
+export const listAgentRunsForMissingSessions = async (): Promise<
+  DurableAgentRun[]
+> => {
+  const rows = await query(
+    `SELECT ${selectRunColumns} FROM agent_runs
+      WHERE sessionId IS NOT NULL
+        AND sessionId NOT IN (SELECT id FROM sessions)
+      ORDER BY createdAt ASC`
+  )
+  return rows.flatMap((value) => {
+    const row = decodeRow(AgentRunRowSchema, value, TABLE)
+    const parsed = row ? parseRun(row) : null
+    return parsed ? [parsed] : []
+  })
+}
+
+/**
  * Repair rows a worker died between.
  *
  * Two idempotent statements, run once at startup, for the two states the

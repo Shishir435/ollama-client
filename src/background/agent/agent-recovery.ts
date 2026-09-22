@@ -1,6 +1,8 @@
 import type { AgentStatePatch } from "@ollama-client/agent-runtime"
+import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type { AgentRunState } from "@ollama-client/contracts"
 import {
+  listAgentRunsForMissingSessions,
   listIncompleteAgentRuns,
   markInterruptedAgentEffectUncertain,
   pruneTerminalAgentRuns,
@@ -82,10 +84,34 @@ export const recoverAgentRuns = async (signal?: AbortSignal): Promise<void> => {
   signal?.throwIfAborted()
 }
 
+/**
+ * Settle the runs of a chat that is gone.
+ *
+ * The delete itself tells the background, and that path is what stops a run
+ * while it is still acting. This is the answer for the event that never
+ * arrived — a worker asleep, a panel closed mid-delete — and it runs here
+ * because a startup run is not driving anything, so ending it costs nothing
+ * that could still be observed. `reconcileAgentRunLinkage` then removes the
+ * rows, which only ever happens once they are terminal.
+ */
+const cancelRunsWithoutChats = async (signal?: AbortSignal): Promise<void> => {
+  for (const run of await listAgentRunsForMissingSessions()) {
+    signal?.throwIfAborted()
+    const state = run.state
+    if (!state || isTerminalAgentStatus(state.status)) continue
+    const now = Date.now()
+    const cancelling = await transition(state, "cancelling", { updatedAt: now })
+    if (cancelling)
+      await transition(cancelling, "cancelled", { updatedAt: now })
+  }
+}
+
 export const recoverAndPruneAgentRuns = async (
   signal?: AbortSignal
 ): Promise<void> => {
   await recoverAgentRuns(signal)
+  signal?.throwIfAborted()
+  await cancelRunsWithoutChats(signal)
   signal?.throwIfAborted()
   /*
    * After recovery, not before: recovery is what settles the runs whose

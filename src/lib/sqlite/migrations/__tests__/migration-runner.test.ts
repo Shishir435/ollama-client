@@ -362,6 +362,45 @@ describe("migration-runner", () => {
    * `user_version` already says 18 — so nothing would ever add the linkage
    * columns and every query naming them would answer `no such column`.
    */
+  /**
+   * A profile missing only one linkage column reported itself current and then
+   * answered `no such column` to every query the repository ships.
+   */
+  it("repairs an Agent table missing any one linkage column", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION, {
+      agentRunColumns: [
+        "id",
+        "status",
+        "checkpoint",
+        "createdAt",
+        "updatedAt",
+        "sessionId",
+        "requestMessageId",
+        "parentRunId"
+      ]
+    })
+
+    repairSchemaDrift(db as never)
+
+    expect(ensureAgentRunChatLinkage).toHaveBeenCalledWith(db)
+  })
+
+  it("repairs messages missing only the handoff column", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION, {
+      messages: [
+        "thinking",
+        "replayArtifact",
+        "updatedAt",
+        "error",
+        "agentRunId"
+      ]
+    })
+
+    repairSchemaDrift(db as never)
+
+    expect(ensureAgentRunChatLinkage).toHaveBeenCalledWith(db)
+  })
+
   it("carries a rebuilt Agent table up to the current shape", () => {
     const db = makeDb(LATEST_SCHEMA_VERSION, {
       agentRunColumns: ["id", "state"]

@@ -130,6 +130,7 @@ describe("an Agent run and the conversation it belongs to", () => {
         "user",
         "assistant"
       ])
+      expect(messages[1]?.parentId).toBe(messages[0]?.id)
       expect(messages[0]?.content).toBe("Compare the two plans")
       expect(messages[1]?.done).toBe(false)
       expect(messages[1]?.agentRunId).toBe("agent-link-1")
@@ -142,6 +143,55 @@ describe("an Agent run and the conversation it belongs to", () => {
       /* The card is where the conversation continues from. */
       const session = await facade.getSession("s-agent")
       expect(session?.currentLeafId).toBe(messages[1]?.id)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "hangs the request off the conversation it was asked in",
+    async () => {
+      /*
+       * Inserted with no parent the request was a second root: the card became
+       * the active leaf, the conversation so far was no longer an ancestor of
+       * it, and loading the chat showed the run with everything before it gone.
+       */
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      const earlier = await facade.appendMessage({
+        sessionId: "s-agent",
+        role: "user",
+        content: "What are these plans?",
+        timestamp: CREATED_AT - 10,
+        done: true
+      })
+
+      await createLinkedAgentRun(runState("agent-link-0"), "s-agent")
+
+      const messages = await facade.getMessagesBySession("s-agent")
+      const request = messages.find(
+        (message) => message.agentRunId === undefined && message.id !== earlier
+      )
+      expect(request?.parentId).toBe(earlier)
+      const run = await runs.getAgentRun("agent-link-0")
+      expect(run?.requestMessageId).toBe(request?.id)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "settles a run whose chat was deleted while nobody was listening",
+    async () => {
+      /* The event that tells the background is one-way; this is the answer
+         for the one that never arrived. */
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-10"), "s-agent")
+      await facade.deleteSessionRow("s-agent")
+
+      const { recoverAndPruneAgentRuns } = await import(
+        "@/background/agent/agent-recovery"
+      )
+      await recoverAndPruneAgentRuns()
+
+      expect(await runs.getAgentRun("agent-link-10")).toBeNull()
     },
     TIMEOUT
   )

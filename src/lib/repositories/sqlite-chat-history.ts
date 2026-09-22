@@ -869,6 +869,11 @@ export interface AppendedRunTurn {
  * the decision is the caller's and is made once, inside the transaction. A
  * caller that checked first and then called had a window: a chat deleted
  * between the two turned "start this run without linkage" into a failed start.
+ *
+ * The request hangs off the session's current leaf, read in the same
+ * transaction. Inserted with no parent it was a second root: the assistant row
+ * became the active leaf, the conversation so far was no longer an ancestor of
+ * it, and loading the chat showed the run with everything before it gone.
  */
 export const appendRunTurn = async (
   request: Omit<StoredMessage, "id">,
@@ -879,11 +884,21 @@ export const appendRunTurn = async (
 
   await withTransaction(async (transaction) => {
     const existing = await transaction.query(
-      "SELECT id FROM sessions WHERE id = ?",
+      "SELECT id, currentLeafId FROM sessions WHERE id = ?",
       [request.sessionId]
     )
-    if (existing.length === 0) return
-    const requestMessageId = await insertMessage(request, transaction)
+    const session = existing[0]
+    if (!session) return
+    const leafId = session.currentLeafId
+    const requestMessageId = await insertMessage(
+      {
+        ...request,
+        ...(request.parentId === undefined && typeof leafId === "number"
+          ? { parentId: leafId }
+          : {})
+      },
+      transaction
+    )
     const resultMessageId = await insertMessage(
       placeholder(requestMessageId),
       transaction

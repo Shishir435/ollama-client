@@ -157,6 +157,16 @@ export const setSchemaVersion = (
   db.run(`PRAGMA user_version = ${Math.trunc(version)}`)
 }
 
+/** What migration 18 adds; the drift repair checks for all of them. */
+const AGENT_RUN_LINKAGE_COLUMNS = [
+  "sessionId",
+  "requestMessageId",
+  "resultMessageId",
+  "parentRunId"
+] as const
+
+const MESSAGE_LINKAGE_COLUMNS = ["agentRunId", "agentHandoff"] as const
+
 const getTableColumns = (
   db: MigrationDatabase,
   table: "messages" | "sessions" | "agent_runs"
@@ -282,9 +292,17 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
       }
     },
     {
+      /*
+       * Every column, not a representative one. A profile missing only
+       * `resultMessageId` reported itself current and then answered `no such
+       * column` to every query the repository ships.
+       */
       missing:
-        (agentRunColumns.size > 0 && !agentRunColumns.has("sessionId")) ||
-        !messageColumns.has("agentRunId"),
+        (agentRunColumns.size > 0 &&
+          !AGENT_RUN_LINKAGE_COLUMNS.every((column) =>
+            agentRunColumns.has(column)
+          )) ||
+        !MESSAGE_LINKAGE_COLUMNS.every((column) => messageColumns.has(column)),
       apply: () => ensureAgentRunChatLinkage(db)
     }
   ]
