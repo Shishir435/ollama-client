@@ -85,6 +85,30 @@
     "model": {
       "label": "Modello"
     },
+    "readiness": {
+      "status": {
+        "ready": "Agente pronto",
+        "experimental": "Supporto Agente sperimentale",
+        "unsupported": "Non compatibile con l'Agente"
+      },
+      "vision": {
+        "supported": "Visivo",
+        "unsupported": "Solo testo",
+        "unknown": "Visione sconosciuta"
+      },
+      "reason": {
+        "metadata": "Il catalogo di questo modello dichiara la chiamata di strumenti.",
+        "verified_probe": "La chiamata di strumenti è stata confermata da una richiesta di prova a questo modello.",
+        "user_override": "La chiamata di strumenti è attiva perché l'hai impostata tu per questo modello, non perché lo dichiari il modello.",
+        "reported_unsupported": "Questo modello dichiara di non poter chiamare strumenti, e un'esecuzione ne ha bisogno per ogni azione.",
+        "unverified": "La chiamata di strumenti non è confermata per questo modello. Verificala, o imposta tu la capacità.",
+        "unknown": "Questo modello non dice nulla sulla chiamata di strumenti, e un'esecuzione non la attiverà per supposizione."
+      },
+      "text_only": "Questo modello non legge le immagini. L'esecuzione lavora sul testo e sui controlli della pagina, quindi una pagina usabile solo guardandola non funzionerà.",
+      "alternatives": "Modelli di questo provider che dichiarano la chiamata di strumenti:",
+      "allow_experimental": "Avvia comunque con questo modello",
+      "allow_experimental_description": "Qui la chiamata di strumenti è la tua impostazione, non la risposta del modello. Un modello che non può chiamare strumenti passa l'esecuzione a rispondere in prosa."
+    },
     "observations": "{{count}} osservazioni",
     "privacy": {
       "remote_notice": "Le osservazioni della pagina saranno inviate continuamente a questo provider remoto mentre l’Agente è in esecuzione.",

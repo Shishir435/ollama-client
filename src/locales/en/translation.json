@@ -85,6 +85,30 @@
     "model": {
       "label": "Model"
     },
+    "readiness": {
+      "status": {
+        "ready": "Agent ready",
+        "experimental": "Experimental Agent support",
+        "unsupported": "Not Agent compatible"
+      },
+      "vision": {
+        "supported": "Visual",
+        "unsupported": "Text only",
+        "unknown": "Vision unknown"
+      },
+      "reason": {
+        "metadata": "This model's own catalog reports tool calling.",
+        "verified_probe": "Tool calling was confirmed by a test request to this model.",
+        "user_override": "Tool calling is on because you set it for this model, not because the model reported it.",
+        "reported_unsupported": "This model reports it cannot call tools, and a run needs them for every action.",
+        "unverified": "Tool calling is not confirmed for this model. Probe it, or set the capability yourself.",
+        "unknown": "This model says nothing about tool calling, and a run will not enable it on a guess."
+      },
+      "text_only": "This model does not read images. The run works from page text and controls, so a page that can only be used by looking at it will not work.",
+      "alternatives": "Models on this provider that report tool calling:",
+      "allow_experimental": "Start anyway with this model",
+      "allow_experimental_description": "Tool calling here is your setting, not the model's answer. A model that cannot call tools spends the run replying in prose."
+    },
     "observations": "{{count}} observations",
     "privacy": {
       "remote_notice": "Page observations will be sent continuously to this remote provider while Agent runs.",

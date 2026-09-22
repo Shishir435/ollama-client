@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { SettingsButton } from "@/components/settings-button"
@@ -36,10 +36,28 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
   )
   const { goal, setGoal, completeGoal } = useAgentDraft()
   const candidateTab = useAgentCandidateTab()
+  /*
+   * Deliberately not durable, and scoped to the pair it was given for. This is
+   * a confirmation that the user meant to run on a model whose tool calling is
+   * their own override rather than the model's answer, so it cannot outlive
+   * the model it was about: the panel stays mounted across a model switch, and
+   * a yes carried over would start the next experimental model without anyone
+   * confirming that one.
+   */
+  const [experimentalModelRef, setExperimentalModelRef] = useState<
+    string | undefined
+  >(undefined)
+  const selectedModelRef =
+    selectedProviderId && selectedModel
+      ? `${selectedProviderId}\u0000${selectedModel}`
+      : undefined
+  const allowExperimentalModel =
+    selectedModelRef !== undefined && experimentalModelRef === selectedModelRef
   const connection = useAgentRun({
     providerId: selectedProviderId || undefined,
     modelId: selectedModel || undefined,
-    tabId: candidateTab?.id
+    tabId: candidateTab?.id,
+    allowExperimentalModel
   })
   useAgentDebugReport(connection.debugReport)
   const { snapshot } = connection
@@ -119,6 +137,10 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
           }
           privacyAcknowledged={acknowledged === true}
           screenshotsAcknowledged={screenshotsAcknowledged === true}
+          allowExperimentalModel={allowExperimentalModel}
+          onAllowExperimentalModel={(allowed) =>
+            setExperimentalModelRef(allowed ? selectedModelRef : undefined)
+          }
           busy={connection.busy}
           goal={goal}
           onGoalChange={setGoal}

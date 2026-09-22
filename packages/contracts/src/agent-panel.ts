@@ -86,6 +86,60 @@ export type AgentPendingSupervisionRecord = z.infer<
   typeof AgentPendingSupervisionSchema
 >
 
+/**
+ * Whether the selected model can drive a run at all, and what it will be able
+ * to see while it does.
+ *
+ * Tool calling is the requirement; vision is an option. A run without vision
+ * reads the DOM and works, so the panel says "text only" rather than refusing
+ * — and a run whose tool calling is unknown is refused, because enabling it on
+ * a guess is how a model spends a user's steps answering in prose.
+ *
+ * Every field mirrors a variant of the background's own compatibility union so
+ * the two cannot drift: a variant added there without a label here is a
+ * typecheck failure, not a raw key on screen.
+ */
+export const AGENT_READINESS_STATUSES = [
+  "ready",
+  "experimental",
+  "unsupported"
+] as const
+
+export const AGENT_READINESS_REASONS = [
+  "metadata",
+  "verified_probe",
+  "user_override",
+  "reported_unsupported",
+  "unverified",
+  "unknown"
+] as const
+
+/**
+ * Three states, not two. Absent evidence and a reported "no" are different
+ * facts: the first may become vision once a catalog answers, the second never
+ * will, and collapsing them told users their vision model was text-only.
+ */
+export const AGENT_READINESS_VISION = [
+  "supported",
+  "unsupported",
+  "unknown"
+] as const
+
+export const AgentModelReadinessSchema = z
+  .object({
+    status: z.enum(AGENT_READINESS_STATUSES),
+    reason: z.enum(AGENT_READINESS_REASONS),
+    vision: z.enum(AGENT_READINESS_VISION),
+    /**
+     * Models on the same provider whose own catalog reports tool calling,
+     * offered when the selected one cannot run. Bounded, because this is a
+     * hint beside a refusal and not a model picker.
+     */
+    alternatives: z.array(z.string().min(1).max(200)).max(3).optional()
+  })
+  .strict()
+export type AgentModelReadiness = z.infer<typeof AgentModelReadinessSchema>
+
 /** Which endpoint answers the run, disclosed to the user before it starts. */
 export const AgentProviderDisclosureSchema = z
   .object({
@@ -97,7 +151,12 @@ export const AgentProviderDisclosureSchema = z
      * model that reads images. Absent when it could not be determined, which
      * the panel shows as unknown rather than as "no".
      */
-    screenshots: z.boolean().optional()
+    screenshots: z.boolean().optional(),
+    /**
+     * Whether a run can start with this model. Absent while it is still being
+     * resolved; the panel shows nothing rather than guessing "ready".
+     */
+    readiness: AgentModelReadinessSchema.optional()
   })
   .strict()
 

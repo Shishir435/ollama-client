@@ -53,7 +53,16 @@ describe("AgentView", () => {
     const start = vi.fn()
     render(
       <AgentView
-        provider={{ name: "Local", model: "qwen3", location: "local" }}
+        provider={{
+          name: "Local",
+          model: "qwen3",
+          location: "local",
+          readiness: {
+            status: "ready" as const,
+            reason: "metadata" as const,
+            vision: "unknown" as const
+          }
+        }}
         tab={{ title: "Example", url: "https://example.com" }}
         goal="Close this issue"
         onStart={start}
@@ -67,6 +76,99 @@ describe("AgentView", () => {
     expect(start).toHaveBeenCalledWith("Close this issue", true)
   })
 
+  it("refuses to start a model the run would refuse at planning time", () => {
+    /*
+     * Start used to stay live for a model that cannot call tools: the run
+     * began, attached to a tab, and only then threw. The label and the gate
+     * now come from the same union the run is refused by.
+     */
+    const start = vi.fn()
+    render(
+      <AgentView
+        provider={{
+          name: "Local",
+          model: "gemma",
+          location: "local",
+          readiness: {
+            status: "unsupported",
+            reason: "reported_unsupported",
+            vision: "unknown"
+          }
+        }}
+        tab={{ title: "Example", url: "https://example.com" }}
+        goal="Close this issue"
+        onStart={start}
+      />
+    )
+
+    expect(
+      screen.getByText("agent.readiness.status.unsupported")
+    ).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByLabelText("agent.start.goal"), {
+      key: "Enter"
+    })
+    expect(start).not.toHaveBeenCalled()
+  })
+
+  it("starts an experimental model only once the user opts in", () => {
+    const start = vi.fn()
+    const view = (allowExperimentalModel: boolean) => (
+      <AgentView
+        provider={{
+          name: "Local",
+          model: "qwen3",
+          location: "local",
+          readiness: {
+            status: "experimental",
+            reason: "user_override",
+            vision: "unknown"
+          }
+        }}
+        tab={{ title: "Example", url: "https://example.com" }}
+        goal="Close this issue"
+        allowExperimentalModel={allowExperimentalModel}
+        onStart={start}
+      />
+    )
+    const { rerender } = render(view(false))
+
+    fireEvent.keyDown(screen.getByLabelText("agent.start.goal"), {
+      key: "Enter"
+    })
+    expect(start).not.toHaveBeenCalled()
+
+    rerender(view(true))
+    fireEvent.keyDown(screen.getByLabelText("agent.start.goal"), {
+      key: "Enter"
+    })
+    expect(start).toHaveBeenCalledWith("Close this issue", true)
+  })
+
+  it("names the vision state a text-only model runs under", () => {
+    render(
+      <AgentView
+        provider={{
+          name: "Local",
+          model: "qwen3",
+          location: "local",
+          screenshots: false,
+          readiness: {
+            status: "ready",
+            reason: "metadata",
+            vision: "unsupported"
+          }
+        }}
+        tab={{ title: "Example", url: "https://example.com" }}
+      />
+    )
+
+    expect(screen.getByText("agent.readiness.status.ready")).toBeInTheDocument()
+    expect(
+      screen.getByText("agent.readiness.vision.unsupported")
+    ).toBeInTheDocument()
+    expect(screen.getByText("agent.readiness.text_only")).toBeInTheDocument()
+  })
+
   it("enforces remote-observation acknowledgement before start", () => {
     const acknowledge = vi.fn()
     const start = vi.fn()
@@ -75,7 +177,12 @@ describe("AgentView", () => {
       name: "Remote",
       model: "qwen3",
       location: "remote" as const,
-      screenshots: false
+      screenshots: false,
+      readiness: {
+        status: "ready" as const,
+        reason: "metadata" as const,
+        vision: "unsupported" as const
+      }
     }
     const { rerender } = render(
       <AgentView
@@ -120,7 +227,12 @@ describe("AgentView", () => {
     const remote = {
       name: "Remote",
       model: "llava",
-      location: "remote" as const
+      location: "remote" as const,
+      readiness: {
+        status: "ready" as const,
+        reason: "metadata" as const,
+        vision: "unknown" as const
+      }
     }
     const { rerender } = render(
       <AgentView

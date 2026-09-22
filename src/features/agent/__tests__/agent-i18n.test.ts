@@ -1,4 +1,7 @@
 import {
+  AGENT_READINESS_REASONS,
+  AGENT_READINESS_STATUSES,
+  AGENT_READINESS_VISION,
   AGENT_RUN_STATUSES,
   AGENT_STEP_STATUSES
 } from "@ollama-client/contracts"
@@ -37,6 +40,23 @@ describe("Agent locale coverage", () => {
   it("labels every run status the machine can reach", () => {
     const labelled = Object.keys(en.agent.status)
     for (const status of AGENT_RUN_STATUSES) expect(labelled).toContain(status)
+  })
+
+  /**
+   * The readiness card builds all three keys from the snapshot at runtime, so
+   * a status, reason or vision state added to the contract without a label
+   * shows the reader `agent.readiness.reason.unverified` beside Start.
+   */
+  it("labels every readiness state the panel can show", () => {
+    for (const status of AGENT_READINESS_STATUSES) {
+      expect(Object.keys(en.agent.readiness.status)).toContain(status)
+    }
+    for (const reason of AGENT_READINESS_REASONS) {
+      expect(Object.keys(en.agent.readiness.reason)).toContain(reason)
+    }
+    for (const vision of AGENT_READINESS_VISION) {
+      expect(Object.keys(en.agent.readiness.vision)).toContain(vision)
+    }
   })
 
   it("labels every step status the work log can show", () => {
