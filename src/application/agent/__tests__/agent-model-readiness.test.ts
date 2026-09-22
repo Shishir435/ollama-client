@@ -105,8 +105,12 @@ describe("agentReadinessPermitsStart", () => {
     expect(agentReadinessPermitsStart(readiness, true)).toBe(true)
   })
 
-  /** Still resolving is not a verdict; the run's own assertion still guards. */
-  it("permits a start while readiness is unresolved", () => {
-    expect(agentReadinessPermitsStart(undefined, false)).toBe(true)
+  /**
+   * A provider with no verdict is a failed lookup, not a pending one: the
+   * disclosure resolves both in one call. Permitting it started a run that
+   * attached to a tab and was then refused at planning time.
+   */
+  it("refuses a start when readiness could not be resolved", () => {
+    expect(agentReadinessPermitsStart(undefined, true)).toBe(false)
   })
 })

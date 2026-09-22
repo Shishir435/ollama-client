@@ -330,7 +330,9 @@ const budgets: Budget[] = [
      *
      * Model readiness — the wire schema the panel is told the verdict in, the
      * total mapping from the compatibility union onto it, and the catalog
-     * scan that names models which could run instead — took it to 274,271.
+     * scan that names models which could run instead, plus the invalidation
+     * that keeps a cached verdict from outliving its evidence — took it to
+     * 274,474.
      * The alternative to shipping it is the behaviour it replaces: Start
      * stayed live for a model that cannot call tools, and the refusal arrived
      * after the run had attached to a tab. Firefox carries no Agent code and

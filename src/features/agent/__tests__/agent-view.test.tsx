@@ -53,7 +53,16 @@ describe("AgentView", () => {
     const start = vi.fn()
     render(
       <AgentView
-        provider={{ name: "Local", model: "qwen3", location: "local" }}
+        provider={{
+          name: "Local",
+          model: "qwen3",
+          location: "local",
+          readiness: {
+            status: "ready" as const,
+            reason: "metadata" as const,
+            vision: "unknown" as const
+          }
+        }}
         tab={{ title: "Example", url: "https://example.com" }}
         goal="Close this issue"
         onStart={start}
@@ -168,7 +177,12 @@ describe("AgentView", () => {
       name: "Remote",
       model: "qwen3",
       location: "remote" as const,
-      screenshots: false
+      screenshots: false,
+      readiness: {
+        status: "ready" as const,
+        reason: "metadata" as const,
+        vision: "unsupported" as const
+      }
     }
     const { rerender } = render(
       <AgentView
@@ -213,7 +227,12 @@ describe("AgentView", () => {
     const remote = {
       name: "Remote",
       model: "llava",
-      location: "remote" as const
+      location: "remote" as const,
+      readiness: {
+        status: "ready" as const,
+        reason: "metadata" as const,
+        vision: "unknown" as const
+      }
     }
     const { rerender } = render(
       <AgentView
