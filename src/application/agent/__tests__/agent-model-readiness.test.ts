@@ -8,8 +8,7 @@ import { describe, expect, it } from "vitest"
 import type { AgentModelCompatibility } from "../agent-model-compatibility"
 import {
   agentModelReadiness,
-  agentReadinessPermitsStart,
-  agentReadinessSeesPages
+  agentReadinessPermitsStart
 } from "../agent-model-readiness"
 
 /**
@@ -109,25 +108,5 @@ describe("agentReadinessPermitsStart", () => {
   /** Still resolving is not a verdict; the run's own assertion still guards. */
   it("permits a start while readiness is unresolved", () => {
     expect(agentReadinessPermitsStart(undefined, false)).toBe(true)
-  })
-})
-
-describe("agentReadinessSeesPages", () => {
-  it("treats only a reported no as a model that sees nothing", () => {
-    expect(
-      agentReadinessSeesPages({
-        status: "ready",
-        reason: "metadata",
-        vision: "unsupported"
-      })
-    ).toBe(false)
-    expect(
-      agentReadinessSeesPages({
-        status: "ready",
-        reason: "metadata",
-        vision: "unknown"
-      })
-    ).toBe(true)
-    expect(agentReadinessSeesPages(undefined)).toBe(true)
   })
 })

@@ -46,12 +46,3 @@ export const agentReadinessPermitsStart = (
   if (readiness.status === "ready") return true
   return readiness.status === "experimental" && allowExperimental
 }
-
-/**
- * Whether this model will be offered a picture. A run that cannot see one is
- * never asked to acknowledge that screenshots travel, and is never offered a
- * visual command.
- */
-export const agentReadinessSeesPages = (
-  readiness?: AgentModelReadiness
-): boolean => readiness?.vision !== "unsupported"
