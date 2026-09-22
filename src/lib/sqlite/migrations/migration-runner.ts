@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger"
+import { ensureAgentRunChatLinkage } from "./add-agent-run-chat-linkage"
 import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
@@ -123,6 +124,11 @@ export const MIGRATIONS: Migration[] = [
     version: 17,
     name: "ensure-agent-runs-tables",
     up: rebuildAgentRunsTables
+  },
+  {
+    version: 18,
+    name: "add-agent-run-chat-linkage",
+    up: ensureAgentRunChatLinkage
   }
 ]
 
@@ -153,7 +159,7 @@ export const setSchemaVersion = (
 
 const getTableColumns = (
   db: MigrationDatabase,
-  table: "messages" | "sessions"
+  table: "messages" | "sessions" | "agent_runs"
 ) => {
   const stmt = db.prepare(`PRAGMA table_info(${table})`)
   const columns = new Set<string>()
@@ -197,6 +203,9 @@ const hasTable = (
 export const repairSchemaDrift = (db: MigrationDatabase): number => {
   const messageColumns = getTableColumns(db, "messages")
   const sessionColumns = getTableColumns(db, "sessions")
+  const agentRunColumns = hasTable(db, "agent_runs")
+    ? getTableColumns(db, "agent_runs")
+    : new Set<string>()
   const repairs: Array<{ missing: boolean; apply: () => void }> = [
     {
       missing: !messageColumns.has("thinking"),
@@ -260,7 +269,23 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
         !hasTable(db, "agent_runs") ||
         !hasTable(db, "agent_steps") ||
         agentRunsTablesAreStale(db),
-      apply: () => rebuildAgentRunsTables(db)
+      /*
+       * The rebuild creates the shape migration 17 shipped, which is the shape
+       * before the chat linkage existed. Applying both leaves a repaired
+       * profile at the current shape rather than one migration behind it —
+       * which is where a rebuilt table sat while `user_version` already said
+       * 18, so nothing would ever add the columns.
+       */
+      apply: () => {
+        rebuildAgentRunsTables(db)
+        ensureAgentRunChatLinkage(db)
+      }
+    },
+    {
+      missing:
+        (agentRunColumns.size > 0 && !agentRunColumns.has("sessionId")) ||
+        !messageColumns.has("agentRunId"),
+      apply: () => ensureAgentRunChatLinkage(db)
     }
   ]
 

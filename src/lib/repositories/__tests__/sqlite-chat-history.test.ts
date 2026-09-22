@@ -554,7 +554,9 @@ describe("messages", () => {
       null,
       null,
       // updatedAt seeded to the creation timestamp
-      100
+      100,
+      // no Agent run produced this message
+      null
     ])
   })
 

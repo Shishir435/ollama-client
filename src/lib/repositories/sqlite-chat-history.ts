@@ -129,7 +129,8 @@ const messageFromRow = (row: Row): StoredMessage => ({
   metrics: parseMetrics(row.metrics),
   thinking: (row.thinking as string | null) ?? undefined,
   replayArtifact: parseStoredReplayArtifact(row.replayArtifact),
-  error: parseMessageError(row.error)
+  error: parseMessageError(row.error),
+  agentRunId: (row.agentRunId as string | null) ?? undefined
 })
 
 const fileFromRow = (row: Row): StoredFile => ({
@@ -574,8 +575,8 @@ const insertMessage = async (
   const timestamp = message.timestamp ?? Date.now()
   const { lastInsertRowid } = await executor.runWithMeta(
     `INSERT INTO messages
-     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, error, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, error, updatedAt, agentRunId)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       message.sessionId,
       message.role,
@@ -590,7 +591,8 @@ const insertMessage = async (
       message.error ? JSON.stringify(message.error) : null,
       // Seed last-touched at creation so a shell that dies before its first
       // streaming write still ages into "stale" for the interrupted sweep.
-      timestamp
+      timestamp,
+      message.agentRunId ?? null
     ]
   )
   return lastInsertRowid
@@ -836,6 +838,67 @@ export const deleteMessagesBySession = async (
   )
   await run("DELETE FROM messages WHERE sessionId = ?", [sessionId])
   return (before[0]?.count as number) ?? 0
+}
+
+export interface RunTurnStatement {
+  sql: string
+  params: (string | number | null)[]
+}
+
+export interface AppendedRunTurn {
+  requestMessageId: number
+  resultMessageId: number
+}
+
+/**
+ * Write a request, the assistant row that will report on it, and the durable
+ * job that answers it — in one commit.
+ *
+ * Separate writes gave every failure between them its own broken shape: a run
+ * with no card, a card pointing at a run that was never created, a reload that
+ * lost the task, and a retry from the UI that started the work twice. One
+ * commit has none of those states because it has no between.
+ *
+ * `alongside` is handed the two message ids and returns the statement that
+ * files the job against them. It is a statement rather than a callback into
+ * another repository because this module owns the chat tables and nothing
+ * else: the job's own repository composes its INSERT, and neither module has
+ * to know what the other stores.
+ */
+export const appendRunTurn = async (
+  request: Omit<StoredMessage, "id">,
+  placeholder: (requestMessageId: number) => Omit<StoredMessage, "id">,
+  alongside: (ids: AppendedRunTurn) => RunTurnStatement
+): Promise<AppendedRunTurn> => {
+  let appended: AppendedRunTurn | undefined
+
+  await withTransaction(async (transaction) => {
+    const existing = await transaction.query(
+      "SELECT id FROM sessions WHERE id = ?",
+      [request.sessionId]
+    )
+    if (existing.length === 0) {
+      throw new Error(`Session ${request.sessionId} was not found`)
+    }
+    const requestMessageId = await insertMessage(request, transaction)
+    const resultMessageId = await insertMessage(
+      placeholder(requestMessageId),
+      transaction
+    )
+    const ids = { requestMessageId, resultMessageId }
+    const statement = alongside(ids)
+    await transaction.run(statement.sql, statement.params)
+    await updateSessionWithExecutor(
+      request.sessionId,
+      { updatedAt: Date.now(), currentLeafId: resultMessageId },
+      transaction
+    )
+    appended = ids
+  })
+
+  if (!appended) throw new Error("The run turn was not appended")
+  await flushSave()
+  return appended
 }
 
 export interface DeletedMessageSubtree {

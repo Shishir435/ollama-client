@@ -175,6 +175,14 @@ export interface ChatMessage {
    * error so the UI can offer an inline retry for retryable failures.
    */
   error?: Partial<AppFailure>
+  /**
+   * The Agent run this message reports, when one produced it.
+   *
+   * On the message rather than only on the run, so a branch inherits it by
+   * ancestry: a follow-up asked in one branch must not see a run that only
+   * ever happened in another.
+   */
+  agentRunId?: string
   timestamp?: number
   metrics?: {
     total_duration?: number
