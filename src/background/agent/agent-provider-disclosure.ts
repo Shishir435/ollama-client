@@ -80,10 +80,7 @@ const resolveCompatibility = async (
   } catch {
     return undefined
   }
-  if (settled(compatibility)) {
-    watchEvidence()
-    compatibilityByModel.set(key, compatibility)
-  }
+  if (settled(compatibility)) compatibilityByModel.set(key, compatibility)
   return compatibility
 }
 
@@ -119,6 +116,12 @@ let watchingEvidence = false
  * registry scope, and a key that moves between areas must still invalidate.
  * A context with no storage API leaves the caches unregistered and therefore
  * unused, which is the behaviour this replaces.
+ *
+ * Registered from the entry point rather than from a cache write, so no write
+ * can precede it. It hung off the settled-compatibility write, and a provider
+ * whose first disclosed model was unsupported cached its alternatives with
+ * nobody watching — leaving a removed model on the refusal card, and a newly
+ * installed one off it, until some other model settled.
  */
 const watchEvidence = (): void => {
   if (watchingEvidence) return
@@ -228,6 +231,7 @@ export const resolveAgentProviderDisclosure = async (
   if (!selected) return undefined
   const config = await ProviderManager.getProviderConfig(selected.providerId)
   if (!config) return undefined
+  watchEvidence()
   const readiness = await readinessFor(
     selected.providerId,
     selected.modelId,

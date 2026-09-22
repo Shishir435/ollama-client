@@ -121,6 +121,47 @@ describe("resolveAgentProviderDisclosure", () => {
     expect(resolveCompatibility).toHaveBeenCalledTimes(2)
   })
 
+  it("re-resolves alternatives for a provider that never settled", async () => {
+    /*
+     * The watcher hung off the settled-compatibility write, so a provider
+     * whose only disclosed model was unsupported cached its alternatives with
+     * nobody watching: a model uninstalled afterwards stayed on the refusal
+     * card, and a newly installed one never reached it.
+     *
+     * Loaded fresh, because registration is once per module: a test running
+     * after one that settled a verdict would find the listener already there
+     * and pass against the bug it is here to catch.
+     */
+    vi.resetModules()
+    storageListeners.clear()
+    const { resolveAgentProviderDisclosure: freshResolve } = await import(
+      "../agent-provider-disclosure"
+    )
+    const unsupported = async () =>
+      ({ status: "unsupported", reason: "reported_unsupported" }) as const
+
+    discoveredModels.mockReturnValue([
+      { name: "was-here", capabilityHints: { supportedParameters: ["tools"] } }
+    ])
+    const first = await freshResolve("ollama", "qwen3", {
+      resolveCompatibility: unsupported
+    })
+    expect(first?.readiness?.alternatives).toEqual(["was-here"])
+
+    discoveredModels.mockReturnValue([
+      {
+        name: "installed-since",
+        capabilityHints: { supportedParameters: ["tools"] }
+      }
+    ])
+    notify("provider-model-catalog-support")
+    const second = await freshResolve("ollama", "qwen3", {
+      resolveCompatibility: unsupported
+    })
+
+    expect(second?.readiness?.alternatives).toEqual(["installed-since"])
+  })
+
   it("suggests only models whose own catalog reports tool calling", async () => {
     /*
      * Ollama's `/api/tags` rows carry no capability hints, so a status alone
