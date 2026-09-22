@@ -232,6 +232,15 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
       tabId: z.number().int().nonnegative(),
       providerId: z.string().min(1),
       modelId: z.string().min(1),
+      /**
+       * The chat this run is being started from, so the request and the row
+       * that reports on it are written in the same commit as the run.
+       *
+       * Optional, and the run is still started without it: a panel whose
+       * session has not been created yet must not be refused a run over a
+       * linkage the run itself does not need.
+       */
+      sessionId: z.string().min(1).max(200).optional(),
       allowRoutineActions: z.boolean().optional(),
       allowExperimentalModel: z.boolean().optional()
     })

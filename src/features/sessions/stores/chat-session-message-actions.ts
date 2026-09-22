@@ -7,6 +7,7 @@ import {
   traversePathFromLeaf,
   traversePathFromLeafWithFetcher
 } from "@/features/sessions/lib/message-tree"
+import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
@@ -424,6 +425,12 @@ export const createChatSessionMessageActions = (
       replacementLeafId
     } = deleted
     const toDeleteIds = new Set(idsToDelete)
+
+    /*
+     * Before the vectors, because a run still driving a browser is the part of
+     * this delete that keeps acting on the world.
+     */
+    forgetAgentRuns({ messageIds: idsToDelete })
 
     try {
       await sweepVectorCleanupReceipts()

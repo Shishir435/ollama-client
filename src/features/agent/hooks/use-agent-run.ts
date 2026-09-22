@@ -46,6 +46,8 @@ interface UseAgentRunInput {
   modelId?: string
   /** Exact tab displayed by the panel when Start is pressed. */
   tabId?: number
+  /** The chat a started run is written into, alongside its request. */
+  sessionId?: string
   allowExperimentalModel?: boolean
 }
 
@@ -174,7 +176,8 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
 
   const runId = snapshot.run?.id
   const pending = snapshot.pending
-  const { providerId, modelId, tabId, allowExperimentalModel } = input
+  const { providerId, modelId, tabId, sessionId, allowExperimentalModel } =
+    input
 
   const start = useCallback(
     (goal: string, allowRoutineActions = false) => {
@@ -206,13 +209,14 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
             tabId,
             providerId,
             modelId,
+            ...(sessionId ? { sessionId } : {}),
             ...(allowRoutineActions ? { allowRoutineActions: true } : {}),
             allowExperimentalModel
           })
         })
         .catch(() => setBusy(false))
     },
-    [allowExperimentalModel, modelId, providerId, tabId, send]
+    [allowExperimentalModel, modelId, providerId, sessionId, tabId, send]
   )
 
   const runScoped = useCallback(

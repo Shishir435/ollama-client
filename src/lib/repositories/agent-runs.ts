@@ -488,6 +488,36 @@ export const appendAgentStep = async (input: AgentStepWrite): Promise<void> => {
   await flushSave()
 }
 
+/**
+ * Close the assistant row a run reports into, in the commit that settles the
+ * run.
+ *
+ * Written here rather than in a pass afterwards for the reason every other
+ * terminal write in this file is: a worker that dies between the two leaves a
+ * settled run above a bubble that streams forever, and nothing later knows to
+ * look. Guarded on `done = 0` so it cannot overwrite a row a user or a later
+ * turn has already finished.
+ *
+ * The result text is a fallback, not the card: a run that ended with nothing
+ * to say leaves the content alone and only stops the row waiting.
+ */
+const settleLinkedMessage = async (
+  tx: Pick<SqlExecutor, "run">,
+  resultMessageId: number | undefined,
+  state: AgentRunState
+): Promise<void> => {
+  if (resultMessageId === undefined) return
+  const result = state.result?.trim()
+  await tx.run(
+    `UPDATE messages
+        SET done = 1, updatedAt = ?${result ? ", content = ?" : ""}
+      WHERE id = ? AND done = 0`,
+    result
+      ? [state.updatedAt, result, resultMessageId]
+      : [state.updatedAt, resultMessageId]
+  )
+}
+
 const updateAgentRun = async (
   input: AgentPhaseClaim | AgentTransitionWrite,
   target: AgentRunStatus,
@@ -517,6 +547,8 @@ const updateAgentRun = async (
       [target, checkpoint, next.updatedAt, input.runId, ...expected]
     )
     if (result.changes === 0) return
+
+    if (terminal) await settleLinkedMessage(tx, current.resultMessageId, next)
 
     // Entering execution is the durable effect-ownership boundary. Copy the
     // latest bounded step receipt into an append-only `executing` claim in the
@@ -716,12 +748,30 @@ export const markInterruptedAgentEffectUncertain = (
 
 const quarantineAgentRun = async (id: string): Promise<void> => {
   const now = Date.now()
-  const result = await runWithMeta(
-    `UPDATE agent_runs SET status = 'failed', checkpoint = ?, updatedAt = ?
-      WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')`,
-    [compactedCheckpoint(now), now, id]
-  )
-  if (result.changes > 0) await flushSave()
+  let changed = false
+  await withTransaction(async (tx) => {
+    const result = await tx.runWithMeta(
+      `UPDATE agent_runs SET status = 'failed', checkpoint = ?, updatedAt = ?
+        WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')`,
+      [compactedCheckpoint(now), now, id]
+    )
+    if (result.changes === 0) return
+    changed = true
+    /*
+     * A row this undecodable has no state to read a result from, so the only
+     * thing owed to its message is that it stop waiting. Left out, the one
+     * failure that cannot explain itself is also the one that leaves a bubble
+     * streaming forever.
+     */
+    await tx.run(
+      `UPDATE messages SET done = 1, updatedAt = ?
+        WHERE done = 0 AND id IN (
+          SELECT resultMessageId FROM agent_runs WHERE id = ?
+        )`,
+      [now, id]
+    )
+  })
+  if (changed) await flushSave()
 }
 
 export const countAgentRuns = async (): Promise<number> => {
@@ -845,6 +895,51 @@ export const deleteAgentRunsForSession = async (
   )
   await flushSave()
   return result.changes
+}
+
+/**
+ * Repair rows a worker died between.
+ *
+ * Two idempotent statements, run once at startup, for the two states the
+ * atomic writes above cannot cover on their own: a worker lost after the run
+ * settled but before its message did, and a message deleted while its run row
+ * still points at it. Neither can be noticed later by the code that made them
+ * — both are gaps, and a gap has nobody to report it.
+ *
+ * A live run is not cancelled here. A run that is still driving a browser is
+ * holding this worker alive, so the conversation that deleted its rows told
+ * the worker directly; startup is the wrong place to look for it, and
+ * cancelling a run because a card is missing would be worse than showing one
+ * that has none.
+ */
+export const reconcileAgentRunLinkage = async (): Promise<void> => {
+  const now = Date.now()
+  await withTransaction(async (tx) => {
+    await tx.run(
+      `UPDATE messages SET done = 1, updatedAt = ?
+        WHERE done = 0
+          AND id IN (
+            SELECT resultMessageId FROM agent_runs
+             WHERE resultMessageId IS NOT NULL
+               AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})
+          )`,
+      [now, ...TERMINAL_AGENT_STATUSES]
+    )
+    await tx.run(
+      `UPDATE agent_runs
+          SET requestMessageId =
+                CASE WHEN requestMessageId IN (SELECT id FROM messages)
+                     THEN requestMessageId ELSE NULL END,
+              resultMessageId =
+                CASE WHEN resultMessageId IN (SELECT id FROM messages)
+                     THEN resultMessageId ELSE NULL END
+        WHERE (requestMessageId IS NOT NULL
+                 AND requestMessageId NOT IN (SELECT id FROM messages))
+           OR (resultMessageId IS NOT NULL
+                 AND resultMessageId NOT IN (SELECT id FROM messages))`
+    )
+  })
+  await flushSave()
 }
 
 export const createAgentPersistencePort = (): AgentPersistencePort => ({

@@ -31,6 +31,14 @@ vi.mock("@/hooks/use-setting", () => ({
 
 let selected = { selectedModel: "qwen3", selectedProviderId: "ollama" }
 
+/*
+ * Mocked rather than mounted: the real store loads the session list from
+ * SQLite on first read, which this test has no owner for and no opinion about.
+ */
+vi.mock("@/features/sessions/stores/chat-session-store", () => ({
+  useChatSessions: () => ({ currentSessionId: "s-1" })
+}))
+
 vi.mock("@/features/model/hooks/use-provider-models", () => ({
   useProviderModels: () => selected
 }))

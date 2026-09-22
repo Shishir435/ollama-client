@@ -1,3 +1,4 @@
+import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
@@ -79,6 +80,12 @@ export const createChatSessionListActions = (
   },
 
   deleteSession: async (id: string) => {
+    /*
+     * First: the runs of this chat are stopped and deleted with it, and a run
+     * told after its rows have gone has already spent steps on a conversation
+     * that no longer exists.
+     */
+    forgetAgentRuns({ sessionId: id })
     await repo.deleteSessionRow(id)
     await repo.deleteMessagesBySession(id)
     await repo.deleteFilesBySession(id)

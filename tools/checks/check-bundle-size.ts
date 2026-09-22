@@ -337,8 +337,15 @@ const budgets: Budget[] = [
      * stayed live for a model that cannot call tools, and the refusal arrived
      * after the run had attached to a tab. Firefox carries no Agent code and
      * is unchanged.
+     *
+     * Tying a run to the conversation it belongs to — the linkage migration
+     * and its repository ops, the commit that writes the request, the card and
+     * the run together, and the cleanup a deleted chat asks for — took the
+     * measured Chrome baseline to 275,981. Most of it is SQL: statements that
+     * have to name every column they write. Firefox carries no Agent code and
+     * is unchanged.
      */
-    max: isFirefox ? 210_000 : 275_000
+    max: isFirefox ? 210_000 : 276_500
   }
 ]
 

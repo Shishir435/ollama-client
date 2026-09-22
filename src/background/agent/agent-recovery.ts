@@ -4,6 +4,7 @@ import {
   listIncompleteAgentRuns,
   markInterruptedAgentEffectUncertain,
   pruneTerminalAgentRuns,
+  reconcileAgentRunLinkage,
   transitionAgentRun
 } from "@/lib/repositories/agent-runs"
 
@@ -85,5 +86,13 @@ export const recoverAndPruneAgentRuns = async (
   signal?: AbortSignal
 ): Promise<void> => {
   await recoverAgentRuns(signal)
+  signal?.throwIfAborted()
+  /*
+   * After recovery, not before: recovery is what settles the runs whose
+   * messages are still waiting on them, and reconciling first would leave
+   * every run it just cancelled with a bubble that streams until the next
+   * boot.
+   */
+  await reconcileAgentRunLinkage()
   await pruneTerminalAgentRuns(undefined, signal)
 }

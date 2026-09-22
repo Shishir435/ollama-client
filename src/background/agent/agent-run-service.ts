@@ -18,7 +18,6 @@ import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import type { DurableAgentStep } from "@/lib/repositories/agent-runs"
 import {
   createAgentPersistencePort,
-  createAgentRun,
   createInitialAgentDeadline,
   getAgentRun,
   getLatestAgentRun,
@@ -29,6 +28,7 @@ import type { AgentBrowserSessionManager } from "./agent-browser-session-manager
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentControlSessionRegistry } from "./agent-control-sessions"
 import type { BuildAgentController } from "./agent-run-controller"
+import { createLinkedAgentRun } from "./agent-run-linkage"
 import type {
   AgentPendingSupervision,
   AgentSupervision
@@ -43,6 +43,8 @@ export interface StartAgentRunInput {
   tabId: number
   providerId: string
   modelId: string
+  /** The chat whose rows are written in the same commit as the run. */
+  sessionId?: string
   allowRoutineActions?: boolean
   allowExperimentalModel?: boolean
 }
@@ -234,7 +236,7 @@ export const createAgentRunService = (input?: {
   supervision?: AgentSupervision
   history?: AgentTabHistory
   persistence?: AgentPersistencePort
-  createRun?: typeof createAgentRun
+  createRun?: typeof createLinkedAgentRun
   readRun?: typeof getAgentRun
   readLatestRun?: typeof getLatestAgentRun
   readIncompleteRuns?: typeof listIncompleteAgentRuns
@@ -252,7 +254,7 @@ export const createAgentRunService = (input?: {
   const now = input?.now ?? (() => Date.now())
   const newRunId = input?.newRunId ?? (() => globalThis.crypto.randomUUID())
   const hasPerception = input?.hasPerception ?? hasAgentPerceptionPermission
-  const createRun = input?.createRun ?? createAgentRun
+  const createRun = input?.createRun ?? createLinkedAgentRun
   const readRun = input?.readRun ?? getAgentRun
   const readLatestRun = input?.readLatestRun ?? getLatestAgentRun
   const readSteps = input?.readSteps ?? listAgentSteps
@@ -605,7 +607,7 @@ export const createAgentRunService = (input?: {
           updatedAt: startedAt
         } satisfies AgentRunState)
 
-        await createRun(state)
+        await createRun(state, request.sessionId)
         activeRunId = state.id
         lastRunId = state.id
         if (request.allowExperimentalModel) experimental.add(state.id)
