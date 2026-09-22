@@ -430,7 +430,7 @@ export const createChatSessionMessageActions = (
      * Before the vectors, because a run still driving a browser is the part of
      * this delete that keeps acting on the world.
      */
-    forgetAgentRuns({ messageIds: idsToDelete })
+    await forgetAgentRuns({ messageIds: idsToDelete })
 
     try {
       await sweepVectorCleanupReceipts()

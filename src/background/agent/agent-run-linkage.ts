@@ -5,7 +5,7 @@ import {
   createAgentRun,
   insertAgentRunStatement
 } from "@/lib/repositories/agent-runs"
-import { appendRunTurn, getSession } from "@/lib/repositories/chat-history"
+import { appendRunTurn } from "@/lib/repositories/chat-history"
 
 /**
  * Create a run and the conversation rows that report on it, in one commit.
@@ -20,24 +20,21 @@ import { appendRunTurn, getSession } from "@/lib/repositories/chat-history"
  * how a run is presented, not how it is supervised: refusing to drive a
  * browser because a row is missing would trade a working feature for a tidier
  * table.
+ *
+ * Whether the chat is there is decided inside that one commit, never before
+ * it. Asking first and writing after left a window in which a chat deleted
+ * between the two turned the unlinked fallback into a failed start.
  */
 export const createLinkedAgentRun = async (
   state: AgentRunState,
   sessionId?: string
 ): Promise<void> => {
-  const session = sessionId ? await getSession(sessionId) : undefined
-  if (!sessionId || !session) {
-    if (sessionId) {
-      logger.warn("Agent run started without its chat rows", "Agent", {
-        runId: state.id,
-        reason: "session_missing"
-      })
-    }
+  if (!sessionId) {
     await createAgentRun(state)
     return
   }
 
-  await appendRunTurn(
+  const appended = await appendRunTurn(
     {
       sessionId,
       role: "user",
@@ -69,4 +66,11 @@ export const createLinkedAgentRun = async (
       return { sql, params }
     }
   )
+
+  if (appended) return
+  logger.warn("Agent run started without its chat rows", "Agent", {
+    runId: state.id,
+    reason: "session_missing"
+  })
+  await createAgentRun(state)
 }

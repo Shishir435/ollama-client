@@ -214,7 +214,16 @@ describe("an Agent run and the conversation it belongs to", () => {
         at: CREATED_AT + 1
       })
 
-      expect(await runs.deleteAgentRunsForSession("s-agent")).toBe(1)
+      /* Settled only: a run still attached to a browser keeps the row that is
+         the only handle recovery has for stopping it. */
+      expect(await runs.deleteSettledAgentRunsForSession("s-agent")).toBe(0)
+      await runs.transitionAgentRun({
+        runId: "agent-link-5",
+        from: "submitted",
+        to: "failed",
+        patch: { updatedAt: CREATED_AT + 5 }
+      })
+      expect(await runs.deleteSettledAgentRunsForSession("s-agent")).toBe(1)
 
       expect(await runs.getAgentRun("agent-link-5")).toBeNull()
       expect(await runs.listAgentSteps("agent-link-5")).toEqual([])
@@ -241,6 +250,52 @@ describe("an Agent run and the conversation it belongs to", () => {
 
       const messages = await facade.getMessagesBySession("s-agent")
       expect(messages[1]?.done).toBe(true)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "cleans up a subtree far larger than one statement may bind",
+    async () => {
+      /*
+       * The orphan UPDATE names every id four times and the live-run lookup
+       * twice, against a 20,000 bind ceiling. Unbatched, a deleted subtree of
+       * a few thousand messages was refused by the owner — and the cleanup
+       * that refusal skipped is what keeps a live run from outliving its card.
+       */
+      const { runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-8"), "s-agent")
+      const many = Array.from({ length: 12_000 }, (_, index) => index + 1)
+
+      await expect(
+        runs.listLiveAgentRunsForMessages(many)
+      ).resolves.toBeInstanceOf(Array)
+      await expect(runs.orphanAgentRunMessages(many)).resolves.toBeUndefined()
+
+      const run = await runs.getAgentRun("agent-link-8")
+      expect(run?.requestMessageId).toBeUndefined()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "collects a run left behind by a chat it would not stop for",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-9"), "s-agent")
+      /* The chat is gone; the run would not stop, so its row stayed. */
+      await facade.deleteSessionRow("s-agent")
+      expect(await runs.deleteSettledAgentRunsForSession("s-agent")).toBe(0)
+
+      await runs.transitionAgentRun({
+        runId: "agent-link-9",
+        from: "submitted",
+        to: "failed",
+        patch: { updatedAt: CREATED_AT + 9 }
+      })
+      await runs.reconcileAgentRunLinkage()
+
+      expect(await runs.getAgentRun("agent-link-9")).toBeNull()
     },
     TIMEOUT
   )

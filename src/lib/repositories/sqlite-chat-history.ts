@@ -864,12 +864,17 @@ export interface AppendedRunTurn {
  * another repository because this module owns the chat tables and nothing
  * else: the job's own repository composes its INSERT, and neither module has
  * to know what the other stores.
+ *
+ * A session that is not there resolves `undefined` rather than throwing, so
+ * the decision is the caller's and is made once, inside the transaction. A
+ * caller that checked first and then called had a window: a chat deleted
+ * between the two turned "start this run without linkage" into a failed start.
  */
 export const appendRunTurn = async (
   request: Omit<StoredMessage, "id">,
   placeholder: (requestMessageId: number) => Omit<StoredMessage, "id">,
   alongside: (ids: AppendedRunTurn) => RunTurnStatement
-): Promise<AppendedRunTurn> => {
+): Promise<AppendedRunTurn | undefined> => {
   let appended: AppendedRunTurn | undefined
 
   await withTransaction(async (transaction) => {
@@ -877,9 +882,7 @@ export const appendRunTurn = async (
       "SELECT id FROM sessions WHERE id = ?",
       [request.sessionId]
     )
-    if (existing.length === 0) {
-      throw new Error(`Session ${request.sessionId} was not found`)
-    }
+    if (existing.length === 0) return
     const requestMessageId = await insertMessage(request, transaction)
     const resultMessageId = await insertMessage(
       placeholder(requestMessageId),
@@ -896,8 +899,7 @@ export const appendRunTurn = async (
     appended = ids
   })
 
-  if (!appended) throw new Error("The run turn was not appended")
-  await flushSave()
+  if (appended) await flushSave()
   return appended
 }
 

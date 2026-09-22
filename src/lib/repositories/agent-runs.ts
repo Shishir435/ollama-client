@@ -26,6 +26,7 @@ import {
 } from "@ollama-client/contracts"
 import { z } from "zod"
 import { logger } from "@/lib/logger"
+import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import {
   flushSave,
   query,
@@ -814,6 +815,32 @@ const idsFrom = (rows: Awaited<ReturnType<typeof query>>): string[] =>
   )
 
 /**
+ * Split message ids so one statement never outgrows the persistence protocol's
+ * bind ceiling.
+ *
+ * `repeats` is how many times the statement names each id — the orphan UPDATE
+ * names every id four times, once per `CASE` and once per `WHERE` arm. Left
+ * unbatched, a deleted subtree of a few thousand messages was refused by the
+ * owner, and the cleanup that refusal skipped is what keeps a live run from
+ * outliving its card.
+ */
+const messageIdBatches = (
+  messageIds: number[],
+  repeats: number,
+  reserved = 0
+): number[][] => {
+  const perBatch = Math.max(
+    1,
+    Math.floor((PERSISTENCE_LIMITS.bindValues - reserved) / repeats)
+  )
+  const batches: number[][] = []
+  for (let offset = 0; offset < messageIds.length; offset += perBatch) {
+    batches.push(messageIds.slice(offset, offset + perBatch))
+  }
+  return batches
+}
+
+/**
  * Runs still executing that report into one of these messages.
  *
  * Asked before a subtree is deleted, so the caller can stop them first. A run
@@ -824,16 +851,18 @@ const idsFrom = (rows: Awaited<ReturnType<typeof query>>): string[] =>
 export const listLiveAgentRunsForMessages = async (
   messageIds: number[]
 ): Promise<string[]> => {
-  if (messageIds.length === 0) return []
-  const slots = messageIds.map(() => "?").join(", ")
-  return idsFrom(
-    await query(
+  const found = new Set<string>()
+  for (const batch of messageIdBatches(messageIds, 2, LIVE_STATUSES.length)) {
+    const slots = batch.map(() => "?").join(", ")
+    const rows = await query(
       `SELECT id FROM agent_runs
         WHERE ${LIVE_RUNS}
           AND (requestMessageId IN (${slots}) OR resultMessageId IN (${slots}))`,
-      [...LIVE_STATUSES, ...messageIds, ...messageIds]
+      [...LIVE_STATUSES, ...batch, ...batch]
     )
-  )
+    for (const id of idsFrom(rows)) found.add(id)
+  }
+  return [...found]
 }
 
 /** The same question for a whole chat, asked before the chat is deleted. */
@@ -861,37 +890,48 @@ export const listLiveAgentRunsForSession = async (
 export const orphanAgentRunMessages = async (
   messageIds: number[]
 ): Promise<void> => {
-  if (messageIds.length === 0) return
-  const slots = messageIds.map(() => "?").join(", ")
-  await runWithMeta(
-    `UPDATE agent_runs
-        SET requestMessageId =
-              CASE WHEN requestMessageId IN (${slots}) THEN NULL
-                   ELSE requestMessageId END,
-            resultMessageId =
-              CASE WHEN resultMessageId IN (${slots}) THEN NULL
-                   ELSE resultMessageId END
-      WHERE requestMessageId IN (${slots}) OR resultMessageId IN (${slots})`,
-    [...messageIds, ...messageIds, ...messageIds, ...messageIds]
-  )
+  const batches = messageIdBatches(messageIds, 4)
+  if (batches.length === 0) return
+  for (const batch of batches) {
+    const slots = batch.map(() => "?").join(", ")
+    await runWithMeta(
+      `UPDATE agent_runs
+          SET requestMessageId =
+                CASE WHEN requestMessageId IN (${slots}) THEN NULL
+                     ELSE requestMessageId END,
+              resultMessageId =
+                CASE WHEN resultMessageId IN (${slots}) THEN NULL
+                     ELSE resultMessageId END
+        WHERE requestMessageId IN (${slots}) OR resultMessageId IN (${slots})`,
+      [...batch, ...batch, ...batch, ...batch]
+    )
+  }
   await flushSave()
 }
 
 /**
- * Delete every run of a chat, receipts included.
+ * Delete the settled runs of a chat, receipts included.
  *
  * The opposite answer to the one above, and deliberately: deleting a branch
  * prunes a conversation, while deleting the chat is the user asking for it to
  * be gone. In a product whose whole claim is that nothing leaves the device,
  * a browsing record that outlives the conversation it belongs to is the wrong
  * default. `agent_steps` cascades from `agent_runs`.
+ *
+ * Settled only, and that is the load-bearing word. A run that did not stop is
+ * still attached to a browser tab and still acting; deleting its row would
+ * take away the one handle startup recovery has for settling it, leaving an
+ * agent running that nothing can reach. Its row stays until it is terminal,
+ * and the sweep below collects it once it is.
  */
-export const deleteAgentRunsForSession = async (
+export const deleteSettledAgentRunsForSession = async (
   sessionId: string
 ): Promise<number> => {
   const result = await runWithMeta(
-    "DELETE FROM agent_runs WHERE sessionId = ?",
-    [sessionId]
+    `DELETE FROM agent_runs
+      WHERE sessionId = ?
+        AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})`,
+    [sessionId, ...TERMINAL_AGENT_STATUSES]
   )
   await flushSave()
   return result.changes
@@ -924,6 +964,19 @@ export const reconcileAgentRunLinkage = async (): Promise<void> => {
                AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})
           )`,
       [now, ...TERMINAL_AGENT_STATUSES]
+    )
+    /*
+     * A run left behind because it would not stop while its chat was being
+     * deleted. Recovery settles it earlier in this same startup; collecting it
+     * here is what finally honours the delete, and doing it after the settle
+     * rather than during it is why a live agent is never left unreachable.
+     */
+    await tx.run(
+      `DELETE FROM agent_runs
+        WHERE sessionId IS NOT NULL
+          AND sessionId NOT IN (SELECT id FROM sessions)
+          AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})`,
+      [...TERMINAL_AGENT_STATUSES]
     )
     await tx.run(
       `UPDATE agent_runs

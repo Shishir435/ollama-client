@@ -11,21 +11,28 @@ import { logger } from "@/lib/logger"
  * should have to import the other to say so. One-way, because the UI is
  * submitting intent — the durable work belongs to the background.
  *
+ * Awaited by its caller, and deliberately so: the background stops the live
+ * runs before the rows they report into are taken away, and a delete that ran
+ * ahead of the stop would remove the card of an agent still clicking. It is
+ * still one-way — what comes back is delivery, not a result.
+ *
  * Failure is logged and swallowed. There is nothing the person deleting a chat
- * can do about it, the delete itself has already succeeded, and what a lost
- * event leaves behind is a dangling pointer that startup reconciliation
- * repairs.
+ * can do about it, and what a lost event leaves behind is a dangling pointer
+ * that startup reconciliation repairs.
  */
-export const forgetAgentRuns = (
+export const forgetAgentRuns = async (
   event: { sessionId: string } | { messageIds: number[] }
-): void => {
+): Promise<void> => {
   if (!AGENT_PREVIEW_ENABLED) return
   if ("messageIds" in event && event.messageIds.length === 0) return
-  void browser.runtime
-    .sendMessage({ type: MESSAGE_KEYS.AGENT.FORGET_CHAT_ROWS, ...event })
-    .catch((error: unknown) => {
-      logger.warn("Agent was not told its chat rows were deleted", "Agent", {
-        name: error instanceof Error ? error.name : typeof error
-      })
+  try {
+    await browser.runtime.sendMessage({
+      type: MESSAGE_KEYS.AGENT.FORGET_CHAT_ROWS,
+      ...event
     })
+  } catch (error) {
+    logger.warn("Agent was not told its chat rows were deleted", "Agent", {
+      name: error instanceof Error ? error.name : typeof error
+    })
+  }
 }

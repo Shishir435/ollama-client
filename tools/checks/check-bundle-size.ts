@@ -341,9 +341,10 @@ const budgets: Budget[] = [
      * Tying a run to the conversation it belongs to — the linkage migration
      * and its repository ops, the commit that writes the request, the card and
      * the run together, and the cleanup a deleted chat asks for — took the
-     * measured Chrome baseline to 275,981. Most of it is SQL: statements that
-     * have to name every column they write. Firefox carries no Agent code and
-     * is unchanged.
+     * measured Chrome baseline to 276,144. Most of it is SQL: statements that
+     * have to name every column they write, and the batching that keeps a
+     * large deletion inside the persistence bind ceiling. Firefox carries no
+     * Agent code and is unchanged.
      */
     max: isFirefox ? 210_000 : 276_500
   }

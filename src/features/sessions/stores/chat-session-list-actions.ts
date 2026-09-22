@@ -85,7 +85,7 @@ export const createChatSessionListActions = (
      * told after its rows have gone has already spent steps on a conversation
      * that no longer exists.
      */
-    forgetAgentRuns({ sessionId: id })
+    await forgetAgentRuns({ sessionId: id })
     await repo.deleteSessionRow(id)
     await repo.deleteMessagesBySession(id)
     await repo.deleteFilesBySession(id)

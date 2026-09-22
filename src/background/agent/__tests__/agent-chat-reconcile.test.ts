@@ -9,7 +9,7 @@ const listLiveAgentRunsForSession = vi.fn<(id: string) => Promise<string[]>>(
 const orphanAgentRunMessages = vi.fn<(ids: number[]) => Promise<void>>(
   async () => undefined
 )
-const deleteAgentRunsForSession = vi.fn<(id: string) => Promise<number>>(
+const deleteSettledAgentRunsForSession = vi.fn<(id: string) => Promise<number>>(
   async () => 0
 )
 
@@ -18,7 +18,8 @@ vi.mock("@/lib/repositories/agent-runs", () => ({
     listLiveAgentRunsForMessages(ids),
   listLiveAgentRunsForSession: (id: string) => listLiveAgentRunsForSession(id),
   orphanAgentRunMessages: (ids: number[]) => orphanAgentRunMessages(ids),
-  deleteAgentRunsForSession: (id: string) => deleteAgentRunsForSession(id)
+  deleteSettledAgentRunsForSession: (id: string) =>
+    deleteSettledAgentRunsForSession(id)
 }))
 
 const {
@@ -74,13 +75,28 @@ describe("forgetting the runs of deleted chat rows", () => {
   })
 
   it("deletes the runs of a deleted chat, receipts included", async () => {
-    listLiveAgentRunsForSession.mockResolvedValue(["run-9"])
-    const stop = vi.fn(async () => undefined)
+    listLiveAgentRunsForSession.mockResolvedValueOnce(["run-9"])
+    listLiveAgentRunsForSession.mockResolvedValueOnce([])
+    const stop = vi.fn<(runId: string) => Promise<void>>(async () => undefined)
 
     await forgetAgentRunsForSession("s-1", stop)
 
     expect(stop).toHaveBeenCalledWith("run-9")
-    expect(deleteAgentRunsForSession).toHaveBeenCalledWith("s-1")
+    expect(deleteSettledAgentRunsForSession).toHaveBeenCalledWith("s-1")
+  })
+
+  it("re-reads rather than trusting a stop that did not throw", async () => {
+    /*
+     * A stop that returned is not proof the run settled. Deleting its row
+     * would take away the one handle startup recovery has for reaching an
+     * agent that is still attached to a browser.
+     */
+    listLiveAgentRunsForSession.mockResolvedValue(["run-stuck"])
+
+    await forgetAgentRunsForSession("s-1", async () => undefined)
+
+    expect(listLiveAgentRunsForSession).toHaveBeenCalledTimes(2)
+    expect(deleteSettledAgentRunsForSession).toHaveBeenCalledWith("s-1")
   })
 })
 
@@ -111,7 +127,7 @@ describe("the forget event", () => {
       { type: "agent-forget-chat-rows", sessionId: "s-2" },
       vi.fn(async () => undefined)
     )
-    expect(deleteAgentRunsForSession).toHaveBeenCalledWith("s-2")
+    expect(deleteSettledAgentRunsForSession).toHaveBeenCalledWith("s-2")
     expect(orphanAgentRunMessages).not.toHaveBeenCalled()
   })
 
@@ -121,6 +137,6 @@ describe("the forget event", () => {
       vi.fn(async () => undefined)
     )
     expect(orphanAgentRunMessages).toHaveBeenCalledWith([7])
-    expect(deleteAgentRunsForSession).not.toHaveBeenCalled()
+    expect(deleteSettledAgentRunsForSession).not.toHaveBeenCalled()
   })
 })

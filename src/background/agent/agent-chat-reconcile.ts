@@ -3,7 +3,7 @@ import { z } from "zod"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import {
-  deleteAgentRunsForSession,
+  deleteSettledAgentRunsForSession,
   listLiveAgentRunsForMessages,
   listLiveAgentRunsForSession,
   orphanAgentRunMessages
@@ -77,7 +77,21 @@ export const forgetAgentRunsForSession = async (
     stop,
     "session_deleted"
   )
-  await deleteAgentRunsForSession(sessionId)
+  /*
+   * Asked again rather than assumed: a stop that returned without throwing is
+   * not proof the run settled, and only a settled run may have its row taken
+   * away. A run still live keeps its row, because that row is the one handle
+   * startup recovery has for reaching it — deleting it would leave an agent
+   * attached to a browser with nothing able to stop it.
+   */
+  const unstopped = await listLiveAgentRunsForSession(sessionId)
+  if (unstopped.length > 0) {
+    logger.warn("Agent runs outlived the chat that was deleted", "Agent", {
+      sessionId,
+      count: unstopped.length
+    })
+  }
+  await deleteSettledAgentRunsForSession(sessionId)
 }
 
 /**
