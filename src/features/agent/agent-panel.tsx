@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { SettingsButton } from "@/components/settings-button"
@@ -36,10 +36,18 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
   )
   const { goal, setGoal, completeGoal } = useAgentDraft()
   const candidateTab = useAgentCandidateTab()
+  /*
+   * Deliberately not durable. This is a per-session confirmation that the user
+   * meant to run on a model whose tool calling is their own override rather
+   * than the model's answer; a remembered yes would silently cover the next
+   * model they set the same override on.
+   */
+  const [allowExperimentalModel, setAllowExperimentalModel] = useState(false)
   const connection = useAgentRun({
     providerId: selectedProviderId || undefined,
     modelId: selectedModel || undefined,
-    tabId: candidateTab?.id
+    tabId: candidateTab?.id,
+    allowExperimentalModel
   })
   useAgentDebugReport(connection.debugReport)
   const { snapshot } = connection
@@ -119,6 +127,8 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
           }
           privacyAcknowledged={acknowledged === true}
           screenshotsAcknowledged={screenshotsAcknowledged === true}
+          allowExperimentalModel={allowExperimentalModel}
+          onAllowExperimentalModel={setAllowExperimentalModel}
           busy={connection.busy}
           goal={goal}
           onGoalChange={setGoal}

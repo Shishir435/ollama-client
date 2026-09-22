@@ -85,6 +85,30 @@
     "model": {
       "label": "模型"
     },
+    "readiness": {
+      "status": {
+        "ready": "可用于 Agent",
+        "experimental": "Agent 实验性支持",
+        "unsupported": "不兼容 Agent"
+      },
+      "vision": {
+        "supported": "可读图像",
+        "unsupported": "仅文本",
+        "unknown": "图像能力未知"
+      },
+      "reason": {
+        "metadata": "该模型的目录声明支持工具调用。",
+        "verified_probe": "已通过向该模型发送测试请求确认工具调用。",
+        "user_override": "工具调用之所以开启，是因为你为该模型做了设置，而不是模型自己声明。",
+        "reported_unsupported": "该模型声明无法调用工具，而运行的每一步操作都需要工具。",
+        "unverified": "该模型的工具调用尚未确认。请进行探测，或自行设置该能力。",
+        "unknown": "该模型未说明是否支持工具调用，运行不会凭猜测开启它。"
+      },
+      "text_only": "该模型不读取图像。运行依靠页面文本和控件工作，因此只能靠看才能使用的页面无法完成。",
+      "alternatives": "该服务商中声明支持工具调用的模型：",
+      "allow_experimental": "仍以该模型开始",
+      "allow_experimental_description": "这里的工具调用是你的设置，而不是模型的回答。无法调用工具的模型会把整次运行都花在用文字作答上。"
+    },
     "observations": "{{count}} 次观察",
     "privacy": {
       "remote_notice": "智能体运行期间，页面观察内容将持续发送给此远程提供商。",

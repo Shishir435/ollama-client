@@ -85,6 +85,30 @@
     "model": {
       "label": "Modell"
     },
+    "readiness": {
+      "status": {
+        "ready": "Agent bereit",
+        "experimental": "Experimentelle Agent-Unterstützung",
+        "unsupported": "Nicht Agent-kompatibel"
+      },
+      "vision": {
+        "supported": "Visuell",
+        "unsupported": "Nur Text",
+        "unknown": "Bildverarbeitung unbekannt"
+      },
+      "reason": {
+        "metadata": "Der Katalog dieses Modells meldet Tool-Aufrufe.",
+        "verified_probe": "Tool-Aufrufe wurden mit einer Testanfrage an dieses Modell bestätigt.",
+        "user_override": "Tool-Aufrufe sind aktiv, weil du sie für dieses Modell gesetzt hast, nicht weil das Modell sie meldet.",
+        "reported_unsupported": "Dieses Modell meldet, dass es keine Tools aufrufen kann; ein Lauf braucht sie für jede Aktion.",
+        "unverified": "Tool-Aufrufe sind für dieses Modell nicht bestätigt. Prüfe sie, oder setze die Fähigkeit selbst.",
+        "unknown": "Dieses Modell sagt nichts über Tool-Aufrufe, und ein Lauf aktiviert sie nicht auf Verdacht."
+      },
+      "text_only": "Dieses Modell liest keine Bilder. Der Lauf arbeitet mit Seitentext und Bedienelementen; eine Seite, die man nur ansehen kann, funktioniert nicht.",
+      "alternatives": "Modelle dieses Anbieters, die Tool-Aufrufe melden:",
+      "allow_experimental": "Trotzdem mit diesem Modell starten",
+      "allow_experimental_description": "Tool-Aufrufe sind hier deine Einstellung, nicht die Antwort des Modells. Ein Modell ohne Tool-Aufrufe verbringt den Lauf mit Prosa."
+    },
     "observations": "{{count}} Beobachtungen",
     "privacy": {
       "remote_notice": "Seitenbeobachtungen werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet.",

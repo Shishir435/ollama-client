@@ -85,6 +85,30 @@
     "model": {
       "label": "Modèle"
     },
+    "readiness": {
+      "status": {
+        "ready": "Agent prêt",
+        "experimental": "Prise en charge expérimentale de l'Agent",
+        "unsupported": "Non compatible avec l'Agent"
+      },
+      "vision": {
+        "supported": "Visuel",
+        "unsupported": "Texte seul",
+        "unknown": "Vision inconnue"
+      },
+      "reason": {
+        "metadata": "Le catalogue de ce modèle déclare l'appel d'outils.",
+        "verified_probe": "L'appel d'outils a été confirmé par une requête de test envoyée à ce modèle.",
+        "user_override": "L'appel d'outils est actif parce que vous l'avez défini pour ce modèle, pas parce que le modèle le déclare.",
+        "reported_unsupported": "Ce modèle déclare ne pas pouvoir appeler d'outils, et une exécution en a besoin pour chaque action.",
+        "unverified": "L'appel d'outils n'est pas confirmé pour ce modèle. Testez-le, ou définissez la capacité vous-même.",
+        "unknown": "Ce modèle ne dit rien de l'appel d'outils, et une exécution ne l'activera pas au jugé."
+      },
+      "text_only": "Ce modèle ne lit pas les images. L'exécution s'appuie sur le texte et les contrôles de la page ; une page qui ne s'utilise qu'en la regardant ne fonctionnera pas.",
+      "alternatives": "Modèles de ce fournisseur qui déclarent l'appel d'outils :",
+      "allow_experimental": "Démarrer quand même avec ce modèle",
+      "allow_experimental_description": "Ici, l'appel d'outils est votre réglage, pas la réponse du modèle. Un modèle incapable d'appeler des outils passe l'exécution à répondre en prose."
+    },
     "observations": "{{count}} observations",
     "privacy": {
       "remote_notice": "Les observations de page seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent.",

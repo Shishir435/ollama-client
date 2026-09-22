@@ -2,6 +2,7 @@ import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import {
   type AgentApprovalRequest,
   type AgentBrowserDisclosure,
+  type AgentModelReadiness,
   type AgentRunState,
   type AgentStepRecord,
   type AgentTakeoverRequest,
@@ -10,10 +11,12 @@ import {
 import { Bot, Eye, FileText, MessageSquareWarning } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { agentReadinessPermitsStart } from "@/application/agent/agent-model-readiness"
 import { Button } from "@/components/ui/button"
 import { AgentApprovalCard } from "./components/agent-approval-card"
 import { AgentBrowserDisclosureCard } from "./components/agent-browser-disclosure-card"
 import { AgentGoalComposer } from "./components/agent-goal-composer"
+import { AgentModelReadinessCard } from "./components/agent-model-readiness-card"
 import { AgentOutcomeCard } from "./components/agent-outcome-card"
 import { AgentQuestionCard } from "./components/agent-question-card"
 import { AgentRunControls } from "./components/agent-run-controls"
@@ -32,6 +35,8 @@ export interface AgentProviderPresentation {
   location: "local" | "remote"
   /** Whether viewport screenshots travel with observations; absent is unknown. */
   screenshots?: boolean
+  /** Whether a run can start with this model; absent while still resolving. */
+  readiness?: AgentModelReadiness
 }
 
 /**
@@ -87,6 +92,9 @@ export interface AgentViewProps {
   onAcknowledgePrivacy?: (scope: "observations" | "screenshots") => void
   /** The separate acknowledgement that screenshots may reach a remote model. */
   screenshotsAcknowledged?: boolean
+  /** The user's explicit opt-in to a model whose tool calling is their own override. */
+  allowExperimentalModel?: boolean
+  onAllowExperimentalModel?: (allowed: boolean) => void
   onStart?: (goal: string, allowRoutineActions: boolean) => void
   /** `scope` widens the approval to this origin for the rest of the run. */
   onApprove?: (scope?: "run_origin") => void
@@ -222,6 +230,41 @@ const AgentStartConsent = ({
   )
 }
 
+/**
+ * What a run would be, before there is one: the model's readiness, what this
+ * browser lets a run do, and which endpoint and tab it would use.
+ *
+ * Grouped rather than three conditions in the view, because all three answer
+ * one question — whether to start — and they appear and disappear together.
+ * Setup belongs to the empty surface; a settled run remains a run history, not
+ * a second setup screen stacked above its receipts.
+ */
+const AgentSetupDisclosures = ({
+  provider,
+  browser,
+  tab,
+  allowExperimentalModel,
+  onAllowExperimentalModel
+}: {
+  provider?: AgentProviderPresentation
+  browser?: AgentBrowserDisclosure
+  tab?: AgentTabPresentation
+  allowExperimentalModel: boolean
+  onAllowExperimentalModel: (allowed: boolean) => void
+}) => (
+  <>
+    {provider?.readiness && (
+      <AgentModelReadinessCard
+        readiness={provider.readiness}
+        allowExperimental={allowExperimentalModel}
+        onAllowExperimental={onAllowExperimentalModel}
+      />
+    )}
+    {browser && <AgentBrowserDisclosureCard browser={browser} />}
+    <AgentRunDetailsCard provider={provider} tab={tab} />
+  </>
+)
+
 export const AgentView = ({
   leading,
   run = null,
@@ -233,6 +276,8 @@ export const AgentView = ({
   takeover,
   privacyAcknowledged = false,
   screenshotsAcknowledged = false,
+  allowExperimentalModel = false,
+  onAllowExperimentalModel = noop,
   busy = false,
   goal = "",
   onGoalChange = () => undefined,
@@ -274,6 +319,12 @@ export const AgentView = ({
   const canStart =
     Boolean(onStart && provider && tab && goal.trim()) &&
     !remoteNeedsAcknowledgement &&
+    /*
+     * The same union the run is refused by. Start stayed live for a model
+     * that cannot call tools, so the refusal arrived after the run had
+     * attached to a tab and spent an observation.
+     */
+    agentReadinessPermitsStart(provider?.readiness, allowExperimentalModel) &&
     !busy
 
   useEffect(() => {
@@ -367,10 +418,15 @@ export const AgentView = ({
           followActivity.current =
             region.scrollHeight - region.scrollTop - region.clientHeight < 48
         }}>
-        {/* Setup belongs to the empty surface. A settled run remains a run
-            history, not a second setup screen stacked above its receipts. */}
-        {!run && browser && <AgentBrowserDisclosureCard browser={browser} />}
-        {!run && <AgentRunDetailsCard provider={provider} tab={tab} />}
+        {!run && (
+          <AgentSetupDisclosures
+            provider={provider}
+            browser={browser}
+            tab={tab}
+            allowExperimentalModel={allowExperimentalModel}
+            onAllowExperimentalModel={onAllowExperimentalModel}
+          />
+        )}
 
         {/* A retained settled run must not hide consent required by the next
             start. Routine-action setup remains exclusive to the empty view. */}

@@ -85,6 +85,30 @@
     "model": {
       "label": "Modelo"
     },
+    "readiness": {
+      "status": {
+        "ready": "Agente listo",
+        "experimental": "Compatibilidad experimental con el Agente",
+        "unsupported": "No compatible con el Agente"
+      },
+      "vision": {
+        "supported": "Visual",
+        "unsupported": "Solo texto",
+        "unknown": "Visión desconocida"
+      },
+      "reason": {
+        "metadata": "El catálogo de este modelo declara llamadas a herramientas.",
+        "verified_probe": "Las llamadas a herramientas se confirmaron con una petición de prueba a este modelo.",
+        "user_override": "Las llamadas a herramientas están activas porque tú lo configuraste para este modelo, no porque el modelo lo declare.",
+        "reported_unsupported": "Este modelo declara que no puede llamar a herramientas, y una ejecución las necesita para cada acción.",
+        "unverified": "Las llamadas a herramientas no están confirmadas para este modelo. Pruébalas o configura la capacidad tú mismo.",
+        "unknown": "Este modelo no dice nada sobre llamadas a herramientas, y una ejecución no las activará por suposición."
+      },
+      "text_only": "Este modelo no lee imágenes. La ejecución trabaja con el texto y los controles de la página, así que una página que solo se puede usar mirándola no funcionará.",
+      "alternatives": "Modelos de este proveedor que declaran llamadas a herramientas:",
+      "allow_experimental": "Iniciar de todas formas con este modelo",
+      "allow_experimental_description": "Aquí las llamadas a herramientas son tu ajuste, no la respuesta del modelo. Un modelo que no puede llamar herramientas gasta la ejecución respondiendo en prosa."
+    },
     "observations": "{{count}} observaciones",
     "privacy": {
       "remote_notice": "Las observaciones de página se enviarán continuamente a este proveedor remoto mientras se ejecute el Agente.",
