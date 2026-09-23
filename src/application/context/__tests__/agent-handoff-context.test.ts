@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest"
 import type { ChatMessage } from "@/types"
 import {
   AGENT_ROW_HISTORY_TEXT,
+  agentHandoffBudget,
   MAX_AGENT_HANDOFF_CONTEXT_CHARS,
   MAX_AGENT_HANDOFFS_IN_CONTEXT,
   neutralizeAgentRows,
@@ -139,5 +140,44 @@ describe("agent rows in the history a provider sees", () => {
     expect(neutral[1]?.content).toBe(AGENT_ROW_HISTORY_TEXT)
     expect(neutral[0]).toBe(history[0])
     expect(neutral[2]).toBe(history[2])
+  })
+})
+
+describe("the budget the agent records may claim", () => {
+  it("is a small share of the window the model is run with", () => {
+    expect(
+      agentHandoffBudget({
+        contextWindowTokens: 4096,
+        remainingContextChars: Number.POSITIVE_INFINITY
+      })
+    ).toBe(2048)
+  })
+
+  it("never exceeds what three records can need", () => {
+    expect(
+      agentHandoffBudget({
+        contextWindowTokens: 1_000_000,
+        remainingContextChars: Number.POSITIVE_INFINITY
+      })
+    ).toBe(MAX_AGENT_HANDOFF_CONTEXT_CHARS)
+  })
+
+  /**
+   * One budget with retrieved context, not a second one beside it: what the
+   * retrieval spent, the records cannot.
+   */
+  it("shares what retrieval left rather than claiming its own", () => {
+    expect(
+      agentHandoffBudget({
+        contextWindowTokens: 65_536,
+        remainingContextChars: 300
+      })
+    ).toBe(300)
+    expect(
+      agentHandoffBudget({
+        contextWindowTokens: 65_536,
+        remainingContextChars: 0
+      })
+    ).toBe(0)
   })
 })

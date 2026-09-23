@@ -549,20 +549,26 @@ const settleLinkedMessage = async (
     state,
     await listRunFindings(tx, state.id)
   )
-  const sets = ["done = 1", "updatedAt = ?"]
-  const params: Array<string | number> = [state.updatedAt]
-  if (result) {
-    sets.push("content = ?")
-    params.push(result)
-  }
-  if (handoff) {
-    sets.push("agentHandoff = ?")
-    params.push(JSON.stringify(handoff))
-  }
   await tx.run(
-    `UPDATE messages SET ${sets.join(", ")} WHERE id = ? AND done = 0`,
-    [...params, resultMessageId]
+    `UPDATE messages
+        SET done = 1, updatedAt = ?${result ? ", content = ?" : ""}
+      WHERE id = ? AND done = 0`,
+    result
+      ? [state.updatedAt, result, resultMessageId]
+      : [state.updatedAt, resultMessageId]
   )
+  /**
+   * Its own statement, and not guarded on `done`: a row something else
+   * already finished still belongs to this run, and a later turn is owed its
+   * handoff either way. Guarded on being unwritten instead, so the one writer
+   * cannot be overwritten by a second settle.
+   */
+  if (handoff) {
+    await tx.run(
+      "UPDATE messages SET agentHandoff = ? WHERE id = ? AND agentHandoff IS NULL",
+      [JSON.stringify(handoff), resultMessageId]
+    )
+  }
 }
 
 const updateAgentRun = async (
@@ -1065,9 +1071,43 @@ export const reconcileAgentRunLinkage = async (
            OR (resultMessageId IS NOT NULL
                  AND resultMessageId NOT IN (SELECT id FROM messages))`
     )
+    await writeMissingHandoffs(tx)
   })
   await flushSave()
   signal?.throwIfAborted()
+}
+
+/**
+ * A handoff for every settled run whose row has none: runs settled before
+ * handoffs existed, and a settle whose row something else had already
+ * finished. Only those rows are read, so a profile where every row has its
+ * handoff pays one indexed lookup and nothing more.
+ */
+const writeMissingHandoffs = async (
+  tx: Pick<SqlExecutor, "run" | "query">
+): Promise<void> => {
+  const rows = await tx.query(
+    `SELECT ${selectRunColumns} FROM agent_runs
+      WHERE resultMessageId IS NOT NULL
+        AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})
+        AND resultMessageId IN (
+          SELECT id FROM messages WHERE agentHandoff IS NULL
+        )`,
+    [...TERMINAL_AGENT_STATUSES]
+  )
+  for (const row of decodeRows(AgentRunRowSchema, rows, TABLE)) {
+    const run = parseRun(row)
+    if (!run?.state || run.resultMessageId === undefined) continue
+    const handoff = buildAgentConversationHandoff(
+      run.state,
+      await listRunFindings(tx, run.id)
+    )
+    if (!handoff) continue
+    await tx.run(
+      "UPDATE messages SET agentHandoff = ? WHERE id = ? AND agentHandoff IS NULL",
+      [JSON.stringify(handoff), run.resultMessageId]
+    )
+  }
 }
 
 export const createAgentPersistencePort = (): AgentPersistencePort => ({

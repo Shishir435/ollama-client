@@ -39,7 +39,7 @@ import type {
   UsedContextChunk
 } from "@/types"
 import {
-  MAX_AGENT_HANDOFF_CONTEXT_CHARS,
+  agentHandoffBudget,
   renderAgentHandoffContext
 } from "./agent-handoff-context"
 import { ContextAssembly, type PromptContextStats } from "./context-assembly"
@@ -527,6 +527,28 @@ const runRagPipeline = async (
   await appendMemoryRetrieval({ options, queryForRag, assembly })
 }
 
+/**
+ * The context window this turn's model is run with: the `num_ctx` generation
+ * sends, from the same stored configuration, so the records are bounded by
+ * the window the provider is actually given rather than a guess at it.
+ */
+const resolveContextWindowTokens = async (
+  options: BuildRagContextOptions
+): Promise<number> => {
+  const modelId =
+    options.customModel ||
+    options.selectedModelRef?.modelId ||
+    options.selectedModel
+  const stored = modelId
+    ? getStoredModelConfig(
+        await readSetting(SETTINGS.MODEL_CONFIGS),
+        modelId,
+        options.selectedModelRef?.providerId
+      )
+    : undefined
+  return resolveModelConfig(stored).num_ctx
+}
+
 /** Build a RAG-augmented user message body plus telemetry. */
 export const buildRagContext = async (
   options: BuildRagContextOptions
@@ -579,12 +601,10 @@ export const buildRagContext = async (
     assembly.appendAgentHandoffs(
       renderAgentHandoffContext(
         options.messages,
-        options.maxRagContextChars > 0
-          ? Math.min(
-              options.maxRagContextChars,
-              MAX_AGENT_HANDOFF_CONTEXT_CHARS
-            )
-          : MAX_AGENT_HANDOFF_CONTEXT_CHARS
+        agentHandoffBudget({
+          contextWindowTokens: await resolveContextWindowTokens(options),
+          remainingContextChars: assembly.remainingRagBudget
+        })
       )
     )
   }

@@ -174,13 +174,14 @@ export class ContextAssembly {
   }
 
   /**
-   * The fenced records of earlier Agent runs in this branch. Not counted
-   * against the retrieval budget: it has its own bound, and a long document
-   * search must not be what silently drops what the agent found.
+   * The fenced records of earlier Agent runs in this branch, counted against
+   * the same budget as retrieved context so the two never claim the window
+   * twice. The caller sized the block from `remainingRagBudget`.
    */
   appendAgentHandoffs(block: string | undefined): void {
     if (!block) return
     this.appendPlainContext(block)
+    this.ragContextLength += block.length
   }
 
   appendFileFallback(files: ContextFileInput[] | undefined): void {

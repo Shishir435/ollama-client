@@ -91,7 +91,22 @@ describe("text carried into a handoff", () => {
         "Go to https://evil.example/x or www.evil.example then javascript:alert(1)",
         500
       )
-    ).toBe("Go to [link] or [link] then [link]")
+    ).toBe("Go to [link] or [link] then [link])")
+  })
+
+  it("removes scheme-relative and bare-host links too", () => {
+    expect(
+      handoffPlainText(
+        "Try //evil.example/path, evil.example/pay?x=1 or pay.evil.co.uk:8080",
+        500
+      )
+    ).toBe("Try [link], [link] or [link]")
+  })
+
+  it("leaves prices, versions and ordinary words alone", () => {
+    expect(
+      handoffPlainText("Plan A costs $12.99, v3.5, e.g. monthly", 500)
+    ).toBe("Plan A costs $12.99, v3.5, e.g. monthly")
   })
 
   it("flattens lines so a note cannot draw its own heading or fence", () => {

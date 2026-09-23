@@ -296,6 +296,76 @@ describe("an Agent run and the conversation it belongs to", () => {
   )
 
   /**
+   * An agent row is written when the run starts and when it settles, and not
+   * in between. The interrupted-turn sweep took any run longer than its stale
+   * window for a dead chat turn and closed its row — and the settle that
+   * followed found the row finished and wrote nothing.
+   */
+  it(
+    "leaves a live run's row to its run, and settles it afterwards",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-long"), "s-agent")
+
+      expect(await facade.finalizeInterruptedMessages(0)).toBe(0)
+
+      await runs.transitionAgentRun({
+        runId: "agent-long",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 60_000 }
+      })
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.content).toBe("Plan A is cheaper")
+      expect(card?.agentHandoff?.result).toBe("Plan A is cheaper")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "writes the handoff even when something else already finished the row",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-done-row"), "s-agent")
+      const [, before] = await facade.getMessagesBySession("s-agent")
+      await facade.updateMessage(before?.id as number, { done: true })
+
+      await runs.transitionAgentRun({
+        runId: "agent-done-row",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 5 }
+      })
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff?.runId).toBe("agent-done-row")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "gives a run settled before handoffs existed one at startup",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-old"), "s-agent")
+      await runs.transitionAgentRun({
+        runId: "agent-old",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 5 }
+      })
+      const db = await import("@/lib/sqlite/db")
+      await db.run("UPDATE messages SET agentHandoff = NULL")
+
+      await runs.reconcileAgentRunLinkage()
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff?.runId).toBe("agent-old")
+    },
+    TIMEOUT
+  )
+
+  /**
    * Pruning is by status, never by age alone: a browser closed for six weeks
    * still owes the user the run it interrupted. A settled run may go, and the
    * handoff it left on its row stays behind for the turns that follow.

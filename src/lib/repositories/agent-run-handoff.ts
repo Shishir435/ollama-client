@@ -14,13 +14,35 @@ import {
 import { redactLogText } from "@/lib/log-redaction"
 
 /**
- * Any scheme a later model could be invited to open, and bare `www.` hosts.
+ * Anything a later model could read as somewhere to go: an explicit scheme, a
+ * scheme-relative `//host`, and a bare `host.tld` with or without a path.
  * Replaced rather than kept as text: a handoff tells a later turn what a run
  * found, never where to go next, and a link in page-derived text is the
  * shortest path from a hostile page to a second visit.
+ *
+ * The bare-host rule is deliberately greedy. It also takes `node.js` and
+ * `README.md`, which costs a note a word; missing `evil.example/pay` costs a
+ * user a visit.
  */
-const LINK_PATTERN =
-  /\b(?:https?|ftp|file|data|javascript|chrome|about):\S*|\bwww\.\S+/gi
+const LINK_PATTERNS = [
+  /\b[a-z][a-z0-9+.-]*:\/\/\S*/gi,
+  /\b(?:javascript|data|file|about|chrome|mailto|blob):\S*/gi,
+  /(?<![\w:])\/\/[^\s/]+\S*/g,
+  /\b(?:[a-z0-9-]+\.)+[a-z]{2,24}(?::\d{1,5})?(?:[/?#]\S*)?/gi
+]
+
+/** Punctuation ending the sentence a link sat in, kept outside the link. */
+const TRAILING_PUNCTUATION = /[.,;:!?)\]'"]+$/
+
+const withoutLinks = (value: string): string =>
+  LINK_PATTERNS.reduce(
+    (text, pattern) =>
+      text.replaceAll(
+        pattern,
+        (link) => `[link]${link.match(TRAILING_PUNCTUATION)?.[0] ?? ""}`
+      ),
+    value
+  )
 
 /**
  * Page-derived or model-authored text, made safe to carry into a prompt.
@@ -36,7 +58,7 @@ export const handoffPlainText = (value: string, limit: number): string => {
     const code = character.charCodeAt(0)
     return code < 32 || code === 127 ? " " : character
   }).join("")
-  const cleaned = redactLogText(flattened.replaceAll(LINK_PATTERN, "[link]"))
+  const cleaned = redactLogText(withoutLinks(flattened))
     .replaceAll(/\s+/g, " ")
     .trim()
   return cleaned.length <= limit

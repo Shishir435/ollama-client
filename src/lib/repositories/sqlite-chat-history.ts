@@ -790,6 +790,10 @@ export const updateMessageWithImages = async (
  *     checkpoint is live. Excluding sessions that have any checkpoint row
  *     keeps those live waits from being finalized (rows are deleted on
  *     completion and pruned when abandoned).
+ *   - Agent ownership: a row an Agent run reports into is written once when
+ *     the run starts and again when it settles, and nothing in between — a
+ *     run lasting longer than `staleMs` looked orphaned. Its run owns it, and
+ *     startup reconciliation settles the ones a dead worker left.
  *
  * Returns the count fixed.
  */
@@ -809,6 +813,7 @@ export const finalizeInterruptedMessages = async (
   const rows = await query(
     `SELECT id, metrics FROM messages
      WHERE role = 'assistant' AND done = 0
+       AND agentRunId IS NULL
        AND (updatedAt IS NULL OR updatedAt < ?)
        AND id NOT IN (
          SELECT assistantMessageId FROM turn_runs

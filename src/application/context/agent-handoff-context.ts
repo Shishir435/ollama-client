@@ -10,11 +10,45 @@ export const MAX_AGENT_HANDOFFS_IN_CONTEXT = 3
 
 /**
  * The most the handoffs of one turn may add, derived from the per-handoff
- * bound so the window and its parts cannot disagree. The user's own context
- * budget still wins when it is smaller.
+ * bound so the window and its parts cannot disagree.
  */
 export const MAX_AGENT_HANDOFF_CONTEXT_CHARS =
   MAX_AGENT_HANDOFFS_IN_CONTEXT * MAX_AGENT_HANDOFF_CHARS
+
+/**
+ * The share of the model's window the records may claim. Small, because they
+ * are a reminder beside the conversation rather than the conversation: the
+ * history and the question own the rest.
+ */
+export const AGENT_HANDOFF_WINDOW_SHARE = 1 / 8
+
+/** The same estimate the chunker uses, so both claimants count alike. */
+const CHARS_PER_TOKEN = 4
+
+/**
+ * How many characters of agent records a turn may carry.
+ *
+ * The smallest of three bounds: what three records can ever need, a fixed
+ * share of the context window the model is actually run with, and whatever
+ * the retrieval budget has left. The last is what makes the records share one
+ * budget with retrieved context rather than claiming a second one beside it —
+ * a small-context model gets a short reminder, or none, instead of losing the
+ * start of its own conversation to it.
+ */
+export const agentHandoffBudget = (input: {
+  contextWindowTokens: number
+  remainingContextChars: number
+}): number =>
+  Math.max(
+    0,
+    Math.min(
+      MAX_AGENT_HANDOFF_CONTEXT_CHARS,
+      Math.floor(
+        input.contextWindowTokens * CHARS_PER_TOKEN * AGENT_HANDOFF_WINDOW_SHARE
+      ),
+      input.remainingContextChars
+    )
+  )
 
 const OPEN = "<agent_runs>"
 const CLOSE = "</agent_runs>"
