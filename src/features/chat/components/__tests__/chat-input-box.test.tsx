@@ -40,7 +40,9 @@ vi.mock("react-i18next", () => ({
 }))
 
 vi.mock("@/features/chat/components/chat-input/chat-input-toolbar", () => ({
-  ChatInputToolbar: () => <div>toolbar</div>
+  ChatInputToolbar: ({ contextControls = true }) => (
+    <div>toolbar{contextControls ? " context-menu" : ""}</div>
+  )
 }))
 
 vi.mock("@/components/layout/composer-shell", () => ({
@@ -251,11 +253,62 @@ describe("ChatInputBox", () => {
       const { rerender } = render(
         box(mode({ prefill: { text: "Try again", token: 1 } }))
       )
-      expect(composer.setInput).toHaveBeenCalledWith("Try again")
+      expect(composer.setInput).toHaveBeenLastCalledWith("Try again")
 
       composer.setInput.mockClear()
       rerender(box(mode({ prefill: { text: "Try again", token: 1 } })))
       expect(composer.setInput).not.toHaveBeenCalled()
+    })
+
+    /**
+     * A prefill is Act's. One requested while the box shows a chat draft
+     * waits for Act instead of overwriting the message.
+     */
+    it("keeps a prefill out of the chat draft until Act is showing", () => {
+      composer.input = "half a message"
+      const prefill = { text: "Try again", token: 1 }
+      const { rerender } = render(box(mode({ active: false, prefill })))
+      expect(composer.setInput).not.toHaveBeenCalled()
+
+      rerender(box(mode({ active: true, prefill })))
+      expect(composer.setInput).toHaveBeenLastCalledWith("Try again")
+    })
+
+    /**
+     * One draft per mode: the half-written message is still there on the
+     * way back, and a goal never becomes a message by pressing the switch.
+     */
+    it("keeps the chat draft and the task draft apart", () => {
+      composer.input = "half a message"
+      const { rerender } = render(box(mode({ active: false })))
+
+      rerender(box(mode({ active: true })))
+      expect(composer.setInput).toHaveBeenLastCalledWith("")
+
+      composer.input = "a goal"
+      rerender(box(mode({ active: true })))
+      rerender(box(mode({ active: false })))
+      expect(composer.setInput).toHaveBeenLastCalledWith("half a message")
+
+      rerender(box(mode({ active: true })))
+      expect(composer.setInput).toHaveBeenLastCalledWith("a goal")
+    })
+
+    /**
+     * A task is words: an attachment staged in Act would be dropped from the
+     * goal without a word, then sent with the next chat message.
+     */
+    it("offers no attachments or context while sending a task", () => {
+      render(box(mode()))
+
+      expect(screen.getByText("toolbar")).toBeInTheDocument()
+      expect(screen.queryByText(/context-menu/)).not.toBeInTheDocument()
+      const field = screen.getByLabelText("What should Agent do?")
+      const image = new File(["x"], "shot.png", { type: "image/png" })
+      const pasted = fireEvent.paste(field, {
+        clipboardData: { files: [image] }
+      })
+      expect(pasted).toBe(true)
     })
 
     /** Inactive is chat, exactly: the message path is the one that runs. */

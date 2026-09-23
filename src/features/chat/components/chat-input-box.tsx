@@ -79,13 +79,39 @@ export const ChatInputBox = ({
    */
   const composerMode = useChatComposerMode()
   const alternate = composerMode?.active ? composerMode : undefined
+  const acting = alternate !== undefined
+  /**
+   * One draft per mode. The box is shared, the sentences are not: a message
+   * half-written before switching to Act is still there on the way back, and
+   * a goal never becomes a chat message by pressing the other button.
+   */
+  const drafts = useRef({ chat: "", act: "" })
+  const shownMode = useRef<"chat" | "act">("chat")
+  const inputRef = useRef(input)
+  inputRef.current = input
+  useEffect(() => {
+    const next = acting ? "act" : "chat"
+    if (shownMode.current === next) return
+    drafts.current[shownMode.current] = inputRef.current
+    shownMode.current = next
+    setInput(drafts.current[next])
+  }, [acting, setInput])
+  /**
+   * A prefill is Act's, so it lands only in Act and only once per token — a
+   * request made while the box shows a chat draft waits for Act rather than
+   * overwriting the message.
+   */
+  const appliedPrefill = useRef<number | undefined>(undefined)
   const prefillToken = composerMode?.prefill?.token
   const prefillText = composerMode?.prefill?.text
   useEffect(() => {
-    if (prefillToken === undefined || prefillText === undefined) return
+    if (!acting || prefillToken === undefined || prefillText === undefined)
+      return
+    if (appliedPrefill.current === prefillToken) return
+    appliedPrefill.current = prefillToken
     setInput(prefillText)
     textareaRef.current?.focus()
-  }, [prefillToken, prefillText, setInput])
+  }, [acting, prefillToken, prefillText, setInput])
   const selectionStartRef = useRef<number | null>(null)
   const selectionEndRef = useRef<number | null>(null)
   const lastSelectionAppendRef = useRef<{ text: string; at: number } | null>(
@@ -280,8 +306,14 @@ export const ChatInputBox = ({
     [processFiles, handleImageFiles]
   )
 
+  /**
+   * A task is words. Nothing is staged in Act mode: a file or picture
+   * attached there would be dropped from the goal without a word, then sent
+   * with the next chat message instead.
+   */
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (acting) return
       const pastedImages = Array.from(e.clipboardData.files).filter((f) =>
         f.type.startsWith("image/")
       )
@@ -290,14 +322,17 @@ export const ChatInputBox = ({
         handleImageFiles(pastedImages)
       }
     },
-    [handleImageFiles]
+    [acting, handleImageFiles]
   )
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
-  }, [])
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!acting) setIsDragging(true)
+    },
+    [acting]
+  )
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -310,6 +345,7 @@ export const ChatInputBox = ({
       e.preventDefault()
       e.stopPropagation()
       setIsDragging(false)
+      if (acting) return
 
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const files = Array.from(e.dataTransfer.files)
@@ -322,7 +358,7 @@ export const ChatInputBox = ({
         }
       }
     },
-    [processFiles, handleImageFiles]
+    [acting, processFiles, handleImageFiles]
   )
 
   const appendSelectionToInput = useCallback(
@@ -486,6 +522,7 @@ export const ChatInputBox = ({
           onRemoveImage={removeImage}
           onCaptureScreenshot={captureScreenshot}
           showScreenshot={!visionUnsupported}
+          contextControls={!acting}
         />
 
         <div className="absolute right-3 top-3">

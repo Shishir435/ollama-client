@@ -4,7 +4,10 @@ import { useTranslation } from "react-i18next"
 
 import { agentReadinessPermitsStart } from "@/application/agent/agent-model-readiness"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import {
+  chatSessionStore,
+  useChatSessions
+} from "@/features/sessions/stores/chat-session-store"
 import { useSetting } from "@/hooks/use-setting"
 import { SETTINGS } from "@/lib/storage/settings"
 import { AgentActPreflight } from "./components/agent-act-preflight"
@@ -123,6 +126,23 @@ export const AgentWorkspace = ({
   }, [settleFollowUp, shownRunId, followedRunId])
 
   /**
+   * A run's request and card rows are written by the background, in the
+   * commit that admits it, so the conversation on screen never saw them. The
+   * surface switch used to re-read the chat on the way back; with no surface
+   * to leave, the chat is re-read the moment a run it has not shown appears,
+   * or the card that carries the run's approvals would stay hidden until
+   * something else reloaded it.
+   */
+  const reloadedForRun = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (!shownRunId || reloadedForRun.current === shownRunId) return
+    reloadedForRun.current = shownRunId
+    const { currentSessionId: sessionId, loadSessionMessages } =
+      chatSessionStore.getState()
+    if (sessionId) void loadSessionMessages(sessionId)
+  }, [shownRunId])
+
+  /**
    * A task that was sent is waited for, not assumed. The box is cleared on
    * Start; the mode returns to Chat once the run it started is showing, and a
    * refused start puts the sentence back, so a pruned parent or an unusable
@@ -190,9 +210,17 @@ export const AgentWorkspace = ({
    * one, the way Start chatting does, so the Agent is never unreachable until
    * the user has started a conversation they did not want.
    */
+  const creatingSession = useRef(false)
   const changeMode = (next: boolean) => {
     if (next && !currentSessionId) {
-      void createSession().then(() => setActing(true))
+      /** One chat per switch, however many times it is pressed meanwhile. */
+      if (creatingSession.current) return
+      creatingSession.current = true
+      void createSession()
+        .then(() => setActing(true))
+        .finally(() => {
+          creatingSession.current = false
+        })
       return
     }
     setActing(next)

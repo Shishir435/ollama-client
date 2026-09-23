@@ -20,10 +20,12 @@ vi.mock("@/hooks/use-setting", () => ({
 
 const sessions = vi.hoisted(() => ({
   currentSessionId: "s-1" as string | null,
-  createSession: vi.fn(async () => undefined)
+  createSession: vi.fn(async () => undefined),
+  loadSessionMessages: vi.fn(async () => undefined)
 }))
 vi.mock("@/features/sessions/stores/chat-session-store", () => ({
-  useChatSessions: () => sessions
+  useChatSessions: () => sessions,
+  chatSessionStore: { getState: () => sessions }
 }))
 
 vi.mock("@/features/model/hooks/use-provider-models", () => ({
@@ -141,6 +143,7 @@ beforeEach(() => {
   settings.acknowledged = true
   sessions.currentSessionId = "s-1"
   sessions.createSession.mockClear()
+  sessions.loadSessionMessages.mockClear()
   port.snapshot = { steps: [], provider: readyProvider }
   port.failure = undefined
   port.start.mockReset()
@@ -333,5 +336,44 @@ describe("the Agent in the chat workspace", () => {
 
     expect(sessions.createSession).toHaveBeenCalledOnce()
     expect(agentDraftStore.getState().acting).toBe(true)
+  })
+
+  it("makes one chat however many times the switch is pressed meanwhile", async () => {
+    agentDraftStore.setState({ acting: false })
+    sessions.currentSessionId = null
+    let finish: () => void = () => undefined
+    sessions.createSession.mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          finish = () => resolve(undefined)
+        })
+    )
+    render(<Composer />)
+    const toggle = screen.getByRole("button", {
+      name: "agent.surface.agent · agent.surface.preview"
+    })
+
+    fireEvent.click(toggle)
+    fireEvent.click(toggle)
+    await act(async () => finish())
+
+    expect(sessions.createSession).toHaveBeenCalledOnce()
+  })
+
+  /**
+   * The background writes a run's request and card in the commit that admits
+   * it. The conversation on screen never saw them, so it is re-read, or the
+   * card carrying the run's approvals would stay hidden.
+   */
+  it("re-reads the open chat when a run it has not shown appears", () => {
+    const view = render(<Composer />)
+    sessions.loadSessionMessages.mockClear()
+
+    port.snapshot = { steps: [], provider: readyProvider, run: run() }
+    view.rerender(<Composer />)
+    view.rerender(<Composer />)
+
+    expect(sessions.loadSessionMessages).toHaveBeenCalledOnce()
+    expect(sessions.loadSessionMessages).toHaveBeenCalledWith("s-1")
   })
 })
