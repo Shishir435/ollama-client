@@ -295,6 +295,47 @@ describe("an Agent run and the conversation it belongs to", () => {
     TIMEOUT
   )
 
+  /**
+   * Pruning is by status, never by age alone: a browser closed for six weeks
+   * still owes the user the run it interrupted. A settled run may go, and the
+   * handoff it left on its row stays behind for the turns that follow.
+   */
+  it(
+    "prunes by status: an old interrupted run keeps its row, a settled one leaves its handoff",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-old-live"), "s-agent")
+      await runs.transitionAgentRun({
+        runId: "agent-old-live",
+        from: "submitted",
+        to: "planning",
+        patch: { updatedAt: CREATED_AT + 1 }
+      })
+      await createLinkedAgentRun(runState("agent-old-done"), "s-agent")
+      await runs.transitionAgentRun({
+        runId: "agent-old-done",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 2 }
+      })
+
+      const sixWeeksLater = CREATED_AT + 42 * 24 * 60 * 60 * 1000
+      await runs.pruneTerminalAgentRuns(
+        sixWeeksLater - runs.TERMINAL_AGENT_RETENTION_MS
+      )
+
+      expect((await runs.getAgentRun("agent-old-live"))?.status).toBe(
+        "planning"
+      )
+      expect(await runs.getAgentRun("agent-old-done")).toBeNull()
+      const settledCard = (await facade.getMessagesBySession("s-agent")).find(
+        (message) => message.agentRunId === "agent-old-done"
+      )
+      expect(settledCard?.agentHandoff?.result).toBe("Plan A is cheaper")
+    },
+    TIMEOUT
+  )
+
   it(
     "keeps the receipts when a branch of the conversation is deleted",
     async () => {
