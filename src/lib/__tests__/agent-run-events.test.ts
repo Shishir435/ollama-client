@@ -8,7 +8,10 @@ vi.mock("@/lib/browser-api", () => ({
 vi.mock("@/lib/feature-flags", () => ({ AGENT_PREVIEW_ENABLED: true }))
 
 import { AgentForgetChatRowsSchema } from "@/background/agent/agent-chat-reconcile"
-import { forgetAgentRuns } from "@/lib/agent-run-events"
+import {
+  forgetAgentRuns,
+  MAX_AGENT_FORGET_MESSAGE_IDS
+} from "@/lib/agent-run-events"
 
 describe("agent chat-row forget events", () => {
   beforeEach(() => {
@@ -33,6 +36,23 @@ describe("agent chat-row forget events", () => {
       expect(AgentForgetChatRowsSchema.safeParse(event).success).toBe(true)
     }
     expect(sent.flatMap((event) => event.messageIds)).toEqual(messageIds)
+  })
+
+  it("batches at exactly the cap the background schema enforces", () => {
+    const event = (length: number) => ({
+      type: "agent-forget-chat-rows",
+      messageIds: Array.from({ length }, (_, index) => index)
+    })
+
+    expect(
+      AgentForgetChatRowsSchema.safeParse(event(MAX_AGENT_FORGET_MESSAGE_IDS))
+        .success
+    ).toBe(true)
+    expect(
+      AgentForgetChatRowsSchema.safeParse(
+        event(MAX_AGENT_FORGET_MESSAGE_IDS + 1)
+      ).success
+    ).toBe(false)
   })
 
   it("sends one event for a size the schema accepts", async () => {

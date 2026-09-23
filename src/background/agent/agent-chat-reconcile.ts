@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+import { MAX_AGENT_FORGET_MESSAGE_IDS } from "@/lib/agent-run-events"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import {
@@ -112,7 +113,10 @@ export const AgentForgetChatRowsSchema = z.union([
   z
     .object({
       type: z.literal(MESSAGE_KEYS.AGENT.FORGET_CHAT_ROWS),
-      messageIds: z.array(z.number().int().nonnegative()).min(1).max(10_000)
+      messageIds: z
+        .array(z.number().int().nonnegative())
+        .min(1)
+        .max(MAX_AGENT_FORGET_MESSAGE_IDS)
     })
     .strict()
 ])

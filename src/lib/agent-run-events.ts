@@ -4,7 +4,8 @@ import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { logger } from "@/lib/logger"
 
 /**
- * How many ids one event may carry, matching the background schema's own cap.
+ * How many ids one event may carry. The background schema reads this same
+ * constant, so the sender's batches and the receiver's cap cannot drift apart.
  *
  * A deleted subtree has no size limit — a long branch of a long conversation
  * is thousands of rows — and the schema rejects an oversized event before the
@@ -13,7 +14,7 @@ import { logger } from "@/lib/logger"
  * event: the work is idempotent per id, so a batch that fails costs only its
  * own ids.
  */
-const MAX_EVENT_MESSAGE_IDS = 10_000
+export const MAX_AGENT_FORGET_MESSAGE_IDS = 10_000
 
 const eventBatches = (
   event: { sessionId: string } | { messageIds: number[] }
@@ -23,10 +24,13 @@ const eventBatches = (
   for (
     let offset = 0;
     offset < event.messageIds.length;
-    offset += MAX_EVENT_MESSAGE_IDS
+    offset += MAX_AGENT_FORGET_MESSAGE_IDS
   ) {
     batches.push({
-      messageIds: event.messageIds.slice(offset, offset + MAX_EVENT_MESSAGE_IDS)
+      messageIds: event.messageIds.slice(
+        offset,
+        offset + MAX_AGENT_FORGET_MESSAGE_IDS
+      )
     })
   }
   return batches
