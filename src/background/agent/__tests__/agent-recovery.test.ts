@@ -150,6 +150,40 @@ describe("agent startup recovery", () => {
     )
   })
 
+  /**
+   * The signal is checked immediately before each durable write, so an abort
+   * mid-cancellation leaves the run `cancelling` — a committed stop the next
+   * startup finishes — rather than a run the aborted boot cancelled anyway.
+   */
+  it("writes no further status once cancellation is aborted", async () => {
+    repo.listIncompleteAgentRuns.mockResolvedValue([])
+    repo.listAgentRunsForMissingSessions.mockResolvedValue([
+      {
+        id: "agent-1",
+        status: "executing",
+        state: state("executing"),
+        compacted: false,
+        createdAt: 1,
+        updatedAt: 2
+      }
+    ])
+    const controller = new AbortController()
+    repo.transitionAgentRun.mockImplementationOnce(async (input) => {
+      controller.abort()
+      return {
+        transitioned: true,
+        state: { ...state(input.from), ...input.patch, status: input.to }
+      }
+    })
+
+    await expect(recoverAndPruneAgentRuns(controller.signal)).rejects.toThrow()
+    expect(repo.transitionAgentRun).toHaveBeenCalledTimes(1)
+    expect(repo.transitionAgentRun).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "cancelling" })
+    )
+    expect(repo.reconcileAgentRunLinkage).not.toHaveBeenCalled()
+  })
+
   it("stops before pruning when reconciliation is aborted", async () => {
     repo.listIncompleteAgentRuns.mockResolvedValue([])
     const controller = new AbortController()
