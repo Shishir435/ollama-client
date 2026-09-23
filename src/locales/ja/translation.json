@@ -216,6 +216,15 @@
         "always": "毎ステップ",
         "never": "撮らない"
       }
+    },
+    "card": {
+      "title": "エージェントの実行",
+      "loading": "実行を読み込んでいます…",
+      "missing": "この実行の記録はもう利用できません。",
+      "steps": "操作: {{count}}",
+      "outcome": "{{total}} 件中 {{met}} 件完了",
+      "open": "エージェントで開く",
+      "needs_you": "対応が必要です — エージェントで開く"
     }
   },
   "common": {
@@ -1029,7 +1038,9 @@
       "all_sessions_title": "すべてのチャットセッション",
       "role_user": "あなた",
       "role_assistant": "AIアシスタント",
-      "remote_image_blocked": "リモート画像をブロックしました"
+      "remote_image_blocked": "リモート画像をブロックしました",
+      "role_agent": "エージェント",
+      "agent_no_result": "エージェントの実行は結果を記録しませんでした。"
     },
     "actions": {
       "more": "{{title}} のその他のアクション",

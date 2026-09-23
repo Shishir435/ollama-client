@@ -1,6 +1,8 @@
 import {
   AgentForgetChatRowsRequestSchema,
-  AgentForgetChatRowsResultSchema
+  AgentForgetChatRowsResultSchema,
+  AgentGetRunRequestSchema,
+  AgentGetRunResultSchema
 } from "@ollama-client/contracts/agent-rpc"
 import {
   ModelPullCancelRequestSchema,
@@ -288,6 +290,17 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     allowedSources: extensionPagesOnly,
     timeoutMs: 30_000,
     operation: "command"
+  },
+  /**
+   * A chat card reading the run it reports. A read with no side effects, so a
+   * card that times out simply asks again on its next refresh.
+   */
+  [RpcMethod.AgentGetRun]: {
+    request: AgentGetRunRequestSchema,
+    response: AgentGetRunResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "query"
   }
 }
 

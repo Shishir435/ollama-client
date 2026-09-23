@@ -125,6 +125,13 @@ const handlers = {
       "@/background/agent/agent-forget-rpc"
     )
     return forgetAgentChatRows(request)
+  },
+  [RpcMethod.AgentGetRun]: async (request) => {
+    if (!AGENT_PREVIEW_ENABLED) return {}
+    const { getAgentRunCard } = await import(
+      "@/background/agent/agent-run-card-rpc"
+    )
+    return getAgentRunCard(request)
   }
 } satisfies RpcHandlers
 

@@ -36,7 +36,8 @@ export enum RpcMethod {
   DiagnosticsRun = "diagnostics.run",
   DiagnosticsGetBundle = "diagnostics.getBundle",
   DiagnosticsClear = "diagnostics.clear",
-  AgentForgetChatRows = "agents.forgetChatRows"
+  AgentForgetChatRows = "agents.forgetChatRows",
+  AgentGetRun = "agents.getRun"
 }
 
 /** Safe error categories exposed by the RPC server. */

@@ -1,5 +1,8 @@
-import { lazy, Suspense, useState } from "react"
+import { lazy, Suspense, useCallback, useState } from "react"
+import { AgentSurfaceLauncherContext } from "@/features/agent/lib/agent-surface-launcher"
 import { Chat } from "@/features/chat/components/chat"
+import { AgentRunRendererContext } from "@/features/chat/lib/agent-run-renderer"
+import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { type PanelSurface, SurfaceToggle } from "./surface-toggle"
 
 /**
@@ -18,8 +21,32 @@ const AgentSurface =
       )
     : undefined
 
+/** The card chat draws for a run's row, compiled out with the surface. */
+const AgentRunCard =
+  typeof __AGENT_PREVIEW_ENABLED__ !== "undefined" && __AGENT_PREVIEW_ENABLED__
+    ? lazy(() =>
+        import("@/features/agent/components/agent-run-message-card").then(
+          (module) => ({ default: module.AgentRunMessageCard })
+        )
+      )
+    : undefined
+
 export const SidepanelWorkspace = () => {
   const [surface, setSurface] = useState<PanelSurface>("chat")
+  /**
+   * Coming back to chat re-reads the open conversation. A run started on the
+   * Agent surface wrote its request and card rows from the background, which
+   * the chat store never saw; without the re-read the card appears only after
+   * a reload, which reads as the run having been lost.
+   */
+  const changeSurface = useCallback((next: PanelSurface) => {
+    setSurface(next)
+    if (next !== "chat") return
+    const { currentSessionId, loadSessionMessages } =
+      chatSessionStore.getState()
+    if (currentSessionId) void loadSessionMessages(currentSessionId)
+  }, [])
+  const openAgent = useCallback(() => setSurface("agent"), [])
 
   if (!AgentSurface) return <Chat />
 
@@ -31,12 +58,16 @@ export const SidepanelWorkspace = () => {
    * and a segmented control in the header put the mode one row away from the
    * controls that belong to it.
    */
-  const toggle = <SurfaceToggle surface={surface} onChange={setSurface} />
+  const toggle = <SurfaceToggle surface={surface} onChange={changeSurface} />
 
   return (
     <div className="flex h-screen min-w-0 flex-col bg-surface-chat">
       {surface === "chat" ? (
-        <Chat embedded leading={toggle} />
+        <AgentRunRendererContext.Provider value={AgentRunCard}>
+          <AgentSurfaceLauncherContext.Provider value={openAgent}>
+            <Chat embedded leading={toggle} />
+          </AgentSurfaceLauncherContext.Provider>
+        </AgentRunRendererContext.Provider>
       ) : (
         <Suspense fallback={null}>
           <AgentSurface leading={toggle} />

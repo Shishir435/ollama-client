@@ -23,7 +23,8 @@ describe("RPC method registry", () => {
     RpcMethod.IngestionGet,
     RpcMethod.ModelPullGet,
     RpcMethod.ModelPullListActive,
-    RpcMethod.DiagnosticsGetBundle
+    RpcMethod.DiagnosticsGetBundle,
+    RpcMethod.AgentGetRun
   ] satisfies readonly RpcMethod[]
 
   it("registers every method exactly once", () => {

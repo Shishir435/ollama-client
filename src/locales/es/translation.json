@@ -216,6 +216,15 @@
         "always": "En cada paso",
         "never": "Nunca"
       }
+    },
+    "card": {
+      "title": "Ejecución del agente",
+      "loading": "Cargando la ejecución…",
+      "missing": "El registro de esta ejecución ya no está disponible.",
+      "steps": "Acciones: {{count}}",
+      "outcome": "{{met}} de {{total}} hechas",
+      "open": "Abrir en Agente",
+      "needs_you": "Te necesita: abrir en Agente"
     }
   },
   "common": {
@@ -1029,7 +1038,9 @@
       "all_sessions_title": "Todas las sesiones",
       "role_user": "Tú",
       "role_assistant": "Asistente IA",
-      "remote_image_blocked": "Imagen remota bloqueada"
+      "remote_image_blocked": "Imagen remota bloqueada",
+      "role_agent": "Agente",
+      "agent_no_result": "La ejecución del agente no registró ningún resultado."
     },
     "actions": {
       "more": "Más acciones para {{title}}",

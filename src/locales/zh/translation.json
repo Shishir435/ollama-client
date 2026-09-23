@@ -216,6 +216,15 @@
         "always": "每一步",
         "never": "从不"
       }
+    },
+    "card": {
+      "title": "智能体运行",
+      "loading": "正在加载运行…",
+      "missing": "此运行的记录已不可用。",
+      "steps": "操作：{{count}}",
+      "outcome": "已完成 {{met}}/{{total}}",
+      "open": "在智能体中打开",
+      "needs_you": "需要你处理 — 在智能体中打开"
     }
   },
   "common": {
@@ -1029,7 +1038,9 @@
       "all_sessions_title": "所有会话",
       "role_user": "你",
       "role_assistant": "AI助手",
-      "remote_image_blocked": "已阻止远程图片"
+      "remote_image_blocked": "已阻止远程图片",
+      "role_agent": "智能体",
+      "agent_no_result": "智能体运行未记录任何结果。"
     },
     "actions": {
       "more": "{{title}} 的更多操作",
