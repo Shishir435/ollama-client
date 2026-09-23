@@ -812,4 +812,45 @@ describe("a form an earlier run already sent", () => {
 
     expect(decision.risk).toBe("critical")
   })
+
+  /**
+   * Enter in the card field of a form the parent already sent: the user
+   * takes the step over, and is the one sending it again, so the handover
+   * says what the earlier run did.
+   */
+  it("tells the user on a takeover too", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["submission", "sensitive_input"], {
+          target: {
+            sensitive: true,
+            maySubmit: true,
+            accessibleName: "Card number"
+          }
+        }),
+        { repeatsPriorForm: true }
+      )
+    )
+
+    expect(decision.type).toBe("takeover_required")
+    if (decision.type !== "takeover_required") return
+    expect(decision.request.instruction).toMatch(
+      /^An earlier run this task follows already sent this form\./
+    )
+    expect(decision.request.instruction.length).toBeLessThanOrEqual(1_000)
+  })
+
+  it("leaves an ordinary takeover's words alone", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["submission", "sensitive_input"], {
+          target: { sensitive: true, maySubmit: true }
+        })
+      )
+    )
+
+    expect(decision.type).toBe("takeover_required")
+    if (decision.type !== "takeover_required") return
+    expect(decision.request.instruction).not.toContain("earlier run")
+  })
 })

@@ -318,6 +318,9 @@ const makeApprovalRequest = (
   }
 }
 
+/** The takeover request's own bound on its instruction. */
+const MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS = 1_000
+
 /**
  * Said first in an approval for a form an earlier run already sent. The
  * earlier run's record is page-derived, so this names the fact and not its
@@ -481,10 +484,26 @@ export const evaluateAgentPolicy = (
 
   const takeover = takeoverReason(input)
   if (takeover) {
+    const request = makeTakeoverRequest(input, takeover)
     return {
       type: "takeover_required",
       risk: "critical",
-      request: makeTakeoverRequest(input, takeover)
+      /**
+       * A handover is the user doing the step themselves, so the one who
+       * sends the form again is the one who must be told an earlier run
+       * already sent it — the approval path says so, and this is the other
+       * way the same send reaches a person.
+       */
+      request: input.repeatsPriorForm
+        ? {
+            ...request,
+            instruction:
+              `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.instruction}`.slice(
+                0,
+                MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS
+              )
+          }
+        : request
     }
   }
 
