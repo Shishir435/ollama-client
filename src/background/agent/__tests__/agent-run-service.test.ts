@@ -2,7 +2,11 @@ import type {
   AgentController,
   AgentPersistencePort
 } from "@ollama-client/agent-runtime"
-import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
+import type {
+  AgentPauseReason,
+  AgentRunState,
+  AgentRunStatus
+} from "@ollama-client/contracts"
 import { MAX_AGENT_PRIOR_EFFECTS } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -11,6 +15,7 @@ import type {
   AgentBrowserSessionInterruption,
   AgentBrowserSessionManager
 } from "../agent-browser-session-manager"
+import type { BuildAgentController } from "../agent-run-controller"
 import { createAgentRunService } from "../agent-run-service"
 import { createAgentSupervision } from "../agent-supervision"
 
@@ -390,6 +395,102 @@ describe("Agent run service", () => {
 
     expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
     expect(runs.get("run-1")?.status).toBe(status)
+  })
+
+  const pausingController = (pauseReason: AgentPauseReason) =>
+    vi.fn(({ persistence: port }) => ({
+      start: vi.fn(async () => undefined),
+      requestPause: vi.fn(async (runId: string) => {
+        const state = await port.load(runId)
+        if (!state) return
+        await port.transition({
+          runId,
+          from: state.status,
+          to: "paused",
+          patch: { pauseReason, pausedAt: 2_000 }
+        })
+      }),
+      resume: vi.fn(async () => undefined),
+      requestCancel: vi.fn(async (runId: string) => {
+        const state = await port.load(runId)
+        if (!state) return
+        await port.transition({ runId, from: state.status, to: "cancelling" })
+      }),
+      completeTakeover: vi.fn(async () => undefined),
+      resolveEffect: vi.fn(async () => undefined),
+      answerQuestion: vi.fn(async () => undefined)
+    })) as unknown as BuildAgentController
+
+  const heldDialog = {
+    id: "d1",
+    type: "confirm" as const,
+    origin: "https://example.com",
+    message: "Delete this item?"
+  }
+
+  it.each([
+    "user",
+    "question",
+    "unresolved_effect"
+  ] as const)("keeps an open dialog and the session through a %s pause", async (reason) => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController(reason)
+    })
+    await agent.start(startInput)
+
+    await agent.pause("run-1")
+
+    expect(runs.get("run-1")?.status).toBe("paused")
+    expect(browser.manager.detach).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    "panel_closed",
+    "takeover"
+  ] as const)("still lets go of the dialog on a %s pause", async (reason) => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController(reason)
+    })
+    await agent.start(startInput)
+
+    await agent.pause("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("detaches on a user pause when no dialog is open", async () => {
+    const browser = browserSessions()
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("user")
+    })
+    await agent.start(startInput)
+
+    await agent.pause("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("releases a dialog it held through a pause once the run is stopped", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("user")
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+    expect(browser.manager.detach).not.toHaveBeenCalled()
+
+    await agent.stop("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
   })
 
   it("admits only one simultaneous start before the durable lookup settles", async () => {

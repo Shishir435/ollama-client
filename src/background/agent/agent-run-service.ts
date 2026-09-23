@@ -5,7 +5,11 @@ import type {
   AgentTakeoverDecision
 } from "@ollama-client/agent-runtime"
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
-import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
+import type {
+  AgentPauseReason,
+  AgentRunState,
+  AgentRunStatus
+} from "@ollama-client/contracts"
 import {
   AGENT_ROUTINE_GRANT_EFFECTS,
   AgentRunStateSchema
@@ -237,6 +241,13 @@ const originOf = (url: string): string => {
  * parked approval, the durable row and the control session all belong to that
  * one run, and nothing here can say which of two runs a page effect served.
  */
+/** Pauses the run comes back from on the same page, holding its dialog. */
+const DIALOG_HOLDING_PAUSES: readonly AgentPauseReason[] = [
+  "user",
+  "question",
+  "unresolved_effect"
+]
+
 export const createAgentRunService = (input?: {
   browserSessions?: AgentBrowserSessionManager
   sessions?: AgentControlSessionRegistry
@@ -326,7 +337,38 @@ export const createAgentRunService = (input?: {
   }
   supervision.subscribe(announce)
 
+  /**
+   * A pause the run will come back from keeps a dialog it is holding.
+   *
+   * Letting go of the debugger dismisses a held dialog, because a detached
+   * tab would otherwise stay frozen with nothing to answer it — and a
+   * dismissed `confirm` is the page being told "no". A user who paused while
+   * a Delete button's confirmation was open came back to a page that had
+   * cancelled the delete, a model that clicked Delete again, and a second
+   * approval for the same decision. So a pause taken by the user, for a
+   * question, or over an unresolved effect keeps the session and the dialog
+   * exactly as they were; resuming observes the same dialog and asks about
+   * it. A takeover still lets go: the user is about to act on the page
+   * themselves, and a page held by a dialog they cannot see is one they
+   * cannot act on. A closed panel or a lost browser lets go as before.
+   */
+  const holdsDialogThroughPause = (state: AgentRunState): boolean => {
+    if (state.status !== "pause_requested" && state.status !== "paused") {
+      return false
+    }
+    if (
+      state.pauseReason !== undefined &&
+      !DIALOG_HOLDING_PAUSES.includes(state.pauseReason)
+    ) {
+      return false
+    }
+    return (
+      browserSessions.openDialog(state.id, state.controlledTabId) !== undefined
+    )
+  }
+
   const releaseBrowserSessionFor = async (state: AgentRunState) => {
+    if (holdsDialogThroughPause(state)) return
     if (
       [
         "awaiting_takeover",
