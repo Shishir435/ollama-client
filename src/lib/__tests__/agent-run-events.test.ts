@@ -1,22 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const sendMessage = vi.hoisted(() => vi.fn())
+const call = vi.hoisted(() => vi.fn())
 
-vi.mock("@/lib/browser-api", () => ({
-  browser: { runtime: { sendMessage } }
+vi.mock("@/protocol/extension-client", () => ({
+  extensionRpcClient: { call }
 }))
 vi.mock("@/lib/feature-flags", () => ({ AGENT_PREVIEW_ENABLED: true }))
 
-import { AgentForgetChatRowsSchema } from "@/background/agent/agent-chat-reconcile"
 import {
-  forgetAgentRuns,
+  AgentForgetChatRowsRequestSchema,
   MAX_AGENT_FORGET_MESSAGE_IDS
-} from "@/lib/agent-run-events"
+} from "@ollama-client/contracts/agent-rpc"
+import { RpcMethod } from "@ollama-client/contracts/rpc"
+import { forgetAgentRuns } from "@/lib/agent-run-events"
 
 describe("agent chat-row forget events", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    sendMessage.mockResolvedValue(undefined)
+    call.mockResolvedValue({ forgotten: true })
   })
 
   /**
@@ -30,26 +31,31 @@ describe("agent chat-row forget events", () => {
 
     await forgetAgentRuns({ messageIds })
 
-    expect(sendMessage).toHaveBeenCalledTimes(3)
-    const sent = sendMessage.mock.calls.map(([event]) => event)
+    expect(call).toHaveBeenCalledTimes(3)
+    const sent = call.mock.calls.map(([method, request]) => {
+      expect(method).toBe(RpcMethod.AgentForgetChatRows)
+      return request
+    })
     for (const event of sent) {
-      expect(AgentForgetChatRowsSchema.safeParse(event).success).toBe(true)
+      expect(AgentForgetChatRowsRequestSchema.safeParse(event).success).toBe(
+        true
+      )
     }
     expect(sent.flatMap((event) => event.messageIds)).toEqual(messageIds)
   })
 
   it("batches at exactly the cap the background schema enforces", () => {
     const event = (length: number) => ({
-      type: "agent-forget-chat-rows",
       messageIds: Array.from({ length }, (_, index) => index)
     })
 
     expect(
-      AgentForgetChatRowsSchema.safeParse(event(MAX_AGENT_FORGET_MESSAGE_IDS))
-        .success
+      AgentForgetChatRowsRequestSchema.safeParse(
+        event(MAX_AGENT_FORGET_MESSAGE_IDS)
+      ).success
     ).toBe(true)
     expect(
-      AgentForgetChatRowsSchema.safeParse(
+      AgentForgetChatRowsRequestSchema.safeParse(
         event(MAX_AGENT_FORGET_MESSAGE_IDS + 1)
       ).success
     ).toBe(false)
@@ -58,8 +64,8 @@ describe("agent chat-row forget events", () => {
   it("sends one event for a size the schema accepts", async () => {
     await forgetAgentRuns({ messageIds: [1, 2, 3] })
 
-    expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(sendMessage.mock.calls[0][0]).toMatchObject({
+    expect(call).toHaveBeenCalledTimes(1)
+    expect(call.mock.calls[0][1]).toMatchObject({
       messageIds: [1, 2, 3]
     })
   })
@@ -67,7 +73,7 @@ describe("agent chat-row forget events", () => {
   it("sends nothing for an empty subtree", async () => {
     await forgetAgentRuns({ messageIds: [] })
 
-    expect(sendMessage).not.toHaveBeenCalled()
+    expect(call).not.toHaveBeenCalled()
   })
 
   /**
@@ -76,12 +82,12 @@ describe("agent chat-row forget events", () => {
    * the whole cleanup.
    */
   it("keeps sending after a batch is not delivered", async () => {
-    sendMessage.mockRejectedValueOnce(new Error("no receiver"))
+    call.mockRejectedValueOnce(new Error("no receiver"))
 
     await forgetAgentRuns({
       messageIds: Array.from({ length: 15_000 }, (_, index) => index)
     })
 
-    expect(sendMessage).toHaveBeenCalledTimes(2)
+    expect(call).toHaveBeenCalledTimes(2)
   })
 })

@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./agent": "./src/agent.ts",
     "./agent-command": "./src/agent-command.ts",
+    "./agent-rpc": "./src/agent-rpc.ts",
     "./agent-events": "./src/agent-events.ts",
     "./agent-keys": "./src/agent-keys.ts",
     "./agent-observation": "./src/agent-observation.ts",

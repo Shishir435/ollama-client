@@ -1,3 +1,4 @@
+import { AgentForgetChatRowsRequestSchema } from "@ollama-client/contracts/agent-rpc"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const listLiveAgentRunsForMessages = vi.fn<
@@ -24,7 +25,6 @@ vi.mock("@/lib/repositories/agent-runs", () => ({
 
 const {
   applyAgentForgetChatRows,
-  AgentForgetChatRowsSchema,
   forgetAgentRunsForMessages,
   forgetAgentRunsForSession
 } = await import("../agent-chat-reconcile")
@@ -100,31 +100,23 @@ describe("forgetting the runs of deleted chat rows", () => {
   })
 })
 
-describe("the forget event", () => {
+describe("the forget request", () => {
   it("accepts one shape or the other, never both", () => {
     expect(
-      AgentForgetChatRowsSchema.safeParse({
-        type: "agent-forget-chat-rows",
-        sessionId: "s-1"
-      }).success
+      AgentForgetChatRowsRequestSchema.safeParse({ sessionId: "s-1" }).success
     ).toBe(true)
     expect(
-      AgentForgetChatRowsSchema.safeParse({
-        type: "agent-forget-chat-rows",
+      AgentForgetChatRowsRequestSchema.safeParse({
         sessionId: "s-1",
         messageIds: [1]
       }).success
     ).toBe(false)
-    expect(
-      AgentForgetChatRowsSchema.safeParse({
-        type: "agent-forget-chat-rows"
-      }).success
-    ).toBe(false)
+    expect(AgentForgetChatRowsRequestSchema.safeParse({}).success).toBe(false)
   })
 
   it("routes a session event to the cascading cleanup", async () => {
     await applyAgentForgetChatRows(
-      { type: "agent-forget-chat-rows", sessionId: "s-2" },
+      { sessionId: "s-2" },
       vi.fn(async () => undefined)
     )
     expect(deleteSettledAgentRunsForSession).toHaveBeenCalledWith("s-2")
@@ -133,7 +125,7 @@ describe("the forget event", () => {
 
   it("routes a message event to the keeping cleanup", async () => {
     await applyAgentForgetChatRows(
-      { type: "agent-forget-chat-rows", messageIds: [7] },
+      { messageIds: [7] },
       vi.fn(async () => undefined)
     )
     expect(orphanAgentRunMessages).toHaveBeenCalledWith([7])

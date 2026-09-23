@@ -36,18 +36,7 @@ export const LEGACY_OLLAMA_MESSAGE_KEYS = {
 export const MESSAGE_KEYS = {
   AGENT: {
     CONTROL_PORT: "agent-control-port",
-    RUN_PORT: "agent-run-port",
-    /**
-     * One-way: a chat or a branch of one was deleted, so the runs reporting
-     * into it must be stopped and their rows settled.
-     *
-     * An event rather than a request because the UI is submitting intent, not
-     * awaiting a workflow — and it can be fire-and-forget safely: a run that
-     * is still driving a browser is what keeps this worker alive, so there is
-     * always someone to receive it. What a missed event leaves behind is a
-     * dangling pointer, which startup reconciliation repairs.
-     */
-    FORGET_CHAT_ROWS: "agent-forget-chat-rows"
+    RUN_PORT: "agent-run-port"
   },
   PROVIDER: PROVIDER_MESSAGE_KEYS,
   OLLAMA: LEGACY_OLLAMA_MESSAGE_KEYS,

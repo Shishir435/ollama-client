@@ -1,17 +1,11 @@
 import { isLegalAgentTransition } from "@ollama-client/agent-runtime"
 
-import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
-
 import { startBrowserAgentNavigationObserver } from "@/lib/browser-agent/navigation-observer"
 import { browser } from "@/lib/browser-api"
 import { AGENT_DEBUG_REPORT_ENABLED, FEATURE_FLAGS } from "@/lib/feature-flags"
-import { logger } from "@/lib/logger"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import { createAgentBrowserSessionManager } from "./agent-browser-session-manager"
-import {
-  AgentForgetChatRowsSchema,
-  applyAgentForgetChatRows
-} from "./agent-chat-reconcile"
+import { setAgentForgetStopper } from "./agent-forget-rpc"
 import { registerAgentPanelPort } from "./agent-panel-port"
 import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
 import type { AgentRunService } from "./agent-run-service"
@@ -69,42 +63,11 @@ export const createAgentComposition = async (
   })
 
   /*
-   * A chat, or a branch of one, was deleted. Read as an event rather than
-   * served as a request: the conversation is submitting intent, and what it
-   * needs done — stopping a run, detaching its browser session, settling its
-   * rows — is durable work this layer owns.
-   *
-   * Sender-checked here rather than by the message router, which does not see
-   * this listener: a page-controlled script must not be able to stop a run.
+   * A chat, or a branch of one, was deleted. The request arrives through the
+   * RPC server, which authorizes the sender; what it needs done — stopping a
+   * run, detaching its browser session — is this service's.
    */
-  const extensionUrlPrefix = browser.runtime.getURL("")
-  const onForgetChatRows = (raw: unknown, sender: unknown) => {
-    if (
-      classifyRuntimeSender(
-        (sender ?? {}) as Parameters<typeof classifyRuntimeSender>[0],
-        browser.runtime.id,
-        extensionUrlPrefix
-      ) !== "extension-page"
-    ) {
-      return
-    }
-    const event = AgentForgetChatRowsSchema.safeParse(raw)
-    if (!event.success) return
-    /*
-     * Returned, not detached. The polyfill answers the sender when this
-     * promise settles, and the sender is a delete that waits for the answer
-     * before taking the rows away — detaching it made that wait resolve on
-     * delivery, which is the one thing it was not supposed to mean.
-     */
-    return applyAgentForgetChatRows(event.data, (runId) =>
-      service.stop(runId)
-    ).catch((error: unknown) => {
-      logger.warn("Agent rows outlived their chat", "Agent", {
-        name: error instanceof Error ? error.name : typeof error
-      })
-    })
-  }
-  browser.runtime.onMessage.addListener(onForgetChatRows)
+  setAgentForgetStopper((runId) => service.stop(runId))
 
   let observer:
     | ReturnType<typeof startBrowserAgentNavigationObserver>
@@ -138,7 +101,7 @@ export const createAgentComposition = async (
     history,
     dispose() {
       stopPort()
-      browser.runtime.onMessage.removeListener(onForgetChatRows)
+      setAgentForgetStopper(undefined)
       browser.permissions.onAdded.removeListener(onPermissionAdded)
       observer?.stop()
       void browserSessions.dispose()

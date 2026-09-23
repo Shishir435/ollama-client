@@ -1,7 +1,5 @@
-import { z } from "zod"
+import type { AgentForgetChatRowsRequest } from "@ollama-client/contracts/agent-rpc"
 
-import { MAX_AGENT_FORGET_MESSAGE_IDS } from "@/lib/agent-run-events"
-import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import {
   deleteSettledAgentRunsForSession,
@@ -95,36 +93,8 @@ export const forgetAgentRunsForSession = async (
   await deleteSettledAgentRunsForSession(sessionId)
 }
 
-/**
- * The one-way event a conversation sends when it deletes rows a run may be
- * reporting into.
- *
- * Strict, and one of the two shapes only: a message telling the background to
- * delete every run of a session is not one it should be able to misread as a
- * branch cleanup, or as nothing at all.
- */
-export const AgentForgetChatRowsSchema = z.union([
-  z
-    .object({
-      type: z.literal(MESSAGE_KEYS.AGENT.FORGET_CHAT_ROWS),
-      sessionId: z.string().min(1).max(200)
-    })
-    .strict(),
-  z
-    .object({
-      type: z.literal(MESSAGE_KEYS.AGENT.FORGET_CHAT_ROWS),
-      messageIds: z
-        .array(z.number().int().nonnegative())
-        .min(1)
-        .max(MAX_AGENT_FORGET_MESSAGE_IDS)
-    })
-    .strict()
-])
-
-export type AgentForgetChatRows = z.infer<typeof AgentForgetChatRowsSchema>
-
 export const applyAgentForgetChatRows = async (
-  event: AgentForgetChatRows,
+  event: AgentForgetChatRowsRequest,
   stop: StopAgentRun
 ): Promise<void> => {
   if ("sessionId" in event) {

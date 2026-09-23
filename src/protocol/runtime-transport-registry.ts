@@ -48,17 +48,6 @@ export const RUNTIME_TRANSPORT_DEFINITIONS = [
     allowedSources: extensionPage
   },
   {
-    /**
-     * A chat deleted rows a run may be reporting into. Extension pages only:
-     * a page-controlled script that could send this would be able to stop a
-     * run, and to delete the receipts of what that run already did.
-     */
-    type: MESSAGE_KEYS.AGENT.FORGET_CHAT_ROWS,
-    transport: "message",
-    operation: "event",
-    allowedSources: extensionPage
-  },
-  {
     type: MESSAGE_KEYS.PROVIDER.GET_MODELS,
     transport: "message",
     operation: "query",
