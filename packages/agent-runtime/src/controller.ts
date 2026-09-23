@@ -69,7 +69,8 @@ import {
   pausePatch
 } from "./ports"
 import {
-  agentEffectIsConsequential,
+  agentConsequentialEffects,
+  agentConsequentialForm,
   agentRepeatsPriorEffect
 } from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
@@ -138,13 +139,20 @@ const restatedStepEvidence = (
   step: AgentStepReadout
 ): Pick<
   AgentStepWrite,
-  "command" | "mutating" | "consequential" | "target" | "sourceUrl" | "finding"
+  | "command"
+  | "mutating"
+  | "consequential"
+  | "formAction"
+  | "target"
+  | "sourceUrl"
+  | "finding"
 > => ({
   ...(step.command ? { command: step.command } : {}),
   ...(step.mutating !== undefined ? { mutating: step.mutating } : {}),
   ...(step.consequential !== undefined
     ? { consequential: step.consequential }
     : {}),
+  ...(step.formAction ? { formAction: step.formAction } : {}),
   ...(step.target ? { target: step.target } : {}),
   ...(step.sourceUrl ? { sourceUrl: step.sourceUrl } : {}),
   ...(step.finding ? { finding: step.finding } : {})
@@ -346,7 +354,7 @@ export const createAgentController = (
     effect: ResolvedAgentEffect
   ): Pick<
     AgentStepWrite,
-    "target" | "sourceUrl" | "mutating" | "consequential"
+    "target" | "sourceUrl" | "mutating" | "consequential" | "formAction"
   > => {
     const target = agentStepTargetFrom(effect.target)
     /**
@@ -357,6 +365,7 @@ export const createAgentController = (
     const sourceUrl = effect.sourceUrl
       ? agentStepSourceUrl(effect.sourceUrl)
       : undefined
+    const formAction = agentConsequentialForm(effect)
     return {
       ...(target ? { target } : {}),
       ...(sourceUrl ? { sourceUrl } : {}),
@@ -368,7 +377,8 @@ export const createAgentController = (
        */
       mutating: agentEffectChangesPage(effect),
       /** What a follow-up reads to learn what it must not do again. */
-      consequential: agentEffectIsConsequential(effect)
+      consequential: agentConsequentialEffects(effect),
+      ...(formAction ? { formAction } : {})
     }
   }
 

@@ -550,10 +550,14 @@ Read the section your change touches; you do not need the whole file.
   run row on every path.
 - **A committed consequential effect is never attempted twice.**
   Submission, destruction, payment and download are recorded on each receipt
-  as `consequential`; `agentCommittedEffects` reads the steps whose last
-  receipt is executed, verified or uncertain. The controller refuses a
-  matching command (command, role, tag, name, and page when both know it)
-  before policy is asked, so the user is never prompted to approve the second
+  as `consequential` (the classes), with the form's action, origin and path,
+  for a submission or payment; `agentCommittedEffects` reads the steps whose
+  last receipt is executed, verified or uncertain. An effect matches when it
+  sends a submission or payment to the same form action, whatever command or
+  control sends it — Enter in a field and a click on its button are one
+  order — or when it is the same command on a control with the same role,
+  tag and name, on the same page when both know it. The controller refuses a
+  match before policy is asked, so the user is never prompted to approve the second
   order, and hands it back to the model like any other refusal. Matching is
   deliberately coarse: a false match costs a look again, a miss costs a user
   a second purchase. Receipts older than the flag count a critical change.

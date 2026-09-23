@@ -2134,6 +2134,7 @@ describe("a follow-up run", () => {
       tag: "button",
       role: "button",
       accessibleName: "Place order",
+      formAction: "https://example.com/orders?session=secret",
       sensitive: false,
       maySubmit: true
     }
@@ -2195,6 +2196,61 @@ describe("a follow-up run", () => {
     expect(harness.getState().status).not.toBe("failed")
   })
 
+  /**
+   * The same order by another route: the parent clicked the button, the
+   * follow-up presses Enter in the form's field. Different command, different
+   * control, one form — and one order.
+   */
+  it("refuses the same submission sent by a different command", async () => {
+    const enter = {
+      type: "press_key",
+      ref: "e2",
+      key: "Enter",
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as AgentCommand
+    const state = followUp()
+    const harness = createHarness({
+      state: {
+        ...state,
+        previousRun: state.previousRun && {
+          ...state.previousRun,
+          effects: [
+            {
+              action: "click",
+              page: "https://example.com",
+              effects: ["submission"],
+              form: "https://example.com/orders",
+              role: "button",
+              name: "Place order"
+            }
+          ]
+        }
+      },
+      decisions: [
+        { type: "command", command: enter },
+        { type: "complete", summary: "Already ordered." }
+      ],
+      effectOverrides: {
+        semanticEffects: ["submission"],
+        target: {
+          ref: "e2",
+          tag: "input",
+          role: "textbox",
+          accessibleName: "Card number",
+          formAction: "https://example.com/orders",
+          sensitive: false,
+          maySubmit: true
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls).not.toContain("policy")
+    expect(harness.calls).not.toContain("execute")
+  })
+
   it("lets a different consequential effect through to policy", async () => {
     const harness = createHarness({
       state: followUp("Cancel order"),
@@ -2227,6 +2283,10 @@ describe("a follow-up run", () => {
     )
     expect(receipts.length).toBeGreaterThan(1)
     for (const receipt of receipts)
-      expect(receipt).toMatchObject({ consequential: true, mutating: true })
+      expect(receipt).toMatchObject({
+        consequential: ["submission"],
+        formAction: "https://example.com/orders",
+        mutating: true
+      })
   })
 })

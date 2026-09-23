@@ -717,7 +717,7 @@ describe("a follow-up start", () => {
       } as const,
       target: { role: "button", tag: "button", name: "Post review" },
       sourceUrl: "https://forum.example/new",
-      consequential: true,
+      consequential: ["submission" as const],
       finding: "The draft is saved as #42"
     }
   ]

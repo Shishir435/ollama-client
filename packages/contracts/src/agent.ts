@@ -491,6 +491,27 @@ export const AgentFollowUpModeSchema = z.enum(AGENT_FOLLOW_UP_MODES)
 export type AgentFollowUpMode = z.infer<typeof AgentFollowUpModeSchema>
 
 /**
+ * The effects that cannot be taken back by doing them again.
+ *
+ * A second click on a tab or a second value in a field costs nothing; a
+ * second submission posts the comment twice, a second payment pays twice, a
+ * second delete removes the next row. These are the classes a follow-up must
+ * never repeat on the strength of a model's reading of an earlier record.
+ */
+export const AGENT_CONSEQUENTIAL_EFFECTS = [
+  "submission",
+  "destructive",
+  "payment",
+  "download"
+] as const
+export const AgentConsequentialEffectSchema = z.enum(
+  AGENT_CONSEQUENTIAL_EFFECTS
+)
+export type AgentConsequentialEffect = z.infer<
+  typeof AgentConsequentialEffectSchema
+>
+
+/**
  * Consequential effects a follow-up can carry from the chain before it.
  *
  * A limit on what may be continued, never a window over what happened: a
@@ -513,11 +534,19 @@ export const MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS = 300
  * matching command before policy is asked, and the model is shown the list.
  * The target is the receipt's own bounded description; `page` is origin and
  * path, never a query or fragment, and absent when the receipt had none.
+ * `effects` names which classes it was, and `form` where a submission or
+ * payment was sent — the same form reached by a different command (a click
+ * on the button, Enter in a field) is the same effect.
  */
 export const AgentPriorEffectSchema = z
   .object({
     action: z.string().min(1).max(40),
     page: z.string().min(1).max(MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS).optional(),
+    effects: z
+      .array(AgentConsequentialEffectSchema)
+      .max(AGENT_CONSEQUENTIAL_EFFECTS.length)
+      .optional(),
+    form: z.string().min(1).max(MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS).optional(),
     role: z.string().max(60).optional(),
     tag: z.string().max(40).optional(),
     name: z.string().max(120).optional()

@@ -568,11 +568,11 @@ describe("a follow-up run", () => {
         target: { role: "button", name: "Post review" },
         sourceUrl: "https://example.com/new",
         mutating: true,
-        consequential: true
+        consequential: ["submission"]
       })
 
       const steps = await runs.listAgentSteps("agent-parent")
-      expect(steps[0]).toMatchObject({ consequential: true })
+      expect(steps[0]).toMatchObject({ consequential: ["submission"] })
 
       const previousRun = {
         mode: "retry" as const,

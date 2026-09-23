@@ -61,11 +61,15 @@ const effect = (
 describe("what a run committed", () => {
   it("keeps a consequential step whose last receipt says it landed", () => {
     const steps = [
-      receipt({ command: click, target: submitTarget, consequential: true }),
-      receipt({ status: "approved", consequential: true }),
+      receipt({
+        command: click,
+        target: submitTarget,
+        consequential: ["submission"]
+      }),
+      receipt({ status: "approved", consequential: ["submission"] }),
       receipt({
         status: "verified",
-        consequential: true,
+        consequential: ["submission"],
         sourceUrl: "https://forum.example/thread/7"
       })
     ]
@@ -74,6 +78,7 @@ describe("what a run committed", () => {
       {
         action: "click",
         page: "https://forum.example/thread/7",
+        effects: ["submission"],
         role: "button",
         tag: "button",
         name: "Post comment"
@@ -87,19 +92,19 @@ describe("what a run committed", () => {
         stepId: "a",
         command: click,
         target: submitTarget,
-        consequential: true,
+        consequential: ["submission"],
         status: "uncertain"
       }),
       receipt({
         stepId: "b",
         command: click,
-        consequential: true,
+        consequential: ["submission"],
         status: "rejected"
       }),
       receipt({
         stepId: "c",
         command: click,
-        consequential: true,
+        consequential: ["submission"],
         status: "failed"
       })
     ]
@@ -116,7 +121,7 @@ describe("what a run committed", () => {
           command: click,
           mutating: true,
           risk: "high",
-          consequential: false,
+          consequential: [],
           status: "verified"
         })
       ])
@@ -219,6 +224,74 @@ describe("a repeat", () => {
         prior
       )
     ).toBe(false)
+  })
+
+  /**
+   * The case review raised: the parent clicked the submit button, the child
+   * presses Enter in a field of the same form. One form, one submission.
+   */
+  it("matches the same form submitted by another command and control", () => {
+    const committed = agentCommittedEffects([
+      receipt({
+        stepId: "p:1",
+        command: click,
+        target: submitTarget,
+        sourceUrl: "https://forum.example/thread/7",
+        consequential: ["submission"],
+        formAction: "https://forum.example/comments",
+        status: "verified"
+      })
+    ])
+    const enter = effect({
+      command: {
+        type: "press_key",
+        ref: "e4",
+        key: "Enter",
+        snapshotId: "s",
+        generation: 1
+      } as ResolvedAgentEffect["command"],
+      semanticEffects: ["submission"],
+      target: {
+        ref: "e4",
+        role: "textbox",
+        tag: "textarea",
+        accessibleName: "Your comment",
+        formAction: "https://forum.example/comments?csrf=abc",
+        sensitive: false,
+        maySubmit: true
+      }
+    })
+
+    expect(committed[0]).toMatchObject({
+      effects: ["submission"],
+      form: "https://forum.example/comments"
+    })
+    expect(agentRepeatsPriorEffect(enter, committed)).toBe(true)
+  })
+
+  it("does not match a submission to a different form", () => {
+    const prior: AgentPriorEffect[] = [
+      {
+        action: "click",
+        effects: ["submission"],
+        form: "https://forum.example/comments",
+        role: "button",
+        name: "Post comment"
+      }
+    ]
+    const other = effect({
+      semanticEffects: ["submission"],
+      target: {
+        role: "button",
+        tag: "button",
+        accessibleName: "Subscribe",
+        formAction: "https://forum.example/newsletter",
+        sensitive: false,
+        maySubmit: true
+      }
+    })
+
+    expect(agentRepeatsPriorEffect(other, prior)).toBe(false)
   })
 
   it("never refuses a routine effect", () => {
