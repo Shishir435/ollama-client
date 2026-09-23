@@ -37,6 +37,12 @@
     },
     "approval": {
       "title": "Aprobación necesaria",
+      "risk": {
+        "low": "Riesgo bajo",
+        "medium": "Riesgo medio",
+        "high": "Riesgo alto",
+        "critical": "Riesgo crítico"
+      },
       "allow": "Permitir una vez",
       "reject": "Rechazar",
       "allowForRun": "Permitir siempre este tipo de acción en {{origin}} durante esta ejecución"
@@ -195,6 +201,7 @@
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
     "unresolved_reviewed": "He revisado la página: continuar",
     "work_log": {
+      "action_needs_review": "Este paso requiere revisión.",
       "title": "Registro de trabajo",
       "target": "«{{name}}»"
     },
@@ -264,8 +271,8 @@
       "dialog": "diálogo"
     },
     "question_text": {
-      "completion_refused": "{{feedback}} He informado dos veces de que la tarea está terminada y no puedo demostrarlo. ¿Está hecha? Si no, ¿qué debo hacer ahora?",
-      "commands_refused": "{{feedback}} ¿Qué debería intentar en su lugar?",
+      "completion_refused": "No pude confirmar el resultado. ¿Se completó la tarea? Si no, ¿qué debo hacer ahora?",
+      "commands_refused": "No se pudo realizar la última acción. ¿Qué debería intentar en su lugar?",
       "no_progress": "Estoy repitiendo acciones sin avanzar. ¿Qué debería hacer de otra forma? También puedes detenerme y terminar la tarea tú."
     }
   },

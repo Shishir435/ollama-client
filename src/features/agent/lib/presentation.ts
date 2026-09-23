@@ -206,6 +206,7 @@ export interface AgentWorkLogItem {
   /** The model's own note for this step, if it left one. */
   note?: string
   detail?: string
+  detailLabel?: AgentActionLabel
 }
 
 /**
@@ -244,14 +245,11 @@ export const toAgentWorkLog = (
       ...(step.finding
         ? { note: agentPlainText(step.finding, AGENT_LOG_TEXT_LIMIT) }
         : {}),
-      ...(step.verification?.evidence.summary
-        ? {
-            detail: agentPlainText(
-              step.verification.evidence.summary,
-              AGENT_LOG_TEXT_LIMIT
-            )
-          }
-        : {})
+      ...(step.status === "rejected"
+        ? { detailLabel: { key: "agent.work_log.action_needs_review" } }
+        : step.status === "failed" || step.status === "uncertain"
+          ? { detailLabel: { key: `agent.step_status.${step.status}` } }
+          : {})
     }))
 }
 

@@ -62,6 +62,18 @@ const appendButtons = (count: number) => {
 }
 
 describe("Agent observation builder", () => {
+  it("distinguishes identical buttons by their visible list row", () => {
+    document.body.innerHTML =
+      "<ul><li>budget.pdf <button>Delete</button></li><li>old-report-2023.pdf <button>Delete</button></li></ul>"
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "budget.pdf Delete",
+      "old-report-2023.pdf Delete"
+    ])
+  })
+
   it("exposes an empty editor's rendered placeholder separately from its ARIA name", () => {
     document.body.innerHTML =
       '<div contenteditable="true" aria-label="Chat with assistant"><p data-placeholder="Ask assistant"><br></p></div>'

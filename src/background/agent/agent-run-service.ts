@@ -311,9 +311,43 @@ export const createAgentRunService = (input?: {
       dispose: async () => undefined
     } satisfies AgentBrowserSessionManager)
 
+  const recordedDialogDismissals = new Set<string>()
   const detachBrowserSession = async (runId: string): Promise<void> => {
     try {
+      const tabId = browserSessions.attachedTabId(runId)
+      const held =
+        tabId === undefined
+          ? undefined
+          : browserSessions.openDialog(runId, tabId)
       await browserSessions.detach(runId)
+      const dismissalId = held ? `${runId}:${held.id}` : undefined
+      if (held && dismissalId && !recordedDialogDismissals.has(dismissalId)) {
+        const at = now()
+        await persistence.appendStep({
+          runId,
+          stepId: `${runId}:dialog-release:${held.id}:${at}`,
+          status: "verified",
+          at,
+          command: {
+            type: "handle_dialog",
+            snapshotId: `dialog-release:${held.id}`,
+            generation: 0,
+            dialogId: held.id,
+            accept: false
+          },
+          mutating: false,
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "dialog_release",
+              summary:
+                "Browser control ended with the native dialog dismissed.",
+              observedAt: at
+            }
+          }
+        })
+        recordedDialogDismissals.add(dismissalId)
+      }
     } catch (error) {
       logger.warn("Agent browser detach failed", "Agent", {
         runId,

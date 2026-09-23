@@ -37,6 +37,12 @@
     },
     "approval": {
       "title": "Approvazione richiesta",
+      "risk": {
+        "low": "Rischio basso",
+        "medium": "Rischio medio",
+        "high": "Rischio alto",
+        "critical": "Rischio critico"
+      },
       "allow": "Consenti una volta",
       "reject": "Rifiuta",
       "allowForRun": "Consenti sempre questo tipo di azione su {{origin}} per questa esecuzione"
@@ -195,6 +201,7 @@
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
     "unresolved_reviewed": "Ho controllato la pagina: continua",
     "work_log": {
+      "action_needs_review": "Questo passaggio richiede una verifica.",
       "title": "Registro attività",
       "target": "«{{name}}»"
     },
@@ -264,8 +271,8 @@
       "dialog": "finestra di dialogo"
     },
     "question_text": {
-      "completion_refused": "{{feedback}} Ho segnalato due volte l’attività come completata senza poterlo dimostrare. È fatta? In caso contrario, cosa devo fare adesso?",
-      "commands_refused": "{{feedback}} Cosa dovrei provare invece?",
+      "completion_refused": "Non sono riuscito a confermare il risultato. L’attività è completata? In caso contrario, cosa devo fare adesso?",
+      "commands_refused": "L’ultima azione non è riuscita. Cosa dovrei provare invece?",
       "no_progress": "Sto ripetendo azioni senza fare progressi. Cosa dovrei fare diversamente? Puoi anche fermarmi e completare tu l’attività."
     }
   },

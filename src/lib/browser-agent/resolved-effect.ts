@@ -105,6 +105,7 @@ const targetFromObservation = (
     tag: element.tag,
     role: element.role,
     accessibleName: element.name,
+    rowContext: element.rowContext,
     inputType: element.type,
     sensitive: element.sensitive,
     maySubmit: false
@@ -617,6 +618,7 @@ const targetFromElement = (
   tag: element.tag,
   role: element.role,
   accessibleName: element.name,
+  rowContext: element.rowContext,
   inputType: element.type,
   observedValue: element.value,
   observedChecked: element.checked,

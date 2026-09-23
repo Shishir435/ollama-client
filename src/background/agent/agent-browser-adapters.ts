@@ -216,13 +216,14 @@ export const createAgentBrowserAdapters = (input: {
      * The frame identity travels as the instruction's own field, never inside
      * the wire target: that target is validated by a strict schema with no
      * `frame` key, so leaking it there is a parse failure before a byte is
-     * sent. `noSubmitStep` is dropped for the same reason — it is policy's
-     * evidence about the target, not a fact the page is told.
+     * sent. `noSubmitStep` and `rowContext` are dropped for the same reason —
+     * they are approval evidence, not facts the page is told.
      */
     const {
       frame: targetFrame,
       point,
       noSubmitStep: _noSubmitStep,
+      rowContext: _rowContext,
       ...target
     } = effect.target
     const frame = targetFrame ?? effect.snapshotIdentity
@@ -238,9 +239,9 @@ export const createAgentBrowserAdapters = (input: {
   /**
    * The batch as the page receives it: whole grounded commands and strict wire
    * targets, with the frame carried once on the instruction. Each field is
-   * stripped exactly as a lone mutation's target is — `frame` and
-   * `noSubmitStep` are ours, not the page's, and a strict schema rejects them
-   * before a byte is sent.
+   * stripped exactly as a lone mutation's target is — `frame`,
+   * `noSubmitStep` and `rowContext` are ours, not the page's, and a strict
+   * schema rejects them before a byte is sent.
    */
   const formFillInstruction = (
     effect: AuthorizedAgentEffect
@@ -262,6 +263,7 @@ export const createAgentBrowserAdapters = (input: {
           frame: _fieldFrame,
           point: _point,
           noSubmitStep: _noSubmitStep,
+          rowContext: _rowContext,
           ...target
         } = field.target
         return {

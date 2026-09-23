@@ -153,6 +153,7 @@ export interface ResolvedAgentTarget {
   tag?: string
   role?: string
   accessibleName?: string
+  rowContext?: string
   inputType?: string
   observedValue?: string
   observedChecked?: boolean
@@ -369,6 +370,8 @@ export interface AgentVerificationEvidence {
   kind: string
   summary: string
   observedAt: number
+  /** Bounded, value-free evidence for a confirmed batch, in command order. */
+  fields?: { name?: string; valueDigest?: string }[]
 }
 
 export type AgentVerificationResult =

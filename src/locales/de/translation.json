@@ -37,6 +37,12 @@
     },
     "approval": {
       "title": "Genehmigung erforderlich",
+      "risk": {
+        "low": "Geringes Risiko",
+        "medium": "Mittleres Risiko",
+        "high": "Hohes Risiko",
+        "critical": "Kritisches Risiko"
+      },
       "allow": "Einmal erlauben",
       "reject": "Ablehnen",
       "allowForRun": "Diese Art von Aktion auf {{origin}} für diesen Lauf immer erlauben"
@@ -195,6 +201,7 @@
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
     "unresolved_reviewed": "Seite geprüft — fortfahren",
     "work_log": {
+      "action_needs_review": "Dieser Schritt muss überprüft werden.",
       "title": "Arbeitsprotokoll",
       "target": "„{{name}}“"
     },
@@ -264,8 +271,8 @@
       "dialog": "Dialog"
     },
     "question_text": {
-      "completion_refused": "{{feedback}} Ich habe diese Aufgabe zweimal als erledigt gemeldet und kann es nicht belegen. Ist sie erledigt? Wenn nicht, was soll ich als Nächstes tun?",
-      "commands_refused": "{{feedback}} Was soll ich stattdessen versuchen?",
+      "completion_refused": "Ich konnte das Ergebnis nicht bestätigen. Ist die Aufgabe erledigt? Wenn nicht, was soll ich als Nächstes tun?",
+      "commands_refused": "Die letzte Aktion konnte nicht ausgeführt werden. Was soll ich stattdessen versuchen?",
       "no_progress": "Ich wiederhole Aktionen, ohne voranzukommen. Was soll ich anders machen? Du kannst auch anhalten und die Aufgabe selbst beenden."
     }
   },

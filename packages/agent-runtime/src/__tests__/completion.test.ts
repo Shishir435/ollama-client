@@ -590,6 +590,77 @@ describe("judgeAgentCompletion", () => {
  * step's own intended result, and accepts the whole task.
  */
 describe("judgeAgentCompletion with planned requirements", () => {
+  it("credits each verified batch field and the absence of submission", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [
+          { type: "clear_and_type", ref: "e1", text: "[redacted]" },
+          { type: "clear_and_type", ref: "e2", text: "[redacted]" }
+        ]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "Both fields hold their values",
+          observedAt: 1,
+          fields: [
+            { name: "Given name", valueDigest: "a".repeat(64) },
+            { name: "Family name", valueDigest: "b".repeat(64) }
+          ]
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({
+          visibleText: "Contact form",
+          elements: [
+            { name: "Given name", value: "Ada" },
+            { name: "Family name", value: "Lovelace" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          { id: "r1", text: "Given name is Ada", kind: "change" },
+          { id: "r2", text: "Family name is Lovelace", kind: "change" },
+          { id: "r3", text: "Do not submit the form", kind: "change" }
+        ],
+        outcomes: [
+          { id: "r1", met: true },
+          { id: "r2", met: true },
+          { id: "r3", met: true }
+        ]
+      })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1", "r2", "r3"], unmet: [] }
+    })
+  })
+
+  it("refuses a no-submit claim after the run submitted", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [
+          step({
+            sequence: 1,
+            consequential: ["submission"]
+          })
+        ],
+        observation: observation(),
+        requirements: [
+          { id: "r1", text: "the form was not submitted", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({ type: "refused", reason: "unverified_change" })
+  })
+
   const partialForm = observation({
     visibleText: "Name: Alice. Draft unsaved. Address missing."
   })

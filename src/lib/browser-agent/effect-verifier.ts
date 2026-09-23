@@ -1265,6 +1265,17 @@ const batchFieldHolds = (
   return sameFieldValue(field.target, element.value, field.target.expectedValue)
 }
 
+/** SHA-256 only, never a form value, crosses into the durable receipt. */
+const batchValueDigest = async (value: string): Promise<string> => {
+  const bytes = new TextEncoder().encode(
+    value.replaceAll(/\s+/g, " ").trim().toLocaleLowerCase()
+  )
+  const digest = await crypto.subtle.digest("SHA-256", bytes)
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("")
+}
+
 /**
  * A batch is confirmed when every field the page said it applied holds its
  * value, and nothing weaker.
@@ -1300,12 +1311,34 @@ const verifyFormFill: Verifier = async (input, adapter, signal) => {
         `${applied} of ${fields.length} fields were applied; the rest were refused`,
         adapter.now()
       )
-    : result(
-        "confirmed",
-        "fields",
-        `All ${applied} fields hold the resolved value`,
-        adapter.now()
-      )
+    : {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: `All ${applied} fields hold the resolved value`,
+          observedAt: adapter.now(),
+          fields: await Promise.all(
+            fields.map(async (field) => ({
+              ...(field.target.sensitive
+                ? {}
+                : { name: field.target.accessibleName?.slice(0, 120) }),
+              ...(field.target.expectedValue !== undefined
+                ? {
+                    valueDigest: await batchValueDigest(
+                      field.target.expectedValue
+                    )
+                  }
+                : field.target.expectedChecked !== undefined
+                  ? {
+                      valueDigest: await batchValueDigest(
+                        String(field.target.expectedChecked)
+                      )
+                    }
+                  : {})
+            }))
+          )
+        }
+      }
 }
 
 export const verifyFormFillAgentEffect = async (input: {

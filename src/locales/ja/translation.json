@@ -37,6 +37,12 @@
     },
     "approval": {
       "title": "承認が必要です",
+      "risk": {
+        "low": "低リスク",
+        "medium": "中リスク",
+        "high": "高リスク",
+        "critical": "重大なリスク"
+      },
       "allow": "今回のみ許可",
       "reject": "拒否",
       "allowForRun": "この実行中は {{origin}} でこの種の操作を常に許可する"
@@ -195,6 +201,7 @@
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
     "unresolved_reviewed": "ページを確認した — 続行",
     "work_log": {
+      "action_needs_review": "この手順は確認が必要です。",
       "title": "作業ログ",
       "target": "「{{name}}」"
     },
@@ -264,8 +271,8 @@
       "dialog": "ダイアログ"
     },
     "question_text": {
-      "completion_refused": "{{feedback}} このタスクを2回完了と報告しましたが、裏付けられません。完了していますか？ 完了していない場合、次に何をすればよいですか？",
-      "commands_refused": "{{feedback}} 代わりに何を試せばよいですか？",
+      "completion_refused": "結果を確認できませんでした。タスクは完了していますか？ 完了していない場合、次に何をすればよいですか？",
+      "commands_refused": "直前の操作を実行できませんでした。代わりに何を試せばよいですか？",
       "no_progress": "進展がないまま操作を繰り返しています。何を変えればよいですか？ 停止してご自身でタスクを完了することもできます。"
     }
   },

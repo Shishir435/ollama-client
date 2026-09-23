@@ -83,7 +83,9 @@ export const AgentWorkLog = ({
       <ol className="flex min-w-0 flex-col gap-1" aria-live="polite">
         {items.map((item, index) => {
           const Icon = iconFor(item.status)
-          const hasDetails = Boolean(item.target || item.note || item.detail)
+          const hasDetails = Boolean(
+            item.target || item.note || item.detail || item.detailLabel
+          )
           const needsAttention = ["failed", "rejected", "uncertain"].includes(
             item.status
           )
@@ -124,6 +126,11 @@ export const AgentWorkLog = ({
                 </p>
               )}
               {item.detail && <p className="wrap-break-word">{item.detail}</p>}
+              {item.detailLabel && (
+                <p className="wrap-break-word">
+                  {t(item.detailLabel.key, item.detailLabel.values)}
+                </p>
+              )}
             </div>
           )
           return (

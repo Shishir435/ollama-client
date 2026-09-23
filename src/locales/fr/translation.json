@@ -37,6 +37,12 @@
     },
     "approval": {
       "title": "Approbation requise",
+      "risk": {
+        "low": "Risque faible",
+        "medium": "Risque moyen",
+        "high": "Risque élevé",
+        "critical": "Risque critique"
+      },
       "allow": "Autoriser une fois",
       "reject": "Refuser",
       "allowForRun": "Toujours autoriser ce type d'action sur {{origin}} pour cette exécution"
@@ -195,6 +201,7 @@
     "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
     "unresolved_reviewed": "J'ai vérifié la page — continuer",
     "work_log": {
+      "action_needs_review": "Cette étape doit être vérifiée.",
       "title": "Journal de travail",
       "target": "« {{name}} »"
     },
@@ -264,8 +271,8 @@
       "dialog": "boîte de dialogue"
     },
     "question_text": {
-      "completion_refused": "{{feedback}} J’ai signalé deux fois que la tâche était terminée sans pouvoir le prouver. Est-elle faite ? Sinon, que dois-je faire ensuite ?",
-      "commands_refused": "{{feedback}} Que devrais-je essayer à la place ?",
+      "completion_refused": "Je n’ai pas pu confirmer le résultat. La tâche est-elle terminée ? Sinon, que dois-je faire ensuite ?",
+      "commands_refused": "La dernière action n’a pas pu être effectuée. Que devrais-je essayer à la place ?",
       "no_progress": "Je répète des actions sans progresser. Que devrais-je faire différemment ? Vous pouvez aussi m’arrêter et terminer la tâche vous-même."
     }
   },

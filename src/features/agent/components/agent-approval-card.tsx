@@ -64,10 +64,15 @@ export const AgentApprovalCard = ({
       aria-labelledby={titleId}
       className="mb-3 rounded-panel border border-status-warning/40 bg-tint-warning p-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-focus">
       <div role="alert">
-        <h2 id={titleId} className="flex items-center gap-1.5 font-medium">
-          <ShieldQuestion className="icon-xs shrink-0" aria-hidden="true" />
-          {t("agent.approval.title")}
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 id={titleId} className="flex items-center gap-1.5 font-medium">
+            <ShieldQuestion className="icon-xs shrink-0" aria-hidden="true" />
+            {t("agent.approval.title")}
+          </h2>
+          <span className="shrink-0 rounded-control border border-status-warning/40 px-1.5 py-0.5 text-2xs font-medium">
+            {t(`agent.approval.risk.${request.risk}`)}
+          </span>
+        </div>
         <p className="mt-1 wrap-break-word font-medium">
           {agentDisplayString(
             t,

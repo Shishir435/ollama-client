@@ -108,7 +108,30 @@ describe("Agent presentation", () => {
 
     expect(log).toHaveLength(1)
     expect(log[0].status).toBe("uncertain")
-    expect(log[0].detail).toContain("may have occurred")
+    expect(log[0].detail).toBeUndefined()
+    expect(log[0].detailLabel?.key).toBe("agent.step_status.uncertain")
+  })
+
+  it("keeps model-facing refusal feedback out of the work log", () => {
+    const [row] = toAgentWorkLog([
+      {
+        runId: "run-1",
+        stepId: "s1",
+        sequence: 1,
+        status: "rejected",
+        at: 1,
+        verification: {
+          outcome: "negative",
+          evidence: {
+            kind: "completion",
+            summary: "Copy ONLY an exact phrase from observation text",
+            observedAt: 1
+          }
+        }
+      }
+    ])
+    expect(row.detail).toBeUndefined()
+    expect(row.detailLabel?.key).toBe("agent.work_log.action_needs_review")
   })
 
   it("labels editing and drag steps without echoing what was typed", () => {

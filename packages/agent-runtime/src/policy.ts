@@ -411,7 +411,14 @@ const makeApprovalRequest = (
             ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
             : "The browser will perform the resolved page effect shown above."),
     display: approvalDisplay(input),
-    pageEvidence: batchEvidence(input) ?? input.effect.target.accessibleName,
+    pageEvidence:
+      batchEvidence(input) ??
+      (input.effect.target.rowContext
+        ? `${input.effect.target.accessibleName ?? input.effect.command.type} — ${input.effect.target.rowContext}`.slice(
+            0,
+            1_000
+          )
+        : input.effect.target.accessibleName),
     createdAt: input.now
   }
 }

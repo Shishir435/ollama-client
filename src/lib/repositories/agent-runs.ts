@@ -91,7 +91,21 @@ const AgentVerificationSchema = z
       .object({
         kind: z.string().max(200),
         summary: z.string().max(2_000),
-        observedAt: z.number().int().nonnegative()
+        observedAt: z.number().int().nonnegative(),
+        fields: z
+          .array(
+            z
+              .object({
+                name: z.string().max(120).optional(),
+                valueDigest: z
+                  .string()
+                  .regex(/^[a-f0-9]{64}$/)
+                  .optional()
+              })
+              .strict()
+          )
+          .max(12)
+          .optional()
       })
       .strict()
   })

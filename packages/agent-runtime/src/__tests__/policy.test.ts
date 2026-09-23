@@ -47,6 +47,26 @@ const input = (
 })
 
 describe("resolved-effect policy", () => {
+  it("shows the target's row in approval evidence", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["destructive"], {
+          target: {
+            sensitive: false,
+            maySubmit: false,
+            accessibleName: "Delete",
+            rowContext: "old-report-2023.pdf Delete"
+          }
+        })
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+    if (decision.type === "approval_required") {
+      expect(decision.request.risk).toBe("critical")
+      expect(decision.request.pageEvidence).toContain("old-report-2023.pdf")
+    }
+  })
+
   it("derives risk from target semantics rather than command name", () => {
     expect(evaluateAgentPolicy(input(effect(["read"])))).toEqual({
       type: "allow",

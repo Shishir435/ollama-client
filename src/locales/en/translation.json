@@ -37,6 +37,12 @@
     },
     "approval": {
       "title": "Approval required",
+      "risk": {
+        "low": "Low risk",
+        "medium": "Medium risk",
+        "high": "High risk",
+        "critical": "Critical risk"
+      },
       "allow": "Allow once",
       "reject": "Reject",
       "allowForRun": "Always allow this kind of action on {{origin}} for this run"
@@ -195,6 +201,7 @@
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
     "unresolved_reviewed": "I've reviewed the page — continue",
     "work_log": {
+      "action_needs_review": "This step needs review.",
       "title": "Work log",
       "target": "“{{name}}”"
     },
@@ -264,8 +271,8 @@
       "dialog": "dialog"
     },
     "question_text": {
-      "completion_refused": "{{feedback}} I’ve reported this task finished twice and can’t back it up. Is it done? If not, what should I do next?",
-      "commands_refused": "{{feedback}} What should I try instead?",
+      "completion_refused": "I couldn’t confirm the result. Is the task done? If not, what should I do next?",
+      "commands_refused": "The last action could not run. What should I try instead?",
       "no_progress": "I’m repeating actions without making progress. What should I do differently? You can also stop and finish the task yourself."
     }
   },

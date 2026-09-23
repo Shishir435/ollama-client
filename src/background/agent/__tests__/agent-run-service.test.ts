@@ -493,6 +493,34 @@ describe("Agent run service", () => {
     expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
   })
 
+  it("records a dialog dismissed when browser control ends", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const port = persistence()
+    const appendStep = vi.fn(port.appendStep)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "verified",
+        command: expect.objectContaining({
+          type: "handle_dialog",
+          dialogId: "d1",
+          accept: false
+        }),
+        verification: expect.objectContaining({
+          evidence: expect.objectContaining({ kind: "dialog_release" })
+        })
+      })
+    )
+  })
+
   it("admits only one simultaneous start before the durable lookup settles", async () => {
     let release = () => {}
     const gate = new Promise<void>((resolve) => {

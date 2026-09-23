@@ -987,6 +987,19 @@ Read the section your change touches; you do not need the whole file.
   output directory, the same production bundle, with the dump kept. Only
   `WXT_AGENT_DEBUG=1` turns it on, so a release build cannot acquire it by
   forgetting a flag.
+- **A refusal's coaching stays with the model.** Completion and grounding
+  feedback is kept in the durable receipt for recovery and debugging, but a
+  rejected work-log row uses translated review copy and a question uses its
+  translated prompt without interpolating that feedback. A verifier's advice
+  about quotations and internal evidence is not a question for the user.
+- **An approval names its exact row and risk.** A control in a visible list or
+  table row carries a bounded `rowContext` from rendered text, so identical
+  Delete buttons can be distinguished in the approval evidence. The panel
+  labels the policy's risk in the reader's language; it does not recompute it.
+- **A released native dialog leaves a receipt.** The session manager dismisses
+  a held dialog when browser control ends. The run service records that
+  dismissal as its own verified, non-mutating step, so a later reader does not
+  mistake a cancelled confirmation for an unanswered one.
 
 ## Measured behaviour and benchmarks
 
@@ -1051,6 +1064,12 @@ run that produced it can always be repeated.
   because a timeout elapsed. Repeated or alternating decisions pause for a
   correction; user/question pauses suspend active-time accounting. A supplied
   completion quote is checked even for a run that only read or scrolled.
+- A confirmed `fill_form` receipt records each checked field's bounded name
+  and SHA-256 value digest, never its value. The judge may use one batch to
+  satisfy several field requirements only while the current observation
+  shows the named controls holding the required values. A no-submit
+  requirement reads the run's applied consequential receipts; any submission
+  prevents it from being claimed as met.
 - Planning is optional only at the host boundary. A host with no planning port
   retains the legacy completion path, but once the port exists an exhausted or
   empty plan fails the run before its first observation. Planning failure must

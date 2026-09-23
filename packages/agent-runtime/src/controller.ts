@@ -1578,8 +1578,7 @@ export const createAgentController = (
           text: `${judgement.feedback} I have reported this task finished twice and cannot support the claim. Is it done, and if not, what should I do next?`,
           display: [
             {
-              key: "agent.question_text.completion_refused",
-              values: { feedback: judgement.feedback.slice(0, 2_048) }
+              key: "agent.question_text.completion_refused"
             }
           ],
           askedAt: dependencies.clock.now()
@@ -1626,8 +1625,7 @@ export const createAgentController = (
           text: `${feedback} What should I try instead?`,
           display: [
             {
-              key: "agent.question_text.commands_refused",
-              values: { feedback: feedback.slice(0, 2_048) }
+              key: "agent.question_text.commands_refused"
             }
           ],
           askedAt: dependencies.clock.now()

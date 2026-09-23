@@ -122,11 +122,13 @@ describe("Agent browser adapters", () => {
     })
 
     const effect = await authorizedClick()
+    effect.target.rowContext = "old-report-2023.pdf Delete"
     await expect(
       adapters.executor.mutate(effect, { aborted: false })
     ).resolves.toBeUndefined()
 
     expect(sent?.target).not.toHaveProperty("frame")
+    expect(sent?.target).not.toHaveProperty("rowContext")
     expect(sent?.target.frameId).toBe(0)
     expect(sent?.frame).toMatchObject({ frameId: 0, documentId: "document-1" })
   })

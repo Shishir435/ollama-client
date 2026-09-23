@@ -37,6 +37,12 @@
     },
     "approval": {
       "title": "需要批准",
+      "risk": {
+        "low": "低风险",
+        "medium": "中等风险",
+        "high": "高风险",
+        "critical": "严重风险"
+      },
       "allow": "允许一次",
       "reject": "拒绝",
       "allowForRun": "本次运行始终允许在 {{origin}} 上执行此类操作"
@@ -195,6 +201,7 @@
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
     "unresolved_reviewed": "已查看页面 — 继续",
     "work_log": {
+      "action_needs_review": "此步骤需要检查。",
       "title": "工作日志",
       "target": "“{{name}}”"
     },
@@ -264,8 +271,8 @@
       "dialog": "对话框"
     },
     "question_text": {
-      "completion_refused": "{{feedback}} 我已两次报告此任务完成，但无法证实。它完成了吗？如果没有，接下来我该做什么？",
-      "commands_refused": "{{feedback}} 我应该改试什么？",
+      "completion_refused": "无法确认结果。任务完成了吗？如果没有，接下来该怎么做？",
+      "commands_refused": "上一步操作未能执行。我应该改试什么？",
       "no_progress": "我在重复操作却没有进展。我应该换种什么做法？你也可以停止我，自己完成任务。"
     }
   },
