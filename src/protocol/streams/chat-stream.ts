@@ -152,6 +152,7 @@ const RagSourceSchema = z.object({
 
 const BuildContextResultSchema = z.object({
   contentWithRAG: z.string(),
+  agentHandoffRunIds: z.array(z.string().min(1).max(200)).max(50).optional(),
   ragSources: z
     .object({
       sources: z.array(RagSourceSchema),

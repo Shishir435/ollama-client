@@ -187,8 +187,12 @@ const budgets: Budget[] = [
      * the tool schema the model reads, the refusal vocabulary a batch needs
      * in order to say which of twelve fields was wrong, and the settings copy
      * in nine locales.
+     *
+     * Conversation handoffs took it to 9,704,341. The handoff's wire schema
+     * rides on every chat message, so every surface that parses messages
+     * carries it, along with the fence a later turn reads it inside.
      */
-    max: isFirefox ? 11_800_000 : 9_700_000
+    max: isFirefox ? 11_800_000 : 9_750_000
   },
   {
     metric: "zip",
@@ -357,8 +361,14 @@ const budgets: Budget[] = [
      * card with no reader: the row it is drawn into is empty until the run
      * settles, so without the projection a live run shows nothing at all.
      * Firefox carries no Agent code and is unchanged.
+     *
+     * Conversation handoffs — the projection written in the settling commit,
+     * the sanitiser that strips links and secrets from what it carries, and
+     * the read that gives a follow-up the handoff the page never loaded — took
+     * it to 278,451. The alternative is a follow-up that knows nothing of the
+     * run above it, or one that reads the run's page-derived answer unfenced.
      */
-    max: isFirefox ? 210_000 : 278_000
+    max: isFirefox ? 210_000 : 279_000
   }
 ]
 

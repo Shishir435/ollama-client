@@ -34,6 +34,7 @@ import {
   type SqlExecutor,
   withTransaction
 } from "@/lib/sqlite/db"
+import { buildAgentConversationHandoff } from "./agent-run-handoff"
 import { decodeRow, decodeRows, type RowDecodeContext } from "./row-decoder"
 
 export const MAX_AGENT_CHECKPOINT_BYTES = 64 * 1024
@@ -490,6 +491,39 @@ export const appendAgentStep = async (input: AgentStepWrite): Promise<void> => {
 }
 
 /**
+ * The notes a run kept, one per step and in the order it took them.
+ *
+ * Read inside the settling transaction, from the same receipts the panel and
+ * the judge read, so the handoff cannot describe a different run than the one
+ * being settled. A receipt that does not decode contributes nothing: it is
+ * evidence for an audit, and the audit is where it stays.
+ */
+const listRunFindings = async (
+  tx: Pick<SqlExecutor, "query">,
+  runId: string
+): Promise<string[]> => {
+  const rows = await tx.query(
+    "SELECT stepId, receipt FROM agent_steps WHERE runId = ? ORDER BY id ASC",
+    [runId]
+  )
+  const latest = new Map<string, string>()
+  for (const row of rows) {
+    if (typeof row.receipt !== "string" || typeof row.stepId !== "string")
+      continue
+    try {
+      const parsed = AgentStepReceiptSchema.safeParse(JSON.parse(row.receipt))
+      if (parsed.success && parsed.data.finding) {
+        latest.delete(row.stepId)
+        latest.set(row.stepId, parsed.data.finding)
+      }
+    } catch {
+      // Unreadable evidence adds nothing to what a later turn is told.
+    }
+  }
+  return [...latest.values()]
+}
+
+/**
  * Close the assistant row a run reports into, in the commit that settles the
  * run.
  *
@@ -500,15 +534,21 @@ export const appendAgentStep = async (input: AgentStepWrite): Promise<void> => {
  * turn has already finished.
  *
  * The result text is a fallback, not the card: a run that ended with nothing
- * to say leaves the content alone and only stops the row waiting.
+ * to say leaves the content alone and only stops the row waiting. The handoff
+ * is what a later turn in this branch reads instead of the step log, written
+ * in the same statement so a settled run is never without one.
  */
 const settleLinkedMessage = async (
-  tx: Pick<SqlExecutor, "run">,
+  tx: Pick<SqlExecutor, "run" | "query">,
   resultMessageId: number | undefined,
   state: AgentRunState
 ): Promise<void> => {
   if (resultMessageId === undefined) return
   const result = state.result?.trim()
+  const handoff = buildAgentConversationHandoff(
+    state,
+    await listRunFindings(tx, state.id)
+  )
   await tx.run(
     `UPDATE messages
         SET done = 1, updatedAt = ?${result ? ", content = ?" : ""}
@@ -517,6 +557,18 @@ const settleLinkedMessage = async (
       ? [state.updatedAt, result, resultMessageId]
       : [state.updatedAt, resultMessageId]
   )
+  /**
+   * Its own statement, and not guarded on `done`: a row something else
+   * already finished still belongs to this run, and a later turn is owed its
+   * handoff either way. Guarded on being unwritten instead, so the one writer
+   * cannot be overwritten by a second settle.
+   */
+  if (handoff) {
+    await tx.run(
+      "UPDATE messages SET agentHandoff = ? WHERE id = ? AND agentHandoff IS NULL",
+      [JSON.stringify(handoff), resultMessageId]
+    )
+  }
 }
 
 const updateAgentRun = async (
@@ -1019,9 +1071,43 @@ export const reconcileAgentRunLinkage = async (
            OR (resultMessageId IS NOT NULL
                  AND resultMessageId NOT IN (SELECT id FROM messages))`
     )
+    await writeMissingHandoffs(tx)
   })
   await flushSave()
   signal?.throwIfAborted()
+}
+
+/**
+ * A handoff for every settled run whose row has none: runs settled before
+ * handoffs existed, and a settle whose row something else had already
+ * finished. Only those rows are read, so a profile where every row has its
+ * handoff pays one indexed lookup and nothing more.
+ */
+const writeMissingHandoffs = async (
+  tx: Pick<SqlExecutor, "run" | "query">
+): Promise<void> => {
+  const rows = await tx.query(
+    `SELECT ${selectRunColumns} FROM agent_runs
+      WHERE resultMessageId IS NOT NULL
+        AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})
+        AND resultMessageId IN (
+          SELECT id FROM messages WHERE agentHandoff IS NULL
+        )`,
+    [...TERMINAL_AGENT_STATUSES]
+  )
+  for (const row of decodeRows(AgentRunRowSchema, rows, TABLE)) {
+    const run = parseRun(row)
+    if (!run?.state || run.resultMessageId === undefined) continue
+    const handoff = buildAgentConversationHandoff(
+      run.state,
+      await listRunFindings(tx, run.id)
+    )
+    if (!handoff) continue
+    await tx.run(
+      "UPDATE messages SET agentHandoff = ? WHERE id = ? AND agentHandoff IS NULL",
+      [JSON.stringify(handoff), run.resultMessageId]
+    )
+  }
 }
 
 export const createAgentPersistencePort = (): AgentPersistencePort => ({

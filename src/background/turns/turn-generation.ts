@@ -4,6 +4,7 @@ import {
   type StreamReducerState,
   type StreamTerminal
 } from "@ollama-client/runtime-core/chat-stream-reducer"
+import { neutralizeAgentRows } from "@/application/context/agent-handoff-context"
 import {
   DurableTurnGenerationError,
   failureForTurn
@@ -144,7 +145,10 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
     }
 
     const messages = [
-      ...submission.request.context.messages,
+      ...neutralizeAgentRows(
+        submission.request.context.messages,
+        new Set(context.result.agentHandoffRunIds ?? [])
+      ),
       {
         ...submission.request.userMessage,
         content: context.result.contentWithRAG

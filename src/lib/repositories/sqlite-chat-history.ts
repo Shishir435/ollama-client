@@ -1,3 +1,4 @@
+import { AgentConversationHandoffSchema } from "@ollama-client/contracts/agent-handoff"
 import {
   ChatMessageErrorSchema,
   ChatMessageMetricsSchema
@@ -117,6 +118,21 @@ const parseMessageError = (raw: RowValue): ChatMessage["error"] => {
   }
 }
 
+/**
+ * A handoff that no longer decodes is dropped rather than half-read. It is
+ * page-derived text a later prompt will carry, so a row that fails its own
+ * bounds is exactly the one that must not reach one.
+ */
+const parseAgentHandoff = (raw: RowValue): ChatMessage["agentHandoff"] => {
+  if (typeof raw !== "string" || raw.length === 0) return undefined
+  try {
+    const result = AgentConversationHandoffSchema.safeParse(JSON.parse(raw))
+    return result.success ? result.data : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const messageFromRow = (row: Row): StoredMessage => ({
   id: row.id as number,
   sessionId: row.sessionId as string,
@@ -130,7 +146,8 @@ const messageFromRow = (row: Row): StoredMessage => ({
   thinking: (row.thinking as string | null) ?? undefined,
   replayArtifact: parseStoredReplayArtifact(row.replayArtifact),
   error: parseMessageError(row.error),
-  agentRunId: (row.agentRunId as string | null) ?? undefined
+  agentRunId: (row.agentRunId as string | null) ?? undefined,
+  agentHandoff: parseAgentHandoff(row.agentHandoff)
 })
 
 const fileFromRow = (row: Row): StoredFile => ({
@@ -773,6 +790,10 @@ export const updateMessageWithImages = async (
  *     checkpoint is live. Excluding sessions that have any checkpoint row
  *     keeps those live waits from being finalized (rows are deleted on
  *     completion and pruned when abandoned).
+ *   - Agent ownership: a row an Agent run reports into is written once when
+ *     the run starts and again when it settles, and nothing in between — a
+ *     run lasting longer than `staleMs` looked orphaned. Its run owns it, and
+ *     startup reconciliation settles the ones a dead worker left.
  *
  * Returns the count fixed.
  */
@@ -792,6 +813,7 @@ export const finalizeInterruptedMessages = async (
   const rows = await query(
     `SELECT id, metrics FROM messages
      WHERE role = 'assistant' AND done = 0
+       AND agentRunId IS NULL
        AND (updatedAt IS NULL OR updatedAt < ?)
        AND id NOT IN (
          SELECT assistantMessageId FROM turn_runs

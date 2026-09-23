@@ -15,6 +15,7 @@ import {
   retrieveContextEnhanced
 } from "@/application/context/rag/rag-pipeline"
 import { isAbortError } from "@/lib/error-utils"
+import { AGENT_PREVIEW_COMPILED } from "@/lib/feature-flags"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
   DEFAULT_RAG_PROMPT,
@@ -37,6 +38,10 @@ import type {
   RagSources,
   UsedContextChunk
 } from "@/types"
+import {
+  agentHandoffBudget,
+  renderAgentHandoffContext
+} from "./agent-handoff-context"
 import { ContextAssembly, type PromptContextStats } from "./context-assembly"
 import type { DurableContextOptions } from "./context-contract"
 import { createContextPlan } from "./context-plan"
@@ -83,6 +88,13 @@ export interface BuildRagContextOptions extends DurableContextOptions {
 export interface BuildRagContextResult {
   /** User content with appended RAG / tab-context blocks. */
   contentWithRAG: string
+  /**
+   * The Agent runs whose fenced record this turn carries. Optional because a
+   * result built before records existed, or on a build without the Agent,
+   * carries none — and a row with no record is told so, never assumed to
+   * have one.
+   */
+  agentHandoffRunIds?: string[]
   /** Sources to attach to the assistant message metrics, if any. */
   ragSources: RagSources | null
   /** Telemetry stats for the prompt — surfaced in message metrics. */
@@ -522,6 +534,28 @@ const runRagPipeline = async (
   await appendMemoryRetrieval({ options, queryForRag, assembly })
 }
 
+/**
+ * The context window this turn's model is run with: the `num_ctx` generation
+ * sends, from the same stored configuration, so the records are bounded by
+ * the window the provider is actually given rather than a guess at it.
+ */
+const resolveContextWindowTokens = async (
+  options: BuildRagContextOptions
+): Promise<number> => {
+  const modelId =
+    options.customModel ||
+    options.selectedModelRef?.modelId ||
+    options.selectedModel
+  const stored = modelId
+    ? getStoredModelConfig(
+        await readSetting(SETTINGS.MODEL_CONFIGS),
+        modelId,
+        options.selectedModelRef?.providerId
+      )
+    : undefined
+  return resolveModelConfig(stored).num_ctx
+}
+
 /** Build a RAG-augmented user message body plus telemetry. */
 export const buildRagContext = async (
   options: BuildRagContextOptions
@@ -560,5 +594,27 @@ export const buildRagContext = async (
     assembly.appendTabFallback(options.contextText, options.maxTabContextChars)
   }
   assembly.appendFileFallback(options.files)
+  /**
+   * Not in grounded-only mode, which promises an answer from the selected
+   * page alone. Everywhere else the branch's agent records ride along, fenced
+   * and bounded, whatever the retrieval setting — a follow-up about what the
+   * agent found is a question about this conversation, not a search.
+   *
+   * Last, after the file fallback: that fallback runs only while nothing has
+   * been appended to the question, and a handoff ahead of it would silently
+   * withhold the text of a file the user just attached.
+   */
+  if (AGENT_PREVIEW_COMPILED && !options.groundedOnlyMode) {
+    assembly.appendAgentHandoffs(
+      renderAgentHandoffContext(
+        options.messages,
+        agentHandoffBudget({
+          contextWindowTokens: await resolveContextWindowTokens(options),
+          remainingContextChars: assembly.remainingRagBudget
+        })
+      )
+    )
+  }
+
   return assembly.finish()
 }

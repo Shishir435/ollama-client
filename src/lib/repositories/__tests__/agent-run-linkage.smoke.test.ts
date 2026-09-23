@@ -232,6 +232,181 @@ describe("an Agent run and the conversation it belongs to", () => {
   )
 
   it(
+    "writes the handoff a later turn reads in the commit that settles the run",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-h"), "s-agent")
+      await runs.appendAgentStep({
+        runId: "agent-link-h",
+        stepId: "agent-link-h:1",
+        status: "planned",
+        command: { type: "back", snapshotId: "snapshot-1", generation: 1 },
+        finding: "Plan A is $12 a month, see https://evil.example/next",
+        at: CREATED_AT + 1
+      })
+
+      await runs.transitionAgentRun({
+        runId: "agent-link-h",
+        from: "submitted",
+        to: "failed",
+        patch: {
+          result: "Plan A is cheaper",
+          error: {
+            code: "budget_exhausted",
+            message: "Ran out of steps",
+            retryable: false
+          },
+          updatedAt: CREATED_AT + 10
+        }
+      })
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff).toEqual({
+        version: 1,
+        runId: "agent-link-h",
+        status: "failed",
+        goal: "Compare the two plans",
+        result: "Plan A is cheaper",
+        failure: "budget_exhausted",
+        findings: ["Plan A is $12 a month, see [link]"],
+        settledAt: CREATED_AT + 10
+      })
+    },
+    TIMEOUT
+  )
+
+  it(
+    "writes no handoff while the run is still going",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-live"), "s-agent")
+
+      await runs.transitionAgentRun({
+        runId: "agent-link-live",
+        from: "submitted",
+        to: "planning",
+        patch: { updatedAt: CREATED_AT + 2 }
+      })
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff).toBeUndefined()
+      expect(card?.done).toBe(false)
+    },
+    TIMEOUT
+  )
+
+  /**
+   * An agent row is written when the run starts and when it settles, and not
+   * in between. The interrupted-turn sweep took any run longer than its stale
+   * window for a dead chat turn and closed its row — and the settle that
+   * followed found the row finished and wrote nothing.
+   */
+  it(
+    "leaves a live run's row to its run, and settles it afterwards",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-long"), "s-agent")
+
+      expect(await facade.finalizeInterruptedMessages(0)).toBe(0)
+
+      await runs.transitionAgentRun({
+        runId: "agent-long",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 60_000 }
+      })
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.content).toBe("Plan A is cheaper")
+      expect(card?.agentHandoff?.result).toBe("Plan A is cheaper")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "writes the handoff even when something else already finished the row",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-done-row"), "s-agent")
+      const [, before] = await facade.getMessagesBySession("s-agent")
+      await facade.updateMessage(before?.id as number, { done: true })
+
+      await runs.transitionAgentRun({
+        runId: "agent-done-row",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 5 }
+      })
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff?.runId).toBe("agent-done-row")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "gives a run settled before handoffs existed one at startup",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-old"), "s-agent")
+      await runs.transitionAgentRun({
+        runId: "agent-old",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 5 }
+      })
+      const db = await import("@/lib/sqlite/db")
+      await db.run("UPDATE messages SET agentHandoff = NULL")
+
+      await runs.reconcileAgentRunLinkage()
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff?.runId).toBe("agent-old")
+    },
+    TIMEOUT
+  )
+
+  /**
+   * Pruning is by status, never by age alone: a browser closed for six weeks
+   * still owes the user the run it interrupted. A settled run may go, and the
+   * handoff it left on its row stays behind for the turns that follow.
+   */
+  it(
+    "prunes by status: an old interrupted run keeps its row, a settled one leaves its handoff",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-old-live"), "s-agent")
+      await runs.transitionAgentRun({
+        runId: "agent-old-live",
+        from: "submitted",
+        to: "planning",
+        patch: { updatedAt: CREATED_AT + 1 }
+      })
+      await createLinkedAgentRun(runState("agent-old-done"), "s-agent")
+      await runs.transitionAgentRun({
+        runId: "agent-old-done",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 2 }
+      })
+
+      const sixWeeksLater = CREATED_AT + 42 * 24 * 60 * 60 * 1000
+      await runs.pruneTerminalAgentRuns(
+        sixWeeksLater - runs.TERMINAL_AGENT_RETENTION_MS
+      )
+
+      expect((await runs.getAgentRun("agent-old-live"))?.status).toBe(
+        "planning"
+      )
+      expect(await runs.getAgentRun("agent-old-done")).toBeNull()
+      const settledCard = (await facade.getMessagesBySession("s-agent")).find(
+        (message) => message.agentRunId === "agent-old-done"
+      )
+      expect(settledCard?.agentHandoff?.result).toBe("Plan A is cheaper")
+    },
+    TIMEOUT
+  )
+
+  it(
     "keeps the receipts when a branch of the conversation is deleted",
     async () => {
       const { facade, runs, createLinkedAgentRun } = await boot()

@@ -5,7 +5,10 @@ import { TurnService } from "@/application/turns/turn-service"
 import { resolveRetrievalToolsActive } from "@/background/handlers/handle-build-context"
 import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { makeGenerationOwner } from "@/background/turns/turn-generation"
+import { AGENT_PREVIEW_COMPILED } from "@/lib/feature-flags"
+import { getMessagesByIds } from "@/lib/repositories/chat-history"
 import { createTurnRun, updateTurnRun } from "@/lib/repositories/turn-runs"
+import type { ChatMessage } from "@/types"
 
 /**
  * Bind the environment-independent turn runtime to this extension's adapters.
@@ -46,9 +49,40 @@ export const withRetrievalToolState = async (
   )
   return {
     ...options,
+    messages: AGENT_PREVIEW_COMPILED
+      ? await withDurableAgentHandoffs(options.messages)
+      : options.messages,
     retrievalToolsActive,
     signal
   }
+}
+
+/**
+ * The handoffs of this branch's agent rows, as the database holds them.
+ *
+ * Read here rather than taken from the request: a run that settled while the
+ * chat stayed open wrote its handoff after the page last loaded the row, so
+ * the page's copy has none, and the follow-up the user is typing is the one
+ * that most needs it. The row is also the only writer's output — whatever the
+ * request carried is replaced, not merged. A chat with no agent rows issues
+ * no query at all.
+ */
+export const withDurableAgentHandoffs = async (
+  messages: ChatMessage[]
+): Promise<ChatMessage[]> => {
+  const ids = messages.flatMap((message) =>
+    message.agentRunId && typeof message.id === "number" ? [message.id] : []
+  )
+  if (ids.length === 0) return messages
+  const stored = new Map(
+    (await getMessagesByIds(ids)).map((row) => [row.id, row.agentHandoff])
+  )
+  return messages.map((message) => {
+    if (!message.agentRunId || typeof message.id !== "number") return message
+    const { agentHandoff: _fromRequest, ...rest } = message
+    const handoff = stored.get(message.id)
+    return handoff ? { ...rest, agentHandoff: handoff } : rest
+  })
 }
 
 /**
