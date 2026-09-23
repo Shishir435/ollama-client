@@ -44,9 +44,6 @@
       "no_debugger": "This browser has no debugger, so the run drives pages through the extension's content scripts instead."
     },
     "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",
-    "completion": {
-      "summary": "{{count}} page observations were sent to {{provider}} during this run."
-    },
     "controls": {
       "label": "Agent controls",
       "pause": "Pause",
@@ -77,7 +74,6 @@
       "verification_failed": "The run could not confirm what its last action did. Check the page before starting again.",
       "unknown": "The run stopped for a reason it could not name. Check the page, then start again."
     },
-    "feedback": "Send feedback",
     "limits": {
       "no_native_input": "Pointer and keyboard input is synthetic, so a page that only reacts to real input may not respond.",
       "no_screenshots": "No screenshots are taken, so a task that can only be done by looking at the page will not work.",
@@ -136,7 +132,6 @@
       "unknown": "Not determined yet"
     },
     "start": {
-      "description": "Supervise a browser task from this panel.",
       "goal": "What should Agent do?",
       "placeholder": "Describe one browser task…",
       "action": "Start Agent",
@@ -194,13 +189,6 @@
       "target": "“{{name}}”"
     },
     "correction": "Paused. Describe what should change, then continue.",
-    "export_report": "Export run report (includes page text)",
-    "running_goal": "Working on",
-    "requirements": {
-      "title": "What the task asked for",
-      "met": "Done",
-      "unmet": "Not done"
-    },
     "settings": {
       "title": "Browser agent",
       "description": "How much context a run may ask its model for, and when it pictures the page.",
@@ -224,8 +212,6 @@
       "missing": "This run's record is no longer available.",
       "steps": "Actions: {{count}}",
       "outcome": "{{met}} of {{total}} done",
-      "open": "Open in Agent",
-      "needs_you": "Needs you — open in Agent",
       "continue": "Continue",
       "retry": "Retry",
       "start_over": "Start over",
@@ -236,6 +222,9 @@
       "retry": "Retrying: {{goal}}",
       "clear": "Start fresh instead",
       "placeholder": "What should it do next?"
+    },
+    "composer": {
+      "run_in_progress": "A run is already working. Stop it, or wait for it to finish, before starting another."
     }
   },
   "common": {

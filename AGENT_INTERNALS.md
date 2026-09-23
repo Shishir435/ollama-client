@@ -868,6 +868,19 @@ Read the section your change touches; you do not need the whole file.
 
 ## Panel supervision surface
 
+- **Chat is the only workspace.** A run is started from the chat composer in
+  Act mode (`AgentWorkspace` lends chat a `ChatComposerAlternateMode` through
+  the shell, so chat imports none of the Agent), supervised from its card in
+  the conversation, and followed up from that card. The card of the run the
+  panel's port holds carries its approval, handover, question and controls,
+  each with its own control; the composer never carries a decision. The port
+  lives as long as the panel does, so chatting while a run works no longer
+  pauses it — only closing the last panel does, as before.
+- **A run waiting on the user marks the toolbar icon.** `registerAgentAttentionBadge`
+  shows `!` while the latest run is awaiting approval, awaiting a handover,
+  or paused — including the pause taken when the last panel closed — and
+  clears it when the run moves on. It says only that; nothing a page wrote.
+
 - **The browser's own limits are disclosed before a run, not after it
   stalls.** `AgentBrowserDisclosure` travels on every panel snapshot, read
   from the session manager rather than guessed from a user agent, and the
@@ -877,10 +890,12 @@ Read the section your change touches; you do not need the whole file.
   therefore cannot do: synthetic input only, no screenshots, no native
   dialogs.
 - **A failure leads with the recovery.** `AgentError.message` is written in
-  English for whoever reads a receipt and says what happened; the panel shows
-  `agent.failure.<code>` first, in the reader's language, and keeps the
-  original beneath so the words the run used survive for a bug report. A code
-  with no key falls back to the `unknown` advice rather than to nothing.
+  English for whoever reads a receipt and says what happened; the run's card
+  shows `agent.failure.<code>`, in the reader's language, and the message
+  never crosses the card's RPC — it can name a provider URL. The words the run
+  used survive in the durable record and the debug report, which is where a
+  bug report reads them. A code with no key falls back to the `unknown` advice
+  rather than to nothing.
   A failure the layer below already named keeps its own name: `AgentError`
   carries an optional `messageKey` and `agentProviderFailure` reads the
   provider's `messageKey`, `userMessage` and `retryable` structurally (never

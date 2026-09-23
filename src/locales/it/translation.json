@@ -44,9 +44,6 @@
       "no_debugger": "Questo browser non ha un debugger, quindi l'esecuzione guida le pagine tramite gli script di contenuto dell'estensione."
     },
     "browser_disconnected": "Il controllo del browser si è disconnesso, quindi Agent è in pausa. Controlla la pagina prima di riprendere.",
-    "completion": {
-      "summary": "Durante questa esecuzione sono state inviate {{count}} osservazioni di pagina a {{provider}}."
-    },
     "controls": {
       "label": "Controlli Agente",
       "pause": "Pausa",
@@ -77,7 +74,6 @@
       "verification_failed": "L'esecuzione non ha potuto confermare l'effetto dell'ultima azione. Controlla la pagina prima di riavviare.",
       "unknown": "L'esecuzione si è fermata per un motivo non identificabile. Controlla la pagina e riavvia."
     },
-    "feedback": "Invia feedback",
     "limits": {
       "no_native_input": "L'input di mouse e tastiera è sintetico: una pagina che risponde solo a input reali potrebbe non reagire.",
       "no_screenshots": "Non vengono acquisite schermate, quindi un'attività risolvibile solo guardando la pagina non funzionerà.",
@@ -136,7 +132,6 @@
       "unknown": "Non ancora determinato"
     },
     "start": {
-      "description": "Supervisiona un’attività del browser da questo pannello.",
       "goal": "Cosa deve fare l’Agente?",
       "placeholder": "Descrivi un’attività del browser…",
       "action": "Avvia Agente",
@@ -194,13 +189,6 @@
       "target": "«{{name}}»"
     },
     "correction": "In pausa. Descrivi cosa cambiare, poi continua.",
-    "export_report": "Esporta rapporto (include il testo della pagina)",
-    "running_goal": "In lavorazione",
-    "requirements": {
-      "title": "Cosa chiedeva l'attività",
-      "met": "Fatto",
-      "unmet": "Non fatto"
-    },
     "settings": {
       "title": "Agente del browser",
       "description": "Quanto contesto un'esecuzione può chiedere al suo modello e quando fotografa la pagina.",
@@ -224,8 +212,6 @@
       "missing": "Il registro di questa esecuzione non è più disponibile.",
       "steps": "Azioni: {{count}}",
       "outcome": "{{met}} di {{total}} completate",
-      "open": "Apri in Agente",
-      "needs_you": "Serve il tuo intervento: apri in Agente",
       "continue": "Continua",
       "retry": "Riprova",
       "start_over": "Ricomincia",
@@ -236,6 +222,9 @@
       "retry": "Nuovo tentativo: {{goal}}",
       "clear": "Ricomincia da capo",
       "placeholder": "Cosa deve fare adesso?"
+    },
+    "composer": {
+      "run_in_progress": "Un’esecuzione è già in corso. Interrompila o attendi che finisca prima di avviarne un’altra."
     }
   },
   "common": {

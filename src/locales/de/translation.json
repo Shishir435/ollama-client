@@ -44,9 +44,6 @@
       "no_debugger": "Dieser Browser hat keinen Debugger, daher steuert der Lauf Seiten über die Content-Skripte der Erweiterung."
     },
     "browser_disconnected": "Die Browsersteuerung wurde getrennt, daher wurde Agent pausiert. Prüfen Sie die Seite vor dem Fortsetzen.",
-    "completion": {
-      "summary": "Während dieses Laufs wurden {{count}} Seitenbeobachtungen an {{provider}} gesendet."
-    },
     "controls": {
       "label": "Agent-Steuerung",
       "pause": "Pausieren",
@@ -77,7 +74,6 @@
       "verification_failed": "Der Lauf konnte die Wirkung seiner letzten Aktion nicht bestätigen. Prüfen Sie die Seite, bevor Sie erneut starten.",
       "unknown": "Der Lauf endete ohne benennbaren Grund. Prüfen Sie die Seite und starten Sie erneut."
     },
-    "feedback": "Feedback senden",
     "limits": {
       "no_native_input": "Maus- und Tastatureingaben sind synthetisch; eine Seite, die nur auf echte Eingaben reagiert, antwortet möglicherweise nicht.",
       "no_screenshots": "Es werden keine Screenshots erstellt; Aufgaben, die nur visuell lösbar sind, funktionieren nicht.",
@@ -136,7 +132,6 @@
       "unknown": "Noch nicht ermittelt"
     },
     "start": {
-      "description": "Browseraufgabe in diesem Panel beaufsichtigen.",
       "goal": "Was soll der Agent tun?",
       "placeholder": "Eine Browseraufgabe beschreiben…",
       "action": "Agent starten",
@@ -194,13 +189,6 @@
       "target": "„{{name}}“"
     },
     "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
-    "export_report": "Laufbericht exportieren (enthält Seitentext)",
-    "running_goal": "Arbeitet an",
-    "requirements": {
-      "title": "Was die Aufgabe verlangt hat",
-      "met": "Erledigt",
-      "unmet": "Nicht erledigt"
-    },
     "settings": {
       "title": "Browser-Agent",
       "description": "Wie viel Kontext ein Lauf von seinem Modell anfordern darf und wann er die Seite abbildet.",
@@ -224,8 +212,6 @@
       "missing": "Der Eintrag dieses Laufs ist nicht mehr verfügbar.",
       "steps": "Aktionen: {{count}}",
       "outcome": "{{met}} von {{total}} erledigt",
-      "open": "Im Agent öffnen",
-      "needs_you": "Wartet auf dich – im Agent öffnen",
       "continue": "Fortsetzen",
       "retry": "Erneut versuchen",
       "start_over": "Neu beginnen",
@@ -236,6 +222,9 @@
       "retry": "Neuer Versuch: {{goal}}",
       "clear": "Stattdessen neu beginnen",
       "placeholder": "Was soll als Nächstes passieren?"
+    },
+    "composer": {
+      "run_in_progress": "Es läuft bereits ein Durchlauf. Stoppe ihn oder warte, bis er fertig ist, bevor du einen neuen startest."
     }
   },
   "common": {

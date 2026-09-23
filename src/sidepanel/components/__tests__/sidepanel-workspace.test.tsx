@@ -1,12 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import type { ReactNode } from "react"
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest"
+import { afterAll, describe, expect, it, vi } from "vitest"
 
-import {
-  useAgentChatComposer,
-  useAgentSurfaceLauncher
-} from "@/features/agent/lib/agent-surface-launcher"
+import { useAgentChatComposer } from "@/features/agent/lib/agent-chat-composer"
 import { useAgentRunRenderer } from "@/features/chat/lib/agent-run-renderer"
+import { useChatComposerMode } from "@/features/chat/lib/composer-mode"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 
 /** Read when the workspace module loads, so it is set before any import. */
@@ -16,58 +14,50 @@ vi.hoisted(() => {
   ).__AGENT_PREVIEW_ENABLED__ = true
 })
 
-const loadSessionMessages = vi.hoisted(() => vi.fn(async () => undefined))
-
-vi.mock("@/features/sessions/stores/chat-session-store", () => ({
-  chatSessionStore: {
-    getState: () => ({ currentSessionId: "s-1", loadSessionMessages })
-  }
-}))
-
-const OpenAgentFromCard = () => {
-  const open = useAgentSurfaceLauncher()
+/** What chat receives from the shell, read the way chat reads it. */
+const ChatProbe = ({ leading }: { leading?: ReactNode }) => {
+  const mode = useChatComposerMode()
   const ask = useAgentChatComposer()
   const renderer = useAgentRunRenderer()
-  return open && ask && renderer ? (
-    <>
-      <button type="button" onClick={open}>
-        card-open
-      </button>
-      <button type="button" onClick={ask}>
-        card-ask
-      </button>
-    </>
-  ) : null
-}
-
-vi.mock("@/features/chat/components/chat", () => ({
-  Chat: ({ leading }: { leading?: ReactNode }) => (
+  return (
     <div>
       chat-surface
       {leading}
-      <OpenAgentFromCard />
+      <span data-testid="mode">{mode?.active ? "act" : "chat"}</span>
+      <span data-testid="renderer">{renderer ? "card" : "none"}</span>
+      {ask && (
+        <button type="button" onClick={ask}>
+          card-ask
+        </button>
+      )}
     </div>
   )
+}
+
+vi.mock("@/features/chat/components/chat", () => ({
+  Chat: (props: { leading?: ReactNode }) => <ChatProbe {...props} />
 }))
 
-vi.mock("@/features/agent/agent-panel", () => ({
-  AgentPanel: ({ leading }: { leading?: ReactNode }) => (
-    <div>
-      agent-surface
-      {leading}
-    </div>
-  )
-}))
-
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key })
+vi.mock("@/features/agent/agent-workspace", () => ({
+  AgentWorkspace: ({
+    children
+  }: {
+    children: (slots: { toggle: ReactNode; mode: unknown }) => ReactNode
+  }) =>
+    children({
+      toggle: <span>act-toggle</span>,
+      mode: {
+        active: true,
+        inputLabel: "goal",
+        placeholder: "goal",
+        submitLabel: "Start",
+        canSubmit: () => true,
+        submit: () => undefined
+      }
+    })
 }))
 
 import { SidepanelWorkspace } from "../sidepanel-workspace"
-
-afterEach(() => {
-  loadSessionMessages.mockClear()
-})
 
 afterAll(() => {
   delete (globalThis as { __AGENT_PREVIEW_ENABLED__?: boolean })
@@ -75,39 +65,24 @@ afterAll(() => {
 })
 
 describe("SidepanelWorkspace", () => {
-  it("hands chat the Agent's card, and lets it open the Agent surface", async () => {
-    render(<SidepanelWorkspace />)
-
-    fireEvent.click(screen.getByRole("button", { name: "card-open" }))
-
-    expect(await screen.findByText("agent-surface")).toBeInTheDocument()
-  })
-
   /**
-   * A run started on the Agent surface wrote its rows from the background,
-   * which the chat store never saw. Without the re-read its card appears only
-   * after a reload.
+   * One workspace: chat, with the Agent lent to it — its switch in the
+   * composer's row, its mode on the composer, and its card for a run's row.
    */
-  it("re-reads the open chat when coming back from the Agent", async () => {
+  it("hands chat the Agent's switch, composer mode and card", async () => {
     render(<SidepanelWorkspace />)
 
-    fireEvent.click(screen.getByRole("button", { name: "card-open" }))
-    await screen.findByText("agent-surface")
-    expect(loadSessionMessages).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole("button", { name: "agent.surface.chat" }))
-
-    expect(await screen.findByText("chat-surface")).toBeInTheDocument()
-    expect(loadSessionMessages).toHaveBeenCalledWith("s-1")
+    expect(await screen.findByText("act-toggle")).toBeInTheDocument()
+    expect(screen.getByTestId("mode")).toHaveTextContent("act")
+    expect(screen.getByTestId("renderer")).toHaveTextContent("card")
   })
 
-  it("lets a card ask about its run in chat, staying on the chat surface", () => {
+  it("lets a card ask about its run in chat", async () => {
     const before = chatInputStore.getState().focusRequest
     render(<SidepanelWorkspace />)
 
-    fireEvent.click(screen.getByRole("button", { name: "card-ask" }))
+    fireEvent.click(await screen.findByRole("button", { name: "card-ask" }))
 
     expect(chatInputStore.getState().focusRequest).toBe(before + 1)
-    expect(screen.getByText("chat-surface")).toBeInTheDocument()
   })
 })
