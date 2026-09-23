@@ -2119,3 +2119,185 @@ describe("agent controller tab scope", () => {
     expect(scopes[0]).toEqual([7, 3])
   })
 })
+
+describe("a follow-up run", () => {
+  const click = {
+    type: "click",
+    ref: "e1",
+    snapshotId: "snapshot-1",
+    generation: 1
+  } as AgentCommand
+  const placeOrder: Partial<ResolvedAgentEffect> = {
+    semanticEffects: ["activation", "submission"],
+    target: {
+      ref: "e1",
+      tag: "button",
+      role: "button",
+      accessibleName: "Place order",
+      formAction: "https://example.com/orders?session=secret",
+      sensitive: false,
+      maySubmit: true
+    }
+  }
+  const followUp = (name = "Place order"): AgentRunState =>
+    runState({
+      previousRun: {
+        mode: "retry",
+        handoff: {
+          version: 1,
+          runId: "parent",
+          status: "failed",
+          goal: "Order the blue mug",
+          findings: [],
+          settledAt: 1
+        },
+        effects: [
+          {
+            action: "click",
+            page: "https://example.com",
+            role: "button",
+            tag: "button",
+            name
+          }
+        ]
+      }
+    })
+
+  /**
+   * The gate: an effect the run it follows already committed is never
+   * attempted again — refused before policy, so the user is not even asked
+   * to approve the second order, and handed back to the model like any
+   * other refusal rather than ending the run.
+   */
+  it("refuses to repeat an effect the earlier run committed", async () => {
+    const harness = createHarness({
+      state: followUp(),
+      decisions: [
+        { type: "command", command: click },
+        { type: "complete", summary: "Already ordered." }
+      ],
+      effectOverrides: placeOrder
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls).not.toContain("policy")
+    expect(harness.calls).not.toContain("approval")
+    expect(harness.calls).not.toContain("execute")
+    const rejected = harness.writtenSteps.find(
+      (step) => step.status === "rejected"
+    )
+    expect(rejected?.verification?.evidence.summary).toContain(
+      "previousRun.effects"
+    )
+    expect(rejected?.verification?.evidence.summary).not.toContain(
+      "Place order"
+    )
+    expect(harness.getState().status).not.toBe("failed")
+  })
+
+  /**
+   * The same form by another route: the parent clicked the button, the
+   * follow-up presses Enter in the form's field. That may be the same order
+   * or a checkout's next step, so it is not refused — policy is told, and
+   * asks the user.
+   */
+  it("tells policy when a different control sends the same form", async () => {
+    const seen: AgentPolicyInput[] = []
+    const enter = {
+      type: "press_key",
+      ref: "e2",
+      key: "Enter",
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as AgentCommand
+    const state = followUp()
+    const harness = createHarness({
+      state: {
+        ...state,
+        previousRun: state.previousRun && {
+          ...state.previousRun,
+          effects: [
+            {
+              action: "click",
+              page: "https://example.com",
+              effects: ["submission"],
+              form: "https://example.com/orders",
+              role: "button",
+              name: "Place order"
+            }
+          ]
+        }
+      },
+      decisions: [
+        { type: "command", command: enter },
+        { type: "complete", summary: "Already ordered." }
+      ],
+      policy: (input) => {
+        seen.push(input)
+        return approvalPolicy("high")
+      },
+      effectOverrides: {
+        semanticEffects: ["submission"],
+        target: {
+          ref: "e2",
+          tag: "input",
+          role: "textbox",
+          accessibleName: "Card number",
+          formAction: "https://example.com/orders",
+          sensitive: false,
+          maySubmit: true
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(seen[0]?.repeatsPriorForm).toBe(true)
+    expect(harness.calls).toContain("approval")
+    expect(
+      harness.writtenSteps.some((step) =>
+        step.verification?.evidence.summary.includes("previousRun.effects")
+      )
+    ).toBe(false)
+  })
+
+  it("lets a different consequential effect through to policy", async () => {
+    const harness = createHarness({
+      state: followUp("Cancel order"),
+      decisions: [
+        { type: "command", command: click },
+        { type: "complete", summary: "Ordered." }
+      ],
+      effectOverrides: placeOrder
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls).toContain("policy")
+    expect(harness.calls).toContain("execute")
+  })
+
+  it("records whether a step was consequential, for the next follow-up", async () => {
+    const harness = createHarness({
+      decisions: [
+        { type: "command", command: click },
+        { type: "complete", summary: "Ordered." }
+      ],
+      effectOverrides: placeOrder
+    })
+
+    await harness.controller.start("run-1")
+
+    const receipts = harness.writtenSteps.filter(
+      (step) => step.stepId === "run-1:1"
+    )
+    expect(receipts.length).toBeGreaterThan(1)
+    for (const receipt of receipts)
+      expect(receipt).toMatchObject({
+        consequential: ["submission"],
+        formAction: "https://example.com/orders",
+        mutating: true
+      })
+  })
+})

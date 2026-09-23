@@ -58,6 +58,7 @@
     "error": {
       "already_running": "已有一个 Agent 运行正在进行。",
       "browser_control_unavailable": "Agent 无法连接浏览器控制。请关闭 DevTools 或其他调试器后重试。",
+      "follow_up_unavailable": "此运行已无法从这里继续。请重新开始以再次设置任务。",
       "permission_denied": "启动前 Agent 需要页面观察权限。",
       "tab_unsupported": "Agent 无法在此页面运行。请打开普通网页后重试。",
       "unreadable_update": "面板收到了无法读取的更新。",
@@ -224,7 +225,17 @@
       "steps": "操作：{{count}}",
       "outcome": "已完成 {{met}}/{{total}}",
       "open": "在智能体中打开",
-      "needs_you": "需要你处理 — 在智能体中打开"
+      "needs_you": "需要你处理 — 在智能体中打开",
+      "continue": "继续",
+      "retry": "重试",
+      "start_over": "重新开始",
+      "ask": "就此提问"
+    },
+    "follow_up": {
+      "continue": "继续：{{goal}}",
+      "retry": "重试：{{goal}}",
+      "clear": "改为重新开始",
+      "placeholder": "接下来要做什么？"
     }
   },
   "common": {

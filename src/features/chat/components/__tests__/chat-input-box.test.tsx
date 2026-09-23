@@ -3,6 +3,8 @@ import { useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ChatInputBox } from "@/features/chat/components/chat-input-box"
 
+const composer = vi.hoisted(() => ({ focusRequest: 0 }))
+
 /*
  * The context sheet holds the chat instruction, which reads the session store.
  * Without this, mounting the sheet reaches SQLite through the persistence
@@ -61,6 +63,7 @@ vi.mock("@/features/chat/stores/chat-input-store", () => ({
       promptLibraryOpen,
       attachmentSheetOpen,
       focused,
+      focusRequest: composer.focusRequest,
       setPromptLibraryOpen,
       setAttachmentSheetOpen,
       setFocused
@@ -152,5 +155,24 @@ describe("ChatInputBox", () => {
     )
 
     expect(screen.getByText("Prompt sheet open")).toBeInTheDocument()
+  })
+
+  /**
+   * Something outside the input — a run's card offering to ask about it —
+   * has no ref to focus through, so it asks the store and the box answers.
+   */
+  it("takes the caret when something asks for it", () => {
+    composer.focusRequest = 0
+    const { rerender } = render(
+      <ChatInputBox onSend={vi.fn()} stopGeneration={vi.fn()} />
+    )
+    const field = screen.getByPlaceholderText("Type a message or ctrl + /")
+    field.blur()
+    expect(document.activeElement).not.toBe(field)
+
+    composer.focusRequest = 1
+    rerender(<ChatInputBox onSend={vi.fn()} stopGeneration={vi.fn()} />)
+
+    expect(document.activeElement).toBe(field)
   })
 })

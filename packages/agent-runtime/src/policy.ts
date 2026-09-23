@@ -318,6 +318,39 @@ const makeApprovalRequest = (
   }
 }
 
+/** The takeover request's own bound on its instruction. */
+const MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS = 1_000
+
+/**
+ * Said first in an approval for a form an earlier run already sent. The
+ * earlier run's record is page-derived, so this names the fact and not its
+ * words.
+ */
+export const AGENT_PRIOR_FORM_CONSEQUENCE =
+  "An earlier run this task follows already sent this form. Approve only if this is a new submission, not the same one again."
+
+/**
+ * A second send to a form the chain already sent, priced as a decision the
+ * user makes now: at least high, never covered by a grant, and never offered
+ * for widening. Refusing it outright would stop a checkout at its second
+ * step; allowing it on a grant would place a second order unasked.
+ */
+const priorFormApproval = (
+  input: AgentPolicyInput,
+  baseline: AgentRisk
+): AgentPolicyDecision => {
+  const risk = raiseRisk(baseline, "high") as Exclude<AgentRisk, "low">
+  const { grantable: _grantable, ...request } = makeApprovalRequest(input, risk)
+  return {
+    type: "approval_required",
+    risk,
+    request: {
+      ...request,
+      consequence: `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.consequence}`
+    }
+  }
+}
+
 /**
  * Whether a grant the user already gave covers this effect.
  *
@@ -451,10 +484,26 @@ export const evaluateAgentPolicy = (
 
   const takeover = takeoverReason(input)
   if (takeover) {
+    const request = makeTakeoverRequest(input, takeover)
     return {
       type: "takeover_required",
       risk: "critical",
-      request: makeTakeoverRequest(input, takeover)
+      /**
+       * A handover is the user doing the step themselves, so the one who
+       * sends the form again is the one who must be told an earlier run
+       * already sent it — the approval path says so, and this is the other
+       * way the same send reaches a person.
+       */
+      request: input.repeatsPriorForm
+        ? {
+            ...request,
+            instruction:
+              `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.instruction}`.slice(
+                0,
+                MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS
+              )
+          }
+        : request
     }
   }
 
@@ -478,6 +527,8 @@ export const evaluateAgentPolicy = (
       risk = raiseRisk(risk, "critical")
     }
   }
+
+  if (input.repeatsPriorForm) return priorFormApproval(input, risk)
 
   if (risk === "low") return { type: "allow", risk }
   if (

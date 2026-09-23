@@ -22,6 +22,7 @@ Read the section your change touches; you do not need the whole file.
 - [Forms, editors and drags](#forms-editors-and-drags)
 - [Native dialogs](#native-dialogs)
 - [Policy: pricing and consent](#policy-pricing-and-consent)
+- [Follow-up runs](#follow-up-runs)
 - [Verification, waiting and completion](#verification-waiting-and-completion)
 - [Screenshots](#screenshots)
 - [Supervision receipts and the work log](#supervision-receipts-and-the-work-log)
@@ -526,6 +527,44 @@ Read the section your change touches; you do not need the whole file.
   honest limit: a value the run typed is its own, so a model that copies a
   field value into a box and then navigates with it is stopped by that
   approval rather than by this rule.
+
+## Follow-up runs
+
+- **Asking is answer-only; new work is a button.** A chat turn after a run
+  reads its fenced handoff and never starts a browser. A settled card offers
+  Continue (completed, partial), Retry (failed, cancelled), Start over and
+  Ask; the first three land on the Agent composer, where the user still
+  presses Start. There is no routing that turns a chat message into a run.
+- **The panel names a parent; the background reads it.** `agent_start`
+  carries `followUp: {parentRunId, mode}` and nothing about what the parent
+  did — the command schema is strict, so a panel cannot supply its own
+  record. `resolveAgentFollowUp` reads the parent's checkpoint and receipts
+  and refuses (`follow_up_unavailable`) when the parent is gone, still live,
+  in another chat, or unreadable: a follow-up that guessed what was done is
+  the one that repeats it. A chain that committed more than
+  `MAX_AGENT_PRIOR_EFFECTS` is refused too, never trimmed — the effect
+  trimmed off is the one the next run could repeat. Start over carries nothing and is never refused.
+- **A child plans and asks afresh.** It inherits the parent's handoff and the
+  consequential effects the chain committed (`state.previousRun`) — never its
+  grants, answers, requirements or origins. `parentRunId` is written on the
+  run row on every path.
+- **A committed consequential effect is never attempted twice unasked.**
+  Submission, destruction, payment and download are recorded on each receipt
+  as `consequential` (the classes), with the form's action, origin and path,
+  for a submission or payment; `agentCommittedEffects` reads the steps whose
+  last receipt is executed, verified or uncertain. Two matches, two answers:
+  - *The same command on the same control* (role, tag, name, and page when
+    both know it) is a repeat. The controller refuses it before policy is
+    asked, so the user is never prompted to approve the second order, and
+    hands it back to the model like any other refusal. Coarse on purpose: a
+    false match costs a look again, a miss costs a second purchase.
+  - *The same form sent by a different control* — Enter in a field after a
+    click on its button, or a checkout's next step posting to the same
+    address — may or may not be one. Policy prices it at least high, accepts
+    no grant for it, offers none, and says in the approval that an earlier
+    run already sent this form. Refusing it would stop a checkout at step
+    two; allowing it on a grant would place a second order unasked.
+  Receipts older than the flag count a critical change.
 
 ## Verification, waiting and completion
 

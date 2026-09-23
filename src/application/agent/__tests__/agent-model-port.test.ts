@@ -908,6 +908,63 @@ describe("usable agent prompt", () => {
       }
     ])
   })
+  /**
+   * A follow-up's record rides the decision as its own field, beside the goal
+   * rather than inside it, with the effects it must not repeat and without
+   * their page addresses.
+   */
+  it("sends a follow-up the earlier run's record as data", async () => {
+    let sent: ChatRequest | undefined
+    const port = modelPort(async (request, emit) => {
+      sent = request
+      emit(validChunk)
+    })
+    await port.decide(
+      {
+        state: {
+          ...state,
+          previousRun: {
+            mode: "continue",
+            handoff: {
+              version: 1,
+              runId: "parent",
+              status: "completed",
+              goal: "Find the blue mug",
+              result: "It costs 12 dollars",
+              outcome: { met: 1, total: 1 },
+              findings: ["Stock: 3"],
+              settledAt: 1
+            },
+            effects: [
+              {
+                action: "click",
+                page: "https://shop.example/cart",
+                role: "button",
+                name: "Add to cart"
+              }
+            ]
+          }
+        },
+        observation
+      },
+      { aborted: false }
+    )
+    if (!sent) throw new Error("No model request")
+    const prompt = JSON.parse(String(sent.messages[1].content))
+    expect(prompt.task).toBe(state.goal)
+    expect(prompt.previousRun).toEqual({
+      relation: "continue",
+      status: "completed",
+      task: "Find the blue mug",
+      result: "It costs 12 dollars",
+      requirementsMet: "1 of 1",
+      findings: ["Stock: 3"],
+      effects: [{ action: "click", role: "button", name: "Add to cart" }]
+    })
+    expect(String(sent.messages[0].content)).toContain(
+      "Its effects already happened: never do them again."
+    )
+  })
   it("reserves actual system and schema cost at a context rounding boundary", async () => {
     let sent: ChatRequest | undefined
     const port = modelPort(async (request, emit) => {

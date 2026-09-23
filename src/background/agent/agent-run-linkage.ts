@@ -24,13 +24,19 @@ import { appendRunTurn } from "@/lib/repositories/chat-history"
  * Whether the chat is there is decided inside that one commit, never before
  * it. Asking first and writing after left a window in which a chat deleted
  * between the two turned the unlinked fallback into a failed start.
+ *
+ * `parentRunId` names the settled run a follow-up continues. It is written
+ * on every path, linked or not: the lineage is a fact about the run, not
+ * about where its card is drawn.
  */
 export const createLinkedAgentRun = async (
   state: AgentRunState,
-  sessionId?: string
+  sessionId?: string,
+  parentRunId?: string
 ): Promise<void> => {
+  const lineage = parentRunId ? { parentRunId } : {}
   if (!sessionId) {
-    await createAgentRun(state)
+    await createAgentRun(state, lineage)
     return
   }
 
@@ -61,7 +67,8 @@ export const createLinkedAgentRun = async (
     (ids) => {
       const [sql, params] = insertAgentRunStatement(state, {
         sessionId,
-        ...ids
+        ...ids,
+        ...lineage
       })
       return { sql, params }
     }
@@ -72,5 +79,5 @@ export const createLinkedAgentRun = async (
     runId: state.id,
     reason: "session_missing"
   })
-  await createAgentRun(state)
+  await createAgentRun(state, lineage)
 }

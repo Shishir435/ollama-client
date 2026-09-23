@@ -68,6 +68,12 @@ import {
   agentProviderFailure,
   pausePatch
 } from "./ports"
+import {
+  agentConsequentialEffects,
+  agentConsequentialForm,
+  agentRepeatsPriorEffect,
+  agentRepeatsPriorForm
+} from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
 import { agentResolutionFailure } from "./resolution-failure"
 import {
@@ -123,6 +129,43 @@ type AgentResolutionOutcome =
  * page does not offer, and no number of further looks changes that.
  */
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
+
+/**
+ * What a re-recorded step keeps from the receipt it restates. A disposition
+ * that dropped a field would leave the step's last receipt saying less than
+ * its first — and `consequential` is what a follow-up reads to learn what it
+ * must not do again.
+ */
+const restatedStepEvidence = (
+  step: AgentStepReadout
+): Pick<
+  AgentStepWrite,
+  | "command"
+  | "mutating"
+  | "consequential"
+  | "formAction"
+  | "target"
+  | "sourceUrl"
+  | "finding"
+> => ({
+  ...(step.command ? { command: step.command } : {}),
+  ...(step.mutating !== undefined ? { mutating: step.mutating } : {}),
+  ...(step.consequential !== undefined
+    ? { consequential: step.consequential }
+    : {}),
+  ...(step.formAction ? { formAction: step.formAction } : {}),
+  ...(step.target ? { target: step.target } : {}),
+  ...(step.sourceUrl ? { sourceUrl: step.sourceUrl } : {}),
+  ...(step.finding ? { finding: step.finding } : {})
+})
+
+/**
+ * Told to the model when it reaches for an effect the run it follows already
+ * committed. A template, never the control's label: the label is page text,
+ * and the model already has it in `previousRun`.
+ */
+const REPEATED_EFFECT_FEEDBACK =
+  "An earlier run this task follows already did this (see previousRun.effects). It is not done twice. Choose a different step, complete if the goal is met, or ask_user."
 
 /**
  * Completions the judge may refuse for the same reason before the run asks.
@@ -310,7 +353,10 @@ export const createAgentController = (
    */
   const stepEvidence = (
     effect: ResolvedAgentEffect
-  ): Pick<AgentStepWrite, "target" | "sourceUrl" | "mutating"> => {
+  ): Pick<
+    AgentStepWrite,
+    "target" | "sourceUrl" | "mutating" | "consequential" | "formAction"
+  > => {
     const target = agentStepTargetFrom(effect.target)
     /**
      * Origin and path only. A receipt is durable and is read back into a
@@ -320,6 +366,7 @@ export const createAgentController = (
     const sourceUrl = effect.sourceUrl
       ? agentStepSourceUrl(effect.sourceUrl)
       : undefined
+    const formAction = agentConsequentialForm(effect)
     return {
       ...(target ? { target } : {}),
       ...(sourceUrl ? { sourceUrl } : {}),
@@ -329,7 +376,10 @@ export const createAgentController = (
        * step whose later receipts forgot what it was would be judged as a
        * read.
        */
-      mutating: agentEffectChangesPage(effect)
+      mutating: agentEffectChangesPage(effect),
+      /** What a follow-up reads to learn what it must not do again. */
+      consequential: agentConsequentialEffects(effect),
+      ...(formAction ? { formAction } : {})
     }
   }
 
@@ -922,6 +972,10 @@ export const createAgentController = (
       scopedTabIds: agentTabScope(state),
       ...(state.grants?.length ? { grants: state.grants } : {}),
       ...(authoredText?.length ? { authoredText } : {}),
+      ...(state.previousRun &&
+      agentRepeatsPriorForm(effect, state.previousRun.effects)
+        ? { repeatsPriorForm: true }
+        : {}),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {
@@ -1206,6 +1260,18 @@ export const createAgentController = (
           "A page-changing command must name the planned requirement it advances in requirementId."
         )
     }
+    /**
+     * Before policy, so a repeat never reaches an approval prompt: a user
+     * asked to approve the second submission of something the last run
+     * already sent is being asked the wrong question. Refused rather than
+     * failed — nothing was attempted, and the model is told why.
+     */
+    if (
+      state.previousRun &&
+      agentRepeatsPriorEffect(effect, state.previousRun.effects)
+    ) {
+      return refuseCommand(state, decision.command, REPEATED_EFFECT_FEEDBACK)
+    }
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
@@ -1350,11 +1416,7 @@ export const createAgentController = (
         runId,
         stepId: step.stepId,
         status: "uncertain",
-        ...(step.command ? { command: step.command } : {}),
-        ...(step.mutating !== undefined ? { mutating: step.mutating } : {}),
-        ...(step.target ? { target: step.target } : {}),
-        ...(step.sourceUrl ? { sourceUrl: step.sourceUrl } : {}),
-        ...(step.finding ? { finding: step.finding } : {}),
+        ...restatedStepEvidence(step),
         at: now,
         verification: {
           outcome: "ambiguous",

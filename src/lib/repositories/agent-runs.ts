@@ -11,8 +11,10 @@ import {
   TERMINAL_AGENT_STATUSES
 } from "@ollama-client/agent-runtime"
 import {
+  AGENT_CONSEQUENTIAL_EFFECTS,
   type AgentCommand,
   AgentCommandSchema,
+  AgentConsequentialEffectSchema,
   AgentDeadlineStateSchema,
   type AgentRunState,
   AgentRunStateSchema,
@@ -126,6 +128,13 @@ const AgentStepReceiptSchema = z
     risk: z.enum(["low", "medium", "high", "critical"]).optional(),
     /** Whether the step changed the page; a completion is judged against it. */
     mutating: z.boolean().optional(),
+    /** What a repeat would double; a follow-up reads this. */
+    consequential: z
+      .array(AgentConsequentialEffectSchema)
+      .max(AGENT_CONSEQUENTIAL_EFFECTS.length)
+      .optional(),
+    /** Where a consequential submission was sent, origin and path only. */
+    formAction: z.string().max(2_048).optional(),
     verification: AgentVerificationSchema.optional(),
     target: AgentStepTargetSchema.optional(),
     sourceUrl: z.string().max(2_048).optional(),

@@ -543,3 +543,66 @@ describe("an Agent run and the conversation it belongs to", () => {
     TIMEOUT
   )
 })
+
+describe("a follow-up run", () => {
+  /**
+   * The lineage and the inherited record are durable facts about the child:
+   * a worker restart mid-run must come back knowing what it may not repeat.
+   */
+  it(
+    "keeps its parent, the parent's record and what the parent committed",
+    async () => {
+      const { runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-parent"), "s-agent")
+      await runs.appendAgentStep({
+        runId: "agent-parent",
+        stepId: "agent-parent:1",
+        status: "verified",
+        at: CREATED_AT,
+        command: {
+          type: "click",
+          ref: "e1",
+          snapshotId: "s",
+          generation: 1
+        },
+        target: { role: "button", name: "Post review" },
+        sourceUrl: "https://example.com/new",
+        mutating: true,
+        consequential: ["submission"]
+      })
+
+      const steps = await runs.listAgentSteps("agent-parent")
+      expect(steps[0]).toMatchObject({ consequential: ["submission"] })
+
+      const previousRun = {
+        mode: "retry" as const,
+        handoff: {
+          version: 1 as const,
+          runId: "agent-parent",
+          status: "failed" as const,
+          goal: "Compare the two plans",
+          findings: [],
+          settledAt: CREATED_AT
+        },
+        effects: [
+          {
+            action: "click",
+            page: "https://example.com/new",
+            role: "button",
+            name: "Post review"
+          }
+        ]
+      }
+      await createLinkedAgentRun(
+        { ...runState("agent-child"), previousRun },
+        "s-agent",
+        "agent-parent"
+      )
+
+      const child = await runs.getAgentRun("agent-child")
+      expect(child?.parentRunId).toBe("agent-parent")
+      expect(child?.state?.previousRun).toEqual(previousRun)
+    },
+    TIMEOUT
+  )
+})

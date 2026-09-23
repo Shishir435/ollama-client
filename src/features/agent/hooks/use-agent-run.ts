@@ -1,4 +1,5 @@
 import type {
+  AgentFollowUpMode,
   AgentPanelCommand,
   AgentPanelSnapshot
 } from "@ollama-client/contracts"
@@ -25,7 +26,11 @@ export interface AgentRunConnection {
   snapshot: AgentPanelSnapshot
   failure?: AgentCommandFailure
   busy: boolean
-  start(goal: string, allowRoutineActions?: boolean): void
+  start(
+    goal: string,
+    allowRoutineActions?: boolean,
+    followUp?: { parentRunId: string; mode: AgentFollowUpMode }
+  ): void
   pause(): void
   resume(): void
   correct(text: string): void
@@ -180,7 +185,11 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
     input
 
   const start = useCallback(
-    (goal: string, allowRoutineActions = false) => {
+    (
+      goal: string,
+      allowRoutineActions = false,
+      followUp?: { parentRunId: string; mode: AgentFollowUpMode }
+    ) => {
       if (!providerId || !modelId || typeof tabId !== "number") return
       const trimmed = goal.trim()
       if (!trimmed) return
@@ -210,6 +219,14 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
             providerId,
             modelId,
             ...(sessionId ? { sessionId } : {}),
+            ...(followUp
+              ? {
+                  followUp: {
+                    parentRunId: followUp.parentRunId,
+                    mode: followUp.mode
+                  }
+                }
+              : {}),
             ...(allowRoutineActions ? { allowRoutineActions: true } : {}),
             allowExperimentalModel
           })

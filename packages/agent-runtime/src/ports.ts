@@ -1,6 +1,7 @@
 import type {
   AgentApprovalRequest,
   AgentCommand,
+  AgentConsequentialEffect,
   AgentDecision,
   AgentDialogState,
   AgentError,
@@ -424,6 +425,14 @@ export interface AgentPolicyInput {
    * it was. See `provenance.ts`.
    */
   authoredText?: readonly string[]
+  /**
+   * The effect sends a submission or payment to a form an earlier run in
+   * this chain already sent one to, through a different control. Not proof
+   * of a repeat — a checkout's next step posts to the same place — so the
+   * user decides, told what the earlier run did, and cannot have decided in
+   * advance.
+   */
+  repeatsPriorForm?: boolean
   now: number
 }
 
@@ -520,6 +529,20 @@ export interface AgentStepWrite {
    * user evidence that the submission landed.
    */
   mutating?: boolean
+  /**
+   * Which classes of the effect a repeat would double — a submission, a
+   * payment, a delete, a download — empty when none. Durable for the same
+   * reason as `mutating`: a follow-up reads the receipts to learn what it
+   * must not do again, long after the controller that took the step is gone.
+   * Absent only on receipts written before it existed.
+   */
+  consequential?: AgentConsequentialEffect[]
+  /**
+   * Where a consequential submission was sent, origin and path only. The
+   * form, not the control: Enter in a field and a click on its button send
+   * the same thing.
+   */
+  formAction?: string
   verification?: AgentVerificationResult
   target?: AgentStepTarget
   /** The page the step was taken on, so history can say where it happened. */

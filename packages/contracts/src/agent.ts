@@ -416,6 +416,161 @@ export const AgentRunOutcomeSchema = z
   .strict()
 export type AgentRunOutcome = z.infer<typeof AgentRunOutcomeSchema>
 
+/** How much of the goal a later turn is reminded of. */
+export const MAX_AGENT_HANDOFF_GOAL_CHARS = 1_000
+/** How much of the run's own answer a later turn reads. */
+export const MAX_AGENT_HANDOFF_RESULT_CHARS = 2_000
+/** The run's own notes carried forward, newest last. */
+export const MAX_AGENT_HANDOFF_FINDINGS = 6
+
+/**
+ * The most text one handoff can hold, derived from its parts so a later bound
+ * on the set cannot disagree with them.
+ */
+export const MAX_AGENT_HANDOFF_CHARS =
+  MAX_AGENT_HANDOFF_GOAL_CHARS +
+  MAX_AGENT_HANDOFF_RESULT_CHARS +
+  MAX_AGENT_HANDOFF_FINDINGS * MAX_AGENT_FINDING_CHARS
+
+/** Settled statuses only: a handoff is written by the commit that settles. */
+export const AGENT_HANDOFF_STATUSES = [
+  "completed",
+  "partial",
+  "failed",
+  "cancelled"
+] as const
+
+/**
+ * What a later chat turn is told about a run that happened in its branch.
+ *
+ * A bounded projection, never the step log: the receipts stay in
+ * `agent_steps` for audit, and a follow-up question reads this instead. It
+ * carries no screenshot, no form value, no command, no URL and no opaque
+ * reasoning — only the goal, the run's answer, how much of the task it could
+ * evidence, and the notes it kept. Everything in it except the status is
+ * page-derived or model-authored, which is why the context builder fences it
+ * rather than letting it speak as part of the conversation.
+ *
+ * On the message row rather than the run row, so a branch inherits exactly
+ * the handoffs of its own ancestry.
+ */
+export const AgentConversationHandoffSchema = z
+  .object({
+    version: z.literal(1),
+    runId: z.string().min(1).max(200),
+    status: z.enum(AGENT_HANDOFF_STATUSES),
+    goal: z.string().min(1).max(MAX_AGENT_HANDOFF_GOAL_CHARS),
+    result: z.string().min(1).max(MAX_AGENT_HANDOFF_RESULT_CHARS).optional(),
+    outcome: z
+      .object({
+        met: z.number().int().nonnegative(),
+        total: z.number().int().nonnegative()
+      })
+      .strict()
+      .optional(),
+    failure: AgentErrorSchema.shape.code.optional(),
+    findings: z
+      .array(z.string().min(1).max(MAX_AGENT_FINDING_CHARS))
+      .max(MAX_AGENT_HANDOFF_FINDINGS),
+    settledAt: z.number().int().nonnegative()
+  })
+  .strict()
+
+export type AgentConversationHandoff = z.infer<
+  typeof AgentConversationHandoffSchema
+>
+
+/**
+ * How a follow-up run relates to the run it follows. `continue` takes the
+ * next instruction on from where a settled run ended; `retry` sets the same
+ * goal again after one that failed or was stopped. Starting over is neither:
+ * it is a fresh run that carries nothing forward.
+ */
+export const AGENT_FOLLOW_UP_MODES = ["continue", "retry"] as const
+export const AgentFollowUpModeSchema = z.enum(AGENT_FOLLOW_UP_MODES)
+export type AgentFollowUpMode = z.infer<typeof AgentFollowUpModeSchema>
+
+/**
+ * The effects that cannot be taken back by doing them again.
+ *
+ * A second click on a tab or a second value in a field costs nothing; a
+ * second submission posts the comment twice, a second payment pays twice, a
+ * second delete removes the next row. These are the classes a follow-up must
+ * never repeat on the strength of a model's reading of an earlier record.
+ */
+export const AGENT_CONSEQUENTIAL_EFFECTS = [
+  "submission",
+  "destructive",
+  "payment",
+  "download"
+] as const
+export const AgentConsequentialEffectSchema = z.enum(
+  AGENT_CONSEQUENTIAL_EFFECTS
+)
+export type AgentConsequentialEffect = z.infer<
+  typeof AgentConsequentialEffectSchema
+>
+
+/**
+ * Consequential effects a follow-up can carry from the chain before it.
+ *
+ * A limit on what may be continued, never a window over what happened: a
+ * chain that committed more than this is refused a follow-up rather than
+ * handed a list with its oldest payment trimmed off. Sized so the list fits
+ * a checkpoint and a small model's prompt beside everything else a step
+ * carries; a run that submits or pays two dozen times is one to start over.
+ */
+export const MAX_AGENT_PRIOR_EFFECTS = 24
+/**
+ * How much of a page address a prior effect keeps. Shorter than a receipt's,
+ * because the list rides every checkpoint of the follow-up and every prompt.
+ */
+export const MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS = 300
+
+/**
+ * A consequential effect an earlier run in the chain already committed.
+ *
+ * Recorded so a follow-up cannot do it again: the controller refuses a
+ * matching command before policy is asked, and the model is shown the list.
+ * The target is the receipt's own bounded description; `page` is origin and
+ * path, never a query or fragment, and absent when the receipt had none.
+ * `effects` names which classes it was, and `form` where a submission or
+ * payment was sent — the same form reached by a different command (a click
+ * on the button, Enter in a field) is the same effect.
+ */
+export const AgentPriorEffectSchema = z
+  .object({
+    action: z.string().min(1).max(40),
+    page: z.string().min(1).max(MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS).optional(),
+    effects: z
+      .array(AgentConsequentialEffectSchema)
+      .max(AGENT_CONSEQUENTIAL_EFFECTS.length)
+      .optional(),
+    form: z.string().min(1).max(MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS).optional(),
+    role: z.string().max(60).optional(),
+    tag: z.string().max(40).optional(),
+    name: z.string().max(120).optional()
+  })
+  .strict()
+export type AgentPriorEffect = z.infer<typeof AgentPriorEffectSchema>
+
+/**
+ * The run a follow-up continues, as the follow-up's controller sees it.
+ *
+ * Held in the run state, unlike the chat linkage, because the controller has
+ * to decide by it: the handoff is what the model is told happened, and the
+ * effects are what it may not repeat. Written once at start and never
+ * updated; the child plans and asks for approval afresh either way.
+ */
+export const AgentPreviousRunSchema = z
+  .object({
+    mode: AgentFollowUpModeSchema,
+    handoff: AgentConversationHandoffSchema,
+    effects: z.array(AgentPriorEffectSchema).max(MAX_AGENT_PRIOR_EFFECTS)
+  })
+  .strict()
+export type AgentPreviousRun = z.infer<typeof AgentPreviousRunSchema>
+
 export const AgentRunStateSchema = z
   .object({
     version: z.literal(1),
@@ -458,6 +613,8 @@ export const AgentRunStateSchema = z
     question: AgentQuestionSchema.optional(),
     answers: z.array(AgentAnswerSchema).max(MAX_AGENT_ANSWERS).optional(),
     deadline: AgentDeadlineStateSchema.optional(),
+    /** The settled run this one follows, when it was started as a follow-up. */
+    previousRun: AgentPreviousRunSchema.optional(),
     createdAt: z.number().int().nonnegative(),
     updatedAt: z.number().int().nonnegative()
   })

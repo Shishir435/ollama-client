@@ -15,7 +15,10 @@ import { agentReadinessPermitsStart } from "@/application/agent/agent-model-read
 import { Button } from "@/components/ui/button"
 import { AgentApprovalCard } from "./components/agent-approval-card"
 import { AgentBrowserDisclosureCard } from "./components/agent-browser-disclosure-card"
-import { AgentGoalComposer } from "./components/agent-goal-composer"
+import {
+  type AgentComposerFollowUp,
+  AgentGoalComposer
+} from "./components/agent-goal-composer"
 import { AgentModelReadinessCard } from "./components/agent-model-readiness-card"
 import { AgentOutcomeCard } from "./components/agent-outcome-card"
 import { AgentQuestionCard } from "./components/agent-question-card"
@@ -88,6 +91,9 @@ export interface AgentViewProps {
   /** The unsent goal. Held by the caller so it survives leaving the surface. */
   goal?: string
   onGoalChange?: (goal: string) => void
+  /** The settled run the next Start follows, named on the composer. */
+  followUp?: AgentComposerFollowUp
+  onClearFollowUp?: () => void
   /** Acknowledges the notice shown: observations alone, or observations and screenshots. */
   onAcknowledgePrivacy?: (scope: "observations" | "screenshots") => void
   /** The separate acknowledgement that screenshots may reach a remote model. */
@@ -281,6 +287,8 @@ export const AgentView = ({
   busy = false,
   goal = "",
   onGoalChange = () => undefined,
+  followUp,
+  onClearFollowUp,
   onAcknowledgePrivacy = noop,
   onStart,
   onApprove = noop,
@@ -557,6 +565,8 @@ export const AgentView = ({
         goal={goal}
         canStart={canStart}
         controls={leading}
+        followUp={followUp}
+        onClearFollowUp={onClearFollowUp}
         onGoalChange={onGoalChange}
         onStart={() => onStart?.(goal.trim(), allowRoutineActions)}
       />

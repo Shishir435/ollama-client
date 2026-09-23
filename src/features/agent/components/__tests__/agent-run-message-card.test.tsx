@@ -3,7 +3,11 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { ChatMessage } from "@/types"
-import { AgentSurfaceLauncherContext } from "../../lib/agent-surface-launcher"
+import {
+  AgentChatComposerContext,
+  AgentSurfaceLauncherContext
+} from "../../lib/agent-surface-launcher"
+import { agentDraftStore } from "../../stores/agent-draft-store"
 
 const useAgentRunCard = vi.hoisted(() => vi.fn())
 
@@ -35,6 +39,11 @@ const card = (patch: Partial<AgentRunCard> = {}): AgentRunCard => ({
 
 beforeEach(() => {
   useAgentRunCard.mockReset()
+  agentDraftStore.setState({
+    goal: "",
+    followUp: undefined,
+    handledCompletionRunId: undefined
+  })
 })
 
 describe("AgentRunMessageCard", () => {
@@ -103,7 +112,129 @@ describe("AgentRunMessageCard", () => {
     expect(
       screen.getByText(/agent\.card\.outcome:\{"met":1,"total":2\}/)
     ).toBeInTheDocument()
-    expect(screen.queryByRole("button")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /agent\.card\.(open|needs_you)/ })
+    ).not.toBeInTheDocument()
+  })
+
+  it("continues a run that got somewhere, with an empty instruction", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "completed" })
+    })
+    const open = vi.fn()
+    render(
+      <AgentSurfaceLauncherContext.Provider value={open}>
+        <AgentRunMessageCard msg={message()} />
+      </AgentSurfaceLauncherContext.Provider>
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "agent.card.retry" })
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "agent.card.continue" }))
+
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(agentDraftStore.getState()).toMatchObject({
+      goal: "",
+      handledCompletionRunId: "run-1",
+      followUp: {
+        parentRunId: "run-1",
+        mode: "continue",
+        parentGoal: "Find the opening hours"
+      }
+    })
+  })
+
+  it("retries a run that stopped short with its own goal", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "failed", error: { code: "goal_failed" } })
+    })
+    render(
+      <AgentSurfaceLauncherContext.Provider value={vi.fn()}>
+        <AgentRunMessageCard msg={message()} />
+      </AgentSurfaceLauncherContext.Provider>
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "agent.card.retry" }))
+
+    expect(agentDraftStore.getState()).toMatchObject({
+      goal: "Find the opening hours",
+      followUp: { parentRunId: "run-1", mode: "retry" }
+    })
+  })
+
+  /**
+   * Starting over reuses the sentence and nothing else: no parent, so the
+   * background carries no record and the run claims to know nothing.
+   */
+  it("starts over as a fresh run that follows nothing", () => {
+    agentDraftStore.setState({
+      followUp: {
+        parentRunId: "older",
+        mode: "continue",
+        parentGoal: "Older task"
+      }
+    })
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "cancelled" })
+    })
+    render(
+      <AgentSurfaceLauncherContext.Provider value={vi.fn()}>
+        <AgentRunMessageCard msg={message()} />
+      </AgentSurfaceLauncherContext.Provider>
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "agent.card.start_over" })
+    )
+
+    expect(agentDraftStore.getState().goal).toBe("Find the opening hours")
+    expect(agentDraftStore.getState().followUp).toBeUndefined()
+  })
+
+  /**
+   * Answer-only is the default route: a question about the run stays in chat,
+   * reads the handoff and never reaches the Agent surface.
+   */
+  it("asks about a settled run in chat without opening the Agent", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "completed" })
+    })
+    const open = vi.fn()
+    const ask = vi.fn()
+    render(
+      <AgentSurfaceLauncherContext.Provider value={open}>
+        <AgentChatComposerContext.Provider value={ask}>
+          <AgentRunMessageCard msg={message()} />
+        </AgentChatComposerContext.Provider>
+      </AgentSurfaceLauncherContext.Provider>
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "agent.card.ask" }))
+
+    expect(ask).toHaveBeenCalledOnce()
+    expect(open).not.toHaveBeenCalled()
+    expect(agentDraftStore.getState().followUp).toBeUndefined()
+  })
+
+  it("offers no follow-up while the run is still live", () => {
+    useAgentRunCard.mockReturnValue({ kind: "ready", run: card() })
+    render(
+      <AgentSurfaceLauncherContext.Provider value={vi.fn()}>
+        <AgentChatComposerContext.Provider value={vi.fn()}>
+          <AgentRunMessageCard msg={message()} />
+        </AgentChatComposerContext.Provider>
+      </AgentSurfaceLauncherContext.Provider>
+    )
+
+    for (const name of ["continue", "retry", "start_over", "ask"])
+      expect(
+        screen.queryByRole("button", { name: `agent.card.${name}` })
+      ).not.toBeInTheDocument()
   })
 
   it("leads a failure with the advice its key names", () => {

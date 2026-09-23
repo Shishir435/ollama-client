@@ -58,6 +58,7 @@
     "error": {
       "already_running": "Une exécution d’Agent est déjà en cours.",
       "browser_control_unavailable": "Agent n’a pas pu connecter le contrôle du navigateur. Fermez DevTools ou un autre débogueur, puis réessayez.",
+      "follow_up_unavailable": "Cette exécution ne peut plus être poursuivie d’ici. Recommencez pour redonner la tâche.",
       "permission_denied": "Agent a besoin de l’autorisation d’observation de page avant de démarrer.",
       "tab_unsupported": "Agent ne peut pas s’exécuter sur cette page. Ouvre une page web normale et réessaie.",
       "unreadable_update": "Le panneau a reçu une mise à jour qu’il n’a pas pu lire.",
@@ -224,7 +225,17 @@
       "steps": "Actions : {{count}}",
       "outcome": "{{met}} sur {{total}} faites",
       "open": "Ouvrir dans l'Agent",
-      "needs_you": "Attend votre action — ouvrir dans l'Agent"
+      "needs_you": "Attend votre action — ouvrir dans l'Agent",
+      "continue": "Continuer",
+      "retry": "Réessayer",
+      "start_over": "Recommencer",
+      "ask": "Poser une question"
+    },
+    "follow_up": {
+      "continue": "Suite de : {{goal}}",
+      "retry": "Nouvel essai : {{goal}}",
+      "clear": "Repartir de zéro",
+      "placeholder": "Que doit-il faire ensuite ?"
     }
   },
   "common": {
