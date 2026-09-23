@@ -11,6 +11,19 @@ export interface AgentDraftFollowUp {
   parentRunId: string
   mode: AgentFollowUpMode
   parentGoal: string
+  /**
+   * Set when Start is pressed: the run the panel was showing at that moment,
+   * if any. Only a run that appears after it can be the one this draft
+   * started — a child of the same parent already on screen is an older one.
+   */
+  submitted?: { shownRunId?: string }
+}
+
+/** The run the panel shows, as a draft's follow-up is settled against it. */
+export interface AgentShownRun {
+  id: string
+  /** The parent it follows, when it is a follow-up. */
+  followedRunId?: string
 }
 
 interface AgentDraftState {
@@ -33,12 +46,16 @@ interface AgentDraftState {
     followUp?: AgentDraftFollowUp
   ) => void
   clearFollowUp: () => void
+  /** Records that Start was pressed while `shown` was on screen. */
+  submitFollowUp: (shown: AgentShownRun | undefined) => void
   /**
    * Spends the follow-up once the run it produced exists, and not before:
    * clearing it on the click would turn a refused start — a parent pruned
    * meanwhile, a tab the run cannot use — into a fresh run on the retry.
+   * And not on sight of any child of the same parent: one already showing
+   * when Continue was chosen again is not the run this draft will start.
    */
-  settleFollowUp: (followedRunId: string | undefined) => void
+  settleFollowUp: (shown: AgentShownRun | undefined) => void
 }
 
 /**
@@ -62,13 +79,25 @@ export const agentDraftStore = create<AgentDraftState>((set) => ({
   beginDraft: (goal, fromRunId, followUp) =>
     set({ goal, followUp, handledCompletionRunId: fromRunId }),
   clearFollowUp: () => set({ followUp: undefined }),
-  settleFollowUp: (followedRunId) =>
+  submitFollowUp: (shown) =>
     set((state) =>
-      followedRunId !== undefined &&
-      state.followUp?.parentRunId === followedRunId
-        ? { followUp: undefined }
+      state.followUp
+        ? {
+            followUp: {
+              ...state.followUp,
+              submitted: shown ? { shownRunId: shown.id } : {}
+            }
+          }
         : state
-    )
+    ),
+  settleFollowUp: (shown) =>
+    set((state) => {
+      const followUp = state.followUp
+      if (!followUp?.submitted || !shown) return state
+      if (shown.id === followUp.submitted.shownRunId) return state
+      if (shown.followedRunId !== followUp.parentRunId) return state
+      return { followUp: undefined }
+    })
 }))
 
 export const useAgentDraft = () =>
@@ -79,6 +108,7 @@ export const useAgentDraft = () =>
       setGoal: state.setGoal,
       completeGoal: state.completeGoal,
       clearFollowUp: state.clearFollowUp,
+      submitFollowUp: state.submitFollowUp,
       settleFollowUp: state.settleFollowUp
     }))
   )

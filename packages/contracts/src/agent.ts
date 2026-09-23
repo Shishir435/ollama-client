@@ -490,8 +490,16 @@ export const AGENT_FOLLOW_UP_MODES = ["continue", "retry"] as const
 export const AgentFollowUpModeSchema = z.enum(AGENT_FOLLOW_UP_MODES)
 export type AgentFollowUpMode = z.infer<typeof AgentFollowUpModeSchema>
 
-/** Consequential effects an earlier run committed, newest last. */
-export const MAX_AGENT_PRIOR_EFFECTS = 12
+/**
+ * Consequential effects a follow-up can carry from the chain before it.
+ *
+ * A limit on what may be continued, never a window over what happened: a
+ * chain that committed more than this is refused a follow-up rather than
+ * handed a list with its oldest payment trimmed off. Sized so the list fits
+ * a checkpoint and a small model's prompt beside everything else a step
+ * carries; a run that submits or pays two dozen times is one to start over.
+ */
+export const MAX_AGENT_PRIOR_EFFECTS = 24
 /**
  * How much of a page address a prior effect keeps. Shorter than a receipt's,
  * because the list rides every checkpoint of the follow-up and every prompt.

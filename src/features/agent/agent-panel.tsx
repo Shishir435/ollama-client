@@ -48,6 +48,7 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
     setGoal,
     completeGoal,
     clearFollowUp,
+    submitFollowUp,
     settleFollowUp
   } = useAgentDraft()
   const candidateTab = useAgentCandidateTab()
@@ -83,11 +84,19 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
     if (run?.status === "completed") completeGoal(run.id, run.goal)
   }, [completeGoal, snapshot.run])
 
-  /** The run the displayed one follows, which is what spends a draft's. */
+  /** The run on screen, and the one it follows: what spends a draft's. */
+  const shownRunId = snapshot.run?.id
   const followedRunId = snapshot.run?.previousRun?.handoff.runId
+  const shownRun = shownRunId
+    ? { id: shownRunId, ...(followedRunId ? { followedRunId } : {}) }
+    : undefined
   useEffect(() => {
-    settleFollowUp(followedRunId)
-  }, [settleFollowUp, followedRunId])
+    settleFollowUp(
+      shownRunId
+        ? { id: shownRunId, ...(followedRunId ? { followedRunId } : {}) }
+        : undefined
+    )
+  }, [settleFollowUp, shownRunId, followedRunId])
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -172,7 +181,8 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
             void setAcknowledged(true)
             if (scope === "screenshots") void setScreenshotsAcknowledged(true)
           }}
-          onStart={(text, allowRoutineActions) =>
+          onStart={(text, allowRoutineActions) => {
+            if (followUp) submitFollowUp(shownRun)
             connection.start(
               text,
               allowRoutineActions,
@@ -181,7 +191,7 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
                 mode: followUp.mode
               }
             )
-          }
+          }}
           onAnswer={connection.answerQuestion}
           onApprove={connection.approve}
           onReject={connection.reject}

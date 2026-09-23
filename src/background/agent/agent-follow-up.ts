@@ -25,6 +25,7 @@ export type AgentFollowUpRefusal =
   | "unsettled"
   | "other_chat"
   | "unreadable"
+  | "too_many_effects"
 
 export type AgentFollowUpResolution =
   | { ok: true; previousRun: AgentPreviousRun }
@@ -52,7 +53,9 @@ const stepFindings = (steps: readonly DurableAgentStep[]): string[] => {
  * Refused rather than weakened. A parent that is gone, still live, in
  * another chat, or whose receipts cannot be read gives no honest answer to
  * "what has already been done", and a follow-up that guessed would be the
- * one that repeats it. Starting over is always available instead: it is a
+ * one that repeats it. Nor is a chain that committed more than a follow-up
+ * can carry trimmed to fit: the effect trimmed off is the one it could
+ * repeat. Starting over is always available instead: it is a
  * fresh run that claims to know nothing.
  */
 export const resolveAgentFollowUp = async (
@@ -82,15 +85,13 @@ export const resolveAgentFollowUp = async (
     stepFindings(steps)
   )
   if (!handoff) return { ok: false, reason: "unreadable" }
+  const effects = agentInheritedEffects(
+    parent.state.previousRun?.effects ?? [],
+    agentCommittedEffects(steps)
+  )
+  if (!effects) return { ok: false, reason: "too_many_effects" }
   return {
     ok: true,
-    previousRun: {
-      mode: request.mode,
-      handoff,
-      effects: agentInheritedEffects(
-        parent.state.previousRun?.effects ?? [],
-        agentCommittedEffects(steps)
-      )
-    }
+    previousRun: { mode: request.mode, handoff, effects }
   }
 }

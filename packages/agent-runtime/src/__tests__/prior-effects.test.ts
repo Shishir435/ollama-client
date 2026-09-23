@@ -156,18 +156,30 @@ describe("what a follow-up inherits", () => {
       agentInheritedEffects(
         [entry("Pay"), entry("Post")],
         [entry("Pay"), entry("Save")]
-      ).map((effect) => effect.name)
+      )?.map((effect) => effect.name)
     ).toEqual(["Post", "Pay", "Save"])
   })
 
-  it("stays inside its bound", () => {
-    const many = Array.from({ length: MAX_AGENT_PRIOR_EFFECTS + 5 }, (_, i) =>
+  it("carries every effect up to its bound", () => {
+    const all = Array.from({ length: MAX_AGENT_PRIOR_EFFECTS }, (_, i) =>
       entry(`e${i}`)
     )
-    const kept = agentInheritedEffects(many, [])
 
-    expect(kept).toHaveLength(MAX_AGENT_PRIOR_EFFECTS)
-    expect(kept.at(-1)?.name).toBe(`e${MAX_AGENT_PRIOR_EFFECTS + 4}`)
+    expect(agentInheritedEffects(all.slice(0, 5), all.slice(5))).toEqual(all)
+  })
+
+  /**
+   * Past the bound nothing is trimmed: the oldest effect is exactly the one
+   * a trimmed list would let a follow-up repeat, so the chain cannot be
+   * continued at all.
+   */
+  it("refuses a chain it could only carry by forgetting some of it", () => {
+    const many = Array.from({ length: MAX_AGENT_PRIOR_EFFECTS + 1 }, (_, i) =>
+      entry(`e${i}`)
+    )
+
+    expect(agentInheritedEffects(many, [])).toBeUndefined()
+    expect(agentInheritedEffects([], many)).toBeUndefined()
   })
 })
 

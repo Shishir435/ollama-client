@@ -118,21 +118,25 @@ export const agentCommittedEffects = (
 
 /**
  * What a follow-up inherits: everything the chain before it committed, the
- * parent's own inheritance included, deduplicated and bounded with the
- * newest kept. A chain of retries must not forget the payment its first run
- * made because two later runs made none.
+ * parent's own inheritance included, deduplicated, newest last. A chain of
+ * retries must not forget the payment its first run made because two later
+ * runs made none.
+ *
+ * Undefined when the chain holds more than a follow-up can carry. Nothing is
+ * trimmed: the list is what the controller refuses by, and an effect dropped
+ * from it is one a follow-up would be free to repeat.
  */
 export const agentInheritedEffects = (
   inherited: readonly AgentPriorEffect[],
   committed: readonly AgentPriorEffect[]
-): AgentPriorEffect[] => {
+): AgentPriorEffect[] | undefined => {
   const kept: AgentPriorEffect[] = []
   for (const effect of [...inherited, ...committed]) {
     const index = kept.findIndex((existing) => sameEffect(existing, effect))
     if (index >= 0) kept.splice(index, 1)
     kept.push(effect)
   }
-  return kept.slice(-MAX_AGENT_PRIOR_EFFECTS)
+  return kept.length <= MAX_AGENT_PRIOR_EFFECTS ? kept : undefined
 }
 
 /**

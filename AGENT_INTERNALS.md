@@ -541,7 +541,9 @@ Read the section your change touches; you do not need the whole file.
   record. `resolveAgentFollowUp` reads the parent's checkpoint and receipts
   and refuses (`follow_up_unavailable`) when the parent is gone, still live,
   in another chat, or unreadable: a follow-up that guessed what was done is
-  the one that repeats it. Start over carries nothing and is never refused.
+  the one that repeats it. A chain that committed more than
+  `MAX_AGENT_PRIOR_EFFECTS` is refused too, never trimmed — the effect
+  trimmed off is the one the next run could repeat. Start over carries nothing and is never refused.
 - **A child plans and asks afresh.** It inherits the parent's handoff and the
   consequential effects the chain committed (`state.previousRun`) — never its
   grants, answers, requirements or origins. `parentRunId` is written on the

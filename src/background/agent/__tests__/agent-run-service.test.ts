@@ -3,6 +3,7 @@ import type {
   AgentPersistencePort
 } from "@ollama-client/agent-runtime"
 import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
+import { MAX_AGENT_PRIOR_EFFECTS } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { DurableAgentRun } from "@/lib/repositories/agent-runs"
@@ -854,6 +855,46 @@ describe("a follow-up start", () => {
     ).rejects.toMatchObject({ reason: "follow_up_unavailable" })
     expect(createRun).not.toHaveBeenCalled()
     expect(controller.start).not.toHaveBeenCalled()
+  })
+
+  it("is refused rather than trimmed when the chain committed too much", async () => {
+    const createRun = vi.fn(async () => undefined)
+    const many = Array.from({ length: MAX_AGENT_PRIOR_EFFECTS }, (_, i) => ({
+      action: "click",
+      role: "button",
+      name: `Pay ${i}`
+    }))
+    const { service: agent } = service({
+      createRun,
+      readRun: async () =>
+        parentRun(
+          {},
+          {
+            previousRun: {
+              mode: "retry",
+              handoff: {
+                version: 1,
+                runId: "grandparent",
+                status: "failed",
+                goal: "Pay",
+                findings: [],
+                settledAt: 1
+              },
+              effects: many
+            }
+          }
+        ),
+      readSteps: async () => parentSteps
+    })
+
+    await expect(
+      agent.start({
+        ...startInput,
+        sessionId: "chat-1",
+        followUp: { parentRunId: "parent", mode: "retry" }
+      })
+    ).rejects.toMatchObject({ reason: "follow_up_unavailable" })
+    expect(createRun).not.toHaveBeenCalled()
   })
 
   it("is refused when the parent's receipts cannot be read", async () => {

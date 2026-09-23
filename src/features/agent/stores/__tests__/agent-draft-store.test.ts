@@ -51,12 +51,49 @@ describe("agentDraftStore", () => {
 
   it("spends a follow-up only once the run it produced is showing", () => {
     agentDraftStore.getState().beginDraft("", "parent", followUp)
+    agentDraftStore.getState().submitFollowUp({ id: "parent" })
 
     agentDraftStore.getState().settleFollowUp(undefined)
-    agentDraftStore.getState().settleFollowUp("some-other-parent")
-    expect(agentDraftStore.getState().followUp).toEqual(followUp)
+    agentDraftStore.getState().settleFollowUp({ id: "parent" })
+    agentDraftStore
+      .getState()
+      .settleFollowUp({ id: "other", followedRunId: "some-other-parent" })
+    expect(agentDraftStore.getState().followUp?.parentRunId).toBe("parent")
 
-    agentDraftStore.getState().settleFollowUp("parent")
+    agentDraftStore
+      .getState()
+      .settleFollowUp({ id: "child", followedRunId: "parent" })
     expect(agentDraftStore.getState().followUp).toBeUndefined()
+  })
+
+  /**
+   * The case review found: the panel already shows a child of the parent,
+   * and the user chooses Continue on that parent again. The child on screen
+   * must not spend the new draft, or Start launches a fresh run that knows
+   * nothing of the parent.
+   */
+  it("is not spent by a child of the same parent that was already showing", () => {
+    const olderChild = { id: "child-1", followedRunId: "parent" }
+    agentDraftStore.getState().beginDraft("", "parent", followUp)
+
+    agentDraftStore.getState().settleFollowUp(olderChild)
+    expect(agentDraftStore.getState().followUp?.parentRunId).toBe("parent")
+
+    agentDraftStore.getState().submitFollowUp(olderChild)
+    agentDraftStore.getState().settleFollowUp(olderChild)
+    expect(agentDraftStore.getState().followUp?.parentRunId).toBe("parent")
+
+    agentDraftStore
+      .getState()
+      .settleFollowUp({ id: "child-2", followedRunId: "parent" })
+    expect(agentDraftStore.getState().followUp).toBeUndefined()
+  })
+
+  it("survives a refused start, so pressing Start again still follows", () => {
+    agentDraftStore.getState().beginDraft("", "parent", followUp)
+    agentDraftStore.getState().submitFollowUp(undefined)
+
+    agentDraftStore.getState().settleFollowUp(undefined)
+    expect(agentDraftStore.getState().followUp?.parentRunId).toBe("parent")
   })
 })

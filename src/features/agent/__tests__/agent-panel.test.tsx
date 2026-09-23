@@ -61,6 +61,7 @@ vi.mock("../stores/agent-draft-store", () => ({
     setGoal: vi.fn(),
     completeGoal: vi.fn(),
     clearFollowUp: vi.fn(),
+    submitFollowUp: vi.fn(),
     settleFollowUp: vi.fn()
   })
 }))
