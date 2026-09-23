@@ -4,6 +4,7 @@ import { startBrowserAgentNavigationObserver } from "@/lib/browser-agent/navigat
 import { browser } from "@/lib/browser-api"
 import { AGENT_DEBUG_REPORT_ENABLED, FEATURE_FLAGS } from "@/lib/feature-flags"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
+import { registerAgentAttentionBadge } from "./agent-attention-badge"
 import { createAgentBrowserSessionManager } from "./agent-browser-session-manager"
 import { setAgentForgetStopper } from "./agent-forget-rpc"
 import { registerAgentPanelPort } from "./agent-panel-port"
@@ -69,6 +70,11 @@ export const createAgentComposition = async (
    */
   setAgentForgetStopper((runId) => service.stop(runId))
 
+  const stopBadge = registerAgentAttentionBadge({
+    service,
+    action: browser.action
+  })
+
   let observer:
     | ReturnType<typeof startBrowserAgentNavigationObserver>
     | undefined
@@ -101,6 +107,7 @@ export const createAgentComposition = async (
     history,
     dispose() {
       stopPort()
+      stopBadge()
       setAgentForgetStopper(undefined)
       browser.permissions.onAdded.removeListener(onPermissionAdded)
       observer?.stop()

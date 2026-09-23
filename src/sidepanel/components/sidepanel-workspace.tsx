@@ -1,31 +1,26 @@
-import { lazy, Suspense, useCallback, useState } from "react"
-import {
-  AgentChatComposerContext,
-  AgentSurfaceLauncherContext
-} from "@/features/agent/lib/agent-surface-launcher"
+import { lazy, Suspense } from "react"
+import { AgentChatComposerContext } from "@/features/agent/lib/agent-chat-composer"
 import { Chat } from "@/features/chat/components/chat"
 import { AgentRunRendererContext } from "@/features/chat/lib/agent-run-renderer"
+import { ChatComposerModeContext } from "@/features/chat/lib/composer-mode"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
-import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
-import { type PanelSurface, SurfaceToggle } from "./surface-toggle"
 
 /**
  * The build constant is read inline, not through `AGENT_PREVIEW_ENABLED`: the
  * indirection defeats chunk elimination and ships the Agent chunk to Firefox.
- * The
- * `typeof` guard keeps the module importable where nothing defines it (vitest
- * without the define, component harnesses).
+ * The `typeof` guard keeps the module importable where nothing defines it
+ * (vitest without the define, component harnesses).
  */
-const AgentSurface =
+const AgentWorkspace =
   typeof __AGENT_PREVIEW_ENABLED__ !== "undefined" && __AGENT_PREVIEW_ENABLED__
     ? lazy(() =>
-        import("@/features/agent/agent-panel").then((module) => ({
-          default: module.AgentPanel
+        import("@/features/agent/agent-workspace").then((module) => ({
+          default: module.AgentWorkspace
         }))
       )
     : undefined
 
-/** The card chat draws for a run's row, compiled out with the surface. */
+/** The card chat draws for a run's row, compiled out with the Agent. */
 const AgentRunCard =
   typeof __AGENT_PREVIEW_ENABLED__ !== "undefined" && __AGENT_PREVIEW_ENABLED__
     ? lazy(() =>
@@ -38,50 +33,36 @@ const AgentRunCard =
 /** Asking about a run is answer-only: it stays in chat and reads the handoff. */
 const focusChatComposer = () => chatInputStore.getState().requestFocus()
 
+/**
+ * One workspace: the chat.
+ *
+ * There used to be two surfaces and a switch between them. A run is now
+ * started from the chat composer in Act mode, supervised by its card in the
+ * conversation, and followed up from that card, so the Agent lends chat three
+ * things and owns no screen of its own: the composer mode and its switch, the
+ * card for a run's row, and the door back to the composer for asking about a
+ * run. Chat imports none of it — the shell is the one place that knows both.
+ *
+ * Until the Agent chunk has loaded, and always on Firefox, this is plain chat.
+ */
 export const SidepanelWorkspace = () => {
-  const [surface, setSurface] = useState<PanelSurface>("chat")
-  /**
-   * Coming back to chat re-reads the open conversation. A run started on the
-   * Agent surface wrote its request and card rows from the background, which
-   * the chat store never saw; without the re-read the card appears only after
-   * a reload, which reads as the run having been lost.
-   */
-  const changeSurface = useCallback((next: PanelSurface) => {
-    setSurface(next)
-    if (next !== "chat") return
-    const { currentSessionId, loadSessionMessages } =
-      chatSessionStore.getState()
-    if (currentSessionId) void loadSessionMessages(currentSessionId)
-  }, [])
-  const openAgent = useCallback(() => setSurface("agent"), [])
-
-  if (!AgentSurface) return <Chat />
-
-  /*
-   * No bar of its own, and no tab strip. The toggle is handed to whichever
-   * surface is showing and rendered in that surface's bottom control row,
-   * beside the model picker — the row both surfaces now share. A full-width
-   * row for a two-item switch was forty pixels of a four-hundred-pixel panel,
-   * and a segmented control in the header put the mode one row away from the
-   * controls that belong to it.
-   */
-  const toggle = <SurfaceToggle surface={surface} onChange={changeSurface} />
+  if (!AgentWorkspace) return <Chat />
 
   return (
     <div className="flex h-screen min-w-0 flex-col bg-surface-chat">
-      {surface === "chat" ? (
-        <AgentRunRendererContext.Provider value={AgentRunCard}>
-          <AgentSurfaceLauncherContext.Provider value={openAgent}>
-            <AgentChatComposerContext.Provider value={focusChatComposer}>
-              <Chat embedded leading={toggle} />
-            </AgentChatComposerContext.Provider>
-          </AgentSurfaceLauncherContext.Provider>
-        </AgentRunRendererContext.Provider>
-      ) : (
-        <Suspense fallback={null}>
-          <AgentSurface leading={toggle} />
-        </Suspense>
-      )}
+      <Suspense fallback={<Chat embedded />}>
+        <AgentWorkspace>
+          {({ toggle, mode }) => (
+            <AgentRunRendererContext.Provider value={AgentRunCard}>
+              <AgentChatComposerContext.Provider value={focusChatComposer}>
+                <ChatComposerModeContext.Provider value={mode}>
+                  <Chat embedded leading={toggle} />
+                </ChatComposerModeContext.Provider>
+              </AgentChatComposerContext.Provider>
+            </AgentRunRendererContext.Provider>
+          )}
+        </AgentWorkspace>
+      </Suspense>
     </div>
   )
 }

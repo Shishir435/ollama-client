@@ -373,8 +373,13 @@ const budgets: Budget[] = [
      * record in the decision and planning prompts — took it to 280,450. The
      * alternative is a retry that knows nothing of the order the last run
      * already placed.
+     *
+     * The toolbar mark for a run waiting on the user — the only signal a
+     * parked approval has once the Agent surface is gone and the panel is
+     * closed — took it to 281,140. The alternative is a run that pauses
+     * where nobody can see it.
      */
-    max: isFirefox ? 210_000 : 281_000
+    max: isFirefox ? 210_000 : 282_000
   }
 ]
 

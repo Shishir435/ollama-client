@@ -44,9 +44,6 @@
       "no_debugger": "此浏览器没有调试器，因此运行通过扩展的内容脚本来操作页面。"
     },
     "browser_disconnected": "浏览器控制已断开，因此 Agent 已暂停。请检查页面后再继续。",
-    "completion": {
-      "summary": "本次运行中有 {{count}} 次页面观察发送给 {{provider}}。"
-    },
     "controls": {
       "label": "智能体控制",
       "pause": "暂停",
@@ -77,7 +74,6 @@
       "verification_failed": "运行无法确认上一步操作的结果。重新开始前请检查页面。",
       "unknown": "运行因无法说明的原因停止。请检查页面后重新开始。"
     },
-    "feedback": "发送反馈",
     "limits": {
       "no_native_input": "鼠标和键盘输入是合成的；只响应真实输入的页面可能不会有反应。",
       "no_screenshots": "不会截屏，因此只能通过查看页面完成的任务无法进行。",
@@ -136,7 +132,6 @@
       "unknown": "尚未确定"
     },
     "start": {
-      "description": "在此面板中监督浏览器任务。",
       "goal": "希望智能体做什么？",
       "placeholder": "描述一个浏览器任务…",
       "action": "启动智能体",
@@ -194,13 +189,6 @@
       "target": "“{{name}}”"
     },
     "correction": "已暂停。说明需要更改的内容，然后继续。",
-    "export_report": "导出运行报告（包含页面文本）",
-    "running_goal": "正在执行",
-    "requirements": {
-      "title": "任务要求的内容",
-      "met": "已完成",
-      "unmet": "未完成"
-    },
     "settings": {
       "title": "浏览器代理",
       "description": "一次运行可以向模型索取多少上下文，以及何时对页面拍照。",
@@ -224,8 +212,6 @@
       "missing": "此运行的记录已不可用。",
       "steps": "操作：{{count}}",
       "outcome": "已完成 {{met}}/{{total}}",
-      "open": "在智能体中打开",
-      "needs_you": "需要你处理 — 在智能体中打开",
       "continue": "继续",
       "retry": "重试",
       "start_over": "重新开始",
@@ -236,6 +222,9 @@
       "retry": "重试：{{goal}}",
       "clear": "改为重新开始",
       "placeholder": "接下来要做什么？"
+    },
+    "composer": {
+      "run_in_progress": "已有一个运行正在进行。请先停止它或等待其完成，再开始新的运行。"
     }
   },
   "common": {

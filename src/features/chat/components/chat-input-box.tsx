@@ -1,6 +1,8 @@
+import { SendHorizontal } from "lucide-react"
 import type { ReactNode } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
 import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
 import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
@@ -24,6 +26,7 @@ import type { ProcessedFile } from "@/lib/file-processors/types"
 import { getPlasmoStorageForKey } from "@/lib/plasmo-global-storage"
 import { SETTINGS } from "@/lib/storage/settings"
 import type { ChromeMessage, ImageAttachment } from "@/types"
+import { useChatComposerMode } from "../lib/composer-mode"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
 import {
@@ -68,6 +71,47 @@ export const ChatInputBox = ({
   useEffect(() => {
     if (focusRequest > 0) textareaRef.current?.focus()
   }, [focusRequest])
+  /**
+   * What the box sends when the shell has switched it to another mode. Read
+   * once here and consulted at the three places that differ — the field's
+   * words, Enter, and the send control — so the chat path below is the one
+   * that has always run whenever this is absent or inactive.
+   */
+  const composerMode = useChatComposerMode()
+  const alternate = composerMode?.active ? composerMode : undefined
+  const acting = alternate !== undefined
+  /**
+   * One draft per mode. The box is shared, the sentences are not: a message
+   * half-written before switching to Act is still there on the way back, and
+   * a goal never becomes a chat message by pressing the other button.
+   */
+  const drafts = useRef({ chat: "", act: "" })
+  const shownMode = useRef<"chat" | "act">("chat")
+  const inputRef = useRef(input)
+  inputRef.current = input
+  useEffect(() => {
+    const next = acting ? "act" : "chat"
+    if (shownMode.current === next) return
+    drafts.current[shownMode.current] = inputRef.current
+    shownMode.current = next
+    setInput(drafts.current[next])
+  }, [acting, setInput])
+  /**
+   * A prefill is Act's, so it lands only in Act and only once per token — a
+   * request made while the box shows a chat draft waits for Act rather than
+   * overwriting the message.
+   */
+  const appliedPrefill = useRef<number | undefined>(undefined)
+  const prefillToken = composerMode?.prefill?.token
+  const prefillText = composerMode?.prefill?.text
+  useEffect(() => {
+    if (!acting || prefillToken === undefined || prefillText === undefined)
+      return
+    if (appliedPrefill.current === prefillToken) return
+    appliedPrefill.current = prefillToken
+    setInput(prefillText)
+    textareaRef.current?.focus()
+  }, [acting, prefillToken, prefillText, setInput])
   const selectionStartRef = useRef<number | null>(null)
   const selectionEndRef = useRef<number | null>(null)
   const lastSelectionAppendRef = useRef<{ text: string; at: number } | null>(
@@ -144,10 +188,28 @@ export const ChatInputBox = ({
       setPromptLibraryOpen(false)
     }
 
+    if (e.key === "Enter" && !e.shiftKey && alternate) {
+      e.preventDefault()
+      submitAlternate()
+      return
+    }
+
     if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault()
       void handleSend()
     }
+  }
+
+  /**
+   * Not gated on a chat turn in flight: the other mode is its own activity,
+   * and a message being answered must not stop a task being started.
+   */
+  const submitAlternate = () => {
+    if (!alternate) return
+    const text = input.trim()
+    if (!alternate.canSubmit(text)) return
+    alternate.submit(text)
+    setInput("")
   }
 
   const handleSend = async () => {
@@ -244,8 +306,14 @@ export const ChatInputBox = ({
     [processFiles, handleImageFiles]
   )
 
+  /**
+   * A task is words. Nothing is staged in Act mode: a file or picture
+   * attached there would be dropped from the goal without a word, then sent
+   * with the next chat message instead.
+   */
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (acting) return
       const pastedImages = Array.from(e.clipboardData.files).filter((f) =>
         f.type.startsWith("image/")
       )
@@ -254,14 +322,17 @@ export const ChatInputBox = ({
         handleImageFiles(pastedImages)
       }
     },
-    [handleImageFiles]
+    [acting, handleImageFiles]
   )
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
-  }, [])
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!acting) setIsDragging(true)
+    },
+    [acting]
+  )
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -274,6 +345,7 @@ export const ChatInputBox = ({
       e.preventDefault()
       e.stopPropagation()
       setIsDragging(false)
+      if (acting) return
 
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const files = Array.from(e.dataTransfer.files)
@@ -286,7 +358,7 @@ export const ChatInputBox = ({
         }
       }
     },
-    [processFiles, handleImageFiles]
+    [acting, processFiles, handleImageFiles]
   )
 
   const appendSelectionToInput = useCallback(
@@ -387,6 +459,7 @@ export const ChatInputBox = ({
   const isPreparingTabContext = tabAccess && pendingTabCount > 0
   return (
     <div className="relative">
+      {alternate?.preflight}
       {promptLibraryOpen && (
         <PromptSelectorSheet
           open={promptLibraryOpen}
@@ -412,7 +485,8 @@ export const ChatInputBox = ({
         <Textarea
           id="chat-input-textarea"
           ref={textareaRef}
-          placeholder={t("chat.input.placeholder")}
+          placeholder={alternate?.placeholder ?? t("chat.input.placeholder")}
+          aria-label={alternate?.inputLabel}
           value={input}
           onChange={(e) => {
             setInput(e.target.value)
@@ -448,17 +522,30 @@ export const ChatInputBox = ({
           onRemoveImage={removeImage}
           onCaptureScreenshot={captureScreenshot}
           showScreenshot={!visionUnsupported}
+          contextControls={!acting}
         />
 
         <div className="absolute right-3 top-3">
-          <SendOrStopButton
-            onSend={handleSend}
-            stopGeneration={stopGeneration}
-            disabledSend={isPreparingTabContext}
-            sendLabel={
-              isPreparingTabContext ? "Preparing tab context..." : undefined
-            }
-          />
+          {alternate ? (
+            <TooltipActionButton
+              onClick={submitAlternate}
+              variant="ghost"
+              size="icon"
+              className="rounded-control"
+              disabled={!alternate.canSubmit(input.trim())}
+              label={alternate.submitLabel}
+              icon={<SendHorizontal className="icon-sm" />}
+            />
+          ) : (
+            <SendOrStopButton
+              onSend={handleSend}
+              stopGeneration={stopGeneration}
+              disabledSend={isPreparingTabContext}
+              sendLabel={
+                isPreparingTabContext ? "Preparing tab context..." : undefined
+              }
+            />
+          )}
         </div>
       </ComposerShell>
     </div>

@@ -30,6 +30,11 @@ export interface ChatInputToolbarProps {
   /** Capture the visible tab as an image (E1; shown only when enabled). */
   onCaptureScreenshot?: () => void
   showScreenshot?: boolean
+  /**
+   * Whether the attachment and context menu is offered. Off while the
+   * composer sends a task: none of it would reach the goal.
+   */
+  contextControls?: boolean
 }
 
 export const ChatInputToolbar = ({
@@ -43,7 +48,8 @@ export const ChatInputToolbar = ({
   images = [],
   onRemoveImage,
   onCaptureScreenshot,
-  showScreenshot = false
+  showScreenshot = false,
+  contextControls = true
 }: ChatInputToolbarProps) => {
   const { t } = useTranslation()
   const successfulStates = processingStates.filter(
@@ -61,18 +67,20 @@ export const ChatInputToolbar = ({
 
         <ReasoningEffortMenu />
 
-        <ContextSettingsMenu
-          attachmentCount={attachmentCount}
-          onFilesSelected={onFilesSelected}
-          disabled={isLoading}
-          acceptImages={acceptImages}
-          processingStates={processingStates}
-          onRemoveFile={onRemoveFile}
-          images={images}
-          onRemoveImage={onRemoveImage}
-          onCaptureScreenshot={onCaptureScreenshot}
-          showScreenshot={showScreenshot}
-        />
+        {contextControls && (
+          <ContextSettingsMenu
+            attachmentCount={attachmentCount}
+            onFilesSelected={onFilesSelected}
+            disabled={isLoading}
+            acceptImages={acceptImages}
+            processingStates={processingStates}
+            onRemoveFile={onRemoveFile}
+            images={images}
+            onRemoveImage={onRemoveImage}
+            onCaptureScreenshot={onCaptureScreenshot}
+            showScreenshot={showScreenshot}
+          />
+        )}
 
         <SettingsButton
           showText={false}

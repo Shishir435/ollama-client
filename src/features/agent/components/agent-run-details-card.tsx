@@ -1,11 +1,12 @@
 import type { AgentRunState } from "@ollama-client/contracts"
 import { useTranslation } from "react-i18next"
 
-import type {
-  AgentProviderPresentation,
-  AgentTabPresentation
-} from "../agent-view"
-import { AGENT_PAGE_TEXT_LIMIT, agentPlainText } from "../lib/presentation"
+import {
+  AGENT_PAGE_TEXT_LIMIT,
+  type AgentProviderPresentation,
+  type AgentTabPresentation,
+  agentPlainText
+} from "../lib/presentation"
 
 /** Whether pictures travel, what the run drives, and how many tabs. */
 const Row = ({ label, value }: { label: string; value: string }) => (
@@ -26,11 +27,20 @@ const screenshotsKey = (provider?: AgentProviderPresentation): string =>
 export const AgentRunDetailsCard = ({
   run,
   provider,
-  tab
+  tab,
+  pinnedModel = false
 }: {
   run?: AgentRunState | null
   provider?: AgentProviderPresentation
   tab?: AgentTabPresentation
+  /**
+   * Name the run's model whatever the picker says. A live run is supervised
+   * from its card in the chat, beside the chat's own model picker: that
+   * picker changes the next message, never the run, whose model was fixed
+   * when it started — and a card that fell silent when the two matched would
+   * let a switch look as though it had reached the run.
+   */
+  pinnedModel?: boolean
 }) => {
   const { t } = useTranslation()
   /** The tab it started on plus every tab it has adopted since. */
@@ -50,7 +60,7 @@ export const AgentRunDetailsCard = ({
         the picker cannot say that. So the row appears exactly when leaving it
         out would let the panel imply the wrong model produced these steps.
       */}
-      {run?.modelId && run.modelId !== provider?.model && (
+      {run?.modelId && (pinnedModel || run.modelId !== provider?.model) && (
         <div className="flex min-w-0 gap-2">
           <span className="shrink-0 text-muted-foreground">
             {t("agent.model.label")}

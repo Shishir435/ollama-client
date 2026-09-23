@@ -44,9 +44,6 @@
       "no_debugger": "Este navegador no tiene depurador, así que la ejecución controla las páginas mediante los scripts de contenido de la extensión."
     },
     "browser_disconnected": "El control del navegador se desconectó, por lo que Agent se pausó. Revisa la página antes de continuar.",
-    "completion": {
-      "summary": "Se enviaron {{count}} observaciones de página a {{provider}} durante esta ejecución."
-    },
     "controls": {
       "label": "Controles del Agente",
       "pause": "Pausar",
@@ -77,7 +74,6 @@
       "verification_failed": "La ejecución no pudo confirmar el efecto de su última acción. Revise la página antes de volver a empezar.",
       "unknown": "La ejecución se detuvo por un motivo que no pudo nombrar. Revise la página y vuelva a empezar."
     },
-    "feedback": "Enviar comentarios",
     "limits": {
       "no_native_input": "La entrada de ratón y teclado es sintética; una página que solo responde a entrada real puede no reaccionar.",
       "no_screenshots": "No se toman capturas, así que una tarea que solo puede resolverse mirando la página no funcionará.",
@@ -136,7 +132,6 @@
       "unknown": "Aún no determinado"
     },
     "start": {
-      "description": "Supervisa una tarea del navegador desde este panel.",
       "goal": "¿Qué debe hacer el Agente?",
       "placeholder": "Describe una tarea del navegador…",
       "action": "Iniciar Agente",
@@ -194,13 +189,6 @@
       "target": "«{{name}}»"
     },
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
-    "export_report": "Exportar informe (incluye texto de la página)",
-    "running_goal": "Trabajando en",
-    "requirements": {
-      "title": "Lo que pedía la tarea",
-      "met": "Hecho",
-      "unmet": "No hecho"
-    },
     "settings": {
       "title": "Agente del navegador",
       "description": "Cuánto contexto puede pedir una ejecución a su modelo y cuándo fotografía la página.",
@@ -224,8 +212,6 @@
       "missing": "El registro de esta ejecución ya no está disponible.",
       "steps": "Acciones: {{count}}",
       "outcome": "{{met}} de {{total}} hechas",
-      "open": "Abrir en Agente",
-      "needs_you": "Te necesita: abrir en Agente",
       "continue": "Continuar",
       "retry": "Reintentar",
       "start_over": "Empezar de nuevo",
@@ -236,6 +222,9 @@
       "retry": "Reintentando: {{goal}}",
       "clear": "Empezar desde cero",
       "placeholder": "¿Qué debe hacer ahora?"
+    },
+    "composer": {
+      "run_in_progress": "Ya hay una ejecución en curso. Detenla o espera a que termine antes de iniciar otra."
     }
   },
   "common": {

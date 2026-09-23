@@ -4,9 +4,48 @@ import {
 } from "@ollama-client/agent-runtime"
 import type {
   AgentCommand,
+  AgentModelReadiness,
   AgentRunState,
   AgentStepRecord
 } from "@ollama-client/contracts"
+
+export interface AgentProviderPresentation {
+  name: string
+  model: string
+  location: "local" | "remote"
+  /** Whether viewport screenshots travel with observations; absent is unknown. */
+  screenshots?: boolean
+  /** Whether a run can start with this model; absent while still resolving. */
+  readiness?: AgentModelReadiness
+}
+
+export interface AgentTabPresentation {
+  title: string
+  url: string
+}
+
+/**
+ * Whether pictures may travel to this provider. Unknown counts as "may": the
+ * runtime resolves the model's vision on its own, so a notice that stayed
+ * silent about screenshots while the answer was pending would be one the user
+ * never saw before a picture left.
+ */
+export const agentScreenshotsMayTravel = (
+  provider?: AgentProviderPresentation
+): boolean => provider?.screenshots !== false
+
+/**
+ * A remote provider needs the observation acknowledgement, and the screenshot
+ * one too whenever pictures may travel.
+ */
+export const agentNeedsRemoteAcknowledgement = (
+  provider: AgentProviderPresentation | undefined,
+  observationsAcknowledged: boolean,
+  screenshotsAcknowledged: boolean
+): boolean =>
+  provider?.location === "remote" &&
+  (!observationsAcknowledged ||
+    (agentScreenshotsMayTravel(provider) && !screenshotsAcknowledged))
 
 export const AGENT_PAGE_TEXT_LIMIT = 240
 export const AGENT_LOG_TEXT_LIMIT = 500

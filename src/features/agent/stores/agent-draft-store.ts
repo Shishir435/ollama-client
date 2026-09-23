@@ -27,24 +27,20 @@ export interface AgentShownRun {
 }
 
 interface AgentDraftState {
-  goal: string
+  /** Whether the chat composer is sending a task rather than a message. */
+  acting: boolean
+  /** Text for the composer to take once; a new token is a new request. */
+  prefill?: { text: string; token: number }
   followUp?: AgentDraftFollowUp
-  handledCompletionRunId?: string
-  setGoal: (goal: string) => void
-  completeGoal: (runId: string, completedGoal: string) => void
+  setActing: (acting: boolean) => void
+  /** Puts `text` in the composer, in whichever mode it is in. */
+  prefillComposer: (text: string) => void
   /**
-   * Starts a draft from a run's card: the goal to prefill, the run the card
-   * showed, and the run it follows when there is one. Starting over passes
-   * none — it is a fresh run that happens to reuse the sentence.
-   *
-   * The card's run counts as handled, so the completion rule below cannot
-   * clear the sentence the user just asked to set again.
+   * Starts a task draft from a run's card: Act mode, the goal to prefill, and
+   * the run it follows when there is one. Starting over passes none — it is
+   * a fresh run that happens to reuse the sentence.
    */
-  beginDraft: (
-    goal: string,
-    fromRunId: string,
-    followUp?: AgentDraftFollowUp
-  ) => void
+  beginDraft: (goal: string, followUp?: AgentDraftFollowUp) => void
   clearFollowUp: () => void
   /** Records that Start was pressed while `shown` was on screen. */
   submitFollowUp: (shown: AgentShownRun | undefined) => void
@@ -59,25 +55,26 @@ interface AgentDraftState {
 }
 
 /**
- * The unsent goal, held outside the Agent surface.
+ * Which mode the chat composer is in, and the task being drafted in it.
  *
- * Switching to Chat unmounts that surface, so component state loses the
- * sentence the user was still writing. This store dies with the panel like
- * every other draft — it is a convenience, not durable run state.
+ * Ephemeral by design: the mode is a place the user is in, not a setting,
+ * and a panel that reopened already sending browser tasks would be the Agent
+ * deciding for them. It dies with the panel like every other draft. The text
+ * itself is the chat composer's; this holds only what the Agent adds to it.
  */
 export const agentDraftStore = create<AgentDraftState>((set) => ({
-  goal: "",
-  setGoal: (goal) => set({ goal }),
-  completeGoal: (runId, completedGoal) =>
-    set((state) => {
-      if (state.handledCompletionRunId === runId) return state
-      return {
-        handledCompletionRunId: runId,
-        goal: state.goal.trim() === completedGoal.trim() ? "" : state.goal
-      }
-    }),
-  beginDraft: (goal, fromRunId, followUp) =>
-    set({ goal, followUp, handledCompletionRunId: fromRunId }),
+  acting: false,
+  setActing: (acting) => set({ acting }),
+  prefillComposer: (text) =>
+    set((state) => ({
+      prefill: { text, token: (state.prefill?.token ?? 0) + 1 }
+    })),
+  beginDraft: (goal, followUp) =>
+    set((state) => ({
+      acting: true,
+      followUp,
+      prefill: { text: goal, token: (state.prefill?.token ?? 0) + 1 }
+    })),
   clearFollowUp: () => set({ followUp: undefined }),
   submitFollowUp: (shown) =>
     set((state) =>
@@ -103,10 +100,11 @@ export const agentDraftStore = create<AgentDraftState>((set) => ({
 export const useAgentDraft = () =>
   agentDraftStore(
     useShallow((state) => ({
-      goal: state.goal,
+      acting: state.acting,
+      prefill: state.prefill,
       followUp: state.followUp,
-      setGoal: state.setGoal,
-      completeGoal: state.completeGoal,
+      setActing: state.setActing,
+      prefillComposer: state.prefillComposer,
       clearFollowUp: state.clearFollowUp,
       submitFollowUp: state.submitFollowUp,
       settleFollowUp: state.settleFollowUp

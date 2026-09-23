@@ -44,9 +44,6 @@
       "no_debugger": "Ce navigateur n'a pas de débogueur : l'exécution pilote les pages via les scripts de contenu de l'extension."
     },
     "browser_disconnected": "Le contrôle du navigateur s’est déconnecté. Agent est donc en pause. Vérifiez la page avant de reprendre.",
-    "completion": {
-      "summary": "{{count}} observations de page ont été envoyées à {{provider}} pendant cette exécution."
-    },
     "controls": {
       "label": "Commandes de l’Agent",
       "pause": "Pause",
@@ -77,7 +74,6 @@
       "verification_failed": "L'exécution n'a pas pu confirmer l'effet de sa dernière action. Vérifiez la page avant de relancer.",
       "unknown": "L'exécution s'est arrêtée sans raison identifiable. Vérifiez la page, puis relancez."
     },
-    "feedback": "Envoyer un avis",
     "limits": {
       "no_native_input": "Les entrées souris et clavier sont synthétiques ; une page qui ne réagit qu'à de vraies entrées peut ne pas répondre.",
       "no_screenshots": "Aucune capture d'écran n'est prise : une tâche qui exige de regarder la page ne fonctionnera pas.",
@@ -136,7 +132,6 @@
       "unknown": "Pas encore déterminé"
     },
     "start": {
-      "description": "Supervisez une tâche du navigateur depuis ce panneau.",
       "goal": "Que doit faire l’Agent ?",
       "placeholder": "Décrivez une tâche du navigateur…",
       "action": "Démarrer l’Agent",
@@ -194,13 +189,6 @@
       "target": "« {{name}} »"
     },
     "correction": "En pause. Décrivez le changement souhaité, puis continuez.",
-    "export_report": "Exporter le rapport (contient le texte de la page)",
-    "running_goal": "Tâche en cours",
-    "requirements": {
-      "title": "Ce que la tâche demandait",
-      "met": "Fait",
-      "unmet": "Non fait"
-    },
     "settings": {
       "title": "Agent de navigation",
       "description": "Quelle quantité de contexte une exécution peut demander à son modèle, et quand elle photographie la page.",
@@ -224,8 +212,6 @@
       "missing": "L'enregistrement de cette exécution n'est plus disponible.",
       "steps": "Actions : {{count}}",
       "outcome": "{{met}} sur {{total}} faites",
-      "open": "Ouvrir dans l'Agent",
-      "needs_you": "Attend votre action — ouvrir dans l'Agent",
       "continue": "Continuer",
       "retry": "Réessayer",
       "start_over": "Recommencer",
@@ -236,6 +222,9 @@
       "retry": "Nouvel essai : {{goal}}",
       "clear": "Repartir de zéro",
       "placeholder": "Que doit-il faire ensuite ?"
+    },
+    "composer": {
+      "run_in_progress": "Une exécution est déjà en cours. Arrêtez-la ou attendez qu’elle se termine avant d’en lancer une autre."
     }
   },
   "common": {
