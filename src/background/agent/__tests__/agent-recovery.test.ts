@@ -2,15 +2,17 @@ import type { AgentRunState } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const repo = vi.hoisted(() => ({
+  listAgentRunsForMissingSessions: vi.fn(),
   listIncompleteAgentRuns: vi.fn(),
   markInterruptedAgentEffectUncertain: vi.fn(),
   pruneTerminalAgentRuns: vi.fn(),
+  reconcileAgentRunLinkage: vi.fn(),
   transitionAgentRun: vi.fn()
 }))
 
 vi.mock("@/lib/repositories/agent-runs", () => repo)
 
-import { recoverAgentRuns } from "../agent-recovery"
+import { recoverAgentRuns, recoverAndPruneAgentRuns } from "../agent-recovery"
 
 const state = (status: AgentRunState["status"]): AgentRunState => ({
   version: 1,
@@ -31,6 +33,8 @@ describe("agent startup recovery", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     repo.pruneTerminalAgentRuns.mockResolvedValue(0)
+    repo.listAgentRunsForMissingSessions.mockResolvedValue([])
+    repo.reconcileAgentRunLinkage.mockResolvedValue(undefined)
     repo.markInterruptedAgentEffectUncertain.mockResolvedValue(false)
     repo.transitionAgentRun.mockImplementation(async (input) => ({
       transitioned: true,
@@ -128,5 +132,67 @@ describe("agent startup recovery", () => {
       2,
       expect.objectContaining({ from: "pause_requested", to: "paused" })
     )
+  })
+
+  /**
+   * Startup reconciliation rewrites linkage rows, so it is a mutation boundary
+   * like every other one in the startup chain. Without the signal an aborted
+   * startup keeps editing rows the supervisor has already given up on.
+   */
+  it("threads the startup signal through linkage reconciliation", async () => {
+    repo.listIncompleteAgentRuns.mockResolvedValue([])
+    const controller = new AbortController()
+
+    await recoverAndPruneAgentRuns(controller.signal)
+
+    expect(repo.reconcileAgentRunLinkage).toHaveBeenCalledWith(
+      controller.signal
+    )
+  })
+
+  /**
+   * The signal is checked immediately before each durable write, so an abort
+   * mid-cancellation leaves the run `cancelling` — a committed stop the next
+   * startup finishes — rather than a run the aborted boot cancelled anyway.
+   */
+  it("writes no further status once cancellation is aborted", async () => {
+    repo.listIncompleteAgentRuns.mockResolvedValue([])
+    repo.listAgentRunsForMissingSessions.mockResolvedValue([
+      {
+        id: "agent-1",
+        status: "executing",
+        state: state("executing"),
+        compacted: false,
+        createdAt: 1,
+        updatedAt: 2
+      }
+    ])
+    const controller = new AbortController()
+    repo.transitionAgentRun.mockImplementationOnce(async (input) => {
+      controller.abort()
+      return {
+        transitioned: true,
+        state: { ...state(input.from), ...input.patch, status: input.to }
+      }
+    })
+
+    await expect(recoverAndPruneAgentRuns(controller.signal)).rejects.toThrow()
+    expect(repo.transitionAgentRun).toHaveBeenCalledTimes(1)
+    expect(repo.transitionAgentRun).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "cancelling" })
+    )
+    expect(repo.reconcileAgentRunLinkage).not.toHaveBeenCalled()
+  })
+
+  it("stops before pruning when reconciliation is aborted", async () => {
+    repo.listIncompleteAgentRuns.mockResolvedValue([])
+    const controller = new AbortController()
+    repo.reconcileAgentRunLinkage.mockImplementation(async () => {
+      controller.abort()
+      controller.signal.throwIfAborted()
+    })
+
+    await expect(recoverAndPruneAgentRuns(controller.signal)).rejects.toThrow()
+    expect(repo.pruneTerminalAgentRuns).not.toHaveBeenCalled()
   })
 })

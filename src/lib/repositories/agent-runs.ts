@@ -7,7 +7,8 @@ import {
   type AgentStepWrite,
   type AgentTransitionResult,
   type AgentTransitionWrite,
-  isTerminalAgentStatus
+  isTerminalAgentStatus,
+  TERMINAL_AGENT_STATUSES
 } from "@ollama-client/agent-runtime"
 import {
   type AgentCommand,
@@ -25,6 +26,7 @@ import {
 } from "@ollama-client/contracts"
 import { z } from "zod"
 import { logger } from "@/lib/logger"
+import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import {
   flushSave,
   query,
@@ -56,12 +58,25 @@ export const TERMINAL_AGENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 const TABLE: RowDecodeContext = { table: "agent_runs", operation: "read" }
 const STEP_TABLE: RowDecodeContext = { table: "agent_steps", operation: "read" }
 
+/**
+ * A linkage column is nullable in SQL and therefore arrives as `null`, which a
+ * decoder must accept and a caller must never see: absent and null say the
+ * same thing here, and two spellings of it would be two branches at every
+ * reader.
+ */
+const linkColumn = <T extends z.ZodTypeAny>(schema: T) =>
+  schema.nullish().transform((value) => value ?? undefined)
+
 const AgentRunRowSchema = z.object({
   id: z.string(),
   status: AgentRunStatusSchema,
   checkpoint: z.string(),
   createdAt: z.number(),
-  updatedAt: z.number()
+  updatedAt: z.number(),
+  sessionId: linkColumn(z.string()),
+  requestMessageId: linkColumn(z.number()),
+  resultMessageId: linkColumn(z.number()),
+  parentRunId: linkColumn(z.string())
 })
 
 const AgentRunIdRowSchema = z.object({ id: z.string() })
@@ -202,7 +217,24 @@ const CompactedAgentCheckpointSchema = z
 
 type AgentRunRow = z.infer<typeof AgentRunRowSchema>
 
-export interface DurableAgentRun {
+/**
+ * Which conversation a run belongs to, held beside `AgentRunState` and never
+ * inside it: the browser controller plans, observes and verifies without any
+ * concept of a chat, and a field it can read is a field it can be asked to
+ * decide by.
+ */
+export interface AgentRunLink {
+  /** The chat this run was started from. */
+  sessionId?: string
+  /** The user message that launched it. */
+  requestMessageId?: number
+  /** The assistant row its card and result are written to. */
+  resultMessageId?: number
+  /** The run this one continues, when a follow-up carried its handoff. */
+  parentRunId?: string
+}
+
+export interface DurableAgentRun extends AgentRunLink {
   id: string
   status: AgentRunStatus
   state?: AgentRunState
@@ -328,20 +360,46 @@ const parseRun = (row: AgentRunRow): DurableAgentRun | null => {
   }
 }
 
-const selectRunColumns = "id, status, checkpoint, createdAt, updatedAt"
+const selectRunColumns =
+  "id, status, checkpoint, createdAt, updatedAt, sessionId, requestMessageId, resultMessageId, parentRunId"
 
-export const createAgentRun = async (state: AgentRunState): Promise<void> => {
+export const createAgentRun = async (
+  state: AgentRunState,
+  link: AgentRunLink = {}
+): Promise<void> => {
   if (state.status !== "submitted") {
     throw new Error("A durable agent run must begin in submitted status")
   }
-  const checkpoint = serializeCheckpoint(state)
-  await runWithMeta(
-    `INSERT INTO agent_runs (id, status, checkpoint, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?)`,
-    [state.id, state.status, checkpoint, state.createdAt, state.updatedAt]
-  )
+  await runWithMeta(...insertAgentRunStatement(state, link))
   await flushSave()
 }
+
+/**
+ * The INSERT on its own, so the same statement can be issued inside a larger
+ * transaction — the one that also writes the request message and the assistant
+ * row this run reports into. A run created outside that commit is a run whose
+ * card may not exist.
+ */
+export const insertAgentRunStatement = (
+  state: AgentRunState,
+  link: AgentRunLink
+): [string, (string | number | null)[]] => [
+  `INSERT INTO agent_runs
+     (id, status, checkpoint, createdAt, updatedAt,
+      sessionId, requestMessageId, resultMessageId, parentRunId)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [
+    state.id,
+    state.status,
+    serializeCheckpoint(state),
+    state.createdAt,
+    state.updatedAt,
+    link.sessionId ?? null,
+    link.requestMessageId ?? null,
+    link.resultMessageId ?? null,
+    link.parentRunId ?? null
+  ]
+]
 
 export const getAgentRun = async (
   id: string
@@ -431,6 +489,36 @@ export const appendAgentStep = async (input: AgentStepWrite): Promise<void> => {
   await flushSave()
 }
 
+/**
+ * Close the assistant row a run reports into, in the commit that settles the
+ * run.
+ *
+ * Written here rather than in a pass afterwards for the reason every other
+ * terminal write in this file is: a worker that dies between the two leaves a
+ * settled run above a bubble that streams forever, and nothing later knows to
+ * look. Guarded on `done = 0` so it cannot overwrite a row a user or a later
+ * turn has already finished.
+ *
+ * The result text is a fallback, not the card: a run that ended with nothing
+ * to say leaves the content alone and only stops the row waiting.
+ */
+const settleLinkedMessage = async (
+  tx: Pick<SqlExecutor, "run">,
+  resultMessageId: number | undefined,
+  state: AgentRunState
+): Promise<void> => {
+  if (resultMessageId === undefined) return
+  const result = state.result?.trim()
+  await tx.run(
+    `UPDATE messages
+        SET done = 1, updatedAt = ?${result ? ", content = ?" : ""}
+      WHERE id = ? AND done = 0`,
+    result
+      ? [state.updatedAt, result, resultMessageId]
+      : [state.updatedAt, resultMessageId]
+  )
+}
+
 const updateAgentRun = async (
   input: AgentPhaseClaim | AgentTransitionWrite,
   target: AgentRunStatus,
@@ -460,6 +548,8 @@ const updateAgentRun = async (
       [target, checkpoint, next.updatedAt, input.runId, ...expected]
     )
     if (result.changes === 0) return
+
+    if (terminal) await settleLinkedMessage(tx, current.resultMessageId, next)
 
     // Entering execution is the durable effect-ownership boundary. Copy the
     // latest bounded step receipt into an append-only `executing` claim in the
@@ -659,12 +749,30 @@ export const markInterruptedAgentEffectUncertain = (
 
 const quarantineAgentRun = async (id: string): Promise<void> => {
   const now = Date.now()
-  const result = await runWithMeta(
-    `UPDATE agent_runs SET status = 'failed', checkpoint = ?, updatedAt = ?
-      WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')`,
-    [compactedCheckpoint(now), now, id]
-  )
-  if (result.changes > 0) await flushSave()
+  let changed = false
+  await withTransaction(async (tx) => {
+    const result = await tx.runWithMeta(
+      `UPDATE agent_runs SET status = 'failed', checkpoint = ?, updatedAt = ?
+        WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')`,
+      [compactedCheckpoint(now), now, id]
+    )
+    if (result.changes === 0) return
+    changed = true
+    /*
+     * A row this undecodable has no state to read a result from, so the only
+     * thing owed to its message is that it stop waiting. Left out, the one
+     * failure that cannot explain itself is also the one that leaves a bubble
+     * streaming forever.
+     */
+    await tx.run(
+      `UPDATE messages SET done = 1, updatedAt = ?
+        WHERE done = 0 AND id IN (
+          SELECT resultMessageId FROM agent_runs WHERE id = ?
+        )`,
+      [now, id]
+    )
+  })
+  if (changed) await flushSave()
 }
 
 export const countAgentRuns = async (): Promise<number> => {
@@ -691,6 +799,229 @@ export const pruneTerminalAgentRuns = async (
   if (result.changes > 0) await flushSave()
   signal?.throwIfAborted()
   return result.changes
+}
+
+/**
+ * A run nobody has settled yet. Written out rather than reusing the incomplete
+ * query above, because that one deliberately treats `partial` as resumable and
+ * this one is asking a different question: whether stopping it is still owed.
+ */
+const LIVE_RUNS = `status NOT IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})`
+const LIVE_STATUSES = [...TERMINAL_AGENT_STATUSES]
+
+const idsFrom = (rows: Awaited<ReturnType<typeof query>>): string[] =>
+  rows.flatMap((row) =>
+    typeof row.id === "string" && row.id.length > 0 ? [row.id] : []
+  )
+
+/**
+ * Split message ids so one statement never outgrows the persistence protocol's
+ * bind ceiling.
+ *
+ * `repeats` is how many times the statement names each id — the orphan UPDATE
+ * names every id four times, once per `CASE` and once per `WHERE` arm. Left
+ * unbatched, a deleted subtree of a few thousand messages was refused by the
+ * owner, and the cleanup that refusal skipped is what keeps a live run from
+ * outliving its card.
+ */
+const messageIdBatches = (
+  messageIds: number[],
+  repeats: number,
+  reserved = 0
+): number[][] => {
+  const perBatch = Math.max(
+    1,
+    Math.floor((PERSISTENCE_LIMITS.bindValues - reserved) / repeats)
+  )
+  const batches: number[][] = []
+  for (let offset = 0; offset < messageIds.length; offset += perBatch) {
+    batches.push(messageIds.slice(offset, offset + perBatch))
+  }
+  return batches
+}
+
+/**
+ * Runs still executing that report into one of these messages.
+ *
+ * Asked before a subtree is deleted, so the caller can stop them first. A run
+ * whose card is gone keeps driving a browser tab and writing to a row nobody
+ * can read, which is the worst of both: the effects continue and the evidence
+ * does not.
+ */
+export const listLiveAgentRunsForMessages = async (
+  messageIds: number[]
+): Promise<string[]> => {
+  const found = new Set<string>()
+  for (const batch of messageIdBatches(messageIds, 2, LIVE_STATUSES.length)) {
+    const slots = batch.map(() => "?").join(", ")
+    const rows = await query(
+      `SELECT id FROM agent_runs
+        WHERE ${LIVE_RUNS}
+          AND (requestMessageId IN (${slots}) OR resultMessageId IN (${slots}))`,
+      [...LIVE_STATUSES, ...batch, ...batch]
+    )
+    for (const id of idsFrom(rows)) found.add(id)
+  }
+  return [...found]
+}
+
+/** The same question for a whole chat, asked before the chat is deleted. */
+export const listLiveAgentRunsForSession = async (
+  sessionId: string
+): Promise<string[]> =>
+  idsFrom(
+    await query(
+      `SELECT id FROM agent_runs WHERE sessionId = ? AND ${LIVE_RUNS}`,
+      [sessionId, ...LIVE_STATUSES]
+    )
+  )
+
+/**
+ * Drop the pointers to messages that no longer exist, keeping the run.
+ *
+ * Deleting a branch of a conversation is not a request to destroy what the
+ * agent did in the world: the receipts in `agent_steps` are the only record
+ * that a form was submitted or a purchase made, and they outlive the bubble
+ * that reported them. Idempotent, and called after the delete commits by the
+ * id list that commit returned — the same shape the vector cleanup uses, and
+ * for the same reason: nothing that can fail belongs inside a transaction that
+ * repairs `sessions.currentLeafId`.
+ */
+export const orphanAgentRunMessages = async (
+  messageIds: number[]
+): Promise<void> => {
+  const batches = messageIdBatches(messageIds, 4)
+  if (batches.length === 0) return
+  for (const batch of batches) {
+    const slots = batch.map(() => "?").join(", ")
+    await runWithMeta(
+      `UPDATE agent_runs
+          SET requestMessageId =
+                CASE WHEN requestMessageId IN (${slots}) THEN NULL
+                     ELSE requestMessageId END,
+              resultMessageId =
+                CASE WHEN resultMessageId IN (${slots}) THEN NULL
+                     ELSE resultMessageId END
+        WHERE requestMessageId IN (${slots}) OR resultMessageId IN (${slots})`,
+      [...batch, ...batch, ...batch, ...batch]
+    )
+  }
+  await flushSave()
+}
+
+/**
+ * Delete the settled runs of a chat, receipts included.
+ *
+ * The opposite answer to the one above, and deliberately: deleting a branch
+ * prunes a conversation, while deleting the chat is the user asking for it to
+ * be gone. In a product whose whole claim is that nothing leaves the device,
+ * a browsing record that outlives the conversation it belongs to is the wrong
+ * default. `agent_steps` cascades from `agent_runs`.
+ *
+ * Settled only, and that is the load-bearing word. A run that did not stop is
+ * still attached to a browser tab and still acting; deleting its row would
+ * take away the one handle startup recovery has for settling it, leaving an
+ * agent running that nothing can reach. Its row stays until it is terminal,
+ * and the sweep below collects it once it is.
+ */
+export const deleteSettledAgentRunsForSession = async (
+  sessionId: string
+): Promise<number> => {
+  const result = await runWithMeta(
+    `DELETE FROM agent_runs
+      WHERE sessionId = ?
+        AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})`,
+    [sessionId, ...TERMINAL_AGENT_STATUSES]
+  )
+  await flushSave()
+  return result.changes
+}
+
+/**
+ * Runs whose chat is gone.
+ *
+ * The delete that removed the chat tells the background directly, and that is
+ * the path that stops a run while it is still driving something. This is the
+ * answer for the message that was never delivered — a worker asleep, a page
+ * closed mid-delete — and it is read at startup, where the runs are no longer
+ * driving anything and settling them is safe.
+ */
+export const listAgentRunsForMissingSessions = async (): Promise<
+  DurableAgentRun[]
+> => {
+  const rows = await query(
+    `SELECT ${selectRunColumns} FROM agent_runs
+      WHERE sessionId IS NOT NULL
+        AND sessionId NOT IN (SELECT id FROM sessions)
+      ORDER BY createdAt ASC`
+  )
+  return rows.flatMap((value) => {
+    const row = decodeRow(AgentRunRowSchema, value, TABLE)
+    const parsed = row ? parseRun(row) : null
+    return parsed ? [parsed] : []
+  })
+}
+
+/**
+ * Repair rows a worker died between.
+ *
+ * Two idempotent statements, run once at startup, for the two states the
+ * atomic writes above cannot cover on their own: a worker lost after the run
+ * settled but before its message did, and a message deleted while its run row
+ * still points at it. Neither can be noticed later by the code that made them
+ * — both are gaps, and a gap has nobody to report it.
+ *
+ * A live run is not cancelled here. A run that is still driving a browser is
+ * holding this worker alive, so the conversation that deleted its rows told
+ * the worker directly; startup is the wrong place to look for it, and
+ * cancelling a run because a card is missing would be worse than showing one
+ * that has none.
+ */
+export const reconcileAgentRunLinkage = async (
+  signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
+  const now = Date.now()
+  await withTransaction(async (tx) => {
+    await tx.run(
+      `UPDATE messages SET done = 1, updatedAt = ?
+        WHERE done = 0
+          AND id IN (
+            SELECT resultMessageId FROM agent_runs
+             WHERE resultMessageId IS NOT NULL
+               AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})
+          )`,
+      [now, ...TERMINAL_AGENT_STATUSES]
+    )
+    /*
+     * A run left behind because it would not stop while its chat was being
+     * deleted. Recovery settles it earlier in this same startup; collecting it
+     * here is what finally honours the delete, and doing it after the settle
+     * rather than during it is why a live agent is never left unreachable.
+     */
+    await tx.run(
+      `DELETE FROM agent_runs
+        WHERE sessionId IS NOT NULL
+          AND sessionId NOT IN (SELECT id FROM sessions)
+          AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})`,
+      [...TERMINAL_AGENT_STATUSES]
+    )
+    await tx.run(
+      `UPDATE agent_runs
+          SET requestMessageId =
+                CASE WHEN requestMessageId IN (SELECT id FROM messages)
+                     THEN requestMessageId ELSE NULL END,
+              resultMessageId =
+                CASE WHEN resultMessageId IN (SELECT id FROM messages)
+                     THEN resultMessageId ELSE NULL END
+        WHERE (requestMessageId IS NOT NULL
+                 AND requestMessageId NOT IN (SELECT id FROM messages))
+           OR (resultMessageId IS NOT NULL
+                 AND resultMessageId NOT IN (SELECT id FROM messages))`
+    )
+  })
+  await flushSave()
+  signal?.throwIfAborted()
 }
 
 export const createAgentPersistencePort = (): AgentPersistencePort => ({

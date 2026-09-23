@@ -338,6 +338,7 @@ export const registerAgentPanelPort = (
             tabId: command.tabId,
             providerId: command.providerId,
             modelId: command.modelId,
+            sessionId: command.sessionId,
             allowRoutineActions: command.allowRoutineActions,
             allowExperimentalModel: command.allowExperimentalModel
           })

@@ -337,8 +337,21 @@ const budgets: Budget[] = [
      * stayed live for a model that cannot call tools, and the refusal arrived
      * after the run had attached to a tab. Firefox carries no Agent code and
      * is unchanged.
+     *
+     * Tying a run to the conversation it belongs to — the linkage migration
+     * and its repository ops, the commit that writes the request, the card and
+     * the run together, and the cleanup a deleted chat asks for — took the
+     * measured Chrome baseline to 276,291. Most of it is SQL: statements that
+     * have to name every column they write, the batching that keeps a large
+     * deletion inside the persistence bind ceiling, and the startup sweep that
+     * settles a run whose chat is gone. Firefox carries no Agent code and is
+     * unchanged.
+     *
+     * 277,000 rather than the usual next step above the measurement: 276,500
+     * left 209 bytes, which is less than one statement, and the 235,000
+     * ceiling above is here because 54 bytes of headroom stopped a release.
      */
-    max: isFirefox ? 210_000 : 275_000
+    max: isFirefox ? 210_000 : 277_000
   }
 ]
 

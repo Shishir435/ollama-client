@@ -37,7 +37,15 @@ export const ChatMessageSchema = z.object({
   metrics: ChatMessageMetricsSchema.optional(),
   parentId: z.union([z.number(), z.string()]).optional(),
   childrenIds: z.array(z.union([z.number(), z.string()])).optional(),
-  siblingIds: z.array(z.union([z.number(), z.string()])).optional()
+  siblingIds: z.array(z.union([z.number(), z.string()])).optional(),
+  /**
+   * The Agent run this message reports, when one produced it.
+   *
+   * The pointer lives on the message rather than only on the run so that a
+   * branch inherits it by ancestry: a follow-up asked in one branch must not
+   * see a run that only ever happened in another.
+   */
+  agentRunId: z.string().optional()
 })
 
 /** Version-independent persisted chat-session metadata and optional messages. */

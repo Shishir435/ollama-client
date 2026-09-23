@@ -1,3 +1,4 @@
+import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
@@ -79,9 +80,35 @@ export const createChatSessionListActions = (
   },
 
   deleteSession: async (id: string) => {
+    /*
+     * First, and awaited to completion rather than to delivery: the runs of
+     * this chat are stopped and deleted with it, and a run told after its rows
+     * have gone has already spent steps on a conversation that no longer
+     * exists. The background answers when the cleanup has finished, so the row
+     * below is removed after the stops, not alongside them.
+     *
+     * What this first pass cannot close on its own is a run started between
+     * its answer and the delete — the panel is a separate context and nothing
+     * here can hold it. The second pass below is what closes it.
+     */
+    await forgetAgentRuns({ sessionId: id })
     await repo.deleteSessionRow(id)
     await repo.deleteMessagesBySession(id)
     await repo.deleteFilesBySession(id)
+    /*
+     * Asked again, now that the session is gone, and this is what makes the
+     * window above empty rather than merely small. A run is linked in the same
+     * transaction that reads the session, so once this row is deleted no new
+     * run can claim this chat — a start racing the delete gets the unlinked
+     * fallback, which belongs to no conversation and takes nothing with it.
+     * Every run that did claim it is therefore already written, and this pass
+     * stops and collects all of them.
+     *
+     * Two passes rather than a lock spanning both contexts: the first is what
+     * stops a run before its rows are taken away, and the second is what
+     * guarantees none was added behind it.
+     */
+    await forgetAgentRuns({ sessionId: id })
     try {
       await deleteVectors({ sessionId: id, type: "chat" })
     } catch (error) {

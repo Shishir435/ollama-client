@@ -5,6 +5,7 @@ import { SettingsButton } from "@/components/settings-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ReasoningEffortMenu } from "@/features/model/components/reasoning-effort-menu"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useSetting } from "@/hooks/use-setting"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { downloadFile } from "@/lib/exporters/utils"
@@ -34,6 +35,13 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
   const [screenshotsAcknowledged, setScreenshotsAcknowledged] = useSetting(
     SETTINGS.AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED
   )
+  /*
+   * The chat a run belongs to. Read here rather than resolved in the
+   * background: the panel is the surface the user started from, and which
+   * conversation they were looking at is not something a worker can infer
+   * later.
+   */
+  const currentSessionId = useChatSessions().currentSessionId
   const { goal, setGoal, completeGoal } = useAgentDraft()
   const candidateTab = useAgentCandidateTab()
   /*
@@ -57,6 +65,7 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
     providerId: selectedProviderId || undefined,
     modelId: selectedModel || undefined,
     tabId: candidateTab?.id,
+    ...(currentSessionId ? { sessionId: currentSessionId } : {}),
     allowExperimentalModel
   })
   useAgentDebugReport(connection.debugReport)

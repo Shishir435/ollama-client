@@ -5,6 +5,7 @@ import { browser } from "@/lib/browser-api"
 import { AGENT_DEBUG_REPORT_ENABLED, FEATURE_FLAGS } from "@/lib/feature-flags"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import { createAgentBrowserSessionManager } from "./agent-browser-session-manager"
+import { setAgentForgetStopper } from "./agent-forget-rpc"
 import { registerAgentPanelPort } from "./agent-panel-port"
 import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
 import type { AgentRunService } from "./agent-run-service"
@@ -61,6 +62,13 @@ export const createAgentComposition = async (
     }
   })
 
+  /*
+   * A chat, or a branch of one, was deleted. The request arrives through the
+   * RPC server, which authorizes the sender; what it needs done — stopping a
+   * run, detaching its browser session — is this service's.
+   */
+  setAgentForgetStopper((runId) => service.stop(runId))
+
   let observer:
     | ReturnType<typeof startBrowserAgentNavigationObserver>
     | undefined
@@ -93,6 +101,7 @@ export const createAgentComposition = async (
     history,
     dispose() {
       stopPort()
+      setAgentForgetStopper(undefined)
       browser.permissions.onAdded.removeListener(onPermissionAdded)
       observer?.stop()
       void browserSessions.dispose()

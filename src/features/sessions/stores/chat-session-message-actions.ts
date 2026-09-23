@@ -7,6 +7,7 @@ import {
   traversePathFromLeaf,
   traversePathFromLeafWithFetcher
 } from "@/features/sessions/lib/message-tree"
+import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
@@ -424,6 +425,22 @@ export const createChatSessionMessageActions = (
       replacementLeafId
     } = deleted
     const toDeleteIds = new Set(idsToDelete)
+
+    /*
+     * Before the vectors, because a run still driving a browser is the part of
+     * this delete that keeps acting on the world. Awaited to completion: the
+     * background answers once the live runs are stopped and their pointers
+     * dropped.
+     *
+     * After the delete, and that is the honest order rather than the ideal
+     * one. The ids come from the commit itself, and asking for them first
+     * would not fix it — a descendant appended between the read and the delete
+     * would not be in the list. So the window is real: a run keeps acting for
+     * as long as its stop takes, against rows that are already gone. What
+     * bounds it is that the rows it writes are its own, the stop is the next
+     * thing that happens, and its receipts survive either way.
+     */
+    await forgetAgentRuns({ messageIds: idsToDelete })
 
     try {
       await sweepVectorCleanupReceipts()

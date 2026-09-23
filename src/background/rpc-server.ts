@@ -19,6 +19,7 @@ import {
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
 import { isAppError } from "@/lib/error-utils"
+import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { ModelRpcService } from "@/lib/providers/model-rpc-service"
@@ -117,7 +118,14 @@ const handlers = {
     DiagnosticsService.run(signal, { force: true }),
   [RpcMethod.DiagnosticsGetBundle]: async (request, signal) =>
     DiagnosticsService.getBundle(signal, request.sessionId),
-  [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear()
+  [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear(),
+  [RpcMethod.AgentForgetChatRows]: async (request) => {
+    if (!AGENT_PREVIEW_ENABLED) return { forgotten: true }
+    const { forgetAgentChatRows } = await import(
+      "@/background/agent/agent-forget-rpc"
+    )
+    return forgetAgentChatRows(request)
+  }
 } satisfies RpcHandlers
 
 const activeRequests = new CancellationRegistry<AbortController>()

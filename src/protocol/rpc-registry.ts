@@ -1,4 +1,8 @@
 import {
+  AgentForgetChatRowsRequestSchema,
+  AgentForgetChatRowsResultSchema
+} from "@ollama-client/contracts/agent-rpc"
+import {
   ModelPullCancelRequestSchema,
   ModelPullCancelResultSchema,
   ModelPullGetRequestSchema,
@@ -270,6 +274,19 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     response: DiagnosticsClearResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 5_000,
+    operation: "command"
+  },
+  /*
+   * Extension pages only, like every method: a page-controlled script that
+   * could send this would be able to stop a run and delete the receipts of
+   * what it already did. Bounded by the stops it waits on, each of which
+   * detaches a browser session.
+   */
+  [RpcMethod.AgentForgetChatRows]: {
+    request: AgentForgetChatRowsRequestSchema,
+    response: AgentForgetChatRowsResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 30_000,
     operation: "command"
   }
 }
