@@ -833,6 +833,7 @@ describe("messages", () => {
     mockedQuery.mockResolvedValueOnce([])
     const before = Date.now()
     await repo.finalizeInterruptedMessages(20_000)
+    const after = Date.now()
     const [sql, params] = mockedQuery.mock.calls[0]
     expect(sql).toContain("done = 0")
     expect(sql).toContain("updatedAt IS NULL OR updatedAt <")
@@ -846,9 +847,15 @@ describe("messages", () => {
     // long tool-approval wait isn't finalized as interrupted.
     expect(sql).toContain("sessionId NOT IN")
     expect(sql).toContain("FROM tool_loop_runs")
-    // Cutoff = now - staleMs, so a live turn touched within 20s is excluded.
+    /**
+     * Cutoff = now - staleMs, so a live turn touched within 20s is excluded.
+     * "Now" is read inside the call, so it lies between the two readings
+     * here; asserting it against `before` alone failed whenever the clock
+     * ticked during the call.
+     */
     const cutoff = params?.[0] as number
-    expect(cutoff).toBeLessThanOrEqual(before - 20_000)
+    expect(cutoff).toBeGreaterThanOrEqual(before - 20_000)
+    expect(cutoff).toBeLessThanOrEqual(after - 20_000)
   })
 
   it("touchMessageActivity bumps only updatedAt for the given id", async () => {
