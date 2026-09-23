@@ -699,6 +699,11 @@ describe("a batched fill's approval", () => {
       decision.type === "approval_required" ? decision.request : undefined
     expect(request?.action).toBe("Set 3 form fields in one step")
     expect(request?.pageEvidence).toBe("1. Given name\n2. Family name\n3. City")
+    /** The same count, as a key the panel can say in the user's language. */
+    expect(request?.display).toEqual({
+      action: { key: "agent.approval_text.fill_fields", values: { count: 3 } },
+      consequence: [{ key: "agent.approval_text.fill_fields_consequence" }]
+    })
   })
 
   it("says what a batch cannot do without promising what the page will not", () => {

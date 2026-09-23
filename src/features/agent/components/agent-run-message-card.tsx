@@ -118,7 +118,7 @@ const AgentRunFollowUps = ({
 /** The live run's supervision, wired to the panel's one port. */
 const LiveRunSupervision = ({ live }: { live: AgentWorkspaceConnection }) => {
   const { connection, tab } = live
-  const { snapshot } = connection
+  const { snapshot, failure } = connection
   if (!snapshot.run) return null
   return (
     <AgentRunSupervision
@@ -136,6 +136,8 @@ const LiveRunSupervision = ({ live }: { live: AgentWorkspaceConnection }) => {
           ? snapshot.pending.request
           : undefined
       }
+      /** A refused start has no run yet; the composer that sent it shows it. */
+      failure={failure?.command === "agent_start" ? undefined : failure}
       onApprove={connection.approve}
       onReject={connection.reject}
       onAnswer={connection.answerQuestion}

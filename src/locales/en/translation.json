@@ -30,7 +30,10 @@
       "find": "Find “{{query}}”",
       "extract_text": "Read page text",
       "handle_dialog_accept": "Accept the page’s dialog",
-      "handle_dialog_dismiss": "Dismiss the page’s dialog"
+      "handle_dialog_dismiss": "Dismiss the page’s dialog",
+      "fill_form": "Fill form fields: {{count}}",
+      "extract": "Look up on the page: {{count}}",
+      "call_page_tool": "Use the page’s tool “{{tool}}”"
     },
     "approval": {
       "title": "Approval required",
@@ -56,10 +59,11 @@
       "already_running": "An Agent run is already in progress.",
       "browser_control_unavailable": "Agent could not attach browser control. Close DevTools or another debugger and try again.",
       "follow_up_unavailable": "That run can no longer be continued from here. Start over to set the task again.",
-      "permission_denied": "Agent needs page-observation permission before it can start.",
+      "permission_denied": "Agent can’t observe pages in this browser.",
       "tab_unsupported": "Agent cannot run on this page. Open a normal web page and try again.",
       "unreadable_update": "The panel received an update it could not read.",
-      "unknown": "Agent could not complete that request."
+      "unknown": "Agent could not complete that request.",
+      "disconnected": "Agent was reconnecting and didn’t receive that. Try again."
     },
     "failure": {
       "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",
@@ -136,7 +140,9 @@
       "placeholder": "Describe one browser task…",
       "action": "Start Agent",
       "auto_actions": "Allow routine actions for this task",
-      "auto_actions_description": "Clicks and typing on this site run automatically. Posting, deleting, new sites and sensitive steps still ask."
+      "auto_actions_description": "Clicks and typing on this site run automatically. Posting, deleting, new sites and sensitive steps still ask.",
+      "starting": "Starting…",
+      "starting_on": "Starting on “{{title}}”…"
     },
     "status": {
       "submitted": "Starting",
@@ -179,7 +185,11 @@
       "count": "{{count}} tabs"
     },
     "takeover": {
-      "title": "Take over this step"
+      "title": "Take over this step",
+      "instruction": {
+        "file_upload": "Take control of the page, choose the file yourself, then continue.",
+        "sensitive_step": "Take control of the page, complete the sensitive step yourself, then continue."
+      }
     },
     "title": "Supervised Agent",
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
@@ -225,6 +235,37 @@
     },
     "composer": {
       "run_in_progress": "A run is already working. Stop it, or wait for it to finish, before starting another."
+    },
+    "paused_panel_closed": "Paused because the side panel closed. Resume when you’re ready.",
+    "approval_text": {
+      "accept_dialog": "Accept the page’s {{kind}}",
+      "accept_dialog_origin": "Accept the {{kind}} from {{origin}}",
+      "dismiss_dialog": "Dismiss the page’s {{kind}}",
+      "dismiss_dialog_origin": "Dismiss the {{kind}} from {{origin}}",
+      "dismiss_dialog_consequence": "The dialog is told it was dismissed, and nothing is confirmed.",
+      "accept_dialog_consequence": "The page continues as if you pressed its confirm button, whatever that does.",
+      "accept_leave_consequence": "The page is allowed to leave. Anything it hasn’t saved is lost.",
+      "dialog_unreadable": "Its text wasn’t read: the dialog belongs to a frame this run isn’t allowed to read.",
+      "fill_fields": "Set form fields in one step: {{count}}",
+      "fill_fields_consequence": "Each control listed below is set in order, stopping at the first one that can’t be set. Nothing is pressed, so the form isn’t submitted — but a page that saves as you type may store each change.",
+      "adopt_tab": "Take over tab {{tab}} at {{url}}",
+      "navigate": "Go to {{url}}",
+      "navigate_consequence": "The browser opens this exact address: {{url}}",
+      "no_submit_consequence": "This is entered into the control shown below. No submit step follows, so a page that saves as you type may store it right away.",
+      "command_consequence": "The browser performs this action on the control shown below.",
+      "prior_form": "An earlier run in this task already sent this form. Approve only if this is a new submission, not the same one again."
+    },
+    "dialog_kind": {
+      "alert": "alert",
+      "confirm": "confirmation dialog",
+      "prompt": "input dialog",
+      "beforeunload": "leave-page dialog",
+      "dialog": "dialog"
+    },
+    "question_text": {
+      "completion_refused": "{{feedback}} I’ve reported this task finished twice and can’t back it up. Is it done? If not, what should I do next?",
+      "commands_refused": "{{feedback}} What should I try instead?",
+      "no_progress": "I’m repeating actions without making progress. What should I do differently? You can also stop and finish the task yourself."
     }
   },
   "common": {

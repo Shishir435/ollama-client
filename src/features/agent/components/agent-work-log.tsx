@@ -57,8 +57,7 @@ const StepDisclosure = ({
 export const AgentWorkLog = ({
   items,
   live,
-  liveAt,
-  controls
+  liveAt
 }: {
   items: AgentWorkLogItem[]
   /**
@@ -70,7 +69,6 @@ export const AgentWorkLog = ({
    */
   live?: string
   liveAt?: number
-  controls?: ReactNode
 }) => {
   const { t } = useTranslation()
   if (items.length === 0 && !live) return null
@@ -85,7 +83,6 @@ export const AgentWorkLog = ({
       <ol className="flex min-w-0 flex-col gap-1" aria-live="polite">
         {items.map((item, index) => {
           const Icon = iconFor(item.status)
-          const last = index === items.length - 1
           const hasDetails = Boolean(item.target || item.note || item.detail)
           const needsAttention = ["failed", "rejected", "uncertain"].includes(
             item.status
@@ -162,7 +159,6 @@ export const AgentWorkLog = ({
                     {heading}
                   </div>
                 )}
-                {!live && last && active && controls}
               </div>
             </li>
           )
@@ -191,7 +187,6 @@ export const AgentWorkLog = ({
                   </time>
                 )}
               </div>
-              {controls}
             </div>
           </li>
         )}

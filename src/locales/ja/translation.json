@@ -30,7 +30,10 @@
       "find": "「{{query}}」を検索",
       "extract_text": "ページのテキストを読む",
       "handle_dialog_accept": "ページのダイアログを承認",
-      "handle_dialog_dismiss": "ページのダイアログを閉じる"
+      "handle_dialog_dismiss": "ページのダイアログを閉じる",
+      "fill_form": "フォームの項目を入力: {{count}}",
+      "extract": "ページ内を調べる: {{count}}",
+      "call_page_tool": "ページのツール「{{tool}}」を使う"
     },
     "approval": {
       "title": "承認が必要です",
@@ -56,10 +59,11 @@
       "already_running": "Agent の実行は既に進行中です。",
       "browser_control_unavailable": "Agent はブラウザー制御に接続できませんでした。DevTools または別のデバッガーを閉じて再試行してください。",
       "follow_up_unavailable": "この実行はここから続行できなくなりました。最初からやり直してタスクを設定してください。",
-      "permission_denied": "開始する前に、ページ観測の権限が必要です。",
+      "permission_denied": "このブラウザではエージェントがページを観察できません。",
       "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
       "unreadable_update": "パネルは読み取れない更新を受け取りました。",
-      "unknown": "Agent はその要求を完了できませんでした。"
+      "unknown": "Agent はその要求を完了できませんでした。",
+      "disconnected": "エージェントが再接続中だったため受け取れませんでした。もう一度お試しください。"
     },
     "failure": {
       "budget_exhausted": "実行がステップの上限をすべて使い切りました。目標を絞るか、現在のページの状態から始め直してください。",
@@ -136,7 +140,9 @@
       "placeholder": "ブラウザー作業を1つ説明…",
       "action": "エージェントを開始",
       "auto_actions": "このタスクの日常的な操作を許可",
-      "auto_actions_description": "このサイトでのクリックと入力は自動で行います。投稿、削除、新しいサイト、機密情報を扱う操作は引き続き確認します。"
+      "auto_actions_description": "このサイトでのクリックと入力は自動で行います。投稿、削除、新しいサイト、機密情報を扱う操作は引き続き確認します。",
+      "starting": "開始しています…",
+      "starting_on": "「{{title}}」で開始しています…"
     },
     "status": {
       "submitted": "開始中",
@@ -179,7 +185,11 @@
       "count": "{{count}} 個のタブ"
     },
     "takeover": {
-      "title": "この手順を引き継ぐ"
+      "title": "この手順を引き継ぐ",
+      "instruction": {
+        "file_upload": "ページを操作してご自身でファイルを選び、その後続行してください。",
+        "sensitive_step": "ページを操作してご自身で機密性の高い手順を完了し、その後続行してください。"
+      }
     },
     "title": "監督付きエージェント",
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
@@ -225,6 +235,37 @@
     },
     "composer": {
       "run_in_progress": "実行中のタスクがあります。別のタスクを始める前に停止するか、完了を待ってください。"
+    },
+    "paused_panel_closed": "サイドパネルが閉じられたため一時停止しました。準備ができたら再開してください。",
+    "approval_text": {
+      "accept_dialog": "ページの{{kind}}を承認",
+      "accept_dialog_origin": "{{origin}} の{{kind}}を承認",
+      "dismiss_dialog": "ページの{{kind}}を閉じる",
+      "dismiss_dialog_origin": "{{origin}} の{{kind}}を閉じる",
+      "dismiss_dialog_consequence": "ダイアログには閉じられたことが伝えられ、何も確定されません。",
+      "accept_dialog_consequence": "確認ボタンを押したものとしてページが続行します。その操作が何であってもです。",
+      "accept_leave_consequence": "ページから移動できるようになります。保存されていない内容は失われます。",
+      "dialog_unreadable": "テキストは読み取られていません。このダイアログは、この実行が読み取りを許可されていないフレームのものです。",
+      "fill_fields": "フォームの項目を一度に設定: {{count}}",
+      "fill_fields_consequence": "下に挙げたコントロールを順に設定し、設定できないものがあればそこで止まります。何も押さないためフォームは送信されませんが、入力中に保存するページでは変更ごとに保存される場合があります。",
+      "adopt_tab": "{{url}} のタブ {{tab}} を引き継ぐ",
+      "navigate": "{{url}} に移動",
+      "navigate_consequence": "ブラウザはこのアドレスをそのまま開きます: {{url}}",
+      "no_submit_consequence": "下に表示されたコントロールに入力されます。送信の手順はないため、入力中に保存するページではすぐに保存される場合があります。",
+      "command_consequence": "ブラウザは下に表示されたコントロールでこの操作を行います。",
+      "prior_form": "このタスクの以前の実行で、このフォームはすでに送信されています。同じものの再送信ではなく、新しい送信の場合のみ承認してください。"
+    },
+    "dialog_kind": {
+      "alert": "警告ダイアログ",
+      "confirm": "確認ダイアログ",
+      "prompt": "入力ダイアログ",
+      "beforeunload": "ページ移動の確認ダイアログ",
+      "dialog": "ダイアログ"
+    },
+    "question_text": {
+      "completion_refused": "{{feedback}} このタスクを2回完了と報告しましたが、裏付けられません。完了していますか？ 完了していない場合、次に何をすればよいですか？",
+      "commands_refused": "{{feedback}} 代わりに何を試せばよいですか？",
+      "no_progress": "進展がないまま操作を繰り返しています。何を変えればよいですか？ 停止してご自身でタスクを完了することもできます。"
     }
   },
   "common": {

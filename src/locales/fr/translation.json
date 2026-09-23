@@ -30,7 +30,10 @@
       "find": "Rechercher « {{query}} »",
       "extract_text": "Lire le texte de la page",
       "handle_dialog_accept": "Accepter la boîte de dialogue de la page",
-      "handle_dialog_dismiss": "Fermer la boîte de dialogue de la page"
+      "handle_dialog_dismiss": "Fermer la boîte de dialogue de la page",
+      "fill_form": "Remplir des champs du formulaire : {{count}}",
+      "extract": "Rechercher sur la page : {{count}}",
+      "call_page_tool": "Utiliser l’outil de la page « {{tool}} »"
     },
     "approval": {
       "title": "Approbation requise",
@@ -56,10 +59,11 @@
       "already_running": "Une exécution d’Agent est déjà en cours.",
       "browser_control_unavailable": "Agent n’a pas pu connecter le contrôle du navigateur. Fermez DevTools ou un autre débogueur, puis réessayez.",
       "follow_up_unavailable": "Cette exécution ne peut plus être poursuivie d’ici. Recommencez pour redonner la tâche.",
-      "permission_denied": "Agent a besoin de l’autorisation d’observation de page avant de démarrer.",
+      "permission_denied": "L’agent ne peut pas observer les pages dans ce navigateur.",
       "tab_unsupported": "Agent ne peut pas s’exécuter sur cette page. Ouvre une page web normale et réessaie.",
       "unreadable_update": "Le panneau a reçu une mise à jour qu’il n’a pas pu lire.",
-      "unknown": "Agent n’a pas pu exécuter cette demande."
+      "unknown": "Agent n’a pas pu exécuter cette demande.",
+      "disconnected": "L’agent se reconnectait et n’a pas reçu cette demande. Réessayez."
     },
     "failure": {
       "budget_exhausted": "L'exécution a épuisé son budget d'étapes. Restreignez l'objectif ou reprenez depuis l'état actuel de la page.",
@@ -136,7 +140,9 @@
       "placeholder": "Décrivez une tâche du navigateur…",
       "action": "Démarrer l’Agent",
       "auto_actions": "Autoriser les actions courantes pour cette tâche",
-      "auto_actions_description": "Les clics et la saisie sur ce site sont automatiques. Les publications, suppressions, nouveaux sites et étapes sensibles demandent encore votre accord."
+      "auto_actions_description": "Les clics et la saisie sur ce site sont automatiques. Les publications, suppressions, nouveaux sites et étapes sensibles demandent encore votre accord.",
+      "starting": "Démarrage…",
+      "starting_on": "Démarrage sur « {{title}} »…"
     },
     "status": {
       "submitted": "Démarrage",
@@ -179,7 +185,11 @@
       "count": "{{count}} onglets"
     },
     "takeover": {
-      "title": "Prenez le contrôle de cette étape"
+      "title": "Prenez le contrôle de cette étape",
+      "instruction": {
+        "file_upload": "Prenez le contrôle de la page, choisissez vous-même le fichier, puis continuez.",
+        "sensitive_step": "Prenez le contrôle de la page, effectuez vous-même l’étape sensible, puis continuez."
+      }
     },
     "title": "Agent supervisé",
     "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
@@ -225,6 +235,37 @@
     },
     "composer": {
       "run_in_progress": "Une exécution est déjà en cours. Arrêtez-la ou attendez qu’elle se termine avant d’en lancer une autre."
+    },
+    "paused_panel_closed": "En pause car le panneau latéral a été fermé. Reprenez quand vous voulez.",
+    "approval_text": {
+      "accept_dialog": "Accepter la {{kind}} de la page",
+      "accept_dialog_origin": "Accepter la {{kind}} de {{origin}}",
+      "dismiss_dialog": "Fermer la {{kind}} de la page",
+      "dismiss_dialog_origin": "Fermer la {{kind}} de {{origin}}",
+      "dismiss_dialog_consequence": "La boîte de dialogue est informée qu’elle a été fermée, et rien n’est confirmé.",
+      "accept_dialog_consequence": "La page continue comme si vous aviez cliqué sur son bouton de confirmation, quelle que soit son action.",
+      "accept_leave_consequence": "La page peut être quittée. Tout ce qui n’a pas été enregistré est perdu.",
+      "dialog_unreadable": "Son texte n’a pas été lu : la boîte de dialogue appartient à un cadre que cette exécution n’est pas autorisée à lire.",
+      "fill_fields": "Définir des champs du formulaire en une étape : {{count}}",
+      "fill_fields_consequence": "Chaque contrôle listé est défini dans l’ordre, avec arrêt au premier qui ne peut pas l’être. Rien n’est cliqué, donc le formulaire n’est pas envoyé — mais une page qui enregistre pendant la saisie peut conserver chaque modification.",
+      "adopt_tab": "Prendre l’onglet {{tab}} sur {{url}}",
+      "navigate": "Aller à {{url}}",
+      "navigate_consequence": "Le navigateur ouvre exactement cette adresse : {{url}}",
+      "no_submit_consequence": "Ceci est saisi dans le contrôle affiché ci-dessous. Aucune étape d’envoi ne suit, donc une page qui enregistre pendant la saisie peut le conserver immédiatement.",
+      "command_consequence": "Le navigateur effectue cette action sur le contrôle affiché ci-dessous.",
+      "prior_form": "Une exécution précédente de cette tâche a déjà envoyé ce formulaire. N’approuvez que s’il s’agit d’un nouvel envoi, et non du même."
+    },
+    "dialog_kind": {
+      "alert": "alerte",
+      "confirm": "boîte de confirmation",
+      "prompt": "boîte de saisie",
+      "beforeunload": "boîte de sortie de page",
+      "dialog": "boîte de dialogue"
+    },
+    "question_text": {
+      "completion_refused": "{{feedback}} J’ai signalé deux fois que la tâche était terminée sans pouvoir le prouver. Est-elle faite ? Sinon, que dois-je faire ensuite ?",
+      "commands_refused": "{{feedback}} Que devrais-je essayer à la place ?",
+      "no_progress": "Je répète des actions sans progresser. Que devrais-je faire différemment ? Vous pouvez aussi m’arrêter et terminer la tâche vous-même."
     }
   },
   "common": {

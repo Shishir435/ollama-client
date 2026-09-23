@@ -30,7 +30,10 @@
       "find": "查找“{{query}}”",
       "extract_text": "读取页面文本",
       "handle_dialog_accept": "接受页面对话框",
-      "handle_dialog_dismiss": "关闭页面对话框"
+      "handle_dialog_dismiss": "关闭页面对话框",
+      "fill_form": "填写表单字段：{{count}}",
+      "extract": "在页面上查找：{{count}}",
+      "call_page_tool": "使用页面工具“{{tool}}”"
     },
     "approval": {
       "title": "需要批准",
@@ -56,10 +59,11 @@
       "already_running": "已有一个 Agent 运行正在进行。",
       "browser_control_unavailable": "Agent 无法连接浏览器控制。请关闭 DevTools 或其他调试器后重试。",
       "follow_up_unavailable": "此运行已无法从这里继续。请重新开始以再次设置任务。",
-      "permission_denied": "启动前 Agent 需要页面观察权限。",
+      "permission_denied": "Agent 无法在此浏览器中观察页面。",
       "tab_unsupported": "Agent 无法在此页面运行。请打开普通网页后重试。",
       "unreadable_update": "面板收到了无法读取的更新。",
-      "unknown": "Agent 无法完成该请求。"
+      "unknown": "Agent 无法完成该请求。",
+      "disconnected": "Agent 正在重新连接，未收到该请求。请重试。"
     },
     "failure": {
       "budget_exhausted": "运行已用完全部步骤预算。请缩小目标，或从页面当前状态重新开始。",
@@ -136,7 +140,9 @@
       "placeholder": "描述一个浏览器任务…",
       "action": "启动智能体",
       "auto_actions": "允许此任务的常规操作",
-      "auto_actions_description": "在此网站上自动点击和输入。发布、删除、访问新网站及敏感操作仍会请求确认。"
+      "auto_actions_description": "在此网站上自动点击和输入。发布、删除、访问新网站及敏感操作仍会请求确认。",
+      "starting": "正在启动…",
+      "starting_on": "正在“{{title}}”上启动…"
     },
     "status": {
       "submitted": "正在启动",
@@ -179,7 +185,11 @@
       "count": "{{count}} 个标签页"
     },
     "takeover": {
-      "title": "接管此步骤"
+      "title": "接管此步骤",
+      "instruction": {
+        "file_upload": "接管页面，自己选择文件，然后继续。",
+        "sensitive_step": "接管页面，自己完成敏感步骤，然后继续。"
+      }
     },
     "title": "监督式智能体",
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
@@ -225,6 +235,37 @@
     },
     "composer": {
       "run_in_progress": "已有一个运行正在进行。请先停止它或等待其完成，再开始新的运行。"
+    },
+    "paused_panel_closed": "侧边栏已关闭，因此已暂停。准备好后继续。",
+    "approval_text": {
+      "accept_dialog": "接受页面的{{kind}}",
+      "accept_dialog_origin": "接受来自 {{origin}} 的{{kind}}",
+      "dismiss_dialog": "关闭页面的{{kind}}",
+      "dismiss_dialog_origin": "关闭来自 {{origin}} 的{{kind}}",
+      "dismiss_dialog_consequence": "对话框会被告知已关闭，不会确认任何内容。",
+      "accept_dialog_consequence": "页面会像你按下了它的确认按钮一样继续，无论该操作是什么。",
+      "accept_leave_consequence": "允许离开页面。未保存的内容将丢失。",
+      "dialog_unreadable": "未读取其文本：该对话框属于此运行无权读取的框架。",
+      "fill_fields": "一步设置表单字段：{{count}}",
+      "fill_fields_consequence": "按顺序设置下面列出的每个控件，遇到无法设置的控件即停止。不会按下任何按钮，因此不会提交表单——但边输入边保存的页面可能会保存每次更改。",
+      "adopt_tab": "接管 {{url}} 上的标签页 {{tab}}",
+      "navigate": "前往 {{url}}",
+      "navigate_consequence": "浏览器将打开这个完整地址：{{url}}",
+      "no_submit_consequence": "这将输入到下方显示的控件中。之后没有提交步骤，因此边输入边保存的页面可能会立即保存。",
+      "command_consequence": "浏览器将在下方显示的控件上执行此操作。",
+      "prior_form": "此任务之前的一次运行已经提交过这个表单。只有在这是一次新的提交而不是重复提交时才批准。"
+    },
+    "dialog_kind": {
+      "alert": "提示框",
+      "confirm": "确认对话框",
+      "prompt": "输入对话框",
+      "beforeunload": "离开页面对话框",
+      "dialog": "对话框"
+    },
+    "question_text": {
+      "completion_refused": "{{feedback}} 我已两次报告此任务完成，但无法证实。它完成了吗？如果没有，接下来我该做什么？",
+      "commands_refused": "{{feedback}} 我应该改试什么？",
+      "no_progress": "我在重复操作却没有进展。我应该换种什么做法？你也可以停止我，自己完成任务。"
     }
   },
   "common": {

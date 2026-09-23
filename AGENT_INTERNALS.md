@@ -916,6 +916,29 @@ Read the section your change touches; you do not need the whole file.
   same label the work log uses, so the two cannot disagree — shows progress
   against the observation budget that will stop the run, and counts every tab
   the run drives once it has adopted more than the one it started on.
+- **The runtime names sentences; the panel says them.** An approval, a
+  takeover and a question the run itself asks carry `display` — i18n keys and
+  their values (`AgentDisplayText`) — beside the English `action`,
+  `consequence`, `instruction` or `text`, which stays for receipts, tests and
+  records written before `display` existed. The panel renders `display` when
+  it is there and the flattened English otherwise; a value named `…Key` is a
+  key translated before it is interpolated (a dialog's kind). Commands are
+  labelled once, by `agentCommandDisplay` in the runtime, for the log, the
+  line above it and the approval alike, and the switch is exhaustive, so a
+  command added without a label fails typecheck instead of showing
+  `agent.action.fill_form`. `agent-i18n.test.ts` looks up every key the
+  runtime can emit.
+- **The card's controls never scroll away.** Pause, Resume and Stop sit under
+  the progress bar, above the attention area and the bounded log; they used
+  to be the last row of that log, out of sight on a long run. The log follows
+  its newest row unless the reader has scrolled up. Every pause reason says
+  why on the card — a closed panel included — and a command the worker never
+  received, or refused, is shown on the run rather than in a composer that is
+  back in Chat by then.
+- **An approval arriving is brought into view and announced, never
+  pre-answered.** It scrolls into view and focus moves to the card, not to
+  Allow, so an Enter meant for something else cannot approve an effect; focus
+  does not move at all while the user is typing.
 - Panel copy is i18n like everything else: every key exists in all nine
   locales, and `pnpm generate:resources` runs after a locale edit.
 - **A run's record comes out as text, in a dev build.** From the side panel's

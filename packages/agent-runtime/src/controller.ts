@@ -1547,6 +1547,12 @@ export const createAgentController = (
         question: {
           id: `${state.id}:q${state.observationCount}`,
           text: `${judgement.feedback} I have reported this task finished twice and cannot support the claim. Is it done, and if not, what should I do next?`,
+          display: [
+            {
+              key: "agent.question_text.completion_refused",
+              values: { feedback: judgement.feedback.slice(0, 2_048) }
+            }
+          ],
           askedAt: dependencies.clock.now()
         }
       })
@@ -1589,6 +1595,12 @@ export const createAgentController = (
         question: {
           id: `${state.id}:q${state.observationCount}`,
           text: `${feedback} What should I try instead?`,
+          display: [
+            {
+              key: "agent.question_text.commands_refused",
+              values: { feedback: feedback.slice(0, 2_048) }
+            }
+          ],
           askedAt: dependencies.clock.now()
         }
       })
@@ -1687,6 +1699,7 @@ export const createAgentController = (
       question: {
         id: `${state.id}:q${state.observationCount}`,
         text: "I am repeating actions without progress. What should I do differently? You can also stop and finish this task yourself.",
+        display: [{ key: "agent.question_text.no_progress" }],
         askedAt: dependencies.clock.now()
       }
     })

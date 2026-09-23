@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 
 export interface AgentRunControlsProps {
   status: string
-  inline?: boolean
   resumeDisabled?: boolean
   /**
    * Whether the user already acknowledged the takeover request. Before that
@@ -21,7 +20,6 @@ export interface AgentRunControlsProps {
 
 export const AgentRunControls = ({
   status,
-  inline = false,
   resumeDisabled = false,
   takeoverStarted = false,
   onPause,
@@ -35,28 +33,28 @@ export const AgentRunControls = ({
   if (terminal) return null
 
   return (
-    <fieldset
-      className={
-        inline
-          ? "mt-2 flex flex-wrap gap-1.5"
-          : "sticky bottom-0 z-20 flex flex-wrap gap-1.5 border-t border-border bg-surface-chat/95 px-3 py-2 backdrop-blur"
-      }>
+    <fieldset className="mt-2 flex flex-wrap gap-1.5">
       <legend className="sr-only">{t("agent.controls.label")}</legend>
       {status === "paused" ? (
-        <Button type="button" onClick={onResume} disabled={resumeDisabled}>
+        <Button
+          type="button"
+          size="sm"
+          onClick={onResume}
+          disabled={resumeDisabled}>
           <Play className="icon-xs" aria-hidden="true" />
           {t("agent.controls.resume")}
         </Button>
       ) : status === "awaiting_takeover" ? (
         <>
           {!takeoverStarted && (
-            <Button type="button" onClick={onTakeoverStart}>
+            <Button type="button" size="sm" onClick={onTakeoverStart}>
               <User className="icon-xs" aria-hidden="true" />
               {t("agent.controls.takeover_start")}
             </Button>
           )}
           <Button
             type="button"
+            size="sm"
             variant={takeoverStarted ? "default" : "outline"}
             onClick={onTakeoverComplete}>
             <Hand className="icon-xs" aria-hidden="true" />
@@ -64,12 +62,17 @@ export const AgentRunControls = ({
           </Button>
         </>
       ) : (
-        <Button type="button" variant="outline" onClick={onPause}>
+        <Button type="button" size="sm" variant="outline" onClick={onPause}>
           <Pause className="icon-xs" aria-hidden="true" />
           {t("agent.controls.pause")}
         </Button>
       )}
-      <Button type="button" variant="destructive" onClick={onStop}>
+      <Button
+        type="button"
+        size="sm"
+        variant="destructive"
+        className="ml-auto"
+        onClick={onStop}>
         <Square className="icon-xs" aria-hidden="true" />
         {t("agent.controls.stop")}
       </Button>

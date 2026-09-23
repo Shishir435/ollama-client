@@ -30,7 +30,10 @@
       "find": "„{{query}}“ suchen",
       "extract_text": "Seitentext lesen",
       "handle_dialog_accept": "Dialog der Seite bestätigen",
-      "handle_dialog_dismiss": "Dialog der Seite abbrechen"
+      "handle_dialog_dismiss": "Dialog der Seite abbrechen",
+      "fill_form": "Formularfelder ausfüllen: {{count}}",
+      "extract": "Auf der Seite nachsehen: {{count}}",
+      "call_page_tool": "Werkzeug der Seite „{{tool}}“ verwenden"
     },
     "approval": {
       "title": "Genehmigung erforderlich",
@@ -56,10 +59,11 @@
       "already_running": "Ein Agent-Durchlauf läuft bereits.",
       "browser_control_unavailable": "Agent konnte die Browsersteuerung nicht verbinden. Schließen Sie DevTools oder einen anderen Debugger und versuchen Sie es erneut.",
       "follow_up_unavailable": "Dieser Lauf kann hier nicht mehr fortgesetzt werden. Beginne neu, um die Aufgabe erneut zu stellen.",
-      "permission_denied": "Agent benötigt die Berechtigung zur Seitenbeobachtung, bevor er starten kann.",
+      "permission_denied": "Der Agent kann in diesem Browser keine Seiten beobachten.",
       "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
       "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
-      "unknown": "Agent konnte diese Anfrage nicht ausführen."
+      "unknown": "Agent konnte diese Anfrage nicht ausführen.",
+      "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut."
     },
     "failure": {
       "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
@@ -136,7 +140,9 @@
       "placeholder": "Eine Browseraufgabe beschreiben…",
       "action": "Agent starten",
       "auto_actions": "Routineaktionen für diese Aufgabe erlauben",
-      "auto_actions_description": "Klicken und Tippen auf dieser Website erfolgen automatisch. Veröffentlichen, Löschen, neue Websites und sensible Schritte erfordern weiterhin Ihre Zustimmung."
+      "auto_actions_description": "Klicken und Tippen auf dieser Website erfolgen automatisch. Veröffentlichen, Löschen, neue Websites und sensible Schritte erfordern weiterhin Ihre Zustimmung.",
+      "starting": "Wird gestartet…",
+      "starting_on": "Wird auf „{{title}}“ gestartet…"
     },
     "status": {
       "submitted": "Startet",
@@ -179,7 +185,11 @@
       "count": "{{count}} Tabs"
     },
     "takeover": {
-      "title": "Diesen Schritt übernehmen"
+      "title": "Diesen Schritt übernehmen",
+      "instruction": {
+        "file_upload": "Übernimm die Seite, wähle die Datei selbst aus und fahre dann fort.",
+        "sensitive_step": "Übernimm die Seite, erledige den vertraulichen Schritt selbst und fahre dann fort."
+      }
     },
     "title": "Beaufsichtigter Agent",
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
@@ -225,6 +235,37 @@
     },
     "composer": {
       "run_in_progress": "Es läuft bereits ein Durchlauf. Stoppe ihn oder warte, bis er fertig ist, bevor du einen neuen startest."
+    },
+    "paused_panel_closed": "Pausiert, weil die Seitenleiste geschlossen wurde. Fortsetzen, wenn du bereit bist.",
+    "approval_text": {
+      "accept_dialog": "{{kind}} der Seite bestätigen",
+      "accept_dialog_origin": "{{kind}} von {{origin}} bestätigen",
+      "dismiss_dialog": "{{kind}} der Seite schließen",
+      "dismiss_dialog_origin": "{{kind}} von {{origin}} schließen",
+      "dismiss_dialog_consequence": "Der Dialog wird als geschlossen gemeldet, nichts wird bestätigt.",
+      "accept_dialog_consequence": "Die Seite macht weiter, als hättest du ihre Bestätigen-Schaltfläche gedrückt – was auch immer diese tut.",
+      "accept_leave_consequence": "Die Seite darf verlassen werden. Nicht Gespeichertes geht verloren.",
+      "dialog_unreadable": "Der Text wurde nicht gelesen: Der Dialog gehört zu einem Frame, den dieser Lauf nicht lesen darf.",
+      "fill_fields": "Formularfelder in einem Schritt setzen: {{count}}",
+      "fill_fields_consequence": "Jedes unten aufgeführte Steuerelement wird der Reihe nach gesetzt; beim ersten, das nicht gesetzt werden kann, wird angehalten. Es wird nichts gedrückt, das Formular wird also nicht gesendet – eine Seite, die beim Tippen speichert, kann jede Änderung aber übernehmen.",
+      "adopt_tab": "Tab {{tab}} unter {{url}} übernehmen",
+      "navigate": "Zu {{url}} wechseln",
+      "navigate_consequence": "Der Browser öffnet genau diese Adresse: {{url}}",
+      "no_submit_consequence": "Dies wird in das unten gezeigte Steuerelement eingegeben. Es folgt kein Senden-Schritt, daher kann eine Seite, die beim Tippen speichert, es sofort übernehmen.",
+      "command_consequence": "Der Browser führt diese Aktion am unten gezeigten Steuerelement aus.",
+      "prior_form": "Ein früherer Lauf dieser Aufgabe hat dieses Formular bereits gesendet. Bestätige nur, wenn es eine neue Übermittlung ist und nicht dieselbe noch einmal."
+    },
+    "dialog_kind": {
+      "alert": "Hinweis",
+      "confirm": "Bestätigungsdialog",
+      "prompt": "Eingabedialog",
+      "beforeunload": "Dialog zum Verlassen der Seite",
+      "dialog": "Dialog"
+    },
+    "question_text": {
+      "completion_refused": "{{feedback}} Ich habe diese Aufgabe zweimal als erledigt gemeldet und kann es nicht belegen. Ist sie erledigt? Wenn nicht, was soll ich als Nächstes tun?",
+      "commands_refused": "{{feedback}} Was soll ich stattdessen versuchen?",
+      "no_progress": "Ich wiederhole Aktionen, ohne voranzukommen. Was soll ich anders machen? Du kannst auch anhalten und die Aufgabe selbst beenden."
     }
   },
   "common": {

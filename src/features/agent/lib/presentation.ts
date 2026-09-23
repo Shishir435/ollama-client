@@ -1,9 +1,11 @@
 import {
+  agentCommandDisplay,
   isTerminalAgentStatus,
   TERMINAL_AGENT_STATUSES
 } from "@ollama-client/agent-runtime"
 import type {
   AgentCommand,
+  AgentDisplayText,
   AgentModelReadiness,
   AgentRunState,
   AgentStepRecord
@@ -87,54 +89,28 @@ export interface AgentActionLabel {
   values?: Record<string, string | number>
 }
 
-const pageValue = (value: string) =>
-  agentPlainText(value, AGENT_PAGE_TEXT_LIMIT)
+/**
+ * Every string value flattened, because a label is rendered and page text
+ * must not be able to imitate one. Numbers pass as they are.
+ */
+export const agentDisplayValues = (
+  values?: AgentDisplayText["values"]
+): AgentActionLabel["values"] =>
+  values
+    ? Object.fromEntries(
+        Object.entries(values).map(([name, value]) => [
+          name,
+          typeof value === "string"
+            ? agentPlainText(value, AGENT_PAGE_TEXT_LIMIT)
+            : value
+        ])
+      )
+    : undefined
 
 export const agentActionLabel = (command?: AgentCommand): AgentActionLabel => {
-  if (!command) return { key: "agent.action.step" }
-  switch (command.type) {
-    case "navigate":
-    case "open_tab":
-      return {
-        key: `agent.action.${command.type}`,
-        values: { url: pageValue(command.url) }
-      }
-    case "scroll":
-      return { key: `agent.action.scroll_${command.direction}` }
-    case "switch_tab":
-      return {
-        key: "agent.action.switch_tab",
-        values: { tab: command.tabId }
-      }
-    case "wait":
-      return {
-        key: "agent.action.wait",
-        values: { condition: pageValue(command.condition) }
-      }
-    case "press_key":
-      return {
-        key: "agent.action.press_key",
-        values: { key: pageValue(command.key) }
-      }
-    case "inspect":
-      return {
-        key: "agent.action.inspect",
-        values: { region: pageValue(command.target) }
-      }
-    case "find":
-      return {
-        key: "agent.action.find",
-        values: { query: pageValue(command.query) }
-      }
-    case "handle_dialog":
-      return {
-        key: command.accept
-          ? "agent.action.handle_dialog_accept"
-          : "agent.action.handle_dialog_dismiss"
-      }
-    default:
-      return { key: `agent.action.${command.type}` }
-  }
+  const display = agentCommandDisplay(command)
+  const values = agentDisplayValues(display.values)
+  return values ? { key: display.key, values } : { key: display.key }
 }
 
 /**

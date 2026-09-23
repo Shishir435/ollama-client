@@ -1,9 +1,11 @@
 import {
   AGENT_GRANTABLE_EFFECTS,
   type AgentApprovalRequest,
+  type AgentDisplayText,
   type AgentGrant,
   type AgentTakeoverRequest
 } from "@ollama-client/contracts"
+import { agentCommandDisplay } from "./action-label"
 import type {
   AgentPolicyDecision,
   AgentPolicyInput,
@@ -98,6 +100,15 @@ const takeoverInstruction = (reason: AgentTakeoverRequest["reason"]): string =>
     ? "Take control of the page, choose the file yourself, then explicitly continue."
     : "Take control of the page, complete the sensitive step, then explicitly continue."
 
+const takeoverDisplay = (
+  reason: AgentTakeoverRequest["reason"]
+): AgentDisplayText => ({
+  key:
+    reason === "file_upload"
+      ? "agent.takeover.instruction.file_upload"
+      : "agent.takeover.instruction.sensitive_step"
+})
+
 const makeTakeoverRequest = (
   input: AgentPolicyInput,
   reason: AgentTakeoverRequest["reason"]
@@ -107,6 +118,7 @@ const makeTakeoverRequest = (
   stepId: input.stepId,
   reason,
   instruction: takeoverInstruction(reason),
+  display: [takeoverDisplay(reason)],
   createdAt: input.now
 })
 
@@ -174,7 +186,16 @@ const hasNoSubmitStep = (input: AgentPolicyInput): boolean =>
  */
 const dialogAction = (
   input: AgentPolicyInput
-): { action: string; consequence: string } | undefined => {
+):
+  | {
+      action: string
+      consequence: string
+      display: {
+        action: AgentDisplayText
+        consequence: AgentDisplayText[]
+      }
+    }
+  | undefined => {
   const command = input.effect.command
   if (command.type !== "handle_dialog") return undefined
   const kind = input.effect.dialog?.type ?? "dialog"
@@ -187,24 +208,42 @@ const dialogAction = (
    */
   const frameOrigin = input.effect.frameOrigin
   const origin = actingOrigin(input)
-  const whose =
+  const foreign =
     frameOrigin !== undefined || !input.allowedOrigins.includes(origin)
-      ? `${origin}'s`
-      : "the page's"
+  const whose = foreign ? `${origin}'s` : "the page's"
+  const direction = command.accept ? "accept" : "dismiss"
+  const actionDisplay: AgentDisplayText = {
+    key: `agent.approval_text.${direction}_dialog${foreign ? "_origin" : ""}`,
+    values: {
+      kindKey: `agent.dialog_kind.${kind}`,
+      ...(foreign ? { origin } : {})
+    }
+  }
   /**
    * An embedded frame the run was not authorized to read had its dialog text
    * withheld, so neither the model nor the panel can show what is being
    * agreed to. The user is told that, rather than being shown a prompt with
    * an empty quotation and left to assume the dialog was empty.
    */
-  const unreadable =
+  const withheld =
     frameOrigin !== undefined && !input.allowedOrigins.includes(frameOrigin)
-      ? " Its text was not read: the dialog belongs to a frame this run is not authorized to read."
-      : ""
+  const unreadable = withheld
+    ? " Its text was not read: the dialog belongs to a frame this run is not authorized to read."
+    : ""
+  const unreadableDisplay: AgentDisplayText[] = withheld
+    ? [{ key: "agent.approval_text.dialog_unreadable" }]
+    : []
   if (!command.accept) {
     return {
       action: `Dismiss ${whose} ${kind} dialog`,
-      consequence: `The dialog is told it was dismissed and nothing is confirmed.${unreadable}`
+      consequence: `The dialog is told it was dismissed and nothing is confirmed.${unreadable}`,
+      display: {
+        action: actionDisplay,
+        consequence: [
+          { key: "agent.approval_text.dismiss_dialog_consequence" },
+          ...unreadableDisplay
+        ]
+      }
     }
   }
   return {
@@ -213,7 +252,19 @@ const dialogAction = (
       (kind === "beforeunload"
         ? "The page is allowed to leave; anything it has not saved is discarded."
         : "The page proceeds as though the user pressed its confirm button, whatever that action is.") +
-      unreadable
+      unreadable,
+    display: {
+      action: actionDisplay,
+      consequence: [
+        {
+          key:
+            kind === "beforeunload"
+              ? "agent.approval_text.accept_leave_consequence"
+              : "agent.approval_text.accept_dialog_consequence"
+        },
+        ...unreadableDisplay
+      ]
+    }
   }
 }
 
@@ -227,9 +278,16 @@ const dialogAction = (
  * that named one of twelve was a weaker disclosure than the twelve separate
  * approvals it replaces, which is the one thing batching may not cost.
  */
-const batchAction = (input: AgentPolicyInput): string | undefined => {
+const batchFieldCount = (input: AgentPolicyInput): number | undefined => {
   const fields = input.effect.batch?.fields.length
-  if (input.effect.command.type !== "fill_form" || !fields) return undefined
+  return input.effect.command.type === "fill_form" && fields
+    ? fields
+    : undefined
+}
+
+const batchAction = (input: AgentPolicyInput): string | undefined => {
+  const fields = batchFieldCount(input)
+  if (fields === undefined) return undefined
   return fields === 1
     ? "Set 1 form field"
     : `Set ${fields} form fields in one step`
@@ -282,6 +340,45 @@ const batchEvidence = (input: AgentPolicyInput): string | undefined => {
   return listed.join("\n")
 }
 
+/**
+ * The approval's sentences as keys, chosen by the same branches that choose
+ * the English beside them so the two cannot describe different effects.
+ */
+const approvalDisplay = (
+  input: AgentPolicyInput
+): NonNullable<AgentApprovalRequest["display"]> => {
+  const dialog = dialogAction(input)
+  if (dialog) return dialog.display
+  const destination = input.effect.destination?.url
+  const adopting = adoptsTab(input)
+  const fields = batchFieldCount(input)
+  const action: AgentDisplayText =
+    fields !== undefined
+      ? { key: "agent.approval_text.fill_fields", values: { count: fields } }
+      : adopting !== undefined && destination
+        ? {
+            key: "agent.approval_text.adopt_tab",
+            values: { tab: adopting, url: destination }
+          }
+        : destination
+          ? {
+              key: "agent.approval_text.navigate",
+              values: { url: destination }
+            }
+          : agentCommandDisplay(input.effect.command)
+  const consequence: AgentDisplayText = destination
+    ? {
+        key: "agent.approval_text.navigate_consequence",
+        values: { url: destination }
+      }
+    : fields !== undefined
+      ? { key: "agent.approval_text.fill_fields_consequence" }
+      : hasNoSubmitStep(input)
+        ? { key: "agent.approval_text.no_submit_consequence" }
+        : { key: "agent.approval_text.command_consequence" }
+  return { action, consequence: [consequence] }
+}
+
 const makeApprovalRequest = (
   input: AgentPolicyInput,
   risk: Exclude<AgentRisk, "low">
@@ -313,6 +410,7 @@ const makeApprovalRequest = (
           : hasNoSubmitStep(input)
             ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
             : "The browser will perform the resolved page effect shown above."),
+    display: approvalDisplay(input),
     pageEvidence: batchEvidence(input) ?? input.effect.target.accessibleName,
     createdAt: input.now
   }
@@ -328,6 +426,13 @@ const MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS = 1_000
  */
 export const AGENT_PRIOR_FORM_CONSEQUENCE =
   "An earlier run this task follows already sent this form. Approve only if this is a new submission, not the same one again."
+
+const AGENT_PRIOR_FORM_DISPLAY: AgentDisplayText = {
+  key: "agent.approval_text.prior_form"
+}
+
+/** The display list's own bound in the approval and takeover schemas. */
+const MAX_DISPLAY_SENTENCES = 4
 
 /**
  * A second send to a form the chain already sent, priced as a decision the
@@ -346,7 +451,18 @@ const priorFormApproval = (
     risk,
     request: {
       ...request,
-      consequence: `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.consequence}`
+      consequence: `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.consequence}`,
+      ...(request.display
+        ? {
+            display: {
+              ...request.display,
+              consequence: [
+                AGENT_PRIOR_FORM_DISPLAY,
+                ...request.display.consequence
+              ].slice(0, MAX_DISPLAY_SENTENCES)
+            }
+          }
+        : {})
     }
   }
 }
@@ -501,7 +617,11 @@ export const evaluateAgentPolicy = (
               `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.instruction}`.slice(
                 0,
                 MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS
-              )
+              ),
+            display: [
+              AGENT_PRIOR_FORM_DISPLAY,
+              ...(request.display ?? [])
+            ].slice(0, MAX_DISPLAY_SENTENCES)
           }
         : request
     }

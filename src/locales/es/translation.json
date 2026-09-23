@@ -30,7 +30,10 @@
       "find": "Buscar «{{query}}»",
       "extract_text": "Leer el texto de la página",
       "handle_dialog_accept": "Aceptar el diálogo de la página",
-      "handle_dialog_dismiss": "Descartar el diálogo de la página"
+      "handle_dialog_dismiss": "Descartar el diálogo de la página",
+      "fill_form": "Rellenar campos del formulario: {{count}}",
+      "extract": "Consultar en la página: {{count}}",
+      "call_page_tool": "Usar la herramienta de la página «{{tool}}»"
     },
     "approval": {
       "title": "Aprobación necesaria",
@@ -56,10 +59,11 @@
       "already_running": "Ya hay una ejecución de Agent en curso.",
       "browser_control_unavailable": "Agent no pudo conectar el control del navegador. Cierra DevTools u otro depurador e inténtalo de nuevo.",
       "follow_up_unavailable": "Esa ejecución ya no se puede continuar desde aquí. Empieza de nuevo para plantear la tarea otra vez.",
-      "permission_denied": "Agent necesita permiso de observación de la página antes de empezar.",
+      "permission_denied": "El agente no puede observar páginas en este navegador.",
       "tab_unsupported": "Agent no puede ejecutarse en esta página. Abre una página web normal e inténtalo de nuevo.",
       "unreadable_update": "El panel recibió una actualización que no pudo leer.",
-      "unknown": "Agent no pudo completar esa solicitud."
+      "unknown": "Agent no pudo completar esa solicitud.",
+      "disconnected": "El agente se estaba reconectando y no lo recibió. Inténtalo de nuevo."
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",
@@ -136,7 +140,9 @@
       "placeholder": "Describe una tarea del navegador…",
       "action": "Iniciar Agente",
       "auto_actions": "Permitir acciones rutinarias para esta tarea",
-      "auto_actions_description": "Los clics y la escritura en este sitio son automáticos. Publicar, eliminar, visitar nuevos sitios y los pasos sensibles siguen requiriendo confirmación."
+      "auto_actions_description": "Los clics y la escritura en este sitio son automáticos. Publicar, eliminar, visitar nuevos sitios y los pasos sensibles siguen requiriendo confirmación.",
+      "starting": "Iniciando…",
+      "starting_on": "Iniciando en «{{title}}»…"
     },
     "status": {
       "submitted": "Iniciando",
@@ -179,7 +185,11 @@
       "count": "{{count}} pestañas"
     },
     "takeover": {
-      "title": "Toma el control de este paso"
+      "title": "Toma el control de este paso",
+      "instruction": {
+        "file_upload": "Toma el control de la página, elige tú el archivo y luego continúa.",
+        "sensitive_step": "Toma el control de la página, completa tú el paso sensible y luego continúa."
+      }
     },
     "title": "Agente supervisado",
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
@@ -225,6 +235,37 @@
     },
     "composer": {
       "run_in_progress": "Ya hay una ejecución en curso. Detenla o espera a que termine antes de iniciar otra."
+    },
+    "paused_panel_closed": "En pausa porque se cerró el panel lateral. Reanuda cuando quieras.",
+    "approval_text": {
+      "accept_dialog": "Aceptar el {{kind}} de la página",
+      "accept_dialog_origin": "Aceptar el {{kind}} de {{origin}}",
+      "dismiss_dialog": "Descartar el {{kind}} de la página",
+      "dismiss_dialog_origin": "Descartar el {{kind}} de {{origin}}",
+      "dismiss_dialog_consequence": "Se indica al diálogo que fue descartado y no se confirma nada.",
+      "accept_dialog_consequence": "La página continúa como si hubieras pulsado su botón de confirmar, haga lo que haga.",
+      "accept_leave_consequence": "Se permite salir de la página. Lo que no haya guardado se pierde.",
+      "dialog_unreadable": "Su texto no se leyó: el diálogo pertenece a un marco que esta ejecución no puede leer.",
+      "fill_fields": "Establecer campos del formulario en un paso: {{count}}",
+      "fill_fields_consequence": "Cada control de la lista se establece en orden y se detiene en el primero que no se pueda establecer. No se pulsa nada, así que el formulario no se envía, pero una página que guarda mientras escribes puede almacenar cada cambio.",
+      "adopt_tab": "Tomar la pestaña {{tab}} en {{url}}",
+      "navigate": "Ir a {{url}}",
+      "navigate_consequence": "El navegador abre exactamente esta dirección: {{url}}",
+      "no_submit_consequence": "Esto se introduce en el control mostrado abajo. No hay un paso de envío después, así que una página que guarda mientras escribes puede almacenarlo de inmediato.",
+      "command_consequence": "El navegador realiza esta acción en el control mostrado abajo.",
+      "prior_form": "Una ejecución anterior de esta tarea ya envió este formulario. Aprueba solo si es un envío nuevo y no el mismo otra vez."
+    },
+    "dialog_kind": {
+      "alert": "aviso",
+      "confirm": "diálogo de confirmación",
+      "prompt": "diálogo de entrada",
+      "beforeunload": "diálogo de salida de la página",
+      "dialog": "diálogo"
+    },
+    "question_text": {
+      "completion_refused": "{{feedback}} He informado dos veces de que la tarea está terminada y no puedo demostrarlo. ¿Está hecha? Si no, ¿qué debo hacer ahora?",
+      "commands_refused": "{{feedback}} ¿Qué debería intentar en su lugar?",
+      "no_progress": "Estoy repitiendo acciones sin avanzar. ¿Qué debería hacer de otra forma? También puedes detenerme y terminar la tarea tú."
     }
   },
   "common": {

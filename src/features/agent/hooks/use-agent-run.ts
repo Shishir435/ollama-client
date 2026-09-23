@@ -169,10 +169,22 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
     }
   }, [])
 
-  /** Whether the command reached a port; a reconnect window has none. */
+  /**
+   * Whether the command reached a port; a reconnect window has none. A
+   * command that went nowhere says so on the run, or a Stop pressed between
+   * connections would look like a Stop the Agent ignored.
+   */
   const send = useCallback((command: AgentPanelCommand): boolean => {
     const port = portRef.current
-    if (!port) return false
+    if (!port) {
+      setBusy(false)
+      setFailure({
+        command: command.type,
+        messageKey: "agent.error.disconnected",
+        message: "Agent was reconnecting and did not receive that."
+      })
+      return false
+    }
     setFailure(undefined)
     setBusy(true)
     port.postMessage(command)
@@ -200,7 +212,6 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
         return Promise.resolve(false)
       const trimmed = goal.trim()
       if (!trimmed) return Promise.resolve(false)
-      setBusy(true)
       const sent = send({
         type: "agent_start",
         goal: trimmed,
@@ -219,19 +230,6 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
         ...(allowRoutineActions ? { allowRoutineActions: true } : {}),
         allowExperimentalModel
       })
-      /**
-       * No port: the worker is between connections. Said, not swallowed — a
-       * Start that did nothing and said nothing reads as the Agent ignoring
-       * the user.
-       */
-      if (!sent) {
-        setBusy(false)
-        setFailure({
-          command: "agent_start",
-          messageKey: "agent.error.unknown",
-          message: "Agent could not complete that request."
-        })
-      }
       return Promise.resolve(sent)
     },
     [allowExperimentalModel, modelId, providerId, sessionId, tabId, send]
