@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
+import initSqlJs from "sql.js/dist/sql-wasm.js"
 import {
   afterEach,
   beforeAll,
@@ -358,6 +359,34 @@ describe("legacy blob backend", () => {
       "idx_agent_runs_session",
       "idx_messages_agent_run"
     ])
+  })
+
+  /**
+   * The image is saved only when the open repaired something. An index made
+   * in memory and not counted would be rebuilt on every open and never land.
+   */
+  it("saves a repaired linkage index into the stored image", async () => {
+    const source = await bootEngine()
+    await source.submit({ op: "run", sql: "DROP INDEX idx_messages_agent_run" })
+    await source.submit({ op: "flush" })
+    const image = bytesOf(await source.submit({ op: "exportDb" }))
+
+    await deleteLegacyBlob()
+    await writeLegacyBlob(image)
+    await bootEngine()
+
+    const stored = await readLegacyBlob()
+    if (!stored) throw new Error("no stored image")
+    const SQL = await initSqlJs({
+      locateFile: () => require.resolve("sql.js/dist/sql-wasm.wasm")
+    })
+    const reopened = new SQL.Database(stored)
+    expect(
+      reopened.exec(
+        "SELECT name FROM sqlite_master WHERE name = 'idx_messages_agent_run'"
+      )[0]?.values
+    ).toEqual([["idx_messages_agent_run"]])
+    reopened.close()
   })
 
   it("gives a fresh database the linkage indexes too", async () => {

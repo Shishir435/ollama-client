@@ -317,11 +317,12 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
     repaired += 1
   }
   /**
-   * Not counted as a repair: on a fresh database this is how the indexes are
-   * created at all, since the schema script cannot name columns a migration
-   * adds.
+   * On every open, and counted when it creates anything, so a legacy image
+   * saves the index rather than rebuilding it in memory on each open. A fresh
+   * database gets its indexes right after the schema script, so this finds
+   * nothing to do there.
    */
-  ensureAgentRunLinkageIndexes(db)
+  repaired += ensureAgentRunLinkageIndexes(db)
 
   if (repaired > 0) {
     logger.warn(
