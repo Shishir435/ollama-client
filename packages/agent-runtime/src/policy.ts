@@ -419,6 +419,9 @@ const makeApprovalRequest = (
 /** The takeover request's own bound on its instruction. */
 const MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS = 1_000
 
+/** The approval request's own bound on its consequence. */
+const MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS = 1_000
+
 /**
  * Said first in an approval for a form an earlier run already sent. The
  * earlier run's record is page-derived, so this names the fact and not its
@@ -435,14 +438,39 @@ const AGENT_PRIOR_FORM_DISPLAY: AgentDisplayText = {
 const MAX_DISPLAY_SENTENCES = 4
 
 /**
- * A second send to a form the chain already sent, priced as a decision the
- * user makes now: at least high, never covered by a grant, and never offered
- * for widening. Refusing it outright would stop a checkout at its second
- * step; allowing it on a grant would place a second order unasked.
+ * Said first in an approval for a consequential effect this run already
+ * committed through the same control.
  */
-const priorFormApproval = (
+export const AGENT_REPEATED_EFFECT_CONSEQUENCE =
+  "This run already did this once, through the same control on this page. Approve only if it should happen again."
+
+/** What the user is told first when an effect may be a repeat, if anything. */
+const repeatNotice = (
+  input: AgentPolicyInput
+): { text: string; display: AgentDisplayText } | undefined =>
+  input.repeatsCommittedEffect
+    ? {
+        text: AGENT_REPEATED_EFFECT_CONSEQUENCE,
+        display: { key: "agent.approval_text.repeated_effect" }
+      }
+    : input.repeatsPriorForm
+      ? {
+          text: AGENT_PRIOR_FORM_CONSEQUENCE,
+          display: AGENT_PRIOR_FORM_DISPLAY
+        }
+      : undefined
+
+/**
+ * A possible repeat — a second send to a form the chain already sent, or
+ * the same control this run already committed through — priced as a
+ * decision the user makes now: at least high, never covered by a grant, and
+ * never offered for widening. Refusing it outright would stop a checkout at
+ * its second step; allowing it on a grant would place a second order unasked.
+ */
+const repeatApproval = (
   input: AgentPolicyInput,
-  baseline: AgentRisk
+  baseline: AgentRisk,
+  notice: NonNullable<ReturnType<typeof repeatNotice>>
 ): AgentPolicyDecision => {
   const risk = raiseRisk(baseline, "high") as Exclude<AgentRisk, "low">
   const { grantable: _grantable, ...request } = makeApprovalRequest(input, risk)
@@ -451,13 +479,16 @@ const priorFormApproval = (
     risk,
     request: {
       ...request,
-      consequence: `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.consequence}`,
+      consequence: `${notice.text} ${request.consequence}`.slice(
+        0,
+        MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS
+      ),
       ...(request.display
         ? {
             display: {
               ...request.display,
               consequence: [
-                AGENT_PRIOR_FORM_DISPLAY,
+                notice.display,
                 ...request.display.consequence
               ].slice(0, MAX_DISPLAY_SENTENCES)
             }
@@ -601,6 +632,7 @@ export const evaluateAgentPolicy = (
   const takeover = takeoverReason(input)
   if (takeover) {
     const request = makeTakeoverRequest(input, takeover)
+    const notice = repeatNotice(input)
     return {
       type: "takeover_required",
       risk: "critical",
@@ -610,18 +642,17 @@ export const evaluateAgentPolicy = (
        * already sent it — the approval path says so, and this is the other
        * way the same send reaches a person.
        */
-      request: input.repeatsPriorForm
+      request: notice
         ? {
             ...request,
-            instruction:
-              `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.instruction}`.slice(
-                0,
-                MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS
-              ),
-            display: [
-              AGENT_PRIOR_FORM_DISPLAY,
-              ...(request.display ?? [])
-            ].slice(0, MAX_DISPLAY_SENTENCES)
+            instruction: `${notice.text} ${request.instruction}`.slice(
+              0,
+              MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS
+            ),
+            display: [notice.display, ...(request.display ?? [])].slice(
+              0,
+              MAX_DISPLAY_SENTENCES
+            )
           }
         : request
     }
@@ -648,7 +679,8 @@ export const evaluateAgentPolicy = (
     }
   }
 
-  if (input.repeatsPriorForm) return priorFormApproval(input, risk)
+  const notice = repeatNotice(input)
+  if (notice) return repeatApproval(input, risk, notice)
 
   if (risk === "low") return { type: "allow", risk }
   if (

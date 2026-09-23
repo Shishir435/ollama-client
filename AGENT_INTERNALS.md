@@ -43,7 +43,10 @@ Read the section your change touches; you do not need the whole file.
   to kill and restart the worker — the thing under test cannot own the switch
   that kills it, and nothing there ships or is reachable by a model. Attach only after the run
   service authorizes the user-selected tab; detach at pause, takeover, stop,
-  completion, and failure boundaries. An unexpected disconnect pauses the run,
+  completion, and failure boundaries — except a pause the run comes back from
+  on the same page (user, question, unresolved effect) while a native dialog
+  is held, which keeps the session so the dialog is not dismissed (see
+  [Native dialogs](#native-dialogs)). An unexpected disconnect pauses the run,
   and an interrupted effect remains unresolved rather than being replayed.
 - **An unresolved effect is resolved by the supervisor, not by a guess.**
   `resolveEffect` records that the user has looked at the page and continues
@@ -415,6 +418,18 @@ Read the section your change touches; you do not need the whole file.
   still held before detaching — dismissal confirms nothing and keeps a
   `beforeunload` on the page, and detaching for a takeover is what lets the
   user's own click raise a fresh dialog.
+- **A pause does not answer a held dialog.** A dismissed `confirm` is the page
+  being told "no", so detaching at every pause cancelled whatever the run had
+  just asked for: a user who paused while a Delete button's confirmation was
+  held came back to an undeleted item, a model that pressed Delete again and
+  a second approval for one decision. `releaseBrowserSessionFor` therefore
+  keeps the session — and the dialog — through a `pause_requested` or
+  `paused` state whose reason is `user`, `question` or `unresolved_effect`
+  (or not yet recorded) whenever `openDialog` reports one; resuming re-attaches
+  idempotently, observes the same dialog, and asks about it once. The tab
+  stays blocked while paused, which is what the page itself would do with its
+  dialog on screen. A takeover, a closed panel and a lost browser still let
+  go, and so does every stop and terminal state.
 - **A blocked page is observed as blocked, not asked.** A dialog blocks the
   document's script, so no control port can answer: every observation the run
   takes goes through one seam in `agent-browser-adapters.ts`, which reports
@@ -565,6 +580,18 @@ Read the section your change touches; you do not need the whole file.
     run already sent this form. Refusing it would stop a checkout at step
     two; allowing it on a grant would place a second order unasked.
   Receipts older than the flag count a critical change.
+- **Inside one run, the same control twice is asked as a repeat.** The
+  controller reads the run's own receipts through the same
+  `agentCommittedEffects` and, when a consequential effect matches one this
+  run already committed by the same-control rule, tells policy
+  `repeatsCommittedEffect`. It is asked rather than refused — two rows of a
+  list share a "Delete" label, and deleting both is an ordinary task — but
+  priced like the prior-form case: at least high, no grant covering it, none
+  offered, and the approval opens by saying this run already did it once.
+  What it exists for is a page whose own confirmation was lost between the
+  two clicks: the first press landed, and a fresh approval would have read as
+  the first delete. Unreadable receipts claim no repeat; the effect is still
+  priced by its own class, which for anything consequential already asks.
 
 ## Verification, waiting and completion
 

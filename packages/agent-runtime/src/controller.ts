@@ -69,8 +69,10 @@ import {
   pausePatch
 } from "./ports"
 import {
+  agentCommittedEffects,
   agentConsequentialEffects,
   agentConsequentialForm,
+  agentEffectIsConsequential,
   agentRepeatsPriorEffect,
   agentRepeatsPriorForm
 } from "./prior-effects"
@@ -943,6 +945,31 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * Whether this run already committed a consequential effect through the
+   * same control. Read from its own receipts, the same list a follow-up
+   * inherits, so a worker restart between the two clicks forgets nothing.
+   * Unreadable receipts claim no repeat: the effect is still priced by its
+   * own class, which for anything consequential already asks.
+   */
+  const repeatsOwnEffect = async (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect
+  ): Promise<boolean> => {
+    if (!agentEffectIsConsequential(effect)) return false
+    try {
+      return agentRepeatsPriorEffect(
+        effect,
+        agentCommittedEffects(await dependencies.persistence.steps(state.id))
+      )
+    } catch (error) {
+      dependencies.trace?.(state.id, "committed_effects_unavailable", {
+        reason: error instanceof Error ? error.name : typeof error
+      })
+      return false
+    }
+  }
+
   const handlePolicy = async (
     state: AgentRunState,
     effect: ResolvedAgentEffect,
@@ -964,6 +991,7 @@ export const createAgentController = (
     const authoredText = effect.destination
       ? await authoredWords(state)
       : undefined
+    const repeatsCommittedEffect = await repeatsOwnEffect(state, effect)
     const policy = dependencies.policy.evaluate({
       runId: state.id,
       stepId,
@@ -976,6 +1004,7 @@ export const createAgentController = (
       agentRepeatsPriorForm(effect, state.previousRun.effects)
         ? { repeatsPriorForm: true }
         : {}),
+      ...(repeatsCommittedEffect ? { repeatsCommittedEffect: true } : {}),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {

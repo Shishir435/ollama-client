@@ -859,3 +859,55 @@ describe("a form an earlier run already sent", () => {
     expect(decision.request.instruction).not.toContain("earlier run")
   })
 })
+
+describe("a control this run already committed through", () => {
+  const deleteButton = {
+    sensitive: false,
+    maySubmit: false,
+    accessibleName: "Delete"
+  }
+
+  /**
+   * A pause that lost the page's own confirmation leaves the run looking at
+   * the same Delete button. Asking again is right; asking as though it were
+   * the first delete is not.
+   */
+  it("asks as a repeat, at no less than high, with no grant", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["activation"], { target: deleteButton }), {
+        repeatsCommittedEffect: true,
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.grantable).toBeUndefined()
+    expect(decision.request.consequence).toMatch(
+      /^This run already did this once/
+    )
+    expect(decision.request.consequence.length).toBeLessThanOrEqual(1_000)
+  })
+
+  it("keeps a destructive repeat critical", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["activation", "destructive"], { target: deleteButton }), {
+        repeatsCommittedEffect: true
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("critical")
+    if (decision.type !== "approval_required") return
+    expect(decision.request.consequence).toMatch(
+      /^This run already did this once/
+    )
+  })
+})

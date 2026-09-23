@@ -2120,6 +2120,78 @@ describe("agent controller tab scope", () => {
   })
 })
 
+describe("a control this run already committed through", () => {
+  const deleteItem: Partial<ResolvedAgentEffect> = {
+    semanticEffects: ["activation", "destructive"],
+    target: {
+      ref: "e1",
+      tag: "button",
+      role: "button",
+      accessibleName: "Delete",
+      sensitive: false,
+      maySubmit: false
+    }
+  }
+  const click = (generation: number) =>
+    ({
+      type: "click",
+      ref: "e1",
+      snapshotId: `snapshot-${generation}`,
+      generation
+    }) as AgentCommand
+
+  /**
+   * The second click on a Delete this run already pressed is asked about as
+   * a repeat, not refused and not asked as though it were the first: two
+   * rows can share the label, and the user is the one who knows.
+   */
+  it("tells policy the second time, and only the second time", async () => {
+    const seen: AgentPolicyInput[] = []
+    const harness = createHarness({
+      decisions: [
+        { type: "command", command: click(1) },
+        { type: "command", command: click(2) },
+        { type: "complete", summary: "Deleted." }
+      ],
+      observations: [
+        observation(),
+        observation({ snapshotId: "snapshot-2", generation: 2 })
+      ],
+      policy: (input) => {
+        seen.push(input)
+        return { type: "allow", risk: "critical" }
+      },
+      effectOverrides: deleteItem
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(seen).toHaveLength(2)
+    expect(seen[0]?.repeatsCommittedEffect).toBeUndefined()
+    expect(seen[1]?.repeatsCommittedEffect).toBe(true)
+  })
+
+  it("claims no repeat when the run's receipts cannot be read", async () => {
+    const seen: AgentPolicyInput[] = []
+    const harness = createHarness({
+      stepsFail: true,
+      decisions: [
+        { type: "command", command: click(1) },
+        { type: "complete", summary: "Deleted." }
+      ],
+      policy: (input) => {
+        seen.push(input)
+        return { type: "allow", risk: "critical" }
+      },
+      effectOverrides: deleteItem
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(seen[0]?.repeatsCommittedEffect).toBeUndefined()
+  })
+})
+
 describe("a follow-up run", () => {
   const click = {
     type: "click",

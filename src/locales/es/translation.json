@@ -253,7 +253,8 @@
       "navigate_consequence": "El navegador abre exactamente esta dirección: {{url}}",
       "no_submit_consequence": "Esto se introduce en el control mostrado abajo. No hay un paso de envío después, así que una página que guarda mientras escribes puede almacenarlo de inmediato.",
       "command_consequence": "El navegador realiza esta acción en el control mostrado abajo.",
-      "prior_form": "Una ejecución anterior de esta tarea ya envió este formulario. Aprueba solo si es un envío nuevo y no el mismo otra vez."
+      "prior_form": "Una ejecución anterior de esta tarea ya envió este formulario. Aprueba solo si es un envío nuevo y no el mismo otra vez.",
+      "repeated_effect": "Esta ejecución ya hizo esto una vez con el mismo control de esta página. Aprueba solo si debe volver a ocurrir."
     },
     "dialog_kind": {
       "alert": "aviso",

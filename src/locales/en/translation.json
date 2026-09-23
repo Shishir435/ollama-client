@@ -253,7 +253,8 @@
       "navigate_consequence": "The browser opens this exact address: {{url}}",
       "no_submit_consequence": "This is entered into the control shown below. No submit step follows, so a page that saves as you type may store it right away.",
       "command_consequence": "The browser performs this action on the control shown below.",
-      "prior_form": "An earlier run in this task already sent this form. Approve only if this is a new submission, not the same one again."
+      "prior_form": "An earlier run in this task already sent this form. Approve only if this is a new submission, not the same one again.",
+      "repeated_effect": "This run already did this once, with the same control on this page. Approve only if it should happen again."
     },
     "dialog_kind": {
       "alert": "alert",

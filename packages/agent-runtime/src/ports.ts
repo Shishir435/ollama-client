@@ -433,6 +433,15 @@ export interface AgentPolicyInput {
    * advance.
    */
   repeatsPriorForm?: boolean
+  /**
+   * The same command on the same control this run already committed a
+   * consequential effect through. Two rows can share a "Delete" label, so it
+   * is asked rather than refused — but asked as a repeat, never granted, and
+   * never mistaken for the first time. The case it exists for is a pause that
+   * lost the page's own confirmation: the click landed, the dialog it raised
+   * is gone, and a fresh approval would have read as the first delete.
+   */
+  repeatsCommittedEffect?: boolean
   now: number
 }
 

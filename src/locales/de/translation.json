@@ -253,7 +253,8 @@
       "navigate_consequence": "Der Browser öffnet genau diese Adresse: {{url}}",
       "no_submit_consequence": "Dies wird in das unten gezeigte Steuerelement eingegeben. Es folgt kein Senden-Schritt, daher kann eine Seite, die beim Tippen speichert, es sofort übernehmen.",
       "command_consequence": "Der Browser führt diese Aktion am unten gezeigten Steuerelement aus.",
-      "prior_form": "Ein früherer Lauf dieser Aufgabe hat dieses Formular bereits gesendet. Bestätige nur, wenn es eine neue Übermittlung ist und nicht dieselbe noch einmal."
+      "prior_form": "Ein früherer Lauf dieser Aufgabe hat dieses Formular bereits gesendet. Bestätige nur, wenn es eine neue Übermittlung ist und nicht dieselbe noch einmal.",
+      "repeated_effect": "Dieser Lauf hat das bereits einmal mit demselben Steuerelement auf dieser Seite getan. Bestätige nur, wenn es noch einmal geschehen soll."
     },
     "dialog_kind": {
       "alert": "Hinweis",
