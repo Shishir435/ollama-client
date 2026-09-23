@@ -104,6 +104,29 @@ describe("useAgentRunCard", () => {
     expect(result.current).toMatchObject({ run: { status: "completed" } })
   })
 
+  /**
+   * Branch navigation swaps the message under a mounted card. The card must
+   * follow the new message's run, never keep showing the old one.
+   */
+  it("follows its message to another run", async () => {
+    call
+      .mockResolvedValueOnce({ run: card("completed") })
+      .mockResolvedValueOnce({ run: { ...card("failed"), id: "run-2" } })
+
+    const { result, rerender } = renderHook(
+      ({ runId }) => useAgentRunCard(runId),
+      { initialProps: { runId: "run-1" } }
+    )
+    await flush()
+    rerender({ runId: "run-2" })
+    await flush()
+
+    expect(call).toHaveBeenLastCalledWith(RpcMethod.AgentGetRun, {
+      runId: "run-2"
+    })
+    expect(result.current).toMatchObject({ run: { id: "run-2" } })
+  })
+
   it("never asks for a run it has no id for", async () => {
     const { result } = renderHook(() => useAgentRunCard(""))
     await flush()
