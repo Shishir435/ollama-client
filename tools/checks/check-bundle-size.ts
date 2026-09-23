@@ -367,8 +367,14 @@ const budgets: Budget[] = [
      * the read that gives a follow-up the handoff the page never loaded — took
      * it to 278,451. The alternative is a follow-up that knows nothing of the
      * run above it, or one that reads the run's page-derived answer unfenced.
+     *
+     * Follow-up runs — reading the parent's record and committed effects from
+     * its own rows, the rule that refuses a repeat before policy, and the
+     * record in the decision and planning prompts — took it to 280,450. The
+     * alternative is a retry that knows nothing of the order the last run
+     * already placed.
      */
-    max: isFirefox ? 210_000 : 279_000
+    max: isFirefox ? 210_000 : 281_000
   }
 ]
 

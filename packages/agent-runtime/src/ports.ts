@@ -520,6 +520,13 @@ export interface AgentStepWrite {
    * user evidence that the submission landed.
    */
   mutating?: boolean
+  /**
+   * Whether the effect was one a repeat would double — a submission, a
+   * payment, a delete, a download. Durable for the same reason as
+   * `mutating`: a follow-up reads the receipts to learn what it must not do
+   * again, long after the controller that took the step is gone.
+   */
+  consequential?: boolean
   verification?: AgentVerificationResult
   target?: AgentStepTarget
   /** The page the step was taken on, so history can say where it happened. */

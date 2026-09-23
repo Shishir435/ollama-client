@@ -1,7 +1,11 @@
 import { lazy, Suspense, useCallback, useState } from "react"
-import { AgentSurfaceLauncherContext } from "@/features/agent/lib/agent-surface-launcher"
+import {
+  AgentChatComposerContext,
+  AgentSurfaceLauncherContext
+} from "@/features/agent/lib/agent-surface-launcher"
 import { Chat } from "@/features/chat/components/chat"
 import { AgentRunRendererContext } from "@/features/chat/lib/agent-run-renderer"
+import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 import { type PanelSurface, SurfaceToggle } from "./surface-toggle"
 
@@ -30,6 +34,9 @@ const AgentRunCard =
         )
       )
     : undefined
+
+/** Asking about a run is answer-only: it stays in chat and reads the handoff. */
+const focusChatComposer = () => chatInputStore.getState().requestFocus()
 
 export const SidepanelWorkspace = () => {
   const [surface, setSurface] = useState<PanelSurface>("chat")
@@ -65,7 +72,9 @@ export const SidepanelWorkspace = () => {
       {surface === "chat" ? (
         <AgentRunRendererContext.Provider value={AgentRunCard}>
           <AgentSurfaceLauncherContext.Provider value={openAgent}>
-            <Chat embedded leading={toggle} />
+            <AgentChatComposerContext.Provider value={focusChatComposer}>
+              <Chat embedded leading={toggle} />
+            </AgentChatComposerContext.Provider>
           </AgentSurfaceLauncherContext.Provider>
         </AgentRunRendererContext.Provider>
       ) : (

@@ -7,6 +7,13 @@ interface ComposerState extends ChatInput {
   promptLibraryOpen: boolean
   focused: boolean
   pendingChatSend?: string
+  /**
+   * Bumped to ask the composer for the caret. A counter rather than a flag,
+   * so two requests in a row are two requests — something outside the input
+   * (a run's card offering to ask about it) has no ref to focus through.
+   */
+  focusRequest: number
+  requestFocus: () => void
   setPromptLibraryOpen: (open: boolean) => void
   setFocused: (focused: boolean) => void
   queueChatSend: (input: string) => void
@@ -20,6 +27,9 @@ export const chatInputStore = create<ComposerState>((set) => ({
   promptLibraryOpen: false,
   focused: false,
   pendingChatSend: undefined,
+  focusRequest: 0,
+  requestFocus: () =>
+    set((state) => ({ focusRequest: state.focusRequest + 1 })),
   setPromptLibraryOpen: (promptLibraryOpen) => set({ promptLibraryOpen }),
   setFocused: (focused) => set({ focused }),
   queueChatSend: (pendingChatSend) => set({ pendingChatSend }),
@@ -41,6 +51,7 @@ export const useComposerUi = () =>
     useShallow((state) => ({
       promptLibraryOpen: state.promptLibraryOpen,
       focused: state.focused,
+      focusRequest: state.focusRequest,
       setPromptLibraryOpen: state.setPromptLibraryOpen,
       setFocused: state.setFocused
     }))

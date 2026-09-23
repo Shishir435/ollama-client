@@ -1,6 +1,7 @@
 import { z } from "zod"
 import {
   AgentApprovalRequestSchema,
+  AgentFollowUpModeSchema,
   AgentRunStateSchema,
   AgentStepStatusSchema,
   AgentTakeoverRequestSchema,
@@ -241,6 +242,18 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
        * linkage the run itself does not need.
        */
       sessionId: z.string().min(1).max(200).optional(),
+      /**
+       * The settled run this one follows, and how. The background reads the
+       * parent itself — its handoff and the effects it committed — so the
+       * panel names a run and never supplies what it did.
+       */
+      followUp: z
+        .object({
+          parentRunId: z.string().min(1).max(200),
+          mode: AgentFollowUpModeSchema
+        })
+        .strict()
+        .optional(),
       allowRoutineActions: z.boolean().optional(),
       allowExperimentalModel: z.boolean().optional()
     })

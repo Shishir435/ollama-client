@@ -86,6 +86,10 @@ const FAILURES: Record<AgentRunFailureReason, { key: string; text: string }> = {
     key: "agent.error.browser_control_unavailable",
     text: "Agent could not attach browser control. Close DevTools or another debugger and try again."
   },
+  follow_up_unavailable: {
+    key: "agent.error.follow_up_unavailable",
+    text: "That run can no longer be continued from here. Start over to set the task again."
+  },
   permission_denied: {
     key: "agent.error.permission_denied",
     text: "Agent needs page-observation permission before it can start."
@@ -339,6 +343,7 @@ export const registerAgentPanelPort = (
             providerId: command.providerId,
             modelId: command.modelId,
             sessionId: command.sessionId,
+            followUp: command.followUp,
             allowRoutineActions: command.allowRoutineActions,
             allowExperimentalModel: command.allowExperimentalModel
           })

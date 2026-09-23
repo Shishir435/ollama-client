@@ -42,7 +42,14 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
    * later.
    */
   const currentSessionId = useChatSessions().currentSessionId
-  const { goal, setGoal, completeGoal } = useAgentDraft()
+  const {
+    goal,
+    followUp,
+    setGoal,
+    completeGoal,
+    clearFollowUp,
+    settleFollowUp
+  } = useAgentDraft()
   const candidateTab = useAgentCandidateTab()
   /*
    * Deliberately not durable, and scoped to the pair it was given for. This is
@@ -75,6 +82,12 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
     const run = snapshot.run
     if (run?.status === "completed") completeGoal(run.id, run.goal)
   }, [completeGoal, snapshot.run])
+
+  /** The run the displayed one follows, which is what spends a draft's. */
+  const followedRunId = snapshot.run?.previousRun?.handoff.runId
+  useEffect(() => {
+    settleFollowUp(followedRunId)
+  }, [settleFollowUp, followedRunId])
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -153,11 +166,22 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
           busy={connection.busy}
           goal={goal}
           onGoalChange={setGoal}
+          followUp={followUp}
+          onClearFollowUp={clearFollowUp}
           onAcknowledgePrivacy={(scope) => {
             void setAcknowledged(true)
             if (scope === "screenshots") void setScreenshotsAcknowledged(true)
           }}
-          onStart={connection.start}
+          onStart={(text, allowRoutineActions) =>
+            connection.start(
+              text,
+              allowRoutineActions,
+              followUp && {
+                parentRunId: followUp.parentRunId,
+                mode: followUp.mode
+              }
+            )
+          }
           onAnswer={connection.answerQuestion}
           onApprove={connection.approve}
           onReject={connection.reject}

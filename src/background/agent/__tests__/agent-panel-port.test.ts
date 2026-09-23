@@ -353,6 +353,87 @@ describe("Agent panel port", () => {
     expect(JSON.stringify(failure)).not.toContain("secret.example")
   })
 
+  it("forwards the run a start follows, and nothing about what it did", async () => {
+    const agent = service()
+    registerAgentPanelPort({ service: agent })
+    const { port, emit } = createPort()
+
+    connect(port)
+    await settled()
+    emit({
+      type: "agent_start",
+      goal: "Now the second one",
+      tabId: 7,
+      providerId: "ollama",
+      modelId: "qwen3",
+      sessionId: "chat-1",
+      followUp: { parentRunId: "parent", mode: "continue" }
+    })
+    await settled()
+
+    expect(agent.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "chat-1",
+        followUp: { parentRunId: "parent", mode: "continue" }
+      })
+    )
+    expect(port.disconnect).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The panel names a run; it never supplies the parent's record. A command
+   * that tried to would be describing effects the background did not read.
+   */
+  it("disconnects a follow-up that carries its own record", async () => {
+    const agent = service()
+    registerAgentPanelPort({ service: agent })
+    const { port, emit } = createPort()
+
+    connect(port)
+    await settled()
+    emit({
+      type: "agent_start",
+      goal: "Try again",
+      tabId: 7,
+      providerId: "ollama",
+      modelId: "qwen3",
+      followUp: { parentRunId: "parent", mode: "retry", effects: [] }
+    })
+    await settled()
+
+    expect(agent.start).not.toHaveBeenCalled()
+    expect(port.disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("reports a follow-up it cannot build as its own key", async () => {
+    const agent = service({
+      start: vi.fn(async () => {
+        throw new AgentRunError(
+          "follow_up_unavailable",
+          "Agent follow-up unavailable: other_chat"
+        )
+      })
+    })
+    registerAgentPanelPort({ service: agent })
+    const { port, emit, messages } = createPort()
+
+    connect(port)
+    await settled()
+    emit({
+      type: "agent_start",
+      goal: "Try again",
+      tabId: 7,
+      providerId: "ollama",
+      modelId: "qwen3",
+      followUp: { parentRunId: "parent", mode: "retry" }
+    })
+    await settled()
+
+    expect(
+      messages.find((message) => message.type === "agent_command_failed")
+    ).toMatchObject({ messageKey: "agent.error.follow_up_unavailable" })
+  })
+
   it("answers the parked request the panel names", async () => {
     const agent = service({
       activeRunId: () => "run-1",

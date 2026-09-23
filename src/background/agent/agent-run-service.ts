@@ -27,6 +27,10 @@ import {
 import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentControlSessionRegistry } from "./agent-control-sessions"
+import {
+  type AgentFollowUpRequest,
+  resolveAgentFollowUp
+} from "./agent-follow-up"
 import type { BuildAgentController } from "./agent-run-controller"
 import { createLinkedAgentRun } from "./agent-run-linkage"
 import type {
@@ -45,6 +49,8 @@ export interface StartAgentRunInput {
   modelId: string
   /** The chat whose rows are written in the same commit as the run. */
   sessionId?: string
+  /** The settled run this one follows, and how; see `agent-follow-up.ts`. */
+  followUp?: AgentFollowUpRequest
   allowRoutineActions?: boolean
   allowExperimentalModel?: boolean
 }
@@ -192,6 +198,7 @@ const guardingBrowserOwnership = (
 export type AgentRunFailureReason =
   | "already_running"
   | "browser_control_unavailable"
+  | "follow_up_unavailable"
   | "permission_denied"
   | "tab_unsupported"
   | "unknown_run"
@@ -533,6 +540,30 @@ export const createAgentRunService = (input?: {
       })
   })
 
+  /**
+   * The record a follow-up start carries, or a refusal that leaves nothing
+   * behind: no rows, no run, the panel told why.
+   */
+  const previousRunFor = async (
+    request: StartAgentRunInput
+  ): Promise<AgentRunState["previousRun"]> => {
+    if (!request.followUp) return undefined
+    const followUp = await resolveAgentFollowUp(
+      request.followUp,
+      request.sessionId,
+      { run: readRun, steps: readSteps }
+    )
+    if (followUp.ok) return followUp.previousRun
+    logger.warn("Agent follow-up refused", "Agent", {
+      parentRunId: request.followUp.parentRunId,
+      reason: followUp.reason
+    })
+    throw new AgentRunError(
+      "follow_up_unavailable",
+      `Agent follow-up unavailable: ${followUp.reason}`
+    )
+  }
+
   return {
     async start(request) {
       // All panels share this service. Reserve admission before any async
@@ -578,6 +609,11 @@ export const createAgentRunService = (input?: {
             `Agent tab access denied: ${access}`
           )
         }
+        /**
+         * Read after admission and before the row exists, so the parent it
+         * describes is the one this run is created against.
+         */
+        const previousRun = await previousRunFor(request)
         const startedAt = now()
         const state = AgentRunStateSchema.parse({
           version: 1,
@@ -603,11 +639,21 @@ export const createAgentRunService = (input?: {
             : {}),
           scopedTabIds: [request.tabId],
           deadline: createInitialAgentDeadline(startedAt),
+          /**
+           * The parent's record and what it committed — never its grants,
+           * answers, requirements or origins. A follow-up plans again and
+           * asks again; what it inherits is only what it must not repeat.
+           */
+          ...(previousRun ? { previousRun } : {}),
           createdAt: startedAt,
           updatedAt: startedAt
         } satisfies AgentRunState)
 
-        await createRun(state, request.sessionId)
+        await createRun(
+          state,
+          request.sessionId,
+          previousRun ? request.followUp?.parentRunId : undefined
+        )
         activeRunId = state.id
         lastRunId = state.id
         if (request.allowExperimentalModel) experimental.add(state.id)

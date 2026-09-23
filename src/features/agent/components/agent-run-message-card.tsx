@@ -1,16 +1,42 @@
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
+import type { AgentFollowUpMode } from "@ollama-client/contracts"
 import type { AgentRunCard } from "@ollama-client/contracts/agent-rpc"
-import { Bot, ExternalLink } from "lucide-react"
+import {
+  Bot,
+  ExternalLink,
+  MessageSquare,
+  RotateCcw,
+  SquarePen,
+  StepForward
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/class-names"
 import type { ChatMessage } from "@/types"
 import { useAgentRunCard } from "../hooks/use-agent-run-card"
-import { useAgentSurfaceLauncher } from "../lib/agent-surface-launcher"
+import {
+  useAgentChatComposer,
+  useAgentSurfaceLauncher
+} from "../lib/agent-surface-launcher"
 import { agentFailureMessageKey, agentPlainText } from "../lib/presentation"
+import { agentDraftStore } from "../stores/agent-draft-store"
 
 const AGENT_CARD_RESULT_LIMIT = 20_000
+
+/**
+ * Which follow-up a settled run offers. A run that got somewhere is carried
+ * on from; one that stopped short is tried again. Either way the child plans
+ * afresh and asks afresh, and cannot repeat what this one committed.
+ */
+const FOLLOW_UP_FOR: Partial<
+  Record<AgentRunCard["status"], AgentFollowUpMode>
+> = {
+  completed: "continue",
+  partial: "continue",
+  failed: "retry",
+  cancelled: "retry"
+}
 
 /** Statuses that wait on the user rather than on the run. */
 const NEEDS_USER: readonly AgentRunCard["status"][] = [
@@ -18,6 +44,71 @@ const NEEDS_USER: readonly AgentRunCard["status"][] = [
   "awaiting_takeover",
   "paused"
 ]
+
+/**
+ * What a settled run offers next. Asking stays in chat; new browser work is
+ * only ever one of these buttons, and each lands on the Agent composer.
+ */
+const AgentRunFollowUps = ({
+  run,
+  openAgent,
+  askInChat
+}: {
+  run: AgentRunCard
+  openAgent?: () => void
+  askInChat?: () => void
+}) => {
+  const { t } = useTranslation()
+  if (!openAgent && !askInChat) return null
+  const followUp = FOLLOW_UP_FOR[run.status]
+
+  const draftFrom = (mode?: AgentFollowUpMode) => {
+    if (!openAgent) return
+    agentDraftStore
+      .getState()
+      .beginDraft(
+        mode === "continue" ? "" : run.goal,
+        run.id,
+        mode ? { parentRunId: run.id, mode, parentGoal: run.goal } : undefined
+      )
+    openAgent()
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {followUp && openAgent && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => draftFrom(followUp)}>
+          {followUp === "continue" ? (
+            <StepForward className="icon-xs" aria-hidden="true" />
+          ) : (
+            <RotateCcw className="icon-xs" aria-hidden="true" />
+          )}
+          {t(`agent.card.${followUp}`)}
+        </Button>
+      )}
+      {openAgent && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => draftFrom()}>
+          <SquarePen className="icon-xs" aria-hidden="true" />
+          {t("agent.card.start_over")}
+        </Button>
+      )}
+      {askInChat && (
+        <Button type="button" size="sm" variant="ghost" onClick={askInChat}>
+          <MessageSquare className="icon-xs" aria-hidden="true" />
+          {t("agent.card.ask")}
+        </Button>
+      )}
+    </div>
+  )
+}
 
 /**
  * The run a chat message reports, drawn in the conversation.
@@ -30,11 +121,19 @@ const NEEDS_USER: readonly AgentRunCard["status"][] = [
  * When the run is gone the message's own text is shown instead. That is what
  * the terminal commit wrote there for any reader that does not know about
  * runs, and after a prune or a restore without the run it is all there is.
+ *
+ * A settled run is where the conversation decides what happens next, so the
+ * choice is made here and made explicitly. Asking about it stays in chat and
+ * never touches a browser: the turn reads the run's handoff and nothing else.
+ * New browser work is only ever a button — Continue or Retry follow this
+ * run, Start over sets its goal as a fresh one — and each lands on the Agent
+ * composer, where the user still presses Start.
  */
 export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
   const { t } = useTranslation()
   const state = useAgentRunCard(msg.agentRunId ?? "")
   const openAgent = useAgentSurfaceLauncher()
+  const askInChat = useAgentChatComposer()
 
   const run = state.kind === "ready" ? state.run : undefined
   const settled = run ? isTerminalAgentStatus(run.status) : false
@@ -114,6 +213,13 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
               <ExternalLink className="icon-xs" aria-hidden="true" />
               {needsUser ? t("agent.card.needs_you") : t("agent.card.open")}
             </Button>
+          )}
+          {settled && (
+            <AgentRunFollowUps
+              run={run}
+              openAgent={openAgent}
+              askInChat={askInChat}
+            />
           )}
         </>
       )}

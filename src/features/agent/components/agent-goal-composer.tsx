@@ -1,4 +1,5 @@
-import { SendHorizontal } from "lucide-react"
+import type { AgentFollowUpMode } from "@ollama-client/contracts"
+import { SendHorizontal, X } from "lucide-react"
 import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -7,6 +8,16 @@ import { TooltipActionButton } from "@/components/actions"
 import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/class-names"
+import { agentPlainText } from "../lib/presentation"
+
+/** The run the next Start follows, as the composer names it. */
+export interface AgentComposerFollowUp {
+  mode: AgentFollowUpMode
+  parentGoal: string
+}
+
+/** Long enough to recognise the task, short enough to stay one line. */
+const FOLLOW_UP_GOAL_LIMIT = 160
 
 /**
  * Where a run is written, in the same shell the chat composer uses.
@@ -27,7 +38,9 @@ export const AgentGoalComposer = ({
   canStart,
   controls,
   onGoalChange,
-  onStart
+  onStart,
+  followUp,
+  onClearFollowUp
 }: {
   startable: boolean
   goal: string
@@ -36,6 +49,8 @@ export const AgentGoalComposer = ({
   controls?: ReactNode
   onGoalChange: (goal: string) => void
   onStart: () => void
+  followUp?: AgentComposerFollowUp
+  onClearFollowUp?: () => void
 }) => {
   const { t } = useTranslation()
   const [focused, setFocused] = useState(false)
@@ -69,6 +84,30 @@ export const AgentGoalComposer = ({
 
   return (
     <div className="shrink-0 px-2 pb-2">
+      {/*
+        Said above the box rather than folded into the goal: what the run
+        follows is carried by the background from the parent's own rows, and
+        the sentence below is only the instruction. Clearing it makes the
+        next Start a fresh run.
+      */}
+      {followUp && (
+        <div className="mb-1 flex min-w-0 items-center gap-1.5 rounded-control bg-surface-sunken px-2 py-1 text-micro text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate">
+            {t(`agent.follow_up.${followUp.mode}`, {
+              goal: agentPlainText(followUp.parentGoal, FOLLOW_UP_GOAL_LIMIT)
+            })}
+          </span>
+          {onClearFollowUp && (
+            <button
+              type="button"
+              className="shrink-0 rounded-control p-0.5 hover:bg-state-hover hover:text-foreground"
+              aria-label={t("agent.follow_up.clear")}
+              onClick={onClearFollowUp}>
+              <X className="icon-xs" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
       <ComposerShell isFocused={focused}>
         <Textarea
           ref={field}
@@ -76,7 +115,11 @@ export const AgentGoalComposer = ({
           aria-label={t("agent.start.goal")}
           value={goal}
           maxLength={20_000}
-          placeholder={t("agent.start.placeholder")}
+          placeholder={t(
+            followUp?.mode === "continue"
+              ? "agent.follow_up.placeholder"
+              : "agent.start.placeholder"
+          )}
           onChange={(event) => onGoalChange(event.target.value)}
           onKeyDown={(event) => {
             if (

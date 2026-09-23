@@ -674,3 +674,205 @@ describe("Agent run service tab scope", () => {
     expect(controller.completeTakeover).toHaveBeenCalledWith("run-1")
   })
 })
+
+describe("a follow-up start", () => {
+  const parentState = (patch: Partial<AgentRunState> = {}): AgentRunState => ({
+    version: 1,
+    id: "parent",
+    goal: "Post the review on https://forum.example/new",
+    status: "failed",
+    stepCount: 2,
+    observationCount: 2,
+    controlledTabId: 7,
+    providerId: "ollama",
+    modelId: "qwen3",
+    allowedOrigins: ["https://forum.example", "https://other.example"],
+    grants: [
+      {
+        origin: "https://forum.example",
+        effects: ["activation", "submission"],
+        grantedAt: 1
+      }
+    ],
+    requirements: [{ id: "r1", text: "The review is posted", kind: "change" }],
+    answers: [{ questionId: "q1", text: "Use the short one", answeredAt: 1 }],
+    error: { code: "goal_failed", message: "Stopped", retryable: true },
+    createdAt: 1,
+    updatedAt: 5,
+    ...patch
+  })
+  const parentSteps = [
+    {
+      runId: "parent",
+      stepId: "parent:2",
+      status: "verified" as const,
+      at: 4,
+      sequence: 4,
+      command: {
+        type: "click",
+        ref: "e1",
+        snapshotId: "s",
+        generation: 1
+      } as const,
+      target: { role: "button", tag: "button", name: "Post review" },
+      sourceUrl: "https://forum.example/new",
+      consequential: true,
+      finding: "The draft is saved as #42"
+    }
+  ]
+  const parentRun = (
+    patch: Partial<DurableAgentRun> = {},
+    state: Partial<AgentRunState> = {}
+  ): DurableAgentRun => ({
+    id: "parent",
+    status: "failed",
+    state: parentState(state),
+    compacted: true,
+    createdAt: 1,
+    updatedAt: 5,
+    sessionId: "chat-1",
+    ...patch
+  })
+
+  beforeEach(() => {
+    runs.clear()
+  })
+
+  it("carries the parent's record and committed effects, and nothing it was given", async () => {
+    const createRun = vi.fn(async (state: AgentRunState) => {
+      runs.set(state.id, state)
+    })
+    const { service: agent } = service({
+      createRun,
+      readRun: async (runId) => (runId === "parent" ? parentRun() : null),
+      readSteps: async () => parentSteps
+    })
+
+    const state = await agent.start({
+      ...startInput,
+      goal: "Try again",
+      sessionId: "chat-1",
+      followUp: { parentRunId: "parent", mode: "retry" }
+    })
+
+    expect(state.previousRun).toMatchObject({
+      mode: "retry",
+      handoff: {
+        runId: "parent",
+        status: "failed",
+        failure: "goal_failed",
+        findings: ["The draft is saved as #42"]
+      },
+      effects: [
+        {
+          action: "click",
+          page: "https://forum.example/new",
+          role: "button",
+          name: "Post review"
+        }
+      ]
+    })
+    /** A handoff carries no links, even in the parent's own goal. */
+    expect(state.previousRun?.handoff.goal).not.toContain("forum.example")
+    /** Fresh planning and fresh approvals: nothing the parent was given. */
+    expect(state.grants).toBeUndefined()
+    expect(state.requirements).toBeUndefined()
+    expect(state.answers).toBeUndefined()
+    expect(state.allowedOrigins).toEqual(["https://example.com"])
+    expect(createRun).toHaveBeenCalledWith(state, "chat-1", "parent")
+  })
+
+  it("inherits what the parent itself inherited", async () => {
+    const earlier = {
+      action: "click",
+      role: "button",
+      name: "Pay now"
+    }
+    const { service: agent } = service({
+      readRun: async () =>
+        parentRun(
+          {},
+          {
+            previousRun: {
+              mode: "retry",
+              handoff: {
+                version: 1,
+                runId: "grandparent",
+                status: "failed",
+                goal: "Pay",
+                findings: [],
+                settledAt: 1
+              },
+              effects: [earlier]
+            }
+          }
+        ),
+      readSteps: async () => parentSteps
+    })
+
+    const state = await agent.start({
+      ...startInput,
+      sessionId: "chat-1",
+      followUp: { parentRunId: "parent", mode: "retry" }
+    })
+
+    expect(state.previousRun?.effects.map((effect) => effect.name)).toEqual([
+      "Pay now",
+      "Post review"
+    ])
+  })
+
+  it.each([
+    ["the parent is gone", async () => null, "chat-1"],
+    [
+      "the parent is still live",
+      async () => parentRun({ status: "paused" }, { status: "paused" }),
+      "chat-1"
+    ],
+    ["the parent belongs to another chat", async () => parentRun(), "chat-2"],
+    [
+      "the parent cannot be read",
+      async () => {
+        throw new Error("owner unavailable")
+      },
+      "chat-1"
+    ]
+  ])("is refused, creating nothing, when %s", async (_, readRun, sessionId) => {
+    const createRun = vi.fn(async () => undefined)
+    const { service: agent, controller } = service({
+      createRun,
+      readRun,
+      readSteps: async () => parentSteps
+    })
+
+    await expect(
+      agent.start({
+        ...startInput,
+        sessionId,
+        followUp: { parentRunId: "parent", mode: "continue" }
+      })
+    ).rejects.toMatchObject({ reason: "follow_up_unavailable" })
+    expect(createRun).not.toHaveBeenCalled()
+    expect(controller.start).not.toHaveBeenCalled()
+  })
+
+  it("is refused when the parent's receipts cannot be read", async () => {
+    const createRun = vi.fn(async () => undefined)
+    const { service: agent } = service({
+      createRun,
+      readRun: async () => parentRun(),
+      readSteps: async () => {
+        throw new Error("owner unavailable")
+      }
+    })
+
+    await expect(
+      agent.start({
+        ...startInput,
+        sessionId: "chat-1",
+        followUp: { parentRunId: "parent", mode: "retry" }
+      })
+    ).rejects.toMatchObject({ reason: "follow_up_unavailable" })
+    expect(createRun).not.toHaveBeenCalled()
+  })
+})

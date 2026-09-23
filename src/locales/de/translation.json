@@ -58,6 +58,7 @@
     "error": {
       "already_running": "Ein Agent-Durchlauf läuft bereits.",
       "browser_control_unavailable": "Agent konnte die Browsersteuerung nicht verbinden. Schließen Sie DevTools oder einen anderen Debugger und versuchen Sie es erneut.",
+      "follow_up_unavailable": "Dieser Lauf kann hier nicht mehr fortgesetzt werden. Beginne neu, um die Aufgabe erneut zu stellen.",
       "permission_denied": "Agent benötigt die Berechtigung zur Seitenbeobachtung, bevor er starten kann.",
       "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
       "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
@@ -224,7 +225,17 @@
       "steps": "Aktionen: {{count}}",
       "outcome": "{{met}} von {{total}} erledigt",
       "open": "Im Agent öffnen",
-      "needs_you": "Wartet auf dich – im Agent öffnen"
+      "needs_you": "Wartet auf dich – im Agent öffnen",
+      "continue": "Fortsetzen",
+      "retry": "Erneut versuchen",
+      "start_over": "Neu beginnen",
+      "ask": "Dazu fragen"
+    },
+    "follow_up": {
+      "continue": "Fortsetzung: {{goal}}",
+      "retry": "Neuer Versuch: {{goal}}",
+      "clear": "Stattdessen neu beginnen",
+      "placeholder": "Was soll als Nächstes passieren?"
     }
   },
   "common": {

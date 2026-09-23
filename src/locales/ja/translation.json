@@ -58,6 +58,7 @@
     "error": {
       "already_running": "Agent の実行は既に進行中です。",
       "browser_control_unavailable": "Agent はブラウザー制御に接続できませんでした。DevTools または別のデバッガーを閉じて再試行してください。",
+      "follow_up_unavailable": "この実行はここから続行できなくなりました。最初からやり直してタスクを設定してください。",
       "permission_denied": "開始する前に、ページ観測の権限が必要です。",
       "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
       "unreadable_update": "パネルは読み取れない更新を受け取りました。",
@@ -224,7 +225,17 @@
       "steps": "操作: {{count}}",
       "outcome": "{{total}} 件中 {{met}} 件完了",
       "open": "エージェントで開く",
-      "needs_you": "対応が必要です — エージェントで開く"
+      "needs_you": "対応が必要です — エージェントで開く",
+      "continue": "続ける",
+      "retry": "再試行",
+      "start_over": "最初からやり直す",
+      "ask": "これについて質問"
+    },
+    "follow_up": {
+      "continue": "続き: {{goal}}",
+      "retry": "再試行: {{goal}}",
+      "clear": "代わりに新しく始める",
+      "placeholder": "次に何をしますか？"
     }
   },
   "common": {

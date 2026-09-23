@@ -54,12 +54,20 @@ export const ChatInputBox = ({
   const { t } = useTranslation()
   const { toast } = useToast()
   const { input, setInput, appendInput } = useChatInput()
-  const { promptLibraryOpen, focused, setPromptLibraryOpen, setFocused } =
-    useComposerUi()
+  const {
+    promptLibraryOpen,
+    focused,
+    focusRequest,
+    setPromptLibraryOpen,
+    setFocused
+  } = useComposerUi()
   const { isLoading } = useLoadStream()
   const { selectedTabIds } = useSelectedTabs()
   const { loadingIds, tabContents } = useTabContents()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    if (focusRequest > 0) textareaRef.current?.focus()
+  }, [focusRequest])
   const selectionStartRef = useRef<number | null>(null)
   const selectionEndRef = useRef<number | null>(null)
   const lastSelectionAppendRef = useRef<{ text: string; at: number } | null>(

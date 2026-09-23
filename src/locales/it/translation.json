@@ -58,6 +58,7 @@
     "error": {
       "already_running": "Un’esecuzione di Agent è già in corso.",
       "browser_control_unavailable": "Agent non ha potuto collegare il controllo del browser. Chiudi DevTools o un altro debugger e riprova.",
+      "follow_up_unavailable": "Questa esecuzione non può più essere proseguita da qui. Ricomincia per assegnare di nuovo il compito.",
       "permission_denied": "Agent ha bisogno dell’autorizzazione a osservare la pagina prima di iniziare.",
       "tab_unsupported": "Agent non può essere eseguito su questa pagina. Apri una normale pagina web e riprova.",
       "unreadable_update": "Il pannello ha ricevuto un aggiornamento che non è riuscito a leggere.",
@@ -224,7 +225,17 @@
       "steps": "Azioni: {{count}}",
       "outcome": "{{met}} di {{total}} completate",
       "open": "Apri in Agente",
-      "needs_you": "Serve il tuo intervento: apri in Agente"
+      "needs_you": "Serve il tuo intervento: apri in Agente",
+      "continue": "Continua",
+      "retry": "Riprova",
+      "start_over": "Ricomincia",
+      "ask": "Chiedi a riguardo"
+    },
+    "follow_up": {
+      "continue": "Continuazione: {{goal}}",
+      "retry": "Nuovo tentativo: {{goal}}",
+      "clear": "Ricomincia da capo",
+      "placeholder": "Cosa deve fare adesso?"
     }
   },
   "common": {
