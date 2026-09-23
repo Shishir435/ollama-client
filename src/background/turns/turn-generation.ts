@@ -145,7 +145,10 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
     }
 
     const messages = [
-      ...neutralizeAgentRows(submission.request.context.messages),
+      ...neutralizeAgentRows(
+        submission.request.context.messages,
+        new Set(context.result.agentHandoffRunIds ?? [])
+      ),
       {
         ...submission.request.userMessage,
         content: context.result.contentWithRAG

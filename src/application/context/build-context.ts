@@ -88,6 +88,13 @@ export interface BuildRagContextOptions extends DurableContextOptions {
 export interface BuildRagContextResult {
   /** User content with appended RAG / tab-context blocks. */
   contentWithRAG: string
+  /**
+   * The Agent runs whose fenced record this turn carries. Optional because a
+   * result built before records existed, or on a build without the Agent,
+   * carries none — and a row with no record is told so, never assumed to
+   * have one.
+   */
+  agentHandoffRunIds?: string[]
   /** Sources to attach to the assistant message metrics, if any. */
   ragSources: RagSources | null
   /** Telemetry stats for the prompt — surfaced in message metrics. */

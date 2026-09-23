@@ -71,10 +71,19 @@ const PREAMBLE =
  * and left in the history it would reach the model unfenced, which is the
  * one thing the handoff exists to prevent. It is also empty while the run is
  * live, and an empty assistant turn is refused outright by some providers.
+ *
+ * Two versions, because the model is told the truth about each row: a record
+ * is attached only when this turn actually rendered it. A run that fell
+ * outside the window, did not fit the budget, or has no handoff at all must
+ * not send the model looking for data that is not there.
  */
 export const AGENT_ROW_HISTORY_TEXT =
-  "[A browser agent ran a task here. Its record, when there is one, is " +
-  "attached to the latest message as data.]"
+  "[A browser agent ran a task here. Its record is attached to the latest " +
+  "message as data.]"
+
+export const AGENT_ROW_HISTORY_TEXT_UNAVAILABLE =
+  "[A browser agent ran a task here. Its record is not available in this " +
+  "turn.]"
 
 /**
  * Nothing inside a record may open or close a fence of its own. The builder
@@ -107,35 +116,61 @@ const renderHandoff = (handoff: AgentConversationHandoff): string => {
 const fence = (records: string[]): string =>
   [OPEN, PREAMBLE, ...records, CLOSE].join("\n")
 
+/** The fenced block for a turn, and which runs it carries a record of. */
+export interface AgentHandoffContext {
+  block?: string
+  runIds: string[]
+}
+
 /**
- * The fenced agent context for a turn, or nothing.
+ * The fenced agent context for a turn.
  *
  * `messages` is the branch being answered, in order, so the handoffs are
  * exactly the runs of its own ancestry. The newest are kept, and the oldest
  * dropped until the block fits `maxChars` — a session with many runs costs
- * a bounded amount, not one record per run it ever made.
+ * a bounded amount, not one record per run it ever made. `runIds` names the
+ * records that made it in, so the history can say which rows have one.
  */
 export const renderAgentHandoffContext = (
   messages: readonly ChatMessage[],
   maxChars: number
-): string | undefined => {
+): AgentHandoffContext => {
   const records = messages
     .flatMap((message) =>
-      message.agentHandoff ? [renderHandoff(message.agentHandoff)] : []
+      message.agentHandoff
+        ? [
+            {
+              runId: message.agentHandoff.runId,
+              text: renderHandoff(message.agentHandoff)
+            }
+          ]
+        : []
     )
     .slice(-MAX_AGENT_HANDOFFS_IN_CONTEXT)
-  while (records.length > 0 && fence(records).length > maxChars) {
+  const fenced = () => fence(records.map((record) => record.text))
+  while (records.length > 0 && fenced().length > maxChars) {
     records.shift()
   }
-  return records.length > 0 ? fence(records) : undefined
+  return records.length > 0
+    ? { block: fenced(), runIds: records.map((record) => record.runId) }
+    : { runIds: [] }
 }
 
-/** The branch's history with every agent row's text replaced. */
+/**
+ * The branch's history with every agent row's text replaced, saying for
+ * each whether this turn carries its record.
+ */
 export const neutralizeAgentRows = (
-  messages: readonly ChatMessage[]
+  messages: readonly ChatMessage[],
+  renderedRunIds: ReadonlySet<string>
 ): ChatMessage[] =>
   messages.map((message) =>
     message.role === "assistant" && message.agentRunId
-      ? { ...message, content: AGENT_ROW_HISTORY_TEXT }
+      ? {
+          ...message,
+          content: renderedRunIds.has(message.agentRunId)
+            ? AGENT_ROW_HISTORY_TEXT
+            : AGENT_ROW_HISTORY_TEXT_UNAVAILABLE
+        }
       : message
   )

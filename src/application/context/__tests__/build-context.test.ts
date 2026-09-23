@@ -1187,6 +1187,7 @@ describe("the agent records of this branch", () => {
     expect(result.contentWithRAG.startsWith("Which one?")).toBe(true)
     expect(result.contentWithRAG).toContain("<agent_runs>")
     expect(result.contentWithRAG).toContain("Result: Plan A is cheaper")
+    expect(result.agentHandoffRunIds).toEqual(["run-1"])
   })
 
   it("stays out of grounded-only mode, which answers from the page alone", async () => {
@@ -1195,6 +1196,7 @@ describe("the agent records of this branch", () => {
     )
 
     expect(result.contentWithRAG).not.toContain("<agent_runs>")
+    expect(result.agentHandoffRunIds).toEqual([])
   })
 
   /**
