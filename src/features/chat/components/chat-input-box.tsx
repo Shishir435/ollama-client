@@ -534,7 +534,7 @@ export const ChatInputBox = ({
               className="rounded-control"
               disabled={!alternate.canSubmit(input.trim())}
               label={alternate.submitLabel}
-              icon={<SendHorizontal size={16} />}
+              icon={<SendHorizontal className="icon-sm" />}
             />
           ) : (
             <SendOrStopButton
