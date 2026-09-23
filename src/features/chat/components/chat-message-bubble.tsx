@@ -1,7 +1,8 @@
 import { TriangleAlert } from "lucide-react"
-import { memo, useState } from "react"
+import { memo, Suspense, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
+import { useAgentRunRenderer } from "@/features/chat/lib/agent-run-renderer"
 import type { PermissionResumeResult } from "@/features/chat/lib/resume-permission-turn"
 import type { ChatMessage } from "@/types"
 import { ChatErrorReportAction } from "./chat-error-report-action"
@@ -46,9 +47,17 @@ export const ChatMessageBubble = memo(
     const { t } = useTranslation()
     const [editorMode, setEditorMode] = useState<"edit" | "fork" | null>(null)
     const isUser = msg.role === "user"
+    const AgentRunCard = useAgentRunRenderer()
+    const agentRow = !isUser && Boolean(msg.agentRunId)
     const permissionNotice = msg.metrics?.permissionNotice
     const showErrorTreatment =
       !isLoading && !isStreaming && hasAssistantError(msg)
+    /**
+     * A run's row is not a chat turn: regenerating it would ask a model to
+     * answer a goal the agent was given, and retrying it would do the same —
+     * with or without the card drawn over it.
+     */
+    const onRegenerateTurn = agentRow ? undefined : onRegenerate
     const canRetry =
       !isUser &&
       // An empty answer is retryable for the same reason an interrupted one is:
@@ -56,7 +65,7 @@ export const ChatMessageBubble = memo(
       (Boolean(msg.error?.retryable) ||
         Boolean(msg.metrics?.interrupted) ||
         Boolean(msg.metrics?.emptyResponse)) &&
-      Boolean(onRegenerate) &&
+      Boolean(onRegenerateTurn) &&
       !isLoading &&
       !isStreaming
 
@@ -105,7 +114,19 @@ export const ChatMessageBubble = memo(
           />
         ) : (
           <>
-            {showErrorTreatment ? (
+            {agentRow && AgentRunCard ? (
+              <Suspense
+                fallback={
+                  <ChatMessageContent
+                    msg={msg}
+                    isUser={false}
+                    isLoading={isLoading}
+                    isStreaming={isStreaming}
+                  />
+                }>
+                <AgentRunCard msg={msg} />
+              </Suspense>
+            ) : showErrorTreatment ? (
               // A failed turn is styled as a failure, not as model output: same
               // copy in the same neutral bubble reads as something the model
               // said. The rail + icon separate the two at a glance.
@@ -125,7 +146,9 @@ export const ChatMessageBubble = memo(
                 <ChatErrorReportAction
                   msg={msg}
                   sessionId={sessionId}
-                  onRetry={onRegenerate ? () => onRegenerate() : undefined}
+                  onRetry={
+                    onRegenerateTurn ? () => onRegenerateTurn() : undefined
+                  }
                 />
               </div>
             ) : (
@@ -142,7 +165,7 @@ export const ChatMessageBubble = memo(
               isLoading={isLoading}
               showRetrievedChunks={showRetrievedChunks}
               feedbackEnabled={feedbackEnabled}
-              onRegenerate={onRegenerate}
+              onRegenerate={onRegenerateTurn}
               canRetry={canRetry}
               onEdit={() => setEditorMode("edit")}
               onFork={

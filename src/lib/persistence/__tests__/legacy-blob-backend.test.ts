@@ -344,6 +344,60 @@ describe("legacy blob backend", () => {
     ])
   })
 
+  /**
+   * A restored chat that lost its runs, or kept them unlinked, would draw
+   * every card as "record no longer available" — the backup would have
+   * carried the words and dropped the thing they were about.
+   */
+  it("round-trips a chat holding an Agent card with the run it reports", async () => {
+    const source = await bootEngine()
+    await addSession(source, "with-agent")
+    await source.submit({
+      op: "run",
+      sql: `INSERT INTO messages (id, sessionId, role, content, timestamp, done, agentRunId)
+            VALUES (1, 'with-agent', 'user', 'Find the hours', 1, 1, NULL),
+                   (2, 'with-agent', 'assistant', 'Open 9 to 5.', 2, 1, 'run-1')`
+    })
+    await source.submit({
+      op: "run",
+      sql: `INSERT INTO agent_runs (id, status, checkpoint, createdAt, updatedAt,
+              sessionId, requestMessageId, resultMessageId)
+            VALUES ('run-1', 'completed', '{}', 1, 2, 'with-agent', 1, 2)`
+    })
+    await source.submit({ op: "flush" })
+    const backup = bytesOf(await source.submit({ op: "exportDb" }))
+
+    await deleteLegacyBlob()
+    const target = await bootEngine()
+    await target.submit({
+      op: "importDb",
+      bytes: backup.buffer.slice(
+        backup.byteOffset,
+        backup.byteOffset + backup.byteLength
+      ) as ArrayBuffer
+    })
+
+    await expect(
+      target.submit({
+        op: "query",
+        sql: "SELECT id, agentRunId FROM messages WHERE agentRunId IS NOT NULL"
+      })
+    ).resolves.toEqual([{ id: 2, agentRunId: "run-1" }])
+    await expect(
+      target.submit({
+        op: "query",
+        sql: "SELECT id, sessionId, requestMessageId, resultMessageId FROM agent_runs"
+      })
+    ).resolves.toEqual([
+      {
+        id: "run-1",
+        sessionId: "with-agent",
+        requestMessageId: 1,
+        resultMessageId: 2
+      }
+    ])
+  })
+
   it("refuses a payload that is not a sound database and keeps the old one", async () => {
     const engine = await bootEngine()
     await addSession(engine, "kept")

@@ -216,6 +216,15 @@
         "always": "Bei jedem Schritt",
         "never": "Nie"
       }
+    },
+    "card": {
+      "title": "Agent-Lauf",
+      "loading": "Lauf wird geladen…",
+      "missing": "Der Eintrag dieses Laufs ist nicht mehr verfügbar.",
+      "steps": "Aktionen: {{count}}",
+      "outcome": "{{met}} von {{total}} erledigt",
+      "open": "Im Agent öffnen",
+      "needs_you": "Wartet auf dich – im Agent öffnen"
     }
   },
   "common": {
@@ -1029,7 +1038,9 @@
       "all_sessions_title": "Alle Chat-Sitzungen",
       "role_user": "Du",
       "role_assistant": "KI-Assistent",
-      "remote_image_blocked": "Externes Bild blockiert"
+      "remote_image_blocked": "Externes Bild blockiert",
+      "role_agent": "Agent",
+      "agent_no_result": "Der Agent-Lauf hat kein Ergebnis festgehalten."
     },
     "actions": {
       "more": "Weitere Aktionen für {{title}}",

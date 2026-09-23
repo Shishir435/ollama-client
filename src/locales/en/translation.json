@@ -216,6 +216,15 @@
         "always": "Every step",
         "never": "Never"
       }
+    },
+    "card": {
+      "title": "Agent run",
+      "loading": "Loading the run…",
+      "missing": "This run's record is no longer available.",
+      "steps": "Actions: {{count}}",
+      "outcome": "{{met}} of {{total}} done",
+      "open": "Open in Agent",
+      "needs_you": "Needs you — open in Agent"
     }
   },
   "common": {
@@ -1029,7 +1038,9 @@
       "all_sessions_title": "All Chat Sessions",
       "role_user": "You",
       "role_assistant": "AI Assistant",
-      "remote_image_blocked": "Remote image blocked"
+      "remote_image_blocked": "Remote image blocked",
+      "role_agent": "Agent",
+      "agent_no_result": "The agent run recorded no result."
     },
     "actions": {
       "more": "More actions for {{title}}",

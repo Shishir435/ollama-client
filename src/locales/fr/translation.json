@@ -216,6 +216,15 @@
         "always": "À chaque étape",
         "never": "Jamais"
       }
+    },
+    "card": {
+      "title": "Exécution de l'agent",
+      "loading": "Chargement de l'exécution…",
+      "missing": "L'enregistrement de cette exécution n'est plus disponible.",
+      "steps": "Actions : {{count}}",
+      "outcome": "{{met}} sur {{total}} faites",
+      "open": "Ouvrir dans l'Agent",
+      "needs_you": "Attend votre action — ouvrir dans l'Agent"
     }
   },
   "common": {
@@ -1029,7 +1038,9 @@
       "all_sessions_title": "Toutes les sessions",
       "role_user": "Vous",
       "role_assistant": "Assistant IA",
-      "remote_image_blocked": "Image distante bloquée"
+      "remote_image_blocked": "Image distante bloquée",
+      "role_agent": "Agent",
+      "agent_no_result": "L'exécution de l'agent n'a enregistré aucun résultat."
     },
     "actions": {
       "more": "Plus d'actions pour {{title}}",

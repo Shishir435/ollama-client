@@ -1,6 +1,8 @@
 import type {
   AgentForgetChatRowsRequest,
-  AgentForgetChatRowsResult
+  AgentForgetChatRowsResult,
+  AgentGetRunRequest,
+  AgentGetRunResult
 } from "@ollama-client/contracts/agent-rpc"
 import type {
   DiagnosticsClearRequest,
@@ -188,6 +190,7 @@ export interface RpcMap {
     AgentForgetChatRowsRequest,
     AgentForgetChatRowsResult
   >
+  [RpcMethod.AgentGetRun]: RpcDefinition<AgentGetRunRequest, AgentGetRunResult>
 }
 
 export type RpcRequest<M extends RpcMethod> = RpcMap[M]["request"]

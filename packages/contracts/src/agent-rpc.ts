@@ -1,4 +1,9 @@
 import { z } from "zod"
+import {
+  AgentErrorSchema,
+  AgentPauseReasonSchema,
+  AgentRunStatusSchema
+} from "./agent"
 
 /**
  * How many ids one request may carry. The sender batches by this same
@@ -39,3 +44,53 @@ export type AgentForgetChatRowsRequest = z.infer<
 export type AgentForgetChatRowsResult = z.infer<
   typeof AgentForgetChatRowsResultSchema
 >
+
+/** A card asks for the run its message reports, by id. */
+export const AgentGetRunRequestSchema = z
+  .object({ runId: z.string().min(1).max(200) })
+  .strict()
+
+/**
+ * What a chat card shows of a run, and nothing it does not.
+ *
+ * A projection rather than the run state: the state carries the controlled
+ * tab, grants, answers and deadlines, none of which a line in a conversation
+ * has any business holding, and a card that rendered from the full state
+ * would start depending on all of it. The error travels as its code and key
+ * only — its message is English written for a developer reading a receipt.
+ */
+export const AgentRunCardSchema = z
+  .object({
+    id: z.string().min(1),
+    goal: z.string().min(1).max(20_000),
+    status: AgentRunStatusSchema,
+    pauseReason: AgentPauseReasonSchema.optional(),
+    stepCount: z.number().int().nonnegative(),
+    result: z.string().min(1).max(20_000).optional(),
+    error: AgentErrorSchema.pick({ code: true, messageKey: true })
+      .strict()
+      .optional(),
+    /** How many of the task's requirements the settled run could evidence. */
+    outcome: z
+      .object({
+        met: z.number().int().nonnegative(),
+        total: z.number().int().nonnegative()
+      })
+      .strict()
+      .optional(),
+    updatedAt: z.number().int().nonnegative()
+  })
+  .strict()
+
+/**
+ * Absent when the run is gone — pruned, deleted with its chat, or never
+ * readable. The card then falls back to the message's own text, which is
+ * what the terminal commit wrote there for exactly this reader.
+ */
+export const AgentGetRunResultSchema = z
+  .object({ run: AgentRunCardSchema.optional() })
+  .strict()
+
+export type AgentGetRunRequest = z.infer<typeof AgentGetRunRequestSchema>
+export type AgentRunCard = z.infer<typeof AgentRunCardSchema>
+export type AgentGetRunResult = z.infer<typeof AgentGetRunResultSchema>

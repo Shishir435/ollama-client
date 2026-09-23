@@ -216,6 +216,15 @@
         "always": "हर चरण पर",
         "never": "कभी नहीं"
       }
+    },
+    "card": {
+      "title": "एजेंट रन",
+      "loading": "रन लोड हो रहा है…",
+      "missing": "इस रन का रिकॉर्ड अब उपलब्ध नहीं है।",
+      "steps": "कार्रवाइयाँ: {{count}}",
+      "outcome": "{{total}} में से {{met}} पूरे",
+      "open": "एजेंट में खोलें",
+      "needs_you": "आपकी ज़रूरत है — एजेंट में खोलें"
     }
   },
   "common": {
@@ -1029,7 +1038,9 @@
       "all_sessions_title": "सभी चैट सत्र",
       "role_user": "आप",
       "role_assistant": "AI सहायक",
-      "remote_image_blocked": "रिमोट इमेज अवरुद्ध"
+      "remote_image_blocked": "रिमोट इमेज अवरुद्ध",
+      "role_agent": "एजेंट",
+      "agent_no_result": "एजेंट रन ने कोई परिणाम दर्ज नहीं किया।"
     },
     "actions": {
       "more": "{{title}} के लिए अधिक क्रियाएं",

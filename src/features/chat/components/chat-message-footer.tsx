@@ -150,14 +150,14 @@ export const ChatMessageFooter = ({
           />
         )}
 
-        {!isUser && msg.model && !isLoading && (
+        {!isUser && msg.model && onRegenerate && !isLoading && (
           <TooltipActionButton
             trigger={<span />}
             tooltip={t("chat.actions.switch_model_tooltip")}
             icon={
               <RegenerateButton
                 model={msg.model}
-                onSelectModel={(model) => onRegenerate?.(model)}
+                onSelectModel={(model) => onRegenerate(model)}
               />
             }
           />

@@ -350,8 +350,15 @@ const budgets: Budget[] = [
      * 277,000 rather than the usual next step above the measurement: 276,500
      * left 209 bytes, which is less than one statement, and the 235,000
      * ceiling above is here because 54 bytes of headroom stopped a release.
+     *
+     * Drawing a run's card in its chat — the read-only projection a card asks
+     * for, its wire schema in the registry the server validates against, and
+     * the handler that reaches it — took it to 277,280. The alternative is a
+     * card with no reader: the row it is drawn into is empty until the run
+     * settles, so without the projection a live run shows nothing at all.
+     * Firefox carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 277_000
+    max: isFirefox ? 210_000 : 278_000
   }
 ]
 
