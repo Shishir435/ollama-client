@@ -428,7 +428,17 @@ export const createChatSessionMessageActions = (
 
     /*
      * Before the vectors, because a run still driving a browser is the part of
-     * this delete that keeps acting on the world.
+     * this delete that keeps acting on the world. Awaited to completion: the
+     * background answers once the live runs are stopped and their pointers
+     * dropped.
+     *
+     * After the delete, and that is the honest order rather than the ideal
+     * one. The ids come from the commit itself, and asking for them first
+     * would not fix it — a descendant appended between the read and the delete
+     * would not be in the list. So the window is real: a run keeps acting for
+     * as long as its stop takes, against rows that are already gone. What
+     * bounds it is that the rows it writes are its own, the stop is the next
+     * thing that happens, and its receipts survive either way.
      */
     await forgetAgentRuns({ messageIds: idsToDelete })
 

@@ -20,19 +20,50 @@ import { logger } from "@/lib/logger"
  * can do about it, and what a lost event leaves behind is a dangling pointer
  * that startup reconciliation repairs.
  */
+/**
+ * How many ids one event may carry, matching the background schema's own cap.
+ *
+ * A deleted subtree has no size limit — a long branch of a long conversation
+ * is thousands of rows — and the schema rejects an oversized event before the
+ * listener sees it, so the whole cleanup was dropped for exactly the deletes
+ * big enough to matter. Sent in bounded batches instead, each one a complete
+ * event: the work is idempotent per id, so a batch that fails costs only its
+ * own ids.
+ */
+const MAX_EVENT_MESSAGE_IDS = 10_000
+
+const eventBatches = (
+  event: { sessionId: string } | { messageIds: number[] }
+): ({ sessionId: string } | { messageIds: number[] })[] => {
+  if (!("messageIds" in event)) return [event]
+  const batches: { messageIds: number[] }[] = []
+  for (
+    let offset = 0;
+    offset < event.messageIds.length;
+    offset += MAX_EVENT_MESSAGE_IDS
+  ) {
+    batches.push({
+      messageIds: event.messageIds.slice(offset, offset + MAX_EVENT_MESSAGE_IDS)
+    })
+  }
+  return batches
+}
+
 export const forgetAgentRuns = async (
   event: { sessionId: string } | { messageIds: number[] }
 ): Promise<void> => {
   if (!AGENT_PREVIEW_ENABLED) return
   if ("messageIds" in event && event.messageIds.length === 0) return
-  try {
-    await browser.runtime.sendMessage({
-      type: MESSAGE_KEYS.AGENT.FORGET_CHAT_ROWS,
-      ...event
-    })
-  } catch (error) {
-    logger.warn("Agent was not told its chat rows were deleted", "Agent", {
-      name: error instanceof Error ? error.name : typeof error
-    })
+  for (const batch of eventBatches(event)) {
+    try {
+      await browser.runtime.sendMessage({
+        type: MESSAGE_KEYS.AGENT.FORGET_CHAT_ROWS,
+        ...batch
+      })
+    } catch (error) {
+      logger.warn("Agent was not told its chat rows were deleted", "Agent", {
+        name: error instanceof Error ? error.name : typeof error
+      })
+    }
   }
 }

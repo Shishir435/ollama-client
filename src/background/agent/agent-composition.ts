@@ -90,7 +90,13 @@ export const createAgentComposition = async (
     }
     const event = AgentForgetChatRowsSchema.safeParse(raw)
     if (!event.success) return
-    void applyAgentForgetChatRows(event.data, (runId) =>
+    /*
+     * Returned, not detached. The polyfill answers the sender when this
+     * promise settles, and the sender is a delete that waits for the answer
+     * before taking the rows away — detaching it made that wait resolve on
+     * delivery, which is the one thing it was not supposed to mean.
+     */
+    return applyAgentForgetChatRows(event.data, (runId) =>
       service.stop(runId)
     ).catch((error: unknown) => {
       logger.warn("Agent rows outlived their chat", "Agent", {

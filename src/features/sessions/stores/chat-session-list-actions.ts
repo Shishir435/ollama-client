@@ -81,9 +81,17 @@ export const createChatSessionListActions = (
 
   deleteSession: async (id: string) => {
     /*
-     * First: the runs of this chat are stopped and deleted with it, and a run
-     * told after its rows have gone has already spent steps on a conversation
-     * that no longer exists.
+     * First, and awaited to completion rather than to delivery: the runs of
+     * this chat are stopped and deleted with it, and a run told after its rows
+     * have gone has already spent steps on a conversation that no longer
+     * exists. The background answers when the cleanup has finished, so the row
+     * below is removed after the stops, not alongside them.
+     *
+     * What this order cannot close is a run started between that answer and
+     * the delete — the panel is a separate context and nothing here can hold
+     * it. That run's chat is gone the moment the row is, and startup settles
+     * and collects it, which is the same answer this design gives every
+     * cleanup event that is never delivered.
      */
     await forgetAgentRuns({ sessionId: id })
     await repo.deleteSessionRow(id)

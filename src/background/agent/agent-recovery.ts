@@ -119,6 +119,6 @@ export const recoverAndPruneAgentRuns = async (
    * every run it just cancelled with a bubble that streams until the next
    * boot.
    */
-  await reconcileAgentRunLinkage()
+  await reconcileAgentRunLinkage(signal)
   await pruneTerminalAgentRuns(undefined, signal)
 }

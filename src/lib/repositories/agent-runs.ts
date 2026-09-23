@@ -977,7 +977,10 @@ export const listAgentRunsForMissingSessions = async (): Promise<
  * cancelling a run because a card is missing would be worse than showing one
  * that has none.
  */
-export const reconcileAgentRunLinkage = async (): Promise<void> => {
+export const reconcileAgentRunLinkage = async (
+  signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
   const now = Date.now()
   await withTransaction(async (tx) => {
     await tx.run(
@@ -1018,6 +1021,7 @@ export const reconcileAgentRunLinkage = async (): Promise<void> => {
     )
   })
   await flushSave()
+  signal?.throwIfAborted()
 }
 
 export const createAgentPersistencePort = (): AgentPersistencePort => ({
