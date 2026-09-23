@@ -7,7 +7,8 @@ import {
   agentCommittedEffects,
   agentEffectIsConsequential,
   agentInheritedEffects,
-  agentRepeatsPriorEffect
+  agentRepeatsPriorEffect,
+  agentRepeatsPriorForm
 } from "../prior-effects"
 
 let sequence = 0
@@ -227,10 +228,11 @@ describe("a repeat", () => {
   })
 
   /**
-   * The case review raised: the parent clicked the submit button, the child
-   * presses Enter in a field of the same form. One form, one submission.
+   * The parent clicked the submit button; the child presses Enter in a field
+   * of the same form. That may be the same comment again or a new one, so it
+   * is not refused as a repeat — it is flagged, and policy asks.
    */
-  it("matches the same form submitted by another command and control", () => {
+  it("flags the same form sent by another command and control", () => {
     const committed = agentCommittedEffects([
       receipt({
         stepId: "p:1",
@@ -266,7 +268,41 @@ describe("a repeat", () => {
       effects: ["submission"],
       form: "https://forum.example/comments"
     })
-    expect(agentRepeatsPriorEffect(enter, committed)).toBe(true)
+    expect(agentRepeatsPriorEffect(enter, committed)).toBe(false)
+    expect(agentRepeatsPriorForm(enter, committed)).toBe(true)
+  })
+
+  /**
+   * The false positive review raised: a checkout's second step posts to the
+   * same address as its first. Refusing it would stop the checkout, so the
+   * form match only ever reaches the user.
+   */
+  it("does not refuse a checkout's next step that posts to the same address", () => {
+    const prior: AgentPriorEffect[] = [
+      {
+        action: "click",
+        page: "https://forum.example/thread/7",
+        effects: ["submission"],
+        form: "https://forum.example/checkout",
+        role: "button",
+        tag: "button",
+        name: "Continue to payment"
+      }
+    ]
+    const next = effect({
+      semanticEffects: ["submission"],
+      target: {
+        role: "button",
+        tag: "button",
+        accessibleName: "Confirm shipping",
+        formAction: "https://forum.example/checkout",
+        sensitive: false,
+        maySubmit: true
+      }
+    })
+
+    expect(agentRepeatsPriorEffect(next, prior)).toBe(false)
+    expect(agentRepeatsPriorForm(next, prior)).toBe(true)
   })
 
   it("does not match a submission to a different form", () => {
@@ -292,6 +328,7 @@ describe("a repeat", () => {
     })
 
     expect(agentRepeatsPriorEffect(other, prior)).toBe(false)
+    expect(agentRepeatsPriorForm(other, prior)).toBe(false)
   })
 
   it("never refuses a routine effect", () => {

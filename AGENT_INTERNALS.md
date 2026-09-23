@@ -548,19 +548,23 @@ Read the section your change touches; you do not need the whole file.
   consequential effects the chain committed (`state.previousRun`) — never its
   grants, answers, requirements or origins. `parentRunId` is written on the
   run row on every path.
-- **A committed consequential effect is never attempted twice.**
+- **A committed consequential effect is never attempted twice unasked.**
   Submission, destruction, payment and download are recorded on each receipt
   as `consequential` (the classes), with the form's action, origin and path,
   for a submission or payment; `agentCommittedEffects` reads the steps whose
-  last receipt is executed, verified or uncertain. An effect matches when it
-  sends a submission or payment to the same form action, whatever command or
-  control sends it — Enter in a field and a click on its button are one
-  order — or when it is the same command on a control with the same role,
-  tag and name, on the same page when both know it. The controller refuses a
-  match before policy is asked, so the user is never prompted to approve the second
-  order, and hands it back to the model like any other refusal. Matching is
-  deliberately coarse: a false match costs a look again, a miss costs a user
-  a second purchase. Receipts older than the flag count a critical change.
+  last receipt is executed, verified or uncertain. Two matches, two answers:
+  - *The same command on the same control* (role, tag, name, and page when
+    both know it) is a repeat. The controller refuses it before policy is
+    asked, so the user is never prompted to approve the second order, and
+    hands it back to the model like any other refusal. Coarse on purpose: a
+    false match costs a look again, a miss costs a second purchase.
+  - *The same form sent by a different control* — Enter in a field after a
+    click on its button, or a checkout's next step posting to the same
+    address — may or may not be one. Policy prices it at least high, accepts
+    no grant for it, offers none, and says in the approval that an earlier
+    run already sent this form. Refusing it would stop a checkout at step
+    two; allowing it on a grant would place a second order unasked.
+  Receipts older than the flag count a critical change.
 
 ## Verification, waiting and completion
 

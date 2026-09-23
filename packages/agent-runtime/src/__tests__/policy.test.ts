@@ -755,3 +755,61 @@ describe("a batched fill's approval", () => {
     expect(request?.pageEvidence).toContain("more")
   })
 })
+
+describe("a form an earlier run already sent", () => {
+  const submit = effect(["submission"], {
+    target: { sensitive: false, maySubmit: true, accessibleName: "Send" }
+  })
+
+  /**
+   * Maybe the same order, maybe a checkout's next step: the user decides,
+   * told why, and cannot have decided in advance — a grant for submissions
+   * on this origin does not cover it, and none is offered.
+   */
+  it("always asks, names the earlier run, and offers no grant", () => {
+    const decision = evaluateAgentPolicy(
+      input(submit, {
+        repeatsPriorForm: true,
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation", "form_mutation", "submission"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.grantable).toBeUndefined()
+    expect(decision.request.consequence).toMatch(
+      /^An earlier run this task follows already sent this form\./
+    )
+  })
+
+  it("is the ordinary grantable approval without the flag", () => {
+    const decision = evaluateAgentPolicy(
+      input(submit, {
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["submission"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("granted")
+  })
+
+  it("never lowers a critical price", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["submission", "payment"]), { repeatsPriorForm: true })
+    )
+
+    expect(decision.risk).toBe("critical")
+  })
+})

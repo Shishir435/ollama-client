@@ -425,6 +425,14 @@ export interface AgentPolicyInput {
    * it was. See `provenance.ts`.
    */
   authoredText?: readonly string[]
+  /**
+   * The effect sends a submission or payment to a form an earlier run in
+   * this chain already sent one to, through a different control. Not proof
+   * of a repeat — a checkout's next step posts to the same place — so the
+   * user decides, told what the earlier run did, and cannot have decided in
+   * advance.
+   */
+  repeatsPriorForm?: boolean
   now: number
 }
 

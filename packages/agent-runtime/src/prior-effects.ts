@@ -88,9 +88,10 @@ const normalized = (value: string | undefined): string =>
   (value ?? "").replaceAll(/\s+/g, " ").trim().toLowerCase()
 
 /**
- * The same submission or payment sent to the same place. Deliberately blind
- * to the command and the control: a click on "Place order" and Enter in the
- * card field send one order.
+ * A submission or payment of the same class sent to the same place, by
+ * whatever command. Evidence of a repeat, not proof: a checkout's next step
+ * and a page that posts to itself send to one address too, which is why this
+ * asks the user rather than refusing.
  */
 const sameForm = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
   a.form !== undefined &&
@@ -99,15 +100,13 @@ const sameForm = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
     (effect) => sendsForm(effect) && (b.effects ?? []).includes(effect)
   )
 
+/** The same command on the same control: a repeat, refused outright. */
 const sameControl = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
   a.action === b.action &&
   normalized(a.role) === normalized(b.role) &&
   normalized(a.tag) === normalized(b.tag) &&
   normalized(a.name) === normalized(b.name) &&
   (a.page === undefined || b.page === undefined || a.page === b.page)
-
-const sameEffect = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
-  sameForm(a, b) || sameControl(a, b)
 
 /**
  * The consequential effects a run committed, in the order it committed them,
@@ -167,45 +166,63 @@ export const agentInheritedEffects = (
 ): AgentPriorEffect[] | undefined => {
   const kept: AgentPriorEffect[] = []
   for (const effect of [...inherited, ...committed]) {
-    const index = kept.findIndex((existing) => sameEffect(existing, effect))
+    const index = kept.findIndex((existing) => sameControl(existing, effect))
     if (index >= 0) kept.splice(index, 1)
     kept.push(effect)
   }
   return kept.length <= MAX_AGENT_PRIOR_EFFECTS ? kept : undefined
 }
 
-/**
- * Whether a resolved effect is one an earlier run already committed.
- *
- * Two ways to be the same effect. The same submission or payment sent to the
- * same form action, whichever command sent it. Or the same command on a
- * control with the same role, tag and name, on the same page when both sides
- * know it — which is what covers a delete or a download, and a submission
- * whose form reported no action. Deliberately coarse: two submit buttons with
- * the same label on the same page are one control as far as this is
- * concerned, and refusing the second costs a follow-up a look again. Guessing
- * they differ costs a user a second order.
- */
-export const agentRepeatsPriorEffect = (
-  effect: ResolvedAgentEffect,
-  prior: readonly AgentPriorEffect[]
-): boolean => {
-  const effects = agentConsequentialEffects(effect)
-  if (prior.length === 0 || effects.length === 0) return false
+/** A resolved effect as the prior list describes one, cut to its bounds. */
+const candidateFor = (effect: ResolvedAgentEffect): AgentPriorEffect => {
   const target = agentStepTargetFrom(effect.target)
   const page = effect.sourceUrl
     ? agentStepSourceUrl(effect.sourceUrl)
     : undefined
   const form = agentConsequentialForm(effect)
   /** Cut to the receipt's own bounds, or a long label could never match. */
-  const candidate: AgentPriorEffect = {
+  return {
     action: effect.command.type,
     ...(page ? { page: page.slice(0, MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS) } : {}),
-    effects,
+    effects: agentConsequentialEffects(effect),
     ...(form ? { form } : {}),
     ...(target?.role ? { role: target.role.slice(0, 60) } : {}),
     ...(target?.tag ? { tag: target.tag.slice(0, 40) } : {}),
     ...(target?.name ? { name: target.name.slice(0, 120) } : {})
   }
-  return prior.some((existing) => sameEffect(existing, candidate))
+}
+
+/**
+ * Whether a resolved effect is one an earlier run already committed: the
+ * same command on a control with the same role, tag and name, on the same
+ * page when both sides know it. Refused before policy.
+ *
+ * Deliberately coarse: two submit buttons with the same label on the same
+ * page are one control as far as this is concerned, and refusing the second
+ * costs a follow-up a look again. Guessing they differ costs a user a second
+ * order.
+ */
+export const agentRepeatsPriorEffect = (
+  effect: ResolvedAgentEffect,
+  prior: readonly AgentPriorEffect[]
+): boolean => {
+  if (prior.length === 0 || !agentEffectIsConsequential(effect)) return false
+  const candidate = candidateFor(effect)
+  return prior.some((existing) => sameControl(existing, candidate))
+}
+
+/**
+ * Whether a resolved effect sends a form an earlier run already sent, by a
+ * different control — Enter in a field after a click on its button, or the
+ * next step of a checkout that posts to the same address. The two are not
+ * told apart from here, so policy asks the user, says why, and accepts no
+ * grant for it.
+ */
+export const agentRepeatsPriorForm = (
+  effect: ResolvedAgentEffect,
+  prior: readonly AgentPriorEffect[]
+): boolean => {
+  if (prior.length === 0 || !agentEffectIsConsequential(effect)) return false
+  const candidate = candidateFor(effect)
+  return prior.some((existing) => sameForm(existing, candidate))
 }

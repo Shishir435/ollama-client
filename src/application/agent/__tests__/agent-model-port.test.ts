@@ -962,7 +962,7 @@ describe("usable agent prompt", () => {
       effects: [{ action: "click", role: "button", name: "Add to cart" }]
     })
     expect(String(sent.messages[0].content)).toContain(
-      "Its effects already happened: never do them again"
+      "Its effects already happened: never do them again."
     )
   })
   it("reserves actual system and schema cost at a context rounding boundary", async () => {

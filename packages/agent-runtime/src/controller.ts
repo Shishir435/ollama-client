@@ -71,7 +71,8 @@ import {
 import {
   agentConsequentialEffects,
   agentConsequentialForm,
-  agentRepeatsPriorEffect
+  agentRepeatsPriorEffect,
+  agentRepeatsPriorForm
 } from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
 import { agentResolutionFailure } from "./resolution-failure"
@@ -971,6 +972,10 @@ export const createAgentController = (
       scopedTabIds: agentTabScope(state),
       ...(state.grants?.length ? { grants: state.grants } : {}),
       ...(authoredText?.length ? { authoredText } : {}),
+      ...(state.previousRun &&
+      agentRepeatsPriorForm(effect, state.previousRun.effects)
+        ? { repeatsPriorForm: true }
+        : {}),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {

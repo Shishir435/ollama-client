@@ -2197,11 +2197,13 @@ describe("a follow-up run", () => {
   })
 
   /**
-   * The same order by another route: the parent clicked the button, the
-   * follow-up presses Enter in the form's field. Different command, different
-   * control, one form — and one order.
+   * The same form by another route: the parent clicked the button, the
+   * follow-up presses Enter in the form's field. That may be the same order
+   * or a checkout's next step, so it is not refused — policy is told, and
+   * asks the user.
    */
-  it("refuses the same submission sent by a different command", async () => {
+  it("tells policy when a different control sends the same form", async () => {
+    const seen: AgentPolicyInput[] = []
     const enter = {
       type: "press_key",
       ref: "e2",
@@ -2231,6 +2233,10 @@ describe("a follow-up run", () => {
         { type: "command", command: enter },
         { type: "complete", summary: "Already ordered." }
       ],
+      policy: (input) => {
+        seen.push(input)
+        return approvalPolicy("high")
+      },
       effectOverrides: {
         semanticEffects: ["submission"],
         target: {
@@ -2247,8 +2253,13 @@ describe("a follow-up run", () => {
 
     await harness.controller.start("run-1")
 
-    expect(harness.calls).not.toContain("policy")
-    expect(harness.calls).not.toContain("execute")
+    expect(seen[0]?.repeatsPriorForm).toBe(true)
+    expect(harness.calls).toContain("approval")
+    expect(
+      harness.writtenSteps.some((step) =>
+        step.verification?.evidence.summary.includes("previousRun.effects")
+      )
+    ).toBe(false)
   })
 
   it("lets a different consequential effect through to policy", async () => {
