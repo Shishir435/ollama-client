@@ -14,10 +14,14 @@ vi.mock("@/lib/embeddings/vector-cleanup-receipts", () => ({
 vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() }
 }))
+vi.mock("@/lib/agent-run-events", () => ({
+  forgetAgentRuns: vi.fn().mockResolvedValue(undefined)
+}))
 
 const mockRepo = vi.mocked(repo)
 
 // Import deleteVectors after mocking so we get the mock instance
+import { forgetAgentRuns } from "@/lib/agent-run-events"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 
 const SESSION_ID = "session-abc"
@@ -1053,5 +1057,33 @@ describe("setSessionTags", () => {
       "work",
       "research"
     ])
+  })
+})
+
+describe("deleteSession", () => {
+  /**
+   * The second pass is what makes the race empty rather than small: a run is
+   * linked in the same transaction that reads the session, so once the row is
+   * gone no further run can claim the chat, and every run that did is already
+   * written by the time this asks.
+   */
+  it("stops the runs of the chat before and after its row is deleted", async () => {
+    mockRepo.deleteSessionRow.mockResolvedValue(undefined as any)
+    mockRepo.deleteMessagesBySession.mockResolvedValue(undefined as any)
+    mockRepo.deleteFilesBySession.mockResolvedValue(undefined as any)
+    mockRepo.getAllSessionsOrderedByRecency.mockResolvedValue([])
+    const order: string[] = []
+    vi.mocked(forgetAgentRuns).mockImplementation(async () => {
+      order.push("forget")
+    })
+    mockRepo.deleteSessionRow.mockImplementation(async () => {
+      order.push("deleteSessionRow")
+    })
+    seedSession()
+
+    await chatSessionStore.getState().deleteSession(SESSION_ID)
+
+    expect(order).toEqual(["forget", "deleteSessionRow", "forget"])
+    expect(forgetAgentRuns).toHaveBeenCalledWith({ sessionId: SESSION_ID })
   })
 })
