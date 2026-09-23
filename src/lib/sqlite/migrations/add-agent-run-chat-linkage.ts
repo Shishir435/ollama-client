@@ -49,16 +49,54 @@ export const ensureAgentRunChatLinkage = (db: MigrationDatabase): void => {
     addColumn(db, "agent_runs", "requestMessageId", "INTEGER", runColumns)
     addColumn(db, "agent_runs", "resultMessageId", "INTEGER", runColumns)
     addColumn(db, "agent_runs", "parentRunId", "TEXT", runColumns)
-    db.run(
-      `CREATE INDEX IF NOT EXISTS idx_agent_runs_session
-         ON agent_runs(sessionId, createdAt)`
-    )
   }
 
   const messageColumns = columnsOf(db, "messages")
   addColumn(db, "messages", "agentRunId", "TEXT", messageColumns)
   addColumn(db, "messages", "agentHandoff", "TEXT", messageColumns)
-  db.run(
+  ensureAgentRunLinkageIndexes(db)
+}
+
+/**
+ * The linkage indexes, created only where the columns they index exist.
+ *
+ * They used to sit in the schema script, which runs on every open before any
+ * migration. On a profile older than migration 18 the columns were not there
+ * yet, the CREATE INDEX answered `no such column`, and the database never
+ * opened — every chat of every upgrading user unreachable behind two indexes.
+ *
+ * Returns how many it created, so the drift repair counts them: the legacy
+ * backend saves its image only when something was repaired, and an index made
+ * in memory and never saved would be made again on every open.
+ */
+export const ensureAgentRunLinkageIndexes = (db: MigrationDatabase): number => {
+  let created = 0
+  const ensure = (name: string, table: string, column: string, sql: string) => {
+    if (!columnsOf(db, table).has(column) || indexExists(db, name)) return
+    db.run(sql)
+    created += 1
+  }
+  ensure(
+    "idx_agent_runs_session",
+    "agent_runs",
+    "sessionId",
+    "CREATE INDEX IF NOT EXISTS idx_agent_runs_session ON agent_runs(sessionId, createdAt)"
+  )
+  ensure(
+    "idx_messages_agent_run",
+    "messages",
+    "agentRunId",
     "CREATE INDEX IF NOT EXISTS idx_messages_agent_run ON messages(agentRunId)"
   )
+  return created
+}
+
+/** Names are this module's own constants, never input, so they interpolate. */
+const indexExists = (db: MigrationDatabase, name: string): boolean => {
+  const stmt = db.prepare(
+    `SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = '${name}'`
+  )
+  const found = stmt.step()
+  stmt.free()
+  return found
 }

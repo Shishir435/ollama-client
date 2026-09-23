@@ -3,6 +3,7 @@ import sqlite3InitModule, {
   type SAHPoolUtil,
   type Sqlite3Static
 } from "@sqlite.org/sqlite-wasm"
+import { ensureAgentRunLinkageIndexes } from "@/lib/sqlite/migrations/add-agent-run-chat-linkage"
 import { asMigrationDatabase } from "@/lib/sqlite/migrations/database"
 import {
   LATEST_SCHEMA_VERSION,
@@ -280,6 +281,7 @@ export const createChatDbEngine = (
     // the forward migrations it still needs.
     db.exec(SCHEMA_SQL)
     if (!hasSessions) {
+      ensureAgentRunLinkageIndexes(compat)
       setSchemaVersion(compat, LATEST_SCHEMA_VERSION)
     }
     db.exec("PRAGMA foreign_keys=ON")

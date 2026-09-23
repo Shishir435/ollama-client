@@ -1,5 +1,8 @@
 import { logger } from "@/lib/logger"
-import { ensureAgentRunChatLinkage } from "./add-agent-run-chat-linkage"
+import {
+  ensureAgentRunChatLinkage,
+  ensureAgentRunLinkageIndexes
+} from "./add-agent-run-chat-linkage"
 import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
@@ -313,6 +316,13 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
     repair.apply()
     repaired += 1
   }
+  /**
+   * On every open, and counted when it creates anything, so a legacy image
+   * saves the index rather than rebuilding it in memory on each open. A fresh
+   * database gets its indexes right after the schema script, so this finds
+   * nothing to do there.
+   */
+  repaired += ensureAgentRunLinkageIndexes(db)
 
   if (repaired > 0) {
     logger.warn(

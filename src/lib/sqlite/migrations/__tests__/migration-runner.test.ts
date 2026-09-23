@@ -75,8 +75,11 @@ vi.mock("../add-vector-cleanup-receipts-table", () => ({
 }))
 
 const ensureAgentRunChatLinkage = vi.fn()
+const ensureAgentRunLinkageIndexes = vi.fn<(db: unknown) => number>(() => 0)
 vi.mock("../add-agent-run-chat-linkage", () => ({
-  ensureAgentRunChatLinkage: (db: unknown) => ensureAgentRunChatLinkage(db)
+  ensureAgentRunChatLinkage: (db: unknown) => ensureAgentRunChatLinkage(db),
+  ensureAgentRunLinkageIndexes: (db: unknown) =>
+    ensureAgentRunLinkageIndexes(db)
 }))
 
 const rebuildAgentRunsTables = vi.fn()
@@ -355,6 +358,24 @@ describe("migration-runner", () => {
     expect(ensureVectorCleanupReceiptsTable).not.toHaveBeenCalled()
     expect(rebuildAgentRunsTables).not.toHaveBeenCalled()
     expect(ensureAgentRunChatLinkage).not.toHaveBeenCalled()
+  })
+
+  it("ensures the linkage indexes on every open", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION)
+
+    expect(repairSchemaDrift(db as never)).toBe(0)
+    expect(ensureAgentRunLinkageIndexes).toHaveBeenCalledTimes(1)
+  })
+
+  /**
+   * The legacy backend saves its image only when something was repaired. An
+   * index created and not counted is rebuilt in memory on every open.
+   */
+  it("counts an index it had to create as a repair", () => {
+    ensureAgentRunLinkageIndexes.mockReturnValueOnce(2)
+    const db = makeDb(LATEST_SCHEMA_VERSION)
+
+    expect(repairSchemaDrift(db as never)).toBe(2)
   })
 
   /**

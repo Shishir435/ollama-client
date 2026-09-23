@@ -177,8 +177,10 @@ CREATE TABLE IF NOT EXISTS agent_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
-CREATE INDEX IF NOT EXISTS idx_agent_runs_session ON agent_runs(sessionId, createdAt);
-CREATE INDEX IF NOT EXISTS idx_messages_agent_run ON messages(agentRunId);
+-- The linkage indexes are not here. This script runs on every open, before the
+-- migrations, and on a profile older than migration 18 the columns they index
+-- do not exist yet: the CREATE INDEX failed and the database never opened.
+-- ensureAgentRunLinkageIndexes creates them once the columns are guaranteed.
 
 -- Append-only, bounded evidence. Browser effects are claimed in this log
 -- before execution and an interrupted executing/verifying phase is unresolved.
