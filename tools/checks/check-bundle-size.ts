@@ -191,8 +191,12 @@ const budgets: Budget[] = [
      * Conversation handoffs took it to 9,704,341. The handoff's wire schema
      * rides on every chat message, so every surface that parses messages
      * carries it, along with the fence a later turn reads it inside.
+     *
+     * The PR1 Agent audit fixes took the measured Chrome build to 9,757,051:
+     * form evidence, dialog recovery and localized approval text ship on the
+     * run path. The three regression pages and spec are test-only.
      */
-    max: isFirefox ? 11_800_000 : 9_750_000
+    max: isFirefox ? 11_800_000 : 9_760_000
   },
   {
     metric: "zip",
@@ -378,8 +382,12 @@ const budgets: Budget[] = [
      * parked approval has once the Agent surface is gone and the panel is
      * closed — took it to 281,140. The alternative is a run that pauses
      * where nobody can see it.
+     *
+     * PR1 form completion evidence, native-dialog dismissal recording and
+     * row-specific approval context took the measured Chrome worker to
+     * 283,287. Firefox carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 282_000
+    max: isFirefox ? 210_000 : 284_000
   }
 ]
 
