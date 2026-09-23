@@ -1,3 +1,4 @@
+import { AgentConversationHandoffSchema } from "@ollama-client/contracts/agent-handoff"
 import {
   ChatMessageErrorSchema,
   ChatMessageMetricsSchema
@@ -117,6 +118,21 @@ const parseMessageError = (raw: RowValue): ChatMessage["error"] => {
   }
 }
 
+/**
+ * A handoff that no longer decodes is dropped rather than half-read. It is
+ * page-derived text a later prompt will carry, so a row that fails its own
+ * bounds is exactly the one that must not reach one.
+ */
+const parseAgentHandoff = (raw: RowValue): ChatMessage["agentHandoff"] => {
+  if (typeof raw !== "string" || raw.length === 0) return undefined
+  try {
+    const result = AgentConversationHandoffSchema.safeParse(JSON.parse(raw))
+    return result.success ? result.data : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const messageFromRow = (row: Row): StoredMessage => ({
   id: row.id as number,
   sessionId: row.sessionId as string,
@@ -130,7 +146,8 @@ const messageFromRow = (row: Row): StoredMessage => ({
   thinking: (row.thinking as string | null) ?? undefined,
   replayArtifact: parseStoredReplayArtifact(row.replayArtifact),
   error: parseMessageError(row.error),
-  agentRunId: (row.agentRunId as string | null) ?? undefined
+  agentRunId: (row.agentRunId as string | null) ?? undefined,
+  agentHandoff: parseAgentHandoff(row.agentHandoff)
 })
 
 const fileFromRow = (row: Row): StoredFile => ({

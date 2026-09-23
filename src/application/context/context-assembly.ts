@@ -173,6 +173,16 @@ export class ContextAssembly {
     })
   }
 
+  /**
+   * The fenced records of earlier Agent runs in this branch. Not counted
+   * against the retrieval budget: it has its own bound, and a long document
+   * search must not be what silently drops what the agent found.
+   */
+  appendAgentHandoffs(block: string | undefined): void {
+    if (!block) return
+    this.appendPlainContext(block)
+  }
+
   appendFileFallback(files: ContextFileInput[] | undefined): void {
     if (this.contentWithRAG !== this.plan.userContent || !files?.length) return
     this.contentWithRAG = `${this.contentWithRAG}\n\n---\n\n${buildFileFullTextFallback(files)}`

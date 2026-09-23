@@ -1156,3 +1156,75 @@ describe("cancellation", () => {
     expect(toastSpy).not.toHaveBeenCalled()
   })
 })
+
+describe("the agent records of this branch", () => {
+  const withRun: ChatMessage[] = [
+    { id: 1, role: "user", content: "Compare the plans" },
+    {
+      id: 2,
+      role: "assistant",
+      content: "Plan A is cheaper",
+      agentRunId: "run-1",
+      agentHandoff: {
+        version: 1,
+        runId: "run-1",
+        status: "completed",
+        goal: "Compare the plans",
+        result: "Plan A is cheaper",
+        findings: [],
+        settledAt: 1
+      }
+    }
+  ]
+
+  it("rides along, fenced, whatever the retrieval setting", async () => {
+    mockedStorageGet.mockResolvedValueOnce(false as never)
+
+    const result = await buildRagContext(
+      defaults({ rawInput: "Which one?", messages: withRun })
+    )
+
+    expect(result.contentWithRAG.startsWith("Which one?")).toBe(true)
+    expect(result.contentWithRAG).toContain("<agent_runs>")
+    expect(result.contentWithRAG).toContain("Result: Plan A is cheaper")
+  })
+
+  it("stays out of grounded-only mode, which answers from the page alone", async () => {
+    const result = await buildRagContext(
+      defaults({ messages: withRun, groundedOnlyMode: true })
+    )
+
+    expect(result.contentWithRAG).not.toContain("<agent_runs>")
+  })
+
+  /**
+   * The file fallback runs only while nothing has been appended to the
+   * question. A handoff ahead of it would withhold the text of a file the
+   * user just attached.
+   */
+  it("never costs the user an attached file's text", async () => {
+    ragsetOn()
+
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "Question",
+        messages: withRun,
+        files: [
+          {
+            metadata: {
+              fileId: "f1",
+              fileName: "doc.txt",
+              fileType: "text",
+              fileSize: 5,
+              processedAt: 0
+            },
+            text: "FULL FILE TEXT"
+          } as never
+        ]
+      })
+    )
+
+    expect(result.contentWithRAG).toContain("FULL FILE TEXT")
+    expect(result.contentWithRAG).toContain("<agent_runs>")
+  })
+})

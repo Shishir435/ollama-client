@@ -15,6 +15,7 @@ import {
   retrieveContextEnhanced
 } from "@/application/context/rag/rag-pipeline"
 import { isAbortError } from "@/lib/error-utils"
+import { AGENT_PREVIEW_COMPILED } from "@/lib/feature-flags"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
   DEFAULT_RAG_PROMPT,
@@ -37,6 +38,10 @@ import type {
   RagSources,
   UsedContextChunk
 } from "@/types"
+import {
+  MAX_AGENT_HANDOFF_CONTEXT_CHARS,
+  renderAgentHandoffContext
+} from "./agent-handoff-context"
 import { ContextAssembly, type PromptContextStats } from "./context-assembly"
 import type { DurableContextOptions } from "./context-contract"
 import { createContextPlan } from "./context-plan"
@@ -560,5 +565,29 @@ export const buildRagContext = async (
     assembly.appendTabFallback(options.contextText, options.maxTabContextChars)
   }
   assembly.appendFileFallback(options.files)
+  /**
+   * Not in grounded-only mode, which promises an answer from the selected
+   * page alone. Everywhere else the branch's agent records ride along, fenced
+   * and bounded, whatever the retrieval setting — a follow-up about what the
+   * agent found is a question about this conversation, not a search.
+   *
+   * Last, after the file fallback: that fallback runs only while nothing has
+   * been appended to the question, and a handoff ahead of it would silently
+   * withhold the text of a file the user just attached.
+   */
+  if (AGENT_PREVIEW_COMPILED && !options.groundedOnlyMode) {
+    assembly.appendAgentHandoffs(
+      renderAgentHandoffContext(
+        options.messages,
+        options.maxRagContextChars > 0
+          ? Math.min(
+              options.maxRagContextChars,
+              MAX_AGENT_HANDOFF_CONTEXT_CHARS
+            )
+          : MAX_AGENT_HANDOFF_CONTEXT_CHARS
+      )
+    )
+  }
+
   return assembly.finish()
 }

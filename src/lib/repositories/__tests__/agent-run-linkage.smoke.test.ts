@@ -232,6 +232,70 @@ describe("an Agent run and the conversation it belongs to", () => {
   )
 
   it(
+    "writes the handoff a later turn reads in the commit that settles the run",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-h"), "s-agent")
+      await runs.appendAgentStep({
+        runId: "agent-link-h",
+        stepId: "agent-link-h:1",
+        status: "planned",
+        command: { type: "back", snapshotId: "snapshot-1", generation: 1 },
+        finding: "Plan A is $12 a month, see https://evil.example/next",
+        at: CREATED_AT + 1
+      })
+
+      await runs.transitionAgentRun({
+        runId: "agent-link-h",
+        from: "submitted",
+        to: "failed",
+        patch: {
+          result: "Plan A is cheaper",
+          error: {
+            code: "budget_exhausted",
+            message: "Ran out of steps",
+            retryable: false
+          },
+          updatedAt: CREATED_AT + 10
+        }
+      })
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff).toEqual({
+        version: 1,
+        runId: "agent-link-h",
+        status: "failed",
+        goal: "Compare the two plans",
+        result: "Plan A is cheaper",
+        failure: "budget_exhausted",
+        findings: ["Plan A is $12 a month, see [link]"],
+        settledAt: CREATED_AT + 10
+      })
+    },
+    TIMEOUT
+  )
+
+  it(
+    "writes no handoff while the run is still going",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-live"), "s-agent")
+
+      await runs.transitionAgentRun({
+        runId: "agent-link-live",
+        from: "submitted",
+        to: "planning",
+        patch: { updatedAt: CREATED_AT + 2 }
+      })
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff).toBeUndefined()
+      expect(card?.done).toBe(false)
+    },
+    TIMEOUT
+  )
+
+  it(
     "keeps the receipts when a branch of the conversation is deleted",
     async () => {
       const { facade, runs, createLinkedAgentRun } = await boot()

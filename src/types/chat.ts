@@ -1,3 +1,4 @@
+import type { AgentConversationHandoff } from "@ollama-client/contracts/agent-handoff"
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import type { PermissionResumeSnapshot } from "@ollama-client/contracts/chat"
 import type { OptionalApiPermission } from "@/lib/permissions"
@@ -183,6 +184,12 @@ export interface ChatMessage {
    * ever happened in another.
    */
   agentRunId?: string
+  /**
+   * What a later turn in this branch is told about that run: a bounded,
+   * page-derived projection the context builder fences. Written by the commit
+   * that settled the run.
+   */
+  agentHandoff?: AgentConversationHandoff
   timestamp?: number
   metrics?: {
     total_duration?: number
