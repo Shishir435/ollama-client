@@ -26,11 +26,16 @@ export interface AgentRunConnection {
   snapshot: AgentPanelSnapshot
   failure?: AgentCommandFailure
   busy: boolean
+  /**
+   * Resolves once the start was sent, or was not: `false` means no
+   * `agent_start` left the panel — no port, no permission, nothing to run
+   * with — so the caller holding the goal can give it back.
+   */
   start(
     goal: string,
     allowRoutineActions?: boolean,
     followUp?: { parentRunId: string; mode: AgentFollowUpMode }
-  ): void
+  ): Promise<boolean>
   pause(): void
   resume(): void
   correct(text: string): void
@@ -165,12 +170,14 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
     }
   }, [])
 
-  const send = useCallback((command: AgentPanelCommand) => {
+  /** Whether the command reached a port; a reconnect window has none. */
+  const send = useCallback((command: AgentPanelCommand): boolean => {
     const port = portRef.current
-    if (!port) return
+    if (!port) return false
     setFailure(undefined)
     setBusy(true)
     port.postMessage(command)
+    return true
   }, [])
 
   const debugReport = useCallback<AgentDebugReporter>((runId, signal) => {
@@ -190,9 +197,10 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
       allowRoutineActions = false,
       followUp?: { parentRunId: string; mode: AgentFollowUpMode }
     ) => {
-      if (!providerId || !modelId || typeof tabId !== "number") return
+      if (!providerId || !modelId || typeof tabId !== "number")
+        return Promise.resolve(false)
       const trimmed = goal.trim()
-      if (!trimmed) return
+      if (!trimmed) return Promise.resolve(false)
       setBusy(true)
       /*
        * The permission request goes first and unawaited-by-anything-else:
@@ -201,7 +209,7 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
        * permission resolves without prompting. Querying the tab first would
        * spend the gesture and leave the user with a silent refusal.
        */
-      void requestAgentPerceptionPermission()
+      return requestAgentPerceptionPermission()
         .then((granted) => {
           if (!granted) {
             setBusy(false)
@@ -210,9 +218,9 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
               messageKey: "agent.error.permission_denied",
               message: "Agent needs page-observation permission to start."
             })
-            return undefined
+            return false
           }
-          send({
+          const sent = send({
             type: "agent_start",
             goal: trimmed,
             tabId,
@@ -230,8 +238,25 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
             ...(allowRoutineActions ? { allowRoutineActions: true } : {}),
             allowExperimentalModel
           })
+          /**
+           * No port: the worker is between connections. Said, not
+           * swallowed — a Start that did nothing and said nothing reads as
+           * the Agent ignoring the user.
+           */
+          if (!sent) {
+            setBusy(false)
+            setFailure({
+              command: "agent_start",
+              messageKey: "agent.error.unknown",
+              message: "Agent could not complete that request."
+            })
+          }
+          return sent
         })
-        .catch(() => setBusy(false))
+        .catch(() => {
+          setBusy(false)
+          return false
+        })
     },
     [allowExperimentalModel, modelId, providerId, sessionId, tabId, send]
   )

@@ -18,6 +18,13 @@ const WAITS_ON_USER: readonly AgentRunStatus[] = [
 /** Coalesces the burst of writes one step makes into one badge update. */
 const SETTLE_MS = 250
 
+/**
+ * How the startup lookup backs off when storage is not answering yet. A run
+ * parked before the worker restarted announces nothing new, so this lookup
+ * is the only way its mark comes back.
+ */
+const STARTUP_RETRY_MS = [1_000, 2_000, 5_000, 10_000, 30_000] as const
+
 export interface AgentBadgeAction {
   setBadgeText(details: { text: string }): Promise<void> | void
   setBadgeBackgroundColor(details: { color: string }): Promise<void> | void
@@ -47,12 +54,17 @@ export const registerAgentAttentionBadge = (input: {
   let pendingRunId: string | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
 
+  /**
+   * Remembered only once the browser took it. A rejected update that was
+   * remembered anyway would stop every later announcement for the same state
+   * from trying again, and the mark would stay wrong until the state changed.
+   */
   const show = async (needsUser: boolean) => {
     if (shown === needsUser) return
-    shown = needsUser
     await input.action.setBadgeText({ text: needsUser ? "!" : "" })
     if (needsUser)
       await input.action.setBadgeBackgroundColor({ color: "#d97706" })
+    shown = needsUser
   }
 
   const refresh = async (runId: string | undefined) => {
@@ -76,14 +88,35 @@ export const registerAgentAttentionBadge = (input: {
   }
 
   const unsubscribe = input.service.subscribe(schedule)
+  let disposed = false
+  let retry: ReturnType<typeof setTimeout> | undefined
+
   /** A worker that restarted onto a parked run marks it without a new write. */
-  void input.service
-    .latestRunId()
-    .then((runId) => refresh(runId))
-    .catch(() => undefined)
+  const lookUpParkedRun = (attempt: number) => {
+    void input.service
+      .latestRunId()
+      .then((runId) => refresh(runId))
+      .catch((error: unknown) => {
+        const delay = STARTUP_RETRY_MS[attempt]
+        logger.warn(
+          "Agent attention badge could not read the latest run",
+          "Agent",
+          {
+            attempt,
+            retrying: delay !== undefined,
+            name: error instanceof Error ? error.name : typeof error
+          }
+        )
+        if (disposed || delay === undefined) return
+        retry = setTimeout(() => lookUpParkedRun(attempt + 1), delay)
+      })
+  }
+  lookUpParkedRun(0)
 
   return () => {
+    disposed = true
     unsubscribe()
     if (timer) clearTimeout(timer)
+    if (retry) clearTimeout(retry)
   }
 }

@@ -174,7 +174,11 @@ export const AgentWorkspace = ({
     screenshotsAcknowledged === true
   )
   const canSubmit = (text: string) =>
-    Boolean(provider && tab && text) &&
+    /** What a start is sent with, not only what the preflight shows. */
+    Boolean(
+      selectedProviderId && selectedModel && candidateTab && provider && tab
+    ) &&
+    Boolean(text) &&
     !runInProgress &&
     !remoteNeedsAcknowledgement &&
     /*
@@ -198,11 +202,23 @@ export const AgentWorkspace = ({
       failure: connection.failure
     }
     if (followUp) submitFollowUp(shownRun)
-    connection.start(
-      text,
-      allowRoutineActions,
-      followUp && { parentRunId: followUp.parentRunId, mode: followUp.mode }
-    )
+    void connection
+      .start(
+        text,
+        allowRoutineActions,
+        followUp && { parentRunId: followUp.parentRunId, mode: followUp.mode }
+      )
+      .then((sent) => {
+        /**
+         * Nothing left the panel — no port in a reconnect window, a refused
+         * or failed permission prompt — so nothing will ever answer. The
+         * pending start is dropped and the goal goes back in the box, or
+         * every later Start would wait on a reply that is not coming.
+         */
+        if (sent || pending.current?.text !== text) return
+        pending.current = undefined
+        prefillComposer(text)
+      })
   }
 
   /**

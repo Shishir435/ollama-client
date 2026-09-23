@@ -106,4 +106,58 @@ describe("the Agent's toolbar mark", () => {
     await badge.move("awaiting_approval")
     expect(badge.action.setBadgeText).not.toHaveBeenCalled()
   })
+
+  /**
+   * A rejected update that was remembered anyway would stop the next
+   * announcement for the same state from trying again.
+   */
+  it("tries again after the browser refused an update", async () => {
+    const badge = harness("executing")
+    await vi.advanceTimersByTimeAsync(0)
+    badge.action.setBadgeText.mockClear()
+    badge.action.setBadgeText.mockRejectedValueOnce(new Error("busy"))
+
+    await badge.move("awaiting_approval")
+    await badge.move("awaiting_approval")
+
+    expect(badge.action.setBadgeText).toHaveBeenCalledTimes(2)
+    expect(badge.action.setBadgeText).toHaveBeenLastCalledWith({ text: "!" })
+  })
+
+  /**
+   * A run parked before the worker restarted announces nothing new, so the
+   * startup lookup is the only way its mark comes back — a storage hiccup at
+   * start must not lose it.
+   */
+  it("retries the startup lookup until storage answers, and stops when disposed", async () => {
+    const action = { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn() }
+    const latestRunId = vi
+      .fn<() => Promise<string | undefined>>()
+      .mockRejectedValueOnce(new Error("owner not ready"))
+      .mockResolvedValue("run-1")
+    const stop = registerAgentAttentionBadge({
+      service: { subscribe: () => () => undefined, latestRunId },
+      action,
+      readRun: async () => state("paused")
+    })
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(action.setBadgeText).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(action.setBadgeText).toHaveBeenLastCalledWith({ text: "!" })
+
+    const failing = vi.fn(async () => {
+      throw new Error("down")
+    })
+    const stopFailing = registerAgentAttentionBadge({
+      service: { subscribe: () => () => undefined, latestRunId: failing },
+      action,
+      readRun: async () => undefined
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    stopFailing()
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(failing).toHaveBeenCalledOnce()
+    stop()
+  })
 })

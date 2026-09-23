@@ -147,6 +147,7 @@ beforeEach(() => {
   port.snapshot = { steps: [], provider: readyProvider }
   port.failure = undefined
   port.start.mockReset()
+  port.start.mockResolvedValue(true)
   agentDraftStore.setState({
     acting: true,
     prefill: undefined,
@@ -375,5 +376,24 @@ describe("the Agent in the chat workspace", () => {
 
     expect(sessions.loadSessionMessages).toHaveBeenCalledOnce()
     expect(sessions.loadSessionMessages).toHaveBeenCalledWith("s-1")
+  })
+
+  /**
+   * A start that never left the panel — no port in a reconnect window, a
+   * refused permission prompt — gets no reply. It must not hold every later
+   * Start, and the goal the box cleared goes back.
+   */
+  it("gives the goal back and frees Start when nothing was sent", async () => {
+    port.start.mockResolvedValueOnce(false)
+    render(<Composer />)
+
+    write("Close this issue")
+    await act(async () => {
+      fireEvent.click(startButton())
+    })
+
+    expect(screen.getByTestId("prefill")).toHaveTextContent("Close this issue")
+    fireEvent.click(startButton())
+    expect(port.start).toHaveBeenCalledTimes(2)
   })
 })
