@@ -9,7 +9,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { requestAgentPerceptionPermission } from "@/lib/permissions"
 import {
   type AgentDebugReporter,
   requestAgentDebugReport
@@ -202,61 +201,38 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
       const trimmed = goal.trim()
       if (!trimmed) return Promise.resolve(false)
       setBusy(true)
-      /*
-       * The permission request goes first and unawaited-by-anything-else:
-       * Chromium only honours `permissions.request` while the click that
-       * caused it is still the current task, and an already-granted
-       * permission resolves without prompting. Querying the tab first would
-       * spend the gesture and leave the user with a silent refusal.
+      const sent = send({
+        type: "agent_start",
+        goal: trimmed,
+        tabId,
+        providerId,
+        modelId,
+        ...(sessionId ? { sessionId } : {}),
+        ...(followUp
+          ? {
+              followUp: {
+                parentRunId: followUp.parentRunId,
+                mode: followUp.mode
+              }
+            }
+          : {}),
+        ...(allowRoutineActions ? { allowRoutineActions: true } : {}),
+        allowExperimentalModel
+      })
+      /**
+       * No port: the worker is between connections. Said, not swallowed — a
+       * Start that did nothing and said nothing reads as the Agent ignoring
+       * the user.
        */
-      return requestAgentPerceptionPermission()
-        .then((granted) => {
-          if (!granted) {
-            setBusy(false)
-            setFailure({
-              command: "agent_start",
-              messageKey: "agent.error.permission_denied",
-              message: "Agent needs page-observation permission to start."
-            })
-            return false
-          }
-          const sent = send({
-            type: "agent_start",
-            goal: trimmed,
-            tabId,
-            providerId,
-            modelId,
-            ...(sessionId ? { sessionId } : {}),
-            ...(followUp
-              ? {
-                  followUp: {
-                    parentRunId: followUp.parentRunId,
-                    mode: followUp.mode
-                  }
-                }
-              : {}),
-            ...(allowRoutineActions ? { allowRoutineActions: true } : {}),
-            allowExperimentalModel
-          })
-          /**
-           * No port: the worker is between connections. Said, not
-           * swallowed — a Start that did nothing and said nothing reads as
-           * the Agent ignoring the user.
-           */
-          if (!sent) {
-            setBusy(false)
-            setFailure({
-              command: "agent_start",
-              messageKey: "agent.error.unknown",
-              message: "Agent could not complete that request."
-            })
-          }
-          return sent
+      if (!sent) {
+        setBusy(false)
+        setFailure({
+          command: "agent_start",
+          messageKey: "agent.error.unknown",
+          message: "Agent could not complete that request."
         })
-        .catch(() => {
-          setBusy(false)
-          return false
-        })
+      }
+      return Promise.resolve(sent)
     },
     [allowExperimentalModel, modelId, providerId, sessionId, tabId, send]
   )

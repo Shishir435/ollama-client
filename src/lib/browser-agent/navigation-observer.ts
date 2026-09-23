@@ -90,7 +90,7 @@ export const createAgentNavigationObserver = (input: {
   }
 }
 
-/** Bind the pure observer to Chromium after `webNavigation` is granted. */
+/** Bind the pure observer to Chromium, where `webNavigation` is install-time. */
 export const startBrowserAgentNavigationObserver = (
   onInvalidate?: (snapshot: AgentNavigationSnapshot) => void
 ): AgentNavigationObserver =>

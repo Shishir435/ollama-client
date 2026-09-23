@@ -35,12 +35,6 @@ vi.mock("@/lib/browser-api", () => ({
   browser: { runtime: { connect: () => connect() } }
 }))
 
-const requestPerception = vi.fn(async () => true)
-
-vi.mock("@/lib/permissions", () => ({
-  requestAgentPerceptionPermission: () => requestPerception()
-}))
-
 const emit = (snapshot: AgentPanelSnapshot) => {
   for (const listener of messageListeners) {
     listener({ type: "agent_snapshot", version: 1, snapshot })
@@ -86,8 +80,6 @@ describe("useAgentRun", () => {
     disconnectListeners.clear()
     disconnect.mockClear()
     connect.mockClear()
-    requestPerception.mockClear()
-    requestPerception.mockResolvedValue(true)
   })
 
   it("reads historical debug reports through a correlated background request", async () => {
@@ -183,21 +175,16 @@ describe("useAgentRun", () => {
     ])
   })
 
-  it("asks for page-observation permission before it starts anything", async () => {
-    requestPerception.mockResolvedValue(false)
+  it("starts without asking for any permission — webNavigation is install-time", async () => {
     const { result } = renderHook(() => useAgentRun(model))
 
     await act(async () => {
       result.current.start("Find the pricing page")
       await Promise.resolve()
-      await Promise.resolve()
     })
 
-    expect(requestPerception).toHaveBeenCalledOnce()
-    expect(posted).toEqual([])
-    expect(result.current.failure?.messageKey).toBe(
-      "agent.error.permission_denied"
-    )
+    expect(posted).toHaveLength(1)
+    expect(result.current.failure).toBeUndefined()
   })
 
   it("sends nothing without a model or a goal", async () => {
