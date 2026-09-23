@@ -160,4 +160,32 @@ describe("the Agent's toolbar mark", () => {
     expect(failing).toHaveBeenCalledOnce()
     stop()
   })
+
+  /**
+   * The race review found: a run leaves its wait while the earlier "!" is
+   * still being set. Run in order, the clear comes last and the icon ends
+   * matching the run.
+   */
+  it("ends on the current state when updates overlap", async () => {
+    const badge = harness("executing")
+    await vi.advanceTimersByTimeAsync(0)
+    badge.action.setBadgeText.mockClear()
+    let release: () => void = () => undefined
+    badge.action.setBadgeText.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        })
+    )
+
+    await badge.move("awaiting_approval")
+    await badge.move("observing")
+    release()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(badge.action.setBadgeText.mock.calls.map(([call]) => call)).toEqual([
+      { text: "!" },
+      { text: "" }
+    ])
+  })
 })

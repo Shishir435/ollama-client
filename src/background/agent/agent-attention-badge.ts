@@ -78,12 +78,27 @@ export const registerAgentAttentionBadge = (input: {
     }
   }
 
+  /**
+   * One update at a time, in the order they were asked for. Two refreshes in
+   * flight could land out of order — a run leaving its wait clears the mark,
+   * then the earlier "!" finishes and restores it — and the icon would claim
+   * the user is needed after the run had moved on. Each one reads the row
+   * when its turn comes, so the last to run is the one that is current.
+   */
+  let queue: Promise<void> = Promise.resolve()
+  const enqueue = (runId: string | undefined) => {
+    queue = queue.then(() => refresh(runId))
+  }
+  /** Set by the first announcement, which makes the startup lookup moot. */
+  let announced = false
+
   const schedule = (runId: string) => {
+    announced = true
     pendingRunId = runId
     if (timer) return
     timer = setTimeout(() => {
       timer = undefined
-      void refresh(pendingRunId)
+      enqueue(pendingRunId)
     }, SETTLE_MS)
   }
 
@@ -95,7 +110,9 @@ export const registerAgentAttentionBadge = (input: {
   const lookUpParkedRun = (attempt: number) => {
     void input.service
       .latestRunId()
-      .then((runId) => refresh(runId))
+      .then((runId) => {
+        if (!announced) enqueue(runId)
+      })
       .catch((error: unknown) => {
         const delay = STARTUP_RETRY_MS[attempt]
         logger.warn(
