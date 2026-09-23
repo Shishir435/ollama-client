@@ -49,16 +49,34 @@ export const ensureAgentRunChatLinkage = (db: MigrationDatabase): void => {
     addColumn(db, "agent_runs", "requestMessageId", "INTEGER", runColumns)
     addColumn(db, "agent_runs", "resultMessageId", "INTEGER", runColumns)
     addColumn(db, "agent_runs", "parentRunId", "TEXT", runColumns)
-    db.run(
-      `CREATE INDEX IF NOT EXISTS idx_agent_runs_session
-         ON agent_runs(sessionId, createdAt)`
-    )
   }
 
   const messageColumns = columnsOf(db, "messages")
   addColumn(db, "messages", "agentRunId", "TEXT", messageColumns)
   addColumn(db, "messages", "agentHandoff", "TEXT", messageColumns)
-  db.run(
-    "CREATE INDEX IF NOT EXISTS idx_messages_agent_run ON messages(agentRunId)"
-  )
+  ensureAgentRunLinkageIndexes(db)
+}
+
+/**
+ * The linkage indexes, created only where the columns they index exist.
+ *
+ * They used to sit in the schema script, which runs on every open before any
+ * migration. On a profile older than migration 18 the columns were not there
+ * yet, the CREATE INDEX answered `no such column`, and the database never
+ * opened — every chat of every upgrading user unreachable behind two indexes.
+ * Idempotent, so the drift repair calls it on every open: a fresh database is
+ * stamped current and never runs migration 18, and still needs them.
+ */
+export const ensureAgentRunLinkageIndexes = (db: MigrationDatabase): void => {
+  if (columnsOf(db, "agent_runs").has("sessionId")) {
+    db.run(
+      `CREATE INDEX IF NOT EXISTS idx_agent_runs_session
+         ON agent_runs(sessionId, createdAt)`
+    )
+  }
+  if (columnsOf(db, "messages").has("agentRunId")) {
+    db.run(
+      "CREATE INDEX IF NOT EXISTS idx_messages_agent_run ON messages(agentRunId)"
+    )
+  }
 }

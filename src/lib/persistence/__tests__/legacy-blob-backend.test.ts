@@ -317,6 +317,64 @@ describe("legacy blob backend", () => {
   // Backup restore
   // -------------------------------------------------------------------------
 
+  /**
+   * The upgrade every existing user makes, on the one backend vitest can run.
+   * OPFS is the backend that broke — it runs the schema script before the
+   * migrations on every open — and the schema test covers that ordering; this
+   * one proves the legacy path lands in the same shape.
+   */
+  it("opens and migrates a profile from before the Agent chat linkage", async () => {
+    const source = await bootEngine()
+    await addSession(source, "before-linkage")
+    for (const sql of [
+      "DROP INDEX IF EXISTS idx_messages_agent_run",
+      "DROP INDEX IF EXISTS idx_agent_runs_session",
+      "ALTER TABLE messages DROP COLUMN agentRunId",
+      "ALTER TABLE messages DROP COLUMN agentHandoff",
+      "ALTER TABLE agent_runs DROP COLUMN sessionId",
+      "ALTER TABLE agent_runs DROP COLUMN requestMessageId",
+      "ALTER TABLE agent_runs DROP COLUMN resultMessageId",
+      "ALTER TABLE agent_runs DROP COLUMN parentRunId",
+      "PRAGMA user_version = 17"
+    ]) {
+      await source.submit({ op: "run", sql })
+    }
+    await source.submit({ op: "flush" })
+    const profile = bytesOf(await source.submit({ op: "exportDb" }))
+
+    await deleteLegacyBlob()
+    await writeLegacyBlob(profile)
+    const upgraded = await bootEngine()
+
+    await expect(sessionIds(upgraded)).resolves.toEqual(["before-linkage"])
+    const indexes = (await upgraded.submit({
+      op: "query",
+      sql: `SELECT name FROM sqlite_master
+             WHERE type = 'index'
+               AND name IN ('idx_messages_agent_run', 'idx_agent_runs_session')
+             ORDER BY name`
+    })) as QueryRow[]
+    expect(indexes.map((row) => row.name)).toEqual([
+      "idx_agent_runs_session",
+      "idx_messages_agent_run"
+    ])
+  })
+
+  it("gives a fresh database the linkage indexes too", async () => {
+    const engine = await bootEngine()
+    const indexes = (await engine.submit({
+      op: "query",
+      sql: `SELECT name FROM sqlite_master
+             WHERE type = 'index'
+               AND name IN ('idx_messages_agent_run', 'idx_agent_runs_session')
+             ORDER BY name`
+    })) as QueryRow[]
+    expect(indexes.map((row) => row.name)).toEqual([
+      "idx_agent_runs_session",
+      "idx_messages_agent_run"
+    ])
+  })
+
   it("replaces the blob with a verified backup", async () => {
     const source = await bootEngine()
     await addSession(source, "from-backup")

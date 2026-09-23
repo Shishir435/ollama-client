@@ -1,5 +1,8 @@
 import { logger } from "@/lib/logger"
-import { ensureAgentRunChatLinkage } from "./add-agent-run-chat-linkage"
+import {
+  ensureAgentRunChatLinkage,
+  ensureAgentRunLinkageIndexes
+} from "./add-agent-run-chat-linkage"
 import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
@@ -313,6 +316,12 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
     repair.apply()
     repaired += 1
   }
+  /**
+   * Not counted as a repair: on a fresh database this is how the indexes are
+   * created at all, since the schema script cannot name columns a migration
+   * adds.
+   */
+  ensureAgentRunLinkageIndexes(db)
 
   if (repaired > 0) {
     logger.warn(
