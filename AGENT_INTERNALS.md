@@ -1002,9 +1002,12 @@ Read the section your change touches; you do not need the whole file.
   detaches and dismisses a held dialog, the run service writes an uncertain,
   non-mutating release receipt. It appends a verified receipt under the same
   step id after detach succeeds. If that final write fails, durable history
-  keeps the uncertain marker and a later cleanup retries the final write. If
-  storage rejects the initial intent, cleanup still detaches so a closed panel
-  cannot leave the page blocked by a dialog; the failure is logged.
+  keeps the uncertain marker and cleanup retries the final write before the
+  next attachment. A failed retry leaves that marker uncertain and is
+  quarantined, so a later session's dialog gets its own receipt even when its
+  dialog id repeats. If storage rejects the initial intent, cleanup still
+  detaches so a closed panel cannot leave the page blocked by a dialog; the
+  failure is logged.
 
 ## Measured behaviour and benchmarks
 

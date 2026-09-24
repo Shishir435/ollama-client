@@ -112,7 +112,7 @@ const browserSessions = () => {
     attach: vi.fn(async (_runId: string, _tabId: number) => undefined),
     detach: vi.fn(async (_runId: string) => undefined),
     isAttached: vi.fn(() => true),
-    attachedTabId: vi.fn(() => 7),
+    attachedTabId: vi.fn((_runId: string): number | undefined => 7),
     frames: vi.fn(() => ({ status: "tracking" as const, frames: [] })),
     mapFrame: vi.fn(() => ({
       mapped: false as const,
@@ -573,6 +573,49 @@ describe("Agent run service", () => {
       "verified"
     ])
     expect(new Set(writes.map((step) => step.stepId)).size).toBe(1)
+  })
+
+  it("records a new session's dialog after an older dismissal stays uncertain", async () => {
+    const browser = browserSessions()
+    let attached = false
+    browser.manager.attach.mockImplementation(async () => {
+      attached = true
+    })
+    browser.manager.detach.mockImplementation(async () => {
+      attached = false
+    })
+    browser.manager.attachedTabId.mockImplementation(() =>
+      attached ? 7 : undefined
+    )
+    browser.manager.openDialog.mockImplementation(() =>
+      attached ? (heldDialog as never) : undefined
+    )
+    const port = persistence()
+    const appendStep = vi.fn(port.appendStep)
+    appendStep.mockImplementationOnce(port.appendStep)
+    appendStep.mockRejectedValueOnce(new Error("first final write failed"))
+    appendStep.mockRejectedValueOnce(new Error("retry failed"))
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+
+    await agent.start(startInput)
+    await agent.pause("run-1")
+    await agent.resume("run-1")
+    await agent.pause("run-1", "panel_closed")
+
+    const writes = appendStep.mock.calls.map(([step]) => step)
+    const intents = writes.filter((step) => step.status === "uncertain")
+    expect(intents).toHaveLength(2)
+    expect(intents[0]?.stepId).not.toBe(intents[1]?.stepId)
+    expect(writes.at(-1)).toMatchObject({
+      stepId: intents[1]?.stepId,
+      status: "verified"
+    })
+    expect(browser.manager.attach).toHaveBeenCalledTimes(2)
+    expect(browser.manager.detach).toHaveBeenCalledTimes(2)
   })
 
   it("releases a held dialog if the intent receipt cannot be stored", async () => {

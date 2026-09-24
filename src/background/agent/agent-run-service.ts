@@ -312,10 +312,70 @@ export const createAgentRunService = (input?: {
     } satisfies AgentBrowserSessionManager)
 
   const recordedDialogDismissals = new Set<string>()
+  const browserSessionIds = new Map<string, string>()
   const pendingDialogDismissals = new Map<
     string,
-    { dialogId: string; stepId: string }
+    { runId: string; dialogId: string; stepId: string; detached: boolean }
   >()
+  const finishPendingDialogDismissals = async (
+    runId: string,
+    quarantineOnFailure = false
+  ): Promise<void> => {
+    for (const [dismissalId, pending] of pendingDialogDismissals) {
+      if (pending.runId !== runId) continue
+      if (!pending.detached) {
+        if (quarantineOnFailure) pendingDialogDismissals.delete(dismissalId)
+        continue
+      }
+      try {
+        const at = now()
+        await persistence.appendStep({
+          runId,
+          stepId: pending.stepId,
+          status: "verified",
+          at,
+          command: {
+            type: "handle_dialog",
+            snapshotId: `dialog-release:${pending.dialogId}`,
+            generation: 0,
+            dialogId: pending.dialogId,
+            accept: false
+          },
+          mutating: false,
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "dialog_release",
+              summary:
+                "Browser control ended with the native dialog dismissed.",
+              observedAt: at
+            }
+          }
+        })
+        recordedDialogDismissals.add(dismissalId)
+        pendingDialogDismissals.delete(dismissalId)
+      } catch (error) {
+        // The uncertain intent remains durable. A new attachment must not
+        // inherit this session's pending release or suppress its own dialog.
+        if (quarantineOnFailure) pendingDialogDismissals.delete(dismissalId)
+        logger.warn("Agent dialog release receipt failed", "Agent", {
+          runId,
+          name: error instanceof Error ? error.name : typeof error
+        })
+      }
+    }
+  }
+  const attachBrowserControl = async (
+    runId: string,
+    tabId: number
+  ): Promise<void> => {
+    const alreadyAttached = browserSessions.attachedTabId(runId) !== undefined
+    if (!alreadyAttached) await finishPendingDialogDismissals(runId, true)
+    await browserSessions.attach(runId, tabId)
+    if (!alreadyAttached) {
+      browserSessionIds.set(runId, globalThis.crypto.randomUUID())
+    }
+  }
   const detachBrowserSession = async (runId: string): Promise<void> => {
     try {
       const tabId = browserSessions.attachedTabId(runId)
@@ -323,15 +383,17 @@ export const createAgentRunService = (input?: {
         tabId === undefined
           ? undefined
           : browserSessions.openDialog(runId, tabId)
-      const dismissalId = held ? `${runId}:${held.id}` : undefined
+      const dismissalId = held
+        ? `${runId}:dialog-release:${browserSessionIds.get(runId) ?? "unknown"}:${held.id}`
+        : undefined
       if (
         held &&
         dismissalId &&
         !recordedDialogDismissals.has(dismissalId) &&
-        !pendingDialogDismissals.has(runId)
+        !pendingDialogDismissals.has(dismissalId)
       ) {
         const at = now()
-        const stepId = `${runId}:dialog-release:${held.id}`
+        const stepId = dismissalId
         // Persist the uncertain release before detach can dismiss the dialog.
         // If the worker dies or the final write fails, history still records
         // that the dialog outcome is unresolved.
@@ -359,7 +421,12 @@ export const createAgentRunService = (input?: {
               }
             }
           })
-          pendingDialogDismissals.set(runId, { dialogId: held.id, stepId })
+          pendingDialogDismissals.set(dismissalId, {
+            runId,
+            dialogId: held.id,
+            stepId,
+            detached: false
+          })
         } catch (error) {
           // The page cannot stay blocked by an orphaned dialog when storage
           // fails. Release it, while leaving the failed write visible in logs.
@@ -370,35 +437,11 @@ export const createAgentRunService = (input?: {
         }
       }
       await browserSessions.detach(runId)
-      const pending = pendingDialogDismissals.get(runId)
-      if (pending) {
-        const at = now()
-        await persistence.appendStep({
-          runId,
-          stepId: pending.stepId,
-          status: "verified",
-          at,
-          command: {
-            type: "handle_dialog",
-            snapshotId: `dialog-release:${pending.dialogId}`,
-            generation: 0,
-            dialogId: pending.dialogId,
-            accept: false
-          },
-          mutating: false,
-          verification: {
-            outcome: "confirmed",
-            evidence: {
-              kind: "dialog_release",
-              summary:
-                "Browser control ended with the native dialog dismissed.",
-              observedAt: at
-            }
-          }
-        })
-        recordedDialogDismissals.add(`${runId}:${pending.dialogId}`)
-        pendingDialogDismissals.delete(runId)
+      if (dismissalId) {
+        const pending = pendingDialogDismissals.get(dismissalId)
+        if (pending) pending.detached = true
       }
+      await finishPendingDialogDismissals(runId)
     } catch (error) {
       logger.warn("Agent browser release failed", "Agent", {
         runId,
@@ -486,7 +529,7 @@ export const createAgentRunService = (input?: {
     if (attached === undefined || attached === state.controlledTabId) return
     await detachBrowserSession(state.id)
     try {
-      await browserSessions.attach(state.id, state.controlledTabId)
+      await attachBrowserControl(state.id, state.controlledTabId)
     } catch (error) {
       interruptedBrowserSessions.add(state.id)
       logger.warn("Agent browser attach did not follow the run", "Agent", {
@@ -628,7 +671,7 @@ export const createAgentRunService = (input?: {
     }
     interruptedBrowserSessions.delete(state.id)
     try {
-      await browserSessions.attach(state.id, state.controlledTabId)
+      await attachBrowserControl(state.id, state.controlledTabId)
     } catch (error) {
       if (
         typeof error === "object" &&
