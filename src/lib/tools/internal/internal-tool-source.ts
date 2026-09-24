@@ -80,7 +80,15 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: cancelReminderDefinition, run: runCancelReminder },
   { definition: saveArtifactDefinition, run: runSaveArtifact },
   { definition: captureScreenshotDefinition, run: runCaptureScreenshot },
-  { definition: browserTaskDefinition, run: runBrowserTask }
+  /**
+   * The build constant inline, as the side panel reads it: Firefox has no
+   * Agent, so it carries neither the tool nor its description. Absent in
+   * tests, where it counts as compiled in.
+   */
+  ...(typeof __AGENT_PREVIEW_ENABLED__ === "undefined" ||
+  __AGENT_PREVIEW_ENABLED__
+    ? [{ definition: browserTaskDefinition, run: runBrowserTask }]
+    : [])
 ]
 
 const isToolVisible = async (tool: InternalTool): Promise<boolean> => {

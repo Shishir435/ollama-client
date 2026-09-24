@@ -391,8 +391,12 @@ const budgets: Budget[] = [
      * turn-row linkage and the wait on a delegated run now live in the
      * worker, and the start prompt's confirmation hook rides on the tool
      * loop every chat turn uses.
+     *
+     * Firefox compiles `browser_task` out, but the tool loop's confirmation
+     * hook, the turn fields it reads and the permission-mode setting are
+     * chat infrastructure both browsers share: 210,289.
      */
-    max: isFirefox ? 210_000 : 288_000
+    max: isFirefox ? 210_500 : 288_000
   }
 ]
 
