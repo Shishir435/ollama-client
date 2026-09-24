@@ -480,7 +480,7 @@ describe("Agent panel port", () => {
     await settled()
 
     expect(unsubscribe).toHaveBeenCalledOnce()
-    expect(agent.pause).toHaveBeenCalledWith("run-1")
+    expect(agent.pause).toHaveBeenCalledWith("run-1", "panel_closed")
     expect(messages).toHaveLength(delivered)
   })
 
@@ -500,6 +500,6 @@ describe("Agent panel port", () => {
 
     second.close()
     await settled()
-    expect(agent.pause).toHaveBeenCalledWith("run-1")
+    expect(agent.pause).toHaveBeenCalledWith("run-1", "panel_closed")
   })
 })

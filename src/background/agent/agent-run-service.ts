@@ -67,7 +67,7 @@ export interface AgentRunSnapshot {
 
 export interface AgentRunService {
   start(input: StartAgentRunInput): Promise<AgentRunState>
-  pause(runId: string): Promise<void>
+  pause(runId: string, reason?: AgentPauseReason): Promise<void>
   resume(
     runId: string,
     correction?: { text: string; pausedAt: number }
@@ -312,6 +312,10 @@ export const createAgentRunService = (input?: {
     } satisfies AgentBrowserSessionManager)
 
   const recordedDialogDismissals = new Set<string>()
+  const pendingDialogDismissals = new Map<
+    string,
+    { dialogId: string; stepId: string }
+  >()
   const detachBrowserSession = async (runId: string): Promise<void> => {
     try {
       const tabId = browserSessions.attachedTabId(runId)
@@ -319,20 +323,66 @@ export const createAgentRunService = (input?: {
         tabId === undefined
           ? undefined
           : browserSessions.openDialog(runId, tabId)
-      await browserSessions.detach(runId)
       const dismissalId = held ? `${runId}:${held.id}` : undefined
-      if (held && dismissalId && !recordedDialogDismissals.has(dismissalId)) {
+      if (
+        held &&
+        dismissalId &&
+        !recordedDialogDismissals.has(dismissalId) &&
+        !pendingDialogDismissals.has(runId)
+      ) {
+        const at = now()
+        const stepId = `${runId}:dialog-release:${held.id}`
+        // Persist the uncertain release before detach can dismiss the dialog.
+        // If the worker dies or the final write fails, history still records
+        // that the dialog outcome is unresolved.
+        try {
+          await persistence.appendStep({
+            runId,
+            stepId,
+            status: "uncertain",
+            at,
+            command: {
+              type: "handle_dialog",
+              snapshotId: `dialog-release:${held.id}`,
+              generation: 0,
+              dialogId: held.id,
+              accept: false
+            },
+            mutating: false,
+            verification: {
+              outcome: "ambiguous",
+              evidence: {
+                kind: "dialog_release",
+                summary:
+                  "Browser control release started; dialog outcome is unconfirmed.",
+                observedAt: at
+              }
+            }
+          })
+          pendingDialogDismissals.set(runId, { dialogId: held.id, stepId })
+        } catch (error) {
+          // The page cannot stay blocked by an orphaned dialog when storage
+          // fails. Release it, while leaving the failed write visible in logs.
+          logger.warn("Agent dialog release intent failed", "Agent", {
+            runId,
+            name: error instanceof Error ? error.name : typeof error
+          })
+        }
+      }
+      await browserSessions.detach(runId)
+      const pending = pendingDialogDismissals.get(runId)
+      if (pending) {
         const at = now()
         await persistence.appendStep({
           runId,
-          stepId: `${runId}:dialog-release:${held.id}:${at}`,
+          stepId: pending.stepId,
           status: "verified",
           at,
           command: {
             type: "handle_dialog",
-            snapshotId: `dialog-release:${held.id}`,
+            snapshotId: `dialog-release:${pending.dialogId}`,
             generation: 0,
-            dialogId: held.id,
+            dialogId: pending.dialogId,
             accept: false
           },
           mutating: false,
@@ -346,10 +396,11 @@ export const createAgentRunService = (input?: {
             }
           }
         })
-        recordedDialogDismissals.add(dismissalId)
+        recordedDialogDismissals.add(`${runId}:${pending.dialogId}`)
+        pendingDialogDismissals.delete(runId)
       }
     } catch (error) {
-      logger.warn("Agent browser detach failed", "Agent", {
+      logger.warn("Agent browser release failed", "Agent", {
         runId,
         name: error instanceof Error ? error.name : typeof error
       })
@@ -391,7 +442,7 @@ export const createAgentRunService = (input?: {
       return false
     }
     if (
-      state.pauseReason !== undefined &&
+      !state.pauseReason ||
       !DIALOG_HOLDING_PAUSES.includes(state.pauseReason)
     ) {
       return false
@@ -781,10 +832,20 @@ export const createAgentRunService = (input?: {
         admitting = false
       }
     },
-    async pause(runId) {
-      await drive(await loadRunning(runId), (controller) =>
-        controller.requestPause(runId)
-      )
+    async pause(runId, reason = "user") {
+      try {
+        const state = await loadRunning(runId)
+        if (state.status !== "paused") {
+          await drive(state, (controller) =>
+            controller.requestPause(runId, reason)
+          )
+        }
+      } finally {
+        // A panel can close after an earlier user/question pause already held
+        // a dialog. That pause cannot transition again, but the last panel
+        // must still release the browser it can no longer supervise.
+        if (reason === "panel_closed") await detachBrowserSession(runId)
+      }
     },
     async resume(runId, correction) {
       const state = await loadRunning(runId)

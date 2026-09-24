@@ -916,6 +916,30 @@ describe("a control this run already committed through", () => {
     expect(decision.request.consequence.length).toBeLessThanOrEqual(1_000)
   })
 
+  it("asks without claiming a repeat when action history is unreadable", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["activation"], { target: deleteButton }), {
+        committedEffectsUnknown: true,
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.grantable).toBeUndefined()
+    expect(decision.request.consequence).toMatch(/^This run's action record/)
+    expect(decision.request.display?.consequence[0]?.key).toBe(
+      "agent.approval_text.unknown_prior_effect"
+    )
+  })
+
   it("keeps a destructive repeat critical", () => {
     const decision = evaluateAgentPolicy(
       input(effect(["activation", "destructive"], { target: deleteButton }), {

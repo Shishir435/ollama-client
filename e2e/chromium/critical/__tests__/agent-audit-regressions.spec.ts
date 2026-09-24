@@ -26,7 +26,10 @@ runAgentScenario({
   decide(observation) {
     if (observation.url.includes("/item/"))
       return { type: "complete", summary: "Opened Atlas notebook." }
-    if (observation.url.includes("/search"))
+    if (observation.url.includes("/search")) {
+      if (new URL(observation.url).searchParams.get("q") !== "atlas") {
+        throw new Error("The shop did not search for atlas")
+      }
       return {
         type: "click",
         requirementId: "r1",
@@ -35,6 +38,7 @@ runAgentScenario({
           (element) => element.name === "Atlas notebook"
         )?.ref
       }
+    }
     const search = agentFixtureElement(
       observation,
       (element) => element.name === "Search products"
@@ -68,20 +72,28 @@ runAgentScenario({
   goal: "Fill Name with Ada, Email with ada@example.com and Message with Hello. Do not submit the form.",
   status: "completed",
   plan: [
-    { text: "the contact fields hold the requested values", kind: "change" },
+    { text: "Name is Ada", kind: "change" },
+    { text: "Email is ada@example.com", kind: "change" },
+    { text: "Message is Hello", kind: "change" },
     { text: "do not submit the form", kind: "change" }
   ],
   html: () => AUDIT_CONTACT,
   decide(observation) {
     const named = (name: string) =>
       agentFixtureElement(observation, (element) => element.name === name)
-    if (named("Name")?.value === "Ada")
+    if (
+      named("Name")?.value === "Ada" &&
+      named("Email")?.value === "ada@example.com" &&
+      named("Message")?.value === "Hello"
+    )
       return {
         type: "complete",
         summary: "Filled the contact form without submitting it.",
         outcomes: [
           { id: "r1", met: true },
-          { id: "r2", met: true }
+          { id: "r2", met: true },
+          { id: "r3", met: true },
+          { id: "r4", met: true }
         ]
       }
     return {
@@ -160,6 +172,6 @@ runAgentScenario({
         deleteApproval.snapshot.pending?.kind === "approval"
         ? deleteApproval.snapshot.pending.request.pageEvidence
         : undefined
-    ).toContain("old-report-2023.pdf")
+    ).toMatch(/^Delete — old-report-2023\.pdf Delete$/)
   }
 })

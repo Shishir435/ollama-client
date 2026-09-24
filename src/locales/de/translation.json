@@ -254,14 +254,15 @@
       "accept_leave_consequence": "Die Seite darf verlassen werden. Nicht Gespeichertes geht verloren.",
       "dialog_unreadable": "Der Text wurde nicht gelesen: Der Dialog gehört zu einem Frame, den dieser Lauf nicht lesen darf.",
       "fill_fields": "Formularfelder in einem Schritt setzen: {{count}}",
-      "fill_fields_consequence": "Jedes unten aufgeführte Steuerelement wird der Reihe nach gesetzt; beim ersten, das nicht gesetzt werden kann, wird angehalten. Es wird nichts gedrückt, das Formular wird also nicht gesendet – eine Seite, die beim Tippen speichert, kann jede Änderung aber übernehmen.",
+      "fill_fields_consequence": "Jedes unten aufgeführte Steuerelement wird der Reihe nach gesetzt; beim ersten, das nicht gesetzt werden kann, wird angehalten. Der Agent drückt nicht auf Senden, aber die Seite kann das Formular automatisch senden oder Änderungen beim Tippen speichern.",
       "adopt_tab": "Tab {{tab}} unter {{url}} übernehmen",
       "navigate": "Zu {{url}} wechseln",
       "navigate_consequence": "Der Browser öffnet genau diese Adresse: {{url}}",
       "no_submit_consequence": "Dies wird in das unten gezeigte Steuerelement eingegeben. Es folgt kein Senden-Schritt, daher kann eine Seite, die beim Tippen speichert, es sofort übernehmen.",
       "command_consequence": "Der Browser führt diese Aktion am unten gezeigten Steuerelement aus.",
       "prior_form": "Ein früherer Lauf dieser Aufgabe hat dieses Formular bereits gesendet. Bestätige nur, wenn es eine neue Übermittlung ist und nicht dieselbe noch einmal.",
-      "repeated_effect": "Dieser Lauf hat das bereits einmal mit demselben Steuerelement auf dieser Seite getan. Bestätige nur, wenn es noch einmal geschehen soll."
+      "repeated_effect": "Dieser Lauf hat das bereits einmal mit demselben Steuerelement auf dieser Seite getan. Bestätige nur, wenn es noch einmal geschehen soll.",
+      "unknown_prior_effect": "Der Aktionsverlauf dieses Laufs konnte nicht gelesen werden. Diese Aktion könnte eine frühere Wirkung wiederholen. Bestätige nur, wenn eine Wiederholung sicher ist."
     },
     "dialog_kind": {
       "alert": "Hinweis",

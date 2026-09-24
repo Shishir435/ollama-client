@@ -360,6 +360,33 @@ describe("durable job rows decode as their writers wrote them", () => {
         },
         at: 3
       })
+      await repo.appendAgentStep({
+        runId: "agent-redaction-1",
+        stepId: "agent-redaction-1:3",
+        status: "verified",
+        command: {
+          type: "fill_form",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          fields: [
+            {
+              type: "clear_and_type",
+              ref: "e3",
+              text: "private-email@example.com"
+            }
+          ]
+        },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "fields",
+            summary: "All fields hold the resolved value",
+            observedAt: 4,
+            fields: [{ name: "Email" }]
+          }
+        },
+        at: 4
+      })
 
       const stored = await db.query(
         "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id",
@@ -368,7 +395,57 @@ describe("durable job rows decode as their writers wrote them", () => {
       const serialized = JSON.stringify(stored)
       expect(serialized).not.toContain("private-profile-value")
       expect(serialized).not.toContain("private-option-value")
+      expect(serialized).not.toContain("private-email@example.com")
+      expect(serialized).not.toContain("valueDigest")
       expect(serialized).toContain("[redacted]")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "refuses a partial step history for completion while keeping readable panel rows",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const db = await import("@/lib/sqlite/db")
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-partial-history",
+        goal: "Prepare a form without submitting",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 1,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt: 1,
+        updatedAt: 1
+      })
+      await repo.appendAgentStep({
+        runId: "agent-partial-history",
+        stepId: "agent-partial-history:1",
+        status: "verified",
+        at: 2,
+        mutating: false
+      })
+      await db.run(
+        "INSERT INTO agent_steps (runId, stepId, status, receipt, createdAt) VALUES (?, ?, ?, ?, ?)",
+        [
+          "agent-partial-history",
+          "agent-partial-history:2",
+          "verified",
+          "{unreadable",
+          3
+        ]
+      )
+
+      await expect(
+        repo.listAgentSteps("agent-partial-history")
+      ).resolves.toHaveLength(1)
+      await expect(
+        repo.listCompleteAgentSteps("agent-partial-history")
+      ).rejects.toThrow("Agent step history is incomplete")
     },
     TIMEOUT
   )

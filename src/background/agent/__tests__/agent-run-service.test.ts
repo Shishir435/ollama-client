@@ -493,6 +493,22 @@ describe("Agent run service", () => {
     expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
   })
 
+  it("releases a held dialog when the last panel closes after a user pause", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("user")
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+    expect(browser.manager.detach).not.toHaveBeenCalled()
+
+    await agent.pause("run-1", "panel_closed")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
   it("records a dialog dismissed when browser control ends", async () => {
     const browser = browserSessions()
     browser.manager.openDialog.mockReturnValue(heldDialog as never)
@@ -506,6 +522,15 @@ describe("Agent run service", () => {
     await agent.start(startInput)
     await agent.pause("run-1")
 
+    expect(appendStep.mock.invocationCallOrder[0]).toBeLessThan(
+      browser.manager.detach.mock.invocationCallOrder[0]
+    )
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "uncertain",
+        verification: expect.objectContaining({ outcome: "ambiguous" })
+      })
+    )
     expect(appendStep).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "verified",
@@ -519,6 +544,56 @@ describe("Agent run service", () => {
         })
       })
     )
+  })
+
+  it("retains dialog-release intent when the final receipt write fails", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const port = persistence()
+    const appendStep = vi.fn(port.appendStep)
+    appendStep.mockImplementationOnce(port.appendStep)
+    appendStep.mockRejectedValueOnce(new Error("storage unavailable"))
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "uncertain" })
+    )
+    await agent.pause("run-1", "panel_closed")
+    const writes = appendStep.mock.calls.map(([step]) => step)
+    expect(writes.map((step) => step.status)).toEqual([
+      "uncertain",
+      "verified",
+      "verified"
+    ])
+    expect(new Set(writes.map((step) => step.stepId)).size).toBe(1)
+  })
+
+  it("releases a held dialog if the intent receipt cannot be stored", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const port = persistence()
+    const appendStep = vi
+      .fn()
+      .mockRejectedValue(new Error("storage unavailable"))
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "uncertain" })
+    )
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
   })
 
   it("admits only one simultaneous start before the durable lookup settles", async () => {

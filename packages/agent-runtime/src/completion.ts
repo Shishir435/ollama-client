@@ -560,22 +560,42 @@ const refusePlannedReadClaim = (
     ? judgeEvidence(evidence, input, change ?? "unreadable", false)
     : undefined
 
-const NO_SUBMISSION_PATTERN =
+const NO_SUBMISSION_MENTION_PATTERN =
   /\b(?:do not|don't|never|without)\s+submitt?(?:ed|ing)?\b|\b(?:remain|stays?|is|was)\s+(?:not\s+submitted|unsubmitted)\b/i
+const NO_SUBMISSION_ONLY_PATTERN =
+  /^(?:(?:do not|don't|never)\s+submit(?:\s+(?:(?:the|this|a)\s+form|it))?|without\s+submitting(?:\s+(?:(?:the|this|a)\s+form|it))?|(?:(?:(?:the|this|a)\s+)?form\s+)?(?:remains?|stays?|is|was)\s+(?:not\s+submitted|unsubmitted))\.?$/i
+
+const NO_SUBMISSION_UNREADABLE_FEEDBACK =
+  "I cannot verify that the form stayed unsubmitted because the action record is incomplete. Ask the user to review the form before finishing."
+const NO_SUBMISSION_OCCURRED_FEEDBACK =
+  "This run already submitted the form. Do not claim it was left unsubmitted; mark that requirement unmet."
 
 /** A negative form constraint is proved by the run's complete effect record. */
 const noSubmissionEvidence = (
-  input: AgentCompletionInput,
-  changes: readonly AgentStepReadout[]
-): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
-  !input.steps ||
-  changes.some((receipt) => receipt.consequential?.includes("submission"))
-    ? {
-        type: "refused",
-        reason: "unverified_change",
-        feedback: UNVERIFIED_CHANGE_FEEDBACK
-      }
-    : undefined
+  input: AgentCompletionInput
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  if (!input.steps) {
+    return {
+      type: "refused",
+      reason: "unverified_change",
+      feedback: NO_SUBMISSION_UNREADABLE_FEEDBACK
+    }
+  }
+  if (
+    input.steps.some(
+      (receipt) =>
+        isAppliedAgentStepStatus(receipt.status) &&
+        receipt.consequential?.includes("submission")
+    )
+  ) {
+    return {
+      type: "refused",
+      reason: "unverified_change",
+      feedback: NO_SUBMISSION_OCCURRED_FEEDBACK
+    }
+  }
+  return undefined
+}
 /**
  * One met `change` requirement, after its quotation failed.
  *
@@ -638,10 +658,7 @@ const evidencePlannedChange = (
         isResultVerifiedChange(candidate) &&
         requirementNamesReceiptTarget(requirement, candidate) &&
         receiptResultAgrees(requirement, candidate) &&
-        (candidate.command?.type !== "fill_form" ||
-          (candidate.verification?.evidence.kind === "fields" &&
-            candidate.verification.evidence.fields?.length ===
-              candidate.command.fields.length)) &&
+        candidate.command?.type !== "fill_form" &&
         (quoted === undefined || quotationNamesReceiptTarget(quoted, candidate))
     )
     if (receipt) {
@@ -775,8 +792,12 @@ const judgeMetRequirement = (
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   if (requirement.kind === "read")
     return refusePlannedReadClaim(claim.evidence, input, change ?? "unreadable")
-  if (NO_SUBMISSION_PATTERN.test(requirement.text))
-    return noSubmissionEvidence(input, changes)
+  if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
+    const refusal = noSubmissionEvidence(input)
+    if (refusal) return refusal
+    if (NO_SUBMISSION_ONLY_PATTERN.test(requirement.text.trim()))
+      return undefined
+  }
   const refusal = judgeEvidence(claim.evidence, input, change ?? "unreadable")
   if (!refusal) return undefined
   const evidenced = evidencePlannedChange(

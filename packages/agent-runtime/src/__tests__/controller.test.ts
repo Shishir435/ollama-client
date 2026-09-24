@@ -2171,7 +2171,7 @@ describe("a control this run already committed through", () => {
     expect(seen[1]?.repeatsCommittedEffect).toBe(true)
   })
 
-  it("claims no repeat when the run's receipts cannot be read", async () => {
+  it("marks prior effects unknown when the run's receipts cannot be read", async () => {
     const seen: AgentPolicyInput[] = []
     const harness = createHarness({
       stepsFail: true,
@@ -2188,7 +2188,7 @@ describe("a control this run already committed through", () => {
 
     await harness.controller.start("run-1")
 
-    expect(seen[0]?.repeatsCommittedEffect).toBeUndefined()
+    expect(seen[0]?.committedEffectsUnknown).toBe(true)
   })
 })
 

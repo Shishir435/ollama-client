@@ -450,22 +450,29 @@ const MAX_DISPLAY_SENTENCES = 4
  */
 export const AGENT_REPEATED_EFFECT_CONSEQUENCE =
   "This run already did this once, through the same control on this page. Approve only if it should happen again."
+export const AGENT_UNKNOWN_EFFECT_CONSEQUENCE =
+  "This run's action record could not be read. This action may repeat an earlier effect. Approve only if repeating it is safe."
 
 /** What the user is told first when an effect may be a repeat, if anything. */
 const repeatNotice = (
   input: AgentPolicyInput
 ): { text: string; display: AgentDisplayText } | undefined =>
-  input.repeatsCommittedEffect
+  input.committedEffectsUnknown
     ? {
-        text: AGENT_REPEATED_EFFECT_CONSEQUENCE,
-        display: { key: "agent.approval_text.repeated_effect" }
+        text: AGENT_UNKNOWN_EFFECT_CONSEQUENCE,
+        display: { key: "agent.approval_text.unknown_prior_effect" }
       }
-    : input.repeatsPriorForm
+    : input.repeatsCommittedEffect
       ? {
-          text: AGENT_PRIOR_FORM_CONSEQUENCE,
-          display: AGENT_PRIOR_FORM_DISPLAY
+          text: AGENT_REPEATED_EFFECT_CONSEQUENCE,
+          display: { key: "agent.approval_text.repeated_effect" }
         }
-      : undefined
+      : input.repeatsPriorForm
+        ? {
+            text: AGENT_PRIOR_FORM_CONSEQUENCE,
+            display: AGENT_PRIOR_FORM_DISPLAY
+          }
+        : undefined
 
 /**
  * A possible repeat — a second send to a form the chain already sent, or

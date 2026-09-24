@@ -370,8 +370,8 @@ export interface AgentVerificationEvidence {
   kind: string
   summary: string
   observedAt: number
-  /** Bounded, value-free evidence for a confirmed batch, in command order. */
-  fields?: { name?: string; valueDigest?: string }[]
+  /** Bounded control names for a confirmed batch, in command order. */
+  fields?: { name?: string }[]
 }
 
 export type AgentVerificationResult =
@@ -445,6 +445,8 @@ export interface AgentPolicyInput {
    * is gone, and a fresh approval would have read as the first delete.
    */
   repeatsCommittedEffect?: boolean
+  /** Durable history could not prove whether this effect was already done. */
+  committedEffectsUnknown?: boolean
   now: number
 }
 

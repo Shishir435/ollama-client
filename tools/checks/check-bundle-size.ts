@@ -196,7 +196,7 @@ const budgets: Budget[] = [
      * form evidence, dialog recovery and localized approval text ship on the
      * run path. The three regression pages and spec are test-only.
      */
-    max: isFirefox ? 11_800_000 : 9_760_000
+    max: isFirefox ? 11_800_000 : 9_761_000
   },
   {
     metric: "zip",

@@ -425,11 +425,12 @@ Read the section your change touches; you do not need the whole file.
   a second approval for one decision. `releaseBrowserSessionFor` therefore
   keeps the session — and the dialog — through a `pause_requested` or
   `paused` state whose reason is `user`, `question` or `unresolved_effect`
-  (or not yet recorded) whenever `openDialog` reports one; resuming re-attaches
+  whenever `openDialog` reports one; resuming re-attaches
   idempotently, observes the same dialog, and asks about it once. The tab
   stays blocked while paused, which is what the page itself would do with its
-  dialog on screen. A takeover, a closed panel and a lost browser still let
-  go, and so does every stop and terminal state.
+  dialog on screen. Closing the last panel releases even a dialog held by an
+  earlier pause. A takeover, a lost browser, every stop and every terminal
+  state also let go.
 - **A blocked page is observed as blocked, not asked.** A dialog blocks the
   document's script, so no control port can answer: every observation the run
   takes goes through one seam in `agent-browser-adapters.ts`, which reports
@@ -590,8 +591,9 @@ Read the section your change touches; you do not need the whole file.
   offered, and the approval opens by saying this run already did it once.
   What it exists for is a page whose own confirmation was lost between the
   two clicks: the first press landed, and a fresh approval would have read as
-  the first delete. Unreadable receipts claim no repeat; the effect is still
-  priced by its own class, which for anything consequential already asks.
+  the first delete. If receipts cannot be read, policy asks without claiming
+  a repeat occurred: the approval says the earlier effect is unknown, costs
+  at least high risk and cannot use a grant.
 
 ## Verification, waiting and completion
 
@@ -996,10 +998,13 @@ Read the section your change touches; you do not need the whole file.
   table row carries a bounded `rowContext` from rendered text, so identical
   Delete buttons can be distinguished in the approval evidence. The panel
   labels the policy's risk in the reader's language; it does not recompute it.
-- **A released native dialog leaves a receipt.** The session manager dismisses
-  a held dialog when browser control ends. The run service records that
-  dismissal as its own verified, non-mutating step, so a later reader does not
-  mistake a cancelled confirmation for an unanswered one.
+- **A released native dialog leaves a receipt.** Before the session manager
+  detaches and dismisses a held dialog, the run service writes an uncertain,
+  non-mutating release receipt. It appends a verified receipt under the same
+  step id after detach succeeds. If that final write fails, durable history
+  keeps the uncertain marker and a later cleanup retries the final write. If
+  storage rejects the initial intent, cleanup still detaches so a closed panel
+  cannot leave the page blocked by a dialog; the failure is logged.
 
 ## Measured behaviour and benchmarks
 
@@ -1064,12 +1069,12 @@ run that produced it can always be repeated.
   because a timeout elapsed. Repeated or alternating decisions pause for a
   correction; user/question pauses suspend active-time accounting. A supplied
   completion quote is checked even for a run that only read or scrolled.
-- A confirmed `fill_form` receipt records each checked field's bounded name
-  and SHA-256 value digest, never its value. The judge may use one batch to
+- A confirmed `fill_form` receipt records each checked field's bounded name,
+  never its value or a reversible digest of it. The judge may use one batch to
   satisfy several field requirements only while the current observation
   shows the named controls holding the required values. A no-submit
-  requirement reads the run's applied consequential receipts; any submission
-  prevents it from being claimed as met.
+  requirement reads a complete run history of applied consequential receipts;
+  an unreadable receipt or any submission prevents it from being claimed as met.
 - Planning is optional only at the host boundary. A host with no planning port
   retains the legacy completion path, but once the port exists an exhausted or
   empty plan fails the run before its first observation. Planning failure must

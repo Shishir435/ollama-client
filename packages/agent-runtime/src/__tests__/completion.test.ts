@@ -609,10 +609,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
           kind: "fields",
           summary: "Both fields hold their values",
           observedAt: 1,
-          fields: [
-            { name: "Given name", valueDigest: "a".repeat(64) },
-            { name: "Family name", valueDigest: "b".repeat(64) }
-          ]
+          fields: [{ name: "Given name" }, { name: "Family name" }]
         }
       }
     })
@@ -658,7 +655,109 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toMatchObject({ type: "refused", reason: "unverified_change" })
+    ).toMatchObject({
+      type: "refused",
+      reason: "unverified_change",
+      feedback: expect.stringContaining("already submitted")
+    })
+  })
+
+  it("does not forget an applied submission after a later failed receipt", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [
+          step({
+            sequence: 1,
+            stepId: "run-1:submit",
+            status: "executed",
+            consequential: ["submission"]
+          }),
+          step({
+            sequence: 2,
+            stepId: "run-1:submit",
+            status: "failed",
+            verification: undefined
+          })
+        ],
+        observation: observation(),
+        requirements: [
+          { id: "r1", text: "Do not submit the form", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({
+      type: "refused",
+      feedback: expect.stringContaining("already submitted")
+    })
+  })
+
+  it("does not treat a mixed field and no-submit requirement as absence alone", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        requirements: [
+          {
+            id: "r1",
+            text: "Set Given name to Ada without submitting",
+            kind: "change"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
+  })
+
+  it("refuses a no-submit claim when the receipt history is unreadable", () => {
+    expect(
+      judgeAgentCompletion({
+        observation: observation(),
+        requirements: [
+          { id: "r1", text: "Do not submit the form", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({
+      type: "refused",
+      feedback: expect.stringContaining("action record is incomplete")
+    })
+  })
+
+  it("does not credit a batch bound to an unrelated field requirement", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [{ type: "clear_and_type", ref: "e1", text: "[redacted]" }]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "The field holds its value",
+          observedAt: 1,
+          fields: [{ name: "Given name" }]
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({
+          elements: [
+            { name: "Given name", value: "Ada" },
+            { name: "Email", value: "ada@example.com" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          { id: "r1", text: "Email is ada@example.com", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
   })
 
   const partialForm = observation({

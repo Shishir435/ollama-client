@@ -89,6 +89,13 @@ import { agentPictureWarranted } from "./vision"
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
 
+const ownEffectPolicyFlags = (state: "repeat" | "unknown" | "none") =>
+  state === "repeat"
+    ? { repeatsCommittedEffect: true }
+    : state === "unknown"
+      ? { committedEffectsUnknown: true }
+      : {}
+
 /**
  * How the executor said the page refused an effect, when it said.
  *
@@ -949,24 +956,26 @@ export const createAgentController = (
    * Whether this run already committed a consequential effect through the
    * same control. Read from its own receipts, the same list a follow-up
    * inherits, so a worker restart between the two clicks forgets nothing.
-   * Unreadable receipts claim no repeat: the effect is still priced by its
-   * own class, which for anything consequential already asks.
+   * An unreadable history cannot prove this is the first consequential
+   * effect. Treat it as a repeat so policy asks before risking duplication.
    */
-  const repeatsOwnEffect = async (
+  const ownEffectHistory = async (
     state: AgentRunState,
     effect: ResolvedAgentEffect
-  ): Promise<boolean> => {
-    if (!agentEffectIsConsequential(effect)) return false
+  ): Promise<"repeat" | "unknown" | "none"> => {
+    if (!agentEffectIsConsequential(effect)) return "none"
     try {
       return agentRepeatsPriorEffect(
         effect,
         agentCommittedEffects(await dependencies.persistence.steps(state.id))
       )
+        ? "repeat"
+        : "none"
     } catch (error) {
       dependencies.trace?.(state.id, "committed_effects_unavailable", {
         reason: error instanceof Error ? error.name : typeof error
       })
-      return false
+      return "unknown"
     }
   }
 
@@ -991,7 +1000,7 @@ export const createAgentController = (
     const authoredText = effect.destination
       ? await authoredWords(state)
       : undefined
-    const repeatsCommittedEffect = await repeatsOwnEffect(state, effect)
+    const ownEffect = await ownEffectHistory(state, effect)
     const policy = dependencies.policy.evaluate({
       runId: state.id,
       stepId,
@@ -1004,7 +1013,7 @@ export const createAgentController = (
       agentRepeatsPriorForm(effect, state.previousRun.effects)
         ? { repeatsPriorForm: true }
         : {}),
-      ...(repeatsCommittedEffect ? { repeatsCommittedEffect: true } : {}),
+      ...ownEffectPolicyFlags(ownEffect),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {
