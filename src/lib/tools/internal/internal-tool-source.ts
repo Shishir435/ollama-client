@@ -24,6 +24,11 @@ import {
   runRestoreSession
 } from "./browser-session-tools"
 import {
+  browserTaskAvailable,
+  browserTaskDefinition,
+  runBrowserTask
+} from "./browser-task-tool"
+import {
   captureScreenshotDefinition,
   runCaptureScreenshot
 } from "./capture-screenshot-tool"
@@ -74,7 +79,8 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: listRemindersDefinition, run: runListReminders },
   { definition: cancelReminderDefinition, run: runCancelReminder },
   { definition: saveArtifactDefinition, run: runSaveArtifact },
-  { definition: captureScreenshotDefinition, run: runCaptureScreenshot }
+  { definition: captureScreenshotDefinition, run: runCaptureScreenshot },
+  { definition: browserTaskDefinition, run: runBrowserTask }
 ]
 
 const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
@@ -93,6 +99,7 @@ const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
   if (tool.definition.name === "list_synced_sessions") {
     return supportsSyncedSessions()
   }
+  if (tool.definition.name === "browser_task") return browserTaskAvailable()
   return true
 }
 

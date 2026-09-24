@@ -197,10 +197,15 @@ export const prepareToolCall = async (
   // checking the wildcard key here would resurrect exactly the over-broad
   // grants this scoping exists to prevent.
   const grantsApply = !originScoped || origin !== undefined
+  const demand =
+    risk !== "low" && definition?.confirmation
+      ? await definition.confirmation(call.arguments, ctx ?? {})
+      : undefined
   const requiresConfirmation =
     risk === "low"
       ? false
-      : confirmationRequired(definition, {
+      : demand?.always === true ||
+        confirmationRequired(definition, {
           hasSessionGrant:
             grantsApply &&
             hasSessionGrant(ctx?.sessionId, call.name, origin, taintGeneration),
@@ -232,7 +237,9 @@ export const prepareToolCall = async (
       args:
         call.arguments && Object.keys(call.arguments).length > 0
           ? call.arguments
-          : undefined
+          : undefined,
+      ...(demand?.summary ? { confirmationSummary: demand.summary } : {}),
+      ...(demand?.notes?.length ? { confirmationNotes: demand.notes } : {})
     }
   }
 }
@@ -292,10 +299,13 @@ export const runPreparedToolCall = async (
 
   // Origin-scoped calls run with the origin the approval/grant named, so the
   // tool can verify its actual target still matches before acting.
-  const runCtx =
-    prepared.originScoped && prepared.origin
-      ? { ...ctx, approvedOrigin: prepared.origin }
-      : ctx
+  const runCtx: ToolContext = {
+    ...ctx,
+    ...(prepared.originScoped && prepared.origin
+      ? { approvedOrigin: prepared.origin }
+      : {}),
+    ...(prepared.requiresConfirmation ? { userConfirmed: true } : {})
+  }
 
   const rawResult = policy.enabled
     ? await callWithTimeout(

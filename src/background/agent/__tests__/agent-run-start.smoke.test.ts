@@ -463,4 +463,98 @@ describe("starting an Agent run against the real engine", () => {
     },
     TIMEOUT
   )
+
+  it(
+    "files a delegated run against its turn's row and leaves the row to the turn",
+    async () => {
+      vi.resetModules()
+      installOwner()
+      const [{ createAgentRunService }, history, runs] = await Promise.all([
+        import("../agent-run-service"),
+        import("@/lib/repositories/chat-history"),
+        import("@/lib/repositories/agent-runs")
+      ])
+      await history.addSession({
+        id: "chat-1",
+        title: "Chat",
+        createdAt: 1,
+        updatedAt: 1,
+        messages: []
+      })
+      const userId = await history.appendMessage({
+        sessionId: "chat-1",
+        role: "user",
+        content: "Find the pricing page",
+        done: true,
+        timestamp: 1
+      })
+      const assistantId = await history.appendMessage({
+        sessionId: "chat-1",
+        role: "assistant",
+        content: "Looking",
+        done: false,
+        timestamp: 2,
+        parentId: userId
+      })
+
+      const service = startService(createAgentRunService, "run-turn-1")
+      const request = {
+        goal: "Find the pricing page",
+        tabId: 7,
+        providerId: "ollama",
+        modelId: "qwen3",
+        sessionId: "chat-1",
+        messageId: assistantId,
+        goalAuthor: "model" as const
+      }
+      const state = await service.delegate(request)
+      expect(state).toMatchObject({ id: "run-turn-1", goalAuthor: "model" })
+
+      /**
+       * A tool call replayed after a worker restart finds the run it already
+       * started, rather than starting a second beside it.
+       */
+      const replayed = startService(createAgentRunService, "run-turn-2")
+      await expect(replayed.delegate(request)).resolves.toMatchObject({
+        id: "run-turn-1"
+      })
+
+      const row = await history.getMessage(assistantId)
+      expect(row).toMatchObject({ agentRunId: "run-turn-1", done: false })
+      const durable = await runs.getAgentRun("run-turn-1")
+      expect(durable).toMatchObject({
+        sessionId: "chat-1",
+        resultMessageId: assistantId
+      })
+      expect(durable?.requestMessageId).toBeUndefined()
+      expect(
+        (await history.getMessagesBySession("chat-1")).map((m) => m.id)
+      ).toEqual([userId, assistantId])
+
+      await runs.transitionAgentRun({
+        runId: "run-turn-1",
+        from: "submitted",
+        to: "failed",
+        patch: {
+          result: "No pricing page found.",
+          error: {
+            code: "goal_failed",
+            message: "Not found.",
+            retryable: false
+          },
+          updatedAt: 3
+        }
+      })
+      await runs.reconcileAgentRunLinkage()
+
+      /**
+       * The turn is still streaming its answer into this row: the run gives
+       * it a handoff and nothing else.
+       */
+      const settled = await history.getMessage(assistantId)
+      expect(settled).toMatchObject({ content: "Looking", done: false })
+      expect(settled?.agentHandoff).toMatchObject({ runId: "run-turn-1" })
+    },
+    TIMEOUT
+  )
 })

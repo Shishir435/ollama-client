@@ -30,6 +30,7 @@ import {
 } from "@/lib/repositories/tool-loop-runs"
 import { readSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
+import type { ToolContext } from "@/lib/tools/types"
 import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChatMessage,
@@ -78,6 +79,44 @@ const getSessionSystemPrompt = async (
     return undefined
   }
 }
+
+/** The newest browser-agent run in the branch, which a follow-up continues. */
+const previousAgentRunId = (messages: ChatMessage[]): string | undefined =>
+  [...messages].reverse().find((message) => message.agentRunId)?.agentRunId
+
+/**
+ * What a tool may know about the turn calling it. The durable-turn fields are
+ * absent on the legacy port path, and the tools that need them refuse there.
+ */
+const buildToolContext = (
+  msg: ChatWithModelMessage,
+  conversationMessages: ChatMessage[],
+  signal: AbortSignal
+): ToolContext => {
+  const { payload } = msg
+  const previousRunId = previousAgentRunId(conversationMessages)
+  return {
+    signal,
+    sessionId: payload.sessionId,
+    model: payload.model,
+    ...(payload.providerId ? { providerId: payload.providerId } : {}),
+    ...(payload.assistantMessageId !== undefined
+      ? { assistantMessageId: payload.assistantMessageId }
+      : {}),
+    ...(payload.browserTabId !== undefined
+      ? { browserTabId: payload.browserTabId }
+      : {}),
+    pageContentInContext: payload.pageContentInContext === true,
+    ...(previousRunId ? { previousAgentRunId: previousRunId } : {})
+  }
+}
+
+/**
+ * Turns that can delegate a browser task get more model rounds: reading the
+ * tabs, the task itself and the answer about it already spend three of the
+ * usual five.
+ */
+const BROWSER_TASK_MAX_ITERATIONS = 8
 
 const latestUserMessage = (messages: ChatMessage[]): ChatMessage | undefined =>
   [...messages].reverse().find((message) => message.role === "user")
@@ -336,11 +375,7 @@ export const handleChatWithModel = withErrorContext(
       const toolResultMaxChars = await readSetting(
         SETTINGS.MAX_TOOL_RESULT_CHARS
       )
-      const ctx = {
-        signal: ac.signal,
-        sessionId: msg.payload.sessionId,
-        model
-      }
+      const ctx = buildToolContext(msg, conversationMessages, ac.signal)
       const mode: ToolLoopMode = resolvedTools.mode
       const durableRun = msg.payload.requestId
         ? await getToolLoopRun(msg.payload.requestId)
@@ -372,6 +407,12 @@ export const handleChatWithModel = withErrorContext(
           }
         : undefined
 
+      const maxIterations = resolvedTools.tools.some(
+        (tool) => tool.name === "browser_task"
+      )
+        ? BROWSER_TASK_MAX_ITERATIONS
+        : undefined
+
       try {
         if (resolvedTools.mode === "non-native") {
           await streamChatWithNonNativeTools({
@@ -384,7 +425,8 @@ export const handleChatWithModel = withErrorContext(
             ctx,
             toolResultMaxChars,
             initialState,
-            onCheckpoint
+            onCheckpoint,
+            maxIterations
           })
         } else {
           await streamChatWithTools({
@@ -398,7 +440,8 @@ export const handleChatWithModel = withErrorContext(
             toolResultMode:
               resolvedTools.mode === "native-user-results" ? "user" : "tool",
             initialState,
-            onCheckpoint
+            onCheckpoint,
+            maxIterations
           })
         }
       } finally {

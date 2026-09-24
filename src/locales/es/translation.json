@@ -47,11 +47,6 @@
       "reject": "Rechazar",
       "allowForRun": "Permitir siempre este tipo de acción en {{origin}} durante esta ejecución"
     },
-    "attachment": {
-      "title": "Lo que permite este navegador",
-      "attaches": "Al iniciar, el depurador de Chrome se conecta a la pestaña elegida. Chrome muestra su propio aviso mientras está conectado, y la conexión termina al detener, al cederle el control o al finalizar.",
-      "no_debugger": "Este navegador no tiene depurador, así que la ejecución controla las páginas mediante los scripts de contenido de la extensión."
-    },
     "browser_disconnected": "El control del navegador se desconectó, por lo que Agent se pausó. Revisa la página antes de continuar.",
     "controls": {
       "label": "Controles del Agente",
@@ -84,51 +79,15 @@
       "verification_failed": "La ejecución no pudo confirmar el efecto de su última acción. Revise la página antes de volver a empezar.",
       "unknown": "La ejecución se detuvo por un motivo que no pudo nombrar. Revise la página y vuelva a empezar."
     },
-    "limits": {
-      "no_native_input": "La entrada de ratón y teclado es sintética; una página que solo responde a entrada real puede no reaccionar.",
-      "no_screenshots": "No se toman capturas, así que una tarea que solo puede resolverse mirando la página no funcionará.",
-      "no_dialogs": "La ejecución no puede ver ni responder los diálogos nativos alert, confirm y prompt."
-    },
     "model": {
       "label": "Modelo"
-    },
-    "readiness": {
-      "status": {
-        "ready": "Agente listo",
-        "experimental": "Compatibilidad experimental con el Agente",
-        "unsupported": "No compatible con el Agente"
-      },
-      "vision": {
-        "supported": "Visual",
-        "unsupported": "Solo texto",
-        "unknown": "Visión desconocida"
-      },
-      "reason": {
-        "metadata": "El catálogo de este modelo declara llamadas a herramientas.",
-        "verified_probe": "Las llamadas a herramientas se confirmaron con una petición de prueba a este modelo.",
-        "user_override": "Las llamadas a herramientas están activas porque tú lo configuraste para este modelo, no porque el modelo lo declare.",
-        "reported_unsupported": "Este modelo declara que no puede llamar a herramientas, y una ejecución las necesita para cada acción.",
-        "unverified": "Las llamadas a herramientas no están confirmadas para este modelo. Pruébalas o configura la capacidad tú mismo.",
-        "unknown": "Este modelo no dice nada sobre llamadas a herramientas, y una ejecución no las activará por suposición."
-      },
-      "text_only": "Este modelo no lee imágenes. La ejecución trabaja con el texto y los controles de la página, así que una página que solo se puede usar mirándola no funcionará.",
-      "alternatives": "Modelos de este proveedor que declaran llamadas a herramientas:",
-      "allow_experimental": "Iniciar de todas formas con este modelo",
-      "allow_experimental_description": "Aquí las llamadas a herramientas son tu ajuste, no la respuesta del modelo. Un modelo que no puede llamar herramientas gasta la ejecución respondiendo en prosa."
     },
     "observations": "{{count}} observaciones",
     "privacy": {
       "remote_notice": "Las observaciones de página se enviarán continuamente a este proveedor remoto mientras se ejecute el Agente.",
-      "acknowledge": "Entiendo",
       "remote_notice_screenshots": "Las observaciones de página y las capturas del área visible se enviarán continuamente a este proveedor remoto mientras el Agente se ejecuta."
     },
     "progress": "{{count}} de {{budget}} observaciones",
-    "provider": {
-      "label": "Proveedor",
-      "local": "Local",
-      "remote": "Remoto",
-      "missing": "Selecciona un modelo primero"
-    },
     "question": {
       "title": "Agent necesita una respuesta",
       "inputLabel": "Tu respuesta",
@@ -140,15 +99,6 @@
       "sent": "Las capturas del área visible se envían al modelo",
       "unused": "No se usan con un modelo solo de texto",
       "unknown": "Aún no determinado"
-    },
-    "start": {
-      "goal": "¿Qué debe hacer el Agente?",
-      "placeholder": "Describe una tarea del navegador…",
-      "action": "Iniciar Agente",
-      "auto_actions": "Permitir acciones rutinarias para esta tarea",
-      "auto_actions_description": "Los clics y la escritura en este sitio son automáticos. Publicar, eliminar, visitar nuevos sitios y los pasos sensibles siguen requiriendo confirmación.",
-      "starting": "Iniciando…",
-      "starting_on": "Iniciando en «{{title}}»…"
     },
     "status": {
       "submitted": "Iniciando",
@@ -177,11 +127,6 @@
       "failed": "Falló",
       "uncertain": "Revisar"
     },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agente",
-      "preview": "Vista previa"
-    },
     "tab": {
       "label": "Pestaña controlada",
       "missing": "Abre una página compatible"
@@ -197,7 +142,6 @@
         "sensitive_step": "Toma el control de la página, completa tú el paso sensible y luego continúa."
       }
     },
-    "title": "Agente supervisado",
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
     "unresolved_reviewed": "He revisado la página: continuar",
     "work_log": {
@@ -208,7 +152,7 @@
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
     "settings": {
       "title": "Agente del navegador",
-      "description": "Cuánto contexto puede pedir una ejecución a su modelo y cuándo fotografía la página.",
+      "description": "Lo que una ejecución puede hacer sin preguntar, cuánto contexto puede pedir a su modelo y cuándo captura la página.",
       "context_window": {
         "label": "Ventana de contexto",
         "description": "Automático toma la ventana más pequeña que informan este modelo y este servidor, y recurre a un tamaño conservador cuando ninguno lo dice. Fija un tamaño tú mismo si has subido el límite de tu servidor o si a una ejecución se le ha agotado la memoria.",
@@ -221,6 +165,12 @@
         "auto": "Cuando el paso la necesita",
         "always": "En cada paso",
         "never": "Nunca"
+      },
+      "permission_mode": {
+        "label": "Acciones rutinarias",
+        "description": "Si cada nueva ejecución puede hacer clic y escribir en el sitio donde empieza sin preguntar. Enviar, eliminar, iniciar sesión, pagar y los sitios nuevos siempre se preguntan, y nada pasa a la siguiente ejecución.",
+        "allow_routine": "Permitir en el sitio inicial",
+        "approve_each": "Aprobar cada acción"
       }
     },
     "card": {
@@ -235,13 +185,8 @@
       "ask": "Preguntar sobre esto"
     },
     "follow_up": {
-      "continue": "Continuando: {{goal}}",
-      "retry": "Reintentando: {{goal}}",
-      "clear": "Empezar desde cero",
-      "placeholder": "¿Qué debe hacer ahora?"
-    },
-    "composer": {
-      "run_in_progress": "Ya hay una ejecución en curso. Detenla o espera a que termine antes de iniciar otra."
+      "continue_message": "Continúa la tarea en el navegador.",
+      "retry_message": "Vuelve a intentar la tarea en el navegador."
     },
     "paused_panel_closed": "En pausa porque se cerró el panel lateral. Reanuda cuando quieras.",
     "approval_text": {
@@ -275,6 +220,12 @@
       "completion_refused": "No pude confirmar el resultado. ¿Se completó la tarea? Si no, ¿qué debo hacer ahora?",
       "commands_refused": "No se pudo realizar la última acción. ¿Qué debería intentar en su lugar?",
       "no_progress": "Estoy repitiendo acciones sin avanzar. ¿Qué debería hacer de otra forma? También puedes detenerme y terminar la tarea tú."
+    },
+    "start_gate": {
+      "after_page": "El modelo leyó contenido de una página antes de escribir esta tarea, así que siempre se pregunta.",
+      "other_tab": "Esta tarea se ejecuta en una pestaña distinta de la que estás viendo.",
+      "supervised": "El agente trabaja en la página paso a paso y pregunta antes de cualquier acción importante. Chrome muestra un aviso de depuración mientras trabaja.",
+      "experimental_model": "Las llamadas a herramientas están activadas para este modelo porque tú lo configuraste, no porque el modelo lo indique. Un modelo que no sabe llamar herramientas no llegará lejos."
     }
   },
   "common": {
@@ -561,7 +512,8 @@
         "results_other": "{{count}} resultados",
         "restoreSession": "Reabriendo una pestaña cerrada",
         "list_reminders": "Listando recordatorios",
-        "cancel_reminder": "Cancelando recordatorio"
+        "cancel_reminder": "Cancelando recordatorio",
+        "browser_task": "Tarea en el navegador"
       },
       "debug": "Razonamiento de depuración"
     },

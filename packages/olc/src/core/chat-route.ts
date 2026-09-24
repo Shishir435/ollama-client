@@ -72,6 +72,16 @@ import {
  */
 const TURN_DISCARD_TIMEOUT_MS = 8_000
 
+/**
+ * Whether a request made a tool call mandatory: OpenAI's `"required"`, or a
+ * named function (`{ type: "function", function: { name } }`).
+ */
+const forcesToolCall = (toolChoice: unknown): boolean =>
+  toolChoice === "required" ||
+  (typeof toolChoice === "object" &&
+    toolChoice !== null &&
+    (toolChoice as { type?: unknown }).type === "function")
+
 const createRequestId = () =>
   `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 
@@ -375,6 +385,16 @@ export const registerChatRoutes = (
 ) => {
   /** Turns parked on a client tool result, with the deadline that discards them. */
   const parkedTurns = new Map<string, NodeJS.Timeout>()
+  /**
+   * Turns whose request made a tool call mandatory (`tool_choice` "required" or
+   * a named function). A client that forces a call is asking for a decision,
+   * and one that never resumes such a turn is the common case — the
+   * extension's browser agent sends one per step. A turn that left the choice
+   * to the model parked because the model reached for a client tool, and its
+   * client is usually still computing the result. Neither is discarded on that
+   * basis alone; it only decides which goes first when the cap is exceeded.
+   */
+  const forcedTurns = new Set<string>()
 
   const clearParked = (turnId: string) => {
     const timer = parkedTurns.get(turnId)
@@ -394,6 +414,7 @@ export const registerChatRoutes = (
    */
   const discardTurn = async (turn: BackendTurn, { abort = false } = {}) => {
     clearParked(turn.id)
+    forcedTurns.delete(turn.id)
     const release = async () => {
       if (abort) await turn.abort()
       await turn.dispose()
@@ -485,9 +506,22 @@ export const registerChatRoutes = (
    * carrying its results already exists and may be queued behind this one.
    */
   const reapExcessParkedTurns = async (requestId: string): Promise<number> => {
-    const reapable = [...parkedTurns.keys()].filter(
+    for (const turnId of forcedTurns) {
+      if (!backend.findTurn(turnId)) forcedTurns.delete(turnId)
+    }
+    /**
+     * Forced decisions first, oldest first within each kind. A client running
+     * a long tool of its own — a browser task a chat turn delegated, whose
+     * steps are forced decisions of their own — would otherwise lose the turn
+     * waiting on it to its own steps after the fourth one.
+     */
+    const parked = [...parkedTurns.keys()].filter(
       (turnId) => !resumeHolds.has(turnId)
     )
+    const reapable = [
+      ...parked.filter((turnId) => forcedTurns.has(turnId)),
+      ...parked.filter((turnId) => !forcedTurns.has(turnId))
+    ]
     /** Room for the turn about to be admitted, so the steady state is the cap. */
     const excess = reapable.length - Math.max(0, config.MAX_PARKED_TURNS - 1)
     if (excess <= 0) return 0
@@ -729,6 +763,7 @@ export const registerChatRoutes = (
             ? { reasoningEffort: reasoningEffort.value }
             : {})
         })
+        if (forcesToolCall(body.tool_choice)) forcedTurns.add(turn.id)
       } else {
         clearParked(turn.id)
         log("Resuming a parked turn", {
@@ -995,6 +1030,7 @@ export const registerChatRoutes = (
       ])
       for (const turnId of held) {
         clearParked(turnId)
+        forcedTurns.delete(turnId)
         resumeHolds.delete(turnId)
         pending.failTurn(turnId, "The proxy is shutting down")
         const turn = backend.findTurn(turnId)

@@ -6,6 +6,8 @@ import type {
 } from "@ollama-client/agent-runtime"
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type {
+  AgentFollowUpMode,
+  AgentGoalAuthor,
   AgentPauseReason,
   AgentRunState,
   AgentRunStatus
@@ -24,6 +26,7 @@ import {
   createAgentPersistencePort,
   createInitialAgentDeadline,
   getAgentRun,
+  getAgentRunForResultMessage,
   getLatestAgentRun,
   listAgentSteps,
   listIncompleteAgentRuns
@@ -36,7 +39,10 @@ import {
   resolveAgentFollowUp
 } from "./agent-follow-up"
 import type { BuildAgentController } from "./agent-run-controller"
-import { createLinkedAgentRun } from "./agent-run-linkage"
+import {
+  type AgentRunPlacement,
+  createLinkedAgentRun
+} from "./agent-run-linkage"
 import type {
   AgentPendingSupervision,
   AgentSupervision
@@ -57,6 +63,23 @@ export interface StartAgentRunInput {
   followUp?: AgentFollowUpRequest
   allowRoutineActions?: boolean
   allowExperimentalModel?: boolean
+  /** Set when a chat model wrote the goal; absent means the user did. */
+  goalAuthor?: AgentGoalAuthor
+  /** Where the run's card is drawn; a new turn of its own by default. */
+  placement?: AgentRunPlacement
+}
+
+/**
+ * A run a chat turn delegated: the row it reports into is the turn's own, and
+ * `previousRunId` names the run of this chat it continues, when the model said
+ * it continues one.
+ */
+export interface DelegateAgentRunInput
+  extends Omit<StartAgentRunInput, "followUp" | "placement" | "sessionId"> {
+  sessionId: string
+  messageId: number
+  goalAuthor: AgentGoalAuthor
+  previousRunId?: string
 }
 
 export interface AgentRunSnapshot {
@@ -67,6 +90,17 @@ export interface AgentRunSnapshot {
 
 export interface AgentRunService {
   start(input: StartAgentRunInput): Promise<AgentRunState>
+  /**
+   * Starts the run a chat turn delegated, or finds the one it already did.
+   * The turn's tool loop re-runs an in-flight call after a worker restart,
+   * and the row it reports into is what says a run was already started.
+   */
+  delegate(input: DelegateAgentRunInput): Promise<AgentRunState>
+  /**
+   * Resolves with the run once it is terminal. An abort ends the wait and
+   * nothing else: whether the run should stop too is the waiter's decision.
+   */
+  awaitSettled(runId: string, signal?: AbortSignal): Promise<AgentRunState>
   pause(runId: string, reason?: AgentPauseReason): Promise<void>
   resume(
     runId: string,
@@ -241,6 +275,69 @@ const originOf = (url: string): string => {
  * parked approval, the durable row and the control session all belong to that
  * one run, and nothing here can say which of two runs a page effect served.
  */
+/**
+ * A run as it is admitted: its own tab and origin, the routine grants its
+ * start was given, and nothing inherited but what a follow-up must not repeat.
+ */
+const initialRunState = ({
+  request,
+  id,
+  origin,
+  startedAt,
+  previousRun
+}: {
+  request: StartAgentRunInput
+  id: string
+  origin: string
+  startedAt: number
+  previousRun: AgentRunState["previousRun"]
+}): AgentRunState =>
+  AgentRunStateSchema.parse({
+    version: 1,
+    id,
+    goal: request.goal,
+    status: "submitted",
+    stepCount: 0,
+    observationCount: 0,
+    controlledTabId: request.tabId,
+    providerId: request.providerId,
+    modelId: request.modelId,
+    allowedOrigins: [origin],
+    ...(request.allowRoutineActions
+      ? {
+          grants: [
+            {
+              origin,
+              effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
+              grantedAt: startedAt
+            }
+          ]
+        }
+      : {}),
+    scopedTabIds: [request.tabId],
+    deadline: createInitialAgentDeadline(startedAt),
+    /**
+     * The parent's record and what it committed — never its grants, answers,
+     * requirements or origins. A follow-up plans again and asks again; what
+     * it inherits is only what it must not repeat.
+     */
+    ...(previousRun ? { previousRun } : {}),
+    ...(request.goalAuthor ? { goalAuthor: request.goalAuthor } : {}),
+    createdAt: startedAt,
+    updatedAt: startedAt
+  } satisfies AgentRunState)
+
+/**
+ * How a delegated run follows the one before it: one that got somewhere is
+ * carried on from, one that stopped short is tried again. The same choice
+ * the card's buttons used to make.
+ */
+const FOLLOW_UP_MODE: Partial<Record<AgentRunStatus, AgentFollowUpMode>> = {
+  completed: "continue",
+  failed: "retry",
+  cancelled: "retry"
+}
+
 /** Pauses the run comes back from on the same page, holding its dialog. */
 const DIALOG_HOLDING_PAUSES: readonly AgentPauseReason[] = [
   "user",
@@ -256,6 +353,7 @@ export const createAgentRunService = (input?: {
   persistence?: AgentPersistencePort
   createRun?: typeof createLinkedAgentRun
   readRun?: typeof getAgentRun
+  readRunForMessage?: typeof getAgentRunForResultMessage
   readLatestRun?: typeof getLatestAgentRun
   readIncompleteRuns?: typeof listIncompleteAgentRuns
   readSteps?: typeof listAgentSteps
@@ -274,6 +372,8 @@ export const createAgentRunService = (input?: {
   const hasPerception = input?.hasPerception ?? hasAgentPerceptionPermission
   const createRun = input?.createRun ?? createLinkedAgentRun
   const readRun = input?.readRun ?? getAgentRun
+  const readRunForMessage =
+    input?.readRunForMessage ?? getAgentRunForResultMessage
   const readLatestRun = input?.readLatestRun ?? getLatestAgentRun
   const readSteps = input?.readSteps ?? listAgentSteps
   const readIncompleteRuns =
@@ -734,147 +834,203 @@ export const createAgentRunService = (input?: {
     )
   }
 
-  return {
-    async start(request) {
-      // All panels share this service. Reserve admission before any async
-      // read/check/write, including the durable unresolved-run lookup.
-      if (admitting) {
+  const start = async (request: StartAgentRunInput): Promise<AgentRunState> => {
+    // All panels share this service. Reserve admission before any async
+    // read/check/write, including the durable unresolved-run lookup.
+    if (admitting) {
+      throw new AgentRunError(
+        "already_running",
+        "An Agent start is in progress"
+      )
+    }
+    admitting = true
+    try {
+      /*
+       * The durable rows decide, not the in-memory flag: an MV3 worker
+       * restart forgets the active run, and a paused run the user has not
+       * settled is still that user's run. Asking SQL is what keeps a restart
+       * from letting a second run start beside it.
+       */
+      const unresolved = activeRunId ?? (await readIncompleteRuns())[0]?.id
+      if (unresolved) {
+        activeRunId = unresolved
+        lastRunId = unresolved
         throw new AgentRunError(
           "already_running",
-          "An Agent start is in progress"
+          "An Agent run is already unresolved"
         )
       }
-      admitting = true
-      try {
-        /*
-         * The durable rows decide, not the in-memory flag: an MV3 worker
-         * restart forgets the active run, and a paused run the user has not
-         * settled is still that user's run. Asking SQL is what keeps a restart
-         * from letting a second run start beside it.
-         */
-        const unresolved = activeRunId ?? (await readIncompleteRuns())[0]?.id
-        if (unresolved) {
-          activeRunId = unresolved
-          lastRunId = unresolved
-          throw new AgentRunError(
-            "already_running",
-            "An Agent run is already unresolved"
-          )
-        }
-        if (!(await hasPerception())) {
-          throw new AgentRunError(
-            "permission_denied",
-            "Agent perception permission is not granted"
-          )
-        }
-        const tab = await getTab(request.tabId)
-        const address = tab?.url
-        if (!address) {
-          throw new AgentRunError("tab_unsupported", "Agent tab has no address")
-        }
-        const access = await classifyAccess(address)
-        if (access !== "ok") {
-          throw new AgentRunError(
-            "tab_unsupported",
-            `Agent tab access denied: ${access}`
-          )
-        }
-        /**
-         * Read after admission and before the row exists, so the parent it
-         * describes is the one this run is created against.
-         */
-        const previousRun = await previousRunFor(request)
-        const startedAt = now()
-        const state = AgentRunStateSchema.parse({
-          version: 1,
-          id: newRunId(),
-          goal: request.goal,
-          status: "submitted",
-          stepCount: 0,
-          observationCount: 0,
-          controlledTabId: request.tabId,
-          providerId: request.providerId,
-          modelId: request.modelId,
-          allowedOrigins: [originOf(address)],
-          ...(request.allowRoutineActions
-            ? {
-                grants: [
-                  {
-                    origin: originOf(address),
-                    effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
-                    grantedAt: startedAt
-                  }
-                ]
-              }
-            : {}),
-          scopedTabIds: [request.tabId],
-          deadline: createInitialAgentDeadline(startedAt),
-          /**
-           * The parent's record and what it committed — never its grants,
-           * answers, requirements or origins. A follow-up plans again and
-           * asks again; what it inherits is only what it must not repeat.
-           */
-          ...(previousRun ? { previousRun } : {}),
-          createdAt: startedAt,
-          updatedAt: startedAt
-        } satisfies AgentRunState)
+      if (!(await hasPerception())) {
+        throw new AgentRunError(
+          "permission_denied",
+          "Agent perception permission is not granted"
+        )
+      }
+      const tab = await getTab(request.tabId)
+      const address = tab?.url
+      if (!address) {
+        throw new AgentRunError("tab_unsupported", "Agent tab has no address")
+      }
+      const access = await classifyAccess(address)
+      if (access !== "ok") {
+        throw new AgentRunError(
+          "tab_unsupported",
+          `Agent tab access denied: ${access}`
+        )
+      }
+      /**
+       * Read after admission and before the row exists, so the parent it
+       * describes is the one this run is created against.
+       */
+      const previousRun = await previousRunFor(request)
+      const state = initialRunState({
+        request,
+        id: newRunId(),
+        origin: originOf(address),
+        startedAt: now(),
+        previousRun
+      })
 
-        await createRun(
-          state,
-          request.sessionId,
-          previousRun ? request.followUp?.parentRunId : undefined
-        )
-        activeRunId = state.id
-        lastRunId = state.id
-        if (request.allowExperimentalModel) experimental.add(state.id)
-        history.record(request.tabId, address)
-        announce(state.id)
-        try {
-          const attached = await attachBrowserSession(state)
-          if (!attached) return state
-        } catch (error) {
-          await persistence.transition({
-            runId: state.id,
-            from: "submitted",
-            to: "failed",
-            patch: {
-              error: {
-                code: "observation_failed",
-                message: "Agent could not attach browser control.",
-                retryable: true
-              },
-              updatedAt: now()
-            }
-          })
-          await settle(state.id)
-          throw error
-        }
-        /**
-         * Detached on purpose — `start` returns once the run is admitted, not
-         * once it finishes — but its rejection is not. Every other `drive`
-         * call site is awaited by a caller that reports the failure; this one
-         * discarded it, so a run that threw on its first step left no error
-         * on the row, no line in the log and a panel that waited. That cost
-         * two browser gates thirty seconds each and an afternoon to find.
-         *
-         * Logging is all this does. The run is still left where it stopped:
-         * transitioning it to `failed` needs the predecessor it stopped in,
-         * which this layer does not know, and is its own change.
-         */
-        void drive(state, (controller) => controller.start(state.id)).catch(
-          (error: unknown) => {
-            logger.error("Agent run stopped without settling", "Agent", {
-              runId: state.id,
-              name: error instanceof Error ? error.name : typeof error,
-              message: error instanceof Error ? error.message : "unknown"
-            })
+      await createRun(
+        state,
+        request.sessionId,
+        previousRun ? request.followUp?.parentRunId : undefined,
+        request.placement
+      )
+      activeRunId = state.id
+      lastRunId = state.id
+      if (request.allowExperimentalModel) experimental.add(state.id)
+      history.record(request.tabId, address)
+      announce(state.id)
+      try {
+        const attached = await attachBrowserSession(state)
+        if (!attached) return state
+      } catch (error) {
+        await persistence.transition({
+          runId: state.id,
+          from: "submitted",
+          to: "failed",
+          patch: {
+            error: {
+              code: "observation_failed",
+              message: "Agent could not attach browser control.",
+              retryable: true
+            },
+            updatedAt: now()
           }
-        )
-        return state
-      } finally {
-        admitting = false
+        })
+        await settle(state.id)
+        throw error
       }
+      /**
+       * Detached on purpose — `start` returns once the run is admitted, not
+       * once it finishes — but its rejection is not. Every other `drive`
+       * call site is awaited by a caller that reports the failure; this one
+       * discarded it, so a run that threw on its first step left no error
+       * on the row, no line in the log and a panel that waited. That cost
+       * two browser gates thirty seconds each and an afternoon to find.
+       *
+       * Logging is all this does. The run is still left where it stopped:
+       * transitioning it to `failed` needs the predecessor it stopped in,
+       * which this layer does not know, and is its own change.
+       */
+      void drive(state, (controller) => controller.start(state.id)).catch(
+        (error: unknown) => {
+          logger.error("Agent run stopped without settling", "Agent", {
+            runId: state.id,
+            name: error instanceof Error ? error.name : typeof error,
+            message: error instanceof Error ? error.message : "unknown"
+          })
+        }
+      )
+      return state
+    } finally {
+      admitting = false
+    }
+  }
+
+  const awaitSettled = (
+    runId: string,
+    signal?: AbortSignal
+  ): Promise<AgentRunState> =>
+    new Promise<AgentRunState>((resolve, reject) => {
+      let done = false
+      const finish = (outcome: () => void) => {
+        if (done) return
+        done = true
+        listeners.delete(check)
+        signal?.removeEventListener("abort", onAbort)
+        outcome()
+      }
+      function check(announced: string) {
+        if (announced !== runId || done) return
+        void persistence
+          .load(runId)
+          .then((state) => {
+            if (!state) {
+              finish(() =>
+                reject(new AgentRunError("unknown_run", "Agent run is unknown"))
+              )
+              return
+            }
+            if (isTerminalAgentStatus(state.status))
+              finish(() => resolve(state))
+          })
+          .catch((error: unknown) => finish(() => reject(error)))
+      }
+      function onAbort() {
+        finish(() =>
+          reject(signal?.reason ?? new DOMException("Aborted", "AbortError"))
+        )
+      }
+      if (signal?.aborted) {
+        onAbort()
+        return
+      }
+      signal?.addEventListener("abort", onAbort, { once: true })
+      listeners.add(check)
+      check(runId)
+    })
+
+  const stopRun = async (runId: string) => {
+    await drive(await loadRunning(runId), (controller) =>
+      controller.requestCancel(runId)
+    )
+  }
+
+  return {
+    start,
+    async delegate(request) {
+      const existing = await readRunForMessage(request.messageId)
+      if (existing?.state) return existing.state
+      /**
+       * The parent's status picks the mode; a parent that is gone still names
+       * one, so the follow-up is refused rather than started as a fresh run
+       * that knows nothing of what the parent committed.
+       */
+      const parent = request.previousRunId
+        ? await readRun(request.previousRunId)
+        : null
+      const mode: AgentFollowUpMode =
+        (parent?.state && FOLLOW_UP_MODE[parent.state.status]) || "continue"
+      return start({
+        goal: request.goal,
+        tabId: request.tabId,
+        providerId: request.providerId,
+        modelId: request.modelId,
+        sessionId: request.sessionId,
+        goalAuthor: request.goalAuthor,
+        placement: { kind: "turn", messageId: request.messageId },
+        ...(request.allowRoutineActions ? { allowRoutineActions: true } : {}),
+        ...(request.allowExperimentalModel
+          ? { allowExperimentalModel: true }
+          : {}),
+        ...(request.previousRunId
+          ? { followUp: { parentRunId: request.previousRunId, mode } }
+          : {})
+      })
     },
+    awaitSettled,
     async pause(runId, reason = "user") {
       try {
         const state = await loadRunning(runId)
@@ -912,11 +1068,7 @@ export const createAgentRunService = (input?: {
           : controller.resume(runId)
       )
     },
-    async stop(runId) {
-      await drive(await loadRunning(runId), (controller) =>
-        controller.requestCancel(runId)
-      )
-    },
+    stop: stopRun,
     async completeTakeover(runId) {
       const ongoing = takeoverCompletions.get(runId)
       if (ongoing) {

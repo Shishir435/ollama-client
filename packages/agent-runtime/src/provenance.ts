@@ -129,16 +129,21 @@ const authoredByCommand = (
  * every answer they gave it, and the text it has typed or selected.
  */
 export const agentAuthoredText = (
-  state: Pick<AgentRunState, "goal" | "answers">,
+  state: Pick<AgentRunState, "goal" | "answers" | "goalAuthor">,
   steps: readonly AgentStepReadout[] = []
 ): string[] => {
   /**
    * A set, because a step is appended once per lifecycle change and every
    * receipt carries the command: one typed value arrives four times, and the
    * comparison would walk it four times for the same answer.
+   *
+   * A goal a chat model wrote after reading a page is left out. The model may
+   * have copied a field value off that page into the task, and counting the
+   * task as authored would let the run carry that value into a URL as though
+   * the user had typed it — the laundering this rule exists to stop.
    */
   const authored = new Set<string>([
-    state.goal,
+    ...(state.goalAuthor === "model_after_page" ? [] : [state.goal]),
     ...(state.answers ?? []).map((answer) => answer.text),
     ...(state.answers ?? []).flatMap((answer) =>
       answer.question ? [answer.question] : []

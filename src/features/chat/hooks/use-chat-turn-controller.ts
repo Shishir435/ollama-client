@@ -16,6 +16,7 @@ import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
 import { findOptionalPermissionNotice } from "@/features/chat/lib/optional-permission-notice"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
+import { browser } from "@/lib/browser-api"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
 import type { ActivityEvent, ChatMessage, ImageAttachment } from "@/types"
@@ -67,6 +68,23 @@ const preparingActivity = (
   startedAt: Date.now(),
   inputPreview: rawInput || files?.[0]?.metadata.fileName
 })
+
+/**
+ * The tab this panel's window shows. Read here because the page knows its
+ * window and the background does not; a browser task the model starts from
+ * this turn begins on it.
+ */
+const panelTabId = async (): Promise<number | undefined> => {
+  try {
+    const [tab] = await browser.tabs.query({
+      active: true,
+      currentWindow: true
+    })
+    return typeof tab?.id === "number" ? tab.id : undefined
+  } catch {
+    return undefined
+  }
+}
 
 export const useChatTurnController = ({
   config,
@@ -316,6 +334,7 @@ export const useChatTurnController = ({
     const turnId =
       globalThis.crypto?.randomUUID?.() ??
       `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const browserTabId = await panelTabId()
     const durableTurn = prepareTurnSubmission({
       id: turnId,
       sessionId,
@@ -342,7 +361,8 @@ export const useChatTurnController = ({
       hasTabContext,
       contextText: contextText || "",
       tabDocuments,
-      groundedOnlyMode: config.groundedOnlyMode
+      groundedOnlyMode: config.groundedOnlyMode,
+      ...(browserTabId !== undefined ? { browserTabId } : {})
     })
 
     if (permissionNotice) {

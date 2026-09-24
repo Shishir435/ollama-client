@@ -31,6 +31,22 @@ import {
 } from "@/protocol/streams"
 import type { ChatMessage, ChatStreamSink, ChatWithModelMessage } from "@/types"
 
+/**
+ * Whether the model will have read something it did not get from the user
+ * before it writes a word: an attached page or file, retrieved documents, or
+ * a browser agent's record. A browser task the model delegates from such a
+ * turn may be carrying that text, so its start is always asked about.
+ */
+const carriesReadContent = (
+  request: TurnGenerationInput["submission"]["request"]["context"],
+  result: TurnGenerationInput["context"]["result"]
+): boolean =>
+  request.hasTabContext ||
+  request.tabDocuments.length > 0 ||
+  (request.files?.length ?? 0) > 0 ||
+  (result.ragSources?.sources.length ?? 0) > 0 ||
+  (result.agentHandoffRunIds?.length ?? 0) > 0
+
 export const persistAssistant = async (
   assistantMessageId: number,
   assistant: ChatMessage
@@ -223,7 +239,15 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
         messages,
         sessionId: submission.sessionId,
         requestId: submission.id,
-        clientContextPrepared: true
+        clientContextPrepared: true,
+        assistantMessageId: resolvedAssistantId,
+        ...(submission.request.context.browserTabId !== undefined
+          ? { browserTabId: submission.request.context.browserTabId }
+          : {}),
+        pageContentInContext: carriesReadContent(
+          submission.request.context,
+          context.result
+        )
       }
     }
 

@@ -75,6 +75,7 @@ const service = (
       return state ? ({ state } as DurableAgentRun) : null
     },
     readSteps: vi.fn(async () => []),
+    readRunForMessage: vi.fn(async () => null),
     readIncompleteRuns: async () =>
       [...runs.values()]
         .filter(
@@ -1027,7 +1028,7 @@ describe("a follow-up start", () => {
     expect(state.requirements).toBeUndefined()
     expect(state.answers).toBeUndefined()
     expect(state.allowedOrigins).toEqual(["https://example.com"])
-    expect(createRun).toHaveBeenCalledWith(state, "chat-1", "parent")
+    expect(createRun).toHaveBeenCalledWith(state, "chat-1", "parent", undefined)
   })
 
   it("inherits what the parent itself inherited", async () => {
@@ -1162,5 +1163,108 @@ describe("a follow-up start", () => {
       })
     ).rejects.toMatchObject({ reason: "follow_up_unavailable" })
     expect(createRun).not.toHaveBeenCalled()
+  })
+})
+
+describe("a run a chat turn delegated", () => {
+  beforeEach(() => {
+    runs.clear()
+  })
+
+  const delegation = {
+    ...startInput,
+    sessionId: "chat-1",
+    messageId: 42,
+    goalAuthor: "model_after_page" as const,
+    allowRoutineActions: true
+  }
+
+  it("is filed against the turn's row and keeps who wrote its goal", async () => {
+    const createRun = vi.fn(async (state: AgentRunState) => {
+      runs.set(state.id, state)
+    })
+    const { service: agent } = service({ createRun })
+
+    const state = await agent.delegate(delegation)
+
+    expect(state.goalAuthor).toBe("model_after_page")
+    expect(createRun).toHaveBeenCalledWith(state, "chat-1", undefined, {
+      kind: "turn",
+      messageId: 42
+    })
+  })
+
+  it("finds the run it already started for the same row", async () => {
+    const createRun = vi.fn()
+    const existing = { id: "run-0", goal: "Earlier" } as AgentRunState
+    const { service: agent } = service({
+      createRun,
+      readRunForMessage: vi.fn(async () => ({
+        id: "run-0",
+        state: existing
+      })) as never
+    })
+
+    await expect(agent.delegate(delegation)).resolves.toBe(existing)
+    expect(createRun).not.toHaveBeenCalled()
+  })
+
+  it("follows the chat's previous run in the mode its status calls for", async () => {
+    const first = service({ newRunId: () => "parent" })
+    const parent = await first.service.start(startInput)
+    runs.set(parent.id, { ...parent, status: "failed" })
+    const createRun = vi.fn(async (state: AgentRunState) => {
+      runs.set(state.id, state)
+    })
+    const { service: agent } = service({
+      createRun,
+      newRunId: () => "child"
+    })
+
+    const child = await agent.delegate({
+      ...delegation,
+      previousRunId: "parent"
+    })
+
+    expect(child.previousRun?.mode).toBe("retry")
+    expect(createRun).toHaveBeenCalledWith(child, "chat-1", "parent", {
+      kind: "turn",
+      messageId: 42
+    })
+  })
+
+  it("resolves at once for a run that has already settled", async () => {
+    const { service: agent } = service()
+    const state = await agent.start(startInput)
+    runs.set(state.id, { ...state, status: "completed" })
+
+    await expect(agent.awaitSettled(state.id)).resolves.toMatchObject({
+      status: "completed"
+    })
+  })
+
+  it("resolves when a write settles the run", async () => {
+    const { service: agent } = service({
+      buildController: transitionController("cancelled")
+    })
+    const state = await agent.start(startInput)
+
+    const settled = agent.awaitSettled(state.id)
+    await agent.stop(state.id)
+
+    await expect(settled).resolves.toMatchObject({ status: "cancelled" })
+  })
+
+  /** Whether the run stops too is the waiter's call, never the wait's. */
+  it("ends only the wait when it is aborted", async () => {
+    const { service: agent, controller } = service()
+    const state = await agent.start(startInput)
+    const waiting = new AbortController()
+
+    const abandoned = agent.awaitSettled(state.id, waiting.signal)
+    waiting.abort("gone")
+
+    await expect(abandoned).rejects.toBe("gone")
+    expect(controller.requestCancel).not.toHaveBeenCalled()
   })
 })

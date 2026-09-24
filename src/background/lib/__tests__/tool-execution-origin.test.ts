@@ -160,3 +160,84 @@ describe("prepareToolCall origin scoping", () => {
     expect(prepared.requiresConfirmation).toBe(false)
   })
 })
+
+describe("a call's own confirmation demand", () => {
+  beforeEach(() => {
+    grantStore.clear()
+    clearSessionGrants()
+  })
+
+  const demanding = (
+    confirmation: ToolDefinition["confirmation"],
+    risk: ToolDefinition["risk"] = "medium"
+  ): ToolDefinition => ({
+    ...scopedDef(() => "https://github.com"),
+    risk,
+    confirmation
+  })
+
+  it("asks despite a grant when the call demands it, and shows what it said", async () => {
+    addSessionGrant("s1", "site_tool", "https://github.com", 0)
+    const registry = registryWith(
+      demanding(() => ({
+        always: true,
+        summary: "Open the pricing page",
+        notes: ["agent.start_gate.after_page"]
+      }))
+    )
+
+    const prepared = await prepareToolCall(registry, call, undefined, {
+      sessionId: "s1"
+    })
+
+    expect(prepared.requiresConfirmation).toBe(true)
+    expect(prepared.run.confirmationSummary).toBe("Open the pricing page")
+    expect(prepared.run.confirmationNotes).toEqual([
+      "agent.start_gate.after_page"
+    ])
+  })
+
+  it("lets the grant stand when the call does not demand more", async () => {
+    addSessionGrant("s1", "site_tool", "https://github.com", 0)
+    const registry = registryWith(demanding(() => ({ always: false })))
+
+    const prepared = await prepareToolCall(registry, call, undefined, {
+      sessionId: "s1"
+    })
+
+    expect(prepared.requiresConfirmation).toBe(false)
+  })
+
+  it("never asks about a low-risk call because of a demand", async () => {
+    const confirmation = vi.fn(() => ({ always: true }))
+    const registry = registryWith(demanding(confirmation, "low"))
+
+    const prepared = await prepareToolCall(registry, call)
+
+    expect(prepared.requiresConfirmation).toBe(false)
+    expect(confirmation).not.toHaveBeenCalled()
+  })
+
+  it("tells the tool the user approved this very call", async () => {
+    const seen: ToolContext[] = []
+    const reg = new ToolRegistry()
+    const definition = demanding(() => ({ always: true }))
+    reg.register({
+      id: "test",
+      listTools: () => [definition],
+      callTool: async (_name, _args, ctx): Promise<ToolResult> => {
+        seen.push(ctx)
+        return { content: "ok" }
+      }
+    })
+    const prepared = await prepareToolCall(reg, call, undefined, {
+      sessionId: "s1"
+    })
+    const confirmations = await import("../tool-confirmation-registry")
+    const running = runPreparedToolCall(prepared, reg, { sessionId: "s1" })
+    confirmations.resolveToolConfirmation("c1", true)
+    await running
+
+    expect(seen[0]?.userConfirmed).toBe(true)
+  })
+})

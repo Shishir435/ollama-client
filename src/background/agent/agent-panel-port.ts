@@ -338,18 +338,6 @@ export const registerAgentPanelPort = (
           )
           return
         }
-        case "agent_start":
-          await service.start({
-            goal: command.goal,
-            tabId: command.tabId,
-            providerId: command.providerId,
-            modelId: command.modelId,
-            sessionId: command.sessionId,
-            followUp: command.followUp,
-            allowRoutineActions: command.allowRoutineActions,
-            allowExperimentalModel: command.allowExperimentalModel
-          })
-          return
         case "agent_pause":
           await service.pause(command.runId)
           return

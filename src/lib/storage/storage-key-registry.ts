@@ -33,6 +33,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Whether a run may picture the page for a model that can see. A preference about the agent, carrying no page or provider data."
   },
+  [STORAGE_KEYS.AGENT.PERMISSION_MODE]: {
+    key: STORAGE_KEYS.AGENT.PERMISSION_MODE,
+    scope: "device-local",
+    reason:
+      "Whether each new run may click and type on the page it starts on without asking. A preference each run mints its own grants from, never a grant itself; device-local because it is consent given on this browser."
+  },
   [STORAGE_KEYS.BACKUP.IMPORT_JOURNAL]: {
     key: STORAGE_KEYS.BACKUP.IMPORT_JOURNAL,
     scope: "device-local",

@@ -21,6 +21,7 @@ export interface DurableContextOptions {
   selectedModel: string
   selectedModelRef: SelectedModelRef | null
   customModel?: string
+  browserTabId?: number
 }
 
 export const parseDurableContextOptions = (

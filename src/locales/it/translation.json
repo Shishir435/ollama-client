@@ -47,11 +47,6 @@
       "reject": "Rifiuta",
       "allowForRun": "Consenti sempre questo tipo di azione su {{origin}} per questa esecuzione"
     },
-    "attachment": {
-      "title": "Cosa consente questo browser",
-      "attaches": "All'avvio il debugger di Chrome si collega alla scheda scelta. Chrome mostra un proprio avviso mentre è collegato, e il collegamento termina all'arresto, quando passa il controllo a te o al termine.",
-      "no_debugger": "Questo browser non ha un debugger, quindi l'esecuzione guida le pagine tramite gli script di contenuto dell'estensione."
-    },
     "browser_disconnected": "Il controllo del browser si è disconnesso, quindi Agent è in pausa. Controlla la pagina prima di riprendere.",
     "controls": {
       "label": "Controlli Agente",
@@ -84,51 +79,15 @@
       "verification_failed": "L'esecuzione non ha potuto confermare l'effetto dell'ultima azione. Controlla la pagina prima di riavviare.",
       "unknown": "L'esecuzione si è fermata per un motivo non identificabile. Controlla la pagina e riavvia."
     },
-    "limits": {
-      "no_native_input": "L'input di mouse e tastiera è sintetico: una pagina che risponde solo a input reali potrebbe non reagire.",
-      "no_screenshots": "Non vengono acquisite schermate, quindi un'attività risolvibile solo guardando la pagina non funzionerà.",
-      "no_dialogs": "L'esecuzione non può vedere né rispondere alle finestre native alert, confirm e prompt."
-    },
     "model": {
       "label": "Modello"
-    },
-    "readiness": {
-      "status": {
-        "ready": "Agente pronto",
-        "experimental": "Supporto Agente sperimentale",
-        "unsupported": "Non compatibile con l'Agente"
-      },
-      "vision": {
-        "supported": "Visivo",
-        "unsupported": "Solo testo",
-        "unknown": "Visione sconosciuta"
-      },
-      "reason": {
-        "metadata": "Il catalogo di questo modello dichiara la chiamata di strumenti.",
-        "verified_probe": "La chiamata di strumenti è stata confermata da una richiesta di prova a questo modello.",
-        "user_override": "La chiamata di strumenti è attiva perché l'hai impostata tu per questo modello, non perché lo dichiari il modello.",
-        "reported_unsupported": "Questo modello dichiara di non poter chiamare strumenti, e un'esecuzione ne ha bisogno per ogni azione.",
-        "unverified": "La chiamata di strumenti non è confermata per questo modello. Verificala, o imposta tu la capacità.",
-        "unknown": "Questo modello non dice nulla sulla chiamata di strumenti, e un'esecuzione non la attiverà per supposizione."
-      },
-      "text_only": "Questo modello non legge le immagini. L'esecuzione lavora sul testo e sui controlli della pagina, quindi una pagina usabile solo guardandola non funzionerà.",
-      "alternatives": "Modelli di questo provider che dichiarano la chiamata di strumenti:",
-      "allow_experimental": "Avvia comunque con questo modello",
-      "allow_experimental_description": "Qui la chiamata di strumenti è la tua impostazione, non la risposta del modello. Un modello che non può chiamare strumenti passa l'esecuzione a rispondere in prosa."
     },
     "observations": "{{count}} osservazioni",
     "privacy": {
       "remote_notice": "Le osservazioni della pagina saranno inviate continuamente a questo provider remoto mentre l’Agente è in esecuzione.",
-      "acknowledge": "Ho capito",
       "remote_notice_screenshots": "Le osservazioni della pagina e gli screenshot dell’area visibile saranno inviati continuamente a questo provider remoto mentre l’Agente è in esecuzione."
     },
     "progress": "{{count}} di {{budget}} osservazioni",
-    "provider": {
-      "label": "Provider",
-      "local": "Locale",
-      "remote": "Remoto",
-      "missing": "Seleziona prima un modello"
-    },
     "question": {
       "title": "Agent ha bisogno di una risposta",
       "inputLabel": "La tua risposta",
@@ -140,15 +99,6 @@
       "sent": "Gli screenshot dell’area visibile vengono inviati al modello",
       "unused": "Non usati con un modello solo testo",
       "unknown": "Non ancora determinato"
-    },
-    "start": {
-      "goal": "Cosa deve fare l’Agente?",
-      "placeholder": "Descrivi un’attività del browser…",
-      "action": "Avvia Agente",
-      "auto_actions": "Consenti le azioni di routine per questa attività",
-      "auto_actions_description": "Clic e digitazione su questo sito sono automatici. Pubblicazioni, eliminazioni, nuovi siti e passaggi sensibili richiedono ancora conferma.",
-      "starting": "Avvio…",
-      "starting_on": "Avvio su «{{title}}»…"
     },
     "status": {
       "submitted": "Avvio",
@@ -177,11 +127,6 @@
       "failed": "Non riuscito",
       "uncertain": "Controlla"
     },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agente",
-      "preview": "Anteprima"
-    },
     "tab": {
       "label": "Scheda controllata",
       "missing": "Apri una pagina supportata"
@@ -197,7 +142,6 @@
         "sensitive_step": "Prendi il controllo della pagina, completa tu il passaggio riservato, poi continua."
       }
     },
-    "title": "Agente supervisionato",
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
     "unresolved_reviewed": "Ho controllato la pagina: continua",
     "work_log": {
@@ -208,7 +152,7 @@
     "correction": "In pausa. Descrivi cosa cambiare, poi continua.",
     "settings": {
       "title": "Agente del browser",
-      "description": "Quanto contesto un'esecuzione può chiedere al suo modello e quando fotografa la pagina.",
+      "description": "Cosa può fare un’esecuzione senza chiedere, quanto contesto può chiedere al modello e quando cattura la pagina.",
       "context_window": {
         "label": "Finestra di contesto",
         "description": "Automatico prende la finestra più piccola che questo modello e questo server dichiarano, e ripiega su una dimensione prudente quando nessuno dei due si esprime. Imposta tu una dimensione se hai alzato il limite del tuo server o se un'esecuzione ha esaurito la memoria.",
@@ -221,6 +165,12 @@
         "auto": "Quando il passo ne ha bisogno",
         "always": "A ogni passo",
         "never": "Mai"
+      },
+      "permission_mode": {
+        "label": "Azioni di routine",
+        "description": "Se ogni nuova esecuzione può fare clic e digitare sul sito da cui parte senza chiedere. Invio, eliminazione, accesso, pagamento e nuovi siti vengono sempre chiesti, e nulla passa all’esecuzione successiva.",
+        "allow_routine": "Consenti sul sito iniziale",
+        "approve_each": "Approva ogni azione"
       }
     },
     "card": {
@@ -235,13 +185,8 @@
       "ask": "Chiedi a riguardo"
     },
     "follow_up": {
-      "continue": "Continuazione: {{goal}}",
-      "retry": "Nuovo tentativo: {{goal}}",
-      "clear": "Ricomincia da capo",
-      "placeholder": "Cosa deve fare adesso?"
-    },
-    "composer": {
-      "run_in_progress": "Un’esecuzione è già in corso. Interrompila o attendi che finisca prima di avviarne un’altra."
+      "continue_message": "Continua l’attività nel browser.",
+      "retry_message": "Riprova l’attività nel browser."
     },
     "paused_panel_closed": "In pausa perché il pannello laterale è stato chiuso. Riprendi quando vuoi.",
     "approval_text": {
@@ -275,6 +220,12 @@
       "completion_refused": "Non sono riuscito a confermare il risultato. L’attività è completata? In caso contrario, cosa devo fare adesso?",
       "commands_refused": "L’ultima azione non è riuscita. Cosa dovrei provare invece?",
       "no_progress": "Sto ripetendo azioni senza fare progressi. Cosa dovrei fare diversamente? Puoi anche fermarmi e completare tu l’attività."
+    },
+    "start_gate": {
+      "after_page": "Il modello ha letto il contenuto di una pagina prima di scrivere questa attività, quindi viene sempre chiesta conferma.",
+      "other_tab": "Questa attività viene eseguita in una scheda diversa da quella che stai guardando.",
+      "supervised": "L’agente lavora sulla pagina un passo alla volta e chiede prima di qualsiasi azione importante. Nel frattempo Chrome mostra un banner di debug.",
+      "experimental_model": "Le chiamate agli strumenti sono attive per questo modello perché le hai abilitate tu, non perché il modello le dichiari. Un modello che non sa chiamare strumenti non andrà lontano."
     }
   },
   "common": {
@@ -561,7 +512,8 @@
         "results_other": "{{count}} risultati",
         "restoreSession": "Riapertura di una scheda chiusa",
         "list_reminders": "Elenco promemoria",
-        "cancel_reminder": "Annullamento promemoria"
+        "cancel_reminder": "Annullamento promemoria",
+        "browser_task": "Attività nel browser"
       },
       "debug": "Ragionamento di debug"
     },

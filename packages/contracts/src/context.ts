@@ -42,7 +42,13 @@ export const DurableContextOptionsSchema = z.object({
       modelId: z.string()
     })
     .nullable(),
-  customModel: z.string().optional()
+  customModel: z.string().optional(),
+  /**
+   * The tab the side panel showed when the message was sent: the one a
+   * browser task the model delegates starts on. A service worker has no
+   * window of its own to ask.
+   */
+  browserTabId: z.number().int().nonnegative().optional()
 })
 
 /** Persisted context shape before application message normalization. */

@@ -1,7 +1,6 @@
 import {
   agentCommandDisplay,
-  isTerminalAgentStatus,
-  TERMINAL_AGENT_STATUSES
+  isTerminalAgentStatus
 } from "@ollama-client/agent-runtime"
 import type {
   AgentCommand,
@@ -25,29 +24,6 @@ export interface AgentTabPresentation {
   title: string
   url: string
 }
-
-/**
- * Whether pictures may travel to this provider. Unknown counts as "may": the
- * runtime resolves the model's vision on its own, so a notice that stayed
- * silent about screenshots while the answer was pending would be one the user
- * never saw before a picture left.
- */
-export const agentScreenshotsMayTravel = (
-  provider?: AgentProviderPresentation
-): boolean => provider?.screenshots !== false
-
-/**
- * A remote provider needs the observation acknowledgement, and the screenshot
- * one too whenever pictures may travel.
- */
-export const agentNeedsRemoteAcknowledgement = (
-  provider: AgentProviderPresentation | undefined,
-  observationsAcknowledged: boolean,
-  screenshotsAcknowledged: boolean
-): boolean =>
-  provider?.location === "remote" &&
-  (!observationsAcknowledged ||
-    (agentScreenshotsMayTravel(provider) && !screenshotsAcknowledged))
 
 export const AGENT_PAGE_TEXT_LIMIT = 240
 export const AGENT_LOG_TEXT_LIMIT = 500
@@ -262,22 +238,3 @@ export const toAgentWorkLog = (
  */
 export const agentRunIsActive = (status: AgentRunState["status"]): boolean =>
   !isTerminalAgentStatus(status) && status !== "paused"
-
-const SETTLED_AGENT_STATUSES: readonly AgentRunState["status"][] =
-  TERMINAL_AGENT_STATUSES
-
-/**
- * The tab the panel shows and gates Start on.
- *
- * While a run is unresolved that is the tab it controls, whatever the user is
- * looking at. Once it has settled, the record of where it ran says nothing
- * about where the next run would start — the tab may be closed by now — so
- * the panel goes back to the page in front of the user. Gating on the stale
- * tab is how a finished run left Start disabled on a perfectly good page.
- */
-export const visibleAgentTab = <T>(
-  run: Pick<AgentRunState, "status"> | null | undefined,
-  runTab: T | undefined,
-  candidateTab: T | undefined
-): T | undefined =>
-  run && !SETTLED_AGENT_STATUSES.includes(run.status) ? runTab : candidateTab

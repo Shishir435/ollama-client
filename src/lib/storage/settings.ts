@@ -92,6 +92,19 @@ export const SETTINGS = {
       parser: z.enum(["auto", "always", "never"])
     }
   ),
+  /**
+   * `allow_routine` lets each new run click and type on the site it starts on
+   * without asking; `approve_each` asks for every step. Read once per start:
+   * the run gets its own grants from it, so no grant outlives a run and
+   * submissions, deletions, sign-in and payment are asked about either way.
+   */
+  AGENT_PERMISSION_MODE: defineSetting<"allow_routine" | "approve_each">(
+    STORAGE_KEYS.AGENT.PERMISSION_MODE,
+    {
+      defaultValue: "allow_routine",
+      parser: z.enum(["allow_routine", "approve_each"])
+    }
+  ),
   LANGUAGE: defineSetting<string>(STORAGE_KEYS.LANGUAGE, {
     defaultValue: "en"
   }),

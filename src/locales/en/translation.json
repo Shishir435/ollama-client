@@ -47,11 +47,6 @@
       "reject": "Reject",
       "allowForRun": "Always allow this kind of action on {{origin}} for this run"
     },
-    "attachment": {
-      "title": "What this browser allows",
-      "attaches": "Starting a run attaches Chrome's debugger to the tab you choose. Chrome shows its own banner while it is attached, and the run detaches when it stops, pauses for you to take over, or finishes.",
-      "no_debugger": "This browser has no debugger, so the run drives pages through the extension's content scripts instead."
-    },
     "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",
     "controls": {
       "label": "Agent controls",
@@ -84,51 +79,15 @@
       "verification_failed": "The run could not confirm what its last action did. Check the page before starting again.",
       "unknown": "The run stopped for a reason it could not name. Check the page, then start again."
     },
-    "limits": {
-      "no_native_input": "Pointer and keyboard input is synthetic, so a page that only reacts to real input may not respond.",
-      "no_screenshots": "No screenshots are taken, so a task that can only be done by looking at the page will not work.",
-      "no_dialogs": "Native alert, confirm and prompt dialogs cannot be seen or answered by the run."
-    },
     "model": {
       "label": "Model"
-    },
-    "readiness": {
-      "status": {
-        "ready": "Agent ready",
-        "experimental": "Experimental Agent support",
-        "unsupported": "Not Agent compatible"
-      },
-      "vision": {
-        "supported": "Visual",
-        "unsupported": "Text only",
-        "unknown": "Vision unknown"
-      },
-      "reason": {
-        "metadata": "This model's own catalog reports tool calling.",
-        "verified_probe": "Tool calling was confirmed by a test request to this model.",
-        "user_override": "Tool calling is on because you set it for this model, not because the model reported it.",
-        "reported_unsupported": "This model reports it cannot call tools, and a run needs them for every action.",
-        "unverified": "Tool calling is not confirmed for this model. Probe it, or set the capability yourself.",
-        "unknown": "This model says nothing about tool calling, and a run will not enable it on a guess."
-      },
-      "text_only": "This model does not read images. The run works from page text and controls, so a page that can only be used by looking at it will not work.",
-      "alternatives": "Models on this provider that report tool calling:",
-      "allow_experimental": "Start anyway with this model",
-      "allow_experimental_description": "Tool calling here is your setting, not the model's answer. A model that cannot call tools spends the run replying in prose."
     },
     "observations": "{{count}} observations",
     "privacy": {
       "remote_notice": "Page observations will be sent continuously to this remote provider while Agent runs.",
-      "acknowledge": "I understand",
       "remote_notice_screenshots": "Page observations and viewport screenshots will be sent continuously to this remote provider while Agent runs."
     },
     "progress": "{{count}} of {{budget}} observations",
-    "provider": {
-      "label": "Provider",
-      "local": "Local",
-      "remote": "Remote",
-      "missing": "Select a model first"
-    },
     "question": {
       "title": "Agent needs an answer",
       "inputLabel": "Your answer",
@@ -140,15 +99,6 @@
       "sent": "Viewport screenshots are sent to the model",
       "unused": "Not used with a text-only model",
       "unknown": "Not determined yet"
-    },
-    "start": {
-      "goal": "What should Agent do?",
-      "placeholder": "Describe one browser task…",
-      "action": "Start Agent",
-      "auto_actions": "Allow routine actions for this task",
-      "auto_actions_description": "Clicks and typing on this site run automatically. Posting, deleting, new sites and sensitive steps still ask.",
-      "starting": "Starting…",
-      "starting_on": "Starting on “{{title}}”…"
     },
     "status": {
       "submitted": "Starting",
@@ -177,11 +127,6 @@
       "failed": "Failed",
       "uncertain": "Review"
     },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agent",
-      "preview": "Preview"
-    },
     "tab": {
       "label": "Controlled tab",
       "missing": "Open a supported web page"
@@ -197,7 +142,6 @@
         "sensitive_step": "Take control of the page, complete the sensitive step yourself, then continue."
       }
     },
-    "title": "Supervised Agent",
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
     "unresolved_reviewed": "I've reviewed the page — continue",
     "work_log": {
@@ -208,7 +152,7 @@
     "correction": "Paused. Describe what should change, then continue.",
     "settings": {
       "title": "Browser agent",
-      "description": "How much context a run may ask its model for, and when it pictures the page.",
+      "description": "What a run may do without asking, how much context it may ask its model for, and when it pictures the page.",
       "context_window": {
         "label": "Context window",
         "description": "Automatic reads the smallest window this model and this server both report, and falls back to a conservative size when neither says. Set a size yourself if you have raised your server's own limit, or if a run has run out of memory.",
@@ -221,6 +165,12 @@
         "auto": "When the step needs one",
         "always": "Every step",
         "never": "Never"
+      },
+      "permission_mode": {
+        "label": "Routine actions",
+        "description": "Whether each new run may click and type on the site it starts on without asking. Submitting, deleting, signing in, paying and new sites are always asked about, and nothing carries over to the next run.",
+        "allow_routine": "Allow on the starting site",
+        "approve_each": "Approve each action"
       }
     },
     "card": {
@@ -235,13 +185,8 @@
       "ask": "Ask about it"
     },
     "follow_up": {
-      "continue": "Continuing: {{goal}}",
-      "retry": "Retrying: {{goal}}",
-      "clear": "Start fresh instead",
-      "placeholder": "What should it do next?"
-    },
-    "composer": {
-      "run_in_progress": "A run is already working. Stop it, or wait for it to finish, before starting another."
+      "continue_message": "Continue the browser task.",
+      "retry_message": "Try the browser task again."
     },
     "paused_panel_closed": "Paused because the side panel closed. Resume when you’re ready.",
     "approval_text": {
@@ -275,6 +220,12 @@
       "completion_refused": "I couldn’t confirm the result. Is the task done? If not, what should I do next?",
       "commands_refused": "The last action could not run. What should I try instead?",
       "no_progress": "I’m repeating actions without making progress. What should I do differently? You can also stop and finish the task yourself."
+    },
+    "start_gate": {
+      "after_page": "The model read page content before writing this task, so it is always asked about.",
+      "other_tab": "This task runs on a different tab from the one you are looking at.",
+      "supervised": "The agent works on the page step by step and asks before anything consequential. Chrome shows a debugging banner while it works.",
+      "experimental_model": "Tool calling is on for this model because you set it, not because the model reported it. A model that cannot call tools will not get far."
     }
   },
   "common": {
@@ -595,7 +546,8 @@
         "previous_conversation": "Previous conversation",
         "memory": "Memory",
         "results_one": "{{count}} result",
-        "results_other": "{{count}} results"
+        "results_other": "{{count}} results",
+        "browser_task": "Browser task"
       }
     },
     "feedback": {

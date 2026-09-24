@@ -111,6 +111,24 @@ export interface ToolDefinition {
     args: Record<string, unknown>,
     ctx: ToolContext
   ) => Promise<string | undefined> | string | undefined
+  /**
+   * What this particular call's approval must be. `always` asks even where a
+   * grant would have covered the call — a grant was given for the input the
+   * turn had then, and some inputs change what the call can carry. `summary`
+   * and `notes` are shown in the prompt. Never lowers a risk: a call that
+   * needs no approval by its risk is not asked about because of this.
+   */
+  confirmation?: (
+    args: Record<string, unknown>,
+    ctx: ToolContext
+  ) => Promise<ToolConfirmationDemand> | ToolConfirmationDemand
+}
+
+export interface ToolConfirmationDemand {
+  always?: boolean
+  summary?: string
+  /** Translation keys, rendered in the prompt as they are. */
+  notes?: string[]
 }
 
 /** A model's request to invoke a tool, normalized across providers. */
@@ -188,6 +206,22 @@ export interface ToolContext {
    * whatever is active by the time the tool runs.
    */
   approvedOrigin?: string
+  /** Set when the user approved this very call in a prompt. */
+  userConfirmed?: boolean
+  /** The provider the turn is answered by. */
+  providerId?: string
+  /** The tab the side panel showed when the message was sent. */
+  browserTabId?: number
+  /** The assistant row this turn streams into. */
+  assistantMessageId?: number
+  /**
+   * The turn's context carried something read off a page before the model
+   * wrote anything: an attached tab, a browser agent's record, retrieved
+   * documents. Tool results that arrive later advance `taintGeneration`.
+   */
+  pageContentInContext?: boolean
+  /** The latest browser-agent run in the branch being answered. */
+  previousAgentRunId?: string
 }
 
 /**

@@ -259,7 +259,29 @@ await panel
   .getByRole("button", { name: "Skip for now", exact: true })
   .click({ timeout: 3000 })
   .catch(() => {})
-await panel.getByRole("button", { name: /^Agent/ }).click()
+await panel
+  .getByRole("button", { name: "Start Chatting" })
+  .click({ timeout: 3000 })
+  .catch(() => {})
+/**
+ * A task is an ordinary chat message: the chat model delegates it through
+ * `browser_task`, whose start is asked about the first time on each site. The
+ * previous task's turn has to finish before the composer sends again.
+ */
+const sendTask = async (goal) => {
+  await panel
+    .getByRole("button", { name: "Stop generation" })
+    .waitFor({ state: "detached", timeout: 120000 })
+    .catch(() => {})
+  const composer = panel.getByPlaceholder("Type a message or ctrl + /")
+  await composer.fill(goal)
+  await composer.press("Enter")
+  await panel
+    .getByRole("button", { name: /^Allow (for this chat|once)$/ })
+    .first()
+    .click({ timeout: 60000 })
+    .catch(() => {})
+}
 try {
   const only = (process.env.AUDIT_ONLY ?? "")
     .split(",")
@@ -279,16 +301,11 @@ try {
       .catch(() => {})
     await fixture.waitForTimeout(1500)
     await fixture.bringToFront()
-    await panel
-      .getByRole("textbox", { name: "What should Agent do?" })
-      .fill(goal)
-    await panel
-      .getByRole("button", { name: "Start Agent", exact: true })
-      .click()
+    await sendTask(goal)
     let final, reason
     while (Date.now() - started < 240000) {
       final = messages
-        .filter((m) => m.snapshot?.run?.goal === goal)
+        .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
         .at(-1)?.snapshot
       if (
         final &&

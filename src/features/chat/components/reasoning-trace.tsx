@@ -1,4 +1,5 @@
 import {
+  Bot,
   Camera,
   ChevronDown,
   Circle,
@@ -55,7 +56,8 @@ const TOOL_ICONS: Record<
   "file-text": FileText,
   "text-select": TextSelect,
   download: Download,
-  camera: Camera
+  camera: Camera,
+  bot: Bot
 }
 
 const ACTIVITY_ICONS: Record<

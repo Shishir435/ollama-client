@@ -32,6 +32,23 @@ describe("agentAuthoredText", () => {
     ).toEqual([goal, "Lisbon Portela", "Which airport?"])
   })
 
+  /**
+   * A chat model that read a page before writing the task may be carrying
+   * that page's words; a model that read nothing is paraphrasing the user.
+   */
+  it("does not count a goal the model wrote after reading a page", () => {
+    expect(agentAuthoredText({ goal, goalAuthor: "model" })).toEqual([goal])
+    expect(agentAuthoredText({ goal, goalAuthor: "model_after_page" })).toEqual(
+      []
+    )
+    expect(
+      isAgentAuthoredDestination(
+        "https://duckduckgo.com/?q=ollama+browser+extension",
+        agentAuthoredText({ goal, goalAuthor: "model_after_page" })
+      )
+    ).toBe(false)
+  })
+
   it("counts the text the run typed or selected itself", () => {
     expect(
       agentAuthoredText({ goal }, [

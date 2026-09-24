@@ -132,6 +132,21 @@ export const PendingToolConfirmation = ({
                         action: runLabel(run, t)
                       })}
                 </div>
+                {/*
+                  What the call will do, in the model's words, and whatever
+                  the tool says must be read before it is allowed. Plain text:
+                  the summary is model output.
+                */}
+                {run.confirmationSummary && (
+                  <p className="mt-1.5 max-h-24 overflow-y-auto whitespace-pre-wrap wrap-break-word rounded-control bg-surface-sunken px-2 py-1 text-foreground">
+                    {run.confirmationSummary}
+                  </p>
+                )}
+                {run.confirmationNotes?.map((note) => (
+                  <p key={note} className="mt-1 text-muted-foreground">
+                    {t(note)}
+                  </p>
+                ))}
               </div>
             </div>
             <div className="flex flex-wrap justify-end gap-2">

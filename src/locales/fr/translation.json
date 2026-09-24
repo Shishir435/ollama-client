@@ -47,11 +47,6 @@
       "reject": "Refuser",
       "allowForRun": "Toujours autoriser ce type d'action sur {{origin}} pour cette exécution"
     },
-    "attachment": {
-      "title": "Ce que permet ce navigateur",
-      "attaches": "Au démarrage, le débogueur de Chrome se connecte à l'onglet choisi. Chrome affiche son propre bandeau pendant ce temps, et la connexion cesse à l'arrêt, lors d'une reprise en main ou à la fin.",
-      "no_debugger": "Ce navigateur n'a pas de débogueur : l'exécution pilote les pages via les scripts de contenu de l'extension."
-    },
     "browser_disconnected": "Le contrôle du navigateur s’est déconnecté. Agent est donc en pause. Vérifiez la page avant de reprendre.",
     "controls": {
       "label": "Commandes de l’Agent",
@@ -84,51 +79,15 @@
       "verification_failed": "L'exécution n'a pas pu confirmer l'effet de sa dernière action. Vérifiez la page avant de relancer.",
       "unknown": "L'exécution s'est arrêtée sans raison identifiable. Vérifiez la page, puis relancez."
     },
-    "limits": {
-      "no_native_input": "Les entrées souris et clavier sont synthétiques ; une page qui ne réagit qu'à de vraies entrées peut ne pas répondre.",
-      "no_screenshots": "Aucune capture d'écran n'est prise : une tâche qui exige de regarder la page ne fonctionnera pas.",
-      "no_dialogs": "L'exécution ne peut ni voir ni répondre aux boîtes natives alert, confirm et prompt."
-    },
     "model": {
       "label": "Modèle"
-    },
-    "readiness": {
-      "status": {
-        "ready": "Agent prêt",
-        "experimental": "Prise en charge expérimentale de l'Agent",
-        "unsupported": "Non compatible avec l'Agent"
-      },
-      "vision": {
-        "supported": "Visuel",
-        "unsupported": "Texte seul",
-        "unknown": "Vision inconnue"
-      },
-      "reason": {
-        "metadata": "Le catalogue de ce modèle déclare l'appel d'outils.",
-        "verified_probe": "L'appel d'outils a été confirmé par une requête de test envoyée à ce modèle.",
-        "user_override": "L'appel d'outils est actif parce que vous l'avez défini pour ce modèle, pas parce que le modèle le déclare.",
-        "reported_unsupported": "Ce modèle déclare ne pas pouvoir appeler d'outils, et une exécution en a besoin pour chaque action.",
-        "unverified": "L'appel d'outils n'est pas confirmé pour ce modèle. Testez-le, ou définissez la capacité vous-même.",
-        "unknown": "Ce modèle ne dit rien de l'appel d'outils, et une exécution ne l'activera pas au jugé."
-      },
-      "text_only": "Ce modèle ne lit pas les images. L'exécution s'appuie sur le texte et les contrôles de la page ; une page qui ne s'utilise qu'en la regardant ne fonctionnera pas.",
-      "alternatives": "Modèles de ce fournisseur qui déclarent l'appel d'outils :",
-      "allow_experimental": "Démarrer quand même avec ce modèle",
-      "allow_experimental_description": "Ici, l'appel d'outils est votre réglage, pas la réponse du modèle. Un modèle incapable d'appeler des outils passe l'exécution à répondre en prose."
     },
     "observations": "{{count}} observations",
     "privacy": {
       "remote_notice": "Les observations de page seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent.",
-      "acknowledge": "J’ai compris",
       "remote_notice_screenshots": "Les observations de page et les captures de la zone visible seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent."
     },
     "progress": "{{count}} observations sur {{budget}}",
-    "provider": {
-      "label": "Fournisseur",
-      "local": "Local",
-      "remote": "Distant",
-      "missing": "Sélectionnez d’abord un modèle"
-    },
     "question": {
       "title": "Agent a besoin d'une réponse",
       "inputLabel": "Votre réponse",
@@ -140,15 +99,6 @@
       "sent": "Les captures de la zone visible sont envoyées au modèle",
       "unused": "Non utilisées avec un modèle texte seul",
       "unknown": "Pas encore déterminé"
-    },
-    "start": {
-      "goal": "Que doit faire l’Agent ?",
-      "placeholder": "Décrivez une tâche du navigateur…",
-      "action": "Démarrer l’Agent",
-      "auto_actions": "Autoriser les actions courantes pour cette tâche",
-      "auto_actions_description": "Les clics et la saisie sur ce site sont automatiques. Les publications, suppressions, nouveaux sites et étapes sensibles demandent encore votre accord.",
-      "starting": "Démarrage…",
-      "starting_on": "Démarrage sur « {{title}} »…"
     },
     "status": {
       "submitted": "Démarrage",
@@ -177,11 +127,6 @@
       "failed": "Échec",
       "uncertain": "À vérifier"
     },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agent",
-      "preview": "Aperçu"
-    },
     "tab": {
       "label": "Onglet contrôlé",
       "missing": "Ouvrez une page prise en charge"
@@ -197,7 +142,6 @@
         "sensitive_step": "Prenez le contrôle de la page, effectuez vous-même l’étape sensible, puis continuez."
       }
     },
-    "title": "Agent supervisé",
     "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
     "unresolved_reviewed": "J'ai vérifié la page — continuer",
     "work_log": {
@@ -208,7 +152,7 @@
     "correction": "En pause. Décrivez le changement souhaité, puis continuez.",
     "settings": {
       "title": "Agent de navigation",
-      "description": "Quelle quantité de contexte une exécution peut demander à son modèle, et quand elle photographie la page.",
+      "description": "Ce qu’une exécution peut faire sans demander, combien de contexte elle peut demander à son modèle et quand elle capture la page.",
       "context_window": {
         "label": "Fenêtre de contexte",
         "description": "Automatique prend la plus petite fenêtre que ce modèle et ce serveur signalent, et se rabat sur une taille prudente quand aucun ne se prononce. Fixez vous-même une taille si vous avez relevé la limite de votre serveur ou si une exécution a manqué de mémoire.",
@@ -221,6 +165,12 @@
         "auto": "Quand l'étape en a besoin",
         "always": "À chaque étape",
         "never": "Jamais"
+      },
+      "permission_mode": {
+        "label": "Actions courantes",
+        "description": "Indique si chaque nouvelle exécution peut cliquer et saisir du texte sur le site de départ sans demander. L’envoi, la suppression, la connexion, le paiement et les nouveaux sites sont toujours soumis à confirmation, et rien n’est reporté à l’exécution suivante.",
+        "allow_routine": "Autoriser sur le site de départ",
+        "approve_each": "Approuver chaque action"
       }
     },
     "card": {
@@ -235,13 +185,8 @@
       "ask": "Poser une question"
     },
     "follow_up": {
-      "continue": "Suite de : {{goal}}",
-      "retry": "Nouvel essai : {{goal}}",
-      "clear": "Repartir de zéro",
-      "placeholder": "Que doit-il faire ensuite ?"
-    },
-    "composer": {
-      "run_in_progress": "Une exécution est déjà en cours. Arrêtez-la ou attendez qu’elle se termine avant d’en lancer une autre."
+      "continue_message": "Poursuis la tâche dans le navigateur.",
+      "retry_message": "Réessaie la tâche dans le navigateur."
     },
     "paused_panel_closed": "En pause car le panneau latéral a été fermé. Reprenez quand vous voulez.",
     "approval_text": {
@@ -275,6 +220,12 @@
       "completion_refused": "Je n’ai pas pu confirmer le résultat. La tâche est-elle terminée ? Sinon, que dois-je faire ensuite ?",
       "commands_refused": "La dernière action n’a pas pu être effectuée. Que devrais-je essayer à la place ?",
       "no_progress": "Je répète des actions sans progresser. Que devrais-je faire différemment ? Vous pouvez aussi m’arrêter et terminer la tâche vous-même."
+    },
+    "start_gate": {
+      "after_page": "Le modèle a lu le contenu d’une page avant de rédiger cette tâche : elle est donc toujours soumise à confirmation.",
+      "other_tab": "Cette tâche s’exécute dans un autre onglet que celui que vous regardez.",
+      "supervised": "L’agent agit sur la page étape par étape et demande avant toute action importante. Chrome affiche un bandeau de débogage pendant ce temps.",
+      "experimental_model": "Les appels d’outils sont activés pour ce modèle parce que vous l’avez choisi, pas parce que le modèle l’indique. Un modèle incapable d’appeler des outils n’ira pas loin."
     }
   },
   "common": {
@@ -561,7 +512,8 @@
         "results_other": "{{count}} résultats",
         "restoreSession": "Réouverture d’un onglet fermé",
         "list_reminders": "Liste des rappels",
-        "cancel_reminder": "Annulation du rappel"
+        "cancel_reminder": "Annulation du rappel",
+        "browser_task": "Tâche dans le navigateur"
       },
       "debug": "Raisonnement de débogage"
     },

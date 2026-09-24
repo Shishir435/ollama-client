@@ -116,6 +116,14 @@ const renderHandoff = (handoff: AgentConversationHandoff): string => {
 const fence = (records: string[]): string =>
   [OPEN, PREAMBLE, ...records, CLOSE].join("\n")
 
+/**
+ * One run's record, fenced the same way a later turn receives it: what a chat
+ * turn that delegated the run is handed back as the tool's result.
+ */
+export const renderAgentHandoffBlock = (
+  handoff: AgentConversationHandoff
+): string => fence([renderHandoff(handoff)])
+
 /** The fenced block for a turn, and which runs it carries a record of. */
 export interface AgentHandoffContext {
   block?: string

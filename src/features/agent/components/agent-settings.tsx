@@ -21,9 +21,14 @@ import { useSetting } from "@/hooks/use-setting"
 import { SETTINGS } from "@/lib/storage/settings"
 
 const VISION_MODES = ["auto", "always", "never"] as const
+const PERMISSION_MODES = ["allow_routine", "approve_each"] as const
 
 /**
- * The two knobs a run's cost is actually made of.
+ * What a run may do unasked, and the two knobs its cost is made of.
+ *
+ * The permission mode is read once per start and minted into that run's own
+ * grants, so changing it never widens a run already going, and no choice here
+ * covers a submission, a deletion, a sign-in or a payment.
  *
  * Both were literals in the decision path until now, and both are the kind of
  * thing only the person running it can answer: how much memory this machine
@@ -38,6 +43,9 @@ export const AgentSettings = () => {
     SETTINGS.AGENT_CONTEXT_WINDOW
   )
   const [vision, setVision] = useSetting(SETTINGS.AGENT_VISION)
+  const [permissionMode, setPermissionMode] = useSetting(
+    SETTINGS.AGENT_PERMISSION_MODE
+  )
   const isAuto = contextWindow === "auto" || contextWindow === undefined
 
   return (
@@ -45,6 +53,28 @@ export const AgentSettings = () => {
       icon={Bot}
       title={t("agent.settings.title")}
       description={t("agent.settings.description")}>
+      <SettingsFormField
+        focusId="agent-permission-mode"
+        label={t("agent.settings.permission_mode.label")}
+        description={t("agent.settings.permission_mode.description")}>
+        <Select
+          value={permissionMode ?? "allow_routine"}
+          onValueChange={(next) =>
+            setPermissionMode(next as (typeof PERMISSION_MODES)[number])
+          }>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PERMISSION_MODES.map((mode) => (
+              <SelectItem key={mode} value={mode}>
+                {t(`agent.settings.permission_mode.${mode}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingsFormField>
+
       <SettingsFormField
         focusId="agent-context-window"
         label={t("agent.settings.context_window.label")}

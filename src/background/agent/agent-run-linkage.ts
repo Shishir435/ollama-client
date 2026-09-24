@@ -5,7 +5,19 @@ import {
   createAgentRun,
   insertAgentRunStatement
 } from "@/lib/repositories/agent-runs"
-import { appendRunTurn } from "@/lib/repositories/chat-history"
+import {
+  appendRunTurn,
+  attachRunToMessage
+} from "@/lib/repositories/chat-history"
+
+/**
+ * Where a run's card is drawn. `turn` names the assistant row of the chat turn
+ * that delegated the run: that turn wrote the user's message and is streaming
+ * into the row, so the run claims the row and writes nothing else.
+ */
+export type AgentRunPlacement =
+  | { kind: "new_turn" }
+  | { kind: "turn"; messageId: number }
 
 /**
  * Create a run and the conversation rows that report on it, in one commit.
@@ -32,10 +44,37 @@ import { appendRunTurn } from "@/lib/repositories/chat-history"
 export const createLinkedAgentRun = async (
   state: AgentRunState,
   sessionId?: string,
-  parentRunId?: string
+  parentRunId?: string,
+  placement: AgentRunPlacement = { kind: "new_turn" }
 ): Promise<void> => {
   const lineage = parentRunId ? { parentRunId } : {}
   if (!sessionId) {
+    await createAgentRun(state, lineage)
+    return
+  }
+
+  if (placement.kind === "turn") {
+    /**
+     * No request row: the message that asked is the chat's own, already
+     * written by the turn. `requestMessageId` stays empty, which is also what
+     * tells startup reconciliation that a turn, not the run, finishes the row.
+     */
+    const [sql, params] = insertAgentRunStatement(state, {
+      sessionId,
+      resultMessageId: placement.messageId,
+      ...lineage
+    })
+    if (
+      await attachRunToMessage(sessionId, placement.messageId, state.id, {
+        sql,
+        params
+      })
+    )
+      return
+    logger.warn("Agent run started without its chat row", "Agent", {
+      runId: state.id,
+      reason: "message_unavailable"
+    })
     await createAgentRun(state, lineage)
     return
   }

@@ -282,6 +282,12 @@ export const reportedTokens = (
   return seen ? { prompt, completion } : undefined
 }
 
+/** A chat turn, as opposed to one of a run's own planning or decision calls. */
+const isChatTurn = (parsed: {
+  tools?: { function?: { name?: string } }[]
+}): boolean =>
+  parsed.tools?.some((tool) => tool.function?.name === "browser_task") === true
+
 export const runAgentScenario = (scenario: AgentScenario): void => {
   const attempts = Math.max(1, scenario.attempts ?? 1)
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -364,7 +370,10 @@ const runAgentScenarioAttempt = (
         ...(body ? { body } : {})
       })
       const text = await upstream.text()
-      if (path === "/api/chat" || path === "/v1/chat/completions")
+      if (
+        (path === "/api/chat" || path === "/v1/chat/completions") &&
+        !isChatTurn(JSON.parse(body))
+      )
         wire.push({ request: JSON.parse(body), response: text })
       return { status: upstream.status, body: text }
     }
@@ -400,6 +409,7 @@ const runAgentScenarioAttempt = (
 
     const answerDecision = async (body: string): Promise<string> => {
       const parsed = JSON.parse(body)
+      if (isChatTurn(parsed)) return answerChatTurn(parsed)
       if (parsed.tools?.[0]?.function?.name === "agent_plan")
         return answerPlan()
       step += 1
@@ -434,6 +444,34 @@ const runAgentScenarioAttempt = (
         done: true
       })}\n`
     }
+
+    /**
+     * The chat turn that delegates the task. A run starts only when the chat
+     * model calls `browser_task`, so the scripted model does that with the
+     * scenario's goal, and answers in prose once the run's record comes back.
+     */
+    const answerChatTurn = (parsed: {
+      messages?: { role?: string }[]
+    }): string =>
+      `${JSON.stringify({
+        model,
+        message:
+          parsed.messages?.at(-1)?.role === "tool"
+            ? { role: "assistant", content: "The browser task has finished." }
+            : {
+                role: "assistant",
+                content: "",
+                tool_calls: [
+                  {
+                    function: {
+                      name: "browser_task",
+                      arguments: { goal: scenario.goal }
+                    }
+                  }
+                ]
+              },
+        done: true
+      })}\n`
 
     const scriptedProviderBody = async (
       path: string,
@@ -501,8 +539,14 @@ const runAgentScenarioAttempt = (
         page.on("dialog", (dialog) => dialogs.push(dialog))
       await page.goto(origin)
       await panel.evaluate(
-        async ({ origin, model, hosted }) => {
+        async ({ origin, model, hosted, approveEach }) => {
           const providerId = hosted ? "custom:openai:agent-fixture" : "ollama"
+          /** Routine-action consent is a device-local preference now. */
+          await chrome.storage.local.set({
+            "agent-permission-mode-v1": JSON.stringify(
+              approveEach ? "approve_each" : "allow_routine"
+            )
+          })
           await chrome.storage.sync.set({
             llm_providers_config_v1: JSON.stringify([
               {
@@ -519,7 +563,12 @@ const runAgentScenarioAttempt = (
             })
           })
         },
-        { origin, model, hosted: useHostedWire }
+        {
+          origin,
+          model,
+          hosted: useHostedWire,
+          approveEach: scenario.allowRoutineActions !== true
+        }
       )
       await panel.reload()
       await page.bringToFront()
@@ -573,19 +622,21 @@ const runAgentScenarioAttempt = (
         .getByRole("button", { name: "Skip for now", exact: true })
         .click({ timeout: 10_000 })
         .catch(() => {})
+      /**
+       * There is no Agent mode: the task is an ordinary chat message, the
+       * chat model delegates it through `browser_task`, and the first run in
+       * a chat is asked about before it starts.
+       */
       await panel
-        .getByRole("button", { name: /^Agent/ })
+        .getByRole("button", { name: "Start Chatting" })
         .click({ timeout: 10_000 })
+        .catch(() => {})
+      const composer = panel.getByPlaceholder("Type a message or ctrl + /")
+      await composer.fill(scenario.goal)
+      await composer.press("Enter")
       await panel
-        .getByRole("textbox", { name: "What should Agent do?" })
-        .fill(scenario.goal)
-      // Keep existing benchmark approval scenarios in their original mode.
-      await panel
-        .getByRole("checkbox", { name: /Allow routine actions for this task/ })
-        .setChecked(scenario.allowRoutineActions === true)
-      await panel
-        .getByRole("button", { name: "Start Agent", exact: true })
-        .click()
+        .getByRole("button", { name: "Allow for this chat", exact: true })
+        .click({ timeout: liveModel ? 120_000 : 20_000 })
 
       try {
         await expect

@@ -284,6 +284,10 @@ export interface ToolRun {
   args?: Record<string, unknown>
   /** Short preview of the tool's output (shown as the step's result). */
   resultPreview?: string
+  /** What the approval prompt says the call will do; model-written text. */
+  confirmationSummary?: string
+  /** Translation keys for notices the approval prompt must show. */
+  confirmationNotes?: string[]
 }
 
 export interface ChatSession {
@@ -368,6 +372,15 @@ export interface ChatWithModelMessage {
      * embeds the original user query.
      */
     clientContextPrepared?: boolean
+    /** Durable turns only: the row this turn streams into. */
+    assistantMessageId?: number
+    /** Durable turns only: the tab the side panel showed at send time. */
+    browserTabId?: number
+    /**
+     * Durable turns only: the context carried page, document or agent-record
+     * text before the model wrote anything.
+     */
+    pageContentInContext?: boolean
   }
 }
 

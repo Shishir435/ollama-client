@@ -10,6 +10,8 @@ describe("optional permission intent", () => {
     ["bookmarks", "Search my bookmarks for TypeScript"],
     ["history", "Show my recent browsing history"],
     ["downloads", "Save this answer as a markdown file"],
+    ["downloads", "Save it as markdown"],
+    ["downloads", "Download that for me"],
     ["tabGroups", "Summarize my tab group"],
     ["sessions", "Show my recently closed tabs"],
     ["reminders", "Remind me in ten minutes"]
@@ -33,6 +35,8 @@ describe("optional permission intent", () => {
     ["bookmarks", "Explain the HTML bookmark concept"],
     ["downloads", "How do websites download files?"],
     ["downloads", "Explain how JSON export works"],
+    ["downloads", "Fill in the profile form and save it."],
+    ["downloads", "Fix the typo in the report, then save it"],
     ["tabGroups", "What are browser tab groups?"],
     ["sessions", "Explain Chrome's recently closed feature"],
     ["reminders", "Compare popular reminder applications"]
