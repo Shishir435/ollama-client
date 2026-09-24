@@ -1,5 +1,4 @@
 import type {
-  AgentFollowUpMode,
   AgentPanelCommand,
   AgentPanelSnapshot
 } from "@ollama-client/contracts"
@@ -25,16 +24,6 @@ export interface AgentRunConnection {
   snapshot: AgentPanelSnapshot
   failure?: AgentCommandFailure
   busy: boolean
-  /**
-   * Resolves once the start was sent, or was not: `false` means no
-   * `agent_start` left the panel — no port, no permission, nothing to run
-   * with — so the caller holding the goal can give it back.
-   */
-  start(
-    goal: string,
-    allowRoutineActions?: boolean,
-    followUp?: { parentRunId: string; mode: AgentFollowUpMode }
-  ): Promise<boolean>
   pause(): void
   resume(): void
   correct(text: string): void
@@ -50,26 +39,17 @@ export interface AgentRunConnection {
 
 const EMPTY: AgentPanelSnapshot = { steps: [] }
 
-interface UseAgentRunInput {
-  providerId?: string
-  modelId?: string
-  /** Exact tab displayed by the panel when Start is pressed. */
-  tabId?: number
-  /** The chat a started run is written into, alongside its request. */
-  sessionId?: string
-  allowExperimentalModel?: boolean
-}
-
 /**
- * Holds the panel's supervision port for as long as the Agent surface is
- * mounted.
+ * Holds the panel's supervision port for as long as the panel is open. Runs
+ * are started by the chat model, never from here; this only watches and
+ * answers them.
  *
  * The panel never keeps its own copy of run state: every control sends a
  * command and the next snapshot from the background is the answer. That is why
  * a run survives the panel closing — what the panel shows is a view of the
  * durable run, not the run itself.
  */
-export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
+export const useAgentRun = (): AgentRunConnection => {
   const [snapshot, setSnapshot] = useState<AgentPanelSnapshot>(EMPTY)
   const [failure, setFailure] = useState<AgentCommandFailure>()
   const [busy, setBusy] = useState(false)
@@ -199,42 +179,6 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
 
   const runId = snapshot.run?.id
   const pending = snapshot.pending
-  const { providerId, modelId, tabId, sessionId, allowExperimentalModel } =
-    input
-
-  const start = useCallback(
-    (
-      goal: string,
-      allowRoutineActions = false,
-      followUp?: { parentRunId: string; mode: AgentFollowUpMode }
-    ) => {
-      if (!providerId || !modelId || typeof tabId !== "number")
-        return Promise.resolve(false)
-      const trimmed = goal.trim()
-      if (!trimmed) return Promise.resolve(false)
-      const sent = send({
-        type: "agent_start",
-        goal: trimmed,
-        tabId,
-        providerId,
-        modelId,
-        ...(sessionId ? { sessionId } : {}),
-        ...(followUp
-          ? {
-              followUp: {
-                parentRunId: followUp.parentRunId,
-                mode: followUp.mode
-              }
-            }
-          : {}),
-        ...(allowRoutineActions ? { allowRoutineActions: true } : {}),
-        allowExperimentalModel
-      })
-      return Promise.resolve(sent)
-    },
-    [allowExperimentalModel, modelId, providerId, sessionId, tabId, send]
-  )
-
   const runScoped = useCallback(
     (type: "agent_pause" | "agent_resume" | "agent_stop") => {
       if (!runId) return
@@ -278,7 +222,6 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
     snapshot,
     failure,
     busy,
-    start,
     pause: () => runScoped("agent_pause"),
     resume: () => runScoped("agent_resume"),
     stop: () => runScoped("agent_stop"),

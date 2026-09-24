@@ -28,6 +28,7 @@ Read the section your change touches; you do not need the whole file.
 - [Supervision receipts and the work log](#supervision-receipts-and-the-work-log)
 - [Recovery evidence](#recovery-evidence)
 - [Read-only session tools and capture](#read-only-session-tools-and-capture)
+- [Starting a run from chat](#starting-a-run-from-chat)
 - [Panel supervision surface](#panel-supervision-surface)
 - [Measured behaviour and benchmarks](#measured-behaviour-and-benchmarks)
 - [Task-completion contracts](#task-completion-contracts)
@@ -42,7 +43,8 @@ Read the section your change touches; you do not need the whole file.
   runner drives Chromium's own DevTools endpoint from outside the extension
   to kill and restart the worker — the thing under test cannot own the switch
   that kills it, and nothing there ships or is reachable by a model. Attach only after the run
-  service authorizes the user-selected tab; detach at pause, takeover, stop,
+  service authorizes the tab the run starts on (the one the side panel showed
+  when the message was sent, unless the start prompt named another); detach at pause, takeover, stop,
   completion, and failure boundaries — except a pause the run comes back from
   on the same page (user, question, unresolved effect) while a native dialog
   is held, which keeps the session so the dialog is not dismissed (see
@@ -508,14 +510,18 @@ Read the section your change touches; you do not need the whole file.
   and `file_selection` stay critical or takeover, a grant never covers a step
   carrying one of them, and a submission riding along with one is priced by
   the one.
-- **Routine-action consent starts with the task.** The start screen's selected
-  checkbox sends `allowRoutineActions`; the background creates only activation
-  and form-mutation grants (`AGENT_ROUTINE_GRANT_EFFECTS`, deliberately
-  narrower than `AGENT_GRANTABLE_EFFECTS`) for the starting origin in that
-  run. Omitted consent keeps per-step review. Submission, destruction, new
-  origins and sensitive controls retain their own gates — a submission is
-  widened only from an approval the user was shown, never in advance from a
-  checkbox; a new run receives no previous run's grants.
+- **Routine-action consent is a preference each run mints grants from.**
+  `AGENT_PERMISSION_MODE` (device-local, "allow on the starting site" by
+  default) is read once per start; `allow_routine` makes the background create
+  only activation and form-mutation grants (`AGENT_ROUTINE_GRANT_EFFECTS`,
+  deliberately narrower than `AGENT_GRANTABLE_EFFECTS`) for the starting
+  origin in that run, and `approve_each` keeps per-step review. A remembered
+  preference is not a carried grant: changing it never widens a run already
+  going, and a new run receives no previous run's grants. Submission,
+  destruction, new origins and sensitive controls retain their own gates — a
+  submission is widened only from an approval the user was shown, never in
+  advance from a setting. It replaced a per-task checkbox that reset to
+  checked on every panel mount while its label said "for this task".
 - **An edit with no submission step says so, and says only that.**
   `noSubmitStep` is set on an edit whose target belongs to no form — an
   editing host, or a bare field in an application that saves on input — so the
@@ -546,15 +552,22 @@ Read the section your change touches; you do not need the whole file.
 
 ## Follow-up runs
 
-- **Asking is answer-only; new work is a button.** A chat turn after a run
-  reads its fenced handoff and never starts a browser. A settled card offers
-  Continue (completed, partial), Retry (failed, cancelled), Start over and
-  Ask; the first three land on the Agent composer, where the user still
-  presses Start. There is no routing that turns a chat message into a run.
-- **The panel names a parent; the background reads it.** `agent_start`
-  carries `followUp: {parentRunId, mode}` and nothing about what the parent
-  did — the command schema is strict, so a panel cannot supply its own
-  record. `resolveAgentFollowUp` reads the parent's checkpoint and receipts
+- **A follow-up is a chat message.** A settled card offers Continue
+  (completed, partial), Retry (failed, cancelled), Start over and Ask; each
+  drafts a message in the chat composer that the user still sends, and the
+  model decides whether the browser is needed again. A run it starts from
+  there asks for approval like any other.
+- **A card names its run; otherwise the background names the parent.**
+  Continue and Retry draft the message with the card's run id beside it
+  (`agentFollowUpRunId` on the turn — attached only when the message sent
+  is still the drafted text, in the chat it was drafted in; Ask drafts
+  nothing and clears it),
+  and that run is the parent whatever ran since — an older card continuing
+  the newest run would inherit the wrong record. Without one, `browser_task`
+  takes `continue_previous_task: true` and nothing about what the previous
+  run did; the parent is the newest run in the branch (`previousAgentRunId`),
+  and the mode follows its status. `resolveAgentFollowUp` reads the parent's
+  checkpoint and receipts
   and refuses (`follow_up_unavailable`) when the parent is gone, still live,
   in another chat, or unreadable: a follow-up that guessed what was done is
   the one that repeats it. A chain that committed more than
@@ -891,33 +904,89 @@ Read the section your change touches; you do not need the whole file.
 - Read-only helpers: `src/lib/browser-sessions.ts`. Model tools: `src/lib/tools/internal/browser-session-tools.ts`.
 - `sessions` is an optional permission. Always check browser support **and** the live permission before reading recently-closed or synced-device sessions.
 - Session URLs must pass the same unreadable/never-read filters as other browser tools.
-- Do not expose `sessions.restore()` to a model until tool execution has a real interactive approval boundary.
+- `restore_session` is medium risk, so the tool loop asks before its first use in a chat; keep it behind that approval.
 - `tabCapture` + `offscreen` is a Chromium 116+ prototype. Any capture flow must start from a user gesture, preserve tab audio, show persistent recording state and a Stop control, stop on permission revoke, and keep data ephemeral until explicitly saved.
 
 
+## Starting a run from chat
+
+- **`browser_task` is a chat tool that delegates, never a set of controls.**
+  `browser_task(goal, tab_id?, continue_previous_task?)` sits beside the other
+  internal tools and hands the whole task to the supervised controller, so
+  planning, the affordance layer, per-step approvals and the completion judge
+  run exactly as for any run. The chat model never gets click or type tools.
+  The tool describes itself in `src/lib/tools/internal/`; the runner is the
+  agent's (`agent-browser-task.ts`), installed by the composition, so a build
+  without the agent — Firefox — offers no tool. Its result is the run's
+  handoff, fenced as untrusted page data exactly as a later turn receives it.
+- **The start is asked about once per chat and site, and always when it
+  could be carrying page text.** The tool is `medium` risk with an
+  origin-scoped grant resolver, so the tool loop's own approval asks before
+  the first run on a site in a chat. `confirmation` forces the prompt,
+  whatever grant exists, when the turn's context carried something read off a
+  page (an attached tab or file, retrieved documents, a previous run's record,
+  in this turn or anywhere earlier in the history the model reads:
+  `pageContentInContext`), when a tool result advanced `taintGeneration`,
+  when the model named another tab, when the model's tool calling is only the
+  user's override, and when a remote provider's notice has not been
+  acknowledged. The prompt shows the goal as plain text and the notices as
+  keys; approving it is the acknowledgement those notices ask for.
+- **A goal the model wrote after reading a page is not the user's words.**
+  The run records `goalAuthor: "model_after_page"`, and `agentAuthoredText`
+  leaves that goal out, so the egress rule cannot be laundered through a task
+  a page talked the model into writing.
+- **The run reports into the turn's own row.** `attachRunToMessage` claims
+  the assistant row the turn is streaming into and inserts the run in one
+  commit; there is no request row of its own (`requestMessageId` stays
+  empty). The settle writes the handoff and leaves `done` and `content` to
+  the turn, and startup reconciliation only closes rows of runs that have a
+  request row. One run per row: a tool call replayed after a worker restart
+  names the same call id, finds the run it already started (`delegate` looks
+  it up by row and compares `toolCallId`) and waits on it again. A different
+  call in the same turn is refused (`turn_has_run`) rather than handed the
+  first run's record, which would report a task that never started.
+- **The turn waits, bounded, and stops the run only when it was stopped.**
+  `awaitSettled` ends a wait and nothing else. A stop that lands while the
+  run is being admitted is checked for, not only listened for: it fired
+  before the wait existed, and the run would otherwise keep driving the tab. The runner waits up to
+  forty-five minutes and then tells the model the run continues on its card;
+  a turn the user stopped stops its run, because nobody is left to read the
+  answer. Admission is still one unresolved run at a time across chats — a
+  second start is refused with a sentence the model relays.
+- **The tab is the panel's.** The side panel reads its own window's active
+  tab at send time and the turn carries it as `browserTabId`; a worker has no
+  window, and `lastFocusedWindow` is only the fallback for a turn that did
+  not carry one.
+- **Hosted runtimes behind olc wait as long as the run does.** A chat turn
+  parked on `browser_task` would otherwise be reaped by the run's own forced
+  decisions, or time out at the bridge's old five minutes; see
+  `packages/olc/AGENTS.md`. Nothing here knows olc exists.
+
 ## Panel supervision surface
 
-- **Chat is the only workspace.** A run is started from the chat composer in
-  Act mode (`AgentWorkspace` lends chat a `ChatComposerAlternateMode` through
-  the shell, so chat imports none of the Agent), supervised from its card in
-  the conversation, and followed up from that card. The card of the run the
-  panel's port holds carries its approval, handover, question and controls,
-  each with its own control; the composer never carries a decision. The port
-  lives as long as the panel does, so chatting while a run works no longer
-  pauses it — only closing the last panel does, as before.
+- **Chat is the only workspace, and there is no mode.** A run is started by
+  the chat model calling `browser_task` (see [Starting a run from
+  chat](#starting-a-run-from-chat)), drawn as a card above that turn's own
+  answer, and followed up by sending another message. The shell lends chat the
+  card renderer and a door back to the composer, so chat imports none of the
+  Agent. The card of the run the panel's port holds carries its approval,
+  handover, question and controls, each with its own control; the composer
+  never carries a decision. The port lives as long as the panel does, so
+  chatting while a run works does not pause it — only closing the last panel
+  does. The Chat/Act toggle and its preflight are gone: a toggle whose silent
+  revert to Chat hid every refused start was the wrong place for the decision,
+  and the model reading the request is the right one once runs target hosted
+  models.
 - **A run waiting on the user marks the toolbar icon.** `registerAgentAttentionBadge`
   shows `!` while the latest run is awaiting approval, awaiting a handover,
   or paused — including the pause taken when the last panel closed — and
   clears it when the run moves on. It says only that; nothing a page wrote.
 
-- **The browser's own limits are disclosed before a run, not after it
-  stalls.** `AgentBrowserDisclosure` travels on every panel snapshot, read
-  from the session manager rather than guessed from a user agent, and the
-  panel names what attaching means — Chromium shows its own debugging banner
-  the moment a run attaches, and a banner with nothing beside it is what
-  sends someone to ask a developer. A browser with no debugger states what it
-  therefore cannot do: synthetic input only, no screenshots, no native
-  dialogs.
+- **The debugging banner is named before a run, not after it appears.** The
+  start prompt says that Chromium shows its own banner while a run works; a
+  banner with nothing beside it is what sends someone to ask a developer.
+  `AgentBrowserDisclosure` still travels on every panel snapshot, read from
+  the session manager rather than guessed from a user agent.
 - **A failure leads with the recovery.** `AgentError.message` is written in
   English for whoever reads a receipt and says what happened; the run's card
   shows `agent.failure.<code>`, in the reader's language, and the message

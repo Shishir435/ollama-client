@@ -2,9 +2,6 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { agentCommandDisplay } from "@ollama-client/agent-runtime"
 import {
-  AGENT_READINESS_REASONS,
-  AGENT_READINESS_STATUSES,
-  AGENT_READINESS_VISION,
   AGENT_RUN_STATUSES,
   AGENT_STEP_STATUSES,
   type AgentCommand,
@@ -76,19 +73,19 @@ describe("Agent locale coverage", () => {
   })
 
   /**
-   * The readiness card builds all three keys from the snapshot at runtime, so
-   * a status, reason or vision state added to the contract without a label
-   * shows the reader `agent.readiness.reason.unverified` beside Start.
+   * The start prompt renders notices by key, and the keys are named in the
+   * background, where no component's lint pass would notice one missing.
    */
-  it("labels every readiness state the panel can show", () => {
-    for (const status of AGENT_READINESS_STATUSES) {
-      expect(Object.keys(en.agent.readiness.status)).toContain(status)
-    }
-    for (const reason of AGENT_READINESS_REASONS) {
-      expect(Object.keys(en.agent.readiness.reason)).toContain(reason)
-    }
-    for (const vision of AGENT_READINESS_VISION) {
-      expect(Object.keys(en.agent.readiness.vision)).toContain(vision)
+  it("labels every notice the browser task's start prompt can show", () => {
+    for (const key of [
+      "agent.start_gate.after_page",
+      "agent.start_gate.experimental_model",
+      "agent.start_gate.other_tab",
+      "agent.start_gate.supervised",
+      "agent.privacy.remote_notice",
+      "agent.privacy.remote_notice_screenshots"
+    ]) {
+      expect(hasKey(key), key).toBe(true)
     }
   })
 

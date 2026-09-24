@@ -64,18 +64,25 @@ const withAgent = (children: ReactNode) => (
 )
 
 describe("a message an Agent run reports into", () => {
-  it("draws the run's card instead of the model's prose", async () => {
+  /**
+   * The run is what the turn delegated and the text is what the model made of
+   * its result, so both are shown: the card first, the answer under it.
+   */
+  it("draws the run's card above the model's answer", async () => {
     render(
       withAgent(<ChatMessageBubble msg={agentRow} onRegenerate={vi.fn()} />)
     )
 
-    expect(await screen.findByText("card:run-1")).toBeInTheDocument()
-    expect(screen.queryByText("content:Open 9 to 5.")).not.toBeInTheDocument()
+    const card = await screen.findByText("card:run-1")
+    const answer = screen.getByText("content:Open 9 to 5.")
+    expect(
+      card.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
   })
 
   /**
-   * Regenerating the row would send the agent's goal to a chat model as if it
-   * were a question, and a retry would do the same.
+   * Regenerating the turn would ask the model to start the task again beside
+   * a run that already acted on a page, and a retry would do the same.
    */
   it("offers no regenerate or retry", async () => {
     render(

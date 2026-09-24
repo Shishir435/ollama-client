@@ -84,7 +84,9 @@ export const STORAGE_KEYS = {
     /** The window a run decides in: "auto", or an explicit token count. */
     CONTEXT_WINDOW: "agent-context-window-v1",
     /** Whether the run may picture the page for a model that can see. */
-    VISION: "agent-vision-v1"
+    VISION: "agent-vision-v1",
+    /** Which routine actions a new run may take without asking. */
+    PERMISSION_MODE: "agent-permission-mode-v1"
   },
   BACKUP: {
     /** Durable rollback state for interrupted portable-settings imports. */

@@ -327,6 +327,7 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 - Run `pnpm generate:resources` after locale edits.
 - Keep privacy-sensitive tools on the same permission and scope filters as their indexing/search pipeline. A live tool must not bypass user exclusions.
 - Browser-data tools pass two independent gates before any provider sees them (`background/lib/tool-exposure-policy.ts`): the optional permission is granted **and** the current request asks for that data (`optional-permission-intent.ts`, which tolerates a one-edit typo in the keyword carrying the intent). Provider-side `tool_choice: auto` is not a privacy boundary.
+- `browser_task` is exempt from the intent gate on purpose: the model deciding when the browser is needed is the feature. Its gate is the tool loop's approval, which `confirmation` forces whenever the turn could be carrying page text ([details](./AGENT_INTERNALS.md#starting-a-run-from-chat)).
 
 ### Agent runtimes via the olc proxy
 
@@ -394,6 +395,11 @@ editing the agent itself.
   stay inside that adapter and never become model tools. The rule is about
   shipped extension code; `tools/verify/**` drives Chromium's DevTools
   endpoint from outside the extension and is not covered by it.
+- **Runs are started by the chat model, never by a mode.** There is no
+  Chat/Act toggle and no panel command that starts a run: `browser_task`
+  delegates a whole task to the supervised controller from an ordinary turn,
+  and the run reports into that turn's own row. The chat model never receives
+  the agent's own actions as tools.
 - **Firefox receives no `debugger` permission.** The session manager reports
   `cdpControl: false` and `frameTracking: false`; never claim a CDP-only
   capability there. `__AGENT_PREVIEW_ENABLED__` compiles the agent out of

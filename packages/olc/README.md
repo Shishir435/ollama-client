@@ -351,8 +351,15 @@ start fresh work while still computing a result for a turn it left parked.
 
 So the number of parked turns is bounded instead. `MAX_PARKED_TURNS` (default
 `4`) is how many may sit parked at once; admitting a fresh turn discards the
-oldest above that, never one whose resume request already exists. Each turn
-still carries its own `SUSPENDED_TURN_TTL_MS` deadline. Raise the cap for a
+oldest above that, never one whose resume request already exists. Turns whose
+request forced a tool call (`tool_choice` `"required"` or a named function)
+go first: they are decisions a client usually does not resume, while a turn
+that left the call to the model is usually one whose client is still running
+the tool — a chat turn waiting on a browser task, say, while that task's own
+decisions park beside it. Each turn still carries its own
+`SUSPENDED_TURN_TTL_MS` deadline, and each parked call its
+`BRIDGE_CALL_TIMEOUT_MS` one; both default to fifty minutes, because a client
+tool can take as long as its user does. Raise the cap for a
 client that genuinely interleaves several tool-calling turns; it is clamped to
 at least one, because parking is how a tool call reaches the client and zero
 would disable client tool calling rather than bound it.

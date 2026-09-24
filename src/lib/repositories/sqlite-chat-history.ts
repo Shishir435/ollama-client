@@ -940,6 +940,42 @@ export const appendRunTurn = async (
   return appended
 }
 
+/**
+ * File a durable job against an assistant row a chat turn already owns, in
+ * one commit: the row gains the job's id and the job's own statement runs
+ * beside it.
+ *
+ * The counterpart of {@link appendRunTurn} for work a model delegated from
+ * inside a turn. That turn wrote the request and the row, and is still
+ * streaming into it, so nothing here inserts a message or moves the leaf.
+ * Only an unclaimed assistant row of the named chat qualifies: a row already
+ * carrying a job keeps the one it has, and `undefined` leaves the decision to
+ * the caller, the same as a missing chat does above.
+ */
+export const attachRunToMessage = async (
+  sessionId: string,
+  messageId: number,
+  runId: string,
+  alongside: RunTurnStatement
+): Promise<boolean> => {
+  let attached = false
+
+  await withTransaction(async (transaction) => {
+    const claimed = await transaction.runWithMeta(
+      `UPDATE messages SET agentRunId = ?
+        WHERE id = ? AND sessionId = ? AND role = 'assistant'
+          AND agentRunId IS NULL`,
+      [runId, messageId, sessionId]
+    )
+    if (claimed.changes === 0) return
+    await transaction.run(alongside.sql, alongside.params)
+    attached = true
+  })
+
+  if (attached) await flushSave()
+  return attached
+}
+
 export interface DeletedMessageSubtree {
   sessionId: string
   messageIds: number[]

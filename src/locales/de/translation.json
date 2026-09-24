@@ -47,11 +47,6 @@
       "reject": "Ablehnen",
       "allowForRun": "Diese Art von Aktion auf {{origin}} für diesen Lauf immer erlauben"
     },
-    "attachment": {
-      "title": "Was dieser Browser zulässt",
-      "attaches": "Beim Start verbindet sich der Debugger von Chrome mit dem gewählten Tab. Chrome zeigt währenddessen einen eigenen Hinweis; die Verbindung endet beim Stoppen, bei einer Übergabe an Sie oder am Ende des Laufs.",
-      "no_debugger": "Dieser Browser hat keinen Debugger, daher steuert der Lauf Seiten über die Content-Skripte der Erweiterung."
-    },
     "browser_disconnected": "Die Browsersteuerung wurde getrennt, daher wurde Agent pausiert. Prüfen Sie die Seite vor dem Fortsetzen.",
     "controls": {
       "label": "Agent-Steuerung",
@@ -69,7 +64,8 @@
       "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
       "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
       "unknown": "Agent konnte diese Anfrage nicht ausführen.",
-      "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut."
+      "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut.",
+      "turn_has_run": "Diese Nachricht hat bereits eine Browser-Aufgabe gestartet."
     },
     "failure": {
       "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
@@ -84,51 +80,15 @@
       "verification_failed": "Der Lauf konnte die Wirkung seiner letzten Aktion nicht bestätigen. Prüfen Sie die Seite, bevor Sie erneut starten.",
       "unknown": "Der Lauf endete ohne benennbaren Grund. Prüfen Sie die Seite und starten Sie erneut."
     },
-    "limits": {
-      "no_native_input": "Maus- und Tastatureingaben sind synthetisch; eine Seite, die nur auf echte Eingaben reagiert, antwortet möglicherweise nicht.",
-      "no_screenshots": "Es werden keine Screenshots erstellt; Aufgaben, die nur visuell lösbar sind, funktionieren nicht.",
-      "no_dialogs": "Native Dialoge (alert, confirm, prompt) kann der Lauf weder sehen noch beantworten."
-    },
     "model": {
       "label": "Modell"
-    },
-    "readiness": {
-      "status": {
-        "ready": "Agent bereit",
-        "experimental": "Experimentelle Agent-Unterstützung",
-        "unsupported": "Nicht Agent-kompatibel"
-      },
-      "vision": {
-        "supported": "Visuell",
-        "unsupported": "Nur Text",
-        "unknown": "Bildverarbeitung unbekannt"
-      },
-      "reason": {
-        "metadata": "Der Katalog dieses Modells meldet Tool-Aufrufe.",
-        "verified_probe": "Tool-Aufrufe wurden mit einer Testanfrage an dieses Modell bestätigt.",
-        "user_override": "Tool-Aufrufe sind aktiv, weil du sie für dieses Modell gesetzt hast, nicht weil das Modell sie meldet.",
-        "reported_unsupported": "Dieses Modell meldet, dass es keine Tools aufrufen kann; ein Lauf braucht sie für jede Aktion.",
-        "unverified": "Tool-Aufrufe sind für dieses Modell nicht bestätigt. Prüfe sie, oder setze die Fähigkeit selbst.",
-        "unknown": "Dieses Modell sagt nichts über Tool-Aufrufe, und ein Lauf aktiviert sie nicht auf Verdacht."
-      },
-      "text_only": "Dieses Modell liest keine Bilder. Der Lauf arbeitet mit Seitentext und Bedienelementen; eine Seite, die man nur ansehen kann, funktioniert nicht.",
-      "alternatives": "Modelle dieses Anbieters, die Tool-Aufrufe melden:",
-      "allow_experimental": "Trotzdem mit diesem Modell starten",
-      "allow_experimental_description": "Tool-Aufrufe sind hier deine Einstellung, nicht die Antwort des Modells. Ein Modell ohne Tool-Aufrufe verbringt den Lauf mit Prosa."
     },
     "observations": "{{count}} Beobachtungen",
     "privacy": {
       "remote_notice": "Seitenbeobachtungen werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet.",
-      "acknowledge": "Verstanden",
       "remote_notice_screenshots": "Seitenbeobachtungen und Viewport-Screenshots werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet."
     },
     "progress": "{{count}} von {{budget}} Beobachtungen",
-    "provider": {
-      "label": "Anbieter",
-      "local": "Lokal",
-      "remote": "Remote",
-      "missing": "Zuerst Modell auswählen"
-    },
     "question": {
       "title": "Agent benötigt eine Antwort",
       "inputLabel": "Ihre Antwort",
@@ -140,15 +100,6 @@
       "sent": "Screenshots des Viewports werden an das Modell gesendet",
       "unused": "Nicht genutzt bei einem reinen Textmodell",
       "unknown": "Noch nicht ermittelt"
-    },
-    "start": {
-      "goal": "Was soll der Agent tun?",
-      "placeholder": "Eine Browseraufgabe beschreiben…",
-      "action": "Agent starten",
-      "auto_actions": "Routineaktionen für diese Aufgabe erlauben",
-      "auto_actions_description": "Klicken und Tippen auf dieser Website erfolgen automatisch. Veröffentlichen, Löschen, neue Websites und sensible Schritte erfordern weiterhin Ihre Zustimmung.",
-      "starting": "Wird gestartet…",
-      "starting_on": "Wird auf „{{title}}“ gestartet…"
     },
     "status": {
       "submitted": "Startet",
@@ -177,11 +128,6 @@
       "failed": "Fehlgeschlagen",
       "uncertain": "Prüfen"
     },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agent",
-      "preview": "Vorschau"
-    },
     "tab": {
       "label": "Gesteuerter Tab",
       "missing": "Unterstützte Webseite öffnen"
@@ -197,7 +143,6 @@
         "sensitive_step": "Übernimm die Seite, erledige den vertraulichen Schritt selbst und fahre dann fort."
       }
     },
-    "title": "Beaufsichtigter Agent",
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
     "unresolved_reviewed": "Seite geprüft — fortfahren",
     "work_log": {
@@ -208,7 +153,7 @@
     "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
     "settings": {
       "title": "Browser-Agent",
-      "description": "Wie viel Kontext ein Lauf von seinem Modell anfordern darf und wann er die Seite abbildet.",
+      "description": "Was ein Lauf ohne Rückfrage tun darf, wie viel Kontext er vom Modell anfordern darf und wann er die Seite abbildet.",
       "context_window": {
         "label": "Kontextfenster",
         "description": "Automatisch nimmt das kleinste Fenster, das dieses Modell und dieser Server melden, und greift auf eine konservative Größe zurück, wenn keiner etwas sagt. Lege selbst eine Größe fest, wenn du das Limit deines Servers erhöht hast oder einem Lauf der Speicher ausgegangen ist.",
@@ -221,6 +166,12 @@
         "auto": "Wenn der Schritt eines braucht",
         "always": "Bei jedem Schritt",
         "never": "Nie"
+      },
+      "permission_mode": {
+        "label": "Routineaktionen",
+        "description": "Ob jeder neue Lauf auf der Startseite ohne Rückfrage klicken und tippen darf. Absenden, Löschen, Anmelden, Bezahlen und neue Websites werden immer erfragt, und nichts wird in den nächsten Lauf übernommen.",
+        "allow_routine": "Auf der Startseite erlauben",
+        "approve_each": "Jede Aktion bestätigen"
       }
     },
     "card": {
@@ -235,13 +186,8 @@
       "ask": "Dazu fragen"
     },
     "follow_up": {
-      "continue": "Fortsetzung: {{goal}}",
-      "retry": "Neuer Versuch: {{goal}}",
-      "clear": "Stattdessen neu beginnen",
-      "placeholder": "Was soll als Nächstes passieren?"
-    },
-    "composer": {
-      "run_in_progress": "Es läuft bereits ein Durchlauf. Stoppe ihn oder warte, bis er fertig ist, bevor du einen neuen startest."
+      "continue_message": "Setze die Browser-Aufgabe fort.",
+      "retry_message": "Versuche die Browser-Aufgabe noch einmal."
     },
     "paused_panel_closed": "Pausiert, weil die Seitenleiste geschlossen wurde. Fortsetzen, wenn du bereit bist.",
     "approval_text": {
@@ -275,6 +221,12 @@
       "completion_refused": "Ich konnte das Ergebnis nicht bestätigen. Ist die Aufgabe erledigt? Wenn nicht, was soll ich als Nächstes tun?",
       "commands_refused": "Die letzte Aktion konnte nicht ausgeführt werden. Was soll ich stattdessen versuchen?",
       "no_progress": "Ich wiederhole Aktionen, ohne voranzukommen. Was soll ich anders machen? Du kannst auch anhalten und die Aufgabe selbst beenden."
+    },
+    "start_gate": {
+      "after_page": "Das Modell hat vor dem Formulieren dieser Aufgabe Seiteninhalte gelesen, daher wird immer nachgefragt.",
+      "other_tab": "Diese Aufgabe läuft in einem anderen Tab als dem, den Sie gerade ansehen.",
+      "supervised": "Der Agent arbeitet Schritt für Schritt auf der Seite und fragt vor allem Folgenreichen nach. Chrome zeigt währenddessen einen Debugging-Hinweis an.",
+      "experimental_model": "Tool-Aufrufe sind für dieses Modell aktiv, weil Sie sie eingeschaltet haben, nicht weil das Modell sie meldet. Ein Modell ohne Tool-Aufrufe kommt nicht weit."
     }
   },
   "common": {
@@ -561,7 +513,8 @@
         "results_other": "{{count}} Ergebnisse",
         "restoreSession": "Geschlossenen Tab wieder öffnen",
         "list_reminders": "Erinnerungen auflisten",
-        "cancel_reminder": "Erinnerung wird abgebrochen"
+        "cancel_reminder": "Erinnerung wird abgebrochen",
+        "browser_task": "Browser-Aufgabe"
       },
       "debug": "Debug-Reasoning"
     },

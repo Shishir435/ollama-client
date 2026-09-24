@@ -432,6 +432,24 @@ export const getAgentRun = async (
   return row ? parseRun(row) : null
 }
 
+/**
+ * The run filed against an assistant row, if one is. A chat turn delegates at
+ * most one run into its row, so a tool call replayed after a worker restart
+ * finds the run it already started instead of starting a second.
+ */
+export const getAgentRunForResultMessage = async (
+  messageId: number
+): Promise<DurableAgentRun | null> => {
+  const rows = await query(
+    `SELECT ${selectRunColumns} FROM agent_runs
+      WHERE resultMessageId = ?
+      ORDER BY createdAt DESC LIMIT 1`,
+    [messageId]
+  )
+  const row = rows[0] ? decodeRow(AgentRunRowSchema, rows[0], TABLE) : null
+  return row ? parseRun(row) : null
+}
+
 const applyPatch = (
   state: AgentRunState,
   status: AgentRunStatus,
@@ -568,14 +586,22 @@ const settleLinkedMessage = async (
     state,
     await listRunFindings(tx, state.id)
   )
-  await tx.run(
-    `UPDATE messages
-        SET done = 1, updatedAt = ?${result ? ", content = ?" : ""}
-      WHERE id = ? AND done = 0`,
-    result
-      ? [state.updatedAt, result, resultMessageId]
-      : [state.updatedAt, resultMessageId]
-  )
+  /**
+   * A run a chat model delegated reports into a row its turn is still
+   * streaming: the model answers once the run settles, and the turn finishes
+   * the row. Closing it here would mark a live answer done, and writing the
+   * result would be overwritten by that answer anyway.
+   */
+  if (!state.goalAuthor) {
+    await tx.run(
+      `UPDATE messages
+          SET done = 1, updatedAt = ?${result ? ", content = ?" : ""}
+        WHERE id = ? AND done = 0`,
+      result
+        ? [state.updatedAt, result, resultMessageId]
+        : [state.updatedAt, resultMessageId]
+    )
+  }
   /**
    * Its own statement, and not guarded on `done`: a row something else
    * already finished still belongs to this run, and a later turn is owed its
@@ -1073,12 +1099,17 @@ export const reconcileAgentRunLinkage = async (
   signal?.throwIfAborted()
   const now = Date.now()
   await withTransaction(async (tx) => {
+    /**
+     * Only rows a run was given its own turn for. A delegated run has no
+     * request row, and the row it reports into is its turn's to finish.
+     */
     await tx.run(
       `UPDATE messages SET done = 1, updatedAt = ?
         WHERE done = 0
           AND id IN (
             SELECT resultMessageId FROM agent_runs
              WHERE resultMessageId IS NOT NULL
+               AND requestMessageId IS NOT NULL
                AND status IN (${TERMINAL_AGENT_STATUSES.map(() => "?").join(", ")})
           )`,
       [now, ...TERMINAL_AGENT_STATUSES]

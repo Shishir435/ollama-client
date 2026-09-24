@@ -53,9 +53,9 @@ export const ChatMessageBubble = memo(
     const showErrorTreatment =
       !isLoading && !isStreaming && hasAssistantError(msg)
     /**
-     * A run's row is not a chat turn: regenerating it would ask a model to
-     * answer a goal the agent was given, and retrying it would do the same —
-     * with or without the card drawn over it.
+     * A turn that delegated a browser run is not regenerated: asking again
+     * would ask the model to start the task again, beside a run that already
+     * acted on a page. The card's own follow-ups are the way to carry on.
      */
     const onRegenerateTurn = agentRow ? undefined : onRegenerate
     const canRetry =
@@ -114,19 +114,17 @@ export const ChatMessageBubble = memo(
           />
         ) : (
           <>
-            {agentRow && AgentRunCard ? (
-              <Suspense
-                fallback={
-                  <ChatMessageContent
-                    msg={msg}
-                    isUser={false}
-                    isLoading={isLoading}
-                    isStreaming={isStreaming}
-                  />
-                }>
+            {/*
+              A run's card sits above the answer of the turn that started it:
+              the run is what the model delegated, the text is what it made
+              of the result.
+            */}
+            {agentRow && AgentRunCard && (
+              <Suspense fallback={null}>
                 <AgentRunCard msg={msg} />
               </Suspense>
-            ) : showErrorTreatment ? (
+            )}
+            {showErrorTreatment ? (
               // A failed turn is styled as a failure, not as model output: same
               // copy in the same neutral bubble reads as something the model
               // said. The rail + icon separate the two at a glance.

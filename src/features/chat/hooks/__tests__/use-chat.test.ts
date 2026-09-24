@@ -155,7 +155,10 @@ vi.mock("@/features/chat/stores/chat-input-store", () => ({
   useChatInput: vi.fn(() => ({
     input: "",
     setInput: vi.fn()
-  }))
+  })),
+  chatInputStore: {
+    getState: () => ({ takeAgentFollowUpRunId: () => undefined })
+  }
 }))
 
 vi.mock("@/features/chat/stores/load-stream-store", () => ({

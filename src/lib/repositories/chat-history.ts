@@ -43,6 +43,7 @@ export const touchMessageActivity = sqliteRepo.touchMessageActivity
 export const deleteMessagesBySession = sqliteRepo.deleteMessagesBySession
 export const deleteMessageSubtree = sqliteRepo.deleteMessageSubtree
 export const appendRunTurn = sqliteRepo.appendRunTurn
+export const attachRunToMessage = sqliteRepo.attachRunToMessage
 
 export const getFilesByMessageIds = sqliteRepo.getFilesByMessageIds
 export const bulkAddFiles = sqliteRepo.bulkAddFiles

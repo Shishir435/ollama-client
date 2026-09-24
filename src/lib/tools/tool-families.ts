@@ -26,6 +26,7 @@ export const TOOL_FAMILIES: ToolFamily[] = [
 const FAMILY_BY_TOOL_NAME: Record<string, ToolFamily> = {
   current_tab: "browser",
   capture_screenshot: "browser",
+  browser_task: "browser",
   list_tabs: "browser",
   read_tab: "browser",
   list_tab_groups: "browser",

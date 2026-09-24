@@ -101,7 +101,14 @@ export const ToolRunSchema = z.object({
   error: z.string().optional(),
   truncated: z.boolean().optional(),
   args: z.record(z.string(), z.unknown()).optional(),
-  resultPreview: z.string().optional()
+  resultPreview: z.string().optional(),
+  /**
+   * What an approval prompt says the call will do, in the tool's own words —
+   * a delegated browser task's goal. Model-written, so shown as plain text.
+   */
+  confirmationSummary: z.string().max(2_000).optional(),
+  /** Translation keys for notices the prompt must show before an approval. */
+  confirmationNotes: z.array(z.string().max(120)).max(8).optional()
 })
 
 export const ActivityTextSchema = z.object({

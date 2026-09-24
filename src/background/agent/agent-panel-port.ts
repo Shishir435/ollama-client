@@ -82,6 +82,10 @@ const FAILURES: Record<AgentRunFailureReason, { key: string; text: string }> = {
     key: "agent.error.already_running",
     text: "An Agent run is already in progress."
   },
+  turn_has_run: {
+    key: "agent.error.turn_has_run",
+    text: "This message already started a browser task."
+  },
   browser_control_unavailable: {
     key: "agent.error.browser_control_unavailable",
     text: "Agent could not attach browser control. Close DevTools or another debugger and try again."
@@ -338,18 +342,6 @@ export const registerAgentPanelPort = (
           )
           return
         }
-        case "agent_start":
-          await service.start({
-            goal: command.goal,
-            tabId: command.tabId,
-            providerId: command.providerId,
-            modelId: command.modelId,
-            sessionId: command.sessionId,
-            followUp: command.followUp,
-            allowRoutineActions: command.allowRoutineActions,
-            allowExperimentalModel: command.allowExperimentalModel
-          })
-          return
         case "agent_pause":
           await service.pause(command.runId)
           return

@@ -246,7 +246,44 @@ await panel
   .getByRole("button", { name: "Skip for now", exact: true })
   .click({ timeout: 3000 })
   .catch(() => {})
-await panel.getByRole("button", { name: /^Agent/ }).click()
+await panel
+  .getByRole("button", { name: "Start Chatting" })
+  .click({ timeout: 3000 })
+  .catch(() => {})
+/**
+ * A task is an ordinary chat message: the chat model delegates it through
+ * `browser_task`, whose start is asked about the first time on each site. The
+ * previous task's turn has to finish before the composer sends again.
+ */
+const sendTask = async (goal) => {
+  /**
+   * A turn still generating is not a finished case. It is stopped, and said
+   * so, before the next goal is sent; one that will not stop ends the pass
+   * rather than letting two tasks overlap and be scored as one.
+   */
+  const busy = panel.getByRole("button", { name: "Stop generation" })
+  const settled = await busy
+    .waitFor({ state: "detached", timeout: 120000 })
+    .then(() => true)
+    .catch(() => false)
+  if (!settled) {
+    console.warn(
+      `[benchmark] previous turn still generating; stopping it before: ${goal}`
+    )
+    await busy.click().catch(() => {})
+    await busy.waitFor({ state: "detached", timeout: 30000 }).catch(() => {
+      throw new Error("The previous chat turn did not stop; aborting the pass")
+    })
+  }
+  const composer = panel.getByPlaceholder("Type a message or ctrl + /")
+  await composer.fill(goal)
+  await composer.press("Enter")
+  await panel
+    .getByRole("button", { name: /^Allow (for this chat|once)$/ })
+    .first()
+    .click({ timeout: 60000 })
+    .catch(() => {})
+}
 try {
   for (const [kind, goal] of cases) {
     current = { kind, effects: 0, replaced: false }
@@ -257,16 +294,11 @@ try {
     fixture = await context.newPage()
     await fixture.goto(`${origin}/${kind}`)
     await fixture.bringToFront()
-    await panel
-      .getByRole("textbox", { name: "What should Agent do?" })
-      .fill(goal)
-    await panel
-      .getByRole("button", { name: "Start Agent", exact: true })
-      .click()
+    await sendTask(goal)
     let final, reason
     while (Date.now() - started < 150000) {
       final = messages
-        .filter((m) => m.snapshot?.run?.goal === goal)
+        .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
         .at(-1)?.snapshot
       if (
         final &&

@@ -4,6 +4,20 @@ import type { SettingsEntryDefinition } from "./types"
 export const BROWSER_SETTINGS = [
   // ---- Browser agent -----------------------------------------------------
   {
+    id: "agent-permission-mode",
+    sectionId: "agent",
+    labelKey: "agent.settings.permission_mode.label",
+    descriptionKey: "agent.settings.permission_mode.description",
+    storageKey: STORAGE_KEYS.AGENT.PERMISSION_MODE,
+    searchKeys: [
+      "agent.settings.title",
+      "agent.settings.permission_mode.allow_routine",
+      "agent.settings.permission_mode.approve_each"
+    ],
+    keywords: ["agent", "approval", "permission", "routine"],
+    aliases: ["auto approve", "ask every step", "agent permissions"]
+  },
+  {
     id: "agent-context-window",
     sectionId: "agent",
     labelKey: "agent.settings.context_window.label",

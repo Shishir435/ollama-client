@@ -3,14 +3,37 @@ title: Agent (Preview)
 description: What the supervised browser agent does, what it refuses, and where it stops.
 ---
 
-Agent drives one browser tab towards a goal you write. Routine clicks and typing
-can run automatically; posting, destructive actions and sensitive steps still
-require your decision. It is a Preview: success depends on the website and the
-selected model, and every step is checked against the page.
+Agent drives one browser tab towards a goal. There is no mode to switch into:
+you ask in the chat, and the model decides whether the request needs the
+browser. When it does, it hands the whole task to Agent, the run appears as a
+card above the model's answer, and you supervise it from that card. Routine
+clicks and typing can run automatically; posting, destructive actions and
+sensitive steps still require your decision. It is a Preview: success depends
+on the website and the selected model, and every step is checked against the
+page.
 
 It is off unless you turn it on. On Chrome it needs two permissions the browser
 asks for once, at install or on the update that brings the Agent: `debugger`, to
 drive the tab it is given, and `webNavigation`, to tell that tab's frames apart.
+
+## Starting a run
+
+Ask for something that needs a page — "find the pricing page and tell me the
+cheapest plan", "fill in this form but don't submit it". The model writes the
+task as one instruction and asks to start it on the tab you are looking at.
+You see that instruction before anything happens, and you are asked:
+
+- the first time Agent starts on a site in a chat;
+- **every time** the model had read page content earlier in the turn — an
+  attached tab or file, retrieved documents, or an earlier run's result —
+  because a task written after reading a page may be repeating what the page
+  said;
+- every time the task would run on a different tab from the one you are
+  looking at;
+- the first time a remote model would be sent page content.
+
+To carry on after a run, use **Continue**, **Retry** or **Start over** on its
+card, or just ask. Each drafts an ordinary message you still send.
 
 ## How a step works
 
@@ -43,10 +66,11 @@ Every step is the same six things, in order, and none of them is skipped.
 | Submitting a form, anything destructive | Asks every time |
 | Payment, sign-in, one-time codes, file pickers | Hands the page to you |
 
-Before starting, **Allow routine actions for this task** is selected by default.
-It authorizes clicks and typing on the starting site for this run only. Clear
-it to review each change instead. Forms that post or send, destructive actions,
-new sites, and sensitive steps still require your decision. An empty attachment
+**Routine actions** in Settings is set to *Allow on the starting site* by
+default. Each new run gets clicks and typing on the site it starts on for that
+run only; choose *Approve each action* to review every change instead. Forms
+that post or send, destructive actions, new sites, and sensitive steps still
+require your decision. An empty attachment
 picker does not force manual takeover; choosing a file does.
 
 When Agent asks about a click or a field, you can also allow that kind of action
@@ -74,22 +98,15 @@ card number or a one-time code, and it will not choose a file for you.
 
 ## What your browser allows
 
-Agent works differently in Chromium and Firefox, and the panel says which
-before you start a run.
+Agent is Chromium only for now; Firefox builds do not include it.
 
-**Chromium.** Starting a run attaches Chrome's debugger to the tab you chose.
+**Chromium.** Starting a run attaches Chrome's debugger to its tab.
 Chrome shows its own banner while that lasts — that banner is this extension,
 and it is the browser telling you the truth about what is attached. The
 attachment ends when the run stops, when it hands the tab to you to take
 over, and when it finishes. With it, the run can send real pointer and
 keyboard input a page cannot tell from yours, take screenshots for a model
 that reads them, and see and answer native dialogs.
-
-**Firefox.** There is no debugger, so the run drives pages through the
-extension's content scripts instead. Input is synthetic, which a page built
-around real input may not react to; no screenshots are taken, so a task that
-can only be done by looking will not work; and native dialogs can be neither
-seen nor answered.
 
 ## Where it stops
 
@@ -120,7 +137,7 @@ These are current limits, not design decisions.
   change its offsets. A scan that runs out of time reports that explicitly.
 - **Scroll inside a pane.** Scrollable regions have their own references and
   scroll positions. Agent can scroll a selected pane without moving the rest
-  of the page. Firefox uses the page's programmatic scrolling for this too.
+  of the page.
 - **Vision needs a model that reads images.** A screenshot travels only to a
   model whose provider reports it can read one; a text-only model is sent no
   picture and is offered no visual action, so a canvas or an image region is
@@ -146,8 +163,9 @@ than from a table someone copied out of theirs.
 ## Choosing a model
 
 Agent needs a model that supports tool calling, and a small one will struggle
-regardless. Tool calling is checked before a run starts and refused if
-missing. A model that answers but cannot follow the one-action-at-a-time
+regardless — hosted models are the target. Tool calling is checked before a run
+starts, and the model tells you when it is missing. A model whose tool calling
+you switched on yourself can still start a run; the start prompt says so. A model that answers but cannot follow the one-action-at-a-time
 contract will exhaust its retries and stop visibly rather than act on a
 half-understood answer.
 

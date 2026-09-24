@@ -3,8 +3,10 @@ import { isLegalAgentTransition } from "@ollama-client/agent-runtime"
 import { startBrowserAgentNavigationObserver } from "@/lib/browser-agent/navigation-observer"
 import { browser } from "@/lib/browser-api"
 import { AGENT_DEBUG_REPORT_ENABLED, FEATURE_FLAGS } from "@/lib/feature-flags"
+import { setBrowserTaskRunner } from "@/lib/tools/internal/browser-task-tool"
 import { registerAgentAttentionBadge } from "./agent-attention-badge"
 import { createAgentBrowserSessionManager } from "./agent-browser-session-manager"
+import { createBrowserTaskRunner } from "./agent-browser-task"
 import { setAgentForgetStopper } from "./agent-forget-rpc"
 import { registerAgentPanelPort } from "./agent-panel-port"
 import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
@@ -68,6 +70,13 @@ export const createAgentComposition = async (
    */
   setAgentForgetStopper((runId) => service.stop(runId))
 
+  /**
+   * The chat model's way in. A run is started by the model calling
+   * `browser_task` from a chat turn, never from a mode the user switches to;
+   * without this the tool is not offered at all.
+   */
+  setBrowserTaskRunner(createBrowserTaskRunner({ service }))
+
   const stopBadge = registerAgentAttentionBadge({
     service,
     action: browser.action
@@ -89,6 +98,7 @@ export const createAgentComposition = async (
       stopPort()
       stopBadge()
       setAgentForgetStopper(undefined)
+      setBrowserTaskRunner(undefined)
       observer.stop()
       void browserSessions.dispose()
     }

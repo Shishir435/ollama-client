@@ -2,8 +2,8 @@ import { lazy, Suspense } from "react"
 import { AgentChatComposerContext } from "@/features/agent/lib/agent-chat-composer"
 import { Chat } from "@/features/chat/components/chat"
 import { AgentRunRendererContext } from "@/features/chat/lib/agent-run-renderer"
-import { ChatComposerModeContext } from "@/features/chat/lib/composer-mode"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
+import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 
 /**
  * The build constant is read inline, not through `AGENT_PREVIEW_ENABLED`: the
@@ -30,18 +30,30 @@ const AgentRunCard =
       )
     : undefined
 
-/** Asking about a run is answer-only: it stays in chat and reads the handoff. */
-const focusChatComposer = () => chatInputStore.getState().requestFocus()
+/**
+ * A follow-up is a chat message the user sends, drafted in the composer. Ask
+ * drafts nothing and so ties the next message to no run.
+ */
+const draftInChatComposer = (text?: string, followUpRunId?: string) => {
+  const composer = chatInputStore.getState()
+  if (text !== undefined)
+    composer.draftFollowUp(
+      text,
+      followUpRunId,
+      chatSessionStore.getState().currentSessionId ?? undefined
+    )
+  else composer.dropAgentFollowUp()
+  composer.requestFocus()
+}
 
 /**
  * One workspace: the chat.
  *
- * There used to be two surfaces and a switch between them. A run is now
- * started from the chat composer in Act mode, supervised by its card in the
- * conversation, and followed up from that card, so the Agent lends chat three
- * things and owns no screen of its own: the composer mode and its switch, the
- * card for a run's row, and the door back to the composer for asking about a
- * run. Chat imports none of it — the shell is the one place that knows both.
+ * A run is started by the chat model calling `browser_task`, supervised by its
+ * card in the turn that started it, and followed up by sending another
+ * message. The Agent lends chat two things and owns no screen of its own: the
+ * card for a run's row, and the door back to the composer its follow-ups
+ * use. Chat imports neither — the shell is the one place that knows both.
  *
  * Until the Agent chunk has loaded, and always on Firefox, this is plain chat.
  */
@@ -52,15 +64,11 @@ export const SidepanelWorkspace = () => {
     <div className="flex h-screen min-w-0 flex-col bg-surface-chat">
       <Suspense fallback={<Chat embedded />}>
         <AgentWorkspace>
-          {({ toggle, mode }) => (
-            <AgentRunRendererContext.Provider value={AgentRunCard}>
-              <AgentChatComposerContext.Provider value={focusChatComposer}>
-                <ChatComposerModeContext.Provider value={mode}>
-                  <Chat embedded leading={toggle} />
-                </ChatComposerModeContext.Provider>
-              </AgentChatComposerContext.Provider>
-            </AgentRunRendererContext.Provider>
-          )}
+          <AgentRunRendererContext.Provider value={AgentRunCard}>
+            <AgentChatComposerContext.Provider value={draftInChatComposer}>
+              <Chat embedded />
+            </AgentChatComposerContext.Provider>
+          </AgentRunRendererContext.Provider>
         </AgentWorkspace>
       </Suspense>
     </div>

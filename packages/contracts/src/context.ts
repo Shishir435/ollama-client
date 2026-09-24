@@ -42,7 +42,19 @@ export const DurableContextOptionsSchema = z.object({
       modelId: z.string()
     })
     .nullable(),
-  customModel: z.string().optional()
+  customModel: z.string().optional(),
+  /**
+   * The tab the side panel showed when the message was sent: the one a
+   * browser task the model delegates starts on. A service worker has no
+   * window of its own to ask.
+   */
+  browserTabId: z.number().int().nonnegative().optional(),
+  /**
+   * The browser-agent run whose card drafted this message (Continue, Retry).
+   * The background still reads that run's own rows and refuses one from
+   * another chat; this only says which run was meant.
+   */
+  agentFollowUpRunId: z.string().min(1).max(200).optional()
 })
 
 /** Persisted context shape before application message normalization. */

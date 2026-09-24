@@ -8,7 +8,6 @@ import type { ChatMessage } from "@/types"
 import type { AgentRunConnection } from "../../hooks/use-agent-run"
 import { AgentChatComposerContext } from "../../lib/agent-chat-composer"
 import { AgentConnectionContext } from "../../lib/agent-connection"
-import { agentDraftStore } from "../../stores/agent-draft-store"
 
 const useAgentRunCard = vi.hoisted(() => vi.fn())
 
@@ -77,7 +76,6 @@ const connection = (run?: AgentRunState): AgentRunConnection =>
         : {})
     },
     busy: false,
-    start: vi.fn(),
     pause: vi.fn(),
     resume: vi.fn(),
     correct: vi.fn(),
@@ -91,14 +89,14 @@ const connection = (run?: AgentRunState): AgentRunConnection =>
     beginTakeover: vi.fn()
   }) as unknown as AgentRunConnection
 
-/** The card as the side panel mounts it: a workspace port and chat's Ask. */
+/** The card as the side panel mounts it: a workspace port and chat's door. */
 const inWorkspace = (
   children: ReactNode,
   port: AgentRunConnection = connection(),
-  ask: () => void = vi.fn()
+  draft: (text?: string) => void = vi.fn()
 ) => (
   <AgentConnectionContext.Provider value={{ connection: port }}>
-    <AgentChatComposerContext.Provider value={ask}>
+    <AgentChatComposerContext.Provider value={draft}>
       {children}
     </AgentChatComposerContext.Provider>
   </AgentConnectionContext.Provider>
@@ -106,11 +104,6 @@ const inWorkspace = (
 
 beforeEach(() => {
   useAgentRunCard.mockReset()
-  agentDraftStore.setState({
-    acting: false,
-    prefill: undefined,
-    followUp: undefined
-  })
 })
 
 describe("AgentRunMessageCard", () => {
@@ -184,30 +177,50 @@ describe("AgentRunMessageCard", () => {
     ).toBeInTheDocument()
   })
 
-  it("continues a run that got somewhere, in Act mode with an empty box", () => {
+  /**
+   * The model's answer under the card already says what the run found; the
+   * card repeats the result only when there is no answer to read.
+   */
+  it("leaves the result to the answer when the turn wrote one", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "completed", result: "Open 9 to 5 on weekdays." })
+    })
+    render(
+      inWorkspace(<AgentRunMessageCard msg={message("They open at nine.")} />)
+    )
+
+    expect(
+      screen.queryByText("Open 9 to 5 on weekdays.")
+    ).not.toBeInTheDocument()
+  })
+
+  /**
+   * Every follow-up is a message the user still sends, and the model decides
+   * whether the browser is needed; the card only drafts it.
+   */
+  it("continues a run that got somewhere by drafting a message", () => {
     useAgentRunCard.mockReturnValue({
       kind: "ready",
       run: card({ status: "completed" })
     })
-    render(inWorkspace(<AgentRunMessageCard msg={message()} />))
+    const draft = vi.fn()
+    render(
+      inWorkspace(<AgentRunMessageCard msg={message()} />, undefined, draft)
+    )
 
     expect(
       screen.queryByRole("button", { name: "agent.card.retry" })
     ).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "agent.card.continue" }))
 
-    expect(agentDraftStore.getState()).toMatchObject({
-      acting: true,
-      prefill: { text: "" },
-      followUp: {
-        parentRunId: "run-1",
-        mode: "continue",
-        parentGoal: "Find the opening hours"
-      }
-    })
+    expect(draft).toHaveBeenCalledWith(
+      "agent.follow_up.continue_message",
+      "run-1"
+    )
   })
 
-  it("retries a run that stopped short with its own goal", () => {
+  it("retries a run that stopped short by drafting a message", () => {
     useAgentRunCard.mockReturnValue({
       kind: "ready",
       run: card({
@@ -215,63 +228,46 @@ describe("AgentRunMessageCard", () => {
         error: { code: "goal_failed" }
       })
     })
-    render(inWorkspace(<AgentRunMessageCard msg={message()} />))
+    const draft = vi.fn()
+    render(
+      inWorkspace(<AgentRunMessageCard msg={message()} />, undefined, draft)
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "agent.card.retry" }))
 
-    expect(agentDraftStore.getState()).toMatchObject({
-      acting: true,
-      prefill: { text: "Find the opening hours" },
-      followUp: { parentRunId: "run-1", mode: "retry" }
-    })
+    expect(draft).toHaveBeenCalledWith("agent.follow_up.retry_message", "run-1")
   })
 
-  /**
-   * Starting over reuses the sentence and nothing else: no parent, so the
-   * background carries no record and the run claims to know nothing.
-   */
-  it("starts over as a fresh run that follows nothing", () => {
-    agentDraftStore.setState({
-      followUp: {
-        parentRunId: "older",
-        mode: "continue",
-        parentGoal: "Older task"
-      }
-    })
+  it("starts over by restating the goal", () => {
     useAgentRunCard.mockReturnValue({
       kind: "ready",
       run: card({ status: "cancelled" })
     })
-    render(inWorkspace(<AgentRunMessageCard msg={message()} />))
+    const draft = vi.fn()
+    render(
+      inWorkspace(<AgentRunMessageCard msg={message()} />, undefined, draft)
+    )
 
     fireEvent.click(
       screen.getByRole("button", { name: "agent.card.start_over" })
     )
 
-    expect(agentDraftStore.getState().prefill?.text).toBe(
-      "Find the opening hours"
-    )
-    expect(agentDraftStore.getState().followUp).toBeUndefined()
+    expect(draft).toHaveBeenCalledWith("Find the opening hours")
   })
 
-  /**
-   * Answer-only is the default route: a question about the run is a chat
-   * message, so Ask leaves Act mode and hands the caret to the composer.
-   */
-  it("asks about a settled run in chat, leaving Act mode", () => {
-    agentDraftStore.setState({ acting: true })
+  it("asks about a settled run by handing the caret to the composer", () => {
     useAgentRunCard.mockReturnValue({
       kind: "ready",
       run: card({ status: "completed" })
     })
-    const ask = vi.fn()
-    render(inWorkspace(<AgentRunMessageCard msg={message()} />, undefined, ask))
+    const draft = vi.fn()
+    render(
+      inWorkspace(<AgentRunMessageCard msg={message()} />, undefined, draft)
+    )
 
     fireEvent.click(screen.getByRole("button", { name: "agent.card.ask" }))
 
-    expect(ask).toHaveBeenCalledOnce()
-    expect(agentDraftStore.getState().acting).toBe(false)
-    expect(agentDraftStore.getState().followUp).toBeUndefined()
+    expect(draft).toHaveBeenCalledWith()
   })
 
   it("offers no follow-up while the run is still live", () => {
@@ -308,14 +304,15 @@ describe("AgentRunMessageCard", () => {
 
   /**
    * Pruned, deleted with nothing else, or restored without its run: the row's
-   * own text is what the terminal commit left for exactly this reader.
+   * own text is drawn by chat under the card, so the card says the run is
+   * gone only when there is no text to read instead.
    */
-  it("falls back to the message's text when the run is gone", () => {
+  it("says the run is gone only when the row has no text", () => {
     useAgentRunCard.mockReturnValue({ kind: "missing" })
     const { rerender } = render(
       <AgentRunMessageCard msg={message("Open 9 to 5.")} />
     )
-    expect(screen.getByText("Open 9 to 5.")).toBeInTheDocument()
+    expect(screen.queryByText("agent.card.missing")).not.toBeInTheDocument()
 
     rerender(<AgentRunMessageCard msg={message()} />)
     expect(screen.getByText("agent.card.missing")).toBeInTheDocument()

@@ -33,21 +33,30 @@ export const DEFAULTS = {
   /**
    * A caller's own deadline is shorter than this: the extension abandons an
    * agent decision after two minutes. Thirty minutes therefore only bought a
-   * slot that outlived every client that could hold it. Five aligns with the
-   * bridge and parked-call deadlines while still covering a long reasoning turn.
+   * slot that outlived every client that could hold it. Five still covers a
+   * long reasoning turn.
    */
   REQUEST_TIMEOUT_MS: 300_000,
   BRIDGE_PATH: "/bridge/call",
-  BRIDGE_CALL_TIMEOUT_MS: 300_000,
-  BRIDGE_BATCH_MS: 150,
-  SUSPENDED_TURN_TTL_MS: 600_000,
   /**
-   * A parked turn is a live backend session, and its own TTL is ten minutes —
-   * fine for one turn a client abandoned, wrong for a client whose every
-   * request is a single decision it never resumes. Four leaves room for a
-   * client that legitimately interleaves a fresh turn with one it is still
-   * computing a tool result for, and stops a long run holding a session per
-   * step.
+   * How long a parked call, and the turn parked on it, waits for the client's
+   * result. Not bounded by the request deadline: nothing holds the queue
+   * while a turn is parked, and a client tool can legitimately take as long
+   * as its user does — the extension's browser task waits up to forty-five
+   * minutes on a run that asks for approvals. A shorter wait turned the
+   * result of every long task into `StaleToolResults`. What bounds the cost
+   * is `MAX_PARKED_TURNS`, not the clock.
+   */
+  BRIDGE_CALL_TIMEOUT_MS: 3_000_000,
+  BRIDGE_BATCH_MS: 150,
+  SUSPENDED_TURN_TTL_MS: 3_000_000,
+  /**
+   * A parked turn is a live backend session, and its own TTL is long — fine
+   * for one turn a client abandoned, wrong for a client whose every request
+   * is a single decision it never resumes. Four leaves room for a client that
+   * legitimately interleaves a fresh turn with one it is still computing a
+   * tool result for, and stops a long run holding a session per step. Turns
+   * that forced a tool call are reaped before turns that left it optional.
    */
   MAX_PARKED_TURNS: 4,
   /**

@@ -56,6 +56,15 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   query, or extract the page's full text — none of which mutates the page or
   asks approval. A fact the model records is now kept past the recent-step
   window, with the page it came from, and stays untrusted page data.
+- Agent Preview has no mode to switch into. The chat model hands a task to the
+  supervised agent with a `browser_task` tool call, the run's card appears
+  above that turn's answer, and follow-ups are ordinary messages. Starting a
+  run is asked about once per chat and site, and every time the model had read
+  page content before writing the task; such a task is never counted as the
+  user's own words. Whether routine clicks and typing run unasked is now a
+  remembered setting that each run mints its own grants from. The olc proxy
+  keeps a turn waiting on a long client tool alive while that tool's own
+  forced decisions come and go.
 
 ## [0.13.3]
 

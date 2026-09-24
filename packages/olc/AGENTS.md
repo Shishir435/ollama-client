@@ -52,8 +52,19 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   throws away work it is about to hand back. What is not defensible is
   unbounded, so `MAX_PARKED_TURNS` caps how many turns may sit parked and a
   fresh request discards the oldest above it, never one with a resume hold.
-  Before that, only each turn's own ten-minute TTL ended one, and a
+  Before that, only each turn's own TTL ended one, and a
   twenty-five-step run held twenty-five live sessions at once.
+- **Forced decisions are reaped first; the wait for a client tool is long.**
+  A turn whose request forced a tool call goes before one that left the call
+  to the model. The extension's chat turn delegates a browser task as an
+  optional call and waits on it while the task's own forced decisions park
+  beside it; oldest-first alone discarded the chat turn after four steps and
+  its result came back as `StaleToolResults`. For the same task the parked
+  call and turn deadlines are fifty minutes, not five and ten: nothing holds
+  the queue while a turn is parked, the cap bounds the sessions, and the
+  OpenCode bridge's fetch is told not to time out (Bun ends one at five
+  minutes). Ordering is not inference — nothing is discarded because it
+  forced a call, only chosen first when the cap is already exceeded.
 - **Every terminal path settles the session and the slot.** A response that
   stopped is not a session that ended: a parked turn is a live runtime session
   and a parked call is a promise something awaits. `ChatRoutes.inspect()`

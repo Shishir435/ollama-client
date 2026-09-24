@@ -1036,6 +1036,53 @@ describe("a client that never resumes its turns", () => {
     expect(second.toolCalls[0]?.id).toBeDefined()
   })
 
+  it("keeps a turn that left the call optional over forced decisions", async () => {
+    /**
+     * A chat turn delegates a long client tool and parks on it; that tool's own
+     * steps are forced decisions that park beside it. Oldest-first discarded
+     * the chat turn once the steps passed the cap, and the tool's result came
+     * back as StaleToolResults.
+     */
+    harness = await startHarness({ mode: "tool" }, { MAX_PARKED_TURNS: 2 })
+    const chat = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [{ role: "user", content: "delegate a task" }],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    expect(chat.finishReason).toBe("tool_calls")
+    for (let step = 1; step <= 4; step += 1) {
+      const decision = await streamTurn(harness.url, {
+        model: "fake/model-a",
+        stream: true,
+        tool_choice: "required",
+        messages: [{ role: "user", content: `forced step ${step}` }],
+        tools: [{ type: "function", function: { name: "list_tabs" } }]
+      })
+      expect(decision.finishReason).toBe("tool_calls")
+    }
+
+    const call = chat.toolCalls[0]
+    const resumed = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        { role: "user", content: "delegate a task" },
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            { id: call?.id, type: "function", function: call?.function }
+          ]
+        },
+        { role: "tool", tool_call_id: call?.id, content: "task done" }
+      ],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    expect(resumed.status).toBe(200)
+    expect(resumed.content).not.toContain("StaleToolResults")
+  })
+
   it("settles a turn whose resume is still queued when the proxy shuts down", async () => {
     /**
      * A resuming turn is taken out of the parked map — a request carrying its

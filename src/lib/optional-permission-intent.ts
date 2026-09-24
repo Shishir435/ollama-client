@@ -42,8 +42,15 @@ const TAB_GROUP_INTENT = [
   /\b(?:summarize|compare|read|list|show|access|check)\b.{0,30}\bgroups?\b.{0,20}\btabs?\b/i
 ]
 
+/**
+ * "Save it" alone is not asked about: with a browser agent in the chat, it
+ * is as often the Save button on a page as a file on disk, and the notice
+ * holds the whole message until the permission is on. Saving counts once it
+ * names a file or a destination on this machine.
+ */
 const DOWNLOAD_INTENT = [
-  /\b(?:save|download|export)\s+(?:this|it|that)\b/i,
+  /\b(?:download|export)\s+(?:this|it|that)\b/i,
+  /\bsave\s+(?:this|it|that)\s+(?:as|to|into)\s+(?:an?\s+)?(?:file|markdown|md|html|pdf|json|txt|text\s+file|svg|csv|disk|downloads?|my\s+(?:computer|downloads?))\b/i,
   /\b(?:save|download|export)\b.{0,30}\b(?:your|the)\s+(?:answer|response|output)\b/i,
   /\b(?:save|download|export)\b.{0,30}\b(?:this|that)\s+(?:file|code|answer|response|report|document|markdown|html|svg|json|diagram)\b/i
 ]

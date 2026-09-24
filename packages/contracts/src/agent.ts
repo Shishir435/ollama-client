@@ -607,6 +607,13 @@ export const AgentPreviousRunSchema = z
   .strict()
 export type AgentPreviousRun = z.infer<typeof AgentPreviousRunSchema>
 
+/**
+ * A goal the chat model wrote: `model` from a turn that had read nothing off a
+ * page, `model_after_page` from one that had.
+ */
+export const AgentGoalAuthorSchema = z.enum(["model", "model_after_page"])
+export type AgentGoalAuthor = z.infer<typeof AgentGoalAuthorSchema>
+
 export const AgentRunStateSchema = z
   .object({
     version: z.literal(1),
@@ -651,6 +658,20 @@ export const AgentRunStateSchema = z
     deadline: AgentDeadlineStateSchema.optional(),
     /** The settled run this one follows, when it was started as a follow-up. */
     previousRun: AgentPreviousRunSchema.optional(),
+    /**
+     * Who wrote the goal, when it was not the user. Absent means the user
+     * typed it. A chat model that delegates a task writes it itself, and one
+     * that had read page content in the same turn may be repeating what a page
+     * told it to say — so that goal is not counted as the user's own words by
+     * the egress rule.
+     */
+    goalAuthor: AgentGoalAuthorSchema.optional(),
+    /**
+     * The chat tool call that delegated the run. A call replayed after a worker
+     * restart names the same id and finds this run; any other call from the
+     * same turn is a second task, not a replay.
+     */
+    toolCallId: z.string().min(1).max(200).optional(),
     createdAt: z.number().int().nonnegative(),
     updatedAt: z.number().int().nonnegative()
   })
