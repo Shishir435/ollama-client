@@ -91,7 +91,17 @@ const AgentVerificationSchema = z
       .object({
         kind: z.string().max(200),
         summary: z.string().max(2_000),
-        observedAt: z.number().int().nonnegative()
+        observedAt: z.number().int().nonnegative(),
+        fields: z
+          .array(
+            z
+              .object({
+                name: z.string().max(120).optional()
+              })
+              .strict()
+          )
+          .max(12)
+          .optional()
       })
       .strict()
   })
@@ -669,8 +679,9 @@ export const transitionAgentRun = async (
   return state ? { transitioned: true, state } : { transitioned: false }
 }
 
-export const listAgentSteps = async (
-  runId: string
+const readAgentSteps = async (
+  runId: string,
+  requireComplete: boolean
 ): Promise<DurableAgentStep[]> => {
   const rows = await query(
     `SELECT id, runId, stepId, status, receipt, createdAt
@@ -679,6 +690,7 @@ export const listAgentSteps = async (
   )
   const decoded = decodeRows(AgentStepRowSchema, rows, STEP_TABLE)
   const steps: DurableAgentStep[] = []
+  let incomplete = decoded.length !== rows.length
   for (const row of decoded) {
     try {
       const receipt = AgentStepReceiptSchema.parse(JSON.parse(row.receipt))
@@ -689,15 +701,32 @@ export const listAgentSteps = async (
       ) {
         const { version: _version, ...step } = receipt
         steps.push({ ...step, sequence: row.id })
+      } else {
+        incomplete = true
+        logger.warn("Refused a mismatched agent step receipt", "AgentRuns", {
+          rowId: String(row.id)
+        })
       }
     } catch {
+      incomplete = true
       logger.warn("Refused an unreadable agent step receipt", "AgentRuns", {
         rowId: String(row.id)
       })
     }
   }
+  if (requireComplete && incomplete) {
+    throw new Error("Agent step history is incomplete")
+  }
   return steps
 }
+
+/** Panel history may show readable rows; decisions require the entire record. */
+export const listAgentSteps = (runId: string): Promise<DurableAgentStep[]> =>
+  readAgentSteps(runId, false)
+
+export const listCompleteAgentSteps = (
+  runId: string
+): Promise<DurableAgentStep[]> => readAgentSteps(runId, true)
 
 /**
  * The most recently started run, settled or not.
@@ -1126,7 +1155,7 @@ export const createAgentPersistencePort = (): AgentPersistencePort => ({
   async load(runId) {
     return (await getAgentRun(runId))?.state
   },
-  steps: listAgentSteps
+  steps: listCompleteAgentSteps
 })
 
 export const createInitialAgentDeadline = (now: number) =>

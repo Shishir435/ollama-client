@@ -300,11 +300,13 @@ export const registerAgentPanelPort = (
       connectedPanels = Math.max(0, connectedPanels - 1)
       const runId = dependencies.service.activeRunId()
       if (connectedPanels === 0 && runId) {
-        void dependencies.service.pause(runId).catch((error: unknown) => {
-          logger.warn("Agent pause after panel disconnect failed", "Agent", {
-            name: error instanceof Error ? error.name : typeof error
+        void dependencies.service
+          .pause(runId, "panel_closed")
+          .catch((error: unknown) => {
+            logger.warn("Agent pause after panel disconnect failed", "Agent", {
+              name: error instanceof Error ? error.name : typeof error
+            })
           })
-        })
       }
     })
 

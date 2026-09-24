@@ -43,7 +43,10 @@ Read the section your change touches; you do not need the whole file.
   to kill and restart the worker — the thing under test cannot own the switch
   that kills it, and nothing there ships or is reachable by a model. Attach only after the run
   service authorizes the user-selected tab; detach at pause, takeover, stop,
-  completion, and failure boundaries. An unexpected disconnect pauses the run,
+  completion, and failure boundaries — except a pause the run comes back from
+  on the same page (user, question, unresolved effect) while a native dialog
+  is held, which keeps the session so the dialog is not dismissed (see
+  [Native dialogs](#native-dialogs)). An unexpected disconnect pauses the run,
   and an interrupted effect remains unresolved rather than being replayed.
 - **An unresolved effect is resolved by the supervisor, not by a guess.**
   `resolveEffect` records that the user has looked at the page and continues
@@ -415,6 +418,19 @@ Read the section your change touches; you do not need the whole file.
   still held before detaching — dismissal confirms nothing and keeps a
   `beforeunload` on the page, and detaching for a takeover is what lets the
   user's own click raise a fresh dialog.
+- **A pause does not answer a held dialog.** A dismissed `confirm` is the page
+  being told "no", so detaching at every pause cancelled whatever the run had
+  just asked for: a user who paused while a Delete button's confirmation was
+  held came back to an undeleted item, a model that pressed Delete again and
+  a second approval for one decision. `releaseBrowserSessionFor` therefore
+  keeps the session — and the dialog — through a `pause_requested` or
+  `paused` state whose reason is `user`, `question` or `unresolved_effect`
+  whenever `openDialog` reports one; resuming re-attaches
+  idempotently, observes the same dialog, and asks about it once. The tab
+  stays blocked while paused, which is what the page itself would do with its
+  dialog on screen. Closing the last panel releases even a dialog held by an
+  earlier pause. A takeover, a lost browser, every stop and every terminal
+  state also let go.
 - **A blocked page is observed as blocked, not asked.** A dialog blocks the
   document's script, so no control port can answer: every observation the run
   takes goes through one seam in `agent-browser-adapters.ts`, which reports
@@ -565,6 +581,19 @@ Read the section your change touches; you do not need the whole file.
     run already sent this form. Refusing it would stop a checkout at step
     two; allowing it on a grant would place a second order unasked.
   Receipts older than the flag count a critical change.
+- **Inside one run, the same control twice is asked as a repeat.** The
+  controller reads the run's own receipts through the same
+  `agentCommittedEffects` and, when a consequential effect matches one this
+  run already committed by the same-control rule, tells policy
+  `repeatsCommittedEffect`. It is asked rather than refused — two rows of a
+  list share a "Delete" label, and deleting both is an ordinary task — but
+  priced like the prior-form case: at least high, no grant covering it, none
+  offered, and the approval opens by saying this run already did it once.
+  What it exists for is a page whose own confirmation was lost between the
+  two clicks: the first press landed, and a fresh approval would have read as
+  the first delete. If receipts cannot be read, policy asks without claiming
+  a repeat occurred: the approval says the earlier effect is unknown, costs
+  at least high risk and cannot use a grant.
 
 ## Verification, waiting and completion
 
@@ -916,6 +945,29 @@ Read the section your change touches; you do not need the whole file.
   same label the work log uses, so the two cannot disagree — shows progress
   against the observation budget that will stop the run, and counts every tab
   the run drives once it has adopted more than the one it started on.
+- **The runtime names sentences; the panel says them.** An approval, a
+  takeover and a question the run itself asks carry `display` — i18n keys and
+  their values (`AgentDisplayText`) — beside the English `action`,
+  `consequence`, `instruction` or `text`, which stays for receipts, tests and
+  records written before `display` existed. The panel renders `display` when
+  it is there and the flattened English otherwise; a value named `…Key` is a
+  key translated before it is interpolated (a dialog's kind). Commands are
+  labelled once, by `agentCommandDisplay` in the runtime, for the log, the
+  line above it and the approval alike, and the switch is exhaustive, so a
+  command added without a label fails typecheck instead of showing
+  `agent.action.fill_form`. `agent-i18n.test.ts` looks up every key the
+  runtime can emit.
+- **The card's controls never scroll away.** Pause, Resume and Stop sit under
+  the progress bar, above the attention area and the bounded log; they used
+  to be the last row of that log, out of sight on a long run. The log follows
+  its newest row unless the reader has scrolled up. Every pause reason says
+  why on the card — a closed panel included — and a command the worker never
+  received, or refused, is shown on the run rather than in a composer that is
+  back in Chat by then.
+- **An approval arriving is brought into view and announced, never
+  pre-answered.** It scrolls into view and focus moves to the card, not to
+  Allow, so an Enter meant for something else cannot approve an effect; focus
+  does not move at all while the user is typing.
 - Panel copy is i18n like everything else: every key exists in all nine
   locales, and `pnpm generate:resources` runs after a locale edit.
 - **A run's record comes out as text, in a dev build.** From the side panel's
@@ -937,6 +989,25 @@ Read the section your change touches; you do not need the whole file.
   output directory, the same production bundle, with the dump kept. Only
   `WXT_AGENT_DEBUG=1` turns it on, so a release build cannot acquire it by
   forgetting a flag.
+- **A refusal's coaching stays with the model.** Completion and grounding
+  feedback is kept in the durable receipt for recovery and debugging, but a
+  rejected work-log row uses translated review copy and a question uses its
+  translated prompt without interpolating that feedback. A verifier's advice
+  about quotations and internal evidence is not a question for the user.
+- **An approval names its exact row and risk.** A control in a visible list or
+  table row carries a bounded `rowContext` from rendered text, so identical
+  Delete buttons can be distinguished in the approval evidence. The panel
+  labels the policy's risk in the reader's language; it does not recompute it.
+- **A released native dialog leaves a receipt.** Before the session manager
+  detaches and dismisses a held dialog, the run service writes an uncertain,
+  non-mutating release receipt. It appends a verified receipt under the same
+  step id after detach succeeds. If that final write fails, durable history
+  keeps the uncertain marker and cleanup retries the final write before the
+  next attachment. A failed retry leaves that marker uncertain and is
+  quarantined, so a later session's dialog gets its own receipt even when its
+  dialog id repeats. If storage rejects the initial intent, cleanup still
+  detaches so a closed panel cannot leave the page blocked by a dialog; the
+  failure is logged.
 
 ## Measured behaviour and benchmarks
 
@@ -1001,6 +1072,12 @@ run that produced it can always be repeated.
   because a timeout elapsed. Repeated or alternating decisions pause for a
   correction; user/question pauses suspend active-time accounting. A supplied
   completion quote is checked even for a run that only read or scrolled.
+- A confirmed `fill_form` receipt records each checked field's bounded name,
+  never its value or a reversible digest of it. The judge may use one batch to
+  satisfy several field requirements only while the current observation
+  shows the named controls holding the required values. A no-submit
+  requirement reads a complete run history of applied consequential receipts;
+  an unreadable receipt or any submission prevents it from being claimed as met.
 - Planning is optional only at the host boundary. A host with no planning port
   retains the legacy completion path, but once the port exists an exhausted or
   empty plan fails the run before its first observation. Planning failure must

@@ -30,10 +30,19 @@
       "find": "「{{query}}」を検索",
       "extract_text": "ページのテキストを読む",
       "handle_dialog_accept": "ページのダイアログを承認",
-      "handle_dialog_dismiss": "ページのダイアログを閉じる"
+      "handle_dialog_dismiss": "ページのダイアログを閉じる",
+      "fill_form": "フォームの項目を入力: {{count}}",
+      "extract": "ページ内を調べる: {{count}}",
+      "call_page_tool": "ページのツール「{{tool}}」を使う"
     },
     "approval": {
       "title": "承認が必要です",
+      "risk": {
+        "low": "低リスク",
+        "medium": "中リスク",
+        "high": "高リスク",
+        "critical": "重大なリスク"
+      },
       "allow": "今回のみ許可",
       "reject": "拒否",
       "allowForRun": "この実行中は {{origin}} でこの種の操作を常に許可する"
@@ -56,10 +65,11 @@
       "already_running": "Agent の実行は既に進行中です。",
       "browser_control_unavailable": "Agent はブラウザー制御に接続できませんでした。DevTools または別のデバッガーを閉じて再試行してください。",
       "follow_up_unavailable": "この実行はここから続行できなくなりました。最初からやり直してタスクを設定してください。",
-      "permission_denied": "開始する前に、ページ観測の権限が必要です。",
+      "permission_denied": "このブラウザではエージェントがページを観察できません。",
       "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
       "unreadable_update": "パネルは読み取れない更新を受け取りました。",
-      "unknown": "Agent はその要求を完了できませんでした。"
+      "unknown": "Agent はその要求を完了できませんでした。",
+      "disconnected": "エージェントが再接続中だったため受け取れませんでした。もう一度お試しください。"
     },
     "failure": {
       "budget_exhausted": "実行がステップの上限をすべて使い切りました。目標を絞るか、現在のページの状態から始め直してください。",
@@ -136,7 +146,9 @@
       "placeholder": "ブラウザー作業を1つ説明…",
       "action": "エージェントを開始",
       "auto_actions": "このタスクの日常的な操作を許可",
-      "auto_actions_description": "このサイトでのクリックと入力は自動で行います。投稿、削除、新しいサイト、機密情報を扱う操作は引き続き確認します。"
+      "auto_actions_description": "このサイトでのクリックと入力は自動で行います。投稿、削除、新しいサイト、機密情報を扱う操作は引き続き確認します。",
+      "starting": "開始しています…",
+      "starting_on": "「{{title}}」で開始しています…"
     },
     "status": {
       "submitted": "開始中",
@@ -179,12 +191,17 @@
       "count": "{{count}} 個のタブ"
     },
     "takeover": {
-      "title": "この手順を引き継ぐ"
+      "title": "この手順を引き継ぐ",
+      "instruction": {
+        "file_upload": "ページを操作してご自身でファイルを選び、その後続行してください。",
+        "sensitive_step": "ページを操作してご自身で機密性の高い手順を完了し、その後続行してください。"
+      }
     },
     "title": "監督付きエージェント",
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
     "unresolved_reviewed": "ページを確認した — 続行",
     "work_log": {
+      "action_needs_review": "この手順は確認が必要です。",
       "title": "作業ログ",
       "target": "「{{name}}」"
     },
@@ -225,6 +242,39 @@
     },
     "composer": {
       "run_in_progress": "実行中のタスクがあります。別のタスクを始める前に停止するか、完了を待ってください。"
+    },
+    "paused_panel_closed": "サイドパネルが閉じられたため一時停止しました。準備ができたら再開してください。",
+    "approval_text": {
+      "accept_dialog": "ページの{{kind}}を承認",
+      "accept_dialog_origin": "{{origin}} の{{kind}}を承認",
+      "dismiss_dialog": "ページの{{kind}}を閉じる",
+      "dismiss_dialog_origin": "{{origin}} の{{kind}}を閉じる",
+      "dismiss_dialog_consequence": "ダイアログには閉じられたことが伝えられ、何も確定されません。",
+      "accept_dialog_consequence": "確認ボタンを押したものとしてページが続行します。その操作が何であってもです。",
+      "accept_leave_consequence": "ページから移動できるようになります。保存されていない内容は失われます。",
+      "dialog_unreadable": "テキストは読み取られていません。このダイアログは、この実行が読み取りを許可されていないフレームのものです。",
+      "fill_fields": "フォームの項目を一度に設定: {{count}}",
+      "fill_fields_consequence": "下に挙げたコントロールを順に設定し、設定できないものがあればそこで止まります。エージェントは送信ボタンを押しませんが、ページが自動でフォームを送信したり、入力中の変更を保存したりする場合があります。",
+      "adopt_tab": "{{url}} のタブ {{tab}} を引き継ぐ",
+      "navigate": "{{url}} に移動",
+      "navigate_consequence": "ブラウザはこのアドレスをそのまま開きます: {{url}}",
+      "no_submit_consequence": "下に表示されたコントロールに入力されます。送信の手順はないため、入力中に保存するページではすぐに保存される場合があります。",
+      "command_consequence": "ブラウザは下に表示されたコントロールでこの操作を行います。",
+      "prior_form": "このタスクの以前の実行で、このフォームはすでに送信されています。同じものの再送信ではなく、新しい送信の場合のみ承認してください。",
+      "repeated_effect": "この実行では、このページの同じコントロールで一度すでに行っています。もう一度行うべき場合のみ承認してください。",
+      "unknown_prior_effect": "この実行の操作記録を読み取れませんでした。この操作は以前の効果を繰り返す可能性があります。繰り返しても安全な場合にのみ承認してください。"
+    },
+    "dialog_kind": {
+      "alert": "警告ダイアログ",
+      "confirm": "確認ダイアログ",
+      "prompt": "入力ダイアログ",
+      "beforeunload": "ページ移動の確認ダイアログ",
+      "dialog": "ダイアログ"
+    },
+    "question_text": {
+      "completion_refused": "結果を確認できませんでした。タスクは完了していますか？ 完了していない場合、次に何をすればよいですか？",
+      "commands_refused": "直前の操作を実行できませんでした。代わりに何を試せばよいですか？",
+      "no_progress": "進展がないまま操作を繰り返しています。何を変えればよいですか？ 停止してご自身でタスクを完了することもできます。"
     }
   },
   "common": {

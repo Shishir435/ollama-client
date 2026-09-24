@@ -268,4 +268,92 @@ describe("AgentRunSupervision", () => {
     expect(screen.getByText("agent.model.label")).toBeInTheDocument()
     expect(screen.getByText("model")).toBeInTheDocument()
   })
+
+  it("says why a run paused when the panel closed", () => {
+    supervise({ run: run("paused", { pauseReason: "panel_closed" }) })
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "agent.paused_panel_closed"
+    )
+  })
+
+  /**
+   * The composer that used to show a refused command is back in Chat once a
+   * run is being supervised, so a late approval or a Stop sent between
+   * connections has to say so on the run.
+   */
+  it("shows a refused command on the run it was about", () => {
+    supervise({
+      failure: {
+        command: "agent_stop",
+        messageKey: "agent.error.disconnected",
+        message: "Agent was reconnecting and did not receive that."
+      }
+    })
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "agent.error.disconnected"
+    )
+  })
+
+  it("says an approval in the panel's language when the runtime named it", () => {
+    supervise({
+      run: run("awaiting_approval"),
+      approval: {
+        ...approval,
+        display: {
+          action: {
+            key: "agent.approval_text.fill_fields",
+            values: { count: 3 }
+          },
+          consequence: [
+            { key: "agent.approval_text.prior_form" },
+            { key: "agent.approval_text.fill_fields_consequence" }
+          ]
+        }
+      }
+    })
+
+    expect(
+      screen.getByText('agent.approval_text.fill_fields:{"count":3}')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "agent.approval_text.prior_form agent.approval_text.fill_fields_consequence"
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Allow click")).toBeNull()
+  })
+
+  /**
+   * Focus goes to the request, never to Allow, and never out of a field the
+   * user is typing in: an Enter meant for something else must not approve.
+   */
+  it("brings an approval into focus without focusing Allow", () => {
+    supervise({ run: run("awaiting_approval"), approval })
+
+    const card = screen.getByRole("region", { name: "agent.approval.title" })
+    expect(document.activeElement).toBe(card)
+  })
+
+  it("leaves the caret where the user is typing when an approval arrives", () => {
+    const field = document.createElement("textarea")
+    document.body.append(field)
+    field.focus()
+    supervise({ run: run("awaiting_approval"), approval })
+
+    expect(document.activeElement).toBe(field)
+    field.remove()
+  })
+
+  /** Stop was the last row of a scrolled log, out of sight on a long run. */
+  it("keeps the controls ahead of the log", () => {
+    supervise({ run: run("executing"), steps: [clickStep("executing")] })
+
+    const stop = screen.getByText("agent.controls.stop")
+    const log = screen.getByText("agent.work_log.title")
+    expect(
+      stop.compareDocumentPosition(log) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
 })

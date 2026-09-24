@@ -1,9 +1,11 @@
 import {
   AGENT_GRANTABLE_EFFECTS,
   type AgentApprovalRequest,
+  type AgentDisplayText,
   type AgentGrant,
   type AgentTakeoverRequest
 } from "@ollama-client/contracts"
+import { agentCommandDisplay } from "./action-label"
 import type {
   AgentPolicyDecision,
   AgentPolicyInput,
@@ -98,6 +100,15 @@ const takeoverInstruction = (reason: AgentTakeoverRequest["reason"]): string =>
     ? "Take control of the page, choose the file yourself, then explicitly continue."
     : "Take control of the page, complete the sensitive step, then explicitly continue."
 
+const takeoverDisplay = (
+  reason: AgentTakeoverRequest["reason"]
+): AgentDisplayText => ({
+  key:
+    reason === "file_upload"
+      ? "agent.takeover.instruction.file_upload"
+      : "agent.takeover.instruction.sensitive_step"
+})
+
 const makeTakeoverRequest = (
   input: AgentPolicyInput,
   reason: AgentTakeoverRequest["reason"]
@@ -107,6 +118,7 @@ const makeTakeoverRequest = (
   stepId: input.stepId,
   reason,
   instruction: takeoverInstruction(reason),
+  display: [takeoverDisplay(reason)],
   createdAt: input.now
 })
 
@@ -174,7 +186,16 @@ const hasNoSubmitStep = (input: AgentPolicyInput): boolean =>
  */
 const dialogAction = (
   input: AgentPolicyInput
-): { action: string; consequence: string } | undefined => {
+):
+  | {
+      action: string
+      consequence: string
+      display: {
+        action: AgentDisplayText
+        consequence: AgentDisplayText[]
+      }
+    }
+  | undefined => {
   const command = input.effect.command
   if (command.type !== "handle_dialog") return undefined
   const kind = input.effect.dialog?.type ?? "dialog"
@@ -187,24 +208,42 @@ const dialogAction = (
    */
   const frameOrigin = input.effect.frameOrigin
   const origin = actingOrigin(input)
-  const whose =
+  const foreign =
     frameOrigin !== undefined || !input.allowedOrigins.includes(origin)
-      ? `${origin}'s`
-      : "the page's"
+  const whose = foreign ? `${origin}'s` : "the page's"
+  const direction = command.accept ? "accept" : "dismiss"
+  const actionDisplay: AgentDisplayText = {
+    key: `agent.approval_text.${direction}_dialog${foreign ? "_origin" : ""}`,
+    values: {
+      kindKey: `agent.dialog_kind.${kind}`,
+      ...(foreign ? { origin } : {})
+    }
+  }
   /**
    * An embedded frame the run was not authorized to read had its dialog text
    * withheld, so neither the model nor the panel can show what is being
    * agreed to. The user is told that, rather than being shown a prompt with
    * an empty quotation and left to assume the dialog was empty.
    */
-  const unreadable =
+  const withheld =
     frameOrigin !== undefined && !input.allowedOrigins.includes(frameOrigin)
-      ? " Its text was not read: the dialog belongs to a frame this run is not authorized to read."
-      : ""
+  const unreadable = withheld
+    ? " Its text was not read: the dialog belongs to a frame this run is not authorized to read."
+    : ""
+  const unreadableDisplay: AgentDisplayText[] = withheld
+    ? [{ key: "agent.approval_text.dialog_unreadable" }]
+    : []
   if (!command.accept) {
     return {
       action: `Dismiss ${whose} ${kind} dialog`,
-      consequence: `The dialog is told it was dismissed and nothing is confirmed.${unreadable}`
+      consequence: `The dialog is told it was dismissed and nothing is confirmed.${unreadable}`,
+      display: {
+        action: actionDisplay,
+        consequence: [
+          { key: "agent.approval_text.dismiss_dialog_consequence" },
+          ...unreadableDisplay
+        ]
+      }
     }
   }
   return {
@@ -213,7 +252,19 @@ const dialogAction = (
       (kind === "beforeunload"
         ? "The page is allowed to leave; anything it has not saved is discarded."
         : "The page proceeds as though the user pressed its confirm button, whatever that action is.") +
-      unreadable
+      unreadable,
+    display: {
+      action: actionDisplay,
+      consequence: [
+        {
+          key:
+            kind === "beforeunload"
+              ? "agent.approval_text.accept_leave_consequence"
+              : "agent.approval_text.accept_dialog_consequence"
+        },
+        ...unreadableDisplay
+      ]
+    }
   }
 }
 
@@ -227,9 +278,16 @@ const dialogAction = (
  * that named one of twelve was a weaker disclosure than the twelve separate
  * approvals it replaces, which is the one thing batching may not cost.
  */
-const batchAction = (input: AgentPolicyInput): string | undefined => {
+const batchFieldCount = (input: AgentPolicyInput): number | undefined => {
   const fields = input.effect.batch?.fields.length
-  if (input.effect.command.type !== "fill_form" || !fields) return undefined
+  return input.effect.command.type === "fill_form" && fields
+    ? fields
+    : undefined
+}
+
+const batchAction = (input: AgentPolicyInput): string | undefined => {
+  const fields = batchFieldCount(input)
+  if (fields === undefined) return undefined
   return fields === 1
     ? "Set 1 form field"
     : `Set ${fields} form fields in one step`
@@ -282,6 +340,45 @@ const batchEvidence = (input: AgentPolicyInput): string | undefined => {
   return listed.join("\n")
 }
 
+/**
+ * The approval's sentences as keys, chosen by the same branches that choose
+ * the English beside them so the two cannot describe different effects.
+ */
+const approvalDisplay = (
+  input: AgentPolicyInput
+): NonNullable<AgentApprovalRequest["display"]> => {
+  const dialog = dialogAction(input)
+  if (dialog) return dialog.display
+  const destination = input.effect.destination?.url
+  const adopting = adoptsTab(input)
+  const fields = batchFieldCount(input)
+  const action: AgentDisplayText =
+    fields !== undefined
+      ? { key: "agent.approval_text.fill_fields", values: { count: fields } }
+      : adopting !== undefined && destination
+        ? {
+            key: "agent.approval_text.adopt_tab",
+            values: { tab: adopting, url: destination }
+          }
+        : destination
+          ? {
+              key: "agent.approval_text.navigate",
+              values: { url: destination }
+            }
+          : agentCommandDisplay(input.effect.command)
+  const consequence: AgentDisplayText = destination
+    ? {
+        key: "agent.approval_text.navigate_consequence",
+        values: { url: destination }
+      }
+    : fields !== undefined
+      ? { key: "agent.approval_text.fill_fields_consequence" }
+      : hasNoSubmitStep(input)
+        ? { key: "agent.approval_text.no_submit_consequence" }
+        : { key: "agent.approval_text.command_consequence" }
+  return { action, consequence: [consequence] }
+}
+
 const makeApprovalRequest = (
   input: AgentPolicyInput,
   risk: Exclude<AgentRisk, "low">
@@ -313,13 +410,24 @@ const makeApprovalRequest = (
           : hasNoSubmitStep(input)
             ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
             : "The browser will perform the resolved page effect shown above."),
-    pageEvidence: batchEvidence(input) ?? input.effect.target.accessibleName,
+    display: approvalDisplay(input),
+    pageEvidence:
+      batchEvidence(input) ??
+      (input.effect.target.rowContext
+        ? `${input.effect.target.accessibleName ?? input.effect.command.type} — ${input.effect.target.rowContext}`.slice(
+            0,
+            1_000
+          )
+        : input.effect.target.accessibleName),
     createdAt: input.now
   }
 }
 
 /** The takeover request's own bound on its instruction. */
 const MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS = 1_000
+
+/** The approval request's own bound on its consequence. */
+const MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS = 1_000
 
 /**
  * Said first in an approval for a form an earlier run already sent. The
@@ -329,15 +437,54 @@ const MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS = 1_000
 export const AGENT_PRIOR_FORM_CONSEQUENCE =
   "An earlier run this task follows already sent this form. Approve only if this is a new submission, not the same one again."
 
+const AGENT_PRIOR_FORM_DISPLAY: AgentDisplayText = {
+  key: "agent.approval_text.prior_form"
+}
+
+/** The display list's own bound in the approval and takeover schemas. */
+const MAX_DISPLAY_SENTENCES = 4
+
 /**
- * A second send to a form the chain already sent, priced as a decision the
- * user makes now: at least high, never covered by a grant, and never offered
- * for widening. Refusing it outright would stop a checkout at its second
- * step; allowing it on a grant would place a second order unasked.
+ * Said first in an approval for a consequential effect this run already
+ * committed through the same control.
  */
-const priorFormApproval = (
+export const AGENT_REPEATED_EFFECT_CONSEQUENCE =
+  "This run already did this once, through the same control on this page. Approve only if it should happen again."
+export const AGENT_UNKNOWN_EFFECT_CONSEQUENCE =
+  "This run's action record could not be read. This action may repeat an earlier effect. Approve only if repeating it is safe."
+
+/** What the user is told first when an effect may be a repeat, if anything. */
+const repeatNotice = (
+  input: AgentPolicyInput
+): { text: string; display: AgentDisplayText } | undefined =>
+  input.committedEffectsUnknown
+    ? {
+        text: AGENT_UNKNOWN_EFFECT_CONSEQUENCE,
+        display: { key: "agent.approval_text.unknown_prior_effect" }
+      }
+    : input.repeatsCommittedEffect
+      ? {
+          text: AGENT_REPEATED_EFFECT_CONSEQUENCE,
+          display: { key: "agent.approval_text.repeated_effect" }
+        }
+      : input.repeatsPriorForm
+        ? {
+            text: AGENT_PRIOR_FORM_CONSEQUENCE,
+            display: AGENT_PRIOR_FORM_DISPLAY
+          }
+        : undefined
+
+/**
+ * A possible repeat — a second send to a form the chain already sent, or
+ * the same control this run already committed through — priced as a
+ * decision the user makes now: at least high, never covered by a grant, and
+ * never offered for widening. Refusing it outright would stop a checkout at
+ * its second step; allowing it on a grant would place a second order unasked.
+ */
+const repeatApproval = (
   input: AgentPolicyInput,
-  baseline: AgentRisk
+  baseline: AgentRisk,
+  notice: NonNullable<ReturnType<typeof repeatNotice>>
 ): AgentPolicyDecision => {
   const risk = raiseRisk(baseline, "high") as Exclude<AgentRisk, "low">
   const { grantable: _grantable, ...request } = makeApprovalRequest(input, risk)
@@ -346,7 +493,21 @@ const priorFormApproval = (
     risk,
     request: {
       ...request,
-      consequence: `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.consequence}`
+      consequence: `${notice.text} ${request.consequence}`.slice(
+        0,
+        MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS
+      ),
+      ...(request.display
+        ? {
+            display: {
+              ...request.display,
+              consequence: [
+                notice.display,
+                ...request.display.consequence
+              ].slice(0, MAX_DISPLAY_SENTENCES)
+            }
+          }
+        : {})
     }
   }
 }
@@ -485,6 +646,7 @@ export const evaluateAgentPolicy = (
   const takeover = takeoverReason(input)
   if (takeover) {
     const request = makeTakeoverRequest(input, takeover)
+    const notice = repeatNotice(input)
     return {
       type: "takeover_required",
       risk: "critical",
@@ -494,14 +656,17 @@ export const evaluateAgentPolicy = (
        * already sent it — the approval path says so, and this is the other
        * way the same send reaches a person.
        */
-      request: input.repeatsPriorForm
+      request: notice
         ? {
             ...request,
-            instruction:
-              `${AGENT_PRIOR_FORM_CONSEQUENCE} ${request.instruction}`.slice(
-                0,
-                MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS
-              )
+            instruction: `${notice.text} ${request.instruction}`.slice(
+              0,
+              MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS
+            ),
+            display: [notice.display, ...(request.display ?? [])].slice(
+              0,
+              MAX_DISPLAY_SENTENCES
+            )
           }
         : request
     }
@@ -528,7 +693,8 @@ export const evaluateAgentPolicy = (
     }
   }
 
-  if (input.repeatsPriorForm) return priorFormApproval(input, risk)
+  const notice = repeatNotice(input)
+  if (notice) return repeatApproval(input, risk, notice)
 
   if (risk === "low") return { type: "allow", risk }
   if (

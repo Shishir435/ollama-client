@@ -30,10 +30,19 @@
       "find": "Cerca «{{query}}»",
       "extract_text": "Leggi il testo della pagina",
       "handle_dialog_accept": "Accetta la finestra di dialogo della pagina",
-      "handle_dialog_dismiss": "Chiudi la finestra di dialogo della pagina"
+      "handle_dialog_dismiss": "Chiudi la finestra di dialogo della pagina",
+      "fill_form": "Compila campi del modulo: {{count}}",
+      "extract": "Cerca nella pagina: {{count}}",
+      "call_page_tool": "Usa lo strumento della pagina «{{tool}}»"
     },
     "approval": {
       "title": "Approvazione richiesta",
+      "risk": {
+        "low": "Rischio basso",
+        "medium": "Rischio medio",
+        "high": "Rischio alto",
+        "critical": "Rischio critico"
+      },
       "allow": "Consenti una volta",
       "reject": "Rifiuta",
       "allowForRun": "Consenti sempre questo tipo di azione su {{origin}} per questa esecuzione"
@@ -56,10 +65,11 @@
       "already_running": "Un’esecuzione di Agent è già in corso.",
       "browser_control_unavailable": "Agent non ha potuto collegare il controllo del browser. Chiudi DevTools o un altro debugger e riprova.",
       "follow_up_unavailable": "Questa esecuzione non può più essere proseguita da qui. Ricomincia per assegnare di nuovo il compito.",
-      "permission_denied": "Agent ha bisogno dell’autorizzazione a osservare la pagina prima di iniziare.",
+      "permission_denied": "L’agente non può osservare le pagine in questo browser.",
       "tab_unsupported": "Agent non può essere eseguito su questa pagina. Apri una normale pagina web e riprova.",
       "unreadable_update": "Il pannello ha ricevuto un aggiornamento che non è riuscito a leggere.",
-      "unknown": "Agent non ha potuto completare la richiesta."
+      "unknown": "Agent non ha potuto completare la richiesta.",
+      "disconnected": "L’agente si stava riconnettendo e non l’ha ricevuto. Riprova."
     },
     "failure": {
       "budget_exhausted": "L'esecuzione ha esaurito il budget di passi. Restringi l'obiettivo o riparti dallo stato attuale della pagina.",
@@ -136,7 +146,9 @@
       "placeholder": "Descrivi un’attività del browser…",
       "action": "Avvia Agente",
       "auto_actions": "Consenti le azioni di routine per questa attività",
-      "auto_actions_description": "Clic e digitazione su questo sito sono automatici. Pubblicazioni, eliminazioni, nuovi siti e passaggi sensibili richiedono ancora conferma."
+      "auto_actions_description": "Clic e digitazione su questo sito sono automatici. Pubblicazioni, eliminazioni, nuovi siti e passaggi sensibili richiedono ancora conferma.",
+      "starting": "Avvio…",
+      "starting_on": "Avvio su «{{title}}»…"
     },
     "status": {
       "submitted": "Avvio",
@@ -179,12 +191,17 @@
       "count": "{{count}} schede"
     },
     "takeover": {
-      "title": "Prendi il controllo di questo passaggio"
+      "title": "Prendi il controllo di questo passaggio",
+      "instruction": {
+        "file_upload": "Prendi il controllo della pagina, scegli tu il file, poi continua.",
+        "sensitive_step": "Prendi il controllo della pagina, completa tu il passaggio riservato, poi continua."
+      }
     },
     "title": "Agente supervisionato",
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
     "unresolved_reviewed": "Ho controllato la pagina: continua",
     "work_log": {
+      "action_needs_review": "Questo passaggio richiede una verifica.",
       "title": "Registro attività",
       "target": "«{{name}}»"
     },
@@ -225,6 +242,39 @@
     },
     "composer": {
       "run_in_progress": "Un’esecuzione è già in corso. Interrompila o attendi che finisca prima di avviarne un’altra."
+    },
+    "paused_panel_closed": "In pausa perché il pannello laterale è stato chiuso. Riprendi quando vuoi.",
+    "approval_text": {
+      "accept_dialog": "Accetta la {{kind}} della pagina",
+      "accept_dialog_origin": "Accetta la {{kind}} di {{origin}}",
+      "dismiss_dialog": "Chiudi la {{kind}} della pagina",
+      "dismiss_dialog_origin": "Chiudi la {{kind}} di {{origin}}",
+      "dismiss_dialog_consequence": "Alla finestra viene comunicato che è stata chiusa e nulla viene confermato.",
+      "accept_dialog_consequence": "La pagina prosegue come se avessi premuto il suo pulsante di conferma, qualunque cosa faccia.",
+      "accept_leave_consequence": "La pagina può essere lasciata. Ciò che non è stato salvato va perso.",
+      "dialog_unreadable": "Il testo non è stato letto: la finestra appartiene a un frame che questa esecuzione non può leggere.",
+      "fill_fields": "Imposta campi del modulo in un solo passaggio: {{count}}",
+      "fill_fields_consequence": "Ogni controllo elencato viene impostato in ordine, fermandosi al primo che non si può impostare. L’agente non preme Invia, ma la pagina può inviare il modulo automaticamente o salvare le modifiche mentre scrivi.",
+      "adopt_tab": "Prendi la scheda {{tab}} su {{url}}",
+      "navigate": "Vai a {{url}}",
+      "navigate_consequence": "Il browser apre esattamente questo indirizzo: {{url}}",
+      "no_submit_consequence": "Questo viene inserito nel controllo mostrato sotto. Non segue alcun invio, quindi una pagina che salva mentre scrivi può memorizzarlo subito.",
+      "command_consequence": "Il browser esegue questa azione sul controllo mostrato sotto.",
+      "prior_form": "Un’esecuzione precedente di questa attività ha già inviato questo modulo. Approva solo se si tratta di un nuovo invio e non dello stesso.",
+      "repeated_effect": "Questa esecuzione l’ha già fatto una volta, con lo stesso controllo su questa pagina. Approva solo se deve accadere di nuovo.",
+      "unknown_prior_effect": "Il registro delle azioni di questa esecuzione non è leggibile. Questa azione potrebbe ripetere un effetto precedente. Approva solo se ripeterla è sicuro."
+    },
+    "dialog_kind": {
+      "alert": "finestra di avviso",
+      "confirm": "finestra di conferma",
+      "prompt": "finestra di inserimento",
+      "beforeunload": "finestra di uscita dalla pagina",
+      "dialog": "finestra di dialogo"
+    },
+    "question_text": {
+      "completion_refused": "Non sono riuscito a confermare il risultato. L’attività è completata? In caso contrario, cosa devo fare adesso?",
+      "commands_refused": "L’ultima azione non è riuscita. Cosa dovrei provare invece?",
+      "no_progress": "Sto ripetendo azioni senza fare progressi. Cosa dovrei fare diversamente? Puoi anche fermarmi e completare tu l’attività."
     }
   },
   "common": {

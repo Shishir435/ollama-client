@@ -960,6 +960,23 @@ const collectVisibleText = (
   return result
 }
 
+/** A bounded row label beside repeated controls such as Delete buttons. */
+const rowContextOf = (
+  element: Element,
+  pass: AgentObservationPass,
+  scope: AgentTextScope
+): string | undefined => {
+  for (
+    let current = composedParent(element);
+    current;
+    current = composedParent(current)
+  ) {
+    if (!current.matches("li, tr, [role='row']")) continue
+    return collectVisibleText(current, 140, pass, scope) || undefined
+  }
+  return undefined
+}
+
 /**
  * Rendered text wherever it sits in the document, not only where the viewport
  * happens to be. `isVisible` requires viewport intersection, which is right
@@ -1380,6 +1397,10 @@ const buildElementObservation = (
   const submitter = isSubmitter(element)
   const maySubmit = submitter || maySubmitWithEnter(element)
   const group = groupOf(element, modalIds)
+  const rowContext =
+    !sensitive && (visible || offscreen)
+      ? rowContextOf(element, pass, visible ? "viewport" : "rendered")
+      : undefined
   const scroll = scrollState(element, pass)
   return {
     ref,
@@ -1415,7 +1436,8 @@ const buildElementObservation = (
     sensitive,
     ...(isMultiline(element) ? { multiline: true } : {}),
     ...(isMarkedDraggable(element) ? { draggable: true } : {}),
-    ...(group ? { group } : {})
+    ...(group ? { group } : {}),
+    ...(rowContext ? { rowContext } : {})
   }
 }
 

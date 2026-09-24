@@ -2,7 +2,11 @@ import type {
   AgentController,
   AgentPersistencePort
 } from "@ollama-client/agent-runtime"
-import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
+import type {
+  AgentPauseReason,
+  AgentRunState,
+  AgentRunStatus
+} from "@ollama-client/contracts"
 import { MAX_AGENT_PRIOR_EFFECTS } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -11,6 +15,7 @@ import type {
   AgentBrowserSessionInterruption,
   AgentBrowserSessionManager
 } from "../agent-browser-session-manager"
+import type { BuildAgentController } from "../agent-run-controller"
 import { createAgentRunService } from "../agent-run-service"
 import { createAgentSupervision } from "../agent-supervision"
 
@@ -107,7 +112,7 @@ const browserSessions = () => {
     attach: vi.fn(async (_runId: string, _tabId: number) => undefined),
     detach: vi.fn(async (_runId: string) => undefined),
     isAttached: vi.fn(() => true),
-    attachedTabId: vi.fn(() => 7),
+    attachedTabId: vi.fn((_runId: string): number | undefined => 7),
     frames: vi.fn(() => ({ status: "tracking" as const, frames: [] })),
     mapFrame: vi.fn(() => ({
       mapped: false as const,
@@ -390,6 +395,248 @@ describe("Agent run service", () => {
 
     expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
     expect(runs.get("run-1")?.status).toBe(status)
+  })
+
+  const pausingController = (pauseReason: AgentPauseReason) =>
+    vi.fn(({ persistence: port }) => ({
+      start: vi.fn(async () => undefined),
+      requestPause: vi.fn(async (runId: string) => {
+        const state = await port.load(runId)
+        if (!state) return
+        await port.transition({
+          runId,
+          from: state.status,
+          to: "paused",
+          patch: { pauseReason, pausedAt: 2_000 }
+        })
+      }),
+      resume: vi.fn(async () => undefined),
+      requestCancel: vi.fn(async (runId: string) => {
+        const state = await port.load(runId)
+        if (!state) return
+        await port.transition({ runId, from: state.status, to: "cancelling" })
+      }),
+      completeTakeover: vi.fn(async () => undefined),
+      resolveEffect: vi.fn(async () => undefined),
+      answerQuestion: vi.fn(async () => undefined)
+    })) as unknown as BuildAgentController
+
+  const heldDialog = {
+    id: "d1",
+    type: "confirm" as const,
+    origin: "https://example.com",
+    message: "Delete this item?"
+  }
+
+  it.each([
+    "user",
+    "question",
+    "unresolved_effect"
+  ] as const)("keeps an open dialog and the session through a %s pause", async (reason) => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController(reason)
+    })
+    await agent.start(startInput)
+
+    await agent.pause("run-1")
+
+    expect(runs.get("run-1")?.status).toBe("paused")
+    expect(browser.manager.detach).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    "panel_closed",
+    "takeover"
+  ] as const)("still lets go of the dialog on a %s pause", async (reason) => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController(reason)
+    })
+    await agent.start(startInput)
+
+    await agent.pause("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("detaches on a user pause when no dialog is open", async () => {
+    const browser = browserSessions()
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("user")
+    })
+    await agent.start(startInput)
+
+    await agent.pause("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("releases a dialog it held through a pause once the run is stopped", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("user")
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+    expect(browser.manager.detach).not.toHaveBeenCalled()
+
+    await agent.stop("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("releases a held dialog when the last panel closes after a user pause", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("user")
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+    expect(browser.manager.detach).not.toHaveBeenCalled()
+
+    await agent.pause("run-1", "panel_closed")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("records a dialog dismissed when browser control ends", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const port = persistence()
+    const appendStep = vi.fn(port.appendStep)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+
+    expect(appendStep.mock.invocationCallOrder[0]).toBeLessThan(
+      browser.manager.detach.mock.invocationCallOrder[0]
+    )
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "uncertain",
+        verification: expect.objectContaining({ outcome: "ambiguous" })
+      })
+    )
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "verified",
+        command: expect.objectContaining({
+          type: "handle_dialog",
+          dialogId: "d1",
+          accept: false
+        }),
+        verification: expect.objectContaining({
+          evidence: expect.objectContaining({ kind: "dialog_release" })
+        })
+      })
+    )
+  })
+
+  it("retains dialog-release intent when the final receipt write fails", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const port = persistence()
+    const appendStep = vi.fn(port.appendStep)
+    appendStep.mockImplementationOnce(port.appendStep)
+    appendStep.mockRejectedValueOnce(new Error("storage unavailable"))
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "uncertain" })
+    )
+    await agent.pause("run-1", "panel_closed")
+    const writes = appendStep.mock.calls.map(([step]) => step)
+    expect(writes.map((step) => step.status)).toEqual([
+      "uncertain",
+      "verified",
+      "verified"
+    ])
+    expect(new Set(writes.map((step) => step.stepId)).size).toBe(1)
+  })
+
+  it("records a new session's dialog after an older dismissal stays uncertain", async () => {
+    const browser = browserSessions()
+    let attached = false
+    browser.manager.attach.mockImplementation(async () => {
+      attached = true
+    })
+    browser.manager.detach.mockImplementation(async () => {
+      attached = false
+    })
+    browser.manager.attachedTabId.mockImplementation(() =>
+      attached ? 7 : undefined
+    )
+    browser.manager.openDialog.mockImplementation(() =>
+      attached ? (heldDialog as never) : undefined
+    )
+    const port = persistence()
+    const appendStep = vi.fn(port.appendStep)
+    appendStep.mockImplementationOnce(port.appendStep)
+    appendStep.mockRejectedValueOnce(new Error("first final write failed"))
+    appendStep.mockRejectedValueOnce(new Error("retry failed"))
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+
+    await agent.start(startInput)
+    await agent.pause("run-1")
+    await agent.resume("run-1")
+    await agent.pause("run-1", "panel_closed")
+
+    const writes = appendStep.mock.calls.map(([step]) => step)
+    const intents = writes.filter((step) => step.status === "uncertain")
+    expect(intents).toHaveLength(2)
+    expect(intents[0]?.stepId).not.toBe(intents[1]?.stepId)
+    expect(writes.at(-1)).toMatchObject({
+      stepId: intents[1]?.stepId,
+      status: "verified"
+    })
+    expect(browser.manager.attach).toHaveBeenCalledTimes(2)
+    expect(browser.manager.detach).toHaveBeenCalledTimes(2)
+  })
+
+  it("releases a held dialog if the intent receipt cannot be stored", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const port = persistence()
+    const appendStep = vi
+      .fn()
+      .mockRejectedValue(new Error("storage unavailable"))
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "uncertain" })
+    )
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
   })
 
   it("admits only one simultaneous start before the durable lookup settles", async () => {

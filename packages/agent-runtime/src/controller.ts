@@ -69,8 +69,10 @@ import {
   pausePatch
 } from "./ports"
 import {
+  agentCommittedEffects,
   agentConsequentialEffects,
   agentConsequentialForm,
+  agentEffectIsConsequential,
   agentRepeatsPriorEffect,
   agentRepeatsPriorForm
 } from "./prior-effects"
@@ -86,6 +88,13 @@ import { classifyVerificationOutcome } from "./verification"
 import { agentPictureWarranted } from "./vision"
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
+
+const ownEffectPolicyFlags = (state: "repeat" | "unknown" | "none") =>
+  state === "repeat"
+    ? { repeatsCommittedEffect: true }
+    : state === "unknown"
+      ? { committedEffectsUnknown: true }
+      : {}
 
 /**
  * How the executor said the page refused an effect, when it said.
@@ -943,6 +952,33 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * Whether this run already committed a consequential effect through the
+   * same control. Read from its own receipts, the same list a follow-up
+   * inherits, so a worker restart between the two clicks forgets nothing.
+   * An unreadable history cannot prove this is the first consequential
+   * effect. Treat it as a repeat so policy asks before risking duplication.
+   */
+  const ownEffectHistory = async (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect
+  ): Promise<"repeat" | "unknown" | "none"> => {
+    if (!agentEffectIsConsequential(effect)) return "none"
+    try {
+      return agentRepeatsPriorEffect(
+        effect,
+        agentCommittedEffects(await dependencies.persistence.steps(state.id))
+      )
+        ? "repeat"
+        : "none"
+    } catch (error) {
+      dependencies.trace?.(state.id, "committed_effects_unavailable", {
+        reason: error instanceof Error ? error.name : typeof error
+      })
+      return "unknown"
+    }
+  }
+
   const handlePolicy = async (
     state: AgentRunState,
     effect: ResolvedAgentEffect,
@@ -964,6 +1000,7 @@ export const createAgentController = (
     const authoredText = effect.destination
       ? await authoredWords(state)
       : undefined
+    const ownEffect = await ownEffectHistory(state, effect)
     const policy = dependencies.policy.evaluate({
       runId: state.id,
       stepId,
@@ -976,6 +1013,7 @@ export const createAgentController = (
       agentRepeatsPriorForm(effect, state.previousRun.effects)
         ? { repeatsPriorForm: true }
         : {}),
+      ...ownEffectPolicyFlags(ownEffect),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {
@@ -1547,6 +1585,11 @@ export const createAgentController = (
         question: {
           id: `${state.id}:q${state.observationCount}`,
           text: `${judgement.feedback} I have reported this task finished twice and cannot support the claim. Is it done, and if not, what should I do next?`,
+          display: [
+            {
+              key: "agent.question_text.completion_refused"
+            }
+          ],
           askedAt: dependencies.clock.now()
         }
       })
@@ -1589,6 +1632,11 @@ export const createAgentController = (
         question: {
           id: `${state.id}:q${state.observationCount}`,
           text: `${feedback} What should I try instead?`,
+          display: [
+            {
+              key: "agent.question_text.commands_refused"
+            }
+          ],
           askedAt: dependencies.clock.now()
         }
       })
@@ -1687,6 +1735,7 @@ export const createAgentController = (
       question: {
         id: `${state.id}:q${state.observationCount}`,
         text: "I am repeating actions without progress. What should I do differently? You can also stop and finish this task yourself.",
+        display: [{ key: "agent.question_text.no_progress" }],
         askedAt: dependencies.clock.now()
       }
     })

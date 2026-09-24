@@ -8,8 +8,9 @@ can run automatically; posting, destructive actions and sensitive steps still
 require your decision. It is a Preview: success depends on the website and the
 selected model, and every step is checked against the page.
 
-It is off unless you turn it on, and it never reads a page without the
-page-observation permission you grant explicitly.
+It is off unless you turn it on. On Chrome it needs two permissions the browser
+asks for once, at install or on the update that brings the Agent: `debugger`, to
+drive the tab it is given, and `webNavigation`, to tell that tab's frames apart.
 
 ## How a step works
 

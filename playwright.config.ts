@@ -57,8 +57,7 @@ export default defineConfig({
         "build/chrome-mv3-prod"
       ),
       metadata: {
-        extensionBuildPath: "build/chrome-mv3-prod",
-        agentObservationGrant: true
+        extensionBuildPath: "build/chrome-mv3-prod"
       }
     },
     {
@@ -82,7 +81,6 @@ export default defineConfig({
       fullyParallel: true,
       metadata: {
         extensionBuildPath: "build/chrome-mv3-prod",
-        agentObservationGrant: true,
         agentBenchmarkBackend: "cdp"
       }
     },
@@ -108,7 +106,6 @@ export default defineConfig({
       fullyParallel: true,
       metadata: {
         extensionBuildPath: "build/chrome-mv3-prod",
-        agentObservationGrant: true,
         agentDomBackend: true,
         agentBenchmarkBackend: "dom"
       }

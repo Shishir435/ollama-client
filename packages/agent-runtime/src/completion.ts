@@ -280,6 +280,8 @@ const lastChange = (
 const RESULT_VERIFIED_EVIDENCE = new Set([
   /** The control holds the value the step resolved. */
   "field",
+  /** Every field in a batch holds its resolved value. */
+  "fields",
   /** The control holds the checked state the step resolved. */
   "checked",
   /** The dragged item is where the drag meant to put it. */
@@ -485,6 +487,47 @@ const receiptResultAgrees = (
   return true
 }
 
+/** A confirmed batch can evidence each control it checked, once per field. */
+const matchingBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  observation: AgentObservation,
+  consumed: Set<string>
+): number | undefined => {
+  if (
+    receipt.command?.type !== "fill_form" ||
+    receipt.verification?.outcome !== "confirmed" ||
+    receipt.verification.evidence.kind !== "fields"
+  )
+    return undefined
+  const names = receipt.verification.evidence.fields
+  if (!names || names.length !== receipt.command.fields.length) return undefined
+  const text = agentNormalizedClaim(requirement.text)
+  return receipt.command.fields.findIndex((field, index) => {
+    const key = `${receipt.stepId}:field:${index}`
+    if (consumed.has(key)) return false
+    const name = names[index]?.name
+    if (!name || !containsCompletePhrase(text, agentNormalizedClaim(name)))
+      return false
+    const matches = observation.elements.filter(
+      (element) =>
+        !element.sensitive &&
+        agentNormalizedClaim(element.name ?? "") === agentNormalizedClaim(name)
+    )
+    if (matches.length !== 1) return false
+    const current = matches[0]
+    if (field.type === "check")
+      return current.checked === true && !requirementAssertsOff(text)
+    if (field.type === "uncheck")
+      return current.checked === false && !requirementAssertsOn(text)
+    return (
+      !current.valueTruncated &&
+      current.value !== undefined &&
+      valueAssertedWithoutNegation(text, current.value)
+    )
+  })
+}
+
 /**
  * Whether the quotation names the control the receipt acted on — the only
  * link a quoted label has to the step that changed it. Compared exactly
@@ -516,6 +559,43 @@ const refusePlannedReadClaim = (
   evidence
     ? judgeEvidence(evidence, input, change ?? "unreadable", false)
     : undefined
+
+const NO_SUBMISSION_MENTION_PATTERN =
+  /\b(?:do not|don't|never|without)\s+submitt?(?:ed|ing)?\b|\b(?:remain|stays?|is|was)\s+(?:not\s+submitted|unsubmitted)\b/i
+const NO_SUBMISSION_ONLY_PATTERN =
+  /^(?:(?:do not|don't|never)\s+submit(?:\s+(?:(?:the|this|a)\s+form|it))?|without\s+submitting(?:\s+(?:(?:the|this|a)\s+form|it))?|(?:(?:(?:the|this|a)\s+)?form\s+)?(?:remains?|stays?|is|was)\s+(?:not\s+submitted|unsubmitted))\.?$/i
+
+const NO_SUBMISSION_UNREADABLE_FEEDBACK =
+  "I cannot verify that the form stayed unsubmitted because the action record is incomplete. Ask the user to review the form before finishing."
+const NO_SUBMISSION_OCCURRED_FEEDBACK =
+  "This run already submitted the form. Do not claim it was left unsubmitted; mark that requirement unmet."
+
+/** A negative form constraint is proved by the run's complete effect record. */
+const noSubmissionEvidence = (
+  input: AgentCompletionInput
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  if (!input.steps) {
+    return {
+      type: "refused",
+      reason: "unverified_change",
+      feedback: NO_SUBMISSION_UNREADABLE_FEEDBACK
+    }
+  }
+  if (
+    input.steps.some(
+      (receipt) =>
+        isAppliedAgentStepStatus(receipt.status) &&
+        receipt.consequential?.includes("submission")
+    )
+  ) {
+    return {
+      type: "refused",
+      reason: "unverified_change",
+      feedback: NO_SUBMISSION_OCCURRED_FEEDBACK
+    }
+  }
+  return undefined
+}
 /**
  * One met `change` requirement, after its quotation failed.
  *
@@ -530,6 +610,7 @@ const evidencePlannedChange = (
   quoted: string | undefined,
   refusal: Extract<AgentCompletionJudgement, { type: "refused" }>,
   changes: readonly AgentStepReadout[],
+  observation: AgentObservation,
   consumed: Set<string>
 ):
   | AgentStepReadout
@@ -559,12 +640,25 @@ const evidencePlannedChange = (
     refusal.reason === "self_evidence" ||
     refusal.reason === "stale_evidence"
   ) {
+    for (const candidate of changes) {
+      const index = matchingBatchField(
+        requirement,
+        candidate,
+        observation,
+        consumed
+      )
+      if (index !== undefined && index >= 0 && quoted === undefined) {
+        consumed.add(`${candidate.stepId}:field:${index}`)
+        return candidate
+      }
+    }
     const receipt = changes.find(
       (candidate) =>
         !consumed.has(candidate.stepId) &&
         isResultVerifiedChange(candidate) &&
         requirementNamesReceiptTarget(requirement, candidate) &&
         receiptResultAgrees(requirement, candidate) &&
+        candidate.command?.type !== "fill_form" &&
         (quoted === undefined || quotationNamesReceiptTarget(quoted, candidate))
     )
     if (receipt) {
@@ -688,6 +782,35 @@ const judgeEvidence = (
  * owes none: what it read is its answer, and asking a research goal to quote
  * a saved-state indicator that does not exist would refuse every one.
  */
+const judgeMetRequirement = (
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  if (requirement.kind === "read")
+    return refusePlannedReadClaim(claim.evidence, input, change ?? "unreadable")
+  if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
+    const refusal = noSubmissionEvidence(input)
+    if (refusal) return refusal
+    if (NO_SUBMISSION_ONLY_PATTERN.test(requirement.text.trim()))
+      return undefined
+  }
+  const refusal = judgeEvidence(claim.evidence, input, change ?? "unreadable")
+  if (!refusal) return undefined
+  const evidenced = evidencePlannedChange(
+    requirement,
+    claim.evidence?.trim() || undefined,
+    refusal,
+    changes,
+    input.observation,
+    consumed
+  )
+  return "stepId" in evidenced ? undefined : evidenced
+}
+
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
@@ -739,34 +862,16 @@ const judgePlanned = (
       unmet.push(requirement.id)
       continue
     }
-    if (requirement.kind === "read") {
-      const refusal = refusePlannedReadClaim(
-        claim.evidence,
-        input,
-        change ?? "unreadable"
-      )
-      if (refusal) return refusal
-      met.push(requirement.id)
-      continue
-    }
-    const refusal = judgeEvidence(claim.evidence, input, change ?? "unreadable")
-    if (!refusal) {
-      met.push(requirement.id)
-      continue
-    }
-    const quoted = claim.evidence?.trim() || undefined
-    const evidenced = evidencePlannedChange(
+    const refusal = judgeMetRequirement(
       requirement,
-      quoted,
-      refusal,
+      claim,
+      input,
+      change,
       changes,
       consumed
     )
-    if ("stepId" in evidenced) {
-      met.push(requirement.id)
-      continue
-    }
-    return evidenced
+    if (refusal) return refusal
+    met.push(requirement.id)
   }
   const outcome = { met, unmet }
   if (unmet.length === 0) return { type: "accepted", outcome }

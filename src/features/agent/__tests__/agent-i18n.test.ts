@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
+import { agentCommandDisplay } from "@ollama-client/agent-runtime"
 import {
   AGENT_READINESS_REASONS,
   AGENT_READINESS_STATUSES,
   AGENT_READINESS_VISION,
   AGENT_RUN_STATUSES,
-  AGENT_STEP_STATUSES
+  AGENT_STEP_STATUSES,
+  type AgentCommand,
+  AgentCommandSchema,
+  AgentDialogStateSchema
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import de from "@/locales/de/translation.json"
@@ -22,6 +28,33 @@ const flatten = (value: unknown, prefix = ""): string[] => {
     flatten(child, prefix ? `${prefix}.${key}` : key)
   )
 }
+
+const hasKey = (path: string): boolean => {
+  let node: unknown = en
+  for (const part of path.split(".")) {
+    if (!node || typeof node !== "object") return false
+    node = (node as Record<string, unknown>)[part]
+  }
+  return typeof node === "string"
+}
+
+/** Every field any command variant reads when it is labelled. */
+const commandOf = (type: string, patch: Record<string, unknown> = {}) =>
+  ({
+    type,
+    url: "https://example.com",
+    tabId: 2,
+    condition: "ready",
+    key: "Enter",
+    target: "header",
+    query: "price",
+    fields: [{}],
+    queries: ["price"],
+    toolName: "search",
+    accept: true,
+    direction: "down",
+    ...patch
+  }) as unknown as AgentCommand
 
 describe("Agent locale coverage", () => {
   it("keeps every Agent key in all nine locales", () => {
@@ -62,5 +95,65 @@ describe("Agent locale coverage", () => {
   it("labels every step status the work log can show", () => {
     const labelled = Object.keys(en.agent.step_status)
     for (const status of AGENT_STEP_STATUSES) expect(labelled).toContain(status)
+  })
+
+  /**
+   * The runtime names every command by key and the panel translates it. The
+   * default branch used to build `agent.action.${type}` for anything it did
+   * not special-case, and three commands had no label: a batched fill showed
+   * `agent.action.fill_form` as its approval and its log row.
+   */
+  it("labels every command the model can issue", () => {
+    const types = AgentCommandSchema.options.map(
+      (option) => option.shape.type.value
+    )
+    const commands = types.flatMap((type) =>
+      type === "scroll"
+        ? ["up", "down", "left", "right"].map((direction) =>
+            commandOf(type, { direction })
+          )
+        : type === "handle_dialog"
+          ? [
+              commandOf(type, { accept: true }),
+              commandOf(type, { accept: false })
+            ]
+          : [commandOf(type)]
+    )
+    for (const command of commands) {
+      const { key } = agentCommandDisplay(command)
+      expect(hasKey(key), key).toBe(true)
+    }
+  })
+
+  /**
+   * Approvals, takeovers and the run's own questions are composed in the
+   * runtime package as keys. A key named there and missing here renders as
+   * its path in the one prompt the user must read, so every literal the
+   * runtime writes is looked up, plus the dialog keys it assembles.
+   */
+  it("carries every display key the runtime can emit", () => {
+    const sources = ["policy.ts", "controller.ts", "action-label.ts"].map(
+      (file) =>
+        readFileSync(
+          resolve(process.cwd(), "packages/agent-runtime/src", file),
+          "utf8"
+        )
+    )
+    const literals = sources.flatMap((source) =>
+      [...source.matchAll(/"(agent\.[a-z0-9_.]+)"/g)].map((match) => match[1])
+    )
+    expect(literals.length).toBeGreaterThan(10)
+    const kinds = [...AgentDialogStateSchema.shape.type.options, "dialog"]
+    const assembled = ["accept", "dismiss"].flatMap((direction) => [
+      `agent.approval_text.${direction}_dialog`,
+      `agent.approval_text.${direction}_dialog_origin`
+    ])
+    for (const key of [
+      ...literals,
+      ...assembled,
+      ...kinds.map((kind) => `agent.dialog_kind.${kind}`)
+    ]) {
+      expect(hasKey(key), key).toBe(true)
+    }
   })
 })

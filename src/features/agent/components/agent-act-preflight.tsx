@@ -1,5 +1,5 @@
 import type { AgentBrowserDisclosure } from "@ollama-client/contracts"
-import { Eye, X } from "lucide-react"
+import { Eye, LoaderCircle, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,12 @@ export interface AgentActPreflightProps {
   onClearFollowUp: () => void
   /** A run already holds the browser; a second cannot start beside it. */
   runInProgress: boolean
+  /**
+   * A start left the panel and nothing has answered it yet. Attaching to a
+   * tab and resolving the model can take seconds, and a cleared box with no
+   * sign of work reads as a Start that was dropped.
+   */
+  starting?: boolean
   showRemoteNotice: boolean
   onAcknowledgePrivacy: (scope: "observations" | "screenshots") => void
   allowRoutineActions: boolean
@@ -61,6 +67,7 @@ export const AgentActPreflight = ({
   followUp,
   onClearFollowUp,
   runInProgress,
+  starting = false,
   showRemoteNotice,
   onAcknowledgePrivacy,
   allowRoutineActions,
@@ -85,6 +92,22 @@ export const AgentActPreflight = ({
             </p>
           )}
         </div>
+      )}
+
+      {starting && !runInProgress && (
+        <p
+          role="status"
+          className="flex items-center gap-1.5 rounded-panel border border-border bg-surface-sunken px-2.5 py-2">
+          <LoaderCircle
+            className="icon-xs shrink-0 animate-spin motion-reduce:animate-none"
+            aria-hidden="true"
+          />
+          <span className="min-w-0 truncate">
+            {tab?.title
+              ? t("agent.start.starting_on", { title: tab.title })
+              : t("agent.start.starting")}
+          </span>
+        </p>
       )}
 
       {runInProgress && (

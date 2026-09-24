@@ -87,8 +87,7 @@ describe("AgentWorkLog", () => {
     expect(container.querySelector("details")).toHaveAttribute("open")
   })
 
-  it("keeps rows without evidence compact and preserves their controls", () => {
-    const controls = <button type="button">Resume</button>
+  it("keeps rows without evidence compact", () => {
     const { container } = render(
       <AgentWorkLog
         items={[
@@ -98,11 +97,9 @@ describe("AgentWorkLog", () => {
             detail: undefined
           })
         ]}
-        controls={controls}
       />
     )
 
     expect(container.querySelector("details")).toBeNull()
-    expect(screen.getByRole("button", { name: "Resume" })).toBeInTheDocument()
   })
 })

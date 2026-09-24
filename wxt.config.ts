@@ -65,9 +65,18 @@ export default defineConfig({
       "contextMenus",
       // offscreen: production permission — the hidden document that hosts
       // the single SQLite worker owning durable chat history (Chromium only).
+      // debugger + webNavigation: the browser agent drives the page over CDP
+      // and needs every frame's identity to bind an effect to its frame. Both
+      // arrive in 0.14.0 together, so an update asks for consent once.
       ...(browser === "firefox"
         ? []
-        : ["sidePanel", "declarativeNetRequest", "offscreen", "debugger"])
+        : [
+            "sidePanel",
+            "declarativeNetRequest",
+            "offscreen",
+            "debugger",
+            "webNavigation"
+          ])
     ],
     // Optional API permissions requested from the Permissions UI.
     // Declared so they can be requested at runtime via src/lib/permissions.ts;
@@ -80,8 +89,7 @@ export default defineConfig({
       "downloads",
       "tabGroups",
       "alarms",
-      "sessions",
-      "webNavigation"
+      "sessions"
     ],
     // Browser-level keyboard command. Uses the reserved
     // `_execute_action` so the hotkey mirrors a toolbar-icon click: with

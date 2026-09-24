@@ -196,7 +196,9 @@ export const AgentElementSchema = z
      * are common and a flat list gives a decision no way to tell two
      * identically named controls apart; the group is what does.
      */
-    group: z.string().min(1).max(80).optional()
+    group: z.string().min(1).max(80).optional(),
+    /** Nearby list or table row, so duplicate controls can be distinguished. */
+    rowContext: z.string().min(1).max(140).optional()
   })
   .strict()
   .superRefine((element, context) => {

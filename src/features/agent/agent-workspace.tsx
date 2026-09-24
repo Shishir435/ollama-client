@@ -262,6 +262,7 @@ export const AgentWorkspace = ({
           followUp={followUp}
           onClearFollowUp={clearFollowUp}
           runInProgress={runInProgress}
+          starting={connection.busy && !failure}
           showRemoteNotice={remoteNeedsAcknowledgement}
           onAcknowledgePrivacy={(scope) => {
             void setAcknowledged(true)

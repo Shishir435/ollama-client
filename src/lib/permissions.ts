@@ -70,12 +70,13 @@ export const requestPermission = async (
   perm: OptionalApiPermission
 ): Promise<boolean> => requestPermissions([perm])
 
-/** User-gesture entrypoint for enabling the Chromium Agent perception path. */
+/**
+ * Is the Chromium Agent perception path available? `webNavigation` is an
+ * install-time permission there, so this is false only on a browser that never
+ * declared it — never a prompt to answer.
+ */
 export const hasAgentPerceptionPermission = (): Promise<boolean> =>
   hasApiPermission("webNavigation")
-
-export const requestAgentPerceptionPermission = (): Promise<boolean> =>
-  requestApiPermissions(["webNavigation"])
 
 /** Request several related optional permissions from one user gesture. */
 export const requestPermissions = async (

@@ -27,12 +27,15 @@ describe("Agent perception permission placement", () => {
     )
   })
 
-  it("declares webNavigation as optional rather than standing", () => {
-    for (const browser of ["chrome", "firefox"]) {
-      const manifest = manifestFor(browser)
-      expect(manifest.optional_permissions).toContain("webNavigation")
-      expect(manifest.permissions).not.toContain("webNavigation")
-    }
+  it("requires webNavigation for Chromium Agent perception only", () => {
+    expect(manifestFor("chrome").permissions).toContain("webNavigation")
+    expect(manifestFor("chrome").optional_permissions).not.toContain(
+      "webNavigation"
+    )
+    expect(manifestFor("firefox").permissions).not.toContain("webNavigation")
+    expect(manifestFor("firefox").optional_permissions).not.toContain(
+      "webNavigation"
+    )
   })
 
   it("does not add unrelated powerful permissions", () => {

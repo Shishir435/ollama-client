@@ -47,6 +47,26 @@ const input = (
 })
 
 describe("resolved-effect policy", () => {
+  it("shows the target's row in approval evidence", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["destructive"], {
+          target: {
+            sensitive: false,
+            maySubmit: false,
+            accessibleName: "Delete",
+            rowContext: "old-report-2023.pdf Delete"
+          }
+        })
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+    if (decision.type === "approval_required") {
+      expect(decision.request.risk).toBe("critical")
+      expect(decision.request.pageEvidence).toContain("old-report-2023.pdf")
+    }
+  })
+
   it("derives risk from target semantics rather than command name", () => {
     expect(evaluateAgentPolicy(input(effect(["read"])))).toEqual({
       type: "allow",
@@ -699,6 +719,11 @@ describe("a batched fill's approval", () => {
       decision.type === "approval_required" ? decision.request : undefined
     expect(request?.action).toBe("Set 3 form fields in one step")
     expect(request?.pageEvidence).toBe("1. Given name\n2. Family name\n3. City")
+    /** The same count, as a key the panel can say in the user's language. */
+    expect(request?.display).toEqual({
+      action: { key: "agent.approval_text.fill_fields", values: { count: 3 } },
+      consequence: [{ key: "agent.approval_text.fill_fields_consequence" }]
+    })
   })
 
   it("says what a batch cannot do without promising what the page will not", () => {
@@ -852,5 +877,81 @@ describe("a form an earlier run already sent", () => {
     expect(decision.type).toBe("takeover_required")
     if (decision.type !== "takeover_required") return
     expect(decision.request.instruction).not.toContain("earlier run")
+  })
+})
+
+describe("a control this run already committed through", () => {
+  const deleteButton = {
+    sensitive: false,
+    maySubmit: false,
+    accessibleName: "Delete"
+  }
+
+  /**
+   * A pause that lost the page's own confirmation leaves the run looking at
+   * the same Delete button. Asking again is right; asking as though it were
+   * the first delete is not.
+   */
+  it("asks as a repeat, at no less than high, with no grant", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["activation"], { target: deleteButton }), {
+        repeatsCommittedEffect: true,
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.grantable).toBeUndefined()
+    expect(decision.request.consequence).toMatch(
+      /^This run already did this once/
+    )
+    expect(decision.request.consequence.length).toBeLessThanOrEqual(1_000)
+  })
+
+  it("asks without claiming a repeat when action history is unreadable", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["activation"], { target: deleteButton }), {
+        committedEffectsUnknown: true,
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.grantable).toBeUndefined()
+    expect(decision.request.consequence).toMatch(/^This run's action record/)
+    expect(decision.request.display?.consequence[0]?.key).toBe(
+      "agent.approval_text.unknown_prior_effect"
+    )
+  })
+
+  it("keeps a destructive repeat critical", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["activation", "destructive"], { target: deleteButton }), {
+        repeatsCommittedEffect: true
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("critical")
+    if (decision.type !== "approval_required") return
+    expect(decision.request.consequence).toMatch(
+      /^This run already did this once/
+    )
   })
 })

@@ -1300,12 +1300,19 @@ const verifyFormFill: Verifier = async (input, adapter, signal) => {
         `${applied} of ${fields.length} fields were applied; the rest were refused`,
         adapter.now()
       )
-    : result(
-        "confirmed",
-        "fields",
-        `All ${applied} fields hold the resolved value`,
-        adapter.now()
-      )
+    : {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: `All ${applied} fields hold the resolved value`,
+          observedAt: adapter.now(),
+          fields: fields.map((field) =>
+            field.target.sensitive
+              ? {}
+              : { name: field.target.accessibleName?.slice(0, 120) }
+          )
+        }
+      }
 }
 
 export const verifyFormFillAgentEffect = async (input: {

@@ -221,10 +221,38 @@ export const MAX_AGENT_ANSWERS = 10
  * which is what a user pausing the run looks like: the question itself went
  * nowhere and there was nothing to answer it with.
  */
+/**
+ * A sentence this build wrote for a person, carried as an i18n key and its
+ * values rather than as English. The runtime has no translator — it is a
+ * package — so it names the sentence and the panel says it in the user's
+ * language. A value whose name ends in `Key` is itself a key, translated
+ * before it is interpolated (a dialog's kind, say).
+ *
+ * The English text beside it stays: it is what a debug report, a test and a
+ * record written before this field existed have to read.
+ */
+export const AgentDisplayTextSchema = z
+  .object({
+    key: z
+      .string()
+      .max(120)
+      .regex(/^agent\.[a-z0-9_.]+$/),
+    values: z
+      .record(z.string().max(40), z.union([z.string().max(2_048), z.number()]))
+      .optional()
+  })
+  .strict()
+export type AgentDisplayText = z.infer<typeof AgentDisplayTextSchema>
+
+/** A few sentences said in order: a prefix, the sentence, a caveat. */
+const AgentDisplayTextListSchema = z.array(AgentDisplayTextSchema).min(1).max(4)
+
 export const AgentQuestionSchema = z
   .object({
     id: z.string().min(1).max(200),
     text: z.string().min(1).max(MAX_AGENT_QUESTION_CHARS),
+    /** Set when this build asked, not the model; the model's words are shown as they are. */
+    display: AgentDisplayTextListSchema.optional(),
     askedAt: z.number().int().nonnegative()
   })
   .strict()
@@ -248,6 +276,13 @@ export const AgentApprovalRequestSchema = z
     risk: z.enum(["medium", "high", "critical"]),
     action: z.string().min(1).max(500),
     consequence: z.string().min(1).max(1_000),
+    display: z
+      .object({
+        action: AgentDisplayTextSchema,
+        consequence: AgentDisplayTextListSchema
+      })
+      .strict()
+      .optional(),
     pageEvidence: z.string().max(1_000).optional(),
     /**
      * The origin this effect happens on, and the classes the user may widen
@@ -286,6 +321,7 @@ export const AgentTakeoverRequestSchema = z
       "unsupported_control"
     ]),
     instruction: z.string().min(1).max(1_000),
+    display: AgentDisplayTextListSchema.optional(),
     createdAt: z.number().int().nonnegative()
   })
   .strict()

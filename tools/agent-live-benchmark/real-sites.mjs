@@ -1,10 +1,4 @@
-import {
-  cpSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync
-} from "node:fs"
+import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
@@ -204,12 +198,6 @@ const origin = `http://127.0.0.1:${server.address().port}`
 const profile = mkdtempSync(join(tmpdir(), "ollama-agent-audit-"))
 const build = join(profile, "extension")
 cpSync("build/chrome-mv3-prod", build, { recursive: true })
-const manifest = JSON.parse(readFileSync(join(build, "manifest.json")))
-manifest.permissions.push("webNavigation")
-manifest.optional_permissions = manifest.optional_permissions.filter(
-  (x) => x !== "webNavigation"
-)
-writeFileSync(join(build, "manifest.json"), JSON.stringify(manifest))
 context = await chromium.launchPersistentContext(profile, {
   channel: "chromium",
   headless: true,
