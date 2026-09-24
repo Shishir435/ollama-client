@@ -64,7 +64,8 @@
       "tab_unsupported": "Agent no puede ejecutarse en esta página. Abre una página web normal e inténtalo de nuevo.",
       "unreadable_update": "El panel recibió una actualización que no pudo leer.",
       "unknown": "Agent no pudo completar esa solicitud.",
-      "disconnected": "El agente se estaba reconectando y no lo recibió. Inténtalo de nuevo."
+      "disconnected": "El agente se estaba reconectando y no lo recibió. Inténtalo de nuevo.",
+      "turn_has_run": "Este mensaje ya inició una tarea en el navegador."
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",

@@ -301,6 +301,7 @@ export const runPreparedToolCall = async (
   // tool can verify its actual target still matches before acting.
   const runCtx: ToolContext = {
     ...ctx,
+    toolCallId: call.id,
     ...(prepared.originScoped && prepared.origin
       ? { approvedOrigin: prepared.origin }
       : {}),

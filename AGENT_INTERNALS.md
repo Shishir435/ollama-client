@@ -924,7 +924,8 @@ Read the section your change touches; you do not need the whole file.
   origin-scoped grant resolver, so the tool loop's own approval asks before
   the first run on a site in a chat. `confirmation` forces the prompt,
   whatever grant exists, when the turn's context carried something read off a
-  page (an attached tab or file, retrieved documents, a previous run's record:
+  page (an attached tab or file, retrieved documents, a previous run's record,
+  in this turn or anywhere earlier in the history the model reads:
   `pageContentInContext`), when a tool result advanced `taintGeneration`,
   when the model named another tab, when the model's tool calling is only the
   user's override, and when a remote provider's notice has not been
@@ -940,8 +941,10 @@ Read the section your change touches; you do not need the whole file.
   empty). The settle writes the handoff and leaves `done` and `content` to
   the turn, and startup reconciliation only closes rows of runs that have a
   request row. One run per row: a tool call replayed after a worker restart
-  finds the run it already started (`delegate` looks it up by row) and waits
-  on it again.
+  names the same call id, finds the run it already started (`delegate` looks
+  it up by row and compares `toolCallId`) and waits on it again. A different
+  call in the same turn is refused (`turn_has_run`) rather than handed the
+  first run's record, which would report a task that never started.
 - **The turn waits, bounded, and stops the run only when it was stopped.**
   `awaitSettled` ends a wait and nothing else. A stop that lands while the
   run is being admitted is checked for, not only listened for: it fired

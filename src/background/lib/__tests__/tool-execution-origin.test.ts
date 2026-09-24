@@ -239,5 +239,6 @@ describe("a call's own confirmation demand", () => {
     await running
 
     expect(seen[0]?.userConfirmed).toBe(true)
+    expect(seen[0]?.toolCallId).toBe("c1")
   })
 })

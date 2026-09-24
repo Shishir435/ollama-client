@@ -436,4 +436,21 @@ describe("running a browser task", () => {
       expect.objectContaining({ previousRunId: "older" })
     )
   })
+
+  it("hands the delegating call's id to the run, and relays a second-task refusal", async () => {
+    const service = serviceStub()
+    await runner(service).run(request, turn({ toolCallId: "call-1" }))
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ toolCallId: "call-1" })
+    )
+
+    const refusing = serviceStub({
+      delegate: vi.fn(async () => {
+        throw new AgentRunError("turn_has_run", "second")
+      })
+    })
+    const result = await runner(refusing).run(request, turn())
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("already ran in this turn")
+  })
 })

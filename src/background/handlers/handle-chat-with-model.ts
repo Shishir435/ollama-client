@@ -12,6 +12,7 @@ import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
+import { buildToolContext } from "@/background/lib/tool-turn-context"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
@@ -30,7 +31,6 @@ import {
 } from "@/lib/repositories/tool-loop-runs"
 import { readSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
-import type { ToolContext } from "@/lib/tools/types"
 import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChatMessage,
@@ -77,40 +77,6 @@ const getSessionSystemPrompt = async (
       { error }
     )
     return undefined
-  }
-}
-
-/** The newest browser-agent run in the branch, which a follow-up continues. */
-const previousAgentRunId = (messages: ChatMessage[]): string | undefined =>
-  [...messages].reverse().find((message) => message.agentRunId)?.agentRunId
-
-/**
- * What a tool may know about the turn calling it. The durable-turn fields are
- * absent on the legacy port path, and the tools that need them refuse there.
- */
-const buildToolContext = (
-  msg: ChatWithModelMessage,
-  conversationMessages: ChatMessage[],
-  signal: AbortSignal
-): ToolContext => {
-  const { payload } = msg
-  const previousRunId = previousAgentRunId(conversationMessages)
-  return {
-    signal,
-    sessionId: payload.sessionId,
-    model: payload.model,
-    ...(payload.providerId ? { providerId: payload.providerId } : {}),
-    ...(payload.assistantMessageId !== undefined
-      ? { assistantMessageId: payload.assistantMessageId }
-      : {}),
-    ...(payload.browserTabId !== undefined
-      ? { browserTabId: payload.browserTabId }
-      : {}),
-    pageContentInContext: payload.pageContentInContext === true,
-    ...(previousRunId ? { previousAgentRunId: previousRunId } : {}),
-    ...(payload.agentFollowUpRunId
-      ? { followUpRunId: payload.agentFollowUpRunId }
-      : {})
   }
 }
 

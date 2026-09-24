@@ -42,6 +42,8 @@ export const BROWSER_TASK_WAIT_MS = 45 * 60_000
 const REFUSALS: Record<AgentRunFailureReason, string> = {
   already_running:
     "Another browser task is still running or paused. Tell the user to finish or stop it from its card before starting a new one.",
+  turn_has_run:
+    "A browser task already ran in this turn and its result is above. Do not start another now; answer from that result, and if more browser work is needed, tell the user to ask for it in a new message.",
   browser_control_unavailable:
     "The browser agent could not take control of the tab. Another debugger or DevTools may be attached; ask the user to close it and try again.",
   follow_up_unavailable:
@@ -73,6 +75,7 @@ interface TurnLink {
   pageFirst: boolean
   previousRunId?: string
   followUpRunId?: string
+  toolCallId?: string
 }
 
 type Refusal = { ok: false; result: ToolResult }
@@ -224,7 +227,8 @@ export const createBrowserTaskRunner = (
           ...(ctx.previousAgentRunId
             ? { previousRunId: ctx.previousAgentRunId }
             : {}),
-          ...(ctx.followUpRunId ? { followUpRunId: ctx.followUpRunId } : {})
+          ...(ctx.followUpRunId ? { followUpRunId: ctx.followUpRunId } : {}),
+          ...(ctx.toolCallId ? { toolCallId: ctx.toolCallId } : {})
         }
       : undefined
 
@@ -318,6 +322,7 @@ export const createBrowserTaskRunner = (
         sessionId: turn.sessionId,
         messageId: turn.messageId,
         goalAuthor: turn.pageFirst ? "model_after_page" : "model",
+        ...(turn.toolCallId ? { toolCallId: turn.toolCallId } : {}),
         allowRoutineActions: mode !== "approve_each",
         ...(admitted.experimental ? { allowExperimentalModel: true } : {}),
         ...followedRun(request, turn)

@@ -666,6 +666,12 @@ export const AgentRunStateSchema = z
      * the egress rule.
      */
     goalAuthor: AgentGoalAuthorSchema.optional(),
+    /**
+     * The chat tool call that delegated the run. A call replayed after a worker
+     * restart names the same id and finds this run; any other call from the
+     * same turn is a second task, not a replay.
+     */
+    toolCallId: z.string().min(1).max(200).optional(),
     createdAt: z.number().int().nonnegative(),
     updatedAt: z.number().int().nonnegative()
   })

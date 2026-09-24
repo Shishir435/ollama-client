@@ -64,7 +64,8 @@
       "tab_unsupported": "Agent ne peut pas s’exécuter sur cette page. Ouvre une page web normale et réessaie.",
       "unreadable_update": "Le panneau a reçu une mise à jour qu’il n’a pas pu lire.",
       "unknown": "Agent n’a pas pu exécuter cette demande.",
-      "disconnected": "L’agent se reconnectait et n’a pas reçu cette demande. Réessayez."
+      "disconnected": "L’agent se reconnectait et n’a pas reçu cette demande. Réessayez.",
+      "turn_has_run": "Ce message a déjà lancé une tâche dans le navigateur."
     },
     "failure": {
       "budget_exhausted": "L'exécution a épuisé son budget d'étapes. Restreignez l'objectif ou reprenez depuis l'état actuel de la page.",

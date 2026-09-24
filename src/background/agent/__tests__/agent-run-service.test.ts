@@ -1196,7 +1196,11 @@ describe("a run a chat turn delegated", () => {
 
   it("finds the run it already started for the same row", async () => {
     const createRun = vi.fn()
-    const existing = { id: "run-0", goal: "Earlier" } as AgentRunState
+    const existing = {
+      id: "run-0",
+      goal: "Earlier",
+      toolCallId: "call-1"
+    } as AgentRunState
     const { service: agent } = service({
       createRun,
       readRunForMessage: vi.fn(async () => ({
@@ -1205,8 +1209,38 @@ describe("a run a chat turn delegated", () => {
       })) as never
     })
 
-    await expect(agent.delegate(delegation)).resolves.toBe(existing)
+    await expect(
+      agent.delegate({ ...delegation, toolCallId: "call-1" })
+    ).resolves.toBe(existing)
     expect(createRun).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A second call in the same turn is a second task. Handing it the first
+   * run's record would report a task that never started.
+   */
+  it("refuses a different call in a turn that already delegated a run", async () => {
+    const createRun = vi.fn()
+    const { service: agent } = service({
+      createRun,
+      readRunForMessage: vi.fn(async () => ({
+        id: "run-0",
+        state: { id: "run-0", goal: "Earlier", toolCallId: "call-1" }
+      })) as never
+    })
+
+    await expect(
+      agent.delegate({ ...delegation, toolCallId: "call-2" })
+    ).rejects.toMatchObject({ reason: "turn_has_run" })
+    expect(createRun).not.toHaveBeenCalled()
+  })
+
+  it("records the delegating call on the run", async () => {
+    const { service: agent } = service()
+
+    const state = await agent.delegate({ ...delegation, toolCallId: "call-9" })
+
+    expect(state.toolCallId).toBe("call-9")
   })
 
   it("follows the chat's previous run in the mode its status calls for", async () => {

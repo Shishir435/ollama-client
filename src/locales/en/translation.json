@@ -64,7 +64,8 @@
       "tab_unsupported": "Agent cannot run on this page. Open a normal web page and try again.",
       "unreadable_update": "The panel received an update it could not read.",
       "unknown": "Agent could not complete that request.",
-      "disconnected": "Agent was reconnecting and didn’t receive that. Try again."
+      "disconnected": "Agent was reconnecting and didn’t receive that. Try again.",
+      "turn_has_run": "This message already started a browser task."
     },
     "failure": {
       "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",

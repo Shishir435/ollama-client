@@ -208,6 +208,8 @@ export interface ToolContext {
   approvedOrigin?: string
   /** Set when the user approved this very call in a prompt. */
   userConfirmed?: boolean
+  /** The id of the call being run, stable across a checkpointed restart. */
+  toolCallId?: string
   /** The provider the turn is answered by. */
   providerId?: string
   /** The tab the side panel showed when the message was sent. */

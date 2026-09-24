@@ -67,6 +67,7 @@ export interface StartAgentRunInput {
   goalAuthor?: AgentGoalAuthor
   /** Where the run's card is drawn; a new turn of its own by default. */
   placement?: AgentRunPlacement
+  toolCallId?: string
 }
 
 /**
@@ -80,6 +81,8 @@ export interface DelegateAgentRunInput
   messageId: number
   goalAuthor: AgentGoalAuthor
   previousRunId?: string
+  /** The delegating tool call; a replay names the same one. */
+  toolCallId?: string
 }
 
 export interface AgentRunSnapshot {
@@ -235,6 +238,7 @@ const guardingBrowserOwnership = (
 
 export type AgentRunFailureReason =
   | "already_running"
+  | "turn_has_run"
   | "browser_control_unavailable"
   | "follow_up_unavailable"
   | "permission_denied"
@@ -323,6 +327,7 @@ const initialRunState = ({
      */
     ...(previousRun ? { previousRun } : {}),
     ...(request.goalAuthor ? { goalAuthor: request.goalAuthor } : {}),
+    ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
     createdAt: startedAt,
     updatedAt: startedAt
   } satisfies AgentRunState)
@@ -1001,8 +1006,23 @@ export const createAgentRunService = (input?: {
   return {
     start,
     async delegate(request) {
+      /**
+       * The row already carries a run. The same call replayed after a worker
+       * restart gets that run back; any other call in the turn is a second
+       * task, and handing it the first run's record would report a task that
+       * never started. The goal stands in for a call id the run predates.
+       */
       const existing = await readRunForMessage(request.messageId)
-      if (existing?.state) return existing.state
+      if (existing?.state) {
+        const replay = existing.state.toolCallId
+          ? existing.state.toolCallId === request.toolCallId
+          : existing.state.goal === request.goal
+        if (replay) return existing.state
+        throw new AgentRunError(
+          "turn_has_run",
+          "This turn already delegated a browser task"
+        )
+      }
       /**
        * The parent's status picks the mode; a parent that is gone still names
        * one, so the follow-up is refused rather than started as a fresh run
@@ -1020,6 +1040,7 @@ export const createAgentRunService = (input?: {
         modelId: request.modelId,
         sessionId: request.sessionId,
         goalAuthor: request.goalAuthor,
+        ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
         placement: { kind: "turn", messageId: request.messageId },
         ...(request.allowRoutineActions ? { allowRoutineActions: true } : {}),
         ...(request.allowExperimentalModel

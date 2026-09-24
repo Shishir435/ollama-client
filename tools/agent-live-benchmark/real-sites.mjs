@@ -269,10 +269,25 @@ await panel
  * previous task's turn has to finish before the composer sends again.
  */
 const sendTask = async (goal) => {
-  await panel
-    .getByRole("button", { name: "Stop generation" })
+  /**
+   * A turn still generating is not a finished case. It is stopped, and said
+   * so, before the next goal is sent; one that will not stop ends the pass
+   * rather than letting two tasks overlap and be scored as one.
+   */
+  const busy = panel.getByRole("button", { name: "Stop generation" })
+  const settled = await busy
     .waitFor({ state: "detached", timeout: 120000 })
-    .catch(() => {})
+    .then(() => true)
+    .catch(() => false)
+  if (!settled) {
+    console.warn(
+      `[benchmark] previous turn still generating; stopping it before: ${goal}`
+    )
+    await busy.click().catch(() => {})
+    await busy.waitFor({ state: "detached", timeout: 30000 }).catch(() => {
+      throw new Error("The previous chat turn did not stop; aborting the pass")
+    })
+  }
   const composer = panel.getByPlaceholder("Type a message or ctrl + /")
   await composer.fill(goal)
   await composer.press("Enter")

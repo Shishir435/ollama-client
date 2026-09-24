@@ -64,7 +64,8 @@
       "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
       "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
       "unknown": "Agent konnte diese Anfrage nicht ausführen.",
-      "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut."
+      "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut.",
+      "turn_has_run": "Diese Nachricht hat bereits eine Browser-Aufgabe gestartet."
     },
     "failure": {
       "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
