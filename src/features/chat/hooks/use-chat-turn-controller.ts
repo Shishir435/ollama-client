@@ -15,6 +15,7 @@ import {
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
 import { findOptionalPermissionNotice } from "@/features/chat/lib/optional-permission-notice"
+import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import { browser } from "@/lib/browser-api"
 import type { ProcessedFile } from "@/lib/file-processors/types"
@@ -335,6 +336,9 @@ export const useChatTurnController = ({
       globalThis.crypto?.randomUUID?.() ??
       `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
     const browserTabId = await panelTabId()
+    const agentFollowUpRunId = chatInputStore
+      .getState()
+      .takeAgentFollowUpRunId()
     const durableTurn = prepareTurnSubmission({
       id: turnId,
       sessionId,
@@ -362,7 +366,8 @@ export const useChatTurnController = ({
       contextText: contextText || "",
       tabDocuments,
       groundedOnlyMode: config.groundedOnlyMode,
-      ...(browserTabId !== undefined ? { browserTabId } : {})
+      ...(browserTabId !== undefined ? { browserTabId } : {}),
+      ...(agentFollowUpRunId ? { agentFollowUpRunId } : {})
     })
 
     if (permissionNotice) {

@@ -214,7 +214,10 @@ describe("AgentRunMessageCard", () => {
     ).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "agent.card.continue" }))
 
-    expect(draft).toHaveBeenCalledWith("agent.follow_up.continue_message")
+    expect(draft).toHaveBeenCalledWith(
+      "agent.follow_up.continue_message",
+      "run-1"
+    )
   })
 
   it("retries a run that stopped short by drafting a message", () => {
@@ -232,7 +235,7 @@ describe("AgentRunMessageCard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "agent.card.retry" }))
 
-    expect(draft).toHaveBeenCalledWith("agent.follow_up.retry_message")
+    expect(draft).toHaveBeenCalledWith("agent.follow_up.retry_message", "run-1")
   })
 
   it("starts over by restating the goal", () => {

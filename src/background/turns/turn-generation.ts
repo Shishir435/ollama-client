@@ -244,6 +244,11 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
         ...(submission.request.context.browserTabId !== undefined
           ? { browserTabId: submission.request.context.browserTabId }
           : {}),
+        ...(submission.request.context.agentFollowUpRunId
+          ? {
+              agentFollowUpRunId: submission.request.context.agentFollowUpRunId
+            }
+          : {}),
         pageContentInContext: carriesReadContent(
           submission.request.context,
           context.result

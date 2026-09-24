@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import {
+  chatInputStore,
   useChatInput,
   useComposerUi
 } from "@/features/chat/stores/chat-input-store"
@@ -412,6 +413,7 @@ export const ChatInputBox = ({
           value={input}
           onChange={(e) => {
             setInput(e.target.value)
+            if (!e.target.value) chatInputStore.getState().dropAgentFollowUp()
             updateSelection()
           }}
           onPaste={handlePaste}

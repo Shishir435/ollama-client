@@ -28,7 +28,7 @@ const ChatProbe = () => {
           </button>
           <button
             type="button"
-            onClick={() => draft("Continue the browser task.")}>
+            onClick={() => draft("Continue the browser task.", "run-7")}>
             card-continue
           </button>
         </>
@@ -83,5 +83,8 @@ describe("SidepanelWorkspace", () => {
     )
 
     expect(chatInputStore.getState().input).toBe("Continue the browser task.")
+    /** Tied to that card's run until sent, and never past it. */
+    expect(chatInputStore.getState().takeAgentFollowUpRunId()).toBe("run-7")
+    expect(chatInputStore.getState().takeAgentFollowUpRunId()).toBeUndefined()
   })
 })

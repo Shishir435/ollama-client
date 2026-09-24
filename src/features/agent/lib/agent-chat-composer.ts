@@ -6,10 +6,12 @@ import { createContext, useContext } from "react"
  * The card sits in the chat timeline but belongs to the Agent feature, which
  * may not import chat — so every follow-up is a door the shell hands it. The
  * user still presses Send, and the model decides whether the browser is
- * needed. Absent, the card offers no follow-ups.
+ * needed. A Continue or Retry names its run, so the message is tied to that
+ * card's run and not to whichever ran last. Absent, the card offers no
+ * follow-ups.
  */
 export const AgentChatComposerContext = createContext<
-  ((text?: string) => void) | undefined
+  ((text?: string, followUpRunId?: string) => void) | undefined
 >(undefined)
 
 export const useAgentChatComposer = () => useContext(AgentChatComposerContext)

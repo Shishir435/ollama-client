@@ -57,7 +57,7 @@ const AgentRunFollowUps = ({
   draft
 }: {
   run: AgentRunCard
-  draft: (text?: string) => void
+  draft: (text?: string, followUpRunId?: string) => void
 }) => {
   const { t } = useTranslation()
   const followUp = FOLLOW_UP_FOR[run.status]
@@ -69,7 +69,9 @@ const AgentRunFollowUps = ({
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => draft(t(`agent.follow_up.${followUp}_message`))}>
+          onClick={() =>
+            draft(t(`agent.follow_up.${followUp}_message`), run.id)
+          }>
           {followUp === "continue" ? (
             <StepForward className="icon-xs" aria-hidden="true" />
           ) : (

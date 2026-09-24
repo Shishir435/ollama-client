@@ -382,4 +382,58 @@ describe("running a browser task", () => {
     expect(result.isError).toBe(true)
     expect(service.stop).toHaveBeenCalledWith("run-1")
   })
+
+  it("starts nothing for a turn stopped while the task was admitted", async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const service = serviceStub()
+    const result = await runner(service).run(
+      request,
+      turn({ signal: controller.signal })
+    )
+
+    expect(result.isError).toBe(true)
+    expect(service.delegate).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A stop that lands while the run is being admitted fires before the wait
+   * listens for it; the run that start produced is stopped regardless.
+   */
+  it("stops the run when the turn was stopped during its start", async () => {
+    const controller = new AbortController()
+    const service = serviceStub({
+      delegate: vi.fn(async () => {
+        controller.abort()
+        return runState()
+      }),
+      awaitSettled: vi.fn(
+        (_runId: string, signal?: AbortSignal) =>
+          new Promise<AgentRunState>((_resolve, reject) => {
+            if (signal?.aborted) reject(signal.reason)
+            signal?.addEventListener("abort", () => reject(signal.reason))
+          })
+      )
+    })
+    const result = await runner(service).run(
+      request,
+      turn({ signal: controller.signal })
+    )
+
+    expect(result.isError).toBe(true)
+    expect(service.stop).toHaveBeenCalledWith("run-1")
+  })
+
+  /** An older card's Continue must not follow whichever run came last. */
+  it("follows the run the card named, whatever ran since", async () => {
+    const service = serviceStub()
+    await runner(service).run(
+      request,
+      turn({ previousAgentRunId: "newest", followUpRunId: "older" })
+    )
+
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ previousRunId: "older" })
+    )
+  })
 })

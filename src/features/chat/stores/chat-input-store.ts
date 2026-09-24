@@ -14,13 +14,22 @@ interface ComposerState extends ChatInput {
    */
   focusRequest: number
   requestFocus: () => void
+  /**
+   * The browser-agent run a card's follow-up drafted this message for. It
+   * travels with the next message sent and is dropped when the user empties
+   * the box, so an unrelated message never carries it.
+   */
+  agentFollowUpRunId?: string
+  draftFollowUp: (text: string, runId?: string) => void
+  dropAgentFollowUp: () => void
+  takeAgentFollowUpRunId: () => string | undefined
   setPromptLibraryOpen: (open: boolean) => void
   setFocused: (focused: boolean) => void
   queueChatSend: (input: string) => void
   clearPendingChatSend: () => void
 }
 
-export const chatInputStore = create<ComposerState>((set) => ({
+export const chatInputStore = create<ComposerState>((set, get) => ({
   input: "",
   setInput: (text) => set({ input: text }),
   appendInput: (text) => set((state) => ({ input: state.input + text })),
@@ -30,6 +39,15 @@ export const chatInputStore = create<ComposerState>((set) => ({
   focusRequest: 0,
   requestFocus: () =>
     set((state) => ({ focusRequest: state.focusRequest + 1 })),
+  agentFollowUpRunId: undefined,
+  draftFollowUp: (text, runId) =>
+    set({ input: text, agentFollowUpRunId: runId }),
+  dropAgentFollowUp: () => set({ agentFollowUpRunId: undefined }),
+  takeAgentFollowUpRunId: () => {
+    const runId = get().agentFollowUpRunId
+    set({ agentFollowUpRunId: undefined })
+    return runId
+  },
   setPromptLibraryOpen: (promptLibraryOpen) => set({ promptLibraryOpen }),
   setFocused: (focused) => set({ focused }),
   queueChatSend: (pendingChatSend) => set({ pendingChatSend }),

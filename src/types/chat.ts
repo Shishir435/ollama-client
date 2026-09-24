@@ -381,6 +381,8 @@ export interface ChatWithModelMessage {
      * text before the model wrote anything.
      */
     pageContentInContext?: boolean
+    /** Durable turns only: the run whose card drafted this message. */
+    agentFollowUpRunId?: string
   }
 }
 

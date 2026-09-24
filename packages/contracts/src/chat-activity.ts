@@ -108,7 +108,7 @@ export const ToolRunSchema = z.object({
    */
   confirmationSummary: z.string().max(2_000).optional(),
   /** Translation keys for notices the prompt must show before an approval. */
-  confirmationNotes: z.array(z.string().max(120)).max(4).optional()
+  confirmationNotes: z.array(z.string().max(120)).max(8).optional()
 })
 
 export const ActivityTextSchema = z.object({

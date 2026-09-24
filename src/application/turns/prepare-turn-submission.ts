@@ -29,6 +29,7 @@ export interface PrepareNewTurnSubmissionInput extends TurnSubmissionPolicy {
   tabDocuments: DurableContextOptions["tabDocuments"]
   groundedOnlyMode: boolean
   browserTabId?: number
+  agentFollowUpRunId?: string
 }
 
 export interface PrepareReplayTurnSubmissionInput extends TurnSubmissionPolicy {
@@ -138,6 +139,9 @@ export function prepareTurnSubmission(
             groundedOnlyMode: input.groundedOnlyMode,
             ...(input.browserTabId !== undefined
               ? { browserTabId: input.browserTabId }
+              : {}),
+            ...(input.agentFollowUpRunId
+              ? { agentFollowUpRunId: input.agentFollowUpRunId }
               : {})
           }
         }

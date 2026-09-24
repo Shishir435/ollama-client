@@ -30,9 +30,9 @@ const AgentRunCard =
     : undefined
 
 /** A follow-up is a chat message the user sends, drafted in the composer. */
-const draftInChatComposer = (text?: string) => {
+const draftInChatComposer = (text?: string, followUpRunId?: string) => {
   const composer = chatInputStore.getState()
-  if (text !== undefined) composer.setInput(text)
+  if (text !== undefined) composer.draftFollowUp(text, followUpRunId)
   composer.requestFocus()
 }
 

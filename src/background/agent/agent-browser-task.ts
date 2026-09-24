@@ -55,6 +55,9 @@ const REFUSALS: Record<AgentRunFailureReason, string> = {
 
 const failure = (content: string): ToolResult => ({ content, isError: true })
 
+const TURN_STOPPED =
+  "The user stopped this turn, so the browser task was stopped."
+
 interface ResolvedTab {
   id: number
   url: string
@@ -69,9 +72,26 @@ interface TurnLink {
   signal?: AbortSignal
   pageFirst: boolean
   previousRunId?: string
+  followUpRunId?: string
 }
 
 type Refusal = { ok: false; result: ToolResult }
+
+/**
+ * The run this one follows. A card's Continue or Retry names its own run, and
+ * that wins whatever the model said: an older card must not continue the
+ * newest run and inherit the wrong record. Otherwise the model's own
+ * `continue_previous_task` picks the newest run in the branch.
+ */
+const followedRun = (
+  request: BrowserTaskRequest,
+  turn: TurnLink
+): { previousRunId?: string } => {
+  if (turn.followUpRunId) return { previousRunId: turn.followUpRunId }
+  return request.continuePrevious && turn.previousRunId
+    ? { previousRunId: turn.previousRunId }
+    : {}
+}
 
 export interface BrowserTaskRunnerDependencies {
   service: AgentRunService
@@ -203,7 +223,8 @@ export const createBrowserTaskRunner = (
           pageFirst: readPageFirst(ctx),
           ...(ctx.previousAgentRunId
             ? { previousRunId: ctx.previousAgentRunId }
-            : {})
+            : {}),
+          ...(ctx.followUpRunId ? { followUpRunId: ctx.followUpRunId } : {})
         }
       : undefined
 
@@ -299,9 +320,7 @@ export const createBrowserTaskRunner = (
         goalAuthor: turn.pageFirst ? "model_after_page" : "model",
         allowRoutineActions: mode !== "approve_each",
         ...(admitted.experimental ? { allowExperimentalModel: true } : {}),
-        ...(request.continuePrevious && turn.previousRunId
-          ? { previousRunId: turn.previousRunId }
-          : {})
+        ...followedRun(request, turn)
       })
       return { ok: true, state }
     } catch (error) {
@@ -326,7 +345,12 @@ export const createBrowserTaskRunner = (
     const waiting = new AbortController()
     const timer = setTimeout(() => waiting.abort("wait_elapsed"), waitMs)
     const onTurnAbort = () => waiting.abort("turn_aborted")
-    turn.signal?.addEventListener("abort", onTurnAbort, { once: true })
+    /**
+     * A stop that landed while the run was being admitted fired before this
+     * listener existed; the run it started is stopped all the same.
+     */
+    if (turn.signal?.aborted) onTurnAbort()
+    else turn.signal?.addEventListener("abort", onTurnAbort, { once: true })
     try {
       const settled = await service.awaitSettled(state.id, waiting.signal)
       return report(settled, turn.messageId)
@@ -350,9 +374,7 @@ export const createBrowserTaskRunner = (
             }
           )
         })
-        return failure(
-          "The user stopped this turn, so the browser task was stopped."
-        )
+        return failure(TURN_STOPPED)
       }
       logger.warn("Browser task wait failed", "Agent", {
         runId: state.id,
@@ -404,6 +426,7 @@ export const createBrowserTaskRunner = (
     async run(request, ctx) {
       const admitted = await admit(request, ctx)
       if (!admitted.ok) return admitted.result
+      if (ctx.signal?.aborted) return failure(TURN_STOPPED)
       const started = await start(request, admitted.turn, admitted)
       if (!started.ok) return started.result
       return wait(started.state, admitted.turn)

@@ -107,7 +107,10 @@ const buildToolContext = (
       ? { browserTabId: payload.browserTabId }
       : {}),
     pageContentInContext: payload.pageContentInContext === true,
-    ...(previousRunId ? { previousAgentRunId: previousRunId } : {})
+    ...(previousRunId ? { previousAgentRunId: previousRunId } : {}),
+    ...(payload.agentFollowUpRunId
+      ? { followUpRunId: payload.agentFollowUpRunId }
+      : {})
   }
 }
 

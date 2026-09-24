@@ -222,6 +222,8 @@ export interface ToolContext {
   pageContentInContext?: boolean
   /** The latest browser-agent run in the branch being answered. */
   previousAgentRunId?: string
+  /** The run whose card drafted this message, when the user followed one up. */
+  followUpRunId?: string
 }
 
 /**

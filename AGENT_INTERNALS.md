@@ -557,11 +557,14 @@ Read the section your change touches; you do not need the whole file.
   drafts a message in the chat composer that the user still sends, and the
   model decides whether the browser is needed again. A run it starts from
   there asks for approval like any other.
-- **The model says it continues; the background names the parent.**
-  `browser_task` takes `continue_previous_task: true` and nothing about what
-  the previous run did. The parent is the newest run in the branch being
-  answered, read from its rows (`previousAgentRunId` in the tool context), and
-  the mode follows its status. `resolveAgentFollowUp` reads the parent's
+- **A card names its run; otherwise the background names the parent.**
+  Continue and Retry draft the message with the card's run id beside it
+  (`agentFollowUpRunId` on the turn, dropped if the user empties the box),
+  and that run is the parent whatever ran since — an older card continuing
+  the newest run would inherit the wrong record. Without one, `browser_task`
+  takes `continue_previous_task: true` and nothing about what the previous
+  run did; the parent is the newest run in the branch (`previousAgentRunId`),
+  and the mode follows its status. `resolveAgentFollowUp` reads the parent's
   checkpoint and receipts
   and refuses (`follow_up_unavailable`) when the parent is gone, still live,
   in another chat, or unreadable: a follow-up that guessed what was done is
@@ -938,7 +941,9 @@ Read the section your change touches; you do not need the whole file.
   finds the run it already started (`delegate` looks it up by row) and waits
   on it again.
 - **The turn waits, bounded, and stops the run only when it was stopped.**
-  `awaitSettled` ends a wait and nothing else. The runner waits up to
+  `awaitSettled` ends a wait and nothing else. A stop that lands while the
+  run is being admitted is checked for, not only listened for: it fired
+  before the wait existed, and the run would otherwise keep driving the tab. The runner waits up to
   forty-five minutes and then tells the model the run continues on its card;
   a turn the user stopped stops its run, because nobody is left to read the
   answer. Admission is still one unresolved run at a time across chats — a
