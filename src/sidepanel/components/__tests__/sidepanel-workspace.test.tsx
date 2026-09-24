@@ -83,8 +83,18 @@ describe("SidepanelWorkspace", () => {
     )
 
     expect(chatInputStore.getState().input).toBe("Continue the browser task.")
-    /** Tied to that card's run until sent, and never past it. */
-    expect(chatInputStore.getState().takeAgentFollowUpRunId()).toBe("run-7")
-    expect(chatInputStore.getState().takeAgentFollowUpRunId()).toBeUndefined()
+    expect(chatInputStore.getState().agentFollowUp?.runId).toBe("run-7")
+  })
+
+  /** Ask drafts nothing, so the next message follows no card's run. */
+  it("forgets a drafted follow-up when a card only asks", async () => {
+    render(<SidepanelWorkspace />)
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "card-continue" })
+    )
+    fireEvent.click(screen.getByRole("button", { name: "card-ask" }))
+
+    expect(chatInputStore.getState().agentFollowUp).toBeUndefined()
   })
 })

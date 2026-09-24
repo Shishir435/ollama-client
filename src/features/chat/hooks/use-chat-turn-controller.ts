@@ -338,7 +338,7 @@ export const useChatTurnController = ({
     const browserTabId = await panelTabId()
     const agentFollowUpRunId = chatInputStore
       .getState()
-      .takeAgentFollowUpRunId()
+      .takeAgentFollowUpRunId(userContent, sessionId)
     const durableTurn = prepareTurnSubmission({
       id: turnId,
       sessionId,

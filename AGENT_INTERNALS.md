@@ -559,7 +559,9 @@ Read the section your change touches; you do not need the whole file.
   there asks for approval like any other.
 - **A card names its run; otherwise the background names the parent.**
   Continue and Retry draft the message with the card's run id beside it
-  (`agentFollowUpRunId` on the turn, dropped if the user empties the box),
+  (`agentFollowUpRunId` on the turn — attached only when the message sent
+  is still the drafted text, in the chat it was drafted in; Ask drafts
+  nothing and clears it),
   and that run is the parent whatever ran since — an older card continuing
   the newest run would inherit the wrong record. Without one, `browser_task`
   takes `continue_previous_task: true` and nothing about what the previous

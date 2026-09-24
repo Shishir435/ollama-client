@@ -3,6 +3,7 @@ import { AgentChatComposerContext } from "@/features/agent/lib/agent-chat-compos
 import { Chat } from "@/features/chat/components/chat"
 import { AgentRunRendererContext } from "@/features/chat/lib/agent-run-renderer"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
+import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
 
 /**
  * The build constant is read inline, not through `AGENT_PREVIEW_ENABLED`: the
@@ -29,10 +30,19 @@ const AgentRunCard =
       )
     : undefined
 
-/** A follow-up is a chat message the user sends, drafted in the composer. */
+/**
+ * A follow-up is a chat message the user sends, drafted in the composer. Ask
+ * drafts nothing and so ties the next message to no run.
+ */
 const draftInChatComposer = (text?: string, followUpRunId?: string) => {
   const composer = chatInputStore.getState()
-  if (text !== undefined) composer.draftFollowUp(text, followUpRunId)
+  if (text !== undefined)
+    composer.draftFollowUp(
+      text,
+      followUpRunId,
+      chatSessionStore.getState().currentSessionId ?? undefined
+    )
+  else composer.dropAgentFollowUp()
   composer.requestFocus()
 }
 

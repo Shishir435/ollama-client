@@ -15,14 +15,20 @@ interface ComposerState extends ChatInput {
   focusRequest: number
   requestFocus: () => void
   /**
-   * The browser-agent run a card's follow-up drafted this message for. It
-   * travels with the next message sent and is dropped when the user empties
-   * the box, so an unrelated message never carries it.
+   * The browser-agent run a card's Continue or Retry drafted a message for,
+   * with the exact text drafted and the chat it was drafted in. It rides on
+   * the next message only if that message is still the drafted text, sent to
+   * the same chat: a draft edited into another request, or sent elsewhere,
+   * is a new request and follows nothing.
    */
-  agentFollowUpRunId?: string
-  draftFollowUp: (text: string, runId?: string) => void
+  agentFollowUp?: { runId: string; text: string; sessionId?: string }
+  draftFollowUp: (text: string, runId?: string, sessionId?: string) => void
   dropAgentFollowUp: () => void
-  takeAgentFollowUpRunId: () => string | undefined
+  /** Spends the follow-up, returning its run only for the drafted message. */
+  takeAgentFollowUpRunId: (
+    sentText: string,
+    sessionId: string
+  ) => string | undefined
   setPromptLibraryOpen: (open: boolean) => void
   setFocused: (focused: boolean) => void
   queueChatSend: (input: string) => void
@@ -39,14 +45,21 @@ export const chatInputStore = create<ComposerState>((set, get) => ({
   focusRequest: 0,
   requestFocus: () =>
     set((state) => ({ focusRequest: state.focusRequest + 1 })),
-  agentFollowUpRunId: undefined,
-  draftFollowUp: (text, runId) =>
-    set({ input: text, agentFollowUpRunId: runId }),
-  dropAgentFollowUp: () => set({ agentFollowUpRunId: undefined }),
-  takeAgentFollowUpRunId: () => {
-    const runId = get().agentFollowUpRunId
-    set({ agentFollowUpRunId: undefined })
-    return runId
+  agentFollowUp: undefined,
+  draftFollowUp: (text, runId, sessionId) =>
+    set({
+      input: text,
+      agentFollowUp: runId
+        ? { runId, text, ...(sessionId ? { sessionId } : {}) }
+        : undefined
+    }),
+  dropAgentFollowUp: () => set({ agentFollowUp: undefined }),
+  takeAgentFollowUpRunId: (sentText, sessionId) => {
+    const followUp = get().agentFollowUp
+    set({ agentFollowUp: undefined })
+    if (!followUp || followUp.text.trim() !== sentText.trim()) return undefined
+    if (followUp.sessionId && followUp.sessionId !== sessionId) return undefined
+    return followUp.runId
   },
   setPromptLibraryOpen: (promptLibraryOpen) => set({ promptLibraryOpen }),
   setFocused: (focused) => set({ focused }),
