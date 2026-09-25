@@ -199,8 +199,13 @@ const budgets: Budget[] = [
      * The run timeline took it to 9,761,411: row, duration and reasoning
      * display, the settled card's record, steering, and their copy in nine
      * locales.
+     *
+     * The hosted-model benchmark's fixes took it to 9,770,393: the search
+     * textarea and short-page fallbacks, completion evidence from receipts,
+     * the user-tab rule, the start address, the finish-reviewed control and
+     * its copy in nine locales.
      */
-    max: isFirefox ? 11_800_000 : 9_764_000
+    max: isFirefox ? 11_800_000 : 9_771_000
   },
   {
     metric: "zip",
@@ -405,8 +410,13 @@ const budgets: Budget[] = [
      * steering, and the card record's step projection. Firefox moved to
      * 212,329 on what chat shares: the browser-context preamble every turn
      * with tab tools builds, and the panel tab `current_tab` now reads.
+     *
+     * The hosted-model benchmark's fixes took Chrome to 292,367: the live
+     * command record the completion judge reads, the user-tab rule, routine
+     * consent following an approved site, the start address and the
+     * finish-reviewed path.
      */
-    max: isFirefox ? 212_600 : 291_000
+    max: isFirefox ? 212_600 : 292_500
   }
 ]
 
