@@ -1422,6 +1422,98 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 
+  /**
+   * gpt-6-luna fills a single field with fill_form, submits, and quotes the
+   * field's value and the verifier's sentence about the submission. Both
+   * receipts were sent for their requirement and confirmed.
+   */
+  it("accepts a filled-and-submitted form by its receipts", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [{ ref: "e1", type: "clear_and_type", text: "Alice" }]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "All 1 fields hold the resolved value",
+          observedAt: 1
+        }
+      }
+    })
+    const submitted = step({
+      sequence: 2,
+      requirementId: "r2",
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "submission",
+          summary: "Form committed its resolved destination",
+          observedAt: 2
+        }
+      }
+    })
+    const judge = (evidence: string) =>
+      judgeAgentCompletion({
+        steps: [filled, submitted],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [
+          { id: "r1", text: "The Name field contains Alice.", kind: "change" },
+          { id: "r2", text: "Continue has been clicked.", kind: "change" }
+        ],
+        outcomes: [
+          { id: "r1", met: true, evidence: "Alice" },
+          { id: "r2", met: true, evidence }
+        ]
+      })
+    expect(judge("Form committed its resolved destination")).toMatchObject({
+      type: "accepted"
+    })
+    expect(judge("Status: Active")).toMatchObject({ type: "accepted" })
+    expect(judge("The order shipped")).toMatchObject({
+      type: "refused",
+      reason: "absent_evidence"
+    })
+  })
+
+  it("does not let a submission bound elsewhere vouch for a requirement", () => {
+    const submitted = step({
+      sequence: 1,
+      requirementId: "r1",
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "submission",
+          summary: "Form committed its resolved destination",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [submitted],
+        observation: observation({ visibleText: "Details" }),
+        requirements: [
+          { id: "r1", text: "Continue has been clicked.", kind: "change" },
+          { id: "r2", text: "The address is saved.", kind: "change" }
+        ],
+        outcomes: [
+          { id: "r1", met: true },
+          {
+            id: "r2",
+            met: true,
+            evidence: "Form committed its resolved destination"
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
   it("does not rescue an absent value with an unconfirmed receipt", () => {
     expect(
       judgeAgentCompletion({

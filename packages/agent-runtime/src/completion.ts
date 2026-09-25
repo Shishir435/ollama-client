@@ -560,6 +560,43 @@ const quotationNamesReceiptTarget = (
 }
 
 /**
+ * The one field of a confirmed batch whose value the quotation is, when the
+ * batch was sent for this requirement. Filling Name with Alice and
+ * submitting leaves no "Alice" on the next page; the batch confirmed the
+ * field held it, and one field vouches for one requirement.
+ */
+const quotedBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  quoted: string,
+  consumed: Set<string>
+): number | undefined => {
+  if (
+    receipt.command?.type !== "fill_form" ||
+    receipt.requirementId !== requirement.id ||
+    receipt.verification?.outcome !== "confirmed" ||
+    receipt.verification.evidence.kind !== "fields"
+  )
+    return undefined
+  const want = agentNormalizedClaim(quoted)
+  if (!want) return undefined
+  const matches = receipt.command.fields.flatMap((field, index) => {
+    const value =
+      field.type === "select"
+        ? field.value
+        : field.type === "check" || field.type === "uncheck"
+          ? undefined
+          : field.text
+    return value !== undefined &&
+      agentNormalizedClaim(value) === want &&
+      !consumed.has(`${receipt.stepId}:field:${index}`)
+      ? [index]
+      : []
+  })
+  return matches.length === 1 ? matches[0] : undefined
+}
+
+/**
  * Whether the quotation is the value a value receipt confirmed the control
  * holds — the selected option or the typed text. Selecting Blue leaves the
  * word "Blue" exactly where it was, so the staleness rule refuses it, and
@@ -697,6 +734,14 @@ const evidencePlannedChange = (
         return candidate
       }
     }
+    if (quoted !== undefined) {
+      for (const candidate of changes) {
+        const index = quotedBatchField(requirement, candidate, quoted, consumed)
+        if (index === undefined) continue
+        consumed.add(`${candidate.stepId}:field:${index}`)
+        return candidate
+      }
+    }
     const receipt = changes.find(
       (candidate) =>
         !consumed.has(candidate.stepId) &&
@@ -713,8 +758,48 @@ const evidencePlannedChange = (
       consumed.add(receipt.stepId)
       return receipt
     }
+    const submitted = changes.find(
+      (candidate) =>
+        !consumed.has(candidate.stepId) &&
+        isBoundSubmission(requirement, candidate) &&
+        (quoted === undefined || quotationIsReceiptSummary(quoted, candidate))
+    )
+    if (submitted) {
+      consumed.add(submitted.stepId)
+      return submitted
+    }
   }
   return refusal
+}
+
+/**
+ * A confirmed submission the model sent for this requirement. The verifier
+ * confirmed the form committed the destination the user approved, which is
+ * what a "submit it" requirement asks; bound by the requirement id the
+ * command carried, never by name, so it vouches for its own requirement.
+ */
+const isBoundSubmission = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): boolean =>
+  receipt.requirementId === requirement.id &&
+  receipt.verification?.outcome === "confirmed" &&
+  receipt.verification.evidence.kind === "submission"
+
+/**
+ * The model quoting the verifier's sentence about the very step it cites —
+ * which the feedback asks it not to do, and which it does anyway. That
+ * sentence is the receipt, so it evidences nothing the receipt does not.
+ */
+const quotationIsReceiptSummary = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const summary = receipt.verification?.evidence.summary
+  return (
+    summary !== undefined &&
+    agentNormalizedClaim(summary) === agentNormalizedClaim(quoted)
+  )
 }
 
 const MISSING_EVIDENCE_FEEDBACK =

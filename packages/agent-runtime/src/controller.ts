@@ -87,6 +87,9 @@ import { mergeAgentStepTelemetry } from "./telemetry"
 import { classifyVerificationOutcome } from "./verification"
 import { agentPictureWarranted } from "./vision"
 
+/** Two runs' worth of steps: the live one and one just settled. */
+const MAX_LIVE_COMMANDS = MAX_AGENT_OBSERVATIONS * 2
+
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
 
 const ownEffectPolicyFlags = (state: "repeat" | "unknown" | "none") =>
@@ -587,6 +590,32 @@ export const createAgentController = (
    */
   let pendingThinking: string | undefined
   /**
+   * The commands this worker applied, as the model sent them. Receipts are
+   * stored with typed text and selected values redacted, and the completion
+   * judge reads receipts — so a verified "select Blue" could never vouch for
+   * "Blue is selected", and every such run was refused until it gave up.
+   * Memory only, bounded, and lost with the worker: a restarted run is
+   * judged on redacted receipts and refused, exactly as before.
+   */
+  const liveCommands = new Map<string, AgentCommand>()
+  const rememberCommand = (stepId: string, command: AgentCommand): void => {
+    liveCommands.delete(stepId)
+    liveCommands.set(stepId, command)
+    if (liveCommands.size > MAX_LIVE_COMMANDS) {
+      const oldest = liveCommands.keys().next().value
+      if (oldest !== undefined) liveCommands.delete(oldest)
+    }
+  }
+  const withLiveCommands = (
+    steps: readonly AgentStepReadout[] | undefined
+  ): readonly AgentStepReadout[] | undefined =>
+    steps?.map((step) => {
+      const command = liveCommands.get(step.stepId)
+      return command && step.command?.type === command.type
+        ? { ...step, command }
+        : step
+    })
+  /**
    * Corrections typed while a run works, waiting for the next decision.
    * Memory only: a correction the worker lost before a decision heard it is
    * one the user can see was not taken, because the card says when it is.
@@ -636,6 +665,7 @@ export const createAgentController = (
         if (oldest !== undefined) telemetryByStep.delete(oldest)
       }
     }
+    if (write.command) rememberCommand(write.stepId, write.command)
     await dependencies.persistence.appendStep({
       ...write,
       ...(thinking ? { thinking } : {}),
@@ -1551,7 +1581,7 @@ export const createAgentController = (
      */
     let steps: readonly AgentStepReadout[] | undefined
     try {
-      steps = await dependencies.persistence.steps(state.id)
+      steps = withLiveCommands(await dependencies.persistence.steps(state.id))
     } catch {
       dependencies.trace?.(state.id, "completion_receipts_unreadable")
     }
