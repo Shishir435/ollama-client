@@ -19,11 +19,13 @@ import {
   type AgentStepTelemetry,
   agentStepTelemetry,
   agentTelemetryMillis,
+  agentThinkingTail,
   MAX_AGENT_EVIDENCE_CHARS,
   MAX_AGENT_EXTRACT_QUERIES,
   MAX_AGENT_FORM_FIELD_CHARS,
   MAX_AGENT_FORM_FIELDS,
-  MAX_AGENT_REQUIREMENTS
+  MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_THINKING_CHARS
 } from "@ollama-client/contracts"
 import {
   getStoredModelConfig,
@@ -796,9 +798,17 @@ const collectDecision = async (input: {
   screenshot?: AgentScreenshot
   signal: AgentCancellationSignal
   measured: (telemetry: AgentStepTelemetry) => void
+  thought?: (thinking: string | undefined) => void
   window: number
 }): Promise<AgentDecision> => {
   const calls = new Map<string, ToolCall>()
+  /**
+   * Kept to a little over what a step may store, from the end: a model that
+   * reasons for pages still states its decision last, and holding the whole
+   * stream for one tail would let a verbose model grow the worker's memory
+   * without bound.
+   */
+  let reasoning = ""
   const prompt = decisionPrompt(input)
   let streamError: string | undefined
   const scoped = providerSignal(input.signal)
@@ -847,6 +857,11 @@ const collectDecision = async (input: {
       (chunk) => {
         firstChunkAt ??= Date.now()
         if (chunk.metrics) metrics = chunk.metrics
+        if (chunk.thinkingDelta) {
+          reasoning = `${reasoning}${chunk.thinkingDelta}`.slice(
+            -MAX_AGENT_THINKING_CHARS * 2
+          )
+        }
         if (chunk.error) {
           streamError = chunk.error.message || "Agent model request failed"
         }
@@ -880,9 +895,13 @@ const collectDecision = async (input: {
     })
   }
   if (streamError) throw new Error(streamError)
-  return parseAgentDecisionToolCalls([...calls.values()], input.observation, {
-    screenshot: withScreenshot
-  })
+  const decision = parseAgentDecisionToolCalls(
+    [...calls.values()],
+    input.observation,
+    { screenshot: withScreenshot }
+  )
+  input.thought?.(agentThinkingTail(reasoning))
+  return decision
 }
 
 /**
@@ -904,6 +923,7 @@ const retryUntilWellFormed = async (input: {
   signal: AgentCancellationSignal
   malformedByRun: Map<string, number>
   report: (telemetry: AgentStepTelemetry | undefined) => void
+  thought?: (thinking: string | undefined) => void
 }): Promise<AgentDecision> => {
   const { malformedByRun, state, signal } = input
   let feedback: string | undefined
@@ -990,6 +1010,8 @@ export const createProviderAgentModelPort = (
    * once by the controller on the step it belongs to.
    */
   const telemetryByRun = new Map<string, AgentStepTelemetry>()
+  /** The reasoning of each run's last well-formed decision, consumed once. */
+  const thinkingByRun = new Map<string, string>()
   const resolveProvider =
     options.resolveProvider ??
     ((modelId: string, providerId: string) =>
@@ -1085,6 +1107,11 @@ export const createProviderAgentModelPort = (
       telemetryByRun.delete(runId)
       return telemetry
     },
+    decisionThinking(runId) {
+      const thinking = thinkingByRun.get(runId)
+      thinkingByRun.delete(runId)
+      return thinking
+    },
     async vision(state, signal) {
       const compatibility = await compatibilityFor(state, signal)
       return compatibility.vision === true
@@ -1177,6 +1204,7 @@ export const createProviderAgentModelPort = (
       },
       signal
     ) {
+      thinkingByRun.delete(state.id)
       if ((malformedByRun.get(state.id) ?? 0) >= MAX_MALFORMED_PER_RUN) {
         throw new AgentDecisionFormatError(
           "The Agent malformed-response budget is exhausted"
@@ -1206,6 +1234,10 @@ export const createProviderAgentModelPort = (
         report: (telemetry) => {
           if (telemetry) telemetryByRun.set(state.id, telemetry)
           else telemetryByRun.delete(state.id)
+        },
+        thought: (thinking) => {
+          if (thinking) thinkingByRun.set(state.id, thinking)
+          else thinkingByRun.delete(state.id)
         }
       })
     }

@@ -524,6 +524,12 @@ export interface AgentStepTarget {
   tag?: string
   role?: string
   name?: string
+  /**
+   * The visible text of the list or table row the control sits in, so a log
+   * of three "Delete" clicks says which file each one was. Page text,
+   * bounded, and dropped with the name for a sensitive control.
+   */
+  rowContext?: string
 }
 
 export interface AgentStepWrite {
@@ -563,6 +569,11 @@ export interface AgentStepWrite {
   sourceUrl?: string
   /** Model-authored note attached to the step it belongs to. */
   finding?: string
+  /**
+   * The reasoning the model streamed for the decision that opened this step,
+   * bounded, for the supervisor's card only. Never read back into a prompt.
+   */
+  thinking?: string
   /**
    * What the step cost, in numbers only. Optional because a step a worker
    * restart settled measured nothing, and an absent record must read as
@@ -669,6 +680,12 @@ export interface AgentModelPort {
    * nothing returns nothing.
    */
   decisionTelemetry?(runId: string): AgentStepTelemetry | undefined
+  /**
+   * The reasoning the decision that just resolved streamed, bounded, for the
+   * run named. A reader for the same reason as `decisionTelemetry`; a model
+   * that streamed none, or a port that does not collect it, returns nothing.
+   */
+  decisionThinking?(runId: string): string | undefined
   /**
    * What the goal asks for, decided before the run looks at anything.
    *

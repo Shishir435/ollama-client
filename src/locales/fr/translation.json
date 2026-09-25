@@ -126,7 +126,8 @@
       "verified": "Vérifié",
       "rejected": "Refusé",
       "failed": "Échec",
-      "uncertain": "À vérifier"
+      "uncertain": "À vérifier",
+      "dialog_opened": "Boîte de dialogue ouverte"
     },
     "tab": {
       "label": "Onglet contrôlé",
@@ -148,7 +149,8 @@
     "work_log": {
       "action_needs_review": "Cette étape doit être vérifiée.",
       "title": "Journal de travail",
-      "target": "« {{name}} »"
+      "target": "« {{name}} »",
+      "reasoning": "Raisonnement"
     },
     "correction": "En pause. Décrivez le changement souhaité, puis continuez.",
     "settings": {
@@ -178,12 +180,15 @@
       "title": "Exécution de l'agent",
       "loading": "Chargement de l'exécution…",
       "missing": "L'enregistrement de cette exécution n'est plus disponible.",
-      "steps": "Actions : {{count}}",
       "outcome": "{{met}} sur {{total}} faites",
       "continue": "Continuer",
       "retry": "Réessayer",
       "start_over": "Recommencer",
-      "ask": "Poser une question"
+      "ask": "Poser une question",
+      "step_count_one": "{{count}} étape",
+      "step_count_other": "{{count}} étapes",
+      "page_count_one": "{{count}} page",
+      "page_count_other": "{{count}} pages"
     },
     "follow_up": {
       "continue_message": "Poursuis la tâche dans le navigateur.",

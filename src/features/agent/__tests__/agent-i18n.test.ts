@@ -53,11 +53,29 @@ const commandOf = (type: string, patch: Record<string, unknown> = {}) =>
     ...patch
   }) as unknown as AgentCommand
 
+/**
+ * A plural is one key in every language and a different set of forms in
+ * each: Russian needs `_few` and `_many` where English has none, and a panel
+ * that counts steps in Russian with only `_one`/`_other` reads "5 шага".
+ */
+const PLURAL_FORMS = /_(zero|one|two|few|many|other)$/
+const baseKeys = (keys: string[]): string[] =>
+  [...new Set(keys.map((key) => key.replace(PLURAL_FORMS, "")))].sort()
+
 describe("Agent locale coverage", () => {
   it("keeps every Agent key in all nine locales", () => {
-    const expected = flatten(en.agent).sort()
+    const expected = baseKeys(flatten(en.agent))
     for (const locale of [de, es, fr, hi, itLocale, ja, ru, zh]) {
-      expect(flatten(locale.agent).sort()).toEqual(expected)
+      expect(baseKeys(flatten(locale.agent))).toEqual(expected)
+    }
+  })
+
+  it("gives every Russian plural its few and many forms", () => {
+    const keys = flatten(ru.agent)
+    for (const key of keys.filter((entry) => entry.endsWith("_one"))) {
+      const base = key.slice(0, -"_one".length)
+      expect(keys).toContain(`${base}_few`)
+      expect(keys).toContain(`${base}_many`)
     }
   })
 

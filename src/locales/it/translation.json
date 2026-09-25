@@ -126,7 +126,8 @@
       "verified": "Verificato",
       "rejected": "Rifiutato",
       "failed": "Non riuscito",
-      "uncertain": "Controlla"
+      "uncertain": "Controlla",
+      "dialog_opened": "Finestra di dialogo aperta"
     },
     "tab": {
       "label": "Scheda controllata",
@@ -148,7 +149,8 @@
     "work_log": {
       "action_needs_review": "Questo passaggio richiede una verifica.",
       "title": "Registro attività",
-      "target": "«{{name}}»"
+      "target": "«{{name}}»",
+      "reasoning": "Ragionamento"
     },
     "correction": "In pausa. Descrivi cosa cambiare, poi continua.",
     "settings": {
@@ -178,12 +180,15 @@
       "title": "Esecuzione dell'agente",
       "loading": "Caricamento dell'esecuzione…",
       "missing": "Il registro di questa esecuzione non è più disponibile.",
-      "steps": "Azioni: {{count}}",
       "outcome": "{{met}} di {{total}} completate",
       "continue": "Continua",
       "retry": "Riprova",
       "start_over": "Ricomincia",
-      "ask": "Chiedi a riguardo"
+      "ask": "Chiedi a riguardo",
+      "step_count_one": "{{count}} passaggio",
+      "step_count_other": "{{count}} passaggi",
+      "page_count_one": "{{count}} pagina",
+      "page_count_other": "{{count}} pagine"
     },
     "follow_up": {
       "continue_message": "Continua l’attività nel browser.",

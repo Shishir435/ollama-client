@@ -172,6 +172,6 @@ runAgentScenario({
         deleteApproval.snapshot.pending?.kind === "approval"
         ? deleteApproval.snapshot.pending.request.pageEvidence
         : undefined
-    ).toMatch(/^Delete — old-report-2023\.pdf Delete$/)
+    ).toBe("Delete — old-report-2023.pdf")
   }
 })

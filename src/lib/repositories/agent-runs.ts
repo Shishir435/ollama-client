@@ -24,7 +24,9 @@ import {
   AgentStepTelemetrySchema,
   MAX_AGENT_FINDING_CHARS,
   MAX_AGENT_OBSERVATIONS,
-  MAX_AGENT_REQUIREMENT_ID_CHARS
+  MAX_AGENT_REQUIREMENT_ID_CHARS,
+  MAX_AGENT_ROW_CONTEXT_CHARS,
+  MAX_AGENT_THINKING_CHARS
 } from "@ollama-client/contracts"
 import { z } from "zod"
 import { logger } from "@/lib/logger"
@@ -118,7 +120,8 @@ const AgentStepTargetSchema = z
     ref: z.string().max(40).optional(),
     tag: z.string().max(40).optional(),
     role: z.string().max(60).optional(),
-    name: z.string().max(120).optional()
+    name: z.string().max(120).optional(),
+    rowContext: z.string().max(MAX_AGENT_ROW_CONTEXT_CHARS).optional()
   })
   .strict()
 
@@ -149,6 +152,8 @@ const AgentStepReceiptSchema = z
     target: AgentStepTargetSchema.optional(),
     sourceUrl: z.string().max(2_048).optional(),
     finding: z.string().max(MAX_AGENT_FINDING_CHARS).optional(),
+    /** Display-only reasoning for the card; never read back into a prompt. */
+    thinking: z.string().max(MAX_AGENT_THINKING_CHARS).optional(),
     /**
      * Numbers only, and bounded by its own schema. It rides the receipt
      * because the receipts are what a worker restart leaves behind, and an
@@ -214,7 +219,10 @@ const boundedStepTarget = (
   ...(target.ref ? { ref: target.ref.slice(0, 40) } : {}),
   ...(target.tag ? { tag: target.tag.slice(0, 40) } : {}),
   ...(target.role ? { role: target.role.slice(0, 60) } : {}),
-  ...(target.name ? { name: target.name.slice(0, 120) } : {})
+  ...(target.name ? { name: target.name.slice(0, 120) } : {}),
+  ...(target.rowContext
+    ? { rowContext: target.rowContext.slice(0, MAX_AGENT_ROW_CONTEXT_CHARS) }
+    : {})
 })
 
 const AgentCheckpointSchema = z
@@ -467,13 +475,12 @@ const appendStepInTransaction = async (
     ...(input.target ? { target: boundedStepTarget(input.target) } : {}),
     ...(input.finding
       ? { finding: input.finding.slice(0, MAX_AGENT_FINDING_CHARS) }
+      : {}),
+    ...(input.thinking
+      ? { thinking: input.thinking.slice(-MAX_AGENT_THINKING_CHARS) }
       : {})
   })
-  const serialized = serializeBounded(
-    receipt,
-    MAX_AGENT_STEP_RECEIPT_BYTES,
-    "Agent step receipt"
-  )
+  const serialized = serializeStepReceipt(receipt)
   const existing = await tx.query(
     "SELECT COUNT(DISTINCT stepId) AS count FROM agent_steps WHERE runId = ?",
     [input.runId]
@@ -491,6 +498,31 @@ const appendStepInTransaction = async (
      VALUES (?, ?, ?, ?, ?)`,
     [input.runId, input.stepId, input.status, serialized, input.at]
   )
+}
+
+/**
+ * The reasoning is the one field a receipt can lose without losing what the
+ * step did, so a receipt the cap refuses is retried without it rather than
+ * failing a step over text only the card would have shown.
+ */
+const serializeStepReceipt = (
+  receipt: z.infer<typeof AgentStepReceiptSchema>
+): string => {
+  try {
+    return serializeBounded(
+      receipt,
+      MAX_AGENT_STEP_RECEIPT_BYTES,
+      "Agent step receipt"
+    )
+  } catch (error) {
+    if (!receipt.thinking) throw error
+    const { thinking: _thinking, ...rest } = receipt
+    return serializeBounded(
+      rest,
+      MAX_AGENT_STEP_RECEIPT_BYTES,
+      "Agent step receipt"
+    )
+  }
 }
 
 const findLatestCommandReceipt = async (

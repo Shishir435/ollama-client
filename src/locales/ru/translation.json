@@ -126,7 +126,8 @@
       "verified": "Проверено",
       "rejected": "Отклонено",
       "failed": "Ошибка",
-      "uncertain": "Проверить"
+      "uncertain": "Проверить",
+      "dialog_opened": "Открыт диалог"
     },
     "tab": {
       "label": "Управляемая вкладка",
@@ -148,7 +149,8 @@
     "work_log": {
       "action_needs_review": "Этот шаг требует проверки.",
       "title": "Журнал работы",
-      "target": "«{{name}}»"
+      "target": "«{{name}}»",
+      "reasoning": "Рассуждение"
     },
     "correction": "Приостановлено. Опишите, что нужно изменить, и продолжите.",
     "settings": {
@@ -178,12 +180,19 @@
       "title": "Запуск агента",
       "loading": "Загрузка запуска…",
       "missing": "Запись об этом запуске больше недоступна.",
-      "steps": "Действия: {{count}}",
       "outcome": "Выполнено {{met}} из {{total}}",
       "continue": "Продолжить",
       "retry": "Повторить",
       "start_over": "Начать заново",
-      "ask": "Спросить об этом"
+      "ask": "Спросить об этом",
+      "step_count_one": "{{count}} шаг",
+      "step_count_few": "{{count}} шага",
+      "step_count_many": "{{count}} шагов",
+      "step_count_other": "{{count}} шага",
+      "page_count_one": "{{count}} страница",
+      "page_count_few": "{{count}} страницы",
+      "page_count_many": "{{count}} страниц",
+      "page_count_other": "{{count}} страницы"
     },
     "follow_up": {
       "continue_message": "Продолжи задачу в браузере.",

@@ -126,7 +126,8 @@
       "verified": "सत्यापित",
       "rejected": "अस्वीकृत",
       "failed": "विफल",
-      "uncertain": "जाँचें"
+      "uncertain": "जाँचें",
+      "dialog_opened": "डायलॉग खुला"
     },
     "tab": {
       "label": "नियंत्रित टैब",
@@ -148,7 +149,8 @@
     "work_log": {
       "action_needs_review": "इस चरण की समीक्षा ज़रूरी है।",
       "title": "कार्य लॉग",
-      "target": "“{{name}}”"
+      "target": "“{{name}}”",
+      "reasoning": "तर्क"
     },
     "correction": "रुका हुआ है। बताएं क्या बदलना चाहिए, फिर जारी रखें।",
     "settings": {
@@ -178,12 +180,15 @@
       "title": "एजेंट रन",
       "loading": "रन लोड हो रहा है…",
       "missing": "इस रन का रिकॉर्ड अब उपलब्ध नहीं है।",
-      "steps": "कार्रवाइयाँ: {{count}}",
       "outcome": "{{total}} में से {{met}} पूरे",
       "continue": "जारी रखें",
       "retry": "फिर से प्रयास करें",
       "start_over": "नए सिरे से शुरू करें",
-      "ask": "इसके बारे में पूछें"
+      "ask": "इसके बारे में पूछें",
+      "step_count_one": "{{count}} चरण",
+      "step_count_other": "{{count}} चरण",
+      "page_count_one": "{{count}} पेज",
+      "page_count_other": "{{count}} पेज"
     },
     "follow_up": {
       "continue_message": "ब्राउज़र कार्य जारी रखें।",

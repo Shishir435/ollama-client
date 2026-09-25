@@ -126,7 +126,8 @@
       "verified": "検証済み",
       "rejected": "拒否",
       "failed": "失敗",
-      "uncertain": "要確認"
+      "uncertain": "要確認",
+      "dialog_opened": "ダイアログが開きました"
     },
     "tab": {
       "label": "操作対象タブ",
@@ -148,7 +149,8 @@
     "work_log": {
       "action_needs_review": "この手順は確認が必要です。",
       "title": "作業ログ",
-      "target": "「{{name}}」"
+      "target": "「{{name}}」",
+      "reasoning": "推論"
     },
     "correction": "一時停止中です。変更点を説明してから続行してください。",
     "settings": {
@@ -178,12 +180,15 @@
       "title": "エージェントの実行",
       "loading": "実行を読み込んでいます…",
       "missing": "この実行の記録はもう利用できません。",
-      "steps": "操作: {{count}}",
       "outcome": "{{total}} 件中 {{met}} 件完了",
       "continue": "続ける",
       "retry": "再試行",
       "start_over": "最初からやり直す",
-      "ask": "これについて質問"
+      "ask": "これについて質問",
+      "step_count_one": "{{count}} ステップ",
+      "step_count_other": "{{count}} ステップ",
+      "page_count_one": "{{count}} ページ",
+      "page_count_other": "{{count}} ページ"
     },
     "follow_up": {
       "continue_message": "ブラウザータスクを続けてください。",

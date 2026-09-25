@@ -570,6 +570,12 @@ export const createAgentController = (
    */
   let pendingTelemetry: AgentStepTelemetry | undefined
   const telemetryByStep = new Map<string, AgentStepTelemetry>()
+  /**
+   * The reasoning behind the decision just made, claimed by the next receipt
+   * written — the planned step, a refusal or a declined completion — for the
+   * same reason telemetry waits here: the decision has no step id yet.
+   */
+  let pendingThinking: string | undefined
 
   const measure = (telemetry: AgentStepTelemetry | undefined): void => {
     pendingTelemetry = mergeAgentStepTelemetry(pendingTelemetry, telemetry)
@@ -604,6 +610,8 @@ export const createAgentController = (
       pendingTelemetry
     )
     pendingTelemetry = undefined
+    const thinking = write.thinking ?? pendingThinking
+    pendingThinking = undefined
     if (carried) {
       telemetryByStep.set(write.stepId, carried)
       /** One run cannot grow this past its own step ceiling. */
@@ -614,6 +622,7 @@ export const createAgentController = (
     }
     await dependencies.persistence.appendStep({
       ...write,
+      ...(thinking ? { thinking } : {}),
       ...(carried ? { telemetry: carried } : {})
     })
     /**
@@ -648,6 +657,7 @@ export const createAgentController = (
     >
   ) => {
     let raw: unknown
+    pendingThinking = undefined
     try {
       raw = await dependencies.model.decide(
         { state, observation, ...recalled },
@@ -664,6 +674,7 @@ export const createAgentController = (
      * the answer stops being this decision's the moment another starts.
      */
     measure(dependencies.model.decisionTelemetry?.(state.id))
+    pendingThinking = dependencies.model.decisionThinking?.(state.id)
     return AgentDecisionSchema.safeParse(raw).data
   }
 

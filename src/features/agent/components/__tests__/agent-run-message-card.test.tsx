@@ -15,7 +15,8 @@ vi.mock("../../hooks/use-agent-run-card", () => ({ useAgentRunCard }))
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>
-      values ? `${key}:${JSON.stringify(values)}` : key
+      values ? `${key}:${JSON.stringify(values)}` : key,
+    i18n: { language: "en" }
   })
 }))
 
@@ -115,12 +116,59 @@ describe("AgentRunMessageCard", () => {
     expect(screen.getByText("agent.card.loading")).toBeInTheDocument()
   })
 
-  it("shows a run's status and step count read from its row", () => {
+  it("shows a run's status read from its row", () => {
     useAgentRunCard.mockReturnValue({ kind: "ready", run: card() })
     render(<AgentRunMessageCard msg={message()} />)
 
     expect(screen.getByText("agent.status.executing")).toBeInTheDocument()
-    expect(screen.getByText('agent.card.steps:{"count":3}')).toBeInTheDocument()
+  })
+
+  /**
+   * The count is the rows' own, so it cannot say "Actions: 1" under a log
+   * that showed two, and the rows survive the run settling.
+   */
+  it("keeps a settled run's steps behind a count of them", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({
+        status: "completed",
+        stepCount: 1,
+        pages: 2,
+        steps: [
+          {
+            runId: "run-1",
+            stepId: "run-1:1",
+            sequence: 1,
+            status: "verified",
+            at: 5_000,
+            startedAt: 2_000,
+            command: {
+              type: "click",
+              ref: "e1",
+              snapshotId: "s",
+              generation: 1
+            },
+            target: { name: "Delete", rowContext: "old.pdf Delete" }
+          },
+          {
+            runId: "run-1",
+            stepId: "run-1:refused:2",
+            sequence: 2,
+            status: "rejected",
+            at: 6_000
+          }
+        ]
+      })
+    })
+    render(<AgentRunMessageCard msg={message()} />)
+
+    expect(
+      screen.getByText(/agent\.card\.step_count:\{"count":2\}/)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/agent\.card\.page_count:\{"count":2\}/)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/old\.pdf/)).toBeInTheDocument()
   })
 
   /**
@@ -318,14 +366,21 @@ describe("AgentRunMessageCard", () => {
     expect(screen.getByText("agent.card.missing")).toBeInTheDocument()
   })
 
-  it("renders page-derived result text as text, never markup", () => {
+  /**
+   * The result is the model's answer, drawn as chat draws one — through the
+   * same renderer and its sanitizer — so a list stays a list.
+   */
+  it("renders the result as markdown", () => {
     useAgentRunCard.mockReturnValue({
       kind: "ready",
-      run: card({ status: "completed", result: "<b>bold</b> claim" })
+      run: card({
+        status: "completed",
+        result: "Found:\n\n- first\n- second"
+      })
     })
     const { container } = render(<AgentRunMessageCard msg={message()} />)
 
-    expect(container.querySelector("b")).toBeNull()
-    expect(screen.getByText("<b>bold</b> claim")).toBeInTheDocument()
+    expect(container.querySelector(".markdown-container")).not.toBeNull()
+    expect(container.querySelectorAll("li")).toHaveLength(2)
   })
 })

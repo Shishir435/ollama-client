@@ -56,6 +56,71 @@ describe("Agent presentation", () => {
     expect(row?.note).toBe("The download is on the store page, not here.")
   })
 
+  describe("timeline rows", () => {
+    const click = {
+      type: "click",
+      snapshotId: "s",
+      generation: 1,
+      ref: "e7"
+    } as const
+    const step = (patch: Partial<AgentStepRecord>): AgentStepRecord => ({
+      runId: "run-1",
+      stepId: "s1",
+      sequence: 1,
+      status: "verified",
+      at: 14_500,
+      command: click,
+      ...patch
+    })
+
+    it("names which row a repeated control sat in", () => {
+      const [row] = toAgentWorkLog([
+        step({ target: { name: "Delete", rowContext: "old.pdf Delete" } })
+      ])
+      expect(row?.target).toBe("Delete")
+      expect(row?.row).toBe("old.pdf")
+    })
+
+    it("times a settled step from its first receipt to its last", () => {
+      const [row] = toAgentWorkLog([step({ startedAt: 2_000 })])
+      expect(row?.durationMs).toBe(12_500)
+    })
+
+    it("gives a step still running no duration", () => {
+      const [row] = toAgentWorkLog([
+        step({ status: "executing", startedAt: 2_000 })
+      ])
+      expect(row?.durationMs).toBeUndefined()
+    })
+
+    /**
+     * A click that raised `confirm()` verifies, but "Verified" beside a
+     * Delete whose confirmation is still open says the file is gone.
+     */
+    it("says a dialog opened rather than that the step verified", () => {
+      const [row] = toAgentWorkLog([
+        step({
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "native_dialog",
+              summary: "A confirm dialog is open",
+              observedAt: 14_500
+            }
+          }
+        })
+      ])
+      expect(row?.status).toBe("dialog_opened")
+    })
+
+    it("keeps reasoning's paragraphs and drops control characters", () => {
+      const [row] = toAgentWorkLog([
+        step({ thinking: "First\u0007 look.\n\n\n\nThen click." })
+      ])
+      expect(row?.thinking).toBe("First  look.\n\nThen click.")
+    })
+  })
+
   it("shows one row per step, at the point that step reached", () => {
     const ground = { snapshotId: "s", generation: 1, ref: "e7" }
     const click = { type: "click", ...ground } as const

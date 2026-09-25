@@ -126,7 +126,8 @@
       "verified": "Geprüft",
       "rejected": "Abgelehnt",
       "failed": "Fehlgeschlagen",
-      "uncertain": "Prüfen"
+      "uncertain": "Prüfen",
+      "dialog_opened": "Dialog geöffnet"
     },
     "tab": {
       "label": "Gesteuerter Tab",
@@ -148,7 +149,8 @@
     "work_log": {
       "action_needs_review": "Dieser Schritt muss überprüft werden.",
       "title": "Arbeitsprotokoll",
-      "target": "„{{name}}“"
+      "target": "„{{name}}“",
+      "reasoning": "Überlegung"
     },
     "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
     "settings": {
@@ -178,12 +180,15 @@
       "title": "Agent-Lauf",
       "loading": "Lauf wird geladen…",
       "missing": "Der Eintrag dieses Laufs ist nicht mehr verfügbar.",
-      "steps": "Aktionen: {{count}}",
       "outcome": "{{met}} von {{total}} erledigt",
       "continue": "Fortsetzen",
       "retry": "Erneut versuchen",
       "start_over": "Neu beginnen",
-      "ask": "Dazu fragen"
+      "ask": "Dazu fragen",
+      "step_count_one": "{{count}} Schritt",
+      "step_count_other": "{{count}} Schritte",
+      "page_count_one": "{{count}} Seite",
+      "page_count_other": "{{count}} Seiten"
     },
     "follow_up": {
       "continue_message": "Setze die Browser-Aufgabe fort.",

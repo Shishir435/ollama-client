@@ -5,7 +5,9 @@ import {
   AgentStepStatusSchema,
   AgentTakeoverRequestSchema,
   MAX_AGENT_ANSWER_CHARS,
-  MAX_AGENT_OBSERVATIONS
+  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_ROW_CONTEXT_CHARS,
+  MAX_AGENT_THINKING_CHARS
 } from "./agent"
 import { AgentCommandSchema } from "./agent-command"
 import { AgentStepTelemetrySchema } from "./agent-telemetry"
@@ -39,6 +41,13 @@ export const AgentStepRecordSchema = z
     sequence: z.number().int().nonnegative(),
     status: AgentStepStatusSchema,
     at: z.number().int().nonnegative(),
+    /**
+     * When the step's first receipt was written. `at` is its latest, so the
+     * two together are how long the step has taken — collapsed receipts kept
+     * only the last time, and a log that shows a clock but no duration cannot
+     * say which step the run spent its minutes on.
+     */
+    startedAt: z.number().int().nonnegative().optional(),
     command: AgentCommandSchema.optional(),
     risk: AgentRiskSchema.optional(),
     verification: AgentVerificationRecordSchema.optional(),
@@ -52,12 +61,15 @@ export const AgentStepRecordSchema = z
         ref: z.string().max(40).optional(),
         tag: z.string().max(40).optional(),
         role: z.string().max(60).optional(),
-        name: z.string().max(120).optional()
+        name: z.string().max(120).optional(),
+        rowContext: z.string().max(MAX_AGENT_ROW_CONTEXT_CHARS).optional()
       })
       .strict()
       .optional(),
     sourceUrl: z.string().max(2_048).optional(),
     finding: z.string().max(500).optional(),
+    /** The decision's streamed reasoning, bounded; display text only. */
+    thinking: z.string().max(MAX_AGENT_THINKING_CHARS).optional(),
     /**
      * What the step cost. Numbers only by its own schema, so it crosses the
      * panel port under the same rule as everything else here: a record is

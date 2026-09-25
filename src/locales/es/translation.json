@@ -126,7 +126,8 @@
       "verified": "Verificado",
       "rejected": "Rechazado",
       "failed": "Falló",
-      "uncertain": "Revisar"
+      "uncertain": "Revisar",
+      "dialog_opened": "Diálogo abierto"
     },
     "tab": {
       "label": "Pestaña controlada",
@@ -148,7 +149,8 @@
     "work_log": {
       "action_needs_review": "Este paso requiere revisión.",
       "title": "Registro de trabajo",
-      "target": "«{{name}}»"
+      "target": "«{{name}}»",
+      "reasoning": "Razonamiento"
     },
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
     "settings": {
@@ -178,12 +180,15 @@
       "title": "Ejecución del agente",
       "loading": "Cargando la ejecución…",
       "missing": "El registro de esta ejecución ya no está disponible.",
-      "steps": "Acciones: {{count}}",
       "outcome": "{{met}} de {{total}} hechas",
       "continue": "Continuar",
       "retry": "Reintentar",
       "start_over": "Empezar de nuevo",
-      "ask": "Preguntar sobre esto"
+      "ask": "Preguntar sobre esto",
+      "step_count_one": "{{count}} paso",
+      "step_count_other": "{{count}} pasos",
+      "page_count_one": "{{count}} página",
+      "page_count_other": "{{count}} páginas"
     },
     "follow_up": {
       "continue_message": "Continúa la tarea en el navegador.",

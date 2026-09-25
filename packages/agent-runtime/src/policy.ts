@@ -13,6 +13,7 @@ import type {
   AgentSemanticEffect
 } from "./ports"
 import { isAgentAuthoredDestination } from "./provenance"
+import { agentRowContextBeyond } from "./row-context"
 
 const RISK_ORDER: readonly AgentRisk[] = ["low", "medium", "high", "critical"]
 
@@ -311,6 +312,21 @@ const MAX_EVIDENCE_CHARS = 1_000
  * each, and a prompt the user has to read past to reach the buttons is a
  * prompt they stop reading.
  */
+/**
+ * The control and the row it sits in, so one of five identical Delete
+ * buttons is named by the file beside it. The row's own copy of the label is
+ * left out.
+ */
+const rowEvidence = (input: AgentPolicyInput): string | undefined => {
+  const { accessibleName, rowContext } = input.effect.target
+  const row = agentRowContextBeyond(accessibleName, rowContext)
+  if (!row) return accessibleName
+  return `${accessibleName ?? input.effect.command.type} — ${row}`.slice(
+    0,
+    1_000
+  )
+}
+
 const batchEvidence = (input: AgentPolicyInput): string | undefined => {
   const fields = input.effect.batch?.fields
   if (!fields?.length) return undefined
@@ -411,14 +427,7 @@ const makeApprovalRequest = (
             ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
             : "The browser will perform the resolved page effect shown above."),
     display: approvalDisplay(input),
-    pageEvidence:
-      batchEvidence(input) ??
-      (input.effect.target.rowContext
-        ? `${input.effect.target.accessibleName ?? input.effect.command.type} — ${input.effect.target.rowContext}`.slice(
-            0,
-            1_000
-          )
-        : input.effect.target.accessibleName),
+    pageEvidence: batchEvidence(input) ?? rowEvidence(input),
     createdAt: input.now
   }
 }

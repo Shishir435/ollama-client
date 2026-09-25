@@ -3,6 +3,7 @@ import type { AgentFollowUpMode } from "@ollama-client/contracts"
 import type { AgentRunCard } from "@ollama-client/contracts/agent-rpc"
 import {
   Bot,
+  ChevronDown,
   MessageSquare,
   RotateCcw,
   SquarePen,
@@ -10,6 +11,7 @@ import {
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/class-names"
 import type { ChatMessage } from "@/types"
@@ -19,10 +21,60 @@ import {
   type AgentWorkspaceConnection,
   useAgentLiveRun
 } from "../lib/agent-connection"
-import { agentFailureMessageKey, agentPlainText } from "../lib/presentation"
+import { agentFailureMessageKey, toAgentWorkLog } from "../lib/presentation"
 import { AgentRunSupervision } from "./agent-run-supervision"
+import { AgentWorkLog } from "./agent-work-log"
 
-const AGENT_CARD_RESULT_LIMIT = 20_000
+/**
+ * What a settled run did, one row per step, behind a line that counts them.
+ *
+ * The live card showed the log and the settled one dropped it, so a run's
+ * record vanished at the moment it finished and the line left behind —
+ * "Actions: 1" under a log that had shown two rows — counted something else.
+ * The count is the rows' own now, and the rows are the same ones the live
+ * card drew.
+ */
+const AgentRunRecord = ({ run }: { run: AgentRunCard }) => {
+  const { t } = useTranslation()
+  const items = toAgentWorkLog(run.steps ?? [])
+  const summary = (
+    <>
+      {t("agent.card.step_count", { count: items.length })}
+      {run.pages !== undefined && run.pages > 0 && (
+        <>
+          {" · "}
+          {t("agent.card.page_count", { count: run.pages })}
+        </>
+      )}
+      {run.outcome && run.outcome.total > 0 && (
+        <>
+          {" · "}
+          {t("agent.card.outcome", {
+            met: run.outcome.met,
+            total: run.outcome.total
+          })}
+        </>
+      )}
+    </>
+  )
+  if (items.length === 0) {
+    return <p className="mt-1.5 text-micro text-muted-foreground">{summary}</p>
+  }
+  return (
+    <details className="group/record mt-1.5">
+      <summary className="flex cursor-pointer list-none items-center gap-1 rounded-control text-micro text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
+        <ChevronDown
+          className="icon-xs -rotate-90 transition-transform group-open/record:rotate-0"
+          aria-hidden="true"
+        />
+        {summary}
+      </summary>
+      <div className="mt-1.5">
+        <AgentWorkLog items={items} />
+      </div>
+    </details>
+  )
+}
 
 /**
  * Which follow-up a settled run offers. A run that got somewhere is carried
@@ -199,27 +251,21 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
       {run && !supervised && (
         <>
           {run.result && !answered && (
-            <p className="mt-1.5 wrap-break-word">
-              {agentPlainText(run.result, AGENT_CARD_RESULT_LIMIT)}
-            </p>
+            /**
+             * The result is the model's own answer, not page text, so it is
+             * drawn the way chat draws the model — a list stays a list. What
+             * came off the page stays flattened in the rows below.
+             */
+            <div className="mt-1.5 min-w-0">
+              <MarkdownRenderer content={run.result} />
+            </div>
           )}
           {run.error && (
             <p className="mt-1.5 text-destructive">
               {t(agentFailureMessageKey(run.error))}
             </p>
           )}
-          <p className="mt-1.5 text-micro text-muted-foreground">
-            {t("agent.card.steps", { count: run.stepCount })}
-            {run.outcome && run.outcome.total > 0 && (
-              <>
-                {" · "}
-                {t("agent.card.outcome", {
-                  met: run.outcome.met,
-                  total: run.outcome.total
-                })}
-              </>
-            )}
-          </p>
+          <AgentRunRecord run={run} />
           {settled && draft && <AgentRunFollowUps run={run} draft={draft} />}
         </>
       )}

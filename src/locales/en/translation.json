@@ -126,7 +126,8 @@
       "verified": "Verified",
       "rejected": "Rejected",
       "failed": "Failed",
-      "uncertain": "Review"
+      "uncertain": "Review",
+      "dialog_opened": "Dialog opened"
     },
     "tab": {
       "label": "Controlled tab",
@@ -148,7 +149,8 @@
     "work_log": {
       "action_needs_review": "This step needs review.",
       "title": "Work log",
-      "target": "“{{name}}”"
+      "target": "“{{name}}”",
+      "reasoning": "Reasoning"
     },
     "correction": "Paused. Describe what should change, then continue.",
     "settings": {
@@ -178,12 +180,15 @@
       "title": "Agent run",
       "loading": "Loading the run…",
       "missing": "This run's record is no longer available.",
-      "steps": "Actions: {{count}}",
       "outcome": "{{met}} of {{total}} done",
       "continue": "Continue",
       "retry": "Retry",
       "start_over": "Start over",
-      "ask": "Ask about it"
+      "ask": "Ask about it",
+      "step_count_one": "{{count}} step",
+      "step_count_other": "{{count}} steps",
+      "page_count_one": "{{count}} page",
+      "page_count_other": "{{count}} pages"
     },
     "follow_up": {
       "continue_message": "Continue the browser task.",

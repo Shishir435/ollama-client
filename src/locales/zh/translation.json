@@ -126,7 +126,8 @@
       "verified": "已验证",
       "rejected": "已拒绝",
       "failed": "失败",
-      "uncertain": "需检查"
+      "uncertain": "需检查",
+      "dialog_opened": "已打开对话框"
     },
     "tab": {
       "label": "受控标签页",
@@ -148,7 +149,8 @@
     "work_log": {
       "action_needs_review": "此步骤需要检查。",
       "title": "工作日志",
-      "target": "“{{name}}”"
+      "target": "“{{name}}”",
+      "reasoning": "推理"
     },
     "correction": "已暂停。说明需要更改的内容，然后继续。",
     "settings": {
@@ -178,12 +180,15 @@
       "title": "智能体运行",
       "loading": "正在加载运行…",
       "missing": "此运行的记录已不可用。",
-      "steps": "操作：{{count}}",
       "outcome": "已完成 {{met}}/{{total}}",
       "continue": "继续",
       "retry": "重试",
       "start_over": "重新开始",
-      "ask": "就此提问"
+      "ask": "就此提问",
+      "step_count_one": "{{count}} 个步骤",
+      "step_count_other": "{{count}} 个步骤",
+      "page_count_one": "{{count}} 个页面",
+      "page_count_other": "{{count}} 个页面"
     },
     "follow_up": {
       "continue_message": "继续这个浏览器任务。",

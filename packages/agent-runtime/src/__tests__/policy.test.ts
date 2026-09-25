@@ -63,7 +63,7 @@ describe("resolved-effect policy", () => {
     expect(decision.type).toBe("approval_required")
     if (decision.type === "approval_required") {
       expect(decision.request.risk).toBe("critical")
-      expect(decision.request.pageEvidence).toContain("old-report-2023.pdf")
+      expect(decision.request.pageEvidence).toBe("Delete — old-report-2023.pdf")
     }
   })
 

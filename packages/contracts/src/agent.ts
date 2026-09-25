@@ -80,6 +80,29 @@ export const MAX_AGENT_OBSERVATIONS = 50
 export const MAX_AGENT_FINDING_CHARS = 500
 
 /**
+ * The most of a decision's reasoning a step keeps for the work log.
+ *
+ * Hosted models stream their thinking, and a supervisor watching a run wants
+ * to know why it is about to click something. It is display text for the
+ * card, never replayed to a model and never an instruction; bounded because
+ * it rides a receipt whose whole size is capped, and the end is kept because
+ * that is where a model states what it decided.
+ */
+export const MAX_AGENT_THINKING_CHARS = 1_500
+
+/** The end of a decision's reasoning, bounded, marked where it was cut. */
+export const agentThinkingTail = (text: string): string | undefined => {
+  const trimmed = text.trim()
+  if (!trimmed) return undefined
+  return trimmed.length <= MAX_AGENT_THINKING_CHARS
+    ? trimmed
+    : `…${trimmed.slice(-(MAX_AGENT_THINKING_CHARS - 1)).trimStart()}`
+}
+
+/** The row text kept beside a step's target, as the observation bounds it. */
+export const MAX_AGENT_ROW_CONTEXT_CHARS = 140
+
+/**
  * The most a completion's evidence may quote. Short on purpose: it has to be
  * matched against the page, and a paragraph is a paraphrase no rendered page
  * will contain verbatim.
