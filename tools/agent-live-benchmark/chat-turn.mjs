@@ -231,8 +231,18 @@ export const startFreshChat = async (panel) => {
     .getByRole("button", { name: CHAT_LABELS.sessions, exact: true })
     .first()
     .click({ timeout: 5000 })
+  /** The sheet has two: the header's icon and the list's own button. */
   await panel
     .getByRole("button", { name: CHAT_LABELS.newChat, exact: true })
+    .first()
     .click({ timeout: 5000 })
-  await panel.keyboard.press("Escape").catch(() => {})
+  /**
+   * A sheet left open covers the composer, the approval cards and the Stop
+   * button, and every later click in the case missed.
+   */
+  const sheet = panel.getByRole("dialog")
+  if (await sheet.isVisible().catch(() => false)) {
+    await panel.keyboard.press("Escape").catch(() => {})
+    await sheet.waitFor({ state: "hidden", timeout: 5000 })
+  }
 }
