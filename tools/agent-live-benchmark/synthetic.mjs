@@ -436,7 +436,8 @@ try {
       url: fixture.url(),
       pauseReason: final?.run?.pauseReason,
       openTabActive,
-      readText: chatToolText(wire)
+      readText: chatToolText(wire),
+      delegated: delegated && final.run.status === "completed"
     })
     const success = scored.success
     const predicate = scored.predicate

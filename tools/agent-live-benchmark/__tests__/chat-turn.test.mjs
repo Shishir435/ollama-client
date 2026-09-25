@@ -166,7 +166,7 @@ describe("chatAnswered", () => {
 })
 
 describe("chatToolText", () => {
-  it("collects the tool results the chat's last request carried", () => {
+  it("collects only what page-reading tools returned", () => {
     const wire = [
       {
         path: "/v1/chat/completions",
@@ -174,8 +174,21 @@ describe("chatToolText", () => {
           tools: [{ function: { name: "browser_task" } }],
           messages: [
             { role: "user", content: "read it" },
-            { role: "tool", content: "Reference code: QP-719" },
-            { role: "tool", content: "Status code: ZX-482" }
+            {
+              role: "assistant",
+              tool_calls: [
+                { id: "c1", function: { name: "current_tab" } },
+                { id: "c2", function: { name: "browser_task" } },
+                { id: "c3", function: { name: "read_tab" } }
+              ]
+            },
+            {
+              role: "tool",
+              tool_call_id: "c1",
+              content: "Reference code: QP-719"
+            },
+            { role: "tool", tool_call_id: "c2", content: "Found ZX-482" },
+            { role: "tool", tool_call_id: "c3", content: "Status code: ZX-482" }
           ]
         }
       }

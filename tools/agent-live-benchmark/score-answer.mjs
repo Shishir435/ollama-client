@@ -122,6 +122,12 @@ export const scoreWikiSearch = ({ answer, url }) => {
  * that an unresolved effect was the expected outcome.
  */
 export const scoreVerdict = ({ status, success, pauseReason }) => {
+  /**
+   * The harness could not give the model a fresh chat, so the model never
+   * received the task. Counting that as a miss lowers the model's rate for
+   * the harness's failure; it is left out of every rate instead.
+   */
+  if (status === "harness_invalid") return "invalid"
   /** A chat that answered without delegating a run is judged like a run. */
   if (status === "completed" || status === "answered_in_chat")
     return success ? "achieved" : "false_completed"
@@ -144,6 +150,19 @@ export const statesActive = (text) => {
   if (/\bnot\s+active\b/.test(norm)) return false
   return true
 }
+/**
+ * Whether `text` states `value` as a whole token, ignoring case. A substring
+ * check accepted `0.14.01` for `0.14.0` and `QP-7190` for `QP-719`. A
+ * sentence-ending period after the value and a `v` before it still count.
+ */
+export const statesValue = (text, value) => {
+  const escaped = String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return new RegExp(
+    `(?<![a-z0-9])v?${escaped}(?![a-z0-9]|[.-][a-z0-9])`,
+    "i"
+  ).test(String(text ?? ""))
+}
+
 const pathOf = (url) => {
   try {
     return new URL(String(url)).pathname
@@ -163,15 +182,19 @@ export const scoreSyntheticTask = ({
   pauseReason,
   openTabActive = false,
   /**
-   * What the chat's tools returned from pages — the tab it read, the
-   * browser task's report. An answer-scored task also needs its values here:
-   * a reply alone is the model's own words, and a model can state a code it
-   * never read.
+   * What the chat's page-reading tools returned — the tab it read. A reply
+   * alone is the model's own words, and a model can state a code it never
+   * read; the browser task's report is a summary, not a page read.
    */
-  readText = ""
+  readText = "",
+  /** A browser task ran and completed; its own observations read the page. */
+  delegated = false
 }) => {
+  const answered = (value) => statesValue(answer, value)
+  /** The value is in the reply and in a page this turn read. */
   const read = (value) =>
-    String(answer).includes(value) && String(readText).includes(value)
+    answered(value) &&
+    (statesValue(readText, value) || (delegated && statesValue(body, value)))
   const saysActive = statesActive(answer)
   const pageShowsActive = statesActive(body)
   /** Tested on the path: a plain GET form lands on `/form/details?name=Alice`. */
@@ -199,9 +222,15 @@ export const scoreSyntheticTask = ({
         predicate: "field:focus"
       }
     case "memory":
+      /**
+       * One code is on the start page and one on the details page, so the
+       * run must have landed on details: the answer alone could be recalled
+       * from anywhere.
+       */
       return {
-        success: completed && read("QP-719") && read("ZX-482"),
-        predicate: "answer:both-codes"
+        success:
+          completed && detailsUrl && answered("QP-719") && answered("ZX-482"),
+        predicate: "navigation+answer:both-codes"
       }
     case "ambiguous":
       return {

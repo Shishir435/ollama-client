@@ -247,10 +247,14 @@ export const startFreshChat = async (panel) => {
   }
 }
 
+/** The chat tools that return a page's own text. */
+const PAGE_READ_TOOLS = new Set(["current_tab", "read_tab"])
+
 /**
- * Every tool result the chat was handed, from its last request: the pages
- * its tools read and the browser task's report. This is what an answer can
- * be checked against, rather than trusting the answer.
+ * The page text the chat's tools returned, from its last request: what an
+ * answer can be checked against rather than trusting the answer. Only
+ * page-reading tools count — the browser task's report is a summary the
+ * run wrote, and scoring it as a read lets a report vouch for itself.
  */
 export const chatToolText = (wire) => {
   const last = wire
@@ -260,8 +264,18 @@ export const chatToolText = (wire) => {
         JSON.stringify(rec.request?.tools ?? []).includes("browser_task")
     )
     .at(-1)
-  return (last?.request?.messages ?? [])
-    .filter((message) => message.role === "tool")
+  const messages = last?.request?.messages ?? []
+  const toolOf = new Map(
+    messages.flatMap((message) =>
+      (message.tool_calls ?? []).map((call) => [call.id, call.function?.name])
+    )
+  )
+  return messages
+    .filter(
+      (message) =>
+        message.role === "tool" &&
+        PAGE_READ_TOOLS.has(toolOf.get(message.tool_call_id))
+    )
     .map((message) =>
       typeof message.content === "string"
         ? message.content

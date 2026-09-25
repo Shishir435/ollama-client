@@ -6,7 +6,8 @@ import {
   scoreSyntheticTask,
   scoreVerdict,
   scoreWikiSearch,
-  statesActive
+  statesActive,
+  statesValue
 } from "../score-answer.mjs"
 
 const HN_BODY =
@@ -219,6 +220,59 @@ describe("scoreSyntheticTask answer tasks", () => {
     assert.equal(
       scoreSyntheticTask({ ...base, readText: "Release 0.14.0 notes" }).success,
       true
+    )
+    assert.equal(
+      scoreSyntheticTask({ ...base, body: "Release 0.14.0", delegated: true })
+        .success,
+      true
+    )
+    assert.equal(
+      scoreSyntheticTask({ ...base, body: "Release 0.14.0" }).success,
+      false
+    )
+  })
+
+  it("matches whole values, not substrings", () => {
+    assert.equal(
+      scoreSyntheticTask({
+        kind: "read",
+        completed: true,
+        answer: "Version 0.14.01",
+        readText: "Release 0.14.01"
+      }).success,
+      false
+    )
+    assert.equal(statesValue("It is v0.14.0.", "0.14.0"), true)
+    assert.equal(statesValue("qp-719", "QP-719"), true)
+    assert.equal(statesValue("QP-7190", "QP-719"), false)
+  })
+
+  it("scores memory only after landing on the details page", () => {
+    const base = {
+      kind: "memory",
+      completed: true,
+      answer: "QP-719 and ZX-482"
+    }
+    assert.equal(
+      scoreSyntheticTask({ ...base, url: "http://127.0.0.1:5000/memory" })
+        .success,
+      false
+    )
+    assert.equal(
+      scoreSyntheticTask({
+        ...base,
+        url: "http://127.0.0.1:5000/memory/details"
+      }).success,
+      true
+    )
+  })
+})
+
+describe("scoreVerdict harness failures", () => {
+  it("leaves a case the model never received unscored", () => {
+    assert.equal(
+      scoreVerdict({ status: "harness_invalid", success: false }),
+      "invalid"
     )
   })
 })
