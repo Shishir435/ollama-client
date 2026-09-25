@@ -829,13 +829,28 @@ const isTextEntryInput = (element: Element): boolean =>
  * search field as a `<textarea name="q">` and submit it from a key handler.
  * Pressed as a plain key, Enter reached the page's own script, which
  * navigated off the approved path, and the step failed on a search the user
- * had asked for. It is a submission when the textarea is the form's only
- * text entry, in a GET form with a submitter: a newline there means nothing,
- * while a comment box posts and a multi-field form has other fields.
+ * had asked for. It is a submission when the textarea says it is a single
+ * line and is the form's only text entry, in a GET form with a submitter: a
+ * newline there means nothing, while a comment box posts, a writing field
+ * has rows, and a multi-field form has other fields.
  */
 const isSearchTextarea = (element: HTMLTextAreaElement): boolean => {
   const form = element.form
   if (!form || form.method.toLowerCase() !== "get") return false
+  /**
+   * The field has to say it is one line. Both search pages mark theirs —
+   * `rows="1"`, a combobox role, DuckDuckGo's `enterkeyhint="search"` — and
+   * a writing field says the opposite, so a lone textarea in a GET form is
+   * not enough: Enter there would send an unfinished draft.
+   */
+  if (element.getAttribute("aria-multiline") === "true") return false
+  const role = element.getAttribute("role")
+  const singleLine =
+    element.getAttribute("rows")?.trim() === "1" ||
+    role === "combobox" ||
+    role === "searchbox" ||
+    element.getAttribute("enterkeyhint") === "search"
+  if (!singleLine) return false
   if (formSubmitters(form).length === 0) return false
   return !Array.from(form.elements).some(
     (control) =>

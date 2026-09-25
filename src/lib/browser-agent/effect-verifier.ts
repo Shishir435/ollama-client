@@ -74,26 +74,15 @@ const sameUrl = (first: string | undefined, second: string): boolean => {
 }
 
 /**
- * Whether a submission landed where it was sent. A form sends every field,
- * hidden ones included, and a site tidies its own address once it arrives:
- * DuckDuckGo commits `?ia=web&origin=…&we_started_at=…&q=test` and then
- * removes its tracking fields, so an exact match marked a search that had
- * worked as failed or left it for review. Same origin and path, and no field
- * the form sent came back with a different value; fields the site dropped or
- * added are its own.
+ * The observation is of the page the tab holds: same origin and path. The
+ * query is the site's to tidy between the two reads, which is how a working
+ * search whose tracking fields the site removed was left for review.
  */
-const submittedTo = (committed: string, requested: string): boolean => {
-  if (sameUrl(committed, requested)) return true
+const samePage = (first: string, second: string): boolean => {
   try {
-    const landed = new URL(committed)
-    const sent = new URL(requested)
-    if (landed.origin !== sent.origin || landed.pathname !== sent.pathname)
-      return false
-    for (const [name, value] of sent.searchParams) {
-      const kept = landed.searchParams.getAll(name)
-      if (kept.length > 0 && !kept.includes(value)) return false
-    }
-    return true
+    const a = new URL(first)
+    const b = new URL(second)
+    return a.origin === b.origin && a.pathname === b.pathname
   } catch {
     return false
   }
@@ -929,7 +918,7 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
   if (!sameUrl(tab.url, input.effect.sourceUrl)) {
     if (
       input.effect.destination &&
-      submittedTo(
+      landedAt(
         tab.url,
         input.receipt.submissionUrl ?? input.effect.destination.url
       ) &&
@@ -956,7 +945,7 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     ) {
       const after = await observeAfter(input, adapter, signal)
       if (
-        submittedTo(after.url, tab.url) &&
+        samePage(after.url, tab.url) &&
         after.origin === input.effect.destination.origin &&
         after.documentId !== input.before.documentId
       ) {

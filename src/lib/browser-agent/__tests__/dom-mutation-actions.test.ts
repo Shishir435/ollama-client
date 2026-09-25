@@ -256,7 +256,10 @@ describe("Agent DOM mutation resolution and policy", () => {
    * observation still saw the page it left, and the working search was left
    * for review.
    */
-  it("confirms a GET submission whose page tidied its address on arrival", async () => {
+  it.each([
+    ["confirmed", "/?ia=web&q=test", "the site dropped its hidden fields"],
+    ["ambiguous", "/?ia=web", "the search term is gone"]
+  ])("judges a GET submission %s when %s", async (outcome, landedPath) => {
     const before = observation({
       elements: [
         element({
@@ -268,11 +271,13 @@ describe("Agent DOM mutation resolution and policy", () => {
         })
       ]
     })
-    const sent = new URL("/?ia=web&we_started_at=1&q=test", location.href).href
-    const tidied = new URL("/?ia=web&q=test", location.href).href
     const verification: AgentVerificationInput = {
       effect: await authorize(command({ type: "click", ref: "e1" }), before),
-      receipt: { executedAt: 5, submissionUrl: sent },
+      /** The executor reports the visible fields only. */
+      receipt: {
+        executedAt: 5,
+        submissionUrl: new URL("/?q=test", location.href).href
+      },
       before,
       allowedOrigins: [location.origin]
     }
@@ -280,11 +285,13 @@ describe("Agent DOM mutation resolution and policy", () => {
       verification,
       /** The tab has the tidied address; the observation is not caught up. */
       adapter: verifierAdapter(before, {
-        getTab: async () => ({ url: tidied })
+        getTab: async () => ({
+          url: new URL(landedPath, location.href).href
+        })
       }),
       signal
     })
-    expect(result.outcome).toBe("confirmed")
+    expect(result.outcome).toBe(outcome)
   })
 
   it("derives submission and formaction from a submit control", async () => {
@@ -1289,6 +1296,7 @@ describe("Agent DOM mutation execution", () => {
     hidden.value = "web"
     const query = document.createElement("textarea")
     query.name = "q"
+    query.rows = 1
     query.value = "test"
     const search = document.createElement("button")
     search.type = "submit"
@@ -1311,8 +1319,11 @@ describe("Agent DOM mutation execution", () => {
       references,
       signal
     })
-    expect(submitted).toBe(new URL("/?ia=web&q=test", location.href).href)
-    expect(assign).toHaveBeenCalledExactlyOnceWith(submitted)
+    /** Loaded with its hidden field; recorded and verified without it. */
+    expect(assign).toHaveBeenCalledExactlyOnceWith(
+      new URL("/?ia=web&q=test", location.href).href
+    )
+    expect(submitted).toBe(new URL("/?q=test", location.href).href)
   })
 
   it("loads exactly the approved search address past a formdata listener", async () => {

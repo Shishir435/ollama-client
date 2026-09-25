@@ -443,6 +443,46 @@ const buildGuardedSubmission = (
 }
 
 /**
+ * The submitted address as the verifier and the record see it: every field
+ * but the form's hidden inputs. A site may drop its own hidden fields once it
+ * arrives — DuckDuckGo removes its tracking fields — so they cannot be what
+ * a landing is checked against, while a visible field the user's value went
+ * into, such as the search term, must still be there. Hidden values, CSRF
+ * tokens among them, also stay out of the run's record.
+ */
+const visibleSubmissionHref = (
+  form: HTMLFormElement,
+  submitter: AgentFormSubmitter | undefined,
+  submitted: URL
+): string => {
+  const hidden = new Map<string, number>()
+  for (const control of Array.from(form.elements)) {
+    if (
+      control instanceof HTMLInputElement &&
+      control.type === "hidden" &&
+      control.name &&
+      !control.disabled
+    ) {
+      const key = `${control.name}\u0000${control.value}`
+      hidden.set(key, (hidden.get(key) ?? 0) + 1)
+    }
+  }
+  const visible = new URLSearchParams()
+  for (const [name, value] of agentGuardedSubmissionEntries(form, submitter)) {
+    const key = `${name}\u0000${value}`
+    const remaining = hidden.get(key) ?? 0
+    if (remaining > 0) {
+      hidden.set(key, remaining - 1)
+      continue
+    }
+    visible.append(name, value)
+  }
+  const reported = new URL(submitted.href)
+  reported.search = visible.toString()
+  return reported.href
+}
+
+/**
  * Submit the approved destination itself, from a fresh form carrying only the
  * already-bound standard controls, so a page listener cannot swap the
  * destination during the activation event.
@@ -488,7 +528,7 @@ const submitApprovedDestination = (
     const view = element.ownerDocument.defaultView
     if (!view) throw new Error("Agent submission has no window to navigate")
     view.location.assign(submitted.href)
-    return submitted.href
+    return visibleSubmissionHref(form, submitter, submitted)
   }
   try {
     element.ownerDocument.body.append(guarded)

@@ -331,6 +331,7 @@ describe("Agent observation builder", () => {
     hidden.value = "web"
     const query = document.createElement("textarea")
     query.name = "q"
+    query.rows = 1
     query.setAttribute("aria-label", "Search with DuckDuckGo")
     const search = document.createElement("button")
     search.type = "submit"
@@ -341,6 +342,23 @@ describe("Agent observation builder", () => {
     const field = build().elements.find((element) => element.tag === "textarea")
     expect(field?.maySubmit).toBe(true)
     expect(field?.formMethod).toBe("get")
+  })
+
+  it("keeps Enter a newline in a lone textarea that does not say it is one line", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/draft"
+    const draft = document.createElement("textarea")
+    draft.setAttribute("aria-label", "Message")
+    const send = document.createElement("button")
+    send.textContent = "Send"
+    form.append(draft, send)
+    document.body.append(form)
+
+    const textarea = build().elements.find(
+      (element) => element.tag === "textarea"
+    )
+    expect(textarea?.maySubmit).toBeUndefined()
   })
 
   it("keeps Enter a newline in a textarea beside other text fields", () => {
