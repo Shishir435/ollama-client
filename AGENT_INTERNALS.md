@@ -525,6 +525,10 @@ Read the section your change touches; you do not need the whole file.
   and `file_selection` stay critical or takeover, a grant never covers a step
   carrying one of them, and a submission riding along with one is priced by
   the one.
+- **A search-box textarea submits on Enter like an input.** DuckDuckGo and
+  Google render their search field as `<textarea name="q">`. Enter there is
+  a submission when the textarea is the form's only text entry, in a GET form
+  with a submitter; anywhere else it stays a newline.
 - **Enter in a same-origin search shows the address it opens, and stays a
   submission.** A GET form can change state through its handler or its
   endpoint, so Enter is priced, granted and verified as a submission; a

@@ -808,18 +808,47 @@ export const resolveAgentFormSubmitter = (
   return form ? formSubmitters(form)[0] : undefined
 }
 
+const NON_TEXT_INPUT_TYPES = [
+  "button",
+  "checkbox",
+  "file",
+  "hidden",
+  "image",
+  "radio",
+  "reset",
+  "submit"
+]
+
+const isTextEntryInput = (element: Element): boolean =>
+  element instanceof HTMLInputElement &&
+  !NON_TEXT_INPUT_TYPES.includes(element.type.toLowerCase())
+
+/**
+ * A textarea that is a search box. Enter in a textarea starts a new line, so
+ * it was never a submission — but DuckDuckGo and Google both render their
+ * search field as a `<textarea name="q">` and submit it from a key handler.
+ * Pressed as a plain key, Enter reached the page's own script, which
+ * navigated off the approved path, and the step failed on a search the user
+ * had asked for. It is a submission when the textarea is the form's only
+ * text entry, in a GET form with a submitter: a newline there means nothing,
+ * while a comment box posts and a multi-field form has other fields.
+ */
+const isSearchTextarea = (element: HTMLTextAreaElement): boolean => {
+  const form = element.form
+  if (!form || form.method.toLowerCase() !== "get") return false
+  if (formSubmitters(form).length === 0) return false
+  return !Array.from(form.elements).some(
+    (control) =>
+      control !== element &&
+      (control instanceof HTMLTextAreaElement || isTextEntryInput(control))
+  )
+}
+
 const maySubmitWithEnter = (element: Element): boolean => {
-  if (!(element instanceof HTMLInputElement) || !element.form) return false
-  return ![
-    "button",
-    "checkbox",
-    "file",
-    "hidden",
-    "image",
-    "radio",
-    "reset",
-    "submit"
-  ].includes(element.type.toLowerCase())
+  if (element instanceof HTMLTextAreaElement) return isSearchTextarea(element)
+  return (
+    isTextEntryInput(element) && Boolean((element as HTMLInputElement).form)
+  )
 }
 
 const associatedForm = (element: Element): HTMLFormElement | null => {

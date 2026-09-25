@@ -1237,6 +1237,47 @@ describe("Agent DOM mutation execution", () => {
    * and a listener on the document could rewrite the entry list in it. The
    * checked address is navigated to directly, so no such event is fired.
    */
+  /**
+   * DuckDuckGo's search box is a textarea. Enter there used to be a plain
+   * key press the page's own script turned into a navigation off the
+   * approved path; it is the guarded submission an input's Enter is.
+   */
+  it("submits Enter in a search-box textarea to the approved address", async () => {
+    const form = document.createElement("form")
+    form.action = "/"
+    form.method = "get"
+    const hidden = document.createElement("input")
+    hidden.type = "hidden"
+    hidden.name = "ia"
+    hidden.value = "web"
+    const query = document.createElement("textarea")
+    query.name = "q"
+    query.value = "test"
+    const search = document.createElement("button")
+    search.type = "submit"
+    search.setAttribute("aria-label", "Search")
+    form.append(hidden, query, search)
+    document.body.append(form)
+    query.focus()
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      query
+    )
+    expect(effect.semanticEffects).toContain("submission")
+
+    const submitted = executeAgentDomMutationInDocument({
+      effect,
+      document,
+      references,
+      signal
+    })
+    expect(submitted).toBe(new URL("/?ia=web&q=test", location.href).href)
+    expect(assign).toHaveBeenCalledExactlyOnceWith(submitted)
+  })
+
   it("loads exactly the approved search address past a formdata listener", async () => {
     const form = document.createElement("form")
     form.action = "/search"
