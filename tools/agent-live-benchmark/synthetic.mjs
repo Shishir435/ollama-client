@@ -296,6 +296,12 @@ try {
     await fixture.bringToFront()
     const sent = await sendTask(goal)
     /**
+     * The case's clock starts once the task is sent. Waiting out the previous
+     * turn is the harness's time, and charging it to this case scored a task
+     * that took 26s as 146s.
+     */
+    const sentAt = Date.now()
+    /**
      * A task the composer never accepted is scored as not started: calling
      * it a timeout charged the model for a case it was never given.
      */
@@ -307,7 +313,7 @@ try {
      * run is the end of the case rather than a wait for the deadline.
      */
     let idleSince
-    while (sent.started && Date.now() - started < 150000) {
+    while (sent.started && Date.now() - sentAt < 150000) {
       final = messages
         .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
         .at(-1)?.snapshot
@@ -415,7 +421,7 @@ try {
       reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
       steps: final?.run?.stepCount,
       modelCalls: calls.length,
-      latencyMs: Date.now() - started,
+      latencyMs: Date.now() - sentAt,
       effects: current.effects,
       answer,
       url: fixture.url(),

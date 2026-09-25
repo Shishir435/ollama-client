@@ -72,7 +72,11 @@ export const sendChatTask = async (
   goal,
   {
     idleMs = 1500,
-    idleTimeoutMs = 120_000,
+    /**
+     * Long enough for a chat answer about a finished run; a turn still busy
+     * after this is held by something the case already left, and is stopped.
+     */
+    idleTimeoutMs = 45_000,
     startTimeoutMs = 15_000,
     read = () => readChatTurn(panel, goal),
     log = console.warn
