@@ -205,8 +205,10 @@ const budgets: Budget[] = [
      * the user-tab rule, the start address, the finish-reviewed control and
      * its copy in nine locales. Their review fixes, 9,773,473: the routine
      * consent sentence in nine locales and the visible-field submission.
+     * The second review round, 9,774,474: counted query pairs and the
+     * named-field binding for batch evidence.
      */
-    max: isFirefox ? 11_800_000 : 9_774_000
+    max: isFirefox ? 11_800_000 : 9_775_000
   },
   {
     metric: "zip",
@@ -416,9 +418,10 @@ const budgets: Budget[] = [
      * command record the completion judge reads, the user-tab rule, routine
      * consent following an approved site, the start address and the
      * finish-reviewed path. Their review fixes, 292,591: the approval's
-     * routine origin and the tighter evidence bindings.
+     * routine origin and the tighter evidence bindings. The second round,
+     * 292,960: the named-field binding and the whole-notice routine rule.
      */
-    max: isFirefox ? 212_600 : 292_800
+    max: isFirefox ? 212_600 : 293_100
   }
 ]
 
