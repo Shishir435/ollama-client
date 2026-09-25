@@ -415,6 +415,8 @@ export const registerChatRoutes = (
   const discardTurn = async (turn: BackendTurn, { abort = false } = {}) => {
     clearParked(turn.id)
     forcedTurns.delete(turn.id)
+    /** Whatever the path here, nothing will drive this turn again. */
+    pending.closeTurn(turn.id, "The proxy discarded this turn")
     const release = async () => {
       if (abort) await turn.abort()
       await turn.dispose()
@@ -439,7 +441,7 @@ export const registerChatRoutes = (
       log("Discarding a turn whose tool results never came back", {
         turnId: turn.id
       })
-      pending.failTurn(
+      pending.closeTurn(
         turn.id,
         "The client abandoned this turn before returning a tool result"
       )
@@ -527,7 +529,7 @@ export const registerChatRoutes = (
     if (excess <= 0) return 0
     for (const turnId of reapable.slice(0, excess)) {
       clearParked(turnId)
-      pending.failTurn(
+      pending.closeTurn(
         turnId,
         "The proxy discarded this parked turn to stay within its parked-turn limit"
       )
@@ -735,7 +737,7 @@ export const registerChatRoutes = (
       if (abandoned || settled || suspended || !turn) return
       abandoned = true
       log("Abandoning a turn", { requestId, turnId: turn.id, reason })
-      pending.failTurn(turn.id, reason)
+      pending.closeTurn(turn.id, reason)
       void discardTurn(turn, { abort: true })
     }
 
@@ -874,7 +876,7 @@ export const registerChatRoutes = (
         })
         settled = true
         if (turn) {
-          pending.failTurn(turn.id, `The turn failed: ${message}`)
+          pending.closeTurn(turn.id, `The turn failed: ${message}`)
           await discardTurn(turn, { abort: true })
         }
 

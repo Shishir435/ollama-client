@@ -80,6 +80,13 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   OpenCode bridge's fetch is told not to time out (Bun ends one at five
   minutes). Ordering is not inference — nothing is discarded because it
   forced a call, only chosen first when the cap is already exceeded.
+- **A discarded turn is closed, not just failed.** Failing a parked call
+  hands the runtime a tool error, and the model carries on and calls another
+  tool before the interrupt lands. Parked, that call belonged to no request,
+  and every later decision streamed a role chunk and nothing else. Every
+  discard path goes through `pending.closeTurn`, which fails the turn's calls
+  and refuses any it makes afterwards, and the Codex adapter answers a tool
+  call from an aborted turn at once.
 - **Every terminal path settles the session and the slot.** A response that
   stopped is not a session that ended: a parked turn is a live runtime session
   and a parked call is a promise something awaits. `ChatRoutes.inspect()`
