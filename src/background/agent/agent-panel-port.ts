@@ -22,6 +22,7 @@ import type {
   AgentRunService
 } from "./agent-run-service"
 import { AgentRunError } from "./agent-run-service"
+import { toAgentStepRecords } from "./agent-step-records"
 
 /**
  * The panel's transport. Agent owns it rather than Chat's port router: the
@@ -102,6 +103,10 @@ const FAILURES: Record<AgentRunFailureReason, { key: string; text: string }> = {
     key: "agent.error.tab_unsupported",
     text: "Agent cannot run on this page. Open a normal web page and try again."
   },
+  steer_unavailable: {
+    key: "agent.error.steer_unavailable",
+    text: "The run is not working right now, so it could not take that. Pause it and correct it instead."
+  },
   unknown_run: UNKNOWN_FAILURE
 }
 
@@ -160,63 +165,6 @@ export const registerAgentPanelPort = (
     }
   }
 
-  /**
-   * One receipt per step, merged rather than replaced.
-   *
-   * A step is appended once per lifecycle change, so a run's receipts
-   * outnumber its actions several times over. The panel collapses them to
-   * render, history and the completion judge collapse them to reason, and
-   * every one of those happens after the array has already had to fit in a
-   * snapshot — which a long run's receipts did not, taking the whole panel
-   * down with them. Collapsing here bounds the array by the step ceiling
-   * itself rather than by a number somebody remembered to raise.
-   *
-   * What a later receipt does not repeat, an earlier one keeps: the model's
-   * `finding` is written once, on the receipt for the decision that made it,
-   * and taking the last receipt wholesale dropped it — along with the target
-   * and the page it happened on — from the one surface a person reads. This
-   * is the rule `latestByStep` already applies in `history.ts`; two copies of
-   * it are two places for the panel and the model to disagree about what a
-   * step did.
-   */
-  const latestReceiptPerStep = <
-    T extends {
-      stepId: string
-      sequence: number
-      command?: unknown
-      target?: unknown
-      sourceUrl?: unknown
-      finding?: unknown
-      verification?: unknown
-    }
-  >(
-    steps: readonly T[]
-  ): T[] => {
-    const latest = new Map<string, T>()
-    for (const step of [...steps].sort(
-      (first, second) => first.sequence - second.sequence
-    )) {
-      const held = latest.get(step.stepId)
-      latest.set(
-        step.stepId,
-        held
-          ? {
-              ...held,
-              ...step,
-              command: step.command ?? held.command,
-              target: step.target ?? held.target,
-              sourceUrl: step.sourceUrl ?? held.sourceUrl,
-              finding: step.finding ?? held.finding,
-              verification: step.verification ?? held.verification
-            }
-          : step
-      )
-    }
-    return [...latest.values()].sort(
-      (first, second) => first.sequence - second.sequence
-    )
-  }
-
   const snapshotFor = async (runId?: string): Promise<AgentPanelSnapshot> => {
     if (!runId) {
       return {
@@ -232,20 +180,7 @@ export const registerAgentPanelPort = (
     )
     return {
       run: snapshot.run,
-      steps: latestReceiptPerStep(snapshot.steps).map((step) => ({
-        runId: step.runId,
-        stepId: step.stepId,
-        sequence: step.sequence,
-        status: step.status,
-        at: step.at,
-        command: step.command,
-        risk: step.risk,
-        verification: step.verification,
-        target: step.target,
-        sourceUrl: step.sourceUrl,
-        finding: step.finding,
-        telemetry: step.telemetry
-      })),
+      steps: toAgentStepRecords(snapshot.steps),
       pending: snapshot.pending,
       provider,
       browser: browserDisclosure(),
@@ -355,6 +290,9 @@ export const registerAgentPanelPort = (
           return
         case "agent_stop":
           await service.stop(command.runId)
+          return
+        case "agent_steer":
+          await service.steer(command.runId, command.text)
           return
         case "agent_complete_takeover":
           await service.completeTakeover(command.runId)

@@ -11,6 +11,7 @@ import type {
   AgentElementReferenceSnapshot,
   AgentElementReferenceStore
 } from "./element-references"
+import { agentVisibleGetQuery } from "./form-submission"
 
 export const AGENT_OBSERVATION_LIMITS = {
   elements: 2_000,
@@ -888,6 +889,28 @@ const stableFormFingerprint = (form: HTMLFormElement): string => {
   return (hash >>> 0).toString(16).padStart(8, "0")
 }
 
+/**
+ * A control whose value an approval may show: not sensitive, and not hidden
+ * by itself or anything above it — by attribute or by style — since a
+ * `display:none` field is a hidden field by another name. Read with the same
+ * predicates visibility uses, without the viewport: a search box scrolled
+ * out of sight still shows what it holds.
+ */
+const isShowableFormControl = (control: Element): boolean => {
+  if (isSensitiveAgentElement(control)) return false
+  const view = control.ownerDocument.defaultView
+  for (
+    let current: Element | null = control;
+    current;
+    current = composedParent(current)
+  ) {
+    if (isSemanticallyHidden(current)) return false
+    const style = view?.getComputedStyle(current)
+    if (!style || isHiddenByStyle(style)) return false
+  }
+  return true
+}
+
 const hasSensitiveFormControl = (form: HTMLFormElement): boolean =>
   Array.from(form.elements).some((control) => {
     if (!(control instanceof Element)) return false
@@ -1300,13 +1323,25 @@ const observedFormFields = (
   if (!form && !maySubmit) return {}
   const action = formAction(element)
   const method = formMethod(element)
+  const sensitive = Boolean(form && hasSensitiveFormControl(form))
+  const query =
+    maySubmit && form && action && method === "get" && !sensitive
+      ? agentVisibleGetQuery(
+          form,
+          resolveAgentFormSubmitter(element),
+          isShowableFormControl
+        )
+      : undefined
   return {
     ...(maySubmit && action ? { formAction: action } : {}),
     ...(maySubmit && method ? { formMethod: method } : {}),
-    ...(form ? { formFingerprint: stableFormFingerprint(form) } : {}),
-    ...(maySubmit && form && hasSensitiveFormControl(form)
-      ? { formHasSensitiveControl: true }
+    ...(query !== undefined &&
+    action &&
+    action.length + query.length + 1 <= MAX_AGENT_DESTINATION_URL_CHARS
+      ? { formQuery: query }
       : {}),
+    ...(form ? { formFingerprint: stableFormFingerprint(form) } : {}),
+    ...(maySubmit && sensitive ? { formHasSensitiveControl: true } : {}),
     ...(maySubmit ? { maySubmit: true } : {})
   }
 }

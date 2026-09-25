@@ -205,6 +205,10 @@ describe("Codex backend", () => {
       expect(threadStarts[1].developerInstructions).toContain(
         "Native web search is enabled"
       )
+      expect(threadStarts[1].developerInstructions).toContain("Stay concise")
+      expect(threadStarts[1].baseInstructions).toContain(
+        "no project, workspace, repository or files of your own"
+      )
       const nativeText: string[] = []
       const nativeReasoning: string[] = []
       const nativeOutcome = await nativeSearchTurn.run(
@@ -238,6 +242,15 @@ describe("Codex backend", () => {
           b64Json: expect.stringMatching(/^iVBOR/)
         })
       ])
+      const imageThreadStart = readFileSync(
+        path.join(directory, "workspace", "thread-starts.jsonl"),
+        "utf8"
+      )
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line))
+        .at(-1)
+      expect(imageThreadStart).not.toHaveProperty("baseInstructions")
     } finally {
       await backend.shutdown()
     }

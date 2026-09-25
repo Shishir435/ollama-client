@@ -21,6 +21,15 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 
 - **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the extension: provider-shaped behaviour belongs behind the provider's own wire format, not behind a base-URL check in a handler.
 - **An image is a part, not text.** An `image_url` content part carries no `text`, so flattening a message to a string drops it silently and leaves the model answering about pictures it never saw. `buildPromptParts` emits image parts as OpenCode file parts alongside the text, in message order.
+- **A client that names the model's role replaces the runtime's persona.**
+  Codex's base prompt is a coding agent's, standing in `cwd`, and a client's
+  system prompt reached the thread only as `developerInstructions` beneath it.
+  A browser client whose user asked about the pull request open in the tab
+  was answered by a coding agent reporting that its workspace — the empty
+  directory this proxy creates for it — held no git repository. When the
+  request carries a system prompt, the Codex thread starts with
+  `CODEX_CLIENT_BASE_INSTRUCTIONS`, which defers to the client and says there
+  is no workspace; a request without one keeps Codex's own base.
 - **Capabilities travel in the catalog.** `/v1/models` reports the runtime's own tool-calling, reasoning and modality flags as `capabilities`, `supported_parameters`, `input_modalities` and `output_modalities` — exactly what `openai-compatible.ts` already reads. A provider-level image tool is a dedicated image-output model, not an output flag on every text model.
 - **An empty catalog is not an answer, and is never cached.** A backend that
   is up has not necessarily finished discovering its providers, so

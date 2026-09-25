@@ -8,7 +8,7 @@
       "scroll_down": "Nach unten scrollen",
       "scroll_left": "Nach links scrollen",
       "scroll_right": "Nach rechts scrollen",
-      "switch_tab": "Zu Tab {{tab}} wechseln",
+      "switch_tab": "Zu einem anderen Tab wechseln",
       "wait": "Warten auf {{condition}}",
       "clear_and_type": "Text im Feld ersetzen",
       "press_key": "{{key}} drücken",
@@ -65,7 +65,8 @@
       "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
       "unknown": "Agent konnte diese Anfrage nicht ausführen.",
       "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut.",
-      "turn_has_run": "Diese Nachricht hat bereits eine Browser-Aufgabe gestartet."
+      "turn_has_run": "Diese Nachricht hat bereits eine Browser-Aufgabe gestartet.",
+      "steer_unavailable": "Der Lauf arbeitet gerade nicht und konnte das nicht übernehmen. Halten Sie ihn an und korrigieren Sie ihn stattdessen."
     },
     "failure": {
       "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
@@ -126,7 +127,8 @@
       "verified": "Geprüft",
       "rejected": "Abgelehnt",
       "failed": "Fehlgeschlagen",
-      "uncertain": "Prüfen"
+      "uncertain": "Prüfen",
+      "dialog_opened": "Dialog geöffnet"
     },
     "tab": {
       "label": "Gesteuerter Tab",
@@ -148,7 +150,8 @@
     "work_log": {
       "action_needs_review": "Dieser Schritt muss überprüft werden.",
       "title": "Arbeitsprotokoll",
-      "target": "„{{name}}“"
+      "target": "„{{name}}“",
+      "reasoning": "Überlegung"
     },
     "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
     "settings": {
@@ -178,12 +181,15 @@
       "title": "Agent-Lauf",
       "loading": "Lauf wird geladen…",
       "missing": "Der Eintrag dieses Laufs ist nicht mehr verfügbar.",
-      "steps": "Aktionen: {{count}}",
       "outcome": "{{met}} von {{total}} erledigt",
       "continue": "Fortsetzen",
       "retry": "Erneut versuchen",
       "start_over": "Neu beginnen",
-      "ask": "Dazu fragen"
+      "ask": "Dazu fragen",
+      "step_count_one": "{{count}} Schritt",
+      "step_count_other": "{{count}} Schritte",
+      "page_count_one": "{{count}} Seite",
+      "page_count_other": "{{count}} Seiten"
     },
     "follow_up": {
       "continue_message": "Setze die Browser-Aufgabe fort.",
@@ -201,14 +207,15 @@
       "dialog_unreadable": "Der Text wurde nicht gelesen: Der Dialog gehört zu einem Frame, den dieser Lauf nicht lesen darf.",
       "fill_fields": "Formularfelder in einem Schritt setzen: {{count}}",
       "fill_fields_consequence": "Jedes unten aufgeführte Steuerelement wird der Reihe nach gesetzt; beim ersten, das nicht gesetzt werden kann, wird angehalten. Der Agent drückt nicht auf Senden, aber die Seite kann das Formular automatisch senden oder Änderungen beim Tippen speichern.",
-      "adopt_tab": "Tab {{tab}} unter {{url}} übernehmen",
+      "adopt_tab": "Den Tab „{{tab}}“ unter {{url}} übernehmen",
       "navigate": "Zu {{url}} wechseln",
       "navigate_consequence": "Der Browser öffnet genau diese Adresse: {{url}}",
       "no_submit_consequence": "Dies wird in das unten gezeigte Steuerelement eingegeben. Es folgt kein Senden-Schritt, daher kann eine Seite, die beim Tippen speichert, es sofort übernehmen.",
       "command_consequence": "Der Browser führt diese Aktion am unten gezeigten Steuerelement aus.",
       "prior_form": "Ein früherer Lauf dieser Aufgabe hat dieses Formular bereits gesendet. Bestätige nur, wenn es eine neue Übermittlung ist und nicht dieselbe noch einmal.",
       "repeated_effect": "Dieser Lauf hat das bereits einmal mit demselben Steuerelement auf dieser Seite getan. Bestätige nur, wenn es noch einmal geschehen soll.",
-      "unknown_prior_effect": "Der Aktionsverlauf dieses Laufs konnte nicht gelesen werden. Diese Aktion könnte eine frühere Wirkung wiederholen. Bestätige nur, wenn eine Wiederholung sicher ist."
+      "unknown_prior_effect": "Der Aktionsverlauf dieses Laufs konnte nicht gelesen werden. Diese Aktion könnte eine frühere Wirkung wiederholen. Bestätige nur, wenn eine Wiederholung sicher ist.",
+      "adopt_untitled_tab": "Einen Tab unter {{url}} übernehmen"
     },
     "dialog_kind": {
       "alert": "Hinweis",
@@ -227,6 +234,13 @@
       "other_tab": "Diese Aufgabe läuft in einem anderen Tab als dem, den Sie gerade ansehen.",
       "supervised": "Der Agent arbeitet Schritt für Schritt auf der Seite und fragt vor allem Folgenreichen nach. Chrome zeigt währenddessen einen Debugging-Hinweis an.",
       "experimental_model": "Tool-Aufrufe sind für dieses Modell aktiv, weil Sie sie eingeschaltet haben, nicht weil das Modell sie meldet. Ein Modell ohne Tool-Aufrufe kommt nicht weit."
+    },
+    "steer": {
+      "label": "Den Agenten lenken",
+      "placeholder": "Korrigieren, ohne anzuhalten…",
+      "send": "An den Agenten senden",
+      "queued": "Gesendet. Der Agent liest es beim nächsten Schritt.",
+      "heard": "Der Agent hat Ihre Korrektur übernommen."
     }
   },
   "common": {

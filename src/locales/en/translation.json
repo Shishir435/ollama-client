@@ -8,7 +8,7 @@
       "scroll_down": "Scroll down",
       "scroll_left": "Scroll left",
       "scroll_right": "Scroll right",
-      "switch_tab": "Switch to tab {{tab}}",
+      "switch_tab": "Switch to another tab",
       "wait": "Wait for {{condition}}",
       "clear_and_type": "Replace text in field",
       "press_key": "Press {{key}}",
@@ -65,7 +65,8 @@
       "unreadable_update": "The panel received an update it could not read.",
       "unknown": "Agent could not complete that request.",
       "disconnected": "Agent was reconnecting and didn’t receive that. Try again.",
-      "turn_has_run": "This message already started a browser task."
+      "turn_has_run": "This message already started a browser task.",
+      "steer_unavailable": "The run is not working right now, so it could not take that. Pause it and correct it instead."
     },
     "failure": {
       "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",
@@ -126,7 +127,8 @@
       "verified": "Verified",
       "rejected": "Rejected",
       "failed": "Failed",
-      "uncertain": "Review"
+      "uncertain": "Review",
+      "dialog_opened": "Dialog opened"
     },
     "tab": {
       "label": "Controlled tab",
@@ -148,7 +150,8 @@
     "work_log": {
       "action_needs_review": "This step needs review.",
       "title": "Work log",
-      "target": "“{{name}}”"
+      "target": "“{{name}}”",
+      "reasoning": "Reasoning"
     },
     "correction": "Paused. Describe what should change, then continue.",
     "settings": {
@@ -178,12 +181,15 @@
       "title": "Agent run",
       "loading": "Loading the run…",
       "missing": "This run's record is no longer available.",
-      "steps": "Actions: {{count}}",
       "outcome": "{{met}} of {{total}} done",
       "continue": "Continue",
       "retry": "Retry",
       "start_over": "Start over",
-      "ask": "Ask about it"
+      "ask": "Ask about it",
+      "step_count_one": "{{count}} step",
+      "step_count_other": "{{count}} steps",
+      "page_count_one": "{{count}} page",
+      "page_count_other": "{{count}} pages"
     },
     "follow_up": {
       "continue_message": "Continue the browser task.",
@@ -201,14 +207,15 @@
       "dialog_unreadable": "Its text wasn’t read: the dialog belongs to a frame this run isn’t allowed to read.",
       "fill_fields": "Set form fields in one step: {{count}}",
       "fill_fields_consequence": "Each control listed below is set in order, stopping at the first one that can’t be set. Agent does not press Submit, but the page may submit automatically or save changes as you type.",
-      "adopt_tab": "Take over tab {{tab}} at {{url}}",
+      "adopt_tab": "Take over the tab “{{tab}}” at {{url}}",
       "navigate": "Go to {{url}}",
       "navigate_consequence": "The browser opens this exact address: {{url}}",
       "no_submit_consequence": "This is entered into the control shown below. No submit step follows, so a page that saves as you type may store it right away.",
       "command_consequence": "The browser performs this action on the control shown below.",
       "prior_form": "An earlier run in this task already sent this form. Approve only if this is a new submission, not the same one again.",
       "repeated_effect": "This run already did this once, with the same control on this page. Approve only if it should happen again.",
-      "unknown_prior_effect": "This run’s action record could not be read. This action may repeat an earlier effect. Approve only if repeating it is safe."
+      "unknown_prior_effect": "This run’s action record could not be read. This action may repeat an earlier effect. Approve only if repeating it is safe.",
+      "adopt_untitled_tab": "Take over a tab at {{url}}"
     },
     "dialog_kind": {
       "alert": "alert",
@@ -227,6 +234,13 @@
       "other_tab": "This task runs on a different tab from the one you are looking at.",
       "supervised": "The agent works on the page step by step and asks before anything consequential. Chrome shows a debugging banner while it works.",
       "experimental_model": "Tool calling is on for this model because you set it, not because the model reported it. A model that cannot call tools will not get far."
+    },
+    "steer": {
+      "label": "Steer the agent",
+      "placeholder": "Correct it without pausing…",
+      "send": "Send to the agent",
+      "queued": "Sent. The agent reads it at its next step.",
+      "heard": "The agent has taken your correction."
     }
   },
   "common": {

@@ -90,6 +90,29 @@ describe("current_tab tool", () => {
     })
   })
 
+  it("reads the tab the side panel sent rather than the last focused window", async () => {
+    vi.mocked(browser.tabs.get).mockResolvedValue({
+      id: 12,
+      title: "Pull request",
+      url: "https://git.test/pr/1"
+    } as never)
+    vi.mocked(browser.tabs.query).mockResolvedValue([
+      { id: 7, title: "Other window", url: "https://x.test" }
+    ] as never)
+    vi.mocked(browser.tabs.sendMessage).mockResolvedValue({
+      html: "diff body",
+      title: "Pull request"
+    } as never)
+
+    const result = await runCurrentTab({}, { browserTabId: 12 })
+    expect(browser.tabs.get).toHaveBeenCalledWith(12)
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(12, expect.anything())
+    expect(result.sources?.[0]).toEqual({
+      title: "Pull request",
+      url: "https://git.test/pr/1"
+    })
+  })
+
   it("errors cleanly when there is no active tab", async () => {
     vi.mocked(browser.tabs.query).mockResolvedValue([] as never)
     const result = await runCurrentTab({}, ctx)

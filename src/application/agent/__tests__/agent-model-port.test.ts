@@ -1,4 +1,5 @@
 import type { AgentObservation, AgentRunState } from "@ollama-client/contracts"
+import { MAX_AGENT_THINKING_CHARS } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import { ProviderType } from "@/lib/providers/types"
@@ -1097,6 +1098,31 @@ describe("usable agent prompt", () => {
      * measured nothing is handed the previous step's tokens and persists
      * them a second time, which doubles a run's reported cost.
      */
+    it("keeps the end of a decision's streamed reasoning, once", async () => {
+      const streamChat = vi.fn(async (_request, emit) => {
+        emit({ thinkingDelta: "x".repeat(4_000), done: false })
+        emit({ thinkingDelta: " so click Delete.", done: false })
+        emit(validChunk)
+      })
+      const port = modelPort(streamChat)
+
+      await port.decide({ state, observation }, { aborted: false })
+
+      const thinking = port.decisionThinking?.(state.id)
+      expect(thinking?.length).toBeLessThanOrEqual(MAX_AGENT_THINKING_CHARS)
+      expect(thinking?.startsWith("…")).toBe(true)
+      expect(thinking?.endsWith("so click Delete.")).toBe(true)
+      expect(port.decisionThinking?.(state.id)).toBeUndefined()
+    })
+
+    it("reports no reasoning for a model that streamed none", async () => {
+      const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+      const port = modelPort(streamChat)
+
+      await port.decide({ state, observation }, { aborted: false })
+      expect(port.decisionThinking?.(state.id)).toBeUndefined()
+    })
+
     it("answers one reader per decision", async () => {
       const streamChat = vi.fn(async (_request, emit) =>
         emit({

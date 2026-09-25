@@ -63,7 +63,7 @@ describe("resolved-effect policy", () => {
     expect(decision.type).toBe("approval_required")
     if (decision.type === "approval_required") {
       expect(decision.request.risk).toBe("critical")
-      expect(decision.request.pageEvidence).toContain("old-report-2023.pdf")
+      expect(decision.request.pageEvidence).toBe("Delete — old-report-2023.pdf")
     }
   })
 
@@ -613,6 +613,42 @@ describe("tab scope policy", () => {
       type: "approval_required",
       risk: "high",
       request: { action: "Adopt tab 9 at https://example.com/other" }
+    })
+  })
+
+  it("names an adopted tab by its title, never its number", () => {
+    const named = switchTab(9)
+    named.target = { ...named.target, accessibleName: "Quarterly report" }
+    const decision = evaluateAgentPolicy(input(named, { scopedTabIds: [1] }))
+    expect(decision).toMatchObject({
+      type: "approval_required",
+      request: {
+        display: {
+          action: {
+            key: "agent.approval_text.adopt_tab",
+            values: {
+              tab: "Quarterly report",
+              url: "https://example.com/other"
+            }
+          }
+        }
+      }
+    })
+  })
+
+  it("names an untitled adopted tab by its address alone", () => {
+    const decision = evaluateAgentPolicy(
+      input(switchTab(9), { scopedTabIds: [1] })
+    )
+    expect(decision).toMatchObject({
+      request: {
+        display: {
+          action: {
+            key: "agent.approval_text.adopt_untitled_tab",
+            values: { url: "https://example.com/other" }
+          }
+        }
+      }
     })
   })
 })

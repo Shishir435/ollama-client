@@ -83,6 +83,21 @@ class MessageQueue {
   }
 }
 
+/**
+ * The persona a thread runs as when the client brought its own.
+ *
+ * Codex's own base prompt is a coding agent's, working in `cwd`. The client's
+ * system prompt only reached the thread as `developerInstructions`, beneath
+ * that base, so a browser client whose user asked "what are we doing in this
+ * PR?" was answered by a coding agent reporting an empty workspace with no
+ * git repository — the empty directory this proxy creates so the runtime has
+ * somewhere harmless to stand. A client that states who the model is has
+ * answered that question; the base steps aside and says only that there is
+ * no workspace. A client with no system prompt keeps Codex as it is.
+ */
+export const CODEX_CLIENT_BASE_INSTRUCTIONS =
+  "You are a model served to a client application through a chat API. The client's developer instructions define your role, your context and your tools, and they take precedence over any assumption about where you are running. You have no project, workspace, repository or files of your own: never inspect the working directory or report on it, and never claim a workspace is empty. Use only the tools the client provides, following their descriptions."
+
 export const createCodexBackend = (context: BackendContext): AgentBackend => {
   const { config, log } = context
   const codex = resolveCodexConfig({
@@ -619,6 +634,9 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
           ephemeral: true,
           serviceName: "ollama_client_olc",
           config: { web_search: webSearch.threadMode },
+          ...(prompt.system
+            ? { baseInstructions: CODEX_CLIENT_BASE_INSTRUCTIONS }
+            : {}),
           ...(developerInstructions ? { developerInstructions } : {}),
           ...(tools.length > 0 ? { dynamicTools: tools } : {})
         }

@@ -2,8 +2,10 @@ import { z } from "zod"
 import {
   AgentErrorSchema,
   AgentPauseReasonSchema,
-  AgentRunStatusSchema
+  AgentRunStatusSchema,
+  MAX_AGENT_OBSERVATIONS
 } from "./agent"
+import { AgentStepRecordSchema } from "./agent-panel"
 
 /**
  * How many ids one request may carry. The sender batches by this same
@@ -70,6 +72,19 @@ export const AgentRunCardSchema = z
     error: AgentErrorSchema.pick({ code: true, messageKey: true })
       .strict()
       .optional(),
+    /**
+     * The run's steps, one per step, so a settled card still says what was
+     * clicked. The live card had the log and the settled one dropped it: a
+     * run's record vanished at the moment it finished. Without telemetry or
+     * page addresses — the card shows what was done, not where the query
+     * string pointed.
+     */
+    steps: z
+      .array(AgentStepRecordSchema.omit({ telemetry: true, sourceUrl: true }))
+      .max(MAX_AGENT_OBSERVATIONS)
+      .optional(),
+    /** Distinct pages the run acted or read on, origin and path. */
+    pages: z.number().int().nonnegative().optional(),
     /** How many of the task's requirements the settled run could evidence. */
     outcome: z
       .object({

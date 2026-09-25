@@ -296,6 +296,82 @@ describe("Agent DOM mutation resolution and policy", () => {
     expect(policy.risk).toBe("high")
   })
 
+  /**
+   * A GET form can still change state through its handler or endpoint, so
+   * Enter stays a submission no routine grant covers. What changes is the
+   * address the approval shows: it used to be missing its query.
+   */
+  it("asks for Enter in a same-origin search as a submission to its full address", async () => {
+    const before = observation({
+      elements: [
+        element({
+          tag: "input",
+          type: "search",
+          editable: true,
+          focused: true,
+          maySubmit: true,
+          formAction: new URL("/search", location.href).href,
+          formMethod: "get",
+          formQuery: "q=atlas"
+        })
+      ]
+    })
+    const enter = command({ type: "press_key", ref: "e1", key: "Enter" })
+    const effect = await resolve(enter, before)
+    expect(effect.semanticEffects).toEqual(["form_mutation", "submission"])
+    expect(effect.target.formQuery).toBe("q=atlas")
+    expect(effect.destination?.url).toBe(
+      new URL("/search?q=atlas", location.href).href
+    )
+    const policy = await decide(enter, before)
+    expect(policy.type).toBe("approval_required")
+    expect(policy.risk).toBe("high")
+  })
+
+  it.each([
+    ["a POST form", { formMethod: "post" as const, formQuery: undefined }],
+    [
+      "a form with no preview",
+      { formMethod: "get" as const, formQuery: undefined }
+    ],
+    [
+      "another origin",
+      {
+        formMethod: "get" as const,
+        formQuery: "q=atlas",
+        formAction: "https://elsewhere.example/search"
+      }
+    ],
+    [
+      "a sensitive form",
+      {
+        formMethod: "get" as const,
+        formQuery: "q=atlas",
+        formHasSensitiveControl: true
+      }
+    ]
+  ])("shows only the form's action for %s", async (_name, patch) => {
+    const before = observation({
+      elements: [
+        element({
+          tag: "input",
+          type: "text",
+          editable: true,
+          focused: true,
+          maySubmit: true,
+          formAction: new URL("/search", location.href).href,
+          ...patch
+        })
+      ]
+    })
+    const effect = await resolve(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      before
+    )
+    expect(effect.semanticEffects).toContain("submission")
+    expect(effect.destination?.url).not.toContain("?")
+  })
+
   it("uses the submitter formaction instead of a command-provided destination", async () => {
     const destination = "https://other.example/submit"
     const before = observation({
@@ -1104,6 +1180,82 @@ describe("Agent DOM mutation execution", () => {
     expect(
       submittedForm?.querySelectorAll('input[name="intent"]')
     ).toHaveLength(1)
+  })
+
+  /**
+   * The approval named the full address. The form binding compares selected
+   * options, not every option's value, so a page could move the query under
+   * an approval that still matched; the live query is compared instead.
+   */
+  it("refuses a search whose live query no longer matches the approved one", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "atlas"
+    form.append(input)
+    document.body.append(form)
+    input.focus()
+    const submit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      input
+    )
+    expect(effect.target.formQuery).toBe("q=atlas")
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect: {
+          ...effect,
+          target: { ...effect.target, formQuery: "q=other" }
+        },
+        document,
+        references,
+        signal
+      })
+    ).toThrow(AgentEffectNotAppliedError)
+    expect(submit).not.toHaveBeenCalled()
+
+    executeAgentDomMutationInDocument({ effect, document, references, signal })
+    expect(submit).toHaveBeenCalledOnce()
+  })
+
+  /**
+   * The early check runs before the page's submit handlers; a handler that
+   * rewrites a field would otherwise send an address nobody approved.
+   */
+  it("refuses a search a submit handler rewrote after approval", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "atlas"
+    form.append(input)
+    document.body.append(form)
+    input.focus()
+    form.addEventListener("submit", () => {
+      input.value = "exfiltrated"
+    })
+    const submit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      input
+    )
+    expect(effect.target.formQuery).toBe("q=atlas")
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("changed after the page's submit handlers ran")
+    expect(submit).not.toHaveBeenCalled()
   })
 
   it("navigates observed links without invoking page click handlers", async () => {

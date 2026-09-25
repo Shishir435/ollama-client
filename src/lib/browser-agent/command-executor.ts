@@ -29,6 +29,10 @@ import {
 } from "./effect-rejection"
 import type { AgentElementReferenceStore } from "./element-references"
 import {
+  agentGuardedGetQuery,
+  agentGuardedSubmissionEntries
+} from "./form-submission"
+import {
   type AgentInputBackendChoice,
   type AgentInputPlatform,
   type AgentInputPoint,
@@ -401,42 +405,6 @@ const associatedForm = (element: Element): HTMLFormElement | null =>
     ? element.form
     : null
 
-const successfulControlValues = (
-  control: Element
-): readonly string[] | undefined => {
-  if (
-    !(control instanceof HTMLInputElement) &&
-    !(control instanceof HTMLSelectElement) &&
-    !(control instanceof HTMLTextAreaElement)
-  ) {
-    return undefined
-  }
-  if (!control.name || control.matches(":disabled")) return undefined
-  if (control instanceof HTMLInputElement) {
-    const type = control.type.toLowerCase()
-    if (["button", "file", "image", "reset", "submit"].includes(type)) {
-      return undefined
-    }
-    if (["checkbox", "radio"].includes(type) && !control.checked) {
-      return undefined
-    }
-    return [control.value]
-  }
-  if (control instanceof HTMLSelectElement) {
-    return Array.from(control.selectedOptions)
-      .filter(
-        (option) =>
-          !option.disabled &&
-          !(
-            option.parentElement instanceof HTMLOptGroupElement &&
-            option.parentElement.disabled
-          )
-      )
-      .map((option) => option.value)
-  }
-  return [control.value]
-}
-
 const appendSubmissionValue = (
   form: HTMLFormElement,
   name: string,
@@ -468,24 +436,8 @@ const buildGuardedSubmission = (
   guarded.enctype = submitter?.formEnctype || form.enctype
   guarded.acceptCharset = form.acceptCharset
   guarded.target = "_self"
-  for (const control of Array.from(form.elements)) {
-    const values =
-      control instanceof Element ? successfulControlValues(control) : undefined
-    if (!values || !("name" in control)) continue
-    for (const value of values) {
-      appendSubmissionValue(guarded, String(control.name), value)
-    }
-  }
-  if (submitter?.name) {
-    if (
-      submitter instanceof HTMLInputElement &&
-      submitter.type.toLowerCase() === "image"
-    ) {
-      appendSubmissionValue(guarded, `${submitter.name}.x`, "0")
-      appendSubmissionValue(guarded, `${submitter.name}.y`, "0")
-    } else {
-      appendSubmissionValue(guarded, submitter.name, submitter.value)
-    }
+  for (const [name, value] of agentGuardedSubmissionEntries(form, submitter)) {
+    appendSubmissionValue(guarded, name, value)
   }
   return guarded
 }
@@ -500,7 +452,8 @@ const submitApprovedDestination = (
   form: HTMLFormElement,
   submitter: ReturnType<typeof resolveAgentFormSubmitter>,
   destination: string,
-  method: "get" | "post"
+  method: "get" | "post",
+  approvedQuery?: string
 ): string => {
   const guarded = buildGuardedSubmission(form, submitter, destination, method)
   const submitted = new URL(destination)
@@ -511,6 +464,18 @@ const submitApprovedDestination = (
         query.append(control.name, control.value)
     }
     submitted.search = query.toString()
+    /**
+     * Checked on the copy about to be sent, after the page's own submit
+     * handlers ran: a handler that rewrote a field would otherwise send an
+     * address the user was never shown. Nothing is sent, but the handlers
+     * did run, so this is not a clean refusal — page code may have acted,
+     * and the step is left for the user to look at rather than retried.
+     */
+    if (approvedQuery !== undefined && query.toString() !== approvedQuery) {
+      throw new Error(
+        "Agent submission query changed after the page's submit handlers ran"
+      )
+    }
   }
   try {
     element.ownerDocument.body.append(guarded)
@@ -569,7 +534,29 @@ const submitThroughPageHandlers = (
     throw new Error("Agent form is not valid for submission")
   }
   const method = effect.target.formMethod
+  /**
+   * An approval that showed the full address is bound to it. The form
+   * fingerprint compares selected options, not every option's value or
+   * whether one was disabled since, so a page could move the query under an
+   * approval that still matched; the live query is compared instead.
+   */
+  if (
+    effect.target.formQuery !== undefined &&
+    (method !== "get" ||
+      agentGuardedGetQuery(form, submitter) !== effect.target.formQuery)
+  ) {
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.formStateChanged)
+    )
+  }
   let committed: string | undefined
+  /**
+   * A listener cannot throw back to `requestSubmit`'s caller, so a refusal
+   * raised while the page's submission was being enforced is held here and
+   * thrown once `requestSubmit` returns. The default was already cancelled,
+   * so nothing was sent.
+   */
+  let refused: unknown
   /**
    * Registered last, so the page's own listeners — an inline `onsubmit`
    * attribute included — have already run and already decided whether this
@@ -578,13 +565,18 @@ const submitThroughPageHandlers = (
   const enforceDestination = (event: Event): void => {
     if (event.defaultPrevented) return
     event.preventDefault()
-    committed = submitApprovedDestination(
-      element,
-      form,
-      submitter,
-      destination,
-      method
-    )
+    try {
+      committed = submitApprovedDestination(
+        element,
+        form,
+        submitter,
+        destination,
+        method,
+        effect.target.formQuery
+      )
+    } catch (error) {
+      refused = error
+    }
   }
   form.addEventListener("submit", enforceDestination)
   try {
@@ -606,12 +598,14 @@ const submitThroughPageHandlers = (
         form,
         submitter,
         destination,
-        method
+        method,
+        effect.target.formQuery
       )
     }
   } finally {
     form.removeEventListener("submit", enforceDestination)
   }
+  if (refused) throw refused
   return committed
 }
 

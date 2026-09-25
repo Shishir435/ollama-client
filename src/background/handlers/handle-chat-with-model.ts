@@ -2,7 +2,12 @@ import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
-import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
+import { resolveActiveTabContext } from "@/background/lib/active-tab-context"
+import {
+  buildBrowserContextGuidance,
+  buildToolSystemGuidance,
+  offersTabTools
+} from "@/background/lib/build-tool-system-guidance"
 import { withErrorContext } from "@/background/lib/error-handler"
 import {
   resolveModelCapabilities,
@@ -284,8 +289,15 @@ export const handleChatWithModel = withErrorContext(
           resolvedCapabilities,
           ac.signal
         )
+    /**
+     * Both native modes send tool definitions; they differ only in the role a
+     * result returns under. Checking for `native` alone left a model probed
+     * as `native-user-results` offered no tools at all.
+     */
     const nativeTools =
-      resolvedTools?.mode === "native" ? resolvedTools.tools : undefined
+      resolvedTools && resolvedTools.mode !== "non-native"
+        ? resolvedTools.tools
+        : undefined
     const contextHeader = await buildMemoryContextHeader({
       enabled: isMemoryEnabled,
       clientContextPrepared: msg.payload.clientContextPrepared,
@@ -293,11 +305,17 @@ export const handleChatWithModel = withErrorContext(
       conversationMessages,
       port
     })
+    const browserContext = buildBrowserContextGuidance(
+      resolvedTools?.tools,
+      offersTabTools(resolvedTools?.tools)
+        ? await resolveActiveTabContext(msg.payload.browserTabId)
+        : undefined
+    )
     injectSystemMessage(
       preparedMessages,
       systemPrompt,
       contextHeader,
-      buildToolSystemGuidance(nativeTools)
+      browserContext + buildToolSystemGuidance(nativeTools)
     )
 
     const request = {

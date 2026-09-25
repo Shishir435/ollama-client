@@ -161,6 +161,11 @@ export interface ResolvedAgentTarget {
   href?: string
   formAction?: string
   formMethod?: "get" | "post" | "dialog"
+  /**
+   * The GET query the approval's address was built from; the executor
+   * refuses a submission whose live query differs.
+   */
+  formQuery?: string
   formFingerprint?: string
   formHasSensitiveControl?: boolean
   submitter?: boolean
@@ -360,6 +365,15 @@ export interface AgentExecutionReceipt {
   fileChooser?: boolean
   /** A held native dialog interrupted this activation; no input is replayed. */
   dialogOpened?: string
+  /**
+   * Tabs the page opened from the controlled tab while this step ran — a
+   * `target="_blank"` link, a `window.open` its handler made. Filled until
+   * the step's verification settles, because the browser reports a new tab a
+   * moment after the click that caused it. The run adopts them into its
+   * scope: the page opened them because the run acted, so switching to one
+   * is not reaching into a tab the user was working in.
+   */
+  openedTabIds?: number[]
   /** Ephemeral, bounded page-authored WebMCP result; verification labels it untrusted. */
   pageToolResult?: string
   /** The WebMCP API reports navigation by resolving the invocation to null. */
@@ -524,6 +538,12 @@ export interface AgentStepTarget {
   tag?: string
   role?: string
   name?: string
+  /**
+   * The visible text of the list or table row the control sits in, so a log
+   * of three "Delete" clicks says which file each one was. Page text,
+   * bounded, and dropped with the name for a sensitive control.
+   */
+  rowContext?: string
 }
 
 export interface AgentStepWrite {
@@ -563,6 +583,11 @@ export interface AgentStepWrite {
   sourceUrl?: string
   /** Model-authored note attached to the step it belongs to. */
   finding?: string
+  /**
+   * The reasoning the model streamed for the decision that opened this step,
+   * bounded, for the supervisor's card only. Never read back into a prompt.
+   */
+  thinking?: string
   /**
    * What the step cost, in numbers only. Optional because a step a worker
    * restart settled measured nothing, and an absent record must read as
@@ -669,6 +694,12 @@ export interface AgentModelPort {
    * nothing returns nothing.
    */
   decisionTelemetry?(runId: string): AgentStepTelemetry | undefined
+  /**
+   * The reasoning the decision that just resolved streamed, bounded, for the
+   * run named. A reader for the same reason as `decisionTelemetry`; a model
+   * that streamed none, or a port that does not collect it, returns nothing.
+   */
+  decisionThinking?(runId: string): string | undefined
   /**
    * What the goal asks for, decided before the run looks at anything.
    *
@@ -785,6 +816,15 @@ export interface AgentController {
     questionId: string
     text: string
   }): Promise<void>
+  /**
+   * A correction typed while the run works, taken into the next decision
+   * without pausing it. Queued rather than applied: the decision in flight
+   * was asked before the user spoke, and the next one is the first that can
+   * hear it. It cannot answer an approval, a question or an unresolved
+   * effect — those still wait for their own control. Resolves whether it was
+   * accepted: a run that is not working has no next decision to hear it.
+   */
+  steer?(runId: string, text: string): Promise<boolean>
 }
 
 export interface AgentControllerDependencies {

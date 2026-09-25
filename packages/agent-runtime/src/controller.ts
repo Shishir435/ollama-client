@@ -139,6 +139,9 @@ type AgentResolutionOutcome =
  */
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
+/** Corrections one decision will take in at once; older ones are dropped. */
+const MAX_QUEUED_STEERING = 3
+
 /**
  * What a re-recorded step keeps from the receipt it restates. A disposition
  * that dropped a field would leave the step's last receipt saying less than
@@ -228,17 +231,24 @@ const allowedOriginsPatch = (
  */
 const adoptedTabPatch = (
   state: AgentRunState,
-  controlledTabId: number | undefined
+  controlledTabId: number | undefined,
+  openedTabIds: readonly number[] = []
 ): AgentStatePatch => {
-  if (controlledTabId === undefined) return {}
   const scope = agentTabScope(state)
-  if (
-    scope.includes(controlledTabId) ||
-    scope.length >= MAX_AGENT_SCOPED_TABS
-  ) {
-    return { controlledTabId }
+  const joined = [...scope]
+  for (const tabId of [
+    ...openedTabIds,
+    ...(controlledTabId === undefined ? [] : [controlledTabId])
+  ]) {
+    if (!joined.includes(tabId) && joined.length < MAX_AGENT_SCOPED_TABS)
+      joined.push(tabId)
   }
-  return { controlledTabId, scopedTabIds: [...scope, controlledTabId] }
+  const widened = joined.length > scope.length
+  if (controlledTabId === undefined)
+    return widened ? { scopedTabIds: joined } : {}
+  return widened
+    ? { controlledTabId, scopedTabIds: joined }
+    : { controlledTabId }
 }
 
 export const createAgentController = (
@@ -570,6 +580,18 @@ export const createAgentController = (
    */
   let pendingTelemetry: AgentStepTelemetry | undefined
   const telemetryByStep = new Map<string, AgentStepTelemetry>()
+  /**
+   * The reasoning behind the decision just made, claimed by the next receipt
+   * written — the planned step, a refusal or a declined completion — for the
+   * same reason telemetry waits here: the decision has no step id yet.
+   */
+  let pendingThinking: string | undefined
+  /**
+   * Corrections typed while a run works, waiting for the next decision.
+   * Memory only: a correction the worker lost before a decision heard it is
+   * one the user can see was not taken, because the card says when it is.
+   */
+  const pendingSteering = new Map<string, { text: string; at: number }[]>()
 
   const measure = (telemetry: AgentStepTelemetry | undefined): void => {
     pendingTelemetry = mergeAgentStepTelemetry(pendingTelemetry, telemetry)
@@ -604,6 +626,8 @@ export const createAgentController = (
       pendingTelemetry
     )
     pendingTelemetry = undefined
+    const thinking = write.thinking ?? pendingThinking
+    pendingThinking = undefined
     if (carried) {
       telemetryByStep.set(write.stepId, carried)
       /** One run cannot grow this past its own step ceiling. */
@@ -614,6 +638,7 @@ export const createAgentController = (
     }
     await dependencies.persistence.appendStep({
       ...write,
+      ...(thinking ? { thinking } : {}),
       ...(carried ? { telemetry: carried } : {})
     })
     /**
@@ -648,6 +673,7 @@ export const createAgentController = (
     >
   ) => {
     let raw: unknown
+    pendingThinking = undefined
     try {
       raw = await dependencies.model.decide(
         { state, observation, ...recalled },
@@ -664,6 +690,7 @@ export const createAgentController = (
      * the answer stops being this decision's the moment another starts.
      */
     measure(dependencies.model.decisionTelemetry?.(state.id))
+    pendingThinking = dependencies.model.decisionThinking?.(state.id)
     return AgentDecisionSchema.safeParse(raw).data
   }
 
@@ -1252,7 +1279,11 @@ export const createAgentController = (
         verifying,
         "observing",
         {
-          ...adoptedTabPatch(verifying, receipt.controlledTabId),
+          ...adoptedTabPatch(
+            verifying,
+            receipt.controlledTabId,
+            receipt.openedTabIds
+          ),
           updatedAt: dependencies.clock.now()
         },
         ["verifying"]
@@ -1763,6 +1794,19 @@ export const createAgentController = (
     return true
   }
 
+  /**
+   * A paused run keeps what the user typed for the decision after its
+   * resume; a finished one has no decision left to hear it.
+   */
+  const forgetUnheardSteering = async (runId: string): Promise<void> => {
+    if (!pendingSteering.has(runId) || active.has(runId)) return
+    const settled = await dependencies.persistence
+      .load(runId)
+      .catch(() => undefined)
+    if (!settled || isTerminalAgentStatus(settled.status))
+      pendingSteering.delete(runId)
+  }
+
   const observeAndDecide = async (
     state: AgentRunState,
     signal: AgentCancellationController["signal"]
@@ -1778,11 +1822,48 @@ export const createAgentController = (
     const recalled = await recallHistory(state)
     const observation = await observe(state, signal, recalled.inspection)
     if (!observation) return undefined
+    /**
+     * Taken off the queue only once the claim that records it has landed. A
+     * pause or stop that wins the claim leaves the correction queued for the
+     * decision after the resume, rather than accepted and then dropped.
+     */
+    const steering = pendingSteering.get(state.id)
     const deciding = await claim(state, "deciding", {
       observationCount: state.observationCount + 1,
+      ...(steering?.length
+        ? {
+            answers: [
+              ...(state.answers ?? []),
+              ...steering.map((entry) => ({
+                questionId: `${state.id}:steer:${entry.at}`,
+                question: "User correction while the run was working",
+                text: entry.text,
+                answeredAt: entry.at
+              }))
+            ].slice(-MAX_AGENT_ANSWERS)
+          }
+        : {}),
       updatedAt: dependencies.clock.now()
     })
     if (!deciding) return undefined
+    if (steering?.length) {
+      const queued = pendingSteering.get(state.id) ?? []
+      /** By identity: a correction typed during the claim is still waiting. */
+      const later = queued.filter((entry) => !steering.includes(entry))
+      if (later.length > 0) pendingSteering.set(state.id, later)
+      else pendingSteering.delete(state.id)
+    }
+    /**
+     * A new instruction is new ground: the no-progress and refusal memory
+     * describe the approach the user just corrected.
+     */
+    if (steering?.length) {
+      previousProgress.delete(state.id)
+      recentProgress.delete(state.id)
+      noProgressCounts.delete(state.id)
+      refusedCommandCounts.delete(state.id)
+      refusedCompletions.delete(state.id)
+    }
     let decision: AgentDecision | undefined
     const context: AgentResolutionContext = {}
     try {
@@ -2026,6 +2107,7 @@ export const createAgentController = (
       )
     } finally {
       if (active.get(runId) === controller) active.delete(runId)
+      await forgetUnheardSteering(runId)
     }
   }
 
@@ -2084,6 +2166,26 @@ export const createAgentController = (
   return {
     start: (runId) => run(runId),
     requestPause,
+    async steer(runId, text) {
+      const trimmed = text.trim().slice(0, MAX_AGENT_ANSWER_CHARS)
+      if (!trimmed) return false
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        isTerminalAgentStatus(state.status) ||
+        state.status === "paused" ||
+        !active.has(runId)
+      )
+        return false
+      const queued = pendingSteering.get(runId) ?? []
+      pendingSteering.set(
+        runId,
+        [...queued, { text: trimmed, at: dependencies.clock.now() }].slice(
+          -MAX_QUEUED_STEERING
+        )
+      )
+      return true
+    },
     async resume(runId, correction) {
       if (!correction) return run(runId)
       const state = await dependencies.persistence.load(runId)

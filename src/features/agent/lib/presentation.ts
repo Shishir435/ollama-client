@@ -1,5 +1,6 @@
 import {
   agentCommandDisplay,
+  agentRowContextBeyond,
   isTerminalAgentStatus
 } from "@ollama-client/agent-runtime"
 import type {
@@ -34,6 +35,19 @@ export const AGENT_LOG_TEXT_LIMIT = 500
  * rather than one that clips.
  */
 export const AGENT_EVIDENCE_TEXT_LIMIT = 1_000
+
+/**
+ * Model reasoning keeps its line breaks — it is paragraphs, and one run-on
+ * line of it is unreadable — and loses every other control character.
+ */
+export const agentReasoningText = (value: string): string =>
+  Array.from(value, (character) => {
+    const code = character.charCodeAt(0)
+    return character === "\n" || (code >= 32 && code !== 127) ? character : " "
+  })
+    .join("")
+    .replaceAll(/\n{3,}/g, "\n\n")
+    .trim()
 
 /** Page-derived text is flattened before display so it cannot imitate controls. */
 export const agentPlainText = (value: string, limit: number): string => {
@@ -164,11 +178,21 @@ const AGENT_FAILURE_CODES = new Set([
   "verification_failed"
 ])
 
+/**
+ * A row's state as a person reads it. A click that raised the page's own
+ * `confirm()` verifies — the dialog opening is the confirmed effect — but
+ * "Verified" beside a Delete whose confirmation is still on screen says the
+ * file is gone when nothing has been deleted yet.
+ */
+export type AgentWorkLogStatus = AgentStepRecord["status"] | "dialog_opened"
+
 export interface AgentWorkLogItem {
   id: string
   at: number
   label: AgentActionLabel
-  status: AgentStepRecord["status"]
+  status: AgentWorkLogStatus
+  /** How long the step took, first receipt to last, once it has settled. */
+  durationMs?: number
   /**
    * The control the step acted on, in the page's own words.
    *
@@ -179,8 +203,15 @@ export interface AgentWorkLogItem {
    * there when the control was sensitive.
    */
   target?: string
+  /**
+   * The row the control sits in, less the control's own label: which of
+   * five "Delete" buttons this was. Page text, flattened like the name.
+   */
+  row?: string
   /** The model's own note for this step, if it left one. */
   note?: string
+  /** The reasoning the model streamed for this step's decision. */
+  thinking?: string
   detail?: string
   detailLabel?: AgentActionLabel
 }
@@ -200,6 +231,12 @@ export interface AgentWorkLogItem {
  * as twenty repetitions of "Click control" — the run's own account of what it
  * was doing existed and the supervisor could not see it.
  */
+const displayStatus = (step: AgentStepRecord): AgentWorkLogStatus =>
+  step.status === "verified" &&
+  step.verification?.evidence.kind === "native_dialog"
+    ? "dialog_opened"
+    : step.status
+
 export const toAgentWorkLog = (
   steps: readonly AgentStepRecord[]
 ): AgentWorkLogItem[] => {
@@ -210,23 +247,41 @@ export const toAgentWorkLog = (
   }
   return [...latest.values()]
     .sort((first, second) => first.sequence - second.sequence)
-    .map((step) => ({
-      id: step.stepId,
-      at: step.at,
-      label: agentActionLabel(step.command),
-      status: step.status,
-      ...(step.target?.name
-        ? { target: agentPlainText(step.target.name, AGENT_PAGE_TEXT_LIMIT) }
-        : {}),
-      ...(step.finding
-        ? { note: agentPlainText(step.finding, AGENT_LOG_TEXT_LIMIT) }
-        : {}),
-      ...(step.status === "rejected"
-        ? { detailLabel: { key: "agent.work_log.action_needs_review" } }
-        : step.status === "failed" || step.status === "uncertain"
-          ? { detailLabel: { key: `agent.step_status.${step.status}` } }
-          : {})
-    }))
+    .map((step) => {
+      const status = displayStatus(step)
+      const row = agentRowContextBeyond(
+        step.target?.name,
+        step.target?.rowContext
+      )
+      const durationMs =
+        step.startedAt !== undefined &&
+        !OPEN_AGENT_STEP_STATUSES.includes(step.status) &&
+        step.at > step.startedAt
+          ? step.at - step.startedAt
+          : undefined
+      return {
+        id: step.stepId,
+        at: step.at,
+        label: agentActionLabel(step.command),
+        status,
+        ...(durationMs === undefined ? {} : { durationMs }),
+        ...(step.target?.name
+          ? { target: agentPlainText(step.target.name, AGENT_PAGE_TEXT_LIMIT) }
+          : {}),
+        ...(row ? { row: agentPlainText(row, AGENT_PAGE_TEXT_LIMIT) } : {}),
+        ...(step.finding
+          ? { note: agentPlainText(step.finding, AGENT_LOG_TEXT_LIMIT) }
+          : {}),
+        ...(step.thinking
+          ? { thinking: agentReasoningText(step.thinking) }
+          : {}),
+        ...(step.status === "rejected"
+          ? { detailLabel: { key: "agent.work_log.action_needs_review" } }
+          : step.status === "failed" || step.status === "uncertain"
+            ? { detailLabel: { key: `agent.step_status.${step.status}` } }
+            : {})
+      }
+    })
 }
 
 /**

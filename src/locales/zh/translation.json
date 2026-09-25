@@ -8,7 +8,7 @@
       "scroll_down": "向下滚动",
       "scroll_left": "向左滚动",
       "scroll_right": "向右滚动",
-      "switch_tab": "切换到标签页 {{tab}}",
+      "switch_tab": "切换到另一个标签页",
       "wait": "等待 {{condition}}",
       "clear_and_type": "替换字段中的文本",
       "press_key": "按 {{key}}",
@@ -65,7 +65,8 @@
       "unreadable_update": "面板收到了无法读取的更新。",
       "unknown": "Agent 无法完成该请求。",
       "disconnected": "Agent 正在重新连接，未收到该请求。请重试。",
-      "turn_has_run": "此消息已启动过一个浏览器任务。"
+      "turn_has_run": "此消息已启动过一个浏览器任务。",
+      "steer_unavailable": "运行当前未在工作，因此无法接收。请暂停后再纠正。"
     },
     "failure": {
       "budget_exhausted": "运行已用完全部步骤预算。请缩小目标，或从页面当前状态重新开始。",
@@ -126,7 +127,8 @@
       "verified": "已验证",
       "rejected": "已拒绝",
       "failed": "失败",
-      "uncertain": "需检查"
+      "uncertain": "需检查",
+      "dialog_opened": "已打开对话框"
     },
     "tab": {
       "label": "受控标签页",
@@ -148,7 +150,8 @@
     "work_log": {
       "action_needs_review": "此步骤需要检查。",
       "title": "工作日志",
-      "target": "“{{name}}”"
+      "target": "“{{name}}”",
+      "reasoning": "推理"
     },
     "correction": "已暂停。说明需要更改的内容，然后继续。",
     "settings": {
@@ -178,12 +181,15 @@
       "title": "智能体运行",
       "loading": "正在加载运行…",
       "missing": "此运行的记录已不可用。",
-      "steps": "操作：{{count}}",
       "outcome": "已完成 {{met}}/{{total}}",
       "continue": "继续",
       "retry": "重试",
       "start_over": "重新开始",
-      "ask": "就此提问"
+      "ask": "就此提问",
+      "step_count_one": "{{count}} 个步骤",
+      "step_count_other": "{{count}} 个步骤",
+      "page_count_one": "{{count}} 个页面",
+      "page_count_other": "{{count}} 个页面"
     },
     "follow_up": {
       "continue_message": "继续这个浏览器任务。",
@@ -201,14 +207,15 @@
       "dialog_unreadable": "未读取其文本：该对话框属于此运行无权读取的框架。",
       "fill_fields": "一步设置表单字段：{{count}}",
       "fill_fields_consequence": "按顺序设置下面列出的每个控件，遇到无法设置的控件即停止。代理不会点击“提交”，但页面可能自动提交表单，或在输入时保存更改。",
-      "adopt_tab": "接管 {{url}} 上的标签页 {{tab}}",
+      "adopt_tab": "接管 {{url}} 上的标签页“{{tab}}”",
       "navigate": "前往 {{url}}",
       "navigate_consequence": "浏览器将打开这个完整地址：{{url}}",
       "no_submit_consequence": "这将输入到下方显示的控件中。之后没有提交步骤，因此边输入边保存的页面可能会立即保存。",
       "command_consequence": "浏览器将在下方显示的控件上执行此操作。",
       "prior_form": "此任务之前的一次运行已经提交过这个表单。只有在这是一次新的提交而不是重复提交时才批准。",
       "repeated_effect": "此运行已经通过此页面上的同一控件执行过一次。只有在需要再次执行时才批准。",
-      "unknown_prior_effect": "无法读取本次运行的操作记录。此操作可能重复之前的效果。只有确认重复操作安全时才批准。"
+      "unknown_prior_effect": "无法读取本次运行的操作记录。此操作可能重复之前的效果。只有确认重复操作安全时才批准。",
+      "adopt_untitled_tab": "接管 {{url}} 上的一个标签页"
     },
     "dialog_kind": {
       "alert": "提示框",
@@ -227,6 +234,13 @@
       "other_tab": "此任务将在另一个标签页中运行，而不是你正在查看的标签页。",
       "supervised": "智能体会在页面上逐步操作，执行任何重要操作前都会询问。运行期间 Chrome 会显示调试横幅。",
       "experimental_model": "此模型的工具调用是你手动开启的，而非模型自身报告支持。无法调用工具的模型走不了多远。"
+    },
+    "steer": {
+      "label": "引导代理",
+      "placeholder": "无需暂停即可纠正…",
+      "send": "发送给代理",
+      "queued": "已发送。代理将在下一步读取。",
+      "heard": "代理已采纳你的纠正。"
     }
   },
   "common": {

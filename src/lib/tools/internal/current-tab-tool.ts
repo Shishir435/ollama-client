@@ -35,9 +35,27 @@ export const currentTabDefinition: ToolDefinition = {
   }
 }
 
+/**
+ * The tab the side panel showed when the message was sent, when the turn
+ * carried one.
+ *
+ * "Active" was answered from `lastFocusedWindow`, which is whichever window
+ * the user touched last: with two windows open, a question typed in one
+ * window's panel read the other window's page. The panel's own tab is the
+ * one the user means; the window query remains for a turn without it.
+ */
+const panelTab = async (tabId: number | undefined) => {
+  if (tabId === undefined) return undefined
+  try {
+    return await browser.tabs.get(tabId)
+  } catch {
+    return undefined
+  }
+}
+
 export const runCurrentTab = async (
   args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
   try {
     // From a background service worker / side panel there is no "current
@@ -46,6 +64,7 @@ export const runCurrentTab = async (
     // user is looking at lives); fall back through currentWindow then any
     // active tab.
     const tab =
+      (await panelTab(ctx.browserTabId)) ??
       (
         await browser.tabs.query({ active: true, lastFocusedWindow: true })
       )[0] ??

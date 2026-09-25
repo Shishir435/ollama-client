@@ -40,6 +40,7 @@ import type {
 } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { waitForAgentNavigation } from "./agent-navigation-settlement"
+import { groupAgentTab } from "./agent-tab-group"
 import type { AgentTabHistory } from "./agent-tab-history"
 
 export interface AgentBrowserAdapters {
@@ -765,7 +766,13 @@ export const createAgentBrowserAdapters = (input: {
         await browser.tabs.update(tabId, { url })
       },
       async createTab({ url, openerTabId }) {
-        return browser.tabs.create({ url, openerTabId, active: false })
+        const tab = await browser.tabs.create({
+          url,
+          openerTabId,
+          active: false
+        })
+        if (tab.id !== undefined) void groupAgentTab(input.runId, tab.id)
+        return tab
       },
       now
     },

@@ -8,7 +8,7 @@
       "scroll_down": "Desplazar hacia abajo",
       "scroll_left": "Desplazar hacia la izquierda",
       "scroll_right": "Desplazar hacia la derecha",
-      "switch_tab": "Cambiar a la pestaña {{tab}}",
+      "switch_tab": "Cambiar a otra pestaña",
       "wait": "Esperar a {{condition}}",
       "clear_and_type": "Reemplazar el texto del campo",
       "press_key": "Pulsar {{key}}",
@@ -65,7 +65,8 @@
       "unreadable_update": "El panel recibió una actualización que no pudo leer.",
       "unknown": "Agent no pudo completar esa solicitud.",
       "disconnected": "El agente se estaba reconectando y no lo recibió. Inténtalo de nuevo.",
-      "turn_has_run": "Este mensaje ya inició una tarea en el navegador."
+      "turn_has_run": "Este mensaje ya inició una tarea en el navegador.",
+      "steer_unavailable": "La ejecución no está trabajando ahora, así que no pudo tomarlo. Páusala y corrígela."
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",
@@ -126,7 +127,8 @@
       "verified": "Verificado",
       "rejected": "Rechazado",
       "failed": "Falló",
-      "uncertain": "Revisar"
+      "uncertain": "Revisar",
+      "dialog_opened": "Diálogo abierto"
     },
     "tab": {
       "label": "Pestaña controlada",
@@ -148,7 +150,8 @@
     "work_log": {
       "action_needs_review": "Este paso requiere revisión.",
       "title": "Registro de trabajo",
-      "target": "«{{name}}»"
+      "target": "«{{name}}»",
+      "reasoning": "Razonamiento"
     },
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
     "settings": {
@@ -178,12 +181,15 @@
       "title": "Ejecución del agente",
       "loading": "Cargando la ejecución…",
       "missing": "El registro de esta ejecución ya no está disponible.",
-      "steps": "Acciones: {{count}}",
       "outcome": "{{met}} de {{total}} hechas",
       "continue": "Continuar",
       "retry": "Reintentar",
       "start_over": "Empezar de nuevo",
-      "ask": "Preguntar sobre esto"
+      "ask": "Preguntar sobre esto",
+      "step_count_one": "{{count}} paso",
+      "step_count_other": "{{count}} pasos",
+      "page_count_one": "{{count}} página",
+      "page_count_other": "{{count}} páginas"
     },
     "follow_up": {
       "continue_message": "Continúa la tarea en el navegador.",
@@ -201,14 +207,15 @@
       "dialog_unreadable": "Su texto no se leyó: el diálogo pertenece a un marco que esta ejecución no puede leer.",
       "fill_fields": "Establecer campos del formulario en un paso: {{count}}",
       "fill_fields_consequence": "Cada control de la lista se establece en orden y se detiene en el primero que no se pueda establecer. El agente no pulsa Enviar, pero la página puede enviar el formulario automáticamente o guardar los cambios mientras escribes.",
-      "adopt_tab": "Tomar la pestaña {{tab}} en {{url}}",
+      "adopt_tab": "Tomar la pestaña «{{tab}}» en {{url}}",
       "navigate": "Ir a {{url}}",
       "navigate_consequence": "El navegador abre exactamente esta dirección: {{url}}",
       "no_submit_consequence": "Esto se introduce en el control mostrado abajo. No hay un paso de envío después, así que una página que guarda mientras escribes puede almacenarlo de inmediato.",
       "command_consequence": "El navegador realiza esta acción en el control mostrado abajo.",
       "prior_form": "Una ejecución anterior de esta tarea ya envió este formulario. Aprueba solo si es un envío nuevo y no el mismo otra vez.",
       "repeated_effect": "Esta ejecución ya hizo esto una vez con el mismo control de esta página. Aprueba solo si debe volver a ocurrir.",
-      "unknown_prior_effect": "No se pudo leer el registro de acciones de esta ejecución. Esta acción podría repetir un efecto anterior. Aprueba solo si es seguro repetirla."
+      "unknown_prior_effect": "No se pudo leer el registro de acciones de esta ejecución. Esta acción podría repetir un efecto anterior. Aprueba solo si es seguro repetirla.",
+      "adopt_untitled_tab": "Tomar una pestaña en {{url}}"
     },
     "dialog_kind": {
       "alert": "aviso",
@@ -227,6 +234,13 @@
       "other_tab": "Esta tarea se ejecuta en una pestaña distinta de la que estás viendo.",
       "supervised": "El agente trabaja en la página paso a paso y pregunta antes de cualquier acción importante. Chrome muestra un aviso de depuración mientras trabaja.",
       "experimental_model": "Las llamadas a herramientas están activadas para este modelo porque tú lo configuraste, no porque el modelo lo indique. Un modelo que no sabe llamar herramientas no llegará lejos."
+    },
+    "steer": {
+      "label": "Guiar al agente",
+      "placeholder": "Corrígelo sin pausar…",
+      "send": "Enviar al agente",
+      "queued": "Enviado. El agente lo leerá en su próximo paso.",
+      "heard": "El agente ha tenido en cuenta tu corrección."
     }
   },
   "common": {

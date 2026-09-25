@@ -195,8 +195,12 @@ const budgets: Budget[] = [
      * The PR1 Agent audit fixes took the measured Chrome build to 9,757,051:
      * form evidence, dialog recovery and localized approval text ship on the
      * run path. The three regression pages and spec are test-only.
+     *
+     * The run timeline took it to 9,761,411: row, duration and reasoning
+     * display, the settled card's record, steering, and their copy in nine
+     * locales.
      */
-    max: isFirefox ? 11_800_000 : 9_761_000
+    max: isFirefox ? 11_800_000 : 9_764_000
   },
   {
     metric: "zip",
@@ -395,8 +399,14 @@ const budgets: Budget[] = [
      * Firefox compiles `browser_task` out, but the tool loop's confirmation
      * hook, the turn fields it reads and the permission-mode setting are
      * chat infrastructure both browsers share: 210,289.
+     *
+     * The run timeline took Chrome to 290,481: the page indicator drawn
+     * through the debugger overlay, page-opened tab adoption and grouping,
+     * steering, and the card record's step projection. Firefox moved to
+     * 212,329 on what chat shares: the browser-context preamble every turn
+     * with tab tools builds, and the panel tab `current_tab` now reads.
      */
-    max: isFirefox ? 210_500 : 288_000
+    max: isFirefox ? 212_600 : 291_000
   }
 ]
 

@@ -48,7 +48,9 @@ export const READ_ONLY_AGENT_ACTIONS = [
 export type ReadOnlyAgentAction = (typeof READ_ONLY_AGENT_ACTIONS)[number]
 
 export interface AgentEffectResolverAdapter {
-  getTab(tabId: number): Promise<{ id?: number; url?: string } | undefined>
+  getTab(
+    tabId: number
+  ): Promise<{ id?: number; url?: string; title?: string } | undefined>
   classifyAccess(url?: string): Promise<TabAccess>
   resolveHistoryDestination(
     tabId: number,
@@ -166,6 +168,7 @@ export const resolveReadOnlyAgentEffect = async (input: {
   )
 
   let resolvedDestination: AgentDestination | undefined
+  let tabTitle: string | undefined
   if (command.type === "switch_tab") {
     const tab = await input.adapter.getTab(command.tabId)
     if (!tab?.url || tab.id !== command.tabId) {
@@ -174,6 +177,7 @@ export const resolveReadOnlyAgentEffect = async (input: {
       )
     }
     resolvedDestination = destination(tab.url)
+    tabTitle = tab.title?.replaceAll(/\s+/g, " ").trim().slice(0, 120)
   } else if (command.type === "back" || command.type === "forward") {
     const url = await input.adapter.resolveHistoryDestination(
       observation.tabId,
@@ -222,7 +226,15 @@ export const resolveReadOnlyAgentEffect = async (input: {
       }
     })
   }
-  const target = targetFromObservation(command, observation)
+  /**
+   * A tab is named by its title, which is how the log, the approval and the
+   * history can say which tab without a browser's internal number. Read only
+   * once the destination passed the access check above.
+   */
+  const target = {
+    ...targetFromObservation(command, observation),
+    ...(tabTitle ? { accessibleName: tabTitle } : {})
+  }
   /* A referenced scroll is bound to its target's frame; nothing else has one. */
   const frame = target.frame
     ? agentFramePage(observation, target.frame)
@@ -626,6 +638,7 @@ const targetFromElement = (
   href: element.href,
   formAction: element.formAction,
   formMethod: element.formMethod,
+  formQuery: element.formQuery,
   formFingerprint: element.formFingerprint,
   formHasSensitiveControl: element.formHasSensitiveControl,
   submitter: element.submitter,
@@ -673,6 +686,52 @@ const formDestination = (
   if (!element.formAction) return undefined
   const url = new URL(element.formAction)
   return { url: url.href, origin: url.origin, source: "observed" }
+}
+
+/**
+ * Where Enter in a same-origin search box goes, query and all.
+ *
+ * Only the address the approval shows. A GET form may still change state
+ * through its handler or its endpoint, so Enter stays a submission — priced,
+ * granted and verified as one; a routine grant never covers it. What the
+ * preview fixes is the prompt: "the complete destination URL" used to be an
+ * address missing its `?q=`. The executor refuses to send a form whose live
+ * query no longer matches it.
+ */
+const sameOriginSearchDestination = (
+  element: AgentElement,
+  page: { url: string }
+): AgentDestination | undefined => {
+  if (
+    element.formMethod !== "get" ||
+    element.formQuery === undefined ||
+    element.formHasSensitiveControl ||
+    !element.formAction
+  ) {
+    return undefined
+  }
+  const url = new URL(element.formAction)
+  if (url.origin !== new URL(page.url).origin) return undefined
+  url.search = element.formQuery
+  url.hash = ""
+  return { url: url.href, origin: url.origin, source: "observed" }
+}
+
+/** What Enter in a field that submits does, and the address it shows. */
+const enterSemantics = (
+  element: AgentElement,
+  observation: AgentObservation,
+  source: { url: string }
+): { destination?: AgentDestination; effects: AgentSemanticEffect[] } => {
+  /** A child frame's form is judged against the frame's own page. */
+  const search = sameOriginSearchDestination(
+    element,
+    agentFramePage(observation, element) ?? source
+  )
+  return {
+    destination: search ?? formDestination(element),
+    effects: ["form_mutation", "submission"]
+  }
 }
 
 const linkDestination = (
@@ -1143,8 +1202,9 @@ export const resolveDomMutationAgentEffect = async (input: {
       break
     case "press_key":
       if (command.key === "Enter" && element.maySubmit) {
-        destination = formDestination(element)
-        effects.push("form_mutation", "submission")
+        const enter = enterSemantics(element, observation, source)
+        destination = enter.destination
+        effects.push(...enter.effects)
       } else {
         effects.push("activation")
       }

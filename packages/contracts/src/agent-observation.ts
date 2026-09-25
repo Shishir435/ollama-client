@@ -132,6 +132,12 @@ export const AgentElementSchema = z
     download: z.boolean().optional(),
     formAction: z.url().max(2_048).optional(),
     formMethod: z.enum(["get", "post", "dialog"]).optional(),
+    /**
+     * The query a GET form would send now, when every value in it is one the
+     * observation may show — no hidden and no sensitive control. It is what
+     * lets Enter in a search box be approved as the address it goes to.
+     */
+    formQuery: z.string().max(2_048).optional(),
     formFingerprint: z
       .string()
       .regex(/^[0-9a-f]{8}$/)

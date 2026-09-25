@@ -110,6 +110,7 @@ const harness = (options: {
   /** Advances one millisecond per read, so every phase measures non-zero. */
   tickingClock?: boolean
   decisionTelemetry?: () => AgentStepTelemetry | undefined
+  decisionThinking?: () => string | undefined
 }) => {
   let current = state()
   const written: AgentStepWrite[] = []
@@ -180,6 +181,9 @@ const harness = (options: {
       },
       ...(options.decisionTelemetry
         ? { decisionTelemetry: options.decisionTelemetry }
+        : {}),
+      ...(options.decisionThinking
+        ? { decisionThinking: options.decisionThinking }
         : {})
     },
     observation: {
@@ -281,6 +285,23 @@ describe("controller step telemetry", () => {
       promptTokens: 7_412,
       outputTokens: 118
     })
+  })
+
+  /**
+   * A decision has no step id yet, so its reasoning waits for the first
+   * receipt written after it and is claimed there, once.
+   */
+  it("files a decision's reasoning on the first receipt of its step", async () => {
+    const thoughts = ["Reading the page first.", undefined]
+    const run = harness({ decisionThinking: () => thoughts.shift() })
+    await run.controller.start("run-1")
+
+    const receipts = run.written().filter((s) => s.stepId === "run-1:1")
+    expect(receipts[0].thinking).toBe("Reading the page first.")
+    expect(receipts.slice(1).every((s) => s.thinking === undefined)).toBe(true)
+    expect(run.written().filter((s) => s.thinking !== undefined)).toHaveLength(
+      1
+    )
   })
 
   /**

@@ -5,7 +5,8 @@ import { AgentWorkLog } from "../agent-work-log"
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>
-      values ? `${key}:${JSON.stringify(values)}` : key
+      values ? `${key}:${JSON.stringify(values)}` : key,
+    i18n: { language: "en" }
   })
 }))
 
@@ -20,6 +21,34 @@ const item = (overrides = {}) => ({
 })
 
 describe("AgentWorkLog", () => {
+  it("names the target and its row in the collapsed row", () => {
+    render(
+      <AgentWorkLog items={[item({ target: "Delete", row: "old.pdf" })]} />
+    )
+    expect(
+      screen.getByText(/agent\.work_log\.target:\{"name":"Delete"\} — old\.pdf/)
+    ).toBeInTheDocument()
+  })
+
+  it("shows how long a settled step took", () => {
+    render(<AgentWorkLog items={[item({ durationMs: 12_400 })]} />)
+    expect(screen.getByText("12s")).toBeInTheDocument()
+  })
+
+  it("keeps reasoning behind its own disclosure", () => {
+    const { container } = render(
+      <AgentWorkLog
+        items={[item({ status: "executing", thinking: "Delete the old one." })]}
+      />
+    )
+    const reasoning = screen
+      .getByText("agent.work_log.reasoning")
+      .closest("details")
+    expect(reasoning).not.toBeNull()
+    expect(reasoning).not.toHaveAttribute("open")
+    expect(container.querySelector("details[open]")).not.toBe(reasoning)
+  })
+
   it("keeps one compact chain row per durable step", () => {
     const { container } = render(
       <AgentWorkLog items={[item(), item({ id: "step-2" })]} />

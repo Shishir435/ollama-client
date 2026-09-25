@@ -27,6 +27,8 @@ export interface AgentRunConnection {
   pause(): void
   resume(): void
   correct(text: string): void
+  /** A correction for the working run's next decision; it does not pause. */
+  steer(text: string): void
   debugReport: AgentDebugReporter
   stop(): void
   completeTakeover(): void
@@ -218,6 +220,11 @@ export const useAgentRun = (): AgentRunConnection => {
         text: text.trim(),
         pausedAt: run.updatedAt
       })
+    },
+    steer(text) {
+      const trimmed = text.trim()
+      if (!runId || !trimmed) return
+      send({ type: "agent_steer", runId, text: trimmed })
     },
     snapshot,
     failure,

@@ -269,6 +269,46 @@ describe("Agent native input channel", () => {
 })
 
 describe("Agent screenshot channel", () => {
+  /**
+   * The run's outline is the debugger's overlay, which a real Chromium draws
+   * into `Page.captureScreenshot`. A model shown it would take it for page.
+   */
+  it("hides the page indicator for the capture and restores it after", async () => {
+    const { manager, commands } = harness({})
+    await manager.attach("run-1", 7)
+    const channel = manager.nativeInput("run-1", 7)
+    if (!channel) throw new Error("channel missing")
+    await channel.captureScreenshot()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const methods = commands.map((command) => command.method)
+    const capture = methods.lastIndexOf("Page.captureScreenshot")
+    expect(methods.lastIndexOf("Overlay.hideHighlight")).toBeLessThan(capture)
+    expect(methods.lastIndexOf("Overlay.highlightRect")).toBeGreaterThan(
+      capture
+    )
+  })
+
+  it("outlines the control a native press lands on", async () => {
+    const { manager, sent } = harness({})
+    await manager.attach("run-1", 7)
+    const channel = manager.nativeInput("run-1", 7)
+    if (!channel) throw new Error("channel missing")
+    await channel.dispatch({
+      kind: "mouse",
+      type: "mousePressed",
+      x: 12,
+      y: 34,
+      button: "left",
+      clickCount: 1,
+      modifiers: 0
+    })
+    expect(sent("DOM.getNodeForLocation")[0]?.params).toMatchObject({
+      x: 12,
+      y: 34
+    })
+  })
+
   it("captures a JPEG of the viewport with its layout, and a scaled clip when asked", async () => {
     const { manager, sent, commands } = harness({})
     await manager.attach("run-1", 7)

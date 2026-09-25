@@ -18,9 +18,10 @@ import { SETTINGS } from "@/lib/storage/settings"
 import { createAgentBrowserAdapters } from "./agent-browser-adapters"
 import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
-import { createAgentEffectPort } from "./agent-effect-port"
+import { createAgentEffectPort, watchTabsOpenedBy } from "./agent-effect-port"
 import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
 import type { AgentSupervision } from "./agent-supervision"
+import { groupAgentTab } from "./agent-tab-group"
 import type { AgentTabHistory } from "./agent-tab-history"
 import { traceAgentRun } from "./agent-trace"
 
@@ -196,7 +197,11 @@ export const buildAgentController: BuildAgentController = (input) => {
     }),
     input.decisionTimeoutMs ?? DECISION_TIMEOUT_MS
   )
-  const effect = createAgentEffectPort(adapters)
+  const effect = createAgentEffectPort(
+    adapters,
+    watchTabsOpenedBy,
+    (tabId) => void groupAgentTab(input.runId, tabId)
+  )
   const screenshotsPermitted =
     input.screenshotsPermitted ?? defaultScreenshotsPermitted
   const vision = model.vision

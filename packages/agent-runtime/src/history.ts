@@ -1,3 +1,4 @@
+import { MAX_AGENT_ROW_CONTEXT_CHARS } from "@ollama-client/contracts"
 import type {
   AgentFinding,
   AgentHistoryEntry,
@@ -157,13 +158,22 @@ const latestByStep = (
   return [...latest.values()].sort((a, b) => a.sequence - b.sequence)
 }
 
+/**
+ * The target as the model reads it back: the row text is for the person
+ * reading the log, and the prompt already carries the page it came from.
+ */
+const historyTarget = ({
+  rowContext: _rowContext,
+  ...target
+}: AgentStepTarget): AgentStepTarget => target
+
 const entryOf = (step: AgentStepReadout, index: number): AgentHistoryEntry => {
   const url = step.sourceUrl ? agentStepSourceUrl(step.sourceUrl) : undefined
   return {
     step: index + 1,
     action: actionOf(step).slice(0, MAX_ACTION_CHARS),
     outcome: outcomeOf(step),
-    ...(step.target ? { target: step.target } : {}),
+    ...(step.target ? { target: historyTarget(step.target) } : {}),
     ...(url ? { url } : {}),
     ...(step.verification?.evidence.summary
       ? {
@@ -242,7 +252,10 @@ export const agentStepTargetFrom = (
     ...(target.role ? { role: target.role } : {}),
     ...(target.sensitive || !target.accessibleName
       ? {}
-      : { name: target.accessibleName.slice(0, 120) })
+      : { name: target.accessibleName.slice(0, 120) }),
+    ...(target.sensitive || !target.rowContext
+      ? {}
+      : { rowContext: target.rowContext.slice(0, MAX_AGENT_ROW_CONTEXT_CHARS) })
   }
   return Object.keys(entry).length > 0 ? entry : undefined
 }

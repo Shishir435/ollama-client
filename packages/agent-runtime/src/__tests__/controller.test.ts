@@ -183,6 +183,8 @@ interface HarnessOptions {
   approval?: AgentApprovalDecision | (() => Promise<AgentApprovalDecision>)
   takeover?: AgentTakeoverDecision
   failClaim?: AgentRunStatus
+  /** Loses one claim on demand, as a pause or stop winning the race would. */
+  failClaimWhen?: (phase: AgentRunStatus) => boolean
   observe?: AgentControllerDependencies["observation"]["observe"]
   decide?: AgentControllerDependencies["model"]["decide"]
   plan?: AgentControllerDependencies["model"]["plan"]
@@ -230,6 +232,7 @@ const createHarness = (options: HarnessOptions = {}) => {
        */
       if (
         options.failClaim === input.phase ||
+        options.failClaimWhen?.(input.phase) ||
         !input.expected.includes(state.status) ||
         !isLegalAgentTransition(state.status, input.phase)
       ) {
@@ -615,6 +618,88 @@ describe("agent controller", () => {
     expect(harness.steps).toContain("verified")
     expect(harness.getState().status).toBe("completed")
     expect(harness.getState().result).toBe("Done")
+  })
+
+  /**
+   * A tab the page opened because the run clicked joins the scope, so the
+   * run can switch to it without asking; the run stays where it was.
+   */
+  /**
+   * A correction used to need a pause first. Typed while the run works, it
+   * reaches the next decision — not the one already asked — as an answer.
+   */
+  it("takes a correction typed while the run works into its next decision", async () => {
+    const heard: AgentRunState["answers"][] = []
+    const decisions: unknown[] = [
+      { type: "command", command: command() },
+      { type: "complete", summary: "Done" }
+    ]
+    const harness: ReturnType<typeof createHarness> = createHarness({
+      decide: async (input) => {
+        heard.push(input.state.answers)
+        return decisions.shift() as never
+      },
+      onVerify: async () => {
+        expect(
+          await harness.controller.steer?.("run-1", "  Use the second row  ")
+        ).toBe(true)
+      }
+    })
+    await harness.controller.start("run-1")
+
+    expect(heard[0] ?? []).toHaveLength(0)
+    expect(heard[1]?.at(-1)).toMatchObject({
+      question: "User correction while the run was working",
+      text: "Use the second row"
+    })
+  })
+
+  /**
+   * The correction was accepted, so a claim lost to a pause must not drop
+   * it: it waits for the decision after the resume.
+   */
+  it("keeps an accepted correction when the deciding claim is lost", async () => {
+    const heard: AgentRunState["answers"][] = []
+    const decisions: unknown[] = [
+      { type: "command", command: command() },
+      { type: "complete", summary: "Done" }
+    ]
+    let failNextDeciding = false
+    const harness: ReturnType<typeof createHarness> = createHarness({
+      observations: [observation(), observation(), observation()],
+      decide: async (input) => {
+        heard.push(input.state.answers)
+        return decisions.shift() as never
+      },
+      onVerify: async () => {
+        await harness.controller.steer?.("run-1", "Use the second row")
+        failNextDeciding = true
+      },
+      failClaimWhen: (phase) => {
+        if (phase !== "deciding" || !failNextDeciding) return false
+        failNextDeciding = false
+        return true
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(heard).toHaveLength(1)
+    await harness.controller.start("run-1")
+    expect(heard.at(-1)?.at(-1)).toMatchObject({ text: "Use the second row" })
+  })
+
+  it("refuses a correction for a run that is not working", async () => {
+    const harness = createHarness()
+    await harness.controller.start("run-1")
+    expect(await harness.controller.steer?.("run-1", "Stop that")).toBe(false)
+  })
+
+  it("adopts tabs the page opened during a confirmed step", async () => {
+    const harness = createHarness({
+      execute: async () => ({ executedAt: 10, openedTabIds: [21, 7] })
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().controlledTabId).toBe(7)
+    expect(harness.getState().scopedTabIds).toEqual([7, 21])
   })
 
   it("adopts a switch-tab target only after confirmed verification", async () => {

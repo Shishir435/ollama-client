@@ -110,6 +110,11 @@ export interface AgentRunService {
     correction?: { text: string; pausedAt: number }
   ): Promise<void>
   stop(runId: string): Promise<void>
+  /**
+   * A correction for the working run's next decision, without pausing it.
+   * Refused (`steer_unavailable`) when the run is not working in this worker.
+   */
+  steer(runId: string, text: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
   resolveEffect(input: { runId: string; pausedAt: number }): Promise<void>
   answerApproval(input: {
@@ -243,6 +248,7 @@ export type AgentRunFailureReason =
   | "follow_up_unavailable"
   | "permission_denied"
   | "tab_unsupported"
+  | "steer_unavailable"
   | "unknown_run"
 
 /**
@@ -1090,6 +1096,15 @@ export const createAgentRunService = (input?: {
       )
     },
     stop: stopRun,
+    async steer(runId, text) {
+      const controller = controllers.get(runId)
+      if (!(await controller?.steer?.(runId, text))) {
+        throw new AgentRunError(
+          "steer_unavailable",
+          "The Agent run is not working, so it cannot take a correction"
+        )
+      }
+    },
     async completeTakeover(runId) {
       const ongoing = takeoverCompletions.get(runId)
       if (ongoing) {
