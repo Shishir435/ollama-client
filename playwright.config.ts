@@ -116,6 +116,11 @@ export default defineConfig({
       "build/chrome-mv3-prod"
     ),
     chromiumProject(
+      "chromium-chat",
+      "**/chat-*.spec.ts",
+      "build/chrome-mv3-prod"
+    ),
+    chromiumProject(
       "chromium-persistence",
       "**/persistence.spec.ts",
       "build/chrome-mv3-benchmark"
