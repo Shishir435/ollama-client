@@ -114,3 +114,47 @@ export const sendChatTask = async (
   }
   return { started: false, attempts: 2 }
 }
+
+/** Run statuses after which nothing more will happen without the user. */
+export const SETTLED_RUN_STATUSES = ["completed", "failed", "cancelled"]
+
+/**
+ * A chat request is one that offered `browser_task`; the agent's own decision
+ * calls never do. The chat's answer is the content its last such call
+ * streamed, read from the recorded wire rather than the panel's markup.
+ */
+export const chatAnswerFromWire = (wire) => {
+  const chatCalls = wire.filter(
+    (rec) =>
+      rec.path?.endsWith("/chat/completions") &&
+      JSON.stringify(rec.request?.tools ?? []).includes("browser_task")
+  )
+  const last = chatCalls.at(-1)
+  if (!last?.response) return ""
+  let text = ""
+  for (const line of last.response.split("\n")) {
+    if (!line.startsWith("data: ") || line === "data: [DONE]") continue
+    try {
+      const content = JSON.parse(line.slice(6)).choices?.[0]?.delta?.content
+      if (typeof content === "string") text += content
+    } catch {
+      /** A partial line from a cut stream carries nothing to score. */
+    }
+  }
+  return text.trim()
+}
+
+/**
+ * A run left paused or mid-flight holds the chat turn that delegated it, and
+ * the next task's `browser_task` then starts nothing. Stopped here so each
+ * case begins with no run open.
+ */
+export const stopOpenRun = async (panel, snapshot) => {
+  const run = snapshot?.run
+  if (!run || SETTLED_RUN_STATUSES.includes(run.status)) return false
+  await panel.evaluate(
+    (runId) => window.auditPort?.postMessage({ type: "agent_stop", runId }),
+    run.id
+  )
+  return true
+}

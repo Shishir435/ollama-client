@@ -1,6 +1,10 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
-import { sendChatTask, waitForChatState } from "../chat-turn.mjs"
+import {
+  chatAnswerFromWire,
+  sendChatTask,
+  waitForChatState
+} from "../chat-turn.mjs"
 
 /** A clock the wait advances, so a poll costs no real time. */
 const fakeClock = () => {
@@ -83,5 +87,41 @@ describe("sendChatTask", () => {
     })
     assert.deepEqual(sent, { started: true, attempts: 1 })
     assert.equal(panel.pressed.length, 1)
+  })
+})
+
+describe("chatAnswerFromWire", () => {
+  const sse = (...parts) =>
+    parts
+      .map(
+        (content) =>
+          `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`
+      )
+      .join("") + "data: [DONE]\n\n"
+
+  it("reads the last chat call, not an agent decision after it", () => {
+    const chatTools = [{ function: { name: "browser_task" } }]
+    const wire = [
+      {
+        path: "/v1/chat/completions",
+        request: { tools: chatTools },
+        response: sse("first")
+      },
+      {
+        path: "/v1/chat/completions",
+        request: { tools: chatTools },
+        response: sse("Version ", "0.14.0")
+      },
+      {
+        path: "/v1/chat/completions",
+        request: { tools: [{ function: { name: "click" } }] },
+        response: sse("agent")
+      }
+    ]
+    assert.equal(chatAnswerFromWire(wire), "Version 0.14.0")
+  })
+
+  it("answers nothing when no chat call was recorded", () => {
+    assert.equal(chatAnswerFromWire([]), "")
   })
 })

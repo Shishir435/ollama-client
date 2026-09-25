@@ -3,7 +3,12 @@ import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
-import { sendChatTask } from "./chat-turn.mjs"
+import {
+  chatAnswerFromWire,
+  readChatTurn,
+  sendChatTask,
+  stopOpenRun
+} from "./chat-turn.mjs"
 import {
   INBODY_RULES,
   scoreInbodyAnswer,
@@ -310,6 +315,12 @@ try {
      */
     let final
     let reason = sent.started ? undefined : "turn_not_started"
+    /**
+     * The chat model may answer a reading task itself, from the page, without
+     * delegating a run. No run will ever appear, so an idle chat turn with no
+     * run is the end of the case rather than a wait for the deadline.
+     */
+    let idleSince
     while (sent.started && Date.now() - started < 240000) {
       final = messages
         .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
@@ -325,6 +336,15 @@ try {
         reason = "submission_handler_bypassed"
         break
       }
+      if (!final) {
+        const chat = await readChatTurn(panel, goal).catch(() => undefined)
+        if (chat && !chat.busy && chat.sendReady) {
+          idleSince ??= Date.now()
+          if (Date.now() - idleSince >= 3000) break
+        } else {
+          idleSince = undefined
+        }
+      }
       await new Promise((r) => setTimeout(r, 250))
     }
     const body = await fixture
@@ -338,11 +358,19 @@ try {
         focus: document.activeElement?.id
       }))
       .catch(() => ({}))
-    const answer = final?.run?.result ?? ""
-    const completed = final?.run?.status === "completed"
+    await stopOpenRun(panel, final)
+    const delegated = Boolean(final)
+    const chatAnswer = delegated ? "" : chatAnswerFromWire(wire)
+    const answer = final?.run?.result ?? chatAnswer
+    const completed =
+      final?.run?.status === "completed" || (!delegated && Boolean(chatAnswer))
     const status =
       final?.run?.status ??
-      (sent.started ? "harness_timeout" : "turn_not_started")
+      (!sent.started
+        ? "turn_not_started"
+        : chatAnswer
+          ? "answered_in_chat"
+          : "harness_timeout")
     let success = false
     let predicate = `answer:${expect}`
     if (completed) {
@@ -381,9 +409,8 @@ try {
       success,
       verdict,
       predicate,
-      status:
-        final?.run?.status ??
-        (sent.started ? "harness_timeout" : "turn_not_started"),
+      status,
+      delegated,
       reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
       steps: final?.run?.stepCount,
       modelCalls: calls.length,
