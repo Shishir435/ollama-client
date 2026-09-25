@@ -74,6 +74,30 @@ const sameUrl = (first: string | undefined, second: string): boolean => {
 }
 
 /**
+ * Whether the tab landed on the address asked for, allowing what a site adds
+ * on arrival. Searching DuckDuckGo for `?q=test` commits `?q=test&ia=web`, and
+ * reading that as "a different destination" paused a search that had worked.
+ * Same origin and path, every requested parameter present with its value;
+ * extra parameters and the fragment are the site's. A different path, host
+ * or value is still a different destination.
+ */
+const landedAt = (committed: string, requested: string): boolean => {
+  if (sameUrl(committed, requested)) return true
+  try {
+    const landed = new URL(committed)
+    const asked = new URL(requested)
+    if (landed.origin !== asked.origin || landed.pathname !== asked.pathname)
+      return false
+    for (const [name, value] of asked.searchParams) {
+      if (!landed.searchParams.getAll(name).includes(value)) return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * How many times a wait may look at the page before giving up, and the
  * narrowest and widest gap between those looks.
  *
@@ -517,7 +541,7 @@ const verifyCommittedDestination = async (
   if (!tab?.url) {
     return result("negative", kind, "Destination tab is gone", adapter.now())
   }
-  if (!sameUrl(tab.url, destination.url)) {
+  if (!landedAt(tab.url, destination.url)) {
     return sameUrl(tab.url, input.effect.sourceUrl)
       ? result(
           "ambiguous",
@@ -564,7 +588,7 @@ export const NAVIGATION_AGENT_VERIFIERS = {
      * answered but the page did not move.
      */
     const after = await observeAfter(input, adapter, signal)
-    if (!sameUrl(after.url, input.effect.destination?.url ?? "")) {
+    if (!landedAt(after.url, input.effect.destination?.url ?? "")) {
       return result(
         "ambiguous",
         "navigation",

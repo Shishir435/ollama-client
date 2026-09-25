@@ -84,6 +84,7 @@ import {
   isTerminalAgentStatus
 } from "./state"
 import { mergeAgentStepTelemetry } from "./telemetry"
+import { agentCommandKeepingUserTab } from "./user-tab"
 import { classifyVerificationOutcome } from "./verification"
 import { agentPictureWarranted } from "./vision"
 
@@ -1337,6 +1338,10 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext
   ): Promise<AgentRunState | undefined> => {
+    decision = {
+      ...decision,
+      command: agentCommandKeepingUserTab(decision.command, state, observation)
+    }
     const resolution = await resolveEffect(
       state,
       decision,

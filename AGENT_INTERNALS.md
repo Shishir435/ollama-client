@@ -525,6 +525,13 @@ Read the section your change touches; you do not need the whole file.
   and `file_selection` stay critical or takeover, a grant never covers a step
   carrying one of them, and a submission riding along with one is priced by
   the one.
+- **A run never navigates the user's own tab to another site.** The first
+  tab in a run's scope is the page the user was on; a `navigate` from it to
+  another origin runs as `open_tab` (`user-tab.ts`), with the same
+  destination and approval. Same-origin moves and tabs the run opened are
+  unchanged. A navigation counts as landed when the committed URL keeps the
+  requested origin, path and every requested parameter — a site adding
+  `&ia=web` on arrival is not another destination.
 - **A search-box textarea submits on Enter like an input.** DuckDuckGo and
   Google render their search field as `<textarea name="q">`. Enter there is
   a submission when the textarea is the form's only text entry, in a GET form
