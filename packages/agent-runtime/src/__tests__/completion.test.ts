@@ -1274,6 +1274,176 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "missing_evidence" })
   })
 
+  /**
+   * Measured on gpt-6-luna: every completion that followed a verified
+   * select or a typed-then-submitted field was refused, and the runs spent
+   * their budget and asked the user. Selecting Blue leaves "Blue" where it
+   * was, and submitting leaves no "Alice" on the next page; the verified
+   * receipt is the evidence for the value the model quoted.
+   */
+  it("accepts the selected value as evidence though it was on the page before", () => {
+    const receipt = step({
+      sequence: 1,
+      command: {
+        type: "select",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        value: "Blue"
+      },
+      target: { ref: "e1", tag: "select", role: "listbox", name: "Color" },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "field",
+          summary: "Field contains the resolved value",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({ visibleText: "Color Red Blue" }),
+        baselineText: "color red blue",
+        requirements: [
+          {
+            id: "r1",
+            text: "Select Blue from the Color dropdown",
+            kind: "change"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Blue" }]
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  const unchecked = step({
+    sequence: 1,
+    command: {
+      type: "uncheck",
+      ref: "e1",
+      snapshotId: "snapshot-1",
+      generation: 1
+    },
+    requirementId: "r1",
+    target: { ref: "e1", tag: "input", name: "Agree" },
+    verification: {
+      outcome: "confirmed",
+      evidence: {
+        kind: "checked",
+        summary: "Control has the resolved checked state",
+        observedAt: 1
+      }
+    }
+  })
+
+  /**
+   * The planner's own wording, measured on gpt-6-luna: "on the current
+   * page" read as the state "on", so the requirement asserted both states
+   * and the verified uncheck could never vouch for it.
+   */
+  it("does not read the preposition 'on' as a checked state", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [unchecked],
+        observation: observation({ visibleText: "Agree" }),
+        requirements: [
+          {
+            id: "r1",
+            text: "The Agree checkbox on the current page is unchecked.",
+            kind: "change"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Agree" }]
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  it("still reads a stated 'on' against an uncheck", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [unchecked],
+        observation: observation({ visibleText: "Agree" }),
+        requirements: [
+          { id: "r1", text: "Agree is switched on", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Agree" }]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
+  const typedName = step({
+    sequence: 1,
+    command: {
+      type: "clear_and_type",
+      ref: "e1",
+      snapshotId: "snapshot-1",
+      generation: 1,
+      text: "Alice"
+    },
+    target: { ref: "e1", tag: "input", name: "Name" },
+    verification: {
+      outcome: "confirmed",
+      evidence: {
+        kind: "field",
+        summary: "Field contains the resolved value",
+        observedAt: 1
+      }
+    }
+  })
+
+  it("accepts a typed value the next page no longer shows", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [typedName],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [
+          { id: "r1", text: "Enter Alice in the Name field", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Alice" }]
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  it.each([
+    ["an invented phrase", "Form committed its resolved destination"],
+    ["another value", "Bob"]
+  ])("still refuses %s absent from the page", (_label, evidence) => {
+    expect(
+      judgeAgentCompletion({
+        steps: [typedName],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [
+          { id: "r1", text: "Enter Alice in the Name field", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it("does not rescue an absent value with an unconfirmed receipt", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [
+          {
+            ...typedName,
+            status: "uncertain",
+            verification: {
+              outcome: "ambiguous",
+              evidence: { kind: "field", summary: "Unclear", observedAt: 1 }
+            }
+          }
+        ],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [
+          { id: "r1", text: "Enter Alice in the Name field", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Alice" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
   it("does not apply another value's negation to the selected value", () => {
     const receipt = step({
       sequence: 1,

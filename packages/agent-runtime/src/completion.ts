@@ -366,9 +366,21 @@ const completePhraseOccurrences = (
 const containsCompletePhrase = (text: string, phrase: string): boolean =>
   completePhraseOccurrences(text, phrase).length > 0
 
-const CHECKED_OFF_PATTERN =
-  /\b(uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b/
-const CHECKED_ON_PATTERN = /\b(check|checked|tick|ticked|select|selected|on)\b/
+/**
+ * "on" and "off" are states only when nothing follows them as their object:
+ * the planner writes "the Agree checkbox on the current page is unchecked",
+ * and reading that "on" as a state made the requirement assert both, so a
+ * verified uncheck could never vouch for it.
+ */
+const PREPOSITION_OBJECT =
+  "(?!\\s+(?:the|a|an|this|that|these|those|its|each|every|any|all|page|screen|site|tab|form)\\b)"
+const ON = `on${PREPOSITION_OBJECT}`
+const OFF = `off${PREPOSITION_OBJECT}`
+const ON_WORDS = `check|checked|tick|ticked|select|selected|${ON}`
+const OFF_WORDS = `uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|${OFF}`
+
+const CHECKED_OFF_PATTERN = new RegExp(`\\b(${OFF_WORDS})\\b`)
+const CHECKED_ON_PATTERN = new RegExp(`\\b(${ON_WORDS})\\b`)
 
 /**
  * A state word scoped by a negation ("not checked", "isn't selected", "never
@@ -377,10 +389,12 @@ const CHECKED_ON_PATTERN = /\b(check|checked|tick|ticked|select|selected|on)\b/
  * that ignores it reads "not checked" as silence and lets a checked receipt
  * vouch for it.
  */
-const NEGATED_ON_PATTERN =
-  /\b(?:not|never|neither|nor|without)\b(?:\s+\w+){0,3}?\s+(?:check|checked|tick|ticked|select|selected|on)\b|n['’]t(?:\s+\w+){0,3}?\s+(?:check|checked|tick|ticked|select|selected|on)\b/
-const NEGATED_OFF_PATTERN =
-  /\b(?:not|never|neither|nor|without)\b(?:\s+\w+){0,3}?\s+(?:uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b|n['’]t(?:\s+\w+){0,3}?\s+(?:uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b/
+const negated = (words: string): RegExp =>
+  new RegExp(
+    `\\b(?:not|never|neither|nor|without)\\b(?:\\s+\\w+){0,3}?\\s+(?:${words})\\b|n['’]t(?:\\s+\\w+){0,3}?\\s+(?:${words})\\b`
+  )
+const NEGATED_ON_PATTERN = negated(ON_WORDS)
+const NEGATED_OFF_PATTERN = negated(OFF_WORDS)
 const NEGATED_ON_PATTERN_GLOBAL = new RegExp(NEGATED_ON_PATTERN.source, "g")
 const NEGATED_OFF_PATTERN_GLOBAL = new RegExp(NEGATED_OFF_PATTERN.source, "g")
 
@@ -546,6 +560,33 @@ const quotationNamesReceiptTarget = (
 }
 
 /**
+ * Whether the quotation is the value a value receipt confirmed the control
+ * holds — the selected option or the typed text. Selecting Blue leaves the
+ * word "Blue" exactly where it was, so the staleness rule refuses it, and
+ * the value is the phrase a model naturally quotes. Compared exactly after
+ * normalising, so only the receipt's own value is rescued.
+ */
+const quotationNamesReceiptValue = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const command = receipt.command
+  const value =
+    command?.type === "select"
+      ? command.value
+      : command?.type === "type" ||
+          command?.type === "clear_and_type" ||
+          command?.type === "replace_text"
+        ? command.text
+        : undefined
+  return (
+    value !== undefined &&
+    agentNormalizedClaim(value).length > 0 &&
+    agentNormalizedClaim(value) === agentNormalizedClaim(quoted)
+  )
+}
+
+/**
  * One met `read` requirement. A read owes no quotation, but one it
  * volunteers must still be real: an accepted completion carrying a phrase
  * the page does not contain is a false record whichever kind of outcome it
@@ -621,9 +662,12 @@ const evidencePlannedChange = (
    * see — not against findings, which are the model's own words, and not
    * against verifier summaries, which are fixed template sentences. An
    * outcome that must outlive its navigation needs result-verified state,
-   * which is page-independent, rather than a quotation.
+   * which is page-independent — so an absent quotation is rescued only by a
+   * result-verified receipt it names exactly, by its control or its value:
+   * typing "Alice" and submitting leaves no "Alice" on the next page, and
+   * the receipt that confirmed the field held it is the evidence instead.
    */
-  if (refusal.reason === "absent_evidence") return refusal
+  const absent = refusal.reason === "absent_evidence"
   /**
    * A state-only change adds no new words to the page — selecting Blue and
    * ticking a checkbox leave exactly the label that was already there — so
@@ -638,7 +682,8 @@ const evidencePlannedChange = (
   if (
     refusal.reason === "missing_evidence" ||
     refusal.reason === "self_evidence" ||
-    refusal.reason === "stale_evidence"
+    refusal.reason === "stale_evidence" ||
+    absent
   ) {
     for (const candidate of changes) {
       const index = matchingBatchField(
@@ -659,7 +704,10 @@ const evidencePlannedChange = (
         requirementNamesReceiptTarget(requirement, candidate) &&
         receiptResultAgrees(requirement, candidate) &&
         candidate.command?.type !== "fill_form" &&
-        (quoted === undefined || quotationNamesReceiptTarget(quoted, candidate))
+        (quoted === undefined
+          ? !absent
+          : quotationNamesReceiptTarget(quoted, candidate) ||
+            quotationNamesReceiptValue(quoted, candidate))
     )
     if (receipt) {
       consumed.add(receipt.stepId)
