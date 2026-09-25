@@ -158,3 +158,23 @@ export const stopOpenRun = async (panel, snapshot) => {
   )
   return true
 }
+
+/**
+ * Every chat completion at the effort `AUDIT_REASONING_EFFORT` names, set on
+ * the forwarded body whatever the extension asked for, so a pass measures
+ * one model at one effort. Unset, the body is forwarded untouched.
+ */
+export const withReasoningEffort = (
+  path,
+  body,
+  effort = process.env.AUDIT_REASONING_EFFORT
+) => {
+  if (!effort || !path.endsWith("/chat/completions")) return body
+  try {
+    const parsed = JSON.parse(body)
+    delete parsed.reasoning
+    return JSON.stringify({ ...parsed, reasoning_effort: effort })
+  } catch {
+    return body
+  }
+}

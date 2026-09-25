@@ -26,6 +26,7 @@ AUDIT_UPSTREAM=http://127.0.0.1:8087 \
 | --- | --- |
 | `AUDIT_UPSTREAM` | OpenAI-compatible endpoint to forward to; an olc proxy (`pnpm exec tsx packages/olc/src/cli.ts -b opencode --port 8087`). Default `http://127.0.0.1:8084`. |
 | `AUDIT_MODEL` | Model id as that endpoint lists it. |
+| `AUDIT_REASONING_EFFORT` | Sets `reasoning_effort` (for example `medium`) on every chat completion forwarded upstream, overriding what the extension sent. |
 | `AUDIT_API_KEY` | Sent as a bearer token upstream, for a hosted endpoint such as OpenRouter (`AUDIT_UPSTREAM=https://openrouter.ai/api`). Never written to the evidence. |
 
 Each run writes `artifacts/agent-live-benchmark/<suite>/<model>/`: one

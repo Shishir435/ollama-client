@@ -7,7 +7,8 @@ import {
   chatAnswerFromWire,
   readChatTurn,
   sendChatTask,
-  stopOpenRun
+  stopOpenRun,
+  withReasoningEffort
 } from "./chat-turn.mjs"
 import {
   scoreSyntheticTask,
@@ -156,7 +157,7 @@ const server = createServer(async (req, res) => {
               ? { Authorization: `Bearer ${process.env.AUDIT_API_KEY}` }
               : {})
           },
-          ...(body ? { body } : {})
+          ...(body ? { body: withReasoningEffort(path, body) } : {})
         }
       )
       res.writeHead(upstream.status, {

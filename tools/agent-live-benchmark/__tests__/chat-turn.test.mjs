@@ -3,7 +3,8 @@ import { describe, it } from "node:test"
 import {
   chatAnswerFromWire,
   sendChatTask,
-  waitForChatState
+  waitForChatState,
+  withReasoningEffort
 } from "../chat-turn.mjs"
 
 /** A clock the wait advances, so a poll costs no real time. */
@@ -123,5 +124,20 @@ describe("chatAnswerFromWire", () => {
 
   it("answers nothing when no chat call was recorded", () => {
     assert.equal(chatAnswerFromWire([]), "")
+  })
+})
+
+describe("withReasoningEffort", () => {
+  it("sets one effort on chat calls and leaves everything else alone", () => {
+    const body = JSON.stringify({
+      model: "codex/gpt-6-luna",
+      reasoning: { effort: "high" }
+    })
+    assert.deepEqual(
+      JSON.parse(withReasoningEffort("/v1/chat/completions", body, "medium")),
+      { model: "codex/gpt-6-luna", reasoning_effort: "medium" }
+    )
+    assert.equal(withReasoningEffort("/v1/models", body, "medium"), body)
+    assert.equal(withReasoningEffort("/v1/chat/completions", body, ""), body)
   })
 })
