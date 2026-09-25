@@ -45,33 +45,22 @@ export const successfulControlValues = (
 }
 
 /**
- * The query a GET form would send now, when every value in it is one the
- * observation may already show.
- *
- * Hidden controls never cross the control port — the reference store keeps
- * them in the page for the execution-time check — so a form carrying one has
- * no preview, and neither does one with a sensitive control. A search box
- * with a button and nothing else is what this is for.
+ * The name/value pairs the executor's guarded copy of a form submits, in the
+ * order it submits them: every successful control in tree order, then the
+ * submitter. That order is the executor's, not the browser's native one — it
+ * is the guarded copy that is sent when the page does not handle the
+ * submission itself, so it is the order an approved address must match.
  */
-export const agentVisibleGetQuery = (
+export const agentGuardedSubmissionEntries = (
   form: HTMLFormElement,
-  submitter: Element | undefined,
-  isSensitive: (control: Element) => boolean
-): string | undefined => {
-  const query = new URLSearchParams()
+  submitter: Element | undefined
+): [string, string][] => {
+  const entries: [string, string][] = []
   for (const control of Array.from(form.elements)) {
-    if (!(control instanceof Element)) continue
+    if (!(control instanceof Element) || !("name" in control)) continue
     const values = successfulControlValues(control)
     if (!values) continue
-    if (
-      (control instanceof HTMLInputElement &&
-        control.type.toLowerCase() === "hidden") ||
-      isSensitive(control)
-    ) {
-      return undefined
-    }
-    const name = (control as HTMLInputElement).name
-    for (const value of values) query.append(name, value)
+    for (const value of values) entries.push([String(control.name), value])
   }
   if (
     (submitter instanceof HTMLButtonElement ||
@@ -82,11 +71,49 @@ export const agentVisibleGetQuery = (
       submitter instanceof HTMLInputElement &&
       submitter.type.toLowerCase() === "image"
     ) {
-      query.append(`${submitter.name}.x`, "0")
-      query.append(`${submitter.name}.y`, "0")
+      entries.push([`${submitter.name}.x`, "0"], [`${submitter.name}.y`, "0"])
     } else {
-      query.append(submitter.name, submitter.value)
+      entries.push([submitter.name, submitter.value])
     }
   }
-  return query.toString()
+  return entries
+}
+
+/** The GET query the guarded copy of this form would send now. */
+export const agentGuardedGetQuery = (
+  form: HTMLFormElement,
+  submitter: Element | undefined
+): string =>
+  new URLSearchParams(agentGuardedSubmissionEntries(form, submitter)).toString()
+
+/**
+ * The GET query to show in an approval, when every value in it is one the
+ * observation may already show.
+ *
+ * Refused for any form holding a hidden input — named or not, enabled or not,
+ * because a page's own handler reads it either way — and for any contributing
+ * control that is sensitive or not rendered: a `display:none` text field is a
+ * hidden field by another name, and its value is not the observation's to
+ * disclose. A search box with a button is what this is for. The preview names
+ * the address in the approval; it never makes the step anything but a
+ * submission, and the executor refuses to send one whose live query differs.
+ */
+export const agentVisibleGetQuery = (
+  form: HTMLFormElement,
+  submitter: Element | undefined,
+  isShowable: (control: Element) => boolean
+): string | undefined => {
+  for (const control of Array.from(form.elements)) {
+    if (!(control instanceof Element)) continue
+    if (
+      control instanceof HTMLInputElement &&
+      control.type.toLowerCase() === "hidden"
+    ) {
+      return undefined
+    }
+    if (successfulControlValues(control) && !isShowable(control)) {
+      return undefined
+    }
+  }
+  return agentGuardedGetQuery(form, submitter)
 }

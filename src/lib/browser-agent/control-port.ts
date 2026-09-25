@@ -184,6 +184,7 @@ const AgentDomMutationTargetSchema = z
     href: z.url().max(2_048).optional(),
     formAction: z.url().max(2_048).optional(),
     formMethod: z.enum(["get", "post", "dialog"]).optional(),
+    formQuery: z.string().max(2_048).optional(),
     formFingerprint: z
       .string()
       .regex(/^[0-9a-f]{8}$/)

@@ -59,6 +59,12 @@ export const createAgentPageIndicator = (
 ): AgentPageIndicator => {
   let enabled: Promise<boolean> | undefined
   let suspended = 0
+  /**
+   * Draw commands already sent. A suspend waits for them to land before it
+   * hides the overlay: a draw that left before the hide and arrived after it
+   * would put the outline in the picture the suspend exists to keep it out of.
+   */
+  const drawing = new Set<Promise<unknown>>()
   const enable = () => {
     enabled ??= enableDom()
       .then(() => send("Overlay.enable"))
@@ -68,13 +74,28 @@ export const createAgentPageIndicator = (
       )
     return enabled
   }
-  return {
+  /**
+   * The suspend flag is read again after every await and immediately before
+   * the draw is sent: a show that started before a capture must not finish
+   * during it.
+   */
+  const draw = async (method: string, params: object): Promise<void> => {
+    if (suspended > 0) return
+    const sent = send(method, params).catch(() => undefined)
+    drawing.add(sent)
+    try {
+      await sent
+    } finally {
+      drawing.delete(sent)
+    }
+  }
+  const indicator: AgentPageIndicator = {
     async show() {
       if (suspended > 0 || !(await enable())) return
       try {
         const metrics = await send("Page.getLayoutMetrics")
         if (!isLayoutMetrics(metrics)) return
-        await send("Overlay.highlightRect", {
+        await draw("Overlay.highlightRect", {
           x: 0,
           y: 0,
           width: Math.round(metrics.cssLayoutViewport.clientWidth),
@@ -89,11 +110,12 @@ export const createAgentPageIndicator = (
     async suspend() {
       suspended += 1
       if (!(await enable())) return
+      await Promise.allSettled([...drawing])
       await send("Overlay.hideHighlight").catch(() => undefined)
     },
     async resume() {
       suspended = Math.max(0, suspended - 1)
-      await this.show()
+      await indicator.show()
     },
     async target(point) {
       if (suspended > 0 || !(await enable())) return
@@ -104,7 +126,7 @@ export const createAgentPageIndicator = (
           includeUserAgentShadowDOM: false
         })) as { backendNodeId?: unknown } | undefined
         if (typeof node?.backendNodeId !== "number") return
-        await send("Overlay.highlightNode", {
+        await draw("Overlay.highlightNode", {
           backendNodeId: node.backendNodeId,
           highlightConfig: {
             contentColor: TARGET_FILL,
@@ -117,4 +139,5 @@ export const createAgentPageIndicator = (
       }
     }
   }
+  return indicator
 }

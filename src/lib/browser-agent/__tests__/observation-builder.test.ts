@@ -228,6 +228,52 @@ describe("Agent observation builder", () => {
     })
   })
 
+  /**
+   * A nameless or disabled hidden input contributes nothing to the query,
+   * but a page's handler reads it either way; a `display:none` text field is
+   * a hidden field by another name.
+   */
+  it.each([
+    [
+      "a nameless hidden input",
+      () => {
+        const input = document.createElement("input")
+        input.type = "hidden"
+        return input
+      }
+    ],
+    [
+      "a disabled hidden input",
+      () => {
+        const input = document.createElement("input")
+        input.type = "hidden"
+        input.name = "state"
+        input.disabled = true
+        return input
+      }
+    ],
+    [
+      "a text field hidden by CSS",
+      () => {
+        const input = document.createElement("input")
+        input.name = "session"
+        input.value = "secret"
+        input.style.display = "none"
+        return input
+      }
+    ]
+  ])("offers no preview for a form with %s", (_name, extra) => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const field = document.createElement("input")
+    field.name = "q"
+    field.value = "atlas"
+    form.append(field, extra())
+    document.body.append(form)
+
+    expect(build().elements[0]).not.toHaveProperty("formQuery")
+  })
+
   /** Hidden values stay in the page; a preview would carry them across. */
   it("offers no preview for a form with a hidden control", () => {
     const form = document.createElement("form")

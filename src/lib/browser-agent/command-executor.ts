@@ -28,7 +28,10 @@ import {
   agentRejectionReason
 } from "./effect-rejection"
 import type { AgentElementReferenceStore } from "./element-references"
-import { successfulControlValues } from "./form-submission"
+import {
+  agentGuardedGetQuery,
+  agentGuardedSubmissionEntries
+} from "./form-submission"
 import {
   type AgentInputBackendChoice,
   type AgentInputPlatform,
@@ -433,24 +436,8 @@ const buildGuardedSubmission = (
   guarded.enctype = submitter?.formEnctype || form.enctype
   guarded.acceptCharset = form.acceptCharset
   guarded.target = "_self"
-  for (const control of Array.from(form.elements)) {
-    const values =
-      control instanceof Element ? successfulControlValues(control) : undefined
-    if (!values || !("name" in control)) continue
-    for (const value of values) {
-      appendSubmissionValue(guarded, String(control.name), value)
-    }
-  }
-  if (submitter?.name) {
-    if (
-      submitter instanceof HTMLInputElement &&
-      submitter.type.toLowerCase() === "image"
-    ) {
-      appendSubmissionValue(guarded, `${submitter.name}.x`, "0")
-      appendSubmissionValue(guarded, `${submitter.name}.y`, "0")
-    } else {
-      appendSubmissionValue(guarded, submitter.name, submitter.value)
-    }
+  for (const [name, value] of agentGuardedSubmissionEntries(form, submitter)) {
+    appendSubmissionValue(guarded, name, value)
   }
   return guarded
 }
@@ -534,6 +521,21 @@ const submitThroughPageHandlers = (
     throw new Error("Agent form is not valid for submission")
   }
   const method = effect.target.formMethod
+  /**
+   * An approval that showed the full address is bound to it. The form
+   * fingerprint compares selected options, not every option's value or
+   * whether one was disabled since, so a page could move the query under an
+   * approval that still matched; the live query is compared instead.
+   */
+  if (
+    effect.target.formQuery !== undefined &&
+    (method !== "get" ||
+      agentGuardedGetQuery(form, submitter) !== effect.target.formQuery)
+  ) {
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.formStateChanged)
+    )
+  }
   let committed: string | undefined
   /**
    * Registered last, so the page's own listeners — an inline `onsubmit`

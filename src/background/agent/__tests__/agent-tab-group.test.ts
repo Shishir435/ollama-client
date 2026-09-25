@@ -28,15 +28,13 @@ describe("groupAgentTab", () => {
     group.mockResolvedValue(50)
   })
 
-  it("gathers a run's tabs into one labelled group, leaving the start tab out", async () => {
-    await groupAgentTab(1, 10)
-    await groupAgentTab(1, 11)
-    await groupAgentTab(10, 12)
+  it("gathers a run's tabs into one labelled group", async () => {
+    await groupAgentTab("run-1", 10)
+    await groupAgentTab("run-1", 11)
 
     expect(group.mock.calls).toEqual([
       [{ tabIds: 10 }],
-      [{ tabIds: 11, groupId: 50 }],
-      [{ tabIds: 12, groupId: 50 }]
+      [{ tabIds: 11, groupId: 50 }]
     ])
     expect(update).toHaveBeenCalledOnce()
     expect(update).toHaveBeenCalledWith(50, {
@@ -45,18 +43,38 @@ describe("groupAgentTab", () => {
     })
   })
 
+  /** Two tabs opened together both read "no group yet" without the chain. */
+  it("makes one group for tabs a run opens at the same moment", async () => {
+    await Promise.all([groupAgentTab("run-1", 10), groupAgentTab("run-1", 11)])
+    expect(update).toHaveBeenCalledOnce()
+    expect(group).toHaveBeenLastCalledWith({ tabIds: 11, groupId: 50 })
+  })
+
+  it("gives a later run from the same tab a group of its own", async () => {
+    await groupAgentTab("run-1", 10)
+    group.mockResolvedValue(60)
+    await groupAgentTab("run-2", 20)
+    expect(group).toHaveBeenLastCalledWith({ tabIds: 20 })
+    expect(update).toHaveBeenCalledTimes(2)
+  })
+
   it("does nothing without the optional permission", async () => {
     hasPermission.mockResolvedValue(false)
-    await groupAgentTab(1, 10)
+    await groupAgentTab("run-1", 10)
     expect(group).not.toHaveBeenCalled()
   })
 
-  it("starts a fresh group when the old one is gone", async () => {
-    await groupAgentTab(1, 10)
+  it("settles when the permission query itself fails", async () => {
+    hasPermission.mockRejectedValue(new Error("unavailable"))
+    await expect(groupAgentTab("run-1", 10)).resolves.toBeUndefined()
+    expect(group).not.toHaveBeenCalled()
+  })
+
+  it("starts a fresh group when the run's group is gone", async () => {
+    await groupAgentTab("run-1", 10)
     group.mockRejectedValueOnce(new Error("No group with id: 50"))
-    await groupAgentTab(1, 11)
-    group.mockResolvedValue(60)
-    await groupAgentTab(1, 13)
-    expect(group).toHaveBeenLastCalledWith({ tabIds: 13 })
+    group.mockResolvedValueOnce(60)
+    await groupAgentTab("run-1", 11)
+    expect(group).toHaveBeenLastCalledWith({ tabIds: 11 })
   })
 })

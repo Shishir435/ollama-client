@@ -771,8 +771,7 @@ export const createAgentBrowserAdapters = (input: {
           openerTabId,
           active: false
         })
-        if (tab.id !== undefined && openerTabId !== undefined)
-          void groupAgentTab(openerTabId, tab.id)
+        if (tab.id !== undefined) void groupAgentTab(input.runId, tab.id)
         return tab
       },
       now

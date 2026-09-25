@@ -40,7 +40,6 @@ import {
 import { browser } from "@/lib/browser-api"
 import { AGENT_WEBMCP_COMPILED } from "@/lib/feature-flags"
 import type { AgentBrowserAdapters } from "./agent-browser-adapters"
-import { groupAgentTab } from "./agent-tab-group"
 
 /**
  * Tabs a page opens while one step runs, collected into the array the
@@ -52,13 +51,19 @@ export interface AgentOpenedTabWatch {
   stop(): void
 }
 
-export type AgentOpenedTabWatcher = (openerTabId: number) => AgentOpenedTabWatch
+export type AgentOpenedTabWatcher = (
+  openerTabId: number,
+  onOpened?: (tabId: number) => void
+) => AgentOpenedTabWatch
 
 /** Long enough for any settle window, short enough never to leak a listener. */
 const OPENED_TAB_WATCH_CEILING_MS = 60_000
 const MAX_OPENED_TABS_PER_STEP = 5
 
-export const watchTabsOpenedBy: AgentOpenedTabWatcher = (openerTabId) => {
+export const watchTabsOpenedBy: AgentOpenedTabWatcher = (
+  openerTabId,
+  onOpened
+) => {
   const tabIds: number[] = []
   const listener = (tab: { id?: number; openerTabId?: number }) => {
     if (
@@ -67,7 +72,7 @@ export const watchTabsOpenedBy: AgentOpenedTabWatcher = (openerTabId) => {
       tabIds.length < MAX_OPENED_TABS_PER_STEP
     ) {
       tabIds.push(tab.id)
-      void groupAgentTab(openerTabId, tab.id)
+      onOpened?.(tab.id)
     }
   }
   browser.tabs.onCreated.addListener(listener)
@@ -134,7 +139,9 @@ const familyOf = (type: AgentCommand["type"]): AgentActionFamily => {
  */
 export const createAgentEffectPort = (
   adapters: AgentBrowserAdapters,
-  watchOpenedTabs: AgentOpenedTabWatcher = watchTabsOpenedBy
+  watchOpenedTabs: AgentOpenedTabWatcher = watchTabsOpenedBy,
+  /** Told of each tab the page opened for the run, e.g. to group it. */
+  onTabOpened?: (tabId: number) => void
 ): AgentEffectPort => {
   /**
    * One watch per receipt, from the moment the page is touched until the
@@ -146,7 +153,7 @@ export const createAgentEffectPort = (
     effect: Parameters<AgentEffectPort["execute"]>[0],
     run: () => Promise<AgentExecutionReceipt>
   ): Promise<AgentExecutionReceipt> => {
-    const watch = watchOpenedTabs(effect.snapshotIdentity.tabId)
+    const watch = watchOpenedTabs(effect.snapshotIdentity.tabId, onTabOpened)
     try {
       const executed = await run()
       const receipt = { ...executed, openedTabIds: watch.tabIds }

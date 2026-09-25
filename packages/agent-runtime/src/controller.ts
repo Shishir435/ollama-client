@@ -1794,6 +1794,19 @@ export const createAgentController = (
     return true
   }
 
+  /**
+   * A paused run keeps what the user typed for the decision after its
+   * resume; a finished one has no decision left to hear it.
+   */
+  const forgetUnheardSteering = async (runId: string): Promise<void> => {
+    if (!pendingSteering.has(runId) || active.has(runId)) return
+    const settled = await dependencies.persistence
+      .load(runId)
+      .catch(() => undefined)
+    if (!settled || isTerminalAgentStatus(settled.status))
+      pendingSteering.delete(runId)
+  }
+
   const observeAndDecide = async (
     state: AgentRunState,
     signal: AgentCancellationController["signal"]
@@ -1809,8 +1822,12 @@ export const createAgentController = (
     const recalled = await recallHistory(state)
     const observation = await observe(state, signal, recalled.inspection)
     if (!observation) return undefined
+    /**
+     * Taken off the queue only once the claim that records it has landed. A
+     * pause or stop that wins the claim leaves the correction queued for the
+     * decision after the resume, rather than accepted and then dropped.
+     */
     const steering = pendingSteering.get(state.id)
-    pendingSteering.delete(state.id)
     const deciding = await claim(state, "deciding", {
       observationCount: state.observationCount + 1,
       ...(steering?.length
@@ -1829,6 +1846,13 @@ export const createAgentController = (
       updatedAt: dependencies.clock.now()
     })
     if (!deciding) return undefined
+    if (steering?.length) {
+      const queued = pendingSteering.get(state.id) ?? []
+      /** By identity: a correction typed during the claim is still waiting. */
+      const later = queued.filter((entry) => !steering.includes(entry))
+      if (later.length > 0) pendingSteering.set(state.id, later)
+      else pendingSteering.delete(state.id)
+    }
     /**
      * A new instruction is new ground: the no-progress and refusal memory
      * describe the approach the user just corrected.
@@ -2083,6 +2107,7 @@ export const createAgentController = (
       )
     } finally {
       if (active.get(runId) === controller) active.delete(runId)
+      await forgetUnheardSteering(runId)
     }
   }
 

@@ -889,6 +889,28 @@ const stableFormFingerprint = (form: HTMLFormElement): string => {
   return (hash >>> 0).toString(16).padStart(8, "0")
 }
 
+/**
+ * A control whose value an approval may show: not sensitive, and not hidden
+ * by itself or anything above it — by attribute or by style — since a
+ * `display:none` field is a hidden field by another name. Read with the same
+ * predicates visibility uses, without the viewport: a search box scrolled
+ * out of sight still shows what it holds.
+ */
+const isShowableFormControl = (control: Element): boolean => {
+  if (isSensitiveAgentElement(control)) return false
+  const view = control.ownerDocument.defaultView
+  for (
+    let current: Element | null = control;
+    current;
+    current = composedParent(current)
+  ) {
+    if (isSemanticallyHidden(current)) return false
+    const style = view?.getComputedStyle(current)
+    if (!style || isHiddenByStyle(style)) return false
+  }
+  return true
+}
+
 const hasSensitiveFormControl = (form: HTMLFormElement): boolean =>
   Array.from(form.elements).some((control) => {
     if (!(control instanceof Element)) return false
@@ -1307,7 +1329,7 @@ const observedFormFields = (
       ? agentVisibleGetQuery(
           form,
           resolveAgentFormSubmitter(element),
-          isSensitiveAgentElement
+          isShowableFormControl
         )
       : undefined
   return {

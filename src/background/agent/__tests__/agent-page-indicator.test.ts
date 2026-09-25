@@ -60,6 +60,58 @@ describe("agent page indicator", () => {
     expect(sent).toContain("Overlay.highlightRect")
   })
 
+  /**
+   * A show that began before a capture — the timer after a click, a page
+   * navigating — must not draw after the capture's hide.
+   */
+  it("does not draw after a suspend that began while it waited", async () => {
+    const sent: string[] = []
+    let releaseMetrics: (value: unknown) => void = () => undefined
+    const send = vi.fn(async (method: string) => {
+      sent.push(method)
+      if (method === "Page.getLayoutMetrics")
+        return new Promise((resolve) => {
+          releaseMetrics = resolve
+        })
+      return {}
+    })
+    const indicator = createAgentPageIndicator(send, async () => undefined)
+    const showing = indicator.show()
+    await vi.waitFor(() => expect(sent).toContain("Page.getLayoutMetrics"))
+    await indicator.suspend()
+    releaseMetrics({
+      cssLayoutViewport: { clientWidth: 800, clientHeight: 600 }
+    })
+    await showing
+    expect(sent).not.toContain("Overlay.highlightRect")
+  })
+
+  it("lets a draw already sent land before the capture hides it", async () => {
+    const sent: string[] = []
+    let releaseDraw: () => void = () => undefined
+    const send = vi.fn(async (method: string) => {
+      sent.push(method)
+      if (method === "Page.getLayoutMetrics")
+        return { cssLayoutViewport: { clientWidth: 800, clientHeight: 600 } }
+      if (method === "Overlay.highlightRect")
+        return new Promise<void>((resolve) => {
+          releaseDraw = resolve
+        })
+      return {}
+    })
+    const indicator = createAgentPageIndicator(send, async () => undefined)
+    const showing = indicator.show()
+    await vi.waitFor(() => expect(sent).toContain("Overlay.highlightRect"))
+    const suspending = indicator.suspend()
+    await Promise.resolve()
+    expect(sent).not.toContain("Overlay.hideHighlight")
+    releaseDraw()
+    await Promise.all([showing, suspending])
+    expect(sent.indexOf("Overlay.hideHighlight")).toBeGreaterThan(
+      sent.indexOf("Overlay.highlightRect")
+    )
+  })
+
   it("never throws when the overlay cannot be drawn", async () => {
     const { indicator, sent } = harness("Overlay.enable")
     await expect(indicator.show()).resolves.toBeUndefined()

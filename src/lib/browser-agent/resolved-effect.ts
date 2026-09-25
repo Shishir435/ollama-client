@@ -638,6 +638,7 @@ const targetFromElement = (
   href: element.href,
   formAction: element.formAction,
   formMethod: element.formMethod,
+  formQuery: element.formQuery,
   formFingerprint: element.formFingerprint,
   formHasSensitiveControl: element.formHasSensitiveControl,
   submitter: element.submitter,
@@ -690,13 +691,12 @@ const formDestination = (
 /**
  * Where Enter in a same-origin search box goes, query and all.
  *
- * A GET form on the page's own origin whose every value the observation can
- * show is a link the page builds from what was typed: nothing is sent that
- * the address does not say, and nothing leaves the site. Pricing it as a
- * submission asked for approval of every search, as "the complete
- * destination URL" of an address missing its `?q=`, with routine actions
- * allowed. A POST, another origin, a hidden or a sensitive control keeps the
- * submission it was.
+ * Only the address the approval shows. A GET form may still change state
+ * through its handler or its endpoint, so Enter stays a submission — priced,
+ * granted and verified as one; a routine grant never covers it. What the
+ * preview fixes is the prompt: "the complete destination URL" used to be an
+ * address missing its `?q=`. The executor refuses to send a form whose live
+ * query no longer matches it.
  */
 const sameOriginSearchDestination = (
   element: AgentElement,
@@ -717,7 +717,7 @@ const sameOriginSearchDestination = (
   return { url: url.href, origin: url.origin, source: "observed" }
 }
 
-/** What Enter in a field that submits does: a search, or a submission. */
+/** What Enter in a field that submits does, and the address it shows. */
 const enterSemantics = (
   element: AgentElement,
   observation: AgentObservation,
@@ -728,12 +728,10 @@ const enterSemantics = (
     element,
     agentFramePage(observation, element) ?? source
   )
-  return search
-    ? { destination: search, effects: ["activation"] }
-    : {
-        destination: formDestination(element),
-        effects: ["form_mutation", "submission"]
-      }
+  return {
+    destination: search ?? formDestination(element),
+    effects: ["form_mutation", "submission"]
+  }
 }
 
 const linkDestination = (

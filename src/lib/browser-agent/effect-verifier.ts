@@ -1070,17 +1070,7 @@ const isFocusTraversal = (key: string): boolean =>
   key === "Tab" || key === "Shift+Tab"
 
 const verifyKey: Verifier = async (input, adapter, signal) => {
-  /**
-   * Enter in a same-origin search is priced as the activation it is, but it
-   * still sends the form, and a page may answer by navigating or by handling
-   * the submission itself: the submission verifier reads both.
-   */
-  if (
-    input.effect.semanticEffects.includes("submission") ||
-    (input.effect.command.type === "press_key" &&
-      input.effect.command.key === "Enter" &&
-      input.effect.target.maySubmit)
-  ) {
+  if (input.effect.semanticEffects.includes("submission")) {
     return verifySubmission(input, adapter, signal)
   }
   const after = await observeAfter(input, adapter, signal)

@@ -297,11 +297,11 @@ describe("Agent DOM mutation resolution and policy", () => {
   })
 
   /**
-   * A same-origin GET form whose values the observation shows is a link the
-   * page builds from what was typed. It was approved as a submission, every
-   * search, under "the complete destination URL" missing its query.
+   * A GET form can still change state through its handler or endpoint, so
+   * Enter stays a submission no routine grant covers. What changes is the
+   * address the approval shows: it used to be missing its query.
    */
-  it("treats Enter in a same-origin search as an activation to its full address", async () => {
+  it("asks for Enter in a same-origin search as a submission to its full address", async () => {
     const before = observation({
       elements: [
         element({
@@ -318,10 +318,14 @@ describe("Agent DOM mutation resolution and policy", () => {
     })
     const enter = command({ type: "press_key", ref: "e1", key: "Enter" })
     const effect = await resolve(enter, before)
-    expect(effect.semanticEffects).toEqual(["activation"])
+    expect(effect.semanticEffects).toEqual(["form_mutation", "submission"])
+    expect(effect.target.formQuery).toBe("q=atlas")
     expect(effect.destination?.url).toBe(
       new URL("/search?q=atlas", location.href).href
     )
+    const policy = await decide(enter, before)
+    expect(policy.type).toBe("approval_required")
+    expect(policy.risk).toBe("high")
   })
 
   it.each([
@@ -346,7 +350,7 @@ describe("Agent DOM mutation resolution and policy", () => {
         formHasSensitiveControl: true
       }
     ]
-  ])("keeps Enter a submission for %s", async (_name, patch) => {
+  ])("shows only the form's action for %s", async (_name, patch) => {
     const before = observation({
       elements: [
         element({
@@ -365,6 +369,7 @@ describe("Agent DOM mutation resolution and policy", () => {
       before
     )
     expect(effect.semanticEffects).toContain("submission")
+    expect(effect.destination?.url).not.toContain("?")
   })
 
   it("uses the submitter formaction instead of a command-provided destination", async () => {
@@ -1175,6 +1180,46 @@ describe("Agent DOM mutation execution", () => {
     expect(
       submittedForm?.querySelectorAll('input[name="intent"]')
     ).toHaveLength(1)
+  })
+
+  /**
+   * The approval named the full address. The form binding compares selected
+   * options, not every option's value, so a page could move the query under
+   * an approval that still matched; the live query is compared instead.
+   */
+  it("refuses a search whose live query no longer matches the approved one", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "atlas"
+    form.append(input)
+    document.body.append(form)
+    input.focus()
+    const submit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      input
+    )
+    expect(effect.target.formQuery).toBe("q=atlas")
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect: {
+          ...effect,
+          target: { ...effect.target, formQuery: "q=other" }
+        },
+        document,
+        references,
+        signal
+      })
+    ).toThrow(AgentEffectNotAppliedError)
+    expect(submit).not.toHaveBeenCalled()
+
+    executeAgentDomMutationInDocument({ effect, document, references, signal })
+    expect(submit).toHaveBeenCalledOnce()
   })
 
   it("navigates observed links without invoking page click handlers", async () => {

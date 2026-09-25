@@ -89,9 +89,12 @@ Read the section your change touches; you do not need the whole file.
   adds them to the scope without moving the run. Switching to one asks
   nothing; switching to any other tab still does.
 - **Agent tabs are grouped when `tabGroups` is granted.** A tab the run opens,
-  or the page opens for it, joins one group labelled with the extension's
-  short name (`agent-tab-group.ts`). The start tab is never moved into it.
-  The permission stays optional; without it tabs open ungrouped.
+  or the page opens for it, joins one group per run labelled with the
+  extension's short name (`agent-tab-group.ts`). Calls for a run are chained,
+  so two tabs opened together share one group, and a later run from the same
+  tab gets its own. The start tab is never moved into it. The permission
+  stays optional; without it — or if the permission query fails — tabs open
+  ungrouped.
 
 ## Perception: frames and identity
 
@@ -522,14 +525,20 @@ Read the section your change touches; you do not need the whole file.
   and `file_selection` stay critical or takeover, a grant never covers a step
   carrying one of them, and a submission riding along with one is priced by
   the one.
-- **Enter in a same-origin search is the address it opens.** The observation
-  previews the query a GET form would send (`formQuery`) only when every
-  value in it is one the observation may show: a hidden or sensitive control
-  means no preview, because hidden values never cross the control port. With
-  a preview, Enter on the page's own origin resolves as an activation to the
-  full URL, query included, which a routine grant covers; a POST, another
-  origin or no preview stays the submission it was. The executor still sends
-  it through the page's handlers and the submission verifier still judges it.
+- **Enter in a same-origin search shows the address it opens, and stays a
+  submission.** A GET form can change state through its handler or its
+  endpoint, so Enter is priced, granted and verified as a submission; a
+  routine grant never covers it. What the observation adds is `formQuery`,
+  the query the executor's guarded copy would send, so the approval's
+  "complete destination URL" carries the `?q=` it used to be missing. It is
+  offered only when every contributing control is non-sensitive and rendered
+  and the form holds no hidden input at all — named or not, enabled or not —
+  because hidden values never cross the control port and a `display:none`
+  field is a hidden field by another name. The query is built by one helper
+  shared with the guarded submission (`form-submission.ts`), in its order,
+  and the executor refuses a submission whose live query differs from the
+  approved one: the form fingerprint compares selected options, not every
+  option's value, so it alone could not hold the address still.
 - **Routine-action consent is a preference each run mints grants from.**
   `AGENT_PERMISSION_MODE` (device-local, "allow on the starting site" by
   default) is read once per start; `allow_routine` makes the background create
@@ -785,7 +794,10 @@ Read the section your change touches; you do not need the whole file.
   the debugger's `Overlay` domain, not page DOM, so observation, hit tests and
   forms never see them. A real Chromium does draw the overlay into
   `Page.captureScreenshot` — measured, not assumed — so a capture suspends it
-  and nothing may redraw it until the capture has returned.
+  and nothing may redraw it until the capture has returned. The suspend flag
+  is read again immediately before every draw, and a suspend waits for draws
+  already sent to land before it hides the overlay, so a show started by a
+  navigation or the post-click timer cannot finish inside a capture.
 - **Nothing leaves unmasked.** `screenshot-capture.ts` asks the page for
   every region a picture must cover (`agent_sensitive_regions`): each sensitive
   control in the *whole composed tree* — never the bounded observation, which
@@ -1165,8 +1177,11 @@ run that produced it can always be repeated.
   no-progress and refusal memory, because it describes an approach the user
   just corrected. The decision already in flight never hears it. It answers
   nothing and resumes nothing, and a run this worker is not driving refuses
-  it (`steer_unavailable`). The queue is memory only; the card says when the
-  words were taken, so a lost correction is visible.
+  it (`steer_unavailable`). An accepted correction leaves the queue only once
+  the claim recording it has landed — a pause that wins that claim keeps it
+  for the decision after the resume — and a run that reached a terminal
+  state drops what it never heard. The queue is memory only, so a worker
+  restart loses it; the card says when the words were taken.
 - `MAX_AGENT_TEXT_CHARS` is the shared editing value ceiling across commands,
   observations and the control port. `valueTruncated` refuses editing and
   prevents verification from accepting a prefix as the whole result. A value

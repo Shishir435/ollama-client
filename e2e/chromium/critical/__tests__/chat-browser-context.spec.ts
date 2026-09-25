@@ -157,6 +157,11 @@ test("@critical chat names the panel's tab and reads it through current_tab", as
       ?.messages?.find((message) => message.role === "tool")
     expect(toolResult?.content).toContain(PAGE_TEXT)
   } finally {
+    /**
+     * The extension keeps its provider connections alive, and `close` waits
+     * for every one of them: the test passed and then timed out in CI here.
+     */
+    server.closeAllConnections()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   }
 })

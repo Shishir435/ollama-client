@@ -3,7 +3,7 @@ import { logger } from "@/lib/logger"
 import { hasPermission } from "@/lib/permissions"
 
 /**
- * Tabs the agent opens, gathered into one labelled group.
+ * Tabs the agent opens, gathered into one labelled group per run.
  *
  * A run that opened three tabs left three anonymous tabs beside the user's
  * own, with nothing to say which were the agent's to close. Claude in Chrome
@@ -12,13 +12,13 @@ import { hasPermission } from "@/lib/permissions"
  * they put it. `tabGroups` is an optional permission, so without it the
  * tabs open ungrouped exactly as before.
  *
- * Keyed by tab rather than by run: a tab the agent opened from another tab it
- * opened joins that tab's group, which is the chain a run makes. The map is
- * memory only, so a worker restart starts a fresh group rather than guessing
- * which existing one was the run's.
+ * Keyed by run, so a later run started from the same tab gets its own group.
+ * Calls for one run are chained: two tabs opened together both reading "no
+ * group yet" would make two groups. The map is memory only, so a worker
+ * restart starts a fresh group rather than guessing which one was the run's.
  */
-const groupByTab = new Map<number, number>()
-const MAX_REMEMBERED_TABS = 200
+const groupByRun = new Map<string, Promise<number | undefined>>()
+const MAX_REMEMBERED_RUNS = 50
 
 type TabsGroupApi = {
   group(options: {
@@ -35,15 +35,6 @@ type TabGroupsUpdateApi = {
 
 export const AGENT_TAB_GROUP_COLOR = "purple"
 
-const remember = (tabId: number, groupId: number): void => {
-  groupByTab.delete(tabId)
-  if (groupByTab.size >= MAX_REMEMBERED_TABS) {
-    const oldest = groupByTab.keys().next().value
-    if (oldest !== undefined) groupByTab.delete(oldest)
-  }
-  groupByTab.set(tabId, groupId)
-}
-
 /**
  * The group is labelled with the extension's own short name, which Chrome
  * already has in the reader's language: the tabs are this extension's, and
@@ -57,41 +48,56 @@ const groupTitle = (): string => {
   }
 }
 
-export const groupAgentTab = async (
-  openerTabId: number,
-  tabId: number
-): Promise<void> => {
-  if (!supportsTabGroups() || !(await hasPermission("tabGroups"))) return
+const createGroup = async (tabId: number): Promise<number> => {
   const tabs = browser.tabs as unknown as TabsGroupApi
-  const tabGroups = (browser as unknown as { tabGroups?: TabGroupsUpdateApi })
-    .tabGroups
+  const groupId = await tabs.group({ tabIds: tabId })
+  await (
+    browser as unknown as { tabGroups?: TabGroupsUpdateApi }
+  ).tabGroups?.update(groupId, {
+    title: groupTitle(),
+    color: AGENT_TAB_GROUP_COLOR
+  })
+  return groupId
+}
+
+const addToGroup = async (
+  existing: number | undefined,
+  tabId: number
+): Promise<number | undefined> => {
   try {
-    const existing = groupByTab.get(openerTabId)
-    const groupId = await tabs.group(
-      existing === undefined
-        ? { tabIds: tabId }
-        : { tabIds: tabId, groupId: existing }
-    )
-    if (existing === undefined) {
-      await tabGroups?.update(groupId, {
-        title: groupTitle(),
-        color: AGENT_TAB_GROUP_COLOR
-      })
+    if (!supportsTabGroups() || !(await hasPermission("tabGroups")))
+      return existing
+    if (existing === undefined) return await createGroup(tabId)
+    try {
+      const tabs = browser.tabs as unknown as TabsGroupApi
+      return await tabs.group({ tabIds: tabId, groupId: existing })
+    } catch {
+      /** The user closed or ungrouped it; the run's next tabs start anew. */
+      return await createGroup(tabId)
     }
-    remember(tabId, groupId)
-    /** The next tab opened from the same page joins this group too. */
-    remember(openerTabId, groupId)
   } catch (error) {
     /**
-     * A group that was closed, a window the tab moved to, a browser that
-     * refused: the tab is open either way, and a group is a courtesy.
+     * A permission query that failed, a window the tab moved to, a browser
+     * that refused: the tab is open either way, and a group is a courtesy.
      */
-    groupByTab.delete(openerTabId)
     logger.debug("Agent tab was not grouped", "AgentTabGroup", { error })
+    return existing
   }
+}
+
+export const groupAgentTab = (runId: string, tabId: number): Promise<void> => {
+  const previous = groupByRun.get(runId) ?? Promise.resolve(undefined)
+  const next = previous.then((existing) => addToGroup(existing, tabId))
+  groupByRun.delete(runId)
+  if (groupByRun.size >= MAX_REMEMBERED_RUNS) {
+    const oldest = groupByRun.keys().next().value
+    if (oldest !== undefined) groupByRun.delete(oldest)
+  }
+  groupByRun.set(runId, next)
+  return next.then(() => undefined)
 }
 
 /** For tests: forget every group this worker made. */
 export const resetAgentTabGroups = (): void => {
-  groupByTab.clear()
+  groupByRun.clear()
 }

@@ -161,6 +161,11 @@ export interface ResolvedAgentTarget {
   href?: string
   formAction?: string
   formMethod?: "get" | "post" | "dialog"
+  /**
+   * The GET query the approval's address was built from; the executor
+   * refuses a submission whose live query differs.
+   */
+  formQuery?: string
   formFingerprint?: string
   formHasSensitiveControl?: boolean
   submitter?: boolean
