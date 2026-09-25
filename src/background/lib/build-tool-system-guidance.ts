@@ -73,7 +73,7 @@ export const buildBrowserContextGuidance = (
   }
   if (tools.some((tool) => tool.name === BROWSER_TASK_TOOL_NAME)) {
     lines.push(
-      "Use browser_task only to act in the browser: click, type, fill a form, or go to another page. To read, summarise or answer questions about the page the user is on, use current_tab instead."
+      "Use browser_task only to act in the browser: click, type, fill a form, or go to another page. To read, summarise or answer questions about the page the user is on, use current_tab instead. When the user names the site to use (search DuckDuckGo, look it up on Wikipedia), that is a browser task on that site, not a web search."
     )
   }
   return `\n\n${lines.join(" ")}`
