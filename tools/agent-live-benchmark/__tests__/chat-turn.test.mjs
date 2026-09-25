@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  chatAnswered,
   chatAnswerFromWire,
   sendChatTask,
   waitForChatState,
@@ -139,5 +140,26 @@ describe("withReasoningEffort", () => {
     )
     assert.equal(withReasoningEffort("/v1/models", body, "medium"), body)
     assert.equal(withReasoningEffort("/v1/chat/completions", body, ""), body)
+  })
+})
+
+describe("chatAnswered", () => {
+  const chat = (response, elapsedMs) => ({
+    path: "/v1/chat/completions",
+    request: { tools: [{ function: { name: "browser_task" } }] },
+    response,
+    elapsedMs
+  })
+
+  it("waits out a chat whose last call asked for a tool", () => {
+    assert.equal(
+      chatAnswered([chat('"finish_reason":"tool_calls"', 900)]),
+      false
+    )
+    assert.equal(
+      chatAnswered([chat('"finish_reason":"stop"', undefined)]),
+      false
+    )
+    assert.equal(chatAnswered([chat('"finish_reason":"stop"', 900)]), true)
   })
 })

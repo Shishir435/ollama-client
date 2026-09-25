@@ -193,3 +193,24 @@ export const approveChatTools = (panel) =>
       () => true,
       () => false
     )
+
+/**
+ * Whether the chat's last model call ended with an answer rather than a tool
+ * call. The panel's Stop button is not a reliable signal on its own: it is
+ * absent while a tool call waits on its approval, and a case ended there was
+ * scored on half an answer.
+ */
+export const chatAnswered = (wire) => {
+  const last = wire
+    .filter(
+      (rec) =>
+        rec.path?.endsWith("/chat/completions") &&
+        JSON.stringify(rec.request?.tools ?? []).includes("browser_task")
+    )
+    .at(-1)
+  return (
+    typeof last?.response === "string" &&
+    last.response.includes('"finish_reason":"stop"') &&
+    last.elapsedMs !== undefined
+  )
+}

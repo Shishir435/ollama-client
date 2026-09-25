@@ -5,6 +5,7 @@ import { join, resolve } from "node:path"
 import { chromium } from "playwright"
 import {
   approveChatTools,
+  chatAnswered,
   chatAnswerFromWire,
   readChatTurn,
   sendChatTask,
@@ -336,7 +337,7 @@ try {
       await approveChatTools(panel)
       if (!final) {
         const chat = await readChatTurn(panel, goal).catch(() => undefined)
-        if (chat && !chat.busy && chat.sendReady) {
+        if (chat && !chat.busy && chat.sendReady && chatAnswered(wire)) {
           idleSince ??= Date.now()
           if (Date.now() - idleSince >= 3000) break
         } else {
