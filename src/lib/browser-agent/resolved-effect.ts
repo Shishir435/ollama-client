@@ -48,7 +48,9 @@ export const READ_ONLY_AGENT_ACTIONS = [
 export type ReadOnlyAgentAction = (typeof READ_ONLY_AGENT_ACTIONS)[number]
 
 export interface AgentEffectResolverAdapter {
-  getTab(tabId: number): Promise<{ id?: number; url?: string } | undefined>
+  getTab(
+    tabId: number
+  ): Promise<{ id?: number; url?: string; title?: string } | undefined>
   classifyAccess(url?: string): Promise<TabAccess>
   resolveHistoryDestination(
     tabId: number,
@@ -166,6 +168,7 @@ export const resolveReadOnlyAgentEffect = async (input: {
   )
 
   let resolvedDestination: AgentDestination | undefined
+  let tabTitle: string | undefined
   if (command.type === "switch_tab") {
     const tab = await input.adapter.getTab(command.tabId)
     if (!tab?.url || tab.id !== command.tabId) {
@@ -174,6 +177,7 @@ export const resolveReadOnlyAgentEffect = async (input: {
       )
     }
     resolvedDestination = destination(tab.url)
+    tabTitle = tab.title?.replaceAll(/\s+/g, " ").trim().slice(0, 120)
   } else if (command.type === "back" || command.type === "forward") {
     const url = await input.adapter.resolveHistoryDestination(
       observation.tabId,
@@ -222,7 +226,15 @@ export const resolveReadOnlyAgentEffect = async (input: {
       }
     })
   }
-  const target = targetFromObservation(command, observation)
+  /**
+   * A tab is named by its title, which is how the log, the approval and the
+   * history can say which tab without a browser's internal number. Read only
+   * once the destination passed the access check above.
+   */
+  const target = {
+    ...targetFromObservation(command, observation),
+    ...(tabTitle ? { accessibleName: tabTitle } : {})
+  }
   /* A referenced scroll is bound to its target's frame; nothing else has one. */
   const frame = target.frame
     ? agentFramePage(observation, target.frame)

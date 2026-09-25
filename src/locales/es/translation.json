@@ -8,7 +8,7 @@
       "scroll_down": "Desplazar hacia abajo",
       "scroll_left": "Desplazar hacia la izquierda",
       "scroll_right": "Desplazar hacia la derecha",
-      "switch_tab": "Cambiar a la pestaña {{tab}}",
+      "switch_tab": "Cambiar a otra pestaña",
       "wait": "Esperar a {{condition}}",
       "clear_and_type": "Reemplazar el texto del campo",
       "press_key": "Pulsar {{key}}",
@@ -206,14 +206,15 @@
       "dialog_unreadable": "Su texto no se leyó: el diálogo pertenece a un marco que esta ejecución no puede leer.",
       "fill_fields": "Establecer campos del formulario en un paso: {{count}}",
       "fill_fields_consequence": "Cada control de la lista se establece en orden y se detiene en el primero que no se pueda establecer. El agente no pulsa Enviar, pero la página puede enviar el formulario automáticamente o guardar los cambios mientras escribes.",
-      "adopt_tab": "Tomar la pestaña {{tab}} en {{url}}",
+      "adopt_tab": "Tomar la pestaña «{{tab}}» en {{url}}",
       "navigate": "Ir a {{url}}",
       "navigate_consequence": "El navegador abre exactamente esta dirección: {{url}}",
       "no_submit_consequence": "Esto se introduce en el control mostrado abajo. No hay un paso de envío después, así que una página que guarda mientras escribes puede almacenarlo de inmediato.",
       "command_consequence": "El navegador realiza esta acción en el control mostrado abajo.",
       "prior_form": "Una ejecución anterior de esta tarea ya envió este formulario. Aprueba solo si es un envío nuevo y no el mismo otra vez.",
       "repeated_effect": "Esta ejecución ya hizo esto una vez con el mismo control de esta página. Aprueba solo si debe volver a ocurrir.",
-      "unknown_prior_effect": "No se pudo leer el registro de acciones de esta ejecución. Esta acción podría repetir un efecto anterior. Aprueba solo si es seguro repetirla."
+      "unknown_prior_effect": "No se pudo leer el registro de acciones de esta ejecución. Esta acción podría repetir un efecto anterior. Aprueba solo si es seguro repetirla.",
+      "adopt_untitled_tab": "Tomar una pestaña en {{url}}"
     },
     "dialog_kind": {
       "alert": "aviso",

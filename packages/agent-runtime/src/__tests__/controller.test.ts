@@ -617,6 +617,19 @@ describe("agent controller", () => {
     expect(harness.getState().result).toBe("Done")
   })
 
+  /**
+   * A tab the page opened because the run clicked joins the scope, so the
+   * run can switch to it without asking; the run stays where it was.
+   */
+  it("adopts tabs the page opened during a confirmed step", async () => {
+    const harness = createHarness({
+      execute: async () => ({ executedAt: 10, openedTabIds: [21, 7] })
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().controlledTabId).toBe(7)
+    expect(harness.getState().scopedTabIds).toEqual([7, 21])
+  })
+
   it("adopts a switch-tab target only after confirmed verification", async () => {
     const harness = createHarness({
       controlledTabIdAfterExecution: 9,

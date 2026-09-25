@@ -66,7 +66,11 @@ const observation = (
 const resolverAdapter = (
   overrides: Partial<AgentEffectResolverAdapter> = {}
 ): AgentEffectResolverAdapter => ({
-  getTab: async (tabId) => ({ id: tabId, url: "https://example.com/other" }),
+  getTab: async (tabId) => ({
+    id: tabId,
+    url: "https://example.com/other",
+    title: "Other\n  page"
+  }),
   classifyAccess: async () => "ok",
   resolveHistoryDestination: async () => "https://example.com/previous",
   ...overrides
@@ -148,6 +152,7 @@ describe("read-only Agent effects", () => {
       })
     ).resolves.toMatchObject({
       destination: { url: "https://example.com/other", source: "browser" },
+      target: { accessibleName: "Other page" },
       semanticEffects: ["navigation"]
     })
     await expect(

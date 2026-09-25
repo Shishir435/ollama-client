@@ -372,10 +372,18 @@ const approvalDisplay = (
     fields !== undefined
       ? { key: "agent.approval_text.fill_fields", values: { count: fields } }
       : adopting !== undefined && destination
-        ? {
-            key: "agent.approval_text.adopt_tab",
-            values: { tab: adopting, url: destination }
-          }
+        ? input.effect.target.accessibleName
+          ? {
+              key: "agent.approval_text.adopt_tab",
+              values: {
+                tab: input.effect.target.accessibleName,
+                url: destination
+              }
+            }
+          : {
+              key: "agent.approval_text.adopt_untitled_tab",
+              values: { url: destination }
+            }
         : destination
           ? {
               key: "agent.approval_text.navigate",
@@ -406,7 +414,7 @@ const makeApprovalRequest = (
     dialog?.action ??
     batchAction(input) ??
     (adopting
-      ? `Adopt tab ${adopting} at ${destination}`
+      ? `Adopt tab ${input.effect.target.accessibleName ?? adopting} at ${destination}`
       : destination
         ? `Allow navigation to ${destination}`
         : `Allow ${input.effect.command.type}`)

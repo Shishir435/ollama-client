@@ -8,7 +8,7 @@
       "scroll_down": "Scorri verso il basso",
       "scroll_left": "Scorri a sinistra",
       "scroll_right": "Scorri a destra",
-      "switch_tab": "Passa alla scheda {{tab}}",
+      "switch_tab": "Passa a un’altra scheda",
       "wait": "Attendi {{condition}}",
       "clear_and_type": "Sostituisci il testo del campo",
       "press_key": "Premi {{key}}",
@@ -206,14 +206,15 @@
       "dialog_unreadable": "Il testo non è stato letto: la finestra appartiene a un frame che questa esecuzione non può leggere.",
       "fill_fields": "Imposta campi del modulo in un solo passaggio: {{count}}",
       "fill_fields_consequence": "Ogni controllo elencato viene impostato in ordine, fermandosi al primo che non si può impostare. L’agente non preme Invia, ma la pagina può inviare il modulo automaticamente o salvare le modifiche mentre scrivi.",
-      "adopt_tab": "Prendi la scheda {{tab}} su {{url}}",
+      "adopt_tab": "Prendi la scheda «{{tab}}» su {{url}}",
       "navigate": "Vai a {{url}}",
       "navigate_consequence": "Il browser apre esattamente questo indirizzo: {{url}}",
       "no_submit_consequence": "Questo viene inserito nel controllo mostrato sotto. Non segue alcun invio, quindi una pagina che salva mentre scrivi può memorizzarlo subito.",
       "command_consequence": "Il browser esegue questa azione sul controllo mostrato sotto.",
       "prior_form": "Un’esecuzione precedente di questa attività ha già inviato questo modulo. Approva solo se si tratta di un nuovo invio e non dello stesso.",
       "repeated_effect": "Questa esecuzione l’ha già fatto una volta, con lo stesso controllo su questa pagina. Approva solo se deve accadere di nuovo.",
-      "unknown_prior_effect": "Il registro delle azioni di questa esecuzione non è leggibile. Questa azione potrebbe ripetere un effetto precedente. Approva solo se ripeterla è sicuro."
+      "unknown_prior_effect": "Il registro delle azioni di questa esecuzione non è leggibile. Questa azione potrebbe ripetere un effetto precedente. Approva solo se ripeterla è sicuro.",
+      "adopt_untitled_tab": "Prendi una scheda su {{url}}"
     },
     "dialog_kind": {
       "alert": "finestra di avviso",

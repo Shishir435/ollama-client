@@ -228,17 +228,24 @@ const allowedOriginsPatch = (
  */
 const adoptedTabPatch = (
   state: AgentRunState,
-  controlledTabId: number | undefined
+  controlledTabId: number | undefined,
+  openedTabIds: readonly number[] = []
 ): AgentStatePatch => {
-  if (controlledTabId === undefined) return {}
   const scope = agentTabScope(state)
-  if (
-    scope.includes(controlledTabId) ||
-    scope.length >= MAX_AGENT_SCOPED_TABS
-  ) {
-    return { controlledTabId }
+  const joined = [...scope]
+  for (const tabId of [
+    ...openedTabIds,
+    ...(controlledTabId === undefined ? [] : [controlledTabId])
+  ]) {
+    if (!joined.includes(tabId) && joined.length < MAX_AGENT_SCOPED_TABS)
+      joined.push(tabId)
   }
-  return { controlledTabId, scopedTabIds: [...scope, controlledTabId] }
+  const widened = joined.length > scope.length
+  if (controlledTabId === undefined)
+    return widened ? { scopedTabIds: joined } : {}
+  return widened
+    ? { controlledTabId, scopedTabIds: joined }
+    : { controlledTabId }
 }
 
 export const createAgentController = (
@@ -1263,7 +1270,11 @@ export const createAgentController = (
         verifying,
         "observing",
         {
-          ...adoptedTabPatch(verifying, receipt.controlledTabId),
+          ...adoptedTabPatch(
+            verifying,
+            receipt.controlledTabId,
+            receipt.openedTabIds
+          ),
           updatedAt: dependencies.clock.now()
         },
         ["verifying"]

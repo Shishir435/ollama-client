@@ -8,7 +8,7 @@
       "scroll_down": "Défiler vers le bas",
       "scroll_left": "Défiler vers la gauche",
       "scroll_right": "Défiler vers la droite",
-      "switch_tab": "Passer à l’onglet {{tab}}",
+      "switch_tab": "Passer à un autre onglet",
       "wait": "Attendre {{condition}}",
       "clear_and_type": "Remplacer le texte du champ",
       "press_key": "Appuyer sur {{key}}",
@@ -206,14 +206,15 @@
       "dialog_unreadable": "Son texte n’a pas été lu : la boîte de dialogue appartient à un cadre que cette exécution n’est pas autorisée à lire.",
       "fill_fields": "Définir des champs du formulaire en une étape : {{count}}",
       "fill_fields_consequence": "Chaque contrôle listé est défini dans l’ordre, avec arrêt au premier qui ne peut pas l’être. L’agent n’appuie pas sur Envoyer, mais la page peut soumettre le formulaire automatiquement ou enregistrer les modifications pendant la saisie.",
-      "adopt_tab": "Prendre l’onglet {{tab}} sur {{url}}",
+      "adopt_tab": "Prendre l’onglet « {{tab}} » sur {{url}}",
       "navigate": "Aller à {{url}}",
       "navigate_consequence": "Le navigateur ouvre exactement cette adresse : {{url}}",
       "no_submit_consequence": "Ceci est saisi dans le contrôle affiché ci-dessous. Aucune étape d’envoi ne suit, donc une page qui enregistre pendant la saisie peut le conserver immédiatement.",
       "command_consequence": "Le navigateur effectue cette action sur le contrôle affiché ci-dessous.",
       "prior_form": "Une exécution précédente de cette tâche a déjà envoyé ce formulaire. N’approuvez que s’il s’agit d’un nouvel envoi, et non du même.",
       "repeated_effect": "Cette exécution l’a déjà fait une fois, avec le même contrôle sur cette page. N’approuvez que si cela doit se reproduire.",
-      "unknown_prior_effect": "L’historique des actions de cette exécution est illisible. Cette action peut répéter un effet antérieur. N’approuvez que si cette répétition est sûre."
+      "unknown_prior_effect": "L’historique des actions de cette exécution est illisible. Cette action peut répéter un effet antérieur. N’approuvez que si cette répétition est sûre.",
+      "adopt_untitled_tab": "Prendre un onglet sur {{url}}"
     },
     "dialog_kind": {
       "alert": "alerte",

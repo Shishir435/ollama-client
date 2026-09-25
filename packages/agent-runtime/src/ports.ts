@@ -360,6 +360,15 @@ export interface AgentExecutionReceipt {
   fileChooser?: boolean
   /** A held native dialog interrupted this activation; no input is replayed. */
   dialogOpened?: string
+  /**
+   * Tabs the page opened from the controlled tab while this step ran — a
+   * `target="_blank"` link, a `window.open` its handler made. Filled until
+   * the step's verification settles, because the browser reports a new tab a
+   * moment after the click that caused it. The run adopts them into its
+   * scope: the page opened them because the run acted, so switching to one
+   * is not reaching into a tab the user was working in.
+   */
+  openedTabIds?: number[]
   /** Ephemeral, bounded page-authored WebMCP result; verification labels it untrusted. */
   pageToolResult?: string
   /** The WebMCP API reports navigation by resolving the invocation to null. */

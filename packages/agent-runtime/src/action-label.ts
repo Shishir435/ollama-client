@@ -32,7 +32,12 @@ export const agentCommandDisplay = (
     case "scroll":
       return { key: `agent.action.scroll_${command.direction}` }
     case "switch_tab":
-      return { key: "agent.action.switch_tab", values: { tab: command.tabId } }
+      /**
+       * A tab id is the browser's number for it and means nothing to a
+       * reader; the row names the tab by its title, which the resolver
+       * records as the step's target.
+       */
+      return { key: "agent.action.switch_tab" }
     case "wait":
       return {
         key: "agent.action.wait",

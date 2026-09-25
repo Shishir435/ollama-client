@@ -8,7 +8,7 @@
       "scroll_down": "向下滚动",
       "scroll_left": "向左滚动",
       "scroll_right": "向右滚动",
-      "switch_tab": "切换到标签页 {{tab}}",
+      "switch_tab": "切换到另一个标签页",
       "wait": "等待 {{condition}}",
       "clear_and_type": "替换字段中的文本",
       "press_key": "按 {{key}}",
@@ -206,14 +206,15 @@
       "dialog_unreadable": "未读取其文本：该对话框属于此运行无权读取的框架。",
       "fill_fields": "一步设置表单字段：{{count}}",
       "fill_fields_consequence": "按顺序设置下面列出的每个控件，遇到无法设置的控件即停止。代理不会点击“提交”，但页面可能自动提交表单，或在输入时保存更改。",
-      "adopt_tab": "接管 {{url}} 上的标签页 {{tab}}",
+      "adopt_tab": "接管 {{url}} 上的标签页“{{tab}}”",
       "navigate": "前往 {{url}}",
       "navigate_consequence": "浏览器将打开这个完整地址：{{url}}",
       "no_submit_consequence": "这将输入到下方显示的控件中。之后没有提交步骤，因此边输入边保存的页面可能会立即保存。",
       "command_consequence": "浏览器将在下方显示的控件上执行此操作。",
       "prior_form": "此任务之前的一次运行已经提交过这个表单。只有在这是一次新的提交而不是重复提交时才批准。",
       "repeated_effect": "此运行已经通过此页面上的同一控件执行过一次。只有在需要再次执行时才批准。",
-      "unknown_prior_effect": "无法读取本次运行的操作记录。此操作可能重复之前的效果。只有确认重复操作安全时才批准。"
+      "unknown_prior_effect": "无法读取本次运行的操作记录。此操作可能重复之前的效果。只有确认重复操作安全时才批准。",
+      "adopt_untitled_tab": "接管 {{url}} 上的一个标签页"
     },
     "dialog_kind": {
       "alert": "提示框",

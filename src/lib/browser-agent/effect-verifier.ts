@@ -998,6 +998,19 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
+  /**
+   * A link that opens its page in a new tab leaves this one exactly as it
+   * was, so the click read as having done nothing and paused the run as an
+   * unresolved effect while the page it asked for sat in the next tab.
+   */
+  if (input.receipt.openedTabIds?.length) {
+    return result(
+      "confirmed",
+      "activation",
+      "Control opened a new tab",
+      adapter.now()
+    )
+  }
   const target = mutationTargetAfter(input, after)
   if (
     target.type === "one" &&
