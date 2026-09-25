@@ -78,6 +78,7 @@ import {
 } from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
 import { agentResolutionFailure } from "./resolution-failure"
+import { agentRunResult } from "./run-result"
 import {
   AGENT_STATUS_PREDECESSORS,
   agentTabScope,
@@ -1608,7 +1609,16 @@ export const createAgentController = (
     const { judgement } = settled
     observation = settled.observation
     if (judgement.type !== "refused") {
-      await settleJudgedRun(state, judgement, decision.summary)
+      await settleJudgedRun(
+        state,
+        judgement,
+        agentRunResult(
+          decision.summary,
+          state.requirements,
+          decision.outcomes,
+          judgement.outcome?.met
+        )
+      )
       return undefined
     }
     if (await exhaustedNoProgressBudget(state, observation, decision))
