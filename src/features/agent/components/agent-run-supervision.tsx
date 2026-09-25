@@ -15,6 +15,7 @@ import {
 import { useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/class-names"
@@ -194,14 +195,15 @@ const AgentSteerField = ({
           placeholder={t("agent.steer.placeholder")}
           value={text}
         />
-        <Button
-          aria-label={t("agent.steer.send")}
+        <TooltipActionButton
+          ariaLabel={t("agent.steer.send")}
+          tooltip={t("agent.steer.send")}
           disabled={!trimmed}
+          icon={SendHorizontal}
           size="icon"
           type="submit"
-          variant="ghost">
-          <SendHorizontal className="icon-xs" aria-hidden="true" />
-        </Button>
+          variant="ghost"
+        />
       </div>
       {sentAt !== undefined && (
         <p className="mt-1 text-micro text-muted-foreground" aria-live="polite">

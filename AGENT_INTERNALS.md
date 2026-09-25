@@ -80,6 +80,18 @@ Read the section your change touches; you do not need the whole file.
   joins the scope in the same claim that moves the run onto it. The debugger
   attachment follows the controlled tab in that write, before any page work
   is claimed there.
+- **A tab the page opens because the run acted is the run's.** The effect
+  port watches `tabs.onCreated` from the moment an element action touches
+  the page until its verification settles, and reports tabs whose opener is
+  the controlled tab on the receipt (`openedTabIds`). The verifier credits a
+  click that did nothing but open one — a `target="_blank"` link left its own
+  page unchanged and paused as an unresolved effect — and the confirmed claim
+  adds them to the scope without moving the run. Switching to one asks
+  nothing; switching to any other tab still does.
+- **Agent tabs are grouped when `tabGroups` is granted.** A tab the run opens,
+  or the page opens for it, joins one group labelled with the extension's
+  short name (`agent-tab-group.ts`). The start tab is never moved into it.
+  The permission stays optional; without it tabs open ungrouped.
 
 ## Perception: frames and identity
 
@@ -510,6 +522,14 @@ Read the section your change touches; you do not need the whole file.
   and `file_selection` stay critical or takeover, a grant never covers a step
   carrying one of them, and a submission riding along with one is priced by
   the one.
+- **Enter in a same-origin search is the address it opens.** The observation
+  previews the query a GET form would send (`formQuery`) only when every
+  value in it is one the observation may show: a hidden or sensitive control
+  means no preview, because hidden values never cross the control port. With
+  a preview, Enter on the page's own origin resolves as an activation to the
+  full URL, query included, which a routine grant covers; a POST, another
+  origin or no preview stays the submission it was. The executor still sends
+  it through the page's handlers and the submission verifier still judges it.
 - **Routine-action consent is a preference each run mints grants from.**
   `AGENT_PERMISSION_MODE` (device-local, "allow on the starting site" by
   default) is read once per start; `allow_routine` makes the background create
@@ -760,6 +780,12 @@ Read the section your change touches; you do not need the whole file.
   screenshot exists, so a run that navigated to a canvas application and was
   refused a picture for having five buttons had no way left to ask to see it.
   `always` and `never` remain the user's to choose.
+- **The run's page outline is hidden from every capture.** The viewport
+  outline and the pressed-control highlight (`agent-page-indicator.ts`) are
+  the debugger's `Overlay` domain, not page DOM, so observation, hit tests and
+  forms never see them. A real Chromium does draw the overlay into
+  `Page.captureScreenshot` — measured, not assumed — so a capture suspends it
+  and nothing may redraw it until the capture has returned.
 - **Nothing leaves unmasked.** `screenshot-capture.ts` asks the page for
   every region a picture must cover (`agent_sensitive_regions`): each sensitive
   control in the *whole composed tree* — never the bounded observation, which
@@ -853,6 +879,24 @@ Read the section your change touches; you do not need the whole file.
   surface went dead at exactly the point in a run where there was most to
   supervise. A literal that has to agree with a budget will eventually not,
   so the schema reads `MAX_AGENT_OBSERVATIONS` rather than a number.
+- **A row names its row, its time and its reasoning.** The collapsed row
+  carries the target and the list row it sat in (`rowContext`, less the
+  control's own label, via `agentRowContextBeyond`), so five Delete clicks
+  name five files. The panel port keeps each step's first receipt time as
+  `startedAt`, and a settled row shows how long it took. A click whose
+  verification evidence is `native_dialog` reads "Dialog opened", not
+  Verified — the file is not gone while its confirmation is on screen. The
+  decision's streamed reasoning is collected by the model port, bounded to
+  its tail (`MAX_AGENT_THINKING_CHARS`), filed on the step's first receipt
+  and shown behind its own collapsed disclosure; it is dropped first if a
+  receipt would overflow, and never read back into a prompt. The history the
+  model reads keeps the target without `rowContext`.
+- **A settled card keeps its record.** The card RPC carries the collapsed
+  steps (without telemetry or page addresses) and a count of distinct pages;
+  the card shows "N steps · M pages" over the same work log the live card
+  drew, so the count is the rows' own. The result renders through chat's
+  markdown renderer — it is the model's answer — while page-derived evidence
+  in the rows stays flattened text.
 - **A row says what was acted on and why.** The step's `target.name` and the
   model's own `finding` were both durable and neither was rendered, so a log
   of twenty steps read as twenty repetitions of "Click control" — the run's
@@ -1115,6 +1159,14 @@ run that produced it can always be repeated.
 - Clarifications carry their question and answer into `agent-model-port.ts`.
   A user correction applies only to the exact user-paused state (`pausedAt`);
   it cannot resume an unresolved side effect or answer an approval.
+- **A run can be steered without pausing it.** `agent_steer` queues text in
+  the controller that is driving the run; the next `deciding` claim writes it
+  as an answer ("User correction while the run was working") and clears the
+  no-progress and refusal memory, because it describes an approach the user
+  just corrected. The decision already in flight never hears it. It answers
+  nothing and resumes nothing, and a run this worker is not driving refuses
+  it (`steer_unavailable`). The queue is memory only; the card says when the
+  words were taken, so a lost correction is visible.
 - `MAX_AGENT_TEXT_CHARS` is the shared editing value ceiling across commands,
   observations and the control port. `valueTruncated` refuses editing and
   prevents verification from accepting a prefix as the whole result. A value
