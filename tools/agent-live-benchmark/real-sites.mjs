@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
 import {
+  approveChatTools,
   chatAnswerFromWire,
   readChatTurn,
   sendChatTask,
@@ -337,6 +338,12 @@ try {
         reason = "submission_handler_bypassed"
         break
       }
+      /**
+       * The chat model may call several tools before \`browser_task\` — the
+       * tab, a screenshot — and each asks once. Approving only the first
+       * left the delegation itself waiting on a card nobody clicked.
+       */
+      await approveChatTools(panel)
       if (!final) {
         const chat = await readChatTurn(panel, goal).catch(() => undefined)
         if (chat && !chat.busy && chat.sendReady) {

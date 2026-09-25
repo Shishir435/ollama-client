@@ -178,3 +178,14 @@ export const withReasoningEffort = (
     return body
   }
 }
+
+/** Clicks a pending chat tool approval, if one is showing. */
+export const approveChatTools = (panel) =>
+  panel
+    .getByRole("button", { name: /^Allow (for this chat|once)$/ })
+    .first()
+    .click({ timeout: 250 })
+    .then(
+      () => true,
+      () => false
+    )
