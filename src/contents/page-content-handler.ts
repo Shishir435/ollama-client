@@ -90,6 +90,29 @@ const extractYouTubeMetadata = (currentUrl: string, pageTitle: string) => {
   ].join("\n")
 }
 
+/** Below this, readable extraction is taken to have missed the page. */
+const MIN_READABLE_CHARS = 50
+/** The visible-text fallback's ceiling, for a page no extractor could read. */
+const MAX_VISIBLE_TEXT_CHARS = 50_000
+
+/**
+ * A short page is still a page. Readability-style extractors look for an
+ * article and return nothing for a status line beside a button, and the
+ * handler used to reject anything under fifty characters outright — so the
+ * chat model, asked about a confirmation page, told the user it could not
+ * read it. When extraction comes back short, the page's own visible text is
+ * used instead; only a page showing no text at all is a failure.
+ */
+const pageText = (doc: Document, readableText: string): string => {
+  if (readableText.trim().length >= MIN_READABLE_CHARS) return readableText
+  const visible = (doc.body?.innerText ?? "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n+/g, "\n")
+    .trim()
+    .slice(0, MAX_VISIBLE_TEXT_CHARS)
+  return visible.length > readableText.trim().length ? visible : readableText
+}
+
 export const handleGetPageContent = async (
   sendResponse: (response: unknown) => void
 ): Promise<void> => {
@@ -229,9 +252,9 @@ export const handleGetPageContent = async (
 
   const finalContent =
     (transcript ? `\n\n Transcript:\n${transcript}` : "") +
-    readable.readableText
+    pageText(document, readable.readableText)
 
-  if (!finalContent || finalContent.trim().length < 50) {
+  if (!finalContent.trim()) {
     logger.error(
       `Extraction failed: Only ${finalContent?.length || 0} chars extracted`,
       "ContentScript"
