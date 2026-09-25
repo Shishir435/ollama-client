@@ -74,15 +74,32 @@ const sameUrl = (first: string | undefined, second: string): boolean => {
 }
 
 /**
- * The observation is of the page the tab holds: same origin and path. The
- * query is the site's to tidy between the two reads, which is how a working
- * search whose tracking fields the site removed was left for review.
+ * The observation is of the page the tab holds: same origin and path, and no
+ * parameter both carry with different values. Dropping a parameter is the
+ * site's to do between the two reads; refusing that is how a working search
+ * whose tracking fields the site removed was left for review.
  */
 const samePage = (first: string, second: string): boolean => {
   try {
     const a = new URL(first)
     const b = new URL(second)
-    return a.origin === b.origin && a.pathname === b.pathname
+    if (a.origin !== b.origin || a.pathname !== b.pathname) return false
+    /**
+     * A parameter one address dropped is the site's cleanup; one both carry
+     * with different values is a different page. `?q=approved` observed as
+     * `?q=other` is not the page the form was sent to.
+     */
+    for (const name of new Set(a.searchParams.keys())) {
+      if (!b.searchParams.has(name)) continue
+      const left = a.searchParams.getAll(name).sort()
+      const right = b.searchParams.getAll(name).sort()
+      if (
+        left.length !== right.length ||
+        left.some((value, index) => value !== right[index])
+      )
+        return false
+    }
+    return true
   } catch {
     return false
   }
@@ -103,8 +120,17 @@ const landedAt = (committed: string, requested: string): boolean => {
     const asked = new URL(requested)
     if (landed.origin !== asked.origin || landed.pathname !== asked.pathname)
       return false
+    /**
+     * Each requested pair is consumed by the landed pair it matched, so
+     * `?tag=a&tag=a` is not met by a landing that kept one `tag=a`.
+     */
+    const kept = [...landed.searchParams]
     for (const [name, value] of asked.searchParams) {
-      if (!landed.searchParams.getAll(name).includes(value)) return false
+      const at = kept.findIndex(
+        ([keptName, keptValue]) => keptName === name && keptValue === value
+      )
+      if (at === -1) return false
+      kept.splice(at, 1)
     }
     return true
   } catch {

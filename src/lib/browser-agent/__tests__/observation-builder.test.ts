@@ -361,6 +361,25 @@ describe("Agent observation builder", () => {
     expect(textarea?.maySubmit).toBeUndefined()
   })
 
+  it("keeps Enter a newline in a multi-row textarea whatever its role says", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/draft"
+    const draft = document.createElement("textarea")
+    draft.rows = 4
+    draft.setAttribute("role", "combobox")
+    draft.setAttribute("aria-label", "Message")
+    const send = document.createElement("button")
+    send.textContent = "Send"
+    form.append(draft, send)
+    document.body.append(form)
+
+    const textarea = build().elements.find(
+      (element) => element.tag === "textarea"
+    )
+    expect(textarea?.maySubmit).toBeUndefined()
+  })
+
   it("keeps Enter a newline in a textarea beside other text fields", () => {
     const form = document.createElement("form")
     form.method = "get"

@@ -844,6 +844,8 @@ const isSearchTextarea = (element: HTMLTextAreaElement): boolean => {
    * not enough: Enter there would send an unfinished draft.
    */
   if (element.getAttribute("aria-multiline") === "true") return false
+  const rows = Number(element.getAttribute("rows")?.trim())
+  if (Number.isFinite(rows) && rows > 1) return false
   const role = element.getAttribute("role")
   const singleLine =
     element.getAttribute("rows")?.trim() === "1" ||

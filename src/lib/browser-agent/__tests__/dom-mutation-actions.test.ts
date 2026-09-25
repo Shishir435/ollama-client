@@ -257,9 +257,15 @@ describe("Agent DOM mutation resolution and policy", () => {
    * for review.
    */
   it.each([
-    ["confirmed", "/?ia=web&q=test", "the site dropped its hidden fields"],
-    ["ambiguous", "/?ia=web", "the search term is gone"]
-  ])("judges a GET submission %s when %s", async (outcome, landedPath) => {
+    [
+      "confirmed",
+      "/?ia=web&q=test",
+      "the site dropped its hidden fields",
+      "/?q=test"
+    ],
+    ["ambiguous", "/?ia=web", "the search term is gone", "/?q=test"],
+    ["ambiguous", "/?tag=a", "a repeated value was dropped", "/?tag=a&tag=a"]
+  ])("judges a GET submission %s when %s", async (outcome, landedPath, _label, submittedPath) => {
     const before = observation({
       elements: [
         element({
@@ -276,7 +282,7 @@ describe("Agent DOM mutation resolution and policy", () => {
       /** The executor reports the visible fields only. */
       receipt: {
         executedAt: 5,
-        submissionUrl: new URL("/?q=test", location.href).href
+        submissionUrl: new URL(submittedPath, location.href).href
       },
       before,
       allowedOrigins: [location.origin]
@@ -292,6 +298,47 @@ describe("Agent DOM mutation resolution and policy", () => {
       signal
     })
     expect(result.outcome).toBe(outcome)
+  })
+
+  it("does not confirm a submission whose observed page holds another query", async () => {
+    const before = observation({
+      elements: [
+        element({
+          type: "submit",
+          formAction: new URL("/submit", location.href).href,
+          formMethod: "post",
+          maySubmit: true,
+          submitter: true
+        })
+      ]
+    })
+    const verification: AgentVerificationInput = {
+      effect: await authorize(command({ type: "click", ref: "e1" }), before),
+      receipt: {
+        executedAt: 5,
+        submissionUrl: new URL("/submit", location.href).href
+      },
+      before,
+      allowedOrigins: [location.origin]
+    }
+    const judged = (observedPath: string) =>
+      verifyDomMutationAgentEffect({
+        verification,
+        adapter: verifierAdapter(
+          observation({
+            url: new URL(observedPath, location.href).href,
+            documentId: "document-after"
+          }),
+          {
+            getTab: async () => ({
+              url: new URL("/results?q=approved&ref=x", location.href).href
+            })
+          }
+        ),
+        signal
+      })
+    expect((await judged("/results?q=approved")).outcome).toBe("confirmed")
+    expect((await judged("/results?q=other")).outcome).toBe("ambiguous")
   })
 
   it("derives submission and formaction from a submit control", async () => {
