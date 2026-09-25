@@ -1194,54 +1194,26 @@ describe("agent controller", () => {
   /**
    * Opening DuckDuckGo to search asked again for every keystroke there,
    * although the user had given routine consent and just approved the site.
+   * The grant follows only an approval that said it would.
    */
-  describe("finishing an unresolved effect the user reviewed", () => {
-    const paused = (patch: Partial<AgentRunState> = {}) =>
-      runState({
-        status: "paused",
-        pauseReason: "unresolved_effect",
-        updatedAt: 5,
-        ...patch
-      })
-
-    it("completes the run on the user's word", async () => {
-      const harness = createHarness({ state: paused() })
-      await harness.controller.finishReviewed({ runId: "run-1", pausedAt: 5 })
-      expect(harness.getState()).toMatchObject({
-        status: "completed",
-        result: "The user reviewed the page and confirmed the task is done."
-      })
-      expect(harness.getState().pauseReason).toBeUndefined()
-    })
-
-    it("ignores a stale panel and any other pause", async () => {
-      const stale = createHarness({ state: paused() })
-      await stale.controller.finishReviewed({ runId: "run-1", pausedAt: 4 })
-      expect(stale.getState().status).toBe("paused")
-
-      const asking = createHarness({
-        state: paused({ pauseReason: "question" })
-      })
-      await asking.controller.finishReviewed({ runId: "run-1", pausedAt: 5 })
-      expect(asking.getState().status).toBe("paused")
-    })
-  })
-
   describe("routine consent on a site the user approved travelling to", () => {
-    const routine = {
-      origin: "https://example.com",
-      effects: ["activation", "form_mutation"] as AgentGrantableEffect[],
-      grantedAt: 1
-    }
-    const travel = (
-      semanticEffects: AgentSemanticEffect[],
-      grants: AgentRunState["grants"]
-    ) =>
-      createHarness({
-        state: runState({ grants }),
-        policy: approvalPolicy("high"),
+    const travel = (routineOrigin?: string) => {
+      const policy = approvalPolicy("high")
+      if (policy.type === "approval_required" && routineOrigin)
+        policy.request.routineOrigin = routineOrigin
+      return createHarness({
+        state: runState({
+          grants: [
+            {
+              origin: "https://example.com",
+              effects: ["activation", "form_mutation"],
+              grantedAt: 1
+            }
+          ]
+        }),
+        policy,
         effectOverrides: {
-          semanticEffects,
+          semanticEffects: ["navigation"],
           destination: {
             url: "https://duckduckgo.com/",
             origin: "https://duckduckgo.com",
@@ -1249,29 +1221,22 @@ describe("agent controller", () => {
           }
         }
       })
-    const origins = (harness: ReturnType<typeof createHarness>) =>
-      (harness.getState().grants ?? []).map((grant) => grant.origin)
+    }
+    const grantOn = (harness: ReturnType<typeof createHarness>) =>
+      harness
+        .getState()
+        .grants?.find((grant) => grant.origin === "https://duckduckgo.com")
 
-    it("follows an approved navigation", async () => {
-      const harness = travel(["navigation"], [routine])
+    it("grants what an approved request said would follow", async () => {
+      const harness = travel("https://duckduckgo.com")
       await harness.controller.start("run-1")
-      expect(origins(harness)).toContain("https://duckduckgo.com")
-      expect(
-        harness
-          .getState()
-          .grants?.find((grant) => grant.origin === "https://duckduckgo.com")
-          ?.effects
-      ).toEqual(["activation", "form_mutation"])
+      expect(grantOn(harness)?.effects).toEqual(["activation", "form_mutation"])
     })
 
-    it("does not follow a submission or a run without routine consent", async () => {
-      const submitted = travel(["form_mutation", "submission"], [routine])
-      await submitted.controller.start("run-1")
-      expect(origins(submitted)).not.toContain("https://duckduckgo.com")
-
-      const unconsented = travel(["navigation"], undefined)
-      await unconsented.controller.start("run-1")
-      expect(origins(unconsented)).not.toContain("https://duckduckgo.com")
+    it("grants nothing for an approval that did not say so", async () => {
+      const harness = travel()
+      await harness.controller.start("run-1")
+      expect(grantOn(harness)).toBeUndefined()
     })
   })
 

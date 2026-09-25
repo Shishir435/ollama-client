@@ -454,39 +454,6 @@ export const createAgentController = (
     ].slice(-MAX_AGENT_GRANTS)
   }
 
-  /**
-   * Routine consent follows the run to a site the user approved travelling
-   * to. "Allow on the starting site" covered clicks and typing where the run
-   * began; a run that opened DuckDuckGo to search then asked again for every
-   * keystroke there, on a site the user had just said yes to. Only for a
-   * navigation the user approved — never a submission, whose destination is
-   * where a form sent data — and only in a run that was given routine
-   * consent at all. Submissions keep asking.
-   */
-  const withTravelledGrants = (
-    state: AgentRunState,
-    effect: ResolvedAgentEffect,
-    authorization: AuthorizedAgentEffect["authorization"],
-    grants: AgentRunState["grants"]
-  ): { grants?: AgentRunState["grants"] } => {
-    const origin = effect.destination?.origin
-    const current = { ...state, grants: grants ?? state.grants }
-    const consented = (state.grants ?? []).some((grant) =>
-      AGENT_ROUTINE_GRANT_EFFECTS.every((routine) =>
-        grant.effects.includes(routine)
-      )
-    )
-    if (
-      authorization.type !== "approval" ||
-      !origin ||
-      !consented ||
-      effect.semanticEffects.includes("submission") ||
-      current.grants?.some((grant) => grant.origin === origin)
-    )
-      return grants ? { grants } : {}
-    return { grants: grantsWith(current, origin, AGENT_ROUTINE_GRANT_EFFECTS) }
-  }
-
   const authorize = async (
     state: AgentRunState,
     decision: Extract<
@@ -555,7 +522,7 @@ export const createAgentController = (
      * convenience would put a second way to move a run outside the state
      * machine. Only what the request offered can be granted.
      */
-    const grants =
+    const widened =
       answer.scope === "run_origin" &&
       decision.request.origin &&
       decision.request.grantable?.length
@@ -565,6 +532,18 @@ export const createAgentController = (
             decision.request.grantable
           )
         : undefined
+    /**
+     * Routine consent follows the run to the site this approval opens, and
+     * only because the approval said so: the request named the site and its
+     * consequence told the user clicks and typing there would not ask.
+     */
+    const grants = decision.request.routineOrigin
+      ? grantsWith(
+          { ...checkpoint, grants: widened ?? checkpoint.grants },
+          decision.request.routineOrigin,
+          AGENT_ROUTINE_GRANT_EFFECTS
+        )
+      : widened
     return {
       state: checkpoint,
       ...(grants ? { grants } : {}),
@@ -1233,7 +1212,7 @@ export const createAgentController = (
         dependencies.clock.now()
       ),
       ...allowedOriginsPatch(state, effect, authorization),
-      ...withTravelledGrants(state, effect, authorization, grants),
+      ...(grants ? { grants } : {}),
       stepCount: stepNumber,
       updatedAt: dependencies.clock.now()
     })
@@ -2423,6 +2402,11 @@ export const createAgentController = (
       ) {
         return
       }
+      /**
+       * The same record continuing writes: the uncertain step was looked at
+       * by the user, so the step history says so as the result does.
+       */
+      if (!(await recordReviewedDisposition(state.id))) return
       await transition(state, "completed", {
         pauseReason: undefined,
         result: AGENT_USER_CONFIRMED_RESULT,

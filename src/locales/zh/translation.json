@@ -211,6 +211,7 @@
       "adopt_tab": "接管 {{url}} 上的标签页“{{tab}}”",
       "navigate": "前往 {{url}}",
       "navigate_consequence": "浏览器将打开这个完整地址：{{url}}",
+      "routine_follows": "之后在 {{origin}} 上的点击和输入将不再询问，与本任务开始的网站相同。提交表单仍会询问。",
       "no_submit_consequence": "这将输入到下方显示的控件中。之后没有提交步骤，因此边输入边保存的页面可能会立即保存。",
       "command_consequence": "浏览器将在下方显示的控件上执行此操作。",
       "prior_form": "此任务之前的一次运行已经提交过这个表单。只有在这是一次新的提交而不是重复提交时才批准。",

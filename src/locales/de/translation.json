@@ -211,6 +211,7 @@
       "adopt_tab": "Den Tab „{{tab}}“ unter {{url}} übernehmen",
       "navigate": "Zu {{url}} wechseln",
       "navigate_consequence": "Der Browser öffnet genau diese Adresse: {{url}}",
+      "routine_follows": "Klicks und Eingaben auf {{origin}} laufen danach ohne Rückfrage, wie auf der Seite, auf der diese Aufgabe begonnen hat. Das Absenden eines Formulars fragt weiterhin nach.",
       "no_submit_consequence": "Dies wird in das unten gezeigte Steuerelement eingegeben. Es folgt kein Senden-Schritt, daher kann eine Seite, die beim Tippen speichert, es sofort übernehmen.",
       "command_consequence": "Der Browser führt diese Aktion am unten gezeigten Steuerelement aus.",
       "prior_form": "Ein früherer Lauf dieser Aufgabe hat dieses Formular bereits gesendet. Bestätige nur, wenn es eine neue Übermittlung ist und nicht dieselbe noch einmal.",

@@ -211,6 +211,7 @@
       "adopt_tab": "Prendre l’onglet « {{tab}} » sur {{url}}",
       "navigate": "Aller à {{url}}",
       "navigate_consequence": "Le navigateur ouvre exactement cette adresse : {{url}}",
+      "routine_follows": "Les clics et la saisie sur {{origin}} se feront ensuite sans demander, comme sur le site où cette tâche a commencé. L’envoi d’un formulaire demandera toujours.",
       "no_submit_consequence": "Ceci est saisi dans le contrôle affiché ci-dessous. Aucune étape d’envoi ne suit, donc une page qui enregistre pendant la saisie peut le conserver immédiatement.",
       "command_consequence": "Le navigateur effectue cette action sur le contrôle affiché ci-dessous.",
       "prior_form": "Une exécution précédente de cette tâche a déjà envoyé ce formulaire. N’approuvez que s’il s’agit d’un nouvel envoi, et non du même.",

@@ -541,10 +541,20 @@ Read the section your change touches; you do not need the whole file.
   destination and approval. Same-origin moves and tabs the run opened are
   unchanged. A navigation counts as landed when the committed URL keeps the
   requested origin, path and every requested parameter — a site adding
-  `&ia=web` on arrival is not another destination.
+  `&ia=web` on arrival is not another destination. A GET submission is
+  recorded and verified by its visible fields only: the executor loads the
+  full address but reports it without the form's hidden inputs, which a site
+  may drop on arrival and which stay out of the record. A missing search
+  term is still another destination.
+- **Routine consent follows a site only when the approval says so.** An
+  approval to open a new site, in a run given routine consent, names the
+  site as `routineOrigin` and adds the sentence that clicks and typing there
+  will not ask; approving it writes the grant. Submissions never carry it.
 - **A search-box textarea submits on Enter like an input.** DuckDuckGo and
   Google render their search field as `<textarea name="q">`. Enter there is
-  a submission when the textarea is the form's only text entry, in a GET form
+  a submission when the textarea says it is one line (`rows="1"`, a
+  combobox or searchbox role, `enterkeyhint="search"`, never
+  `aria-multiline`), is the form's only text entry, and sits in a GET form
   with a submitter; anywhere else it stays a newline.
 - **Enter in a same-origin search shows the address it opens, and stays a
   submission.** A GET form can change state through its handler or its

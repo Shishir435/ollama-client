@@ -1,5 +1,6 @@
 import {
   AGENT_GRANTABLE_EFFECTS,
+  AGENT_ROUTINE_GRANT_EFFECTS,
   type AgentApprovalRequest,
   type AgentDisplayText,
   type AgentGrant,
@@ -403,7 +404,63 @@ const approvalDisplay = (
   return { action, consequence: [consequence] }
 }
 
+/**
+ * The site a new-origin navigation opens, when the run's routine consent
+ * would carry to it. Never for a submission, whose destination is where a
+ * form sent data rather than a site the user chose to go to.
+ */
+const routineOriginFor = (input: AgentPolicyInput): string | undefined => {
+  const origin = input.effect.destination?.origin
+  if (
+    !origin ||
+    input.allowedOrigins.includes(origin) ||
+    input.effect.semanticEffects.includes("submission")
+  )
+    return undefined
+  const consented = (input.grants ?? []).some((grant) =>
+    AGENT_ROUTINE_GRANT_EFFECTS.every((routine) =>
+      (grant.effects as readonly string[]).includes(routine)
+    )
+  )
+  return consented ? origin : undefined
+}
+
+export const AGENT_ROUTINE_FOLLOWS_CONSEQUENCE = (origin: string): string =>
+  `Clicks and typing on ${origin} will then run without asking, as on the site this task started on. Submitting a form still asks.`
+
 const makeApprovalRequest = (
+  input: AgentPolicyInput,
+  risk: Exclude<AgentRisk, "low">
+): AgentApprovalRequest => {
+  const request = makeBaseApprovalRequest(input, risk)
+  const routineOrigin = routineOriginFor(input)
+  if (!routineOrigin) return request
+  return {
+    ...request,
+    routineOrigin,
+    consequence:
+      `${request.consequence} ${AGENT_ROUTINE_FOLLOWS_CONSEQUENCE(routineOrigin)}`.slice(
+        0,
+        MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS
+      ),
+    ...(request.display
+      ? {
+          display: {
+            ...request.display,
+            consequence: [
+              ...request.display.consequence,
+              {
+                key: "agent.approval_text.routine_follows",
+                values: { origin: routineOrigin }
+              }
+            ].slice(0, MAX_DISPLAY_SENTENCES)
+          }
+        }
+      : {})
+  }
+}
+
+const makeBaseApprovalRequest = (
   input: AgentPolicyInput,
   risk: Exclude<AgentRisk, "low">
 ): AgentApprovalRequest => {
