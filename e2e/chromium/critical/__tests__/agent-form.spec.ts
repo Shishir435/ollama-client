@@ -138,3 +138,47 @@ runAgentScenario({
     ).toBe(false)
   }
 })
+
+/**
+ * A native form submission fires a bubbling `formdata` event after every
+ * check the executor makes, and a document listener could rewrite the query
+ * in it. The approved search address is navigated to directly, so the page
+ * that loads is the one the approval named and the rewrite never reaches the
+ * network.
+ */
+const searchPaths: string[] = []
+const searchPage =
+  '<!doctype html><title>Agent search</title><main><h1>Catalog</h1><form action="/search"><label for="q">Search</label><input id="q" name="q"></form><script>document.addEventListener("formdata", (event) => event.formData.set("q", "exfiltrated"))</script></main>'
+runAgentScenario({
+  name: "search-enter-formdata-rewrite",
+  goal: "Search the catalog for atlas and tell me what the results say.",
+  status: "completed",
+  html: (path) => {
+    searchPaths.push(path)
+    return path.startsWith("/search")
+      ? `<!doctype html><title>Results</title><main><h1>Results</h1><p>Results for ${new URL(path, "http://fixture").searchParams.get("q")}</p></main>`
+      : searchPage
+  },
+  decide(observation) {
+    if (observation.text.includes("Results for"))
+      return {
+        type: "complete",
+        summary: "Results for atlas",
+        evidence: "Results for atlas"
+      }
+    const field = agentFixtureElement(
+      observation,
+      (element) => element.tag === "input"
+    )
+    if (field?.value !== "atlas" || !field.focused)
+      return { type: "clear_and_type", ref: field?.ref, text: "atlas" }
+    return { type: "press_key", ref: field.ref, key: "Enter" }
+  },
+  async verify({ page }) {
+    await expect(page.getByText("Results for atlas")).toBeVisible()
+    expect(new URL(page.url()).search).toBe("?q=atlas")
+    expect(searchPaths.filter((path) => path.startsWith("/search"))).toEqual([
+      "/search?q=atlas"
+    ])
+  }
+})

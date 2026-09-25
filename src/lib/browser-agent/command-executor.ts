@@ -476,6 +476,19 @@ const submitApprovedDestination = (
         "Agent submission query changed after the page's submit handlers ran"
       )
     }
+    /**
+     * Navigated to directly rather than submitted: a native submission fires
+     * a bubbling `formdata` event, and a listener on the document could edit
+     * the entry list after the check above — sending an address the user was
+     * never shown. The checked address is the one that is loaded.
+     */
+    if (submitted.protocol !== "http:" && submitted.protocol !== "https:") {
+      throw new Error("Agent submission destination is not a web address")
+    }
+    const view = element.ownerDocument.defaultView
+    if (!view) throw new Error("Agent submission has no window to navigate")
+    view.location.assign(submitted.href)
+    return submitted.href
   }
   try {
     element.ownerDocument.body.append(guarded)

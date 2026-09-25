@@ -1056,6 +1056,9 @@ describe("Agent DOM mutation execution", () => {
     const nativeSubmit = vi
       .spyOn(HTMLFormElement.prototype, "submit")
       .mockImplementation(() => undefined)
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
     const { effect, references } = await liveEffect(
       command({ type: "click", ref: "e1" }),
       submit
@@ -1077,6 +1080,7 @@ describe("Agent DOM mutation execution", () => {
     expect(submitHandler).toHaveBeenCalledOnce()
     expect(submissionUrl).toBeUndefined()
     expect(nativeSubmit).not.toHaveBeenCalled()
+    expect(assign).not.toHaveBeenCalled()
     expect(clickHandler).not.toHaveBeenCalled()
   })
 
@@ -1100,6 +1104,9 @@ describe("Agent DOM mutation execution", () => {
     const nativeSubmit = vi
       .spyOn(HTMLFormElement.prototype, "submit")
       .mockImplementation(() => undefined)
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
     const { effect, references } = await liveEffect(
       command({ type: "click", ref: "e1" }),
       submit
@@ -1116,7 +1123,8 @@ describe("Agent DOM mutation execution", () => {
     expect(submissionUrl).toBe(
       new URL("/finish?intent=save", location.href).href
     )
-    expect(nativeSubmit).toHaveBeenCalledOnce()
+    expect(assign).toHaveBeenCalledExactlyOnceWith(submissionUrl)
+    expect(nativeSubmit).not.toHaveBeenCalled()
     expect(clickHandler).not.toHaveBeenCalled()
   })
 
@@ -1197,7 +1205,7 @@ describe("Agent DOM mutation execution", () => {
     document.body.append(form)
     input.focus()
     const submit = vi
-      .spyOn(HTMLFormElement.prototype, "submit")
+      .spyOn(window.location, "assign")
       .mockImplementation(() => undefined)
     const { effect, references } = await liveEffect(
       command({ type: "press_key", ref: "e1", key: "Enter" }),
@@ -1219,7 +1227,56 @@ describe("Agent DOM mutation execution", () => {
     expect(submit).not.toHaveBeenCalled()
 
     executeAgentDomMutationInDocument({ effect, document, references, signal })
-    expect(submit).toHaveBeenCalledOnce()
+    expect(submit).toHaveBeenCalledExactlyOnceWith(
+      new URL("/search?q=atlas", location.href).href
+    )
+  })
+
+  /**
+   * A native submission fires a bubbling `formdata` event after every check,
+   * and a listener on the document could rewrite the entry list in it. The
+   * checked address is navigated to directly, so no such event is fired.
+   */
+  it("loads exactly the approved search address past a formdata listener", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "atlas"
+    form.append(input)
+    document.body.append(form)
+    input.focus()
+    const rewrite = vi.fn((event: Event) => {
+      ;(event as FormDataEvent).formData.set("q", "exfiltrated")
+    })
+    document.addEventListener("formdata", rewrite)
+    const nativeSubmit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      input
+    )
+    const approved = new URL("/search?q=atlas", location.href).href
+
+    try {
+      expect(
+        executeAgentDomMutationInDocument({
+          effect,
+          document,
+          references,
+          signal
+        })
+      ).toBe(approved)
+      expect(assign).toHaveBeenCalledExactlyOnceWith(approved)
+      expect(nativeSubmit).not.toHaveBeenCalled()
+      expect(rewrite).not.toHaveBeenCalled()
+    } finally {
+      document.removeEventListener("formdata", rewrite)
+    }
   })
 
   /**
@@ -1239,7 +1296,7 @@ describe("Agent DOM mutation execution", () => {
       input.value = "exfiltrated"
     })
     const submit = vi
-      .spyOn(HTMLFormElement.prototype, "submit")
+      .spyOn(window.location, "assign")
       .mockImplementation(() => undefined)
     const { effect, references } = await liveEffect(
       command({ type: "press_key", ref: "e1", key: "Enter" }),
