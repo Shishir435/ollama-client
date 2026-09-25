@@ -3,6 +3,7 @@ import type {
   AgentObservationScope
 } from "@ollama-client/contracts"
 import {
+  AGENT_ROUTINE_GRANT_EFFECTS,
   type AgentDecision,
   AgentDecisionSchema,
   type AgentGrantableEffect,
@@ -443,6 +444,39 @@ export const createAgentController = (
       ...(state.grants ?? []).filter((grant) => grant.origin !== origin),
       { origin, effects: merged, grantedAt: dependencies.clock.now() }
     ].slice(-MAX_AGENT_GRANTS)
+  }
+
+  /**
+   * Routine consent follows the run to a site the user approved travelling
+   * to. "Allow on the starting site" covered clicks and typing where the run
+   * began; a run that opened DuckDuckGo to search then asked again for every
+   * keystroke there, on a site the user had just said yes to. Only for a
+   * navigation the user approved — never a submission, whose destination is
+   * where a form sent data — and only in a run that was given routine
+   * consent at all. Submissions keep asking.
+   */
+  const withTravelledGrants = (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect,
+    authorization: AuthorizedAgentEffect["authorization"],
+    grants: AgentRunState["grants"]
+  ): { grants?: AgentRunState["grants"] } => {
+    const origin = effect.destination?.origin
+    const current = { ...state, grants: grants ?? state.grants }
+    const consented = (state.grants ?? []).some((grant) =>
+      AGENT_ROUTINE_GRANT_EFFECTS.every((routine) =>
+        grant.effects.includes(routine)
+      )
+    )
+    if (
+      authorization.type !== "approval" ||
+      !origin ||
+      !consented ||
+      effect.semanticEffects.includes("submission") ||
+      current.grants?.some((grant) => grant.origin === origin)
+    )
+      return grants ? { grants } : {}
+    return { grants: grantsWith(current, origin, AGENT_ROUTINE_GRANT_EFFECTS) }
   }
 
   const authorize = async (
@@ -1191,7 +1225,7 @@ export const createAgentController = (
         dependencies.clock.now()
       ),
       ...allowedOriginsPatch(state, effect, authorization),
-      ...(grants ? { grants } : {}),
+      ...withTravelledGrants(state, effect, authorization, grants),
       stepCount: stepNumber,
       updatedAt: dependencies.clock.now()
     })

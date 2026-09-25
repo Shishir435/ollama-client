@@ -1,6 +1,7 @@
 import type {
   AgentCommand,
   AgentDecision,
+  AgentGrantableEffect,
   AgentObservation,
   AgentRunState,
   AgentRunStatus
@@ -20,6 +21,7 @@ import type {
   AgentModelInput,
   AgentPolicyDecision,
   AgentPolicyInput,
+  AgentSemanticEffect,
   AgentStepWrite,
   AgentTakeoverDecision,
   AgentVerificationResult,
@@ -1187,6 +1189,58 @@ describe("agent controller", () => {
     expect(
       harness.writtenSteps.filter((step) => step.status === "rejected")
     ).toHaveLength(0)
+  })
+
+  /**
+   * Opening DuckDuckGo to search asked again for every keystroke there,
+   * although the user had given routine consent and just approved the site.
+   */
+  describe("routine consent on a site the user approved travelling to", () => {
+    const routine = {
+      origin: "https://example.com",
+      effects: ["activation", "form_mutation"] as AgentGrantableEffect[],
+      grantedAt: 1
+    }
+    const travel = (
+      semanticEffects: AgentSemanticEffect[],
+      grants: AgentRunState["grants"]
+    ) =>
+      createHarness({
+        state: runState({ grants }),
+        policy: approvalPolicy("high"),
+        effectOverrides: {
+          semanticEffects,
+          destination: {
+            url: "https://duckduckgo.com/",
+            origin: "https://duckduckgo.com",
+            source: "model"
+          }
+        }
+      })
+    const origins = (harness: ReturnType<typeof createHarness>) =>
+      (harness.getState().grants ?? []).map((grant) => grant.origin)
+
+    it("follows an approved navigation", async () => {
+      const harness = travel(["navigation"], [routine])
+      await harness.controller.start("run-1")
+      expect(origins(harness)).toContain("https://duckduckgo.com")
+      expect(
+        harness
+          .getState()
+          .grants?.find((grant) => grant.origin === "https://duckduckgo.com")
+          ?.effects
+      ).toEqual(["activation", "form_mutation"])
+    })
+
+    it("does not follow a submission or a run without routine consent", async () => {
+      const submitted = travel(["form_mutation", "submission"], [routine])
+      await submitted.controller.start("run-1")
+      expect(origins(submitted)).not.toContain("https://duckduckgo.com")
+
+      const unconsented = travel(["navigation"], undefined)
+      await unconsented.controller.start("run-1")
+      expect(origins(unconsented)).not.toContain("https://duckduckgo.com")
+    })
   })
 
   it("lets a page-changing reveal bind to a read requirement", async () => {
