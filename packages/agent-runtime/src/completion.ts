@@ -597,11 +597,54 @@ const quotedBatchField = (
         agentNormalizedClaim(requirement.text),
         value
       ) &&
+      requirementNamesBatchField(requirement, receipt, index, value) &&
       !consumed.has(`${receipt.stepId}:field:${index}`)
       ? [index]
       : []
   })
   return matches.length === 1 ? matches[0] : undefined
+}
+
+/**
+ * Whether the field the value went into is the one the requirement puts it
+ * in. A batch filling Email with Alice and Name with Bob must not meet "Name
+ * is Alice": the value is right and the control is not. The field whose
+ * verified name sits nearest the value in the requirement is the one it
+ * names. A requirement naming no field of the batch binds only a one-field
+ * batch, where there is no other control it could mean.
+ */
+const requirementNamesBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  index: number,
+  value: string
+): boolean => {
+  const evidence = receipt.verification?.evidence
+  const fieldCount =
+    receipt.command?.type === "fill_form" ? receipt.command.fields.length : 0
+  const names =
+    evidence?.kind === "fields"
+      ? (evidence.fields ?? []).map((field) =>
+          agentNormalizedClaim(field.name ?? "")
+        )
+      : []
+  const text = agentNormalizedClaim(requirement.text)
+  const valueAt = completePhraseOccurrences(text, agentNormalizedClaim(value))
+  let nearest: { index: number; distance: number } | undefined
+  names.forEach((name, fieldIndex) => {
+    for (const at of completePhraseOccurrences(text, name)) {
+      for (const occurrence of valueAt) {
+        const distance =
+          at.end <= occurrence.start
+            ? occurrence.start - at.end
+            : at.start - occurrence.end
+        if (distance >= 0 && (!nearest || distance < nearest.distance))
+          nearest = { index: fieldIndex, distance }
+      }
+    }
+  })
+  if (!nearest) return fieldCount === 1
+  return nearest.index === index
 }
 
 /**
@@ -830,6 +873,14 @@ const quotationNamesFocusedControl = (
 const SUBMITTING_REQUIREMENT_PATTERN =
   /\b(?:submit|submits|submitted|click|clicks|clicked|press|presses|pressed|continue|continued|send|sent|search|searched)\b/
 
+/**
+ * A requirement claiming what the page shows afterwards. "Search results for
+ * Alice are displayed" says search, but it claims results appeared, which a
+ * sent form does not prove.
+ */
+const RESULT_STATE_REQUIREMENT_PATTERN =
+  /\b(?:results?|displayed|display|displays|shown|shows|show|appear|appears|appeared|visible|listed|lists|loaded|loads|saved|created|updated|returned|returns|opened|opens)\b/
+
 const isBoundSubmission = (
   requirement: AgentTaskRequirement,
   receipt: AgentStepReadout
@@ -840,6 +891,9 @@ const isBoundSubmission = (
    * it evidences "Continue has been clicked", never "the address is saved".
    */
   SUBMITTING_REQUIREMENT_PATTERN.test(agentNormalizedClaim(requirement.text)) &&
+  !RESULT_STATE_REQUIREMENT_PATTERN.test(
+    agentNormalizedClaim(requirement.text)
+  ) &&
   receipt.verification?.outcome === "confirmed" &&
   receipt.verification.evidence.kind === "submission"
 

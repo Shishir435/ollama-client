@@ -1,7 +1,6 @@
 import type {
   AgentCommand,
   AgentDecision,
-  AgentGrantableEffect,
   AgentObservation,
   AgentRunState,
   AgentRunStatus
@@ -21,7 +20,6 @@ import type {
   AgentModelInput,
   AgentPolicyDecision,
   AgentPolicyInput,
-  AgentSemanticEffect,
   AgentStepWrite,
   AgentTakeoverDecision,
   AgentVerificationResult,
