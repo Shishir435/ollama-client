@@ -147,6 +147,7 @@
     },
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
     "unresolved_reviewed": "Seite geprüft — fortfahren",
+    "unresolved_done": "Erledigt – beenden",
     "work_log": {
       "action_needs_review": "Dieser Schritt muss überprüft werden.",
       "title": "Arbeitsprotokoll",

@@ -147,6 +147,7 @@
     },
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
     "unresolved_reviewed": "Ho controllato la pagina: continua",
+    "unresolved_done": "Fatto — termina",
     "work_log": {
       "action_needs_review": "Questo passaggio richiede una verifica.",
       "title": "Registro attività",

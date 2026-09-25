@@ -90,6 +90,14 @@ import { agentCommandKeepingUserTab } from "./user-tab"
 import { classifyVerificationOutcome } from "./verification"
 import { agentPictureWarranted } from "./vision"
 
+/**
+ * The result of a run the user finished after reviewing the page. Run data
+ * rather than panel copy, like every other result: the chat that delegated
+ * the task reads it.
+ */
+const AGENT_USER_CONFIRMED_RESULT =
+  "The user reviewed the page and confirmed the task is done."
+
 /** Two runs' worth of steps: the live one and one just settled. */
 const MAX_LIVE_COMMANDS = MAX_AGENT_OBSERVATIONS * 2
 
@@ -2404,6 +2412,22 @@ export const createAgentController = (
       })
       if (!recorded) return
       await run(recorded.id, false, true)
+    },
+    async finishReviewed({ runId, pausedAt }) {
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        state.status !== "paused" ||
+        state.pauseReason !== "unresolved_effect" ||
+        state.updatedAt !== pausedAt
+      ) {
+        return
+      }
+      await transition(state, "completed", {
+        pauseReason: undefined,
+        result: AGENT_USER_CONFIRMED_RESULT,
+        updatedAt: dependencies.clock.now()
+      })
     },
     requestCancel,
     completeTakeover

@@ -33,6 +33,7 @@ export interface AgentRunConnection {
   stop(): void
   completeTakeover(): void
   resolveEffect(): void
+  finishReviewed(): void
   approve(scope?: "run_origin"): void
   reject(): void
   answerQuestion(text: string): void
@@ -244,6 +245,11 @@ export const useAgentRun = (): AgentRunConnection => {
       const run = snapshot?.run
       if (!runId || !run || run.pauseReason !== "unresolved_effect") return
       send({ type: "agent_resolve_effect", runId, pausedAt: run.updatedAt })
+    },
+    finishReviewed: () => {
+      const run = snapshot?.run
+      if (!runId || !run || run.pauseReason !== "unresolved_effect") return
+      send({ type: "agent_finish_reviewed", runId, pausedAt: run.updatedAt })
     },
     approve: (scope?: "run_origin") => {
       if (!runId || !pending) return

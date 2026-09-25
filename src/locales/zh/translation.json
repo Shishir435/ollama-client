@@ -147,6 +147,7 @@
     },
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
     "unresolved_reviewed": "已查看页面 — 继续",
+    "unresolved_done": "已完成 — 结束",
     "work_log": {
       "action_needs_review": "此步骤需要检查。",
       "title": "工作日志",

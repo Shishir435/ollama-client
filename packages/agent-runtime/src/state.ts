@@ -62,7 +62,12 @@ export const AGENT_STATUS_PREDECESSORS = {
     "pause_requested",
     "paused"
   ],
-  completed: ["deciding", "cancelling"],
+  /**
+   * From `paused` only on the user's word: an unresolved effect they looked
+   * at and said is done. A search that worked but could not be confirmed
+   * otherwise sent the run back to work it had finished.
+   */
+  completed: ["deciding", "cancelling", "paused"],
   /**
    * Only from `deciding`, and only on the model's own word that an outcome
    * was not met. A cancelled or failed run is not a partial one: partial

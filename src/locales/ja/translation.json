@@ -147,6 +147,7 @@
     },
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
     "unresolved_reviewed": "ページを確認した — 続行",
+    "unresolved_done": "完了しました — 終了",
     "work_log": {
       "action_needs_review": "この手順は確認が必要です。",
       "title": "作業ログ",

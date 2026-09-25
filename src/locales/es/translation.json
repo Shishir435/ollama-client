@@ -147,6 +147,7 @@
     },
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
     "unresolved_reviewed": "He revisado la página: continuar",
+    "unresolved_done": "Ya está hecho — terminar",
     "work_log": {
       "action_needs_review": "Este paso requiere revisión.",
       "title": "Registro de trabajo",

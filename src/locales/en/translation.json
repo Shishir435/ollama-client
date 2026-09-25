@@ -147,6 +147,7 @@
     },
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
     "unresolved_reviewed": "I've reviewed the page — continue",
+    "unresolved_done": "It's done — finish",
     "work_log": {
       "action_needs_review": "This step needs review.",
       "title": "Work log",

@@ -147,6 +147,7 @@
     },
     "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
     "unresolved_reviewed": "J'ai vérifié la page — continuer",
+    "unresolved_done": "C’est fait — terminer",
     "work_log": {
       "action_needs_review": "Cette étape doit être vérifiée.",
       "title": "Journal de travail",

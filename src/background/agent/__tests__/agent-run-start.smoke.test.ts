@@ -111,6 +111,7 @@ const startService = (
       requestCancel: vi.fn(async () => undefined),
       completeTakeover: vi.fn(async () => undefined),
       resolveEffect: vi.fn(async () => undefined),
+      finishReviewed: vi.fn(async () => undefined),
       answerQuestion: vi.fn(async () => undefined),
       grant: vi.fn(async () => undefined)
     }),
@@ -298,6 +299,7 @@ describe("starting an Agent run against the real engine", () => {
         requestCancel: vi.fn(async () => undefined),
         completeTakeover: vi.fn(async () => undefined),
         resolveEffect: vi.fn(async () => undefined),
+        finishReviewed: vi.fn(async () => undefined),
         answerQuestion: vi.fn(async () => undefined),
         grant: vi.fn(async () => undefined)
       }

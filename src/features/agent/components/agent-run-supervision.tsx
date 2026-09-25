@@ -61,6 +61,8 @@ export interface AgentRunSupervisionProps {
   onTakeoverStart: () => void
   onTakeoverComplete: () => void
   onResolveEffect: () => void
+  /** The user looked and the task is done: finish instead of continuing. */
+  onFinishReviewed: () => void
 }
 
 /**
@@ -232,7 +234,8 @@ export const AgentRunSupervision = ({
   onStop,
   onTakeoverStart,
   onTakeoverComplete,
-  onResolveEffect
+  onResolveEffect,
+  onFinishReviewed
 }: AgentRunSupervisionProps) => {
   const { t } = useTranslation()
   const currentAction = currentAgentAction(steps)
@@ -366,14 +369,22 @@ export const AgentRunSupervision = ({
              * over, which is what actually risked repeating the action.
              */}
             {run.pauseReason === "unresolved_effect" && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={onResolveEffect}>
-                {t("agent.unresolved_reviewed")}
-              </Button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onResolveEffect}>
+                  {t("agent.unresolved_reviewed")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onFinishReviewed}>
+                  {t("agent.unresolved_done")}
+                </Button>
+              </div>
             )}
           </section>
         )}

@@ -1195,6 +1195,38 @@ describe("agent controller", () => {
    * Opening DuckDuckGo to search asked again for every keystroke there,
    * although the user had given routine consent and just approved the site.
    */
+  describe("finishing an unresolved effect the user reviewed", () => {
+    const paused = (patch: Partial<AgentRunState> = {}) =>
+      runState({
+        status: "paused",
+        pauseReason: "unresolved_effect",
+        updatedAt: 5,
+        ...patch
+      })
+
+    it("completes the run on the user's word", async () => {
+      const harness = createHarness({ state: paused() })
+      await harness.controller.finishReviewed({ runId: "run-1", pausedAt: 5 })
+      expect(harness.getState()).toMatchObject({
+        status: "completed",
+        result: "The user reviewed the page and confirmed the task is done."
+      })
+      expect(harness.getState().pauseReason).toBeUndefined()
+    })
+
+    it("ignores a stale panel and any other pause", async () => {
+      const stale = createHarness({ state: paused() })
+      await stale.controller.finishReviewed({ runId: "run-1", pausedAt: 4 })
+      expect(stale.getState().status).toBe("paused")
+
+      const asking = createHarness({
+        state: paused({ pauseReason: "question" })
+      })
+      await asking.controller.finishReviewed({ runId: "run-1", pausedAt: 5 })
+      expect(asking.getState().status).toBe("paused")
+    })
+  })
+
   describe("routine consent on a site the user approved travelling to", () => {
     const routine = {
       origin: "https://example.com",

@@ -525,6 +525,11 @@ Read the section your change touches; you do not need the whole file.
   and `file_selection` stay critical or takeover, a grant never covers a step
   carrying one of them, and a submission riding along with one is priced by
   the one.
+- **An unresolved effect has two ways out.** "I've reviewed the page —
+  continue" re-observes and decides again; "It's done — finish"
+  (`agent_finish_reviewed`) completes the run on the user's word, the one
+  `paused → completed` edge, with a fixed result saying the user confirmed
+  it. Both name the pause they answer, so a stale panel resolves nothing.
 - **A browser page is no place to start; a named site is.** From a tab the
   agent cannot drive (`brave://extensions`, the new-tab page) `browser_task`
   refuses and tells the model to pass `start_url`. With one, the start is

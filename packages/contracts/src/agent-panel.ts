@@ -274,6 +274,10 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
     type: z.literal("agent_resolve_effect"),
     pausedAt: z.number().int().nonnegative()
   }).strict(),
+  RunScopedSchema.extend({
+    type: z.literal("agent_finish_reviewed"),
+    pausedAt: z.number().int().nonnegative()
+  }).strict(),
   AnswerSchema.extend({
     type: z.literal("agent_approve"),
     /**

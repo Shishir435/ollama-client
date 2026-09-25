@@ -807,6 +807,12 @@ export interface AgentController {
    */
   resolveEffect(input: { runId: string; pausedAt: number }): Promise<void>
   /**
+   * The other way out of an unresolved effect: the user looked at the page
+   * and the task is done. The run completes on their word, without another
+   * look, and its result says so.
+   */
+  finishReviewed(input: { runId: string; pausedAt: number }): Promise<void>
+  /**
    * Records the user's answer to the run's open question and resumes it. The
    * question id is named so a click on a stale panel cannot answer whatever
    * question replaced the one it showed.
