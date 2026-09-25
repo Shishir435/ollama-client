@@ -52,6 +52,27 @@ describe("browser_task", () => {
     )
   })
 
+  it("passes a web start address and drops anything else", async () => {
+    const installed = runner()
+    setBrowserTaskRunner(installed)
+
+    for (const [start_url, startUrl] of [
+      ["https://duckduckgo.com", "https://duckduckgo.com/"],
+      ["javascript:alert(1)", undefined],
+      ["chrome://settings", undefined]
+    ] as const) {
+      await runBrowserTask({ goal: "Search", start_url }, { sessionId: "c" })
+      expect(installed.run).toHaveBeenLastCalledWith(
+        {
+          goal: "Search",
+          continuePrevious: false,
+          ...(startUrl ? { startUrl } : {})
+        },
+        { sessionId: "c" }
+      )
+    }
+  })
+
   it("refuses an empty goal without reaching the runner", async () => {
     const installed = runner()
     setBrowserTaskRunner(installed)

@@ -525,6 +525,11 @@ Read the section your change touches; you do not need the whole file.
   and `file_selection` stay critical or takeover, a grant never covers a step
   carrying one of them, and a submission riding along with one is priced by
   the one.
+- **A browser page is no place to start; a named site is.** From a tab the
+  agent cannot drive (`brave://extensions`, the new-tab page) `browser_task`
+  refuses and tells the model to pass `start_url`. With one, the start is
+  approved against that address's origin and the site opens in a new tab
+  only after the approval; a usable tab in view ignores it.
 - **A run never navigates the user's own tab to another site.** The first
   tab in a run's scope is the page the user was on; a `navigate` from it to
   another origin runs as `open_tab` (`user-tab.ts`), with the same

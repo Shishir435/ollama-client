@@ -321,6 +321,54 @@ describe("running a browser task", () => {
     expect(service.delegate).not.toHaveBeenCalled()
   })
 
+  /**
+   * Asked from brave://extensions to search DuckDuckGo, the run refused the
+   * settings page and the chat told the user to open a website first. A
+   * named start address opens in a new tab, after the approval, instead.
+   */
+  it("opens the start address in a new tab when the tab in view is a browser page", async () => {
+    const service = serviceStub()
+    const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+    const task = runner(service, local, { openTab })
+    const start = {
+      ...request,
+      startUrl: "https://duckduckgo.com/"
+    }
+    const ctx = turn({ browserTabId: 11, userConfirmed: true })
+
+    expect(await task.origin(start, ctx)).toBe("https://duckduckgo.com")
+    expect(openTab).not.toHaveBeenCalled()
+
+    await task.run(start, { ...ctx, approvedOrigin: "https://duckduckgo.com" })
+    expect(openTab).toHaveBeenCalledExactlyOnceWith("https://duckduckgo.com/")
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 12 })
+    )
+  })
+
+  it("keeps the user's own tab when it can be used, start address or not", async () => {
+    const service = serviceStub()
+    const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+    await runner(service, local, { openTab }).run(
+      { ...request, startUrl: "https://duckduckgo.com/" },
+      turn({ userConfirmed: true })
+    )
+    expect(openTab).not.toHaveBeenCalled()
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 7 })
+    )
+  })
+
+  it("tells the model to name a start address when the tab is a browser page", async () => {
+    const service = serviceStub()
+    const result = await runner(service).run(
+      request,
+      turn({ browserTabId: 11, userConfirmed: true })
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("start_url")
+  })
+
   it("refuses when the tab moved to another site after approval", async () => {
     const service = serviceStub()
     const result = await runner(service).run(

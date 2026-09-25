@@ -51,7 +51,7 @@ const REFUSALS: Record<AgentRunFailureReason, string> = {
   permission_denied:
     "The browser agent is missing a browser permission it needs.",
   tab_unsupported:
-    "The browser agent cannot work on that tab. Ask the user to open an ordinary web page (http or https) and try again.",
+    "The browser agent cannot work on that tab, which is a browser page rather than a website. If the task names a site, call browser_task again with start_url set to that site's address and it opens in a new tab; otherwise ask the user to open an ordinary web page (http or https).",
   steer_unavailable:
     "The browser task is not running, so it could not take a correction.",
   unknown_run: "The browser task could not be found."
@@ -98,6 +98,9 @@ const followedRun = (
     : {}
 }
 
+/** How long a start address may take to load before the run begins anyway. */
+const START_TAB_LOAD_MS = 15_000
+
 export interface BrowserTaskRunnerDependencies {
   service: AgentRunService
   disclose?: (
@@ -106,6 +109,8 @@ export interface BrowserTaskRunnerDependencies {
   ) => Promise<ProviderDisclosure>
   getTab?: (tabId: number) => Promise<{ id?: number; url?: string } | undefined>
   activeTab?: () => Promise<{ id?: number; url?: string } | undefined>
+  /** Opens a start address in a new tab and resolves once it has loaded. */
+  openTab?: (url: string) => Promise<{ id?: number; url?: string } | undefined>
   readHandoff?: (
     messageId: number
   ) => Promise<AgentConversationHandoff | undefined>
@@ -158,6 +163,24 @@ export const createBrowserTaskRunner = (
       return row?.agentHandoff
     })
   const waitMs = dependencies.waitMs ?? BROWSER_TASK_WAIT_MS
+  const openTab =
+    dependencies.openTab ??
+    (async (url: string) => {
+      try {
+        const created = await browser.tabs.create({ url, active: true })
+        if (typeof created.id !== "number") return undefined
+        /** Loaded, or as far as it got; the start refuses what is not a site. */
+        for (let waited = 0; waited < START_TAB_LOAD_MS; waited += 250) {
+          const tab = await getTab(created.id)
+          if (tab?.url && (tab as { status?: string }).status === "complete")
+            return tab
+          await new Promise((resolve) => setTimeout(resolve, 250))
+        }
+        return await getTab(created.id)
+      } catch {
+        return undefined
+      }
+    })
 
   const resolveTab = async (
     request: BrowserTaskRequest,
@@ -167,6 +190,21 @@ export const createBrowserTaskRunner = (
     const tab = tabId !== undefined ? await getTab(tabId) : await activeTab()
     if (typeof tab?.id !== "number" || !tab.url) return undefined
     return { id: tab.id, url: tab.url }
+  }
+
+  /**
+   * The tab the task can start on without opening anything. A tab the agent
+   * cannot drive — a browser settings page, the new-tab page — is no tab at
+   * all here, which is what lets a named start address take its place.
+   */
+  const usableTab = async (
+    request: BrowserTaskRequest,
+    ctx: ToolContext
+  ): Promise<ResolvedTab | undefined> => {
+    const tab = await resolveTab(request, ctx)
+    return tab && (await classifyAgentTabAccess(tab.url)) === "ok"
+      ? tab
+      : undefined
   }
 
   /** Page content in the turn, or a tool result that brought some in. */
@@ -239,6 +277,23 @@ export const createBrowserTaskRunner = (
    * report into, a model that cannot drive a run, a remote notice nobody was
    * shown, a tab the run may not touch or one that changed after approval.
    */
+  /**
+   * The tab in view when it can be driven, else the start address opened in
+   * a new tab. Opened only here, after the start was approved against that
+   * address's own origin — never while the prompt was being asked.
+   */
+  const startTab = async (
+    request: BrowserTaskRequest,
+    ctx: ToolContext
+  ): Promise<ResolvedTab | undefined> => {
+    const tab = await usableTab(request, ctx)
+    if (tab || !request.startUrl) return tab
+    const opened = await openTab(request.startUrl)
+    return typeof opened?.id === "number" && opened.url
+      ? { id: opened.id, url: opened.url }
+      : undefined
+  }
+
   const admit = async (
     request: BrowserTaskRequest,
     ctx: ToolContext
@@ -291,7 +346,7 @@ export const createBrowserTaskRunner = (
       if (remote.screenshots)
         await writeSetting(SETTINGS.AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED, true)
     }
-    const tab = await resolveTab(request, ctx)
+    const tab = await startTab(request, ctx)
     if (!tab || (await classifyAgentTabAccess(tab.url)) !== "ok") {
       return { ok: false, result: failure(REFUSALS.tab_unsupported) }
     }
@@ -396,8 +451,11 @@ export const createBrowserTaskRunner = (
 
   return {
     async origin(request, ctx) {
-      const tab = await resolveTab(request, ctx)
-      return normalizeGrantOrigin(tab?.url)
+      const tab = await usableTab(request, ctx)
+      if (tab) return normalizeGrantOrigin(tab.url)
+      return request.startUrl
+        ? normalizeGrantOrigin(request.startUrl)
+        : normalizeGrantOrigin((await resolveTab(request, ctx))?.url)
     },
 
     async confirmation(request, ctx) {
