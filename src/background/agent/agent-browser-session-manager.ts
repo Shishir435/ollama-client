@@ -8,6 +8,10 @@ import type { AgentRawCapture } from "@/lib/browser-agent/screenshot-capture"
 import type { AgentCaptureLayout } from "@/lib/browser-agent/screenshot-geometry"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
+import {
+  type AgentPageIndicator,
+  createAgentPageIndicator
+} from "./agent-page-indicator"
 
 const CDP_PROTOCOL_VERSION = "1.3"
 
@@ -257,7 +261,12 @@ interface Attachment {
    */
   dialog?: HeldDialog
   dialogSequence: number
+  /** The overlay the page shows while this run drives it. */
+  indicator?: AgentPageIndicator
 }
+
+/** How long a pressed control stays outlined before the viewport outline returns. */
+const TARGET_HIGHLIGHT_MS = 700
 
 /**
  * How long a held pointer move is given to turn into an HTML5 drag before the
@@ -580,6 +589,17 @@ export const createAgentBrowserSessionManager = (input?: {
     }
   }
 
+  const indicatorOf = (attachment: Attachment): AgentPageIndicator => {
+    attachment.indicator ??= createAgentPageIndicator(
+      (method, params) =>
+        attachments.get(attachment.runId) === attachment
+          ? send(attachment.target, method, params)
+          : Promise.reject(new Error("Agent debugger is no longer attached")),
+      () => ensureDom(attachment)
+    )
+    return attachment.indicator
+  }
+
   const startTracking = async (attachment: Attachment): Promise<void> => {
     if (!frameTracking) {
       attachment.tracking = "unavailable"
@@ -605,6 +625,7 @@ export const createAgentBrowserSessionManager = (input?: {
       await readFrameTree(attachment, {})
       if (attachments.get(attachment.runId) === attachment) {
         attachment.tracking = "tracking"
+        void indicatorOf(attachment).show()
       }
     } catch {
       if (attachments.get(attachment.runId) === attachment) {
@@ -725,6 +746,9 @@ export const createAgentBrowserSessionManager = (input?: {
       | { id?: unknown; parentId?: unknown; url?: unknown }
       | undefined
     if (typeof frame?.id !== "string" || typeof frame.url !== "string") return
+    /** A new document starts with no overlay; the root's gets it back. */
+    if (typeof frame.parentId !== "string" && !source.sessionId)
+      void indicatorOf(attachment).show()
     attachment.frames.set(frame.id, {
       ...attachment.frames.get(frame.id),
       cdpFrameId: frame.id,
@@ -1117,6 +1141,9 @@ export const createAgentBrowserSessionManager = (input?: {
         else await dragEnd(attachment, step)
         return
       case "mouse":
+        if (step.type === "mousePressed") {
+          await indicatorOf(attachment).target(step)
+        }
         await send(attachment.target, "Input.dispatchMouseEvent", {
           type: MOUSE_EVENT_TYPES[step.type],
           x: step.x,
@@ -1126,6 +1153,12 @@ export const createAgentBrowserSessionManager = (input?: {
           modifiers: step.modifiers,
           ...(step.type === "mousePressed" ? { buttons: 1 } : {})
         })
+        if (step.type === "mouseReleased") {
+          setTimeout(
+            () => void indicatorOf(attachment).show(),
+            TARGET_HIGHLIGHT_MS
+          )
+        }
         return
       case "wheel":
         await send(attachment.target, "Input.dispatchMouseEvent", {
@@ -1147,6 +1180,36 @@ export const createAgentBrowserSessionManager = (input?: {
         )
         return
     }
+  }
+
+  const captureWith = async (
+    attachment: Attachment,
+    layout: NonNullable<ReturnType<typeof captureLayoutOf>>,
+    clip: Parameters<AgentNativeInputChannel["captureScreenshot"]>[0]
+  ): Promise<AgentRawCapture | undefined> => {
+    /**
+     * A clip's `scale` is the image scale the pipeline wants per CSS pixel;
+     * the protocol's own scale multiplies the device ratio, which the
+     * pipeline measured from the unclipped capture and folded in here.
+     */
+    const shot = await send(attachment.target, "Page.captureScreenshot", {
+      format: "jpeg",
+      quality: SCREENSHOT_JPEG_QUALITY,
+      captureBeyondViewport: false,
+      ...(clip
+        ? {
+            clip: {
+              x: clip.rect.x,
+              y: clip.rect.y,
+              width: clip.rect.width,
+              height: clip.rect.height,
+              scale: clip.scale
+            }
+          }
+        : {})
+    })
+    if (!isScreenshot(shot)) return undefined
+    return { data: shot.data, mimeType: "image/jpeg", layout }
   }
 
   const channelFor = (attachment: Attachment): AgentNativeInputChannel => ({
@@ -1180,29 +1243,13 @@ export const createAgentBrowserSessionManager = (input?: {
         await send(attachment.target, "Page.getLayoutMetrics")
       )
       if (!layout) return undefined
-      /**
-       * A clip's `scale` is the image scale the pipeline wants per CSS pixel;
-       * the protocol's own scale multiplies the device ratio, which the
-       * pipeline measured from the unclipped capture and folded in here.
-       */
-      const shot = await send(attachment.target, "Page.captureScreenshot", {
-        format: "jpeg",
-        quality: SCREENSHOT_JPEG_QUALITY,
-        captureBeyondViewport: false,
-        ...(clip
-          ? {
-              clip: {
-                x: clip.rect.x,
-                y: clip.rect.y,
-                width: clip.rect.width,
-                height: clip.rect.height,
-                scale: clip.scale
-              }
-            }
-          : {})
-      })
-      if (!isScreenshot(shot)) return undefined
-      return { data: shot.data, mimeType: "image/jpeg", layout }
+      const indicator = indicatorOf(attachment)
+      await indicator.suspend()
+      try {
+        return await captureWith(attachment, layout, clip)
+      } finally {
+        void indicator.resume()
+      }
     },
     beginFileChooserWindow() {
       if (attachments.get(attachment.runId) !== attachment) return

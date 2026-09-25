@@ -386,7 +386,7 @@ describe("Agent browser session frame tracking", () => {
     const manager = await attached(host)
 
     expect(manager.capabilities.frameTracking).toBe(true)
-    expect(host.commands.map((command) => command.method)).toEqual([
+    expect(host.commands.map((command) => command.method).slice(0, 4)).toEqual([
       "Page.enable",
       "Target.setAutoAttach",
       "Page.setInterceptFileChooserDialog",
