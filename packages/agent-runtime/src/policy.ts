@@ -435,14 +435,23 @@ const makeApprovalRequest = (
   const request = makeBaseApprovalRequest(input, risk)
   const routineOrigin = routineOriginFor(input)
   if (!routineOrigin) return request
+  /**
+   * Routine consent is carried only when the notice saying so reaches the
+   * user whole. A long destination URL would push it past the consequence
+   * cap, and a cut-off notice still carrying `routineOrigin` would grant
+   * what the user was never told; that approval simply does not carry it.
+   */
+  const consequence = `${request.consequence} ${AGENT_ROUTINE_FOLLOWS_CONSEQUENCE(routineOrigin)}`
+  if (
+    consequence.length > MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS ||
+    (request.display &&
+      request.display.consequence.length >= MAX_DISPLAY_SENTENCES)
+  )
+    return request
   return {
     ...request,
     routineOrigin,
-    consequence:
-      `${request.consequence} ${AGENT_ROUTINE_FOLLOWS_CONSEQUENCE(routineOrigin)}`.slice(
-        0,
-        MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS
-      ),
+    consequence,
     ...(request.display
       ? {
           display: {
@@ -453,7 +462,7 @@ const makeApprovalRequest = (
                 key: "agent.approval_text.routine_follows",
                 values: { origin: routineOrigin }
               }
-            ].slice(0, MAX_DISPLAY_SENTENCES)
+            ]
           }
         }
       : {})

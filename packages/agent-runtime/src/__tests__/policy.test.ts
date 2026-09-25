@@ -1031,6 +1031,26 @@ describe("a control this run already committed through", () => {
       })
     })
 
+    it("carries nothing when the notice would not reach the user whole", () => {
+      const long = `https://duckduckgo.com/?q=${"a".repeat(1_500)}`
+      const decision = evaluateAgentPolicy(
+        input(
+          effect(["navigation"], {
+            destination: {
+              url: long,
+              origin: "https://duckduckgo.com",
+              source: "model"
+            }
+          }),
+          { grants: [...routine] }
+        )
+      )
+      expect(decision.type).toBe("approval_required")
+      if (decision.type !== "approval_required") return
+      expect(decision.request.routineOrigin).toBeUndefined()
+      expect(decision.request.consequence).not.toContain("without asking")
+    })
+
     it("offers nothing for a submission or a run without routine consent", () => {
       for (const decision of [
         evaluateAgentPolicy(
