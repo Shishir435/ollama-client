@@ -48,6 +48,12 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   startup is shared infrastructure rather than one request's work — so a
   catalog read arriving in that window used to ask a runtime that was not up
   and answer `502`.
+- **An old Codex CLI is reported, never updated.** Codex lists models by
+  client version, and an old CLI cannot parse the model cache a newer one
+  writes, so it silently shows fewer models. At start olc compares
+  `codex --version` with the Codex the ChatGPT app bundles and the version in
+  `~/.codex/models_cache.json`, and warns on stderr when it is behind. It
+  never runs `codex update`: when to update is the user's call.
 - **Generated images are bytes, not links.** `/v1/images/generations` accepts the OpenAI-compatible `b64_json` shape and returns only validated base64 from the selected backend. A missing runtime image operation is `501`, never a text fallback disguised as image generation.
 - **Tool calls round-trip through the wire format.** The runtime does not forward a caller's tool definitions to its model, so the proxy registers them, parks a call mid-turn, emits it as an OpenAI `tool_calls` delta with `finish_reason: "tool_calls"`, and resumes the same turn when the next request carries matching `tool_call_id`s. The extension's native tool loop drives it unchanged, and its approval and permission gates still apply because the tools still execute in the extension.
 - Inside the proxy, `src/core/` is runtime-agnostic and every runtime detail sits behind the `AgentBackend` port (`src/backends/types.ts`), with OpenCode as the first adapter. A new runtime is an adapter plus a registry entry, never a change in `core/`.
