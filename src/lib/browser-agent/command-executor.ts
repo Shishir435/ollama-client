@@ -452,7 +452,8 @@ const submitApprovedDestination = (
   form: HTMLFormElement,
   submitter: ReturnType<typeof resolveAgentFormSubmitter>,
   destination: string,
-  method: "get" | "post"
+  method: "get" | "post",
+  approvedQuery?: string
 ): string => {
   const guarded = buildGuardedSubmission(form, submitter, destination, method)
   const submitted = new URL(destination)
@@ -463,6 +464,18 @@ const submitApprovedDestination = (
         query.append(control.name, control.value)
     }
     submitted.search = query.toString()
+    /**
+     * Checked on the copy about to be sent, after the page's own submit
+     * handlers ran: a handler that rewrote a field would otherwise send an
+     * address the user was never shown. Nothing is sent, but the handlers
+     * did run, so this is not a clean refusal — page code may have acted,
+     * and the step is left for the user to look at rather than retried.
+     */
+    if (approvedQuery !== undefined && query.toString() !== approvedQuery) {
+      throw new Error(
+        "Agent submission query changed after the page's submit handlers ran"
+      )
+    }
   }
   try {
     element.ownerDocument.body.append(guarded)
@@ -538,6 +551,13 @@ const submitThroughPageHandlers = (
   }
   let committed: string | undefined
   /**
+   * A listener cannot throw back to `requestSubmit`'s caller, so a refusal
+   * raised while the page's submission was being enforced is held here and
+   * thrown once `requestSubmit` returns. The default was already cancelled,
+   * so nothing was sent.
+   */
+  let refused: unknown
+  /**
    * Registered last, so the page's own listeners — an inline `onsubmit`
    * attribute included — have already run and already decided whether this
    * submission is theirs.
@@ -545,13 +565,18 @@ const submitThroughPageHandlers = (
   const enforceDestination = (event: Event): void => {
     if (event.defaultPrevented) return
     event.preventDefault()
-    committed = submitApprovedDestination(
-      element,
-      form,
-      submitter,
-      destination,
-      method
-    )
+    try {
+      committed = submitApprovedDestination(
+        element,
+        form,
+        submitter,
+        destination,
+        method,
+        effect.target.formQuery
+      )
+    } catch (error) {
+      refused = error
+    }
   }
   form.addEventListener("submit", enforceDestination)
   try {
@@ -573,12 +598,14 @@ const submitThroughPageHandlers = (
         form,
         submitter,
         destination,
-        method
+        method,
+        effect.target.formQuery
       )
     }
   } finally {
     form.removeEventListener("submit", enforceDestination)
   }
+  if (refused) throw refused
   return committed
 }
 

@@ -538,7 +538,10 @@ Read the section your change touches; you do not need the whole file.
   shared with the guarded submission (`form-submission.ts`), in its order,
   and the executor refuses a submission whose live query differs from the
   approved one: the form fingerprint compares selected options, not every
-  option's value, so it alone could not hold the address still.
+  option's value, so it alone could not hold the address still. It checks
+  twice — before the page's submit handlers, as a clean refusal, and on the
+  guarded copy about to be sent, after them, where a mismatch sends nothing
+  but is an unresolved effect, because the handlers' own code already ran.
 - **Routine-action consent is a preference each run mints grants from.**
   `AGENT_PERMISSION_MODE` (device-local, "allow on the starting site" by
   default) is read once per start; `allow_routine` makes the background create

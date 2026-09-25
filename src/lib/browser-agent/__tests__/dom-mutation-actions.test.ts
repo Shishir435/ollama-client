@@ -1222,6 +1222,42 @@ describe("Agent DOM mutation execution", () => {
     expect(submit).toHaveBeenCalledOnce()
   })
 
+  /**
+   * The early check runs before the page's submit handlers; a handler that
+   * rewrites a field would otherwise send an address nobody approved.
+   */
+  it("refuses a search a submit handler rewrote after approval", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "atlas"
+    form.append(input)
+    document.body.append(form)
+    input.focus()
+    form.addEventListener("submit", () => {
+      input.value = "exfiltrated"
+    })
+    const submit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      input
+    )
+    expect(effect.target.formQuery).toBe("q=atlas")
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("changed after the page's submit handlers ran")
+    expect(submit).not.toHaveBeenCalled()
+  })
+
   it("navigates observed links without invoking page click handlers", async () => {
     const destination = new URL("/next", location.href).href
     const link = document.createElement("a")
