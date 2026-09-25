@@ -9,6 +9,7 @@ import {
   chatAnswerFromWire,
   readChatTurn,
   sendChatTask,
+  startFreshChat,
   stopOpenRun,
   withReasoningEffort
 } from "./chat-turn.mjs"
@@ -283,7 +284,14 @@ await panel
  * previous task's turn has to finish before the composer sends again.
  */
 const sendTask = async (goal) => {
-  const sent = await sendChatTask(panel, goal)
+  const sent = await sendChatTask(panel, goal, {
+    prepare: () =>
+      startFreshChat(panel).catch((error) =>
+        console.warn(
+          `[benchmark] could not start a fresh chat: ${error.message}`
+        )
+      )
+  })
   if (!sent.started) return sent
   await panel
     .getByRole("button", { name: /^Allow (for this chat|once)$/ })

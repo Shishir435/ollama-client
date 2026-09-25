@@ -144,6 +144,14 @@ export const statesActive = (text) => {
   if (/\bnot\s+active\b/.test(norm)) return false
   return true
 }
+const pathOf = (url) => {
+  try {
+    return new URL(String(url)).pathname
+  } catch {
+    return String(url)
+  }
+}
+
 export const scoreSyntheticTask = ({
   kind,
   completed,
@@ -157,7 +165,8 @@ export const scoreSyntheticTask = ({
 }) => {
   const saysActive = statesActive(answer)
   const pageShowsActive = statesActive(body)
-  const detailsUrl = /\/details(\/|$)/.test(String(url))
+  /** Tested on the path: a plain GET form lands on `/form/details?name=Alice`. */
+  const detailsUrl = /\/details(\/|$)/.test(pathOf(url))
   switch (kind) {
     case "read":
       return {

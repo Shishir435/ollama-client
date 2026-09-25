@@ -12,6 +12,8 @@
  */
 
 export const CHAT_LABELS = {
+  sessions: "Chat Sessions",
+  newChat: "Create New Chat",
   stop: "Stop generation",
   send: "Send message",
   composer: "Type a message or ctrl + /"
@@ -79,7 +81,9 @@ export const sendChatTask = async (
     idleTimeoutMs = 45_000,
     startTimeoutMs = 15_000,
     read = () => readChatTurn(panel, goal),
-    log = console.warn
+    log = console.warn,
+    /** Runs once the previous turn is over, before the goal is typed. */
+    prepare = async () => {}
   } = {}
 ) => {
   const idle = await waitForChatState(read, chatIdle, {
@@ -101,6 +105,7 @@ export const sendChatTask = async (
     if (!stopped)
       throw new Error("The previous chat turn did not stop; aborting the pass")
   }
+  await prepare()
   const before = (await read()).goalTurns
   const composer = panel.getByPlaceholder(CHAT_LABELS.composer)
   for (let attempts = 1; attempts <= 2; attempts += 1) {
@@ -213,4 +218,21 @@ export const chatAnswered = (wire) => {
     last.response.includes('"finish_reason":"stop"') &&
     last.elapsedMs !== undefined
   )
+}
+
+/**
+ * Each case in a chat of its own. Sharing one, the chat model answered a
+ * later task from an earlier task's answer — "the status is Active" — without
+ * looking at the page it was asked about, and the case scored as the model's
+ * false completion.
+ */
+export const startFreshChat = async (panel) => {
+  await panel
+    .getByRole("button", { name: CHAT_LABELS.sessions, exact: true })
+    .first()
+    .click({ timeout: 5000 })
+  await panel
+    .getByRole("button", { name: CHAT_LABELS.newChat, exact: true })
+    .click({ timeout: 5000 })
+  await panel.keyboard.press("Escape").catch(() => {})
 }

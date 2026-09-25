@@ -198,3 +198,16 @@ describe("synthetic scorer", () => {
     )
   })
 })
+
+describe("scoreSyntheticTask form", () => {
+  it("counts a GET form that landed on details with a query string", () => {
+    const scored = scoreSyntheticTask({
+      kind: "form",
+      completed: true,
+      answer: "The status is Active.",
+      body: "Status: Active",
+      url: "http://127.0.0.1:5000/form/details?name=Alice"
+    })
+    assert.equal(scored.success, true)
+  })
+})
