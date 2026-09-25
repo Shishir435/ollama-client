@@ -203,9 +203,10 @@ const budgets: Budget[] = [
      * The hosted-model benchmark's fixes took it to 9,770,393: the search
      * textarea and short-page fallbacks, completion evidence from receipts,
      * the user-tab rule, the start address, the finish-reviewed control and
-     * its copy in nine locales.
+     * its copy in nine locales. Their review fixes, 9,773,473: the routine
+     * consent sentence in nine locales and the visible-field submission.
      */
-    max: isFirefox ? 11_800_000 : 9_771_000
+    max: isFirefox ? 11_800_000 : 9_774_000
   },
   {
     metric: "zip",
@@ -414,9 +415,10 @@ const budgets: Budget[] = [
      * The hosted-model benchmark's fixes took Chrome to 292,367: the live
      * command record the completion judge reads, the user-tab rule, routine
      * consent following an approved site, the start address and the
-     * finish-reviewed path.
+     * finish-reviewed path. Their review fixes, 292,591: the approval's
+     * routine origin and the tighter evidence bindings.
      */
-    max: isFirefox ? 212_600 : 292_500
+    max: isFirefox ? 212_600 : 292_800
   }
 ]
 
