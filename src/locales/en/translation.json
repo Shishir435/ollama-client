@@ -65,7 +65,8 @@
       "unreadable_update": "The panel received an update it could not read.",
       "unknown": "Agent could not complete that request.",
       "disconnected": "Agent was reconnecting and didn’t receive that. Try again.",
-      "turn_has_run": "This message already started a browser task."
+      "turn_has_run": "This message already started a browser task.",
+      "steer_unavailable": "The run is not working right now, so it could not take that. Pause it and correct it instead."
     },
     "failure": {
       "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",
@@ -233,6 +234,13 @@
       "other_tab": "This task runs on a different tab from the one you are looking at.",
       "supervised": "The agent works on the page step by step and asks before anything consequential. Chrome shows a debugging banner while it works.",
       "experimental_model": "Tool calling is on for this model because you set it, not because the model reported it. A model that cannot call tools will not get far."
+    },
+    "steer": {
+      "label": "Steer the agent",
+      "placeholder": "Correct it without pausing…",
+      "send": "Send to the agent",
+      "queued": "Sent. The agent reads it at its next step.",
+      "heard": "The agent has taken your correction."
     }
   },
   "common": {

@@ -65,7 +65,8 @@
       "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
       "unknown": "Agent konnte diese Anfrage nicht ausführen.",
       "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut.",
-      "turn_has_run": "Diese Nachricht hat bereits eine Browser-Aufgabe gestartet."
+      "turn_has_run": "Diese Nachricht hat bereits eine Browser-Aufgabe gestartet.",
+      "steer_unavailable": "Der Lauf arbeitet gerade nicht und konnte das nicht übernehmen. Halten Sie ihn an und korrigieren Sie ihn stattdessen."
     },
     "failure": {
       "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
@@ -233,6 +234,13 @@
       "other_tab": "Diese Aufgabe läuft in einem anderen Tab als dem, den Sie gerade ansehen.",
       "supervised": "Der Agent arbeitet Schritt für Schritt auf der Seite und fragt vor allem Folgenreichen nach. Chrome zeigt währenddessen einen Debugging-Hinweis an.",
       "experimental_model": "Tool-Aufrufe sind für dieses Modell aktiv, weil Sie sie eingeschaltet haben, nicht weil das Modell sie meldet. Ein Modell ohne Tool-Aufrufe kommt nicht weit."
+    },
+    "steer": {
+      "label": "Den Agenten lenken",
+      "placeholder": "Korrigieren, ohne anzuhalten…",
+      "send": "An den Agenten senden",
+      "queued": "Gesendet. Der Agent liest es beim nächsten Schritt.",
+      "heard": "Der Agent hat Ihre Korrektur übernommen."
     }
   },
   "common": {

@@ -52,6 +52,8 @@ const REFUSALS: Record<AgentRunFailureReason, string> = {
     "The browser agent is missing a browser permission it needs.",
   tab_unsupported:
     "The browser agent cannot work on that tab. Ask the user to open an ordinary web page (http or https) and try again.",
+  steer_unavailable:
+    "The browser task is not running, so it could not take a correction.",
   unknown_run: "The browser task could not be found."
 }
 

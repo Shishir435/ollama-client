@@ -65,7 +65,8 @@
       "unreadable_update": "Il pannello ha ricevuto un aggiornamento che non è riuscito a leggere.",
       "unknown": "Agent non ha potuto completare la richiesta.",
       "disconnected": "L’agente si stava riconnettendo e non l’ha ricevuto. Riprova.",
-      "turn_has_run": "Questo messaggio ha già avviato un’attività nel browser."
+      "turn_has_run": "Questo messaggio ha già avviato un’attività nel browser.",
+      "steer_unavailable": "L’esecuzione non sta lavorando ora e non ha potuto recepirlo. Mettila in pausa e correggila."
     },
     "failure": {
       "budget_exhausted": "L'esecuzione ha esaurito il budget di passi. Restringi l'obiettivo o riparti dallo stato attuale della pagina.",
@@ -233,6 +234,13 @@
       "other_tab": "Questa attività viene eseguita in una scheda diversa da quella che stai guardando.",
       "supervised": "L’agente lavora sulla pagina un passo alla volta e chiede prima di qualsiasi azione importante. Nel frattempo Chrome mostra un banner di debug.",
       "experimental_model": "Le chiamate agli strumenti sono attive per questo modello perché le hai abilitate tu, non perché il modello le dichiari. Un modello che non sa chiamare strumenti non andrà lontano."
+    },
+    "steer": {
+      "label": "Guida l’agente",
+      "placeholder": "Correggilo senza metterlo in pausa…",
+      "send": "Invia all’agente",
+      "queued": "Inviato. L’agente lo leggerà al prossimo passaggio.",
+      "heard": "L’agente ha recepito la tua correzione."
     }
   },
   "common": {

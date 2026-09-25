@@ -65,7 +65,8 @@
       "unreadable_update": "面板收到了无法读取的更新。",
       "unknown": "Agent 无法完成该请求。",
       "disconnected": "Agent 正在重新连接，未收到该请求。请重试。",
-      "turn_has_run": "此消息已启动过一个浏览器任务。"
+      "turn_has_run": "此消息已启动过一个浏览器任务。",
+      "steer_unavailable": "运行当前未在工作，因此无法接收。请暂停后再纠正。"
     },
     "failure": {
       "budget_exhausted": "运行已用完全部步骤预算。请缩小目标，或从页面当前状态重新开始。",
@@ -233,6 +234,13 @@
       "other_tab": "此任务将在另一个标签页中运行，而不是你正在查看的标签页。",
       "supervised": "智能体会在页面上逐步操作，执行任何重要操作前都会询问。运行期间 Chrome 会显示调试横幅。",
       "experimental_model": "此模型的工具调用是你手动开启的，而非模型自身报告支持。无法调用工具的模型走不了多远。"
+    },
+    "steer": {
+      "label": "引导代理",
+      "placeholder": "无需暂停即可纠正…",
+      "send": "发送给代理",
+      "queued": "已发送。代理将在下一步读取。",
+      "heard": "代理已采纳你的纠正。"
     }
   },
   "common": {

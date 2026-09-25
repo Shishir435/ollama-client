@@ -57,6 +57,7 @@ const service = (
   pause: vi.fn(async () => undefined),
   resume: vi.fn(async () => undefined),
   stop: vi.fn(async () => undefined),
+  steer: vi.fn(async () => undefined),
   completeTakeover: vi.fn(async () => undefined),
   resolveEffect: vi.fn(async () => undefined),
   answerApproval: vi.fn(() => true),

@@ -139,6 +139,9 @@ type AgentResolutionOutcome =
  */
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
+/** Corrections one decision will take in at once; older ones are dropped. */
+const MAX_QUEUED_STEERING = 3
+
 /**
  * What a re-recorded step keeps from the receipt it restates. A disposition
  * that dropped a field would leave the step's last receipt saying less than
@@ -583,6 +586,12 @@ export const createAgentController = (
    * same reason telemetry waits here: the decision has no step id yet.
    */
   let pendingThinking: string | undefined
+  /**
+   * Corrections typed while a run works, waiting for the next decision.
+   * Memory only: a correction the worker lost before a decision heard it is
+   * one the user can see was not taken, because the card says when it is.
+   */
+  const pendingSteering = new Map<string, { text: string; at: number }[]>()
 
   const measure = (telemetry: AgentStepTelemetry | undefined): void => {
     pendingTelemetry = mergeAgentStepTelemetry(pendingTelemetry, telemetry)
@@ -1800,11 +1809,37 @@ export const createAgentController = (
     const recalled = await recallHistory(state)
     const observation = await observe(state, signal, recalled.inspection)
     if (!observation) return undefined
+    const steering = pendingSteering.get(state.id)
+    pendingSteering.delete(state.id)
     const deciding = await claim(state, "deciding", {
       observationCount: state.observationCount + 1,
+      ...(steering?.length
+        ? {
+            answers: [
+              ...(state.answers ?? []),
+              ...steering.map((entry) => ({
+                questionId: `${state.id}:steer:${entry.at}`,
+                question: "User correction while the run was working",
+                text: entry.text,
+                answeredAt: entry.at
+              }))
+            ].slice(-MAX_AGENT_ANSWERS)
+          }
+        : {}),
       updatedAt: dependencies.clock.now()
     })
     if (!deciding) return undefined
+    /**
+     * A new instruction is new ground: the no-progress and refusal memory
+     * describe the approach the user just corrected.
+     */
+    if (steering?.length) {
+      previousProgress.delete(state.id)
+      recentProgress.delete(state.id)
+      noProgressCounts.delete(state.id)
+      refusedCommandCounts.delete(state.id)
+      refusedCompletions.delete(state.id)
+    }
     let decision: AgentDecision | undefined
     const context: AgentResolutionContext = {}
     try {
@@ -2106,6 +2141,26 @@ export const createAgentController = (
   return {
     start: (runId) => run(runId),
     requestPause,
+    async steer(runId, text) {
+      const trimmed = text.trim().slice(0, MAX_AGENT_ANSWER_CHARS)
+      if (!trimmed) return false
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        isTerminalAgentStatus(state.status) ||
+        state.status === "paused" ||
+        !active.has(runId)
+      )
+        return false
+      const queued = pendingSteering.get(runId) ?? []
+      pendingSteering.set(
+        runId,
+        [...queued, { text: trimmed, at: dependencies.clock.now() }].slice(
+          -MAX_QUEUED_STEERING
+        )
+      )
+      return true
+    },
     async resume(runId, correction) {
       if (!correction) return run(runId)
       const state = await dependencies.persistence.load(runId)

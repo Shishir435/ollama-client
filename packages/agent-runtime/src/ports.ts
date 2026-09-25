@@ -811,6 +811,15 @@ export interface AgentController {
     questionId: string
     text: string
   }): Promise<void>
+  /**
+   * A correction typed while the run works, taken into the next decision
+   * without pausing it. Queued rather than applied: the decision in flight
+   * was asked before the user spoke, and the next one is the first that can
+   * hear it. It cannot answer an approval, a question or an unresolved
+   * effect — those still wait for their own control. Resolves whether it was
+   * accepted: a run that is not working has no next decision to hear it.
+   */
+  steer?(runId: string, text: string): Promise<boolean>
 }
 
 export interface AgentControllerDependencies {

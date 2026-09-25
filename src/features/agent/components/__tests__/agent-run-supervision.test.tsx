@@ -11,7 +11,8 @@ import { describe, expect, it, vi } from "vitest"
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>
-      values ? `${key}:${JSON.stringify(values)}` : key
+      values ? `${key}:${JSON.stringify(values)}` : key,
+    i18n: { language: "en" }
   })
 }))
 
@@ -355,5 +356,32 @@ describe("AgentRunSupervision", () => {
     expect(
       stop.compareDocumentPosition(log) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
+  })
+
+  describe("steering", () => {
+    it("takes a correction while the run works, without pausing it", () => {
+      const onSteer = vi.fn()
+      const view = supervise({ run: run("executing"), onSteer })
+
+      fireEvent.change(screen.getByLabelText("agent.steer.label"), {
+        target: { value: "  the second row  " }
+      })
+      fireEvent.click(screen.getByLabelText("agent.steer.send"))
+
+      expect(onSteer).toHaveBeenCalledWith("the second row")
+      expect(view.onPause).not.toHaveBeenCalled()
+      expect(screen.getByText("agent.steer.queued")).toBeInTheDocument()
+
+      view.rerender({ run: run("executing", { observationCount: 3 }) })
+      expect(screen.getByText("agent.steer.heard")).toBeInTheDocument()
+    })
+
+    it("offers no steering to a paused run, which has its own correction", () => {
+      supervise({
+        run: run("paused", { pauseReason: "user" }),
+        onSteer: vi.fn()
+      })
+      expect(screen.queryByLabelText("agent.steer.label")).toBeNull()
+    })
   })
 })

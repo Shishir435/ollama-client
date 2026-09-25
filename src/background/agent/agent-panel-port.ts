@@ -103,6 +103,10 @@ const FAILURES: Record<AgentRunFailureReason, { key: string; text: string }> = {
     key: "agent.error.tab_unsupported",
     text: "Agent cannot run on this page. Open a normal web page and try again."
   },
+  steer_unavailable: {
+    key: "agent.error.steer_unavailable",
+    text: "The run is not working right now, so it could not take that. Pause it and correct it instead."
+  },
   unknown_run: UNKNOWN_FAILURE
 }
 
@@ -286,6 +290,9 @@ export const registerAgentPanelPort = (
           return
         case "agent_stop":
           await service.stop(command.runId)
+          return
+        case "agent_steer":
+          await service.steer(command.runId, command.text)
           return
         case "agent_complete_takeover":
           await service.completeTakeover(command.runId)

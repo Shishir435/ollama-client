@@ -3,13 +3,20 @@ import {
   type AgentRunState,
   type AgentStepRecord,
   type AgentTakeoverRequest,
+  MAX_AGENT_ANSWER_CHARS,
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
-import { CircleAlert, Info, MessageSquareWarning } from "lucide-react"
-import { useLayoutEffect, useRef } from "react"
+import {
+  CircleAlert,
+  Info,
+  MessageSquareWarning,
+  SendHorizontal
+} from "lucide-react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/class-names"
 import type { AgentCommandFailure } from "../hooks/use-agent-run"
 import { agentDisplayString } from "../lib/display-text"
@@ -18,6 +25,7 @@ import {
   type AgentProviderPresentation,
   type AgentTabPresentation,
   agentPlainText,
+  agentRunIsActive,
   currentAgentAction,
   toAgentWorkLog
 } from "../lib/presentation"
@@ -46,6 +54,8 @@ export interface AgentRunSupervisionProps {
   onPause: () => void
   onResume: () => void
   onCorrect: (text: string) => void
+  /** A correction for the working run's next decision, without pausing it. */
+  onSteer?: (text: string) => void
   onStop: () => void
   onTakeoverStart: () => void
   onTakeoverComplete: () => void
@@ -143,6 +153,65 @@ const AgentProgressBar = ({ used }: { used: number }) => (
  * a chat message, and an approval implied by one would be a yes the user did
  * not give.
  */
+/**
+ * Steer a working run without stopping it.
+ *
+ * A correction needed a pause first: stop the run, type, resume — three
+ * steps to say "not that one, the second row", while the run kept going in
+ * the wrong direction until the pause landed. This queues the words for the
+ * run's next decision. It answers nothing: an approval, a question and an
+ * unresolved effect keep their own controls. The note under it stays until
+ * the run has taken another look, which is when the words were heard.
+ */
+const AgentSteerField = ({
+  onSteer,
+  observationCount
+}: {
+  onSteer: (text: string) => void
+  observationCount: number
+}) => {
+  const { t } = useTranslation()
+  const [text, setText] = useState("")
+  const [sentAt, setSentAt] = useState<number>()
+  const trimmed = text.trim()
+  const heard = sentAt !== undefined && observationCount > sentAt
+
+  return (
+    <form
+      className="mb-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (!trimmed) return
+        onSteer(trimmed)
+        setText("")
+        setSentAt(observationCount)
+      }}>
+      <div className="flex items-center gap-1.5">
+        <Input
+          aria-label={t("agent.steer.label")}
+          maxLength={MAX_AGENT_ANSWER_CHARS}
+          onChange={(event) => setText(event.target.value)}
+          placeholder={t("agent.steer.placeholder")}
+          value={text}
+        />
+        <Button
+          aria-label={t("agent.steer.send")}
+          disabled={!trimmed}
+          size="icon"
+          type="submit"
+          variant="ghost">
+          <SendHorizontal className="icon-xs" aria-hidden="true" />
+        </Button>
+      </div>
+      {sentAt !== undefined && (
+        <p className="mt-1 text-micro text-muted-foreground" aria-live="polite">
+          {t(heard ? "agent.steer.heard" : "agent.steer.queued")}
+        </p>
+      )}
+    </form>
+  )
+}
+
 export const AgentRunSupervision = ({
   run,
   steps,
@@ -157,6 +226,7 @@ export const AgentRunSupervision = ({
   onPause,
   onResume,
   onCorrect,
+  onSteer,
   onStop,
   onTakeoverStart,
   onTakeoverComplete,
@@ -224,6 +294,13 @@ export const AgentRunSupervision = ({
             onApprove={onApprove}
             onReject={onReject}
             request={approval}
+          />
+        )}
+
+        {onSteer && agentRunIsActive(run.status) && (
+          <AgentSteerField
+            onSteer={onSteer}
+            observationCount={run.observationCount}
           />
         )}
 

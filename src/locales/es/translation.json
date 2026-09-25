@@ -65,7 +65,8 @@
       "unreadable_update": "El panel recibió una actualización que no pudo leer.",
       "unknown": "Agent no pudo completar esa solicitud.",
       "disconnected": "El agente se estaba reconectando y no lo recibió. Inténtalo de nuevo.",
-      "turn_has_run": "Este mensaje ya inició una tarea en el navegador."
+      "turn_has_run": "Este mensaje ya inició una tarea en el navegador.",
+      "steer_unavailable": "La ejecución no está trabajando ahora, así que no pudo tomarlo. Páusala y corrígela."
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",
@@ -233,6 +234,13 @@
       "other_tab": "Esta tarea se ejecuta en una pestaña distinta de la que estás viendo.",
       "supervised": "El agente trabaja en la página paso a paso y pregunta antes de cualquier acción importante. Chrome muestra un aviso de depuración mientras trabaja.",
       "experimental_model": "Las llamadas a herramientas están activadas para este modelo porque tú lo configuraste, no porque el modelo lo indique. Un modelo que no sabe llamar herramientas no llegará lejos."
+    },
+    "steer": {
+      "label": "Guiar al agente",
+      "placeholder": "Corrígelo sin pausar…",
+      "send": "Enviar al agente",
+      "queued": "Enviado. El agente lo leerá en su próximo paso.",
+      "heard": "El agente ha tenido en cuenta tu corrección."
     }
   },
   "common": {

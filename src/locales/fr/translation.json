@@ -65,7 +65,8 @@
       "unreadable_update": "Le panneau a reçu une mise à jour qu’il n’a pas pu lire.",
       "unknown": "Agent n’a pas pu exécuter cette demande.",
       "disconnected": "L’agent se reconnectait et n’a pas reçu cette demande. Réessayez.",
-      "turn_has_run": "Ce message a déjà lancé une tâche dans le navigateur."
+      "turn_has_run": "Ce message a déjà lancé une tâche dans le navigateur.",
+      "steer_unavailable": "L’exécution ne travaille pas en ce moment et n’a pas pu le prendre en compte. Mettez-la en pause et corrigez-la."
     },
     "failure": {
       "budget_exhausted": "L'exécution a épuisé son budget d'étapes. Restreignez l'objectif ou reprenez depuis l'état actuel de la page.",
@@ -233,6 +234,13 @@
       "other_tab": "Cette tâche s’exécute dans un autre onglet que celui que vous regardez.",
       "supervised": "L’agent agit sur la page étape par étape et demande avant toute action importante. Chrome affiche un bandeau de débogage pendant ce temps.",
       "experimental_model": "Les appels d’outils sont activés pour ce modèle parce que vous l’avez choisi, pas parce que le modèle l’indique. Un modèle incapable d’appeler des outils n’ira pas loin."
+    },
+    "steer": {
+      "label": "Orienter l’agent",
+      "placeholder": "Le corriger sans mettre en pause…",
+      "send": "Envoyer à l’agent",
+      "queued": "Envoyé. L’agent le lira à sa prochaine étape.",
+      "heard": "L’agent a pris en compte votre correction."
     }
   },
   "common": {

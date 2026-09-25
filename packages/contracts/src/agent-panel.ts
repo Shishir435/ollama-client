@@ -253,6 +253,15 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
       { message: "A correction requires its pause timestamp" }
     ),
   RunScopedSchema.extend({ type: z.literal("agent_stop") }).strict(),
+  /**
+   * A correction typed while the run works, for its next decision. It answers
+   * nothing and resumes nothing: an approval, a question and an unresolved
+   * effect each keep their own control.
+   */
+  RunScopedSchema.extend({
+    type: z.literal("agent_steer"),
+    text: z.string().min(1).max(MAX_AGENT_ANSWER_CHARS)
+  }).strict(),
   RunScopedSchema.extend({
     type: z.literal("agent_complete_takeover")
   }).strict(),
