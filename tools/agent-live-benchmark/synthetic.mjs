@@ -145,7 +145,12 @@ const server = createServer(async (req, res) => {
         (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084") + path,
         {
           method: req.method,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(process.env.AUDIT_API_KEY
+              ? { Authorization: `Bearer ${process.env.AUDIT_API_KEY}` }
+              : {})
+          },
           ...(body ? { body } : {})
         }
       )
