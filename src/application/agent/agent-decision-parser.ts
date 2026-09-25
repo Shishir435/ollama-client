@@ -221,6 +221,21 @@ const invalidFieldsFeedback = (
   )
 }
 
+/**
+ * A key goes to whatever holds focus, and a model pressing Tab says so by
+ * leaving the ref out. Measured on gpt-6-luna: three Tab presses without one
+ * were refused as invalid and the run failed on a page that showed exactly
+ * one focused control. Only an unambiguous focus is filled in.
+ */
+const fillFocusedKeyTarget = (
+  command: Record<string, unknown>,
+  observation: AgentObservation
+): void => {
+  if (command.type !== "press_key" || command.ref !== undefined) return
+  const focused = observation.elements.filter((element) => element.focused)
+  if (focused.length === 1) command.ref = focused[0].ref
+}
+
 const normalizeDecisionArguments = (
   raw: unknown,
   observation: AgentObservation
@@ -247,6 +262,7 @@ const normalizeDecisionArguments = (
     for (const field of fields) {
       if (record[field] !== undefined) command[field] = record[field]
     }
+    fillFocusedKeyTarget(command, observation)
     /** These fields belong to the decision, not the command's wire shape. */
     return {
       type: "command",
