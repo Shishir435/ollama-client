@@ -745,6 +745,7 @@
       "tabs": "{{count}} tabs",
       "files": "{{count}} files",
       "knowledge": "Knowledge",
+      "images": "{{count}} images",
       "web": "Web",
       "rows": {
         "tabs": "Page & tab context",

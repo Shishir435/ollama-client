@@ -712,6 +712,7 @@
       "tabs": "{{count}} 個のタブ",
       "files": "{{count}} 個のファイル",
       "knowledge": "ナレッジ",
+      "images": "{{count}} 枚の画像",
       "web": "Web",
       "rows": {
         "tabs": "ページとタブのコンテキスト",

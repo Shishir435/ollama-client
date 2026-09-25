@@ -712,6 +712,7 @@
       "tabs": "{{count}} onglets",
       "files": "{{count}} fichiers",
       "knowledge": "Connaissances",
+      "images": "{{count}} images",
       "web": "Web",
       "rows": {
         "tabs": "Contexte de la page et des onglets",

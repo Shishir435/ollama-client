@@ -712,6 +712,7 @@
       "tabs": "{{count}} टैब",
       "files": "{{count}} फ़ाइलें",
       "knowledge": "ज्ञान",
+      "images": "{{count}} चित्र",
       "web": "वेब",
       "rows": {
         "tabs": "पेज और टैब संदर्भ",

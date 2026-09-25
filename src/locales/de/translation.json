@@ -712,6 +712,7 @@
       "tabs": "{{count}} Tabs",
       "files": "{{count}} Dateien",
       "knowledge": "Wissen",
+      "images": "{{count}} Bilder",
       "web": "Web",
       "rows": {
         "tabs": "Seiten- und Tab-Kontext",

@@ -712,6 +712,7 @@
       "tabs": "{{count}} schede",
       "files": "{{count}} file",
       "knowledge": "Conoscenza",
+      "images": "{{count}} immagini",
       "web": "Web",
       "rows": {
         "tabs": "Contesto di pagina e schede",

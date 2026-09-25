@@ -712,6 +712,7 @@
       "tabs": "{{count}} pestañas",
       "files": "{{count}} archivos",
       "knowledge": "Conocimiento",
+      "images": "{{count}} imágenes",
       "web": "Web",
       "rows": {
         "tabs": "Contexto de página y pestañas",
