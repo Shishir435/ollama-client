@@ -1481,6 +1481,60 @@ describe("judgeAgentCompletion with planned requirements", () => {
     })
   })
 
+  it("does not let a filled value vouch for a requirement naming another", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [{ ref: "e1", type: "clear_and_type", text: "Alice" }]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "All 1 fields hold the resolved value",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({ visibleText: "Details" }),
+        requirements: [{ id: "r1", text: "Name is Bob", kind: "change" }],
+        outcomes: [{ id: "r1", met: true, evidence: "Alice" }]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
+  it("does not let a sent form vouch for what sending it was meant to achieve", () => {
+    const submitted = step({
+      sequence: 1,
+      requirementId: "r1",
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "submission",
+          summary: "Form committed its resolved destination",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [submitted],
+        observation: observation({ visibleText: "Details" }),
+        requirements: [
+          { id: "r1", text: "The address is saved.", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
   it("does not let a submission bound elsewhere vouch for a requirement", () => {
     const submitted = step({
       sequence: 1,

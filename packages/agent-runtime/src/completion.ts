@@ -587,8 +587,16 @@ const quotedBatchField = (
         : field.type === "check" || field.type === "uncheck"
           ? undefined
           : field.text
+    /**
+     * The quotation matches what was filled, and the requirement asks for
+     * that value: filling Alice and quoting Alice does not meet "Name is Bob".
+     */
     return value !== undefined &&
       agentNormalizedClaim(value) === want &&
+      valueAssertedWithoutNegation(
+        agentNormalizedClaim(requirement.text),
+        value
+      ) &&
       !consumed.has(`${receipt.stepId}:field:${index}`)
       ? [index]
       : []
@@ -819,11 +827,19 @@ const quotationNamesFocusedControl = (
  * what a "submit it" requirement asks; bound by the requirement id the
  * command carried, never by name, so it vouches for its own requirement.
  */
+const SUBMITTING_REQUIREMENT_PATTERN =
+  /\b(?:submit|submits|submitted|click|clicks|clicked|press|presses|pressed|continue|continued|send|sent|search|searched)\b/
+
 const isBoundSubmission = (
   requirement: AgentTaskRequirement,
   receipt: AgentStepReadout
 ): boolean =>
   receipt.requirementId === requirement.id &&
+  /**
+   * The verifier confirmed the form was sent, not what sending it achieved:
+   * it evidences "Continue has been clicked", never "the address is saved".
+   */
+  SUBMITTING_REQUIREMENT_PATTERN.test(agentNormalizedClaim(requirement.text)) &&
   receipt.verification?.outcome === "confirmed" &&
   receipt.verification.evidence.kind === "submission"
 
