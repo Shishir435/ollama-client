@@ -11,6 +11,7 @@ import {
   sendChatTask,
   startFreshChat,
   stopOpenRun,
+  waitForChatState,
   withReasoningEffort
 } from "./chat-turn.mjs"
 import {
@@ -367,8 +368,21 @@ try {
       .catch(() => ({}))
     await stopOpenRun(panel, final)
     const delegated = Boolean(final)
-    const chatAnswer = delegated ? "" : chatAnswerFromWire(wire)
-    const answer = final?.run?.result ?? chatAnswer
+    /**
+     * What the user is told is the chat's reply, not the run's result: the
+     * chat may read part of the task itself and delegate the rest, then
+     * answer with both. Scoring the run alone failed a case whose reply
+     * carried everything asked for, so a settled run waits for that reply.
+     */
+    if (delegated && ["completed", "failed"].includes(final.run.status)) {
+      await waitForChatState(
+        () => readChatTurn(panel, goal),
+        (chat) => !chat.busy && chatAnswered(wire),
+        { stableMs: 1000, timeoutMs: 45_000 }
+      )
+    }
+    const chatAnswer = chatAnswerFromWire(wire)
+    const answer = chatAnswer || final?.run?.result || ""
     const completed =
       final?.run?.status === "completed" || (!delegated && Boolean(chatAnswer))
     const status =
