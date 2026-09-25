@@ -758,6 +758,17 @@ const evidencePlannedChange = (
       consumed.add(receipt.stepId)
       return receipt
     }
+    const focused = changes.find(
+      (candidate) =>
+        !consumed.has(candidate.stepId) &&
+        quoted !== undefined &&
+        isBoundFocusMove(requirement, candidate) &&
+        quotationNamesFocusedControl(quoted, observation)
+    )
+    if (focused) {
+      consumed.add(focused.stepId)
+      return focused
+    }
     const submitted = changes.find(
       (candidate) =>
         !consumed.has(candidate.stepId) &&
@@ -770,6 +781,36 @@ const evidencePlannedChange = (
     }
   }
   return refusal
+}
+
+/**
+ * A confirmed key press the model sent for this requirement, which the
+ * verifier saw move focus. Moving focus from First to Second adds no words:
+ * "Second" was on the page before, so the staleness rule refused it, and
+ * the run asked the user what to do about a task it had finished.
+ */
+const isBoundFocusMove = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): boolean =>
+  receipt.requirementId === requirement.id &&
+  receipt.command?.type === "press_key" &&
+  receipt.verification?.outcome === "confirmed" &&
+  receipt.verification.evidence.kind === "keyboard"
+
+/** Whether the quotation is the name of the one control focused now. */
+const quotationNamesFocusedControl = (
+  quoted: string,
+  observation: AgentObservation
+): boolean => {
+  const focused = observation.elements.filter((element) => element.focused)
+  if (focused.length !== 1) return false
+  const name = focused[0].name
+  return (
+    name !== undefined &&
+    agentNormalizedClaim(name).length > 0 &&
+    agentNormalizedClaim(name) === agentNormalizedClaim(quoted)
+  )
 }
 
 /**

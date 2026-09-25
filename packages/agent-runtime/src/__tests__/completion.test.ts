@@ -1514,6 +1514,71 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused" })
   })
 
+  const tabbed = (outcome: "confirmed" | "ambiguous") =>
+    step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "press_key",
+        ref: "e1",
+        key: "Tab",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome,
+        evidence: {
+          kind: "keyboard",
+          summary: "Keyboard focus moved to another control",
+          observedAt: 1
+        }
+      }
+    })
+  const focusedOn = (focused: string) =>
+    observation({
+      visibleText: "First Second",
+      elements: ["First", "Second"].map((name, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "input",
+        name,
+        visible: true,
+        enabled: true,
+        editable: true,
+        sensitive: false,
+        ...(name === focused ? { focused: true } : {})
+      }))
+    })
+  const judgeFocus = (receipt: AgentStepReadout, current: AgentObservation) =>
+    judgeAgentCompletion({
+      steps: [receipt],
+      observation: current,
+      baselineText: "first second",
+      requirements: [
+        { id: "r1", text: "Keyboard focus is on Second", kind: "change" }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Second" }]
+    })
+
+  /**
+   * Measured on gpt-6-luna: Tab moved focus to Second, verified, and every
+   * completion quoting "Second" was refused as already on the page.
+   */
+  it("accepts the focused control's name after a verified focus move", () => {
+    expect(judgeFocus(tabbed("confirmed"), focusedOn("Second"))).toMatchObject({
+      type: "accepted"
+    })
+  })
+
+  it("refuses the name when another control holds focus or nothing was verified", () => {
+    expect(judgeFocus(tabbed("confirmed"), focusedOn("First"))).toMatchObject({
+      type: "refused"
+    })
+    expect(judgeFocus(tabbed("ambiguous"), focusedOn("Second"))).toMatchObject({
+      type: "refused"
+    })
+  })
+
   it("does not rescue an absent value with an unconfirmed receipt", () => {
     expect(
       judgeAgentCompletion({
