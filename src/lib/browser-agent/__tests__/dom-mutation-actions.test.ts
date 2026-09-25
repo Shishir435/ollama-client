@@ -296,6 +296,77 @@ describe("Agent DOM mutation resolution and policy", () => {
     expect(policy.risk).toBe("high")
   })
 
+  /**
+   * A same-origin GET form whose values the observation shows is a link the
+   * page builds from what was typed. It was approved as a submission, every
+   * search, under "the complete destination URL" missing its query.
+   */
+  it("treats Enter in a same-origin search as an activation to its full address", async () => {
+    const before = observation({
+      elements: [
+        element({
+          tag: "input",
+          type: "search",
+          editable: true,
+          focused: true,
+          maySubmit: true,
+          formAction: new URL("/search", location.href).href,
+          formMethod: "get",
+          formQuery: "q=atlas"
+        })
+      ]
+    })
+    const enter = command({ type: "press_key", ref: "e1", key: "Enter" })
+    const effect = await resolve(enter, before)
+    expect(effect.semanticEffects).toEqual(["activation"])
+    expect(effect.destination?.url).toBe(
+      new URL("/search?q=atlas", location.href).href
+    )
+  })
+
+  it.each([
+    ["a POST form", { formMethod: "post" as const, formQuery: undefined }],
+    [
+      "a form with no preview",
+      { formMethod: "get" as const, formQuery: undefined }
+    ],
+    [
+      "another origin",
+      {
+        formMethod: "get" as const,
+        formQuery: "q=atlas",
+        formAction: "https://elsewhere.example/search"
+      }
+    ],
+    [
+      "a sensitive form",
+      {
+        formMethod: "get" as const,
+        formQuery: "q=atlas",
+        formHasSensitiveControl: true
+      }
+    ]
+  ])("keeps Enter a submission for %s", async (_name, patch) => {
+    const before = observation({
+      elements: [
+        element({
+          tag: "input",
+          type: "text",
+          editable: true,
+          focused: true,
+          maySubmit: true,
+          formAction: new URL("/search", location.href).href,
+          ...patch
+        })
+      ]
+    })
+    const effect = await resolve(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      before
+    )
+    expect(effect.semanticEffects).toContain("submission")
+  })
+
   it("uses the submitter formaction instead of a command-provided destination", async () => {
     const destination = "https://other.example/submit"
     const before = observation({

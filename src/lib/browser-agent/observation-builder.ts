@@ -11,6 +11,7 @@ import type {
   AgentElementReferenceSnapshot,
   AgentElementReferenceStore
 } from "./element-references"
+import { agentVisibleGetQuery } from "./form-submission"
 
 export const AGENT_OBSERVATION_LIMITS = {
   elements: 2_000,
@@ -1300,13 +1301,25 @@ const observedFormFields = (
   if (!form && !maySubmit) return {}
   const action = formAction(element)
   const method = formMethod(element)
+  const sensitive = Boolean(form && hasSensitiveFormControl(form))
+  const query =
+    maySubmit && form && action && method === "get" && !sensitive
+      ? agentVisibleGetQuery(
+          form,
+          resolveAgentFormSubmitter(element),
+          isSensitiveAgentElement
+        )
+      : undefined
   return {
     ...(maySubmit && action ? { formAction: action } : {}),
     ...(maySubmit && method ? { formMethod: method } : {}),
-    ...(form ? { formFingerprint: stableFormFingerprint(form) } : {}),
-    ...(maySubmit && form && hasSensitiveFormControl(form)
-      ? { formHasSensitiveControl: true }
+    ...(query !== undefined &&
+    action &&
+    action.length + query.length + 1 <= MAX_AGENT_DESTINATION_URL_CHARS
+      ? { formQuery: query }
       : {}),
+    ...(form ? { formFingerprint: stableFormFingerprint(form) } : {}),
+    ...(maySubmit && sensitive ? { formHasSensitiveControl: true } : {}),
     ...(maySubmit ? { maySubmit: true } : {})
   }
 }

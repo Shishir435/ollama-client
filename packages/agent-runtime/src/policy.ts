@@ -422,10 +422,10 @@ const makeApprovalRequest = (
       (destination
         ? `The browser will use the complete destination URL: ${destination}`
         : batchAction(input)
-          ? "The browser will set each control listed above, in order, and stops at the first one it cannot set. The batch presses nothing, so it cannot submit the form — but a page that saves as you type may store each change as it is made."
+          ? "The browser will set each control listed below, in order, and stops at the first one it cannot set. The batch presses nothing, so it cannot submit the form — but a page that saves as you type may store each change as it is made."
           : hasNoSubmitStep(input)
-            ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
-            : "The browser will perform the resolved page effect shown above."),
+            ? "The browser will enter this into the control shown below. No submit step follows it, so on a page that saves as you type the change may already be stored."
+            : "The browser will perform the resolved page effect shown below."),
     display: approvalDisplay(input),
     pageEvidence: batchEvidence(input) ?? rowEvidence(input),
     createdAt: input.now

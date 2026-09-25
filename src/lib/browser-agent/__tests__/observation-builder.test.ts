@@ -210,6 +210,41 @@ describe("Agent observation builder", () => {
     })
   })
 
+  it("previews the query a search form would send", () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const field = document.createElement("input")
+    field.type = "search"
+    field.name = "q"
+    field.value = "atlas notebook"
+    const button = document.createElement("button")
+    button.textContent = "Search"
+    form.append(field, button)
+    document.body.append(form)
+
+    expect(build().elements[0]).toMatchObject({
+      formMethod: "get",
+      formQuery: "q=atlas+notebook"
+    })
+  })
+
+  /** Hidden values stay in the page; a preview would carry them across. */
+  it("offers no preview for a form with a hidden control", () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const field = document.createElement("input")
+    field.name = "q"
+    field.value = "atlas"
+    const token = document.createElement("input")
+    token.type = "hidden"
+    token.name = "session"
+    token.value = "secret"
+    form.append(field, token)
+    document.body.append(form)
+
+    expect(build().elements[0]).not.toHaveProperty("formQuery")
+  })
+
   it("names the form a control belongs to even when Enter would not submit it", () => {
     /**
      * A `<textarea>` never submits on Enter, so it reports no submit

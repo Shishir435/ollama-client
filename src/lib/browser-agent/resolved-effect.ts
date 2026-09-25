@@ -675,6 +675,55 @@ const formDestination = (
   return { url: url.href, origin: url.origin, source: "observed" }
 }
 
+/**
+ * Where Enter in a same-origin search box goes, query and all.
+ *
+ * A GET form on the page's own origin whose every value the observation can
+ * show is a link the page builds from what was typed: nothing is sent that
+ * the address does not say, and nothing leaves the site. Pricing it as a
+ * submission asked for approval of every search, as "the complete
+ * destination URL" of an address missing its `?q=`, with routine actions
+ * allowed. A POST, another origin, a hidden or a sensitive control keeps the
+ * submission it was.
+ */
+const sameOriginSearchDestination = (
+  element: AgentElement,
+  page: { url: string }
+): AgentDestination | undefined => {
+  if (
+    element.formMethod !== "get" ||
+    element.formQuery === undefined ||
+    element.formHasSensitiveControl ||
+    !element.formAction
+  ) {
+    return undefined
+  }
+  const url = new URL(element.formAction)
+  if (url.origin !== new URL(page.url).origin) return undefined
+  url.search = element.formQuery
+  url.hash = ""
+  return { url: url.href, origin: url.origin, source: "observed" }
+}
+
+/** What Enter in a field that submits does: a search, or a submission. */
+const enterSemantics = (
+  element: AgentElement,
+  observation: AgentObservation,
+  source: { url: string }
+): { destination?: AgentDestination; effects: AgentSemanticEffect[] } => {
+  /** A child frame's form is judged against the frame's own page. */
+  const search = sameOriginSearchDestination(
+    element,
+    agentFramePage(observation, element) ?? source
+  )
+  return search
+    ? { destination: search, effects: ["activation"] }
+    : {
+        destination: formDestination(element),
+        effects: ["form_mutation", "submission"]
+      }
+}
+
 const linkDestination = (
   element: AgentElement
 ): AgentDestination | undefined => {
@@ -1143,8 +1192,9 @@ export const resolveDomMutationAgentEffect = async (input: {
       break
     case "press_key":
       if (command.key === "Enter" && element.maySubmit) {
-        destination = formDestination(element)
-        effects.push("form_mutation", "submission")
+        const enter = enterSemantics(element, observation, source)
+        destination = enter.destination
+        effects.push(...enter.effects)
       } else {
         effects.push("activation")
       }

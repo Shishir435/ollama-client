@@ -28,6 +28,7 @@ import {
   agentRejectionReason
 } from "./effect-rejection"
 import type { AgentElementReferenceStore } from "./element-references"
+import { successfulControlValues } from "./form-submission"
 import {
   type AgentInputBackendChoice,
   type AgentInputPlatform,
@@ -400,42 +401,6 @@ const associatedForm = (element: Element): HTMLFormElement | null =>
   element instanceof HTMLTextAreaElement
     ? element.form
     : null
-
-const successfulControlValues = (
-  control: Element
-): readonly string[] | undefined => {
-  if (
-    !(control instanceof HTMLInputElement) &&
-    !(control instanceof HTMLSelectElement) &&
-    !(control instanceof HTMLTextAreaElement)
-  ) {
-    return undefined
-  }
-  if (!control.name || control.matches(":disabled")) return undefined
-  if (control instanceof HTMLInputElement) {
-    const type = control.type.toLowerCase()
-    if (["button", "file", "image", "reset", "submit"].includes(type)) {
-      return undefined
-    }
-    if (["checkbox", "radio"].includes(type) && !control.checked) {
-      return undefined
-    }
-    return [control.value]
-  }
-  if (control instanceof HTMLSelectElement) {
-    return Array.from(control.selectedOptions)
-      .filter(
-        (option) =>
-          !option.disabled &&
-          !(
-            option.parentElement instanceof HTMLOptGroupElement &&
-            option.parentElement.disabled
-          )
-      )
-      .map((option) => option.value)
-  }
-  return [control.value]
-}
 
 const appendSubmissionValue = (
   form: HTMLFormElement,
