@@ -246,3 +246,26 @@ export const startFreshChat = async (panel) => {
     await sheet.waitFor({ state: "hidden", timeout: 5000 })
   }
 }
+
+/**
+ * Every tool result the chat was handed, from its last request: the pages
+ * its tools read and the browser task's report. This is what an answer can
+ * be checked against, rather than trusting the answer.
+ */
+export const chatToolText = (wire) => {
+  const last = wire
+    .filter(
+      (rec) =>
+        rec.path?.endsWith("/chat/completions") &&
+        JSON.stringify(rec.request?.tools ?? []).includes("browser_task")
+    )
+    .at(-1)
+  return (last?.request?.messages ?? [])
+    .filter((message) => message.role === "tool")
+    .map((message) =>
+      typeof message.content === "string"
+        ? message.content
+        : JSON.stringify(message.content)
+    )
+    .join("\n")
+}

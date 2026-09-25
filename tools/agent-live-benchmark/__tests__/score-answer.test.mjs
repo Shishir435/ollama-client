@@ -211,3 +211,14 @@ describe("scoreSyntheticTask form", () => {
     assert.equal(scored.success, true)
   })
 })
+
+describe("scoreSyntheticTask answer tasks", () => {
+  it("needs the value in what a tool read, not only in the reply", () => {
+    const base = { kind: "read", completed: true, answer: "Version 0.14.0" }
+    assert.equal(scoreSyntheticTask(base).success, false)
+    assert.equal(
+      scoreSyntheticTask({ ...base, readText: "Release 0.14.0 notes" }).success,
+      true
+    )
+  })
+})

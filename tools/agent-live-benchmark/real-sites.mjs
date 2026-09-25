@@ -284,15 +284,30 @@ await panel
  * `browser_task`, whose start is asked about the first time on each site. The
  * previous task's turn has to finish before the composer sends again.
  */
+class FreshChatFailed extends Error {}
+
 const sendTask = async (goal) => {
+  /**
+   * A case that could not get a chat of its own is not run: sent into the
+   * previous chat, an earlier task's context could answer it. The reset
+   * happens once the previous turn is over, inside the send.
+   */
+  let fresh = true
   const sent = await sendChatTask(panel, goal, {
     prepare: () =>
-      startFreshChat(panel).catch((error) =>
+      startFreshChat(panel).catch((error) => {
+        fresh = false
         console.warn(
           `[benchmark] could not start a fresh chat: ${error.message}`
         )
-      )
+        throw new FreshChatFailed()
+      })
+  }).catch((error) => {
+    if (error instanceof FreshChatFailed)
+      return { started: false, invalid: "fresh_chat_failed" }
+    throw error
   })
+  if (!fresh) return sent
   if (!sent.started) return sent
   await panel
     .getByRole("button", { name: /^Allow (for this chat|once)$/ })
@@ -332,7 +347,7 @@ try {
      * it a timeout charged the model for a case it was never given.
      */
     let final
-    let reason = sent.started ? undefined : "turn_not_started"
+    let reason = sent.started ? undefined : (sent.invalid ?? "turn_not_started")
     /**
      * The chat model may answer a reading task itself, from the page, without
      * delegating a run. No run will ever appear, so an idle chat turn with no
@@ -404,7 +419,9 @@ try {
     const status =
       final?.run?.status ??
       (!sent.started
-        ? "turn_not_started"
+        ? sent.invalid
+          ? "harness_invalid"
+          : "turn_not_started"
         : chatAnswer
           ? "answered_in_chat"
           : "harness_timeout")

@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import {
   chatAnswered,
   chatAnswerFromWire,
+  chatToolText,
   sendChatTask,
   waitForChatState,
   withReasoningEffort
@@ -161,5 +162,27 @@ describe("chatAnswered", () => {
       false
     )
     assert.equal(chatAnswered([chat('"finish_reason":"stop"', 900)]), true)
+  })
+})
+
+describe("chatToolText", () => {
+  it("collects the tool results the chat's last request carried", () => {
+    const wire = [
+      {
+        path: "/v1/chat/completions",
+        request: {
+          tools: [{ function: { name: "browser_task" } }],
+          messages: [
+            { role: "user", content: "read it" },
+            { role: "tool", content: "Reference code: QP-719" },
+            { role: "tool", content: "Status code: ZX-482" }
+          ]
+        }
+      }
+    ]
+    assert.equal(
+      chatToolText(wire),
+      "Reference code: QP-719\nStatus code: ZX-482"
+    )
   })
 })

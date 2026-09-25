@@ -75,10 +75,13 @@ const runVersion = (executable: string): Promise<string | undefined> =>
  * version all answer undefined, because startup reports those failures on
  * its own and this check must never be the reason a proxy did not start.
  */
-/** Where the ChatGPT desktop app keeps the Codex it ships. */
+/** Where the desktop apps keep the Codex they ship. */
 export const BUNDLED_CODEX_PATHS: readonly string[] =
   process.platform === "darwin"
-    ? ["/Applications/ChatGPT.app/Contents/Resources/codex"]
+    ? [
+        "/Applications/ChatGPT.app/Contents/Resources/codex",
+        "/Applications/Codex.app/Contents/Resources/codex"
+      ]
     : []
 
 export const checkCodexVersion = async ({
@@ -102,7 +105,7 @@ export const checkCodexVersion = async ({
         version(file).then(
           (found) => ({
             version: found,
-            source: `the ChatGPT app ships (${file})`
+            source: `the desktop app ships (${file})`
           }),
           () => ({ version: undefined, source: file })
         )

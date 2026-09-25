@@ -161,8 +161,17 @@ export const scoreSyntheticTask = ({
   effects = 0,
   url = "",
   pauseReason,
-  openTabActive = false
+  openTabActive = false,
+  /**
+   * What the chat's tools returned from pages — the tab it read, the
+   * browser task's report. An answer-scored task also needs its values here:
+   * a reply alone is the model's own words, and a model can state a code it
+   * never read.
+   */
+  readText = ""
 }) => {
+  const read = (value) =>
+    String(answer).includes(value) && String(readText).includes(value)
   const saysActive = statesActive(answer)
   const pageShowsActive = statesActive(body)
   /** Tested on the path: a plain GET form lands on `/form/details?name=Alice`. */
@@ -170,7 +179,7 @@ export const scoreSyntheticTask = ({
   switch (kind) {
     case "read":
       return {
-        success: completed && String(answer).includes("0.14.0"),
+        success: completed && read("0.14.0"),
         predicate: "answer:0.14.0"
       }
     case "select":
@@ -191,10 +200,7 @@ export const scoreSyntheticTask = ({
       }
     case "memory":
       return {
-        success:
-          completed &&
-          String(answer).includes("QP-719") &&
-          String(answer).includes("ZX-482"),
+        success: completed && read("QP-719") && read("ZX-482"),
         predicate: "answer:both-codes"
       }
     case "ambiguous":

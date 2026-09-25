@@ -69,7 +69,7 @@ describe("checkCodexVersion", () => {
       version: async (file) => versions[file],
       read: async () => JSON.stringify({ client_version: "0.144.4" })
     })
-    expect(warning).toContain("older than the 0.157.0 the ChatGPT app ships")
+    expect(warning).toContain("older than the 0.157.0 the desktop app ships")
   })
 
   it("never runs anything but --version, and never throws", async () => {
