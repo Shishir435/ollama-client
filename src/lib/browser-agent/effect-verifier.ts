@@ -74,6 +74,32 @@ const sameUrl = (first: string | undefined, second: string): boolean => {
 }
 
 /**
+ * Whether a submission landed where it was sent. A form sends every field,
+ * hidden ones included, and a site tidies its own address once it arrives:
+ * DuckDuckGo commits `?ia=web&origin=…&we_started_at=…&q=test` and then
+ * removes its tracking fields, so an exact match marked a search that had
+ * worked as failed or left it for review. Same origin and path, and no field
+ * the form sent came back with a different value; fields the site dropped or
+ * added are its own.
+ */
+const submittedTo = (committed: string, requested: string): boolean => {
+  if (sameUrl(committed, requested)) return true
+  try {
+    const landed = new URL(committed)
+    const sent = new URL(requested)
+    if (landed.origin !== sent.origin || landed.pathname !== sent.pathname)
+      return false
+    for (const [name, value] of sent.searchParams) {
+      const kept = landed.searchParams.getAll(name)
+      if (kept.length > 0 && !kept.includes(value)) return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Whether the tab landed on the address asked for, allowing what a site adds
  * on arrival. Searching DuckDuckGo for `?q=test` commits `?q=test&ia=web`, and
  * reading that as "a different destination" paused a search that had worked.
@@ -903,7 +929,7 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
   if (!sameUrl(tab.url, input.effect.sourceUrl)) {
     if (
       input.effect.destination &&
-      sameUrl(
+      submittedTo(
         tab.url,
         input.receipt.submissionUrl ?? input.effect.destination.url
       ) &&
@@ -930,7 +956,7 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     ) {
       const after = await observeAfter(input, adapter, signal)
       if (
-        sameUrl(after.url, tab.url) &&
+        submittedTo(after.url, tab.url) &&
         after.origin === input.effect.destination.origin &&
         after.documentId !== input.before.documentId
       ) {

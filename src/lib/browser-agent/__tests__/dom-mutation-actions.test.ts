@@ -250,6 +250,43 @@ describe("Agent DOM mutation resolution and policy", () => {
     })
   })
 
+  /**
+   * DuckDuckGo commits every field the form sent and then removes its own
+   * tracking fields. The tab already reported the tidied address while the
+   * observation still saw the page it left, and the working search was left
+   * for review.
+   */
+  it("confirms a GET submission whose page tidied its address on arrival", async () => {
+    const before = observation({
+      elements: [
+        element({
+          type: "submit",
+          formAction: new URL("/", location.href).href,
+          formMethod: "get",
+          maySubmit: true,
+          submitter: true
+        })
+      ]
+    })
+    const sent = new URL("/?ia=web&we_started_at=1&q=test", location.href).href
+    const tidied = new URL("/?ia=web&q=test", location.href).href
+    const verification: AgentVerificationInput = {
+      effect: await authorize(command({ type: "click", ref: "e1" }), before),
+      receipt: { executedAt: 5, submissionUrl: sent },
+      before,
+      allowedOrigins: [location.origin]
+    }
+    const result = await verifyDomMutationAgentEffect({
+      verification,
+      /** The tab has the tidied address; the observation is not caught up. */
+      adapter: verifierAdapter(before, {
+        getTab: async () => ({ url: tidied })
+      }),
+      signal
+    })
+    expect(result.outcome).toBe("confirmed")
+  })
+
   it("derives submission and formaction from a submit control", async () => {
     const destination = new URL("/finish", location.href).href
     const before = observation({
