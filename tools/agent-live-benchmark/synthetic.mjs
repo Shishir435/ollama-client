@@ -3,6 +3,7 @@ import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
+import { sendChatTask } from "./chat-turn.mjs"
 import {
   scoreSyntheticTask,
   scoreVerdict,
@@ -256,33 +257,14 @@ await panel
  * previous task's turn has to finish before the composer sends again.
  */
 const sendTask = async (goal) => {
-  /**
-   * A turn still generating is not a finished case. It is stopped, and said
-   * so, before the next goal is sent; one that will not stop ends the pass
-   * rather than letting two tasks overlap and be scored as one.
-   */
-  const busy = panel.getByRole("button", { name: "Stop generation" })
-  const settled = await busy
-    .waitFor({ state: "detached", timeout: 120000 })
-    .then(() => true)
-    .catch(() => false)
-  if (!settled) {
-    console.warn(
-      `[benchmark] previous turn still generating; stopping it before: ${goal}`
-    )
-    await busy.click().catch(() => {})
-    await busy.waitFor({ state: "detached", timeout: 30000 }).catch(() => {
-      throw new Error("The previous chat turn did not stop; aborting the pass")
-    })
-  }
-  const composer = panel.getByPlaceholder("Type a message or ctrl + /")
-  await composer.fill(goal)
-  await composer.press("Enter")
+  const sent = await sendChatTask(panel, goal)
+  if (!sent.started) return sent
   await panel
     .getByRole("button", { name: /^Allow (for this chat|once)$/ })
     .first()
     .click({ timeout: 60000 })
     .catch(() => {})
+  return sent
 }
 try {
   for (const [kind, goal] of cases) {
@@ -294,9 +276,14 @@ try {
     fixture = await context.newPage()
     await fixture.goto(`${origin}/${kind}`)
     await fixture.bringToFront()
-    await sendTask(goal)
-    let final, reason
-    while (Date.now() - started < 150000) {
+    const sent = await sendTask(goal)
+    /**
+     * A task the composer never accepted is scored as not started: calling
+     * it a timeout charged the model for a case it was never given.
+     */
+    let final
+    let reason = sent.started ? undefined : "turn_not_started"
+    while (sent.started && Date.now() - started < 150000) {
       final = messages
         .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
         .at(-1)?.snapshot
@@ -326,7 +313,9 @@ try {
       .catch(() => ({}))
     const answer = final?.run?.result ?? ""
     const completed = final?.run?.status === "completed"
-    const status = final?.run?.status ?? "harness_timeout"
+    const status =
+      final?.run?.status ??
+      (sent.started ? "harness_timeout" : "turn_not_started")
     // The opener page never shows the status for open_tab; the new tab must.
     let openTabActive = false
     if (kind === "open_tab") {
@@ -374,7 +363,9 @@ try {
       verdict,
       predicate,
       expectedPause,
-      status: final?.run?.status ?? "harness_timeout",
+      status:
+        final?.run?.status ??
+        (sent.started ? "harness_timeout" : "turn_not_started"),
       reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
       steps: final?.run?.stepCount,
       modelCalls: calls.length,
