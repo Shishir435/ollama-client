@@ -260,7 +260,9 @@ export type AgentRunFailureReason =
 export class AgentRunError extends Error {
   constructor(
     readonly reason: AgentRunFailureReason,
-    message: string
+    message: string,
+    /** The unfinished run that refused this start, when one did. */
+    readonly blockingRunId?: string
   ) {
     super(message)
     this.name = "AgentRunError"
@@ -879,7 +881,8 @@ export const createAgentRunService = (input?: {
         lastRunId = unresolved
         throw new AgentRunError(
           "already_running",
-          "An Agent run is already unresolved"
+          "An Agent run is already unresolved",
+          unresolved
         )
       }
       if (!(await hasPerception())) {

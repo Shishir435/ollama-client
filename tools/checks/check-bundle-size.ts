@@ -226,9 +226,10 @@ const budgets: Budget[] = [
      * one-time announcement in nine locales. Its agent tab, 9,822,274: the
      * tab's own chunk, the Context-sheet switch and labelled dropdowns. The
      * Ollama cloud switch, 9,826,636. The agent-off notice, 9,830,198. The Ollama provider loading
-     * its setting lazily, 9,831,247. Apple's mark, 9,832,181.
+     * its setting lazily, 9,831,247. Apple's mark, 9,832,181. Named blocking runs and
+     * hidden resolved notices, 9,833,527.
      */
-    max: isFirefox ? 11_800_000 : 9_833_000
+    max: isFirefox ? 11_800_000 : 9_834_000
   },
   {
     metric: "zip",
@@ -459,9 +460,9 @@ const budgets: Budget[] = [
      * and Firefox 213,816: the provider reading its setting at list time.
      * The agent-off guidance, Chrome 297,133. The Ollama provider loading
      * its setting lazily, Firefox 214,025. The volatile tool source, Chrome
-     * 297,303.
+     * 297,303. The refusal that names a blocking run's chat, Chrome 297,634.
      */
-    max: isFirefox ? 214_200 : 297_500
+    max: isFirefox ? 214_200 : 297_800
   }
 ]
 
