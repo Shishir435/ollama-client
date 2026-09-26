@@ -1195,11 +1195,15 @@ describe("agent controller", () => {
    * The grant follows only an approval that said it would.
    */
   describe("routine consent on a site the user approved travelling to", () => {
-    const travel = (routineOrigin?: string) => {
+    const travel = (
+      routineOrigin?: string,
+      verification?: AgentVerificationResult[]
+    ) => {
       const policy = approvalPolicy("high")
       if (policy.type === "approval_required" && routineOrigin)
         policy.request.routineOrigin = routineOrigin
       return createHarness({
+        ...(verification ? { verification } : {}),
         state: runState({
           grants: [
             {
@@ -1234,6 +1238,22 @@ describe("agent controller", () => {
     it("grants nothing for an approval that did not say so", async () => {
       const harness = travel()
       await harness.controller.start("run-1")
+      expect(grantOn(harness)).toBeUndefined()
+    })
+
+    it("grants nothing until the tab has landed on that site", async () => {
+      const harness = travel("https://duckduckgo.com", [
+        {
+          outcome: "negative",
+          evidence: {
+            kind: "navigation",
+            summary: "A dialog is holding the navigation",
+            observedAt: 3
+          }
+        }
+      ])
+      await harness.controller.start("run-1")
+      expect(harness.writtenSteps.some((s) => s.status === "failed")).toBe(true)
       expect(grantOn(harness)).toBeUndefined()
     })
   })
