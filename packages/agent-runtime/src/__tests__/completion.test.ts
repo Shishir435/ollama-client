@@ -1568,6 +1568,12 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge("Search for Alice to find her email.")).toMatchObject({
       type: "refused"
     })
+    expect(judge("Search for Alice by email.")).toMatchObject({
+      type: "refused"
+    })
+    expect(judge("Search for Alice in archived orders.")).toMatchObject({
+      type: "refused"
+    })
   })
 
   it("binds a batch value to the field the requirement names", () => {
@@ -1748,6 +1754,21 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judgeFocus(tabbed("confirmed"), focusedOn("Second"))).toMatchObject({
       type: "accepted"
     })
+  })
+
+  it("does not let a focus move vouch for pressing the control it reached", () => {
+    const current = focusedOn("Second")
+    for (const text of ["Click Second", "Second is focused and pressed"]) {
+      expect(
+        judgeAgentCompletion({
+          steps: [tabbed("confirmed")],
+          observation: current,
+          baselineText: "first second",
+          requirements: [{ id: "r1", text, kind: "change" }],
+          outcomes: [{ id: "r1", met: true, evidence: "Second" }]
+        })
+      ).toMatchObject({ type: "refused" })
+    }
   })
 
   it("refuses the name when another control holds focus or nothing was verified", () => {

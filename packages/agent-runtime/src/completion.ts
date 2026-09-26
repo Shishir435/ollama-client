@@ -943,11 +943,29 @@ const evidencePlannedChange = (
  * "Second" was on the page before, so the staleness rule refused it, and
  * the run asked the user what to do about a task it had finished.
  */
+/**
+ * A requirement a focus move can meet claims focus and nothing a focused
+ * control does: Tab reaching Save proves Save has focus, never that it was
+ * pressed.
+ */
+const FOCUS_REQUIREMENT_PATTERN = /\b(?:focus|focused|focuses|focusing)\b/
+const ACTIVATION_REQUIREMENT_PATTERN =
+  /\b(?:click|clicks|clicked|tap|tapped|activate|activated|press|pressed|submit|submitted|save|saved|send|sent|open|opened|select|selected|check|checked|toggle|toggled|choose|chose|chosen)\b/
+
+const claimsOnlyFocus = (requirement: AgentTaskRequirement): boolean => {
+  const text = agentNormalizedClaim(requirement.text)
+  return (
+    FOCUS_REQUIREMENT_PATTERN.test(text) &&
+    !ACTIVATION_REQUIREMENT_PATTERN.test(text)
+  )
+}
+
 const isBoundFocusMove = (
   requirement: AgentTaskRequirement,
   receipt: AgentStepReadout
 ): boolean =>
   receipt.requirementId === requirement.id &&
+  claimsOnlyFocus(requirement) &&
   receipt.command?.type === "press_key" &&
   receipt.verification?.outcome === "confirmed" &&
   receipt.verification.evidence.kind === "keyboard"
@@ -986,12 +1004,13 @@ const RESULT_STATE_REQUIREMENT_PATTERN =
 
 /**
  * A second clause after the act: "Search for Alice and read the first hit"
- * claims the hit was read, in words no result list could name. A
- * requirement the submission can meet is the act alone, so anything joined
- * to it is an outcome the sent form does not prove.
+ * claims the hit was read, in words no result list could name, and "Search
+ * for Alice by email" claims a constraint the sent form does not show it
+ * applied. A requirement the submission can meet is the act and its object
+ * alone; anything joined to it is a claim the sent form does not prove.
  */
 const FURTHER_CLAIM_PATTERN =
-  /[,;:]|\b(?:and|then|to|so|until|after|before|while|once|when|where|which|that|if|showing|finding|reading|opening|open|read|find|get|check|verify|confirm|see|view|report)\b/
+  /[,;:]|\b(?:and|then|to|so|until|after|before|while|once|when|where|which|that|if|showing|finding|reading|opening|open|read|find|get|check|verify|confirm|see|view|report|by|with|without|in|on|from|within|under|over|near|between|using|via|only|sorted|filtered|matching|where)\b/
 
 /**
  * Whether the requirement claims only the act of sending: an imperative
