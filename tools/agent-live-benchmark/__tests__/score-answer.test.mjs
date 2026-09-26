@@ -128,6 +128,15 @@ describe("real-site scorer", () => {
       scoreVerdict({ status: "paused", success: false, pauseReason, body })
     assert.equal(paused("question", challenge), "site_blocked")
     assert.equal(paused("question", "Search results"), "missed")
+    /** A page about CAPTCHAs is a page, not a challenge. */
+    assert.equal(
+      paused("question", "CAPTCHA is a type of challenge–response test."),
+      "missed"
+    )
+    assert.equal(
+      paused("question", `${"Long article text. ".repeat(100)}${challenge}`),
+      "missed"
+    )
     assert.equal(paused("unresolved_effect", challenge), "missed")
     assert.equal(
       scoreVerdict({ status: "failed", success: false, body: challenge }),

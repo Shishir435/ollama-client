@@ -125,12 +125,21 @@ export const scoreWikiSearch = ({ answer, url }) => {
  * A page that stopped the browser as a bot: DuckDuckGo's "select all squares
  * containing a duck", a "verify you are human" wall. Only the user can
  * answer one, and a run that asks them is doing its job.
+ *
+ * Matched by the challenge's own instruction, never by the word "captcha",
+ * and only on a page short enough to be nothing else: an article about
+ * CAPTCHAs, or a results page quoting one, is a page the run could read.
  */
 const SITE_CHALLENGE_PATTERN =
-  /complete the following challenge|verify (?:that )?you(?:'re| are) (?:a )?human|unusual traffic|captcha/i
+  /complete the following challenge|select all (?:squares|images) (?:containing|with)|verify (?:that )?you(?:'re| are) (?:a )?human|our systems have detected unusual traffic|press and hold the button/i
+const MAX_CHALLENGE_PAGE_CHARS = 1_500
 
-export const isSiteChallenge = (body) =>
-  SITE_CHALLENGE_PATTERN.test(String(body ?? ""))
+export const isSiteChallenge = (body) => {
+  const text = String(body ?? "").trim()
+  return (
+    text.length <= MAX_CHALLENGE_PAGE_CHARS && SITE_CHALLENGE_PATTERN.test(text)
+  )
+}
 
 export const scoreVerdict = ({ status, success, pauseReason, body }) => {
   /**
