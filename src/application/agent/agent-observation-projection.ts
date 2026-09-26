@@ -303,16 +303,27 @@ const isReachable = (element: AgentElement): boolean =>
   element.visible && !element.occluded && element.enabled
 
 /**
+ * A control the page is not displaying at all, as opposed to one below the
+ * fold. It is left out of the omission count: counted, it advertised a region
+ * of hidden controls, and the model spent its decisions inspecting a menu's
+ * links instead of clicking the Menu button that reveals them. `find` and
+ * `inspect` still return it.
+ */
+const isHiddenOutright = (element: AgentElement): boolean =>
+  !element.visible && !element.offscreen
+
+/**
  * Whether the row says anything a decision could use.
  *
  * A control the run cannot reach and cannot name is a `ref`, a tag and a
  * group: the model can neither recognise it nor act on it, and asking about
  * it costs a step. On one measured page nine of every ten rows were exactly
  * that, and the controls the budget then had no room for were the ones in the
- * region the run was working in. They are omitted like any other omission and
- * counted by region, so the model is still told the region holds more and can
- * `inspect` it — and `find`, `inspect` and `extract_text` still read the full
- * observation, which is the escape hatch this leaves intact.
+ * region the run was working in. They are omitted like any other omission and,
+ * unless hidden outright, counted by region, so the model is still told the
+ * region holds more and can `inspect` it — and `find`, `inspect` and
+ * `extract_text` still read the full observation, which is the escape hatch
+ * this leaves intact.
  */
 const carriesInformation = (element: AgentElement): boolean =>
   Boolean(
@@ -528,7 +539,7 @@ const selectOverviewElements = (
     .map((item) => item.projected)
   const omitted = new Map<string, number>()
   for (const item of indexed) {
-    if (kept.has(item.index)) continue
+    if (kept.has(item.index) || isHiddenOutright(item.element)) continue
     const group = item.element.group ?? AGENT_PAGE_GROUP
     omitted.set(group, (omitted.get(group) ?? 0) + 1)
   }
