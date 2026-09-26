@@ -89,6 +89,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   `:cloud` models pulled with `ollama pull` are listed either way.
 - Custom providers on NVIDIA, Vercel AI Gateway, Cloudflare AI Gateway,
   Fireworks, DeepInfra, Hugging Face and Cerebras show their vendor's mark.
+  Other remote providers look for a favicon on the vendor's own site — its
+  registrable domain, then `www.` — instead of only one level above the API
+  host, still without following redirects.
 - The session stats sit in the middle of the chat header; the thinking panel
   and the model menu's provider rail now share the radius of the surfaces
   around them. Settings dropdowns show their option's label rather than its

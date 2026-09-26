@@ -15,9 +15,9 @@ import {
   FAVICON_MISSING_TTL_MS,
   getProviderFaviconMap,
   isRemoteFaviconHost,
-  parentDomainOf,
   resolveProviderFavicon,
-  setFaviconLookupEnabled
+  setFaviconLookupEnabled,
+  siteDomainOf
 } from "../provider-favicon"
 import { type ProviderConfig, ProviderType } from "../types"
 
@@ -376,6 +376,63 @@ describe("resolveProviderFavicon", () => {
     expect(dataUrl).toMatch(/^data:image\/png;base64,/)
   })
 
+  /**
+   * NVIDIA's shape: the API host has no icon, the bare site redirects to
+   * `www.`, and `www.` answers. Reached by asking `www.` directly, never by
+   * following the redirect.
+   */
+  it("asks the vendor's www host after its bare domain redirects", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        type: "basic"
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 0,
+        type: "opaqueredirect"
+      } as Response)
+      .mockResolvedValueOnce(imageResponse([...PNG_MAGIC, 0x09]))
+
+    const dataUrl = await resolveProviderFavicon(
+      config("https://integrate.api.nvidia.com/v1")
+    )
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "https://integrate.api.nvidia.com/favicon.ico",
+      "https://nvidia.com/favicon.ico",
+      "https://www.nvidia.com/favicon.ico"
+    ])
+    for (const call of fetchMock.mock.calls) {
+      expect(call[1]).toMatchObject({ redirect: "manual" })
+    }
+    expect(dataUrl).toMatch(/^data:image\/png;base64,/)
+  })
+
+  it("stops walking the vendor site after a server error", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        type: "basic"
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        type: "basic"
+      } as Response)
+
+    expect(
+      await resolveProviderFavicon(
+        config("https://integrate.api.nvidia.com/v1")
+      )
+    ).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   /*
    * A cancelled fetch is indistinguishable from an endpoint with no icon, so
    * recording it would hold the provider iconless for the whole miss window
@@ -402,27 +459,24 @@ describe("resolveProviderFavicon", () => {
   })
 })
 
-describe("parentDomainOf", () => {
-  it("strips exactly one label", () => {
-    expect(parentDomainOf("api.acme-router.example")).toBe(
-      "acme-router.example"
-    )
-    expect(parentDomainOf("api.eu.acme-router.example")).toBe(
-      "eu.acme-router.example"
-    )
-    expect(parentDomainOf("api.example.co.uk")).toBe("example.co.uk")
+describe("siteDomainOf", () => {
+  it("climbs to the registrable domain", () => {
+    expect(siteDomainOf("api.acme-router.example")).toBe("acme-router.example")
+    expect(siteDomainOf("integrate.api.nvidia.com")).toBe("nvidia.com")
+    expect(siteDomainOf("gateway.ai.cloudflare.com")).toBe("cloudflare.com")
+    expect(siteDomainOf("api.example.co.uk")).toBe("example.co.uk")
   })
 
   it("has no parent for a bare site", () => {
-    expect(parentDomainOf("acme-router.example")).toBeUndefined()
+    expect(siteDomainOf("acme-router.example")).toBeUndefined()
   })
 
-  /*
+  /**
    * `co.uk` belongs to a registry, not to anyone we could be asking for an
    * icon, so stripping down to one is refused rather than requested.
    */
   it("refuses to climb into a public suffix", () => {
-    expect(parentDomainOf("example.co.uk")).toBeUndefined()
-    expect(parentDomainOf("example.com.au")).toBeUndefined()
+    expect(siteDomainOf("example.co.uk")).toBeUndefined()
+    expect(siteDomainOf("example.com.au")).toBeUndefined()
   })
 })
