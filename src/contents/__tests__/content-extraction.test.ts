@@ -98,6 +98,21 @@ describe("extractReadableContent", () => {
     expect(result.selectedExtractor).not.toBe("defuddle")
   })
 
+  /** Defuddle may keep part of a hidden sentence, not all of it. */
+  it("drops a Defuddle result carrying part of a hidden sentence", () => {
+    setDefuddle({
+      contentMarkdown: "Open dialog Account status: Active",
+      title: "T"
+    })
+    const result = extractReadableContent(
+      makeDoc(
+        "<button>Open dialog</button><div hidden>Account status: Active since March</div>"
+      ),
+      "auto"
+    )
+    expect(result.selectedExtractor).not.toBe("defuddle")
+  })
+
   it("keeps a Defuddle result whose text the page also shows", () => {
     const text = "word ".repeat(60).trim()
     setDefuddle({ contentMarkdown: text, title: "T" })

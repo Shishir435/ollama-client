@@ -52,6 +52,25 @@ const comparableText = (text: string | null | undefined): string =>
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()} `
 
+/**
+ * Every run of `HIDDEN_RUN_WORDS` consecutive words in a hidden piece, or the
+ * whole piece when it is shorter. Defuddle may keep part of a hidden
+ * sentence — "Account status: Active" of "Account status: Active since
+ * March" — so the whole piece need not appear for its text to have leaked.
+ */
+const HIDDEN_RUN_WORDS = 3
+const wordRuns = (piece: string): string[] => {
+  const words = comparableText(piece).trim().split(" ").filter(Boolean)
+  if (words.length === 0) return []
+  if (words.length <= HIDDEN_RUN_WORDS) return [` ${words.join(" ")} `]
+  return words
+    .slice(0, words.length - HIDDEN_RUN_WORDS + 1)
+    .map(
+      (_, start) =>
+        ` ${words.slice(start, start + HIDDEN_RUN_WORDS).join(" ")} `
+    )
+}
+
 /** Each run of text an element holds, so formatting between them cannot hide one. */
 const textPieces = (node: Node): string[] =>
   node.nodeType === 3
@@ -77,9 +96,9 @@ const showsUnrenderedText = (
   const shown = comparableText(rendered.body?.textContent)
   for (const element of doc.querySelectorAll(UNRENDERED_SELECTOR)) {
     for (const piece of textPieces(element)) {
-      const hidden = comparableText(piece)
-      if (hidden.trim() && haystack.includes(hidden) && !shown.includes(hidden))
-        return true
+      for (const run of wordRuns(piece)) {
+        if (haystack.includes(run) && !shown.includes(run)) return true
+      }
     }
   }
   return false
