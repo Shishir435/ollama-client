@@ -674,7 +674,14 @@
       "manage": "Berechtigungen verwalten",
       "not_granted": "Die Berechtigung wurde nicht erteilt. Versuche es erneut oder verwalte sie in den Einstellungen.",
       "resume_failed": "Die Anfrage konnte nicht fortgesetzt werden. Versuche es erneut.",
-      "reminders": "Erinnerungen"
+      "reminders": "Erinnerungen",
+      "agent": {
+        "title": "Der Browser-Agent ist aus",
+        "description": "Das sieht nach einer Aufgabe im Browser aus. Der Agent ist experimentell und funktioniert am besten mit gehosteten Modellen.",
+        "enable": "Einschalten und fortfahren",
+        "continue_without": "Ohne fortfahren",
+        "manage": "Agent-Einstellungen"
+      }
     },
     "errors": {
       "unknown_error": "❌ Unbekannter Fehler: {{message}}",
@@ -1448,7 +1455,7 @@
       "prompts": "Prompt-Bibliothek",
       "models": "Modellverhalten",
       "extraction": "Seite & Tabs",
-      "agent": "Browser-Agent",
+      "agent": "Agent",
       "context": "Wissen & Web",
       "embeddings": "Gespeichertes Wissen",
       "providers": "Anbieter",

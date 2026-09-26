@@ -8,6 +8,11 @@ vi.mock("@/lib/browser-api", () => ({
   supportsTabGroups: vi.fn(() => true)
 }))
 
+const agent = vi.hoisted(() => ({ enabled: false }))
+vi.mock("@/lib/storage/setting-access", () => ({
+  readSetting: vi.fn(async () => agent.enabled)
+}))
+
 vi.mock("@/lib/permissions", () => ({
   hasPermission: vi.fn()
 }))
@@ -15,9 +20,27 @@ vi.mock("@/lib/permissions", () => ({
 describe("optional permission notice", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    agent.enabled = false
     vi.mocked(hasPermission).mockResolvedValue(false)
     vi.mocked(supportsSessions).mockReturnValue(true)
     vi.mocked(supportsTabGroups).mockReturnValue(true)
+  })
+
+  it("says the browser agent is off for a browser task", async () => {
+    await expect(
+      findOptionalPermissionNotice("open duckduckgo and search for try")
+    ).resolves.toMatchObject({
+      capabilityId: "browserAgent",
+      focusId: "agent-enabled",
+      missingPermissions: []
+    })
+  })
+
+  it("says nothing about the agent once it is on", async () => {
+    agent.enabled = true
+    await expect(
+      findOptionalPermissionNotice("open duckduckgo and search for try")
+    ).resolves.toBeUndefined()
   })
 
   it.each([

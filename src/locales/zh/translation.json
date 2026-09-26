@@ -674,7 +674,14 @@
       "manage": "管理权限",
       "not_granted": "未授予权限。你可以重试，或在设置中进行管理。",
       "resume_failed": "无法继续该请求。请重试。",
-      "reminders": "提醒"
+      "reminders": "提醒",
+      "agent": {
+        "title": "浏览器代理已关闭",
+        "description": "这看起来是需要在浏览器中完成的任务。代理为实验性功能，搭配托管模型效果最好。",
+        "enable": "开启并继续",
+        "continue_without": "不使用并继续",
+        "manage": "代理设置"
+      }
     },
     "errors": {
       "unknown_error": "❌ 未知错误: {{message}}",
@@ -1448,7 +1455,7 @@
       "prompts": "提示词库",
       "models": "模型行为",
       "extraction": "页面和标签页",
-      "agent": "浏览器代理",
+      "agent": "代理",
       "context": "知识与网络",
       "embeddings": "已保存的知识",
       "providers": "服务商",

@@ -674,7 +674,14 @@
       "manage": "Gestisci autorizzazioni",
       "not_granted": "L’autorizzazione non è stata concessa. Riprova o gestiscila nelle Impostazioni.",
       "resume_failed": "Impossibile continuare la richiesta. Riprova.",
-      "reminders": "Promemoria"
+      "reminders": "Promemoria",
+      "agent": {
+        "title": "L’agente del browser è disattivato",
+        "description": "Sembra un’attività nel browser. L’agente è sperimentale e funziona meglio con modelli ospitati.",
+        "enable": "Attiva e continua",
+        "continue_without": "Continua senza",
+        "manage": "Impostazioni agente"
+      }
     },
     "errors": {
       "unknown_error": "❌ Errore sconosciuto: {{message}}",
@@ -1448,7 +1455,7 @@
       "prompts": "Libreria di prompt",
       "models": "Comportamento del modello",
       "extraction": "Pagina e schede",
-      "agent": "Agente del browser",
+      "agent": "Agente",
       "context": "Conoscenza e web",
       "embeddings": "Conoscenza salvata",
       "providers": "Provider",

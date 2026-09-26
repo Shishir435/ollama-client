@@ -707,7 +707,14 @@
       "manage": "Manage permissions",
       "not_granted": "Permission was not granted. You can try again or manage it in Settings.",
       "resume_failed": "Couldn’t continue the request. Try again.",
-      "reminders": "Reminders"
+      "reminders": "Reminders",
+      "agent": {
+        "title": "The browser agent is off",
+        "description": "This looks like a task in the browser. The agent is experimental and works best with hosted models.",
+        "enable": "Turn on and continue",
+        "continue_without": "Continue without",
+        "manage": "Agent settings"
+      }
     },
     "errors": {
       "unknown_error": "❌ Unknown error: {{message}}",
@@ -1454,7 +1461,7 @@
       "prompts": "Prompt library",
       "models": "Model behavior",
       "extraction": "Page & tabs",
-      "agent": "Browser agent",
+      "agent": "Agent",
       "context": "Knowledge & web",
       "embeddings": "Saved knowledge",
       "providers": "Providers",

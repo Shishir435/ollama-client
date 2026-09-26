@@ -674,7 +674,14 @@
       "manage": "Administrar permisos",
       "not_granted": "No se concedió el permiso. Puedes intentarlo de nuevo o administrarlo en Ajustes.",
       "resume_failed": "No se pudo continuar la solicitud. Inténtalo de nuevo.",
-      "reminders": "Recordatorios"
+      "reminders": "Recordatorios",
+      "agent": {
+        "title": "El agente del navegador está desactivado",
+        "description": "Parece una tarea en el navegador. El agente es experimental y funciona mejor con modelos alojados.",
+        "enable": "Activar y continuar",
+        "continue_without": "Continuar sin él",
+        "manage": "Ajustes del agente"
+      }
     },
     "errors": {
       "unknown_error": "❌ Error desconocido: {{message}}",
@@ -1448,7 +1455,7 @@
       "prompts": "Biblioteca de prompts",
       "models": "Comportamiento del modelo",
       "extraction": "Página y pestañas",
-      "agent": "Agente del navegador",
+      "agent": "Agente",
       "context": "Conocimiento y web",
       "embeddings": "Conocimiento guardado",
       "providers": "Proveedores",

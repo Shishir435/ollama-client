@@ -674,7 +674,14 @@
       "manage": "権限を管理",
       "not_granted": "権限が許可されませんでした。もう一度試すか、設定で管理してください。",
       "resume_failed": "リクエストを続行できませんでした。もう一度お試しください。",
-      "reminders": "リマインダー"
+      "reminders": "リマインダー",
+      "agent": {
+        "title": "ブラウザエージェントはオフです",
+        "description": "ブラウザでの操作のようです。エージェントは試験運用中で、ホスト型モデルで最もよく動作します。",
+        "enable": "オンにして続行",
+        "continue_without": "使わずに続行",
+        "manage": "エージェント設定"
+      }
     },
     "errors": {
       "unknown_error": "❌ 不明なエラー: {{message}}",
@@ -1448,7 +1455,7 @@
       "prompts": "プロンプトライブラリ",
       "models": "モデルの挙動",
       "extraction": "ページとタブ",
-      "agent": "ブラウザエージェント",
+      "agent": "エージェント",
       "context": "ナレッジとウェブ",
       "embeddings": "保存済みナレッジ",
       "providers": "プロバイダー",

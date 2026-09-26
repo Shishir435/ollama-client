@@ -83,6 +83,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   tab and a switch in the chat's Context sheet. Until it is turned on, the chat
   model is neither offered `browser_task` nor able to call it. Every profile, new or upgraded, sees a
   one-time notice introducing it, which recommends capable hosted models.
+  Asking for a browser task while it is off shows a card instead of a reply:
+  **Turn on and continue** enables it and runs the same request, **Continue
+  without** sends it as it was, and the model is told browser actions are off
+  rather than calling them denied.
 - Ollama's hosted `:cloud` recommendations are off by default, with a switch at
   the top of Ollama's list in the model menu. They need a signed-in daemon and
   often a paid plan, and without one a chosen model failed at send time.

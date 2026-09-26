@@ -674,7 +674,14 @@
       "manage": "Gérer les autorisations",
       "not_granted": "L’autorisation n’a pas été accordée. Réessayez ou gérez-la dans les paramètres.",
       "resume_failed": "Impossible de poursuivre la demande. Réessayez.",
-      "reminders": "Rappels"
+      "reminders": "Rappels",
+      "agent": {
+        "title": "L’agent du navigateur est désactivé",
+        "description": "Cela ressemble à une tâche dans le navigateur. L’agent est expérimental et fonctionne mieux avec des modèles hébergés.",
+        "enable": "Activer et continuer",
+        "continue_without": "Continuer sans",
+        "manage": "Réglages de l’agent"
+      }
     },
     "errors": {
       "unknown_error": "❌ Erreur inconnue : {{message}}",
@@ -1448,7 +1455,7 @@
       "prompts": "Bibliothèque de prompts",
       "models": "Comportement du modèle",
       "extraction": "Page et onglets",
-      "agent": "Agent du navigateur",
+      "agent": "Agent",
       "context": "Connaissances et web",
       "embeddings": "Connaissances enregistrées",
       "providers": "Fournisseurs",
