@@ -226,9 +226,9 @@ const budgets: Budget[] = [
      * one-time announcement in nine locales. Its agent tab, 9,822,274: the
      * tab's own chunk, the Context-sheet switch and labelled dropdowns. The
      * Ollama cloud switch, 9,826,636. The agent-off notice, 9,830,198. The Ollama provider loading
-     * its setting lazily, 9,831,247.
+     * its setting lazily, 9,831,247. Apple's mark, 9,832,181.
      */
-    max: isFirefox ? 11_800_000 : 9_832_000
+    max: isFirefox ? 11_800_000 : 9_833_000
   },
   {
     metric: "zip",

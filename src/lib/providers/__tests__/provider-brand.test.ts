@@ -134,6 +134,20 @@ describe("resolveProviderBrand", () => {
   })
 })
 
+describe("Apple's on-device model", () => {
+  /** olc serves it as `apple/foundation` on loopback, where no host says whose it is. */
+  it("wears Apple's mark on its model row and on a provider named for it", () => {
+    expect(resolveModelBrand("apple/foundation")).toBe("apple")
+    expect(
+      resolveProviderBrand({
+        id: "custom:openai:fm",
+        baseUrl: "http://127.0.0.1:8085/v1",
+        name: "Apple Foundation"
+      })
+    ).toBe("apple")
+  })
+})
+
 describe("isProviderBrandId", () => {
   it("accepts every declared brand", () => {
     for (const brand of PROVIDER_BRANDS) {

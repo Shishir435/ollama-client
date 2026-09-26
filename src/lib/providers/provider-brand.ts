@@ -30,7 +30,8 @@ export const PROVIDER_BRANDS = [
   "fireworks",
   "deepinfra",
   "huggingface",
-  "cerebras"
+  "cerebras",
+  "apple"
 ] as const
 
 export type ProviderBrandId = (typeof PROVIDER_BRANDS)[number]
@@ -108,7 +109,12 @@ const BRAND_NAME_TOKENS: ReadonlyArray<readonly [ProviderBrandId, string[]]> = [
   ["fireworks", ["fireworks"]],
   ["deepinfra", ["deepinfra"]],
   ["huggingface", ["huggingface", "hugging face"]],
-  ["cerebras", ["cerebras"]]
+  ["cerebras", ["cerebras"]],
+  /**
+   * Apple's model has no vendor host to read — olc serves it on loopback — so
+   * a provider the user named for it is identified by that name.
+   */
+  ["apple", ["apple"]]
 ]
 
 const PROFILE_BRANDS: Partial<Record<ProviderServiceProfile, ProviderBrandId>> =
@@ -192,7 +198,8 @@ const MODEL_VENDOR_BRANDS: Record<string, ProviderBrandId> = {
   fireworks: "fireworks",
   deepinfra: "deepinfra",
   huggingface: "huggingface",
-  cerebras: "cerebras"
+  cerebras: "cerebras",
+  apple: "apple"
 }
 
 /**
