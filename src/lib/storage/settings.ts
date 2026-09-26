@@ -62,6 +62,19 @@ export const SETTINGS = {
     { defaultValue: false, parser: z.boolean() }
   ),
   /**
+   * The browser agent is experimental: nothing benchmarks it across models
+   * yet, so it is opt-in, and while off `browser_task` is not offered to the
+   * chat model at all rather than offered and refused.
+   */
+  AGENT_ENABLED: defineSetting<boolean>(STORAGE_KEYS.AGENT.ENABLED, {
+    defaultValue: false,
+    parser: z.boolean()
+  }),
+  AGENT_ANNOUNCEMENT_DISMISSED: defineSetting<boolean>(
+    STORAGE_KEYS.AGENT.ANNOUNCEMENT_DISMISSED,
+    { defaultValue: false, parser: z.boolean() }
+  ),
+  /**
    * `auto` resolves the window from what the model and the server report and
    * holds it inside a conservative maximum; a number overrides both, because
    * a user who raised their own `num_ctx` knows something no catalog does.

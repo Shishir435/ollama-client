@@ -27,6 +27,18 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "How much context a run may ask its model for. Device-local because it is a statement about this machine's memory and this server's allocation, not about the account."
   },
+  [STORAGE_KEYS.AGENT.ENABLED]: {
+    key: STORAGE_KEYS.AGENT.ENABLED,
+    scope: "device-local",
+    reason:
+      "Opt-in for the experimental browser agent; off means the chat model is never offered browser_task. Device-local because letting a model drive this browser is consent given on this browser."
+  },
+  [STORAGE_KEYS.AGENT.ANNOUNCEMENT_DISMISSED]: {
+    key: STORAGE_KEYS.AGENT.ANNOUNCEMENT_DISMISSED,
+    scope: "sync-safe",
+    reason:
+      "Whether the experimental browser agent announcement was closed, so it is shown once per account rather than once per device. Contains no page or provider data."
+  },
   [STORAGE_KEYS.AGENT.VISION]: {
     key: STORAGE_KEYS.AGENT.VISION,
     scope: "sync-safe",

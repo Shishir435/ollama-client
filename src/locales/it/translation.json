@@ -155,9 +155,23 @@
       "reasoning": "Ragionamento"
     },
     "correction": "In pausa. Descrivi cosa cambiare, poi continua.",
+    "experimental_badge": "Sperimentale",
+    "announcement": {
+      "title": "Sperimentale: un agente del browser nella chat",
+      "description": "Il tuo modello di chat ora può svolgere attività nelle tue schede: fare clic, digitare e spostarsi tra le pagine al posto tuo. Resta disattivato finché non lo attivi.",
+      "hosted_models": "Funziona meglio con modelli ospitati capaci (ad esempio tramite OpenRouter o un provider cloud). I modelli locali piccoli spesso non riescono a completare attività in più passaggi.",
+      "approvals": "Chiede prima di inviare moduli, accedere, pagare o eliminare qualsiasi cosa, e puoi fermarlo in qualsiasi momento.",
+      "coming": "È una prima versione. Aspettati qualche imperfezione; altri miglioramenti arriveranno nelle prossime versioni.",
+      "later": "Più tardi",
+      "enable": "Attiva l’agente"
+    },
     "settings": {
       "title": "Agente del browser",
       "description": "Cosa può fare un’esecuzione senza chiedere, quanto contesto può chiedere al modello e quando cattura la pagina.",
+      "enabled": {
+        "label": "Consenti al modello di chat di usare l’agente del browser",
+        "description": "Offre browser_task, che permette al modello di fare clic, digitare e navigare nelle tue schede al posto tuo. Sperimentale: l’efficacia varia molto da un modello all’altro."
+      },
       "context_window": {
         "label": "Finestra di contesto",
         "description": "Automatico prende la finestra più piccola che questo modello e questo server dichiarano, e ripiega su una dimensione prudente quando nessuno dei due si esprime. Imposta tu una dimensione se hai alzato il limite del tuo server o se un'esecuzione ha esaurito la memoria.",

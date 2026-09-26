@@ -155,9 +155,23 @@
       "reasoning": "Razonamiento"
     },
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
+    "experimental_badge": "Experimental",
+    "announcement": {
+      "title": "Experimental: un agente del navegador en el chat",
+      "description": "Tu modelo de chat ahora puede realizar tareas en tus pestañas: hacer clic, escribir y moverse entre páginas por ti. Permanece desactivado hasta que lo actives.",
+      "hosted_models": "Funciona mejor con modelos alojados potentes (por ejemplo, a través de OpenRouter o un proveedor en la nube). Los modelos locales pequeños a menudo no logran completar tareas de varios pasos.",
+      "approvals": "Pregunta antes de enviar formularios, iniciar sesión, pagar o eliminar algo, y puedes detenerlo en cualquier momento.",
+      "coming": "Es una versión temprana. Habrá detalles por pulir; llegarán más mejoras en las próximas versiones.",
+      "later": "Quizá más tarde",
+      "enable": "Activar agente"
+    },
     "settings": {
       "title": "Agente del navegador",
       "description": "Lo que una ejecución puede hacer sin preguntar, cuánto contexto puede pedir a su modelo y cuándo captura la página.",
+      "enabled": {
+        "label": "Permitir que el modelo de chat use el agente del navegador",
+        "description": "Ofrece browser_task, que permite al modelo hacer clic, escribir y navegar en tus pestañas por ti. Experimental: su eficacia varía mucho según el modelo."
+      },
       "context_window": {
         "label": "Ventana de contexto",
         "description": "Automático toma la ventana más pequeña que informan este modelo y este servidor, y recurre a un tamaño conservador cuando ninguno lo dice. Fija un tamaño tú mismo si has subido el límite de tu servidor o si a una ejecución se le ha agotado la memoria.",

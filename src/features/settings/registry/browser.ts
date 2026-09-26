@@ -4,6 +4,16 @@ import type { SettingsEntryDefinition } from "./types"
 export const BROWSER_SETTINGS = [
   // ---- Browser agent -----------------------------------------------------
   {
+    id: "agent-enabled",
+    sectionId: "agent",
+    labelKey: "agent.settings.enabled.label",
+    descriptionKey: "agent.settings.enabled.description",
+    storageKey: STORAGE_KEYS.AGENT.ENABLED,
+    searchKeys: ["agent.settings.title", "agent.experimental_badge"],
+    keywords: ["agent", "experimental", "browser", "enable"],
+    aliases: ["turn on agent", "browser automation", "browser_task"]
+  },
+  {
     id: "agent-permission-mode",
     sectionId: "agent",
     labelKey: "agent.settings.permission_mode.label",

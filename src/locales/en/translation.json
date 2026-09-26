@@ -155,9 +155,23 @@
       "reasoning": "Reasoning"
     },
     "correction": "Paused. Describe what should change, then continue.",
+    "experimental_badge": "Experimental",
+    "announcement": {
+      "title": "Experimental: a browser agent in chat",
+      "description": "Your chat model can now carry out tasks in your tabs, clicking, typing and moving between pages for you. It is off until you turn it on.",
+      "hosted_models": "It works best with capable hosted models (for example through OpenRouter or a cloud provider). Small local models often can't finish a multi-step task.",
+      "approvals": "It asks before submitting forms, signing in, paying or deleting anything, and you can stop it at any time.",
+      "coming": "This is an early version. Expect rough edges; more improvements are coming in the next releases.",
+      "later": "Maybe later",
+      "enable": "Turn on agent"
+    },
     "settings": {
       "title": "Browser agent",
       "description": "What a run may do without asking, how much context it may ask its model for, and when it pictures the page.",
+      "enabled": {
+        "label": "Let the chat model use the browser agent",
+        "description": "Offers browser_task, which lets the model click, type and navigate in your tabs for you. Experimental: how well it works varies a lot between models."
+      },
       "context_window": {
         "label": "Context window",
         "description": "Automatic reads the smallest window this model and this server both report, and falls back to a conservative size when neither says. Set a size yourself if you have raised your server's own limit, or if a run has run out of memory.",

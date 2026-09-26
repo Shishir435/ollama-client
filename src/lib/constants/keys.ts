@@ -77,6 +77,10 @@ export const LEGACY_STORAGE_KEYS = {
 
 export const STORAGE_KEYS = {
   AGENT: {
+    /** Whether the experimental browser agent is offered to the chat model at all. */
+    ENABLED: "agent-enabled-v1",
+    /** Whether the one-time "experimental browser agent" announcement was closed. */
+    ANNOUNCEMENT_DISMISSED: "agent-announcement-dismissed-v1",
     /** One-time acknowledgement before page observations reach a remote model. */
     REMOTE_OBSERVATION_ACKNOWLEDGED: "agent-remote-observation-acknowledged-v1",
     /** Separate acknowledgement before viewport screenshots reach a remote model. */
