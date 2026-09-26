@@ -375,9 +375,9 @@ export const ModelMenu = ({
         />
 
         <PopoverContent
-          className="w-[calc(100vw-1rem)] max-w-96 p-0"
+          className="w-[calc(100vw-1rem)] max-w-96 overflow-hidden p-0"
           align="start">
-          <div className="flex h-96 min-h-0 overflow-hidden rounded-xl bg-popover text-popover-foreground">
+          <div className="flex h-96 min-h-0 overflow-hidden rounded-panel bg-popover text-popover-foreground">
             <nav
               aria-label={t("settings.tabs.providers")}
               className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border bg-surface-sunken p-1.5">
