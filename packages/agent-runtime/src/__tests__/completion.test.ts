@@ -1556,7 +1556,16 @@ describe("judgeAgentCompletion with planned requirements", () => {
         outcomes: [{ id: "r1", met: true }]
       })
     expect(judge("Search for Alice.")).toMatchObject({ type: "accepted" })
+    expect(judge("Continue has been clicked.")).toMatchObject({
+      type: "accepted"
+    })
     expect(judge("Search results for Alice are displayed.")).toMatchObject({
+      type: "refused"
+    })
+    expect(judge("Search for Alice and read the first hit.")).toMatchObject({
+      type: "refused"
+    })
+    expect(judge("Search for Alice to find her email.")).toMatchObject({
       type: "refused"
     })
   })
@@ -1596,6 +1605,60 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge("Enter Alice in the Email field", "Alice")).toMatchObject({
       type: "accepted"
     })
+    expect(judge("Name is Bob or Alice", "Bob")).toMatchObject({
+      type: "refused"
+    })
+  })
+
+  it("binds a batch value by a word of the page's field name", () => {
+    const filled = (names: string[]) =>
+      step({
+        sequence: 1,
+        requirementId: "r1",
+        command: {
+          type: "fill_form",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          fields: [
+            { ref: "e1", type: "clear_and_type", text: "alice@example.com" },
+            { ref: "e2", type: "clear_and_type", text: "Bob" }
+          ]
+        },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "fields",
+            summary: "All 2 fields hold the resolved value",
+            observedAt: 1,
+            fields: names.map((name) => ({ name }))
+          }
+        }
+      })
+    const judge = (names: string[], text: string, evidence: string) =>
+      judgeAgentCompletion({
+        steps: [filled(names)],
+        observation: observation({ visibleText: "Thanks" }),
+        requirements: [{ id: "r1", text, kind: "change" }],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      })
+    expect(
+      judge(
+        ["E-mail address", "Full name"],
+        "Email is alice@example.com",
+        "alice@example.com"
+      )
+    ).toMatchObject({ type: "accepted" })
+    expect(
+      judge(["E-mail address", "Full name"], "Email is Bob", "Bob")
+    ).toMatchObject({ type: "refused" })
+    /** A word both fields carry says nothing about which one is meant. */
+    expect(
+      judge(
+        ["Work e-mail", "Home e-mail"],
+        "Email is alice@example.com",
+        "alice@example.com"
+      )
+    ).toMatchObject({ type: "refused" })
   })
 
   it("does not let a submission bound elsewhere vouch for a requirement", () => {

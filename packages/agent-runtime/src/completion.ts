@@ -449,11 +449,44 @@ const valueOccurrenceIsNegated = (
   )
 }
 
-/** Whether the resolved value is named as a complete, non-negated phrase. */
+/**
+ * Whether one complete value occurrence is only one of several the
+ * requirement allows. "Color is Blue or Red" does not say the color is Blue,
+ * so a receipt for Blue cannot meet it; the list before an `or` counts too
+ * ("Blue, Red or Green").
+ */
+const VALUE_ALTERNATIVE_BEFORE_PATTERN =
+  /(?:\b(?:or|either|nor)\b|\/)(?:\s+[\p{L}\p{N}_'-]+){0,3}\s*$/u
+const VALUE_ALTERNATIVE_AFTER_PATTERN =
+  /^(?:\s*,\s*[^,.;:!?]{1,40}?)*,?\s*(?:\bor\b|\/)/u
+
+const valueOccurrenceIsAlternative = (
+  text: string,
+  occurrence: { start: number; end: number }
+): boolean => {
+  const beforeClause = text
+    .slice(Math.max(0, occurrence.start - 80), occurrence.start)
+    .split(/[.!?;:]|\b(?:but|instead|rather)\b/u)
+    .at(-1)
+  const afterClause = text
+    .slice(occurrence.end, occurrence.end + 80)
+    .split(/[.!?;:]|\b(?:but|instead|rather)\b/u)[0]
+  return (
+    VALUE_ALTERNATIVE_BEFORE_PATTERN.test(beforeClause ?? "") ||
+    VALUE_ALTERNATIVE_AFTER_PATTERN.test(afterClause ?? "")
+  )
+}
+
+/**
+ * Whether the resolved value is named as a complete phrase the requirement
+ * asserts: not negated, and not one of alternatives.
+ */
 const valueAssertedWithoutNegation = (text: string, value: string): boolean => {
   const needle = agentNormalizedClaim(value)
   return completePhraseOccurrences(text, needle).some(
-    (occurrence) => !valueOccurrenceIsNegated(text, occurrence)
+    (occurrence) =>
+      !valueOccurrenceIsNegated(text, occurrence) &&
+      !valueOccurrenceIsAlternative(text, occurrence)
   )
 }
 
@@ -630,21 +663,91 @@ const requirementNamesBatchField = (
       : []
   const text = agentNormalizedClaim(requirement.text)
   const valueAt = completePhraseOccurrences(text, agentNormalizedClaim(value))
-  let nearest: { index: number; distance: number } | undefined
-  names.forEach((name, fieldIndex) => {
-    for (const at of completePhraseOccurrences(text, name)) {
-      for (const occurrence of valueAt) {
-        const distance =
+  /**
+   * The page's own name first; failing that, a word of it. The planner
+   * writes "Email" for a field the page calls "E-mail address", and
+   * refusing that sends a finished run back for review once the form is
+   * gone. A name or word two fields share at one distance is a tie, and a
+   * tie binds nothing.
+   */
+  const exact = nearestFieldName(names, valueAt, (name) =>
+    completePhraseOccurrences(text, name)
+  )
+  const named =
+    exact === undefined
+      ? nearestFieldName(names, valueAt, (name) =>
+          fieldNameWordOccurrences(text, name)
+        )
+      : exact
+  if (named === "tied") return false
+  if (named === undefined) return fieldCount === 1
+  return named === index
+}
+
+type PhraseSpan = { start: number; end: number }
+
+/** The field whose name sits nearest the value, or a tie between two. */
+const nearestFieldName = (
+  names: readonly string[],
+  valueAt: readonly PhraseSpan[],
+  occurrencesOf: (name: string) => PhraseSpan[]
+): number | "tied" | undefined => {
+  const distances = names.flatMap((name, index) =>
+    occurrencesOf(name).flatMap((at) =>
+      valueAt.map((occurrence) => ({
+        index,
+        distance:
           at.end <= occurrence.start
             ? occurrence.start - at.end
             : at.start - occurrence.end
-        if (distance >= 0 && (!nearest || distance < nearest.distance))
-          nearest = { index: fieldIndex, distance }
-      }
-    }
-  })
-  if (!nearest) return fieldCount === 1
-  return nearest.index === index
+      }))
+    )
+  )
+  const reached = distances.filter(({ distance }) => distance >= 0)
+  if (reached.length === 0) return undefined
+  const closest = Math.min(...reached.map(({ distance }) => distance))
+  const fields = new Set(
+    reached
+      .filter(({ distance }) => distance === closest)
+      .map(({ index }) => index)
+  )
+  return fields.size === 1 ? [...fields][0] : "tied"
+}
+
+/** Words too generic to say which field a requirement means. */
+const FIELD_NAME_FILLER = new Set([
+  "the",
+  "your",
+  "field",
+  "box",
+  "input",
+  "text",
+  "enter",
+  "type",
+  "and",
+  "for"
+])
+
+const compactFieldWord = (word: string): string =>
+  word.replaceAll(/[-_'’]/gu, "")
+
+/**
+ * Where a distinctive word of a field's name, compared without hyphens,
+ * appears in the requirement: "e-mail" is "email".
+ */
+const fieldNameWordOccurrences = (text: string, name: string): PhraseSpan[] => {
+  const words = new Set(
+    (name.match(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu) ?? [])
+      .map(compactFieldWord)
+      .filter((word) => word.length >= 3 && !FIELD_NAME_FILLER.has(word))
+  )
+  if (words.size === 0) return []
+  return [...text.matchAll(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu)].flatMap(
+    (match) =>
+      words.has(compactFieldWord(match[0]))
+        ? [{ start: match.index, end: match.index + match[0].length }]
+        : []
+  )
 }
 
 /**
@@ -881,6 +984,33 @@ const SUBMITTING_REQUIREMENT_PATTERN =
 const RESULT_STATE_REQUIREMENT_PATTERN =
   /\b(?:results?|displayed|display|displays|shown|shows|show|appear|appears|appeared|visible|listed|lists|loaded|loads|saved|created|updated|returned|returns|opened|opens)\b/
 
+/**
+ * A second clause after the act: "Search for Alice and read the first hit"
+ * claims the hit was read, in words no result list could name. A
+ * requirement the submission can meet is the act alone, so anything joined
+ * to it is an outcome the sent form does not prove.
+ */
+const FURTHER_CLAIM_PATTERN =
+  /[,;:]|\b(?:and|then|to|so|until|after|before|while|once|when|where|which|that|if|showing|finding|reading|opening|open|read|find|get|check|verify|confirm|see|view|report)\b/
+
+/**
+ * Whether the requirement claims only the act of sending: an imperative
+ * that begins with it ("Search for Alice", "Click Continue"), or a
+ * statement that ends with it ("Continue has been clicked").
+ */
+const SUBMISSION_ACT_PATTERN = new RegExp(
+  `^(?:please )?${SUBMITTING_REQUIREMENT_PATTERN.source}|${SUBMITTING_REQUIREMENT_PATTERN.source}$`
+)
+
+const claimsOnlySubmission = (requirement: AgentTaskRequirement): boolean => {
+  const text = agentNormalizedClaim(requirement.text).replace(/[.!]+$/u, "")
+  return (
+    SUBMISSION_ACT_PATTERN.test(text) &&
+    !FURTHER_CLAIM_PATTERN.test(text) &&
+    !RESULT_STATE_REQUIREMENT_PATTERN.test(text)
+  )
+}
+
 const isBoundSubmission = (
   requirement: AgentTaskRequirement,
   receipt: AgentStepReadout
@@ -890,10 +1020,7 @@ const isBoundSubmission = (
    * The verifier confirmed the form was sent, not what sending it achieved:
    * it evidences "Continue has been clicked", never "the address is saved".
    */
-  SUBMITTING_REQUIREMENT_PATTERN.test(agentNormalizedClaim(requirement.text)) &&
-  !RESULT_STATE_REQUIREMENT_PATTERN.test(
-    agentNormalizedClaim(requirement.text)
-  ) &&
+  claimsOnlySubmission(requirement) &&
   receipt.verification?.outcome === "confirmed" &&
   receipt.verification.evidence.kind === "submission"
 
