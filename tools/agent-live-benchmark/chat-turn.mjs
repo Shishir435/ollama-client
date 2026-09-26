@@ -256,6 +256,21 @@ const sameOrigin = (url, origin) => {
 }
 
 /**
+ * A message's text. A decision request that carries a screenshot sends its
+ * content as parts — the observation JSON in a text part beside the image —
+ * rather than one string.
+ */
+const messageText = (content) =>
+  Array.isArray(content)
+    ? content
+        .filter(
+          (part) => part?.type === "text" && typeof part.text === "string"
+        )
+        .map((part) => part.text)
+        .join("")
+    : String(content)
+
+/**
  * The page text the browser task's own observations carried, from each
  * decision request: the visible text the run was shown, never the task, its
  * history or anything the model wrote. A delegated run reads pages through
@@ -277,7 +292,9 @@ export const agentObservedText = (wire, origin) =>
         .filter((message) => message.role === "user")
         .flatMap((message) => {
           try {
-            const observation = JSON.parse(String(message.content))?.observation
+            const observation = JSON.parse(
+              messageText(message.content)
+            )?.observation
             if (origin && !sameOrigin(observation?.url, origin)) return []
             /**
              * The projection sends the page as `text`, and `documentText`

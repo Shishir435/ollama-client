@@ -262,6 +262,33 @@ describe("agentObservedText", () => {
       "QP-719"
     )
   })
+
+  it("reads the text part of a request that carries a screenshot", () => {
+    const wire = [
+      {
+        path: "/v1/chat/completions",
+        request: {
+          tools: [{ function: { name: "agent_decision" } }],
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({ observation: { text: "QP-719" } })
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: "data:image/png;base64,AAAA" }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+    assert.equal(agentObservedText(wire), "QP-719")
+  })
 })
 
 describe("upstreamAuthorization", () => {
