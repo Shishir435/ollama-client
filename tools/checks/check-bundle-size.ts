@@ -422,8 +422,9 @@ const budgets: Budget[] = [
      * routine origin and the tighter evidence bindings. The second round,
      * 292,960: the named-field binding and the whole-notice routine rule.
      * The third, 293,394: word-level field names and the stricter landing.
+     * The fourth, 293,573: the focus-only and constrained-search rules.
      */
-    max: isFirefox ? 212_600 : 293_500
+    max: isFirefox ? 212_600 : 293_700
   }
 ]
 
