@@ -443,8 +443,7 @@ try {
       pauseReason: final?.run?.pauseReason,
       openTabActive,
       readText: chatToolText(wire),
-      observedText: agentObservedText(wire),
-      fixtureOrigin: origin,
+      observedText: agentObservedText(wire, origin),
       delegated: delegated && final.run.status === "completed"
     })
     const success = scored.success

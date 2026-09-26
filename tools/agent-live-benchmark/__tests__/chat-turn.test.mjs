@@ -249,6 +249,18 @@ describe("agentObservedText", () => {
       agentObservedText(wire),
       "Reference code: QP-719\nStatus code: ZX-482"
     )
+    const on = (url, text) =>
+      decision(JSON.stringify({ observation: { url, text } }))
+    assert.equal(
+      agentObservedText(
+        [
+          on("http://127.0.0.1:5000/memory", "QP-719"),
+          on("https://elsewhere.example/details", "ZX-482")
+        ],
+        "http://127.0.0.1:5000"
+      ),
+      "QP-719"
+    )
   })
 })
 

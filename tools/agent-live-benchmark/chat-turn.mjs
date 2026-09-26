@@ -247,13 +247,23 @@ export const startFreshChat = async (panel) => {
   }
 }
 
+const sameOrigin = (url, origin) => {
+  try {
+    return new URL(String(url)).origin === new URL(origin).origin
+  } catch {
+    return false
+  }
+}
+
 /**
  * The page text the browser task's own observations carried, from each
  * decision request: the visible text the run was shown, never the task, its
  * history or anything the model wrote. A delegated run reads pages through
- * these, so an answer is checked against them rather than trusted.
+ * these, so an answer is checked against them rather than trusted. With an
+ * origin, only pages on that origin count: the fixture's text, not a page
+ * elsewhere that happens to carry the same words.
  */
-export const agentObservedText = (wire) =>
+export const agentObservedText = (wire, origin) =>
   wire
     .filter(
       (rec) =>
@@ -268,6 +278,7 @@ export const agentObservedText = (wire) =>
         .flatMap((message) => {
           try {
             const observation = JSON.parse(String(message.content))?.observation
+            if (origin && !sameOrigin(observation?.url, origin)) return []
             /**
              * The projection sends the page as `text`, and `documentText`
              * for a page read further in; `visibleText` is the raw shape

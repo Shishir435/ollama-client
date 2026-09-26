@@ -175,23 +175,6 @@ const pathOf = (url) => {
   }
 }
 
-/**
- * Whether the tab is on exactly this fixture page: its origin and its path,
- * so another host's `/details` is not the fixture's.
- */
-const landedOn = (url, origin, path) => {
-  try {
-    const landed = new URL(String(url))
-    return (
-      Boolean(origin) &&
-      landed.origin === new URL(origin).origin &&
-      landed.pathname === path
-    )
-  } catch {
-    return false
-  }
-}
-
 export const scoreSyntheticTask = ({
   kind,
   completed,
@@ -210,10 +193,8 @@ export const scoreSyntheticTask = ({
   readText = "",
   /** A browser task ran and completed; its own observations read the page. */
   delegated = false,
-  /** The visible text the browser task's observations carried. */
-  observedText = "",
-  /** The origin the fixture pages are served from. */
-  fixtureOrigin = ""
+  /** The fixture pages' text the browser task's observations carried. */
+  observedText = ""
 }) => {
   const answered = (value) => statesValue(answer, value)
   /** The value is in the reply and in a page this turn read. */
@@ -222,6 +203,11 @@ export const scoreSyntheticTask = ({
     (statesValue(readText, value) ||
       (delegated &&
         (statesValue(observedText, value) || statesValue(body, value))))
+  /** The same, from reads bound to the fixture: never the final tab body. */
+  const readOnFixture = (value) =>
+    answered(value) &&
+    (statesValue(readText, value) ||
+      (delegated && statesValue(observedText, value)))
   const saysActive = statesActive(answer)
   const pageShowsActive = statesActive(body)
   /** Tested on the path: a plain GET form lands on `/form/details?name=Alice`. */
@@ -250,18 +236,16 @@ export const scoreSyntheticTask = ({
       }
     case "memory":
       /**
-       * One code is on the start page and one on the details page, so the
-       * run must have landed on the fixture's details page and a page it
-       * read must show each
-       * code: the answer alone could be recalled from anywhere.
+       * One code is on the start page and one only on the details page, so
+       * a fixture page read showing each proves Details was opened, in
+       * whichever tab and wherever the run ended: the answer alone could
+       * be recalled from anywhere, and the final address says nothing
+       * about what was read on the way.
        */
       return {
         success:
-          completed &&
-          landedOn(url, fixtureOrigin, "/memory/details") &&
-          read("QP-719") &&
-          read("ZX-482"),
-        predicate: "navigation+page-read:both-codes"
+          completed && readOnFixture("QP-719") && readOnFixture("ZX-482"),
+        predicate: "page-read:both-codes"
       }
     case "ambiguous":
       return {

@@ -249,52 +249,30 @@ describe("scoreSyntheticTask answer tasks", () => {
     assert.equal(statesValue("Release 0.14.0-rc", "0.14.0"), false)
   })
 
-  it("scores memory only after landing on details and reading both codes", () => {
+  it("scores memory by fixture reads of both codes, wherever the run ended", () => {
+    const both = "Reference code: QP-719 Details\nStatus code: ZX-482"
     const base = {
       kind: "memory",
       completed: true,
       answer: "QP-719 and ZX-482",
-      fixtureOrigin: "http://127.0.0.1:5000"
+      delegated: true
     }
+    const score = (extra) => scoreSyntheticTask({ ...base, ...extra }).success
+    /** Details read in another tab; the controlled tab is back at the start. */
     assert.equal(
-      scoreSyntheticTask({ ...base, url: "http://127.0.0.1:5000/memory" })
-        .success,
-      false
-    )
-    assert.equal(
-      scoreSyntheticTask({
-        ...base,
-        url: "http://127.0.0.1:5000/memory/details"
-      }).success,
-      false
-    )
-    assert.equal(
-      scoreSyntheticTask({
-        ...base,
-        url: "http://127.0.0.1:5000/memory/details",
-        delegated: true,
-        observedText: "Reference code: QP-719 Details\nStatus code: ZX-482"
-      }).success,
+      score({ url: "http://127.0.0.1:5000/memory", observedText: both }),
       true
     )
+    assert.equal(score({ observedText: "Status code: ZX-482" }), false)
+    /** The final page alone is not a read the fixture bound. */
+    assert.equal(score({ body: both }), false)
+    assert.equal(score({ observedText: both, answer: "QP-719" }), false)
+    /** A chat-only answer counts only through its page-reading tools. */
     assert.equal(
-      scoreSyntheticTask({
-        ...base,
-        url: "http://127.0.0.1:5000/memory/details",
-        delegated: true,
-        observedText: "Status code: ZX-482"
-      }).success,
+      score({ delegated: false, observedText: both, readText: "" }),
       false
     )
-    assert.equal(
-      scoreSyntheticTask({
-        ...base,
-        url: "https://elsewhere.example/memory/details",
-        delegated: true,
-        observedText: "Reference code: QP-719 Details\nStatus code: ZX-482"
-      }).success,
-      false
-    )
+    assert.equal(score({ delegated: false, readText: both }), true)
   })
 })
 
