@@ -71,7 +71,10 @@ rate.
 Answer tasks match whole values, case-insensitively, and need the value in a
 page this turn read — a `current_tab`/`read_tab` result, or the page a
 completed browser task observed — never the reply alone or the browser task's
-own report. `memory` must also have landed on the details page.
+own report. A browser task's reads count only on the fixture's own origin.
+`memory` needs both codes from those reads: the status code is only on the
+details page, so reading it proves Details was opened, in whichever tab and
+wherever the run ended.
 
 Predicate notes: real-site `__inbody__` tasks require a multi-word verbatim
 span minus page-chrome boilerplate (`score-answer.mjs:INBODY_RULES`), so

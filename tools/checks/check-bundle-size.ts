@@ -425,9 +425,11 @@ const budgets: Budget[] = [
      * 292,960: the named-field binding and the whole-notice routine rule.
      * The third, 293,394: word-level field names and the stricter landing.
      * The fourth, 293,573: the focus-only and constrained-search rules.
-     * The fifth, 293,750: claims bound to the words a receipt proves.
+     * The fifth, 293,750: claims bound to the words a receipt proves. The
+     * sixth, 293,895: submitted values on the receipt and the panel's own
+     * verification projection.
      */
-    max: isFirefox ? 212_600 : 293_800
+    max: isFirefox ? 212_600 : 294_000
   }
 ]
 
