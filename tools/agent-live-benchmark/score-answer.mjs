@@ -175,6 +175,23 @@ const pathOf = (url) => {
   }
 }
 
+/**
+ * Whether the tab is on exactly this fixture page: its origin and its path,
+ * so another host's `/details` is not the fixture's.
+ */
+const landedOn = (url, origin, path) => {
+  try {
+    const landed = new URL(String(url))
+    return (
+      Boolean(origin) &&
+      landed.origin === new URL(origin).origin &&
+      landed.pathname === path
+    )
+  } catch {
+    return false
+  }
+}
+
 export const scoreSyntheticTask = ({
   kind,
   completed,
@@ -194,7 +211,9 @@ export const scoreSyntheticTask = ({
   /** A browser task ran and completed; its own observations read the page. */
   delegated = false,
   /** The visible text the browser task's observations carried. */
-  observedText = ""
+  observedText = "",
+  /** The origin the fixture pages are served from. */
+  fixtureOrigin = ""
 }) => {
   const answered = (value) => statesValue(answer, value)
   /** The value is in the reply and in a page this turn read. */
@@ -232,11 +251,16 @@ export const scoreSyntheticTask = ({
     case "memory":
       /**
        * One code is on the start page and one on the details page, so the
-       * run must have landed on details and a page it read must show each
+       * run must have landed on the fixture's details page and a page it
+       * read must show each
        * code: the answer alone could be recalled from anywhere.
        */
       return {
-        success: completed && detailsUrl && read("QP-719") && read("ZX-482"),
+        success:
+          completed &&
+          landedOn(url, fixtureOrigin, "/memory/details") &&
+          read("QP-719") &&
+          read("ZX-482"),
         predicate: "navigation+page-read:both-codes"
       }
     case "ambiguous":

@@ -218,10 +218,25 @@ describe("agentObservedText", () => {
       decision(
         JSON.stringify({
           task: "Report QP-000",
-          observation: { visibleText: "Reference code: QP-719" }
+          observation: { text: "Reference code: QP-719" }
         })
       ),
+      decision(
+        JSON.stringify({ observation: { documentText: "Status code: ZX-482" } })
+      ),
       decision("not json"),
+      {
+        path: "/v1/chat/completions",
+        request: {
+          tools: [{ function: { name: "not_agent_decision" } }],
+          messages: [
+            {
+              role: "user",
+              content: JSON.stringify({ observation: { text: "QP-000" } })
+            }
+          ]
+        }
+      },
       {
         path: "/v1/chat/completions",
         request: {
@@ -230,7 +245,10 @@ describe("agentObservedText", () => {
         }
       }
     ]
-    assert.equal(agentObservedText(wire), "Reference code: QP-719")
+    assert.equal(
+      agentObservedText(wire),
+      "Reference code: QP-719\nStatus code: ZX-482"
+    )
   })
 })
 

@@ -258,18 +258,28 @@ export const agentObservedText = (wire) =>
     .filter(
       (rec) =>
         rec.path?.endsWith("/chat/completions") &&
-        JSON.stringify(rec.request?.tools ?? []).includes("agent_decision")
+        (rec.request?.tools ?? []).some(
+          (tool) => tool?.function?.name === "agent_decision"
+        )
     )
     .flatMap((rec) =>
       (rec.request?.messages ?? [])
         .filter((message) => message.role === "user")
-        .map((message) => {
+        .flatMap((message) => {
           try {
-            const text = JSON.parse(String(message.content))?.observation
-              ?.visibleText
-            return typeof text === "string" ? text : ""
+            const observation = JSON.parse(String(message.content))?.observation
+            /**
+             * The projection sends the page as `text`, and `documentText`
+             * for a page read further in; `visibleText` is the raw shape
+             * older evidence carried.
+             */
+            return [
+              observation?.text,
+              observation?.documentText,
+              observation?.visibleText
+            ].filter((text) => typeof text === "string" && text)
           } catch {
-            return ""
+            return []
           }
         })
     )

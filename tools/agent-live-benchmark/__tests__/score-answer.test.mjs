@@ -253,7 +253,8 @@ describe("scoreSyntheticTask answer tasks", () => {
     const base = {
       kind: "memory",
       completed: true,
-      answer: "QP-719 and ZX-482"
+      answer: "QP-719 and ZX-482",
+      fixtureOrigin: "http://127.0.0.1:5000"
     }
     assert.equal(
       scoreSyntheticTask({ ...base, url: "http://127.0.0.1:5000/memory" })
@@ -282,6 +283,15 @@ describe("scoreSyntheticTask answer tasks", () => {
         url: "http://127.0.0.1:5000/memory/details",
         delegated: true,
         observedText: "Status code: ZX-482"
+      }).success,
+      false
+    )
+    assert.equal(
+      scoreSyntheticTask({
+        ...base,
+        url: "https://elsewhere.example/memory/details",
+        delegated: true,
+        observedText: "Reference code: QP-719 Details\nStatus code: ZX-482"
       }).success,
       false
     )

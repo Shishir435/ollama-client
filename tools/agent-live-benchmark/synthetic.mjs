@@ -444,6 +444,7 @@ try {
       openTabActive,
       readText: chatToolText(wire),
       observedText: agentObservedText(wire),
+      fixtureOrigin: origin,
       delegated: delegated && final.run.status === "completed"
     })
     const success = scored.success
