@@ -304,6 +304,33 @@ describe("Agent DOM mutation resolution and policy", () => {
   })
 
   /**
+   * Wikipedia's search suggestion links to `Special:Search?search=Firefox`
+   * and its server answers with the article. Following the page's own link
+   * to wherever its site sends it is a click that worked; another origin is
+   * still left for review.
+   */
+  it.each([
+    ["confirmed", "/wiki/Firefox"],
+    ["ambiguous", "https://elsewhere.example/wiki/Firefox"]
+  ])("judges a followed link that committed %s at %s", async (outcome, landedPath) => {
+    const link = new URL(
+      "/w/index.php?title=Special%3ASearch&search=Firefox",
+      location.href
+    ).href
+    const before = observation({
+      elements: [element({ tag: "a", name: "Firefox", href: link })]
+    })
+    const landed = new URL(landedPath, location.href).href
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      observation({ url: landed, documentId: "document-2", generation: 2 }),
+      before,
+      { getTab: async () => ({ url: landed }) }
+    )
+    expect(result.outcome).toBe(outcome)
+  })
+
+  /**
    * The completion judge binds a searched value to what this form sent, so
    * the receipt keeps the visible query it was approved with — never the
    * landed address, whose hidden fields may be tokens.

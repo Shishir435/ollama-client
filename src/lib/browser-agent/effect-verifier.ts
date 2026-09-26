@@ -68,6 +68,14 @@ const observeAfter = (
     signal
   )
 
+const sameOrigin = (first: string, second: string): boolean => {
+  try {
+    return new URL(first).origin === new URL(second).origin
+  } catch {
+    return false
+  }
+}
+
 const sameUrl = (first: string | undefined, second: string): boolean => {
   if (!first) return false
   try {
@@ -591,26 +599,41 @@ const verifyCommittedDestination = async (
   if (!tab?.url) {
     return result("negative", kind, "Destination tab is gone", adapter.now())
   }
-  if (!landedAt(tab.url, destination.url)) {
-    return sameUrl(tab.url, input.effect.sourceUrl)
-      ? result(
-          "ambiguous",
-          kind,
-          "Navigation did not settle before verification",
-          adapter.now()
-        )
-      : result(
-          "ambiguous",
-          kind,
-          "A different destination committed",
-          adapter.now()
-        )
-  }
+  const landed = landedAt(tab.url, destination.url)
+  if (!landed && sameUrl(tab.url, input.effect.sourceUrl))
+    return result(
+      "ambiguous",
+      kind,
+      "Navigation did not settle before verification",
+      adapter.now()
+    )
+  /**
+   * A link the page itself showed, followed to wherever its own server sent
+   * it on the same origin, is the click a person makes. Wikipedia's search
+   * suggestions link to `Special:Search?search=Firefox`, answered with the
+   * article, and every such click paused the run as an unresolved effect on
+   * the page it had asked for. A model-composed address keeps the exact
+   * rule: nobody on the page vouched for it, so a consent wall or a dropped
+   * query stays for review, and another origin always does.
+   */
+  const followedLink =
+    kind === "activation" &&
+    destination.source === "observed" &&
+    sameOrigin(tab.url, destination.url)
+  if (!landed && !followedLink)
+    return result(
+      "ambiguous",
+      kind,
+      "A different destination committed",
+      adapter.now()
+    )
   return (await adapter.classifyAccess(tab.url)) === "ok"
     ? result(
         "confirmed",
         kind,
-        "Authorized destination is committed",
+        landed
+          ? "Authorized destination is committed"
+          : "The site redirected its own link within its origin",
         adapter.now()
       )
     : result(
