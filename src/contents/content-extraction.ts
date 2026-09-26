@@ -42,6 +42,34 @@ const renderedCopy = (doc: Document): Document => {
   return copy
 }
 
+const comparableText = (text: string | null | undefined): string =>
+  (text ?? "").replace(/\s+/g, " ").trim().toLowerCase()
+
+/**
+ * Whether Defuddle's result carries text only an unrendered element holds.
+ *
+ * Defuddle has to read the live document for its computed styles, so it
+ * cannot be handed the rendered copy — and when a page yields under fifty
+ * words it parses again with hidden-element removal off, which brings a
+ * closed dialog's or a `hidden` section's text straight back. Text that the
+ * rendered copy also shows is not a leak; text only a hidden element holds
+ * is, and the result is dropped for the fallbacks, which read the copy.
+ */
+const showsUnrenderedText = (
+  doc: Document,
+  rendered: Document,
+  extracted: string
+): boolean => {
+  const haystack = comparableText(extracted)
+  const shown = comparableText(rendered.body?.textContent)
+  for (const element of doc.querySelectorAll(UNRENDERED_SELECTOR)) {
+    const hidden = comparableText(element.textContent)
+    if (hidden && haystack.includes(hidden) && !shown.includes(hidden))
+      return true
+  }
+  return false
+}
+
 const tryDefuddle = (doc: Document): ReadableContent | null => {
   try {
     const defuddle = new Defuddle(doc, {
@@ -69,11 +97,13 @@ const tryDefuddle = (doc: Document): ReadableContent | null => {
 }
 
 const tryReadability = (
-  doc: Document,
+  rendered: Document,
   forced: boolean
 ): ReadableContent | null => {
   try {
-    const article = new Readability(renderedCopy(doc)).parse()
+    const article = new Readability(
+      rendered.cloneNode(true) as Document
+    ).parse()
     const text = article?.textContent || ""
     const normalized = normalizeWhitespaceForLLM(text)
     if (!normalized) return null
@@ -90,8 +120,8 @@ const tryReadability = (
   }
 }
 
-const tryBasic = (doc: Document): ReadableContent | null => {
-  const bodyText = renderedCopy(doc).body?.textContent || ""
+const tryBasic = (rendered: Document): ReadableContent | null => {
+  const bodyText = rendered.body?.textContent || ""
   const normalized = normalizeWhitespaceForLLM(bodyText)
   if (normalized.length <= MIN_BASIC_FALLBACK_THRESHOLD) return null
   return {
@@ -136,7 +166,7 @@ const mergeReadability = (
 }
 
 const applyBasicFallback = (
-  doc: Document,
+  rendered: Document,
   current: ReadableContent | null
 ): ReadableContent | null => {
   const hasUsefulContent =
@@ -144,7 +174,7 @@ const applyBasicFallback = (
     current.readableText.trim().length >= MIN_READABILITY_FALLBACK_THRESHOLD
   if (hasUsefulContent) return current
 
-  const basic = tryBasic(doc)
+  const basic = tryBasic(rendered)
   if (!basic) return current
   if (current?.pageTitle) basic.pageTitle = current.pageTitle
   return basic
@@ -154,11 +184,14 @@ export const extractReadableContent = (
   doc: Document,
   scraper: ContentExtractionConfig["contentScraper"]
 ): ReadableContent => {
+  const rendered = renderedCopy(doc)
   let current =
     scraper === "auto" || scraper === "defuddle" ? tryDefuddle(doc) : null
+  if (current && showsUnrenderedText(doc, rendered, current.readableText))
+    current = null
 
   if (shouldTryReadability(scraper, current)) {
-    const readability = tryReadability(doc, scraper === "readability")
+    const readability = tryReadability(rendered, scraper === "readability")
     if (readability) {
       current = mergeReadability(
         current,
@@ -168,7 +201,7 @@ export const extractReadableContent = (
     }
   }
 
-  current = applyBasicFallback(doc, current)
+  current = applyBasicFallback(rendered, current)
   return (
     current ?? {
       readableText: "",

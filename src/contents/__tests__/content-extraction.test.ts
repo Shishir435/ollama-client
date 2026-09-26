@@ -65,6 +65,34 @@ describe("extractReadableContent", () => {
     expect(doc.body.textContent).toContain("Status: Active")
   })
 
+  /**
+   * Defuddle reads the live document and, on a short page, parses again with
+   * hidden-element removal off. Its result is dropped when it carries text
+   * only a hidden element holds.
+   */
+  it("drops a Defuddle result that brought back hidden text", () => {
+    const hidden = "Account status: Active since March"
+    setDefuddle({ contentMarkdown: `Open dialog ${hidden}`, title: "T" })
+    const result = extractReadableContent(
+      makeDoc(
+        `<button>Open dialog</button><div hidden="until-found">${hidden}</div>`
+      ),
+      "auto"
+    )
+    expect(result.selectedExtractor).not.toBe("defuddle")
+    expect(result.readableText).not.toContain(hidden)
+  })
+
+  it("keeps a Defuddle result whose text the page also shows", () => {
+    const text = "word ".repeat(60).trim()
+    setDefuddle({ contentMarkdown: text, title: "T" })
+    const result = extractReadableContent(
+      makeDoc(`<p>${text}</p><dialog><p>word</p></dialog>`),
+      "auto"
+    )
+    expect(result.selectedExtractor).toBe("defuddle")
+  })
+
   it("leaves closed dialog text out of the body-text fallback", () => {
     const filler = "word ".repeat(60).trim()
     const result = extractReadableContent(
