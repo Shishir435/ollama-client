@@ -120,6 +120,16 @@ describe("real-site scorer", () => {
       "missed"
     )
   })
+
+  it("leaves a run that asked the user past a captcha out of the rates", () => {
+    const challenge =
+      "Unfortunately, bots use DuckDuckGo too. Please complete the following challenge to confirm this search was made by a human."
+    const paused = (pauseReason, body) =>
+      scoreVerdict({ status: "paused", success: false, pauseReason, body })
+    assert.equal(paused("question", challenge), "site_blocked")
+    assert.equal(paused("question", "Search results"), "missed")
+    assert.equal(paused("unresolved_effect", challenge), "missed")
+  })
 })
 
 describe("synthetic scorer", () => {

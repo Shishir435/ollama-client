@@ -460,7 +460,8 @@ try {
     const verdict = scoreVerdict({
       status,
       success,
-      pauseReason: final?.run?.pauseReason
+      pauseReason: final?.run?.pauseReason,
+      body
     })
     const calls = wire.filter((w) => w.path.endsWith("/chat/completions"))
     const row = {

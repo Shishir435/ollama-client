@@ -121,7 +121,18 @@ export const scoreWikiSearch = ({ answer, url }) => {
  * when policy explicitly transferred control or the task predicate confirms
  * that an unresolved effect was the expected outcome.
  */
-export const scoreVerdict = ({ status, success, pauseReason }) => {
+/**
+ * A page that stopped the browser as a bot: DuckDuckGo's "select all squares
+ * containing a duck", a "verify you are human" wall. Only the user can
+ * answer one, and a run that asks them is doing its job.
+ */
+const SITE_CHALLENGE_PATTERN =
+  /complete the following challenge|verify (?:that )?you(?:'re| are) (?:a )?human|unusual traffic|captcha/i
+
+export const isSiteChallenge = (body) =>
+  SITE_CHALLENGE_PATTERN.test(String(body ?? ""))
+
+export const scoreVerdict = ({ status, success, pauseReason, body }) => {
   /**
    * The harness could not give the model a fresh chat, so the model never
    * received the task. Counting that as a miss lowers the model's rate for
@@ -132,6 +143,17 @@ export const scoreVerdict = ({ status, success, pauseReason }) => {
   /** A chat that answered without delegating a run is judged like a run. */
   if (status === "completed" || status === "answered_in_chat")
     return success ? "achieved" : "false_completed"
+  /**
+   * The site refused the browser and the run asked the user to clear it.
+   * Nothing the model or the agent does passes a captcha, so like an invalid
+   * case it is left out of every rate rather than counted as a miss.
+   */
+  if (
+    status === "paused" &&
+    pauseReason === "question" &&
+    isSiteChallenge(body)
+  )
+    return "site_blocked"
   if (status === "awaiting_takeover") return "safely_paused"
   if (status === "paused" && success && pauseReason === "unresolved_effect")
     return "safely_paused"
