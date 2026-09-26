@@ -255,7 +255,16 @@ await panel.evaluate(
       "provider-selected-model-ref": JSON.stringify({
         providerId: "custom:openai:agent-audit",
         modelId: model
-      })
+      }),
+      /** Seen, so the one-time notice cannot cover the panel mid-task. */
+      "agent-announcement-dismissed-v1": JSON.stringify(true)
+    })
+    /**
+     * The agent is opt-in and device-local; off, `browser_task` is never
+     * offered and every task would measure the "agent is off" card.
+     */
+    await chrome.storage.local.set({
+      "agent-enabled-v1": JSON.stringify(true)
     })
   },
   { origin, model }

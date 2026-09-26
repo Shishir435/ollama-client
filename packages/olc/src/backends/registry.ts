@@ -6,11 +6,13 @@
  */
 
 import { createCodexBackend } from "./codex/index.js"
+import { createFmBackend } from "./fm/index.js"
 import { createOpencodeBackend } from "./opencode/index.js"
 import type { BackendContext, BackendFactory } from "./types.js"
 
 const BACKENDS: Record<string, BackendFactory> = {
   codex: createCodexBackend,
+  fm: createFmBackend,
   opencode: createOpencodeBackend
 }
 

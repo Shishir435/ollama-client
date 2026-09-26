@@ -19,6 +19,28 @@ describe("optional permission intent", () => {
     expect(matchesOptionalPermissionIntent(capabilityId, text)).toBe(true)
   })
 
+  it.each([
+    "can you open ducduck go and search for “try”",
+    "open duckduckgo.com",
+    "go to https://news.ycombinator.com",
+    "search for rust tutorials on YouTube",
+    "click the sign in button",
+    "fill in this form with my details"
+  ])("recognizes a browser task: %s", (text) => {
+    expect(matchesOptionalPermissionIntent("browserAgent", text)).toBe(true)
+  })
+
+  /** Open and click are ordinary words in a question about code or files. */
+  it.each([
+    "how do I open a file in Python?",
+    "why doesn't my click handler fire?",
+    "summarize this page",
+    "what is duckduckgo?",
+    "open questions for the design review"
+  ])("leaves an ordinary question alone: %s", (text) => {
+    expect(matchesOptionalPermissionIntent("browserAgent", text)).toBe(false)
+  })
+
   it("shares precise history and session intent with tool exposure", () => {
     expect(matchesOptionalPermissionIntent("history", "History of Rome")).toBe(
       false

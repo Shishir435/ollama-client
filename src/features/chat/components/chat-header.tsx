@@ -17,6 +17,10 @@ import { SessionMetricsBar } from "./session-metrics-bar"
  * instruction moved to the context sheet, where the rest of what gets sent
  * with a message already lives.
  *
+ * The metrics sit in a centred middle column between two equal side columns,
+ * so they stay at the bar's centre however wide the session selector or the
+ * indicators are, and their popover opens under the middle of the panel.
+ *
  * `leading` is where the side panel puts the Chat/Agent switch. It used to
  * have a full-width row above this one, which spent forty pixels of a
  * four-hundred-pixel surface on a two-item toggle and put the mode a person is
@@ -34,13 +38,17 @@ export const ChatHeader = ({
 
   return (
     <div className="sticky top-0 z-30 px-2 pt-2">
-      <div className="flex min-w-0 items-center gap-1 rounded-panel bg-surface-overlay backdrop-blur p-0.5 shadow-xs">
-        {leading}
-        <ChatSessionSelector />
-        {currentSessionId && showSessionMetrics && (
-          <SessionMetricsBar messages={messages} />
-        )}
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 rounded-panel bg-surface-overlay backdrop-blur p-0.5 shadow-xs">
+        <div className="flex min-w-0 items-center gap-1">
+          {leading}
+          <ChatSessionSelector />
+        </div>
+        <div className="flex min-w-0 justify-center">
+          {currentSessionId && showSessionMetrics && (
+            <SessionMetricsBar messages={messages} />
+          )}
+        </div>
+        <div className="flex shrink-0 items-center justify-end gap-1.5">
           <EmbeddingStatusIndicator />
           <ProviderStatusIndicator />
         </div>

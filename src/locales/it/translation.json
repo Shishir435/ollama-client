@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "Schede controllate",
-      "count": "{{count}} schede"
+      "count_one": "{{count}} scheda",
+      "count_other": "{{count}} schede"
     },
     "takeover": {
       "title": "Prendi il controllo di questo passaggio",
@@ -155,9 +156,23 @@
       "reasoning": "Ragionamento"
     },
     "correction": "In pausa. Descrivi cosa cambiare, poi continua.",
+    "experimental_badge": "Sperimentale",
+    "announcement": {
+      "title": "Sperimentale: un agente del browser nella chat",
+      "description": "Il tuo modello di chat ora può svolgere attività nelle tue schede: fare clic, digitare e spostarsi tra le pagine al posto tuo. Resta disattivato finché non lo attivi.",
+      "hosted_models": "Funziona meglio con modelli ospitati capaci (ad esempio tramite OpenRouter o un provider cloud). I modelli locali piccoli spesso non riescono a completare attività in più passaggi.",
+      "approvals": "Chiede prima di inviare moduli, accedere, pagare o eliminare qualsiasi cosa, e puoi fermarlo in qualsiasi momento.",
+      "coming": "È una prima versione. Aspettati qualche imperfezione; altri miglioramenti arriveranno nelle prossime versioni.",
+      "later": "Più tardi",
+      "enable": "Attiva l’agente"
+    },
     "settings": {
       "title": "Agente del browser",
       "description": "Cosa può fare un’esecuzione senza chiedere, quanto contesto può chiedere al modello e quando cattura la pagina.",
+      "enabled": {
+        "label": "Consenti al modello di chat di usare l’agente del browser",
+        "description": "Offre browser_task, che permette al modello di fare clic, digitare e navigare nelle tue schede al posto tuo. Sperimentale: l’efficacia varia molto da un modello all’altro."
+      },
       "context_window": {
         "label": "Finestra di contesto",
         "description": "Automatico prende la finestra più piccola che questo modello e questo server dichiarano, e ripiega su una dimensione prudente quando nessuno dei due si esprime. Imposta tu una dimensione se hai alzato il limite del tuo server o se un'esecuzione ha esaurito la memoria.",
@@ -660,7 +675,14 @@
       "manage": "Gestisci autorizzazioni",
       "not_granted": "L’autorizzazione non è stata concessa. Riprova o gestiscila nelle Impostazioni.",
       "resume_failed": "Impossibile continuare la richiesta. Riprova.",
-      "reminders": "Promemoria"
+      "reminders": "Promemoria",
+      "agent": {
+        "title": "L’agente del browser è disattivato",
+        "description": "Sembra un’attività nel browser. L’agente è sperimentale e funziona meglio con modelli ospitati.",
+        "enable": "Attiva e continua",
+        "continue_without": "Continua senza",
+        "manage": "Impostazioni agente"
+      }
     },
     "errors": {
       "unknown_error": "❌ Errore sconosciuto: {{message}}",
@@ -719,7 +741,8 @@
       "rows": {
         "tabs": "Contesto di pagina e schede",
         "knowledge": "Cerca nei file caricati",
-        "web": "Ricerca web"
+        "web": "Ricerca web",
+        "agent": "Agente del browser (sperimentale)"
       }
     },
     "artifacts": {
@@ -807,6 +830,10 @@
       "search_placeholder": "Cerca modello...",
       "no_model_found": "Nessun modello trovato.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Modelli cloud di Ollama",
+        "description": "Modelli :cloud ospitati. Richiedono Ollama con accesso effettuato e spesso un piano a pagamento."
+      },
       "providers_unavailable": "{{names}} non ha restituito modelli. Controlla il provider nelle impostazioni o aggiungi gli ID modello manualmente.",
       "selection_conflict": "Scegli un provider per {{model}}: più di uno lo offre."
     },
@@ -1429,6 +1456,7 @@
       "prompts": "Libreria di prompt",
       "models": "Comportamento del modello",
       "extraction": "Pagina e schede",
+      "agent": "Agente",
       "context": "Conoscenza e web",
       "embeddings": "Conoscenza salvata",
       "providers": "Provider",

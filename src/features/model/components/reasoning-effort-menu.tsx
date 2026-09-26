@@ -109,12 +109,12 @@ const ReasoningEffortControl = ({
         <div className="flex items-start gap-2">
           <Brain className="icon-sm mt-0.5 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1 text-center">
+            <p className="truncate text-sm font-medium text-primary">{label}</p>
             <p
               title={modelName}
               className="truncate text-micro text-muted-foreground">
               {modelName}
             </p>
-            <p className="truncate font-medium text-primary">{label}</p>
           </div>
           <TooltipActionButton
             variant="ghost"
@@ -132,7 +132,7 @@ const ReasoningEffortControl = ({
           />
         </div>
         <Slider
-          size="lg"
+          size="xl"
           value={[index]}
           min={0}
           max={scale.length - 1}

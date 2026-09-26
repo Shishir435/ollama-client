@@ -79,4 +79,56 @@ describe("OptionalPermissionNoticeCard", () => {
       await screen.findByText("chat.permissions.resume_failed")
     ).toBeInTheDocument()
   })
+
+  describe("the browser agent notice", () => {
+    const agentNotice = {
+      capabilityId: "browserAgent" as const,
+      focusId: "agent-enabled",
+      labelKey: "settings.tabs.agent",
+      missingPermissions: []
+    }
+
+    it("turns the agent on and continues", async () => {
+      const onEnable = vi.fn().mockResolvedValue("started")
+      render(
+        <OptionalPermissionNoticeCard
+          notice={agentNotice}
+          onEnable={onEnable}
+        />
+      )
+      fireEvent.click(
+        screen.getByRole("button", { name: "chat.permissions.agent.enable" })
+      )
+      await waitFor(() => expect(onEnable).toHaveBeenCalledWith(true))
+    })
+
+    /** A message can look like a browser task without being one. */
+    it("continues without turning it on", async () => {
+      const onEnable = vi.fn().mockResolvedValue("started")
+      render(
+        <OptionalPermissionNoticeCard
+          notice={agentNotice}
+          onEnable={onEnable}
+        />
+      )
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "chat.permissions.agent.continue_without"
+        })
+      )
+      await waitFor(() => expect(onEnable).toHaveBeenCalledWith(false))
+    })
+
+    it("links to the agent tab", () => {
+      render(
+        <OptionalPermissionNoticeCard notice={agentNotice} onEnable={vi.fn()} />
+      )
+      fireEvent.click(
+        screen.getByRole("button", { name: /chat.permissions.agent.manage/ })
+      )
+      expect(browserMocks.getUrl).toHaveBeenCalledWith(
+        "options.html?tab=agent&focus=agent-enabled"
+      )
+    })
+  })
 })

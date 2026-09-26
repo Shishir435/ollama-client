@@ -1,9 +1,12 @@
 import { supportsSessions, supportsTabGroups } from "@/lib/browser-api"
+import { AGENT_PREVIEW_COMPILED } from "@/lib/feature-flags"
 import {
   matchesOptionalPermissionIntent,
   type OptionalPermissionCapabilityId
 } from "@/lib/optional-permission-intent"
 import { hasPermission, type OptionalApiPermission } from "@/lib/permissions"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { PermissionNotice } from "@/types"
 
 interface OptionalPermissionCapability {
@@ -72,6 +75,24 @@ export const findOptionalPermissionNotice = async (
 ): Promise<PermissionNotice | undefined> => {
   const normalized = text.trim()
   if (!normalized) return undefined
+
+  /**
+   * The agent is a setting, not a browser permission, and is checked first:
+   * "open DuckDuckGo and search" is a browser task before it is anything
+   * else. Firefox has no agent to turn on.
+   */
+  if (
+    AGENT_PREVIEW_COMPILED &&
+    matchesOptionalPermissionIntent("browserAgent", normalized) &&
+    !(await readSetting(SETTINGS.AGENT_ENABLED))
+  ) {
+    return {
+      capabilityId: "browserAgent",
+      focusId: "agent-enabled",
+      labelKey: "settings.tabs.agent",
+      missingPermissions: []
+    }
+  }
 
   for (const capability of OPTIONAL_PERMISSION_CAPABILITIES) {
     if (

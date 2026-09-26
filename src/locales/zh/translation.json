@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "受控标签页",
-      "count": "{{count}} 个标签页"
+      "count_one": "{{count}} 个标签页",
+      "count_other": "{{count}} 个标签页"
     },
     "takeover": {
       "title": "接管此步骤",
@@ -155,9 +156,23 @@
       "reasoning": "推理"
     },
     "correction": "已暂停。说明需要更改的内容，然后继续。",
+    "experimental_badge": "实验性",
+    "announcement": {
+      "title": "实验性：聊天中的浏览器代理",
+      "description": "你的聊天模型现在可以在标签页中替你完成任务：点击、输入并在页面之间跳转。在你开启之前，它保持关闭。",
+      "hosted_models": "搭配能力较强的托管模型（例如通过 OpenRouter 或云服务商）效果最好。小型本地模型往往无法完成多步骤任务。",
+      "approvals": "在提交表单、登录、付款或删除任何内容之前，它都会先询问你，你也可以随时停止它。",
+      "coming": "这是早期版本，难免有不完善之处；后续版本会持续改进。",
+      "later": "以后再说",
+      "enable": "开启代理"
+    },
     "settings": {
       "title": "浏览器代理",
       "description": "运行在不询问的情况下可以做什么、可向模型请求多少上下文，以及何时为页面截图。",
+      "enabled": {
+        "label": "允许聊天模型使用浏览器代理",
+        "description": "提供 browser_task，让模型代你在标签页中点击、输入和导航。实验性功能：效果因模型而异，差别很大。"
+      },
       "context_window": {
         "label": "上下文窗口",
         "description": "自动模式取该模型与该服务器所报告的较小窗口；两者都未说明时退回到保守大小。如果你调高了服务器自身的上限，或某次运行耗尽了内存，可自行设定大小。",
@@ -660,7 +675,14 @@
       "manage": "管理权限",
       "not_granted": "未授予权限。你可以重试，或在设置中进行管理。",
       "resume_failed": "无法继续该请求。请重试。",
-      "reminders": "提醒"
+      "reminders": "提醒",
+      "agent": {
+        "title": "浏览器代理已关闭",
+        "description": "这看起来是需要在浏览器中完成的任务。代理为实验性功能，搭配托管模型效果最好。",
+        "enable": "开启并继续",
+        "continue_without": "不使用并继续",
+        "manage": "代理设置"
+      }
     },
     "errors": {
       "unknown_error": "❌ 未知错误: {{message}}",
@@ -719,7 +741,8 @@
       "rows": {
         "tabs": "页面和标签页上下文",
         "knowledge": "搜索已上传的文件",
-        "web": "网页搜索"
+        "web": "网页搜索",
+        "agent": "浏览器代理（实验性）"
       }
     },
     "artifacts": {
@@ -807,6 +830,10 @@
       "search_placeholder": "搜索模型...",
       "no_model_found": "未找到模型。",
       "cloud_badge": "云端{{plan}}",
+      "cloud_models": {
+        "label": "Ollama 云端模型",
+        "description": "托管的 :cloud 模型。需要已登录的 Ollama，通常还需要付费套餐。"
+      },
       "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。",
       "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。"
     },
@@ -1429,6 +1456,7 @@
       "prompts": "提示词库",
       "models": "模型行为",
       "extraction": "页面和标签页",
+      "agent": "代理",
       "context": "知识与网络",
       "embeddings": "已保存的知识",
       "providers": "服务商",

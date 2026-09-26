@@ -62,6 +62,29 @@ export const SETTINGS = {
     { defaultValue: false, parser: z.boolean() }
   ),
   /**
+   * The browser agent is experimental: nothing benchmarks it across models
+   * yet, so it is opt-in, and while off `browser_task` is not offered to the
+   * chat model at all rather than offered and refused.
+   */
+  AGENT_ENABLED: defineSetting<boolean>(STORAGE_KEYS.AGENT.ENABLED, {
+    defaultValue: false,
+    parser: z.boolean()
+  }),
+  /**
+   * Ollama's `:cloud` recommendations need a signed-in daemon and often a paid
+   * plan; without one, choosing one fails at send time with an error that
+   * names the local server. Off until asked for. Models the user pulled
+   * themselves come from `/api/tags` and are listed either way.
+   */
+  OLLAMA_CLOUD_MODELS: defineSetting<boolean>(
+    STORAGE_KEYS.PROVIDER.OLLAMA_CLOUD_MODELS,
+    { defaultValue: false, parser: z.boolean() }
+  ),
+  AGENT_ANNOUNCEMENT_DISMISSED: defineSetting<boolean>(
+    STORAGE_KEYS.AGENT.ANNOUNCEMENT_DISMISSED,
+    { defaultValue: false, parser: z.boolean() }
+  ),
+  /**
    * `auto` resolves the window from what the model and the server report and
    * holds it inside a conservative maximum; a number overrides both, because
    * a user who raised their own `num_ctx` knows something no catalog does.

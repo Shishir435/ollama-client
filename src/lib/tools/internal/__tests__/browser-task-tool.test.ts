@@ -1,4 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
+const agent = vi.hoisted(() => ({ enabled: true }))
+
+vi.mock("@/lib/storage/setting-access", () => ({
+  readSetting: vi.fn(async () => agent.enabled)
+}))
 
 vi.mock("@/lib/browser-api", () => ({
   supportsSessions: vi.fn(() => true),
@@ -23,6 +29,9 @@ const runner = (): BrowserTaskRunner => ({
 const offered = async () =>
   (await createInternalToolSource().listTools()).map((tool) => tool.name)
 
+beforeEach(() => {
+  agent.enabled = true
+})
 afterEach(() => setBrowserTaskRunner(undefined))
 
 describe("browser_task", () => {
@@ -31,6 +40,22 @@ describe("browser_task", () => {
     expect(await offered()).not.toContain("browser_task")
     setBrowserTaskRunner(runner())
     expect(await offered()).toContain("browser_task")
+  })
+
+  /** Experimental and opt-in: off means neither offered nor callable. */
+  it("is neither offered nor callable while the agent is off", async () => {
+    const installed = runner()
+    setBrowserTaskRunner(installed)
+    agent.enabled = false
+
+    expect(await offered()).not.toContain("browser_task")
+    const result = await createInternalToolSource().callTool(
+      "browser_task",
+      { goal: "Find the pricing page" },
+      { sessionId: "chat-1" }
+    )
+    expect(result.isError).toBe(true)
+    expect(installed.run).not.toHaveBeenCalled()
   })
 
   it("hands the runner a trimmed goal and what the model said about it", async () => {

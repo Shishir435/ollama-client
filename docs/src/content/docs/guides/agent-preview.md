@@ -8,11 +8,14 @@ you ask in the chat, and the model decides whether the request needs the
 browser. When it does, it hands the whole task to Agent, the run appears as a
 card above the model's answer, and you supervise it from that card. Routine
 clicks and typing can run automatically; posting, destructive actions and
-sensitive steps still require your decision. It is a Preview: success depends
-on the website and the selected model, and every step is checked against the
-page.
+sensitive steps still require your decision. It is experimental: success
+depends on the website and the selected model, and every step is checked
+against the page. Capable hosted models (through OpenRouter or a cloud
+provider) finish far more tasks than small local ones.
 
-It is off unless you turn it on. On Chrome it needs two permissions the browser
+It is off unless you turn it on, from **Browser agent (experimental)** in the
+chat's Context sheet or **Settings → Agent**; until then the chat model
+is never offered it. On Chrome it needs two permissions the browser
 asks for once, at install or on the update that brings the Agent: `debugger`, to
 drive the tab it is given, and `webNavigation`, to tell that tab's frames apart.
 

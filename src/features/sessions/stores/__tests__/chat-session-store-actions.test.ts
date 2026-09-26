@@ -36,7 +36,8 @@ function setupLoadSessionMessagesMocks(
     messages.map((m) => ({
       id: m.id,
       parentId: m.parentId,
-      timestamp: m.timestamp
+      timestamp: m.timestamp,
+      hidden: m.metrics?.permissionNotice?.resolvedAt !== undefined
     })) as any
   )
   mockRepo.getMessagesByIds.mockImplementation(async (ids: any) =>
@@ -239,6 +240,61 @@ describe("loadSessionMessages", () => {
     expect(loaded.map((m) => m.id)).toEqual([1, 3])
     expect(loaded[1].siblingIds).toEqual([2, 3])
     expect(loaded[0].siblingIds).toBeUndefined()
+  })
+
+  /** Stepping back to a resolved notice showed an empty conversation. */
+  it("does not count a resolved notice as a branch", async () => {
+    const messages = [
+      {
+        id: 1,
+        role: "user" as const,
+        content: "open duckduckgo",
+        sessionId: SESSION_ID,
+        timestamp: 1
+      },
+      {
+        id: 2,
+        role: "assistant" as const,
+        content: "The browser agent is off",
+        sessionId: SESSION_ID,
+        parentId: 1,
+        timestamp: 2,
+        metrics: {
+          permissionNotice: {
+            capabilityId: "browserAgent",
+            focusId: "agent-enabled",
+            labelKey: "settings.tabs.agent",
+            missingPermissions: [],
+            resolvedAt: 3
+          }
+        }
+      },
+      {
+        id: 3,
+        role: "assistant" as const,
+        content: "Searching DuckDuckGo",
+        sessionId: SESSION_ID,
+        parentId: 1,
+        timestamp: 4
+      }
+    ]
+    setupLoadSessionMessagesMocks(messages, {
+      id: SESSION_ID,
+      title: "T",
+      currentLeafId: 3
+    })
+    chatSessionStore.setState({
+      sessions: [
+        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+
+    const loaded = chatSessionStore.getState().sessions[0].messages ?? []
+    expect(loaded.map((m) => m.id)).toEqual([1, 3])
+    expect(loaded[1].siblingIds).toBeUndefined()
   })
 
   it("falls back to the newest tree node when the session has no leaf", async () => {

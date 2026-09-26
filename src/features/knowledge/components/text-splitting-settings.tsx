@@ -92,7 +92,11 @@ export const TextSplittingSettings = () => {
             if (value !== null) handleStrategyChange(value as ChunkingStrategy)
           }}>
           <SelectTrigger>
-            <SelectValue />
+            <SelectValue>
+              {() =>
+                t(`model.embedding_config.strategy_${config.chunkingStrategy}`)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="fixed">

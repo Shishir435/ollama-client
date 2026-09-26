@@ -3,7 +3,7 @@ import "../globals.css"
 import "@/i18n/config"
 
 import { QueryClientProvider } from "@tanstack/react-query"
-import { useEffect } from "react"
+import { lazy, Suspense, useEffect } from "react"
 import { browser } from "wxt/browser"
 import { DevThemePane } from "@/components/dev-theme-pane"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
@@ -18,6 +18,19 @@ import { queryClient } from "@/lib/query-client"
 import { FirstRunPermissionsDialog } from "@/sidepanel/components/first-run-permissions-dialog"
 import { SidepanelWorkspace } from "@/sidepanel/components/sidepanel-workspace"
 import { createSidepanelRuntimeMessageListener } from "@/sidepanel/runtime-message-listener"
+
+/**
+ * Read inline, as `sidepanel-workspace.tsx` does, so Firefox — which has no
+ * agent — carries neither the announcement nor its chunk.
+ */
+const AgentAnnouncementDialog =
+  typeof __AGENT_PREVIEW_ENABLED__ !== "undefined" && __AGENT_PREVIEW_ENABLED__
+    ? lazy(() =>
+        import("@/features/agent/components/agent-announcement-dialog").then(
+          (module) => ({ default: module.AgentAnnouncementDialog })
+        )
+      )
+    : undefined
 
 const IndexSidePanel = () => {
   useThemeWatcher()
@@ -38,6 +51,11 @@ const IndexSidePanel = () => {
         <TooltipProvider>
           <SidepanelWorkspace />
           <FirstRunPermissionsDialog />
+          {AgentAnnouncementDialog && (
+            <Suspense fallback={null}>
+              <AgentAnnouncementDialog />
+            </Suspense>
+          )}
           <DevThemePane />
           <Toaster position={"top-center"} closeButton={true} />
         </TooltipProvider>

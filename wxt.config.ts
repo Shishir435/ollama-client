@@ -66,8 +66,10 @@ export default defineConfig({
       // offscreen: production permission — the hidden document that hosts
       // the single SQLite worker owning durable chat history (Chromium only).
       // debugger + webNavigation: the browser agent drives the page over CDP
-      // and needs every frame's identity to bind an effect to its frame. Both
-      // arrive in 0.14.0 together, so an update asks for consent once.
+      // and needs every frame's identity to bind an effect to its frame.
+      // tabGroups: the agent groups the tabs it opens, and the chat reads the
+      // user's groups. All three arrive in 0.14.0 together, so an update from
+      // 0.13.x asks for consent once rather than once per feature.
       ...(browser === "firefox"
         ? []
         : [
@@ -75,7 +77,8 @@ export default defineConfig({
             "declarativeNetRequest",
             "offscreen",
             "debugger",
-            "webNavigation"
+            "webNavigation",
+            "tabGroups"
           ])
     ],
     // Optional API permissions requested from the Permissions UI.
@@ -87,7 +90,9 @@ export default defineConfig({
       "history",
       "notifications",
       "downloads",
-      "tabGroups",
+      // Standing on Chromium; Firefox's tabGroups API is newer, so it stays
+      // something a user turns on there.
+      ...(browser === "firefox" ? ["tabGroups"] : []),
       "alarms",
       "sessions"
     ],

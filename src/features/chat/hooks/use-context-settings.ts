@@ -3,6 +3,7 @@ import {
   BrainCircuit,
   Camera,
   type LucideIcon,
+  MousePointerClick,
   Search,
   ShieldCheck
 } from "lucide-react"
@@ -15,6 +16,7 @@ import {
 } from "@/features/web-search/stores/web-search-config-store"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_EXCLUDE_URLS } from "@/lib/constants"
+import { AGENT_PREVIEW_COMPILED } from "@/lib/feature-flags"
 import {
   type PerSiteProfileSettings,
   parsePerSiteProfileSettings
@@ -55,6 +57,7 @@ export const useContextSettings = () => {
   const [config] = useSetting(SETTINGS.CONTENT_EXTRACTION_CONFIG)
   const [oldPatterns] = useSetting(SETTINGS.EXCLUDE_URL_PATTERNS)
   const [perSiteProfiles] = useSetting(SETTINGS.PER_SITE_PROFILES)
+  const [agentEnabled, setAgentEnabled] = useSetting(SETTINGS.AGENT_ENABLED)
 
   const { capabilities, isResolving } = useSelectedModelCapabilities()
   const { config: webSearchConfig } = useWebSearchConfig()
@@ -67,6 +70,14 @@ export const useContextSettings = () => {
   const showWebSearch =
     (Boolean(capabilities?.toolCalling) || isResolving) &&
     Boolean(webSearchConfig.enabled)
+  /**
+   * The agent reaches the model as a tool, so the row is offered where tools
+   * are; Firefox has no agent and folds the row away. It flips the same
+   * opt-in as the settings tab.
+   */
+  const showAgent =
+    AGENT_PREVIEW_COMPILED &&
+    (Boolean(capabilities?.toolCalling) || isResolving)
 
   // Each row carries one stable label. They used to change with state — "Tabs"
   // became "Tab+" and "RAG" became "RAG+" when switched on — which made the
@@ -95,6 +106,17 @@ export const useContextSettings = () => {
             onClick: () => setWebSearchActive(!webSearchActive),
             icon: Search,
             label: t("chat.context.rows.web")
+          }
+        ]
+      : []),
+    ...(showAgent
+      ? [
+          {
+            key: "agent",
+            checked: agentEnabled === true,
+            onClick: () => setAgentEnabled(agentEnabled !== true),
+            icon: MousePointerClick,
+            label: t("chat.context.rows.agent")
           }
         ]
       : []),

@@ -89,6 +89,37 @@ describe("ReasoningEffortMenu", () => {
     expect(document.querySelectorAll("[data-slot=slider-mark]")).toHaveLength(5)
   })
 
+  /**
+   * The dots under the filled range were drawn in the muted colour and
+   * vanished against it, so the steps below the value could not be seen.
+   */
+  it("marks every stop the filled range covers", async () => {
+    useModelConfigMock.mockReturnValue([
+      { reasoning_effort: "medium" },
+      updateModelConfigMock
+    ])
+    render(<ReasoningEffortMenu />)
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "settings.model.parameters.reasoning_effort.label"
+      })
+    )
+    await screen.findAllByLabelText(
+      "settings.model.parameters.reasoning_effort.label"
+    )
+
+    const marks = [...document.querySelectorAll("[data-slot=slider-mark]")]
+    /** none, auto, low, medium covered; high not. */
+    expect(marks.map((mark) => mark.hasAttribute("data-covered"))).toEqual([
+      true,
+      true,
+      true,
+      true,
+      false
+    ])
+  })
+
   it("returns the effort to the provider's own default", async () => {
     useModelConfigMock.mockReturnValue([
       { reasoning_effort: "high" },

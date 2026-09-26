@@ -77,6 +77,10 @@ export const LEGACY_STORAGE_KEYS = {
 
 export const STORAGE_KEYS = {
   AGENT: {
+    /** Whether the experimental browser agent is offered to the chat model at all. */
+    ENABLED: "agent-enabled-v1",
+    /** Whether the one-time "experimental browser agent" announcement was closed. */
+    ANNOUNCEMENT_DISMISSED: "agent-announcement-dismissed-v1",
     /** One-time acknowledgement before page observations reach a remote model. */
     REMOTE_OBSERVATION_ACKNOWLEDGED: "agent-remote-observation-acknowledged-v1",
     /** Separate acknowledgement before viewport screenshots reach a remote model. */
@@ -150,6 +154,8 @@ export const STORAGE_KEYS = {
     // request and fingerprinted by base URL. Keeps discovery from asking a
     // chat-only endpoint for a model list it will never have.
     MODEL_CATALOG_SUPPORT: "provider-model-catalog-support",
+    /** Whether Ollama's hosted-model recommendations are listed beside local models. */
+    OLLAMA_CLOUD_MODELS: "provider-ollama-cloud-models-v1",
     // Whether an unrecognized remote provider may be asked for its favicon, so
     // it shows its own icon instead of a generic glyph.
     FAVICON_LOOKUP: "provider-favicon-lookup",

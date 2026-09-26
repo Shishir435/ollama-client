@@ -392,6 +392,31 @@ describe("running a browser task", () => {
     expect(result.content).toContain("Another browser task is still running")
   })
 
+  /**
+   * A paused run in another chat refuses every start. Said generically, the
+   * model told the user the tool was "temporarily busy", with no card in
+   * front of them to stop.
+   */
+  it("names the state of the run holding the agent, not its chat", async () => {
+    const service = serviceStub({
+      delegate: vi.fn(async () => {
+        throw new AgentRunError("already_running", "unresolved", "run-9")
+      })
+    })
+    const describeRun = vi.fn(async () => ({ status: "awaiting_user" }))
+    const result = await runner(service, local, { describeRun }).run(
+      request,
+      turn()
+    )
+
+    expect(describeRun).toHaveBeenCalledWith("run-9")
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain(
+      "A browser task in another chat is still awaiting user"
+    )
+    expect(result.content).toContain("Do not say the tool is busy")
+  })
+
   it("stops waiting, not the run, once the wait runs out", async () => {
     const service = serviceStub({
       awaitSettled: vi.fn(

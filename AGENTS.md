@@ -53,6 +53,7 @@ pnpm proxy:opencode         # Run the olc proxy with OpenCode
 pnpm proxy:opencode:debug   # Run OpenCode with verbose proxy logging
 pnpm proxy:codex            # Run the olc proxy with Codex
 pnpm proxy:codex:debug      # Run Codex with verbose proxy logging
+pnpm proxy:fm               # Serve Apple Foundation Models (macOS 27)
 pnpm proxy:bundle           # Bundle it to packages/olc/dist/olc.mjs
 
 pnpm generate:resources     # Validate locales, regenerate derived extension assets
@@ -172,8 +173,8 @@ Differs sharply by server, so check before assuming a field exists.
   with the size class like a curated mark would. It is offered only for a
   `custom:` id: a built-in with a real icon must never be reduced to a letter.
 - **Favicons are the tier below**, for unrecognized *remote* providers only (`provider-favicon.ts`, served by `providers.icons`). Rules, all load-bearing:
-  - The configured base URL is asked first. Its parent site is asked **only** after a settled "nothing here" (401/403/404/410, or a 200 carrying non-image bytes — a gateway guards `/favicon.ico` behind its key like every other path). Timeouts and 5xx are never chased.
-  - Exactly one label is stripped (`api.acme.com` → `acme.com`), never down to a public suffix.
+  - The configured base URL is asked first. The vendor's site — its registrable domain, then that domain's `www.` host — is asked **only** after a settled "nothing here" (401/403/404/410, a refused redirect, or a 200 carrying non-image bytes — a gateway guards `/favicon.ico` behind its key like every other path), each candidate after the one before it. Timeouts and 5xx are never chased.
+  - The walk goes straight to the registrable domain (`integrate.api.nvidia.com` → `nvidia.com`), never down to a public suffix — ccTLD registries (`com.ar`) and shared hosts (`vercel.app`, `github.io`, `workers.dev`) count as suffixes, so `api.my-router.vercel.app` stops at `my-router.vercel.app`. `www.` is asked directly because vendor sites redirect their bare domain there, and redirects stay refused.
   - No third-party favicon service, ever: that would hand every configured provider URL to whoever runs it.
   - Loopback, private, CGNAT and link-local hosts are refused (`169.254.169.254` is the cloud metadata endpoint, and this fetch reaches what a page cannot), and **redirects are refused, not followed** — the host check vets the address we picked, not the one a 302 would pick for a request holding `<all_urls>`.
   - Responses are sniffed from leading bytes rather than trusted from `Content-Type`, capped at 32KB. Hits and misses are both remembered device-local; nothing is recorded once the caller aborted.
@@ -293,7 +294,7 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 | `model/` | model management UI, provider/embedding settings |
 | `file-upload/` | ingestion for RAG, per-format `processors/` |
 | `prompt/` | prompt templates |
-| `settings/` | six intent tabs, settings registry, i18n-backed search, legacy deep-link redirects |
+| `settings/` | seven intent tabs (the agent tab is Chromium-only), settings registry, i18n-backed search, legacy deep-link redirects |
 | `selection-actions/` | in-page selection overlay |
 | `web-search/`, `permissions/`, `privacy/`, `knowledge/`, `memory/`, `context/`, `tabs/`, `diagnostics/` | auxiliary |
 
@@ -328,15 +329,16 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 - Keep privacy-sensitive tools on the same permission and scope filters as their indexing/search pipeline. A live tool must not bypass user exclusions.
 - Browser-data tools pass two independent gates before any provider sees them (`background/lib/tool-exposure-policy.ts`): the optional permission is granted **and** the current request asks for that data (`optional-permission-intent.ts`, which tolerates a one-edit typo in the keyword carrying the intent). Provider-side `tool_choice: auto` is not a privacy boundary.
 - **The chat model is told it lives in the browser.** Whenever a tab tool is offered, `buildBrowserContextGuidance` says the model runs in the side panel beside the user's tab, that "this", a PR, an article and the like mean that tab, and that `current_tab` reads it; `browser_task` is for acting, not reading. The panel's tab (`browserTabId`) contributes its title and query-less URL as flattened metadata only after `classifyTabAccess` passes it — never its body, never an excluded or internal page, never incognito. `current_tab` reads that tab before falling back to the last focused window, which is another window's page when two are open. Without this, a hosted runtime's own persona answered "what's this PR?" with an empty workspace.
+- **`browser_task` is experimental and opt-in** (`SETTINGS.AGENT_ENABLED`, off by default; Settings → Agent or the Context sheet). While off it is neither listed nor callable, and a request that reads as a browser task gets the `browserAgent` notice card instead of a reply. The internal tool source is `volatile`, so `ToolRegistry` re-lists it every turn: caching its first answer kept `browser_task` missing for the worker's lifetime after the user turned the agent on.
 - `browser_task` is exempt from the intent gate on purpose: the model deciding when the browser is needed is the feature. Its gate is the tool loop's approval, which `confirmation` forces whenever the turn could be carrying page text ([details](./AGENT_INTERNALS.md#starting-a-run-from-chat)).
 
 ### Agent runtimes via the olc proxy
 
 `packages/olc` is a Node CLI, not extension code. Bare `olc` manages native
 Ollama on port 11434; `-b codex|opencode` runs an agent proxy (8083 / 8084)
-that serves a local agent runtime over `/v1/chat/completions`, so that
-runtime's models reach the extension through the ordinary OpenAI-compatible
-custom-provider flow.
+and `-b fm` (alias `apple`) serves Apple's on-device Foundation Model (8085),
+each over `/v1/chat/completions`, so those models reach the extension through
+the ordinary OpenAI-compatible custom-provider flow.
 
 - **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the
   extension: provider-shaped behaviour belongs behind the provider's own wire

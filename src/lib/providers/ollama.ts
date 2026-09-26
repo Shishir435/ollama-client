@@ -303,11 +303,27 @@ export class OllamaProvider implements LLMProvider {
    * daemons do not implement it. A missing or malformed response therefore
    * leaves the ordinary `/api/tags` catalog untouched. Only `:cloud` entries
    * are merged; local download recommendations still belong to model pulling.
+   * Nothing is requested while the user has not asked for cloud models.
    */
   private async getCloudRecommendations(
     baseUrl: string,
     signal?: AbortSignal
   ): Promise<ProviderModel[]> {
+    /**
+     * Loaded here rather than at the top: the settings layer reaches browser
+     * storage, and the docs generator imports this provider in plain Node.
+     */
+    const wanted = await Promise.all([
+      import("@/lib/storage/setting-access"),
+      import("@/lib/storage/settings")
+    ])
+      .then(([{ readSetting }, { SETTINGS }]) =>
+        readSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
+      )
+      /** Unreadable counts as off: recommendations must never cost the local catalog. */
+      .catch(() => false)
+    if (!wanted) return []
+
     const cached = cloudRecommendationCache.get(baseUrl)
     if (cached && cached.expiresAt > Date.now()) return cached.models
 

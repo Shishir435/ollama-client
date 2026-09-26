@@ -5,6 +5,7 @@ export type OptionalPermissionCapabilityId =
   | "tabGroups"
   | "sessions"
   | "reminders"
+  | "browserAgent"
 
 const HISTORY_INTENT = [
   /\b(?:my|our|browser|browsing|web)\b.{0,40}\bhistory\b/i,
@@ -60,6 +61,22 @@ const REMINDER_INTENT = [
   /\bnotify\s+(?:me|us)\b.{0,40}\b(?:at|in|after|when|once)\b/i,
   /\bset\b.{0,20}\b(?:a\s+)?reminder\b/i,
   /\bschedule\b.{0,20}\b(?:a\s+)?reminder\b/i
+]
+
+/**
+ * A request to act in the browser rather than to read or answer: going to a
+ * site, doing something there, pressing or filling a control. Used only to
+ * say the experimental agent is off — never to offer a tool — so a miss costs
+ * the old reply, and a match costs one card with "Continue without" on it.
+ * A bare "open" or "click" is not enough; both are ordinary words in a
+ * question about code or files.
+ */
+const BROWSER_ACTION_INTENT = [
+  /\b(?:open|go\s+to|navigate\s+to|visit|browse\s+to|head\s+(?:over\s+)?to|load)\b.{0,20}(?:https?:\/\/|www\.|\b[a-z0-9-]+\.(?:com|org|net|io|ai|dev|app|co|edu|gov)\b)/i,
+  /\b(?:open|go\s+to|navigate\s+to|visit|head\s+(?:over\s+)?to)\b.{1,40}\b(?:and|then)\s+(?:search|click|type|fill|sign\s+in|log\s+in|find|look\s+up|add|book|buy|order)\b/i,
+  /\b(?:search|look\s+up|find)\b.{0,60}\b(?:on|in|using)\s+(?:duck\s*duck\s*go|google|bing|wikipedia|youtube|amazon|github|reddit|ebay)\b/i,
+  /\b(?:click|press|tap)\s+(?:on\s+)?(?:the|that|this)\b.{0,40}\b(?:button|link|tab|menu|checkbox|icon)\b/i,
+  /\bfill\s+(?:in|out)\b.{0,30}\b(?:form|fields?)\b/i
 ]
 
 /**
@@ -174,6 +191,8 @@ export const matchesOptionalPermissionIntent = (
       ])
     case "reminders":
       return matchesAny(text, REMINDER_INTENT)
+    case "browserAgent":
+      return matchesAny(text, BROWSER_ACTION_INTENT)
   }
 }
 

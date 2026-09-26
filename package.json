@@ -114,6 +114,7 @@
     "proxy:opencode": "pnpm exec tsx packages/olc/src/cli.ts --backend opencode",
     "proxy:opencode:debug": "pnpm exec tsx packages/olc/src/cli.ts --backend opencode --debug",
     "proxy:codex": "pnpm exec tsx packages/olc/src/cli.ts --backend codex",
+    "proxy:fm": "pnpm exec tsx packages/olc/src/cli.ts --backend fm",
     "proxy:codex:debug": "pnpm exec tsx packages/olc/src/cli.ts --backend codex --debug",
     "proxy:build": "pnpm --filter @ollama-client/olc build",
     "proxy:bundle": "pnpm --filter @ollama-client/olc bundle",

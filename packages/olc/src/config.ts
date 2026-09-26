@@ -19,7 +19,11 @@ import { randomBytes } from "node:crypto"
 import type { ProxyConfig } from "./types.js"
 import { parseBool, parseList } from "./util.js"
 
-export const PROXY_DEFAULT_PORTS = { codex: 8083, opencode: 8084 } as const
+export const PROXY_DEFAULT_PORTS = {
+  codex: 8083,
+  opencode: 8084,
+  fm: 8085
+} as const
 
 export const DEFAULTS = {
   PORT: PROXY_DEFAULT_PORTS.opencode,
@@ -137,7 +141,9 @@ export const resolveConfig = (
   const backendPort =
     backend === "codex"
       ? PROXY_DEFAULT_PORTS.codex
-      : PROXY_DEFAULT_PORTS.opencode
+      : backend === "fm"
+        ? PROXY_DEFAULT_PORTS.fm
+        : PROXY_DEFAULT_PORTS.opencode
   const port = numberOption(
     options.PORT,
     env.OLC_PORT,

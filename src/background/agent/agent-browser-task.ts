@@ -8,6 +8,7 @@ import { renderAgentHandoffBlock } from "@/application/context/agent-handoff-con
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 import { logger } from "@/lib/logger"
+import { getAgentRun } from "@/lib/repositories/agent-runs"
 import { getMessagesByIds } from "@/lib/repositories/chat-history"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
@@ -51,7 +52,7 @@ const REFUSALS: Record<AgentRunFailureReason, string> = {
   permission_denied:
     "The browser agent is missing a browser permission it needs.",
   tab_unsupported:
-    "The browser agent cannot work on that tab, which is a browser page rather than a website. If the task names a site, call browser_task again with start_url set to that site's address and it opens in a new tab; otherwise ask the user to open an ordinary web page (http or https).",
+    "The browser agent cannot work on that tab, which is a browser or extension page rather than a website. If the task names a site, call browser_task again now, in this same turn, with start_url set to that site's address; it opens in a new tab. Do not tell the user you will do it instead of doing it. Only when the task names no site, ask the user to open an ordinary web page (http or https).",
   steer_unavailable:
     "The browser task is not running, so it could not take a correction.",
   unknown_run: "The browser task could not be found."
@@ -114,7 +115,22 @@ export interface BrowserTaskRunnerDependencies {
   readHandoff?: (
     messageId: number
   ) => Promise<AgentConversationHandoff | undefined>
+  /** What state an unfinished run is in, so a refusal can say so. */
+  describeRun?: (runId: string) => Promise<{ status: string } | undefined>
   waitMs?: number
+}
+
+/**
+ * An unfinished run in another chat refuses every new start, by design — a
+ * paused run is still the user's. Said generically, the model answered "the
+ * tool is temporarily busy", and the user had no card in front of them to
+ * stop. The refusal names the run's state instead. It never names the other
+ * chat: this result goes to this chat's model, possibly another provider, and
+ * the other conversation's title is not this one's to disclose.
+ */
+export const blockedByRunRefusal = (blocking?: { status: string }): string => {
+  if (!blocking) return REFUSALS.already_running
+  return `A browser task in another chat is still ${blocking.status.replace(/_/g, " ")}, and only one can run at a time. Tell the user to open that chat and stop or finish it from its card, then ask again. Do not say the tool is busy or retry now.`
 }
 
 /**
@@ -125,6 +141,12 @@ export const createBrowserTaskRunner = (
   dependencies: BrowserTaskRunnerDependencies
 ): BrowserTaskRunner => {
   const { service } = dependencies
+  const describeRun =
+    dependencies.describeRun ??
+    (async (runId: string) => {
+      const run = await getAgentRun(runId)
+      return run ? { status: run.status } : undefined
+    })
   const disclose =
     dependencies.disclose ??
     ((providerId: string, modelId: string) =>
@@ -386,8 +408,15 @@ export const createBrowserTaskRunner = (
       })
       return { ok: true, state }
     } catch (error) {
-      if (error instanceof AgentRunError)
+      if (error instanceof AgentRunError) {
+        if (error.reason === "already_running" && error.blockingRunId) {
+          const blocking = await describeRun(error.blockingRunId).catch(
+            () => undefined
+          )
+          return { ok: false, result: failure(blockedByRunRefusal(blocking)) }
+        }
         return { ok: false, result: failure(REFUSALS[error.reason]) }
+      }
       logger.error("Browser task could not start", "Agent", {
         name: error instanceof Error ? error.name : typeof error
       })

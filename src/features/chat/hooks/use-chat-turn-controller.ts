@@ -208,7 +208,10 @@ export const useChatTurnController = ({
     try {
       await addMessage(sessionId, {
         role: "assistant",
-        content: t("chat.permissions.disabled_notice", { feature }),
+        content:
+          permissionNotice.capabilityId === "browserAgent"
+            ? t("chat.permissions.agent.title")
+            : t("chat.permissions.disabled_notice", { feature }),
         done: true,
         model: resolvedModel,
         metrics: {

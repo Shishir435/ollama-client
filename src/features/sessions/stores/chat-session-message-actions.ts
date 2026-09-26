@@ -115,7 +115,9 @@ export const createChatSessionMessageActions = (
       )
     }
 
-    const siblingsMap = buildSiblingsMap(treeNodes)
+    const siblingsMap = buildSiblingsMap(
+      treeNodes.filter((node) => !node.hidden)
+    )
     const { path: pathNodes, hasMore } = traversePathFromLeaf(
       treeNodes,
       leafId,
@@ -205,7 +207,11 @@ export const createChatSessionMessageActions = (
       if (isStaleLoad()) return
       siblingCandidates = [...siblingCandidates, ...rootSiblings]
     }
-    const siblingsMap = buildSiblingsMap(siblingCandidates)
+    const siblingsMap = buildSiblingsMap(
+      siblingCandidates.filter(
+        (message) => message.metrics?.permissionNotice?.resolvedAt === undefined
+      )
+    )
 
     const messagesWithData = enrichPathWithSiblingsAndAttachments(
       path,

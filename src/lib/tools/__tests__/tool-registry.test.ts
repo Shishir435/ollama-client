@@ -112,4 +112,44 @@ describe("ToolRegistry", () => {
     reg.invalidate()
     expect((await reg.listDefinitions()).map((d) => d.name)).toEqual(["two"])
   })
+
+  /**
+   * The internal source's list follows the agent opt-in. Its first answer,
+   * cached, kept `browser_task` missing for the worker's whole life after the
+   * user turned the agent on — in every chat, new ones included.
+   */
+  it("asks a volatile source again on every listing", async () => {
+    const reg = new ToolRegistry()
+    let offered = [def("one")]
+    reg.register({
+      ...source("a", []),
+      volatile: true,
+      listTools: () => offered
+    })
+
+    expect((await reg.listDefinitions()).map((d) => d.name)).toEqual(["one"])
+    offered = [def("one"), def("browser_task")]
+    expect((await reg.listDefinitions()).map((d) => d.name)).toEqual([
+      "one",
+      "browser_task"
+    ])
+    expect((await reg.call("browser_task", {}, {})).content).toBe(
+      "a:browser_task"
+    )
+  })
+
+  it("keeps caching a list no volatile source contributes to", async () => {
+    const reg = new ToolRegistry()
+    let calls = 0
+    reg.register({
+      ...source("a", []),
+      listTools: () => {
+        calls += 1
+        return [def("one")]
+      }
+    })
+    await reg.listDefinitions()
+    await reg.listDefinitions()
+    expect(calls).toBe(1)
+  })
 })

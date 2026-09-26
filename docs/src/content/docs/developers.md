@@ -161,6 +161,7 @@ olc --local                # explicitly restore loopback
 olc --check --json         # read-only native readiness for scripts/agents
 olc -b codex               # Codex proxy: 127.0.0.1:8083
 olc --backend opencode     # OpenCode proxy: 127.0.0.1:8084
+olc -b fm                  # Apple Foundation Models (macOS 27): 127.0.0.1:8085
 olc -b codex --debug       # foreground, with verbose diagnostics
 olc -b opencode --foreground # foreground, normal logging
 ```
