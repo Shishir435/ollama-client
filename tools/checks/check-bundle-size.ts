@@ -210,9 +210,12 @@ const budgets: Budget[] = [
      * names matched by word, alternatives and further claims refused. The
      * fourth and fifth, 9,777,476: the receipt-bound focus and submission
      * rule. The sixth and seventh, 9,778,832: labelled submitted values and
-     * their one-to-one binding.
+     * their one-to-one binding. The follow-up the next benchmark run found,
+     * 9,779,107: hidden content out of page reads and the omission count, a
+     * partial run no longer holding admission, and routine consent written
+     * on landing.
      */
-    max: isFirefox ? 11_800_000 : 9_779_000
+    max: isFirefox ? 11_800_000 : 9_779_500
   },
   {
     metric: "zip",
@@ -429,9 +432,10 @@ const budgets: Budget[] = [
      * The fifth, 293,750: claims bound to the words a receipt proves. The
      * sixth, 293,895: submitted values on the receipt and the panel's own
      * verification projection. The seventh, 294,251: each submitted value
-     * bound to its control's label.
+     * bound to its control's label. The benchmark follow-up, 294,307: a
+     * partial run settling admission and routine consent written on landing.
      */
-    max: isFirefox ? 212_600 : 294_300
+    max: isFirefox ? 212_600 : 294_400
   }
 ]
 
