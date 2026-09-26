@@ -129,6 +129,14 @@ describe("real-site scorer", () => {
     assert.equal(paused("question", challenge), "site_blocked")
     assert.equal(paused("question", "Search results"), "missed")
     assert.equal(paused("unresolved_effect", challenge), "missed")
+    assert.equal(
+      scoreVerdict({ status: "failed", success: false, body: challenge }),
+      "site_blocked"
+    )
+    assert.equal(
+      scoreVerdict({ status: "completed", success: false, body: challenge }),
+      "false_completed"
+    )
   })
 })
 

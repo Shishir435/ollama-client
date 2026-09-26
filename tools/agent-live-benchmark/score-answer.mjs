@@ -144,13 +144,15 @@ export const scoreVerdict = ({ status, success, pauseReason, body }) => {
   if (status === "completed" || status === "answered_in_chat")
     return success ? "achieved" : "false_completed"
   /**
-   * The site refused the browser and the run asked the user to clear it.
-   * Nothing the model or the agent does passes a captcha, so like an invalid
-   * case it is left out of every rate rather than counted as a miss.
+   * The site refused the browser, and the run asked the user to clear it or
+   * reported that it could not. Nothing the model or the agent does passes a
+   * captcha, so like an invalid case it is left out of every rate rather
+   * than counted as a miss. A completed run is judged above: claiming a
+   * result from behind a captcha is a false completion.
    */
   if (
-    status === "paused" &&
-    pauseReason === "question" &&
+    ((status === "paused" && pauseReason === "question") ||
+      status === "failed") &&
     isSiteChallenge(body)
   )
     return "site_blocked"
