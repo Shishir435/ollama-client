@@ -73,6 +73,19 @@ describe("browser_task", () => {
     )
   })
 
+  /**
+   * "Enter Alice and continue" reached the agent as "... Do not submit any
+   * final form", which the Continue it was asked to press then broke.
+   */
+  it("tells the model to carry only restrictions the user stated", () => {
+    expect(browserTaskDefinition.description).toContain(
+      "never add one of your own"
+    )
+    expect(browserTaskDefinition.description).not.toContain(
+      "for example 'do not submit'"
+    )
+  })
+
   it("passes a web start address and drops anything else", async () => {
     const installed = runner()
     setBrowserTaskRunner(installed)
