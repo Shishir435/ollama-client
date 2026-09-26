@@ -9,8 +9,8 @@ import { hasPermission } from "@/lib/permissions"
  * own, with nothing to say which were the agent's to close. Claude in Chrome
  * and ChatGPT's extension both group the tabs they work in; this groups the
  * ones a run opened — never the tab the user started on, which stays where
- * they put it. `tabGroups` is an optional permission, so without it the
- * tabs open ungrouped exactly as before.
+ * they put it. `tabGroups` is required on Chromium from 0.14.0; where it is
+ * missing the tabs open ungrouped exactly as before.
  *
  * Keyed by run, so a later run started from the same tab gets its own group.
  * Calls for one run are chained: two tabs opened together both reading "no

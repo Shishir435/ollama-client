@@ -8,6 +8,22 @@ import { OpenAICompatibleProvider } from "@/lib/providers/openai-compatible"
 import { VllmProvider } from "@/lib/providers/vllm"
 import { ProviderId, ProviderServiceProfile, ProviderType } from "../types"
 
+/** These tests cover the recommendations path, which the user must switch on. */
+const cloud = vi.hoisted(() => ({ enabled: true }))
+vi.mock("@/lib/storage/setting-access", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/storage/setting-access")>()
+  return {
+    ...actual,
+    readSetting: vi.fn(
+      async (descriptor: { key: string; defaultValue?: unknown }) =>
+        descriptor.key === "provider-ollama-cloud-models-v1"
+          ? cloud.enabled
+          : actual.readSetting(descriptor as never)
+    )
+  }
+})
+
 const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), {
     status: 200,

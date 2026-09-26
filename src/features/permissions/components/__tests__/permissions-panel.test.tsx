@@ -6,11 +6,13 @@ import { getScheduledJobSettings } from "@/lib/scheduled-jobs"
 const perm = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   requestPermission: vi.fn(),
-  removePermission: vi.fn()
+  removePermission: vi.fn(),
+  isOptionalPermission: vi.fn(() => true)
 }))
 
 vi.mock("@/lib/permissions", () => ({
   hasPermission: perm.hasPermission,
+  isOptionalPermission: perm.isOptionalPermission,
   requestPermission: perm.requestPermission,
   removePermission: perm.removePermission
 }))
@@ -221,8 +223,18 @@ describe("PermissionsPanel", () => {
     await waitFor(() => expect(bookmarks).not.toBeChecked())
   })
 
-  it("shows the tab-groups optional permission when supported", async () => {
+  /** Chromium requires it at install; a switch there could never revoke it. */
+  it("hides tab groups where the permission is required", () => {
     browserApi.supportsTabGroups.mockReturnValue(true)
+    perm.isOptionalPermission.mockReturnValueOnce(false)
+    render(<PermissionsPanel />)
+
+    expect(document.getElementById("permission-tab-groups")).toBeNull()
+  })
+
+  it("shows the tab-groups optional permission where it is optional", async () => {
+    browserApi.supportsTabGroups.mockReturnValue(true)
+    perm.isOptionalPermission.mockReturnValue(true)
     render(<PermissionsPanel />)
 
     expect(document.getElementById("permission-tab-groups")).toBeTruthy()

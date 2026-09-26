@@ -3,6 +3,8 @@ import {
   supportsSyncedSessions,
   supportsTabGroups
 } from "@/lib/browser-api"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type {
   ToolContext,
   ToolDefinition,
@@ -107,7 +109,9 @@ const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
   if (tool.definition.name === "list_synced_sessions") {
     return supportsSyncedSessions()
   }
-  if (tool.definition.name === "browser_task") return browserTaskAvailable()
+  if (tool.definition.name === "browser_task") {
+    return browserTaskAvailable() && (await readSetting(SETTINGS.AGENT_ENABLED))
+  }
   return true
 }
 
@@ -121,6 +125,8 @@ export const createInternalToolSource = (): ToolSource => {
   )
   return {
     id: "internal",
+    /** `browser_task` follows the agent opt-in, which the user can flip at any time. */
+    volatile: true,
     listTools: async () => {
       const visible = await Promise.all(
         INTERNAL_TOOLS.map(async (tool) => ({
@@ -134,7 +140,12 @@ export const createInternalToolSource = (): ToolSource => {
     },
     callTool: async (name, args, ctx) => {
       const tool = byName.get(name)
-      if (!tool) {
+      /**
+       * A tool that was not offered is not callable either: a model can name
+       * `browser_task` from memory or from page text while the agent is off,
+       * and listing it hidden only means something if calling it is refused.
+       */
+      if (!tool || !(await isToolVisible(tool))) {
         return { content: `Unknown internal tool: ${name}`, isError: true }
       }
       return tool.run(args, ctx)

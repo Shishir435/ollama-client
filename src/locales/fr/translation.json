@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "Onglets contrôlés",
-      "count": "{{count}} onglets"
+      "count_one": "{{count}} onglet",
+      "count_other": "{{count}} onglets"
     },
     "takeover": {
       "title": "Prenez le contrôle de cette étape",
@@ -155,9 +156,23 @@
       "reasoning": "Raisonnement"
     },
     "correction": "En pause. Décrivez le changement souhaité, puis continuez.",
+    "experimental_badge": "Expérimental",
+    "announcement": {
+      "title": "Expérimental : un agent de navigateur dans le chat",
+      "description": "Votre modèle de chat peut désormais effectuer des tâches dans vos onglets : cliquer, saisir et passer d’une page à l’autre à votre place. Il reste désactivé tant que vous ne l’activez pas.",
+      "hosted_models": "Il fonctionne mieux avec des modèles hébergés performants (par exemple via OpenRouter ou un fournisseur cloud). Les petits modèles locaux n’arrivent souvent pas à terminer une tâche en plusieurs étapes.",
+      "approvals": "Il demande avant d’envoyer un formulaire, de se connecter, de payer ou de supprimer quoi que ce soit, et vous pouvez l’arrêter à tout moment.",
+      "coming": "Il s’agit d’une première version. Attendez-vous à quelques imperfections ; d’autres améliorations arrivent dans les prochaines versions.",
+      "later": "Plus tard",
+      "enable": "Activer l’agent"
+    },
     "settings": {
       "title": "Agent de navigation",
       "description": "Ce qu’une exécution peut faire sans demander, combien de contexte elle peut demander à son modèle et quand elle capture la page.",
+      "enabled": {
+        "label": "Autoriser le modèle de chat à utiliser l’agent du navigateur",
+        "description": "Propose browser_task, qui permet au modèle de cliquer, saisir et naviguer dans vos onglets à votre place. Expérimental : son efficacité varie beaucoup d’un modèle à l’autre."
+      },
       "context_window": {
         "label": "Fenêtre de contexte",
         "description": "Automatique prend la plus petite fenêtre que ce modèle et ce serveur signalent, et se rabat sur une taille prudente quand aucun ne se prononce. Fixez vous-même une taille si vous avez relevé la limite de votre serveur ou si une exécution a manqué de mémoire.",
@@ -660,7 +675,14 @@
       "manage": "Gérer les autorisations",
       "not_granted": "L’autorisation n’a pas été accordée. Réessayez ou gérez-la dans les paramètres.",
       "resume_failed": "Impossible de poursuivre la demande. Réessayez.",
-      "reminders": "Rappels"
+      "reminders": "Rappels",
+      "agent": {
+        "title": "L’agent du navigateur est désactivé",
+        "description": "Cela ressemble à une tâche dans le navigateur. L’agent est expérimental et fonctionne mieux avec des modèles hébergés.",
+        "enable": "Activer et continuer",
+        "continue_without": "Continuer sans",
+        "manage": "Réglages de l’agent"
+      }
     },
     "errors": {
       "unknown_error": "❌ Erreur inconnue : {{message}}",
@@ -719,7 +741,8 @@
       "rows": {
         "tabs": "Contexte de la page et des onglets",
         "knowledge": "Rechercher dans les fichiers importés",
-        "web": "Recherche web"
+        "web": "Recherche web",
+        "agent": "Agent du navigateur (expérimental)"
       }
     },
     "artifacts": {
@@ -807,6 +830,10 @@
       "search_placeholder": "Rechercher un modèle...",
       "no_model_found": "Aucun modèle trouvé.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Modèles cloud d’Ollama",
+        "description": "Modèles :cloud hébergés. Nécessitent un Ollama connecté et souvent un abonnement payant."
+      },
       "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Vérifiez le fournisseur dans les paramètres ou ajoutez des identifiants de modèle manuellement.",
       "selection_conflict": "Choisissez un fournisseur pour {{model}} — plusieurs le proposent."
     },
@@ -1429,6 +1456,7 @@
       "prompts": "Bibliothèque de prompts",
       "models": "Comportement du modèle",
       "extraction": "Page et onglets",
+      "agent": "Agent",
       "context": "Connaissances et web",
       "embeddings": "Connaissances enregistrées",
       "providers": "Fournisseurs",

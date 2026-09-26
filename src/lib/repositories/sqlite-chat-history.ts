@@ -57,7 +57,16 @@ const MessageTreeRowSchema = z.object({
     .number()
     .nullish()
     .transform((value) => value ?? undefined),
-  timestamp: z.number()
+  timestamp: z.number(),
+  /**
+   * A resolved permission notice: kept as a tree anchor but never shown, so
+   * it must not count as a branch the user can step back to. Stepping to it
+   * showed an empty conversation.
+   */
+  hidden: z
+    .number()
+    .nullish()
+    .transform((value) => value === 1)
 })
 
 export type MessageTreeRow = z.infer<typeof MessageTreeRowSchema>
@@ -500,7 +509,7 @@ export const getMessageTreeBySession = async (
   sessionId: string
 ): Promise<MessageTreeRow[]> => {
   const rows = await query(
-    "SELECT id, parentId, timestamp FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
+    "SELECT id, parentId, timestamp, (CASE WHEN json_valid(metrics) THEN json_extract(metrics, '$.permissionNotice.resolvedAt') IS NOT NULL ELSE 0 END) AS hidden FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
     [sessionId]
   )
   const decoded = decodeRows(MessageTreeRowSchema, rows, {

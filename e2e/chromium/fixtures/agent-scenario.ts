@@ -541,13 +541,18 @@ const runAgentScenarioAttempt = (
       await panel.evaluate(
         async ({ origin, model, hosted, approveEach }) => {
           const providerId = hosted ? "custom:openai:agent-fixture" : "ollama"
-          /** Routine-action consent is a device-local preference now. */
+          /**
+           * Routine-action consent is a device-local preference now, and the
+           * agent itself is opt-in: off, `browser_task` is never offered.
+           */
           await chrome.storage.local.set({
             "agent-permission-mode-v1": JSON.stringify(
               approveEach ? "approve_each" : "allow_routine"
-            )
+            ),
+            "agent-enabled-v1": JSON.stringify(true)
           })
           await chrome.storage.sync.set({
+            "agent-announcement-dismissed-v1": JSON.stringify(true),
             llm_providers_config_v1: JSON.stringify([
               {
                 id: providerId,

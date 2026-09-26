@@ -125,7 +125,7 @@ export const browserTaskDefinition: ToolDefinition = {
       start_url: {
         type: "string",
         description:
-          "Optional whole https address to begin on, such as https://duckduckgo.com. Used only when the tab the user is looking at is a browser page the agent cannot work on; the site opens in a new tab."
+          "The whole https address of the site the task names, such as https://duckduckgo.com. Pass it whenever the user names a site. It is used only when the tab the user is looking at is a browser or extension page the agent cannot work on, and then the site opens in a new tab; otherwise the task starts on the current tab."
       },
       continue_previous_task: {
         type: "boolean",

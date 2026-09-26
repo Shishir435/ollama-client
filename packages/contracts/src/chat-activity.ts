@@ -206,7 +206,8 @@ export const PermissionNoticeSchema = z.object({
     "downloads",
     "tabGroups",
     "sessions",
-    "reminders"
+    "reminders",
+    "browserAgent"
   ]),
   focusId: z.string(),
   labelKey: z.string(),

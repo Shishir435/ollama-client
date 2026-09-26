@@ -403,6 +403,10 @@ export const useProviderModels = () => {
     deleteModel,
     selectedProviderId,
     selectedProviderCapabilities,
-    unavailableProviders
+    unavailableProviders,
+    /** Whether Ollama is on, so a menu can offer it before it lists a model. */
+    ollamaEnabled: enabledProviders.some(
+      (provider) => provider.id === DEFAULT_PROVIDER_ID
+    )
   }
 }

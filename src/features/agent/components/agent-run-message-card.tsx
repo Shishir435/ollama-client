@@ -227,6 +227,9 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
       <header className="flex min-w-0 items-center gap-1.5">
         <Bot className="icon-xs shrink-0" aria-hidden="true" />
         <span className="font-medium">{t("agent.card.title")}</span>
+        <span className="shrink-0 rounded-chip border border-border-subtle px-1.5 text-micro text-muted-foreground">
+          {t("agent.experimental_badge")}
+        </span>
         {status && (
           <span
             className="ml-auto shrink-0 rounded-chip bg-background px-1.5 text-micro text-muted-foreground"

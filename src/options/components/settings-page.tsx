@@ -5,7 +5,8 @@ import {
   FileText,
   Github,
   Lock,
-  MessageSquare
+  MessageSquare,
+  MousePointerClick
 } from "lucide-react"
 import {
   lazy,
@@ -53,6 +54,13 @@ const ModelsSettingsTab = lazy(
 const BrowserSettingsTab = lazy(
   () => import("@/options/components/tabs/browser-settings-tab")
 )
+/**
+ * Read inline so Firefox, which has no agent, drops the tab and its chunk.
+ */
+const AgentSettingsTab =
+  typeof __AGENT_PREVIEW_ENABLED__ !== "undefined" && __AGENT_PREVIEW_ENABLED__
+    ? lazy(() => import("@/options/components/tabs/agent-settings-tab"))
+    : undefined
 const KnowledgeSettingsTab = lazy(
   () => import("@/options/components/tabs/knowledge-settings-tab")
 )
@@ -172,7 +180,17 @@ export const SettingsPage = () => {
           key: "browser",
           label: t("settings.tabs.extraction"),
           icon: FileText
-        }
+        },
+        ...(AgentSettingsTab
+          ? [
+              {
+                key: "agent",
+                label: t("settings.tabs.agent"),
+                icon: MousePointerClick,
+                badge: t("agent.experimental_badge")
+              }
+            ]
+          : [])
       ]
     },
     {
@@ -195,6 +213,7 @@ export const SettingsPage = () => {
     general: <GeneralSettingsTab activeFocusId={activeFocusId} />,
     models: <ModelsSettingsTab />,
     browser: <BrowserSettingsTab />,
+    ...(AgentSettingsTab ? { agent: <AgentSettingsTab /> } : {}),
     knowledge: <KnowledgeSettingsTab activeFocusId={activeFocusId} />,
     privacy: <PrivacySettingsTab />,
     help: <HelpSettingsTab />

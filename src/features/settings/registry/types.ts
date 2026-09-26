@@ -5,6 +5,7 @@ export const SETTINGS_TABS = [
   "models",
   "knowledge",
   "browser",
+  "agent",
   "privacy",
   "help"
 ] as const

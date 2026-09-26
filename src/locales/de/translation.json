@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "Gesteuerte Tabs",
-      "count": "{{count}} Tabs"
+      "count_one": "{{count}} Tab",
+      "count_other": "{{count}} Tabs"
     },
     "takeover": {
       "title": "Diesen Schritt übernehmen",
@@ -155,9 +156,23 @@
       "reasoning": "Überlegung"
     },
     "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
+    "experimental_badge": "Experimentell",
+    "announcement": {
+      "title": "Experimentell: ein Browser-Agent im Chat",
+      "description": "Dein Chat-Modell kann jetzt Aufgaben in deinen Tabs erledigen und dafür klicken, tippen und zwischen Seiten wechseln. Er bleibt aus, bis du ihn einschaltest.",
+      "hosted_models": "Am besten funktioniert er mit leistungsfähigen gehosteten Modellen (zum Beispiel über OpenRouter oder einen Cloud-Anbieter). Kleine lokale Modelle schaffen mehrstufige Aufgaben oft nicht.",
+      "approvals": "Er fragt nach, bevor er Formulare absendet, sich anmeldet, bezahlt oder etwas löscht, und du kannst ihn jederzeit stoppen.",
+      "coming": "Dies ist eine frühe Version. Rechne mit Ecken und Kanten; weitere Verbesserungen kommen in den nächsten Versionen.",
+      "later": "Vielleicht später",
+      "enable": "Agent einschalten"
+    },
     "settings": {
       "title": "Browser-Agent",
       "description": "Was ein Lauf ohne Rückfrage tun darf, wie viel Kontext er vom Modell anfordern darf und wann er die Seite abbildet.",
+      "enabled": {
+        "label": "Chat-Modell den Browser-Agenten nutzen lassen",
+        "description": "Stellt browser_task bereit, mit dem das Modell in deinen Tabs für dich klicken, tippen und navigieren kann. Experimentell: Wie gut es funktioniert, hängt stark vom Modell ab."
+      },
       "context_window": {
         "label": "Kontextfenster",
         "description": "Automatisch nimmt das kleinste Fenster, das dieses Modell und dieser Server melden, und greift auf eine konservative Größe zurück, wenn keiner etwas sagt. Lege selbst eine Größe fest, wenn du das Limit deines Servers erhöht hast oder einem Lauf der Speicher ausgegangen ist.",
@@ -660,7 +675,14 @@
       "manage": "Berechtigungen verwalten",
       "not_granted": "Die Berechtigung wurde nicht erteilt. Versuche es erneut oder verwalte sie in den Einstellungen.",
       "resume_failed": "Die Anfrage konnte nicht fortgesetzt werden. Versuche es erneut.",
-      "reminders": "Erinnerungen"
+      "reminders": "Erinnerungen",
+      "agent": {
+        "title": "Der Browser-Agent ist aus",
+        "description": "Das sieht nach einer Aufgabe im Browser aus. Der Agent ist experimentell und funktioniert am besten mit gehosteten Modellen.",
+        "enable": "Einschalten und fortfahren",
+        "continue_without": "Ohne fortfahren",
+        "manage": "Agent-Einstellungen"
+      }
     },
     "errors": {
       "unknown_error": "❌ Unbekannter Fehler: {{message}}",
@@ -719,7 +741,8 @@
       "rows": {
         "tabs": "Seiten- und Tab-Kontext",
         "knowledge": "Hochgeladene Dateien durchsuchen",
-        "web": "Websuche"
+        "web": "Websuche",
+        "agent": "Browser-Agent (experimentell)"
       }
     },
     "artifacts": {
@@ -807,6 +830,10 @@
       "search_placeholder": "Modell suchen...",
       "no_model_found": "Kein Modell gefunden.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Ollama-Cloud-Modelle",
+        "description": "Gehostete :cloud-Modelle. Erfordern ein angemeldetes Ollama und oft ein kostenpflichtiges Abo."
+      },
       "providers_unavailable": "{{names}} hat keine Modelle zurückgegeben. Prüfe den Anbieter in den Einstellungen oder füge Modell-IDs manuell hinzu.",
       "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit."
     },
@@ -1429,6 +1456,7 @@
       "prompts": "Prompt-Bibliothek",
       "models": "Modellverhalten",
       "extraction": "Seite & Tabs",
+      "agent": "Agent",
       "context": "Wissen & Web",
       "embeddings": "Gespeichertes Wissen",
       "providers": "Anbieter",

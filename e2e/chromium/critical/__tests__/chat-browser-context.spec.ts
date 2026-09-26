@@ -103,6 +103,8 @@ test("@critical chat names the panel's tab and reads it through current_tab", as
     await panel.evaluate(
       async ({ origin, model }) => {
         await chrome.storage.sync.set({
+          /** The agent announcement would otherwise cover the composer. */
+          "agent-announcement-dismissed-v1": JSON.stringify(true),
           llm_providers_config_v1: JSON.stringify([
             {
               id: "ollama",

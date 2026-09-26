@@ -42,7 +42,8 @@ export const ChatMessageBubble = memo(
     onFork?: (content: string) => void
     onDelete?: () => void
     onNavigate?: (nodeId: number | string) => void
-    onResolvePermission?: () => Promise<PermissionResumeResult>
+    /** `enable: false` continues without turning the capability on. */
+    onResolvePermission?: (enable?: boolean) => Promise<PermissionResumeResult>
   }) => {
     const { t } = useTranslation()
     const [editorMode, setEditorMode] = useState<"edit" | "fork" | null>(null)

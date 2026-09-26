@@ -14,8 +14,8 @@ import {
 } from "../settings-registry"
 
 describe("settings-registry", () => {
-  it("uses six intent tabs and redirects legacy deep links", () => {
-    expect(SETTINGS_TABS).toHaveLength(6)
+  it("uses seven intent tabs and redirects legacy deep links", () => {
+    expect(SETTINGS_TABS).toHaveLength(7)
     expect(resolveSettingsTab("providers")).toBe("models")
     expect(resolveSettingsTab("saved-knowledge")).toBe("knowledge")
     expect(resolveSettingsTab("data-backup")).toBe("privacy")
@@ -131,6 +131,13 @@ describe("settings-registry", () => {
       expect(searchSettings("pres").map((e) => e.id)).toContain(
         "settings-presets"
       )
+    })
+
+    it("matches the browser agent to its own tab", () => {
+      const hit = searchSettings("browser agent").find(
+        (e) => e.id === "agent-enabled"
+      )
+      expect(hit?.tab).toBe("agent")
     })
 
     it("matches selection actions to the content extraction tab", () => {

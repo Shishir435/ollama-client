@@ -38,6 +38,20 @@ describe("Agent perception permission placement", () => {
     )
   })
 
+  /**
+   * Arriving in the same release as debugger and webNavigation, so an update
+   * from 0.13.x asks once. A required permission cannot be revoked, so it must
+   * not also be listed as optional there.
+   */
+  it("requires tabGroups on Chromium and leaves it optional on Firefox", () => {
+    expect(manifestFor("chrome").permissions).toContain("tabGroups")
+    expect(manifestFor("chrome").optional_permissions).not.toContain(
+      "tabGroups"
+    )
+    expect(manifestFor("firefox").permissions).not.toContain("tabGroups")
+    expect(manifestFor("firefox").optional_permissions).toContain("tabGroups")
+  })
+
   it("does not add unrelated powerful permissions", () => {
     const manifest = manifestFor("chrome")
     for (const permission of [

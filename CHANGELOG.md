@@ -70,6 +70,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- `olc -b fm` (alias `-b apple`) serves Apple's on-device Foundation Model on
+  macOS 27 at `127.0.0.1:8085`, so it can be added as an OpenAI-compatible
+  provider. `fm serve` refuses browser requests on its own; olc runs it on a
+  private socket and applies its own origin policy. The model is listed as
+  `apple/foundation` with its 8K context, image input and no tool calling.
+
 - Web search can route through the selected agent runtime's native search tool.
   Ollama Client still exposes one provider-neutral `web_search` tool and keeps
   configured SearXNG, Brave, and Tavily backends available as explicit choices.
@@ -79,6 +85,32 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 
+- The browser agent ships as **experimental** and opt-in, with its own settings
+  tab and a switch in the chat's Context sheet. Until it is turned on, the chat
+  model is neither offered `browser_task` nor able to call it. Every profile, new or upgraded, sees a
+  one-time notice introducing it, which recommends capable hosted models.
+  Asking for a browser task while it is off shows a card instead of a reply:
+  **Turn on and continue** enables it and runs the same request, **Continue
+  without** sends it as it was, and the model is told browser actions are off
+  rather than calling them denied.
+- On Chromium, `tabGroups` is now a required permission alongside `debugger`
+  and `webNavigation`, so the update from 0.13.x asks for consent once and
+  tab-group reading and the agent's own tab group work without a further
+  prompt. It stays optional on Firefox, and its switch leaves Chromium's
+  Privacy panel because a required permission cannot be revoked there.
+- Ollama's hosted `:cloud` recommendations are off by default, with a switch at
+  the top of Ollama's list in the model menu. They need a signed-in daemon and
+  often a paid plan, and without one a chosen model failed at send time.
+  `:cloud` models pulled with `ollama pull` are listed either way.
+- Custom providers on NVIDIA, Vercel AI Gateway, Cloudflare AI Gateway,
+  Fireworks, DeepInfra, Hugging Face and Cerebras show their vendor's mark.
+  Other remote providers look for a favicon on the vendor's own site — its
+  registrable domain, then `www.` — instead of only one level above the API
+  host, still without following redirects.
+- The session stats sit in the middle of the chat header; the thinking panel
+  and the model menu's provider rail now share the radius of the surfaces
+  around them. Settings dropdowns show their option's label rather than its
+  stored value.
 - All olc backends now detach by default. `--debug` implies foreground; explicit
   `--foreground`/`--detached` control the session. Detached proxies report readiness,
   PID, private logs, and shutdown instructions.

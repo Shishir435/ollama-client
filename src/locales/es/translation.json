@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "Pestañas controladas",
-      "count": "{{count}} pestañas"
+      "count_one": "{{count}} pestaña",
+      "count_other": "{{count}} pestañas"
     },
     "takeover": {
       "title": "Toma el control de este paso",
@@ -155,9 +156,23 @@
       "reasoning": "Razonamiento"
     },
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
+    "experimental_badge": "Experimental",
+    "announcement": {
+      "title": "Experimental: un agente del navegador en el chat",
+      "description": "Tu modelo de chat ahora puede realizar tareas en tus pestañas: hacer clic, escribir y moverse entre páginas por ti. Permanece desactivado hasta que lo actives.",
+      "hosted_models": "Funciona mejor con modelos alojados potentes (por ejemplo, a través de OpenRouter o un proveedor en la nube). Los modelos locales pequeños a menudo no logran completar tareas de varios pasos.",
+      "approvals": "Pregunta antes de enviar formularios, iniciar sesión, pagar o eliminar algo, y puedes detenerlo en cualquier momento.",
+      "coming": "Es una versión temprana. Habrá detalles por pulir; llegarán más mejoras en las próximas versiones.",
+      "later": "Quizá más tarde",
+      "enable": "Activar agente"
+    },
     "settings": {
       "title": "Agente del navegador",
       "description": "Lo que una ejecución puede hacer sin preguntar, cuánto contexto puede pedir a su modelo y cuándo captura la página.",
+      "enabled": {
+        "label": "Permitir que el modelo de chat use el agente del navegador",
+        "description": "Ofrece browser_task, que permite al modelo hacer clic, escribir y navegar en tus pestañas por ti. Experimental: su eficacia varía mucho según el modelo."
+      },
       "context_window": {
         "label": "Ventana de contexto",
         "description": "Automático toma la ventana más pequeña que informan este modelo y este servidor, y recurre a un tamaño conservador cuando ninguno lo dice. Fija un tamaño tú mismo si has subido el límite de tu servidor o si a una ejecución se le ha agotado la memoria.",
@@ -660,7 +675,14 @@
       "manage": "Administrar permisos",
       "not_granted": "No se concedió el permiso. Puedes intentarlo de nuevo o administrarlo en Ajustes.",
       "resume_failed": "No se pudo continuar la solicitud. Inténtalo de nuevo.",
-      "reminders": "Recordatorios"
+      "reminders": "Recordatorios",
+      "agent": {
+        "title": "El agente del navegador está desactivado",
+        "description": "Parece una tarea en el navegador. El agente es experimental y funciona mejor con modelos alojados.",
+        "enable": "Activar y continuar",
+        "continue_without": "Continuar sin él",
+        "manage": "Ajustes del agente"
+      }
     },
     "errors": {
       "unknown_error": "❌ Error desconocido: {{message}}",
@@ -719,7 +741,8 @@
       "rows": {
         "tabs": "Contexto de página y pestañas",
         "knowledge": "Buscar en archivos subidos",
-        "web": "Búsqueda web"
+        "web": "Búsqueda web",
+        "agent": "Agente del navegador (experimental)"
       }
     },
     "artifacts": {
@@ -807,6 +830,10 @@
       "search_placeholder": "Buscar modelo...",
       "no_model_found": "No se encontró ningún modelo.",
       "cloud_badge": "Nube{{plan}}",
+      "cloud_models": {
+        "label": "Modelos en la nube de Ollama",
+        "description": "Modelos :cloud alojados. Requieren Ollama con sesión iniciada y, a menudo, un plan de pago."
+      },
       "providers_unavailable": "{{names}} no devolvió modelos. Revisa el proveedor en la configuración o añade ID de modelo manualmente.",
       "selection_conflict": "Elige un proveedor para {{model}}: más de uno lo ofrece."
     },
@@ -1429,6 +1456,7 @@
       "prompts": "Biblioteca de prompts",
       "models": "Comportamiento del modelo",
       "extraction": "Página y pestañas",
+      "agent": "Agente",
       "context": "Conocimiento y web",
       "embeddings": "Conocimiento guardado",
       "providers": "Proveedores",

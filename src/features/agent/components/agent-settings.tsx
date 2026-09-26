@@ -7,7 +7,8 @@ import {
 import {
   SettingsCard,
   SettingsFormField,
-  SettingsLevelGate
+  SettingsLevelGate,
+  SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
 import {
@@ -36,9 +37,14 @@ const PERMISSION_MODES = ["allow_routine", "approve_each"] as const
  * every step or only the ones that need it. `auto` is the default for each
  * and resolves from the model itself, so the controls exist for the cases
  * where the resolution is wrong rather than as a setup step.
+ *
+ * The whole agent is behind an opt-in, off by default, because nothing yet
+ * measures it across models. The other controls stay mounted while it is
+ * off, so a settings search that lands on one still finds it.
  */
 export const AgentSettings = () => {
   const { t } = useTranslation()
+  const [enabled, setEnabled] = useSetting(SETTINGS.AGENT_ENABLED)
   const [contextWindow, setContextWindow] = useSetting(
     SETTINGS.AGENT_CONTEXT_WINDOW
   )
@@ -52,7 +58,16 @@ export const AgentSettings = () => {
     <SettingsCard
       icon={Bot}
       title={t("agent.settings.title")}
-      description={t("agent.settings.description")}>
+      description={t("agent.settings.description")}
+      badge={t("agent.experimental_badge")}>
+      <SettingsSwitch
+        id="agent-enabled"
+        label={t("agent.settings.enabled.label")}
+        description={t("agent.settings.enabled.description")}
+        checked={enabled === true}
+        onCheckedChange={setEnabled}
+      />
+
       <SettingsFormField
         focusId="agent-permission-mode"
         label={t("agent.settings.permission_mode.label")}
@@ -63,7 +78,13 @@ export const AgentSettings = () => {
             setPermissionMode(next as (typeof PERMISSION_MODES)[number])
           }>
           <SelectTrigger>
-            <SelectValue />
+            <SelectValue>
+              {() =>
+                t(
+                  `agent.settings.permission_mode.${permissionMode ?? "allow_routine"}`
+                )
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {PERMISSION_MODES.map((mode) => (
@@ -86,7 +107,15 @@ export const AgentSettings = () => {
               setContextWindow(next === "auto" ? "auto" : 32_768)
             }>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {() =>
+                  t(
+                    isAuto
+                      ? "agent.settings.context_window.auto"
+                      : "agent.settings.context_window.custom"
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="auto">
@@ -130,7 +159,9 @@ export const AgentSettings = () => {
               setVision(next as (typeof VISION_MODES)[number])
             }>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {() => t(`agent.settings.vision.${vision ?? "auto"}`)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {VISION_MODES.map((mode) => (

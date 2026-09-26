@@ -92,6 +92,7 @@ export interface PermissionNotice {
     | "tabGroups"
     | "sessions"
     | "reminders"
+    | "browserAgent"
   focusId: string
   labelKey: string
   missingPermissions: OptionalApiPermission[]

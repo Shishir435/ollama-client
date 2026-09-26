@@ -183,64 +183,97 @@ const faviconUrl = (baseUrl: string): string | undefined => {
 }
 
 /**
- * Multi-label public suffixes common enough to matter. Stripping one label off
- * `api.example.co.uk` gives the site; stripping one off `example.co.uk` gives a
- * registry, which belongs to nobody and must never be contacted. Shipping the
- * full Public Suffix List for one icon is not worth its size, so this covers
- * the shapes that actually appear and the guard refuses anything it is unsure
- * of.
+ * Suffixes under which a label is somebody's own site, beyond the one-label
+ * TLDs. Stripping to two labels off `api.example.co.uk` gives `co.uk`, a
+ * registry, and off `api.my-router.vercel.app` gives `vercel.app`, the host's
+ * own site rather than the user's — both wrong, and the first belongs to
+ * nobody. Shipping the full Public Suffix List for one icon is not worth its
+ * size, so this covers the shapes that actually appear: ccTLD registries by
+ * their generic second level (`com.ar`, `co.jp`), and the shared hosts people
+ * deploy gateways on.
  */
-const PUBLIC_SUFFIXES = new Set([
-  "co.uk",
-  "org.uk",
-  "ac.uk",
-  "gov.uk",
-  "co.jp",
-  "or.jp",
-  "ne.jp",
-  "com.au",
-  "net.au",
-  "org.au",
-  "com.br",
-  "com.cn",
-  "net.cn",
-  "org.cn",
-  "com.hk",
-  "co.in",
-  "co.kr",
-  "co.nz",
-  "com.mx",
-  "com.sg",
-  "com.tr",
-  "com.tw",
-  "co.za"
+const GENERIC_SECOND_LEVELS = new Set([
+  "ac",
+  "co",
+  "com",
+  "edu",
+  "go",
+  "gob",
+  "gov",
+  "mil",
+  "ne",
+  "net",
+  "or",
+  "org"
 ])
+const SHARED_HOST_SUFFIXES = [
+  "amazonaws.com",
+  "azurewebsites.net",
+  "cloudfront.net",
+  "deno.dev",
+  "fly.dev",
+  "github.io",
+  "hf.space",
+  "herokuapp.com",
+  "modal.run",
+  "netlify.app",
+  "ngrok-free.app",
+  "ngrok.io",
+  "onrender.com",
+  "pages.dev",
+  "railway.app",
+  "replit.app",
+  "run.app",
+  "vercel.app",
+  "workers.dev"
+]
 
-/**
- * The site one level above an API host: `api.acme-router.example` →
- * `acme-router.example`. Exactly one label is stripped — a vendor's icon lives on
- * its own site, not somewhere further up — and the result must still be a real
- * site rather than a registry suffix.
- */
-export const parentDomainOf = (host: string): string | undefined => {
-  const labels = host.split(".")
-  if (labels.length < 3) return undefined
-  const parent = labels.slice(1).join(".")
-  if (parent.split(".").length < 2) return undefined
-  if (PUBLIC_SUFFIXES.has(parent)) return undefined
-  return parent
+/** How many trailing labels form the public suffix `host` sits under. */
+const suffixLabels = (labels: string[]): number => {
+  const host = labels.join(".")
+  const shared = SHARED_HOST_SUFFIXES.find((suffix) =>
+    host.endsWith(`.${suffix}`)
+  )
+  if (shared) return shared.split(".").length
+  const [second, tld] = labels.slice(-2)
+  return tld?.length === 2 && GENERIC_SECOND_LEVELS.has(second ?? "") ? 2 : 1
 }
 
-const parentFaviconUrl = (baseUrl: string): string | undefined => {
+/**
+ * The site an API host belongs to: `integrate.api.nvidia.com` → `nvidia.com`,
+ * `api.example.co.uk` → `example.co.uk`, `api.my-router.vercel.app` →
+ * `my-router.vercel.app`. Labels are stripped down to the registrable domain
+ * rather than one at a time, because the hosts in between — `api.nvidia.com`
+ * — are more API hosts, which answer with a timeout as often as a 404, and a
+ * timeout ends the lookup. Never below that: a registry suffix belongs to
+ * nobody, and a shared host's own site is not the provider's.
+ */
+export const siteDomainOf = (host: string): string | undefined => {
+  const labels = host.split(".")
+  const siteLabels = suffixLabels(labels) + 1
+  if (labels.length <= siteLabels) return undefined
+  return labels.slice(-siteLabels).join(".")
+}
+
+/**
+ * Where the vendor's own site keeps its icon: the bare domain, then its
+ * `www.` host. Vendor sites commonly redirect one to the other (`nvidia.com`
+ * and `cloudflare.com` both send `/favicon.ico` to `www.`), and redirects are
+ * refused, so the `www.` host is asked directly instead of being reached
+ * through one. No port: the site is a website, not the inference service that
+ * happened to be running on one.
+ */
+const siteFaviconUrls = (baseUrl: string): string[] => {
   try {
     const url = new URL(baseUrl)
-    const parent = parentDomainOf(url.hostname.toLowerCase())
-    if (!parent) return undefined
-    // No port: the parent is a website, not the inference service that happened
-    // to be running on one.
-    return `${url.protocol}//${parent}/favicon.ico`
+    const site = siteDomainOf(url.hostname.toLowerCase().replace(/^www\./, ""))
+    if (!site) return []
+    return [
+      `${url.protocol}//${site}/favicon.ico`,
+      `${url.protocol}//www.${site}/favicon.ico`
+    ]
   } catch {
-    return undefined
+    return []
   }
 }
 
@@ -391,10 +424,10 @@ const fetchIcon = async (
  * swallowed into a null entry: an icon is decoration, and a provider whose site
  * is down or whose endpoint refuses the request is still a working provider.
  *
- * The configured host is asked first, always. Its parent site is asked only
- * when that host gave a settled answer of "nothing here" — never after a
- * timeout or a server error, where a second host is just a second thing to go
- * wrong.
+ * The configured host is asked first, always. The vendor's site — its bare
+ * domain, then `www.` — is asked only after a settled answer of "nothing
+ * here", each candidate after the one before it; never after a timeout or a
+ * server error, where another host is just another thing to go wrong.
  */
 const fetchProviderFavicon = async (
   config: ProviderConfig,
@@ -407,9 +440,19 @@ const fetchProviderFavicon = async (
   const direct = await fetchIcon(url, signal)
   if (direct.dataUrl || !direct.absent) return direct.dataUrl
 
-  const parent = parentFaviconUrl(baseUrl)
-  if (!parent) return null
+  for (const candidate of siteFaviconUrls(baseUrl)) {
+    const attempt = await fetchSiteIcon(config, candidate, signal)
+    if (attempt.dataUrl || !attempt.absent) return attempt.dataUrl
+  }
+  return null
+}
 
+/** One vendor-site candidate, asked only after a settled miss before it. */
+const fetchSiteIcon = async (
+  config: ProviderConfig,
+  parent: string,
+  signal?: AbortSignal
+): Promise<IconAttempt> => {
   /*
    * Unreachable today, and kept anyway. A parent inherits its base's suffixes,
    * and it cannot be a private literal because a host whose last label is
@@ -419,14 +462,14 @@ const fetchProviderFavicon = async (
    * fetches has passed the filter, without a reader having to rebuild that
    * argument to be sure.
    */
-  if (!isRemoteFaviconHost(parent)) return null
+  if (!isRemoteFaviconHost(parent)) return NETWORK_FAILURE
 
   logger.debug(
-    "Falling back to the parent site for a provider icon",
+    "Falling back to the vendor site for a provider icon",
     "ProviderFavicon",
     { providerId: String(config.id) }
   )
-  return (await fetchIcon(parent, signal)).dataUrl
+  return fetchIcon(parent, signal)
 }
 
 /**

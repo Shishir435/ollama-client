@@ -26,6 +26,15 @@ const SLIDER_SIZES = {
     track: "data-horizontal:h-2 data-vertical:w-2",
     thumb: "size-4 rounded-full",
     thumbWidth: "1rem"
+  },
+  /**
+   * A pill the thumb sits inside, for a short named scale that is the whole
+   * point of its popover: every stop is a visible dot on the track itself.
+   */
+  xl: {
+    track: "data-horizontal:h-5 data-vertical:w-5 rounded-full",
+    thumb: "size-6 rounded-full shadow-sm",
+    thumbWidth: "1.5rem"
   }
 } as const
 
@@ -100,12 +109,23 @@ function Slider({
           <TooltipProvider delay={250}>
             {Array.from({ length: markCount }, (_, index) => {
               const fraction = index / (markCount - 1)
+              /**
+               * A stop the filled range already covers is drawn against the
+               * primary colour, where the muted dot disappeared — which left
+               * the steps below the current value invisible.
+               */
+              const covered =
+                _values.length === 1 &&
+                min + fraction * (max - min) <= (_values[0] ?? min)
               const mark = (
                 <span
                   aria-hidden="true"
                   data-slot="slider-mark"
+                  data-covered={covered ? "" : undefined}
                   className={cn(
-                    "absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-control bg-foreground/30",
+                    "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full",
+                    size === "xl" ? "size-1.5" : "size-1",
+                    covered ? "bg-primary-foreground/60" : "bg-foreground/35",
                     markLabels && "after:absolute after:-inset-2"
                   )}
                   style={{

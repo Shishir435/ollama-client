@@ -149,6 +149,7 @@ const prepareVisualSmoke = async (
       document.documentElement.lang = requestedLocale
       return setExtensionStorage({
         "app-language": JSON.stringify(requestedLocale),
+        "agent-announcement-dismissed-v1": JSON.stringify(true),
         "light-dark-theme": JSON.stringify(
           JSON.stringify({
             state: { theme: requestedTheme },

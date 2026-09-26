@@ -9,10 +9,12 @@ const extensionGlobals = globalThis as unknown as {
 const firefoxMajorVersion = Number(
   extensionGlobals.navigator?.userAgent?.match(/Firefox\/(\d+)/i)?.[1] ?? 0
 )
-const TAB_GROUPS_AVAILABLE =
-  typeof extensionGlobals.browser?.tabGroups !== "undefined" ||
-  typeof extensionGlobals.chrome?.tabGroups !== "undefined" ||
-  firefoxMajorVersion >= 139
+/**
+ * The tab-groups switch exists only where the permission is optional:
+ * Firefox 139 and later. Chromium requires it at install, so there is no row
+ * for search to land on.
+ */
+const TAB_GROUPS_AVAILABLE = firefoxMajorVersion >= 139
 
 export const PRIVACY_SETTINGS = [
   // NOTE: the old "embeddings-search" advanced card (search limit, min
