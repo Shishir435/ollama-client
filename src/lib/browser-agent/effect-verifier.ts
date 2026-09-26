@@ -19,6 +19,7 @@ import type {
   NavigationAgentAction,
   ReadOnlyAgentAction
 } from "./resolved-effect"
+import { AUTHENTICATION_PATH, PAYMENT_PATH } from "./resolved-effect"
 
 export interface AgentEffectVerifierAdapter {
   observe(
@@ -68,9 +69,34 @@ const observeAfter = (
     signal
   )
 
-const sameOrigin = (first: string, second: string): boolean => {
+/**
+ * Whether a link's own site resolved it to a page the link named: the
+ * landing path, decoded, holds one of the values the link asked for as a
+ * whole word. `Special:Search?search=Firefox` answered with `/wiki/Firefox`
+ * is the search resolved; the same link answered with `/login` or a
+ * challenge page is not, and stays for review. A landing on a sign-in or
+ * payment path never counts, whatever it is named.
+ */
+const resolvedByItsSite = (
+  landedUrl: string,
+  requestedUrl: string
+): boolean => {
   try {
-    return new URL(first).origin === new URL(second).origin
+    const landed = new URL(landedUrl)
+    const requested = new URL(requestedUrl)
+    if (landed.origin !== requested.origin) return false
+    if (AUTHENTICATION_PATH.test(landed.pathname)) return false
+    if (PAYMENT_PATH.test(landed.pathname)) return false
+    const path = ` ${decodeURIComponent(landed.pathname)
+      .toLowerCase()
+      .replaceAll(/[^\p{L}\p{N}]+/gu, " ")} `
+    return [...requested.searchParams.values()].some((value) => {
+      const words = value
+        .toLowerCase()
+        .replaceAll(/[^\p{L}\p{N}]+/gu, " ")
+        .trim()
+      return words.length >= 3 && path.includes(` ${words} `)
+    })
   } catch {
     return false
   }
@@ -608,18 +634,18 @@ const verifyCommittedDestination = async (
       adapter.now()
     )
   /**
-   * A link the page itself showed, followed to wherever its own server sent
-   * it on the same origin, is the click a person makes. Wikipedia's search
-   * suggestions link to `Special:Search?search=Firefox`, answered with the
-   * article, and every such click paused the run as an unresolved effect on
-   * the page it had asked for. A model-composed address keeps the exact
-   * rule: nobody on the page vouched for it, so a consent wall or a dropped
-   * query stays for review, and another origin always does.
+   * A link the page itself showed, which its own site resolved to the page
+   * it named. Wikipedia's search suggestions link to
+   * `Special:Search?search=Firefox`, answered with the article, and every
+   * such click paused the run as an unresolved effect on the page it had
+   * asked for. Only that shape: a redirect to a sign-in, a challenge or any
+   * path the link did not name stays for review, as does a model-composed
+   * address and another origin.
    */
   const followedLink =
     kind === "activation" &&
     destination.source === "observed" &&
-    sameOrigin(tab.url, destination.url)
+    resolvedByItsSite(tab.url, destination.url)
   if (!landed && !followedLink)
     return result(
       "ambiguous",

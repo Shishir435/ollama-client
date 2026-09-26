@@ -305,13 +305,19 @@ describe("Agent DOM mutation resolution and policy", () => {
 
   /**
    * Wikipedia's search suggestion links to `Special:Search?search=Firefox`
-   * and its server answers with the article. Following the page's own link
-   * to wherever its site sends it is a click that worked; another origin is
-   * still left for review.
+   * and its server answers with the article. A page's own link its site
+   * resolved to the page it named is a click that worked; a sign-in, a
+   * challenge, an unnamed path or another origin is still left for review.
    */
   it.each([
     ["confirmed", "/wiki/Firefox"],
-    ["ambiguous", "https://elsewhere.example/wiki/Firefox"]
+    ["ambiguous", "https://elsewhere.example/wiki/Firefox"],
+    /** The site sent the link somewhere it did not name. */
+    ["ambiguous", "/login?next=%2Fwiki%2FFirefox"],
+    ["ambiguous", "/challenge"],
+    ["ambiguous", "/wiki/Main_Page"],
+    /** Named, but a sign-in path never counts. */
+    ["ambiguous", "/login/Firefox"]
   ])("judges a followed link that committed %s at %s", async (outcome, landedPath) => {
     const link = new URL(
       "/w/index.php?title=Special%3ASearch&search=Firefox",
