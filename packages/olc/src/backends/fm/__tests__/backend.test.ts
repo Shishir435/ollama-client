@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest"
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import path from "node:path"
+import { afterAll, describe, expect, it, vi } from "vitest"
 import { parseArgs, selectBackend, usageFor } from "../../../cli-options.js"
 import { resolveConfig } from "../../../config.js"
 import { createBackend } from "../../registry.js"
@@ -11,10 +14,13 @@ import {
   toFmMessages
 } from "../index.js"
 
-const context = (options: Record<string, unknown> = {}): BackendContext => ({
+const context = (
+  options: Record<string, unknown> = {},
+  fileOptions: Record<string, unknown> = {}
+): BackendContext => ({
   config: resolveConfig({ BACKEND: "fm" }),
   options,
-  fileOptions: {},
+  fileOptions,
   log: () => {},
   retryAsync: (operation) => operation(),
   callClientTool: async () => ""
@@ -166,5 +172,88 @@ describe("fm startup", () => {
         : /only on macOS 27 or later/
     )
     await backend.shutdown()
+  })
+})
+
+/**
+ * A stand-in `fm` on the same socket protocol: slow to listen, so a second
+ * caller arrives mid-startup, and a chat stream that `MODE` can cut short.
+ */
+const FAKE_FM = `#!/usr/bin/env node
+const http = require("node:http")
+const socket = process.argv[process.argv.indexOf("--socket") + 1]
+const server = http.createServer((req, res) => {
+  if (req.url === "/health") {
+    res.end(JSON.stringify({ models: [{ name: "system", available: true }] }))
+    return
+  }
+  res.writeHead(200, { "content-type": "text/event-stream" })
+  res.write('data: {"choices":[{"delta":{"content":"Hel"}}]}\\n\\n')
+  if (process.env.FAKE_FM_MODE === "truncate") return res.end()
+  res.write('data: {"choices":[{"delta":{"content":"lo"},"finish_reason":"stop"}]}\\n\\n')
+  res.end("data: [DONE]\\n\\n")
+})
+setTimeout(() => server.listen(socket), 400)
+`
+
+describe.runIf(process.platform === "darwin")("fm serve relay", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "olc-fake-fm-"))
+  const fake = path.join(dir, "fm")
+  writeFileSync(fake, FAKE_FM)
+  chmodSync(fake, 0o755)
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+  const turn = async (mode: string) => {
+    vi.stubEnv("FAKE_FM_MODE", mode)
+    const backend = createFmBackend(context({ FM_PATH: fake }))
+    try {
+      await Promise.all([backend.ensureReady(), backend.ensureReady()])
+      const started = await backend.startTurn({
+        requestId: mode,
+        messages: [{ role: "user", content: "Hi" }]
+      } as Parameters<typeof backend.startTurn>[0])
+      return await started.run({ onText: () => {} } as never, {
+        suspended: new Promise(() => {}),
+        hasUnannouncedToolCalls: () => false
+      })
+    } finally {
+      await backend.shutdown()
+      vi.unstubAllEnvs()
+    }
+  }
+
+  /** Both callers wait for `/health`; neither reaches a socket not yet listening. */
+  it("answers once every concurrent caller has waited for readiness", async () => {
+    expect(await turn("complete")).toMatchObject({
+      status: "completed",
+      content: "Hello",
+      finish: "stop"
+    })
+  })
+
+  it("fails a stream cut off before its finish", async () => {
+    expect(await turn("truncate")).toMatchObject({
+      status: "failed",
+      error: { message: expect.stringContaining("before the answer finished") }
+    })
+  })
+
+  /** CLI, then environment, then config file. */
+  it.each<[Record<string, string>, Record<string, string>, string, boolean]>([
+    [{ FM_PATH: "/nonexistent/cli-fm" }, {}, "/nonexistent/cli-fm", true],
+    [{}, { FM_PATH: "/nonexistent/file-fm" }, "/nonexistent/env-fm", true],
+    [{}, { FM_PATH: "/nonexistent/file-fm" }, "/nonexistent/file-fm", false]
+  ])("resolves the executable in precedence order (%#)", async (options, file, expected, withEnv) => {
+    if (withEnv) vi.stubEnv("OLC_FM_PATH", "/nonexistent/env-fm")
+    else vi.stubEnv("OLC_FM_PATH", "")
+    const backend = createFmBackend(context(options, file))
+    try {
+      await expect(backend.ensureReady()).rejects.toThrow(
+        `'${expected}' was not found`
+      )
+    } finally {
+      await backend.shutdown()
+      vi.unstubAllEnvs()
+    }
   })
 })

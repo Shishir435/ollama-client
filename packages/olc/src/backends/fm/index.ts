@@ -19,6 +19,7 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { request as httpRequest, type IncomingMessage } from "node:http"
 import { tmpdir } from "node:os"
 import path from "node:path"
+import { stringOption } from "../../config.js"
 import type { OpenAIMessage } from "../../types.js"
 import type {
   AgentBackend,
@@ -117,17 +118,24 @@ interface FmStreamChunk {
 
 export const createFmBackend = (context: BackendContext): AgentBackend => {
   const { log } = context
-  const executable =
-    process.env.OLC_FM_PATH ||
-    (typeof context.options.FM_PATH === "string"
-      ? context.options.FM_PATH
-      : "") ||
+  /** CLI, then environment, then config file, as every other option. */
+  const executable = stringOption(
+    context.options.FM_PATH,
+    process.env.OLC_FM_PATH,
+    context.fileOptions.FM_PATH,
     "fm"
+  )
   const turns = new Map<string, FmTurn>()
   let child: ChildProcess | undefined
   let socketDir: string | undefined
   let socketPath: string | undefined
   let starting: Promise<void> | undefined
+  /**
+   * Set only once `/health` answered. `child` and `socketPath` exist from the
+   * spawn onward, so a second caller keyed on them raced a socket that was
+   * not listening yet.
+   */
+  let ready = false
 
   const call = (
     method: "GET" | "POST",
@@ -169,6 +177,7 @@ export const createFmBackend = (context: BackendContext): AgentBackend => {
   }
 
   const stopChild = () => {
+    ready = false
     child?.kill("SIGTERM")
     child = undefined
     if (socketDir) rmSync(socketDir, { recursive: true, force: true })
@@ -235,6 +244,7 @@ export const createFmBackend = (context: BackendContext): AgentBackend => {
             "The Apple Foundation Model is not available on this Mac. Turn on Apple Intelligence in System Settings and let the model finish downloading; `fm available` reports its state."
           )
         }
+        ready = true
         log("fm serve ready", { socket: "private" })
         spawned.removeAllListeners("exit")
         spawned.once("exit", (code) => {
@@ -268,6 +278,7 @@ export const createFmBackend = (context: BackendContext): AgentBackend => {
       signals.abort?.addEventListener("abort", onAbort, { once: true })
       let content = ""
       let finish: string | null = null
+      let done = false
       let streamError: string | undefined
       try {
         const response = await call(
@@ -291,7 +302,10 @@ export const createFmBackend = (context: BackendContext): AgentBackend => {
           }
         }
         const read = createSseReader((payload) => {
-          if (payload === "[DONE]") return
+          if (payload === "[DONE]") {
+            done = true
+            return
+          }
           let chunk: FmStreamChunk
           try {
             chunk = JSON.parse(payload) as FmStreamChunk
@@ -314,6 +328,21 @@ export const createFmBackend = (context: BackendContext): AgentBackend => {
             status: "failed",
             error: {
               message: describeFmError(500, streamError),
+              type: "BackendError"
+            }
+          }
+        }
+        /**
+         * A response that ends with neither a finish reason nor `[DONE]` was
+         * cut off mid-generation; reporting it complete would present a
+         * truncated answer as the whole one.
+         */
+        if (!done && !finish) {
+          return {
+            status: "failed",
+            error: {
+              message:
+                "fm serve ended the response before the answer finished.",
               type: "BackendError"
             }
           }
@@ -347,16 +376,16 @@ export const createFmBackend = (context: BackendContext): AgentBackend => {
   return {
     id: "fm",
     ensureReady: async () => {
-      if (child && socketPath) return
-      starting ??= start().catch((error) => {
-        stopChild()
-        throw error
-      })
-      try {
-        await starting
-      } finally {
-        starting = undefined
-      }
+      if (ready) return
+      starting ??= start()
+        .catch((error) => {
+          stopChild()
+          throw error
+        })
+        .finally(() => {
+          starting = undefined
+        })
+      await starting
     },
     listModels: async () => [FM_CATALOG_MODEL],
     resolveModel: async (requested) => {
