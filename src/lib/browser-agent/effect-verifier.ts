@@ -945,13 +945,18 @@ const submittedValues = (input: AgentVerificationInput): string[] => {
   const query = input.effect.target.formQuery
   if (query === undefined || input.effect.target.formHasSensitiveControl)
     return []
-  return [...new URLSearchParams(query).values()]
-    .filter(
-      (value) =>
-        value.trim().length > 0 &&
-        value.length <= MAX_AGENT_SUBMITTED_VALUE_CHARS
-    )
-    .slice(0, MAX_AGENT_SUBMITTED_VALUES)
+  const sent = [...new URLSearchParams(query).values()].filter(
+    (value) => value.trim().length > 0
+  )
+  /**
+   * Only a form that sent one value says what it searched for. With
+   * `q=Alice&category=Bob` nothing here says which was the search term —
+   * parameter names are the site's, not words a requirement uses — so
+   * neither is recorded, and "Search for Bob" must be proved from the page.
+   */
+  return sent.length === 1 && sent[0].length <= MAX_AGENT_SUBMITTED_VALUE_CHARS
+    ? sent.slice(0, MAX_AGENT_SUBMITTED_VALUES)
+    : []
 }
 
 const verifySubmission: Verifier = async (input, adapter, signal) => {

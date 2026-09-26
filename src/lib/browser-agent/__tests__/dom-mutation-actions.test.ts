@@ -310,6 +310,9 @@ describe("Agent DOM mutation resolution and policy", () => {
    */
   it.each([
     ["q=Alice", undefined, ["Alice"]],
+    ["q=Alice&category=", undefined, ["Alice"]],
+    /** Two values, and nothing says which was the search term. */
+    ["q=Alice&category=Bob", undefined, undefined],
     ["q=Alice", true, undefined],
     [undefined, undefined, undefined]
   ])("records the visible query %s a confirmed GET submission sent", async (formQuery, sensitive, values) => {

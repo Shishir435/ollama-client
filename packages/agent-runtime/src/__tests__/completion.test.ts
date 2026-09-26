@@ -1605,6 +1605,9 @@ describe("judgeAgentCompletion with planned requirements", () => {
      * only what the submission carried is proved.
      */
     expect(judge("Search for Alice.", [typed, sent(["Bob"])])).toBe("refused")
+    /** Of two sent values neither proves the search term. */
+    expect(judge("Search for Bob.", [sent(["Alice", "Bob"])])).toBe("refused")
+    expect(judge("Search for Alice.", [sent(["Alice", "Bob"])])).toBe("refused")
     /** A POST, or a landing with no matched query, proves no value. */
     expect(judge("Search for Alice.", [typed, sent()])).toBe("refused")
     /** A negation the form sent is still not a fact. */

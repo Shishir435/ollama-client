@@ -1176,7 +1176,7 @@ const isBoundSubmission = (
 
 /**
  * What a submission's own receipt proves: the control it went through, the
- * key, the site's host labels, and the values its GET query landed with.
+ * key, the site's host labels, and the one value its GET query sent.
  * Never a value typed earlier: a page with two forms can hold Alice in one
  * and send the other.
  */
@@ -1186,7 +1186,14 @@ const submissionFacts = (receipt: AgentStepReadout): Set<string> =>
     receipt.command?.type === "press_key" ? keyText(receipt.command.key) : "",
     hostLabels(receipt.sourceUrl),
     hostLabels(receipt.formAction),
-    ...(receipt.verification?.evidence.values ?? [])
+    /**
+     * One sent value is the search term; of several, nothing says which
+     * was, so none is a fact. The verifier records only one; this holds
+     * for any receipt that says otherwise.
+     */
+    ...(receipt.verification?.evidence.values?.length === 1
+      ? receipt.verification.evidence.values
+      : [])
   ])
 
 /**
