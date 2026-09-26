@@ -397,16 +397,13 @@ describe("running a browser task", () => {
    * model told the user the tool was "temporarily busy", with no card in
    * front of them to stop.
    */
-  it("names the chat and state of the run holding the agent", async () => {
+  it("names the state of the run holding the agent, not its chat", async () => {
     const service = serviceStub({
       delegate: vi.fn(async () => {
         throw new AgentRunError("already_running", "unresolved", "run-9")
       })
     })
-    const describeRun = vi.fn(async () => ({
-      status: "awaiting_user",
-      chatTitle: "Compare\nthe plans"
-    }))
+    const describeRun = vi.fn(async () => ({ status: "awaiting_user" }))
     const result = await runner(service, local, { describeRun }).run(
       request,
       turn()
@@ -415,7 +412,7 @@ describe("running a browser task", () => {
     expect(describeRun).toHaveBeenCalledWith("run-9")
     expect(result.isError).toBe(true)
     expect(result.content).toContain(
-      'A browser task in the chat "Compare the plans" is still awaiting user'
+      "A browser task in another chat is still awaiting user"
     )
     expect(result.content).toContain("Do not say the tool is busy")
   })

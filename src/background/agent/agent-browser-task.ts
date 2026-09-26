@@ -9,7 +9,7 @@ import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 import { logger } from "@/lib/logger"
 import { getAgentRun } from "@/lib/repositories/agent-runs"
-import { getMessagesByIds, getSession } from "@/lib/repositories/chat-history"
+import { getMessagesByIds } from "@/lib/repositories/chat-history"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { normalizeGrantOrigin } from "@/lib/tools/approval/approval-policy"
@@ -115,33 +115,22 @@ export interface BrowserTaskRunnerDependencies {
   readHandoff?: (
     messageId: number
   ) => Promise<AgentConversationHandoff | undefined>
-  /** Where an unfinished run lives, so a refusal can say which chat holds it. */
-  describeRun?: (
-    runId: string
-  ) => Promise<{ status: string; chatTitle?: string } | undefined>
+  /** What state an unfinished run is in, so a refusal can say so. */
+  describeRun?: (runId: string) => Promise<{ status: string } | undefined>
   waitMs?: number
 }
-
-const MAX_CHAT_TITLE_CHARS = 80
 
 /**
  * An unfinished run in another chat refuses every new start, by design — a
  * paused run is still the user's. Said generically, the model answered "the
  * tool is temporarily busy", and the user had no card in front of them to
- * stop. The refusal names the chat and the state instead. The title is the
- * user's own and is flattened and capped before it reaches the model.
+ * stop. The refusal names the run's state instead. It never names the other
+ * chat: this result goes to this chat's model, possibly another provider, and
+ * the other conversation's title is not this one's to disclose.
  */
-export const blockedByRunRefusal = (blocking?: {
-  status: string
-  chatTitle?: string
-}): string => {
+export const blockedByRunRefusal = (blocking?: { status: string }): string => {
   if (!blocking) return REFUSALS.already_running
-  const title = blocking.chatTitle
-    ?.replace(/\s+/g, " ")
-    .trim()
-    .slice(0, MAX_CHAT_TITLE_CHARS)
-  const where = title ? `in the chat "${title}"` : "in another chat"
-  return `A browser task ${where} is still ${blocking.status.replace(/_/g, " ")}, and only one can run at a time. Tell the user to open that chat and stop or finish it from its card, then ask again. Do not say the tool is busy or retry now.`
+  return `A browser task in another chat is still ${blocking.status.replace(/_/g, " ")}, and only one can run at a time. Tell the user to open that chat and stop or finish it from its card, then ask again. Do not say the tool is busy or retry now.`
 }
 
 /**
@@ -156,11 +145,7 @@ export const createBrowserTaskRunner = (
     dependencies.describeRun ??
     (async (runId: string) => {
       const run = await getAgentRun(runId)
-      if (!run) return undefined
-      const session = run.sessionId
-        ? await getSession(run.sessionId).catch(() => undefined)
-        : undefined
-      return { status: run.status, chatTitle: session?.title }
+      return run ? { status: run.status } : undefined
     })
   const disclose =
     dependencies.disclose ??
