@@ -1,10 +1,12 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  agentObservedText,
   chatAnswered,
   chatAnswerFromWire,
   chatToolText,
   sendChatTask,
+  upstreamAuthorization,
   waitForChatState,
   withReasoningEffort
 } from "../chat-turn.mjs"
@@ -197,5 +199,50 @@ describe("chatToolText", () => {
       chatToolText(wire),
       "Reference code: QP-719\nStatus code: ZX-482"
     )
+  })
+})
+
+describe("agentObservedText", () => {
+  it("collects the visible text each decision request carried", () => {
+    const decision = (content) => ({
+      path: "/v1/chat/completions",
+      request: {
+        tools: [{ function: { name: "agent_decision" } }],
+        messages: [
+          { role: "system", content: "Status code: ZX-999" },
+          { role: "user", content }
+        ]
+      }
+    })
+    const wire = [
+      decision(
+        JSON.stringify({
+          task: "Report QP-000",
+          observation: { visibleText: "Reference code: QP-719" }
+        })
+      ),
+      decision("not json"),
+      {
+        path: "/v1/chat/completions",
+        request: {
+          tools: [{ function: { name: "browser_task" } }],
+          messages: [{ role: "user", content: "Status code: ZX-482" }]
+        }
+      }
+    ]
+    assert.equal(agentObservedText(wire), "Reference code: QP-719")
+  })
+})
+
+describe("upstreamAuthorization", () => {
+  it("sends a key only over https or to loopback", () => {
+    assert.deepEqual(upstreamAuthorization("http://example.com", ""), {})
+    assert.deepEqual(upstreamAuthorization("https://openrouter.ai/api", "k"), {
+      Authorization: "Bearer k"
+    })
+    assert.deepEqual(upstreamAuthorization("http://127.0.0.1:8084", "k"), {
+      Authorization: "Bearer k"
+    })
+    assert.throws(() => upstreamAuthorization("http://example.com", "k"))
   })
 })

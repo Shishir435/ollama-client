@@ -157,8 +157,12 @@ export const statesActive = (text) => {
  */
 export const statesValue = (text, value) => {
   const escaped = String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  /**
+   * Bounded on both sides by anything but a value continuation, so `0.14.0`
+   * is not found inside `1.0.14.0` or `0.14.0-rc`.
+   */
   return new RegExp(
-    `(?<![a-z0-9])v?${escaped}(?![a-z0-9]|[.-][a-z0-9])`,
+    `(?<![a-z0-9]|[a-z0-9][.-])v?${escaped}(?![a-z0-9]|[.-][a-z0-9])`,
     "i"
   ).test(String(text ?? ""))
 }
@@ -188,13 +192,17 @@ export const scoreSyntheticTask = ({
    */
   readText = "",
   /** A browser task ran and completed; its own observations read the page. */
-  delegated = false
+  delegated = false,
+  /** The visible text the browser task's observations carried. */
+  observedText = ""
 }) => {
   const answered = (value) => statesValue(answer, value)
   /** The value is in the reply and in a page this turn read. */
   const read = (value) =>
     answered(value) &&
-    (statesValue(readText, value) || (delegated && statesValue(body, value)))
+    (statesValue(readText, value) ||
+      (delegated &&
+        (statesValue(observedText, value) || statesValue(body, value))))
   const saysActive = statesActive(answer)
   const pageShowsActive = statesActive(body)
   /** Tested on the path: a plain GET form lands on `/form/details?name=Alice`. */
@@ -224,13 +232,12 @@ export const scoreSyntheticTask = ({
     case "memory":
       /**
        * One code is on the start page and one on the details page, so the
-       * run must have landed on details: the answer alone could be recalled
-       * from anywhere.
+       * run must have landed on details and a page it read must show each
+       * code: the answer alone could be recalled from anywhere.
        */
       return {
-        success:
-          completed && detailsUrl && answered("QP-719") && answered("ZX-482"),
-        predicate: "navigation+answer:both-codes"
+        success: completed && detailsUrl && read("QP-719") && read("ZX-482"),
+        predicate: "navigation+page-read:both-codes"
       }
     case "ambiguous":
       return {

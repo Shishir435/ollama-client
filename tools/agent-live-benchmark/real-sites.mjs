@@ -11,6 +11,7 @@ import {
   sendChatTask,
   startFreshChat,
   stopOpenRun,
+  upstreamAuthorization,
   waitForChatState,
   withReasoningEffort
 } from "./chat-turn.mjs"
@@ -20,6 +21,12 @@ import {
   scoreVerdict,
   scoreWikiSearch
 } from "./score-answer.mjs"
+
+/** Checked before any case runs, so a key bound for plain HTTP stops the run. */
+const AUTHORIZATION = upstreamAuthorization(
+  process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084",
+  process.env.AUDIT_API_KEY
+)
 
 const model =
   process.env.AUDIT_MODEL ?? "opencode/muse-spark-1.3-contributor-free"
@@ -170,9 +177,7 @@ const server = createServer(async (req, res) => {
           method: req.method,
           headers: {
             "Content-Type": "application/json",
-            ...(process.env.AUDIT_API_KEY
-              ? { Authorization: `Bearer ${process.env.AUDIT_API_KEY}` }
-              : {})
+            ...AUTHORIZATION
           },
           ...(body ? { body: withReasoningEffort(path, body) } : {})
         }

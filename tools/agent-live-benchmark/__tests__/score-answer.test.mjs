@@ -245,9 +245,11 @@ describe("scoreSyntheticTask answer tasks", () => {
     assert.equal(statesValue("It is v0.14.0.", "0.14.0"), true)
     assert.equal(statesValue("qp-719", "QP-719"), true)
     assert.equal(statesValue("QP-7190", "QP-719"), false)
+    assert.equal(statesValue("Release 1.0.14.0", "0.14.0"), false)
+    assert.equal(statesValue("Release 0.14.0-rc", "0.14.0"), false)
   })
 
-  it("scores memory only after landing on the details page", () => {
+  it("scores memory only after landing on details and reading both codes", () => {
     const base = {
       kind: "memory",
       completed: true,
@@ -263,7 +265,25 @@ describe("scoreSyntheticTask answer tasks", () => {
         ...base,
         url: "http://127.0.0.1:5000/memory/details"
       }).success,
+      false
+    )
+    assert.equal(
+      scoreSyntheticTask({
+        ...base,
+        url: "http://127.0.0.1:5000/memory/details",
+        delegated: true,
+        observedText: "Reference code: QP-719 Details\nStatus code: ZX-482"
+      }).success,
       true
+    )
+    assert.equal(
+      scoreSyntheticTask({
+        ...base,
+        url: "http://127.0.0.1:5000/memory/details",
+        delegated: true,
+        observedText: "Status code: ZX-482"
+      }).success,
+      false
     )
   })
 })

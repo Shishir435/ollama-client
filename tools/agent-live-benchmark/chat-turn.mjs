@@ -247,6 +247,51 @@ export const startFreshChat = async (panel) => {
   }
 }
 
+/**
+ * The page text the browser task's own observations carried, from each
+ * decision request: the visible text the run was shown, never the task, its
+ * history or anything the model wrote. A delegated run reads pages through
+ * these, so an answer is checked against them rather than trusted.
+ */
+export const agentObservedText = (wire) =>
+  wire
+    .filter(
+      (rec) =>
+        rec.path?.endsWith("/chat/completions") &&
+        JSON.stringify(rec.request?.tools ?? []).includes("agent_decision")
+    )
+    .flatMap((rec) =>
+      (rec.request?.messages ?? [])
+        .filter((message) => message.role === "user")
+        .map((message) => {
+          try {
+            const text = JSON.parse(String(message.content))?.observation
+              ?.visibleText
+            return typeof text === "string" ? text : ""
+          } catch {
+            return ""
+          }
+        })
+    )
+    .filter(Boolean)
+    .join("\n")
+
+/**
+ * The upstream's authorization header. A bearer key goes only over HTTPS or
+ * to this machine: sent to a plain-HTTP remote it crosses the network in
+ * the clear, so the run refuses to start rather than send it.
+ */
+export const upstreamAuthorization = (upstream, key) => {
+  if (!key) return {}
+  const url = new URL(upstream)
+  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+  if (url.protocol !== "https:" && !loopback)
+    throw new Error(
+      `AUDIT_API_KEY is sent only over https or to loopback, not ${url.origin}`
+    )
+  return { Authorization: `Bearer ${key}` }
+}
+
 /** The chat tools that return a page's own text. */
 const PAGE_READ_TOOLS = new Set(["current_tab", "read_tab"])
 
