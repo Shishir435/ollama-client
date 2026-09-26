@@ -207,9 +207,11 @@ const budgets: Budget[] = [
      * consent sentence in nine locales and the visible-field submission.
      * The second review round, 9,774,474: counted query pairs and the
      * named-field binding for batch evidence. The third, 9,776,223: field
-     * names matched by word, alternatives and further claims refused.
+     * names matched by word, alternatives and further claims refused. The
+     * fourth and fifth, 9,777,476: the receipt-bound focus and submission
+     * rule.
      */
-    max: isFirefox ? 11_800_000 : 9_777_000
+    max: isFirefox ? 11_800_000 : 9_778_000
   },
   {
     metric: "zip",
@@ -423,8 +425,9 @@ const budgets: Budget[] = [
      * 292,960: the named-field binding and the whole-notice routine rule.
      * The third, 293,394: word-level field names and the stricter landing.
      * The fourth, 293,573: the focus-only and constrained-search rules.
+     * The fifth, 293,750: claims bound to the words a receipt proves.
      */
-    max: isFirefox ? 212_600 : 293_700
+    max: isFirefox ? 212_600 : 293_800
   }
 ]
 
