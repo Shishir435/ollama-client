@@ -52,7 +52,7 @@ describe("extractReadableContent", () => {
   it("gives Readability no closed dialog or hidden content", () => {
     readabilityInput = null
     const doc = makeDoc(
-      '<button>Open dialog</button><dialog><p>Status: Active</p></dialog><nav hidden><a href="/x">Details</a></nav><div hidden="until-found">Found</div><dialog open><p>Shown</p></dialog>'
+      '<button>Open dialog</button><dialog><p>Status: Active</p></dialog><nav hidden><a href="/x">Details</a></nav><div hidden="until-found">Unrevealed</div><dialog open><p>Shown</p></dialog>'
     )
     extractReadableContent(doc, "readability")
     /** Assigned inside the mock, which narrowing here cannot see. */
@@ -60,7 +60,7 @@ describe("extractReadableContent", () => {
     const text = input?.body.textContent ?? ""
     expect(text).not.toContain("Status: Active")
     expect(text).not.toContain("Details")
-    expect(text).toContain("Found")
+    expect(text).not.toContain("Unrevealed")
     expect(text).toContain("Shown")
     expect(doc.body.textContent).toContain("Status: Active")
   })

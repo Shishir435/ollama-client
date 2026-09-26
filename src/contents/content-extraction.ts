@@ -22,10 +22,10 @@ const MIN_BASIC_FALLBACK_THRESHOLD = 200
 
 /**
  * Elements the page has not rendered: a closed `<dialog>` and anything under
- * `hidden`. `until-found` is kept, because find-in-page can reveal it.
+ * `hidden`, `until-found` included — the browser removes the attribute when
+ * it reveals the section, so while it is present the text is not on screen.
  */
-const UNRENDERED_SELECTOR =
-  'dialog:not([open]), [hidden]:not([hidden="until-found"])'
+const UNRENDERED_SELECTOR = "dialog:not([open]), [hidden]"
 
 /**
  * A copy of the page without what it is not displaying. Readability and the
