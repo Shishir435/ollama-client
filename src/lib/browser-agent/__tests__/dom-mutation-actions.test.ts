@@ -264,7 +264,10 @@ describe("Agent DOM mutation resolution and policy", () => {
       "/?q=test"
     ],
     ["ambiguous", "/?ia=web", "the search term is gone", "/?q=test"],
-    ["ambiguous", "/?tag=a", "a repeated value was dropped", "/?tag=a&tag=a"]
+    ["ambiguous", "/?tag=a", "a repeated value was dropped", "/?tag=a&tag=a"],
+    ["ambiguous", "/?q=test&q=other", "another value rides along", "/?q=test"],
+    ["ambiguous", "/?q=test", "the requested fragment is gone", "/?q=test#top"],
+    ["confirmed", "/?q=test#top", "the site added a fragment", "/?q=test"]
   ])("judges a GET submission %s when %s", async (outcome, landedPath, _label, submittedPath) => {
     const before = observation({
       elements: [

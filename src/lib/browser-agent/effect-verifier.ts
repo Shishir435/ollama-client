@@ -109,9 +109,10 @@ const samePage = (first: string, second: string): boolean => {
  * Whether the tab landed on the address asked for, allowing what a site adds
  * on arrival. Searching DuckDuckGo for `?q=test` commits `?q=test&ia=web`, and
  * reading that as "a different destination" paused a search that had worked.
- * Same origin and path, every requested parameter present with its value;
- * extra parameters and the fragment are the site's. A different path, host
- * or value is still a different destination.
+ * Same origin and path, every requested parameter present with exactly its
+ * values, and a requested fragment kept; parameters the request did not
+ * name, and a fragment it did not ask for, are the site's. A different
+ * path, host or value is still a different destination.
  */
 const landedAt = (committed: string, requested: string): boolean => {
   if (sameUrl(committed, requested)) return true
@@ -120,17 +121,21 @@ const landedAt = (committed: string, requested: string): boolean => {
     const asked = new URL(requested)
     if (landed.origin !== asked.origin || landed.pathname !== asked.pathname)
       return false
+    /** A requested fragment is part of where the user asked to go. */
+    if (asked.hash && landed.hash !== asked.hash) return false
     /**
-     * Each requested pair is consumed by the landed pair it matched, so
-     * `?tag=a&tag=a` is not met by a landing that kept one `tag=a`.
+     * Every requested parameter lands with exactly its requested values:
+     * `?tag=a&tag=a` is not met by one `tag=a`, and `?q=approved` is not
+     * met by `?q=approved&q=other`, whose page may search for `other`.
      */
-    const kept = [...landed.searchParams]
-    for (const [name, value] of asked.searchParams) {
-      const at = kept.findIndex(
-        ([keptName, keptValue]) => keptName === name && keptValue === value
+    for (const name of new Set(asked.searchParams.keys())) {
+      const want = asked.searchParams.getAll(name).sort()
+      const got = landed.searchParams.getAll(name).sort()
+      if (
+        want.length !== got.length ||
+        want.some((value, index) => value !== got[index])
       )
-      if (at === -1) return false
-      kept.splice(at, 1)
+        return false
     }
     return true
   } catch {
