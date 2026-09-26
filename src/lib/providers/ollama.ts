@@ -313,11 +313,16 @@ export class OllamaProvider implements LLMProvider {
      * Loaded here rather than at the top: the settings layer reaches browser
      * storage, and the docs generator imports this provider in plain Node.
      */
-    const [{ readSetting }, { SETTINGS }] = await Promise.all([
+    const wanted = await Promise.all([
       import("@/lib/storage/setting-access"),
       import("@/lib/storage/settings")
     ])
-    if (!(await readSetting(SETTINGS.OLLAMA_CLOUD_MODELS))) return []
+      .then(([{ readSetting }, { SETTINGS }]) =>
+        readSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
+      )
+      /** Unreadable counts as off: recommendations must never cost the local catalog. */
+      .catch(() => false)
+    if (!wanted) return []
 
     const cached = cloudRecommendationCache.get(baseUrl)
     if (cached && cached.expiresAt > Date.now()) return cached.models

@@ -4,7 +4,7 @@ import { clearOllamaDetailBackfillCache, OllamaProvider } from "../ollama"
 import { ProviderId, ProviderType } from "../types"
 
 /** These tests cover the recommendations path, which the user must switch on. */
-const cloud = vi.hoisted(() => ({ enabled: true }))
+const cloud = vi.hoisted(() => ({ enabled: true as boolean | "throws" }))
 vi.mock("@/lib/storage/setting-access", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/lib/storage/setting-access")>()
@@ -12,9 +12,11 @@ vi.mock("@/lib/storage/setting-access", async (importOriginal) => {
     ...actual,
     readSetting: vi.fn(
       async (descriptor: { key: string; defaultValue?: unknown }) =>
-        descriptor.key === "provider-ollama-cloud-models-v1"
-          ? cloud.enabled
-          : actual.readSetting(descriptor as never)
+        descriptor.key !== "provider-ollama-cloud-models-v1"
+          ? actual.readSetting(descriptor as never)
+          : cloud.enabled === "throws"
+            ? Promise.reject(new Error("storage unavailable"))
+            : cloud.enabled
     )
   }
 })
@@ -286,6 +288,21 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
           String(url).endsWith("/api/experimental/model-recommendations")
         )
     ).toBe(false)
+  })
+
+  it("keeps the local catalog when the cloud setting cannot be read", async () => {
+    cloud.enabled = "throws"
+    vi.mocked(fetch).mockImplementation((url) =>
+      String(url).endsWith("/api/tags")
+        ? Promise.resolve(
+            jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
+          )
+        : Promise.reject(new Error(`unexpected ${String(url)}`))
+    )
+
+    const models = await makeProvider().getModels()
+
+    expect(models.map((model) => model.name)).toEqual(["gemma4:12b"])
   })
 
   it("merges hosted recommendations into the normal model list", async () => {

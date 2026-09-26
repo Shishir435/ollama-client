@@ -183,50 +183,74 @@ const faviconUrl = (baseUrl: string): string | undefined => {
 }
 
 /**
- * Multi-label public suffixes common enough to matter. Stripping one label off
- * `api.example.co.uk` gives the site; stripping one off `example.co.uk` gives a
- * registry, which belongs to nobody and must never be contacted. Shipping the
- * full Public Suffix List for one icon is not worth its size, so this covers
- * the shapes that actually appear and the guard refuses anything it is unsure
- * of.
+ * Suffixes under which a label is somebody's own site, beyond the one-label
+ * TLDs. Stripping to two labels off `api.example.co.uk` gives `co.uk`, a
+ * registry, and off `api.my-router.vercel.app` gives `vercel.app`, the host's
+ * own site rather than the user's — both wrong, and the first belongs to
+ * nobody. Shipping the full Public Suffix List for one icon is not worth its
+ * size, so this covers the shapes that actually appear: ccTLD registries by
+ * their generic second level (`com.ar`, `co.jp`), and the shared hosts people
+ * deploy gateways on.
  */
-const PUBLIC_SUFFIXES = new Set([
-  "co.uk",
-  "org.uk",
-  "ac.uk",
-  "gov.uk",
-  "co.jp",
-  "or.jp",
-  "ne.jp",
-  "com.au",
-  "net.au",
-  "org.au",
-  "com.br",
-  "com.cn",
-  "net.cn",
-  "org.cn",
-  "com.hk",
-  "co.in",
-  "co.kr",
-  "co.nz",
-  "com.mx",
-  "com.sg",
-  "com.tr",
-  "com.tw",
-  "co.za"
+const GENERIC_SECOND_LEVELS = new Set([
+  "ac",
+  "co",
+  "com",
+  "edu",
+  "go",
+  "gob",
+  "gov",
+  "mil",
+  "ne",
+  "net",
+  "or",
+  "org"
 ])
+const SHARED_HOST_SUFFIXES = [
+  "amazonaws.com",
+  "azurewebsites.net",
+  "cloudfront.net",
+  "deno.dev",
+  "fly.dev",
+  "github.io",
+  "hf.space",
+  "herokuapp.com",
+  "modal.run",
+  "netlify.app",
+  "ngrok-free.app",
+  "ngrok.io",
+  "onrender.com",
+  "pages.dev",
+  "railway.app",
+  "replit.app",
+  "run.app",
+  "vercel.app",
+  "workers.dev"
+]
+
+/** How many trailing labels form the public suffix `host` sits under. */
+const suffixLabels = (labels: string[]): number => {
+  const host = labels.join(".")
+  const shared = SHARED_HOST_SUFFIXES.find((suffix) =>
+    host.endsWith(`.${suffix}`)
+  )
+  if (shared) return shared.split(".").length
+  const [second, tld] = labels.slice(-2)
+  return tld?.length === 2 && GENERIC_SECOND_LEVELS.has(second ?? "") ? 2 : 1
+}
 
 /**
  * The site an API host belongs to: `integrate.api.nvidia.com` → `nvidia.com`,
- * `api.example.co.uk` → `example.co.uk`. Labels are stripped down to the
- * registrable domain rather than one at a time, because the hosts in between
- * — `api.nvidia.com` — are more API hosts, which answer with a timeout as
- * often as a 404, and a timeout ends the lookup. Never below that: a registry
- * suffix belongs to nobody and must never be contacted.
+ * `api.example.co.uk` → `example.co.uk`, `api.my-router.vercel.app` →
+ * `my-router.vercel.app`. Labels are stripped down to the registrable domain
+ * rather than one at a time, because the hosts in between — `api.nvidia.com`
+ * — are more API hosts, which answer with a timeout as often as a 404, and a
+ * timeout ends the lookup. Never below that: a registry suffix belongs to
+ * nobody, and a shared host's own site is not the provider's.
  */
 export const siteDomainOf = (host: string): string | undefined => {
   const labels = host.split(".")
-  const siteLabels = PUBLIC_SUFFIXES.has(labels.slice(-2).join(".")) ? 3 : 2
+  const siteLabels = suffixLabels(labels) + 1
   if (labels.length <= siteLabels) return undefined
   return labels.slice(-siteLabels).join(".")
 }

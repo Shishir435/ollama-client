@@ -128,7 +128,8 @@ export const ModelMenu = ({
     setSelectedModel,
     selectionConflictModel,
     clearSelectionConflict,
-    unavailableProviders
+    unavailableProviders,
+    ollamaEnabled
   } = useProviderModels()
 
   const [cloudModels] = useSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
@@ -172,6 +173,11 @@ export const ModelMenu = ({
     [models]
   )
 
+  /**
+   * Ollama keeps its place in the rail with no local models: its cloud switch
+   * lives on its page, and an empty `/api/tags` is exactly when someone wants
+   * to turn cloud models on.
+   */
   const providerGroups = useMemo(
     () =>
       chatModels.reduce(
@@ -196,9 +202,22 @@ export const ModelMenu = ({
       ),
     [chatModels]
   )
+  const railGroups = useMemo(
+    () =>
+      ollamaEnabled && !providerGroups[DEFAULT_PROVIDER_ID]
+        ? {
+            [DEFAULT_PROVIDER_ID]: {
+              name: getProviderDisplayName(DEFAULT_PROVIDER_ID),
+              models: [] as typeof models
+            },
+            ...providerGroups
+          }
+        : providerGroups,
+    [ollamaEnabled, providerGroups]
+  )
   const providerEntries = useMemo(
-    () => Object.entries(providerGroups),
-    [providerGroups]
+    () => Object.entries(railGroups),
+    [railGroups]
   )
   const selectedProviderId =
     selectedModelRef?.providerId ||
@@ -209,10 +228,10 @@ export const ModelMenu = ({
     if (!open) return
     setSearchQuery("")
     setActiveProviderId((current) => {
-      if (current && providerGroups[current]) return current
-      return providerGroups[selectedProviderId] ? selectedProviderId : null
+      if (current && railGroups[current]) return current
+      return railGroups[selectedProviderId] ? selectedProviderId : null
     })
-  }, [open, providerGroups, selectedProviderId])
+  }, [open, railGroups, selectedProviderId])
 
   const visibleModels = useMemo(() => {
     const providerModels = activeProviderId
@@ -457,7 +476,7 @@ export const ModelMenu = ({
                 <div className="min-w-0">
                   <p className="truncate text-xs font-semibold">
                     {activeProviderId
-                      ? providerGroups[activeProviderId]?.name
+                      ? railGroups[activeProviderId]?.name
                       : t("model.menu.models_label")}
                   </p>
                   <p className="text-nano text-muted-foreground tabular-nums">

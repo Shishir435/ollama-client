@@ -478,5 +478,17 @@ describe("siteDomainOf", () => {
   it("refuses to climb into a public suffix", () => {
     expect(siteDomainOf("example.co.uk")).toBeUndefined()
     expect(siteDomainOf("example.com.au")).toBeUndefined()
+    expect(siteDomainOf("example.com.ar")).toBeUndefined()
+    expect(siteDomainOf("api.example.com.ar")).toBe("example.com.ar")
+  })
+
+  /** The shared host's own site is not the provider's. */
+  it("stops at the user's own site on a shared host", () => {
+    expect(siteDomainOf("api.my-router.vercel.app")).toBe(
+      "my-router.vercel.app"
+    )
+    expect(siteDomainOf("api.foo.github.io")).toBe("foo.github.io")
+    expect(siteDomainOf("gw.team.workers.dev")).toBe("team.workers.dev")
+    expect(siteDomainOf("my-router.vercel.app")).toBeUndefined()
   })
 })
