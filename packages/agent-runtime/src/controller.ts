@@ -46,7 +46,10 @@ import {
   currentAgentInspection,
   previousAgentVerification
 } from "./history"
-import { agentObservationHaystack } from "./observed-text"
+import {
+  agentObservationHaystack,
+  agentRenderedHaystack
+} from "./observed-text"
 import type {
   AgentCancellationController,
   AgentController,
@@ -314,15 +317,17 @@ export const createAgentController = (
    * Every page this run was shown, flattened, so a `read` requirement can
    * quote a page the run has since left: remembering a code on one page and
    * reporting it from the next is the task, and without this the run went
-   * back to re-read it and paused. One run at a time and memory-only, like
-   * `changeBaseline`; bounded by the run's own observation budget.
+   * back to re-read it and paused. What the site rendered only, never a
+   * field's value, which may be one this run typed. One run at a time and
+   * memory-only, like `changeBaseline`; bounded by the run's own observation
+   * budget.
    */
   let observedPages: { runId: string; texts: string[] } | undefined
   const rememberObservedPage = (
     runId: string,
     observation: AgentObservation
   ) => {
-    const text = agentObservationHaystack(observation)
+    const text = agentRenderedHaystack(observation)
     if (observedPages?.runId !== runId) observedPages = { runId, texts: [] }
     if (observedPages.texts.includes(text)) return
     observedPages.texts = [...observedPages.texts, text].slice(

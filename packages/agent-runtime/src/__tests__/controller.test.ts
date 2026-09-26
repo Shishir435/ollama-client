@@ -1443,6 +1443,52 @@ describe("agent controller", () => {
     expect(harness.getState().status).toBe("completed")
   })
 
+  /** A value in a field may be the run's own typing, not the page's word. */
+  it("does not accept a read quotation from a value typed on an earlier page", async () => {
+    const first = observation({
+      visibleText: "Details",
+      elements: [
+        {
+          ref: "e1",
+          verificationId: "verification-1",
+          frameId: 0,
+          tag: "input",
+          name: "Code",
+          value: "QP-719",
+          visible: true,
+          enabled: true,
+          editable: true,
+          sensitive: false
+        }
+      ]
+    })
+    const second = observation({ visibleText: "Status code: ZX-482" })
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report the reference code", kind: "read" }
+        ]
+      }),
+      effectOverrides: { semanticEffects: ["activation"] },
+      observe: async () => (decisions >= 1 ? second : first),
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1)
+          return { type: "command", command: command(), requirementId: "r1" }
+        return {
+          type: "complete",
+          summary: "QP-719",
+          outcomes: [{ id: "r1", met: true, evidence: "QP-719" }]
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).not.toBe("completed")
+  })
+
   it("does not let an attempt that never landed replace the baseline", async () => {
     /**
      * The baseline has to describe the change a completion is judged
