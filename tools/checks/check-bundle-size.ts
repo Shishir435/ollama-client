@@ -221,9 +221,11 @@ const budgets: Budget[] = [
      * 9,783,659: the bound new tab, typed text kept out of read quotations,
      * word-run hidden-text matching and the title-answered redirect. Its
      * third, 9,784,507: tabs bound to the step that opened them, asserted
-     * values held whole, and the open_tab instruction.
+     * values held whole, and the open_tab instruction. Release polish,
+     * 9,818,005: seven gateway vendor marks, the agent opt-in and its
+     * one-time announcement in nine locales.
      */
-    max: isFirefox ? 11_800_000 : 9_785_000
+    max: isFirefox ? 11_800_000 : 9_820_000
   },
   {
     metric: "zip",
@@ -448,9 +450,11 @@ const budgets: Budget[] = [
      * delegation guidance; Firefox 212,632 for the same guidance and the
      * Defuddle leak check. The second review round, Chrome 295,518: the
      * bound new tab and typed text kept out of read quotations. The third,
-     * 295,811: tabs bound to the step that opened them.
+     * 295,811: tabs bound to the step that opened them. Release polish,
+     * Chrome 296,202 and Firefox 213,004: the gateway brand hosts and the
+     * opt-in gate on browser_task.
      */
-    max: isFirefox ? 212_800 : 296_100
+    max: isFirefox ? 213_200 : 296_400
   }
 ]
 
