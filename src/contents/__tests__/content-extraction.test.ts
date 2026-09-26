@@ -6,6 +6,7 @@ let defuddleResult: Record<string, unknown> | null = null
 let readabilityResult: Record<string, unknown> | null = null
 let defuddleConstructorCalls = 0
 let readabilityConstructorCalls = 0
+let readabilityInput: Document | null = null
 
 vi.mock("defuddle", () => ({
   default: class FakeDefuddle {
@@ -20,8 +21,9 @@ vi.mock("defuddle", () => ({
 
 vi.mock("@mozilla/readability", () => ({
   Readability: class FakeReadability {
-    constructor() {
+    constructor(doc: Document) {
       readabilityConstructorCalls++
+      readabilityInput = doc
     }
     parse() {
       return readabilityResult
@@ -47,6 +49,32 @@ const makeDoc = (innerHTML: string, title = ""): Document => {
 }
 
 describe("extractReadableContent", () => {
+  it("gives Readability no closed dialog or hidden content", () => {
+    readabilityInput = null
+    const doc = makeDoc(
+      '<button>Open dialog</button><dialog><p>Status: Active</p></dialog><nav hidden><a href="/x">Details</a></nav><div hidden="until-found">Found</div><dialog open><p>Shown</p></dialog>'
+    )
+    extractReadableContent(doc, "readability")
+    /** Assigned inside the mock, which narrowing here cannot see. */
+    const input = readabilityInput as Document | null
+    const text = input?.body.textContent ?? ""
+    expect(text).not.toContain("Status: Active")
+    expect(text).not.toContain("Details")
+    expect(text).toContain("Found")
+    expect(text).toContain("Shown")
+    expect(doc.body.textContent).toContain("Status: Active")
+  })
+
+  it("leaves closed dialog text out of the body-text fallback", () => {
+    const filler = "word ".repeat(60).trim()
+    const result = extractReadableContent(
+      makeDoc(`<p>${filler}</p><dialog><p>Status: Active</p></dialog>`),
+      "auto"
+    )
+    expect(result.selectedExtractor).toBe("basic")
+    expect(result.readableText).not.toContain("Status: Active")
+  })
+
   beforeEach(() => {
     defuddleResult = null
     readabilityResult = null

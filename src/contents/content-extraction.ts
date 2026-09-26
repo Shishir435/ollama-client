@@ -20,6 +20,28 @@ const MIN_DEFUDDLE_FALLBACK_THRESHOLD = 100
 const MIN_READABILITY_FALLBACK_THRESHOLD = 50
 const MIN_BASIC_FALLBACK_THRESHOLD = 200
 
+/**
+ * Elements the page has not rendered: a closed `<dialog>` and anything under
+ * `hidden`. `until-found` is kept, because find-in-page can reveal it.
+ */
+const UNRENDERED_SELECTOR =
+  'dialog:not([open]), [hidden]:not([hidden="until-found"])'
+
+/**
+ * A copy of the page without what it is not displaying. Readability and the
+ * body-text fallback read a copy with no styles, so a closed dialog's text
+ * came through as though it were on screen, and the chat model reported a
+ * status it had never opened. Defuddle reads computed styles off the live
+ * document and is not given this copy.
+ */
+const renderedCopy = (doc: Document): Document => {
+  const copy = doc.cloneNode(true) as Document
+  for (const element of copy.querySelectorAll(UNRENDERED_SELECTOR)) {
+    element.remove()
+  }
+  return copy
+}
+
 const tryDefuddle = (doc: Document): ReadableContent | null => {
   try {
     const defuddle = new Defuddle(doc, {
@@ -51,7 +73,7 @@ const tryReadability = (
   forced: boolean
 ): ReadableContent | null => {
   try {
-    const article = new Readability(doc.cloneNode(true) as Document).parse()
+    const article = new Readability(renderedCopy(doc)).parse()
     const text = article?.textContent || ""
     const normalized = normalizeWhitespaceForLLM(text)
     if (!normalized) return null
@@ -69,7 +91,7 @@ const tryReadability = (
 }
 
 const tryBasic = (doc: Document): ReadableContent | null => {
-  const bodyText = doc.body?.textContent || ""
+  const bodyText = renderedCopy(doc).body?.textContent || ""
   const normalized = normalizeWhitespaceForLLM(bodyText)
   if (normalized.length <= MIN_BASIC_FALLBACK_THRESHOLD) return null
   return {
