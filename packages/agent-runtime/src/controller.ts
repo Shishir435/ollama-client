@@ -33,6 +33,7 @@ import {
 import type { AgentCompletionJudgement } from "./completion"
 import {
   agentEffectChangesPage,
+  agentTypedValues,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
   judgeAgentCompletion
@@ -317,8 +318,10 @@ export const createAgentController = (
    * Every page this run was shown, flattened, so a `read` requirement can
    * quote a page the run has since left: remembering a code on one page and
    * reporting it from the next is the task, and without this the run went
-   * back to re-read it and paused. What the site rendered only, never a
-   * field's value, which may be one this run typed. One run at a time and
+   * back to re-read it and paused. What the site rendered only: never a
+   * field's value, and never a value this run had typed by then, which a
+   * rich-text editor shows as page text. A value typed later is left alone,
+   * because the page showed it first. One run at a time and
    * memory-only, like `changeBaseline`; bounded by the run's own observation
    * budget.
    */
@@ -327,7 +330,15 @@ export const createAgentController = (
     runId: string,
     observation: AgentObservation
   ) => {
-    const text = agentRenderedHaystack(observation)
+    const typed = agentTypedValues(
+      [...liveCommands.entries()]
+        .filter(([stepId]) => stepId.startsWith(`${runId}:`))
+        .map(([, command]) => command)
+    )
+    const text = typed.reduce(
+      (page, value) => page.replaceAll(value, " \u0000 "),
+      agentRenderedHaystack(observation)
+    )
     if (observedPages?.runId !== runId) observedPages = { runId, texts: [] }
     if (observedPages.texts.includes(text)) return
     observedPages.texts = [...observedPages.texts, text].slice(
@@ -1667,6 +1678,13 @@ export const createAgentController = (
         ...(observedPages?.runId === state.id
           ? { observedTexts: observedPages.texts }
           : {}),
+        /**
+         * The user's own tab stays first in scope once the run adopts
+         * another, so any other tab is one the run opened.
+         */
+        inOpenedTab:
+          observation.tabId !==
+          (state.scopedTabIds?.[0] ?? state.controlledTabId),
         ...(state.requirements ? { requirements: state.requirements } : {}),
         ...(decision.outcomes ? { outcomes: decision.outcomes } : {})
       },

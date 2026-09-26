@@ -1443,6 +1443,70 @@ describe("agent controller", () => {
     expect(harness.getState().status).toBe("completed")
   })
 
+  /**
+   * Order decides: a code the page showed and the run typed afterwards is
+   * the page's word; a code the run typed into a rich-text editor and then
+   * saw echoed back as page text is its own.
+   */
+  it.each([
+    ["the page showed it first", true],
+    ["the run typed it first", false]
+  ])("judges an earlier-page read quotation when %s", async (_label, pageFirst) => {
+    const typed: AgentCommand = {
+      type: "type",
+      ref: "e1",
+      text: "QP-719",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+    const pages = pageFirst
+      ? [
+          observation({ visibleText: "Reference QP-719" }),
+          observation({ visibleText: "Reference QP-719" }),
+          observation({ visibleText: "Status code: ZX-482" })
+        ]
+      : [
+          observation({ visibleText: "Notes" }),
+          observation({ visibleText: "Notes QP-719" }),
+          observation({ visibleText: "Status code: ZX-482" })
+        ]
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report the reference", kind: "read" },
+          { id: "r2", text: "Type QP-719 into the note", kind: "change" }
+        ]
+      }),
+      effectOverrides: { semanticEffects: ["form_mutation"] },
+      verification: [confirmedValue, confirmed],
+      observe: async () => pages[Math.min(decisions, pages.length - 1)],
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1)
+          return { type: "command", command: typed, requirementId: "r2" }
+        if (decisions === 2)
+          return { type: "command", command: command(), requirementId: "r2" }
+        return {
+          type: "complete",
+          summary: "QP-719",
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              evidence: pageFirst ? "Reference QP-719" : "QP-719"
+            },
+            { id: "r2", met: true }
+          ]
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status === "completed").toBe(pageFirst)
+  })
+
   /** A value in a field may be the run's own typing, not the page's word. */
   it("does not accept a read quotation from a value typed on an earlier page", async () => {
     const first = observation({

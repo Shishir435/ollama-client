@@ -1022,48 +1022,54 @@ describe("judgeAgentCompletion with planned requirements", () => {
         }
       }
     })
-    const judge = (url: string) =>
+    const judge = (
+      receipt: AgentStepReadout,
+      url: string,
+      inOpenedTab?: boolean
+    ) =>
       judgeAgentCompletion({
-        steps: [elsewhere],
+        steps: [receipt],
         observation: observation({ url, visibleText: "Status: Active" }),
+        ...(inOpenedTab === undefined ? {} : { inOpenedTab }),
         requirements: [
           { id: "r1", text: "Open Details in a new tab", kind: "change" }
         ],
         outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
       })
-    expect(judge("https://example.com/details")).toMatchObject({
-      type: "refused",
-      reason: "unverified_change"
-    })
+    /** Opened for r0: it says nothing about r1, wherever the page is. */
+    expect(judge(elsewhere, "https://example.com/details", true)).toMatchObject(
+      { type: "refused", reason: "unverified_change" }
+    )
+    const unbound = { ...elsewhere, requirementId: undefined }
     /** An open_tab whose address is the page in hand is that page's tab. */
-    expect(judge("https://example.com/other?ref=1").type).toBe("accepted")
+    expect(judge(unbound, "https://example.com/other?ref=1").type).toBe(
+      "accepted"
+    )
+    /** A site that redirected the tab it opened: the tab is still the run's. */
+    expect(judge(unbound, "https://example.com/landed", true).type).toBe(
+      "accepted"
+    )
+    expect(judge(unbound, "https://example.com/landed", false)).toMatchObject({
+      type: "refused"
+    })
   })
 
-  /**
-   * Typed into a rich-text editor, a value becomes page text rather than a
-   * field value; the run must not quote it back as something a page said.
-   */
-  it("does not accept a read quotation of the run's own typing", () => {
-    const typed = step({
-      sequence: 1,
-      command: {
-        type: "type",
-        ref: "e1",
-        text: "QP-719",
-        snapshotId: "snapshot-1",
-        generation: 1
-      }
-    })
-    const judge = (evidence: string) =>
+  /** A read requirement that names a new tab owes one too. */
+  it("checks a new tab for a read requirement that names one", () => {
+    expect(
       judgeAgentCompletion({
-        steps: [typed],
-        observation: observation({ visibleText: "Status code: ZX-482" }),
-        observedTexts: ["note: qp-719 reference: qp-100"],
-        requirements: [{ id: "r1", text: "report the code", kind: "read" }],
-        outcomes: [{ id: "r1", met: true, evidence }]
-      }).type
-    expect(judge("QP-719")).toBe("refused")
-    expect(judge("reference: QP-100")).toBe("accepted")
+        steps: [],
+        observation: observation({ visibleText: "Status: Active" }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Report the status after opening Details in a new tab",
+            kind: "read"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "unverified_change" })
   })
 
   it("asks a read requirement for no page evidence", () => {

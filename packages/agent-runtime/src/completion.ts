@@ -154,6 +154,12 @@ export interface AgentCompletionInput {
    */
   observedTexts?: readonly string[]
   /**
+   * The page the completion was decided on is in a tab this run opened, not
+   * the tab the user started it from. Absent means unknown, which never
+   * stands in for a tab the run opened.
+   */
+  inOpenedTab?: boolean
+  /**
    * What the goal asks for, as the planning call fixed it. Absent means the
    * run was never planned — a host with no plan port, or a plan call that
    * failed — and the judge falls back to the single-evidence rule below,
@@ -878,26 +884,26 @@ const refusePlannedReadClaim = (
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   if (!evidence) return undefined
   const refusal = judgeEvidence(evidence, input, change ?? "unreadable", false)
-  if (refusal?.reason !== "absent_evidence" || !input.observedTexts?.length)
-    return refusal
-  const typed = typedValues(input.steps)
-  return input.observedTexts.some((text) =>
-    agentHaystackStates(evidence, withoutTyped(text, typed))
+  if (
+    refusal?.reason === "absent_evidence" &&
+    input.observedTexts?.some((text) => agentHaystackStates(evidence, text))
   )
-    ? undefined
-    : refusal
+    return undefined
+  return refusal
 }
 
 /**
- * Every value this run typed, as the model sent it. A value typed into a
- * rich-text editor becomes page text, not a field value, so leaving field
- * values out of the stored pages is not enough: the run could quote its own
- * typing back as something a page told it.
+ * Every value these commands typed, as the model sent them, in comparable
+ * form. A value typed into a rich-text editor becomes page text rather than a
+ * field value, so the controller cuts these out of each page it keeps for
+ * read quotations — only those typed before that page was observed, so a
+ * code the page showed first and the run typed later stays quotable.
  */
-const typedValues = (steps: readonly AgentStepReadout[] | undefined) =>
-  (steps ?? [])
-    .flatMap((receipt): (string | undefined)[] => {
-      const command = receipt.command
+export const agentTypedValues = (
+  commands: readonly (AgentCommand | undefined)[]
+): string[] =>
+  commands
+    .flatMap((command): (string | undefined)[] => {
       if (
         command?.type === "type" ||
         command?.type === "clear_and_type" ||
@@ -916,10 +922,6 @@ const typedValues = (steps: readonly AgentStepReadout[] | undefined) =>
     })
     .map((value) => (value ? agentNormalizedClaim(value) : ""))
     .filter((value) => value.length > 0)
-
-/** A stored page with every typed value cut out of it. */
-const withoutTyped = (text: string, typed: readonly string[]): string =>
-  typed.reduce((page, value) => page.replaceAll(value, " \u0000 "), text)
 
 const NO_SUBMISSION_MENTION_PATTERN =
   /\b(?:do not|don't|never|without)\s+submitt?(?:ed|ing)?\b|\b(?:remain|stays?|is|was)\s+(?:not\s+submitted|unsubmitted)\b/i
@@ -1612,7 +1614,7 @@ const refuseUnopenedTab = (
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
   NEW_TAB_PATTERN.test(requirement.text) &&
   !(input.steps ?? []).some((receipt) =>
-    openedTabFor(requirement, receipt, input.observation)
+    openedTabFor(requirement, receipt, input)
   )
     ? {
         type: "refused",
@@ -1624,18 +1626,23 @@ const refuseUnopenedTab = (
 /**
  * A tab this requirement opened, not merely one the run opened: a tab opened
  * for an earlier step says nothing about where Details went. Bound by the
- * requirement id the step carried or the control it names, or, for
- * `open_tab`, by its address being the page the run completed on.
+ * requirement id the step carried or the control it names, or, for an
+ * `open_tab` sent for no other requirement, by its address being the page the
+ * run completed on or that page being in a tab the run opened — a site may
+ * redirect the address it was asked for.
  */
 const openedTabFor = (
   requirement: AgentTaskRequirement,
   receipt: AgentStepReadout,
-  observation: AgentObservation
+  input: AgentCompletionInput
 ): boolean =>
   openedNewTab(receipt) &&
   (requirementNamesReceiptTarget(requirement, receipt) ||
     (receipt.command?.type === "open_tab" &&
-      samePage(receipt.command.url, observation.url)))
+      (receipt.requirementId === undefined ||
+        receipt.requirementId === requirement.id) &&
+      (samePage(receipt.command.url, input.observation.url) ||
+        input.inOpenedTab === true)))
 
 /**
  * Same scheme, host and path: where a page is, whatever its query picked up.
@@ -1659,10 +1666,10 @@ const judgeMetRequirement = (
   changes: readonly AgentStepReadout[],
   consumed: Set<string>
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
-  if (requirement.kind === "read")
-    return refusePlannedReadClaim(claim.evidence, input, change ?? "unreadable")
   const unopened = refuseUnopenedTab(requirement, input)
   if (unopened) return unopened
+  if (requirement.kind === "read")
+    return refusePlannedReadClaim(claim.evidence, input, change ?? "unreadable")
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
     const refusal = noSubmissionEvidence(input)
     if (refusal) return refusal
