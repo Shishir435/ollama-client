@@ -25,6 +25,7 @@ const main = async () => {
       (await context.waitForEvent("serviceworker", { timeout: 30000 }))
     const id = new URL(serviceWorker.url()).host
     const page = await context.newPage()
+    page.setDefaultTimeout(15000)
     const violations: string[] = []
     page.on("console", (message) => {
       if (
@@ -34,6 +35,8 @@ const main = async () => {
       )
         violations.push(message.text())
     })
+    const artifacts = resolve("artifacts/bundled-embeddings")
+    await mkdir(artifacts, { recursive: true })
     await page.goto(`chrome-extension://${id}/options.html`)
     const call = async (
       method: RpcMethod,
@@ -123,6 +126,152 @@ const main = async () => {
       })
       db.close()
     })
+    // An existing profile has vectors but no active-space row from this release.
+    await page.evaluate(async () => {
+      await chrome.storage.sync.set({
+        "agent-announcement-dismissed-v1": JSON.stringify(false)
+      })
+      await chrome.storage.local.remove("embeddings-bundled-notice-dismissed")
+      await chrome.storage.local.set({
+        "onboarding-state-v2": JSON.stringify({
+          version: 2,
+          stage: "complete",
+          completedAt: Date.now()
+        })
+      })
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("VectorDatabase")
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(request.error)
+      })
+      const tx = db.transaction("embeddingState", "readwrite")
+      tx.objectStore("embeddingState").delete("active")
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+      })
+      db.close()
+    })
+    const readVectors = () =>
+      page.evaluate(async () => {
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open("VectorDatabase")
+          request.onsuccess = () => resolve(request.result)
+          request.onerror = () => reject(request.error)
+        })
+        const rows = await new Promise<unknown[]>((resolve, reject) => {
+          const request = db
+            .transaction("vectors")
+            .objectStore("vectors")
+            .getAll()
+          request.onsuccess = () => resolve(request.result)
+          request.onerror = () => reject(request.error)
+        })
+        db.close()
+        return rows
+      })
+    const originals = await readVectors()
+    await page.setViewportSize({ width: 430, height: 900 })
+    await page.goto(`chrome-extension://${id}/sidepanel.html`)
+    const migrationDialog = page.getByRole("dialog", {
+      name: "Built-in embeddings",
+      exact: true
+    })
+    await page
+      .getByRole("button", { name: "Maybe later", exact: true })
+      .waitFor()
+    assert.equal(
+      await migrationDialog.count(),
+      0,
+      "migration must wait for the agent notice"
+    )
+    await page.getByRole("button", { name: "Maybe later", exact: true }).click()
+    await migrationDialog.waitFor()
+    await migrationDialog
+      .getByRole("button", { name: "Close", exact: true })
+      .click()
+    await migrationDialog.waitFor({ state: "hidden" })
+    await page.reload()
+    assert.equal((await call(RpcMethod.EmbeddingsNativeStatus)).dismissed, true)
+    assert.equal(
+      (await call(RpcMethod.EmbeddingsNativeStatus)).mode,
+      "external"
+    )
+    assert.deepEqual(
+      await readVectors(),
+      originals,
+      "closing must preserve vectors"
+    )
+    await page.evaluate(() =>
+      chrome.storage.local.remove("embeddings-bundled-notice-dismissed")
+    )
+    await migrationDialog.waitFor()
+    await page
+      .getByRole("button", {
+        name: "Migrate to built-in embeddings",
+        exact: true
+      })
+      .waitFor()
+    await page
+      .getByRole("button", { name: "Keep current setup", exact: true })
+      .waitFor()
+    assert.equal(
+      (await call(RpcMethod.EmbeddingsNativeStatus)).mode,
+      "external"
+    )
+    await page.mouse.move(0, 0)
+    await page.screenshot({
+      path: resolve(artifacts, "upgrade-offer.png"),
+      animations: "disabled",
+      fullPage: true
+    })
+    await page
+      .getByRole("button", { name: "Keep current setup", exact: true })
+      .click()
+    await page
+      .getByRole("button", {
+        name: "Migrate to built-in embeddings",
+        exact: true
+      })
+      .waitFor({ state: "hidden" })
+    await page.reload()
+    assert.equal(
+      (await call(RpcMethod.EmbeddingsNativeStatus)).mode,
+      "external"
+    )
+    assert.equal((await call(RpcMethod.EmbeddingsNativeStatus)).dismissed, true)
+    assert.deepEqual(
+      await readVectors(),
+      originals,
+      "keeping setup must leave every vector intact"
+    )
+    await page.goto(
+      `chrome-extension://${id}/options.html?tab=knowledge&focus=bundled-embeddings`
+    )
+    await page
+      .getByRole("button", {
+        name: "Migrate to built-in embeddings",
+        exact: true
+      })
+      .click()
+    await page
+      .getByRole("button", { name: "Use saved external provider", exact: true })
+      .waitFor()
+    assert.equal((await call(RpcMethod.EmbeddingsNativeStatus)).mode, "bundled")
+    const migrated = (await readVectors()) as {
+      embedding: number[]
+      metadata: { embeddingProviderId: string }
+    }[]
+    assert.equal(migrated.length, originals.length)
+    assert.ok(
+      migrated.every(
+        (row) =>
+          row.embedding.length === 384 &&
+          row.metadata.embeddingProviderId === "bundled"
+      )
+    )
+    // Also retain the interrupted-batch check independently of the complete UI migration.
+    await call(RpcMethod.EmbeddingsNativeCommand, { action: "external" })
     await call(RpcMethod.EmbeddingsNativeCommand, { action: "start" })
     status = await call(RpcMethod.EmbeddingsNativeCommand, { action: "step" })
     assert.equal(status.mode, "external")
@@ -195,8 +344,7 @@ const main = async () => {
     })
     assert.deepEqual(network, [false, false])
     assert.deepEqual(violations, [])
-    const artifacts = resolve("artifacts/bundled-embeddings")
-    await mkdir(artifacts, { recursive: true })
+    await page.setViewportSize({ width: 1280, height: 900 })
     await page.goto(
       `chrome-extension://${id}/options.html?tab=knowledge&focus=bundled-embeddings`
     )
@@ -231,6 +379,9 @@ const main = async () => {
       networkBlocked: true,
       ingestion: ingestion.status,
       semanticSearch: "passed",
+      upgradeOffer: "visible",
+      keepCurrentSetup: "preserved across reload",
+      migrationFromSettings: "passed",
       cspViolations: violations
     }
     await writeFile(

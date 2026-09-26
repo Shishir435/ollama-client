@@ -35,6 +35,7 @@ import {
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useToast } from "@/hooks/use-toast"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
+import { isLikelyEmbeddingModelName } from "@/lib/embeddings/model-name-filter"
 import {
   getOnboardingState,
   type OnboardingStage,
@@ -63,7 +64,7 @@ const isLocalProvider = (provider: PublicProviderConfig) =>
 const chatModelsOnly = (models: ProvidersListModelsResult["models"]) =>
   models.filter((model) => {
     const type = model.capabilityHints?.modelType?.toLowerCase()
-    return type !== "embedding" && !/\bembed(ding)?\b/i.test(model.name)
+    return type !== "embedding" && !isLikelyEmbeddingModelName(model.name)
   })
 
 const modelActionKey = (verified: boolean) =>

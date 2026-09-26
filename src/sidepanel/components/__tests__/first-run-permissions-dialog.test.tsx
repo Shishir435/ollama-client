@@ -345,3 +345,34 @@ it("drops an old model when the user changes providers", async () => {
   ).toBeDisabled()
   expect(onboarding.selectModel).not.toHaveBeenCalled()
 })
+
+it("hides MiniLM and other embedding models from the onboarding chat picker", async () => {
+  resumeModels()
+  const original = rpc.call.getMockImplementation()
+  if (!original) throw new Error("Missing RPC fixture")
+  rpc.call.mockImplementation(async (method, ...args) =>
+    method === RpcMethod.ProvidersListModels
+      ? {
+          models: [
+            { name: "all-minilm:latest", providerId: "ollama" },
+            { name: "nomic-embed-text:latest", providerId: "ollama" },
+            { name: "bge-m3:latest", providerId: "ollama" },
+            {
+              name: "opaque-vector-model",
+              providerId: "ollama",
+              capabilityHints: { modelType: "embedding" }
+            },
+            { name: "gemma4:2b-mlx", providerId: "ollama" }
+          ],
+          failures: []
+        }
+      : original(method, ...args)
+  )
+  render(<FirstRunPermissionsDialog />)
+  await screen.findByRole("option", { name: /gemma4:2b-mlx/ })
+  for (const name of ["all-minilm", "nomic-embed", "bge-m3", "opaque-vector"])
+    expect(screen.queryByRole("option", { name: new RegExp(name) })).toBeNull()
+  expect(
+    screen.getByRole("button", { name: "onboarding.model.use_unverified" })
+  ).toBeDisabled()
+})
