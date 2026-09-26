@@ -225,9 +225,10 @@ const budgets: Budget[] = [
      * 9,818,005: seven gateway vendor marks, the agent opt-in and its
      * one-time announcement in nine locales. Its agent tab, 9,822,274: the
      * tab's own chunk, the Context-sheet switch and labelled dropdowns. The
-     * Ollama cloud switch, 9,826,636. The agent-off notice, 9,830,198.
+     * Ollama cloud switch, 9,826,636. The agent-off notice, 9,830,198. The Ollama provider loading
+     * its setting lazily, 9,831,247.
      */
-    max: isFirefox ? 11_800_000 : 9_831_000
+    max: isFirefox ? 11_800_000 : 9_832_000
   },
   {
     metric: "zip",
@@ -456,9 +457,10 @@ const budgets: Budget[] = [
      * Chrome 296,202 and Firefox 213,004: the gateway brand hosts and the
      * opt-in gate on browser_task. The Ollama cloud switch, Chrome 296,980
      * and Firefox 213,816: the provider reading its setting at list time.
-     * The agent-off guidance, Chrome 297,133.
+     * The agent-off guidance, Chrome 297,133. The Ollama provider loading
+     * its setting lazily, Firefox 214,025.
      */
-    max: isFirefox ? 214_000 : 297_300
+    max: isFirefox ? 214_200 : 297_300
   }
 ]
 

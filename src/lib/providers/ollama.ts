@@ -12,8 +12,6 @@ import {
   readProviderStreamChunk,
   throwProviderConnectionError
 } from "@/lib/providers/provider-errors"
-import { readSetting } from "@/lib/storage/setting-access"
-import { SETTINGS } from "@/lib/storage/settings"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type {
   ChatStreamMessage,
@@ -311,6 +309,14 @@ export class OllamaProvider implements LLMProvider {
     baseUrl: string,
     signal?: AbortSignal
   ): Promise<ProviderModel[]> {
+    /**
+     * Loaded here rather than at the top: the settings layer reaches browser
+     * storage, and the docs generator imports this provider in plain Node.
+     */
+    const [{ readSetting }, { SETTINGS }] = await Promise.all([
+      import("@/lib/storage/setting-access"),
+      import("@/lib/storage/settings")
+    ])
     if (!(await readSetting(SETTINGS.OLLAMA_CLOUD_MODELS))) return []
 
     const cached = cloudRecommendationCache.get(baseUrl)
