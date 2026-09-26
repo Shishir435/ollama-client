@@ -8,6 +8,7 @@ import {
   chatAnswered,
   chatAnswerFromWire,
   readChatTurn,
+  SETTLED_RUN_STATUSES,
   sendChatTask,
   startFreshChat,
   stopOpenRun,
@@ -365,9 +366,13 @@ try {
         .at(-1)?.snapshot
       if (
         final &&
-        ["completed", "failed", "paused", "awaiting_takeover"].includes(
-          final.run.status
-        )
+        [
+          "completed",
+          "partial",
+          "failed",
+          "paused",
+          "awaiting_takeover"
+        ].includes(final.run.status)
       )
         break
       if (kind === "spaform" && new URL(fixture.url()).search) {
@@ -492,10 +497,7 @@ try {
       JSON.stringify(results, null, 2)
     )
     console.log(JSON.stringify(row))
-    if (
-      final?.run &&
-      !["completed", "failed", "cancelled"].includes(final.run.status)
-    ) {
+    if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
       await panel.evaluate(
         (id) => window.auditPort.postMessage({ type: "agent_stop", runId: id }),
         final.run.id

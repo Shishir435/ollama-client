@@ -125,7 +125,12 @@ export const sendChatTask = async (
 }
 
 /** Run statuses after which nothing more will happen without the user. */
-export const SETTLED_RUN_STATUSES = ["completed", "failed", "cancelled"]
+export const SETTLED_RUN_STATUSES = [
+  "completed",
+  "partial",
+  "failed",
+  "cancelled"
+]
 
 /**
  * A chat request is one that offered `browser_task`; the agent's own decision
