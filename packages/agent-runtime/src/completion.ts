@@ -878,13 +878,48 @@ const refusePlannedReadClaim = (
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   if (!evidence) return undefined
   const refusal = judgeEvidence(evidence, input, change ?? "unreadable", false)
-  if (
-    refusal?.reason === "absent_evidence" &&
-    input.observedTexts?.some((text) => agentHaystackStates(evidence, text))
+  if (refusal?.reason !== "absent_evidence" || !input.observedTexts?.length)
+    return refusal
+  const typed = typedValues(input.steps)
+  return input.observedTexts.some((text) =>
+    agentHaystackStates(evidence, withoutTyped(text, typed))
   )
-    return undefined
-  return refusal
+    ? undefined
+    : refusal
 }
+
+/**
+ * Every value this run typed, as the model sent it. A value typed into a
+ * rich-text editor becomes page text, not a field value, so leaving field
+ * values out of the stored pages is not enough: the run could quote its own
+ * typing back as something a page told it.
+ */
+const typedValues = (steps: readonly AgentStepReadout[] | undefined) =>
+  (steps ?? [])
+    .flatMap((receipt): (string | undefined)[] => {
+      const command = receipt.command
+      if (
+        command?.type === "type" ||
+        command?.type === "clear_and_type" ||
+        command?.type === "replace_text"
+      )
+        return [command.text]
+      if (command?.type === "fill_form")
+        return command.fields.map((field) =>
+          field.type === "select"
+            ? field.value
+            : field.type === "check" || field.type === "uncheck"
+              ? undefined
+              : field.text
+        )
+      return []
+    })
+    .map((value) => (value ? agentNormalizedClaim(value) : ""))
+    .filter((value) => value.length > 0)
+
+/** A stored page with every typed value cut out of it. */
+const withoutTyped = (text: string, typed: readonly string[]): string =>
+  typed.reduce((page, value) => page.replaceAll(value, " \u0000 "), text)
 
 const NO_SUBMISSION_MENTION_PATTERN =
   /\b(?:do not|don't|never|without)\s+submitt?(?:ed|ing)?\b|\b(?:remain|stays?|is|was)\s+(?:not\s+submitted|unsubmitted)\b/i
@@ -1576,13 +1611,45 @@ const refuseUnopenedTab = (
   input: AgentCompletionInput
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
   NEW_TAB_PATTERN.test(requirement.text) &&
-  !(input.steps ?? []).some(openedNewTab)
+  !(input.steps ?? []).some((receipt) =>
+    openedTabFor(requirement, receipt, input.observation)
+  )
     ? {
         type: "refused",
         reason: "unverified_change",
         feedback: NEW_TAB_FEEDBACK
       }
     : undefined
+
+/**
+ * A tab this requirement opened, not merely one the run opened: a tab opened
+ * for an earlier step says nothing about where Details went. Bound by the
+ * requirement id the step carried or the control it names, or, for
+ * `open_tab`, by its address being the page the run completed on.
+ */
+const openedTabFor = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  observation: AgentObservation
+): boolean =>
+  openedNewTab(receipt) &&
+  (requirementNamesReceiptTarget(requirement, receipt) ||
+    (receipt.command?.type === "open_tab" &&
+      samePage(receipt.command.url, observation.url)))
+
+/**
+ * Same scheme, host and path: where a page is, whatever its query picked up.
+ * The package has no DOM `URL`, so the address is read by pattern, and one
+ * it cannot read matches nothing, which refuses.
+ */
+const samePage = (first: string, second: string): boolean => {
+  const page = (url: string) => {
+    const match = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)([^?#]*)/i.exec(url)
+    return match ? `${match[1].toLowerCase()}${match[2] || "/"}` : undefined
+  }
+  const a = page(first)
+  return a !== undefined && a === page(second)
+}
 
 const judgeMetRequirement = (
   requirement: AgentTaskRequirement,

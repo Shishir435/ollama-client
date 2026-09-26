@@ -1002,6 +1002,70 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toBe("accepted")
   })
 
+  /** A tab opened for an earlier step says nothing about where Details went. */
+  it("does not let a tab opened for another requirement meet a new-tab one", () => {
+    const elsewhere = step({
+      sequence: 1,
+      requirementId: "r0",
+      command: {
+        type: "open_tab",
+        url: "https://example.com/other",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Authorized destination is committed",
+          observedAt: 1
+        }
+      }
+    })
+    const judge = (url: string) =>
+      judgeAgentCompletion({
+        steps: [elsewhere],
+        observation: observation({ url, visibleText: "Status: Active" }),
+        requirements: [
+          { id: "r1", text: "Open Details in a new tab", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+      })
+    expect(judge("https://example.com/details")).toMatchObject({
+      type: "refused",
+      reason: "unverified_change"
+    })
+    /** An open_tab whose address is the page in hand is that page's tab. */
+    expect(judge("https://example.com/other?ref=1").type).toBe("accepted")
+  })
+
+  /**
+   * Typed into a rich-text editor, a value becomes page text rather than a
+   * field value; the run must not quote it back as something a page said.
+   */
+  it("does not accept a read quotation of the run's own typing", () => {
+    const typed = step({
+      sequence: 1,
+      command: {
+        type: "type",
+        ref: "e1",
+        text: "QP-719",
+        snapshotId: "snapshot-1",
+        generation: 1
+      }
+    })
+    const judge = (evidence: string) =>
+      judgeAgentCompletion({
+        steps: [typed],
+        observation: observation({ visibleText: "Status code: ZX-482" }),
+        observedTexts: ["note: qp-719 reference: qp-100"],
+        requirements: [{ id: "r1", text: "report the code", kind: "read" }],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      }).type
+    expect(judge("QP-719")).toBe("refused")
+    expect(judge("reference: QP-100")).toBe("accepted")
+  })
+
   it("asks a read requirement for no page evidence", () => {
     expect(
       judgeAgentCompletion({
