@@ -10,6 +10,7 @@ own API and default port; it does not run behind the agent proxy.
 | `olc --lan` | Start/reuse a compatible LAN server | `0.0.0.0:11434` |
 | `olc -b codex` | Start the Codex proxy | `127.0.0.1:8083` |
 | `olc -b opencode` | Start the OpenCode proxy | `127.0.0.1:8084` |
+| `olc -b fm` (or `-b apple`) | Serve Apple Foundation Models (macOS 27) | `127.0.0.1:8085` |
 
 `-b` and `--backend` are aliases. `--backend=codex` also works.
 
@@ -43,6 +44,7 @@ client  ──  POST /v1/chat/completions (messages + tools)  ──▶  olc  �
 | Proxy | `-K` API key, `-s` system prompt, `-n` no bridge |
 | OpenCode | `-u` URL, `-x` binary, `-a` agent, `-P` project, `-t` allowed tools, `-g` plugin directory |
 | Codex | `-C` binary, `-W` workspace, `-w` web-search mode |
+| Apple Foundation Models | `-F` binary |
 
 Short flags take separate values (`-p 8083`); long flags also accept
 `--name=value`. Short flags are case-sensitive and are not combined into clusters.
@@ -441,6 +443,28 @@ Codex `webSearch` lifecycle items are forwarded as reasoning-status deltas, whil
 commentary-phase messages stay in reasoning instead of being concatenated into
 the final answer. Debug mode reports the selected native mode and the number of
 observed search events, but never logs the query text.
+
+### Apple Foundation Models backend
+
+| Option | Flag | Environment | Default |
+| --- | --- | --- | --- |
+| `FM_PATH` | `--fm` | `OLC_FM_PATH` | `fm` |
+
+macOS 27 ships Apple's on-device model with an `fm` CLI whose `fm serve`
+already speaks Chat Completions. It cannot be added to a browser extension
+directly: it answers the CORS preflight and then refuses the request itself
+with `403 Cross-site requests are not allowed` because the extension sends an
+`Origin`. `olc -b fm` starts `fm serve` on a private Unix socket, relays turns
+to it, and applies the proxy's own origin policy instead.
+
+It publishes one model, `apple/foundation`, with an 8,192-token context, text
+and image input, and no tool calling: offered a tool, the model answers in
+prose, so the catalog says so and a client sends none. It suits short chats,
+rewording and summarising a selection; retrieval and web search fill the
+window quickly. A conversation that outgrows it, and a request Apple's
+guardrails decline, are both reported in those words. Startup fails with a
+named reason when `fm` is missing or `fm available` says the model is not
+ready (Apple Intelligence off, or still downloading).
 
 ## Endpoints
 

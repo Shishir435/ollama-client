@@ -53,6 +53,7 @@ pnpm proxy:opencode         # Run the olc proxy with OpenCode
 pnpm proxy:opencode:debug   # Run OpenCode with verbose proxy logging
 pnpm proxy:codex            # Run the olc proxy with Codex
 pnpm proxy:codex:debug      # Run Codex with verbose proxy logging
+pnpm proxy:fm               # Serve Apple Foundation Models (macOS 27)
 pnpm proxy:bundle           # Bundle it to packages/olc/dist/olc.mjs
 
 pnpm generate:resources     # Validate locales, regenerate derived extension assets
@@ -334,9 +335,9 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 
 `packages/olc` is a Node CLI, not extension code. Bare `olc` manages native
 Ollama on port 11434; `-b codex|opencode` runs an agent proxy (8083 / 8084)
-that serves a local agent runtime over `/v1/chat/completions`, so that
-runtime's models reach the extension through the ordinary OpenAI-compatible
-custom-provider flow.
+and `-b fm` (alias `apple`) serves Apple's on-device Foundation Model (8085),
+each over `/v1/chat/completions`, so those models reach the extension through
+the ordinary OpenAI-compatible custom-provider flow.
 
 - **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the
   extension: provider-shaped behaviour belongs behind the provider's own wire

@@ -10,13 +10,14 @@ Usage: olc [options]
   olc --lan                   Native Ollama, 0.0.0.0:11434
   olc -b codex                Codex proxy, 127.0.0.1:8083
   olc -b opencode             OpenCode proxy, 127.0.0.1:8084
+  olc -b fm                   Apple Foundation Models (macOS 27), 127.0.0.1:8085
   olc update                  Install the latest release
   olc update 0.13.3           Install a specific release
 
 Shared options:
-  -b, --backend <name>        ollama (default), codex, or opencode
+  -b, --backend <name>        ollama (default), codex, opencode, or fm (alias apple)
   -H, --host <address>        Bind address (default 127.0.0.1)
-  -p, --port <number>         Ollama: 11434; Codex: 8083; OpenCode: 8084
+  -p, --port <number>         Ollama: 11434; Codex: 8083; OpenCode: 8084; fm: 8085
   -o, --allowed-origins <list>
                                Comma-separated browser origins
   -c, --config <path>         JSON options; CLI > environment > file > defaults
@@ -53,7 +54,7 @@ in place. A version that has no release is refused by name, with the versions
 that do exist. Running from a repository checkout is refused too: update that
 with git. olc update --check never touches the installation.
 
-Proxy-only options (require -b codex or -b opencode):
+Proxy-only options (require -b codex, opencode or fm):
   -K, --api-key <key>         Require a bearer token
   -s, --system-prompt <text>  Override the client's system prompt
   -n, --no-bridge             Disable the client tool bridge
@@ -66,6 +67,9 @@ OpenCode options (-b opencode):
   -t, --allow-opencode-tools <ids>
                                Comma-separated tools to leave enabled
   -g, --plugin-dir <path>     Bridge plugin directory
+
+Apple Foundation Models options (-b fm):
+  -F, --fm <path>             fm executable (default fm; macOS 27 or later)
 
 Codex options (-b codex):
   -C, --codex <path>          Codex executable
@@ -105,6 +109,7 @@ export const SHORT_FLAG_ALIASES = {
   "-C": "--codex",
   "-W": "--codex-project-dir",
   "-w": "--codex-web-search",
+  "-F": "--fm",
   "-h": "--help",
   "-V": "--version"
 } as const
@@ -126,6 +131,7 @@ const VALUE_FLAGS: Record<string, string> = {
   "--codex": "CODEX_PATH",
   "--codex-project-dir": "CODEX_PROJECT_DIR",
   "--codex-web-search": "CODEX_WEB_SEARCH_MODE",
+  "--fm": "FM_PATH",
   "--config": "CONFIG_PATH"
 }
 const BOOLEAN_FLAGS: Record<string, [string, boolean]> = {
@@ -256,10 +262,13 @@ export function selectBackend(
   file: ProxyOptions,
   env: NodeJS.ProcessEnv = process.env
 ) {
-  const backend = options.BACKEND ?? env.OLC_BACKEND ?? file.BACKEND ?? "ollama"
-  if (!["ollama", "codex", "opencode"].includes(String(backend))) {
+  const requested =
+    options.BACKEND ?? env.OLC_BACKEND ?? file.BACKEND ?? "ollama"
+  /** `apple` is the name people reach for; `fm` is the tool it runs. */
+  const backend = requested === "apple" ? "fm" : requested
+  if (!["ollama", "codex", "opencode", "fm"].includes(String(backend))) {
     throw new Error(
-      "Backend must be ollama, codex, or opencode. Use -b <name>."
+      "Backend must be ollama, codex, opencode, or fm (alias apple). Use -b <name>."
     )
   }
   const native = [
@@ -302,10 +311,19 @@ export function selectBackend(
     optionRule("PLUGIN_DIR", "OPENCODE_PROXY_PLUGIN_DIR"),
     optionRule("PLUGIN_RUNTIME_DIR", "OPENCODE_PLUGIN_RUNTIME_DIR")
   ]
+  const fm = [optionRule("FM_PATH", "OLC_FM_PATH")]
   const forbidden =
     backend === "ollama"
-      ? [...proxy, ...codex, ...opencode]
-      : [...native, ...(backend === "codex" ? opencode : codex)]
+      ? [...proxy, ...codex, ...opencode, ...fm]
+      : backend === "fm"
+        ? [
+            ...native,
+            ...codex,
+            ...opencode,
+            optionRule("BRIDGE_ENABLED", "OLC_BRIDGE_ENABLED"),
+            optionRule("PROJECT_DIR")
+          ]
+        : [...native, ...fm, ...(backend === "codex" ? opencode : codex)]
   const invalid = forbidden.find(
     ({ key, envKeys }) =>
       key in options ||
@@ -321,7 +339,7 @@ export function selectBackend(
       `${invalid.key} is not supported by ${backend}; remove it from CLI, environment, or config, or select the matching backend with -b. See olc --help.`
     )
   }
-  return backend as "ollama" | "codex" | "opencode"
+  return backend as "ollama" | "codex" | "opencode" | "fm"
 }
 
 interface BackendOptionRule {

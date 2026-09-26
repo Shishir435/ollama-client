@@ -7,7 +7,7 @@ options, endpoints, build outputs and known limits.
 
 `packages/olc` is a Node CLI, not extension code. Bare `olc` manages native Ollama
 through `src/ollama/` on port 11434; it never wraps Ollama in the proxy.
-`-b` / `--backend codex|opencode` explicitly selects the agent proxies on ports 8083 (Codex) and 8084 (OpenCode).
+`-b` / `--backend codex|opencode|fm` explicitly selects the proxies on ports 8083 (Codex), 8084 (OpenCode) and 8085 (Apple Foundation Models; `-b apple` is an alias).
 All CLI backends detach by default; `--debug` or `--foreground` stays attached.
 Proxy readiness crosses a private IPC handoff before the launcher exits.
 Foreground native sessions stop only the standalone child they create, never an adopted service.
@@ -119,4 +119,5 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   trades a wedged proxy for overlapping turns and lengthening it trades the
   other way; neither is free.
 - **A browser origin is refused unless it is allowed.** The proxy listens on loopback and runs an agent, so a wildcard `Access-Control-Allow-Origin` would let any page spend a turn — a missing response header does not stop a simple request. `ALLOWED_ORIGINS` defaults to the extension schemes; a request with no `Origin` is not a page and is left alone.
+- **`fm` is relayed, never exposed.** `fm serve` refuses any request carrying an `Origin`, so the adapter owns a private Unix socket in a `0700` temporary directory and is the only thing that reaches it; the proxy's origin policy is the one a browser meets. Its catalog flags are measured, not hoped for: no tool calling, because the model answers a tool in prose, and an 8,192-token window.
 - `packages/olc/README.md` has the options, endpoints, build outputs and known limits.

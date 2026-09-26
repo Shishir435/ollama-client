@@ -70,6 +70,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+- `olc -b fm` (alias `-b apple`) serves Apple's on-device Foundation Model on
+  macOS 27 at `127.0.0.1:8085`, so it can be added as an OpenAI-compatible
+  provider. `fm serve` refuses browser requests on its own; olc runs it on a
+  private socket and applies its own origin policy. The model is listed as
+  `apple/foundation` with its 8K context, image input and no tool calling.
+
 - Web search can route through the selected agent runtime's native search tool.
   Ollama Client still exposes one provider-neutral `web_search` tool and keeps
   configured SearXNG, Brave, and Tavily backends available as explicit choices.
