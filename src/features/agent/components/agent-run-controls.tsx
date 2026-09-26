@@ -1,9 +1,11 @@
+import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
+import type { AgentRunStatus } from "@ollama-client/contracts"
 import { Hand, Pause, Play, Square, User } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 
 export interface AgentRunControlsProps {
-  status: string
+  status: AgentRunStatus
   resumeDisabled?: boolean
   /**
    * Whether the user already acknowledged the takeover request. Before that
@@ -29,8 +31,7 @@ export const AgentRunControls = ({
   onTakeoverComplete
 }: AgentRunControlsProps) => {
   const { t } = useTranslation()
-  const terminal = ["completed", "failed", "cancelled"].includes(status)
-  if (terminal) return null
+  if (isTerminalAgentStatus(status)) return null
 
   return (
     <fieldset className="mt-2 flex flex-wrap gap-1.5">

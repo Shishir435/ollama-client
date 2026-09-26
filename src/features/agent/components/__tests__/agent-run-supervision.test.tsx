@@ -373,6 +373,12 @@ describe("AgentRunSupervision", () => {
     ).toBeTruthy()
   })
 
+  /** A partial run is settled; Stop on it did nothing. */
+  it("offers no controls on a partial run", () => {
+    supervise({ run: run("partial") })
+    expect(screen.queryByText("agent.controls.stop")).toBeNull()
+  })
+
   describe("steering", () => {
     it("takes a correction while the run works, without pausing it", () => {
       const onSteer = vi.fn()
