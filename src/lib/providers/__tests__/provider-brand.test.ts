@@ -31,7 +31,17 @@ describe("resolveProviderBrand", () => {
     ["https://api.x.ai/v1", "xai"],
     ["https://generativelanguage.googleapis.com/v1beta/openai", "gemini"],
     ["https://api.perplexity.ai", "perplexity"],
-    ["https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen"]
+    ["https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen"],
+    ["https://integrate.api.nvidia.com/v1", "nvidia"],
+    ["https://ai-gateway.vercel.sh/v1", "vercel"],
+    [
+      "https://gateway.ai.cloudflare.com/v1/03835d22db2028fe5884b145e7f7ebd2/default/openai",
+      "cloudflare"
+    ],
+    ["https://api.fireworks.ai/inference/v1", "fireworks"],
+    ["https://api.deepinfra.com/v1/openai", "deepinfra"],
+    ["https://router.huggingface.co/v1", "huggingface"],
+    ["https://api.cerebras.ai/v1", "cerebras"]
   ])("brands %s as %s", (baseUrl, brand) => {
     expect(
       resolveProviderBrand({ id: "custom:openai:abc", baseUrl, name: "My LLM" })
@@ -97,6 +107,21 @@ describe("resolveProviderBrand", () => {
         baseUrl: "api.groq.com/openai/v1"
       })
     ).toBe("groq")
+  })
+
+  it("does not brand a platform that hosts other people's deployments", () => {
+    /**
+     * `vercel.app` and `workers.dev` are anyone's app. A gateway a user
+     * deployed there is theirs, not Vercel's or Cloudflare's.
+     */
+    for (const baseUrl of [
+      "https://my-router.vercel.app/v1",
+      "https://my-router.acme.workers.dev/v1"
+    ]) {
+      expect(
+        resolveProviderBrand({ id: "custom:openai:abc", baseUrl, name: "Mine" })
+      ).toBeUndefined()
+    }
   })
 
   it("does not brand a host that merely ends in a vendor string", () => {

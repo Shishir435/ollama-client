@@ -23,7 +23,14 @@ export const PROVIDER_BRANDS = [
   "perplexity",
   "qwen",
   "vllm",
-  "opencode"
+  "opencode",
+  "nvidia",
+  "vercel",
+  "cloudflare",
+  "fireworks",
+  "deepinfra",
+  "huggingface",
+  "cerebras"
 ] as const
 
 export type ProviderBrandId = (typeof PROVIDER_BRANDS)[number]
@@ -52,7 +59,22 @@ const BRAND_HOSTS: ReadonlyArray<readonly [ProviderBrandId, string[]]> = [
   ["xai", ["x.ai"]],
   ["gemini", ["generativelanguage.googleapis.com"]],
   ["perplexity", ["perplexity.ai"]],
-  ["qwen", ["dashscope.aliyuncs.com", "dashscope-intl.aliyuncs.com"]]
+  ["qwen", ["dashscope.aliyuncs.com", "dashscope-intl.aliyuncs.com"]],
+  /**
+   * Gateways and inference hosts. Their API hosts serve no favicon of their
+   * own and their parent sites redirect (`vercel.sh` to `vercel.com`,
+   * `nvidia.com` to `www.nvidia.com`), which the favicon tier refuses to
+   * follow, so without a curated mark they fall all the way to initials.
+   * Only vendor-owned API domains are listed: `vercel.app` and `workers.dev`
+   * host anyone's deployment and say nothing about who runs it.
+   */
+  ["nvidia", ["nvidia.com"]],
+  ["vercel", ["vercel.sh", "vercel.com"]],
+  ["cloudflare", ["cloudflare.com"]],
+  ["fireworks", ["fireworks.ai"]],
+  ["deepinfra", ["deepinfra.com"]],
+  ["huggingface", ["huggingface.co"]],
+  ["cerebras", ["cerebras.ai"]]
 ]
 
 /**
@@ -79,7 +101,14 @@ const BRAND_NAME_TOKENS: ReadonlyArray<readonly [ProviderBrandId, string[]]> = [
   ["gemini", ["gemini", "google ai", "vertex"]],
   ["perplexity", ["perplexity"]],
   ["qwen", ["qwen", "dashscope", "tongyi"]],
-  ["opencode", ["opencode", "open code"]]
+  ["opencode", ["opencode", "open code"]],
+  ["nvidia", ["nvidia"]],
+  ["vercel", ["vercel"]],
+  ["cloudflare", ["cloudflare"]],
+  ["fireworks", ["fireworks"]],
+  ["deepinfra", ["deepinfra"]],
+  ["huggingface", ["huggingface", "hugging face"]],
+  ["cerebras", ["cerebras"]]
 ]
 
 const PROFILE_BRANDS: Partial<Record<ProviderServiceProfile, ProviderBrandId>> =
@@ -158,7 +187,12 @@ const MODEL_VENDOR_BRANDS: Record<string, ProviderBrandId> = {
   ollama: "ollama",
   lmstudio: "lm-studio",
   "lm-studio": "lm-studio",
-  vllm: "vllm"
+  vllm: "vllm",
+  nvidia: "nvidia",
+  fireworks: "fireworks",
+  deepinfra: "deepinfra",
+  huggingface: "huggingface",
+  cerebras: "cerebras"
 }
 
 /**
