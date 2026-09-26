@@ -16,13 +16,16 @@ export const AGENT_PANEL_PROTOCOL_VERSION = 1 as const
 
 export const AgentRiskSchema = z.enum(["low", "medium", "high", "critical"])
 
+export const MAX_PANEL_EVIDENCE_KIND_CHARS = 120
+export const MAX_PANEL_EVIDENCE_SUMMARY_CHARS = 1_000
+
 export const AgentVerificationRecordSchema = z
   .object({
     outcome: z.enum(["confirmed", "negative", "ambiguous"]),
     evidence: z
       .object({
-        kind: z.string().min(1).max(120),
-        summary: z.string().min(1).max(1_000),
+        kind: z.string().min(1).max(MAX_PANEL_EVIDENCE_KIND_CHARS),
+        summary: z.string().min(1).max(MAX_PANEL_EVIDENCE_SUMMARY_CHARS),
         observedAt: z.number().int().nonnegative()
       })
       .strict()

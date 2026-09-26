@@ -1,4 +1,8 @@
-import type { AgentStepRecord } from "@ollama-client/contracts"
+import {
+  type AgentStepRecord,
+  MAX_PANEL_EVIDENCE_KIND_CHARS,
+  MAX_PANEL_EVIDENCE_SUMMARY_CHARS
+} from "@ollama-client/contracts"
 import type { DurableAgentStep } from "@/lib/repositories/agent-runs"
 
 /**
@@ -78,10 +82,33 @@ export const toAgentStepRecords = (
     startedAt: step.startedAt,
     command: step.command,
     risk: step.risk,
-    verification: step.verification,
+    ...(step.verification
+      ? { verification: panelVerification(step.verification) }
+      : {}),
     target: step.target,
     sourceUrl: step.sourceUrl,
     finding: step.finding,
     thinking: step.thinking,
     telemetry: step.telemetry
   }))
+
+/**
+ * A receipt's verification as the panel's schema states it: the outcome and
+ * the verifier's sentence. What the receipt keeps for the completion judge —
+ * a batch's field names, the values a submission sent — is runtime evidence,
+ * and the panel's strict schema refused the whole snapshot for carrying it,
+ * which took the supervision surface down after any confirmed batch fill.
+ */
+const panelVerification = (
+  verification: NonNullable<DurableAgentStep["verification"]>
+): NonNullable<AgentStepRecord["verification"]> => ({
+  outcome: verification.outcome,
+  evidence: {
+    kind: verification.evidence.kind.slice(0, MAX_PANEL_EVIDENCE_KIND_CHARS),
+    summary: verification.evidence.summary.slice(
+      0,
+      MAX_PANEL_EVIDENCE_SUMMARY_CHARS
+    ),
+    observedAt: verification.evidence.observedAt
+  }
+})
