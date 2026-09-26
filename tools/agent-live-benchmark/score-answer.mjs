@@ -127,7 +127,8 @@ export const scoreVerdict = ({ status, success, pauseReason }) => {
    * received the task. Counting that as a miss lowers the model's rate for
    * the harness's failure; it is left out of every rate instead.
    */
-  if (status === "harness_invalid") return "invalid"
+  if (status === "harness_invalid" || status === "turn_not_started")
+    return "invalid"
   /** A chat that answered without delegating a run is judged like a run. */
   if (status === "completed" || status === "answered_in_chat")
     return success ? "achieved" : "false_completed"
