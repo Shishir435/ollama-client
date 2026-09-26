@@ -83,6 +83,21 @@ describe("extractReadableContent", () => {
     expect(result.readableText).not.toContain(hidden)
   })
 
+  /** Defuddle writes Markdown, which splits a hidden element's raw text. */
+  it("drops a Defuddle result that formatted hidden text as Markdown", () => {
+    setDefuddle({
+      contentMarkdown: "Open dialog\n\n**Status:** Active\n\n[Close](#)",
+      title: "T"
+    })
+    const result = extractReadableContent(
+      makeDoc(
+        "<button>Open dialog</button><dialog><p><b>Status:</b> Active</p><button>Close</button></dialog>"
+      ),
+      "auto"
+    )
+    expect(result.selectedExtractor).not.toBe("defuddle")
+  })
+
   it("keeps a Defuddle result whose text the page also shows", () => {
     const text = "word ".repeat(60).trim()
     setDefuddle({ contentMarkdown: text, title: "T" })

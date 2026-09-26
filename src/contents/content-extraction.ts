@@ -42,8 +42,21 @@ const renderedCopy = (doc: Document): Document => {
   return copy
 }
 
+/**
+ * Words only, lowercased: Defuddle writes Markdown, so `**Status:** Active`
+ * has to compare equal to the "Status: Active" the page held.
+ */
 const comparableText = (text: string | null | undefined): string =>
-  (text ?? "").replace(/\s+/g, " ").trim().toLowerCase()
+  ` ${(text ?? "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()} `
+
+/** Each run of text an element holds, so formatting between them cannot hide one. */
+const textPieces = (node: Node): string[] =>
+  node.nodeType === 3
+    ? [node.textContent ?? ""]
+    : [...node.childNodes].flatMap(textPieces)
 
 /**
  * Whether Defuddle's result carries text only an unrendered element holds.
@@ -63,9 +76,11 @@ const showsUnrenderedText = (
   const haystack = comparableText(extracted)
   const shown = comparableText(rendered.body?.textContent)
   for (const element of doc.querySelectorAll(UNRENDERED_SELECTOR)) {
-    const hidden = comparableText(element.textContent)
-    if (hidden && haystack.includes(hidden) && !shown.includes(hidden))
-      return true
+    for (const piece of textPieces(element)) {
+      const hidden = comparableText(piece)
+      if (hidden.trim() && haystack.includes(hidden) && !shown.includes(hidden))
+        return true
+    }
   }
   return false
 }
