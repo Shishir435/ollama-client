@@ -91,14 +91,26 @@ const valueTheSiteResolved = (
     const landed = new URL(landedUrl)
     const requested = new URL(requestedUrl)
     if (landed.origin !== requested.origin) return undefined
-    if (AUTHENTICATION_PATH.test(landed.pathname)) return undefined
-    if (PAYMENT_PATH.test(landed.pathname)) return undefined
-    const path = comparableWords(decodeURIComponent(landed.pathname))
+    /** Decoded first: `/%6Cogin/Firefox` is a sign-in page too. */
+    const decoded = decodeURIComponent(landed.pathname)
+    if (AUTHENTICATION_PATH.test(decoded)) return undefined
+    if (PAYMENT_PATH.test(decoded)) return undefined
+    const path = comparableWords(decoded)
     return [...requested.searchParams.values()]
       .map(comparableWords)
       .find((words) => words.trim().length >= 3 && path.includes(words))
   } catch {
     return undefined
+  }
+}
+
+const samePagePath = (first: string, second: string): boolean => {
+  try {
+    const a = new URL(first)
+    const b = new URL(second)
+    return a.origin === b.origin && a.pathname === b.pathname
+  } catch {
+    return false
   }
 }
 
@@ -643,6 +655,7 @@ const verifyCommittedDestination = async (
    * path the link did not name stays for review, as does a model-composed
    * address and another origin.
    */
+  const committedUrl = tab.url
   const resolved =
     !landed && kind === "activation" && destination.source === "observed"
       ? valueTheSiteResolved(tab.url, destination.url)
@@ -650,7 +663,13 @@ const verifyCommittedDestination = async (
   const followedLink =
     resolved !== undefined &&
     (await observeAfter(input, adapter, signal, tabId).then(
-      (after) => comparableWords(after.title).includes(resolved),
+      /**
+       * The title counts only from an observation of the committed page: one
+       * that has not caught up is still showing the page the click left.
+       */
+      (after) =>
+        samePagePath(after.url, committedUrl) &&
+        comparableWords(after.title).includes(resolved),
       () => false
     ))
   if (!landed && !followedLink)
