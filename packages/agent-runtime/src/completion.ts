@@ -916,7 +916,7 @@ const evidencePlannedChange = (
       (candidate) =>
         !consumed.has(candidate.stepId) &&
         quoted !== undefined &&
-        isBoundFocusMove(requirement, candidate) &&
+        isBoundFocusMove(requirement, candidate, observation) &&
         quotationNamesFocusedControl(quoted, observation)
     )
     if (focused) {
@@ -926,7 +926,7 @@ const evidencePlannedChange = (
     const submitted = changes.find(
       (candidate) =>
         !consumed.has(candidate.stepId) &&
-        isBoundSubmission(requirement, candidate) &&
+        isBoundSubmission(requirement, candidate, changes) &&
         (quoted === undefined || quotationIsReceiptSummary(quoted, candidate))
     )
     if (submitted) {
@@ -938,37 +938,164 @@ const evidencePlannedChange = (
 }
 
 /**
+ * Whether a requirement claims nothing a receipt does not prove.
+ *
+ * Every word must be one of three things: a word of the act the receipt
+ * performed ("focus", "click"), a function word that asserts nothing ("the",
+ * "on", "for"), or a fact the run's own receipts hold (the control's name,
+ * a value it typed, the key it pressed, the site it was on). Anything else
+ * — a negation, a second action, a result, a constraint — is a claim the
+ * receipt cannot vouch for, so the requirement is refused. Refusing an
+ * unknown word is the fail-safe direction: the run is sent back to quote
+ * evidence rather than credited with something it did not do.
+ */
+const claimsOnlyAct = (
+  requirement: AgentTaskRequirement,
+  actWords: ReadonlySet<string>,
+  facts: ReadonlySet<string>,
+  required: ReadonlySet<string> = actWords
+): boolean => {
+  const words = claimWords(requirement.text)
+  return (
+    words.some((word) => required.has(word)) &&
+    words.every(
+      (word) =>
+        actWords.has(word) || CLAIM_FUNCTION_WORDS.has(word) || facts.has(word)
+    )
+  )
+}
+
+/** Lowercased words, compared without hyphens or apostrophes. */
+const claimWords = (text: string): string[] =>
+  (agentNormalizedClaim(text).match(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu) ?? [])
+    .map(compactFieldWord)
+    .filter(Boolean)
+
+/**
+ * A fact is never a negation, even when a typed value or a control name
+ * holds one: typing "not now" must not let "Do not click Continue" pass.
+ */
+const NEGATION_WORDS = new Set([
+  "not",
+  "no",
+  "never",
+  "nor",
+  "neither",
+  "none",
+  "without",
+  "except",
+  "dont",
+  "doesnt",
+  "didnt",
+  "isnt",
+  "wasnt",
+  "arent",
+  "werent",
+  "cannot",
+  "cant",
+  "wont",
+  "shouldnt",
+  "mustnt"
+])
+
+const factWords = (values: readonly (string | undefined)[]): Set<string> =>
+  new Set(
+    values
+      .flatMap((value) => (value ? claimWords(value) : []))
+      .filter((word) => !NEGATION_WORDS.has(word))
+  )
+
+/**
+ * Words that assert nothing by themselves. Deliberately excludes every
+ * negation ("not", "no", "never", "don't"), every conjunction that could
+ * join a second claim ("and", "then", "but"), and every verb: those are
+ * claims, and a claim must be proved.
+ */
+const CLAIM_FUNCTION_WORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "this",
+  "its",
+  "it",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "has",
+  "have",
+  "had",
+  "now",
+  "please",
+  "on",
+  "in",
+  "at",
+  "to",
+  "into",
+  "onto",
+  "for",
+  "of",
+  "button",
+  "link",
+  "field",
+  "box",
+  "input",
+  "control",
+  "form",
+  "key",
+  "page",
+  "site",
+  "keyboard"
+])
+
+/**
  * A confirmed key press the model sent for this requirement, which the
  * verifier saw move focus. Moving focus from First to Second adds no words:
  * "Second" was on the page before, so the staleness rule refused it, and
  * the run asked the user what to do about a task it had finished.
+ *
+ * Tab reaching Save proves Save has focus, never that it was pressed, so
+ * the requirement may claim focus and name only the focused control and
+ * the key: "Focus the Save button" and "Keyboard focus is on Second" meet
+ * it; "Click Save", "Do not focus Search" and "Focus Search and type
+ * Alice" do not.
  */
-/**
- * A requirement a focus move can meet claims focus and nothing a focused
- * control does: Tab reaching Save proves Save has focus, never that it was
- * pressed.
- */
-const FOCUS_REQUIREMENT_PATTERN = /\b(?:focus|focused|focuses|focusing)\b/
-const ACTIVATION_REQUIREMENT_PATTERN =
-  /\b(?:click|clicks|clicked|tap|tapped|activate|activated|press|pressed|submit|submitted|save|saved|send|sent|open|opened|select|selected|check|checked|toggle|toggled|choose|chose|chosen)\b/
-
-const claimsOnlyFocus = (requirement: AgentTaskRequirement): boolean => {
-  const text = agentNormalizedClaim(requirement.text)
-  return (
-    FOCUS_REQUIREMENT_PATTERN.test(text) &&
-    !ACTIVATION_REQUIREMENT_PATTERN.test(text)
-  )
-}
+const FOCUS_WORDS = new Set(["focus", "focused", "focuses", "focusing"])
+const FOCUS_ACT_WORDS = new Set([...FOCUS_WORDS, "move", "moves", "moved"])
 
 const isBoundFocusMove = (
   requirement: AgentTaskRequirement,
-  receipt: AgentStepReadout
+  receipt: AgentStepReadout,
+  observation: AgentObservation
 ): boolean =>
   receipt.requirementId === requirement.id &&
-  claimsOnlyFocus(requirement) &&
   receipt.command?.type === "press_key" &&
   receipt.verification?.outcome === "confirmed" &&
-  receipt.verification.evidence.kind === "keyboard"
+  receipt.verification.evidence.kind === "keyboard" &&
+  claimsOnlyAct(
+    requirement,
+    FOCUS_ACT_WORDS,
+    factWords([
+      keyText(receipt.command.key),
+      ...observation.elements
+        .filter((element) => element.focused)
+        .map((element) => element.name)
+    ]),
+    FOCUS_WORDS
+  )
+
+/** A pressed key as the words a requirement would name it by. */
+const keyText = (key: unknown): string =>
+  typeof key === "string"
+    ? key.replaceAll("+", " ")
+    : key && typeof key === "object" && "key" in key
+      ? [
+          ...((key as { modifiers?: readonly string[] }).modifiers ?? []),
+          String((key as { key: unknown }).key)
+        ].join(" ")
+      : ""
 
 /** Whether the quotation is the name of the one control focused now. */
 const quotationNamesFocusedControl = (
@@ -990,58 +1117,116 @@ const quotationNamesFocusedControl = (
  * confirmed the form committed the destination the user approved, which is
  * what a "submit it" requirement asks; bound by the requirement id the
  * command carried, never by name, so it vouches for its own requirement.
+ *
+ * It proves the form was sent, not what sending it achieved, so the
+ * requirement may claim the act and name only what the run's receipts
+ * hold: the control pressed, the values typed before it, the key and the
+ * site. "Click on Continue" and "Search in Google for Alice" (Alice typed)
+ * meet it; "Search for Alice excluding archived orders", "Search for Alice
+ * and read the first hit" and "The address is saved" do not.
  */
-const SUBMITTING_REQUIREMENT_PATTERN =
-  /\b(?:submit|submits|submitted|click|clicks|clicked|press|presses|pressed|continue|continued|send|sent|search|searched)\b/
-
+const SUBMISSION_WORDS = new Set([
+  "submit",
+  "submits",
+  "submitted",
+  "click",
+  "clicks",
+  "clicked",
+  "press",
+  "presses",
+  "pressed",
+  "continue",
+  "continued",
+  "send",
+  "sent",
+  "search",
+  "searched"
+])
 /**
- * A requirement claiming what the page shows afterwards. "Search results for
- * Alice are displayed" says search, but it claims results appeared, which a
- * sent form does not prove.
+ * Typing may be named beside the send ("Type Alice and search" is still
+ * refused for its "and"), but never alone: "Enter Alice in the Name field"
+ * is a claim about the field, which the field's own receipt answers.
  */
-const RESULT_STATE_REQUIREMENT_PATTERN =
-  /\b(?:results?|displayed|display|displays|shown|shows|show|appear|appears|appeared|visible|listed|lists|loaded|loads|saved|created|updated|returned|returns|opened|opens)\b/
-
-/**
- * A second clause after the act: "Search for Alice and read the first hit"
- * claims the hit was read, in words no result list could name, and "Search
- * for Alice by email" claims a constraint the sent form does not show it
- * applied. A requirement the submission can meet is the act and its object
- * alone; anything joined to it is a claim the sent form does not prove.
- */
-const FURTHER_CLAIM_PATTERN =
-  /[,;:]|\b(?:and|then|to|so|until|after|before|while|once|when|where|which|that|if|showing|finding|reading|opening|open|read|find|get|check|verify|confirm|see|view|report|by|with|without|in|on|from|within|under|over|near|between|using|via|only|sorted|filtered|matching|where)\b/
-
-/**
- * Whether the requirement claims only the act of sending: an imperative
- * that begins with it ("Search for Alice", "Click Continue"), or a
- * statement that ends with it ("Continue has been clicked").
- */
-const SUBMISSION_ACT_PATTERN = new RegExp(
-  `^(?:please )?${SUBMITTING_REQUIREMENT_PATTERN.source}|${SUBMITTING_REQUIREMENT_PATTERN.source}$`
-)
-
-const claimsOnlySubmission = (requirement: AgentTaskRequirement): boolean => {
-  const text = agentNormalizedClaim(requirement.text).replace(/[.!]+$/u, "")
-  return (
-    SUBMISSION_ACT_PATTERN.test(text) &&
-    !FURTHER_CLAIM_PATTERN.test(text) &&
-    !RESULT_STATE_REQUIREMENT_PATTERN.test(text)
-  )
-}
+const SUBMISSION_ACT_WORDS = new Set([
+  ...SUBMISSION_WORDS,
+  "type",
+  "typed",
+  "enter",
+  "entered",
+  "fill",
+  "filled"
+])
 
 const isBoundSubmission = (
   requirement: AgentTaskRequirement,
-  receipt: AgentStepReadout
+  receipt: AgentStepReadout,
+  changes: readonly AgentStepReadout[]
 ): boolean =>
   receipt.requirementId === requirement.id &&
-  /**
-   * The verifier confirmed the form was sent, not what sending it achieved:
-   * it evidences "Continue has been clicked", never "the address is saved".
-   */
-  claimsOnlySubmission(requirement) &&
   receipt.verification?.outcome === "confirmed" &&
-  receipt.verification.evidence.kind === "submission"
+  receipt.verification.evidence.kind === "submission" &&
+  claimsOnlyAct(
+    requirement,
+    SUBMISSION_ACT_WORDS,
+    submissionFacts(receipt, changes),
+    SUBMISSION_WORDS
+  )
+
+/**
+ * What the run's receipts prove about a submission: the control it went
+ * through, the key, the site's host labels, and every value a confirmed
+ * step typed, selected or filled on the same page before it.
+ */
+const submissionFacts = (
+  receipt: AgentStepReadout,
+  changes: readonly AgentStepReadout[]
+): Set<string> => {
+  const typed = changes
+    .filter(
+      (change) =>
+        change.sequence < receipt.sequence &&
+        change.verification?.outcome === "confirmed" &&
+        /** Typed on the page the form was sent from, not anywhere in the run. */
+        change.sourceUrl === receipt.sourceUrl
+    )
+    .flatMap((change) => {
+      const command = change.command
+      if (!command) return []
+      if (command.type === "fill_form")
+        return command.fields.map((field) =>
+          field.type === "select"
+            ? field.value
+            : field.type === "check" || field.type === "uncheck"
+              ? undefined
+              : field.text
+        )
+      if (command.type === "select") return [command.value]
+      if (
+        command.type === "type" ||
+        command.type === "clear_and_type" ||
+        command.type === "replace_text"
+      )
+        return [command.text]
+      return []
+    })
+  return factWords([
+    receipt.target?.name,
+    receipt.command?.type === "press_key" ? keyText(receipt.command.key) : "",
+    hostLabels(receipt.sourceUrl),
+    hostLabels(receipt.formAction),
+    ...typed
+  ])
+}
+
+/**
+ * The labels of a URL's host, read without the DOM's URL parser, which this
+ * package does not have: `https://www.google.com/search` gives "www google
+ * com".
+ */
+const hostLabels = (url: string | undefined): string =>
+  url
+    ?.match(/^[a-z][a-z0-9+.-]*:\/\/(?:[^/?#@]*@)?([^/?#:]+)/iu)?.[1]
+    ?.replaceAll(".", " ") ?? ""
 
 /**
  * The model quoting the verifier's sentence about the very step it cites —

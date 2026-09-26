@@ -1535,45 +1535,92 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused" })
   })
 
-  it("does not let a sent search vouch for its results appearing", () => {
-    const submitted = step({
+  it("lets a sent form meet only a requirement naming what its receipts hold", () => {
+    const typed = step({
       sequence: 1,
+      requirementId: "r0",
+      command: {
+        type: "clear_and_type",
+        ref: "e1",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        text: "Alice"
+      },
+      sourceUrl: "https://www.google.com/",
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "field", summary: "Field holds Alice", observedAt: 1 }
+      }
+    })
+    const submitted = step({
+      sequence: 2,
       requirementId: "r1",
+      target: { name: "Continue" },
+      sourceUrl: "https://www.google.com/",
       verification: {
         outcome: "confirmed",
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 1
+          observedAt: 2
         }
       }
     })
-    const judge = (text: string) =>
+    const judge = (text: string, steps = [typed, submitted]) =>
       judgeAgentCompletion({
-        steps: [submitted],
+        steps,
         observation: observation({ visibleText: "Details" }),
         requirements: [{ id: "r1", text, kind: "change" }],
         outcomes: [{ id: "r1", met: true }]
-      })
-    expect(judge("Search for Alice.")).toMatchObject({ type: "accepted" })
-    expect(judge("Continue has been clicked.")).toMatchObject({
-      type: "accepted"
-    })
-    expect(judge("Search results for Alice are displayed.")).toMatchObject({
-      type: "refused"
-    })
-    expect(judge("Search for Alice and read the first hit.")).toMatchObject({
-      type: "refused"
-    })
-    expect(judge("Search for Alice to find her email.")).toMatchObject({
-      type: "refused"
-    })
-    expect(judge("Search for Alice by email.")).toMatchObject({
-      type: "refused"
-    })
-    expect(judge("Search for Alice in archived orders.")).toMatchObject({
-      type: "refused"
-    })
+      }).type
+    for (const text of [
+      "Search for Alice.",
+      "Search in Google for Alice",
+      "Click on Continue",
+      "Continue has been clicked.",
+      "Submit the form"
+    ])
+      expect([text, judge(text)]).toEqual([text, "accepted"])
+    for (const text of [
+      "Search results for Alice are displayed.",
+      "Search for Alice and read the first hit.",
+      "Search for Alice to find her email.",
+      "Search for Alice by email.",
+      "Search for Alice excluding archived orders",
+      "Search for Alice in archived orders.",
+      "Search for Bob",
+      "Do not click Continue",
+      "The address is saved.",
+      "Click Continue to save the address",
+      "Type Alice",
+      "Enter Alice in the field"
+    ])
+      expect([text, judge(text)]).toEqual([text, "refused"])
+    /** Without the typing receipt nothing proves Alice was what was sent. */
+    expect(judge("Search for Alice.", [submitted])).toBe("refused")
+    /** A negation typed as a value is still not a fact. */
+    expect(
+      judge("Do not click Continue", [
+        {
+          ...typed,
+          command: {
+            type: "clear_and_type",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            text: "do not"
+          }
+        },
+        submitted
+      ])
+    ).toBe("refused")
+    /** Alice typed on another page is not what this form sent. */
+    expect(
+      judge("Search for Alice.", [
+        { ...typed, sourceUrl: "https://example.com/" },
+        submitted
+      ])
+    ).toBe("refused")
   })
 
   it("binds a batch value to the field the requirement names", () => {
@@ -1722,18 +1769,20 @@ describe("judgeAgentCompletion with planned requirements", () => {
     })
   const focusedOn = (focused: string) =>
     observation({
-      visibleText: "First Second",
-      elements: ["First", "Second"].map((name, index) => ({
-        ref: `e${index + 1}`,
-        frameId: 0,
-        tag: "input",
-        name,
-        visible: true,
-        enabled: true,
-        editable: true,
-        sensitive: false,
-        ...(name === focused ? { focused: true } : {})
-      }))
+      visibleText: [...new Set(["First", "Second", focused])].join(" "),
+      elements: [...new Set(["First", "Second", focused])].map(
+        (name, index) => ({
+          ref: `e${index + 1}`,
+          frameId: 0,
+          tag: "input",
+          name,
+          visible: true,
+          enabled: true,
+          editable: true,
+          sensitive: false,
+          ...(name === focused ? { focused: true } : {})
+        })
+      )
     })
   const judgeFocus = (receipt: AgentStepReadout, current: AgentObservation) =>
     judgeAgentCompletion({
@@ -1756,19 +1805,30 @@ describe("judgeAgentCompletion with planned requirements", () => {
     })
   })
 
-  it("does not let a focus move vouch for pressing the control it reached", () => {
-    const current = focusedOn("Second")
-    for (const text of ["Click Second", "Second is focused and pressed"]) {
-      expect(
-        judgeAgentCompletion({
-          steps: [tabbed("confirmed")],
-          observation: current,
-          baselineText: "first second",
-          requirements: [{ id: "r1", text, kind: "change" }],
-          outcomes: [{ id: "r1", met: true, evidence: "Second" }]
-        })
-      ).toMatchObject({ type: "refused" })
-    }
+  it("lets a focus move meet only a requirement claiming focus on that control", () => {
+    const judge = (text: string, focused = "Second") =>
+      judgeAgentCompletion({
+        steps: [tabbed("confirmed")],
+        observation: focusedOn(focused),
+        baselineText: [
+          ...new Set(["first", "second", focused.toLowerCase()])
+        ].join(" "),
+        requirements: [{ id: "r1", text, kind: "change" }],
+        outcomes: [{ id: "r1", met: true, evidence: focused }]
+      }).type
+    expect(judge("Focus the Second field")).toBe("accepted")
+    expect(judge("Focus has moved to Second")).toBe("accepted")
+    /** A control named like an action is still only a name. */
+    expect(judge("Focus the Save button", "Save")).toBe("accepted")
+    for (const text of [
+      "Click Second",
+      "Second is focused and pressed",
+      "Do not focus Second",
+      "Focus Second and type Alice",
+      "Focus First",
+      "Move Second"
+    ])
+      expect([text, judge(text)]).toEqual([text, "refused"])
   })
 
   it("refuses the name when another control holds focus or nothing was verified", () => {
