@@ -227,9 +227,9 @@ const budgets: Budget[] = [
      * tab's own chunk, the Context-sheet switch and labelled dropdowns. The
      * Ollama cloud switch, 9,826,636. The agent-off notice, 9,830,198. The Ollama provider loading
      * its setting lazily, 9,831,247. Apple's mark, 9,832,181. Named blocking runs and
-     * hidden resolved notices, 9,833,527.
+     * hidden resolved notices, 9,833,527. Stepped effort slider, 9,834,090.
      */
-    max: isFirefox ? 11_800_000 : 9_834_000
+    max: isFirefox ? 11_800_000 : 9_835_000
   },
   {
     metric: "zip",
