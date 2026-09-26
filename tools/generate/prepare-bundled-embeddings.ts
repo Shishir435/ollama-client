@@ -16,16 +16,33 @@ const files = {
 }
 export async function prepareBundledEmbeddings() {
   const directory = resolve(".cache/bundled-embeddings")
-  for (const [file, expected] of Object.entries(files)) {
+  const runtime = JSON.parse(
+    await readFile(resolve("node_modules/onnxruntime-web/package.json"), "utf8")
+  )
+  if (runtime.version !== "1.30.0")
+    throw new Error(
+      "Update the pinned ONNX notices when upgrading onnxruntime-web"
+    )
+  const assets = Object.entries(files).map(([file, expected]) => ({
+    file,
+    expected,
+    url: `https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/${revision}/${file}`,
+    relativeDest: `assets/embeddings/model/${file}`
+  }))
+  assets.push({
+    file: "licenses/onnxruntime-ThirdPartyNotices.txt",
+    expected:
+      "143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3",
+    url: "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/ThirdPartyNotices.txt",
+    relativeDest: "assets/embeddings/licenses/onnxruntime-ThirdPartyNotices.txt"
+  })
+  for (const { file, expected, url } of assets) {
     const destination = resolve(directory, file)
     let bytes = await readFile(destination).catch(() => undefined)
     const valid = (value: Buffer | undefined) =>
       value && createHash("sha256").update(value).digest("hex") === expected
     if (!valid(bytes)) {
-      const response = await fetch(
-        `https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/${revision}/${file}`,
-        { signal: AbortSignal.timeout(120000) }
-      )
+      const response = await fetch(url, { signal: AbortSignal.timeout(120000) })
       if (!response.ok)
         throw new Error(`Could not fetch bundled embedding asset: ${file}`)
       bytes = Buffer.from(await response.arrayBuffer())
@@ -35,8 +52,8 @@ export async function prepareBundledEmbeddings() {
       await writeFile(destination, bytes)
     }
   }
-  return Object.keys(files).map((file) => ({
+  return assets.map(({ file, relativeDest }) => ({
     absoluteSrc: resolve(directory, file),
-    relativeDest: `assets/embeddings/model/${file}`
+    relativeDest
   }))
 }
