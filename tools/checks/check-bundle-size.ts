@@ -215,9 +215,11 @@ const budgets: Budget[] = [
      * partial run no longer holding admission, and routine consent written
      * on landing. Its judge round, 9,780,444: receipt-fact quotations, read
      * quotations from earlier pages, the focus source and followed-link
-     * redirects.
+     * redirects. Its review round, 9,782,640: control-bound receipt values,
+     * rendered-only earlier pages, the new-tab rule, the Defuddle leak check
+     * and the chat's delegation guidance.
      */
-    max: isFirefox ? 11_800_000 : 9_781_000
+    max: isFirefox ? 11_800_000 : 9_783_000
   },
   {
     metric: "zip",
@@ -437,9 +439,12 @@ const budgets: Budget[] = [
      * bound to its control's label. The benchmark follow-up, 294,307: a
      * partial run settling admission and routine consent written on landing.
      * Its judge round, 294,757: receipt-fact quotations, observed pages for
-     * read quotations and the focus source.
+     * read quotations and the focus source. Its review round, 295,332:
+     * control-bound receipt values, the new-tab rule and the chat's
+     * delegation guidance; Firefox 212,632 for the same guidance and the
+     * Defuddle leak check.
      */
-    max: isFirefox ? 212_600 : 294_900
+    max: isFirefox ? 212_800 : 295_500
   }
 ]
 
