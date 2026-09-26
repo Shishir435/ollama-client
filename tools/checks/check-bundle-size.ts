@@ -213,9 +213,11 @@ const budgets: Budget[] = [
      * their one-to-one binding. The follow-up the next benchmark run found,
      * 9,779,107: hidden content out of page reads and the omission count, a
      * partial run no longer holding admission, and routine consent written
-     * on landing.
+     * on landing. Its judge round, 9,780,444: receipt-fact quotations, read
+     * quotations from earlier pages, the focus source and followed-link
+     * redirects.
      */
-    max: isFirefox ? 11_800_000 : 9_779_500
+    max: isFirefox ? 11_800_000 : 9_781_000
   },
   {
     metric: "zip",
@@ -434,8 +436,10 @@ const budgets: Budget[] = [
      * verification projection. The seventh, 294,251: each submitted value
      * bound to its control's label. The benchmark follow-up, 294,307: a
      * partial run settling admission and routine consent written on landing.
+     * Its judge round, 294,757: receipt-fact quotations, observed pages for
+     * read quotations and the focus source.
      */
-    max: isFirefox ? 212_600 : 294_400
+    max: isFirefox ? 212_600 : 294_900
   }
 ]
 
