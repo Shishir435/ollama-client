@@ -231,8 +231,8 @@ const SHARED_HOST_SUFFIXES = [
 /** How many trailing labels form the public suffix `host` sits under. */
 const suffixLabels = (labels: string[]): number => {
   const host = labels.join(".")
-  const shared = SHARED_HOST_SUFFIXES.find((suffix) =>
-    host.endsWith(`.${suffix}`)
+  const shared = SHARED_HOST_SUFFIXES.find(
+    (suffix) => host === suffix || host.endsWith(`.${suffix}`)
   )
   if (shared) return shared.split(".").length
   const [second, tld] = labels.slice(-2)
@@ -248,6 +248,12 @@ const suffixLabels = (labels: string[]): number => {
  * timeout ends the lookup. Never below that: a registry suffix belongs to
  * nobody, and a shared host's own site is not the provider's.
  */
+/** Exactly one label above its public suffix: `example.com`, not `co.uk`. */
+const isRegistrableDomain = (host: string): boolean => {
+  const labels = host.split(".")
+  return labels.length === suffixLabels(labels) + 1
+}
+
 export const siteDomainOf = (host: string): string | undefined => {
   const labels = host.split(".")
   const siteLabels = suffixLabels(labels) + 1
@@ -266,12 +272,22 @@ export const siteDomainOf = (host: string): string | undefined => {
 const siteFaviconUrls = (baseUrl: string): string[] => {
   try {
     const url = new URL(baseUrl)
-    const site = siteDomainOf(url.hostname.toLowerCase().replace(/^www\./, ""))
+    const host = url.hostname.toLowerCase()
+    const bare = host.replace(/^www\./, "")
+    /**
+     * A `www.` base already is the site, so its bare domain is the one
+     * candidate left — kept only when that domain is registrable, never a
+     * suffix (`www.vercel.app` gives nothing).
+     */
+    const site =
+      siteDomainOf(bare) ??
+      (bare !== host && isRegistrableDomain(bare) ? bare : undefined)
     if (!site) return []
+    const direct = faviconUrl(baseUrl)
     return [
       `${url.protocol}//${site}/favicon.ico`,
       `${url.protocol}//www.${site}/favicon.ico`
-    ]
+    ].filter((candidate) => candidate !== direct)
   } catch {
     return []
   }

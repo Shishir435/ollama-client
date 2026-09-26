@@ -411,6 +411,37 @@ describe("resolveProviderFavicon", () => {
     expect(dataUrl).toMatch(/^data:image\/png;base64,/)
   })
 
+  /** A `www.` base is already the site; its bare domain is still worth one ask. */
+  it("asks the bare domain after a miss on a www base", async () => {
+    const miss = { ok: false, status: 404, type: "basic" } as Response
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(miss)
+      .mockResolvedValueOnce(imageResponse([...PNG_MAGIC, 0x09]))
+
+    const dataUrl = await resolveProviderFavicon(
+      config("https://www.acme-router.com/v1")
+    )
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "https://www.acme-router.com/favicon.ico",
+      "https://acme-router.com/favicon.ico"
+    ])
+    expect(dataUrl).toMatch(/^data:image\/png;base64,/)
+  })
+
+  it("never asks a suffix behind a www base", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({ ok: false, status: 404, type: "basic" } as Response)
+
+    await resolveProviderFavicon(config("https://www.vercel.app/v1"))
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "https://www.vercel.app/favicon.ico"
+    ])
+  })
+
   it("stops walking the vendor site after a server error", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
