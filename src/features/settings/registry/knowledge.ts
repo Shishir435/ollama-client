@@ -2,6 +2,17 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import type { SettingsEntryDefinition } from "./types"
 
 export const KNOWLEDGE_SETTINGS = [
+  {
+    id: "bundled-embeddings",
+    sectionId: "embeddings-model",
+    labelKey: "settings.embeddings.bundled.title",
+    descriptionKey: "settings.embeddings.bundled.offer",
+    searchKeys: [
+      "settings.embeddings.bundled.migrate",
+      "settings.embeddings.bundled.keep"
+    ],
+    aliases: ["ONNX", "MiniLM", "offline embeddings"]
+  },
   // ---- Context: Conversation Context -------------------------------------
   {
     id: "memory-enabled",

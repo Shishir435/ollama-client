@@ -20,8 +20,12 @@ import { readSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import { getEmbeddingConfig } from "./config"
+import { generateBundledEmbedding } from "./native/client"
+import { BUNDLED_MODEL, BUNDLED_PROVIDER } from "./native/constants"
+import { readNativeIndexState } from "./native/state"
 
 export type EmbeddingRoute =
+  | "bundled"
   | "provider-native"
   | "shared-model"
   | "shared-model-warmup"
@@ -209,6 +213,16 @@ const tryEmbed = async (
   maxChars: number,
   signal?: AbortSignal
 ): Promise<EmbeddingStrategyResult | null> => {
+  if (attempt.route === "bundled") {
+    return {
+      embedding: await generateBundledEmbedding(text, signal),
+      model: BUNDLED_MODEL,
+      providerId: BUNDLED_PROVIDER,
+      route: "bundled",
+      routeFingerprint: attemptFingerprint(attempt),
+      attemptedRoutes: ["bundled"]
+    }
+  }
   const provider = attempt.provider
 
   if (!provider?.embed) {
@@ -365,6 +379,10 @@ const planFingerprint = (attempts: EmbedAttempt[]): string =>
  * Possible routes include provider-native (LLM's matching model), shared-model
  * (a secondary dedicated embedding provider like Ollama), and default-provider (last-resort).
  */
+const usesBundledModel = async (requestedModel?: string): Promise<boolean> =>
+  requestedModel === BUNDLED_MODEL ||
+  (!requestedModel && (await readNativeIndexState()).mode === "bundled")
+
 const buildAttempts = async (
   requestedModel?: string
 ): Promise<{
@@ -372,6 +390,18 @@ const buildAttempts = async (
   sharedAttempt?: EmbedAttempt
 }> => {
   const config = await getEmbeddingConfig()
+  if (await usesBundledModel(requestedModel)) {
+    return {
+      attempts: [
+        {
+          providerId: BUNDLED_PROVIDER,
+          route: "bundled",
+          model: BUNDLED_MODEL,
+          provider: null
+        }
+      ]
+    }
+  }
   const activeProvider = await getActiveProvider()
   let sharedProviderId =
     config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
@@ -483,7 +513,9 @@ export const resolveEmbeddingPlan = async (
 ): Promise<EmbeddingPlan> => {
   const config = await getEmbeddingConfig()
   const { attempts, sharedAttempt } = await buildAttempts(requestedModel)
-  const primaryAttempt = attempts.find((attempt) => attempt.provider?.embed)
+  const primaryAttempt = attempts.find(
+    (attempt) => attempt.route === "bundled" || attempt.provider?.embed
+  )
 
   return {
     attempts,
@@ -499,6 +531,14 @@ export const resolveEmbeddingPlan = async (
 export const getEmbeddingCapabilities =
   async (): Promise<EmbeddingStrategyCapabilities> => {
     const activeProvider = await getActiveProvider()
+    if ((await readNativeIndexState()).mode === "bundled")
+      return {
+        providerNativeAvailable: false,
+        sharedProviderId: BUNDLED_PROVIDER,
+        sharedModel: BUNDLED_MODEL,
+        sharedProviderAvailable: true,
+        defaultFallbackAvailable: false
+      }
     const config = await getEmbeddingConfig()
     const sharedProviderId =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID
@@ -631,6 +671,8 @@ export const generateEmbeddingWithStrategy = async (
  */
 export const ensureEmbeddingStrategyReady =
   async (): Promise<EmbeddingStrategyReadiness> => {
+    if ((await readNativeIndexState()).mode === "bundled")
+      return { ready: true, warmingUp: false }
     const config = await getEmbeddingConfig()
     const sharedProviderId =
       config.sharedEmbeddingProviderId || DEFAULT_SHARED_EMBEDDING_PROVIDER_ID

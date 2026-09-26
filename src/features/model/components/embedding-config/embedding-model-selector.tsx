@@ -137,6 +137,7 @@ export const EmbeddingModelSelector = ({
             label={t("settings.embeddings.model_select.label")}
             description={t("settings.embeddings.model_select.description")}>
             <Select
+              disabled={isRebuilding}
               value={selectedModel}
               onValueChange={(value) => {
                 if (value !== null) handleValueChange(value)

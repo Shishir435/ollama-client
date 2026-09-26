@@ -423,7 +423,7 @@
     },
     "performance_notice": {
       "title": "Aviso de Rendimiento",
-      "message": "Esta extensión es una interfaz de usuario para tu proveedor local (Ollama por defecto). El tiempo de respuesta y la calidad de salida dependen totalmente del hardware de tu dispositivo (CPU, RAM, GPU) y del modelo específico que uses. La extensión no realiza ningún procesamiento por sí misma."
+      "message": "Las respuestas del chat provienen del proveedor elegido. Los embeddings integrados se generan en este dispositivo. La velocidad depende del modelo y del hardware que lo ejecuta."
     }
   },
   "chat": {
@@ -1685,6 +1685,19 @@
         "description": "Cambiar el modelo de embeddings puede volver incompatibles los vectores existentes. Reconstruye el índice para mantener resultados precisos o cambia sin reconstruir.",
         "switch_only": "Cambiar sin reconstruir",
         "switch_and_rebuild": "Cambiar y reconstruir"
+      },
+      "bundled": {
+        "title": "Embeddings integrados",
+        "active": "Los embeddings se generan en este dispositivo con el modelo MiniLM incluido. No hace falta un servidor ni una descarga. Se conserva la configuración anterior; volver a usarla requiere reconstruir su índice. MiniLM funciona mejor con textos en inglés.",
+        "offer": "Ya están disponibles los embeddings integrados. Migra tus embeddings guardados o conserva tu servidor y modelo actuales.",
+        "details": "La migración reconstruye los embeddings guardados de archivos, páginas y chats en este dispositivo. Necesita espacio temporal para una copia del origen y el índice nuevo. El índice actual sigue activo hasta que termine correctamente. Puedes cerrar esta página y continuar después. MiniLM funciona mejor con textos en inglés.",
+        "progress": "Reconstruyendo {{current}} de {{total}} embeddings",
+        "changed": "El contenido guardado cambió durante la migración. No se cambió la configuración. Reintenta cuando termine la indexación.",
+        "error": "No se pudo completar la migración. Tus embeddings actuales siguen activos. Libera espacio si es necesario y reanuda.",
+        "resume": "Reanudar migración",
+        "migrate": "Migrar a embeddings integrados",
+        "keep": "Conservar configuración actual",
+        "external": "Usar proveedor externo guardado"
       }
     },
     "prompts": {

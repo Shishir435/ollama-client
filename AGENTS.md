@@ -307,9 +307,11 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 - Pipeline: `src/application/context/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`), driven by `src/application/context/build-context.ts`. It left `src/features/chat/` when context building went to the background — a feature directory cannot own work the background performs.
 - **All** file, memory and live-page splitting goes through `src/lib/embeddings/chunker.ts`. Do not build a parallel text splitter.
 - Plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
-- Embedding strategy chain: provider-native → shared model → Ollama fallback.
+- New installs use bundled MiniLM embeddings (`src/lib/embeddings/native/`). Existing users retain the provider-native → shared model → Ollama fallback chain until they opt in.
+- Bundled inference uses a lazy dedicated CPU WASM worker in the existing Chromium offscreen document / Firefox background page. Model, tokenizer and runtime ship locally, pinned and hash-checked at build time; never fetch executable code or model assets at runtime.
+- Native migration stages every saved vector in Dexie and commits replacements with the active vector-space pointer in one transaction. This index pointer belongs with the vectors, not in a separate settings write. Concurrent source changes prevent the swap; interrupted batches resume by explicit user action. Provider settings remain in chrome.storage, as does the device-local announcement dismissal.
 - Hybrid search: keyword (`minisearch`) + dense (`hnsw`), configurable weights.
-- Reranking is a **cosine-similarity re-scorer** (`reranker.ts`), on by default — **not** a cross-encoder. A transformers.js / ONNX Runtime cross-encoder was blocked by MV3 CSP and never shipped; neither library is a dependency. `config.ts` accepts the legacy `transformers-js`/`onnxruntime-web` strings only as a shim collapsing them to `cosine`.
+- Reranking is a **cosine-similarity re-scorer** (`reranker.ts`), on by default — **not** a cross-encoder. A transformers.js / ONNX Runtime cross-encoder was blocked by MV3 CSP and never shipped; Transformers.js is not a dependency. ONNX Runtime now ships for the bundled embedder, not a cross-encoder. `config.ts` accepts the legacy `transformers-js`/`onnxruntime-web` strings only as a shim collapsing them to `cosine`.
 - There is no `src/lib/rag/core/` tree. Any doc referencing one is stale.
 
 ### Web search

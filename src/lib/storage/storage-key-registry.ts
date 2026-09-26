@@ -278,6 +278,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "Speech preference."
   },
+  [STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED]: {
+    key: STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED,
+    scope: "device-local",
+    reason:
+      "Acknowledgement of the bundled embedding migration offer on this device."
+  },
   [STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL]: {
     key: STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
     scope: "sync-safe",

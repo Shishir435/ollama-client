@@ -1,3 +1,8 @@
+const nativeState = vi.hoisted(() => ({ mode: "external" }))
+vi.mock("../use-native-embeddings", () => ({
+  useNativeEmbeddings: () => ({ state: nativeState })
+}))
+
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -34,11 +39,18 @@ const setHidden = (hidden: boolean) => {
 }
 
 beforeEach(() => {
+  nativeState.mode = "external"
   mockedCall.mockReset()
   setHidden(false)
 })
 
 describe("useEmbeddingModelCheck polling", () => {
+  it("does not poll a provider when bundled embeddings are selected", async () => {
+    nativeState.mode = "bundled"
+    const result = renderCheck()
+    await waitFor(() => expect(result.result.current).toBe(true))
+    expect(mockedCall).not.toHaveBeenCalled()
+  })
   it("stops polling once the model is present", async () => {
     vi.useFakeTimers()
     mockedCall.mockResolvedValue({ exists: true } as never)

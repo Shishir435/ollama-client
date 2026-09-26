@@ -231,12 +231,13 @@ const budgets: Budget[] = [
      * suffix-aware favicon walk, the empty Ollama rail entry and the
      * announcement's onboarding recheck.
      */
-    max: isFirefox ? 11_800_000 : 9_836_000
+    // Includes pinned quantized MiniLM, CPU WASM, tokenizer and license notices.
+    max: isFirefox ? 50_300_000 : 48_500_000
   },
   {
     metric: "zip",
     field: "bytes",
-    max: isFirefox ? 4_350_000 : 3_300_000
+    max: isFirefox ? 24_500_000 : 23_600_000
   },
   {
     metric: "background",
@@ -466,7 +467,7 @@ const budgets: Budget[] = [
      * Review fixes, Firefox 214,221: the suffix-aware favicon walk and the
      * cloud setting's failure fallback.
      */
-    max: isFirefox ? 214_400 : 297_800
+    max: isFirefox ? 217_500 : 300_500
   }
 ]
 

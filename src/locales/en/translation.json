@@ -423,7 +423,7 @@
     },
     "performance_notice": {
       "title": "Performance Notice",
-      "message": "This extension is a user interface for your local provider (Ollama by default). Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
+      "message": "Chat answers come from your chosen provider. Built-in embeddings run on this device. Speed depends on the model and the hardware running it."
     }
   },
   "chat": {
@@ -1895,6 +1895,19 @@
         "description": "Changing embedding models can make existing vectors incompatible. Rebuild the index to keep search results accurate, or switch without rebuilding.",
         "switch_only": "Switch Without Rebuild",
         "switch_and_rebuild": "Switch & Rebuild"
+      },
+      "bundled": {
+        "title": "Built-in embeddings",
+        "active": "Embeddings run on this device with the included MiniLM model. No server or download is needed. Your previous provider settings are saved; switching back requires rebuilding its index. MiniLM works best with English text.",
+        "offer": "Built-in embeddings are now available. Migrate your saved embeddings, or keep your current server and model.",
+        "details": "Migration rebuilds saved file, page and chat embeddings on this device. It needs temporary storage for a source snapshot and replacement index. Your current index stays active until the rebuild succeeds. You can close this page and resume later. MiniLM works best with English text.",
+        "progress": "Rebuilding {{current}} of {{total}} embeddings",
+        "changed": "Your saved content changed during migration. Nothing was switched. Retry when indexing has finished.",
+        "error": "Migration could not finish. Your current embeddings remain active. Free some storage if needed, then resume.",
+        "resume": "Resume migration",
+        "migrate": "Migrate to built-in embeddings",
+        "keep": "Keep current setup",
+        "external": "Use saved external provider"
       }
     },
     "prompts": {

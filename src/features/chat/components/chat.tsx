@@ -11,6 +11,7 @@ import {
 } from "@/features/chat/lib/resume-permission-turn"
 import { usePendingChatSend } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
+import { NativeEmbeddingCard } from "@/features/model/components/native-embedding-card"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { cn } from "@/lib/class-names"
 import { requestPermissions } from "@/lib/permissions"
@@ -254,6 +255,7 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
         embedded ? "h-full" : "h-screen"
       )}>
       <ChatHeader messages={messages} />
+      <NativeEmbeddingCard announcement />
 
       {hasSession ? (
         <>

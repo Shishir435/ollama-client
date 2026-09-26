@@ -40,9 +40,12 @@ const cancelRpcRequest = (requestId: string): void => {
 export const extensionRpcClient = {
   async call<M extends RpcMethod>(
     method: M,
-    request: RpcRequest<M>
+    request: RpcRequest<M>,
+    options: { signal?: AbortSignal } = {}
   ): Promise<RpcResponse<M>> {
+    options.signal?.throwIfAborted()
     const requestId = crypto.randomUUID()
+    let onAbort: (() => void) | undefined
     const definition = RPC_METHOD_DEFINITIONS[method]
     const parsedRequest = definition.request.safeParse(request)
     if (!parsedRequest.success) {
@@ -66,6 +69,21 @@ export const extensionRpcClient = {
       const responsePromises: Promise<unknown>[] = [
         browser.runtime.sendMessage(envelope)
       ]
+      if (options.signal) {
+        responsePromises.push(
+          new Promise<never>((_, reject) => {
+            onAbort = () => {
+              cancelRpcRequest(requestId)
+              reject(
+                options.signal?.reason ??
+                  new DOMException("Cancelled", "AbortError")
+              )
+            }
+            options.signal?.addEventListener("abort", onAbort, { once: true })
+            if (options.signal?.aborted) onAbort()
+          })
+        )
+      }
       if (definition.timeoutMs !== undefined) {
         responsePromises.push(
           new Promise<never>((_resolve, reject) => {
@@ -111,6 +129,7 @@ export const extensionRpcClient = {
       }
       return parsedResponse.data.result as RpcResponse<M>
     } catch (error) {
+      options.signal?.throwIfAborted()
       if (isAppError(error)) throw error
       throw createAppError(`RPC ${method} transport failed`, {
         kind: "network",
@@ -121,6 +140,7 @@ export const extensionRpcClient = {
         retryable: true
       })
     } finally {
+      if (onAbort) options.signal?.removeEventListener("abort", onAbort)
       if (timeoutId !== undefined) clearTimeout(timeoutId)
     }
   }

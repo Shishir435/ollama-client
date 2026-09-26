@@ -24,15 +24,23 @@ import { logger } from "@/lib/logger"
 import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { extensionRpcClient } from "@/protocol/extension-client"
+import { useNativeEmbeddings } from "../hooks/use-native-embeddings"
 
 export const EmbeddingStatusIndicator = () => {
   const { t } = useTranslation()
+  const { state: nativeState } = useNativeEmbeddings()
+  const nativeMode = nativeState?.mode
   const [selectedModel] = useSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
   const [config] = useSetting(SETTINGS.EMBEDDING_CONFIG)
 
-  const modelName = normalizeEmbeddingModelName(
-    config?.sharedEmbeddingModel || selectedModel || DEFAULT_EMBEDDING_MODEL
-  )
+  const modelName =
+    nativeState?.mode === "bundled"
+      ? t("settings.embeddings.bundled.title")
+      : normalizeEmbeddingModelName(
+          config?.sharedEmbeddingModel ||
+            selectedModel ||
+            DEFAULT_EMBEDDING_MODEL
+        )
   const providerId =
     modelName === DEFAULT_EMBEDDING_MODEL
       ? DEFAULT_PROVIDER_ID
@@ -53,6 +61,13 @@ export const EmbeddingStatusIndicator = () => {
   const { toast } = useToast()
 
   const checkModel = useCallback(async () => {
+    if (!nativeMode) return
+    if (nativeMode === "bundled") {
+      setModelExists(true)
+      setError(null)
+      setIsChecking(false)
+      return
+    }
     setIsChecking(true)
     setError(null)
     try {
@@ -93,7 +108,7 @@ export const EmbeddingStatusIndicator = () => {
     } finally {
       setIsChecking(false)
     }
-  }, [modelName, providerId])
+  }, [modelName, providerId, nativeMode])
 
   useEffect(() => {
     checkModel()

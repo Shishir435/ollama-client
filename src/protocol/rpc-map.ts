@@ -37,6 +37,12 @@ import type {
   EmbeddingsCheckModelResult,
   EmbeddingsGenerateRequest,
   EmbeddingsGenerateResult,
+  EmbeddingsNativeCommandRequestSchema,
+  EmbeddingsNativeCommandResultSchema,
+  EmbeddingsNativeGenerateRequestSchema,
+  EmbeddingsNativeGenerateResultSchema,
+  EmbeddingsNativeStatusRequestSchema,
+  EmbeddingsNativeStatusResultSchema,
   EmbeddingsPrepareModelRequest,
   EmbeddingsPrepareModelResult,
   ModelsGetDetailsRequest,
@@ -71,9 +77,23 @@ import type {
   ProviderTestConnectionResult
 } from "@ollama-client/contracts/provider-rpc"
 import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
+import type { z } from "zod"
 
 /** Application-wide composition of package-owned RPC method contracts. */
 export interface RpcMap {
+  [RpcMethod.EmbeddingsNativeGenerate]: RpcDefinition<
+    z.input<typeof EmbeddingsNativeGenerateRequestSchema>,
+    z.infer<typeof EmbeddingsNativeGenerateResultSchema>
+  >
+  [RpcMethod.EmbeddingsNativeStatus]: RpcDefinition<
+    z.input<typeof EmbeddingsNativeStatusRequestSchema>,
+    z.infer<typeof EmbeddingsNativeStatusResultSchema>
+  >
+  [RpcMethod.EmbeddingsNativeCommand]: RpcDefinition<
+    z.input<typeof EmbeddingsNativeCommandRequestSchema>,
+    z.infer<typeof EmbeddingsNativeCommandResultSchema>
+  >
+
   [RpcMethod.ProvidersList]: RpcDefinition<
     ProvidersListRequest,
     ProvidersListResult

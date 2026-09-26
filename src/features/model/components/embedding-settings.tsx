@@ -1,13 +1,12 @@
 import { AlertTriangle, RefreshCw } from "lucide-react"
 import { useCallback } from "react"
 import { useTranslation } from "react-i18next"
-
 import { SectionStack } from "@/components/layout"
 import { StatusAlert } from "@/components/settings"
 import { FeedbackSettings } from "@/features/knowledge/components/feedback-settings"
 import { useEmbeddingRebuildWorkflow } from "@/features/model/hooks/use-embedding-rebuild-workflow"
 import { useEmbeddingSettingsState } from "@/features/model/hooks/use-embedding-settings-state"
-
+import { useNativeEmbeddings } from "../hooks/use-native-embeddings"
 import { EmbeddingGenerationConfig } from "./embedding-config/embedding-generation-config"
 import { EmbeddingHealthAlert } from "./embedding-config/embedding-health-alert"
 import { EmbeddingModelSelector } from "./embedding-config/embedding-model-selector"
@@ -15,10 +14,12 @@ import { EmbeddingRebuildDialogs } from "./embedding-config/embedding-rebuild-di
 import { EmbeddingStorageSettings } from "./embedding-config/embedding-storage-settings"
 import { EmbeddingTestGeneration } from "./embedding-config/embedding-test-generation"
 import { EmbeddingTestSearch } from "./embedding-config/embedding-test-search"
+import { NativeEmbeddingCard } from "./native-embedding-card"
 
 /** Composition root for the embeddings settings screen. */
 export const EmbeddingSettings = () => {
   const { t } = useTranslation()
+  const native = useNativeEmbeddings()
   const settings = useEmbeddingSettingsState()
   const rebuild = useEmbeddingRebuildWorkflow({
     memoryEnabled: settings.memoryEnabled,
@@ -33,6 +34,15 @@ export const EmbeddingSettings = () => {
 
   return (
     <SectionStack>
+      <div
+        data-settings-focus-id={
+          native.state?.mode === "bundled"
+            ? "embeddings-model-select"
+            : undefined
+        }
+        data-settings-focus="true">
+        <NativeEmbeddingCard />
+      </div>
       <EmbeddingHealthAlert
         stats={rebuild.dimensionStats}
         memoryEnabled={settings.memoryEnabled}
@@ -55,19 +65,31 @@ export const EmbeddingSettings = () => {
           title={t("settings.context.embedding_health.success")}
         />
       )}
-      <EmbeddingModelSelector
-        selectedModel={settings.selectedModel}
-        config={settings.config}
-        embeddingModels={settings.embeddingModels}
-        hasAdvancedModels={settings.hasAdvancedModels}
-        isRebuilding={rebuild.isRebuilding}
-        rebuildProgress={rebuild.progress}
-        resolveProviderForModel={settings.resolveProviderForModel}
-        onModelSelected={rebuild.requestModelChange}
-        onToggleShowAdvanced={handleToggleShowAdvanced}
+      {native.state?.mode === "external" && (
+        <EmbeddingModelSelector
+          selectedModel={settings.selectedModel}
+          config={settings.config}
+          embeddingModels={settings.embeddingModels}
+          hasAdvancedModels={settings.hasAdvancedModels}
+          isRebuilding={
+            rebuild.isRebuilding || native.state?.migration === "building"
+          }
+          rebuildProgress={
+            native.state?.migration === "building"
+              ? { current: native.state.current, total: native.state.total }
+              : rebuild.progress
+          }
+          resolveProviderForModel={settings.resolveProviderForModel}
+          onModelSelected={rebuild.requestModelChange}
+          onToggleShowAdvanced={handleToggleShowAdvanced}
+        />
+      )}
+      <EmbeddingTestGeneration
+        modelExists={native.state?.mode === "bundled" || settings.modelExists}
       />
-      <EmbeddingTestGeneration modelExists={settings.modelExists} />
-      <EmbeddingTestSearch modelExists={settings.modelExists} />
+      <EmbeddingTestSearch
+        modelExists={native.state?.mode === "bundled" || settings.modelExists}
+      />
       <EmbeddingGenerationConfig
         config={settings.config}
         updateConfig={settings.updateConfig}

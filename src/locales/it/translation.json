@@ -423,7 +423,7 @@
     },
     "performance_notice": {
       "title": "Avviso di Prestazioni",
-      "message": "Questa estensione è un'interfaccia utente per il tuo provider locale (Ollama per impostazione predefinita). Il tempo di risposta e la qualità dell'output dipendono interamente dall'hardware del tuo dispositivo (CPU, RAM, GPU) e dal modello specifico utilizzato. L'estensione non esegue alcuna elaborazione."
+      "message": "Le risposte della chat provengono dal fornitore scelto. Gli embedding integrati vengono generati su questo dispositivo. La velocità dipende dal modello e dall’hardware utilizzato."
     }
   },
   "chat": {
@@ -1685,6 +1685,19 @@
         "description": "Cambiare il modello di embedding può rendere incompatibili i vettori esistenti. Ricostruisci l'indice per mantenere risultati accurati, oppure cambia senza ricostruire.",
         "switch_only": "Cambia senza ricostruire",
         "switch_and_rebuild": "Cambia e ricostruisci"
+      },
+      "bundled": {
+        "title": "Embedding integrati",
+        "active": "Gli embedding vengono generati su questo dispositivo con il modello MiniLM incluso. Non servono server o download. Le impostazioni del precedente fornitore sono conservate; per tornare a usarlo occorre ricostruire il suo indice. MiniLM funziona meglio con testi in inglese.",
+        "offer": "Sono disponibili gli embedding integrati. Migra gli embedding salvati oppure mantieni il server e il modello attuali.",
+        "details": "La migrazione ricostruisce gli embedding salvati di file, pagine e chat su questo dispositivo. Richiede spazio temporaneo per una copia delle fonti e il nuovo indice. L’indice attuale resta attivo fino al completamento. Puoi chiudere questa pagina e riprendere più tardi. MiniLM funziona meglio con testi in inglese.",
+        "progress": "Ricostruzione di {{current}} embedding su {{total}}",
+        "changed": "Il contenuto salvato è cambiato durante la migrazione. Non è stato effettuato alcun passaggio. Riprova al termine dell’indicizzazione.",
+        "error": "Impossibile completare la migrazione. Gli embedding attuali restano attivi. Libera spazio se necessario, poi riprendi.",
+        "resume": "Riprendi migrazione",
+        "migrate": "Migra agli embedding integrati",
+        "keep": "Mantieni configurazione attuale",
+        "external": "Usa il fornitore esterno salvato"
       }
     },
     "prompts": {

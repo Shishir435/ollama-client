@@ -423,7 +423,7 @@
     },
     "performance_notice": {
       "title": "Avis de Performance",
-      "message": "Cette extension est une interface utilisateur pour votre fournisseur local (Ollama par défaut). Le temps de réponse et la qualité de sortie dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle utilisé. Aucun traitement n'est effectué par l'extension elle-même."
+      "message": "Les réponses du chat proviennent du fournisseur choisi. Les embeddings intégrés sont calculés sur cet appareil. La vitesse dépend du modèle et du matériel utilisé."
     }
   },
   "chat": {
@@ -1685,6 +1685,19 @@
         "description": "Changer de modèle d'embeddings peut rendre les vecteurs existants incompatibles. Reconstruisez l'index pour garder des résultats précis, ou changez sans reconstruire.",
         "switch_only": "Changer sans reconstruire",
         "switch_and_rebuild": "Changer et reconstruire"
+      },
+      "bundled": {
+        "title": "Embeddings intégrés",
+        "active": "Les embeddings sont calculés sur cet appareil avec le modèle MiniLM inclus. Aucun serveur ni téléchargement requis. Les réglages du fournisseur précédent sont conservés ; y revenir nécessite de reconstruire son index. MiniLM fonctionne mieux avec des textes en anglais.",
+        "offer": "Les embeddings intégrés sont disponibles. Migrez vos embeddings enregistrés ou conservez votre serveur et votre modèle actuels.",
+        "details": "La migration reconstruit les embeddings enregistrés des fichiers, pages et discussions sur cet appareil. Elle nécessite un espace temporaire pour une copie des sources et le nouvel index. Votre index actuel reste actif jusqu’à la réussite. Vous pouvez fermer cette page et reprendre plus tard. MiniLM fonctionne mieux avec des textes en anglais.",
+        "progress": "Reconstruction de {{current}} embeddings sur {{total}}",
+        "changed": "Le contenu enregistré a changé pendant la migration. Aucun basculement n’a eu lieu. Réessayez après la fin de l’indexation.",
+        "error": "La migration n’a pas pu se terminer. Vos embeddings actuels restent actifs. Libérez de l’espace si nécessaire, puis reprenez.",
+        "resume": "Reprendre la migration",
+        "migrate": "Migrer vers les embeddings intégrés",
+        "keep": "Conserver la configuration actuelle",
+        "external": "Utiliser le fournisseur externe enregistré"
       }
     },
     "prompts": {

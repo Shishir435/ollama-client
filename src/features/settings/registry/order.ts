@@ -73,6 +73,7 @@ export const SETTINGS_REGISTRY_ORDER = [
   "rebuild-embeddings",
   "rebuild-keyword-index",
   "embeddings-storage-stats",
+  "bundled-embeddings",
   "embeddings-model-select",
   "embeddings-show-advanced-models",
   "embeddings-batch-size",

@@ -251,3 +251,33 @@ export type EmbeddingsGenerateRequest = z.input<
 export type EmbeddingsGenerateResult = z.infer<
   typeof EmbeddingsGenerateResultSchema
 >
+
+/** Local inference is separately routed to the existing worker host. */
+export const EmbeddingsNativeGenerateRequestSchema = z
+  .object({ text: z.string().max(200000) })
+  .strict()
+export const EmbeddingsNativeGenerateResultSchema = z
+  .object({ embedding: z.array(z.number().finite()).length(384) })
+  .strict()
+export const EmbeddingsNativeStatusRequestSchema = z.object({}).strict()
+export const EmbeddingsNativeStatusResultSchema = z
+  .object({
+    mode: z.enum(["external", "bundled"]),
+    dismissed: z.boolean(),
+    migration: z.enum(["idle", "building", "changed"]),
+    current: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative()
+  })
+  .strict()
+export const EmbeddingsNativeCommandRequestSchema = z.discriminatedUnion(
+  "action",
+  [
+    z
+      .object({
+        action: z.enum(["start", "step", "cancel", "keep", "external"])
+      })
+      .strict()
+  ]
+)
+export const EmbeddingsNativeCommandResultSchema =
+  EmbeddingsNativeStatusResultSchema

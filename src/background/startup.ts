@@ -1,6 +1,5 @@
 import { resumeIncompleteTurnRuns } from "@/background/durable-turn-runtime"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
-import { downloadEmbeddingModelSilently } from "@/background/handlers/handle-embedding-download"
 import { updateDNRRules } from "@/background/lib/dnr"
 import { registerOmniboxQuickAsk } from "@/background/lib/omnibox"
 import { registerReminderAlarms } from "@/background/lib/reminders"
@@ -8,18 +7,14 @@ import { clearModelToolCapabilityCache } from "@/background/lib/resolve-model-to
 import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
 import { resumePendingAppLifecycle } from "@/lib/app-reset"
 import { browser, isChromiumBased } from "@/lib/browser-api"
-import {
-  DEFAULT_EMBEDDING_MODEL,
-  EXTERNAL_URLS,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { EXTERNAL_URLS, STORAGE_KEYS } from "@/lib/constants"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
+import { initializeBundledInstall } from "@/lib/embeddings/native/state"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
-import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { clearOllamaDetailBackfillCache } from "@/lib/providers/ollama"
 import { ProviderStorageKey } from "@/lib/providers/types"
 import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
@@ -101,6 +96,16 @@ const registerActionHandler = () => {
 }
 
 const registerInstallHandlers = () => {
+  browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === "install")
+      void initializeBundledInstall().catch((error) =>
+        logger.error(
+          "Bundled embedding initialization failed",
+          "BackgroundSW",
+          { error }
+        )
+      )
+  })
   if (!isChromiumBased()) {
     logger.warn(
       "DNR not available: skipping CORS workaround (likely Firefox)",
@@ -109,42 +114,8 @@ const registerInstallHandlers = () => {
     return
   }
 
-  browser.runtime.onInstalled.addListener(async (details) => {
+  browser.runtime.onInstalled.addListener(() => {
     updateDNRRules()
-
-    if (details.reason !== "install") return
-
-    logger.info(
-      "Extension installed - downloading embedding model",
-      "BackgroundSW"
-    )
-
-    const alreadyDownloaded = await getPlasmoStoredValue<boolean>(
-      STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED
-    )
-
-    if (alreadyDownloaded) return
-
-    downloadEmbeddingModelSilently(DEFAULT_EMBEDDING_MODEL)
-      .then((result) => {
-        if (result.success) {
-          logger.info(
-            `Successfully downloaded embedding model: ${DEFAULT_EMBEDDING_MODEL}`,
-            "BackgroundSW"
-          )
-          return
-        }
-
-        logger.warn(
-          `Failed to auto-download embedding model: ${result.error}`,
-          "BackgroundSW"
-        )
-      })
-      .catch((error) => {
-        logger.error("Error during embedding model download", "BackgroundSW", {
-          error
-        })
-      })
   })
 
   browser.runtime.onStartup.addListener(() => updateDNRRules())
