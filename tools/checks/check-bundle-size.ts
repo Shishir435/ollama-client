@@ -217,9 +217,11 @@ const budgets: Budget[] = [
      * quotations from earlier pages, the focus source and followed-link
      * redirects. Its review round, 9,782,640: control-bound receipt values,
      * rendered-only earlier pages, the new-tab rule, the Defuddle leak check
-     * and the chat's delegation guidance.
+     * and the chat's delegation guidance. Its second review round,
+     * 9,783,659: the bound new tab, typed text kept out of read quotations,
+     * word-run hidden-text matching and the title-answered redirect.
      */
-    max: isFirefox ? 11_800_000 : 9_783_000
+    max: isFirefox ? 11_800_000 : 9_784_000
   },
   {
     metric: "zip",
@@ -442,9 +444,10 @@ const budgets: Budget[] = [
      * read quotations and the focus source. Its review round, 295,332:
      * control-bound receipt values, the new-tab rule and the chat's
      * delegation guidance; Firefox 212,632 for the same guidance and the
-     * Defuddle leak check.
+     * Defuddle leak check. The second review round, Chrome 295,518: the
+     * bound new tab and typed text kept out of read quotations.
      */
-    max: isFirefox ? 212_800 : 295_500
+    max: isFirefox ? 212_800 : 295_800
   }
 ]
 
