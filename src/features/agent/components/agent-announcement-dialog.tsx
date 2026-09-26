@@ -10,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
+import { browser } from "@/lib/browser-api"
+import { STORAGE_KEYS } from "@/lib/constants/keys"
 import { getOnboardingState } from "@/lib/onboarding/state"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
@@ -20,7 +22,8 @@ import { SETTINGS } from "@/lib/storage/settings"
  *
  * The agent is opt-in, so without this nobody learns it shipped. It waits for
  * onboarding to be finished or skipped, because two dialogs stacked on a first
- * run is how both get dismissed unread. Closing it by any route counts as
+ * run is how both get dismissed unread, and rechecks when onboarding's state
+ * changes so a first run sees it without reopening the panel. Closing it by any route counts as
  * seen; turning the agent on from here also enables it.
  */
 export const AgentAnnouncementDialog = () => {
@@ -39,8 +42,15 @@ export const AgentAnnouncementDialog = () => {
         setOpen(true)
     }
     void load().catch(() => undefined)
+    /** A first run finishes onboarding with this panel still open. */
+    const onChanged = (changes: Record<string, unknown>) => {
+      if (changes[STORAGE_KEYS.ONBOARDING.STATE])
+        void load().catch(() => undefined)
+    }
+    browser.storage.onChanged.addListener(onChanged)
     return () => {
       active = false
+      browser.storage.onChanged.removeListener(onChanged)
     }
   }, [])
 

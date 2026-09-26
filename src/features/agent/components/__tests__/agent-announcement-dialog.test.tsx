@@ -5,7 +5,22 @@ import { AgentAnnouncementDialog } from "../agent-announcement-dialog"
 
 const store = vi.hoisted(() => ({
   values: new Map<string, unknown>(),
-  onboardingStage: "complete"
+  onboardingStage: "complete",
+  listeners: new Set<(changes: Record<string, unknown>) => void>()
+}))
+
+vi.mock("@/lib/browser-api", () => ({
+  browser: {
+    storage: {
+      onChanged: {
+        addListener: (listener: (changes: Record<string, unknown>) => void) =>
+          store.listeners.add(listener),
+        removeListener: (
+          listener: (changes: Record<string, unknown>) => void
+        ) => store.listeners.delete(listener)
+      }
+    }
+  }
 }))
 
 vi.mock("@/lib/storage/setting-access", () => ({
@@ -35,6 +50,7 @@ describe("AgentAnnouncementDialog", () => {
   beforeEach(() => {
     store.values.clear()
     store.onboardingStage = "complete"
+    store.listeners.clear()
   })
 
   it("is shown to a profile that finished onboarding and never closed it", async () => {
@@ -60,6 +76,21 @@ describe("AgentAnnouncementDialog", () => {
     render(<AgentAnnouncementDialog />)
     await waitFor(() => undefined)
     expect(screen.queryByText("agent.announcement.title")).toBeNull()
+  })
+
+  /** A first run finishes onboarding with the panel still open. */
+  it("appears once onboarding completes, without reopening the panel", async () => {
+    store.onboardingStage = "privacy"
+    render(<AgentAnnouncementDialog />)
+    await waitFor(() => undefined)
+    expect(screen.queryByText("agent.announcement.title")).toBeNull()
+
+    store.onboardingStage = "complete"
+    for (const listener of store.listeners)
+      listener({ "onboarding-state-v2": { newValue: "{}" } })
+    expect(
+      await screen.findByText("agent.announcement.title")
+    ).toBeInTheDocument()
   })
 
   it("records a dismissal without turning the agent on", async () => {
