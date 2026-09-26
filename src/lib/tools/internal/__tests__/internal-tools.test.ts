@@ -3,7 +3,7 @@ import {
   runRecentHistory,
   runSearchBookmarks
 } from "../browser-knowledge-tools"
-import { runCurrentTab } from "../current-tab-tool"
+import { currentTabDefinition, runCurrentTab } from "../current-tab-tool"
 import { runFileSearch } from "../file-search-tool"
 import { createInternalToolSource } from "../internal-tool-source"
 import { runListTabs } from "../list-tabs-tool"
@@ -68,6 +68,13 @@ import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 const ctx = {}
 
 describe("current_tab tool", () => {
+  /** Having read "Open dialog", gpt-6-luna answered "The dialog is open." */
+  it("tells the model a label it reads is a control, not an effect", () => {
+    expect(currentTabDefinition.description).toContain(
+      "a label such as 'Open dialog' is a control on the page"
+    )
+  })
+
   afterEach(() => {
     clearTabContentCache()
     vi.clearAllMocks()

@@ -105,5 +105,9 @@ describe("buildBrowserContextGuidance", () => {
     expect(guidance).toContain("Use browser_task only to act in the browser")
     expect(guidance).toContain("use current_tab instead")
     expect(guidance).toContain("that is a browser task on that site")
+    /** Asked "open Details", gpt-6-luna asked back whether to open it. */
+    expect(guidance).toContain("rather than asking whether to")
+    /** Having only read the tab, gpt-6-luna answered "The dialog is open." */
+    expect(guidance).toContain("unless browser_task reported doing it")
   })
 })

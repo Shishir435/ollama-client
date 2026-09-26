@@ -6,6 +6,7 @@ let defuddleResult: Record<string, unknown> | null = null
 let readabilityResult: Record<string, unknown> | null = null
 let defuddleConstructorCalls = 0
 let readabilityConstructorCalls = 0
+let readabilityInput: Document | null = null
 
 vi.mock("defuddle", () => ({
   default: class FakeDefuddle {
@@ -20,8 +21,9 @@ vi.mock("defuddle", () => ({
 
 vi.mock("@mozilla/readability", () => ({
   Readability: class FakeReadability {
-    constructor() {
+    constructor(doc: Document) {
       readabilityConstructorCalls++
+      readabilityInput = doc
     }
     parse() {
       return readabilityResult
@@ -47,6 +49,90 @@ const makeDoc = (innerHTML: string, title = ""): Document => {
 }
 
 describe("extractReadableContent", () => {
+  it("gives Readability no closed dialog or hidden content", () => {
+    readabilityInput = null
+    const doc = makeDoc(
+      '<button>Open dialog</button><dialog><p>Status: Active</p></dialog><nav hidden><a href="/x">Details</a></nav><div hidden="until-found">Unrevealed</div><dialog open><p>Shown</p></dialog>'
+    )
+    extractReadableContent(doc, "readability")
+    /** Assigned inside the mock, which narrowing here cannot see. */
+    const input = readabilityInput as Document | null
+    const text = input?.body.textContent ?? ""
+    expect(text).not.toContain("Status: Active")
+    expect(text).not.toContain("Details")
+    expect(text).not.toContain("Unrevealed")
+    expect(text).toContain("Shown")
+    expect(doc.body.textContent).toContain("Status: Active")
+  })
+
+  /**
+   * Defuddle reads the live document and, on a short page, parses again with
+   * hidden-element removal off. Its result is dropped when it carries text
+   * only a hidden element holds.
+   */
+  it("drops a Defuddle result that brought back hidden text", () => {
+    const hidden = "Account status: Active since March"
+    setDefuddle({ contentMarkdown: `Open dialog ${hidden}`, title: "T" })
+    const result = extractReadableContent(
+      makeDoc(
+        `<button>Open dialog</button><div hidden="until-found">${hidden}</div>`
+      ),
+      "auto"
+    )
+    expect(result.selectedExtractor).not.toBe("defuddle")
+    expect(result.readableText).not.toContain(hidden)
+  })
+
+  /** Defuddle writes Markdown, which splits a hidden element's raw text. */
+  it("drops a Defuddle result that formatted hidden text as Markdown", () => {
+    setDefuddle({
+      contentMarkdown: "Open dialog\n\n**Status:** Active\n\n[Close](#)",
+      title: "T"
+    })
+    const result = extractReadableContent(
+      makeDoc(
+        "<button>Open dialog</button><dialog><p><b>Status:</b> Active</p><button>Close</button></dialog>"
+      ),
+      "auto"
+    )
+    expect(result.selectedExtractor).not.toBe("defuddle")
+  })
+
+  /** Defuddle may keep part of a hidden sentence, not all of it. */
+  it("drops a Defuddle result carrying part of a hidden sentence", () => {
+    setDefuddle({
+      contentMarkdown: "Open dialog Account status: Active",
+      title: "T"
+    })
+    const result = extractReadableContent(
+      makeDoc(
+        "<button>Open dialog</button><div hidden>Account status: Active since March</div>"
+      ),
+      "auto"
+    )
+    expect(result.selectedExtractor).not.toBe("defuddle")
+  })
+
+  it("keeps a Defuddle result whose text the page also shows", () => {
+    const text = "word ".repeat(60).trim()
+    setDefuddle({ contentMarkdown: text, title: "T" })
+    const result = extractReadableContent(
+      makeDoc(`<p>${text}</p><dialog><p>word</p></dialog>`),
+      "auto"
+    )
+    expect(result.selectedExtractor).toBe("defuddle")
+  })
+
+  it("leaves closed dialog text out of the body-text fallback", () => {
+    const filler = "word ".repeat(60).trim()
+    const result = extractReadableContent(
+      makeDoc(`<p>${filler}</p><dialog><p>Status: Active</p></dialog>`),
+      "auto"
+    )
+    expect(result.selectedExtractor).toBe("basic")
+    expect(result.readableText).not.toContain("Status: Active")
+  })
+
   beforeEach(() => {
     defuddleResult = null
     readabilityResult = null

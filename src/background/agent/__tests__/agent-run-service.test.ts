@@ -644,6 +644,29 @@ describe("Agent run service", () => {
     expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
   })
 
+  /**
+   * `partial` is resumable from its card, so the incomplete query returns it,
+   * but it is settled and must not hold admission.
+   */
+  it("starts beside a partial run but not beside a paused one", async () => {
+    const stored = (status: AgentRunState["status"]) =>
+      ({ id: `old-${status}`, status }) as DurableAgentRun
+    const partial = service({
+      readIncompleteRuns: async () => [stored("partial")]
+    })
+    await partial.service.start(startInput)
+    expect(partial.controller.start).toHaveBeenCalledTimes(1)
+
+    runs.clear()
+    const paused = service({
+      readIncompleteRuns: async () => [stored("partial"), stored("paused")]
+    })
+    await expect(paused.service.start(startInput)).rejects.toMatchObject({
+      reason: "already_running"
+    })
+    expect(paused.service.activeRunId()).toBe("old-paused")
+  })
+
   it("admits only one simultaneous start before the durable lookup settles", async () => {
     let release = () => {}
     const gate = new Promise<void>((resolve) => {

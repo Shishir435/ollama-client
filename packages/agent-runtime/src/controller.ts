@@ -33,6 +33,7 @@ import {
 import type { AgentCompletionJudgement } from "./completion"
 import {
   agentEffectChangesPage,
+  agentTypedValues,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
   judgeAgentCompletion
@@ -46,11 +47,15 @@ import {
   currentAgentInspection,
   previousAgentVerification
 } from "./history"
-import { agentObservationHaystack } from "./observed-text"
+import {
+  agentObservationHaystack,
+  agentRenderedHaystack
+} from "./observed-text"
 import type {
   AgentCancellationController,
   AgentController,
   AgentControllerDependencies,
+  AgentExecutionReceipt,
   AgentInspectionFocus,
   AgentModelInput,
   AgentPolicyDecision,
@@ -310,6 +315,37 @@ export const createAgentController = (
    * evidence is new.
    */
   let changeBaseline: { runId: string; text: string } | undefined
+  /**
+   * Every page this run was shown, flattened, so a `read` requirement can
+   * quote a page the run has since left: remembering a code on one page and
+   * reporting it from the next is the task, and without this the run went
+   * back to re-read it and paused. What the site rendered only: never a
+   * field's value, and never a value this run had typed by then, which a
+   * rich-text editor shows as page text. A value typed later is left alone,
+   * because the page showed it first. One run at a time and
+   * memory-only, like `changeBaseline`; bounded by the run's own observation
+   * budget.
+   */
+  let observedPages: { runId: string; texts: string[] } | undefined
+  const rememberObservedPage = (
+    runId: string,
+    observation: AgentObservation
+  ) => {
+    const typed = agentTypedValues(
+      [...liveCommands.entries()]
+        .filter(([stepId]) => stepId.startsWith(`${runId}:`))
+        .map(([, command]) => command)
+    )
+    const text = typed.reduce(
+      (page, value) => page.replaceAll(value, " \u0000 "),
+      agentRenderedHaystack(observation)
+    )
+    if (observedPages?.runId !== runId) observedPages = { runId, texts: [] }
+    if (observedPages.texts.includes(text)) return
+    observedPages.texts = [...observedPages.texts, text].slice(
+      -MAX_AGENT_OBSERVATIONS
+    )
+  }
   const noProgressCounts = new Map<string, number>()
   const refusedCommandCounts = new Map<string, number>()
   const refusedCompletions = new Map<
@@ -454,6 +490,15 @@ export const createAgentController = (
     ].slice(-MAX_AGENT_GRANTS)
   }
 
+  /** Routine consent on the site an approval opened; see `executeAndVerify`. */
+  const routineGrantPatch = (
+    state: AgentRunState,
+    origin: string | undefined
+  ): Pick<AgentRunState, "grants"> | Record<string, never> =>
+    origin
+      ? { grants: grantsWith(state, origin, AGENT_ROUTINE_GRANT_EFFECTS) }
+      : {}
+
   const authorize = async (
     state: AgentRunState,
     decision: Extract<
@@ -466,6 +511,7 @@ export const createAgentController = (
         state: AgentRunState
         authorization: AuthorizedAgentEffect["authorization"]
         grants?: AgentRunState["grants"]
+        routineOrigin?: string
       }
     | undefined
   > => {
@@ -535,18 +581,15 @@ export const createAgentController = (
     /**
      * Routine consent follows the run to the site this approval opens, and
      * only because the approval said so: the request named the site and its
-     * consequence told the user clicks and typing there would not ask.
+     * consequence told the user clicks and typing there would not ask. It is
+     * handed on rather than granted here, and written only once verification
+     * confirms the tab landed there — see `executeAndVerify`.
      */
-    const grants = decision.request.routineOrigin
-      ? grantsWith(
-          { ...checkpoint, grants: widened ?? checkpoint.grants },
-          decision.request.routineOrigin,
-          AGENT_ROUTINE_GRANT_EFFECTS
-        )
-      : widened
+    const routineOrigin = decision.request.routineOrigin
     return {
       state: checkpoint,
-      ...(grants ? { grants } : {}),
+      ...(widened ? { grants: widened } : {}),
+      ...(routineOrigin ? { routineOrigin } : {}),
       authorization: {
         type: "approval",
         risk: decision.risk,
@@ -621,6 +664,32 @@ export const createAgentController = (
    * judged on redacted receipts and refused, exactly as before.
    */
   const liveCommands = new Map<string, AgentCommand>()
+  /**
+   * The tabs each step's execution opened, by step id: `open_tab`'s own tab
+   * and any a click opened. Receipts carry no tab id, and without this an
+   * `open_tab` whose site redirected it could only be matched to "some tab
+   * the run opened", which a later click's tab also is. Memory only and
+   * bounded like `liveCommands`; a restarted run cannot use it and refuses.
+   */
+  const openedTabsByStep = new Map<string, number[]>()
+  const rememberOpenedTabs = (
+    stepId: string,
+    command: AgentCommand,
+    receipt: AgentExecutionReceipt
+  ): void => {
+    const tabs = [
+      ...(command.type === "open_tab" && receipt.controlledTabId !== undefined
+        ? [receipt.controlledTabId]
+        : []),
+      ...(receipt.openedTabIds ?? [])
+    ]
+    if (tabs.length === 0) return
+    openedTabsByStep.set(stepId, tabs)
+    if (openedTabsByStep.size > MAX_LIVE_COMMANDS) {
+      const oldest = openedTabsByStep.keys().next().value
+      if (oldest !== undefined) openedTabsByStep.delete(oldest)
+    }
+  }
   const rememberCommand = (stepId: string, command: AgentCommand): void => {
     liveCommands.delete(stepId)
     liveCommands.set(stepId, command)
@@ -827,6 +896,7 @@ export const createAgentController = (
         return undefined
       }
       lastGeneration.set(state.id, observation.generation)
+      rememberObservedPage(state.id, observation)
       return observation
     } catch (error) {
       if (!signal.aborted) {
@@ -1074,6 +1144,7 @@ export const createAgentController = (
         >
         authorization: AuthorizedAgentEffect["authorization"]
         grants?: AgentRunState["grants"]
+        routineOrigin?: string
       }
     | undefined
   > => {
@@ -1195,7 +1266,8 @@ export const createAgentController = (
     stepId: string,
     stepNumber: number,
     signal: AgentCancellationController["signal"],
-    grants?: AgentRunState["grants"]
+    grants?: AgentRunState["grants"],
+    routineOrigin?: string
   ): Promise<AgentRunState | undefined> => {
     await appendStep({
       runId: state.id,
@@ -1328,6 +1400,14 @@ export const createAgentController = (
       // the effect as unresolved, and resurrecting it here would restart a run
       // the user stopped. A negative or ambiguous outcome never reaches here
       // and leaves the run on the tab it already controls.
+      /**
+       * Routine consent for the site an approval opened is written here, on
+       * the confirmed step, and not when the navigation was authorized:
+       * granted up front, a navigation that was refused, redirected or never
+       * committed still left clicks and typing on a site the run never
+       * reached pre-approved for the rest of the run.
+       */
+      rememberOpenedTabs(stepId, effect.command, receipt)
       return claim(
         verifying,
         "observing",
@@ -1337,6 +1417,7 @@ export const createAgentController = (
             receipt.controlledTabId,
             receipt.openedTabIds
           ),
+          ...routineGrantPatch(verifying, routineOrigin),
           updatedAt: dependencies.clock.now()
         },
         ["verifying"]
@@ -1431,7 +1512,8 @@ export const createAgentController = (
       stepId,
       stepNumber,
       signal,
-      authorized.grants
+      authorized.grants,
+      authorized.routineOrigin
     )
   }
 
@@ -1621,6 +1703,16 @@ export const createAgentController = (
         observation,
         evidence: decision.evidence,
         baselineText: baseline,
+        ...(observedPages?.runId === state.id
+          ? { observedTexts: observedPages.texts }
+          : {}),
+        tabOpenedBy: [...openedTabsByStep.entries()]
+          .filter(
+            ([stepId, tabs]) =>
+              stepId.startsWith(`${state.id}:`) &&
+              tabs.includes(observation.tabId)
+          )
+          .map(([stepId]) => stepId),
         ...(state.requirements ? { requirements: state.requirements } : {}),
         ...(decision.outcomes ? { outcomes: decision.outcomes } : {})
       },

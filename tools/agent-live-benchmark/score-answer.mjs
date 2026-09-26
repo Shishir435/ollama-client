@@ -121,7 +121,27 @@ export const scoreWikiSearch = ({ answer, url }) => {
  * when policy explicitly transferred control or the task predicate confirms
  * that an unresolved effect was the expected outcome.
  */
-export const scoreVerdict = ({ status, success, pauseReason }) => {
+/**
+ * A page that stopped the browser as a bot: DuckDuckGo's "select all squares
+ * containing a duck", a "verify you are human" wall. Only the user can
+ * answer one, and a run that asks them is doing its job.
+ *
+ * Matched by the challenge's own instruction, never by the word "captcha",
+ * and only on a page short enough to be nothing else: an article about
+ * CAPTCHAs, or a results page quoting one, is a page the run could read.
+ */
+const SITE_CHALLENGE_PATTERN =
+  /complete the following challenge|select all (?:squares|images) (?:containing|with)|verify (?:that )?you(?:'re| are) (?:a )?human|our systems have detected unusual traffic|press and hold the button/i
+const MAX_CHALLENGE_PAGE_CHARS = 1_500
+
+export const isSiteChallenge = (body) => {
+  const text = String(body ?? "").trim()
+  return (
+    text.length <= MAX_CHALLENGE_PAGE_CHARS && SITE_CHALLENGE_PATTERN.test(text)
+  )
+}
+
+export const scoreVerdict = ({ status, success, pauseReason, body }) => {
   /**
    * The harness could not give the model a fresh chat, so the model never
    * received the task. Counting that as a miss lowers the model's rate for
@@ -132,6 +152,19 @@ export const scoreVerdict = ({ status, success, pauseReason }) => {
   /** A chat that answered without delegating a run is judged like a run. */
   if (status === "completed" || status === "answered_in_chat")
     return success ? "achieved" : "false_completed"
+  /**
+   * The site refused the browser, and the run asked the user to clear it or
+   * reported that it could not. Nothing the model or the agent does passes a
+   * captcha, so like an invalid case it is left out of every rate rather
+   * than counted as a miss. A completed run is judged above: claiming a
+   * result from behind a captcha is a false completion.
+   */
+  if (
+    ((status === "paused" && pauseReason === "question") ||
+      status === "failed") &&
+    isSiteChallenge(body)
+  )
+    return "site_blocked"
   if (status === "awaiting_takeover") return "safely_paused"
   if (status === "paused" && success && pauseReason === "unresolved_effect")
     return "safely_paused"

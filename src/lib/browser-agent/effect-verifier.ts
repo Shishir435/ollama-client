@@ -19,6 +19,7 @@ import type {
   NavigationAgentAction,
   ReadOnlyAgentAction
 } from "./resolved-effect"
+import { AUTHENTICATION_PATH, PAYMENT_PATH } from "./resolved-effect"
 
 export interface AgentEffectVerifierAdapter {
   observe(
@@ -67,6 +68,51 @@ const observeAfter = (
     input.allowedOrigins,
     signal
   )
+
+/** Words only, lowercased and space-padded, for whole-word comparison. */
+const comparableWords = (text: string): string =>
+  ` ${text
+    .toLowerCase()
+    .replaceAll(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()} `
+
+/**
+ * The value a link asked for that its own site's landing path names, as
+ * comparable words: `Special:Search?search=Firefox` answered with
+ * `/wiki/Firefox` names "firefox". The address alone is not the evidence —
+ * `/challenge/Firefox` names it too — so the caller also asks the landed
+ * page's title. A sign-in or payment path never counts, whatever it is named.
+ */
+const valueTheSiteResolved = (
+  landedUrl: string,
+  requestedUrl: string
+): string | undefined => {
+  try {
+    const landed = new URL(landedUrl)
+    const requested = new URL(requestedUrl)
+    if (landed.origin !== requested.origin) return undefined
+    /** Decoded first: `/%6Cogin/Firefox` is a sign-in page too. */
+    const decoded = decodeURIComponent(landed.pathname)
+    if (AUTHENTICATION_PATH.test(decoded)) return undefined
+    if (PAYMENT_PATH.test(decoded)) return undefined
+    const path = comparableWords(decoded)
+    return [...requested.searchParams.values()]
+      .map(comparableWords)
+      .find((words) => words.trim().length >= 3 && path.includes(words))
+  } catch {
+    return undefined
+  }
+}
+
+const samePagePath = (first: string, second: string): boolean => {
+  try {
+    const a = new URL(first)
+    const b = new URL(second)
+    return a.origin === b.origin && a.pathname === b.pathname
+  } catch {
+    return false
+  }
+}
 
 const sameUrl = (first: string | undefined, second: string): boolean => {
   if (!first) return false
@@ -591,26 +637,55 @@ const verifyCommittedDestination = async (
   if (!tab?.url) {
     return result("negative", kind, "Destination tab is gone", adapter.now())
   }
-  if (!landedAt(tab.url, destination.url)) {
-    return sameUrl(tab.url, input.effect.sourceUrl)
-      ? result(
-          "ambiguous",
-          kind,
-          "Navigation did not settle before verification",
-          adapter.now()
-        )
-      : result(
-          "ambiguous",
-          kind,
-          "A different destination committed",
-          adapter.now()
-        )
-  }
+  const landed = landedAt(tab.url, destination.url)
+  if (!landed && sameUrl(tab.url, input.effect.sourceUrl))
+    return result(
+      "ambiguous",
+      kind,
+      "Navigation did not settle before verification",
+      adapter.now()
+    )
+  /**
+   * A link the page itself showed, which its own site resolved to the page
+   * it named — in the landing path and in the landed page's own title, since
+   * an address can name a value a challenge page never answers. Wikipedia's search suggestions link to
+   * `Special:Search?search=Firefox`, answered with the article, and every
+   * such click paused the run as an unresolved effect on the page it had
+   * asked for. Only that shape: a redirect to a sign-in, a challenge or any
+   * path the link did not name stays for review, as does a model-composed
+   * address and another origin.
+   */
+  const committedUrl = tab.url
+  const resolved =
+    !landed && kind === "activation" && destination.source === "observed"
+      ? valueTheSiteResolved(tab.url, destination.url)
+      : undefined
+  const followedLink =
+    resolved !== undefined &&
+    (await observeAfter(input, adapter, signal, tabId).then(
+      /**
+       * The title counts only from an observation of the committed page: one
+       * that has not caught up is still showing the page the click left.
+       */
+      (after) =>
+        samePagePath(after.url, committedUrl) &&
+        comparableWords(after.title).includes(resolved),
+      () => false
+    ))
+  if (!landed && !followedLink)
+    return result(
+      "ambiguous",
+      kind,
+      "A different destination committed",
+      adapter.now()
+    )
   return (await adapter.classifyAccess(tab.url)) === "ok"
     ? result(
         "confirmed",
         kind,
-        "Authorized destination is committed",
+        landed
+          ? "Authorized destination is committed"
+          : "The site redirected its own link within its origin",
         adapter.now()
       )
     : result(

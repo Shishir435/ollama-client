@@ -292,9 +292,9 @@ const DOWNLOAD_EXTENSIONS = new Set([
  * that carry this class are new-origin approval and full-URL display, both of
  * which hold when none of these patterns match.
  */
-const AUTHENTICATION_PATH =
+export const AUTHENTICATION_PATH =
   /(?:^|\/)(?:login|log-in|signin|sign-in|sign_in|auth|authorize|oauth2?|sso|saml|mfa|2fa|session)(?:\/|$)/i
-const PAYMENT_PATH =
+export const PAYMENT_PATH =
   /(?:^|\/)(?:checkout|payment|payments|pay|billing|purchase|subscribe|subscription)(?:\/|$)/i
 
 const MINIMUM_EGRESS_SPAN = 12

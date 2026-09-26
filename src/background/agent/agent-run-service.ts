@@ -863,7 +863,17 @@ export const createAgentRunService = (input?: {
        * settled is still that user's run. Asking SQL is what keeps a restart
        * from letting a second run start beside it.
        */
-      const unresolved = activeRunId ?? (await readIncompleteRuns())[0]?.id
+      /**
+       * The incomplete query counts `partial` as resumable, because a partial
+       * run's card can continue it. It is still settled, and admitting on that
+       * query refused every later run after one partial result, with nothing
+       * the user could stop to clear it.
+       */
+      const unresolved =
+        activeRunId ??
+        (await readIncompleteRuns()).find(
+          (run) => !isTerminalAgentStatus(run.status)
+        )?.id
       if (unresolved) {
         activeRunId = unresolved
         lastRunId = unresolved

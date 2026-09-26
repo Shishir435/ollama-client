@@ -304,6 +304,67 @@ describe("Agent DOM mutation resolution and policy", () => {
   })
 
   /**
+   * Wikipedia's search suggestion links to `Special:Search?search=Firefox`
+   * and its server answers with the article. A page's own link its site
+   * resolved to the page it named is a click that worked; a sign-in, a
+   * challenge, an unnamed path or another origin is still left for review.
+   */
+  it.each([
+    ["confirmed", "/wiki/Firefox", "Firefox - Wikipedia"],
+    ["ambiguous", "https://elsewhere.example/wiki/Firefox", "Firefox"],
+    /** The site sent the link somewhere it did not name. */
+    ["ambiguous", "/login?next=%2Fwiki%2FFirefox", "Sign in"],
+    ["ambiguous", "/challenge", "Just a moment..."],
+    ["ambiguous", "/wiki/Main_Page", "Wikipedia"],
+    /** Named, but a sign-in path never counts. */
+    ["ambiguous", "/login/Firefox", "Firefox"],
+    /** Named by the address, not answered by the page. */
+    ["ambiguous", "/challenge/Firefox", "Just a moment..."],
+    /** An encoded sign-in path is still a sign-in path. */
+    ["ambiguous", "/%6Cogin/Firefox", "Firefox - Sign in"]
+  ])("judges a followed link that committed %s at %s", async (outcome, landedPath, title) => {
+    const link = new URL(
+      "/w/index.php?title=Special%3ASearch&search=Firefox",
+      location.href
+    ).href
+    const before = observation({
+      elements: [element({ tag: "a", name: "Firefox", href: link })]
+    })
+    const landed = new URL(landedPath, location.href).href
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      observation({
+        url: landed,
+        title,
+        documentId: "document-2",
+        generation: 2
+      }),
+      before,
+      { getTab: async () => ({ url: landed }) }
+    )
+    expect(result.outcome).toBe(outcome)
+  })
+
+  /** An observation that has not caught up still shows the page the click left. */
+  it("does not take a redirected link's title from a stale observation", async () => {
+    const link = new URL(
+      "/w/index.php?title=Special%3ASearch&search=Firefox",
+      location.href
+    ).href
+    const before = observation({
+      elements: [element({ tag: "a", name: "Firefox", href: link })]
+    })
+    const landed = new URL("/challenge/Firefox", location.href).href
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      observation({ title: "Firefox search", generation: 2 }),
+      before,
+      { getTab: async () => ({ url: landed }) }
+    )
+    expect(result.outcome).toBe("ambiguous")
+  })
+
+  /**
    * The completion judge binds a searched value to what this form sent, so
    * the receipt keeps the visible query it was approved with — never the
    * landed address, whose hidden fields may be tokens.

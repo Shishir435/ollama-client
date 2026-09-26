@@ -120,6 +120,33 @@ describe("real-site scorer", () => {
       "missed"
     )
   })
+
+  it("leaves a run that asked the user past a captcha out of the rates", () => {
+    const challenge =
+      "Unfortunately, bots use DuckDuckGo too. Please complete the following challenge to confirm this search was made by a human."
+    const paused = (pauseReason, body) =>
+      scoreVerdict({ status: "paused", success: false, pauseReason, body })
+    assert.equal(paused("question", challenge), "site_blocked")
+    assert.equal(paused("question", "Search results"), "missed")
+    /** A page about CAPTCHAs is a page, not a challenge. */
+    assert.equal(
+      paused("question", "CAPTCHA is a type of challenge–response test."),
+      "missed"
+    )
+    assert.equal(
+      paused("question", `${"Long article text. ".repeat(100)}${challenge}`),
+      "missed"
+    )
+    assert.equal(paused("unresolved_effect", challenge), "missed")
+    assert.equal(
+      scoreVerdict({ status: "failed", success: false, body: challenge }),
+      "site_blocked"
+    )
+    assert.equal(
+      scoreVerdict({ status: "completed", success: false, body: challenge }),
+      "false_completed"
+    )
+  })
 })
 
 describe("synthetic scorer", () => {

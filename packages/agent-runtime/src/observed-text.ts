@@ -36,6 +36,20 @@ export const agentObservationHaystack = (
     .replaceAll(/\s+/g, " ")
     .toLocaleLowerCase()
 
+/**
+ * One page as the site rendered it: the same haystack without the values of
+ * editable controls. A value in a field may be one this run typed, and a
+ * quotation checked against a page the run has left must come from what the
+ * page said, never from what the run put there.
+ */
+export const agentRenderedHaystack = (observation: AgentObservation): string =>
+  agentObservationHaystack({
+    ...observation,
+    elements: observation.elements.map((element) =>
+      element.editable ? { ...element, value: undefined } : element
+    )
+  })
+
 /** The comparable form of a phrase a model wrote about a page. */
 export const agentNormalizedClaim = (claim: string): string =>
   claim.replaceAll(/\s+/g, " ").trim().toLocaleLowerCase()

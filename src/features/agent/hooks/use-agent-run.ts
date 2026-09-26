@@ -1,3 +1,4 @@
+import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type {
   AgentPanelCommand,
   AgentPanelSnapshot
@@ -100,11 +101,9 @@ export const useAgentRun = (): AgentRunConnection => {
       if (parsed.data.type === "agent_debug_report") return
       setBusy(false)
       if (parsed.data.type === "agent_snapshot") {
+        const run = parsed.data.snapshot.run
         active = Boolean(
-          parsed.data.snapshot.run &&
-            !["completed", "failed", "cancelled", "paused"].includes(
-              parsed.data.snapshot.run.status
-            )
+          run && !isTerminalAgentStatus(run.status) && run.status !== "paused"
         )
         setSnapshot(parsed.data.snapshot)
         return

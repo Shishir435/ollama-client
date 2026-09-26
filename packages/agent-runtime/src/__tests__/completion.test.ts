@@ -916,6 +916,166 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
   })
 
+  /**
+   * Remembering a code on one page and reporting it from the next is the
+   * task. The quotation is checked against pages the run was shown, never
+   * against a change requirement or anything the model wrote.
+   */
+  it("finds a read quotation on a page the run observed earlier", () => {
+    const judge = (
+      kind: "read" | "change",
+      evidence: string,
+      observedTexts = ["reference code: qp-719 details"]
+    ) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Status code: ZX-482" }),
+        observedTexts,
+        requirements: [{ id: "r1", text: "report the reference code", kind }],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      }).type
+    expect(judge("read", "Reference code: QP-719")).toBe("accepted")
+    expect(judge("read", "Reference code: QP-000")).toBe("refused")
+    expect(judge("read", "Reference code: QP-719", [])).toBe("refused")
+    expect(judge("change", "Reference code: QP-719")).toBe("refused")
+  })
+
+  /**
+   * gpt-6-luna clicked a link that opened in place, quoted the page title
+   * and completed "Open Details in a new browser tab".
+   */
+  it("meets a new-tab requirement only with a step that opened a tab", () => {
+    const opened = (
+      type: "click" | "open_tab",
+      kind: string,
+      summary: string
+    ) =>
+      step({
+        sequence: 1,
+        command:
+          type === "open_tab"
+            ? {
+                type,
+                url: "https://example.com/details",
+                snapshotId: "snapshot-1",
+                generation: 1
+              }
+            : { type, ref: "e1", snapshotId: "snapshot-1", generation: 1 },
+        target: { ref: "e1", tag: "a", name: "Details" },
+        verification: {
+          outcome: "confirmed",
+          evidence: { kind, summary, observedAt: 1 }
+        }
+      })
+    const judge = (receipt: AgentStepReadout, evidence = "Details") =>
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({
+          title: "Details",
+          visibleText: "Status: Active"
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Open Details in a new browser tab.",
+            kind: "change"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      })
+    expect(
+      judge(
+        opened("click", "activation", "Authorized destination is committed")
+      )
+    ).toMatchObject({ type: "refused", reason: "unverified_change" })
+    expect(
+      judge(
+        opened("open_tab", "tab", "Authorized destination is committed"),
+        "Status: Active"
+      ).type
+    ).toBe("accepted")
+    expect(
+      judge(
+        opened("click", "activation", "Control opened a new tab"),
+        "Status: Active"
+      ).type
+    ).toBe("accepted")
+  })
+
+  /** A tab opened for an earlier step says nothing about where Details went. */
+  it("does not let a tab opened for another requirement meet a new-tab one", () => {
+    const elsewhere = step({
+      sequence: 1,
+      requirementId: "r0",
+      command: {
+        type: "open_tab",
+        url: "https://example.com/other",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Authorized destination is committed",
+          observedAt: 1
+        }
+      }
+    })
+    const judge = (
+      receipt: AgentStepReadout,
+      url: string,
+      tabOpenedBy?: string[]
+    ) =>
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({ url, visibleText: "Status: Active" }),
+        ...(tabOpenedBy === undefined ? {} : { tabOpenedBy }),
+        requirements: [
+          { id: "r1", text: "Open Details in a new tab", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+      })
+    /** Opened for r0: it says nothing about r1, wherever the page is. */
+    expect(
+      judge(elsewhere, "https://example.com/details", [elsewhere.stepId])
+    ).toMatchObject({ type: "refused", reason: "unverified_change" })
+    const unbound = { ...elsewhere, requirementId: undefined }
+    /** An open_tab whose address is the page in hand is that page's tab. */
+    expect(judge(unbound, "https://example.com/other?ref=1").type).toBe(
+      "accepted"
+    )
+    /** A site that redirected the tab it opened: the tab is still that step's. */
+    expect(
+      judge(unbound, "https://example.com/landed", [unbound.stepId]).type
+    ).toBe("accepted")
+    /** A tab another step opened is not this one's. */
+    expect(
+      judge(unbound, "https://example.com/landed", ["run-1:9"])
+    ).toMatchObject({ type: "refused" })
+    expect(judge(unbound, "https://example.com/landed")).toMatchObject({
+      type: "refused"
+    })
+  })
+
+  /** A read requirement that names a new tab owes one too. */
+  it("checks a new tab for a read requirement that names one", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Status: Active" }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Report the status after opening Details in a new tab",
+            kind: "read"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "unverified_change" })
+  })
+
   it("asks a read requirement for no page evidence", () => {
     expect(
       judgeAgentCompletion({
@@ -992,6 +1152,21 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ]
       })
     ).toMatchObject({ type: "refused", reason: "missing_evidence" })
+  })
+
+  /** The state is a fact of the receipt only in the direction it confirmed. */
+  it("accepts a checked state written as data only in its own direction", () => {
+    const judge = (evidence: string) =>
+      judgeAgentCompletion({
+        steps: [checkedBox],
+        observation: checkboxPage,
+        requirements: checkboxRequirement,
+        outcomes: [{ id: "r1", met: true, evidence }]
+      }).type
+    expect(judge("checked:true")).toBe("accepted")
+    expect(judge("Agree checked")).toBe("accepted")
+    expect(judge("checked:false")).toBe("refused")
+    expect(judge("not checked")).toBe("refused")
   })
 
   it("does not rescue an invented phrase with a real verification", () => {
@@ -1404,6 +1579,79 @@ describe("judgeAgentCompletion with planned requirements", () => {
         outcomes: [{ id: "r1", met: true, evidence: "Alice" }]
       })
     ).toMatchObject({ type: "accepted" })
+  })
+
+  /**
+   * gpt-6-luna quoted the address bar's `name=Alice` for "The Name field
+   * contains Alice" and paused asking about a form its receipt had finished.
+   * A quotation made only of the receipt's own facts asserts nothing more.
+   */
+  it.each([
+    ["name=Alice", "accepted"],
+    ["Name: Alice", "accepted"],
+    ["Name: Bob", "refused"],
+    ["Alice saved", "refused"]
+  ])("judges the absent quotation %s by the receipt's facts", (evidence, type) => {
+    expect(
+      judgeAgentCompletion({
+        steps: [typedName],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [
+          { id: "r1", text: "Enter Alice in the Name field", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      }).type
+    ).toBe(type)
+  })
+
+  /**
+   * "Set Name to Bob and Manager to Alice" holds Alice, but not for Name: a
+   * receipt that put Alice in Name must not meet it, quoted or not.
+   */
+  it("binds a typed value to the control the requirement gives it", () => {
+    const judge = (text: string, evidence?: string) =>
+      judgeAgentCompletion({
+        steps: [{ ...typedName, requirementId: "r1" }],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [{ id: "r1", text, kind: "change" }],
+        outcomes: [{ id: "r1", met: true, ...(evidence ? { evidence } : {}) }]
+      }).type
+    const swapped = "Set Name to Bob and Manager to Alice"
+    expect(judge(swapped, "Name: Alice")).toBe("refused")
+    expect(judge(swapped)).toBe("refused")
+    expect(judge("Set Name to Alice and Manager to Bob", "Name: Alice")).toBe(
+      "accepted"
+    )
+    expect(judge("Set Name to Alice")).toBe("accepted")
+  })
+
+  /** A value holding a boundary stays whole; a word inside another is not it. */
+  it("keeps a value whole while cutting the requirement into clauses", () => {
+    const judge = (value: string, text: string) =>
+      judgeAgentCompletion({
+        steps: [
+          {
+            ...typedName,
+            requirementId: "r1",
+            command: {
+              type: "clear_and_type",
+              ref: "e1",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              text: value
+            }
+          }
+        ],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [{ id: "r1", text, kind: "change" }],
+        outcomes: [{ id: "r1", met: true }]
+      }).type
+    expect(judge("Tom and Jerry", "Set Name to Tom and Jerry")).toBe("accepted")
+    expect(judge("Smith, John", "Set Name to Smith, John")).toBe("accepted")
+    expect(judge("Al", "Set Name to Sally and Manager to Al")).toBe("refused")
+    /** The value negated beside this control is not asserted for it. */
+    expect(judge("Bob", "Manager: Bob; Name: not Bob")).toBe("refused")
+    expect(judge("Bob", "Manager: Alice; Name: Bob")).toBe("accepted")
   })
 
   it.each([
@@ -1857,6 +2105,32 @@ describe("judgeAgentCompletion with planned requirements", () => {
       "Move Second"
     ])
       expect([text, judge(text)]).toEqual([text, "refused"])
+  })
+
+  /**
+   * gpt-6-luna's plan: "Second has keyboard focus after moving from First
+   * with Tab". The control the key was pressed on may be named only as where
+   * focus left, never as where it is.
+   */
+  it("lets a focus requirement name where focus moved from", () => {
+    const fromFirst = {
+      ...tabbed("confirmed"),
+      target: { ref: "e1", tag: "input", name: "First" }
+    }
+    const judge = (text: string) =>
+      judgeAgentCompletion({
+        steps: [fromFirst],
+        observation: focusedOn("Second"),
+        baselineText: "first second",
+        requirements: [{ id: "r1", text, kind: "change" }],
+        outcomes: [{ id: "r1", met: true, evidence: "Second" }]
+      }).type
+    expect(
+      judge("Second has keyboard focus after moving from First with Tab.")
+    ).toBe("accepted")
+    expect(judge("Focus moved from the First field to Second")).toBe("accepted")
+    expect(judge("Focus First")).toBe("refused")
+    expect(judge("First has focus after pressing Tab")).toBe("refused")
   })
 
   it("refuses the name when another control holds focus or nothing was verified", () => {

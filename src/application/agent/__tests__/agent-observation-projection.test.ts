@@ -360,6 +360,34 @@ describe("projectAgentObservation overview budget", () => {
     expect(projected.omittedByGroup?.[0]?.count).toBeGreaterThan(0)
   })
 
+  it("does not count a control the page hides as one it left out", () => {
+    const projected = projectAgentObservation(
+      observation({
+        elements: [
+          element({ ref: "e1", name: "Menu", group: "main" }),
+          element({
+            ref: "e2",
+            tag: "a",
+            name: undefined,
+            visible: false,
+            group: "nav"
+          }),
+          element({
+            ref: "e3",
+            tag: "a",
+            name: undefined,
+            visible: false,
+            offscreen: true,
+            group: "footer"
+          })
+        ]
+      }),
+      { pageContentChars: 2_000 }
+    )
+    expect(projected.elements.map((shown) => shown.ref)).toEqual(["e1"])
+    expect(projected.omittedByGroup).toEqual([{ group: "footer", count: 1 }])
+  })
+
   it("keeps the focused control under a tiny overview budget", () => {
     const elements = [
       ...many(100),

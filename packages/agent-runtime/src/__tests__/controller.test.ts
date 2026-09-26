@@ -1195,11 +1195,15 @@ describe("agent controller", () => {
    * The grant follows only an approval that said it would.
    */
   describe("routine consent on a site the user approved travelling to", () => {
-    const travel = (routineOrigin?: string) => {
+    const travel = (
+      routineOrigin?: string,
+      verification?: AgentVerificationResult[]
+    ) => {
       const policy = approvalPolicy("high")
       if (policy.type === "approval_required" && routineOrigin)
         policy.request.routineOrigin = routineOrigin
       return createHarness({
+        ...(verification ? { verification } : {}),
         state: runState({
           grants: [
             {
@@ -1234,6 +1238,22 @@ describe("agent controller", () => {
     it("grants nothing for an approval that did not say so", async () => {
       const harness = travel()
       await harness.controller.start("run-1")
+      expect(grantOn(harness)).toBeUndefined()
+    })
+
+    it("grants nothing until the tab has landed on that site", async () => {
+      const harness = travel("https://duckduckgo.com", [
+        {
+          outcome: "negative",
+          evidence: {
+            kind: "navigation",
+            summary: "A dialog is holding the navigation",
+            observedAt: 3
+          }
+        }
+      ])
+      await harness.controller.start("run-1")
+      expect(harness.writtenSteps.some((s) => s.status === "failed")).toBe(true)
       expect(grantOn(harness)).toBeUndefined()
     })
   })
@@ -1384,6 +1404,214 @@ describe("agent controller", () => {
     expect(
       harness.writtenSteps.filter((step) => step.status === "rejected").length
     ).toBeGreaterThan(0)
+  })
+
+  /**
+   * The memory task: read a code, open Details, report both. The code is on
+   * the first page only, and quoting it from there is the answer.
+   */
+  it("accepts a read quotation from a page the run has since left", async () => {
+    const first = observation({ visibleText: "Reference code: QP-719 Details" })
+    const second = observation({ visibleText: "Status code: ZX-482" })
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report the reference code", kind: "read" },
+          { id: "r2", text: "Report the status code", kind: "read" }
+        ]
+      }),
+      effectOverrides: { semanticEffects: ["activation"] },
+      observe: async () => (decisions >= 1 ? second : first),
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1)
+          return { type: "command", command: command(), requirementId: "r2" }
+        return {
+          type: "complete",
+          summary: "QP-719 and ZX-482",
+          outcomes: [
+            { id: "r1", met: true, evidence: "Reference code: QP-719" },
+            { id: "r2", met: true, evidence: "Status code: ZX-482" }
+          ]
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).toBe("completed")
+  })
+
+  /**
+   * Order decides: a code the page showed and the run typed afterwards is
+   * the page's word; a code the run typed into a rich-text editor and then
+   * saw echoed back as page text is its own.
+   */
+  it.each([
+    ["the page showed it first", true],
+    ["the run typed it first", false]
+  ])("judges an earlier-page read quotation when %s", async (_label, pageFirst) => {
+    const typed: AgentCommand = {
+      type: "type",
+      ref: "e1",
+      text: "QP-719",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+    const pages = pageFirst
+      ? [
+          observation({ visibleText: "Reference QP-719" }),
+          observation({ visibleText: "Reference QP-719" }),
+          observation({ visibleText: "Status code: ZX-482" })
+        ]
+      : [
+          observation({ visibleText: "Notes" }),
+          observation({ visibleText: "Notes QP-719" }),
+          observation({ visibleText: "Status code: ZX-482" })
+        ]
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report the reference", kind: "read" },
+          { id: "r2", text: "Type QP-719 into the note", kind: "change" }
+        ]
+      }),
+      effectOverrides: { semanticEffects: ["form_mutation"] },
+      verification: [confirmedValue, confirmed],
+      observe: async () => pages[Math.min(decisions, pages.length - 1)],
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1)
+          return { type: "command", command: typed, requirementId: "r2" }
+        if (decisions === 2)
+          return { type: "command", command: command(), requirementId: "r2" }
+        return {
+          type: "complete",
+          summary: "QP-719",
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              evidence: pageFirst ? "Reference QP-719" : "QP-719"
+            },
+            { id: "r2", met: true }
+          ]
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status === "completed").toBe(pageFirst)
+  })
+
+  /**
+   * A site redirected the tab `open_tab` opened, so the address no longer
+   * names the page; the tab the step opened is what binds it.
+   */
+  it("meets a new-tab requirement on the tab its open_tab opened after a redirect", async () => {
+    const openTab: AgentCommand = {
+      type: "open_tab",
+      url: "https://example.com/details",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Open Details in a new tab", kind: "change" }
+        ]
+      }),
+      effectOverrides: {
+        semanticEffects: ["navigation"],
+        destination: {
+          url: "https://example.com/details",
+          origin: "https://example.com",
+          source: "model"
+        }
+      },
+      controlledTabIdAfterExecution: 11,
+      verification: [
+        {
+          outcome: "confirmed",
+          evidence: {
+            kind: "tab",
+            summary: "Authorized destination is committed",
+            observedAt: 2
+          }
+        }
+      ],
+      observe: async () =>
+        decisions >= 1
+          ? observation({
+              tabId: 11,
+              url: "https://example.com/landed",
+              visibleText: "Status: Active"
+            })
+          : observation(),
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1) return { type: "command", command: openTab }
+        return {
+          type: "complete",
+          summary: "Opened",
+          outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).toBe("completed")
+  })
+
+  /** A value in a field may be the run's own typing, not the page's word. */
+  it("does not accept a read quotation from a value typed on an earlier page", async () => {
+    const first = observation({
+      visibleText: "Details",
+      elements: [
+        {
+          ref: "e1",
+          verificationId: "verification-1",
+          frameId: 0,
+          tag: "input",
+          name: "Code",
+          value: "QP-719",
+          visible: true,
+          enabled: true,
+          editable: true,
+          sensitive: false
+        }
+      ]
+    })
+    const second = observation({ visibleText: "Status code: ZX-482" })
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report the reference code", kind: "read" }
+        ]
+      }),
+      effectOverrides: { semanticEffects: ["activation"] },
+      observe: async () => (decisions >= 1 ? second : first),
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1)
+          return { type: "command", command: command(), requirementId: "r1" }
+        return {
+          type: "complete",
+          summary: "QP-719",
+          outcomes: [{ id: "r1", met: true, evidence: "QP-719" }]
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).not.toBe("completed")
   })
 
   it("does not let an attempt that never landed replace the baseline", async () => {
