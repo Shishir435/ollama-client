@@ -608,8 +608,6 @@ const CLAUSE_BOUNDARY = /\s*(?:[,;]|\band\b|\bthen\b|\balso\b)\s*/u
  * receipt that put Alice in Name agreed with it; now a requirement that names
  * the control must carry the value in the clause that names it. One that
  * never names the control is bound by the requirement id alone, as before.
- * A value that itself spans a boundary ("Tom and Jerry") refuses, which is
- * the fail-safe direction: the run is sent back to quote it.
  */
 const valueAssertedForControl = (
   text: string,
@@ -619,12 +617,23 @@ const valueAssertedForControl = (
   if (!valueAssertedWithoutNegation(text, value)) return false
   const name = control ? agentNormalizedClaim(control) : ""
   if (!name || !containsCompletePhrase(text, name)) return true
-  return text
+  /**
+   * The value is held whole while the requirement is cut into clauses, so a
+   * value that itself holds a boundary ("Tom and Jerry", "Smith, John") is
+   * never split across two of them.
+   */
+  const HELD = "\u0001"
+  const held = completePhraseOccurrences(text, agentNormalizedClaim(value))
+    .reverse()
+    .reduce(
+      (whole, { start, end }) =>
+        `${whole.slice(0, start)}${HELD}${whole.slice(end)}`,
+      text
+    )
+  return held
     .split(CLAUSE_BOUNDARY)
     .some(
-      (clause) =>
-        containsCompletePhrase(clause, name) &&
-        valueAssertedWithoutNegation(clause, value)
+      (clause) => containsCompletePhrase(clause, name) && clause.includes(HELD)
     )
 }
 

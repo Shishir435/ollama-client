@@ -1621,6 +1621,32 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge("Set Name to Alice")).toBe("accepted")
   })
 
+  /** A value holding a boundary stays whole; a word inside another is not it. */
+  it("keeps a value whole while cutting the requirement into clauses", () => {
+    const judge = (value: string, text: string) =>
+      judgeAgentCompletion({
+        steps: [
+          {
+            ...typedName,
+            requirementId: "r1",
+            command: {
+              type: "clear_and_type",
+              ref: "e1",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              text: value
+            }
+          }
+        ],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [{ id: "r1", text, kind: "change" }],
+        outcomes: [{ id: "r1", met: true }]
+      }).type
+    expect(judge("Tom and Jerry", "Set Name to Tom and Jerry")).toBe("accepted")
+    expect(judge("Smith, John", "Set Name to Smith, John")).toBe("accepted")
+    expect(judge("Al", "Set Name to Sally and Manager to Al")).toBe("refused")
+  })
+
   it.each([
     ["an invented phrase", "Form committed its resolved destination"],
     ["another value", "Bob"]
