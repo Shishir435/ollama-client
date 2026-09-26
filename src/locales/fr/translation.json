@@ -822,6 +822,10 @@
       "search_placeholder": "Rechercher un modèle...",
       "no_model_found": "Aucun modèle trouvé.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Modèles cloud d’Ollama",
+        "description": "Modèles :cloud hébergés. Nécessitent un Ollama connecté et souvent un abonnement payant."
+      },
       "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Vérifiez le fournisseur dans les paramètres ou ajoutez des identifiants de modèle manuellement.",
       "selection_conflict": "Choisissez un fournisseur pour {{model}} — plusieurs le proposent."
     },

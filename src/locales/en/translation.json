@@ -822,6 +822,10 @@
       "search_placeholder": "Search model...",
       "no_model_found": "No model found.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Ollama cloud models",
+        "description": "Hosted :cloud models. Need a signed-in Ollama and often a paid plan."
+      },
       "providers_unavailable": "{{names}} returned no models. Check the provider in settings, or add model IDs manually.",
       "selection_conflict": "Pick a provider for {{model}} — more than one serves it."
     },

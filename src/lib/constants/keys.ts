@@ -154,6 +154,8 @@ export const STORAGE_KEYS = {
     // request and fingerprinted by base URL. Keeps discovery from asking a
     // chat-only endpoint for a model list it will never have.
     MODEL_CATALOG_SUPPORT: "provider-model-catalog-support",
+    /** Whether Ollama's hosted-model recommendations are listed beside local models. */
+    OLLAMA_CLOUD_MODELS: "provider-ollama-cloud-models-v1",
     // Whether an unrecognized remote provider may be asked for its favicon, so
     // it shows its own icon instead of a generic glyph.
     FAVICON_LOOKUP: "provider-favicon-lookup",

@@ -822,6 +822,10 @@
       "search_placeholder": "मॉडल खोजें...",
       "no_model_found": "कोई मॉडल नहीं मिला।",
       "cloud_badge": "क्लाउड{{plan}}",
+      "cloud_models": {
+        "label": "Ollama क्लाउड मॉडल",
+        "description": "होस्ट किए गए :cloud मॉडल। साइन-इन किया हुआ Ollama और अक्सर पेड प्लान चाहिए।"
+      },
       "providers_unavailable": "{{names}} ने कोई मॉडल नहीं लौटाया। सेटिंग्स में प्रदाता जांचें, या मॉडल ID मैन्युअल रूप से जोड़ें।",
       "selection_conflict": "{{model}} के लिए एक प्रदाता चुनें — इसे एक से अधिक प्रदाता देते हैं।"
     },

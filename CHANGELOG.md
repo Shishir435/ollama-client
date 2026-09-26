@@ -83,6 +83,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   tab and a switch in the chat's Context sheet. Until it is turned on, the chat
   model is neither offered `browser_task` nor able to call it. Every profile, new or upgraded, sees a
   one-time notice introducing it, which recommends capable hosted models.
+- Ollama's hosted `:cloud` recommendations are off by default, with a switch at
+  the top of Ollama's list in the model menu. They need a signed-in daemon and
+  often a paid plan, and without one a chosen model failed at send time.
+  `:cloud` models pulled with `ollama pull` are listed either way.
 - Custom providers on NVIDIA, Vercel AI Gateway, Cloudflare AI Gateway,
   Fireworks, DeepInfra, Hugging Face and Cerebras show their vendor's mark.
 - The session stats sit in the middle of the chat header; the thinking panel

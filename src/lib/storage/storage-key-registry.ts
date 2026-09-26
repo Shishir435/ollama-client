@@ -27,6 +27,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "How much context a run may ask its model for. Device-local because it is a statement about this machine's memory and this server's allocation, not about the account."
   },
+  [STORAGE_KEYS.PROVIDER.OLLAMA_CLOUD_MODELS]: {
+    key: STORAGE_KEYS.PROVIDER.OLLAMA_CLOUD_MODELS,
+    scope: "device-local",
+    reason:
+      "Whether Ollama's hosted-model recommendations are listed. Device-local because whether they work depends on this machine's Ollama being signed in to a plan that covers them."
+  },
   [STORAGE_KEYS.AGENT.ENABLED]: {
     key: STORAGE_KEYS.AGENT.ENABLED,
     scope: "device-local",

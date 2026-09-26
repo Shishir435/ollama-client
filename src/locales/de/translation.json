@@ -822,6 +822,10 @@
       "search_placeholder": "Modell suchen...",
       "no_model_found": "Kein Modell gefunden.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Ollama-Cloud-Modelle",
+        "description": "Gehostete :cloud-Modelle. Erfordern ein angemeldetes Ollama und oft ein kostenpflichtiges Abo."
+      },
       "providers_unavailable": "{{names}} hat keine Modelle zurückgegeben. Prüfe den Anbieter in den Einstellungen oder füge Modell-IDs manuell hinzu.",
       "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit."
     },

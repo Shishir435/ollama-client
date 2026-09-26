@@ -12,6 +12,8 @@ import {
   readProviderStreamChunk,
   throwProviderConnectionError
 } from "@/lib/providers/provider-errors"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type {
   ChatStreamMessage,
@@ -303,11 +305,14 @@ export class OllamaProvider implements LLMProvider {
    * daemons do not implement it. A missing or malformed response therefore
    * leaves the ordinary `/api/tags` catalog untouched. Only `:cloud` entries
    * are merged; local download recommendations still belong to model pulling.
+   * Nothing is requested while the user has not asked for cloud models.
    */
   private async getCloudRecommendations(
     baseUrl: string,
     signal?: AbortSignal
   ): Promise<ProviderModel[]> {
+    if (!(await readSetting(SETTINGS.OLLAMA_CLOUD_MODELS))) return []
+
     const cached = cloudRecommendationCache.get(baseUrl)
     if (cached && cached.expiresAt > Date.now()) return cached.models
 

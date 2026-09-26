@@ -3,6 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { clearOllamaDetailBackfillCache, OllamaProvider } from "../ollama"
 import { ProviderId, ProviderType } from "../types"
 
+/** These tests cover the recommendations path, which the user must switch on. */
+const cloud = vi.hoisted(() => ({ enabled: true }))
+vi.mock("@/lib/storage/setting-access", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/storage/setting-access")>()
+  return {
+    ...actual,
+    readSetting: vi.fn(
+      async (descriptor: { key: string; defaultValue?: unknown }) =>
+        descriptor.key === "provider-ollama-cloud-models-v1"
+          ? cloud.enabled
+          : actual.readSetting(descriptor as never)
+    )
+  }
+})
+
 /*
  * `/api/tags` reports empty family/parameter_size/quantization_level for
  * safetensors and MLX models: `gemma4:12b-mlx` came back blank next to
@@ -245,6 +261,33 @@ describe("OllamaProvider.getModels metadata backfill", () => {
 })
 
 describe("OllamaProvider.getModels cloud recommendations", () => {
+  afterEach(() => {
+    cloud.enabled = true
+  })
+
+  it("asks for no recommendations until cloud models are switched on", async () => {
+    cloud.enabled = false
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (String(url).endsWith("/api/tags")) {
+        return Promise.resolve(
+          jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
+        )
+      }
+      return Promise.reject(new Error(`unexpected ${String(url)}`))
+    })
+
+    const models = await makeProvider().getModels()
+
+    expect(models.map((model) => model.name)).toEqual(["gemma4:12b"])
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.some(([url]) =>
+          String(url).endsWith("/api/experimental/model-recommendations")
+        )
+    ).toBe(false)
+  })
+
   it("merges hosted recommendations into the normal model list", async () => {
     vi.mocked(fetch).mockImplementation((url) => {
       if (String(url).endsWith("/api/tags")) {

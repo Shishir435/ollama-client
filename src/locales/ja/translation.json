@@ -822,6 +822,10 @@
       "search_placeholder": "モデルを検索...",
       "no_model_found": "モデルが見つかりません。",
       "cloud_badge": "クラウド{{plan}}",
+      "cloud_models": {
+        "label": "Ollama クラウドモデル",
+        "description": "ホスト型の :cloud モデル。サインイン済みの Ollama と、多くの場合は有料プランが必要です。"
+      },
       "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。",
       "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。"
     },

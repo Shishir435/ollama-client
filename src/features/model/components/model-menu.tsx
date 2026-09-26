@@ -22,6 +22,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { Switch } from "@/components/ui/switch"
 import { useModelCapabilityOverrides } from "@/features/model/hooks/use-model-capability-overrides"
 import {
   modelTagsKey,
@@ -29,6 +30,7 @@ import {
 } from "@/features/model/hooks/use-model-capability-tags"
 import { useProviderIcons } from "@/features/model/hooks/use-provider-icons"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { useSetting } from "@/hooks/use-setting"
 import { cn } from "@/lib/class-names"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -38,6 +40,8 @@ import {
   resolveModelBrand
 } from "@/lib/providers/provider-brand"
 import { getProviderDisplayName } from "@/lib/providers/registry"
+import { writeSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import {
   formatFileSize,
@@ -126,6 +130,17 @@ export const ModelMenu = ({
     clearSelectionConflict,
     unavailableProviders
   } = useProviderModels()
+
+  const [cloudModels] = useSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
+  /**
+   * The provider reads the switch when it lists, so the list is fetched again
+   * once the new value is stored rather than filtered here; the switch
+   * follows through the storage watch.
+   */
+  const toggleCloudModels = async (next: boolean) => {
+    await writeSetting(SETTINGS.OLLAMA_CLOUD_MODELS, next)
+    await refresh()
+  }
 
   const { resolve, getOverride, getProbe, setOverride, clearOverride } =
     useModelCapabilityOverrides()
@@ -508,6 +523,27 @@ export const ModelMenu = ({
                   autoFocus
                 />
               </div>
+
+              {activeProviderId === DEFAULT_PROVIDER_ID && (
+                <div className="mx-1 mb-1 flex items-center gap-2 rounded-control px-2 py-1 text-xs">
+                  <label
+                    htmlFor="model-menu-ollama-cloud"
+                    className="min-w-0 flex-1 cursor-pointer">
+                    <span className="block font-medium">
+                      {t("model.menu.cloud_models.label")}
+                    </span>
+                    <span className="block text-micro text-muted-foreground">
+                      {t("model.menu.cloud_models.description")}
+                    </span>
+                  </label>
+                  <Switch
+                    id="model-menu-ollama-cloud"
+                    size="sm"
+                    checked={cloudModels === true}
+                    onCheckedChange={(next) => void toggleCloudModels(next)}
+                  />
+                </div>
+              )}
 
               <div className="min-h-0 flex-1 border-t border-border pt-1">
                 {visibleModels.length === 0 ? (
