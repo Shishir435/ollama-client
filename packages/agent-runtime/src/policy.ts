@@ -430,9 +430,10 @@ export const AGENT_ROUTINE_FOLLOWS_CONSEQUENCE = (origin: string): string =>
 
 const makeApprovalRequest = (
   input: AgentPolicyInput,
-  risk: Exclude<AgentRisk, "low">
+  risk: Exclude<AgentRisk, "low">,
+  notice?: NonNullable<ReturnType<typeof repeatNotice>>
 ): AgentApprovalRequest => {
-  const request = makeBaseApprovalRequest(input, risk)
+  const request = withNotice(makeBaseApprovalRequest(input, risk), notice)
   const routineOrigin = routineOriginFor(input)
   if (!routineOrigin) return request
   /**
@@ -570,30 +571,43 @@ const repeatApproval = (
   notice: NonNullable<ReturnType<typeof repeatNotice>>
 ): AgentPolicyDecision => {
   const risk = raiseRisk(baseline, "high") as Exclude<AgentRisk, "low">
-  const { grantable: _grantable, ...request } = makeApprovalRequest(input, risk)
-  return {
-    type: "approval_required",
+  const { grantable: _grantable, ...request } = makeApprovalRequest(
+    input,
     risk,
-    request: {
-      ...request,
-      consequence: `${notice.text} ${request.consequence}`.slice(
-        0,
-        MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS
-      ),
-      ...(request.display
-        ? {
-            display: {
-              ...request.display,
-              consequence: [
-                notice.display,
-                ...request.display.consequence
-              ].slice(0, MAX_DISPLAY_SENTENCES)
-            }
-          }
-        : {})
-    }
-  }
+    notice
+  )
+  return { type: "approval_required", risk, request }
 }
+
+/**
+ * The repeat notice said first. Added before routine consent is weighed, so
+ * the routine notice is measured against the consequence the user actually
+ * reads and is dropped with its grant when the two do not fit together.
+ */
+const withNotice = (
+  request: AgentApprovalRequest,
+  notice: NonNullable<ReturnType<typeof repeatNotice>> | undefined
+): AgentApprovalRequest =>
+  notice
+    ? {
+        ...request,
+        consequence: `${notice.text} ${request.consequence}`.slice(
+          0,
+          MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS
+        ),
+        ...(request.display
+          ? {
+              display: {
+                ...request.display,
+                consequence: [
+                  notice.display,
+                  ...request.display.consequence
+                ].slice(0, MAX_DISPLAY_SENTENCES)
+              }
+            }
+          : {})
+      }
+    : request
 
 /**
  * Whether a grant the user already gave covers this effect.

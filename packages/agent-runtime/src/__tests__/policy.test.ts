@@ -1051,6 +1051,34 @@ describe("a control this run already committed through", () => {
       expect(decision.request.consequence).not.toContain("without asking")
     })
 
+    it("carries routine consent on a repeat only when both notices fit", () => {
+      const carried = new Set<boolean>()
+      for (let length = 0; length <= 1_000; length += 25) {
+        const decision = evaluateAgentPolicy(
+          input(
+            effect(["navigation"], {
+              destination: {
+                url: `https://duckduckgo.com/?q=${"a".repeat(length)}`,
+                origin: "https://duckduckgo.com",
+                source: "model"
+              }
+            }),
+            { grants: [...routine], repeatsCommittedEffect: true }
+          )
+        )
+        expect(decision.type).toBe("approval_required")
+        if (decision.type !== "approval_required") continue
+        const { consequence, routineOrigin } = decision.request
+        expect(consequence).toMatch(/^This run already did this once/)
+        expect(consequence.length).toBeLessThanOrEqual(1_000)
+        expect(consequence.includes("Submitting a form still asks.")).toBe(
+          routineOrigin !== undefined
+        )
+        carried.add(routineOrigin !== undefined)
+      }
+      expect([...carried].sort()).toEqual([false, true])
+    })
+
     it("offers nothing for a submission or a run without routine consent", () => {
       for (const decision of [
         evaluateAgentPolicy(
