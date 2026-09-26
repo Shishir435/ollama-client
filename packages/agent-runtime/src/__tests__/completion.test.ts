@@ -1921,6 +1921,32 @@ describe("judgeAgentCompletion with planned requirements", () => {
       expect([text, judge(text)]).toEqual([text, "refused"])
   })
 
+  /**
+   * gpt-6-luna's plan: "Second has keyboard focus after moving from First
+   * with Tab". The control the key was pressed on may be named only as where
+   * focus left, never as where it is.
+   */
+  it("lets a focus requirement name where focus moved from", () => {
+    const fromFirst = {
+      ...tabbed("confirmed"),
+      target: { ref: "e1", tag: "input", name: "First" }
+    }
+    const judge = (text: string) =>
+      judgeAgentCompletion({
+        steps: [fromFirst],
+        observation: focusedOn("Second"),
+        baselineText: "first second",
+        requirements: [{ id: "r1", text, kind: "change" }],
+        outcomes: [{ id: "r1", met: true, evidence: "Second" }]
+      }).type
+    expect(
+      judge("Second has keyboard focus after moving from First with Tab.")
+    ).toBe("accepted")
+    expect(judge("Focus moved from the First field to Second")).toBe("accepted")
+    expect(judge("Focus First")).toBe("refused")
+    expect(judge("First has focus after pressing Tab")).toBe("refused")
+  })
+
   it("refuses the name when another control holds focus or nothing was verified", () => {
     expect(judgeFocus(tabbed("confirmed"), focusedOn("First"))).toMatchObject({
       type: "refused"

@@ -1133,7 +1133,26 @@ const CLAIM_FUNCTION_WORDS = new Set([
  * Alice" do not.
  */
 const FOCUS_WORDS = new Set(["focus", "focused", "focuses", "focusing"])
-const FOCUS_ACT_WORDS = new Set([...FOCUS_WORDS, "move", "moves", "moved"])
+/**
+ * The act of moving focus with a key, as a plan describes it: "Second has
+ * focus after moving from First with Tab" claims the key, the control it was
+ * pressed on and the one that holds focus now — all three on the receipt and
+ * the page — and nothing else.
+ */
+const FOCUS_ACT_WORDS = new Set([
+  ...FOCUS_WORDS,
+  "move",
+  "moves",
+  "moved",
+  "moving",
+  "press",
+  "pressed",
+  "pressing",
+  "after",
+  "from",
+  "with",
+  "using"
+])
 
 const isBoundFocusMove = (
   requirement: AgentTaskRequirement,
@@ -1145,7 +1164,7 @@ const isBoundFocusMove = (
   receipt.verification?.outcome === "confirmed" &&
   receipt.verification.evidence.kind === "keyboard" &&
   claimsOnlyAct(
-    requirement,
+    withoutFocusSource(requirement, receipt.target?.name),
     FOCUS_ACT_WORDS,
     factWords([
       keyText(receipt.command.key),
@@ -1155,6 +1174,27 @@ const isBoundFocusMove = (
     ]),
     FOCUS_WORDS
   )
+
+/**
+ * The requirement without "from <the control the key was pressed on>". The
+ * source is on the receipt, but only as where focus left: counted as a fact
+ * anywhere, "Focus First" would pass while Second holds focus.
+ */
+const withoutFocusSource = (
+  requirement: AgentTaskRequirement,
+  source: string | undefined
+): AgentTaskRequirement => {
+  const name = source?.trim()
+  if (!name) return requirement
+  const escaped = name.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return {
+    ...requirement,
+    text: requirement.text.replaceAll(
+      new RegExp(`\\bfrom\\s+(?:the\\s+)?${escaped}\\b`, "giu"),
+      " "
+    )
+  }
+}
 
 /** A pressed key as the words a requirement would name it by. */
 const keyText = (key: unknown): string =>
