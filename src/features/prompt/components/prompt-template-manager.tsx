@@ -202,7 +202,9 @@ export const PromptTemplateManager = () => {
                 setSortBy(value as "recent" | "popular" | "alphabetical")
             }}>
             <SelectTrigger className="w-32">
-              <SelectValue />
+              <SelectValue>
+                {() => t(`settings.prompts.sort.${sortBy}`)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="recent">
