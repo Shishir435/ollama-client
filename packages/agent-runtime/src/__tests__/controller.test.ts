@@ -1507,6 +1507,67 @@ describe("agent controller", () => {
     expect(harness.getState().status === "completed").toBe(pageFirst)
   })
 
+  /**
+   * A site redirected the tab `open_tab` opened, so the address no longer
+   * names the page; the tab the step opened is what binds it.
+   */
+  it("meets a new-tab requirement on the tab its open_tab opened after a redirect", async () => {
+    const openTab: AgentCommand = {
+      type: "open_tab",
+      url: "https://example.com/details",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Open Details in a new tab", kind: "change" }
+        ]
+      }),
+      effectOverrides: {
+        semanticEffects: ["navigation"],
+        destination: {
+          url: "https://example.com/details",
+          origin: "https://example.com",
+          source: "model"
+        }
+      },
+      controlledTabIdAfterExecution: 11,
+      verification: [
+        {
+          outcome: "confirmed",
+          evidence: {
+            kind: "tab",
+            summary: "Authorized destination is committed",
+            observedAt: 2
+          }
+        }
+      ],
+      observe: async () =>
+        decisions >= 1
+          ? observation({
+              tabId: 11,
+              url: "https://example.com/landed",
+              visibleText: "Status: Active"
+            })
+          : observation(),
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1) return { type: "command", command: openTab }
+        return {
+          type: "complete",
+          summary: "Opened",
+          outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).toBe("completed")
+  })
+
   /** A value in a field may be the run's own typing, not the page's word. */
   it("does not accept a read quotation from a value typed on an earlier page", async () => {
     const first = observation({

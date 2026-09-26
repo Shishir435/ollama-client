@@ -154,11 +154,11 @@ export interface AgentCompletionInput {
    */
   observedTexts?: readonly string[]
   /**
-   * The page the completion was decided on is in a tab this run opened, not
-   * the tab the user started it from. Absent means unknown, which never
-   * stands in for a tab the run opened.
+   * The steps whose execution opened the tab the completion was decided on,
+   * by step id. Memory-only: a restart loses it, and an absent list never
+   * stands in for a tab a step opened.
    */
-  inOpenedTab?: boolean
+  tabOpenedBy?: readonly string[]
   /**
    * What the goal asks for, as the planning call fixed it. Absent means the
    * run was never planned — a host with no plan port, or a plan call that
@@ -623,7 +623,16 @@ const valueAssertedForControl = (
    * never split across two of them.
    */
   const HELD = "\u0001"
+  /**
+   * Only an occurrence the requirement asserts is held: in "Manager: Bob;
+   * Name: not Bob" the Bob beside Name is refused, not matched.
+   */
   const held = completePhraseOccurrences(text, agentNormalizedClaim(value))
+    .filter(
+      (occurrence) =>
+        !valueOccurrenceIsNegated(text, occurrence) &&
+        !valueOccurrenceIsAlternative(text, occurrence)
+    )
     .reverse()
     .reduce(
       (whole, { start, end }) =>
@@ -1637,8 +1646,8 @@ const refuseUnopenedTab = (
  * for an earlier step says nothing about where Details went. Bound by the
  * requirement id the step carried or the control it names, or, for an
  * `open_tab` sent for no other requirement, by its address being the page the
- * run completed on or that page being in a tab the run opened — a site may
- * redirect the address it was asked for.
+ * run completed on or that page being in the very tab it opened — a site may
+ * redirect the address it was asked for, and another step's tab is not it.
  */
 const openedTabFor = (
   requirement: AgentTaskRequirement,
@@ -1651,7 +1660,7 @@ const openedTabFor = (
       (receipt.requirementId === undefined ||
         receipt.requirementId === requirement.id) &&
       (samePage(receipt.command.url, input.observation.url) ||
-        input.inOpenedTab === true)))
+        input.tabOpenedBy?.includes(receipt.stepId) === true)))
 
 /**
  * Same scheme, host and path: where a page is, whatever its query picked up.

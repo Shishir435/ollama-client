@@ -1025,31 +1025,35 @@ describe("judgeAgentCompletion with planned requirements", () => {
     const judge = (
       receipt: AgentStepReadout,
       url: string,
-      inOpenedTab?: boolean
+      tabOpenedBy?: string[]
     ) =>
       judgeAgentCompletion({
         steps: [receipt],
         observation: observation({ url, visibleText: "Status: Active" }),
-        ...(inOpenedTab === undefined ? {} : { inOpenedTab }),
+        ...(tabOpenedBy === undefined ? {} : { tabOpenedBy }),
         requirements: [
           { id: "r1", text: "Open Details in a new tab", kind: "change" }
         ],
         outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
       })
     /** Opened for r0: it says nothing about r1, wherever the page is. */
-    expect(judge(elsewhere, "https://example.com/details", true)).toMatchObject(
-      { type: "refused", reason: "unverified_change" }
-    )
+    expect(
+      judge(elsewhere, "https://example.com/details", [elsewhere.stepId])
+    ).toMatchObject({ type: "refused", reason: "unverified_change" })
     const unbound = { ...elsewhere, requirementId: undefined }
     /** An open_tab whose address is the page in hand is that page's tab. */
     expect(judge(unbound, "https://example.com/other?ref=1").type).toBe(
       "accepted"
     )
-    /** A site that redirected the tab it opened: the tab is still the run's. */
-    expect(judge(unbound, "https://example.com/landed", true).type).toBe(
-      "accepted"
-    )
-    expect(judge(unbound, "https://example.com/landed", false)).toMatchObject({
+    /** A site that redirected the tab it opened: the tab is still that step's. */
+    expect(
+      judge(unbound, "https://example.com/landed", [unbound.stepId]).type
+    ).toBe("accepted")
+    /** A tab another step opened is not this one's. */
+    expect(
+      judge(unbound, "https://example.com/landed", ["run-1:9"])
+    ).toMatchObject({ type: "refused" })
+    expect(judge(unbound, "https://example.com/landed")).toMatchObject({
       type: "refused"
     })
   })
@@ -1645,6 +1649,9 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge("Tom and Jerry", "Set Name to Tom and Jerry")).toBe("accepted")
     expect(judge("Smith, John", "Set Name to Smith, John")).toBe("accepted")
     expect(judge("Al", "Set Name to Sally and Manager to Al")).toBe("refused")
+    /** The value negated beside this control is not asserted for it. */
+    expect(judge("Bob", "Manager: Bob; Name: not Bob")).toBe("refused")
+    expect(judge("Bob", "Manager: Alice; Name: Bob")).toBe("accepted")
   })
 
   it.each([

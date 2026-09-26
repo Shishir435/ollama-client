@@ -55,6 +55,7 @@ import type {
   AgentCancellationController,
   AgentController,
   AgentControllerDependencies,
+  AgentExecutionReceipt,
   AgentInspectionFocus,
   AgentModelInput,
   AgentPolicyDecision,
@@ -663,6 +664,32 @@ export const createAgentController = (
    * judged on redacted receipts and refused, exactly as before.
    */
   const liveCommands = new Map<string, AgentCommand>()
+  /**
+   * The tabs each step's execution opened, by step id: `open_tab`'s own tab
+   * and any a click opened. Receipts carry no tab id, and without this an
+   * `open_tab` whose site redirected it could only be matched to "some tab
+   * the run opened", which a later click's tab also is. Memory only and
+   * bounded like `liveCommands`; a restarted run cannot use it and refuses.
+   */
+  const openedTabsByStep = new Map<string, number[]>()
+  const rememberOpenedTabs = (
+    stepId: string,
+    command: AgentCommand,
+    receipt: AgentExecutionReceipt
+  ): void => {
+    const tabs = [
+      ...(command.type === "open_tab" && receipt.controlledTabId !== undefined
+        ? [receipt.controlledTabId]
+        : []),
+      ...(receipt.openedTabIds ?? [])
+    ]
+    if (tabs.length === 0) return
+    openedTabsByStep.set(stepId, tabs)
+    if (openedTabsByStep.size > MAX_LIVE_COMMANDS) {
+      const oldest = openedTabsByStep.keys().next().value
+      if (oldest !== undefined) openedTabsByStep.delete(oldest)
+    }
+  }
   const rememberCommand = (stepId: string, command: AgentCommand): void => {
     liveCommands.delete(stepId)
     liveCommands.set(stepId, command)
@@ -1380,6 +1407,7 @@ export const createAgentController = (
        * committed still left clicks and typing on a site the run never
        * reached pre-approved for the rest of the run.
        */
+      rememberOpenedTabs(stepId, effect.command, receipt)
       return claim(
         verifying,
         "observing",
@@ -1678,13 +1706,13 @@ export const createAgentController = (
         ...(observedPages?.runId === state.id
           ? { observedTexts: observedPages.texts }
           : {}),
-        /**
-         * The user's own tab stays first in scope once the run adopts
-         * another, so any other tab is one the run opened.
-         */
-        inOpenedTab:
-          observation.tabId !==
-          (state.scopedTabIds?.[0] ?? state.controlledTabId),
+        tabOpenedBy: [...openedTabsByStep.entries()]
+          .filter(
+            ([stepId, tabs]) =>
+              stepId.startsWith(`${state.id}:`) &&
+              tabs.includes(observation.tabId)
+          )
+          .map(([stepId]) => stepId),
         ...(state.requirements ? { requirements: state.requirements } : {}),
         ...(decision.outcomes ? { outcomes: decision.outcomes } : {})
       },
