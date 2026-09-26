@@ -14,7 +14,7 @@ import {
 export const currentTabDefinition: ToolDefinition = {
   name: "current_tab",
   description:
-    "Read the main readable text of the user's currently active browser tab (including the transcript when it is a YouTube video). Use when the user refers to 'this page', 'the current tab', or 'this video'. Set force=true when the user asks to refresh, refetch, rescrape, reload, or get the latest tab content.",
+    "Read the main readable text of the user's currently active browser tab (including the transcript when it is a YouTube video). It returns only what the page shows now, button and link labels included, and it clicks, opens and reveals nothing: a label such as 'Open dialog' is a control on the page, not something that happened. Use when the user refers to 'this page', 'the current tab', or 'this video'. Set force=true when the user asks to refresh, refetch, rescrape, reload, or get the latest tab content.",
   displayNameKey: "chat.reasoning.trace.tab",
   category: "browser",
   iconKey: "panels-top-left",
