@@ -1545,6 +1545,45 @@ const judgeEvidence = (
  * owes none: what it read is its answer, and asking a research goal to quote
  * a saved-state indicator that does not exist would refuse every one.
  */
+/** A requirement that says where a page opens: a new tab or window. */
+const NEW_TAB_PATTERN =
+  /\b(?:new|another|separate|second)\s+(?:browser\s+)?(?:tab|window)\b/i
+
+const NEW_TAB_FEEDBACK =
+  "This requirement asks for a new tab, and no step in this run opened one: the page opened in the same tab. Use open_tab for it, or mark the requirement unmet."
+
+/**
+ * A confirmed step that put a page in a tab of its own: `open_tab`, or a
+ * click the verifier saw open one.
+ */
+const openedNewTab = (receipt: AgentStepReadout): boolean =>
+  isAppliedAgentStepStatus(receipt.status) &&
+  receipt.verification?.outcome === "confirmed" &&
+  (receipt.command?.type === "open_tab" ||
+    receipt.verification.evidence.kind === "tab" ||
+    receipt.verification.evidence.summary === "Control opened a new tab")
+
+/**
+ * Where a page opened is a claim no quotation shows: the page reads the same
+ * in either tab. gpt-6-luna clicked a link that opened in place, quoted the
+ * page's title, and completed "Open Details in a new browser tab" — a click
+ * is navigation, not a change, so no receipt stood in the way. The run's own
+ * record of a tab it opened is the only evidence, and unreadable receipts
+ * refuse rather than pass.
+ */
+const refuseUnopenedTab = (
+  requirement: AgentTaskRequirement,
+  input: AgentCompletionInput
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
+  NEW_TAB_PATTERN.test(requirement.text) &&
+  !(input.steps ?? []).some(openedNewTab)
+    ? {
+        type: "refused",
+        reason: "unverified_change",
+        feedback: NEW_TAB_FEEDBACK
+      }
+    : undefined
+
 const judgeMetRequirement = (
   requirement: AgentTaskRequirement,
   claim: AgentCompletionOutcomeClaim,
@@ -1555,6 +1594,8 @@ const judgeMetRequirement = (
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   if (requirement.kind === "read")
     return refusePlannedReadClaim(claim.evidence, input, change ?? "unreadable")
+  const unopened = refuseUnopenedTab(requirement, input)
+  if (unopened) return unopened
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
     const refusal = noSubmissionEvidence(input)
     if (refusal) return refusal

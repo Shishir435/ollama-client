@@ -940,6 +940,68 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge("change", "Reference code: QP-719")).toBe("refused")
   })
 
+  /**
+   * gpt-6-luna clicked a link that opened in place, quoted the page title
+   * and completed "Open Details in a new browser tab".
+   */
+  it("meets a new-tab requirement only with a step that opened a tab", () => {
+    const opened = (
+      type: "click" | "open_tab",
+      kind: string,
+      summary: string
+    ) =>
+      step({
+        sequence: 1,
+        command:
+          type === "open_tab"
+            ? {
+                type,
+                url: "https://example.com/details",
+                snapshotId: "snapshot-1",
+                generation: 1
+              }
+            : { type, ref: "e1", snapshotId: "snapshot-1", generation: 1 },
+        target: { ref: "e1", tag: "a", name: "Details" },
+        verification: {
+          outcome: "confirmed",
+          evidence: { kind, summary, observedAt: 1 }
+        }
+      })
+    const judge = (receipt: AgentStepReadout, evidence = "Details") =>
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({
+          title: "Details",
+          visibleText: "Status: Active"
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "Open Details in a new browser tab.",
+            kind: "change"
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      })
+    expect(
+      judge(
+        opened("click", "activation", "Authorized destination is committed")
+      )
+    ).toMatchObject({ type: "refused", reason: "unverified_change" })
+    expect(
+      judge(
+        opened("open_tab", "tab", "Authorized destination is committed"),
+        "Status: Active"
+      ).type
+    ).toBe("accepted")
+    expect(
+      judge(
+        opened("click", "activation", "Control opened a new tab"),
+        "Status: Active"
+      ).type
+    ).toBe("accepted")
+  })
+
   it("asks a read requirement for no page evidence", () => {
     expect(
       judgeAgentCompletion({
