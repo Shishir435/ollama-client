@@ -303,6 +303,47 @@ describe("Agent DOM mutation resolution and policy", () => {
     expect(result.outcome).toBe(outcome)
   })
 
+  /**
+   * The completion judge binds a searched value to what this form sent, so
+   * the receipt keeps the visible query it was approved with — never the
+   * landed address, whose hidden fields may be tokens.
+   */
+  it.each([
+    ["q=Alice", undefined, ["Alice"]],
+    ["q=Alice", true, undefined],
+    [undefined, undefined, undefined]
+  ])("records the visible query %s a confirmed GET submission sent", async (formQuery, sensitive, values) => {
+    const before = observation({
+      elements: [
+        element({
+          type: "submit",
+          formAction: new URL("/", location.href).href,
+          formMethod: "get",
+          maySubmit: true,
+          submitter: true,
+          ...(formQuery ? { formQuery } : {}),
+          ...(sensitive ? { formHasSensitiveControl: true } : {})
+        })
+      ]
+    })
+    const landed = new URL("/?q=Alice&token=secret-csrf", location.href).href
+    const result = await verifyDomMutationAgentEffect({
+      verification: {
+        effect: await authorize(command({ type: "click", ref: "e1" }), before),
+        receipt: { executedAt: 5, submissionUrl: landed },
+        before,
+        allowedOrigins: [location.origin]
+      },
+      adapter: verifierAdapter(before, {
+        getTab: async () => ({ url: landed })
+      }),
+      signal
+    })
+    expect(result.outcome).toBe("confirmed")
+    expect(result.evidence.values).toEqual(values)
+    expect(JSON.stringify(result)).not.toContain("secret-csrf")
+  })
+
   it("does not confirm a submission whose observed page holds another query", async () => {
     const before = observation({
       elements: [

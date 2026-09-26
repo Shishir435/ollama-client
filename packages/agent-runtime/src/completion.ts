@@ -926,7 +926,7 @@ const evidencePlannedChange = (
     const submitted = changes.find(
       (candidate) =>
         !consumed.has(candidate.stepId) &&
-        isBoundSubmission(requirement, candidate, changes) &&
+        isBoundSubmission(requirement, candidate) &&
         (quoted === undefined || quotationIsReceiptSummary(quoted, candidate))
     )
     if (submitted) {
@@ -1028,6 +1028,9 @@ const CLAIM_FUNCTION_WORDS = new Set([
   "have",
   "had",
   "now",
+  "here",
+  "there",
+  "just",
   "please",
   "on",
   "in",
@@ -1120,8 +1123,8 @@ const quotationNamesFocusedControl = (
  *
  * It proves the form was sent, not what sending it achieved, so the
  * requirement may claim the act and name only what the run's receipts
- * hold: the control pressed, the values typed before it, the key and the
- * site. "Click on Continue" and "Search in Google for Alice" (Alice typed)
+ * hold: the control pressed, the values the form sent, the key and the
+ * site. "Click on Continue" and "Search in Google for Alice" (Alice sent)
  * meet it; "Search for Alice excluding archived orders", "Search for Alice
  * and read the first hit" and "The address is saved" do not.
  */
@@ -1159,8 +1162,7 @@ const SUBMISSION_ACT_WORDS = new Set([
 
 const isBoundSubmission = (
   requirement: AgentTaskRequirement,
-  receipt: AgentStepReadout,
-  changes: readonly AgentStepReadout[]
+  receipt: AgentStepReadout
 ): boolean =>
   receipt.requirementId === requirement.id &&
   receipt.verification?.outcome === "confirmed" &&
@@ -1168,55 +1170,24 @@ const isBoundSubmission = (
   claimsOnlyAct(
     requirement,
     SUBMISSION_ACT_WORDS,
-    submissionFacts(receipt, changes),
+    submissionFacts(receipt),
     SUBMISSION_WORDS
   )
 
 /**
- * What the run's receipts prove about a submission: the control it went
- * through, the key, the site's host labels, and every value a confirmed
- * step typed, selected or filled on the same page before it.
+ * What a submission's own receipt proves: the control it went through, the
+ * key, the site's host labels, and the values its GET query landed with.
+ * Never a value typed earlier: a page with two forms can hold Alice in one
+ * and send the other.
  */
-const submissionFacts = (
-  receipt: AgentStepReadout,
-  changes: readonly AgentStepReadout[]
-): Set<string> => {
-  const typed = changes
-    .filter(
-      (change) =>
-        change.sequence < receipt.sequence &&
-        change.verification?.outcome === "confirmed" &&
-        /** Typed on the page the form was sent from, not anywhere in the run. */
-        change.sourceUrl === receipt.sourceUrl
-    )
-    .flatMap((change) => {
-      const command = change.command
-      if (!command) return []
-      if (command.type === "fill_form")
-        return command.fields.map((field) =>
-          field.type === "select"
-            ? field.value
-            : field.type === "check" || field.type === "uncheck"
-              ? undefined
-              : field.text
-        )
-      if (command.type === "select") return [command.value]
-      if (
-        command.type === "type" ||
-        command.type === "clear_and_type" ||
-        command.type === "replace_text"
-      )
-        return [command.text]
-      return []
-    })
-  return factWords([
+const submissionFacts = (receipt: AgentStepReadout): Set<string> =>
+  factWords([
     receipt.target?.name,
     receipt.command?.type === "press_key" ? keyText(receipt.command.key) : "",
     hostLabels(receipt.sourceUrl),
     hostLabels(receipt.formAction),
-    ...typed
+    ...(receipt.verification?.evidence.values ?? [])
   ])
-}
 
 /**
  * The labels of a URL's host, read without the DOM's URL parser, which this

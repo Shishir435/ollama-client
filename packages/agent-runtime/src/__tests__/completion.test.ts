@@ -1535,7 +1535,24 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused" })
   })
 
-  it("lets a sent form meet only a requirement naming what its receipts hold", () => {
+  it("lets a sent form meet only a requirement naming what its receipt holds", () => {
+    const sent = (values?: string[]) =>
+      step({
+        sequence: 2,
+        requirementId: "r1",
+        target: { name: "Continue" },
+        sourceUrl: "https://www.google.com/",
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "submission",
+            summary: "Form committed its resolved destination",
+            observedAt: 2,
+            ...(values ? { values } : {})
+          }
+        }
+      })
+    /** Alice typed into some field of the page, confirmed. */
     const typed = step({
       sequence: 1,
       requirementId: "r0",
@@ -1552,21 +1569,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: { kind: "field", summary: "Field holds Alice", observedAt: 1 }
       }
     })
-    const submitted = step({
-      sequence: 2,
-      requirementId: "r1",
-      target: { name: "Continue" },
-      sourceUrl: "https://www.google.com/",
-      verification: {
-        outcome: "confirmed",
-        evidence: {
-          kind: "submission",
-          summary: "Form committed its resolved destination",
-          observedAt: 2
-        }
-      }
-    })
-    const judge = (text: string, steps = [typed, submitted]) =>
+    const judge = (text: string, steps = [typed, sent(["Alice"])]) =>
       judgeAgentCompletion({
         steps,
         observation: observation({ visibleText: "Details" }),
@@ -1577,6 +1580,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
       "Search for Alice.",
       "Search in Google for Alice",
       "Click on Continue",
+      "Click Continue here",
       "Continue has been clicked.",
       "Submit the form"
     ])
@@ -1596,31 +1600,15 @@ describe("judgeAgentCompletion with planned requirements", () => {
       "Enter Alice in the field"
     ])
       expect([text, judge(text)]).toEqual([text, "refused"])
-    /** Without the typing receipt nothing proves Alice was what was sent. */
-    expect(judge("Search for Alice.", [submitted])).toBe("refused")
-    /** A negation typed as a value is still not a fact. */
-    expect(
-      judge("Do not click Continue", [
-        {
-          ...typed,
-          command: {
-            type: "clear_and_type",
-            ref: "e1",
-            snapshotId: "snapshot-1",
-            generation: 1,
-            text: "do not"
-          }
-        },
-        submitted
-      ])
-    ).toBe("refused")
-    /** Alice typed on another page is not what this form sent. */
-    expect(
-      judge("Search for Alice.", [
-        { ...typed, sourceUrl: "https://example.com/" },
-        submitted
-      ])
-    ).toBe("refused")
+    /**
+     * Alice typed into another form on the page, and this form sent Bob:
+     * only what the submission carried is proved.
+     */
+    expect(judge("Search for Alice.", [typed, sent(["Bob"])])).toBe("refused")
+    /** A POST, or a landing with no matched query, proves no value. */
+    expect(judge("Search for Alice.", [typed, sent()])).toBe("refused")
+    /** A negation the form sent is still not a fact. */
+    expect(judge("Do not click Continue", [sent(["do not"])])).toBe("refused")
   })
 
   it("binds a batch value to the field the requirement names", () => {

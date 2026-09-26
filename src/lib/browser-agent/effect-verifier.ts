@@ -4,7 +4,11 @@ import type {
   AgentVerificationResult,
   ResolvedAgentBatchField
 } from "@ollama-client/agent-runtime"
-import { agentObservationStates } from "@ollama-client/agent-runtime"
+import {
+  agentObservationStates,
+  MAX_AGENT_SUBMITTED_VALUE_CHARS,
+  MAX_AGENT_SUBMITTED_VALUES
+} from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
@@ -925,6 +929,31 @@ const verifyCheckedMutation: Verifier = async (input, adapter, signal) => {
       )
 }
 
+/**
+ * The values a GET submission sent, as proof of what this form carried
+ * rather than anything typed elsewhere on the page.
+ *
+ * Read from `formQuery`, the query of visible fields the approval's address
+ * was built from and the executor refused to send if it had changed — never
+ * from the landed address, which carries hidden fields such as tokens, and
+ * these values are kept on a durable receipt. Absent when the form has a
+ * hidden or sensitive control, since `formQuery` is then never built. A
+ * value too long to keep whole is dropped rather than cut, so no fragment
+ * of it reads as a word it never was.
+ */
+const submittedValues = (input: AgentVerificationInput): string[] => {
+  const query = input.effect.target.formQuery
+  if (query === undefined || input.effect.target.formHasSensitiveControl)
+    return []
+  return [...new URLSearchParams(query).values()]
+    .filter(
+      (value) =>
+        value.trim().length > 0 &&
+        value.length <= MAX_AGENT_SUBMITTED_VALUE_CHARS
+    )
+    .slice(0, MAX_AGENT_SUBMITTED_VALUES)
+}
+
 const verifySubmission: Verifier = async (input, adapter, signal) => {
   const tabId = input.effect.snapshotIdentity.tabId
   const expectedUrl =
@@ -947,20 +976,24 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     )
   }
   if (!sameUrl(tab.url, input.effect.sourceUrl)) {
+    const requested =
+      input.receipt.submissionUrl ?? input.effect.destination?.url
     if (
       input.effect.destination &&
-      landedAt(
-        tab.url,
-        input.receipt.submissionUrl ?? input.effect.destination.url
-      ) &&
+      requested &&
+      landedAt(tab.url, requested) &&
       (await adapter.classifyAccess(tab.url)) === "ok"
     ) {
-      return result(
-        "confirmed",
-        "submission",
-        "Form committed its resolved destination",
-        adapter.now()
-      )
+      const values = submittedValues(input)
+      return {
+        outcome: "confirmed",
+        evidence: {
+          kind: "submission",
+          summary: "Form committed its resolved destination",
+          observedAt: adapter.now(),
+          ...(values.length ? { values } : {})
+        }
+      }
     }
     // POST/redirect/GET normally lands on a result page, often back on the
     // source page with a new comment anchor. The guarded submission receipt

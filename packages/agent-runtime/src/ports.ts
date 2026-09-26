@@ -380,12 +380,23 @@ export interface AgentExecutionReceipt {
   pageToolNavigation?: boolean
 }
 
+/** Bounds on the submitted values a GET submission's evidence carries. */
+export const MAX_AGENT_SUBMITTED_VALUES = 8
+export const MAX_AGENT_SUBMITTED_VALUE_CHARS = 200
+
 export interface AgentVerificationEvidence {
   kind: string
   summary: string
   observedAt: number
   /** Bounded control names for a confirmed batch, in command order. */
   fields?: { name?: string }[]
+  /**
+   * The query values a confirmed GET submission landed with — what the form
+   * actually sent, and therefore the only values that submission proves.
+   * Absent for a POST, a form with a sensitive control, or a landing the
+   * verifier could not match to the requested address.
+   */
+  values?: string[]
 }
 
 export type AgentVerificationResult =
