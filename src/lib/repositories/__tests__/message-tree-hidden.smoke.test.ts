@@ -93,7 +93,7 @@ const notice = (resolvedAt?: number) => ({
 
 describe("the message tree", () => {
   it(
-    "marks a resolved notice hidden and nothing else",
+    "marks a resolved notice hidden and nothing else, malformed metrics included",
     async () => {
       vi.resetModules()
       installOwner()
@@ -135,13 +135,31 @@ describe("the message tree", () => {
         timestamp: CREATED_AT + 4
       })
 
+      /**
+       * A legacy or imported row whose metrics are not JSON. `json_extract`
+       * throws on it, which failed the whole tree and left the chat unloaded.
+       */
+      const brokenId = await facade.addMessage({
+        sessionId: "s-notice",
+        role: "assistant",
+        content: "Old reply",
+        parentId: userId,
+        timestamp: CREATED_AT + 5
+      })
+      const { run } = await import("@/lib/sqlite/db")
+      await run("UPDATE messages SET metrics = ? WHERE id = ?", [
+        "{not json",
+        brokenId
+      ])
+
       const tree = await facade.getMessageTreeBySession("s-notice")
       const hidden = Object.fromEntries(tree.map((row) => [row.id, row.hidden]))
       expect(hidden).toEqual({
         [userId]: false,
         [resolvedId]: true,
         [openId]: false,
-        [replyId]: false
+        [replyId]: false,
+        [brokenId]: false
       })
     },
     TIMEOUT

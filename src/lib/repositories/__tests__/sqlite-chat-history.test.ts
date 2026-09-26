@@ -462,7 +462,7 @@ describe("messages", () => {
     const [sql, params] = mockedQuery.mock.calls[0]
     /** A derived flag, never the metrics body it is read from. */
     expect(sql).toBe(
-      "SELECT id, parentId, timestamp, (json_extract(metrics, '$.permissionNotice.resolvedAt') IS NOT NULL) AS hidden FROM messages WHERE sessionId = ? ORDER BY timestamp ASC"
+      "SELECT id, parentId, timestamp, (CASE WHEN json_valid(metrics) THEN json_extract(metrics, '$.permissionNotice.resolvedAt') IS NOT NULL ELSE 0 END) AS hidden FROM messages WHERE sessionId = ? ORDER BY timestamp ASC"
     )
     expect(params).toEqual(["s1"])
     expect(nodes).toEqual([

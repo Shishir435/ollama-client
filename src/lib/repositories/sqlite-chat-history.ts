@@ -509,7 +509,7 @@ export const getMessageTreeBySession = async (
   sessionId: string
 ): Promise<MessageTreeRow[]> => {
   const rows = await query(
-    "SELECT id, parentId, timestamp, (json_extract(metrics, '$.permissionNotice.resolvedAt') IS NOT NULL) AS hidden FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
+    "SELECT id, parentId, timestamp, (CASE WHEN json_valid(metrics) THEN json_extract(metrics, '$.permissionNotice.resolvedAt') IS NOT NULL ELSE 0 END) AS hidden FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
     [sessionId]
   )
   const decoded = decodeRows(MessageTreeRowSchema, rows, {
