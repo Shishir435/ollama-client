@@ -1,6 +1,6 @@
 # Bundled embeddings
 
-Implemented from `release/0.14.0` (`fbbfaea8`) in an isolated worktree.
+Implemented from `release/0.14.0` in an isolated worktree; rebased onto the merged UX polish (`43767967`).
 
 New installations select a bundled, quantized `Xenova/all-MiniLM-L6-v2` model. Upgrades keep the existing external embedding configuration and receive a dismissible migration offer in chat and embedding settings. External providers and model selection remain available. Chat generation still requires a chat provider.
 

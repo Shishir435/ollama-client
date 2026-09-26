@@ -722,7 +722,7 @@
       "context_trimmed_title": "Contexte réduit",
       "context_trimmed_description": "Le contexte extrait des onglets dépassait ta limite et a été réduit avant l'envoi.",
       "context_retrieval_warning_title": "Échec de la récupération du contexte",
-      "context_retrieval_warning_description": "Impossible de récupérer le contexte depuis tes fichiers. La suite se fait sans lui.",
+      "context_retrieval_warning_description": "Une partie du contexte enregistré n’a pas pu être recherchée. Des informations pertinentes peuvent manquer dans la réponse.",
       "interrupted": "Réponse interrompue"
     },
     "composer": {
@@ -809,6 +809,12 @@
       "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités.",
       "max_image_size_label": "Taille maximale d'image (Mo)",
       "max_image_size_description": "Taille maximale autorisée pour chaque image jointe à un message pour les modèles de vision."
+    },
+    "errors": {
+      "title": "Échec de l’importation du fichier",
+      "processing_failed": "Impossible de traiter ou d’indexer ce fichier. Vérifiez les paramètres d’embeddings et le stockage disponible, puis réessayez.",
+      "unsupported_type": "Le type de fichier de {{name}} n’est pas pris en charge. Utilisez du texte, PDF, DOCX, CSV/TSV ou HTML.",
+      "too_large": "{{name}} dépasse la taille maximale de {{max}} Mo."
     }
   },
   "model": {
@@ -820,7 +826,11 @@
       "checking_model": "Vérification du modèle d'incrustation RAG/recherche...",
       "error": "Impossible de vérifier l'état. Cliquez pour réessayer.",
       "required_for_rag": "Le modèle d'incrustation est requis pour les fonctionnalités RAG.",
-      "download_button": "Télécharger le Modèle"
+      "download_button": "Télécharger le Modèle",
+      "unavailable": "Fournisseur d’embeddings indisponible. Vérifiez la connexion et réessayez.",
+      "unverified": "Modèle d’embeddings non vérifié : ce fournisseur n’a pas de liste de modèles.",
+      "download_failed": "Échec du téléchargement des embeddings",
+      "download_failed_description": "Vérifiez la connexion au fournisseur et l’espace disque disponible, puis réessayez."
     },
     "menu": {
       "select_placeholder": "Sélectionner un modèle...",
@@ -2313,7 +2323,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Actualiser les modèles",
+      "use_unverified": "Essayer ce modèle"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2344,7 +2356,8 @@
         "timeout": "Le fournisseur met trop de temps à répondre. Vérifiez son fonctionnement et le port.",
         "unavailable": "Ollama est inaccessible. Il peut être arrêté, utiliser un autre port ou bloquer les origines d’extension.",
         "server-error": "Le fournisseur a renvoyé une erreur serveur. Consultez ses journaux, puis réessayez."
-      }
+      },
+      "unverified": "Connexion non vérifiée. Vous pouvez essayer un modèle configuré ou ouvrir les paramètres du fournisseur pour vérifier le point d’accès."
     }
   }
 }

@@ -722,7 +722,7 @@
       "context_trimmed_title": "संदर्भ छाँटा गया",
       "context_trimmed_description": "निकाला गया टैब संदर्भ आपकी सीमा से अधिक था और भेजने से पहले छाँट दिया गया।",
       "context_retrieval_warning_title": "संदर्भ प्राप्त करना विफल",
-      "context_retrieval_warning_description": "आपकी फ़ाइलों से संदर्भ प्राप्त नहीं हो सका। इसके बिना जारी रखा जा रहा है।",
+      "context_retrieval_warning_description": "कुछ सहेजे गए संदर्भ में खोज नहीं हो सकी। उत्तर में प्रासंगिक जानकारी छूट सकती है।",
       "interrupted": "उत्तर बाधित हो गया"
     },
     "composer": {
@@ -809,6 +809,12 @@
       "max_file_size_description": "व्यक्तिगत फ़ाइलों के लिए अधिकतम अनुमत साइज़। बड़ी फ़ाइलों को प्रोसेस होने में अधिक समय लग सकता है।",
       "max_image_size_label": "अधिकतम छवि आकार (MB)",
       "max_image_size_description": "विज़न मॉडल के लिए संदेश के साथ संलग्न प्रत्येक छवि का अधिकतम अनुमत आकार।"
+    },
+    "errors": {
+      "title": "फ़ाइल अपलोड विफल",
+      "processing_failed": "इस फ़ाइल को प्रोसेस या इंडेक्स नहीं किया जा सका। एम्बेडिंग सेटिंग्स और उपलब्ध स्टोरेज जाँचें, फिर कोशिश करें।",
+      "unsupported_type": "{{name}} का फ़ाइल प्रकार समर्थित नहीं है। टेक्स्ट, PDF, DOCX, CSV/TSV या HTML का उपयोग करें।",
+      "too_large": "{{name}} का आकार अधिकतम {{max}} MB से अधिक है।"
     }
   },
   "model": {
@@ -820,7 +826,11 @@
       "checking_model": "RAG/खोज एम्बेडिंग मॉडल जाँच रहा है...",
       "error": "स्थिति जाँची नहीं जा सकी। पुनः प्रयास के लिए क्लिक करें।",
       "required_for_rag": "RAG सुविधाओं के लिए एम्बेडिंग मॉडल आवश्यक है।",
-      "download_button": "मॉडल डाउनलोड करें"
+      "download_button": "मॉडल डाउनलोड करें",
+      "unavailable": "एम्बेडिंग प्रदाता उपलब्ध नहीं है। कनेक्शन जाँचें और फिर कोशिश करें।",
+      "unverified": "एम्बेडिंग मॉडल सत्यापित नहीं हुआ: इस प्रदाता की कोई मॉडल सूची नहीं है।",
+      "download_failed": "एम्बेडिंग डाउनलोड विफल",
+      "download_failed_description": "प्रदाता कनेक्शन और उपलब्ध डिस्क स्थान जाँचें, फिर कोशिश करें।"
     },
     "menu": {
       "select_placeholder": "मॉडल चुनें...",
@@ -2313,7 +2323,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "मॉडल सूची रीफ़्रेश करें",
+      "use_unverified": "यह मॉडल आज़माएँ"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2344,7 +2356,8 @@
         "timeout": "प्रदाता ने जवाब देने में बहुत समय लिया। उसके चलने और सही पोर्ट की जाँच करें।",
         "unavailable": "Ollama तक पहुँचा नहीं जा सका। वह बंद हो सकता है, दूसरे पोर्ट पर हो सकता है या एक्सटेंशन ओरिजिन रोक रहा है।",
         "server-error": "प्रदाता ने सर्वर त्रुटि दी। उसके लॉग जाँचकर फिर प्रयास करें।"
-      }
+      },
+      "unverified": "कनेक्शन सत्यापित नहीं हुआ। आप कॉन्फ़िगर किया गया मॉडल आज़मा सकते हैं या एंडपॉइंट जाँचने के लिए प्रदाता सेटअप खोल सकते हैं।"
     }
   }
 }

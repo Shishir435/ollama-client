@@ -96,20 +96,21 @@ export interface EmbeddingPlan {
  * Bump when route selection or truncation semantics change, so vectors cached
  * by an earlier build are not reused under the new meaning of the same plan.
  */
-const STRATEGY_REVISION = "v1"
+const STRATEGY_REVISION = "v2"
 
 const WARMUP_COOLDOWN_MS = 5 * 60 * 1000
 const warmupThrottle = new Map<string, number>()
 
 /**
  * Normalizes model names for specific providers, handling default aliases.
- * @param _providerId Current provider ID (hooks for future per-provider logic).
+ * @param providerId Provider that owns the model identifier.
  * @param model The raw model name string.
  */
 const normalizeModelForProvider = (
-  _providerId: string,
+  providerId: string,
   model: string
 ): string => {
+  if (providerId !== DEFAULT_PROVIDER_ID) return model
   const normalized = normalizeEmbeddingModelName(model)
   const baseModel = DEFAULT_EMBEDDING_MODEL.split(":")[0]?.toLowerCase()
 
@@ -155,10 +156,14 @@ const getStoredEmbeddingModel = async (): Promise<string> => {
     stored !== DEFAULT_EMBEDDING_MODEL &&
     configModel === DEFAULT_EMBEDDING_MODEL
   ) {
-    return normalizeEmbeddingModelName(stored)
+    return normalizeModelForProvider(
+      config.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID,
+      stored
+    )
   }
 
-  return normalizeEmbeddingModelName(
+  return normalizeModelForProvider(
+    config.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID,
     configModel || stored || DEFAULT_EMBEDDING_MODEL
   )
 }
@@ -408,7 +413,7 @@ const buildAttempts = async (
   const sharedModel = config.sharedEmbeddingModel || DEFAULT_EMBEDDING_MODEL
   const storedEmbeddingModel = await getStoredEmbeddingModel()
 
-  if (sharedProviderId === DEFAULT_SHARED_EMBEDDING_PROVIDER_ID) {
+  if (!config.sharedEmbeddingProviderId) {
     try {
       const mapped = await ProviderManager.getModelMapping(storedEmbeddingModel)
       if (mapped?.providerId) {

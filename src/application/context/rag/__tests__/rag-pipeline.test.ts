@@ -167,16 +167,16 @@ describe("retrieveContextEnhanced — similarity mode", () => {
     expect(results[0].document.content).toBe("Result one")
   })
 
-  it("returns empty array when generateEmbedding fails in similarity mode", async () => {
+  it("reports retrieval unavailable when generateEmbedding fails in similarity mode", async () => {
     vi.mocked(generateEmbedding).mockResolvedValue({
       error: "Embedding service unavailable"
     } as any)
 
-    const results = await retrieveContextEnhanced("query", {
-      mode: "similarity"
-    })
-
-    expect(results).toEqual([])
+    await expect(
+      retrieveContextEnhanced("query", {
+        mode: "similarity"
+      })
+    ).rejects.toThrow("Context retrieval is unavailable")
     expect(searchHybrid).not.toHaveBeenCalled()
   })
 

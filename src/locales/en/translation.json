@@ -755,7 +755,7 @@
       "context_trimmed_title": "Context trimmed",
       "context_trimmed_description": "Extracted tab context exceeded your limit and was trimmed before sending.",
       "context_retrieval_warning_title": "Context retrieval failed",
-      "context_retrieval_warning_description": "Couldn't retrieve context from your files. Continuing without it.",
+      "context_retrieval_warning_description": "Some saved context could not be searched. The answer may be missing relevant information.",
       "interrupted": "Response interrupted"
     },
     "composer": {
@@ -809,6 +809,12 @@
       "max_file_size_description": "Maximum allowed size for individual files. Larger files may take longer to process.",
       "max_image_size_label": "Maximum Image Size (MB)",
       "max_image_size_description": "Maximum allowed size for each image attached to a message for vision models."
+    },
+    "errors": {
+      "title": "File upload failed",
+      "processing_failed": "Could not process or index this file. Check embedding settings and available storage, then retry.",
+      "unsupported_type": "The file type of {{name}} is not supported. Use text, PDF, DOCX, CSV/TSV, or HTML.",
+      "too_large": "{{name}} exceeds the maximum file size of {{max}} MB."
     }
   },
   "model": {
@@ -820,7 +826,11 @@
       "checking_model": "Checking RAG/search embedding model...",
       "error": "Unable to check status. Click to retry.",
       "required_for_rag": "The embedding model is required for RAG features.",
-      "download_button": "Download Model"
+      "download_button": "Download Model",
+      "unavailable": "Embedding provider unavailable. Check the connection and try again.",
+      "unverified": "Embedding model not verified: this provider has no model list.",
+      "download_failed": "Embedding download failed",
+      "download_failed_description": "Check the provider connection and available disk space, then retry."
     },
     "menu": {
       "select_placeholder": "Select model...",
@@ -2313,7 +2323,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Refresh models",
+      "use_unverified": "Try this model"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2344,7 +2356,8 @@
         "timeout": "Provider took too long to respond. Check that it is running and the port is correct.",
         "unavailable": "Could not reach Ollama. It may be stopped, on another port, or blocking extension origins.",
         "server-error": "Provider returned a server error. Check its logs, then retry."
-      }
+      },
+      "unverified": "Connection not verified. You can try a configured model, or open provider setup to check the endpoint."
     }
   }
 }

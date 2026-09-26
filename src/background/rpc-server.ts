@@ -81,13 +81,8 @@ const handlers = {
       request.model === BUNDLED_MODEL ||
       (!request.model && (await readNativeIndexState()).mode === "bundled")
     )
-      return { exists: true }
-    const { exists, debug } = await checkEmbeddingModelExists(
-      request.model,
-      request.providerId,
-      signal
-    )
-    return { exists, ...(debug && { debug: debug as Record<string, unknown> }) }
+      return { exists: true, status: "available" as const, canDownload: false }
+    return checkEmbeddingModelExists(request.model, request.providerId, signal)
   },
   [RpcMethod.EmbeddingsPrepareModel]: async (request, signal) => {
     if (

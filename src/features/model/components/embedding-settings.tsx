@@ -79,7 +79,6 @@ export const EmbeddingSettings = () => {
               ? { current: native.state.current, total: native.state.total }
               : rebuild.progress
           }
-          resolveProviderForModel={settings.resolveProviderForModel}
           onModelSelected={rebuild.requestModelChange}
           onToggleShowAdvanced={handleToggleShowAdvanced}
         />

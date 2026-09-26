@@ -722,7 +722,7 @@
       "context_trimmed_title": "上下文已裁剪",
       "context_trimmed_description": "提取的标签页上下文超出了你的限制，已在发送前裁剪。",
       "context_retrieval_warning_title": "上下文检索失败",
-      "context_retrieval_warning_description": "无法从你的文件中检索上下文，将不使用上下文继续。",
+      "context_retrieval_warning_description": "无法搜索部分已保存的上下文。回答可能缺少相关信息。",
       "interrupted": "响应已中断"
     },
     "composer": {
@@ -809,6 +809,12 @@
       "max_file_size_description": "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。",
       "max_image_size_label": "最大图片大小 (MB)",
       "max_image_size_description": "为视觉模型附加到消息的每张图片的最大允许大小。"
+    },
+    "errors": {
+      "title": "文件上传失败",
+      "processing_failed": "无法处理此文件或为其建立索引。请检查嵌入设置和可用存储空间，然后重试。",
+      "unsupported_type": "不支持 {{name}} 的文件类型。请使用文本、PDF、DOCX、CSV/TSV 或 HTML。",
+      "too_large": "{{name}} 超过了 {{max}} MB 的文件大小上限。"
     }
   },
   "model": {
@@ -820,7 +826,11 @@
       "checking_model": "正在检查 RAG/搜索嵌入模型...",
       "error": "无法检查状态。点击重试。",
       "required_for_rag": "RAG 功能需要嵌入模型。",
-      "download_button": "下载模型"
+      "download_button": "下载模型",
+      "unavailable": "嵌入提供商不可用。请检查连接后重试。",
+      "unverified": "嵌入模型尚未验证：此提供商没有模型列表。",
+      "download_failed": "嵌入下载失败",
+      "download_failed_description": "请检查提供商连接和可用磁盘空间，然后重试。"
     },
     "menu": {
       "select_placeholder": "选择模型...",
@@ -2313,7 +2323,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "刷新模型",
+      "use_unverified": "试用此模型"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2344,7 +2356,8 @@
         "timeout": "提供商响应超时。请检查它是否运行以及端口是否正确。",
         "unavailable": "无法连接 Ollama。它可能已停止、使用其他端口或阻止扩展来源。",
         "server-error": "提供商返回服务器错误。请检查日志后重试。"
-      }
+      },
+      "unverified": "连接尚未验证。你可以尝试已配置的模型，或打开提供商设置以检查端点。"
     }
   }
 }

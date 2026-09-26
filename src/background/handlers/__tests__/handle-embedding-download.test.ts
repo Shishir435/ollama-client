@@ -137,6 +137,61 @@ describe("Handle Embedding Download", () => {
       expect(result.exists).toBe(false)
     })
 
+    it("checks an explicitly selected remote provider even for the default model name", async () => {
+      const { ProviderFactory } = await import("@/lib/providers/factory")
+      vi.mocked(ProviderFactory.getProvider).mockResolvedValueOnce({
+        id: "custom:remote",
+        config: {
+          id: "custom:remote",
+          type: "openai-compatible",
+          baseUrl: "https://embeddings.example/v1"
+        },
+        getModels: vi.fn().mockResolvedValue([{ name: "all-minilm:latest" }])
+      } as never)
+      const result = await checkEmbeddingModelExists(
+        "all-minilm:latest",
+        "custom:remote"
+      )
+      expect(result).toMatchObject({
+        exists: true,
+        status: "available",
+        canDownload: false
+      })
+      expect(fetch).not.toHaveBeenCalled()
+    })
+    it("does not offer a download when Ollama is unreachable", async () => {
+      vi.mocked(fetch).mockRejectedValue(new Error("offline"))
+      expect(
+        await checkEmbeddingModelExists("all-minilm:latest", "ollama")
+      ).toMatchObject({ status: "unavailable", canDownload: false })
+    })
+    it("offers a download only after confirming a model is missing on Ollama", async () => {
+      vi.mocked(fetch).mockResolvedValue(createMockResponse({ models: [] }))
+      expect(
+        await checkEmbeddingModelExists("all-minilm:latest", "ollama")
+      ).toMatchObject({ status: "missing", canDownload: true })
+    })
+    it("reports a catalog-less remote model as unverified without contacting Ollama", async () => {
+      const { ProviderFactory } = await import("@/lib/providers/factory")
+      vi.mocked(ProviderFactory.getProvider).mockResolvedValueOnce({
+        id: "custom:no-catalog",
+        config: {
+          id: "custom:no-catalog",
+          type: "openai-compatible",
+          baseUrl: "https://catalogless.example/v1"
+        },
+        getModels: vi
+          .fn()
+          .mockRejectedValue(createAppError("no catalog", { status: 404 }))
+      } as never)
+      expect(
+        await checkEmbeddingModelExists(
+          "all-minilm:latest",
+          "custom:no-catalog"
+        )
+      ).toMatchObject({ status: "unverified", canDownload: false })
+      expect(fetch).not.toHaveBeenCalled()
+    })
     it("aborts an in-flight model check with the caller signal", async () => {
       const controller = new AbortController()
       let fetchSignal: AbortSignal | undefined

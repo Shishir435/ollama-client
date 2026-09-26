@@ -171,6 +171,10 @@ export const EmbeddingsCheckModelRequestSchema = z
 export const EmbeddingsCheckModelResultSchema = z
   .object({
     exists: z.boolean(),
+    status: z
+      .enum(["available", "missing", "unavailable", "unverified"])
+      .optional(),
+    canDownload: z.boolean().optional(),
     /**
      * Resolution trace for the diagnostics log. Bounded and content-free — it
      * carries provider ids and endpoint classes, never prompts or credentials.

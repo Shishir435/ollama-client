@@ -2,12 +2,11 @@ import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useEffect, useState } from "react"
 import {
   DEFAULT_EMBEDDING_MODEL,
+  DEFAULT_PROVIDER_ID,
   normalizeEmbeddingModelName
 } from "@/lib/constants"
-import { isLikelyEmbeddingModelName } from "@/lib/embeddings/model-name-filter"
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { ProviderModel } from "@/types"
 import { useNativeEmbeddings } from "./use-native-embeddings"
 
 /**
@@ -23,19 +22,14 @@ export interface UseEmbeddingModelCheckOptions {
   selectedModel: string
   /** Persists the (possibly-new) selected model name. */
   setSelectedModel: (next: string) => void
-  /** Persists the new model+provider as the shared embedding choice. */
-  applyModelChange: (model: string, providerId: string) => void
-  /** All provider-discovered embedding models for the auto-switch search. */
-  embeddingModels: ProviderModel[]
-  /** Resolve a model name to its owning provider. */
-  resolveProviderForModel: (modelName: string) => string
+  providerId: string
 }
 
 /** Check availability without silently changing the chosen provider or model. */
 export const useEmbeddingModelCheck = ({
   selectedModel,
   setSelectedModel,
-  resolveProviderForModel
+  providerId
 }: UseEmbeddingModelCheckOptions): boolean => {
   const [modelExists, setModelExists] = useState(false)
   const { state } = useNativeEmbeddings()
@@ -46,24 +40,29 @@ export const useEmbeddingModelCheck = ({
       setModelExists(nativeMode === "bundled")
       return
     }
-    const normalized = normalizeEmbeddingModelName(selectedModel)
+    const normalized =
+      providerId === DEFAULT_PROVIDER_ID
+        ? normalizeEmbeddingModelName(selectedModel)
+        : selectedModel
     if (normalized !== selectedModel) {
       setSelectedModel(normalized)
       return
     }
 
+    const controller = new AbortController()
+    setModelExists(false)
     const checkModel = async (): Promise<boolean> => {
       try {
         const currentModel = selectedModel || DEFAULT_EMBEDDING_MODEL
-        const looksLikeEmbedding = isLikelyEmbeddingModelName(currentModel)
-        const currentProviderId = resolveProviderForModel(currentModel)
         const response = await extensionRpcClient.call(
           RpcMethod.EmbeddingsCheckModel,
           {
             model: currentModel,
-            ...(currentProviderId && { providerId: currentProviderId })
-          }
+            providerId
+          },
+          { signal: controller.signal }
         )
+        if (controller.signal.aborted) return true
 
         if (response.debug) {
           logger.debug(
@@ -73,13 +72,14 @@ export const useEmbeddingModelCheck = ({
           )
         }
 
-        const exists = looksLikeEmbedding && response.exists
+        const exists = response.exists
 
         setModelExists(exists)
         if (exists) return true
 
         return false
       } catch (error) {
+        if (controller.signal.aborted) return true
         logger.error(
           "Error checking embedding model",
           "useEmbeddingModelCheck",
@@ -126,10 +126,11 @@ export const useEmbeddingModelCheck = ({
 
     return () => {
       cancelled = true
+      controller.abort()
       stopPolling()
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [nativeMode, resolveProviderForModel, selectedModel, setSelectedModel])
+  }, [nativeMode, providerId, selectedModel, setSelectedModel])
 
   return modelExists
 }

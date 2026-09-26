@@ -25,9 +25,7 @@ const renderCheck = () =>
     useEmbeddingModelCheck({
       selectedModel: "all-minilm:latest",
       setSelectedModel: vi.fn(),
-      applyModelChange: vi.fn(),
-      embeddingModels: [],
-      resolveProviderForModel: () => "ollama"
+      providerId: "ollama"
     })
   )
 
@@ -120,4 +118,34 @@ describe("useEmbeddingModelCheck polling", () => {
     expect(mockedCall.mock.calls.length).toBe(callsAtUnmount)
     vi.useRealTimers()
   })
+})
+
+it("checks the explicitly selected provider even when model names collide", async () => {
+  mockedCall.mockResolvedValue({ exists: true } as never)
+  const setSelectedModel = vi.fn()
+  const { rerender } = renderHook(
+    ({ providerId }) =>
+      useEmbeddingModelCheck({
+        selectedModel: "all-minilm:latest",
+        providerId,
+        setSelectedModel
+      }),
+    { initialProps: { providerId: "custom:first" } }
+  )
+  await waitFor(() =>
+    expect(mockedCall).toHaveBeenCalledWith(
+      expect.anything(),
+      { model: "all-minilm:latest", providerId: "custom:first" },
+      expect.anything()
+    )
+  )
+  rerender({ providerId: "custom:second" })
+  await waitFor(() =>
+    expect(mockedCall).toHaveBeenCalledWith(
+      expect.anything(),
+      { model: "all-minilm:latest", providerId: "custom:second" },
+      expect.anything()
+    )
+  )
+  expect(setSelectedModel).not.toHaveBeenCalled()
 })

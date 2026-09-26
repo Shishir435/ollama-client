@@ -722,7 +722,7 @@
       "context_trimmed_title": "Kontext gekürzt",
       "context_trimmed_description": "Der extrahierte Tab-Kontext hat dein Limit überschritten und wurde vor dem Senden gekürzt.",
       "context_retrieval_warning_title": "Kontextabruf fehlgeschlagen",
-      "context_retrieval_warning_description": "Der Kontext aus deinen Dateien konnte nicht abgerufen werden. Es geht ohne ihn weiter.",
+      "context_retrieval_warning_description": "Ein Teil des gespeicherten Kontexts konnte nicht durchsucht werden. Der Antwort könnten relevante Informationen fehlen.",
       "interrupted": "Antwort unterbrochen"
     },
     "composer": {
@@ -809,6 +809,12 @@
       "max_file_size_description": "Maximal zulässige Größe für einzelne Dateien. Größere Dateien benötigen möglicherweise länger zur Verarbeitung.",
       "max_image_size_label": "Maximale Bildgröße (MB)",
       "max_image_size_description": "Maximal zulässige Größe für jedes an eine Nachricht angehängte Bild für Vision-Modelle."
+    },
+    "errors": {
+      "title": "Datei-Upload fehlgeschlagen",
+      "processing_failed": "Die Datei konnte nicht verarbeitet oder indexiert werden. Prüfe die Embedding-Einstellungen und den freien Speicherplatz und versuche es erneut.",
+      "unsupported_type": "Der Dateityp von {{name}} wird nicht unterstützt. Verwende Text, PDF, DOCX, CSV/TSV oder HTML.",
+      "too_large": "{{name}} überschreitet die maximale Dateigröße von {{max}} MB."
     }
   },
   "model": {
@@ -820,7 +826,11 @@
       "checking_model": "RAG-/Such-Embedding-Modell wird geprüft...",
       "error": "Status konnte nicht geprüft werden. Zum erneuten Versuch klicken.",
       "required_for_rag": "Das Embedding-Modell ist für RAG-Funktionen erforderlich.",
-      "download_button": "Modell herunterladen"
+      "download_button": "Modell herunterladen",
+      "unavailable": "Embedding-Anbieter nicht erreichbar. Prüfe die Verbindung und versuche es erneut.",
+      "unverified": "Embedding-Modell nicht bestätigt: Dieser Anbieter hat keine Modellliste.",
+      "download_failed": "Embedding-Download fehlgeschlagen",
+      "download_failed_description": "Prüfe die Verbindung zum Anbieter und den freien Speicherplatz und versuche es erneut."
     },
     "menu": {
       "select_placeholder": "Modell auswählen...",
@@ -2313,7 +2323,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Modelle aktualisieren",
+      "use_unverified": "Dieses Modell ausprobieren"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2344,7 +2356,8 @@
         "timeout": "Der Anbieter antwortet zu langsam. Prüfe, ob er läuft und der Port stimmt.",
         "unavailable": "Ollama ist nicht erreichbar. Es ist möglicherweise gestoppt, nutzt einen anderen Port oder blockiert Erweiterungs-Ursprünge.",
         "server-error": "Der Anbieter meldete einen Serverfehler. Prüfe seine Logs und versuche es erneut."
-      }
+      },
+      "unverified": "Verbindung nicht bestätigt. Du kannst ein konfiguriertes Modell ausprobieren oder den Endpunkt in den Anbietereinstellungen prüfen."
     }
   }
 }

@@ -2,6 +2,7 @@ import { TriangleAlert } from "lucide-react"
 import { memo, Suspense, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
+import { useRecoveryCooldown } from "@/features/chat/hooks/use-recovery-cooldown"
 import { useAgentRunRenderer } from "@/features/chat/lib/agent-run-renderer"
 import type { PermissionResumeResult } from "@/features/chat/lib/resume-permission-turn"
 import type { ChatMessage } from "@/types"
@@ -58,6 +59,12 @@ export const ChatMessageBubble = memo(
      * would ask the model to start the task again, beside a run that already
      * acted on a page. The card's own follow-ups are the way to carry on.
      */
+    const cooldown = useRecoveryCooldown(
+      msg.error?.recoveryAction === "wait-retry"
+        ? msg.error.retryAfterMs
+        : undefined,
+      msg.timestamp
+    )
     const onRegenerateTurn = agentRow ? undefined : onRegenerate
     const canRetry =
       !isUser &&
@@ -164,8 +171,8 @@ export const ChatMessageBubble = memo(
               isLoading={isLoading}
               showRetrievedChunks={showRetrievedChunks}
               feedbackEnabled={feedbackEnabled}
-              onRegenerate={onRegenerateTurn}
-              canRetry={canRetry}
+              onRegenerate={cooldown > 0 ? undefined : onRegenerateTurn}
+              canRetry={canRetry && cooldown === 0}
               onEdit={() => setEditorMode("edit")}
               onFork={
                 isUser && !isBusy ? () => setEditorMode("fork") : undefined

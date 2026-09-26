@@ -66,6 +66,44 @@ const chatModelsOnly = (models: ProvidersListModelsResult["models"]) =>
     return type !== "embedding" && !/\bembed(ding)?\b/i.test(model.name)
   })
 
+const modelActionKey = (verified: boolean) =>
+  verified ? "onboarding.model.use" : "onboarding.model.use_unverified"
+
+const hasSelectedModel = (
+  models: ProvidersListModelsResult["models"],
+  providerId: string | undefined,
+  modelId: string
+) =>
+  models.some(
+    (model) => model.name === modelId && model.providerId === providerId
+  )
+
+const ModelConnectionNotice = ({
+  verified,
+  failed
+}: {
+  verified: boolean
+  failed: boolean
+}) => {
+  const { t } = useTranslation()
+  return (
+    <>
+      {!verified && (
+        <p
+          role="status"
+          className="rounded-control bg-tint-warning p-2 text-xs">
+          {t("onboarding.provider.unverified")}
+        </p>
+      )}
+      {failed && (
+        <p role="alert" className="text-xs text-destructive">
+          {t("onboarding.provider.connection_failed")}
+        </p>
+      )}
+    </>
+  )
+}
+
 export const FirstRunPermissionsDialog = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -79,6 +117,7 @@ export const FirstRunPermissionsDialog = () => {
   const [modelId, setModelId] = useState("")
   const [testSessionId, setTestSessionId] = useState<string>()
   const [busy, setBusy] = useState(false)
+  const [connectionVerified, setConnectionVerified] = useState(false)
   const [addProviderOpen, setAddProviderOpen] = useState(false)
   const [errorSupportCode, setErrorSupportCode] = useState<string>()
   const [connectionError, setConnectionError] = useState<{
@@ -131,6 +170,9 @@ export const FirstRunPermissionsDialog = () => {
 
   const chooseProvider = async (id: string) => {
     setProviderId(id)
+    setModelId("")
+    setModels([])
+    setConnectionVerified(false)
     setErrorSupportCode(undefined)
     setConnectionError(undefined)
     await selectOnboardingProvider(id)
@@ -140,18 +182,27 @@ export const FirstRunPermissionsDialog = () => {
   const testConnection = async () => {
     if (!providerId) return
     setBusy(true)
+    setConnectionVerified(false)
     setErrorSupportCode(undefined)
     setConnectionError(undefined)
     try {
-      await extensionRpcClient.call(RpcMethod.ProvidersTestConnection, {
-        target: "stored",
-        providerId
-      })
+      const verdict = await extensionRpcClient.call(
+        RpcMethod.ProvidersTestConnection,
+        {
+          target: "stored",
+          providerId
+        }
+      )
       const result = await extensionRpcClient.call(
         RpcMethod.ProvidersListModels,
         { providerId }
       )
-      setModels(chatModelsOnly(result.models))
+      const available = chatModelsOnly(result.models)
+      setModels(available)
+      setModelId((current) =>
+        available.some((model) => model.name === current) ? current : ""
+      )
+      setConnectionVerified(verdict.reachable)
       await persistStage("model-choice")
     } catch (error) {
       const safeError = error as {
@@ -175,11 +226,26 @@ export const FirstRunPermissionsDialog = () => {
   }
 
   const chooseModel = async () => {
-    if (!providerId || !modelId) return
-    const ref = { providerId, modelId }
-    await saveSelectedModelRef(ref)
-    await selectOnboardingModel(ref)
-    setStage("test-chat")
+    if (busy || !providerId || !hasSelectedModel(models, providerId, modelId))
+      return
+    setBusy(true)
+    try {
+      await extensionRpcClient.call(RpcMethod.ProvidersSetEnabled, {
+        providerId,
+        enabled: true
+      })
+      const ref = { providerId, modelId }
+      await saveSelectedModelRef(ref)
+      await selectOnboardingModel(ref)
+      setStage("test-chat")
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("onboarding.provider.connection_failed")
+      })
+    } finally {
+      setBusy(false)
+    }
   }
 
   const openTestChat = async () => {
@@ -361,6 +427,10 @@ export const FirstRunPermissionsDialog = () => {
                 <DialogDescription>
                   {t("onboarding.model.description")}
                 </DialogDescription>
+                <ModelConnectionNotice
+                  verified={connectionVerified}
+                  failed={Boolean(errorSupportCode)}
+                />
                 {models.length === 0 ? (
                   <div className="rounded-control bg-tint-warning p-2 text-xs">
                     {t("onboarding.model.none")}
@@ -408,13 +478,17 @@ export const FirstRunPermissionsDialog = () => {
 
           <DialogFooter>
             {stage !== "privacy" && (
-              <Button variant="ghost" onClick={() => void goBack()}>
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() => void goBack()}>
                 <ArrowLeft className="icon-sm" />
                 {t("common.actions.back")}
               </Button>
             )}
             <Button
               variant="outline"
+              disabled={busy}
               onClick={() => {
                 void skipOnboarding()
                 setOpen(false)
@@ -438,9 +512,27 @@ export const FirstRunPermissionsDialog = () => {
               </>
             )}
             {stage === "model-choice" && (
-              <Button disabled={!modelId} onClick={() => void chooseModel()}>
-                {t("onboarding.model.use")}
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={openProviderSetup}>
+                  {t("onboarding.provider.open_setup")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => void testConnection()}>
+                  {t("onboarding.model.refresh")}
+                </Button>
+                <Button
+                  disabled={
+                    busy || !hasSelectedModel(models, providerId, modelId)
+                  }
+                  onClick={() => void chooseModel()}>
+                  {t(modelActionKey(connectionVerified))}
+                </Button>
+              </>
             )}
             {stage === "test-chat" && (
               <Button onClick={() => void openTestChat()}>

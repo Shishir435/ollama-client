@@ -29,8 +29,8 @@ export const useChatInputAttachments = () => {
       logger.error("File processing error", "ChatInputBox", { error })
       toast({
         variant: "destructive",
-        title: "File Upload Failed",
-        description: error.message || "Failed to process file"
+        title: t("file_upload.errors.title"),
+        description: error.message || t("file_upload.errors.processing_failed")
       })
     }
   })

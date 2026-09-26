@@ -4,7 +4,8 @@ import {
   Brain,
   Download,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Settings
 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -13,262 +14,168 @@ import { Button } from "@/components/ui/button"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
 import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
+import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { cn } from "@/lib/class-names"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
   normalizeEmbeddingModelName
 } from "@/lib/constants"
-import { getDisplayErrorMessage } from "@/lib/error-display"
-import { logger } from "@/lib/logger"
 import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import { useNativeEmbeddings } from "../hooks/use-native-embeddings"
 
+type Availability = "available" | "missing" | "unavailable" | "unverified"
+
+const externalModelName = (providerId: string, model: string) =>
+  providerId === DEFAULT_PROVIDER_ID
+    ? normalizeEmbeddingModelName(model)
+    : model
+
 export const EmbeddingStatusIndicator = () => {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const { state: nativeState } = useNativeEmbeddings()
   const nativeMode = nativeState?.mode
   const [selectedModel] = useSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
   const [config] = useSetting(SETTINGS.EMBEDDING_CONFIG)
-
+  const providerId = config?.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
+  const externalModel =
+    config?.sharedEmbeddingModel || selectedModel || DEFAULT_EMBEDDING_MODEL
   const modelName =
-    nativeState?.mode === "bundled"
+    nativeMode === "bundled"
       ? t("settings.embeddings.bundled.title")
-      : normalizeEmbeddingModelName(
-          config?.sharedEmbeddingModel ||
-            selectedModel ||
-            DEFAULT_EMBEDDING_MODEL
-        )
-  const providerId =
-    modelName === DEFAULT_EMBEDDING_MODEL
-      ? DEFAULT_PROVIDER_ID
-      : config?.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
-
+      : externalModelName(providerId, externalModel)
+  const key = JSON.stringify([nativeMode, providerId, modelName])
+  const [checked, setChecked] = useState<{
+    key: string
+    status: Availability
+    canDownload: boolean
+  }>()
   const [isChecking, setIsChecking] = useState(false)
-  const [modelExists, setModelExists] = useState<boolean | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
+  const request = useRef<AbortController | null>(null)
   const { pullingModel, progress, pullModel } = useModelPull()
   const isDownloading = pullingModel === modelName
-
-  const [retryCount, setRetryCount] = useState(0)
-  const retryTimerRef = useRef<number | null>(null)
-  const lastPullErrorRef = useRef<string | null>(null)
-  const MAX_RETRIES = 3
-  const CHECK_TIMEOUT_MS = 6000
-  const { toast } = useToast()
-
+  const lastPullError = useRef<string | null>(null)
   const checkModel = useCallback(async () => {
-    if (!nativeMode) return
-    if (nativeMode === "bundled") {
-      setModelExists(true)
-      setError(null)
+    request.current?.abort()
+    const controller = new AbortController()
+    request.current = controller
+    if (nativeMode !== "external") {
       setIsChecking(false)
       return
     }
     setIsChecking(true)
-    setError(null)
     try {
-      logger.info("Checking model", "EmbeddingStatusIndicator", {
-        model: modelName,
-        providerId
+      const result = await extensionRpcClient.call(
+        RpcMethod.EmbeddingsCheckModel,
+        { model: modelName, providerId },
+        { signal: controller.signal }
+      )
+      if (controller.signal.aborted) return
+      setChecked({
+        key,
+        status: result.status ?? (result.exists ? "available" : "unverified"),
+        canDownload: result.canDownload === true
       })
-
-      const resp = await Promise.race([
-        extensionRpcClient.call(RpcMethod.EmbeddingsCheckModel, {
-          model: modelName,
-          ...(providerId && { providerId })
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Status check timed out")),
-            CHECK_TIMEOUT_MS
-          )
-        )
-      ])
-
-      logger.debug("Check response", "EmbeddingStatusIndicator", {
-        model: modelName,
-        providerId,
-        exists: resp.exists
-      })
-
-      setModelExists(resp.exists)
-    } catch (err) {
-      const message = getDisplayErrorMessage(err, "Unknown error")
-      logger.warn("Check failed", "EmbeddingStatusIndicator", {
-        model: modelName,
-        providerId,
-        error: message
-      })
-      setModelExists(null)
-      setError(message)
+    } catch {
+      if (!controller.signal.aborted)
+        setChecked({ key, status: "unavailable", canDownload: false })
     } finally {
-      setIsChecking(false)
+      if (!controller.signal.aborted) setIsChecking(false)
     }
-  }, [modelName, providerId, nativeMode])
+  }, [key, modelName, nativeMode, providerId])
 
   useEffect(() => {
-    checkModel()
-    return () => {
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
-    }
+    void checkModel()
+    return () => request.current?.abort()
   }, [checkModel])
-
-  // Auto-retry on error
   useEffect(() => {
-    if (error && retryCount < MAX_RETRIES) {
-      const backoff = 2 ** retryCount * 1000
-      retryTimerRef.current = window.setTimeout(() => {
-        setRetryCount((c) => c + 1)
-        checkModel()
-      }, backoff)
-    }
-    return () => {
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
-    }
-  }, [error, retryCount, checkModel])
-
-  // Re-check when download completes
-  useEffect(() => {
-    if (progress === "✅ Success" && !isDownloading) {
-      checkModel()
-    }
+    if (progress === "✅ Success" && !isDownloading) void checkModel()
   }, [progress, isDownloading, checkModel])
-
-  const handleRetry = (e?: React.MouseEvent) => {
-    e?.stopPropagation()
-    setError(null)
-    setRetryCount(0)
-    logger.info("Manual retry", "EmbeddingStatusIndicator", {
-      model: modelName,
-      providerId
-    })
-    checkModel()
-  }
-
-  const handleDownload = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    pullModel(modelName, providerId)
-  }
-
-  const status =
-    isChecking || isDownloading
-      ? "loading"
-      : error
-        ? "error"
-        : modelExists === true
-          ? "ready"
-          : modelExists === false
-            ? "missing"
-            : "default"
-
-  const statusConfig = {
-    loading: {
-      icon: (
-        <Loader2
-          className={cn("icon-sm animate-spin", STATUS_STYLES.neutral.text)}
-        />
-      ),
-      color: STATUS_STYLES.neutral.text,
-      text: isDownloading
-        ? t("model.embedding_status.downloading", {
-            model: modelName,
-            progress: progress || ""
-          })
-        : t("model.embedding_status.checking")
-    },
-    ready: {
-      icon: <Brain className={cn("icon-sm", STATUS_STYLES.success.text)} />,
-      color: STATUS_STYLES.success.text,
-      text: t("model.embedding_status.ready", { model: modelName })
-    },
-    missing: {
-      icon: <Brain className={cn("icon-sm", STATUS_STYLES.warning.text)} />,
-      color: STATUS_STYLES.warning.text,
-      text: t("model.embedding_status.missing", { model: modelName })
-    },
-    error: {
-      icon: (
-        <AlertTriangle className={cn("icon-sm", STATUS_STYLES.danger.text)} />
-      ),
-      color: STATUS_STYLES.danger.text,
-      text: t("model.embedding_status.error")
-    },
-    default: {
-      icon: <Brain className={cn("icon-sm", STATUS_STYLES.neutral.text)} />,
-      color: STATUS_STYLES.neutral.text,
-      text: t("model.embedding_status.checking_model")
-    }
-  }
-
-  const { icon, text: statusText, color: statusColor } = statusConfig[status]
-
   useEffect(() => {
-    if (!progress?.startsWith("❌")) {
+    if (!progress?.startsWith("❌") || lastPullError.current === progress)
       return
-    }
-
-    if (lastPullErrorRef.current === progress) {
-      return
-    }
-
-    lastPullErrorRef.current = progress
+    lastPullError.current = progress
     toast({
-      title: "Embedding download failed",
-      description: progress.replace(/^❌\s*/, ""),
+      title: t("model.embedding_status.download_failed"),
+      description: t("model.embedding_status.download_failed_description"),
       variant: "destructive"
     })
-  }, [progress, toast])
+  }, [progress, toast, t])
 
+  const availability =
+    nativeMode === "bundled"
+      ? "available"
+      : checked?.key === key
+        ? checked.status
+        : undefined
+  const loading = isChecking || isDownloading || !availability
+  const canDownload =
+    !loading &&
+    availability === "missing" &&
+    checked?.key === key &&
+    checked.canDownload
+  const statusText = loading
+    ? isDownloading
+      ? t("model.embedding_status.downloading", {
+          model: modelName,
+          progress: progress || ""
+        })
+      : t("model.embedding_status.checking")
+    : availability === "available"
+      ? t("model.embedding_status.ready", { model: modelName })
+      : availability === "missing"
+        ? t("model.embedding_status.missing", { model: modelName })
+        : t(`model.embedding_status.${availability}`)
+  const color =
+    availability === "available"
+      ? STATUS_STYLES.success.text
+      : STATUS_STYLES.warning.text
+  const icon = loading ? (
+    <Loader2 className="icon-sm animate-spin" />
+  ) : availability === "unavailable" ? (
+    <AlertTriangle className={cn("icon-sm", color)} />
+  ) : (
+    <Brain className={cn("icon-sm", color)} />
+  )
+  const openSetup = () =>
+    void openOptionsInTab(
+      runtime.getURL("options.html?tab=context&focus=embeddings-model-select")
+    )
+  const download = () => {
+    if (canDownload) void pullModel(modelName, providerId)
+  }
   return (
     <TooltipActionButton
       variant="ghost"
       size="icon"
-      onClick={modelExists === false ? handleDownload : handleRetry}
-      // className="m-1"
       ariaLabel={statusText}
       tooltipSide="left"
       tooltipClassName="max-w-62.5"
+      onClick={canDownload ? download : openSetup}
       icon={icon}
       tooltip={
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <span className={statusColor}>{statusText}</span>
-            {!isChecking && !isDownloading && (
-              <RefreshCw
-                className="icon-sm cursor-pointer text-muted-foreground hover:text-foreground"
-                onClick={handleRetry}
-              />
-            )}
-          </div>
-
-          {modelExists === false && !isDownloading && !isChecking && (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs text-muted-foreground">
-                {t("model.embedding_status.required_for_rag")}
-              </p>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 text-xs w-full"
-                onClick={handleDownload}>
-                <Download className="mr-2 icon-xs" />
-                {t("model.embedding_status.download_button")}
-              </Button>
-            </div>
+          <span className={color}>{statusText}</span>
+          {canDownload && (
+            <Button size="sm" variant="secondary" onClick={download}>
+              <Download className="mr-2 icon-xs" />
+              {t("model.embedding_status.download_button")}
+            </Button>
           )}
-
-          {error && (
-            <div
-              className={cn(
-                "text-xs wrap-break-word",
-                STATUS_STYLES.danger.text
-              )}>
-              {error}
-            </div>
+          {!loading && nativeMode === "external" && (
+            <Button size="sm" variant="ghost" onClick={() => void checkModel()}>
+              <RefreshCw className="mr-2 icon-xs" />
+              {t("common.actions.retry")}
+            </Button>
+          )}
+          {availability !== "available" && (
+            <Button size="sm" variant="ghost" onClick={openSetup}>
+              <Settings className="mr-2 icon-xs" />
+              {t("onboarding.provider.open_setup")}
+            </Button>
           )}
         </div>
       }

@@ -18,7 +18,7 @@ import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
 import { buildToolContext } from "@/background/lib/tool-turn-context"
-import { createAppError } from "@/lib/error-utils"
+import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
   getStoredModelConfig,
@@ -108,13 +108,17 @@ const buildMemoryContextHeader = async ({
   clientContextPrepared,
   retrievalToolsActive,
   conversationMessages,
-  port
+  port,
+  signal,
+  requestId
 }: {
   enabled: boolean
   clientContextPrepared?: boolean
   retrievalToolsActive: boolean
   conversationMessages: ChatMessage[]
   port: ChatStreamSink
+  signal: AbortSignal
+  requestId: string
 }): Promise<string> => {
   if (!enabled || clientContextPrepared || retrievalToolsActive) return ""
   const lastUserMessage = conversationMessages[conversationMessages.length - 1]
@@ -126,9 +130,27 @@ const buildMemoryContextHeader = async ({
   const enhancedResults = await retrieveContextEnhanced(
     lastUserMessage.content,
     {
-      type: "chat"
+      type: "chat",
+      signal
     }
-  )
+  ).catch((error: unknown) => {
+    signal.throwIfAborted()
+    if (isAbortError(error)) throw error
+    logger.warn("Memory retrieval unavailable", "handleChatWithModel", {
+      error
+    })
+    safePostChatStreamEvent(port, {
+      version: 1,
+      type: CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING,
+      requestId,
+      payload: {
+        variant: "destructive",
+        titleKey: "chat.errors.context_retrieval_warning_title",
+        descriptionKey: "chat.errors.context_retrieval_warning_description"
+      }
+    })
+    return []
+  })
   if (enhancedResults.length === 0) return ""
 
   const { formattedContext, sources } = formatEnhancedResults(enhancedResults)
@@ -303,7 +325,9 @@ export const handleChatWithModel = withErrorContext(
       clientContextPrepared: msg.payload.clientContextPrepared,
       retrievalToolsActive: hasRetrievalTool(resolvedTools),
       conversationMessages,
-      port
+      port,
+      signal: ac.signal,
+      requestId: msg.payload.requestId || abortKey
     })
     const browserContext = buildBrowserContextGuidance(
       resolvedTools?.tools,
