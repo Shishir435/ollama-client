@@ -457,6 +457,9 @@ with `403 Cross-site requests are not allowed` because the extension sends an
 `Origin`. `olc -b fm` starts `fm serve` on a private Unix socket, relays turns
 to it, and applies the proxy's own origin policy instead.
 
+It exists only on macOS: on Linux and Windows `-b fm` and `-b apple` are refused
+with that reason, and `olc --help` does not list them.
+
 It publishes one model, `apple/foundation`, with an 8,192-token context, text
 and image input, and no tool calling: offered a tool, the model answers in
 prose, so the catalog says so and a client sends none. It suits short chats,

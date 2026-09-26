@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { parseArgs, selectBackend } from "../../../cli-options.js"
+import { parseArgs, selectBackend, usageFor } from "../../../cli-options.js"
 import { resolveConfig } from "../../../config.js"
 import { createBackend } from "../../registry.js"
 import type { BackendContext } from "../../types.js"
@@ -21,9 +21,33 @@ const context = (options: Record<string, unknown> = {}): BackendContext => ({
 })
 
 describe("fm backend selection", () => {
-  it("accepts fm and its apple alias", () => {
-    expect(selectBackend(parseArgs(["-b", "fm"]).options, {}, {})).toBe("fm")
-    expect(selectBackend(parseArgs(["-b", "apple"]).options, {}, {})).toBe("fm")
+  it("accepts fm and its apple alias on macOS", () => {
+    expect(
+      selectBackend(parseArgs(["-b", "fm"]).options, {}, {}, "darwin")
+    ).toBe("fm")
+    expect(
+      selectBackend(parseArgs(["-b", "apple"]).options, {}, {}, "darwin")
+    ).toBe("fm")
+  })
+
+  /** Refused by name up front, rather than failing once startup looks for fm. */
+  it.each([
+    "linux",
+    "win32"
+  ] as const)("refuses fm on %s with the reason", (platform) => {
+    expect(() =>
+      selectBackend(parseArgs(["-b", "apple"]).options, {}, {}, platform)
+    ).toThrow(/only on macOS 27 or later/)
+  })
+
+  it("offers fm in help on macOS only", () => {
+    expect(usageFor("darwin")).toContain("olc -b fm")
+    expect(usageFor("darwin")).toContain("--fm <path>")
+    for (const platform of ["linux", "win32"] as const) {
+      const usage = usageFor(platform)
+      expect(usage).not.toMatch(/\bfm\b|Apple/)
+      expect(usage).toContain("ollama (default), codex, or opencode")
+    }
   })
 
   it("listens on its own port, clear of the other backends", () => {
@@ -32,7 +56,12 @@ describe("fm backend selection", () => {
 
   it("refuses another backend's options", () => {
     expect(() =>
-      selectBackend({ BACKEND: "fm", CODEX_PATH: "/bin/codex" }, {}, {})
+      selectBackend(
+        { BACKEND: "fm", CODEX_PATH: "/bin/codex" },
+        {},
+        {},
+        "darwin"
+      )
     ).toThrow(/CODEX_PATH is not supported by fm/)
     expect(() =>
       selectBackend({ BACKEND: "codex", FM_PATH: "/usr/bin/fm" }, {}, {})

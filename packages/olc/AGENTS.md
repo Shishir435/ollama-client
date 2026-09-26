@@ -119,5 +119,6 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   trades a wedged proxy for overlapping turns and lengthening it trades the
   other way; neither is free.
 - **A browser origin is refused unless it is allowed.** The proxy listens on loopback and runs an agent, so a wildcard `Access-Control-Allow-Origin` would let any page spend a turn — a missing response header does not stop a simple request. `ALLOWED_ORIGINS` defaults to the extension schemes; a request with no `Origin` is not a page and is left alone.
+- **`fm` is macOS-only, in the CLI too.** `selectBackend` refuses `-b fm`/`-b apple` elsewhere by name before anything starts, and `usageFor` leaves it out of Linux and Windows help, so no one is offered a backend their system cannot run.
 - **`fm` is relayed, never exposed.** `fm serve` refuses any request carrying an `Origin`, so the adapter owns a private Unix socket in a `0700` temporary directory and is the only thing that reaches it; the proxy's origin policy is the one a browser meets. Its catalog flags are measured, not hoped for: no tool calling, because the model answers a tool in prose, and an 8,192-token window.
 - `packages/olc/README.md` has the options, endpoints, build outputs and known limits.

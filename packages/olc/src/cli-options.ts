@@ -2,7 +2,31 @@
 import fs from "node:fs"
 import type { ProxyOptions } from "./config.js"
 
-export const USAGE = `olc — start native Ollama or an agent proxy
+/**
+ * Apple's Foundation Models backend exists only on macOS, so Linux and Windows
+ * help does not offer a backend they cannot start.
+ */
+const macOnlyUsage = (platform: NodeJS.Platform) =>
+  platform === "darwin"
+    ? {
+        line: "  olc -b fm                   Apple Foundation Models (macOS 27), 127.0.0.1:8085\n",
+        backends: "opencode, or fm (alias apple)",
+        port: "; fm: 8085",
+        proxyOnly: ", opencode or fm",
+        options:
+          "Apple Foundation Models options (-b fm):\n  -F, --fm <path>             fm executable (default fm; macOS 27 or later)\n\n"
+      }
+    : {
+        line: "",
+        backends: "or opencode",
+        port: "",
+        proxyOnly: " or -b opencode",
+        options: ""
+      }
+
+export const usageFor = (platform: NodeJS.Platform = process.platform) => {
+  const mac = macOnlyUsage(platform)
+  return `olc — start native Ollama or an agent proxy
 
 Usage: olc [options]
 
@@ -10,14 +34,13 @@ Usage: olc [options]
   olc --lan                   Native Ollama, 0.0.0.0:11434
   olc -b codex                Codex proxy, 127.0.0.1:8083
   olc -b opencode             OpenCode proxy, 127.0.0.1:8084
-  olc -b fm                   Apple Foundation Models (macOS 27), 127.0.0.1:8085
-  olc update                  Install the latest release
+${mac.line}  olc update                  Install the latest release
   olc update 0.13.3           Install a specific release
 
 Shared options:
-  -b, --backend <name>        ollama (default), codex, opencode, or fm (alias apple)
+  -b, --backend <name>        ollama (default), codex, ${mac.backends}
   -H, --host <address>        Bind address (default 127.0.0.1)
-  -p, --port <number>         Ollama: 11434; Codex: 8083; OpenCode: 8084; fm: 8085
+  -p, --port <number>         Ollama: 11434; Codex: 8083; OpenCode: 8084${mac.port}
   -o, --allowed-origins <list>
                                Comma-separated browser origins
   -c, --config <path>         JSON options; CLI > environment > file > defaults
@@ -54,7 +77,7 @@ in place. A version that has no release is refused by name, with the versions
 that do exist. Running from a repository checkout is refused too: update that
 with git. olc update --check never touches the installation.
 
-Proxy-only options (require -b codex, opencode or fm):
+Proxy-only options (require -b codex${mac.proxyOnly}):
   -K, --api-key <key>         Require a bearer token
   -s, --system-prompt <text>  Override the client's system prompt
   -n, --no-bridge             Disable the client tool bridge
@@ -68,10 +91,7 @@ OpenCode options (-b opencode):
                                Comma-separated tools to leave enabled
   -g, --plugin-dir <path>     Bridge plugin directory
 
-Apple Foundation Models options (-b fm):
-  -F, --fm <path>             fm executable (default fm; macOS 27 or later)
-
-Codex options (-b codex):
+${mac.options}Codex options (-b codex):
   -C, --codex <path>          Codex executable
   -W, --codex-project-dir <path>
                                Empty workspace for turns
@@ -82,6 +102,9 @@ Short flags take separate values and are case-sensitive. Long options accept
 --name=value. Exit codes: 0 ready/help, 1 runtime failure
 (or --check not ready), 2 invalid arguments/configuration.
 `
+}
+
+export const USAGE = usageFor()
 
 export const SHORT_FLAG_ALIASES = {
   "-b": "--backend",
@@ -260,15 +283,23 @@ export function readConfigFile(
 export function selectBackend(
   options: ProxyOptions,
   file: ProxyOptions,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform
 ) {
   const requested =
     options.BACKEND ?? env.OLC_BACKEND ?? file.BACKEND ?? "ollama"
   /** `apple` is the name people reach for; `fm` is the tool it runs. */
   const backend = requested === "apple" ? "fm" : requested
+  if (backend === "fm" && platform !== "darwin") {
+    throw new Error(
+      "Apple Foundation Models (-b fm) run only on macOS 27 or later. Use -b codex or -b opencode here."
+    )
+  }
   if (!["ollama", "codex", "opencode", "fm"].includes(String(backend))) {
     throw new Error(
-      "Backend must be ollama, codex, opencode, or fm (alias apple). Use -b <name>."
+      platform === "darwin"
+        ? "Backend must be ollama, codex, opencode, or fm (alias apple). Use -b <name>."
+        : "Backend must be ollama, codex, or opencode. Use -b <name>."
     )
   }
   const native = [
