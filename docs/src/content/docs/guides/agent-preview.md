@@ -13,8 +13,8 @@ depends on the website and the selected model, and every step is checked
 against the page. Capable hosted models (through OpenRouter or a cloud
 provider) finish far more tasks than small local ones.
 
-It is off unless you turn it on, under **Settings → Page & tabs → Browser
-agent → Let the chat model use the browser agent**; until then the chat model
+It is off unless you turn it on, from **Browser agent (experimental)** in the
+chat's Context sheet or **Settings → Browser agent**; until then the chat model
 is never offered it. On Chrome it needs two permissions the browser
 asks for once, at install or on the update that brings the Agent: `debugger`, to
 drive the tab it is given, and `webNavigation`, to tell that tab's frames apart.

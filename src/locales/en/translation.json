@@ -766,7 +766,8 @@
       "rows": {
         "tabs": "Page & tab context",
         "knowledge": "Search uploaded files",
-        "web": "Web search"
+        "web": "Web search",
+        "agent": "Browser agent (experimental)"
       }
     },
     "artifacts": {
@@ -1449,6 +1450,7 @@
       "prompts": "Prompt library",
       "models": "Model behavior",
       "extraction": "Page & tabs",
+      "agent": "Browser agent",
       "context": "Knowledge & web",
       "embeddings": "Saved knowledge",
       "providers": "Providers",

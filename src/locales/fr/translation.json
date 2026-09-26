@@ -733,7 +733,8 @@
       "rows": {
         "tabs": "Contexte de la page et des onglets",
         "knowledge": "Rechercher dans les fichiers importés",
-        "web": "Recherche web"
+        "web": "Recherche web",
+        "agent": "Agent du navigateur (expérimental)"
       }
     },
     "artifacts": {
@@ -1443,6 +1444,7 @@
       "prompts": "Bibliothèque de prompts",
       "models": "Comportement du modèle",
       "extraction": "Page et onglets",
+      "agent": "Agent du navigateur",
       "context": "Connaissances et web",
       "embeddings": "Connaissances enregistrées",
       "providers": "Fournisseurs",

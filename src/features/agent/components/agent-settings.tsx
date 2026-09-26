@@ -78,7 +78,13 @@ export const AgentSettings = () => {
             setPermissionMode(next as (typeof PERMISSION_MODES)[number])
           }>
           <SelectTrigger>
-            <SelectValue />
+            <SelectValue>
+              {() =>
+                t(
+                  `agent.settings.permission_mode.${permissionMode ?? "allow_routine"}`
+                )
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {PERMISSION_MODES.map((mode) => (
@@ -101,7 +107,15 @@ export const AgentSettings = () => {
               setContextWindow(next === "auto" ? "auto" : 32_768)
             }>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {() =>
+                  t(
+                    isAuto
+                      ? "agent.settings.context_window.auto"
+                      : "agent.settings.context_window.custom"
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="auto">
@@ -145,7 +159,9 @@ export const AgentSettings = () => {
               setVision(next as (typeof VISION_MODES)[number])
             }>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {() => t(`agent.settings.vision.${vision ?? "auto"}`)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {VISION_MODES.map((mode) => (

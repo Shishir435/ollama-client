@@ -2,7 +2,9 @@ import {
   normalizeSettingsSearchText,
   scoreSettingsSearchToken
 } from "@/features/settings/settings-search-scoring"
+import { AGENT_PREVIEW_COMPILED } from "@/lib/feature-flags"
 import { getStorageKeyMetadata } from "@/lib/storage/storage-key-registry"
+import { AGENT_SETTINGS } from "./registry/agent"
 import { BROWSER_SETTINGS } from "./registry/browser"
 import { GENERAL_SETTINGS } from "./registry/general"
 import { HELP_SETTINGS } from "./registry/help"
@@ -61,6 +63,8 @@ const SETTINGS_REGISTRY_BY_TAB: SettingsEntry[] = [
   ...withTab("models", MODELS_SETTINGS),
   ...withTab("knowledge", KNOWLEDGE_SETTINGS),
   ...withTab("browser", BROWSER_SETTINGS),
+  /** Firefox has no agent, so its settings are neither a tab nor a search hit. */
+  ...(AGENT_PREVIEW_COMPILED ? withTab("agent", AGENT_SETTINGS) : []),
   ...withTab("privacy", PRIVACY_SETTINGS),
   ...withTab("help", HELP_SETTINGS)
 ]
@@ -115,7 +119,7 @@ const TAB_SET = new Set<string>(SETTINGS_TABS)
 export const isSettingsTab = (tab: string): tab is SettingsTab =>
   TAB_SET.has(tab)
 
-/** Resolve current and pre-0.12.1 deep links to the six intent tabs. */
+/** Resolve current and pre-0.12.1 deep links to the seven intent tabs. */
 export const resolveSettingsTab = (
   tab: string | null | undefined
 ): SettingsTab | undefined => {

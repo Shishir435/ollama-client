@@ -733,7 +733,8 @@
       "rows": {
         "tabs": "Contesto di pagina e schede",
         "knowledge": "Cerca nei file caricati",
-        "web": "Ricerca web"
+        "web": "Ricerca web",
+        "agent": "Agente del browser (sperimentale)"
       }
     },
     "artifacts": {
@@ -1443,6 +1444,7 @@
       "prompts": "Libreria di prompt",
       "models": "Comportamento del modello",
       "extraction": "Pagina e schede",
+      "agent": "Agente del browser",
       "context": "Conoscenza e web",
       "embeddings": "Conoscenza salvata",
       "providers": "Provider",

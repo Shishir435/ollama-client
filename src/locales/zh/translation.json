@@ -733,7 +733,8 @@
       "rows": {
         "tabs": "页面和标签页上下文",
         "knowledge": "搜索已上传的文件",
-        "web": "网页搜索"
+        "web": "网页搜索",
+        "agent": "浏览器代理（实验性）"
       }
     },
     "artifacts": {
@@ -1443,6 +1444,7 @@
       "prompts": "提示词库",
       "models": "模型行为",
       "extraction": "页面和标签页",
+      "agent": "浏览器代理",
       "context": "知识与网络",
       "embeddings": "已保存的知识",
       "providers": "服务商",

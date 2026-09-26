@@ -733,7 +733,8 @@
       "rows": {
         "tabs": "Contexto de página y pestañas",
         "knowledge": "Buscar en archivos subidos",
-        "web": "Búsqueda web"
+        "web": "Búsqueda web",
+        "agent": "Agente del navegador (experimental)"
       }
     },
     "artifacts": {
@@ -1443,6 +1444,7 @@
       "prompts": "Biblioteca de prompts",
       "models": "Comportamiento del modelo",
       "extraction": "Página y pestañas",
+      "agent": "Agente del navegador",
       "context": "Conocimiento y web",
       "embeddings": "Conocimiento guardado",
       "providers": "Proveedores",

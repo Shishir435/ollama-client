@@ -733,7 +733,8 @@
       "rows": {
         "tabs": "Seiten- und Tab-Kontext",
         "knowledge": "Hochgeladene Dateien durchsuchen",
-        "web": "Websuche"
+        "web": "Websuche",
+        "agent": "Browser-Agent (experimentell)"
       }
     },
     "artifacts": {
@@ -1443,6 +1444,7 @@
       "prompts": "Prompt-Bibliothek",
       "models": "Modellverhalten",
       "extraction": "Seite & Tabs",
+      "agent": "Browser-Agent",
       "context": "Wissen & Web",
       "embeddings": "Gespeichertes Wissen",
       "providers": "Anbieter",

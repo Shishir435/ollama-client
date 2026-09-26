@@ -293,7 +293,7 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 | `model/` | model management UI, provider/embedding settings |
 | `file-upload/` | ingestion for RAG, per-format `processors/` |
 | `prompt/` | prompt templates |
-| `settings/` | six intent tabs, settings registry, i18n-backed search, legacy deep-link redirects |
+| `settings/` | seven intent tabs (the agent tab is Chromium-only), settings registry, i18n-backed search, legacy deep-link redirects |
 | `selection-actions/` | in-page selection overlay |
 | `web-search/`, `permissions/`, `privacy/`, `knowledge/`, `memory/`, `context/`, `tabs/`, `diagnostics/` | auxiliary |
 

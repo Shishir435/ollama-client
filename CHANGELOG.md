@@ -79,15 +79,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 
-- The browser agent ships as **experimental** and opt-in. Until it is turned on
-  under Page & tabs → Browser agent, the chat model is neither offered
-  `browser_task` nor able to call it. Every profile, new or upgraded, sees a
+- The browser agent ships as **experimental** and opt-in, with its own settings
+  tab and a switch in the chat's Context sheet. Until it is turned on, the chat
+  model is neither offered `browser_task` nor able to call it. Every profile, new or upgraded, sees a
   one-time notice introducing it, which recommends capable hosted models.
 - Custom providers on NVIDIA, Vercel AI Gateway, Cloudflare AI Gateway,
   Fireworks, DeepInfra, Hugging Face and Cerebras show their vendor's mark.
 - The session stats sit in the middle of the chat header; the thinking panel
   and the model menu's provider rail now share the radius of the surfaces
-  around them.
+  around them. Settings dropdowns show their option's label rather than its
+  stored value.
 - All olc backends now detach by default. `--debug` implies foreground; explicit
   `--foreground`/`--detached` control the session. Detached proxies report readiness,
   PID, private logs, and shutdown instructions.
