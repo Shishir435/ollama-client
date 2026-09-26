@@ -4,7 +4,11 @@ import type {
   AgentVerificationResult,
   ResolvedAgentBatchField
 } from "@ollama-client/agent-runtime"
-import { agentObservationStates } from "@ollama-client/agent-runtime"
+import {
+  agentObservationStates,
+  MAX_AGENT_SUBMITTED_VALUE_CHARS,
+  MAX_AGENT_SUBMITTED_VALUES
+} from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
@@ -68,6 +72,76 @@ const sameUrl = (first: string | undefined, second: string): boolean => {
   if (!first) return false
   try {
     return new URL(first).href === new URL(second).href
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The observation is of the page the tab holds: same origin and path, and no
+ * parameter both carry with different values. Dropping a parameter is the
+ * site's to do between the two reads; refusing that is how a working search
+ * whose tracking fields the site removed was left for review.
+ */
+const samePage = (first: string, second: string): boolean => {
+  try {
+    const a = new URL(first)
+    const b = new URL(second)
+    if (a.origin !== b.origin || a.pathname !== b.pathname) return false
+    /**
+     * A parameter one address dropped is the site's cleanup; one both carry
+     * with different values is a different page. `?q=approved` observed as
+     * `?q=other` is not the page the form was sent to.
+     */
+    for (const name of new Set(a.searchParams.keys())) {
+      if (!b.searchParams.has(name)) continue
+      const left = a.searchParams.getAll(name).sort()
+      const right = b.searchParams.getAll(name).sort()
+      if (
+        left.length !== right.length ||
+        left.some((value, index) => value !== right[index])
+      )
+        return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether the tab landed on the address asked for, allowing what a site adds
+ * on arrival. Searching DuckDuckGo for `?q=test` commits `?q=test&ia=web`, and
+ * reading that as "a different destination" paused a search that had worked.
+ * Same origin and path, every requested parameter present with exactly its
+ * values, and a requested fragment kept; parameters the request did not
+ * name, and a fragment it did not ask for, are the site's. A different
+ * path, host or value is still a different destination.
+ */
+const landedAt = (committed: string, requested: string): boolean => {
+  if (sameUrl(committed, requested)) return true
+  try {
+    const landed = new URL(committed)
+    const asked = new URL(requested)
+    if (landed.origin !== asked.origin || landed.pathname !== asked.pathname)
+      return false
+    /** A requested fragment is part of where the user asked to go. */
+    if (asked.hash && landed.hash !== asked.hash) return false
+    /**
+     * Every requested parameter lands with exactly its requested values:
+     * `?tag=a&tag=a` is not met by one `tag=a`, and `?q=approved` is not
+     * met by `?q=approved&q=other`, whose page may search for `other`.
+     */
+    for (const name of new Set(asked.searchParams.keys())) {
+      const want = asked.searchParams.getAll(name).sort()
+      const got = landed.searchParams.getAll(name).sort()
+      if (
+        want.length !== got.length ||
+        want.some((value, index) => value !== got[index])
+      )
+        return false
+    }
+    return true
   } catch {
     return false
   }
@@ -517,7 +591,7 @@ const verifyCommittedDestination = async (
   if (!tab?.url) {
     return result("negative", kind, "Destination tab is gone", adapter.now())
   }
-  if (!sameUrl(tab.url, destination.url)) {
+  if (!landedAt(tab.url, destination.url)) {
     return sameUrl(tab.url, input.effect.sourceUrl)
       ? result(
           "ambiguous",
@@ -564,7 +638,7 @@ export const NAVIGATION_AGENT_VERIFIERS = {
      * answered but the page did not move.
      */
     const after = await observeAfter(input, adapter, signal)
-    if (!sameUrl(after.url, input.effect.destination?.url ?? "")) {
+    if (!landedAt(after.url, input.effect.destination?.url ?? "")) {
       return result(
         "ambiguous",
         "navigation",
@@ -855,6 +929,50 @@ const verifyCheckedMutation: Verifier = async (input, adapter, signal) => {
       )
 }
 
+/**
+ * The values a GET submission sent, as proof of what this form carried
+ * rather than anything typed elsewhere on the page, each with the label of
+ * the control that held it.
+ *
+ * Read from `formQuery`, the query of visible fields the approval's address
+ * was built from and the executor refused to send if it had changed — never
+ * from the landed address, which carries hidden fields such as tokens, and
+ * these values are kept on a durable receipt. Absent when the form has a
+ * hidden or sensitive control, since `formQuery` is then never built. A
+ * value too long to keep whole is dropped rather than cut, so no fragment
+ * of it reads as a word it never was.
+ *
+ * The label is what lets `q=Alice&category=Bob` prove "Search for Alice"
+ * and not "Search for Bob": parameter names are the site's, while the
+ * control's name is the word a requirement uses. It is taken from the
+ * control of this same form holding exactly that value; a value no single
+ * control holds keeps no label.
+ */
+const submittedValues = (
+  input: AgentVerificationInput
+): { name?: string; value: string }[] => {
+  const target = input.effect.target
+  if (target.formQuery === undefined || target.formHasSensitiveControl)
+    return []
+  const controls = input.before.elements.filter(
+    (element) =>
+      target.formFingerprint !== undefined &&
+      element.formFingerprint === target.formFingerprint
+  )
+  return [...new URLSearchParams(target.formQuery).values()]
+    .filter(
+      (value) =>
+        value.trim().length > 0 &&
+        value.length <= MAX_AGENT_SUBMITTED_VALUE_CHARS
+    )
+    .slice(0, MAX_AGENT_SUBMITTED_VALUES)
+    .map((value) => {
+      const holders = controls.filter((element) => element.value === value)
+      const name = holders.length === 1 ? holders[0].name?.trim() : undefined
+      return name ? { name: name.slice(0, 120), value } : { value }
+    })
+}
+
 const verifySubmission: Verifier = async (input, adapter, signal) => {
   const tabId = input.effect.snapshotIdentity.tabId
   const expectedUrl =
@@ -877,20 +995,24 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     )
   }
   if (!sameUrl(tab.url, input.effect.sourceUrl)) {
+    const requested =
+      input.receipt.submissionUrl ?? input.effect.destination?.url
     if (
       input.effect.destination &&
-      sameUrl(
-        tab.url,
-        input.receipt.submissionUrl ?? input.effect.destination.url
-      ) &&
+      requested &&
+      landedAt(tab.url, requested) &&
       (await adapter.classifyAccess(tab.url)) === "ok"
     ) {
-      return result(
-        "confirmed",
-        "submission",
-        "Form committed its resolved destination",
-        adapter.now()
-      )
+      const values = submittedValues(input)
+      return {
+        outcome: "confirmed",
+        evidence: {
+          kind: "submission",
+          summary: "Form committed its resolved destination",
+          observedAt: adapter.now(),
+          ...(values.length ? { values } : {})
+        }
+      }
     }
     // POST/redirect/GET normally lands on a result page, often back on the
     // source page with a new comment anchor. The guarded submission receipt
@@ -906,7 +1028,7 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     ) {
       const after = await observeAfter(input, adapter, signal)
       if (
-        sameUrl(after.url, tab.url) &&
+        samePage(after.url, tab.url) &&
         after.origin === input.effect.destination.origin &&
         after.documentId !== input.before.documentId
       ) {

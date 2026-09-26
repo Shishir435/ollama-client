@@ -181,6 +181,7 @@ const LiveRunSupervision = ({ live }: { live: AgentWorkspaceConnection }) => {
       onTakeoverStart={connection.beginTakeover}
       onTakeoverComplete={connection.completeTakeover}
       onResolveEffect={connection.resolveEffect}
+      onFinishReviewed={connection.finishReviewed}
     />
   )
 }

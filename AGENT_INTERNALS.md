@@ -525,6 +525,37 @@ Read the section your change touches; you do not need the whole file.
   and `file_selection` stay critical or takeover, a grant never covers a step
   carrying one of them, and a submission riding along with one is priced by
   the one.
+- **An unresolved effect has two ways out.** "I've reviewed the page —
+  continue" re-observes and decides again; "It's done — finish"
+  (`agent_finish_reviewed`) completes the run on the user's word, the one
+  `paused → completed` edge, with a fixed result saying the user confirmed
+  it. Both name the pause they answer, so a stale panel resolves nothing.
+- **A browser page is no place to start; a named site is.** From a tab the
+  agent cannot drive (`brave://extensions`, the new-tab page) `browser_task`
+  refuses and tells the model to pass `start_url`. With one, the start is
+  approved against that address's origin and the site opens in a new tab
+  only after the approval; a usable tab in view ignores it.
+- **A run never navigates the user's own tab to another site.** The first
+  tab in a run's scope is the page the user was on; a `navigate` from it to
+  another origin runs as `open_tab` (`user-tab.ts`), with the same
+  destination and approval. Same-origin moves and tabs the run opened are
+  unchanged. A navigation counts as landed when the committed URL keeps the
+  requested origin, path and every requested parameter — a site adding
+  `&ia=web` on arrival is not another destination. A GET submission is
+  recorded and verified by its visible fields only: the executor loads the
+  full address but reports it without the form's hidden inputs, which a site
+  may drop on arrival and which stay out of the record. A missing search
+  term is still another destination.
+- **Routine consent follows a site only when the approval says so.** An
+  approval to open a new site, in a run given routine consent, names the
+  site as `routineOrigin` and adds the sentence that clicks and typing there
+  will not ask; approving it writes the grant. Submissions never carry it.
+- **A search-box textarea submits on Enter like an input.** DuckDuckGo and
+  Google render their search field as `<textarea name="q">`. Enter there is
+  a submission when the textarea says it is one line (`rows="1"`, a
+  combobox or searchbox role, `enterkeyhint="search"`, never
+  `aria-multiline`), is the form's only text entry, and sits in a GET form
+  with a submitter; anywhere else it stays a newline.
 - **Enter in a same-origin search shows the address it opens, and stays a
   submission.** A GET form can change state through its handler or its
   endpoint, so Enter is priced, granted and verified as a submission; a
@@ -542,6 +573,11 @@ Read the section your change touches; you do not need the whole file.
   twice — before the page's submit handlers, as a clean refusal, and on the
   guarded copy about to be sent, after them, where a mismatch sends nothing
   but is an unresolved effect, because the handlers' own code already ran.
+  The checked address is then loaded with `location.assign`, never through a
+  native submission: that fires a bubbling `formdata` event after every
+  check, and a document listener could rewrite the entry list in it. Only an
+  `http(s)` address is loaded. POST keeps the native submission, since its
+  body is not shown as an address.
 - **Routine-action consent is a preference each run mints grants from.**
   `AGENT_PERMISSION_MODE` (device-local, "allow on the starting site" by
   default) is read once per start; `allow_routine` makes the background create

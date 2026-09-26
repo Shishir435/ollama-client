@@ -1036,6 +1036,30 @@ describe("a client that never resumes its turns", () => {
     expect(second.toolCalls[0]?.id).toBeDefined()
   })
 
+  it("refuses a tool call from a turn it discarded instead of parking it", async () => {
+    /**
+     * Failing a reaped turn's call hands the runtime a tool error, and the
+     * model carries on and calls another tool before the interrupt lands.
+     * Parked, that call belonged to no request; the runtime sat waiting on
+     * it, and the next decision it was asked for streamed a role and nothing.
+     */
+    harness = await startHarness({ mode: "tool" }, { MAX_PARKED_TURNS: 2 })
+    await oneShotDecision(harness, 1)
+    await oneShotDecision(harness, 2)
+    await oneShotDecision(harness, 3)
+
+    const late = harness.pending.register({
+      turnId: "turn_1",
+      tool: "list_tabs"
+    })
+    await expect(late.promise).rejects.toThrow("parked-turn limit")
+    expect(harness.pending.hasPending("turn_1")).toBe(false)
+
+    const next = await oneShotDecision(harness, 4)
+    expect(next.status).toBe(200)
+    expect(next.finishReason).toBe("tool_calls")
+  })
+
   it("keeps a turn that left the call optional over forced decisions", async () => {
     /**
      * A chat turn delegates a long client tool and parks on it; that tool's own

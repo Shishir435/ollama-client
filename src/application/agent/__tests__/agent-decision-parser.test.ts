@@ -66,6 +66,51 @@ const call = (argumentsValue: Record<string, unknown>) => ({
 })
 
 describe("parseAgentDecisionToolCalls", () => {
+  const withInputs = (focused: readonly boolean[]): AgentObservation => ({
+    ...observation,
+    elements: focused.map((isFocused, index) => ({
+      ref: `e${index + 1}`,
+      frameId: 0,
+      tag: "input",
+      name: `Field ${index + 1}`,
+      visible: true,
+      enabled: true,
+      editable: true,
+      sensitive: false,
+      ...(isFocused ? { focused: true } : {})
+    }))
+  })
+
+  /**
+   * A key goes to whatever holds focus; gpt-6-luna pressed Tab three times
+   * without a ref and the run failed on a page with one focused control.
+   */
+  it("sends a ref-less key press to the one focused control", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "press_key", key: "Tab" })],
+        withInputs([true, false])
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "press_key", key: "Tab", ref: "e1" }
+    })
+  })
+
+  it("does not guess a key press target when focus is unclear", () => {
+    for (const focus of [
+      [false, false],
+      [true, true]
+    ]) {
+      expect(() =>
+        parseAgentDecisionToolCalls(
+          [call({ type: "press_key", key: "Tab" })],
+          withInputs(focus)
+        )
+      ).toThrow(AgentDecisionFormatError)
+    }
+  })
+
   it("names the length a field broke, without quoting what broke it", () => {
     const quoted = "Ollama Client secret project codename ".repeat(12)
     let feedback = ""

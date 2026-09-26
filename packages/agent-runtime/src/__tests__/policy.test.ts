@@ -990,4 +990,108 @@ describe("a control this run already committed through", () => {
       /^This run already did this once/
     )
   })
+
+  /**
+   * Routine consent carrying to a newly opened site has to be something the
+   * approval says, not a side effect the user never saw.
+   */
+  describe("routine consent on a newly opened site", () => {
+    const routine = [
+      {
+        origin: "https://example.com",
+        effects: ["activation", "form_mutation"] as (
+          | "activation"
+          | "form_mutation"
+        )[],
+        grantedAt: 1
+      }
+    ]
+    const opening = (semantic: readonly AgentSemanticEffect[]) =>
+      effect(semantic, {
+        destination: {
+          url: "https://duckduckgo.com/",
+          origin: "https://duckduckgo.com",
+          source: "model"
+        }
+      })
+
+    it("names the site and says so in the approval", () => {
+      const decision = evaluateAgentPolicy(
+        input(opening(["navigation"]), { grants: [...routine] })
+      )
+      expect(decision.type).toBe("approval_required")
+      if (decision.type !== "approval_required") return
+      expect(decision.request.routineOrigin).toBe("https://duckduckgo.com")
+      expect(decision.request.consequence).toContain(
+        "Clicks and typing on https://duckduckgo.com will then run without asking"
+      )
+      expect(decision.request.display?.consequence).toContainEqual({
+        key: "agent.approval_text.routine_follows",
+        values: { origin: "https://duckduckgo.com" }
+      })
+    })
+
+    it("carries nothing when the notice would not reach the user whole", () => {
+      const long = `https://duckduckgo.com/?q=${"a".repeat(1_500)}`
+      const decision = evaluateAgentPolicy(
+        input(
+          effect(["navigation"], {
+            destination: {
+              url: long,
+              origin: "https://duckduckgo.com",
+              source: "model"
+            }
+          }),
+          { grants: [...routine] }
+        )
+      )
+      expect(decision.type).toBe("approval_required")
+      if (decision.type !== "approval_required") return
+      expect(decision.request.routineOrigin).toBeUndefined()
+      expect(decision.request.consequence).not.toContain("without asking")
+    })
+
+    it("carries routine consent on a repeat only when both notices fit", () => {
+      const carried = new Set<boolean>()
+      for (let length = 0; length <= 1_000; length += 25) {
+        const decision = evaluateAgentPolicy(
+          input(
+            effect(["navigation"], {
+              destination: {
+                url: `https://duckduckgo.com/?q=${"a".repeat(length)}`,
+                origin: "https://duckduckgo.com",
+                source: "model"
+              }
+            }),
+            { grants: [...routine], repeatsCommittedEffect: true }
+          )
+        )
+        expect(decision.type).toBe("approval_required")
+        if (decision.type !== "approval_required") continue
+        const { consequence, routineOrigin } = decision.request
+        expect(consequence).toMatch(/^This run already did this once/)
+        expect(consequence.length).toBeLessThanOrEqual(1_000)
+        expect(consequence.includes("Submitting a form still asks.")).toBe(
+          routineOrigin !== undefined
+        )
+        carried.add(routineOrigin !== undefined)
+      }
+      expect([...carried].sort()).toEqual([false, true])
+    })
+
+    it("offers nothing for a submission or a run without routine consent", () => {
+      for (const decision of [
+        evaluateAgentPolicy(
+          input(opening(["form_mutation", "submission"]), {
+            grants: [...routine]
+          })
+        ),
+        evaluateAgentPolicy(input(opening(["navigation"])))
+      ]) {
+        expect(decision.type).toBe("approval_required")
+        if (decision.type === "approval_required")
+          expect(decision.request.routineOrigin).toBeUndefined()
+      }
+    })
+  })
 })

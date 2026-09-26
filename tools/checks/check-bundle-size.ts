@@ -199,8 +199,20 @@ const budgets: Budget[] = [
      * The run timeline took it to 9,761,411: row, duration and reasoning
      * display, the settled card's record, steering, and their copy in nine
      * locales.
+     *
+     * The hosted-model benchmark's fixes took it to 9,770,393: the search
+     * textarea and short-page fallbacks, completion evidence from receipts,
+     * the user-tab rule, the start address, the finish-reviewed control and
+     * its copy in nine locales. Their review fixes, 9,773,473: the routine
+     * consent sentence in nine locales and the visible-field submission.
+     * The second review round, 9,774,474: counted query pairs and the
+     * named-field binding for batch evidence. The third, 9,776,223: field
+     * names matched by word, alternatives and further claims refused. The
+     * fourth and fifth, 9,777,476: the receipt-bound focus and submission
+     * rule. The sixth and seventh, 9,778,832: labelled submitted values and
+     * their one-to-one binding.
      */
-    max: isFirefox ? 11_800_000 : 9_764_000
+    max: isFirefox ? 11_800_000 : 9_779_000
   },
   {
     metric: "zip",
@@ -405,8 +417,21 @@ const budgets: Budget[] = [
      * steering, and the card record's step projection. Firefox moved to
      * 212,329 on what chat shares: the browser-context preamble every turn
      * with tab tools builds, and the panel tab `current_tab` now reads.
+     *
+     * The hosted-model benchmark's fixes took Chrome to 292,367: the live
+     * command record the completion judge reads, the user-tab rule, routine
+     * consent following an approved site, the start address and the
+     * finish-reviewed path. Their review fixes, 292,591: the approval's
+     * routine origin and the tighter evidence bindings. The second round,
+     * 292,960: the named-field binding and the whole-notice routine rule.
+     * The third, 293,394: word-level field names and the stricter landing.
+     * The fourth, 293,573: the focus-only and constrained-search rules.
+     * The fifth, 293,750: claims bound to the words a receipt proves. The
+     * sixth, 293,895: submitted values on the receipt and the panel's own
+     * verification projection. The seventh, 294,251: each submitted value
+     * bound to its control's label.
      */
-    max: isFirefox ? 212_600 : 291_000
+    max: isFirefox ? 212_600 : 294_300
   }
 ]
 

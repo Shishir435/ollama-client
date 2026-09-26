@@ -136,6 +136,19 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       const threadId = String(params.threadId ?? "")
       const turn = turns.get(threadId)
       if (!turn) throw new Error("Codex requested a tool for an unknown turn")
+      /**
+       * An aborted turn is being interrupted. Its failed call handed the model
+       * a tool error, and the model may reach for another tool before the
+       * interrupt lands; answering at once keeps that call from parking.
+       */
+      if (turn.signal.aborted) {
+        return {
+          contentItems: [
+            { type: "inputText", text: "Tool failed: the turn was cancelled" }
+          ],
+          success: false
+        }
+      }
       try {
         const output = await context.callClientTool({
           turnId: turn.id,

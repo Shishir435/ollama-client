@@ -3,6 +3,7 @@ import type {
   AgentObservationScope
 } from "@ollama-client/contracts"
 import {
+  AGENT_ROUTINE_GRANT_EFFECTS,
   type AgentDecision,
   AgentDecisionSchema,
   type AgentGrantableEffect,
@@ -78,14 +79,27 @@ import {
 } from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
 import { agentResolutionFailure } from "./resolution-failure"
+import { agentRunResult } from "./run-result"
 import {
   AGENT_STATUS_PREDECESSORS,
   agentTabScope,
   isTerminalAgentStatus
 } from "./state"
 import { mergeAgentStepTelemetry } from "./telemetry"
+import { agentCommandKeepingUserTab } from "./user-tab"
 import { classifyVerificationOutcome } from "./verification"
 import { agentPictureWarranted } from "./vision"
+
+/**
+ * The result of a run the user finished after reviewing the page. Run data
+ * rather than panel copy, like every other result: the chat that delegated
+ * the task reads it.
+ */
+const AGENT_USER_CONFIRMED_RESULT =
+  "The user reviewed the page and confirmed the task is done."
+
+/** Two runs' worth of steps: the live one and one just settled. */
+const MAX_LIVE_COMMANDS = MAX_AGENT_OBSERVATIONS * 2
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
 
@@ -508,7 +522,7 @@ export const createAgentController = (
      * convenience would put a second way to move a run outside the state
      * machine. Only what the request offered can be granted.
      */
-    const grants =
+    const widened =
       answer.scope === "run_origin" &&
       decision.request.origin &&
       decision.request.grantable?.length
@@ -518,6 +532,18 @@ export const createAgentController = (
             decision.request.grantable
           )
         : undefined
+    /**
+     * Routine consent follows the run to the site this approval opens, and
+     * only because the approval said so: the request named the site and its
+     * consequence told the user clicks and typing there would not ask.
+     */
+    const grants = decision.request.routineOrigin
+      ? grantsWith(
+          { ...checkpoint, grants: widened ?? checkpoint.grants },
+          decision.request.routineOrigin,
+          AGENT_ROUTINE_GRANT_EFFECTS
+        )
+      : widened
     return {
       state: checkpoint,
       ...(grants ? { grants } : {}),
@@ -587,6 +613,32 @@ export const createAgentController = (
    */
   let pendingThinking: string | undefined
   /**
+   * The commands this worker applied, as the model sent them. Receipts are
+   * stored with typed text and selected values redacted, and the completion
+   * judge reads receipts — so a verified "select Blue" could never vouch for
+   * "Blue is selected", and every such run was refused until it gave up.
+   * Memory only, bounded, and lost with the worker: a restarted run is
+   * judged on redacted receipts and refused, exactly as before.
+   */
+  const liveCommands = new Map<string, AgentCommand>()
+  const rememberCommand = (stepId: string, command: AgentCommand): void => {
+    liveCommands.delete(stepId)
+    liveCommands.set(stepId, command)
+    if (liveCommands.size > MAX_LIVE_COMMANDS) {
+      const oldest = liveCommands.keys().next().value
+      if (oldest !== undefined) liveCommands.delete(oldest)
+    }
+  }
+  const withLiveCommands = (
+    steps: readonly AgentStepReadout[] | undefined
+  ): readonly AgentStepReadout[] | undefined =>
+    steps?.map((step) => {
+      const command = liveCommands.get(step.stepId)
+      return command && step.command?.type === command.type
+        ? { ...step, command }
+        : step
+    })
+  /**
    * Corrections typed while a run works, waiting for the next decision.
    * Memory only: a correction the worker lost before a decision heard it is
    * one the user can see was not taken, because the card says when it is.
@@ -636,6 +688,7 @@ export const createAgentController = (
         if (oldest !== undefined) telemetryByStep.delete(oldest)
       }
     }
+    if (write.command) rememberCommand(write.stepId, write.command)
     await dependencies.persistence.appendStep({
       ...write,
       ...(thinking ? { thinking } : {}),
@@ -1307,6 +1360,10 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext
   ): Promise<AgentRunState | undefined> => {
+    decision = {
+      ...decision,
+      command: agentCommandKeepingUserTab(decision.command, state, observation)
+    }
     const resolution = await resolveEffect(
       state,
       decision,
@@ -1551,7 +1608,7 @@ export const createAgentController = (
      */
     let steps: readonly AgentStepReadout[] | undefined
     try {
-      steps = await dependencies.persistence.steps(state.id)
+      steps = withLiveCommands(await dependencies.persistence.steps(state.id))
     } catch {
       dependencies.trace?.(state.id, "completion_receipts_unreadable")
     }
@@ -1573,7 +1630,16 @@ export const createAgentController = (
     const { judgement } = settled
     observation = settled.observation
     if (judgement.type !== "refused") {
-      await settleJudgedRun(state, judgement, decision.summary)
+      await settleJudgedRun(
+        state,
+        judgement,
+        agentRunResult(
+          decision.summary,
+          state.requirements,
+          decision.outcomes,
+          judgement.outcome?.met
+        )
+      )
       return undefined
     }
     if (await exhaustedNoProgressBudget(state, observation, decision))
@@ -2325,6 +2391,27 @@ export const createAgentController = (
       })
       if (!recorded) return
       await run(recorded.id, false, true)
+    },
+    async finishReviewed({ runId, pausedAt }) {
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        state.status !== "paused" ||
+        state.pauseReason !== "unresolved_effect" ||
+        state.updatedAt !== pausedAt
+      ) {
+        return
+      }
+      /**
+       * The same record continuing writes: the uncertain step was looked at
+       * by the user, so the step history says so as the result does.
+       */
+      if (!(await recordReviewedDisposition(state.id))) return
+      await transition(state, "completed", {
+        pauseReason: undefined,
+        result: AGENT_USER_CONFIRMED_RESULT,
+        updatedAt: dependencies.clock.now()
+      })
     },
     requestCancel,
     completeTakeover

@@ -237,10 +237,33 @@ describe("handleGetPageContent", () => {
     })
   })
 
-  it("rejects content too short to be meaningful", async () => {
+  /**
+   * A status line beside a button is the whole page. Extraction finds no
+   * article in it, and rejecting it left the chat model telling the user it
+   * could not read a page that plainly said what they asked.
+   */
+  it("reads a short page from its visible text when extraction misses it", async () => {
+    document.body.innerHTML =
+      "<main><p>Status: Pending</p><button>Continue</button></main>"
     mocks.extractReadableContent.mockReturnValueOnce({
       pageTitle: "Short",
-      readableText: "too short",
+      readableText: "",
+      selectedExtractor: "basic",
+      selectedReason: "fallback-basic"
+    })
+    const sendResponse = vi.fn()
+
+    await handleGetPageContent(sendResponse)
+
+    const response = sendResponse.mock.calls[0]?.[0] as { html: string }
+    expect(response.html).toContain("Status: Pending")
+  })
+
+  it("rejects a page that shows no text at all", async () => {
+    document.body.innerHTML = "<main></main>"
+    mocks.extractReadableContent.mockReturnValueOnce({
+      pageTitle: "Empty",
+      readableText: "",
       selectedExtractor: "basic",
       selectedReason: "fallback-basic"
     })

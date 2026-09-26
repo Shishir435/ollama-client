@@ -86,7 +86,8 @@ export const ContextSettingsMenu = ({
   const contextInput = {
     tabAccess: settings.tabAccess,
     selectedTabCount: tabs.selectedTabIds.length,
-    attachmentCount,
+    fileCount: Math.max(0, attachmentCount - images.length),
+    imageCount: images.length,
     useRAG: settings.useRAG,
     webSearchActive: settings.webSearchActive,
     showWebSearch: settings.showWebSearch

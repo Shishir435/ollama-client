@@ -147,6 +147,7 @@
     },
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
     "unresolved_reviewed": "Ho controllato la pagina: continua",
+    "unresolved_done": "Fatto — termina",
     "work_log": {
       "action_needs_review": "Questo passaggio richiede una verifica.",
       "title": "Registro attività",
@@ -210,6 +211,7 @@
       "adopt_tab": "Prendi la scheda «{{tab}}» su {{url}}",
       "navigate": "Vai a {{url}}",
       "navigate_consequence": "Il browser apre esattamente questo indirizzo: {{url}}",
+      "routine_follows": "Clic e digitazione su {{origin}} avverranno poi senza chiedere, come sul sito da cui è partita questa attività. L’invio di un modulo chiederà comunque.",
       "no_submit_consequence": "Questo viene inserito nel controllo mostrato sotto. Non segue alcun invio, quindi una pagina che salva mentre scrivi può memorizzarlo subito.",
       "command_consequence": "Il browser esegue questa azione sul controllo mostrato sotto.",
       "prior_form": "Un’esecuzione precedente di questa attività ha già inviato questo modulo. Approva solo se si tratta di un nuovo invio e non dello stesso.",
@@ -712,6 +714,7 @@
       "tabs": "{{count}} schede",
       "files": "{{count}} file",
       "knowledge": "Conoscenza",
+      "images": "{{count}} immagini",
       "web": "Web",
       "rows": {
         "tabs": "Contesto di pagina e schede",

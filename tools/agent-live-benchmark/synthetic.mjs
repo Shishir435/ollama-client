@@ -4,10 +4,30 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
 import {
+  agentObservedText,
+  approveChatTools,
+  chatAnswered,
+  chatAnswerFromWire,
+  chatToolText,
+  readChatTurn,
+  sendChatTask,
+  startFreshChat,
+  stopOpenRun,
+  upstreamAuthorization,
+  waitForChatState,
+  withReasoningEffort
+} from "./chat-turn.mjs"
+import {
   scoreSyntheticTask,
   scoreVerdict,
   statesActive
 } from "./score-answer.mjs"
+
+/** Checked before any case runs, so a key bound for plain HTTP stops the run. */
+const AUTHORIZATION = upstreamAuthorization(
+  process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084",
+  process.env.AUDIT_API_KEY
+)
 
 const model =
   process.env.AUDIT_MODEL ?? "opencode/muse-spark-1.3-contributor-free"
@@ -144,8 +164,11 @@ const server = createServer(async (req, res) => {
         (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084") + path,
         {
           method: req.method,
-          headers: { "Content-Type": "application/json" },
-          ...(body ? { body } : {})
+          headers: {
+            "Content-Type": "application/json",
+            ...AUTHORIZATION
+          },
+          ...(body ? { body: withReasoningEffort(path, body) } : {})
         }
       )
       res.writeHead(upstream.status, {
@@ -255,37 +278,46 @@ await panel
  * `browser_task`, whose start is asked about the first time on each site. The
  * previous task's turn has to finish before the composer sends again.
  */
+class FreshChatFailed extends Error {}
+
 const sendTask = async (goal) => {
   /**
-   * A turn still generating is not a finished case. It is stopped, and said
-   * so, before the next goal is sent; one that will not stop ends the pass
-   * rather than letting two tasks overlap and be scored as one.
+   * A case that could not get a chat of its own is not run: sent into the
+   * previous chat, an earlier task's context could answer it. The reset
+   * happens once the previous turn is over, inside the send.
    */
-  const busy = panel.getByRole("button", { name: "Stop generation" })
-  const settled = await busy
-    .waitFor({ state: "detached", timeout: 120000 })
-    .then(() => true)
-    .catch(() => false)
-  if (!settled) {
-    console.warn(
-      `[benchmark] previous turn still generating; stopping it before: ${goal}`
-    )
-    await busy.click().catch(() => {})
-    await busy.waitFor({ state: "detached", timeout: 30000 }).catch(() => {
-      throw new Error("The previous chat turn did not stop; aborting the pass")
-    })
-  }
-  const composer = panel.getByPlaceholder("Type a message or ctrl + /")
-  await composer.fill(goal)
-  await composer.press("Enter")
+  let fresh = true
+  const sent = await sendChatTask(panel, goal, {
+    prepare: () =>
+      startFreshChat(panel).catch((error) => {
+        fresh = false
+        console.warn(
+          `[benchmark] could not start a fresh chat: ${error.message}`
+        )
+        throw new FreshChatFailed()
+      })
+  }).catch((error) => {
+    if (error instanceof FreshChatFailed)
+      return { started: false, invalid: "fresh_chat_failed" }
+    throw error
+  })
+  if (!fresh) return sent
+  if (!sent.started) return sent
   await panel
     .getByRole("button", { name: /^Allow (for this chat|once)$/ })
     .first()
     .click({ timeout: 60000 })
     .catch(() => {})
+  return sent
 }
 try {
-  for (const [kind, goal] of cases) {
+  const only = (process.env.AUDIT_ONLY ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean)
+  for (const [kind, goal] of cases.filter(
+    (c) => only.length === 0 || only.includes(c[0])
+  )) {
     current = { kind, effects: 0, replaced: false }
     wire = []
     messages = []
@@ -294,9 +326,26 @@ try {
     fixture = await context.newPage()
     await fixture.goto(`${origin}/${kind}`)
     await fixture.bringToFront()
-    await sendTask(goal)
-    let final, reason
-    while (Date.now() - started < 150000) {
+    const sent = await sendTask(goal)
+    /**
+     * The case's clock starts once the task is sent. Waiting out the previous
+     * turn is the harness's time, and charging it to this case scored a task
+     * that took 26s as 146s.
+     */
+    const sentAt = Date.now()
+    /**
+     * A task the composer never accepted is scored as not started: calling
+     * it a timeout charged the model for a case it was never given.
+     */
+    let final
+    let reason = sent.started ? undefined : (sent.invalid ?? "turn_not_started")
+    /**
+     * The chat model may answer a reading task itself, from the page, without
+     * delegating a run. No run will ever appear, so an idle chat turn with no
+     * run is the end of the case rather than a wait for the deadline.
+     */
+    let idleSince
+    while (sent.started && Date.now() - sentAt < 150000) {
       final = messages
         .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
         .at(-1)?.snapshot
@@ -311,6 +360,21 @@ try {
         reason = "submission_handler_bypassed"
         break
       }
+      /**
+       * The chat model may call several tools before \`browser_task\` — the
+       * tab, a screenshot — and each asks once. Approving only the first
+       * left the delegation itself waiting on a card nobody clicked.
+       */
+      await approveChatTools(panel)
+      if (!final) {
+        const chat = await readChatTurn(panel, goal).catch(() => undefined)
+        if (chat && !chat.busy && chat.sendReady && chatAnswered(wire)) {
+          idleSince ??= Date.now()
+          if (Date.now() - idleSince >= 3000) break
+        } else {
+          idleSince = undefined
+        }
+      }
       await new Promise((r) => setTimeout(r, 250))
     }
     const body = await fixture
@@ -324,9 +388,34 @@ try {
         focus: document.activeElement?.id
       }))
       .catch(() => ({}))
-    const answer = final?.run?.result ?? ""
-    const completed = final?.run?.status === "completed"
-    const status = final?.run?.status ?? "harness_timeout"
+    await stopOpenRun(panel, final)
+    const delegated = Boolean(final)
+    /**
+     * What the user is told is the chat's reply, not the run's result: the
+     * chat may read part of the task itself and delegate the rest, then
+     * answer with both. Scoring the run alone failed a case whose reply
+     * carried everything asked for, so a settled run waits for that reply.
+     */
+    if (delegated && ["completed", "failed"].includes(final.run.status)) {
+      await waitForChatState(
+        () => readChatTurn(panel, goal),
+        (chat) => !chat.busy && chatAnswered(wire),
+        { stableMs: 1000, timeoutMs: 45_000 }
+      )
+    }
+    const chatAnswer = chatAnswerFromWire(wire)
+    const answer = chatAnswer || final?.run?.result || ""
+    const completed =
+      final?.run?.status === "completed" || (!delegated && Boolean(chatAnswer))
+    const status =
+      final?.run?.status ??
+      (!sent.started
+        ? sent.invalid
+          ? "harness_invalid"
+          : "turn_not_started"
+        : chatAnswer
+          ? "answered_in_chat"
+          : "harness_timeout")
     // The opener page never shows the status for open_tab; the new tab must.
     let openTabActive = false
     if (kind === "open_tab") {
@@ -352,7 +441,10 @@ try {
       effects: current.effects,
       url: fixture.url(),
       pauseReason: final?.run?.pauseReason,
-      openTabActive
+      openTabActive,
+      readText: chatToolText(wire),
+      observedText: agentObservedText(wire, origin),
+      delegated: delegated && final.run.status === "completed"
     })
     const success = scored.success
     const predicate = scored.predicate
@@ -374,11 +466,12 @@ try {
       verdict,
       predicate,
       expectedPause,
-      status: final?.run?.status ?? "harness_timeout",
+      status,
+      delegated,
       reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
       steps: final?.run?.stepCount,
       modelCalls: calls.length,
-      latencyMs: Date.now() - started,
+      latencyMs: Date.now() - sentAt,
       effects: current.effects,
       answer,
       url: fixture.url(),

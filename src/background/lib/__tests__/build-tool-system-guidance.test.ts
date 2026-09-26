@@ -104,5 +104,6 @@ describe("buildBrowserContextGuidance", () => {
     ])
     expect(guidance).toContain("Use browser_task only to act in the browser")
     expect(guidance).toContain("use current_tab instead")
+    expect(guidance).toContain("that is a browser task on that site")
   })
 })

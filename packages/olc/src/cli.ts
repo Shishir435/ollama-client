@@ -8,6 +8,8 @@
  */
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { resolveCodexConfig } from "./backends/codex/config.js"
+import { checkCodexVersion } from "./backends/codex/version-check.js"
 import {
   parseArgs,
   readConfigFile,
@@ -94,6 +96,12 @@ const main = async () => {
     const request = { options: parsed.options, fileOptions }
     const { BIND_HOST, PORT } = resolveConfig(parsed.options, fileOptions)
     await assertProxyPortAvailable({ backend, host: BIND_HOST, port: PORT })
+    if (backend === "codex") {
+      const warning = await checkCodexVersion({
+        executable: resolveCodexConfig(request).CODEX_PATH
+      })
+      if (warning) console.warn(warning)
+    }
     if (mode.detached) {
       const result = await startDetachedProxy(request, PORT)
       console.log(

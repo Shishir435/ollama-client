@@ -117,6 +117,7 @@ export interface AgentRunService {
   steer(runId: string, text: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
   resolveEffect(input: { runId: string; pausedAt: number }): Promise<void>
+  finishReviewed(input: { runId: string; pausedAt: number }): Promise<void>
   answerApproval(input: {
     runId: string
     requestId: string
@@ -1144,6 +1145,20 @@ export const createAgentRunService = (input?: {
       if (!(await attachBrowserSession(state))) return
       await drive(state, (controller) =>
         controller.resolveEffect({ runId, pausedAt })
+      )
+    },
+    /** No browser attach: the run ends on the user's word, not a new look. */
+    async finishReviewed({ runId, pausedAt }) {
+      const state = await loadRunning(runId)
+      if (
+        state.status !== "paused" ||
+        state.pauseReason !== "unresolved_effect" ||
+        state.updatedAt !== pausedAt
+      ) {
+        return
+      }
+      await drive(state, (controller) =>
+        controller.finishReviewed({ runId, pausedAt })
       )
     },
     answerApproval: (answer) => supervision.answerApproval(answer),

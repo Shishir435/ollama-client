@@ -316,6 +316,89 @@ describe("Agent observation builder", () => {
     expect(outsideForm.formFingerprint).toBeUndefined()
   })
 
+  /**
+   * DuckDuckGo's search field, as the page renders it: a textarea named q
+   * in a GET form with hidden fields and a submit button. Enter there is a
+   * search, and pressing it as a plain key sent it off the approved path.
+   */
+  it("reports a search-box textarea as submitting on Enter", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/"
+    const hidden = document.createElement("input")
+    hidden.type = "hidden"
+    hidden.name = "ia"
+    hidden.value = "web"
+    const query = document.createElement("textarea")
+    query.name = "q"
+    query.rows = 1
+    query.setAttribute("aria-label", "Search with DuckDuckGo")
+    const search = document.createElement("button")
+    search.type = "submit"
+    search.setAttribute("aria-label", "Search")
+    form.append(hidden, query, search)
+    document.body.append(form)
+
+    const field = build().elements.find((element) => element.tag === "textarea")
+    expect(field?.maySubmit).toBe(true)
+    expect(field?.formMethod).toBe("get")
+  })
+
+  it("keeps Enter a newline in a lone textarea that does not say it is one line", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/draft"
+    const draft = document.createElement("textarea")
+    draft.setAttribute("aria-label", "Message")
+    const send = document.createElement("button")
+    send.textContent = "Send"
+    form.append(draft, send)
+    document.body.append(form)
+
+    const textarea = build().elements.find(
+      (element) => element.tag === "textarea"
+    )
+    expect(textarea?.maySubmit).toBeUndefined()
+  })
+
+  it("keeps Enter a newline in a multi-row textarea whatever its role says", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/draft"
+    const draft = document.createElement("textarea")
+    draft.rows = 4
+    draft.setAttribute("role", "combobox")
+    draft.setAttribute("aria-label", "Message")
+    const send = document.createElement("button")
+    send.textContent = "Send"
+    form.append(draft, send)
+    document.body.append(form)
+
+    const textarea = build().elements.find(
+      (element) => element.tag === "textarea"
+    )
+    expect(textarea?.maySubmit).toBeUndefined()
+  })
+
+  it("keeps Enter a newline in a textarea beside other text fields", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/search"
+    const title = document.createElement("input")
+    title.setAttribute("aria-label", "Title")
+    const body = document.createElement("textarea")
+    body.setAttribute("aria-label", "Body")
+    const submit = document.createElement("button")
+    submit.textContent = "Go"
+    form.append(title, body, submit)
+    document.body.append(form)
+
+    const textarea = build().elements.find(
+      (element) => element.tag === "textarea"
+    )
+    expect(textarea?.maySubmit).toBeUndefined()
+  })
+
   it("keeps repeated controls distinct across observation generations", () => {
     const first = document.createElement("input")
     const second = document.createElement("input")

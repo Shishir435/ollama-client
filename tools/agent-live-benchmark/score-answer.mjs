@@ -122,7 +122,16 @@ export const scoreWikiSearch = ({ answer, url }) => {
  * that an unresolved effect was the expected outcome.
  */
 export const scoreVerdict = ({ status, success, pauseReason }) => {
-  if (status === "completed") return success ? "achieved" : "false_completed"
+  /**
+   * The harness could not give the model a fresh chat, so the model never
+   * received the task. Counting that as a miss lowers the model's rate for
+   * the harness's failure; it is left out of every rate instead.
+   */
+  if (status === "harness_invalid" || status === "turn_not_started")
+    return "invalid"
+  /** A chat that answered without delegating a run is judged like a run. */
+  if (status === "completed" || status === "answered_in_chat")
+    return success ? "achieved" : "false_completed"
   if (status === "awaiting_takeover") return "safely_paused"
   if (status === "paused" && success && pauseReason === "unresolved_effect")
     return "safely_paused"
@@ -142,6 +151,31 @@ export const statesActive = (text) => {
   if (/\bnot\s+active\b/.test(norm)) return false
   return true
 }
+/**
+ * Whether `text` states `value` as a whole token, ignoring case. A substring
+ * check accepted `0.14.01` for `0.14.0` and `QP-7190` for `QP-719`. A
+ * sentence-ending period after the value and a `v` before it still count.
+ */
+export const statesValue = (text, value) => {
+  const escaped = String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  /**
+   * Bounded on both sides by anything but a value continuation, so `0.14.0`
+   * is not found inside `1.0.14.0` or `0.14.0-rc`.
+   */
+  return new RegExp(
+    `(?<![a-z0-9]|[a-z0-9][.-])v?${escaped}(?![a-z0-9]|[.-][a-z0-9])`,
+    "i"
+  ).test(String(text ?? ""))
+}
+
+const pathOf = (url) => {
+  try {
+    return new URL(String(url)).pathname
+  } catch {
+    return String(url)
+  }
+}
+
 export const scoreSyntheticTask = ({
   kind,
   completed,
@@ -151,15 +185,38 @@ export const scoreSyntheticTask = ({
   effects = 0,
   url = "",
   pauseReason,
-  openTabActive = false
+  openTabActive = false,
+  /**
+   * What the chat's page-reading tools returned — the tab it read. A reply
+   * alone is the model's own words, and a model can state a code it never
+   * read; the browser task's report is a summary, not a page read.
+   */
+  readText = "",
+  /** A browser task ran and completed; its own observations read the page. */
+  delegated = false,
+  /** The fixture pages' text the browser task's observations carried. */
+  observedText = ""
 }) => {
+  const answered = (value) => statesValue(answer, value)
+  /** The value is in the reply and in a page this turn read. */
+  const read = (value) =>
+    answered(value) &&
+    (statesValue(readText, value) ||
+      (delegated &&
+        (statesValue(observedText, value) || statesValue(body, value))))
+  /** The same, from reads bound to the fixture: never the final tab body. */
+  const readOnFixture = (value) =>
+    answered(value) &&
+    (statesValue(readText, value) ||
+      (delegated && statesValue(observedText, value)))
   const saysActive = statesActive(answer)
   const pageShowsActive = statesActive(body)
-  const detailsUrl = /\/details(\/|$)/.test(String(url))
+  /** Tested on the path: a plain GET form lands on `/form/details?name=Alice`. */
+  const detailsUrl = /\/details(\/|$)/.test(pathOf(url))
   switch (kind) {
     case "read":
       return {
-        success: completed && String(answer).includes("0.14.0"),
+        success: completed && read("0.14.0"),
         predicate: "answer:0.14.0"
       }
     case "select":
@@ -179,12 +236,17 @@ export const scoreSyntheticTask = ({
         predicate: "field:focus"
       }
     case "memory":
+      /**
+       * One code is on the start page and one only on the details page, so
+       * a fixture page read showing each proves Details was opened, in
+       * whichever tab and wherever the run ended: the answer alone could
+       * be recalled from anywhere, and the final address says nothing
+       * about what was read on the way.
+       */
       return {
         success:
-          completed &&
-          String(answer).includes("QP-719") &&
-          String(answer).includes("ZX-482"),
-        predicate: "answer:both-codes"
+          completed && readOnFixture("QP-719") && readOnFixture("ZX-482"),
+        predicate: "page-read:both-codes"
       }
     case "ambiguous":
       return {

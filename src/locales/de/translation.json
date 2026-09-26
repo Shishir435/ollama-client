@@ -147,6 +147,7 @@
     },
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
     "unresolved_reviewed": "Seite geprüft — fortfahren",
+    "unresolved_done": "Erledigt – beenden",
     "work_log": {
       "action_needs_review": "Dieser Schritt muss überprüft werden.",
       "title": "Arbeitsprotokoll",
@@ -210,6 +211,7 @@
       "adopt_tab": "Den Tab „{{tab}}“ unter {{url}} übernehmen",
       "navigate": "Zu {{url}} wechseln",
       "navigate_consequence": "Der Browser öffnet genau diese Adresse: {{url}}",
+      "routine_follows": "Klicks und Eingaben auf {{origin}} laufen danach ohne Rückfrage, wie auf der Seite, auf der diese Aufgabe begonnen hat. Das Absenden eines Formulars fragt weiterhin nach.",
       "no_submit_consequence": "Dies wird in das unten gezeigte Steuerelement eingegeben. Es folgt kein Senden-Schritt, daher kann eine Seite, die beim Tippen speichert, es sofort übernehmen.",
       "command_consequence": "Der Browser führt diese Aktion am unten gezeigten Steuerelement aus.",
       "prior_form": "Ein früherer Lauf dieser Aufgabe hat dieses Formular bereits gesendet. Bestätige nur, wenn es eine neue Übermittlung ist und nicht dieselbe noch einmal.",
@@ -712,6 +714,7 @@
       "tabs": "{{count}} Tabs",
       "files": "{{count}} Dateien",
       "knowledge": "Wissen",
+      "images": "{{count}} Bilder",
       "web": "Web",
       "rows": {
         "tabs": "Seiten- und Tab-Kontext",

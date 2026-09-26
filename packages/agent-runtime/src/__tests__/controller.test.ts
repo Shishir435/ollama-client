@@ -198,6 +198,8 @@ interface HarnessOptions {
   trace?: AgentControllerDependencies["trace"]
   /** Rows a worker restart (or an older build) left behind. */
   seedSteps?: AgentStepWrite[]
+  /** Read receipts back with values redacted, as the repository stores them. */
+  redactSteps?: boolean
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
@@ -262,7 +264,13 @@ const createHarness = (options: HarnessOptions = {}) => {
       if (options.stepsFail) throw new Error("receipts unreadable")
       return written
         .filter((step) => step.runId === runId)
-        .map((step, index) => ({ ...step, sequence: index + 1 }))
+        .map((step, index) => ({
+          ...step,
+          ...(options.redactSteps && step.command?.type === "select"
+            ? { command: { ...step.command, value: "[redacted]" } }
+            : {}),
+          sequence: index + 1
+        }))
     }
   }
 
@@ -1135,6 +1143,99 @@ describe("agent controller", () => {
     expect(
       harness.writtenSteps.filter((step) => step.status === "executed")
     ).toHaveLength(1)
+  })
+
+  /**
+   * Receipts are stored with selected values redacted, and the judge reads
+   * receipts: a verified "select Blue" could never vouch for "Color is set
+   * to Blue", and gpt-6-luna's runs were refused until they asked the user.
+   * The worker's own record of what it sent is the value instead.
+   */
+  it("judges a planned selection by the value it sent, not its redacted receipt", async () => {
+    const select: AgentCommand = {
+      type: "select",
+      ref: "e1",
+      value: "blue",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+    const harness = createHarness({
+      redactSteps: true,
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Color is set to Blue", kind: "change" }
+        ]
+      }),
+      effectOverrides: {
+        semanticEffects: ["form_mutation"],
+        target: { sensitive: false, maySubmit: false, accessibleName: "Color" }
+      },
+      verification: [confirmedValue],
+      decisions: [
+        { type: "command", command: select, requirementId: "r1" },
+        {
+          type: "complete",
+          summary: "Blue is selected",
+          outcomes: [{ id: "r1", met: true }]
+        }
+      ]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).toBe("completed")
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "rejected")
+    ).toHaveLength(0)
+  })
+
+  /**
+   * Opening DuckDuckGo to search asked again for every keystroke there,
+   * although the user had given routine consent and just approved the site.
+   * The grant follows only an approval that said it would.
+   */
+  describe("routine consent on a site the user approved travelling to", () => {
+    const travel = (routineOrigin?: string) => {
+      const policy = approvalPolicy("high")
+      if (policy.type === "approval_required" && routineOrigin)
+        policy.request.routineOrigin = routineOrigin
+      return createHarness({
+        state: runState({
+          grants: [
+            {
+              origin: "https://example.com",
+              effects: ["activation", "form_mutation"],
+              grantedAt: 1
+            }
+          ]
+        }),
+        policy,
+        effectOverrides: {
+          semanticEffects: ["navigation"],
+          destination: {
+            url: "https://duckduckgo.com/",
+            origin: "https://duckduckgo.com",
+            source: "model"
+          }
+        }
+      })
+    }
+    const grantOn = (harness: ReturnType<typeof createHarness>) =>
+      harness
+        .getState()
+        .grants?.find((grant) => grant.origin === "https://duckduckgo.com")
+
+    it("grants what an approved request said would follow", async () => {
+      const harness = travel("https://duckduckgo.com")
+      await harness.controller.start("run-1")
+      expect(grantOn(harness)?.effects).toEqual(["activation", "form_mutation"])
+    })
+
+    it("grants nothing for an approval that did not say so", async () => {
+      const harness = travel()
+      await harness.controller.start("run-1")
+      expect(grantOn(harness)).toBeUndefined()
+    })
   })
 
   it("lets a page-changing reveal bind to a read requirement", async () => {

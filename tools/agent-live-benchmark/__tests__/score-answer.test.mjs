@@ -6,7 +6,8 @@ import {
   scoreSyntheticTask,
   scoreVerdict,
   scoreWikiSearch,
-  statesActive
+  statesActive,
+  statesValue
 } from "../score-answer.mjs"
 
 const HN_BODY =
@@ -195,6 +196,91 @@ describe("synthetic scorer", () => {
         openTabActive: true
       }).success,
       true
+    )
+  })
+})
+
+describe("scoreSyntheticTask form", () => {
+  it("counts a GET form that landed on details with a query string", () => {
+    const scored = scoreSyntheticTask({
+      kind: "form",
+      completed: true,
+      answer: "The status is Active.",
+      body: "Status: Active",
+      url: "http://127.0.0.1:5000/form/details?name=Alice"
+    })
+    assert.equal(scored.success, true)
+  })
+})
+
+describe("scoreSyntheticTask answer tasks", () => {
+  it("needs the value in what a tool read, not only in the reply", () => {
+    const base = { kind: "read", completed: true, answer: "Version 0.14.0" }
+    assert.equal(scoreSyntheticTask(base).success, false)
+    assert.equal(
+      scoreSyntheticTask({ ...base, readText: "Release 0.14.0 notes" }).success,
+      true
+    )
+    assert.equal(
+      scoreSyntheticTask({ ...base, body: "Release 0.14.0", delegated: true })
+        .success,
+      true
+    )
+    assert.equal(
+      scoreSyntheticTask({ ...base, body: "Release 0.14.0" }).success,
+      false
+    )
+  })
+
+  it("matches whole values, not substrings", () => {
+    assert.equal(
+      scoreSyntheticTask({
+        kind: "read",
+        completed: true,
+        answer: "Version 0.14.01",
+        readText: "Release 0.14.01"
+      }).success,
+      false
+    )
+    assert.equal(statesValue("It is v0.14.0.", "0.14.0"), true)
+    assert.equal(statesValue("qp-719", "QP-719"), true)
+    assert.equal(statesValue("QP-7190", "QP-719"), false)
+    assert.equal(statesValue("Release 1.0.14.0", "0.14.0"), false)
+    assert.equal(statesValue("Release 0.14.0-rc", "0.14.0"), false)
+  })
+
+  it("scores memory by fixture reads of both codes, wherever the run ended", () => {
+    const both = "Reference code: QP-719 Details\nStatus code: ZX-482"
+    const base = {
+      kind: "memory",
+      completed: true,
+      answer: "QP-719 and ZX-482",
+      delegated: true
+    }
+    const score = (extra) => scoreSyntheticTask({ ...base, ...extra }).success
+    /** Details read in another tab; the controlled tab is back at the start. */
+    assert.equal(
+      score({ url: "http://127.0.0.1:5000/memory", observedText: both }),
+      true
+    )
+    assert.equal(score({ observedText: "Status code: ZX-482" }), false)
+    /** The final page alone is not a read the fixture bound. */
+    assert.equal(score({ body: both }), false)
+    assert.equal(score({ observedText: both, answer: "QP-719" }), false)
+    /** A chat-only answer counts only through its page-reading tools. */
+    assert.equal(
+      score({ delegated: false, observedText: both, readText: "" }),
+      false
+    )
+    assert.equal(score({ delegated: false, readText: both }), true)
+  })
+})
+
+describe("scoreVerdict harness failures", () => {
+  it("leaves a case the model never received unscored", () => {
+    assert.equal(
+      scoreVerdict({ status: "harness_invalid", success: false }),
+      "invalid"
     )
   })
 })

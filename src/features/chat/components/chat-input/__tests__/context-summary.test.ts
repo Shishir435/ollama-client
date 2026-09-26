@@ -8,7 +8,8 @@ const t = (key: string, options?: Record<string, unknown>) =>
 const base = {
   tabAccess: false,
   selectedTabCount: 0,
-  attachmentCount: 0,
+  fileCount: 0,
+  imageCount: 0,
   useRAG: false,
   webSearchActive: false,
   showWebSearch: false
@@ -35,7 +36,7 @@ describe("buildContextSummary", () => {
     // Staged files are what RAG would retrieve from, so showing both would read
     // as two separate context sources.
     expect(
-      buildContextSummary({ ...base, useRAG: true, attachmentCount: 2 }, t)
+      buildContextSummary({ ...base, useRAG: true, fileCount: 2 }, t)
     ).toBe("chat.context.files:2")
     expect(buildContextSummary({ ...base, useRAG: true }, t)).toBe(
       "chat.context.knowledge"
@@ -60,7 +61,8 @@ describe("buildContextSummary", () => {
         {
           tabAccess: true,
           selectedTabCount: 2,
-          attachmentCount: 1,
+          fileCount: 1,
+          imageCount: 0,
           useRAG: true,
           webSearchActive: true,
           showWebSearch: true
@@ -75,7 +77,8 @@ describe("countContextSources", () => {
   const none = {
     tabAccess: false,
     selectedTabCount: 0,
-    attachmentCount: 0,
+    fileCount: 0,
+    imageCount: 0,
     useRAG: false,
     webSearchActive: false,
     showWebSearch: false
@@ -85,23 +88,42 @@ describe("countContextSources", () => {
     expect(countContextSources(none)).toBe(0)
   })
 
-  it("counts the sources the summary names, and no more", () => {
-    /*
-     * Files displace the knowledge label rather than adding to it, so the two
-     * are one source. The badge and the sentence inside the sheet read the
-     * same rules for that reason.
+  it("counts each attachment as an item, files displacing knowledge", () => {
+    /**
+     * Files displace the knowledge label rather than adding to it, so the
+     * badge and the sentence inside the sheet read the same parts — but each
+     * staged file is its own item within that part.
      */
-    expect(
-      countContextSources({ ...none, attachmentCount: 2, useRAG: true })
-    ).toBe(1)
+    expect(countContextSources({ ...none, fileCount: 2, useRAG: true })).toBe(2)
     expect(
       countContextSources({
         ...none,
         tabAccess: true,
-        attachmentCount: 2,
+        fileCount: 2,
         showWebSearch: true,
         webSearchActive: true
       })
-    ).toBe(3)
+    ).toBe(4)
+  })
+
+  /**
+   * Reported from the panel: page, file search and web search on, one image
+   * attached, and the badge read 3 — the image had hidden knowledge instead
+   * of adding to it. File search never retrieves an image.
+   */
+  it("counts every attached image as one item beside knowledge", () => {
+    const withSources = {
+      ...none,
+      tabAccess: true,
+      useRAG: true,
+      showWebSearch: true,
+      webSearchActive: true
+    }
+    expect(countContextSources(withSources)).toBe(3)
+    expect(countContextSources({ ...withSources, imageCount: 1 })).toBe(4)
+    expect(countContextSources({ ...none, imageCount: 4 })).toBe(4)
+    expect(buildContextSummary({ ...withSources, imageCount: 1 }, t)).toBe(
+      "chat.context.page · chat.context.knowledge · chat.context.images:1 · chat.context.web"
+    )
   })
 })

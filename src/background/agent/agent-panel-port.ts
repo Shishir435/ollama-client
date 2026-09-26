@@ -303,6 +303,12 @@ export const registerAgentPanelPort = (
             pausedAt: command.pausedAt
           })
           return
+        case "agent_finish_reviewed":
+          await service.finishReviewed({
+            runId: command.runId,
+            pausedAt: command.pausedAt
+          })
+          return
         case "agent_approve":
           service.answerApproval({
             runId: command.runId,

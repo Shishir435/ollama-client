@@ -147,6 +147,7 @@
     },
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
     "unresolved_reviewed": "He revisado la página: continuar",
+    "unresolved_done": "Ya está hecho — terminar",
     "work_log": {
       "action_needs_review": "Este paso requiere revisión.",
       "title": "Registro de trabajo",
@@ -210,6 +211,7 @@
       "adopt_tab": "Tomar la pestaña «{{tab}}» en {{url}}",
       "navigate": "Ir a {{url}}",
       "navigate_consequence": "El navegador abre exactamente esta dirección: {{url}}",
+      "routine_follows": "Los clics y la escritura en {{origin}} se harán después sin preguntar, como en el sitio donde empezó esta tarea. Enviar un formulario seguirá pidiendo permiso.",
       "no_submit_consequence": "Esto se introduce en el control mostrado abajo. No hay un paso de envío después, así que una página que guarda mientras escribes puede almacenarlo de inmediato.",
       "command_consequence": "El navegador realiza esta acción en el control mostrado abajo.",
       "prior_form": "Una ejecución anterior de esta tarea ya envió este formulario. Aprueba solo si es un envío nuevo y no el mismo otra vez.",
@@ -712,6 +714,7 @@
       "tabs": "{{count}} pestañas",
       "files": "{{count}} archivos",
       "knowledge": "Conocimiento",
+      "images": "{{count}} imágenes",
       "web": "Web",
       "rows": {
         "tabs": "Contexto de página y pestañas",

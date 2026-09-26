@@ -8,6 +8,8 @@ import {
   type AgentTransitionResult,
   type AgentTransitionWrite,
   isTerminalAgentStatus,
+  MAX_AGENT_SUBMITTED_VALUE_CHARS,
+  MAX_AGENT_SUBMITTED_VALUES,
   TERMINAL_AGENT_STATUSES
 } from "@ollama-client/agent-runtime"
 import {
@@ -103,6 +105,17 @@ const AgentVerificationSchema = z
               .strict()
           )
           .max(12)
+          .optional(),
+        values: z
+          .array(
+            z
+              .object({
+                name: z.string().max(120).optional(),
+                value: z.string().max(MAX_AGENT_SUBMITTED_VALUE_CHARS)
+              })
+              .strict()
+          )
+          .max(MAX_AGENT_SUBMITTED_VALUES)
           .optional()
       })
       .strict()

@@ -380,12 +380,23 @@ export interface AgentExecutionReceipt {
   pageToolNavigation?: boolean
 }
 
+/** Bounds on the submitted values a GET submission's evidence carries. */
+export const MAX_AGENT_SUBMITTED_VALUES = 8
+export const MAX_AGENT_SUBMITTED_VALUE_CHARS = 200
+
 export interface AgentVerificationEvidence {
   kind: string
   summary: string
   observedAt: number
   /** Bounded control names for a confirmed batch, in command order. */
   fields?: { name?: string }[]
+  /**
+   * The values a confirmed GET submission sent, each with the label of the
+   * control it came from when the observation showed one — what the form
+   * actually carried, and so the only values that submission proves.
+   * Absent for a POST, or a form with a hidden or sensitive control.
+   */
+  values?: { name?: string; value: string }[]
 }
 
 export type AgentVerificationResult =
@@ -806,6 +817,12 @@ export interface AgentController {
    * replaced it.
    */
   resolveEffect(input: { runId: string; pausedAt: number }): Promise<void>
+  /**
+   * The other way out of an unresolved effect: the user looked at the page
+   * and the task is done. The run completes on their word, without another
+   * look, and its result says so.
+   */
+  finishReviewed(input: { runId: string; pausedAt: number }): Promise<void>
   /**
    * Records the user's answer to the run's open question and resumes it. The
    * question id is named so a click on a stale panel cannot answer whatever

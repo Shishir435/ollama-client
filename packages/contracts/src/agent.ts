@@ -319,6 +319,13 @@ export const AgentApprovalRequestSchema = z
       .min(1)
       .max(AGENT_GRANTABLE_EFFECTS.length)
       .optional(),
+    /**
+     * A site this navigation opens that the run's routine consent will cover
+     * once approved — clicks and typing, never submissions. Set only when the
+     * run was given routine consent, and said in the consequence the user
+     * approves, so approving the site is approving that too.
+     */
+    routineOrigin: z.url().optional(),
     createdAt: z.number().int().nonnegative()
   })
   .strict()

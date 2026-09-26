@@ -366,9 +366,21 @@ const completePhraseOccurrences = (
 const containsCompletePhrase = (text: string, phrase: string): boolean =>
   completePhraseOccurrences(text, phrase).length > 0
 
-const CHECKED_OFF_PATTERN =
-  /\b(uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b/
-const CHECKED_ON_PATTERN = /\b(check|checked|tick|ticked|select|selected|on)\b/
+/**
+ * "on" and "off" are states only when nothing follows them as their object:
+ * the planner writes "the Agree checkbox on the current page is unchecked",
+ * and reading that "on" as a state made the requirement assert both, so a
+ * verified uncheck could never vouch for it.
+ */
+const PREPOSITION_OBJECT =
+  "(?!\\s+(?:the|a|an|this|that|these|those|its|each|every|any|all|page|screen|site|tab|form)\\b)"
+const ON = `on${PREPOSITION_OBJECT}`
+const OFF = `off${PREPOSITION_OBJECT}`
+const ON_WORDS = `check|checked|tick|ticked|select|selected|${ON}`
+const OFF_WORDS = `uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|${OFF}`
+
+const CHECKED_OFF_PATTERN = new RegExp(`\\b(${OFF_WORDS})\\b`)
+const CHECKED_ON_PATTERN = new RegExp(`\\b(${ON_WORDS})\\b`)
 
 /**
  * A state word scoped by a negation ("not checked", "isn't selected", "never
@@ -377,10 +389,12 @@ const CHECKED_ON_PATTERN = /\b(check|checked|tick|ticked|select|selected|on)\b/
  * that ignores it reads "not checked" as silence and lets a checked receipt
  * vouch for it.
  */
-const NEGATED_ON_PATTERN =
-  /\b(?:not|never|neither|nor|without)\b(?:\s+\w+){0,3}?\s+(?:check|checked|tick|ticked|select|selected|on)\b|n['’]t(?:\s+\w+){0,3}?\s+(?:check|checked|tick|ticked|select|selected|on)\b/
-const NEGATED_OFF_PATTERN =
-  /\b(?:not|never|neither|nor|without)\b(?:\s+\w+){0,3}?\s+(?:uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b|n['’]t(?:\s+\w+){0,3}?\s+(?:uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|off)\b/
+const negated = (words: string): RegExp =>
+  new RegExp(
+    `\\b(?:not|never|neither|nor|without)\\b(?:\\s+\\w+){0,3}?\\s+(?:${words})\\b|n['’]t(?:\\s+\\w+){0,3}?\\s+(?:${words})\\b`
+  )
+const NEGATED_ON_PATTERN = negated(ON_WORDS)
+const NEGATED_OFF_PATTERN = negated(OFF_WORDS)
 const NEGATED_ON_PATTERN_GLOBAL = new RegExp(NEGATED_ON_PATTERN.source, "g")
 const NEGATED_OFF_PATTERN_GLOBAL = new RegExp(NEGATED_OFF_PATTERN.source, "g")
 
@@ -435,11 +449,44 @@ const valueOccurrenceIsNegated = (
   )
 }
 
-/** Whether the resolved value is named as a complete, non-negated phrase. */
+/**
+ * Whether one complete value occurrence is only one of several the
+ * requirement allows. "Color is Blue or Red" does not say the color is Blue,
+ * so a receipt for Blue cannot meet it; the list before an `or` counts too
+ * ("Blue, Red or Green").
+ */
+const VALUE_ALTERNATIVE_BEFORE_PATTERN =
+  /(?:\b(?:or|either|nor)\b|\/)(?:\s+[\p{L}\p{N}_'-]+){0,3}\s*$/u
+const VALUE_ALTERNATIVE_AFTER_PATTERN =
+  /^(?:\s*,\s*[^,.;:!?]{1,40}?)*,?\s*(?:\bor\b|\/)/u
+
+const valueOccurrenceIsAlternative = (
+  text: string,
+  occurrence: { start: number; end: number }
+): boolean => {
+  const beforeClause = text
+    .slice(Math.max(0, occurrence.start - 80), occurrence.start)
+    .split(/[.!?;:]|\b(?:but|instead|rather)\b/u)
+    .at(-1)
+  const afterClause = text
+    .slice(occurrence.end, occurrence.end + 80)
+    .split(/[.!?;:]|\b(?:but|instead|rather)\b/u)[0]
+  return (
+    VALUE_ALTERNATIVE_BEFORE_PATTERN.test(beforeClause ?? "") ||
+    VALUE_ALTERNATIVE_AFTER_PATTERN.test(afterClause ?? "")
+  )
+}
+
+/**
+ * Whether the resolved value is named as a complete phrase the requirement
+ * asserts: not negated, and not one of alternatives.
+ */
 const valueAssertedWithoutNegation = (text: string, value: string): boolean => {
   const needle = agentNormalizedClaim(value)
   return completePhraseOccurrences(text, needle).some(
-    (occurrence) => !valueOccurrenceIsNegated(text, occurrence)
+    (occurrence) =>
+      !valueOccurrenceIsNegated(text, occurrence) &&
+      !valueOccurrenceIsAlternative(text, occurrence)
   )
 }
 
@@ -546,6 +593,191 @@ const quotationNamesReceiptTarget = (
 }
 
 /**
+ * The one field of a confirmed batch whose value the quotation is, when the
+ * batch was sent for this requirement. Filling Name with Alice and
+ * submitting leaves no "Alice" on the next page; the batch confirmed the
+ * field held it, and one field vouches for one requirement.
+ */
+const quotedBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  quoted: string,
+  consumed: Set<string>
+): number | undefined => {
+  if (
+    receipt.command?.type !== "fill_form" ||
+    receipt.requirementId !== requirement.id ||
+    receipt.verification?.outcome !== "confirmed" ||
+    receipt.verification.evidence.kind !== "fields"
+  )
+    return undefined
+  const want = agentNormalizedClaim(quoted)
+  if (!want) return undefined
+  const matches = receipt.command.fields.flatMap((field, index) => {
+    const value =
+      field.type === "select"
+        ? field.value
+        : field.type === "check" || field.type === "uncheck"
+          ? undefined
+          : field.text
+    /**
+     * The quotation matches what was filled, and the requirement asks for
+     * that value: filling Alice and quoting Alice does not meet "Name is Bob".
+     */
+    return value !== undefined &&
+      agentNormalizedClaim(value) === want &&
+      valueAssertedWithoutNegation(
+        agentNormalizedClaim(requirement.text),
+        value
+      ) &&
+      requirementNamesBatchField(requirement, receipt, index, value) &&
+      !consumed.has(`${receipt.stepId}:field:${index}`)
+      ? [index]
+      : []
+  })
+  return matches.length === 1 ? matches[0] : undefined
+}
+
+/**
+ * Whether the field the value went into is the one the requirement puts it
+ * in. A batch filling Email with Alice and Name with Bob must not meet "Name
+ * is Alice": the value is right and the control is not. The field whose
+ * verified name sits nearest the value in the requirement is the one it
+ * names. A requirement naming no field of the batch binds only a one-field
+ * batch, where there is no other control it could mean.
+ */
+const requirementNamesBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  index: number,
+  value: string
+): boolean => {
+  const evidence = receipt.verification?.evidence
+  const fieldCount =
+    receipt.command?.type === "fill_form" ? receipt.command.fields.length : 0
+  const names =
+    evidence?.kind === "fields"
+      ? (evidence.fields ?? []).map((field) =>
+          agentNormalizedClaim(field.name ?? "")
+        )
+      : []
+  const text = agentNormalizedClaim(requirement.text)
+  const valueAt = completePhraseOccurrences(text, agentNormalizedClaim(value))
+  /**
+   * The page's own name first; failing that, a word of it. The planner
+   * writes "Email" for a field the page calls "E-mail address", and
+   * refusing that sends a finished run back for review once the form is
+   * gone. A name or word two fields share at one distance is a tie, and a
+   * tie binds nothing.
+   */
+  const exact = nearestFieldName(names, valueAt, (name) =>
+    completePhraseOccurrences(text, name)
+  )
+  const named =
+    exact === undefined
+      ? nearestFieldName(names, valueAt, (name) =>
+          fieldNameWordOccurrences(text, name)
+        )
+      : exact
+  if (named === "tied") return false
+  if (named === undefined) return fieldCount === 1
+  return named === index
+}
+
+type PhraseSpan = { start: number; end: number }
+
+/** The field whose name sits nearest the value, or a tie between two. */
+const nearestFieldName = (
+  names: readonly string[],
+  valueAt: readonly PhraseSpan[],
+  occurrencesOf: (name: string) => PhraseSpan[]
+): number | "tied" | undefined => {
+  const distances = names.flatMap((name, index) =>
+    occurrencesOf(name).flatMap((at) =>
+      valueAt.map((occurrence) => ({
+        index,
+        distance:
+          at.end <= occurrence.start
+            ? occurrence.start - at.end
+            : at.start - occurrence.end
+      }))
+    )
+  )
+  const reached = distances.filter(({ distance }) => distance >= 0)
+  if (reached.length === 0) return undefined
+  const closest = Math.min(...reached.map(({ distance }) => distance))
+  const fields = new Set(
+    reached
+      .filter(({ distance }) => distance === closest)
+      .map(({ index }) => index)
+  )
+  return fields.size === 1 ? [...fields][0] : "tied"
+}
+
+/** Words too generic to say which field a requirement means. */
+const FIELD_NAME_FILLER = new Set([
+  "the",
+  "your",
+  "field",
+  "box",
+  "input",
+  "text",
+  "enter",
+  "type",
+  "and",
+  "for"
+])
+
+const compactFieldWord = (word: string): string =>
+  word.replaceAll(/[-_'’]/gu, "")
+
+/**
+ * Where a distinctive word of a field's name, compared without hyphens,
+ * appears in the requirement: "e-mail" is "email".
+ */
+const fieldNameWordOccurrences = (text: string, name: string): PhraseSpan[] => {
+  const words = new Set(
+    (name.match(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu) ?? [])
+      .map(compactFieldWord)
+      .filter((word) => word.length >= 3 && !FIELD_NAME_FILLER.has(word))
+  )
+  if (words.size === 0) return []
+  return [...text.matchAll(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu)].flatMap(
+    (match) =>
+      words.has(compactFieldWord(match[0]))
+        ? [{ start: match.index, end: match.index + match[0].length }]
+        : []
+  )
+}
+
+/**
+ * Whether the quotation is the value a value receipt confirmed the control
+ * holds — the selected option or the typed text. Selecting Blue leaves the
+ * word "Blue" exactly where it was, so the staleness rule refuses it, and
+ * the value is the phrase a model naturally quotes. Compared exactly after
+ * normalising, so only the receipt's own value is rescued.
+ */
+const quotationNamesReceiptValue = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const command = receipt.command
+  const value =
+    command?.type === "select"
+      ? command.value
+      : command?.type === "type" ||
+          command?.type === "clear_and_type" ||
+          command?.type === "replace_text"
+        ? command.text
+        : undefined
+  return (
+    value !== undefined &&
+    agentNormalizedClaim(value).length > 0 &&
+    agentNormalizedClaim(value) === agentNormalizedClaim(quoted)
+  )
+}
+
+/**
  * One met `read` requirement. A read owes no quotation, but one it
  * volunteers must still be real: an accepted completion carrying a phrase
  * the page does not contain is a false record whichever kind of outcome it
@@ -621,9 +853,12 @@ const evidencePlannedChange = (
    * see — not against findings, which are the model's own words, and not
    * against verifier summaries, which are fixed template sentences. An
    * outcome that must outlive its navigation needs result-verified state,
-   * which is page-independent, rather than a quotation.
+   * which is page-independent — so an absent quotation is rescued only by a
+   * result-verified receipt it names exactly, by its control or its value:
+   * typing "Alice" and submitting leaves no "Alice" on the next page, and
+   * the receipt that confirmed the field held it is the evidence instead.
    */
-  if (refusal.reason === "absent_evidence") return refusal
+  const absent = refusal.reason === "absent_evidence"
   /**
    * A state-only change adds no new words to the page — selecting Blue and
    * ticking a checkbox leave exactly the label that was already there — so
@@ -638,7 +873,8 @@ const evidencePlannedChange = (
   if (
     refusal.reason === "missing_evidence" ||
     refusal.reason === "self_evidence" ||
-    refusal.reason === "stale_evidence"
+    refusal.reason === "stale_evidence" ||
+    absent
   ) {
     for (const candidate of changes) {
       const index = matchingBatchField(
@@ -652,6 +888,14 @@ const evidencePlannedChange = (
         return candidate
       }
     }
+    if (quoted !== undefined) {
+      for (const candidate of changes) {
+        const index = quotedBatchField(requirement, candidate, quoted, consumed)
+        if (index === undefined) continue
+        consumed.add(`${candidate.stepId}:field:${index}`)
+        return candidate
+      }
+    }
     const receipt = changes.find(
       (candidate) =>
         !consumed.has(candidate.stepId) &&
@@ -659,14 +903,397 @@ const evidencePlannedChange = (
         requirementNamesReceiptTarget(requirement, candidate) &&
         receiptResultAgrees(requirement, candidate) &&
         candidate.command?.type !== "fill_form" &&
-        (quoted === undefined || quotationNamesReceiptTarget(quoted, candidate))
+        (quoted === undefined
+          ? !absent
+          : quotationNamesReceiptTarget(quoted, candidate) ||
+            quotationNamesReceiptValue(quoted, candidate))
     )
     if (receipt) {
       consumed.add(receipt.stepId)
       return receipt
     }
+    const focused = changes.find(
+      (candidate) =>
+        !consumed.has(candidate.stepId) &&
+        quoted !== undefined &&
+        isBoundFocusMove(requirement, candidate, observation) &&
+        quotationNamesFocusedControl(quoted, observation)
+    )
+    if (focused) {
+      consumed.add(focused.stepId)
+      return focused
+    }
+    const submitted = changes.find(
+      (candidate) =>
+        !consumed.has(candidate.stepId) &&
+        isBoundSubmission(requirement, candidate) &&
+        (quoted === undefined || quotationIsReceiptSummary(quoted, candidate))
+    )
+    if (submitted) {
+      consumed.add(submitted.stepId)
+      return submitted
+    }
   }
   return refusal
+}
+
+/**
+ * Whether a requirement claims nothing a receipt does not prove.
+ *
+ * Every word must be one of three things: a word of the act the receipt
+ * performed ("focus", "click"), a function word that asserts nothing ("the",
+ * "on", "for"), or a fact the run's own receipts hold (the control's name,
+ * a value it typed, the key it pressed, the site it was on). Anything else
+ * — a negation, a second action, a result, a constraint — is a claim the
+ * receipt cannot vouch for, so the requirement is refused. Refusing an
+ * unknown word is the fail-safe direction: the run is sent back to quote
+ * evidence rather than credited with something it did not do.
+ */
+const claimsOnlyAct = (
+  requirement: AgentTaskRequirement,
+  actWords: ReadonlySet<string>,
+  facts: ReadonlySet<string>,
+  required: ReadonlySet<string> = actWords
+): boolean => {
+  const words = claimWords(requirement.text)
+  return (
+    words.some((word) => required.has(word)) &&
+    words.every(
+      (word) =>
+        actWords.has(word) || CLAIM_FUNCTION_WORDS.has(word) || facts.has(word)
+    )
+  )
+}
+
+/** Lowercased words, compared without hyphens or apostrophes. */
+const claimWords = (text: string): string[] =>
+  (agentNormalizedClaim(text).match(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu) ?? [])
+    .map(compactFieldWord)
+    .filter(Boolean)
+
+/**
+ * A fact is never a negation, even when a typed value or a control name
+ * holds one: typing "not now" must not let "Do not click Continue" pass.
+ */
+const NEGATION_WORDS = new Set([
+  "not",
+  "no",
+  "never",
+  "nor",
+  "neither",
+  "none",
+  "without",
+  "except",
+  "dont",
+  "doesnt",
+  "didnt",
+  "isnt",
+  "wasnt",
+  "arent",
+  "werent",
+  "cannot",
+  "cant",
+  "wont",
+  "shouldnt",
+  "mustnt"
+])
+
+const factWords = (values: readonly (string | undefined)[]): Set<string> =>
+  new Set(
+    values
+      .flatMap((value) => (value ? claimWords(value) : []))
+      .filter((word) => !NEGATION_WORDS.has(word))
+  )
+
+/**
+ * Words that assert nothing by themselves. Deliberately excludes every
+ * negation ("not", "no", "never", "don't"), every conjunction that could
+ * join a second claim ("and", "then", "but"), and every verb: those are
+ * claims, and a claim must be proved.
+ */
+const CLAIM_FUNCTION_WORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "this",
+  "its",
+  "it",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "has",
+  "have",
+  "had",
+  "now",
+  "here",
+  "there",
+  "just",
+  "please",
+  "on",
+  "in",
+  "at",
+  "to",
+  "into",
+  "onto",
+  "for",
+  "of",
+  "button",
+  "link",
+  "field",
+  "box",
+  "input",
+  "control",
+  "form",
+  "key",
+  "page",
+  "site",
+  "keyboard"
+])
+
+/**
+ * A confirmed key press the model sent for this requirement, which the
+ * verifier saw move focus. Moving focus from First to Second adds no words:
+ * "Second" was on the page before, so the staleness rule refused it, and
+ * the run asked the user what to do about a task it had finished.
+ *
+ * Tab reaching Save proves Save has focus, never that it was pressed, so
+ * the requirement may claim focus and name only the focused control and
+ * the key: "Focus the Save button" and "Keyboard focus is on Second" meet
+ * it; "Click Save", "Do not focus Search" and "Focus Search and type
+ * Alice" do not.
+ */
+const FOCUS_WORDS = new Set(["focus", "focused", "focuses", "focusing"])
+const FOCUS_ACT_WORDS = new Set([...FOCUS_WORDS, "move", "moves", "moved"])
+
+const isBoundFocusMove = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  observation: AgentObservation
+): boolean =>
+  receipt.requirementId === requirement.id &&
+  receipt.command?.type === "press_key" &&
+  receipt.verification?.outcome === "confirmed" &&
+  receipt.verification.evidence.kind === "keyboard" &&
+  claimsOnlyAct(
+    requirement,
+    FOCUS_ACT_WORDS,
+    factWords([
+      keyText(receipt.command.key),
+      ...observation.elements
+        .filter((element) => element.focused)
+        .map((element) => element.name)
+    ]),
+    FOCUS_WORDS
+  )
+
+/** A pressed key as the words a requirement would name it by. */
+const keyText = (key: unknown): string =>
+  typeof key === "string"
+    ? key.replaceAll("+", " ")
+    : key && typeof key === "object" && "key" in key
+      ? [
+          ...((key as { modifiers?: readonly string[] }).modifiers ?? []),
+          String((key as { key: unknown }).key)
+        ].join(" ")
+      : ""
+
+/** Whether the quotation is the name of the one control focused now. */
+const quotationNamesFocusedControl = (
+  quoted: string,
+  observation: AgentObservation
+): boolean => {
+  const focused = observation.elements.filter((element) => element.focused)
+  if (focused.length !== 1) return false
+  const name = focused[0].name
+  return (
+    name !== undefined &&
+    agentNormalizedClaim(name).length > 0 &&
+    agentNormalizedClaim(name) === agentNormalizedClaim(quoted)
+  )
+}
+
+/**
+ * A confirmed submission the model sent for this requirement. The verifier
+ * confirmed the form committed the destination the user approved, which is
+ * what a "submit it" requirement asks; bound by the requirement id the
+ * command carried, never by name, so it vouches for its own requirement.
+ *
+ * It proves the form was sent, not what sending it achieved, so the
+ * requirement may claim the act and name only what the run's receipts
+ * hold: the control pressed, the values the form sent, the key and the
+ * site. "Click on Continue" and "Search in Google for Alice" (Alice sent)
+ * meet it; "Search for Alice excluding archived orders", "Search for Alice
+ * and read the first hit" and "The address is saved" do not.
+ */
+const SUBMISSION_WORDS = new Set([
+  "submit",
+  "submits",
+  "submitted",
+  "click",
+  "clicks",
+  "clicked",
+  "press",
+  "presses",
+  "pressed",
+  "continue",
+  "continued",
+  "send",
+  "sent",
+  "search",
+  "searched"
+])
+/**
+ * Typing may be named beside the send ("Type Alice and search" is still
+ * refused for its "and"), but never alone: "Enter Alice in the Name field"
+ * is a claim about the field, which the field's own receipt answers.
+ */
+const SUBMISSION_ACT_WORDS = new Set([
+  ...SUBMISSION_WORDS,
+  "type",
+  "typed",
+  "enter",
+  "entered",
+  "fill",
+  "filled"
+])
+
+const isBoundSubmission = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): boolean =>
+  receipt.requirementId === requirement.id &&
+  receipt.verification?.outcome === "confirmed" &&
+  receipt.verification.evidence.kind === "submission" &&
+  claimsOnlyAct(
+    requirement,
+    SUBMISSION_ACT_WORDS,
+    submissionFacts(requirement, receipt),
+    SUBMISSION_WORDS
+  )
+
+/**
+ * What a submission's own receipt proves for this requirement: the control
+ * it went through, the key, the site's host labels, and the values its GET
+ * query sent that the requirement puts where the form did.
+ *
+ * Never a value typed earlier: a page with two forms can hold Alice in one
+ * and send the other. And of several sent values, only one the requirement
+ * binds to its own control: with Alice in Search and Bob in Category,
+ * "Search for Alice" names Search beside Alice and is met, while "Search
+ * for Bob" names Search beside Bob, which Bob was not in, and is refused.
+ * One sent value needs no binding; there is no other control it could be.
+ */
+const submissionFacts = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): Set<string> => {
+  const sent = receipt.verification?.evidence.values ?? []
+  const assigned =
+    sent.length === 1
+      ? new Map([[0, 0]])
+      : assignSentValues(agentNormalizedClaim(requirement.text), sent)
+  const bound = sent.filter((_, index) => assigned.get(index) === index)
+  return factWords([
+    receipt.target?.name,
+    receipt.command?.type === "press_key" ? keyText(receipt.command.key) : "",
+    hostLabels(receipt.sourceUrl),
+    hostLabels(receipt.formAction),
+    /** A bound value's label names a control this form sent from. */
+    ...bound.flatMap(({ name, value }) => [name, value])
+  ])
+}
+
+/**
+ * Which control's label the requirement puts each sent value beside, paired
+ * one to one, closest first: in "search for alice in category bob",
+ * Category is nearer Alice than Search is, but it is nearer still to Bob,
+ * so Bob takes it and Alice is left with Search. Two pairs at one distance
+ * competing for a label or a value bind neither. Returns value index →
+ * label index; a value the requirement does not name is absent.
+ */
+const assignSentValues = (
+  text: string,
+  sent: readonly { name?: string; value: string }[]
+): Map<number, number> => {
+  const pairs = sent.flatMap(({ name }, label) => {
+    const normalized = agentNormalizedClaim(name ?? "")
+    const exact = completePhraseOccurrences(text, normalized)
+    const labelAt = exact.length
+      ? exact
+      : fieldNameWordOccurrences(text, normalized)
+    return sent.flatMap(({ value }, valueIndex) =>
+      labelAt.flatMap((at) =>
+        completePhraseOccurrences(text, agentNormalizedClaim(value)).flatMap(
+          (occurrence) => {
+            const distance =
+              at.end <= occurrence.start
+                ? occurrence.start - at.end
+                : at.start - occurrence.end
+            return distance >= 0 ? [{ label, value: valueIndex, distance }] : []
+          }
+        )
+      )
+    )
+  })
+  const assigned = new Map<number, number>()
+  /** A value or label contested at its closest distance binds nothing. */
+  const settledValues = new Set<number>()
+  const settledLabels = new Set<number>()
+  const distances = [...new Set(pairs.map(({ distance }) => distance))].sort(
+    (first, second) => first - second
+  )
+  for (const distance of distances) {
+    const open = pairs.filter(
+      (pair) =>
+        pair.distance === distance &&
+        !settledValues.has(pair.value) &&
+        !settledLabels.has(pair.label)
+    )
+    const count = (key: "value" | "label", of: number) =>
+      new Set(
+        open
+          .filter((pair) => pair[key] === of)
+          .map((pair) => (key === "value" ? pair.label : pair.value))
+      ).size
+    for (const pair of open) {
+      if (count("value", pair.value) === 1 && count("label", pair.label) === 1)
+        assigned.set(pair.value, pair.label)
+    }
+    for (const pair of open) {
+      settledValues.add(pair.value)
+      settledLabels.add(pair.label)
+    }
+  }
+  return assigned
+}
+
+/**
+ * The labels of a URL's host, read without the DOM's URL parser, which this
+ * package does not have: `https://www.google.com/search` gives "www google
+ * com".
+ */
+const hostLabels = (url: string | undefined): string =>
+  url
+    ?.match(/^[a-z][a-z0-9+.-]*:\/\/(?:[^/?#@]*@)?([^/?#:]+)/iu)?.[1]
+    ?.replaceAll(".", " ") ?? ""
+
+/**
+ * The model quoting the verifier's sentence about the very step it cites —
+ * which the feedback asks it not to do, and which it does anyway. That
+ * sentence is the receipt, so it evidences nothing the receipt does not.
+ */
+const quotationIsReceiptSummary = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const summary = receipt.verification?.evidence.summary
+  return (
+    summary !== undefined &&
+    agentNormalizedClaim(summary) === agentNormalizedClaim(quoted)
+  )
 }
 
 const MISSING_EVIDENCE_FEEDBACK =

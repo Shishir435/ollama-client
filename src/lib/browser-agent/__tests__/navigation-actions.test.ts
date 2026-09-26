@@ -643,6 +643,35 @@ describe("Agent navigation actions", () => {
     expect(result.outcome).toBe("ambiguous")
   })
 
+  /**
+   * DuckDuckGo commits `?q=test&ia=web` for `?q=test`; reading the added
+   * parameter as another destination paused a search that had worked.
+   */
+  it("confirms a destination the site added parameters to on arrival", async () => {
+    const landed = "https://example.com/search?q=test&ia=web"
+    const result = await verify(
+      navigate("https://example.com/search?q=test"),
+      verifierAdapter({
+        getTab: async () => ({ url: landed }),
+        observe: async () =>
+          observation({ generation: 2, documentId: "document-2", url: landed })
+      })
+    )
+    expect(result.outcome).toBe("confirmed")
+  })
+
+  it.each([
+    ["a changed value", "https://example.com/search?q=other&ia=web"],
+    ["a dropped parameter", "https://example.com/search?ia=web"],
+    ["another path", "https://example.com/results?q=test"]
+  ])("still reports %s as another destination", async (_label, landed) => {
+    const result = await verify(
+      navigate("https://example.com/search?q=test"),
+      verifierAdapter({ getTab: async () => ({ url: landed }) })
+    )
+    expect(result.outcome).toBe("ambiguous")
+  })
+
   it("reports a redirect to another destination as ambiguous", async () => {
     const result = await verify(
       navigate("https://example.com/docs"),

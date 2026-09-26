@@ -51,7 +51,8 @@ const supervise = (props: Partial<AgentRunSupervisionProps> = {}) => {
     onStop: vi.fn(),
     onTakeoverStart: vi.fn(),
     onTakeoverComplete: vi.fn(),
-    onResolveEffect: vi.fn()
+    onResolveEffect: vi.fn(),
+    onFinishReviewed: vi.fn()
   }
   const view = (next: Partial<AgentRunSupervisionProps> = {}) => (
     <AgentRunSupervision
@@ -239,6 +240,20 @@ describe("AgentRunSupervision", () => {
 
     fireEvent.click(screen.getByText("agent.unresolved_reviewed"))
     expect(onResolveEffect).toHaveBeenCalledOnce()
+  })
+
+  /**
+   * Reviewing the page had one way out, which sent the run back to work it
+   * had already finished; a search that worked but could not be confirmed
+   * kept going after the user saw it had.
+   */
+  it("finishes an unresolved effect the user says is done", () => {
+    const { onFinishReviewed, onResolveEffect } = supervise({
+      run: run("paused", { pauseReason: "unresolved_effect" })
+    })
+    fireEvent.click(screen.getByText("agent.unresolved_done"))
+    expect(onFinishReviewed).toHaveBeenCalledOnce()
+    expect(onResolveEffect).not.toHaveBeenCalled()
   })
 
   it("counts every tab the run drives, not only the one it started on", () => {

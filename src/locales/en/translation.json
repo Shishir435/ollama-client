@@ -147,6 +147,7 @@
     },
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
     "unresolved_reviewed": "I've reviewed the page — continue",
+    "unresolved_done": "It's done — finish",
     "work_log": {
       "action_needs_review": "This step needs review.",
       "title": "Work log",
@@ -210,6 +211,7 @@
       "adopt_tab": "Take over the tab “{{tab}}” at {{url}}",
       "navigate": "Go to {{url}}",
       "navigate_consequence": "The browser opens this exact address: {{url}}",
+      "routine_follows": "Clicks and typing on {{origin}} will then run without asking, as on the site this task started on. Submitting a form still asks.",
       "no_submit_consequence": "This is entered into the control shown below. No submit step follows, so a page that saves as you type may store it right away.",
       "command_consequence": "The browser performs this action on the control shown below.",
       "prior_form": "An earlier run in this task already sent this form. Approve only if this is a new submission, not the same one again.",
@@ -745,6 +747,7 @@
       "tabs": "{{count}} tabs",
       "files": "{{count}} files",
       "knowledge": "Knowledge",
+      "images": "{{count}} images",
       "web": "Web",
       "rows": {
         "tabs": "Page & tab context",

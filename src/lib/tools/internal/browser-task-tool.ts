@@ -27,6 +27,12 @@ export interface BrowserTaskRequest {
   tabId?: number
   /** The model says this carries on from the chat's previous browser task. */
   continuePrevious: boolean
+  /**
+   * Where to begin when the tab in view is one the agent cannot drive — a
+   * browser settings page, the new-tab page. Opened in a new tab after the
+   * start is approved; ignored when the tab in view can be used.
+   */
+  startUrl?: string
 }
 
 export interface BrowserTaskRunner {
@@ -53,6 +59,19 @@ export const browserTaskAvailable = (): boolean => runner !== undefined
 
 const MAX_GOAL_CHARS = 2_000
 
+/** Only an ordinary web address; anything else is dropped, not refused. */
+const webAddress = (value: unknown): string | undefined => {
+  if (typeof value !== "string" || value.length > 2_048) return undefined
+  try {
+    const url = new URL(value.trim())
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.href
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const parseRequest = (
   args: Record<string, unknown>
 ): BrowserTaskRequest | undefined => {
@@ -62,9 +81,11 @@ const parseRequest = (
     typeof args.tab_id === "number" && Number.isInteger(args.tab_id)
       ? args.tab_id
       : undefined
+  const startUrl = webAddress(args.start_url)
   return {
     goal: goal.slice(0, MAX_GOAL_CHARS),
     ...(tabId !== undefined ? { tabId } : {}),
+    ...(startUrl ? { startUrl } : {}),
     continuePrevious: args.continue_previous_task === true
   }
 }
@@ -93,6 +114,11 @@ export const browserTaskDefinition: ToolDefinition = {
         type: "number",
         description:
           "Optional tab id from list_tabs. Omit to use the tab the user is looking at."
+      },
+      start_url: {
+        type: "string",
+        description:
+          "Optional whole https address to begin on, such as https://duckduckgo.com. Used only when the tab the user is looking at is a browser page the agent cannot work on; the site opens in a new tab."
       },
       continue_previous_task: {
         type: "boolean",

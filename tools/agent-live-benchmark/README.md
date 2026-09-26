@@ -26,6 +26,8 @@ AUDIT_UPSTREAM=http://127.0.0.1:8087 \
 | --- | --- |
 | `AUDIT_UPSTREAM` | OpenAI-compatible endpoint to forward to; an olc proxy (`pnpm exec tsx packages/olc/src/cli.ts -b opencode --port 8087`). Default `http://127.0.0.1:8084`. |
 | `AUDIT_MODEL` | Model id as that endpoint lists it. |
+| `AUDIT_REASONING_EFFORT` | Sets `reasoning_effort` (for example `medium`) on every chat completion forwarded upstream, overriding what the extension sent. |
+| `AUDIT_API_KEY` | Sent as a bearer token upstream, for a hosted endpoint such as OpenRouter (`AUDIT_UPSTREAM=https://openrouter.ai/api`). Never written to the evidence. |
 
 Each run writes `artifacts/agent-live-benchmark/<suite>/<model>/`: one
 `benchmark-results.json`, and per task an `evidence.json` holding the row, every
@@ -57,12 +59,22 @@ false`; that is a false completion and it is the most important thing either
 script can tell you.
 
 Each row also carries `verdict` (`achieved`, `false_completed`,
-`safely_paused`, `missed`) and `predicate` (which check produced `success`).
+`safely_paused`, `missed`, `invalid`) and `predicate` (which check produced `success`).
 Completion and correctness never share one headline score: the ambiguous
 synthetic task is `success: true` with verdict `safely_paused`, and a
 completed run with a wrong answer is `false_completed`, not a miss. Other
 pauses are `missed`; a generic user, question, or browser-disconnection pause
-is not evidence that the run stopped safely.
+is not evidence that the run stopped safely. A case the harness could not give
+a fresh chat is `invalid`: the model never received it, so it counts in no
+rate.
+
+Answer tasks match whole values, case-insensitively, and need the value in a
+page this turn read — a `current_tab`/`read_tab` result, or the page a
+completed browser task observed — never the reply alone or the browser task's
+own report. A browser task's reads count only on the fixture's own origin.
+`memory` needs both codes from those reads: the status code is only on the
+details page, so reading it proves Details was opened, in whichever tab and
+wherever the run ended.
 
 Predicate notes: real-site `__inbody__` tasks require a multi-word verbatim
 span minus page-chrome boilerplate (`score-answer.mjs:INBODY_RULES`), so

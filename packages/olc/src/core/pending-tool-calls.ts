@@ -11,6 +11,8 @@
 import type { PendingToolCall, ProxyLogger } from "../types.js"
 
 const DEFAULT_TIMEOUT_MS = 300_000
+/** How long a discarded turn's id is remembered; turn ids are never reused. */
+const CLOSED_TURN_MEMORY_MS = 3_600_000
 
 interface ParkedCall extends PendingToolCall {
   resolve: (output: string) => void
@@ -27,6 +29,17 @@ export class PendingToolCalls {
   private readonly log: ProxyLogger
   private readonly calls = new Map<string, ParkedCall>()
   private readonly watchers = new Map<string, Set<(callId: string) => void>>()
+  /**
+   * Turns the proxy has let go of, with why. A discarded turn is not
+   * necessarily a stopped one: failing its parked call hands the runtime a
+   * tool error, and the model carries on and calls another tool before the
+   * interrupt lands. Parked, that call belonged to no request, and the
+   * runtime sat waiting on it beside every new turn.
+   */
+  private readonly closed = new Map<
+    string,
+    { message: string; timer: NodeJS.Timeout }
+  >()
 
   constructor({
     timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -55,6 +68,15 @@ export class PendingToolCalls {
     args?: unknown
   }): { callId: string; promise: Promise<string> } {
     const callId = createCallId()
+    const closed = this.closed.get(turnId)
+    if (closed) {
+      this.log("Refused a tool call from a discarded turn", {
+        turnId,
+        tool,
+        callId
+      })
+      return { callId, promise: Promise.reject(new Error(closed.message)) }
+    }
     let resolve!: (output: string) => void
     let reject!: (error: Error) => void
     const promise = new Promise<string>((resolvePromise, rejectPromise) => {
@@ -199,6 +221,26 @@ export class PendingToolCalls {
     for (const call of this.calls.values()) {
       if (call.turnId === turnId) this.fail(call.callId, message)
     }
+  }
+
+  /**
+   * Fail a discarded turn's calls and refuse any it makes from now on, so a
+   * turn the proxy no longer drives cannot park a call nobody will answer.
+   */
+  closeTurn(turnId: string, message: string): void {
+    if (!this.closed.has(turnId)) {
+      const timer = setTimeout(
+        () => this.closed.delete(turnId),
+        CLOSED_TURN_MEMORY_MS
+      )
+      if (typeof timer.unref === "function") timer.unref()
+      this.closed.set(turnId, { message, timer })
+    }
+    this.failTurn(turnId, message)
+  }
+
+  isClosed(turnId: string): boolean {
+    return this.closed.has(turnId)
   }
 
   /** Observe registrations for one turn; returns the unsubscribe function. */
