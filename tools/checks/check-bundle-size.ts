@@ -206,9 +206,10 @@ const budgets: Budget[] = [
      * its copy in nine locales. Their review fixes, 9,773,473: the routine
      * consent sentence in nine locales and the visible-field submission.
      * The second review round, 9,774,474: counted query pairs and the
-     * named-field binding for batch evidence.
+     * named-field binding for batch evidence. The third, 9,776,223: field
+     * names matched by word, alternatives and further claims refused.
      */
-    max: isFirefox ? 11_800_000 : 9_775_000
+    max: isFirefox ? 11_800_000 : 9_777_000
   },
   {
     metric: "zip",
@@ -420,8 +421,9 @@ const budgets: Budget[] = [
      * finish-reviewed path. Their review fixes, 292,591: the approval's
      * routine origin and the tighter evidence bindings. The second round,
      * 292,960: the named-field binding and the whole-notice routine rule.
+     * The third, 293,394: word-level field names and the stricter landing.
      */
-    max: isFirefox ? 212_600 : 293_100
+    max: isFirefox ? 212_600 : 293_500
   }
 ]
 
