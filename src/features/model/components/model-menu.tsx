@@ -122,6 +122,7 @@ export const ModelMenu = ({
   const {
     models,
     refresh,
+    refreshProvider,
     isLoading,
     selectedModel,
     selectedModelRef,
@@ -136,11 +137,13 @@ export const ModelMenu = ({
   /**
    * The provider reads the switch when it lists, so the list is fetched again
    * once the new value is stored rather than filtered here; the switch
-   * follows through the storage watch.
+   * follows through the storage watch. Only Ollama reads it, so only
+   * Ollama's catalog is asked again — a full refresh is a request against
+   * every enabled provider, hosted ones included.
    */
   const toggleCloudModels = async (next: boolean) => {
     await writeSetting(SETTINGS.OLLAMA_CLOUD_MODELS, next)
-    await refresh()
+    await refreshProvider(DEFAULT_PROVIDER_ID)
   }
 
   const { resolve, getOverride, getProbe, setOverride, clearOverride } =

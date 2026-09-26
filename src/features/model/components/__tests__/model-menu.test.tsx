@@ -101,6 +101,7 @@ describe("ModelMenu", () => {
         }
       ],
       refresh: vi.fn(),
+      refreshProvider: vi.fn(async () => undefined),
       isLoading: false,
       selectedModel: "gemma-local",
       selectedModelRef: { providerId: "ollama", modelId: "gemma-local" },
@@ -132,9 +133,20 @@ describe("ModelMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
     fireEvent.click(await screen.findByRole("button", { name: "Ollama" }))
 
-    expect(
-      screen.getByRole("switch", { name: /model.menu.cloud_models.label/ })
-    ).toBeInTheDocument()
+    const cloudSwitch = screen.getByRole("switch", {
+      name: /model.menu.cloud_models.label/
+    })
+    fireEvent.click(cloudSwitch)
+
+    /** Only Ollama reads the switch; every other catalog stays cached. */
+    const { refresh, refreshProvider } = useProviderModelsMock.mock.results.at(
+      -1
+    )?.value as {
+      refresh: ReturnType<typeof vi.fn>
+      refreshProvider: ReturnType<typeof vi.fn>
+    }
+    await waitFor(() => expect(refreshProvider).toHaveBeenCalledWith("ollama"))
+    expect(refresh).not.toHaveBeenCalled()
   })
 
   it("switches provider catalogs while the row renderer stays virtualized", async () => {
