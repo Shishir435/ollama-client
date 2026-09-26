@@ -579,7 +579,7 @@ const receiptResultAgrees = (
     return !requirementAssertsOn(text)
   }
   if (kind === "field" && command?.type === "select" && command.value) {
-    return valueAssertedWithoutNegation(text, command.value)
+    return valueAssertedForControl(text, command.value, receipt.target?.name)
   }
   if (
     kind === "field" &&
@@ -588,9 +588,38 @@ const receiptResultAgrees = (
       command?.type === "replace_text") &&
     command.text
   ) {
-    return valueAssertedWithoutNegation(text, command.text)
+    return valueAssertedForControl(text, command.text, receipt.target?.name)
   }
   return true
+}
+
+/** Where a requirement joins one claim to the next. */
+const CLAUSE_BOUNDARY = /\s*(?:[,;]|\band\b|\bthen\b|\balso\b)\s*/u
+
+/**
+ * The value asserted for the receipt's own control, not merely somewhere in
+ * the requirement. "Set Name to Bob and Manager to Alice" holds Alice, so a
+ * receipt that put Alice in Name agreed with it; now a requirement that names
+ * the control must carry the value in the clause that names it. One that
+ * never names the control is bound by the requirement id alone, as before.
+ * A value that itself spans a boundary ("Tom and Jerry") refuses, which is
+ * the fail-safe direction: the run is sent back to quote it.
+ */
+const valueAssertedForControl = (
+  text: string,
+  value: string,
+  control: string | undefined
+): boolean => {
+  if (!valueAssertedWithoutNegation(text, value)) return false
+  const name = control ? agentNormalizedClaim(control) : ""
+  if (!name || !containsCompletePhrase(text, name)) return true
+  return text
+    .split(CLAUSE_BOUNDARY)
+    .some(
+      (clause) =>
+        containsCompletePhrase(clause, name) &&
+        valueAssertedWithoutNegation(clause, value)
+    )
 }
 
 /** A confirmed batch can evidence each control it checked, once per field. */

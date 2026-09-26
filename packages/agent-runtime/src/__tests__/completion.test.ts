@@ -1468,6 +1468,27 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toBe(type)
   })
 
+  /**
+   * "Set Name to Bob and Manager to Alice" holds Alice, but not for Name: a
+   * receipt that put Alice in Name must not meet it, quoted or not.
+   */
+  it("binds a typed value to the control the requirement gives it", () => {
+    const judge = (text: string, evidence?: string) =>
+      judgeAgentCompletion({
+        steps: [{ ...typedName, requirementId: "r1" }],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [{ id: "r1", text, kind: "change" }],
+        outcomes: [{ id: "r1", met: true, ...(evidence ? { evidence } : {}) }]
+      }).type
+    const swapped = "Set Name to Bob and Manager to Alice"
+    expect(judge(swapped, "Name: Alice")).toBe("refused")
+    expect(judge(swapped)).toBe("refused")
+    expect(judge("Set Name to Alice and Manager to Bob", "Name: Alice")).toBe(
+      "accepted"
+    )
+    expect(judge("Set Name to Alice")).toBe("accepted")
+  })
+
   it.each([
     ["an invented phrase", "Form committed its resolved destination"],
     ["another value", "Bob"]
