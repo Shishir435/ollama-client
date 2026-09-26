@@ -69,36 +69,36 @@ const observeAfter = (
     signal
   )
 
+/** Words only, lowercased and space-padded, for whole-word comparison. */
+const comparableWords = (text: string): string =>
+  ` ${text
+    .toLowerCase()
+    .replaceAll(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()} `
+
 /**
- * Whether a link's own site resolved it to a page the link named: the
- * landing path, decoded, holds one of the values the link asked for as a
- * whole word. `Special:Search?search=Firefox` answered with `/wiki/Firefox`
- * is the search resolved; the same link answered with `/login` or a
- * challenge page is not, and stays for review. A landing on a sign-in or
- * payment path never counts, whatever it is named.
+ * The value a link asked for that its own site's landing path names, as
+ * comparable words: `Special:Search?search=Firefox` answered with
+ * `/wiki/Firefox` names "firefox". The address alone is not the evidence —
+ * `/challenge/Firefox` names it too — so the caller also asks the landed
+ * page's title. A sign-in or payment path never counts, whatever it is named.
  */
-const resolvedByItsSite = (
+const valueTheSiteResolved = (
   landedUrl: string,
   requestedUrl: string
-): boolean => {
+): string | undefined => {
   try {
     const landed = new URL(landedUrl)
     const requested = new URL(requestedUrl)
-    if (landed.origin !== requested.origin) return false
-    if (AUTHENTICATION_PATH.test(landed.pathname)) return false
-    if (PAYMENT_PATH.test(landed.pathname)) return false
-    const path = ` ${decodeURIComponent(landed.pathname)
-      .toLowerCase()
-      .replaceAll(/[^\p{L}\p{N}]+/gu, " ")} `
-    return [...requested.searchParams.values()].some((value) => {
-      const words = value
-        .toLowerCase()
-        .replaceAll(/[^\p{L}\p{N}]+/gu, " ")
-        .trim()
-      return words.length >= 3 && path.includes(` ${words} `)
-    })
+    if (landed.origin !== requested.origin) return undefined
+    if (AUTHENTICATION_PATH.test(landed.pathname)) return undefined
+    if (PAYMENT_PATH.test(landed.pathname)) return undefined
+    const path = comparableWords(decodeURIComponent(landed.pathname))
+    return [...requested.searchParams.values()]
+      .map(comparableWords)
+      .find((words) => words.trim().length >= 3 && path.includes(words))
   } catch {
-    return false
+    return undefined
   }
 }
 
@@ -635,17 +635,24 @@ const verifyCommittedDestination = async (
     )
   /**
    * A link the page itself showed, which its own site resolved to the page
-   * it named. Wikipedia's search suggestions link to
+   * it named — in the landing path and in the landed page's own title, since
+   * an address can name a value a challenge page never answers. Wikipedia's search suggestions link to
    * `Special:Search?search=Firefox`, answered with the article, and every
    * such click paused the run as an unresolved effect on the page it had
    * asked for. Only that shape: a redirect to a sign-in, a challenge or any
    * path the link did not name stays for review, as does a model-composed
    * address and another origin.
    */
+  const resolved =
+    !landed && kind === "activation" && destination.source === "observed"
+      ? valueTheSiteResolved(tab.url, destination.url)
+      : undefined
   const followedLink =
-    kind === "activation" &&
-    destination.source === "observed" &&
-    resolvedByItsSite(tab.url, destination.url)
+    resolved !== undefined &&
+    (await observeAfter(input, adapter, signal, tabId).then(
+      (after) => comparableWords(after.title).includes(resolved),
+      () => false
+    ))
   if (!landed && !followedLink)
     return result(
       "ambiguous",

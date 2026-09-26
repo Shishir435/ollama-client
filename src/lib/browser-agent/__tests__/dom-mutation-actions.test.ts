@@ -310,15 +310,17 @@ describe("Agent DOM mutation resolution and policy", () => {
    * challenge, an unnamed path or another origin is still left for review.
    */
   it.each([
-    ["confirmed", "/wiki/Firefox"],
-    ["ambiguous", "https://elsewhere.example/wiki/Firefox"],
+    ["confirmed", "/wiki/Firefox", "Firefox - Wikipedia"],
+    ["ambiguous", "https://elsewhere.example/wiki/Firefox", "Firefox"],
     /** The site sent the link somewhere it did not name. */
-    ["ambiguous", "/login?next=%2Fwiki%2FFirefox"],
-    ["ambiguous", "/challenge"],
-    ["ambiguous", "/wiki/Main_Page"],
+    ["ambiguous", "/login?next=%2Fwiki%2FFirefox", "Sign in"],
+    ["ambiguous", "/challenge", "Just a moment..."],
+    ["ambiguous", "/wiki/Main_Page", "Wikipedia"],
     /** Named, but a sign-in path never counts. */
-    ["ambiguous", "/login/Firefox"]
-  ])("judges a followed link that committed %s at %s", async (outcome, landedPath) => {
+    ["ambiguous", "/login/Firefox", "Firefox"],
+    /** Named by the address, not answered by the page. */
+    ["ambiguous", "/challenge/Firefox", "Just a moment..."]
+  ])("judges a followed link that committed %s at %s", async (outcome, landedPath, title) => {
     const link = new URL(
       "/w/index.php?title=Special%3ASearch&search=Firefox",
       location.href
@@ -329,7 +331,12 @@ describe("Agent DOM mutation resolution and policy", () => {
     const landed = new URL(landedPath, location.href).href
     const result = await verify(
       command({ type: "click", ref: "e1" }),
-      observation({ url: landed, documentId: "document-2", generation: 2 }),
+      observation({
+        url: landed,
+        title,
+        documentId: "document-2",
+        generation: 2
+      }),
       before,
       { getTab: async () => ({ url: landed }) }
     )
