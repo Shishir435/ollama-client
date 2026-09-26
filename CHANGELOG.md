@@ -93,6 +93,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   **Turn on and continue** enables it and runs the same request, **Continue
   without** sends it as it was, and the model is told browser actions are off
   rather than calling them denied.
+- On Chromium, `tabGroups` is now a required permission alongside `debugger`
+  and `webNavigation`, so the update from 0.13.x asks for consent once and
+  tab-group reading and the agent's own tab group work without a further
+  prompt. It stays optional on Firefox, and its switch leaves Chromium's
+  Privacy panel because a required permission cannot be revoked there.
 - Ollama's hosted `:cloud` recommendations are off by default, with a switch at
   the top of Ollama's list in the model menu. They need a signed-in daemon and
   often a paid plan, and without one a chosen model failed at send time.
