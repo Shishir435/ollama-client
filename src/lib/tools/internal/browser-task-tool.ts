@@ -77,8 +77,15 @@ const parseRequest = (
 ): BrowserTaskRequest | undefined => {
   const goal = typeof args.goal === "string" ? args.goal.trim() : ""
   if (!goal) return undefined
+  /**
+   * A model that fills every parameter — OpenAI's, through OpenRouter — sends
+   * `tab_id: 0` for "none", and taken as a tab it failed every run as a
+   * browser page. No real tab has an id below one.
+   */
   const tabId =
-    typeof args.tab_id === "number" && Number.isInteger(args.tab_id)
+    typeof args.tab_id === "number" &&
+    Number.isInteger(args.tab_id) &&
+    args.tab_id > 0
       ? args.tab_id
       : undefined
   const startUrl = webAddress(args.start_url)

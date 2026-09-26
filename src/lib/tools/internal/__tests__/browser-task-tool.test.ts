@@ -52,6 +52,27 @@ describe("browser_task", () => {
     )
   })
 
+  /** OpenAI's models fill every parameter, sending zero and "" for none. */
+  it("treats a zero tab id and an empty start address as omitted", async () => {
+    const installed = runner()
+    setBrowserTaskRunner(installed)
+
+    await runBrowserTask(
+      {
+        goal: "Open Details",
+        tab_id: 0,
+        start_url: "",
+        continue_previous_task: false
+      },
+      { sessionId: "c" }
+    )
+
+    expect(installed.run).toHaveBeenCalledWith(
+      { goal: "Open Details", continuePrevious: false },
+      { sessionId: "c" }
+    )
+  })
+
   it("passes a web start address and drops anything else", async () => {
     const installed = runner()
     setBrowserTaskRunner(installed)
