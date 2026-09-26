@@ -236,6 +236,12 @@ export interface ToolContext {
 export interface ToolSource {
   /** Stable id, e.g. `"internal"` or `"mcp:<server>"`. */
   id: string
+  /**
+   * The source's list follows state that changes while the worker lives — a
+   * setting the user can flip — so the registry must ask it every time rather
+   * than reuse the first answer.
+   */
+  volatile?: boolean
   listTools(): Promise<ToolDefinition[]> | ToolDefinition[]
   callTool(
     name: string,

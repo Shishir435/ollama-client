@@ -125,6 +125,8 @@ export const createInternalToolSource = (): ToolSource => {
   )
   return {
     id: "internal",
+    /** `browser_task` follows the agent opt-in, which the user can flip at any time. */
+    volatile: true,
     listTools: async () => {
       const visible = await Promise.all(
         INTERNAL_TOOLS.map(async (tool) => ({

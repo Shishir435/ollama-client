@@ -458,9 +458,10 @@ const budgets: Budget[] = [
      * opt-in gate on browser_task. The Ollama cloud switch, Chrome 296,980
      * and Firefox 213,816: the provider reading its setting at list time.
      * The agent-off guidance, Chrome 297,133. The Ollama provider loading
-     * its setting lazily, Firefox 214,025.
+     * its setting lazily, Firefox 214,025. The volatile tool source, Chrome
+     * 297,303.
      */
-    max: isFirefox ? 214_200 : 297_300
+    max: isFirefox ? 214_200 : 297_500
   }
 ]
 
