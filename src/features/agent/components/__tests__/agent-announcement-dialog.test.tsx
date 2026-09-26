@@ -93,6 +93,28 @@ describe("AgentAnnouncementDialog", () => {
     ).toBeInTheDocument()
   })
 
+  /** A check still reading the old `dismissed = false` must not reopen it. */
+  it("stays closed when a pending check resolves after dismissal", async () => {
+    render(<AgentAnnouncementDialog />)
+    fireEvent.click(await screen.findByText("agent.announcement.later"))
+    let releaseRead = () => {}
+    const pendingRead = new Promise<void>((resolve) => {
+      releaseRead = resolve
+    })
+    const { readSetting } = await import("@/lib/storage/setting-access")
+    vi.mocked(readSetting).mockImplementationOnce(async () => {
+      await pendingRead
+      return false as never
+    })
+    store.values.delete(SETTINGS.AGENT_ANNOUNCEMENT_DISMISSED.key)
+    for (const listener of store.listeners)
+      listener({ "onboarding-state-v2": { newValue: "{}" } })
+    releaseRead()
+    await waitFor(() => undefined)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(screen.queryByText("agent.announcement.title")).toBeNull()
+  })
+
   it("records a dismissal without turning the agent on", async () => {
     render(<AgentAnnouncementDialog />)
     fireEvent.click(await screen.findByText("agent.announcement.later"))

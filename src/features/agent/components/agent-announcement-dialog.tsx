@@ -1,5 +1,5 @@
 import { Bot } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,6 +29,12 @@ import { SETTINGS } from "@/lib/storage/settings"
 export const AgentAnnouncementDialog = () => {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  /**
+   * Set on close, before the dismissal is written. A check started by an
+   * onboarding change can still be reading the old `dismissed = false`, and
+   * must not reopen what the user just closed.
+   */
+  const closedRef = useRef(false)
 
   useEffect(() => {
     let active = true
@@ -38,7 +44,13 @@ export const AgentAnnouncementDialog = () => {
         readSetting(SETTINGS.AGENT_ENABLED),
         getOnboardingState()
       ])
-      if (active && !dismissed && !enabled && onboarding.stage === "complete")
+      if (
+        active &&
+        !closedRef.current &&
+        !dismissed &&
+        !enabled &&
+        onboarding.stage === "complete"
+      )
         setOpen(true)
     }
     void load().catch(() => undefined)
@@ -55,6 +67,7 @@ export const AgentAnnouncementDialog = () => {
   }, [])
 
   const close = async (enable: boolean) => {
+    closedRef.current = true
     setOpen(false)
     if (enable) await writeSetting(SETTINGS.AGENT_ENABLED, true)
     await writeSetting(SETTINGS.AGENT_ANNOUNCEMENT_DISMISSED, true)
