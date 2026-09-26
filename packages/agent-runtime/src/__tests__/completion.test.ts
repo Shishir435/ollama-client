@@ -1536,7 +1536,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
   })
 
   it("lets a sent form meet only a requirement naming what its receipt holds", () => {
-    const sent = (values?: string[]) =>
+    const sent = (values?: { name?: string; value: string }[]) =>
       step({
         sequence: 2,
         requirementId: "r1",
@@ -1569,7 +1569,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: { kind: "field", summary: "Field holds Alice", observedAt: 1 }
       }
     })
-    const judge = (text: string, steps = [typed, sent(["Alice"])]) =>
+    const judge = (
+      text: string,
+      steps = [typed, sent([{ name: "Search", value: "Alice" }])]
+    ) =>
       judgeAgentCompletion({
         steps,
         observation: observation({ visibleText: "Details" }),
@@ -1604,14 +1607,48 @@ describe("judgeAgentCompletion with planned requirements", () => {
      * Alice typed into another form on the page, and this form sent Bob:
      * only what the submission carried is proved.
      */
-    expect(judge("Search for Alice.", [typed, sent(["Bob"])])).toBe("refused")
-    /** Of two sent values neither proves the search term. */
-    expect(judge("Search for Bob.", [sent(["Alice", "Bob"])])).toBe("refused")
-    expect(judge("Search for Alice.", [sent(["Alice", "Bob"])])).toBe("refused")
-    /** A POST, or a landing with no matched query, proves no value. */
+    expect(
+      judge("Search for Alice.", [
+        typed,
+        sent([{ name: "Search", value: "Bob" }])
+      ])
+    ).toBe("refused")
+    /** A POST, or a form with a hidden control, proves no value. */
     expect(judge("Search for Alice.", [typed, sent()])).toBe("refused")
+    /** One value needs no label: there is no other control it came from. */
+    expect(judge("Search for Alice.", [sent([{ value: "Alice" }])])).toBe(
+      "accepted"
+    )
+    /**
+     * Two values: each is proved only where the requirement puts it beside
+     * its own control's label.
+     */
+    const both = [
+      sent([
+        { name: "Search", value: "Alice" },
+        { name: "Category", value: "Bob" }
+      ])
+    ]
+    for (const text of [
+      "Search for Alice",
+      "Search for Alice in category Bob",
+      "Search for Alice in the Bob category"
+    ])
+      expect([text, judge(text, both)]).toEqual([text, "accepted"])
+    for (const text of [
+      "Search for Bob",
+      "Search for Bob in category Alice",
+      "Search for Alice and Bob"
+    ])
+      expect([text, judge(text, both)]).toEqual([text, "refused"])
+    /** Values no control was seen holding cannot be told apart. */
+    expect(
+      judge("Search for Alice", [sent([{ value: "Alice" }, { value: "Bob" }])])
+    ).toBe("refused")
     /** A negation the form sent is still not a fact. */
-    expect(judge("Do not click Continue", [sent(["do not"])])).toBe("refused")
+    expect(judge("Do not click Continue", [sent([{ value: "do not" }])])).toBe(
+      "refused"
+    )
   })
 
   it("binds a batch value to the field the requirement names", () => {

@@ -309,13 +309,30 @@ describe("Agent DOM mutation resolution and policy", () => {
    * landed address, whose hidden fields may be tokens.
    */
   it.each([
-    ["q=Alice", undefined, ["Alice"]],
-    ["q=Alice&category=", undefined, ["Alice"]],
-    /** Two values, and nothing says which was the search term. */
-    ["q=Alice&category=Bob", undefined, undefined],
+    ["q=Alice", undefined, [{ name: "Search", value: "Alice" }]],
+    ["q=Alice&category=", undefined, [{ name: "Search", value: "Alice" }]],
+    /**
+     * Each value keeps the label of the control in this form that held it;
+     * Bob in another form on the page lends Category nothing.
+     */
+    [
+      "q=Alice&category=Bob",
+      undefined,
+      [
+        { name: "Search", value: "Alice" },
+        { name: "Category", value: "Bob" }
+      ]
+    ],
+    /** A value no control of this form holds keeps no label. */
+    [
+      "q=Alice&tag=Carol",
+      undefined,
+      [{ name: "Search", value: "Alice" }, { value: "Carol" }]
+    ],
     ["q=Alice", true, undefined],
     [undefined, undefined, undefined]
   ])("records the visible query %s a confirmed GET submission sent", async (formQuery, sensitive, values) => {
+    const form = { formFingerprint: "0000abcd" }
     const before = observation({
       elements: [
         element({
@@ -324,8 +341,32 @@ describe("Agent DOM mutation resolution and policy", () => {
           formMethod: "get",
           maySubmit: true,
           submitter: true,
+          ...form,
           ...(formQuery ? { formQuery } : {}),
           ...(sensitive ? { formHasSensitiveControl: true } : {})
+        }),
+        element({
+          ref: "e2",
+          tag: "input",
+          name: "Search",
+          editable: true,
+          value: "Alice",
+          ...form
+        }),
+        element({
+          ref: "e3",
+          tag: "select",
+          name: "Category",
+          value: "Bob",
+          ...form
+        }),
+        element({
+          ref: "e4",
+          tag: "input",
+          name: "Other form",
+          editable: true,
+          value: "Bob",
+          formFingerprint: "ffff0000"
         })
       ]
     })

@@ -931,7 +931,8 @@ const verifyCheckedMutation: Verifier = async (input, adapter, signal) => {
 
 /**
  * The values a GET submission sent, as proof of what this form carried
- * rather than anything typed elsewhere on the page.
+ * rather than anything typed elsewhere on the page, each with the label of
+ * the control that held it.
  *
  * Read from `formQuery`, the query of visible fields the approval's address
  * was built from and the executor refused to send if it had changed — never
@@ -940,23 +941,36 @@ const verifyCheckedMutation: Verifier = async (input, adapter, signal) => {
  * hidden or sensitive control, since `formQuery` is then never built. A
  * value too long to keep whole is dropped rather than cut, so no fragment
  * of it reads as a word it never was.
+ *
+ * The label is what lets `q=Alice&category=Bob` prove "Search for Alice"
+ * and not "Search for Bob": parameter names are the site's, while the
+ * control's name is the word a requirement uses. It is taken from the
+ * control of this same form holding exactly that value; a value no single
+ * control holds keeps no label.
  */
-const submittedValues = (input: AgentVerificationInput): string[] => {
-  const query = input.effect.target.formQuery
-  if (query === undefined || input.effect.target.formHasSensitiveControl)
+const submittedValues = (
+  input: AgentVerificationInput
+): { name?: string; value: string }[] => {
+  const target = input.effect.target
+  if (target.formQuery === undefined || target.formHasSensitiveControl)
     return []
-  const sent = [...new URLSearchParams(query).values()].filter(
-    (value) => value.trim().length > 0
+  const controls = input.before.elements.filter(
+    (element) =>
+      target.formFingerprint !== undefined &&
+      element.formFingerprint === target.formFingerprint
   )
-  /**
-   * Only a form that sent one value says what it searched for. With
-   * `q=Alice&category=Bob` nothing here says which was the search term —
-   * parameter names are the site's, not words a requirement uses — so
-   * neither is recorded, and "Search for Bob" must be proved from the page.
-   */
-  return sent.length === 1 && sent[0].length <= MAX_AGENT_SUBMITTED_VALUE_CHARS
-    ? sent.slice(0, MAX_AGENT_SUBMITTED_VALUES)
-    : []
+  return [...new URLSearchParams(target.formQuery).values()]
+    .filter(
+      (value) =>
+        value.trim().length > 0 &&
+        value.length <= MAX_AGENT_SUBMITTED_VALUE_CHARS
+    )
+    .slice(0, MAX_AGENT_SUBMITTED_VALUES)
+    .map((value) => {
+      const holders = controls.filter((element) => element.value === value)
+      const name = holders.length === 1 ? holders[0].name?.trim() : undefined
+      return name ? { name: name.slice(0, 120), value } : { value }
+    })
 }
 
 const verifySubmission: Verifier = async (input, adapter, signal) => {

@@ -32,7 +32,10 @@ describe("toAgentStepRecords", () => {
       }) as DurableAgentStep
     const records = toAgentStepRecords([
       step("s1", { fields: [{ name: "Email" }] }),
-      step("s2", { kind: "submission", values: ["Alice"] })
+      step("s2", {
+        kind: "submission",
+        values: [{ name: "Search", value: "Alice" }]
+      })
     ])
     for (const record of records) {
       expect(AgentStepRecordSchema.safeParse(record).success).toBe(true)

@@ -1170,31 +1170,105 @@ const isBoundSubmission = (
   claimsOnlyAct(
     requirement,
     SUBMISSION_ACT_WORDS,
-    submissionFacts(receipt),
+    submissionFacts(requirement, receipt),
     SUBMISSION_WORDS
   )
 
 /**
- * What a submission's own receipt proves: the control it went through, the
- * key, the site's host labels, and the one value its GET query sent.
+ * What a submission's own receipt proves for this requirement: the control
+ * it went through, the key, the site's host labels, and the values its GET
+ * query sent that the requirement puts where the form did.
+ *
  * Never a value typed earlier: a page with two forms can hold Alice in one
- * and send the other.
+ * and send the other. And of several sent values, only one the requirement
+ * binds to its own control: with Alice in Search and Bob in Category,
+ * "Search for Alice" names Search beside Alice and is met, while "Search
+ * for Bob" names Search beside Bob, which Bob was not in, and is refused.
+ * One sent value needs no binding; there is no other control it could be.
  */
-const submissionFacts = (receipt: AgentStepReadout): Set<string> =>
-  factWords([
+const submissionFacts = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): Set<string> => {
+  const sent = receipt.verification?.evidence.values ?? []
+  const assigned =
+    sent.length === 1
+      ? new Map([[0, 0]])
+      : assignSentValues(agentNormalizedClaim(requirement.text), sent)
+  const bound = sent.filter((_, index) => assigned.get(index) === index)
+  return factWords([
     receipt.target?.name,
     receipt.command?.type === "press_key" ? keyText(receipt.command.key) : "",
     hostLabels(receipt.sourceUrl),
     hostLabels(receipt.formAction),
-    /**
-     * One sent value is the search term; of several, nothing says which
-     * was, so none is a fact. The verifier records only one; this holds
-     * for any receipt that says otherwise.
-     */
-    ...(receipt.verification?.evidence.values?.length === 1
-      ? receipt.verification.evidence.values
-      : [])
+    /** A bound value's label names a control this form sent from. */
+    ...bound.flatMap(({ name, value }) => [name, value])
   ])
+}
+
+/**
+ * Which control's label the requirement puts each sent value beside, paired
+ * one to one, closest first: in "search for alice in category bob",
+ * Category is nearer Alice than Search is, but it is nearer still to Bob,
+ * so Bob takes it and Alice is left with Search. Two pairs at one distance
+ * competing for a label or a value bind neither. Returns value index →
+ * label index; a value the requirement does not name is absent.
+ */
+const assignSentValues = (
+  text: string,
+  sent: readonly { name?: string; value: string }[]
+): Map<number, number> => {
+  const pairs = sent.flatMap(({ name }, label) => {
+    const normalized = agentNormalizedClaim(name ?? "")
+    const exact = completePhraseOccurrences(text, normalized)
+    const labelAt = exact.length
+      ? exact
+      : fieldNameWordOccurrences(text, normalized)
+    return sent.flatMap(({ value }, valueIndex) =>
+      labelAt.flatMap((at) =>
+        completePhraseOccurrences(text, agentNormalizedClaim(value)).flatMap(
+          (occurrence) => {
+            const distance =
+              at.end <= occurrence.start
+                ? occurrence.start - at.end
+                : at.start - occurrence.end
+            return distance >= 0 ? [{ label, value: valueIndex, distance }] : []
+          }
+        )
+      )
+    )
+  })
+  const assigned = new Map<number, number>()
+  /** A value or label contested at its closest distance binds nothing. */
+  const settledValues = new Set<number>()
+  const settledLabels = new Set<number>()
+  const distances = [...new Set(pairs.map(({ distance }) => distance))].sort(
+    (first, second) => first - second
+  )
+  for (const distance of distances) {
+    const open = pairs.filter(
+      (pair) =>
+        pair.distance === distance &&
+        !settledValues.has(pair.value) &&
+        !settledLabels.has(pair.label)
+    )
+    const count = (key: "value" | "label", of: number) =>
+      new Set(
+        open
+          .filter((pair) => pair[key] === of)
+          .map((pair) => (key === "value" ? pair.label : pair.value))
+      ).size
+    for (const pair of open) {
+      if (count("value", pair.value) === 1 && count("label", pair.label) === 1)
+        assigned.set(pair.value, pair.label)
+    }
+    for (const pair of open) {
+      settledValues.add(pair.value)
+      settledLabels.add(pair.label)
+    }
+  }
+  return assigned
+}
 
 /**
  * The labels of a URL's host, read without the DOM's URL parser, which this

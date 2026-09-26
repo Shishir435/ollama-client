@@ -391,12 +391,12 @@ export interface AgentVerificationEvidence {
   /** Bounded control names for a confirmed batch, in command order. */
   fields?: { name?: string }[]
   /**
-   * The query values a confirmed GET submission landed with — what the form
-   * actually sent, and therefore the only values that submission proves.
-   * Absent for a POST, a form with a sensitive control, or a landing the
-   * verifier could not match to the requested address.
+   * The values a confirmed GET submission sent, each with the label of the
+   * control it came from when the observation showed one — what the form
+   * actually carried, and so the only values that submission proves.
+   * Absent for a POST, or a form with a hidden or sensitive control.
    */
-  values?: string[]
+  values?: { name?: string; value: string }[]
 }
 
 export type AgentVerificationResult =

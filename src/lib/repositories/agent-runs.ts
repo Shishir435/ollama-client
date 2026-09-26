@@ -107,7 +107,14 @@ const AgentVerificationSchema = z
           .max(12)
           .optional(),
         values: z
-          .array(z.string().max(MAX_AGENT_SUBMITTED_VALUE_CHARS))
+          .array(
+            z
+              .object({
+                name: z.string().max(120).optional(),
+                value: z.string().max(MAX_AGENT_SUBMITTED_VALUE_CHARS)
+              })
+              .strict()
+          )
           .max(MAX_AGENT_SUBMITTED_VALUES)
           .optional()
       })
