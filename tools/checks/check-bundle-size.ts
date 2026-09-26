@@ -223,9 +223,10 @@ const budgets: Budget[] = [
      * third, 9,784,507: tabs bound to the step that opened them, asserted
      * values held whole, and the open_tab instruction. Release polish,
      * 9,818,005: seven gateway vendor marks, the agent opt-in and its
-     * one-time announcement in nine locales.
+     * one-time announcement in nine locales. Its agent tab, 9,822,274: the
+     * tab's own chunk, the Context-sheet switch and labelled dropdowns.
      */
-    max: isFirefox ? 11_800_000 : 9_820_000
+    max: isFirefox ? 11_800_000 : 9_823_000
   },
   {
     metric: "zip",
