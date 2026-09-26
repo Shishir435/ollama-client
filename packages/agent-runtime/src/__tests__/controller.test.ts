@@ -1406,6 +1406,43 @@ describe("agent controller", () => {
     ).toBeGreaterThan(0)
   })
 
+  /**
+   * The memory task: read a code, open Details, report both. The code is on
+   * the first page only, and quoting it from there is the answer.
+   */
+  it("accepts a read quotation from a page the run has since left", async () => {
+    const first = observation({ visibleText: "Reference code: QP-719 Details" })
+    const second = observation({ visibleText: "Status code: ZX-482" })
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Report the reference code", kind: "read" },
+          { id: "r2", text: "Report the status code", kind: "read" }
+        ]
+      }),
+      effectOverrides: { semanticEffects: ["activation"] },
+      observe: async () => (decisions >= 1 ? second : first),
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1)
+          return { type: "command", command: command(), requirementId: "r2" }
+        return {
+          type: "complete",
+          summary: "QP-719 and ZX-482",
+          outcomes: [
+            { id: "r1", met: true, evidence: "Reference code: QP-719" },
+            { id: "r2", met: true, evidence: "Status code: ZX-482" }
+          ]
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).toBe("completed")
+  })
+
   it("does not let an attempt that never landed replace the baseline", async () => {
     /**
      * The baseline has to describe the change a completion is judged

@@ -301,7 +301,7 @@ const agentDecisionParameters = (vision: boolean): ToolParameterSchema => ({
     evidence: {
       type: "string",
       description:
-        "For complete: copy an EXACT contiguous quote from current observation.text or an element value, such as the changed words or saved-state indicator. No explanation, quotation marks, or verifier/history commentary. The quote must show the change and must not have been present before it. Required after changing the page."
+        "For complete: copy an EXACT contiguous quote from current observation.text or an element value, such as the changed words or saved-state indicator. No explanation, quotation marks, or verifier/history commentary. The quote must show the change and must not have been present before it. Required after changing the page. A read requirement's outcome evidence may quote any page this run observed, so do not go back to re-read it."
     },
     reason: { type: "string", description: "Reason for fail." },
     finding: {

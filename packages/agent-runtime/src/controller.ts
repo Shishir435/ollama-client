@@ -310,6 +310,25 @@ export const createAgentController = (
    * evidence is new.
    */
   let changeBaseline: { runId: string; text: string } | undefined
+  /**
+   * Every page this run was shown, flattened, so a `read` requirement can
+   * quote a page the run has since left: remembering a code on one page and
+   * reporting it from the next is the task, and without this the run went
+   * back to re-read it and paused. One run at a time and memory-only, like
+   * `changeBaseline`; bounded by the run's own observation budget.
+   */
+  let observedPages: { runId: string; texts: string[] } | undefined
+  const rememberObservedPage = (
+    runId: string,
+    observation: AgentObservation
+  ) => {
+    const text = agentObservationHaystack(observation)
+    if (observedPages?.runId !== runId) observedPages = { runId, texts: [] }
+    if (observedPages.texts.includes(text)) return
+    observedPages.texts = [...observedPages.texts, text].slice(
+      -MAX_AGENT_OBSERVATIONS
+    )
+  }
   const noProgressCounts = new Map<string, number>()
   const refusedCommandCounts = new Map<string, number>()
   const refusedCompletions = new Map<
@@ -834,6 +853,7 @@ export const createAgentController = (
         return undefined
       }
       lastGeneration.set(state.id, observation.generation)
+      rememberObservedPage(state.id, observation)
       return observation
     } catch (error) {
       if (!signal.aborted) {
@@ -1639,6 +1659,9 @@ export const createAgentController = (
         observation,
         evidence: decision.evidence,
         baselineText: baseline,
+        ...(observedPages?.runId === state.id
+          ? { observedTexts: observedPages.texts }
+          : {}),
         ...(state.requirements ? { requirements: state.requirements } : {}),
         ...(decision.outcomes ? { outcomes: decision.outcomes } : {})
       },
