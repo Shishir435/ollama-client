@@ -916,6 +916,30 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
   })
 
+  /**
+   * Remembering a code on one page and reporting it from the next is the
+   * task. The quotation is checked against pages the run was shown, never
+   * against a change requirement or anything the model wrote.
+   */
+  it("finds a read quotation on a page the run observed earlier", () => {
+    const judge = (
+      kind: "read" | "change",
+      evidence: string,
+      observedTexts = ["reference code: qp-719 details"]
+    ) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Status code: ZX-482" }),
+        observedTexts,
+        requirements: [{ id: "r1", text: "report the reference code", kind }],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      }).type
+    expect(judge("read", "Reference code: QP-719")).toBe("accepted")
+    expect(judge("read", "Reference code: QP-000")).toBe("refused")
+    expect(judge("read", "Reference code: QP-719", [])).toBe("refused")
+    expect(judge("change", "Reference code: QP-719")).toBe("refused")
+  })
+
   it("asks a read requirement for no page evidence", () => {
     expect(
       judgeAgentCompletion({
@@ -992,6 +1016,21 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ]
       })
     ).toMatchObject({ type: "refused", reason: "missing_evidence" })
+  })
+
+  /** The state is a fact of the receipt only in the direction it confirmed. */
+  it("accepts a checked state written as data only in its own direction", () => {
+    const judge = (evidence: string) =>
+      judgeAgentCompletion({
+        steps: [checkedBox],
+        observation: checkboxPage,
+        requirements: checkboxRequirement,
+        outcomes: [{ id: "r1", met: true, evidence }]
+      }).type
+    expect(judge("checked:true")).toBe("accepted")
+    expect(judge("Agree checked")).toBe("accepted")
+    expect(judge("checked:false")).toBe("refused")
+    expect(judge("not checked")).toBe("refused")
   })
 
   it("does not rescue an invented phrase with a real verification", () => {
@@ -1404,6 +1443,29 @@ describe("judgeAgentCompletion with planned requirements", () => {
         outcomes: [{ id: "r1", met: true, evidence: "Alice" }]
       })
     ).toMatchObject({ type: "accepted" })
+  })
+
+  /**
+   * gpt-6-luna quoted the address bar's `name=Alice` for "The Name field
+   * contains Alice" and paused asking about a form its receipt had finished.
+   * A quotation made only of the receipt's own facts asserts nothing more.
+   */
+  it.each([
+    ["name=Alice", "accepted"],
+    ["Name: Alice", "accepted"],
+    ["Name: Bob", "refused"],
+    ["Alice saved", "refused"]
+  ])("judges the absent quotation %s by the receipt's facts", (evidence, type) => {
+    expect(
+      judgeAgentCompletion({
+        steps: [typedName],
+        observation: observation({ visibleText: "Details Status: Active" }),
+        requirements: [
+          { id: "r1", text: "Enter Alice in the Name field", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      }).type
+    ).toBe(type)
   })
 
   it.each([

@@ -144,6 +144,16 @@ export interface AgentCompletionInput {
    */
   baselineText?: string
   /**
+   * Every page this run observed, each flattened by `agentObservationHaystack`.
+   * A `read` requirement's quotation may come from any of them: remembering a
+   * code on one page and reporting it from the next is the task, and the
+   * quotation is checked against what the run itself was shown, never
+   * against anything the model wrote. Best effort and memory-only, like
+   * `baselineText`: a restart loses it and a quotation from an earlier page
+   * is refused again.
+   */
+  observedTexts?: readonly string[]
+  /**
    * What the goal asks for, as the planning call fixed it. Absent means the
    * run was never planned — a host with no plan port, or a plan call that
    * failed — and the judge falls back to the single-evidence rule below,
@@ -295,6 +305,55 @@ const provesItsOwnResult = (
 ): boolean =>
   verification !== undefined &&
   RESULT_VERIFIED_EVIDENCE.has(verification.evidence.kind)
+
+/**
+ * The checked state a checkbox receipt confirmed, as a quotation would put
+ * it. Only the confirmed direction: `checked:false` names an uncheck and
+ * refuses a check.
+ */
+const CHECKED_STATE_WORDS = {
+  check: new Set(["checked", "ticked", "selected", "true", "yes"]),
+  uncheck: new Set(["unchecked", "unticked", "deselected", "cleared", "false"])
+} as const
+
+/**
+ * Whether a quotation is made only of what the receipt itself holds — its
+ * control's name, its value, the state it confirmed — so that it asserts
+ * nothing the receipt does not.
+ *
+ * The page never says `name=Alice` or `checked:false`; a model that read the
+ * address bar or wrote the state as data quotes that way, and refusing it
+ * while a requirement answered with no quotation at all is rescued sent a
+ * run its receipt had already finished back to ask the user. A word outside
+ * those facts — "Bob", "saved", a verifier sentence — is a claim, and refuses
+ * as before. Function words count for nothing, so at least one fact must be
+ * named.
+ */
+const quotationStatesReceiptFacts = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const command = receipt.command
+  const value =
+    command?.type === "select"
+      ? command.value
+      : command?.type === "type" ||
+          command?.type === "clear_and_type" ||
+          command?.type === "replace_text"
+        ? command.text
+        : undefined
+  const facts = factWords([receipt.target?.name, value])
+  const state =
+    command?.type === "check" || command?.type === "uncheck"
+      ? CHECKED_STATE_WORDS[command.type]
+      : undefined
+  const words = claimWords(quoted)
+  const named = words.filter((word) => !CLAIM_FUNCTION_WORDS.has(word))
+  return (
+    named.length > 0 &&
+    named.every((word) => facts.has(word) || state?.has(word) === true)
+  )
+}
 
 /**
  * A change whose verified state answers its requirement without a quotation:
@@ -787,10 +846,16 @@ const refusePlannedReadClaim = (
   evidence: string | undefined,
   input: AgentCompletionInput,
   change: AgentStepReadout | "unreadable" | undefined
-): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
-  evidence
-    ? judgeEvidence(evidence, input, change ?? "unreadable", false)
-    : undefined
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  if (!evidence) return undefined
+  const refusal = judgeEvidence(evidence, input, change ?? "unreadable", false)
+  if (
+    refusal?.reason === "absent_evidence" &&
+    input.observedTexts?.some((text) => agentHaystackStates(evidence, text))
+  )
+    return undefined
+  return refusal
+}
 
 const NO_SUBMISSION_MENTION_PATTERN =
   /\b(?:do not|don't|never|without)\s+submitt?(?:ed|ing)?\b|\b(?:remain|stays?|is|was)\s+(?:not\s+submitted|unsubmitted)\b/i
@@ -854,9 +919,10 @@ const evidencePlannedChange = (
    * against verifier summaries, which are fixed template sentences. An
    * outcome that must outlive its navigation needs result-verified state,
    * which is page-independent — so an absent quotation is rescued only by a
-   * result-verified receipt it names exactly, by its control or its value:
-   * typing "Alice" and submitting leaves no "Alice" on the next page, and
-   * the receipt that confirmed the field held it is the evidence instead.
+   * result-verified receipt it names in the receipt's own facts, its control,
+   * its value or its checked state: typing "Alice" and submitting leaves no
+   * "Alice" on the next page, and the receipt that confirmed the field held
+   * it is the evidence instead.
    */
   const absent = refusal.reason === "absent_evidence"
   /**
@@ -906,7 +972,8 @@ const evidencePlannedChange = (
         (quoted === undefined
           ? !absent
           : quotationNamesReceiptTarget(quoted, candidate) ||
-            quotationNamesReceiptValue(quoted, candidate))
+            quotationNamesReceiptValue(quoted, candidate) ||
+            quotationStatesReceiptFacts(quoted, candidate))
     )
     if (receipt) {
       consumed.add(receipt.stepId)
