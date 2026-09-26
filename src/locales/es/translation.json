@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "Pestañas controladas",
-      "count": "{{count}} pestañas"
+      "count_one": "{{count}} pestaña",
+      "count_other": "{{count}} pestañas"
     },
     "takeover": {
       "title": "Toma el control de este paso",

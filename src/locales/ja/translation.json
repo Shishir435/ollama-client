@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "操作中のタブ",
-      "count": "{{count}} 個のタブ"
+      "count_one": "{{count}} 個のタブ",
+      "count_other": "{{count}} 個のタブ"
     },
     "takeover": {
       "title": "この手順を引き継ぐ",

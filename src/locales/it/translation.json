@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "Schede controllate",
-      "count": "{{count}} schede"
+      "count_one": "{{count}} scheda",
+      "count_other": "{{count}} schede"
     },
     "takeover": {
       "title": "Prendi il controllo di questo passaggio",

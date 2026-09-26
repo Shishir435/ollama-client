@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "Onglets contrôlés",
-      "count": "{{count}} onglets"
+      "count_one": "{{count}} onglet",
+      "count_other": "{{count}} onglets"
     },
     "takeover": {
       "title": "Prenez le contrôle de cette étape",

@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "受控标签页",
-      "count": "{{count}} 个标签页"
+      "count_one": "{{count}} 个标签页",
+      "count_other": "{{count}} 个标签页"
     },
     "takeover": {
       "title": "接管此步骤",

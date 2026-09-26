@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "Gesteuerte Tabs",
-      "count": "{{count}} Tabs"
+      "count_one": "{{count}} Tab",
+      "count_other": "{{count}} Tabs"
     },
     "takeover": {
       "title": "Diesen Schritt übernehmen",

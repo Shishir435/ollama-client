@@ -136,7 +136,10 @@
     },
     "tabs": {
       "label": "Управляемые вкладки",
-      "count": "{{count}} вкладок"
+      "count_one": "{{count}} вкладка",
+      "count_few": "{{count}} вкладки",
+      "count_many": "{{count}} вкладок",
+      "count_other": "{{count}} вкладки"
     },
     "takeover": {
       "title": "Выполните этот шаг сами",

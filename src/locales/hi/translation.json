@@ -136,7 +136,8 @@
     },
     "tabs": {
       "label": "नियंत्रित टैब",
-      "count": "{{count}} टैब"
+      "count_one": "{{count}} टैब",
+      "count_other": "{{count}} टैब"
     },
     "takeover": {
       "title": "यह चरण अपने हाथ में लें",
