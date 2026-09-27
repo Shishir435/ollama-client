@@ -891,6 +891,7 @@
     "embedding_config": {
       "title": "埋め込みモデル、チャンク分割、検索、ストレージ",
       "storage_stats_title": "ストレージ統計",
+      "storage_stats_description": "ベクトルストレージの現在の使用状況",
       "total_vectors": "総ベクトル数",
       "storage_used": "使用ストレージ",
       "cache": "キャッシュ",

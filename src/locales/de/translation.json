@@ -891,6 +891,7 @@
     "embedding_config": {
       "title": "Embedding-Modell, Chunking, Suche und Speicher",
       "storage_stats_title": "Speicherstatistiken",
+      "storage_stats_description": "Aktuelle Statistiken zur Vektorspeicher-Nutzung",
       "total_vectors": "Gesamtvektoren",
       "storage_used": "Verwendeter Speicher",
       "cache": "Cache",

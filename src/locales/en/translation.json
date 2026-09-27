@@ -938,6 +938,7 @@
     "embedding_config": {
       "title": "Embedding model, chunking, search and storage",
       "storage_stats_title": "Storage Statistics",
+      "storage_stats_description": "Current vector storage usage statistics",
       "total_vectors": "Total Vectors",
       "storage_used": "Storage Used",
       "cache": "Cache",

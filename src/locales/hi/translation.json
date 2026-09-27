@@ -891,6 +891,7 @@
     "embedding_config": {
       "title": "एम्बेडिंग मॉडल, चंकिंग, खोज और स्टोरेज",
       "storage_stats_title": "भंडारण आँकड़े",
+      "storage_stats_description": "वेक्टर स्टोरेज उपयोग के मौजूदा आँकड़े",
       "total_vectors": "कुल वेक्टर",
       "storage_used": "उपयोग किया गया भंडारण",
       "cache": "कैश",

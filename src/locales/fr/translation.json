@@ -891,6 +891,7 @@
     "embedding_config": {
       "title": "Modèle d'embedding, découpage, recherche et stockage",
       "storage_stats_title": "Statistiques de Stockage",
+      "storage_stats_description": "Statistiques actuelles d’utilisation du stockage des vecteurs",
       "total_vectors": "Vecteurs Totaux",
       "storage_used": "Stockage Utilisé",
       "cache": "Cache",

@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next"
 
 import { MetricTile } from "@/components/feedback"
 import { DenseFormGrid } from "@/components/layout"
-import { SettingsCard } from "@/components/settings"
+import { SettingsSection } from "@/components/settings"
 
-export interface StorageStatsCardProps {
+export interface StorageStatsSectionProps {
   storageStats: {
     totalVectors: number
     totalSizeMB: number
@@ -17,21 +17,18 @@ export interface StorageStatsCardProps {
   } | null
 }
 
-export const StorageStatsCard = ({
+export const StorageStatsSection = ({
   storageStats,
   cacheStats
-}: StorageStatsCardProps) => {
+}: StorageStatsSectionProps) => {
   const { t } = useTranslation()
 
   return (
-    <SettingsCard
+    <SettingsSection
       icon={Database}
-      focusId="embeddings-storage-stats"
+      data-settings-focus-id="embeddings-storage-stats"
       title={t("model.embedding_config.storage_stats_title")}
-      description={t(
-        "model.embedding_config.storage_stats_description",
-        "Current vector storage usage statistics"
-      )}>
+      description={t("model.embedding_config.storage_stats_description")}>
       <DenseFormGrid>
         <MetricTile
           label={t("model.embedding_config.total_vectors")}
@@ -55,6 +52,6 @@ export const StorageStatsCard = ({
           </p>
         </div>
       )}
-    </SettingsCard>
+    </SettingsSection>
   )
 }

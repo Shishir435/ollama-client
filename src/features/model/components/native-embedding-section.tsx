@@ -1,12 +1,12 @@
 import { Brain } from "lucide-react"
 import { type ReactNode, useId, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard } from "@/components/settings"
+import { SettingsSection } from "@/components/settings"
 import type { useNativeEmbeddings } from "../hooks/use-native-embeddings"
 import { NativeEmbeddingFields } from "./native-embedding-fields"
 
 /** One place to see the active route, choose a server model and switch safely. */
-export const NativeEmbeddingCard = ({
+export const NativeEmbeddingSection = ({
   native,
   children
 }: {
@@ -23,9 +23,9 @@ export const NativeEmbeddingCard = ({
     ? native.state.target || native.state.mode
     : choice || native.state.mode
   return (
-    <SettingsCard
+    <SettingsSection
       icon={Brain}
-      focusId="bundled-embeddings"
+      data-settings-focus-id="bundled-embeddings"
       title={t("settings.embeddings.bundled.mode_title")}
       description={t("settings.embeddings.bundled.settings_description")}>
       <NativeEmbeddingFields native={native} settingsView targetMode={selected}>
@@ -75,6 +75,6 @@ export const NativeEmbeddingCard = ({
           {selected === "external" && children}
         </fieldset>
       </NativeEmbeddingFields>
-    </SettingsCard>
+    </SettingsSection>
   )
 }

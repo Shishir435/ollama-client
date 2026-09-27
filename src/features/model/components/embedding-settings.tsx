@@ -1,8 +1,8 @@
-import { AlertTriangle, RefreshCw } from "lucide-react"
+import { AlertTriangle, Brain, RefreshCw } from "lucide-react"
 import { useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import { SectionStack } from "@/components/layout"
-import { StatusAlert } from "@/components/settings"
+import { SettingsCard, StatusAlert } from "@/components/settings"
 import { FeedbackSettings } from "@/features/knowledge/components/feedback-settings"
 import { useEmbeddingRebuildWorkflow } from "@/features/model/hooks/use-embedding-rebuild-workflow"
 import { useEmbeddingSettingsState } from "@/features/model/hooks/use-embedding-settings-state"
@@ -14,7 +14,7 @@ import { EmbeddingRebuildDialogs } from "./embedding-config/embedding-rebuild-di
 import { EmbeddingStorageSettings } from "./embedding-config/embedding-storage-settings"
 import { EmbeddingTestGeneration } from "./embedding-config/embedding-test-generation"
 import { EmbeddingTestSearch } from "./embedding-config/embedding-test-search"
-import { NativeEmbeddingCard } from "./native-embedding-card"
+import { NativeEmbeddingSection } from "./native-embedding-section"
 
 /** Composition root for the embeddings settings screen. */
 export const EmbeddingSettings = () => {
@@ -56,44 +56,54 @@ export const EmbeddingSettings = () => {
           title={t("settings.context.embedding_health.success")}
         />
       )}
-      {native.state && (
-        <NativeEmbeddingCard native={native}>
-          <EmbeddingModelSelector
-            selectedModel={settings.selectedModel}
-            config={settings.config}
-            embeddingModels={settings.embeddingModels}
-            hasAdvancedModels={settings.hasAdvancedModels}
-            isRebuilding={
-              rebuild.isRebuilding || native.state.migration === "building"
-            }
-            showRebuildNotice={rebuild.isRebuilding}
-            rebuildProgress={rebuild.progress}
-            onModelSelected={
-              native.state.mode === "bundled"
-                ? (model, providerId) =>
-                    settings.applyModelChange(model, providerId, "shared-model")
-                : rebuild.requestModelChange
-            }
-            onToggleShowAdvanced={handleToggleShowAdvanced}
-          />
-        </NativeEmbeddingCard>
-      )}
-      <EmbeddingTestGeneration
-        modelExists={native.state?.mode === "bundled" || settings.modelExists}
-      />
-      <EmbeddingTestSearch
-        modelExists={native.state?.mode === "bundled" || settings.modelExists}
-      />
-      <EmbeddingGenerationConfig
-        config={settings.config}
-        updateConfig={settings.updateConfig}
-      />
-      <EmbeddingStorageSettings
-        config={settings.config}
-        updateConfig={settings.updateConfig}
-        isRebuilding={rebuild.isRebuilding}
-        onStoreChanged={rebuild.refreshDimensionStats}
-      />
+      <SettingsCard
+        icon={Brain}
+        title={t("settings.embeddings.title")}
+        description={t("settings.embeddings.description")}
+        contentClassName="divide-y divide-border *:py-6 *:first:pt-0 *:last:pb-0">
+        {native.state && (
+          <NativeEmbeddingSection native={native}>
+            <EmbeddingModelSelector
+              selectedModel={settings.selectedModel}
+              config={settings.config}
+              embeddingModels={settings.embeddingModels}
+              hasAdvancedModels={settings.hasAdvancedModels}
+              isRebuilding={
+                rebuild.isRebuilding || native.state.migration === "building"
+              }
+              showRebuildNotice={rebuild.isRebuilding}
+              rebuildProgress={rebuild.progress}
+              onModelSelected={
+                native.state.mode === "bundled"
+                  ? (model, providerId) =>
+                      settings.applyModelChange(
+                        model,
+                        providerId,
+                        "shared-model"
+                      )
+                  : rebuild.requestModelChange
+              }
+              onToggleShowAdvanced={handleToggleShowAdvanced}
+            />
+          </NativeEmbeddingSection>
+        )}
+        <EmbeddingTestGeneration
+          modelExists={native.state?.mode === "bundled" || settings.modelExists}
+        />
+        <EmbeddingTestSearch
+          modelExists={native.state?.mode === "bundled" || settings.modelExists}
+        />
+        <EmbeddingGenerationConfig
+          config={settings.config}
+          updateConfig={settings.updateConfig}
+        />
+        <EmbeddingStorageSettings
+          config={settings.config}
+          updateConfig={settings.updateConfig}
+          isRebuilding={rebuild.isRebuilding}
+          onStoreChanged={rebuild.refreshDimensionStats}
+        />
+      </SettingsCard>
       <FeedbackSettings />
       <EmbeddingRebuildDialogs
         confirmRebuildOpen={rebuild.confirmRebuildOpen}

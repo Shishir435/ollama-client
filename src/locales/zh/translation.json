@@ -891,6 +891,7 @@
     "embedding_config": {
       "title": "嵌入模型、分块、搜索与存储",
       "storage_stats_title": "存储统计",
+      "storage_stats_description": "当前向量存储使用统计",
       "total_vectors": "总向量数",
       "storage_used": "已用存储空间",
       "cache": "缓存",

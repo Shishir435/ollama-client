@@ -429,7 +429,7 @@ export const SettingsPage = () => {
               onTabChange={handleTabChange}
               className="flex-none px-4 pt-4 sm:px-6"
             />
-            <main className="min-w-0 flex-1 overflow-y-auto">
+            <main className="relative min-w-0 flex-1 overflow-y-auto">
               <PageBody>
                 <Suspense
                   fallback={

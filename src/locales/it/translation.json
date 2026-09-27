@@ -891,6 +891,7 @@
     "embedding_config": {
       "title": "Modello di embedding, suddivisione, ricerca e archiviazione",
       "storage_stats_title": "Statistiche di Archiviazione",
+      "storage_stats_description": "Statistiche attuali sull’uso dello spazio dei vettori",
       "total_vectors": "Vettori Totali",
       "storage_used": "Spazio Utilizzato",
       "cache": "Cache",
