@@ -468,8 +468,10 @@ const budgets: Budget[] = [
      * cloud setting's failure fallback.
      * Bundled migration catch-up and cancellation: Chrome 300,704 and
      * Firefox 217,252. Model assets and content-script budgets are unchanged.
+     * The background-owned rebuild loop, its heartbeat and startup resume:
+     * Chrome 301,027 and Firefox 217,607.
      */
-    max: isFirefox ? 217_500 : 301_000
+    max: isFirefox ? 218_000 : 301_500
   }
 ]
 
