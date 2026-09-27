@@ -127,6 +127,18 @@ export interface AgentScenarioOutcome {
   startedAt: number
   /** Tokens the provider reported, when it reports any; a fixture reports none. */
   tokens: { prompt: number; completion: number } | undefined
+  /** The user-facing chat response when the model reads with current_tab. */
+  chatResponse?: string
+  /** User-facing model turns, kept separate from the browser agent's decisions. */
+  chatModelCalls?: number
+  /** Names of chat tools called before the supervised run, if any. */
+  chatToolCalls?: string[]
+  /** True when chat answered without starting a supervised browser run. */
+  directChatResponse?: boolean
+  /** Product-level terminal state when a run does not expose AgentPanelSnapshot. */
+  terminalStatus?: string
+  /** Product path used to handle this benchmark task, including a declined run start. */
+  executionPath?: string
 }
 
 export interface AgentScenario {
@@ -178,6 +190,8 @@ export interface AgentScenario {
   succeeded?(outcome: AgentScenarioOutcome): Promise<boolean> | boolean
   /** How many times to run this task. Repeats mean something for a live model. */
   attempts?: number
+  /** Content-free benchmark diagnostics, persisted outside the product build. */
+  diagnosticTrace?: (event: Record<string, unknown>) => void
   decide(
     observation: AgentFixtureObservation,
     context: AgentScenarioContext
@@ -282,11 +296,185 @@ export const reportedTokens = (
   return seen ? { prompt, completion } : undefined
 }
 
+/** Pull only visible text and tool names from a hosted chat stream. */
+const readChatStream = (body: string): { text: string; toolNames: string[] } => {
+  let text = ""
+  const toolNames = new Set<string>()
+  const frames = body
+    .split("\n")
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice("data:".length).trim())
+    .filter((line) => line && line !== "[DONE]")
+  for (const frame of frames) {
+    try {
+      const parsed = JSON.parse(frame) as {
+        choices?: {
+          delta?: {
+            content?: unknown
+            tool_calls?: { function?: { name?: unknown } }[]
+          }
+          message?: {
+            content?: unknown
+            tool_calls?: { function?: { name?: unknown } }[]
+          }
+        }[]
+      }
+      for (const choice of parsed.choices ?? []) {
+        const message = choice.delta ?? choice.message
+        if (typeof message?.content === "string") text += message.content
+        for (const tool of message?.tool_calls ?? []) {
+          if (typeof tool.function?.name === "string")
+            toolNames.add(tool.function.name)
+        }
+      }
+    } catch {
+      /* Non-JSON SSE frames carry no completion text. */
+    }
+  }
+  return { text: text.trim(), toolNames: [...toolNames] }
+}
+
+const toolNamesFromRequest = (request: unknown): string[] => {
+  if (typeof request !== "object" || request === null) return []
+  const tools = (request as { tools?: unknown }).tools
+  if (!Array.isArray(tools)) return []
+  return [...new Set(
+    tools.flatMap((tool) => {
+      if (typeof tool !== "object" || tool === null) return []
+      const name = (tool as { function?: { name?: unknown } }).function?.name
+      return typeof name === "string" && /^[a-zA-Z0-9_:-]{1,80}$/.test(name)
+        ? [name]
+        : []
+    })
+  )]
+}
+
+const toolNamesFromResponse = (body: string): string[] => {
+  const streamed = readChatStream(body).toolNames
+  if (streamed.length > 0) return streamed
+  try {
+    const parsed = JSON.parse(body) as {
+      message?: { tool_calls?: { function?: { name?: unknown } }[] }
+      choices?: {
+        message?: { tool_calls?: { function?: { name?: unknown } }[] }
+      }[]
+    }
+    const names = [
+      ...(parsed.message?.tool_calls ?? []),
+      ...(parsed.choices ?? []).flatMap(
+        (choice) => choice.message?.tool_calls ?? []
+      )
+    ].flatMap((tool) => {
+      const name = tool.function?.name
+      return typeof name === "string" && /^[a-zA-Z0-9_:-]{1,80}$/.test(name)
+        ? [name]
+        : []
+    })
+    return [...new Set(names)]
+  } catch {
+    return []
+  }
+}
+
+const providerErrorCode = (body: string): string | undefined => {
+  try {
+    const parsed = JSON.parse(body) as {
+      error?: { code?: unknown; type?: unknown }
+      code?: unknown
+      type?: unknown
+    }
+    const candidate = parsed.error?.code ?? parsed.error?.type ?? parsed.code ?? parsed.type
+    return typeof candidate === "string" && /^[a-zA-Z0-9_.-]{1,80}$/.test(candidate)
+      ? candidate
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+const finishReasonFromResponse = (body: string): string | undefined => {
+  const frames = body
+    .split("\n")
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice("data:".length).trim())
+    .filter((line) => line && line !== "[DONE]")
+  for (const frame of [...frames].reverse()) {
+    try {
+      const parsed = JSON.parse(frame) as {
+        choices?: { finish_reason?: unknown }[]
+      }
+      const candidate = parsed.choices?.[0]?.finish_reason
+      if (typeof candidate === "string" && /^[a-zA-Z0-9_.:-]{1,80}$/.test(candidate))
+        return candidate
+    } catch {
+      /* A non-JSON stream frame carries no finish reason. */
+    }
+  }
+  try {
+    const parsed = JSON.parse(body) as {
+      done_reason?: unknown
+      choices?: { finish_reason?: unknown }[]
+    }
+    const candidate =
+      parsed.choices?.[0]?.finish_reason ?? parsed.done_reason
+    return typeof candidate === "string" && /^[a-zA-Z0-9_.:-]{1,80}$/.test(candidate)
+      ? candidate
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+const agentTraceEvent = (part: Record<string, unknown>): Record<string, unknown> => {
+  const fields = [
+    "phase",
+    "status",
+    "from",
+    "to",
+    "action",
+    "outcome",
+    "risk",
+    "authorization",
+    "backend",
+    "inputDelivery",
+    "kind",
+    "reason",
+    "step",
+    "elements",
+    "claimed",
+    "transitioned",
+    "screenshot",
+    "visual"
+  ] as const
+  const event: Record<string, unknown> = { type: "agent_phase" }
+  for (const key of fields) {
+    const value = part[key]
+    if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    )
+      event[key] = value
+  }
+  return event
+}
+
 /** A chat turn, as opposed to one of a run's own planning or decision calls. */
 const isChatTurn = (parsed: {
   tools?: { function?: { name?: string } }[]
 }): boolean =>
   parsed.tools?.some((tool) => tool.function?.name === "browser_task") === true
+
+const executionPathFor = (
+  agentStarted: boolean,
+  chatToolCalls: Iterable<string>
+): string => {
+  if (agentStarted) return "browser_task"
+  const calls = new Set(chatToolCalls)
+  if (calls.has("current_tab")) return "current_tab"
+  if (calls.has("browser_task")) return "browser_task_not_started"
+  return "chat"
+}
 
 export const runAgentScenario = (scenario: AgentScenario): void => {
   const attempts = Math.max(1, scenario.attempts ?? 1)
@@ -309,6 +497,12 @@ const runAgentScenarioAttempt = (
   test(title, async ({ extension }, testInfo) => {
     const startedAt = Date.now()
     const liveModel = process.env.AGENT_HOSTED_MODEL
+    scenario.diagnosticTrace?.({
+      type: "scenario_started",
+      attempt,
+      model: liveModel || "fixture-agent",
+      fixtureData: true
+    })
     const useHostedWire =
       Boolean(liveModel) && process.env.AGENT_HOSTED_WIRE !== "ollama"
     /**
@@ -340,6 +534,16 @@ const runAgentScenarioAttempt = (
     const phases: unknown[] = []
     const wire: AgentScenarioOutcome["wire"] = []
     const messages: AgentPanelMessage[] = []
+    const seenStepReceipts = new Map<string, string>()
+    const seenApprovalRequests = new Set<string>()
+    const seenTakeoverRequests = new Set<string>()
+    const seenQuestions = new Set<string>()
+    let lastRunState = ""
+    let chatModelCalls = 0
+    let chatResponse = ""
+    let directChatResponse = false
+    let agentStarted = false
+    const chatToolCalls = new Set<string>()
     const model = liveModel || "fixture-agent"
 
     for (const worker of extension.context.serviceWorkers()) {
@@ -351,10 +555,25 @@ const runAgentScenarioAttempt = (
         ).__OLLAMA_CLIENT_AGENT_TRACE__ = true
       })
       worker.on("console", async (message) => {
-        if (message.text().includes("Agent run trace"))
-          phases.push(
-            await Promise.all(message.args().map((arg) => arg.jsonValue()))
-          )
+        if (!message.text().includes("Agent run trace")) return
+        const lines = await Promise.all(
+          message.args().map((arg) => arg.jsonValue())
+        )
+        phases.push(lines)
+        for (const line of lines) {
+          const parts = Array.isArray(line) ? line : [line]
+      for (const part of parts) {
+            if (
+              typeof part === "object" &&
+              part !== null &&
+              "phase" in part &&
+              typeof part.phase === "string"
+            )
+              scenario.diagnosticTrace?.(
+                agentTraceEvent(part as Record<string, unknown>)
+              )
+          }
+        }
       })
     }
 
@@ -364,17 +583,85 @@ const runAgentScenarioAttempt = (
       method: string | undefined,
       body: string
     ): Promise<{ status: number; body: string }> => {
-      const upstream = await fetch(`${liveBaseUrl}${path}`, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        ...(body ? { body } : {})
+      const isChatRequest =
+        path === "/api/chat" || path === "/v1/chat/completions"
+      const parsedRequest = isChatRequest && body.trim() ? JSON.parse(body) : null
+      const chatTurn = parsedRequest ? isChatTurn(parsedRequest) : false
+      const requestTools = toolNamesFromRequest(parsedRequest)
+      const modelRoute = chatTurn
+        ? "chat_turn"
+        : requestTools.includes("agent_plan")
+          ? "agent_plan"
+          : requestTools.includes("agent_decision")
+            ? "agent_decision"
+            : path === "/api/tags" || path === "/v1/models"
+              ? "catalog"
+              : path === "/api/show"
+                ? "model_metadata"
+                : isChatRequest
+                  ? "other_chat"
+                  : "provider_request"
+      const requestStartedAt = Date.now()
+      scenario.diagnosticTrace?.({
+        type: "model_call_started",
+        attempt,
+        modelRoute,
+        requestTools,
+        requestBytes: Buffer.byteLength(body)
       })
-      const text = await upstream.text()
+      let upstream: Response
+      let text: string
+      try {
+        upstream = await fetch(`${liveBaseUrl}${path}`, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          ...(body ? { body } : {})
+        })
+        text = await upstream.text()
+      } catch (error) {
+        scenario.diagnosticTrace?.({
+          type: "model_call_failed",
+          attempt,
+          modelRoute,
+          durationMs: Date.now() - requestStartedAt,
+          failureClass:
+            error instanceof Error && error.name === "AbortError"
+              ? "aborted"
+              : error instanceof TypeError
+                ? "network"
+                : "request_error"
+        })
+        throw error
+      }
+      const responseTools = toolNamesFromResponse(text)
+      scenario.diagnosticTrace?.({
+        type: "model_call_completed",
+        attempt,
+        modelRoute,
+        httpStatus: upstream.status,
+        durationMs: Date.now() - requestStartedAt,
+        requestBytes: Buffer.byteLength(body),
+        responseBytes: Buffer.byteLength(text),
+        finishReason: finishReasonFromResponse(text),
+        requestTools,
+        responseTools,
+        ...(upstream.ok ? {} : { providerErrorCode: providerErrorCode(text) })
+      })
       if (
-        (path === "/api/chat" || path === "/v1/chat/completions") &&
-        !isChatTurn(JSON.parse(body))
+        isChatRequest && parsedRequest && !chatTurn
       )
-        wire.push({ request: JSON.parse(body), response: text })
+        wire.push({ request: parsedRequest, response: text })
+      if (path === "/v1/chat/completions" && parsedRequest && chatTurn) {
+        chatModelCalls += 1
+        const chat = readChatStream(text)
+        for (const toolName of chat.toolNames) chatToolCalls.add(toolName)
+        // current_tab is a read-only chat tool. Its result is followed by a
+        // normal assistant answer, with no supervised browser run to await.
+        if (chat.toolNames.length === 0 && chat.text) {
+          chatResponse = chat.text
+          directChatResponse = true
+        }
+      }
       return { status: upstream.status, body: text }
     }
 
@@ -553,6 +840,16 @@ const runAgentScenarioAttempt = (
           })
           await chrome.storage.sync.set({
             "agent-announcement-dismissed-v1": JSON.stringify(true),
+            ...(hosted
+              ? {
+                  // The live benchmark uses OLC's custom OpenAI-compatible
+                  // endpoint. Seed the capability the OLC model catalog
+                  // advertises so the chat can delegate into browser_task.
+                  "provider-model-capability-overrides": JSON.stringify({
+                    [`${providerId}::${model}`]: { toolCalling: true }
+                  })
+                }
+              : {}),
             llm_providers_config_v1: JSON.stringify([
               {
                 id: providerId,
@@ -577,9 +874,120 @@ const runAgentScenarioAttempt = (
       )
       await panel.reload()
       await page.bringToFront()
+      const recordAgentMessage = (message: AgentPanelMessage) => {
+        messages.push(message)
+        if (message.type === "agent_command_failed") {
+          scenario.diagnosticTrace?.({
+            type: "agent_command_failed",
+            attempt,
+            action: message.command,
+            errorCode: message.messageKey
+          })
+          return
+        }
+        if (message.type !== "agent_snapshot") return
+
+        const snapshot = message.snapshot
+        const run = snapshot.run
+        if (run) {
+          const runState = JSON.stringify([
+            run.status,
+            run.pauseReason,
+            run.error?.code,
+            run.stepCount,
+            run.observationCount
+          ])
+          if (runState !== lastRunState) {
+            lastRunState = runState
+            scenario.diagnosticTrace?.({
+              type: "agent_run_state",
+              attempt,
+              status: run.status,
+              pauseReason: run.pauseReason,
+              errorCode: run.error?.code,
+              stepCount: run.stepCount,
+              observationCount: run.observationCount,
+              requirementCount: run.requirements?.length,
+              requirementKinds: run.requirements?.map((requirement) => requirement.kind)
+            })
+          }
+          if (run.question && !seenQuestions.has(run.question.id)) {
+            seenQuestions.add(run.question.id)
+            scenario.diagnosticTrace?.({
+              type: "user_question",
+              attempt,
+              decision: "waiting_for_answer"
+            })
+          }
+        }
+
+        for (const step of snapshot.steps) {
+          const signature = JSON.stringify([
+            step.status,
+            step.command?.type,
+            step.risk,
+            step.verification?.outcome,
+            step.verification?.evidence.kind
+          ])
+          if (seenStepReceipts.get(step.stepId) === signature) continue
+          seenStepReceipts.set(step.stepId, signature)
+          scenario.diagnosticTrace?.({
+            type: "agent_step",
+            attempt,
+            sequence: step.sequence,
+            status: step.status,
+            action: step.command?.type,
+            risk: step.risk,
+            verificationOutcome: step.verification?.outcome,
+            evidenceKind: step.verification?.evidence.kind,
+            targetTag: step.target?.tag,
+            hasTarget: Boolean(step.target),
+            durationMs:
+              step.startedAt === undefined
+                ? undefined
+                : Math.max(0, step.at - step.startedAt)
+          })
+        }
+
+        const pending = snapshot.pending
+        if (pending?.kind === "approval") {
+          const request = pending.request
+          if (!seenApprovalRequests.has(request.id)) {
+            seenApprovalRequests.add(request.id)
+            const step = snapshot.steps.find(
+              (candidate) => candidate.stepId === request.stepId
+            )
+            scenario.diagnosticTrace?.({
+              type: "approval_requested",
+              attempt,
+              sequence: step?.sequence,
+              action: step?.command?.type,
+              risk: request.risk,
+              grantable: request.grantable,
+              originPresent: request.origin !== undefined
+            })
+            scenario.diagnosticTrace?.({
+              type: "approval_response",
+              attempt,
+              approvalAnswer: "approve",
+              approvalScope: scenario.approvalScope ?? "once"
+            })
+          }
+        } else if (pending?.kind === "takeover") {
+          if (!seenTakeoverRequests.has(pending.request.id)) {
+            seenTakeoverRequests.add(pending.request.id)
+            scenario.diagnosticTrace?.({
+              type: "supervision_requested",
+              attempt,
+              decision: "takeover",
+              reason: pending.request.reason
+            })
+          }
+        }
+      }
       await panel.exposeFunction(
         "recordAgentMessage",
-        (message: AgentPanelMessage) => messages.push(message)
+        recordAgentMessage
       )
 
       await panel.evaluate(
@@ -639,54 +1047,89 @@ const runAgentScenarioAttempt = (
       const composer = panel.getByPlaceholder("Type a message or ctrl + /")
       await composer.fill(scenario.goal)
       await composer.press("Enter")
-      await panel
-        .getByRole("button", { name: "Allow for this chat", exact: true })
-        .click({ timeout: liveModel ? 120_000 : 20_000 })
-
-      try {
+      const allowForChat = panel.getByRole("button", {
+        name: "Allow for this chat",
+        exact: true
+      })
+      if (liveModel) {
         await expect
           .poll(
-            () => {
-              const status = messages
-                .filter((m) => m.type === "agent_snapshot")
-                .at(-1)?.snapshot.run?.status
-              return (
-                status === scenario.status ||
-                status === "failed" ||
-                status === "cancelled"
-              )
-            },
-            { timeout: liveModel ? 200_000 : 30_000 }
+            async () => (await allowForChat.count()) > 0 || directChatResponse,
+            { timeout: 120_000 }
           )
           .toBe(true)
-          .then(() =>
-            expect(
-              messages.filter((m) => m.type === "agent_snapshot").at(-1)
-                ?.snapshot.run?.status
-            ).toBe(scenario.status)
-          )
-          .catch((error: unknown) => {
+        if ((await allowForChat.count()) > 0) {
+          scenario.diagnosticTrace?.({
+            type: "browser_task_consent",
+            attempt,
+            decision: "accepted"
+          })
+          await allowForChat.click()
+          agentStarted = true
+        } else if (!chatToolCalls.has("browser_task")) {
+          scenario.diagnosticTrace?.({
+            type: "browser_task_consent",
+            attempt,
+            decision: "not_requested"
+          })
+        }
+      } else {
+        scenario.diagnosticTrace?.({
+          type: "browser_task_consent",
+          attempt,
+          decision: "accepted"
+        })
+        await allowForChat.click({ timeout: 20_000 })
+        agentStarted = true
+      }
+
+      try {
+        if (agentStarted) {
+          await expect
+            .poll(
+              () => {
+                const status = messages
+                  .filter((m) => m.type === "agent_snapshot")
+                  .at(-1)?.snapshot.run?.status
+                return (
+                  status === scenario.status ||
+                  status === "failed" ||
+                  status === "cancelled"
+                )
+              },
+              { timeout: liveModel ? 200_000 : 30_000 }
+            )
+            .toBe(true)
+            .then(() =>
+              expect(
+                messages.filter((m) => m.type === "agent_snapshot").at(-1)
+                  ?.snapshot.run?.status
+              ).toBe(scenario.status)
+            )
+            .catch((error: unknown) => {
             /**
              * A gate fails here; a measurement records instead. A benchmark
              * task that did not reach its expected status is a result — the
              * most interesting one — and throwing would leave it out of the
              * report entirely, so the pass would look better than it was.
              */
-            if (scenario.gated === false) return
-            const last = messages
-              .filter((m) => m.type === "agent_snapshot")
-              .at(-1)?.snapshot
-            throw new Error(
-              `${(error as Error).message}\nrun: ${JSON.stringify(last?.run?.error)}\nsteps: ${JSON.stringify(
-                last?.steps.map((step) => [step.status, step.command?.type])
-              )}`
-            )
-          })
-        await scenario.verify({
+              if (scenario.gated === false) return
+              const last = messages
+                .filter((m) => m.type === "agent_snapshot")
+                .at(-1)?.snapshot
+              throw new Error(
+                `${(error as Error).message}\nrun: ${JSON.stringify(last?.run?.error)}\nsteps: ${JSON.stringify(
+                  last?.steps.map((step) => [step.status, step.command?.type])
+                )}`
+              )
+            })
+        }
+        const outcome: AgentScenarioOutcome = {
           page,
           panel,
-          snapshot: messages.filter((m) => m.type === "agent_snapshot").at(-1)
-            ?.snapshot,
+          snapshot: messages
+            .filter((m) => m.type === "agent_snapshot")
+            .at(-1)?.snapshot,
           messages,
           wire,
           effects: () => effects,
@@ -704,9 +1147,18 @@ const runAgentScenarioAttempt = (
                     typeof part === "object" && part !== null && "phase" in part
                 )
               : []
-          )
-        })
+          ),
+          ...(chatResponse ? { chatResponse } : {}),
+          chatModelCalls,
+          chatToolCalls: [...chatToolCalls],
+          directChatResponse,
+          executionPath: executionPathFor(agentStarted, chatToolCalls)
+        }
+        await scenario.verify(outcome)
       } finally {
+        const finalSnapshot = messages
+          .filter((message) => message.type === "agent_snapshot")
+          .at(-1)?.snapshot
         await testInfo.attach("agent-phases", {
           body: JSON.stringify(phases, null, 2),
           contentType: "application/json"
@@ -721,6 +1173,22 @@ const runAgentScenarioAttempt = (
         })
       }
     } finally {
+      const finalSnapshot = messages
+        .filter((message) => message.type === "agent_snapshot")
+        .at(-1)?.snapshot
+      scenario.diagnosticTrace?.({
+        type: "fixture_observed_end",
+        attempt,
+        executionPath: executionPathFor(agentStarted, chatToolCalls),
+        status: finalSnapshot?.run?.status ?? "no_run_snapshot",
+        pauseReason: finalSnapshot?.run?.pauseReason,
+        errorCode: finalSnapshot?.run?.error?.code,
+        stepCount: finalSnapshot?.run?.stepCount,
+        observationCount: finalSnapshot?.run?.observationCount,
+        modelCalls: wire.length + chatModelCalls,
+        chatToolCalls: [...chatToolCalls],
+        eventCount: messages.length
+      })
       // A failed run may leave a native prompt held; release it before failure screenshots.
       await Promise.all(
         dialogs.map((dialog) => dialog.dismiss().catch(() => {}))
