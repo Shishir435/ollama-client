@@ -303,13 +303,18 @@ const readChatStream = (
   let text = ""
   const toolNames = new Set<string>()
   const frames = body
-    .split("\n")
-    .filter((line) => line.startsWith("data:"))
-    .map((line) => line.slice("data:".length).trim())
+    .split(/\r?\n/)
+    .map((line) =>
+      line.startsWith("data:") ? line.slice("data:".length).trim() : line.trim()
+    )
     .filter((line) => line && line !== "[DONE]")
   for (const frame of frames) {
     try {
       const parsed = JSON.parse(frame) as {
+        message?: {
+          content?: unknown
+          tool_calls?: { function?: { name?: unknown } }[]
+        }
         choices?: {
           delta?: {
             content?: unknown
@@ -321,8 +326,13 @@ const readChatStream = (
           }
         }[]
       }
-      for (const choice of parsed.choices ?? []) {
-        const message = choice.delta ?? choice.message
+      const messages = [
+        parsed.message,
+        ...(parsed.choices ?? []).map(
+          (choice) => choice.delta ?? choice.message
+        )
+      ]
+      for (const message of messages) {
         if (typeof message?.content === "string") text += message.content
         for (const tool of message?.tool_calls ?? []) {
           if (typeof tool.function?.name === "string")
@@ -537,11 +547,7 @@ const recordHostedChatTurn = (input: {
   responseBody: string
   state: HostedChatState
 }): void => {
-  if (
-    input.path !== "/v1/chat/completions" ||
-    !input.parsedRequest ||
-    !input.chatTurn
-  )
+  if (!isChatRequestPath(input.path) || !input.parsedRequest || !input.chatTurn)
     return
 
   input.state.modelCalls += 1
