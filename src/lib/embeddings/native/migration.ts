@@ -36,14 +36,22 @@ export const nativeEmbeddingStatus = async () => {
 /** Serialize commands from multiple open settings pages; batches survive worker restarts. */
 let commands: Promise<unknown> = Promise.resolve()
 let activeCommand: AbortController | undefined
+/** A cancellation invalidates queued commands before they can acquire the active slot. */
+let commandEpoch = 0
 export const nativeEmbeddingCommand = (
   action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external",
   signal?: AbortSignal
 ) => {
-  if (action === "cancel" || action === "keep") activeCommand?.abort()
+  if (action === "cancel" || action === "keep") {
+    commandEpoch++
+    activeCommand?.abort()
+  }
+  const epoch = commandEpoch
   const work = commands
     .catch(() => undefined)
     .then(async () => {
+      if (epoch !== commandEpoch)
+        throw new DOMException("Cancelled", "AbortError")
       const run = new AbortController()
       const abort = () => run.abort(signal?.reason)
       signal?.addEventListener("abort", abort, { once: true })

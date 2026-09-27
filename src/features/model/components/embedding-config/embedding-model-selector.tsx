@@ -1,13 +1,11 @@
-import { Brain, RefreshCw } from "lucide-react"
+import { RefreshCw } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import {
-  SettingsCard,
   SettingsFormField,
   SettingsSwitch,
   StatusAlert
 } from "@/components/settings"
-import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import {
   Select,
@@ -28,8 +26,6 @@ import { recommendedEmbeddingBaseSet } from "@/lib/embeddings/model-name-filter"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ProviderModel } from "@/types"
 
-import { EmbeddingInfo } from "../embedding-info"
-
 export interface EmbeddingModelSelectorProps {
   selectedModel: string
   config: EmbeddingConfig
@@ -41,17 +37,7 @@ export interface EmbeddingModelSelectorProps {
   onToggleShowAdvanced: (checked: boolean) => void
 }
 
-/**
- * The "Embedding model" settings card.
- *
- * Renders the model dropdown (recommended models always shown, all
- * other detected embedding-named models behind a "show advanced"
- * switch). Selecting a different model fires `onModelSelected` so the
- * parent can open its switch-or-rebuild confirmation dialog.
- *
- * Also embeds the model-status indicator (`EmbeddingInfo`) and an
- * in-progress rebuild notice. Both are inert when nothing is happening.
- */
+/** Provider-aware model fields inside the shared embedding settings card. */
 export const EmbeddingModelSelector = ({
   selectedModel,
   config,
@@ -117,108 +103,99 @@ export const EmbeddingModelSelector = ({
   }
 
   return (
-    <SettingsCard
-      icon={Brain}
-      focusId="embeddings-model-select"
-      title={t("settings.embeddings.title")}
-      description={t("settings.embeddings.description")}
-      badge="Beta">
+    <div
+      className="space-y-4 border-t pt-4"
+      data-settings-focus-id="embeddings-model-select">
+      {isRebuilding && rebuildProgress && (
+        <div className="space-y-3">
+          <StatusAlert
+            variant="info"
+            icon={RefreshCw}
+            title={t("settings.context.embedding_health.action_rebuilding")}
+            description={
+              rebuildProgress && rebuildProgress.total > 0
+                ? t("settings.context.embedding_health.progress", {
+                    current: rebuildProgress.current,
+                    total: rebuildProgress.total
+                  })
+                : t("settings.embeddings.rebuild_index.status_starting")
+            }
+          />
+          {rebuildProgress && rebuildProgress.total > 0 && (
+            <Progress value={rebuildPercentage} />
+          )}
+        </div>
+      )}
+
       <div className="space-y-4">
-        <EmbeddingInfo />
+        <SettingsFormField
+          label={t("settings.embeddings.bundled.server_model")}
+          description={t("settings.embeddings.model_select.description")}>
+          <Select
+            disabled={isRebuilding}
+            value={selectedValue}
+            onValueChange={(value) => {
+              if (value !== null) handleValueChange(value)
+            }}>
+            <SelectTrigger>
+              <SelectValue
+                placeholder={t("settings.embeddings.model_select.placeholder")}>
+                {(value) =>
+                  value
+                    ? options.get(String(value))?.label || selectedModel
+                    : null
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>
+                  {t("settings.embeddings.model_select.recommended_group")}
+                </SelectLabel>
+                {Array.from(options.entries())
+                  .filter(([, option]) => option.recommended)
+                  .map(([value, option]) => (
+                    <SelectItem key={value} value={value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
 
-        {isRebuilding && (
-          <div className="space-y-3">
-            <StatusAlert
-              variant="info"
-              icon={RefreshCw}
-              title={t("settings.context.embedding_health.action_rebuilding")}
-              description={
-                rebuildProgress && rebuildProgress.total > 0
-                  ? t("settings.context.embedding_health.progress", {
-                      current: rebuildProgress.current,
-                      total: rebuildProgress.total
-                    })
-                  : t("settings.embeddings.rebuild_index.status_starting")
-              }
-            />
-            {rebuildProgress && rebuildProgress.total > 0 && (
-              <Progress value={rebuildPercentage} />
-            )}
-          </div>
-        )}
-
-        <Card className="p-4 space-y-4">
-          <SettingsFormField
-            label={t("settings.embeddings.model_select.label")}
-            description={t("settings.embeddings.model_select.description")}>
-            <Select
-              disabled={isRebuilding}
-              value={selectedValue}
-              onValueChange={(value) => {
-                if (value !== null) handleValueChange(value)
-              }}>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={t(
-                    "settings.embeddings.model_select.placeholder"
-                  )}>
-                  {(value) =>
-                    value
-                      ? options.get(String(value))?.label || selectedModel
-                      : null
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
+              {(showAdvancedModels ||
+                !options.get(selectedValue)?.recommended) && (
                 <SelectGroup>
                   <SelectLabel>
-                    {t("settings.embeddings.model_select.recommended_group")}
+                    {t("settings.embeddings.model_select.all_models_group")}
                   </SelectLabel>
                   {Array.from(options.entries())
-                    .filter(([, option]) => option.recommended)
+                    .filter(
+                      ([value, option]) =>
+                        !option.recommended &&
+                        (showAdvancedModels || value === selectedValue)
+                    )
                     .map(([value, option]) => (
                       <SelectItem key={value} value={value}>
                         {option.label}
                       </SelectItem>
                     ))}
                 </SelectGroup>
-
-                {(showAdvancedModels ||
-                  !options.get(selectedValue)?.recommended) && (
-                  <SelectGroup>
-                    <SelectLabel>
-                      {t("settings.embeddings.model_select.all_models_group")}
-                    </SelectLabel>
-                    {Array.from(options.entries())
-                      .filter(
-                        ([value, option]) =>
-                          !option.recommended &&
-                          (showAdvancedModels || value === selectedValue)
-                      )
-                      .map(([value, option]) => (
-                        <SelectItem key={value} value={value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                  </SelectGroup>
-                )}
-              </SelectContent>
-            </Select>
-          </SettingsFormField>
-
-          {hasAdvancedModels && (
-            <SettingsSwitch
-              id="embeddings-show-advanced-models"
-              label={t("settings.embeddings.model_select.show_advanced_label")}
-              description={t(
-                "settings.embeddings.model_select.show_advanced_description"
               )}
-              checked={showAdvancedModels}
-              onCheckedChange={onToggleShowAdvanced}
-            />
-          )}
-        </Card>
+            </SelectContent>
+          </Select>
+        </SettingsFormField>
+
+        {hasAdvancedModels && (
+          <SettingsSwitch
+            id="embeddings-show-advanced-models"
+            label={t("settings.embeddings.model_select.show_advanced_label")}
+            description={t(
+              "settings.embeddings.model_select.show_advanced_description"
+            )}
+            checked={showAdvancedModels}
+            onCheckedChange={onToggleShowAdvanced}
+          />
+        )}
       </div>
-    </SettingsCard>
+    </div>
   )
 }

@@ -34,7 +34,6 @@ export const EmbeddingSettings = () => {
 
   return (
     <SectionStack>
-      <NativeEmbeddingCard />
       <EmbeddingHealthAlert
         stats={rebuild.dimensionStats}
         memoryEnabled={settings.memoryEnabled}
@@ -58,27 +57,25 @@ export const EmbeddingSettings = () => {
         />
       )}
       {native.state && (
-        <EmbeddingModelSelector
-          selectedModel={settings.selectedModel}
-          config={settings.config}
-          embeddingModels={settings.embeddingModels}
-          hasAdvancedModels={settings.hasAdvancedModels}
-          isRebuilding={
-            rebuild.isRebuilding || native.state?.migration === "building"
-          }
-          rebuildProgress={
-            native.state?.migration === "building"
-              ? { current: native.state.current, total: native.state.total }
-              : rebuild.progress
-          }
-          onModelSelected={
-            native.state.mode === "bundled"
-              ? (model, providerId) =>
-                  settings.applyModelChange(model, providerId, "shared-model")
-              : rebuild.requestModelChange
-          }
-          onToggleShowAdvanced={handleToggleShowAdvanced}
-        />
+        <NativeEmbeddingCard native={native}>
+          <EmbeddingModelSelector
+            selectedModel={settings.selectedModel}
+            config={settings.config}
+            embeddingModels={settings.embeddingModels}
+            hasAdvancedModels={settings.hasAdvancedModels}
+            isRebuilding={
+              rebuild.isRebuilding || native.state.migration === "building"
+            }
+            rebuildProgress={rebuild.progress}
+            onModelSelected={
+              native.state.mode === "bundled"
+                ? (model, providerId) =>
+                    settings.applyModelChange(model, providerId, "shared-model")
+                : rebuild.requestModelChange
+            }
+            onToggleShowAdvanced={handleToggleShowAdvanced}
+          />
+        </NativeEmbeddingCard>
       )}
       <EmbeddingTestGeneration
         modelExists={native.state?.mode === "bundled" || settings.modelExists}

@@ -1697,6 +1697,11 @@
         "switch_and_rebuild": "Wechseln und Neuaufbau"
       },
       "bundled": {
+        "settings_description": "Wählen Sie, wie Dateien und Chat-Erinnerungen für die Suche aufbereitet werden.",
+        "current_bundled": "Aktuell: integriertes MiniLM · auf diesem Gerät",
+        "current_external": "Aktuell: serverbasierte Embeddings",
+        "server_model": "Embedding-Modell auf dem Server",
+        "switch_hint": "Beim Wechsel werden gespeicherte Embeddings neu erstellt. Die aktuelle Einrichtung bleibt bis zum Abschluss aktiv.",
         "title": "Integrierte Embeddings",
         "active": "Embeddings werden lokal mit dem enthaltenen MiniLM-Modell erstellt, das sich am besten für Englisch eignet. Kein Server oder Download nötig. Wählen Sie für mehrsprachige Suche unten einen externen Anbieter und ein Modell und erstellen Sie zum Wechseln den Index neu.",
         "offer": "Integrierte Embeddings sind jetzt verfügbar. Migrieren Sie Ihre gespeicherten Embeddings oder behalten Sie Ihren aktuellen Server und Ihr Modell.",

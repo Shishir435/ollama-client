@@ -4,7 +4,8 @@ import { createAppError } from "@/lib/error-utils"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
   checkEmbeddingModelExists,
-  downloadEmbeddingModelSilently
+  downloadEmbeddingModelSilently,
+  prepareEmbeddingModel
 } from "../handle-embedding-download"
 import { createMockResponse } from "./test-utils"
 
@@ -372,4 +373,40 @@ describe("Handle Embedding Download", () => {
       )
     })
   })
+})
+
+it("checks Ollama before silently pulling a model mapped to another provider", async () => {
+  const { ProviderFactory } = await import("@/lib/providers/factory")
+  vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValueOnce({
+    id: "custom:remote",
+    config: { id: "custom:remote" },
+    getModels: async () => [{ name: "multilingual-e5-small" }]
+  } as never)
+  vi.mocked(fetch).mockReset()
+  vi.mocked(fetch)
+    .mockResolvedValueOnce(createMockResponse({ models: [] }))
+    .mockResolvedValueOnce(createMockResponse({ status: "success" }))
+  const result = await downloadEmbeddingModelSilently("multilingual-e5-small")
+  expect(result.success).toBe(true)
+  expect(fetch).toHaveBeenNthCalledWith(
+    1,
+    "http://localhost:11434/api/tags",
+    expect.anything()
+  )
+  expect(fetch).toHaveBeenNthCalledWith(
+    2,
+    "http://localhost:11434/api/pull",
+    expect.objectContaining({ method: "POST" })
+  )
+})
+
+it("does not retry or pull when preparation cannot confirm Ollama availability", async () => {
+  vi.mocked(fetch).mockReset().mockRejectedValue(new Error("offline"))
+  const result = await prepareEmbeddingModel({ model: "multilingual-e5-small" })
+  expect(result).toMatchObject({ ready: false, prepared: false })
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(fetch).toHaveBeenCalledWith(
+    "http://localhost:11434/api/tags",
+    expect.anything()
+  )
 })

@@ -49,7 +49,6 @@ vi.mock("../embedding-config/embedding-model-selector", () => ({
     </button>
   )
 }))
-vi.mock("../native-embedding-card", () => ({ NativeEmbeddingCard: () => null }))
 vi.mock("@/features/knowledge/components/feedback-settings", () => ({
   FeedbackSettings: () => null
 }))

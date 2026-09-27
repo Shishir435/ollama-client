@@ -365,3 +365,38 @@ it("cancels in-flight rebuilds from another settings view without switching the 
   expect((await nativeEmbeddingStatus()).migration).toBe("idle")
   expect(await vectorDb.embeddingRebuild.count()).toBe(0)
 })
+
+it.each([
+  "cancel",
+  "keep"
+] as const)("%s invalidates steps already queued by another view", async (action) => {
+  await vectorDb.vectors.add(source(1))
+  await nativeEmbeddingCommand("start")
+  embed.mockImplementationOnce(
+    (_text, signal) =>
+      new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), {
+          once: true
+        })
+      })
+  )
+  const running = nativeEmbeddingCommand("step")
+  const runningRejected = expect(running).rejects.toMatchObject({
+    name: "AbortError"
+  })
+  await vi.waitFor(() => expect(embed).toHaveBeenCalledTimes(1))
+  const queued = nativeEmbeddingCommand("step")
+  const queuedRejected = expect(queued).rejects.toMatchObject({
+    name: "AbortError"
+  })
+  await nativeEmbeddingCommand(action)
+  await Promise.all([runningRejected, queuedRejected])
+  expect(embed).toHaveBeenCalledTimes(1)
+  expect((await nativeEmbeddingStatus()).mode).toBe("external")
+  expect((await nativeEmbeddingStatus()).migration).toBe("idle")
+  expect(await vectorDb.embeddingRebuild.count()).toBe(0)
+  // A deliberate new migration is still allowed after cancellation.
+  await nativeEmbeddingCommand("start")
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+})

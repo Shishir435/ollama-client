@@ -1697,6 +1697,11 @@
         "switch_and_rebuild": "切换并重建"
       },
       "bundled": {
+        "settings_description": "选择如何处理文件和聊天记忆以用于搜索。",
+        "current_bundled": "当前使用：内置 MiniLM · 在此设备上运行",
+        "current_external": "当前使用：服务器嵌入",
+        "server_model": "服务器嵌入模型",
+        "switch_hint": "切换时会重建已保存的嵌入。重建完成前，当前设置继续生效。",
         "title": "内置嵌入",
         "active": "使用随附的 MiniLM 在本地生成嵌入，最适合英文，无需服务器或下载。如需多语言检索，请在下方选择外部提供商和模型，然后重建索引以切换。",
         "offer": "内置嵌入现已可用。您可以迁移已保存的嵌入，也可以继续使用当前服务器和模型。",

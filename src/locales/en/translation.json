@@ -1907,6 +1907,11 @@
         "switch_and_rebuild": "Switch & Rebuild"
       },
       "bundled": {
+        "settings_description": "Choose how files and chat memories are prepared for search.",
+        "current_bundled": "Currently using: built-in MiniLM · on this device",
+        "current_external": "Currently using: server-backed embeddings",
+        "server_model": "Server embedding model",
+        "switch_hint": "Switching rebuilds your saved embeddings. Your current setup stays active until the rebuild finishes.",
         "title": "Built-in embeddings",
         "active": "Embeddings run locally with the included MiniLM model, best suited to English. No server or download is needed. For multilingual retrieval, select an external provider and model below, then rebuild the index to switch.",
         "offer": "Built-in embeddings are now available. Migrate your saved embeddings, or keep your current server and model.",

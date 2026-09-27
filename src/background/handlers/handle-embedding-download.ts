@@ -200,7 +200,7 @@ export const downloadEmbeddingModelSilently = async (
     // Check if model already exists
     const result = await checkEmbeddingModelExists(
       normalizedModelName,
-      undefined,
+      DEFAULT_PROVIDER_ID,
       signal
     )
     if (result.exists) {
@@ -213,7 +213,7 @@ export const downloadEmbeddingModelSilently = async (
       return { success: true }
     }
 
-    if (result.status !== "missing")
+    if (!result.canDownload)
       return {
         success: false,
         error:
@@ -329,6 +329,14 @@ export const prepareEmbeddingModel = async (
   if (existsResult.exists) {
     return { ready: true, prepared: false }
   }
+
+  if (!existsResult.canDownload)
+    return {
+      ready: false,
+      prepared: false,
+      error:
+        "Embedding model availability could not be confirmed. Check the provider connection."
+    }
 
   const downloadResult = await downloadEmbeddingModelSilently(modelName, signal)
   if (downloadResult.success) {

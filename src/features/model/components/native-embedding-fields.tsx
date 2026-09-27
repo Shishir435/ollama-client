@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -5,9 +6,13 @@ import type { useNativeEmbeddings } from "../hooks/use-native-embeddings"
 
 /** Shared migration controls for settings and the upgrade dialog. */
 export const NativeEmbeddingFields = ({
-  native
+  native,
+  children,
+  settingsView = false
 }: {
   native: ReturnType<typeof useNativeEmbeddings>
+  children?: ReactNode
+  settingsView?: boolean
 }) => {
   const { t } = useTranslation()
   const { state, busy, error, command } = native
@@ -15,19 +20,32 @@ export const NativeEmbeddingFields = ({
   const rebuilding = state.migration === "building"
   return (
     <>
-      <p className="text-xs text-muted-foreground">
+      <p
+        className={
+          settingsView ? "text-sm font-medium" : "text-xs text-muted-foreground"
+        }>
         {t(
-          state.mode === "bundled"
-            ? "settings.embeddings.bundled.active"
-            : "settings.embeddings.bundled.offer"
+          settingsView
+            ? state.mode === "bundled"
+              ? "settings.embeddings.bundled.current_bundled"
+              : "settings.embeddings.bundled.current_external"
+            : state.mode === "bundled"
+              ? "settings.embeddings.bundled.active"
+              : "settings.embeddings.bundled.offer"
         )}
       </p>
       <p className="text-xs font-medium">
         {t("settings.embeddings.bundled.language_notice")}
       </p>
-      {(state.mode !== "bundled" || rebuilding) && (
+      {!settingsView && (state.mode !== "bundled" || rebuilding) && (
         <p className="text-xs text-muted-foreground">
           {t("settings.embeddings.bundled.details")}
+        </p>
+      )}
+      {children}
+      {settingsView && (
+        <p className="text-xs text-muted-foreground">
+          {t("settings.embeddings.bundled.switch_hint")}
         </p>
       )}
       {rebuilding && (
@@ -73,7 +91,7 @@ export const NativeEmbeddingFields = ({
             )}
           </Button>
         )}
-        {state.mode !== "bundled" && (
+        {!settingsView && state.mode !== "bundled" && (
           <Button
             size="sm"
             variant="outline"

@@ -1697,6 +1697,11 @@
         "switch_and_rebuild": "Cambiar y reconstruir"
       },
       "bundled": {
+        "settings_description": "Elige cómo preparar archivos y recuerdos del chat para la búsqueda.",
+        "current_bundled": "En uso: MiniLM integrado · en este dispositivo",
+        "current_external": "En uso: embeddings en un servidor",
+        "server_model": "Modelo de embeddings del servidor",
+        "switch_hint": "El cambio reconstruye los embeddings guardados. La configuración actual sigue activa hasta que termine.",
         "title": "Embeddings integrados",
         "active": "Los embeddings se generan localmente con MiniLM incluido, más adecuado para inglés. No se necesita servidor ni descarga. Para búsquedas multilingües, selecciona abajo un proveedor y modelo externos y reconstruye el índice para cambiar.",
         "offer": "Ya están disponibles los embeddings integrados. Migra tus embeddings guardados o conserva tu servidor y modelo actuales.",

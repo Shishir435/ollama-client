@@ -260,6 +260,7 @@ const main = async () => {
       })
       .waitFor()
     await page
+      .locator('[data-settings-focus-id="bundled-embeddings"]')
       .locator('[data-settings-focus-id="embeddings-model-select"]')
       .waitFor({ state: "visible" })
     await page
