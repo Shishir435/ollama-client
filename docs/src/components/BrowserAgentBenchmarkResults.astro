@@ -1,0 +1,193 @@
+---
+interface Attempt {
+  scenario: string
+  terminalStatus: string
+  expectedStatus: string
+  succeeded?: boolean
+  falseCompletion?: boolean
+}
+
+interface RunRecord {
+  measuredAt: string
+  model: string
+  attempts: Attempt[]
+}
+
+interface Props {
+  ollamaClient: RunRecord
+  nanobrowser: RunRecord
+}
+
+const { ollamaClient, nanobrowser } = Astro.props as Props
+const ollamaByScenario = new Map(
+  ollamaClient.attempts.map((attempt) => [attempt.scenario, attempt])
+)
+const nanobrowserByScenario = new Map(
+  nanobrowser.attempts.map((attempt) => [attempt.scenario, attempt])
+)
+const sharedScenarios = ollamaClient.attempts
+  .map((attempt) => attempt.scenario)
+  .filter((scenario) => nanobrowserByScenario.has(scenario))
+const totalScenarios = ollamaClient.attempts.length
+
+const succeeded = (attempts: Attempt[]) =>
+  attempts.filter((attempt) => attempt.succeeded === true).length
+const falseCompletions = (attempts: Attempt[]) =>
+  attempts.filter((attempt) => attempt.falseCompletion === true).length
+const metWithoutExpectedStatus = (attempts: Attempt[]) =>
+  attempts.filter(
+    (attempt) =>
+      attempt.succeeded === true &&
+      attempt.terminalStatus !== attempt.expectedStatus
+  ).length
+const resultLabel = (attempt?: Attempt) => {
+  if (!attempt) return "NR"
+  if (attempt.succeeded === true)
+    return attempt.terminalStatus === attempt.expectedStatus ? "PASS" : "PASS†"
+  return attempt.falseCompletion === true ? "FAIL‡" : "FAIL"
+}
+
+const taskDescriptions: Record<string, string> = {
+  "read-and-extract/visible-status": "Read and report the visible account status",
+  "read-and-extract/below-the-fold": "Find and report the account number lower on the page",
+  "read-and-extract/region-inspection": "Read and report the status inside the details region",
+  "single-action/button-with-consequence": "Click Continue and report the status",
+  "single-action/checkbox": "Tick the newsletter checkbox and report the status",
+  "single-action/menu-then-option": "Open Actions, choose Approve, and report the status",
+  "form-preparation/single-field": "Fill the given field without submitting",
+  "form-preparation/three-fields-one-grant": "Fill all three fields without submitting",
+  "form-preparation/select-and-check": "Choose South, accept the terms, and report the status",
+  "editors/replace-then-save": "Correct “fax” to “fox” and save the report",
+  "editors/append-then-save": "Add “Done.” to the report and save it",
+  "editors/clear-and-retype": "Replace the report with “Rewritten.” and save it",
+  "delayed-save/short-delay": "Save and wait for the saved indicator",
+  "delayed-save/long-delay": "Save and wait for the delayed saved indicator",
+  "delayed-save/claims-before-it-lands": "Do not claim success before the save finishes",
+  "frames/same-origin-child": "Click Continue inside the embedded panel",
+  "frames/child-with-form": "Fill the given field inside the embedded panel",
+  "frames/srcdoc-cannot-be-read": "Pause and ask before acting in an unreadable embedded panel",
+  "shadow-roots/button-in-open-root": "Click Continue inside an open shadow root",
+  "shadow-roots/field-in-open-root": "Fill the field inside an open shadow root",
+  "shadow-roots/slotted-text": "Read and report the status shown by slotted text",
+  "canvas-and-visual/click-a-point": "Click the board’s left half and report the status",
+  "canvas-and-visual/zoom-then-click": "Zoom in, then click the board’s left half",
+  "canvas-and-visual/text-only-model": "Read the status beside the board without vision",
+  "multi-tab/open-a-tab": "Open the details page and report its status",
+  "multi-tab/follow-a-slow-link": "Follow the slow details link and report its status",
+  "multi-tab/go-back": "Read details, return to Home, and report the heading",
+  "dialogs-and-recovery/confirm-inside-a-modal": "Delete the item and confirm in the page modal",
+  "dialogs-and-recovery/ask-then-act-on-the-answer": "Choose the second account after the user clarifies",
+  "dialogs-and-recovery/native-confirm": "Delete the item and accept the browser confirmation",
+  "report/write": "Read and report the status shown on the page"
+}
+
+const sharedOllamaAttempts = sharedScenarios.flatMap((scenario) => {
+  const attempt = ollamaByScenario.get(scenario)
+  return attempt ? [attempt] : []
+})
+const sharedNanobrowserAttempts = sharedScenarios.flatMap((scenario) => {
+  const attempt = nanobrowserByScenario.get(scenario)
+  return attempt ? [attempt] : []
+})
+const scoreRows = [
+  {
+    label: `Ollama Client, shared first ${sharedScenarios.length}`,
+    attempts: sharedOllamaAttempts,
+    total: sharedScenarios.length
+  },
+  {
+    label: `Nanobrowser, shared first ${sharedScenarios.length}`,
+    attempts: sharedNanobrowserAttempts,
+    total: sharedScenarios.length
+  },
+  {
+    label: "Ollama Client, all scenarios",
+    attempts: ollamaClient.attempts,
+    total: totalScenarios
+  },
+  {
+    label: "Nanobrowser, full suite",
+    attempts: nanobrowser.attempts,
+    total: totalScenarios
+  }
+]
+---
+
+<p>
+  Both runs used <code>{ollamaClient.model}</code>. Ollama Client was measured
+  {" "}<time datetime={ollamaClient.measuredAt}>{ollamaClient.measuredAt}</time>;
+  Nanobrowser was measured{" "}
+  <time datetime={nanobrowser.measuredAt}>{nanobrowser.measuredAt}</time>.
+  The numbers and per-task outcomes below are computed from the content-free
+  run records checked in with this page.
+</p>
+
+<h3>Score summary</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Comparison</th>
+      <th>Tasks with saved results</th>
+      <th>Page predicate passed</th>
+      <th>False completions</th>
+      <th>Goal met, but agent did not finish normally</th>
+    </tr>
+  </thead>
+  <tbody>
+    {scoreRows.map((row) => (
+      <tr>
+        <th>{row.label}</th>
+        <td>{row.attempts.length}/{row.total}</td>
+        <td>{succeeded(row.attempts)}</td>
+        <td>{falseCompletions(row.attempts)}</td>
+        <td>{metWithoutExpectedStatus(row.attempts)}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+<p>
+  A task counts as passed only when the page itself shows the requested outcome.
+  “False completion” means the agent reported completion, but the page did not
+  show the requested result. “Goal met, but agent did not finish normally” means
+  the page predicate passed while the recorded terminal status differed from
+  the task’s expected status.
+</p>
+
+<h3>Scenario-by-scenario results</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Scenario</th>
+      <th>What the page task asked for</th>
+      <th>Ollama Client</th>
+      <th>Nanobrowser</th>
+    </tr>
+  </thead>
+  <tbody>
+    {ollamaClient.attempts.map((ollamaAttempt) => {
+      const nanobrowserAttempt = nanobrowserByScenario.get(
+        ollamaAttempt.scenario
+      )
+      return (
+        <tr>
+          <th>{ollamaAttempt.scenario}</th>
+          <td>
+            {taskDescriptions[ollamaAttempt.scenario] ?? ollamaAttempt.scenario}
+          </td>
+          <td>{resultLabel(ollamaAttempt)}</td>
+          <td>{resultLabel(nanobrowserAttempt)}</td>
+        </tr>
+      )
+    })}
+  </tbody>
+</table>
+
+<p>
+  PASS means the page-state predicate passed. PASS† means it passed but the
+  agent did not reach the expected terminal status. FAIL means the predicate
+  failed without a false completion. FAIL‡ means the agent reported completion
+  but the predicate failed. NR means no result was recorded for that task.
+</p>
