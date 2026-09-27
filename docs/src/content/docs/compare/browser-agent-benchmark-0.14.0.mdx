@@ -14,7 +14,7 @@ The summary and task-level outcomes below are generated from the saved,
 content-free per-task benchmark records committed with this report. The JSON
 records are canonical; docs generation rebuilds these tables from them.
 
-<!-- benchmark-results:start -->
+{/* benchmark-results:start */}
 Both runs used `codex/gpt-6-luna`. Ollama Client was measured 2026-09-27T14:58:21.084Z; Nanobrowser was measured 2026-09-27T16:09:27.362Z.
 
 ### Score summary
@@ -65,7 +65,7 @@ A task counts as passed only when the page itself shows the requested outcome. �
 | report/write | Read and report the status shown on the page | FAIL‡ | NR |
 
 PASS means the page-state predicate passed. PASS† means it passed but the agent did not reach the expected terminal status. FAIL means the predicate failed without a false completion. FAIL‡ means the agent reported completion but the predicate failed. NR means no result was recorded for that task.
-<!-- benchmark-results:end -->
+{/* benchmark-results:end */}
 
 Nanobrowser’s seven NR scenarios are the last seven rows. Starting multi-tab/open-a-tab returned Chromium OS `EAGAIN` (`resource temporarily unavailable`). The next two multi-tab scenarios failed during extension/profile startup; the three dialogs-and-recovery scenarios and report/write have no saved records. `NR` means these tasks are unmeasured in this run, not product failures. The log does not identify why the OS rejected the launch.
 
