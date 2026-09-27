@@ -85,7 +85,8 @@ describe("external model selection", () => {
     )
     expect(fixture.applyModelChange).toHaveBeenCalledWith(
       "multilingual-model",
-      "custom:server"
+      "custom:server",
+      "shared-model"
     )
     expect(fixture.requestModelChange).not.toHaveBeenCalled()
   })

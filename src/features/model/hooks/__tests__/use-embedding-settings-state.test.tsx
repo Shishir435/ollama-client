@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { useState } from "react"
 import { expect, it, vi } from "vitest"
 import {
@@ -39,4 +39,21 @@ it("normalizes aliases in both settings so availability settles", async () => {
   expect(result.current.config.sharedEmbeddingModel).toBe(
     DEFAULT_EMBEDDING_MODEL
   )
+})
+
+it("pins an explicitly selected external target ahead of the chat provider", async () => {
+  const { result } = renderHook(() => useEmbeddingSettingsState())
+  await waitFor(() => expect(result.current.modelExists).toBe(true))
+  act(() =>
+    result.current.applyModelChange(
+      "multilingual-e5-small",
+      "custom:server",
+      "shared-model"
+    )
+  )
+  expect(result.current.config).toMatchObject({
+    sharedEmbeddingModel: "multilingual-e5-small",
+    sharedEmbeddingProviderId: "custom:server",
+    embeddingStrategy: "shared-model"
+  })
 })

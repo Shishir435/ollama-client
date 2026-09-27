@@ -73,7 +73,8 @@ export const EmbeddingSettings = () => {
           }
           onModelSelected={
             native.state.mode === "bundled"
-              ? settings.applyModelChange
+              ? (model, providerId) =>
+                  settings.applyModelChange(model, providerId, "shared-model")
               : rebuild.requestModelChange
           }
           onToggleShowAdvanced={handleToggleShowAdvanced}

@@ -65,11 +65,16 @@ export const useEmbeddingSettingsState = () => {
   )
 
   const applyModelChange = useCallback(
-    (model: string, providerId: string) => {
+    (
+      model: string,
+      providerId: string,
+      embeddingStrategy?: EmbeddingConfig["embeddingStrategy"]
+    ) => {
       setSelectedModel(model)
       updateConfig({
         sharedEmbeddingModel: model,
-        sharedEmbeddingProviderId: providerId
+        sharedEmbeddingProviderId: providerId,
+        ...(embeddingStrategy ? { embeddingStrategy } : {})
       })
     },
     [setSelectedModel, updateConfig]
