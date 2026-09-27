@@ -30,36 +30,50 @@ export const NativeEmbeddingCard = ({
       description={t("settings.embeddings.bundled.settings_description")}>
       <NativeEmbeddingFields native={native} settingsView targetMode={selected}>
         <fieldset
-          className="grid gap-3 sm:grid-cols-2"
-          disabled={native.busy || rebuilding}>
-          <legend className="sr-only">
-            {t("settings.embeddings.bundled.mode_title")}
-          </legend>
-          {(["bundled", "external"] as const).map((mode) => (
-            <label
-              key={mode}
-              className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 ${selected === mode ? "border-primary bg-app-primary-soft" : "border-border"}`}>
-              <input
-                className="mt-1 accent-primary"
-                type="radio"
-                name={group}
-                value={mode}
-                checked={selected === mode}
-                onChange={() => setChoice(mode)}
-                aria-label={t(`settings.embeddings.bundled.mode_${mode}`)}
-              />
-              <span>
-                <span className="block text-sm font-medium">
-                  {t(`settings.embeddings.bundled.mode_${mode}`)}
+          className="space-y-4"
+          aria-label={t("settings.embeddings.bundled.mode_title")}
+          data-settings-focus-id="embeddings-model-select"
+          tabIndex={-1}
+          onFocus={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              !native.busy &&
+              !rebuilding
+            )
+              setChoice("external")
+          }}>
+          <fieldset
+            className="grid gap-3 sm:grid-cols-2"
+            disabled={native.busy || rebuilding}>
+            <legend className="sr-only">
+              {t("settings.embeddings.bundled.mode_title")}
+            </legend>
+            {(["bundled", "external"] as const).map((mode) => (
+              <label
+                key={mode}
+                className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 ${selected === mode ? "border-primary bg-app-primary-soft" : "border-border"}`}>
+                <input
+                  className="mt-1 accent-primary"
+                  type="radio"
+                  name={group}
+                  value={mode}
+                  checked={selected === mode}
+                  onChange={() => setChoice(mode)}
+                  aria-label={t(`settings.embeddings.bundled.mode_${mode}`)}
+                />
+                <span>
+                  <span className="block text-sm font-medium">
+                    {t(`settings.embeddings.bundled.mode_${mode}`)}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {t(`settings.embeddings.bundled.mode_${mode}_help`)}
+                  </span>
                 </span>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {t(`settings.embeddings.bundled.mode_${mode}_help`)}
-                </span>
-              </span>
-            </label>
-          ))}
+              </label>
+            ))}
+          </fieldset>
+          {selected === "external" && children}
         </fieldset>
-        {selected === "external" && children}
       </NativeEmbeddingFields>
     </SettingsCard>
   )

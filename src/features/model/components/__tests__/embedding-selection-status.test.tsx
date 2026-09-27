@@ -52,9 +52,10 @@ vi.mock("@/components/actions", () => ({
   )
 }))
 vi.mock("@/components/ui/select", () => ({
-  Select: ({ value, onValueChange, children }: any) => (
+  Select: ({ value, onValueChange, children, disabled }: any) => (
     <select
       aria-label="embedding model"
+      disabled={disabled}
       value={value}
       onChange={(event) => onValueChange(event.target.value)}>
       {children}
@@ -158,4 +159,29 @@ describe("embedding provider identity", () => {
     )
     expect(state.pullModel).toHaveBeenCalledWith("all-minilm:latest", "ollama")
   })
+})
+
+it.each([
+  true,
+  false
+])("keeps the selector disabled and controls the starting notice explicitly (%s)", (showRebuildNotice) => {
+  render(
+    <EmbeddingModelSelector
+      selectedModel="all-minilm:latest"
+      config={DEFAULT_EMBEDDING_CONFIG}
+      embeddingModels={[]}
+      hasAdvancedModels={false}
+      isRebuilding
+      showRebuildNotice={showRebuildNotice}
+      rebuildProgress={null}
+      onModelSelected={vi.fn()}
+      onToggleShowAdvanced={vi.fn()}
+    />
+  )
+  expect(screen.getByRole("combobox")).toBeDisabled()
+  const notice = screen.queryByText(
+    "settings.embeddings.rebuild_index.status_starting"
+  )
+  if (showRebuildNotice) expect(notice).toBeInTheDocument()
+  else expect(notice).toBeNull()
 })

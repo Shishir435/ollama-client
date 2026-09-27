@@ -254,16 +254,23 @@ const main = async () => {
     await page
       .getByText("Currently using: built-in MiniLM", { exact: false })
       .waitFor()
-    await page.getByRole("radio", { name: "Server-based", exact: true }).check()
     await page
-      .getByRole("button", { name: "Switch to server mode", exact: true })
+      .getByRole("radio", { name: "Provider embeddings", exact: true })
+      .check()
+    await page
+      .getByRole("button", {
+        name: "Switch to provider embeddings",
+        exact: true
+      })
       .waitFor()
     await page
       .locator('[data-settings-focus-id="bundled-embeddings"]')
       .locator('[data-settings-focus-id="embeddings-model-select"]')
       .waitFor({ state: "visible" })
     await page
-      .getByText("Built-in MiniLM works best with English.", { exact: false })
+      .getByText("Language support depends on the model you choose.", {
+        exact: false
+      })
       .waitFor()
     assert.equal((await call(RpcMethod.EmbeddingsNativeStatus)).mode, "bundled")
     const migrated = (await readVectors()) as {
@@ -379,7 +386,20 @@ const main = async () => {
       path: resolve(artifacts, "settings.png"),
       fullPage: true
     })
-    await page.getByRole("radio", { name: "Server-based", exact: true }).check()
+    await page.goto(
+      `chrome-extension://${id}/options.html?tab=knowledge&focus=embeddings-model-select`
+    )
+    await page
+      .locator('[data-settings-focus-id="embeddings-model-select"]')
+      .getByRole("combobox")
+      .waitFor({ state: "visible" })
+    assert.equal(
+      await page
+        .getByRole("radio", { name: "Provider embeddings", exact: true })
+        .isChecked(),
+      true
+    )
+    assert.equal((await call(RpcMethod.EmbeddingsNativeStatus)).mode, "bundled")
     await page.screenshot({
       path: resolve(artifacts, "settings-server.png"),
       fullPage: true
@@ -395,7 +415,47 @@ const main = async () => {
         exact: false
       })
       .waitFor({ state: "visible" })
+    const longModel =
+      "multilingual-embedding-model-with-a-very-long-name-and-provider-label:latest"
+    await page.evaluate(async (model) => {
+      await chrome.storage.sync.set({
+        "embeddings-config": JSON.stringify({
+          sharedEmbeddingModel: model,
+          sharedEmbeddingProviderId: "ollama"
+        }),
+        "embeddings-selected-model": JSON.stringify(model)
+      })
+    }, longModel)
+    await page.setViewportSize({ width: 430, height: 900 })
+    await page.goto(
+      `chrome-extension://${id}/options.html?tab=knowledge&focus=embeddings-model-select`
+    )
+    const modelPicker = page
+      .locator('[data-settings-focus-id="embeddings-model-select"]')
+      .getByRole("combobox")
+    await modelPicker
+      .getByText(`${longModel} (Ollama)`, { exact: true })
+      .waitFor()
+    await modelPicker.click()
+    const longOption = page.getByRole("option", {
+      name: `${longModel} (Ollama)`,
+      exact: true
+    })
+    await longOption.waitFor()
+    assert.equal(
+      await longOption.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth + 1
+      ),
+      true,
+      "Long model label must wrap inside the menu"
+    )
+    await page.screenshot({
+      path: resolve(artifacts, "model-menu.png"),
+      fullPage: true
+    })
     const report = {
+      providerSetupLink: "reveals provider controls without activating them",
+      longModelLabel: "fits narrow menu",
       browser: context.browser()?.version(),
       coldMs,
       model: first.model,

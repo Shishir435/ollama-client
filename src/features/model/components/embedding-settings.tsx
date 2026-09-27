@@ -66,6 +66,7 @@ export const EmbeddingSettings = () => {
             isRebuilding={
               rebuild.isRebuilding || native.state.migration === "building"
             }
+            showRebuildNotice={rebuild.isRebuilding}
             rebuildProgress={rebuild.progress}
             onModelSelected={
               native.state.mode === "bundled"

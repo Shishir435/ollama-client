@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { useNativeEmbeddings } from "../hooks/use-native-embeddings"
 
+const modeHelp = {
+  bundled: "settings.embeddings.bundled.mode_language_hint",
+  external: "settings.embeddings.bundled.provider_hint"
+} as const
+
 /** Shared migration controls for settings and the upgrade dialog. */
 export const NativeEmbeddingFields = ({
   native,
@@ -38,7 +43,7 @@ export const NativeEmbeddingFields = ({
       <p className="text-xs font-medium">
         {t(
           settingsView
-            ? "settings.embeddings.bundled.mode_language_hint"
+            ? modeHelp[targetMode || state.mode]
             : "settings.embeddings.bundled.language_notice"
         )}
       </p>

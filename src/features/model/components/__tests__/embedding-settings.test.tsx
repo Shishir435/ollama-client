@@ -119,3 +119,27 @@ describe("external model selection", () => {
     ).toBeDisabled()
   })
 })
+
+it("reveals the provider picker from the persistent setup target without activating it", () => {
+  fixture.mode = "bundled"
+  fixture.migration = "idle"
+  fixture.applyModelChange.mockClear()
+  const { container } = render(<EmbeddingSettings />)
+  expect(
+    screen.queryByRole("button", { name: "Choose external model" })
+  ).toBeNull()
+  const target = container.querySelector(
+    '[data-settings-focus-id="embeddings-model-select"]'
+  ) as HTMLElement
+  fireEvent.focus(target)
+  expect(
+    screen.getByRole("button", { name: "Choose external model" })
+  ).toBeVisible()
+  expect(
+    screen.getByText("settings.embeddings.bundled.provider_hint")
+  ).toBeVisible()
+  expect(
+    screen.getByText("settings.embeddings.bundled.current_bundled")
+  ).toBeVisible()
+  expect(fixture.applyModelChange).not.toHaveBeenCalled()
+})

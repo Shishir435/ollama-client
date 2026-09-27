@@ -32,6 +32,7 @@ export interface EmbeddingModelSelectorProps {
   embeddingModels: ProviderModel[]
   hasAdvancedModels: boolean
   isRebuilding: boolean
+  showRebuildNotice?: boolean
   rebuildProgress: RebuildProgress | null
   onModelSelected: (model: string, providerId: string) => void
   onToggleShowAdvanced: (checked: boolean) => void
@@ -44,6 +45,7 @@ export const EmbeddingModelSelector = ({
   embeddingModels,
   hasAdvancedModels,
   isRebuilding,
+  showRebuildNotice = isRebuilding,
   rebuildProgress,
   onModelSelected,
   onToggleShowAdvanced
@@ -103,10 +105,8 @@ export const EmbeddingModelSelector = ({
   }
 
   return (
-    <div
-      className="space-y-4 border-t pt-4"
-      data-settings-focus-id="embeddings-model-select">
-      {isRebuilding && rebuildProgress && (
+    <div className="space-y-4 border-t pt-4">
+      {showRebuildNotice && (
         <div className="space-y-3">
           <StatusAlert
             variant="info"
@@ -137,8 +137,9 @@ export const EmbeddingModelSelector = ({
             onValueChange={(value) => {
               if (value !== null) handleValueChange(value)
             }}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full min-w-0 whitespace-normal data-[size=default]:h-auto *:data-[slot=select-value]:line-clamp-none">
               <SelectValue
+                className="min-w-0 whitespace-normal wrap-anywhere"
                 placeholder={t("settings.embeddings.model_select.placeholder")}>
                 {(value) =>
                   value
@@ -147,7 +148,9 @@ export const EmbeddingModelSelector = ({
                 }
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              alignItemWithTrigger={false}
+              className="max-w-(--available-width)">
               <SelectGroup>
                 <SelectLabel>
                   {t("settings.embeddings.model_select.recommended_group")}
@@ -155,7 +158,10 @@ export const EmbeddingModelSelector = ({
                 {Array.from(options.entries())
                   .filter(([, option]) => option.recommended)
                   .map(([value, option]) => (
-                    <SelectItem key={value} value={value}>
+                    <SelectItem
+                      key={value}
+                      value={value}
+                      textClassName="min-w-0 shrink whitespace-normal wrap-anywhere pr-5">
                       {option.label}
                     </SelectItem>
                   ))}
@@ -174,7 +180,10 @@ export const EmbeddingModelSelector = ({
                         (showAdvancedModels || value === selectedValue)
                     )
                     .map(([value, option]) => (
-                      <SelectItem key={value} value={value}>
+                      <SelectItem
+                        key={value}
+                        value={value}
+                        textClassName="min-w-0 shrink whitespace-normal wrap-anywhere pr-5">
                         {option.label}
                       </SelectItem>
                     ))}
