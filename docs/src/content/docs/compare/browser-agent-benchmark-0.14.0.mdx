@@ -1,0 +1,46 @@
+---
+title: Browser Agent Benchmark: Ollama Client 0.14.0 and Nanobrowser
+description: Interim same-model comparison of Ollama Client's 0.14.0 candidate and Nanobrowser on shared synthetic browser tasks.
+---
+
+# Browser Agent Benchmark: Ollama Client 0.14.0 and Nanobrowser
+
+**Status: interim results.** This comparison covers the first 24 identical tasks. Nanobrowser's run stopped before it produced the remaining seven task records because Chromium could not start another browser process (`EAGAIN`). We will update this page if those tasks can be completed.
+
+## Matched results
+
+Both products ran against the same frozen task prompts and local pages in Chromium, with one attempt per task. A task passes only when its page-state predicate confirms the requested result.
+
+| Product | Matched tasks passed | Attempts recorded | False completions | Missed completions |
+|---|---:|---:|---:|---:|
+| Ollama Client 0.14.0 candidate | 15 | 24 | 4 | 3 |
+| Nanobrowser | 5 | 24 | 7 | 1 |
+
+On the 24 shared tasks, the current Ollama Client candidate met 10 more task predicates. This is an interim matched-subset result; it is not a complete 31-task comparison.
+
+Ollama Client's complete run recorded **20/31** task predicates, with 6 false completions and 4 missed completions. Nanobrowser produced 24 attempt records; the following multi-tab tasks failed before an attempt could be recorded when Chromium returned `EAGAIN`, and the full-run report has seven tasks without results.
+
+## Run setup
+
+- **Model:** `codex/gpt-6-luna`, medium reasoning effort.
+- **Endpoint:** the same local Ollama Client `olc` OpenAI-compatible service for both products (`http://127.0.0.1:8083/v1`).
+- **Ollama Client candidate:** commit [`f588c013`](https://github.com/Shishir435/ollama-client/commit/f588c0136f322d514d24c829bc7d4d61f66bc57e), on a benchmark branch based on the current `release/0.14.0) history.
+- **Nanobrowser:** source [commit `24a14b76`](https://github.com/nanobrowser/nanobrowser/tree/24a14b76e14a9c30fd84878ca7985049d1e7d064), built locally from its lockfile; upstream version string `0.1.13`.
+- Nanobrowser's Planner and Navigator both used the same model and medium reasoning effort. Its vision settings were enabled for the canvas task; analytics were disabled in the test profile.
+- Both runs used the same 31 frozen synthetic scenarios, task prompts, and page-state predicates. The shared first 24 tasks comprise reading/extraction, single actions, form preparation, editors, delayed saves, frames, shadow roots, and canvas/visual tasks.
+
+## How to read the scores
+
+The test runner records an attempt even when the agent stops early. The pass count comes from the task's page-state predicate. A false completion means the agent said it was done but the page did not show the requested outcome. A missed completion means the page predicate passed even though the agent did not report completion.
+
+Each task was attempted once. These synthetic fixtures provide a controlled release comparison; they do not establish broad real-world performance or replace WebArena, WebVoyager, or another published research benchmark.
+
+## Nanobrowser benchmark practices
+
+At the tested Nanobrowser revision, its [README](https://github.com/nanobrowser/nanobrowser/blob/24a14b76e14a9c30fd84878ca7985049d1e7d064/README.md) describes a multi-agent Planner/Navigator workflow and configurable models/providers. Its [package scripts](https://github.com/nanobrowser/nanobrowser/blob/24a14b76e14a9c30fd84878ca7985049d1e7d064/package.json) include build and end-to-end testing commands. We did not find a first-party public benchmark suite or published score table in those sources at that revision.
+
+## Sources
+
+- [Ollama Client repository](https://github.com/Shishir435/ollama-client)
+- [Nanobrowser README at tested commit](https://github.com/nanobrowser/nanobrowser/blob/24a14b76e14a9c30fd84878ca7985049d1e7d064/README.md)
+- [Nanobrowser package scripts at tested commit](https://github.com/nanobrowser/nanobrowser/blob/24a14b76e14a9c30fd84878ca7985049d1e7d064/package.json)
