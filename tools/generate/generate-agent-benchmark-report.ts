@@ -19,8 +19,10 @@ const reportPath = resolve(
   "docs/src/content/docs/compare/browser-agent-benchmark-0.14.0.mdx"
 )
 const recordsDirectory = resolve("docs/src/data/browser-agent-benchmark-0.14.0")
-const startMarker = "<!-- benchmark-results:start -->"
-const endMarker = "<!-- benchmark-results:end -->"
+const startMarker = "{/* benchmark-results:start */}"
+const endMarker = "{/* benchmark-results:end */}"
+const legacyStartMarker = "<!-- benchmark-results:start -->"
+const legacyEndMarker = "<!-- benchmark-results:end -->"
 
 const taskDescriptions: Record<string, string> = {
   "read-and-extract/visible-status":
@@ -187,8 +189,11 @@ const main = async (): Promise<void> => {
     readRunRecord(resolve(recordsDirectory, "nanobrowser.json"))
   ])
   const report = await readFile(reportPath, "utf8")
-  const start = report.indexOf(startMarker)
-  const end = report.indexOf(endMarker)
+  const inputMarkers = report.includes(startMarker)
+    ? { start: startMarker, end: endMarker }
+    : { start: legacyStartMarker, end: legacyEndMarker }
+  const start = report.indexOf(inputMarkers.start)
+  const end = report.indexOf(inputMarkers.end)
   if (start < 0 || end < start)
     throw new Error(
       "Benchmark report result markers are missing or out of order."
@@ -212,7 +217,9 @@ const main = async (): Promise<void> => {
     endMarker
   ].join("\n")
   const updated =
-    report.slice(0, start) + generated + report.slice(end + endMarker.length)
+    report.slice(0, start) +
+    generated +
+    report.slice(end + inputMarkers.end.length)
   if (updated !== report) await writeFile(reportPath, updated)
   console.info(
     "Generated browser-agent benchmark tables from saved run records."
