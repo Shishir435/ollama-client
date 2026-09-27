@@ -132,12 +132,12 @@ const scoreTable = (
   )
   const rows = [
     {
-      label: `Ollama Client, shared first ${sharedScenarios.length}`,
+      label: "Ollama Client, shared scenarios",
       attempts: ollamaShared,
       total: sharedScenarios.length
     },
     {
-      label: `Nanobrowser, shared first ${sharedScenarios.length}`,
+      label: "Nanobrowser, shared scenarios",
       attempts: nanobrowserShared,
       total: sharedScenarios.length
     },
