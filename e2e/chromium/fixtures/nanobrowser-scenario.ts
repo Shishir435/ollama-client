@@ -29,14 +29,23 @@ const safeEventLabel = (value: unknown): string | undefined =>
     ? value
     : undefined
 
+const terminalTaskStates = new Set([
+  "task.ok",
+  "task.fail",
+  "task.pause",
+  "task.cancel"
+])
+
+const terminalTaskEvents = (events: NanobrowserEvent[]): NanobrowserEvent[] =>
+  events.filter((event) => terminalTaskStates.has(event.state ?? ""))
+
 /** Run the same frozen page/task through Nanobrowser's Planner and Navigator. */
 export const runNanobrowserScenario = (scenario: AgentScenario): void => {
   const attempts = Math.max(1, scenario.attempts ?? 1)
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    test(`Nanobrowser ${scenario.name} through its Planner and Navigator`, async (
-      { extension },
-      testInfo
-    ) => {
+    test(`Nanobrowser ${scenario.name} through its Planner and Navigator`, async ({
+      extension
+    }, testInfo) => {
       test.setTimeout(240_000)
       const startedAt = Date.now()
       scenario.diagnosticTrace?.({
@@ -75,31 +84,34 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
         const request = response.request()
         const requestStartedAt = modelRequestStarted.get(request)
         if (requestStartedAt === undefined) return
-        void response.finished().then((failure) => {
-          const stillPendingAt = modelRequestStarted.get(request)
-          if (stillPendingAt === undefined) return
-          modelRequestStarted.delete(request)
-          scenario.diagnosticTrace?.({
-            type: failure ? "model_call_failed" : "model_call_completed",
-            attempt,
-            modelRoute: "chat_completion",
-            httpStatus: response.status(),
-            durationMs: Date.now() - stillPendingAt,
-            ...(failure ? { failureClass: "response_stream_failed" } : {})
+        void response
+          .finished()
+          .then((failure) => {
+            const stillPendingAt = modelRequestStarted.get(request)
+            if (stillPendingAt === undefined) return
+            modelRequestStarted.delete(request)
+            scenario.diagnosticTrace?.({
+              type: failure ? "model_call_failed" : "model_call_completed",
+              attempt,
+              modelRoute: "chat_completion",
+              httpStatus: response.status(),
+              durationMs: Date.now() - stillPendingAt,
+              ...(failure ? { failureClass: "response_stream_failed" } : {})
+            })
           })
-        }).catch(() => {
-          const stillPendingAt = modelRequestStarted.get(request)
-          if (stillPendingAt === undefined) return
-          modelRequestStarted.delete(request)
-          scenario.diagnosticTrace?.({
-            type: "model_call_failed",
-            attempt,
-            modelRoute: "chat_completion",
-            httpStatus: response.status(),
-            durationMs: Date.now() - stillPendingAt,
-            failureClass: "response_stream_failed"
+          .catch(() => {
+            const stillPendingAt = modelRequestStarted.get(request)
+            if (stillPendingAt === undefined) return
+            modelRequestStarted.delete(request)
+            scenario.diagnosticTrace?.({
+              type: "model_call_failed",
+              attempt,
+              modelRoute: "chat_completion",
+              httpStatus: response.status(),
+              durationMs: Date.now() - stillPendingAt,
+              failureClass: "response_stream_failed"
+            })
           })
-        })
       })
       extension.context.on("requestfailed", (request) => {
         const requestStartedAt = modelRequestStarted.get(request)
@@ -129,37 +141,45 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
           return
         }
         const delay = scenario.navigationDelayMs?.(path) ?? 0
-        if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
+        if (delay > 0)
+          await new Promise((resolve) => setTimeout(resolve, delay))
         response.setHeader("Content-Type", "text/html")
         response.end(scenario.html(path))
       })
-      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+      await new Promise<void>((resolve) =>
+        server.listen(0, "127.0.0.1", resolve)
+      )
 
       try {
         const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
         const panel = await extension.context.newPage()
-        await panel.exposeFunction("recordNanobrowserEvent", (event: unknown) => {
-          if (typeof event !== "object" || event === null) return
-          const candidate = event as NanobrowserEvent
-          const actor = safeEventLabel(candidate.actor)
-          const state = safeEventLabel(candidate.state)
-          const step = candidate.data?.step
-          scenario.diagnosticTrace?.({
-            type: "nanobrowser_event",
-            attempt,
-            actor,
-            state,
-            ...(typeof step === "number" && Number.isFinite(step)
-              ? { step }
-              : {})
-          })
-        })
+        await panel.exposeFunction(
+          "recordNanobrowserEvent",
+          (event: unknown) => {
+            if (typeof event !== "object" || event === null) return
+            const candidate = event as NanobrowserEvent
+            const actor = safeEventLabel(candidate.actor)
+            const state = safeEventLabel(candidate.state)
+            const step = candidate.data?.step
+            scenario.diagnosticTrace?.({
+              type: "nanobrowser_event",
+              attempt,
+              actor,
+              state,
+              ...(typeof step === "number" && Number.isFinite(step)
+                ? { step }
+                : {})
+            })
+          }
+        )
         await panel.addInitScript(() => {
           window.__benchmarkNanobrowserEvents = []
           try {
             const runtime = chrome.runtime
             const connect = runtime.connect.bind(runtime)
-            runtime.connect = ((...args: Parameters<typeof runtime.connect>) => {
+            runtime.connect = ((
+              ...args: Parameters<typeof runtime.connect>
+            ) => {
               const port = connect(...args)
               port.onMessage.addListener((message: unknown) => {
                 if (
@@ -256,13 +276,66 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
           timedOut = true
         }
 
-        const events = await panel
+        let events = await panel
           .evaluate(() => window.__benchmarkNanobrowserEvents ?? [])
           .catch(() => [] as NanobrowserEvent[])
-        const taskEvent = [...events]
-          .reverse()
-          .find((event) => event.state?.startsWith("task."))
-        terminalStatus = taskEvent?.state?.slice("task.".length) ??
+        let terminalEvents = terminalTaskEvents(events)
+        let taskEvent = terminalEvents.at(-1)
+        let chatResponse =
+          taskEvent?.data?.details ??
+          (await panel
+            .locator("div.max-w-full.space-y-4 > div")
+            .last()
+            .innerText()
+            .catch(() => ""))
+
+        if (
+          scenario.answer &&
+          taskEvent?.state === "task.ok" &&
+          chatResponse.includes("?")
+        ) {
+          const priorTerminalEventCount = terminalEvents.length
+          await composer.fill(scenario.answer)
+          await composer.press("Enter")
+          await expect(composer).toBeDisabled({ timeout: 10_000 })
+          try {
+            await expect
+              .poll(
+                async () => {
+                  events = await panel
+                    .evaluate(() => window.__benchmarkNanobrowserEvents ?? [])
+                    .catch(() => [] as NanobrowserEvent[])
+                  terminalEvents = terminalTaskEvents(events)
+                  const enabled = await composer.isEnabled().catch(() => false)
+                  return (
+                    enabled && terminalEvents.length > priorTerminalEventCount
+                  )
+                },
+                { timeout: 200_000 }
+              )
+              .toBe(true)
+          } catch {
+            timedOut = true
+          }
+          events = await panel
+            .evaluate(() => window.__benchmarkNanobrowserEvents ?? [])
+            .catch(() => [] as NanobrowserEvent[])
+          terminalEvents = terminalTaskEvents(events)
+          taskEvent = terminalEvents.at(-1)
+          chatResponse =
+            taskEvent?.data?.details ??
+            (await panel
+              .locator("div.max-w-full.space-y-4 > div")
+              .last()
+              .innerText()
+              .catch(() => ""))
+          scenario.diagnosticTrace?.({
+            type: "clarification_answer_sent",
+            attempt
+          })
+        }
+        terminalStatus =
+          taskEvent?.state?.slice("task.".length) ??
           (timedOut ? "timed_out" : "failed")
         const statusMap: Record<string, string> = {
           ok: "completed",
@@ -286,13 +359,6 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
           timedOut,
           eventCount: events.length
         })
-        const chatResponse =
-          taskEvent?.data?.details ??
-          (await panel
-            .locator("div.max-w-full.space-y-4 > div")
-            .last()
-            .innerText()
-            .catch(() => ""))
         const outcome: AgentScenarioOutcome = {
           page: fixturePage,
           panel,
@@ -307,7 +373,7 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
           tokens: undefined,
           chatResponse,
           chatModelCalls: modelCalls,
-          directChatResponse: taskStatus === "completed",
+          directChatResponse: false,
           terminalStatus: taskStatus,
           executionPath: "planner_navigator"
         }

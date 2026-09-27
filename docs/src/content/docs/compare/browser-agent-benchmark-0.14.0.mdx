@@ -6,7 +6,7 @@ description: "Interim same-model comparison with task-by-task outcomes for Ollam
 
 # Browser Agent Benchmark: Ollama Client 0.14.0 and Nanobrowser
 
-**Status: interim results.** Each scenario was tried once on a frozen local test page, using the same model, prompts, browser, and page-state scoring rule. Nanobrowser has recorded results for the first 24 of 31 scenarios. Its remaining seven have no saved result because the host ran out of process capacity while starting Chromium.
+**Status: interim results.** Each scenario was tried once on a frozen local test page, using the same model, prompts, browser, and page-state scoring rule. Nanobrowser has saved results for 24 of 31 scenarios. Chromium returned OS `EAGAIN` (`resource temporarily unavailable`) while launching the first missing scenario. The following two multi-tab attempts produced no task results during extension/profile startup, and the final four scenarios have no saved records.
 
 ## Score summary
 
@@ -61,7 +61,7 @@ The shared set is the first 24 scenarios below. Ollama Client passed 10 more pag
 
 **Result labels:** PASS means the page-state predicate passed. PASS† means the page predicate passed, but the agent did not reach the expected terminal status. FAIL means the predicate failed and no false completion was recorded. FAIL‡ means the agent reported completion but the predicate failed. NR means no task result was saved.
 
-Nanobrowser’s seven NR scenarios are the last seven rows. Its attempt to start multi-tab/open-a-tab hit Chromium process error EAGAIN; the next two multi-tab scenarios failed during extension/profile startup. The three dialogs-and-recovery scenarios and report/write then had no saved records. These are missing measurements, not seven scored product failures.
+Nanobrowser’s seven NR scenarios are the last seven rows. Starting multi-tab/open-a-tab returned Chromium OS `EAGAIN` (`resource temporarily unavailable`). The next two multi-tab scenarios failed during extension/profile startup; the three dialogs-and-recovery scenarios and report/write have no saved records. `NR` means these tasks are unmeasured in this run, not product failures. The log does not identify why the OS rejected the launch.
 
 For Ollama Client, 11 of the 31 page predicates failed. Six of those were false completions. Four other tasks reached the page goal but did not finish in the expected terminal state. For Nanobrowser’s 24 saved rows, 19 page predicates failed; seven of those were false completions, and one other task reached the page goal without the expected terminal state.
 

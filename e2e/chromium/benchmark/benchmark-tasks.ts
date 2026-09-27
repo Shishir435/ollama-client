@@ -35,7 +35,11 @@ export {
   benchmarkTaskCount
 } from "./benchmark-counts"
 
-export const benchmarkModel = process.env.AGENT_HOSTED_MODEL ?? "fixture-agent"
+export const benchmarkModel =
+  process.env.AGENT_HOSTED_MODEL ??
+  (process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+    ? "codex/gpt-6-luna"
+    : "fixture-agent")
 
 /** Make browser use explicit so the live task measures the agent, not a guess. */
 export const benchmarkPrompt = (goal: string): string =>
@@ -99,9 +103,7 @@ export const recordBenchmarkAttempt = async (input: {
     scenario: input.scenario,
     attempt: outcome.attempt,
     backend: outcome.backend,
-    ...(outcome.executionPath
-      ? { executionPath: outcome.executionPath }
-      : {}),
+    ...(outcome.executionPath ? { executionPath: outcome.executionPath } : {}),
     terminalStatus:
       run?.status ??
       outcome.terminalStatus ??
@@ -175,10 +177,7 @@ export const benchmarkTask = (
         trace = createAgentBenchmarkTrace({
           product,
           scenario,
-          model:
-            product === "nanobrowser" && !process.env.AGENT_HOSTED_MODEL
-              ? "codex/gpt-6-luna"
-              : benchmarkModel
+          model: benchmarkModel
         })
         console.info(`[agent-benchmark] diagnostic trace: ${trace.path}`)
       }
@@ -266,10 +265,7 @@ export const reportsFact =
   async (outcome: AgentScenarioOutcome): Promise<boolean> => {
     const rendered = await outcome.page.locator("body").innerText()
     const result = outcome.snapshot?.run?.result ?? outcome.chatResponse
-    return (
-      rendered.includes(fact) &&
-      Boolean(result?.includes(fact))
-    )
+    return rendered.includes(fact) && Boolean(result?.includes(fact))
   }
 
 /**

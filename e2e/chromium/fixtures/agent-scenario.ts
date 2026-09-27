@@ -297,7 +297,9 @@ export const reportedTokens = (
 }
 
 /** Pull only visible text and tool names from a hosted chat stream. */
-const readChatStream = (body: string): { text: string; toolNames: string[] } => {
+const readChatStream = (
+  body: string
+): { text: string; toolNames: string[] } => {
   let text = ""
   const toolNames = new Set<string>()
   const frames = body
@@ -338,15 +340,17 @@ const toolNamesFromRequest = (request: unknown): string[] => {
   if (typeof request !== "object" || request === null) return []
   const tools = (request as { tools?: unknown }).tools
   if (!Array.isArray(tools)) return []
-  return [...new Set(
-    tools.flatMap((tool) => {
-      if (typeof tool !== "object" || tool === null) return []
-      const name = (tool as { function?: { name?: unknown } }).function?.name
-      return typeof name === "string" && /^[a-zA-Z0-9_:-]{1,80}$/.test(name)
-        ? [name]
-        : []
-    })
-  )]
+  return [
+    ...new Set(
+      tools.flatMap((tool) => {
+        if (typeof tool !== "object" || tool === null) return []
+        const name = (tool as { function?: { name?: unknown } }).function?.name
+        return typeof name === "string" && /^[a-zA-Z0-9_:-]{1,80}$/.test(name)
+          ? [name]
+          : []
+      })
+    )
+  ]
 }
 
 const toolNamesFromResponse = (body: string): string[] => {
@@ -383,8 +387,10 @@ const providerErrorCode = (body: string): string | undefined => {
       code?: unknown
       type?: unknown
     }
-    const candidate = parsed.error?.code ?? parsed.error?.type ?? parsed.code ?? parsed.type
-    return typeof candidate === "string" && /^[a-zA-Z0-9_.-]{1,80}$/.test(candidate)
+    const candidate =
+      parsed.error?.code ?? parsed.error?.type ?? parsed.code ?? parsed.type
+    return typeof candidate === "string" &&
+      /^[a-zA-Z0-9_.-]{1,80}$/.test(candidate)
       ? candidate
       : undefined
   } catch {
@@ -404,7 +410,10 @@ const finishReasonFromResponse = (body: string): string | undefined => {
         choices?: { finish_reason?: unknown }[]
       }
       const candidate = parsed.choices?.[0]?.finish_reason
-      if (typeof candidate === "string" && /^[a-zA-Z0-9_.:-]{1,80}$/.test(candidate))
+      if (
+        typeof candidate === "string" &&
+        /^[a-zA-Z0-9_.:-]{1,80}$/.test(candidate)
+      )
         return candidate
     } catch {
       /* A non-JSON stream frame carries no finish reason. */
@@ -415,9 +424,9 @@ const finishReasonFromResponse = (body: string): string | undefined => {
       done_reason?: unknown
       choices?: { finish_reason?: unknown }[]
     }
-    const candidate =
-      parsed.choices?.[0]?.finish_reason ?? parsed.done_reason
-    return typeof candidate === "string" && /^[a-zA-Z0-9_.:-]{1,80}$/.test(candidate)
+    const candidate = parsed.choices?.[0]?.finish_reason ?? parsed.done_reason
+    return typeof candidate === "string" &&
+      /^[a-zA-Z0-9_.:-]{1,80}$/.test(candidate)
       ? candidate
       : undefined
   } catch {
@@ -425,7 +434,9 @@ const finishReasonFromResponse = (body: string): string | undefined => {
   }
 }
 
-const agentTraceEvent = (part: Record<string, unknown>): Record<string, unknown> => {
+const agentTraceEvent = (
+  part: Record<string, unknown>
+): Record<string, unknown> => {
   const fields = [
     "phase",
     "status",
@@ -460,10 +471,8 @@ const agentTraceEvent = (part: Record<string, unknown>): Record<string, unknown>
 }
 
 /** A chat turn, as opposed to one of a run's own planning or decision calls. */
-const isChatTurn = (parsed: {
-  tools?: { function?: { name?: string } }[]
-}): boolean =>
-  parsed.tools?.some((tool) => tool.function?.name === "browser_task") === true
+const isChatTurn = (parsed: unknown): boolean =>
+  toolNamesFromRequest(parsed).includes("browser_task")
 
 const executionPathFor = (
   agentStarted: boolean,
@@ -474,6 +483,296 @@ const executionPathFor = (
   if (calls.has("current_tab")) return "current_tab"
   if (calls.has("browser_task")) return "browser_task_not_started"
   return "chat"
+}
+
+interface HostedChatState {
+  modelCalls: number
+  response: string
+  directResponse: boolean
+  toolCalls: Set<string>
+}
+
+const isChatRequestPath = (path: string): boolean =>
+  path === "/api/chat" || path === "/v1/chat/completions"
+
+const parseRequestObject = (body: string): Record<string, unknown> | null => {
+  if (!body.trim()) return null
+  try {
+    const parsed: unknown = JSON.parse(body)
+    return typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    // Forward malformed JSON unchanged so the upstream owns the HTTP error.
+    return null
+  }
+}
+
+const modelRouteFor = (
+  path: string,
+  chatRequest: boolean,
+  chatTurn: boolean,
+  requestTools: string[]
+): string => {
+  if (chatTurn) return "chat_turn"
+  if (requestTools.includes("agent_plan")) return "agent_plan"
+  if (requestTools.includes("agent_decision")) return "agent_decision"
+  if (path === "/api/tags" || path === "/v1/models") return "catalog"
+  if (path === "/api/show") return "model_metadata"
+  return chatRequest ? "other_chat" : "provider_request"
+}
+
+const modelFailureClass = (error: unknown): string => {
+  if (error instanceof Error && error.name === "AbortError") return "aborted"
+  if (error instanceof TypeError) return "network"
+  return "request_error"
+}
+
+const recordHostedChatTurn = (input: {
+  path: string
+  parsedRequest: Record<string, unknown> | null
+  chatTurn: boolean
+  responseBody: string
+  state: HostedChatState
+}): void => {
+  if (
+    input.path !== "/v1/chat/completions" ||
+    !input.parsedRequest ||
+    !input.chatTurn
+  )
+    return
+
+  input.state.modelCalls += 1
+  const chat = readChatStream(input.responseBody)
+  for (const toolName of chat.toolNames) input.state.toolCalls.add(toolName)
+  // current_tab is read-only: its answer does not start a supervised run.
+  if (chat.toolNames.length === 0 && chat.text) {
+    input.state.response = chat.text
+    input.state.directResponse = true
+  }
+}
+
+const createHostedModelForwarder =
+  (input: {
+    scenario: AgentScenario
+    attempt: number
+    baseUrl: string
+    wire: AgentScenarioOutcome["wire"]
+    chatState: HostedChatState
+  }) =>
+  async (
+    path: string,
+    method: string | undefined,
+    body: string
+  ): Promise<{ status: number; body: string }> => {
+    const chatRequest = isChatRequestPath(path)
+    const parsedRequest = chatRequest ? parseRequestObject(body) : null
+    const chatTurn = parsedRequest !== null && isChatTurn(parsedRequest)
+    const requestTools = toolNamesFromRequest(parsedRequest)
+    const modelRoute = modelRouteFor(path, chatRequest, chatTurn, requestTools)
+    const requestStartedAt = Date.now()
+    input.scenario.diagnosticTrace?.({
+      type: "model_call_started",
+      attempt: input.attempt,
+      modelRoute,
+      requestTools,
+      requestBytes: Buffer.byteLength(body)
+    })
+
+    let upstream: Response
+    let responseBody: string
+    try {
+      upstream = await fetch(`${input.baseUrl}${path}`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        ...(body ? { body } : {})
+      })
+      responseBody = await upstream.text()
+    } catch (error) {
+      input.scenario.diagnosticTrace?.({
+        type: "model_call_failed",
+        attempt: input.attempt,
+        modelRoute,
+        durationMs: Date.now() - requestStartedAt,
+        failureClass: modelFailureClass(error)
+      })
+      throw error
+    }
+
+    const responseTools = toolNamesFromResponse(responseBody)
+    input.scenario.diagnosticTrace?.({
+      type: "model_call_completed",
+      attempt: input.attempt,
+      modelRoute,
+      httpStatus: upstream.status,
+      durationMs: Date.now() - requestStartedAt,
+      requestBytes: Buffer.byteLength(body),
+      responseBytes: Buffer.byteLength(responseBody),
+      finishReason: finishReasonFromResponse(responseBody),
+      requestTools,
+      responseTools,
+      ...(upstream.ok
+        ? {}
+        : { providerErrorCode: providerErrorCode(responseBody) })
+    })
+    if (chatRequest && parsedRequest && !chatTurn)
+      input.wire.push({ request: parsedRequest, response: responseBody })
+    recordHostedChatTurn({
+      path,
+      parsedRequest,
+      chatTurn,
+      responseBody,
+      state: input.chatState
+    })
+    return { status: upstream.status, body: responseBody }
+  }
+
+type AgentSnapshot = Extract<
+  AgentPanelMessage,
+  { type: "agent_snapshot" }
+>["snapshot"]
+
+interface AgentMessageTraceContext {
+  scenario: AgentScenario
+  attempt: number
+  runState: { lastRunState: string }
+  seenStepReceipts: Map<string, string>
+  seenApprovalRequests: Set<string>
+  seenTakeoverRequests: Set<string>
+  seenQuestions: Set<string>
+}
+
+const traceAgentRun = (
+  snapshot: AgentSnapshot,
+  context: AgentMessageTraceContext
+): void => {
+  const run = snapshot.run
+  if (!run) return
+  const runState = JSON.stringify([
+    run.status,
+    run.pauseReason,
+    run.error?.code,
+    run.stepCount,
+    run.observationCount
+  ])
+  if (runState !== context.runState.lastRunState) {
+    context.runState.lastRunState = runState
+    context.scenario.diagnosticTrace?.({
+      type: "agent_run_state",
+      attempt: context.attempt,
+      status: run.status,
+      pauseReason: run.pauseReason,
+      errorCode: run.error?.code,
+      stepCount: run.stepCount,
+      observationCount: run.observationCount,
+      requirementCount: run.requirements?.length,
+      requirementKinds: run.requirements?.map((requirement) => requirement.kind)
+    })
+  }
+  if (run.question && !context.seenQuestions.has(run.question.id)) {
+    context.seenQuestions.add(run.question.id)
+    context.scenario.diagnosticTrace?.({
+      type: "user_question",
+      attempt: context.attempt,
+      decision: "waiting_for_answer"
+    })
+  }
+}
+
+const traceAgentSteps = (
+  snapshot: AgentSnapshot,
+  context: AgentMessageTraceContext
+): void => {
+  for (const step of snapshot.steps) {
+    const signature = JSON.stringify([
+      step.status,
+      step.command?.type,
+      step.risk,
+      step.verification?.outcome,
+      step.verification?.evidence.kind
+    ])
+    if (context.seenStepReceipts.get(step.stepId) === signature) continue
+    context.seenStepReceipts.set(step.stepId, signature)
+    context.scenario.diagnosticTrace?.({
+      type: "agent_step",
+      attempt: context.attempt,
+      sequence: step.sequence,
+      status: step.status,
+      action: step.command?.type,
+      risk: step.risk,
+      verificationOutcome: step.verification?.outcome,
+      evidenceKind: step.verification?.evidence.kind,
+      targetTag: step.target?.tag,
+      hasTarget: Boolean(step.target),
+      durationMs:
+        step.startedAt === undefined
+          ? undefined
+          : Math.max(0, step.at - step.startedAt)
+    })
+  }
+}
+
+const traceAgentPending = (
+  snapshot: AgentSnapshot,
+  context: AgentMessageTraceContext
+): void => {
+  const pending = snapshot.pending
+  if (pending?.kind === "approval") {
+    const request = pending.request
+    if (context.seenApprovalRequests.has(request.id)) return
+    context.seenApprovalRequests.add(request.id)
+    const step = snapshot.steps.find(
+      (candidate) => candidate.stepId === request.stepId
+    )
+    context.scenario.diagnosticTrace?.({
+      type: "approval_requested",
+      attempt: context.attempt,
+      sequence: step?.sequence,
+      action: step?.command?.type,
+      risk: request.risk,
+      grantable: request.grantable,
+      originPresent: request.origin !== undefined
+    })
+    context.scenario.diagnosticTrace?.({
+      type: "approval_response",
+      attempt: context.attempt,
+      approvalAnswer: "approve",
+      approvalScope: context.scenario.approvalScope ?? "once"
+    })
+    return
+  }
+  if (pending?.kind !== "takeover") return
+  if (context.seenTakeoverRequests.has(pending.request.id)) return
+  context.seenTakeoverRequests.add(pending.request.id)
+  context.scenario.diagnosticTrace?.({
+    type: "supervision_requested",
+    attempt: context.attempt,
+    decision: "takeover",
+    reason: pending.request.reason
+  })
+}
+
+const recordAgentPanelMessage = (
+  message: AgentPanelMessage,
+  messages: AgentPanelMessage[],
+  context: AgentMessageTraceContext
+): void => {
+  messages.push(message)
+  if (message.type === "agent_command_failed") {
+    context.scenario.diagnosticTrace?.({
+      type: "agent_command_failed",
+      attempt: context.attempt,
+      action: message.command,
+      errorCode: message.messageKey
+    })
+    return
+  }
+  if (message.type !== "agent_snapshot") return
+  traceAgentRun(message.snapshot, context)
+  traceAgentSteps(message.snapshot, context)
+  traceAgentPending(message.snapshot, context)
 }
 
 export const runAgentScenario = (scenario: AgentScenario): void => {
@@ -494,6 +793,7 @@ const runAgentScenarioAttempt = (
     scenario.gated === false
       ? `Agent ${scenario.name}${suffix} through production boundaries`
       : `@critical Agent ${scenario.name}${suffix} through production boundaries`
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This callback owns the complete extension-run lifecycle; provider forwarding and message tracing are split into helpers above.
   test(title, async ({ extension }, testInfo) => {
     const startedAt = Date.now()
     const liveModel = process.env.AGENT_HOSTED_MODEL
@@ -538,12 +838,14 @@ const runAgentScenarioAttempt = (
     const seenApprovalRequests = new Set<string>()
     const seenTakeoverRequests = new Set<string>()
     const seenQuestions = new Set<string>()
-    let lastRunState = ""
-    let chatModelCalls = 0
-    let chatResponse = ""
-    let directChatResponse = false
+    const runTraceState = { lastRunState: "" }
+    const chatState: HostedChatState = {
+      modelCalls: 0,
+      response: "",
+      directResponse: false,
+      toolCalls: new Set()
+    }
     let agentStarted = false
-    const chatToolCalls = new Set<string>()
     const model = liveModel || "fixture-agent"
 
     for (const worker of extension.context.serviceWorkers()) {
@@ -562,7 +864,7 @@ const runAgentScenarioAttempt = (
         phases.push(lines)
         for (const line of lines) {
           const parts = Array.isArray(line) ? line : [line]
-      for (const part of parts) {
+          for (const part of parts) {
             if (
               typeof part === "object" &&
               part !== null &&
@@ -578,92 +880,13 @@ const runAgentScenarioAttempt = (
     }
 
     /** Forwarded verbatim when the matrix runs a real model behind the proxy. */
-    const forwardToHostedModel = async (
-      path: string,
-      method: string | undefined,
-      body: string
-    ): Promise<{ status: number; body: string }> => {
-      const isChatRequest =
-        path === "/api/chat" || path === "/v1/chat/completions"
-      const parsedRequest = isChatRequest && body.trim() ? JSON.parse(body) : null
-      const chatTurn = parsedRequest ? isChatTurn(parsedRequest) : false
-      const requestTools = toolNamesFromRequest(parsedRequest)
-      const modelRoute = chatTurn
-        ? "chat_turn"
-        : requestTools.includes("agent_plan")
-          ? "agent_plan"
-          : requestTools.includes("agent_decision")
-            ? "agent_decision"
-            : path === "/api/tags" || path === "/v1/models"
-              ? "catalog"
-              : path === "/api/show"
-                ? "model_metadata"
-                : isChatRequest
-                  ? "other_chat"
-                  : "provider_request"
-      const requestStartedAt = Date.now()
-      scenario.diagnosticTrace?.({
-        type: "model_call_started",
-        attempt,
-        modelRoute,
-        requestTools,
-        requestBytes: Buffer.byteLength(body)
-      })
-      let upstream: Response
-      let text: string
-      try {
-        upstream = await fetch(`${liveBaseUrl}${path}`, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          ...(body ? { body } : {})
-        })
-        text = await upstream.text()
-      } catch (error) {
-        scenario.diagnosticTrace?.({
-          type: "model_call_failed",
-          attempt,
-          modelRoute,
-          durationMs: Date.now() - requestStartedAt,
-          failureClass:
-            error instanceof Error && error.name === "AbortError"
-              ? "aborted"
-              : error instanceof TypeError
-                ? "network"
-                : "request_error"
-        })
-        throw error
-      }
-      const responseTools = toolNamesFromResponse(text)
-      scenario.diagnosticTrace?.({
-        type: "model_call_completed",
-        attempt,
-        modelRoute,
-        httpStatus: upstream.status,
-        durationMs: Date.now() - requestStartedAt,
-        requestBytes: Buffer.byteLength(body),
-        responseBytes: Buffer.byteLength(text),
-        finishReason: finishReasonFromResponse(text),
-        requestTools,
-        responseTools,
-        ...(upstream.ok ? {} : { providerErrorCode: providerErrorCode(text) })
-      })
-      if (
-        isChatRequest && parsedRequest && !chatTurn
-      )
-        wire.push({ request: parsedRequest, response: text })
-      if (path === "/v1/chat/completions" && parsedRequest && chatTurn) {
-        chatModelCalls += 1
-        const chat = readChatStream(text)
-        for (const toolName of chat.toolNames) chatToolCalls.add(toolName)
-        // current_tab is a read-only chat tool. Its result is followed by a
-        // normal assistant answer, with no supervised browser run to await.
-        if (chat.toolNames.length === 0 && chat.text) {
-          chatResponse = chat.text
-          directChatResponse = true
-        }
-      }
-      return { status: upstream.status, body: text }
-    }
+    const forwardToHostedModel = createHostedModelForwarder({
+      scenario,
+      attempt,
+      baseUrl: liveBaseUrl,
+      wire,
+      chatState
+    })
 
     /**
      * The planning call, answered without touching the step counter.
@@ -874,120 +1097,19 @@ const runAgentScenarioAttempt = (
       )
       await panel.reload()
       await page.bringToFront()
-      const recordAgentMessage = (message: AgentPanelMessage) => {
-        messages.push(message)
-        if (message.type === "agent_command_failed") {
-          scenario.diagnosticTrace?.({
-            type: "agent_command_failed",
-            attempt,
-            action: message.command,
-            errorCode: message.messageKey
-          })
-          return
-        }
-        if (message.type !== "agent_snapshot") return
-
-        const snapshot = message.snapshot
-        const run = snapshot.run
-        if (run) {
-          const runState = JSON.stringify([
-            run.status,
-            run.pauseReason,
-            run.error?.code,
-            run.stepCount,
-            run.observationCount
-          ])
-          if (runState !== lastRunState) {
-            lastRunState = runState
-            scenario.diagnosticTrace?.({
-              type: "agent_run_state",
-              attempt,
-              status: run.status,
-              pauseReason: run.pauseReason,
-              errorCode: run.error?.code,
-              stepCount: run.stepCount,
-              observationCount: run.observationCount,
-              requirementCount: run.requirements?.length,
-              requirementKinds: run.requirements?.map((requirement) => requirement.kind)
-            })
-          }
-          if (run.question && !seenQuestions.has(run.question.id)) {
-            seenQuestions.add(run.question.id)
-            scenario.diagnosticTrace?.({
-              type: "user_question",
-              attempt,
-              decision: "waiting_for_answer"
-            })
-          }
-        }
-
-        for (const step of snapshot.steps) {
-          const signature = JSON.stringify([
-            step.status,
-            step.command?.type,
-            step.risk,
-            step.verification?.outcome,
-            step.verification?.evidence.kind
-          ])
-          if (seenStepReceipts.get(step.stepId) === signature) continue
-          seenStepReceipts.set(step.stepId, signature)
-          scenario.diagnosticTrace?.({
-            type: "agent_step",
-            attempt,
-            sequence: step.sequence,
-            status: step.status,
-            action: step.command?.type,
-            risk: step.risk,
-            verificationOutcome: step.verification?.outcome,
-            evidenceKind: step.verification?.evidence.kind,
-            targetTag: step.target?.tag,
-            hasTarget: Boolean(step.target),
-            durationMs:
-              step.startedAt === undefined
-                ? undefined
-                : Math.max(0, step.at - step.startedAt)
-          })
-        }
-
-        const pending = snapshot.pending
-        if (pending?.kind === "approval") {
-          const request = pending.request
-          if (!seenApprovalRequests.has(request.id)) {
-            seenApprovalRequests.add(request.id)
-            const step = snapshot.steps.find(
-              (candidate) => candidate.stepId === request.stepId
-            )
-            scenario.diagnosticTrace?.({
-              type: "approval_requested",
-              attempt,
-              sequence: step?.sequence,
-              action: step?.command?.type,
-              risk: request.risk,
-              grantable: request.grantable,
-              originPresent: request.origin !== undefined
-            })
-            scenario.diagnosticTrace?.({
-              type: "approval_response",
-              attempt,
-              approvalAnswer: "approve",
-              approvalScope: scenario.approvalScope ?? "once"
-            })
-          }
-        } else if (pending?.kind === "takeover") {
-          if (!seenTakeoverRequests.has(pending.request.id)) {
-            seenTakeoverRequests.add(pending.request.id)
-            scenario.diagnosticTrace?.({
-              type: "supervision_requested",
-              attempt,
-              decision: "takeover",
-              reason: pending.request.reason
-            })
-          }
-        }
+      const messageTraceContext: AgentMessageTraceContext = {
+        scenario,
+        attempt,
+        runState: runTraceState,
+        seenStepReceipts,
+        seenApprovalRequests,
+        seenTakeoverRequests,
+        seenQuestions
       }
       await panel.exposeFunction(
         "recordAgentMessage",
-        recordAgentMessage
+        (message: AgentPanelMessage) =>
+          recordAgentPanelMessage(message, messages, messageTraceContext)
       )
 
       await panel.evaluate(
@@ -998,27 +1120,30 @@ const runAgentScenarioAttempt = (
           if (!tab?.id) throw new Error("Fixture tab is missing")
           const port = chrome.runtime.connect({ name: "agent-run-port" })
           ;(window as unknown as { agentPort: unknown }).agentPort = port
-          port.onMessage.addListener((message) => {
+          port.onMessage.addListener((message: AgentPanelMessage) => {
             void (
               window as unknown as {
-                recordAgentMessage(message: unknown): Promise<void>
+                recordAgentMessage(message: AgentPanelMessage): Promise<void>
               }
             ).recordAgentMessage(message)
-            if (message.snapshot?.pending?.kind === "approval") {
+            if (message.type !== "agent_snapshot") return
+            const run = message.snapshot.run
+            if (!run) return
+            if (message.snapshot.pending?.kind === "approval") {
               port.postMessage({
                 type: "agent_approve",
-                runId: message.snapshot.run.id,
+                runId: run.id,
                 requestId: message.snapshot.pending.request.id,
                 ...(approvalScope === "run_origin"
                   ? { scope: approvalScope }
                   : {})
               })
             }
-            const question = message.snapshot?.run?.question
+            const question = run.question
             if (question && answer) {
               port.postMessage({
                 type: "agent_answer",
-                runId: message.snapshot.run.id,
+                runId: run.id,
                 requestId: question.id,
                 text: answer
               })
@@ -1054,7 +1179,8 @@ const runAgentScenarioAttempt = (
       if (liveModel) {
         await expect
           .poll(
-            async () => (await allowForChat.count()) > 0 || directChatResponse,
+            async () =>
+              (await allowForChat.count()) > 0 || chatState.directResponse,
             { timeout: 120_000 }
           )
           .toBe(true)
@@ -1066,7 +1192,7 @@ const runAgentScenarioAttempt = (
           })
           await allowForChat.click()
           agentStarted = true
-        } else if (!chatToolCalls.has("browser_task")) {
+        } else if (!chatState.toolCalls.has("browser_task")) {
           scenario.diagnosticTrace?.({
             type: "browser_task_consent",
             attempt,
@@ -1107,12 +1233,12 @@ const runAgentScenarioAttempt = (
               ).toBe(scenario.status)
             )
             .catch((error: unknown) => {
-            /**
-             * A gate fails here; a measurement records instead. A benchmark
-             * task that did not reach its expected status is a result — the
-             * most interesting one — and throwing would leave it out of the
-             * report entirely, so the pass would look better than it was.
-             */
+              /**
+               * A gate fails here; a measurement records instead. A benchmark
+               * task that did not reach its expected status is a result — the
+               * most interesting one — and throwing would leave it out of the
+               * report entirely, so the pass would look better than it was.
+               */
               if (scenario.gated === false) return
               const last = messages
                 .filter((m) => m.type === "agent_snapshot")
@@ -1127,9 +1253,8 @@ const runAgentScenarioAttempt = (
         const outcome: AgentScenarioOutcome = {
           page,
           panel,
-          snapshot: messages
-            .filter((m) => m.type === "agent_snapshot")
-            .at(-1)?.snapshot,
+          snapshot: messages.filter((m) => m.type === "agent_snapshot").at(-1)
+            ?.snapshot,
           messages,
           wire,
           effects: () => effects,
@@ -1148,17 +1273,14 @@ const runAgentScenarioAttempt = (
                 )
               : []
           ),
-          ...(chatResponse ? { chatResponse } : {}),
-          chatModelCalls,
-          chatToolCalls: [...chatToolCalls],
-          directChatResponse,
-          executionPath: executionPathFor(agentStarted, chatToolCalls)
+          ...(chatState.response ? { chatResponse: chatState.response } : {}),
+          chatModelCalls: chatState.modelCalls,
+          chatToolCalls: [...chatState.toolCalls],
+          directChatResponse: chatState.directResponse,
+          executionPath: executionPathFor(agentStarted, chatState.toolCalls)
         }
         await scenario.verify(outcome)
       } finally {
-        const finalSnapshot = messages
-          .filter((message) => message.type === "agent_snapshot")
-          .at(-1)?.snapshot
         await testInfo.attach("agent-phases", {
           body: JSON.stringify(phases, null, 2),
           contentType: "application/json"
@@ -1179,14 +1301,14 @@ const runAgentScenarioAttempt = (
       scenario.diagnosticTrace?.({
         type: "fixture_observed_end",
         attempt,
-        executionPath: executionPathFor(agentStarted, chatToolCalls),
+        executionPath: executionPathFor(agentStarted, chatState.toolCalls),
         status: finalSnapshot?.run?.status ?? "no_run_snapshot",
         pauseReason: finalSnapshot?.run?.pauseReason,
         errorCode: finalSnapshot?.run?.error?.code,
         stepCount: finalSnapshot?.run?.stepCount,
         observationCount: finalSnapshot?.run?.observationCount,
-        modelCalls: wire.length + chatModelCalls,
-        chatToolCalls: [...chatToolCalls],
+        modelCalls: wire.length + chatState.modelCalls,
+        chatToolCalls: [...chatState.toolCalls],
         eventCount: messages.length
       })
       // A failed run may leave a native prompt held; release it before failure screenshots.
