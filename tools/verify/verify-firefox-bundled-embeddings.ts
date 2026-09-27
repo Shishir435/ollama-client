@@ -113,6 +113,7 @@ const main = async () => {
       status = await call(RpcMethod.EmbeddingsNativeStatus)
     }
     assert.equal(status.mode, "bundled")
+    assert.equal(status.migration, "idle")
     const artifact = resolve("artifacts/bundled-embeddings")
     await mkdir(artifact, { recursive: true })
     const report = {
