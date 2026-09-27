@@ -1697,6 +1697,14 @@
         "switch_and_rebuild": "Cambiar y reconstruir"
       },
       "bundled": {
+        "mode_title": "Modo de embeddings",
+        "mode_bundled": "Integrado",
+        "mode_external": "En un servidor",
+        "mode_bundled_help": "MiniLM se ejecuta en la extensión. No necesita servidor.",
+        "mode_external_help": "Usa Ollama u otro proveedor local o remoto.",
+        "switch_builtin": "Cambiar al modo integrado",
+        "switch_server": "Cambiar al modo servidor",
+        "mode_language_hint": "MiniLM integrado funciona mejor con inglés. Para otros idiomas, elige un modelo multilingüe en tu servidor. Puedes probar ambos modos y volver cuando quieras.",
         "settings_description": "Elige cómo preparar archivos y recuerdos del chat para la búsqueda.",
         "current_bundled": "En uso: MiniLM integrado · en este dispositivo",
         "current_external": "En uso: embeddings en un servidor",

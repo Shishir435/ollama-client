@@ -247,26 +247,24 @@ const main = async () => {
     await page.goto(
       `chrome-extension://${id}/options.html?tab=knowledge&focus=bundled-embeddings`
     )
+    await page.getByRole("radio", { name: "Built-in", exact: true }).check()
     await page
-      .getByRole("button", {
-        name: "Migrate to built-in embeddings",
-        exact: true
-      })
+      .getByRole("button", { name: "Switch to built-in mode", exact: true })
       .click()
     await page
-      .getByRole("button", {
-        name: "Rebuild with selected external model",
-        exact: true
-      })
+      .getByText("Currently using: built-in MiniLM", { exact: false })
+      .waitFor()
+    await page.getByRole("radio", { name: "Server-based", exact: true }).check()
+    await page
+      .getByRole("button", { name: "Switch to server mode", exact: true })
       .waitFor()
     await page
       .locator('[data-settings-focus-id="bundled-embeddings"]')
       .locator('[data-settings-focus-id="embeddings-model-select"]')
       .waitFor({ state: "visible" })
     await page
-      .getByText("MiniLM is recommended for English text.", { exact: false })
-      .first()
-      .waitFor({ state: "visible" })
+      .getByText("Built-in MiniLM works best with English.", { exact: false })
+      .waitFor()
     assert.equal((await call(RpcMethod.EmbeddingsNativeStatus)).mode, "bundled")
     const migrated = (await readVectors()) as {
       embedding: number[]
@@ -381,6 +379,12 @@ const main = async () => {
       path: resolve(artifacts, "settings.png"),
       fullPage: true
     })
+    await page.getByRole("radio", { name: "Server-based", exact: true }).check()
+    await page.screenshot({
+      path: resolve(artifacts, "settings-server.png"),
+      fullPage: true
+    })
+
     const searchCard = page.locator(
       '[data-settings-focus-id="embeddings-test-search"]'
     )

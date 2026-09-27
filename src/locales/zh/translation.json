@@ -1697,6 +1697,14 @@
         "switch_and_rebuild": "切换并重建"
       },
       "bundled": {
+        "mode_title": "嵌入模式",
+        "mode_bundled": "内置",
+        "mode_external": "服务器",
+        "mode_bundled_help": "MiniLM 在扩展中运行，无需服务器。",
+        "mode_external_help": "使用 Ollama 或其他本地或远程提供商。",
+        "switch_builtin": "切换到内置模式",
+        "switch_server": "切换到服务器模式",
+        "mode_language_hint": "内置 MiniLM 最适合英文。其他语言请选择服务器上的多语言模型。您可以尝试任一模式，并随时切换回去。",
         "settings_description": "选择如何处理文件和聊天记忆以用于搜索。",
         "current_bundled": "当前使用：内置 MiniLM · 在此设备上运行",
         "current_external": "当前使用：服务器嵌入",

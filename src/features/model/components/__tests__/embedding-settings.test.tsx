@@ -80,6 +80,11 @@ describe("external model selection", () => {
   it("lets new bundled installs configure an external target without switching the active index", () => {
     render(<EmbeddingSettings />)
     fireEvent.click(
+      screen.getByRole("radio", {
+        name: "settings.embeddings.bundled.mode_external"
+      })
+    )
+    fireEvent.click(
       screen.getByRole("button", { name: "Choose external model" })
     )
     expect(fixture.applyModelChange).toHaveBeenCalledWith(
@@ -93,6 +98,11 @@ describe("external model selection", () => {
     fixture.mode = "external"
     render(<EmbeddingSettings />)
     fireEvent.click(
+      screen.getByRole("radio", {
+        name: "settings.embeddings.bundled.mode_external"
+      })
+    )
+    fireEvent.click(
       screen.getByRole("button", { name: "Choose external model" })
     )
     expect(fixture.requestModelChange).toHaveBeenCalledWith(
@@ -101,6 +111,7 @@ describe("external model selection", () => {
     )
   })
   it("locks the target while a migration is running", () => {
+    fixture.mode = "external"
     fixture.migration = "building"
     render(<EmbeddingSettings />)
     expect(

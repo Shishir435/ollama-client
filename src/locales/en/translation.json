@@ -1907,6 +1907,14 @@
         "switch_and_rebuild": "Switch & Rebuild"
       },
       "bundled": {
+        "mode_title": "Embedding mode",
+        "mode_bundled": "Built-in",
+        "mode_external": "Server-based",
+        "mode_bundled_help": "MiniLM runs in the extension. No server needed.",
+        "mode_external_help": "Use Ollama or another local or remote provider.",
+        "switch_builtin": "Switch to built-in mode",
+        "switch_server": "Switch to server mode",
+        "mode_language_hint": "Built-in MiniLM works best with English. For other languages, choose a multilingual model on your server. You can try either mode and switch back anytime.",
         "settings_description": "Choose how files and chat memories are prepared for search.",
         "current_bundled": "Currently using: built-in MiniLM · on this device",
         "current_external": "Currently using: server-backed embeddings",

@@ -1697,6 +1697,14 @@
         "switch_and_rebuild": "切り替えて再構築"
       },
       "bundled": {
+        "mode_title": "埋め込みモード",
+        "mode_bundled": "内蔵",
+        "mode_external": "サーバー",
+        "mode_bundled_help": "MiniLMが拡張機能内で動作します。サーバーは不要です。",
+        "mode_external_help": "Ollamaなどのローカルまたはリモートプロバイダーを使用します。",
+        "switch_builtin": "内蔵モードに切り替える",
+        "switch_server": "サーバーモードに切り替える",
+        "mode_language_hint": "内蔵MiniLMは英語に最適です。他の言語にはサーバー上の多言語モデルを選んでください。両方のモードを試し、いつでも切り替えて戻せます。",
         "settings_description": "ファイルやチャットの記憶を検索用に処理する方法を選びます。",
         "current_bundled": "現在使用中：内蔵MiniLM・この端末上",
         "current_external": "現在使用中：サーバー上の埋め込み",

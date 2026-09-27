@@ -1697,6 +1697,14 @@
         "switch_and_rebuild": "Wechseln und Neuaufbau"
       },
       "bundled": {
+        "mode_title": "Embedding-Modus",
+        "mode_bundled": "Integriert",
+        "mode_external": "Serverbasiert",
+        "mode_bundled_help": "MiniLM läuft in der Erweiterung. Kein Server nötig.",
+        "mode_external_help": "Nutzen Sie Ollama oder einen anderen lokalen oder entfernten Anbieter.",
+        "switch_builtin": "Zum integrierten Modus wechseln",
+        "switch_server": "Zum Servermodus wechseln",
+        "mode_language_hint": "Das integrierte MiniLM eignet sich am besten für Englisch. Wählen Sie für andere Sprachen ein mehrsprachiges Modell auf Ihrem Server. Sie können beide Modi ausprobieren und jederzeit zurückwechseln.",
         "settings_description": "Wählen Sie, wie Dateien und Chat-Erinnerungen für die Suche aufbereitet werden.",
         "current_bundled": "Aktuell: integriertes MiniLM · auf diesem Gerät",
         "current_external": "Aktuell: serverbasierte Embeddings",
