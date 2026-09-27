@@ -38,7 +38,7 @@ export const NativeEmbeddingCard = ({
           {(["bundled", "external"] as const).map((mode) => (
             <label
               key={mode}
-              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${selected === mode ? "border-primary bg-muted/50" : "border-border"}`}>
+              className={`flex cursor-pointer items-start gap-3 rounded-control border p-3 ${selected === mode ? "border-primary bg-app-primary-soft" : "border-border"}`}>
               <input
                 className="mt-1 accent-primary"
                 type="radio"
