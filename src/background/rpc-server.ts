@@ -21,8 +21,8 @@ import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
 import { generateBundledEmbedding } from "@/lib/embeddings/native/client"
 import { BUNDLED_MODEL } from "@/lib/embeddings/native/constants"
 import {
-  nativeEmbeddingCommand,
-  nativeEmbeddingStatus
+  nativeEmbeddingStatus,
+  requestNativeEmbeddingCommand
 } from "@/lib/embeddings/native/migration"
 import { readNativeIndexState } from "@/lib/embeddings/native/state"
 import { generateInNativeWorker } from "@/lib/embeddings/native/worker-client"
@@ -48,7 +48,7 @@ const handlers = {
   }),
   [RpcMethod.EmbeddingsNativeStatus]: async () => nativeEmbeddingStatus(),
   [RpcMethod.EmbeddingsNativeCommand]: async (request, signal) =>
-    nativeEmbeddingCommand(request.action, signal),
+    requestNativeEmbeddingCommand(request.action, signal),
   [RpcMethod.ProvidersList]: async () => ProviderRpcService.list(),
   [RpcMethod.ProvidersTestConnection]: async (request, signal) =>
     ProviderRpcService.testConnection(request, signal),

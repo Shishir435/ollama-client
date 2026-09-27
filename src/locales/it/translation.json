@@ -1714,7 +1714,7 @@
         "title": "Embedding integrati",
         "active": "Gli embedding vengono generati localmente con MiniLM incluso, più adatto all’inglese. Non servono server o download. Per la ricerca multilingue, seleziona un fornitore e un modello esterni qui sotto, poi ricostruisci l’indice per passare al nuovo modello.",
         "offer": "Sono disponibili gli embedding integrati. Migra gli embedding salvati oppure mantieni il server e il modello attuali.",
-        "details": "La migrazione ricostruisce gli embedding salvati di file, pagine e chat su questo dispositivo. Richiede spazio temporaneo per una copia delle fonti e il nuovo indice. L’indice attuale resta attivo fino al completamento. Puoi chiudere questa pagina e riprendere più tardi. MiniLM funziona meglio con testi in inglese.",
+        "details": "La migrazione ricostruisce gli embedding salvati di file, pagine e chat su questo dispositivo. Richiede spazio temporaneo per una copia delle fonti e il nuovo indice. L’indice attuale resta attivo fino al completamento. Continua anche se chiudi questa finestra o il pannello laterale, e riprende dopo il riavvio del browser.",
         "progress": "Ricostruzione di {{current}} embedding su {{total}}",
         "changed": "La configurazione degli embedding è cambiata o i vettori preparati sono incompatibili. L’indice attuale resta attivo. Riavvia la migrazione.",
         "error": "Impossibile completare la migrazione. Gli embedding attuali restano attivi. Controlla il fornitore, la connessione e lo spazio disponibile, poi riprendi o annulla.",

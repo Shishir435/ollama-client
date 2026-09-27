@@ -6,7 +6,12 @@ import {
 import { vectorDb } from "../../db"
 import { storeVector } from "../../storage"
 import { BUNDLED_MODEL } from "../constants"
-import { nativeEmbeddingCommand, nativeEmbeddingStatus } from "../migration"
+import {
+  nativeEmbeddingCommand,
+  nativeEmbeddingStatus,
+  requestNativeEmbeddingCommand,
+  resumeNativeMigration
+} from "../migration"
 import { initializeBundledInstall, readNativeIndexState } from "../state"
 
 const { embed, externalEmbed } = vi.hoisted(() => ({
@@ -399,4 +404,96 @@ it.each([
   await nativeEmbeddingCommand("start")
   await nativeEmbeddingCommand("step")
   expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+})
+
+describe("background rebuild driver", () => {
+  it("finishes a started rebuild without a page stepping it", async () => {
+    for (let id = 1; id <= 10; id++) await vectorDb.vectors.add(source(id))
+    await requestNativeEmbeddingCommand("start")
+    await vi.waitFor(async () =>
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    )
+    expect(embed).toHaveBeenCalledTimes(10)
+    expect((await nativeEmbeddingStatus()).migration).toBe("idle")
+  })
+
+  it("stops batching once cancelled", async () => {
+    await vectorDb.vectors.add(source(1))
+    embed.mockImplementationOnce(
+      (_text, signal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true
+          })
+        })
+    )
+    await requestNativeEmbeddingCommand("start")
+    await vi.waitFor(() => expect(embed).toHaveBeenCalledTimes(1))
+    await requestNativeEmbeddingCommand("cancel")
+    const state = await readNativeIndexState()
+    expect(state.migration).toBe("idle")
+    expect(state.failed).toBeUndefined()
+    expect(embed).toHaveBeenCalledTimes(1)
+  })
+
+  it("records a failed batch and waits for resume instead of retrying at startup", async () => {
+    await vectorDb.vectors.add(source(1))
+    embed.mockRejectedValueOnce(new Error("worker lost"))
+    await requestNativeEmbeddingCommand("start")
+    await vi.waitFor(async () =>
+      expect((await readNativeIndexState()).failed).toBe(true)
+    )
+    await resumeNativeMigration()
+    await nativeEmbeddingStatus()
+    expect(embed).toHaveBeenCalledTimes(1)
+    expect((await readNativeIndexState()).migration).toBe("building")
+
+    await requestNativeEmbeddingCommand("resume")
+    await vi.waitFor(async () =>
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    )
+    expect((await readNativeIndexState()).failed).toBeUndefined()
+  })
+
+  it("records a provider AbortError as a failure rather than stalling", async () => {
+    await vectorDb.vectors.add(source(1))
+    embed.mockRejectedValueOnce(new DOMException("fetch aborted", "AbortError"))
+    await requestNativeEmbeddingCommand("start")
+    await vi.waitFor(async () =>
+      expect((await readNativeIndexState()).failed).toBe(true)
+    )
+  })
+
+  it("starts a fresh driver right after a cancel", async () => {
+    await vectorDb.vectors.add(source(1))
+    embed.mockImplementationOnce(
+      (_text, signal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true
+          })
+        })
+    )
+    await requestNativeEmbeddingCommand("start")
+    await vi.waitFor(() => expect(embed).toHaveBeenCalledTimes(1))
+    await Promise.all([
+      requestNativeEmbeddingCommand("cancel"),
+      requestNativeEmbeddingCommand("start")
+    ])
+    await vi.waitFor(async () =>
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    )
+    expect((await readNativeIndexState()).failed).toBeUndefined()
+  })
+
+  it("resumes an interrupted rebuild at startup", async () => {
+    for (let id = 1; id <= 3; id++) await vectorDb.vectors.add(source(id))
+    await nativeEmbeddingCommand("start")
+    expect(embed).not.toHaveBeenCalled()
+    await resumeNativeMigration()
+    await vi.waitFor(async () =>
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    )
+    expect(embed).toHaveBeenCalledTimes(3)
+  })
 })

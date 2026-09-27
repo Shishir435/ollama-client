@@ -1714,7 +1714,7 @@
         "title": "Embeddings intégrés",
         "active": "Les embeddings sont calculés localement avec MiniLM inclus, surtout adapté à l’anglais. Aucun serveur ni téléchargement requis. Pour la recherche multilingue, sélectionnez un fournisseur et un modèle externes ci-dessous, puis reconstruisez l’index pour basculer.",
         "offer": "Les embeddings intégrés sont disponibles. Migrez vos embeddings enregistrés ou conservez votre serveur et votre modèle actuels.",
-        "details": "La migration reconstruit les embeddings enregistrés des fichiers, pages et discussions sur cet appareil. Elle nécessite un espace temporaire pour une copie des sources et le nouvel index. Votre index actuel reste actif jusqu’à la réussite. Vous pouvez fermer cette page et reprendre plus tard. MiniLM fonctionne mieux avec des textes en anglais.",
+        "details": "La migration reconstruit les embeddings enregistrés des fichiers, pages et discussions sur cet appareil. Elle nécessite un espace temporaire pour une copie des sources et le nouvel index. Votre index actuel reste actif jusqu’à la réussite. Elle continue si vous fermez cette fenêtre ou le panneau latéral, et reprend après un redémarrage du navigateur.",
         "progress": "Reconstruction de {{current}} embeddings sur {{total}}",
         "changed": "La configuration des embeddings a changé ou les vecteurs préparés sont incompatibles. L’index actuel reste actif. Redémarrez la migration.",
         "error": "La migration n’a pas pu se terminer. Les embeddings actuels restent actifs. Vérifiez le fournisseur, la connexion et l’espace disponible, puis reprenez ou annulez.",

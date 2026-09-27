@@ -1924,7 +1924,7 @@
         "title": "Built-in embeddings",
         "active": "Embeddings run locally with the included MiniLM model, best suited to English. No server or download is needed. For multilingual retrieval, select an external provider and model below, then rebuild the index to switch.",
         "offer": "Built-in embeddings are now available. Migrate your saved embeddings, or keep your current server and model.",
-        "details": "Migration rebuilds saved file, page and chat embeddings on this device. It needs temporary storage for a source snapshot and replacement index. Your current index stays active until the rebuild succeeds. You can close this page and resume later. MiniLM works best with English text.",
+        "details": "Migration rebuilds saved file, page and chat embeddings on this device. It needs temporary storage for a source snapshot and replacement index. Your current index stays active until the rebuild succeeds. It keeps running if you close this dialog or the side panel, and continues after a browser restart.",
         "progress": "Rebuilding {{current}} of {{total}} embeddings",
         "changed": "The embedding configuration changed or staged vectors are incompatible. Your current index remains active. Restart the migration.",
         "error": "Migration could not finish. Your current embeddings remain active. Check the selected provider, connection and available storage, then resume or cancel.",

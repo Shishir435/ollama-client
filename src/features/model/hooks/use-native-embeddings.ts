@@ -9,7 +9,7 @@ import {
 import { SETTINGS } from "@/lib/storage/settings"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
-/** Observe index ownership; commands and rebuilding stay in the background. */
+/** Observe index ownership; the background runs the rebuild, pages only send commands. */
 export const useNativeEmbeddings = () => {
   const [dismissed] = useSetting(SETTINGS.BUNDLED_EMBEDDING_NOTICE_DISMISSED)
   const [state, setState] = useState<NativeIndexState | null>(null)
@@ -28,7 +28,7 @@ export const useNativeEmbeddings = () => {
   }, [])
   const command = useCallback(
     async (
-      action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external"
+      action: "start" | "resume" | "cancel" | "keep" | "dismiss" | "external"
     ) => {
       if (action === "dismiss") {
         try {
@@ -47,22 +47,11 @@ export const useNativeEmbeddings = () => {
       setBusy(true)
       setError(false)
       try {
-        let status = await extensionRpcClient.call(
+        await extensionRpcClient.call(
           RpcMethod.EmbeddingsNativeCommand,
           { action },
           { signal: run.signal }
         )
-        while (
-          !run.signal.aborted &&
-          (action === "start" || action === "step" || action === "external") &&
-          status.migration === "building"
-        ) {
-          status = await extensionRpcClient.call(
-            RpcMethod.EmbeddingsNativeCommand,
-            { action: "step" },
-            { signal: run.signal }
-          )
-        }
       } catch {
         if (!run.signal.aborted) setError(true)
       } finally {
@@ -74,5 +63,16 @@ export const useNativeEmbeddings = () => {
     },
     []
   )
-  return { state, dismissed, busy, error, command }
+  /** A worker lost mid-batch leaves "building" without a failure; nudging it is idempotent. */
+  const stalled = state?.migration === "building" && !state.failed
+  useEffect(() => {
+    if (stalled) void command("resume")
+  }, [stalled, command])
+  return {
+    state,
+    dismissed,
+    busy,
+    error: error || !!state?.failed,
+    command
+  }
 }

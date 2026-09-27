@@ -280,7 +280,7 @@ export const EmbeddingsNativeCommandRequestSchema = z.discriminatedUnion(
       .object({
         action: z.enum([
           "start",
-          "step",
+          "resume",
           "cancel",
           "keep",
           "dismiss",

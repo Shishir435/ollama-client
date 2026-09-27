@@ -5,6 +5,8 @@ import { NativeEmbeddingAnnouncementDialog } from "../native-embedding-announcem
 
 const fixture = vi.hoisted(() => ({
   mode: "external",
+  migration: "idle",
+  failed: false,
   busy: false,
   dismissed: false,
   stage: "complete",
@@ -14,7 +16,13 @@ const fixture = vi.hoisted(() => ({
 }))
 vi.mock("../../hooks/use-native-embeddings", () => ({
   useNativeEmbeddings: () => ({
-    state: { mode: fixture.mode, migration: "idle", current: 0, total: 0 },
+    state: {
+      mode: fixture.mode,
+      migration: fixture.migration,
+      failed: fixture.failed,
+      current: 3,
+      total: 9
+    },
     dismissed: fixture.dismissed,
     busy: fixture.busy,
     error: false,
@@ -56,6 +64,8 @@ describe("embedding upgrade announcement", () => {
   beforeEach(() => {
     vi.stubGlobal("__AGENT_PREVIEW_ENABLED__", true)
     fixture.mode = "external"
+    fixture.migration = "idle"
+    fixture.failed = false
     fixture.busy = false
     fixture.dismissed = false
     fixture.stage = "complete"
@@ -96,6 +106,25 @@ describe("embedding upgrade announcement", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Close" }))
     expect(fixture.command).toHaveBeenCalledWith("dismiss")
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it.each([
+    [false, ["common.cancel"]],
+    [true, ["common.cancel", "settings.embeddings.bundled.resume"]]
+  ] as const)("offers only valid rebuild controls (failed: %s)", async (failed, labels) => {
+    fixture.migration = "building"
+    fixture.failed = failed
+    fixture.settings.set(SETTINGS.AGENT_ENABLED.key, true)
+    await renderSettled()
+    const dialog = await screen.findByRole("dialog", { name: title })
+    const buttons = Array.from(dialog.querySelectorAll("button"))
+      .map((button) => button.textContent)
+      .filter(Boolean)
+    expect(buttons).toEqual(labels)
+    if (failed) {
+      fireEvent.click(screen.getByText("settings.embeddings.bundled.resume"))
+      expect(fixture.command).toHaveBeenCalledWith("resume")
+    }
   })
 
   it("offers migration on Firefox without waiting for an absent agent", async () => {

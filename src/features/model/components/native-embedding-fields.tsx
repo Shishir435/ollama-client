@@ -89,21 +89,27 @@ export const NativeEmbeddingFields = ({
             {t("common.cancel")}
           </Button>
         )}
-        {switching && state.mode !== "bundled" && (
+        {rebuilding && state.failed && (
           <Button
             size="sm"
             disabled={busy}
-            onClick={() => void command(rebuilding ? "step" : "start")}>
+            onClick={() => void command("resume")}>
+            {t("settings.embeddings.bundled.resume")}
+          </Button>
+        )}
+        {!rebuilding && switching && state.mode !== "bundled" && (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => void command("start")}>
             {t(
-              rebuilding
-                ? "settings.embeddings.bundled.resume"
-                : settingsView
-                  ? "settings.embeddings.bundled.switch_builtin"
-                  : "settings.embeddings.bundled.migrate"
+              settingsView
+                ? "settings.embeddings.bundled.switch_builtin"
+                : "settings.embeddings.bundled.migrate"
             )}
           </Button>
         )}
-        {!settingsView && state.mode !== "bundled" && (
+        {!rebuilding && !settingsView && state.mode !== "bundled" && (
           <Button
             size="sm"
             variant="outline"
@@ -112,17 +118,13 @@ export const NativeEmbeddingFields = ({
             {t("settings.embeddings.bundled.keep")}
           </Button>
         )}
-        {switching && state.mode === "bundled" && (
+        {!rebuilding && switching && state.mode === "bundled" && (
           <Button
             size="sm"
             variant="outline"
             disabled={busy}
-            onClick={() => void command(rebuilding ? "step" : "external")}>
-            {t(
-              rebuilding
-                ? "settings.embeddings.bundled.resume"
-                : "settings.embeddings.bundled.switch_server"
-            )}
+            onClick={() => void command("external")}>
+            {t("settings.embeddings.bundled.switch_server")}
           </Button>
         )}
       </div>

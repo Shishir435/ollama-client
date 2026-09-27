@@ -1714,7 +1714,7 @@
         "title": "Integrierte Embeddings",
         "active": "Embeddings werden lokal mit dem enthaltenen MiniLM-Modell erstellt, das sich am besten für Englisch eignet. Kein Server oder Download nötig. Wählen Sie für mehrsprachige Suche unten einen externen Anbieter und ein Modell und erstellen Sie zum Wechseln den Index neu.",
         "offer": "Integrierte Embeddings sind jetzt verfügbar. Migrieren Sie Ihre gespeicherten Embeddings oder behalten Sie Ihren aktuellen Server und Ihr Modell.",
-        "details": "Die Migration erstellt gespeicherte Datei-, Seiten- und Chat-Embeddings auf diesem Gerät neu. Sie benötigt vorübergehend Speicher für eine Quellkopie und den neuen Index. Der aktuelle Index bleibt bis zum erfolgreichen Abschluss aktiv. Sie können diese Seite schließen und später fortfahren. MiniLM eignet sich am besten für englische Texte.",
+        "details": "Die Migration erstellt gespeicherte Datei-, Seiten- und Chat-Embeddings auf diesem Gerät neu. Sie benötigt vorübergehend Speicher für eine Quellkopie und den neuen Index. Der aktuelle Index bleibt bis zum erfolgreichen Abschluss aktiv. Sie läuft weiter, wenn Sie diesen Dialog oder die Seitenleiste schließen, und wird nach einem Browser-Neustart fortgesetzt.",
         "progress": "{{current}} von {{total}} Embeddings werden neu erstellt",
         "changed": "Die Embedding-Konfiguration wurde geändert oder die vorbereiteten Vektoren sind inkompatibel. Ihr aktueller Index bleibt aktiv. Starten Sie die Migration neu.",
         "error": "Die Migration konnte nicht abgeschlossen werden. Ihre aktuellen Embeddings bleiben aktiv. Prüfen Sie Anbieter, Verbindung und freien Speicher und setzen Sie fort oder brechen Sie ab.",

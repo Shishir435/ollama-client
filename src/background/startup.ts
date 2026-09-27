@@ -9,6 +9,7 @@ import { resumePendingAppLifecycle } from "@/lib/app-reset"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { EXTERNAL_URLS, STORAGE_KEYS } from "@/lib/constants"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
+import { resumeNativeMigration } from "@/lib/embeddings/native/migration"
 import { initializeBundledInstall } from "@/lib/embeddings/native/state"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
@@ -264,6 +265,11 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
     id: "durable-ingestion",
     name: "durable ingestion",
     run: (signal) => IngestionService.resumeIncomplete(signal)
+  },
+  {
+    id: "native-embedding-rebuild",
+    name: "interrupted embedding rebuild",
+    run: (signal) => resumeNativeMigration(signal)
   },
   {
     id: "durable-model-pulls",

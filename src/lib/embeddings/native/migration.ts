@@ -1,3 +1,4 @@
+import { browser } from "@/lib/browser-api"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { vectorDb } from "../db"
@@ -9,7 +10,7 @@ import { normalizeVector } from "../math"
 import type { VectorDocument } from "../types"
 import { generateBundledEmbedding } from "./client"
 import { BUNDLED_MODEL, BUNDLED_PROVIDER } from "./constants"
-import { readNativeIndexState } from "./state"
+import { type NativeIndexState, readNativeIndexState } from "./state"
 
 /** Retain a fingerprint rather than a second copy of content users may later delete. */
 const fingerprint = async (document: VectorDocument): Promise<string> => {
@@ -33,19 +34,26 @@ export const nativeEmbeddingStatus = async () => {
   }
 }
 
+type NativeEmbeddingAction =
+  | "start"
+  | "step"
+  | "resume"
+  | "cancel"
+  | "keep"
+  | "dismiss"
+  | "external"
+
 /** Serialize commands from multiple open settings pages; batches survive worker restarts. */
 let commands: Promise<unknown> = Promise.resolve()
 let activeCommand: AbortController | undefined
 /** A cancellation invalidates queued commands before they can acquire the active slot. */
 let commandEpoch = 0
-export const nativeEmbeddingCommand = (
-  action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external",
+/** Counts snapshot resets, so a failure is never recorded against a rebuild started after it. */
+let snapshotEpoch = 0
+const enqueue = <T>(
+  task: (signal: AbortSignal) => Promise<T>,
   signal?: AbortSignal
 ) => {
-  if (action === "cancel" || action === "keep") {
-    commandEpoch++
-    activeCommand?.abort()
-  }
   const epoch = commandEpoch
   const work = commands
     .catch(() => undefined)
@@ -58,7 +66,7 @@ export const nativeEmbeddingCommand = (
       if (signal?.aborted) abort()
       activeCommand = run
       try {
-        return await runCommand(action, run.signal)
+        return await task(run.signal)
       } finally {
         signal?.removeEventListener("abort", abort)
         if (activeCommand === run) activeCommand = undefined
@@ -66,6 +74,84 @@ export const nativeEmbeddingCommand = (
     })
   commands = work
   return work
+}
+export const nativeEmbeddingCommand = (
+  action: NativeEmbeddingAction,
+  signal?: AbortSignal
+) => {
+  if (action === "cancel" || action === "keep") {
+    commandEpoch++
+    activeCommand?.abort()
+    driver?.abort()
+  }
+  return enqueue((run) => runCommand(action, run), signal)
+}
+
+/**
+ * The background owns the batch loop, so closing the dialog or the side panel
+ * never stalls a rebuild. Chromium ends a worker after 30s without extension
+ * API activity, and a provider fetch is not such activity; the heartbeat keeps
+ * the worker alive while batches run. A worker lost anyway resumes at startup.
+ */
+let driver: AbortController | undefined
+const HEARTBEAT_MS = 20_000
+
+export const driveNativeMigration = () => {
+  if (driver && !driver.signal.aborted) return
+  const run = new AbortController()
+  driver = run
+  const heartbeat = setInterval(() => {
+    void browser.runtime.getPlatformInfo?.().catch(() => undefined)
+  }, HEARTBEAT_MS)
+  void (async () => {
+    let epoch = snapshotEpoch
+    try {
+      while (!run.signal.aborted) {
+        epoch = snapshotEpoch
+        const status = await nativeEmbeddingCommand("step", run.signal)
+        if (status.migration !== "building") return
+      }
+    } catch {
+      /** Only our own cancel is silent: a provider's AbortError still stops the rebuild. */
+      if (!run.signal.aborted)
+        await enqueue(() => markMigrationFailed(epoch)).catch(() => undefined)
+    } finally {
+      clearInterval(heartbeat)
+      if (driver === run) driver = undefined
+    }
+  })()
+}
+
+/** A failed rebuild waits for the user; retrying it every boot would only fail again. */
+const markMigrationFailed = async (epoch: number) => {
+  if (epoch !== snapshotEpoch) return
+  const state = await readNativeIndexState()
+  if (state.migration === "building")
+    await vectorDb.embeddingState.put({ ...state, failed: true })
+}
+
+const withoutFailure = ({ failed: _failed, ...state }: NativeIndexState) =>
+  state
+
+/** RPC entry: commands answer immediately while the rebuild continues in the background. */
+export const requestNativeEmbeddingCommand = async (
+  action: Exclude<NativeEmbeddingAction, "step">,
+  signal?: AbortSignal
+) => {
+  const status = await nativeEmbeddingCommand(action, signal)
+  if (
+    (action === "start" || action === "external" || action === "resume") &&
+    status.migration === "building"
+  )
+    driveNativeMigration()
+  return status
+}
+
+/** Startup: continue a rebuild the worker was running when it stopped. */
+export const resumeNativeMigration = async (signal?: AbortSignal) => {
+  signal?.throwIfAborted()
+  const state = await readNativeIndexState()
+  if (state.migration === "building" && !state.failed) driveNativeMigration()
 }
 
 const embedMigrationRow = async (
@@ -200,8 +286,9 @@ const resetMigration = async (
   const starting = action === "start" || action === "external"
   const externalPlan =
     action === "external" ? await resolveExternalRebuildPlan() : undefined
+  snapshotEpoch++
   const next = {
-    ...state,
+    ...withoutFailure(state),
     migration: starting ? ("building" as const) : ("idle" as const),
     current: 0,
     total: 0,
@@ -226,13 +313,18 @@ const resetMigration = async (
 }
 
 const runCommand = async (
-  action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external",
+  action: NativeEmbeddingAction,
   signal?: AbortSignal
 ) => {
   signal?.throwIfAborted()
   const state = await readNativeIndexState()
   if (action === "dismiss") {
     await writeSetting(SETTINGS.BUNDLED_EMBEDDING_NOTICE_DISMISSED, true)
+    return nativeEmbeddingStatus()
+  }
+  if (action === "resume") {
+    if (state.migration === "building" && state.failed)
+      await vectorDb.embeddingState.put(withoutFailure(state))
     return nativeEmbeddingStatus()
   }
   if (action === "keep" || action === "external")

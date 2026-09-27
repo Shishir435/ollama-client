@@ -11,7 +11,9 @@ export const NativeIndexStateSchema = z
     lastId: z.number().int().nonnegative(),
     generation: z.number().int().nonnegative(),
     target: z.enum(["external", "bundled"]).optional(),
-    externalPlan: z.string().optional()
+    externalPlan: z.string().optional(),
+    /** Set when a background batch failed; cleared by resume or a new start. */
+    failed: z.boolean().optional()
   })
   .strict()
 export type NativeIndexState = z.infer<typeof NativeIndexStateSchema>
