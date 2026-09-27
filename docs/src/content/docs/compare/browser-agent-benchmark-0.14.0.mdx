@@ -18,7 +18,7 @@ Both products ran against the same frozen task prompts and local pages in Chromi
 
 On the 24 shared tasks, the current Ollama Client candidate met 10 more task predicates. This is an interim matched-subset result; it is not a complete 31-task comparison.
 
-Ollama Client's complete run recorded **20/31** task predicates, with 6 false completions and 4 missed completions. Nanobrowser produced 24 attempt records; the following multi-tab tasks failed before an attempt could be recorded when Chromium returned `EAGAIN`, and the full-run report has seven tasks without results.
+Ollama Client's complete run recorded **20/31** task predicates, with 6 false completions and 4 missed completions. Nanobrowser produced 24 attempt records before the host hit its process limit. `multi-tab/open-a-tab` could not spawn Chromium (`EAGAIN`); `multi-tab/follow-a-slow-link` and `multi-tab/go-back` failed during extension-id lookup after profile startup failed. The four later task records are also absent, leaving seven tasks unscored.
 
 ## Run setup
 
