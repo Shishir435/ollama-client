@@ -133,17 +133,23 @@ const markMigrationFailed = async (epoch: number) => {
 const withoutFailure = ({ failed: _failed, ...state }: NativeIndexState) =>
   state
 
-/** RPC entry: commands answer immediately while the rebuild continues in the background. */
+/**
+ * RPC entry: commands answer immediately while the rebuild continues in the
+ * background. Starting commands ignore the page's signal, because a page that
+ * closes or times out during a long snapshot is not a cancellation; only
+ * `cancel` and `keep` stop a rebuild.
+ */
 export const requestNativeEmbeddingCommand = async (
   action: Exclude<NativeEmbeddingAction, "step">,
   signal?: AbortSignal
 ) => {
-  const status = await nativeEmbeddingCommand(action, signal)
-  if (
-    (action === "start" || action === "external" || action === "resume") &&
-    status.migration === "building"
+  const starting =
+    action === "start" || action === "external" || action === "resume"
+  const status = await nativeEmbeddingCommand(
+    action,
+    starting ? undefined : signal
   )
-    driveNativeMigration()
+  if (starting && status.migration === "building") driveNativeMigration()
   return status
 }
 

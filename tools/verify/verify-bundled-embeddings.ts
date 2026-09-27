@@ -300,12 +300,19 @@ const main = async () => {
       })
       db.close()
     })
-    await call(RpcMethod.EmbeddingsNativeCommand, { action: "start" })
-    status = await call(RpcMethod.EmbeddingsNativeCommand, { action: "step" })
+    // The background owns the batches: reloading the page that started the
+    // rebuild must not stop it.
+    status = await call(RpcMethod.EmbeddingsNativeCommand, { action: "start" })
     assert.equal(status.mode, "external")
-    assert.equal(status.current, 8)
     await page.reload()
-    status = await call(RpcMethod.EmbeddingsNativeCommand, { action: "step" })
+    for (
+      let attempt = 0;
+      attempt < 300 && status.mode !== "bundled";
+      attempt++
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      status = await call(RpcMethod.EmbeddingsNativeStatus)
+    }
     assert.equal(status.mode, "bundled")
     assert.equal(status.current, 10)
     const after = await call(RpcMethod.EmbeddingsGenerate, {

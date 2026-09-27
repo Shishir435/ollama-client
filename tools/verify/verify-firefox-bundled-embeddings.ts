@@ -74,6 +74,7 @@ const main = async () => {
         ok: boolean
         result: {
           mode?: string
+          migration?: string
           ok?: boolean
           embedding?: number[]
           providerId?: string
@@ -102,11 +103,16 @@ const main = async () => {
     assert.ok(result.embedding?.every(Number.isFinite))
     const coldMs = performance.now() - start
     await call(RpcMethod.EmbeddingsNativeCommand, { action: "external" })
-    await call(RpcMethod.EmbeddingsNativeCommand, { action: "start" })
-    assert.equal(
-      (await call(RpcMethod.EmbeddingsNativeCommand, { action: "step" })).mode,
-      "bundled"
-    )
+    status = await call(RpcMethod.EmbeddingsNativeCommand, { action: "start" })
+    for (
+      let attempt = 0;
+      attempt < 300 && status.migration === "building";
+      attempt++
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      status = await call(RpcMethod.EmbeddingsNativeStatus)
+    }
+    assert.equal(status.mode, "bundled")
     const artifact = resolve("artifacts/bundled-embeddings")
     await mkdir(artifact, { recursive: true })
     const report = {

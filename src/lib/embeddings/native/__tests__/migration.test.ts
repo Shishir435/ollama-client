@@ -417,6 +417,18 @@ describe("background rebuild driver", () => {
     expect((await nativeEmbeddingStatus()).migration).toBe("idle")
   })
 
+  it("keeps a start whose page closed during the snapshot", async () => {
+    for (let id = 1; id <= 3; id++) await vectorDb.vectors.add(source(id))
+    const page = new AbortController()
+    const started = requestNativeEmbeddingCommand("start", page.signal)
+    page.abort()
+    await started
+    await vi.waitFor(async () =>
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    )
+    expect(embed).toHaveBeenCalledTimes(3)
+  })
+
   it("stops batching once cancelled", async () => {
     await vectorDb.vectors.add(source(1))
     embed.mockImplementationOnce(
