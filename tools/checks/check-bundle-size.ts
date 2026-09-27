@@ -466,8 +466,10 @@ const budgets: Budget[] = [
      * 297,303. The refusal that names a blocking run's chat, Chrome 297,634.
      * Review fixes, Firefox 214,221: the suffix-aware favicon walk and the
      * cloud setting's failure fallback.
+     * Bundled migration catch-up and cancellation: Chrome 300,704 and
+     * Firefox 217,252. Model assets and content-script budgets are unchanged.
      */
-    max: isFirefox ? 217_500 : 300_500
+    max: isFirefox ? 217_500 : 301_000
   }
 ]
 

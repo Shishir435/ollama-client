@@ -15,13 +15,7 @@ import { readNativeIndexState } from "./state"
 const fingerprint = async (document: VectorDocument): Promise<string> => {
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(
-      JSON.stringify({
-        id: document.id,
-        content: document.content,
-        metadata: document.metadata
-      })
-    )
+    new TextEncoder().encode(sourceKey(document))
   )
   return Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, "0")
@@ -144,7 +138,16 @@ const reconcileSources = async (
   const documents = await vectorDb.vectors.toArray()
   const snapshots = new Map(
     await Promise.all(
-      documents.map(async (doc) => [doc.id, await fingerprint(doc)] as const)
+      documents.map(
+        async (doc) =>
+          [
+            doc.id,
+            {
+              key: sourceKey(doc),
+              fingerprint: await fingerprint(doc)
+            }
+          ] as const
+      )
     )
   )
   await vectorDb.transaction(
@@ -160,7 +163,7 @@ const reconcileSources = async (
         .map((row) => row.id)
       await vectorDb.embeddingRebuild.bulkDelete(removed)
       let current = 0
-      for (const [id, sourceFingerprint] of snapshots) {
+      for (const [id, { fingerprint: sourceFingerprint }] of snapshots) {
         if (id === undefined) throw new Error("Stored vector has no id")
         const prior = byId.get(id)
         if (prior?.sourceFingerprint === sourceFingerprint) {
@@ -173,11 +176,46 @@ const reconcileSources = async (
       await vectorDb.embeddingState.put(state)
     }
   )
+  return snapshots
 }
 
 /** Only content/metadata are compared inside the short final transaction; hashes are computed beforehand. */
 const sourceKey = (doc: VectorDocument) =>
   JSON.stringify({ id: doc.id, content: doc.content, metadata: doc.metadata })
+
+/** Begin a new snapshot or discard staging without changing the active route. */
+const resetMigration = async (
+  action: "start" | "external" | "keep" | "cancel",
+  state: Awaited<ReturnType<typeof readNativeIndexState>>,
+  signal?: AbortSignal
+) => {
+  const starting = action === "start" || action === "external"
+  const externalPlan =
+    action === "external" ? await resolveExternalRebuildPlan() : undefined
+  const next = {
+    ...state,
+    migration: starting ? ("building" as const) : ("idle" as const),
+    current: 0,
+    total: 0,
+    lastId: 0
+  }
+  if (starting) {
+    next.target = action === "external" ? "external" : "bundled"
+    next.externalPlan = externalPlan?.fingerprint
+  }
+  await vectorDb.transaction(
+    "rw",
+    vectorDb.embeddingState,
+    vectorDb.embeddingRebuild,
+    async () => {
+      signal?.throwIfAborted()
+      await vectorDb.embeddingRebuild.clear()
+      await vectorDb.embeddingState.put(next)
+    }
+  )
+  if (starting) await reconcileSources(next, signal)
+  return nativeEmbeddingStatus()
+}
 
 const runCommand = async (
   action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external",
@@ -191,44 +229,7 @@ const runCommand = async (
   }
   if (action === "keep" || action === "external")
     await writeSetting(SETTINGS.BUNDLED_EMBEDDING_NOTICE_DISMISSED, true)
-  if (action !== "step") {
-    const starting = action === "start" || action === "external"
-    const externalPlan =
-      action === "external" ? await resolveExternalRebuildPlan() : undefined
-    const documents = starting ? await vectorDb.vectors.toArray() : []
-    const snapshot = await Promise.all(
-      documents.map(async (source) => {
-        if (source.id === undefined) throw new Error("Stored vector has no id")
-        return { id: source.id, sourceFingerprint: await fingerprint(source) }
-      })
-    )
-    await vectorDb.transaction(
-      "rw",
-      vectorDb.vectors,
-      vectorDb.embeddingState,
-      vectorDb.embeddingRebuild,
-      async () => {
-        signal?.throwIfAborted()
-        await vectorDb.embeddingRebuild.clear()
-        const next = {
-          ...state,
-          migration: "idle" as "idle" | "building",
-          current: 0,
-          total: 0,
-          lastId: 0
-        }
-        if (starting) {
-          await vectorDb.embeddingRebuild.bulkPut(snapshot)
-          next.migration = "building"
-          next.total = documents.length
-          next.target = action === "external" ? "external" : "bundled"
-          next.externalPlan = externalPlan?.fingerprint
-        }
-        await vectorDb.embeddingState.put(next)
-      }
-    )
-    return nativeEmbeddingStatus()
-  }
+  if (action !== "step") return resetMigration(action, state, signal)
   if (state.migration !== "building") return nativeEmbeddingStatus()
   const plan = await externalMigrationPlan(state)
   const rows = await vectorDb.embeddingRebuild
@@ -273,9 +274,11 @@ const runCommand = async (
     )
     if (Date.now() >= deadline) break
   }
-  if (sourceChanged || state.current === state.total)
-    await reconcileSources(state, signal)
-  if (state.current === state.total) {
+  const checked =
+    sourceChanged || state.current === state.total
+      ? await reconcileSources(state, signal)
+      : undefined
+  if (state.current === state.total && checked) {
     if (state.total === 0)
       await embedMigrationRow(
         "Embedding provider readiness check",
@@ -283,17 +286,6 @@ const runCommand = async (
         signal
       )
     await externalMigrationPlan(state)
-    const checkedSources = await vectorDb.vectors.toArray()
-    const checkedKeys = new Map(
-      checkedSources.map((doc) => [doc.id, sourceKey(doc)])
-    )
-    const currentFingerprints = new Map(
-      await Promise.all(
-        checkedSources.map(
-          async (doc) => [doc.id, await fingerprint(doc)] as const
-        )
-      )
-    )
     await vectorDb.transaction(
       "rw",
       vectorDb.vectors,
@@ -306,14 +298,14 @@ const runCommand = async (
         const byId = new Map(originals.map((doc) => [doc.id, doc]))
         // Writers arriving after hashing cause another catch-up step, never a stale swap.
         if (
-          originals.length !== checkedSources.length ||
-          originals.some((doc) => checkedKeys.get(doc.id) !== sourceKey(doc))
+          originals.length !== checked.size ||
+          originals.some((doc) => checked.get(doc.id)?.key !== sourceKey(doc))
         )
           return
         if (
           originals.length !== staged.length ||
           staged.some(
-            (row) => currentFingerprints.get(row.id) !== row.sourceFingerprint
+            (row) => checked.get(row.id)?.fingerprint !== row.sourceFingerprint
           )
         )
           return
