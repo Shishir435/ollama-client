@@ -1698,16 +1698,17 @@
       },
       "bundled": {
         "title": "Embeddings integrados",
-        "active": "Los embeddings se generan en este dispositivo con el modelo MiniLM incluido. No hace falta un servidor ni una descarga. Se conserva la configuración anterior; volver a usarla requiere reconstruir su índice. MiniLM funciona mejor con textos en inglés.",
+        "active": "Los embeddings se generan localmente con MiniLM incluido, más adecuado para inglés. No se necesita servidor ni descarga. Para búsquedas multilingües, selecciona abajo un proveedor y modelo externos y reconstruye el índice para cambiar.",
         "offer": "Ya están disponibles los embeddings integrados. Migra tus embeddings guardados o conserva tu servidor y modelo actuales.",
         "details": "La migración reconstruye los embeddings guardados de archivos, páginas y chats en este dispositivo. Necesita espacio temporal para una copia del origen y el índice nuevo. El índice actual sigue activo hasta que termine correctamente. Puedes cerrar esta página y continuar después. MiniLM funciona mejor con textos en inglés.",
         "progress": "Reconstruyendo {{current}} de {{total}} embeddings",
-        "changed": "El contenido guardado cambió durante la migración. No se cambió la configuración. Reintenta cuando termine la indexación.",
-        "error": "No se pudo completar la migración. Tus embeddings actuales siguen activos. Libera espacio si es necesario y reanuda.",
+        "changed": "Cambió la configuración de embeddings o los vectores preparados son incompatibles. El índice actual sigue activo. Reinicia la migración.",
+        "error": "No se pudo completar la migración. Los embeddings actuales siguen activos. Revisa el proveedor, la conexión y el espacio disponible; después reanuda o cancela.",
         "resume": "Reanudar migración",
         "migrate": "Migrar a embeddings integrados",
         "keep": "Conservar configuración actual",
-        "external": "Reconstruir con el proveedor externo guardado"
+        "language_notice": "MiniLM se recomienda para textos en inglés. Para otros idiomas, usa un modelo de embeddings en un servidor para mejorar la búsqueda. Puedes probar MiniLM y volver a cambiar en Ajustes.",
+        "external": "Reconstruir con el modelo externo seleccionado"
       }
     },
     "prompts": {

@@ -30,7 +30,18 @@ export const useNativeEmbeddings = () => {
     async (
       action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external"
     ) => {
-      if (controller.current) return
+      if (action === "dismiss") {
+        try {
+          await extensionRpcClient.call(RpcMethod.EmbeddingsNativeCommand, {
+            action
+          })
+        } catch {
+          setError(true)
+        }
+        return
+      }
+      if (action === "cancel" || action === "keep") controller.current?.abort()
+      else if (controller.current) return
       const run = new AbortController()
       controller.current = run
       setBusy(true)
@@ -55,8 +66,10 @@ export const useNativeEmbeddings = () => {
       } catch {
         if (!run.signal.aborted) setError(true)
       } finally {
-        controller.current = null
-        if (!run.signal.aborted) setBusy(false)
+        if (controller.current === run) {
+          controller.current = null
+          setBusy(false)
+        }
       }
     },
     []

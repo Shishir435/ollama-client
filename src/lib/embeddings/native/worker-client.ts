@@ -58,18 +58,28 @@ export const generateInNativeWorker = async (
   }
   const id = crypto.randomUUID()
   let timer: ReturnType<typeof setTimeout> | undefined
-  const abort = () => {
+  const stop = (error: Error) => {
     const entry = pending.get(id)
     pending.delete(id)
     worker?.postMessage({ id, cancel: true })
-    entry?.reject(new DOMException("Cancelled", "AbortError"))
+    entry?.reject(error)
     if (!pending.size) idle = setTimeout(reset, 120000)
   }
+  const abort = () => stop(new DOMException("Cancelled", "AbortError"))
   try {
     return await new Promise<number[]>((resolve, reject) => {
       pending.set(id, { resolve, reject })
       signal?.addEventListener("abort", abort, { once: true })
-      timer = setTimeout(abort, 60000)
+      timer = setTimeout(
+        () =>
+          stop(
+            new DOMException(
+              "Bundled embedding inference timed out. Please retry.",
+              "TimeoutError"
+            )
+          ),
+        60000
+      )
       worker?.postMessage({ id, text })
       if (signal?.aborted) abort()
     })

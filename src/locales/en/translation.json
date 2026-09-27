@@ -1908,16 +1908,17 @@
       },
       "bundled": {
         "title": "Built-in embeddings",
-        "active": "Embeddings run on this device with the included MiniLM model. No server or download is needed. Your previous provider settings are saved; switching back requires rebuilding its index. MiniLM works best with English text.",
+        "active": "Embeddings run locally with the included MiniLM model, best suited to English. No server or download is needed. For multilingual retrieval, select an external provider and model below, then rebuild the index to switch.",
         "offer": "Built-in embeddings are now available. Migrate your saved embeddings, or keep your current server and model.",
         "details": "Migration rebuilds saved file, page and chat embeddings on this device. It needs temporary storage for a source snapshot and replacement index. Your current index stays active until the rebuild succeeds. You can close this page and resume later. MiniLM works best with English text.",
         "progress": "Rebuilding {{current}} of {{total}} embeddings",
-        "changed": "Your saved content changed during migration. Nothing was switched. Retry when indexing has finished.",
-        "error": "Migration could not finish. Your current embeddings remain active. Free some storage if needed, then resume.",
+        "changed": "The embedding configuration changed or staged vectors are incompatible. Your current index remains active. Restart the migration.",
+        "error": "Migration could not finish. Your current embeddings remain active. Check the selected provider, connection and available storage, then resume or cancel.",
         "resume": "Resume migration",
         "migrate": "Migrate to built-in embeddings",
         "keep": "Keep current setup",
-        "external": "Rebuild with saved external provider"
+        "language_notice": "MiniLM is recommended for English text. For other languages, use a server-backed embedding model for better retrieval. You can still try MiniLM and switch back in Settings.",
+        "external": "Rebuild with selected external model"
       }
     },
     "prompts": {

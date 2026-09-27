@@ -1698,16 +1698,17 @@
       },
       "bundled": {
         "title": "Integrierte Embeddings",
-        "active": "Embeddings werden mit dem enthaltenen MiniLM-Modell auf diesem Gerät erstellt. Kein Server und kein Download nötig. Ihre bisherigen Anbietereinstellungen bleiben gespeichert; beim Zurückwechseln muss der Index neu erstellt werden. MiniLM eignet sich am besten für englische Texte.",
+        "active": "Embeddings werden lokal mit dem enthaltenen MiniLM-Modell erstellt, das sich am besten für Englisch eignet. Kein Server oder Download nötig. Wählen Sie für mehrsprachige Suche unten einen externen Anbieter und ein Modell und erstellen Sie zum Wechseln den Index neu.",
         "offer": "Integrierte Embeddings sind jetzt verfügbar. Migrieren Sie Ihre gespeicherten Embeddings oder behalten Sie Ihren aktuellen Server und Ihr Modell.",
         "details": "Die Migration erstellt gespeicherte Datei-, Seiten- und Chat-Embeddings auf diesem Gerät neu. Sie benötigt vorübergehend Speicher für eine Quellkopie und den neuen Index. Der aktuelle Index bleibt bis zum erfolgreichen Abschluss aktiv. Sie können diese Seite schließen und später fortfahren. MiniLM eignet sich am besten für englische Texte.",
         "progress": "{{current}} von {{total}} Embeddings werden neu erstellt",
-        "changed": "Ihre gespeicherten Inhalte haben sich während der Migration geändert. Es wurde nichts umgestellt. Versuchen Sie es nach Abschluss der Indexierung erneut.",
-        "error": "Die Migration konnte nicht abgeschlossen werden. Ihre aktuellen Embeddings bleiben aktiv. Geben Sie bei Bedarf Speicher frei und setzen Sie die Migration fort.",
+        "changed": "Die Embedding-Konfiguration wurde geändert oder die vorbereiteten Vektoren sind inkompatibel. Ihr aktueller Index bleibt aktiv. Starten Sie die Migration neu.",
+        "error": "Die Migration konnte nicht abgeschlossen werden. Ihre aktuellen Embeddings bleiben aktiv. Prüfen Sie Anbieter, Verbindung und freien Speicher und setzen Sie fort oder brechen Sie ab.",
         "resume": "Migration fortsetzen",
         "migrate": "Zu integrierten Embeddings migrieren",
         "keep": "Aktuelle Einrichtung behalten",
-        "external": "Mit gespeichertem externen Anbieter neu erstellen"
+        "language_notice": "MiniLM wird für englische Texte empfohlen. Verwenden Sie für andere Sprachen ein serverbasiertes Embedding-Modell für bessere Suchergebnisse. Sie können MiniLM trotzdem ausprobieren und in den Einstellungen zurückwechseln.",
+        "external": "Mit gewähltem externem Modell neu erstellen"
       }
     },
     "prompts": {

@@ -136,7 +136,7 @@ describe("bundled embedding migration", () => {
     "delete",
     "add",
     "edit"
-  ])("refuses an atomic switch after a concurrent %s", async (change) => {
+  ])("catches up a concurrent %s without losing saved content", async (change) => {
     await vectorDb.vectors.add(source(1))
     await nativeEmbeddingCommand("start")
     if (change === "delete") await vectorDb.vectors.delete(1)
@@ -145,9 +145,16 @@ describe("bundled embedding migration", () => {
       await vectorDb.vectors.update(1, { content: "changed" })
     const current = await vectorDb.vectors.toArray()
     await nativeEmbeddingCommand("step")
-    expect((await nativeEmbeddingStatus()).migration).toBe("changed")
-    expect((await nativeEmbeddingStatus()).mode).toBe("external")
-    expect(await vectorDb.vectors.toArray()).toEqual(current)
+    for (
+      let i = 0;
+      i < 3 && (await nativeEmbeddingStatus()).migration === "building";
+      i++
+    )
+      await nativeEmbeddingCommand("step")
+    expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    expect(
+      (await vectorDb.vectors.toArray()).map((row) => row.content)
+    ).toEqual(current.map((row) => row.content))
   })
   it("handles an empty corpus, and keeping external never changes vectors", async () => {
     await nativeEmbeddingCommand("start")
@@ -313,4 +320,48 @@ it("does not commit fallback results when the preferred provider fails mid-rebui
   expect(await vectorDb.vectors.toArray()).toEqual(original)
   await nativeEmbeddingCommand("step")
   expect((await nativeEmbeddingStatus()).mode).toBe("external")
+})
+
+it("keeps completed unchanged rows while catching up live edits and inserts", async () => {
+  await vectorDb.vectors.bulkAdd(
+    Array.from({ length: 10 }, (_, i) => source(i + 1))
+  )
+  await nativeEmbeddingCommand("start")
+  await nativeEmbeddingCommand("step")
+  expect(embed).toHaveBeenCalledTimes(8)
+  await vectorDb.vectors.update(1, { content: "updated first row" })
+  await vectorDb.vectors.delete(2)
+  await vectorDb.vectors.add(source(11))
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).mode).toBe("external")
+  expect((await nativeEmbeddingStatus()).current).toBe(8)
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  expect(embed).toHaveBeenCalledTimes(12)
+  expect(await vectorDb.vectors.get(2)).toBeUndefined()
+  expect((await vectorDb.vectors.get(1))?.content).toBe("updated first row")
+  expect((await vectorDb.vectors.get(11))?.metadata.embeddingModel).toBe(
+    BUNDLED_MODEL
+  )
+})
+it("cancels in-flight rebuilds from another settings view without switching the active route", async () => {
+  await initializeBundledInstall()
+  await vectorDb.vectors.add(source(1))
+  await nativeEmbeddingCommand("external")
+  externalEmbed.mockImplementationOnce(
+    (_text, _model, { signal }) =>
+      new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), {
+          once: true
+        })
+      })
+  )
+  const step = nativeEmbeddingCommand("step")
+  const rejected = expect(step).rejects.toMatchObject({ name: "AbortError" })
+  await vi.waitFor(() => expect(externalEmbed).toHaveBeenCalled())
+  await nativeEmbeddingCommand("cancel")
+  await rejected
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  expect((await nativeEmbeddingStatus()).migration).toBe("idle")
+  expect(await vectorDb.embeddingRebuild.count()).toBe(0)
 })

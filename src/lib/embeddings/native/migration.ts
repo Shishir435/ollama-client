@@ -1,4 +1,3 @@
-import Dexie from "dexie"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { vectorDb } from "../db"
@@ -16,7 +15,13 @@ import { readNativeIndexState } from "./state"
 const fingerprint = async (document: VectorDocument): Promise<string> => {
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(JSON.stringify(document))
+    new TextEncoder().encode(
+      JSON.stringify({
+        id: document.id,
+        content: document.content,
+        metadata: document.metadata
+      })
+    )
   )
   return Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, "0")
@@ -36,13 +41,27 @@ export const nativeEmbeddingStatus = async () => {
 
 /** Serialize commands from multiple open settings pages; batches survive worker restarts. */
 let commands: Promise<unknown> = Promise.resolve()
+let activeCommand: AbortController | undefined
 export const nativeEmbeddingCommand = (
   action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external",
   signal?: AbortSignal
 ) => {
+  if (action === "cancel" || action === "keep") activeCommand?.abort()
   const work = commands
     .catch(() => undefined)
-    .then(() => runCommand(action, signal))
+    .then(async () => {
+      const run = new AbortController()
+      const abort = () => run.abort(signal?.reason)
+      signal?.addEventListener("abort", abort, { once: true })
+      if (signal?.aborted) abort()
+      activeCommand = run
+      try {
+        return await runCommand(action, run.signal)
+      } finally {
+        signal?.removeEventListener("abort", abort)
+        if (activeCommand === run) activeCommand = undefined
+      }
+    })
   commands = work
   return work
 }
@@ -117,6 +136,49 @@ const externalMigrationPlan = async (
   return plan
 }
 
+/** Catch up additions, edits and deletions without discarding completed unchanged rows. */
+const reconcileSources = async (
+  state: Awaited<ReturnType<typeof readNativeIndexState>>,
+  signal?: AbortSignal
+) => {
+  const documents = await vectorDb.vectors.toArray()
+  const snapshots = new Map(
+    await Promise.all(
+      documents.map(async (doc) => [doc.id, await fingerprint(doc)] as const)
+    )
+  )
+  await vectorDb.transaction(
+    "rw",
+    vectorDb.embeddingState,
+    vectorDb.embeddingRebuild,
+    async () => {
+      signal?.throwIfAborted()
+      const staged = await vectorDb.embeddingRebuild.toArray()
+      const byId = new Map(staged.map((row) => [row.id, row]))
+      const removed = staged
+        .filter((row) => !snapshots.has(row.id))
+        .map((row) => row.id)
+      await vectorDb.embeddingRebuild.bulkDelete(removed)
+      let current = 0
+      for (const [id, sourceFingerprint] of snapshots) {
+        if (id === undefined) throw new Error("Stored vector has no id")
+        const prior = byId.get(id)
+        if (prior?.sourceFingerprint === sourceFingerprint) {
+          if (prior.embedding) current++
+        } else await vectorDb.embeddingRebuild.put({ id, sourceFingerprint })
+      }
+      state.current = current
+      state.total = documents.length
+      state.lastId = 0
+      await vectorDb.embeddingState.put(state)
+    }
+  )
+}
+
+/** Only content/metadata are compared inside the short final transaction; hashes are computed beforehand. */
+const sourceKey = (doc: VectorDocument) =>
+  JSON.stringify({ id: doc.id, content: doc.content, metadata: doc.metadata })
+
 const runCommand = async (
   action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external",
   signal?: AbortSignal
@@ -170,32 +232,17 @@ const runCommand = async (
   if (state.migration !== "building") return nativeEmbeddingStatus()
   const plan = await externalMigrationPlan(state)
   const rows = await vectorDb.embeddingRebuild
-    .where("id")
-    .above(state.lastId)
+    .filter((row) => !row.embedding)
     .limit(8)
     .toArray()
+  let sourceChanged = false
   const deadline = Date.now() + 30000
   for (const row of rows) {
     signal?.throwIfAborted()
     const source = await vectorDb.vectors.get(row.id)
     if (!source || (await fingerprint(source)) !== row.sourceFingerprint) {
-      await vectorDb.transaction(
-        "rw",
-        vectorDb.embeddingState,
-        vectorDb.embeddingRebuild,
-        async () => {
-          signal?.throwIfAborted()
-          await vectorDb.embeddingRebuild.clear()
-          await vectorDb.embeddingState.put({
-            ...state,
-            migration: "changed",
-            current: 0,
-            total: 0,
-            lastId: 0
-          })
-        }
-      )
-      return nativeEmbeddingStatus()
+      sourceChanged = true
+      continue
     }
     const { embedding, model, providerId } = await embedMigrationRow(
       source.content,
@@ -226,6 +273,8 @@ const runCommand = async (
     )
     if (Date.now() >= deadline) break
   }
+  if (sourceChanged || state.current === state.total)
+    await reconcileSources(state, signal)
   if (state.current === state.total) {
     if (state.total === 0)
       await embedMigrationRow(
@@ -234,6 +283,17 @@ const runCommand = async (
         signal
       )
     await externalMigrationPlan(state)
+    const checkedSources = await vectorDb.vectors.toArray()
+    const checkedKeys = new Map(
+      checkedSources.map((doc) => [doc.id, sourceKey(doc)])
+    )
+    const currentFingerprints = new Map(
+      await Promise.all(
+        checkedSources.map(
+          async (doc) => [doc.id, await fingerprint(doc)] as const
+        )
+      )
+    )
     await vectorDb.transaction(
       "rw",
       vectorDb.vectors,
@@ -244,23 +304,21 @@ const runCommand = async (
         const originals = await vectorDb.vectors.toArray()
         const staged = await vectorDb.embeddingRebuild.orderBy("id").toArray()
         const byId = new Map(originals.map((doc) => [doc.id, doc]))
-        // Never resurrect a deleted source or overwrite an ingestion that arrived during migration.
-        const fingerprints = await Dexie.waitFor(
-          Promise.all(
-            originals.map(
-              async (doc) => [doc.id, await fingerprint(doc)] as const
-            )
-          )
-        )
-        signal?.throwIfAborted()
-        const currentFingerprints = new Map(fingerprints)
+        // Writers arriving after hashing cause another catch-up step, never a stale swap.
         if (
-          !externalCorpusMatches(plan, staged) ||
+          originals.length !== checkedSources.length ||
+          originals.some((doc) => checkedKeys.get(doc.id) !== sourceKey(doc))
+        )
+          return
+        if (
           originals.length !== staged.length ||
           staged.some(
             (row) => currentFingerprints.get(row.id) !== row.sourceFingerprint
           )
-        ) {
+        )
+          return
+        signal?.throwIfAborted()
+        if (!externalCorpusMatches(plan, staged)) {
           await vectorDb.embeddingRebuild.clear()
           await vectorDb.embeddingState.put({
             ...state,

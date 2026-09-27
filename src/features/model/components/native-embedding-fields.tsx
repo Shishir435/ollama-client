@@ -22,6 +22,9 @@ export const NativeEmbeddingFields = ({
             : "settings.embeddings.bundled.offer"
         )}
       </p>
+      <p className="text-xs font-medium">
+        {t("settings.embeddings.bundled.language_notice")}
+      </p>
       {(state.mode !== "bundled" || rebuilding) && (
         <p className="text-xs text-muted-foreground">
           {t("settings.embeddings.bundled.details")}
@@ -50,6 +53,14 @@ export const NativeEmbeddingFields = ({
         </p>
       )}
       <div className="flex flex-wrap gap-2">
+        {(rebuilding || busy) && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void command("cancel")}>
+            {t("common.cancel")}
+          </Button>
+        )}
         {state.mode !== "bundled" && (
           <Button
             size="sm"

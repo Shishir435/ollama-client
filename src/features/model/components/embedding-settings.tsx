@@ -34,15 +34,7 @@ export const EmbeddingSettings = () => {
 
   return (
     <SectionStack>
-      <div
-        data-settings-focus-id={
-          native.state?.mode === "bundled"
-            ? "embeddings-model-select"
-            : undefined
-        }
-        data-settings-focus="true">
-        <NativeEmbeddingCard />
-      </div>
+      <NativeEmbeddingCard />
       <EmbeddingHealthAlert
         stats={rebuild.dimensionStats}
         memoryEnabled={settings.memoryEnabled}
@@ -65,7 +57,7 @@ export const EmbeddingSettings = () => {
           title={t("settings.context.embedding_health.success")}
         />
       )}
-      {native.state?.mode === "external" && (
+      {native.state && (
         <EmbeddingModelSelector
           selectedModel={settings.selectedModel}
           config={settings.config}
@@ -79,7 +71,11 @@ export const EmbeddingSettings = () => {
               ? { current: native.state.current, total: native.state.total }
               : rebuild.progress
           }
-          onModelSelected={rebuild.requestModelChange}
+          onModelSelected={
+            native.state.mode === "bundled"
+              ? settings.applyModelChange
+              : rebuild.requestModelChange
+          }
           onToggleShowAdvanced={handleToggleShowAdvanced}
         />
       )}

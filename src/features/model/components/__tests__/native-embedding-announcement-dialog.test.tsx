@@ -5,6 +5,7 @@ import { NativeEmbeddingAnnouncementDialog } from "../native-embedding-announcem
 
 const fixture = vi.hoisted(() => ({
   mode: "external",
+  busy: false,
   dismissed: false,
   stage: "complete",
   settings: new Map<string, boolean>(),
@@ -15,7 +16,7 @@ vi.mock("../../hooks/use-native-embeddings", () => ({
   useNativeEmbeddings: () => ({
     state: { mode: fixture.mode, migration: "idle", current: 0, total: 0 },
     dismissed: fixture.dismissed,
-    busy: false,
+    busy: fixture.busy,
     error: false,
     command: fixture.command
   })
@@ -55,6 +56,7 @@ describe("embedding upgrade announcement", () => {
   beforeEach(() => {
     vi.stubGlobal("__AGENT_PREVIEW_ENABLED__", true)
     fixture.mode = "external"
+    fixture.busy = false
     fixture.dismissed = false
     fixture.stage = "complete"
     fixture.settings.clear()
@@ -80,6 +82,15 @@ describe("embedding upgrade announcement", () => {
   })
 
   it("closes without migrating and persists the keep choice", async () => {
+    fixture.settings.set(SETTINGS.AGENT_ENABLED.key, true)
+    await renderSettled()
+    fireEvent.click(await screen.findByRole("button", { name: "Close" }))
+    expect(fixture.command).toHaveBeenCalledWith("dismiss")
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it("can close the announcement while migration is running", async () => {
+    fixture.busy = true
     fixture.settings.set(SETTINGS.AGENT_ENABLED.key, true)
     await renderSettled()
     fireEvent.click(await screen.findByRole("button", { name: "Close" }))

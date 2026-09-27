@@ -63,14 +63,13 @@ export const NativeEmbeddingAnnouncementDialog = () => {
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next && !native.busy) {
+        if (!next) {
           setClosed(true)
           void native.command("dismiss")
         }
       }}>
       <DialogContent
         className="max-h-[85dvh] overflow-y-auto"
-        showCloseButton={!native.busy}
         aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t("settings.embeddings.bundled.title")}</DialogTitle>
