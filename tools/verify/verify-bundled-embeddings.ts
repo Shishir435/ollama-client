@@ -99,8 +99,6 @@ const main = async () => {
     })
     assert.equal(long.ok, true)
     assert.equal(long.embedding.length, 384)
-    await call(RpcMethod.EmbeddingsNativeCommand, { action: "external" })
-    await call(RpcMethod.EmbeddingsNativeCommand, { action: "step" })
     await page.evaluate(async () => {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open("VectorDatabase")

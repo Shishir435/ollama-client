@@ -14,7 +14,21 @@ const { embed, externalEmbed } = vi.hoisted(() => ({
   externalEmbed: vi.fn()
 }))
 vi.mock("../../embedding-strategy", () => ({
-  resolveEmbeddingPlan: vi.fn(async () => ({ fingerprint: "external-plan" })),
+  resolveEmbeddingPlan: vi.fn(async () => ({
+    fingerprint: "external-plan",
+    attempts: [
+      {
+        model: "external-model",
+        providerId: "ollama",
+        provider: { id: "ollama", embed: vi.fn() }
+      },
+      {
+        model: "fallback-model",
+        providerId: "fallback",
+        provider: { id: "fallback", embed: vi.fn() }
+      }
+    ]
+  })),
   generateEmbeddingWithStrategy: externalEmbed
 }))
 vi.mock("../client", () => ({ generateBundledEmbedding: embed }))
@@ -232,4 +246,71 @@ it("returns progress after the wall-clock batch budget instead of starting anoth
   }
   await nativeEmbeddingCommand("step")
   expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+})
+
+it("pins every resumed external batch to one route and refuses mixed staged vectors", async () => {
+  await vectorDb.vectors.bulkAdd(
+    Array.from({ length: 10 }, (_, i) => source(i + 1))
+  )
+  await nativeEmbeddingCommand("start")
+  await nativeEmbeddingCommand("step")
+  await nativeEmbeddingCommand("step")
+  const original = await vectorDb.vectors.toArray()
+  await nativeEmbeddingCommand("external")
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  for (const [, , options] of externalEmbed.mock.calls) {
+    expect(options.plan.attempts).toHaveLength(1)
+    expect(options.plan.attempts[0].provider.id).toBe("ollama")
+  }
+  // An older build could have staged a fallback row; never commit it on resume.
+  await vectorDb.embeddingRebuild.update(1, {
+    providerId: "fallback",
+    model: "fallback-model"
+  })
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).migration).toBe("changed")
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  expect(await vectorDb.vectors.toArray()).toEqual(original)
+})
+it("requires successful inference before switching an empty corpus to external", async () => {
+  await initializeBundledInstall()
+  await nativeEmbeddingCommand("external")
+  externalEmbed.mockRejectedValueOnce(new Error("preferred provider offline"))
+  await expect(nativeEmbeddingCommand("step")).rejects.toThrow(
+    "preferred provider offline"
+  )
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).mode).toBe("external")
+  expect(externalEmbed).toHaveBeenCalledWith(
+    "Embedding provider readiness check",
+    undefined,
+    expect.any(Object)
+  )
+})
+it("does not commit fallback results when the preferred provider fails mid-rebuild", async () => {
+  await vectorDb.vectors.bulkAdd([source(1), source(2)])
+  await nativeEmbeddingCommand("start")
+  await nativeEmbeddingCommand("step")
+  const original = await vectorDb.vectors.toArray()
+  await nativeEmbeddingCommand("external")
+  externalEmbed
+    .mockResolvedValueOnce({
+      embedding: [1, 0],
+      model: "external-model",
+      providerId: "ollama"
+    })
+    .mockResolvedValueOnce({
+      embedding: [0, 1],
+      model: "fallback-model",
+      providerId: "fallback"
+    })
+  await expect(nativeEmbeddingCommand("step")).rejects.toThrow(
+    "incompatible vectors"
+  )
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  expect(await vectorDb.vectors.toArray()).toEqual(original)
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).mode).toBe("external")
 })

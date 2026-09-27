@@ -497,3 +497,23 @@ describe("retrieveContextEnhanced — feedback blending", () => {
     expect(results[0].score).toBeCloseTo(originalSimilarity, 5)
   })
 })
+
+it("preserves cancellation rather than using file fallback after an aborted embedding", async () => {
+  const controller = new AbortController()
+  vi.mocked(generateEmbedding).mockImplementationOnce(async () => {
+    controller.abort()
+    return { error: "cancelled" }
+  })
+  await expect(
+    retrieveContextEnhanced("query", {
+      fileId: "saved-file",
+      signal: controller.signal
+    })
+  ).rejects.toMatchObject({ name: "AbortError" })
+})
+it("does not hide unscoped failures behind an empty file scope", async () => {
+  vi.mocked(generateEmbedding).mockResolvedValueOnce({ error: "offline" })
+  await expect(
+    retrieveContextEnhanced("query", { fileId: [] })
+  ).rejects.toThrow("Context retrieval is unavailable")
+})

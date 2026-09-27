@@ -78,11 +78,38 @@ const embedMigrationRow = async (
   }
 }
 
+/** Rebuild against the preferred usable route only; a fallback creates an incompatible corpus. */
+const resolveExternalRebuildPlan = async () => {
+  const plan = await resolveEmbeddingPlan(undefined, true)
+  const preferred = plan.attempts.find((attempt) => attempt.provider?.embed)
+  if (!preferred)
+    throw new Error("No external embedding provider is configured")
+  return { ...plan, attempts: [preferred], sharedAttempt: undefined }
+}
+
+const externalCorpusMatches = (
+  plan: Awaited<ReturnType<typeof resolveExternalRebuildPlan>> | undefined,
+  rows: { embedding?: number[]; model?: string; providerId?: string }[]
+) => {
+  if (!plan || rows.length === 0) return true
+  const preferred = plan.attempts[0]
+  const dimension = rows[0].embedding?.length
+  return (
+    !!dimension &&
+    rows.every(
+      (row) =>
+        row.model === preferred.model &&
+        row.providerId === preferred.provider?.id &&
+        row.embedding?.length === dimension
+    )
+  )
+}
+
 const externalMigrationPlan = async (
   state: Awaited<ReturnType<typeof readNativeIndexState>>
 ) => {
   if (state.target !== "external") return undefined
-  const plan = await resolveEmbeddingPlan(undefined, true)
+  const plan = await resolveExternalRebuildPlan()
   if (plan.fingerprint !== state.externalPlan)
     throw new Error(
       "External embedding configuration changed; restart migration"
@@ -105,9 +132,7 @@ const runCommand = async (
   if (action !== "step") {
     const starting = action === "start" || action === "external"
     const externalPlan =
-      action === "external"
-        ? await resolveEmbeddingPlan(undefined, true)
-        : undefined
+      action === "external" ? await resolveExternalRebuildPlan() : undefined
     const documents = starting ? await vectorDb.vectors.toArray() : []
     const snapshot = await Promise.all(
       documents.map(async (source) => {
@@ -177,6 +202,10 @@ const runCommand = async (
       plan,
       signal
     )
+    if (!externalCorpusMatches(plan, [{ embedding, model, providerId }]))
+      throw new Error(
+        "External embedding index contains incompatible vectors; restart migration"
+      )
     signal?.throwIfAborted()
     await vectorDb.transaction(
       "rw",
@@ -198,7 +227,12 @@ const runCommand = async (
     if (Date.now() >= deadline) break
   }
   if (state.current === state.total) {
-    if (state.total === 0 && !plan) await generateBundledEmbedding("", signal)
+    if (state.total === 0)
+      await embedMigrationRow(
+        "Embedding provider readiness check",
+        plan,
+        signal
+      )
     await externalMigrationPlan(state)
     await vectorDb.transaction(
       "rw",
@@ -221,6 +255,7 @@ const runCommand = async (
         signal?.throwIfAborted()
         const currentFingerprints = new Map(fingerprints)
         if (
+          !externalCorpusMatches(plan, staged) ||
           originals.length !== staged.length ||
           staged.some(
             (row) => currentFingerprints.get(row.id) !== row.sourceFingerprint

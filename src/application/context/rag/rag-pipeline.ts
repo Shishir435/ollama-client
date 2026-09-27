@@ -343,6 +343,13 @@ export async function retrieveContextEnhanced(
       error: embedding.error
     })
     resolved.signal?.throwIfAborted()
+    // The retriever can still supply bounded saved-file content without a query vector.
+    if (
+      typeof resolved.fileId === "string"
+        ? resolved.fileId.length > 0
+        : resolved.fileId?.length
+    )
+      return []
     throw new Error(
       "Context retrieval is unavailable because query embedding failed"
     )
