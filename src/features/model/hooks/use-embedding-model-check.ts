@@ -1,17 +1,13 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
   normalizeEmbeddingModelName
 } from "@/lib/constants"
-import {
-  isLikelyEmbeddingModelName,
-  recommendedEmbeddingBaseSet
-} from "@/lib/embeddings/model-name-filter"
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { ProviderModel } from "@/types"
+import { useNativeEmbeddings } from "./use-native-embeddings"
 
 /**
  * Only the "model is missing" state needs re-checking on a timer — the user is
@@ -26,67 +22,47 @@ export interface UseEmbeddingModelCheckOptions {
   selectedModel: string
   /** Persists the (possibly-new) selected model name. */
   setSelectedModel: (next: string) => void
-  /** Persists the new model+provider as the shared embedding choice. */
-  applyModelChange: (model: string, providerId: string) => void
-  /** All provider-discovered embedding models for the auto-switch search. */
-  embeddingModels: ProviderModel[]
-  /** Resolve a model name to its owning provider. */
-  resolveProviderForModel: (modelName: string) => string
+  providerId: string
 }
 
-/**
- * Two responsibilities:
- *
- *   1. Verify the selected embedding model is actually installed on
- *      its provider. We ask the background worker every 5s (and
- *      immediately on selection change) via the
- *      `embeddings.checkModel` RPC round-trip.
- *   2. If the check fails and the user hasn't already been moved
- *      automatically, pick the best available alternative (prefer
- *      Ollama-hosted, then anything in our recommended set, then
- *      anything matching the "embed/embedding" name heuristic) and
- *      switch the selection there. The auto-switch fires once per
- *      selectedModel cycle so a user who manually re-selects the
- *      missing model is respected.
- *
- * Also normalizes `selectedModel` on mount — if Dexie-era legacy
- * names still leak through, they get rewritten on first read.
- */
+/** Check availability without silently changing the chosen provider or model. */
 export const useEmbeddingModelCheck = ({
   selectedModel,
   setSelectedModel,
-  applyModelChange,
-  embeddingModels,
-  resolveProviderForModel
+  providerId
 }: UseEmbeddingModelCheckOptions): boolean => {
   const [modelExists, setModelExists] = useState(false)
-  const autoSwitchedRef = useRef(false)
-  const lastCheckedModelRef = useRef<string | null>(null)
+  const { state } = useNativeEmbeddings()
 
+  const nativeMode = state?.mode
   useEffect(() => {
-    const normalized = normalizeEmbeddingModelName(selectedModel)
+    if (!nativeMode || nativeMode === "bundled") {
+      setModelExists(nativeMode === "bundled")
+      return
+    }
+    const normalized =
+      providerId === DEFAULT_PROVIDER_ID
+        ? normalizeEmbeddingModelName(selectedModel)
+        : selectedModel
     if (normalized !== selectedModel) {
       setSelectedModel(normalized)
       return
     }
 
-    if (selectedModel !== lastCheckedModelRef.current) {
-      autoSwitchedRef.current = false
-      lastCheckedModelRef.current = selectedModel
-    }
-
+    const controller = new AbortController()
+    setModelExists(false)
     const checkModel = async (): Promise<boolean> => {
       try {
         const currentModel = selectedModel || DEFAULT_EMBEDDING_MODEL
-        const looksLikeEmbedding = isLikelyEmbeddingModelName(currentModel)
-        const currentProviderId = resolveProviderForModel(currentModel)
         const response = await extensionRpcClient.call(
           RpcMethod.EmbeddingsCheckModel,
           {
             model: currentModel,
-            ...(currentProviderId && { providerId: currentProviderId })
-          }
+            providerId
+          },
+          { signal: controller.signal }
         )
+        if (controller.signal.aborted) return true
 
         if (response.debug) {
           logger.debug(
@@ -96,35 +72,14 @@ export const useEmbeddingModelCheck = ({
           )
         }
 
-        const exists = looksLikeEmbedding && response.exists
+        const exists = response.exists
 
         setModelExists(exists)
         if (exists) return true
 
-        // Auto-switch only once per selectedModel cycle.
-        if (autoSwitchedRef.current) return false
-
-        const providerModels = embeddingModels.filter(
-          (m) => m.providerId === DEFAULT_PROVIDER_ID
-        )
-        const candidates =
-          providerModels.length > 0 ? providerModels : embeddingModels
-
-        const byRecommended = candidates.find((m) =>
-          recommendedEmbeddingBaseSet.has(m.name.toLowerCase().split(":")[0])
-        )
-        const byEmbedName = candidates.find((m) => {
-          const name = m.name.toLowerCase()
-          return name.includes("embed") || name.includes("embedding")
-        })
-
-        const nextModel = byRecommended?.name || byEmbedName?.name
-        if (nextModel && nextModel !== currentModel) {
-          autoSwitchedRef.current = true
-          applyModelChange(nextModel, resolveProviderForModel(nextModel))
-        }
         return false
       } catch (error) {
+        if (controller.signal.aborted) return true
         logger.error(
           "Error checking embedding model",
           "useEmbeddingModelCheck",
@@ -171,16 +126,11 @@ export const useEmbeddingModelCheck = ({
 
     return () => {
       cancelled = true
+      controller.abort()
       stopPolling()
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [
-    applyModelChange,
-    embeddingModels,
-    resolveProviderForModel,
-    selectedModel,
-    setSelectedModel
-  ])
+  }, [nativeMode, providerId, selectedModel, setSelectedModel])
 
   return modelExists
 }

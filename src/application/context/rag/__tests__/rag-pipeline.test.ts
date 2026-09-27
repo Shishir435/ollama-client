@@ -167,16 +167,16 @@ describe("retrieveContextEnhanced — similarity mode", () => {
     expect(results[0].document.content).toBe("Result one")
   })
 
-  it("returns empty array when generateEmbedding fails in similarity mode", async () => {
+  it("reports retrieval unavailable when generateEmbedding fails in similarity mode", async () => {
     vi.mocked(generateEmbedding).mockResolvedValue({
       error: "Embedding service unavailable"
     } as any)
 
-    const results = await retrieveContextEnhanced("query", {
-      mode: "similarity"
-    })
-
-    expect(results).toEqual([])
+    await expect(
+      retrieveContextEnhanced("query", {
+        mode: "similarity"
+      })
+    ).rejects.toThrow("Context retrieval is unavailable")
     expect(searchHybrid).not.toHaveBeenCalled()
   })
 
@@ -496,4 +496,24 @@ describe("retrieveContextEnhanced — feedback blending", () => {
     expect(results).toHaveLength(1)
     expect(results[0].score).toBeCloseTo(originalSimilarity, 5)
   })
+})
+
+it("preserves cancellation rather than using file fallback after an aborted embedding", async () => {
+  const controller = new AbortController()
+  vi.mocked(generateEmbedding).mockImplementationOnce(async () => {
+    controller.abort()
+    return { error: "cancelled" }
+  })
+  await expect(
+    retrieveContextEnhanced("query", {
+      fileId: "saved-file",
+      signal: controller.signal
+    })
+  ).rejects.toMatchObject({ name: "AbortError" })
+})
+it("does not hide unscoped failures behind an empty file scope", async () => {
+  vi.mocked(generateEmbedding).mockResolvedValueOnce({ error: "offline" })
+  await expect(
+    retrieveContextEnhanced("query", { fileId: [] })
+  ).rejects.toThrow("Context retrieval is unavailable")
 })

@@ -14,11 +14,8 @@ import {
 import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
-import {
-  discoverProviderModels,
-  type ModelCatalogVerdict
-} from "@/lib/providers/model-discovery"
+import { discoverProviderModels } from "@/lib/providers/model-discovery"
+import type { LLMProvider } from "@/lib/providers/types"
 import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import type { DefaultProviderPullRequest } from "@/types"
@@ -61,23 +58,18 @@ const commitDownloadedEmbeddingModel = async (
   throwIfAborted(signal)
 }
 
-/**
- * Checks if the embedding model is already downloaded
- */
+/** A catalog failure is not proof that an embedding model is missing. */
 export const checkEmbeddingModelExists = async (
   modelName: string = DEFAULT_EMBEDDING_MODEL,
   providerId?: string,
   signal?: AbortSignal
-): Promise<{ exists: boolean; debug?: object }> => {
+): Promise<{
+  exists: boolean
+  status: "available" | "missing" | "unavailable" | "unverified"
+  canDownload: boolean
+}> => {
   throwIfAborted(signal)
-  const normalizedModelName = normalizeEmbeddingModelName(modelName)
-  let providerDebug: object | null = null
-  let providerBaseUrl: string | undefined
-  let resolvedProviderId = providerId
-  let catalogVerdict: ModelCatalogVerdict | undefined
-  const startTime = Date.now()
   const CHECK_TIMEOUT_MS = 4000
-
   const withTimeout = async <T>(
     operation: (operationSignal: AbortSignal) => Promise<T>,
     label: string
@@ -122,295 +114,71 @@ export const checkEmbeddingModelExists = async (
     }
   }
 
-  logger.info("Checking embedding model", "checkEmbeddingModelExists", {
-    modelName: normalizedModelName,
-    providerId
+  const result = (
+    status: "available" | "missing" | "unavailable" | "unverified",
+    canDownload = false
+  ) => ({
+    exists: status === "available",
+    status,
+    canDownload
   })
-
-  const checkDefaultProviderTags = async (): Promise<{
-    exists: boolean
-    debug: object
-  } | null> => {
-    try {
-      const baseUrl = providerBaseUrl || (await getOllamaBaseUrl())
-      const res = await withTimeout(
-        (operationSignal) =>
-          fetch(`${baseUrl}/api/tags`, { signal: operationSignal }),
-        "Embedding model status check"
-      )
-
-      if (!res.ok) {
-        return {
-          exists: false,
-          debug: {
-            ...providerDebug,
-            fallback: { baseUrl, status: res.status, method: "fallback-failed" }
-          }
-        }
-      }
-
-      const data = await res.json()
-      const providerModels = Array.isArray(data.models) ? data.models : []
-
-      const normalizeModelName = (name: string): string =>
-        name.split(":")[0] || name
-      const normalizedSearchName = normalizeModelName(normalizedModelName)
-
-      const found = providerModels
-        .map((model: unknown) => {
-          if (typeof model === "string") return model
-          if (model && typeof model === "object") {
-            const maybeName = (model as { name?: string; model?: string }).name
-            const maybeModel = (model as { model?: string }).model
-            return maybeName || maybeModel || ""
-          }
-          return ""
-        })
-        .filter((name: string) => name.length > 0)
-        .some((name: string) => {
-          const normalizedCandidate = normalizeModelName(name)
-          return (
-            name === normalizedModelName ||
-            normalizedCandidate === normalizedSearchName ||
-            name.startsWith(`${normalizedModelName}:`) ||
-            name.startsWith(`${normalizedSearchName}:`)
-          )
-        })
-
-      const result = {
-        exists: found,
-        debug: {
-          ...providerDebug,
-          fallback: {
-            found,
-            normalizedModelName,
-            models: providerModels
-              .map((model: unknown) => {
-                if (typeof model === "string") return model
-                if (model && typeof model === "object") {
-                  return (
-                    (model as { name?: string; model?: string }).name ||
-                    (model as { model?: string }).model ||
-                    ""
-                  )
-                }
-                return ""
-              })
-              .filter((name: string) => name.length > 0),
-            method: "fallback"
-          }
-        }
-      }
-
-      logger.info(
-        "Embedding model fallback result",
-        "checkEmbeddingModelExists",
-        {
-          modelName: normalizedModelName,
-          providerId: resolvedProviderId || DEFAULT_PROVIDER_ID,
-          exists: result.exists,
-          durationMs: Date.now() - startTime,
-          method: "fallback"
-        }
-      )
-      return result
-    } catch (error) {
-      throwIfAborted(signal)
-      logger.error(
-        "Error checking embedding model (fallback)",
-        "checkEmbeddingModelExists",
-        { error }
-      )
-      return {
-        exists: false,
-        debug: { ...providerDebug, fallbackError: error }
-      }
-    }
-  }
-
-  /*
-   * The default provider is checked by asking `/api/tags` directly rather than
-   * through the discovery service, and deliberately so: it skips provider
-   * resolution, and the remembered-absence policy exists to stop repeated
-   * requests against remote endpoints that charge for them. This one is the
-   * user's own Ollama on loopback, and its catalog endpoint is not optional —
-   * a recorded absence for it would mean the server is not Ollama at all.
-   * Do not generalize this to a configured remote provider.
-   */
-  if (
-    (resolvedProviderId && resolvedProviderId === DEFAULT_PROVIDER_ID) ||
-    normalizedModelName === DEFAULT_EMBEDDING_MODEL
-  ) {
-    const fallbackResult = await checkDefaultProviderTags()
-    if (fallbackResult) {
-      return fallbackResult
-    }
-  }
-
-  // Try High-Level Provider Check
-  try {
-    const { ProviderFactory } = await import("@/lib/providers/factory")
-    throwIfAborted(signal)
-    const provider = providerId
-      ? await ProviderFactory.getProvider(providerId)
-      : await ProviderFactory.getProviderForModel(normalizedModelName)
-
-    if (provider) {
-      resolvedProviderId = provider.id
-      providerBaseUrl = resolveProviderBaseUrl(provider.config)
-      // Through the discovery service so a catalog-less provider is asked once
-      // rather than on every embedding check. An absent catalog yields no
-      // models — the same "cannot confirm it is installed" answer its 404
-      // produced before, minus the re-asking. A real failure is still raised,
-      // because reporting the model missing because the server broke would send
-      // the user to re-download something they already have.
-      const { models, catalog } = await withTimeout(async (operationSignal) => {
-        const discovery = await discoverProviderModels(
-          provider,
-          operationSignal
-        )
-        if (discovery.catalog === "failed") throw discovery.error
-        return discovery
-      }, "Provider model list")
-      catalogVerdict = catalog
-      const modelNames = models
-        .map((model: unknown) => {
-          if (typeof model === "string") return model
-          if (model && typeof model === "object") {
-            const maybeName = (model as { name?: string; model?: string }).name
-            const maybeModel = (model as { model?: string }).model
-            return maybeName || maybeModel || ""
-          }
-          return ""
-        })
-        .filter((name) => name.length > 0)
-      logger.debug(
-        `Checking '${normalizedModelName}' against provider models`,
-        "checkEmbeddingModelExists",
-        { modelNames }
-      )
-
-      // Normalize model names for comparison (remove tags)
-      const normalizeModelName = (name: string): string =>
-        name.split(":")[0] || name
-      const normalizedSearchName = normalizeModelName(normalizedModelName)
-
-      const found = modelNames.some((m: string) => {
-        const normalizedCandidate = normalizeModelName(m)
-        const isMatch =
-          m === normalizedModelName ||
-          normalizedCandidate === normalizedSearchName ||
-          m.startsWith(`${normalizedModelName}:`) ||
-          m.startsWith(`${normalizedSearchName}:`)
-        if (isMatch) {
-          logger.debug(
-            `Found match: '${m}' matches '${normalizedModelName}'`,
-            "checkEmbeddingModelExists"
-          )
-        }
-        return isMatch
+  const checkOllama = async () => {
+    const name = normalizeEmbeddingModelName(modelName)
+    const baseUrl = await getOllamaBaseUrl()
+    return withTimeout(async (operationSignal) => {
+      const response = await fetch(`${baseUrl}/api/tags`, {
+        signal: operationSignal
       })
-
-      if (found) {
-        logger.info(
-          "Embedding model found via provider",
-          "checkEmbeddingModelExists",
-          {
-            modelName: normalizedModelName,
-            providerId: provider.id,
-            durationMs: Date.now() - startTime,
-            method: "provider"
-          }
-        )
-        return {
-          exists: true,
-          debug: {
-            provider: provider.config.id || provider.id,
-            models: modelNames,
-            method: "provider"
-          }
-        }
-      }
-
-      providerDebug = {
-        provider: provider.config.id || provider.id,
-        models: modelNames,
-        method: "provider-failed-not-found"
-      }
-      logger.warn(
-        `Model '${normalizedModelName}' NOT found in provider models`,
-        "checkEmbeddingModelExists"
+      if (!response.ok) return result("unavailable")
+      const data = await response.json()
+      if (!Array.isArray(data.models)) return result("unavailable")
+      const tagged = (value: string) =>
+        value.includes(":") ? value : `${value}:latest`
+      const found = data.models.some(
+        (model: { name?: string; model?: string }) =>
+          tagged(model.name || model.model || "") === tagged(name)
       )
+      return result(found ? "available" : "missing", !found)
+    }, "Embedding model status check")
+  }
+  try {
+    // Explicit provider identity always wins over a familiar model name.
+    if (
+      providerId === DEFAULT_PROVIDER_ID ||
+      (!providerId &&
+        normalizeEmbeddingModelName(modelName) === DEFAULT_EMBEDDING_MODEL)
+    ) {
+      return await checkOllama()
     }
+    const { ProviderFactory } = await import("@/lib/providers/factory")
+    let provider: LLMProvider
+    try {
+      provider = providerId
+        ? await ProviderFactory.getProvider(providerId)
+        : await ProviderFactory.getProviderForModel(modelName)
+    } catch (error) {
+      if (providerId) throw error
+      return await checkOllama()
+    }
+    const discovery = await withTimeout(
+      (operationSignal) => discoverProviderModels(provider, operationSignal),
+      "Provider model list"
+    )
+    throwIfAborted(signal)
+    if (discovery.catalog === "failed") return result("unavailable")
+    if (discovery.catalog === "absent") return result("unverified")
+    if ((provider.id || provider.config.id) === DEFAULT_PROVIDER_ID)
+      return await checkOllama()
+    const found = discovery.models.some((model) => model.name === modelName)
+    return result(found ? "available" : "missing")
   } catch (error) {
     throwIfAborted(signal)
     logger.warn(
-      "Provider check failed, trying fallback",
+      "Embedding model status unavailable",
       "checkEmbeddingModelExists",
       { error }
     )
-    providerDebug = { error, method: "provider-error" }
-  }
-
-  // Fallback/Legacy: If provider check didn't find it, or failed, try direct default-provider check
-  try {
-    if (resolvedProviderId && resolvedProviderId !== DEFAULT_PROVIDER_ID) {
-      return {
-        exists: false,
-        debug: {
-          ...providerDebug,
-          fallback: {
-            method: "fallback-skipped",
-            providerId: resolvedProviderId
-          }
-        }
-      }
-    }
-
-    /*
-     * Discovery already reached this same server and got a settled answer, so
-     * the fallback would ask the identical endpoint a second time and learn
-     * nothing: it only runs for the default provider, whose catalog request is
-     * the `/api/tags` call it is about to repeat. It is worth running when
-     * discovery never produced a verdict — a provider that failed to resolve
-     * leaves `catalogVerdict` unset, and that is the case the fallback exists
-     * for.
-     */
-    if (catalogVerdict === "absent") {
-      return {
-        exists: false,
-        debug: {
-          ...providerDebug,
-          fallback: {
-            method: "fallback-skipped",
-            reason: "catalog-absent",
-            providerId: resolvedProviderId ?? DEFAULT_PROVIDER_ID
-          }
-        }
-      }
-    }
-
-    const fallbackResult = await checkDefaultProviderTags()
-    if (fallbackResult) {
-      return fallbackResult
-    }
-  } catch (error) {
-    throwIfAborted(signal)
-    logger.error(
-      "Error checking embedding model (fallback)",
-      "checkEmbeddingModelExists",
-      { error }
-    )
-    return {
-      exists: false,
-      debug: { ...providerDebug, fallbackError: error }
-    }
-  }
-
-  // All checks exhausted without a match.
-  return {
-    exists: false,
-    debug: { ...providerDebug, method: "not-found" }
+    return result("unavailable")
   }
 }
 
@@ -432,7 +200,7 @@ export const downloadEmbeddingModelSilently = async (
     // Check if model already exists
     const result = await checkEmbeddingModelExists(
       normalizedModelName,
-      undefined,
+      DEFAULT_PROVIDER_ID,
       signal
     )
     if (result.exists) {
@@ -444,6 +212,13 @@ export const downloadEmbeddingModelSilently = async (
       await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
       return { success: true }
     }
+
+    if (!result.canDownload)
+      return {
+        success: false,
+        error:
+          "Embedding model availability could not be confirmed. Check the provider connection."
+      }
 
     const baseUrl = await getOllamaBaseUrl()
     const requestBody: DefaultProviderPullRequest = {
@@ -554,6 +329,14 @@ export const prepareEmbeddingModel = async (
   if (existsResult.exists) {
     return { ready: true, prepared: false }
   }
+
+  if (!existsResult.canDownload)
+    return {
+      ready: false,
+      prepared: false,
+      error:
+        "Embedding model availability could not be confirmed. Check the provider connection."
+    }
 
   const downloadResult = await downloadEmbeddingModelSilently(modelName, signal)
   if (downloadResult.success) {

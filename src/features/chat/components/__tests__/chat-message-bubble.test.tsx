@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { ChatMessageBubble } from "@/features/chat/components/chat-message-bubble"
@@ -34,8 +34,26 @@ vi.mock("@/features/chat/components/chat-message-editor", () => ({
 }))
 
 vi.mock("@/features/chat/components/chat-message-footer", () => ({
-  ChatMessageFooter: ({ onFork }: { onFork?: () => void }) => (
+  ChatMessageFooter: ({
+    onFork,
+    canRetry,
+    onRegenerate
+  }: {
+    onFork?: () => void
+    canRetry?: boolean
+    onRegenerate?: () => void
+  }) => (
     <div>
+      {canRetry && (
+        <button type="button" onClick={onRegenerate}>
+          footer retry
+        </button>
+      )}
+      {onRegenerate && (
+        <button type="button" onClick={onRegenerate}>
+          switch model
+        </button>
+      )}
       {onFork && (
         <button type="button" onClick={onFork}>
           fork
@@ -103,4 +121,42 @@ describe("ChatMessageBubble", () => {
       screen.getByText("chat.errors.issue_draft_notice")
     ).toBeInTheDocument()
   })
+})
+
+it("blocks both footer retries during Retry-After and restores them when it expires", async () => {
+  vi.useFakeTimers()
+  try {
+    const retry = vi.fn()
+    const { unmount } = render(
+      <ChatMessageBubble
+        msg={{
+          role: "assistant",
+          content: "Rate limited",
+          done: true,
+          timestamp: Date.now(),
+          error: {
+            kind: "provider",
+            status: 429,
+            retryable: true,
+            recoveryAction: "wait-retry",
+            retryAfterMs: 1000
+          }
+        }}
+        onRegenerate={retry}
+      />
+    )
+    expect(screen.queryByRole("button", { name: "footer retry" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "switch model" })).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "chat.errors.retry_in" })
+    ).toBeDisabled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1001)
+    })
+    fireEvent.click(screen.getByRole("button", { name: "footer retry" }))
+    expect(retry).toHaveBeenCalledOnce()
+    unmount()
+  } finally {
+    vi.useRealTimers()
+  }
 })

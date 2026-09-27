@@ -423,7 +423,7 @@
     },
     "performance_notice": {
       "title": "性能提示",
-      "message": "此扩展是本地提供方（默认 Ollama）的用户界面。响应时间和模型输出质量完全取决于设备硬件（CPU、RAM、GPU）以及所使用的模型。扩展本身不进行任何处理。"
+      "message": "聊天回答由您选择的提供商生成。内置嵌入在此设备上运行。速度取决于模型及其运行硬件。"
     }
   },
   "chat": {
@@ -722,7 +722,7 @@
       "context_trimmed_title": "上下文已裁剪",
       "context_trimmed_description": "提取的标签页上下文超出了你的限制，已在发送前裁剪。",
       "context_retrieval_warning_title": "上下文检索失败",
-      "context_retrieval_warning_description": "无法从你的文件中检索上下文，将不使用上下文继续。",
+      "context_retrieval_warning_description": "无法搜索部分已保存的上下文。回答可能缺少相关信息。",
       "interrupted": "响应已中断"
     },
     "composer": {
@@ -809,6 +809,12 @@
       "max_file_size_description": "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。",
       "max_image_size_label": "最大图片大小 (MB)",
       "max_image_size_description": "为视觉模型附加到消息的每张图片的最大允许大小。"
+    },
+    "errors": {
+      "title": "文件上传失败",
+      "processing_failed": "无法处理此文件或为其建立索引。请检查嵌入设置和可用存储空间，然后重试。",
+      "unsupported_type": "不支持 {{name}} 的文件类型。请使用文本、PDF、DOCX、CSV/TSV 或 HTML。",
+      "too_large": "{{name}} 超过了 {{max}} MB 的文件大小上限。"
     }
   },
   "model": {
@@ -820,7 +826,11 @@
       "checking_model": "正在检查 RAG/搜索嵌入模型...",
       "error": "无法检查状态。点击重试。",
       "required_for_rag": "RAG 功能需要嵌入模型。",
-      "download_button": "下载模型"
+      "download_button": "下载模型",
+      "unavailable": "嵌入提供商不可用。请检查连接后重试。",
+      "unverified": "嵌入模型尚未验证：此提供商没有模型列表。",
+      "download_failed": "嵌入下载失败",
+      "download_failed_description": "请检查提供商连接和可用磁盘空间，然后重试。"
     },
     "menu": {
       "select_placeholder": "选择模型...",
@@ -881,6 +891,7 @@
     "embedding_config": {
       "title": "嵌入模型、分块、搜索与存储",
       "storage_stats_title": "存储统计",
+      "storage_stats_description": "当前向量存储使用统计",
       "total_vectors": "总向量数",
       "storage_used": "已用存储空间",
       "cache": "缓存",
@@ -1685,6 +1696,34 @@
         "description": "更换嵌入模型可能导致现有向量不兼容。重建索引以保持搜索结果准确，或直接切换不重建。",
         "switch_only": "直接切换不重建",
         "switch_and_rebuild": "切换并重建"
+      },
+      "bundled": {
+        "provider_hint": "选择 Ollama、LM Studio、llama.cpp 或其他本地或托管提供商的嵌入模型。支持的语言取决于所选模型。",
+        "mode_title": "嵌入模式",
+        "mode_bundled": "内置",
+        "mode_external": "提供商嵌入",
+        "mode_bundled_help": "MiniLM 在扩展中运行，无需服务器。",
+        "mode_external_help": "使用 Ollama、LM Studio、llama.cpp 或本地或托管提供商。",
+        "switch_builtin": "切换到内置模式",
+        "switch_server": "切换到提供商嵌入",
+        "mode_language_hint": "内置 MiniLM 在扩展中运行，最适合英文。其他语言可以尝试使用，也可以选择提供商的多语言模型。",
+        "settings_description": "选择如何处理文件和聊天记忆以用于搜索。",
+        "current_bundled": "当前使用：内置 MiniLM · 在此设备上运行",
+        "current_external": "当前模式：提供商嵌入",
+        "server_model": "提供商嵌入模型",
+        "switch_hint": "切换时会重建已保存的嵌入。重建完成前，当前设置继续生效。",
+        "title": "内置嵌入",
+        "active": "使用随附的 MiniLM 在本地生成嵌入，最适合英文，无需服务器或下载。如需多语言检索，请在下方选择外部提供商和模型，然后重建索引以切换。",
+        "offer": "内置嵌入现已可用。您可以迁移已保存的嵌入，也可以继续使用当前服务器和模型。",
+        "details": "迁移会在此设备上重建已保存的文件、网页和聊天嵌入，需要为源数据副本和新索引预留临时空间。重建成功前，当前索引保持有效。关闭此对话框或侧边栏后仍会继续运行，浏览器重启后也会继续。",
+        "progress": "正在重建嵌入：{{current}} / {{total}}",
+        "changed": "嵌入配置已更改，或暂存的向量不兼容。当前索引仍然有效。请重新开始迁移。",
+        "error": "迁移未能完成，当前嵌入仍然有效。请检查所选提供商、连接和可用存储空间，然后继续或取消。",
+        "resume": "继续迁移",
+        "migrate": "迁移到内置嵌入",
+        "keep": "保留当前设置",
+        "language_notice": "MiniLM 推荐用于英文文本。其他语言建议使用服务器上的嵌入模型，以获得更好的检索效果。您仍可尝试 MiniLM，并随时在设置中切换回去。",
+        "external": "使用所选外部模型重建"
       }
     },
     "prompts": {
@@ -2300,7 +2339,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "刷新模型",
+      "use_unverified": "试用此模型"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2331,7 +2372,8 @@
         "timeout": "提供商响应超时。请检查它是否运行以及端口是否正确。",
         "unavailable": "无法连接 Ollama。它可能已停止、使用其他端口或阻止扩展来源。",
         "server-error": "提供商返回服务器错误。请检查日志后重试。"
-      }
+      },
+      "unverified": "连接尚未验证。你可以尝试已配置的模型，或打开提供商设置以检查端点。"
     }
   }
 }

@@ -423,7 +423,7 @@
     },
     "performance_notice": {
       "title": "Avviso di Prestazioni",
-      "message": "Questa estensione è un'interfaccia utente per il tuo provider locale (Ollama per impostazione predefinita). Il tempo di risposta e la qualità dell'output dipendono interamente dall'hardware del tuo dispositivo (CPU, RAM, GPU) e dal modello specifico utilizzato. L'estensione non esegue alcuna elaborazione."
+      "message": "Le risposte della chat provengono dal fornitore scelto. Gli embedding integrati vengono generati su questo dispositivo. La velocità dipende dal modello e dall’hardware utilizzato."
     }
   },
   "chat": {
@@ -722,7 +722,7 @@
       "context_trimmed_title": "Contesto ridotto",
       "context_trimmed_description": "Il contesto estratto dalle schede superava il tuo limite ed è stato ridotto prima dell'invio.",
       "context_retrieval_warning_title": "Recupero del contesto non riuscito",
-      "context_retrieval_warning_description": "Non è stato possibile recuperare il contesto dai tuoi file. Si continua senza.",
+      "context_retrieval_warning_description": "Non è stato possibile cercare in parte del contesto salvato. Nella risposta potrebbero mancare informazioni rilevanti.",
       "interrupted": "Risposta interrotta"
     },
     "composer": {
@@ -809,6 +809,12 @@
       "max_file_size_description": "Dimensione massima consentita per i singoli file. I file più grandi potrebbero richiedere più tempo per l'elaborazione.",
       "max_image_size_label": "Dimensione massima immagine (MB)",
       "max_image_size_description": "Dimensione massima consentita per ogni immagine allegata a un messaggio per i modelli di visione."
+    },
+    "errors": {
+      "title": "Caricamento del file non riuscito",
+      "processing_failed": "Impossibile elaborare o indicizzare il file. Controlla le impostazioni degli embedding e lo spazio disponibile, poi riprova.",
+      "unsupported_type": "Il tipo di file di {{name}} non è supportato. Usa testo, PDF, DOCX, CSV/TSV o HTML.",
+      "too_large": "{{name}} supera la dimensione massima di {{max}} MB."
     }
   },
   "model": {
@@ -820,7 +826,11 @@
       "checking_model": "Verifica modello di embedding per RAG/ricerca in corso...",
       "error": "Impossibile verificare lo stato. Fai clic per riprovare.",
       "required_for_rag": "Il modello di embedding è richiesto per le funzionalità RAG.",
-      "download_button": "Scarica Modello"
+      "download_button": "Scarica Modello",
+      "unavailable": "Provider di embedding non disponibile. Controlla la connessione e riprova.",
+      "unverified": "Modello di embedding non verificato: questo provider non ha un elenco di modelli.",
+      "download_failed": "Download degli embedding non riuscito",
+      "download_failed_description": "Controlla la connessione al provider e lo spazio disponibile su disco, poi riprova."
     },
     "menu": {
       "select_placeholder": "Seleziona modello...",
@@ -881,6 +891,7 @@
     "embedding_config": {
       "title": "Modello di embedding, suddivisione, ricerca e archiviazione",
       "storage_stats_title": "Statistiche di Archiviazione",
+      "storage_stats_description": "Statistiche attuali sull’uso dello spazio dei vettori",
       "total_vectors": "Vettori Totali",
       "storage_used": "Spazio Utilizzato",
       "cache": "Cache",
@@ -1685,6 +1696,34 @@
         "description": "Cambiare il modello di embedding può rendere incompatibili i vettori esistenti. Ricostruisci l'indice per mantenere risultati accurati, oppure cambia senza ricostruire.",
         "switch_only": "Cambia senza ricostruire",
         "switch_and_rebuild": "Cambia e ricostruisci"
+      },
+      "bundled": {
+        "provider_hint": "Scegli un modello di embedding di Ollama, LM Studio, llama.cpp o di un altro fornitore locale o ospitato. Le lingue supportate dipendono dal modello scelto.",
+        "mode_title": "Modalità embedding",
+        "mode_bundled": "Integrata",
+        "mode_external": "Embedding del fornitore",
+        "mode_bundled_help": "MiniLM funziona nell’estensione. Non serve un server.",
+        "mode_external_help": "Usa Ollama, LM Studio, llama.cpp o un fornitore locale o ospitato.",
+        "switch_builtin": "Passa alla modalità integrata",
+        "switch_server": "Passa agli embedding del fornitore",
+        "mode_language_hint": "MiniLM integrato funziona nell’estensione ed è più adatto all’inglese. Per altre lingue puoi provarlo o scegliere un modello multilingue di un fornitore.",
+        "settings_description": "Scegli come preparare file e ricordi delle chat per la ricerca.",
+        "current_bundled": "In uso: MiniLM integrato · su questo dispositivo",
+        "current_external": "Modalità attiva: embedding del fornitore",
+        "server_model": "Modello di embedding del fornitore",
+        "switch_hint": "Il passaggio ricostruisce gli embedding salvati. La configurazione attuale resta attiva fino al completamento.",
+        "title": "Embedding integrati",
+        "active": "Gli embedding vengono generati localmente con MiniLM incluso, più adatto all’inglese. Non servono server o download. Per la ricerca multilingue, seleziona un fornitore e un modello esterni qui sotto, poi ricostruisci l’indice per passare al nuovo modello.",
+        "offer": "Sono disponibili gli embedding integrati. Migra gli embedding salvati oppure mantieni il server e il modello attuali.",
+        "details": "La migrazione ricostruisce gli embedding salvati di file, pagine e chat su questo dispositivo. Richiede spazio temporaneo per una copia delle fonti e il nuovo indice. L’indice attuale resta attivo fino al completamento. Continua anche se chiudi questa finestra o il pannello laterale, e riprende dopo il riavvio del browser.",
+        "progress": "Ricostruzione di {{current}} embedding su {{total}}",
+        "changed": "La configurazione degli embedding è cambiata o i vettori preparati sono incompatibili. L’indice attuale resta attivo. Riavvia la migrazione.",
+        "error": "Impossibile completare la migrazione. Gli embedding attuali restano attivi. Controlla il fornitore, la connessione e lo spazio disponibile, poi riprendi o annulla.",
+        "resume": "Riprendi migrazione",
+        "migrate": "Migra agli embedding integrati",
+        "keep": "Mantieni configurazione attuale",
+        "language_notice": "MiniLM è consigliato per testi in inglese. Per altre lingue, usa un modello di embedding su server per migliorare la ricerca. Puoi comunque provare MiniLM e tornare indietro nelle impostazioni.",
+        "external": "Ricostruisci con il modello esterno selezionato"
       }
     },
     "prompts": {
@@ -2300,7 +2339,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Aggiorna modelli",
+      "use_unverified": "Prova questo modello"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2331,7 +2372,8 @@
         "timeout": "Il provider impiega troppo tempo. Controlla che sia attivo e che la porta sia corretta.",
         "unavailable": "Ollama non è raggiungibile. Potrebbe essere fermo, su un’altra porta o bloccare le origini dell’estensione.",
         "server-error": "Il provider ha restituito un errore server. Controlla i log e riprova."
-      }
+      },
+      "unverified": "Connessione non verificata. Puoi provare un modello configurato o aprire le impostazioni del provider per controllare l’endpoint."
     }
   }
 }

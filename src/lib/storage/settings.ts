@@ -191,6 +191,10 @@ export const SETTINGS = {
         )
     }
   ),
+  BUNDLED_EMBEDDING_NOTICE_DISMISSED: defineSetting<boolean>(
+    STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED,
+    { defaultValue: false, parser: z.boolean() }
+  ),
   EMBEDDING_SELECTED_MODEL: defineSetting<string>(
     STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
     { defaultValue: DEFAULT_EMBEDDING_MODEL }

@@ -423,7 +423,7 @@
     },
     "performance_notice": {
       "title": "Performance Notice",
-      "message": "This extension is a user interface for your local provider (Ollama by default). Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
+      "message": "Chat answers come from your chosen provider. Built-in embeddings run on this device. Speed depends on the model and the hardware running it."
     }
   },
   "chat": {
@@ -755,7 +755,7 @@
       "context_trimmed_title": "Context trimmed",
       "context_trimmed_description": "Extracted tab context exceeded your limit and was trimmed before sending.",
       "context_retrieval_warning_title": "Context retrieval failed",
-      "context_retrieval_warning_description": "Couldn't retrieve context from your files. Continuing without it.",
+      "context_retrieval_warning_description": "Some saved context could not be searched. The answer may be missing relevant information.",
       "interrupted": "Response interrupted"
     },
     "composer": {
@@ -809,6 +809,12 @@
       "max_file_size_description": "Maximum allowed size for individual files. Larger files may take longer to process.",
       "max_image_size_label": "Maximum Image Size (MB)",
       "max_image_size_description": "Maximum allowed size for each image attached to a message for vision models."
+    },
+    "errors": {
+      "title": "File upload failed",
+      "processing_failed": "Could not process or index this file. Check embedding settings and available storage, then retry.",
+      "unsupported_type": "The file type of {{name}} is not supported. Use text, PDF, DOCX, CSV/TSV, or HTML.",
+      "too_large": "{{name}} exceeds the maximum file size of {{max}} MB."
     }
   },
   "model": {
@@ -820,7 +826,11 @@
       "checking_model": "Checking RAG/search embedding model...",
       "error": "Unable to check status. Click to retry.",
       "required_for_rag": "The embedding model is required for RAG features.",
-      "download_button": "Download Model"
+      "download_button": "Download Model",
+      "unavailable": "Embedding provider unavailable. Check the connection and try again.",
+      "unverified": "Embedding model not verified: this provider has no model list.",
+      "download_failed": "Embedding download failed",
+      "download_failed_description": "Check the provider connection and available disk space, then retry."
     },
     "menu": {
       "select_placeholder": "Select model...",
@@ -928,6 +938,7 @@
     "embedding_config": {
       "title": "Embedding model, chunking, search and storage",
       "storage_stats_title": "Storage Statistics",
+      "storage_stats_description": "Current vector storage usage statistics",
       "total_vectors": "Total Vectors",
       "storage_used": "Storage Used",
       "cache": "Cache",
@@ -1895,6 +1906,34 @@
         "description": "Changing embedding models can make existing vectors incompatible. Rebuild the index to keep search results accurate, or switch without rebuilding.",
         "switch_only": "Switch Without Rebuild",
         "switch_and_rebuild": "Switch & Rebuild"
+      },
+      "bundled": {
+        "provider_hint": "Choose an embedding model from Ollama, LM Studio, llama.cpp, or another local or hosted provider. Language support depends on the model you choose.",
+        "mode_title": "Embedding mode",
+        "mode_bundled": "Built-in",
+        "mode_external": "Provider embeddings",
+        "mode_bundled_help": "MiniLM runs in the extension. No server needed.",
+        "mode_external_help": "Use Ollama, LM Studio, llama.cpp, or a local or hosted provider.",
+        "switch_builtin": "Switch to built-in mode",
+        "switch_server": "Switch to provider embeddings",
+        "mode_language_hint": "Built-in MiniLM runs in the extension and works best with English. For other languages, you can try it or choose a multilingual model from a provider.",
+        "settings_description": "Choose how files and chat memories are prepared for search.",
+        "current_bundled": "Currently using: built-in MiniLM · on this device",
+        "current_external": "Active mode: provider embeddings",
+        "server_model": "Provider embedding model",
+        "switch_hint": "Switching rebuilds your saved embeddings. Your current setup stays active until the rebuild finishes.",
+        "title": "Built-in embeddings",
+        "active": "Embeddings run locally with the included MiniLM model, best suited to English. No server or download is needed. For multilingual retrieval, select an external provider and model below, then rebuild the index to switch.",
+        "offer": "Built-in embeddings are now available. Migrate your saved embeddings, or keep your current server and model.",
+        "details": "Migration rebuilds saved file, page and chat embeddings on this device. It needs temporary storage for a source snapshot and replacement index. Your current index stays active until the rebuild succeeds. It keeps running if you close this dialog or the side panel, and continues after a browser restart.",
+        "progress": "Rebuilding {{current}} of {{total}} embeddings",
+        "changed": "The embedding configuration changed or staged vectors are incompatible. Your current index remains active. Restart the migration.",
+        "error": "Migration could not finish. Your current embeddings remain active. Check the selected provider, connection and available storage, then resume or cancel.",
+        "resume": "Resume migration",
+        "migrate": "Migrate to built-in embeddings",
+        "keep": "Keep current setup",
+        "language_notice": "MiniLM is recommended for English text. For other languages, use a server-backed embedding model for better retrieval. You can still try MiniLM and switch back in Settings.",
+        "external": "Rebuild with selected external model"
       }
     },
     "prompts": {
@@ -2300,7 +2339,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Refresh models",
+      "use_unverified": "Try this model"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2331,7 +2372,8 @@
         "timeout": "Provider took too long to respond. Check that it is running and the port is correct.",
         "unavailable": "Could not reach Ollama. It may be stopped, on another port, or blocking extension origins.",
         "server-error": "Provider returned a server error. Check its logs, then retry."
-      }
+      },
+      "unverified": "Connection not verified. You can try a configured model, or open provider setup to check the endpoint."
     }
   }
 }

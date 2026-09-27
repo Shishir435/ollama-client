@@ -227,6 +227,7 @@ export const STORAGE_KEYS = {
     APPROVAL_GRANTS: "tools-approval-grants"
   },
   EMBEDDINGS: {
+    BUNDLED_NOTICE_DISMISSED: "embeddings-bundled-notice-dismissed",
     SELECTED_MODEL: "embeddings-selected-model",
     AUTO_DOWNLOADED: "embeddings-auto-downloaded",
     CONFIG: "embeddings-config",

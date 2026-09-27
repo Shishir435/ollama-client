@@ -1,7 +1,7 @@
 import { Loader2, Sparkles } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard } from "@/components/settings"
+import { SettingsSection } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/class-names"
 import { getDisplayErrorMessage } from "@/lib/error-display"
@@ -44,9 +44,9 @@ export const EmbeddingTestGeneration = ({
   }
 
   return (
-    <SettingsCard
+    <SettingsSection
       icon={Sparkles}
-      focusId="embeddings-test-generation"
+      data-settings-focus-id="embeddings-test-generation"
       title={t("settings.embeddings.test_generation.title")}
       description={t("settings.embeddings.test_generation.description")}
       headerActions={
@@ -76,6 +76,6 @@ export const EmbeddingTestGeneration = ({
           {result}
         </div>
       )}
-    </SettingsCard>
+    </SettingsSection>
   )
 }

@@ -177,6 +177,44 @@ describe("retrieveContext", () => {
   })
 })
 
+it("uses bounded saved-file fallback when the real query-embedding pipeline fails", async () => {
+  const actual =
+    await vi.importActual<typeof import("../rag-pipeline")>("../rag-pipeline")
+  const { retrieveContextEnhanced } = await import("../rag-pipeline")
+  const { generateEmbedding } = await import(
+    "@/application/embeddings/embedding-service"
+  )
+  vi.mocked(retrieveContextEnhanced).mockImplementationOnce(
+    actual.retrieveContextEnhanced
+  )
+  vi.mocked(generateEmbedding).mockResolvedValueOnce({
+    error: "provider offline"
+  })
+  const doc = {
+    content: "Saved file content remains available",
+    embedding: [1, 0],
+    metadata: {
+      source: "report.txt",
+      type: "file" as const,
+      fileId: "saved-file",
+      timestamp: 1
+    }
+  }
+  vi.mocked(vectorStore.getAllDocuments).mockResolvedValueOnce({
+    documents: [doc],
+    tokenCount: 8
+  })
+  const result = await retrieveContext("summarize", "saved-file", {
+    maxTokens: 200
+  })
+  expect(vectorStore.getAllDocuments).toHaveBeenLastCalledWith({
+    fileId: "saved-file",
+    type: "file",
+    maxTokens: 200
+  })
+  expect(result.documents).toEqual([doc])
+})
+
 describe("retrieveContextFromSources", () => {
   it("returns empty context when sources array is empty", async () => {
     const result = await retrieveContextFromSources("query", [])

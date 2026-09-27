@@ -1,3 +1,8 @@
+const nativeState = vi.hoisted(() => ({ mode: "external" }))
+vi.mock("../use-native-embeddings", () => ({
+  useNativeEmbeddings: () => ({ state: nativeState })
+}))
+
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -20,9 +25,7 @@ const renderCheck = () =>
     useEmbeddingModelCheck({
       selectedModel: "all-minilm:latest",
       setSelectedModel: vi.fn(),
-      applyModelChange: vi.fn(),
-      embeddingModels: [],
-      resolveProviderForModel: () => "ollama"
+      providerId: "ollama"
     })
   )
 
@@ -34,11 +37,18 @@ const setHidden = (hidden: boolean) => {
 }
 
 beforeEach(() => {
+  nativeState.mode = "external"
   mockedCall.mockReset()
   setHidden(false)
 })
 
 describe("useEmbeddingModelCheck polling", () => {
+  it("does not poll a provider when bundled embeddings are selected", async () => {
+    nativeState.mode = "bundled"
+    const result = renderCheck()
+    await waitFor(() => expect(result.result.current).toBe(true))
+    expect(mockedCall).not.toHaveBeenCalled()
+  })
   it("stops polling once the model is present", async () => {
     vi.useFakeTimers()
     mockedCall.mockResolvedValue({ exists: true } as never)
@@ -108,4 +118,34 @@ describe("useEmbeddingModelCheck polling", () => {
     expect(mockedCall.mock.calls.length).toBe(callsAtUnmount)
     vi.useRealTimers()
   })
+})
+
+it("checks the explicitly selected provider even when model names collide", async () => {
+  mockedCall.mockResolvedValue({ exists: true } as never)
+  const setSelectedModel = vi.fn()
+  const { rerender } = renderHook(
+    ({ providerId }) =>
+      useEmbeddingModelCheck({
+        selectedModel: "all-minilm:latest",
+        providerId,
+        setSelectedModel
+      }),
+    { initialProps: { providerId: "custom:first" } }
+  )
+  await waitFor(() =>
+    expect(mockedCall).toHaveBeenCalledWith(
+      expect.anything(),
+      { model: "all-minilm:latest", providerId: "custom:first" },
+      expect.anything()
+    )
+  )
+  rerender({ providerId: "custom:second" })
+  await waitFor(() =>
+    expect(mockedCall).toHaveBeenCalledWith(
+      expect.anything(),
+      { model: "all-minilm:latest", providerId: "custom:second" },
+      expect.anything()
+    )
+  )
+  expect(setSelectedModel).not.toHaveBeenCalled()
 })

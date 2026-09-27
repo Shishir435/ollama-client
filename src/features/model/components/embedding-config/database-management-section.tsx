@@ -1,9 +1,9 @@
 import { Trash2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard, SettingsRow } from "@/components/settings"
+import { SettingsRow, SettingsSection } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 
-export interface DatabaseManagementCardProps {
+export interface DatabaseManagementSectionProps {
   onRemoveDuplicates: () => void
   onClearChat: () => void
   onClearAll: () => void
@@ -12,22 +12,22 @@ export interface DatabaseManagementCardProps {
   hasChatVectors: boolean
 }
 
-export const DatabaseManagementCard = ({
+export const DatabaseManagementSection = ({
   onRemoveDuplicates,
   onClearChat,
   onClearAll,
   isCleaning,
   hasVectors,
   hasChatVectors
-}: DatabaseManagementCardProps) => {
+}: DatabaseManagementSectionProps) => {
   const { t } = useTranslation()
 
   return (
-    <SettingsCard
+    <SettingsSection
       icon={Trash2}
       title={t("model.embedding_config.database_management_title")}
       description={t("model.embedding_config.database_management_description")}
-      contentClassName="space-y-3">
+      className="space-y-3">
       <SettingsRow
         data-settings-focus="true"
         data-settings-focus-id="remove-duplicate-vectors"
@@ -72,6 +72,6 @@ export const DatabaseManagementCard = ({
           </Button>
         }
       />
-    </SettingsCard>
+    </SettingsSection>
   )
 }

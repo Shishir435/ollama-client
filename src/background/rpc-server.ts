@@ -18,6 +18,14 @@ import {
 } from "@/background/handlers/handle-embedding-download"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
+import { generateBundledEmbedding } from "@/lib/embeddings/native/client"
+import { BUNDLED_MODEL } from "@/lib/embeddings/native/constants"
+import {
+  nativeEmbeddingStatus,
+  requestNativeEmbeddingCommand
+} from "@/lib/embeddings/native/migration"
+import { readNativeIndexState } from "@/lib/embeddings/native/state"
+import { generateInNativeWorker } from "@/lib/embeddings/native/worker-client"
 import { isAppError } from "@/lib/error-utils"
 import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
@@ -35,6 +43,12 @@ type RpcHandlers = {
 }
 
 const handlers = {
+  [RpcMethod.EmbeddingsNativeGenerate]: async (request, signal) => ({
+    embedding: await generateInNativeWorker(request.text, signal)
+  }),
+  [RpcMethod.EmbeddingsNativeStatus]: async () => nativeEmbeddingStatus(),
+  [RpcMethod.EmbeddingsNativeCommand]: async (request, signal) =>
+    requestNativeEmbeddingCommand(request.action, signal),
   [RpcMethod.ProvidersList]: async () => ProviderRpcService.list(),
   [RpcMethod.ProvidersTestConnection]: async (request, signal) =>
     ProviderRpcService.testConnection(request, signal),
@@ -63,15 +77,23 @@ const handlers = {
   [RpcMethod.ModelsGetLibraryVariants]: async (request, signal) =>
     ModelRpcService.getLibraryVariants(request, signal),
   [RpcMethod.EmbeddingsCheckModel]: async (request, signal) => {
-    const { exists, debug } = await checkEmbeddingModelExists(
-      request.model,
-      request.providerId,
-      signal
+    if (
+      request.model === BUNDLED_MODEL ||
+      (!request.model && (await readNativeIndexState()).mode === "bundled")
     )
-    return { exists, ...(debug && { debug: debug as Record<string, unknown> }) }
+      return { exists: true, status: "available" as const, canDownload: false }
+    return checkEmbeddingModelExists(request.model, request.providerId, signal)
   },
-  [RpcMethod.EmbeddingsPrepareModel]: async (request, signal) =>
-    prepareEmbeddingModel(request, signal),
+  [RpcMethod.EmbeddingsPrepareModel]: async (request, signal) => {
+    if (
+      request.model === BUNDLED_MODEL ||
+      (!request.model && (await readNativeIndexState()).mode === "bundled")
+    ) {
+      await generateBundledEmbedding("", signal)
+      return { ready: true, prepared: true }
+    }
+    return prepareEmbeddingModel(request, signal)
+  },
   [RpcMethod.EmbeddingsGenerate]: async (request, signal) => {
     const result = await EmbeddingService.generate(
       request.text,

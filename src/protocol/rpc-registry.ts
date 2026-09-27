@@ -19,6 +19,12 @@ import {
   EmbeddingsCheckModelResultSchema,
   EmbeddingsGenerateRequestSchema,
   EmbeddingsGenerateResultSchema,
+  EmbeddingsNativeCommandRequestSchema,
+  EmbeddingsNativeCommandResultSchema,
+  EmbeddingsNativeGenerateRequestSchema,
+  EmbeddingsNativeGenerateResultSchema,
+  EmbeddingsNativeStatusRequestSchema,
+  EmbeddingsNativeStatusResultSchema,
   EmbeddingsPrepareModelRequestSchema,
   EmbeddingsPrepareModelResultSchema,
   ModelsGetDetailsRequestSchema,
@@ -70,6 +76,28 @@ const extensionPagesOnly = ["extension-page"] as const
  * may perform cold-start or pull work, while ordinary queries stay bounded.
  */
 export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
+  [RpcMethod.EmbeddingsNativeGenerate]: {
+    request: EmbeddingsNativeGenerateRequestSchema,
+    response: EmbeddingsNativeGenerateResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 65000,
+    operation: "query"
+  },
+  [RpcMethod.EmbeddingsNativeStatus]: {
+    request: EmbeddingsNativeStatusRequestSchema,
+    response: EmbeddingsNativeStatusResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 65000,
+    operation: "query"
+  },
+  [RpcMethod.EmbeddingsNativeCommand]: {
+    request: EmbeddingsNativeCommandRequestSchema,
+    response: EmbeddingsNativeCommandResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 125000,
+    operation: "command"
+  },
+
   [RpcMethod.ProvidersList]: {
     request: ProvidersListRequestSchema,
     response: ProvidersListResultSchema,

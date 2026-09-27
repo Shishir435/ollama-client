@@ -6,9 +6,9 @@ import { useEmbeddingStorageMaintenance } from "@/features/model/hooks/use-embed
 import type { EmbeddingConfig } from "@/lib/constants"
 
 import { EmbeddingIndexControls } from "../embedding-index-controls"
-import { DatabaseManagementCard } from "./database-management-card"
+import { DatabaseManagementSection } from "./database-management-section"
 import { EmbeddingLimitsConfig } from "./embedding-limits-config"
-import { StorageStatsCard } from "./storage-stats-card"
+import { StorageStatsSection } from "./storage-stats-section"
 
 export interface EmbeddingStorageSettingsProps {
   config: EmbeddingConfig
@@ -58,13 +58,13 @@ export const EmbeddingStorageSettings = ({
   return (
     <>
       {maintenance.storageStats && (
-        <StorageStatsCard
+        <StorageStatsSection
           storageStats={maintenance.storageStats}
           cacheStats={maintenance.cacheStats}
         />
       )}
       <TwoColumnGrid>
-        <DatabaseManagementCard
+        <DatabaseManagementSection
           onRemoveDuplicates={() => maintenance.openConfirm("removeDuplicates")}
           onClearChat={() => maintenance.openConfirm("clearChat")}
           onClearAll={() => maintenance.openConfirm("clearAll")}

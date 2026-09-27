@@ -231,12 +231,13 @@ const budgets: Budget[] = [
      * suffix-aware favicon walk, the empty Ollama rail entry and the
      * announcement's onboarding recheck.
      */
-    max: isFirefox ? 11_800_000 : 9_836_000
+    // Includes pinned quantized MiniLM, CPU WASM, tokenizer and license notices.
+    max: isFirefox ? 50_300_000 : 48_500_000
   },
   {
     metric: "zip",
     field: "bytes",
-    max: isFirefox ? 4_350_000 : 3_300_000
+    max: isFirefox ? 24_500_000 : 23_600_000
   },
   {
     metric: "background",
@@ -465,8 +466,12 @@ const budgets: Budget[] = [
      * 297,303. The refusal that names a blocking run's chat, Chrome 297,634.
      * Review fixes, Firefox 214,221: the suffix-aware favicon walk and the
      * cloud setting's failure fallback.
+     * Bundled migration catch-up and cancellation: Chrome 300,704 and
+     * Firefox 217,252. Model assets and content-script budgets are unchanged.
+     * The background-owned rebuild loop, its heartbeat and startup resume:
+     * Chrome 301,027 and Firefox 217,607.
      */
-    max: isFirefox ? 214_400 : 297_800
+    max: isFirefox ? 218_000 : 301_500
   }
 ]
 

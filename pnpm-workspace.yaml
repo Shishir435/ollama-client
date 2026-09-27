@@ -29,4 +29,5 @@ allowBuilds:
   esbuild: true
   geckodriver: true
   msw: false
+  protobufjs: false
   spawn-sync: true

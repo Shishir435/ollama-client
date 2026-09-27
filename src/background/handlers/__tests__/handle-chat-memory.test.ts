@@ -91,6 +91,39 @@ describe("handleChatWithModel - Contextual Memory", () => {
     mockHasRetrievalTool.mockReturnValue(false)
   })
 
+  it("warns and continues chat when memory retrieval is unavailable", async () => {
+    const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) =>
+      key === STORAGE_KEYS.MEMORY.ENABLED ? true : undefined
+    )
+    const { retrieveContextEnhanced } = await import(
+      "@/application/context/rag/rag-pipeline"
+    )
+    vi.mocked(retrieveContextEnhanced).mockRejectedValueOnce(
+      new Error("Query embedding failed")
+    )
+    await handleChatWithModel(
+      {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [{ role: "user", content: "Hello" }]
+        }
+      },
+      mockPort,
+      mockIsPortClosed
+    )
+    expect(mockPort.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "context_warning",
+        payload: expect.objectContaining({
+          descriptionKey: "chat.errors.context_retrieval_warning_description"
+        })
+      })
+    )
+    expect(mockStreamChat).toHaveBeenCalled()
+  })
+
   it("should inject context when memory is enabled", async () => {
     const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
     const { retrieveContextEnhanced, formatEnhancedResults } = await import(

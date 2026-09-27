@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useEmbeddingMigration } from "@/features/chat/hooks/use-embedding-migration"
 import { useInterruptedTurnRecovery } from "@/features/chat/hooks/use-interrupted-turn-recovery"
+import { NativeEmbeddingAnnouncementDialog } from "@/features/model/components/native-embedding-announcement-dialog"
 import { useLanguageSync } from "@/hooks/use-language-sync"
 import { useProviderStorageMigration } from "@/hooks/use-provider-storage-migration"
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
@@ -51,6 +52,7 @@ const IndexSidePanel = () => {
         <TooltipProvider>
           <SidepanelWorkspace />
           <FirstRunPermissionsDialog />
+          <NativeEmbeddingAnnouncementDialog />
           {AgentAnnouncementDialog && (
             <Suspense fallback={null}>
               <AgentAnnouncementDialog />

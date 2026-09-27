@@ -141,7 +141,8 @@ export default defineConfig({
     browser_specific_settings: {
       gecko: {
         id: "shishirchaurasiya435@gmail.com",
-        strict_min_version: "113.0",
+        // Packaged inference uses ES module workers (Firefox 114+).
+        strict_min_version: "114.0",
         data_collection_permissions: {
           required: ["none"]
         }

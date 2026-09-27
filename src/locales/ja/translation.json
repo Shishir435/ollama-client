@@ -423,7 +423,7 @@
     },
     "performance_notice": {
       "title": "パフォーマンスに関する注意",
-      "message": "この拡張機能はローカルプロバイダー（既定はOllama）のユーザーインターフェースです。応答時間とモデルの出力品質は、お使いのデバイスのハードウェア（CPU、RAM、GPU）と使用するモデルに完全に依存します。拡張機能自体による処理は行われません。"
+      "message": "チャットの回答は選択したプロバイダーが生成します。内蔵の埋め込みはこの端末上で計算します。速度はモデルと実行するハードウェアによって異なります。"
     }
   },
   "chat": {
@@ -722,7 +722,7 @@
       "context_trimmed_title": "コンテキストを短縮しました",
       "context_trimmed_description": "抽出したタブのコンテキストが上限を超えたため、送信前に短縮しました。",
       "context_retrieval_warning_title": "コンテキストの取得に失敗しました",
-      "context_retrieval_warning_description": "ファイルからコンテキストを取得できませんでした。コンテキストなしで続行します。",
+      "context_retrieval_warning_description": "保存済みのコンテキストの一部を検索できませんでした。回答に関連情報が含まれない可能性があります。",
       "interrupted": "応答が中断されました"
     },
     "composer": {
@@ -809,6 +809,12 @@
       "max_file_size_description": "個々のファイルの最大許容サイズ。大きなファイルは処理に時間がかかる場合があります。",
       "max_image_size_label": "最大画像サイズ (MB)",
       "max_image_size_description": "ビジョンモデル向けにメッセージへ添付する各画像の最大サイズ。"
+    },
+    "errors": {
+      "title": "ファイルのアップロードに失敗しました",
+      "processing_failed": "ファイルの処理またはインデックス作成に失敗しました。埋め込み設定と空き容量を確認して再試行してください。",
+      "unsupported_type": "{{name}} のファイル形式は未対応です。テキスト、PDF、DOCX、CSV/TSV、HTML を使用してください。",
+      "too_large": "{{name}} はファイルサイズの上限 {{max}} MB を超えています。"
     }
   },
   "model": {
@@ -820,7 +826,11 @@
       "checking_model": "RAG/検索用エンベディングモデルを確認中...",
       "error": "ステータスを確認できませんでした。再試行するにはクリックしてください。",
       "required_for_rag": "エンベディングモデルはRAG機能に必要です。",
-      "download_button": "モデルをダウンロード"
+      "download_button": "モデルをダウンロード",
+      "unavailable": "埋め込みプロバイダーを利用できません。接続を確認して再試行してください。",
+      "unverified": "埋め込みモデルは未確認です。このプロバイダーにはモデル一覧がありません。",
+      "download_failed": "埋め込みのダウンロードに失敗しました",
+      "download_failed_description": "プロバイダーへの接続とディスクの空き容量を確認して再試行してください。"
     },
     "menu": {
       "select_placeholder": "モデルを選択...",
@@ -881,6 +891,7 @@
     "embedding_config": {
       "title": "埋め込みモデル、チャンク分割、検索、ストレージ",
       "storage_stats_title": "ストレージ統計",
+      "storage_stats_description": "ベクトルストレージの現在の使用状況",
       "total_vectors": "総ベクトル数",
       "storage_used": "使用ストレージ",
       "cache": "キャッシュ",
@@ -1685,6 +1696,34 @@
         "description": "埋め込みモデルを変更すると既存のベクトルが互換性を失う可能性があります。検索結果の精度を保つために再構築するか、再構築せずに切り替えます。",
         "switch_only": "再構築せずに切り替え",
         "switch_and_rebuild": "切り替えて再構築"
+      },
+      "bundled": {
+        "provider_hint": "Ollama、LM Studio、llama.cpp、または他のローカル・ホスト型プロバイダーから埋め込みモデルを選びます。対応言語は選んだモデルによって異なります。",
+        "mode_title": "埋め込みモード",
+        "mode_bundled": "内蔵",
+        "mode_external": "プロバイダーの埋め込み",
+        "mode_bundled_help": "MiniLMが拡張機能内で動作します。サーバーは不要です。",
+        "mode_external_help": "Ollama、LM Studio、llama.cpp、またはローカル・ホスト型プロバイダーを使用します。",
+        "switch_builtin": "内蔵モードに切り替える",
+        "switch_server": "プロバイダーの埋め込みに切り替える",
+        "mode_language_hint": "内蔵MiniLMは拡張機能内で動作し、英語に最適です。他の言語では、試してみるかプロバイダーの多言語モデルを選べます。",
+        "settings_description": "ファイルやチャットの記憶を検索用に処理する方法を選びます。",
+        "current_bundled": "現在使用中：内蔵MiniLM・この端末上",
+        "current_external": "有効なモード：プロバイダーの埋め込み",
+        "server_model": "プロバイダーの埋め込みモデル",
+        "switch_hint": "切り替えると保存済みの埋め込みを再構築します。完了するまで現在の設定が有効です。",
+        "title": "内蔵の埋め込み",
+        "active": "同梱のMiniLMで埋め込みをローカル生成します。英語に最適で、サーバーやダウンロードは不要です。多言語検索には、以下で外部プロバイダーとモデルを選び、インデックスを再構築して切り替えてください。",
+        "offer": "内蔵の埋め込みが利用可能になりました。保存済みの埋め込みを移行するか、現在のサーバーとモデルを引き続き使用できます。",
+        "details": "保存済みのファイル、ページ、チャットの埋め込みをこの端末で再構築します。元データのコピーと新しいインデックス用に一時的な空き容量が必要です。成功するまでは現在のインデックスを使用します。このダイアログやサイドパネルを閉じても処理は続き、ブラウザーを再起動しても再開されます。",
+        "progress": "{{total}}件中{{current}}件の埋め込みを再構築中",
+        "changed": "埋め込み設定が変更されたか、準備済みベクトルに互換性がありません。現在のインデックスは有効です。移行を最初からやり直してください。",
+        "error": "移行を完了できませんでした。現在の埋め込みは有効です。選択したプロバイダー、接続、空き容量を確認し、再開またはキャンセルしてください。",
+        "resume": "移行を再開",
+        "migrate": "内蔵の埋め込みに移行",
+        "keep": "現在の設定を維持",
+        "language_notice": "MiniLMは英語のテキストに推奨されます。他の言語では、検索精度を高めるためにサーバー上の埋め込みモデルを使用してください。MiniLMを試してから、設定で元に戻すこともできます。",
+        "external": "選択した外部モデルで再構築"
       }
     },
     "prompts": {
@@ -2300,7 +2339,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "モデル一覧を更新",
+      "use_unverified": "このモデルを試す"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2331,7 +2372,8 @@
         "timeout": "プロバイダーの応答がタイムアウトしました。動作状況とポートを確認してください。",
         "unavailable": "Ollama に接続できません。停止中、別ポート、または拡張機能オリジンの拒否が考えられます。",
         "server-error": "プロバイダーでサーバーエラーが発生しました。ログを確認して再試行してください。"
-      }
+      },
+      "unverified": "接続は未確認です。設定済みのモデルを試すか、プロバイダー設定を開いて接続先を確認してください。"
     }
   }
 }
