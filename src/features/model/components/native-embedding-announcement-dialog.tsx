@@ -65,7 +65,7 @@ export const NativeEmbeddingAnnouncementDialog = () => {
       onOpenChange={(next) => {
         if (!next && !native.busy) {
           setClosed(true)
-          void native.command("keep")
+          void native.command("dismiss")
         }
       }}>
       <DialogContent

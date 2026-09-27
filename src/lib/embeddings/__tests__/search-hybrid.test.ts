@@ -7,6 +7,8 @@ import { searchHybrid, vectorDb } from "../vector-store"
 
 vi.mock("@/lib/embeddings/keyword-index", () => ({
   keywordIndexManager: {
+    clear: vi.fn(),
+    buildFromDocuments: vi.fn().mockResolvedValue(undefined),
     search: vi.fn(),
     addDocument: vi.fn(),
     removeDocument: vi.fn()
@@ -15,6 +17,7 @@ vi.mock("@/lib/embeddings/keyword-index", () => ({
 
 vi.mock("@/lib/embeddings/hnsw-index", () => ({
   hnswIndexManager: {
+    clearIndex: vi.fn().mockResolvedValue(undefined),
     addVector: vi.fn(),
     search: vi.fn(),
     shouldUseHNSW: vi.fn().mockResolvedValue(false), // brute-force so DB controls results
@@ -43,7 +46,7 @@ vi.mock("../cache", async (importOriginal) => {
   const mod = await importOriginal<typeof import("../cache")>()
   return {
     ...mod,
-    searchCache: { get: () => null, set: vi.fn() },
+    searchCache: { get: () => null, set: vi.fn(), clear: vi.fn() },
     cleanSearchCache: vi.fn().mockResolvedValue(undefined),
     getCacheConfig: vi.fn().mockResolvedValue({ ttl: 0 })
   }
@@ -539,4 +542,54 @@ describe("searchHybrid — keyword candidate rehydration", () => {
     expect(bulkGet).toHaveBeenCalledWith([3])
     bulkGet.mockRestore()
   })
+})
+
+it("overlapping searches wait until the generation rebuild completes", async () => {
+  await vectorDb.vectors.add(docA as never)
+  await vectorDb.embeddingState.put({
+    id: "active",
+    mode: "bundled",
+    migration: "idle",
+    current: 0,
+    total: 0,
+    lastId: 0,
+    generation: 1
+  })
+  let finish!: () => void
+  vi.mocked(keywordIndexManager.buildFromDocuments).mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve
+      })
+  )
+  const first = searchHybrid("typescript", [1, 0])
+  await vi.waitFor(() =>
+    expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(1)
+  )
+  const second = searchHybrid("typescript", [1, 0])
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  expect(keywordIndexManager.search).not.toHaveBeenCalled()
+  finish()
+  await Promise.all([first, second])
+  expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(1)
+  expect(keywordIndexManager.search).toHaveBeenCalledTimes(2)
+})
+it("a failed generation rebuild is retried instead of marked current", async () => {
+  await vectorDb.embeddingState.put({
+    id: "active",
+    mode: "bundled",
+    migration: "idle",
+    current: 0,
+    total: 0,
+    lastId: 0,
+    generation: 2
+  })
+  vi.mocked(keywordIndexManager.buildFromDocuments).mockRejectedValueOnce(
+    new Error("index failed")
+  )
+  await expect(searchHybrid("typescript", [1, 0])).rejects.toThrow(
+    "index failed"
+  )
+  await searchHybrid("typescript", [1, 0])
+  expect(keywordIndexManager.buildFromDocuments).toHaveBeenCalledTimes(2)
 })

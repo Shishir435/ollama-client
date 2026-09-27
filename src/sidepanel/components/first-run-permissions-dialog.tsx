@@ -206,6 +206,8 @@ export const FirstRunPermissionsDialog = () => {
       setConnectionVerified(verdict.reachable)
       await persistStage("model-choice")
     } catch (error) {
+      setModels([])
+      setModelId("")
       const safeError = error as {
         messageKey?: string
         userMessage?: string

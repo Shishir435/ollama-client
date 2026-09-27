@@ -27,7 +27,9 @@ export const useNativeEmbeddings = () => {
     }
   }, [])
   const command = useCallback(
-    async (action: "start" | "step" | "cancel" | "keep" | "external") => {
+    async (
+      action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external"
+    ) => {
       if (controller.current) return
       const run = new AbortController()
       controller.current = run
@@ -41,7 +43,7 @@ export const useNativeEmbeddings = () => {
         )
         while (
           !run.signal.aborted &&
-          (action === "start" || action === "step") &&
+          (action === "start" || action === "step" || action === "external") &&
           status.migration === "building"
         ) {
           status = await extensionRpcClient.call(

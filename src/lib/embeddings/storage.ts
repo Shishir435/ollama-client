@@ -208,8 +208,10 @@ export const storeVector = async (
     async () => {
       const state = await readNativeIndexState()
       if (
-        state.mode === "bundled" &&
-        resolvedMetadata.embeddingModel !== BUNDLED_MODEL
+        (state.mode === "bundled" &&
+          resolvedMetadata.embeddingModel !== BUNDLED_MODEL) ||
+        (state.mode === "external" &&
+          resolvedMetadata.embeddingModel === BUNDLED_MODEL)
       )
         throw new Error("Embedding selection changed. Please retry indexing.")
       return vectorDb.vectors.add({

@@ -1707,7 +1707,7 @@
         "resume": "Migration fortsetzen",
         "migrate": "Zu integrierten Embeddings migrieren",
         "keep": "Aktuelle Einrichtung behalten",
-        "external": "Gespeicherten externen Anbieter verwenden"
+        "external": "Mit gespeichertem externen Anbieter neu erstellen"
       }
     },
     "prompts": {

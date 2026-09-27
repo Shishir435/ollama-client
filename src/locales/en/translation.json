@@ -1917,7 +1917,7 @@
         "resume": "Resume migration",
         "migrate": "Migrate to built-in embeddings",
         "keep": "Keep current setup",
-        "external": "Use saved external provider"
+        "external": "Rebuild with saved external provider"
       }
     },
     "prompts": {

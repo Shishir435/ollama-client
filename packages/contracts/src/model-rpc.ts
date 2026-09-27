@@ -278,7 +278,14 @@ export const EmbeddingsNativeCommandRequestSchema = z.discriminatedUnion(
   [
     z
       .object({
-        action: z.enum(["start", "step", "cancel", "keep", "external"])
+        action: z.enum([
+          "start",
+          "step",
+          "cancel",
+          "keep",
+          "dismiss",
+          "external"
+        ])
       })
       .strict()
   ]

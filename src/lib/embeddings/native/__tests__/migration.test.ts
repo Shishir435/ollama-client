@@ -9,7 +9,14 @@ import { BUNDLED_MODEL } from "../constants"
 import { nativeEmbeddingCommand, nativeEmbeddingStatus } from "../migration"
 import { initializeBundledInstall, readNativeIndexState } from "../state"
 
-const { embed } = vi.hoisted(() => ({ embed: vi.fn() }))
+const { embed, externalEmbed } = vi.hoisted(() => ({
+  embed: vi.fn(),
+  externalEmbed: vi.fn()
+}))
+vi.mock("../../embedding-strategy", () => ({
+  resolveEmbeddingPlan: vi.fn(async () => ({ fingerprint: "external-plan" })),
+  generateEmbeddingWithStrategy: externalEmbed
+}))
 vi.mock("../client", () => ({ generateBundledEmbedding: embed }))
 const source = (id: number, type: "file" | "chat" | "webpage" = "file") => ({
   id,
@@ -37,6 +44,11 @@ beforeEach(async () => {
   await vectorDb.vectors.clear()
   await vectorDb.embeddingState.clear()
   await vectorDb.embeddingRebuild.clear()
+  externalEmbed.mockReset().mockResolvedValue({
+    embedding: [0, 1],
+    model: "external-model",
+    providerId: "ollama"
+  })
   embed.mockReset().mockImplementation(async () => vector())
 })
 
@@ -128,6 +140,7 @@ describe("bundled embedding migration", () => {
     await nativeEmbeddingCommand("step")
     expect((await readNativeIndexState()).mode).toBe("bundled")
     await nativeEmbeddingCommand("external")
+    await nativeEmbeddingCommand("step")
     await vectorDb.vectors.add(source(1))
     await nativeEmbeddingCommand("start")
     await nativeEmbeddingCommand("keep")
@@ -151,4 +164,72 @@ describe("bundled embedding migration", () => {
     expect((await nativeEmbeddingStatus()).mode).toBe("external")
     expect(await vectorDb.vectors.get(1)).toEqual(source(1))
   })
+})
+
+it("preserves bundled retrieval until external rebuild completes, including newly added content", async () => {
+  await vectorDb.vectors.add(source(1))
+  await nativeEmbeddingCommand("start")
+  await nativeEmbeddingCommand("step")
+  await vectorDb.vectors.add({
+    ...source(2),
+    embedding: vector(),
+    metadata: {
+      ...source(2).metadata,
+      embeddingModel: BUNDLED_MODEL,
+      embeddingProviderId: "bundled"
+    }
+  })
+  const originals = await vectorDb.vectors.toArray()
+  await nativeEmbeddingCommand("external")
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  externalEmbed.mockRejectedValueOnce(new Error("provider offline"))
+  await expect(nativeEmbeddingCommand("step")).rejects.toThrow(
+    "provider offline"
+  )
+  expect(await vectorDb.vectors.toArray()).toEqual(originals)
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).mode).toBe("external")
+  const rows = await vectorDb.vectors.toArray()
+  expect(rows).toHaveLength(2)
+  expect(
+    rows.every(
+      (row) =>
+        row.metadata.embeddingModel === "external-model" &&
+        row.embedding.length === 2
+    )
+  ).toBe(true)
+})
+it("passive dismissal preserves committed migration batches", async () => {
+  await vectorDb.vectors.bulkAdd(
+    Array.from({ length: 10 }, (_, i) => source(i + 1))
+  )
+  await nativeEmbeddingCommand("start")
+  await nativeEmbeddingCommand("step")
+  const staged = await vectorDb.embeddingRebuild.toArray()
+  await nativeEmbeddingCommand("dismiss")
+  expect((await nativeEmbeddingStatus()).dismissed).toBe(true)
+  expect((await nativeEmbeddingStatus()).current).toBe(8)
+  expect(await vectorDb.embeddingRebuild.toArray()).toEqual(staged)
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+})
+it("returns progress after the wall-clock batch budget instead of starting another slow row", async () => {
+  await vectorDb.vectors.bulkAdd([source(1), source(2)])
+  await nativeEmbeddingCommand("start")
+  const now = Date.now()
+  const clock = vi.spyOn(Date, "now").mockReturnValue(now)
+  embed.mockImplementationOnce(async () => {
+    clock.mockReturnValue(now + 31000)
+    return vector()
+  })
+  try {
+    await nativeEmbeddingCommand("step")
+    expect((await nativeEmbeddingStatus()).current).toBe(1)
+    expect((await nativeEmbeddingStatus()).mode).toBe("external")
+  } finally {
+    clock.mockRestore()
+  }
+  await nativeEmbeddingCommand("step")
+  expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
 })

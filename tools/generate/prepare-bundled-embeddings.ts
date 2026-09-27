@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
+import { gunzipSync } from "node:zlib"
 
 /** Only build time downloads; a release always contains verified model bytes. */
 const revision = "751bff37182d3f1213fa05d7196b954e230abad9"
@@ -29,13 +30,20 @@ export async function prepareBundledEmbeddings() {
     url: `https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/${revision}/${file}`,
     relativeDest: `assets/embeddings/model/${file}`
   }))
-  assets.push({
-    file: "licenses/onnxruntime-ThirdPartyNotices.txt",
-    expected:
-      "143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3",
-    url: "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.30.0/ThirdPartyNotices.txt",
-    relativeDest: "assets/embeddings/licenses/onnxruntime-ThirdPartyNotices.txt"
-  })
+  const notice = gunzipSync(
+    await readFile(resolve("tools/assets/onnxruntime-ThirdPartyNotices.txt.gz"))
+  )
+  if (
+    createHash("sha256").update(notice).digest("hex") !==
+    "143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3"
+  )
+    throw new Error("Bundled ONNX notice checksum mismatch")
+  const noticePath = resolve(
+    directory,
+    "licenses/onnxruntime-ThirdPartyNotices.txt"
+  )
+  await mkdir(resolve(noticePath, ".."), { recursive: true })
+  await writeFile(noticePath, notice)
   for (const { file, expected, url } of assets) {
     const destination = resolve(directory, file)
     let bytes = await readFile(destination).catch(() => undefined)
@@ -52,8 +60,15 @@ export async function prepareBundledEmbeddings() {
       await writeFile(destination, bytes)
     }
   }
-  return assets.map(({ file, relativeDest }) => ({
-    absoluteSrc: resolve(directory, file),
-    relativeDest
-  }))
+  return [
+    {
+      absoluteSrc: noticePath,
+      relativeDest:
+        "assets/embeddings/licenses/onnxruntime-ThirdPartyNotices.txt"
+    },
+    ...assets.map(({ file, relativeDest }) => ({
+      absoluteSrc: resolve(directory, file),
+      relativeDest
+    }))
+  ]
 }

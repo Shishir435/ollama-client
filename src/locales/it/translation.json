@@ -1707,7 +1707,7 @@
         "resume": "Riprendi migrazione",
         "migrate": "Migra agli embedding integrati",
         "keep": "Mantieni configurazione attuale",
-        "external": "Usa il fornitore esterno salvato"
+        "external": "Ricrea con il provider esterno salvato"
       }
     },
     "prompts": {

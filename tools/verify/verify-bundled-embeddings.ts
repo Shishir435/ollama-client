@@ -100,6 +100,7 @@ const main = async () => {
     assert.equal(long.ok, true)
     assert.equal(long.embedding.length, 384)
     await call(RpcMethod.EmbeddingsNativeCommand, { action: "external" })
+    await call(RpcMethod.EmbeddingsNativeCommand, { action: "step" })
     await page.evaluate(async () => {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
         const request = indexedDB.open("VectorDatabase")
@@ -255,7 +256,10 @@ const main = async () => {
       })
       .click()
     await page
-      .getByRole("button", { name: "Use saved external provider", exact: true })
+      .getByRole("button", {
+        name: "Rebuild with saved external provider",
+        exact: true
+      })
       .waitFor()
     assert.equal((await call(RpcMethod.EmbeddingsNativeStatus)).mode, "bundled")
     const migrated = (await readVectors()) as {
@@ -271,7 +275,20 @@ const main = async () => {
       )
     )
     // Also retain the interrupted-batch check independently of the complete UI migration.
-    await call(RpcMethod.EmbeddingsNativeCommand, { action: "external" })
+    await page.evaluate(async () => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("VectorDatabase")
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(request.error)
+      })
+      const tx = db.transaction("embeddingState", "readwrite")
+      tx.objectStore("embeddingState").delete("active")
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+      })
+      db.close()
+    })
     await call(RpcMethod.EmbeddingsNativeCommand, { action: "start" })
     status = await call(RpcMethod.EmbeddingsNativeCommand, { action: "step" })
     assert.equal(status.mode, "external")

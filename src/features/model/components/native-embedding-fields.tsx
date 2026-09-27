@@ -22,7 +22,7 @@ export const NativeEmbeddingFields = ({
             : "settings.embeddings.bundled.offer"
         )}
       </p>
-      {state.mode !== "bundled" && (
+      {(state.mode !== "bundled" || rebuilding) && (
         <p className="text-xs text-muted-foreground">
           {t("settings.embeddings.bundled.details")}
         </p>
@@ -76,8 +76,12 @@ export const NativeEmbeddingFields = ({
             size="sm"
             variant="outline"
             disabled={busy}
-            onClick={() => void command("external")}>
-            {t("settings.embeddings.bundled.external")}
+            onClick={() => void command(rebuilding ? "step" : "external")}>
+            {t(
+              rebuilding
+                ? "settings.embeddings.bundled.resume"
+                : "settings.embeddings.bundled.external"
+            )}
           </Button>
         )}
       </div>

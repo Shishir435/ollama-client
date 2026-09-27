@@ -75,9 +75,18 @@ export const useEmbeddingSettingsState = () => {
     [setSelectedModel, updateConfig]
   )
 
+  const normalizeSelectedModel = useCallback(
+    (model: string) =>
+      applyModelChange(
+        model,
+        config.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
+      ),
+    [applyModelChange, config.sharedEmbeddingProviderId]
+  )
+
   const modelExists = useEmbeddingModelCheck({
     selectedModel,
-    setSelectedModel,
+    setSelectedModel: normalizeSelectedModel,
     providerId: config.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
   })
 

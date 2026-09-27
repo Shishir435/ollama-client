@@ -389,13 +389,14 @@ const usesBundledModel = async (requestedModel?: string): Promise<boolean> =>
   (!requestedModel && (await readNativeIndexState()).mode === "bundled")
 
 const buildAttempts = async (
-  requestedModel?: string
+  requestedModel?: string,
+  externalOnly = false
 ): Promise<{
   attempts: EmbedAttempt[]
   sharedAttempt?: EmbedAttempt
 }> => {
   const config = await getEmbeddingConfig()
-  if (await usesBundledModel(requestedModel)) {
+  if (!externalOnly && (await usesBundledModel(requestedModel))) {
     return {
       attempts: [
         {
@@ -514,10 +515,14 @@ const buildAttempts = async (
  * configurations, which is the same work `buildAttempts` did per call before.
  */
 export const resolveEmbeddingPlan = async (
-  requestedModel?: string
+  requestedModel?: string,
+  externalOnly = false
 ): Promise<EmbeddingPlan> => {
   const config = await getEmbeddingConfig()
-  const { attempts, sharedAttempt } = await buildAttempts(requestedModel)
+  const { attempts, sharedAttempt } = await buildAttempts(
+    requestedModel,
+    externalOnly
+  )
   const primaryAttempt = attempts.find(
     (attempt) => attempt.route === "bundled" || attempt.provider?.embed
   )

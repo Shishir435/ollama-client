@@ -9,7 +9,9 @@ export const NativeIndexStateSchema = z
     current: z.number().int().nonnegative(),
     total: z.number().int().nonnegative(),
     lastId: z.number().int().nonnegative(),
-    generation: z.number().int().nonnegative()
+    generation: z.number().int().nonnegative(),
+    target: z.enum(["external", "bundled"]).optional(),
+    externalPlan: z.string().optional()
   })
   .strict()
 export type NativeIndexState = z.infer<typeof NativeIndexStateSchema>
@@ -17,6 +19,8 @@ export interface NativeRebuildRow {
   id: number
   sourceFingerprint: string
   embedding?: number[]
+  model?: string
+  providerId?: string
 }
 export const initialNativeIndexState: NativeIndexState = {
   id: "active",

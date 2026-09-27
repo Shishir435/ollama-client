@@ -83,7 +83,7 @@ describe("embedding upgrade announcement", () => {
     fixture.settings.set(SETTINGS.AGENT_ENABLED.key, true)
     await renderSettled()
     fireEvent.click(await screen.findByRole("button", { name: "Close" }))
-    expect(fixture.command).toHaveBeenCalledWith("keep")
+    expect(fixture.command).toHaveBeenCalledWith("dismiss")
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
 

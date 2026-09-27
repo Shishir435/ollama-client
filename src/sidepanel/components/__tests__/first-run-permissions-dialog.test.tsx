@@ -376,3 +376,27 @@ it("hides MiniLM and other embedding models from the onboarding chat picker", as
     screen.getByRole("button", { name: "onboarding.model.use_unverified" })
   ).toBeDisabled()
 })
+
+it.each([
+  RpcMethod.ProvidersTestConnection,
+  RpcMethod.ProvidersListModels
+])("invalidates stale choices when refresh fails at %s", async (failedMethod) => {
+  resumeModels()
+  render(<FirstRunPermissionsDialog />)
+  await screen.findByRole("option", { name: /qwen3/ })
+  const original = rpc.call.getMockImplementation()
+  if (!original) throw new Error("Missing RPC fixture")
+  rpc.call.mockImplementation(async (method, ...args) => {
+    if (method === failedMethod) throw new Error("offline")
+    return original(method, ...args)
+  })
+  fireEvent.click(
+    screen.getByRole("button", { name: "onboarding.model.refresh" })
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole("option", { name: /qwen3/ })).toBeNull()
+  )
+  expect(
+    screen.queryByRole("button", { name: "onboarding.model.use" })
+  ).toBeNull()
+})

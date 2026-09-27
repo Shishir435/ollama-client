@@ -8,6 +8,7 @@ vi.mock("@plasmohq/storage/hook", () => ({
 }))
 
 vi.mock("@/application/ingestion/ingestion-client", () => ({
+  IngestionFailureError: class IngestionFailureError extends Error {},
   IngestionClient: {
     submitFile: vi.fn()
   }
@@ -26,7 +27,10 @@ vi.mock("@/lib/logger", () => ({
 }))
 
 import { useStorage } from "@plasmohq/storage/hook"
-import { IngestionClient } from "@/application/ingestion/ingestion-client"
+import {
+  IngestionClient,
+  IngestionFailureError
+} from "@/application/ingestion/ingestion-client"
 import { isFileTypeSupported } from "@/lib/file-processors"
 
 const fileUploadConfig = {
@@ -170,5 +174,23 @@ describe("useFileUpload", () => {
     expect(
       result.current.processingStates.map((state) => state.status)
     ).toEqual(["success", "success"])
+  })
+
+  it("preserves a known ingestion failure with actionable embedding details", async () => {
+    vi.mocked(IngestionClient.submitFile).mockRejectedValueOnce(
+      new IngestionFailureError(
+        "Embedding provider is offline. Check its connection."
+      )
+    )
+    const onError = vi.fn()
+    const { result } = renderHook(() => useFileUpload({ onError }))
+    await act(async () => {
+      await result.current.processFiles([createFile()])
+    })
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Embedding provider is offline. Check its connection."
+      })
+    )
   })
 })

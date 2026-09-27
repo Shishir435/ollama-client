@@ -1,6 +1,9 @@
 import { useCallback, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { IngestionClient } from "@/application/ingestion/ingestion-client"
+import {
+  IngestionClient,
+  IngestionFailureError
+} from "@/application/ingestion/ingestion-client"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_FILE_UPLOAD_CONFIG } from "@/lib/constants"
 import type {
@@ -61,7 +64,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
             name: error.fileName,
             max: error.maxMb
           })
-        : t("file_upload.errors.processing_failed"),
+        : error instanceof IngestionFailureError
+          ? error.message
+          : t("file_upload.errors.processing_failed"),
     [t]
   )
   const [config] = useSetting(SETTINGS.FILE_UPLOAD_CONFIG)

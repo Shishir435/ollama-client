@@ -213,6 +213,13 @@ export const downloadEmbeddingModelSilently = async (
       return { success: true }
     }
 
+    if (result.status !== "missing")
+      return {
+        success: false,
+        error:
+          "Embedding model availability could not be confirmed. Check the provider connection."
+      }
+
     const baseUrl = await getOllamaBaseUrl()
     const requestBody: DefaultProviderPullRequest = {
       name: normalizedModelName,

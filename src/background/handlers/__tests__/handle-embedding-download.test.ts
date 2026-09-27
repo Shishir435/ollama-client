@@ -219,6 +219,17 @@ describe("Handle Embedding Download", () => {
   })
 
   describe("downloadEmbeddingModelSilently", () => {
+    it("does not pull when model availability is unconfirmed", async () => {
+      vi.mocked(fetch).mockRejectedValue(new Error("offline"))
+      const result = await downloadEmbeddingModelSilently("nomic-embed-text")
+      expect(result.success).toBe(false)
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.some(([url]) => String(url).endsWith("/api/pull"))
+      ).toBe(false)
+    })
+
     it("should skip download if model exists", async () => {
       // Mock checkEmbeddingModelExists behavior by mocking fetch response
       vi.mocked(fetch).mockResolvedValue(

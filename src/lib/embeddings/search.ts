@@ -21,14 +21,32 @@ import type { SearchResult, VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
 
 let nativeGeneration = 0
-const refreshIndexGeneration = async () => {
-  const { generation } = await readNativeIndexState()
-  if (nativeGeneration === generation) return
-  nativeGeneration = generation
-  searchCache.clear()
-  keywordIndexManager.clear()
-  await hnswIndexManager.clearIndex()
-  await keywordIndexManager.buildFromDocuments(await vectorDb.vectors.toArray())
+let generationRefresh: Promise<void> | undefined
+const refreshIndexGeneration = async (): Promise<void> => {
+  for (;;) {
+    if (generationRefresh) {
+      await generationRefresh
+      continue
+    }
+    const { generation } = await readNativeIndexState()
+    if (generationRefresh) continue
+    if (nativeGeneration === generation) return
+    const work = (async () => {
+      searchCache.clear()
+      keywordIndexManager.clear()
+      await hnswIndexManager.clearIndex()
+      await keywordIndexManager.buildFromDocuments(
+        await vectorDb.vectors.toArray()
+      )
+      nativeGeneration = generation
+    })()
+    generationRefresh = work
+    try {
+      await work
+    } finally {
+      if (generationRefresh === work) generationRefresh = undefined
+    }
+  }
 }
 
 const HNSW_REBUILD_COOLDOWN_MS = 30000

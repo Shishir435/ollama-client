@@ -2,6 +2,10 @@ import Dexie from "dexie"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { vectorDb } from "../db"
+import {
+  generateEmbeddingWithStrategy,
+  resolveEmbeddingPlan
+} from "../embedding-strategy"
 import { normalizeVector } from "../math"
 import type { VectorDocument } from "../types"
 import { generateBundledEmbedding } from "./client"
@@ -33,7 +37,7 @@ export const nativeEmbeddingStatus = async () => {
 /** Serialize commands from multiple open settings pages; batches survive worker restarts. */
 let commands: Promise<unknown> = Promise.resolve()
 export const nativeEmbeddingCommand = (
-  action: "start" | "step" | "cancel" | "keep" | "external",
+  action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external",
   signal?: AbortSignal
 ) => {
   const work = commands
@@ -43,16 +47,68 @@ export const nativeEmbeddingCommand = (
   return work
 }
 
+const embedMigrationRow = async (
+  text: string,
+  plan: Awaited<ReturnType<typeof resolveEmbeddingPlan>> | undefined,
+  signal?: AbortSignal
+) => {
+  const controller = new AbortController()
+  const abort = () => controller.abort(signal?.reason)
+  signal?.addEventListener("abort", abort, { once: true })
+  if (signal?.aborted) abort()
+  const timer = setTimeout(
+    () =>
+      controller.abort(new DOMException("Embedding timed out", "TimeoutError")),
+    60000
+  )
+  try {
+    return plan
+      ? await generateEmbeddingWithStrategy(text, undefined, {
+          plan,
+          signal: controller.signal
+        })
+      : {
+          embedding: await generateBundledEmbedding(text, controller.signal),
+          model: BUNDLED_MODEL,
+          providerId: BUNDLED_PROVIDER
+        }
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener("abort", abort)
+  }
+}
+
+const externalMigrationPlan = async (
+  state: Awaited<ReturnType<typeof readNativeIndexState>>
+) => {
+  if (state.target !== "external") return undefined
+  const plan = await resolveEmbeddingPlan(undefined, true)
+  if (plan.fingerprint !== state.externalPlan)
+    throw new Error(
+      "External embedding configuration changed; restart migration"
+    )
+  return plan
+}
+
 const runCommand = async (
-  action: "start" | "step" | "cancel" | "keep" | "external",
+  action: "start" | "step" | "cancel" | "keep" | "dismiss" | "external",
   signal?: AbortSignal
 ) => {
   signal?.throwIfAborted()
   const state = await readNativeIndexState()
+  if (action === "dismiss") {
+    await writeSetting(SETTINGS.BUNDLED_EMBEDDING_NOTICE_DISMISSED, true)
+    return nativeEmbeddingStatus()
+  }
   if (action === "keep" || action === "external")
     await writeSetting(SETTINGS.BUNDLED_EMBEDDING_NOTICE_DISMISSED, true)
   if (action !== "step") {
-    const documents = action === "start" ? await vectorDb.vectors.toArray() : []
+    const starting = action === "start" || action === "external"
+    const externalPlan =
+      action === "external"
+        ? await resolveEmbeddingPlan(undefined, true)
+        : undefined
+    const documents = starting ? await vectorDb.vectors.toArray() : []
     const snapshot = await Promise.all(
       documents.map(async (source) => {
         if (source.id === undefined) throw new Error("Stored vector has no id")
@@ -74,14 +130,12 @@ const runCommand = async (
           total: 0,
           lastId: 0
         }
-        if (action === "start") {
+        if (starting) {
           await vectorDb.embeddingRebuild.bulkPut(snapshot)
           next.migration = "building"
           next.total = documents.length
-        }
-        if (action === "external") {
-          next.mode = "external"
-          next.generation += 1
+          next.target = action === "external" ? "external" : "bundled"
+          next.externalPlan = externalPlan?.fingerprint
         }
         await vectorDb.embeddingState.put(next)
       }
@@ -89,11 +143,13 @@ const runCommand = async (
     return nativeEmbeddingStatus()
   }
   if (state.migration !== "building") return nativeEmbeddingStatus()
+  const plan = await externalMigrationPlan(state)
   const rows = await vectorDb.embeddingRebuild
     .where("id")
     .above(state.lastId)
     .limit(8)
     .toArray()
+  const deadline = Date.now() + 30000
   for (const row of rows) {
     signal?.throwIfAborted()
     const source = await vectorDb.vectors.get(row.id)
@@ -116,7 +172,11 @@ const runCommand = async (
       )
       return nativeEmbeddingStatus()
     }
-    const embedding = await generateBundledEmbedding(source.content, signal)
+    const { embedding, model, providerId } = await embedMigrationRow(
+      source.content,
+      plan,
+      signal
+    )
     signal?.throwIfAborted()
     await vectorDb.transaction(
       "rw",
@@ -124,15 +184,22 @@ const runCommand = async (
       vectorDb.embeddingState,
       async () => {
         signal?.throwIfAborted()
-        await vectorDb.embeddingRebuild.put({ ...row, embedding })
+        await vectorDb.embeddingRebuild.put({
+          ...row,
+          embedding,
+          model,
+          providerId
+        })
         state.current += 1
         state.lastId = row.id
         await vectorDb.embeddingState.put(state)
       }
     )
+    if (Date.now() >= deadline) break
   }
   if (state.current === state.total) {
-    if (state.total === 0) await generateBundledEmbedding("", signal)
+    if (state.total === 0 && !plan) await generateBundledEmbedding("", signal)
+    await externalMigrationPlan(state)
     await vectorDb.transaction(
       "rw",
       vectorDb.vectors,
@@ -174,7 +241,9 @@ const runCommand = async (
           if (!source) throw new Error("Migration source is missing")
           if (
             !row.embedding ||
-            row.embedding.length !== 384 ||
+            (state.target === "external"
+              ? row.embedding.length === 0 || !row.model || !row.providerId
+              : row.embedding.length !== 384) ||
             !row.embedding.every(Number.isFinite)
           )
             throw new Error("Incomplete embedding migration")
@@ -186,9 +255,9 @@ const runCommand = async (
             norm,
             metadata: {
               ...source.metadata,
-              embeddingModel: BUNDLED_MODEL,
-              embeddingProviderId: BUNDLED_PROVIDER,
-              embeddingDim: 384
+              embeddingModel: row.model || BUNDLED_MODEL,
+              embeddingProviderId: row.providerId || BUNDLED_PROVIDER,
+              embeddingDim: row.embedding.length
             }
           }
         })
@@ -196,7 +265,7 @@ const runCommand = async (
         signal?.throwIfAborted()
         await vectorDb.embeddingState.put({
           ...state,
-          mode: "bundled",
+          mode: state.target || "bundled",
           migration: "idle",
           generation: state.generation + 1
         })

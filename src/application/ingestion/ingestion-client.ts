@@ -5,6 +5,9 @@ import { ingestionPayloadDb } from "@/lib/ingestion/ingestion-payload-db"
 import { getActiveKnowledgeSetId } from "@/lib/knowledge/knowledge-sets"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
+/** Background ingestion failure retained for actionable UI feedback. */
+export class IngestionFailureError extends Error {}
+
 const createFileId = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? `file-${crypto.randomUUID()}`
@@ -60,7 +63,7 @@ export const IngestionClient = {
     })
     const terminal = await waitForTerminalJob(submitted, options.onStatus)
     if (terminal.status !== "completed") {
-      throw new Error(
+      throw new IngestionFailureError(
         terminal.failure ||
           (terminal.status === "cancelled"
             ? "File ingestion was cancelled"

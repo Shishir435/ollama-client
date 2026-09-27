@@ -94,7 +94,7 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     request: EmbeddingsNativeCommandRequestSchema,
     response: EmbeddingsNativeCommandResultSchema,
     allowedSources: extensionPagesOnly,
-    timeoutMs: 65000,
+    timeoutMs: 125000,
     operation: "command"
   },
 

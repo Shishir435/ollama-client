@@ -1707,7 +1707,7 @@
         "resume": "Reprendre la migration",
         "migrate": "Migrer vers les embeddings intégrés",
         "keep": "Conserver la configuration actuelle",
-        "external": "Utiliser le fournisseur externe enregistré"
+        "external": "Reconstruire avec le fournisseur externe enregistré"
       }
     },
     "prompts": {
