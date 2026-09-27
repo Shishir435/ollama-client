@@ -1,0 +1,87 @@
+---
+slug: "compare/browser-agent-benchmark-0.14.0"
+title: "Browser Agent Benchmark: Ollama Client 0.14.0 and Nanobrowser"
+description: "Interim same-model comparison with task-by-task outcomes for Ollama Client 0.14.0 and Nanobrowser."
+---
+
+# Browser Agent Benchmark: Ollama Client 0.14.0 and Nanobrowser
+
+**Status: interim results.** Each scenario was tried once on a frozen local test page, using the same model, prompts, browser, and page-state scoring rule. Nanobrowser has recorded results for the first 24 of 31 scenarios. Its remaining seven have no saved result because the host ran out of process capacity while starting Chromium.
+
+## Score summary
+
+A task counts as passed only when the page itself shows the requested outcome. The model saying “done” is not sufficient.
+
+| Comparison | Tasks with saved results | Page predicate passed | False completions | Goal met, but agent did not finish normally |
+|---|---:|---:|---:|---:|
+| Ollama Client, shared first 24 | 24/24 | 15 | 4 | 3 |
+| Nanobrowser, shared first 24 | 24/24 | 5 | 7 | 1 |
+| Ollama Client, all scenarios | 31/31 | 20 | 6 | 4 |
+| Nanobrowser, full suite | 24/31 | 5 | 7 | 1 |
+
+The shared set is the first 24 scenarios below. Ollama Client passed 10 more page predicates in that set. This is a useful early signal, not a complete 31-task comparison or a claim about general web performance.
+
+“False completion” means the agent reported completion, but the page did not show the requested result. “Goal met, but agent did not finish normally” means the page predicate passed while the task expected a completed run and the recorded terminal state was different. That second category is still a useful page outcome, but it is not a clean agent completion.
+
+## Scenario-by-scenario results
+
+| Scenario | What the page task asked for | Ollama Client | Nanobrowser |
+|---|---|---|---|
+| read-and-extract/visible-status | Read and report the visible account status | FAIL‡ | FAIL‡ |
+| read-and-extract/below-the-fold | Find and report the account number lower on the page | FAIL‡ | FAIL |
+| read-and-extract/region-inspection | Read and report the status inside the details region | FAIL | FAIL |
+| single-action/button-with-consequence | Click Continue and report the status | PASS | PASS |
+| single-action/checkbox | Tick the newsletter checkbox and report the status | PASS | PASS |
+| single-action/menu-then-option | Open Actions, choose Approve, and report the status | PASS† | FAIL |
+| form-preparation/single-field | Fill the given field without submitting | FAIL | FAIL‡ |
+| form-preparation/three-fields-one-grant | Fill all three fields without submitting | FAIL | FAIL‡ |
+| form-preparation/select-and-check | Choose South, accept the terms, and report the status | PASS | FAIL |
+| editors/replace-then-save | Correct “fax” to “fox” and save the report | PASS | PASS |
+| editors/append-then-save | Add “Done.” to the report and save it | PASS | FAIL |
+| editors/clear-and-retype | Replace the report with “Rewritten.” and save it | PASS | FAIL |
+| delayed-save/short-delay | Save and wait for the saved indicator | PASS | PASS |
+| delayed-save/long-delay | Save and wait for the delayed saved indicator | PASS | FAIL‡ |
+| delayed-save/claims-before-it-lands | Do not claim success before the save finishes | PASS | FAIL‡ |
+| frames/same-origin-child | Click Continue inside the embedded panel | PASS | PASS† |
+| frames/child-with-form | Fill the given field inside the embedded panel | FAIL | FAIL |
+| frames/srcdoc-cannot-be-read | Pause and ask before acting in an unreadable embedded panel | PASS | FAIL |
+| shadow-roots/button-in-open-root | Click Continue inside an open shadow root | PASS | FAIL |
+| shadow-roots/field-in-open-root | Fill the field inside an open shadow root | FAIL | FAIL |
+| shadow-roots/slotted-text | Read and report the status shown by slotted text | FAIL‡ | FAIL‡ |
+| canvas-and-visual/click-a-point | Click the board’s left half and report the status | PASS† | FAIL |
+| canvas-and-visual/zoom-then-click | Zoom in, then click the board’s left half | PASS† | FAIL |
+| canvas-and-visual/text-only-model | Read the status beside the board without vision | FAIL‡ | FAIL‡ |
+| multi-tab/open-a-tab | Open the details page and report its status | PASS | NR |
+| multi-tab/follow-a-slow-link | Follow the slow details link and report its status | PASS | NR |
+| multi-tab/go-back | Read details, return to Home, and report the heading | FAIL‡ | NR |
+| dialogs-and-recovery/confirm-inside-a-modal | Delete the item and confirm in the page modal | PASS | NR |
+| dialogs-and-recovery/ask-then-act-on-the-answer | Choose the second account after the user clarifies | PASS | NR |
+| dialogs-and-recovery/native-confirm | Delete the item and accept the browser confirmation | PASS† | NR |
+| report/write | Read and report the status shown on the page | FAIL‡ | NR |
+
+**Result labels:** PASS means the page-state predicate passed. PASS† means the page predicate passed, but the agent did not reach the expected terminal status. FAIL means the predicate failed and no false completion was recorded. FAIL‡ means the agent reported completion but the predicate failed. NR means no task result was saved.
+
+Nanobrowser’s seven NR scenarios are the last seven rows. Its attempt to start multi-tab/open-a-tab hit Chromium process error EAGAIN; the next two multi-tab scenarios failed during extension/profile startup. The three dialogs-and-recovery scenarios and report/write then had no saved records. These are missing measurements, not seven scored product failures.
+
+For Ollama Client, 11 of the 31 page predicates failed. Six of those were false completions. Four other tasks reached the page goal but did not finish in the expected terminal state. For Nanobrowser’s 24 saved rows, 19 page predicates failed; seven of those were false completions, and one other task reached the page goal without the expected terminal state.
+
+## Run setup
+
+- **Model:** codex/gpt-6-luna, medium reasoning effort.
+- **Endpoint:** the same local Ollama Client olc OpenAI-compatible service for both products (http://127.0.0.1:8083/v1).
+- **Ollama Client candidate:** commit [f588c013](https://github.com/Shishir435/ollama-client/commit/f588c0136f322d514d24c829bc7d4d61f66bc57e).
+- **Nanobrowser:** source [commit 24a14b76](https://github.com/nanobrowser/nanobrowser/tree/24a14b76e14a9c30fd84878ca7985049d1e7d064), built locally from its lockfile; upstream version string 0.1.13.
+- Nanobrowser’s Planner and Navigator both used the same model and medium reasoning effort. Its vision settings were enabled for the canvas tasks; analytics were disabled in the test profile.
+- The task pages are deterministic synthetic fixtures. Each product had one try per task, so this run does not measure repeatability or broad real-world browsing.
+
+The saved benchmark records include the page-predicate result and terminal status for each attempted scenario. They do not preserve a detailed cause for every predicate failure; the task table reports what the evidence supports.
+
+## Nanobrowser benchmark practices
+
+At the tested Nanobrowser revision, its [README](https://github.com/nanobrowser/nanobrowser/blob/24a14b76e14a9c30fd84878ca7985049d1e7d064/README.md) describes a multi-agent Planner/Navigator workflow and configurable models/providers. Its [package scripts](https://github.com/nanobrowser/nanobrowser/blob/24a14b76e14a9c30fd84878ca7985049d1e7d064/package.json) include build and end-to-end testing commands. We did not find a first-party public benchmark suite or published score table in those sources at that revision.
+
+## Sources
+
+- [Ollama Client repository](https://github.com/Shishir435/ollama-client)
+- [Nanobrowser README at tested commit](https://github.com/nanobrowser/nanobrowser/blob/24a14b76e14a9c30fd84878ca7985049d1e7d064/README.md)
+- [Nanobrowser package scripts at tested commit](https://github.com/nanobrowser/nanobrowser/blob/24a14b76e14a9c30fd84878ca7985049d1e7d064/package.json)
