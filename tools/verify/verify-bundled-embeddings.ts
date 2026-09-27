@@ -255,10 +255,17 @@ const main = async () => {
       .click()
     await page
       .getByRole("button", {
-        name: "Rebuild with saved external provider",
+        name: "Rebuild with selected external model",
         exact: true
       })
       .waitFor()
+    await page
+      .locator('[data-settings-focus-id="embeddings-model-select"]')
+      .waitFor({ state: "visible" })
+    await page
+      .getByText("MiniLM is recommended for English text.", { exact: false })
+      .first()
+      .waitFor({ state: "visible" })
     assert.equal((await call(RpcMethod.EmbeddingsNativeStatus)).mode, "bundled")
     const migrated = (await readVectors()) as {
       embedding: number[]
