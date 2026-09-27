@@ -10,6 +10,18 @@ const chromiumProject = (
   metadata: { extensionBuildPath }
 })
 
+const benchmarkProduct = process.env.AGENT_BENCHMARK_PRODUCT
+const benchmarkExtensionBuildPath = (() => {
+  if (benchmarkProduct !== "nanobrowser") return "build/chrome-mv3-prod"
+  const extensionPath = process.env.NANOBROWSER_EXTENSION_PATH
+  if (!extensionPath) {
+    throw new Error(
+      "Set NANOBROWSER_EXTENSION_PATH to Nanobrowser's built extension directory."
+    )
+  }
+  return extensionPath
+})()
+
 export default defineConfig({
   testDir: "./e2e/chromium",
   outputDir: "artifacts/e2e/test-results",
@@ -69,7 +81,7 @@ export default defineConfig({
       ...chromiumProject(
         "chromium-agent-benchmark",
         "**/benchmark-agent.spec.ts",
-        "build/chrome-mv3-prod"
+        benchmarkExtensionBuildPath
       ),
       /**
        * Every task its own group, so `--shard` can divide them: they are all
@@ -80,8 +92,11 @@ export default defineConfig({
        */
       fullyParallel: true,
       metadata: {
-        extensionBuildPath: "build/chrome-mv3-prod",
-        agentBenchmarkBackend: "cdp"
+        extensionBuildPath: benchmarkExtensionBuildPath,
+        agentBenchmarkBackend: "cdp",
+        ...(benchmarkProduct === "nanobrowser"
+          ? { agentBenchmarkProduct: "nanobrowser" }
+          : {})
       }
     },
     {

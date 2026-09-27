@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs"
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { AgentPanelMessage } from "@ollama-client/contracts"
 
@@ -17,6 +17,8 @@ export interface AgentAttemptRecord {
   scenario: string
   attempt: number
   backend: string
+  /** Product path: browser agent, read-only current-tab tool or paired agents. */
+  executionPath?: string
   terminalStatus: string
   /**
    * The status the task declares as its finish. Some tasks are meant to pause
@@ -71,6 +73,166 @@ export interface AgentAttemptRecord {
   verifyMs?: number
   /** Malformed answers the run paid for and did not use. */
   retries?: number
+}
+
+/**
+ * A local-only, content-free event stream for debugging benchmark attempts.
+ * It is deliberately separate from the comparable summary report.
+ */
+export interface AgentBenchmarkTrace {
+  path: string
+  record(event: Record<string, unknown>): void
+}
+
+const SAFE_TRACE_KEYS = new Set([
+  "type",
+  "actor",
+  "state",
+  "product",
+  "scenario",
+  "attempt",
+  "model",
+  "fixtureData",
+  "executionPath",
+  "status",
+  "pauseReason",
+  "errorCode",
+  "stepCount",
+  "observationCount",
+  "requirementCount",
+  "requirementKinds",
+  "step",
+  "sequence",
+  "action",
+  "decision",
+  "risk",
+  "verificationOutcome",
+  "evidenceKind",
+  "targetTag",
+  "targetRole",
+  "hasTarget",
+  "durationMs",
+  "phase",
+  "from",
+  "to",
+  "outcome",
+  "authorization",
+  "backend",
+  "inputDelivery",
+  "claimed",
+  "transitioned",
+  "screenshot",
+  "visual",
+  "reason",
+  "elements",
+  "grantable",
+  "originPresent",
+  "approvalAnswer",
+  "approvalScope",
+  "modelRoute",
+  "requestTools",
+  "responseTools",
+  "httpStatus",
+  "requestBytes",
+  "responseBytes",
+  "providerErrorCode",
+  "finishReason",
+  "failureClass",
+  "chatToolCalls",
+  "modelCalls",
+  "steps",
+  "observations",
+  "approvalsAsked",
+  "approvalsGranted",
+  "repeatedTargets",
+  "ambiguousTargets",
+  "succeeded",
+  "falseCompletion",
+  "firstLimitation",
+  "expectedStatus",
+  "scoreError",
+  "timedOut",
+  "eventCount"
+])
+
+const SAFE_TRACE_ARRAY_KEYS = new Set([
+  "requirementKinds",
+  "grantable",
+  "requestTools",
+  "responseTools",
+  "chatToolCalls"
+])
+
+const isSafeTraceLabel = (value: unknown): value is string =>
+  typeof value === "string" &&
+  value.length <= 120 &&
+  /^[a-zA-Z0-9_./:-]+$/.test(value)
+
+const safeTraceFields = (
+  event: Record<string, unknown>
+): Record<string, unknown> => {
+  const safe: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(event)) {
+    if (!SAFE_TRACE_KEYS.has(key)) continue
+    if (SAFE_TRACE_ARRAY_KEYS.has(key) && Array.isArray(value)) {
+      safe[key] = value.filter(isSafeTraceLabel).slice(0, 40)
+    } else if (typeof value === "string" && isSafeTraceLabel(value)) {
+      safe[key] = value
+    } else if (typeof value === "number" && Number.isFinite(value)) {
+      safe[key] = value
+    } else if (typeof value === "boolean") {
+      safe[key] = value
+    }
+  }
+  return safe
+}
+
+/** Create a per-task trace that stays under the ignored benchmark artifacts directory. */
+export const createAgentBenchmarkTrace = (metadata: {
+  product: string
+  scenario: string
+  model: string
+}): AgentBenchmarkTrace => {
+  const directory = resolve(
+    process.env.AGENT_BENCHMARK_OUTPUT_DIR ?? "artifacts/e2e/benchmark"
+  )
+  mkdirSync(directory, { recursive: true })
+  const slug = `${metadata.product}-${metadata.scenario}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 96)
+  const path = resolve(
+    directory,
+    `agent-benchmark-trace-${slug}-${process.pid}-${Date.now()}.ndjson`
+  )
+  let eventCount = 0
+  let truncated = false
+  const append = (event: Record<string, unknown>) => {
+    appendFileSync(
+      path,
+      `${JSON.stringify({ at: new Date().toISOString(), ...safeTraceFields(event) })}\n`
+    )
+  }
+  append({
+    type: "trace_header",
+    ...metadata,
+    fixtureData: true
+  })
+  return {
+    path,
+    record(event) {
+      if (eventCount >= 2_000) {
+        if (!truncated) {
+          truncated = true
+          append({ type: "trace_truncated", eventCount })
+        }
+        return
+      }
+      eventCount += 1
+      append(event)
+    }
+  }
 }
 
 export interface AgentFamilySummary {
@@ -393,7 +555,9 @@ export const writeAgentBenchmarkReport = (
   label?: string
 ): string => {
   const report = buildAgentBenchmarkReport(attempts, backend, model)
-  const directory = resolve("artifacts/e2e/benchmark")
+  const directory = resolve(
+    process.env.AGENT_BENCHMARK_OUTPUT_DIR ?? "artifacts/e2e/benchmark"
+  )
   mkdirSync(directory, { recursive: true })
   const suffix = label ? `-${label}` : ""
   const stamp = Date.now()

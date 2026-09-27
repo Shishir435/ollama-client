@@ -443,7 +443,9 @@ task({
     type: "ask_user",
     question: "The panel cannot be read. Should I act on the page instead?"
   }),
-  succeeded: (outcome) => outcome.snapshot?.run?.status === "paused"
+  succeeded: (outcome) =>
+    outcome.snapshot?.run?.status === "paused" ||
+    outcome.terminalStatus === "paused"
 })
 
 // ── 7. shadow-roots ─────────────────────────────────────────────────────────

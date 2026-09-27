@@ -8,11 +8,13 @@ import {
   agentFixtureElement,
   runAgentScenario
 } from "../fixtures/agent-scenario"
+import { runNanobrowserScenario } from "../fixtures/nanobrowser-scenario"
 import type { AgentAttemptRecord } from "./agent-benchmark"
 import {
   approvalsAsked,
   attemptTelemetry,
   countRepeatedTargets,
+  createAgentBenchmarkTrace,
   recordAttempt
 } from "./agent-benchmark"
 import { benchmarkAttempts } from "./benchmark-counts"
@@ -33,7 +35,15 @@ export {
   benchmarkTaskCount
 } from "./benchmark-counts"
 
-export const benchmarkModel = process.env.AGENT_HOSTED_MODEL ?? "fixture-agent"
+export const benchmarkModel =
+  process.env.AGENT_HOSTED_MODEL ??
+  (process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+    ? "codex/gpt-6-luna"
+    : "fixture-agent")
+
+/** Make browser use explicit so the live task measures the agent, not a guess. */
+export const benchmarkPrompt = (goal: string): string =>
+  `Use the browser to complete this task: ${goal}`
 
 export interface BenchmarkTask
   extends Pick<
@@ -68,6 +78,7 @@ export const recordBenchmarkAttempt = async (input: {
   outcome: AgentScenarioOutcome
   expectedStatus: string
   succeeded?: AgentScenario["succeeded"]
+  diagnosticTrace?: (event: Record<string, unknown>) => void
 }): Promise<void> => {
   const { outcome } = input
   const run = outcome.snapshot?.run
@@ -80,6 +91,11 @@ export const recordBenchmarkAttempt = async (input: {
     } catch {
       /** A predicate that cannot read the page has not proved the goal met. */
       met = false
+      input.diagnosticTrace?.({
+        type: "score_predicate_failed",
+        attempt: outcome.attempt,
+        scoreError: true
+      })
     }
   }
   recordAttempt(input.attempts, {
@@ -87,13 +103,17 @@ export const recordBenchmarkAttempt = async (input: {
     scenario: input.scenario,
     attempt: outcome.attempt,
     backend: outcome.backend,
-    terminalStatus: run?.status ?? "unknown",
+    ...(outcome.executionPath ? { executionPath: outcome.executionPath } : {}),
+    terminalStatus:
+      run?.status ??
+      outcome.terminalStatus ??
+      (outcome.directChatResponse ? "completed" : "not-started"),
     expectedStatus: input.expectedStatus,
     ...(run?.pauseReason ? { pauseReason: run.pauseReason } : {}),
     ...(run?.error?.code ? { errorCode: run.error.code } : {}),
     steps: new Set(steps.map((step) => step.stepId)).size,
     observations: run?.observationCount ?? 0,
-    modelCalls: outcome.wire.length,
+    modelCalls: outcome.wire.length + (outcome.chatModelCalls ?? 0),
     approvalsAsked: approvalsAsked(outcome.messages).length,
     approvalsGranted: run?.grants?.length ?? 0,
     repeatedTargets: targets.repeated,
@@ -102,7 +122,13 @@ export const recordBenchmarkAttempt = async (input: {
     ...(met === undefined ? {} : { succeeded: met }),
     ...(met === undefined
       ? {}
-      : { falseCompletion: run?.status === "completed" && !met }),
+      : {
+          falseCompletion:
+            (run?.status === "completed" ||
+              outcome.terminalStatus === "completed" ||
+              outcome.directChatResponse) &&
+            !met
+        }),
     /**
      * The steps' own durable telemetry first: it covers every provider rather
      * than one wire format, and it survives the worker restart that makes a
@@ -138,8 +164,37 @@ export const benchmarkTask = (
 ): void => {
   const { family, name, succeeded, ...rest } = task
   const scenario = `${family}/${name}`
-  runAgentScenario({
+  const product =
+    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+      ? "nanobrowser"
+      : "ollama-client"
+  let trace: ReturnType<typeof createAgentBenchmarkTrace> | undefined
+  let traceDisabled = false
+  const diagnosticTrace = (event: Record<string, unknown>) => {
+    if (traceDisabled) return
+    try {
+      if (!trace) {
+        trace = createAgentBenchmarkTrace({
+          product,
+          scenario,
+          model: benchmarkModel
+        })
+        console.info(`[agent-benchmark] diagnostic trace: ${trace.path}`)
+      }
+      trace.record(event)
+    } catch {
+      traceDisabled = true
+      console.warn("[agent-benchmark] diagnostic trace could not be written")
+    }
+  }
+  const runScenario =
+    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+      ? runNanobrowserScenario
+      : runAgentScenario
+  runScenario({
     ...rest,
+    goal: benchmarkPrompt(task.goal),
+    diagnosticTrace,
     ...(succeeded ? { succeeded } : {}),
     name: scenario,
     gated: false,
@@ -151,8 +206,30 @@ export const benchmarkTask = (
         scenario,
         outcome,
         expectedStatus: task.status,
+        diagnosticTrace,
         ...(succeeded ? { succeeded } : {})
       })
+      const record = attempts.at(-1)
+      if (record)
+        diagnosticTrace({
+          type: "task_result",
+          attempt: record.attempt,
+          executionPath: record.executionPath,
+          status: record.terminalStatus,
+          expectedStatus: record.expectedStatus,
+          pauseReason: record.pauseReason,
+          errorCode: record.errorCode,
+          steps: record.steps,
+          observations: record.observations,
+          modelCalls: record.modelCalls,
+          approvalsAsked: record.approvalsAsked,
+          approvalsGranted: record.approvalsGranted,
+          repeatedTargets: record.repeatedTargets,
+          ambiguousTargets: record.ambiguousTargets,
+          succeeded: record.succeeded,
+          falseCompletion: record.falseCompletion,
+          firstLimitation: record.firstLimitation
+        })
       onRecorded?.(outcome)
     }
   })
@@ -187,10 +264,8 @@ export const reportsFact =
   (fact: string) =>
   async (outcome: AgentScenarioOutcome): Promise<boolean> => {
     const rendered = await outcome.page.locator("body").innerText()
-    return (
-      rendered.includes(fact) &&
-      Boolean(outcome.snapshot?.run?.result?.includes(fact))
-    )
+    const result = outcome.snapshot?.run?.result ?? outcome.chatResponse
+    return rendered.includes(fact) && Boolean(result?.includes(fact))
   }
 
 /**
@@ -201,7 +276,8 @@ export const reportsFact =
 export const reportsFactFromAnyTab =
   (fact: string) =>
   async (outcome: AgentScenarioOutcome): Promise<boolean> => {
-    if (!outcome.snapshot?.run?.result?.includes(fact)) return false
+    const result = outcome.snapshot?.run?.result ?? outcome.chatResponse
+    if (!result?.includes(fact)) return false
     for (const open of outcome.page.context().pages()) {
       try {
         if ((await open.locator("body").innerText()).includes(fact)) return true
