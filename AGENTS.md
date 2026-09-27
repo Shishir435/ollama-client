@@ -308,7 +308,7 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 - **All** file, memory and live-page splitting goes through `src/lib/embeddings/chunker.ts`. Do not build a parallel text splitter.
 - Plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
 - New installs use bundled MiniLM embeddings (`src/lib/embeddings/native/`). Existing users retain the provider-native → shared model → Ollama fallback chain until they opt in.
-- Bundled inference uses a lazy dedicated CPU WASM worker in the existing Chromium offscreen document / Firefox background page. Model, tokenizer and runtime ship locally, pinned and hash-checked at build time; never fetch executable code or model assets at runtime.
+- Bundled inference uses a lazy dedicated CPU WASM worker in the existing Chromium offscreen document / Firefox background page. Model, tokenizer and runtime ship locally, pinned and hash-checked at build time. Never download executable code, model weights or tokenizer assets from remote URLs at runtime. Reading packaged assets via `fetch()` of extension-local URLs (`chrome-extension://` / `moz-extension://`) is allowed and requires no network connection.
 - Native migration stages every saved vector in Dexie and commits replacements with the active vector-space pointer in one transaction. This index pointer belongs with the vectors, not in a separate settings write. Concurrent source changes prevent the swap; interrupted batches resume by explicit user action. Provider settings remain in chrome.storage, as does the device-local announcement dismissal.
 - Hybrid search: keyword (`minisearch`) + dense (`hnsw`), configurable weights.
 - Reranking is a **cosine-similarity re-scorer** (`reranker.ts`), on by default — **not** a cross-encoder. A transformers.js / ONNX Runtime cross-encoder was blocked by MV3 CSP and never shipped; Transformers.js is not a dependency. ONNX Runtime now ships for the bundled embedder, not a cross-encoder. `config.ts` accepts the legacy `transformers-js`/`onnxruntime-web` strings only as a shim collapsing them to `cosine`.
@@ -564,7 +564,7 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
 
 ## Constraints
 
-- MV3 CSP blocks dynamic eval; WASM is allowed via `'wasm-unsafe-eval'`. ONNX Runtime is bundled, never fetched.
+- MV3 CSP blocks dynamic eval; WASM is allowed via `'wasm-unsafe-eval'`. ONNX Runtime is bundled, never downloaded from a remote origin at runtime.
 - Firefox lacks Chrome's `declarativeNetRequest` semantics. Cross-origin provider requests rely on `host_permissions: ["<all_urls>"]` plus CORS-friendly endpoints.
 - Provider model-name collisions make routing ambiguous. `ProviderFactory` resolves via the saved mapping first, Ollama fallback last.
 - Token budgeting in `lib/embeddings/chunker.ts` is approximate (`chars / 4`).

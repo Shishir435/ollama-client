@@ -7,6 +7,7 @@ ort.env.wasm.proxy = false
 ort.env.wasm.wasmPaths = new URL("./runtime/", import.meta.url).href
 let session
 let tokenizer
+/** Relative URLs read files shipped inside the extension, never a remote model server. */
 const json = async (name) => {
   const response = await fetch(new URL(`./model/${name}`, import.meta.url))
   if (!response.ok) throw new Error(`Missing ${name}`)
