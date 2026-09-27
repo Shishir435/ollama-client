@@ -219,4 +219,7 @@ const main = async (): Promise<void> => {
   )
 }
 
-await main()
+void main().catch((error: unknown) => {
+  console.error(error)
+  process.exitCode = 1
+})
