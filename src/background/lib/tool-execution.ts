@@ -305,7 +305,12 @@ export const runPreparedToolCall = async (
     ...(prepared.originScoped && prepared.origin
       ? { approvedOrigin: prepared.origin }
       : {}),
-    ...(prepared.requiresConfirmation ? { userConfirmed: true } : {})
+    ...(prepared.requiresConfirmation
+      ? {
+          userConfirmed: true,
+          confirmedNotes: run.confirmationNotes ?? []
+        }
+      : {})
   }
 
   const rawResult = policy.enabled

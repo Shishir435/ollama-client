@@ -40,6 +40,9 @@ export const BROWSER_TASK_WAIT_MS = 45 * 60_000
  * model to relay: the card has nothing to show for a run that never existed,
  * so this is where the user learns why, through the model's answer.
  */
+/** The start prompt's note that its approval covers searches on the site. */
+const ROUTINE_NOTE = "agent.start_gate.routine"
+
 const REFUSALS: Record<AgentRunFailureReason, string> = {
   already_running:
     "Another browser task is still running or paused. Tell the user to finish or stop it from its card before starting a new one.",
@@ -229,6 +232,26 @@ export const createBrowserTaskRunner = (
       : undefined
   }
 
+  /**
+   * The tab in view when the task belongs there. A start address on another
+   * site means the user named where to go ("open Google and search…"):
+   * starting on the page in view would cost a second approval to leave it
+   * for the site the first approval already named. A tab the model named
+   * keeps its place, and a start address on the tab's own site changes
+   * nothing.
+   */
+  const tabInView = async (
+    request: BrowserTaskRequest,
+    ctx: ToolContext
+  ): Promise<ResolvedTab | undefined> => {
+    const tab = await usableTab(request, ctx)
+    if (!tab || !request.startUrl || request.tabId !== undefined) return tab
+    return normalizeGrantOrigin(tab.url) ===
+      normalizeGrantOrigin(request.startUrl)
+      ? tab
+      : undefined
+  }
+
   /** Page content in the turn, or a tool result that brought some in. */
   const readPageFirst = (ctx: ToolContext): boolean =>
     ctx.pageContentInContext === true || (ctx.taintGeneration ?? 0) > 0
@@ -274,6 +297,31 @@ export const createBrowserTaskRunner = (
     }
   }
 
+  /**
+   * Whether the start prompt offers search consent on the starting site
+   * (`AgentGrant.searches`), saying so in `agent.start_gate.routine`, so a
+   * search the user asked for is not a second question about the same
+   * decision. Never after the model read a page: that goal may be the page's
+   * words, and its searches stay the user's to see one by one.
+   */
+  const startCoversSearches = (mode: unknown, pageFirst: boolean): boolean =>
+    mode !== "approve_each" && !pageFirst
+
+  /**
+   * The consent is given only by a prompt the user answered that carried the
+   * note, and only while the setting still allows it: a mode changed while
+   * the prompt was open narrows the run, never widens it. A start covered by
+   * an earlier grant showed nothing and gets nothing.
+   */
+  const searchesConsented = (
+    ctx: ToolContext,
+    mode: unknown,
+    pageFirst: boolean
+  ): boolean =>
+    ctx.userConfirmed === true &&
+    ctx.confirmedNotes?.includes(ROUTINE_NOTE) === true &&
+    startCoversSearches(mode, pageFirst)
+
   const turnLink = (ctx: ToolContext): TurnLink | undefined =>
     ctx.sessionId &&
     ctx.assistantMessageId !== undefined &&
@@ -300,7 +348,7 @@ export const createBrowserTaskRunner = (
    * shown, a tab the run may not touch or one that changed after approval.
    */
   /**
-   * The tab in view when it can be driven, else the start address opened in
+   * The tab in view when the task belongs there, else the start address opened in
    * a new tab. Opened only here, after the start was approved against that
    * address's own origin — never while the prompt was being asked.
    */
@@ -308,7 +356,7 @@ export const createBrowserTaskRunner = (
     request: BrowserTaskRequest,
     ctx: ToolContext
   ): Promise<ResolvedTab | undefined> => {
-    const tab = await usableTab(request, ctx)
+    const tab = await tabInView(request, ctx)
     if (tab || !request.startUrl) return tab
     const opened = await openTab(request.startUrl)
     return typeof opened?.id === "number" && opened.url
@@ -389,7 +437,8 @@ export const createBrowserTaskRunner = (
   const start = async (
     request: BrowserTaskRequest,
     turn: TurnLink,
-    admitted: { tab: ResolvedTab; experimental: boolean }
+    admitted: { tab: ResolvedTab; experimental: boolean },
+    ctx: ToolContext
   ): Promise<{ ok: true; state: AgentRunState } | Refusal> => {
     const mode = await readSetting(SETTINGS.AGENT_PERMISSION_MODE)
     try {
@@ -403,6 +452,9 @@ export const createBrowserTaskRunner = (
         goalAuthor: turn.pageFirst ? "model_after_page" : "model",
         ...(turn.toolCallId ? { toolCallId: turn.toolCallId } : {}),
         allowRoutineActions: mode !== "approve_each",
+        ...(searchesConsented(ctx, mode, turn.pageFirst)
+          ? { allowSearches: true }
+          : {}),
         ...(admitted.experimental ? { allowExperimentalModel: true } : {}),
         ...followedRun(request, turn)
       })
@@ -480,7 +532,7 @@ export const createBrowserTaskRunner = (
 
   return {
     async origin(request, ctx) {
-      const tab = await usableTab(request, ctx)
+      const tab = await tabInView(request, ctx)
       if (tab) return normalizeGrantOrigin(tab.url)
       return request.startUrl
         ? normalizeGrantOrigin(request.startUrl)
@@ -494,6 +546,10 @@ export const createBrowserTaskRunner = (
         request.tabId !== undefined && request.tabId !== ctx.browserTabId
       const afterPage = readPageFirst(ctx)
       const experimental = provider?.readiness?.status === "experimental"
+      const covers = startCoversSearches(
+        await readSetting(SETTINGS.AGENT_PERMISSION_MODE),
+        afterPage
+      )
       const notes = [
         ...(afterPage ? ["agent.start_gate.after_page"] : []),
         ...(experimental ? ["agent.start_gate.experimental_model"] : []),
@@ -503,7 +559,8 @@ export const createBrowserTaskRunner = (
           : remote.observations
             ? ["agent.privacy.remote_notice"]
             : []),
-        "agent.start_gate.supervised"
+        "agent.start_gate.supervised",
+        ...(covers ? [ROUTINE_NOTE] : [])
       ]
       return {
         always:
@@ -521,7 +578,7 @@ export const createBrowserTaskRunner = (
       const admitted = await admit(request, ctx)
       if (!admitted.ok) return admitted.result
       if (ctx.signal?.aborted) return failure(TURN_STOPPED)
-      const started = await start(request, admitted.turn, admitted)
+      const started = await start(request, admitted.turn, admitted, ctx)
       if (!started.ok) return started.result
       return wait(started.state, admitted.turn)
     }

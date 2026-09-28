@@ -534,7 +534,10 @@ Read the section your change touches; you do not need the whole file.
   agent cannot drive (`brave://extensions`, the new-tab page) `browser_task`
   refuses and tells the model to pass `start_url`. With one, the start is
   approved against that address's origin and the site opens in a new tab
-  only after the approval; a usable tab in view ignores it.
+  only after the approval. A usable tab in view keeps the run when it is
+  already on that site or the model named it; on another site it does not,
+  because starting there made "open Google and search…" cost a second
+  approval to leave the page for the site the first one already named.
 - **A run never navigates the user's own tab to another site.** The first
   tab in a run's scope is the page the user was on; a `navigate` from it to
   another origin runs as `open_tab` (`user-tab.ts`), with the same
@@ -559,7 +562,9 @@ Read the section your change touches; you do not need the whole file.
 - **Enter in a same-origin search shows the address it opens, and stays a
   submission.** A GET form can change state through its handler or its
   endpoint, so Enter is priced, granted and verified as a submission; a
-  routine grant never covers it. What the observation adds is `formQuery`,
+  routine grant never covers it. The one consent that does is the start
+  prompt's search grant on the starting site (below), and only for a form
+  the page marks as a search. What the observation adds is `formQuery`,
   the query the executor's guarded copy would send, so the approval's
   "complete destination URL" carries the `?q=` it used to be missing. It is
   offered only when every contributing control is non-sensitive and rendered
@@ -585,10 +590,36 @@ Read the section your change touches; you do not need the whole file.
   deliberately narrower than `AGENT_GRANTABLE_EFFECTS`) for the starting
   origin in that run, and `approve_each` keeps per-step review. A remembered
   preference is not a carried grant: changing it never widens a run already
-  going, and a new run receives no previous run's grants. Submission,
-  destruction, new origins and sensitive controls retain their own gates — a
-  submission is widened only from an approval the user was shown, never in
-  advance from a setting. It replaced a per-task checkbox that reset to
+  going, and a new run receives no previous run's grants. Destruction, new
+  origins and sensitive controls retain their own gates — a submission is
+  widened only from an approval the user was shown, never in advance from a
+  setting. The `browser_task` start prompt is such an approval: under
+  `allow_routine` it carries `agent.start_gate.routine`, saying searches on
+  the starting site will not ask, and the starting grant then carries
+  `searches` (`allowSearches`). A search the user asked for is one decision,
+  not three.
+  - A search is a GET submission from a form the page marks as one
+    (`searchForm`): its one text field is a search box (`type="search"`, a
+    searchbox or combobox role, `enterkeyhint="search"`) or the form is a
+    search landmark, and every other control is a button, a hidden input or
+    an empty file picker. Google's form carries both. Hidden values are not
+    shown, deliberately: they go back only to the origin that wrote them, and
+    `matchesFormState` refuses a send if any of them changed since the
+    observation, so they add nothing the page's own script could not already
+    send. Refusing them would make every real Google search ask. A query string
+    alone is not enough — a preferences form's "Apply" sends one — and a
+    POST, a form with a select, checkbox or second field, or a sensitive
+    form still asks. The `submission` effect itself is never pre-granted.
+    `searchForm` is approval evidence and is stripped from the wire target.
+  - The consent comes from the prompt the user answered, read through
+    `ToolContext.confirmedNotes`, and the mode must still allow it at start:
+    a setting changed while the prompt was open narrows the run, never
+    widens it. A start covered by an earlier grant showed no prompt and gets
+    no search consent.
+  - Never for a `model_after_page` goal, whose searches a page may have
+    written.
+
+  The preference replaced a per-task checkbox that reset to
   checked on every panel mount while its label said "for this task".
 - **An edit with no submission step says so, and says only that.**
   `noSubmitStep` is set on an edit whose target belongs to no form — an

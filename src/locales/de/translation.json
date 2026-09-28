@@ -250,6 +250,7 @@
       "after_page": "Das Modell hat vor dem Formulieren dieser Aufgabe Seiteninhalte gelesen, daher wird immer nachgefragt.",
       "other_tab": "Diese Aufgabe läuft in einem anderen Tab als dem, den Sie gerade ansehen.",
       "supervised": "Der Agent arbeitet Schritt für Schritt auf der Seite und fragt vor allem Folgenreichen nach. Chrome zeigt währenddessen einen Debugging-Hinweis an.",
+      "routine": "Auf dieser Website laufen Klicks, Eingaben und Suchen für diese Aufgabe ohne erneute Nachfrage. Das Absenden anderer Formulare, Anmelden, Bezahlen, Löschen und das Öffnen anderer Websites werden weiterhin abgefragt.",
       "experimental_model": "Tool-Aufrufe sind für dieses Modell aktiv, weil Sie sie eingeschaltet haben, nicht weil das Modell sie meldet. Ein Modell ohne Tool-Aufrufe kommt nicht weit."
     },
     "steer": {

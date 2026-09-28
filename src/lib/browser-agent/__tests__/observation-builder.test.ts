@@ -291,6 +291,121 @@ describe("Agent observation builder", () => {
     expect(build().elements[0]).not.toHaveProperty("formQuery")
   })
 
+  describe("a form the page marks as a search", () => {
+    const searchPage = (
+      configure: (form: HTMLFormElement, field: HTMLElement) => void
+    ) => {
+      const form = document.createElement("form")
+      form.action = "/search"
+      const field = document.createElement("textarea")
+      field.name = "q"
+      field.setAttribute("rows", "1")
+      field.setAttribute("role", "combobox")
+      field.value = "hey"
+      const token = document.createElement("input")
+      token.type = "hidden"
+      token.name = "source"
+      token.value = "hp"
+      /** Google's add-image and add-file pickers, hidden and empty. */
+      const picker = document.createElement("input")
+      picker.type = "file"
+      picker.hidden = true
+      const button = document.createElement("input")
+      button.type = "submit"
+      button.value = "Google Search"
+      form.setAttribute("role", "search")
+      form.append(picker, field, token, button)
+      configure(form, field)
+      document.body.append(form)
+      return build().elements.filter((element) => element.maySubmit)
+    }
+
+    /**
+     * Google's homepage form as it is served: `role="search"`, a combobox
+     * textarea, hidden inputs, empty file pickers and a submitter.
+     */
+    it("marks Google's form, hidden inputs and all, on the field and its button", () => {
+      const submitting = searchPage(() => {})
+      expect(submitting).toHaveLength(2)
+      for (const element of submitting)
+        expect(element).toMatchObject({ searchForm: true, formMethod: "get" })
+    })
+
+    it("marks a search landmark and a type=search field", () => {
+      expect(
+        searchPage((_form, field) => {
+          field.removeAttribute("role")
+        })[0]
+      ).toHaveProperty("searchForm", true)
+      expect(
+        searchPage((form) => {
+          form.removeAttribute("role")
+        })[0]
+      ).toHaveProperty("searchForm", true)
+
+      const form = document.createElement("form")
+      form.action = "/find"
+      const field = document.createElement("input")
+      field.type = "search"
+      field.name = "q"
+      form.append(field)
+      document.body.replaceChildren(form)
+      expect(build().elements[0]).toHaveProperty("searchForm", true)
+    })
+
+    /**
+     * A preferences page's "Apply" sends a GET query too; a query alone is
+     * not a search, and neither is a lone field that never says it is one.
+     */
+    it.each([
+      [
+        "a settings select beside the field",
+        (form: HTMLFormElement) => {
+          const select = document.createElement("select")
+          select.name = "theme"
+          const option = document.createElement("option")
+          option.value = "dark"
+          option.textContent = "Dark"
+          select.append(option)
+          form.append(select)
+        }
+      ],
+      [
+        "a checkbox beside the field",
+        (form: HTMLFormElement) => {
+          const box = document.createElement("input")
+          box.type = "checkbox"
+          box.name = "safe"
+          form.append(box)
+        }
+      ],
+      [
+        "a second text field",
+        (form: HTMLFormElement) => {
+          const other = document.createElement("input")
+          other.name = "where"
+          form.append(other)
+        }
+      ],
+      [
+        "a POST method",
+        (form: HTMLFormElement) => {
+          form.method = "post"
+        }
+      ],
+      [
+        "a field that never says it is a search",
+        (form: HTMLFormElement, field: HTMLElement) => {
+          form.removeAttribute("role")
+          field.removeAttribute("role")
+        }
+      ]
+    ])("does not mark a form with %s", (_name, configure) => {
+      for (const element of searchPage(configure))
+        expect(element).not.toHaveProperty("searchForm")
+    })
+  })
+
   it("names the form a control belongs to even when Enter would not submit it", () => {
     /**
      * A `<textarea>` never submits on Enter, so it reports no submit

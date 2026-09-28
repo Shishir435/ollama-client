@@ -62,6 +62,12 @@ export interface StartAgentRunInput {
   /** The settled run this one follows, and how; see `agent-follow-up.ts`. */
   followUp?: AgentFollowUpRequest
   allowRoutineActions?: boolean
+  /**
+   * Searches on the starting site too (`AgentGrant.searches`), when the
+   * approval that started the run said so. Only with routine actions, and
+   * never from a setting alone.
+   */
+  allowSearches?: boolean
   allowExperimentalModel?: boolean
   /** Set when a chat model wrote the goal; absent means the user did. */
   goalAuthor?: AgentGoalAuthor
@@ -322,7 +328,8 @@ const initialRunState = ({
             {
               origin,
               effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
-              grantedAt: startedAt
+              grantedAt: startedAt,
+              ...(request.allowSearches ? { searches: true as const } : {})
             }
           ]
         }
@@ -1063,6 +1070,9 @@ export const createAgentRunService = (input?: {
         ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
         placement: { kind: "turn", messageId: request.messageId },
         ...(request.allowRoutineActions ? { allowRoutineActions: true } : {}),
+        ...(request.allowRoutineActions && request.allowSearches
+          ? { allowSearches: true }
+          : {}),
         ...(request.allowExperimentalModel
           ? { allowExperimentalModel: true }
           : {}),

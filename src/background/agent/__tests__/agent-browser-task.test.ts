@@ -126,8 +126,22 @@ describe("the browser task's start prompt", () => {
     expect(demand).toEqual({
       always: false,
       summary: "Find the pricing page",
-      notes: ["agent.start_gate.supervised"]
+      notes: ["agent.start_gate.supervised", "agent.start_gate.routine"]
     })
+  })
+
+  it("says nothing of searches when each action is approved, or after a page", async () => {
+    const task = runner(serviceStub())
+
+    const read = await task.confirmation(
+      request,
+      turn({ pageContentInContext: true })
+    )
+    expect(read.notes).not.toContain("agent.start_gate.routine")
+
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "approve_each")
+    const each = await task.confirmation(request, turn())
+    expect(each.notes).not.toContain("agent.start_gate.routine")
   })
 
   /**
@@ -216,6 +230,56 @@ describe("running a browser task", () => {
     expect(service.delegate).toHaveBeenCalledWith(
       expect.objectContaining({ goalAuthor: "model_after_page" })
     )
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+  })
+
+  const confirmedWithNote = (patch: Partial<ToolContext> = {}) =>
+    turn({
+      userConfirmed: true,
+      confirmedNotes: [
+        "agent.start_gate.supervised",
+        "agent.start_gate.routine"
+      ],
+      ...patch
+    })
+
+  it("gives search consent only from a prompt that showed the note", async () => {
+    const service = serviceStub()
+    const task = runner(service)
+
+    await task.run(request, confirmedWithNote())
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allowSearches: true })
+    )
+
+    /** A start an earlier grant covered showed nothing. */
+    await task.run(request, turn())
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+
+    await task.run(
+      request,
+      confirmedWithNote({ confirmedNotes: ["agent.start_gate.supervised"] })
+    )
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+  })
+
+  /**
+   * The prompt was prepared in one mode and answered in another. The mode
+   * the user switched to can narrow what the prompt said, never widen it.
+   */
+  it("drops search consent when the mode changed to approve-each while asking", async () => {
+    const service = serviceStub()
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "approve_each")
+    await runner(service).run(request, confirmedWithNote())
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
   })
 
   it("mints no routine grants when the user asked to approve each action", async () => {
@@ -225,6 +289,9 @@ describe("running a browser task", () => {
 
     expect(service.delegate).toHaveBeenCalledWith(
       expect.objectContaining({ allowRoutineActions: false })
+    )
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
     )
   })
 
@@ -346,16 +413,51 @@ describe("running a browser task", () => {
     )
   })
 
-  it("keeps the user's own tab when it can be used, start address or not", async () => {
+  it("keeps the user's own tab when the start address is on its site", async () => {
     const service = serviceStub()
     const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
     await runner(service, local, { openTab }).run(
-      { ...request, startUrl: "https://duckduckgo.com/" },
+      { ...request, startUrl: "https://example.com/pricing" },
       turn({ userConfirmed: true })
     )
     expect(openTab).not.toHaveBeenCalled()
     expect(service.delegate).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 7 })
+    )
+  })
+
+  /**
+   * "Open Google and search for hey" from an ordinary page started on that
+   * page, then asked again to leave it for Google, then again to submit.
+   * The site the task names is where it starts, under the one approval.
+   */
+  it("opens a start address on another site instead of leaving the user's tab", async () => {
+    const service = serviceStub()
+    const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+    const task = runner(service, local, { openTab })
+    const start = { ...request, startUrl: "https://www.google.com/" }
+
+    expect(await task.origin(start, turn())).toBe("https://www.google.com")
+    await task.run(start, {
+      ...turn({ userConfirmed: true }),
+      approvedOrigin: "https://www.google.com"
+    })
+    expect(openTab).toHaveBeenCalledExactlyOnceWith("https://www.google.com/")
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 12 })
+    )
+  })
+
+  it("keeps a tab the model named, whatever the start address", async () => {
+    const service = serviceStub()
+    const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+    await runner(service, local, { openTab }).run(
+      { ...request, tabId: 9, startUrl: "https://www.google.com/" },
+      turn({ userConfirmed: true })
+    )
+    expect(openTab).not.toHaveBeenCalled()
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 9 })
     )
   })
 

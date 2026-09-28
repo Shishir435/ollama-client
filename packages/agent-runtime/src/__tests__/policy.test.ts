@@ -492,6 +492,76 @@ describe("resolved-effect policy", () => {
     })
   })
 
+  /**
+   * The start prompt's search consent. "Open Google and search for hey"
+   * asked about the Enter after the start was approved; a comment on a pull
+   * request, or an "Apply" on a preferences page, must still ask.
+   */
+  describe("the start prompt's search grant", () => {
+    const searchGrant = {
+      ...grant(["activation", "form_mutation"]),
+      searches: true as const
+    }
+    const search = (target: Partial<ResolvedAgentEffect["target"]> = {}) =>
+      effect(["submission"], {
+        target: {
+          sensitive: false,
+          maySubmit: true,
+          submitter: true,
+          formMethod: "get",
+          searchForm: true,
+          ...target
+        }
+      })
+
+    it("covers a GET search the page marks as one, on its origin", () => {
+      expect(
+        evaluateAgentPolicy(input(search(), { grants: [searchGrant] }))
+      ).toEqual({
+        type: "granted",
+        risk: "high",
+        origin: "https://example.com"
+      })
+    })
+
+    /**
+     * A preferences form's "Apply" sends a GET query as a search does; the
+     * query is not what makes a search, the page marking the form as one is.
+     */
+    it("still asks about a POST, a GET form that is not a search, or a sensitive one", () => {
+      for (const target of [
+        { formMethod: "post" as const },
+        { searchForm: undefined, formQuery: "theme=dark" },
+        { formHasSensitiveControl: true }
+      ]) {
+        expect(
+          evaluateAgentPolicy(input(search(target), { grants: [searchGrant] }))
+            .type
+        ).toBe("approval_required")
+      }
+    })
+
+    it("covers nothing on another origin, and no destructive search", () => {
+      expect(
+        evaluateAgentPolicy(
+          input(search(), {
+            grants: [{ ...searchGrant, origin: "https://other.example" }]
+          })
+        ).type
+      ).toBe("approval_required")
+      expect(
+        evaluateAgentPolicy(
+          input(
+            effect(["submission", "destructive"], {
+              target: search().target
+            }),
+            { grants: [searchGrant] }
+          )
+        ).type
+      ).toBe("approval_required")
+    })
+  })
+
   it("does not let a submission grant cover a destructive one", () => {
     expect(
       evaluateAgentPolicy(

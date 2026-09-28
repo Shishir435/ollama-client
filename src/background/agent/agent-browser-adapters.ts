@@ -217,14 +217,15 @@ export const createAgentBrowserAdapters = (input: {
      * The frame identity travels as the instruction's own field, never inside
      * the wire target: that target is validated by a strict schema with no
      * `frame` key, so leaking it there is a parse failure before a byte is
-     * sent. `noSubmitStep` and `rowContext` are dropped for the same reason —
-     * they are approval evidence, not facts the page is told.
+     * sent. `noSubmitStep`, `rowContext` and `searchForm` are dropped for the
+     * same reason — they are approval evidence, not facts the page is told.
      */
     const {
       frame: targetFrame,
       point,
       noSubmitStep: _noSubmitStep,
       rowContext: _rowContext,
+      searchForm: _searchForm,
       ...target
     } = effect.target
     const frame = targetFrame ?? effect.snapshotIdentity

@@ -212,8 +212,9 @@ export type AgentGrantableEffect = z.infer<typeof AgentGrantableEffectSchema>
  * specific approval is given while reading what that step would do;
  * this one is given before the run has started, against a checkbox, so it
  * covers only the repetitive classes the consent is worded for. A submission
- * is grantable — once the user has been shown one and said "always" — and is
- * never handed over in advance.
+ * is grantable once the user has been shown one and said "always", and is
+ * never handed over from this setting alone; the start prompt's narrower
+ * search consent is `AgentGrant.searches`.
  */
 export const AGENT_ROUTINE_GRANT_EFFECTS = [
   "activation",
@@ -230,7 +231,15 @@ export const AgentGrantSchema = z
       .array(AgentGrantableEffectSchema)
       .min(1)
       .max(AGENT_GRANTABLE_EFFECTS.length),
-    grantedAt: z.number().int().nonnegative()
+    grantedAt: z.number().int().nonnegative(),
+    /**
+     * Searches on this origin run without asking: a GET submission from a form
+     * the page marks as a search with nothing to fill in but the query
+     * (`AgentElement.searchForm`). Given only by a start prompt that said so,
+     * for the starting origin. A POST, a form with settings or a second field,
+     * and a sensitive form are not searches and still ask.
+     */
+    searches: z.literal(true).optional()
   })
   .strict()
 export type AgentGrant = z.infer<typeof AgentGrantSchema>

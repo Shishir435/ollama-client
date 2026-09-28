@@ -208,6 +208,12 @@ export interface ToolContext {
   approvedOrigin?: string
   /** Set when the user approved this very call in a prompt. */
   userConfirmed?: boolean
+  /**
+   * The notes that prompt showed, when there was one. A tool that widens
+   * what it does on a note's say-so reads it here, not from a second look
+   * at settings that may have changed while the prompt was open.
+   */
+  confirmedNotes?: readonly string[]
   /** The id of the call being run, stable across a checkpointed restart. */
   toolCallId?: string
   /** The provider the turn is answered by. */

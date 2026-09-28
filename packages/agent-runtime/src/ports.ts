@@ -168,6 +168,8 @@ export interface ResolvedAgentTarget {
   formQuery?: string
   formFingerprint?: string
   formHasSensitiveControl?: boolean
+  /** The page marks the form as a search; see `AgentElement.searchForm`. */
+  searchForm?: boolean
   submitter?: boolean
   expectedValue?: string
   expectedChecked?: boolean

@@ -250,6 +250,7 @@
       "after_page": "El modelo leyó contenido de una página antes de escribir esta tarea, así que siempre se pregunta.",
       "other_tab": "Esta tarea se ejecuta en una pestaña distinta de la que estás viendo.",
       "supervised": "El agente trabaja en la página paso a paso y pregunta antes de cualquier acción importante. Chrome muestra un aviso de depuración mientras trabaja.",
+      "routine": "En este sitio, los clics, la escritura y las búsquedas de esta tarea se ejecutan sin volver a preguntar. Publicar o enviar otros formularios, iniciar sesión, pagar, eliminar y abrir otros sitios siguen pidiendo permiso.",
       "experimental_model": "Las llamadas a herramientas están activadas para este modelo porque tú lo configuraste, no porque el modelo lo indique. Un modelo que no sabe llamar herramientas no llegará lejos."
     },
     "steer": {

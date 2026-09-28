@@ -641,6 +641,7 @@ const targetFromElement = (
   formQuery: element.formQuery,
   formFingerprint: element.formFingerprint,
   formHasSensitiveControl: element.formHasSensitiveControl,
+  ...(element.searchForm ? { searchForm: true } : {}),
   submitter: element.submitter,
   expectedValue: expected?.value,
   expectedChecked: expected?.checked,

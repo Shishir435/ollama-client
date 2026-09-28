@@ -143,6 +143,13 @@ export const AgentElementSchema = z
       .regex(/^[0-9a-f]{8}$/)
       .optional(),
     formHasSensitiveControl: z.boolean().optional(),
+    /**
+     * A GET form the page marks as a search, with nothing to fill in but the
+     * query: its one text field is a search box, or the form is a search
+     * landmark, and every other control is a button or hidden. What the
+     * start prompt's search consent covers.
+     */
+    searchForm: z.literal(true).optional(),
     maySubmit: z.boolean().optional(),
     submitter: z.boolean().optional(),
     options: z.array(AgentSelectOptionSchema).max(200).optional(),

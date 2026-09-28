@@ -194,6 +194,29 @@ describe("Agent run service", () => {
     expect((await agent.snapshot(state.id)).run?.grants).toEqual(state.grants)
   })
 
+  it("adds search consent on the starting origin only beside routine consent", async () => {
+    const { service: agent } = service()
+    const state = await agent.start({
+      ...startInput,
+      allowRoutineActions: true,
+      allowSearches: true
+    })
+    expect(state.grants).toEqual([
+      {
+        origin: "https://example.com",
+        effects: ["activation", "form_mutation"],
+        grantedAt: 1_000,
+        searches: true
+      }
+    ])
+  })
+
+  it("never hands over search consent without routine consent", async () => {
+    const { service: agent } = service()
+    const state = await agent.start({ ...startInput, allowSearches: true })
+    expect(state.grants).toBeUndefined()
+  })
+
   it("persists and authorizes the tab before attaching browser control", async () => {
     const order: string[] = []
     const browser = browserSessions()

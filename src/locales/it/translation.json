@@ -250,6 +250,7 @@
       "after_page": "Il modello ha letto il contenuto di una pagina prima di scrivere questa attività, quindi viene sempre chiesta conferma.",
       "other_tab": "Questa attività viene eseguita in una scheda diversa da quella che stai guardando.",
       "supervised": "L’agente lavora sulla pagina un passo alla volta e chiede prima di qualsiasi azione importante. Nel frattempo Chrome mostra un banner di debug.",
+      "routine": "Su questo sito, clic, digitazione e ricerche per questa attività vengono eseguiti senza chiedere di nuovo. Pubblicare o inviare altri moduli, accedere, pagare, eliminare e aprire altri siti richiedono ancora conferma.",
       "experimental_model": "Le chiamate agli strumenti sono attive per questo modello perché le hai abilitate tu, non perché il modello le dichiari. Un modello che non sa chiamare strumenti non andrà lontano."
     },
     "steer": {
