@@ -13,6 +13,8 @@ interface RunRecord {
   measuredAt: string
   model: string
   attempts: Attempt[]
+  originalMeasuredAt?: string
+  supplementalMeasuredAt?: string
 }
 
 const reportPath = resolve(
@@ -111,6 +113,7 @@ const resultLabel = (attempt?: Attempt): string => {
   if (!attempt) return "NR"
   if (attempt.succeeded === true)
     return attempt.terminalStatus === attempt.expectedStatus ? "PASS" : "PASS†"
+  if (attempt.terminalStatus === "timed_out") return "TIMEOUT"
   return attempt.falseCompletion === true ? "FAIL‡" : "FAIL"
 }
 
@@ -201,7 +204,7 @@ const main = async (): Promise<void> => {
 
   const generated = [
     startMarker,
-    `Both runs used \`${ollamaClient.model}\`. Ollama Client was measured ${ollamaClient.measuredAt}; Nanobrowser was measured ${nanobrowser.measuredAt}.`,
+    `Both runs used \`${ollamaClient.model}\`. Ollama Client was measured ${ollamaClient.measuredAt}; Nanobrowser's original results were measured ${nanobrowser.originalMeasuredAt ?? nanobrowser.measuredAt}${nanobrowser.supplementalMeasuredAt ? `, with its previously missing tasks rerun ${nanobrowser.supplementalMeasuredAt}` : ""}.`,
     "",
     "### Score summary",
     "",
@@ -213,7 +216,7 @@ const main = async (): Promise<void> => {
     "",
     scenarioTable(ollamaClient, nanobrowser),
     "",
-    "PASS means the page-state predicate passed. PASS† means it passed but the agent did not reach the expected terminal status. FAIL means the predicate failed without a false completion. FAIL‡ means the agent reported completion but the predicate failed. NR means no result was recorded for that task.",
+    "PASS means the page-state predicate passed. PASS† means it passed but the agent did not reach the expected terminal status. FAIL means the predicate failed without a false completion. FAIL‡ means the agent reported completion but the predicate failed. TIMEOUT means the agent did not finish within its time limit and the page predicate failed. NR means no result was recorded for that task.",
     endMarker
   ].join("\n")
   const updated =

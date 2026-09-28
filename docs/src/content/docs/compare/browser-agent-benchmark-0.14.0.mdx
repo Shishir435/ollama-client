@@ -6,7 +6,7 @@ description: "Interim same-model comparison with task-by-task outcomes for Ollam
 
 # Browser Agent Benchmark: Ollama Client 0.14.0 and Nanobrowser
 
-**Status: interim results.** Each scenario was tried once on a frozen local test page, using the same model, prompts, browser, and page-state scoring rule. Nanobrowser did not produce a saved result for every task; the unrecorded tasks are marked NR below.
+**Status: interim, single-trial results.** Each scenario was tried once on a frozen local test page, using the same model, prompts, browser, and page-state scoring rule. The seven Nanobrowser tasks missing from its initial run were rerun on 2026-09-28; every task now has a saved outcome.
 
 ## Score summary
 
@@ -15,16 +15,16 @@ content-free per-task benchmark records committed with this report. The JSON
 records are canonical; docs generation rebuilds these tables from them.
 
 {/* benchmark-results:start */}
-Both runs used `codex/gpt-6-luna`. Ollama Client was measured 2026-09-27T14:58:21.084Z; Nanobrowser was measured 2026-09-27T16:09:27.362Z.
+Both runs used `codex/gpt-6-luna`. Ollama Client was measured 2026-09-27T14:58:21.084Z; Nanobrowser's original results were measured 2026-09-27T16:09:27.362Z, with its previously missing tasks rerun 2026-09-28T16:41:22.192Z.
 
 ### Score summary
 
 | Comparison | Tasks with saved results | Page predicate passed | False completions | Goal met, but agent did not finish normally |
 |---|---:|---:|---:|---:|
-| Ollama Client, shared scenarios | 24/24 | 15 | 4 | 3 |
-| Nanobrowser, shared scenarios | 24/24 | 5 | 7 | 1 |
+| Ollama Client, shared scenarios | 31/31 | 20 | 6 | 4 |
+| Nanobrowser, shared scenarios | 31/31 | 6 | 11 | 1 |
 | Ollama Client, all scenarios | 31/31 | 20 | 6 | 4 |
-| Nanobrowser, full suite | 24/31 | 5 | 7 | 1 |
+| Nanobrowser, full suite | 31/31 | 6 | 11 | 1 |
 
 A task counts as passed only when the page itself shows the requested outcome. “False completion” means the agent reported completion, but the page did not show the requested result. “Goal met, but agent did not finish normally” means the page predicate passed while the recorded terminal status differed from the task’s expected status.
 
@@ -56,20 +56,20 @@ A task counts as passed only when the page itself shows the requested outcome. �
 | canvas-and-visual/click-a-point | Click the board’s left half and report the status | PASS† | FAIL |
 | canvas-and-visual/zoom-then-click | Zoom in, then click the board’s left half | PASS† | FAIL |
 | canvas-and-visual/text-only-model | Read the status beside the board without vision | FAIL‡ | FAIL‡ |
-| multi-tab/open-a-tab | Open the details page and report its status | PASS | NR |
-| multi-tab/follow-a-slow-link | Follow the slow details link and report its status | PASS | NR |
-| multi-tab/go-back | Read details, return to Home, and report the heading | FAIL‡ | NR |
-| dialogs-and-recovery/confirm-inside-a-modal | Delete the item and confirm in the page modal | PASS | NR |
-| dialogs-and-recovery/ask-then-act-on-the-answer | Choose the second account after the user clarifies | PASS | NR |
-| dialogs-and-recovery/native-confirm | Delete the item and accept the browser confirmation | PASS† | NR |
-| report/write | Read and report the status shown on the page | FAIL‡ | NR |
+| multi-tab/open-a-tab | Open the details page and report its status | PASS | FAIL‡ |
+| multi-tab/follow-a-slow-link | Follow the slow details link and report its status | PASS | FAIL‡ |
+| multi-tab/go-back | Read details, return to Home, and report the heading | FAIL‡ | TIMEOUT |
+| dialogs-and-recovery/confirm-inside-a-modal | Delete the item and confirm in the page modal | PASS | FAIL‡ |
+| dialogs-and-recovery/ask-then-act-on-the-answer | Choose the second account after the user clarifies | PASS | PASS |
+| dialogs-and-recovery/native-confirm | Delete the item and accept the browser confirmation | PASS† | TIMEOUT |
+| report/write | Read and report the status shown on the page | FAIL‡ | FAIL‡ |
 
-PASS means the page-state predicate passed. PASS† means it passed but the agent did not reach the expected terminal status. FAIL means the predicate failed without a false completion. FAIL‡ means the agent reported completion but the predicate failed. NR means no result was recorded for that task.
+PASS means the page-state predicate passed. PASS† means it passed but the agent did not reach the expected terminal status. FAIL means the predicate failed without a false completion. FAIL‡ means the agent reported completion but the predicate failed. TIMEOUT means the agent did not finish within its time limit and the page predicate failed. NR means no result was recorded for that task.
 {/* benchmark-results:end */}
 
-Nanobrowser’s seven NR scenarios are the last seven rows. Starting multi-tab/open-a-tab returned Chromium OS `EAGAIN` (`resource temporarily unavailable`). The next two multi-tab scenarios failed during extension/profile startup; the three dialogs-and-recovery scenarios and report/write have no saved records. `NR` means these tasks are unmeasured in this run, not product failures. The log does not identify why the OS rejected the launch.
+The initial Nanobrowser run did not save the last seven scenarios: `multi-tab/open-a-tab` hit Chromium OS `EAGAIN` (`resource temporarily unavailable`), the next two multi-tab scenarios failed during extension/profile startup, and the final four had no saved records. A one-worker follow-up run completed all seven without another browser startup error. Its page-scored results were: `multi-tab/open-a-tab` FAIL‡, `multi-tab/follow-a-slow-link` FAIL‡, `multi-tab/go-back` TIMEOUT, `dialogs-and-recovery/confirm-inside-a-modal` FAIL‡, `dialogs-and-recovery/ask-then-act-on-the-answer` PASS, `dialogs-and-recovery/native-confirm` TIMEOUT, and `report/write` FAIL‡. In total, one of the seven tasks met its page predicate, four reported completion without the requested page result, and two timed out. One successful serial rerun does not identify the cause of the original OS launch errors.
 
-The canonical content-free source records are [Ollama Client JSON](https://github.com/Shishir435/ollama-client/blob/feature/agent-benchmark-release-0.14.0/docs/src/data/browser-agent-benchmark-0.14.0/ollama-client.json) and [Nanobrowser JSON](https://github.com/Shishir435/ollama-client/blob/feature/agent-benchmark-release-0.14.0/docs/src/data/browser-agent-benchmark-0.14.0/nanobrowser.json).
+The canonical content-free source records are [Ollama Client JSON](https://github.com/Shishir435/ollama-client/blob/release/0.14.0/docs/src/data/browser-agent-benchmark-0.14.0/ollama-client.json) and [Nanobrowser JSON](https://github.com/Shishir435/ollama-client/blob/release/0.14.0/docs/src/data/browser-agent-benchmark-0.14.0/nanobrowser.json).
 
 ## Run setup
 
@@ -78,7 +78,7 @@ The canonical content-free source records are [Ollama Client JSON](https://githu
 - **Ollama Client candidate:** commit [f588c013](https://github.com/Shishir435/ollama-client/commit/f588c0136f322d514d24c829bc7d4d61f66bc57e).
 - **Nanobrowser:** source [commit 24a14b76](https://github.com/nanobrowser/nanobrowser/tree/24a14b76e14a9c30fd84878ca7985049d1e7d064), built locally from its lockfile; upstream version string 0.1.13.
 - Nanobrowser’s Planner and Navigator both used the same model and medium reasoning effort. Its vision settings were enabled for the canvas tasks; analytics were disabled in the test profile.
-- The task pages are deterministic synthetic fixtures. Each product had one try per task, so this run does not measure repeatability or broad real-world browsing.
+- The task pages are deterministic synthetic fixtures. Each product has one recorded try per task; the seven Nanobrowser follow-up tries were run separately on 2026-09-28. These results do not measure repeatability or broad real-world browsing.
 
 The saved benchmark records include the page-predicate result and terminal status for each attempted scenario. They do not preserve a detailed cause for every predicate failure; the task table reports what the evidence supports.
 
