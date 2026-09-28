@@ -6,11 +6,13 @@ import type {
   AgentGetRunResult,
   AgentRunCard
 } from "@ollama-client/contracts/agent-rpc"
+import { browser } from "@/lib/browser-api"
 import {
   type DurableAgentStep,
   getAgentRun,
   listAgentSteps
 } from "@/lib/repositories/agent-runs"
+import { normalizeGrantOrigin } from "@/lib/tools/approval/approval-policy"
 import { toAgentStepRecords } from "./agent-step-records"
 
 /**
@@ -73,7 +75,10 @@ export const toAgentRunCard = (
  * the two it was would only give it a branch with nothing different to do.
  */
 export const getAgentRunCard = async (
-  request: AgentGetRunRequest
+  request: AgentGetRunRequest,
+  lookupTab: (tabId: number) => Promise<{ url?: string } | undefined> = (
+    tabId
+  ) => browser.tabs.get(tabId)
 ): Promise<AgentGetRunResult> => {
   const run = await getAgentRun(request.runId)
   if (!run?.state) return {}
@@ -82,5 +87,33 @@ export const getAgentRunCard = async (
    * longer reads costs the list, never the card.
    */
   const steps = await listAgentSteps(request.runId).catch(() => [])
-  return { run: toAgentRunCard(run.state, steps) }
+  const tabId = await openRunTab(run.state, lookupTab)
+  return {
+    run: {
+      ...toAgentRunCard(run.state, steps),
+      ...(tabId !== undefined
+        ? { tabId, tabOrigins: run.state.allowedOrigins }
+        : {})
+    }
+  }
+}
+
+/**
+ * The run's tab, while it is still open on a site the run was allowed on.
+ * A tab id is the browser's session counter, reused after a restart, so an
+ * old card must not bring an unrelated page forward.
+ */
+const openRunTab = async (
+  state: AgentRunState,
+  lookupTab: (tabId: number) => Promise<{ url?: string } | undefined>
+): Promise<number | undefined> => {
+  try {
+    const tab = await lookupTab(state.controlledTabId)
+    const origin = normalizeGrantOrigin(tab?.url)
+    return origin && state.allowedOrigins.includes(origin)
+      ? state.controlledTabId
+      : undefined
+  } catch {
+    return undefined
+  }
 }

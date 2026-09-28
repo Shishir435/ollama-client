@@ -3,6 +3,7 @@ import {
   AgentErrorSchema,
   AgentPauseReasonSchema,
   AgentRunStatusSchema,
+  MAX_AGENT_ALLOWED_ORIGINS,
   MAX_AGENT_OBSERVATIONS
 } from "./agent"
 import { AgentStepRecordSchema } from "./agent-panel"
@@ -92,6 +93,22 @@ export const AgentRunCardSchema = z
         total: z.number().int().nonnegative()
       })
       .strict()
+      .optional(),
+    /**
+     * The run's tab, only while it is still open on a site the run was
+     * allowed on — checked when the card is read, since a tab id is reused
+     * after a browser restart. What lets a settled card bring the page it
+     * worked on forward for review; absent, the card offers no such control.
+     */
+    tabId: z.number().int().nonnegative().optional(),
+    /**
+     * The sites the run was allowed on, beside `tabId`, so the click checks
+     * the tab again: a settled card stops refreshing, and the tab may have
+     * left those sites since it was read.
+     */
+    tabOrigins: z
+      .array(z.string().min(1))
+      .max(MAX_AGENT_ALLOWED_ORIGINS)
       .optional(),
     updatedAt: z.number().int().nonnegative()
   })

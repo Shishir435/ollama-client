@@ -144,7 +144,6 @@ const executorAdapter = (
   scroll: vi.fn(),
   mutate: vi.fn(),
   fillForm: vi.fn(async () => ({ applied: 0 })),
-  activateTab: vi.fn(),
   goHistory: vi.fn(),
   resolveHistoryDestination: async () => undefined,
   wait: vi.fn(),
@@ -158,7 +157,6 @@ const verifierAdapter = (
   overrides: Partial<AgentEffectVerifierAdapter> = {}
 ): AgentEffectVerifierAdapter => ({
   observe: async () => observation({ generation: 2 }),
-  getActiveTabId: async () => 7,
   getTab: async () => ({ url: "https://example.com/docs" }),
   classifyAccess: async () => "ok",
   now: () => 10,

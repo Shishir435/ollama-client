@@ -24,6 +24,7 @@ import {
   type AgentRunFailureReason,
   type AgentRunService
 } from "./agent-run-service"
+import { groupAgentTab } from "./agent-tab-group"
 
 type ProviderDisclosure = AgentPanelSnapshot["provider"]
 
@@ -69,6 +70,8 @@ const TURN_STOPPED =
 interface ResolvedTab {
   id: number
   url: string
+  /** Opened for this task from its start address, not the user's own tab. */
+  opened?: true
 }
 
 /** What a delegated run needs from the turn; the legacy port has none. */
@@ -84,7 +87,12 @@ interface TurnLink {
   toolCallId?: string
 }
 
-type Refusal = { ok: false; result: ToolResult }
+/**
+ * `runless` marks a refusal the run service gave before writing anything, so
+ * no run can be driving the tab this start opened. An unexpected failure is
+ * not one: it may have come after the run existed.
+ */
+type Refusal = { ok: false; result: ToolResult; runless?: true }
 
 /**
  * The run this one follows. A card's Continue or Retry names its own run, and
@@ -115,6 +123,10 @@ export interface BrowserTaskRunnerDependencies {
   activeTab?: () => Promise<{ id?: number; url?: string } | undefined>
   /** Opens a start address in a new tab and resolves once it has loaded. */
   openTab?: (url: string) => Promise<{ id?: number; url?: string } | undefined>
+  /** Files a tab the run opened under the run's tab group. */
+  groupTab?: (runId: string, tabId: number) => Promise<void>
+  /** Closes a start tab this task opened that no run ended up driving. */
+  closeTab?: (tabId: number) => Promise<void>
   readHandoff?: (
     messageId: number
   ) => Promise<AgentConversationHandoff | undefined>
@@ -188,11 +200,33 @@ export const createBrowserTaskRunner = (
       return row?.agentHandoff
     })
   const waitMs = dependencies.waitMs ?? BROWSER_TASK_WAIT_MS
+  const groupTab = dependencies.groupTab ?? groupAgentTab
+  const closeTab =
+    dependencies.closeTab ??
+    (async (tabId: number) => {
+      try {
+        await browser.tabs.remove(tabId)
+      } catch {
+        /** Already closed, by the user or the page. */
+      }
+    })
+  /**
+   * A start tab opens in the background before the run exists, so a start
+   * that ends without a run driving it would leave an unmarked tab behind.
+   * Only a tab this task opened is ever closed; the user's own never is.
+   */
+  const discard = (tab: ResolvedTab | undefined): void => {
+    if (tab?.opened) void closeTab(tab.id)
+  }
   const openTab =
     dependencies.openTab ??
     (async (url: string) => {
       try {
-        const created = await browser.tabs.create({ url, active: true })
+        /**
+         * Opened beside the user's tab, not over it: the run drives it in
+         * the background and the user keeps the tab they are working in.
+         */
+        const created = await browser.tabs.create({ url, active: false })
         if (typeof created.id !== "number") return undefined
         /** Loaded, or as far as it got; the start refuses what is not a site. */
         for (let waited = 0; waited < START_TAB_LOAD_MS; waited += 250) {
@@ -360,7 +394,7 @@ export const createBrowserTaskRunner = (
     if (tab || !request.startUrl) return tab
     const opened = await openTab(request.startUrl)
     return typeof opened?.id === "number" && opened.url
-      ? { id: opened.id, url: opened.url }
+      ? { id: opened.id, url: opened.url, opened: true }
       : undefined
   }
 
@@ -418,12 +452,14 @@ export const createBrowserTaskRunner = (
     }
     const tab = await startTab(request, ctx)
     if (!tab || (await classifyAgentTabAccess(tab.url)) !== "ok") {
+      discard(tab)
       return { ok: false, result: failure(REFUSALS.tab_unsupported) }
     }
     if (
       ctx.approvedOrigin &&
       normalizeGrantOrigin(tab.url) !== ctx.approvedOrigin
     ) {
+      discard(tab)
       return {
         ok: false,
         result: failure(
@@ -458,6 +494,18 @@ export const createBrowserTaskRunner = (
         ...(admitted.experimental ? { allowExperimentalModel: true } : {}),
         ...followedRun(request, turn)
       })
+      /**
+       * A start tab opens in the background before the run has an id, so it
+       * joins the run's group here — the one mark that says which tab the
+       * agent is working in. The user's own tab is never grouped. A replayed
+       * call returns the run it already started, on its own tab: the tab
+       * this admission opened is then nobody's, and is closed, not grouped.
+       */
+      if (admitted.tab.opened) {
+        if (state.controlledTabId === admitted.tab.id)
+          void groupTab(state.id, admitted.tab.id)
+        else discard(admitted.tab)
+      }
       return { ok: true, state }
     } catch (error) {
       if (error instanceof AgentRunError) {
@@ -465,9 +513,17 @@ export const createBrowserTaskRunner = (
           const blocking = await describeRun(error.blockingRunId).catch(
             () => undefined
           )
-          return { ok: false, result: failure(blockedByRunRefusal(blocking)) }
+          return {
+            ok: false,
+            runless: true,
+            result: failure(blockedByRunRefusal(blocking))
+          }
         }
-        return { ok: false, result: failure(REFUSALS[error.reason]) }
+        return {
+          ok: false,
+          runless: true,
+          result: failure(REFUSALS[error.reason])
+        }
       }
       logger.error("Browser task could not start", "Agent", {
         name: error instanceof Error ? error.name : typeof error
@@ -577,9 +633,15 @@ export const createBrowserTaskRunner = (
     async run(request, ctx) {
       const admitted = await admit(request, ctx)
       if (!admitted.ok) return admitted.result
-      if (ctx.signal?.aborted) return failure(TURN_STOPPED)
+      if (ctx.signal?.aborted) {
+        discard(admitted.tab)
+        return failure(TURN_STOPPED)
+      }
       const started = await start(request, admitted.turn, admitted, ctx)
-      if (!started.ok) return started.result
+      if (!started.ok) {
+        if (started.runless) discard(admitted.tab)
+        return started.result
+      }
       return wait(started.state, admitted.turn)
     }
   }

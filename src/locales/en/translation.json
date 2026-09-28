@@ -132,7 +132,8 @@
     },
     "tab": {
       "label": "Controlled tab",
-      "missing": "Open a supported web page"
+      "missing": "Open a supported web page",
+      "show": "Show this tab"
     },
     "tabs": {
       "label": "Controlled tabs",

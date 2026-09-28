@@ -386,13 +386,15 @@ describe("Agent browser session frame tracking", () => {
     const manager = await attached(host)
 
     expect(manager.capabilities.frameTracking).toBe(true)
-    expect(host.commands.map((command) => command.method).slice(0, 4)).toEqual([
+    expect(host.commands.map((command) => command.method).slice(0, 5)).toEqual([
+      "Emulation.setFocusEmulationEnabled",
       "Page.enable",
       "Target.setAutoAttach",
       "Page.setInterceptFileChooserDialog",
       "Page.getFrameTree"
     ])
-    expect(host.commands[1]?.params).toMatchObject({
+    expect(host.commands[0]?.params).toEqual({ enabled: true })
+    expect(host.commands[2]?.params).toMatchObject({
       autoAttach: true,
       flatten: true,
       waitForDebuggerOnStart: false
@@ -401,6 +403,22 @@ describe("Agent browser session frame tracking", () => {
     expect(frames.status).toBe("tracking")
     expect(frames.frames[0]).toMatchObject({ cdpFrameId: "F0" })
     expect(frames.frames).toHaveLength(6)
+    await manager.dispose()
+  })
+
+  /**
+   * A hidden tab runs timers about once a second and no animation frames,
+   * so a run in a tab the user left would stall on the page's own scripts.
+   */
+  it("keeps the tab behaving as if in front, so the user can work elsewhere", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    expect(host.commands).toContainEqual(
+      expect.objectContaining({
+        method: "Emulation.setFocusEmulationEnabled",
+        params: { enabled: true }
+      })
+    )
     await manager.dispose()
   })
 

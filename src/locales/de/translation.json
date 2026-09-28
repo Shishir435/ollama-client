@@ -132,7 +132,8 @@
     },
     "tab": {
       "label": "Gesteuerter Tab",
-      "missing": "Unterstützte Webseite öffnen"
+      "missing": "Unterstützte Webseite öffnen",
+      "show": "Diesen Tab anzeigen"
     },
     "tabs": {
       "label": "Gesteuerte Tabs",

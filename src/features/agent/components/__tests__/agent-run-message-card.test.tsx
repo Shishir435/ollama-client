@@ -12,6 +12,10 @@ import { AgentConnectionContext } from "../../lib/agent-connection"
 const useAgentRunCard = vi.hoisted(() => vi.fn())
 
 vi.mock("../../hooks/use-agent-run-card", () => ({ useAgentRunCard }))
+const { showAgentTab } = vi.hoisted(() => ({
+  showAgentTab: vi.fn(async () => undefined)
+}))
+vi.mock("../../lib/show-agent-tab", () => ({ showAgentTab }))
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>
@@ -316,6 +320,38 @@ describe("AgentRunMessageCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "agent.card.ask" }))
 
     expect(draft).toHaveBeenCalledWith()
+  })
+
+  /**
+   * The run worked in a background tab; once it settles the card is the only
+   * way back to the page it left, for review.
+   */
+  it("shows the run's tab from a settled card while the tab is still its own", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({
+        status: "completed",
+        tabId: 12,
+        tabOrigins: ["https://www.google.com"]
+      })
+    })
+    render(inWorkspace(<AgentRunMessageCard msg={message()} />))
+
+    fireEvent.click(screen.getByRole("button", { name: "agent.tab.show" }))
+
+    expect(showAgentTab).toHaveBeenCalledWith(12, ["https://www.google.com"])
+  })
+
+  it("offers no tab to show when the background did not vouch for one", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "completed" })
+    })
+    render(inWorkspace(<AgentRunMessageCard msg={message()} />))
+
+    expect(
+      screen.queryByRole("button", { name: "agent.tab.show" })
+    ).not.toBeInTheDocument()
   })
 
   it("offers no follow-up while the run is still live", () => {

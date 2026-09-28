@@ -18,6 +18,7 @@ import {
 } from "./chat-turn.mjs"
 import {
   INBODY_RULES,
+  scoreGoogleSearch,
   scoreInbodyAnswer,
   scoreVerdict,
   scoreWikiSearch
@@ -65,6 +66,12 @@ const cases = [
     "ddg_search",
     'Search for "ollama browser extension" and report the title of the first result.',
     "https://html.duckduckgo.com/html/",
+    "__inbody__"
+  ],
+  [
+    "google_search",
+    'Search for "youtube" and report the title of the first result.',
+    "https://www.google.com/",
     "__inbody__"
   ],
   [
@@ -454,6 +461,10 @@ try {
           const scored = scoreWikiSearch({ answer, url: fixture.url() })
           success = scored.success
           predicate = `landed+answer:Firefox (${scored.reason})`
+        } else if (kind === "google_search") {
+          const scored = scoreGoogleSearch({ answer, url: fixture.url() })
+          success = scored.success
+          predicate = `landed:google/search?q=youtube (${scored.reason})`
         } else {
           const rule = INBODY_RULES[kind] ?? {
             minWords: 3,

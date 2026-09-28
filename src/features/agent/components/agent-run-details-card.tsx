@@ -1,12 +1,12 @@
 import type { AgentRunState } from "@ollama-client/contracts"
 import { useTranslation } from "react-i18next"
-
 import {
   AGENT_PAGE_TEXT_LIMIT,
   type AgentProviderPresentation,
   type AgentTabPresentation,
   agentPlainText
 } from "../lib/presentation"
+import { showAgentTab } from "../lib/show-agent-tab"
 
 /** Whether pictures travel, what the run drives, and how many tabs. */
 const Row = ({ label, value }: { label: string; value: string }) => (
@@ -74,14 +74,32 @@ export const AgentRunDetailsCard = ({
         label={t("agent.screenshots.label")}
         value={t(screenshotsKey(provider))}
       />
-      <Row
-        label={t("agent.tab.label")}
-        value={
-          tab
-            ? agentPlainText(tab.title || tab.url, AGENT_PAGE_TEXT_LIMIT)
-            : t("agent.tab.missing")
-        }
-      />
+      {tab && run ? (
+        <div className="flex min-w-0 gap-2">
+          <span className="shrink-0 text-muted-foreground">
+            {t("agent.tab.label")}
+          </span>
+          <button
+            type="button"
+            className="min-w-0 flex-1 cursor-pointer truncate text-right underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+            title={t("agent.tab.show")}
+            aria-label={`${t("agent.tab.show")}: ${agentPlainText(tab.title || tab.url, AGENT_PAGE_TEXT_LIMIT)}`}
+            onClick={() =>
+              void showAgentTab(run.controlledTabId, run.allowedOrigins)
+            }>
+            {agentPlainText(tab.title || tab.url, AGENT_PAGE_TEXT_LIMIT)}
+          </button>
+        </div>
+      ) : (
+        <Row
+          label={t("agent.tab.label")}
+          value={
+            tab
+              ? agentPlainText(tab.title || tab.url, AGENT_PAGE_TEXT_LIMIT)
+              : t("agent.tab.missing")
+          }
+        />
+      )}
       {/* A run adopts the tabs it opens, so the tab it started on stops being
           the whole answer to "what is it driving". */}
       {controlledTabs > 1 && (

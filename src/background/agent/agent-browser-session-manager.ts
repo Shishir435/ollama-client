@@ -1311,6 +1311,18 @@ export const createAgentBrowserSessionManager = (input?: {
         .then(async () => {
           if (attachment.released) throw cancelledAttach()
           attachment.attached = true
+          /**
+           * The page believes it is in front while the run drives it, so the
+           * user can work in another tab. A hidden tab otherwise runs its
+           * timers about once a second and no animation frames at all, which
+           * stalls the page's own scripts and every settle the run waits on.
+           * It is page-wide, so out-of-process iframes follow without a call
+           * of their own. Detaching ends it with the attachment.
+           */
+          if (cdp)
+            await send(target, "Emulation.setFocusEmulationEnabled", {
+              enabled: true
+            }).catch(() => undefined)
           if (cdp) await startTracking(attachment)
           if (attachment.released) throw cancelledAttach()
         })

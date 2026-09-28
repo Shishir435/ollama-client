@@ -50,6 +50,39 @@ Read the section your change touches; you do not need the whole file.
   is held, which keeps the session so the dialog is not dismissed (see
   [Native dialogs](#native-dialogs)). An unexpected disconnect pauses the run,
   and an interrupted effect remains unresolved rather than being replayed.
+- **The run works in the background; the user keeps their own tab.** Nothing
+  the agent does brings a tab to the front or focuses a window. A start
+  address opens beside the user's tab (`active: false`), `open_tab` does the
+  same, and `switch_tab` moves the run — its receipt names the tab it now
+  drives — without activating anything; its verification asks whether that
+  tab still holds the destination, never whether it is the active one. What
+  makes a background tab drivable is `Emulation.setFocusEmulationEnabled`,
+  sent on attach: a hidden Chromium tab otherwise runs timers about once a
+  second and no animation frames, which stalls the page's own scripts and
+  every settle the run waits on. Measured in a real Chromium with the tab
+  behind another: without it, 3 timer ticks in 3s and no frames; with it,
+  full-rate timers, running frames, `visibilityState: "visible"`.
+  It is page-wide: a cross-origin iframe in its own process, measured the
+  same way, went from 3 ticks and no frames to full rate from the one call
+  on the page, so child sessions need none. A start tab `browser_task`
+  opened joins the run's tab group once the run has an id — opened in the
+  background, the group is what says which tab the agent is in; the user's
+  own tab is never grouped, and a replay that hands back a run on another
+  tab leaves the fresh one ungrouped. A start tab no run ends up driving —
+  the service refused the start, the turn stopped, a replay returned another
+  tab's run, or admission refused the page — is closed; a start that failed
+  unexpectedly keeps it, since a run may already hold it. The details card's "Controlled tab" row is a
+  button that brings the tab and its window forward — on the user's click,
+  the one way a run's tab reaches the front, for a handover or a page to
+  review. A settled card offers the same through `AgentRunCard.tabId`, which
+  the background sets only while the tab is still open on one of the run's
+  allowed origins — tab ids are reused after a browser restart — and
+  `showAgentTab` checks the tab against `tabOrigins` again at the click,
+  because a settled card stops refreshing. The run's tab also keeps playing media and
+  animations after the user leaves it, since the page believes it is in
+  front. Screenshots and debugger input reach a hidden tab either way. Detaching
+  ends the emulation. The debugger banner is Chrome's and shows on every tab
+  while any tab is attached; nothing here can hide it.
 - **An unresolved effect is resolved by the supervisor, not by a guess.**
   `resolveEffect` records that the user has looked at the page and continues
   the run from a fresh observation, with the generation bumped so no reference
@@ -610,7 +643,7 @@ Read the section your change touches; you do not need the whole file.
     alone is not enough — a preferences form's "Apply" sends one — and a
     POST, a form with a select, checkbox or second field, or a sensitive
     form still asks. The `submission` effect itself is never pre-granted.
-    `searchForm` is approval evidence and is stripped from the wire target.
+    `searchForm` is approval evidence and is stripped from the wire target by `wireTarget`, the one helper every instruction's targets go through — a batch fill once kept its own copy of the strip list, missed `searchForm`, and paused every `fill_form` on a search box as unresolved.
   - The consent comes from the prompt the user answered, read through
     `ToolContext.confirmedNotes`, and the mode must still allow it at start:
     a setting changed while the prompt was open narrows the run, never

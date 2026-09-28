@@ -132,7 +132,8 @@
     },
     "tab": {
       "label": "Pestaña controlada",
-      "missing": "Abre una página compatible"
+      "missing": "Abre una página compatible",
+      "show": "Mostrar esta pestaña"
     },
     "tabs": {
       "label": "Pestañas controladas",

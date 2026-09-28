@@ -156,4 +156,36 @@ describe("the run card RPC", () => {
     getAgentRun.mockResolvedValueOnce({ id: "run-1", state: undefined })
     await expect(getAgentRunCard({ runId: "run-1" })).resolves.toEqual({})
   })
+
+  /**
+   * A tab id is the browser's session counter and is reused after a restart,
+   * so a settled card may bring its tab forward only while the tab is still
+   * open on a site the run was allowed on.
+   */
+  describe("the run's tab", () => {
+    it("is offered while it is open on one of the run's sites", async () => {
+      getAgentRun.mockResolvedValue({ id: "run-1", state: run() })
+      const { run: card } = await getAgentRunCard(
+        { runId: "run-1" },
+        async () => ({ url: "https://example.com/hours" })
+      )
+      expect(card?.tabId).toBe(12)
+      expect(card?.tabOrigins).toEqual(run().allowedOrigins)
+      expect(AgentGetRunResultSchema.parse({ run: card }).run?.tabId).toBe(12)
+    })
+
+    it("is withheld once the tab shows another site or is gone", async () => {
+      getAgentRun.mockResolvedValue({ id: "run-1", state: run() })
+      for (const lookup of [
+        async () => ({ url: "https://unrelated.example/" }),
+        async () => {
+          throw new Error("No tab with id: 12")
+        }
+      ]) {
+        const { run: card } = await getAgentRunCard({ runId: "run-1" }, lookup)
+        expect(card).not.toHaveProperty("tabId")
+        expect(card).not.toHaveProperty("tabOrigins")
+      }
+    })
+  })
 })
