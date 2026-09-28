@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   INBODY_RULES,
+  scoreGoogleSearch,
   scoreInbodyAnswer,
   scoreSyntheticTask,
   scoreVerdict,
@@ -43,6 +44,23 @@ describe("real-site scorer", () => {
       INBODY_RULES.ddg_search
     )
     assert.equal(success, false)
+  })
+
+  /** "YouTube" is a correct first title and too short for any span rule. */
+  it("judges google_search by landing on the results for the query", () => {
+    assert.equal(
+      scoreGoogleSearch({
+        answer: "YouTube",
+        url: "https://www.google.com/search?q=youtube&source=hp"
+      }).success,
+      true
+    )
+    for (const url of [
+      "https://www.google.com/",
+      "https://www.google.com/sorry/index?continue=/search?q=youtube",
+      "https://example.com/search?q=youtube"
+    ])
+      assert.equal(scoreGoogleSearch({ answer: "YouTube", url }).success, false)
   })
 
   it("requires landing on the Firefox article for wiki_search", () => {

@@ -18,6 +18,7 @@ import {
 } from "./chat-turn.mjs"
 import {
   INBODY_RULES,
+  scoreGoogleSearch,
   scoreInbodyAnswer,
   scoreVerdict,
   scoreWikiSearch
@@ -460,6 +461,10 @@ try {
           const scored = scoreWikiSearch({ answer, url: fixture.url() })
           success = scored.success
           predicate = `landed+answer:Firefox (${scored.reason})`
+        } else if (kind === "google_search") {
+          const scored = scoreGoogleSearch({ answer, url: fixture.url() })
+          success = scored.success
+          predicate = `landed:google/search?q=youtube (${scored.reason})`
         } else {
           const rule = INBODY_RULES[kind] ?? {
             minWords: 3,

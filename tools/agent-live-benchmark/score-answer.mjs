@@ -116,6 +116,35 @@ export const scoreWikiSearch = ({ answer, url }) => {
 }
 
 /**
+ * google_search is judged by where the run landed: Google's results page for
+ * the query. The first result's title is often one word ("YouTube"), which no
+ * verbatim-span rule can accept without also accepting the query echoed back.
+ */
+export const scoreGoogleSearch = ({ answer, url }) => {
+  let parsed
+  try {
+    parsed = new URL(String(url ?? ""))
+  } catch {
+    return { success: false, reason: "wrong_host" }
+  }
+  if (!/(^|\.)google\.[a-z.]+$/.test(parsed.hostname.toLowerCase()))
+    return { success: false, reason: "wrong_host" }
+  const landed =
+    parsed.pathname === "/search" &&
+    normalizeText(parsed.searchParams.get("q") ?? "").includes("youtube")
+  const answered = normalizeText(answer).length > 0
+  const success = landed && answered
+  return {
+    success,
+    reason: !landed
+      ? "never_landed_on_results"
+      : !answered
+        ? "no_answer"
+        : "landed_and_answered"
+  }
+}
+
+/**
  * Run-outcome class, kept separate from the task predicate. A completed run
  * with a wrong answer is a false completion, not a miss. A pause is safe only
  * when policy explicitly transferred control or the task predicate confirms
