@@ -54,6 +54,13 @@ const ANY_TRANSCRIPT_SEGMENT_SELECTOR = `${MODERN_TRANSCRIPT_SEGMENT_SELECTOR}, 
  * button that never renders segments must not cost one full wait per retry.
  */
 const PANEL_SEGMENT_WAIT_MS = 6000
+/**
+ * How long one click gets to produce its first segment. Short of the whole
+ * budget, so a dead control leaves time to find and click a working one.
+ */
+const PANEL_CLICK_WAIT_MS = 2000
+/** Once segments are arriving, how far past the budget they may finish. */
+const PANEL_SEGMENT_GRACE_MS = 2000
 const PANEL_SEGMENT_POLL_MS = 250
 /** Segments arrive in batches; the count holding this long means they stopped. */
 const PANEL_SEGMENT_SETTLE_MS = 750
@@ -212,11 +219,25 @@ const findTranscriptButtonByText = (): HTMLElement | null => {
   return button
 }
 
-const findTranscriptButton = (): HTMLElement | null =>
-  findTranscriptButtonInSection() ||
-  findTranscriptButtonBySelectors() ||
-  findTranscriptButtonByTouchFeedback() ||
-  findTranscriptButtonByText()
+/**
+ * The control to click next. A control already clicked without result yields
+ * to any other transcript control on the page, and is clicked again only when
+ * there is none.
+ */
+const findTranscriptButton = (
+  tried: ReadonlySet<HTMLElement>
+): HTMLElement | null => {
+  const preferred =
+    findTranscriptButtonInSection() ||
+    findTranscriptButtonBySelectors() ||
+    findTranscriptButtonByTouchFeedback() ||
+    findTranscriptButtonByText()
+  if (!preferred || !tried.has(preferred)) return preferred
+  const untried = Array.from(
+    document.querySelectorAll<HTMLElement>("button, div[role='button']")
+  ).find((button) => !tried.has(button) && isTranscriptButton(button))
+  return untried ?? preferred
+}
 
 const expandYouTubeDescription = async (): Promise<void> => {
   logger.debug("Step 1: Looking for 'more' button...", "TranscriptExtractor")
@@ -287,9 +308,12 @@ const transcriptSegmentCount = (): number =>
 const waitForTranscriptSegments = async (
   deadline: number
 ): Promise<boolean> => {
+  const firstSegmentBy = Math.min(deadline, Date.now() + PANEL_CLICK_WAIT_MS)
+  const settleBy = deadline + PANEL_SEGMENT_GRACE_MS
   let count = transcriptSegmentCount()
   let stableSince = Date.now()
-  while (Date.now() < deadline) {
+  while (Date.now() < settleBy) {
+    if (count === 0 && Date.now() >= firstSegmentBy) break
     if (count > 0 && Date.now() - stableSince >= PANEL_SEGMENT_SETTLE_MS) break
     await new Promise((resolve) => setTimeout(resolve, PANEL_SEGMENT_POLL_MS))
     const next = transcriptSegmentCount()
@@ -357,6 +381,7 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
   )
   const maxRetries = 5
   const deadline = Date.now() + PANEL_SEGMENT_WAIT_MS
+  const tried = new Set<HTMLElement>()
   for (
     let attempt = 1;
     attempt <= maxRetries && Date.now() < deadline;
@@ -366,9 +391,11 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
       `Attempt ${attempt}/${maxRetries} to find transcript button...`,
       "TranscriptExtractor"
     )
-    const button = findTranscriptButton()
-    if (button && (await openTranscriptWithButton(button, deadline)))
-      return true
+    const button = findTranscriptButton(tried)
+    if (button) {
+      tried.add(button)
+      if (await openTranscriptWithButton(button, deadline)) return true
+    }
     if (attempt < maxRetries) {
       logger.debug(
         `Waiting before retry ${attempt + 1}...`,

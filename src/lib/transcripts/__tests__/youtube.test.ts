@@ -536,6 +536,48 @@ describe("YouTube transcript extractor", () => {
         }
       })
 
+      it("moves on to a working control when the first click renders nothing", async () => {
+        // One dead control must not spend the whole budget: a working one that
+        // appears while it is being waited on still gets clicked.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const dead = document.createElement("button")
+        dead.setAttribute("aria-label", "Show transcript")
+        document.body.appendChild(dead)
+
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        document.body.appendChild(panel)
+
+        vi.useFakeTimers()
+        try {
+          setTimeout(() => {
+            const chip = document.createElement("div")
+            chip.setAttribute("role", "button")
+            chip.textContent = "Transcript"
+            chip.addEventListener("click", () => {
+              panel.innerHTML = `
+                <transcript-segment-view-model>
+                  <span class="ytAttributedStringHost" role="text">From the working chip.</span>
+                </transcript-segment-view-model>
+              `
+            })
+            document.body.appendChild(chip)
+          }, 1000)
+
+          const pending = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await pending).toBe("From the working chip.")
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
       it("refetches when the inline payload names no video at all", async () => {
         // Unverifiable is not the same as current: without an id there is no way
         // to tell a stale payload from a fresh one, and the stale one's caption
