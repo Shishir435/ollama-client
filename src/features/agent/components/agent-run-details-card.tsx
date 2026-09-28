@@ -1,14 +1,12 @@
 import type { AgentRunState } from "@ollama-client/contracts"
 import { useTranslation } from "react-i18next"
-
-import { browser } from "@/lib/browser-api"
-
 import {
   AGENT_PAGE_TEXT_LIMIT,
   type AgentProviderPresentation,
   type AgentTabPresentation,
   agentPlainText
 } from "../lib/presentation"
+import { showAgentTab } from "../lib/show-agent-tab"
 
 /** Whether pictures travel, what the run drives, and how many tabs. */
 const Row = ({ label, value }: { label: string; value: string }) => (
@@ -17,21 +15,6 @@ const Row = ({ label, value }: { label: string; value: string }) => (
     <span className="min-w-0 flex-1 truncate text-right">{value}</span>
   </div>
 )
-
-/**
- * Brings the run's tab to the front on the user's own click. The agent never
- * does this itself — it works in the background — so a handover or a page to
- * review needs a way to reach the tab it is in.
- */
-const showTab = async (tabId: number): Promise<void> => {
-  try {
-    const tab = await browser.tabs.update(tabId, { active: true })
-    if (tab?.windowId !== undefined)
-      await browser.windows.update(tab.windowId, { focused: true })
-  } catch {
-    /** The tab closed in the meantime; the row says so on the next snapshot. */
-  }
-}
 
 /** Absent is shown as unknown, never as "not used": a picture may still be sent. */
 const screenshotsKey = (provider?: AgentProviderPresentation): string =>
@@ -101,7 +84,7 @@ export const AgentRunDetailsCard = ({
             className="min-w-0 flex-1 cursor-pointer truncate text-right underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
             title={t("agent.tab.show")}
             aria-label={`${t("agent.tab.show")}: ${agentPlainText(tab.title || tab.url, AGENT_PAGE_TEXT_LIMIT)}`}
-            onClick={() => void showTab(run.controlledTabId)}>
+            onClick={() => void showAgentTab(run.controlledTabId)}>
             {agentPlainText(tab.title || tab.url, AGENT_PAGE_TEXT_LIMIT)}
           </button>
         </div>

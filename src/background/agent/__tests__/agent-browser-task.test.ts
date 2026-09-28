@@ -394,7 +394,9 @@ describe("running a browser task", () => {
    * named start address opens in a new tab, after the approval, instead.
    */
   it("opens the start address in a new tab when the tab in view is a browser page", async () => {
-    const service = serviceStub()
+    const service = serviceStub({
+      delegate: vi.fn(async () => runState({ controlledTabId: 12 }))
+    })
     const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
     const groupTab = vi.fn(async () => undefined)
     const task = runner(service, local, { openTab, groupTab })
@@ -414,6 +416,87 @@ describe("running a browser task", () => {
     )
     /** It opened in the background; the run's group is what names it. */
     expect(groupTab).toHaveBeenCalledExactlyOnceWith("run-1", 12)
+  })
+
+  describe("a start tab no run ends up driving", () => {
+    const opening = (service: AgentRunService) => {
+      const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+      const groupTab = vi.fn(async () => undefined)
+      const closeTab = vi.fn(async () => undefined)
+      const task = runner(service, local, { openTab, groupTab, closeTab })
+      const start = { ...request, startUrl: "https://duckduckgo.com/" }
+      const ctx = {
+        ...turn({ browserTabId: 11, userConfirmed: true }),
+        approvedOrigin: "https://duckduckgo.com"
+      }
+      return { task, start, ctx, openTab, groupTab, closeTab }
+    }
+
+    /** Another run is unresolved; the tab this start opened is nobody's. */
+    it("is closed when the run service refuses the start", async () => {
+      const { task, start, ctx, closeTab, groupTab } = opening(
+        serviceStub({
+          delegate: vi.fn(async () => {
+            throw new AgentRunError("already_running", "busy")
+          })
+        })
+      )
+      await task.run(start, ctx)
+      expect(closeTab).toHaveBeenCalledExactlyOnceWith(12)
+      expect(groupTab).not.toHaveBeenCalled()
+    })
+
+    it("is closed when the turn stopped before the run started", async () => {
+      const service = serviceStub()
+      const { task, start, ctx, closeTab } = opening(service)
+      const stopped = new AbortController()
+      stopped.abort()
+      await task.run(start, { ...ctx, signal: stopped.signal })
+      expect(closeTab).toHaveBeenCalledExactlyOnceWith(12)
+      expect(service.delegate).not.toHaveBeenCalled()
+    })
+
+    /**
+     * A replayed call hands back the run it already started, still on its
+     * own tab; grouping the fresh one under it would mislabel a stray tab.
+     */
+    it("is closed, not grouped, when a replay returns a run on another tab", async () => {
+      const { task, start, ctx, closeTab, groupTab } = opening(
+        serviceStub({
+          delegate: vi.fn(async () => runState({ controlledTabId: 7 }))
+        })
+      )
+      await task.run(start, ctx)
+      expect(groupTab).not.toHaveBeenCalled()
+      expect(closeTab).toHaveBeenCalledExactlyOnceWith(12)
+    })
+
+    /** It may have failed after the run existed; its tab is left alone. */
+    it("is kept when the start failed unexpectedly", async () => {
+      const { task, start, ctx, closeTab } = opening(
+        serviceStub({
+          delegate: vi.fn(async () => {
+            throw new Error("storage went away")
+          })
+        })
+      )
+      await task.run(start, ctx)
+      expect(closeTab).not.toHaveBeenCalled()
+    })
+
+    it("never closes the user's own tab", async () => {
+      const closeTab = vi.fn(async () => undefined)
+      await runner(
+        serviceStub({
+          delegate: vi.fn(async () => {
+            throw new AgentRunError("already_running", "busy")
+          })
+        }),
+        local,
+        { closeTab }
+      ).run(request, turn({ userConfirmed: true }))
+      expect(closeTab).not.toHaveBeenCalled()
+    })
   })
 
   it("keeps the user's own tab when the start address is on its site", async () => {

@@ -2,6 +2,7 @@ import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type { AgentFollowUpMode } from "@ollama-client/contracts"
 import type { AgentRunCard } from "@ollama-client/contracts/agent-rpc"
 import {
+  AppWindow,
   Bot,
   ChevronDown,
   MessageSquare,
@@ -22,6 +23,7 @@ import {
   useAgentLiveRun
 } from "../lib/agent-connection"
 import { agentFailureMessageKey, toAgentWorkLog } from "../lib/presentation"
+import { showAgentTab } from "../lib/show-agent-tab"
 import { AgentRunSupervision } from "./agent-run-supervision"
 import { AgentWorkLog } from "./agent-work-log"
 
@@ -144,6 +146,21 @@ const AgentRunFollowUps = ({
         <MessageSquare className="icon-xs" aria-hidden="true" />
         {t("agent.card.ask")}
       </Button>
+      {/* The page the run worked on, for review: it ran in the background,
+          so without this the settled card has no way back to it. Offered
+          only while the background says the tab is still the run's. */}
+      {run.tabId !== undefined && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            if (run.tabId !== undefined) void showAgentTab(run.tabId)
+          }}>
+          <AppWindow className="icon-xs" aria-hidden="true" />
+          {t("agent.tab.show")}
+        </Button>
+      )}
     </div>
   )
 }

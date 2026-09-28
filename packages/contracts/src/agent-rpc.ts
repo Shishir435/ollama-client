@@ -93,6 +93,13 @@ export const AgentRunCardSchema = z
       })
       .strict()
       .optional(),
+    /**
+     * The run's tab, only while it is still open on a site the run was
+     * allowed on — checked when the card is read, since a tab id is reused
+     * after a browser restart. What lets a settled card bring the page it
+     * worked on forward for review; absent, the card offers no such control.
+     */
+    tabId: z.number().int().nonnegative().optional(),
     updatedAt: z.number().int().nonnegative()
   })
   .strict()

@@ -67,10 +67,16 @@ Read the section your change touches; you do not need the whole file.
   on the page, so child sessions need none. A start tab `browser_task`
   opened joins the run's tab group once the run has an id — opened in the
   background, the group is what says which tab the agent is in; the user's
-  own tab is never grouped. The details card's "Controlled tab" row is a
+  own tab is never grouped, and a replay that hands back a run on another
+  tab leaves the fresh one ungrouped. A start tab no run ends up driving —
+  the service refused the start, the turn stopped, a replay returned another
+  tab's run, or admission refused the page — is closed; a start that failed
+  unexpectedly keeps it, since a run may already hold it. The details card's "Controlled tab" row is a
   button that brings the tab and its window forward — on the user's click,
   the one way a run's tab reaches the front, for a handover or a page to
-  review. The run's tab also keeps playing media and
+  review. A settled card offers the same through `AgentRunCard.tabId`, which
+  the background sets only while the tab is still open on one of the run's
+  allowed origins — tab ids are reused after a browser restart. The run's tab also keeps playing media and
   animations after the user leaves it, since the page believes it is in
   front. Screenshots and debugger input reach a hidden tab either way. Detaching
   ends the emulation. The debugger banner is Chrome's and shows on every tab
