@@ -601,8 +601,12 @@ Read the section your change touches; you do not need the whole file.
   - A search is a GET submission from a form the page marks as one
     (`searchForm`): its one text field is a search box (`type="search"`, a
     searchbox or combobox role, `enterkeyhint="search"`) or the form is a
-    search landmark, and every other control is a button or hidden. Hidden
-    inputs are allowed because Google's form carries them. A query string
+    search landmark, and every other control is a button, a hidden input or
+    an empty file picker. Google's form carries both. Hidden values are not
+    shown, deliberately: they go back only to the origin that wrote them, and
+    `matchesFormState` refuses a send if any of them changed since the
+    observation, so they add nothing the page's own script could not already
+    send. Refusing them would make every real Google search ask. A query string
     alone is not enough — a preferences form's "Apply" sends one — and a
     POST, a form with a select, checkbox or second field, or a sensitive
     form still asks. The `submission` effect itself is never pre-granted.
