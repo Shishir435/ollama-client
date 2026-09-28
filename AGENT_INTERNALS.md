@@ -562,7 +562,9 @@ Read the section your change touches; you do not need the whole file.
 - **Enter in a same-origin search shows the address it opens, and stays a
   submission.** A GET form can change state through its handler or its
   endpoint, so Enter is priced, granted and verified as a submission; a
-  routine grant never covers it. What the observation adds is `formQuery`,
+  routine grant never covers it. The one consent that does is the start
+  prompt's search grant on the starting site (below), and only for a search
+  with a `formQuery`. What the observation adds is `formQuery`,
   the query the executor's guarded copy would send, so the approval's
   "complete destination URL" carries the `?q=` it used to be missing. It is
   offered only when every contributing control is non-sensitive and rendered
@@ -592,11 +594,24 @@ Read the section your change touches; you do not need the whole file.
   origins and sensitive controls retain their own gates — a submission is
   widened only from an approval the user was shown, never in advance from a
   setting. The `browser_task` start prompt is such an approval: under
-  `allow_routine` it carries `agent.start_gate.routine`, saying searches and
-  form submissions on the starting site will not ask, and the run's starting
-  grant then includes `submission` (`allowSubmissions`). A search the user
-  asked for is one decision, not three. Never for a `model_after_page` goal,
-  whose submissions a page may have written. It replaced a per-task checkbox that reset to
+  `allow_routine` it carries `agent.start_gate.routine`, saying searches on
+  the starting site will not ask, and the starting grant then carries
+  `searches` (`allowSearches`). A search the user asked for is one decision,
+  not three.
+  - A search is a GET submission with a `formQuery`, which the observation
+    builds only for a form with no hidden and no sensitive control. A POST,
+    and every CSRF-guarded form, still asks — the `submission` effect itself
+    is never pre-granted, so a comment or a same-origin "Confirm" is not
+    covered.
+  - The consent comes from the prompt the user answered, read through
+    `ToolContext.confirmedNotes`, and the mode must still allow it at start:
+    a setting changed while the prompt was open narrows the run, never
+    widens it. A start covered by an earlier grant showed no prompt and gets
+    no search consent.
+  - Never for a `model_after_page` goal, whose searches a page may have
+    written.
+
+  The preference replaced a per-task checkbox that reset to
   checked on every panel mount while its label said "for this task".
 - **An edit with no submission step says so, and says only that.**
   `noSubmitStep` is set on an edit whose target belongs to no form — an

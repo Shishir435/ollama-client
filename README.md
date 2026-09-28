@@ -70,6 +70,8 @@ curl -fsSL https://ollamaclient.in/olc.sh | sh     # macOS / Linux
 irm https://ollamaclient.in/olc.ps1 | iex          # Windows
 ```
 
+These run the install script straight from the site without checking it first. To pin a release and verify its checksum before anything runs, use the [verified install](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell).
+
 Then:
 
 ```bash
@@ -83,8 +85,6 @@ olc --help
 
 Add the Codex, OpenCode or Apple endpoints in the extension as a custom OpenAI-compatible provider at `http://127.0.0.1:<port>/v1`.
 
-Want to pin a release and verify its checksum first? The [developer guide](https://www.ollamaclient.in/developers/) has the verified install.
-
 ## Private web search
 
 Run your own [SearXNG](https://docs.searxng.org/) with Docker. No clone needed. This downloads the two config files into a new `searxng` folder and starts it:
@@ -94,6 +94,7 @@ mkdir -p searxng/core-config && cd searxng
 raw=https://raw.githubusercontent.com/Shishir435/ollama-client/main/searxng
 curl -fsSL "$raw/docker-compose.yml" -o docker-compose.yml
 curl -fsSL "$raw/core-config/settings.yml" -o core-config/settings.yml
+touch .env          # settings overrides, e.g. SEARXNG_PORT=8081
 docker compose up -d
 ```
 

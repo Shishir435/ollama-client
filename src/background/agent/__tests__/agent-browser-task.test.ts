@@ -130,7 +130,7 @@ describe("the browser task's start prompt", () => {
     })
   })
 
-  it("says nothing of submissions when each action is approved, or after a page", async () => {
+  it("says nothing of searches when each action is approved, or after a page", async () => {
     const task = runner(serviceStub())
 
     const read = await task.confirmation(
@@ -212,8 +212,7 @@ describe("running a browser task", () => {
       sessionId: "chat-1",
       messageId: 42,
       goalAuthor: "model",
-      allowRoutineActions: true,
-      allowSubmissions: true
+      allowRoutineActions: true
     })
     expect(result.provenance).toBe("web-untrusted")
     expect(result.isError).toBeUndefined()
@@ -232,7 +231,54 @@ describe("running a browser task", () => {
       expect.objectContaining({ goalAuthor: "model_after_page" })
     )
     expect(service.delegate).toHaveBeenCalledWith(
-      expect.not.objectContaining({ allowSubmissions: expect.anything() })
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+  })
+
+  const confirmedWithNote = (patch: Partial<ToolContext> = {}) =>
+    turn({
+      userConfirmed: true,
+      confirmedNotes: [
+        "agent.start_gate.supervised",
+        "agent.start_gate.routine"
+      ],
+      ...patch
+    })
+
+  it("gives search consent only from a prompt that showed the note", async () => {
+    const service = serviceStub()
+    const task = runner(service)
+
+    await task.run(request, confirmedWithNote())
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allowSearches: true })
+    )
+
+    /** A start an earlier grant covered showed nothing. */
+    await task.run(request, turn())
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+
+    await task.run(
+      request,
+      confirmedWithNote({ confirmedNotes: ["agent.start_gate.supervised"] })
+    )
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+  })
+
+  /**
+   * The prompt was prepared in one mode and answered in another. The mode
+   * the user switched to can narrow what the prompt said, never widen it.
+   */
+  it("drops search consent when the mode changed to approve-each while asking", async () => {
+    const service = serviceStub()
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "approve_each")
+    await runner(service).run(request, confirmedWithNote())
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
     )
   })
 
@@ -245,7 +291,7 @@ describe("running a browser task", () => {
       expect.objectContaining({ allowRoutineActions: false })
     )
     expect(service.delegate).toHaveBeenCalledWith(
-      expect.not.objectContaining({ allowSubmissions: expect.anything() })
+      expect.not.objectContaining({ allowSearches: expect.anything() })
     )
   })
 

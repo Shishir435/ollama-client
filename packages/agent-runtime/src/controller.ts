@@ -486,7 +486,12 @@ export const createAgentController = (
     ] as AgentGrantableEffect[]
     return [
       ...(state.grants ?? []).filter((grant) => grant.origin !== origin),
-      { origin, effects: merged, grantedAt: dependencies.clock.now() }
+      {
+        origin,
+        effects: merged,
+        grantedAt: dependencies.clock.now(),
+        ...(existing?.searches ? { searches: true as const } : {})
+      }
     ].slice(-MAX_AGENT_GRANTS)
   }
 

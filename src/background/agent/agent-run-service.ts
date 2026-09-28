@@ -63,10 +63,11 @@ export interface StartAgentRunInput {
   followUp?: AgentFollowUpRequest
   allowRoutineActions?: boolean
   /**
-   * Submissions on the starting site too, when the approval that started the
-   * run said so. Only with routine actions, and never from a setting alone.
+   * Searches on the starting site too (`AgentGrant.searches`), when the
+   * approval that started the run said so. Only with routine actions, and
+   * never from a setting alone.
    */
-  allowSubmissions?: boolean
+  allowSearches?: boolean
   allowExperimentalModel?: boolean
   /** Set when a chat model wrote the goal; absent means the user did. */
   goalAuthor?: AgentGoalAuthor
@@ -326,11 +327,9 @@ const initialRunState = ({
           grants: [
             {
               origin,
-              effects: [
-                ...AGENT_ROUTINE_GRANT_EFFECTS,
-                ...(request.allowSubmissions ? (["submission"] as const) : [])
-              ],
-              grantedAt: startedAt
+              effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
+              grantedAt: startedAt,
+              ...(request.allowSearches ? { searches: true as const } : {})
             }
           ]
         }
@@ -1071,8 +1070,8 @@ export const createAgentRunService = (input?: {
         ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
         placement: { kind: "turn", messageId: request.messageId },
         ...(request.allowRoutineActions ? { allowRoutineActions: true } : {}),
-        ...(request.allowRoutineActions && request.allowSubmissions
-          ? { allowSubmissions: true }
+        ...(request.allowRoutineActions && request.allowSearches
+          ? { allowSearches: true }
           : {}),
         ...(request.allowExperimentalModel
           ? { allowExperimentalModel: true }

@@ -492,6 +492,72 @@ describe("resolved-effect policy", () => {
     })
   })
 
+  /**
+   * The start prompt's search consent. "Open Google and search for hey"
+   * asked about the Enter after the start was approved; a comment on a pull
+   * request, a POST behind a CSRF token, must still ask.
+   */
+  describe("the start prompt's search grant", () => {
+    const searchGrant = {
+      ...grant(["activation", "form_mutation"]),
+      searches: true as const
+    }
+    const search = (target: Partial<ResolvedAgentEffect["target"]> = {}) =>
+      effect(["submission"], {
+        target: {
+          sensitive: false,
+          maySubmit: true,
+          submitter: true,
+          formMethod: "get",
+          formQuery: "q=hey",
+          ...target
+        }
+      })
+
+    it("covers a shown GET search on its origin", () => {
+      expect(
+        evaluateAgentPolicy(input(search(), { grants: [searchGrant] }))
+      ).toEqual({
+        type: "granted",
+        risk: "high",
+        origin: "https://example.com"
+      })
+    })
+
+    it("still asks about a POST, a form with hidden values, or a sensitive one", () => {
+      for (const target of [
+        { formMethod: "post" as const, formQuery: undefined },
+        { formQuery: undefined },
+        { formHasSensitiveControl: true }
+      ]) {
+        expect(
+          evaluateAgentPolicy(input(search(target), { grants: [searchGrant] }))
+            .type
+        ).toBe("approval_required")
+      }
+    })
+
+    it("covers nothing on another origin, and no destructive search", () => {
+      expect(
+        evaluateAgentPolicy(
+          input(search(), {
+            grants: [{ ...searchGrant, origin: "https://other.example" }]
+          })
+        ).type
+      ).toBe("approval_required")
+      expect(
+        evaluateAgentPolicy(
+          input(
+            effect(["submission", "destructive"], {
+              target: search().target
+            }),
+            { grants: [searchGrant] }
+          )
+        ).type
+      ).toBe("approval_required")
+    })
+  })
+
   it("does not let a submission grant cover a destructive one", () => {
     expect(
       evaluateAgentPolicy(

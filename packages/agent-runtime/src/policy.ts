@@ -634,12 +634,30 @@ const grantFor = (
   ) {
     return undefined
   }
+  const search = isShownSearch(input)
   return input.grants.find(
     (grant) =>
       grant.origin === origin &&
-      input.effect.semanticEffects.every((effect) =>
-        (grant.effects as readonly string[]).includes(effect)
+      input.effect.semanticEffects.every(
+        (effect) =>
+          (grant.effects as readonly string[]).includes(effect) ||
+          (effect === "submission" && search && grant.searches === true)
       )
+  )
+}
+
+/**
+ * A submission the start prompt's search consent covers: a GET form whose
+ * query the observation built in full — which it does only when the form
+ * holds no hidden and no sensitive control — sent to the page's own origin.
+ */
+const isShownSearch = (input: AgentPolicyInput): boolean => {
+  const target = input.effect.target
+  return (
+    target?.formMethod === "get" &&
+    target.formQuery !== undefined &&
+    target.formHasSensitiveControl !== true &&
+    !target.sensitive
   )
 }
 

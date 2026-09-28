@@ -250,7 +250,7 @@
       "after_page": "Le modèle a lu le contenu d’une page avant de rédiger cette tâche : elle est donc toujours soumise à confirmation.",
       "other_tab": "Cette tâche s’exécute dans un autre onglet que celui que vous regardez.",
       "supervised": "L’agent agit sur la page étape par étape et demande avant toute action importante. Chrome affiche un bandeau de débogage pendant ce temps.",
-      "routine": "Sur ce site, les clics, la saisie et les recherches ou envois de formulaires de cette tâche s’exécutent sans nouvelle demande. La connexion, le paiement, la suppression et l’ouverture d’autres sites demandent toujours.",
+      "routine": "Sur ce site, les clics, la saisie et les recherches de cette tâche s’exécutent sans nouvelle demande. Publier ou envoyer d’autres formulaires, se connecter, payer, supprimer et ouvrir d’autres sites demandent toujours.",
       "experimental_model": "Les appels d’outils sont activés pour ce modèle parce que vous l’avez choisi, pas parce que le modèle l’indique. Un modèle incapable d’appeler des outils n’ira pas loin."
     },
     "steer": {

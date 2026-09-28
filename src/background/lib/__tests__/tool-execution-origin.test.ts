@@ -221,7 +221,10 @@ describe("a call's own confirmation demand", () => {
   it("tells the tool the user approved this very call", async () => {
     const seen: ToolContext[] = []
     const reg = new ToolRegistry()
-    const definition = demanding(() => ({ always: true }))
+    const definition = demanding(() => ({
+      always: true,
+      notes: ["agent.start_gate.routine"]
+    }))
     reg.register({
       id: "test",
       listTools: () => [definition],
@@ -239,6 +242,7 @@ describe("a call's own confirmation demand", () => {
     await running
 
     expect(seen[0]?.userConfirmed).toBe(true)
+    expect(seen[0]?.confirmedNotes).toEqual(["agent.start_gate.routine"])
     expect(seen[0]?.toolCallId).toBe("c1")
   })
 })
