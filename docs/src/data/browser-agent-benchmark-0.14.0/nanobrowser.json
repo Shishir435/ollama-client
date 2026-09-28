@@ -623,6 +623,20 @@
       "retries": 0
     },
     {
+      "family": "dialogs-and-recovery",
+      "backend": "nanobrowser",
+      "attempts": 3,
+      "completed": 2,
+      "succeeded": 1,
+      "falseCompletions": 1,
+      "missedCompletions": 0,
+      "medianWallMs": 144005,
+      "repeatedTargets": 0,
+      "ambiguousTargets": 0,
+      "approvalsAsked": 0,
+      "retries": 0
+    },
+    {
       "family": "editors",
       "backend": "nanobrowser",
       "attempts": 3,
@@ -665,6 +679,20 @@
       "retries": 0
     },
     {
+      "family": "multi-tab",
+      "backend": "nanobrowser",
+      "attempts": 3,
+      "completed": 2,
+      "succeeded": 0,
+      "falseCompletions": 2,
+      "missedCompletions": 0,
+      "medianWallMs": 134078,
+      "repeatedTargets": 0,
+      "ambiguousTargets": 0,
+      "approvalsAsked": 0,
+      "retries": 0
+    },
+    {
       "family": "read-and-extract",
       "backend": "nanobrowser",
       "attempts": 3,
@@ -673,6 +701,20 @@
       "falseCompletions": 1,
       "missedCompletions": 0,
       "medianWallMs": 199819,
+      "repeatedTargets": 0,
+      "ambiguousTargets": 0,
+      "approvalsAsked": 0,
+      "retries": 0
+    },
+    {
+      "family": "report",
+      "backend": "nanobrowser",
+      "attempts": 1,
+      "completed": 1,
+      "succeeded": 0,
+      "falseCompletions": 1,
+      "missedCompletions": 0,
+      "medianWallMs": 72592,
       "repeatedTargets": 0,
       "ambiguousTargets": 0,
       "approvalsAsked": 0,
