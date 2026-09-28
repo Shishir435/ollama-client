@@ -578,6 +578,52 @@ describe("YouTube transcript extractor", () => {
         }
       })
 
+      it("keeps waiting on the only control rather than clicking it again", async () => {
+        // A slow load on the one control there is: a second click would close
+        // the panel, so the transcript that was on its way would never land.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        document.body.appendChild(panel)
+
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        let presses = 0
+        let pending: ReturnType<typeof setTimeout> | undefined
+        button.addEventListener("pointerdown", () => {
+          presses += 1
+          if (pending) {
+            clearTimeout(pending)
+            pending = undefined
+            return
+          }
+          pending = setTimeout(() => {
+            panel.innerHTML = `
+              <transcript-segment-view-model>
+                <span class="ytAttributedStringHost" role="text">Slow load.</span>
+              </transcript-segment-view-model>
+            `
+          }, 3000)
+        })
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          const result = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await result).toBe("Slow load.")
+          expect(presses).toBe(1)
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
       it("refetches when the inline payload names no video at all", async () => {
         // Unverifiable is not the same as current: without an id there is no way
         // to tell a stale payload from a fresh one, and the stale one's caption

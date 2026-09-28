@@ -220,9 +220,9 @@ const findTranscriptButtonByText = (): HTMLElement | null => {
 }
 
 /**
- * The control to click next. A control already clicked without result yields
- * to any other transcript control on the page, and is clicked again only when
- * there is none.
+ * The control to click next, or null when every transcript control on the page
+ * has been clicked already. A control is never clicked twice: its load may
+ * still be pending, and a second click can close the panel or restart it.
  */
 const findTranscriptButton = (
   tried: ReadonlySet<HTMLElement>
@@ -233,10 +233,11 @@ const findTranscriptButton = (
     findTranscriptButtonByTouchFeedback() ||
     findTranscriptButtonByText()
   if (!preferred || !tried.has(preferred)) return preferred
-  const untried = Array.from(
-    document.querySelectorAll<HTMLElement>("button, div[role='button']")
-  ).find((button) => !tried.has(button) && isTranscriptButton(button))
-  return untried ?? preferred
+  return (
+    Array.from(
+      document.querySelectorAll<HTMLElement>("button, div[role='button']")
+    ).find((button) => !tried.has(button) && isTranscriptButton(button)) ?? null
+  )
 }
 
 const expandYouTubeDescription = async (): Promise<void> => {
@@ -395,6 +396,9 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
     if (button) {
       tried.add(button)
       if (await openTranscriptWithButton(button, deadline)) return true
+    } else if (tried.size > 0 && (await waitForTranscriptSegments(deadline))) {
+      // Nothing new to click: the load already started may still land.
+      return true
     }
     if (attempt < maxRetries) {
       logger.debug(
