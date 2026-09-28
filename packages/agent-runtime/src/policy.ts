@@ -647,15 +647,16 @@ const grantFor = (
 }
 
 /**
- * A submission the start prompt's search consent covers: a GET form whose
- * query the observation built in full — which it does only when the form
- * holds no hidden and no sensitive control — sent to the page's own origin.
+ * A submission the start prompt's search consent covers: a GET form the page
+ * marks as a search with nothing to fill in but the query (`searchForm`), on
+ * the grant's own origin. A query string alone is not a search — a
+ * preferences form's "Apply" sends one too.
  */
 const isShownSearch = (input: AgentPolicyInput): boolean => {
   const target = input.effect.target
   return (
     target?.formMethod === "get" &&
-    target.formQuery !== undefined &&
+    target.searchForm === true &&
     target.formHasSensitiveControl !== true &&
     !target.sensitive
   )

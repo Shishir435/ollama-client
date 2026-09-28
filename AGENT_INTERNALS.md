@@ -563,8 +563,8 @@ Read the section your change touches; you do not need the whole file.
   submission.** A GET form can change state through its handler or its
   endpoint, so Enter is priced, granted and verified as a submission; a
   routine grant never covers it. The one consent that does is the start
-  prompt's search grant on the starting site (below), and only for a search
-  with a `formQuery`. What the observation adds is `formQuery`,
+  prompt's search grant on the starting site (below), and only for a form
+  the page marks as a search. What the observation adds is `formQuery`,
   the query the executor's guarded copy would send, so the approval's
   "complete destination URL" carries the `?q=` it used to be missing. It is
   offered only when every contributing control is non-sensitive and rendered
@@ -598,11 +598,15 @@ Read the section your change touches; you do not need the whole file.
   the starting site will not ask, and the starting grant then carries
   `searches` (`allowSearches`). A search the user asked for is one decision,
   not three.
-  - A search is a GET submission with a `formQuery`, which the observation
-    builds only for a form with no hidden and no sensitive control. A POST,
-    and every CSRF-guarded form, still asks — the `submission` effect itself
-    is never pre-granted, so a comment or a same-origin "Confirm" is not
-    covered.
+  - A search is a GET submission from a form the page marks as one
+    (`searchForm`): its one text field is a search box (`type="search"`, a
+    searchbox or combobox role, `enterkeyhint="search"`) or the form is a
+    search landmark, and every other control is a button or hidden. Hidden
+    inputs are allowed because Google's form carries them. A query string
+    alone is not enough — a preferences form's "Apply" sends one — and a
+    POST, a form with a select, checkbox or second field, or a sensitive
+    form still asks. The `submission` effect itself is never pre-granted.
+    `searchForm` is approval evidence and is stripped from the wire target.
   - The consent comes from the prompt the user answered, read through
     `ToolContext.confirmedNotes`, and the mode must still allow it at start:
     a setting changed while the prompt was open narrows the run, never

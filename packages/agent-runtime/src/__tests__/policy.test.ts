@@ -495,7 +495,7 @@ describe("resolved-effect policy", () => {
   /**
    * The start prompt's search consent. "Open Google and search for hey"
    * asked about the Enter after the start was approved; a comment on a pull
-   * request, a POST behind a CSRF token, must still ask.
+   * request, or an "Apply" on a preferences page, must still ask.
    */
   describe("the start prompt's search grant", () => {
     const searchGrant = {
@@ -509,12 +509,12 @@ describe("resolved-effect policy", () => {
           maySubmit: true,
           submitter: true,
           formMethod: "get",
-          formQuery: "q=hey",
+          searchForm: true,
           ...target
         }
       })
 
-    it("covers a shown GET search on its origin", () => {
+    it("covers a GET search the page marks as one, on its origin", () => {
       expect(
         evaluateAgentPolicy(input(search(), { grants: [searchGrant] }))
       ).toEqual({
@@ -524,10 +524,14 @@ describe("resolved-effect policy", () => {
       })
     })
 
-    it("still asks about a POST, a form with hidden values, or a sensitive one", () => {
+    /**
+     * A preferences form's "Apply" sends a GET query as a search does; the
+     * query is not what makes a search, the page marking the form as one is.
+     */
+    it("still asks about a POST, a GET form that is not a search, or a sensitive one", () => {
       for (const target of [
-        { formMethod: "post" as const, formQuery: undefined },
-        { formQuery: undefined },
+        { formMethod: "post" as const },
+        { searchForm: undefined, formQuery: "theme=dark" },
         { formHasSensitiveControl: true }
       ]) {
         expect(

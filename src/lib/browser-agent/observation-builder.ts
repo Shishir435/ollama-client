@@ -1361,6 +1361,45 @@ const elementHref = (element: Element): string | undefined => {
  * describe what submitting this control would do, and a control that submits
  * nothing has nothing to say about them. The contract requires as much.
  */
+/**
+ * A form the page itself marks as a search, with nothing to fill in but the
+ * query. Its one text field is a search box — `type="search"`, a searchbox or
+ * combobox role, `enterkeyhint="search"` — or the form is a search landmark;
+ * every other control is a button or a hidden input. Google's form carries
+ * hidden inputs, so they are allowed; a select, a checkbox or a second field
+ * is a form with settings, which "Apply" on a preferences page is, and it is
+ * not a search.
+ */
+const isSearchForm = (form: HTMLFormElement): boolean => {
+  if (hasSensitiveFormControl(form)) return false
+  let field: Element | undefined
+  for (const control of Array.from(form.elements)) {
+    if (control instanceof HTMLFieldSetElement) continue
+    if (control instanceof HTMLButtonElement) continue
+    if (control instanceof HTMLInputElement) {
+      const type = control.type.toLowerCase()
+      if (["hidden", "submit", "image", "button", "reset"].includes(type))
+        continue
+    }
+    const entry =
+      control instanceof HTMLTextAreaElement || isTextEntryInput(control)
+    if (!entry || field) return false
+    field = control
+  }
+  if (!field) return false
+  const landmark =
+    form.getAttribute("role") === "search" ||
+    form.closest('search, [role="search"]') !== null
+  const role = field.getAttribute("role")
+  return (
+    landmark ||
+    (field as HTMLInputElement).type?.toLowerCase() === "search" ||
+    role === "searchbox" ||
+    role === "combobox" ||
+    field.getAttribute("enterkeyhint") === "search"
+  )
+}
+
 const observedFormFields = (
   element: Element,
   maySubmit: boolean
@@ -1388,6 +1427,13 @@ const observedFormFields = (
       : {}),
     ...(form ? { formFingerprint: stableFormFingerprint(form) } : {}),
     ...(maySubmit && sensitive ? { formHasSensitiveControl: true } : {}),
+    ...(maySubmit &&
+    form &&
+    method === "get" &&
+    !sensitive &&
+    isSearchForm(form)
+      ? { searchForm: true }
+      : {}),
     ...(maySubmit ? { maySubmit: true } : {})
   }
 }

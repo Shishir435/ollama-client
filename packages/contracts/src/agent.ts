@@ -233,11 +233,11 @@ export const AgentGrantSchema = z
       .max(AGENT_GRANTABLE_EFFECTS.length),
     grantedAt: z.number().int().nonnegative(),
     /**
-     * Searches on this origin run without asking: a GET submission whose whole
-     * query the observation shows, with no hidden and no sensitive control.
-     * Given only by a start prompt that said so, for the starting origin. A
-     * POST, or any form carrying a hidden value — every CSRF-guarded one —
-     * is not a search and still asks.
+     * Searches on this origin run without asking: a GET submission from a form
+     * the page marks as a search with nothing to fill in but the query
+     * (`AgentElement.searchForm`). Given only by a start prompt that said so,
+     * for the starting origin. A POST, a form with settings or a second field,
+     * and a sensitive form are not searches and still ask.
      */
     searches: z.literal(true).optional()
   })
