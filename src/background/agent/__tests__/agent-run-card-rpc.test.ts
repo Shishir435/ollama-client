@@ -170,6 +170,7 @@ describe("the run card RPC", () => {
         async () => ({ url: "https://example.com/hours" })
       )
       expect(card?.tabId).toBe(12)
+      expect(card?.tabOrigins).toEqual(run().allowedOrigins)
       expect(AgentGetRunResultSchema.parse({ run: card }).run?.tabId).toBe(12)
     })
 
@@ -183,6 +184,7 @@ describe("the run card RPC", () => {
       ]) {
         const { run: card } = await getAgentRunCard({ runId: "run-1" }, lookup)
         expect(card).not.toHaveProperty("tabId")
+        expect(card).not.toHaveProperty("tabOrigins")
       }
     })
   })

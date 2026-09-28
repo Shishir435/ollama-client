@@ -329,13 +329,17 @@ describe("AgentRunMessageCard", () => {
   it("shows the run's tab from a settled card while the tab is still its own", () => {
     useAgentRunCard.mockReturnValue({
       kind: "ready",
-      run: card({ status: "completed", tabId: 12 })
+      run: card({
+        status: "completed",
+        tabId: 12,
+        tabOrigins: ["https://www.google.com"]
+      })
     })
     render(inWorkspace(<AgentRunMessageCard msg={message()} />))
 
     fireEvent.click(screen.getByRole("button", { name: "agent.tab.show" }))
 
-    expect(showAgentTab).toHaveBeenCalledWith(12)
+    expect(showAgentTab).toHaveBeenCalledWith(12, ["https://www.google.com"])
   })
 
   it("offers no tab to show when the background did not vouch for one", () => {

@@ -84,7 +84,9 @@ export const AgentRunDetailsCard = ({
             className="min-w-0 flex-1 cursor-pointer truncate text-right underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
             title={t("agent.tab.show")}
             aria-label={`${t("agent.tab.show")}: ${agentPlainText(tab.title || tab.url, AGENT_PAGE_TEXT_LIMIT)}`}
-            onClick={() => void showAgentTab(run.controlledTabId)}>
+            onClick={() =>
+              void showAgentTab(run.controlledTabId, run.allowedOrigins)
+            }>
             {agentPlainText(tab.title || tab.url, AGENT_PAGE_TEXT_LIMIT)}
           </button>
         </div>

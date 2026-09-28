@@ -155,7 +155,8 @@ const AgentRunFollowUps = ({
           size="sm"
           variant="ghost"
           onClick={() => {
-            if (run.tabId !== undefined) void showAgentTab(run.tabId)
+            if (run.tabId !== undefined)
+              void showAgentTab(run.tabId, run.tabOrigins ?? [])
           }}>
           <AppWindow className="icon-xs" aria-hidden="true" />
           {t("agent.tab.show")}

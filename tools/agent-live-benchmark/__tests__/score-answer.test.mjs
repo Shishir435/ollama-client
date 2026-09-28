@@ -63,6 +63,15 @@ describe("real-site scorer", () => {
       assert.equal(scoreGoogleSearch({ answer: "YouTube", url }).success, false)
   })
 
+  it("refuses a google_search answer that does not name the first result", () => {
+    const url = "https://www.google.com/search?q=youtube"
+    for (const answer of ["Google", "Vimeo - Video hosting", ""])
+      assert.deepEqual(scoreGoogleSearch({ answer, url }), {
+        success: false,
+        reason: "title_missing"
+      })
+  })
+
   it("requires landing on the Firefox article for wiki_search", () => {
     assert.equal(
       scoreWikiSearch({

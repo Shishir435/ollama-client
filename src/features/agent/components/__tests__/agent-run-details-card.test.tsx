@@ -3,13 +3,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const tabs = vi.hoisted(() => ({
+  get: vi.fn(async (_tabId: number) => ({ url: "https://www.google.com/" })),
   update: vi.fn(async (tabId: number) => ({ id: tabId, windowId: 3 })),
   focus: vi.fn(async () => undefined)
 }))
 
 vi.mock("@/lib/browser-api", () => ({
   browser: {
-    tabs: { update: tabs.update },
+    tabs: { get: tabs.get, update: tabs.update },
     windows: { update: tabs.focus }
   }
 }))
@@ -36,6 +37,7 @@ const run: AgentRunState = {
 }
 
 beforeEach(() => {
+  tabs.get.mockClear()
   tabs.update.mockClear()
   tabs.focus.mockClear()
 })
@@ -59,6 +61,26 @@ describe("the run's details card", () => {
       expect(tabs.focus).toHaveBeenCalledWith(3, { focused: true })
     )
     expect(tabs.update).toHaveBeenCalledWith(7, { active: true })
+  })
+
+  /**
+   * The tab is checked at the click, not when the card rendered: it may have
+   * left the run's sites since, and must not be brought forward then.
+   */
+  it("leaves a tab that has left the run's sites where it is", async () => {
+    tabs.get.mockResolvedValueOnce({ url: "https://bank.example/" })
+    render(
+      <AgentRunDetailsCard
+        run={run}
+        tab={{ title: "Google", url: "https://www.google.com/" }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /agent\.tab\.show/ }))
+
+    await waitFor(() => expect(tabs.get).toHaveBeenCalledWith(7))
+    expect(tabs.update).not.toHaveBeenCalled()
+    expect(tabs.focus).not.toHaveBeenCalled()
   })
 
   it("offers nothing to click when there is no tab to show", () => {

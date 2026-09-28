@@ -116,9 +116,10 @@ export const scoreWikiSearch = ({ answer, url }) => {
 }
 
 /**
- * google_search is judged by where the run landed: Google's results page for
- * the query. The first result's title is often one word ("YouTube"), which no
- * verbatim-span rule can accept without also accepting the query echoed back.
+ * google_search is judged by where the run landed — Google's results page for
+ * the query — and by the answer naming YouTube, the first result's title for
+ * that query. The title is one word, so no verbatim-span rule applies; a
+ * bare substring is the most that can be asked without refusing it.
  */
 export const scoreGoogleSearch = ({ answer, url }) => {
   let parsed
@@ -132,15 +133,15 @@ export const scoreGoogleSearch = ({ answer, url }) => {
   const landed =
     parsed.pathname === "/search" &&
     normalizeText(parsed.searchParams.get("q") ?? "").includes("youtube")
-  const answered = normalizeText(answer).length > 0
-  const success = landed && answered
+  const namesIt = normalizeText(answer).includes("youtube")
+  const success = landed && namesIt
   return {
     success,
     reason: !landed
       ? "never_landed_on_results"
-      : !answered
-        ? "no_answer"
-        : "landed_and_answered"
+      : !namesIt
+        ? "title_missing"
+        : "landed_and_named"
   }
 }
 

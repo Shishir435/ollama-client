@@ -91,7 +91,9 @@ export const getAgentRunCard = async (
   return {
     run: {
       ...toAgentRunCard(run.state, steps),
-      ...(tabId !== undefined ? { tabId } : {})
+      ...(tabId !== undefined
+        ? { tabId, tabOrigins: run.state.allowedOrigins }
+        : {})
     }
   }
 }
