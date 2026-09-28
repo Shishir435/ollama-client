@@ -579,8 +579,9 @@ describe("YouTube transcript extractor", () => {
       })
 
       it("keeps waiting on the only control rather than clicking it again", async () => {
-        // A slow load on the one control there is: a second click would close
-        // the panel, so the transcript that was on its way would never land.
+        // A slow load on the one control there is. The click visibly opened the
+        // panel, so a second click would close it and the transcript on its
+        // way would never land.
         mountPlayerResponse("123")
         failCaptionFetch()
         const panel = document.createElement(
@@ -601,8 +602,16 @@ describe("YouTube transcript extractor", () => {
           if (pending) {
             clearTimeout(pending)
             pending = undefined
+            panel.setAttribute(
+              "visibility",
+              "ENGAGEMENT_PANEL_VISIBILITY_HIDDEN"
+            )
             return
           }
+          panel.setAttribute(
+            "visibility",
+            "ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"
+          )
           pending = setTimeout(() => {
             panel.innerHTML = `
               <transcript-segment-view-model>
@@ -619,6 +628,44 @@ describe("YouTube transcript extractor", () => {
           await vi.advanceTimersByTimeAsync(20_000)
           expect(await result).toBe("Slow load.")
           expect(presses).toBe(1)
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
+      it("clicks again when the first click changed nothing", async () => {
+        // The control rendered before its handler was attached, so the first
+        // click did nothing at all. Nothing is pending, so a retry is safe.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        document.body.appendChild(panel)
+
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          setTimeout(() => {
+            button.addEventListener("click", () => {
+              panel.innerHTML = `
+                <transcript-segment-view-model>
+                  <span class="ytAttributedStringHost" role="text">Handler ready.</span>
+                </transcript-segment-view-model>
+              `
+            })
+          }, 2500)
+
+          const result = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await result).toBe("Handler ready.")
         } finally {
           vi.useRealTimers()
         }

@@ -220,23 +220,29 @@ const findTranscriptButtonByText = (): HTMLElement | null => {
 }
 
 /**
- * The control to click next, or null when every transcript control on the page
- * has been clicked already. A control is never clicked twice: its load may
- * still be pending, and a second click can close the panel or restart it.
+ * The control to click next: one never clicked, then one whose click changed
+ * nothing (typically rendered before its handler was attached), and never one
+ * whose click visibly started something — its load may still be pending, and
+ * a second click can close the panel or restart it. Null when only those are
+ * left.
  */
 const findTranscriptButton = (
-  tried: ReadonlySet<HTMLElement>
+  clicked: ReadonlySet<HTMLElement>,
+  pending: ReadonlySet<HTMLElement>
 ): HTMLElement | null => {
   const preferred =
     findTranscriptButtonInSection() ||
     findTranscriptButtonBySelectors() ||
     findTranscriptButtonByTouchFeedback() ||
     findTranscriptButtonByText()
-  if (!preferred || !tried.has(preferred)) return preferred
+  if (!preferred || !clicked.has(preferred)) return preferred
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>("button, div[role='button']")
+  ).filter(isTranscriptButton)
   return (
-    Array.from(
-      document.querySelectorAll<HTMLElement>("button, div[role='button']")
-    ).find((button) => !tried.has(button) && isTranscriptButton(button)) ?? null
+    candidates.find((button) => !clicked.has(button)) ??
+    [preferred, ...candidates].find((button) => !pending.has(button)) ??
+    null
   )
 }
 
@@ -326,10 +332,33 @@ const waitForTranscriptSegments = async (
   return count > 0
 }
 
+/**
+ * What a transcript click can visibly change: the control's own pressed or
+ * selected state, and each engagement panel's visibility and content. The
+ * same answer before and after a click means the page ignored it — typically
+ * a control rendered before its handler was attached.
+ */
+const clickEffectSignature = (button: HTMLElement): string => {
+  const control = ["aria-pressed", "aria-selected", "aria-expanded"]
+    .map((name) => button.getAttribute(name) ?? "")
+    .join("|")
+  const panels = Array.from(
+    document.querySelectorAll("ytd-engagement-panel-section-list-renderer")
+  )
+    .map(
+      (panel) =>
+        `${panel.getAttribute("target-id") ?? ""}:${panel.getAttribute("visibility") ?? ""}:${panel.innerHTML.length}`
+    )
+    .join(",")
+  return `${control}#${panels}`
+}
+
+type TranscriptClickOutcome = "opened" | "pending" | "ignored"
+
 const openTranscriptWithButton = async (
   button: HTMLElement,
   deadline: number
-): Promise<boolean> => {
+): Promise<TranscriptClickOutcome> => {
   logger.debug("Found transcript button!", "TranscriptExtractor", {
     buttonText: button.textContent?.trim() || "",
     ariaLabel: button.getAttribute("aria-label") || "",
@@ -337,15 +366,16 @@ const openTranscriptWithButton = async (
     classes: button.className
   })
   logger.debug("Clicking transcript button...", "TranscriptExtractor")
+  const before = clickEffectSignature(button)
   clickTranscriptButton(button)
   const opened = await waitForTranscriptSegments(deadline)
-  logger.debug(
-    opened
-      ? "Transcript panel successfully opened!"
-      : "Transcript panel held no segments after clicking",
-    "TranscriptExtractor"
-  )
-  return opened
+  const outcome: TranscriptClickOutcome = opened
+    ? "opened"
+    : clickEffectSignature(button) === before
+      ? "ignored"
+      : "pending"
+  logger.debug(`Transcript click outcome: ${outcome}`, "TranscriptExtractor")
+  return outcome
 }
 
 const logTranscriptButtonSamples = (): void => {
@@ -382,7 +412,8 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
   )
   const maxRetries = 5
   const deadline = Date.now() + PANEL_SEGMENT_WAIT_MS
-  const tried = new Set<HTMLElement>()
+  const clicked = new Set<HTMLElement>()
+  const pending = new Set<HTMLElement>()
   for (
     let attempt = 1;
     attempt <= maxRetries && Date.now() < deadline;
@@ -392,11 +423,16 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
       `Attempt ${attempt}/${maxRetries} to find transcript button...`,
       "TranscriptExtractor"
     )
-    const button = findTranscriptButton(tried)
+    const button = findTranscriptButton(clicked, pending)
     if (button) {
-      tried.add(button)
-      if (await openTranscriptWithButton(button, deadline)) return true
-    } else if (tried.size > 0 && (await waitForTranscriptSegments(deadline))) {
+      clicked.add(button)
+      const outcome = await openTranscriptWithButton(button, deadline)
+      if (outcome === "opened") return true
+      if (outcome === "pending") pending.add(button)
+    } else if (
+      pending.size > 0 &&
+      (await waitForTranscriptSegments(deadline))
+    ) {
       // Nothing new to click: the load already started may still land.
       return true
     }
