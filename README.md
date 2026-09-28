@@ -1,6 +1,6 @@
 # Ollama Client
 
-Local-first browser sidepanel for chatting with local and remote LLM providers, with private chat history, local RAG, image input, browser-context tools, and optional web search.
+A browser side panel for chatting with local and self-hosted LLMs. Your chats, files and embeddings stay on your machine.
 
 <p>
   <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl">
@@ -9,274 +9,106 @@ Local-first browser sidepanel for chatting with local and remote LLM providers, 
   <a href="https://addons.mozilla.org/en-US/firefox/addon/ollama-client/">
     <img alt="Firefox Add-on" src="https://img.shields.io/amo/v/ollama-client?label=Firefox%20Add-on&style=for-the-badge&logo=firefoxbrowser" />
   </a>
-  <img alt="Local-first" src="https://img.shields.io/badge/Local--First-Yes-0f766e?style=for-the-badge" />
-  <img alt="Providers" src="https://img.shields.io/badge/Providers-3%20built--in%20%2B%20custom-1d4ed8?style=for-the-badge" />
   <img alt="License" src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" />
 </p>
 
-**Quick links:** [Chrome](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) · [Firefox](https://addons.mozilla.org/en-US/firefox/addon/ollama-client/) · [Docs](https://www.ollamaclient.in/) · [Provider setup](https://www.ollamaclient.in/guides/provider-setup/) · [Architecture](https://www.ollamaclient.in/concepts/architecture/) · [Privacy](https://www.ollamaclient.in/legal/privacy-policy/) · [Issues](https://github.com/Shishir435/ollama-client/issues)
+[Docs](https://www.ollamaclient.in/) · [Provider setup](https://www.ollamaclient.in/guides/provider-setup/) · [Privacy](https://www.ollamaclient.in/legal/privacy-policy/) · [Issues](https://github.com/Shishir435/ollama-client/issues)
 
-## What It Does
-
-Ollama Client gives you a browser-native chat workspace for local and bring-your-own remote models:
-
-- Chat from the browser sidepanel with streaming responses and cancellation.
-- Use verified built-ins for Ollama, LM Studio, and llama.cpp; add other OpenAI-compatible servers or Anthropic from Settings.
-- Upload files and use local retrieval-augmented generation over your own content.
-- Attach images for vision-capable models.
-- Let tool-capable models read the current tab, open tabs, uploaded files, local memory, and optionally the live web when the prompt calls for it.
-- Capture selected page text into chat with the selection-button overlay.
-- Keep chat history, sessions, files, settings, and embeddings on your machine by default.
-- Review all stored data, create a full backup, or wipe it from one Privacy screen.
-- Organize chats with tags; edit messages in place or fork an alternate branch.
-- Export, restore, print, and manage local conversation history.
-
-## Supported Providers
-
-| Provider         | Default endpoint           | Notes                                                                |
-| ---------------- | -------------------------- | -------------------------------------------------------------------- |
-| Ollama           | `http://localhost:11434`   | Default fallback with tool calling and fullest local model-management support |
-| LM Studio        | `http://localhost:1234/v1` | OpenAI-compatible chat, embeddings, tool calling, and LM Studio model discovery |
-| llama.cpp server | `http://localhost:8000/v1` | OpenAI-compatible server via `llama-server`                          |
-| OpenAI-compatible | User configured           | Add vLLM, LocalAI, KoboldCPP, or another compatible endpoint         |
-| Anthropic        | `https://api.anthropic.com/v1` | Optional remote provider using the native Claude Messages API     |
-
-Model routing uses saved model-to-provider mappings first. If a mapping is missing, the historical fallback is Ollama.
-
-## Local RAG
-
-The RAG pipeline is browser-first and local-first:
-
-1. Files, chat text, and live page context use one extension-owned chunker.
-2. Chunks are embedded through provider-native support, a shared embedding model, or Ollama fallback.
-3. Hybrid retrieval combines keyword and dense search.
-4. Retrieved snippets are injected into the prompt context before generation.
-
-Chat/session/message/file history is SQLite-only through official sqlite-wasm,
-owned by one persistence worker. Migrated profiles use OPFS; the retained legacy
-blob backend stays available for compatibility and rollback. Vector embeddings
-still live in IndexedDB through the embeddings storage layer.
-
-## Browser Context, Images, and Tools
-
-Ollama Client supports two context paths:
-
-- **Manual context**: select tabs, selected text, files, or images before sending.
-- **Model-requested context**: tool-capable models can call tools during a response to inspect the current page, list/read open tabs, read permission-gated recently closed or synced-device sessions, search indexed files, search local chat memory, or search the live web when web search is enabled.
-
-Tool calls run inside the extension and are shown in the reasoning trace with status, inputs, sources, and trimmed output previews. They do not create extra chat-history rows; only the final answer and trace metadata are persisted.
-
-Before sending, the composer context tray shows what the model can see and
-consolidates tab selection, files, screenshots, knowledge, and web controls. After
-an answer, page/tab context, local knowledge, and web results appear in one
-grouped Sources sheet.
-
-Recently closed and synced-session tools are read-only, require optional
-permission, and honor never-read exclusions. Restoring a session is not exposed
-until model actions have a real interactive approval boundary.
-
-Web search appears to tool-capable models as a single `web_search` tool. Backend choice stays in Settings -> Knowledge, with SearXNG for local/self-hosted search and Brave Search or Tavily through API keys. Search config is device-local, API keys are masked, snippets are capped, and returned titles/snippets are treated as untrusted text.
-
-For local/private web search:
-
-```bash
-cd searxng
-docker compose up -d
-```
-
-Then set the SearXNG endpoint to `http://localhost:8080` in Settings -> Knowledge -> Web Search.
-
-Image input is available only when the selected model resolves to vision-capable. Images are sent in the provider's native request format and stored locally with the conversation so previews reopen later.
-
-## Install
-
-### Browser stores
+## Get started
 
 1. Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) (Chrome, Edge, Brave) or [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ollama-client/).
-2. Start at least one provider server.
-3. Open extension settings, configure the provider URL, and select a model.
-4. Start chatting from the sidepanel.
+2. Start a model server — Ollama, LM Studio or llama.cpp. For Ollama, [`olc`](#olc-cli-optional) does the setup for you.
+3. Open the side panel, pick a model, chat.
 
-### Local Development
+## Features
+
+- **Streaming chat** in the side panel, with stop, edit-in-place, branching, tags, export, print and backup.
+- **Providers:** Ollama, LM Studio and llama.cpp built in; vLLM, LocalAI, KoboldCPP or any OpenAI-compatible server, and Anthropic, as custom providers.
+- **Local RAG** over your files: hybrid keyword + vector search, with offline embeddings bundled in the extension.
+- **Browser context:** attach tabs, selected text, files or images; tool-capable models can read the current tab and open tabs themselves.
+- **Web search** (optional) through SearXNG, Brave or Tavily.
+- **Vision** for models that support images.
+- **Selection button:** send highlighted text on any page straight to chat.
+- **Browser agent** (experimental, off by default): the model can open sites, search, click and fill forms, asking you before anything consequential.
+- **Privacy screen:** see everything stored, back it up, or wipe it. No telemetry.
+
+## Browser support
+
+| Feature | Chrome / Edge / Brave | Firefox |
+| --- | :---: | :---: |
+| Chat, providers, history | ✅ | ✅ |
+| Local RAG and offline embeddings | ✅ | ✅ |
+| Images, web search, tab tools | ✅ | ✅ |
+| Selection button | ✅ | ✅ |
+| Tab groups | ✅ | optional permission |
+| Browser agent (experimental) | ✅ | ❌ |
+| Minimum version | 116 | 114 |
+
+The agent drives pages through Chrome's debugger API, which Firefox does not offer, so Firefox builds leave it out entirely.
+
+## Providers
+
+| Provider | Default endpoint |
+| --- | --- |
+| Ollama | `http://localhost:11434` |
+| LM Studio | `http://localhost:1234/v1` |
+| llama.cpp (`llama-server`) | `http://localhost:8000/v1` |
+| OpenAI-compatible | your URL |
+| Anthropic | `https://api.anthropic.com/v1` |
+
+Models with no saved provider mapping route to Ollama. See the [capability matrix](https://www.ollamaclient.in/concepts/provider-matrix/).
+
+## olc CLI (optional)
+
+`olc` starts or reuses Ollama with extension access already configured, so you skip setting `OLLAMA_ORIGINS` by hand. It needs Node.js 22.12+.
+
+```bash
+curl -fsSL https://ollamaclient.in/olc.sh | sh     # macOS / Linux
+```
+
+```powershell
+irm https://ollamaclient.in/olc.ps1 | iex          # Windows
+```
+
+Then:
+
+```bash
+olc                # Ollama with extension access
+olc --lan          # also reachable from your trusted network
+olc -b codex       # Codex as an OpenAI-compatible provider on :8083
+olc -b opencode    # OpenCode on :8084
+olc -b fm          # Apple's on-device model on :8085 (macOS 27)
+olc --help
+```
+
+Add the Codex, OpenCode or Apple endpoints in the extension as a custom OpenAI-compatible provider at `http://127.0.0.1:<port>/v1`.
+
+Want to pin a release and verify its checksum first? The [developer guide](https://www.ollamaclient.in/developers/) has the verified install.
+
+## Private web search
+
+```bash
+cd searxng && docker compose up -d
+```
+
+Then set `http://localhost:8080` in Settings → Knowledge & web → Web search.
+
+## Privacy
+
+Local providers keep everything on your machine. A remote provider sees what you send it, and a remote search provider sees your queries. Chat history, files and embeddings are stored locally. Diagnostics are content-free and never uploaded. Don't expose a model server to the internet without authentication.
+
+## Development
 
 ```bash
 git clone https://github.com/Shishir435/ollama-client.git
 cd ollama-client
 pnpm install
-pnpm dev
+pnpm dev            # Chrome
+pnpm dev:firefox    # Firefox
 ```
 
-Firefox development:
-
-```bash
-pnpm dev:firefox
-```
-
-### Optional: install the `olc` CLI
-
-Ollama Client does not require olc; you can configure `OLLAMA_ORIGINS` manually
-using the [provider setup guide](https://www.ollamaclient.in/guides/provider-setup/).
-Bare `olc` offers an automated alternative: it starts or reuses native Ollama with extension access. `olc --lan`
-enables trusted-network access, while `olc -b opencode` and `olc -b codex`
-expose those agent runtimes through an OpenAI-compatible local API. It
-requires Node.js 22.12 or newer and the selected runtime on `PATH`.
-
-Every release publishes the install wrappers with a `sha256` for each, so the
-recommended path pins one to a tag and verifies it before it runs. Each block is
-one guarded unit, so a failed download or checksum ends it instead of falling
-through to whatever is already on disk.
-
-macOS / Linux:
-
-```bash
-tag=0.13.3
-base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
-curl -fsSL "$base/olc.sh" -o olc.sh &&
-  curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256 &&
-  { if command -v sha256sum >/dev/null
-    then sha256sum -c olc.sh.sha256
-    else shasum -a 256 -c olc.sh.sha256
-    fi
-  } &&
-  less olc.sh &&
-  OLC_VERSION="$tag" sh olc.sh
-```
-
-Windows PowerShell:
-
-```powershell
-$tag = "0.13.3"
-try {
-  $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
-  $dir = (New-Item -ItemType Directory -Path (Join-Path $env:TEMP "olc-$tag-$(Get-Random)")).FullName
-  irm "$base/olc.ps1" -OutFile "$dir\olc.ps1" -ErrorAction Stop
-  irm "$base/olc.ps1.sha256" -OutFile "$dir\olc.ps1.sha256" -ErrorAction Stop
-  $expected = (Get-Content "$dir\olc.ps1.sha256").Split(" ")[0]
-  if ((Get-FileHash "$dir\olc.ps1" -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
-  Get-Content "$dir\olc.ps1"
-  $env:OLC_VERSION = $tag
-  Unblock-File "$dir\olc.ps1"
-  powershell -ExecutionPolicy Bypass -File "$dir\olc.ps1"
-} catch {
-  Write-Error "olc install stopped: $_"
-}
-```
-
-If you would rather not verify anything, the site serves the same wrappers at a
-mutable URL and both accept `OLC_VERSION`:
-
-```bash
-curl -fsSL https://ollamaclient.in/olc.sh | sh          # macOS / Linux
-```
-
-```powershell
-irm https://ollamaclient.in/olc.ps1 | iex               # Windows PowerShell
-```
-
-That form executes a remote script unread, with your own privileges. The
-[developer guide](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell)
-covers both paths, plus installing the release archive without a wrapper at all.
-
-Then run `olc` for native Ollama, or `olc --help` for all short/long options.
-All modes detach by default; `--debug` or `--foreground` stays attached.
-For Codex/OpenCode, configure Ollama Client with a custom OpenAI-compatible provider at
-`http://127.0.0.1:8083/v1` for Codex or `http://127.0.0.1:8084/v1` for OpenCode. See the [OLC developer guide](https://www.ollamaclient.in/developers/)
-for backend setup, authentication, and tool-calling details.
-
-## Common Commands
-
-```bash
-pnpm dev                    # Chrome MV3 dev build
-pnpm dev:firefox            # Firefox MV2 dev build
-pnpm build                  # Chrome production build
-pnpm build:firefox          # Firefox production build
-pnpm package                # Zip Chrome build
-pnpm package:firefox        # Zip Firefox build
-
-pnpm typecheck
-pnpm lint:check
-pnpm test:run
-pnpm verify                 # shared static checks + full test suite
-pnpm verify:browser-smoke
-pnpm verify:browser-automation
-```
-
-Before opening a PR, run:
-
-```bash
-pnpm verify
-```
-
-## Architecture
-
-The extension is built with WXT, React 19, TypeScript 6, Tailwind v4, and Biome.
-
-Key paths:
-
-- `src/entrypoints/` - WXT entrypoints for sidepanel, options, background, content scripts, and print export.
-- `src/sidepanel/` - main chat shell.
-- `src/options/` - settings and configuration shell.
-- `src/background/` - runtime message dispatcher and handlers.
-- `packages/contracts/` - environment-independent schemas and wire contracts.
-- `packages/runtime-core/` - deterministic streaming, cancellation, retry, and checkpoint primitives.
-- `packages/chat-runtime/` - port-driven turn, context, and tool-loop orchestration.
-- `src/application/context/` - background-owned context composition and RAG adapters.
-- `src/features/` - feature-owned UI, hooks, stores, and presentation workflows.
-- `src/components/forms/`, `src/components/layout/`, `src/components/settings/`, `src/components/feedback/`, `src/components/data-display/` - app-owned frontend primitives.
-- `src/components/ui/` - curated shadcn/Base UI primitives only.
-- `src/lib/providers/` - provider registry, factory, manager, and provider implementations.
-- `src/lib/repositories/chat-history.ts` - chat-history facade backed by SQLite.
-- `src/lib/persistence/` - the single sqlite-wasm owner, worker, and OPFS/legacy backends.
-- `src/lib/sqlite/` - the persistence RPC facade, schema, and forward-only migrations.
-- `src/lib/embeddings/` - chunking, embedding strategy, HNSW, keyword index, and vector storage.
-
-Runtime flow:
-
-1. Sidepanel sends a provider stream request through a runtime port.
-2. Background dispatches to a provider handler.
-3. `ProviderFactory` resolves the selected model's provider.
-4. Provider streams tokens back through the port.
-5. The background durable runtime persists turn state while the UI folds stream
-   events into ephemeral presentation state.
-
-## Documentation
-
-- [Provider setup](https://www.ollamaclient.in/guides/provider-setup/)
-- [Context, images, and tools](https://www.ollamaclient.in/guides/context-and-tools/)
-- [Provider capability matrix](https://www.ollamaclient.in/concepts/provider-matrix/)
-- [Architecture](https://www.ollamaclient.in/concepts/architecture/)
-- [Keyboard shortcuts](https://www.ollamaclient.in/about/keyboard-shortcuts/)
-- [Changelog](https://www.ollamaclient.in/about/changelog/)
-- [Privacy policy](https://www.ollamaclient.in/legal/privacy-policy/)
-- [Contributing guide](./CONTRIBUTING.md)
-- [AI assistant guide](./AGENTS.md) — with [browser agent internals](./AGENT_INTERNALS.md) and [olc CLI rules](./packages/olc/AGENTS.md)
-
-Search provider API references:
-
-- [SearXNG Search API](https://docs.searxng.org/dev/search_api.html)
-- [Brave Search API](https://api-dashboard.search.brave.com/app/documentation/web-search/responses)
-- [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search)
-
-Docs site source lives in `docs/`. The changelog and provider matrix docs pages are generated by `pnpm docs:generate` from root/source files, so do not hand-edit `docs/src/content/docs/about/changelog.md` or `docs/src/content/docs/concepts/provider-matrix.md`. The docs build output goes to `docs/dist/` for Vercel. Generated extension locale metadata under `public/_locales/` comes from `src/locales/<lang>/translation.json`; do not hand-edit generated locale files.
-
-## Privacy
-
-Ollama Client does not include a built-in telemetry pipeline. Your privacy depends on the providers you configure:
-
-- Local providers keep requests on your machine or local network.
-- Remote providers receive the prompts, context, and files snippets you send to them.
-- Remote search providers receive search queries when web search is enabled and selected.
-- Chat history and RAG data are stored locally by default.
-- Diagnostics are bounded, content-free, previewed locally, and never uploaded automatically.
-
-Do not expose local provider APIs publicly without authentication and network controls.
-
-## Contributing
-
-Keep changes scoped, testable, and aligned with the existing feature boundaries. New chat-history work should go through `src/lib/repositories/chat-history.ts`; new provider work should update the provider registry, factory, manager defaults, tests, and provider docs.
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md) for the full contributor workflow. The [tooling guide](tools/README.md) lists command ownership and prerequisites.
+Run `pnpm verify` before a PR. See [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md) for architecture and conventions, and [tools/README.md](tools/README.md) for commands.
 
 ## License
 
-MIT License: [LICENCE](./LICENCE)
+[MIT](./LICENCE)
