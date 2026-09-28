@@ -721,6 +721,50 @@ describe("YouTube transcript extractor", () => {
         }
       })
 
+      it("waits on a transcript opening in a panel with another target id", async () => {
+        // The click mounts the transcript view at once and its segments land
+        // later. Every container that can be read is also watched, so this is
+        // seen as a pending load and not clicked again.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute("target-id", "engagement-panel-some-future-id")
+        document.body.appendChild(panel)
+
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        let presses = 0
+        button.addEventListener("pointerdown", () => {
+          presses += 1
+          if (presses > 1) {
+            panel.innerHTML = ""
+            return
+          }
+          const view = document.createElement("ytd-transcript-renderer")
+          panel.appendChild(view)
+          setTimeout(() => {
+            view.innerHTML = `
+              <transcript-segment-view-model>
+                <span class="ytAttributedStringHost" role="text">Other panel.</span>
+              </transcript-segment-view-model>
+            `
+          }, 3000)
+        })
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          const result = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await result).toBe("Other panel.")
+          expect(presses).toBe(1)
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
       it("refetches when the inline payload names no video at all", async () => {
         // Unverifiable is not the same as current: without an id there is no way
         // to tell a stale payload from a fresh one, and the stale one's caption

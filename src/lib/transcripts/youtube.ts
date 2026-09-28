@@ -70,29 +70,15 @@ const PANEL_SEGMENT_SETTLE_MS = 750
  *
  * A matching container is not enough on its own: the consolidated panel exists
  * while it shows Timeline or Chapters, and treating that as an open transcript
- * skipped the click that would have switched it over. A segment outside every
- * known container still counts when it sits in an engagement panel, so the
- * next renamed wrapper degrades to a wider read rather than to no transcript.
- * One outside any panel is not read: nothing ties stray transcript-shaped
- * markup to the video being watched.
+ * skipped the click that would have switched it over. Only these containers
+ * are read, never a segment elsewhere: nothing ties stray transcript-shaped
+ * markup to the video being watched, and a container the click check below
+ * does not watch could not tell a pending load from an ignored click.
  */
-const findTranscriptContainer = (): Element | null => {
-  const containers = Array.from(
-    document.querySelectorAll(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR)
-  )
-  const populated = containers.find((container) =>
-    container.querySelector(ANY_TRANSCRIPT_SEGMENT_SELECTOR)
-  )
-  if (populated) return populated
-
-  return (
-    Array.from(document.querySelectorAll(ANY_TRANSCRIPT_SEGMENT_SELECTOR))
-      .map((segment) =>
-        segment.closest("ytd-engagement-panel-section-list-renderer")
-      )
-      .find((panel) => panel !== null) ?? null
-  )
-}
+const findTranscriptContainer = (): Element | null =>
+  Array.from(document.querySelectorAll(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR)).find(
+    (container) => container.querySelector(ANY_TRANSCRIPT_SEGMENT_SELECTOR)
+  ) ?? null
 /**
  * Attempts to open the YouTube transcript panel by clicking:
  * 1. The "more" button in description (if collapsed)
@@ -339,14 +325,17 @@ const TRANSCRIPT_TARGET_PANEL_SELECTOR = [
   'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-timeline-view-consolidated"]'
 ].join(", ")
 
-/** A transcript view mounted, or YouTube's loading indicator inside a panel. */
-const TRANSCRIPT_LOADING_SELECTOR = `${YOUTUBE_TRANSCRIPT_PANEL_SELECTOR}, tp-yt-paper-spinner, yt-spinner, .yt-spinner`
+/** YouTube's loading indicator, read only inside a transcript panel. */
+const TRANSCRIPT_SPINNER_SELECTOR =
+  "tp-yt-paper-spinner, yt-spinner, .yt-spinner"
 
 /**
  * What a transcript click visibly changes: the control's own pressed or
- * selected state, and the transcript panels' visibility and whether they hold
- * a transcript view or a spinner. Other panels are left out, and so is raw
- * markup, which a timeline's current-time highlight churns on its own. The
+ * selected state, the transcript panels' visibility and spinners, and how
+ * many transcript containers are mounted anywhere — every container
+ * {@link findTranscriptContainer} can read, so no load it could answer from
+ * goes unseen. Other panels are left out, and so is raw markup, which a
+ * timeline's current-time highlight churns on its own. The
  * same answer before and after a click means the page ignored it — typically
  * a control rendered before its handler was attached. YouTube's own transcript
  * command expands its panel as it runs, so a click that started a load shows
@@ -361,10 +350,13 @@ const clickEffectSignature = (button: HTMLElement): string => {
   )
     .map(
       (panel) =>
-        `${panel.getAttribute("target-id") ?? ""}:${panel.getAttribute("visibility") ?? ""}:${panel.querySelectorAll(TRANSCRIPT_LOADING_SELECTOR).length}`
+        `${panel.getAttribute("target-id") ?? ""}:${panel.getAttribute("visibility") ?? ""}:${panel.querySelectorAll(TRANSCRIPT_SPINNER_SELECTOR).length}`
     )
     .join(",")
-  return `${control}#${panels}`
+  const containers = document.querySelectorAll(
+    YOUTUBE_TRANSCRIPT_PANEL_SELECTOR
+  ).length
+  return `${control}#${panels}#${containers}`
 }
 
 type TranscriptClickOutcome = "opened" | "pending" | "ignored"
