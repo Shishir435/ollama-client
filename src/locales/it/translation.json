@@ -132,7 +132,8 @@
     },
     "tab": {
       "label": "Scheda controllata",
-      "missing": "Apri una pagina supportata"
+      "missing": "Apri una pagina supportata",
+      "show": "Mostra questa scheda"
     },
     "tabs": {
       "label": "Schede controllate",

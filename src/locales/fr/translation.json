@@ -132,7 +132,8 @@
     },
     "tab": {
       "label": "Onglet contrôlé",
-      "missing": "Ouvrez une page prise en charge"
+      "missing": "Ouvrez une page prise en charge",
+      "show": "Afficher cet onglet"
     },
     "tabs": {
       "label": "Onglets contrôlés",

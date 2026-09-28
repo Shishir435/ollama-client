@@ -396,7 +396,8 @@ describe("running a browser task", () => {
   it("opens the start address in a new tab when the tab in view is a browser page", async () => {
     const service = serviceStub()
     const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
-    const task = runner(service, local, { openTab })
+    const groupTab = vi.fn(async () => undefined)
+    const task = runner(service, local, { openTab, groupTab })
     const start = {
       ...request,
       startUrl: "https://duckduckgo.com/"
@@ -411,16 +412,21 @@ describe("running a browser task", () => {
     expect(service.delegate).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 12 })
     )
+    /** It opened in the background; the run's group is what names it. */
+    expect(groupTab).toHaveBeenCalledExactlyOnceWith("run-1", 12)
   })
 
   it("keeps the user's own tab when the start address is on its site", async () => {
     const service = serviceStub()
     const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
-    await runner(service, local, { openTab }).run(
+    const groupTab = vi.fn(async () => undefined)
+    await runner(service, local, { openTab, groupTab }).run(
       { ...request, startUrl: "https://example.com/pricing" },
       turn({ userConfirmed: true })
     )
     expect(openTab).not.toHaveBeenCalled()
+    /** The user's own tab is never filed under the agent's group. */
+    expect(groupTab).not.toHaveBeenCalled()
     expect(service.delegate).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 7 })
     )

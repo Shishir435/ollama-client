@@ -62,7 +62,17 @@ Read the section your change touches; you do not need the whole file.
   every settle the run waits on. Measured in a real Chromium with the tab
   behind another: without it, 3 timer ticks in 3s and no frames; with it,
   full-rate timers, running frames, `visibilityState: "visible"`.
-  Screenshots and debugger input reach a hidden tab either way. Detaching
+  It is page-wide: a cross-origin iframe in its own process, measured the
+  same way, went from 3 ticks and no frames to full rate from the one call
+  on the page, so child sessions need none. A start tab `browser_task`
+  opened joins the run's tab group once the run has an id — opened in the
+  background, the group is what says which tab the agent is in; the user's
+  own tab is never grouped. The details card's "Controlled tab" row is a
+  button that brings the tab and its window forward — on the user's click,
+  the one way a run's tab reaches the front, for a handover or a page to
+  review. The run's tab also keeps playing media and
+  animations after the user leaves it, since the page believes it is in
+  front. Screenshots and debugger input reach a hidden tab either way. Detaching
   ends the emulation. The debugger banner is Chrome's and shows on every tab
   while any tab is attached; nothing here can hide it.
 - **An unresolved effect is resolved by the supervisor, not by a guess.**

@@ -24,6 +24,7 @@ import {
   type AgentRunFailureReason,
   type AgentRunService
 } from "./agent-run-service"
+import { groupAgentTab } from "./agent-tab-group"
 
 type ProviderDisclosure = AgentPanelSnapshot["provider"]
 
@@ -69,6 +70,8 @@ const TURN_STOPPED =
 interface ResolvedTab {
   id: number
   url: string
+  /** Opened for this task from its start address, not the user's own tab. */
+  opened?: true
 }
 
 /** What a delegated run needs from the turn; the legacy port has none. */
@@ -115,6 +118,8 @@ export interface BrowserTaskRunnerDependencies {
   activeTab?: () => Promise<{ id?: number; url?: string } | undefined>
   /** Opens a start address in a new tab and resolves once it has loaded. */
   openTab?: (url: string) => Promise<{ id?: number; url?: string } | undefined>
+  /** Files a tab the run opened under the run's tab group. */
+  groupTab?: (runId: string, tabId: number) => Promise<void>
   readHandoff?: (
     messageId: number
   ) => Promise<AgentConversationHandoff | undefined>
@@ -188,6 +193,7 @@ export const createBrowserTaskRunner = (
       return row?.agentHandoff
     })
   const waitMs = dependencies.waitMs ?? BROWSER_TASK_WAIT_MS
+  const groupTab = dependencies.groupTab ?? groupAgentTab
   const openTab =
     dependencies.openTab ??
     (async (url: string) => {
@@ -364,7 +370,7 @@ export const createBrowserTaskRunner = (
     if (tab || !request.startUrl) return tab
     const opened = await openTab(request.startUrl)
     return typeof opened?.id === "number" && opened.url
-      ? { id: opened.id, url: opened.url }
+      ? { id: opened.id, url: opened.url, opened: true }
       : undefined
   }
 
@@ -462,6 +468,12 @@ export const createBrowserTaskRunner = (
         ...(admitted.experimental ? { allowExperimentalModel: true } : {}),
         ...followedRun(request, turn)
       })
+      /**
+       * A start tab opens in the background before the run has an id, so it
+       * joins the run's group here — the one mark that says which tab the
+       * agent is working in. The user's own tab is never grouped.
+       */
+      if (admitted.tab.opened) void groupTab(state.id, admitted.tab.id)
       return { ok: true, state }
     } catch (error) {
       if (error instanceof AgentRunError) {
