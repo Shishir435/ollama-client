@@ -306,16 +306,24 @@ describe("Agent observation builder", () => {
       token.type = "hidden"
       token.name = "source"
       token.value = "hp"
+      /** Google's add-image and add-file pickers, hidden and empty. */
+      const picker = document.createElement("input")
+      picker.type = "file"
+      picker.hidden = true
       const button = document.createElement("input")
       button.type = "submit"
       button.value = "Google Search"
-      form.append(field, token, button)
+      form.setAttribute("role", "search")
+      form.append(picker, field, token, button)
       configure(form, field)
       document.body.append(form)
       return build().elements.filter((element) => element.maySubmit)
     }
 
-    /** Google's shape: a combobox textarea, hidden inputs and a submitter. */
+    /**
+     * Google's homepage form as it is served: `role="search"`, a combobox
+     * textarea, hidden inputs, empty file pickers and a submitter.
+     */
     it("marks Google's form, hidden inputs and all, on the field and its button", () => {
       const submitting = searchPage(() => {})
       expect(submitting).toHaveLength(2)
@@ -325,9 +333,13 @@ describe("Agent observation builder", () => {
 
     it("marks a search landmark and a type=search field", () => {
       expect(
-        searchPage((form, field) => {
+        searchPage((_form, field) => {
           field.removeAttribute("role")
-          form.setAttribute("role", "search")
+        })[0]
+      ).toHaveProperty("searchForm", true)
+      expect(
+        searchPage((form) => {
+          form.removeAttribute("role")
         })[0]
       ).toHaveProperty("searchForm", true)
 
@@ -383,7 +395,8 @@ describe("Agent observation builder", () => {
       ],
       [
         "a field that never says it is a search",
-        (_form: HTMLFormElement, field: HTMLElement) => {
+        (form: HTMLFormElement, field: HTMLElement) => {
+          form.removeAttribute("role")
           field.removeAttribute("role")
         }
       ]

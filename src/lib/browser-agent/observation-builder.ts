@@ -1365,8 +1365,8 @@ const elementHref = (element: Element): string | undefined => {
  * A form the page itself marks as a search, with nothing to fill in but the
  * query. Its one text field is a search box — `type="search"`, a searchbox or
  * combobox role, `enterkeyhint="search"` — or the form is a search landmark;
- * every other control is a button or a hidden input. Google's form carries
- * hidden inputs, so they are allowed; a select, a checkbox or a second field
+ * every other control is a button, a hidden input or an empty file picker.
+ * Google's form carries hidden inputs and pickers, so they are allowed; a select, a checkbox or a second field
  * is a form with settings, which "Apply" on a preferences page is, and it is
  * not a search.
  */
@@ -1380,6 +1380,12 @@ const isSearchForm = (form: HTMLFormElement): boolean => {
       const type = control.type.toLowerCase()
       if (["hidden", "submit", "image", "button", "reset"].includes(type))
         continue
+      /**
+       * Google's form holds two hidden, empty pickers for adding images and
+       * files to a search. An empty one sends nothing; one with a file chosen
+       * made the form sensitive above.
+       */
+      if (type === "file") continue
     }
     const entry =
       control instanceof HTMLTextAreaElement || isTextEntryInput(control)
