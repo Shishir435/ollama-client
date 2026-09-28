@@ -250,6 +250,7 @@
       "after_page": "The model read page content before writing this task, so it is always asked about.",
       "other_tab": "This task runs on a different tab from the one you are looking at.",
       "supervised": "The agent works on the page step by step and asks before anything consequential. Chrome shows a debugging banner while it works.",
+      "routine": "On this site, clicks, typing and searches or form submissions for this task run without asking again. Signing in, paying, deleting and opening other sites still ask.",
       "experimental_model": "Tool calling is on for this model because you set it, not because the model reported it. A model that cannot call tools will not get far."
     },
     "steer": {

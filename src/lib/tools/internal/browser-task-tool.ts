@@ -28,9 +28,10 @@ export interface BrowserTaskRequest {
   /** The model says this carries on from the chat's previous browser task. */
   continuePrevious: boolean
   /**
-   * Where to begin when the tab in view is one the agent cannot drive — a
-   * browser settings page, the new-tab page. Opened in a new tab after the
-   * start is approved; ignored when the tab in view can be used.
+   * The site the task names. Opened in a new tab after the start is
+   * approved when the tab in view is on another site or is one the agent
+   * cannot drive — a browser settings page, the new-tab page; ignored when
+   * the tab in view is already on it, or when the model named a tab.
    */
   startUrl?: string
 }
@@ -125,7 +126,7 @@ export const browserTaskDefinition: ToolDefinition = {
       start_url: {
         type: "string",
         description:
-          "The whole https address of the site the task names, such as https://duckduckgo.com. Pass it whenever the user names a site. It is used only when the tab the user is looking at is a browser or extension page the agent cannot work on, and then the site opens in a new tab; otherwise the task starts on the current tab."
+          "The whole https address of the site the task names, such as https://duckduckgo.com. Pass it whenever the user names a site. When the tab the user is looking at is on another site, or is a browser or extension page the agent cannot work on, the site opens in a new tab; otherwise the task starts on the current tab."
       },
       continue_previous_task: {
         type: "boolean",

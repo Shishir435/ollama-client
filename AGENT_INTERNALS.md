@@ -534,7 +534,10 @@ Read the section your change touches; you do not need the whole file.
   agent cannot drive (`brave://extensions`, the new-tab page) `browser_task`
   refuses and tells the model to pass `start_url`. With one, the start is
   approved against that address's origin and the site opens in a new tab
-  only after the approval; a usable tab in view ignores it.
+  only after the approval. A usable tab in view keeps the run when it is
+  already on that site or the model named it; on another site it does not,
+  because starting there made "open Google and search…" cost a second
+  approval to leave the page for the site the first one already named.
 - **A run never navigates the user's own tab to another site.** The first
   tab in a run's scope is the page the user was on; a `navigate` from it to
   another origin runs as `open_tab` (`user-tab.ts`), with the same
@@ -585,10 +588,15 @@ Read the section your change touches; you do not need the whole file.
   deliberately narrower than `AGENT_GRANTABLE_EFFECTS`) for the starting
   origin in that run, and `approve_each` keeps per-step review. A remembered
   preference is not a carried grant: changing it never widens a run already
-  going, and a new run receives no previous run's grants. Submission,
-  destruction, new origins and sensitive controls retain their own gates — a
-  submission is widened only from an approval the user was shown, never in
-  advance from a setting. It replaced a per-task checkbox that reset to
+  going, and a new run receives no previous run's grants. Destruction, new
+  origins and sensitive controls retain their own gates — a submission is
+  widened only from an approval the user was shown, never in advance from a
+  setting. The `browser_task` start prompt is such an approval: under
+  `allow_routine` it carries `agent.start_gate.routine`, saying searches and
+  form submissions on the starting site will not ask, and the run's starting
+  grant then includes `submission` (`allowSubmissions`). A search the user
+  asked for is one decision, not three. Never for a `model_after_page` goal,
+  whose submissions a page may have written. It replaced a per-task checkbox that reset to
   checked on every panel mount while its label said "for this task".
 - **An edit with no submission step says so, and says only that.**
   `noSubmitStep` is set on an edit whose target belongs to no form — an

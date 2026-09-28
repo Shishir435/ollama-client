@@ -212,8 +212,9 @@ export type AgentGrantableEffect = z.infer<typeof AgentGrantableEffectSchema>
  * specific approval is given while reading what that step would do;
  * this one is given before the run has started, against a checkbox, so it
  * covers only the repetitive classes the consent is worded for. A submission
- * is grantable — once the user has been shown one and said "always" — and is
- * never handed over in advance.
+ * is grantable — once the user has been shown one and said "always", or on
+ * the starting site when the start prompt they approved said so — and is
+ * never handed over from this setting alone.
  */
 export const AGENT_ROUTINE_GRANT_EFFECTS = [
   "activation",

@@ -62,6 +62,11 @@ export interface StartAgentRunInput {
   /** The settled run this one follows, and how; see `agent-follow-up.ts`. */
   followUp?: AgentFollowUpRequest
   allowRoutineActions?: boolean
+  /**
+   * Submissions on the starting site too, when the approval that started the
+   * run said so. Only with routine actions, and never from a setting alone.
+   */
+  allowSubmissions?: boolean
   allowExperimentalModel?: boolean
   /** Set when a chat model wrote the goal; absent means the user did. */
   goalAuthor?: AgentGoalAuthor
@@ -321,7 +326,10 @@ const initialRunState = ({
           grants: [
             {
               origin,
-              effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
+              effects: [
+                ...AGENT_ROUTINE_GRANT_EFFECTS,
+                ...(request.allowSubmissions ? (["submission"] as const) : [])
+              ],
               grantedAt: startedAt
             }
           ]
@@ -1063,6 +1071,9 @@ export const createAgentRunService = (input?: {
         ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
         placement: { kind: "turn", messageId: request.messageId },
         ...(request.allowRoutineActions ? { allowRoutineActions: true } : {}),
+        ...(request.allowRoutineActions && request.allowSubmissions
+          ? { allowSubmissions: true }
+          : {}),
         ...(request.allowExperimentalModel
           ? { allowExperimentalModel: true }
           : {}),

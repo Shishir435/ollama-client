@@ -229,6 +229,26 @@ export const createBrowserTaskRunner = (
       : undefined
   }
 
+  /**
+   * The tab in view when the task belongs there. A start address on another
+   * site means the user named where to go ("open Google and search…"):
+   * starting on the page in view would cost a second approval to leave it
+   * for the site the first approval already named. A tab the model named
+   * keeps its place, and a start address on the tab's own site changes
+   * nothing.
+   */
+  const tabInView = async (
+    request: BrowserTaskRequest,
+    ctx: ToolContext
+  ): Promise<ResolvedTab | undefined> => {
+    const tab = await usableTab(request, ctx)
+    if (!tab || !request.startUrl || request.tabId !== undefined) return tab
+    return normalizeGrantOrigin(tab.url) ===
+      normalizeGrantOrigin(request.startUrl)
+      ? tab
+      : undefined
+  }
+
   /** Page content in the turn, or a tool result that brought some in. */
   const readPageFirst = (ctx: ToolContext): boolean =>
     ctx.pageContentInContext === true || (ctx.taintGeneration ?? 0) > 0
@@ -274,6 +294,16 @@ export const createBrowserTaskRunner = (
     }
   }
 
+  /**
+   * Whether approving the start also approves the run's submissions on its
+   * starting site. The start prompt says so in `agent.start_gate.routine`, so
+   * a search the user asked for is not a second question about the same
+   * decision. Never after the model read a page: that goal may be the page's
+   * words, and its submissions stay the user's to see one by one.
+   */
+  const startCoversSubmissions = (mode: unknown, pageFirst: boolean): boolean =>
+    mode !== "approve_each" && !pageFirst
+
   const turnLink = (ctx: ToolContext): TurnLink | undefined =>
     ctx.sessionId &&
     ctx.assistantMessageId !== undefined &&
@@ -300,7 +330,7 @@ export const createBrowserTaskRunner = (
    * shown, a tab the run may not touch or one that changed after approval.
    */
   /**
-   * The tab in view when it can be driven, else the start address opened in
+   * The tab in view when the task belongs there, else the start address opened in
    * a new tab. Opened only here, after the start was approved against that
    * address's own origin — never while the prompt was being asked.
    */
@@ -308,7 +338,7 @@ export const createBrowserTaskRunner = (
     request: BrowserTaskRequest,
     ctx: ToolContext
   ): Promise<ResolvedTab | undefined> => {
-    const tab = await usableTab(request, ctx)
+    const tab = await tabInView(request, ctx)
     if (tab || !request.startUrl) return tab
     const opened = await openTab(request.startUrl)
     return typeof opened?.id === "number" && opened.url
@@ -403,6 +433,9 @@ export const createBrowserTaskRunner = (
         goalAuthor: turn.pageFirst ? "model_after_page" : "model",
         ...(turn.toolCallId ? { toolCallId: turn.toolCallId } : {}),
         allowRoutineActions: mode !== "approve_each",
+        ...(startCoversSubmissions(mode, turn.pageFirst)
+          ? { allowSubmissions: true }
+          : {}),
         ...(admitted.experimental ? { allowExperimentalModel: true } : {}),
         ...followedRun(request, turn)
       })
@@ -480,7 +513,7 @@ export const createBrowserTaskRunner = (
 
   return {
     async origin(request, ctx) {
-      const tab = await usableTab(request, ctx)
+      const tab = await tabInView(request, ctx)
       if (tab) return normalizeGrantOrigin(tab.url)
       return request.startUrl
         ? normalizeGrantOrigin(request.startUrl)
@@ -494,6 +527,10 @@ export const createBrowserTaskRunner = (
         request.tabId !== undefined && request.tabId !== ctx.browserTabId
       const afterPage = readPageFirst(ctx)
       const experimental = provider?.readiness?.status === "experimental"
+      const covers = startCoversSubmissions(
+        await readSetting(SETTINGS.AGENT_PERMISSION_MODE),
+        afterPage
+      )
       const notes = [
         ...(afterPage ? ["agent.start_gate.after_page"] : []),
         ...(experimental ? ["agent.start_gate.experimental_model"] : []),
@@ -503,7 +540,8 @@ export const createBrowserTaskRunner = (
           : remote.observations
             ? ["agent.privacy.remote_notice"]
             : []),
-        "agent.start_gate.supervised"
+        "agent.start_gate.supervised",
+        ...(covers ? ["agent.start_gate.routine"] : [])
       ]
       return {
         always:
