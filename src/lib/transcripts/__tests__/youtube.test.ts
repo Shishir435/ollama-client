@@ -671,6 +671,56 @@ describe("YouTube transcript extractor", () => {
         }
       })
 
+      it("retries an ignored click while an unrelated panel keeps changing", async () => {
+        // Comments loading beside the video say nothing about the transcript
+        // control, so they must not make its ignored click look like a load.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        const comments = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        comments.setAttribute("target-id", "engagement-panel-comments-section")
+        document.body.append(panel, comments)
+
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          const churn = setInterval(() => {
+            comments.insertAdjacentHTML("beforeend", "<div>comment</div>")
+            comments.setAttribute(
+              "visibility",
+              comments.getAttribute("visibility") === "A" ? "B" : "A"
+            )
+          }, 200)
+          setTimeout(() => {
+            button.addEventListener("click", () => {
+              panel.innerHTML = `
+                <transcript-segment-view-model>
+                  <span class="ytAttributedStringHost" role="text">Retried.</span>
+                </transcript-segment-view-model>
+              `
+            })
+          }, 2500)
+
+          const result = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          clearInterval(churn)
+          expect(await result).toBe("Retried.")
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
       it("refetches when the inline payload names no video at all", async () => {
         // Unverifiable is not the same as current: without an id there is no way
         // to tell a stale payload from a fresh one, and the stale one's caption

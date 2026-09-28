@@ -223,8 +223,9 @@ const findTranscriptButtonByText = (): HTMLElement | null => {
  * The control to click next: one never clicked, then one whose click changed
  * nothing (typically rendered before its handler was attached), and never one
  * whose click visibly started something — its load may still be pending, and
- * a second click can close the panel or restart it. Null when only those are
- * left.
+ * a second click can close the panel or restart it. An ignored control is
+ * clicked again once, since "ignored" is read from the page and a load that
+ * shows nothing is indistinguishable from it. Null when only those are left.
  */
 const findTranscriptButton = (
   clicked: ReadonlySet<HTMLElement>,
@@ -332,22 +333,35 @@ const waitForTranscriptSegments = async (
   return count > 0
 }
 
+/** Panels a transcript control opens; no other panel's state says anything. */
+const TRANSCRIPT_TARGET_PANEL_SELECTOR = [
+  'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]',
+  'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-timeline-view-consolidated"]'
+].join(", ")
+
+/** A transcript view mounted, or YouTube's loading indicator inside a panel. */
+const TRANSCRIPT_LOADING_SELECTOR = `${YOUTUBE_TRANSCRIPT_PANEL_SELECTOR}, tp-yt-paper-spinner, yt-spinner, .yt-spinner`
+
 /**
- * What a transcript click can visibly change: the control's own pressed or
- * selected state, and each engagement panel's visibility and content. The
+ * What a transcript click visibly changes: the control's own pressed or
+ * selected state, and the transcript panels' visibility and whether they hold
+ * a transcript view or a spinner. Other panels are left out, and so is raw
+ * markup, which a timeline's current-time highlight churns on its own. The
  * same answer before and after a click means the page ignored it — typically
- * a control rendered before its handler was attached.
+ * a control rendered before its handler was attached. YouTube's own transcript
+ * command expands its panel as it runs, so a click that started a load shows
+ * up here at once rather than only when segments land.
  */
 const clickEffectSignature = (button: HTMLElement): string => {
   const control = ["aria-pressed", "aria-selected", "aria-expanded"]
     .map((name) => button.getAttribute(name) ?? "")
     .join("|")
   const panels = Array.from(
-    document.querySelectorAll("ytd-engagement-panel-section-list-renderer")
+    document.querySelectorAll(TRANSCRIPT_TARGET_PANEL_SELECTOR)
   )
     .map(
       (panel) =>
-        `${panel.getAttribute("target-id") ?? ""}:${panel.getAttribute("visibility") ?? ""}:${panel.innerHTML.length}`
+        `${panel.getAttribute("target-id") ?? ""}:${panel.getAttribute("visibility") ?? ""}:${panel.querySelectorAll(TRANSCRIPT_LOADING_SELECTOR).length}`
     )
     .join(",")
   return `${control}#${panels}`
@@ -425,10 +439,13 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
     )
     const button = findTranscriptButton(clicked, pending)
     if (button) {
+      const retry = clicked.has(button)
       clicked.add(button)
       const outcome = await openTranscriptWithButton(button, deadline)
       if (outcome === "opened") return true
-      if (outcome === "pending") pending.add(button)
+      // A retried control is done either way: one more click is the most an
+      // ambiguous "ignored" earns.
+      if (outcome === "pending" || retry) pending.add(button)
     } else if (
       pending.size > 0 &&
       (await waitForTranscriptSegments(deadline))
