@@ -1112,7 +1112,6 @@ export interface AgentCommandExecutorAdapter {
    * another. Absent means this browser cannot answer a dialog at all.
    */
   handleDialog?(effect: AuthorizedAgentEffect): Promise<"answered" | "not_open">
-  activateTab(tabId: number): Promise<void>
   goHistory(tabId: number, direction: "back" | "forward"): Promise<void>
   resolveHistoryDestination(
     tabId: number,
@@ -1526,7 +1525,11 @@ export const READ_ONLY_AGENT_EXECUTORS = {
       throw new Error("Agent switch-tab destination changed")
     }
     await assertReadable(adapter, target.url)
-    await adapter.activateTab(effect.command.tabId)
+    /**
+     * The run moves; the user's browser does not. The receipt names the tab
+     * the run drives from now on, and it is never brought to the front: the
+     * user may be working in another one.
+     */
     return receipt(adapter, "switch_tab", effect.command.tabId)
   },
   async back(effect, adapter) {

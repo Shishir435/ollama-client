@@ -73,7 +73,6 @@ const adapters = (): AgentBrowserAdapters => ({
     scroll: vi.fn(async () => undefined),
     mutate: vi.fn(async () => undefined),
     fillForm: vi.fn(async () => ({ applied: 0 })),
-    activateTab: vi.fn(async () => undefined),
     goHistory: vi.fn(async () => undefined),
     resolveHistoryDestination: async () => undefined,
     wait: vi.fn(async () => undefined),
@@ -84,7 +83,6 @@ const adapters = (): AgentBrowserAdapters => ({
   },
   verifier: {
     observe: vi.fn(async () => observation({ generation: 2 })),
-    getActiveTabId: async () => 7,
     getTab: async () => ({ url: "https://example.com/start" }),
     classifyAccess: async () => "ok",
     now: () => 2_000

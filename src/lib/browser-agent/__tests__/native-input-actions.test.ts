@@ -145,7 +145,6 @@ const adapter = (
     ]
   })),
   viewportCentre: vi.fn(async () => ({ x: 50, y: 50 })),
-  activateTab: vi.fn(),
   goHistory: vi.fn(),
   resolveHistoryDestination: async () => undefined,
   wait: vi.fn(async () => undefined),
@@ -314,7 +313,6 @@ const verifierAdapter = (
   after: AgentObservation
 ): AgentEffectVerifierAdapter => ({
   observe: async () => after,
-  getActiveTabId: async () => 7,
   getTab: async () => ({ url: after.url }),
   classifyAccess: async () => "ok",
   now: () => 10

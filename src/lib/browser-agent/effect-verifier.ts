@@ -35,7 +35,6 @@ export interface AgentEffectVerifierAdapter {
     signal: AgentCancellationSignal,
     sourceDocumentId?: string
   ): Promise<void>
-  getActiveTabId(): Promise<number | undefined>
   getTab(tabId: number): Promise<{ url?: string } | undefined>
   classifyAccess(url?: string): Promise<TabAccess>
   /**
@@ -544,16 +543,14 @@ export const READ_ONLY_AGENT_VERIFIERS = {
     ) {
       throw new Error("Invalid switch-tab effect")
     }
-    const active = await adapter.getActiveTabId()
-    if (active !== input.effect.command.tabId) {
-      return result(
-        "negative",
-        "tab",
-        "Requested tab is not active",
-        adapter.now()
-      )
+    /**
+     * The tab the run now drives, whether or not the user is looking at it:
+     * switching never brings it to the front.
+     */
+    const tab = await adapter.getTab(input.effect.command.tabId)
+    if (!tab) {
+      return result("negative", "tab", "Requested tab is gone", adapter.now())
     }
-    const tab = await adapter.getTab(active)
     return tab?.url &&
       sameUrl(
         tab.url,
@@ -563,7 +560,7 @@ export const READ_ONLY_AGENT_VERIFIERS = {
       ? result(
           "confirmed",
           "tab",
-          "Requested readable tab is active",
+          "Requested readable tab is controlled",
           adapter.now()
         )
       : result(

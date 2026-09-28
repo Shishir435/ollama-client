@@ -29,10 +29,7 @@ import {
 } from "@/lib/browser-agent/screenshot-capture"
 import { createOffscreenAgentImageEditor } from "@/lib/browser-agent/screenshot-image"
 import { browser } from "@/lib/browser-api"
-import {
-  classifyAgentTabAccess,
-  queryActiveTab
-} from "@/lib/browser-tab-access"
+import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 import { AGENT_WEBMCP_COMPILED, FEATURE_FLAGS } from "@/lib/feature-flags"
 import type {
   AgentBrowserSessionManager,
@@ -751,9 +748,6 @@ export const createAgentBrowserAdapters = (input: {
               )?.id
           }
         : {}),
-      async activateTab(tabId) {
-        await browser.tabs.update(tabId, { active: true })
-      },
       async goHistory(tabId, direction) {
         if (direction === "back") {
           await browser.tabs.goBack(tabId)
@@ -802,9 +796,6 @@ export const createAgentBrowserAdapters = (input: {
             return frame?.documentId
           }
         }),
-      async getActiveTabId() {
-        return (await queryActiveTab())?.id
-      },
       getTab,
       classifyAccess: classifyAgentTabAccess,
       now

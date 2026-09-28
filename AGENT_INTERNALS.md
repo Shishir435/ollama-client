@@ -50,6 +50,21 @@ Read the section your change touches; you do not need the whole file.
   is held, which keeps the session so the dialog is not dismissed (see
   [Native dialogs](#native-dialogs)). An unexpected disconnect pauses the run,
   and an interrupted effect remains unresolved rather than being replayed.
+- **The run works in the background; the user keeps their own tab.** Nothing
+  the agent does brings a tab to the front or focuses a window. A start
+  address opens beside the user's tab (`active: false`), `open_tab` does the
+  same, and `switch_tab` moves the run — its receipt names the tab it now
+  drives — without activating anything; its verification asks whether that
+  tab still holds the destination, never whether it is the active one. What
+  makes a background tab drivable is `Emulation.setFocusEmulationEnabled`,
+  sent on attach: a hidden Chromium tab otherwise runs timers about once a
+  second and no animation frames, which stalls the page's own scripts and
+  every settle the run waits on. Measured in a real Chromium with the tab
+  behind another: without it, 3 timer ticks in 3s and no frames; with it,
+  full-rate timers, running frames, `visibilityState: "visible"`.
+  Screenshots and debugger input reach a hidden tab either way. Detaching
+  ends the emulation. The debugger banner is Chrome's and shows on every tab
+  while any tab is attached; nothing here can hide it.
 - **An unresolved effect is resolved by the supervisor, not by a guess.**
   `resolveEffect` records that the user has looked at the page and continues
   the run from a fresh observation, with the generation bumped so no reference

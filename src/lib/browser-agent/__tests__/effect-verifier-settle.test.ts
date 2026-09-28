@@ -106,7 +106,6 @@ const settlingAdapter = (pages: AgentObservation[]) => {
       looks.push(clock)
       return pages[Math.min(looks.length - 1, pages.length - 1)]
     },
-    getActiveTabId: async () => 7,
     getTab: async () => ({ url: "https://example.com/form" }),
     classifyAccess: async () => "ok",
     async wait(ms) {

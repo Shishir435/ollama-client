@@ -103,7 +103,6 @@ const executorAdapter = (
   scroll: vi.fn(),
   mutate: vi.fn(),
   fillForm: vi.fn(async () => ({ applied: 0 })),
-  activateTab: vi.fn(),
   goHistory: vi.fn(),
   resolveHistoryDestination: async () => "https://example.com/previous",
   wait: vi.fn(),
@@ -118,7 +117,6 @@ const verifierAdapter = (
   overrides: Partial<AgentEffectVerifierAdapter> = {}
 ): AgentEffectVerifierAdapter => ({
   observe: async () => after,
-  getActiveTabId: async () => 7,
   getTab: async () => ({ url: after.url }),
   classifyAccess: async () => "ok",
   now: () => 10,
@@ -160,6 +158,57 @@ describe("read-only Agent effects", () => {
     ).resolves.toMatchObject({
       destination: { url: "https://example.com/previous" }
     })
+  })
+
+  /**
+   * The run moves to the tab; the user's browser stays where it is. A switch
+   * is done when the run drives the tab, not when the user is looking at it.
+   */
+  it("switches the run to a tab without bringing it to the front", async () => {
+    const command = {
+      type: "switch_tab",
+      tabId: 9,
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as const
+    const effect = await authorize(command)
+    const receipt = await executeReadOnlyAgentEffect({
+      effect,
+      adapter: executorAdapter({
+        getTab: async (tabId) => ({
+          id: tabId,
+          url:
+            tabId === 9
+              ? "https://example.com/other"
+              : "https://example.com/start"
+        })
+      }),
+      signal
+    })
+    expect(receipt.controlledTabId).toBe(9)
+
+    const verification = {
+      ...(await verificationInput(command)),
+      receipt
+    }
+    await expect(
+      verifyReadOnlyAgentEffect({
+        verification,
+        adapter: verifierAdapter(observation(), {
+          getTab: async () => ({ url: "https://example.com/other" })
+        }),
+        signal
+      })
+    ).resolves.toMatchObject({ outcome: "confirmed" })
+    await expect(
+      verifyReadOnlyAgentEffect({
+        verification,
+        adapter: verifierAdapter(observation(), {
+          getTab: async () => undefined
+        }),
+        signal
+      })
+    ).resolves.toMatchObject({ outcome: "negative" })
   })
 
   it("refuses history when its destination cannot be known before execution", async () => {

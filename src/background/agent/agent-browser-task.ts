@@ -192,7 +192,11 @@ export const createBrowserTaskRunner = (
     dependencies.openTab ??
     (async (url: string) => {
       try {
-        const created = await browser.tabs.create({ url, active: true })
+        /**
+         * Opened beside the user's tab, not over it: the run drives it in
+         * the background and the user keeps the tab they are working in.
+         */
+        const created = await browser.tabs.create({ url, active: false })
         if (typeof created.id !== "number") return undefined
         /** Loaded, or as far as it got; the start refuses what is not a site. */
         for (let waited = 0; waited < START_TAB_LOAD_MS; waited += 250) {
