@@ -8,7 +8,9 @@ import { describe, expect, it, vi } from "vitest"
 
 import {
   type AgentDomMutationInstruction,
-  AgentDomMutationInstructionSchema
+  AgentDomMutationInstructionSchema,
+  type AgentFormFillInstruction,
+  AgentFormFillInstructionSchema
 } from "@/lib/browser-agent/control-port"
 import {
   type AgentEffectResolverAdapter,
@@ -133,6 +135,75 @@ describe("Agent browser adapters", () => {
     expect(sent?.target).not.toHaveProperty("searchForm")
     expect(sent?.target.frameId).toBe(0)
     expect(sent?.frame).toMatchObject({ frameId: 0, documentId: "document-1" })
+  })
+
+  /**
+   * The batch built its wire targets from a second hand-kept strip list,
+   * which missed `searchForm`: every `fill_form` on a search box — Google's
+   * among them — failed the strict parse before a byte was sent, and the step
+   * paused as an effect that may have happened.
+   */
+  it("builds a wire form fill the strict instruction schema accepts", async () => {
+    let sent: AgentFormFillInstruction | undefined
+    const sessions = createAgentControlSessionRegistry({
+      open: (async () => {
+        throw new Error("no session in this test")
+      }) as never
+    })
+    vi.spyOn(sessions, "executeFormFill").mockImplementation(
+      async ({ instruction }) => {
+        sent = AgentFormFillInstructionSchema.parse(instruction)
+        return { applied: 1 }
+      }
+    )
+    const adapters = createAgentBrowserAdapters({
+      runId: "run-1",
+      sessions,
+      history: createAgentTabHistory()
+    })
+
+    const click = await authorizedClick()
+    const target = {
+      ...click.target,
+      rowContext: "Search",
+      noSubmitStep: true,
+      searchForm: true,
+      expectedValue: "youtube"
+    }
+    const effect: AuthorizedAgentEffect = {
+      ...click,
+      command: {
+        type: "fill_form",
+        fields: [{ type: "clear_and_type", ref: "e1", text: "youtube" }],
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      target,
+      batch: {
+        fields: [
+          {
+            command: {
+              type: "clear_and_type",
+              ref: "e1",
+              text: "youtube",
+              snapshotId: "snapshot-1",
+              generation: 1
+            },
+            target
+          }
+        ]
+      }
+    }
+    await expect(
+      adapters.executor.fillForm(effect, { aborted: false })
+    ).resolves.toEqual({ applied: 1 })
+
+    const wire = sent?.fields[0]?.target
+    expect(wire).not.toHaveProperty("frame")
+    expect(wire).not.toHaveProperty("rowContext")
+    expect(wire).not.toHaveProperty("noSubmitStep")
+    expect(wire).not.toHaveProperty("searchForm")
+    expect(wire).toMatchObject({ ref: "e1", frameId: 0 })
   })
 })
 

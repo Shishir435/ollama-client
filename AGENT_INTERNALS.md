@@ -635,7 +635,7 @@ Read the section your change touches; you do not need the whole file.
     alone is not enough — a preferences form's "Apply" sends one — and a
     POST, a form with a select, checkbox or second field, or a sensitive
     form still asks. The `submission` effect itself is never pre-granted.
-    `searchForm` is approval evidence and is stripped from the wire target.
+    `searchForm` is approval evidence and is stripped from the wire target by `wireTarget`, the one helper every instruction's targets go through — a batch fill once kept its own copy of the strip list, missed `searchForm`, and paused every `fill_form` on a search box as unresolved.
   - The consent comes from the prompt the user answered, read through
     `ToolContext.confirmedNotes`, and the mode must still allow it at start:
     a setting changed while the prompt was open narrows the run, never

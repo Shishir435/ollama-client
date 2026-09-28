@@ -68,6 +68,12 @@ const cases = [
     "__inbody__"
   ],
   [
+    "google_search",
+    'Search for "youtube" and report the title of the first result.',
+    "https://www.google.com/",
+    "__inbody__"
+  ],
+  [
     "gh_issues",
     "Open the Issues tab and report the title of the newest open issue.",
     "https://github.com/Shishir435/ollama-client",

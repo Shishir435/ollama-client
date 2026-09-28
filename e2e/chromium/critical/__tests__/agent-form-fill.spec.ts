@@ -224,3 +224,58 @@ runAgentScenario({
     expect(snapshot?.run?.status).toBe("completed")
   }
 })
+
+/**
+ * A batch fill on a form the page marks as a search. Its wire targets once
+ * carried `searchForm`, which the strict page schema rejects, so every
+ * `fill_form` on a search box — Google's among them — failed before a byte
+ * was sent and paused as an effect that may have happened. A unit test
+ * mocks the parse's caller; only the real boundary shows the leak.
+ */
+const SEARCH_PAGE = `<!doctype html>
+<title>Search</title>
+<main>
+  <form action="/results" method="get" role="search">
+    <input type="file" hidden />
+    <textarea name="q" rows="1" role="combobox" aria-label="Search"></textarea>
+    <input type="hidden" name="source" value="hp" />
+    <input type="submit" value="Search" />
+  </form>
+</main>`
+
+runAgentScenario({
+  name: "fill-form-search-box",
+  goal: "Type youtube into the search box.",
+  status: "completed",
+  timeoutMs: 60_000,
+  html: () => SEARCH_PAGE,
+  allowRoutineActions: true,
+  plan: [{ text: "the search box holds youtube", kind: "change" }],
+  decide: (observation: AgentFixtureObservation) => {
+    const box = agentFixtureElement(
+      observation,
+      (element) => element.name === "Search" && element.tag === "textarea"
+    )
+    if (box && box.value !== "youtube") {
+      return {
+        type: "fill_form",
+        requirementId: "r1",
+        fields: [{ type: "clear_and_type", ref: box.ref, text: "youtube" }]
+      }
+    }
+    return {
+      type: "complete",
+      summary: "Typed youtube into the search box.",
+      outcomes: [{ id: "r1", met: true, evidence: "youtube" }]
+    }
+  },
+  verify: async ({ page, snapshot }) => {
+    await expect(page.locator('textarea[name="q"]')).toHaveValue("youtube")
+    expect(snapshot?.run?.status).toBe("completed")
+    expect(
+      snapshot?.steps
+        .filter((step) => step.command?.type === "fill_form")
+        .map((step) => step.status)
+    ).toEqual(["verified"])
+  }
+})

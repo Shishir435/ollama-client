@@ -204,31 +204,42 @@ export const createAgentBrowserAdapters = (input: {
     return controller.signal
   }
 
+  /**
+   * A resolved target as the page may be told it. The wire schema is strict,
+   * so a field that is ours rather than the page's is a parse failure before a
+   * byte is sent — and the step then reads as an effect that may have
+   * happened. `frame` travels on the instruction and `point` beside it;
+   * `noSubmitStep`, `rowContext` and `searchForm` are approval evidence. One
+   * helper for every instruction: two hand-kept copies of this list drifted,
+   * and a batch fill on any search box paused as unresolved.
+   */
+  const wireTarget = (
+    target: AuthorizedAgentEffect["target"],
+    ref: string,
+    frameId: number
+  ): AgentDomMutationInstruction["target"] => {
+    const {
+      frame: _frame,
+      point: _point,
+      noSubmitStep: _noSubmitStep,
+      rowContext: _rowContext,
+      searchForm: _searchForm,
+      ...wire
+    } = target
+    return { ...wire, ref, frameId } as AgentDomMutationInstruction["target"]
+  }
+
   const mutationInstruction = (
     effect: AuthorizedAgentEffect
   ): AgentDomMutationInstruction => {
     if (!effect.target.ref || !effect.target.tag) {
       throw new Error("Agent mutation target is not an observed element")
     }
-    /**
-     * The frame identity travels as the instruction's own field, never inside
-     * the wire target: that target is validated by a strict schema with no
-     * `frame` key, so leaking it there is a parse failure before a byte is
-     * sent. `noSubmitStep`, `rowContext` and `searchForm` are dropped for the
-     * same reason — they are approval evidence, not facts the page is told.
-     */
-    const {
-      frame: targetFrame,
-      point,
-      noSubmitStep: _noSubmitStep,
-      rowContext: _rowContext,
-      searchForm: _searchForm,
-      ...target
-    } = effect.target
-    const frame = targetFrame ?? effect.snapshotIdentity
+    const frame = effect.target.frame ?? effect.snapshotIdentity
+    const point = effect.target.point
     return {
       command: effect.command,
-      target: { ...target, ref: effect.target.ref, frameId: frame.frameId },
+      target: wireTarget(effect.target, effect.target.ref, frame.frameId),
       snapshotIdentity: effect.snapshotIdentity,
       frame,
       ...(point ? { point } : {})
@@ -237,10 +248,8 @@ export const createAgentBrowserAdapters = (input: {
 
   /**
    * The batch as the page receives it: whole grounded commands and strict wire
-   * targets, with the frame carried once on the instruction. Each field is
-   * stripped exactly as a lone mutation's target is — `frame`,
-   * `noSubmitStep` and `rowContext` are ours, not the page's, and a strict
-   * schema rejects them before a byte is sent.
+   * targets, with the frame carried once on the instruction. Each field goes
+   * through `wireTarget`, the same strip a lone mutation's target takes.
    */
   const formFillInstruction = (
     effect: AuthorizedAgentEffect
@@ -258,16 +267,9 @@ export const createAgentBrowserAdapters = (input: {
         if (!field.target.ref || !field.target.tag) {
           throw new Error("Agent form fill target is not an observed element")
         }
-        const {
-          frame: _fieldFrame,
-          point: _point,
-          noSubmitStep: _noSubmitStep,
-          rowContext: _rowContext,
-          ...target
-        } = field.target
         return {
           command: field.command,
-          target: { ...target, ref: field.target.ref, frameId: frame.frameId }
+          target: wireTarget(field.target, field.target.ref, frame.frameId)
         }
       })
     } as AgentFormFillInstruction
