@@ -457,6 +457,85 @@ describe("YouTube transcript extractor", () => {
         expect(result).toBe("Rendered late.")
       })
 
+      it("reads every batch the panel renders, not only the first", async () => {
+        mountPlayerResponse("123")
+        failCaptionFetch()
+
+        const segment = (text: string) =>
+          `<transcript-segment-view-model><span class="ytAttributedStringHost" role="text">${text}</span></transcript-segment-view-model>`
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        document.body.appendChild(panel)
+
+        const chip = document.createElement("button")
+        chip.textContent = "Transcript"
+        chip.addEventListener(
+          "click",
+          () => {
+            setTimeout(() => {
+              panel.innerHTML = segment("First batch.")
+            }, 100)
+            setTimeout(() => {
+              panel.insertAdjacentHTML("beforeend", segment("Second batch."))
+            }, 600)
+          },
+          { once: true }
+        )
+        document.body.appendChild(chip)
+
+        const result = await getTranscript()
+        expect(result).toBe("First batch.\nSecond batch.")
+      })
+
+      it("ignores transcript-shaped markup outside any panel", async () => {
+        // Nothing ties a stray cue group to the video being watched, so it is
+        // not a transcript for it.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        document.body.innerHTML = `
+          <div class="cue-group"><div class="cue">Leftover text.</div></div>
+        `
+
+        vi.useFakeTimers()
+        try {
+          const pending = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await pending).toBeNull()
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
+      it("bounds every click attempt by one shared wait", async () => {
+        // A button that never renders segments used to cost a full wait per
+        // retry — five of them before the page answered with metadata only.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          const started = Date.now()
+          let settledAt = 0
+          const pending = getTranscript().then((value) => {
+            settledAt = Date.now()
+            return value
+          })
+          await vi.advanceTimersByTimeAsync(30_000)
+          expect(await pending).toBeNull()
+          expect(settledAt - started).toBeLessThanOrEqual(8000)
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
       it("refetches when the inline payload names no video at all", async () => {
         // Unverifiable is not the same as current: without an id there is no way
         // to tell a stale payload from a fresh one, and the stale one's caption

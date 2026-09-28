@@ -49,9 +49,14 @@ const LEGACY_TRANSCRIPT_SEGMENT_SELECTOR =
   "div.cue-group, ytd-transcript-segment-renderer"
 const ANY_TRANSCRIPT_SEGMENT_SELECTOR = `${MODERN_TRANSCRIPT_SEGMENT_SELECTOR}, ${LEGACY_TRANSCRIPT_SEGMENT_SELECTOR}`
 
-/** How long a clicked-open panel gets to fetch and render its segments. */
+/**
+ * How long opening the panel may take in all, across every click attempt: a
+ * button that never renders segments must not cost one full wait per retry.
+ */
 const PANEL_SEGMENT_WAIT_MS = 6000
 const PANEL_SEGMENT_POLL_MS = 250
+/** Segments arrive in batches; the count holding this long means they stopped. */
+const PANEL_SEGMENT_SETTLE_MS = 750
 
 /**
  * The container actually holding transcript segments.
@@ -59,8 +64,10 @@ const PANEL_SEGMENT_POLL_MS = 250
  * A matching container is not enough on its own: the consolidated panel exists
  * while it shows Timeline or Chapters, and treating that as an open transcript
  * skipped the click that would have switched it over. A segment outside every
- * known container still counts, read within its engagement panel, so the next
- * renamed wrapper degrades to a wider read rather than to no transcript.
+ * known container still counts when it sits in an engagement panel, so the
+ * next renamed wrapper degrades to a wider read rather than to no transcript.
+ * One outside any panel is not read: nothing ties stray transcript-shaped
+ * markup to the video being watched.
  */
 const findTranscriptContainer = (): Element | null => {
   const containers = Array.from(
@@ -71,11 +78,12 @@ const findTranscriptContainer = (): Element | null => {
   )
   if (populated) return populated
 
-  const segment = document.querySelector(ANY_TRANSCRIPT_SEGMENT_SELECTOR)
-  if (!segment) return null
   return (
-    segment.closest("ytd-engagement-panel-section-list-renderer") ??
-    segment.parentElement
+    Array.from(document.querySelectorAll(ANY_TRANSCRIPT_SEGMENT_SELECTOR))
+      .map((segment) =>
+        segment.closest("ytd-engagement-panel-section-list-renderer")
+      )
+      .find((panel) => panel !== null) ?? null
   )
 }
 /**
@@ -267,21 +275,35 @@ const clickTranscriptButton = (button: HTMLElement): void => {
 
 const transcriptPanelExists = (): boolean => Boolean(findTranscriptContainer())
 
+const transcriptSegmentCount = (): number =>
+  findTranscriptContainer()?.querySelectorAll(ANY_TRANSCRIPT_SEGMENT_SELECTOR)
+    .length ?? 0
+
 /**
- * Waits for the panel to hold segments. They arrive from a network request the
- * click starts, so a fixed pause either wastes time or gives up early.
+ * Waits for the panel's segments to arrive and stop arriving. They come from a
+ * network request the click starts and render in batches, so returning on the
+ * first segment read a long video's transcript cut short.
  */
-const waitForTranscriptSegments = async (): Promise<boolean> => {
-  const deadline = Date.now() + PANEL_SEGMENT_WAIT_MS
+const waitForTranscriptSegments = async (
+  deadline: number
+): Promise<boolean> => {
+  let count = transcriptSegmentCount()
+  let stableSince = Date.now()
   while (Date.now() < deadline) {
-    if (transcriptPanelExists()) return true
+    if (count > 0 && Date.now() - stableSince >= PANEL_SEGMENT_SETTLE_MS) break
     await new Promise((resolve) => setTimeout(resolve, PANEL_SEGMENT_POLL_MS))
+    const next = transcriptSegmentCount()
+    if (next !== count) {
+      count = next
+      stableSince = Date.now()
+    }
   }
-  return transcriptPanelExists()
+  return count > 0
 }
 
 const openTranscriptWithButton = async (
-  button: HTMLElement
+  button: HTMLElement,
+  deadline: number
 ): Promise<boolean> => {
   logger.debug("Found transcript button!", "TranscriptExtractor", {
     buttonText: button.textContent?.trim() || "",
@@ -291,7 +313,7 @@ const openTranscriptWithButton = async (
   })
   logger.debug("Clicking transcript button...", "TranscriptExtractor")
   clickTranscriptButton(button)
-  const opened = await waitForTranscriptSegments()
+  const opened = await waitForTranscriptSegments(deadline)
   logger.debug(
     opened
       ? "Transcript panel successfully opened!"
@@ -334,13 +356,19 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
     "TranscriptExtractor"
   )
   const maxRetries = 5
-  for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+  const deadline = Date.now() + PANEL_SEGMENT_WAIT_MS
+  for (
+    let attempt = 1;
+    attempt <= maxRetries && Date.now() < deadline;
+    attempt += 1
+  ) {
     logger.debug(
       `Attempt ${attempt}/${maxRetries} to find transcript button...`,
       "TranscriptExtractor"
     )
     const button = findTranscriptButton()
-    if (button && (await openTranscriptWithButton(button))) return true
+    if (button && (await openTranscriptWithButton(button, deadline)))
+      return true
     if (attempt < maxRetries) {
       logger.debug(
         `Waiting before retry ${attempt + 1}...`,
