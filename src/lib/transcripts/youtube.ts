@@ -29,12 +29,55 @@ type YouTubePlayerResponse = {
   }
 }
 
-const YOUTUBE_TRANSCRIPT_PANEL_SELECTOR =
-  'ytd-transcript-renderer, yt-section-list-renderer[data-target-id="PAmodern_transcript_view"], yt-section-list-renderer[panel-target-id="PAmodern_transcript_view"]'
+/**
+ * Every container YouTube has rendered a transcript into. The consolidated "In
+ * this video" panel (Timeline / Chapters / Transcript chips) swaps the modern
+ * transcript view into `engagement-panel-timeline-view-consolidated`, so the
+ * older selectors matched nothing once it shipped: the click opened the panel
+ * and the read beside it found no transcript.
+ */
+const YOUTUBE_TRANSCRIPT_PANEL_SELECTOR = [
+  "ytd-transcript-renderer",
+  'yt-section-list-renderer[data-target-id="PAmodern_transcript_view"]',
+  'yt-section-list-renderer[panel-target-id="PAmodern_transcript_view"]',
+  'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]',
+  'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-timeline-view-consolidated"]'
+].join(", ")
 
 const MODERN_TRANSCRIPT_SEGMENT_SELECTOR = "transcript-segment-view-model"
 const LEGACY_TRANSCRIPT_SEGMENT_SELECTOR =
   "div.cue-group, ytd-transcript-segment-renderer"
+const ANY_TRANSCRIPT_SEGMENT_SELECTOR = `${MODERN_TRANSCRIPT_SEGMENT_SELECTOR}, ${LEGACY_TRANSCRIPT_SEGMENT_SELECTOR}`
+
+/** How long a clicked-open panel gets to fetch and render its segments. */
+const PANEL_SEGMENT_WAIT_MS = 6000
+const PANEL_SEGMENT_POLL_MS = 250
+
+/**
+ * The container actually holding transcript segments.
+ *
+ * A matching container is not enough on its own: the consolidated panel exists
+ * while it shows Timeline or Chapters, and treating that as an open transcript
+ * skipped the click that would have switched it over. A segment outside every
+ * known container still counts, read within its engagement panel, so the next
+ * renamed wrapper degrades to a wider read rather than to no transcript.
+ */
+const findTranscriptContainer = (): Element | null => {
+  const containers = Array.from(
+    document.querySelectorAll(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR)
+  )
+  const populated = containers.find((container) =>
+    container.querySelector(ANY_TRANSCRIPT_SEGMENT_SELECTOR)
+  )
+  if (populated) return populated
+
+  const segment = document.querySelector(ANY_TRANSCRIPT_SEGMENT_SELECTOR)
+  if (!segment) return null
+  return (
+    segment.closest("ytd-engagement-panel-section-list-renderer") ??
+    segment.parentElement
+  )
+}
 /**
  * Attempts to open the YouTube transcript panel by clicking:
  * 1. The "more" button in description (if collapsed)
@@ -222,8 +265,20 @@ const clickTranscriptButton = (button: HTMLElement): void => {
   )
 }
 
-const transcriptPanelExists = (): boolean =>
-  Boolean(document.querySelector(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR))
+const transcriptPanelExists = (): boolean => Boolean(findTranscriptContainer())
+
+/**
+ * Waits for the panel to hold segments. They arrive from a network request the
+ * click starts, so a fixed pause either wastes time or gives up early.
+ */
+const waitForTranscriptSegments = async (): Promise<boolean> => {
+  const deadline = Date.now() + PANEL_SEGMENT_WAIT_MS
+  while (Date.now() < deadline) {
+    if (transcriptPanelExists()) return true
+    await new Promise((resolve) => setTimeout(resolve, PANEL_SEGMENT_POLL_MS))
+  }
+  return transcriptPanelExists()
+}
 
 const openTranscriptWithButton = async (
   button: HTMLElement
@@ -236,23 +291,13 @@ const openTranscriptWithButton = async (
   })
   logger.debug("Clicking transcript button...", "TranscriptExtractor")
   clickTranscriptButton(button)
-  await new Promise((resolve) => setTimeout(resolve, 1500))
-  if (transcriptPanelExists()) {
-    logger.debug("Transcript panel successfully opened!", "TranscriptExtractor")
-    return true
-  }
+  const opened = await waitForTranscriptSegments()
   logger.debug(
-    "Transcript panel not found after clicking, waiting longer...",
+    opened
+      ? "Transcript panel successfully opened!"
+      : "Transcript panel held no segments after clicking",
     "TranscriptExtractor"
   )
-  await new Promise((resolve) => setTimeout(resolve, 1500))
-  const opened = transcriptPanelExists()
-  if (opened) {
-    logger.debug(
-      "Transcript panel appeared after longer wait!",
-      "TranscriptExtractor"
-    )
-  }
   return opened
 }
 
@@ -687,9 +732,7 @@ const extractTextFromYouTubeSegment = (segment: Element): string => {
 }
 
 const extractYouTubePanelTranscript = (): string | null => {
-  const transcriptContainer = document.querySelector(
-    YOUTUBE_TRANSCRIPT_PANEL_SELECTOR
-  )
+  const transcriptContainer = findTranscriptContainer()
   if (!transcriptContainer) {
     logger.debug("Transcript container not found", "TranscriptExtractor")
     return null
@@ -760,7 +803,7 @@ export const extractYouTubeTranscript = async (): Promise<string | null> => {
   // otherwise is the original defect wearing a different hat: no id lives in
   // that DOM, so an unverifiable panel is indistinguishable from one a
   // navigation left behind.
-  const mountedPanel = document.querySelector(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR)
+  const mountedPanel = findTranscriptContainer()
   if (mountedPanel) {
     if (!documentBelongsToCurrentVideo()) {
       logger.warn(

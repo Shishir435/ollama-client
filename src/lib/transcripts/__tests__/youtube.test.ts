@@ -422,6 +422,41 @@ describe("YouTube transcript extractor", () => {
         expect(result).toBe("Freshly rendered.")
       })
 
+      it("reads the consolidated 'In this video' panel once it shows the transcript", async () => {
+        // The Timeline / Chapters / Transcript panel exists while it shows the
+        // timeline, so its presence alone is not an open transcript: the click
+        // has to happen, and the segments it renders sit in a container the
+        // older selectors never matched.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+
+        const consolidated = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        consolidated.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        consolidated.innerHTML = "<div>Timeline</div>"
+        document.body.appendChild(consolidated)
+
+        const chip = document.createElement("button")
+        chip.textContent = "Transcript"
+        chip.addEventListener("click", () => {
+          setTimeout(() => {
+            consolidated.innerHTML = `
+              <transcript-segment-view-model>
+                <span class="ytAttributedStringHost" role="text">Rendered late.</span>
+              </transcript-segment-view-model>
+            `
+          }, 300)
+        })
+        document.body.appendChild(chip)
+
+        const result = await getTranscript()
+        expect(result).toBe("Rendered late.")
+      })
+
       it("refetches when the inline payload names no video at all", async () => {
         // Unverifiable is not the same as current: without an id there is no way
         // to tell a stale payload from a fresh one, and the stale one's caption
