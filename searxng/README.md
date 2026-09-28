@@ -4,10 +4,24 @@ Local SearXNG instance for Ollama Client `web_search`.
 
 ## Start
 
+From a clone of this repository, run it from the repo root:
+
 ```bash
 cd searxng
 docker compose up -d
 ```
+
+Without a clone, download the two files into a new folder instead:
+
+```bash
+mkdir -p searxng/core-config && cd searxng
+raw=https://raw.githubusercontent.com/Shishir435/ollama-client/main/searxng
+curl -fsSL "$raw/docker-compose.yml" -o docker-compose.yml
+curl -fsSL "$raw/core-config/settings.yml" -o core-config/settings.yml
+docker compose up -d
+```
+
+`.env` is optional; copy `.env.example` to `.env` to change the port or host.
 
 Open:
 

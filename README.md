@@ -87,11 +87,17 @@ Want to pin a release and verify its checksum first? The [developer guide](https
 
 ## Private web search
 
+Run your own [SearXNG](https://docs.searxng.org/) with Docker. No clone needed. This downloads the two config files into a new `searxng` folder and starts it:
+
 ```bash
-cd searxng && docker compose up -d
+mkdir -p searxng/core-config && cd searxng
+raw=https://raw.githubusercontent.com/Shishir435/ollama-client/main/searxng
+curl -fsSL "$raw/docker-compose.yml" -o docker-compose.yml
+curl -fsSL "$raw/core-config/settings.yml" -o core-config/settings.yml
+docker compose up -d
 ```
 
-Then set `http://localhost:8080` in Settings → Knowledge & web → Web search.
+Then set `http://localhost:8080` in Settings → Knowledge & web → Web search. It listens on `127.0.0.1` only. Stop it with `docker compose down` from the same folder. Brave and Tavily need only an API key.
 
 ## Privacy
 
