@@ -2787,3 +2787,116 @@ describe("a follow-up run", () => {
       })
   })
 })
+
+describe("the no-progress guard across page-changing steps", () => {
+  const activation: Partial<ResolvedAgentEffect> = {
+    semanticEffects: ["activation"],
+    target: {
+      ref: "e1",
+      tag: "canvas",
+      role: "img",
+      accessibleName: "board",
+      sensitive: false,
+      maySubmit: false
+    }
+  }
+  const clickAt = (generation: number) =>
+    ({
+      type: "click",
+      ref: "e1",
+      snapshotId: `snapshot-${generation}`,
+      generation
+    }) as AgentCommand
+  const clicks = (count: number): AgentDecision[] =>
+    Array.from({ length: count }, (_, index) => ({
+      type: "command",
+      command: clickAt(index + 1)
+    }))
+
+  /**
+   * One run clicked the same canvas point eighteen times after the first
+   * click had met its goal: each click appended the same status line, so no
+   * two observations hashed alike, and the guard was cleared after every
+   * activation anyway.
+   */
+  it("stops a step that keeps making the same change", async () => {
+    const harness = createHarness({
+      decisions: clicks(8),
+      observations: Array.from({ length: 8 }, (_, index) =>
+        observation({
+          snapshotId: `snapshot-${index + 1}`,
+          generation: index + 1,
+          visibleText: `Board${" Status: Active".repeat(index)}`
+        })
+      ),
+      verification: Array.from({ length: 8 }, () => confirmed),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: activation
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+    expect(harness.steps.filter((step) => step === "executed").length).toBe(4)
+  })
+
+  /** Another run went Details → back → Details → back for twenty-one steps. */
+  it("stops a run going back and forth between two pages", async () => {
+    const decisions: AgentDecision[] = Array.from({ length: 10 }, (_, index) =>
+      index % 2 === 0
+        ? { type: "command", command: clickAt(index + 1) }
+        : { type: "command", command: command(index + 1) }
+    )
+    const harness = createHarness({
+      decisions,
+      observations: Array.from({ length: 10 }, (_, index) =>
+        observation({
+          snapshotId: `snapshot-${index + 1}`,
+          generation: index + 1,
+          url:
+            index % 2 === 0
+              ? "https://example.com/"
+              : "https://example.com/details",
+          visibleText: index % 2 === 0 ? "Home Details" : "Status: Active"
+        })
+      ),
+      verification: Array.from({ length: 10 }, () => confirmed),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: activation
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+    expect(
+      harness.steps.filter((step) => step === "executed").length
+    ).toBeLessThan(6)
+  })
+
+  it("lets a step whose change differs each time keep going", async () => {
+    const harness = createHarness({
+      decisions: [...clicks(5), { type: "complete", summary: "Quantity 5" }],
+      observations: Array.from({ length: 6 }, (_, index) =>
+        observation({
+          snapshotId: `snapshot-${index + 1}`,
+          generation: index + 1,
+          visibleText: `Quantity ${index}`
+        })
+      ),
+      verification: Array.from({ length: 5 }, () => confirmed),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: activation
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().pauseReason).not.toBe("question")
+    expect(harness.steps.filter((step) => step === "executed").length).toBe(5)
+  })
+})

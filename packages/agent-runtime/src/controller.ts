@@ -22,6 +22,7 @@ import {
 } from "@ollama-client/contracts"
 import {
   type AgentProgressPoint,
+  agentTextChangeSignature,
   beginAgentStepDeadline,
   classifyNoProgress,
   expiredAgentDeadline,
@@ -304,6 +305,8 @@ export const createAgentController = (
   const minimumGeneration = new Map<string, number>()
   const previousProgress = new Map<string, AgentProgressPoint>()
   const recentProgress = new Map<string, AgentProgressPoint[]>()
+  /** The visible text the guard last saw, to sign what the next step changed. */
+  const progressText = new Map<string, string>()
   /**
    * The page as it read when this run's last change was decided.
    *
@@ -1373,24 +1376,15 @@ export const createAgentController = (
       }
       if (action.type === "redecide") return verifying
       /**
-       * A step that changed the page is progress, and the guard forgets
-       * whatever came before it. A confirmed step that changed nothing is
-       * not: a pure read verifies `confirmed` by definition — the page it
-       * named is still the page in hand — so clearing here on any confirmed
-       * outcome wiped the guard's memory after every single read, and a
-       * model repeating one read-only request could never accumulate a
-       * repeat against a budget of three. One run spent all twenty-five of
-       * its observations that way.
-       *
-       * Navigation is deliberately not a page change here, as it is not for
-       * the completion judge; it needs no exemption, because going somewhere
-       * changes the URL the guard compares first.
+       * A step does not clear the no-progress guard, whatever it was meant to
+       * do. Clearing on every page-changing class meant any click reset it —
+       * the class is what the step *intended*, not what it did — so a run
+       * alternating "open Details" and "back" twenty-one times, or clicking
+       * one canvas point eighteen times, never accumulated a repeat. A step
+       * that really moved the run on already reads as progress: the next
+       * observation hashes differently and its change differs from the last
+       * one, so `classifyNoProgress` resets the count on its own.
        */
-      if (agentEffectChangesPage(effect)) {
-        previousProgress.delete(state.id)
-        recentProgress.delete(state.id)
-        noProgressCounts.set(state.id, 0)
-      }
       /**
        * A confirmed step is the run on new ground, so a completion refused
        * before it was refused about a different page. Cleared for any
@@ -1907,10 +1901,16 @@ export const createAgentController = (
     observation: AgentObservation,
     decision: AgentDecision
   ): Promise<boolean> => {
+    const changeSignature = agentTextChangeSignature(
+      progressText.get(state.id),
+      observation.visibleText
+    )
+    progressText.set(state.id, observation.visibleText)
     const progress: AgentProgressPoint = {
       url: observation.url,
       snapshotHash: hashAgentObservation(observation, decision),
-      decision
+      decision,
+      ...(changeSignature ? { changeSignature } : {})
     }
     const result = classifyNoProgress({
       previous: previousProgress.get(state.id),
@@ -2023,6 +2023,7 @@ export const createAgentController = (
     if (steering?.length) {
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
+      progressText.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2383,6 +2384,7 @@ export const createAgentController = (
       if (!recorded) return
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
+      progressText.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2400,6 +2402,7 @@ export const createAgentController = (
       }
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
+      progressText.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2469,6 +2472,7 @@ export const createAgentController = (
       }
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
+      progressText.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)

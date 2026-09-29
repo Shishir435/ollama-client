@@ -272,9 +272,19 @@ Read the section your change touches; you do not need the whole file.
     the answer and a changed page is a different answer.
   - The controller cleared the guard's memory after every confirmed
     verification. A pure read verifies `confirmed` by definition, so a repeat
-    could never accumulate. It is cleared on `agentEffectChangesPage(effect)`
-    now — navigation needs no exemption, since going somewhere changes the url
-    the guard compares first.
+    could never accumulate. It was then cleared on
+    `agentEffectChangesPage(effect)` instead, which is the class a step
+    *intended*: every click reset it, so a run alternating "open Details" and
+    "back" for twenty-one steps, or clicking one canvas point eighteen times,
+    never accumulated either. No step clears it now. A step that moved the
+    run on already reads as progress, because the next observation hashes
+    differently.
+  - A changed page is not always a new one. Each point also carries
+    `changeSignature` — a hash of the visible text the step added and
+    removed — and the same decision making the same change counts as a
+    repeat even though no two observations hash alike. That is the shape of
+    an accumulating effect (a status line appended per click); a counter
+    stepping 1 → 2 → 3 changes differently each time and stays progress.
   - `classifyNoProgress` took a `verificationOutcome` input that reset the
     count on `confirmed`. Nothing ever passed it, and wiring it as written
     would have made the loop unkillable. It is gone; do not reintroduce it.
