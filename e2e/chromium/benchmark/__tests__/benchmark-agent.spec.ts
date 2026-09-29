@@ -613,7 +613,7 @@ task({
 task({
   family: "multi-tab",
   name: "go-back",
-  goal: "Read the details page, then come back and report the heading.",
+  goal: "Open the details page, then go back and report the heading of the page you returned to.",
   status: "completed",
   html: (path) =>
     path.startsWith("/details")
