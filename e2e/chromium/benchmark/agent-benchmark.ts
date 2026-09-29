@@ -270,6 +270,7 @@ export interface AgentBenchmarkReport {
   measuredAt: string
   backend: string
   model: string
+  reasoningEffort?: string
   attempts: AgentAttemptRecord[]
   families: AgentFamilySummary[]
 }
@@ -537,6 +538,9 @@ export const buildAgentBenchmarkReport = (
   measuredAt: new Date().toISOString(),
   backend,
   model,
+  ...(process.env.AGENT_HOSTED_REASONING_EFFORT
+    ? { reasoningEffort: process.env.AGENT_HOSTED_REASONING_EFFORT }
+    : {}),
   attempts,
   families: summarizeAttempts(attempts)
 })
@@ -608,6 +612,9 @@ export const mergeAgentBenchmarkReports = (
       measuredAt: new Date().toISOString(),
       backend: first?.backend ?? "unknown",
       model: first?.model ?? "unknown",
+      ...(first?.reasoningEffort
+        ? { reasoningEffort: first.reasoningEffort }
+        : {}),
       attempts,
       families: summarizeAttempts(attempts)
     },

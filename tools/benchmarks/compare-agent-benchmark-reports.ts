@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { basename, resolve } from "node:path"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { basename, dirname, resolve } from "node:path"
 import type {
   AgentAttemptRecord,
   AgentBenchmarkReport
@@ -15,11 +15,31 @@ interface MatchedAttempt {
   nanobrowser: AgentAttemptRecord
 }
 
+interface RunMetadata {
+  reasoningEffort?: string
+}
+
 const readReport = (path: string): AgentBenchmarkReport =>
   JSON.parse(readFileSync(path, "utf8")) as AgentBenchmarkReport
 
 const keyOf = (attempt: AgentAttemptRecord): string =>
   `${attempt.family}\u0000${attempt.scenario}\u0000${attempt.attempt}`
+
+const reasoningEffortFor = (
+  report: AgentBenchmarkReport,
+  reportPath: string
+): string | undefined => {
+  if (report.reasoningEffort) return report.reasoningEffort
+  const runMetadataPath = resolve(
+    dirname(dirname(dirname(reportPath))),
+    "run.json"
+  )
+  if (!existsSync(runMetadataPath)) return undefined
+  const metadata = JSON.parse(
+    readFileSync(runMetadataPath, "utf8")
+  ) as RunMetadata
+  return metadata.reasoningEffort
+}
 
 const indexAttempts = (
   report: AgentBenchmarkReport,
@@ -71,6 +91,8 @@ const render = (input: {
   candidatePath: string
   baseline: AgentBenchmarkReport
   candidate: AgentBenchmarkReport
+  baselineReasoningEffort: string
+  candidateReasoningEffort: string
   matched: MatchedAttempt[]
   ollamaOnly: AgentAttemptRecord[]
   nanobrowserOnly: AgentAttemptRecord[]
@@ -82,6 +104,7 @@ const render = (input: {
     `- Ollama Client report: \`${input.baselinePath}\` (${input.baseline.attempts.length} attempts)`,
     `- Nanobrowser report: \`${input.candidatePath}\` (${input.candidate.attempts.length} attempts)`,
     `- Model: \`${input.candidate.model}\`; matched scenarios: ${input.matched.length}`,
+    `- Reasoning effort: Ollama Client \`${input.baselineReasoningEffort}\`; Nanobrowser \`${input.candidateReasoningEffort}\``,
     `- Ollama Client only: ${input.ollamaOnly.length}; Nanobrowser only: ${input.nanobrowserOnly.length}`,
     "",
     "Counts use the same scenario and attempt number in both reports. A blank goal result means that report did not record a page predicate.",
@@ -134,6 +157,16 @@ const main = (): void => {
     throw new Error(
       `Reports use different models (${baseline.model} vs ${candidate.model}).`
     )
+  const baselineReasoningEffort = reasoningEffortFor(baseline, baselinePath)
+  const candidateReasoningEffort = reasoningEffortFor(candidate, candidatePath)
+  if (!baselineReasoningEffort || !candidateReasoningEffort)
+    throw new Error(
+      "Cannot verify that reports use the same reasoning effort. Reports must include reasoningEffort or sit beside a run.json with that setting."
+    )
+  if (baselineReasoningEffort !== candidateReasoningEffort)
+    throw new Error(
+      `Reports use different reasoning efforts (${baselineReasoningEffort} vs ${candidateReasoningEffort}).`
+    )
 
   const ollamaIndex = indexAttempts(baseline, "Ollama Client")
   const nanobrowserIndex = indexAttempts(candidate, "Nanobrowser")
@@ -167,15 +200,18 @@ const main = (): void => {
   const comparison = {
     comparedAt: new Date().toISOString(),
     model: candidate.model,
+    reasoningEffort: candidateReasoningEffort,
     baseline: {
       product: "ollama-client",
       backend: baseline.backend,
+      reasoningEffort: baselineReasoningEffort,
       reportPath: baselinePath,
       attemptCount: baseline.attempts.length
     },
     candidate: {
       product: "nanobrowser",
       backend: candidate.backend,
+      reasoningEffort: candidateReasoningEffort,
       reportPath: candidatePath,
       attemptCount: candidate.attempts.length
     },
@@ -204,6 +240,8 @@ const main = (): void => {
       candidatePath: basename(candidatePath),
       baseline,
       candidate,
+      baselineReasoningEffort,
+      candidateReasoningEffort,
       matched,
       ollamaOnly,
       nanobrowserOnly

@@ -74,7 +74,7 @@ Options:
   --nanobrowser-extension <dir> Nanobrowser extension build; defaults to NANOBROWSER_EXTENSION_PATH
   --only <product>              Run just ollama-client or nanobrowser
   --output-dir <dir>            Artifact root (default: artifacts/e2e/benchmark-runs)
-  --run-id <id>                  Reuse a named run directory (default: generated timestamp)
+  --run-id <id>                  Name a new output folder; ids must be unique
   --skip-build                  Reuse build/chrome-mv3-prod
   --help                        Show this help
 
@@ -332,7 +332,15 @@ const createRunContext = (options: Options): RunContext => {
     options.runId ||
     `${new Date().toISOString().replace(/[:.]/g, "-")}-${options.reasoningEffort}`
   const runDirectory = resolve(repositoryRoot, options.outputRoot, runId)
-  mkdirSync(runDirectory, { recursive: true })
+  mkdirSync(dirname(runDirectory), { recursive: true })
+  if (existsSync(runDirectory)) {
+    if (process.env.AGENT_BENCHMARK_DOCKER_PREPARED_RUN_ID !== runId)
+      throw new Error(
+        `Benchmark run directory already exists: ${runDirectory}. Choose a new --run-id so previous partials and logs cannot enter this measurement.`
+      )
+  } else {
+    mkdirSync(runDirectory)
+  }
   const extensionBuilds: RunMetadata["extensionBuilds"] = {}
   if (options.products.includes("ollama-client"))
     extensionBuilds.ollamaClient = ollamaClientExtensionPath
@@ -529,8 +537,43 @@ const runProduct = async (
 }
 
 const runProducts = async (context: RunContext): Promise<void> => {
-  for (const product of context.options.products)
-    await runProduct(context, product)
+  const failures: string[] = []
+  for (const product of context.options.products) {
+    try {
+      await runProduct(context, product)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      failures.push(`${product}: ${message}`)
+      const productDirectory = resolve(context.runDirectory, product)
+      mkdirSync(productDirectory, { recursive: true })
+      writeFileSync(
+        resolve(productDirectory, "status.json"),
+        `${JSON.stringify(
+          {
+            product,
+            status: "failed",
+            error: message,
+            finishedAt: new Date().toISOString()
+          },
+          null,
+          2
+        )}\n`
+      )
+    }
+  }
+  if (failures.length > 0) {
+    writeFileSync(
+      resolve(context.runDirectory, "status.json"),
+      `${JSON.stringify(
+        { status: "failed", failures, finishedAt: new Date().toISOString() },
+        null,
+        2
+      )}\n`
+    )
+    throw new Error(
+      `Benchmark incomplete: ${failures.join("; ")}. See ${context.runDirectory}.`
+    )
+  }
 }
 
 const writeCompleteStatus = (context: RunContext): void => {

@@ -32,6 +32,7 @@ const partial = (attempts: AgentAttemptRecord[]): AgentBenchmarkReport => ({
   measuredAt: "2026-09-17T00:00:00.000Z",
   backend: "cdp",
   model: "fixture-agent",
+  reasoningEffort: "xhigh",
   attempts,
   families: []
 })
@@ -58,6 +59,7 @@ describe("agent benchmark merge", () => {
       "click",
       "replace-then-save"
     ])
+    expect(merged.report.reasoningEffort).toBe("xhigh")
   })
 
   it("refuses a pass that is short of what the suite declares", () => {

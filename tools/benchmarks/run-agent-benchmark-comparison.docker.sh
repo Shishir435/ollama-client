@@ -20,12 +20,14 @@ Usage:
   pnpm benchmark:agent:comparison:docker [the usual benchmark options]
 
 Additional options:
-  --compare-to <merged.json>  Compare Nanobrowser with an existing Ollama Client report
-  --run-id <id>               Name this output folder (default: generated docker timestamp)
+  --compare-to <merged.json>  Compare against a report with matching effort metadata
+  --run-id <id>               Name a new output folder; ids must be unique
 
 The Docker image can be overridden with AGENT_BENCHMARK_DOCKER_IMAGE.
 The runner-owned loopback olc port defaults to 18083 and can be set with
 AGENT_BENCHMARK_OLC_PORT; --base-url overrides it.
+Linux loopback runs use Docker host networking to reach olc on 127.0.0.1.
+Existing run folders are preserved; choose a fresh run id for every run.
 USAGE
 }
 
@@ -131,7 +133,6 @@ fi
 
 host_output_root="$(node -e 'const path=require("node:path"); const root=process.argv[1]; const out=path.resolve(root,process.argv[2]); if(out!==root && !out.startsWith(root+path.sep)){console.error("Docker benchmark output must be inside the repository so artifacts can be saved on the host"); process.exit(2)} console.log(out)' "$repository_root" "$output_root")"
 container_output_root="$(node -e 'const path=require("node:path"); const root=process.argv[1]; const out=process.argv[2]; console.log(path.join("/workspace",path.relative(root,out)))' "$repository_root" "$host_output_root")"
-container_base_url="$(node -e 'const u=new URL(process.argv[1]); if(["127.0.0.1","localhost","[::1]","::1"].includes(u.hostname)) u.hostname="host.docker.internal"; if(u.pathname==="/v1"||u.pathname==="/v1/")u.pathname=""; console.log(u.toString().replace(/\/$/,""))' "$host_base_url")"
 host_base_url="$(node -e 'const u=new URL(process.argv[1]); if(u.pathname==="/v1"||u.pathname==="/v1/")u.pathname=""; console.log(u.toString().replace(/\/$/,""))' "$host_base_url")"
 olc_port="$(node -e 'const u=new URL(process.argv[1]); console.log(u.port||(u.protocol==="https:"?"443":"80"))' "$host_base_url")"
 
@@ -148,6 +149,16 @@ case "$host_base_url" in
     local_olc=false
     ;;
 esac
+
+container_network=bridge
+if [[ "$(uname -s)" == Linux && "$local_olc" == true ]]; then
+  # On Linux, host networking keeps the runner on the same loopback where olc
+  # listens by default. Docker Desktop uses its host.docker.internal gateway.
+  container_base_url="$host_base_url"
+  container_network=host
+else
+  container_base_url="$(node -e 'const u=new URL(process.argv[1]); if(["127.0.0.1","localhost","[::1]","::1"].includes(u.hostname)) u.hostname="host.docker.internal"; if(u.pathname==="/v1"||u.pathname==="/v1/")u.pathname=""; console.log(u.toString().replace(/\/$/,""))' "$host_base_url")"
+fi
 
 health_url="${host_base_url%/}/health"
 health_backend() {
@@ -170,7 +181,12 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 artifact_directory="$host_output_root/$run_id"
-mkdir -p "$artifact_directory"
+mkdir -p "$host_output_root"
+if ! mkdir "$artifact_directory" 2>/dev/null; then
+  echo "Benchmark run directory already exists: $artifact_directory" >&2
+  echo "Choose a new --run-id to keep this run's measurements and logs separate." >&2
+  exit 2
+fi
 if [[ -n "$nanobrowser_extension_host" ]]; then
   staged_extension="$artifact_directory/input/nanobrowser-extension"
   mkdir -p "$staged_extension"
@@ -231,7 +247,11 @@ docker_args=(
   -e "AGENT_HOSTED_MODEL=${AGENT_HOSTED_MODEL:-codex/gpt-6-luna}"
   -e "AGENT_HOSTED_REASONING_EFFORT=${AGENT_HOSTED_REASONING_EFFORT:-medium}"
   -e "AGENT_BENCHMARK_RUNS_DIR=$container_output_root"
+  -e "AGENT_BENCHMARK_DOCKER_PREPARED_RUN_ID=$run_id"
 )
+if [[ "$container_network" == host ]]; then
+  docker_args+=(--network host)
+fi
 if [[ -n "$nanobrowser_extension_host" ]]; then
   docker_args+=(--mount "type=bind,source=$nanobrowser_extension_host,target=/nanobrowser-extension,readonly")
 fi
@@ -255,6 +275,7 @@ cat > "$artifact_directory/docker.json" <<EOF
   "runId": "$run_id",
   "olcPort": "$olc_port",
   "containerBaseUrl": "$container_base_url",
+  "containerNetwork": "$container_network",
   "benchmarkExitCode": $benchmark_status,
   "finishedAt": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 }
