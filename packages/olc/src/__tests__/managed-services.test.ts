@@ -404,7 +404,7 @@ describe("managed Docker service lifecycle", () => {
     expect(await readFile(markerPath, "utf8")).toBe(marker)
   })
 
-  it("purges only bundled SearXNG resources from a customized Compose project", async () => {
+  it("preserves customized services and config when purging SearXNG", async () => {
     await writeOwnedSearxng(8080)
     const customizedCompose = bundledCompose.replace(
       "\nvolumes:\n",
@@ -425,6 +425,20 @@ describe("managed Docker service lifecycle", () => {
     expect(downArgs).toContain(dataDir)
     expect(downArgs).toContain(path.join(searxngAssets, "docker-compose.yml"))
     expect(downArgs).not.toContain(path.join(dataDir, "docker-compose.yml"))
+    expect(
+      await readFile(path.join(dataDir, "docker-compose.yml"), "utf8")
+    ).toBe(customizedCompose)
+    await expect(
+      readFile(path.join(dataDir, ".env"), "utf8")
+    ).resolves.toContain("SEARXNG_HOST_PORT=8080")
+    await expect(
+      readFile(path.join(dataDir, "core-config", "settings.yml"), "utf8")
+    ).resolves.toContain("secret_key:")
+    const marker = JSON.parse(
+      await readFile(path.join(dataDir, ".olc-managed.json"), "utf8")
+    )
+    expect(marker).toMatchObject({ composeManaged: false })
+    expect(marker).not.toHaveProperty("purgePending")
   })
 
   it("allows lifecycle commands for installations with the previous bundled Compose", async () => {

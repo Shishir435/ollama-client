@@ -1101,7 +1101,8 @@ async function removeSearxng(
   dataDir: string,
   composeArgs: string[],
   purgeData: boolean,
-  assetsRoot: string
+  assetsRoot: string,
+  preserveCustomizedFiles: boolean
 ): Promise<void> {
   if (!purgeData) {
     await docker([...composeArgs, "down"], { cwd: dataDir })
@@ -1124,6 +1125,17 @@ async function removeSearxng(
     path.join(assetsRoot, "searxng", "docker-compose.yml")
   ]
   await docker([...purgeComposeArgs, "down", "--volumes"], { cwd: dataDir })
+  if (preserveCustomizedFiles) {
+    const compose = await readFile(
+      path.join(dataDir, "docker-compose.yml"),
+      "utf8"
+    )
+    await writeSearxngOwnership(dataDir, compose, false)
+    console.log(
+      "Removed SearXNG and its data volumes. Preserved the customized Compose file and config so user-added services remain manageable."
+    )
+    return
+  }
   await removeOwnedSearxngFiles(dataDir)
   console.log("Removed SearXNG, its local config, and search data volumes.")
 }
@@ -1268,7 +1280,14 @@ async function searxngAction(
     return
   }
   if (action === "rm") {
-    await removeSearxng(dataDir, composeArgs, purgeData, servicesRoot)
+    await removeSearxng(
+      dataDir,
+      composeArgs,
+      purgeData,
+      servicesRoot,
+      ownership?.schemaVersion === SEARXNG_OWNERSHIP_SCHEMA &&
+        !ownership.composeManaged
+    )
     return
   }
   if (action === "status") {
