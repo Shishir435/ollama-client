@@ -158,19 +158,30 @@ task({
     page(
       `<button type="button" role="button" onclick="document.getElementById('menu').hidden=false">Actions</button>
        <div id="menu" role="menu" aria-label="actions" hidden>
-         <button type="button" role="menuitem" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');document.getElementById('menu').hidden=true">Approve</button>
+         <button type="button" role="menuitem" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Approved</p>');document.getElementById('menu').hidden=true">Approve</button>
        </div>`
     ),
   decide: (observation) => {
-    if (observation.text.includes("Status: Active")) {
-      return { type: "complete", summary: "Active", evidence: "Status: Active" }
+    if (observation.text.includes("Status: Approved")) {
+      return {
+        type: "complete",
+        summary: "Approved",
+        evidence: "Status: Approved"
+      }
     }
     const approve = named(observation, "Approve")
     return approve && !approve.hidden
       ? { type: "click", ref: approve.ref }
       : clickNamed(observation, "Actions")
   },
-  succeeded: showsActiveStatus
+  /**
+   * Approving shows "Approved". It used to show "Active", and a live model
+   * reported — correctly — that nothing on the page said approved.
+   */
+  succeeded: async (outcome) =>
+    (await outcome.page.locator("main").innerText()).includes(
+      "Status: Approved"
+    )
 })
 
 // ── 3. form-preparation ─────────────────────────────────────────────────────
