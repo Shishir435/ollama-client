@@ -1,11 +1,12 @@
 /** Local Docker services that olc owns and can safely start or stop. */
 import { execFile } from "node:child_process"
-import { randomBytes } from "node:crypto"
+import { createHash, randomBytes } from "node:crypto"
 import {
   mkdir,
   readdir,
   readFile,
   rm as removeFiles,
+  rename as renameFile,
   rmdir,
   writeFile
 } from "node:fs/promises"
@@ -23,6 +24,7 @@ const VERSION_LABEL = "io.ollama-client.olc.version"
 const PORT_LABEL = "io.ollama-client.olc.port"
 const LAYA_CONTAINER = "olc-laya"
 const LAYA_ROLLBACK_CONTAINER = "olc-laya-rollback"
+const LAYA_RECOVERY_FILE = "laya-replacement.json"
 const LAYA_IMAGE = `ollama-client/laya:${OLC_VERSION}`
 const LAYA_DEFAULT_PORT = 8086
 const SEARXNG_DEFAULT_PORT = 8080
@@ -30,6 +32,7 @@ const SEARXNG_DEFAULT_VERSION = "2026.9.25-12f8b6515"
 const SEARXNG_VERSION_DEFAULT_MARKER = "# OLC_SEARXNG_VERSION_DEFAULT="
 const SEARXNG_PROJECT = "olc-searxng"
 const SEARXNG_OWNERSHIP_FILE = ".olc-managed.json"
+const SEARXNG_OWNERSHIP_SCHEMA = 2
 const SEARXNG_COMPOSE_SERVICES = ["core", "valkey"] as const
 const DOCKER_TIMEOUT_MS = 10 * 60 * 1000
 
@@ -43,6 +46,11 @@ interface DockerOptions {
 interface DockerCommandResult {
   stdout: string
   stderr: string
+}
+
+interface LayaRecoveryRecord {
+  schemaVersion: 1
+  wasRunning: boolean
 }
 
 export interface ManagedServer {
@@ -172,6 +180,56 @@ async function containerState(name: string): Promise<string | undefined> {
   }
 }
 
+function layaRecoveryPath(): string {
+  return path.join(serviceDataRoot(), LAYA_RECOVERY_FILE)
+}
+
+async function readLayaRecoveryRecord(): Promise<
+  LayaRecoveryRecord | undefined
+> {
+  const contents = await readOptionalFile(layaRecoveryPath())
+  if (contents === undefined) return undefined
+  let record: unknown
+  try {
+    record = JSON.parse(contents)
+  } catch {
+    throw new Error(
+      `Laya replacement recovery file at ${layaRecoveryPath()} is invalid; it was left untouched.`
+    )
+  }
+  if (
+    typeof record !== "object" ||
+    record === null ||
+    (record as LayaRecoveryRecord).schemaVersion !== 1 ||
+    typeof (record as LayaRecoveryRecord).wasRunning !== "boolean"
+  )
+    throw new Error(
+      `Laya replacement recovery file at ${layaRecoveryPath()} is invalid; it was left untouched.`
+    )
+  return record as LayaRecoveryRecord
+}
+
+async function writeLayaRecoveryRecord(wasRunning: boolean): Promise<void> {
+  const filePath = layaRecoveryPath()
+  await mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 })
+  const temporaryPath = `${filePath}.${randomBytes(8).toString("hex")}.tmp`
+  await writeFile(
+    temporaryPath,
+    `${JSON.stringify({ schemaVersion: 1, wasRunning })}\n`,
+    { mode: 0o600, flag: "wx" }
+  )
+  try {
+    await renameFile(temporaryPath, filePath)
+  } catch (error) {
+    await removeFiles(temporaryPath, { force: true })
+    throw error
+  }
+}
+
+async function clearLayaRecoveryRecord(): Promise<void> {
+  await removeFiles(layaRecoveryPath(), { force: true })
+}
+
 async function imageExists(image: string): Promise<boolean> {
   try {
     await docker(["image", "inspect", image])
@@ -224,7 +282,7 @@ async function layaAction(
   servicesRoot: string
 ): Promise<void> {
   await requireDocker()
-  await recoverLayaReplacement(action === "start")
+  await recoverLayaReplacement(action)
   const state = await containerState(LAYA_CONTAINER)
   const labels =
     state === undefined ? undefined : await containerLabels(LAYA_CONTAINER)
@@ -278,36 +336,96 @@ function assertLayaOwnership(
     )
 }
 
-async function recoverLayaReplacement(shouldRun: boolean): Promise<void> {
+async function recoverLayaReplacement(action: ServiceAction): Promise<void> {
+  const recovery = await readLayaRecoveryRecord()
   const rollbackState = await containerState(LAYA_ROLLBACK_CONTAINER)
-  if (rollbackState === undefined) return
+  if (rollbackState === undefined) {
+    await recoverLayaWithoutRollback(action, recovery)
+    return
+  }
+  await recoverLayaWithRollback(
+    action,
+    recovery,
+    rollbackState,
+    shouldRunLayaAfterRecovery(action, recovery)
+  )
+}
+
+async function recoverLayaWithoutRollback(
+  action: ServiceAction,
+  recovery: LayaRecoveryRecord | undefined
+): Promise<void> {
+  if (recovery === undefined) return
+  const currentState = await containerState(LAYA_CONTAINER)
+  if (action === "status" && currentState !== undefined) {
+    const currentLabels = await containerLabels(LAYA_CONTAINER)
+    assertLayaOwnership(currentLabels)
+    // A current-version container means the replacement finished and only
+    // the journal cleanup was interrupted. Otherwise status restores the
+    // previous running state recorded before the old container was moved.
+    if (
+      currentLabels?.[3] !== OLC_VERSION &&
+      recovery.wasRunning !== (currentState === "running")
+    ) {
+      await docker([recovery.wasRunning ? "start" : "stop", LAYA_CONTAINER])
+    }
+  }
+  await clearLayaRecoveryRecord()
+}
+
+function shouldRunLayaAfterRecovery(
+  action: ServiceAction,
+  recovery: LayaRecoveryRecord | undefined
+): boolean {
+  return (
+    action === "start" || (action === "status" && recovery?.wasRunning === true)
+  )
+}
+
+async function recoverLayaWithRollback(
+  action: ServiceAction,
+  recovery: LayaRecoveryRecord | undefined,
+  rollbackState: string,
+  shouldRun: boolean
+): Promise<void> {
   const rollbackLabels = await containerLabels(LAYA_ROLLBACK_CONTAINER)
   assertLayaOwnership(rollbackLabels, LAYA_ROLLBACK_CONTAINER)
-
   const currentState = await containerState(LAYA_CONTAINER)
   if (currentState === undefined) {
     await docker(["rename", LAYA_ROLLBACK_CONTAINER, LAYA_CONTAINER])
     if (shouldRun && rollbackState !== "running")
       await docker(["start", LAYA_CONTAINER])
+    else if (!shouldRun && rollbackState === "running")
+      await docker(["stop", LAYA_CONTAINER])
+    if (recovery !== undefined) await clearLayaRecoveryRecord()
     return
   }
 
-  const currentLabels = await containerLabels(LAYA_CONTAINER)
-  assertLayaOwnership(currentLabels)
-  const currentPort = Number(currentLabels?.[2]) || LAYA_DEFAULT_PORT
-  if (
-    currentState === "running" &&
-    currentLabels?.[3] === OLC_VERSION &&
-    (await waitForHttp(serviceUrl("laya", currentPort), "/health", 10_000))
-  ) {
+  if (await isHealthyCurrentLayaReplacement(currentState)) {
     await docker(["rm", "--force", LAYA_ROLLBACK_CONTAINER])
+    if (recovery !== undefined) await clearLayaRecoveryRecord()
     return
   }
 
-  await restoreLayaContainer(shouldRun)
+  await restoreLayaContainer(shouldRun, action === "start")
+  if (recovery !== undefined) await clearLayaRecoveryRecord()
 }
 
-async function restoreLayaContainer(shouldRun = true): Promise<void> {
+async function isHealthyCurrentLayaReplacement(
+  currentState: string
+): Promise<boolean> {
+  const currentLabels = await containerLabels(LAYA_CONTAINER)
+  assertLayaOwnership(currentLabels)
+  if (currentState !== "running" || currentLabels?.[3] !== OLC_VERSION)
+    return false
+  const currentPort = Number(currentLabels[2]) || LAYA_DEFAULT_PORT
+  return waitForHttp(serviceUrl("laya", currentPort), "/health", 10_000)
+}
+
+async function restoreLayaContainer(
+  shouldRun = true,
+  waitForHealth = shouldRun
+): Promise<void> {
   const replacementState = await containerState(LAYA_CONTAINER)
   if (replacementState !== undefined) {
     assertLayaOwnership(await containerLabels(LAYA_CONTAINER))
@@ -321,7 +439,7 @@ async function restoreLayaContainer(shouldRun = true): Promise<void> {
     await docker(["stop", LAYA_CONTAINER])
   const labels = await containerLabels(LAYA_CONTAINER)
   assertLayaOwnership(labels)
-  if (shouldRun) {
+  if (shouldRun && waitForHealth) {
     const port = Number(labels?.[2]) || LAYA_DEFAULT_PORT
     await waitForLaya(serviceUrl("laya", port))
   }
@@ -341,6 +459,7 @@ async function replaceLayaContainer(
       `A previous Laya replacement is still pending in ${LAYA_ROLLBACK_CONTAINER}; retry olc -b laya to recover it first.`
     )
 
+  await writeLayaRecoveryRecord(oldState === "running")
   let moved = false
   try {
     if (oldState === "running") await docker(["stop", LAYA_CONTAINER])
@@ -355,12 +474,14 @@ async function replaceLayaContainer(
       const retainedState = await containerState(LAYA_CONTAINER)
       if (oldState === "running" && retainedState !== "running")
         await docker(["start", LAYA_CONTAINER])
+      await clearLayaRecoveryRecord()
       throw new Error(
         `Laya update failed before replacing the existing server; it was retained. ${(error as Error).message}`
       )
     }
     try {
       await restoreLayaContainer(oldState === "running")
+      await clearLayaRecoveryRecord()
     } catch (restoreError) {
       throw new Error(
         `Laya update failed: ${(error as Error).message}. Automatic rollback also failed: ${(restoreError as Error).message}. The previous container is still named ${LAYA_ROLLBACK_CONTAINER}.`
@@ -371,6 +492,7 @@ async function replaceLayaContainer(
     )
   }
   await docker(["rm", "--force", LAYA_ROLLBACK_CONTAINER])
+  await clearLayaRecoveryRecord()
 }
 
 function assertLayaPort(
@@ -573,19 +695,105 @@ async function readOptionalFile(filePath: string): Promise<string | undefined> {
   }
 }
 
-async function writeSearxngOwnership(dataDir: string): Promise<void> {
-  const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
-  const marker = JSON.stringify({ schemaVersion: 1, service: "searxng" })
+interface SearxngOwnershipMarkerV1 {
+  schemaVersion: 1
+  service: "searxng"
+}
+
+interface SearxngOwnershipMarkerV2 {
+  schemaVersion: 2
+  service: "searxng"
+  composeSha256: string
+  composeManaged: boolean
+}
+
+type SearxngOwnershipMarker =
+  | SearxngOwnershipMarkerV1
+  | SearxngOwnershipMarkerV2
+
+function parseSearxngOwnershipMarker(
+  contents: string
+): SearxngOwnershipMarker | undefined {
+  let parsed: unknown
   try {
-    await writeFile(markerPath, `${marker}\n`, {
+    parsed = JSON.parse(contents)
+  } catch {
+    return undefined
+  }
+  if (typeof parsed !== "object" || parsed === null) return undefined
+  const marker = parsed as Record<string, unknown>
+  if (marker.service !== "searxng") return undefined
+  if (marker.schemaVersion === 1) {
+    if (
+      contents !==
+      `${JSON.stringify({ schemaVersion: 1, service: "searxng" })}\n`
+    )
+      return undefined
+    return { schemaVersion: 1, service: "searxng" }
+  }
+  if (
+    marker.schemaVersion === SEARXNG_OWNERSHIP_SCHEMA &&
+    typeof marker.composeSha256 === "string" &&
+    /^[a-f0-9]{64}$/.test(marker.composeSha256) &&
+    typeof marker.composeManaged === "boolean"
+  ) {
+    return {
+      schemaVersion: SEARXNG_OWNERSHIP_SCHEMA,
+      service: "searxng",
+      composeSha256: marker.composeSha256 as string,
+      composeManaged: marker.composeManaged as boolean
+    }
+  }
+  return undefined
+}
+
+function composeSha256(contents: string): string {
+  return createHash("sha256").update(contents).digest("hex")
+}
+
+function serializeSearxngOwnership(
+  compose: string,
+  composeManaged = true
+): string {
+  return `${JSON.stringify({
+    schemaVersion: SEARXNG_OWNERSHIP_SCHEMA,
+    service: "searxng",
+    composeSha256: composeSha256(compose),
+    composeManaged
+  })}\n`
+}
+
+async function writeSearxngOwnership(
+  dataDir: string,
+  compose: string,
+  composeManaged = true,
+  createOnly = false
+): Promise<void> {
+  const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
+  const marker = serializeSearxngOwnership(compose, composeManaged)
+  try {
+    await writeFile(markerPath, marker, {
       mode: 0o600,
-      flag: "wx"
+      ...(createOnly ? { flag: "wx" } : {})
     })
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error
+    if (!createOnly || (error as NodeJS.ErrnoException).code !== "EEXIST")
+      throw error
   }
   const savedMarker = await readFile(markerPath, "utf8")
-  if (savedMarker !== `${marker}\n`) throw unownedSearxngDirectory()
+  if (savedMarker !== marker) throw unownedSearxngDirectory()
+}
+
+function isKnownBundledSearxngCompose(
+  compose: string,
+  bundledCompose: string
+): boolean {
+  if (compose === bundledCompose) return true
+  const previousDefault = bundledCompose.replace(
+    `SEARXNG_VERSION:-${SEARXNG_DEFAULT_VERSION}`,
+    "SEARXNG_VERSION:-latest"
+  )
+  return compose === previousDefault
 }
 
 /** Verify the project before any Compose command can inspect or remove it. */
@@ -593,8 +801,7 @@ async function ensureSearxngOwnership(
   dataDir: string,
   assetsRoot: string,
   allowCreate: boolean,
-  allowIncompleteCleanup = false,
-  allowComposeRefresh = false
+  allowIncompleteCleanup = false
 ): Promise<boolean> {
   if (allowCreate) await mkdir(dataDir, { recursive: true, mode: 0o700 })
   const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
@@ -607,17 +814,28 @@ async function ensureSearxngOwnership(
   )
 
   if (marker !== undefined) {
-    if (
-      marker !== `${JSON.stringify({ schemaVersion: 1, service: "searxng" })}\n`
-    )
-      throw unownedSearxngDirectory()
-    if (
-      compose !== undefined &&
-      compose !== bundledCompose &&
-      !allowComposeRefresh
-    )
-      throw unownedSearxngDirectory()
+    const ownership = parseSearxngOwnershipMarker(marker)
+    if (ownership === undefined) throw unownedSearxngDirectory()
     if (compose === undefined && !allowCreate) return allowIncompleteCleanup
+    if (compose === undefined && allowCreate) {
+      await writeSearxngOwnership(dataDir, bundledCompose)
+      return true
+    }
+    if (ownership.schemaVersion === 1) {
+      await writeSearxngOwnership(
+        dataDir,
+        compose as string,
+        isKnownBundledSearxngCompose(compose as string, bundledCompose)
+      )
+      return true
+    }
+    if (
+      ownership.composeManaged &&
+      ownership.composeSha256 !== composeSha256(compose as string)
+    ) {
+      // The file changed since olc wrote it, so preserve it as user config.
+      await writeSearxngOwnership(dataDir, compose as string, false)
+    }
     return true
   }
 
@@ -627,19 +845,19 @@ async function ensureSearxngOwnership(
       path.join(dataDir, "core-config", "settings.yml")
     )
     const generatedByOlderOlc =
-      compose === bundledCompose &&
+      isKnownBundledSearxngCompose(compose, bundledCompose) &&
       env?.includes("OLC_VERSION=") === true &&
       settings?.includes("secret_key:") === true &&
       !settings.includes("__SECRET_KEY__")
     if (!generatedByOlderOlc) throw unownedSearxngDirectory()
-    await writeSearxngOwnership(dataDir)
+    await writeSearxngOwnership(dataDir, compose)
     return true
   }
 
   if (!allowCreate) return false
   const entries = await readdir(dataDir)
   if (entries.length > 0) throw unownedSearxngDirectory()
-  await writeSearxngOwnership(dataDir)
+  await writeSearxngOwnership(dataDir, bundledCompose, true, true)
   return true
 }
 
@@ -648,18 +866,30 @@ async function ensureSearxngFiles(
   assetsRoot: string,
   requestedPort?: number
 ): Promise<number> {
-  await ensureSearxngOwnership(dataDir, assetsRoot, true, false, true)
+  await ensureSearxngOwnership(dataDir, assetsRoot, true)
   const coreConfig = path.join(dataDir, "core-config")
   await mkdir(coreConfig, { recursive: true, mode: 0o700 })
   const composePath = path.join(dataDir, "docker-compose.yml")
-  await writeFile(
-    composePath,
-    await readFile(
-      path.join(assetsRoot, "searxng", "docker-compose.yml"),
-      "utf8"
-    ),
-    { mode: 0o600 }
+  const bundledCompose = await readFile(
+    path.join(assetsRoot, "searxng", "docker-compose.yml"),
+    "utf8"
   )
+  const currentCompose = await readOptionalFile(composePath)
+  const ownershipContents = await readFile(
+    path.join(dataDir, SEARXNG_OWNERSHIP_FILE),
+    "utf8"
+  )
+  const ownership = parseSearxngOwnershipMarker(ownershipContents)
+  if (ownership === undefined) throw unownedSearxngDirectory()
+  const composeIsManaged =
+    currentCompose === undefined ||
+    (ownership.schemaVersion === SEARXNG_OWNERSHIP_SCHEMA &&
+      ownership.composeManaged &&
+      ownership.composeSha256 === composeSha256(currentCompose))
+  if (composeIsManaged) {
+    await writeFile(composePath, bundledCompose, { mode: 0o600 })
+    await writeSearxngOwnership(dataDir, bundledCompose)
+  }
   const envPath = path.join(dataDir, ".env")
   const port = await updateEnvFile(envPath, requestedPort)
   const settingsPath = path.join(coreConfig, "settings.yml")
@@ -818,8 +1048,7 @@ async function searxngAction(
     dataDir,
     servicesRoot,
     action === "start",
-    allowIncompleteCleanup,
-    action === "start"
+    allowIncompleteCleanup
   )
   if (!owned) {
     console.log("SearXNG is not running. Start it with `olc -b searxng`.")

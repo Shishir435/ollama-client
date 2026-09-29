@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import {
   mkdir,
   mkdtemp,
@@ -26,8 +27,20 @@ import { OLC_VERSION } from "../version.js"
 const servicesRoot = fileURLToPath(new URL("../../services", import.meta.url))
 const searxngAssets = path.join(servicesRoot, "searxng")
 const dataRoot = path.join("services", "searxng")
-const marker = `${JSON.stringify({ schemaVersion: 1, service: "searxng" })}\n`
 const searxngDefaultVersion = "2026.9.25-12f8b6515"
+const bundledCompose = await readFile(
+  path.join(searxngAssets, "docker-compose.yml"),
+  "utf8"
+)
+const markerForCompose = (compose: string, composeManaged = true) =>
+  `${JSON.stringify({
+    schemaVersion: 2,
+    service: "searxng",
+    composeSha256: createHash("sha256").update(compose).digest("hex"),
+    composeManaged
+  })}\n`
+const legacyMarker = `${JSON.stringify({ schemaVersion: 1, service: "searxng" })}\n`
+const marker = markerForCompose(bundledCompose)
 
 let tempRoot: string
 let dataDir: string
@@ -66,15 +79,17 @@ function successResponse(): Response {
 async function writeOwnedSearxng(
   port: number,
   version = "latest",
-  managedVersion?: string
+  managedVersion?: string,
+  compose = bundledCompose,
+  legacyOwnership = false
 ): Promise<void> {
   const coreConfig = path.join(dataDir, "core-config")
   await mkdir(coreConfig, { recursive: true })
-  await writeFile(path.join(dataDir, ".olc-managed.json"), marker)
   await writeFile(
-    path.join(dataDir, "docker-compose.yml"),
-    await readFile(path.join(searxngAssets, "docker-compose.yml"), "utf8")
+    path.join(dataDir, ".olc-managed.json"),
+    legacyOwnership ? legacyMarker : markerForCompose(compose)
   )
+  await writeFile(path.join(dataDir, "docker-compose.yml"), compose)
   await writeFile(
     path.join(dataDir, ".env"),
     `SEARXNG_VERSION=${version}\nSEARXNG_HOST_PORT=${port}\nOLC_VERSION=${OLC_VERSION}\n${managedVersion ? `# OLC_SEARXNG_VERSION_DEFAULT=${managedVersion}\n` : ""}`
@@ -270,13 +285,13 @@ describe("managed Docker service lifecycle", () => {
 
   it("refreshes the owned Compose file and updates only olc-managed image defaults", async () => {
     const oldVersion = "2026.6.19-93f66bfb4"
-    await writeOwnedSearxng(8080, oldVersion, oldVersion)
+    const previousCompose = bundledCompose.replace(
+      `SEARXNG_VERSION:-${searxngDefaultVersion}`,
+      "SEARXNG_VERSION:-latest"
+    )
+    await writeOwnedSearxng(8080, oldVersion, oldVersion, previousCompose, true)
     const settingsPath = path.join(dataDir, "core-config", "settings.yml")
     const originalSettings = await readFile(settingsPath, "utf8")
-    await writeFile(
-      path.join(dataDir, "docker-compose.yml"),
-      "name: previous-olc-compose\n"
-    )
     mockDocker(async (args) => basicDocker(args))
 
     await runManagedService("searxng", "start", undefined, false, servicesRoot)
@@ -294,12 +309,12 @@ describe("managed Docker service lifecycle", () => {
     )
   })
 
-  it("preserves an unmarked legacy SearXNG image version when refreshing Compose", async () => {
-    await writeOwnedSearxng(8080)
-    await writeFile(
-      path.join(dataDir, "docker-compose.yml"),
-      "name: previous-olc-compose\n"
+  it("preserves an unmarked legacy SearXNG image version when refreshing old Compose", async () => {
+    const previousCompose = bundledCompose.replace(
+      `SEARXNG_VERSION:-${searxngDefaultVersion}`,
+      "SEARXNG_VERSION:-latest"
     )
+    await writeOwnedSearxng(8080, "latest", undefined, previousCompose, true)
     mockDocker(async (args) => basicDocker(args))
 
     await runManagedService("searxng", "start", undefined, false, servicesRoot)
@@ -309,9 +324,65 @@ describe("managed Docker service lifecycle", () => {
     expect(env).not.toContain("OLC_SEARXNG_VERSION_DEFAULT=")
     expect(
       await readFile(path.join(dataDir, "docker-compose.yml"), "utf8")
-    ).toBe(
-      await readFile(path.join(searxngAssets, "docker-compose.yml"), "utf8")
+    ).toBe(bundledCompose)
+  })
+
+  it("preserves user edits to the owned Compose file when starting", async () => {
+    await writeOwnedSearxng(8080)
+    const composePath = path.join(dataDir, "docker-compose.yml")
+    const customizedCompose = `${bundledCompose}\n# user customizations stay in place\n`
+    await writeFile(composePath, customizedCompose)
+    mockDocker(async (args) => basicDocker(args))
+
+    await runManagedService("searxng", "start", undefined, false, servicesRoot)
+
+    expect(await readFile(composePath, "utf8")).toBe(customizedCompose)
+    expect(
+      await readFile(path.join(dataDir, ".olc-managed.json"), "utf8")
+    ).toContain('"composeManaged":false')
+  })
+
+  it("allows lifecycle commands for installations with the previous bundled Compose", async () => {
+    const previousCompose = bundledCompose.replace(
+      `SEARXNG_VERSION:-${searxngDefaultVersion}`,
+      "SEARXNG_VERSION:-latest"
     )
+    await writeOwnedSearxng(8080, "latest", undefined, previousCompose, true)
+    const calls: string[][] = []
+    mockDocker(async (args) => {
+      calls.push(args)
+      return basicDocker(args)
+    })
+
+    await runManagedService("searxng", "status", undefined, false, servicesRoot)
+    await runManagedService("searxng", "stop", undefined, false, servicesRoot)
+    await runManagedService("searxng", "rm", undefined, false, servicesRoot)
+
+    expect(
+      await readFile(path.join(dataDir, "docker-compose.yml"), "utf8")
+    ).toBe(previousCompose)
+    expect(calls.some((args) => args.includes("ps"))).toBe(true)
+    expect(calls.some((args) => args.includes("stop"))).toBe(true)
+    expect(calls.some((args) => args.includes("down"))).toBe(true)
+  })
+
+  it("recognizes a markerless legacy installation with the previous bundled Compose", async () => {
+    const previousCompose = bundledCompose.replace(
+      `SEARXNG_VERSION:-${searxngDefaultVersion}`,
+      "SEARXNG_VERSION:-latest"
+    )
+    await writeOwnedSearxng(8080, "latest", undefined, previousCompose, true)
+    await rm(path.join(dataDir, ".olc-managed.json"))
+    mockDocker(async (args) => basicDocker(args))
+
+    await runManagedService("searxng", "start", undefined, false, servicesRoot)
+
+    expect(
+      await readFile(path.join(dataDir, "docker-compose.yml"), "utf8")
+    ).toBe(bundledCompose)
+    expect(
+      await readFile(path.join(dataDir, ".olc-managed.json"), "utf8")
+    ).toBe(marker)
   })
 
   it("restores the previous SearXNG port config and each service's running state", async () => {
@@ -497,6 +568,63 @@ describe("managed Docker service lifecycle", () => {
 
     expect(containers.has("olc-laya")).toBe(false)
     expect(containers.has("olc-laya-rollback")).toBe(false)
+    expect(calls.some((args) => args[0] === "start")).toBe(false)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it("restores the previous running Laya server when status recovers an interrupted replacement", async () => {
+    const recoveryDir = path.join(tempRoot, "services")
+    const recoveryPath = path.join(recoveryDir, "laya-replacement.json")
+    await mkdir(recoveryDir, { recursive: true })
+    await writeFile(
+      recoveryPath,
+      `${JSON.stringify({ schemaVersion: 1, wasRunning: true })}\n`
+    )
+    const containers = new Map<string, TestContainer>([
+      [
+        "olc-laya-rollback",
+        { state: "exited", labels: "true|laya|8086|0.13.0" }
+      ]
+    ])
+    const calls: string[][] = []
+    mockDocker(async (args) => {
+      calls.push(args)
+      return layaReplacementDocker(args, containers)
+    })
+
+    await runManagedService("laya", "status", undefined, false, servicesRoot)
+
+    expect(containers.get("olc-laya")?.state).toBe("running")
+    expect(containers.has("olc-laya-rollback")).toBe(false)
+    expect(calls.some((args) => args[0] === "start")).toBe(true)
+    expect(fetch).toHaveBeenCalled()
+    await expect(readFile(recoveryPath, "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    })
+  })
+
+  it("keeps a previously stopped Laya server stopped during status recovery", async () => {
+    const recoveryDir = path.join(tempRoot, "services")
+    await mkdir(recoveryDir, { recursive: true })
+    await writeFile(
+      path.join(recoveryDir, "laya-replacement.json"),
+      `${JSON.stringify({ schemaVersion: 1, wasRunning: false })}\n`
+    )
+    const containers = new Map<string, TestContainer>([
+      [
+        "olc-laya-rollback",
+        { state: "exited", labels: "true|laya|8086|0.13.0" }
+      ]
+    ])
+    const calls: string[][] = []
+    mockDocker(async (args) => {
+      calls.push(args)
+      return layaReplacementDocker(args, containers)
+    })
+
+    await runManagedService("laya", "status", undefined, false, servicesRoot)
+
+    expect(containers.get("olc-laya")?.state).toBe("exited")
     expect(calls.some((args) => args[0] === "start")).toBe(false)
     expect(fetch).not.toHaveBeenCalled()
   })
