@@ -1131,8 +1131,14 @@ async function removeSearxng(
       "utf8"
     )
     await writeSearxngOwnership(dataDir, compose, false)
+    const retainedConfigFiles = [
+      "docker-compose.yml",
+      ".env",
+      path.join("core-config", "settings.yml"),
+      SEARXNG_OWNERSHIP_FILE
+    ].map((file) => path.join(dataDir, file))
     console.log(
-      `Purged the bundled SearXNG services and their data volumes. User-added services and volumes were left untouched and may still be running. The customized Compose file, .env, and core-config/settings.yml (which contains the SearXNG secret) remain at ${dataDir}. After managing any added services, remove that directory to delete the retained local config.`
+      `Purged the bundled SearXNG services and their data volumes. User-added services and volumes were left untouched and may still be running. Retained OLC config files (including core-config/settings.yml, which contains the SearXNG secret):\n  ${retainedConfigFiles.join("\n  ")}\nReview ${dataDir} before cleanup. After managing any added services, remove only the listed files if they are no longer needed; preserve all other files and directories because they may contain user data.`
     )
     return
   }

@@ -443,13 +443,16 @@ describe("managed Docker service lifecycle", () => {
     expect(marker).not.toHaveProperty("purgePending")
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining(
-        "settings.yml (which contains the SearXNG secret) remain at"
+        "core-config/settings.yml, which contains the SearXNG secret"
       )
     )
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining(
-        "remove that directory to delete the retained local config"
+        "remove only the listed files if they are no longer needed; preserve all other files and directories"
       )
+    )
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining(path.join(dataDir, "core-config", "settings.yml"))
     )
   })
 

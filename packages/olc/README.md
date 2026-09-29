@@ -182,8 +182,9 @@ SearXNG containers and data volumes but leaves the customized Compose file,
 `.env`, and `core-config/settings.yml` in place so added services are not
 orphaned. Added services and volumes are left untouched; they may still be
 running. The CLI prints the retained directory. Manage or stop added services
-with that Compose file, then remove the directory when its local config and
-SearXNG secret are no longer needed.
+with that Compose file, then inspect the retained directory before cleanup.
+Remove only the listed OLC config files if they are no longer needed; preserve
+other files and directories because they may contain user data.
 
 Nothing is published to a registry. Release bundles can be installed directly.
 
