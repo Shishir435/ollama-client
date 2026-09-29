@@ -2900,3 +2900,58 @@ describe("the no-progress guard across page-changing steps", () => {
     expect(harness.steps.filter((step) => step === "executed").length).toBe(5)
   })
 })
+
+describe("a requirement reported unmet with steps left", () => {
+  const requirements = [
+    { id: "r1", text: "Read the status", kind: "read" as const }
+  ]
+  const unmet: AgentDecision = {
+    type: "complete",
+    summary: "Could not find it.",
+    outcomes: [{ id: "r1", met: false }]
+  }
+
+  /**
+   * Runs settled `partial` one click from the goal, having answered "not
+   * met" for a step they never tried. The first such answer is sent back.
+   */
+  it("is asked about once, and the run can still meet it", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [
+        unmet,
+        {
+          type: "complete",
+          summary: "Page text",
+          outcomes: [{ id: "r1", met: true, evidence: "Page text" }]
+        }
+      ],
+      observations: [observation(), observation(), observation()]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.steps).toContain("rejected")
+    expect(
+      harness.writtenSteps.find((step) => step.status === "rejected")
+        ?.verification?.evidence.summary
+    ).toContain("You reported r1 as not met")
+    expect(harness.getState().status).toBe("completed")
+  })
+
+  it("takes the second answer as given", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [unmet, unmet],
+      observations: [observation(), observation(), observation()]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.steps.filter((step) => step === "rejected")).toHaveLength(1)
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "goal_failed" }
+    })
+  })
+})

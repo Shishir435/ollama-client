@@ -1317,6 +1317,13 @@ run that produced it can always be repeated.
   because the renderer cannot answer it. The following dialog decision keeps its own
   approval. Browser fixtures must register a passive Playwright dialog
   listener, otherwise Playwright dismisses it before the extension can answer.
+- **An early "not met" is asked about once.** `partial` and `unmet` are the
+  model's own answers and the judge takes them as given, but a run that fixed
+  a typo and answered "save: not met" without ever pressing Save had stopped,
+  not failed. While observations remain, the first `met:false` on each
+  requirement comes back as a `premature_unmet` refusal naming the ids; the
+  second answer settles the run. The prompt says `met:false` is for what
+  cannot be done, not what is not done yet.
 - Completion retries read evidence only. Missing evidence is never accepted
   because a timeout elapsed. Repeated or alternating decisions pause for a
   correction; user/question pauses suspend active-time accounting. A supplied

@@ -37,7 +37,8 @@ import {
   agentTypedValues,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
-  judgeAgentCompletion
+  judgeAgentCompletion,
+  prematureUnmetFeedback
 } from "./completion"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
@@ -307,6 +308,8 @@ export const createAgentController = (
   const recentProgress = new Map<string, AgentProgressPoint[]>()
   /** The visible text the guard last saw, to sign what the next step changed. */
   const progressText = new Map<string, string>()
+  /** Requirements a run was already asked about once after reporting them unmet. */
+  const challengedUnmet = new Map<string, Set<string>>()
   /**
    * The page as it read when this run's last change was decided.
    *
@@ -1675,6 +1678,37 @@ export const createAgentController = (
     await transition(state, settled, patch)
   }
 
+  /**
+   * A requirement reported unmet while the run still has steps to spend is
+   * asked about once before the run settles on it.
+   *
+   * `partial` and `unmet` are the model's own answers, and the judge takes
+   * them as given — correctly, since it cannot know a requirement was
+   * possible. But a run that fixed a typo and then answered "save: not met"
+   * without ever pressing Save had not found the save impossible; it had
+   * stopped. Two runs settled that way with the goal one click away, and two
+   * more reported failure on a page that showed it met. Asking once costs an
+   * honest partial one decision; the second answer is taken as given.
+   */
+  const challengeEarlyUnmet = (
+    state: AgentRunState,
+    judgement: AgentCompletionJudgement
+  ): AgentCompletionJudgement => {
+    if (judgement.type !== "partial" && judgement.type !== "unmet")
+      return judgement
+    if (MAX_AGENT_OBSERVATIONS - state.observationCount < 2) return judgement
+    const asked = challengedUnmet.get(state.id) ?? new Set<string>()
+    const fresh = judgement.outcome.unmet.filter((id) => !asked.has(id))
+    if (fresh.length === 0) return judgement
+    for (const id of fresh) asked.add(id)
+    challengedUnmet.set(state.id, asked)
+    return {
+      type: "refused",
+      reason: "premature_unmet",
+      feedback: prematureUnmetFeedback(fresh)
+    }
+  }
+
   const processCompletion = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
@@ -1718,8 +1752,8 @@ export const createAgentController = (
       signal
     )
     if (!settled) return undefined
-    const { judgement } = settled
     observation = settled.observation
+    const judgement = challengeEarlyUnmet(state, settled.judgement)
     if (judgement.type !== "refused") {
       await settleJudgedRun(
         state,
@@ -2024,6 +2058,7 @@ export const createAgentController = (
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
       progressText.delete(state.id)
+      challengedUnmet.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2385,6 +2420,7 @@ export const createAgentController = (
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
       progressText.delete(state.id)
+      challengedUnmet.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2403,6 +2439,7 @@ export const createAgentController = (
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
       progressText.delete(state.id)
+      challengedUnmet.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2473,6 +2510,7 @@ export const createAgentController = (
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
       progressText.delete(state.id)
+      challengedUnmet.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
