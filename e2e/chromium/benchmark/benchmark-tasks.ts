@@ -8,6 +8,7 @@ import {
   agentFixtureElement,
   runAgentScenario
 } from "../fixtures/agent-scenario"
+import { test } from "../fixtures/extension"
 import { runNanobrowserScenario } from "../fixtures/nanobrowser-scenario"
 import type { AgentAttemptRecord } from "./agent-benchmark"
 import {
@@ -209,6 +210,29 @@ export const benchmarkTask = (
         diagnosticTrace,
         ...(succeeded ? { succeeded } : {})
       })
+      /**
+       * The answer text goes to the test's own attachments, never the trace:
+       * traces are allowlisted to labels and counts so they can be shared,
+       * and the report must carry no page text. Every page here is a
+       * synthetic fixture, and without the text a false completion on the
+       * read path cannot be told apart from a scorer that misread a correct
+       * reply. The trace records only where the answer came from and its
+       * length.
+       */
+      const answer = outcome.snapshot?.run?.result ?? outcome.chatResponse
+      if (answer) {
+        const source = outcome.snapshot?.run?.result ? "run_result" : "chat"
+        diagnosticTrace({
+          type: "answer_observed",
+          attempt: outcome.attempt,
+          answerSource: source,
+          answerChars: answer.length
+        })
+        await test.info().attach(`answer-${source}`, {
+          body: answer,
+          contentType: "text/plain"
+        })
+      }
       const record = attempts.at(-1)
       if (record)
         diagnosticTrace({
@@ -251,6 +275,122 @@ export const observableButton = (label = "Continue"): string =>
   `<button type="button" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.disabled=true">${label}</button>`
 
 /**
+ * Markdown and letter case are presentation, not content: a chat reply that
+ * says "**Status:** Active" states the same fact as "Status: Active".
+ */
+const normalizedAnswer = (text: string): string =>
+  text
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+const phrasePattern = (value: string): string =>
+  value.split(" ").map(escapeRegex).join("\\s+")
+
+const DENIAL_PATTERN =
+  /\b(?:not(?!\s+only)|never|no|cannot|can['’]t|couldn['’]t|could\s+not|didn['’]t|did\s+not|doesn['’]t|does\s+not|isn['’]t|is\s+not|aren['’]t|are\s+not|wasn['’]t|was\s+not|weren['’]t|were\s+not|unable\s+to|failed\s+to)\b/i
+
+const affirmativeOccurrence = (
+  text: string,
+  start: number,
+  end: number
+): boolean => {
+  const prefix = text.slice(Math.max(0, start - 64), start)
+  const claim = text.slice(start, end)
+  if (DENIAL_PATTERN.test(`${prefix} ${claim}`)) return false
+  const suffix = text.slice(end, end + 40)
+  return !/^\s+(?:(?:is|are|was|were)\s+)?(?:not|incorrect|false|untrue|unconfirmed|unverified)\b/i.test(
+    suffix
+  )
+}
+
+const affirmedMatch = (text: string, pattern: RegExp): boolean => {
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0
+    if (affirmativeOccurrence(text, start, start + match[0].length)) return true
+  }
+  return false
+}
+
+/**
+ * Whether an answer carries a fact.
+ *
+ * The literal fact, or its value as a whole word when the answer also names
+ * the fact's label. Requiring an affirmative assertion keeps "not Active"
+ * and "could not confirm Status: Active" from passing on the value alone.
+ */
+export const answerCarriesFact = (
+  answer: string | undefined,
+  fact: string,
+  value = fact.split(/:\s*/).at(-1) ?? fact
+): boolean => {
+  if (!answer) return false
+  const said = normalizedAnswer(answer)
+  const factText = normalizedAnswer(fact)
+  const valueText = normalizedAnswer(value)
+  const labelText = fact.includes(":")
+    ? normalizedAnswer(fact.split(/:\s*/, 1)[0] ?? "")
+    : factText.endsWith(` ${valueText}`) && factText !== valueText
+      ? factText.slice(0, -(valueText.length + 1))
+      : ""
+
+  const factPattern = new RegExp(`\\b${phrasePattern(factText)}\\b`, "g")
+  for (const sentence of said.split(/[.!?;\n]+/)) {
+    if (affirmedMatch(sentence, factPattern)) return true
+    if (!labelText || !valueText) continue
+    const labeledValue = new RegExp(
+      `\\b${phrasePattern(labelText)}\\b(?:\\W+\\w+){0,6}\\W+\\b${phrasePattern(valueText)}\\b`,
+      "g"
+    )
+    if (affirmedMatch(sentence, labeledValue)) return true
+  }
+  return false
+}
+
+/**
+ * A back-navigation task is only complete when its receipts show both the
+ * Details visit and a confirmed Back command, and the tab has returned home.
+ */
+export const reportsBackNavigation = async (
+  outcome: AgentScenarioOutcome
+): Promise<boolean> => {
+  const pageIsHome = new URL(outcome.page.url()).pathname === "/"
+  if (!pageIsHome) return false
+
+  const steps = outcome.snapshot?.steps
+  if (!steps) {
+    if (outcome.executionPath !== "planner_navigator") return false
+    const history = outcome.navigationEvents ?? []
+    const detailsIndex = history.findIndex(
+      (event) => event.path === "/details" && event.kind === "document"
+    )
+    const returnedHome = history
+      .slice(detailsIndex + 1)
+      .some((event) => event.path === "/" && event.kind === "history_traversal")
+    if (detailsIndex < 0 || !returnedHome) return false
+    return reportsFact("Home")(outcome)
+  }
+
+  const confirmed = (step: (typeof steps)[number]) =>
+    step.status === "verified" && step.verification?.outcome === "confirmed"
+  const detailsIndex = steps.findIndex(
+    (step) =>
+      step.command?.type === "click" &&
+      step.target?.name?.toLowerCase() === "details" &&
+      confirmed(step)
+  )
+  if (detailsIndex < 0) return false
+  const returned = steps
+    .slice(detailsIndex + 1)
+    .some((step) => step.command?.type === "back" && confirmed(step))
+  if (!returned) return false
+  return reportsFact("Home")(outcome)
+}
+
+/**
  * A reading task's answer, checked against what the page actually says.
  *
  * `Boolean(run.result)` was circular: `result` is the model's own completion
@@ -261,11 +401,11 @@ export const observableButton = (label = "Continue"): string =>
  * vacuously, and the answer has to carry it.
  */
 export const reportsFact =
-  (fact: string) =>
+  (fact: string, value?: string) =>
   async (outcome: AgentScenarioOutcome): Promise<boolean> => {
     const rendered = await outcome.page.locator("body").innerText()
     const result = outcome.snapshot?.run?.result ?? outcome.chatResponse
-    return rendered.includes(fact) && Boolean(result?.includes(fact))
+    return rendered.includes(fact) && answerCarriesFact(result, fact, value)
   }
 
 /**
@@ -274,10 +414,10 @@ export const reportsFact =
  * is asked.
  */
 export const reportsFactFromAnyTab =
-  (fact: string) =>
+  (fact: string, value?: string) =>
   async (outcome: AgentScenarioOutcome): Promise<boolean> => {
     const result = outcome.snapshot?.run?.result ?? outcome.chatResponse
-    if (!result?.includes(fact)) return false
+    if (!answerCarriesFact(result, fact, value)) return false
     for (const open of outcome.page.context().pages()) {
       try {
         if ((await open.locator("body").innerText()).includes(fact)) return true

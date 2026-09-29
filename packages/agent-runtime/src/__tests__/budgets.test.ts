@@ -10,6 +10,7 @@ import {
   AGENT_RUN_ACTIVE_BUDGET_MS,
   AGENT_STEP_ACTIVE_BUDGET_MS,
   agentRemainingBudget,
+  agentTextChangeSignature,
   beginAgentStepDeadline,
   classifyNoProgress,
   expiredAgentDeadline,
@@ -407,5 +408,52 @@ describe("agent budgets", () => {
         previousCount: 0
       })
     ).toEqual({ noProgress: true, count: 1 })
+  })
+})
+
+describe("agentTextChangeSignature", () => {
+  it("signs an accumulating change the same way each time", () => {
+    const once = agentTextChangeSignature("Board", "Board Status: Active")
+    const twice = agentTextChangeSignature(
+      "Board Status: Active",
+      "Board Status: Active Status: Active"
+    )
+    expect(once).toBeDefined()
+    expect(twice).toBe(once)
+  })
+
+  it("signs a counter's steps differently", () => {
+    expect(agentTextChangeSignature("Quantity 1", "Quantity 2")).not.toBe(
+      agentTextChangeSignature("Quantity 2", "Quantity 3")
+    )
+  })
+
+  it("has nothing to sign without a change or a previous page", () => {
+    expect(agentTextChangeSignature(undefined, "Page")).toBeUndefined()
+    expect(agentTextChangeSignature("Page", "Page")).toBeUndefined()
+  })
+
+  it("counts the same decision making the same change as no progress", () => {
+    const click: AgentDecision = {
+      type: "command",
+      command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 }
+    }
+    expect(
+      classifyNoProgress({
+        previous: {
+          url: "https://example.com",
+          snapshotHash: "one",
+          decision: click,
+          changeSignature: "added-status"
+        },
+        current: {
+          url: "https://example.com",
+          snapshotHash: "two",
+          decision: click,
+          changeSignature: "added-status"
+        },
+        previousCount: 1
+      })
+    ).toEqual({ noProgress: true, count: 2 })
   })
 })

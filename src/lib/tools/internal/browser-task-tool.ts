@@ -131,7 +131,7 @@ export const browserTaskDefinition: ToolDefinition = {
       continue_previous_task: {
         type: "boolean",
         description:
-          "True when this continues or retries the previous browser task in this conversation, so the agent knows what was already done."
+          "True when the user asked to continue or retry the previous browser task in this conversation, so the agent knows what was already done."
       }
     },
     required: ["goal"]

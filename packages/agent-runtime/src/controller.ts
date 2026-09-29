@@ -22,6 +22,7 @@ import {
 } from "@ollama-client/contracts"
 import {
   type AgentProgressPoint,
+  agentTextChangeSignature,
   beginAgentStepDeadline,
   classifyNoProgress,
   expiredAgentDeadline,
@@ -36,7 +37,8 @@ import {
   agentTypedValues,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
-  judgeAgentCompletion
+  judgeAgentCompletion,
+  prematureUnmetFeedback
 } from "./completion"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
@@ -304,6 +306,18 @@ export const createAgentController = (
   const minimumGeneration = new Map<string, number>()
   const previousProgress = new Map<string, AgentProgressPoint>()
   const recentProgress = new Map<string, AgentProgressPoint[]>()
+  /** The visible text the guard last saw, to sign what the next step changed. */
+  const progressText = new Map<string, string>()
+  /** Requirements a run was already asked about once after reporting them unmet. */
+  const challengedUnmet = new Map<string, Set<string>>()
+  /** The requirement a verified opener advanced, bound to the dialog it opened. */
+  const lastBoundRequirement = new Map<
+    string,
+    { requirementId: string; dialogId: string }
+  >()
+  const clearBoundRequirement = (runId: string): void => {
+    lastBoundRequirement.delete(runId)
+  }
   /**
    * The page as it read when this run's last change was decided.
    *
@@ -379,7 +393,10 @@ export const createAgentController = (
       to,
       patch
     })
-    return result.transitioned ? result.state : undefined
+    if (!result.transitioned) return undefined
+    if (isTerminalAgentStatus(result.state.status))
+      clearBoundRequirement(state.id)
+    return result.state
   }
 
   const pause = async (
@@ -1270,6 +1287,7 @@ export const createAgentController = (
     >,
     stepId: string,
     stepNumber: number,
+    requirementId: string | undefined,
     signal: AgentCancellationController["signal"],
     grants?: AgentRunState["grants"],
     routineOrigin?: string
@@ -1371,26 +1389,23 @@ export const createAgentController = (
         )
         return undefined
       }
+      // Bind only a verified step whose execution receipt proves it opened
+      // the dialog. A planned, approved, or merely attempted click is not its
+      // opener and must not authorize a later dialog answer.
+      if (receipt.dialogOpened && isAppliedAgentStepStatus(action.stepStatus)) {
+        rememberBoundRequirement(state.id, requirementId, receipt.dialogOpened)
+      }
       if (action.type === "redecide") return verifying
       /**
-       * A step that changed the page is progress, and the guard forgets
-       * whatever came before it. A confirmed step that changed nothing is
-       * not: a pure read verifies `confirmed` by definition — the page it
-       * named is still the page in hand — so clearing here on any confirmed
-       * outcome wiped the guard's memory after every single read, and a
-       * model repeating one read-only request could never accumulate a
-       * repeat against a budget of three. One run spent all twenty-five of
-       * its observations that way.
-       *
-       * Navigation is deliberately not a page change here, as it is not for
-       * the completion judge; it needs no exemption, because going somewhere
-       * changes the URL the guard compares first.
+       * A step does not clear the no-progress guard, whatever it was meant to
+       * do. Clearing on every page-changing class meant any click reset it —
+       * the class is what the step *intended*, not what it did — so a run
+       * alternating "open Details" and "back" twenty-one times, or clicking
+       * one canvas point eighteen times, never accumulated a repeat. A step
+       * that really moved the run on already reads as progress: the next
+       * observation hashes differently and its change differs from the last
+       * one, so `classifyNoProgress` resets the count on its own.
        */
-      if (agentEffectChangesPage(effect)) {
-        previousProgress.delete(state.id)
-        recentProgress.delete(state.id)
-        noProgressCounts.set(state.id, 0)
-      }
       /**
        * A confirmed step is the run on new ground, so a completion refused
        * before it was refused about a different page. Cleared for any
@@ -1439,6 +1454,50 @@ export const createAgentController = (
     }
   }
 
+  const rememberBoundRequirement = (
+    runId: string,
+    requirementId: string | undefined,
+    dialogId: string | undefined
+  ): void => {
+    if (requirementId && dialogId) {
+      lastBoundRequirement.set(runId, { requirementId, dialogId })
+    }
+  }
+
+  /**
+   * Answering a dialog is the second half of the step that opened it: the
+   * Delete click and the "OK" on its confirm advance one requirement. Asking
+   * the model to restate it refused a correct accept on a live run and spent
+   * a whole decision getting it back.
+   *
+   * Only when the plan has a single change requirement, so the binding is not
+   * a guess. A plan that gave the confirmation its own requirement needs the
+   * accept bound to that one: bound to the opener's instead, the confirmation
+   * was left with no receipt to vouch for it, and a live run that had done
+   * everything was refused twice and paused.
+   */
+  const withOpenerRequirement = (
+    state: AgentRunState,
+    decision: Extract<AgentDecision, { type: "command" }>
+  ): Extract<AgentDecision, { type: "command" }> => {
+    if (decision.command.type !== "handle_dialog") {
+      clearBoundRequirement(state.id)
+      return decision
+    }
+    const opener = lastBoundRequirement.get(state.id)
+    clearBoundRequirement(state.id)
+    if (
+      decision.requirementId !== undefined ||
+      state.requirements?.filter((requirement) => requirement.kind === "change")
+        .length !== 1
+    )
+      return decision
+    if (!opener || decision.command.dialogId !== opener.dialogId) {
+      return decision
+    }
+    return { ...decision, requirementId: opener.requirementId }
+  }
+
   const processCommand = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
@@ -1446,10 +1505,10 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext
   ): Promise<AgentRunState | undefined> => {
-    decision = {
+    decision = withOpenerRequirement(state, {
       ...decision,
       command: agentCommandKeepingUserTab(decision.command, state, observation)
-    }
+    })
     const resolution = await resolveEffect(
       state,
       decision,
@@ -1516,6 +1575,7 @@ export const createAgentController = (
       authorized.policy,
       stepId,
       stepNumber,
+      decision.requirementId,
       signal,
       authorized.grants,
       authorized.routineOrigin
@@ -1681,6 +1741,39 @@ export const createAgentController = (
     await transition(state, settled, patch)
   }
 
+  /**
+   * A requirement reported unmet while the run still has steps to spend is
+   * asked about once before the run settles on it.
+   *
+   * `partial` and `unmet` are the model's own answers, and the judge takes
+   * them as given — correctly, since it cannot know a requirement was
+   * possible. But a run that fixed a typo and then answered "save: not met"
+   * without ever pressing Save had not found the save impossible; it had
+   * stopped. Two runs settled that way with the goal one click away, and two
+   * more reported failure on a page that showed it met. Asking once costs an
+   * honest partial one decision; the second answer is taken as given. The
+   * feedback sends the run to the page before any action: told only "do it
+   * now", a live run re-pressed a menu item whose result was already shown.
+   */
+  const challengeEarlyUnmet = (
+    state: AgentRunState,
+    judgement: AgentCompletionJudgement
+  ): AgentCompletionJudgement => {
+    if (judgement.type !== "partial" && judgement.type !== "unmet")
+      return judgement
+    if (MAX_AGENT_OBSERVATIONS - state.observationCount < 2) return judgement
+    const asked = challengedUnmet.get(state.id) ?? new Set<string>()
+    const fresh = judgement.outcome.unmet.filter((id) => !asked.has(id))
+    if (fresh.length === 0) return judgement
+    for (const id of fresh) asked.add(id)
+    challengedUnmet.set(state.id, asked)
+    return {
+      type: "refused",
+      reason: "premature_unmet",
+      feedback: prematureUnmetFeedback(fresh)
+    }
+  }
+
   const processCompletion = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
@@ -1724,8 +1817,8 @@ export const createAgentController = (
       signal
     )
     if (!settled) return undefined
-    const { judgement } = settled
     observation = settled.observation
+    const judgement = challengeEarlyUnmet(state, settled.judgement)
     if (judgement.type !== "refused") {
       await settleJudgedRun(
         state,
@@ -1907,10 +2000,16 @@ export const createAgentController = (
     observation: AgentObservation,
     decision: AgentDecision
   ): Promise<boolean> => {
+    const changeSignature = agentTextChangeSignature(
+      progressText.get(state.id),
+      observation.visibleText
+    )
+    progressText.set(state.id, observation.visibleText)
     const progress: AgentProgressPoint = {
       url: observation.url,
       snapshotHash: hashAgentObservation(observation, decision),
-      decision
+      decision,
+      ...(changeSignature ? { changeSignature } : {})
     }
     const result = classifyNoProgress({
       previous: previousProgress.get(state.id),
@@ -2023,6 +2122,9 @@ export const createAgentController = (
     if (steering?.length) {
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
+      progressText.delete(state.id)
+      challengedUnmet.delete(state.id)
+      clearBoundRequirement(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2383,6 +2485,9 @@ export const createAgentController = (
       if (!recorded) return
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
+      progressText.delete(state.id)
+      challengedUnmet.delete(state.id)
+      clearBoundRequirement(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2400,6 +2505,9 @@ export const createAgentController = (
       }
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
+      progressText.delete(state.id)
+      challengedUnmet.delete(state.id)
+      clearBoundRequirement(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2469,6 +2577,9 @@ export const createAgentController = (
       }
       previousProgress.delete(state.id)
       recentProgress.delete(state.id)
+      progressText.delete(state.id)
+      challengedUnmet.delete(state.id)
+      clearBoundRequirement(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)

@@ -9,6 +9,10 @@ import {
 } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
+import {
+  inheritsFrameOrigin,
+  MAX_INHERITING_FRAME_ANCESTORS
+} from "./inherited-frame-origin"
 import { AGENT_OBSERVATION_LIMITS } from "./observation-builder"
 
 /** A frame as the browser reports it, before the run has decided anything about it. */
@@ -17,6 +21,13 @@ export interface AgentBrowserFrame {
   parentFrameId: number
   url: string
   documentId?: string
+  /**
+   * For a `srcdoc` or `about:blank` child, the origin it takes from its
+   * nearest ancestor with a real address, and that address — set by
+   * `selectAgentChildFrames` and authorized exactly like a frame on it.
+   */
+  inheritedOrigin?: string
+  inheritedFromUrl?: string
 }
 
 const originOf = (url: string): string | undefined => {
@@ -35,8 +46,9 @@ const originOf = (url: string): string | undefined => {
  * requested. The browser's own limits come first, then the user's exclusions,
  * then the run's authorization: a frame on an origin the user never approved
  * for this run is a page the user was not asked about, however readable it
- * is. An `about:blank` or `srcdoc` frame has no origin of its own and is
- * reported as restricted rather than inherited from its parent.
+ * is. A `srcdoc` or `about:blank` child has no origin in its address and is
+ * judged as the document that created it: the ancestor's address for the
+ * user's exclusions, its origin for the run's allowlist.
  */
 export const authorizeAgentFrame = async (
   frame: AgentBrowserFrame,
@@ -45,11 +57,12 @@ export const authorizeAgentFrame = async (
     classifyAccess: (url?: string) => Promise<TabAccess>
   }
 ): Promise<{ origin: string; access: AgentFrameAccess } | undefined> => {
-  const origin = originOf(frame.url)
-  if (!origin) return undefined
+  const origin = originOf(frame.url) ?? frame.inheritedOrigin
+  const accessUrl = originOf(frame.url) ? frame.url : frame.inheritedFromUrl
+  if (!origin || !accessUrl) return undefined
   let access: AgentFrameAccess
   try {
-    access = await input.classifyAccess(frame.url)
+    access = await input.classifyAccess(accessUrl)
   } catch {
     access = "restricted"
   }
@@ -67,22 +80,72 @@ export interface AgentChildFrameResult {
 }
 
 /**
+ * At most this many inheriting frames are read per observation. Pages make
+ * `about:blank` frames for ads and measurement as well as for editors, and
+ * each one read is an injection and a round trip on every step.
+ */
+const MAX_INHERITING_FRAMES = 3
+
+/** The nearest ancestor with a real address, climbing a bounded chain. */
+const addressedAncestor = (
+  frame: AgentBrowserFrame,
+  byId: ReadonlyMap<number, AgentBrowserFrame>
+): AgentBrowserFrame | undefined => {
+  let current = byId.get(frame.parentFrameId)
+  for (
+    let depth = 0;
+    depth < MAX_INHERITING_FRAME_ANCESTORS && current;
+    depth += 1
+  ) {
+    if (originOf(current.url)) return current
+    if (!inheritsFrameOrigin(current.url)) return undefined
+    current = byId.get(current.parentFrameId)
+  }
+  return undefined
+}
+
+/**
  * The child frames a page has, in the order the run will read them, and how
- * many it cannot. Frames with no origin of their own — `about:blank`, `srcdoc`
- * — are dropped before the cap is applied, so a placeholder never costs a real
- * frame its place. Frame ids rise in creation order, so the earliest frames,
+ * many it cannot. Frame ids rise in creation order, so the earliest frames,
  * the ones the page laid out first, are the ones that fit.
+ *
+ * A `srcdoc` or `about:blank` child — most in-page editors and embedded
+ * previews — is read under its creator's origin, after every frame with an
+ * address of its own so it never costs one its place, and only while it has
+ * an addressed ancestor to inherit from. A live run on a page whose content
+ * sat in a srcdoc panel used to see nothing at all, search three times and
+ * fail.
  */
 export const selectAgentChildFrames = (
   frames: readonly AgentBrowserFrame[]
 ): { selected: AgentBrowserFrame[]; omitted: number } => {
-  const children = frames
-    .filter((frame) => frame.frameId !== 0 && originOf(frame.url) !== undefined)
-    .sort((first, second) => first.frameId - second.frameId)
+  const byId = new Map(frames.map((frame) => [frame.frameId, frame]))
+  const byCreation = (first: AgentBrowserFrame, second: AgentBrowserFrame) =>
+    first.frameId - second.frameId
+  const children = frames.filter((frame) => frame.frameId !== 0)
+  const real = children
+    .filter((frame) => originOf(frame.url) !== undefined)
+    .sort(byCreation)
+  const inheritingCandidates = children
+    /** A frame with no document yet cannot be opened; it is not a panel. */
+    .filter((frame) => inheritsFrameOrigin(frame.url) && frame.documentId)
+    .flatMap((frame) => {
+      const ancestor = addressedAncestor(frame, byId)
+      const inheritedOrigin = ancestor ? originOf(ancestor.url) : undefined
+      return ancestor && inheritedOrigin
+        ? [{ ...frame, inheritedOrigin, inheritedFromUrl: ancestor.url }]
+        : []
+    })
+    .sort(byCreation)
+  const inheriting = inheritingCandidates.slice(0, MAX_INHERITING_FRAMES)
+  const listed = [...real, ...inheriting]
   const capacity = MAX_AGENT_OBSERVED_FRAMES - 1
+  const selected = listed.slice(0, capacity)
   return {
-    selected: children.slice(0, capacity),
-    omitted: Math.max(0, children.length - capacity)
+    selected,
+    // Count every eligible child, including inheriting panels beyond their
+    // read cap. Counting only `listed` hid panels dropped before this point.
+    omitted: real.length + inheritingCandidates.length - selected.length
   }
 }
 

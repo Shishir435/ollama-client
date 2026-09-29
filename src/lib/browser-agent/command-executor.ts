@@ -32,6 +32,7 @@ import {
   agentGuardedGetQuery,
   agentGuardedSubmissionEntries
 } from "./form-submission"
+import { frameAccessUrl } from "./inherited-frame-origin"
 import {
   type AgentInputBackendChoice,
   type AgentInputPlatform,
@@ -1050,7 +1051,11 @@ export interface AgentCommandExecutorAdapter {
   getFrame(
     tabId: number,
     frameId: number
-  ): Promise<{ documentId?: string; url: string } | null>
+  ): Promise<{
+    documentId?: string
+    url: string
+    parentFrameId?: number
+  } | null>
   classifyAccess(url?: string): Promise<TabAccess>
   scroll(
     command: Extract<AuthorizedAgentEffect["command"], { type: "scroll" }>,
@@ -1201,7 +1206,10 @@ const assertTargetFrame = async (
       "Agent target frame changed before execution"
     )
   }
-  await assertReadable(adapter, frame.url)
+  await assertReadable(
+    adapter,
+    await frameAccessUrl(frame, (id) => adapter.getFrame(target.tabId, id))
+  )
 }
 
 type Executor = (

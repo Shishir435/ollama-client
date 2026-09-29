@@ -253,6 +253,44 @@ describe("Agent control port", () => {
     ).toThrow("invalid origin")
   })
 
+  it("accepts a child srcdoc document on the origin it inherited, and only a child", () => {
+    const childBinding = { ...binding, frameId: 3, documentId: "document-3" }
+    const panel = (origin: string) =>
+      response({
+        ...childBinding,
+        observation: observation({
+          frameId: 3,
+          documentId: "document-3",
+          url: "about:srcdoc",
+          origin
+        })
+      })
+    expect(
+      validateAgentObservationResponse(
+        panel("https://example.com"),
+        childBinding as never,
+        1
+      ).origin
+    ).toBe("https://example.com")
+    /** A sandboxed panel is opaque, and stays unread. */
+    expect(() =>
+      validateAgentObservationResponse(panel("null"), childBinding as never, 1)
+    ).toThrow()
+    /** The page itself is never an inheriting document. */
+    expect(() =>
+      validateAgentObservationResponse(
+        response({
+          observation: observation({
+            url: "about:srcdoc",
+            origin: "https://example.com"
+          })
+        }),
+        binding,
+        1
+      )
+    ).toThrow("invalid origin")
+  })
+
   it("requires browser evidence for the exact main-frame document", () => {
     const { port } = createPort()
     expect(() =>

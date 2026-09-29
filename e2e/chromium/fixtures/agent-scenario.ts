@@ -140,6 +140,13 @@ export interface AgentScenarioOutcome {
   terminalStatus?: string
   /** Product path used to handle this benchmark task, including a declined run start. */
   executionPath?: string
+  /** Main-frame navigations and browser-history traversals observed on the fixture. */
+  navigationEvents?: readonly AgentScenarioNavigationEvent[]
+}
+
+export interface AgentScenarioNavigationEvent {
+  path: string
+  kind: "document" | "history_traversal"
 }
 
 export interface AgentScenario {
@@ -1194,23 +1201,48 @@ const runAgentScenarioAttempt = (
         name: "Allow for this chat",
         exact: true
       })
+      const runSeen = () =>
+        messages.some(
+          (message) =>
+            message.type === "agent_snapshot" && Boolean(message.snapshot.run)
+        )
       if (liveModel) {
+        /**
+         * Every card is answered, not only the first. A live chat model may
+         * call another confirmation-gated tool — `capture_screenshot` is
+         * medium risk — before it delegates, and answering only that card
+         * left the `browser_task` card behind it unanswered: the run never
+         * started and the attempt sat out the whole timeout as `not-started`.
+         * A user saying yes to each card is the realistic stand-in; the run
+         * having started, not a card having been clicked, is what makes the
+         * attempt a supervised run.
+         */
+        let consents = 0
         await expect
           .poll(
-            async () =>
-              (await allowForChat.count()) > 0 || chatState.directResponse,
+            async () => {
+              if (runSeen()) return true
+              if ((await allowForChat.count()) > 0) {
+                consents += 1
+                scenario.diagnosticTrace?.({
+                  type: "browser_task_consent",
+                  attempt,
+                  decision: "accepted",
+                  sequence: consents
+                })
+                await allowForChat
+                  .first()
+                  .click({ timeout: 5_000 })
+                  .catch(() => {})
+                return false
+              }
+              return chatState.directResponse
+            },
             { timeout: 120_000 }
           )
           .toBe(true)
-        if ((await allowForChat.count()) > 0) {
-          scenario.diagnosticTrace?.({
-            type: "browser_task_consent",
-            attempt,
-            decision: "accepted"
-          })
-          await allowForChat.click()
-          agentStarted = true
-        } else if (!chatState.toolCalls.has("browser_task")) {
+        agentStarted = runSeen()
+        if (!agentStarted && consents === 0) {
           scenario.diagnosticTrace?.({
             type: "browser_task_consent",
             attempt,
@@ -1232,13 +1264,25 @@ const runAgentScenarioAttempt = (
           await expect
             .poll(
               () => {
-                const status = messages
+                const run = messages
                   .filter((m) => m.type === "agent_snapshot")
-                  .at(-1)?.snapshot.run?.status
+                  .at(-1)?.snapshot.run
+                /**
+                 * Any settled status ends the wait, not only the expected
+                 * one. A run that settled `partial` or paused on something
+                 * nothing here will answer used to be waited on for the full
+                 * timeout, which put ~180 s of harness idle into every such
+                 * row's wall time. A question the scenario scripts an answer
+                 * for is not settled: the answer resumes it.
+                 */
+                const answered = Boolean(run?.question && scenario.answer)
                 return (
-                  status === scenario.status ||
-                  status === "failed" ||
-                  status === "cancelled"
+                  run?.status === scenario.status ||
+                  run?.status === "completed" ||
+                  run?.status === "partial" ||
+                  run?.status === "failed" ||
+                  run?.status === "cancelled" ||
+                  (run?.status === "paused" && !answered)
                 )
               },
               { timeout: liveModel ? 200_000 : 30_000 }

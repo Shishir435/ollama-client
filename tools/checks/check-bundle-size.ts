@@ -470,8 +470,11 @@ const budgets: Budget[] = [
      * Firefox 217,252. Model assets and content-script budgets are unchanged.
      * The background-owned rebuild loop, its heartbeat and startup resume:
      * Chrome 301,027 and Firefox 217,607.
+     * The RCA follow-up — no-progress change signatures, completion refusal
+     * memory, and inherited-frame checks — took Chrome to 302,690. Firefox
+     * carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 218_000 : 301_500
+    max: isFirefox ? 218_000 : 303_000
   }
 ]
 

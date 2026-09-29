@@ -117,6 +117,37 @@ describe("authorizeAgentFrame", () => {
     ).resolves.toMatchObject({ access: "restricted" })
   })
 
+  it("judges a srcdoc panel as the document that created it", async () => {
+    const panel = {
+      ...child(2, "about:srcdoc"),
+      inheritedOrigin: "https://example.com",
+      inheritedFromUrl: "https://example.com/page"
+    }
+    const asked: (string | undefined)[] = []
+    await expect(
+      authorizeAgentFrame(panel, {
+        allowedOrigins: ["https://example.com"],
+        classifyAccess: async (url) => {
+          asked.push(url)
+          return "ok"
+        }
+      })
+    ).resolves.toEqual({ origin: "https://example.com", access: "ok" })
+    expect(asked).toEqual(["https://example.com/page"])
+    await expect(
+      authorizeAgentFrame(panel, {
+        allowedOrigins: ["https://other.example"],
+        classifyAccess: classify("ok")
+      })
+    ).resolves.toMatchObject({ access: "unauthorized_origin" })
+    await expect(
+      authorizeAgentFrame(panel, {
+        allowedOrigins: ["https://example.com"],
+        classifyAccess: classify("excluded")
+      })
+    ).resolves.toMatchObject({ access: "excluded" })
+  })
+
   it("has nothing to say about a frame with no origin of its own", async () => {
     await expect(
       authorizeAgentFrame(child(2, "about:blank"), {
@@ -140,6 +171,91 @@ describe("selectAgentChildFrames", () => {
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
     ])
     expect(omitted).toBe(4)
+  })
+
+  it("reads inheriting frames under their creator's origin, after every real frame", () => {
+    const withDocument = (frame: AgentBrowserFrame) => ({
+      ...frame,
+      documentId: `document-${frame.frameId}`
+    })
+    const root = { frameId: 0, parentFrameId: -1, url: "https://example.com/" }
+    const listed = selectAgentChildFrames([
+      root,
+      withDocument(child(1, "about:srcdoc")),
+      withDocument(child(2, "about:blank", 1))
+    ])
+    expect(listed.selected).toEqual([
+      expect.objectContaining({
+        frameId: 1,
+        inheritedOrigin: "https://example.com",
+        inheritedFromUrl: "https://example.com/"
+      }),
+      expect.objectContaining({
+        frameId: 2,
+        inheritedOrigin: "https://example.com"
+      })
+    ])
+    const real = Array.from({ length: 11 }, (_, index) =>
+      child(index + 10, `https://example.com/${index + 10}`)
+    )
+    const crowded = selectAgentChildFrames([
+      root,
+      withDocument(child(1, "about:srcdoc")),
+      ...real
+    ])
+    expect(crowded.selected.map((frame) => frame.frameId)).not.toContain(1)
+    expect(crowded.omitted).toBe(1)
+  })
+
+  it("reads at most three inheriting frames", () => {
+    const root = { frameId: 0, parentFrameId: -1, url: "https://example.com/" }
+    const blanks = Array.from({ length: 6 }, (_, index) => ({
+      ...child(index + 1, "about:blank"),
+      documentId: `document-${index + 1}`
+    }))
+    const { selected, omitted } = selectAgentChildFrames([root, ...blanks])
+    expect(selected).toHaveLength(3)
+    expect(omitted).toBe(3)
+  })
+
+  it("counts inheriting panels omitted by the per-frame cap", () => {
+    const root = { frameId: 0, parentFrameId: -1, url: "https://example.com/" }
+    const panels = Array.from({ length: 4 }, (_, index) => ({
+      ...child(index + 1, index % 2 ? "about:srcdoc" : "about:blank"),
+      documentId: `document-${index + 1}`
+    }))
+
+    const { selected, omitted } = selectAgentChildFrames([root, ...panels])
+
+    expect(selected).toHaveLength(3)
+    expect(omitted).toBe(1)
+  })
+
+  it("admits a panel four inheriting levels below its addressed root", () => {
+    const frames: AgentBrowserFrame[] = [
+      { frameId: 0, parentFrameId: -1, url: "https://example.com/" },
+      ...Array.from({ length: 4 }, (_, index) => {
+        const frame = child(
+          index + 1,
+          index % 2 ? "about:srcdoc" : "about:blank",
+          index
+        )
+        return {
+          frameId: frame.frameId,
+          parentFrameId: frame.parentFrameId,
+          url: frame.url,
+          ...(index === 3 ? { documentId: `document-${index + 1}` } : {})
+        }
+      })
+    ]
+
+    expect(selectAgentChildFrames(frames).selected).toMatchObject([
+      {
+        frameId: 4,
+        inheritedOrigin: "https://example.com",
+        inheritedFromUrl: "https://example.com/"
+      }
+    ])
   })
 
   it("never lets a frame without an origin take a place or be counted", () => {

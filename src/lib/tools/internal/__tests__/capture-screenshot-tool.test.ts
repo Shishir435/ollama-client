@@ -43,6 +43,9 @@ describe("capture_screenshot definition", () => {
   it("requires vision so non-vision models never get it", () => {
     expect(captureScreenshotDefinition.requires).toContain("vision")
     expect(captureScreenshotDefinition.requires).toContain("tabs")
+    expect(captureScreenshotDefinition.description).toContain(
+      "if the user explicitly asks for a screenshot"
+    )
   })
 
   it("binds its approval grant to the active tab's origin", async () => {

@@ -145,7 +145,19 @@ Read the section your change touches; you do not need the whole file.
   that fails any of them is listed in `observation.frames` with its origin and
   the reason, never its URL, and contributes no elements; the model is told it
   exists so it can ask rather than conclude the control is missing.
-  `about:blank` and `srcdoc` frames have no origin and are omitted.
+  A `srcdoc` or script-written `about:blank` child — most in-page editors and
+  embedded previews — has no origin in its address and is judged as the
+  document that created it: the nearest addressed ancestor's URL for the
+  user's exclusions (`frameAccessUrl`), its origin for the allowlist. It is
+  read after every frame with an address of its own, at most three per
+  observation (pages make `about:blank` frames for ads too), and only with a
+  document id. Inside, the origin is `window.origin`: `location.origin` is
+  derived from `about:srcdoc` and reads `"null"`. A sandbox without
+  `allow-same-origin` really is opaque, reports `"null"`, and stays unread;
+  a document reporting any origin other than the one it was authorized under
+  is listed `unauthorized_origin`. No extra permission is involved:
+  `scripting.executeScript` with `frameIds` already reaches these frames under
+  `<all_urls>` — what kept them unread was this code.
 - **Frames and elements are bounded together.** Root first, then children in
   frame-id order up to `MAX_AGENT_OBSERVED_FRAMES`; frames past the cap are
   counted in `omittedFrames`, never listed, so the list itself honours the
@@ -272,9 +284,19 @@ Read the section your change touches; you do not need the whole file.
     the answer and a changed page is a different answer.
   - The controller cleared the guard's memory after every confirmed
     verification. A pure read verifies `confirmed` by definition, so a repeat
-    could never accumulate. It is cleared on `agentEffectChangesPage(effect)`
-    now — navigation needs no exemption, since going somewhere changes the url
-    the guard compares first.
+    could never accumulate. It was then cleared on
+    `agentEffectChangesPage(effect)` instead, which is the class a step
+    *intended*: every click reset it, so a run alternating "open Details" and
+    "back" for twenty-one steps, or clicking one canvas point eighteen times,
+    never accumulated either. No step clears it now. A step that moved the
+    run on already reads as progress, because the next observation hashes
+    differently.
+  - A changed page is not always a new one. Each point also carries
+    `changeSignature` — a hash of the visible text the step added and
+    removed — and the same decision making the same change counts as a
+    repeat even though no two observations hash alike. That is the shape of
+    an accumulating effect (a status line appended per click); a counter
+    stepping 1 → 2 → 3 changes differently each time and stays progress.
   - `classifyNoProgress` took a `verificationOutcome` input that reset the
     count on `confirmed`. Nothing ever passed it, and wiring it as written
     would have made the loop unkillable. It is gone; do not reintroduce it.
@@ -1305,8 +1327,18 @@ run that produced it can always be repeated.
   on the renderer using debugger state, does not replay input, and verifies
   that the same dialog is held. A held dialog skips screenshot capture,
   because the renderer cannot answer it. The following dialog decision keeps its own
-  approval. Browser fixtures must register a passive Playwright dialog
+  approval. When the plan has a single change requirement, an accept
+  that names none advances the requirement of the step that opened the dialog;
+  with more than one, the model binds it, since the plan may have given the
+  confirmation its own. Browser fixtures must register a passive Playwright dialog
   listener, otherwise Playwright dismisses it before the extension can answer.
+- **An early "not met" is asked about once.** `partial` and `unmet` are the
+  model's own answers and the judge takes them as given, but a run that fixed
+  a typo and answered "save: not met" without ever pressing Save had stopped,
+  not failed. While observations remain, the first `met:false` on each
+  requirement comes back as a `premature_unmet` refusal naming the ids; the
+  second answer settles the run. The prompt says `met:false` is for what
+  cannot be done, not what is not done yet.
 - Completion retries read evidence only. Missing evidence is never accepted
   because a timeout elapsed. Repeated or alternating decisions pause for a
   correction; user/question pauses suspend active-time accounting. A supplied

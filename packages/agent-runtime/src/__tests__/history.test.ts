@@ -194,6 +194,22 @@ describe("buildAgentHistory", () => {
     expect(first.at(-1)?.step).toBe(8)
   })
 
+  it("reads back where a visual click landed", () => {
+    const [entry] = buildAgentHistory([
+      step({
+        sequence: 1,
+        command: {
+          type: "click_point",
+          x: 80.4,
+          y: 40,
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      })
+    ])
+    expect(entry?.action).toBe("click_point at (80, 40)")
+  })
+
   it("reduces a lone entry rather than exceeding its own bound", () => {
     const [entry] = buildAgentHistory(
       [

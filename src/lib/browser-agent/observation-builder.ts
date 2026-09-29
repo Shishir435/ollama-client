@@ -12,6 +12,7 @@ import type {
   AgentElementReferenceStore
 } from "./element-references"
 import { agentVisibleGetQuery } from "./form-submission"
+import { httpOrigin, inheritsFrameOrigin } from "./inherited-frame-origin"
 
 export const AGENT_OBSERVATION_LIMITS = {
   elements: 2_000,
@@ -2089,7 +2090,19 @@ export const buildAgentObservation = (input: {
     Math.max(0, input.elementLimit ?? AGENT_OBSERVATION_LIMITS.elements)
   )
   const url = new URL(input.document.location.href)
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
+  /**
+   * A child `srcdoc` document's address carries no origin — `location.origin`
+   * is derived from `about:srcdoc` and reads `"null"` — so the document's own
+   * origin is asked instead: the window's `origin`, which is the one it
+   * inherited, or `"null"` when a sandbox made it opaque.
+   */
+  const origin =
+    url.protocol === "http:" || url.protocol === "https:"
+      ? url.origin
+      : frameId !== 0 && inheritsFrameOrigin(url.href)
+        ? httpOrigin(input.document.defaultView?.origin)
+        : undefined
+  if (!origin) {
     throw new Error("Agent observations require an HTTP(S) document")
   }
   const snapshot = input.references.beginSnapshot({
@@ -2146,7 +2159,7 @@ export const buildAgentObservation = (input: {
     frameId,
     documentId: input.documentId,
     url: url.href,
-    origin: url.origin,
+    origin,
     title: truncate(input.document.title, AGENT_OBSERVATION_LIMITS.titleChars),
     /**
      * A single frame's observation lists itself. Composition into the page's
@@ -2156,7 +2169,7 @@ export const buildAgentObservation = (input: {
       {
         frameId,
         documentId: input.documentId,
-        origin: url.origin,
+        origin,
         url: url.href,
         access: "ok",
         snapshotId: snapshot.snapshotId,

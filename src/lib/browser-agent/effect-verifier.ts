@@ -798,6 +798,12 @@ const pageEvidence = (observation: AgentObservation): string =>
     documentId: observation.documentId,
     title: observation.title,
     visibleText: observation.visibleText,
+    /**
+     * Text the step added below the fold is still a change. Comparing only
+     * the viewport made a click whose result landed off-screen read as
+     * having done nothing, and paused the run as an unresolved effect.
+     */
+    documentText: observation.documentText,
     elements: observation.elements.map((element) => ({
       tag: element.tag,
       role: element.role,

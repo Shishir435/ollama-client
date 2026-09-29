@@ -2,7 +2,11 @@ import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import type { Page, Request } from "@playwright/test"
 import { nanobrowserBenchmarkReasoningEffort } from "../benchmark/benchmark-config"
-import type { AgentScenario, AgentScenarioOutcome } from "./agent-scenario"
+import type {
+  AgentScenario,
+  AgentScenarioNavigationEvent,
+  AgentScenarioOutcome
+} from "./agent-scenario"
 import { expect, test } from "./extension"
 
 interface NanobrowserEvent {
@@ -15,6 +19,7 @@ declare global {
   interface Window {
     __benchmarkNanobrowserEvents?: NanobrowserEvent[]
     recordNanobrowserEvent?: (event: unknown) => Promise<void>
+    recordBenchmarkNavigation?: (event: unknown) => Promise<void>
   }
 }
 
@@ -262,6 +267,45 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
 
         const page = await extension.context.newPage()
         fixturePage = page
+        const navigationEvents: AgentScenarioNavigationEvent[] = []
+        await page.exposeFunction(
+          "recordBenchmarkNavigation",
+          (event: unknown) => {
+            if (typeof event !== "object" || event === null) return
+            const candidate = event as { path?: unknown; kind?: unknown }
+            if (
+              typeof candidate.path !== "string" ||
+              !candidate.path.startsWith("/") ||
+              candidate.path.length > 512 ||
+              (candidate.kind !== "document" &&
+                candidate.kind !== "history_traversal")
+            )
+              return
+            navigationEvents.push({
+              path: candidate.path,
+              kind: candidate.kind
+            })
+          }
+        )
+        await page.addInitScript(() => {
+          const record = (kind: "document" | "history_traversal") => {
+            void window.recordBenchmarkNavigation?.({
+              path: window.location.pathname,
+              kind
+            })
+          }
+          window.addEventListener("pageshow", (event) => {
+            const navigationEntry = performance.getEntriesByType(
+              "navigation"
+            )[0] as PerformanceNavigationTiming | undefined
+            record(
+              event.persisted || navigationEntry?.type === "back_forward"
+                ? "history_traversal"
+                : "document"
+            )
+          })
+          window.addEventListener("popstate", () => record("history_traversal"))
+        })
         await page.goto(origin)
         await page.bringToFront()
         const composer = panel.getByPlaceholder("What can I help you with?")
@@ -386,7 +430,8 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
           chatModelCalls: modelCalls,
           directChatResponse: false,
           terminalStatus: taskStatus,
-          executionPath: "planner_navigator"
+          executionPath: "planner_navigator",
+          navigationEvents
         }
         await scenario.verify(outcome)
         await testInfo.attach("nanobrowser-benchmark-summary", {

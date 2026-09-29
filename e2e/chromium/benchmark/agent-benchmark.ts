@@ -157,7 +157,9 @@ const SAFE_TRACE_KEYS = new Set([
   "expectedStatus",
   "scoreError",
   "timedOut",
-  "eventCount"
+  "eventCount",
+  "answerSource",
+  "answerChars"
 ])
 
 const SAFE_TRACE_ARRAY_KEYS = new Set([

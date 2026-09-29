@@ -121,6 +121,7 @@ export type AgentCompletionJudgement =
         | "self_evidence"
         | "stale_evidence"
         | "missing_outcomes"
+        | "premature_unmet"
       /** Written for the model, from templates and its own words only. */
       feedback: string
     }
@@ -1531,6 +1532,13 @@ const isSelfEvidence = (
  */
 const MISSING_OUTCOMES_FEEDBACK =
   "Answer every requirement the task was planned with, by id, saying for each whether it is met and quoting the page text that shows it."
+
+/**
+ * Sent back once when a run reports a requirement unmet while it still has
+ * steps to spend. Ids only: the feedback is a template, never page text.
+ */
+export const prematureUnmetFeedback = (ids: readonly string[]): string =>
+  `You reported ${ids.join(", ")} as not met, and the run still has steps left. First look at the page: if what you already did achieved it, answer complete with it met and quote the page text that shows it — do not repeat the action. If it is not done and can still be done, do it now. If it truly cannot, answer complete again with it unmet and say in the summary what stops it.`
 
 /**
  * The checks a single quotation has to survive, shared by both paths.

@@ -7,6 +7,7 @@ import { expect, test } from "../../fixtures/extension"
 import type { AgentAttemptRecord } from "../agent-benchmark"
 import { writeAgentBenchmarkReport } from "../agent-benchmark"
 import {
+  answerCarriesFact,
   benchmarkModel,
   benchmarkTask,
   clickNamed,
@@ -17,6 +18,7 @@ import {
   named,
   observableButton,
   page,
+  reportsBackNavigation,
   reportsFact,
   reportsFactFromAnyTab,
   showsActiveStatus
@@ -75,6 +77,93 @@ test.afterAll(() => {
 const task = (input: Parameters<typeof benchmarkTask>[1]) =>
   benchmarkTask(attempts, input)
 
+test("benchmark fact scoring requires an affirmative assertion", () => {
+  expect(answerCarriesFact("Status: Active", "Status: Active")).toBe(true)
+  expect(answerCarriesFact("The status is Active", "Status: Active")).toBe(true)
+  expect(answerCarriesFact("Status is not Active", "Status: Active")).toBe(
+    false
+  )
+  expect(
+    answerCarriesFact("I could not confirm Status: Active", "Status: Active")
+  ).toBe(false)
+  expect(answerCarriesFact("4471", "Account 4471", "4471")).toBe(false)
+})
+
+test("back-navigation scoring requires both verified navigation steps", async () => {
+  const outcome = (steps: unknown[], extras: Record<string, unknown> = {}) =>
+    ({
+      page: {
+        url: () => "http://127.0.0.1/",
+        locator: () => ({ innerText: async () => "Home" })
+      },
+      snapshot: { run: { result: "Home" }, steps },
+      ...extras
+    }) as unknown as AgentScenarioOutcome
+
+  expect(await reportsBackNavigation(outcome([]))).toBe(false)
+  expect(
+    await reportsBackNavigation(
+      outcome([
+        {
+          status: "verified",
+          verification: { outcome: "confirmed" },
+          command: { type: "click" },
+          target: { name: "Details" }
+        },
+        {
+          status: "verified",
+          verification: { outcome: "confirmed" },
+          command: { type: "back" }
+        }
+      ])
+    )
+  ).toBe(true)
+})
+
+test("Nanobrowser back-navigation scoring requires browser history traversal", async () => {
+  const outcome = (
+    navigationEvents: { path: string; kind: "document" | "history_traversal" }[]
+  ) =>
+    ({
+      page: {
+        url: () => "http://127.0.0.1/",
+        locator: () => ({ innerText: async () => "Home" })
+      },
+      snapshot: undefined,
+      executionPath: "planner_navigator",
+      navigationEvents,
+      chatResponse: "The heading is Home."
+    }) as unknown as AgentScenarioOutcome
+
+  expect(
+    await reportsBackNavigation(
+      outcome([
+        { path: "/", kind: "document" },
+        { path: "/details", kind: "document" },
+        { path: "/", kind: "history_traversal" }
+      ])
+    )
+  ).toBe(true)
+  expect(
+    await reportsBackNavigation(
+      outcome([
+        { path: "/", kind: "document" },
+        { path: "/details", kind: "document" },
+        { path: "/", kind: "document" }
+      ])
+    )
+  ).toBe(false)
+  expect(
+    await reportsBackNavigation(
+      outcome([
+        { path: "/", kind: "document" },
+        { path: "/", kind: "history_traversal" },
+        { path: "/details", kind: "document" }
+      ])
+    )
+  ).toBe(false)
+})
+
 // ── 1. read-and-extract ─────────────────────────────────────────────────────
 
 task({
@@ -101,7 +190,7 @@ task({
     observation.text.includes("Account 4471")
       ? { type: "complete", summary: "Account 4471" }
       : { type: "extract_text", offset: observation.textPage?.nextOffset ?? 0 },
-  succeeded: reportsFact("Account 4471")
+  succeeded: reportsFact("Account 4471", "4471")
 })
 
 task({
@@ -158,27 +247,45 @@ task({
     page(
       `<button type="button" role="button" onclick="document.getElementById('menu').hidden=false">Actions</button>
        <div id="menu" role="menu" aria-label="actions" hidden>
-         <button type="button" role="menuitem" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');document.getElementById('menu').hidden=true">Approve</button>
+         <button type="button" role="menuitem" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Approved</p>');document.getElementById('menu').hidden=true">Approve</button>
        </div>`
     ),
   decide: (observation) => {
-    if (observation.text.includes("Status: Active")) {
-      return { type: "complete", summary: "Active", evidence: "Status: Active" }
+    if (observation.text.includes("Status: Approved")) {
+      return {
+        type: "complete",
+        summary: "Approved",
+        evidence: "Status: Approved"
+      }
     }
     const approve = named(observation, "Approve")
     return approve && !approve.hidden
       ? { type: "click", ref: approve.ref }
       : clickNamed(observation, "Actions")
   },
-  succeeded: showsActiveStatus
+  /**
+   * Approving shows "Approved". It used to show "Active", and a live model
+   * reported — correctly — that nothing on the page said approved.
+   */
+  succeeded: async (outcome) =>
+    (await outcome.page.locator("main").innerText()).includes(
+      "Status: Approved"
+    )
 })
 
 // ── 3. form-preparation ─────────────────────────────────────────────────────
 
+/**
+ * Every form goal names its values. The scorer checks for `value-<field>`,
+ * which only the scripted decider knew: a live model given "fill in all
+ * three fields" correctly asked what to put in them and paused, and was
+ * scored as a miss for asking the question a user would have to answer.
+ */
+
 task({
   family: "form-preparation",
   name: "single-field",
-  goal: "Fill in the given field. Do not submit.",
+  goal: 'Put "value-given" in the given field. Do not submit.',
   status: "completed",
   approvalScope: "run_origin",
   html: () => fieldPage(["given"]),
@@ -189,7 +296,7 @@ task({
 task({
   family: "form-preparation",
   name: "three-fields-one-grant",
-  goal: "Fill in all three fields. Do not submit.",
+  goal: 'Fill in given, family and city with "value-given", "value-family" and "value-city". Do not submit.',
   status: "completed",
   approvalScope: "run_origin",
   html: () => fieldPage(["given", "family", "city"]),
@@ -416,7 +523,7 @@ task({
 task({
   family: "frames",
   name: "child-with-form",
-  goal: "Fill the given field inside the embedded panel. Do not submit.",
+  goal: 'Put "value-given" in the given field inside the embedded panel. Do not submit.',
   status: "completed",
   approvalScope: "run_origin",
   html: (path) =>
@@ -427,25 +534,23 @@ task({
 
 task({
   family: "frames",
-  name: "srcdoc-cannot-be-read",
+  name: "srcdoc-panel",
   goal: "Click Continue inside the embedded panel and report the status.",
-  status: "paused",
+  status: "completed",
   html: () =>
     page(
       `<iframe srcdoc="${page(observableButton()).replaceAll('"', "&quot;")}"></iframe>`
     ),
   /**
-   * A `srcdoc` frame has no origin of its own, so the run may not read it and
-   * has to say so rather than guess. Asking is the correct outcome; the report
-   * records which it did.
+   * A `srcdoc` panel inherits the page's origin and is read like any other
+   * authorized frame. It used to be dropped unseen, and this task expected
+   * the run to ask — measuring the gap instead of the job.
    */
-  decide: () => ({
-    type: "ask_user",
-    question: "The panel cannot be read. Should I act on the page instead?"
-  }),
-  succeeded: (outcome) =>
-    outcome.snapshot?.run?.status === "paused" ||
-    outcome.terminalStatus === "paused"
+  decide: clickThenReport(),
+  succeeded: async (outcome) =>
+    (
+      await outcome.page.frameLocator("iframe").locator("main").innerText()
+    ).includes("Status: Active")
 })
 
 // ── 7. shadow-roots ─────────────────────────────────────────────────────────
@@ -471,7 +576,7 @@ task({
 task({
   family: "shadow-roots",
   name: "field-in-open-root",
-  goal: "Fill the given field. Do not submit.",
+  goal: 'Put "value-given" in the given field. Do not submit.',
   status: "completed",
   approvalScope: "run_origin",
   html: () => shadowPage('<label for="given">given</label><input id="given">'),
@@ -608,7 +713,7 @@ task({
 task({
   family: "multi-tab",
   name: "go-back",
-  goal: "Read the details page, then come back and report the heading.",
+  goal: "Open the details page, then go back and report the heading of the page you returned to.",
   status: "completed",
   html: (path) =>
     path.startsWith("/details")
@@ -624,11 +729,27 @@ task({
     if (observation.text.includes("Status: Active")) return { type: "back" }
     return { type: "complete", summary: "Home" }
   },
-  /** Back means back: the tab has to be showing Home again, not just say so. */
-  succeeded: reportsFact("Home")
+  succeeded: reportsBackNavigation
 })
 
 // ── 10. dialogs-and-recovery ────────────────────────────────────────────────
+
+/**
+ * A delete that says it deleted. These pages used to answer a confirmed
+ * delete with "Status: Active" and leave the item and its Delete button in
+ * place, so a live model found no sign the item was gone, refused to call it
+ * done, and in the native case pressed Delete again and again. The scorer
+ * was measuring whether the model would trust an incoherent page.
+ */
+const deletedItem =
+  "document.getElementById('item').remove();document.querySelector('main').insertAdjacentHTML('beforeend','<p>Item deleted</p>')"
+
+const itemDeleted = async (outcome: AgentScenarioOutcome): Promise<boolean> => {
+  const rendered = await outcome.page.locator("main").innerText()
+  return (
+    rendered.includes("Item deleted") && !rendered.includes("Quarterly report")
+  )
+}
 
 task({
   family: "dialogs-and-recovery",
@@ -637,27 +758,23 @@ task({
   status: "completed",
   html: () =>
     page(
-      `<button type="button" onclick="document.getElementById('confirm').hidden=false;this.disabled=true">Delete</button>
+      `<div id="item"><p>Quarterly report</p><button type="button" onclick="document.getElementById('confirm').hidden=false;this.disabled=true">Delete</button></div>
        <div id="confirm" role="dialog" aria-label="Confirm delete" hidden>
          <p>Delete this item?</p>
-         <button type="button" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.closest('[role=dialog]').hidden=true">Confirm</button>
+         <button type="button" onclick="${deletedItem};this.closest('[role=dialog]').hidden=true">Confirm</button>
          <button type="button">Cancel</button>
        </div>`
     ),
   decide: (observation) => {
-    if (observation.text.includes("Status: Active")) {
-      return {
-        type: "complete",
-        summary: "Deleted",
-        evidence: "Status: Active"
-      }
+    if (observation.text.includes("Item deleted")) {
+      return { type: "complete", summary: "Deleted", evidence: "Item deleted" }
     }
     const confirm = named(observation, "Confirm")
     return confirm && !confirm.hidden
       ? { type: "click", ref: confirm.ref }
       : clickNamed(observation, "Delete")
   },
-  succeeded: showsActiveStatus
+  succeeded: itemDeleted
 })
 
 task({
@@ -709,7 +826,7 @@ task({
   status: "completed",
   html: () =>
     page(
-      `<button type="button" onclick="if (confirm('Delete this item?')) document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>')">Delete</button>`
+      `<div id="item"><p>Quarterly report</p><button type="button" onclick="if (confirm('Delete this item?')) { ${deletedItem} }">Delete</button></div>`
     ),
   /**
    * A native dialog blocks the page and only an attached debugger sees one, so
@@ -718,12 +835,8 @@ task({
    * being declared wrong.
    */
   decide: (observation) => {
-    if (observation.text.includes("Status: Active")) {
-      return {
-        type: "complete",
-        summary: "Deleted",
-        evidence: "Status: Active"
-      }
+    if (observation.text.includes("Item deleted")) {
+      return { type: "complete", summary: "Deleted", evidence: "Item deleted" }
     }
     const dialog = observation.dialogs?.[0]
     if (dialog) {
@@ -731,7 +844,7 @@ task({
     }
     return clickNamed(observation, "Delete")
   },
-  succeeded: showsActiveStatus
+  succeeded: itemDeleted
 })
 
 // ── the report ──────────────────────────────────────────────────────────────

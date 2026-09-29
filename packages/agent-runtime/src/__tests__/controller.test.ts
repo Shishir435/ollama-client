@@ -2787,3 +2787,451 @@ describe("a follow-up run", () => {
       })
   })
 })
+
+describe("the no-progress guard across page-changing steps", () => {
+  const activation: Partial<ResolvedAgentEffect> = {
+    semanticEffects: ["activation"],
+    target: {
+      ref: "e1",
+      tag: "canvas",
+      role: "img",
+      accessibleName: "board",
+      sensitive: false,
+      maySubmit: false
+    }
+  }
+  const clickAt = (generation: number) =>
+    ({
+      type: "click",
+      ref: "e1",
+      snapshotId: `snapshot-${generation}`,
+      generation
+    }) as AgentCommand
+  const clicks = (count: number): AgentDecision[] =>
+    Array.from({ length: count }, (_, index) => ({
+      type: "command",
+      command: clickAt(index + 1)
+    }))
+
+  /**
+   * One run clicked the same canvas point eighteen times after the first
+   * click had met its goal: each click appended the same status line, so no
+   * two observations hashed alike, and the guard was cleared after every
+   * activation anyway.
+   */
+  it("stops a step that keeps making the same change", async () => {
+    const harness = createHarness({
+      decisions: clicks(8),
+      observations: Array.from({ length: 8 }, (_, index) =>
+        observation({
+          snapshotId: `snapshot-${index + 1}`,
+          generation: index + 1,
+          visibleText: `Board${" Status: Active".repeat(index)}`
+        })
+      ),
+      verification: Array.from({ length: 8 }, () => confirmed),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: activation
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+    expect(harness.steps.filter((step) => step === "executed").length).toBe(4)
+  })
+
+  /** Another run went Details → back → Details → back for twenty-one steps. */
+  it("stops a run going back and forth between two pages", async () => {
+    const decisions: AgentDecision[] = Array.from({ length: 10 }, (_, index) =>
+      index % 2 === 0
+        ? { type: "command", command: clickAt(index + 1) }
+        : { type: "command", command: command(index + 1) }
+    )
+    const harness = createHarness({
+      decisions,
+      observations: Array.from({ length: 10 }, (_, index) =>
+        observation({
+          snapshotId: `snapshot-${index + 1}`,
+          generation: index + 1,
+          url:
+            index % 2 === 0
+              ? "https://example.com/"
+              : "https://example.com/details",
+          visibleText: index % 2 === 0 ? "Home Details" : "Status: Active"
+        })
+      ),
+      verification: Array.from({ length: 10 }, () => confirmed),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: activation
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+    expect(
+      harness.steps.filter((step) => step === "executed").length
+    ).toBeLessThan(6)
+  })
+
+  it("lets a step whose change differs each time keep going", async () => {
+    const harness = createHarness({
+      decisions: [...clicks(5), { type: "complete", summary: "Quantity 5" }],
+      observations: Array.from({ length: 6 }, (_, index) =>
+        observation({
+          snapshotId: `snapshot-${index + 1}`,
+          generation: index + 1,
+          visibleText: `Quantity ${index}`
+        })
+      ),
+      verification: Array.from({ length: 5 }, () => confirmed),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: activation
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().pauseReason).not.toBe("question")
+    expect(harness.steps.filter((step) => step === "executed").length).toBe(5)
+  })
+})
+
+describe("a requirement reported unmet with steps left", () => {
+  const requirements = [
+    { id: "r1", text: "Read the status", kind: "read" as const }
+  ]
+  const unmet: AgentDecision = {
+    type: "complete",
+    summary: "Could not find it.",
+    outcomes: [{ id: "r1", met: false }]
+  }
+
+  /**
+   * Runs settled `partial` one click from the goal, having answered "not
+   * met" for a step they never tried. The first such answer is sent back.
+   */
+  it("is asked about once, and the run can still meet it", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [
+        unmet,
+        {
+          type: "complete",
+          summary: "Page text",
+          outcomes: [{ id: "r1", met: true, evidence: "Page text" }]
+        }
+      ],
+      observations: [observation(), observation(), observation()]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.steps).toContain("rejected")
+    expect(
+      harness.writtenSteps.find((step) => step.status === "rejected")
+        ?.verification?.evidence.summary
+    ).toContain("You reported r1 as not met")
+    expect(harness.getState().status).toBe("completed")
+  })
+
+  it("takes the second answer as given", async () => {
+    const harness = createHarness({
+      state: runState({ requirements }),
+      decisions: [unmet, unmet],
+      observations: [observation(), observation(), observation()]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.steps.filter((step) => step === "rejected")).toHaveLength(1)
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "goal_failed" }
+    })
+  })
+})
+
+describe("answering a dialog the run's own step opened", () => {
+  it("advances the requirement the opening step named", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "The item is deleted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d1",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({ snapshotId: "snapshot-2", generation: 2 })
+      ],
+      verification: [confirmed, confirmed],
+      execute: async () => ({ executedAt: 10, dialogOpened: "d1" }),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    expect(harness.steps).not.toContain("rejected")
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "planned")
+    ).toHaveLength(2)
+    expect(
+      harness.writtenSteps.find(
+        (step) =>
+          step.status === "planned" && step.command?.type === "handle_dialog"
+      )?.requirementId
+    ).toBe("r1")
+  })
+
+  it("does not bind a later dialog to a confirmed step that did not open it", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "The item is deleted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d1",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          dialogs: [
+            {
+              id: "d1",
+              type: "confirm",
+              origin: "https://example.com",
+              message: "Delete?"
+            }
+          ]
+        })
+      ],
+      verification: [confirmed],
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    const dialogStep = harness.writtenSteps.find(
+      (step) => step.command?.type === "handle_dialog"
+    )
+    expect(dialogStep?.requirementId).toBeUndefined()
+  })
+
+  it("binds the opener requirement only to the dialog it opened", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "The item is deleted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d2",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          dialogs: [
+            {
+              id: "d2",
+              type: "confirm",
+              origin: "https://example.com",
+              message: "Different dialog"
+            }
+          ]
+        })
+      ],
+      verification: [confirmed],
+      execute: async () => ({ executedAt: 10, dialogOpened: "d1" }),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    const dialogStep = harness.writtenSteps.find(
+      (step) => step.command?.type === "handle_dialog"
+    )
+    expect(dialogStep?.requirementId).toBeUndefined()
+  })
+
+  it("clears an opener binding when the user steers the run", async () => {
+    let steer: ((runId: string, text: string) => Promise<boolean>) | undefined
+    let verifications = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "The item is deleted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d1",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          dialogs: [
+            {
+              id: "d1",
+              type: "confirm",
+              origin: "https://example.com",
+              message: "Delete?"
+            }
+          ]
+        })
+      ],
+      verification: [confirmed],
+      execute: async () => ({ executedAt: 10, dialogOpened: "d1" }),
+      onVerify: async () => {
+        if (verifications++ === 0) await steer?.("run-1", "Do not delete")
+      },
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+    steer = harness.controller.steer
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    expect(
+      harness.writtenSteps.some(
+        (step) =>
+          step.status === "planned" && step.command?.type === "handle_dialog"
+      )
+    ).toBe(false)
+  })
+
+  it("leaves the binding to the model when the plan gave the dialog its own requirement", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Delete is pressed", kind: "change" },
+          { id: "r2", text: "The confirmation is accepted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d1",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({ snapshotId: "snapshot-2", generation: 2 })
+      ],
+      verification: [confirmed, confirmed],
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    expect(harness.steps).toContain("rejected")
+  })
+})
