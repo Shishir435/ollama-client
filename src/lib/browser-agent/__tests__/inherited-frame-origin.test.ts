@@ -38,6 +38,21 @@ describe("inherited frame origins", () => {
     ).resolves.toBe("https://ads.example/x")
   })
 
+  it("reaches an addressed root four inheriting levels below it", async () => {
+    const frames = new Map<number, { url: string; parentFrameId: number }>([
+      [0, { url: "https://example.com/page", parentFrameId: -1 }],
+      [1, { url: "about:blank", parentFrameId: 0 }],
+      [2, { url: "about:srcdoc", parentFrameId: 1 }],
+      [3, { url: "about:blank", parentFrameId: 2 }]
+    ])
+
+    await expect(
+      frameAccessUrl({ url: "about:srcdoc", parentFrameId: 3 }, async (id) =>
+        frames.get(id)
+      )
+    ).resolves.toBe("https://example.com/page")
+  })
+
   it("answers with the frame's own address when the chain never reaches one", async () => {
     await expect(
       frameAccessUrl(

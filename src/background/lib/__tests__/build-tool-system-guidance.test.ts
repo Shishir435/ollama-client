@@ -131,5 +131,8 @@ describe("buildBrowserContextGuidance", () => {
     expect(guidance).toContain(
       "do not call browser_task or capture_screenshot again in that turn"
     )
+    expect(guidance).toContain(
+      "An explicit request for a screenshot or visual inspection overrides"
+    )
   })
 })

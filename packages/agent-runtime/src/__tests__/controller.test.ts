@@ -2991,6 +2991,7 @@ describe("answering a dialog the run's own step opened", () => {
         observation({ snapshotId: "snapshot-2", generation: 2 })
       ],
       verification: [confirmed, confirmed],
+      execute: async () => ({ executedAt: 10, dialogOpened: "d1" }),
       policy: () => ({ type: "allow", risk: "medium" }),
       effectOverrides: { semanticEffects: ["activation", "destructive"] }
     })
@@ -3007,6 +3008,129 @@ describe("answering a dialog the run's own step opened", () => {
           step.status === "planned" && step.command?.type === "handle_dialog"
       )?.requirementId
     ).toBe("r1")
+  })
+
+  it("does not bind a later dialog to a confirmed step that did not open it", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "The item is deleted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d1",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          dialogs: [
+            {
+              id: "d1",
+              type: "confirm",
+              origin: "https://example.com",
+              message: "Delete?"
+            }
+          ]
+        })
+      ],
+      verification: [confirmed],
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    const dialogStep = harness.writtenSteps.find(
+      (step) => step.command?.type === "handle_dialog"
+    )
+    expect(dialogStep?.requirementId).toBeUndefined()
+  })
+
+  it("clears an opener binding when the user steers the run", async () => {
+    let steer: ((runId: string, text: string) => Promise<boolean>) | undefined
+    let verifications = 0
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "The item is deleted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d1",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          dialogs: [
+            {
+              id: "d1",
+              type: "confirm",
+              origin: "https://example.com",
+              message: "Delete?"
+            }
+          ]
+        })
+      ],
+      verification: [confirmed],
+      execute: async () => ({ executedAt: 10, dialogOpened: "d1" }),
+      onVerify: async () => {
+        if (verifications++ === 0) await steer?.("run-1", "Do not delete")
+      },
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+    steer = harness.controller.steer
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    expect(
+      harness.writtenSteps.some(
+        (step) =>
+          step.status === "planned" && step.command?.type === "handle_dialog"
+      )
+    ).toBe(false)
   })
 
   it("leaves the binding to the model when the plan gave the dialog its own requirement", async () => {

@@ -312,6 +312,9 @@ export const createAgentController = (
   const challengedUnmet = new Map<string, Set<string>>()
   /** The requirement the run's last bound step advanced, for a dialog it opened. */
   const lastBoundRequirement = new Map<string, string>()
+  const clearBoundRequirement = (runId: string): void => {
+    lastBoundRequirement.delete(runId)
+  }
   /**
    * The page as it read when this run's last change was decided.
    *
@@ -387,7 +390,10 @@ export const createAgentController = (
       to,
       patch
     })
-    return result.transitioned ? result.state : undefined
+    if (!result.transitioned) return undefined
+    if (isTerminalAgentStatus(result.state.status))
+      clearBoundRequirement(state.id)
+    return result.state
   }
 
   const pause = async (
@@ -1278,6 +1284,7 @@ export const createAgentController = (
     >,
     stepId: string,
     stepNumber: number,
+    requirementId: string | undefined,
     signal: AgentCancellationController["signal"],
     grants?: AgentRunState["grants"],
     routineOrigin?: string
@@ -1379,6 +1386,12 @@ export const createAgentController = (
         )
         return undefined
       }
+      // Bind only a verified step whose execution receipt proves it opened
+      // the dialog. A planned, approved, or merely attempted click is not its
+      // opener and must not authorize a later dialog answer.
+      if (receipt.dialogOpened && isAppliedAgentStepStatus(action.stepStatus)) {
+        rememberBoundRequirement(state.id, requirementId)
+      }
       if (action.type === "redecide") return verifying
       /**
        * A step does not clear the no-progress guard, whatever it was meant to
@@ -1461,14 +1474,18 @@ export const createAgentController = (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>
   ): Extract<AgentDecision, { type: "command" }> => {
+    if (decision.command.type !== "handle_dialog") {
+      clearBoundRequirement(state.id)
+      return decision
+    }
+    const opener = lastBoundRequirement.get(state.id)
+    clearBoundRequirement(state.id)
     if (
-      decision.command.type !== "handle_dialog" ||
       decision.requirementId !== undefined ||
       state.requirements?.filter((requirement) => requirement.kind === "change")
         .length !== 1
     )
       return decision
-    const opener = lastBoundRequirement.get(state.id)
     return opener ? { ...decision, requirementId: opener } : decision
   }
 
@@ -1521,7 +1538,6 @@ export const createAgentController = (
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
     const stepId = `${state.id}:${stepNumber}`
-    rememberBoundRequirement(state.id, decision.requirementId)
     await appendStep({
       runId: state.id,
       stepId,
@@ -1550,6 +1566,7 @@ export const createAgentController = (
       authorized.policy,
       stepId,
       stepNumber,
+      decision.requirementId,
       signal,
       authorized.grants,
       authorized.routineOrigin
@@ -2098,6 +2115,7 @@ export const createAgentController = (
       recentProgress.delete(state.id)
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
+      clearBoundRequirement(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2460,6 +2478,7 @@ export const createAgentController = (
       recentProgress.delete(state.id)
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
+      clearBoundRequirement(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2479,6 +2498,7 @@ export const createAgentController = (
       recentProgress.delete(state.id)
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
+      clearBoundRequirement(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
@@ -2550,6 +2570,7 @@ export const createAgentController = (
       recentProgress.delete(state.id)
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
+      clearBoundRequirement(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)

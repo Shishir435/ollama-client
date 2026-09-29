@@ -213,7 +213,49 @@ describe("selectAgentChildFrames", () => {
       ...child(index + 1, "about:blank"),
       documentId: `document-${index + 1}`
     }))
-    expect(selectAgentChildFrames([root, ...blanks]).selected).toHaveLength(3)
+    const { selected, omitted } = selectAgentChildFrames([root, ...blanks])
+    expect(selected).toHaveLength(3)
+    expect(omitted).toBe(3)
+  })
+
+  it("counts inheriting panels omitted by the per-frame cap", () => {
+    const root = { frameId: 0, parentFrameId: -1, url: "https://example.com/" }
+    const panels = Array.from({ length: 4 }, (_, index) => ({
+      ...child(index + 1, index % 2 ? "about:srcdoc" : "about:blank"),
+      documentId: `document-${index + 1}`
+    }))
+
+    const { selected, omitted } = selectAgentChildFrames([root, ...panels])
+
+    expect(selected).toHaveLength(3)
+    expect(omitted).toBe(1)
+  })
+
+  it("admits a panel four inheriting levels below its addressed root", () => {
+    const frames: AgentBrowserFrame[] = [
+      { frameId: 0, parentFrameId: -1, url: "https://example.com/" },
+      ...Array.from({ length: 4 }, (_, index) => {
+        const frame = child(
+          index + 1,
+          index % 2 ? "about:srcdoc" : "about:blank",
+          index
+        )
+        return {
+          frameId: frame.frameId,
+          parentFrameId: frame.parentFrameId,
+          url: frame.url,
+          ...(index === 3 ? { documentId: `document-${index + 1}` } : {})
+        }
+      })
+    ]
+
+    expect(selectAgentChildFrames(frames).selected).toMatchObject([
+      {
+        frameId: 4,
+        inheritedOrigin: "https://example.com",
+        inheritedFromUrl: "https://example.com/"
+      }
+    ])
   })
 
   it("never lets a frame without an origin take a place or be counted", () => {

@@ -9,7 +9,10 @@ import {
 } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
-import { inheritsFrameOrigin } from "./inherited-frame-origin"
+import {
+  inheritsFrameOrigin,
+  MAX_INHERITING_FRAME_ANCESTORS
+} from "./inherited-frame-origin"
 import { AGENT_OBSERVATION_LIMITS } from "./observation-builder"
 
 /** A frame as the browser reports it, before the run has decided anything about it. */
@@ -89,7 +92,11 @@ const addressedAncestor = (
   byId: ReadonlyMap<number, AgentBrowserFrame>
 ): AgentBrowserFrame | undefined => {
   let current = byId.get(frame.parentFrameId)
-  for (let depth = 0; depth < 4 && current; depth += 1) {
+  for (
+    let depth = 0;
+    depth < MAX_INHERITING_FRAME_ANCESTORS && current;
+    depth += 1
+  ) {
     if (originOf(current.url)) return current
     if (!inheritsFrameOrigin(current.url)) return undefined
     current = byId.get(current.parentFrameId)
@@ -119,7 +126,7 @@ export const selectAgentChildFrames = (
   const real = children
     .filter((frame) => originOf(frame.url) !== undefined)
     .sort(byCreation)
-  const inheriting = children
+  const inheritingCandidates = children
     /** A frame with no document yet cannot be opened; it is not a panel. */
     .filter((frame) => inheritsFrameOrigin(frame.url) && frame.documentId)
     .flatMap((frame) => {
@@ -130,12 +137,15 @@ export const selectAgentChildFrames = (
         : []
     })
     .sort(byCreation)
-    .slice(0, MAX_INHERITING_FRAMES)
+  const inheriting = inheritingCandidates.slice(0, MAX_INHERITING_FRAMES)
   const listed = [...real, ...inheriting]
   const capacity = MAX_AGENT_OBSERVED_FRAMES - 1
+  const selected = listed.slice(0, capacity)
   return {
-    selected: listed.slice(0, capacity),
-    omitted: Math.max(0, listed.length - capacity)
+    selected,
+    // Count every eligible child, including inheriting panels beyond their
+    // read cap. Counting only `listed` hid panels dropped before this point.
+    omitted: real.length + inheritingCandidates.length - selected.length
   }
 }
 

@@ -16,6 +16,9 @@
 export const inheritsFrameOrigin = (url: string): boolean =>
   url === "about:srcdoc" || url === "about:blank"
 
+/** Maximum parent links an inheriting frame may traverse to find its origin. */
+export const MAX_INHERITING_FRAME_ANCESTORS = 4
+
 /** An http(s) origin, or undefined for anything else, `"null"` included. */
 export const httpOrigin = (origin: string | undefined): string | undefined => {
   if (!origin || origin === "null") return undefined
@@ -46,7 +49,14 @@ export const frameAccessUrl = async (
   parentOf: (frameId: number) => Promise<FrameAddress | null | undefined>
 ): Promise<string> => {
   let current: FrameAddress | null | undefined = frame
-  for (let depth = 0; depth < 4 && current; depth += 1) {
+  // Inspect the frame itself plus up to four parents. The selector admits
+  // panels four inheriting levels below an addressed document, so the access
+  // check must inspect that root after visiting the four child documents.
+  for (
+    let depth = 0;
+    depth <= MAX_INHERITING_FRAME_ANCESTORS && current;
+    depth += 1
+  ) {
     if (!inheritsFrameOrigin(current.url)) return current.url
     const parent: number | undefined = current.parentFrameId
     if (parent === undefined || parent < 0) break

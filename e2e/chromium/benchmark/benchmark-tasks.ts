@@ -284,14 +284,43 @@ const normalizedAnswer = (text: string): string =>
     .replace(/\s+/g, " ")
     .toLowerCase()
 
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+const phrasePattern = (value: string): string =>
+  value.split(" ").map(escapeRegex).join("\\s+")
+
+const DENIAL_PATTERN =
+  /\b(?:not(?!\s+only)|never|no|cannot|can['’]t|couldn['’]t|could\s+not|didn['’]t|did\s+not|doesn['’]t|does\s+not|isn['’]t|is\s+not|aren['’]t|are\s+not|wasn['’]t|was\s+not|weren['’]t|were\s+not|unable\s+to|failed\s+to)\b/i
+
+const affirmativeOccurrence = (
+  text: string,
+  start: number,
+  end: number
+): boolean => {
+  const prefix = text.slice(Math.max(0, start - 64), start)
+  const claim = text.slice(start, end)
+  if (DENIAL_PATTERN.test(`${prefix} ${claim}`)) return false
+  const suffix = text.slice(end, end + 40)
+  return !/^\s+(?:(?:is|are|was|were)\s+)?(?:not|incorrect|false|untrue|unconfirmed|unverified)\b/i.test(
+    suffix
+  )
+}
+
+const affirmedMatch = (text: string, pattern: RegExp): boolean => {
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0
+    if (affirmativeOccurrence(text, start, start + match[0].length)) return true
+  }
+  return false
+}
+
 /**
  * Whether an answer carries a fact.
  *
- * The literal fact, or its value as a whole word — the part after the label's
- * colon unless the task names one. Requiring the fixture's exact label scored
- * every chat-path answer false in two passes: a reply saying "The status is
- * Active" answered the question and failed the substring test, which made
- * the scorer, not the run, the thing being measured.
+ * The literal fact, or its value as a whole word when the answer also names
+ * the fact's label. Requiring an affirmative assertion keeps "not Active"
+ * and "could not confirm Status: Active" from passing on the value alone.
  */
 export const answerCarriesFact = (
   answer: string | undefined,
@@ -300,9 +329,49 @@ export const answerCarriesFact = (
 ): boolean => {
   if (!answer) return false
   const said = normalizedAnswer(answer)
-  if (said.includes(normalizedAnswer(fact))) return true
-  const needle = normalizedAnswer(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  return new RegExp(`\\b${needle}\\b`).test(said)
+  const factText = normalizedAnswer(fact)
+  const valueText = normalizedAnswer(value)
+  const labelText = fact.includes(":")
+    ? normalizedAnswer(fact.split(/:\s*/, 1)[0] ?? "")
+    : factText.endsWith(` ${valueText}`) && factText !== valueText
+      ? factText.slice(0, -(valueText.length + 1))
+      : ""
+
+  const factPattern = new RegExp(`\\b${phrasePattern(factText)}\\b`, "g")
+  for (const sentence of said.split(/[.!?;\n]+/)) {
+    if (affirmedMatch(sentence, factPattern)) return true
+    if (!labelText || !valueText) continue
+    const labeledValue = new RegExp(
+      `\\b${phrasePattern(labelText)}\\b(?:\\W+\\w+){0,6}\\W+\\b${phrasePattern(valueText)}\\b`,
+      "g"
+    )
+    if (affirmedMatch(sentence, labeledValue)) return true
+  }
+  return false
+}
+
+/**
+ * A back-navigation task is only complete when its receipts show both the
+ * Details visit and a confirmed Back command, and the tab has returned home.
+ */
+export const reportsBackNavigation = async (
+  outcome: AgentScenarioOutcome
+): Promise<boolean> => {
+  const steps = outcome.snapshot?.steps ?? []
+  const confirmed = (step: (typeof steps)[number]) =>
+    step.status === "verified" && step.verification?.outcome === "confirmed"
+  const detailsIndex = steps.findIndex(
+    (step) =>
+      step.command?.type === "click" &&
+      step.target?.name?.toLowerCase() === "details" &&
+      confirmed(step)
+  )
+  if (detailsIndex < 0) return false
+  const returned = steps
+    .slice(detailsIndex + 1)
+    .some((step) => step.command?.type === "back" && confirmed(step))
+  if (!returned || new URL(outcome.page.url()).pathname !== "/") return false
+  return reportsFact("Home")(outcome)
 }
 
 /**

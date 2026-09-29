@@ -7,6 +7,7 @@ import { expect, test } from "../../fixtures/extension"
 import type { AgentAttemptRecord } from "../agent-benchmark"
 import { writeAgentBenchmarkReport } from "../agent-benchmark"
 import {
+  answerCarriesFact,
   benchmarkModel,
   benchmarkTask,
   clickNamed,
@@ -17,6 +18,7 @@ import {
   named,
   observableButton,
   page,
+  reportsBackNavigation,
   reportsFact,
   reportsFactFromAnyTab,
   showsActiveStatus
@@ -74,6 +76,48 @@ test.afterAll(() => {
 
 const task = (input: Parameters<typeof benchmarkTask>[1]) =>
   benchmarkTask(attempts, input)
+
+test("benchmark fact scoring requires an affirmative assertion", () => {
+  expect(answerCarriesFact("Status: Active", "Status: Active")).toBe(true)
+  expect(answerCarriesFact("The status is Active", "Status: Active")).toBe(true)
+  expect(answerCarriesFact("Status is not Active", "Status: Active")).toBe(
+    false
+  )
+  expect(
+    answerCarriesFact("I could not confirm Status: Active", "Status: Active")
+  ).toBe(false)
+  expect(answerCarriesFact("4471", "Account 4471", "4471")).toBe(false)
+})
+
+test("back-navigation scoring requires both verified navigation steps", async () => {
+  const outcome = (steps: unknown[]) =>
+    ({
+      page: {
+        url: () => "http://127.0.0.1/",
+        locator: () => ({ innerText: async () => "Home" })
+      },
+      snapshot: { run: { result: "Home" }, steps }
+    }) as unknown as AgentScenarioOutcome
+
+  expect(await reportsBackNavigation(outcome([]))).toBe(false)
+  expect(
+    await reportsBackNavigation(
+      outcome([
+        {
+          status: "verified",
+          verification: { outcome: "confirmed" },
+          command: { type: "click" },
+          target: { name: "Details" }
+        },
+        {
+          status: "verified",
+          verification: { outcome: "confirmed" },
+          command: { type: "back" }
+        }
+      ])
+    )
+  ).toBe(true)
+})
 
 // ── 1. read-and-extract ─────────────────────────────────────────────────────
 
@@ -640,8 +684,7 @@ task({
     if (observation.text.includes("Status: Active")) return { type: "back" }
     return { type: "complete", summary: "Home" }
   },
-  /** Back means back: the tab has to be showing Home again, not just say so. */
-  succeeded: reportsFact("Home")
+  succeeded: reportsBackNavigation
 })
 
 // ── 10. dialogs-and-recovery ────────────────────────────────────────────────

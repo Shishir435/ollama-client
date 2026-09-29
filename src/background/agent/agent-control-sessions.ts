@@ -30,6 +30,7 @@ import {
   remainingAgentElementBudget,
   selectAgentChildFrames
 } from "@/lib/browser-agent/frame-observation"
+import { inheritsFrameOrigin } from "@/lib/browser-agent/inherited-frame-origin"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 import { AGENT_WEBMCP_COMPILED } from "@/lib/feature-flags"
@@ -205,6 +206,22 @@ export const createAgentControlSessionRegistry = (input?: {
   const open = input?.open ?? openAgentControlSession
   const frameAdapter = input?.frames ?? defaultFrameAdapter()
   const sessions = new Map<string, AgentControlSession>()
+  /** Inherited frames may expose page tools only after this document's origin was observed. */
+  const verifiedInheritedFrames = new Map<
+    string,
+    { documentId: string; origin: string }
+  >()
+  const rememberVerifiedInheritedFrame = (
+    sessionKey: string,
+    frame: AgentControlBrowserFrame,
+    origin: string
+  ): void => {
+    if (!inheritsFrameOrigin(frame.url) || !frame.documentId) return
+    verifiedInheritedFrames.set(sessionKey, {
+      documentId: frame.documentId,
+      origin
+    })
+  }
 
   const acquire = async (
     runId: string,
@@ -219,9 +236,11 @@ export const createAgentControlSessionRegistry = (input?: {
   }
 
   const drop = (runId: string, tabId: number, frameId: number) => {
-    const session = sessions.get(key(runId, tabId, frameId))
+    const sessionKey = key(runId, tabId, frameId)
+    verifiedInheritedFrames.delete(sessionKey)
+    const session = sessions.get(sessionKey)
     if (!session) return
-    sessions.delete(key(runId, tabId, frameId))
+    sessions.delete(sessionKey)
     try {
       session.disconnect()
     } catch {
@@ -287,6 +306,9 @@ export const createAgentControlSessionRegistry = (input?: {
     textOffset?: number,
     lookup?: { queries: readonly string[] }
   ): Promise<AgentChildFrameResult | undefined> => {
+    const sessionKey = key(runId, tabId, frame.frameId)
+    const inherited = inheritsFrameOrigin(frame.url)
+    if (inherited) verifiedInheritedFrames.delete(sessionKey)
     const authorized = await authorizeAgentFrame(frame, {
       allowedOrigins,
       classifyAccess: (url) => frameAdapter.classifyAccess(url)
@@ -314,6 +336,7 @@ export const createAgentControlSessionRegistry = (input?: {
        */
       if (observation.origin !== result.origin)
         return { ...result, access: "unauthorized_origin" }
+      rememberVerifiedInheritedFrame(sessionKey, frame, result.origin)
       return { ...result, observation }
     } catch (error) {
       if (signal?.aborted) throw error
@@ -536,6 +559,20 @@ export const createAgentControlSessionRegistry = (input?: {
                 classifyAccess: frameAdapter.classifyAccess
               })
               if (authorized?.access !== "ok") continue
+              if (inheritsFrameOrigin(frame.url)) {
+                const verified = verifiedInheritedFrames.get(
+                  key(runId, tabId, frame.frameId)
+                )
+                // Observation validates window.origin in the bound document.
+                // A newly selected opaque sandbox has only its ancestor's
+                // provisional authorization and must not reach page tools.
+                if (
+                  !frame.documentId ||
+                  verified?.documentId !== frame.documentId ||
+                  verified.origin !== authorized.origin
+                )
+                  continue
+              }
               try {
                 await discover(frame.frameId)
               } catch {
@@ -574,6 +611,10 @@ export const createAgentControlSessionRegistry = (input?: {
         } catch {
           /* Releasing a dead port is not a failure. */
         }
+      }
+      for (const verifiedKey of verifiedInheritedFrames.keys()) {
+        if (verifiedKey.startsWith(`${runId}::`))
+          verifiedInheritedFrames.delete(verifiedKey)
       }
     }
   }
