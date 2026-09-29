@@ -101,7 +101,7 @@ task({
     observation.text.includes("Account 4471")
       ? { type: "complete", summary: "Account 4471" }
       : { type: "extract_text", offset: observation.textPage?.nextOffset ?? 0 },
-  succeeded: reportsFact("Account 4471")
+  succeeded: reportsFact("Account 4471", "4471")
 })
 
 task({

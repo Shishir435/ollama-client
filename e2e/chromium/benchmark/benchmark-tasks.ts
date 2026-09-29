@@ -209,6 +209,21 @@ export const benchmarkTask = (
         diagnosticTrace,
         ...(succeeded ? { succeeded } : {})
       })
+      /**
+       * The answer itself, in the diagnostic trace only — never the report.
+       * Every page here is a synthetic fixture (`fixtureData: true`), and
+       * without the text a false completion on the read path cannot be told
+       * apart from a scorer that misread a correct reply.
+       */
+      const answer = outcome.snapshot?.run?.result ?? outcome.chatResponse
+      if (answer)
+        diagnosticTrace({
+          type: "answer_observed",
+          attempt: outcome.attempt,
+          source: outcome.snapshot?.run?.result ? "run_result" : "chat",
+          text: answer.slice(0, 2_000),
+          truncated: answer.length > 2_000
+        })
       const record = attempts.at(-1)
       if (record)
         diagnosticTrace({
@@ -251,6 +266,37 @@ export const observableButton = (label = "Continue"): string =>
   `<button type="button" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.disabled=true">${label}</button>`
 
 /**
+ * Markdown and letter case are presentation, not content: a chat reply that
+ * says "**Status:** Active" states the same fact as "Status: Active".
+ */
+const normalizedAnswer = (text: string): string =>
+  text
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+
+/**
+ * Whether an answer carries a fact.
+ *
+ * The literal fact, or its value as a whole word — the part after the label's
+ * colon unless the task names one. Requiring the fixture's exact label scored
+ * every chat-path answer false in two passes: a reply saying "The status is
+ * Active" answered the question and failed the substring test, which made
+ * the scorer, not the run, the thing being measured.
+ */
+export const answerCarriesFact = (
+  answer: string | undefined,
+  fact: string,
+  value = fact.split(/:\s*/).at(-1) ?? fact
+): boolean => {
+  if (!answer) return false
+  const said = normalizedAnswer(answer)
+  if (said.includes(normalizedAnswer(fact))) return true
+  const needle = normalizedAnswer(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return new RegExp(`\\b${needle}\\b`).test(said)
+}
+
+/**
  * A reading task's answer, checked against what the page actually says.
  *
  * `Boolean(run.result)` was circular: `result` is the model's own completion
@@ -261,11 +307,11 @@ export const observableButton = (label = "Continue"): string =>
  * vacuously, and the answer has to carry it.
  */
 export const reportsFact =
-  (fact: string) =>
+  (fact: string, value?: string) =>
   async (outcome: AgentScenarioOutcome): Promise<boolean> => {
     const rendered = await outcome.page.locator("body").innerText()
     const result = outcome.snapshot?.run?.result ?? outcome.chatResponse
-    return rendered.includes(fact) && Boolean(result?.includes(fact))
+    return rendered.includes(fact) && answerCarriesFact(result, fact, value)
   }
 
 /**
@@ -274,10 +320,10 @@ export const reportsFact =
  * is asked.
  */
 export const reportsFactFromAnyTab =
-  (fact: string) =>
+  (fact: string, value?: string) =>
   async (outcome: AgentScenarioOutcome): Promise<boolean> => {
     const result = outcome.snapshot?.run?.result ?? outcome.chatResponse
-    if (!result?.includes(fact)) return false
+    if (!answerCarriesFact(result, fact, value)) return false
     for (const open of outcome.page.context().pages()) {
       try {
         if ((await open.locator("body").innerText()).includes(fact)) return true
