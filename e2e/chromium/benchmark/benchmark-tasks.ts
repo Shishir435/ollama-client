@@ -8,6 +8,7 @@ import {
   agentFixtureElement,
   runAgentScenario
 } from "../fixtures/agent-scenario"
+import { test } from "../fixtures/extension"
 import { runNanobrowserScenario } from "../fixtures/nanobrowser-scenario"
 import type { AgentAttemptRecord } from "./agent-benchmark"
 import {
@@ -210,20 +211,28 @@ export const benchmarkTask = (
         ...(succeeded ? { succeeded } : {})
       })
       /**
-       * The answer itself, in the diagnostic trace only — never the report.
-       * Every page here is a synthetic fixture (`fixtureData: true`), and
-       * without the text a false completion on the read path cannot be told
-       * apart from a scorer that misread a correct reply.
+       * The answer text goes to the test's own attachments, never the trace:
+       * traces are allowlisted to labels and counts so they can be shared,
+       * and the report must carry no page text. Every page here is a
+       * synthetic fixture, and without the text a false completion on the
+       * read path cannot be told apart from a scorer that misread a correct
+       * reply. The trace records only where the answer came from and its
+       * length.
        */
       const answer = outcome.snapshot?.run?.result ?? outcome.chatResponse
-      if (answer)
+      if (answer) {
+        const source = outcome.snapshot?.run?.result ? "run_result" : "chat"
         diagnosticTrace({
           type: "answer_observed",
           attempt: outcome.attempt,
-          source: outcome.snapshot?.run?.result ? "run_result" : "chat",
-          text: answer.slice(0, 2_000),
-          truncated: answer.length > 2_000
+          answerSource: source,
+          answerChars: answer.length
         })
+        await test.info().attach(`answer-${source}`, {
+          body: answer,
+          contentType: "text/plain"
+        })
+      }
       const record = attempts.at(-1)
       if (record)
         diagnosticTrace({
