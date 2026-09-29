@@ -157,6 +157,20 @@ describe("Agent effect settle window", () => {
     expect(looks).toHaveLength(2)
   })
 
+  it("confirms an effect that landed below the fold", async () => {
+    /**
+     * A canvas click appended a status line under the viewport: the visible
+     * text was unchanged, so the click read as having done nothing and the
+     * run paused as an unresolved effect.
+     */
+    const { result } = await verify(
+      [observation({ documentText: "Save Status: Active" })],
+      {},
+      observation({ documentText: "Save" })
+    )
+    expect(result.outcome).toBe("confirmed")
+  })
+
   it("returns the moment the effect is there rather than sleeping", async () => {
     const { result, looks, waits } = await verify([
       observation({ visibleText: "Save — All changes saved" })

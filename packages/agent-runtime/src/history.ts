@@ -118,6 +118,17 @@ const actionOf = (step: AgentStepReadout): string => {
   if (command.type === "scroll") return `scroll ${command.direction}`
   if (command.type === "drag") return `drag onto ${command.to}`
   /**
+   * The point is the decision. Read back as a bare "click_point", a run on a
+   * canvas could not tell where it had already clicked, and clicked the same
+   * spot eighteen times after the first click had done what it asked.
+   */
+  if (command.type === "click_point") {
+    return `click_point at (${Math.round(command.x)}, ${Math.round(command.y)})`
+  }
+  if (command.type === "zoom") {
+    return `zoom into (${Math.round(command.x)}, ${Math.round(command.y)}) ${Math.round(command.width)}×${Math.round(command.height)}`
+  }
+  /**
    * The direction is the whole decision here: a run reading back
    * "handle_dialog" could not tell the confirmation it refused from the one
    * it gave, which is exactly the fact a later step needs.
