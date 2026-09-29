@@ -4,7 +4,10 @@ import type {
   AgentAttemptRecord,
   AgentBenchmarkReport
 } from "../../e2e/chromium/benchmark/agent-benchmark"
-import { mergeAgentBenchmarkReports } from "../../e2e/chromium/benchmark/agent-benchmark"
+import {
+  buildAgentBenchmarkReport,
+  mergeAgentBenchmarkReports
+} from "../../e2e/chromium/benchmark/agent-benchmark"
 
 const attempt = (
   family: string,
@@ -32,6 +35,7 @@ const partial = (attempts: AgentAttemptRecord[]): AgentBenchmarkReport => ({
   measuredAt: "2026-09-17T00:00:00.000Z",
   backend: "cdp",
   model: "fixture-agent",
+  reasoningEffort: "xhigh",
   attempts,
   families: []
 })
@@ -58,6 +62,58 @@ describe("agent benchmark merge", () => {
       "click",
       "replace-then-save"
     ])
+    expect(merged.report.reasoningEffort).toBe("xhigh")
+  })
+
+  it("records Nanobrowser's default reasoning effort", () => {
+    const originalProduct = process.env.AGENT_BENCHMARK_PRODUCT
+    const originalEffort = process.env.AGENT_HOSTED_REASONING_EFFORT
+    try {
+      process.env.AGENT_BENCHMARK_PRODUCT = "nanobrowser"
+      delete process.env.AGENT_HOSTED_REASONING_EFFORT
+
+      expect(buildAgentBenchmarkReport([], "cdp").reasoningEffort).toBe(
+        "medium"
+      )
+    } finally {
+      if (originalProduct === undefined)
+        delete process.env.AGENT_BENCHMARK_PRODUCT
+      else process.env.AGENT_BENCHMARK_PRODUCT = originalProduct
+      if (originalEffort === undefined)
+        delete process.env.AGENT_HOSTED_REASONING_EFFORT
+      else process.env.AGENT_HOSTED_REASONING_EFFORT = originalEffort
+    }
+  })
+
+  it("refuses partials whose reasoning efforts differ", () => {
+    const mixed = mergeAgentBenchmarkReports(
+      [
+        partial([attempt("single-action", "click")]),
+        {
+          ...partial([attempt("editors", "replace-then-save")]),
+          reasoningEffort: "high"
+        }
+      ],
+      2
+    )
+
+    expect(mixed.found).toBe(2)
+    expect(mixed.complete).toBe(false)
+    expect(mixed.reasoningEfforts).toEqual(["high", "xhigh"])
+    expect(mixed.report.reasoningEffort).toBeUndefined()
+  })
+
+  it("refuses a partial with missing effort evidence mixed with a labeled one", () => {
+    const unlabeled = partial([attempt("single-action", "click")])
+    delete unlabeled.reasoningEffort
+    const mixed = mergeAgentBenchmarkReports(
+      [unlabeled, partial([attempt("editors", "replace-then-save")])],
+      2
+    )
+
+    expect(mixed.complete).toBe(false)
+    expect(mixed.reasoningEfforts).toEqual(["<missing>", "xhigh"])
+    expect(mixed.report.reasoningEffort).toBeUndefined()
   })
 
   it("refuses a pass that is short of what the suite declares", () => {

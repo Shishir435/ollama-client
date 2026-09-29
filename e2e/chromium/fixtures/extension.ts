@@ -21,10 +21,31 @@ import {
   type Worker
 } from "@playwright/test"
 
+const isMissingPathError = (error: unknown): boolean => {
+  if (typeof error !== "object" || error === null || !("code" in error))
+    return false
+  const code = (error as { code?: unknown }).code
+  return code === "ENOENT" || code === "ENOTDIR"
+}
+
 const findFileRecursive = (directory: string, targetName: string): string => {
-  for (const entry of readdirSync(directory)) {
+  let entries: string[]
+  try {
+    entries = readdirSync(directory)
+  } catch (error) {
+    if (isMissingPathError(error)) return ""
+    throw error
+  }
+
+  for (const entry of entries) {
     const fullPath = resolve(directory, entry)
-    const stats = statSync(fullPath)
+    let stats: ReturnType<typeof statSync>
+    try {
+      stats = statSync(fullPath)
+    } catch (error) {
+      if (isMissingPathError(error)) continue
+      throw error
+    }
     if (stats.isFile() && entry === targetName) return fullPath
     if (stats.isDirectory()) {
       const found = findFileRecursive(fullPath, targetName)

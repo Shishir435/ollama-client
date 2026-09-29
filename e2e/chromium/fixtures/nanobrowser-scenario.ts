@@ -1,6 +1,7 @@
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import type { Page, Request } from "@playwright/test"
+import { nanobrowserBenchmarkReasoningEffort } from "../benchmark/benchmark-config"
 import type { AgentScenario, AgentScenarioOutcome } from "./agent-scenario"
 import { expect, test } from "./extension"
 
@@ -21,6 +22,11 @@ const sidePanelPath = "side-panel/index.html"
 const hostedModel = process.env.AGENT_HOSTED_MODEL ?? "codex/gpt-6-luna"
 const hostedBaseUrl =
   process.env.AGENT_HOSTED_BASE_URL ?? "http://127.0.0.1:8083"
+const hostedReasoningEffort = nanobrowserBenchmarkReasoningEffort()
+const safeRequestFailureCode = (request: Request): string => {
+  const errorText = request.failure()?.errorText ?? ""
+  return /net::ERR_[A-Z0-9_]+/.exec(errorText)?.[0] ?? "other"
+}
 
 const safeEventLabel = (value: unknown): string | undefined =>
   typeof value === "string" &&
@@ -122,7 +128,8 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
           attempt,
           modelRoute: "chat_completion",
           durationMs: Date.now() - requestStartedAt,
-          failureClass: "request_failed"
+          failureClass: "request_failed",
+          failureCode: safeRequestFailureCode(request)
         })
       })
       const server = createServer(async (request, response) => {
@@ -203,7 +210,7 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
           `chrome-extension://${extension.extensionId}/${sidePanelPath}`
         )
         await panel.evaluate(
-          async ({ model, baseUrl }) => {
+          async ({ model, baseUrl, reasoningEffort }) => {
             await chrome.storage.local.set({
               "analytics-settings": {
                 enabled: false,
@@ -234,18 +241,22 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
                   planner: {
                     provider: "custom_olc",
                     modelName: model,
-                    reasoningEffort: "medium"
+                    reasoningEffort
                   },
                   navigator: {
                     provider: "custom_olc",
                     modelName: model,
-                    reasoningEffort: "medium"
+                    reasoningEffort
                   }
                 }
               }
             })
           },
-          { model: hostedModel, baseUrl: hostedBaseUrl }
+          {
+            model: hostedModel,
+            baseUrl: hostedBaseUrl,
+            reasoningEffort: hostedReasoningEffort
+          }
         )
         await panel.reload()
 

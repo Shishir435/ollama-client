@@ -1,6 +1,10 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { AgentPanelMessage } from "@ollama-client/contracts"
+import {
+  hostedBenchmarkReasoningEffort,
+  nanobrowserBenchmarkReasoningEffort
+} from "./benchmark-config"
 
 /**
  * The frozen record of one benchmark pass.
@@ -136,6 +140,7 @@ const SAFE_TRACE_KEYS = new Set([
   "requestBytes",
   "responseBytes",
   "providerErrorCode",
+  "failureCode",
   "finishReason",
   "failureClass",
   "chatToolCalls",
@@ -269,6 +274,7 @@ export interface AgentBenchmarkReport {
   measuredAt: string
   backend: string
   model: string
+  reasoningEffort?: string
   attempts: AgentAttemptRecord[]
   families: AgentFamilySummary[]
 }
@@ -532,13 +538,20 @@ export const buildAgentBenchmarkReport = (
   attempts: AgentAttemptRecord[],
   backend: string,
   model = backend
-): AgentBenchmarkReport => ({
-  measuredAt: new Date().toISOString(),
-  backend,
-  model,
-  attempts,
-  families: summarizeAttempts(attempts)
-})
+): AgentBenchmarkReport => {
+  const reasoningEffort =
+    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+      ? nanobrowserBenchmarkReasoningEffort()
+      : hostedBenchmarkReasoningEffort()
+  return {
+    measuredAt: new Date().toISOString(),
+    backend,
+    model,
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+    attempts,
+    families: summarizeAttempts(attempts)
+  }
+}
 
 /**
  * One pass's attempts, as far as this process saw them.
@@ -578,6 +591,8 @@ export interface AgentBenchmarkMerge {
   complete: boolean
   /** Attempts recorded twice — a shard uploaded under two names, say. */
   duplicates: string[]
+  /** Distinct effort labels; "<missing>" means a partial recorded no effort. */
+  reasoningEfforts: string[]
 }
 
 /**
@@ -602,18 +617,31 @@ export const mergeAgentBenchmarkReports = (
     seen.add(key)
   }
   const first = partials[0]
+  const reasoningEfforts = [
+    ...new Set(
+      partials.map((partial) => partial.reasoningEffort ?? "<missing>")
+    )
+  ].sort()
+  const consistentReasoningEffort = reasoningEfforts.length <= 1
   return {
     report: {
       measuredAt: new Date().toISOString(),
       backend: first?.backend ?? "unknown",
       model: first?.model ?? "unknown",
+      ...(consistentReasoningEffort && first?.reasoningEffort
+        ? { reasoningEffort: first.reasoningEffort }
+        : {}),
       attempts,
       families: summarizeAttempts(attempts)
     },
     found: attempts.length,
     expected,
-    complete: attempts.length === expected && duplicates.length === 0,
-    duplicates: [...new Set(duplicates)]
+    complete:
+      attempts.length === expected &&
+      duplicates.length === 0 &&
+      consistentReasoningEffort,
+    duplicates: [...new Set(duplicates)],
+    reasoningEfforts
   }
 }
 
