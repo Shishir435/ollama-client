@@ -6,6 +6,7 @@ import type {
 } from "@ollama-client/contracts"
 import type { Dialog, Page } from "@playwright/test"
 
+import { hostedBenchmarkReasoningEffort } from "../benchmark/benchmark-config"
 import { expect, test } from "./extension"
 
 /**
@@ -811,6 +812,7 @@ const runAgentScenarioAttempt = (
     })
     const useHostedWire =
       Boolean(liveModel) && process.env.AGENT_HOSTED_WIRE !== "ollama"
+    const hostedReasoningEffort = hostedBenchmarkReasoningEffort()
     /**
      * Where a live pass sends its decisions: the olc proxy by default, since
      * that is what the hosted matrix was written against, and Ollama directly
@@ -1055,7 +1057,7 @@ const runAgentScenarioAttempt = (
         page.on("dialog", (dialog) => dialogs.push(dialog))
       await page.goto(origin)
       await panel.evaluate(
-        async ({ origin, model, hosted, approveEach }) => {
+        async ({ origin, model, hosted, approveEach, reasoningEffort }) => {
           const providerId = hosted ? "custom:openai:agent-fixture" : "ollama"
           /**
            * Routine-action consent is a device-local preference now, and the
@@ -1069,6 +1071,15 @@ const runAgentScenarioAttempt = (
           })
           await chrome.storage.sync.set({
             "agent-announcement-dismissed-v1": JSON.stringify(true),
+            ...(reasoningEffort
+              ? {
+                  "provider-model-config": JSON.stringify({
+                    [`${providerId}::${model}`]: {
+                      reasoning_effort: reasoningEffort
+                    }
+                  })
+                }
+              : {}),
             ...(hosted
               ? {
                   // The live benchmark uses OLC's custom OpenAI-compatible
@@ -1098,6 +1109,7 @@ const runAgentScenarioAttempt = (
           origin,
           model,
           hosted: useHostedWire,
+          reasoningEffort: hostedReasoningEffort,
           approveEach: scenario.allowRoutineActions !== true
         }
       )
