@@ -26,6 +26,8 @@ const LAYA_ROLLBACK_CONTAINER = "olc-laya-rollback"
 const LAYA_IMAGE = `ollama-client/laya:${OLC_VERSION}`
 const LAYA_DEFAULT_PORT = 8086
 const SEARXNG_DEFAULT_PORT = 8080
+const SEARXNG_DEFAULT_VERSION = "2026.9.25-12f8b6515"
+const SEARXNG_VERSION_DEFAULT_MARKER = "# OLC_SEARXNG_VERSION_DEFAULT="
 const SEARXNG_PROJECT = "olc-searxng"
 const SEARXNG_OWNERSHIP_FILE = ".olc-managed.json"
 const SEARXNG_COMPOSE_SERVICES = ["core", "valkey"] as const
@@ -222,7 +224,7 @@ async function layaAction(
   servicesRoot: string
 ): Promise<void> {
   await requireDocker()
-  await recoverLayaReplacement()
+  await recoverLayaReplacement(action === "start")
   const state = await containerState(LAYA_CONTAINER)
   const labels =
     state === undefined ? undefined : await containerLabels(LAYA_CONTAINER)
@@ -276,7 +278,7 @@ function assertLayaOwnership(
     )
 }
 
-async function recoverLayaReplacement(): Promise<void> {
+async function recoverLayaReplacement(shouldRun: boolean): Promise<void> {
   const rollbackState = await containerState(LAYA_ROLLBACK_CONTAINER)
   if (rollbackState === undefined) return
   const rollbackLabels = await containerLabels(LAYA_ROLLBACK_CONTAINER)
@@ -285,7 +287,8 @@ async function recoverLayaReplacement(): Promise<void> {
   const currentState = await containerState(LAYA_CONTAINER)
   if (currentState === undefined) {
     await docker(["rename", LAYA_ROLLBACK_CONTAINER, LAYA_CONTAINER])
-    if (rollbackState !== "running") await docker(["start", LAYA_CONTAINER])
+    if (shouldRun && rollbackState !== "running")
+      await docker(["start", LAYA_CONTAINER])
     return
   }
 
@@ -301,7 +304,7 @@ async function recoverLayaReplacement(): Promise<void> {
     return
   }
 
-  await restoreLayaContainer()
+  await restoreLayaContainer(shouldRun)
 }
 
 async function restoreLayaContainer(shouldRun = true): Promise<void> {
@@ -524,7 +527,30 @@ async function updateEnvFile(
     if (index < 0) lines.push(`${key}=${value}`)
     else lines[index] = `${key}=${value}`
   }
-  if (!/^SEARXNG_VERSION=/m.test(current)) set("SEARXNG_VERSION", "latest")
+  const existingVersion = current.match(/^SEARXNG_VERSION=([^\r\n]*)/m)?.[1]
+  const managedVersion = current.match(
+    /^# OLC_SEARXNG_VERSION_DEFAULT=([^\r\n]*)/m
+  )?.[1]
+  const setManagedVersion = (value: string) => {
+    set("SEARXNG_VERSION", value)
+    const marker = `${SEARXNG_VERSION_DEFAULT_MARKER}${value}`
+    const index = lines.findIndex((line) =>
+      line.startsWith(SEARXNG_VERSION_DEFAULT_MARKER)
+    )
+    if (index < 0) lines.push(marker)
+    else lines[index] = marker
+  }
+  // Only update defaults olc recorded; legacy and user-selected values remain untouched.
+  if (existingVersion === undefined || existingVersion.length === 0)
+    setManagedVersion(SEARXNG_DEFAULT_VERSION)
+  else if (managedVersion !== undefined && existingVersion === managedVersion)
+    setManagedVersion(SEARXNG_DEFAULT_VERSION)
+  else if (managedVersion !== undefined) {
+    const markerIndex = lines.findIndex((line) =>
+      line.startsWith(SEARXNG_VERSION_DEFAULT_MARKER)
+    )
+    if (markerIndex >= 0) lines.splice(markerIndex, 1)
+  }
   if (requestedPort !== undefined || !/^SEARXNG_HOST_PORT=/m.test(current))
     set("SEARXNG_HOST_PORT", String(port))
   set("OLC_VERSION", OLC_VERSION)
@@ -567,7 +593,8 @@ async function ensureSearxngOwnership(
   dataDir: string,
   assetsRoot: string,
   allowCreate: boolean,
-  allowIncompleteCleanup = false
+  allowIncompleteCleanup = false,
+  allowComposeRefresh = false
 ): Promise<boolean> {
   if (allowCreate) await mkdir(dataDir, { recursive: true, mode: 0o700 })
   const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
@@ -584,7 +611,11 @@ async function ensureSearxngOwnership(
       marker !== `${JSON.stringify({ schemaVersion: 1, service: "searxng" })}\n`
     )
       throw unownedSearxngDirectory()
-    if (compose !== undefined && compose !== bundledCompose)
+    if (
+      compose !== undefined &&
+      compose !== bundledCompose &&
+      !allowComposeRefresh
+    )
       throw unownedSearxngDirectory()
     if (compose === undefined && !allowCreate) return allowIncompleteCleanup
     return true
@@ -617,12 +648,17 @@ async function ensureSearxngFiles(
   assetsRoot: string,
   requestedPort?: number
 ): Promise<number> {
-  await ensureSearxngOwnership(dataDir, assetsRoot, true)
+  await ensureSearxngOwnership(dataDir, assetsRoot, true, false, true)
   const coreConfig = path.join(dataDir, "core-config")
   await mkdir(coreConfig, { recursive: true, mode: 0o700 })
   const composePath = path.join(dataDir, "docker-compose.yml")
-  await readOrCreate(composePath, () =>
-    readFile(path.join(assetsRoot, "searxng", "docker-compose.yml"), "utf8")
+  await writeFile(
+    composePath,
+    await readFile(
+      path.join(assetsRoot, "searxng", "docker-compose.yml"),
+      "utf8"
+    ),
+    { mode: 0o600 }
   )
   const envPath = path.join(dataDir, ".env")
   const port = await updateEnvFile(envPath, requestedPort)
@@ -706,6 +742,15 @@ async function removeOwnedSearxngFiles(dataDir: string): Promise<void> {
   await removeEmptyDirectory(dataDir)
 }
 
+/** A marker-only directory may contain files olc never created. */
+async function removeIncompleteSearxngSetup(dataDir: string): Promise<void> {
+  await removeFiles(path.join(dataDir, SEARXNG_OWNERSHIP_FILE), {
+    force: true
+  })
+  await removeEmptyDirectory(path.join(dataDir, "core-config"))
+  await removeEmptyDirectory(dataDir)
+}
+
 async function removeEmptyDirectory(directory: string): Promise<void> {
   try {
     await rmdir(directory)
@@ -773,7 +818,8 @@ async function searxngAction(
     dataDir,
     servicesRoot,
     action === "start",
-    allowIncompleteCleanup
+    allowIncompleteCleanup,
+    action === "start"
   )
   if (!owned) {
     console.log("SearXNG is not running. Start it with `olc -b searxng`.")
@@ -783,8 +829,10 @@ async function searxngAction(
     path.join(dataDir, "docker-compose.yml")
   )
   if (allowIncompleteCleanup && composeFile === undefined) {
-    await removeOwnedSearxngFiles(dataDir)
-    console.log("Removed the incomplete SearXNG setup and its local config.")
+    await removeIncompleteSearxngSetup(dataDir)
+    console.log(
+      "Removed the incomplete SearXNG ownership marker; preserved other files."
+    )
     return
   }
   await requireDocker(true)

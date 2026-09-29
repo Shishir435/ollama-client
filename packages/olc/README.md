@@ -146,6 +146,12 @@ port is already occupied, for example `olc -b searxng --port 18080`.
 Managed starts resolve the port from `--port`, `OLC_PORT`, `PORT` in the selected
 `--config` file, then the service default.
 
+Fresh SearXNG installs use the pinned image `2026.9.25-12f8b6515`. olc refreshes
+its managed Compose file on each start and updates only image defaults marked
+as olc-managed. Existing `.env` files without that marker keep their current
+`SEARXNG_VERSION`, including `latest`; edit that value explicitly to migrate a
+legacy install or choose another image.
+
 ```bash
 olc -b laya
 olc -b laya status

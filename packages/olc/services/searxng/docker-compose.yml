@@ -3,7 +3,7 @@ name: olc-searxng
 services:
   core:
     container_name: olc-searxng-core
-    image: docker.io/searxng/searxng:${SEARXNG_VERSION:-latest}
+    image: docker.io/searxng/searxng:${SEARXNG_VERSION:-2026.9.25-12f8b6515}
     restart: unless-stopped
     labels:
       io.ollama-client.olc.managed: "true"
