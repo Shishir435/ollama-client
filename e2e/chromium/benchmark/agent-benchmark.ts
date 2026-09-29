@@ -136,6 +136,7 @@ const SAFE_TRACE_KEYS = new Set([
   "requestBytes",
   "responseBytes",
   "providerErrorCode",
+  "failureCode",
   "finishReason",
   "failureClass",
   "chatToolCalls",

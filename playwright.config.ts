@@ -1,4 +1,9 @@
+import { resolve } from "node:path"
 import { defineConfig } from "@playwright/test"
+
+const benchmarkArtifactDirectory = process.env.AGENT_BENCHMARK_ARTIFACT_DIR
+const benchmarkArtifactPath = (...parts: string[]) =>
+  resolve(benchmarkArtifactDirectory ?? "artifacts/e2e", ...parts)
 
 const chromiumProject = (
   name: string,
@@ -24,7 +29,9 @@ const benchmarkExtensionBuildPath = (() => {
 
 export default defineConfig({
   testDir: "./e2e/chromium",
-  outputDir: "artifacts/e2e/test-results",
+  outputDir: benchmarkArtifactDirectory
+    ? benchmarkArtifactPath("test-results")
+    : "artifacts/e2e/test-results",
   /**
    * One worker on one runner, measured rather than assumed. Two were tried:
    * the fourteen agent scenarios in a shard split evenly across both workers
@@ -50,13 +57,16 @@ export default defineConfig({
   },
   reporter: [
     ["list"],
-    ["html", { outputFolder: "artifacts/e2e/html", open: "never" }],
+    [
+      "html",
+      { outputFolder: benchmarkArtifactPath("html-report"), open: "never" }
+    ],
     /**
      * Per-test durations, retries included, written on every run. The HTML
      * report is only uploaded when something failed, which left a slow green
      * gate with nothing to read afterwards but the job's own total.
      */
-    ["json", { outputFile: "artifacts/e2e/results.json" }]
+    ["json", { outputFile: benchmarkArtifactPath("playwright-results.json") }]
   ],
   // The extension fixture launches its own persistent context so profiles can
   // survive full browser restarts. It therefore owns trace, screenshot, and
