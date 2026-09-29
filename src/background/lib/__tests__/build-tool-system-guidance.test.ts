@@ -120,5 +120,16 @@ describe("buildBrowserContextGuidance", () => {
     expect(guidance).toContain("rather than asking whether to")
     /** Having only read the tab, gpt-6-luna answered "The dialog is open." */
     expect(guidance).toContain("unless browser_task reported doing it")
+    /**
+     * Asked to fill a field, gpt-6-luna read the tab, then screenshotted it,
+     * then delegated: two extra turns and a second approval card per task.
+     */
+    expect(guidance).toContain(
+      "without current_tab or capture_screenshot first"
+    )
+    /** After a partial run it relaunched browser_task in the same turn. */
+    expect(guidance).toContain(
+      "do not call browser_task or capture_screenshot again in that turn"
+    )
   })
 })

@@ -220,6 +220,18 @@ describe("running a browser task", () => {
     expect(result.content).toContain("Result: Pricing is under Plans.")
   })
 
+  it("tells the chat model to report an unfinished run rather than retry it", async () => {
+    const partial = serviceStub({
+      awaitSettled: vi.fn(async () => runState({ status: "partial" }))
+    })
+    const unfinished = await runner(partial).run(request, turn())
+    expect(unfinished.content).toContain("The browser task did not finish.")
+    expect(unfinished.content).toContain("do not start it again in this turn")
+
+    const done = await runner(serviceStub()).run(request, turn())
+    expect(done.content).not.toContain("did not finish")
+  })
+
   it("marks a goal written after reading a page as the model's, not the user's", async () => {
     const service = serviceStub()
     await runner(service).run(

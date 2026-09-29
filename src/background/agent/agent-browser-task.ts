@@ -321,9 +321,18 @@ export const createBrowserTaskRunner = (
   ): Promise<ToolResult> => {
     const handoff = await readHandoff(messageId).catch(() => undefined)
     const block = handoff ? renderAgentHandoffBlock(handoff) : undefined
-    const content =
+    const answer =
       block ??
       `The browser task ended with status "${state.status}"${state.result ? `: ${state.result}` : "."}`
+    /**
+     * An unfinished run is reported, not retried. Told only the status, a
+     * chat model relaunched browser_task — or took a screenshot — in the same
+     * turn, starting a second supervised run the user never asked for.
+     */
+    const content =
+      state.status === "completed"
+        ? answer
+        : `${answer}\n\nThe browser task did not finish. Tell the user what was done and what is missing; do not start it again in this turn unless the user asks.`
     return {
       content,
       provenance: "web-untrusted",

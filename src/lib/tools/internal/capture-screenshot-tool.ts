@@ -60,7 +60,7 @@ const captureVisibleTabImage = async (
 export const captureScreenshotDefinition: ToolDefinition = {
   name: "capture_screenshot",
   description:
-    "Capture a screenshot of the user's currently visible browser tab and look at it. Use when the user asks what is on screen, refers to something visual on the page (a chart, image, diagram, layout), or when reading the page text is not enough. Returns the screenshot image for you to analyze.",
+    "Capture a screenshot of the user's currently visible browser tab and look at it. Use when the user asks what is on screen, refers to something visual on the page (a chart, image, diagram, layout), or when reading the page text is not enough to answer. Not a step before or after browser_task, which looks at the page itself. Returns the screenshot image for you to analyze.",
   displayNameKey: "chat.reasoning.trace.capture_screenshot",
   category: "browser",
   iconKey: "camera",
