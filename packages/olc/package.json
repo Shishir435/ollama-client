@@ -43,6 +43,7 @@
   "files": [
     "dist",
     "bin",
+    "services",
     "config.json",
     "README.md"
   ],

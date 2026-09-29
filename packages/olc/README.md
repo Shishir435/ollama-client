@@ -1,8 +1,9 @@
 # olc
 
-One CLI for native Ollama and local agent proxies. With no arguments, `olc`
-starts or reuses **native Ollama** with browser-extension access. Ollama keeps its
-own API and default port; it does not run behind the agent proxy.
+One CLI for native Ollama, local agent proxies, and olc-managed Docker servers.
+With no arguments, `olc` starts or reuses **native Ollama** with browser-extension
+access. Ollama keeps its own API and default port; it does not run behind the
+agent proxy.
 
 | Command | Behavior | Default bind |
 | --- | --- | --- |
@@ -11,6 +12,9 @@ own API and default port; it does not run behind the agent proxy.
 | `olc -b codex` | Start the Codex proxy | `127.0.0.1:8083` |
 | `olc -b opencode` | Start the OpenCode proxy | `127.0.0.1:8084` |
 | `olc -b fm` (or `-b apple`) | Serve Apple Foundation Models (macOS 27) | `127.0.0.1:8085` |
+| `olc -b laya` | Build/start the Laya decision API in Docker | `127.0.0.1:8086` |
+| `olc -b searxng` | Start SearXNG and Valkey in Docker | `127.0.0.1:8080` |
+| `olc list` | List running Docker services managed by olc | — |
 
 `-b` and `--backend` are aliases. `--backend=codex` also works.
 
@@ -129,6 +133,58 @@ Requires Node ≥ 22.12 and an existing [Ollama installation](https://ollama.com
 `PATH` (or `--opencode`). The Codex backend needs the `codex` binary on `PATH`
 (or `--codex`) and an existing `codex login`; olc never reads, stores, or proxies
 the user's OpenAI credentials.
+
+Docker backends are optional and require Docker Engine or Docker Desktop; the
+SearXNG backend also requires the Docker Compose v2 plugin. `olc -b laya`
+builds olc's CPU HTTP server image around the official Laya inference package
+from the bundled Dockerfile on first use. Laya downloads
+its model into a Docker volume on first inference. `olc -b searxng` writes a
+private local config under olc's data directory (normally `~/.olc/services/searxng`), then starts SearXNG and
+Valkey without a repository clone or manual Compose setup. Both services bind
+to loopback by default; use `--port <port>` on the start command if a default
+port is already occupied, for example `olc -b searxng --port 18080`.
+Managed starts resolve the port from `--port`, `OLC_PORT`, `PORT` in the selected
+`--config` file, then the service default.
+
+Fresh SearXNG installs use the pinned image `2026.9.25-12f8b6515`. olc refreshes
+its managed Compose file on each start and updates only image defaults marked
+as olc-managed. Existing `.env` files without that marker keep their current
+`SEARXNG_VERSION`, including `latest`; edit that value explicitly to migrate a
+legacy install or choose another image.
+
+```bash
+olc -b laya
+olc -b laya status
+olc -b searxng
+olc -b searxng status
+olc list
+olc -b laya stop
+olc -b laya rm                 # remove container, keep model cache
+olc -b laya rm --purge-data    # also delete model cache
+olc -b searxng stop            # pause containers; preserve config and volumes
+olc -b searxng rm              # remove containers; keep config and volumes
+olc -b searxng rm --purge-data # delete SearXNG data and managed config
+```
+
+Laya serves typed decisions at `http://127.0.0.1:8086/v1/systemone`; SearXNG
+serves JSON search at `http://127.0.0.1:8080`. `olc list --json` returns the
+running Docker services managed by olc as JSON. `stop` preserves service
+containers, config, and data. `rm` removes containers but preserves data unless
+`--purge-data` is supplied. The first Laya build and model download need network
+access; its first inference downloads the model. A healthy SearXNG endpoint does
+not guarantee every upstream search engine will return results; engines can
+rate-limit or challenge requests. `olc --version` reports the CLI release; Laya's
+`/health` response includes the bundled inference package version.
+SearXNG lifecycle commands verify olc's ownership marker before using Compose;
+purge removes only olc's local files and preserves unrelated files in that directory.
+If the SearXNG Compose file has been customized, purge removes the bundled
+SearXNG containers and data volumes but leaves the customized Compose file,
+`.env`, and `core-config/settings.yml` in place so added services are not
+orphaned. Added services and volumes are left untouched; they may still be
+running. The CLI prints the retained directory. Manage or stop added services
+with that Compose file, then inspect the retained directory before cleanup.
+Remove only the listed OLC config files if they are no longer needed; preserve
+other files and directories because they may contain user data.
 
 Nothing is published to a registry. Release bundles can be installed directly.
 
