@@ -310,6 +310,8 @@ export const createAgentController = (
   const progressText = new Map<string, string>()
   /** Requirements a run was already asked about once after reporting them unmet. */
   const challengedUnmet = new Map<string, Set<string>>()
+  /** The requirement the run's last bound step advanced, for a dialog it opened. */
+  const lastBoundRequirement = new Map<string, string>()
   /**
    * The page as it read when this run's last change was decided.
    *
@@ -1436,6 +1438,32 @@ export const createAgentController = (
     }
   }
 
+  const rememberBoundRequirement = (
+    runId: string,
+    requirementId: string | undefined
+  ): void => {
+    if (requirementId) lastBoundRequirement.set(runId, requirementId)
+  }
+
+  /**
+   * Answering a dialog is the second half of the step that opened it: the
+   * Delete click and the "OK" on its confirm advance one requirement. Asking
+   * the model to restate it refused a correct accept on a live run and spent
+   * a whole decision getting it back.
+   */
+  const withOpenerRequirement = (
+    runId: string,
+    decision: Extract<AgentDecision, { type: "command" }>
+  ): Extract<AgentDecision, { type: "command" }> => {
+    if (
+      decision.command.type !== "handle_dialog" ||
+      decision.requirementId !== undefined
+    )
+      return decision
+    const opener = lastBoundRequirement.get(runId)
+    return opener ? { ...decision, requirementId: opener } : decision
+  }
+
   const processCommand = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
@@ -1443,10 +1471,10 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext
   ): Promise<AgentRunState | undefined> => {
-    decision = {
+    decision = withOpenerRequirement(state.id, {
       ...decision,
       command: agentCommandKeepingUserTab(decision.command, state, observation)
-    }
+    })
     const resolution = await resolveEffect(
       state,
       decision,
@@ -1485,6 +1513,7 @@ export const createAgentController = (
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
     const stepId = `${state.id}:${stepNumber}`
+    rememberBoundRequirement(state.id, decision.requirementId)
     await appendStep({
       runId: state.id,
       stepId,

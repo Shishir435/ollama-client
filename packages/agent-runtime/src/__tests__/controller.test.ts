@@ -2955,3 +2955,57 @@ describe("a requirement reported unmet with steps left", () => {
     })
   })
 })
+
+describe("answering a dialog the run's own step opened", () => {
+  it("advances the requirement the opening step named", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "The item is deleted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d1",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({ snapshotId: "snapshot-2", generation: 2 })
+      ],
+      verification: [confirmed, confirmed],
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    expect(harness.steps).not.toContain("rejected")
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "planned")
+    ).toHaveLength(2)
+    expect(
+      harness.writtenSteps.find(
+        (step) =>
+          step.status === "planned" && step.command?.type === "handle_dialog"
+      )?.requirementId
+    ).toBe("r1")
+  })
+})
