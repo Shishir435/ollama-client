@@ -238,10 +238,11 @@ jobs:
       - name: Package portable archives
         if: runner.os == 'Linux'
         run: |
-          mkdir -p release/olc/bin release/olc/dist
+          mkdir -p release/olc/bin release/olc/dist release/olc/services
           cp packages/olc/bin/olc packages/olc/bin/olc.cmd release/olc/bin/
           cp packages/olc/dist/olc.mjs release/olc/dist/
           cp -R packages/olc/dist/backends release/olc/dist/
+          cp -R packages/olc/services/. release/olc/services/
           cp packages/olc/README.md release/olc/
           chmod +x release/olc/bin/olc release/olc/dist/olc.mjs
           tar -C release -czf olc.tar.gz olc

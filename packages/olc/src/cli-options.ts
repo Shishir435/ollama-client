@@ -26,10 +26,15 @@ const macOnlyUsage = (platform: NodeJS.Platform) =>
 
 export const usageFor = (platform: NodeJS.Platform = process.platform) => {
   const mac = macOnlyUsage(platform)
-  return `olc — start native Ollama or an agent proxy
+  return `olc — start and manage local servers
 
 Usage: olc [options]
 
+  olc list                    List running Docker services managed by olc
+  olc -b laya [--port <n>]    Build/start the Laya decision server
+  olc -b laya stop|status|rm  Manage the Laya decision server
+  olc -b searxng [--port <n>] Start local SearXNG web search
+  olc -b searxng stop|status|rm Manage local SearXNG
   olc                         Native Ollama, 127.0.0.1:11434
   olc --lan                   Native Ollama, 0.0.0.0:11434
   olc -b codex                Codex proxy, 127.0.0.1:8083
@@ -38,9 +43,9 @@ ${mac.line}  olc update                  Install the latest release
   olc update 0.13.3           Install a specific release
 
 Shared options:
-  -b, --backend <name>        ollama (default), codex, ${mac.backends}
+  -b, --backend <name>        ollama (default), codex, ${mac.backends}, laya, searxng
   -H, --host <address>        Bind address (default 127.0.0.1)
-  -p, --port <number>         Ollama: 11434; Codex: 8083; OpenCode: 8084${mac.port}
+  -p, --port <number>         Ollama: 11434; Codex: 8083; OpenCode: 8084; Docker backend: custom${mac.port}
   -o, --allowed-origins <list>
                                Comma-separated browser origins
   -c, --config <path>         JSON options; CLI > environment > file > defaults
@@ -49,6 +54,10 @@ Shared options:
   -d, --debug                 Verbose diagnostics; implies --foreground
   -V, --version               Print the installed version
   -h, --help                  Show help
+
+Docker service removal:
+  olc -b <laya|searxng> rm    Remove service containers; keep downloaded data
+      --purge-data            Also remove model/search data and local config
 
 Native Ollama options:
   -l, --lan                   Use LAN access for a standalone server
@@ -166,12 +175,21 @@ const BOOLEAN_FLAGS: Record<string, [string, boolean]> = {
   "--local": ["LOCAL", true],
   "--check": ["CHECK", true],
   "--json": ["JSON", true],
+  "--purge-data": ["PURGE_DATA", true],
   "--version": ["VERSION", true]
 }
 
 /** Subcommands are the first token or nothing, so a flag can never be mistaken for one. */
-export const COMMANDS = ["update"] as const
-export type Command = "serve" | (typeof COMMANDS)[number]
+export const COMMANDS = ["update", "list"] as const
+export type Command = "serve" | (typeof COMMANDS)[number] | "laya" | "searxng"
+export type ServiceAction = "start" | "stop" | "status" | "rm"
+
+const SERVICE_ACTIONS = new Set<ServiceAction>([
+  "start",
+  "stop",
+  "status",
+  "rm"
+])
 
 /** Narrows a raw token to a command without asserting that it is one. */
 function isCommand(value: string): value is (typeof COMMANDS)[number] {
@@ -190,11 +208,15 @@ const UPDATE_FLAGS = new Set(["CHECK", "JSON", "VERSION"])
 function readCommand(argv: string[]): {
   command: Command
   target?: string
+  action?: ServiceAction
   start: number
 } {
   const first = argv[0]
+  const managedService = readManagedBackend(argv)
+  if (managedService) return managedService
   if (first === undefined || !isCommand(first))
     return { command: "serve", start: 0 }
+  if (first === "list") return { command: first, start: 1 }
   const second = argv[1]
   /** The one positional olc has: the version `update` should install. */
   return second !== undefined && !second.startsWith("-")
@@ -202,11 +224,40 @@ function readCommand(argv: string[]): {
     : { command: first, start: 1 }
 }
 
+/** Docker servers use the same backend selector as every other olc server. */
+function readManagedBackend(
+  argv: string[]
+):
+  | { command: "laya" | "searxng"; action: ServiceAction; start: number }
+  | undefined {
+  let backend: string | undefined
+  let nextIndex: number
+  const first = argv[0]
+  if (first === "-b" || first === "--backend") {
+    backend = argv[1]
+    nextIndex = 2
+  } else if (first?.startsWith("--backend=")) {
+    backend = first.slice("--backend=".length)
+    nextIndex = 1
+  } else return undefined
+
+  if (backend !== "laya" && backend !== "searxng") return undefined
+  const candidate = argv[nextIndex]
+  const action = SERVICE_ACTIONS.has(candidate as ServiceAction)
+    ? (candidate as ServiceAction)
+    : "start"
+  return {
+    command: backend,
+    action,
+    start: action === candidate ? nextIndex + 1 : nextIndex
+  }
+}
+
 /** Reject missing values and repeated options instead of guessing user intent. */
 export function parseArgs(argv: string[]) {
   const options: ProxyOptions = {}
   let help = false
-  const { command, target, start } = readCommand(argv)
+  const { command, target, action, start } = readCommand(argv)
   for (let index = start; index < argv.length; index++) {
     const token = argv[index] as string
     const equals = token.startsWith("--") ? token.indexOf("=") : -1
@@ -236,9 +287,17 @@ export function parseArgs(argv: string[]) {
   validatePort(options.PORT)
   /** Checked before CONFIG_PATH is removed, so --config cannot slip through. */
   if (command === "update") assertUpdateOptions(options)
+  assertServiceCommandOptions(command, action, options)
   const configPath = options.CONFIG_PATH as string | undefined
   delete options.CONFIG_PATH
-  return { options, help, configPath, command, target }
+  return {
+    options,
+    help,
+    configPath,
+    command,
+    target,
+    ...(action ? { action } : {})
+  }
 }
 
 /** Name the option the way the user typed it, not the way it is stored. */
@@ -261,6 +320,42 @@ function assertUpdateOptions(options: ProxyOptions): void {
     throw new Error(
       `olc update takes a version and --check/--json; ${stray} configures a server. See olc --help.`
     )
+}
+
+/** Keep server flags from being silently accepted where they have no effect. */
+function assertCommandOptions(
+  command: string,
+  options: ProxyOptions,
+  allowed: string[]
+): void {
+  const stray = Object.keys(options).find((key) => !allowed.includes(key))
+  if (stray)
+    throw new Error(
+      `${flagFor(stray)} is not supported by olc ${command}. See olc --help.`
+    )
+}
+
+/** Options are intentionally narrow for lifecycle commands. */
+function assertServiceCommandOptions(
+  command: Command,
+  action: ServiceAction | undefined,
+  options: ProxyOptions
+): void {
+  if (
+    "PURGE_DATA" in options &&
+    !((command === "laya" || command === "searxng") && action === "rm")
+  )
+    throw new Error(
+      "--purge-data is only supported by `olc -b laya rm` and `olc -b searxng rm`."
+    )
+  if (command === "list") {
+    assertCommandOptions(command, options, ["JSON"])
+    return
+  }
+  if (command !== "laya" && command !== "searxng") return
+  const allowed =
+    action === "start" ? ["PORT"] : action === "rm" ? ["PURGE_DATA"] : []
+  assertCommandOptions(`${command} ${action}`, options, allowed)
 }
 
 /** An explicit missing or invalid config is an error; never silently fall back. */

@@ -115,6 +115,50 @@ describe("parseArgs", () => {
     expect(parseArgs(["--help"]).help).toBe(true)
   })
 
+  it("parses Docker backends and their start port", () => {
+    expect(parseArgs(["list", "--json"])).toMatchObject({
+      command: "list",
+      options: { JSON: true }
+    })
+    expect(parseArgs(["-b", "laya", "--port", "8087"])).toMatchObject({
+      command: "laya",
+      action: "start",
+      options: { PORT: "8087" }
+    })
+    expect(parseArgs(["--backend=laya", "status"])).toMatchObject({
+      command: "laya",
+      action: "status"
+    })
+    expect(parseArgs(["-b", "searxng", "status"])).toMatchObject({
+      command: "searxng",
+      action: "status"
+    })
+    expect(parseArgs(["-b", "laya", "rm"])).toMatchObject({
+      command: "laya",
+      action: "rm"
+    })
+    expect(parseArgs(["-b", "searxng", "rm", "--purge-data"])).toMatchObject({
+      command: "searxng",
+      action: "rm",
+      options: { PURGE_DATA: true }
+    })
+    expect(() => parseArgs(["-b", "laya", "stop", "--purge-data"])).toThrow(
+      "--purge-data is only supported by"
+    )
+    expect(() => parseArgs(["--purge-data"])).toThrow(
+      "--purge-data is only supported by"
+    )
+    expect(() => parseArgs(["-b", "laya", "--codex", "/opt/codex"])).toThrow(
+      "--codex is not supported by olc laya start"
+    )
+    expect(() =>
+      parseArgs(["-b", "searxng", "status", "--port", "8081"])
+    ).toThrow("--port is not supported by olc searxng status")
+    expect(() => parseArgs(["list", "--port", "8081"])).toThrow(
+      "--port is not supported by olc list"
+    )
+  })
+
   it("reads an alternate config path", () => {
     expect(parseArgs(["--config", "/tmp/oc.json"]).configPath).toBe(
       "/tmp/oc.json"

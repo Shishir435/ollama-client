@@ -80,25 +80,30 @@ olc --lan          # also reachable from your trusted network
 olc -b codex       # Codex as an OpenAI-compatible provider on :8083
 olc -b opencode    # OpenCode on :8084
 olc -b fm          # Apple's on-device model on :8085 (macOS 27)
+olc -b laya        # Laya decision API on 127.0.0.1:8086
+olc -b searxng     # local web search on 127.0.0.1:8080
+olc list           # running Docker services managed by olc
 olc --help
 ```
 
 Add the Codex, OpenCode or Apple endpoints in the extension as a custom OpenAI-compatible provider at `http://127.0.0.1:<port>/v1`.
 
+<details><summary>Check the installed olc version</summary>Run <code>olc --version</code> and compare it with the release you expect.</details>
+
 ## Private web search
 
-Run your own [SearXNG](https://docs.searxng.org/) with Docker. No clone needed. This downloads the two config files into a new `searxng` folder and starts it:
+Run [SearXNG](https://docs.searxng.org/) through olc. Docker Desktop or Docker Engine with the Compose v2 plugin must be installed and running; olc creates the local config and starts SearXNG with Valkey without a repository clone or downloaded setup files:
 
 ```bash
-mkdir -p searxng/core-config && cd searxng
-raw=https://raw.githubusercontent.com/Shishir435/ollama-client/main/searxng
-curl -fsSL "$raw/docker-compose.yml" -o docker-compose.yml
-curl -fsSL "$raw/core-config/settings.yml" -o core-config/settings.yml
-touch .env          # settings overrides, e.g. SEARXNG_PORT=8081
-docker compose up -d
+olc -b searxng
+olc -b searxng status
+olc list
+olc -b searxng stop            # pause; preserve containers and data
+olc -b searxng rm              # remove containers; preserve config and data
+olc -b searxng rm --purge-data # delete config and search data too
 ```
 
-Then set `http://localhost:8080` in Settings → Knowledge & web → Web search. It listens on `127.0.0.1` only. Stop it with `docker compose down` from the same folder. Brave and Tavily need only an API key.
+Set `http://localhost:8080` in Settings → Knowledge & web → Web search. If port 8080 is occupied, start it with `olc -b searxng --port 18080` and use `http://localhost:18080`. SearXNG listens on `127.0.0.1` only. `stop` pauses its containers; `rm` removes them while preserving config and data volumes. Add `--purge-data` to `rm` to delete those too. Search results depend on upstream engines, which may rate-limit or challenge requests. Laya runs locally at `http://127.0.0.1:8086/v1/systemone` (use `olc -b laya --port <port>` if needed). To change a Laya port, remove the container with `olc -b laya rm`, then start it with the new `--port`; the model cache is preserved. Brave and Tavily need only an API key.
 
 ## Privacy
 
