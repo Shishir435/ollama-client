@@ -120,8 +120,10 @@ test("back-navigation scoring requires both verified navigation steps", async ()
   ).toBe(true)
 })
 
-test("Nanobrowser back-navigation scoring uses observed fixture navigation", async () => {
-  const outcome = (navigationHistory: string[]) =>
+test("Nanobrowser back-navigation scoring requires browser history traversal", async () => {
+  const outcome = (
+    navigationEvents: { path: string; kind: "document" | "history_traversal" }[]
+  ) =>
     ({
       page: {
         url: () => "http://127.0.0.1/",
@@ -129,15 +131,37 @@ test("Nanobrowser back-navigation scoring uses observed fixture navigation", asy
       },
       snapshot: undefined,
       executionPath: "planner_navigator",
-      navigationHistory,
+      navigationEvents,
       chatResponse: "The heading is Home."
     }) as unknown as AgentScenarioOutcome
 
-  expect(await reportsBackNavigation(outcome(["/", "/details", "/"]))).toBe(
-    true
-  )
-  expect(await reportsBackNavigation(outcome(["/", "/"]))).toBe(false)
-  expect(await reportsBackNavigation(outcome(["/", "/details"]))).toBe(false)
+  expect(
+    await reportsBackNavigation(
+      outcome([
+        { path: "/", kind: "document" },
+        { path: "/details", kind: "document" },
+        { path: "/", kind: "history_traversal" }
+      ])
+    )
+  ).toBe(true)
+  expect(
+    await reportsBackNavigation(
+      outcome([
+        { path: "/", kind: "document" },
+        { path: "/details", kind: "document" },
+        { path: "/", kind: "document" }
+      ])
+    )
+  ).toBe(false)
+  expect(
+    await reportsBackNavigation(
+      outcome([
+        { path: "/", kind: "document" },
+        { path: "/", kind: "history_traversal" },
+        { path: "/details", kind: "document" }
+      ])
+    )
+  ).toBe(false)
 })
 
 // ── 1. read-and-extract ─────────────────────────────────────────────────────

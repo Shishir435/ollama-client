@@ -363,9 +363,13 @@ export const reportsBackNavigation = async (
   const steps = outcome.snapshot?.steps
   if (!steps) {
     if (outcome.executionPath !== "planner_navigator") return false
-    const history = outcome.navigationHistory ?? []
-    const detailsIndex = history.lastIndexOf("/details")
-    const returnedHome = history.slice(detailsIndex + 1).includes("/")
+    const history = outcome.navigationEvents ?? []
+    const detailsIndex = history.findIndex(
+      (event) => event.path === "/details" && event.kind === "document"
+    )
+    const returnedHome = history
+      .slice(detailsIndex + 1)
+      .some((event) => event.path === "/" && event.kind === "history_traversal")
     if (detailsIndex < 0 || !returnedHome) return false
     return reportsFact("Home")(outcome)
   }
