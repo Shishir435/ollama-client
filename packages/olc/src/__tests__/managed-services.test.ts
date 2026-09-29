@@ -218,29 +218,55 @@ describe("managed Docker service lifecycle", () => {
     )
   })
 
-  it("restores the previous SearXNG port config and running state after a failed change", async () => {
-    let failNextUp = false
+  it("purges an owned marker left by a failed first start", async () => {
+    mockDocker(async (args) => {
+      if (args[0] === "info") throw dockerError("Docker daemon unavailable")
+      return basicDocker(args)
+    })
+
+    await expect(
+      runManagedService("searxng", "start", undefined, false, servicesRoot)
+    ).rejects.toThrow("daemon is unavailable")
+    expect(
+      await readFile(path.join(dataDir, ".olc-managed.json"), "utf8")
+    ).toBe(marker)
+    expect(await readdir(dataDir)).toEqual([".olc-managed.json"])
+
+    await runManagedService("searxng", "rm", undefined, true, servicesRoot)
+
+    expect(dockerMock).toHaveBeenCalledTimes(1)
+    await expect(readdir(dataDir)).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
+  it("restores the previous SearXNG port config and each service's running state", async () => {
+    await writeOwnedSearxng(18080)
+    const runningServices = new Set(["valkey"])
     const calls: string[][] = []
     mockDocker(async (args) => {
       calls.push(args)
       if (args[0] === "compose" && args.includes("ps"))
-        return { stdout: "core\nvalkey\n", stderr: "" }
-      if (args[0] === "compose" && args.includes("up") && failNextUp) {
-        failNextUp = false
-        throw dockerError(
-          "Bind for 127.0.0.1 failed: port is already allocated"
-        )
+        return { stdout: [...runningServices].join("\n"), stderr: "" }
+      if (args[0] === "compose" && args.includes("up")) {
+        if (!args.includes("--no-deps")) {
+          // Model a failed Compose update that starts search before port binding fails.
+          runningServices.add("core")
+          throw dockerError(
+            "Bind for 127.0.0.1 failed: port is already allocated"
+          )
+        }
+        runningServices.add(args.at(-1) as string)
+      }
+      if (args[0] === "compose" && args.includes("stop")) {
+        runningServices.delete(args.at(-1) as string)
       }
       return basicDocker(args)
     })
 
-    await runManagedService("searxng", "start", 18080, false, servicesRoot)
     const originalEnv = await readFile(path.join(dataDir, ".env"), "utf8")
     const originalSettings = await readFile(
       path.join(dataDir, "core-config", "settings.yml"),
       "utf8"
     )
-    failNextUp = true
 
     await expect(
       runManagedService("searxng", "start", 18081, false, servicesRoot)
@@ -250,10 +276,70 @@ describe("managed Docker service lifecycle", () => {
     expect(
       await readFile(path.join(dataDir, "core-config", "settings.yml"), "utf8")
     ).toBe(originalSettings)
-    const upCalls = calls.filter(
-      (args) => args[0] === "compose" && args.includes("up")
-    )
-    expect(upCalls).toHaveLength(3)
+    expect([...runningServices]).toEqual(["valkey"])
+    expect(calls).toContainEqual([
+      "compose",
+      "--project-name",
+      "olc-searxng",
+      "--file",
+      "docker-compose.yml",
+      "stop",
+      "core"
+    ])
+    expect(
+      calls.some(
+        (args) =>
+          args[0] === "compose" &&
+          args.includes("--no-deps") &&
+          args.at(-1) === "valkey"
+      )
+    ).toBe(true)
+  })
+
+  it("does not restart a previously stopped SearXNG dependency during rollback", async () => {
+    await writeOwnedSearxng(18080)
+    const runningServices = new Set(["core"])
+    const calls: string[][] = []
+    mockDocker(async (args) => {
+      calls.push(args)
+      if (args[0] === "compose" && args.includes("ps"))
+        return { stdout: [...runningServices].join("\n"), stderr: "" }
+      if (args[0] === "compose" && args.includes("up")) {
+        if (!args.includes("--no-deps")) {
+          runningServices.add("valkey")
+          throw dockerError(
+            "Bind for 127.0.0.1 failed: port is already allocated"
+          )
+        }
+        runningServices.add(args.at(-1) as string)
+      }
+      if (args[0] === "compose" && args.includes("stop"))
+        runningServices.delete(args.at(-1) as string)
+      return basicDocker(args)
+    })
+
+    await expect(
+      runManagedService("searxng", "start", 18081, false, servicesRoot)
+    ).rejects.toThrow("Port 18081 is already in use")
+
+    expect([...runningServices]).toEqual(["core"])
+    expect(
+      calls.some(
+        (args) =>
+          args[0] === "compose" &&
+          args.includes("--no-deps") &&
+          args.at(-1) === "core"
+      )
+    ).toBe(true)
+    expect(calls).toContainEqual([
+      "compose",
+      "--project-name",
+      "olc-searxng",
+      "--file",
+      "docker-compose.yml",
+      "stop",
+      "valkey"
+    ])
   })
 
   it("guards a Laya port change even while upgrading an older container", async () => {

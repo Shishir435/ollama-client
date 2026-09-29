@@ -28,6 +28,7 @@ const LAYA_DEFAULT_PORT = 8086
 const SEARXNG_DEFAULT_PORT = 8080
 const SEARXNG_PROJECT = "olc-searxng"
 const SEARXNG_OWNERSHIP_FILE = ".olc-managed.json"
+const SEARXNG_COMPOSE_SERVICES = ["core", "valkey"] as const
 const DOCKER_TIMEOUT_MS = 10 * 60 * 1000
 
 type ManagedService = "laya" | "searxng"
@@ -565,7 +566,8 @@ async function writeSearxngOwnership(dataDir: string): Promise<void> {
 async function ensureSearxngOwnership(
   dataDir: string,
   assetsRoot: string,
-  allowCreate: boolean
+  allowCreate: boolean,
+  allowIncompleteCleanup = false
 ): Promise<boolean> {
   if (allowCreate) await mkdir(dataDir, { recursive: true, mode: 0o700 })
   const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
@@ -584,7 +586,7 @@ async function ensureSearxngOwnership(
       throw unownedSearxngDirectory()
     if (compose !== undefined && compose !== bundledCompose)
       throw unownedSearxngDirectory()
-    if (compose === undefined && !allowCreate) return false
+    if (compose === undefined && !allowCreate) return allowIncompleteCleanup
     return true
   }
 
@@ -766,13 +768,23 @@ async function searxngAction(
   servicesRoot: string
 ): Promise<void> {
   const dataDir = path.join(serviceDataRoot(), "searxng")
+  const allowIncompleteCleanup = action === "rm" && purgeData
   const owned = await ensureSearxngOwnership(
     dataDir,
     servicesRoot,
-    action === "start"
+    action === "start",
+    allowIncompleteCleanup
   )
   if (!owned) {
     console.log("SearXNG is not running. Start it with `olc -b searxng`.")
+    return
+  }
+  const composeFile = await readOptionalFile(
+    path.join(dataDir, "docker-compose.yml")
+  )
+  if (allowIncompleteCleanup && composeFile === undefined) {
+    await removeOwnedSearxngFiles(dataDir)
+    console.log("Removed the incomplete SearXNG setup and its local config.")
     return
   }
   await requireDocker(true)
@@ -827,8 +839,8 @@ async function startSearxng(
     : undefined
   const url = serviceUrl("searxng", port)
   const previousServicesRunning = changingPort
-    ? await searxngIsRunning(dataDir, composeArgs)
-    : false
+    ? await searxngRunningServices(dataDir, composeArgs)
+    : new Set<SearxngComposeService>()
 
   try {
     await ensureSearxngFiles(
@@ -858,34 +870,55 @@ async function startSearxng(
   console.log(`SearXNG is ready at ${url}`)
 }
 
-async function searxngIsRunning(
+type SearxngComposeService = (typeof SEARXNG_COMPOSE_SERVICES)[number]
+
+async function searxngRunningServices(
   dataDir: string,
   composeArgs: string[]
-): Promise<boolean> {
+): Promise<Set<SearxngComposeService>> {
   const result = await docker(
     [...composeArgs, "ps", "--status", "running", "--services"],
     { cwd: dataDir }
   )
-  return result.stdout.trim().length > 0
+  return new Set(
+    result.stdout
+      .split(/\r?\n/)
+      .map((service) => service.trim())
+      .filter((service): service is SearxngComposeService =>
+        SEARXNG_COMPOSE_SERVICES.some(
+          (knownService) => knownService === service
+        )
+      )
+  )
 }
 
 async function rollbackSearxngPortChange(
   dataDir: string,
   composeArgs: string[],
   previousFiles: SavedFile[],
-  previousServicesRunning: boolean,
+  previousServicesRunning: Set<SearxngComposeService>,
   cause: unknown
 ): Promise<void> {
   try {
     await restoreSearxngConfig(previousFiles)
-    await docker(
-      [
-        ...composeArgs,
-        previousServicesRunning ? "up" : "stop",
-        ...(previousServicesRunning ? ["-d"] : [])
-      ],
-      { cwd: dataDir, timeout: DOCKER_TIMEOUT_MS }
+    const currentServicesRunning = await searxngRunningServices(
+      dataDir,
+      composeArgs
     )
+    for (const service of SEARXNG_COMPOSE_SERVICES) {
+      if (
+        currentServicesRunning.has(service) &&
+        !previousServicesRunning.has(service)
+      )
+        await docker([...composeArgs, "stop", service], { cwd: dataDir })
+    }
+    for (const service of SEARXNG_COMPOSE_SERVICES) {
+      if (previousServicesRunning.has(service))
+        await docker([...composeArgs, "up", "-d", "--no-deps", service], {
+          cwd: dataDir,
+          timeout: DOCKER_TIMEOUT_MS
+        })
+    }
   } catch (rollbackError) {
     throw new Error(
       `SearXNG port change failed: ${(cause as Error).message}. Automatic rollback could not restore the previous config and service state: ${(rollbackError as Error).message}`
