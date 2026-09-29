@@ -1538,7 +1538,7 @@ const MISSING_OUTCOMES_FEEDBACK =
  * steps to spend. Ids only: the feedback is a template, never page text.
  */
 export const prematureUnmetFeedback = (ids: readonly string[]): string =>
-  `You reported ${ids.join(", ")} as not met, and the run still has steps left. If it can still be done, do it now. If it truly cannot, answer complete again with it unmet and say in the summary what stops it.`
+  `You reported ${ids.join(", ")} as not met, and the run still has steps left. First look at the page: if what you already did achieved it, answer complete with it met and quote the page text that shows it — do not repeat the action. If it is not done and can still be done, do it now. If it truly cannot, answer complete again with it unmet and say in the summary what stops it.`
 
 /**
  * The checks a single quotation has to survive, shared by both paths.

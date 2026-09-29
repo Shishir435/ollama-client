@@ -1717,7 +1717,9 @@ export const createAgentController = (
    * without ever pressing Save had not found the save impossible; it had
    * stopped. Two runs settled that way with the goal one click away, and two
    * more reported failure on a page that showed it met. Asking once costs an
-   * honest partial one decision; the second answer is taken as given.
+   * honest partial one decision; the second answer is taken as given. The
+   * feedback sends the run to the page before any action: told only "do it
+   * now", a live run re-pressed a menu item whose result was already shown.
    */
   const challengeEarlyUnmet = (
     state: AgentRunState,
