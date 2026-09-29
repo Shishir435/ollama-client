@@ -283,6 +283,31 @@ describe("managed Docker service lifecycle", () => {
     ).rejects.toMatchObject({ code: "ENOENT" })
   })
 
+  it("finishes a purge interrupted after the Compose file was removed", async () => {
+    await writeOwnedSearxng(8080)
+    const markerPath = path.join(dataDir, ".olc-managed.json")
+    const pendingMarker = JSON.parse(await readFile(markerPath, "utf8"))
+    pendingMarker.purgePending = true
+    await writeFile(markerPath, `${JSON.stringify(pendingMarker)}\n`)
+    await rm(path.join(dataDir, "docker-compose.yml"))
+    mockDocker(async (args) => basicDocker(args))
+
+    await runManagedService("searxng", "rm", undefined, true, servicesRoot)
+
+    expect(dockerMock).not.toHaveBeenCalled()
+    await expect(
+      readFile(path.join(dataDir, ".env"), "utf8")
+    ).rejects.toMatchObject({
+      code: "ENOENT"
+    })
+    await expect(
+      readFile(path.join(dataDir, "core-config", "settings.yml"), "utf8")
+    ).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(readFile(markerPath, "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    })
+  })
+
   it("refreshes the owned Compose file and updates only olc-managed image defaults", async () => {
     const oldVersion = "2026.6.19-93f66bfb4"
     const previousCompose = bundledCompose.replace(
@@ -340,6 +365,66 @@ describe("managed Docker service lifecycle", () => {
     expect(
       await readFile(path.join(dataDir, ".olc-managed.json"), "utf8")
     ).toContain('"composeManaged":false')
+  })
+
+  it("recovers an interrupted Compose refresh without disabling future updates", async () => {
+    const previousCompose = bundledCompose.replace(
+      `SEARXNG_VERSION:-${searxngDefaultVersion}`,
+      "SEARXNG_VERSION:-latest"
+    )
+    await writeOwnedSearxng(8080, "latest", undefined, previousCompose)
+    const composePath = path.join(dataDir, "docker-compose.yml")
+    await writeFile(composePath, bundledCompose)
+    mockDocker(async (args) => basicDocker(args))
+
+    await runManagedService("searxng", "status", undefined, false, servicesRoot)
+
+    expect(
+      await readFile(path.join(dataDir, ".olc-managed.json"), "utf8")
+    ).toBe(marker)
+  })
+
+  it("finalizes a journaled Compose refresh after a crash", async () => {
+    const previousCompose = bundledCompose.replace(
+      `SEARXNG_VERSION:-${searxngDefaultVersion}`,
+      "SEARXNG_VERSION:-latest"
+    )
+    await writeOwnedSearxng(8080, "latest", undefined, previousCompose)
+    const markerPath = path.join(dataDir, ".olc-managed.json")
+    const refreshMarker = JSON.parse(await readFile(markerPath, "utf8"))
+    refreshMarker.nextComposeSha256 = createHash("sha256")
+      .update(bundledCompose)
+      .digest("hex")
+    await writeFile(markerPath, `${JSON.stringify(refreshMarker)}\n`)
+    await writeFile(path.join(dataDir, "docker-compose.yml"), bundledCompose)
+    mockDocker(async (args) => basicDocker(args))
+
+    await runManagedService("searxng", "status", undefined, false, servicesRoot)
+
+    expect(await readFile(markerPath, "utf8")).toBe(marker)
+  })
+
+  it("purges only bundled SearXNG resources from a customized Compose project", async () => {
+    await writeOwnedSearxng(8080)
+    const customizedCompose = bundledCompose.replace(
+      "\nvolumes:\n",
+      "\n  user-service:\n    image: example/user-service\n    volumes:\n      - user-data:/data\n\nvolumes:\n  user-data:\n"
+    )
+    await writeFile(path.join(dataDir, "docker-compose.yml"), customizedCompose)
+    const calls: string[][] = []
+    mockDocker(async (args) => {
+      calls.push(args)
+      return basicDocker(args)
+    })
+
+    await runManagedService("searxng", "rm", undefined, true, servicesRoot)
+
+    const downArgs = calls.find((args) => args.includes("down"))
+    expect(downArgs).toContain("--volumes")
+    expect(downArgs).toContain("--project-directory")
+    expect(downArgs).toContain(dataDir)
+    expect(downArgs).toContain(path.join(searxngAssets, "docker-compose.yml"))
+    expect(downArgs).not.toContain(path.join(dataDir, "docker-compose.yml"))
   })
 
   it("allows lifecycle commands for installations with the previous bundled Compose", async () => {

@@ -705,6 +705,8 @@ interface SearxngOwnershipMarkerV2 {
   service: "searxng"
   composeSha256: string
   composeManaged: boolean
+  purgePending?: boolean
+  nextComposeSha256?: string
 }
 
 type SearxngOwnershipMarker =
@@ -735,13 +737,22 @@ function parseSearxngOwnershipMarker(
     marker.schemaVersion === SEARXNG_OWNERSHIP_SCHEMA &&
     typeof marker.composeSha256 === "string" &&
     /^[a-f0-9]{64}$/.test(marker.composeSha256) &&
-    typeof marker.composeManaged === "boolean"
+    typeof marker.composeManaged === "boolean" &&
+    (marker.purgePending === undefined ||
+      typeof marker.purgePending === "boolean") &&
+    (marker.nextComposeSha256 === undefined ||
+      (typeof marker.nextComposeSha256 === "string" &&
+        /^[a-f0-9]{64}$/.test(marker.nextComposeSha256)))
   ) {
     return {
       schemaVersion: SEARXNG_OWNERSHIP_SCHEMA,
       service: "searxng",
       composeSha256: marker.composeSha256 as string,
-      composeManaged: marker.composeManaged as boolean
+      composeManaged: marker.composeManaged as boolean,
+      ...(marker.purgePending === true ? { purgePending: true } : {}),
+      ...(typeof marker.nextComposeSha256 === "string"
+        ? { nextComposeSha256: marker.nextComposeSha256 }
+        : {})
     }
   }
   return undefined
@@ -753,13 +764,17 @@ function composeSha256(contents: string): string {
 
 function serializeSearxngOwnership(
   compose: string,
-  composeManaged = true
+  composeManaged = true,
+  purgePending = false,
+  nextComposeSha256?: string
 ): string {
   return `${JSON.stringify({
     schemaVersion: SEARXNG_OWNERSHIP_SCHEMA,
     service: "searxng",
     composeSha256: composeSha256(compose),
-    composeManaged
+    composeManaged,
+    ...(purgePending ? { purgePending: true } : {}),
+    ...(nextComposeSha256 ? { nextComposeSha256 } : {})
   })}\n`
 }
 
@@ -767,10 +782,17 @@ async function writeSearxngOwnership(
   dataDir: string,
   compose: string,
   composeManaged = true,
-  createOnly = false
+  createOnly = false,
+  purgePending = false,
+  nextCompose?: string
 ): Promise<void> {
   const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
-  const marker = serializeSearxngOwnership(compose, composeManaged)
+  const marker = serializeSearxngOwnership(
+    compose,
+    composeManaged,
+    purgePending,
+    nextCompose === undefined ? undefined : composeSha256(nextCompose)
+  )
   try {
     await writeFile(markerPath, marker, {
       mode: 0o600,
@@ -782,6 +804,16 @@ async function writeSearxngOwnership(
   }
   const savedMarker = await readFile(markerPath, "utf8")
   if (savedMarker !== marker) throw unownedSearxngDirectory()
+}
+
+async function markSearxngPurgePending(dataDir: string): Promise<void> {
+  const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
+  const contents = await readFile(markerPath, "utf8")
+  const ownership = parseSearxngOwnershipMarker(contents)
+  if (ownership?.schemaVersion !== SEARXNG_OWNERSHIP_SCHEMA)
+    throw unownedSearxngDirectory()
+  const marker = `${JSON.stringify({ ...ownership, purgePending: true })}\n`
+  await writeFile(markerPath, marker, { mode: 0o600 })
 }
 
 function isKnownBundledSearxngCompose(
@@ -804,8 +836,9 @@ async function ensureSearxngOwnership(
   allowIncompleteCleanup = false
 ): Promise<boolean> {
   if (allowCreate) await mkdir(dataDir, { recursive: true, mode: 0o700 })
-  const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
-  const marker = await readOptionalFile(markerPath)
+  const marker = await readOptionalFile(
+    path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
+  )
   const composePath = path.join(dataDir, "docker-compose.yml")
   const compose = await readOptionalFile(composePath)
   const bundledCompose = await readFile(
@@ -813,52 +846,164 @@ async function ensureSearxngOwnership(
     "utf8"
   )
 
-  if (marker !== undefined) {
-    const ownership = parseSearxngOwnershipMarker(marker)
-    if (ownership === undefined) throw unownedSearxngDirectory()
-    if (compose === undefined && !allowCreate) return allowIncompleteCleanup
-    if (compose === undefined && allowCreate) {
-      await writeSearxngOwnership(dataDir, bundledCompose)
-      return true
-    }
-    if (ownership.schemaVersion === 1) {
-      await writeSearxngOwnership(
-        dataDir,
-        compose as string,
-        isKnownBundledSearxngCompose(compose as string, bundledCompose)
+  if (marker !== undefined)
+    return ensureMarkedSearxngOwnership(
+      dataDir,
+      marker,
+      compose,
+      bundledCompose,
+      allowCreate,
+      allowIncompleteCleanup
+    )
+  return ensureUnmarkedSearxngOwnership(
+    dataDir,
+    compose,
+    bundledCompose,
+    allowCreate
+  )
+}
+
+async function ensureMarkedSearxngOwnership(
+  dataDir: string,
+  markerContents: string,
+  compose: string | undefined,
+  bundledCompose: string,
+  allowCreate: boolean,
+  allowIncompleteCleanup: boolean
+): Promise<boolean> {
+  const ownership = parseSearxngOwnershipMarker(markerContents)
+  if (ownership === undefined) throw unownedSearxngDirectory()
+  if (isSearxngPurgePending(ownership)) {
+    if (!allowIncompleteCleanup)
+      throw new Error(
+        "A SearXNG purge is incomplete; retry `olc -b searxng rm --purge-data` to finish it."
       )
-      return true
-    }
-    if (
-      ownership.composeManaged &&
-      ownership.composeSha256 !== composeSha256(compose as string)
-    ) {
-      // The file changed since olc wrote it, so preserve it as user config.
-      await writeSearxngOwnership(dataDir, compose as string, false)
-    }
     return true
   }
-
-  if (compose !== undefined) {
-    const env = await readOptionalFile(path.join(dataDir, ".env"))
-    const settings = await readOptionalFile(
-      path.join(dataDir, "core-config", "settings.yml")
+  if (compose === undefined) {
+    if (!allowCreate) return allowIncompleteCleanup
+    await writeSearxngOwnership(dataDir, bundledCompose)
+    return true
+  }
+  if (ownership.schemaVersion === 1) {
+    await writeSearxngOwnership(
+      dataDir,
+      compose,
+      isKnownBundledSearxngCompose(compose, bundledCompose)
     )
-    const generatedByOlderOlc =
-      isKnownBundledSearxngCompose(compose, bundledCompose) &&
-      env?.includes("OLC_VERSION=") === true &&
-      settings?.includes("secret_key:") === true &&
-      !settings.includes("__SECRET_KEY__")
-    if (!generatedByOlderOlc) throw unownedSearxngDirectory()
+    return true
+  }
+  await reconcileSearxngComposeMarker(
+    dataDir,
+    ownership,
+    compose,
+    bundledCompose
+  )
+  return true
+}
+
+function isSearxngPurgePending(ownership: SearxngOwnershipMarker): boolean {
+  return (
+    ownership.schemaVersion === SEARXNG_OWNERSHIP_SCHEMA &&
+    ownership.purgePending === true
+  )
+}
+
+async function reconcileSearxngComposeMarker(
+  dataDir: string,
+  ownership: SearxngOwnershipMarkerV2,
+  compose: string,
+  bundledCompose: string
+): Promise<void> {
+  const actualComposeSha256 = composeSha256(compose)
+  if (ownership.nextComposeSha256 !== undefined) {
+    await reconcilePendingSearxngComposeRefresh(
+      dataDir,
+      ownership,
+      compose,
+      actualComposeSha256
+    )
+    return
+  }
+  if (
+    !ownership.composeManaged ||
+    ownership.composeSha256 === actualComposeSha256
+  )
+    return
+  await migrateLegacySearxngComposeRefresh(
+    dataDir,
+    ownership,
+    compose,
+    bundledCompose
+  )
+}
+
+async function reconcilePendingSearxngComposeRefresh(
+  dataDir: string,
+  ownership: SearxngOwnershipMarkerV2,
+  compose: string,
+  actualComposeSha256: string
+): Promise<void> {
+  if (actualComposeSha256 === ownership.nextComposeSha256) {
+    // The new file landed before a crash interrupted marker finalization.
+    await writeSearxngOwnership(dataDir, compose)
+  } else if (actualComposeSha256 !== ownership.composeSha256) {
+    await writeSearxngOwnership(dataDir, compose, false)
+  }
+}
+
+async function migrateLegacySearxngComposeRefresh(
+  dataDir: string,
+  ownership: SearxngOwnershipMarkerV2,
+  compose: string,
+  bundledCompose: string
+): Promise<void> {
+  // The previous release had no refresh journal. Recognize its exact
+  // latest-to-pinned transition, but preserve other edits as user config.
+  const previousDefault = bundledCompose.replace(
+    `SEARXNG_VERSION:-${SEARXNG_DEFAULT_VERSION}`,
+    "SEARXNG_VERSION:-latest"
+  )
+  const interruptedLegacyRefresh =
+    compose === bundledCompose &&
+    ownership.composeSha256 === composeSha256(previousDefault)
+  await writeSearxngOwnership(dataDir, compose, interruptedLegacyRefresh)
+}
+
+async function ensureUnmarkedSearxngOwnership(
+  dataDir: string,
+  compose: string | undefined,
+  bundledCompose: string,
+  allowCreate: boolean
+): Promise<boolean> {
+  if (compose !== undefined) {
+    if (!(await isGeneratedByOlderOlc(dataDir, compose, bundledCompose)))
+      throw unownedSearxngDirectory()
     await writeSearxngOwnership(dataDir, compose)
     return true
   }
-
   if (!allowCreate) return false
   const entries = await readdir(dataDir)
   if (entries.length > 0) throw unownedSearxngDirectory()
   await writeSearxngOwnership(dataDir, bundledCompose, true, true)
   return true
+}
+
+async function isGeneratedByOlderOlc(
+  dataDir: string,
+  compose: string,
+  bundledCompose: string
+): Promise<boolean> {
+  const env = await readOptionalFile(path.join(dataDir, ".env"))
+  const settings = await readOptionalFile(
+    path.join(dataDir, "core-config", "settings.yml")
+  )
+  return (
+    isKnownBundledSearxngCompose(compose, bundledCompose) &&
+    env?.includes("OLC_VERSION=") === true &&
+    settings?.includes("secret_key:") === true &&
+    !settings.includes("__SECRET_KEY__")
+  )
 }
 
 async function ensureSearxngFiles(
@@ -887,6 +1032,18 @@ async function ensureSearxngFiles(
       ownership.composeManaged &&
       ownership.composeSha256 === composeSha256(currentCompose))
   if (composeIsManaged) {
+    if (currentCompose !== undefined && currentCompose !== bundledCompose) {
+      // Record both sides before refreshing so a crash between the file and
+      // marker writes can be recovered without misclassifying our own edit.
+      await writeSearxngOwnership(
+        dataDir,
+        currentCompose,
+        true,
+        false,
+        false,
+        bundledCompose
+      )
+    }
     await writeFile(composePath, bundledCompose, { mode: 0o600 })
     await writeSearxngOwnership(dataDir, bundledCompose)
   }
@@ -943,28 +1100,41 @@ async function stopSearxng(
 async function removeSearxng(
   dataDir: string,
   composeArgs: string[],
-  purgeData: boolean
+  purgeData: boolean,
+  assetsRoot: string
 ): Promise<void> {
-  await docker([...composeArgs, "down", ...(purgeData ? ["--volumes"] : [])], {
-    cwd: dataDir
-  })
-  if (purgeData) {
-    await removeOwnedSearxngFiles(dataDir)
-    console.log("Removed SearXNG, its local config, and search data volumes.")
-  } else {
+  if (!purgeData) {
+    await docker([...composeArgs, "down"], { cwd: dataDir })
     console.log(
       "Removed SearXNG containers. Its config and data volumes are preserved."
     )
+    return
   }
+
+  await markSearxngPurgePending(dataDir)
+  // Purge with the bundled service definition so custom services and volumes
+  // added to the user's Compose file are never included in destructive cleanup.
+  const purgeComposeArgs = [
+    "compose",
+    "--project-name",
+    SEARXNG_PROJECT,
+    "--project-directory",
+    dataDir,
+    "--file",
+    path.join(assetsRoot, "searxng", "docker-compose.yml")
+  ]
+  await docker([...purgeComposeArgs, "down", "--volumes"], { cwd: dataDir })
+  await removeOwnedSearxngFiles(dataDir)
+  console.log("Removed SearXNG, its local config, and search data volumes.")
 }
 
 async function removeOwnedSearxngFiles(dataDir: string): Promise<void> {
   const coreConfig = path.join(dataDir, "core-config")
   const ownedFiles = [
-    path.join(dataDir, SEARXNG_OWNERSHIP_FILE),
-    path.join(dataDir, "docker-compose.yml"),
     path.join(dataDir, ".env"),
-    path.join(coreConfig, "settings.yml")
+    path.join(coreConfig, "settings.yml"),
+    path.join(dataDir, "docker-compose.yml"),
+    path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
   ]
   for (const filePath of ownedFiles)
     await removeFiles(filePath, { force: true })
@@ -1057,11 +1227,25 @@ async function searxngAction(
   const composeFile = await readOptionalFile(
     path.join(dataDir, "docker-compose.yml")
   )
+  const ownershipContents = await readOptionalFile(
+    path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
+  )
+  const ownership = ownershipContents
+    ? parseSearxngOwnershipMarker(ownershipContents)
+    : undefined
   if (allowIncompleteCleanup && composeFile === undefined) {
-    await removeIncompleteSearxngSetup(dataDir)
-    console.log(
-      "Removed the incomplete SearXNG ownership marker; preserved other files."
-    )
+    if (
+      ownership?.schemaVersion === SEARXNG_OWNERSHIP_SCHEMA &&
+      ownership.purgePending
+    ) {
+      await removeOwnedSearxngFiles(dataDir)
+      console.log("Finished the interrupted SearXNG purge.")
+    } else {
+      await removeIncompleteSearxngSetup(dataDir)
+      console.log(
+        "Removed the incomplete SearXNG ownership marker; preserved other files."
+      )
+    }
     return
   }
   await requireDocker(true)
@@ -1084,7 +1268,7 @@ async function searxngAction(
     return
   }
   if (action === "rm") {
-    await removeSearxng(dataDir, composeArgs, purgeData)
+    await removeSearxng(dataDir, composeArgs, purgeData, servicesRoot)
     return
   }
   if (action === "status") {
