@@ -90,13 +90,14 @@ test("benchmark fact scoring requires an affirmative assertion", () => {
 })
 
 test("back-navigation scoring requires both verified navigation steps", async () => {
-  const outcome = (steps: unknown[]) =>
+  const outcome = (steps: unknown[], extras: Record<string, unknown> = {}) =>
     ({
       page: {
         url: () => "http://127.0.0.1/",
         locator: () => ({ innerText: async () => "Home" })
       },
-      snapshot: { run: { result: "Home" }, steps }
+      snapshot: { run: { result: "Home" }, steps },
+      ...extras
     }) as unknown as AgentScenarioOutcome
 
   expect(await reportsBackNavigation(outcome([]))).toBe(false)
@@ -117,6 +118,26 @@ test("back-navigation scoring requires both verified navigation steps", async ()
       ])
     )
   ).toBe(true)
+})
+
+test("Nanobrowser back-navigation scoring uses observed fixture navigation", async () => {
+  const outcome = (navigationHistory: string[]) =>
+    ({
+      page: {
+        url: () => "http://127.0.0.1/",
+        locator: () => ({ innerText: async () => "Home" })
+      },
+      snapshot: undefined,
+      executionPath: "planner_navigator",
+      navigationHistory,
+      chatResponse: "The heading is Home."
+    }) as unknown as AgentScenarioOutcome
+
+  expect(await reportsBackNavigation(outcome(["/", "/details", "/"]))).toBe(
+    true
+  )
+  expect(await reportsBackNavigation(outcome(["/", "/"]))).toBe(false)
+  expect(await reportsBackNavigation(outcome(["/", "/details"]))).toBe(false)
 })
 
 // ── 1. read-and-extract ─────────────────────────────────────────────────────

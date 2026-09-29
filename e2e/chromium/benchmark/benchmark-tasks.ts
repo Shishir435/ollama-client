@@ -357,7 +357,19 @@ export const answerCarriesFact = (
 export const reportsBackNavigation = async (
   outcome: AgentScenarioOutcome
 ): Promise<boolean> => {
-  const steps = outcome.snapshot?.steps ?? []
+  const pageIsHome = new URL(outcome.page.url()).pathname === "/"
+  if (!pageIsHome) return false
+
+  const steps = outcome.snapshot?.steps
+  if (!steps) {
+    if (outcome.executionPath !== "planner_navigator") return false
+    const history = outcome.navigationHistory ?? []
+    const detailsIndex = history.lastIndexOf("/details")
+    const returnedHome = history.slice(detailsIndex + 1).includes("/")
+    if (detailsIndex < 0 || !returnedHome) return false
+    return reportsFact("Home")(outcome)
+  }
+
   const confirmed = (step: (typeof steps)[number]) =>
     step.status === "verified" && step.verification?.outcome === "confirmed"
   const detailsIndex = steps.findIndex(
@@ -370,7 +382,7 @@ export const reportsBackNavigation = async (
   const returned = steps
     .slice(detailsIndex + 1)
     .some((step) => step.command?.type === "back" && confirmed(step))
-  if (!returned || new URL(outcome.page.url()).pathname !== "/") return false
+  if (!returned) return false
   return reportsFact("Home")(outcome)
 }
 

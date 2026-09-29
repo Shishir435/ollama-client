@@ -310,8 +310,11 @@ export const createAgentController = (
   const progressText = new Map<string, string>()
   /** Requirements a run was already asked about once after reporting them unmet. */
   const challengedUnmet = new Map<string, Set<string>>()
-  /** The requirement the run's last bound step advanced, for a dialog it opened. */
-  const lastBoundRequirement = new Map<string, string>()
+  /** The requirement a verified opener advanced, bound to the dialog it opened. */
+  const lastBoundRequirement = new Map<
+    string,
+    { requirementId: string; dialogId: string }
+  >()
   const clearBoundRequirement = (runId: string): void => {
     lastBoundRequirement.delete(runId)
   }
@@ -1390,7 +1393,7 @@ export const createAgentController = (
       // the dialog. A planned, approved, or merely attempted click is not its
       // opener and must not authorize a later dialog answer.
       if (receipt.dialogOpened && isAppliedAgentStepStatus(action.stepStatus)) {
-        rememberBoundRequirement(state.id, requirementId)
+        rememberBoundRequirement(state.id, requirementId, receipt.dialogOpened)
       }
       if (action.type === "redecide") return verifying
       /**
@@ -1453,9 +1456,12 @@ export const createAgentController = (
 
   const rememberBoundRequirement = (
     runId: string,
-    requirementId: string | undefined
+    requirementId: string | undefined,
+    dialogId: string | undefined
   ): void => {
-    if (requirementId) lastBoundRequirement.set(runId, requirementId)
+    if (requirementId && dialogId) {
+      lastBoundRequirement.set(runId, { requirementId, dialogId })
+    }
   }
 
   /**
@@ -1486,7 +1492,10 @@ export const createAgentController = (
         .length !== 1
     )
       return decision
-    return opener ? { ...decision, requirementId: opener } : decision
+    if (!opener || decision.command.dialogId !== opener.dialogId) {
+      return decision
+    }
+    return { ...decision, requirementId: opener.requirementId }
   }
 
   const processCommand = async (

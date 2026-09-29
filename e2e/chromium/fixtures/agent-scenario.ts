@@ -140,6 +140,8 @@ export interface AgentScenarioOutcome {
   terminalStatus?: string
   /** Product path used to handle this benchmark task, including a declined run start. */
   executionPath?: string
+  /** Main-frame path transitions observed while a product runs the fixture. */
+  navigationHistory?: readonly string[]
 }
 
 export interface AgentScenario {

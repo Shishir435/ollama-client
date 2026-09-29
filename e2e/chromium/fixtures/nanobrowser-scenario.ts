@@ -262,6 +262,15 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
 
         const page = await extension.context.newPage()
         fixturePage = page
+        const navigationHistory: string[] = []
+        page.on("framenavigated", (frame) => {
+          if (frame !== page.mainFrame()) return
+          try {
+            navigationHistory.push(new URL(frame.url()).pathname)
+          } catch {
+            /* Ignore non-URL browser pages; fixture routes are recorded below. */
+          }
+        })
         await page.goto(origin)
         await page.bringToFront()
         const composer = panel.getByPlaceholder("What can I help you with?")
@@ -386,7 +395,8 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
           chatModelCalls: modelCalls,
           directChatResponse: false,
           terminalStatus: taskStatus,
-          executionPath: "planner_navigator"
+          executionPath: "planner_navigator",
+          navigationHistory
         }
         await scenario.verify(outcome)
         await testInfo.attach("nanobrowser-benchmark-summary", {

@@ -3067,6 +3067,64 @@ describe("answering a dialog the run's own step opened", () => {
     expect(dialogStep?.requirementId).toBeUndefined()
   })
 
+  it("binds the opener requirement only to the dialog it opened", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "The item is deleted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d2",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          dialogs: [
+            {
+              id: "d2",
+              type: "confirm",
+              origin: "https://example.com",
+              message: "Different dialog"
+            }
+          ]
+        })
+      ],
+      verification: [confirmed],
+      execute: async () => ({ executedAt: 10, dialogOpened: "d1" }),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    const dialogStep = harness.writtenSteps.find(
+      (step) => step.command?.type === "handle_dialog"
+    )
+    expect(dialogStep?.requirementId).toBeUndefined()
+  })
+
   it("clears an opener binding when the user steers the run", async () => {
     let steer: ((runId: string, text: string) => Promise<boolean>) | undefined
     let verifications = 0
