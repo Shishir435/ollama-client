@@ -307,6 +307,13 @@ export const createAgentControlSessionRegistry = (input?: {
         },
         signal
       )
+      /**
+       * The document has to be on the origin it was authorized under. An
+       * inheriting frame is authorized by its ancestor's origin, and one the
+       * page navigated or re-parented since then is not that document.
+       */
+      if (observation.origin !== result.origin)
+        return { ...result, access: "unauthorized_origin" }
       return { ...result, observation }
     } catch (error) {
       if (signal?.aborted) throw error

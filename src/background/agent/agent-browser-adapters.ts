@@ -667,8 +667,20 @@ export const createAgentBrowserAdapters = (input: {
         const frame = (await browser.webNavigation.getFrame({
           tabId,
           frameId
-        })) as { documentId?: string; url: string } | null
-        return frame ? { documentId: frame.documentId, url: frame.url } : null
+        })) as {
+          documentId?: string
+          url: string
+          parentFrameId?: number
+        } | null
+        return frame
+          ? {
+              documentId: frame.documentId,
+              url: frame.url,
+              ...(frame.parentFrameId === undefined
+                ? {}
+                : { parentFrameId: frame.parentFrameId })
+            }
+          : null
       },
       classifyAccess: classifyAgentTabAccess,
       async scroll(

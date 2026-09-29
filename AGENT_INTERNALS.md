@@ -145,11 +145,19 @@ Read the section your change touches; you do not need the whole file.
   that fails any of them is listed in `observation.frames` with its origin and
   the reason, never its URL, and contributes no elements; the model is told it
   exists so it can ask rather than conclude the control is missing.
-  `about:blank` frames are omitted — pages create them by the dozen. A
-  `srcdoc` frame is listed under its parent's origin as `restricted` and never
-  read, after every frame with a real origin so it never displaces one: a run
-  on a page whose only content was a srcdoc panel saw nothing at all, searched
-  three times and failed instead of saying it could not read the panel.
+  A `srcdoc` or script-written `about:blank` child — most in-page editors and
+  embedded previews — has no origin in its address and is judged as the
+  document that created it: the nearest addressed ancestor's URL for the
+  user's exclusions (`frameAccessUrl`), its origin for the allowlist. It is
+  read after every frame with an address of its own, at most three per
+  observation (pages make `about:blank` frames for ads too), and only with a
+  document id. Inside, the origin is `window.origin`: `location.origin` is
+  derived from `about:srcdoc` and reads `"null"`. A sandbox without
+  `allow-same-origin` really is opaque, reports `"null"`, and stays unread;
+  a document reporting any origin other than the one it was authorized under
+  is listed `unauthorized_origin`. No extra permission is involved:
+  `scripting.executeScript` with `frameIds` already reaches these frames under
+  `<all_urls>` — what kept them unread was this code.
 - **Frames and elements are bounded together.** Root first, then children in
   frame-id order up to `MAX_AGENT_OBSERVED_FRAMES`; frames past the cap are
   counted in `omittedFrames`, never listed, so the list itself honours the

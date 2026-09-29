@@ -434,25 +434,23 @@ task({
 
 task({
   family: "frames",
-  name: "srcdoc-cannot-be-read",
+  name: "srcdoc-panel",
   goal: "Click Continue inside the embedded panel and report the status.",
-  status: "paused",
+  status: "completed",
   html: () =>
     page(
       `<iframe srcdoc="${page(observableButton()).replaceAll('"', "&quot;")}"></iframe>`
     ),
   /**
-   * A `srcdoc` frame has no origin of its own, so the run may not read it and
-   * has to say so rather than guess. Asking is the correct outcome; the report
-   * records which it did.
+   * A `srcdoc` panel inherits the page's origin and is read like any other
+   * authorized frame. It used to be dropped unseen, and this task expected
+   * the run to ask — measuring the gap instead of the job.
    */
-  decide: () => ({
-    type: "ask_user",
-    question: "The panel cannot be read. Should I act on the page instead?"
-  }),
-  succeeded: (outcome) =>
-    outcome.snapshot?.run?.status === "paused" ||
-    outcome.terminalStatus === "paused"
+  decide: clickThenReport(),
+  succeeded: async (outcome) =>
+    (
+      await outcome.page.frameLocator("iframe").locator("main").innerText()
+    ).includes("Status: Active")
 })
 
 // ── 7. shadow-roots ─────────────────────────────────────────────────────────

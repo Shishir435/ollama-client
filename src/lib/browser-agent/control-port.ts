@@ -41,6 +41,11 @@ import {
   agentRejectionMessage,
   agentRejectionReason
 } from "./effect-rejection"
+import {
+  frameAccessUrl,
+  httpOrigin,
+  inheritsFrameOrigin
+} from "./inherited-frame-origin"
 
 export const AGENT_CONTROL_VERSION = 1 as const
 
@@ -1015,9 +1020,14 @@ export const validateAgentObservationResponse = (
     throw new Error("Agent observation response binding mismatch")
   }
   const observedUrl = new URL(response.observation.url)
+  const inherited =
+    binding.frameId !== 0 &&
+    inheritsFrameOrigin(observedUrl.href) &&
+    httpOrigin(response.observation.origin) === response.observation.origin
   if (
-    !["http:", "https:"].includes(observedUrl.protocol) ||
-    observedUrl.origin !== response.observation.origin
+    !inherited &&
+    (!["http:", "https:"].includes(observedUrl.protocol) ||
+      observedUrl.origin !== response.observation.origin)
   ) {
     throw new Error("Agent observation response has an invalid origin")
   }
@@ -1616,7 +1626,11 @@ export const openAgentControlSession = async (input: {
         : "Agent frame document is unavailable"
     )
   }
-  if ((await adapter.classifyAccess(frame.url)) !== "ok") {
+  if (
+    (await adapter.classifyAccess(
+      await frameAccessUrl(frame, (id) => adapter.getFrame(input.tabId, id))
+    )) !== "ok"
+  ) {
     throw new Error(
       frameId === 0
         ? "Agent main-frame document is not readable"
