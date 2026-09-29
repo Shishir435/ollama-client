@@ -1327,7 +1327,10 @@ run that produced it can always be repeated.
   on the renderer using debugger state, does not replay input, and verifies
   that the same dialog is held. A held dialog skips screenshot capture,
   because the renderer cannot answer it. The following dialog decision keeps its own
-  approval. Browser fixtures must register a passive Playwright dialog
+  approval. When the plan has a single change requirement, an accept
+  that names none advances the requirement of the step that opened the dialog;
+  with more than one, the model binds it, since the plan may have given the
+  confirmation its own. Browser fixtures must register a passive Playwright dialog
   listener, otherwise Playwright dismisses it before the extension can answer.
 - **An early "not met" is asked about once.** `partial` and `unmet` are the
   model's own answers and the judge takes them as given, but a run that fixed

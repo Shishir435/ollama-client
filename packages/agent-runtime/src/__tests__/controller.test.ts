@@ -3008,4 +3008,48 @@ describe("answering a dialog the run's own step opened", () => {
       )?.requirementId
     ).toBe("r1")
   })
+
+  it("leaves the binding to the model when the plan gave the dialog its own requirement", async () => {
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Delete is pressed", kind: "change" },
+          { id: "r2", text: "The confirmation is accepted", kind: "change" }
+        ]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "command",
+          command: {
+            type: "handle_dialog",
+            dialogId: "d1",
+            accept: true,
+            snapshotId: "snapshot-2",
+            generation: 2
+          }
+        }
+      ],
+      observations: [
+        observation(),
+        observation({ snapshotId: "snapshot-2", generation: 2 })
+      ],
+      verification: [confirmed, confirmed],
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: { semanticEffects: ["activation", "destructive"] }
+    })
+
+    await harness.controller.start("run-1").catch(() => undefined)
+
+    expect(harness.steps).toContain("rejected")
+  })
 })

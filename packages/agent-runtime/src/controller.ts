@@ -1450,17 +1450,25 @@ export const createAgentController = (
    * Delete click and the "OK" on its confirm advance one requirement. Asking
    * the model to restate it refused a correct accept on a live run and spent
    * a whole decision getting it back.
+   *
+   * Only when the plan has a single change requirement, so the binding is not
+   * a guess. A plan that gave the confirmation its own requirement needs the
+   * accept bound to that one: bound to the opener's instead, the confirmation
+   * was left with no receipt to vouch for it, and a live run that had done
+   * everything was refused twice and paused.
    */
   const withOpenerRequirement = (
-    runId: string,
+    state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>
   ): Extract<AgentDecision, { type: "command" }> => {
     if (
       decision.command.type !== "handle_dialog" ||
-      decision.requirementId !== undefined
+      decision.requirementId !== undefined ||
+      state.requirements?.filter((requirement) => requirement.kind === "change")
+        .length !== 1
     )
       return decision
-    const opener = lastBoundRequirement.get(runId)
+    const opener = lastBoundRequirement.get(state.id)
     return opener ? { ...decision, requirementId: opener } : decision
   }
 
@@ -1471,7 +1479,7 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext
   ): Promise<AgentRunState | undefined> => {
-    decision = withOpenerRequirement(state.id, {
+    decision = withOpenerRequirement(state, {
       ...decision,
       command: agentCommandKeepingUserTab(decision.command, state, observation)
     })
