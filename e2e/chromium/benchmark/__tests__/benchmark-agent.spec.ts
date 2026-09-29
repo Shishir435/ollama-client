@@ -635,6 +635,23 @@ task({
 
 // ── 10. dialogs-and-recovery ────────────────────────────────────────────────
 
+/**
+ * A delete that says it deleted. These pages used to answer a confirmed
+ * delete with "Status: Active" and leave the item and its Delete button in
+ * place, so a live model found no sign the item was gone, refused to call it
+ * done, and in the native case pressed Delete again and again. The scorer
+ * was measuring whether the model would trust an incoherent page.
+ */
+const deletedItem =
+  "document.getElementById('item').remove();document.querySelector('main').insertAdjacentHTML('beforeend','<p>Item deleted</p>')"
+
+const itemDeleted = async (outcome: AgentScenarioOutcome): Promise<boolean> => {
+  const rendered = await outcome.page.locator("main").innerText()
+  return (
+    rendered.includes("Item deleted") && !rendered.includes("Quarterly report")
+  )
+}
+
 task({
   family: "dialogs-and-recovery",
   name: "confirm-inside-a-modal",
@@ -642,27 +659,23 @@ task({
   status: "completed",
   html: () =>
     page(
-      `<button type="button" onclick="document.getElementById('confirm').hidden=false;this.disabled=true">Delete</button>
+      `<div id="item"><p>Quarterly report</p><button type="button" onclick="document.getElementById('confirm').hidden=false;this.disabled=true">Delete</button></div>
        <div id="confirm" role="dialog" aria-label="Confirm delete" hidden>
          <p>Delete this item?</p>
-         <button type="button" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.closest('[role=dialog]').hidden=true">Confirm</button>
+         <button type="button" onclick="${deletedItem};this.closest('[role=dialog]').hidden=true">Confirm</button>
          <button type="button">Cancel</button>
        </div>`
     ),
   decide: (observation) => {
-    if (observation.text.includes("Status: Active")) {
-      return {
-        type: "complete",
-        summary: "Deleted",
-        evidence: "Status: Active"
-      }
+    if (observation.text.includes("Item deleted")) {
+      return { type: "complete", summary: "Deleted", evidence: "Item deleted" }
     }
     const confirm = named(observation, "Confirm")
     return confirm && !confirm.hidden
       ? { type: "click", ref: confirm.ref }
       : clickNamed(observation, "Delete")
   },
-  succeeded: showsActiveStatus
+  succeeded: itemDeleted
 })
 
 task({
@@ -714,7 +727,7 @@ task({
   status: "completed",
   html: () =>
     page(
-      `<button type="button" onclick="if (confirm('Delete this item?')) document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>')">Delete</button>`
+      `<div id="item"><p>Quarterly report</p><button type="button" onclick="if (confirm('Delete this item?')) { ${deletedItem} }">Delete</button></div>`
     ),
   /**
    * A native dialog blocks the page and only an attached debugger sees one, so
@@ -723,12 +736,8 @@ task({
    * being declared wrong.
    */
   decide: (observation) => {
-    if (observation.text.includes("Status: Active")) {
-      return {
-        type: "complete",
-        summary: "Deleted",
-        evidence: "Status: Active"
-      }
+    if (observation.text.includes("Item deleted")) {
+      return { type: "complete", summary: "Deleted", evidence: "Item deleted" }
     }
     const dialog = observation.dialogs?.[0]
     if (dialog) {
@@ -736,7 +745,7 @@ task({
     }
     return clickNamed(observation, "Delete")
   },
-  succeeded: showsActiveStatus
+  succeeded: itemDeleted
 })
 
 // ── the report ──────────────────────────────────────────────────────────────
