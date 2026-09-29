@@ -145,7 +145,11 @@ Read the section your change touches; you do not need the whole file.
   that fails any of them is listed in `observation.frames` with its origin and
   the reason, never its URL, and contributes no elements; the model is told it
   exists so it can ask rather than conclude the control is missing.
-  `about:blank` and `srcdoc` frames have no origin and are omitted.
+  `about:blank` frames are omitted — pages create them by the dozen. A
+  `srcdoc` frame is listed under its parent's origin as `restricted` and never
+  read, after every frame with a real origin so it never displaces one: a run
+  on a page whose only content was a srcdoc panel saw nothing at all, searched
+  three times and failed instead of saying it could not read the panel.
 - **Frames and elements are bounded together.** Root first, then children in
   frame-id order up to `MAX_AGENT_OBSERVED_FRAMES`; frames past the cap are
   counted in `omittedFrames`, never listed, so the list itself honours the

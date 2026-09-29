@@ -117,6 +117,18 @@ describe("authorizeAgentFrame", () => {
     ).resolves.toMatchObject({ access: "restricted" })
   })
 
+  it("reports a srcdoc panel as restricted under the origin it inherits", async () => {
+    await expect(
+      authorizeAgentFrame(
+        { ...child(2, "about:srcdoc"), inheritedOrigin: "https://example.com" },
+        {
+          allowedOrigins: ["https://example.com"],
+          classifyAccess: classify("ok")
+        }
+      )
+    ).resolves.toEqual({ origin: "https://example.com", access: "restricted" })
+  })
+
   it("has nothing to say about a frame with no origin of its own", async () => {
     await expect(
       authorizeAgentFrame(child(2, "about:blank"), {
@@ -140,6 +152,27 @@ describe("selectAgentChildFrames", () => {
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
     ])
     expect(omitted).toBe(4)
+  })
+
+  it("lists a srcdoc panel under its parent's origin, after every real frame", () => {
+    const real = Array.from({ length: 11 }, (_, index) =>
+      child(index + 2, `https://example.com/${index + 2}`)
+    )
+    const root = { frameId: 0, parentFrameId: -1, url: "https://example.com/" }
+    const listed = selectAgentChildFrames([root, child(1, "about:srcdoc")])
+    expect(listed.selected).toEqual([
+      expect.objectContaining({
+        frameId: 1,
+        inheritedOrigin: "https://example.com"
+      })
+    ])
+    const crowded = selectAgentChildFrames([
+      root,
+      child(1, "about:srcdoc"),
+      ...real
+    ])
+    expect(crowded.selected.map((frame) => frame.frameId)).not.toContain(1)
+    expect(crowded.omitted).toBe(1)
   })
 
   it("never lets a frame without an origin take a place or be counted", () => {
