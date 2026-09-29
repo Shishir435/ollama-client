@@ -92,6 +92,10 @@ export const mergeAgentBenchmarkDirectory = (
   const errors: string[] = []
   if (merged.duplicates.length > 0)
     errors.push(`Recorded twice: ${merged.duplicates.join(", ")}`)
+  if (merged.reasoningEfforts.length > 1)
+    errors.push(
+      `Partials use mixed reasoning efforts: ${merged.reasoningEfforts.join(", ")}`
+    )
   if (!merged.complete)
     errors.push(
       "The pass is not complete. The record is written for inspection, but it does not stand as a measurement."

@@ -1071,6 +1071,15 @@ const runAgentScenarioAttempt = (
           })
           await chrome.storage.sync.set({
             "agent-announcement-dismissed-v1": JSON.stringify(true),
+            ...(reasoningEffort
+              ? {
+                  "provider-model-config": JSON.stringify({
+                    [`${providerId}::${model}`]: {
+                      reasoning_effort: reasoningEffort
+                    }
+                  })
+                }
+              : {}),
             ...(hosted
               ? {
                   // The live benchmark uses OLC's custom OpenAI-compatible
@@ -1078,16 +1087,7 @@ const runAgentScenarioAttempt = (
                   // advertises so the chat can delegate into browser_task.
                   "provider-model-capability-overrides": JSON.stringify({
                     [`${providerId}::${model}`]: { toolCalling: true }
-                  }),
-                  ...(reasoningEffort
-                    ? {
-                        "provider-model-config": JSON.stringify({
-                          [`${providerId}::${model}`]: {
-                            reasoning_effort: reasoningEffort
-                          }
-                        })
-                      }
-                    : {})
+                  })
                 }
               : {}),
             llm_providers_config_v1: JSON.stringify([

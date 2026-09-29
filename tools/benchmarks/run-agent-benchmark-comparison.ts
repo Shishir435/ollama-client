@@ -3,6 +3,7 @@ import {
   createWriteStream,
   existsSync,
   mkdirSync,
+  readFileSync,
   writeFileSync
 } from "node:fs"
 import { dirname, resolve } from "node:path"
@@ -546,10 +547,20 @@ const runProducts = async (context: RunContext): Promise<void> => {
       failures.push(`${product}: ${message}`)
       const productDirectory = resolve(context.runDirectory, product)
       mkdirSync(productDirectory, { recursive: true })
+      const statusPath = resolve(productDirectory, "status.json")
+      let existingStatus: Record<string, unknown> = {}
+      try {
+        const parsed = JSON.parse(readFileSync(statusPath, "utf8")) as unknown
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+          existingStatus = parsed as Record<string, unknown>
+      } catch {
+        // The product may have failed before it wrote a status record.
+      }
       writeFileSync(
-        resolve(productDirectory, "status.json"),
+        statusPath,
         `${JSON.stringify(
           {
+            ...existingStatus,
             product,
             status: "failed",
             error: message,

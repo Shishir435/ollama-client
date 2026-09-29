@@ -196,6 +196,10 @@ const main = (): void => {
       left.scenario.localeCompare(right.scenario) ||
       left.attempt - right.attempt
   )
+  if (matched.length === 0)
+    throw new Error(
+      "The reports have no matched attempts, so there is nothing to compare."
+    )
 
   const comparison = {
     comparedAt: new Date().toISOString(),
