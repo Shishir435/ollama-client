@@ -1132,7 +1132,7 @@ async function removeSearxng(
     )
     await writeSearxngOwnership(dataDir, compose, false)
     console.log(
-      "Removed SearXNG and its data volumes. Preserved the customized Compose file and config so user-added services remain manageable."
+      `Purged the bundled SearXNG services and their data volumes. User-added services and volumes were left untouched and may still be running. The customized Compose file, .env, and core-config/settings.yml (which contains the SearXNG secret) remain at ${dataDir}. After managing any added services, remove that directory to delete the retained local config.`
     )
     return
   }

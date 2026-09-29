@@ -100,10 +100,10 @@ olc -b searxng status
 olc list
 olc -b searxng stop            # pause; preserve containers and data
 olc -b searxng rm              # remove containers; preserve config and data
-olc -b searxng rm --purge-data # delete config and search data too
+olc -b searxng rm --purge-data # delete SearXNG data and managed config
 ```
 
-Set `http://localhost:8080` in Settings → Knowledge & web → Web search. If port 8080 is occupied, start it with `olc -b searxng --port 18080` and use `http://localhost:18080`. SearXNG listens on `127.0.0.1` only. `stop` pauses its containers; `rm` removes them while preserving config and data volumes. Add `--purge-data` to `rm` to delete those too. Fresh olc installs use a pinned SearXNG image; existing `.env` version selections are preserved. Search results depend on upstream engines, which may rate-limit or challenge requests. Laya runs locally at `http://127.0.0.1:8086/v1/systemone` (use `olc -b laya --port <port>` if needed). To change a Laya port, remove the container with `olc -b laya rm`, then start it with the new `--port`; the model cache is preserved. Brave and Tavily need only an API key.
+Set `http://localhost:8080` in Settings → Knowledge & web → Web search. If port 8080 is occupied, start it with `olc -b searxng --port 18080` and use `http://localhost:18080`. SearXNG listens on `127.0.0.1` only. `stop` pauses its containers; `rm` removes them while preserving config and data volumes. Add `--purge-data` to `rm` to delete those too. If the Compose file was customized, purge leaves that file, `.env`, and settings (including the SearXNG secret) in place so user-added services are not orphaned; those services and volumes are left untouched. The CLI prints the retained directory. Manage or stop added services with its Compose file, then remove the directory when the local config is no longer needed. Fresh olc installs use a pinned SearXNG image; existing `.env` version selections are preserved. Search results depend on upstream engines, which may rate-limit or challenge requests. Laya runs locally at `http://127.0.0.1:8086/v1/systemone` (use `olc -b laya --port <port>` if needed). To change a Laya port, remove the container with `olc -b laya rm`, then start it with the new `--port`; the model cache is preserved. Brave and Tavily need only an API key.
 
 ## Privacy
 

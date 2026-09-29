@@ -169,6 +169,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
   await rm(tempRoot, { recursive: true, force: true })
@@ -412,6 +413,7 @@ describe("managed Docker service lifecycle", () => {
     )
     await writeFile(path.join(dataDir, "docker-compose.yml"), customizedCompose)
     const calls: string[][] = []
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
     mockDocker(async (args) => {
       calls.push(args)
       return basicDocker(args)
@@ -439,6 +441,16 @@ describe("managed Docker service lifecycle", () => {
     )
     expect(marker).toMatchObject({ composeManaged: false })
     expect(marker).not.toHaveProperty("purgePending")
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "settings.yml (which contains the SearXNG secret) remain at"
+      )
+    )
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "remove that directory to delete the retained local config"
+      )
+    )
   })
 
   it("allows lifecycle commands for installations with the previous bundled Compose", async () => {

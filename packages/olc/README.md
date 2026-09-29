@@ -163,7 +163,7 @@ olc -b laya rm                 # remove container, keep model cache
 olc -b laya rm --purge-data    # also delete model cache
 olc -b searxng stop            # pause containers; preserve config and volumes
 olc -b searxng rm              # remove containers; keep config and volumes
-olc -b searxng rm --purge-data # also delete config and search data volumes
+olc -b searxng rm --purge-data # delete SearXNG data and managed config
 ```
 
 Laya serves typed decisions at `http://127.0.0.1:8086/v1/systemone`; SearXNG
@@ -177,6 +177,13 @@ rate-limit or challenge requests. `olc --version` reports the CLI release; Laya'
 `/health` response includes the bundled inference package version.
 SearXNG lifecycle commands verify olc's ownership marker before using Compose;
 purge removes only olc's local files and preserves unrelated files in that directory.
+If the SearXNG Compose file has been customized, purge removes the bundled
+SearXNG containers and data volumes but leaves the customized Compose file,
+`.env`, and `core-config/settings.yml` in place so added services are not
+orphaned. Added services and volumes are left untouched; they may still be
+running. The CLI prints the retained directory. Manage or stop added services
+with that Compose file, then remove the directory when its local config and
+SearXNG secret are no longer needed.
 
 Nothing is published to a registry. Release bundles can be installed directly.
 
