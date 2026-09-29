@@ -16,7 +16,7 @@ import {
   selectBackend,
   USAGE
 } from "./cli-options.js"
-import { resolveConfig } from "./config.js"
+import { resolveConfig, resolveManagedPort } from "./config.js"
 import {
   isProxyChild,
   readProxyLaunchRequest,
@@ -68,7 +68,9 @@ const main = async () => {
     return
   }
 
-  if (await runManagedCommand(parsed)) return
+  if (parsed.command === "list") {
+    if (await runManagedCommand(parsed, {})) return
+  }
 
   const defaultConfigPath = path.join(moduleDirectory, "..", "config.json")
   let fileOptions: ReturnType<typeof readConfigFile>
@@ -80,6 +82,14 @@ const main = async () => {
       parsed.configPath ?? defaultConfigPath,
       !!parsed.configPath
     )
+  } catch (error) {
+    reportError(error, 2)
+    return
+  }
+
+  if (await runManagedCommand(parsed, fileOptions)) return
+
+  try {
     backend = selectBackend(parsed.options, fileOptions)
     mode = resolveProcessMode(parsed.options, fileOptions)
     if (backend === "ollama")
@@ -123,7 +133,8 @@ const main = async () => {
 }
 
 async function runManagedCommand(
-  parsed: ReturnType<typeof parseArgs>
+  parsed: ReturnType<typeof parseArgs>,
+  fileOptions: ReturnType<typeof readConfigFile>
 ): Promise<boolean> {
   if (parsed.command === "list") {
     try {
@@ -148,7 +159,9 @@ async function runManagedCommand(
       await runManagedService(
         parsed.command,
         parsed.action,
-        parsed.options.PORT as string | undefined,
+        parsed.action === "start"
+          ? resolveManagedPort(parsed.options.PORT, fileOptions.PORT)
+          : undefined,
         parsed.options.PURGE_DATA === true,
         path.resolve(moduleDirectory, "../services")
       )

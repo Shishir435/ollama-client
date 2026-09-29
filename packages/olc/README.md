@@ -143,6 +143,8 @@ private local config under olc's data directory (normally `~/.olc/services/searx
 Valkey without a repository clone or manual Compose setup. Both services bind
 to loopback by default; use `--port <port>` on the start command if a default
 port is already occupied, for example `olc -b searxng --port 18080`.
+Managed starts resolve the port from `--port`, `OLC_PORT`, `PORT` in the selected
+`--config` file, then the service default.
 
 ```bash
 olc -b laya
@@ -167,6 +169,8 @@ access; its first inference downloads the model. A healthy SearXNG endpoint does
 not guarantee every upstream search engine will return results; engines can
 rate-limit or challenge requests. `olc --version` reports the CLI release; Laya's
 `/health` response includes the bundled inference package version.
+SearXNG lifecycle commands verify olc's ownership marker before using Compose;
+purge removes only olc's local files and preserves unrelated files in that directory.
 
 Nothing is published to a registry. Release bundles can be installed directly.
 

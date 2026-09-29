@@ -1,7 +1,14 @@
 /** Local Docker services that olc owns and can safely start or stop. */
 import { execFile } from "node:child_process"
 import { randomBytes } from "node:crypto"
-import { mkdir, readFile, rm as removeFiles, writeFile } from "node:fs/promises"
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rm as removeFiles,
+  rmdir,
+  writeFile
+} from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { promisify } from "node:util"
@@ -20,6 +27,7 @@ const LAYA_IMAGE = `ollama-client/laya:${OLC_VERSION}`
 const LAYA_DEFAULT_PORT = 8086
 const SEARXNG_DEFAULT_PORT = 8080
 const SEARXNG_PROJECT = "olc-searxng"
+const SEARXNG_OWNERSHIP_FILE = ".olc-managed.json"
 const DOCKER_TIMEOUT_MS = 10 * 60 * 1000
 
 type ManagedService = "laya" | "searxng"
@@ -226,7 +234,7 @@ async function layaAction(
       ? (configuredPort ?? LAYA_DEFAULT_PORT)
       : servicePort("laya", requestedPort)
   if (replacingVersion && state !== undefined) {
-    assertLayaPort(action, undefined, undefined, port)
+    assertLayaPort(action, state, configuredPort, port)
     await replaceLayaContainer(
       state,
       configuredPort ?? LAYA_DEFAULT_PORT,
@@ -295,7 +303,7 @@ async function recoverLayaReplacement(): Promise<void> {
   await restoreLayaContainer()
 }
 
-async function restoreLayaContainer(): Promise<void> {
+async function restoreLayaContainer(shouldRun = true): Promise<void> {
   const replacementState = await containerState(LAYA_CONTAINER)
   if (replacementState !== undefined) {
     assertLayaOwnership(await containerLabels(LAYA_CONTAINER))
@@ -303,11 +311,16 @@ async function restoreLayaContainer(): Promise<void> {
   }
   await docker(["rename", LAYA_ROLLBACK_CONTAINER, LAYA_CONTAINER])
   const restoredState = await containerState(LAYA_CONTAINER)
-  if (restoredState !== "running") await docker(["start", LAYA_CONTAINER])
+  if (shouldRun && restoredState !== "running")
+    await docker(["start", LAYA_CONTAINER])
+  else if (!shouldRun && restoredState === "running")
+    await docker(["stop", LAYA_CONTAINER])
   const labels = await containerLabels(LAYA_CONTAINER)
   assertLayaOwnership(labels)
-  const port = Number(labels?.[2]) || LAYA_DEFAULT_PORT
-  await waitForLaya(serviceUrl("laya", port))
+  if (shouldRun) {
+    const port = Number(labels?.[2]) || LAYA_DEFAULT_PORT
+    await waitForLaya(serviceUrl("laya", port))
+  }
 }
 
 async function replaceLayaContainer(
@@ -343,7 +356,7 @@ async function replaceLayaContainer(
       )
     }
     try {
-      await restoreLayaContainer()
+      await restoreLayaContainer(oldState === "running")
     } catch (restoreError) {
       throw new Error(
         `Laya update failed: ${(error as Error).message}. Automatic rollback also failed: ${(restoreError as Error).message}. The previous container is still named ${LAYA_ROLLBACK_CONTAINER}.`
@@ -518,11 +531,91 @@ async function updateEnvFile(
   return port
 }
 
+function unownedSearxngDirectory(): Error {
+  return new Error(
+    "SearXNG data directory is not recognized as olc-managed; it was left untouched."
+  )
+}
+
+async function readOptionalFile(filePath: string): Promise<string | undefined> {
+  try {
+    return await readFile(filePath, "utf8")
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
+    throw error
+  }
+}
+
+async function writeSearxngOwnership(dataDir: string): Promise<void> {
+  const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
+  const marker = JSON.stringify({ schemaVersion: 1, service: "searxng" })
+  try {
+    await writeFile(markerPath, `${marker}\n`, {
+      mode: 0o600,
+      flag: "wx"
+    })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error
+  }
+  const savedMarker = await readFile(markerPath, "utf8")
+  if (savedMarker !== `${marker}\n`) throw unownedSearxngDirectory()
+}
+
+/** Verify the project before any Compose command can inspect or remove it. */
+async function ensureSearxngOwnership(
+  dataDir: string,
+  assetsRoot: string,
+  allowCreate: boolean
+): Promise<boolean> {
+  if (allowCreate) await mkdir(dataDir, { recursive: true, mode: 0o700 })
+  const markerPath = path.join(dataDir, SEARXNG_OWNERSHIP_FILE)
+  const marker = await readOptionalFile(markerPath)
+  const composePath = path.join(dataDir, "docker-compose.yml")
+  const compose = await readOptionalFile(composePath)
+  const bundledCompose = await readFile(
+    path.join(assetsRoot, "searxng", "docker-compose.yml"),
+    "utf8"
+  )
+
+  if (marker !== undefined) {
+    if (
+      marker !== `${JSON.stringify({ schemaVersion: 1, service: "searxng" })}\n`
+    )
+      throw unownedSearxngDirectory()
+    if (compose !== undefined && compose !== bundledCompose)
+      throw unownedSearxngDirectory()
+    if (compose === undefined && !allowCreate) return false
+    return true
+  }
+
+  if (compose !== undefined) {
+    const env = await readOptionalFile(path.join(dataDir, ".env"))
+    const settings = await readOptionalFile(
+      path.join(dataDir, "core-config", "settings.yml")
+    )
+    const generatedByOlderOlc =
+      compose === bundledCompose &&
+      env?.includes("OLC_VERSION=") === true &&
+      settings?.includes("secret_key:") === true &&
+      !settings.includes("__SECRET_KEY__")
+    if (!generatedByOlderOlc) throw unownedSearxngDirectory()
+    await writeSearxngOwnership(dataDir)
+    return true
+  }
+
+  if (!allowCreate) return false
+  const entries = await readdir(dataDir)
+  if (entries.length > 0) throw unownedSearxngDirectory()
+  await writeSearxngOwnership(dataDir)
+  return true
+}
+
 async function ensureSearxngFiles(
   dataDir: string,
   assetsRoot: string,
   requestedPort?: number
 ): Promise<number> {
+  await ensureSearxngOwnership(dataDir, assetsRoot, true)
   const coreConfig = path.join(dataDir, "core-config")
   await mkdir(coreConfig, { recursive: true, mode: 0o700 })
   const composePath = path.join(dataDir, "docker-compose.yml")
@@ -556,25 +649,17 @@ async function ensureSearxngFiles(
   return port
 }
 
-/** null means olc has never written the Compose project for this service. */
-async function savedSearxngPort(
-  action: ServiceAction,
-  dataDir: string
-): Promise<number | null | undefined> {
-  if (action === "start") return undefined
-  try {
-    await readFile(path.join(dataDir, "docker-compose.yml"), "utf8")
-  } catch {
+/** Older olc-created directories used the default port and no .env file. */
+async function savedSearxngPort(dataDir: string): Promise<number | null> {
+  if (
+    (await readOptionalFile(path.join(dataDir, "docker-compose.yml"))) ===
+    undefined
+  )
     return null
-  }
-  try {
-    const env = await readFile(path.join(dataDir, ".env"), "utf8")
-    const match = env.match(/^SEARXNG_HOST_PORT=(\d+)\s*$/m)
-    return match?.[1] ? servicePort("searxng", match[1]) : undefined
-  } catch {
-    // Older olc-created directories used the default port and no .env file.
-    return undefined
-  }
+  const env = await readOptionalFile(path.join(dataDir, ".env"))
+  // Older olc-created directories used the default port and no .env file.
+  const match = env?.match(/^SEARXNG_HOST_PORT=(\d+)\s*$/m)
+  return servicePort("searxng", match?.[1] ?? SEARXNG_DEFAULT_PORT)
 }
 
 async function stopSearxng(
@@ -596,12 +681,36 @@ async function removeSearxng(
     cwd: dataDir
   })
   if (purgeData) {
-    await removeFiles(dataDir, { recursive: true, force: true })
+    await removeOwnedSearxngFiles(dataDir)
     console.log("Removed SearXNG, its local config, and search data volumes.")
   } else {
     console.log(
       "Removed SearXNG containers. Its config and data volumes are preserved."
     )
+  }
+}
+
+async function removeOwnedSearxngFiles(dataDir: string): Promise<void> {
+  const coreConfig = path.join(dataDir, "core-config")
+  const ownedFiles = [
+    path.join(dataDir, SEARXNG_OWNERSHIP_FILE),
+    path.join(dataDir, "docker-compose.yml"),
+    path.join(dataDir, ".env"),
+    path.join(coreConfig, "settings.yml")
+  ]
+  for (const filePath of ownedFiles)
+    await removeFiles(filePath, { force: true })
+  await removeEmptyDirectory(coreConfig)
+  await removeEmptyDirectory(dataDir)
+}
+
+async function removeEmptyDirectory(directory: string): Promise<void> {
+  try {
+    await rmdir(directory)
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code !== "ENOENT" && code !== "ENOTEMPTY" && code !== "EEXIST")
+      throw error
   }
 }
 
@@ -624,26 +733,56 @@ async function showSearxngStatus(
   if (!healthy) process.exitCode = 1
 }
 
+interface SavedFile {
+  path: string
+  contents: string | undefined
+}
+
+async function snapshotSearxngConfig(dataDir: string): Promise<SavedFile[]> {
+  const paths = [
+    path.join(dataDir, ".env"),
+    path.join(dataDir, "core-config", "settings.yml")
+  ]
+  return Promise.all(
+    paths.map(async (filePath) => ({
+      path: filePath,
+      contents: await readOptionalFile(filePath)
+    }))
+  )
+}
+
+async function restoreSearxngConfig(files: SavedFile[]): Promise<void> {
+  for (const file of files) {
+    if (file.contents === undefined)
+      await removeFiles(file.path, { force: true })
+    else await writeFile(file.path, file.contents, { mode: 0o600 })
+  }
+}
+
 async function searxngAction(
   action: ServiceAction,
   requestedPort: string | number | undefined,
   purgeData: boolean,
   servicesRoot: string
 ): Promise<void> {
-  await requireDocker(true)
   const dataDir = path.join(serviceDataRoot(), "searxng")
-  const savedPort = await savedSearxngPort(action, dataDir)
-  if (savedPort === null) {
+  const owned = await ensureSearxngOwnership(
+    dataDir,
+    servicesRoot,
+    action === "start"
+  )
+  if (!owned) {
     console.log("SearXNG is not running. Start it with `olc -b searxng`.")
     return
   }
-  let port = savedPort ?? servicePort("searxng", requestedPort)
-  if (action === "start")
-    port = await ensureSearxngFiles(
-      dataDir,
-      servicesRoot,
-      requestedPort === undefined ? undefined : port
-    )
+  await requireDocker(true)
+  const savedPort = await savedSearxngPort(dataDir)
+  const port = servicePort(
+    "searxng",
+    action === "start"
+      ? (requestedPort ?? savedPort ?? undefined)
+      : (savedPort ?? requestedPort ?? undefined)
+  )
   const composeArgs = [
     "compose",
     "--project-name",
@@ -664,21 +803,94 @@ async function searxngAction(
     return
   }
 
-  let result: DockerCommandResult
+  await startSearxng(
+    dataDir,
+    servicesRoot,
+    composeArgs,
+    port,
+    requestedPort,
+    savedPort ?? undefined
+  )
+}
+
+async function startSearxng(
+  dataDir: string,
+  servicesRoot: string,
+  composeArgs: string[],
+  port: number,
+  requestedPort: string | number | undefined,
+  savedPort: number | null | undefined
+): Promise<void> {
+  const changingPort = savedPort != null && port !== savedPort
+  const previousFiles = changingPort
+    ? await snapshotSearxngConfig(dataDir)
+    : undefined
+  const url = serviceUrl("searxng", port)
+  const previousServicesRunning = changingPort
+    ? await searxngIsRunning(dataDir, composeArgs)
+    : false
+
   try {
-    result = await docker([...composeArgs, "up", "-d"], {
+    await ensureSearxngFiles(
+      dataDir,
+      servicesRoot,
+      requestedPort === undefined ? undefined : port
+    )
+    const result = await docker([...composeArgs, "up", "-d"], {
       cwd: dataDir,
       timeout: DOCKER_TIMEOUT_MS
     })
+    if (!(await waitForHttp(url, "/", 90_000)))
+      throw new Error(
+        `SearXNG did not become ready at ${url}.${result.stderr.trim() ? ` ${result.stderr.trim()}` : ""}`
+      )
   } catch (error) {
+    if (changingPort && previousFiles)
+      await rollbackSearxngPortChange(
+        dataDir,
+        composeArgs,
+        previousFiles,
+        previousServicesRunning,
+        error
+      )
     throw explainPortConflict("searxng", port, error)
   }
-  const url = serviceUrl("searxng", port)
-  if (!(await waitForHttp(url, "/", 90_000)))
-    throw new Error(
-      `SearXNG did not become ready at ${url}.${result.stderr.trim() ? ` ${result.stderr.trim()}` : ""}`
-    )
   console.log(`SearXNG is ready at ${url}`)
+}
+
+async function searxngIsRunning(
+  dataDir: string,
+  composeArgs: string[]
+): Promise<boolean> {
+  const result = await docker(
+    [...composeArgs, "ps", "--status", "running", "--services"],
+    { cwd: dataDir }
+  )
+  return result.stdout.trim().length > 0
+}
+
+async function rollbackSearxngPortChange(
+  dataDir: string,
+  composeArgs: string[],
+  previousFiles: SavedFile[],
+  previousServicesRunning: boolean,
+  cause: unknown
+): Promise<void> {
+  try {
+    await restoreSearxngConfig(previousFiles)
+    await docker(
+      [
+        ...composeArgs,
+        previousServicesRunning ? "up" : "stop",
+        ...(previousServicesRunning ? ["-d"] : [])
+      ],
+      { cwd: dataDir, timeout: DOCKER_TIMEOUT_MS }
+    )
+  } catch (rollbackError) {
+    throw new Error(
+      `SearXNG port change failed: ${(cause as Error).message}. Automatic rollback could not restore the previous config and service state: ${(rollbackError as Error).message}`
+    )
+  }
 }
 
 /** Start, stop, or inspect one olc-managed Docker service. */

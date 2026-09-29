@@ -127,6 +127,20 @@ export const loopbackHost = (host: string): string =>
     ? host
     : "127.0.0.1"
 
+/** Managed Docker services share port precedence without inheriting proxy defaults. */
+export function resolveManagedPort(
+  cliPort: unknown,
+  filePort: unknown,
+  env: NodeJS.ProcessEnv = process.env
+): string | undefined {
+  for (const candidate of [cliPort, env.OLC_PORT, filePort]) {
+    if (candidate === undefined || candidate === null || candidate === "")
+      continue
+    return String(candidate)
+  }
+  return undefined
+}
+
 export const resolveConfig = (
   options: ProxyOptions = {},
   fileOptions: ProxyOptions = {}

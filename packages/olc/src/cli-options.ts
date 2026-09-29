@@ -210,6 +210,7 @@ function readCommand(argv: string[]): {
   target?: string
   action?: ServiceAction
   start: number
+  skipIndices?: Set<number>
 } {
   const first = argv[0]
   const managedService = readManagedBackend(argv)
@@ -225,40 +226,112 @@ function readCommand(argv: string[]): {
 }
 
 /** Docker servers use the same backend selector as every other olc server. */
-function readManagedBackend(
-  argv: string[]
-):
-  | { command: "laya" | "searxng"; action: ServiceAction; start: number }
+function readManagedBackend(argv: string[]):
+  | {
+      command: "laya" | "searxng"
+      action: ServiceAction
+      start: number
+      skipIndices: Set<number>
+    }
   | undefined {
-  let backend: string | undefined
-  let nextIndex: number
-  const first = argv[0]
-  if (first === "-b" || first === "--backend") {
-    backend = argv[1]
-    nextIndex = 2
-  } else if (first?.startsWith("--backend=")) {
-    backend = first.slice("--backend=".length)
-    nextIndex = 1
-  } else return undefined
+  const { selectors, valueIndices } = findBackendSelectors(argv)
+  if (selectors.length > 1)
+    throw new Error("--backend was supplied more than once")
+  const selector = selectors[0]
+  if (selector?.backend !== "laya" && selector?.backend !== "searxng")
+    return undefined
 
-  if (backend !== "laya" && backend !== "searxng") return undefined
-  const candidate = argv[nextIndex]
-  const action = SERVICE_ACTIONS.has(candidate as ServiceAction)
-    ? (candidate as ServiceAction)
-    : "start"
+  const skipIndices = new Set([selector.flag, selector.value])
+  const action = findServiceAction(argv, valueIndices, skipIndices)
   return {
-    command: backend,
+    command: selector.backend,
     action,
-    start: action === candidate ? nextIndex + 1 : nextIndex
+    start: 0,
+    skipIndices
   }
+}
+
+interface BackendSelector {
+  flag: number
+  value: number
+  backend: string
+}
+
+function findBackendSelectors(argv: string[]): {
+  selectors: BackendSelector[]
+  valueIndices: Set<number>
+} {
+  const valueIndices = new Set<number>()
+  const selectors: BackendSelector[] = []
+  for (let index = 0; index < argv.length; index++) {
+    if (valueIndices.has(index)) continue
+    const selector = backendSelectorAt(argv, index)
+    if (selector) {
+      selectors.push(selector)
+      if (selector.value !== selector.flag) valueIndices.add(selector.value)
+      continue
+    }
+    const valueIndex = optionValueIndex(argv, index)
+    if (valueIndex !== undefined) valueIndices.add(valueIndex)
+  }
+  return { selectors, valueIndices }
+}
+
+function backendSelectorAt(
+  argv: string[],
+  index: number
+): BackendSelector | undefined {
+  const token = argv[index] as string
+  const equals = token.startsWith("--") ? token.indexOf("=") : -1
+  const typedFlag = equals < 0 ? token : token.slice(0, equals)
+  const flag =
+    SHORT_FLAG_ALIASES[typedFlag as keyof typeof SHORT_FLAG_ALIASES] ??
+    typedFlag
+  if (flag !== "--backend") return undefined
+  const value = equals < 0 ? argv[index + 1] : token.slice(equals + 1)
+  if (value === undefined) return undefined
+  return {
+    flag: index,
+    value: equals < 0 ? index + 1 : index,
+    backend: value
+  }
+}
+
+function optionValueIndex(argv: string[], index: number): number | undefined {
+  const token = argv[index] as string
+  const equals = token.startsWith("--") ? token.indexOf("=") : -1
+  const typedFlag = equals < 0 ? token : token.slice(0, equals)
+  const flag =
+    SHORT_FLAG_ALIASES[typedFlag as keyof typeof SHORT_FLAG_ALIASES] ??
+    typedFlag
+  return VALUE_FLAGS[flag] && equals < 0 && argv[index + 1] !== undefined
+    ? index + 1
+    : undefined
+}
+
+function findServiceAction(
+  argv: string[],
+  valueIndices: Set<number>,
+  skipIndices: Set<number>
+): ServiceAction {
+  for (let index = 0; index < argv.length; index++) {
+    if (valueIndices.has(index) || skipIndices.has(index)) continue
+    const candidate = argv[index]
+    if (candidate && SERVICE_ACTIONS.has(candidate as ServiceAction)) {
+      skipIndices.add(index)
+      return candidate as ServiceAction
+    }
+  }
+  return "start"
 }
 
 /** Reject missing values and repeated options instead of guessing user intent. */
 export function parseArgs(argv: string[]) {
   const options: ProxyOptions = {}
   let help = false
-  const { command, target, action, start } = readCommand(argv)
+  const { command, target, action, start, skipIndices } = readCommand(argv)
   for (let index = start; index < argv.length; index++) {
+    if (skipIndices?.has(index)) continue
     const token = argv[index] as string
     const equals = token.startsWith("--") ? token.indexOf("=") : -1
     const flag = equals < 0 ? token : token.slice(0, equals)
@@ -354,7 +427,11 @@ function assertServiceCommandOptions(
   }
   if (command !== "laya" && command !== "searxng") return
   const allowed =
-    action === "start" ? ["PORT"] : action === "rm" ? ["PURGE_DATA"] : []
+    action === "start"
+      ? ["PORT", "CONFIG_PATH"]
+      : action === "rm"
+        ? ["PURGE_DATA"]
+        : []
   assertCommandOptions(`${command} ${action}`, options, allowed)
 }
 

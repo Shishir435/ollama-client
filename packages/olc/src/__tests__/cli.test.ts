@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { parseArgs } from "../cli.js"
 import { SHORT_FLAG_ALIASES } from "../cli-options.js"
+import { resolveManagedPort } from "../config.js"
 
 describe("parseArgs", () => {
   it("gives every public option a unique one-letter alias", () => {
@@ -125,6 +126,25 @@ describe("parseArgs", () => {
       action: "start",
       options: { PORT: "8087" }
     })
+    expect(parseArgs(["--port", "18080", "-b", "searxng"])).toMatchObject({
+      command: "searxng",
+      action: "start",
+      options: { PORT: "18080" }
+    })
+    expect(
+      parseArgs(["--port", "18080", "-b", "searxng", "start"])
+    ).toMatchObject({
+      command: "searxng",
+      action: "start",
+      options: { PORT: "18080" }
+    })
+    expect(parseArgs(["status", "-b", "laya"])).toMatchObject({
+      command: "laya",
+      action: "status"
+    })
+    expect(
+      parseArgs(["--config", "/tmp/olc-managed.json", "-b", "laya"])
+    ).toMatchObject({ command: "laya", configPath: "/tmp/olc-managed.json" })
     expect(parseArgs(["--backend=laya", "status"])).toMatchObject({
       command: "laya",
       action: "status"
@@ -152,6 +172,9 @@ describe("parseArgs", () => {
       "--codex is not supported by olc laya start"
     )
     expect(() =>
+      parseArgs(["-b", "laya", "status", "--config", "x.json"])
+    ).toThrow("--config is not supported by olc laya status")
+    expect(() =>
       parseArgs(["-b", "searxng", "status", "--port", "8081"])
     ).toThrow("--port is not supported by olc searxng status")
     expect(() => parseArgs(["list", "--port", "8081"])).toThrow(
@@ -165,8 +188,26 @@ describe("parseArgs", () => {
     )
   })
 
+  it("resolves managed service ports from CLI, environment, then config", () => {
+    expect(resolveManagedPort("18080", 8081, { OLC_PORT: "8082" })).toBe(
+      "18080"
+    )
+    expect(resolveManagedPort(undefined, 8081, { OLC_PORT: "8082" })).toBe(
+      "8082"
+    )
+    expect(resolveManagedPort(undefined, 8081, {})).toBe("8081")
+    expect(resolveManagedPort(undefined, undefined, {})).toBeUndefined()
+  })
+
   it("rejects an unknown flag instead of ignoring it", () => {
     expect(() => parseArgs(["--nope"])).toThrow("Unknown option: --nope")
     expect(() => parseArgs(["--port"])).toThrow("--port needs a value")
+  })
+
+  it("does not treat an option value as a Docker backend selector", () => {
+    expect(parseArgs(["--agent", "laya"])).toMatchObject({
+      command: "serve",
+      options: { OPENCODE_AGENT: "laya" }
+    })
   })
 })
