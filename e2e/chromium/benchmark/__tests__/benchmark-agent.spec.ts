@@ -175,10 +175,17 @@ task({
 
 // ── 3. form-preparation ─────────────────────────────────────────────────────
 
+/**
+ * Every form goal names its values. The scorer checks for `value-<field>`,
+ * which only the scripted decider knew: a live model given "fill in all
+ * three fields" correctly asked what to put in them and paused, and was
+ * scored as a miss for asking the question a user would have to answer.
+ */
+
 task({
   family: "form-preparation",
   name: "single-field",
-  goal: "Fill in the given field. Do not submit.",
+  goal: 'Put "value-given" in the given field. Do not submit.',
   status: "completed",
   approvalScope: "run_origin",
   html: () => fieldPage(["given"]),
@@ -189,7 +196,7 @@ task({
 task({
   family: "form-preparation",
   name: "three-fields-one-grant",
-  goal: "Fill in all three fields. Do not submit.",
+  goal: 'Fill in given, family and city with "value-given", "value-family" and "value-city". Do not submit.',
   status: "completed",
   approvalScope: "run_origin",
   html: () => fieldPage(["given", "family", "city"]),
@@ -416,7 +423,7 @@ task({
 task({
   family: "frames",
   name: "child-with-form",
-  goal: "Fill the given field inside the embedded panel. Do not submit.",
+  goal: 'Put "value-given" in the given field inside the embedded panel. Do not submit.',
   status: "completed",
   approvalScope: "run_origin",
   html: (path) =>
@@ -471,7 +478,7 @@ task({
 task({
   family: "shadow-roots",
   name: "field-in-open-root",
-  goal: "Fill the given field. Do not submit.",
+  goal: 'Put "value-given" in the given field. Do not submit.',
   status: "completed",
   approvalScope: "run_origin",
   html: () => shadowPage('<label for="given">given</label><input id="given">'),
