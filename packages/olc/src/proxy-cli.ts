@@ -1,6 +1,10 @@
 /** CLI-owned proxy startup, signal handling, and detached-child handoff. */
 import type { ProxyLaunchRequest } from "./detached-proxy.js"
 import { endpoint } from "./ollama/config.js"
+import {
+  registerManagedProcess,
+  unregisterManagedProcess
+} from "./managed-processes.js"
 import { type RunningProxy, startProxy } from "./proxy.js"
 import { isRecord } from "./util.js"
 
@@ -13,6 +17,7 @@ export async function serveProxy(
   let closing = false
   let accepted = false
   let ready = false
+  let processRecordId: string | undefined
   const shutdown = (code: number) => {
     if (closing) return
     closing = true
@@ -20,7 +25,19 @@ export async function serveProxy(
       .catch((error: unknown) =>
         console.error("[Shutdown] Cleanup failed:", error)
       )
-      .finally(() => process.exit(code))
+      .finally(async () => {
+        if (processRecordId) {
+          try {
+            await unregisterManagedProcess(processRecordId)
+          } catch (error) {
+            console.error(
+              "[olc] Could not clear the proxy process record:",
+              error
+            )
+          }
+        }
+        process.exit(code)
+      })
   }
   const disconnected = () => {
     if (!accepted) shutdown(1)
@@ -78,6 +95,15 @@ export async function serveProxy(
       config.BIND_HOST,
       typeof address === "object" && address ? address.port : config.PORT
     )
+    try {
+      processRecordId = await registerManagedProcess({
+        service: config.BACKEND,
+        url,
+        pid: process.pid
+      })
+    } catch (error) {
+      console.error("[olc] Could not track the proxy process:", error)
+    }
     ready = true
     if (child)
       process.send?.({ type: "olc:ready", url }, (error: Error | null) => {
