@@ -859,5 +859,57 @@ describe("olc list", () => {
     } finally {
       vi.useRealTimers()
     }
+  it("keeps Docker servers visible when a health probe times out", async () => {
+    mockDocker(async (args) => {
+      if (args[0] === "ps")
+        return {
+          stdout: "laya|server|8086|test-version|Up 1 minute",
+          stderr: ""
+        }
+      return basicDocker(args)
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    let notifyFetch: () => void = () => undefined
+    const fetchStarted = new Promise<void>((resolve) => {
+      notifyFetch = resolve
+    })
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (
+          _url: string,
+          options: { signal: AbortSignal }
+        ) =>
+          new Promise<Response>((_resolve, reject) => {
+            notifyFetch()
+            options.signal.addEventListener(
+              "abort",
+              () => reject(new DOMException("Request timed out", "AbortError")),
+              { once: true }
+            )
+          })
+      )
+    )
+    vi.useFakeTimers()
+    try {
+      const listing = listManagedServers(true)
+      await fetchStarted
+      await vi.advanceTimersByTimeAsync(1_000)
+      await listing
+
+      const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+      expect(output.servers).toContainEqual(
+        expect.objectContaining({
+          service: "laya",
+          url: "http://127.0.0.1:8086",
+          status: "Up 1 minute",
+          health: "unhealthy"
+        })
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  }, 15_000)
+
   }, 15_000)
 })
