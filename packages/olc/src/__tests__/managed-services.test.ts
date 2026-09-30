@@ -859,6 +859,8 @@ describe("olc list", () => {
     } finally {
       vi.useRealTimers()
     }
+  }, 15_000)
+
   it("keeps Docker servers visible when a health probe times out", async () => {
     mockDocker(async (args) => {
       if (args[0] === "ps")
@@ -899,7 +901,5 @@ describe("olc list", () => {
     } finally {
       vi.useRealTimers()
     }
-  }, 15_000)
-
   }, 15_000)
 })
