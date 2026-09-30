@@ -36,6 +36,7 @@ const SEARXNG_OWNERSHIP_FILE = ".olc-managed.json"
 const SEARXNG_OWNERSHIP_SCHEMA = 2
 const SEARXNG_COMPOSE_SERVICES = ["core", "valkey"] as const
 const DOCKER_TIMEOUT_MS = 10 * 60 * 1000
+const DOCKER_LIST_TIMEOUT_MS = 5_000
 
 type ManagedService = "laya" | "searxng"
 
@@ -86,9 +87,12 @@ async function docker(
   }
 }
 
-async function requireDocker(compose = false): Promise<void> {
+async function requireDocker(
+  compose = false,
+  timeout = 30_000
+): Promise<void> {
   try {
-    await docker(["info", "--format", "{{.ServerVersion}}"])
+    await docker(["info", "--format", "{{.ServerVersion}}"], { timeout })
   } catch (error) {
     const message = (error as Error).message
     if (message.includes("ENOENT") || message.includes("not found"))
@@ -101,7 +105,7 @@ async function requireDocker(compose = false): Promise<void> {
   }
   if (compose) {
     try {
-      await docker(["compose", "version"])
+      await docker(["compose", "version"], { timeout })
     } catch {
       throw new Error(
         "SearXNG requires Docker Compose v2. Install the Docker Compose plugin, then retry."
@@ -1428,7 +1432,7 @@ export async function runManagedService(
 }
 
 async function listDockerManagedServers(): Promise<ManagedServer[]> {
-  await requireDocker()
+  await requireDocker(false, DOCKER_LIST_TIMEOUT_MS)
   const result = await docker([
     "ps",
     "--filter",
@@ -1437,7 +1441,7 @@ async function listDockerManagedServers(): Promise<ManagedServer[]> {
     "status=running",
     "--format",
     `{{.Label "${SERVICE_LABEL}"}}|{{.Label "${COMPONENT_LABEL}"}}|{{.Label "${PORT_LABEL}"}}|{{.Label "${VERSION_LABEL}"}}|{{.Status}}`
-  ])
+  ], { timeout: DOCKER_LIST_TIMEOUT_MS })
   const grouped = new Map<
     ManagedService,
     { port: number; status: string; olcVersion: string }
@@ -1481,16 +1485,56 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected failure"
 }
 
+type TimedResult<T> =
+  | { status: "fulfilled"; value: T }
+  | { status: "rejected"; reason: unknown }
+  | { status: "timeout" }
+
+async function settleWithin<T>(
+  promise: Promise<T>,
+  timeoutMs: number
+): Promise<TimedResult<T>> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise.then(
+        (value) => ({ status: "fulfilled", value }) as const,
+        (reason: unknown) => ({ status: "rejected", reason }) as const
+      ),
+      new Promise<{ status: "timeout" }>((resolve) => {
+        timer = setTimeout(() => resolve({ status: "timeout" }), timeoutMs)
+      })
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 /** List running olc-managed Docker servers and local OLC processes. */
 export async function listManagedServers(json = false): Promise<void> {
   const servers: ManagedServer[] = []
   const warnings: string[] = []
-  const [dockerResult, processResult] = await Promise.allSettled([
+  const dockerPromise = settleWithin(
     listDockerManagedServers(),
-    listManagedProcesses()
+    DOCKER_LIST_TIMEOUT_MS
+  )
+  const processPromise = listManagedProcesses().then(
+    (value) => ({ status: "fulfilled", value }) as const,
+    (reason: unknown) => ({ status: "rejected", reason }) as const
+  )
+  const [dockerResult, processResult] = await Promise.all([
+    dockerPromise,
+    processPromise
   ])
 
-  if (dockerResult.status === "fulfilled") servers.push(...dockerResult.value)
+  if (dockerResult.status === "fulfilled")
+    servers.push(...dockerResult.value)
+  else if (dockerResult.status === "timeout")
+    warnings.push(
+      "Docker services could not be checked within " +
+        DOCKER_LIST_TIMEOUT_MS / 1000 +
+        " seconds."
+    )
   else {
     warnings.push(
       "Docker services could not be checked: " +
