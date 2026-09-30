@@ -53,7 +53,7 @@ describe("managed process registry", () => {
       url: "http://127.0.0.1:8084",
       pid: process.pid
     })
-    expect(listenersMock).toHaveBeenCalledWith(80)
+    expect(listenersMock).toHaveBeenCalledWith(8084)
     expect(await listManagedProcesses()).toEqual([
       expect.objectContaining({
         service: "opencode",
@@ -74,6 +74,7 @@ describe("managed process registry", () => {
       url: "http://127.0.0.1:80",
       pid: process.pid
     })
+    expect(listenersMock).toHaveBeenCalledWith(80)
     expect(await listManagedProcesses()).toEqual([
       expect.objectContaining({ service: "ollama", pid: process.pid })
     ])
