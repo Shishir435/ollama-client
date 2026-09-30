@@ -789,4 +789,52 @@ describe("olc list", () => {
     ])
     expect(error).not.toHaveBeenCalled()
   })
+
+  it("returns local backends when Docker discovery stalls", async () => {
+    await registerManagedProcess({
+      service: "ollama",
+      url: "http://127.0.0.1:11434",
+      pid: process.pid
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    let notifyListenerRead: () => void = () => undefined
+    const listenerRead = new Promise<void>((resolve) => {
+      notifyListenerRead = resolve
+    })
+    listenersMock.mockImplementation(async () => {
+      notifyListenerRead()
+      return [
+        {
+          pid: process.pid,
+          identity: "test-process-identity",
+          host: "127.0.0.1",
+          executable: "olc",
+          uid: 0
+        }
+      ]
+    })
+    mockDocker(async () => new Promise(() => undefined))
+    vi.useFakeTimers()
+    try {
+      const listing = listManagedServers(true)
+      await listenerRead
+      await vi.advanceTimersByTimeAsync(5_000)
+      await listing
+
+      const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+      expect(output.servers).toContainEqual(
+        expect.objectContaining({
+          service: "ollama",
+          url: "http://127.0.0.1:11434",
+          status: "running",
+          pid: process.pid
+        })
+      )
+      expect(output.warnings).toEqual([
+        expect.stringContaining("within 5 seconds")
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
