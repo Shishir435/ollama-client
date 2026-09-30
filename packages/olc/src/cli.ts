@@ -241,14 +241,15 @@ async function runNativeCli(
   nativeOptions: ReturnType<typeof resolveOllamaOptions>
 ): Promise<void> {
   try {
-    const { session, ...result } = await runOllama(nativeOptions)
+    const runResult = await runOllama(nativeOptions)
+    const { session, ...result } = runResult
     let processRecordId: string | undefined
-    if (result.ready && result.pid) {
+    if (result.ready && runResult.pid) {
       try {
         processRecordId = await registerManagedProcess({
           service: "ollama",
           url: result.url,
-          pid: result.pid
+          pid: runResult.pid
         })
       } catch (error) {
         const message =
