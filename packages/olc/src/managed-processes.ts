@@ -10,7 +10,7 @@ import {
 } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { listeners } from "./ollama/process.js"
+import { listeners, processIdentity } from "./ollama/process.js"
 import { OLC_VERSION } from "./version.js"
 
 const SCHEMA_VERSION = 2
@@ -107,6 +107,19 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
+async function managedProcessIdentity(
+  pid: number,
+  port: number
+): Promise<string | undefined> {
+  if (process.platform === "win32") {
+    const listener = (await listeners(port)).find(
+      (item) => item.pid === pid
+    )
+    return listener?.identity
+  }
+  return (await processIdentity(pid)).identity
+}
+
 /** Persist a process only after its server has passed startup readiness. */
 export async function registerManagedProcess(input: {
   service: string
@@ -116,18 +129,16 @@ export async function registerManagedProcess(input: {
   const fields = managedProcessFields(input.service, input.url, input.pid)
   if (!fields)
     throw new Error("Cannot register an invalid olc-managed process.")
-  const activeListener = (await listeners(fields.port)).find(
-    (listener) => listener.pid === fields.pid
-  )
-  if (!activeListener?.identity)
+  const identity = await managedProcessIdentity(fields.pid, fields.port)
+  if (!identity)
     throw new Error(
-      "Cannot verify the olc-managed server process because it is not listening on its registered port."
+      "Cannot verify the olc-managed server process on its registered port."
     )
   const record = parseManagedProcess({
     schemaVersion: SCHEMA_VERSION,
     ...fields,
     port: fields.port,
-    identity: activeListener.identity,
+    identity,
     olcVersion: OLC_VERSION,
     startedAt: new Date().toISOString()
   })
@@ -177,7 +188,6 @@ export async function listManagedProcesses(): Promise<ManagedProcess[]> {
   }
 
   const processes: ManagedProcess[] = []
-  const listenersByPort = new Map<number, ReturnType<typeof listeners>>()
   for (const entry of entries) {
     if (!entry.endsWith(".json")) continue
     const filePath = path.join(directory, entry)
@@ -196,15 +206,14 @@ export async function listManagedProcesses(): Promise<ManagedProcess[]> {
       continue
     }
 
-    if (!listenersByPort.has(record.port))
-      listenersByPort.set(record.port, listeners(record.port))
-    const found = await listenersByPort.get(record.port)
-    const activeListener = found?.find(
-      (listener) =>
-        listener.pid === record?.pid &&
-        listener.identity === record.identity
-    )
-    if (!activeListener) {
+    let identity: string | undefined
+    try {
+      identity = await managedProcessIdentity(record.pid, record.port)
+    } catch {
+      // Process identity inspection can fail transiently; keep the record for a later listing.
+      continue
+    }
+    if (identity !== record.identity) {
       await removeFiles(filePath, { force: true }).catch(() => undefined)
       continue
     }
