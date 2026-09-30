@@ -4,14 +4,16 @@ import {
   mkdir,
   readdir,
   readFile,
+  rename as renameFile,
   rm as removeFiles,
   writeFile
 } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { listeners } from "./ollama/process.js"
 import { OLC_VERSION } from "./version.js"
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 const PROCESS_DIRECTORY = "processes"
 
 export interface ManagedProcess {
@@ -24,6 +26,8 @@ export interface ManagedProcess {
 
 interface StoredManagedProcess extends ManagedProcess {
   schemaVersion: number
+  port: number
+  identity: string
 }
 
 function processDirectory(): string {
@@ -33,27 +37,29 @@ function processDirectory(): string {
   )
 }
 
-function parseManagedProcess(value: unknown): ManagedProcess | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return
-  const record = value as Record<string, unknown>
+function managedProcessFields(
+  service: unknown,
+  urlValue: unknown,
+  pid: unknown
+): { service: string; url: string; pid: number; port: number } | undefined {
   if (
-    record.schemaVersion !== SCHEMA_VERSION ||
-    typeof record.service !== "string" ||
-    !/^[a-z][a-z0-9-]{0,31}$/.test(record.service) ||
-    typeof record.url !== "string" ||
-    !Number.isSafeInteger(record.pid) ||
-    typeof record.pid !== "number" ||
-    record.pid < 2 ||
-    typeof record.olcVersion !== "string" ||
-    typeof record.startedAt !== "string" ||
-    !Number.isFinite(Date.parse(record.startedAt))
+    typeof service !== "string" ||
+    !/^[a-z][a-z0-9-]{0,31}$/.test(service) ||
+    typeof urlValue !== "string" ||
+    !Number.isSafeInteger(pid) ||
+    typeof pid !== "number" ||
+    pid < 2
   )
     return
   try {
-    const url = new URL(record.url)
+    const url = new URL(urlValue)
+    const port = Number(url.port || 80)
     if (
       url.protocol !== "http:" ||
-      !url.port ||
+      !url.hostname ||
+      !Number.isInteger(port) ||
+      port < 1 ||
+      port > 65535 ||
       url.username ||
       url.password ||
       url.pathname !== "/" ||
@@ -61,13 +67,32 @@ function parseManagedProcess(value: unknown): ManagedProcess | undefined {
       url.hash
     )
       return
+    return { service, url: urlValue, pid, port }
   } catch {
     return
   }
+}
+
+function parseManagedProcess(value: unknown): StoredManagedProcess | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return
+  const record = value as Record<string, unknown>
+  const fields = managedProcessFields(record.service, record.url, record.pid)
+  if (
+    record.schemaVersion !== SCHEMA_VERSION ||
+    !fields ||
+    record.port !== fields.port ||
+    typeof record.identity !== "string" ||
+    !record.identity ||
+    typeof record.olcVersion !== "string" ||
+    typeof record.startedAt !== "string" ||
+    !Number.isFinite(Date.parse(record.startedAt))
+  )
+    return
   return {
-    service: record.service,
-    url: record.url,
-    pid: record.pid,
+    ...fields,
+    schemaVersion: SCHEMA_VERSION,
+    port: fields.port,
+    identity: record.identity,
     olcVersion: record.olcVersion,
     startedAt: record.startedAt
   }
@@ -88,33 +113,47 @@ export async function registerManagedProcess(input: {
   url: string
   pid: number
 }): Promise<string> {
-  const processRecord = parseManagedProcess({
+  const fields = managedProcessFields(input.service, input.url, input.pid)
+  if (!fields)
+    throw new Error("Cannot register an invalid olc-managed process.")
+  const activeListener = (await listeners(fields.port)).find(
+    (listener) => listener.pid === fields.pid
+  )
+  if (!activeListener?.identity)
+    throw new Error(
+      "Cannot verify the olc-managed server process because it is not listening on its registered port."
+    )
+  const record = parseManagedProcess({
     schemaVersion: SCHEMA_VERSION,
-    service: input.service,
-    url: input.url,
-    pid: input.pid,
+    ...fields,
+    port: fields.port,
+    identity: activeListener.identity,
     olcVersion: OLC_VERSION,
     startedAt: new Date().toISOString()
   })
-  if (!processRecord)
+  if (!record)
     throw new Error("Cannot register an invalid olc-managed process.")
+
   const directory = processDirectory()
   await mkdir(directory, { recursive: true, mode: 0o700 })
   const id = [
-    processRecord.service,
-    processRecord.pid,
+    record.service,
+    record.pid,
     Date.now(),
     randomBytes(4).toString("hex")
   ].join("-")
-  const record: StoredManagedProcess = {
-    schemaVersion: SCHEMA_VERSION,
-    ...processRecord
+  const temporaryPath = path.join(directory, id + ".tmp")
+  const finalPath = path.join(directory, id + ".json")
+  try {
+    await writeFile(temporaryPath, JSON.stringify(record) + "\n", {
+      mode: 0o600,
+      flag: "wx"
+    })
+    await renameFile(temporaryPath, finalPath)
+  } catch (error) {
+    await removeFiles(temporaryPath, { force: true }).catch(() => undefined)
+    throw error
   }
-  await writeFile(
-    path.join(directory, `${id}.json`),
-    `${JSON.stringify(record)}\n`,
-    { mode: 0o600, flag: "wx" }
-  )
   return id
 }
 
@@ -138,22 +177,44 @@ export async function listManagedProcesses(): Promise<ManagedProcess[]> {
   }
 
   const processes: ManagedProcess[] = []
+  const listenersByPort = new Map<number, ReturnType<typeof listeners>>()
   for (const entry of entries) {
     if (!entry.endsWith(".json")) continue
     const filePath = path.join(directory, entry)
+    let record: StoredManagedProcess | undefined
     try {
-      const record = parseManagedProcess(
+      record = parseManagedProcess(
         JSON.parse(await readFile(filePath, "utf8"))
       )
-      if (!record) continue
-      if (!isProcessAlive(record.pid)) {
-        await removeFiles(filePath, { force: true }).catch(() => undefined)
-        continue
-      }
-      processes.push(record)
     } catch {
-      // A partial record from a crash or user-edited file is ignored.
+      // Malformed local state is ignored without changing it.
+      continue
     }
+    if (!record) continue
+    if (!isProcessAlive(record.pid)) {
+      await removeFiles(filePath, { force: true }).catch(() => undefined)
+      continue
+    }
+
+    if (!listenersByPort.has(record.port))
+      listenersByPort.set(record.port, listeners(record.port))
+    const found = await listenersByPort.get(record.port)
+    const activeListener = found?.find(
+      (listener) =>
+        listener.pid === record?.pid &&
+        listener.identity === record.identity
+    )
+    if (!activeListener) {
+      await removeFiles(filePath, { force: true }).catch(() => undefined)
+      continue
+    }
+    processes.push({
+      service: record.service,
+      url: record.url,
+      pid: record.pid,
+      olcVersion: record.olcVersion,
+      startedAt: record.startedAt
+    })
   }
   return processes
 }
