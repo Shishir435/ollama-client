@@ -14,7 +14,7 @@ agent proxy.
 | `olc -b fm` (or `-b apple`) | Serve Apple Foundation Models (macOS 27) | `127.0.0.1:8085` |
 | `olc -b laya` | Build/start the Laya decision API in Docker | `127.0.0.1:8086` |
 | `olc -b searxng` | Start SearXNG and Valkey in Docker | `127.0.0.1:8080` |
-| `olc list` | List running Docker services managed by olc | — |
+| `olc list` | List running backends and Docker services started by olc | — |
 
 `-b` and `--backend` are aliases. `--backend=codex` also works.
 
@@ -167,9 +167,10 @@ olc -b searxng rm --purge-data # delete SearXNG data and managed config
 ```
 
 Laya serves typed decisions at `http://127.0.0.1:8086/v1/systemone`; SearXNG
-serves JSON search at `http://127.0.0.1:8080`. `olc list --json` returns the
-running Docker services managed by olc as JSON. `stop` preserves service
-containers, config, and data. `rm` removes containers but preserves data unless
+serves JSON search at `http://127.0.0.1:8080`. `olc list --json` returns running
+native Ollama, CLI proxy, and Docker services started by olc as JSON. Process
+entries include their PID; Docker entries include a health check. `stop`
+preserves service containers, config, and data. `rm` removes containers but preserves data unless
 `--purge-data` is supplied. The first Laya build and model download need network
 access; its first inference downloads the model. A healthy SearXNG endpoint does
 not guarantee every upstream search engine will return results; engines can
