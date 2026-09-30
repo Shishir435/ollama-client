@@ -37,6 +37,8 @@ const SEARXNG_OWNERSHIP_SCHEMA = 2
 const SEARXNG_COMPOSE_SERVICES = ["core", "valkey"] as const
 const DOCKER_TIMEOUT_MS = 10 * 60 * 1000
 const DOCKER_LIST_TIMEOUT_MS = 5_000
+const DOCKER_LIST_COMMAND_TIMEOUT_MS = 1_500
+const DOCKER_HEALTH_TIMEOUT_MS = 1_000
 
 type ManagedService = "laya" | "searxng"
 
@@ -263,7 +265,7 @@ async function waitForHttp(
     try {
       const response = await fetch(`${url}${pathName}`, {
         redirect: "error",
-        signal: AbortSignal.timeout(1500)
+        signal: AbortSignal.timeout(Math.min(1500, timeoutMs))
       })
       if (response.ok) {
         await response.body?.cancel()
@@ -1429,7 +1431,7 @@ export async function runManagedService(
 }
 
 async function listDockerManagedServers(): Promise<ManagedServer[]> {
-  await requireDocker(false, DOCKER_LIST_TIMEOUT_MS)
+  await requireDocker(false, DOCKER_LIST_COMMAND_TIMEOUT_MS)
   const result = await docker(
     [
       "ps",
@@ -1440,7 +1442,7 @@ async function listDockerManagedServers(): Promise<ManagedServer[]> {
       "--format",
       `{{.Label "${SERVICE_LABEL}"}}|{{.Label "${COMPONENT_LABEL}"}}|{{.Label "${PORT_LABEL}"}}|{{.Label "${VERSION_LABEL}"}}|{{.Status}}`
     ],
-    { timeout: DOCKER_LIST_TIMEOUT_MS }
+    { timeout: DOCKER_LIST_COMMAND_TIMEOUT_MS }
   )
   const grouped = new Map<
     ManagedService,
@@ -1461,24 +1463,24 @@ async function listDockerManagedServers(): Promise<ManagedServer[]> {
     })
   }
 
-  const servers: ManagedServer[] = []
-  for (const [service, entry] of grouped) {
-    const url = serviceUrl(service, entry.port)
-    const pathName = service === "laya" ? "/health" : "/"
-    const healthy = await waitForHttp(
-      url,
-      pathName,
-      service === "laya" ? 10_000 : 1000
-    )
-    servers.push({
-      service,
-      url,
-      status: entry.status,
-      olcVersion: entry.olcVersion,
-      health: healthy ? "healthy" : "unhealthy"
+  return Promise.all(
+    [...grouped].map(async ([service, entry]) => {
+      const url = serviceUrl(service, entry.port)
+      const pathName = service === "laya" ? "/health" : "/"
+      const healthy = await waitForHttp(
+        url,
+        pathName,
+        DOCKER_HEALTH_TIMEOUT_MS
+      )
+      return {
+        service,
+        url,
+        status: entry.status,
+        olcVersion: entry.olcVersion,
+        health: healthy ? "healthy" : "unhealthy"
+      }
     })
-  }
-  return servers
+  )
 }
 
 function errorMessage(error: unknown): string {
