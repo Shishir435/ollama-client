@@ -174,6 +174,7 @@ beforeEach(async () => {
   )
   dockerMock.mockReset()
   listenersMock.mockReset()
+  processIdentityMock.mockReset()
   listenersMock.mockResolvedValue([
     {
       pid: process.pid,
@@ -822,6 +823,15 @@ describe("olc list", () => {
           uid: 0
         }
       ]
+    })
+    processIdentityMock.mockImplementation(async () => {
+      notifyListenerRead()
+      return {
+        pid: process.pid,
+        identity: "test-process-identity",
+        executable: "olc",
+        uid: 0
+      }
     })
     mockDocker(async () => new Promise(() => undefined))
     vi.useFakeTimers()
