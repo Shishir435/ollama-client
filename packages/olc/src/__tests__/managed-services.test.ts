@@ -875,20 +875,10 @@ describe("olc list", () => {
     })
     vi.stubGlobal(
       "fetch",
-      vi.fn(
-        (
-          _url: string,
-          options: { signal: AbortSignal }
-        ) =>
-          new Promise<Response>((_resolve, reject) => {
-            notifyFetch()
-            options.signal.addEventListener(
-              "abort",
-              () => reject(new DOMException("Request timed out", "AbortError")),
-              { once: true }
-            )
-          })
-      )
+      vi.fn(async () => {
+        notifyFetch()
+        return new Response(null, { status: 404 })
+      })
     )
     vi.useFakeTimers()
     try {
