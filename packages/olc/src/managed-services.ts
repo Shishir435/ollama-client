@@ -39,6 +39,7 @@ const DOCKER_TIMEOUT_MS = 10 * 60 * 1000
 const DOCKER_LIST_TIMEOUT_MS = 7_000
 const DOCKER_LIST_COMMAND_TIMEOUT_MS = 5_000
 const DOCKER_HEALTH_TIMEOUT_MS = 1_500
+const DOCKER_HEALTH_RETRY_INTERVAL_MS = 250
 
 type ManagedService = "laya" | "searxng"
 
@@ -1512,16 +1513,31 @@ async function checkHttp(
   pathName: string,
   timeoutMs: number
 ): Promise<ManagedServer["health"]> {
-  try {
-    const response = await fetch(`${url}${pathName}`, {
-      redirect: "error",
-      signal: AbortSignal.timeout(timeoutMs)
-    })
-    await response.body?.cancel()
-    return response.ok ? "healthy" : "unhealthy"
-  } catch {
-    return "unknown"
-  }
+  const deadline = Date.now() + timeoutMs
+  const signal = AbortSignal.timeout(timeoutMs)
+  let health: ManagedServer["health"] = "unknown"
+
+  do {
+    try {
+      const response = await fetch(`${url}${pathName}`, {
+        redirect: "error",
+        signal
+      })
+      await response.body?.cancel()
+      if (response.ok) return "healthy"
+      health = "unhealthy"
+    } catch {
+      health = "unknown"
+    }
+
+    const remaining = deadline - Date.now()
+    if (remaining <= 0 || signal.aborted) break
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, Math.min(DOCKER_HEALTH_RETRY_INTERVAL_MS, remaining))
+    )
+  } while (Date.now() < deadline && !signal.aborted)
+
+  return health
 }
 
 /** List running olc-managed Docker servers and local OLC processes. */
