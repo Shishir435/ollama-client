@@ -87,10 +87,7 @@ async function docker(
   }
 }
 
-async function requireDocker(
-  compose = false,
-  timeout = 30_000
-): Promise<void> {
+async function requireDocker(compose = false, timeout = 30_000): Promise<void> {
   try {
     await docker(["info", "--format", "{{.ServerVersion}}"], { timeout })
   } catch (error) {
@@ -1433,15 +1430,18 @@ export async function runManagedService(
 
 async function listDockerManagedServers(): Promise<ManagedServer[]> {
   await requireDocker(false, DOCKER_LIST_TIMEOUT_MS)
-  const result = await docker([
-    "ps",
-    "--filter",
-    `label=${MANAGED_LABEL}=true`,
-    "--filter",
-    "status=running",
-    "--format",
-    `{{.Label "${SERVICE_LABEL}"}}|{{.Label "${COMPONENT_LABEL}"}}|{{.Label "${PORT_LABEL}"}}|{{.Label "${VERSION_LABEL}"}}|{{.Status}}`
-  ], { timeout: DOCKER_LIST_TIMEOUT_MS })
+  const result = await docker(
+    [
+      "ps",
+      "--filter",
+      `label=${MANAGED_LABEL}=true`,
+      "--filter",
+      "status=running",
+      "--format",
+      `{{.Label "${SERVICE_LABEL}"}}|{{.Label "${COMPONENT_LABEL}"}}|{{.Label "${PORT_LABEL}"}}|{{.Label "${VERSION_LABEL}"}}|{{.Status}}`
+    ],
+    { timeout: DOCKER_LIST_TIMEOUT_MS }
+  )
   const grouped = new Map<
     ManagedService,
     { port: number; status: string; olcVersion: string }
@@ -1527,13 +1527,10 @@ export async function listManagedServers(json = false): Promise<void> {
     processPromise
   ])
 
-  if (dockerResult.status === "fulfilled")
-    servers.push(...dockerResult.value)
+  if (dockerResult.status === "fulfilled") servers.push(...dockerResult.value)
   else if (dockerResult.status === "timeout")
     warnings.push(
-      "Docker services could not be checked within " +
-        DOCKER_LIST_TIMEOUT_MS / 1000 +
-        " seconds."
+      `Docker services could not be checked within ${DOCKER_LIST_TIMEOUT_MS / 1000} seconds.`
     )
   else {
     warnings.push(
@@ -1579,5 +1576,5 @@ export async function listManagedServers(json = false): Promise<void> {
         `${server.service.padEnd(8)} ${server.url.padEnd(25)} ${server.status.padEnd(12)} ${server.health.padEnd(9)} ${server.olcVersion.padEnd(12)} ${server.pid ?? "-"}`
       )
   }
-  for (const warning of warnings) console.error("olc: " + warning)
+  for (const warning of warnings) console.error(`olc: ${warning}`)
 }
