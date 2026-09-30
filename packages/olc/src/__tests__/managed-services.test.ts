@@ -277,7 +277,7 @@ describe("managed Docker service lifecycle", () => {
 
   it("purges an owned marker left by a failed first start", async () => {
     mockDocker(async (args) => {
-      if (args[0] === "info") throw dockerError("Docker daemon unavailable")
+      if (args[0] === "ps") throw dockerError("Docker daemon unavailable")
       return basicDocker(args)
     })
 
@@ -841,7 +841,7 @@ describe("olc list", () => {
     try {
       const listing = listManagedServers(true)
       await listenerRead
-      await vi.advanceTimersByTimeAsync(5_000)
+      await vi.advanceTimersByTimeAsync(7_000)
       await listing
 
       const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
@@ -854,7 +854,7 @@ describe("olc list", () => {
         })
       )
       expect(output.warnings).toEqual([
-        expect.stringContaining("within 5 seconds")
+        expect.stringContaining("within 7 seconds")
       ])
     } finally {
       vi.useRealTimers()
@@ -877,29 +877,36 @@ describe("olc list", () => {
     })
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => {
-        notifyFetch()
-        return new Response(null, { status: 404 })
+      vi.fn(
+        (_url: string, options?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            notifyFetch()
+            const signal = options?.signal
+            if (!signal) {
+              reject(new Error("Expected health probe signal"))
+              return
+            }
+            signal.addEventListener(
+              "abort",
+              () => reject(new DOMException("Request timed out", "AbortError")),
+              { once: true }
+            )
+          })
+      )
+    )
+
+    const listing = listManagedServers(true)
+    await fetchStarted
+    await listing
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({
+        service: "laya",
+        url: "http://127.0.0.1:8086",
+        status: "Up 1 minute",
+        health: "unknown"
       })
     )
-    vi.useFakeTimers()
-    try {
-      const listing = listManagedServers(true)
-      await fetchStarted
-      await vi.advanceTimersByTimeAsync(1_000)
-      await listing
-
-      const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
-      expect(output.servers).toContainEqual(
-        expect.objectContaining({
-          service: "laya",
-          url: "http://127.0.0.1:8086",
-          status: "Up 1 minute",
-          health: "unhealthy"
-        })
-      )
-    } finally {
-      vi.useRealTimers()
-    }
-  }, 15_000)
+  }, 5_000)
 })
