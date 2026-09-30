@@ -183,7 +183,10 @@ export async function listManagedProcesses(): Promise<ManagedProcess[]> {
     throw error
   }
 
-  const processes: ManagedProcess[] = []
+  const candidates: Array<{
+    filePath: string
+    record: StoredManagedProcess
+  }> = []
   for (const entry of entries) {
     if (!entry.endsWith(".json")) continue
     const filePath = path.join(directory, entry)
@@ -199,25 +202,32 @@ export async function listManagedProcesses(): Promise<ManagedProcess[]> {
       await removeFiles(filePath, { force: true }).catch(() => undefined)
       continue
     }
-
-    let identity: string | undefined
-    try {
-      identity = await managedProcessIdentity(record.pid, record.port)
-    } catch {
-      // Process identity inspection can fail transiently; keep the record for a later listing.
-      continue
-    }
-    if (identity !== record.identity) {
-      await removeFiles(filePath, { force: true }).catch(() => undefined)
-      continue
-    }
-    processes.push({
-      service: record.service,
-      url: record.url,
-      pid: record.pid,
-      olcVersion: record.olcVersion,
-      startedAt: record.startedAt
-    })
+    candidates.push({ filePath, record })
   }
-  return processes
+
+  const processes = await Promise.all(
+    candidates.map(async ({ filePath, record }) => {
+      let identity: string | undefined
+      try {
+        identity = await managedProcessIdentity(record.pid, record.port)
+      } catch {
+        // Process identity inspection can fail transiently; keep the record for a later listing.
+        return undefined
+      }
+      if (identity !== record.identity) {
+        await removeFiles(filePath, { force: true }).catch(() => undefined)
+        return undefined
+      }
+      return {
+        service: record.service,
+        url: record.url,
+        pid: record.pid,
+        olcVersion: record.olcVersion,
+        startedAt: record.startedAt
+      }
+    })
+  )
+  return processes.filter(
+    (record): record is ManagedProcess => record !== undefined
+  )
 }
