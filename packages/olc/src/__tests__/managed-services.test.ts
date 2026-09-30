@@ -833,7 +833,10 @@ describe("olc list", () => {
         uid: 0
       }
     })
-    mockDocker(async () => new Promise(() => undefined))
+    mockDocker(
+      async () =>
+        new Promise<{ stdout?: string; stderr?: string }>(() => undefined)
+    )
     vi.useFakeTimers()
     try {
       const listing = listManagedServers(true)
