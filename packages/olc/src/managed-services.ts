@@ -14,8 +14,8 @@ import os from "node:os"
 import path from "node:path"
 import { promisify } from "node:util"
 import type { ServiceAction } from "./cli-options.js"
-import { OLC_VERSION } from "./version.js"
 import { listManagedProcesses } from "./managed-processes.js"
+import { OLC_VERSION } from "./version.js"
 
 const execFileAsync = promisify(execFile)
 const MANAGED_LABEL = "io.ollama-client.olc.managed"
@@ -1436,15 +1436,7 @@ async function listDockerManagedServers(): Promise<ManagedServer[]> {
     "--filter",
     "status=running",
     "--format",
-    "{{.Label \"" +
-      SERVICE_LABEL +
-      "\"}}|{{.Label \"" +
-      COMPONENT_LABEL +
-      "\"}}|{{.Label \"" +
-      PORT_LABEL +
-      "\"}}|{{.Label \"" +
-      VERSION_LABEL +
-      "\"}}|{{.Status}}"
+    `{{.Label "${SERVICE_LABEL}"}}|{{.Label "${COMPONENT_LABEL}"}}|{{.Label "${PORT_LABEL}"}}|{{.Label "${VERSION_LABEL}"}}|{{.Status}}`
   ])
   const grouped = new Map<
     ManagedService,
@@ -1496,7 +1488,9 @@ export async function listManagedServers(json = false): Promise<void> {
   try {
     servers.push(...(await listDockerManagedServers()))
   } catch (error) {
-    warnings.push(`Docker services could not be checked: ${errorMessage(error)}`)
+    warnings.push(
+      `Docker services could not be checked: ${errorMessage(error)}`
+    )
   }
   try {
     for (const process of await listManagedProcesses()) {
@@ -1525,8 +1519,7 @@ export async function listManagedServers(json = false): Promise<void> {
     )
     return
   }
-  if (servers.length === 0)
-    console.log("No running servers managed by olc.")
+  if (servers.length === 0) console.log("No running servers managed by olc.")
   else {
     console.log(
       "SERVICE  URL                       STATUS       HEALTH    OLC VERSION  PID"
