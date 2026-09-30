@@ -1467,11 +1467,7 @@ async function listDockerManagedServers(): Promise<ManagedServer[]> {
     [...grouped].map(async ([service, entry]) => {
       const url = serviceUrl(service, entry.port)
       const pathName = service === "laya" ? "/health" : "/"
-      const healthy = await waitForHttp(
-        url,
-        pathName,
-        DOCKER_HEALTH_TIMEOUT_MS
-      )
+      const healthy = await waitForHttp(url, pathName, DOCKER_HEALTH_TIMEOUT_MS)
       return {
         service,
         url,
