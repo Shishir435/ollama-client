@@ -4,8 +4,12 @@ import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const listenersMock = vi.hoisted(() => vi.fn())
+const processIdentityMock = vi.hoisted(() => vi.fn())
 
-vi.mock("../ollama/process.js", () => ({ listeners: listenersMock }))
+vi.mock("../ollama/process.js", () => ({
+  listeners: listenersMock,
+  processIdentity: processIdentityMock
+}))
 
 import {
   listManagedProcesses,
@@ -28,6 +32,12 @@ beforeEach(async () => {
       uid: 0
     }
   ])
+  processIdentityMock.mockResolvedValue({
+    pid: process.pid,
+    identity: "test-process-identity",
+    executable: "olc",
+    uid: 0
+  })
 })
 
 afterEach(async () => {
@@ -53,7 +63,9 @@ describe("managed process registry", () => {
       url: "http://127.0.0.1:8084",
       pid: process.pid
     })
-    expect(listenersMock).toHaveBeenCalledWith(8084)
+    expect(
+      process.platform === "win32" ? listenersMock : processIdentityMock
+    ).toHaveBeenCalledWith(process.platform === "win32" ? 8084 : process.pid)
     expect(await listManagedProcesses()).toEqual([
       expect.objectContaining({
         service: "opencode",
@@ -74,7 +86,9 @@ describe("managed process registry", () => {
       url: "http://127.0.0.1:80",
       pid: process.pid
     })
-    expect(listenersMock).toHaveBeenCalledWith(80)
+    expect(
+      process.platform === "win32" ? listenersMock : processIdentityMock
+    ).toHaveBeenCalledWith(process.platform === "win32" ? 80 : process.pid)
     expect(await listManagedProcesses()).toEqual([
       expect.objectContaining({ service: "ollama", pid: process.pid })
     ])
@@ -88,6 +102,12 @@ describe("managed process registry", () => {
         uid: 0
       }
     ])
+    processIdentityMock.mockResolvedValue({
+      pid: process.pid,
+      identity: "different-process-identity",
+      executable: "other",
+      uid: 0
+    })
     expect(await listManagedProcesses()).toEqual([])
     expect(await readdir(path.join(tempRoot, "processes"))).toEqual([])
   })
