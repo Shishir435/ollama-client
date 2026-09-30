@@ -113,6 +113,56 @@ describe("managed process registry", () => {
     expect(await readdir(path.join(tempRoot, "processes"))).toEqual([])
   })
 
+  it("checks several managed process identities concurrently", async () => {
+    await registerManagedProcess({
+      service: "ollama",
+      url: "http://127.0.0.1:11434",
+      pid: process.pid
+    })
+    await registerManagedProcess({
+      service: "opencode",
+      url: "http://127.0.0.1:8084",
+      pid: process.pid
+    })
+
+    const verifier =
+      process.platform === "win32" ? listenersMock : processIdentityMock
+    verifier.mockClear()
+    let releaseChecks: () => void = () => undefined
+    let notifyBothChecks: () => void = () => undefined
+    const checkGate = new Promise<void>((resolve) => {
+      releaseChecks = resolve
+    })
+    const bothChecks = new Promise<void>((resolve) => {
+      notifyBothChecks = resolve
+    })
+    verifier.mockImplementation(async () => {
+      if (verifier.mock.calls.length === 2) notifyBothChecks()
+      await checkGate
+      if (process.platform === "win32")
+        return [
+          {
+            pid: process.pid,
+            identity: "test-process-identity",
+            host: "127.0.0.1",
+            executable: "olc",
+            uid: 0
+          }
+        ]
+      return {
+        pid: process.pid,
+        identity: "test-process-identity",
+        executable: "olc",
+        uid: 0
+      }
+    })
+
+    const listing = listManagedProcesses()
+    await bothChecks
+    releaseChecks()
+    await expect(listing).resolves.toHaveLength(2)
+  })
+
   it("rejects records that could not have been created by olc", async () => {
     await expect(
       registerManagedProcess({
