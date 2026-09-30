@@ -13,6 +13,9 @@ import { fileURLToPath } from "node:url"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const dockerMock = vi.hoisted(() => vi.fn())
+const listenersMock = vi.hoisted(() => vi.fn())
+
+vi.mock("../ollama/process.js", () => ({ listeners: listenersMock }))
 
 vi.mock("node:child_process", () => {
   const execFile = Object.assign(() => undefined, {
@@ -166,6 +169,16 @@ beforeEach(async () => {
     vi.fn(async () => successResponse())
   )
   dockerMock.mockReset()
+  listenersMock.mockReset()
+  listenersMock.mockResolvedValue([
+    {
+      pid: process.pid,
+      identity: "test-process-identity",
+      host: "127.0.0.1",
+      executable: "olc",
+      uid: 0
+    }
+  ])
   process.exitCode = 0
 })
 
