@@ -277,7 +277,7 @@ describe("managed Docker service lifecycle", () => {
 
   it("purges an owned marker left by a failed first start", async () => {
     mockDocker(async (args) => {
-      if (args[0] === "ps") throw dockerError("Docker daemon unavailable")
+      if (args[0] === "info") throw dockerError("Docker daemon unavailable")
       return basicDocker(args)
     })
 
@@ -772,7 +772,7 @@ describe("managed Docker service lifecycle", () => {
 describe("olc list", () => {
   it("lists olc-started backends when Docker is unavailable", async () => {
     mockDocker(async (args) => {
-      if (args[0] === "info") throw dockerError("Docker daemon unavailable")
+      if (args[0] === "ps") throw dockerError("Docker daemon unavailable")
       return basicDocker(args)
     })
     await registerManagedProcess({
@@ -909,4 +909,33 @@ describe("olc list", () => {
       })
     )
   }, 5_000)
+  it("retries transient Docker health failures", async () => {
+    mockDocker(async (args) => {
+      if (args[0] === "ps")
+        return {
+          stdout: "laya|server|8086|test-version|Up 1 minute",
+          stderr: ""
+        }
+      return basicDocker(args)
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({
+        service: "laya",
+        url: "http://127.0.0.1:8086",
+        health: "healthy"
+      })
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
 })
