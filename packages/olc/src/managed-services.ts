@@ -36,9 +36,9 @@ const SEARXNG_OWNERSHIP_FILE = ".olc-managed.json"
 const SEARXNG_OWNERSHIP_SCHEMA = 2
 const SEARXNG_COMPOSE_SERVICES = ["core", "valkey"] as const
 const DOCKER_TIMEOUT_MS = 10 * 60 * 1000
-const DOCKER_LIST_TIMEOUT_MS = 5_000
-const DOCKER_LIST_COMMAND_TIMEOUT_MS = 1_500
-const DOCKER_HEALTH_TIMEOUT_MS = 1_000
+const DOCKER_LIST_TIMEOUT_MS = 7_000
+const DOCKER_LIST_COMMAND_TIMEOUT_MS = 5_000
+const DOCKER_HEALTH_TIMEOUT_MS = 1_500
 
 type ManagedService = "laya" | "searxng"
 
@@ -1431,7 +1431,6 @@ export async function runManagedService(
 }
 
 async function listDockerManagedServers(): Promise<ManagedServer[]> {
-  await requireDocker(false, DOCKER_LIST_COMMAND_TIMEOUT_MS)
   const result = await docker(
     [
       "ps",
@@ -1467,13 +1466,13 @@ async function listDockerManagedServers(): Promise<ManagedServer[]> {
     [...grouped].map(async ([service, entry]) => {
       const url = serviceUrl(service, entry.port)
       const pathName = service === "laya" ? "/health" : "/"
-      const healthy = await waitForHttp(url, pathName, DOCKER_HEALTH_TIMEOUT_MS)
+      const health = await checkHttp(url, pathName, DOCKER_HEALTH_TIMEOUT_MS)
       return {
         service,
         url,
         status: entry.status,
         olcVersion: entry.olcVersion,
-        health: healthy ? "healthy" : "unhealthy"
+        health
       }
     })
   )
@@ -1505,6 +1504,23 @@ async function settleWithin<T>(
     ])
   } finally {
     if (timer) clearTimeout(timer)
+  }
+}
+
+async function checkHttp(
+  url: string,
+  pathName: string,
+  timeoutMs: number
+): Promise<ManagedServer["health"]> {
+  try {
+    const response = await fetch(`${url}${pathName}`, {
+      redirect: "error",
+      signal: AbortSignal.timeout(timeoutMs)
+    })
+    await response.body?.cancel()
+    return response.ok ? "healthy" : "unhealthy"
+  } catch {
+    return "unknown"
   }
 }
 
