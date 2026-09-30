@@ -15,6 +15,7 @@ import path from "node:path"
 import { promisify } from "node:util"
 import type { ServiceAction } from "./cli-options.js"
 import { OLC_VERSION } from "./version.js"
+import { listManagedProcesses } from "./managed-processes.js"
 
 const execFileAsync = promisify(execFile)
 const MANAGED_LABEL = "io.ollama-client.olc.managed"
@@ -54,11 +55,12 @@ interface LayaRecoveryRecord {
 }
 
 export interface ManagedServer {
-  service: ManagedService
+  service: string
   url: string
   status: string
   olcVersion: string
-  health: "healthy" | "unhealthy"
+  health: "healthy" | "unhealthy" | "unknown"
+  pid?: number
 }
 
 /** Execute Docker without a shell; all user values travel as individual argv items. */
@@ -1425,8 +1427,7 @@ export async function runManagedService(
   return searxngAction(action, requestedPort, purgeData, servicesRoot)
 }
 
-/** List only running service containers carrying olc's ownership labels. */
-export async function listManagedServers(json = false): Promise<void> {
+async function listDockerManagedServers(): Promise<ManagedServer[]> {
   await requireDocker()
   const result = await docker([
     "ps",
@@ -1435,7 +1436,15 @@ export async function listManagedServers(json = false): Promise<void> {
     "--filter",
     "status=running",
     "--format",
-    `{{.Label "${SERVICE_LABEL}"}}|{{.Label "${COMPONENT_LABEL}"}}|{{.Label "${PORT_LABEL}"}}|{{.Label "${VERSION_LABEL}"}}|{{.Status}}`
+    "{{.Label \"" +
+      SERVICE_LABEL +
+      "\"}}|{{.Label \"" +
+      COMPONENT_LABEL +
+      "\"}}|{{.Label \"" +
+      PORT_LABEL +
+      "\"}}|{{.Label \"" +
+      VERSION_LABEL +
+      "\"}}|{{.Status}}"
   ])
   const grouped = new Map<
     ManagedService,
@@ -1455,6 +1464,7 @@ export async function listManagedServers(json = false): Promise<void> {
       status: status || "running"
     })
   }
+
   const servers: ManagedServer[] = []
   for (const [service, entry] of grouped) {
     const url = serviceUrl(service, entry.port)
@@ -1472,19 +1482,59 @@ export async function listManagedServers(json = false): Promise<void> {
       health: healthy ? "healthy" : "unhealthy"
     })
   }
-  if (json) {
-    console.log(JSON.stringify({ servers }, null, 2))
-    return
+  return servers
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unexpected failure"
+}
+
+/** List running olc-managed Docker servers and local OLC processes. */
+export async function listManagedServers(json = false): Promise<void> {
+  const servers: ManagedServer[] = []
+  const warnings: string[] = []
+  try {
+    servers.push(...(await listDockerManagedServers()))
+  } catch (error) {
+    warnings.push(`Docker services could not be checked: ${errorMessage(error)}`)
   }
-  if (servers.length === 0) {
-    console.log("No running Docker servers managed by olc.")
-    return
-  }
-  console.log(
-    "SERVICE  URL                       STATUS       HEALTH    OLC VERSION"
-  )
-  for (const server of servers)
-    console.log(
-      `${server.service.padEnd(8)} ${server.url.padEnd(25)} ${server.status.padEnd(12)} ${server.health.padEnd(9)} ${server.olcVersion}`
+  try {
+    for (const process of await listManagedProcesses()) {
+      servers.push({
+        service: process.service,
+        url: process.url,
+        status: "running",
+        olcVersion: process.olcVersion,
+        health: "unknown",
+        pid: process.pid
+      })
+    }
+  } catch (error) {
+    warnings.push(
+      `Local olc processes could not be checked: ${errorMessage(error)}`
     )
+  }
+
+  if (json) {
+    console.log(
+      JSON.stringify(
+        { servers, ...(warnings.length ? { warnings } : {}) },
+        null,
+        2
+      )
+    )
+    return
+  }
+  if (servers.length === 0)
+    console.log("No running servers managed by olc.")
+  else {
+    console.log(
+      "SERVICE  URL                       STATUS       HEALTH    OLC VERSION  PID"
+    )
+    for (const server of servers)
+      console.log(
+        `${server.service.padEnd(8)} ${server.url.padEnd(25)} ${server.status.padEnd(12)} ${server.health.padEnd(9)} ${server.olcVersion.padEnd(12)} ${server.pid ?? "-"}`
+      )
+  }
+  for (const warning of warnings) console.error(`olc: ${warning}`)
 }
