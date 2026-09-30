@@ -111,8 +111,8 @@ export async function registerManagedProcess(input: {
     ...processRecord
   }
   await writeFile(
-    path.join(directory, id + ".json"),
-    JSON.stringify(record) + "\n",
+    path.join(directory, `${id}.json`),
+    `${JSON.stringify(record)}\n`,
     { mode: 0o600, flag: "wx" }
   )
   return id
@@ -121,7 +121,7 @@ export async function registerManagedProcess(input: {
 /** Remove only records created by this module; never accept a path from callers. */
 export async function unregisterManagedProcess(id: string): Promise<void> {
   if (!/^[a-z][a-z0-9-]{0,31}-\d+-\d+-[0-9a-f]{8}$/.test(id)) return
-  await removeFiles(path.join(processDirectory(), id + ".json"), {
+  await removeFiles(path.join(processDirectory(), `${id}.json`), {
     force: true
   })
 }
