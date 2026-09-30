@@ -22,11 +22,11 @@ import {
   readProxyLaunchRequest,
   startDetachedProxy
 } from "./detached-proxy.js"
-import { listManagedServers, runManagedService } from "./managed-services.js"
 import {
   registerManagedProcess,
   unregisterManagedProcess
 } from "./managed-processes.js"
+import { listManagedServers, runManagedService } from "./managed-services.js"
 import { resolveOllamaOptions } from "./ollama/config.js"
 import { monitorOllama } from "./ollama/foreground.js"
 import { runOllama } from "./ollama/runner.js"
