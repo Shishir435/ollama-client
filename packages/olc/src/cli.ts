@@ -23,6 +23,10 @@ import {
   startDetachedProxy
 } from "./detached-proxy.js"
 import { listManagedServers, runManagedService } from "./managed-services.js"
+import {
+  registerManagedProcess,
+  unregisterManagedProcess
+} from "./managed-processes.js"
 import { resolveOllamaOptions } from "./ollama/config.js"
 import { monitorOllama } from "./ollama/foreground.js"
 import { runOllama } from "./ollama/runner.js"
@@ -238,6 +242,31 @@ async function runNativeCli(
 ): Promise<void> {
   try {
     const { session, ...result } = await runOllama(nativeOptions)
+    let processRecordId: string | undefined
+    if (result.ready && result.pid) {
+      try {
+        processRecordId = await registerManagedProcess({
+          service: "ollama",
+          url: result.url,
+          pid: result.pid
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unexpected failure"
+        console.error(`[olc] Could not track the Ollama process: ${message}`)
+      }
+    }
+    if (processRecordId && session) {
+      const recordId = processRecordId
+      void session.finished
+        .then(() => unregisterManagedProcess(recordId))
+        .catch((error: unknown) =>
+          console.error(
+            "[olc] Could not clear the Ollama process record:",
+            error
+          )
+        )
+    }
     console.log(
       nativeOptions.json
         ? JSON.stringify(result)
