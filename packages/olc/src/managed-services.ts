@@ -1534,8 +1534,7 @@ export async function listManagedServers(json = false): Promise<void> {
     )
   else {
     warnings.push(
-      "Docker services could not be checked: " +
-        errorMessage(dockerResult.reason)
+      `Docker services could not be checked: ${errorMessage(dockerResult.reason)}`
     )
   }
   if (processResult.status === "fulfilled") {
@@ -1551,8 +1550,7 @@ export async function listManagedServers(json = false): Promise<void> {
     }
   } else {
     warnings.push(
-      "Local olc processes could not be checked: " +
-        errorMessage(processResult.reason)
+      `Local olc processes could not be checked: ${errorMessage(processResult.reason)}`
     )
   }
 
