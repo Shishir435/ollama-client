@@ -23,6 +23,7 @@ beforeEach(async () => {
   tempRoot = await mkdtemp(path.join(os.tmpdir(), "olc-managed-processes-"))
   vi.stubEnv("OLC_DATA_DIR", tempRoot)
   listenersMock.mockReset()
+  processIdentityMock.mockReset()
   listenersMock.mockResolvedValue([
     {
       pid: process.pid,
