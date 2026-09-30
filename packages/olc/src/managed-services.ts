@@ -1485,15 +1485,20 @@ function errorMessage(error: unknown): string {
 export async function listManagedServers(json = false): Promise<void> {
   const servers: ManagedServer[] = []
   const warnings: string[] = []
-  try {
-    servers.push(...(await listDockerManagedServers()))
-  } catch (error) {
+  const [dockerResult, processResult] = await Promise.allSettled([
+    listDockerManagedServers(),
+    listManagedProcesses()
+  ])
+
+  if (dockerResult.status === "fulfilled") servers.push(...dockerResult.value)
+  else {
     warnings.push(
-      `Docker services could not be checked: ${errorMessage(error)}`
+      "Docker services could not be checked: " +
+        errorMessage(dockerResult.reason)
     )
   }
-  try {
-    for (const process of await listManagedProcesses()) {
+  if (processResult.status === "fulfilled") {
+    for (const process of processResult.value) {
       servers.push({
         service: process.service,
         url: process.url,
@@ -1503,9 +1508,10 @@ export async function listManagedServers(json = false): Promise<void> {
         pid: process.pid
       })
     }
-  } catch (error) {
+  } else {
     warnings.push(
-      `Local olc processes could not be checked: ${errorMessage(error)}`
+      "Local olc processes could not be checked: " +
+        errorMessage(processResult.reason)
     )
   }
 
@@ -1529,5 +1535,5 @@ export async function listManagedServers(json = false): Promise<void> {
         `${server.service.padEnd(8)} ${server.url.padEnd(25)} ${server.status.padEnd(12)} ${server.health.padEnd(9)} ${server.olcVersion.padEnd(12)} ${server.pid ?? "-"}`
       )
   }
-  for (const warning of warnings) console.error(`olc: ${warning}`)
+  for (const warning of warnings) console.error("olc: " + warning)
 }
