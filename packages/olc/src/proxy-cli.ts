@@ -1,10 +1,10 @@
 /** CLI-owned proxy startup, signal handling, and detached-child handoff. */
 import type { ProxyLaunchRequest } from "./detached-proxy.js"
-import { endpoint } from "./ollama/config.js"
 import {
   registerManagedProcess,
   unregisterManagedProcess
 } from "./managed-processes.js"
+import { endpoint } from "./ollama/config.js"
 import { type RunningProxy, startProxy } from "./proxy.js"
 import { isRecord } from "./util.js"
 
