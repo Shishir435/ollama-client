@@ -21,7 +21,8 @@ vi.mock("node:child_process", () => {
   return { execFile }
 })
 
-import { runManagedService } from "../managed-services.js"
+import { listManagedServers, runManagedService } from "../managed-services.js"
+import { registerManagedProcess } from "../managed-processes.js"
 import { OLC_VERSION } from "../version.js"
 
 const servicesRoot = fileURLToPath(new URL("../../services", import.meta.url))
@@ -741,5 +742,39 @@ describe("managed Docker service lifecycle", () => {
     expect(containers.get("olc-laya")?.state).toBe("exited")
     expect(calls.some((args) => args[0] === "start")).toBe(false)
     expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
+describe("olc list", () => {
+  it("lists olc-started backends when Docker is unavailable", async () => {
+    mockDocker(async (args) => {
+      if (args[0] === "info")
+        throw dockerError("Docker daemon unavailable")
+      return basicDocker(args)
+    })
+    await registerManagedProcess({
+      service: "opencode",
+      url: "http://127.0.0.1:8084",
+      pid: process.pid
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({
+        service: "opencode",
+        url: "http://127.0.0.1:8084",
+        status: "running",
+        health: "unknown",
+        pid: process.pid
+      })
+    )
+    expect(output.warnings).toEqual([
+      expect.stringContaining("Docker services could not be checked")
+    ])
+    expect(error).not.toHaveBeenCalled()
   })
 })
