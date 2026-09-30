@@ -21,8 +21,8 @@ vi.mock("node:child_process", () => {
   return { execFile }
 })
 
-import { listManagedServers, runManagedService } from "../managed-services.js"
 import { registerManagedProcess } from "../managed-processes.js"
+import { listManagedServers, runManagedService } from "../managed-services.js"
 import { OLC_VERSION } from "../version.js"
 
 const servicesRoot = fileURLToPath(new URL("../../services", import.meta.url))
@@ -748,8 +748,7 @@ describe("managed Docker service lifecycle", () => {
 describe("olc list", () => {
   it("lists olc-started backends when Docker is unavailable", async () => {
     mockDocker(async (args) => {
-      if (args[0] === "info")
-        throw dockerError("Docker daemon unavailable")
+      if (args[0] === "info") throw dockerError("Docker daemon unavailable")
       return basicDocker(args)
     })
     await registerManagedProcess({
