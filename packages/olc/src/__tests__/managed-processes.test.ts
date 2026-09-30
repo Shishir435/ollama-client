@@ -2,6 +2,11 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
+const listenersMock = vi.hoisted(() => vi.fn())
+
+vi.mock("../ollama/process.js", () => ({ listeners: listenersMock }))
+
 import {
   listManagedProcesses,
   registerManagedProcess,
@@ -13,6 +18,16 @@ let tempRoot: string
 beforeEach(async () => {
   tempRoot = await mkdtemp(path.join(os.tmpdir(), "olc-managed-processes-"))
   vi.stubEnv("OLC_DATA_DIR", tempRoot)
+  listenersMock.mockReset()
+  listenersMock.mockResolvedValue([
+    {
+      pid: process.pid,
+      identity: "test-process-identity",
+      host: "127.0.0.1",
+      executable: "olc",
+      uid: 0
+    }
+  ])
 })
 
 afterEach(async () => {
@@ -33,11 +48,12 @@ describe("managed process registry", () => {
     )
 
     expect(stored).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       service: "opencode",
       url: "http://127.0.0.1:8084",
       pid: process.pid
     })
+    expect(listenersMock).toHaveBeenCalledWith(80)
     expect(await listManagedProcesses()).toEqual([
       expect.objectContaining({
         service: "opencode",
@@ -50,6 +66,29 @@ describe("managed process registry", () => {
 
     await unregisterManagedProcess(id)
     expect(await listManagedProcesses()).toEqual([])
+  })
+
+  it("accepts HTTP's default port 80 and prunes a reused PID", async () => {
+    await registerManagedProcess({
+      service: "ollama",
+      url: "http://127.0.0.1:80",
+      pid: process.pid
+    })
+    expect(await listManagedProcesses()).toEqual([
+      expect.objectContaining({ service: "ollama", pid: process.pid })
+    ])
+
+    listenersMock.mockResolvedValue([
+      {
+        pid: process.pid,
+        identity: "different-process-identity",
+        host: "127.0.0.1",
+        executable: "other",
+        uid: 0
+      }
+    ])
+    expect(await listManagedProcesses()).toEqual([])
+    expect(await readdir(path.join(tempRoot, "processes"))).toEqual([])
   })
 
   it("rejects records that could not have been created by olc", async () => {
