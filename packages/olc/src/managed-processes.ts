@@ -4,8 +4,8 @@ import {
   mkdir,
   readdir,
   readFile,
-  rename as renameFile,
   rm as removeFiles,
+  rename as renameFile,
   writeFile
 } from "node:fs/promises"
 import os from "node:os"
@@ -112,9 +112,7 @@ async function managedProcessIdentity(
   port: number
 ): Promise<string | undefined> {
   if (process.platform === "win32") {
-    const listener = (await listeners(port)).find(
-      (item) => item.pid === pid
-    )
+    const listener = (await listeners(port)).find((item) => item.pid === pid)
     return listener?.identity
   }
   return (await processIdentity(pid)).identity
@@ -131,9 +129,7 @@ export async function registerManagedProcess(input: {
     throw new Error("Cannot register an invalid olc-managed process.")
   const identity = await managedProcessIdentity(fields.pid, fields.port)
   if (!identity)
-    throw new Error(
-      "Cannot verify the olc-managed server process."
-    )
+    throw new Error("Cannot verify the olc-managed server process.")
   const record = parseManagedProcess({
     schemaVersion: SCHEMA_VERSION,
     ...fields,
@@ -153,10 +149,10 @@ export async function registerManagedProcess(input: {
     Date.now(),
     randomBytes(4).toString("hex")
   ].join("-")
-  const temporaryPath = path.join(directory, id + ".tmp")
-  const finalPath = path.join(directory, id + ".json")
+  const temporaryPath = path.join(directory, `${id}.tmp`)
+  const finalPath = path.join(directory, `${id}.json`)
   try {
-    await writeFile(temporaryPath, JSON.stringify(record) + "\n", {
+    await writeFile(temporaryPath, `${JSON.stringify(record)}\n`, {
       mode: 0o600,
       flag: "wx"
     })
@@ -193,9 +189,7 @@ export async function listManagedProcesses(): Promise<ManagedProcess[]> {
     const filePath = path.join(directory, entry)
     let record: StoredManagedProcess | undefined
     try {
-      record = parseManagedProcess(
-        JSON.parse(await readFile(filePath, "utf8"))
-      )
+      record = parseManagedProcess(JSON.parse(await readFile(filePath, "utf8")))
     } catch {
       // Malformed local state is ignored without changing it.
       continue
