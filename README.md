@@ -82,7 +82,7 @@ olc -b opencode    # OpenCode on :8084
 olc -b fm          # Apple's on-device model on :8085 (macOS 27)
 olc -b laya        # Laya decision API on 127.0.0.1:8086
 olc -b searxng     # local web search on 127.0.0.1:8080
-olc list           # running Docker services managed by olc
+olc list           # running Ollama, proxy, and Docker services
 olc --help
 ```
 
