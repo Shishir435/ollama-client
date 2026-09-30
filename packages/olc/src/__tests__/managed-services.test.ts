@@ -14,8 +14,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const dockerMock = vi.hoisted(() => vi.fn())
 const listenersMock = vi.hoisted(() => vi.fn())
+const processIdentityMock = vi.hoisted(() => vi.fn())
 
-vi.mock("../ollama/process.js", () => ({ listeners: listenersMock }))
+vi.mock("../ollama/process.js", () => ({
+  listeners: listenersMock,
+  processIdentity: processIdentityMock
+}))
 
 vi.mock("node:child_process", () => {
   const execFile = Object.assign(() => undefined, {
@@ -179,6 +183,12 @@ beforeEach(async () => {
       uid: 0
     }
   ])
+  processIdentityMock.mockResolvedValue({
+    pid: process.pid,
+    identity: "test-process-identity",
+    executable: "olc",
+    uid: 0
+  })
   process.exitCode = 0
 })
 
