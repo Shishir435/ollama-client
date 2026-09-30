@@ -132,7 +132,7 @@ export async function registerManagedProcess(input: {
   const identity = await managedProcessIdentity(fields.pid, fields.port)
   if (!identity)
     throw new Error(
-      "Cannot verify the olc-managed server process on its registered port."
+      "Cannot verify the olc-managed server process."
     )
   const record = parseManagedProcess({
     schemaVersion: SCHEMA_VERSION,
