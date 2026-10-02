@@ -1527,7 +1527,7 @@ async function checkHttp(
       if (response.ok) return "healthy"
       health = "unhealthy"
     } catch {
-      health = "unknown"
+      // A failed retry does not erase an earlier HTTP health response.
     }
 
     const remaining = deadline - Date.now()

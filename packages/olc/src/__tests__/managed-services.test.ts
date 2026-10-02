@@ -909,6 +909,50 @@ describe("olc list", () => {
       })
     )
   }, 5_000)
+
+  it.each([
+    "failure",
+    "timeout"
+  ])("preserves an unhealthy Docker response after a retry %s", async (retryOutcome) => {
+    mockDocker(async (args) => {
+      if (args[0] === "ps")
+        return {
+          stdout: "laya|server|8086|test-version|Up 1 minute",
+          stderr: ""
+        }
+      return basicDocker(args)
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((_url: string, options?: RequestInit) => {
+        if (retryOutcome === "failure")
+          return Promise.reject(new TypeError("Connection failed"))
+        return new Promise<Response>((_resolve, reject) => {
+          const signal = options?.signal
+          if (!signal || signal.aborted) {
+            reject(new DOMException("Request timed out", "AbortError"))
+            return
+          }
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Request timed out", "AbortError")),
+            { once: true }
+          )
+        })
+      })
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({ service: "laya", health: "unhealthy" })
+    )
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(1)
+  }, 5_000)
+
   it("retries transient Docker health failures", async () => {
     mockDocker(async (args) => {
       if (args[0] === "ps")
@@ -937,5 +981,4 @@ describe("olc list", () => {
     )
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
-
 })
