@@ -2,6 +2,15 @@ import { appendFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { AgentPanelMessage } from "@ollama-client/contracts"
 import {
+  type BaselineInputs,
+  type BaselineSummary,
+  type BaselineVerdict,
+  baselineInputs,
+  classifyAttempt,
+  renderBaseline,
+  summarizeBaseline
+} from "../../../tools/agent-live-benchmark/report.mjs"
+import {
   hostedBenchmarkReasoningEffort,
   nanobrowserBenchmarkReasoningEffort
 } from "./benchmark-config"
@@ -17,6 +26,11 @@ import {
  * only reason to write one.
  */
 export interface AgentAttemptRecord {
+  verdict?: BaselineVerdict
+  activeMs?: number
+  humanWaitMs?: number
+  interventions?: number
+  executionStages?: string[]
   family: string
   scenario: string
   attempt: number
@@ -273,6 +287,8 @@ export interface AgentFamilySummary {
 }
 
 export interface AgentBenchmarkReport {
+  inputs?: BaselineInputs
+  baseline?: BaselineSummary
   measuredAt: string
   backend: string
   model: string
@@ -533,6 +549,11 @@ export const renderAgentBenchmarkMarkdown = (
     "",
     `Across every family: ${totals.completed} of ${totals.attempts} attempts reported completion and ${totals.succeeded} met the task's own predicate. ${totals.falseCompletions} reported a completion the page did not support; ${totals.missedCompletions} met the goal and never said so.`
   )
+  if (report.inputs && report.baseline)
+    lines.push(
+      "",
+      renderBaseline({ inputs: report.inputs, summary: report.baseline })
+    )
   return `${lines.join("\n")}\n`
 }
 
@@ -546,6 +567,50 @@ export const buildAgentBenchmarkReport = (
       ? nanobrowserBenchmarkReasoningEffort()
       : hostedBenchmarkReasoningEffort()
   return {
+    inputs: baselineInputs({
+      buildDirectory:
+        process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+          ? process.env.NANOBROWSER_EXTENSION_PATH
+          : "build/chrome-mv3-prod",
+      corpusFiles: [
+        "e2e/chromium/benchmark/__tests__/benchmark-agent.spec.ts",
+        "e2e/chromium/benchmark/benchmark-tasks.ts",
+        "e2e/chromium/fixtures/agent-scenario.ts",
+        "e2e/chromium/benchmark/agent-benchmark.ts",
+        "tools/agent-live-benchmark/report.mjs"
+      ],
+      provider: process.env.AGENT_HOSTED_MODEL
+        ? (process.env.AGENT_HOSTED_WIRE ?? "openai-compatible")
+        : "scripted_fixture",
+      model,
+      reasoningEffort,
+      visionMode: "per_scenario_capability",
+      budgets: {
+        taskTimeoutMs: process.env.AGENT_HOSTED_MODEL ? 240000 : 60000,
+        runtimeSource: "policySourceHash"
+      },
+      policy: {
+        permissionMode: "allow_routine_or_per_scenario",
+        approvals: "scripted",
+        fixtureData: true
+      }
+    }),
+    baseline: summarizeBaseline(
+      attempts.map((a) => ({
+        ...a,
+        success: a.succeeded,
+        failureCode: a.firstLimitation,
+        verdict:
+          a.verdict ??
+          classifyAttempt({
+            status: a.terminalStatus,
+            success: a.succeeded,
+            expectedStatus: a.expectedStatus,
+            pauseReason: a.pauseReason,
+            errorCode: a.errorCode
+          })
+      }))
+    ),
     measuredAt: new Date().toISOString(),
     backend,
     model,
@@ -624,9 +689,28 @@ export const mergeAgentBenchmarkReports = (
       partials.map((partial) => partial.reasoningEffort ?? "<missing>")
     )
   ].sort()
+  const consistentInputs =
+    new Set(partials.map((p) => JSON.stringify(p.inputs ?? null))).size <= 1
   const consistentReasoningEffort = reasoningEfforts.length <= 1
   return {
     report: {
+      ...(first?.inputs ? { inputs: first.inputs } : {}),
+      baseline: summarizeBaseline(
+        attempts.map((a) => ({
+          ...a,
+          success: a.succeeded,
+          failureCode: a.firstLimitation,
+          verdict:
+            a.verdict ??
+            classifyAttempt({
+              status: a.terminalStatus,
+              success: a.succeeded,
+              expectedStatus: a.expectedStatus,
+              pauseReason: a.pauseReason,
+              errorCode: a.errorCode
+            })
+        }))
+      ),
       measuredAt: new Date().toISOString(),
       backend: first?.backend ?? "unknown",
       model: first?.model ?? "unknown",
@@ -641,7 +725,8 @@ export const mergeAgentBenchmarkReports = (
     complete:
       attempts.length === expected &&
       duplicates.length === 0 &&
-      consistentReasoningEffort,
+      consistentReasoningEffort &&
+      consistentInputs,
     duplicates: [...new Set(duplicates)],
     reasoningEfforts
   }

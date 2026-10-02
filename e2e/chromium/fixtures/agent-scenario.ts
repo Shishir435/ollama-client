@@ -131,6 +131,8 @@ export interface AgentScenarioOutcome {
   /** The user-facing chat response when the model reads with current_tab. */
   chatResponse?: string
   /** User-facing model turns, kept separate from the browser agent's decisions. */
+  chatWire?: AgentScenarioOutcome["wire"]
+  /** Count of user-facing model calls, including calls that returned tools. */
   chatModelCalls?: number
   /** Names of chat tools called before the supervised run, if any. */
   chatToolCalls?: string[]
@@ -499,11 +501,13 @@ const executionPathFor = (
   if (agentStarted) return "browser_task"
   const calls = new Set(chatToolCalls)
   if (calls.has("current_tab")) return "current_tab"
+  if (calls.has("read_tab")) return "read_tab"
   if (calls.has("browser_task")) return "browser_task_not_started"
   return "chat"
 }
 
 interface HostedChatState {
+  wire: AgentScenarioOutcome["wire"]
   modelCalls: number
   response: string
   directResponse: boolean
@@ -633,6 +637,11 @@ const createHostedModelForwarder =
     })
     if (chatRequest && parsedRequest && !chatTurn)
       input.wire.push({ request: parsedRequest, response: responseBody })
+    if (chatRequest && parsedRequest && chatTurn)
+      input.chatState.wire.push({
+        request: parsedRequest,
+        response: responseBody
+      })
     recordHostedChatTurn({
       path,
       parsedRequest,
@@ -855,6 +864,7 @@ const runAgentScenarioAttempt = (
     const seenQuestions = new Set<string>()
     const runTraceState = { lastRunState: "" }
     const chatState: HostedChatState = {
+      wire: [],
       modelCalls: 0,
       response: "",
       directResponse: false,
@@ -1326,7 +1336,8 @@ const runAgentScenarioAttempt = (
               | undefined) ?? "unknown",
           attempt,
           startedAt,
-          tokens: reportedTokens(wire),
+          tokens: reportedTokens([...wire, ...chatState.wire]),
+          chatWire: chatState.wire,
           phases: phases.flatMap((line) =>
             Array.isArray(line)
               ? line.filter(

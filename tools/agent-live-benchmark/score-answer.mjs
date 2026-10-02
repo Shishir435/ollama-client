@@ -355,3 +355,12 @@ export const scoreSyntheticTask = ({
       return { success: false, predicate: "unknown-task" }
   }
 }
+
+/**
+ * Independently judge the task predicate, even when the run never settled.
+ * The historical scorer keeps its completion gate for old consumers; this
+ * view preserves every page/answer/effect check while separating settlement
+ * from correctness for the current-head baseline.
+ */
+export const scoreSyntheticGoal = (input) =>
+  scoreSyntheticTask({ ...input, completed: true })

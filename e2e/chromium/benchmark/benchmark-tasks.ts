@@ -1,3 +1,4 @@
+import { classifyAttempt } from "../../../tools/agent-live-benchmark/report.mjs"
 import type {
   AgentFixtureElement,
   AgentFixtureObservation,
@@ -66,12 +67,43 @@ export interface BenchmarkTask
 }
 
 /**
- * Records one attempt.
+ * Separates durable active time from supervisor waits.
  *
  * Everything here is a count, a label or a boolean: no page text, no entered
  * text, no URL. A report that carried page content could not be attached to an
  * issue, which is the only reason to write one.
  */
+const supervisionAccounting = (outcome: AgentScenarioOutcome) => {
+  const deadline = outcome.snapshot?.run?.deadline
+  const now = Date.now()
+  const humanWaitMs = deadline
+    ? deadline.runSuspendedMs +
+      (deadline.suspendedAt === undefined
+        ? 0
+        : Math.max(0, now - deadline.suspendedAt))
+    : undefined
+  return {
+    ...(deadline && humanWaitMs !== undefined
+      ? {
+          humanWaitMs,
+          activeMs: Math.max(0, now - deadline.runStartedAt - humanWaitMs)
+        }
+      : {}),
+    interventions: new Set(
+      outcome.messages.flatMap((m) => {
+        if (m.type !== "agent_snapshot") return []
+        const ids: string[] = []
+        if (m.snapshot.pending?.kind === "takeover")
+          ids.push(`takeover:${m.snapshot.pending.request.id}`)
+        if (m.snapshot.run?.question)
+          ids.push(`question:${m.snapshot.run.question.id}`)
+        return ids
+      })
+    ).size
+  }
+}
+
+/** Record correctness independently from the run, keeping failures and telemetry. */
 export const recordBenchmarkAttempt = async (input: {
   attempts: AgentAttemptRecord[]
   family: string
@@ -85,6 +117,7 @@ export const recordBenchmarkAttempt = async (input: {
   const run = outcome.snapshot?.run
   const steps = outcome.snapshot?.steps ?? []
   const targets = countRepeatedTargets(steps)
+  let scoringFailed = false
   let met: boolean | undefined
   if (input.succeeded) {
     try {
@@ -92,6 +125,7 @@ export const recordBenchmarkAttempt = async (input: {
     } catch {
       /** A predicate that cannot read the page has not proved the goal met. */
       met = false
+      scoringFailed = true
       input.diagnosticTrace?.({
         type: "score_predicate_failed",
         attempt: outcome.attempt,
@@ -99,16 +133,36 @@ export const recordBenchmarkAttempt = async (input: {
       })
     }
   }
+  const status =
+    run?.status ??
+    outcome.terminalStatus ??
+    (outcome.directChatResponse ? "completed" : "not-started")
   recordAttempt(input.attempts, {
+    verdict: classifyAttempt({
+      status,
+      success: met,
+      expectedStatus: input.expectedStatus,
+      pauseReason: run?.pauseReason,
+      errorCode: run?.error?.code,
+      infrastructureFailure: scoringFailed
+    }),
+    ...(scoringFailed ? { firstLimitation: "score_predicate_failed" } : {}),
+    executionStages: [
+      ...((outcome.chatModelCalls ?? 0) > 0 ? ["direct_chat"] : []),
+      ...(outcome.chatToolCalls ?? []),
+      ...(outcome.wire.some((w) =>
+        JSON.stringify(w.request).includes("agent_plan")
+      )
+        ? ["planning"]
+        : []),
+      ...(run ? ["runtime_execution"] : [])
+    ],
     family: input.family,
     scenario: input.scenario,
     attempt: outcome.attempt,
     backend: outcome.backend,
     ...(outcome.executionPath ? { executionPath: outcome.executionPath } : {}),
-    terminalStatus:
-      run?.status ??
-      outcome.terminalStatus ??
-      (outcome.directChatResponse ? "completed" : "not-started"),
+    terminalStatus: status,
     expectedStatus: input.expectedStatus,
     ...(run?.pauseReason ? { pauseReason: run.pauseReason } : {}),
     ...(run?.error?.code ? { errorCode: run.error.code } : {}),
@@ -120,15 +174,12 @@ export const recordBenchmarkAttempt = async (input: {
     repeatedTargets: targets.repeated,
     ambiguousTargets: targets.ambiguous,
     wallMs: Date.now() - input.outcome.startedAt,
+    ...supervisionAccounting(outcome),
     ...(met === undefined ? {} : { succeeded: met }),
     ...(met === undefined
       ? {}
       : {
-          falseCompletion:
-            (run?.status === "completed" ||
-              outcome.terminalStatus === "completed" ||
-              outcome.directChatResponse) &&
-            !met
+          falseCompletion: status === "completed" && !met && !scoringFailed
         }),
     /**
      * The steps' own durable telemetry first: it covers every provider rather
@@ -136,13 +187,13 @@ export const recordBenchmarkAttempt = async (input: {
      * run worth measuring. The fixture wire stays as the fallback for a run
      * whose steps recorded nothing.
      */
+    ...attemptTelemetry(steps),
     ...(outcome.tokens
       ? {
           promptTokens: outcome.tokens.prompt,
           completionTokens: outcome.tokens.completion
         }
       : {}),
-    ...attemptTelemetry(steps),
     ...(run?.error?.code
       ? { firstLimitation: run.error.code }
       : run?.pauseReason
@@ -192,6 +243,45 @@ export const benchmarkTask = (
     process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
       ? runNanobrowserScenario
       : runAgentScenario
+  /** Playwright requires a destructured fixture argument. */
+  // biome-ignore lint/correctness/noEmptyPattern: No fixtures are needed to record a setup failure.
+  test.afterEach(({}, info) => {
+    const match = info.title.match(
+      /^Agent (.+?)(?: attempt (\d+))? through production boundaries$/
+    )
+    if (!match || match[1] !== scenario) return
+    const attempt = Number(match[2] ?? 1)
+    const backend = String(
+      info.project.metadata.agentBenchmarkBackend ?? "unknown"
+    )
+    if (
+      attempts.some(
+        (a) =>
+          a.scenario === scenario &&
+          a.attempt === attempt &&
+          a.backend === backend
+      )
+    )
+      return
+    recordAttempt(attempts, {
+      family,
+      scenario,
+      attempt,
+      backend,
+      terminalStatus: "harness_exception",
+      expectedStatus: task.status,
+      verdict: "infrastructure_failure",
+      firstLimitation: "harness_exception",
+      steps: 0,
+      observations: 0,
+      modelCalls: 0,
+      approvalsAsked: 0,
+      approvalsGranted: 0,
+      repeatedTargets: 0,
+      ambiguousTargets: 0,
+      wallMs: info.duration
+    })
+  })
   runScenario({
     ...rest,
     goal: benchmarkPrompt(task.goal),
