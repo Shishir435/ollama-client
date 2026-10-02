@@ -3,6 +3,7 @@ import { type ChildProcess, spawn } from "node:child_process"
 
 export interface ForegroundSession {
   finished: Promise<number>
+  pid?: number | undefined
   stop: () => void
 }
 
@@ -47,5 +48,7 @@ export function foregroundSession(child: ChildProcess): ForegroundSession {
       )
     })
   })
-  return { finished, stop: terminate }
+  const session: ForegroundSession = { finished, stop: terminate }
+  Object.defineProperty(session, "pid", { get: () => child.pid })
+  return session
 }

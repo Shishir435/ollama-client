@@ -32,6 +32,7 @@ export interface OllamaResult {
   host: string
   port: number
   message: string
+  pid?: number
 }
 
 /** Prove native API identity and extension CORS without inference or redirects. */
@@ -278,8 +279,15 @@ async function finishStartup(
   try {
     const ready = waitUntilReady(options, url, deps, controller.signal)
     const exited = run.session?.finished.then(() => false)
-    if (await (exited ? Promise.race([ready, exited]) : ready))
-      return { ...result, ...(run.session ? { session: run.session } : {}) }
+    if (await (exited ? Promise.race([ready, exited]) : ready)) {
+      const pid = run.pid ?? run.session?.pid
+      const started: OllamaResult = {
+        ...result,
+        ...(run.session ? { session: run.session } : {})
+      }
+      if (pid) Object.defineProperty(started, "pid", { value: pid })
+      return started
+    }
     throw new Error(
       `Ollama did not become ready at ${url}. Check ${run.detail}; no force-kill or further restart was attempted.`
     )

@@ -13,6 +13,13 @@ import { fileURLToPath } from "node:url"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const dockerMock = vi.hoisted(() => vi.fn())
+const listenersMock = vi.hoisted(() => vi.fn())
+const processIdentityMock = vi.hoisted(() => vi.fn())
+
+vi.mock("../ollama/process.js", () => ({
+  listeners: listenersMock,
+  processIdentity: processIdentityMock
+}))
 
 vi.mock("node:child_process", () => {
   const execFile = Object.assign(() => undefined, {
@@ -21,7 +28,8 @@ vi.mock("node:child_process", () => {
   return { execFile }
 })
 
-import { runManagedService } from "../managed-services.js"
+import { registerManagedProcess } from "../managed-processes.js"
+import { listManagedServers, runManagedService } from "../managed-services.js"
 import { OLC_VERSION } from "../version.js"
 
 const servicesRoot = fileURLToPath(new URL("../../services", import.meta.url))
@@ -165,6 +173,23 @@ beforeEach(async () => {
     vi.fn(async () => successResponse())
   )
   dockerMock.mockReset()
+  listenersMock.mockReset()
+  processIdentityMock.mockReset()
+  listenersMock.mockResolvedValue([
+    {
+      pid: process.pid,
+      identity: "test-process-identity",
+      host: "127.0.0.1",
+      executable: "olc",
+      uid: 0
+    }
+  ])
+  processIdentityMock.mockResolvedValue({
+    pid: process.pid,
+    identity: "test-process-identity",
+    executable: "olc",
+    uid: 0
+  })
   process.exitCode = 0
 })
 
@@ -741,5 +766,272 @@ describe("managed Docker service lifecycle", () => {
     expect(containers.get("olc-laya")?.state).toBe("exited")
     expect(calls.some((args) => args[0] === "start")).toBe(false)
     expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
+describe("olc list", () => {
+  it("includes a warning when a local process cannot be verified", async () => {
+    mockDocker(basicDocker)
+    await registerManagedProcess({
+      service: "opencode",
+      url: "http://127.0.0.1:8084",
+      pid: process.pid
+    })
+    const verifier =
+      process.platform === "win32" ? listenersMock : processIdentityMock
+    verifier.mockRejectedValueOnce(new Error("Identity inspection failed"))
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toEqual([])
+    expect(output.warnings).toEqual([
+      `Local olc process opencode (PID ${process.pid}) could not be verified and was omitted from this listing.`
+    ])
+  })
+
+  it.each([
+    200, 503
+  ])("keeps HTTP %s health evidence when body cleanup fails", async (status) => {
+    mockDocker(async (args) => {
+      if (args[0] === "ps")
+        return {
+          stdout: "laya|server|8086|test-version|Up 1 minute",
+          stderr: ""
+        }
+      return basicDocker(args)
+    })
+    const cancel = vi.fn().mockRejectedValue(new Error("Body cleanup failed"))
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: status === 200,
+      body: { cancel }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({
+        service: "laya",
+        health: status === 200 ? "healthy" : "unhealthy"
+      })
+    )
+    expect(cancel).toHaveBeenCalled()
+    if (status === 200) expect(fetchMock).toHaveBeenCalledTimes(1)
+  }, 5_000)
+
+  it("lists olc-started backends when Docker is unavailable", async () => {
+    mockDocker(async (args) => {
+      if (args[0] === "ps") throw dockerError("Docker daemon unavailable")
+      return basicDocker(args)
+    })
+    await registerManagedProcess({
+      service: "opencode",
+      url: "http://127.0.0.1:8084",
+      pid: process.pid
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({
+        service: "opencode",
+        url: "http://127.0.0.1:8084",
+        status: "running",
+        health: "unknown",
+        pid: process.pid
+      })
+    )
+    expect(output.warnings).toEqual([
+      expect.stringContaining("Docker services could not be checked")
+    ])
+    expect(error).not.toHaveBeenCalled()
+  })
+
+  it("returns local backends when Docker discovery stalls", async () => {
+    await registerManagedProcess({
+      service: "ollama",
+      url: "http://127.0.0.1:11434",
+      pid: process.pid
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    let notifyListenerRead: () => void = () => undefined
+    const listenerRead = new Promise<void>((resolve) => {
+      notifyListenerRead = resolve
+    })
+    listenersMock.mockImplementation(async () => {
+      notifyListenerRead()
+      return [
+        {
+          pid: process.pid,
+          identity: "test-process-identity",
+          host: "127.0.0.1",
+          executable: "olc",
+          uid: 0
+        }
+      ]
+    })
+    processIdentityMock.mockImplementation(async () => {
+      notifyListenerRead()
+      return {
+        pid: process.pid,
+        identity: "test-process-identity",
+        executable: "olc",
+        uid: 0
+      }
+    })
+    mockDocker(
+      async () =>
+        new Promise<{ stdout?: string; stderr?: string }>(() => undefined)
+    )
+    vi.useFakeTimers()
+    try {
+      const listing = listManagedServers(true)
+      await listenerRead
+      await vi.advanceTimersByTimeAsync(7_000)
+      await listing
+
+      const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+      expect(output.servers).toContainEqual(
+        expect.objectContaining({
+          service: "ollama",
+          url: "http://127.0.0.1:11434",
+          status: "running",
+          pid: process.pid
+        })
+      )
+      expect(output.warnings).toEqual([
+        expect.stringContaining("within 7 seconds")
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
+  }, 15_000)
+
+  it("keeps Docker servers visible when a health probe times out", async () => {
+    mockDocker(async (args) => {
+      if (args[0] === "ps")
+        return {
+          stdout: "laya|server|8086|test-version|Up 1 minute",
+          stderr: ""
+        }
+      return basicDocker(args)
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    let notifyFetch: () => void = () => undefined
+    const fetchStarted = new Promise<void>((resolve) => {
+      notifyFetch = resolve
+    })
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string, options?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            notifyFetch()
+            const signal = options?.signal
+            if (!signal) {
+              reject(new Error("Expected health probe signal"))
+              return
+            }
+            signal.addEventListener(
+              "abort",
+              () => reject(new DOMException("Request timed out", "AbortError")),
+              { once: true }
+            )
+          })
+      )
+    )
+
+    const listing = listManagedServers(true)
+    await fetchStarted
+    await listing
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({
+        service: "laya",
+        url: "http://127.0.0.1:8086",
+        status: "Up 1 minute",
+        health: "unknown"
+      })
+    )
+  }, 5_000)
+
+  it.each([
+    "failure",
+    "timeout"
+  ])("preserves an unhealthy Docker response after a retry %s", async (retryOutcome) => {
+    mockDocker(async (args) => {
+      if (args[0] === "ps")
+        return {
+          stdout: "laya|server|8086|test-version|Up 1 minute",
+          stderr: ""
+        }
+      return basicDocker(args)
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((_url: string, options?: RequestInit) => {
+        if (retryOutcome === "failure")
+          return Promise.reject(new TypeError("Connection failed"))
+        return new Promise<Response>((_resolve, reject) => {
+          const signal = options?.signal
+          if (!signal || signal.aborted) {
+            reject(new DOMException("Request timed out", "AbortError"))
+            return
+          }
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Request timed out", "AbortError")),
+            { once: true }
+          )
+        })
+      })
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({ service: "laya", health: "unhealthy" })
+    )
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(1)
+  }, 5_000)
+
+  it("retries transient Docker health failures", async () => {
+    mockDocker(async (args) => {
+      if (args[0] === "ps")
+        return {
+          stdout: "laya|server|8086|test-version|Up 1 minute",
+          stderr: ""
+        }
+      return basicDocker(args)
+    })
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({
+        service: "laya",
+        url: "http://127.0.0.1:8086",
+        health: "healthy"
+      })
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })

@@ -14,6 +14,7 @@ import os from "node:os"
 import path from "node:path"
 import { promisify } from "node:util"
 import type { ServiceAction } from "./cli-options.js"
+import { listManagedProcesses } from "./managed-processes.js"
 import { OLC_VERSION } from "./version.js"
 
 const execFileAsync = promisify(execFile)
@@ -35,6 +36,10 @@ const SEARXNG_OWNERSHIP_FILE = ".olc-managed.json"
 const SEARXNG_OWNERSHIP_SCHEMA = 2
 const SEARXNG_COMPOSE_SERVICES = ["core", "valkey"] as const
 const DOCKER_TIMEOUT_MS = 10 * 60 * 1000
+const DOCKER_LIST_TIMEOUT_MS = 7_000
+const DOCKER_LIST_COMMAND_TIMEOUT_MS = 5_000
+const DOCKER_HEALTH_TIMEOUT_MS = 1_500
+const DOCKER_HEALTH_RETRY_INTERVAL_MS = 250
 
 type ManagedService = "laya" | "searxng"
 
@@ -54,11 +59,12 @@ interface LayaRecoveryRecord {
 }
 
 export interface ManagedServer {
-  service: ManagedService
+  service: string
   url: string
   status: string
   olcVersion: string
-  health: "healthy" | "unhealthy"
+  health: "healthy" | "unhealthy" | "unknown"
+  pid?: number
 }
 
 /** Execute Docker without a shell; all user values travel as individual argv items. */
@@ -84,9 +90,9 @@ async function docker(
   }
 }
 
-async function requireDocker(compose = false): Promise<void> {
+async function requireDocker(compose = false, timeout = 30_000): Promise<void> {
   try {
-    await docker(["info", "--format", "{{.ServerVersion}}"])
+    await docker(["info", "--format", "{{.ServerVersion}}"], { timeout })
   } catch (error) {
     const message = (error as Error).message
     if (message.includes("ENOENT") || message.includes("not found"))
@@ -99,7 +105,7 @@ async function requireDocker(compose = false): Promise<void> {
   }
   if (compose) {
     try {
-      await docker(["compose", "version"])
+      await docker(["compose", "version"], { timeout })
     } catch {
       throw new Error(
         "SearXNG requires Docker Compose v2. Install the Docker Compose plugin, then retry."
@@ -260,7 +266,7 @@ async function waitForHttp(
     try {
       const response = await fetch(`${url}${pathName}`, {
         redirect: "error",
-        signal: AbortSignal.timeout(1500)
+        signal: AbortSignal.timeout(Math.min(1500, timeoutMs))
       })
       if (response.ok) {
         await response.body?.cancel()
@@ -1425,18 +1431,19 @@ export async function runManagedService(
   return searxngAction(action, requestedPort, purgeData, servicesRoot)
 }
 
-/** List only running service containers carrying olc's ownership labels. */
-export async function listManagedServers(json = false): Promise<void> {
-  await requireDocker()
-  const result = await docker([
-    "ps",
-    "--filter",
-    `label=${MANAGED_LABEL}=true`,
-    "--filter",
-    "status=running",
-    "--format",
-    `{{.Label "${SERVICE_LABEL}"}}|{{.Label "${COMPONENT_LABEL}"}}|{{.Label "${PORT_LABEL}"}}|{{.Label "${VERSION_LABEL}"}}|{{.Status}}`
-  ])
+async function listDockerManagedServers(): Promise<ManagedServer[]> {
+  const result = await docker(
+    [
+      "ps",
+      "--filter",
+      `label=${MANAGED_LABEL}=true`,
+      "--filter",
+      "status=running",
+      "--format",
+      `{{.Label "${SERVICE_LABEL}"}}|{{.Label "${COMPONENT_LABEL}"}}|{{.Label "${PORT_LABEL}"}}|{{.Label "${VERSION_LABEL}"}}|{{.Status}}`
+    ],
+    { timeout: DOCKER_LIST_COMMAND_TIMEOUT_MS }
+  )
   const grouped = new Map<
     ManagedService,
     { port: number; status: string; olcVersion: string }
@@ -1455,36 +1462,149 @@ export async function listManagedServers(json = false): Promise<void> {
       status: status || "running"
     })
   }
-  const servers: ManagedServer[] = []
-  for (const [service, entry] of grouped) {
-    const url = serviceUrl(service, entry.port)
-    const pathName = service === "laya" ? "/health" : "/"
-    const healthy = await waitForHttp(
-      url,
-      pathName,
-      service === "laya" ? 10_000 : 1000
-    )
-    servers.push({
-      service,
-      url,
-      status: entry.status,
-      olcVersion: entry.olcVersion,
-      health: healthy ? "healthy" : "unhealthy"
+
+  return Promise.all(
+    [...grouped].map(async ([service, entry]) => {
+      const url = serviceUrl(service, entry.port)
+      const pathName = service === "laya" ? "/health" : "/"
+      const health = await checkHttp(url, pathName, DOCKER_HEALTH_TIMEOUT_MS)
+      return {
+        service,
+        url,
+        status: entry.status,
+        olcVersion: entry.olcVersion,
+        health
+      }
     })
-  }
-  if (json) {
-    console.log(JSON.stringify({ servers }, null, 2))
-    return
-  }
-  if (servers.length === 0) {
-    console.log("No running Docker servers managed by olc.")
-    return
-  }
-  console.log(
-    "SERVICE  URL                       STATUS       HEALTH    OLC VERSION"
   )
-  for (const server of servers)
-    console.log(
-      `${server.service.padEnd(8)} ${server.url.padEnd(25)} ${server.status.padEnd(12)} ${server.health.padEnd(9)} ${server.olcVersion}`
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unexpected failure"
+}
+
+type TimedResult<T> =
+  | { status: "fulfilled"; value: T }
+  | { status: "rejected"; reason: unknown }
+  | { status: "timeout" }
+
+async function settleWithin<T>(
+  promise: Promise<T>,
+  timeoutMs: number
+): Promise<TimedResult<T>> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise.then(
+        (value) => ({ status: "fulfilled", value }) as const,
+        (reason: unknown) => ({ status: "rejected", reason }) as const
+      ),
+      new Promise<{ status: "timeout" }>((resolve) => {
+        timer = setTimeout(() => resolve({ status: "timeout" }), timeoutMs)
+      })
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+async function checkHttp(
+  url: string,
+  pathName: string,
+  timeoutMs: number
+): Promise<ManagedServer["health"]> {
+  const deadline = Date.now() + timeoutMs
+  const signal = AbortSignal.timeout(timeoutMs)
+  let health: ManagedServer["health"] = "unknown"
+
+  do {
+    try {
+      const response = await fetch(`${url}${pathName}`, {
+        redirect: "error",
+        signal
+      })
+      await response.body?.cancel().catch(() => undefined)
+      if (response.ok) return "healthy"
+      health = "unhealthy"
+    } catch {
+      // A failed retry does not erase an earlier HTTP health response.
+    }
+
+    const remaining = deadline - Date.now()
+    if (remaining <= 0 || signal.aborted) break
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, Math.min(DOCKER_HEALTH_RETRY_INTERVAL_MS, remaining))
     )
+  } while (Date.now() < deadline && !signal.aborted)
+
+  return health
+}
+
+/** List running olc-managed Docker servers and local OLC processes. */
+export async function listManagedServers(json = false): Promise<void> {
+  const servers: ManagedServer[] = []
+  const warnings: string[] = []
+  const processWarnings: string[] = []
+  const dockerPromise = settleWithin(
+    listDockerManagedServers(),
+    DOCKER_LIST_TIMEOUT_MS
+  )
+  const processPromise = listManagedProcesses(processWarnings).then(
+    (value) => ({ status: "fulfilled", value }) as const,
+    (reason: unknown) => ({ status: "rejected", reason }) as const
+  )
+  const [dockerResult, processResult] = await Promise.all([
+    dockerPromise,
+    processPromise
+  ])
+
+  if (dockerResult.status === "fulfilled") servers.push(...dockerResult.value)
+  else if (dockerResult.status === "timeout")
+    warnings.push(
+      `Docker services could not be checked within ${DOCKER_LIST_TIMEOUT_MS / 1000} seconds.`
+    )
+  else {
+    warnings.push(
+      `Docker services could not be checked: ${errorMessage(dockerResult.reason)}`
+    )
+  }
+  if (processResult.status === "fulfilled") {
+    warnings.push(...processWarnings)
+    for (const process of processResult.value) {
+      servers.push({
+        service: process.service,
+        url: process.url,
+        status: "running",
+        olcVersion: process.olcVersion,
+        health: "unknown",
+        pid: process.pid
+      })
+    }
+  } else {
+    warnings.push(
+      `Local olc processes could not be checked: ${errorMessage(processResult.reason)}`
+    )
+  }
+
+  if (json) {
+    console.log(
+      JSON.stringify(
+        { servers, ...(warnings.length ? { warnings } : {}) },
+        null,
+        2
+      )
+    )
+    return
+  }
+  if (servers.length === 0) console.log("No running servers managed by olc.")
+  else {
+    console.log(
+      "SERVICE  URL                       STATUS       HEALTH    OLC VERSION  PID"
+    )
+    for (const server of servers)
+      console.log(
+        `${server.service.padEnd(8)} ${server.url.padEnd(25)} ${server.status.padEnd(12)} ${server.health.padEnd(9)} ${server.olcVersion.padEnd(12)} ${server.pid ?? "-"}`
+      )
+  }
+  for (const warning of warnings) console.error(`olc: ${warning}`)
 }

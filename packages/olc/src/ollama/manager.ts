@@ -20,6 +20,7 @@ import {
 
 export interface ManagerRun {
   detail: string
+  pid?: number
   session?: ForegroundSession
 }
 
@@ -155,11 +156,12 @@ export async function managerEnvironment(
 async function startDetached(
   binary: string,
   env: NodeJS.ProcessEnv
-): Promise<string> {
+): Promise<{ logPath: string; pid: number }> {
   const directory = path.join(os.homedir(), ".ollama")
   await fs.mkdir(directory, { recursive: true, mode: 0o700 })
   const logPath = path.join(directory, "olc.log")
   const log = await fs.open(logPath, "a", 0o600)
+  let pid: number | undefined
   try {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(binary, ["serve"], {
@@ -176,6 +178,11 @@ async function startDetached(
         )
       )
       child.once("spawn", () => {
+        if (!child.pid) {
+          reject(new Error("Could not determine the Ollama process ID."))
+          return
+        }
+        pid = child.pid
         child.unref()
         resolve()
       })
@@ -183,7 +190,8 @@ async function startDetached(
   } finally {
     await log.close()
   }
-  return logPath
+  if (!pid) throw new Error("Could not determine the Ollama process ID.")
+  return { logPath, pid }
 }
 
 /** Validate launch prerequisites before touching the running server. */
@@ -272,6 +280,6 @@ export async function applyManager(
       detail: "foreground Ollama; Ctrl-C stops this server",
       session: startForegroundProcess(options.binary, ["serve"], childEnv)
     }
-  const log = await startDetached(options.binary, childEnv)
-  return { detail: `log: ${log}` }
+  const { logPath, pid } = await startDetached(options.binary, childEnv)
+  return { detail: `log: ${logPath}`, pid }
 }
