@@ -81,6 +81,29 @@ describe("managed process registry", () => {
     expect(await listManagedProcesses()).toEqual([])
   })
 
+  it("warns about unverified processes and retains their records for retry", async () => {
+    await registerManagedProcess({
+      service: "opencode",
+      url: "http://127.0.0.1:8084",
+      pid: process.pid
+    })
+    const verifier =
+      process.platform === "win32" ? listenersMock : processIdentityMock
+    verifier.mockRejectedValueOnce(new Error("Identity inspection failed"))
+    const warnings: string[] = []
+
+    expect(await listManagedProcesses(warnings)).toEqual([])
+    expect(warnings).toEqual([
+      `Local olc process opencode (PID ${process.pid}) could not be verified and was omitted from this listing.`
+    ])
+    expect(await readdir(path.join(tempRoot, "processes"))).toHaveLength(1)
+    const retryWarnings: string[] = []
+    expect(await listManagedProcesses(retryWarnings)).toEqual([
+      expect.objectContaining({ service: "opencode", pid: process.pid })
+    ])
+    expect(retryWarnings).toEqual([])
+  })
+
   it("accepts HTTP's default port 80 and prunes a reused PID", async () => {
     await registerManagedProcess({
       service: "ollama",

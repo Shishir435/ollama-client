@@ -1523,7 +1523,7 @@ async function checkHttp(
         redirect: "error",
         signal
       })
-      await response.body?.cancel()
+      await response.body?.cancel().catch(() => undefined)
       if (response.ok) return "healthy"
       health = "unhealthy"
     } catch {
@@ -1544,11 +1544,12 @@ async function checkHttp(
 export async function listManagedServers(json = false): Promise<void> {
   const servers: ManagedServer[] = []
   const warnings: string[] = []
+  const processWarnings: string[] = []
   const dockerPromise = settleWithin(
     listDockerManagedServers(),
     DOCKER_LIST_TIMEOUT_MS
   )
-  const processPromise = listManagedProcesses().then(
+  const processPromise = listManagedProcesses(processWarnings).then(
     (value) => ({ status: "fulfilled", value }) as const,
     (reason: unknown) => ({ status: "rejected", reason }) as const
   )
@@ -1568,6 +1569,7 @@ export async function listManagedServers(json = false): Promise<void> {
     )
   }
   if (processResult.status === "fulfilled") {
+    warnings.push(...processWarnings)
     for (const process of processResult.value) {
       servers.push({
         service: process.service,

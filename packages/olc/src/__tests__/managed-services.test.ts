@@ -770,6 +770,59 @@ describe("managed Docker service lifecycle", () => {
 })
 
 describe("olc list", () => {
+  it("includes a warning when a local process cannot be verified", async () => {
+    mockDocker(basicDocker)
+    await registerManagedProcess({
+      service: "opencode",
+      url: "http://127.0.0.1:8084",
+      pid: process.pid
+    })
+    const verifier =
+      process.platform === "win32" ? listenersMock : processIdentityMock
+    verifier.mockRejectedValueOnce(new Error("Identity inspection failed"))
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toEqual([])
+    expect(output.warnings).toEqual([
+      `Local olc process opencode (PID ${process.pid}) could not be verified and was omitted from this listing.`
+    ])
+  })
+
+  it.each([
+    200, 503
+  ])("keeps HTTP %s health evidence when body cleanup fails", async (status) => {
+    mockDocker(async (args) => {
+      if (args[0] === "ps")
+        return {
+          stdout: "laya|server|8086|test-version|Up 1 minute",
+          stderr: ""
+        }
+      return basicDocker(args)
+    })
+    const cancel = vi.fn().mockRejectedValue(new Error("Body cleanup failed"))
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: status === 200,
+      body: { cancel }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined)
+
+    await listManagedServers(true)
+
+    const output = JSON.parse(String(log.mock.calls.at(-1)?.[0]))
+    expect(output.servers).toContainEqual(
+      expect.objectContaining({
+        service: "laya",
+        health: status === 200 ? "healthy" : "unhealthy"
+      })
+    )
+    expect(cancel).toHaveBeenCalled()
+    if (status === 200) expect(fetchMock).toHaveBeenCalledTimes(1)
+  }, 5_000)
+
   it("lists olc-started backends when Docker is unavailable", async () => {
     mockDocker(async (args) => {
       if (args[0] === "ps") throw dockerError("Docker daemon unavailable")

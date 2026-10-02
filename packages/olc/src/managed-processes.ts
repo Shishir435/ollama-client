@@ -173,7 +173,9 @@ export async function unregisterManagedProcess(id: string): Promise<void> {
 }
 
 /** Ignore stale PID records left by crashes and malformed local state. */
-export async function listManagedProcesses(): Promise<ManagedProcess[]> {
+export async function listManagedProcesses(
+  warnings: string[] = []
+): Promise<ManagedProcess[]> {
   const directory = processDirectory()
   let entries: string[]
   try {
@@ -212,6 +214,9 @@ export async function listManagedProcesses(): Promise<ManagedProcess[]> {
         identity = await managedProcessIdentity(record.pid, record.port)
       } catch {
         // Process identity inspection can fail transiently; keep the record for a later listing.
+        warnings.push(
+          `Local olc process ${record.service} (PID ${record.pid}) could not be verified and was omitted from this listing.`
+        )
         return undefined
       }
       if (identity !== record.identity) {
