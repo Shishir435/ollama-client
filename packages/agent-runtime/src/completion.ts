@@ -1746,11 +1746,31 @@ const judgeItemizedRequirement = (
       feedback: MISSING_ITEM_OUTCOMES_FEEDBACK
     }
   let allMet = true
+  const quoted = new Set<string>()
   for (const [index, item] of requirement.items.entries()) {
     const answer = answers.get(index)
     if (!answer?.met) {
       allMet = false
       continue
+    }
+    /**
+     * Bound to its item, twice over. A quotation must name the item and may
+     * not be one another item already used — "Invoice 1 Paid" twice is one
+     * invoice, not two. A receipt standing in for a quotation must have
+     * acted on a control or row that names the item, because every item
+     * shares the requirement's id and the id alone would let any receipt
+     * vouch for any item.
+     */
+    const evidence = answer.evidence?.trim()
+    if (evidence) {
+      const claim = agentNormalizedClaim(evidence)
+      if (!namesItem(claim, item) || quoted.has(claim))
+        return {
+          type: "refused",
+          reason: "absent_evidence",
+          feedback: itemEvidenceFeedback(index, item)
+        }
+      quoted.add(claim)
     }
     const { items: _items, ...single } = requirement
     const refusal = judgeMetRequirement(
@@ -1758,17 +1778,38 @@ const judgeItemizedRequirement = (
       {
         id: requirement.id,
         met: true,
-        ...(answer.evidence ? { evidence: answer.evidence } : {})
+        ...(evidence ? { evidence } : {})
       },
       input,
       change,
-      changes,
+      changes.filter((receipt) =>
+        [receipt.target?.name, receipt.target?.rowContext].some(
+          (text) =>
+            text !== undefined && namesItem(agentNormalizedClaim(text), item)
+        )
+      ),
       consumed
     )
     if (refusal) return refusal
   }
   return allMet ? undefined : "unmet"
 }
+
+const escapedPattern = (text: string): string =>
+  text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+/** Whether normalized text names an item as a whole phrase, not a prefix. */
+const namesItem = (text: string, item: string): boolean => {
+  const phrase = agentNormalizedClaim(item)
+  if (!phrase) return false
+  return new RegExp(
+    `(?:^|[^\\p{L}\\p{N}])${escapedPattern(phrase)}(?:$|[^\\p{L}\\p{N}])`,
+    "u"
+  ).test(text)
+}
+
+const itemEvidenceFeedback = (index: number, item: string): string =>
+  `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's.`
 
 const judgePlanned = (
   input: AgentCompletionInput,

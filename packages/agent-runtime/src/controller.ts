@@ -166,6 +166,9 @@ type AgentResolutionOutcome =
  * use the correction gets to. One that cannot is answering with controls the
  * page does not offer, and no number of further looks changes that.
  */
+const OUTSTANDING_ANSWER_FEEDBACK =
+  "The user's newest answer has not been folded into the plan yet, and it may ask for more than the plan lists. Act on everything the user has asked, then complete again."
+
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
 /** Corrections one decision will take in at once; older ones are dropped. */
@@ -1799,6 +1802,25 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * The user said something the plan has not absorbed — the amendment call
+   * failed and only its limits were read by rule. The answer may have added
+   * an outcome, and a run that completes before the planner has read it is
+   * a run that drops it, so completion waits; the next decision asks the
+   * planner again.
+   */
+  const outstandingAnswer = (
+    state: AgentRunState
+  ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
+    dependencies.model.plan &&
+    agentPlanNeedsReconciling(state, state.answers) !== undefined
+      ? {
+          type: "refused",
+          reason: "missing_outcomes",
+          feedback: OUTSTANDING_ANSWER_FEEDBACK
+        }
+      : undefined
+
   const processCompletion = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
@@ -1843,7 +1865,8 @@ export const createAgentController = (
     )
     if (!settled) return undefined
     observation = settled.observation
-    const judgement = challengeEarlyUnmet(state, settled.judgement)
+    const judgement =
+      outstandingAnswer(state) ?? challengeEarlyUnmet(state, settled.judgement)
     if (judgement.type !== "refused") {
       await settleJudgedRun(
         state,

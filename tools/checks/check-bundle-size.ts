@@ -478,9 +478,10 @@ const budgets: Budget[] = [
      * to 308,170, and Firefox to 218,306 through the shared contract
      * schemas its run-state decoding carries. Its review fixes — per-item
      * completion, withdrawal and identity checks, the rule amendment — took
-     * Chrome to 309,395.
+     * Chrome to 309,395; the second round — provisional amendments, item
+     * evidence binding, kept limits — to 309,816.
      */
-    max: isFirefox ? 218_500 : 309_500
+    max: isFirefox ? 218_500 : 310_000
   }
 ]
 

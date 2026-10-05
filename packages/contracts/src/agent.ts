@@ -721,7 +721,14 @@ export const AgentTaskPlanSchema = z
         max: z.number().int().positive()
       })
       .strict()
-      .optional()
+      .optional(),
+    /**
+     * Made by rule because the planner could not be reached. It carries the
+     * limits the user's newest words set, which a rule can read, and not the
+     * outcomes they may have added, which it cannot — so the answer it came
+     * from is not counted as absorbed.
+     */
+    provisional: z.literal(true).optional()
   })
   .strict()
   .refine(

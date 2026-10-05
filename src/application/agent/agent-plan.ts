@@ -582,6 +582,8 @@ interface KnownEntry {
   kind: string
   text: string
   source?: string
+  items?: readonly string[]
+  forbids?: readonly AgentConsequentialEffect[]
 }
 
 /**
@@ -615,6 +617,9 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
             text: entry.text,
             ...("source" in entry && entry.source
               ? { source: entry.source }
+              : {}),
+            ...("items" in entry && entry.items?.length
+              ? { items: entry.items }
               : {})
           }
         ] as const
@@ -626,7 +631,10 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
           {
             kind: "constraint",
             text: constraint.text,
-            ...(constraint.source ? { source: constraint.source } : {})
+            ...(constraint.source ? { source: constraint.source } : {}),
+            ...(constraint.forbids?.length
+              ? { forbids: constraint.forbids }
+              : {})
           }
         ] as const
     )
@@ -733,13 +741,25 @@ const parsedRequirements = (
       )
     const { id, prior } = identity.id(entry, kind, text)
     const source = identity.source(entry, [text, ...items].join(" "), prior)
+    /**
+     * A kept requirement keeps every item it had. The amendment may add
+     * items; dropping one silently would be the same omission the plan
+     * forbids for whole outcomes.
+     */
+    const kept = [...new Set([...(prior?.items ?? []), ...items])]
+    if (kept.length > MAX_AGENT_REQUIREMENT_ITEMS)
+      throw new AgentPlanOverCapError(
+        "items",
+        kept.length,
+        MAX_AGENT_REQUIREMENT_ITEMS
+      )
     return [
       {
         id,
         text,
         kind,
         ...(source ? { source } : {}),
-        ...(items.length > 0 ? { items } : {})
+        ...(kept.length > 0 ? { items: kept } : {})
       }
     ]
   })
@@ -758,11 +778,31 @@ const parsedConstraints = (
       : "exclude"
     const { id, prior } = identity.id(entry, "constraint", text)
     const source = identity.source(entry, text, prior)
-    return [{ id, text, kind, ...(source ? { source } : {}) }]
+    /**
+     * A kept constraint keeps what it forbids. The planner is never shown
+     * `forbids` and cannot return it, so rebuilding a kept entry from its
+     * answer alone lifted a prohibition on any amendment at all; only an
+     * explicit withdrawal may.
+     */
+    return [
+      {
+        id,
+        text,
+        kind,
+        ...(source ? { source } : {}),
+        ...(prior?.forbids?.length ? { forbids: [...prior.forbids] } : {})
+      }
+    ]
   })
 
+/**
+ * A negation anywhere earlier in the verb's sentence. "Do not really want to
+ * submit it" and "never, under any circumstances, submit" are still a no; a
+ * window of a few words read them as a yes. A negation read too widely keeps
+ * a prohibition, which is the safe error.
+ */
 const NEGATION =
-  /\b(?:do not|don['’]?t|never|without|not|no)\s+(?:\S+\s+){0,2}$/i
+  /\b(?:do not|don['’]?t|dont|never|without|not|no|nor|neither|cannot|can['’]?t|won['’]?t|shouldn['’]?t|mustn['’]?t)\b[^.;:!?]*$/i
 
 /** A forbidden verb in the user's words, not itself under a negation. */
 const affirms = (
@@ -982,7 +1022,10 @@ export const parseAgentTaskPlan = (
  * Used when an amendment call fails. A user who answered "don't submit it"
  * has given a prohibition whether or not the planner was reachable, and
  * leaving the plan as it was would let the run submit; the rule reads the
- * clause the same way it reads the goal's.
+ * clause the same way it reads the goal's. It cannot read an outcome the
+ * answer added, so the plan is `provisional`: the answer stays outstanding,
+ * the planner is asked again, and the run may not complete until it has
+ * been.
  */
 export const agentRuleAmendment = (
   context: AgentPlanContext & {
@@ -1000,6 +1043,7 @@ export const agentRuleAmendment = (
   assertWithinCaps(requirements, constraints)
   return AgentTaskPlanSchema.parse({
     requirements,
-    ...(constraints.length > 0 ? { constraints } : {})
+    ...(constraints.length > 0 ? { constraints } : {}),
+    provisional: true
   })
 }

@@ -96,7 +96,14 @@ export const agentAmendedPlanPatch = (
   now: number
 ): AgentStatePatch => {
   const record = state.plan as AgentPlanRecord
-  const reconciled = { plan: { ...record, reconciledThrough: answeredAt } }
+  /**
+   * A provisional amendment applies the limits it found and leaves the
+   * answer outstanding: the planner still has to read it for outcomes.
+   */
+  const through = plan.provisional ? record.reconciledThrough : answeredAt
+  const reconciledThrough =
+    through === undefined ? {} : { reconciledThrough: through }
+  const reconciled = { plan: { ...record, ...reconciledThrough } }
   if (!plan.requirements.length) return reconciled
   const before = [
     ...(state.requirements ?? []).map((entry) => entry.id),
@@ -156,7 +163,7 @@ export const agentAmendedPlanPatch = (
           highest(constraints, "c")
         )
       },
-      reconciledThrough: answeredAt,
+      ...reconciledThrough,
       amendments: [
         ...(record.amendments ?? []),
         { version, answeredAt, added, removed, at: now }

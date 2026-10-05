@@ -1515,7 +1515,8 @@ describe("agent task contract on the wire", () => {
       ],
       constraints: [
         expect.objectContaining({ id: "c1", forbids: ["destructive"] })
-      ]
+      ],
+      provisional: true
     })
   })
 })

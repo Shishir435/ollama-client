@@ -2382,4 +2382,42 @@ describe("itemized requirements", () => {
       })
     ).toEqual({ type: "partial", outcome: { met: ["r2"], unmet: ["r1"] } })
   })
+
+  /** "Invoice 1 Paid" twice is one invoice, not two. */
+  it("refuses one item's quotation reused for another", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [invoices],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1 Paid" },
+              { index: 1, met: true, evidence: "Invoice 1 Paid" }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it("refuses a quotation that does not name its item", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: observation({ visibleText: "Invoice 10 Paid. Paid." }),
+        requirements: [{ ...invoices, items: ["invoice 1"] }],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [{ index: 0, met: true, evidence: "Invoice 10 Paid" }]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
 })

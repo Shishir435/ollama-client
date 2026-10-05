@@ -3523,21 +3523,81 @@ describe("agent controller task contract", () => {
 
   /**
    * An amendment nothing absorbed is not marked absorbed: the answer may hold
-   * a prohibition, so the next decision asks for it again rather than
-   * carrying on as if the user had said nothing.
+   * a prohibition or a new outcome, so the next decision asks for it again,
+   * and the run may not complete on a plan that has not read it.
    */
-  it("leaves an answer unreconciled when the amendment call fails", async () => {
+  it("refuses to complete while the user's answer is unabsorbed", async () => {
     const plan = vi
       .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
       .mockResolvedValueOnce({ requirements: readPlan("the hours") })
-      .mockRejectedValue(new Error("provider down"))
+      .mockRejectedValueOnce(new Error("provider down"))
+      .mockResolvedValueOnce({
+        requirements: [
+          ...readPlan("the hours"),
+          { id: "r2", text: "the phone number", kind: "read" as const }
+        ]
+      })
     let now = 10
     const harness = createHarness({
       plan,
       clock: () => now,
       decisions: [
-        { type: "ask_user", question: "Which day?" },
-        completeAll("r1")
+        { type: "ask_user", question: "Anything else?" },
+        completeAll("r1"),
+        completeAll("r1", "r2")
+      ],
+      observations: [observation(), observation(), observation()]
+    })
+
+    await harness.controller.start("run-1")
+    now = 20
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: harness.getState().question?.id ?? "",
+      text: "Also the phone number"
+    })
+
+    expect(plan).toHaveBeenCalledTimes(3)
+    const refused = harness.writtenSteps.find((step) =>
+      step.stepId.includes(":completion:")
+    )
+    expect(refused?.verification?.evidence.summary).toContain(
+      "newest answer has not been folded"
+    )
+    expect(harness.getState()).toMatchObject({
+      status: "completed",
+      requirements: [{ id: "r1" }, { id: "r2" }],
+      plan: { version: 2, reconciledThrough: 20 }
+    })
+  })
+
+  /**
+   * A rule-made amendment applies the limits it read at once and leaves the
+   * answer outstanding for the planner.
+   */
+  it("applies a provisional amendment's limits without reconciling", async () => {
+    const plan = vi
+      .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
+      .mockResolvedValueOnce({ requirements: readPlan("the hours") })
+      .mockResolvedValue({
+        requirements: readPlan("the hours"),
+        constraints: [
+          {
+            id: "c1",
+            text: "never submit",
+            kind: "exclude" as const,
+            forbids: ["submission" as const]
+          }
+        ],
+        provisional: true
+      })
+    let now = 10
+    const harness = createHarness({
+      plan,
+      clock: () => now,
+      decisions: [
+        { type: "ask_user", question: "Anything else?" },
+        { type: "fail", reason: "Stopping" }
       ],
       observations: [observation(), observation()]
     })
@@ -3547,14 +3607,12 @@ describe("agent controller task contract", () => {
     await harness.controller.answerQuestion({
       runId: "run-1",
       questionId: harness.getState().question?.id ?? "",
-      text: "Monday"
+      text: "and never submit"
     })
 
-    expect(plan.mock.calls.length).toBeGreaterThanOrEqual(2)
     expect(harness.getState()).toMatchObject({
-      status: "completed",
-      requirements: readPlan("the hours"),
-      plan: { version: 1, reconciledThrough: 0 }
+      constraints: [{ id: "c1", forbids: ["submission"] }],
+      plan: { version: 2, reconciledThrough: 0 }
     })
   })
 })

@@ -724,3 +724,106 @@ describe("review: a plan cannot lose or bend the user's words", () => {
     ])
   })
 })
+
+describe("review: an amendment keeps what it does not withdraw", () => {
+  const current = {
+    requirements: [
+      {
+        id: "r1",
+        text: "each invoice shows Paid",
+        kind: "change" as const,
+        source: "mark invoices 1 and 2 paid",
+        items: ["invoice 1", "invoice 2"]
+      }
+    ],
+    constraints: [
+      {
+        id: "c1",
+        text: "do not submit",
+        kind: "exclude" as const,
+        forbids: ["submission" as const],
+        source: "do not submit"
+      }
+    ],
+    issued: { requirements: 1, constraints: 1 },
+    reconciledThrough: 5
+  }
+  const amend = (args: Record<string, unknown>, text: string) =>
+    parseAgentTaskPlan([call(args)], {
+      goal: "Mark invoices 1 and 2 paid, but do not submit",
+      answers: [{ questionId: "q", text, answeredAt: 9 }],
+      current
+    })
+
+  /** The planner is never shown forbids, so a kept constraint must keep them. */
+  it("keeps what a constraint forbids when the planner keeps it", () => {
+    for (const constraint of [
+      { text: "do not submit", kind: "exclude", keep: "c1" },
+      { text: "do not submit", kind: "exclude" }
+    ]) {
+      const plan = amend(
+        {
+          requirements: [
+            { text: "each invoice shows Paid", kind: "change", keep: "r1" }
+          ],
+          constraints: [constraint]
+        },
+        "Monday"
+      )
+      expect(plan.constraints).toEqual([
+        expect.objectContaining({ id: "c1", forbids: ["submission"] })
+      ])
+    }
+  })
+
+  it("keeps a kept requirement's items, adding any new ones", () => {
+    const plan = amend(
+      {
+        requirements: [
+          {
+            text: "each invoice shows Paid",
+            kind: "change",
+            keep: "r1",
+            items: ["invoice 3"],
+            source: "also invoice 3"
+          }
+        ]
+      },
+      "Also invoice 3"
+    )
+    expect(plan.requirements[0]?.items).toEqual([
+      "invoice 1",
+      "invoice 2",
+      "invoice 3"
+    ])
+  })
+
+  /** "Not" several words before the verb is still a no. */
+  it("will not let a longer negated answer lift a prohibition", () => {
+    for (const text of [
+      "I do not really want to submit it",
+      "Please never, under any circumstances, submit"
+    ]) {
+      const plan = amend(
+        {
+          requirements: [
+            { text: "each invoice shows Paid", kind: "change", keep: "r1" }
+          ],
+          dropped: [{ id: "c1", source: text }]
+        },
+        text
+      )
+      expect(plan.constraints?.[0]?.id).toBe("c1")
+    }
+  })
+
+  it("marks a rule-made amendment provisional", () => {
+    expect(
+      agentRuleAmendment({
+        goal: "Mark invoices 1 and 2 paid, but do not submit",
+        answers: [{ questionId: "q", text: "Also invoice 3", answeredAt: 9 }],
+        current
+      }).provisional
+    ).toBe(true)
+  })
+})

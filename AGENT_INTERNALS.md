@@ -1378,7 +1378,10 @@ run that produced it can always be repeated.
   answer becomes `overCap` — a question naming that unit, asked before the
   first look. An itemized requirement is answered item by item in
   `outcomes[].items` and judged per item, each on its own quotation or its
-  own verified change; one invoice's evidence never vouches for the rest. A planner `clarification` is asked the same way; a
+  own verified change; one invoice's evidence never vouches for the rest. An
+  item's quotation must name that item as a whole phrase and may not repeat
+  another item's, and a receipt stands in for it only when its target or row
+  names the item — every item shares the requirement's id. A planner `clarification` is asked the same way; a
   `limitation` fails the run as `goal_failed` in the planner's words.
 - **Negative clauses are found by rule as well as by the model.**
   `agentGoalBoundaries` reads "don't / without / never", "only the …",
@@ -1398,13 +1401,17 @@ run that produced it can always be repeated.
   Kept entries keep their ids, new ones take the next number after
   `plan.issued`, and an entry is removed only when `dropped` quotes the newest
   answers, the quote names what the entry names, and — for a constraint that
-  forbids an effect — the quote asks for that effect un-negated; anything
-  unmentioned is carried forward. The amendment rides the deciding claim and
+  forbids an effect — the quote asks for that effect with no negation
+  anywhere earlier in its sentence; anything unmentioned is carried forward.
+  A kept entry keeps what it forbids and every item it had — the planner is
+  never shown `forbids`, so rebuilding a kept constraint from its answer
+  alone would lift the prohibition on any amendment. The amendment rides the deciding claim and
   a change bumps `plan.version` and stamps `since`. When the planner fails,
   the port amends by rule (`agentRuleAmendment`: the plan in force plus every
-  clause found in the newest answers), and if even that throws the answer is
-  left unreconciled and asked about again at the next decision — never
-  marked absorbed. A follow-up's planner sees the
+  clause found in the newest answers). That plan is `provisional`: its limits
+  apply at once, but it cannot read an outcome the answer added, so the
+  answer stays unreconciled, the planner is asked again at the next
+  decision, and completion is refused until it has absorbed the answer. A follow-up's planner sees the
   parent's requirement ids with what its outcome said of each, so a retry can
   keep `r2` for the same outcome.
 - `agent-useful-workflows.spec.ts` exercises composer lookup, long editing, pane scrolling,
