@@ -1411,7 +1411,10 @@ run that produced it can always be repeated.
   newest answer. The quote either names the item under a withdrawing word —
   the nearest cue before it is "not", "skip", "except" and the like rather
   than "only", "just" or "but" — or narrows with "only" to its other items
-  without naming it at all. "Only invoice 2" can never withdraw invoice 2.
+  without naming it at all. A cue governs only its own clause of the raw
+  answer (split at sentence marks and commas, before normalizing removes
+  them), and an item mentioned more than once is withdrawn only if every
+  mention withdraws it. "Only invoice 2" can never withdraw invoice 2.
   A requirement whose every item is withdrawn is withdrawn with them. The amendment rides the deciding claim and
   a change bumps `plan.version` and stamps `since`. When the planner fails,
   the port amends by rule (`agentRuleAmendment`: the plan in force plus every

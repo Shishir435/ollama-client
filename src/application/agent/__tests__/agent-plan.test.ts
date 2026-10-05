@@ -924,6 +924,34 @@ describe("review: withdrawing one item of a requirement", () => {
     ).toEqual(["invoice 2"])
   })
 
+  /** A cue governs its own clause, not the next sentence. */
+  it("keeps an item a withdrawal in another sentence does not reach", () => {
+    for (const answer of [
+      "Skip invoice 1. Please process invoice 2",
+      "Skip invoice 1, then process invoice 2"
+    ]) {
+      const plan = parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              { text: "each invoice shows Paid", kind: "change", keep: "r1" }
+            ],
+            dropped: [
+              { id: "r1", item: "invoice 1", source: answer },
+              { id: "r1", item: "invoice 2", source: answer }
+            ]
+          })
+        ],
+        {
+          goal: "Mark invoices 1 and 2 paid",
+          answers: [{ questionId: "q", text: answer, answeredAt: 9 }],
+          current
+        }
+      )
+      expect(plan.requirements[0]?.items).toEqual(["invoice 2"])
+    }
+  })
+
   /** Leaving an item out is not withdrawing it. */
   it("keeps an item the planner merely left out, or dropped on unrelated words", () => {
     expect(amend([], "Yes").requirements[0]?.items).toEqual([

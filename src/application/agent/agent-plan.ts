@@ -908,22 +908,36 @@ const wordPattern = (phrase: string): RegExp =>
 const phraseAt = (text: string, phrase: string): number =>
   phrase ? (wordPattern(phrase).exec(text)?.index ?? -1) : -1
 
-/**
- * Whether the nearest cue before the item's mention withdraws it. "Only
- * invoice 2" names invoice 2 to keep it; "only invoice 2, not invoice 1"
- * names invoice 1 to drop it. Reading the bare mention as a withdrawal
- * dropped the very item the user asked to keep.
- */
-const mentionWithdraws = (quote: string, item: string): boolean => {
-  const at = phraseAt(quote, item)
-  if (at < 0) return false
-  const before = quote.slice(0, at).split(" ").filter(Boolean)
+/** The nearest cue before the item in one clause, if it withdraws. */
+const clauseWithdraws = (clause: string, item: string): boolean => {
+  const at = phraseAt(clause, item)
+  const before = clause.slice(0, at).split(" ").filter(Boolean)
   for (let index = before.length - 1; index >= 0; index -= 1) {
     const word = before[index] ?? ""
     if (WITHDRAW_CUES.includes(word)) return true
     if (RETAIN_CUES.includes(word)) return false
   }
   return false
+}
+
+/**
+ * Whether the quote withdraws the item. Read clause by clause in the raw
+ * words, because normalizing removes the punctuation between them: "Skip
+ * invoice 1. Please process invoice 2" read as one run of words let "skip"
+ * reach invoice 2. A cue governs only its own clause, and an item mentioned
+ * more than once is withdrawn only if every mention withdraws it — "only
+ * invoice 2" names invoice 2 to keep it. Splitting too eagerly can only keep
+ * an item, never drop one.
+ */
+const mentionWithdraws = (source: string, item: string): boolean => {
+  const mentions = source
+    .split(/[.;:!?\n,]+/)
+    .map(normalized)
+    .filter((clause) => phraseAt(clause, item) >= 0)
+  return (
+    mentions.length > 0 &&
+    mentions.every((clause) => clauseWithdraws(clause, item))
+  )
 }
 
 /**
@@ -963,7 +977,8 @@ const itemWithdrawals = (
       (requirement.items ?? []).some(
         (other) => other !== item && phraseAt(quote, normalized(other)) >= 0
       )
-    if (!mentionWithdraws(quote, normalized(item)) && !narrowsToOthers) continue
+    if (!mentionWithdraws(entry.source, normalized(item)) && !narrowsToOthers)
+      continue
     withdrawn.set(
       requirement.id,
       new Set([...(withdrawn.get(requirement.id) ?? []), item])
