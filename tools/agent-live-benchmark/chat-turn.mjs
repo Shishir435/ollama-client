@@ -45,6 +45,14 @@ export const waitForChatState = async (
   }
 }
 
+/** Open tabs created after the attempt began, excluding its fixture page. */
+export const pagesOpenedDuringAttempt = (
+  pages,
+  pagesBeforeAttempt,
+  fixturePage
+) =>
+  pages.filter((page) => page !== fixturePage && !pagesBeforeAttempt.has(page))
+
 const chatIdle = (state) => !state.busy && state.sendReady
 
 /**

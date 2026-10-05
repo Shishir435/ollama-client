@@ -18,6 +18,7 @@ import {
   named,
   observableButton,
   page,
+  recordBenchmarkAttempt,
   reportsBackNavigation,
   reportsFact,
   reportsFactFromAnyTab,
@@ -76,6 +77,41 @@ test.afterAll(() => {
 
 const task = (input: Parameters<typeof benchmarkTask>[1]) =>
   benchmarkTask(attempts, input)
+
+test("scorer failures keep their limitation when the run also failed", async () => {
+  const recorded: AgentAttemptRecord[] = []
+  const outcome = {
+    attempt: 1,
+    backend: "dom",
+    messages: [],
+    wire: [],
+    startedAt: Date.now(),
+    snapshot: {
+      run: {
+        status: "paused",
+        pauseReason: "unresolved_effect",
+        error: { code: "provider_failed" }
+      },
+      steps: []
+    }
+  } as unknown as AgentScenarioOutcome
+  await recordBenchmarkAttempt({
+    attempts: recorded,
+    family: "scorer-diagnostics",
+    scenario: "preserve-scorer-failure",
+    outcome,
+    expectedStatus: "completed",
+    succeeded: () => {
+      throw new Error("test scorer failure")
+    }
+  })
+  expect(recorded[0]).toMatchObject({
+    verdict: "infrastructure_failure",
+    firstLimitation: "score_predicate_failed",
+    errorCode: "provider_failed",
+    pauseReason: "unresolved_effect"
+  })
+})
 
 test("benchmark fact scoring requires an affirmative assertion", () => {
   expect(answerCarriesFact("Status: Active", "Status: Active")).toBe(true)

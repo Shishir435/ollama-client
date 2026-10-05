@@ -17,10 +17,18 @@ import {
   withReasoningEffort
 } from "./chat-turn.mjs"
 import {
+  baselineInputs,
+  classifyAttempt,
+  supervisionTelemetry,
+  wireTelemetry,
+  writeBaseline
+} from "./report.mjs"
+import {
   INBODY_RULES,
+  isSiteChallenge,
   scoreGoogleSearch,
   scoreInbodyAnswer,
-  scoreVerdict,
+  scoreWikipediaRelease,
   scoreWikiSearch
 } from "./score-answer.mjs"
 
@@ -34,7 +42,9 @@ const model =
   process.env.AUDIT_MODEL ?? "opencode/muse-spark-1.3-contributor-free"
 const out = resolve(
   "artifacts/agent-live-benchmark/real-sites/" +
-    model.replace(/[^a-z0-9.-]+/gi, "_")
+    model.replace(/[^a-z0-9.-]+/gi, "_") +
+    "/" +
+    new Date().toISOString().replace(/[:.]/g, "-")
 )
 mkdirSync(out, { recursive: true })
 const cases = [
@@ -81,14 +91,65 @@ const cases = [
     "__inbody__"
   ]
 ]
-let current,
+const only = (process.env.AUDIT_ONLY ?? "")
+  .split(",")
+  .map((x) => x.trim())
+  .filter(Boolean)
+const attemptCount = Number(process.env.AUDIT_ATTEMPTS ?? "3")
+if (!Number.isSafeInteger(attemptCount) || attemptCount < 1)
+  throw new Error("AUDIT_ATTEMPTS must be a positive integer")
+if (only.some((name) => !cases.some((c) => c[0] === name)))
+  throw new Error("Unknown AUDIT_ONLY task")
+const declared = cases
+  .filter((c) => !only.length || only.includes(c[0]))
+  .flatMap((c) =>
+    Array.from({ length: attemptCount }, (_, i) => ({
+      fields: c,
+      attempt: i + 1
+    }))
+  )
+const inputs = baselineInputs({
+  buildDirectory: "build/chrome-mv3-prod",
+  corpusFiles: [
+    "tools/agent-live-benchmark/real-sites.mjs",
+    "tools/agent-live-benchmark/score-answer.mjs",
+    "tools/agent-live-benchmark/chat-turn.mjs",
+    "tools/agent-live-benchmark/report.mjs"
+  ],
+  provider: process.env.AUDIT_PROVIDER_ID ?? "openai-compatible",
+  model,
+  reasoningEffort: process.env.AUDIT_REASONING_EFFORT,
+  visionMode: "capability_resolved",
+  budgets: {
+    attempts: attemptCount,
+    taskTimeoutMs: 240000,
+    answerTimeoutMs: 45000
+  },
+  policy: {
+    agentEnabled: true,
+    permissionMode: "allow_routine",
+    approvals: "automatic",
+    interventions: "none",
+    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE === "1"
+  }
+})
+let profile,
+  current,
   fixture,
   context,
   panel,
   wire = [],
   messages = [],
   logs = [],
-  results = []
+  chatApprovals = 0,
+  results = declared.map(({ fields, attempt }) => ({
+    task: fields[0],
+    attempt,
+    status: "not_attempted",
+    verdict: "infrastructure_failure",
+    failureCode: "harness_not_reached"
+  }))
+writeBaseline(out, inputs, results)
 const html = (kind, path) => {
   if (path.includes("/details"))
     return (
@@ -222,314 +283,391 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify({ error: { message: String(e) } }))
   }
 })
-await new Promise((r) => server.listen(0, "127.0.0.1", r))
-const origin = `http://127.0.0.1:${server.address().port}`
-const profile = mkdtempSync(join(tmpdir(), "ollama-agent-audit-"))
-const build = join(profile, "extension")
-cpSync("build/chrome-mv3-prod", build, { recursive: true })
-context = await chromium.launchPersistentContext(profile, {
-  channel: "chromium",
-  headless: true,
-  viewport: { width: 1280, height: 720 },
-  args: [`--disable-extensions-except=${build}`, `--load-extension=${build}`]
-})
-const worker =
-  context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"))
-const ext = new URL(worker.url()).host
-await worker.evaluate(() => (globalThis.__OLLAMA_CLIENT_AGENT_TRACE__ = true))
-worker.on("console", async (m) => {
-  try {
-    logs.push({
-      at: Date.now(),
-      args: await Promise.all(m.args().map((x) => x.jsonValue()))
-    })
-  } catch {}
-})
-panel = await context.newPage()
-await panel.goto(`chrome-extension://${ext}/sidepanel.html`)
-await panel.evaluate(
-  async ({ origin, model }) => {
-    await chrome.storage.sync.set({
-      llm_providers_config_v1: JSON.stringify([
-        {
-          id: "custom:openai:agent-audit",
-          type: "openai",
-          name: "OLC audit",
-          enabled: true,
-          baseUrl: `${origin}/v1`
-        }
-      ]),
-      "provider-selected-model-ref": JSON.stringify({
-        providerId: "custom:openai:agent-audit",
-        modelId: model
-      }),
-      /** Seen, so the one-time notice cannot cover the panel mid-task. */
-      "agent-announcement-dismissed-v1": JSON.stringify(true)
-    })
-    /**
-     * The agent is opt-in and device-local; off, `browser_task` is never
-     * offered and every task would measure the "agent is off" card.
-     */
-    await chrome.storage.local.set({
-      "agent-enabled-v1": JSON.stringify(true)
-    })
-  },
-  { origin, model }
-)
-await panel.reload()
-await panel.exposeFunction("auditMessage", (m) =>
-  messages.push({ at: Date.now(), ...m })
-)
-await panel.evaluate(() => {
-  const p = chrome.runtime.connect({ name: "agent-run-port" })
-  window.auditPort = p
-  p.onMessage.addListener((m) => {
-    window.auditMessage(m)
-    if (m.snapshot?.pending?.kind === "approval")
-      p.postMessage({
-        type: "agent_approve",
-        runId: m.snapshot.run.id,
-        requestId: m.snapshot.pending.request.id
-      })
-  })
-})
-await panel
-  .getByRole("button", { name: "Skip for now", exact: true })
-  .click({ timeout: 3000 })
-  .catch(() => {})
-await panel
-  .getByRole("button", { name: "Start Chatting" })
-  .click({ timeout: 3000 })
-  .catch(() => {})
-/**
- * A task is an ordinary chat message: the chat model delegates it through
- * `browser_task`, whose start is asked about the first time on each site. The
- * previous task's turn has to finish before the composer sends again.
- */
-class FreshChatFailed extends Error {}
-
-const sendTask = async (goal) => {
-  /**
-   * A case that could not get a chat of its own is not run: sent into the
-   * previous chat, an earlier task's context could answer it. The reset
-   * happens once the previous turn is over, inside the send.
-   */
-  let fresh = true
-  const sent = await sendChatTask(panel, goal, {
-    prepare: () =>
-      startFreshChat(panel).catch((error) => {
-        fresh = false
-        console.warn(
-          `[benchmark] could not start a fresh chat: ${error.message}`
-        )
-        throw new FreshChatFailed()
-      })
-  }).catch((error) => {
-    if (error instanceof FreshChatFailed)
-      return { started: false, invalid: "fresh_chat_failed" }
-    throw error
-  })
-  if (!fresh) return sent
-  if (!sent.started) return sent
-  await panel
-    .getByRole("button", { name: /^Allow (for this chat|once)$/ })
-    .first()
-    .click({ timeout: 60000 })
-    .catch(() => {})
-  return sent
-}
 try {
-  const only = (process.env.AUDIT_ONLY ?? "")
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean)
-  for (const [kind, goal, url, expect] of cases.filter(
-    (c) => only.length === 0 || only.includes(c[0])
-  )) {
-    current = { kind, effects: 0, replaced: false }
-    wire = []
-    messages = []
-    logs = []
-    const started = Date.now()
-    fixture = await context.newPage()
-    await fixture
-      .goto(url, { waitUntil: "domcontentloaded", timeout: 45000 })
-      .catch(() => {})
-    await fixture.waitForTimeout(1500)
-    await fixture.bringToFront()
-    const sent = await sendTask(goal)
-    /**
-     * The case's clock starts once the task is sent. Waiting out the previous
-     * turn is the harness's time, and charging it to this case scored a task
-     * that took 26s as 146s.
-     */
-    const sentAt = Date.now()
-    /**
-     * A task the composer never accepted is scored as not started: calling
-     * it a timeout charged the model for a case it was never given.
-     */
-    let final
-    let reason = sent.started ? undefined : (sent.invalid ?? "turn_not_started")
-    /**
-     * The chat model may answer a reading task itself, from the page, without
-     * delegating a run. No run will ever appear, so an idle chat turn with no
-     * run is the end of the case rather than a wait for the deadline.
-     */
-    let idleSince
-    while (sent.started && Date.now() - sentAt < 240000) {
-      final = messages
-        .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
-        .at(-1)?.snapshot
-      if (
-        final &&
-        [
-          "completed",
-          "partial",
-          "failed",
-          "paused",
-          "awaiting_takeover"
-        ].includes(final.run.status)
-      )
-        break
-      if (kind === "spaform" && new URL(fixture.url()).search) {
-        reason = "submission_handler_bypassed"
-        break
-      }
-      /**
-       * The chat model may call several tools before \`browser_task\` — the
-       * tab, a screenshot — and each asks once. Approving only the first
-       * left the delegation itself waiting on a card nobody clicked.
-       */
-      await approveChatTools(panel)
-      if (!final) {
-        const chat = await readChatTurn(panel, goal).catch(() => undefined)
-        if (chat && !chat.busy && chat.sendReady && chatAnswered(wire)) {
-          idleSince ??= Date.now()
-          if (Date.now() - idleSince >= 3000) break
-        } else {
-          idleSince = undefined
-        }
-      }
-      await new Promise((r) => setTimeout(r, 250))
-    }
-    const body = await fixture
-      .locator("body")
-      .innerText()
-      .catch(() => "")
-    const field = await fixture
-      .evaluate(() => ({
-        value: document.querySelector("select")?.value,
-        checked: document.querySelector("[type=checkbox]")?.checked,
-        focus: document.activeElement?.id
-      }))
-      .catch(() => ({}))
-    await stopOpenRun(panel, final)
-    const delegated = Boolean(final)
-    /**
-     * What the user is told is the chat's reply, not the run's result: the
-     * chat may read part of the task itself and delegate the rest, then
-     * answer with both. Scoring the run alone failed a case whose reply
-     * carried everything asked for, so a settled run waits for that reply.
-     */
-    if (delegated && ["completed", "failed"].includes(final.run.status)) {
-      await waitForChatState(
-        () => readChatTurn(panel, goal),
-        (chat) => !chat.busy && chatAnswered(wire),
-        { stableMs: 1000, timeoutMs: 45_000 }
-      )
-    }
-    const chatAnswer = chatAnswerFromWire(wire)
-    const answer = chatAnswer || final?.run?.result || ""
-    const completed =
-      final?.run?.status === "completed" || (!delegated && Boolean(chatAnswer))
-    const status =
-      final?.run?.status ??
-      (!sent.started
-        ? sent.invalid
-          ? "harness_invalid"
-          : "turn_not_started"
-        : chatAnswer
-          ? "answered_in_chat"
-          : "harness_timeout")
-    let success = false
-    let predicate = `answer:${expect}`
-    if (completed) {
-      if (expect === "__inbody__") {
-        if (kind === "wiki_search") {
-          // Deterministic task: the run must land on the Firefox article.
-          // A title match alone proves nothing — the model already knows it.
-          const scored = scoreWikiSearch({ answer, url: fixture.url() })
-          success = scored.success
-          predicate = `landed+answer:Firefox (${scored.reason})`
-        } else if (kind === "google_search") {
-          const scored = scoreGoogleSearch({ answer, url: fixture.url() })
-          success = scored.success
-          predicate = `landed:google/search?q=youtube (${scored.reason})`
-        } else {
-          const rule = INBODY_RULES[kind] ?? {
-            minWords: 3,
-            minChars: 15,
-            deny: []
+  await new Promise((r, reject) =>
+    server.once("error", reject).listen(0, "127.0.0.1", r)
+  )
+  const origin = `http://127.0.0.1:${server.address().port}`
+  profile = mkdtempSync(join(tmpdir(), "ollama-agent-audit-"))
+  const build = join(profile, "extension")
+  cpSync("build/chrome-mv3-prod", build, { recursive: true })
+  context = await chromium.launchPersistentContext(profile, {
+    channel: "chromium",
+    headless: true,
+    viewport: { width: 1280, height: 720 },
+    args: [`--disable-extensions-except=${build}`, `--load-extension=${build}`]
+  })
+  const worker =
+    context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"))
+  const ext = new URL(worker.url()).host
+  await worker.evaluate(() => (globalThis.__OLLAMA_CLIENT_AGENT_TRACE__ = true))
+  worker.on("console", async (m) => {
+    try {
+      logs.push({
+        at: Date.now(),
+        args: await Promise.all(m.args().map((x) => x.jsonValue()))
+      })
+    } catch {}
+  })
+  panel = await context.newPage()
+  await panel.goto(`chrome-extension://${ext}/sidepanel.html`)
+  await panel.evaluate(
+    async ({ origin, model }) => {
+      await chrome.storage.sync.set({
+        llm_providers_config_v1: JSON.stringify([
+          {
+            id: "custom:openai:agent-audit",
+            type: "openai",
+            name: "OLC audit",
+            enabled: true,
+            baseUrl: `${origin}/v1`
           }
-          const scored = scoreInbodyAnswer(answer, body, rule)
-          success = scored.success
-          predicate = `inbody:${rule.minWords}w/${rule.minChars}c (${scored.reason})`
-        }
-      } else success = answer.includes(expect)
-    }
-    const verdict = scoreVerdict({
-      status,
-      success,
-      pauseReason: final?.run?.pauseReason,
-      body
+        ]),
+        "provider-selected-model-ref": JSON.stringify({
+          providerId: "custom:openai:agent-audit",
+          modelId: model
+        }),
+        /** Seen, so the one-time notice cannot cover the panel mid-task. */
+        "agent-announcement-dismissed-v1": JSON.stringify(true)
+      })
+      /**
+       * The agent is opt-in and device-local; off, `browser_task` is never
+       * offered and every task would measure the "agent is off" card.
+       */
+      await chrome.storage.local.set({
+        "agent-enabled-v1": JSON.stringify(true),
+        "agent-permission-mode-v1": JSON.stringify("allow_routine")
+      })
+    },
+    { origin, model }
+  )
+  await panel.reload()
+  await panel.exposeFunction("auditMessage", (m) =>
+    messages.push({ at: Date.now(), ...m })
+  )
+  await panel.evaluate(() => {
+    const p = chrome.runtime.connect({ name: "agent-run-port" })
+    window.auditPort = p
+    p.onMessage.addListener((m) => {
+      window.auditMessage(m)
+      if (m.snapshot?.pending?.kind === "approval")
+        p.postMessage({
+          type: "agent_approve",
+          runId: m.snapshot.run.id,
+          requestId: m.snapshot.pending.request.id
+        })
     })
-    const calls = wire.filter((w) => w.path.endsWith("/chat/completions"))
-    const row = {
-      task: kind,
-      goal,
-      provider:
-        "OLC OpenCode " +
-        (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"),
-      model,
-      success,
-      verdict,
-      predicate,
-      status,
-      delegated,
-      reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
-      steps: final?.run?.stepCount,
-      modelCalls: calls.length,
-      latencyMs: Date.now() - sentAt,
-      effects: current.effects,
-      answer,
-      url: fixture.url(),
-      field
-    }
-    results.push(row)
-    const dir = join(out, kind)
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(
-      join(dir, "evidence.json"),
-      JSON.stringify({ row, messages, wire, logs, body }, null, 2)
-    )
-    await fixture.screenshot({ path: join(dir, "page.png") }).catch(() => {})
-    writeFileSync(
-      join(out, "benchmark-results.json"),
-      JSON.stringify(results, null, 2)
-    )
-    console.log(JSON.stringify(row))
-    if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
-      await panel.evaluate(
-        (id) => window.auditPort.postMessage({ type: "agent_stop", runId: id }),
-        final.run.id
-      )
-      await new Promise((r) => setTimeout(r, 500))
-    }
-    await fixture.close()
+  })
+  await panel
+    .getByRole("button", { name: "Skip for now", exact: true })
+    .click({ timeout: 3000 })
+    .catch(() => {})
+  await panel
+    .getByRole("button", { name: "Start Chatting" })
+    .click({ timeout: 3000 })
+    .catch(() => {})
+  /**
+   * A task is an ordinary chat message: the chat model delegates it through
+   * `browser_task`, whose start is asked about the first time on each site. The
+   * previous task's turn has to finish before the composer sends again.
+   */
+  class FreshChatFailed extends Error {}
+
+  const sendTask = async (goal) => {
+    /**
+     * A case that could not get a chat of its own is not run: sent into the
+     * previous chat, an earlier task's context could answer it. The reset
+     * happens once the previous turn is over, inside the send.
+     */
+    let fresh = true
+    const sent = await sendChatTask(panel, goal, {
+      prepare: () =>
+        startFreshChat(panel).catch((error) => {
+          fresh = false
+          console.warn(
+            `[benchmark] could not start a fresh chat: ${error.message}`
+          )
+          throw new FreshChatFailed()
+        })
+    }).catch((error) => {
+      if (error instanceof FreshChatFailed)
+        return { started: false, invalid: "fresh_chat_failed" }
+      throw error
+    })
+    if (!fresh) return sent
+    if (!sent.started) return sent
+    return sent
   }
+  for (const [index, declaration] of declared.entries()) {
+    const [kind, goal, url, expect] = declaration.fields
+    const attempt = declaration.attempt
+    const attemptStarted = Date.now()
+    try {
+      current = { kind, effects: 0, replaced: false }
+      wire = []
+      messages = []
+      logs = []
+      chatApprovals = 0
+      const started = Date.now()
+      fixture = await context.newPage()
+      await fixture
+        .goto(url, { waitUntil: "domcontentloaded", timeout: 45000 })
+        .catch(() => {})
+      await fixture.waitForTimeout(1500)
+      await fixture.bringToFront()
+      const sent = await sendTask(goal)
+      /**
+       * The case's clock starts once the task is sent. Waiting out the previous
+       * turn is the harness's time, and charging it to this case scored a task
+       * that took 26s as 146s.
+       */
+      const sentAt = Date.now()
+      /**
+       * A task the composer never accepted is scored as not started: calling
+       * it a timeout charged the model for a case it was never given.
+       */
+      let final
+      let reason = sent.started
+        ? undefined
+        : (sent.invalid ?? "turn_not_started")
+      /**
+       * The chat model may answer a reading task itself, from the page, without
+       * delegating a run. No run will ever appear, so an idle chat turn with no
+       * run is the end of the case rather than a wait for the deadline.
+       */
+      let idleSince
+      while (sent.started && Date.now() - sentAt < 240000) {
+        final = messages
+          .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
+          .at(-1)?.snapshot
+        if (
+          final &&
+          [
+            "completed",
+            "partial",
+            "failed",
+            "paused",
+            "awaiting_takeover"
+          ].includes(final.run.status)
+        )
+          break
+        if (kind === "spaform" && new URL(fixture.url()).search) {
+          reason = "submission_handler_bypassed"
+          break
+        }
+        /**
+         * The chat model may call several tools before \`browser_task\` — the
+         * tab, a screenshot — and each asks once. Approving only the first
+         * left the delegation itself waiting on a card nobody clicked.
+         */
+        if (await approveChatTools(panel)) chatApprovals++
+        if (!final) {
+          const chat = await readChatTurn(panel, goal).catch(() => undefined)
+          if (chat && !chat.busy && chat.sendReady && chatAnswered(wire)) {
+            idleSince ??= Date.now()
+            if (Date.now() - idleSince >= 3000) break
+          } else {
+            idleSince = undefined
+          }
+        }
+        await new Promise((r) => setTimeout(r, 250))
+      }
+      const body = await fixture
+        .locator("body")
+        .innerText()
+        .catch(() => "")
+      const pageFields = await fixture
+        .evaluate(() => {
+          const firstResultTitle =
+            document.querySelector("#search a h3")?.innerText?.trim() ?? ""
+          const releaseRow = [
+            ...document.querySelectorAll("table.infobox tr")
+          ].find(
+            (row) => row.querySelector("th")?.textContent?.trim() === "Release"
+          )
+          return {
+            firstResultTitle,
+            infoboxRelease:
+              releaseRow?.querySelector("td")?.innerText?.trim() ?? ""
+          }
+        })
+        .catch(() => ({ firstResultTitle: "", infoboxRelease: "" }))
+      const field = await fixture
+        .evaluate(() => ({
+          value: document.querySelector("select")?.value,
+          checked: document.querySelector("[type=checkbox]")?.checked,
+          focus: document.activeElement?.id
+        }))
+        .catch(() => ({}))
+      await stopOpenRun(panel, final)
+      const delegated = Boolean(final)
+      /**
+       * What the user is told is the chat's reply, not the run's result: the
+       * chat may read part of the task itself and delegate the rest, then
+       * answer with both. Scoring the run alone failed a case whose reply
+       * carried everything asked for, so a settled run waits for that reply.
+       */
+      if (delegated && ["completed", "failed"].includes(final.run.status)) {
+        await waitForChatState(
+          () => readChatTurn(panel, goal),
+          (chat) => !chat.busy && chatAnswered(wire),
+          { stableMs: 1000, timeoutMs: 45_000 }
+        )
+      }
+      const chatAnswer = chatAnswerFromWire(wire)
+      const answer = chatAnswer || final?.run?.result || ""
+      const status =
+        final?.run?.status ??
+        (!sent.started
+          ? sent.invalid
+            ? "harness_invalid"
+            : "turn_not_started"
+          : chatAnswered(wire) && chatAnswer
+            ? "answered_in_chat"
+            : "harness_timeout")
+      let success = false
+      let predicate = `answer:${expect}`
+      if (answer) {
+        if (expect === "__inbody__") {
+          if (kind === "wiki_search") {
+            // Deterministic task: the run must land on the Firefox article.
+            // A title match alone proves nothing — the model already knows it.
+            const scored = scoreWikiSearch({ answer, url: fixture.url() })
+            success = scored.success
+            predicate = `landed+answer:Firefox (${scored.reason})`
+          } else if (kind === "google_search") {
+            const scored = scoreGoogleSearch({
+              answer,
+              url: fixture.url(),
+              firstResultTitle: pageFields.firstResultTitle
+            })
+            success = scored.success
+            predicate = `landed:google/search?q=youtube (${scored.reason})`
+          } else {
+            const rule = INBODY_RULES[kind] ?? {
+              minWords: 3,
+              minChars: 15,
+              deny: []
+            }
+            const scored = scoreInbodyAnswer(answer, body, rule)
+            success = scored.success
+            predicate = `inbody:${rule.minWords}w/${rule.minChars}c (${scored.reason})`
+          }
+        } else if (kind === "wiki_read") {
+          const scored = scoreWikipediaRelease({
+            answer,
+            infoboxRelease: pageFields.infoboxRelease,
+            value: expect,
+            url: fixture.url(),
+            articlePath: "/wiki/Chromium_(web_browser)"
+          })
+          success = scored.success
+          predicate = `chromium+release+answer:${expect} (${scored.reason})`
+        } else success = answer.includes(expect)
+      }
+      const verdict = classifyAttempt({
+        status,
+        success,
+        pauseReason: final?.run?.pauseReason,
+        errorCode: final?.run?.error?.code,
+        infrastructureFailure: status === "harness_invalid",
+        admissionFailure:
+          status === "turn_not_started" ||
+          (!final &&
+            wireTelemetry(wire).executionStages.includes(
+              "browser_task_admission"
+            )),
+        providerFailure: wire.some((w) => w.status >= 400),
+        siteBlocked: isSiteChallenge(body)
+      })
+      const row = {
+        task: kind,
+        attempt,
+        goal,
+        provider:
+          "OLC OpenCode " +
+          (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"),
+        model,
+        success,
+        verdict,
+        predicate,
+        status,
+        delegated,
+        reason: reason ?? final?.run?.error ?? final?.run?.pauseReason,
+        steps: final?.run?.stepCount,
+        ...wireTelemetry(wire),
+        ...supervisionTelemetry(messages, sentAt, Date.now()),
+        approvalsGranted: (final?.run?.grants?.length ?? 0) + chatApprovals,
+        observations: final?.run?.observationCount ?? 0,
+        errorCode: final?.run?.error?.code,
+        pauseReason: final?.run?.pauseReason,
+        latencyMs: Date.now() - sentAt,
+        effects: current.effects,
+        answer,
+        url: fixture.url(),
+        field
+      }
+      results[index] = row
+      if (process.env.AUDIT_DEBUG_EVIDENCE === "1") {
+        const dir = join(out, `${kind}-${attempt}`, "local-debug")
+        mkdirSync(dir, { recursive: true, mode: 0o700 })
+        writeFileSync(
+          join(dir, "evidence.json"),
+          JSON.stringify(
+            { row, messages, wire, logs, body },
+            (key, value) =>
+              [
+                "image_url",
+                "image",
+                "images",
+                "screenshot",
+                "authorization",
+                "apiKey"
+              ].includes(key)
+                ? "[REDACTED]"
+                : value,
+            2
+          ),
+          { mode: 0o600 }
+        )
+      }
+      const report = writeBaseline(out, inputs, results)
+      console.log(JSON.stringify(report.attempts[index]))
+      if (final?.run && !SETTLED_RUN_STATUSES.includes(final.run.status)) {
+        await panel.evaluate(
+          (id) =>
+            window.auditPort.postMessage({ type: "agent_stop", runId: id }),
+          final.run.id
+        )
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      await fixture.close()
+    } catch {
+      results[index] = {
+        task: declaration.fields[0],
+        attempt,
+        status: "harness_exception",
+        verdict: "infrastructure_failure",
+        failureCode: "harness_exception",
+        wallMs: Date.now() - attemptStarted,
+        ...wireTelemetry(wire)
+      }
+      writeBaseline(out, inputs, results)
+      await stopOpenRun(panel, messages.at(-1)?.snapshot).catch(() => {})
+      await fixture?.close().catch(() => {})
+    }
+  }
+} catch {
+  console.error(
+    "Benchmark setup failed; declared attempts retained as infrastructure failures"
+  )
+  process.exitCode = 1
 } finally {
-  await context.close()
+  if (results.some((row) => row.verdict === "infrastructure_failure"))
+    process.exitCode = 1
+  writeBaseline(out, inputs, results)
+  await context?.close()
   server.closeAllConnections()
   server.close()
-  console.log(`AUDIT_PROFILE ${profile}`)
+  if (profile) console.log(`AUDIT_PROFILE ${profile}`)
 }

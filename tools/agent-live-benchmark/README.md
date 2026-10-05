@@ -80,15 +80,65 @@ wherever the run ended.
 
 Predicate notes: real-site `__inbody__` tasks require a multi-word verbatim
 span minus page-chrome boilerplate (`score-answer.mjs:INBODY_RULES`), so
-"Hacker News" cannot pass as a story title; `wiki_search` additionally
-requires landing on the Firefox article, and `google_search` is judged by
-landing on Google's results for the query and the answer naming YouTube, its
-first title — one word, so a substring rather than a span. Synthetic action tasks assert the
-effect counter and page state, navigation tasks assert the landed URL, and
-`open_tab` asserts the new tab — never just the answer text. Pinned by
+"Hacker News" cannot pass as a story title; `wiki_read` requires the final URL
+to remain on the Chromium article and its infobox Release row to contain the
+year;
+`wiki_search` additionally requires landing on the Firefox article, and
+`google_search` is judged by landing on Google's results for the query and the
+answer giving the complete rendered first result title, alone or in a short
+sentence about the first result. Synthetic action tasks assert the effect counter
+and page state,
+navigation tasks assert the landed URL, and `open_tab` asserts the new tab —
+never just the answer text. Pinned by
 `node --test tools/agent-live-benchmark/__tests__/score-answer.test.mjs`.
 
 Both scripts approve every approval request automatically, so they measure the
 loop rather than the consent UI. A task that ends `awaiting_takeover` is
 reporting that the policy floor asked for a human, which is a result, not an
 error.
+
+## Current-head baseline (PR 1)
+
+Run each existing suite with `AUDIT_ATTEMPTS=3` (the default), the designated
+capable `AUDIT_MODEL`, and a fixed `AUDIT_REASONING_EFFORT`. `AUDIT_ONLY` selects
+comma-separated case names and rejects unknown names. Each pass uses a new
+output directory, preserving historical runs. Build the candidate first;
+`inputs.dirty` distinguishes worktree validation from a clean candidate run.
+`inputs.artifactHash` fingerprints the actual built extension when present.
+
+`baseline.json` contains pinned candidate/corpus/config inputs and one
+content-free outcome per declared attempt, even when setup or an individual
+case throws. `baseline.md` is generated from those rows. To regenerate it,
+read `baseline.json`, recompute `summary` with `summarizeBaseline(attempts)`,
+and call `renderBaseline`; both functions are in `report.mjs`. Neither
+function calls a provider or copies headline scores from old reports.
+
+Verdicts distinguish achieved, false completion, partial (including
+interruption and fulfilled-but-unsettled work), safe handoff, unresolved
+effect, admission failure, provider failure, infrastructure failure, and
+site blockage. End-to-end counts include every declared attempt. The
+infrastructure-qualified denominator excludes **only infrastructure failures**;
+provider, admission and site failures remain visible. Ranked failures are
+computed from the recorded outcomes, with codes when available.
+
+The wire records direct chat, page-reading tools, delegation admission,
+planning and runtime execution separately. Token counts are included only
+when a provider reports usage. No price configuration is currently defined,
+so no cost is estimated. Active/wait times are observed intervals, and
+scripted/automatic approvals do not measure a human's decision latency.
+
+Detailed page text and model evidence require `AUDIT_DEBUG_EVIDENCE=1`; this
+writes private `local-debug/evidence.json` files inside ignored artifacts.
+Do not share these files. Image payloads and credential fields are redacted;
+screenshots are not saved. By default only the content-free baseline is saved.
+This supersedes the unconditional evidence/screenshot output described above.
+
+The Playwright benchmark retains its existing report format and adds the same
+baseline inputs, verdict summary, denominators and failure ranking. Legacy
+saved reports remain readable; merging different current candidate/corpus
+inputs marks a pass incomplete. Setup failures are recorded by the task's
+`afterEach` hook even when its verification callback was never reached.
+
+Validation: `node --test tools/agent-live-benchmark/__tests__/*.test.mjs`, the
+repository checks, and the existing Playwright benchmark. A fixture pass is
+execution coverage; only the three real-model attempts establish a live baseline.

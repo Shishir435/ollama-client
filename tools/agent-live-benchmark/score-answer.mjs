@@ -117,11 +117,11 @@ export const scoreWikiSearch = ({ answer, url }) => {
 
 /**
  * google_search is judged by where the run landed — Google's results page for
- * the query — and by the answer naming YouTube, the first result's title for
- * that query. The title is one word, so no verbatim-span rule applies; a
- * bare substring is the most that can be asked without refusing it.
+ * the query — and by the answer matching the rendered first result title.
+ * Accept ordinary result phrasing around the whole title, but not a different
+ * title that merely contains the same word.
  */
-export const scoreGoogleSearch = ({ answer, url }) => {
+export const scoreGoogleSearch = ({ answer, url, firstResultTitle }) => {
   let parsed
   try {
     parsed = new URL(String(url ?? ""))
@@ -133,13 +133,20 @@ export const scoreGoogleSearch = ({ answer, url }) => {
   const landed =
     parsed.pathname === "/search" &&
     normalizeText(parsed.searchParams.get("q") ?? "").includes("youtube")
-  const namesIt = normalizeText(answer).includes("youtube")
-  const success = landed && namesIt
+  const title = normalizeText(firstResultTitle)
+  const answerTitle = normalizeText(answer)
+    .replace(
+      /^(?:(?:the )?(?:title of (?:the )?)?(?:first|top) (?:search )?result(?: s title)?(?: is| was)?(?: titled)?|it is|it s) /,
+      ""
+    )
+    .replace(/ (?:is|was) (?:the )?(?:first|top) (?:search )?result$/, "")
+  const matchesTitle = Boolean(title) && answerTitle === title
+  const success = landed && matchesTitle
   return {
     success,
     reason: !landed
       ? "never_landed_on_results"
-      : !namesIt
+      : !matchesTitle
         ? "title_missing"
         : "landed_and_named"
   }
@@ -229,6 +236,57 @@ export const statesValue = (text, value) => {
     `(?<![a-z0-9]|[a-z0-9][.-])v?${escaped}(?![a-z0-9]|[.-][a-z0-9])`,
     "i"
   ).test(String(text ?? ""))
+}
+
+/**
+ * A wiki release answer counts only on the requested Wikipedia article, when
+ * its infobox Release field places the year directly in the release date.
+ * This prevents a stray year elsewhere on the page (or another page) from
+ * grounding a guessed answer.
+ */
+export const scoreWikipediaRelease = ({
+  answer,
+  infoboxRelease,
+  value,
+  url,
+  articlePath
+}) => {
+  let parsedUrl
+  try {
+    parsedUrl = new URL(String(url ?? ""))
+  } catch {
+    parsedUrl = null
+  }
+
+  let landedArticle = false
+  if (parsedUrl && /(^|\.)wikipedia\.org$/i.test(parsedUrl.hostname)) {
+    try {
+      landedArticle = decodeURIComponent(parsedUrl.pathname) === articlePath
+    } catch {
+      landedArticle = false
+    }
+  }
+
+  const answerHasValue = statesValue(answer, value)
+  let releaseDate = normalizeText(infoboxRelease)
+  releaseDate = releaseDate.replace(
+    /^(?:\d{1,2}\s+[a-z]{3,9}|[a-z]{3,9}\s+\d{1,2})\s+/,
+    ""
+  )
+  const releaseYear = releaseDate.split(" ")[0]
+  const pageHasReleaseValue =
+    releaseYear === normalizeText(value) && statesValue(releaseYear, value)
+
+  return {
+    success: landedArticle && pageHasReleaseValue && answerHasValue,
+    reason: !landedArticle
+      ? "wrong_article"
+      : !pageHasReleaseValue
+        ? "release_value_missing"
+        : !answerHasValue
+          ? "answer_value_missing"
+          : "article_release_and_answer_match"
+  }
 }
 
 const pathOf = (url) => {
@@ -355,3 +413,12 @@ export const scoreSyntheticTask = ({
       return { success: false, predicate: "unknown-task" }
   }
 }
+
+/**
+ * Independently judge the task predicate, even when the run never settled.
+ * The historical scorer keeps its completion gate for old consumers; this
+ * view preserves every page/answer/effect check while separating settlement
+ * from correctness for the current-head baseline.
+ */
+export const scoreSyntheticGoal = (input) =>
+  scoreSyntheticTask({ ...input, completed: true })
