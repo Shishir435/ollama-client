@@ -157,6 +157,28 @@ describe("real-site scorer", () => {
     )
   })
 
+  it("accepts the complete Google result title in ordinary answer phrasing", () => {
+    const url = "https://www.google.com/search?q=youtube"
+    for (const answer of [
+      "The first result is YouTube.",
+      'The title of the first result is "YouTube".',
+      "First result: YouTube",
+      "YouTube is the first result."
+    ])
+      assert.equal(
+        scoreGoogleSearch({ answer, url, firstResultTitle: "YouTube" }).success,
+        true
+      )
+    for (const answer of [
+      "The first result is YouTube Music.",
+      "YouTube Music is the first result."
+    ])
+      assert.equal(
+        scoreGoogleSearch({ answer, url, firstResultTitle: "YouTube" }).success,
+        false
+      )
+  })
+
   it("requires landing on the Firefox article for wiki_search", () => {
     assert.equal(
       scoreWikiSearch({

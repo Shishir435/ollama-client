@@ -118,7 +118,8 @@ export const scoreWikiSearch = ({ answer, url }) => {
 /**
  * google_search is judged by where the run landed — Google's results page for
  * the query — and by the answer matching the rendered first result title.
- * Match the whole title so a different result sharing a word cannot pass.
+ * Accept ordinary result phrasing around the whole title, but not a different
+ * title that merely contains the same word.
  */
 export const scoreGoogleSearch = ({ answer, url, firstResultTitle }) => {
   let parsed
@@ -133,7 +134,13 @@ export const scoreGoogleSearch = ({ answer, url, firstResultTitle }) => {
     parsed.pathname === "/search" &&
     normalizeText(parsed.searchParams.get("q") ?? "").includes("youtube")
   const title = normalizeText(firstResultTitle)
-  const matchesTitle = Boolean(title) && normalizeText(answer) === title
+  const answerTitle = normalizeText(answer)
+    .replace(
+      /^(?:(?:the )?(?:title of (?:the )?)?(?:first|top) (?:search )?result(?: s title)?(?: is| was)?(?: titled)?|it is|it s) /,
+      ""
+    )
+    .replace(/ (?:is|was) (?:the )?(?:first|top) (?:search )?result$/, "")
+  const matchesTitle = Boolean(title) && answerTitle === title
   const success = landed && matchesTitle
   return {
     success,
