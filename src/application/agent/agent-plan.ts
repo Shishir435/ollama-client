@@ -1,6 +1,7 @@
 import type {
   AgentAnswer,
   AgentConsequentialEffect,
+  AgentPlanRemoval,
   AgentPreviousRequirement,
   AgentPreviousRun,
   AgentTaskConstraint,
@@ -14,6 +15,7 @@ import {
   MAX_AGENT_CONSTRAINTS,
   MAX_AGENT_PLAN_ITEMS,
   MAX_AGENT_PLAN_LIMITATION_CHARS,
+  MAX_AGENT_PLAN_REMOVALS,
   MAX_AGENT_QUESTION_CHARS,
   MAX_AGENT_REQUIREMENT_CHARS,
   MAX_AGENT_REQUIREMENT_ITEM_CHARS,
@@ -81,7 +83,7 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
               type: "array",
               maxItems: MAX_AGENT_REQUIREMENT_ITEMS,
               description:
-                "The repeated things this one outcome covers, one per row, record or recipient the goal names.",
+                "The rows, records or recipients the user named that this one outcome covers, copied exactly as the user wrote them. Leave out when the user did not name them.",
               items: {
                 type: "string",
                 maxLength: MAX_AGENT_REQUIREMENT_ITEM_CHARS
@@ -124,7 +126,7 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
       dropped: {
         type: "array",
         description:
-          "Only when amending a current plan: entries the user's answer explicitly withdrew, each with the answer's words that withdraw it. To withdraw one item of a requirement, give the requirement's id and the item. Anything neither kept nor listed here is retained.",
+          "Only when amending a current plan: entries the user's answer appears to withdraw. To withdraw one item of a requirement, give the requirement's id and the item. These are proposals: the user is asked to confirm each before anything is removed. Anything not listed here is retained.",
         items: {
           type: "object",
           properties: {
@@ -212,6 +214,8 @@ export interface AgentPlanContext {
   }
   /** The requirements of the run a follow-up continues. */
   previous?: readonly AgentPreviousRequirement[]
+  /** The prohibitions of the run a follow-up continues. */
+  previousConstraints?: readonly AgentTaskConstraint[]
 }
 
 const userAnswersRecord = (answers: readonly AgentAnswer[]) =>
@@ -380,6 +384,33 @@ const stemOverlap = (left: string, right: string): number => {
 const supports = (source: string, entry: string): boolean =>
   stemOverlap(source, entry) > 0
 
+/**
+ * An item's words as the user may have written them: numbers exactly, other
+ * words by shared prefix. "Invoices 1, 2 and 3" names "invoice 1" — every token of the
+ * item is there — and does not name "invoice 4".
+ */
+const itemTokens = (text: string): Set<string> =>
+  new Set(
+    normalized(text)
+      .split(" ")
+      .filter(
+        (word) =>
+          /\p{N}/u.test(word) || (word.length >= 3 && !STOP_WORDS.has(word))
+      )
+  )
+
+/** Numbers exactly; words when one is the other's prefix ("row", "rows"). */
+const tokenSpoken = (token: string, spoken: ReadonlySet<string>): boolean => {
+  if (/\p{N}/u.test(token)) return spoken.has(token)
+  for (const word of spoken)
+    if (
+      !/\p{N}/u.test(word) &&
+      (word.startsWith(token) || token.startsWith(word))
+    )
+      return true
+  return false
+}
+
 /** How alike two outcomes must read for one to keep the other's id. */
 const SAME_OUTCOME = 0.5
 
@@ -394,7 +425,9 @@ export interface AgentGoalBoundary {
 }
 
 const EXCLUDE_CUE =
-  /\b(?:do not|don['’]?t|never|without|must not|mustn['’]?t|should not|shouldn['’]?t|avoid|except|excluding|but not)\b/gi
+  /\b(?:do not|don['’]?t|never|without|must not|mustn['’]?t|should not|shouldn['’]?t|avoid|except|excluding|but not|no|stop before|hold off|make sure nothing|nothing should|nothing gets)\b/gi
+const WEAK_EXCLUDE_CUE =
+  /^(?:no|stop before|hold off|make sure nothing|nothing should|nothing gets)$/i
 const SCOPE_CUE =
   /\bonly\b(?=\s+(?:the|these|those|this|that|rows?|records?|items?|fields?|entries|\d+|one|two|three|four|five|six|seven|eight|nine|ten|first|last|named|listed|selected|following|["'“‘]))/gi
 const LIMIT_CUE =
@@ -402,46 +435,27 @@ const LIMIT_CUE =
 const DRAFT_CUE =
   /\b(?:(?:save|leave|keep)\s+(?:it\s+|them\s+)?as\s+(?:a\s+)?drafts?|(?:prepare|create|write|make|compose)\s+(?:a|the)\s+draft|(?:just|only)\s+(?:a\s+)?draft)\b/gi
 
+/**
+ * The consequential verbs of each effect class, as normalized words. Forms
+ * are listed rather than stemmed so "post" never matches "postcode".
+ */
 const FORBIDDEN_VERBS: ReadonlyArray<
   readonly [AgentConsequentialEffect, RegExp]
 > = [
   [
     "submission",
-    /^(?:submit|submitting|send|sending|post|posting|publish|publishing)$/
+    /(?:^| )(?:submit|submits|submitted|submitting|submission|send|sends|sending|sent|post|posts|posting|publish|publishes|publishing|email|emails|emailing|emailed|reply|replies|replying|book|books|booking|reserve|reserves|reserving|reservation|confirm|confirms|confirming)(?= |$)/
   ],
   [
     "payment",
-    /^(?:pay|paying|purchase|purchasing|buy|buying|checkout|order|ordering)$/
+    /(?:^| )(?:pay|pays|paying|payment|payments|purchase|purchases|purchasing|buy|buys|buying|checkout|check out|checking out|order|orders|ordering|place the order|place an order)(?= |$)/
   ],
   [
     "destructive",
-    /^(?:delete|deleting|remove|removing|discard|discarding|erase|erasing|trash|trashing)$/
+    /(?:^| )(?:delete|deletes|deleting|deleted|remove|removes|removing|discard|discards|discarding|erase|erases|erasing|trash|trashes|trashing|wipe|wipes|wiping|cancel|cancels|cancelling|canceling|archive|archives|archiving)(?= |$)/
   ],
-  ["download", /^(?:download|downloading)$/]
+  ["download", /(?:^| )(?:download|downloads|downloading)(?= |$)/]
 ]
-
-/**
- * A send said as an instruction in the same sentence as a "draft" — "write a
- * draft and send it" — which makes the draft a step, not a limit. Only the
- * draft cue reads it, and only within its own sentence. An explicit "don't
- * send" is never overridden by a send elsewhere: a submission the user also
- * asked for may be refused and asked about, but a forbidden one must never
- * go through because a different sentence allowed a different one.
- */
-const AFFIRMED_SEND =
-  /(?:^\s*|\b(?:then|and|also|please)\s+|,\s*)(?:submit|send|post|publish)\b/i
-
-const sentenceAround = (text: string, index: number): string => {
-  const start = Math.max(
-    text.lastIndexOf(".", index),
-    text.lastIndexOf("!", index),
-    text.lastIndexOf("?", index),
-    text.lastIndexOf("\n", index)
-  )
-  const rest = text.slice(index)
-  const end = rest.search(/[.!?\n]/)
-  return text.slice(start + 1, end === -1 ? text.length : index + end)
-}
 
 const CLAUSE_END = /[.;:!?\n]|,\s+(?:and|then|but)\b/
 
@@ -456,19 +470,25 @@ const clauseFrom = (text: string, start: number): string => {
     .slice(0, MAX_AGENT_REQUIREMENT_SOURCE_CHARS)
 }
 
-/**
- * A clause that carves out an exception or a condition — "don't delete
- * anything except spam", "don't submit until the total shows" — names an
- * effect the user still wants under some reading, so it forbids nothing.
- */
-const CONDITIONED = /\b(?:except|unless|until|before|other than|but)\b/i
+/** From a cue to the end of its sentence, commas and all. */
+const sentenceFrom = (text: string, start: number): string => {
+  const rest = text.slice(start)
+  const end = rest.search(/[.;:!?\n]/)
+  return end === -1 ? rest : rest.slice(0, end)
+}
 
-const forbiddenBy = (clause: string): AgentConsequentialEffect[] => {
-  if (CONDITIONED.test(clause.replace(/^\S+\s+/, ""))) return []
-  const following = normalized(clause).split(" ").slice(0, 5)
-  return FORBIDDEN_VERBS.filter(([, verb]) =>
-    following.some((word) => verb.test(word))
-  ).map(([effect]) => effect)
+/**
+ * Every effect class a negation's sentence names. The whole sentence is read,
+ * not the first few words — "do not, under any circumstances, submit the
+ * form" — and no condition lifts it: "don't submit until I say so" means not
+ * now. Reading too much forbids too much, which costs a refusal and a
+ * question; reading too little let a forbidden effect through.
+ */
+const forbiddenBy = (sentence: string): AgentConsequentialEffect[] => {
+  const words = normalized(sentence)
+  return FORBIDDEN_VERBS.filter(([, verb]) => verb.test(words)).map(
+    ([effect]) => effect
+  )
 }
 
 /**
@@ -479,9 +499,8 @@ const forbiddenBy = (clause: string): AgentConsequentialEffect[] => {
  * for them. Found here, any clause the plan does not already carry is added
  * as a constraint in the user's own words. Not a parser of English — it
  * misses phrasings, and a clause it finds wrongly costs a constraint the
- * decision model reads, never an effect. What it may never do is forbid an
- * effect class the user did not name, so `forbids` comes only from a verb
- * inside the clause itself.
+ * decision model reads, never an effect. `forbids` comes only from a verb in
+ * the negation's own sentence, so it names an effect the user named.
  */
 export const agentGoalBoundaries = (text: string): AgentGoalBoundary[] => {
   const found: AgentGoalBoundary[] = []
@@ -493,23 +512,47 @@ export const agentGoalBoundaries = (text: string): AgentGoalBoundary[] => {
     const clause = clauseFrom(text, index)
     if (!clause) return
     const key = normalized(clause).split(" ").slice(0, 3).join(" ")
-    if (found.some((boundary) => boundary.key === key)) return
+    /**
+     * De-duplicated on the whole clause, never on its first words: "don't
+     * touch the submit button. Don't touch the delete button." are two
+     * prohibitions, and keying on "dont touch the" kept only the first.
+     */
+    if (
+      found.some(
+        (boundary) => normalized(boundary.clause) === normalized(clause)
+      )
+    )
+      return
     found.push({ kind, clause, key, forbids: forbids(clause) })
   }
-  for (const match of text.matchAll(EXCLUDE_CUE))
-    add("exclude", match.index, (clause) =>
-      /^(?:except|excluding|but not)\b/i.test(clause) ? [] : forbiddenBy(clause)
+  for (const match of text.matchAll(EXCLUDE_CUE)) {
+    /**
+     * The broad cues — "no", "nothing gets", "stop before", "hold off" —
+     * count only when their sentence names an effect: "no purchases please"
+     * is a prohibition, "no problem" is not.
+     */
+    if (
+      WEAK_EXCLUDE_CUE.test(match[0]) &&
+      forbiddenBy(sentenceFrom(text, match.index)).length === 0
     )
+      continue
+    add("exclude", match.index, (clause) =>
+      /^(?:except|excluding)\b/i.test(clause)
+        ? []
+        : forbiddenBy(sentenceFrom(text, match.index))
+    )
+  }
   for (const match of text.matchAll(SCOPE_CUE))
     add("scope", match.index, () => [])
   for (const match of text.matchAll(LIMIT_CUE))
     add("limit", match.index, () => [])
+  /**
+   * A draft is a draft: "save it as a draft, then send me the link" still
+   * does not send the draft. A send the user did want is refused and asked
+   * about, which is the cheaper mistake.
+   */
   for (const match of text.matchAll(DRAFT_CUE))
-    add("exclude", match.index, () =>
-      AFFIRMED_SEND.test(sentenceAround(text, match.index))
-        ? []
-        : ["submission"]
-    )
+    add("exclude", match.index, () => ["submission"])
   return found
 }
 
@@ -698,10 +741,20 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
     ): { id: string; prior?: KnownEntry } {
       const kept = typeof entry.keep === "string" ? entry.keep.trim() : ""
       const named = known.get(kept)
+      /**
+       * A reworded `keep` whose quote comes from the user's newest answer is
+       * new work the answer asked for, not the old entry restated; giving it
+       * the old id would drop it, because a kept entry keeps its old words.
+       */
+      const fromNewestAnswer =
+        typeof entry.source === "string" &&
+        agentQuotes(entry.source, newestAnswers) &&
+        normalized(named?.text ?? "") !== normalized(text)
       if (
         named &&
         named.kind === kind &&
         !used.has(kept) &&
+        !fromNewestAnswer &&
         (normalized(named.text) === normalized(text) ||
           stemOverlap(named.text, text) >= SAME_OUTCOME)
       )
@@ -719,6 +772,30 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
             ? `c${++issued.constraints}`
             : `r${++issued.requirements}`
       }
+    },
+    /**
+     * Every item is a row the user named, as a whole phrase of the goal or an
+     * answer — digits included. Items are how a plan says which rows; one
+     * the planner enumerated from "all nine invoices", or added beside a
+     * kept entry, is work nobody asked for.
+     */
+    assertItemsQuoted(items: readonly string[]): void {
+      if (!context) return
+      const spoken = authority.map(itemTokens)
+      const unquoted = items.find((item) => {
+        const wanted = itemTokens(item)
+        return (
+          wanted.size === 0 ||
+          !spoken.some((tokens) =>
+            [...wanted].every((token) => tokenSpoken(token, tokens))
+          )
+        )
+      })
+      if (unquoted)
+        throw new AgentDecisionFormatError(
+          "An agent_plan item is not the user's words",
+          `The item "${unquoted.slice(0, 80)}" is not a row, record or recipient the user named. List as items exactly the ones the user named, in the user's words — every one of them, and no others.`
+        )
     },
     nextConstraintId: (): string => `c${++issued.constraints}`
   }
@@ -746,11 +823,21 @@ const parsedRequirements = (
         MAX_AGENT_REQUIREMENT_ITEMS
       )
     const { id, prior } = identity.id(entry, kind, text)
+    identity.assertItemsQuoted(
+      items.filter((item) => !prior?.items?.includes(item))
+    )
     const source = identity.source(entry, [text, ...items].join(" "), prior)
     /**
-     * A kept requirement keeps every item it had unless a `dropped` entry
-     * withdraws it. The amendment may add items; dropping one silently would
-     * be the same omission the plan forbids for whole outcomes.
+     * A kept entry keeps its own words. The planner may restate it however
+     * it likes; "the form is submitted" kept as "the form is not submitted"
+     * would otherwise turn every receipt bound to its id into evidence for
+     * the opposite outcome.
+     */
+    const wording = prior?.text ?? text
+    /**
+     * A kept requirement keeps every item it had. The amendment may add
+     * items; taking one out is a removal, and a removal is the user's to
+     * confirm.
      */
     const kept = [...new Set([...(prior?.items ?? []), ...items])]
     if (kept.length > MAX_AGENT_REQUIREMENT_ITEMS)
@@ -762,7 +849,7 @@ const parsedRequirements = (
     return [
       {
         id,
-        text,
+        text: wording,
         kind,
         ...(source ? { source } : {}),
         ...(kept.length > 0 ? { items: kept } : {})
@@ -785,15 +872,15 @@ const parsedConstraints = (
     const { id, prior } = identity.id(entry, "constraint", text)
     const source = identity.source(entry, text, prior)
     /**
-     * A kept constraint keeps what it forbids. The planner is never shown
-     * `forbids` and cannot return it, so rebuilding a kept entry from its
-     * answer alone lifted a prohibition on any amendment at all; only an
-     * explicit withdrawal may.
+     * A kept constraint keeps its words and what it forbids. The planner is
+     * never shown `forbids` and cannot return it, so rebuilding a kept entry
+     * from its answer alone lifted a prohibition on any amendment at all;
+     * only a removal the user confirmed may.
      */
     return [
       {
         id,
-        text,
+        text: prior?.text ?? text,
         kind,
         ...(source ? { source } : {}),
         ...(prior?.forbids?.length ? { forbids: [...prior.forbids] } : {})
@@ -801,206 +888,80 @@ const parsedConstraints = (
     ]
   })
 
-/**
- * A negation anywhere earlier in the verb's sentence. "Do not really want to
- * submit it" and "never, under any circumstances, submit" are still a no; a
- * window of a few words read them as a yes. A negation read too widely keeps
- * a prohibition, which is the safe error.
- */
-const NEGATION =
-  /\b(?:do not|don['’]?t|dont|never|without|not|no|nor|neither|cannot|can['’]?t|won['’]?t|shouldn['’]?t|mustn['’]?t)\b[^.;:!?]*$/i
-
-/** A forbidden verb in the user's words, not itself under a negation. */
-const affirms = (
-  quote: string,
-  effects: readonly AgentConsequentialEffect[]
-): boolean =>
-  FORBIDDEN_VERBS.some(
-    ([effect, verb]) =>
-      effects.includes(effect) &&
-      [...quote.matchAll(/[\p{L}]+/gu)].some(
-        (match) =>
-          verb.test(match[0].toLowerCase()) &&
-          !NEGATION.test(quote.slice(0, match.index))
-      )
-  )
-
-/**
- * Whether a withdrawal quote actually withdraws this entry: it is the user's
- * newest words, it names what the entry names, and — for a constraint that
- * forbids an effect — it asks for that effect. An answer about something
- * else cannot lift "do not submit" just because the planner attached it.
- */
-const withdraws = (
-  entry: { text: string; source?: string; forbids?: readonly string[] },
-  quote: string,
-  identity: PlanIdentity
-): boolean =>
-  agentQuotes(quote, identity.newestAnswers) &&
-  supports(quote, `${entry.text} ${entry.source ?? ""}`) &&
-  (!entry.forbids?.length ||
-    affirms(quote, entry.forbids as AgentConsequentialEffect[]))
-
-/**
- * An amendment carries forward what it did not mention. Omission is the
- * cheapest way to drop an inconvenient outcome, so the only removal is an
- * explicit one whose quote, from the user's newest answers, withdraws it.
- */
-const carriedForward = <
-  T extends { id: string; text: string; source?: string; forbids?: string[] }
->(
+/** Entries of the plan in force that the answer did not restate. */
+const carriedForward = <T extends { id: string }>(
   entries: readonly T[],
-  dropped: unknown,
   identity: PlanIdentity
-): T[] => {
-  const quotes = new Map<string, string[]>()
+): T[] => entries.filter((entry) => !identity.used.has(entry.id))
+
+/**
+ * What the planner proposes to take out, checked only for existing: an entry
+ * of the plan in force, or one item of a requirement in it. Nothing here is
+ * applied. Every rule tried for telling a withdrawal from a mention — cues,
+ * negations, clauses — was one phrasing short, and the cost of a misread was
+ * work the user asked for, silently gone. The run asks instead, and only a
+ * plain yes removes anything.
+ */
+const proposedRemovals = (
+  dropped: unknown,
+  current: NonNullable<AgentPlanContext["current"]>
+): AgentPlanRemoval[] => {
+  const removals: AgentPlanRemoval[] = []
   for (const entry of rawArray(dropped) ?? []) {
-    if (
-      typeof entry.id !== "string" ||
-      typeof entry.source !== "string" ||
-      entry.item !== undefined
-    )
-      continue
+    if (typeof entry.id !== "string") continue
     const id = entry.id.trim()
-    quotes.set(id, [...(quotes.get(id) ?? []), entry.source])
-  }
-  return entries.filter(
-    (entry) =>
-      !identity.used.has(entry.id) &&
-      !(quotes.get(entry.id) ?? []).some((quote) =>
-        withdraws(entry, quote, identity)
+    const requirement = current.requirements.find(
+      (candidate) => candidate.id === id
+    )
+    const constraint = current.constraints.find(
+      (candidate) => candidate.id === id
+    )
+    if (!requirement && !constraint) continue
+    if (typeof entry.item === "string") {
+      const item = requirement?.items?.find(
+        (candidate) =>
+          normalized(candidate) === normalized(entry.item as string)
       )
-  )
-}
-
-/**
- * Words that say which way a mention of an item goes. "not", "skip" and
- * the like withdraw what follows them; "only", "just", "but" and "keep"
- * retain it. "and" says neither, so "skip invoice 1 and invoice 2" skips
- * both. Matched against normalized text, where "don't" is "dont".
- */
-const WITHDRAW_CUES = [
-  "not",
-  "no",
-  "dont",
-  "never",
-  "skip",
-  "without",
-  "except",
-  "excluding",
-  "exclude",
-  "drop",
-  "remove",
-  "ignore",
-  "cancel",
-  "forget",
-  "omit"
-]
-const RETAIN_CUES = ["only", "just", "but", "keep", "still", "include"]
-
-const wordPattern = (phrase: string): RegExp =>
-  new RegExp(
-    `(?:^| )${phrase.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?= |$)`,
-    "g"
-  )
-
-/** Where a normalized phrase first occurs as whole words, or -1. */
-const phraseAt = (text: string, phrase: string): number =>
-  phrase ? (wordPattern(phrase).exec(text)?.index ?? -1) : -1
-
-/** The nearest cue before the item in one clause, if it withdraws. */
-const clauseWithdraws = (clause: string, item: string): boolean => {
-  const at = phraseAt(clause, item)
-  const before = clause.slice(0, at).split(" ").filter(Boolean)
-  for (let index = before.length - 1; index >= 0; index -= 1) {
-    const word = before[index] ?? ""
-    if (WITHDRAW_CUES.includes(word)) return true
-    if (RETAIN_CUES.includes(word)) return false
+      if (
+        item &&
+        !removals.some((removal) => removal.id === id && removal.item === item)
+      )
+        removals.push({ id, item })
+      continue
+    }
+    if (!removals.some((removal) => removal.id === id && !removal.item))
+      removals.push({ id })
   }
-  return false
+  return removals.slice(0, MAX_AGENT_PLAN_REMOVALS)
 }
 
 /**
- * Whether the quote withdraws the item. Read clause by clause in the raw
- * words, because normalizing removes the punctuation between them: "Skip
- * invoice 1. Please process invoice 2" read as one run of words let "skip"
- * reach invoice 2. A cue governs only its own clause, and an item mentioned
- * more than once is withdrawn only if every mention withdraws it — "only
- * invoice 2" names invoice 2 to keep it. Splitting too eagerly can only keep
- * an item, never drop one.
+ * The previous run's prohibitions, added where this plan does not already
+ * forbid the same effects. A follow-up's goal is usually the chat model's
+ * words, and "don't submit" said to the first run must not end with it.
  */
-const mentionWithdraws = (source: string, item: string): boolean => {
-  const mentions = source
-    .split(/[.;:!?\n,]+/)
-    .map(normalized)
-    .filter((clause) => phraseAt(clause, item) >= 0)
-  return (
-    mentions.length > 0 &&
-    mentions.every((clause) => clauseWithdraws(clause, item))
-  )
-}
-
-/**
- * Items of a requirement the user's newest words withdrew, by id. A
- * withdrawal names its item under a withdrawing word ("not invoice 1"), or
- * narrows to the items that remain ("only invoice 2") without naming the
- * withdrawn one at all. Either way its quote is the user's newest answer;
- * an answer about something else withdraws nothing, and an item the quote
- * names to keep is never withdrawn by it.
- */
-const itemWithdrawals = (
-  dropped: unknown,
-  requirements: readonly AgentTaskRequirement[],
+const withInheritedProhibitions = (
+  constraints: readonly AgentTaskConstraint[],
+  inherited: readonly AgentTaskConstraint[],
   identity: PlanIdentity
-): Map<string, Set<string>> => {
-  const withdrawn = new Map<string, Set<string>>()
-  for (const entry of rawArray(dropped) ?? []) {
-    if (
-      typeof entry.id !== "string" ||
-      typeof entry.item !== "string" ||
-      typeof entry.source !== "string" ||
-      !agentQuotes(entry.source, identity.newestAnswers)
+): AgentTaskConstraint[] => {
+  const result = [...constraints]
+  for (const prohibition of inherited) {
+    if (!prohibition.forbids?.length) continue
+    const enforced = new Set(
+      result.flatMap((constraint) => constraint.forbids ?? [])
     )
-      continue
-    const requirement = requirements.find(
-      (candidate) => candidate.id === (entry.id as string).trim()
-    )
-    const item = requirement?.items?.find(
-      (candidate) => normalized(candidate) === normalized(entry.item as string)
-    )
-    if (!requirement || !item) continue
-    const quote = normalized(entry.source)
-    const named = phraseAt(quote, normalized(item)) >= 0
-    const narrowsToOthers =
-      !named &&
-      phraseAt(quote, "only") >= 0 &&
-      (requirement.items ?? []).some(
-        (other) => other !== item && phraseAt(quote, normalized(other)) >= 0
-      )
-    if (!mentionWithdraws(entry.source, normalized(item)) && !narrowsToOthers)
-      continue
-    withdrawn.set(
-      requirement.id,
-      new Set([...(withdrawn.get(requirement.id) ?? []), item])
-    )
+    if (prohibition.forbids.every((effect) => enforced.has(effect))) continue
+    result.push({
+      id: identity.nextConstraintId(),
+      text: prohibition.text,
+      kind: prohibition.kind,
+      ...(prohibition.source ? { source: prohibition.source } : {}),
+      forbids: [...prohibition.forbids]
+    })
   }
-  return withdrawn
+  return result
 }
-
-/**
- * Requirements with their withdrawn items removed. One whose every item was
- * withdrawn is withdrawn with them: an outcome over nothing asks for nothing.
- */
-const withoutWithdrawnItems = (
-  requirements: readonly AgentTaskRequirement[],
-  withdrawn: ReadonlyMap<string, ReadonlySet<string>>
-): AgentTaskRequirement[] =>
-  requirements.flatMap((requirement) => {
-    const gone = withdrawn.get(requirement.id)
-    if (!gone || !requirement.items) return [requirement]
-    const items = requirement.items.filter((item) => !gone.has(item))
-    return items.length === 0 ? [] : [{ ...requirement, items }]
-  })
 
 /**
  * The clauses the user wrote and the plan left out, added in the user's
@@ -1097,12 +1058,12 @@ const assertWithinCaps = (
  *
  * With a context, every quoted source is checked against the user's words,
  * the user's own negative and bounding clauses are added where the plan left
- * them out, and an amendment keeps every entry it does not explicitly drop
- * on the strength of the user's newest answers. On an amendment only those
- * newest answers are read for clauses: the goal's were reconciled when it
- * was first planned, and one the user has since withdrawn must not come back
- * from the goal it was withdrawn from. None of this proves the plan
- * complete; it refuses the omissions a rule can see.
+ * them out, and an amendment keeps every entry of the plan in force — what
+ * it would drop comes back as `proposedRemovals`, for the user to confirm.
+ * On an amendment only the newest answers are read for clauses: the goal's
+ * were reconciled when it was first planned, and one the user has since
+ * confirmed removing must not come back from the goal. None of this proves
+ * the plan complete; it refuses the omissions a rule can see.
  */
 export const parseAgentTaskPlan = (
   calls: readonly ToolCall[],
@@ -1133,20 +1094,9 @@ export const parseAgentTaskPlan = (
     identity
   )
   if (current) {
-    requirements.push(
-      ...carriedForward(current.requirements, args.dropped, identity)
-    )
-    constraints.push(
-      ...carriedForward(current.constraints, args.dropped, identity)
-    )
+    requirements.push(...carriedForward(current.requirements, identity))
+    constraints.push(...carriedForward(current.constraints, identity))
   }
-  const narrowed = current
-    ? withoutWithdrawnItems(
-        requirements,
-        itemWithdrawals(args.dropped, current.requirements, identity)
-      )
-    : requirements
-  requirements.splice(0, requirements.length, ...narrowed)
   if (context)
     constraints = withUserBoundaries(
       current ? identity.newestAnswers : identity.authority,
@@ -1154,10 +1104,18 @@ export const parseAgentTaskPlan = (
       constraints,
       identity
     )
+  if (!current && context?.previousConstraints?.length)
+    constraints = withInheritedProhibitions(
+      constraints,
+      context.previousConstraints,
+      identity
+    )
   assertWithinCaps(requirements, constraints)
+  const removals = current ? proposedRemovals(args.dropped, current) : []
   return AgentTaskPlanSchema.parse({
     requirements,
-    ...(constraints.length > 0 ? { constraints } : {})
+    ...(constraints.length > 0 ? { constraints } : {}),
+    ...(removals.length > 0 ? { proposedRemovals: removals } : {})
   })
 }
 

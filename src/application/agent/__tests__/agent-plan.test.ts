@@ -163,10 +163,84 @@ describe("the whole task survives planning", () => {
           ]
         })
       ],
-      { goal }
+      {
+        goal: `Mark all nine invoices paid: ${nine.map((_, index) => `invoice ${index + 1}`).join(", ")}`
+      }
     )
     expect(plan.requirements).toHaveLength(1)
     expect(plan.requirements[0]?.items).toHaveLength(9)
+  })
+
+  /** The common phrasing: rows named once, under a plural. */
+  it.each([
+    ["Mark invoices 1, 2 and 3 paid", ["invoice 1", "invoice 2", "invoice 3"]],
+    ["Delete the rows for March and April", ["March row", "April row"]],
+    ["Email Alice, Bob and Carol", ["Alice", "Bob", "Carol"]]
+  ])("accepts items the user named in: %s", (goal, items) => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [{ text: goal, kind: "change", source: goal, items }]
+        })
+      ],
+      { goal }
+    )
+    expect(plan.requirements[0]?.items).toEqual(items)
+  })
+
+  /** "All nine" names no rows; enumerating them is the planner's invention. */
+  it("refuses items the user never named, new or added to a kept entry", () => {
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "each invoice shows Paid",
+                kind: "change",
+                source: "mark invoices 1 and 2 paid",
+                items: ["invoice 1", "invoice 2", "invoice 3"]
+              }
+            ]
+          })
+        ],
+        { goal: "Mark invoice 1 and invoice 2 paid" }
+      )
+    ).toThrow(AgentDecisionFormatError)
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: "each invoice shows Paid",
+                kind: "change",
+                keep: "r1",
+                items: ["invoice 3"]
+              }
+            ]
+          })
+        ],
+        {
+          goal: "Mark invoice 1 and invoice 2 paid",
+          answers: [{ questionId: "q", text: "ok", answeredAt: 9 }],
+          current: {
+            requirements: [
+              {
+                id: "r1",
+                text: "each invoice shows Paid",
+                kind: "change",
+                source: "Mark invoice 1 and invoice 2 paid",
+                items: ["invoice 1", "invoice 2"]
+              }
+            ],
+            constraints: [],
+            issued: { requirements: 1, constraints: 0 },
+            reconciledThrough: 5
+          }
+        }
+      )
+    ).toThrow(AgentDecisionFormatError)
   })
 
   it("refuses an enumeration past the plan's item budget rather than trimming it", () => {
@@ -303,32 +377,6 @@ describe("the whole task survives planning", () => {
     expect(plan.constraints?.[0]?.forbids).toBeUndefined()
   })
 
-  it("forbids nothing the user also asked for", () => {
-    for (const goal of [
-      "Draft an email to Sam and send it",
-      "Don't delete anything except the spam",
-      "Don't submit until the total shows $40",
-      "Write a draft reply and send it"
-    ]) {
-      const plan = parseAgentTaskPlan(
-        [
-          call({ requirements: [{ text: goal, kind: "change", source: goal }] })
-        ],
-        { goal }
-      )
-      expect(
-        (plan.constraints ?? []).flatMap(
-          (constraint) => constraint.forbids ?? []
-        )
-      ).not.toContain("submission")
-      expect(
-        (plan.constraints ?? []).flatMap(
-          (constraint) => constraint.forbids ?? []
-        )
-      ).not.toContain("destructive")
-    }
-  })
-
   it("keeps a price bound as a limit", () => {
     const plan = parseAgentTaskPlan(
       [
@@ -422,32 +470,6 @@ describe("amending a plan", () => {
       "r3"
     ])
     expect(plan.constraints?.map((constraint) => constraint.id)).toEqual(["c1"])
-  })
-
-  it("drops an entry only on the words of the user's newest answer", () => {
-    const ask = (dropSource: string) =>
-      parseAgentTaskPlan(
-        [
-          call({
-            requirements: [
-              { text: "the name is Alice", kind: "change", keep: "r1" }
-            ],
-            dropped: [{ id: "c1", source: dropSource }]
-          })
-        ],
-        {
-          goal: "Set the name to Alice and save, but do not submit",
-          answers: [answer("Go ahead and submit it after all")],
-          current
-        }
-      )
-
-    expect(ask("go ahead and submit it").constraints).toBeUndefined()
-    /** The goal is not a withdrawal, and nor is anything the page said. */
-    expect(ask("set the name to Alice").constraints?.[0]?.id).toBe("c1")
-    expect(
-      ask("the page says submission is required").constraints?.[0]?.id
-    ).toBe("c1")
   })
 
   it("will not let an amendment add an outcome only the page asked for", () => {
@@ -591,19 +613,6 @@ describe("review: a plan cannot lose or bend the user's words", () => {
       "Still don't submit"
     )
     expect(plan.constraints?.[0]?.id).toBe("c1")
-  })
-
-  it("lets the user's own request to submit withdraw it", () => {
-    const plan = amend(
-      {
-        requirements: [
-          { text: "the name is Alice", kind: "change", keep: "r1" }
-        ],
-        dropped: [{ id: "c1", source: "go ahead and submit it" }]
-      },
-      "Go ahead and submit it"
-    )
-    expect(plan.constraints).toBeUndefined()
   })
 
   /** A kept id must keep its meaning: receipts are bound to it. */
@@ -828,181 +837,235 @@ describe("review: an amendment keeps what it does not withdraw", () => {
   })
 })
 
-describe("review: withdrawing one item of a requirement", () => {
+/**
+ * Removal is proposed, never applied. Every phrasing review raised — and
+ * any other — leaves the plan whole and names what would go, for the user
+ * to confirm.
+ */
+describe("removals are proposals", () => {
+  const items = ["invoice 1", "invoice 2", "invoice 3"]
   const current = {
     requirements: [
       {
         id: "r1",
         text: "each invoice shows Paid",
         kind: "change" as const,
-        source: "mark invoices 1 and 2 paid",
-        items: ["invoice 1", "invoice 2"]
+        source: "mark invoices 1, 2 and 3 paid",
+        items
+      },
+      {
+        id: "r2",
+        text: "the form is submitted",
+        kind: "change" as const,
+        source: "submit the form"
       }
     ],
-    constraints: [],
-    issued: { requirements: 1, constraints: 0 },
+    constraints: [
+      {
+        id: "c1",
+        text: "don't delete anything",
+        kind: "exclude" as const,
+        forbids: ["destructive" as const],
+        source: "don't delete anything"
+      }
+    ],
+    issued: { requirements: 2, constraints: 1 },
     reconciledThrough: 5
   }
-  const amend = (dropped: unknown[], text: string) =>
-    parseAgentTaskPlan(
-      [
-        call({
-          requirements: [
-            {
-              text: "each invoice shows Paid",
-              kind: "change",
-              keep: "r1",
-              items: ["invoice 2"]
-            }
-          ],
-          dropped
-        })
-      ],
-      {
-        goal: "Mark invoices 1 and 2 paid",
-        answers: [{ questionId: "q", text, answeredAt: 9 }],
-        current
-      }
-    )
+  const amend = (answer: string, args: Record<string, unknown>) =>
+    parseAgentTaskPlan([call(args)], {
+      goal: "Mark invoices 1, 2 and 3 paid and submit the form, but don't delete anything",
+      answers: [{ questionId: "q", text: answer, answeredAt: 9 }],
+      current
+    })
 
-  it("drops an item the user's answer withdraws by name", () => {
-    expect(
-      amend(
-        [{ id: "r1", item: "invoice 1", source: "not invoice 1" }],
-        "Only invoice 2, not invoice 1"
-      ).requirements[0]?.items
-    ).toEqual(["invoice 2"])
-  })
-
-  it("drops an item the answer narrows away with only", () => {
-    expect(
-      amend(
-        [{ id: "r1", item: "invoice 1", source: "only invoice 2" }],
-        "Only invoice 2"
-      ).requirements[0]?.items
-    ).toEqual(["invoice 2"])
-  })
-
-  /** "Only invoice 2" names invoice 2 to keep it, not to drop it. */
-  it("never withdraws the item a quote names to keep", () => {
-    for (const [source, answer] of [
-      ["Only invoice 2", "Only invoice 2"],
-      ["only invoice 2", "Only invoice 2, not invoice 1"],
-      ["but only invoice 2", "Not invoice 1 but only invoice 2"]
-    ]) {
-      const plan = parseAgentTaskPlan(
-        [
-          call({
-            requirements: [
-              { text: "each invoice shows Paid", kind: "change", keep: "r1" }
-            ],
-            dropped: [{ id: "r1", item: "invoice 2", source }]
-          })
-        ],
-        {
-          goal: "Mark invoices 1 and 2 paid",
-          answers: [{ questionId: "q", text: answer, answeredAt: 9 }],
-          current
-        }
-      )
-      expect(plan.requirements[0]?.items).toContain("invoice 2")
-    }
-  })
-
-  it("withdraws the item a retain-then-withdraw answer names last", () => {
-    expect(
-      amend(
-        [
-          {
-            id: "r1",
-            item: "invoice 1",
-            source: "not invoice 1 but only invoice 2"
-          }
-        ],
-        "Not invoice 1 but only invoice 2"
-      ).requirements[0]?.items
-    ).toEqual(["invoice 2"])
-  })
-
-  /** A cue governs its own clause, not the next sentence. */
-  it("keeps an item a withdrawal in another sentence does not reach", () => {
-    for (const answer of [
-      "Skip invoice 1. Please process invoice 2",
-      "Skip invoice 1, then process invoice 2"
-    ]) {
-      const plan = parseAgentTaskPlan(
-        [
-          call({
-            requirements: [
-              { text: "each invoice shows Paid", kind: "change", keep: "r1" }
-            ],
-            dropped: [
-              { id: "r1", item: "invoice 1", source: answer },
-              { id: "r1", item: "invoice 2", source: answer }
-            ]
-          })
-        ],
-        {
-          goal: "Mark invoices 1 and 2 paid",
-          answers: [{ questionId: "q", text: answer, answeredAt: 9 }],
-          current
-        }
-      )
-      expect(plan.requirements[0]?.items).toEqual(["invoice 2"])
-    }
-  })
-
-  /** Leaving an item out is not withdrawing it. */
-  it("keeps an item the planner merely left out, or dropped on unrelated words", () => {
-    expect(amend([], "Yes").requirements[0]?.items).toEqual([
-      "invoice 1",
-      "invoice 2"
+  it.each([
+    "Only invoice 2",
+    "Skip invoice 1. Please process invoice 2",
+    "Skip invoice 1, invoice 2, and invoice 3; report the total",
+    "Please do not, under any circumstances, delete anything",
+    "Deleting anything is still not allowed",
+    "The form total should be $50"
+  ])("keeps the whole plan and only proposes for: %s", (answer) => {
+    const plan = amend(answer, {
+      requirements: [],
+      dropped: [
+        ...items.map((item) => ({ id: "r1", item, source: answer })),
+        { id: "r2", source: answer },
+        { id: "c1", source: answer }
+      ]
+    })
+    expect(plan.requirements.map((entry) => [entry.id, entry.items])).toEqual([
+      ["r1", items],
+      ["r2", undefined]
     ])
-    expect(
-      amend([{ id: "r1", item: "invoice 1", source: "Monday" }], "Monday")
-        .requirements[0]?.items
-    ).toEqual(["invoice 1", "invoice 2"])
+    expect(plan.constraints?.[0]).toMatchObject({
+      id: "c1",
+      forbids: ["destructive"]
+    })
+    expect(plan.proposedRemovals).toEqual([
+      { id: "r1", item: "invoice 1" },
+      { id: "r1", item: "invoice 2" },
+      { id: "r1", item: "invoice 3" },
+      { id: "r2" },
+      { id: "c1" }
+    ])
   })
 
-  it("withdraws the requirement when every item is withdrawn", () => {
+  it("ignores proposals for entries or items the plan does not have", () => {
+    const plan = amend("Yes", {
+      requirements: [],
+      dropped: [
+        { id: "r9", source: "Yes" },
+        { id: "r1", item: "invoice 7", source: "Yes" }
+      ]
+    })
+    expect(plan.proposedRemovals).toBeUndefined()
+  })
+
+  /** A kept id keeps its words: "not submitted" cannot replace "submitted". */
+  it("keeps a kept entry's own wording", () => {
+    const plan = amend("ok", {
+      requirements: [
+        { text: "the form is not submitted", kind: "change", keep: "r2" }
+      ]
+    })
+    expect(plan.requirements.find((entry) => entry.id === "r2")?.text).toBe(
+      "the form is submitted"
+    )
+  })
+
+  /** New work from the newest answer is new, even under a kept id. */
+  it("adds a reworded keep quoting the newest answer as a new entry", () => {
+    const plan = amend("Also email each invoice", {
+      requirements: [
+        {
+          text: "each invoice is emailed",
+          kind: "change",
+          keep: "r1",
+          source: "Also email each invoice"
+        }
+      ]
+    })
+    expect(plan.requirements.map((entry) => [entry.id, entry.text])).toEqual([
+      ["r3", "each invoice is emailed"],
+      ["r1", "each invoice shows Paid"],
+      ["r2", "the form is submitted"]
+    ])
+  })
+})
+
+describe("prohibitions read by rule", () => {
+  const forbidden = (goal: string) =>
+    (
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [{ text: goal, kind: "change", source: goal }]
+          })
+        ],
+        { goal }
+      ).constraints ?? []
+    ).flatMap((constraint) => constraint.forbids ?? [])
+
+  /** Conditions mean "not now"; reading them as permission was unsafe. */
+  it.each([
+    ["Don't submit until I say so", ["submission"]],
+    ["Don't submit it, I will review it before sending", ["submission"]],
+    ["Do not, under any circumstances, submit the form", ["submission"]],
+    ["Don't click the Submit or Delete buttons", ["submission", "destructive"]],
+    ["Don't check out yet", ["payment"]],
+    ["Save it as a draft, then send me the link", ["submission"]],
+    ["Fill in the address but do not place the order", ["payment"]]
+  ])("%s", (goal, expected) => {
+    expect(new Set(forbidden(goal))).toEqual(new Set(expected))
+  })
+
+  it("forbids nothing when no negation governs the verb", () => {
+    expect(forbidden("Delete every row except the first")).toEqual([])
+  })
+
+  /** "Don't submit" said to the first run binds the follow-up too. */
+  it("carries the previous run's prohibitions into a follow-up plan", () => {
     const plan = parseAgentTaskPlan(
       [
         call({
           requirements: [
             {
-              text: "the total is reported",
-              kind: "read",
-              source: "report the total"
-            }
-          ],
-          dropped: [
-            {
-              id: "r1",
-              item: "invoice 1",
-              source: "Skip invoice 1 and invoice 2"
-            },
-            {
-              id: "r1",
-              item: "invoice 2",
-              source: "Skip invoice 1 and invoice 2"
+              text: "the second form is filled",
+              kind: "change",
+              source: "fill the second form"
             }
           ]
         })
       ],
       {
-        goal: "Mark invoices 1 and 2 paid",
-        answers: [
+        goal: "Now fill the second form",
+        previousConstraints: [
           {
-            questionId: "q",
-            text: "Skip invoice 1 and invoice 2, just report the total",
-            answeredAt: 9
-          }
-        ],
-        current
+            id: "c1",
+            text: "do not submit",
+            kind: "exclude",
+            forbids: ["submission"]
+          },
+          { id: "c2", text: "only page one", kind: "scope" }
+        ]
       }
     )
-    expect(plan.requirements.map((requirement) => requirement.id)).toEqual([
-      "r2"
+    expect(plan.constraints).toEqual([
+      expect.objectContaining({ forbids: ["submission"] })
     ])
+  })
+})
+
+describe("review round five", () => {
+  const forbidden = (goal: string) =>
+    (
+      parseAgentTaskPlan(
+        [
+          call({ requirements: [{ text: goal, kind: "change", source: goal }] })
+        ],
+        { goal }
+      ).constraints ?? []
+    ).flatMap((constraint) => constraint.forbids ?? [])
+
+  /** Two prohibitions with the same first words are two prohibitions. */
+  it("keeps both of two prohibitions that open alike", () => {
+    expect(
+      new Set(
+        forbidden(
+          "Please don't touch the submit button. Please don't touch the delete button."
+        )
+      )
+    ).toEqual(new Set(["submission", "destructive"]))
+  })
+
+  it.each([
+    ["Stop before submitting the form.", ["submission"]],
+    ["No purchases please.", ["payment"]],
+    ["Make sure nothing gets deleted.", ["destructive"]],
+    ["Don't email the client.", ["submission"]],
+    ["Don't book the room.", ["submission"]],
+    ["Don't cancel my subscription.", ["destructive"]]
+  ])("reads the prohibition in: %s", (goal, expected) => {
+    expect(new Set(forbidden(goal))).toEqual(new Set(expected))
+  })
+
+  it("adds no constraint for a broad cue that names no effect", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "the hours are reported",
+              kind: "read",
+              source: "find the opening hours"
+            }
+          ]
+        })
+      ],
+      { goal: "No problem if it takes a while, find the opening hours" }
+    )
+    expect(plan.constraints).toBeUndefined()
   })
 })

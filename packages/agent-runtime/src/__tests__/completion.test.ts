@@ -2480,4 +2480,59 @@ describe("itemized requirements", () => {
       })
     ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
   })
+
+  /** "Paid Invoice 2" quotes invoice 1's state beside invoice 2's name. */
+  it("refuses a change quotation whose state does not follow its item", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: observation({
+          visibleText: "Invoice 1 Paid Invoice 2 Due"
+        }),
+        requirements: [{ ...invoices, items: ["invoice 2"] }],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [{ index: 0, met: true, evidence: "Paid Invoice 2" }]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it.each([
+    ["Invoice 1 Paid Invoice 2 Due", "invoice 2", "Paid Invoice 2 Due"],
+    [
+      "Invoice 1 Due Invoice 2 Paid",
+      "invoice 1",
+      "Invoice 1 Due Invoice 2 Paid"
+    ],
+    ["Invoice 12 Paid", "invoice 1", "Invoice 12 Paid"]
+  ])("refuses a change quotation that is not about its item alone: %s", (page, item, evidence) => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: observation({ visibleText: page }),
+        requirements: [{ ...invoices, items: ["invoice 1", "invoice 2"] }],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              {
+                index: item === "invoice 1" ? 0 : 1,
+                met: true,
+                evidence
+              },
+              {
+                index: item === "invoice 1" ? 1 : 0,
+                met: false
+              }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
 })

@@ -3647,4 +3647,129 @@ describe("agent controller task contract", () => {
       plan: { version: 2, reconciledThrough: 0 }
     })
   })
+
+  /**
+   * A removal the planner proposes is a question. Only a plain yes removes;
+   * no, or any other answer, keeps the plan whole.
+   */
+  describe("confirmed removals", () => {
+    const twoReads = () =>
+      vi
+        .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
+        .mockResolvedValueOnce({
+          requirements: readPlan("the hours", "the phone")
+        })
+        .mockResolvedValueOnce({
+          requirements: readPlan("the hours", "the phone"),
+          proposedRemovals: [{ id: "r2" }]
+        })
+        .mockResolvedValue({ requirements: readPlan("the hours", "the phone") })
+
+    const askedToRemove = async (answer: string, finish: unknown[]) => {
+      let now = 10
+      const harness = createHarness({
+        plan: twoReads(),
+        clock: () => now,
+        decisions: [
+          { type: "ask_user", question: "Anything else?" },
+          ...finish
+        ],
+        observations: [observation(), observation(), observation()]
+      })
+      await harness.controller.start("run-1")
+      now = 20
+      await harness.controller.answerQuestion({
+        runId: "run-1",
+        questionId: harness.getState().question?.id ?? "",
+        text: "Skip the phone"
+      })
+      const asked = harness.getState()
+      expect(asked).toMatchObject({
+        status: "paused",
+        pauseReason: "question",
+        question: {
+          display: [
+            {
+              key: "agent.question_text.confirm_removal",
+              values: { list: '"the phone"' }
+            }
+          ]
+        },
+        requirements: readPlan("the hours", "the phone")
+      })
+      now = 30
+      await harness.controller.answerQuestion({
+        runId: "run-1",
+        questionId: asked.question?.id ?? "",
+        text: answer
+      })
+      return harness
+    }
+
+    it("removes on a plain yes, as a new version", async () => {
+      const harness = await askedToRemove("Yes", [completeAll("r1")])
+      expect(harness.getState()).toMatchObject({
+        status: "completed",
+        requirements: readPlan("the hours"),
+        plan: {
+          version: 2,
+          amendments: [{ version: 2, removed: ["r2"] }]
+        }
+      })
+      expect(harness.getState().plan?.pending).toBeUndefined()
+    })
+
+    it.each([
+      "No",
+      "Keep the phone too, actually"
+    ])("keeps everything on: %s", async (answer) => {
+      const harness = await askedToRemove(answer, [completeAll("r1", "r2")])
+      expect(harness.getState()).toMatchObject({
+        status: "completed",
+        requirements: readPlan("the hours", "the phone")
+      })
+      expect(harness.getState().plan?.pending).toBeUndefined()
+    })
+  })
+
+  /**
+   * While the user's newest answer is unread by the planner, nothing that
+   * cannot be undone runs: the answer may be the "don't" a rule missed.
+   */
+  it("refuses a consequential effect while an answer is unabsorbed", async () => {
+    const harness = createHarness({
+      state: runState({
+        status: "observing",
+        requirements: [
+          { id: "r1", text: "the form is submitted", kind: "change" }
+        ],
+        plan: {
+          version: 1,
+          issued: { requirements: 1, constraints: 0 },
+          reconciledThrough: 5
+        },
+        answers: [{ questionId: "q", text: "wait, hold on", answeredAt: 9 }]
+      }),
+      plan: async () => {
+        throw new Error("provider down")
+      },
+      decisions: [
+        {
+          type: "command",
+          command: { ...command(), type: "click", ref: "e1" } as AgentCommand,
+          requirementId: "r1"
+        },
+        { type: "fail", reason: "Stopping" }
+      ],
+      effectOverrides: { semanticEffects: ["submission"] }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls).not.toContain("execute")
+    expect(
+      harness.writtenSteps.find((step) => step.status === "rejected")
+        ?.verification?.evidence.summary
+    ).toContain("not been folded into the plan")
+  })
 })

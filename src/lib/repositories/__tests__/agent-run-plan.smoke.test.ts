@@ -213,7 +213,9 @@ describe("a run's task contract in the durable record", () => {
           requirements: [
             { id: "r1", kind: "change", met: true },
             { id: "r3", kind: "read", met: false }
-          ]
+          ],
+          /** The parent's prohibition travels; the follow-up must not submit. */
+          constraints: [{ id: "c1", forbids: ["submission"] }]
         }
       })
       expect(

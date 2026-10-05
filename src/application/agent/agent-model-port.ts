@@ -556,6 +556,9 @@ const agentPlanContext = (state: AgentRunState): AgentPlanContext => ({
     : {}),
   ...(state.previousRun?.requirements?.length
     ? { previous: state.previousRun.requirements }
+    : {}),
+  ...(state.previousRun?.constraints?.length
+    ? { previousConstraints: state.previousRun.constraints }
     : {})
 })
 

@@ -2,12 +2,17 @@ import type { AgentRunState } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
   agentAmendedPlanPatch,
+  agentConfirmedRemovalPatch,
   agentForbiddingConstraints,
   agentInitialPlanPatch,
   agentPlanNeedsReconciling
 } from "../plan-record"
 
-const planned: Pick<AgentRunState, "plan" | "requirements" | "constraints"> = {
+const planned: Pick<
+  AgentRunState,
+  "id" | "plan" | "requirements" | "constraints"
+> = {
+  id: "run-1",
   requirements: [
     { id: "r1", text: "the name is Alice", kind: "change" },
     { id: "r2", text: "the form is saved", kind: "change", since: 1 }
@@ -128,5 +133,135 @@ describe("agent plan record", () => {
         planned.constraints
       )
     ).toEqual([])
+  })
+
+  describe("confirmed removal", () => {
+    const pending = {
+      ...planned,
+      requirements: [
+        {
+          id: "r1",
+          text: "each invoice shows Paid",
+          kind: "change" as const,
+          items: ["invoice 1", "invoice 2"]
+        },
+        ...(planned.requirements ?? []).slice(1)
+      ],
+      plan: {
+        ...(planned.plan as NonNullable<AgentRunState["plan"]>),
+        pending: {
+          questionId: "run-1:removal:9",
+          removals: [{ id: "r1", item: "invoice 1" }, { id: "c1" }]
+        }
+      }
+    }
+
+    it("removes the named entries and items on a plain yes", () => {
+      const patch = agentConfirmedRemovalPatch(pending, "Yes, please", 12, 13)
+      expect(patch.requirements?.[0]?.items).toEqual(["invoice 2"])
+      expect(patch.constraints).toEqual([])
+      expect(patch.plan).toMatchObject({
+        version: 2,
+        reconciledThrough: 12,
+        amendments: [
+          {
+            removed: ["c1"],
+            removedItems: [{ id: "r1", item: "invoice 1" }]
+          }
+        ]
+      })
+      expect(patch.plan?.pending).toBeUndefined()
+    })
+
+    it("keeps everything on no, and on a sentence leaves the answer to the planner", () => {
+      expect(agentConfirmedRemovalPatch(pending, "no", 12, 13)).toEqual({
+        plan: { ...planned.plan, reconciledThrough: 12 }
+      })
+      expect(
+        agentConfirmedRemovalPatch(pending, "yes but keep invoice 1", 12, 13)
+      ).toEqual({ plan: planned.plan })
+    })
+
+    it("never removes the last outcome", () => {
+      const patch = agentConfirmedRemovalPatch(
+        {
+          ...pending,
+          plan: {
+            ...pending.plan,
+            pending: {
+              questionId: "q",
+              removals: [{ id: "r1" }, { id: "r2" }]
+            }
+          }
+        },
+        "yes",
+        12,
+        13
+      )
+      expect(patch.requirements).toBeUndefined()
+    })
+
+    it("asks rather than applies what an amendment proposes", () => {
+      const patch = agentAmendedPlanPatch(
+        planned,
+        {
+          requirements: planned.requirements ?? [],
+          constraints: planned.constraints,
+          proposedRemovals: [{ id: "r1" }]
+        },
+        9,
+        10
+      )
+      expect(patch.requirements).toBeUndefined()
+      expect(patch.plan?.pending).toEqual({
+        questionId: "run-1:removal:10",
+        removals: [{ id: "r1" }]
+      })
+    })
+  })
+
+  /**
+   * "Yes" to "no longer needs: do not submit" reads as well as "yes, don't".
+   * Lifting a prohibition is asked on its own and answered only by allow.
+   */
+  describe("lifting a prohibition", () => {
+    it("asks a lift question for a forbidding constraint, on its own", () => {
+      const patch = agentAmendedPlanPatch(
+        planned,
+        {
+          requirements: planned.requirements ?? [],
+          constraints: planned.constraints,
+          proposedRemovals: [{ id: "r1" }, { id: "c1" }]
+        },
+        9,
+        10
+      )
+      expect(patch.plan?.pending).toEqual({
+        questionId: "run-1:removal:10",
+        removals: [{ id: "c1" }],
+        lift: true
+      })
+    })
+
+    it.each([
+      ["yes", 1],
+      ["ok", 1],
+      ["allow", 0]
+    ])("on %s keeps %i constraints", (answer, left) => {
+      const patch = agentConfirmedRemovalPatch(
+        {
+          ...planned,
+          plan: {
+            ...(planned.plan as NonNullable<AgentRunState["plan"]>),
+            pending: { questionId: "q", removals: [{ id: "c1" }], lift: true }
+          }
+        },
+        answer,
+        12,
+        13
+      )
+      expect((patch.constraints ?? planned.constraints)?.length).toBe(left)
+      expect(patch.plan?.pending).toBeUndefined()
+    })
   })
 })

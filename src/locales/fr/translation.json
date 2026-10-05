@@ -248,7 +248,9 @@
       "no_progress": "Je répète des actions sans progresser. Que devrais-je faire différemment ? Vous pouvez aussi m’arrêter et terminer la tâche vous-même.",
       "too_many_outcomes": "Cette tâche demande {{count}} résultats distincts, et une exécution peut en suivre {{max}}. Lesquels cette exécution doit-elle traiter ? Le reste pourra suivre dans une autre.",
       "too_many_items": "Cette tâche cite {{count}} lignes ou enregistrements, et une exécution peut en suivre {{max}}. Lesquels cette exécution doit-elle traiter ? Le reste pourra suivre dans une autre.",
-      "too_many_constraints": "Cette tâche fixe {{count}} limites distinctes, et une exécution peut en tenir {{max}}. Lesquelles comptent pour cette exécution ?"
+      "too_many_constraints": "Cette tâche fixe {{count}} limites distinctes, et une exécution peut en tenir {{max}}. Lesquelles comptent pour cette exécution ?",
+      "confirm_removal": "Ta réponse peut signifier que cette tâche n’a plus besoin de : {{list}}. Réponds oui pour retirer, ou non pour tout garder.",
+      "confirm_lift": "Ta réponse peut signifier que ces limites ne s’appliquent plus : {{list}}. Réponds « allow » pour les lever ; toute autre réponse les conserve."
     },
     "start_gate": {
       "after_page": "Le modèle a lu le contenu d’une page avant de rédiger cette tâche : elle est donc toujours soumise à confirmation.",

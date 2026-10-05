@@ -56,6 +56,7 @@ import {
 } from "./observed-text"
 import {
   agentAmendedPlanPatch,
+  agentConfirmedRemovalPatch,
   agentConstraintRefusal,
   agentForbiddingConstraints,
   agentInitialPlanPatch,
@@ -166,6 +167,9 @@ type AgentResolutionOutcome =
  * use the correction gets to. One that cannot is answering with controls the
  * page does not offer, and no number of further looks changes that.
  */
+const OUTSTANDING_EFFECT_FEEDBACK =
+  "The user's newest answer has not been folded into the plan yet, and it may forbid this. Nothing that cannot be undone runs until it has. Do something else for now, or ask_user."
+
 const OUTSTANDING_ANSWER_FEEDBACK =
   "The user's newest answer has not been folded into the plan yet, and it may ask for more than the plan lists. Act on everything the user has asked, then complete again."
 
@@ -1509,6 +1513,39 @@ export const createAgentController = (
     return { ...decision, requirementId: opener.requirementId }
   }
 
+  /**
+   * What the task contract refuses before policy is asked, as the feedback
+   * the model is told, or undefined when it refuses nothing.
+   *
+   * While the user's newest words are unread by the planner, nothing that
+   * cannot be undone runs: the answer may be the "don't" a rule missed.
+   * Routine steps go on, and the run asks again at the next decision. And
+   * the user's own "do not submit" binds the effect, not the wording: a
+   * command whose grounded effect is a class a constraint forbids is refused,
+   * so the user is never asked to approve what they already said not to do.
+   */
+  const refusalByTaskContract = (
+    state: AgentRunState,
+    decision: Extract<AgentDecision, { type: "command" }>,
+    effect: ResolvedAgentEffect
+  ): string | undefined => {
+    if (
+      dependencies.model.plan &&
+      agentEffectIsConsequential(effect) &&
+      agentPlanNeedsReconciling(state, state.answers) !== undefined
+    ) {
+      dependencies.trace?.(state.id, "outstanding_answer_refused", {})
+      return OUTSTANDING_EFFECT_FEEDBACK
+    }
+    const broken = agentForbiddingConstraints(effect, state.constraints)
+    if (broken.length === 0) return undefined
+    dependencies.trace?.(state.id, "constraint_refused", {
+      constraints: broken.length,
+      command: decision.command.type
+    })
+    return agentConstraintRefusal(broken)
+  }
+
   const processCommand = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
@@ -1554,23 +1591,9 @@ export const createAgentController = (
     ) {
       return refuseCommand(state, decision.command, REPEATED_EFFECT_FEEDBACK)
     }
-    /**
-     * The user's own "do not submit" binds the effect, not the wording: a
-     * command whose grounded effect is a class a constraint forbids is
-     * refused before policy, so the user is never asked to approve what
-     * they already said not to do.
-     */
-    const broken = agentForbiddingConstraints(effect, state.constraints)
-    if (broken.length > 0) {
-      dependencies.trace?.(state.id, "constraint_refused", {
-        constraints: broken.length
-      })
-      return refuseCommand(
-        state,
-        decision.command,
-        agentConstraintRefusal(broken)
-      )
-    }
+    /** Before policy, like a repeat: see `refusalByTaskContract`. */
+    const contract = refusalByTaskContract(state, decision, effect)
+    if (contract) return refuseCommand(state, decision.command, contract)
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
@@ -2148,6 +2171,48 @@ export const createAgentController = (
     })
   }
 
+  /**
+   * Removals the planner proposed, put to the user by name. The list is the
+   * plan's own entries, so the user is asked about what the run would stop
+   * doing — not about a sentence the planner wrote.
+   */
+  const askRemoval = async (state: AgentRunState): Promise<void> => {
+    const pending = state.plan?.pending
+    if (!pending) return
+    const list = pending.removals
+      .map((removal) => {
+        const entry = [
+          ...(state.requirements ?? []),
+          ...(state.constraints ?? [])
+        ].find((candidate) => candidate.id === removal.id)
+        const text = entry?.text ?? removal.id
+        return removal.item ? `"${removal.item}" from "${text}"` : `"${text}"`
+      })
+      .join("; ")
+      .slice(0, 1_500)
+    dependencies.trace?.(state.id, "plan_removal_asked", {
+      removals: pending.removals.length
+    })
+    const them = pending.removals.length === 1 ? "it" : "them"
+    await pause(state, "question", {
+      question: {
+        id: pending.questionId,
+        text: pending.lift
+          ? `Your answer may mean these limits no longer apply: ${list}. Reply allow to lift ${them}; anything else keeps ${them}.`
+          : `Your answer may mean this task no longer needs: ${list}. Reply yes to remove ${them}, or no to keep ${them}.`,
+        display: [
+          {
+            key: pending.lift
+              ? "agent.question_text.confirm_lift"
+              : "agent.question_text.confirm_removal",
+            values: { list }
+          }
+        ],
+        askedAt: dependencies.clock.now()
+      }
+    })
+  }
+
   const observeAndDecide = async (
     state: AgentRunState,
     signal: AgentCancellationController["signal"]
@@ -2191,6 +2256,10 @@ export const createAgentController = (
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
+    }
+    if (deciding.plan?.pending) {
+      await askRemoval(deciding)
+      return undefined
     }
     let decision: AgentDecision | undefined
     const context: AgentResolutionContext = {}
@@ -2746,6 +2815,19 @@ export const createAgentController = (
        * one commit: a worker lost between them cannot leave an answered
        * question still waiting for its answer.
        */
+      /**
+       * The answer to a removal question decides those removals and nothing
+       * else: a plain yes removes, anything else keeps.
+       */
+      const removal =
+        state.plan?.pending?.questionId === questionId
+          ? agentConfirmedRemovalPatch(
+              state,
+              text,
+              dependencies.clock.now(),
+              dependencies.clock.now()
+            )
+          : {}
       const recorded = await transition(state, resumedPhase(state), {
         ...(state.deadline
           ? {
@@ -2757,6 +2839,7 @@ export const createAgentController = (
           : {}),
         pauseReason: undefined,
         answers,
+        ...removal,
         question: undefined,
         updatedAt: dependencies.clock.now()
       })

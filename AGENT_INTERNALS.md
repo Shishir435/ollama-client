@@ -1380,50 +1380,59 @@ run that produced it can always be repeated.
   `outcomes[].items` and judged per item, each on its own quotation or its
   own verified change; one invoice's evidence never vouches for the rest. An
   item's quotation must name that item as a whole phrase and may not repeat
-  another item's, and a receipt stands in for it only when its target or row
-  names the item — every item shares the requirement's id. A batch receipt
-  names every field its verification checked, not only its top-level target. A planner `clarification` is asked the same way; a
-  `limitation` fails the run as `goal_failed` in the planner's words.
+  another item's; for a change it must start at the item's name, carry a
+  state after it, and name no other item ("Paid Invoice 2" and "Invoice 1
+  Due Invoice 2 Paid" each quote the wrong item's state). Items themselves
+  must be rows the user named — whole phrases of the goal or an answer — so
+  "all nine invoices" is one outcome, not nine invented rows. A receipt stands in for an
+  item only when its target, row, or — for a verified batch — one of its
+  checked fields names the item; every item shares the requirement's id.
+  A planner `clarification` is asked the same way; a `limitation` fails the
+  run as `goal_failed` in the planner's words.
 - **Negative clauses are found by rule as well as by the model.**
   `agentGoalBoundaries` reads "don't / without / never", "only the …",
   "under $N" and draft phrasings from the user's words and adds any the plan
   left out as constraints. `forbids` — the consequential effect classes a
-  constraint rules out — comes only from a verb inside the user's own clause,
-  never from the model. A clause carrying an exception or condition
-  ("except", "until") forbids nothing. A permission elsewhere in the goal
-  never lifts an explicit "don't": a submission the user also asked for may
-  be refused and asked about, but a forbidden one must not go through
-  because another clause allowed a different one. Only a draft cue reads an
-  affirmed send, and only in its own sentence. The controller refuses a command whose
-  resolved effect carries a forbidden class before policy is asked.
-- **Only the user's words amend a plan.** An answer, correction or steer newer
-  than `plan.reconciledThrough` triggers one planning call, given the goal,
-  the answers and the plan in force — never an observation, finding or step.
-  Kept entries keep their ids, new ones take the next number after
-  `plan.issued`, and an entry is removed only when `dropped` quotes the newest
-  answers, the quote names what the entry names, and — for a constraint that
-  forbids an effect — the quote asks for that effect with no negation
-  anywhere earlier in its sentence; anything unmentioned is carried forward.
-  A kept entry keeps what it forbids and every item it had — the planner is
-  never shown `forbids`, so rebuilding a kept constraint from its answer
-  alone would lift the prohibition on any amendment. One item is withdrawn
-  only by a `dropped` entry naming the requirement and the item, quoting the
-  newest answer. The quote either names the item under a withdrawing word —
-  the nearest cue before it is "not", "skip", "except" and the like rather
-  than "only", "just" or "but" — or narrows with "only" to its other items
-  without naming it at all. A cue governs only its own clause of the raw
-  answer (split at sentence marks and commas, before normalizing removes
-  them), and an item mentioned more than once is withdrawn only if every
-  mention withdraws it. "Only invoice 2" can never withdraw invoice 2.
-  A requirement whose every item is withdrawn is withdrawn with them. The amendment rides the deciding claim and
-  a change bumps `plan.version` and stamps `since`. When the planner fails,
-  the port amends by rule (`agentRuleAmendment`: the plan in force plus every
-  clause found in the newest answers). That plan is `provisional`: its limits
-  apply at once, but it cannot read an outcome the answer added, so the
-  answer stays unreconciled, the planner is asked again at the next
-  decision, and completion is refused until it has absorbed the answer. A follow-up's planner sees the
-  parent's requirement ids with what its outcome said of each, so a retry can
-  keep `r2` for the same outcome.
+  constraint rules out — comes only from a verb in the negation's own
+  sentence, never from the model; two clauses are two prohibitions even when
+  they open alike. Broad cues ("no", "nothing gets", "stop before") count
+  only when their sentence names an effect. The whole sentence is read and no
+  condition lifts it: "don't submit until I say so" means not now, and a
+  draft never sends. Reading too much forbids too much, which costs a
+  refusal and a question; reading too little let a forbidden effect through.
+  The controller refuses a command whose resolved effect carries a forbidden
+  class before policy is asked. A follow-up inherits the parent's
+  prohibitions (`previousRun.constraints`), because its goal is usually the
+  chat model's words.
+- **Only the user's words amend a plan, and only the user's yes removes
+  anything.** An answer, correction or steer newer than
+  `plan.reconciledThrough` triggers one planning call, given the goal, the
+  answers and the plan in force — never an observation, finding or step.
+  Kept entries keep their ids **and their words** (a kept constraint keeps
+  what it forbids, a kept requirement its items); a reworded `keep` quoting
+  the newest answer is new work under a new id. New ids take the next
+  number after `plan.issued`. The amendment rides the deciding claim, and a
+  change bumps `plan.version` and stamps `since`.
+- **Removal is a question, never a reading.** What an amendment would drop —
+  an entry, or one item of a requirement — comes back as
+  `proposedRemovals`; the plan keeps everything, records it in
+  `plan.pending` with a question id, and the run asks the user by naming the
+  plan's own entries. Only a plain yes to that question removes them; a no,
+  or any sentence, keeps everything (a sentence is then read by the planner
+  like any other answer). Lifting a prohibition — a constraint that forbids
+  an effect — is asked on its own, as a limit that would no longer apply,
+  and only "allow" lifts it: a "yes" there reads as well as "yes, don't". Every rule tried for telling a withdrawal from a
+  mention — cues, negations, clauses — was one phrasing short, and its
+  failure was requested work silently gone. Nothing removes the last
+  outcome.
+- **An unread answer holds back what cannot be undone.** When the planner
+  fails, the port amends by rule (`agentRuleAmendment`: the plan in force
+  plus every clause found in the newest answers). That plan is
+  `provisional`: its limits apply at once, but the answer stays
+  unreconciled, and while any answer is unreconciled the controller refuses
+  every consequential effect and every completion. The next decision asks
+  the planner again. A planner that never recovers ends the run on its
+  budget, not on a guess.
 - `agent-useful-workflows.spec.ts` exercises composer lookup, long editing, pane scrolling,
   paginated extraction, clarification, delayed save and native confirmation.
   Its hosted flag also runs these tasks against a real provider. Scripted

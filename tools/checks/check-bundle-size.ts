@@ -480,9 +480,11 @@ const budgets: Budget[] = [
      * completion, withdrawal and identity checks, the rule amendment — took
      * Chrome to 309,395; the second round — provisional amendments, item
      * evidence binding, kept limits — to 309,816; the third — item
-     * withdrawals and batch field names for items — to 310,127.
+     * withdrawals and batch field names for items — to 310,127; confirmed
+     * removals, lift questions and the outstanding-answer gate replaced the
+     * withdrawal heuristics and took it to 311,532.
      */
-    max: isFirefox ? 218_500 : 310_500
+    max: isFirefox ? 218_500 : 312_000
   }
 ]
 

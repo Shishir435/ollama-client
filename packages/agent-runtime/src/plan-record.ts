@@ -90,6 +90,47 @@ const sameConstraint = (
  * must keep meaning the outcome they were bound to.
  */
 export const agentAmendedPlanPatch = (
+  state: Pick<AgentRunState, "id" | "plan" | "requirements" | "constraints">,
+  plan: AgentTaskPlan,
+  answeredAt: number,
+  now: number
+): AgentStatePatch => {
+  const patch = amendedPlanChanges(state, plan, answeredAt, now)
+  /**
+   * Removals ride along as a question, never as a change: the plan keeps
+   * every entry, and the user's answer to this question — and no other —
+   * decides whether any of it goes.
+   */
+  if (!plan.proposedRemovals?.length || !patch.plan) return patch
+  /**
+   * Lifting a prohibition is asked on its own. Other removals proposed with
+   * it are let go — a dropped removal keeps work, which the planner may
+   * propose again — rather than folded into a yes that means two things.
+   */
+  const constraints = plan.constraints ?? state.constraints ?? []
+  const lifts = plan.proposedRemovals.filter(
+    (removal) =>
+      !removal.item &&
+      constraints.some(
+        (constraint) =>
+          constraint.id === removal.id && constraint.forbids?.length
+      )
+  )
+  return {
+    ...patch,
+    plan: {
+      ...patch.plan,
+      pending: {
+        questionId: `${state.id}:removal:${now}`,
+        ...(lifts.length > 0
+          ? { removals: lifts, lift: true as const }
+          : { removals: plan.proposedRemovals })
+      }
+    }
+  }
+}
+
+const amendedPlanChanges = (
   state: Pick<AgentRunState, "plan" | "requirements" | "constraints">,
   plan: AgentTaskPlan,
   answeredAt: number,
@@ -167,6 +208,100 @@ export const agentAmendedPlanPatch = (
       amendments: [
         ...(record.amendments ?? []),
         { version, answeredAt, added, removed, at: now }
+      ].slice(-MAX_AGENT_PLAN_AMENDMENTS)
+    }
+  }
+}
+
+const YES =
+  /^(?:yes|y|yeah|yep|yup|ok|okay|sure|confirm|confirmed|correct|right|go ahead|do it|please do|remove it|remove them|drop it|drop them)(?: please)?$/
+/** The one word that lifts a prohibition: what it allows, said outright. */
+const ALLOW =
+  /^(?:allow|allow it|allow them|yes allow|yes allow it|yes allow them)$/
+
+const NO =
+  /^(?:no|n|nope|nah|keep it|keep them|cancel|dont|do not|leave it|leave them)(?: please)?$/
+
+/** An answer, reduced to the words a yes or no is written in. */
+const confirmationWords = (text: string): string =>
+  text
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+
+/**
+ * The user's answer to a removal question, applied.
+ *
+ * Only a plain yes removes anything; a plain no keeps everything. Anything
+ * else also keeps everything — a sentence is not a yes — and is left
+ * unreconciled, so the planner reads it like any other answer. A removal
+ * applied on a reading of an answer is how work the user asked for went
+ * missing; one applied on a yes to a question naming it cannot.
+ */
+export const agentConfirmedRemovalPatch = (
+  state: Pick<AgentRunState, "plan" | "requirements" | "constraints">,
+  answer: string,
+  answeredAt: number,
+  now: number
+): AgentStatePatch => {
+  const record = state.plan as AgentPlanRecord
+  const removals = record.pending?.removals ?? []
+  const { pending: _pending, ...rest } = record
+  const words = confirmationWords(answer)
+  const confirmed = record.pending?.lift ? ALLOW.test(words) : YES.test(words)
+  const plain = confirmed || NO.test(words) || YES.test(words)
+  const settled = {
+    ...rest,
+    ...(plain ? { reconciledThrough: answeredAt } : {})
+  }
+  if (!confirmed || removals.length === 0) return { plan: settled }
+  const whole = new Set(
+    removals.filter((removal) => !removal.item).map((removal) => removal.id)
+  )
+  const itemsOf = (id: string) =>
+    new Set(
+      removals
+        .filter((removal) => removal.id === id && removal.item)
+        .map((removal) => removal.item as string)
+    )
+  const removedItems: { id: string; item: string }[] = []
+  const requirements = (state.requirements ?? []).flatMap((requirement) => {
+    if (whole.has(requirement.id)) return []
+    const gone = itemsOf(requirement.id)
+    if (gone.size === 0 || !requirement.items) return [requirement]
+    const items = requirement.items.filter((item) => !gone.has(item))
+    for (const item of requirement.items)
+      if (gone.has(item)) removedItems.push({ id: requirement.id, item })
+    /** An outcome over no items asks for nothing, so it goes with them. */
+    if (items.length === 0) {
+      whole.add(requirement.id)
+      return []
+    }
+    return [{ ...requirement, items }]
+  })
+  const constraints = (state.constraints ?? []).filter(
+    (constraint) => !whole.has(constraint.id)
+  )
+  /** Nothing may remove the last outcome: that is a stop, not a plan. */
+  if (requirements.length === 0) return { plan: settled }
+  const version = record.version + 1
+  return {
+    requirements,
+    constraints,
+    plan: {
+      ...settled,
+      version,
+      amendments: [
+        ...(record.amendments ?? []),
+        {
+          version,
+          answeredAt,
+          added: [],
+          removed: [...whole],
+          ...(removedItems.length > 0 ? { removedItems } : {}),
+          at: now
+        }
       ].slice(-MAX_AGENT_PLAN_AMENDMENTS)
     }
   }

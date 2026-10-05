@@ -1764,7 +1764,12 @@ const judgeItemizedRequirement = (
     const evidence = answer.evidence?.trim()
     if (evidence) {
       const claim = agentNormalizedClaim(evidence)
-      if (!namesItem(claim, item) || quoted.has(claim))
+      if (
+        !namesItem(claim, item) ||
+        (requirement.kind === "change" &&
+          !quotesOnlyItsItem(claim, item, requirement.items)) ||
+        quoted.has(claim)
+      )
         return {
           type: "refused",
           reason: "absent_evidence",
@@ -1794,6 +1799,26 @@ const judgeItemizedRequirement = (
     if (refusal) return refusal
   }
   return allMet ? undefined : "unmet"
+}
+
+/**
+ * For a change, the quotation is about its item and nothing else: it starts
+ * at the item's name, carries a state after it, and names no other item of
+ * the requirement. "Paid Invoice 2" quotes invoice 1's state beside invoice
+ * 2's name, and "Invoice 1 Due Invoice 2 Paid" quotes invoice 2's. A page
+ * that writes the state first is refused here and can still be credited by
+ * the item's own receipt.
+ */
+const quotesOnlyItsItem = (
+  claim: string,
+  item: string,
+  items: readonly string[]
+): boolean => {
+  const phrase = agentNormalizedClaim(item)
+  if (!phrase || !claim.startsWith(phrase)) return false
+  const rest = claim.slice(phrase.length)
+  if (!/^[^\p{L}\p{N}]/u.test(rest) || !/[\p{L}\p{N}]/u.test(rest)) return false
+  return items.every((other) => other === item || !namesItem(claim, other))
 }
 
 /** Whether normalized text names an item as a whole phrase, not a prefix. */

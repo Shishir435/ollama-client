@@ -678,6 +678,21 @@ export const AgentTaskConstraintSchema = z
   .strict()
 export type AgentTaskConstraint = z.infer<typeof AgentTaskConstraintSchema>
 
+/**
+ * One thing a planner proposes to take out of the plan: a whole entry, or
+ * one item of an itemized requirement. Never applied on the planner's word —
+ * the run asks the user, and only a plain yes removes it.
+ */
+export const AgentPlanRemovalSchema = z
+  .object({
+    id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+    item: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ITEM_CHARS).optional()
+  })
+  .strict()
+export type AgentPlanRemoval = z.infer<typeof AgentPlanRemovalSchema>
+export const MAX_AGENT_PLAN_REMOVALS =
+  MAX_AGENT_REQUIREMENTS + MAX_AGENT_CONSTRAINTS
+
 /** The plan bounds a goal can outgrow. */
 export const AGENT_PLAN_OVER_CAP_UNITS = [
   "outcomes",
@@ -728,7 +743,17 @@ export const AgentTaskPlanSchema = z
      * outcomes they may have added, which it cannot — so the answer it came
      * from is not counted as absorbed.
      */
-    provisional: z.literal(true).optional()
+    provisional: z.literal(true).optional(),
+    /**
+     * What an amendment would take out, for the user to confirm. A removal
+     * the planner could apply itself is a removal a misread answer could
+     * apply, and every reading rule tried for that was one phrasing short.
+     */
+    proposedRemovals: z
+      .array(AgentPlanRemovalSchema)
+      .min(1)
+      .max(MAX_AGENT_PLAN_REMOVALS)
+      .optional()
   })
   .strict()
   .refine(
@@ -769,6 +794,11 @@ export const AgentPlanAmendmentSchema = z
     removed: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
       .max(MAX_AGENT_REQUIREMENTS + MAX_AGENT_CONSTRAINTS),
+    /** Items the user confirmed removing from a requirement that stayed. */
+    removedItems: z
+      .array(AgentPlanRemovalSchema.required({ item: true }))
+      .max(MAX_AGENT_PLAN_ITEMS)
+      .optional(),
     at: z.number().int().nonnegative()
   })
   .strict()
@@ -797,6 +827,27 @@ export const AgentPlanRecordSchema = z
     amendments: z
       .array(AgentPlanAmendmentSchema)
       .max(MAX_AGENT_PLAN_AMENDMENTS)
+      .optional(),
+    /**
+     * Removals the planner proposed and the user has been asked about. Held
+     * here, with the question that asks, so the answer to that question —
+     * and no other — decides them.
+     */
+    pending: z
+      .object({
+        questionId: z.string().min(1).max(200),
+        removals: z
+          .array(AgentPlanRemovalSchema)
+          .min(1)
+          .max(MAX_AGENT_PLAN_REMOVALS),
+        /**
+         * Set when the removals lift prohibitions. Asked on its own, by the
+         * effect it would allow, and answered only by "allow": a "yes" to
+         * "no longer needs: don't submit" reads just as well as "yes, don't".
+         */
+        lift: z.literal(true).optional()
+      })
+      .strict()
       .optional()
   })
   .strict()
@@ -882,6 +933,15 @@ export const AgentPreviousRunSchema = z
     requirements: z
       .array(AgentPreviousRequirementSchema)
       .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * The earlier run's prohibitions — constraints that forbid an effect.
+     * A follow-up's goal is often the chat model's words, not the user's, so
+     * a "don't submit" said to the first run must not end with it.
+     */
+    constraints: z
+      .array(AgentTaskConstraintSchema)
+      .max(MAX_AGENT_CONSTRAINTS)
       .optional()
   })
   .strict()
