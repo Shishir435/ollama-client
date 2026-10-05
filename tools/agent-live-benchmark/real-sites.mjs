@@ -28,7 +28,7 @@ import {
   isSiteChallenge,
   scoreGoogleSearch,
   scoreInbodyAnswer,
-  scorePageFact,
+  scoreWikipediaRelease,
   scoreWikiSearch
 } from "./score-answer.mjs"
 
@@ -534,13 +534,15 @@ try {
             predicate = `inbody:${rule.minWords}w/${rule.minChars}c (${scored.reason})`
           }
         } else if (kind === "wiki_read") {
-          const scored = scorePageFact({
+          const scored = scoreWikipediaRelease({
             answer,
             pageText: body,
-            value: expect
+            value: expect,
+            url: fixture.url(),
+            articlePath: "/wiki/Chromium_(web_browser)"
           })
           success = scored.success
-          predicate = `page+answer:${expect} (${scored.reason})`
+          predicate = `chromium+release+answer:${expect} (${scored.reason})`
         } else success = answer.includes(expect)
       }
       const verdict = classifyAttempt({

@@ -231,17 +231,62 @@ export const statesValue = (text, value) => {
   ).test(String(text ?? ""))
 }
 
-/** A reading answer counts only when the same whole value appears on the page. */
-export const scorePageFact = ({ answer, pageText, value }) => {
+/**
+ * A wiki release answer counts only on the requested Wikipedia article, when
+ * its infobox Release field places the year directly in the release date.
+ * This prevents a stray year elsewhere on the page (or another page) from
+ * grounding a guessed answer.
+ */
+export const scoreWikipediaRelease = ({
+  answer,
+  pageText,
+  value,
+  url,
+  articlePath
+}) => {
+  let parsedUrl
+  try {
+    parsedUrl = new URL(String(url ?? ""))
+  } catch {
+    parsedUrl = null
+  }
+
+  let landedArticle = false
+  if (parsedUrl && /(^|\.)wikipedia\.org$/i.test(parsedUrl.hostname)) {
+    try {
+      landedArticle = decodeURIComponent(parsedUrl.pathname) === articlePath
+    } catch {
+      landedArticle = false
+    }
+  }
+
   const answerHasValue = statesValue(answer, value)
-  const pageHasValue = statesValue(pageText, value)
+  const pageHasReleaseValue = String(pageText ?? "")
+    .split(/\r?\n/)
+    .some((line) => {
+      const normalizedLine = normalizeText(line)
+      if (!normalizedLine.startsWith("release ")) return false
+
+      let releaseDate = normalizedLine.slice("release ".length)
+      releaseDate = releaseDate.replace(
+        /^(?:\d{1,2}\s+[a-z]{3,9}|[a-z]{3,9}\s+\d{1,2})\s+/,
+        ""
+      )
+      const releaseYear = releaseDate.split(" ")[0]
+      return (
+        releaseYear === normalizeText(value) && statesValue(releaseYear, value)
+      )
+    })
+
   return {
-    success: answerHasValue && pageHasValue,
-    reason: !pageHasValue
-      ? "page_value_missing"
-      : !answerHasValue
-        ? "answer_value_missing"
-        : "page_and_answer_match"
+    success: landedArticle && pageHasReleaseValue && answerHasValue,
+    reason: !landedArticle
+      ? "wrong_article"
+      : !pageHasReleaseValue
+        ? "release_value_missing"
+        : !answerHasValue
+          ? "answer_value_missing"
+          : "article_release_and_answer_match"
   }
 }
 

@@ -4,9 +4,9 @@ import {
   INBODY_RULES,
   scoreGoogleSearch,
   scoreInbodyAnswer,
-  scorePageFact,
   scoreSyntheticTask,
   scoreVerdict,
+  scoreWikipediaRelease,
   scoreWikiSearch,
   statesActive,
   statesValue
@@ -18,28 +18,46 @@ const HN_BODY =
   "123 points by researcher 5 hours ago"
 
 describe("real-site scorer", () => {
-  it("requires a whole value in both the page and the answer for wiki reads", () => {
+  it("grounds wiki release answers in the requested article's Release field", () => {
     assert.deepEqual(
-      scorePageFact({
+      scoreWikipediaRelease({
         answer: "Chromium was first released in 2008.",
-        pageText: "Chromium was first released in 2008.",
-        value: "2008"
+        pageText:
+          "Chromium (web browser)\nRelease\t2 September 2008; 18 years ago",
+        value: "2008",
+        url: "https://en.wikipedia.org/wiki/Chromium_(web_browser)",
+        articlePath: "/wiki/Chromium_(web_browser)"
       }),
-      { success: true, reason: "page_and_answer_match" }
+      { success: true, reason: "article_release_and_answer_match" }
     )
     assert.equal(
-      scorePageFact({
+      scoreWikipediaRelease({
         answer: "It was 2008.",
-        pageText: "Chromium release date unavailable.",
-        value: "2008"
+        pageText:
+          "Some unrelated article\nRelease\t1 January 2007\nUpdated in 2008",
+        value: "2008",
+        url: "https://en.wikipedia.org/wiki/Chromium_(web_browser)",
+        articlePath: "/wiki/Chromium_(web_browser)"
       }).success,
       false
     )
     assert.equal(
-      scorePageFact({
+      scoreWikipediaRelease({
+        answer: "It was 2008.",
+        pageText: "Release\t2 September 2008",
+        value: "2008",
+        url: "https://en.wikipedia.org/wiki/History_of_the_web_browser",
+        articlePath: "/wiki/Chromium_(web_browser)"
+      }).success,
+      false
+    )
+    assert.equal(
+      scoreWikipediaRelease({
         answer: "It was 20081.",
-        pageText: "Chromium was first released in 2008.",
-        value: "2008"
+        pageText: "Release\t2 September 2008",
+        value: "2008",
+        url: "https://en.wikipedia.org/wiki/Chromium_(web_browser)",
+        articlePath: "/wiki/Chromium_(web_browser)"
       }).success,
       false
     )

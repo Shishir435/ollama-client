@@ -80,12 +80,14 @@ wherever the run ended.
 
 Predicate notes: real-site `__inbody__` tasks require a multi-word verbatim
 span minus page-chrome boilerplate (`score-answer.mjs:INBODY_RULES`), so
-"Hacker News" cannot pass as a story title; `wiki_search` additionally
-requires landing on the Firefox article, and `google_search` is judged by
-landing on Google's results for the query and the answer naming YouTube, its
-first title — one word, so a substring rather than a span. Synthetic action tasks assert the
-effect counter and page state, navigation tasks assert the landed URL, and
-`open_tab` asserts the new tab — never just the answer text. Pinned by
+"Hacker News" cannot pass as a story title; `wiki_read` requires the final URL
+to remain on the Chromium article and its Release field to contain the year;
+`wiki_search` additionally requires landing on the Firefox article, and
+`google_search` is judged by landing on Google's results for the query and the
+answer naming YouTube, its first title — one word, so a substring rather than
+a span. Synthetic action tasks assert the effect counter and page state,
+navigation tasks assert the landed URL, and `open_tab` asserts the new tab —
+never just the answer text. Pinned by
 `node --test tools/agent-live-benchmark/__tests__/score-answer.test.mjs`.
 
 Both scripts approve every approval request automatically, so they measure the
