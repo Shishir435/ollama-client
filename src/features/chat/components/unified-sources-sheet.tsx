@@ -296,7 +296,15 @@ const SourceSection = ({
             </button>
           )}
           <CopyButton
-            text={section.items.map((item) => item.content).join("\n\n")}
+            text={section.items
+              .map(
+                (item) =>
+                  item.content ||
+                  [item.title, item.url !== item.title ? item.url : null]
+                    .filter(Boolean)
+                    .join("\n")
+              )
+              .join("\n\n")}
           />
         </div>
       </div>

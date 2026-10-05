@@ -136,7 +136,14 @@ const completeNativeSearchTurn = (message) => {
         type: "webSearch",
         id: "search-1",
         query: "current answer",
-        action: { type: "search", query: "current answer" }
+        action: { type: "search", query: "current answer" },
+        results: [
+          {
+            type: "text_result",
+            title: "Current answer",
+            url: "https://example.com/current"
+          }
+        ]
       }
     }
   })
@@ -226,18 +233,33 @@ const handleTurnStart = (message) => {
     return
   }
   send({ id: message.id, result: { turn: { id: "turn-1" } } })
-  send({
-    id: "dynamic-tool-1",
-    method: "item/tool/call",
-    params: {
-      threadId: "thread-1",
-      turnId: "turn-1",
-      callId: "call-1",
-      namespace: null,
-      tool: "lookup",
-      arguments: { query: "answer" }
-    }
-  })
+  /**
+   * The call and a notification in one write, so the proxy reads both in the
+   * same tick: the call parks the leg, and the notification must still reach
+   * the leg that resumes it rather than be lost to the suspension.
+   */
+  process.stdout.write(
+    `${JSON.stringify({
+      id: "dynamic-tool-1",
+      method: "item/tool/call",
+      params: {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        callId: "call-1",
+        namespace: null,
+        tool: "lookup",
+        arguments: { query: "answer" }
+      }
+    })}\n${JSON.stringify({
+      method: "item/reasoning/summaryTextDelta",
+      params: { threadId: "thread-1", turnId: "turn-1", delta: "Waiting. " }
+    })}\n`
+  )
+  /**
+   * After the call, as a live App Server sends it: the tool is dispatched as
+   * soon as the model emits it, and usage lands when the response completes.
+   */
+  setTimeout(() => sendTokenUsage({ inputTokens: 1000, outputTokens: 50 }), 50)
 }
 
 const handleTurnInterrupt = (message) => {
@@ -245,7 +267,33 @@ const handleTurnInterrupt = (message) => {
   send({ id: message.id, result: {} })
 }
 
+/** The thread's running usage, as `thread/tokenUsage/updated` reports it. */
+const sendTokenUsage = (total) =>
+  send({
+    method: "thread/tokenUsage/updated",
+    params: {
+      threadId: "thread-1",
+      turnId: "turn-1",
+      tokenUsage: {
+        total: {
+          cachedInputTokens: 0,
+          reasoningOutputTokens: 0,
+          totalTokens: total.inputTokens + total.outputTokens,
+          ...total
+        },
+        last: total,
+        modelContextWindow: 272000
+      }
+    }
+  })
+
 const handleToolResult = () => {
+  sendTokenUsage({
+    inputTokens: 2500,
+    outputTokens: 120,
+    cachedInputTokens: 900,
+    reasoningOutputTokens: 40
+  })
   send({
     method: "item/reasoning/summaryTextDelta",
     params: { threadId: "thread-1", turnId: "turn-1", delta: "Checked. " }

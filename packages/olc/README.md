@@ -629,6 +629,22 @@ new adapter's expectations.
   refused with `400 StaleToolResults` rather than folded into a new turn. A turn
   whose resume request is queued is not reaped while it waits, and the
   correlation is re-checked inside the queue slot.
+- **Usage is the whole turn's, sent with the answer that completes it.** It
+  rides on the finish chunk (and on OpenAI's trailing chunk when
+  `include_usage` is set). A response that ends in `tool_calls` carries none:
+  both runtimes report a model call's tokens only after its tools answer —
+  measured on Codex, nothing arrives while the call is parked — so that leg
+  could only offer a partial count. A turn the client never resumes, such as
+  a browser agent's forced decision, therefore reports no usage at all.
+- **Codex's context window is learned, not listed.** `model/list` carries no
+  window, so a Codex model appears in `/v1/models` without `context_length`
+  until it has run one turn in this proxy. OpenCode models carry theirs from
+  the start.
+- **Sources are what the runtime's search consulted.** Codex reports the pages
+  it opened and the hits each search returned; the answer is sent the pages it
+  links and opened, or the top hits when it did neither. OpenCode reports only
+  its tools' text, so a `websearch` result is read for its own result URLs and
+  a `webfetch` for the page it fetched — never every link a result quotes.
 - **Images ride along as file parts.** `image_url` and `input_image` content parts
   become OpenCode file parts, data URL and all, so a vision model sees them. What
   the model does with them is the model's business: a text-only model is sent the

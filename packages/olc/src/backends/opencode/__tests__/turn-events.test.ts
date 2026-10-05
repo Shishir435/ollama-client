@@ -282,6 +282,54 @@ describe("OpenCode turn reader", () => {
     })
   })
 
+  it("sends only what the event feed had not streamed when polling takes over", async () => {
+    const client = clientWith({
+      messages: [
+        {
+          info: { role: "assistant", finish: "stop" },
+          parts: [
+            { type: "reasoning", text: "thought more" },
+            { type: "text", text: "partial answer, finished" }
+          ]
+        }
+      ]
+    })
+    const onProgress = vi.fn()
+    const reader = createTurnReader({
+      client: client as never,
+      retryAsync,
+      pollIntervalMs: 0
+    })
+
+    await reader.pollForAssistantResponse("session-1", {
+      timeoutMs: 1000,
+      requireFinalOrContent: true,
+      onProgress,
+      alreadyStreamed: { content: "partial answer", reasoning: "thought" }
+    })
+    expect(onProgress).toHaveBeenCalledTimes(1)
+    expect(onProgress).toHaveBeenCalledWith(", finished", " more")
+  })
+
+  it("closes the event subscription when opening it fails", async () => {
+    let signal: AbortSignal | undefined
+    const client = {
+      ...clientWith(),
+      event: {
+        subscribe: vi.fn(async (options: { signal: AbortSignal }) => {
+          signal = options.signal
+          throw new Error("event feed unavailable")
+        })
+      }
+    }
+    const reader = createTurnReader({ client: client as never, retryAsync })
+
+    await expect(
+      reader.openEventStream("session-1", { timeoutMs: 1000 })
+    ).rejects.toThrow("event feed unavailable")
+    expect(signal?.aborted).toBe(true)
+  })
+
   it("returns immediately when polling observes suspension", async () => {
     const client = clientWith()
     const reader = createTurnReader({ client: client as never, retryAsync })

@@ -101,6 +101,28 @@ export const isRetryableNetworkError = (error: unknown): boolean => {
   )
 }
 
+/**
+ * Whether a request provably never reached the server: the connection was
+ * refused. A reset or a hang-up can follow delivery, so retrying an operation
+ * that starts work on either one can start it twice — a second model run, or
+ * a session nobody deletes.
+ */
+export const isUndeliveredError = (error: unknown): boolean => {
+  if (!error) return false
+  const candidate = error as {
+    message?: unknown
+    code?: unknown
+    cause?: { code?: unknown }
+  }
+  const code = candidate.code ?? candidate.cause?.code
+  return (
+    code === "ECONNREFUSED" ||
+    String(candidate.message ?? error)
+      .toLowerCase()
+      .includes("econnrefused")
+  )
+}
+
 /** Raised when a bounded await ran out before the operation answered. */
 export class OperationTimeoutError extends Error {
   constructor(label: string, timeoutMs: number) {
@@ -230,9 +252,11 @@ export const createRetryAsync = ({
     operation: () => Promise<T>,
     {
       label = "operation",
-      timeoutMs: attemptTimeoutMs = timeoutMs
-    }: { label?: string; timeoutMs?: number } = {}
+      timeoutMs: attemptTimeoutMs = timeoutMs,
+      idempotent = true
+    }: { label?: string; timeoutMs?: number; idempotent?: boolean } = {}
   ): Promise<T> {
+    const retryable = idempotent ? isRetryableNetworkError : isUndeliveredError
     let lastError: unknown
     for (let attempt = 1; attempt <= retries + 1; attempt += 1) {
       try {
@@ -241,7 +265,7 @@ export const createRetryAsync = ({
         lastError = error
         const isLastAttempt = attempt === retries + 1
         if (error instanceof OperationTimeoutError) throw error
-        if (!isRetryableNetworkError(error) || isLastAttempt) throw error
+        if (!retryable(error) || isLastAttempt) throw error
         log(
           `[Proxy][Retry] ${label} failed (attempt ${attempt}/${retries + 1}): ${(error as Error).message}. Retrying in ${delayMs}ms...`
         )

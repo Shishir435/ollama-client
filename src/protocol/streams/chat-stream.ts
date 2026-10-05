@@ -3,9 +3,11 @@ import {
   ActivityEventSchema,
   ChatMessageSchema,
   ImageAttachmentSchema,
+  MAX_WEB_CITATIONS,
   ProviderReplayArtifactSchema,
   ToolRunSchema,
-  UsedContextChunkSchema
+  UsedContextChunkSchema,
+  WebCitationSchema
 } from "@ollama-client/contracts/chat"
 import {
   CHAT_STREAM_EVENT_TYPES,
@@ -188,6 +190,11 @@ const ChatChunkSchema = z
       .array(ToolRunSchema)
       .transform((runs) => runs as ToolRun[])
       .optional(),
+    webCitations: z
+      .array(WebCitationSchema)
+      .min(1)
+      .max(MAX_WEB_CITATIONS)
+      .optional(),
     done: z.boolean().optional(),
     aborted: z.boolean().optional(),
     error: AppFailureSchema.optional(),
@@ -208,6 +215,7 @@ const ChatChunkSchema = z
       event.generatedImages !== undefined ||
       event.replayArtifact !== undefined ||
       event.toolRuns !== undefined ||
+      event.webCitations !== undefined ||
       event.done === true ||
       event.aborted === true ||
       event.error !== undefined ||

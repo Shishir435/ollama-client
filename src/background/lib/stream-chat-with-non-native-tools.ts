@@ -141,6 +141,9 @@ const collectNonNativeStreamChunk = (
   if (typeof chunk.thinkingDelta === "string") {
     onChunk({ thinkingDelta: chunk.thinkingDelta })
   }
+  if (chunk.webCitations?.length) {
+    onChunk({ webCitations: chunk.webCitations })
+  }
   if (typeof chunk.delta === "string") gate.push(chunk.delta)
 }
 

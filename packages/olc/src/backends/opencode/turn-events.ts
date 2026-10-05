@@ -76,7 +76,8 @@ interface MessagePart {
 export interface MessageFailure {
   name?: string
   message?: string
-  data?: { message?: string }
+  /** `APIError` adds the upstream `statusCode` and `responseHeaders`. */
+  data?: { message?: string; statusCode?: number; responseHeaders?: unknown }
 }
 
 interface MessageInfo {
@@ -155,6 +156,12 @@ export const extractFromParts = (
       }))
   }
 }
+
+/** Poll cursors that begin after whatever was already streamed. */
+const startCursors = (streamed?: { content: string; reasoning: string }) => ({
+  content: streamed?.content.length ?? 0,
+  reasoning: streamed?.reasoning.length ?? 0
+})
 
 export const createTurnReader = ({
   client,
@@ -243,6 +250,11 @@ export const createTurnReader = ({
   ): Promise<{ done: Promise<TurnOutcome>; controller: AbortController }> => {
     const controller = new AbortController()
     const subscribeLabel = `event.subscribe(${sessionId})`
+    /**
+     * Abort on any failure to open, a timeout included: the bounded await only
+     * stops waiting, and a subscription that opened late would otherwise hold
+     * an `/event` stream that nothing reads for the life of the process.
+     */
     const subscription = await withTimeout(
       untilAborted(
         client.event.subscribe({
@@ -253,7 +265,10 @@ export const createTurnReader = ({
       ),
       EVENT_SUBSCRIBE_TIMEOUT_MS,
       subscribeLabel
-    )
+    ).catch((error: unknown) => {
+      controller.abort()
+      throw error
+    })
     const stream = (
       subscription as unknown as { stream: AsyncIterable<unknown> }
     ).stream
@@ -566,7 +581,8 @@ export const createTurnReader = ({
       onProgress,
       onPatch,
       isSuspended,
-      abortSignal
+      abortSignal,
+      alreadyStreamed
     }: {
       timeoutMs: number
       intervalMs?: number
@@ -576,9 +592,15 @@ export const createTurnReader = ({
       isSuspended?: () => boolean
       /** Aborted when the core has ended the request this poll belongs to. */
       abortSignal?: AbortSignal
+      /**
+       * What the event feed already streamed before the poll took over. Seeds
+       * the cursors, or the poll re-sent the whole answer from its first
+       * character and the client replayed the duplicate in later requests.
+       */
+      alreadyStreamed?: { content: string; reasoning: string }
     }
   ): Promise<TurnOutcome> => {
-    const cursors = { content: 0, reasoning: 0 }
+    const cursors = startCursors(alreadyStreamed)
     const seenPatchHashes = new Set<string>()
     const startedAt = Date.now()
     let lastHeartbeatAt = startedAt
@@ -667,6 +689,7 @@ export const createTurnReader = ({
   return {
     openEventStream,
     extractFromParts,
+    fetchSessionMessages,
     getSessionDiffs,
     pollForAssistantResponse,
     pollForAssistantResponseWithRetries

@@ -81,6 +81,15 @@ export class CodexAppServerClient {
     child.once("error", (error) => {
       if (this.process === child) this.failAll(error)
     })
+    /**
+     * A write racing the child's death fails with EPIPE on stdin, and an
+     * `error` event with no listener is an uncaught exception — which shut the
+     * whole proxy down over one dead app-server. The exit handler restarts it.
+     */
+    child.stdin.on("error", (error) => {
+      this.log("Codex app-server stdin failed", { message: error.message })
+      if (this.process === child) this.failAll(error)
+    })
     child.once("exit", (code, signal) => {
       const error = new Error(
         `Codex app-server exited${code === null ? "" : ` with code ${code}`}${signal ? ` (${signal})` : ""}`

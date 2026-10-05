@@ -491,7 +491,10 @@
       "generated_tokens": "Сгенерировано токенов",
       "load_time": "Время загрузки",
       "prompt_eval_time": "Время обработки промпта",
-      "speed_unit": "т/с"
+      "speed_unit": "т/с",
+      "cached_tokens": "Кэшированные токены запроса",
+      "reasoning_tokens": "Токены рассуждения",
+      "cost": "Стоимость"
     },
     "session_metrics": {
       "label_tokens": "Токены",

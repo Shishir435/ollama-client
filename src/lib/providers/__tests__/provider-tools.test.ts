@@ -545,6 +545,62 @@ describe("provider tool calling — stream parsing", () => {
     expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
   })
 
+  it("reads usage from a finish chunk that also carries it", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        'data: {"choices":[{"delta":{"content":"answer"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1200,"completion_tokens":80,"total_tokens":1280,"prompt_tokens_details":{"cached_tokens":1000},"completion_tokens_details":{"reasoning_tokens":30},"cost":0.0004}}\n',
+        "data: [DONE]\n"
+      ])
+    )
+
+    const chunks: ChatStreamMessage[] = []
+    await new OpenAICompatibleProvider(openaiConfig).streamChat(
+      baseRequest,
+      collect(chunks)
+    )
+
+    expect(chunks.find((chunk) => chunk.done)?.metrics).toEqual(
+      expect.objectContaining({
+        prompt_eval_count: 1200,
+        eval_count: 80,
+        prompt_cached_count: 1000,
+        reasoning_count: 30,
+        cost_usd: 0.0004
+      })
+    )
+  })
+
+  it("emits url_citation annotations as web citations before the finish", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        'data: {"choices":[{"delta":{"content":"LTS is v24."}}]}\n',
+        'data: {"choices":[{"delta":{"annotations":[{"type":"url_citation","url_citation":{"url":"https://nodejs.org/en/blog/release/v24.21.0","title":"Node.js 24.21.0"}},{"type":"url_citation","url_citation":{"url":"javascript:alert(1)","title":"bad"}},{"type":"file_citation","file_id":"f"}]}}]}\n',
+        'data: {"choices":[{"delta":{"annotations":[{"type":"url_citation","url_citation":{"url":"https://nodejs.org/en/blog/release/v24.21.0","title":"dup"}}]}}]}\n',
+        'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n',
+        "data: [DONE]\n"
+      ])
+    )
+
+    const chunks: ChatStreamMessage[] = []
+    await new OpenAICompatibleProvider(openaiConfig).streamChat(
+      baseRequest,
+      collect(chunks)
+    )
+
+    const cited = chunks.filter((chunk) => chunk.webCitations)
+    // A repeat adds nothing, so nothing is emitted for it.
+    expect(cited).toHaveLength(1)
+    expect(cited[0]).toEqual({
+      done: false,
+      webCitations: [
+        {
+          url: "https://nodejs.org/en/blog/release/v24.21.0",
+          title: "Node.js 24.21.0"
+        }
+      ]
+    })
+  })
+
   it("preserves fragmented OpenRouter reasoning details across a tool turn", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

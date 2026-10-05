@@ -119,6 +119,25 @@ describe("reduceStreamEvent", () => {
     expect(r.state.assistant.replayArtifact).toBe(artifact)
   })
 
+  it("merges web citations from every model call, keeping them through the finish", () => {
+    const { state } = apply(start(), [
+      { webCitations: [{ url: "https://a.example" }] },
+      { delta: "answer" },
+      {
+        webCitations: [
+          { url: "https://a.example", title: "A" },
+          { url: "https://b.example", title: "B" }
+        ]
+      },
+      { done: true, metrics: { eval_count: 5 } }
+    ])
+    expect(state.assistant.metrics?.webCitations).toEqual([
+      { url: "https://a.example", title: "A" },
+      { url: "https://b.example", title: "B" }
+    ])
+    expect(state.assistant.metrics?.eval_count).toBe(5)
+  })
+
   it("finalizes a successful stream, merging terminal metrics", () => {
     const { state, last } = apply(start(), [
       { delta: "done" },

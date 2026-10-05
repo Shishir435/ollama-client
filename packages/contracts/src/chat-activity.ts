@@ -229,6 +229,22 @@ export const PermissionNoticeSchema = z.object({
   resolvedAt: z.number().int().nonnegative().optional()
 })
 
+/** Citations kept per message at most; a provider listing more is trimmed. */
+export const MAX_WEB_CITATIONS = 16
+
+/**
+ * A page the provider's own web search consulted for this answer — an OpenAI
+ * `url_citation` annotation, as OpenRouter's web plugin and the olc proxy send
+ * them. Provider-reported data: never fetched, only shown as a link, which is
+ * why the scheme is held to http(s) — a `javascript:` URL is a link too.
+ */
+export const WebCitationSchema = z.object({
+  url: z.url({ protocol: /^https?$/ }).max(2048),
+  title: z.string().max(512).optional()
+})
+
+export type WebCitation = z.infer<typeof WebCitationSchema>
+
 /** ---- Metrics ---- */
 /** Optional persisted generation, retrieval, and tool-execution measurements. */
 export const ChatMessageMetricsSchema = z.object({
@@ -238,11 +254,15 @@ export const ChatMessageMetricsSchema = z.object({
   prompt_eval_duration: z.number().optional(),
   eval_count: z.number().optional(),
   eval_duration: z.number().optional(),
+  prompt_cached_count: z.number().nonnegative().optional(),
+  reasoning_count: z.number().nonnegative().optional(),
+  cost_usd: z.number().nonnegative().optional(),
   ragQuery: z.string().optional(),
   ragSources: z.array(RagSourceSchema).optional(),
   usedContextChunks: z.array(UsedContextChunkSchema).optional(),
   activityEvents: z.array(ActivityEventSchema).optional(),
   toolRuns: z.array(ToolRunSchema).optional(),
+  webCitations: z.array(WebCitationSchema).max(MAX_WEB_CITATIONS).optional(),
   groundedOnlyMode: z.boolean().optional(),
   insufficientContext: z.boolean().optional(),
   promptInputLength: z.number().optional(),

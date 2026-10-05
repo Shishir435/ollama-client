@@ -154,15 +154,27 @@ describe("Codex backend", () => {
         hasUnannouncedToolCalls: () => false,
         releaseToolResults: () => releaseToolResult?.("42")
       })
+      /** The whole turn's usage, reported once by the leg that completes it. */
       expect(outcome).toEqual({
         status: "completed",
         content: "Result: 42",
-        reasoning: "Checked. ",
+        reasoning: "Waiting. Checked. ",
+        usage: {
+          promptTokens: 2500,
+          completionTokens: 120,
+          cachedPromptTokens: 900,
+          reasoningTokens: 40
+        },
         finish: "stop"
       })
       expect(text).toEqual(["Result: 42"])
-      expect(reasoning).toEqual(["Checked. "])
+      expect(reasoning).toEqual(["Waiting. ", "Checked. "])
       await turn.dispose()
+      expect(
+        (await backend.listModels()).find(
+          (model) => model.id === "codex/fake-codex"
+        )?.context_length
+      ).toBe(272000)
 
       const nativeSearchTurn = await backend.startTurn({
         requestId: "request-native-search",
@@ -223,7 +235,10 @@ describe("Codex backend", () => {
       )
       expect(nativeOutcome).toMatchObject({
         status: "completed",
-        content: "Verified answer."
+        content: "Verified answer.",
+        sources: [
+          { url: "https://example.com/current", title: "Current answer" }
+        ]
       })
       expect(nativeText).toEqual(["Verified answer."])
       expect(nativeReasoning.join("")).toContain("Checking sources.")
