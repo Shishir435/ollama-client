@@ -5,6 +5,7 @@ import {
   AGENT_PLAN_TOOL,
   AgentPlanOverCapError,
   agentPlanPrompt,
+  agentRuleAmendment,
   parseAgentTaskPlan
 } from "../agent-plan"
 
@@ -261,7 +262,7 @@ describe("the whole task survives planning", () => {
           ],
           constraints: [
             {
-              text: "leave the reply unsent",
+              text: "do not send the reply",
               kind: "exclude",
               source: "don't send it"
             }
@@ -307,10 +308,12 @@ describe("the whole task survives planning", () => {
       "Draft an email to Sam and send it",
       "Don't delete anything except the spam",
       "Don't submit until the total shows $40",
-      "Fill in the new form and submit it, but don't submit the old one"
+      "Write a draft reply and send it"
     ]) {
       const plan = parseAgentTaskPlan(
-        [call({ requirements: [{ text: "done", kind: "change" }] })],
+        [
+          call({ requirements: [{ text: goal, kind: "change", source: goal }] })
+        ],
         { goal }
       )
       expect(
@@ -330,7 +333,13 @@ describe("the whole task survives planning", () => {
     const plan = parseAgentTaskPlan(
       [
         call({
-          requirements: [{ text: "a mug is in the cart", kind: "change" }]
+          requirements: [
+            {
+              text: "a mug is in the cart",
+              kind: "change",
+              source: "Add a blue mug"
+            }
+          ]
         })
       ],
       { goal: "Add a blue mug under $20 to the cart" }
@@ -491,12 +500,16 @@ describe("amending a plan", () => {
         call({
           requirements: [
             { text: "the order is placed", kind: "change", keep: "r2" },
-            { text: "the receipt is reported", kind: "read" }
+            {
+              text: "the receipt is reported",
+              kind: "read",
+              source: "report the receipt"
+            }
           ]
         })
       ],
       {
-        goal: "Try again",
+        goal: "Try again and report the receipt",
         previous: [
           { id: "r1", text: "the cart holds a mug", kind: "change", met: true },
           { id: "r2", text: "the order is placed", kind: "change", met: false }
@@ -517,5 +530,197 @@ describe("amending a plan", () => {
     expect(prompt).toContain('"userAnswer":"Also the email"')
     expect(prompt).toContain('"id":"r3"')
     expect(prompt).not.toContain("source")
+  })
+})
+
+describe("review: a plan cannot lose or bend the user's words", () => {
+  const current = {
+    requirements: [
+      {
+        id: "r1",
+        text: "the name is Alice",
+        kind: "change" as const,
+        source: "set the name to Alice"
+      }
+    ],
+    constraints: [
+      {
+        id: "c1",
+        text: "do not submit",
+        kind: "exclude" as const,
+        forbids: ["submission" as const],
+        source: "do not submit"
+      }
+    ],
+    issued: { requirements: 1, constraints: 1 },
+    reconciledThrough: 5
+  }
+  const goal = "Set the name to Alice, but do not submit"
+  const answer = (text: string) => ({ questionId: "q", text, answeredAt: 9 })
+  const amend = (args: Record<string, unknown>, answerText: string) =>
+    parseAgentTaskPlan([call(args)], {
+      goal,
+      answers: [answer(answerText)],
+      current
+    })
+
+  it("will not let an unrelated answer withdraw a prohibition", () => {
+    const plan = amend(
+      {
+        requirements: [
+          { text: "the name is Alice", kind: "change", keep: "r1" }
+        ],
+        dropped: [{ id: "c1", source: "Monday" }]
+      },
+      "Monday"
+    )
+    expect(plan.constraints?.[0]).toMatchObject({
+      id: "c1",
+      forbids: ["submission"]
+    })
+  })
+
+  it("will not let a negated mention withdraw a prohibition", () => {
+    const plan = amend(
+      {
+        requirements: [
+          { text: "the name is Alice", kind: "change", keep: "r1" }
+        ],
+        dropped: [{ id: "c1", source: "still don't submit" }]
+      },
+      "Still don't submit"
+    )
+    expect(plan.constraints?.[0]?.id).toBe("c1")
+  })
+
+  it("lets the user's own request to submit withdraw it", () => {
+    const plan = amend(
+      {
+        requirements: [
+          { text: "the name is Alice", kind: "change", keep: "r1" }
+        ],
+        dropped: [{ id: "c1", source: "go ahead and submit it" }]
+      },
+      "Go ahead and submit it"
+    )
+    expect(plan.constraints).toBeUndefined()
+  })
+
+  /** A kept id must keep its meaning: receipts are bound to it. */
+  it("refuses to keep an id for a different outcome", () => {
+    const plan = amend(
+      {
+        requirements: [
+          { text: "the name is Alice", kind: "change", keep: "r1" },
+          {
+            text: "the newsletter box is ticked",
+            kind: "change",
+            keep: "r1",
+            source: "tick the newsletter box"
+          }
+        ]
+      },
+      "Also tick the newsletter box"
+    )
+    expect(plan.requirements.map((requirement) => requirement.id)).toEqual([
+      "r1",
+      "r2"
+    ])
+  })
+
+  it("keeps the id of an outcome restated word for word without keep", () => {
+    const plan = amend(
+      { requirements: [{ text: "the name is Alice", kind: "change" }] },
+      "Yes"
+    )
+    expect(plan.requirements.map((requirement) => requirement.id)).toEqual([
+      "r1"
+    ])
+  })
+
+  /** A genuine quote of the user's that is about something else vouches for nothing. */
+  it("refuses an outcome resting on an unrelated quote, or none", () => {
+    for (const source of ["Set the name to Alice", undefined]) {
+      expect(() =>
+        parseAgentTaskPlan(
+          [
+            call({
+              requirements: [
+                { text: "every record is deleted", kind: "change", source }
+              ]
+            })
+          ],
+          { goal }
+        )
+      ).toThrow(AgentDecisionFormatError)
+    }
+  })
+
+  /** "Submit the form" elsewhere does not license sending the email. */
+  it("keeps an exclusion that another clause's permission does not lift", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "the support form is submitted",
+              kind: "change",
+              source: "submit the support form"
+            }
+          ]
+        })
+      ],
+      {
+        goal: "Submit the support form, then draft the invoice email without submitting it"
+      }
+    )
+    expect(
+      plan.constraints?.flatMap((constraint) => constraint.forbids ?? [])
+    ).toContain("submission")
+  })
+
+  it("counts items and constraints over the cap in their own unit", () => {
+    const over = (args: Record<string, unknown>) => {
+      try {
+        parseAgentTaskPlan([call(args)])
+      } catch (error) {
+        return error as AgentPlanOverCapError
+      }
+      return undefined
+    }
+    expect(
+      over({
+        requirements: [
+          {
+            text: "each row is updated",
+            kind: "change",
+            items: Array.from({ length: 13 }, (_, index) => `row ${index}`)
+          }
+        ]
+      })
+    ).toMatchObject({ unit: "items", requested: 13, max: 12 })
+    expect(
+      over({
+        requirements: [{ text: "done", kind: "change" }],
+        constraints: Array.from({ length: 9 }, (_, index) => ({
+          text: `limit ${index}`,
+          kind: "limit"
+        }))
+      })
+    ).toMatchObject({ unit: "constraints", requested: 9, max: 8 })
+  })
+
+  /** When the planner is down, the user's "don't" still binds. */
+  it("adds the prohibitions in a new answer by rule when amending without a planner", () => {
+    const plan = agentRuleAmendment({
+      goal,
+      answers: [answer("and never delete the old entry")],
+      current
+    })
+    expect(plan.requirements).toEqual(current.requirements)
+    expect(plan.constraints).toEqual([
+      current.constraints[0],
+      expect.objectContaining({ id: "c2", forbids: ["destructive"] })
+    ])
   })
 })

@@ -3291,7 +3291,10 @@ describe("agent controller task contract", () => {
   it("asks the user, before observing, when the goal outgrows one run", async () => {
     const plan = vi
       .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
-      .mockResolvedValueOnce({ requirements: [], requestedOutcomes: 9 })
+      .mockResolvedValueOnce({
+        requirements: [],
+        overCap: { unit: "outcomes", requested: 9, max: 8 }
+      })
       .mockResolvedValueOnce({ requirements: readPlan("the first row") })
     const harness = createHarness({
       plan,
@@ -3518,11 +3521,16 @@ describe("agent controller task contract", () => {
     expect(harness.getState().plan?.version).toBe(1)
   })
 
-  it("keeps the plan in force when the amendment call fails", async () => {
+  /**
+   * An amendment nothing absorbed is not marked absorbed: the answer may hold
+   * a prohibition, so the next decision asks for it again rather than
+   * carrying on as if the user had said nothing.
+   */
+  it("leaves an answer unreconciled when the amendment call fails", async () => {
     const plan = vi
       .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
       .mockResolvedValueOnce({ requirements: readPlan("the hours") })
-      .mockRejectedValueOnce(new AgentMalformedDecisionError("bad"))
+      .mockRejectedValue(new Error("provider down"))
     let now = 10
     const harness = createHarness({
       plan,
@@ -3542,10 +3550,11 @@ describe("agent controller task contract", () => {
       text: "Monday"
     })
 
+    expect(plan.mock.calls.length).toBeGreaterThanOrEqual(2)
     expect(harness.getState()).toMatchObject({
       status: "completed",
       requirements: readPlan("the hours"),
-      plan: { version: 1, reconciledThrough: 20 }
+      plan: { version: 1, reconciledThrough: 0 }
     })
   })
 })

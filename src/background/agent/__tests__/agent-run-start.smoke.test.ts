@@ -193,7 +193,11 @@ describe("starting an Agent run against the real engine", () => {
                   name: "agent_plan",
                   arguments: {
                     requirements: [
-                      { text: "the pricing page is found", kind: "read" }
+                      {
+                        text: "the pricing page is found",
+                        kind: "read",
+                        source: "Find pricing"
+                      }
                     ]
                   }
                 }

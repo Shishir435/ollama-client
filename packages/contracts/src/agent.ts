@@ -180,6 +180,32 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
                 .string()
                 .min(1)
                 .max(MAX_AGENT_EVIDENCE_CHARS)
+                .optional(),
+              /**
+               * One answer per item of an itemized requirement, by its
+               * position. A requirement covering nine invoices is met only
+               * when all nine are, each judged on its own evidence — one
+               * quotation for one invoice says nothing about the other eight.
+               */
+              items: z
+                .array(
+                  z
+                    .object({
+                      index: z
+                        .number()
+                        .int()
+                        .nonnegative()
+                        .max(MAX_AGENT_REQUIREMENT_ITEMS - 1),
+                      met: z.boolean(),
+                      evidence: z
+                        .string()
+                        .min(1)
+                        .max(MAX_AGENT_EVIDENCE_CHARS)
+                        .optional()
+                    })
+                    .strict()
+                )
+                .max(MAX_AGENT_REQUIREMENT_ITEMS)
                 .optional()
             })
             .strict()
@@ -652,6 +678,14 @@ export const AgentTaskConstraintSchema = z
   .strict()
 export type AgentTaskConstraint = z.infer<typeof AgentTaskConstraintSchema>
 
+/** The plan bounds a goal can outgrow. */
+export const AGENT_PLAN_OVER_CAP_UNITS = [
+  "outcomes",
+  "items",
+  "constraints"
+] as const
+export type AgentPlanOverCapUnit = (typeof AGENT_PLAN_OVER_CAP_UNITS)[number]
+
 /**
  * What the planning call returns, before the run is allowed to look.
  *
@@ -675,10 +709,18 @@ export const AgentTaskPlanSchema = z
       .min(1)
       .max(MAX_AGENT_PLAN_LIMITATION_CHARS)
       .optional(),
-    requestedOutcomes: z
-      .number()
-      .int()
-      .min(MAX_AGENT_REQUIREMENTS + 1)
+    /**
+     * Which bound the goal outgrew, by how much, and what the bound is: the
+     * question it becomes has to name the limit that actually stopped the
+     * plan, not call thirteen rows thirteen outcomes.
+     */
+    overCap: z
+      .object({
+        unit: z.enum(AGENT_PLAN_OVER_CAP_UNITS),
+        requested: z.number().int().positive(),
+        max: z.number().int().positive()
+      })
+      .strict()
       .optional()
   })
   .strict()
@@ -688,7 +730,7 @@ export const AgentTaskPlanSchema = z
         plan.requirements.length > 0,
         plan.clarification !== undefined,
         plan.limitation !== undefined,
-        plan.requestedOutcomes !== undefined
+        plan.overCap !== undefined
       ].filter(Boolean).length === 1,
     "A plan is exactly one of: requirements, a clarification, a limitation, or an over-cap count"
   )

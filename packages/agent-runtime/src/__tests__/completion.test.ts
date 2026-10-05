@@ -2294,3 +2294,92 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 })
+
+describe("itemized requirements", () => {
+  const paidPage = observation({
+    visibleText: "Invoice 1 Paid. Invoice 2 Paid. Invoice 3 Due."
+  })
+  const invoices = {
+    id: "r1",
+    text: "each invoice shows Paid",
+    kind: "change" as const,
+    items: ["invoice 1", "invoice 2"]
+  }
+  const changed = [unresolved({ sequence: 1 })]
+
+  /** One quotation for one invoice says nothing about the other. */
+  it("sends back a claim that does not answer every item", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [invoices],
+        outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 Paid" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_outcomes" })
+  })
+
+  it("accepts each item on its own evidence", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [invoices],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1 Paid" },
+              { index: 1, met: true, evidence: "Invoice 2 Paid" }
+            ]
+          }
+        ]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  it("refuses an item whose quotation the page does not show", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [{ ...invoices, items: ["invoice 1", "invoice 3"] }],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1 Paid" },
+              { index: 1, met: true, evidence: "Invoice 3 Paid" }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it("leaves the requirement unmet when one item is not met", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [
+          invoices,
+          { id: "r2", text: "the total is reported", kind: "read" }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1 Paid" },
+              { index: 1, met: false }
+            ]
+          },
+          { id: "r2", met: true }
+        ]
+      })
+    ).toEqual({ type: "partial", outcome: { met: ["r2"], unmet: ["r1"] } })
+  })
+})

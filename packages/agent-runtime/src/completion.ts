@@ -175,6 +175,8 @@ export interface AgentCompletionOutcomeClaim {
   id: string
   met: boolean
   evidence?: string
+  /** One answer per item of an itemized requirement, by position. */
+  items?: readonly { index: number; met: boolean; evidence?: string }[]
 }
 
 /**
@@ -1530,6 +1532,9 @@ const isSelfEvidence = (
  * failure: nothing was done to the page and the run can look again, so it is
  * fed back to the model rather than ending the run.
  */
+const MISSING_ITEM_OUTCOMES_FEEDBACK =
+  "A requirement that lists items is answered item by item: give items in its outcome, one per item by position from 0, each saying whether it is met and quoting the page text that shows it."
+
 const MISSING_OUTCOMES_FEEDBACK =
   "Answer every requirement the task was planned with, by id, saying for each whether it is met and quoting the page text that shows it."
 
@@ -1715,6 +1720,56 @@ const judgeMetRequirement = (
   return "stepId" in evidenced ? undefined : evidenced
 }
 
+/**
+ * An itemized requirement is met only when every item is, and each item is
+ * judged as a requirement of its own: its own quotation, or its own verified
+ * change consumed by identity. One invoice marked paid is evidence for one
+ * invoice. An item answered `met:false` leaves the requirement unmet; an
+ * item not answered at all is no answer, and the run is sent back.
+ */
+const judgeItemizedRequirement = (
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  claim: AgentCompletionOutcomeClaim,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>
+):
+  | Extract<AgentCompletionJudgement, { type: "refused" }>
+  | "unmet"
+  | undefined => {
+  const answers = new Map((claim.items ?? []).map((item) => [item.index, item]))
+  if (requirement.items.some((_, index) => !answers.has(index)))
+    return {
+      type: "refused",
+      reason: "missing_outcomes",
+      feedback: MISSING_ITEM_OUTCOMES_FEEDBACK
+    }
+  let allMet = true
+  for (const [index, item] of requirement.items.entries()) {
+    const answer = answers.get(index)
+    if (!answer?.met) {
+      allMet = false
+      continue
+    }
+    const { items: _items, ...single } = requirement
+    const refusal = judgeMetRequirement(
+      { ...single, text: `${item}: ${requirement.text}` },
+      {
+        id: requirement.id,
+        met: true,
+        ...(answer.evidence ? { evidence: answer.evidence } : {})
+      },
+      input,
+      change,
+      changes,
+      consumed
+    )
+    if (refusal) return refusal
+  }
+  return allMet ? undefined : "unmet"
+}
+
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
@@ -1766,15 +1821,28 @@ const judgePlanned = (
       unmet.push(requirement.id)
       continue
     }
-    const refusal = judgeMetRequirement(
-      requirement,
-      claim,
-      input,
-      change,
-      changes,
-      consumed
-    )
-    if (refusal) return refusal
+    const judged = requirement.items?.length
+      ? judgeItemizedRequirement(
+          { ...requirement, items: requirement.items },
+          claim,
+          input,
+          change,
+          changes,
+          consumed
+        )
+      : judgeMetRequirement(
+          requirement,
+          claim,
+          input,
+          change,
+          changes,
+          consumed
+        )
+    if (judged === "unmet") {
+      unmet.push(requirement.id)
+      continue
+    }
+    if (judged) return judged
     met.push(requirement.id)
   }
   const outcome = { met, unmet }

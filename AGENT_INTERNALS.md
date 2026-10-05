@@ -1360,15 +1360,25 @@ run that produced it can always be repeated.
   `requirements` are outcomes, `constraints` are what the user's words forbid
   (`exclude`), confine (`scope`) or bound (`limit`), and `plan` records the
   version, the highest id ever issued, the newest user answer reconciled and
-  each amendment. An entry's `source` must quote the goal or a user answer
-  (`agentQuotes`); an entry quoting anything else is refused, so an outcome
-  nobody asked for cannot enter dressed as one somebody did.
+  each amendment. A new entry's `source` is required, must quote the goal or a
+  user answer (`agentQuotes`), and must name something the entry names; an
+  entry with no quote, a fabricated one, or a genuine but unrelated one is
+  refused, so an outcome nobody asked for cannot enter dressed as one
+  somebody did.
+- **An id keeps its meaning.** `keep` is honoured only for an entry that
+  reads like the one it names, and an entry restated word for word keeps its
+  id unasked — otherwise a planner that forgot `keep` put the same outcome in
+  the plan twice and the run could never answer both. Receipts bound to `r1`
+  must keep meaning the `r1` they were bound to.
 - **Over the cap is refused whole, never sliced.** More than
   `MAX_AGENT_REQUIREMENTS` entries, or more items than the item caps, is
-  `AgentPlanOverCapError`; the port retries once with feedback asking for
-  repeated outcomes to become one requirement with `items`, and a second
-  over-cap answer becomes `requestedOutcomes` — a question to the user before
-  the first look. A planner `clarification` is asked the same way; a
+  `AgentPlanOverCapError` naming its unit (outcomes, items or constraints)
+  and bound; the port retries once with feedback asking for repeated
+  outcomes to become one requirement with `items`, and a second over-cap
+  answer becomes `overCap` — a question naming that unit, asked before the
+  first look. An itemized requirement is answered item by item in
+  `outcomes[].items` and judged per item, each on its own quotation or its
+  own verified change; one invoice's evidence never vouches for the rest. A planner `clarification` is asked the same way; a
   `limitation` fails the run as `goal_failed` in the planner's words.
 - **Negative clauses are found by rule as well as by the model.**
   `agentGoalBoundaries` reads "don't / without / never", "only the …",
@@ -1376,18 +1386,25 @@ run that produced it can always be repeated.
   left out as constraints. `forbids` — the consequential effect classes a
   constraint rules out — comes only from a verb inside the user's own clause,
   never from the model. A clause carrying an exception or condition
-  ("except", "until") forbids nothing, and neither does one whose verb the
-  user also gives as an instruction ("submit it, but don't submit the old
-  one") — those stay constraints the decision model reads. The controller refuses a command whose
+  ("except", "until") forbids nothing. A permission elsewhere in the goal
+  never lifts an explicit "don't": a submission the user also asked for may
+  be refused and asked about, but a forbidden one must not go through
+  because another clause allowed a different one. Only a draft cue reads an
+  affirmed send, and only in its own sentence. The controller refuses a command whose
   resolved effect carries a forbidden class before policy is asked.
 - **Only the user's words amend a plan.** An answer, correction or steer newer
   than `plan.reconciledThrough` triggers one planning call, given the goal,
   the answers and the plan in force — never an observation, finding or step.
   Kept entries keep their ids, new ones take the next number after
   `plan.issued`, and an entry is removed only when `dropped` quotes the newest
-  answers; anything unmentioned is carried forward. The amendment rides the
-  deciding claim, a change bumps `plan.version` and stamps `since`, and a
-  failed call leaves the plan in force. A follow-up's planner sees the
+  answers, the quote names what the entry names, and — for a constraint that
+  forbids an effect — the quote asks for that effect un-negated; anything
+  unmentioned is carried forward. The amendment rides the deciding claim and
+  a change bumps `plan.version` and stamps `since`. When the planner fails,
+  the port amends by rule (`agentRuleAmendment`: the plan in force plus every
+  clause found in the newest answers), and if even that throws the answer is
+  left unreconciled and asked about again at the next decision — never
+  marked absorbed. A follow-up's planner sees the
   parent's requirement ids with what its outcome said of each, so a retry can
   keep `r2` for the same outcome.
 - `agent-useful-workflows.spec.ts` exercises composer lookup, long editing, pane scrolling,

@@ -73,9 +73,11 @@ describe("agent plan record", () => {
   })
 
   it("keeps the plan in force when the amendment produced nothing", () => {
-    expect(agentAmendedPlanPatch(planned, undefined, 9, 10)).toEqual({
-      plan: { ...planned.plan, reconciledThrough: 9 }
-    })
+    expect(agentAmendedPlanPatch(planned, { requirements: [] }, 9, 10)).toEqual(
+      {
+        plan: { ...planned.plan, reconciledThrough: 9 }
+      }
+    )
   })
 
   it("versions a change, stamps what it added and records what it removed", () => {

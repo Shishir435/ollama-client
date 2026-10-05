@@ -1157,7 +1157,11 @@ describe("usable agent prompt", () => {
               name: "agent_plan",
               arguments: {
                 requirements: [
-                  { text: "the form is submitted", kind: "change" }
+                  {
+                    text: "the page is read",
+                    kind: "read",
+                    source: "Read the page"
+                  }
                 ]
               }
             }
@@ -1169,7 +1173,12 @@ describe("usable agent prompt", () => {
 
       expect(await port.plan?.(state, { aborted: false })).toEqual({
         requirements: [
-          { id: "r1", text: "the form is submitted", kind: "change" }
+          {
+            id: "r1",
+            text: "the page is read",
+            kind: "read",
+            source: "Read the page"
+          }
         ]
       })
       expect(attempts).toBe(2)
@@ -1247,7 +1256,9 @@ describe("agent reasoning effort", () => {
         id: "call-plan",
         name: "agent_plan",
         arguments: {
-          requirements: [{ text: "the page is read", kind: "read" }]
+          requirements: [
+            { text: "the page is read", kind: "read", source: "Read the page" }
+          ]
         }
       }
     ],
@@ -1356,8 +1367,9 @@ describe("agent task contract on the wire", () => {
     done: true
   })
   const nine = Array.from({ length: 9 }, (_, index) => ({
-    text: `outcome ${index + 1}`,
-    kind: "change"
+    text: `page part ${index + 1} is read`,
+    kind: "read",
+    source: "Read the page"
   }))
 
   /**
@@ -1376,7 +1388,7 @@ describe("agent task contract on the wire", () => {
 
     expect(await port.plan?.(state, { aborted: false })).toEqual({
       requirements: [],
-      requestedOutcomes: 9
+      overCap: { unit: "outcomes", requested: 9, max: 8 }
     })
     expect(sent[0]).toHaveLength(2)
     expect(sent[1]?.at(-1)).toContain("Merge the same outcome")
@@ -1462,5 +1474,48 @@ describe("agent task contract on the wire", () => {
     ])
     expect(prompt).toContain('"userAnswer":"Also the email"')
     expect(prompt).not.toContain(observation.visibleText)
+  })
+
+  /**
+   * A planner that cannot be reached does not turn the user's "never delete"
+   * into nothing: the port makes the amendment by rule.
+   */
+  it("amends by rule when the planner fails twice", async () => {
+    const streamChat = vi.fn(async () => {
+      throw new Error("connection reset")
+    })
+    const port = modelPort(streamChat)
+
+    const plan = await port.plan?.(
+      {
+        ...state,
+        requirements: [
+          { id: "r1", text: "the field holds Alice", kind: "change" }
+        ],
+        plan: {
+          version: 1,
+          issued: { requirements: 1, constraints: 0 },
+          reconciledThrough: 1
+        },
+        answers: [
+          {
+            questionId: "q",
+            text: "and never delete the old entry",
+            answeredAt: 5
+          }
+        ]
+      },
+      { aborted: false }
+    )
+
+    expect(streamChat).toHaveBeenCalledTimes(2)
+    expect(plan).toEqual({
+      requirements: [
+        { id: "r1", text: "the field holds Alice", kind: "change" }
+      ],
+      constraints: [
+        expect.objectContaining({ id: "c1", forbids: ["destructive"] })
+      ]
+    })
   })
 })

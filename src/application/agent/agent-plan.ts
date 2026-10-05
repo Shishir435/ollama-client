@@ -9,6 +9,7 @@ import type {
 } from "@ollama-client/contracts"
 import {
   AGENT_CONSTRAINT_KINDS,
+  type AgentPlanOverCapUnit,
   AgentTaskPlanSchema,
   MAX_AGENT_CONSTRAINTS,
   MAX_AGENT_PLAN_ITEMS,
@@ -175,12 +176,19 @@ const PLAN_FEEDBACK =
  * answer becomes a question to the user rather than a plan with its tail cut.
  */
 export class AgentPlanOverCapError extends AgentDecisionFormatError {
+  readonly unit: AgentPlanOverCapUnit
   readonly requested: number
+  readonly max: number
 
-  constructor(requested: number, feedback: string) {
-    super(`The agent_plan call named ${requested} entries`, feedback)
+  constructor(unit: AgentPlanOverCapUnit, requested: number, max: number) {
+    super(
+      `The agent_plan call named ${requested} ${unit} (at most ${max})`,
+      overCapFeedback(unit, requested, max)
+    )
     this.name = "AgentPlanOverCapError"
+    this.unit = unit
     this.requested = requested
+    this.max = max
   }
 }
 
@@ -307,6 +315,69 @@ export const agentQuotes = (
   })
 }
 
+const STOP_WORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "this",
+  "that",
+  "these",
+  "those",
+  "from",
+  "into",
+  "then",
+  "them",
+  "their",
+  "its",
+  "are",
+  "was",
+  "were",
+  "has",
+  "have",
+  "all",
+  "any",
+  "each",
+  "not",
+  "but",
+  "you",
+  "your",
+  "our",
+  "please",
+  "also",
+  "make",
+  "sure"
+])
+
+/** Word stems, crudely: enough for "submitted" to meet "submit". */
+const stems = (text: string): Set<string> =>
+  new Set(
+    significantWords(text)
+      .filter((word) => !STOP_WORDS.has(word))
+      .map((word) => word.slice(0, 5))
+  )
+
+/** The share of the smaller text's stems the larger one also has. */
+const stemOverlap = (left: string, right: string): number => {
+  const a = stems(left)
+  const b = stems(right)
+  if (a.size === 0 || b.size === 0) return 0
+  let shared = 0
+  for (const stem of a) if (b.has(stem)) shared += 1
+  return shared / Math.min(a.size, b.size)
+}
+
+/**
+ * Whether a quote is about the entry it is attached to. A quote that is the
+ * user's but names nothing the entry names — "Monday" beside "every record is
+ * deleted" — vouches for nothing, however genuine it is.
+ */
+const supports = (source: string, entry: string): boolean =>
+  stemOverlap(source, entry) > 0
+
+/** How alike two outcomes must read for one to keep the other's id. */
+const SAME_OUTCOME = 0.5
+
 /** A limit the user's own words set, found without asking a model. */
 export interface AgentGoalBoundary {
   kind: AgentTaskConstraint["kind"]
@@ -345,27 +416,27 @@ const FORBIDDEN_VERBS: ReadonlyArray<
 ]
 
 /**
- * The verbs of each class said as an instruction — at the start of the
- * text, or after "and", "then" or a comma — rather than under a negation.
- * "Submit the form, but don't submit the old one" asks for a submission, and
- * forbidding the class would refuse the very step the user asked for; the
- * clause still becomes a constraint the decision model reads.
+ * A send said as an instruction in the same sentence as a "draft" — "write a
+ * draft and send it" — which makes the draft a step, not a limit. Only the
+ * draft cue reads it, and only within its own sentence. An explicit "don't
+ * send" is never overridden by a send elsewhere: a submission the user also
+ * asked for may be refused and asked about, but a forbidden one must never
+ * go through because a different sentence allowed a different one.
  */
-const AFFIRMED: Readonly<Record<AgentConsequentialEffect, RegExp>> = {
-  submission:
-    /(?:^\s*|\b(?:then|and|also|please)\s+|,\s*)(?:submit|send|post|publish)\b/i,
-  payment:
-    /(?:^\s*|\b(?:then|and|also|please)\s+|,\s*)(?:pay|purchase|buy|check\s?out|order)\b/i,
-  destructive:
-    /(?:^\s*|\b(?:then|and|also|please)\s+|,\s*)(?:delete|remove|discard|erase|trash)\b/i,
-  download: /(?:^\s*|\b(?:then|and|also|please)\s+|,\s*)download\b/i
-}
+const AFFIRMED_SEND =
+  /(?:^\s*|\b(?:then|and|also|please)\s+|,\s*)(?:submit|send|post|publish)\b/i
 
-const affirmedIn = (
-  text: string,
-  effects: readonly AgentConsequentialEffect[]
-): AgentConsequentialEffect[] =>
-  effects.filter((effect) => !AFFIRMED[effect].test(text))
+const sentenceAround = (text: string, index: number): string => {
+  const start = Math.max(
+    text.lastIndexOf(".", index),
+    text.lastIndexOf("!", index),
+    text.lastIndexOf("?", index),
+    text.lastIndexOf("\n", index)
+  )
+  const rest = text.slice(index)
+  const end = rest.search(/[.!?\n]/)
+  return text.slice(start + 1, end === -1 ? text.length : index + end)
+}
 
 const CLAUSE_END = /[.;:!?\n]|,\s+(?:and|then|but)\b/
 
@@ -422,16 +493,18 @@ export const agentGoalBoundaries = (text: string): AgentGoalBoundary[] => {
   }
   for (const match of text.matchAll(EXCLUDE_CUE))
     add("exclude", match.index, (clause) =>
-      /^(?:except|excluding|but not)\b/i.test(clause)
-        ? []
-        : affirmedIn(text, forbiddenBy(clause))
+      /^(?:except|excluding|but not)\b/i.test(clause) ? [] : forbiddenBy(clause)
     )
   for (const match of text.matchAll(SCOPE_CUE))
     add("scope", match.index, () => [])
   for (const match of text.matchAll(LIMIT_CUE))
     add("limit", match.index, () => [])
   for (const match of text.matchAll(DRAFT_CUE))
-    add("exclude", match.index, () => affirmedIn(text, ["submission"]))
+    add("exclude", match.index, () =>
+      AFFIRMED_SEND.test(sentenceAround(text, match.index))
+        ? []
+        : ["submission"]
+    )
   return found
 }
 
@@ -465,11 +538,16 @@ type RawEntry = {
 const rawArray = (value: unknown): RawEntry[] | undefined =>
   Array.isArray(value) ? (value as RawEntry[]) : undefined
 
-const overCapFeedback = (requested: number): string =>
-  `The plan named ${requested} entries, and a run tracks at most ${MAX_AGENT_REQUIREMENTS} requirements, ${MAX_AGENT_REQUIREMENT_ITEMS} items in one requirement and ${MAX_AGENT_PLAN_ITEMS} items in all. Merge the same outcome for several rows or records into one requirement with items. Keep genuinely different outcomes separate; do not drop any.`
+function overCapFeedback(
+  unit: AgentPlanOverCapUnit,
+  requested: number,
+  max: number
+): string {
+  return `The plan named ${requested} ${unit} and a run holds at most ${max}: ${MAX_AGENT_REQUIREMENTS} requirements, ${MAX_AGENT_REQUIREMENT_ITEMS} items in one requirement, ${MAX_AGENT_PLAN_ITEMS} items in all, ${MAX_AGENT_CONSTRAINTS} constraints. Merge the same outcome for several rows or records into one requirement with items, and constraints that say the same thing. Keep genuinely different entries separate; do not drop any.`
+}
 
 const sourceFeedback = (text: string): string =>
-  `The entry "${text.slice(0, 80)}" quotes words the user did not write. Copy its source from the goal or the user's answers, or leave out an entry the user did not ask for.`
+  `The entry "${text.slice(0, 80)}" has no source quoting the user's words that ask for it. Copy its source from the goal or the user's answers, or leave out an entry the user did not ask for.`
 
 type PlanArgs = {
   requirements?: unknown
@@ -499,10 +577,24 @@ const unplannableAnswer = (args: PlanArgs): AgentTaskPlan | undefined => {
   return undefined
 }
 
+/** An entry the plan already had, as an id may be kept from it. */
+interface KnownEntry {
+  kind: string
+  text: string
+  source?: string
+}
+
 /**
  * Who may vouch for an entry, and which ids it may keep. Each new entry takes
  * the next number after every id ever issued, so a number an amendment
  * removed is never handed to a different outcome.
+ *
+ * An id is kept only for the same outcome. A model's `keep` is honoured when
+ * the entry reads like the one it names — a receipt bound to `r1` must keep
+ * meaning what `r1` meant when it was bound — and an entry restated word for
+ * word keeps its id without being asked, because a planner that forgets
+ * `keep` would otherwise put the same outcome in the plan twice, under two
+ * ids, and the run could never answer both.
  */
 const planIdentity = (context: AgentPlanContext | undefined) => {
   const current = context?.current
@@ -513,15 +605,30 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
   const newestAnswers = answers
     .filter((answer) => answer.answeredAt > (current?.reconciledThrough ?? -1))
     .map((answer) => answer.text)
-  const known = new Map<string, string>([
-    ...(current?.requirements ?? []).map(
-      (requirement) => [requirement.id, requirement.kind] as const
-    ),
-    ...(context?.previous ?? []).map(
-      (requirement) => [requirement.id, requirement.kind] as const
+  const known = new Map<string, KnownEntry>([
+    ...[...(current?.requirements ?? []), ...(context?.previous ?? [])].map(
+      (entry) =>
+        [
+          entry.id,
+          {
+            kind: entry.kind,
+            text: entry.text,
+            ...("source" in entry && entry.source
+              ? { source: entry.source }
+              : {})
+          }
+        ] as const
     ),
     ...(current?.constraints ?? []).map(
-      (constraint) => [constraint.id, "constraint"] as const
+      (constraint) =>
+        [
+          constraint.id,
+          {
+            kind: "constraint",
+            text: constraint.text,
+            ...(constraint.source ? { source: constraint.source } : {})
+          }
+        ] as const
     )
   ])
   const issued = {
@@ -535,32 +642,69 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
     constraints: current?.issued.constraints ?? 0
   }
   const used = new Set<string>()
+  const claim = (id: string) => {
+    used.add(id)
+    return { id, prior: known.get(id) }
+  }
   return {
     authority,
     newestAnswers,
     used,
-    source(entry: RawEntry, text: string): string | undefined {
+    /**
+     * The quote an entry rests on. A new entry must have one, from the user's
+     * words, about the entry; a kept entry may fall back to the quote it was
+     * planned with.
+     */
+    source(
+      entry: RawEntry,
+      described: string,
+      prior: KnownEntry | undefined
+    ): string | undefined {
       const source = boundedText(
         entry.source,
         MAX_AGENT_REQUIREMENT_SOURCE_CHARS
       )
-      if (!source || !context) return source
-      if (!agentQuotes(source, authority))
-        throw new AgentDecisionFormatError(
-          "An agent_plan entry quoted words the user did not write",
-          sourceFeedback(text)
-        )
-      return source
+      if (!context) return source
+      if (
+        source &&
+        agentQuotes(source, authority) &&
+        supports(source, described)
+      )
+        return source
+      if (prior) return prior.source
+      throw new AgentDecisionFormatError(
+        "An agent_plan entry rests on no quote of the user's words",
+        sourceFeedback(described)
+      )
     },
-    id(entry: RawEntry, kind: string): string {
+    id(
+      entry: RawEntry,
+      kind: string,
+      text: string
+    ): { id: string; prior?: KnownEntry } {
       const kept = typeof entry.keep === "string" ? entry.keep.trim() : ""
-      if (kept && known.get(kept) === kind && !used.has(kept)) {
-        used.add(kept)
-        return kept
+      const named = known.get(kept)
+      if (
+        named &&
+        named.kind === kind &&
+        !used.has(kept) &&
+        (normalized(named.text) === normalized(text) ||
+          stemOverlap(named.text, text) >= SAME_OUTCOME)
+      )
+        return claim(kept)
+      for (const [id, prior] of known)
+        if (
+          prior.kind === kind &&
+          !used.has(id) &&
+          normalized(prior.text) === normalized(text)
+        )
+          return claim(id)
+      return {
+        id:
+          kind === "constraint"
+            ? `c${++issued.constraints}`
+            : `r${++issued.requirements}`
       }
-      return kind === "constraint"
-        ? `c${++issued.constraints}`
-        : `r${++issued.requirements}`
     },
     nextConstraintId: (): string => `c${++issued.constraints}`
   }
@@ -576,7 +720,6 @@ const parsedRequirements = (
     const text = boundedText(entry.text, MAX_AGENT_REQUIREMENT_CHARS)
     if (!text) return []
     const kind = entry.kind === "read" ? ("read" as const) : ("change" as const)
-    const source = identity.source(entry, text)
     const items = Array.isArray(entry.items)
       ? entry.items
           .map((item) => boundedText(item, MAX_AGENT_REQUIREMENT_ITEM_CHARS))
@@ -584,12 +727,15 @@ const parsedRequirements = (
       : []
     if (items.length > MAX_AGENT_REQUIREMENT_ITEMS)
       throw new AgentPlanOverCapError(
+        "items",
         items.length,
-        overCapFeedback(items.length)
+        MAX_AGENT_REQUIREMENT_ITEMS
       )
+    const { id, prior } = identity.id(entry, kind, text)
+    const source = identity.source(entry, [text, ...items].join(" "), prior)
     return [
       {
-        id: identity.id(entry, kind),
+        id,
         text,
         kind,
         ...(source ? { source } : {}),
@@ -610,39 +756,70 @@ const parsedConstraints = (
     )
       ? (entry.kind as AgentTaskConstraint["kind"])
       : "exclude"
-    const source = identity.source(entry, text)
-    return [
-      {
-        id: identity.id(entry, "constraint"),
-        text,
-        kind,
-        ...(source ? { source } : {})
-      }
-    ]
+    const { id, prior } = identity.id(entry, "constraint", text)
+    const source = identity.source(entry, text, prior)
+    return [{ id, text, kind, ...(source ? { source } : {}) }]
   })
+
+const NEGATION =
+  /\b(?:do not|don['’]?t|never|without|not|no)\s+(?:\S+\s+){0,2}$/i
+
+/** A forbidden verb in the user's words, not itself under a negation. */
+const affirms = (
+  quote: string,
+  effects: readonly AgentConsequentialEffect[]
+): boolean =>
+  FORBIDDEN_VERBS.some(
+    ([effect, verb]) =>
+      effects.includes(effect) &&
+      [...quote.matchAll(/[\p{L}]+/gu)].some(
+        (match) =>
+          verb.test(match[0].toLowerCase()) &&
+          !NEGATION.test(quote.slice(0, match.index))
+      )
+  )
+
+/**
+ * Whether a withdrawal quote actually withdraws this entry: it is the user's
+ * newest words, it names what the entry names, and — for a constraint that
+ * forbids an effect — it asks for that effect. An answer about something
+ * else cannot lift "do not submit" just because the planner attached it.
+ */
+const withdraws = (
+  entry: { text: string; source?: string; forbids?: readonly string[] },
+  quote: string,
+  identity: PlanIdentity
+): boolean =>
+  agentQuotes(quote, identity.newestAnswers) &&
+  supports(quote, `${entry.text} ${entry.source ?? ""}`) &&
+  (!entry.forbids?.length ||
+    affirms(quote, entry.forbids as AgentConsequentialEffect[]))
 
 /**
  * An amendment carries forward what it did not mention. Omission is the
  * cheapest way to drop an inconvenient outcome, so the only removal is an
- * explicit one quoting the user's newest answers.
+ * explicit one whose quote, from the user's newest answers, withdraws it.
  */
-const carriedForward = <T extends { id: string }>(
+const carriedForward = <
+  T extends { id: string; text: string; source?: string; forbids?: string[] }
+>(
   entries: readonly T[],
   dropped: unknown,
   identity: PlanIdentity
 ): T[] => {
-  const withdrawn = new Set(
-    (rawArray(dropped) ?? [])
-      .filter(
-        (entry) =>
-          typeof entry.id === "string" &&
-          typeof entry.source === "string" &&
-          agentQuotes(entry.source, identity.newestAnswers)
-      )
-      .map((entry) => (entry.id as string).trim())
-  )
+  const quotes = new Map<string, string[]>()
+  for (const entry of rawArray(dropped) ?? []) {
+    if (typeof entry.id !== "string" || typeof entry.source !== "string")
+      continue
+    const id = entry.id.trim()
+    quotes.set(id, [...(quotes.get(id) ?? []), entry.source])
+  }
   return entries.filter(
-    (entry) => !identity.used.has(entry.id) && !withdrawn.has(entry.id)
+    (entry) =>
+      !identity.used.has(entry.id) &&
+      !(quotes.get(entry.id) ?? []).some((quote) =>
+        withdraws(entry, quote, identity)
+      )
   )
 }
 
@@ -702,19 +879,26 @@ const assertWithinCaps = (
 ): void => {
   if (requirements.length > MAX_AGENT_REQUIREMENTS)
     throw new AgentPlanOverCapError(
+      "outcomes",
       requirements.length,
-      overCapFeedback(requirements.length)
+      MAX_AGENT_REQUIREMENTS
     )
   const items = requirements.reduce(
     (total, requirement) => total + (requirement.items?.length ?? 0),
     0
   )
   if (items > MAX_AGENT_PLAN_ITEMS)
-    throw new AgentPlanOverCapError(items, overCapFeedback(items))
+    throw new AgentPlanOverCapError("items", items, MAX_AGENT_PLAN_ITEMS)
+  /**
+   * Constraints are the user's limits, several of them found by rule, so
+   * too many of them is the goal's size like too many outcomes is — asked
+   * about, never a malformed plan that fails the run.
+   */
   if (constraints.length > MAX_AGENT_CONSTRAINTS)
-    throw new AgentDecisionFormatError(
-      `The agent_plan call named ${constraints.length} constraints`,
-      `A plan holds at most ${MAX_AGENT_CONSTRAINTS} constraints. Merge constraints that say the same thing.`
+    throw new AgentPlanOverCapError(
+      "constraints",
+      constraints.length,
+      MAX_AGENT_CONSTRAINTS
     )
   if (requirements.length === 0)
     throw new AgentDecisionFormatError(
@@ -784,6 +968,35 @@ export const parseAgentTaskPlan = (
       constraints,
       identity
     )
+  assertWithinCaps(requirements, constraints)
+  return AgentTaskPlanSchema.parse({
+    requirements,
+    ...(constraints.length > 0 ? { constraints } : {})
+  })
+}
+
+/**
+ * The amendment a rule can make when the planner cannot: the plan in force,
+ * plus every negative or bounding clause in the user's newest answers.
+ *
+ * Used when an amendment call fails. A user who answered "don't submit it"
+ * has given a prohibition whether or not the planner was reachable, and
+ * leaving the plan as it was would let the run submit; the rule reads the
+ * clause the same way it reads the goal's.
+ */
+export const agentRuleAmendment = (
+  context: AgentPlanContext & {
+    current: NonNullable<AgentPlanContext["current"]>
+  }
+): AgentTaskPlan => {
+  const identity = planIdentity(context)
+  const requirements = [...context.current.requirements]
+  const constraints = withUserBoundaries(
+    identity.newestAnswers,
+    requirements,
+    context.current.constraints,
+    identity
+  )
   assertWithinCaps(requirements, constraints)
   return AgentTaskPlanSchema.parse({
     requirements,

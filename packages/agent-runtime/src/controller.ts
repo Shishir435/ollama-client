@@ -19,7 +19,6 @@ import {
   MAX_AGENT_ANSWERS,
   MAX_AGENT_GRANTS,
   MAX_AGENT_OBSERVATIONS,
-  MAX_AGENT_REQUIREMENTS,
   MAX_AGENT_SCOPED_TABS
 } from "@ollama-client/contracts"
 import {
@@ -2330,6 +2329,16 @@ export const createAgentController = (
    * question, or a goal larger than one run tracks, is asked, and the answer
    * returns the run to planning with the user's words beside the goal.
    */
+  /** The English a question carries beside its display key, for the model. */
+  const OVER_CAP_QUESTION = {
+    outcomes: (count: number, max: number) =>
+      `This task asks for ${count} separate outcomes, and one run can track ${max}. Which should this run do? The rest can follow in another.`,
+    items: (count: number, max: number) =>
+      `This task names ${count} rows or records, and one run can track ${max}. Which should this run do? The rest can follow in another.`,
+    constraints: (count: number, max: number) =>
+      `This task sets ${count} separate limits, and one run can hold ${max}. Which matter for this run?`
+  } as const
+
   const stopsBeforePlanning = async (
     planning: AgentRunState,
     planned: AgentTaskPlan
@@ -2339,23 +2348,27 @@ export const createAgentController = (
       await fail(planning, "goal_failed", planned.limitation)
       return true
     }
-    const requested = planned.requestedOutcomes
-    if (!planned.clarification && !requested) return false
+    const overCap = planned.overCap
+    if (!planned.clarification && !overCap) return false
     dependencies.trace?.(planning.id, "plan_question", {
-      requestedOutcomes: requested ?? 0
+      overCap: overCap?.unit ?? "none",
+      requested: overCap?.requested ?? 0
     })
     await pause(planning, "question", {
       question: {
         id: `${planning.id}:plan:${planning.answers?.length ?? 0}`,
         askedAt: dependencies.clock.now(),
-        ...(planned.clarification
-          ? { text: planned.clarification }
+        ...(planned.clarification || !overCap
+          ? { text: planned.clarification ?? "" }
           : {
-              text: `This task asks for ${requested} separate outcomes, and one run can track ${MAX_AGENT_REQUIREMENTS}. Which should this run do? The rest can follow in another.`,
+              text: OVER_CAP_QUESTION[overCap.unit](
+                overCap.requested,
+                overCap.max
+              ),
               display: [
                 {
-                  key: "agent.question_text.too_many_outcomes",
-                  values: { count: requested ?? 0, max: MAX_AGENT_REQUIREMENTS }
+                  key: `agent.question_text.too_many_${overCap.unit}`,
+                  values: { count: overCap.requested, max: overCap.max }
                 }
               ]
             })
@@ -2423,14 +2436,21 @@ export const createAgentController = (
     const answeredAt = agentPlanNeedsReconciling(state, answers)
     if (!plan || answeredAt === undefined) return {}
     const startedAt = dependencies.clock.now()
-    let amended: AgentTaskPlan | undefined
+    let amended: AgentTaskPlan
     try {
       amended = await plan({ ...state, answers }, signal)
     } catch (error) {
+      measure({ planMs: dependencies.clock.now() - startedAt })
       if (signal.aborted) return {}
+      /**
+       * Not reconciled: the answer may hold a prohibition, and marking it
+       * absorbed when nothing absorbed it is how "don't submit" would be
+       * lost. The next decision asks again.
+       */
       dependencies.trace?.(state.id, "plan_amendment_unavailable", {
         name: error instanceof Error ? error.name : typeof error
       })
+      return {}
     }
     measure({ planMs: dependencies.clock.now() - startedAt })
     const patch = agentAmendedPlanPatch(

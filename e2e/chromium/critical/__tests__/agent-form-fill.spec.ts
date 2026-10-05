@@ -147,7 +147,7 @@ runAgentScenario({
  */
 runAgentScenario({
   name: "fill-form-partial-recovers",
-  goal: "Fill in the profile form.",
+  goal: "Fill in the profile form with the given name Ada.",
   status: "completed",
   timeoutMs: 120_000,
   allowRoutineActions: true,

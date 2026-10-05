@@ -91,13 +91,13 @@ const sameConstraint = (
  */
 export const agentAmendedPlanPatch = (
   state: Pick<AgentRunState, "plan" | "requirements" | "constraints">,
-  plan: AgentTaskPlan | undefined,
+  plan: AgentTaskPlan,
   answeredAt: number,
   now: number
 ): AgentStatePatch => {
   const record = state.plan as AgentPlanRecord
   const reconciled = { plan: { ...record, reconciledThrough: answeredAt } }
-  if (!plan?.requirements.length) return reconciled
+  if (!plan.requirements.length) return reconciled
   const before = [
     ...(state.requirements ?? []).map((entry) => entry.id),
     ...(state.constraints ?? []).map((entry) => entry.id)

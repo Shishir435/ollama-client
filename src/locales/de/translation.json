@@ -246,7 +246,9 @@
       "completion_refused": "Ich konnte das Ergebnis nicht bestätigen. Ist die Aufgabe erledigt? Wenn nicht, was soll ich als Nächstes tun?",
       "commands_refused": "Die letzte Aktion konnte nicht ausgeführt werden. Was soll ich stattdessen versuchen?",
       "no_progress": "Ich wiederhole Aktionen, ohne voranzukommen. Was soll ich anders machen? Du kannst auch anhalten und die Aufgabe selbst beenden.",
-      "too_many_outcomes": "Diese Aufgabe verlangt {{count}} getrennte Ergebnisse, ein Durchlauf kann {{max}} verfolgen. Welche soll dieser Durchlauf erledigen? Der Rest kann in einem weiteren Durchlauf folgen."
+      "too_many_outcomes": "Diese Aufgabe verlangt {{count}} getrennte Ergebnisse, ein Durchlauf kann {{max}} verfolgen. Welche soll dieser Durchlauf erledigen? Der Rest kann in einem weiteren Durchlauf folgen.",
+      "too_many_items": "Diese Aufgabe nennt {{count}} Zeilen oder Einträge, ein Durchlauf kann {{max}} verfolgen. Welche soll dieser Durchlauf erledigen? Der Rest kann in einem weiteren Durchlauf folgen.",
+      "too_many_constraints": "Diese Aufgabe setzt {{count}} getrennte Grenzen, ein Durchlauf kann {{max}} berücksichtigen. Welche davon gelten für diesen Durchlauf?"
     },
     "start_gate": {
       "after_page": "Das Modell hat vor dem Formulieren dieser Aufgabe Seiteninhalte gelesen, daher wird immer nachgefragt.",
