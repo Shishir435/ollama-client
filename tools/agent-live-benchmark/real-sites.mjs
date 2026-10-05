@@ -283,7 +283,7 @@ const server = createServer(async (req, res) => {
   }
 })
 try {
-  await new Promise((r) =>
+  await new Promise((r, reject) =>
     server.once("error", reject).listen(0, "127.0.0.1", r)
   )
   const origin = `http://127.0.0.1:${server.address().port}`
