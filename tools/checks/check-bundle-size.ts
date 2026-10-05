@@ -479,9 +479,10 @@ const budgets: Budget[] = [
      * schemas its run-state decoding carries. Its review fixes — per-item
      * completion, withdrawal and identity checks, the rule amendment — took
      * Chrome to 309,395; the second round — provisional amendments, item
-     * evidence binding, kept limits — to 309,816.
+     * evidence binding, kept limits — to 309,816; the third — item
+     * withdrawals and batch field names for items — to 310,127.
      */
-    max: isFirefox ? 218_500 : 310_000
+    max: isFirefox ? 218_500 : 310_500
   }
 ]
 

@@ -2420,4 +2420,64 @@ describe("itemized requirements", () => {
       })
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
+
+  /**
+   * A batch names one control at top level and every field in its
+   * verification. Reading only the top level filtered out the verified
+   * fields of an itemized form.
+   */
+  it("credits each item from the verified fields of a batch", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [
+          { type: "clear_and_type", ref: "e1", text: "[redacted]" },
+          { type: "clear_and_type", ref: "e2", text: "[redacted]" }
+        ]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "Both fields hold their values",
+          observedAt: 1,
+          fields: [{ name: "Given name" }, { name: "Family name" }]
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({
+          visibleText: "Contact form",
+          elements: [
+            { name: "Given name", value: "Ada" },
+            { name: "Family name", value: "Lovelace" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the names are filled in",
+            kind: "change",
+            items: ["Given name Ada", "Family name Lovelace"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true },
+              { index: 1, met: true }
+            ]
+          }
+        ]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
 })

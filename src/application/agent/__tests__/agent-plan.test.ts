@@ -827,3 +827,105 @@ describe("review: an amendment keeps what it does not withdraw", () => {
     ).toBe(true)
   })
 })
+
+describe("review: withdrawing one item of a requirement", () => {
+  const current = {
+    requirements: [
+      {
+        id: "r1",
+        text: "each invoice shows Paid",
+        kind: "change" as const,
+        source: "mark invoices 1 and 2 paid",
+        items: ["invoice 1", "invoice 2"]
+      }
+    ],
+    constraints: [],
+    issued: { requirements: 1, constraints: 0 },
+    reconciledThrough: 5
+  }
+  const amend = (dropped: unknown[], text: string) =>
+    parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "each invoice shows Paid",
+              kind: "change",
+              keep: "r1",
+              items: ["invoice 2"]
+            }
+          ],
+          dropped
+        })
+      ],
+      {
+        goal: "Mark invoices 1 and 2 paid",
+        answers: [{ questionId: "q", text, answeredAt: 9 }],
+        current
+      }
+    )
+
+  it("drops an item the user's answer withdraws by name", () => {
+    expect(
+      amend(
+        [{ id: "r1", item: "invoice 1", source: "not invoice 1" }],
+        "Only invoice 2, not invoice 1"
+      ).requirements[0]?.items
+    ).toEqual(["invoice 2"])
+  })
+
+  it("drops an item the answer narrows away with only", () => {
+    expect(
+      amend(
+        [{ id: "r1", item: "invoice 1", source: "only invoice 2" }],
+        "Only invoice 2"
+      ).requirements[0]?.items
+    ).toEqual(["invoice 2"])
+  })
+
+  /** Leaving an item out is not withdrawing it. */
+  it("keeps an item the planner merely left out, or dropped on unrelated words", () => {
+    expect(amend([], "Yes").requirements[0]?.items).toEqual([
+      "invoice 1",
+      "invoice 2"
+    ])
+    expect(
+      amend([{ id: "r1", item: "invoice 1", source: "Monday" }], "Monday")
+        .requirements[0]?.items
+    ).toEqual(["invoice 1", "invoice 2"])
+  })
+
+  it("withdraws the requirement when every item is withdrawn", () => {
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "the total is reported",
+              kind: "read",
+              source: "report the total"
+            }
+          ],
+          dropped: [
+            { id: "r1", item: "invoice 1", source: "skip invoice 1" },
+            { id: "r1", item: "invoice 2", source: "and invoice 2" }
+          ]
+        })
+      ],
+      {
+        goal: "Mark invoices 1 and 2 paid",
+        answers: [
+          {
+            questionId: "q",
+            text: "Skip invoice 1 and invoice 2, just report the total",
+            answeredAt: 9
+          }
+        ],
+        current
+      }
+    )
+    expect(plan.requirements.map((requirement) => requirement.id)).toEqual([
+      "r2"
+    ])
+  })
+})

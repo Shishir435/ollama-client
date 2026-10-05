@@ -1783,9 +1783,10 @@ const judgeItemizedRequirement = (
       input,
       change,
       changes.filter((receipt) =>
-        [receipt.target?.name, receipt.target?.rowContext].some(
-          (text) =>
-            text !== undefined && namesItem(agentNormalizedClaim(text), item)
+        receiptNames(receipt).some(
+          (name) =>
+            namesItem(agentNormalizedClaim(name), item) ||
+            namesItem(agentNormalizedClaim(item), name)
         )
       ),
       consumed
@@ -1795,18 +1796,29 @@ const judgeItemizedRequirement = (
   return allMet ? undefined : "unmet"
 }
 
-const escapedPattern = (text: string): string =>
-  text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
-
 /** Whether normalized text names an item as a whole phrase, not a prefix. */
 const namesItem = (text: string, item: string): boolean => {
   const phrase = agentNormalizedClaim(item)
-  if (!phrase) return false
-  return new RegExp(
-    `(?:^|[^\\p{L}\\p{N}])${escapedPattern(phrase)}(?:$|[^\\p{L}\\p{N}])`,
-    "u"
-  ).test(text)
+  return phrase.length > 0 && containsCompletePhrase(text, phrase)
 }
+
+/**
+ * Every name a receipt acted under: its control, its row, and — for a
+ * verified batch — each field the verifier checked. It vouches for an item
+ * when one names the other: a row "Invoice 3 — Due" names the item
+ * "invoice 3", and the item "Given name Ada" names the field "Given name". A batch's top-level
+ * target names one control at most, so reading only that filtered out the
+ * verified fields of an itemized form.
+ */
+const receiptNames = (receipt: AgentStepReadout): string[] =>
+  [
+    receipt.target?.name,
+    receipt.target?.rowContext,
+    ...(receipt.verification?.outcome === "confirmed" &&
+    receipt.verification.evidence.kind === "fields"
+      ? (receipt.verification.evidence.fields ?? []).map((field) => field.name)
+      : [])
+  ].filter((name): name is string => name !== undefined && name.length > 0)
 
 const itemEvidenceFeedback = (index: number, item: string): string =>
   `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's.`

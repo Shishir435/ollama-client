@@ -124,11 +124,16 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
       dropped: {
         type: "array",
         description:
-          "Only when amending a current plan: entries the user's answer explicitly withdrew, each with the answer's words that withdraw it. Anything neither kept nor listed here is retained.",
+          "Only when amending a current plan: entries the user's answer explicitly withdrew, each with the answer's words that withdraw it. To withdraw one item of a requirement, give the requirement's id and the item. Anything neither kept nor listed here is retained.",
         items: {
           type: "object",
           properties: {
             id: { type: "string" },
+            item: {
+              type: "string",
+              description:
+                "One item of that requirement the answer withdrew, exactly as the plan lists it. Omit to withdraw the whole entry."
+            },
             source: { type: "string", description: SOURCE_DESCRIPTION }
           },
           required: ["id", "source"]
@@ -528,6 +533,7 @@ export const agentIssuedIds = (
 
 type RawEntry = {
   id?: unknown
+  item?: unknown
   text?: unknown
   kind?: unknown
   source?: unknown
@@ -742,9 +748,9 @@ const parsedRequirements = (
     const { id, prior } = identity.id(entry, kind, text)
     const source = identity.source(entry, [text, ...items].join(" "), prior)
     /**
-     * A kept requirement keeps every item it had. The amendment may add
-     * items; dropping one silently would be the same omission the plan
-     * forbids for whole outcomes.
+     * A kept requirement keeps every item it had unless a `dropped` entry
+     * withdraws it. The amendment may add items; dropping one silently would
+     * be the same omission the plan forbids for whole outcomes.
      */
     const kept = [...new Set([...(prior?.items ?? []), ...items])]
     if (kept.length > MAX_AGENT_REQUIREMENT_ITEMS)
@@ -849,7 +855,11 @@ const carriedForward = <
 ): T[] => {
   const quotes = new Map<string, string[]>()
   for (const entry of rawArray(dropped) ?? []) {
-    if (typeof entry.id !== "string" || typeof entry.source !== "string")
+    if (
+      typeof entry.id !== "string" ||
+      typeof entry.source !== "string" ||
+      entry.item !== undefined
+    )
       continue
     const id = entry.id.trim()
     quotes.set(id, [...(quotes.get(id) ?? []), entry.source])
@@ -862,6 +872,67 @@ const carriedForward = <
       )
   )
 }
+
+const ONLY = /\bonly\b/i
+
+/**
+ * Items of a requirement the user's newest words withdrew, by id. A
+ * withdrawal names its item ("not invoice 1"), or narrows to the items that
+ * remain ("only invoice 2") — then it names another item of the same
+ * requirement instead. Either way its quote is the user's newest answer;
+ * an answer about something else withdraws nothing.
+ */
+const itemWithdrawals = (
+  dropped: unknown,
+  requirements: readonly AgentTaskRequirement[],
+  identity: PlanIdentity
+): Map<string, Set<string>> => {
+  const withdrawn = new Map<string, Set<string>>()
+  for (const entry of rawArray(dropped) ?? []) {
+    if (
+      typeof entry.id !== "string" ||
+      typeof entry.item !== "string" ||
+      typeof entry.source !== "string" ||
+      !agentQuotes(entry.source, identity.newestAnswers)
+    )
+      continue
+    const requirement = requirements.find(
+      (candidate) => candidate.id === (entry.id as string).trim()
+    )
+    const item = requirement?.items?.find(
+      (candidate) => normalized(candidate) === normalized(entry.item as string)
+    )
+    if (!requirement || !item) continue
+    const quote = normalized(entry.source)
+    const namesItself = quote.includes(normalized(item))
+    const narrowsToOthers =
+      ONLY.test(entry.source) &&
+      (requirement.items ?? []).some(
+        (other) => other !== item && quote.includes(normalized(other))
+      )
+    if (!namesItself && !narrowsToOthers) continue
+    withdrawn.set(
+      requirement.id,
+      new Set([...(withdrawn.get(requirement.id) ?? []), item])
+    )
+  }
+  return withdrawn
+}
+
+/**
+ * Requirements with their withdrawn items removed. One whose every item was
+ * withdrawn is withdrawn with them: an outcome over nothing asks for nothing.
+ */
+const withoutWithdrawnItems = (
+  requirements: readonly AgentTaskRequirement[],
+  withdrawn: ReadonlyMap<string, ReadonlySet<string>>
+): AgentTaskRequirement[] =>
+  requirements.flatMap((requirement) => {
+    const gone = withdrawn.get(requirement.id)
+    if (!gone || !requirement.items) return [requirement]
+    const items = requirement.items.filter((item) => !gone.has(item))
+    return items.length === 0 ? [] : [{ ...requirement, items }]
+  })
 
 /**
  * The clauses the user wrote and the plan left out, added in the user's
@@ -1001,6 +1072,13 @@ export const parseAgentTaskPlan = (
       ...carriedForward(current.constraints, args.dropped, identity)
     )
   }
+  const narrowed = current
+    ? withoutWithdrawnItems(
+        requirements,
+        itemWithdrawals(args.dropped, current.requirements, identity)
+      )
+    : requirements
+  requirements.splice(0, requirements.length, ...narrowed)
   if (context)
     constraints = withUserBoundaries(
       current ? identity.newestAnswers : identity.authority,

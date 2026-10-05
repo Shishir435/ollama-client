@@ -3336,6 +3336,38 @@ describe("agent controller task contract", () => {
     })
   })
 
+  /** Answers are capped, so an id counting them would repeat at the cap. */
+  it("gives each planning question its own id", async () => {
+    let now = 10
+    const plan = vi.fn(async () => ({
+      requirements: [],
+      clarification: "Which account?"
+    }))
+    const harness = createHarness({
+      state: runState({
+        answers: Array.from({ length: 10 }, (_, index) => ({
+          questionId: `q${index}`,
+          text: "earlier",
+          answeredAt: index
+        }))
+      }),
+      plan,
+      clock: () => now
+    })
+
+    await harness.controller.start("run-1")
+    const first = harness.getState().question?.id
+    now = 30
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: first ?? "",
+      text: "The work one"
+    })
+
+    expect(harness.getState().question?.id).toBeDefined()
+    expect(harness.getState().question?.id).not.toBe(first)
+  })
+
   it("asks the planner's question before anything happens to a page", async () => {
     const harness = createHarness({
       plan: async () => ({

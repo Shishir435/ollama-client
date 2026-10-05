@@ -2379,7 +2379,12 @@ export const createAgentController = (
     })
     await pause(planning, "question", {
       question: {
-        id: `${planning.id}:plan:${planning.answers?.length ?? 0}`,
+        /**
+         * By time, not by answer count: answers are capped, so a count stops
+         * moving at the cap and a stale panel could answer a newer question
+         * it never showed.
+         */
+        id: `${planning.id}:plan:${dependencies.clock.now()}`,
         askedAt: dependencies.clock.now(),
         ...(planned.clarification || !overCap
           ? { text: planned.clarification ?? "" }

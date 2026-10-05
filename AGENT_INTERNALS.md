@@ -1381,7 +1381,8 @@ run that produced it can always be repeated.
   own verified change; one invoice's evidence never vouches for the rest. An
   item's quotation must name that item as a whole phrase and may not repeat
   another item's, and a receipt stands in for it only when its target or row
-  names the item — every item shares the requirement's id. A planner `clarification` is asked the same way; a
+  names the item — every item shares the requirement's id. A batch receipt
+  names every field its verification checked, not only its top-level target. A planner `clarification` is asked the same way; a
   `limitation` fails the run as `goal_failed` in the planner's words.
 - **Negative clauses are found by rule as well as by the model.**
   `agentGoalBoundaries` reads "don't / without / never", "only the …",
@@ -1405,7 +1406,11 @@ run that produced it can always be repeated.
   anywhere earlier in its sentence; anything unmentioned is carried forward.
   A kept entry keeps what it forbids and every item it had — the planner is
   never shown `forbids`, so rebuilding a kept constraint from its answer
-  alone would lift the prohibition on any amendment. The amendment rides the deciding claim and
+  alone would lift the prohibition on any amendment. One item is withdrawn
+  only by a `dropped` entry naming the requirement and the item, quoting the
+  newest answer, which either names that item ("not invoice 1") or narrows
+  to another of its items ("only invoice 2"); a requirement whose every item
+  is withdrawn is withdrawn with them. The amendment rides the deciding claim and
   a change bumps `plan.version` and stamps `since`. When the planner fails,
   the port amends by rule (`agentRuleAmendment`: the plan in force plus every
   clause found in the newest answers). That plan is `provisional`: its limits
