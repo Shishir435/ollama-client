@@ -473,8 +473,12 @@ const budgets: Budget[] = [
      * The RCA follow-up — no-progress change signatures, completion refusal
      * memory, and inherited-frame checks — took Chrome to 302,690. Firefox
      * carries no Agent code and is unchanged.
+     * The task contract — constraints, sourced and itemized requirements,
+     * rule-found negative clauses, user-only plan amendments — took Chrome
+     * to 308,170, and Firefox to 218,306 through the shared contract
+     * schemas its run-state decoding carries.
      */
-    max: isFirefox ? 218_000 : 303_000
+    max: isFirefox ? 218_500 : 308_500
   }
 ]
 
