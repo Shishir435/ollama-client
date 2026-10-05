@@ -883,6 +883,47 @@ describe("review: withdrawing one item of a requirement", () => {
     ).toEqual(["invoice 2"])
   })
 
+  /** "Only invoice 2" names invoice 2 to keep it, not to drop it. */
+  it("never withdraws the item a quote names to keep", () => {
+    for (const [source, answer] of [
+      ["Only invoice 2", "Only invoice 2"],
+      ["only invoice 2", "Only invoice 2, not invoice 1"],
+      ["but only invoice 2", "Not invoice 1 but only invoice 2"]
+    ]) {
+      const plan = parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              { text: "each invoice shows Paid", kind: "change", keep: "r1" }
+            ],
+            dropped: [{ id: "r1", item: "invoice 2", source }]
+          })
+        ],
+        {
+          goal: "Mark invoices 1 and 2 paid",
+          answers: [{ questionId: "q", text: answer, answeredAt: 9 }],
+          current
+        }
+      )
+      expect(plan.requirements[0]?.items).toContain("invoice 2")
+    }
+  })
+
+  it("withdraws the item a retain-then-withdraw answer names last", () => {
+    expect(
+      amend(
+        [
+          {
+            id: "r1",
+            item: "invoice 1",
+            source: "not invoice 1 but only invoice 2"
+          }
+        ],
+        "Not invoice 1 but only invoice 2"
+      ).requirements[0]?.items
+    ).toEqual(["invoice 2"])
+  })
+
   /** Leaving an item out is not withdrawing it. */
   it("keeps an item the planner merely left out, or dropped on unrelated words", () => {
     expect(amend([], "Yes").requirements[0]?.items).toEqual([
@@ -907,8 +948,16 @@ describe("review: withdrawing one item of a requirement", () => {
             }
           ],
           dropped: [
-            { id: "r1", item: "invoice 1", source: "skip invoice 1" },
-            { id: "r1", item: "invoice 2", source: "and invoice 2" }
+            {
+              id: "r1",
+              item: "invoice 1",
+              source: "Skip invoice 1 and invoice 2"
+            },
+            {
+              id: "r1",
+              item: "invoice 2",
+              source: "Skip invoice 1 and invoice 2"
+            }
           ]
         })
       ],

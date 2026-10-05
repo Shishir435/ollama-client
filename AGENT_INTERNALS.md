@@ -1408,9 +1408,11 @@ run that produced it can always be repeated.
   never shown `forbids`, so rebuilding a kept constraint from its answer
   alone would lift the prohibition on any amendment. One item is withdrawn
   only by a `dropped` entry naming the requirement and the item, quoting the
-  newest answer, which either names that item ("not invoice 1") or narrows
-  to another of its items ("only invoice 2"); a requirement whose every item
-  is withdrawn is withdrawn with them. The amendment rides the deciding claim and
+  newest answer. The quote either names the item under a withdrawing word —
+  the nearest cue before it is "not", "skip", "except" and the like rather
+  than "only", "just" or "but" — or narrows with "only" to its other items
+  without naming it at all. "Only invoice 2" can never withdraw invoice 2.
+  A requirement whose every item is withdrawn is withdrawn with them. The amendment rides the deciding claim and
   a change bumps `plan.version` and stamps `since`. When the planner fails,
   the port amends by rule (`agentRuleAmendment`: the plan in force plus every
   clause found in the newest answers). That plan is `provisional`: its limits

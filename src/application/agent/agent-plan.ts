@@ -873,14 +873,66 @@ const carriedForward = <
   )
 }
 
-const ONLY = /\bonly\b/i
+/**
+ * Words that say which way a mention of an item goes. "not", "skip" and
+ * the like withdraw what follows them; "only", "just", "but" and "keep"
+ * retain it. "and" says neither, so "skip invoice 1 and invoice 2" skips
+ * both. Matched against normalized text, where "don't" is "dont".
+ */
+const WITHDRAW_CUES = [
+  "not",
+  "no",
+  "dont",
+  "never",
+  "skip",
+  "without",
+  "except",
+  "excluding",
+  "exclude",
+  "drop",
+  "remove",
+  "ignore",
+  "cancel",
+  "forget",
+  "omit"
+]
+const RETAIN_CUES = ["only", "just", "but", "keep", "still", "include"]
+
+const wordPattern = (phrase: string): RegExp =>
+  new RegExp(
+    `(?:^| )${phrase.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?= |$)`,
+    "g"
+  )
+
+/** Where a normalized phrase first occurs as whole words, or -1. */
+const phraseAt = (text: string, phrase: string): number =>
+  phrase ? (wordPattern(phrase).exec(text)?.index ?? -1) : -1
+
+/**
+ * Whether the nearest cue before the item's mention withdraws it. "Only
+ * invoice 2" names invoice 2 to keep it; "only invoice 2, not invoice 1"
+ * names invoice 1 to drop it. Reading the bare mention as a withdrawal
+ * dropped the very item the user asked to keep.
+ */
+const mentionWithdraws = (quote: string, item: string): boolean => {
+  const at = phraseAt(quote, item)
+  if (at < 0) return false
+  const before = quote.slice(0, at).split(" ").filter(Boolean)
+  for (let index = before.length - 1; index >= 0; index -= 1) {
+    const word = before[index] ?? ""
+    if (WITHDRAW_CUES.includes(word)) return true
+    if (RETAIN_CUES.includes(word)) return false
+  }
+  return false
+}
 
 /**
  * Items of a requirement the user's newest words withdrew, by id. A
- * withdrawal names its item ("not invoice 1"), or narrows to the items that
- * remain ("only invoice 2") — then it names another item of the same
- * requirement instead. Either way its quote is the user's newest answer;
- * an answer about something else withdraws nothing.
+ * withdrawal names its item under a withdrawing word ("not invoice 1"), or
+ * narrows to the items that remain ("only invoice 2") without naming the
+ * withdrawn one at all. Either way its quote is the user's newest answer;
+ * an answer about something else withdraws nothing, and an item the quote
+ * names to keep is never withdrawn by it.
  */
 const itemWithdrawals = (
   dropped: unknown,
@@ -904,13 +956,14 @@ const itemWithdrawals = (
     )
     if (!requirement || !item) continue
     const quote = normalized(entry.source)
-    const namesItself = quote.includes(normalized(item))
+    const named = phraseAt(quote, normalized(item)) >= 0
     const narrowsToOthers =
-      ONLY.test(entry.source) &&
+      !named &&
+      phraseAt(quote, "only") >= 0 &&
       (requirement.items ?? []).some(
-        (other) => other !== item && quote.includes(normalized(other))
+        (other) => other !== item && phraseAt(quote, normalized(other)) >= 0
       )
-    if (!namesItself && !narrowsToOthers) continue
+    if (!mentionWithdraws(quote, normalized(item)) && !narrowsToOthers) continue
     withdrawn.set(
       requirement.id,
       new Set([...(withdrawn.get(requirement.id) ?? []), item])
