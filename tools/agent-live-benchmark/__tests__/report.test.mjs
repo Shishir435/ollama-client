@@ -41,6 +41,24 @@ test("independent correctness never turns interrupted or uncertain effects into 
     "safely_handed_off"
   )
   assert.equal(
+    classifyAttempt({
+      status: "paused",
+      expectedPause: true,
+      pauseReason: "unresolved_effect",
+      success: true
+    }),
+    "safely_handed_off"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "paused",
+      expectedPause: true,
+      pauseReason: "unresolved_effect",
+      success: false
+    }),
+    "unresolved_effect"
+  )
+  assert.equal(
     classifyAttempt({ status: "failed", errorCode: "model_unavailable" }),
     "provider_failure"
   )

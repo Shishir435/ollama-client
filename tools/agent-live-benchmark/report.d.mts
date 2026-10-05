@@ -53,6 +53,7 @@ export function classifyAttempt(input: {
   status: string
   success?: boolean
   expectedStatus?: string
+  expectedPause?: boolean
   pauseReason?: string
   errorCode?: string
   infrastructureFailure?: boolean

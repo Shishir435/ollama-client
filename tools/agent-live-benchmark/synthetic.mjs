@@ -9,6 +9,7 @@ import {
   chatAnswered,
   chatAnswerFromWire,
   chatToolText,
+  pagesOpenedDuringAttempt,
   readChatTurn,
   SETTLED_RUN_STATUSES,
   sendChatTask,
@@ -383,6 +384,7 @@ try {
     const [kind, goal] = declaration.fields
     const attempt = declaration.attempt
     const attemptStarted = Date.now()
+    const pagesBeforeAttempt = new Set(context.pages())
     try {
       current = { kind, effects: 0, replaced: false }
       wire = []
@@ -493,8 +495,11 @@ try {
       // The opener page never shows the status for open_tab; the new tab must.
       let openTabActive = false
       if (kind === "open_tab") {
-        for (const p of context.pages()) {
-          if (p === fixture) continue
+        for (const p of pagesOpenedDuringAttempt(
+          context.pages(),
+          pagesBeforeAttempt,
+          fixture
+        )) {
           if (!/\/details(\/|$)/.test(p.url())) continue
           const text = await p
             .locator("body")
@@ -526,6 +531,7 @@ try {
       const verdict = classifyAttempt({
         status,
         success,
+        expectedPause,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
         infrastructureFailure: status === "harness_invalid",
@@ -600,6 +606,13 @@ try {
         )
         await new Promise((r) => setTimeout(r, 500))
       }
+      await Promise.all(
+        pagesOpenedDuringAttempt(
+          context.pages(),
+          pagesBeforeAttempt,
+          fixture
+        ).map((page) => page.close().catch(() => {}))
+      )
       await fixture.close()
     } catch {
       results[index] = {
@@ -613,6 +626,13 @@ try {
       }
       writeBaseline(out, inputs, results)
       await stopOpenRun(panel, messages.at(-1)?.snapshot).catch(() => {})
+      await Promise.all(
+        pagesOpenedDuringAttempt(
+          context?.pages() ?? [],
+          pagesBeforeAttempt,
+          fixture
+        ).map((page) => page.close().catch(() => {}))
+      )
       await fixture?.close().catch(() => {})
     }
   }

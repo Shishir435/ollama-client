@@ -21,6 +21,8 @@ import {
 } from "./agent-benchmark"
 import { benchmarkAttempts } from "./benchmark-counts"
 
+type AgentRun = NonNullable<AgentScenarioOutcome["snapshot"]>["run"]
+
 /**
  * How a frozen evaluation task is declared and recorded.
  *
@@ -103,6 +105,13 @@ const supervisionAccounting = (outcome: AgentScenarioOutcome) => {
   }
 }
 
+const limitationRecord = (scoringFailed: boolean, run: AgentRun) => {
+  if (scoringFailed) return { firstLimitation: "score_predicate_failed" }
+  if (run?.error?.code) return { firstLimitation: run.error.code }
+  if (run?.pauseReason) return { firstLimitation: run.pauseReason }
+  return {}
+}
+
 /** Record correctness independently from the run, keeping failures and telemetry. */
 export const recordBenchmarkAttempt = async (input: {
   attempts: AgentAttemptRecord[]
@@ -146,7 +155,6 @@ export const recordBenchmarkAttempt = async (input: {
       errorCode: run?.error?.code,
       infrastructureFailure: scoringFailed
     }),
-    ...(scoringFailed ? { firstLimitation: "score_predicate_failed" } : {}),
     executionStages: [
       ...((outcome.chatModelCalls ?? 0) > 0 ? ["direct_chat"] : []),
       ...(outcome.chatToolCalls ?? []),
@@ -194,11 +202,7 @@ export const recordBenchmarkAttempt = async (input: {
           completionTokens: outcome.tokens.completion
         }
       : {}),
-    ...(run?.error?.code
-      ? { firstLimitation: run.error.code }
-      : run?.pauseReason
-        ? { firstLimitation: run.pauseReason }
-        : {})
+    ...limitationRecord(scoringFailed, run)
   })
 }
 

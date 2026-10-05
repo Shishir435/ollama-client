@@ -4,6 +4,7 @@ import {
   INBODY_RULES,
   scoreGoogleSearch,
   scoreInbodyAnswer,
+  scorePageFact,
   scoreSyntheticTask,
   scoreVerdict,
   scoreWikiSearch,
@@ -17,6 +18,33 @@ const HN_BODY =
   "123 points by researcher 5 hours ago"
 
 describe("real-site scorer", () => {
+  it("requires a whole value in both the page and the answer for wiki reads", () => {
+    assert.deepEqual(
+      scorePageFact({
+        answer: "Chromium was first released in 2008.",
+        pageText: "Chromium was first released in 2008.",
+        value: "2008"
+      }),
+      { success: true, reason: "page_and_answer_match" }
+    )
+    assert.equal(
+      scorePageFact({
+        answer: "It was 2008.",
+        pageText: "Chromium release date unavailable.",
+        value: "2008"
+      }).success,
+      false
+    )
+    assert.equal(
+      scorePageFact({
+        answer: "It was 20081.",
+        pageText: "Chromium was first released in 2008.",
+        value: "2008"
+      }).success,
+      false
+    )
+  })
+
   it("rejects page chrome as the top-story answer", () => {
     const { success, reason } = scoreInbodyAnswer(
       "Hacker News",

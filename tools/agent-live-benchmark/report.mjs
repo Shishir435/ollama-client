@@ -70,6 +70,7 @@ export const classifyAttempt = ({
   status,
   success,
   expectedStatus = "completed",
+  expectedPause = false,
   pauseReason,
   errorCode,
   infrastructureFailure,
@@ -80,6 +81,8 @@ export const classifyAttempt = ({
   if (infrastructureFailure) return "infrastructure_failure"
   if (status === "completed" || status === "answered_in_chat")
     return success === true ? "achieved" : "false_completion"
+  if (status === "paused" && expectedPause && success === true)
+    return "safely_handed_off"
   if (pauseReason === "unresolved_effect") return "unresolved_effect"
   if (siteBlocked) return "site_blockage"
   if (

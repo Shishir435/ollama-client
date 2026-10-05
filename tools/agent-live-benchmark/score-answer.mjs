@@ -231,6 +231,20 @@ export const statesValue = (text, value) => {
   ).test(String(text ?? ""))
 }
 
+/** A reading answer counts only when the same whole value appears on the page. */
+export const scorePageFact = ({ answer, pageText, value }) => {
+  const answerHasValue = statesValue(answer, value)
+  const pageHasValue = statesValue(pageText, value)
+  return {
+    success: answerHasValue && pageHasValue,
+    reason: !pageHasValue
+      ? "page_value_missing"
+      : !answerHasValue
+        ? "answer_value_missing"
+        : "page_and_answer_match"
+  }
+}
+
 const pathOf = (url) => {
   try {
     return new URL(String(url)).pathname

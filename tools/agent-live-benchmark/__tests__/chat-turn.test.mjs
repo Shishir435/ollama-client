@@ -5,6 +5,7 @@ import {
   chatAnswered,
   chatAnswerFromWire,
   chatToolText,
+  pagesOpenedDuringAttempt,
   sendChatTask,
   upstreamAuthorization,
   waitForChatState,
@@ -24,6 +25,22 @@ const fakeClock = () => {
 
 const idle = { busy: false, sendReady: true, goalTurns: 0 }
 const busy = { busy: true, sendReady: false, goalTurns: 0 }
+
+describe("pagesOpenedDuringAttempt", () => {
+  it("ignores tabs that were already open and the attempt fixture", () => {
+    const earlierDetails = {}
+    const fixture = {}
+    const openedDetails = {}
+    assert.deepEqual(
+      pagesOpenedDuringAttempt(
+        [earlierDetails, fixture, openedDetails],
+        new Set([earlierDetails]),
+        fixture
+      ),
+      [openedDetails]
+    )
+  })
+})
 
 describe("waitForChatState", () => {
   it("needs the state to hold for the whole window, not one read", async () => {

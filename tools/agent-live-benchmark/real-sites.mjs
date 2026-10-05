@@ -28,6 +28,7 @@ import {
   isSiteChallenge,
   scoreGoogleSearch,
   scoreInbodyAnswer,
+  scorePageFact,
   scoreWikiSearch
 } from "./score-answer.mjs"
 
@@ -532,6 +533,14 @@ try {
             success = scored.success
             predicate = `inbody:${rule.minWords}w/${rule.minChars}c (${scored.reason})`
           }
+        } else if (kind === "wiki_read") {
+          const scored = scorePageFact({
+            answer,
+            pageText: body,
+            value: expect
+          })
+          success = scored.success
+          predicate = `page+answer:${expect} (${scored.reason})`
         } else success = answer.includes(expect)
       }
       const verdict = classifyAttempt({
