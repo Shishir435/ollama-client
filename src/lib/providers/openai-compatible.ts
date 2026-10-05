@@ -47,7 +47,7 @@ import {
   ProviderId,
   ProviderServiceProfile
 } from "./types"
-import { createUrlCitationCollector } from "./url-citations"
+import { readUrlCitations } from "./url-citations"
 
 const isCatalogRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -798,7 +798,6 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const toolCalls = new ToolCallAccumulator()
     let toolCallsEmitted = false
     const reasoningDetails: Array<Record<string, unknown>> = []
-    const citations = createUrlCitationCollector()
     const captureReasoningDetails =
       resolveProviderServiceProfile(this.config) ===
       ProviderServiceProfile.OPENROUTER
@@ -998,18 +997,18 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
 
     /**
-     * Sent as the whole list each time it grows, on a non-terminal chunk: the
-     * tool loops keep only metrics and replay state from a provider's done
-     * chunk, so anything riding on it would be lost.
+     * Sent as they arrive, on a non-terminal chunk: the tool loops keep only
+     * metrics and replay state from a provider's done chunk, so anything
+     * riding on it would be lost. The reducer merges repeats.
      */
     const collectCitations = (
       choice: NonNullable<OpenAiSseData["choices"]>[number] | undefined
     ): void => {
-      const added = [
-        citations.add(choice?.delta?.annotations),
-        citations.add(choice?.message?.annotations)
-      ].some(Boolean)
-      if (added) onChunk({ webCitations: citations.list(), done: false })
+      const webCitations = [
+        ...readUrlCitations(choice?.delta?.annotations),
+        ...readUrlCitations(choice?.message?.annotations)
+      ]
+      if (webCitations.length > 0) onChunk({ webCitations, done: false })
     }
 
     const accumulateToolCalls = (

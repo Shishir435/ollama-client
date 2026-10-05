@@ -1,9 +1,5 @@
-import { MAX_WEB_CITATIONS } from "@ollama-client/contracts/chat"
 import { describe, expect, it } from "vitest"
-import {
-  createUrlCitationCollector,
-  readUrlCitations
-} from "@/lib/providers/url-citations"
+import { readUrlCitations } from "@/lib/providers/url-citations"
 
 const cite = (url: string, title?: string) => ({
   type: "url_citation",
@@ -39,25 +35,5 @@ describe("readUrlCitations", () => {
       cite("https://a.example", "x".repeat(600))
     ])
     expect(citation?.title).toHaveLength(512)
-  })
-})
-
-describe("createUrlCitationCollector", () => {
-  it("deduplicates by URL and fills a title the first report lacked", () => {
-    const collector = createUrlCitationCollector()
-    expect(collector.add([cite("https://a.example")])).toBe(true)
-    expect(collector.add([cite("https://a.example")])).toBe(false)
-    expect(collector.add([cite("https://a.example", "A")])).toBe(true)
-    expect(collector.list()).toEqual([{ url: "https://a.example", title: "A" }])
-  })
-
-  it("stops at what a message persists", () => {
-    const collector = createUrlCitationCollector()
-    collector.add(
-      Array.from({ length: MAX_WEB_CITATIONS + 5 }, (_, index) =>
-        cite(`https://a.example/${index}`)
-      )
-    )
-    expect(collector.list()).toHaveLength(MAX_WEB_CITATIONS)
   })
 })

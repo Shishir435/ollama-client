@@ -588,8 +588,9 @@ describe("provider tool calling — stream parsing", () => {
     )
 
     const cited = chunks.filter((chunk) => chunk.webCitations)
-    // A repeat adds nothing, so nothing is emitted for it.
-    expect(cited).toHaveLength(1)
+    // Each chunk's valid citations go out as they arrive; the stream reducer
+    // merges the repeat.
+    expect(cited).toHaveLength(2)
     expect(cited[0]).toEqual({
       done: false,
       webCitations: [

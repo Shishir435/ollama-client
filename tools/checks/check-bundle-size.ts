@@ -473,8 +473,11 @@ const budgets: Budget[] = [
      * The RCA follow-up — no-progress change signatures, completion refusal
      * memory, and inherited-frame checks — took Chrome to 302,690. Firefox
      * carries no Agent code and is unchanged.
+     * Provider web citations (`url_citation`) and usage details — cached and
+     * reasoning tokens, cost — through the stream schema and reducer: Chrome
+     * 303,436 and Firefox 218,360.
      */
-    max: isFirefox ? 218_000 : 303_000
+    max: isFirefox ? 219_000 : 304_000
   }
 ]
 
