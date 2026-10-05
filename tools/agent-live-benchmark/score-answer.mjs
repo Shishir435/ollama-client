@@ -117,11 +117,10 @@ export const scoreWikiSearch = ({ answer, url }) => {
 
 /**
  * google_search is judged by where the run landed — Google's results page for
- * the query — and by the answer naming YouTube, the first result's title for
- * that query. The title is one word, so no verbatim-span rule applies; a
- * bare substring is the most that can be asked without refusing it.
+ * the query — and by the answer matching the rendered first result title.
+ * Match the whole title so a different result sharing a word cannot pass.
  */
-export const scoreGoogleSearch = ({ answer, url }) => {
+export const scoreGoogleSearch = ({ answer, url, firstResultTitle }) => {
   let parsed
   try {
     parsed = new URL(String(url ?? ""))
@@ -133,13 +132,14 @@ export const scoreGoogleSearch = ({ answer, url }) => {
   const landed =
     parsed.pathname === "/search" &&
     normalizeText(parsed.searchParams.get("q") ?? "").includes("youtube")
-  const namesIt = normalizeText(answer).includes("youtube")
-  const success = landed && namesIt
+  const title = normalizeText(firstResultTitle)
+  const matchesTitle = Boolean(title) && normalizeText(answer) === title
+  const success = landed && matchesTitle
   return {
     success,
     reason: !landed
       ? "never_landed_on_results"
-      : !namesIt
+      : !matchesTitle
         ? "title_missing"
         : "landed_and_named"
   }
@@ -239,7 +239,7 @@ export const statesValue = (text, value) => {
  */
 export const scoreWikipediaRelease = ({
   answer,
-  pageText,
+  infoboxRelease,
   value,
   url,
   articlePath
@@ -261,22 +261,14 @@ export const scoreWikipediaRelease = ({
   }
 
   const answerHasValue = statesValue(answer, value)
-  const pageHasReleaseValue = String(pageText ?? "")
-    .split(/\r?\n/)
-    .some((line) => {
-      const normalizedLine = normalizeText(line)
-      if (!normalizedLine.startsWith("release ")) return false
-
-      let releaseDate = normalizedLine.slice("release ".length)
-      releaseDate = releaseDate.replace(
-        /^(?:\d{1,2}\s+[a-z]{3,9}|[a-z]{3,9}\s+\d{1,2})\s+/,
-        ""
-      )
-      const releaseYear = releaseDate.split(" ")[0]
-      return (
-        releaseYear === normalizeText(value) && statesValue(releaseYear, value)
-      )
-    })
+  let releaseDate = normalizeText(infoboxRelease)
+  releaseDate = releaseDate.replace(
+    /^(?:\d{1,2}\s+[a-z]{3,9}|[a-z]{3,9}\s+\d{1,2})\s+/,
+    ""
+  )
+  const releaseYear = releaseDate.split(" ")[0]
+  const pageHasReleaseValue =
+    releaseYear === normalizeText(value) && statesValue(releaseYear, value)
 
   return {
     success: landedArticle && pageHasReleaseValue && answerHasValue,

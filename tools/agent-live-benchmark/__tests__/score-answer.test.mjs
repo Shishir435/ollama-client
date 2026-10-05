@@ -22,8 +22,7 @@ describe("real-site scorer", () => {
     assert.deepEqual(
       scoreWikipediaRelease({
         answer: "Chromium was first released in 2008.",
-        pageText:
-          "Chromium (web browser)\nRelease\t2 September 2008; 18 years ago",
+        infoboxRelease: "2 September 2008; 18 years ago",
         value: "2008",
         url: "https://en.wikipedia.org/wiki/Chromium_(web_browser)",
         articlePath: "/wiki/Chromium_(web_browser)"
@@ -33,8 +32,7 @@ describe("real-site scorer", () => {
     assert.equal(
       scoreWikipediaRelease({
         answer: "It was 2008.",
-        pageText:
-          "Some unrelated article\nRelease\t1 January 2007\nUpdated in 2008",
+        infoboxRelease: "1 January 2007",
         value: "2008",
         url: "https://en.wikipedia.org/wiki/Chromium_(web_browser)",
         articlePath: "/wiki/Chromium_(web_browser)"
@@ -44,7 +42,7 @@ describe("real-site scorer", () => {
     assert.equal(
       scoreWikipediaRelease({
         answer: "It was 2008.",
-        pageText: "Release\t2 September 2008",
+        infoboxRelease: "2 September 2008",
         value: "2008",
         url: "https://en.wikipedia.org/wiki/History_of_the_web_browser",
         articlePath: "/wiki/Chromium_(web_browser)"
@@ -54,13 +52,29 @@ describe("real-site scorer", () => {
     assert.equal(
       scoreWikipediaRelease({
         answer: "It was 20081.",
-        pageText: "Release\t2 September 2008",
+        infoboxRelease: "2 September 2008",
         value: "2008",
         url: "https://en.wikipedia.org/wiki/Chromium_(web_browser)",
         articlePath: "/wiki/Chromium_(web_browser)"
       }).success,
       false
     )
+  })
+
+  it("ignores conflicting Release lines outside the infobox", () => {
+    const scored = scoreWikipediaRelease({
+      answer: "Chromium was released in 2008.",
+      infoboxRelease: "2 September 2007",
+      pageText:
+        "Release 2008\nA later Release 2008 appears in the article body",
+      value: "2008",
+      url: "https://en.wikipedia.org/wiki/Chromium_(web_browser)",
+      articlePath: "/wiki/Chromium_(web_browser)"
+    })
+    assert.deepEqual(scored, {
+      success: false,
+      reason: "release_value_missing"
+    })
   })
 
   it("rejects page chrome as the top-story answer", () => {
@@ -97,7 +111,8 @@ describe("real-site scorer", () => {
     assert.equal(
       scoreGoogleSearch({
         answer: "YouTube",
-        url: "https://www.google.com/search?q=youtube&source=hp"
+        url: "https://www.google.com/search?q=youtube&source=hp",
+        firstResultTitle: "YouTube"
       }).success,
       true
     )
@@ -106,16 +121,40 @@ describe("real-site scorer", () => {
       "https://www.google.com/sorry/index?continue=/search?q=youtube",
       "https://example.com/search?q=youtube"
     ])
-      assert.equal(scoreGoogleSearch({ answer: "YouTube", url }).success, false)
+      assert.equal(
+        scoreGoogleSearch({
+          answer: "YouTube",
+          url,
+          firstResultTitle: "YouTube"
+        }).success,
+        false
+      )
   })
 
   it("refuses a google_search answer that does not name the first result", () => {
     const url = "https://www.google.com/search?q=youtube"
-    for (const answer of ["Google", "Vimeo - Video hosting", ""])
-      assert.deepEqual(scoreGoogleSearch({ answer, url }), {
-        success: false,
-        reason: "title_missing"
-      })
+    for (const answer of [
+      "Google",
+      "Vimeo - Video hosting",
+      "YouTube Music",
+      ""
+    ])
+      assert.deepEqual(
+        scoreGoogleSearch({ answer, url, firstResultTitle: "YouTube" }),
+        {
+          success: false,
+          reason: "title_missing"
+        }
+      )
+    assert.equal(scoreGoogleSearch({ answer: "YouTube", url }).success, false)
+    assert.equal(
+      scoreGoogleSearch({
+        answer: "YouTube",
+        url,
+        firstResultTitle: "YouTube Music"
+      }).success,
+      false
+    )
   })
 
   it("requires landing on the Firefox article for wiki_search", () => {

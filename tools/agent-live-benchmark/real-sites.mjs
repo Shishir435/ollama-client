@@ -476,6 +476,22 @@ try {
         .locator("body")
         .innerText()
         .catch(() => "")
+      const pageFields = await fixture
+        .evaluate(() => {
+          const firstResultTitle =
+            document.querySelector("#search a h3")?.innerText?.trim() ?? ""
+          const releaseRow = [
+            ...document.querySelectorAll("table.infobox tr")
+          ].find(
+            (row) => row.querySelector("th")?.textContent?.trim() === "Release"
+          )
+          return {
+            firstResultTitle,
+            infoboxRelease:
+              releaseRow?.querySelector("td")?.innerText?.trim() ?? ""
+          }
+        })
+        .catch(() => ({ firstResultTitle: "", infoboxRelease: "" }))
       const field = await fixture
         .evaluate(() => ({
           value: document.querySelector("select")?.value,
@@ -520,7 +536,11 @@ try {
             success = scored.success
             predicate = `landed+answer:Firefox (${scored.reason})`
           } else if (kind === "google_search") {
-            const scored = scoreGoogleSearch({ answer, url: fixture.url() })
+            const scored = scoreGoogleSearch({
+              answer,
+              url: fixture.url(),
+              firstResultTitle: pageFields.firstResultTitle
+            })
             success = scored.success
             predicate = `landed:google/search?q=youtube (${scored.reason})`
           } else {
@@ -536,7 +556,7 @@ try {
         } else if (kind === "wiki_read") {
           const scored = scoreWikipediaRelease({
             answer,
-            pageText: body,
+            infoboxRelease: pageFields.infoboxRelease,
             value: expect,
             url: fixture.url(),
             articlePath: "/wiki/Chromium_(web_browser)"
