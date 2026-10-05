@@ -92,6 +92,33 @@ export const resolveAgentFollowUp = async (
   if (!effects) return { ok: false, reason: "too_many_effects" }
   return {
     ok: true,
-    previousRun: { mode: request.mode, handoff, effects }
+    previousRun: {
+      mode: request.mode,
+      handoff,
+      effects,
+      ...previousRequirements(parent.state)
+    }
+  }
+}
+
+/**
+ * The parent's plan by id, each with what its settled outcome said of it, so
+ * the follow-up's planner can keep an id for the same outcome. Absent when
+ * the parent was never planned; `met` absent where the parent settled
+ * without judging that requirement (a failure, a stop).
+ */
+const previousRequirements = (
+  state: NonNullable<DurableAgentRun["state"]>
+): Pick<AgentPreviousRun, "requirements"> => {
+  if (!state.requirements?.length) return {}
+  const met = new Set(state.outcome?.met ?? [])
+  const unmet = new Set(state.outcome?.unmet ?? [])
+  return {
+    requirements: state.requirements.map(({ id, text, kind }) => ({
+      id,
+      text,
+      kind,
+      ...(met.has(id) ? { met: true } : unmet.has(id) ? { met: false } : {})
+    }))
   }
 }

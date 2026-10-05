@@ -245,7 +245,8 @@
     "question_text": {
       "completion_refused": "I couldn’t confirm the result. Is the task done? If not, what should I do next?",
       "commands_refused": "The last action could not run. What should I try instead?",
-      "no_progress": "I’m repeating actions without making progress. What should I do differently? You can also stop and finish the task yourself."
+      "no_progress": "I’m repeating actions without making progress. What should I do differently? You can also stop and finish the task yourself.",
+      "too_many_outcomes": "This task asks for {{count}} separate outcomes, and one run can track {{max}}. Which should this run do? The rest can follow in another run."
     },
     "start_gate": {
       "after_page": "The model read page content before writing this task, so it is always asked about.",

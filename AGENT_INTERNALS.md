@@ -729,7 +729,8 @@ Read the section your change touches; you do not need the whole file.
   trimmed off is the one the next run could repeat. Start over carries nothing and is never refused.
 - **A child plans and asks afresh.** It inherits the parent's handoff and the
   consequential effects the chain committed (`state.previousRun`) — never its
-  grants, answers, requirements or origins. `parentRunId` is written on the
+  grants, answers, requirements or origins. The parent's requirement ids reach
+  the child's planner only as data it may keep an id from. `parentRunId` is written on the
   run row on every path.
 - **A committed consequential effect is never attempted twice unasked.**
   Submission, destruction, payment and download are recorded on each receipt
@@ -1352,7 +1353,43 @@ run that produced it can always be repeated.
 - Planning is optional only at the host boundary. A host with no planning port
   retains the legacy completion path, but once the port exists an exhausted or
   empty plan fails the run before its first observation. Planning failure must
-  never buy the weaker pre-requirements judge.
+  never buy the weaker pre-requirements judge. A run paused or asked a
+  question before its plan landed resumes into `planning`, never past it.
+- **The task contract is the goal plus three things the planner derives from
+  it.** The goal is immutable — `AgentStatePatch` cannot name it.
+  `requirements` are outcomes, `constraints` are what the user's words forbid
+  (`exclude`), confine (`scope`) or bound (`limit`), and `plan` records the
+  version, the highest id ever issued, the newest user answer reconciled and
+  each amendment. An entry's `source` must quote the goal or a user answer
+  (`agentQuotes`); an entry quoting anything else is refused, so an outcome
+  nobody asked for cannot enter dressed as one somebody did.
+- **Over the cap is refused whole, never sliced.** More than
+  `MAX_AGENT_REQUIREMENTS` entries, or more items than the item caps, is
+  `AgentPlanOverCapError`; the port retries once with feedback asking for
+  repeated outcomes to become one requirement with `items`, and a second
+  over-cap answer becomes `requestedOutcomes` — a question to the user before
+  the first look. A planner `clarification` is asked the same way; a
+  `limitation` fails the run as `goal_failed` in the planner's words.
+- **Negative clauses are found by rule as well as by the model.**
+  `agentGoalBoundaries` reads "don't / without / never", "only the …",
+  "under $N" and draft phrasings from the user's words and adds any the plan
+  left out as constraints. `forbids` — the consequential effect classes a
+  constraint rules out — comes only from a verb inside the user's own clause,
+  never from the model. A clause carrying an exception or condition
+  ("except", "until") forbids nothing, and neither does one whose verb the
+  user also gives as an instruction ("submit it, but don't submit the old
+  one") — those stay constraints the decision model reads. The controller refuses a command whose
+  resolved effect carries a forbidden class before policy is asked.
+- **Only the user's words amend a plan.** An answer, correction or steer newer
+  than `plan.reconciledThrough` triggers one planning call, given the goal,
+  the answers and the plan in force — never an observation, finding or step.
+  Kept entries keep their ids, new ones take the next number after
+  `plan.issued`, and an entry is removed only when `dropped` quotes the newest
+  answers; anything unmentioned is carried forward. The amendment rides the
+  deciding claim, a change bumps `plan.version` and stamps `since`, and a
+  failed call leaves the plan in force. A follow-up's planner sees the
+  parent's requirement ids with what its outcome said of each, so a retry can
+  keep `r2` for the same outcome.
 - `agent-useful-workflows.spec.ts` exercises composer lookup, long editing, pane scrolling,
   paginated extraction, clarification, delayed save and native confirmation.
   Its hosted flag also runs these tasks against a real provider. Scripted

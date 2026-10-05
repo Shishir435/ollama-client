@@ -510,6 +510,7 @@ export type AgentStatePatch = Partial<
     AgentRunState,
     | "allowedOrigins"
     | "answers"
+    | "constraints"
     | "deadline"
     | "controlledTabId"
     | "error"
@@ -517,6 +518,7 @@ export type AgentStatePatch = Partial<
     | "observationCount"
     | "outcome"
     | "pauseReason"
+    | "plan"
     | "question"
     | "requirements"
     | "result"

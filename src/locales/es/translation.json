@@ -245,7 +245,8 @@
     "question_text": {
       "completion_refused": "No pude confirmar el resultado. ¿Se completó la tarea? Si no, ¿qué debo hacer ahora?",
       "commands_refused": "No se pudo realizar la última acción. ¿Qué debería intentar en su lugar?",
-      "no_progress": "Estoy repitiendo acciones sin avanzar. ¿Qué debería hacer de otra forma? También puedes detenerme y terminar la tarea tú."
+      "no_progress": "Estoy repitiendo acciones sin avanzar. ¿Qué debería hacer de otra forma? También puedes detenerme y terminar la tarea tú.",
+      "too_many_outcomes": "Esta tarea pide {{count}} resultados distintos y una ejecución puede seguir {{max}}. ¿Cuáles debe hacer esta ejecución? El resto puede venir en otra."
     },
     "start_gate": {
       "after_page": "El modelo leyó contenido de una página antes de escribir esta tarea, así que siempre se pregunta.",
