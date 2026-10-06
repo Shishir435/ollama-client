@@ -1788,11 +1788,7 @@ const judgeItemizedRequirement = (
       input,
       change,
       changes.filter((receipt) =>
-        receiptNames(receipt).some(
-          (name) =>
-            namesItem(agentNormalizedClaim(name), item) ||
-            namesItem(agentNormalizedClaim(item), name)
-        )
+        receiptNamesItem(receipt, item, requirement.items)
       ),
       consumed
     )
@@ -1833,6 +1829,28 @@ const namesItem = (text: string, item: string): boolean => {
   const phrase = agentNormalizedClaim(item)
   return phrase.length > 0 && containsCompletePhrase(text, phrase)
 }
+
+/**
+ * Whether a receipt acted on this item. Either its control or row names the
+ * item — "Invoice 3 — Due" names "invoice 3" — or the item names the control
+ * and no other item does: "Given name Ada" names the field "Given name", but
+ * "Status" is named by both "Invoice 1 Status" and "Invoice 2 Status" and
+ * identifies neither, so a receipt under that name alone credits no item.
+ */
+const receiptNamesItem = (
+  receipt: AgentStepReadout,
+  item: string,
+  items: readonly string[]
+): boolean =>
+  receiptNames(receipt).some(
+    (name) =>
+      namesItem(agentNormalizedClaim(name), item) ||
+      (namesItem(agentNormalizedClaim(item), name) &&
+        items.every(
+          (other) =>
+            other === item || !namesItem(agentNormalizedClaim(other), name)
+        ))
+  )
 
 /**
  * Every name a receipt acted under: its control, its row, and — for a

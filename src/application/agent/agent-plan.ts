@@ -412,12 +412,42 @@ const tokenSpoken = (token: string, spoken: ReadonlySet<string>): boolean => {
 }
 
 /**
- * Where an item's sentence ends. A period counts unless it closes an
- * abbreviation a row is written with ("no. 5", "inv. 12", "e.g."); a
- * decimal point is never followed by a space, so it never matches.
+ * Abbreviations that may carry a sentence past their period, each with what
+ * must follow to prove it: a number after "no." or "inv.", a name after
+ * "Mrs.", a lowercase word after "e.g.".
  */
-const SENTENCE_END =
-  /[;!?\n]+|(?<!\b(?:no|nos|nr|num|inv|ref|vol|p|pp|pg|ch|sec|art|approx|e\.g|i\.e|etc|vs|st|mr|mrs|ms|dr))\.(?=\s|$)/iu
+const ABBREVIATION_CONTINUES: ReadonlyArray<readonly [RegExp, RegExp]> = [
+  [/\b(?:no|nos|nr|num|inv|ref|vol|p|pp|pg|ch|sec|art)$/iu, /^\s+#?\p{N}/u],
+  [/\b(?:mr|mrs|ms|dr)$/iu, /^\s+\p{Lu}/u],
+  [/\b(?:e\.g|i\.e|etc|vs|approx)$/iu, /^\s+\p{Ll}/u]
+]
+
+/**
+ * An item's sentences. A period ends one unless what follows proves it
+ * closed an abbreviation; anything else ends the sentence — "Main St.
+ * Invoice 1" is two — because splitting wrongly costs a refused item and a
+ * question, while joining wrongly accepts work nobody asked for. A decimal
+ * point is never followed by a space, so it never ends one.
+ */
+const itemSentences = (text: string): string[] =>
+  text.split(/[;!?\n]+/).flatMap((part) => {
+    const sentences: string[] = []
+    let from = 0
+    for (const { index } of part.matchAll(/\.(?=\s|$)/g)) {
+      const before = part.slice(from, index)
+      const after = part.slice(index + 1)
+      if (
+        ABBREVIATION_CONTINUES.some(
+          ([word, next]) => word.test(before) && next.test(after)
+        )
+      )
+        continue
+      sentences.push(before)
+      from = index + 1
+    }
+    sentences.push(part.slice(from))
+    return sentences
+  })
 
 /** How alike two outcomes must read for one to keep the other's id. */
 const SAME_OUTCOME = 0.5
@@ -825,9 +855,7 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
      */
     assertItemsQuoted(items: readonly string[]): void {
       if (!context) return
-      const spoken = authority
-        .flatMap((text) => text.split(SENTENCE_END))
-        .map(itemTokens)
+      const spoken = authority.flatMap(itemSentences).map(itemTokens)
       const unquoted = items.find((item) => {
         const wanted = itemTokens(item)
         return (

@@ -2482,6 +2482,62 @@ describe("itemized requirements", () => {
   })
 
   /**
+   * "Status" is named by every item, so it identifies none: two receipts on
+   * one invoice's Status field must not credit both invoices.
+   */
+  it("credits no item from a field every item names", () => {
+    const filledStatus = (sequence: number) =>
+      step({
+        sequence,
+        requirementId: "r1",
+        command: {
+          type: "fill_form",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          fields: [{ type: "clear_and_type", ref: "e1", text: "[redacted]" }]
+        },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "fields",
+            summary: "The field holds its value",
+            observedAt: sequence,
+            fields: [{ name: "Status" }]
+          }
+        }
+      })
+    expect(
+      judgeAgentCompletion({
+        steps: [filledStatus(1), filledStatus(2)],
+        observation: observation({
+          visibleText: "Invoice form",
+          elements: [
+            { name: "Status", value: "Paid" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the invoices are marked paid",
+            kind: "change",
+            items: ["Invoice 1 Status Paid", "Invoice 2 Status Paid"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true },
+              { index: 1, met: true }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
+  /**
    * A page that writes the state first ("Paid Given name Ada" style) cannot
    * be bound by quotation, so the item's own verified receipt credits it
    * instead of the quote being fatal.
