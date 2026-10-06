@@ -493,8 +493,14 @@ const budgets: Budget[] = [
      * durable decoding and chat handoff references: measured Chrome 316,590
      * and Firefox 219,521. No model
      * assets or content-script budgets change.
+     * P4 deterministic completion — exact state predicates, grounded read
+     * support, constraint checks and verified-only reports — measures Chrome
+     * at 319,323, up 2,422 from the release baseline rebuilt at 316,901.
+     * The planning JSON schema stays local to avoid shipping Zod's converter.
+     * The 320,000 ceiling leaves 677 bytes of headroom; asset and content
+     * budgets remain unchanged.
      */
-    max: isFirefox ? 220_000 : 317_500
+    max: isFirefox ? 220_000 : 320_000
   }
 ]
 

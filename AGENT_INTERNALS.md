@@ -837,7 +837,21 @@ Read the section your change touches; you do not need the whole file.
   Where a quotation is required it has to be in the observation the run
   decided on, read by the same matcher `wait` uses (`observed-text.ts`) so a
   run cannot complete on evidence its own wait would reject. A run that only
-  read owes none — what it read is its answer.
+  read needs an independently observed quotation retained in the evidence ledger.
+  Current quotes are grounded before judging; historical observed facts survive
+  navigation and restart, while requires_refresh and model/input records do not
+  prove a read. A quote establishes provenance, never automatic goal satisfaction.
+  Typed plan checks decide exact field, checked/selected, URL, row and record
+  save/submission states; ambiguous claims return needs_review for independent
+  review. Save/submission indicators must name the exact record in a current
+  status/alert; ordinary document prose needs review. Bounded whole-row text
+  cannot establish record identity for scoped controls; those need review.
+  Row predicates require the complete row label to equal the record name.
+  An explicit predicate is authoritative: an ambiguous identity/state needs
+  review and must never fall back to an action receipt proving a weaker claim.
+  Planned result text is built from the judged outcomes, never the model's
+  free-form success summary. Itemized reads report only the checked item quotes,
+  never their unchecked parent quote. Completion retries only read; effects are retained.
   A planned page-changing command names the requirement id it advances, and
   that id is durable on the step receipt. This is the binding for result-verified
   state: planning happens before observation, so `Address` may legitimately

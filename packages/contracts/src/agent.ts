@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { AgentCommandSchema } from "./agent-command"
+import { AgentCompletionCheckSchema } from "./agent-completion-check"
 import {
   AgentEvidenceLedgerSchema,
   AgentSourceQuotesSchema,
@@ -501,12 +502,11 @@ export const AgentTaskRequirementSchema = z
     /** The outcome in the model's words, one per entry, not a step to take. */
     text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
     /**
-     * `change` must end in a page state something can be quoted from.
-     * `read` is answered by what the run read, and owes no page evidence —
-     * asking a research goal to quote a saved-state indicator that does not
-     * exist would refuse every one of them.
+     * `change` requires observable state or exact verified receipt facts.
+     * `read` requires independent source support retained in the ledger.
      */
     kind: z.enum(["change", "read"]),
+    check: AgentCompletionCheckSchema.optional(),
     /**
      * The words of the goal — or of a user's answer — this outcome answers,
      * quoted. Checked against them when the plan is parsed, so an outcome
@@ -877,6 +877,7 @@ export const AgentPreviousRequirementSchema = z
     id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
     text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
     kind: z.enum(["change", "read"]),
+    check: AgentCompletionCheckSchema.optional(),
     met: z.boolean().optional()
   })
   .strict()

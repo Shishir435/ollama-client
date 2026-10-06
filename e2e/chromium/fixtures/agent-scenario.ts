@@ -1,6 +1,7 @@
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import type {
+  AgentCompletionCheck,
   AgentPanelMessage,
   AgentPanelSnapshot
 } from "@ollama-client/contracts"
@@ -160,7 +161,11 @@ export interface AgentScenario {
    * its matching completion outcome; their `verify` callback independently
    * proves the page result, while every run still exercises a valid plan.
    */
-  plan?: readonly { text: string; kind: "change" | "read" }[]
+  plan?: readonly {
+    text: string
+    kind: "change" | "read"
+    check?: AgentCompletionCheck
+  }[]
   /**
    * How the panel answers an approval. `run_origin` widens it to the origin
    * for the rest of the run, which is what a user checking the box does.
@@ -169,6 +174,10 @@ export interface AgentScenario {
   allowRoutineActions?: boolean
   /** What the panel's textarea replies with, when the run asks something. */
   answer?: string
+  /** Match this wording in scripted runs; live models may phrase it differently. */
+  answerQuestion?: string
+  /** Hold an answer long enough to exercise intermediate-pause handling. */
+  answerDelayMs?: number
   /**
    * Left off the `@critical` gate. A benchmark scenario records what happened
    * rather than asserting a threshold, so a gate that ran it would be
@@ -180,6 +189,8 @@ export interface AgentScenario {
   goal: string
   /** The terminal run status the scenario is finished at. */
   status: "completed" | "partial" | "paused" | "failed"
+  /** Assert that an unsupported semantic outcome is explicitly deferred. */
+  completionReview?: boolean
   /** Included in the hosted-model matrix, which only runs a couple of tasks. */
   hosted?: boolean
   /** The fixture model reports itself as reading images. */
@@ -258,7 +269,7 @@ const normalizeScriptedDecision = (
     }
   }
   if (
-    scenario.plan === undefined &&
+    (scenario.plan?.length ?? 1) === 1 &&
     scripted.type !== "complete" &&
     !("requirementId" in scripted)
   )
@@ -820,6 +831,7 @@ const runAgentScenarioAttempt = (
   test(title, async ({ extension }, testInfo) => {
     const startedAt = Date.now()
     const liveModel = process.env.AGENT_HOSTED_MODEL
+    const answerQuestion = liveModel ? undefined : scenario.answerQuestion
     scenario.diagnosticTrace?.({
       type: "scenario_started",
       attempt,
@@ -1152,12 +1164,19 @@ const runAgentScenarioAttempt = (
       )
 
       await panel.evaluate(
-        async ({ origin, approvalScope, answer }) => {
+        async ({
+          origin,
+          approvalScope,
+          answer,
+          answerQuestion,
+          answerDelayMs
+        }) => {
           const tab = (await chrome.tabs.query({})).find((tab) =>
             tab.url?.startsWith(origin)
           )
           if (!tab?.id) throw new Error("Fixture tab is missing")
           const port = chrome.runtime.connect({ name: "agent-run-port" })
+          const answeredQuestions = new Set<string>()
           ;(window as unknown as { agentPort: unknown }).agentPort = port
           port.onMessage.addListener((message: AgentPanelMessage) => {
             void (
@@ -1179,20 +1198,35 @@ const runAgentScenarioAttempt = (
               })
             }
             const question = run.question
-            if (question && answer) {
-              port.postMessage({
-                type: "agent_answer",
-                runId: run.id,
-                requestId: question.id,
-                text: answer
-              })
+            if (
+              question &&
+              answer &&
+              (!answerQuestion || question.text === answerQuestion) &&
+              !question.display?.some(
+                (text) => text.key === "agent.question_text.completion_refused"
+              ) &&
+              !answeredQuestions.has(question.id)
+            ) {
+              answeredQuestions.add(question.id)
+              setTimeout(
+                () =>
+                  port.postMessage({
+                    type: "agent_answer",
+                    runId: run.id,
+                    requestId: question.id,
+                    text: answer
+                  }),
+                answerDelayMs ?? 0
+              )
             }
           })
         },
         {
           origin,
           approvalScope: scenario.approvalScope,
-          answer: scenario.answer
+          answer: scenario.answer,
+          answerQuestion,
+          answerDelayMs: scenario.answerDelayMs
         }
       )
       await panel
@@ -1289,14 +1323,24 @@ const runAgentScenarioAttempt = (
                  * row's wall time. A question the scenario scripts an answer
                  * for is not settled: the answer resumes it.
                  */
-                const answered = Boolean(run?.question && scenario.answer)
+                const review =
+                  run?.question?.display?.some(
+                    (text) =>
+                      text.key === "agent.question_text.completion_refused"
+                  ) === true
+                const answered = Boolean(
+                  run?.question &&
+                    scenario.answer &&
+                    !review &&
+                    (!answerQuestion || run.question.text === answerQuestion)
+                )
+                if (run?.status === "paused")
+                  return scenario.completionReview ? review : !answered
                 return (
-                  run?.status === scenario.status ||
                   run?.status === "completed" ||
                   run?.status === "partial" ||
                   run?.status === "failed" ||
-                  run?.status === "cancelled" ||
-                  (run?.status === "paused" && !answered)
+                  run?.status === "cancelled"
                 )
               },
               { timeout: liveModel ? 200_000 : 30_000 }
@@ -1355,6 +1399,20 @@ const runAgentScenarioAttempt = (
           chatToolCalls: [...chatState.toolCalls],
           directChatResponse: chatState.directResponse,
           executionPath: executionPathFor(agentStarted, chatState.toolCalls)
+        }
+        if (scenario.completionReview) {
+          expect(outcome.snapshot?.run?.question?.display).toContainEqual(
+            expect.objectContaining({
+              key: "agent.question_text.completion_refused"
+            })
+          )
+          expect(outcome.snapshot?.run?.result).toBeUndefined()
+          expect(outcome.phases).toContainEqual(
+            expect.objectContaining({
+              phase: "completion_refused",
+              reason: "needs_review"
+            })
+          )
         }
         await scenario.verify(outcome)
       } finally {

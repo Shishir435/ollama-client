@@ -28,6 +28,7 @@ const clickContinue = (observation: AgentFixtureObservation) =>
 runAgentScenario({
   name: "svg",
   goal: "Click Continue and report the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   html: () =>
     `<!doctype html><title>Agent svg</title><main><svg role="img" aria-label="Brand" width="24" height="24"><rect width="24" height="24"></rect></svg><a role="link" href="/help">Help</a>${agentConfirmingButton()}</main>`,
@@ -54,6 +55,7 @@ runAgentScenario({
 runAgentScenario({
   name: "starved",
   goal: "Click Continue and report the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   html: () =>
     `<!doctype html><title>Agent starved</title><main>${Array.from(

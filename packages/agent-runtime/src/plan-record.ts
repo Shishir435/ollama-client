@@ -84,6 +84,7 @@ const sameRequirement = (
 ): boolean =>
   left.text === right.text &&
   left.kind === right.kind &&
+  JSON.stringify(left.check) === JSON.stringify(right.check) &&
   JSON.stringify(left.items ?? []) === JSON.stringify(right.items ?? [])
 
 const sameConstraint = (

@@ -7,8 +7,7 @@ import {
   type AgentRunState,
   type AgentSourceQuote,
   MAX_AGENT_LEDGER_BYTES,
-  MAX_AGENT_LEDGER_RECORDS,
-  MAX_AGENT_SOURCE_QUOTES
+  MAX_AGENT_LEDGER_RECORDS
 } from "@ollama-client/contracts"
 import { agentNormalizedClaim } from "./observed-text"
 import type {
@@ -393,15 +392,19 @@ export const agentCompletionEvidence = (
   if (!steps) return []
   const quotes: AgentSourceQuote[] = [
     ...(decision.sourceQuotes ?? []),
-    ...(decision.outcomes ?? []).flatMap((outcome) =>
-      outcome.evidence ? [{ quote: outcome.evidence }] : []
-    )
-  ].slice(0, MAX_AGENT_SOURCE_QUOTES)
-  // Grounding establishes page provenance, not requirement satisfaction.
-  const unboundQuotes = quotes.map(({ quote, ref, frameId }) => ({
-    quote,
-    ref,
-    frameId
-  }))
-  return retainedQuotes(state, observation, unboundQuotes, steps, prefix)
+    ...(decision.outcomes ?? []).flatMap((outcome) => [
+      ...(outcome.evidence
+        ? [{ quote: outcome.evidence, requirementId: outcome.id }]
+        : []),
+      ...(outcome.items ?? []).flatMap((item) =>
+        item.evidence
+          ? [{ quote: item.evidence, requirementId: outcome.id }]
+          : []
+      )
+    ])
+  ]
+  // Grounding establishes provenance only; the judge checks satisfaction.
+  return boundAgentEvidence(
+    retainedQuotes(state, observation, quotes, steps, prefix)
+  )
 }

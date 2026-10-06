@@ -1,5 +1,8 @@
+import { AgentCompletionCheckSchema } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
+import { z } from "zod"
 import type { ToolCall } from "@/lib/tools/types"
+import { AGENT_COMPLETION_CHECK_PARAMETERS } from "../agent-completion-check-parameters"
 import { AgentDecisionFormatError } from "../agent-decision-parser"
 import {
   AGENT_PLAN_TOOL,
@@ -16,6 +19,64 @@ const call = (args: unknown): ToolCall => ({
 })
 
 describe("parseAgentTaskPlan", () => {
+  it("keeps the model-facing predicate schema identical to the runtime contract", () => {
+    expect(AGENT_COMPLETION_CHECK_PARAMETERS).toEqual(
+      z.toJSONSchema(AgentCompletionCheckSchema)
+    )
+  })
+  it("keeps typed predicates through plan decoding and advertises their schema", () => {
+    const check = { type: "field", name: "Name", value: "Ada" }
+    const plan = parseAgentTaskPlan([
+      call({ requirements: [{ text: "Name is Ada", kind: "change", check }] })
+    ])
+    expect(plan.requirements[0]?.check).toEqual(check)
+    expect(JSON.stringify(AGENT_PLAN_TOOL.parameters)).toContain("record_state")
+  })
+
+  it("rejects invalid predicate fields with content-free feedback", () => {
+    expect(() =>
+      parseAgentTaskPlan([
+        call({
+          requirements: [
+            {
+              text: "Name is Ada",
+              kind: "change",
+              check: { type: "field", name: "Name", value: 42 }
+            }
+          ]
+        })
+      ])
+    ).toThrow("The plan carried an invalid completion predicate")
+  })
+
+  it("does not rewrite an existing predicate after the page has been seen", () => {
+    const check = { type: "field" as const, name: "Name", value: "Ada" }
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Name is Ada",
+              kind: "change",
+              keep: "r1",
+              check: { ...check, value: "Bob" }
+            }
+          ]
+        })
+      ],
+      {
+        goal: "Name is Ada",
+        current: {
+          requirements: [
+            { id: "r1", text: "Name is Ada", kind: "change", check }
+          ],
+          constraints: [],
+          issued: { requirements: 1, constraints: 0 }
+        }
+      }
+    )
+    expect(plan.requirements[0]?.check).toEqual(check)
+  })
   it("stamps its own ids rather than trusting the model's", () => {
     expect(
       parseAgentTaskPlan([

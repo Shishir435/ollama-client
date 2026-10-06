@@ -36,7 +36,8 @@ runAgentScenario({
   name: "useful-long-edit",
   hosted: true,
   goal: "In the document, replace 'unique typo' with 'correct phrase', preserving everything else.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   approvalScope: "run_origin",
   html: () =>
     `<!doctype html><title>Document</title><main><div contenteditable="true" aria-label="Document">${original}</div></main>`,
@@ -69,7 +70,8 @@ runAgentScenario({
   name: "useful-pane-scroll",
   hosted: true,
   goal: "Scroll the left Tasks pane and click Finish at its bottom.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   html: () =>
     `<!doctype html><title>Tasks</title><main><div aria-label="Tasks" role="region" style="width:180px;height:180px;overflow:auto"><div style="height:900px">Tasks</div><button onclick="document.getElementById('status').textContent='Task finished'">Finish</button></div><p id="status">Pending</p></main>`,
   decide(observation) {
@@ -110,7 +112,11 @@ runAgentScenario({
     `<!doctype html><title>Long document</title><main><p>${"ordinary text ".repeat(3000)}Final reference code: ZEBRA-742.</p></main>`,
   decide(observation) {
     if (observation.textPage?.text.includes("ZEBRA-742"))
-      return { type: "complete", summary: "Final reference code: ZEBRA-742." }
+      return {
+        type: "complete",
+        summary: "Final reference code: ZEBRA-742.",
+        evidence: "Final reference code: ZEBRA-742."
+      }
     return {
       type: "extract_text",
       offset: observation.textPage?.nextOffset ?? 0
@@ -127,7 +133,10 @@ runAgentScenario({
   hosted: true,
   goal: "Select my preferred account. Ask me which account to use before selecting.",
   answer: "Use Blue.",
-  status: "completed",
+  answerQuestion: "Which account?",
+  answerDelayMs: 500,
+  status: "paused",
+  completionReview: true,
   html: () =>
     `<!doctype html><title>Accounts</title><main><button onclick="document.getElementById('status').textContent='Blue selected'">Blue</button><button onclick="document.getElementById('status').textContent='Red selected'">Red</button><p id="status">No selection</p></main>`,
   decide(observation, context) {
@@ -147,8 +156,28 @@ runAgentScenario({
       )?.ref
     }
   },
-  async verify({ page }) {
+  async verify({ page, snapshot, messages, wire }) {
     await expect(page.locator("#status")).toHaveText("Blue selected")
+    expect(snapshot?.run?.answers).toEqual([
+      expect.objectContaining({
+        text: "Use Blue.",
+        ...(!process.env.AGENT_HOSTED_MODEL && { question: "Which account?" })
+      })
+    ])
+    // Keep the review pause past the answer delay: it must not be answered too.
+    await new Promise((resolve) => setTimeout(resolve, 700))
+    const latest = messages
+      .filter((message) => message.type === "agent_snapshot")
+      .at(-1)?.snapshot.run
+    expect(latest?.status).toBe("paused")
+    expect(latest?.question?.id).toBe(snapshot?.run?.question?.id)
+    expect(latest?.answers).toHaveLength(1)
+    if (!process.env.AGENT_HOSTED_MODEL)
+      expect(
+        wire.filter(
+          (call) => (call.decision as { type?: string })?.type === "click"
+        )
+      ).toHaveLength(1)
   }
 })
 
@@ -156,10 +185,17 @@ runAgentScenario({
   name: "useful-delayed-completion",
   hosted: true,
   goal: "Save the document and wait until all changes are saved.",
+  plan: [
+    {
+      text: "the document is saved",
+      kind: "change",
+      check: { type: "record_state", record: "Document", state: "saved" }
+    }
+  ],
   status: "completed",
   html: () =>
-    `<!doctype html><title>Save document</title><main><p id="status">Unsaved</p><button onclick="this.disabled=true;document.getElementById('status').textContent='Saving';setTimeout(()=>document.getElementById('status').textContent='All changes saved',1200)">Save</button></main>`,
-  decide(observation) {
+    `<!doctype html><title>Save document</title><main><p id="status" role="status">Unsaved</p><button onclick="this.disabled=true;document.getElementById('status').textContent='Saving';setTimeout(()=>document.getElementById('status').textContent='Document saved',1200)">Save</button></main>`,
+  decide(observation, { step }) {
     if (observation.text.includes("Unsaved"))
       return {
         type: "click",
@@ -168,14 +204,16 @@ runAgentScenario({
           (element) => element.name === "Save"
         )?.ref
       }
+    if (step > 2 && !observation.text.includes("Document saved"))
+      return { type: "wait", condition: "Document saved", timeoutMs: 8_000 }
     return {
       type: "complete",
       summary: "Saved document.",
-      evidence: "All changes saved"
+      evidence: "Document saved"
     }
   },
   async verify({ page, wire }) {
-    await expect(page.locator("#status")).toHaveText("All changes saved")
+    await expect(page.locator("#status")).toHaveText("Document saved")
     expect(
       wire.filter(
         (call) => (call.decision as { type?: string })?.type === "click"
@@ -189,7 +227,8 @@ runAgentScenario({
   hosted: true,
   vision: true,
   goal: "Click Continue and accept its confirmation dialog.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   html: () =>
     `<!doctype html><title>Confirmation</title><main><button onclick="if(confirm('Continue with the task?'))document.getElementById('status').textContent='Confirmed task'">Continue</button><p id="status">Not started</p></main>`,
   decide(observation) {

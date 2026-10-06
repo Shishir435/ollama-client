@@ -134,10 +134,11 @@ const previousRequirements = (
   const unmet = new Set(state.outcome?.unmet ?? [])
   return {
     ...constraints,
-    requirements: state.requirements.map(({ id, text, kind }) => ({
+    requirements: state.requirements.map(({ id, text, kind, check }) => ({
       id,
       text,
       kind,
+      ...(check ? { check } : {}),
       ...(met.has(id) ? { met: true } : unmet.has(id) ? { met: false } : {})
     }))
   }

@@ -1,11 +1,16 @@
 import type {
   AgentCommand,
+  AgentEvidenceRecord,
   AgentObservation,
   AgentRunOutcome,
   AgentStepStatus,
+  AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
-
+import {
+  checkCompletionState,
+  groundedCompletionQuote
+} from "./completion-support"
 import {
   agentHaystackStates,
   agentNormalizedClaim,
@@ -88,9 +93,9 @@ export const agentEffectChangesPage = (effect: ResolvedAgentEffect): boolean =>
  * read. A change with no verification recorded is refused outright; there is
  * nothing for a quotation to add to a step nobody checked.
  *
- * A run that changed nothing owes none of this — a reading task's answer is
- * the thing it read, and asking it to quote a saved-state indicator that does
- * not exist would refuse every research goal.
+ * Planned reads require independently grounded source support. A quote
+ * establishes provenance; typed checks or exact receipt facts establish
+ * change outcomes. Ambiguous semantic claims return needs_review.
  */
 export type AgentCompletionJudgement =
   | { type: "accepted"; outcome?: AgentRunOutcome }
@@ -122,11 +127,15 @@ export type AgentCompletionJudgement =
         | "stale_evidence"
         | "missing_outcomes"
         | "premature_unmet"
+        | "needs_review"
+        | "contradicted_state"
       /** Written for the model, from templates and its own words only. */
       feedback: string
     }
 
 export interface AgentCompletionInput {
+  evidenceLedger?: readonly AgentEvidenceRecord[]
+  constraints?: readonly AgentTaskConstraint[]
   /**
    * The run's own receipts, oldest first, as persistence returns them.
    * `undefined` means they could not be read — which is not the same as
@@ -144,15 +153,7 @@ export interface AgentCompletionInput {
    * rather than guessed at.
    */
   baselineText?: string
-  /**
-   * Every page this run observed, each flattened by `agentObservationHaystack`.
-   * A `read` requirement's quotation may come from any of them: remembering a
-   * code on one page and reporting it from the next is the task, and the
-   * quotation is checked against what the run itself was shown, never
-   * against anything the model wrote. Best effort and memory-only, like
-   * `baselineText`: a restart loses it and a quotation from an earlier page
-   * is refused again.
-   */
+  /** Legacy metadata; never used as independent grounded support. */
   observedTexts?: readonly string[]
   /**
    * The steps whose execution opened the tab the completion was decided on,
@@ -594,8 +595,21 @@ const receiptResultAgrees = (
     kind === "checked" &&
     (command?.type === "check" || command?.type === "uncheck")
   ) {
-    if (command.type === "check") return !requirementAssertsOff(text)
-    return !requirementAssertsOn(text)
+    const direction =
+      command.type === "check"
+        ? requirementAssertsOn(text) && !requirementAssertsOff(text)
+        : requirementAssertsOff(text) && !requirementAssertsOn(text)
+    const stateText = text
+      .replaceAll(NEGATED_ON_PATTERN_GLOBAL, "unchecked")
+      .replaceAll(NEGATED_OFF_PATTERN_GLOBAL, "checked")
+    return (
+      direction &&
+      statesOnlyFacts(
+        stateText,
+        factWords([receipt.target?.name, "checkbox", "current"]),
+        new Set([...CHECKED_STATE_WORDS[command.type], command.type])
+      )
+    )
   }
   if (kind === "field" && command?.type === "select" && command.value) {
     return valueAssertedForControl(text, command.value, receipt.target?.name)
@@ -903,56 +917,30 @@ const quotationNamesReceiptValue = (
 }
 
 /**
- * One met `read` requirement. A read owes no quotation, but one it
- * volunteers must still be real: an accepted completion carrying a phrase
- * the page does not contain is a false record whichever kind of outcome it
- * was attached to.
+ * Every met read needs a retained independent observed fact. Missing
+ * support, stale snapshots and model-authored findings stay unknown.
  */
 const refusePlannedReadClaim = (
   evidence: string | undefined,
   input: AgentCompletionInput,
-  change: AgentStepReadout | "unreadable" | undefined
+  requirementId: string
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
-  if (!evidence) return undefined
-  const refusal = judgeEvidence(evidence, input, change ?? "unreadable", false)
-  if (
-    refusal?.reason === "absent_evidence" &&
-    input.observedTexts?.some((text) => agentHaystackStates(evidence, text))
-  )
+  if (!evidence?.trim())
+    return {
+      type: "refused",
+      reason: "missing_evidence",
+      feedback:
+        "Quote the independently observed fact supporting this read result. Missing support is unknown; do not mark it verified."
+    }
+  if (groundedCompletionQuote(evidence, requirementId, input.evidenceLedger))
     return undefined
-  return refusal
+  return {
+    type: "refused",
+    reason: "absent_evidence",
+    feedback:
+      "This read claim has no grounded source in the evidence ledger. Request fresh authorized evidence or quote a retained observed fact; inputs and model findings are not proof."
+  }
 }
-
-/**
- * Every value these commands typed, as the model sent them, in comparable
- * form. A value typed into a rich-text editor becomes page text rather than a
- * field value, so the controller cuts these out of each page it keeps for
- * read quotations — only those typed before that page was observed, so a
- * code the page showed first and the run typed later stays quotable.
- */
-export const agentTypedValues = (
-  commands: readonly (AgentCommand | undefined)[]
-): string[] =>
-  commands
-    .flatMap((command): (string | undefined)[] => {
-      if (
-        command?.type === "type" ||
-        command?.type === "clear_and_type" ||
-        command?.type === "replace_text"
-      )
-        return [command.text]
-      if (command?.type === "fill_form")
-        return command.fields.map((field) =>
-          field.type === "select"
-            ? field.value
-            : field.type === "check" || field.type === "uncheck"
-              ? undefined
-              : field.text
-        )
-      return []
-    })
-    .map((value) => (value ? agentNormalizedClaim(value) : ""))
-    .filter((value) => value.length > 0)
 
 const NO_SUBMISSION_MENTION_PATTERN =
   /\b(?:do not|don't|never|without)\s+submitt?(?:ed|ing)?\b|\b(?:remain|stays?|is|was)\s+(?:not\s+submitted|unsubmitted)\b/i
@@ -1037,7 +1025,8 @@ const evidencePlannedChange = (
     refusal.reason === "missing_evidence" ||
     refusal.reason === "self_evidence" ||
     refusal.reason === "stale_evidence" ||
-    absent
+    absent ||
+    refusal.reason === "needs_review"
   ) {
     for (const candidate of changes) {
       const index = matchingBatchField(
@@ -1618,10 +1607,9 @@ const judgeEvidence = (
  * submit an empty one and pass, because submitting is a mutation and the
  * verifier confirmed a submission had happened.
  *
- * Each `change` requirement now owes its own quotation, and each quotation
- * faces the same four checks the single one used to. A `read` requirement
- * owes none: what it read is its answer, and asking a research goal to quote
- * a saved-state indicator that does not exist would refuse every one.
+ * Each change requires its own typed observable state or exact receipt
+ * facts; provenance alone cannot establish it. Each read requires grounded
+ * support, which may be historical when the run retained it before leaving.
  */
 /** A requirement that says where a page opens: a new tab or window. */
 const NEW_TAB_PATTERN =
@@ -1699,6 +1687,103 @@ const samePage = (first: string, second: string): boolean => {
   return a !== undefined && a === page(second)
 }
 
+const typedControlStateAgrees = (
+  check: Extract<
+    NonNullable<AgentTaskRequirement["check"]>,
+    { type: "field" | "selected" | "checked" }
+  >,
+  text: string
+): boolean => {
+  if (check.type === "checked")
+    return check.checked
+      ? requirementAssertsOn(text) && !requirementAssertsOff(text)
+      : requirementAssertsOff(text) && !requirementAssertsOn(text)
+  return check.value
+    ? valueAssertedWithoutNegation(text, check.value)
+    : /\bempty\b/u.test(text)
+}
+
+/** A predicate cannot silently replace a larger or different requested goal. */
+const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
+  const check = requirement.check
+  if (!check) return false
+  const text = agentNormalizedClaim(requirement.text)
+  const verbs = new Set([
+    "set",
+    "sets",
+    "setting",
+    "enter",
+    "entered",
+    "type",
+    "typed",
+    "fill",
+    "filled",
+    "contains",
+    "contain",
+    "holds",
+    "hold",
+    "value",
+    "equals",
+    "equal",
+    "should",
+    "must",
+    "checkbox",
+    "checked",
+    "check",
+    "unchecked",
+    "uncheck",
+    "tick",
+    "ticked",
+    "untick",
+    "unticked",
+    "selected",
+    "select",
+    "option",
+    "empty"
+  ])
+  if (
+    check.type === "field" ||
+    check.type === "selected" ||
+    check.type === "checked"
+  ) {
+    if (!containsCompletePhrase(text, agentNormalizedClaim(check.name)))
+      return false
+    if (!typedControlStateAgrees(check, text)) return false
+    const facts = factWords([
+      check.name,
+      check.record,
+      check.type === "checked" ? undefined : check.value
+    ])
+    return claimWords(text).every(
+      (word) =>
+        verbs.has(word) || CLAIM_FUNCTION_WORDS.has(word) || facts.has(word)
+    )
+  }
+  const identity = check.type === "url" ? check.url : check.record
+  if (!containsCompletePhrase(text, agentNormalizedClaim(identity)))
+    return false
+  const acts =
+    check.type === "record_state"
+      ? new Set(
+          check.state === "saved" ? ["save", "saved"] : ["submit", "submitted"]
+        )
+      : check.type === "url"
+        ? new Set([
+            "open",
+            "opened",
+            "navigate",
+            "arrive",
+            "arrived",
+            "url",
+            "new",
+            "browser",
+            "tab",
+            "window"
+          ])
+        : new Set(["exists", "exist", "present", "row", "record", "listed"])
+  return claimsOnlyAct(requirement, acts, factWords([identity]))
+}
+
 const judgeMetRequirement = (
   requirement: AgentTaskRequirement,
   claim: AgentCompletionOutcomeClaim,
@@ -1710,15 +1795,52 @@ const judgeMetRequirement = (
   const unopened = refuseUnopenedTab(requirement, input)
   if (unopened) return unopened
   if (requirement.kind === "read")
-    return refusePlannedReadClaim(claim.evidence, input, change ?? "unreadable")
+    return refusePlannedReadClaim(claim.evidence, input, requirement.id)
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
     const refusal = noSubmissionEvidence(input)
     if (refusal) return refusal
     if (NO_SUBMISSION_ONLY_PATTERN.test(requirement.text.trim()))
       return undefined
   }
-  const refusal = judgeEvidence(claim.evidence, input, change ?? "unreadable")
-  if (!refusal) return undefined
+  const checked = checkCompletionState(
+    requirement,
+    input.observation,
+    input.evidenceLedger,
+    claim.evidence
+  )
+  if (checked === true)
+    return typedCheckAgrees(requirement)
+      ? undefined
+      : {
+          type: "refused",
+          reason: "needs_review",
+          feedback:
+            "The predicate holds, but does not fully answer the requested outcome. Preserve completed effects and review the remaining claim."
+        }
+  if (checked === false)
+    return {
+      type: "refused",
+      reason: "contradicted_state",
+      feedback:
+        "The required identity, value or final state is not verified in the current observation. Read fresh evidence before considering any further action; do not repeat a completed effect."
+    }
+  if (requirement.check)
+    return {
+      type: "refused",
+      reason: "needs_review",
+      feedback:
+        "The explicit predicate cannot establish the requested record or state. Preserve completed effects and review the claim; a receipt cannot replace this check."
+    }
+  const refusal = judgeEvidence(
+    claim.evidence,
+    input,
+    change ?? "unreadable"
+  ) ?? {
+    type: "refused" as const,
+    reason: "needs_review" as const,
+    feedback:
+      "The quote has page provenance but does not deterministically prove this outcome. This claim needs review. Preserve completed effects and request fresh evidence; do not repeat the action."
+  }
   const evidenced = evidencePlannedChange(
     requirement,
     claim.evidence?.trim() || undefined,
@@ -1756,6 +1878,7 @@ const judgeItemizedRequirement = (
       feedback: MISSING_ITEM_OUTCOMES_FEEDBACK
     }
   let allMet = true
+  let review: Extract<AgentCompletionJudgement, { type: "refused" }> | undefined
   const quoted = new Set<string>()
   for (const [index, item] of requirement.items.entries()) {
     const answer = answers.get(index)
@@ -1802,6 +1925,10 @@ const judgeItemizedRequirement = (
       ),
       consumed
     )
+    if (refusal?.reason === "needs_review") {
+      review = refusal
+      continue
+    }
     if (refusal)
       return quote && !bound
         ? {
@@ -1811,7 +1938,7 @@ const judgeItemizedRequirement = (
           }
         : refusal
   }
-  return allMet ? undefined : "unmet"
+  return review ?? (allMet ? undefined : "unmet")
 }
 
 /**
@@ -1966,6 +2093,7 @@ const judgePlanned = (
    */
   const changes = allChanges(input.steps ?? [])
   const consumed = new Set<string>()
+  let review: Extract<AgentCompletionJudgement, { type: "refused" }> | undefined
   for (const requirement of requirements) {
     const claim = claims.get(requirement.id)
     if (!claim?.met) {
@@ -1993,22 +2121,77 @@ const judgePlanned = (
       unmet.push(requirement.id)
       continue
     }
+    if (judged?.reason === "needs_review") {
+      review = judged
+      continue
+    }
     if (judged) return judged
     met.push(requirement.id)
   }
   const outcome = { met, unmet }
+  if (review) return review
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0
     ? { type: "unmet", outcome }
     : { type: "partial", outcome }
 }
 
+const judgeConstraints = (
+  input: AgentCompletionInput
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  for (const constraint of input.constraints ?? []) {
+    if (!input.steps)
+      return {
+        type: "refused",
+        reason: "unverified_change",
+        feedback:
+          "The effect record is unavailable; constraints cannot be verified. Read fresh evidence without repeating completed effects."
+      }
+    if (
+      input.steps.some(
+        (receipt) =>
+          isAppliedAgentStepStatus(receipt.status) &&
+          receipt.consequential?.some((effect) =>
+            constraint.forbids?.includes(effect)
+          )
+      )
+    )
+      return {
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: `The run violated constraint ${constraint.id}. Report the violation; do not claim full success.`
+      }
+    if (
+      input.steps.some(
+        (receipt) =>
+          isAgentChangeReceipt(receipt) && receipt.consequential === undefined
+      )
+    )
+      return {
+        type: "refused",
+        reason: "needs_review",
+        feedback:
+          "An applied effect has no recorded consequential classes. Constraints need review; missing effect evidence is unknown."
+      }
+    if (!constraint.forbids?.length)
+      return {
+        type: "refused",
+        reason: "needs_review",
+        feedback: `Constraint ${constraint.id} requires review; the requested scope or limit has no deterministic support. Preserve completed effects.`
+      }
+  }
+  return undefined
+}
+
 export const judgeAgentCompletion = (
   input: AgentCompletionInput
 ): AgentCompletionJudgement => {
   const change = input.steps ? lastChange(input.steps) : "unreadable"
-  if (input.requirements?.length)
+  if (input.requirements?.length) {
+    const constraintRefusal = judgeConstraints(input)
+    if (constraintRefusal) return constraintRefusal
     return judgePlanned(input, input.requirements, change)
+  }
   /** Only a run whose receipts say it changed nothing completes unevidenced. */
   if (change === undefined) {
     // A read needs no change evidence, but a supplied page quote must still be real.

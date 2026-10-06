@@ -33,7 +33,7 @@ const PROFILE_PAGE = `<!doctype html>
     <input id="news" name="news" type="checkbox" aria-label="Send me news" />
     <button type="submit">Save profile</button>
   </form>
-  <p id="status">Nothing saved</p>
+  <p id="status" role="status">Nothing saved</p>
 </main>`
 
 const FIELDS = [
@@ -45,15 +45,33 @@ const FIELDS = [
 
 runAgentScenario({
   name: "fill-form-in-one-decision",
-  goal: "Fill in the profile form and save it.",
+  goal: "Fill Given name with Ada, Family name with Lovelace, City with London, Postcode with NW1 4RY, select gb in Country, check Send me news and save the profile.",
   status: "completed",
   timeoutMs: 120_000,
   html: () => PROFILE_PAGE,
   allowRoutineActions: true,
   approvalScope: "run_origin",
   plan: [
-    { text: "the profile fields hold the given values", kind: "change" },
-    { text: "the profile is saved", kind: "change" }
+    ...FIELDS.map(({ label, value }) => ({
+      text: `${label} holds ${value}`,
+      kind: "change" as const,
+      check: { type: "field" as const, name: label, value }
+    })),
+    {
+      text: "Country selected gb",
+      kind: "change",
+      check: { type: "selected", name: "Country", value: "gb" }
+    },
+    {
+      text: "Send me news is checked",
+      kind: "change",
+      check: { type: "checked", name: "Send me news", checked: true }
+    },
+    {
+      text: "the profile is saved",
+      kind: "change",
+      check: { type: "record_state", record: "Profile", state: "saved" }
+    }
   ],
   /**
    * Branching on the page rather than on a decision counter: a refusal or a
@@ -67,8 +85,11 @@ runAgentScenario({
         type: "complete",
         summary: "Filled the profile and saved it.",
         outcomes: [
-          { id: "r1", met: true, evidence: "Ada" },
-          { id: "r2", met: true, evidence: "Profile saved" }
+          ...Array.from({ length: 6 }, (_, index) => ({
+            id: `r${index + 1}`,
+            met: true
+          })),
+          { id: "r7", met: true, evidence: "Profile saved" }
         ]
       }
     }
@@ -96,7 +117,7 @@ runAgentScenario({
     }
     const save = named("Save profile")
     return save
-      ? { type: "click", ref: save.ref, requirementId: "r2" }
+      ? { type: "click", ref: save.ref, requirementId: "r7" }
       : { type: "read" }
   },
   verify: async ({ page, snapshot, wire }) => {
@@ -159,7 +180,7 @@ runAgentScenario({
     <input id="given" name="given" aria-label="Given name" />
     <input id="family" name="family" aria-label="Family name" disabled />
   </form>
-  <p id="status">Nothing saved</p>
+  <p id="status" role="status">Nothing saved</p>
 </main>
 <script>
   /** Counts every value ever written, so a repeat is visible. */

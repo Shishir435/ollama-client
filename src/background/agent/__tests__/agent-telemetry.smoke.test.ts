@@ -142,7 +142,7 @@ describe("Agent step telemetry against the real engine", () => {
         {
           type: "complete",
           summary: "Read the page.",
-          outcomes: [{ id: "r1", met: true }]
+          outcomes: [{ id: "r1", met: true, evidence: "Example" }]
         }
       ]
       const provider = {
@@ -190,7 +190,7 @@ describe("Agent step telemetry against the real engine", () => {
                   : (decisions.shift() ?? {
                       type: "complete",
                       summary: "Read the page.",
-                      outcomes: [{ id: "r1", met: true }]
+                      outcomes: [{ id: "r1", met: true, evidence: "Example" }]
                     })
               }
             ],

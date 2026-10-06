@@ -78,7 +78,8 @@ const documentPage = `<!doctype html><title>Agent editor</title><main>
 runAgentScenario({
   name: "rich text editing",
   goal: "Fix the typo 'fax' to 'fox' in the report, then save it.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   approvalScope: "run_origin",
   html: () => documentPage,
   decide(observation: AgentFixtureObservation) {
@@ -110,7 +111,7 @@ runAgentScenario({
     await expect(outcome.page.locator("#doc")).toHaveText(
       "The quick brown fox jumps."
     )
-    expect(outcome.snapshot?.run?.result).toContain("saved fox")
+    expect(outcome.snapshot?.run?.result).toBeUndefined()
     expect(
       outcome.snapshot?.steps
         .filter((step) => step.status === "verified")
@@ -160,7 +161,8 @@ const boardPage = `<!doctype html><title>Agent board</title>
 runAgentScenario({
   name: "board item move",
   goal: "Move the 'Ship release' card into the Done column.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   approvalScope: "run_origin",
   html: () => boardPage,
   decide(observation: AgentFixtureObservation) {
@@ -184,7 +186,7 @@ runAgentScenario({
   async verify(outcome) {
     await expect(outcome.page.getByText("In: Done")).toBeVisible()
     await expect(outcome.page.locator("#done #task")).toHaveCount(1)
-    expect(outcome.snapshot?.run?.result).toContain("moved to Done")
+    expect(outcome.snapshot?.run?.result).toBeUndefined()
     expect(
       outcome.snapshot?.steps
         .filter((step) => step.status === "verified")

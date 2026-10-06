@@ -25,7 +25,11 @@ runAgentScenario({
         : AUDIT_SHOP,
   decide(observation) {
     if (observation.url.includes("/item/"))
-      return { type: "complete", summary: "Opened Atlas notebook." }
+      return {
+        type: "complete",
+        summary: "Opened Atlas notebook.",
+        evidence: "Item details"
+      }
     if (observation.url.includes("/search")) {
       if (new URL(observation.url).searchParams.get("q") !== "atlas") {
         throw new Error("The shop did not search for atlas")
@@ -131,7 +135,8 @@ runAgentScenario({
   name: "audit-delete-one-file",
   hosted: true,
   goal: "Delete old-report-2023.pdf and keep the other files.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   html: () => AUDIT_FILES,
   decide(observation) {
     const dialog = observation.dialogs?.[0]

@@ -11,6 +11,7 @@ const linkPage =
 runAgentScenario({
   name: "details",
   goal: "Open Details and tell me the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   hosted: true,
   html: (path) => (path.startsWith("/details") ? AGENT_DETAILS_PAGE : linkPage),

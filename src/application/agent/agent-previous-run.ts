@@ -28,6 +28,7 @@ export const agentPreviousRunRecord = (previousRun: AgentPreviousRun) => {
             id: requirement.id,
             text: requirement.text,
             kind: requirement.kind,
+            ...(requirement.check ? { check: requirement.check } : {}),
             ...(requirement.met !== undefined ? { met: requirement.met } : {})
           }))
         }

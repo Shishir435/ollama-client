@@ -29,7 +29,8 @@ const WIDGET_PAGE = `<!doctype html>
 runAgentScenario({
   name: "extract-reaches-an-authorized-frame",
   goal: "Subscribe to the newsletter.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   timeoutMs: 120_000,
   html: (path: string) =>
     path.startsWith("/widget") ? WIDGET_PAGE : HOST_PAGE,
@@ -67,6 +68,6 @@ runAgentScenario({
     await expect(page.frameLocator("iframe").locator("#state")).toHaveText(
       "Joined the list"
     )
-    expect(snapshot?.run?.status).toBe("completed")
+    expect(snapshot?.run?.status).toBe("paused")
   }
 })

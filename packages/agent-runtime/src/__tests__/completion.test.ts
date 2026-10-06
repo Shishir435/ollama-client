@@ -1,4 +1,7 @@
-import type { AgentObservation } from "@ollama-client/contracts"
+import type {
+  AgentEvidenceRecord,
+  AgentObservation
+} from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 
 import { agentEffectChangesPage, judgeAgentCompletion } from "../completion"
@@ -43,6 +46,25 @@ const observation = (
   dialogs: [],
   capturedAt: 1,
   ...overrides
+})
+
+const observedFact = (
+  quote: string,
+  validity: "current" | "historical" = "current"
+): AgentEvidenceRecord => ({
+  id: quote,
+  kind: "observed_fact",
+  validity,
+  quote,
+  observedAt: 1,
+  source: {
+    tabId: 7,
+    frameId: 0,
+    documentId: "document-1",
+    snapshotId: "snapshot-1",
+    generation: 1,
+    origin: "https://example.com"
+  }
 })
 
 const step = (
@@ -761,10 +783,25 @@ describe("judgeAgentCompletion with planned requirements", () => {
   })
 
   const partialForm = observation({
-    visibleText: "Name: Alice. Draft unsaved. Address missing."
+    visibleText: "Name: Alice. Draft unsaved. Address missing.",
+    elements: [
+      {
+        ref: "e1",
+        frameId: 0,
+        tag: "input",
+        name: "Name",
+        value: "Alice",
+        visible: true,
+        sensitive: false,
+        enabled: true,
+        editable: true
+      }
+    ]
   })
   const fieldEdit = step({
     sequence: 1,
+    requirementId: "r1",
+    target: { name: "Name" },
     command: {
       type: "type",
       ref: "e1",
@@ -784,7 +821,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
   const requirements = [
     {
       id: "r1",
-      text: "the name field holds the requested value",
+      text: "the Name field holds Alice",
       kind: "change" as const
     },
     { id: "r2", text: "the document is saved", kind: "change" as const }
@@ -840,7 +877,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 
-  it("accepts when every requirement is evidenced", () => {
+  it("routes a save quotation without a typed state to review", () => {
     expect(
       judgeAgentCompletion({
         steps: [fieldEdit],
@@ -853,7 +890,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
           { id: "r2", met: true, evidence: "All changes saved" }
         ]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1", "r2"], unmet: [] } })
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
   })
 
   /**
@@ -906,6 +943,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(
       judgeAgentCompletion({
         steps: [],
+        evidenceLedger: [observedFact("Name: Alice")],
         observation: partialForm,
         baselineText: "name: alice. draft unsaved. address missing.",
         requirements: [
@@ -931,6 +969,9 @@ describe("judgeAgentCompletion with planned requirements", () => {
         steps: [],
         observation: observation({ visibleText: "Status code: ZX-482" }),
         observedTexts,
+        evidenceLedger: observedTexts.length
+          ? [observedFact("Reference code: QP-719", "historical")]
+          : [],
         requirements: [{ id: "r1", text: "report the reference code", kind }],
         outcomes: [{ id: "r1", met: true, evidence }]
       }).type
@@ -993,13 +1034,13 @@ describe("judgeAgentCompletion with planned requirements", () => {
         opened("open_tab", "tab", "Authorized destination is committed"),
         "Status: Active"
       ).type
-    ).toBe("accepted")
+    ).toBe("refused")
     expect(
       judge(
         opened("click", "activation", "Control opened a new tab"),
         "Status: Active"
       ).type
-    ).toBe("accepted")
+    ).toBe("refused")
   })
 
   /** A tab opened for an earlier step says nothing about where Details went. */
@@ -1043,12 +1084,12 @@ describe("judgeAgentCompletion with planned requirements", () => {
     const unbound = { ...elsewhere, requirementId: undefined }
     /** An open_tab whose address is the page in hand is that page's tab. */
     expect(judge(unbound, "https://example.com/other?ref=1").type).toBe(
-      "accepted"
+      "refused"
     )
     /** A site that redirected the tab it opened: the tab is still that step's. */
     expect(
       judge(unbound, "https://example.com/landed", [unbound.stepId]).type
-    ).toBe("accepted")
+    ).toBe("refused")
     /** A tab another step opened is not this one's. */
     expect(
       judge(unbound, "https://example.com/landed", ["run-1:9"])
@@ -1076,7 +1117,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "unverified_change" })
   })
 
-  it("asks a read requirement for no page evidence", () => {
+  it("requires grounded support for every met read", () => {
     expect(
       judgeAgentCompletion({
         steps: [],
@@ -1086,7 +1127,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
   })
 
   /**
@@ -1722,7 +1763,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
     expect(judge("Form committed its resolved destination")).toMatchObject({
       type: "accepted"
     })
-    expect(judge("Status: Active")).toMatchObject({ type: "accepted" })
+    expect(judge("Status: Active")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
     expect(judge("The order shipped")).toMatchObject({
       type: "refused",
       reason: "absent_evidence"
@@ -2336,7 +2380,7 @@ describe("itemized requirements", () => {
           }
         ]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
   })
 
   it("refuses an item whose quotation the page does not show", () => {
@@ -2380,7 +2424,7 @@ describe("itemized requirements", () => {
           { id: "r2", met: true }
         ]
       })
-    ).toEqual({ type: "partial", outcome: { met: ["r2"], unmet: ["r1"] } })
+    ).toMatchObject({ type: "refused", reason: "missing_evidence" })
   })
 
   /** "Invoice 1 Paid" twice is one invoice, not two. */

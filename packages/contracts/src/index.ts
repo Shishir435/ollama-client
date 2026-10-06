@@ -1,5 +1,6 @@
 export * from "./agent"
 export * from "./agent-command"
+export * from "./agent-completion-check"
 export * from "./agent-events"
 export * from "./agent-evidence"
 export * from "./agent-keys"

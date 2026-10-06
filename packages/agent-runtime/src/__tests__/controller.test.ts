@@ -1426,7 +1426,14 @@ describe("agent controller", () => {
       decide: async () => {
         decisions += 1
         if (decisions === 1)
-          return { type: "command", command: command(), requirementId: "r2" }
+          return {
+            type: "command",
+            command: command(),
+            requirementId: "r2",
+            sourceQuotes: [
+              { quote: "Reference code: QP-719", requirementId: "r1" }
+            ]
+          }
         return {
           type: "complete",
           summary: "QP-719 and ZX-482",
@@ -1484,7 +1491,14 @@ describe("agent controller", () => {
       decide: async () => {
         decisions += 1
         if (decisions === 1)
-          return { type: "command", command: typed, requirementId: "r2" }
+          return {
+            type: "command",
+            command: typed,
+            requirementId: "r2",
+            sourceQuotes: pageFirst
+              ? [{ quote: "Reference QP-719", requirementId: "r1" }]
+              : []
+          }
         if (decisions === 2)
           return { type: "command", command: command(), requirementId: "r2" }
         return {
@@ -1522,7 +1536,12 @@ describe("agent controller", () => {
     const harness = createHarness({
       state: runState({
         requirements: [
-          { id: "r1", text: "Open Details in a new tab", kind: "change" }
+          {
+            id: "r1",
+            text: "Open https://example.com/landed in a new tab",
+            kind: "change",
+            check: { type: "url", url: "https://example.com/landed" }
+          }
         ]
       }),
       effectOverrides: {
@@ -1554,7 +1573,8 @@ describe("agent controller", () => {
           : observation(),
       decide: async () => {
         decisions += 1
-        if (decisions === 1) return { type: "command", command: openTab }
+        if (decisions === 1)
+          return { type: "command", command: openTab, requirementId: "r1" }
         return {
           type: "complete",
           summary: "Opened",
@@ -3384,7 +3404,7 @@ describe("agent controller task contract", () => {
       plan.mock.calls[1]?.[0].constraints?.some((entry) => entry.id === "c1")
     ).toBe(false)
     expect(harness.getState()).toMatchObject({
-      status: "completed",
+      status: "failed",
       constraints: [
         ...constraints.slice(1),
         { id: "c9", text: "Only the first row", kind: "scope" }
