@@ -133,6 +133,8 @@ runAgentScenario({
   hosted: true,
   goal: "Select my preferred account. Ask me which account to use before selecting.",
   answer: "Use Blue.",
+  answerQuestion: "Which account?",
+  answerDelayMs: 500,
   status: "paused",
   completionReview: true,
   html: () =>
@@ -154,8 +156,24 @@ runAgentScenario({
       )?.ref
     }
   },
-  async verify({ page }) {
+  async verify({ page, snapshot, messages, wire }) {
     await expect(page.locator("#status")).toHaveText("Blue selected")
+    expect(snapshot?.run?.answers).toEqual([
+      expect.objectContaining({ text: "Use Blue.", question: "Which account?" })
+    ])
+    // Keep the review pause past the answer delay: it must not be answered too.
+    await new Promise((resolve) => setTimeout(resolve, 700))
+    const latest = messages
+      .filter((message) => message.type === "agent_snapshot")
+      .at(-1)?.snapshot.run
+    expect(latest?.status).toBe("paused")
+    expect(latest?.question?.id).toBe(snapshot?.run?.question?.id)
+    expect(latest?.answers).toHaveLength(1)
+    expect(
+      wire.filter(
+        (call) => (call.decision as { type?: string })?.type === "click"
+      )
+    ).toHaveLength(1)
   }
 })
 

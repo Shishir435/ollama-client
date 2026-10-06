@@ -103,6 +103,7 @@ runAgentScenario({
   plan: [{ text: "report the selected account", kind: "read" }],
   status: "completed",
   answer: "Use the second account.",
+  answerQuestion: "Which of the two accounts?",
   html: () =>
     '<!doctype html><title>Agent ambiguous</title><main><h1>Accounts</h1><button type="button">First account</button><button type="button" onclick="this.parentElement.insertAdjacentHTML(\'beforeend\', \'<p>Selected account: second</p>\');this.disabled=true">Second account</button></main>',
   decide(observation: AgentFixtureObservation, { step }) {
