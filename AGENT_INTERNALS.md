@@ -1387,6 +1387,9 @@ run that produced it can always be repeated.
   "all nine invoices" is one outcome, not nine invented rows. A receipt stands in for an
   item only when its target, row, or — for a verified batch — one of its
   checked fields names the item; every item shares the requirement's id.
+  If the item extends a control's name with a value or state, the confirmed
+  result must prove those added words too; a checked Given name control
+  does not prove the item Given name Ada.
   A planner `clarification` is asked the same way; a `limitation` fails the
   run as `goal_failed` in the planner's words.
 - **Negative clauses are found by rule as well as by the model.**
@@ -1420,7 +1423,9 @@ run that produced it can always be repeated.
   an entry, or one item of a requirement — comes back as
   `proposedRemovals`; the plan keeps everything, records it in
   `plan.pending` with a question id, and the run asks the user by naming the
-  plan's own entries. Only a plain yes to that question removes them; a no,
+  plan's own entries. Only a plain yes to that question removes them; the
+  localized yes/no words shown in all nine locales are accepted, preserving
+  their accents and combining marks. A no,
   or any sentence, keeps everything (a sentence is then read by the planner
   like any other answer). Lifting a prohibition — a constraint that forbids
   an effect — is asked on its own, as a limit that would no longer apply,

@@ -222,6 +222,33 @@ describe("the whole task survives planning", () => {
     ).toThrow(AgentDecisionFormatError)
   })
 
+  it.each([
+    "One",
+    "one",
+    "Two",
+    "two",
+    "5"
+  ])("keeps a spoken no separate from the next sentence starting with %s", (number) => {
+    const goal = `Mark invoice 2 paid and answer no. ${number} invoice is overdue`
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: goal,
+                kind: "change",
+                source: goal,
+                items: [`invoice ${number} paid`]
+              }
+            ]
+          })
+        ],
+        { goal }
+      )
+    ).toThrow(AgentDecisionFormatError)
+  })
+
   /** "All nine" names no rows; enumerating them is the planner's invention. */
   it("refuses items the user never named, new or added to a kept entry", () => {
     expect(() =>

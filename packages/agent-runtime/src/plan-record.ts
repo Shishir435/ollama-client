@@ -214,20 +214,21 @@ const amendedPlanChanges = (
 }
 
 const YES =
-  /^(?:yes|y|yeah|yep|yup|ok|okay|sure|confirm|confirmed|correct|right|go ahead|do it|please do|remove it|remove them|drop it|drop them)(?: please)?$/
+  /^(?:yes|y|yeah|yep|yup|ok|okay|sure|confirm|confirmed|correct|right|go ahead|do it|please do|remove it|remove them|drop it|drop them|ja|sí|oui|हाँ|sì|はい|да|是)(?: please)?$/
 /** The one word that lifts a prohibition: what it allows, said outright. */
 const ALLOW =
   /^(?:allow|allow it|allow them|yes allow|yes allow it|yes allow them)$/
 
 const NO =
-  /^(?:no|n|nope|nah|keep it|keep them|cancel|dont|do not|leave it|leave them)(?: please)?$/
+  /^(?:no|n|nope|nah|keep it|keep them|cancel|dont|do not|leave it|leave them|nein|non|नहीं|いいえ|нет|否)(?: please)?$/
 
 /** An answer, reduced to the words a yes or no is written in. */
 const confirmationWords = (text: string): string =>
   text
+    .normalize("NFC")
     .toLowerCase()
     .replace(/[’']/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, " ")
     .trim()
 
 /**

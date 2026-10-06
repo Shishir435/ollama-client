@@ -2426,6 +2426,102 @@ describe("itemized requirements", () => {
    * verification. Reading only the top level filtered out the verified
    * fields of an itemized form.
    */
+  it.each([
+    false,
+    true
+  ])("refuses a checkbox receipt used to claim a field value (batch: %s)", (batch) => {
+    const checked = step({
+      sequence: 1,
+      requirementId: "r1",
+      target: { name: "Given name" },
+      command: batch
+        ? {
+            type: "fill_form",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            fields: [{ type: "check", ref: "e1" }]
+          }
+        : { type: "check", snapshotId: "snapshot-1", generation: 1, ref: "e1" },
+      verification: {
+        outcome: "confirmed",
+        evidence: batch
+          ? {
+              kind: "fields",
+              summary: "The field is checked",
+              observedAt: 1,
+              fields: [{ name: "Given name" }]
+            }
+          : {
+              kind: "checked",
+              summary: "The control is checked",
+              observedAt: 1
+            }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [checked],
+        observation: observation({
+          visibleText: "Contact form",
+          elements: [
+            { name: "Given name", checked: true, value: "Ada" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the names are filled in",
+            kind: "change",
+            items: ["Given name Ada"]
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, items: [{ index: 0, met: true }] }]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
+  it.each([
+    ["Ada", "Given name Ada", "accepted"],
+    ["Bob", "Given name Ada", "refused"],
+    ["Ada", "Given name Ada saved", "refused"]
+  ])("binds a typed value %s to the whole item %s", (value, item, type) => {
+    const typed = step({
+      sequence: 1,
+      requirementId: "r1",
+      target: { name: "Given name" },
+      command: {
+        type: "clear_and_type",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        ref: "e1",
+        text: value
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "field",
+          summary: "The field holds its value",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [typed],
+        observation: observation({ visibleText: "Contact form" }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the name is filled in",
+            kind: "change",
+            items: [item]
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, items: [{ index: 0, met: true }] }]
+      })
+    ).toMatchObject({ type })
+  })
+
   it("credits each item from the verified fields of a batch", () => {
     const filled = step({
       sequence: 1,

@@ -173,6 +173,39 @@ describe("agent plan record", () => {
       expect(patch.plan?.pending).toBeUndefined()
     })
 
+    it.each([
+      ["de", "Ja", "Nein"],
+      ["en", "yes", "no"],
+      ["es", "sí", "no"],
+      ["fr", "oui", "non"],
+      ["hi", "हाँ", "नहीं"],
+      ["it", "sì", "no"],
+      ["ja", "はい", "いいえ"],
+      ["ru", "да", "нет"],
+      ["zh", "是", "否"]
+    ])("accepts the %s prompt's plain replies", (_locale, yes, no) => {
+      const removed = agentConfirmedRemovalPatch(pending, yes, 12, 13)
+      expect(removed.requirements?.[0]?.items).toEqual(["invoice 2"])
+      expect(removed.plan?.reconciledThrough).toBe(12)
+      expect(agentConfirmedRemovalPatch(pending, no, 12, 13)).toEqual({
+        plan: { ...planned.plan, reconciledThrough: 12 }
+      })
+      expect(
+        agentConfirmedRemovalPatch(pending, `${yes} but keep invoice 1`, 12, 13)
+      ).toEqual({ plan: planned.plan })
+    })
+
+    it.each([
+      "sí",
+      "sì",
+      "हाँ",
+      "नहीं"
+    ])("preserves combining marks in %s", (answer) => {
+      expect(
+        agentConfirmedRemovalPatch(pending, answer.normalize("NFD"), 12, 13)
+      ).toEqual(agentConfirmedRemovalPatch(pending, answer, 12, 13))
+    })
+
     it("keeps everything on no, and on a sentence leaves the answer to the planner", () => {
       expect(agentConfirmedRemovalPatch(pending, "no", 12, 13)).toEqual({
         plan: { ...planned.plan, reconciledThrough: 12 }
@@ -246,6 +279,14 @@ describe("agent plan record", () => {
     it.each([
       ["yes", 1],
       ["ok", 1],
+      ["ja", 1],
+      ["sí", 1],
+      ["oui", 1],
+      ["हाँ", 1],
+      ["sì", 1],
+      ["はい", 1],
+      ["да", 1],
+      ["是", 1],
       ["allow", 0]
     ])("on %s keeps %i constraints", (answer, left) => {
       const patch = agentConfirmedRemovalPatch(

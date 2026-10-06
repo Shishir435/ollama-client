@@ -484,8 +484,10 @@ const budgets: Budget[] = [
      * removals, lift questions and the outstanding-answer gate replaced the
      * withdrawal heuristics and took it to 311,532; proven abbreviations
      * in item sentences and item-unique field names, to 312,049.
+     * Context-bound numbering markers, localized removal replies and full-item
+     * receipt facts took Chrome to 312,566. Firefox carries no Agent code.
      */
-    max: isFirefox ? 218_500 : 312_500
+    max: isFirefox ? 218_500 : 313_000
   }
 ]
 

@@ -414,11 +414,12 @@ const tokenSpoken = (token: string, spoken: ReadonlySet<string>): boolean => {
 /**
  * Abbreviations that may carry a sentence past their period, each with what
  * must follow to prove it: a digit or number word after "no." or "inv.", a name after
- * "Mrs.", a lowercase word after "e.g.".
+ * "Mrs.", a lowercase word after "e.g.". A numbering marker such as "no."
+ * also needs an item noun before it; "answer no. One" is two sentences.
  */
 const ABBREVIATION_CONTINUES: ReadonlyArray<readonly [RegExp, RegExp]> = [
   [
-    /\b(?:no|nos|nr|num|inv|ref|vol|p|pp|pg|ch|sec|art)$/iu,
+    /\b(?:(?:invoices?|rows?|records?|items?|entries|entry|orders?|tickets?|issues?|accounts?|pages?|chapters?|sections?|articles?|volumes?|figures?|tables?|documents?|cases?|files?|receipts?|forms?|parts?|serial)\s+(?:no|nos|nr|num)|inv|ref|vol|p|pp|pg|ch|sec|art)$/iu,
     /^\s+#?(?:\p{N}|(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion)\b)/iu
   ],
   [/\b(?:mr|mrs|ms|dr)$/iu, /^\s+\p{Lu}/u],

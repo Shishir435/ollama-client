@@ -356,8 +356,18 @@ const quotationStatesReceiptFacts = (
     command?.type === "check" || command?.type === "uncheck"
       ? CHECKED_STATE_WORDS[command.type]
       : undefined
-  const words = claimWords(quoted)
-  const named = words.filter((word) => !CLAIM_FUNCTION_WORDS.has(word))
+  return statesOnlyFacts(quoted, facts, state)
+}
+
+/** Every substantive word must be a verified fact, not an added claim. */
+const statesOnlyFacts = (
+  quoted: string,
+  facts: ReadonlySet<string>,
+  state?: ReadonlySet<string>
+): boolean => {
+  const named = claimWords(quoted).filter(
+    (word) => !CLAIM_FUNCTION_WORDS.has(word)
+  )
   return (
     named.length > 0 &&
     named.every((word) => facts.has(word) || state?.has(word) === true)
@@ -1788,7 +1798,7 @@ const judgeItemizedRequirement = (
       input,
       change,
       changes.filter((receipt) =>
-        receiptNamesItem(receipt, item, requirement.items)
+        receiptNamesItem(receipt, item, requirement.items, input.observation)
       ),
       consumed
     )
@@ -1836,21 +1846,59 @@ const namesItem = (text: string, item: string): boolean => {
  * and no other item does: "Given name Ada" names the field "Given name", but
  * "Status" is named by both "Invoice 1 Status" and "Invoice 2 Status" and
  * identifies neither, so a receipt under that name alone credits no item.
+ * A reverse match must also prove the value or state the item adds.
  */
 const receiptNamesItem = (
   receipt: AgentStepReadout,
   item: string,
-  items: readonly string[]
+  items: readonly string[],
+  observation: AgentObservation
 ): boolean =>
   receiptNames(receipt).some(
     (name) =>
       namesItem(agentNormalizedClaim(name), item) ||
       (namesItem(agentNormalizedClaim(item), name) &&
+        receiptProvesItem(receipt, item, observation) &&
         items.every(
           (other) =>
             other === item || !namesItem(agentNormalizedClaim(other), name)
         ))
   )
+
+/** A reverse-name match owes every value or state the item adds to the name. */
+const receiptProvesItem = (
+  receipt: AgentStepReadout,
+  item: string,
+  observation: AgentObservation
+): boolean => {
+  if (!isResultVerifiedChange(receipt)) return false
+  if (receipt.command?.type !== "fill_form")
+    return quotationStatesReceiptFacts(item, receipt)
+  const index = matchingBatchField(
+    { id: receipt.requirementId ?? "", text: item, kind: "change" },
+    receipt,
+    observation,
+    new Set()
+  )
+  if (index === undefined || index < 0) return false
+  const field = receipt.command.fields[index]
+  const name = receipt.verification?.evidence.fields?.[index]?.name
+  const current = observation.elements.find(
+    (element) =>
+      agentNormalizedClaim(element.name ?? "") ===
+      agentNormalizedClaim(name ?? "")
+  )
+  if (!field || !name || !current) return false
+  const state =
+    field.type === "check" || field.type === "uncheck"
+      ? CHECKED_STATE_WORDS[field.type]
+      : undefined
+  return statesOnlyFacts(
+    item,
+    factWords([name, state ? undefined : current.value]),
+    state
+  )
+}
 
 /**
  * Every name a receipt acted under: its control, its row, and — for a
