@@ -377,7 +377,7 @@ describe("grounded evidence ledger", () => {
     ).toMatchObject({ validity: "historical", verificationKind: "activation" })
   })
 
-  it("does not bind completion outcome quotes to an unchecked requirement", () => {
+  it("records requirement association as provenance, independently of satisfaction", () => {
     for (const met of [true, false]) {
       const records = agentCompletionEvidence(
         state,
@@ -395,9 +395,9 @@ describe("grounded evidence ledger", () => {
         "Plan B costs $15",
         "Plan A costs $12"
       ])
-      expect(
-        records.every((record) => record.requirementId === undefined)
-      ).toBe(true)
+      expect(records.every((record) => record.requirementId === "r1")).toBe(
+        true
+      )
     }
   })
 

@@ -5,6 +5,27 @@ import { agentRunResult } from "../run-result"
 const read = { id: "r1", text: "Report the status code", kind: "read" as const }
 
 describe("agentRunResult", () => {
+  it("reports supported items of an incomplete requirement without overstating the rest", () => {
+    expect(
+      agentRunResult(
+        "Found both",
+        [{ ...read, items: ["Invoice 1", "Invoice 2"] }],
+        [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1: Draft" },
+              { index: 1, met: false }
+            ]
+          }
+        ],
+        []
+      )
+    ).toBe(
+      "Not verified: Report the status code\nVerified item: Invoice 1\nInvoice 1: Draft\nNot verified item: Invoice 2"
+    )
+  })
   /**
    * gpt-6-luna completed "report the status code" with the summary "Opened
    * Details and found the status code." and the evidence "Status code:
@@ -19,7 +40,7 @@ describe("agentRunResult", () => {
         [{ id: "r1", met: true, evidence: "Status code: ZX-482" }],
         ["r1"]
       )
-    ).toBe("Opened Details and found the status code.\nStatus code: ZX-482")
+    ).toBe("Verified: Report the status code\nStatus code: ZX-482")
   })
 
   it("keeps the summary alone when it already states the finding", () => {
@@ -30,7 +51,7 @@ describe("agentRunResult", () => {
         [{ id: "r1", met: true, evidence: "ZX-482" }],
         ["r1"]
       )
-    ).toBe("The status code is ZX-482.")
+    ).toBe("Verified: Report the status code\nZX-482")
   })
 
   it("adds nothing for unmet reads or change requirements", () => {
@@ -45,6 +66,6 @@ describe("agentRunResult", () => {
         ],
         ["r2"]
       )
-    ).toBe("Done.")
+    ).toBe("Not verified: Report the status code\nVerified: Name is Alice")
   })
 })

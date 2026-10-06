@@ -214,7 +214,9 @@ describe("starting an Agent run against the real engine", () => {
                 arguments: {
                   type: "complete",
                   summary: "Pricing page found.",
-                  outcomes: [{ id: "r1", met: true }]
+                  outcomes: [
+                    { id: "r1", met: true, evidence: "Pricing is available." }
+                  ]
                 }
               }
             ],
@@ -282,7 +284,7 @@ describe("starting an Agent run against the real engine", () => {
         const snapshot = await service.snapshot("run-vertical-1")
         expect(snapshot.run).toMatchObject({
           status: "completed",
-          result: "Pricing page found."
+          result: "Verified: the pricing page is found\nPricing is available."
         })
       })
     },

@@ -35,7 +35,6 @@ import {
 import type { AgentCompletionJudgement } from "./completion"
 import {
   agentEffectChangesPage,
-  agentTypedValues,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
   judgeAgentCompletion,
@@ -58,10 +57,7 @@ import {
   currentAgentInspection,
   previousAgentVerification
 } from "./history"
-import {
-  agentObservationHaystack,
-  agentRenderedHaystack
-} from "./observed-text"
+import { agentObservationHaystack } from "./observed-text"
 import {
   agentAmendedPlanPatch,
   agentConfirmedRemovalPatch,
@@ -352,37 +348,6 @@ export const createAgentController = (
    * evidence is new.
    */
   let changeBaseline: { runId: string; text: string } | undefined
-  /**
-   * Every page this run was shown, flattened, so a `read` requirement can
-   * quote a page the run has since left: remembering a code on one page and
-   * reporting it from the next is the task, and without this the run went
-   * back to re-read it and paused. What the site rendered only: never a
-   * field's value, and never a value this run had typed by then, which a
-   * rich-text editor shows as page text. A value typed later is left alone,
-   * because the page showed it first. One run at a time and
-   * memory-only, like `changeBaseline`; bounded by the run's own observation
-   * budget.
-   */
-  let observedPages: { runId: string; texts: string[] } | undefined
-  const rememberObservedPage = (
-    runId: string,
-    observation: AgentObservation
-  ) => {
-    const typed = agentTypedValues(
-      [...liveCommands.entries()]
-        .filter(([stepId]) => stepId.startsWith(`${runId}:`))
-        .map(([, command]) => command)
-    )
-    const text = typed.reduce(
-      (page, value) => page.replaceAll(value, " \u0000 "),
-      agentRenderedHaystack(observation)
-    )
-    if (observedPages?.runId !== runId) observedPages = { runId, texts: [] }
-    if (observedPages.texts.includes(text)) return
-    observedPages.texts = [...observedPages.texts, text].slice(
-      -MAX_AGENT_OBSERVATIONS
-    )
-  }
   const noProgressCounts = new Map<string, number>()
   const refusedCommandCounts = new Map<string, number>()
   const refusedCompletions = new Map<
@@ -951,7 +916,6 @@ export const createAgentController = (
         return undefined
       }
       lastGeneration.set(state.id, observation.generation)
-      rememberObservedPage(state.id, observation)
       return observation
     } catch (error) {
       if (!signal.aborted) {
@@ -1698,9 +1662,41 @@ export const createAgentController = (
   }
 
   /** Wait only for evidence; no action that produced it is ever replayed. */
+  const completionLedger = (
+    state: AgentRunState,
+    decision: Extract<AgentDecision, { type: "complete" }>,
+    steps: readonly AgentStepReadout[] | undefined,
+    observation: AgentObservation
+  ) =>
+    boundAgentEvidence([
+      ...buildAgentEvidenceLedger(
+        [
+          {
+            runId: state.id,
+            stepId: "retained",
+            sequence: 0,
+            status: "verified",
+            at: 0,
+            evidenceLedger: state.evidenceLedger
+          },
+          ...(steps ?? [])
+        ],
+        state.allowedOrigins,
+        observation
+      ),
+      ...agentCompletionEvidence(
+        state,
+        observation,
+        decision,
+        steps,
+        `${state.id}:answer:${state.observationCount}`
+      )
+    ])
+
   const settleCompletion = async (
     state: AgentRunState,
     input: Parameters<typeof judgeAgentCompletion>[0],
+    decision: Extract<AgentDecision, { type: "complete" }>,
     signal: AgentCancellationController["signal"]
   ) => {
     let judgement = judgeAgentCompletion(input)
@@ -1723,7 +1719,16 @@ export const createAgentController = (
       const fresh = await observe(state, signal)
       if (!fresh) return undefined
       observation = fresh
-      judgement = judgeAgentCompletion({ ...input, observation })
+      judgement = judgeAgentCompletion({
+        ...input,
+        observation,
+        evidenceLedger: completionLedger(
+          state,
+          decision,
+          input.steps,
+          observation
+        )
+      })
       if (judgement.type !== "refused") break
     }
     return { judgement, observation }
@@ -1910,9 +1915,8 @@ export const createAgentController = (
         observation,
         evidence: decision.evidence,
         baselineText: baseline,
-        ...(observedPages?.runId === state.id
-          ? { observedTexts: observedPages.texts }
-          : {}),
+        evidenceLedger: completionLedger(state, decision, steps, observation),
+        constraints: state.constraints,
         tabOpenedBy: [...openedTabsByStep.entries()]
           .filter(
             ([stepId, tabs]) =>
@@ -1923,6 +1927,7 @@ export const createAgentController = (
         ...(state.requirements ? { requirements: state.requirements } : {}),
         ...(decision.outcomes ? { outcomes: decision.outcomes } : {})
       },
+      decision,
       signal
     )
     if (!settled) return undefined
@@ -1930,13 +1935,11 @@ export const createAgentController = (
     const judgement =
       outstandingAnswer(state) ?? challengeEarlyUnmet(state, settled.judgement)
     if (judgement.type !== "refused") {
-      const prefix = `${state.id}:answer:${state.observationCount}`
-      const evidenceLedger = agentCompletionEvidence(
+      const evidenceLedger = completionLedger(
         state,
-        observation,
         decision,
         steps,
-        prefix
+        observation
       )
       await settleJudgedRun(
         state,

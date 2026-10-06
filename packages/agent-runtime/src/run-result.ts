@@ -1,23 +1,14 @@
 import type { AgentTaskRequirement } from "@ollama-client/contracts"
 
 import type { AgentCompletionOutcomeClaim } from "./completion"
-import { agentNormalizedClaim } from "./observed-text"
 
 /** The run record's own ceiling; the summary is cut before anything is added. */
 const MAX_RESULT_CHARS = 20_000
 
 /**
- * The result a completed run reports: its summary, followed by what each met
- * read requirement quoted from the page when the summary does not already say
- * it.
- *
- * A model's summary can describe finding a value without stating it —
- * "Opened Details and found the status code." — while the outcome it
- * completed with carried "Status code: ZX-482", quoted from the page and
- * checked there. Only the summary was kept, so the chat that delegated the
- * task told the user the code was not in the result. The quotation is page
- * text the completion gate already confirmed is on the page, and it stays as
- * untrusted as every other part of the result.
+ * A planned run reports only checked outcomes and grounded read quotations.
+ * Free-form summaries can overstate partial success, so they remain on the
+ * legacy unplanned path only. Findings remain untrusted page data.
  */
 export const agentRunResult = (
   summary: string,
@@ -25,22 +16,36 @@ export const agentRunResult = (
   outcomes: readonly AgentCompletionOutcomeClaim[] | undefined,
   met: readonly string[] | undefined
 ): string => {
-  const said = agentNormalizedClaim(summary)
-  const findings = (requirements ?? [])
-    .filter(
-      (requirement) =>
-        requirement.kind === "read" && (met ?? []).includes(requirement.id)
-    )
-    .map((requirement) =>
-      outcomes?.find((claim) => claim.id === requirement.id)?.evidence?.trim()
-    )
-    .filter(
-      (evidence): evidence is string =>
-        evidence !== undefined &&
-        evidence.length > 0 &&
-        !said.includes(agentNormalizedClaim(evidence))
-    )
-  const unique = [...new Set(findings)]
-  const result = unique.length ? `${summary}\n${unique.join("\n")}` : summary
-  return result.slice(0, MAX_RESULT_CHARS)
+  if (!requirements?.length || met === undefined)
+    return summary.slice(0, MAX_RESULT_CHARS)
+  // Free-form summaries can contradict checked outcomes. The handoff reports
+  // only requirements the judge supported, plus their grounded read results.
+  return requirements
+    .map((requirement) => {
+      const verified = met.includes(requirement.id)
+      const claim = outcomes?.find((outcome) => outcome.id === requirement.id)
+      const items = new Map(
+        (claim?.items ?? []).map((item) => [item.index, item])
+      )
+      const itemReport =
+        requirement.items?.length && claim?.met
+          ? requirement.items
+              .map((item, index) => {
+                const answer = items.get(index)
+                const evidence =
+                  answer?.met && requirement.kind === "read"
+                    ? answer.evidence
+                    : undefined
+                return `${answer?.met ? "Verified" : "Not verified"} item: ${item}${evidence ? `\n${evidence}` : ""}`
+              })
+              .join("\n")
+          : ""
+      const evidence =
+        verified && requirement.kind === "read"
+          ? [claim?.evidence].filter(Boolean).join("\n")
+          : ""
+      return `${verified ? "Verified" : "Not verified"}: ${requirement.text}${evidence ? `\n${evidence}` : ""}${itemReport ? `\n${itemReport}` : ""}`
+    })
+    .join("\n")
+    .slice(0, MAX_RESULT_CHARS)
 }
