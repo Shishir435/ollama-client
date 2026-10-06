@@ -411,6 +411,14 @@ const tokenSpoken = (token: string, spoken: ReadonlySet<string>): boolean => {
   return false
 }
 
+/**
+ * Where an item's sentence ends. A period counts unless it closes an
+ * abbreviation a row is written with ("no. 5", "inv. 12", "e.g."); a
+ * decimal point is never followed by a space, so it never matches.
+ */
+const SENTENCE_END =
+  /[;!?\n]+|(?<!\b(?:no|nos|nr|num|inv|ref|vol|p|pp|pg|ch|sec|art|approx|e\.g|i\.e|etc|vs|st|mr|mrs|ms|dr))\.(?=\s|$)/iu
+
 /** How alike two outcomes must read for one to keep the other's id. */
 const SAME_OUTCOME = 0.5
 
@@ -459,6 +467,14 @@ const FORBIDDEN_VERBS: ReadonlyArray<
 
 const CLAUSE_END = /[.;:!?\n]|,\s+(?:and|then|but)\b/
 
+/**
+ * Words that may stand before a command's verb without changing what it asks:
+ * "and you can send me the receipt" asks for the send as plainly as "and send
+ * me the receipt". Negation is not here; it is checked separately.
+ */
+const COMMAND_LEAD_IN =
+  /^(?:(?:you|please|also|just|then|now|go ahead and|feel free to|can|could|may|should|will|would|need to|have to|must)\s+)+/
+
 const clauseFrom = (text: string, start: number): string => {
   const rest = text.slice(start)
   const end = rest.search(CLAUSE_END)
@@ -472,10 +488,11 @@ const clauseFrom = (text: string, start: number): string => {
 
 /**
  * From a cue to the end of what it negates: its sentence, commas and all.
- * The one cut is a new command: ", and", ", then" or ", but" followed
- * directly by a consequential verb, with no comma before it and no negation
- * after it. "Don't delete the file, and send me the receipt" asks for the
- * send. Anything else keeps the whole sentence: "don't delete, archive, and
+ * The one cut is a new command: ", and", ", then" or ", but" followed by a
+ * consequential verb — directly, or after words like "you can" or "please" —
+ * with no comma before it and no negation after it. "Don't delete the file,
+ * and send me the receipt" and "…, and you can send me the receipt" both ask
+ * for the send. Anything else keeps the whole sentence: "don't delete, archive, and
  * email anything" is a list, and "…, and you won't submit the form" or
  * "…, and especially not the delete button" are more of the prohibition.
  * Reading too much costs a refusal; cutting wrongly lost a "don't".
@@ -489,7 +506,7 @@ const sentenceFrom = (text: string, start: number): string => {
   const next = sentence.slice(clause)
   const command = normalized(
     next.replace(/^,\s+(?:and|then|but)\s+(?:then\s+)?/i, "")
-  )
+  ).replace(COMMAND_LEAD_IN, "")
   const opensWithVerb = FORBIDDEN_VERBS.some(
     ([, verb]) => command.match(verb)?.index === 0
   )
@@ -799,8 +816,9 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
     },
     /**
      * Every item is a row the user named: each of its words, digits included,
-     * in one sentence of the goal or an answer — a period ends one only
-     * before a capital, so "invoice no. 5" stays whole. Items are how a plan says
+     * in one sentence of the goal or an answer — a period ends one unless it
+     * closes an abbreviation, so "invoice no. 5" stays whole and "paid.
+     * invoice 1" does not. Items are how a plan says
      * which rows; one the planner enumerated from "all nine invoices", or
      * assembled from two sentences — "invoice 1 paid" out of "mark invoice 2
      * paid; invoice 1 is overdue" — is work nobody asked for.
@@ -808,7 +826,7 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
     assertItemsQuoted(items: readonly string[]): void {
       if (!context) return
       const spoken = authority
-        .flatMap((text) => text.split(/[;!?\n]+|\.(?=\s+\p{Lu}|\s*$)/u))
+        .flatMap((text) => text.split(SENTENCE_END))
         .map(itemTokens)
       const unquoted = items.find((item) => {
         const wanted = itemTokens(item)

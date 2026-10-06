@@ -1399,9 +1399,9 @@ run that produced it can always be repeated.
   only when their sentence names an effect. The whole sentence is read and no
   condition lifts it: "don't submit until I say so" means not now, and a
   draft never sends. The one cut is a new command — ", and", ", then",
-  ", but" directly followed by a consequential verb, with no list before it
-  and no negation after it — so "don't delete the file, and send me the
-  receipt" still sends, while "…, and you won't submit" still forbids. Reading too much forbids too much, which costs a
+  ", but" followed by a consequential verb, directly or after words like
+  "you can" or "please", with no list before it and no negation after it —
+  so "don't delete the file, and (you can) send me the receipt" still sends, while "…, and you won't submit" still forbids. Reading too much forbids too much, which costs a
   refusal and a question; reading too little let a forbidden effect through.
   The controller refuses a command whose resolved effect carries a forbidden
   class before policy is asked. A follow-up inherits the parent's

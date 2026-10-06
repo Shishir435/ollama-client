@@ -190,8 +190,10 @@ describe("the whole task survives planning", () => {
   })
 
   /** Its words are all in the goal, but not about the same invoice. */
-  it("refuses an item assembled from two sentences", () => {
-    const goal = "Mark invoice 2 paid; invoice 1 is overdue"
+  it.each([
+    "Mark invoice 2 paid; invoice 1 is overdue",
+    "Mark invoice 2 paid. invoice 1 is overdue"
+  ])("refuses an item assembled from two sentences: %s", (goal) => {
     expect(() =>
       parseAgentTaskPlan(
         [
@@ -1001,6 +1003,8 @@ describe("prohibitions read by rule", () => {
     ["Save it as a draft, then send me the link", ["submission"]],
     ["Fill in the address but do not place the order", ["payment"]],
     ["Don't delete the file, and send me the receipt", ["destructive"]],
+    ["Don't delete the file, and you can send me the receipt", ["destructive"]],
+    ["Don't delete the file, and please send me the receipt", ["destructive"]],
     ["Don't submit until I check it, then submit", ["submission"]],
     [
       "Don't touch anything, and especially not the delete button",
