@@ -10,7 +10,7 @@ import type {
   AgentCompletionOutcomeClaim,
   AgentCompletionReviewScope
 } from "./completion"
-import type { AgentCompletionReviewRequest } from "./ports"
+import type { AgentCompletionReviewRequest, AgentStepReadout } from "./ports"
 
 /**
  * Review requests one run may send, retries inside the port not counted.
@@ -21,6 +21,23 @@ import type { AgentCompletionReviewRequest } from "./ports"
  * back to the ordinary refusal path, which asks the user.
  */
 export const MAX_AGENT_COMPLETION_REVIEWS = 3
+
+/**
+ * Reviews the run has already paid for, read from its receipts.
+ *
+ * A step's receipts each carry its running total, so the last one per step is
+ * the step's count and earlier ones are not added again.
+ */
+export const agentRecordedReviews = (
+  steps: readonly AgentStepReadout[] | undefined
+): number => {
+  const latest = new Map<string, AgentStepReadout>()
+  for (const step of [...(steps ?? [])].sort((a, b) => a.sequence - b.sequence))
+    latest.set(step.stepId, step)
+  let reviews = 0
+  for (const step of latest.values()) reviews += step.telemetry?.reviews ?? 0
+  return reviews
+}
 
 type NeedsReview = Extract<AgentCompletionJudgement, { type: "refused" }> & {
   review: AgentCompletionReviewScope
@@ -69,20 +86,43 @@ const groundedRecord = (record: AgentEvidenceRecord): boolean =>
   (record.validity === "current" || record.validity === "historical")
 
 /**
+ * Effect kinds that prove the resulting state rather than a reaction: the
+ * control holds the value, the box the checked state, the item its place,
+ * the page the state `wait` named. `activation`, `submission` and
+ * `navigation` only say the input landed, and cannot show a save completed.
+ * The same set the deterministic judge reads, for the same reason.
+ */
+const RESULT_EFFECT_KINDS = new Set([
+  "field",
+  "fields",
+  "checked",
+  "arrangement",
+  "condition"
+])
+
+/**
  * Whether a cited record can stand behind this id. Read by the runtime, never
- * taken from the reviewer: a record grounded for another requirement is
- * plausible evidence of the wrong thing, and a read is answered by what the
- * page said, not by an effect the run had.
+ * taken from the reviewer.
+ *
+ * The record must be bound to exactly this id: an unbound fact is plausible
+ * evidence of anything, which is the same as evidence of nothing in
+ * particular. A read and a limit are shown by what the page said. A change
+ * may also be shown by a verified effect, but only one whose kind proves the
+ * resulting state.
  */
 const supports = (
   record: AgentEvidenceRecord,
   id: string,
   requirement: AgentTaskRequirement | undefined
-): boolean =>
-  groundedRecord(record) &&
-  (requirement === undefined ||
-    ((record.requirementId === undefined || record.requirementId === id) &&
-      (requirement.kind !== "read" || record.kind === "observed_fact")))
+): boolean => {
+  if (!groundedRecord(record) || record.requirementId !== id) return false
+  if (record.kind === "observed_fact") return true
+  return (
+    requirement?.kind === "change" &&
+    record.verificationKind !== undefined &&
+    RESULT_EFFECT_KINDS.has(record.verificationKind)
+  )
+}
 
 export interface AgentCompletionReviewResult {
   judgement: AgentCompletionJudgement

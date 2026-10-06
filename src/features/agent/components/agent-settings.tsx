@@ -1,4 +1,5 @@
 import { Bot } from "lucide-react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AGENT_CONTEXT_MAX_TOKENS,
@@ -18,10 +19,18 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { isEmbeddingModel } from "@/features/model/lib/model-utils"
 import { useSetting } from "@/hooks/use-setting"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { SETTINGS } from "@/lib/storage/settings"
 
 const VISION_MODES = ["auto", "always", "never"] as const
+/** The reviewer select's value for "no separate reviewer". */
+const SAME_AS_RUN = "same"
+
+const reviewerKey = (providerId: string, modelId: string): string =>
+  JSON.stringify([providerId, modelId])
 const PERMISSION_MODES = ["allow_routine", "approve_each"] as const
 
 /**
@@ -53,6 +62,48 @@ export const AgentSettings = () => {
     SETTINGS.AGENT_PERMISSION_MODE
   )
   const isAuto = contextWindow === "auto" || contextWindow === undefined
+  const [reviewer, setReviewer] = useSetting(SETTINGS.AGENT_COMPLETION_REVIEWER)
+  const { models } = useProviderModels()
+  /**
+   * Chat models only, keyed by provider and model together: two providers
+   * can serve a model under the same name, and the review goes to exactly
+   * the one picked. A saved reviewer whose provider no longer lists it stays
+   * selectable, so the control never shows a choice the run will not use.
+   */
+  const reviewers = useMemo(() => {
+    const entries = (models ?? [])
+      .filter(
+        (model) => !isEmbeddingModel(model.name, model.details?.families || [])
+      )
+      .map((model) => {
+        const providerId = model.providerId || DEFAULT_PROVIDER_ID
+        return {
+          key: reviewerKey(providerId, model.name),
+          providerId,
+          modelId: model.name,
+          label: model.providerName
+            ? `${model.name} · ${model.providerName}`
+            : model.name
+        }
+      })
+    if (
+      reviewer &&
+      !entries.some(
+        (entry) =>
+          entry.key === reviewerKey(reviewer.providerId, reviewer.modelId)
+      )
+    )
+      entries.push({
+        key: reviewerKey(reviewer.providerId, reviewer.modelId),
+        providerId: reviewer.providerId,
+        modelId: reviewer.modelId,
+        label: reviewer.modelId
+      })
+    return entries
+  }, [models, reviewer])
+  const reviewerValue = reviewer
+    ? reviewerKey(reviewer.providerId, reviewer.modelId)
+    : SAME_AS_RUN
 
   return (
     <SettingsCard
@@ -147,6 +198,44 @@ export const AgentSettings = () => {
           )}
         </div>
       </SettingsFormField>
+
+      <SettingsLevelGate settingId="agent-completion-reviewer">
+        <SettingsFormField
+          focusId="agent-completion-reviewer"
+          label={t("agent.settings.completion_reviewer.label")}
+          description={t("agent.settings.completion_reviewer.description")}>
+          <Select
+            value={reviewerValue}
+            onValueChange={(next) => {
+              const picked = reviewers.find((entry) => entry.key === next)
+              setReviewer(
+                picked
+                  ? { providerId: picked.providerId, modelId: picked.modelId }
+                  : null
+              )
+            }}>
+            <SelectTrigger>
+              <SelectValue>
+                {() =>
+                  reviewers.find((entry) => entry.key === reviewerValue)
+                    ?.label ??
+                  t("agent.settings.completion_reviewer.same_as_run")
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SAME_AS_RUN}>
+                {t("agent.settings.completion_reviewer.same_as_run")}
+              </SelectItem>
+              {reviewers.map((entry) => (
+                <SelectItem key={entry.key} value={entry.key}>
+                  {entry.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingsFormField>
+      </SettingsLevelGate>
 
       <SettingsLevelGate settingId="agent-vision">
         <SettingsFormField

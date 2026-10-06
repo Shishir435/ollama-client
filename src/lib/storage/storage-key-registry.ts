@@ -33,6 +33,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Whether Ollama's hosted-model recommendations are listed. Device-local because whether they work depends on this machine's Ollama being signed in to a plan that covers them."
   },
+  [STORAGE_KEYS.AGENT.COMPLETION_REVIEWER]: {
+    key: STORAGE_KEYS.AGENT.COMPLETION_REVIEWER,
+    scope: "sync-safe",
+    reason:
+      "Provider-qualified model chosen to review Agent completions; a preference like the selected model, holding no page or credential data."
+  },
   [STORAGE_KEYS.AGENT.ENABLED]: {
     key: STORAGE_KEYS.AGENT.ENABLED,
     scope: "device-local",

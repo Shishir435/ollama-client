@@ -99,6 +99,9 @@ export interface AgentAttemptRecord {
   reviews?: number
   reviewMs?: number
   reviewDisagreements?: number
+  /** Provider-reported tokens the reviews spent, apart from the run's own. */
+  reviewPromptTokens?: number
+  reviewOutputTokens?: number
 }
 
 /**
@@ -328,6 +331,8 @@ export const attemptTelemetry = (
     | "reviews"
     | "reviewMs"
     | "reviewDisagreements"
+    | "reviewPromptTokens"
+    | "reviewOutputTokens"
   >
 > => {
   const total = (key: string): number | undefined => {
@@ -347,7 +352,9 @@ export const attemptTelemetry = (
     retries: total("retries"),
     reviews: total("reviews"),
     reviewMs: total("reviewMs"),
-    reviewDisagreements: total("reviewDisagreements")
+    reviewDisagreements: total("reviewDisagreements"),
+    reviewPromptTokens: total("reviewPromptTokens"),
+    reviewOutputTokens: total("reviewOutputTokens")
   }
   return Object.fromEntries(
     Object.entries(entries).filter(([, value]) => value !== undefined)

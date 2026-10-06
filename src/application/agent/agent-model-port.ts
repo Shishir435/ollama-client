@@ -50,6 +50,7 @@ import type {
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ReasoningEffort } from "@/types/model"
 import {
+  AGENT_REVIEW_FEEDBACK,
   AGENT_REVIEW_SYSTEM_PROMPT,
   AGENT_REVIEW_TOOL,
   agentReviewPrompt,
@@ -342,7 +343,7 @@ const agentDecisionParameters = (vision: boolean): ToolParameterSchema => ({
     sourceQuotes: {
       type: "array",
       maxItems: MAX_AGENT_SOURCE_QUOTES,
-      description: `Optional source quotations to retain for later answers. Copy at most ${MAX_AGENT_SOURCE_QUOTE_CHARS} characters exactly from one observed source. Name its ref or extract_text frameId, and requirementId when applicable. A note is inference; a quotation is checked against the authorized observation.`,
+      description: `Optional source quotations to retain for later answers. Copy at most ${MAX_AGENT_SOURCE_QUOTE_CHARS} characters exactly from one observed source. Name its ref or extract_text frameId, and requirementId when applicable: the id of the requirement it answers, or of the limit (such as c1) it shows was respected. A note is inference; a quotation is checked against the authorized observation.`,
       items: {
         type: "object",
         additionalProperties: false,
@@ -1156,6 +1157,28 @@ const retryUntilWellFormed = async (input: {
   }
 }
 
+/**
+ * The review request's fixed cost: its instructions, its tool schema, and the
+ * one feedback message a retry may add.
+ */
+const AGENT_REVIEW_FIXED_TOKENS =
+  estimateTokens(AGENT_REVIEW_SYSTEM_PROMPT) +
+  estimateTokens(JSON.stringify(AGENT_REVIEW_TOOL)) +
+  estimateTokens(AGENT_REVIEW_FEEDBACK)
+
+/** A review whose evidence does not fit the reviewer's window; nothing was sent. */
+export class AgentReviewTooLargeError extends Error {
+  constructor(
+    readonly neededTokens: number,
+    readonly windowTokens: number
+  ) {
+    super(
+      `The completion review needs about ${neededTokens} tokens and the reviewer's window is ${windowTokens}`
+    )
+    this.name = "AgentReviewTooLargeError"
+  }
+}
+
 export interface ProviderAgentModelPortOptions {
   resolveProvider?: (
     modelId: string,
@@ -1167,6 +1190,15 @@ export interface ProviderAgentModelPortOptions {
     signal?: AbortSignal
   ) => Promise<AgentModelCompatibility>
   allowExperimental?: boolean
+  /**
+   * Which model reviews this run's completions. Absent means the run's own.
+   * The host decides, because whether a different model may be sent page
+   * evidence is a disclosure question this layer cannot answer; a reviewer
+   * the host refuses throws, and the review does not happen.
+   */
+  resolveReviewer?: (
+    state: AgentRunState
+  ) => Promise<{ providerId: string; modelId: string }>
 }
 
 /** Provider-backed native decision port with bounded malformed-output retries. */
@@ -1293,15 +1325,62 @@ export const createProviderAgentModelPort = (
      */
     async review(state, request, signal) {
       reviewTelemetryByRun.delete(state.id)
-      const compatibility = await compatibilityFor(state, signal)
+      const reviewer = (await options.resolveReviewer?.(state)) ?? {
+        providerId: state.providerId,
+        modelId: state.modelId
+      }
+      const separate =
+        reviewer.providerId !== state.providerId ||
+        reviewer.modelId !== state.modelId
+      /**
+       * A separate reviewer is held to the same model checks as the run's
+       * own, resolved for it rather than read from the run's caches, which
+       * describe a different model.
+       */
+      let compatibility: AgentModelCompatibility
+      if (separate) {
+        const scope = providerSignal(signal)
+        try {
+          compatibility = await resolveCompatibility(
+            reviewer.providerId,
+            reviewer.modelId,
+            scope.signal
+          )
+        } finally {
+          scope.cleanup()
+        }
+      } else compatibility = await compatibilityFor(state, signal)
       assertAgentModelCompatibility(
         compatibility,
         options.allowExperimental === true
       )
-      const provider = await resolveProvider(state.modelId, state.providerId)
-      assertProviderEnabled(provider, state.modelId)
-      const window = await windowFor(state, compatibility)
+      const provider = await resolveProvider(
+        reviewer.modelId,
+        reviewer.providerId
+      )
+      assertProviderEnabled(provider, reviewer.modelId)
+      const window = separate
+        ? resolveAgentContextWindow({
+            setting: await readAgentContextWindowSetting(),
+            ...(compatibility.context
+              ? { evidence: compatibility.context }
+              : {})
+          }).tokens
+        : await windowFor(state, compatibility)
       const prompt = agentReviewPrompt(request)
+      /**
+       * Bounded against the window the reviewer will actually be given, like
+       * every other part of an Agent request. A review that does not fit is
+       * not sent at all: cutting the goal or the ledger to make it fit would
+       * ask the reviewer to judge evidence it was not shown, and an
+       * unavailable review already leaves the refusal unchanged.
+       */
+      const needed =
+        AGENT_REVIEW_FIXED_TOKENS +
+        estimateTokens(prompt) +
+        AGENT_SHORT_RESPONSE_TOKENS
+      if (needed > agentContextWindow(window))
+        throw new AgentReviewTooLargeError(needed, agentContextWindow(window))
       let promptTokens: number | undefined
       let outputTokens: number | undefined
       const attempt = async (feedback?: string) => {
@@ -1313,7 +1392,7 @@ export const createProviderAgentModelPort = (
         try {
           await provider.streamChat(
             {
-              model: state.modelId,
+              model: reviewer.modelId,
               messages: [
                 { role: "system", content: AGENT_REVIEW_SYSTEM_PROMPT },
                 { role: "user", content: prompt },
@@ -1363,7 +1442,8 @@ export const createProviderAgentModelPort = (
       } finally {
         const telemetry = agentStepTelemetry({
           reviewPromptTokens: promptTokens,
-          reviewOutputTokens: outputTokens
+          reviewOutputTokens: outputTokens,
+          ...(separate ? { reviewSeparateModel: true } : {})
         })
         if (telemetry) reviewTelemetryByRun.set(state.id, telemetry)
       }

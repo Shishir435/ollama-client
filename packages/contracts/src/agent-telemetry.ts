@@ -61,6 +61,11 @@ export const AgentStepTelemetrySchema = z
      * anything — or, read against task predicates, rejecting correct work.
      */
     reviewDisagreements: count.optional(),
+    /**
+     * Whether a separately configured model did the review rather than the
+     * run's own, so disagreement can be compared between the two.
+     */
+    reviewSeparateModel: z.boolean().optional(),
     /** Wall-clock spent taking the decision's observation. */
     observeMs: duration.optional(),
     /** Wall-clock spent capturing and masking the screenshot, when one was taken. */

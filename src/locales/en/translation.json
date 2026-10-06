@@ -192,6 +192,11 @@
         "description": "Whether each new run may click and type on the site it starts on without asking. Submitting, deleting, signing in, paying and new sites are always asked about, and nothing carries over to the next run.",
         "allow_routine": "Allow on the starting site",
         "approve_each": "Approve each action"
+      },
+      "completion_reviewer": {
+        "label": "Completion reviewer",
+        "description": "When a run claims something the built-in checks cannot confirm, this model reads the run's grounded evidence and says whether it supports the claim. It never acts in the browser. A different model is sent that evidence only if it is enabled, can call tools, and, for a remote server, you have agreed to send page content to remote models.",
+        "same_as_run": "Same model as the run"
       }
     },
     "card": {

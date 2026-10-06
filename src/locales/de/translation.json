@@ -192,6 +192,11 @@
         "description": "Ob jeder neue Lauf auf der Startseite ohne Rückfrage klicken und tippen darf. Absenden, Löschen, Anmelden, Bezahlen und neue Websites werden immer erfragt, und nichts wird in den nächsten Lauf übernommen.",
         "allow_routine": "Auf der Startseite erlauben",
         "approve_each": "Jede Aktion bestätigen"
+      },
+      "completion_reviewer": {
+        "label": "Abschlussprüfer",
+        "description": "Wenn ein Lauf etwas behauptet, das die eingebauten Prüfungen nicht bestätigen können, liest dieses Modell die belegten Nachweise des Laufs und beurteilt, ob sie die Behauptung stützen. Es handelt nie im Browser. Ein anderes Modell erhält diese Nachweise nur, wenn es aktiviert ist, Tools aufrufen kann und Sie bei einem entfernten Server zugestimmt haben, Seiteninhalte an entfernte Modelle zu senden.",
+        "same_as_run": "Dasselbe Modell wie der Lauf"
       }
     },
     "card": {

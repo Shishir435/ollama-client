@@ -42,6 +42,20 @@ export const AGENT_SETTINGS = [
     aliases: ["num_ctx", "context length", "prompt size", "agent memory"]
   },
   {
+    id: "agent-completion-reviewer",
+    sectionId: "agent",
+    labelKey: "agent.settings.completion_reviewer.label",
+    descriptionKey: "agent.settings.completion_reviewer.description",
+    storageKey: STORAGE_KEYS.AGENT.COMPLETION_REVIEWER,
+    level: "advanced",
+    searchKeys: [
+      "agent.settings.title",
+      "agent.settings.completion_reviewer.same_as_run"
+    ],
+    keywords: ["agent", "review", "reviewer", "verify", "completion"],
+    aliases: ["second opinion", "verifier model", "check the answer"]
+  },
+  {
     id: "agent-vision",
     sectionId: "agent",
     labelKey: "agent.settings.vision.label",

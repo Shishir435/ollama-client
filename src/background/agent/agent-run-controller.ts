@@ -18,6 +18,7 @@ import { readStoredSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import { createAgentBrowserAdapters } from "./agent-browser-adapters"
 import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
+import { resolveAgentCompletionReviewer } from "./agent-completion-reviewer"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentEffectPort, watchTabsOpenedBy } from "./agent-effect-port"
 import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
@@ -218,7 +219,8 @@ export const buildAgentController: BuildAgentController = (input) => {
   })
 
   const provider = createProviderAgentModelPort({
-    allowExperimental: input.allowExperimentalModel
+    allowExperimental: input.allowExperimentalModel,
+    resolveReviewer: (state) => resolveAgentCompletionReviewer(state)
   })
   const timeoutMs = input.decisionTimeoutMs ?? DECISION_TIMEOUT_MS
   const model = withDecisionTimeout(provider, timeoutMs)

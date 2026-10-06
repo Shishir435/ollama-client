@@ -12,7 +12,10 @@ import {
 } from "../agent-completion-review"
 import { AgentDecisionFormatError } from "../agent-decision-parser"
 import type { AgentModelCompatibility } from "../agent-model-compatibility"
-import { createProviderAgentModelPort } from "../agent-model-port"
+import {
+  AgentReviewTooLargeError,
+  createProviderAgentModelPort
+} from "../agent-model-port"
 
 vi.mock("@/lib/storage/setting-access", () => ({ readSetting: vi.fn() }))
 
@@ -217,6 +220,83 @@ describe("provider completion review port", () => {
     ).rejects.toThrow(AgentDecisionFormatError)
     expect(malformed).toHaveBeenCalledTimes(2)
     expect(malformed.mock.calls[1][0].messages).toHaveLength(3)
+  })
+
+  it("sends a configured reviewer the request, on that reviewer's own checks", async () => {
+    const requests: ChatRequest[] = []
+    const resolveProvider = vi.fn(async () =>
+      provider(async (chat, emit) => {
+        requests.push(chat)
+        emit(reviewChunk({ verdicts: [] }))
+      })
+    )
+    const resolveCompatibility = vi.fn(async () => supported)
+    const port = createProviderAgentModelPort({
+      resolveProvider,
+      resolveCompatibility,
+      resolveReviewer: async () => ({
+        providerId: "custom:lab",
+        modelId: "judge-1"
+      })
+    })
+    await port.review(state, request, { aborted: false })
+    expect(resolveProvider).toHaveBeenCalledWith("judge-1", "custom:lab")
+    expect(resolveCompatibility).toHaveBeenCalledWith(
+      "custom:lab",
+      "judge-1",
+      expect.anything()
+    )
+    expect(requests[0].model).toBe("judge-1")
+    expect(port.reviewTelemetry?.("run-1")).toMatchObject({
+      reviewSeparateModel: true
+    })
+  })
+
+  it("sends nothing to a reviewer the host refused or that cannot call tools", async () => {
+    const streamChat = vi.fn()
+    const refused = createProviderAgentModelPort({
+      resolveProvider: async () => provider(streamChat),
+      resolveCompatibility: async () => supported,
+      resolveReviewer: async () => {
+        throw new Error("remote_not_acknowledged")
+      }
+    })
+    await expect(
+      refused.review(state, request, { aborted: false })
+    ).rejects.toThrow("remote_not_acknowledged")
+    const incapable = createProviderAgentModelPort({
+      resolveProvider: async () => provider(streamChat),
+      resolveCompatibility: async (
+        providerId
+      ): Promise<AgentModelCompatibility> =>
+        providerId === "custom:lab"
+          ? { status: "unsupported", reason: "reported_unsupported" }
+          : supported,
+      resolveReviewer: async () => ({
+        providerId: "custom:lab",
+        modelId: "judge-1"
+      })
+    })
+    await expect(
+      incapable.review(state, request, { aborted: false })
+    ).rejects.toThrow()
+    expect(streamChat).not.toHaveBeenCalled()
+  })
+
+  it("sends nothing when the evidence cannot fit the reviewer's window", async () => {
+    const streamChat = vi.fn()
+    const port = createProviderAgentModelPort({
+      resolveProvider: async () => provider(streamChat),
+      resolveCompatibility: async () => supported
+    })
+    await expect(
+      port.review(
+        state,
+        { ...request, goal: "Report the revenue ".repeat(40_000) },
+        { aborted: false }
+      )
+    ).rejects.toBeInstanceOf(AgentReviewTooLargeError)
+    expect(streamChat).not.toHaveBeenCalled()
   })
 
   it("sends nothing to a disabled provider", async () => {

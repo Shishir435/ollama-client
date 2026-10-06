@@ -174,7 +174,9 @@ const numericKeys = [
   "verifyMs",
   "reviews",
   "reviewMs",
-  "reviewDisagreements"
+  "reviewDisagreements",
+  "reviewPromptTokens",
+  "reviewOutputTokens"
 ]
 const labelKeys = [
   "task",

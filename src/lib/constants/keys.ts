@@ -90,7 +90,9 @@ export const STORAGE_KEYS = {
     /** Whether the run may picture the page for a model that can see. */
     VISION: "agent-vision-v1",
     /** Which routine actions a new run may take without asking. */
-    PERMISSION_MODE: "agent-permission-mode-v1"
+    PERMISSION_MODE: "agent-permission-mode-v1",
+    /** The model that independently reviews completions; absent means the run's own. */
+    COMPLETION_REVIEWER: "agent-completion-reviewer-v1"
   },
   BACKUP: {
     /** Durable rollback state for interrupted portable-settings imports. */

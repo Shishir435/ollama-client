@@ -128,9 +128,15 @@ export const groundAgentQuotes = (
   prefix: string
 ): AgentEvidenceRecord[] =>
   quotes.flatMap((claim, index) => {
+    /**
+     * Bound to a planned requirement or limit, or to nothing. A limit is a
+     * valid binding because a reviewer may only support one with a
+     * quotation the run bound to that exact limit.
+     */
     if (
       claim.requirementId &&
-      !state.requirements?.some((entry) => entry.id === claim.requirementId)
+      !state.requirements?.some((entry) => entry.id === claim.requirementId) &&
+      !state.constraints?.some((entry) => entry.id === claim.requirementId)
     )
       return []
     const needle = agentNormalizedClaim(claim.quote)

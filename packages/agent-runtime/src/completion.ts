@@ -969,8 +969,7 @@ const refusePlannedReadClaim = (
         record.kind === "observed_fact" &&
         record.source !== undefined &&
         (record.validity === "current" || record.validity === "historical") &&
-        (record.requirementId === undefined ||
-          record.requirementId === requirementId)
+        record.requirementId === requirementId
     )
   )
     return {
@@ -1983,7 +1982,14 @@ const judgeItemizedRequirement = (
           }
         : refusal
   }
-  return review ?? (allMet ? undefined : "unmet")
+  /**
+   * An item the run itself reported unmet leaves the requirement unmet,
+   * whatever a review of its other items could say. Returning the review
+   * instead let a supported verdict on one item carry the whole requirement
+   * into `met` with another item still unfinished.
+   */
+  if (!allMet) return "unmet"
+  return review
 }
 
 /**
@@ -2093,6 +2099,27 @@ const receiptNames = (receipt: AgentStepReadout): string[] =>
 const itemEvidenceFeedback = (index: number, item: string): string =>
   `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's.`
 
+/**
+ * An itemized requirement is met only item by item, and a review answers for
+ * the requirement as a whole: one supported citation cannot say which item it
+ * supports. A refusal that includes one keeps no scope and is never reviewed.
+ */
+const withReviewScope = (
+  review: Extract<AgentCompletionJudgement, { type: "refused" }>,
+  requirements: readonly AgentTaskRequirement[],
+  reviewIds: string[],
+  outcome: AgentRunOutcome
+): Extract<AgentCompletionJudgement, { type: "refused" }> =>
+  requirements.some(
+    (requirement) =>
+      requirement.items?.length && reviewIds.includes(requirement.id)
+  )
+    ? review
+    : {
+        ...review,
+        review: { requirementIds: reviewIds, constraintIds: [], outcome }
+      }
+
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
@@ -2176,11 +2203,7 @@ const judgePlanned = (
     met.push(requirement.id)
   }
   const outcome = { met, unmet }
-  if (review)
-    return {
-      ...review,
-      review: { requirementIds: reviewIds, constraintIds: [], outcome }
-    }
+  if (review) return withReviewScope(review, requirements, reviewIds, outcome)
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0
     ? { type: "unmet", outcome }

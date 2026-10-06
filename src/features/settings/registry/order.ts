@@ -41,6 +41,7 @@ export const SETTINGS_REGISTRY_ORDER = [
   "agent-enabled",
   "agent-permission-mode",
   "agent-context-window",
+  "agent-completion-reviewer",
   "agent-vision",
   "max-rag-context-chars",
   "max-tool-result-chars",

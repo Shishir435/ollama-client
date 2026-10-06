@@ -192,6 +192,11 @@
         "description": "Se ogni nuova esecuzione può fare clic e digitare sul sito da cui parte senza chiedere. Invio, eliminazione, accesso, pagamento e nuovi siti vengono sempre chiesti, e nulla passa all’esecuzione successiva.",
         "allow_routine": "Consenti sul sito iniziale",
         "approve_each": "Approva ogni azione"
+      },
+      "completion_reviewer": {
+        "label": "Revisore del completamento",
+        "description": "Quando un'esecuzione dichiara qualcosa che i controlli integrati non possono confermare, questo modello legge le prove verificate dell'esecuzione e dice se supportano la dichiarazione. Non agisce mai nel browser. Un modello diverso riceve quelle prove solo se è attivo, può chiamare strumenti e, per un server remoto, hai acconsentito a inviare il contenuto delle pagine a modelli remoti.",
+        "same_as_run": "Lo stesso modello dell'esecuzione"
       }
     },
     "card": {

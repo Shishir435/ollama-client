@@ -128,6 +128,17 @@ export const SETTINGS = {
       parser: z.enum(["allow_routine", "approve_each"])
     }
   ),
+  /**
+   * Who reads a completion the deterministic judge could not decide. `null`
+   * is the run's own model, already authorized for everything a review sees.
+   * Any other model passes the same enabled, tool-calling and remote-page
+   * checks as a run before it is sent anything; failing them means no review
+   * rather than a quiet switch back to a different judge.
+   */
+  AGENT_COMPLETION_REVIEWER: defineSetting<SelectedModelRef | null>(
+    STORAGE_KEYS.AGENT.COMPLETION_REVIEWER,
+    { defaultValue: null, parser: SelectedModelRefSchema }
+  ),
   LANGUAGE: defineSetting<string>(STORAGE_KEYS.LANGUAGE, {
     defaultValue: "en"
   }),

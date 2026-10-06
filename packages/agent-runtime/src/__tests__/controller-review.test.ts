@@ -93,9 +93,11 @@ const harness = (options: {
   review?: AgentCompletionReviewPort["review"]
   decisions?: unknown[]
   initial?: Partial<AgentRunState>
+  /** Receipts a previous worker wrote before this controller existed. */
+  written?: AgentStepWrite[]
 }) => {
   let current = state(options.initial)
-  const written: AgentStepWrite[] = []
+  const written: AgentStepWrite[] = [...(options.written ?? [])]
   const trace: { phase: string; metadata?: Record<string, unknown> }[] = []
   const requests: AgentCompletionReviewRequest[] = []
   const decisions = [...(options.decisions ?? [complete])]
@@ -357,6 +359,35 @@ describe("controller completion review", () => {
     })
     await run.controller.start("run-1")
     expect(run.requests).toHaveLength(0)
+    expect(run.state().status).not.toBe("completed")
+  })
+
+  it("counts reviews a previous worker already paid for", async () => {
+    const run = harness({
+      review: supportFirstGrounded,
+      written: [
+        {
+          runId: "run-1",
+          stepId: "run-1:completion:4",
+          status: "rejected",
+          at: 1,
+          telemetry: { reviews: 2 }
+        },
+        {
+          runId: "run-1",
+          stepId: "run-1:completion:6",
+          status: "rejected",
+          at: 2,
+          telemetry: { reviews: MAX_AGENT_COMPLETION_REVIEWS - 2 }
+        }
+      ],
+      decisions: [complete, complete]
+    })
+    await run.controller.start("run-1")
+    expect(run.requests).toHaveLength(0)
+    expect(run.trace.map((entry) => entry.phase)).toContain(
+      "completion_review_budget_exhausted"
+    )
     expect(run.state().status).not.toBe("completed")
   })
 

@@ -44,6 +44,7 @@ import {
 import {
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
+  agentRecordedReviews,
   applyAgentCompletionReview,
   MAX_AGENT_COMPLETION_REVIEWS
 } from "./completion-review"
@@ -1925,7 +1926,15 @@ export const createAgentController = (
     const port = dependencies.review
     if (!port || !agentCompletionNeedsReview(judgement))
       return { judgement, reviewed: false }
-    const spent = reviewsByRun.get(state.id) ?? 0
+    /**
+     * The receipts are the count that survives a worker restart; memory
+     * covers a review whose receipt could not be read back. The larger wins,
+     * so a restart never refunds the run's ceiling.
+     */
+    const spent = Math.max(
+      reviewsByRun.get(state.id) ?? 0,
+      agentRecordedReviews(steps)
+    )
     if (spent >= MAX_AGENT_COMPLETION_REVIEWS) {
       dependencies.trace?.(state.id, "completion_review_budget_exhausted", {
         reviews: spent

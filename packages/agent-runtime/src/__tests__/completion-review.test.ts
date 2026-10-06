@@ -72,6 +72,8 @@ const record = (
   ...overrides
 })
 
+const QUOTE = "Quarterly revenue rose to 4.2 million"
+
 const saved: AgentTaskRequirement = {
   id: "r1",
   kind: "change",
@@ -89,7 +91,7 @@ const semanticInput = (
 ): AgentCompletionInput => ({
   steps: [],
   observation: page,
-  evidenceLedger: [record("fact-1")],
+  evidenceLedger: [record("fact-1", { requirementId: "r1" })],
   requirements: [saved],
   outcomes: [{ id: "r1", met: true, evidence: "Help menu expanded" }],
   ...overrides
@@ -246,6 +248,71 @@ describe("completion review scope", () => {
   })
 })
 
+describe("itemized requirements under review", () => {
+  it("stays unmet when an item was reported unmet, so no review can complete it", () => {
+    const judgement = judgeAgentCompletion(
+      semanticInput({
+        requirements: [
+          {
+            id: "r2",
+            kind: "read",
+            text: "Report these figures",
+            items: ["revenue", "costs"]
+          }
+        ],
+        evidenceLedger: [
+          record("revenue", { quote: QUOTE, requirementId: "r2" })
+        ],
+        outcomes: [
+          {
+            id: "r2",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "revenue was $4.2M" },
+              { index: 1, met: false }
+            ]
+          }
+        ]
+      })
+    )
+    expect(agentCompletionNeedsReview(judgement)).toBe(false)
+    expect(judgement).toEqual({
+      type: "unmet",
+      outcome: { met: [], unmet: ["r2"] }
+    })
+  })
+
+  it("is never reviewed: one citation cannot say which item it supports", () => {
+    const judgement = judgeAgentCompletion(
+      semanticInput({
+        requirements: [
+          {
+            id: "r2",
+            kind: "read",
+            text: "Report these figures",
+            items: ["revenue", "costs"]
+          }
+        ],
+        evidenceLedger: [
+          record("revenue", { quote: QUOTE, requirementId: "r2" })
+        ],
+        outcomes: [
+          {
+            id: "r2",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "revenue was $4.2M" },
+              { index: 1, met: true, evidence: "costs were flat" }
+            ]
+          }
+        ]
+      })
+    )
+    expect(judgement).toMatchObject({ reason: "needs_review" })
+    expect(agentCompletionNeedsReview(judgement)).toBe(false)
+  })
+})
+
 describe("applying a completion review", () => {
   it("accepts a supported claim backed by a grounded citation", () => {
     expect(
@@ -327,7 +394,7 @@ describe("applying a completion review", () => {
     const input = semanticInput({
       requirements: [answered],
       outcomes: [{ id: "r2", met: true, evidence: "The help menu opened" }],
-      evidenceLedger: [record("fact-1")]
+      evidenceLedger: [record("fact-1", { requirementId: "r2" })]
     })
     const judgement = pending(input)
     const effect = record("effect", {
@@ -390,7 +457,13 @@ describe("applying a completion review", () => {
       kind: "limit",
       text: "Spend at most 50 dollars"
     }
-    const input = semanticInput({ constraints: [limit] })
+    const input = semanticInput({
+      constraints: [limit],
+      evidenceLedger: [
+        record("fact-1", { requirementId: "r1" }),
+        record("total", { quote: "Total $42.00", requirementId: "c1" })
+      ]
+    })
     expect(
       settle(
         input,
@@ -406,7 +479,90 @@ describe("applying a completion review", () => {
         input,
         [
           { id: "r1", verdict: "supported", sources: ["fact-1"] },
+          { id: "c1", verdict: "supported", sources: ["total"] }
+        ],
+        [limit]
+      ).judgement
+    ).toMatchObject({ type: "accepted" })
+  })
+})
+
+describe("what a citation can support", () => {
+  const limit: AgentTaskConstraint = {
+    id: "c1",
+    kind: "limit",
+    text: "Spend at most 50 dollars"
+  }
+
+  it("refuses a fact bound to no requirement at all", () => {
+    expect(
+      settle(semanticInput({ evidenceLedger: [record("loose")] }), [
+        { id: "r1", verdict: "supported", sources: ["loose"] }
+      ]).judgement
+    ).toMatchObject({ reason: "needs_review" })
+  })
+
+  it("accepts a change shown by an effect that proves its resulting state", () => {
+    const input = semanticInput({
+      evidenceLedger: [
+        record("fact-1", { requirementId: "r1" }),
+        record("field", {
+          kind: "verified_effect",
+          quote: undefined,
+          verificationKind: "field",
+          requirementId: "r1"
+        })
+      ]
+    })
+    expect(
+      settle(input, [{ id: "r1", verdict: "supported", sources: ["field"] }])
+        .judgement
+    ).toMatchObject({ type: "accepted" })
+  })
+
+  it("refuses a change shown only by an activation", () => {
+    const input = semanticInput({
+      evidenceLedger: [
+        record("fact-1", { requirementId: "r1" }),
+        record("pressed", {
+          kind: "verified_effect",
+          quote: undefined,
+          verificationKind: "activation",
+          requirementId: "r1"
+        })
+      ]
+    })
+    expect(
+      settle(input, [{ id: "r1", verdict: "supported", sources: ["pressed"] }])
+        .judgement
+    ).toMatchObject({ reason: "needs_review" })
+  })
+
+  it("supports a limit only with a quotation bound to that limit", () => {
+    const unrelated = semanticInput({ constraints: [limit] })
+    expect(
+      settle(
+        unrelated,
+        [
+          { id: "r1", verdict: "supported", sources: ["fact-1"] },
           { id: "c1", verdict: "supported", sources: ["fact-1"] }
+        ],
+        [limit]
+      ).judgement
+    ).toMatchObject({ reason: "needs_review" })
+    const bound = semanticInput({
+      constraints: [limit],
+      evidenceLedger: [
+        record("fact-1", { requirementId: "r1" }),
+        record("total", { quote: "Total $42.00", requirementId: "c1" })
+      ]
+    })
+    expect(
+      settle(
+        bound,
+        [
+          { id: "r1", verdict: "supported", sources: ["fact-1"] },
+          { id: "c1", verdict: "supported", sources: ["total"] }
         ],
         [limit]
       ).judgement
