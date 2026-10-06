@@ -894,6 +894,51 @@ describe("review: an amendment keeps what it does not withdraw", () => {
     }
   })
 
+  it("asks for removals before adding work at the requirement cap", () => {
+    const requirements = Array.from({ length: 8 }, (_, index) => ({
+      id: `r${index + 1}`,
+      text: `page part ${index + 1} is read`,
+      kind: "read" as const,
+      source: "Read the page"
+    }))
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            ...requirements.map(({ id, ...entry }) => ({ ...entry, keep: id })),
+            {
+              text: "page part 9 is read",
+              kind: "read",
+              source: "Also read page part 9"
+            }
+          ],
+          dropped: [{ id: "r1", source: "drop page part 1" }]
+        })
+      ],
+      {
+        goal: "Read the page",
+        current: {
+          requirements,
+          constraints: [],
+          issued: { requirements: 8, constraints: 0 },
+          reconciledThrough: 1
+        },
+        answers: [
+          {
+            questionId: "q",
+            text: "Also read page part 9 and drop page part 1",
+            answeredAt: 5
+          }
+        ]
+      }
+    )
+    expect(plan).toMatchObject({
+      requirements,
+      proposedRemovals: [{ id: "r1" }],
+      provisional: true
+    })
+  })
+
   it("marks a rule-made amendment provisional", () => {
     expect(
       agentRuleAmendment({
@@ -1068,7 +1113,7 @@ describe("prohibitions read by rule", () => {
   })
 
   /** "Don't submit" said to the first run binds the follow-up too. */
-  it("carries the previous run's prohibitions into a follow-up plan", () => {
+  it("carries all the previous run's boundaries into a follow-up plan", () => {
     const plan = parseAgentTaskPlan(
       [
         call({
@@ -1090,12 +1135,15 @@ describe("prohibitions read by rule", () => {
             kind: "exclude",
             forbids: ["submission"]
           },
-          { id: "c2", text: "only page one", kind: "scope" }
+          { id: "c2", text: "only page one", kind: "scope" },
+          { id: "c3", text: "spend under $50", kind: "limit" }
         ]
       }
     )
     expect(plan.constraints).toEqual([
-      expect.objectContaining({ forbids: ["submission"] })
+      expect.objectContaining({ forbids: ["submission"] }),
+      expect.objectContaining({ text: "only page one", kind: "scope" }),
+      expect.objectContaining({ text: "spend under $50", kind: "limit" })
     ])
   })
 })

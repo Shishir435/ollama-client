@@ -122,6 +122,7 @@ export const agentAmendedPlanPatch = (
       ...patch.plan,
       pending: {
         questionId: `${state.id}:removal:${now}`,
+        ...(plan.provisional ? { provisional: true as const } : {}),
         ...(lifts.length > 0
           ? { removals: lifts, lift: true as const }
           : { removals: plan.proposedRemovals })
@@ -254,7 +255,9 @@ export const agentConfirmedRemovalPatch = (
   const plain = confirmed || NO.test(words) || YES.test(words)
   const settled = {
     ...rest,
-    ...(plain ? { reconciledThrough: answeredAt } : {})
+    ...(plain && !record.pending?.provisional
+      ? { reconciledThrough: answeredAt }
+      : {})
   }
   if (!confirmed || removals.length === 0) return { plan: settled }
   const whole = new Set(

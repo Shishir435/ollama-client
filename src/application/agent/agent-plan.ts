@@ -214,7 +214,7 @@ export interface AgentPlanContext {
   }
   /** The requirements of the run a follow-up continues. */
   previous?: readonly AgentPreviousRequirement[]
-  /** The prohibitions of the run a follow-up continues. */
+  /** Every user boundary of the run a follow-up continues. */
   previousConstraints?: readonly AgentTaskConstraint[]
 }
 
@@ -1015,28 +1015,33 @@ const proposedRemovals = (
 }
 
 /**
- * The previous run's prohibitions, added where this plan does not already
- * forbid the same effects. A follow-up's goal is usually the chat model's
- * words, and "don't submit" said to the first run must not end with it.
+ * Every boundary of the previous run, retained unless this plan carries the
+ * same constraint already. Equal effect classes do not make different scope
+ * or numeric limits interchangeable.
  */
-const withInheritedProhibitions = (
+const withInheritedConstraints = (
   constraints: readonly AgentTaskConstraint[],
   inherited: readonly AgentTaskConstraint[],
   identity: PlanIdentity
 ): AgentTaskConstraint[] => {
   const result = [...constraints]
-  for (const prohibition of inherited) {
-    if (!prohibition.forbids?.length) continue
-    const enforced = new Set(
-      result.flatMap((constraint) => constraint.forbids ?? [])
+  for (const constraint of inherited) {
+    if (
+      result.some(
+        (entry) =>
+          entry.text === constraint.text &&
+          entry.kind === constraint.kind &&
+          JSON.stringify([...(entry.forbids ?? [])].sort()) ===
+            JSON.stringify([...(constraint.forbids ?? [])].sort())
+      )
     )
-    if (prohibition.forbids.every((effect) => enforced.has(effect))) continue
+      continue
     result.push({
       id: identity.nextConstraintId(),
-      text: prohibition.text,
-      kind: prohibition.kind,
-      ...(prohibition.source ? { source: prohibition.source } : {}),
-      forbids: [...prohibition.forbids]
+      text: constraint.text,
+      kind: constraint.kind,
+      ...(constraint.source ? { source: constraint.source } : {}),
+      ...(constraint.forbids ? { forbids: [...constraint.forbids] } : {})
     })
   }
   return result
@@ -1126,6 +1131,22 @@ const assertWithinCaps = (
     )
 }
 
+/** Free capacity only by asking about existing entries, keeping additions outstanding. */
+const pendingCapacityRemovals = (
+  error: unknown,
+  current: AgentPlanContext["current"],
+  removals: AgentPlanRemoval[]
+): AgentTaskPlan => {
+  if (!(error instanceof AgentPlanOverCapError) || !current || !removals.length)
+    throw error
+  return AgentTaskPlanSchema.parse({
+    requirements: current.requirements,
+    constraints: current.constraints,
+    proposedRemovals: removals,
+    provisional: true
+  })
+}
+
 /**
  * Bounded and re-identified before it reaches the schema.
  *
@@ -1167,7 +1188,13 @@ export const parseAgentTaskPlan = (
     )
   }
   const identity = planIdentity(context)
-  const requirements = parsedRequirements(rawRequirements, identity)
+  const removals = current ? proposedRemovals(args.dropped, current) : []
+  let requirements: AgentTaskRequirement[]
+  try {
+    requirements = parsedRequirements(rawRequirements, identity)
+  } catch (error) {
+    return pendingCapacityRemovals(error, current, removals)
+  }
   let constraints = parsedConstraints(
     rawArray(args.constraints) ?? [],
     identity
@@ -1184,13 +1211,16 @@ export const parseAgentTaskPlan = (
       identity
     )
   if (!current && context?.previousConstraints?.length)
-    constraints = withInheritedProhibitions(
+    constraints = withInheritedConstraints(
       constraints,
       context.previousConstraints,
       identity
     )
-  assertWithinCaps(requirements, constraints)
-  const removals = current ? proposedRemovals(args.dropped, current) : []
+  try {
+    assertWithinCaps(requirements, constraints)
+  } catch (error) {
+    return pendingCapacityRemovals(error, current, removals)
+  }
   return AgentTaskPlanSchema.parse({
     requirements,
     ...(constraints.length > 0 ? { constraints } : {}),

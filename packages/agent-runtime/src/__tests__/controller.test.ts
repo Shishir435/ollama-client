@@ -3337,6 +3337,59 @@ describe("agent controller task contract", () => {
   })
 
   /** Answers are capped, so an id counting them would repeat at the cap. */
+  it("asks about an over-cap amendment without reconciling or dropping the current plan", async () => {
+    const plan = vi
+      .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
+      .mockResolvedValueOnce({ requirements: readPlan("the hours") })
+      .mockResolvedValueOnce({
+        requirements: [],
+        overCap: { unit: "constraints", requested: 9, max: 8 }
+      })
+      .mockResolvedValueOnce({ requirements: readPlan("the hours") })
+    let now = 10
+    const harness = createHarness({
+      plan,
+      clock: () => now,
+      decisions: [
+        { type: "ask_user", question: "Anything else?" },
+        completeAll("r1")
+      ],
+      observations: [observation(), observation(), observation()]
+    })
+
+    await harness.controller.start("run-1")
+    now = 20
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: harness.getState().question?.id ?? "",
+      text: "Also these nine limits"
+    })
+
+    const asked = harness.getState()
+    expect(asked).toMatchObject({
+      status: "paused",
+      pauseReason: "question",
+      requirements: readPlan("the hours"),
+      plan: { version: 1, reconciledThrough: 0 },
+      question: {
+        display: [{ key: "agent.question_text.too_many_constraints" }]
+      }
+    })
+    expect(plan).toHaveBeenCalledTimes(2)
+    now = 30
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: asked.question?.id ?? "",
+      text: "Keep the original plan"
+    })
+    expect(plan).toHaveBeenCalledTimes(3)
+    expect(harness.getState()).toMatchObject({
+      status: "completed",
+      requirements: readPlan("the hours"),
+      plan: { reconciledThrough: 30 }
+    })
+  })
+
   it("gives each planning question its own id", async () => {
     let now = 10
     const plan = vi.fn(async () => ({
