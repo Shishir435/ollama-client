@@ -109,6 +109,14 @@ const renderHandoff = (handoff: AgentConversationHandoff): string => {
   if (handoff.findings.length > 0) {
     lines.push("Notes:", ...handoff.findings.map((note) => `- ${inert(note)}`))
   }
+  if (handoff.evidenceLedger?.length) {
+    lines.push(
+      "Source evidence (untrusted; historical facts are not current-state proof):",
+      ...handoff.evidenceLedger.map(
+        (record) => `- ${inert(JSON.stringify(record))}`
+      )
+    )
+  }
   lines.push("</run>")
   return lines.join("\n")
 }

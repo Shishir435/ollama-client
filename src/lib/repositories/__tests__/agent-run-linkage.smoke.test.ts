@@ -606,3 +606,58 @@ describe("a follow-up run", () => {
     TIMEOUT
   )
 })
+
+it(
+  "keeps source evidence through SQLite decoding, settlement and deletion",
+  async () => {
+    const { facade, runs, createLinkedAgentRun } = await boot()
+    const state = runState("ledger-sql")
+    await createLinkedAgentRun(state, "s-agent")
+    await runs.appendAgentStep({
+      runId: state.id,
+      stepId: "ledger-sql:1",
+      status: "planned",
+      at: CREATED_AT,
+      evidenceLedger: [
+        {
+          id: "ledger-sql:1:q0",
+          kind: "observed_fact",
+          validity: "current",
+          quote: "Plan A costs $12",
+          observedAt: CREATED_AT,
+          source: {
+            tabId: 7,
+            frameId: 0,
+            documentId: "doc-a",
+            snapshotId: "s-a",
+            generation: 1,
+            origin: "https://example.com"
+          }
+        }
+      ]
+    })
+    await runs.appendAgentStep({
+      runId: state.id,
+      stepId: "ledger-sql:1",
+      status: "verified",
+      at: CREATED_AT + 1
+    })
+    const read = await runs.listAgentSteps(state.id)
+    expect(read[0].evidenceLedger?.[0].source?.documentId).toBe("doc-a")
+    await runs.transitionAgentRun({
+      runId: state.id,
+      from: "submitted",
+      to: "failed",
+      patch: { updatedAt: CREATED_AT + 2 }
+    })
+    const [, card] = await facade.getMessagesBySession("s-agent")
+    expect(card?.agentHandoff?.evidenceLedger?.[0]).toMatchObject({
+      id: "ledger-sql:1:q0",
+      validity: "historical",
+      quote: "Plan A costs $12"
+    })
+    await runs.deleteSettledAgentRunsForSession("s-agent")
+    expect(await runs.listAgentSteps(state.id)).toEqual([])
+  },
+  TIMEOUT
+)

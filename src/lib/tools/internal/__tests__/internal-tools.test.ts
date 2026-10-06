@@ -90,8 +90,13 @@ describe("current_tab tool", () => {
     } as never)
 
     const result = await runCurrentTab({}, ctx)
-    expect(result.content).toBe("page body")
-    expect(result.sources?.[0]).toEqual({
+    expect(result.content).toContain("page body")
+    expect(result.sources?.[0].id).toMatch(/^browser-read:/)
+    expect(result.content).toContain(String(result.sources?.[0].id))
+    expect(result.content).toContain('"documentIdentity":"unavailable"')
+    expect(result.content).toContain('"observationTime":"unavailable"')
+    expect(result.content).not.toContain('"validity":"current"')
+    expect(result.sources?.[0]).toMatchObject({
       title: "Docs",
       url: "https://x.test"
     })
@@ -114,7 +119,7 @@ describe("current_tab tool", () => {
     const result = await runCurrentTab({}, { browserTabId: 12 })
     expect(browser.tabs.get).toHaveBeenCalledWith(12)
     expect(browser.tabs.sendMessage).toHaveBeenCalledWith(12, expect.anything())
-    expect(result.sources?.[0]).toEqual({
+    expect(result.sources?.[0]).toMatchObject({
       title: "Pull request",
       url: "https://git.test/pr/1"
     })
@@ -138,7 +143,7 @@ describe("current_tab tool", () => {
 
     const result = await runCurrentTab({}, ctx)
     expect(browser.scripting.executeScript).toHaveBeenCalledTimes(1)
-    expect(result.content).toBe("transcript")
+    expect(result.content).toContain("transcript")
   })
 
   it("reuses cached tab content when the tab URL and title are unchanged", async () => {
@@ -158,8 +163,8 @@ describe("current_tab tool", () => {
     const first = await runCurrentTab({}, ctx)
     const second = await runCurrentTab({}, ctx)
 
-    expect(first.content).toBe("cached body")
-    expect(second.content).toBe("cached body")
+    expect(first.content).toContain("cached body")
+    expect(second.content).toContain("cached body")
     expect(browser.tabs.sendMessage).toHaveBeenCalledTimes(1)
   })
 
@@ -179,8 +184,8 @@ describe("current_tab tool", () => {
     const first = await runCurrentTab({}, ctx)
     const second = await runCurrentTab({ force: true }, ctx)
 
-    expect(first.content).toBe("old body")
-    expect(second.content).toBe("fresh body")
+    expect(first.content).toContain("old body")
+    expect(second.content).toContain("fresh body")
     expect(browser.tabs.sendMessage).toHaveBeenCalledTimes(2)
   })
 
@@ -530,7 +535,7 @@ describe("browser knowledge tools", () => {
     })
     expect(result.content).toContain("Recent browser history")
     expect(result.content).toContain("Docs")
-    expect(result.sources?.[0]).toEqual({
+    expect(result.sources?.[0]).toMatchObject({
       title: "Docs",
       url: "https://docs.test"
     })

@@ -277,6 +277,38 @@ describe("createProviderAgentModelPort", () => {
     expect(shownB).toBeGreaterThanOrEqual(200)
   })
 
+  it("sends grounded references as untrusted data with the exact verifier kind", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      {
+        state,
+        observation,
+        evidenceLedger: [
+          {
+            id: "run:1:effect",
+            kind: "verified_effect",
+            validity: "historical",
+            observedAt: 2,
+            verificationKind: "activation",
+            source: {
+              tabId: 7,
+              frameId: 0,
+              documentId: "document-1",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              origin: "https://example.com"
+            }
+          }
+        ]
+      },
+      { aborted: false }
+    )
+    const prompt = String(streamChat.mock.calls[0]?.[0]?.messages[1]?.content)
+    expect(prompt).toContain('"id":"run:1:effect"')
+    expect(prompt).toContain('"verificationKind":"activation"')
+  })
+
   it("carries the run's kept findings into the prompt", async () => {
     const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
     const port = modelPort(streamChat)

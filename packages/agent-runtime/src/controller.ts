@@ -43,6 +43,14 @@ import {
 } from "./completion"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
+  agentCommandEvidence,
+  agentCompletionEvidence,
+  agentUserEvidence,
+  agentVerificationEvidence,
+  boundAgentEvidence,
+  buildAgentEvidenceLedger
+} from "./evidence-ledger"
+import {
   agentStepSourceUrl,
   agentStepTargetFrom,
   buildAgentFindings,
@@ -647,7 +655,11 @@ export const createAgentController = (
   ): Promise<
     Pick<
       AgentModelInput,
-      "history" | "previousVerification" | "inspection" | "findings"
+      | "history"
+      | "previousVerification"
+      | "inspection"
+      | "findings"
+      | "evidenceLedger"
     >
   > => {
     try {
@@ -656,11 +668,16 @@ export const createAgentController = (
       const previous = previousAgentVerification(receipts)
       const inspection = currentAgentInspection(receipts)
       const findings = buildAgentFindings(receipts)
+      const evidenceLedger = boundAgentEvidence([
+        ...agentUserEvidence(state),
+        ...buildAgentEvidenceLedger(receipts, state.allowedOrigins)
+      ])
       return {
         ...(history.length > 0 ? { history } : {}),
         ...(previous ? { previousVerification: previous } : {}),
         ...(inspection ? { inspection } : {}),
-        ...(findings.length > 0 ? { findings } : {})
+        ...(findings.length > 0 ? { findings } : {}),
+        evidenceLedger
       }
     } catch (error) {
       /**
@@ -828,6 +845,7 @@ export const createAgentController = (
       | "previousVerification"
       | "inspection"
       | "findings"
+      | "evidenceLedger"
       | "screenshot"
     >
   ) => {
@@ -1395,6 +1413,13 @@ export const createAgentController = (
         ...stepEvidence(effect),
         risk: policy.risk,
         verification,
+        evidenceLedger: agentVerificationEvidence(
+          observation,
+          effect,
+          verification,
+          requirementId,
+          stepId
+        ),
         at: dependencies.clock.now()
       })
       if (action.type === "pause") {
@@ -1598,6 +1623,17 @@ export const createAgentController = (
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
     const stepId = `${state.id}:${stepNumber}`
+    const prior = withLiveCommands(
+      await dependencies.persistence.steps(state.id).catch(() => undefined)
+    )
+    const evidenceLedger = agentCommandEvidence(
+      state,
+      observation,
+      decision,
+      effect,
+      prior,
+      stepId
+    )
     await appendStep({
       runId: state.id,
       stepId,
@@ -1608,6 +1644,7 @@ export const createAgentController = (
         : {}),
       ...stepEvidence(effect),
       ...(decision.finding ? { finding: decision.finding } : {}),
+      evidenceLedger,
       at: dependencies.clock.now()
     })
     const authorized = await handlePolicy(
@@ -1768,7 +1805,8 @@ export const createAgentController = (
   const settleJudgedRun = async (
     state: AgentRunState,
     judgement: Exclude<AgentCompletionJudgement, { type: "refused" }>,
-    summary: string
+    summary: string,
+    evidenceLedger: AgentRunState["evidenceLedger"]
   ): Promise<void> => {
     const settled =
       judgement.type === "partial"
@@ -1778,6 +1816,7 @@ export const createAgentController = (
           : "completed"
     const patch: AgentStatePatch = {
       result: summary,
+      ...(evidenceLedger?.length ? { evidenceLedger } : {}),
       updatedAt: dependencies.clock.now()
     }
     if (judgement.outcome) patch.outcome = judgement.outcome
@@ -1891,6 +1930,14 @@ export const createAgentController = (
     const judgement =
       outstandingAnswer(state) ?? challengeEarlyUnmet(state, settled.judgement)
     if (judgement.type !== "refused") {
+      const prefix = `${state.id}:answer:${state.observationCount}`
+      const evidenceLedger = agentCompletionEvidence(
+        state,
+        observation,
+        decision,
+        steps,
+        prefix
+      )
       await settleJudgedRun(
         state,
         judgement,
@@ -1899,7 +1946,8 @@ export const createAgentController = (
           state.requirements,
           decision.outcomes,
           judgement.outcome?.met
-        )
+        ),
+        evidenceLedger
       )
       return undefined
     }
@@ -2279,6 +2327,21 @@ export const createAgentController = (
       await askRemoval(deciding)
       return undefined
     }
+    if (recalled.evidenceLedger)
+      recalled.evidenceLedger = buildAgentEvidenceLedger(
+        [
+          {
+            runId: state.id,
+            stepId: "recall",
+            status: "verified",
+            at: 0,
+            sequence: 0,
+            evidenceLedger: [...recalled.evidenceLedger]
+          }
+        ],
+        deciding.allowedOrigins,
+        observation
+      )
     let decision: AgentDecision | undefined
     const context: AgentResolutionContext = {}
     try {

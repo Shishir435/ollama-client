@@ -5,6 +5,7 @@ import type {
   AgentDecision,
   AgentDialogState,
   AgentError,
+  AgentEvidenceRecord,
   AgentGrant,
   AgentImageRect,
   AgentObservation,
@@ -75,6 +76,7 @@ export interface AgentModelInput {
    * a fact learned early survives a long run. Page-derived and untrusted.
    */
   findings?: readonly AgentFinding[]
+  evidenceLedger?: readonly AgentEvidenceRecord[]
   /**
    * How the step before this decision turned out. Declared since the loop was
    * written and never populated, so every decision was made as if it were the
@@ -514,6 +516,7 @@ export type AgentStatePatch = Partial<
     | "deadline"
     | "controlledTabId"
     | "error"
+    | "evidenceLedger"
     | "grants"
     | "observationCount"
     | "outcome"
@@ -598,6 +601,7 @@ export interface AgentStepWrite {
   sourceUrl?: string
   /** Model-authored note attached to the step it belongs to. */
   finding?: string
+  evidenceLedger?: AgentEvidenceRecord[]
   /**
    * The reasoning the model streamed for the decision that opened this step,
    * bounded, for the supervisor's card only. Never read back into a prompt.

@@ -1,6 +1,7 @@
 export * from "./agent"
 export * from "./agent-command"
 export * from "./agent-events"
+export * from "./agent-evidence"
 export * from "./agent-keys"
 export * from "./agent-observation"
 export * from "./agent-panel"
