@@ -286,7 +286,7 @@ describe("OpenCode turn reader", () => {
     const client = clientWith({
       messages: [
         {
-          info: { role: "assistant", finish: "stop" },
+          info: { id: "m2", role: "assistant", finish: "stop" },
           parts: [
             { type: "reasoning", text: "thought more" },
             { type: "text", text: "partial answer, finished" }
@@ -305,10 +305,86 @@ describe("OpenCode turn reader", () => {
       timeoutMs: 1000,
       requireFinalOrContent: true,
       onProgress,
-      alreadyStreamed: { content: "partial answer", reasoning: "thought" }
+      alreadyStreamed: new Map([
+        [
+          "m1",
+          { content: "an earlier message that called a tool", reasoning: "" }
+        ],
+        ["m2", { content: "partial answer", reasoning: "thought" }]
+      ])
     })
     expect(onProgress).toHaveBeenCalledTimes(1)
     expect(onProgress).toHaveBeenCalledWith(", finished", " more")
+  })
+
+  it("starts a message the event feed never reached from its first character", async () => {
+    const client = clientWith({
+      messages: [
+        {
+          info: { id: "m2", role: "assistant", finish: "stop" },
+          parts: [{ type: "text", text: "the answer" }]
+        }
+      ]
+    })
+    const onProgress = vi.fn()
+    const reader = createTurnReader({
+      client: client as never,
+      retryAsync,
+      pollIntervalMs: 0
+    })
+
+    await reader.pollForAssistantResponse("session-1", {
+      timeoutMs: 1000,
+      requireFinalOrContent: true,
+      onProgress,
+      alreadyStreamed: new Map([
+        ["m1", { content: "text streamed before the tool call", reasoning: "" }]
+      ])
+    })
+    expect(onProgress).toHaveBeenCalledWith("the answer", "")
+  })
+
+  it("keeps what it streamed, by message, when the event feed fails", async () => {
+    const client = {
+      ...clientWith(),
+      event: {
+        subscribe: vi.fn(async () => ({
+          stream: (async function* () {
+            yield {
+              type: "message.part.updated",
+              properties: {
+                part: {
+                  sessionID: "session-1",
+                  messageID: "m1",
+                  id: "text-1",
+                  type: "text"
+                }
+              }
+            }
+            yield {
+              type: "message.part.delta",
+              properties: {
+                sessionID: "session-1",
+                messageID: "m1",
+                partID: "text-1",
+                delta: "half an"
+              }
+            }
+            throw new Error("feed dropped")
+          })()
+        }))
+      }
+    }
+    const reader = createTurnReader({ client: client as never, retryAsync })
+
+    const stream = await reader.openEventStream("session-1", {
+      timeoutMs: 1000
+    })
+    await expect(stream.done).rejects.toThrow("feed dropped")
+    expect(stream.streamed().get("m1")).toEqual({
+      content: "half an",
+      reasoning: ""
+    })
   })
 
   it("closes the event subscription when opening it fails", async () => {

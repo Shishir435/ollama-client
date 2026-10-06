@@ -81,6 +81,7 @@ export interface MessageFailure {
 }
 
 interface MessageInfo {
+  id?: string
   role?: string
   finish?: string
   time?: { completed?: number }
@@ -97,6 +98,7 @@ interface StreamEvent {
   properties?: {
     part?: MessagePart & { sessionID?: string }
     sessionID?: string
+    messageID?: string
     partID?: string
     delta?: string
     info?: { sessionID?: string; finish?: string }
@@ -157,11 +159,40 @@ export const extractFromParts = (
   }
 }
 
-/** Poll cursors that begin after whatever was already streamed. */
-const startCursors = (streamed?: { content: string; reasoning: string }) => ({
-  content: streamed?.content.length ?? 0,
-  reasoning: streamed?.reasoning.length ?? 0
-})
+/** Text and reasoning one assistant message has streamed so far. */
+interface StreamedText {
+  content: string
+  reasoning: string
+}
+
+/**
+ * What the event feed streamed, by assistant message id. Keyed by message
+ * because a turn that calls tools writes several assistant messages, and the
+ * poll reads only the latest: one total across all of them is an offset into
+ * text the poll never sees.
+ */
+export type StreamedByMessage = ReadonlyMap<string, StreamedText>
+
+/**
+ * Poll cursors for the message being read, each beginning after whatever the
+ * event feed already streamed of it. A new message starts its own cursors:
+ * those of the last one are offsets into text this message does not contain.
+ */
+const messageCursors = (streamed?: StreamedByMessage) => {
+  let messageId: string | undefined
+  let cursors = { content: 0, reasoning: 0 }
+  return (id: string | undefined) => {
+    if (id !== messageId) {
+      messageId = id
+      const already = id ? streamed?.get(id) : undefined
+      cursors = {
+        content: already?.content.length ?? 0,
+        reasoning: already?.reasoning.length ?? 0
+      }
+    }
+    return cursors
+  }
+}
 
 export const createTurnReader = ({
   client,
@@ -247,7 +278,12 @@ export const createTurnReader = ({
       /** Aborted when the core has ended the request this feed belongs to. */
       abortSignal?: AbortSignal
     }
-  ): Promise<{ done: Promise<TurnOutcome>; controller: AbortController }> => {
+  ): Promise<{
+    done: Promise<TurnOutcome>
+    controller: AbortController
+    /** What was streamed so far, readable after `done` settles or rejects. */
+    streamed: () => StreamedByMessage
+  }> => {
     const controller = new AbortController()
     const subscribeLabel = `event.subscribe(${sessionId})`
     /**
@@ -278,6 +314,20 @@ export const createTurnReader = ({
     let reasoning = ""
     let receivedDelta = false
     let deltaChars = 0
+    const streamedByMessage = new Map<string, StreamedText>()
+    const recordStreamed = (
+      messageId: string | undefined,
+      field: keyof StreamedText,
+      delta: string
+    ) => {
+      if (!messageId) return
+      const entry = streamedByMessage.get(messageId) ?? {
+        content: "",
+        reasoning: ""
+      }
+      entry[field] += delta
+      streamedByMessage.set(messageId, entry)
+    }
     const startedAt = Date.now()
 
     const done = new Promise<TurnOutcome>((resolve, reject) => {
@@ -404,13 +454,18 @@ export const createTurnReader = ({
         if (firstDeltaTimer) clearTimeout(firstDeltaTimer)
         scheduleIdleTimer()
         deltaChars += delta.length
+        const messageId = classified.isUpdated
+          ? classified.part?.messageID
+          : classified.properties?.messageID
         if (knownType === "reasoning") {
           reasoning += delta
+          recordStreamed(messageId, "reasoning", delta)
           onDelta?.(delta, true)
           return
         }
         if (knownType === "text") {
           content += delta
+          recordStreamed(messageId, "content", delta)
           onDelta?.(delta, false)
           return
         }
@@ -481,7 +536,7 @@ export const createTurnReader = ({
       })
     })
 
-    return { done, controller }
+    return { done, controller, streamed: () => streamedByMessage }
   }
 
   /**
@@ -594,13 +649,14 @@ export const createTurnReader = ({
       abortSignal?: AbortSignal
       /**
        * What the event feed already streamed before the poll took over. Seeds
-       * the cursors, or the poll re-sent the whole answer from its first
-       * character and the client replayed the duplicate in later requests.
+       * the cursors of each message, or the poll re-sent the whole answer from
+       * its first character and the client replayed the duplicate in later
+       * requests.
        */
-      alreadyStreamed?: { content: string; reasoning: string }
+      alreadyStreamed?: StreamedByMessage
     }
   ): Promise<TurnOutcome> => {
-    const cursors = startCursors(alreadyStreamed)
+    const cursorsFor = messageCursors(alreadyStreamed)
     const seenPatchHashes = new Set<string>()
     const startedAt = Date.now()
     let lastHeartbeatAt = startedAt
@@ -625,7 +681,7 @@ export const createTurnReader = ({
         streamProgress(
           extracted.content,
           extracted.reasoning,
-          cursors,
+          cursorsFor(entry.info?.id),
           onProgress
         )
         await announceEntryPatches(sessionId, entry, seenPatchHashes, onPatch)

@@ -178,6 +178,15 @@ describe("Codex sources", () => {
     ).toEqual([{ url: "https://example.com/doc" }])
   })
 
+  it("counts only the page an action opened, not the results beside it", () => {
+    expect(collectCodexSources([OPEN_ITEM], "No links here.")).toEqual([
+      {
+        url: "https://nodejs.org/en",
+        title: "Node.js — Run JavaScript Everywhere"
+      }
+    ])
+  })
+
   it("caps the list", () => {
     const opened = Array.from({ length: 20 }, (_, index) => ({
       type: "webSearch",

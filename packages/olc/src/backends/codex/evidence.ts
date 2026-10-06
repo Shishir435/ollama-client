@@ -86,7 +86,11 @@ interface SearchPages {
   searched: string[]
 }
 
-/** Split the items' pages into opened and merely listed, keeping first titles. */
+/**
+ * Split the items' pages into opened and merely listed, keeping first titles.
+ * Only an action's own `url` counts as opened: the `results` beside it are
+ * pages the model was shown, whatever the action was.
+ */
 const gatherSearchPages = (
   webSearchItems: readonly Record<string, unknown>[]
 ): SearchPages => {
@@ -94,14 +98,13 @@ const gatherSearchPages = (
   for (const item of webSearchItems) {
     const action = isRecord(item.action) ? item.action : {}
     const isOpen = action.type === "openPage" || action.type === "findInPage"
-    const bucket = isOpen ? pages.opened : pages.searched
     const results = Array.isArray(item.results) ? item.results : []
     for (const source of results.map(readResult)) {
       if (!source) continue
       if (source.title && !pages.titles.has(source.url)) {
         pages.titles.set(source.url, source.title)
       }
-      bucket.push(source.url)
+      pages.searched.push(source.url)
     }
     const actionUrl = isOpen ? httpUrl(action.url) : null
     if (actionUrl) pages.opened.push(actionUrl)

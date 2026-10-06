@@ -479,7 +479,7 @@ export const createOpencodeBackend = (
           })
           final = await turnReader.pollForAssistantResponseWithRetries(
             this.id,
-            pollOptions,
+            { ...pollOptions, alreadyStreamed: stream.streamed() },
             opencode.POLL_TIMEOUT_RETRIES
           )
         } else if (collected.suspended) {
@@ -491,13 +491,7 @@ export const createOpencodeBackend = (
           })
           final = await turnReader.pollForAssistantResponseWithRetries(
             this.id,
-            {
-              ...pollOptions,
-              alreadyStreamed: {
-                content: collected.content,
-                reasoning: collected.reasoning
-              }
-            },
+            { ...pollOptions, alreadyStreamed: stream.streamed() },
             opencode.POLL_TIMEOUT_RETRIES
           )
         } else {
