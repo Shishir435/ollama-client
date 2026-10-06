@@ -177,6 +177,11 @@ describe("the whole task survives planning", () => {
     ["Delete the rows for March and April", ["March row", "April row"]],
     ["Email Alice, Bob and Carol", ["Alice", "Bob", "Carol"]],
     ["Mark invoice no. 5 paid", ["invoice 5"]],
+    ["Mark invoice no. Five paid", ["invoice five"]],
+    ["Mark invoice no. five paid", ["invoice five"]],
+    ["Mark invoice no. Twenty-one paid", ["invoice twenty-one"]],
+    ["Mark invoice no. One hundred paid", ["invoice one hundred"]],
+    ["Mark invoices nos. Five and Six paid", ["invoice five", "invoice six"]],
     ["Email Mrs. Smith the receipt", ["Mrs Smith"]]
   ])("accepts items the user named in: %s", (goal, items) => {
     const plan = parseAgentTaskPlan(
@@ -194,7 +199,9 @@ describe("the whole task survives planning", () => {
   it.each([
     "Mark invoice 2 paid; invoice 1 is overdue",
     "Mark invoice 2 paid. invoice 1 is overdue",
-    "Mark invoice 2 paid for Main St. Invoice 1 is overdue"
+    "Mark invoice 2 paid for Main St. Invoice 1 is overdue",
+    "Mark invoice 2 paid with no. Please check invoice 1",
+    "Mark invoice 2 paid with no. Fivefold checks concern invoice 1"
   ])("refuses an item assembled from two sentences: %s", (goal) => {
     expect(() =>
       parseAgentTaskPlan(
