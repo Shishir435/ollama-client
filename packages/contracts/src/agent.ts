@@ -112,6 +112,21 @@ export const MAX_AGENT_EVIDENCE_CHARS = 200
 export const MAX_AGENT_REQUIREMENTS = 8
 export const MAX_AGENT_REQUIREMENT_CHARS = 200
 export const MAX_AGENT_REQUIREMENT_ID_CHARS = 8
+/** The goal text an entry quotes as its reason to exist. */
+export const MAX_AGENT_REQUIREMENT_SOURCE_CHARS = 200
+/** Repeated items one requirement may enumerate, and how long each may be. */
+export const MAX_AGENT_REQUIREMENT_ITEMS = 12
+export const MAX_AGENT_REQUIREMENT_ITEM_CHARS = 80
+/**
+ * Items across the whole plan. The plan rides every decision prompt and every
+ * checkpoint, so its enumeration is bounded as a whole, not only per entry.
+ */
+export const MAX_AGENT_PLAN_ITEMS = 24
+export const MAX_AGENT_CONSTRAINTS = 8
+/** How much of a planner's stated limitation the failed run keeps. */
+export const MAX_AGENT_PLAN_LIMITATION_CHARS = 1_000
+/** Amendments a run records; each one is a user answer the plan absorbed. */
+export const MAX_AGENT_PLAN_AMENDMENTS = 10
 
 export const AgentDecisionSchema = z.discriminatedUnion("type", [
   z
@@ -165,6 +180,32 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
                 .string()
                 .min(1)
                 .max(MAX_AGENT_EVIDENCE_CHARS)
+                .optional(),
+              /**
+               * One answer per item of an itemized requirement, by its
+               * position. A requirement covering nine invoices is met only
+               * when all nine are, each judged on its own evidence — one
+               * quotation for one invoice says nothing about the other eight.
+               */
+              items: z
+                .array(
+                  z
+                    .object({
+                      index: z
+                        .number()
+                        .int()
+                        .nonnegative()
+                        .max(MAX_AGENT_REQUIREMENT_ITEMS - 1),
+                      met: z.boolean(),
+                      evidence: z
+                        .string()
+                        .min(1)
+                        .max(MAX_AGENT_EVIDENCE_CHARS)
+                        .optional()
+                    })
+                    .strict()
+                )
+                .max(MAX_AGENT_REQUIREMENT_ITEMS)
                 .optional()
             })
             .strict()
@@ -458,21 +499,36 @@ export const AgentTaskRequirementSchema = z
      * asking a research goal to quote a saved-state indicator that does not
      * exist would refuse every one of them.
      */
-    kind: z.enum(["change", "read"])
+    kind: z.enum(["change", "read"]),
+    /**
+     * The words of the goal — or of a user's answer — this outcome answers,
+     * quoted. Checked against them when the plan is parsed, so an outcome
+     * nobody asked for cannot enter the plan dressed as one somebody did.
+     * Absent on rows planned before it existed, and when a model quoted
+     * nothing: the outcome is kept, untraced, rather than costing the run its
+     * plan.
+     */
+    source: z
+      .string()
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENT_SOURCE_CHARS)
+      .optional(),
+    /**
+     * The repeated things one outcome covers — rows, recipients, files —
+     * named rather than each becoming a top-level requirement. Nine rows to
+     * update is one outcome with nine items, not nine outcomes the cap would
+     * have to cut.
+     */
+    items: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ITEM_CHARS))
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENT_ITEMS)
+      .optional(),
+    /** The plan version that introduced it; absent means the first. */
+    since: z.number().int().min(1).optional()
   })
   .strict()
 export type AgentTaskRequirement = z.infer<typeof AgentTaskRequirementSchema>
-
-/** What the planning call returns, before the run is allowed to look. */
-export const AgentTaskPlanSchema = z
-  .object({
-    requirements: z
-      .array(AgentTaskRequirementSchema)
-      .min(1)
-      .max(MAX_AGENT_REQUIREMENTS)
-  })
-  .strict()
-export type AgentTaskPlan = z.infer<typeof AgentTaskPlanSchema>
 
 /**
  * Which requirements a settled run could evidence, by id. Recorded on the run
@@ -587,6 +643,237 @@ export type AgentConsequentialEffect = z.infer<
 >
 
 /**
+ * What the goal says must not happen, kept apart from what it asks for.
+ *
+ * "Fill the form but don't submit it" planned as two outcomes asked the run
+ * to evidence a non-event, and a plan with only outcomes had nowhere to keep
+ * "only these two rows" or "under $50" at all — the boundary was in the goal
+ * and nowhere the run checked. `exclude` is a thing not to do, `scope` names
+ * what may be touched and implies nothing else is, `limit` is a bound a value
+ * must stay within.
+ *
+ * `forbids` is the part a controller can enforce without reading prose: the
+ * consequential effect classes the constraint rules out. A command whose
+ * resolved effect carries one is refused before policy is asked. The text
+ * stays for the decision model and the user; the classes are what binds.
+ */
+export const AGENT_CONSTRAINT_KINDS = ["exclude", "scope", "limit"] as const
+export const AgentTaskConstraintSchema = z
+  .object({
+    id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+    text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+    kind: z.enum(AGENT_CONSTRAINT_KINDS),
+    forbids: z
+      .array(AgentConsequentialEffectSchema)
+      .min(1)
+      .max(AGENT_CONSEQUENTIAL_EFFECTS.length)
+      .optional(),
+    source: z
+      .string()
+      .min(1)
+      .max(MAX_AGENT_REQUIREMENT_SOURCE_CHARS)
+      .optional(),
+    since: z.number().int().min(1).optional()
+  })
+  .strict()
+export type AgentTaskConstraint = z.infer<typeof AgentTaskConstraintSchema>
+
+/**
+ * One thing a planner proposes to take out of the plan: a whole entry, or
+ * one item of an itemized requirement. Never applied on the planner's word —
+ * the run asks the user, and only a plain yes removes it.
+ */
+export const AgentPlanRemovalSchema = z
+  .object({
+    id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+    item: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ITEM_CHARS).optional()
+  })
+  .strict()
+export type AgentPlanRemoval = z.infer<typeof AgentPlanRemovalSchema>
+export const MAX_AGENT_PLAN_REMOVALS =
+  MAX_AGENT_REQUIREMENTS + MAX_AGENT_CONSTRAINTS
+
+/** The plan bounds a goal can outgrow. */
+export const AGENT_PLAN_OVER_CAP_UNITS = [
+  "outcomes",
+  "items",
+  "constraints"
+] as const
+export type AgentPlanOverCapUnit = (typeof AGENT_PLAN_OVER_CAP_UNITS)[number]
+
+/**
+ * What the planning call returns, before the run is allowed to look.
+ *
+ * Exactly one answer: a plan, a question the goal leaves open, a limitation
+ * that rules the task out, or the count of outcomes a goal asked for when it
+ * was more than one run tracks. The last three are said before anything
+ * happens to a page, which is the only time saying them costs nothing.
+ */
+export const AgentTaskPlanSchema = z
+  .object({
+    requirements: z
+      .array(AgentTaskRequirementSchema)
+      .max(MAX_AGENT_REQUIREMENTS),
+    constraints: z
+      .array(AgentTaskConstraintSchema)
+      .max(MAX_AGENT_CONSTRAINTS)
+      .optional(),
+    clarification: z.string().min(1).max(MAX_AGENT_QUESTION_CHARS).optional(),
+    limitation: z
+      .string()
+      .min(1)
+      .max(MAX_AGENT_PLAN_LIMITATION_CHARS)
+      .optional(),
+    /**
+     * Which bound the goal outgrew, by how much, and what the bound is: the
+     * question it becomes has to name the limit that actually stopped the
+     * plan, not call thirteen rows thirteen outcomes.
+     */
+    overCap: z
+      .object({
+        unit: z.enum(AGENT_PLAN_OVER_CAP_UNITS),
+        requested: z.number().int().positive(),
+        max: z.number().int().positive()
+      })
+      .strict()
+      .optional(),
+    /**
+     * Made by rule because the planner could not be reached. It carries the
+     * limits the user's newest words set, which a rule can read, and not the
+     * outcomes they may have added, which it cannot — so the answer it came
+     * from is not counted as absorbed.
+     */
+    provisional: z.literal(true).optional(),
+    /**
+     * What an amendment would take out, for the user to confirm. A removal
+     * the planner could apply itself is a removal a misread answer could
+     * apply, and every reading rule tried for that was one phrasing short.
+     */
+    proposedRemovals: z
+      .array(AgentPlanRemovalSchema)
+      .min(1)
+      .max(MAX_AGENT_PLAN_REMOVALS)
+      .optional()
+  })
+  .strict()
+  .refine(
+    (plan) =>
+      [
+        plan.requirements.length > 0,
+        plan.clarification !== undefined,
+        plan.limitation !== undefined,
+        plan.overCap !== undefined
+      ].filter(Boolean).length === 1,
+    "A plan is exactly one of: requirements, a clarification, a limitation, or an over-cap count"
+  )
+  .refine(
+    (plan) =>
+      plan.requirements.reduce(
+        (total, requirement) => total + (requirement.items?.length ?? 0),
+        0
+      ) <= MAX_AGENT_PLAN_ITEMS,
+    "A plan enumerates at most MAX_AGENT_PLAN_ITEMS items"
+  )
+export type AgentTaskPlan = z.infer<typeof AgentTaskPlanSchema>
+
+/**
+ * One change the user's own words made to the plan after it was fixed.
+ *
+ * Only an answer the user typed amends a plan — never page text, a finding,
+ * or a recovery decision — so each amendment names the answer it came from.
+ * The ids it added and removed are recorded so a reader can reconstruct
+ * every version without the plan being stored once per version.
+ */
+export const AgentPlanAmendmentSchema = z
+  .object({
+    version: z.number().int().min(2),
+    answeredAt: z.number().int().nonnegative(),
+    added: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS + MAX_AGENT_CONSTRAINTS),
+    removed: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS + MAX_AGENT_CONSTRAINTS),
+    /** Items the user confirmed removing from a requirement that stayed. */
+    removedItems: z
+      .array(AgentPlanRemovalSchema.required({ item: true }))
+      .max(MAX_AGENT_PLAN_ITEMS)
+      .optional(),
+    at: z.number().int().nonnegative()
+  })
+  .strict()
+export type AgentPlanAmendment = z.infer<typeof AgentPlanAmendmentSchema>
+
+/**
+ * The bookkeeping that keeps a plan's ids stable across its versions.
+ *
+ * `issued` is the highest number ever stamped on a requirement and on a
+ * constraint, so an id a user's amendment removed is never handed to a
+ * different outcome later — a receipt bound to `r3` must keep meaning the
+ * `r3` it was bound to. `reconciledThrough` is the newest user answer the
+ * plan has been checked against; an answer newer than it is what prompts
+ * the next amendment.
+ */
+export const AgentPlanRecordSchema = z
+  .object({
+    version: z.number().int().min(1),
+    issued: z
+      .object({
+        requirements: z.number().int().nonnegative(),
+        constraints: z.number().int().nonnegative()
+      })
+      .strict(),
+    reconciledThrough: z.number().int().nonnegative().optional(),
+    amendments: z
+      .array(AgentPlanAmendmentSchema)
+      .max(MAX_AGENT_PLAN_AMENDMENTS)
+      .optional(),
+    /**
+     * Removals the planner proposed and the user has been asked about. Held
+     * here, with the question that asks, so the answer to that question —
+     * and no other — decides them.
+     */
+    pending: z
+      .object({
+        questionId: z.string().min(1).max(200),
+        removals: z
+          .array(AgentPlanRemovalSchema)
+          .min(1)
+          .max(MAX_AGENT_PLAN_REMOVALS),
+        /**
+         * Set when the removals lift prohibitions. Asked on its own, by the
+         * effect it would allow, and answered only by "allow": a "yes" to
+         * "no longer needs: don't submit" reads just as well as "yes, don't".
+         */
+        lift: z.literal(true).optional()
+      })
+      .strict()
+      .optional()
+  })
+  .strict()
+export type AgentPlanRecord = z.infer<typeof AgentPlanRecordSchema>
+
+/**
+ * A requirement of the run a follow-up continues, with whether it was met.
+ *
+ * Carried so the follow-up's plan can keep the same id for the same outcome:
+ * "retry" reasks the same goal, and an `r2` that meant the submission in the
+ * first run and the second field in the retry would make two records
+ * disagree about one task.
+ */
+export const AgentPreviousRequirementSchema = z
+  .object({
+    id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+    text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+    kind: z.enum(["change", "read"]),
+    met: z.boolean().optional()
+  })
+  .strict()
+export type AgentPreviousRequirement = z.infer<
+  typeof AgentPreviousRequirementSchema
+>
+
+/**
  * Consequential effects a follow-up can carry from the chain before it.
  *
  * A limit on what may be continued, never a window over what happened: a
@@ -641,7 +928,21 @@ export const AgentPreviousRunSchema = z
   .object({
     mode: AgentFollowUpModeSchema,
     handoff: AgentConversationHandoffSchema,
-    effects: z.array(AgentPriorEffectSchema).max(MAX_AGENT_PRIOR_EFFECTS)
+    effects: z.array(AgentPriorEffectSchema).max(MAX_AGENT_PRIOR_EFFECTS),
+    /** Absent when the earlier run was never planned. */
+    requirements: z
+      .array(AgentPreviousRequirementSchema)
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * The earlier run's prohibitions — constraints that forbid an effect.
+     * A follow-up's goal is often the chat model's words, not the user's, so
+     * a "don't submit" said to the first run must not end with it.
+     */
+    constraints: z
+      .array(AgentTaskConstraintSchema)
+      .max(MAX_AGENT_CONSTRAINTS)
+      .optional()
   })
   .strict()
 export type AgentPreviousRun = z.infer<typeof AgentPreviousRunSchema>
@@ -685,6 +986,16 @@ export const AgentRunStateSchema = z
       .array(AgentTaskRequirementSchema)
       .max(MAX_AGENT_REQUIREMENTS)
       .optional(),
+    /**
+     * What the goal says must not happen. Written with the requirements and
+     * amended with them; absent on rows planned before constraints existed.
+     */
+    constraints: z
+      .array(AgentTaskConstraintSchema)
+      .max(MAX_AGENT_CONSTRAINTS)
+      .optional(),
+    /** Version and id bookkeeping for `requirements` and `constraints`. */
+    plan: AgentPlanRecordSchema.optional(),
     /** Which of them the settled run could evidence. */
     outcome: AgentRunOutcomeSchema.optional(),
     /** Bounded model-authored outcome retained for completed-run display. */

@@ -179,7 +179,13 @@ describe("Agent step telemetry against the real engine", () => {
                 name: planning ? "agent_plan" : "agent_decision",
                 arguments: planning
                   ? {
-                      requirements: [{ text: "report the page", kind: "read" }]
+                      requirements: [
+                        {
+                          text: "report the page",
+                          kind: "read",
+                          source: "Read the page"
+                        }
+                      ]
                     }
                   : (decisions.shift() ?? {
                       type: "complete",

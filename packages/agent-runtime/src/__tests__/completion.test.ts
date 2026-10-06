@@ -2294,3 +2294,450 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 })
+
+describe("itemized requirements", () => {
+  const paidPage = observation({
+    visibleText: "Invoice 1 Paid. Invoice 2 Paid. Invoice 3 Due."
+  })
+  const invoices = {
+    id: "r1",
+    text: "each invoice shows Paid",
+    kind: "change" as const,
+    items: ["invoice 1", "invoice 2"]
+  }
+  const changed = [unresolved({ sequence: 1 })]
+
+  /** One quotation for one invoice says nothing about the other. */
+  it("sends back a claim that does not answer every item", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [invoices],
+        outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 Paid" }]
+      })
+    ).toMatchObject({ type: "refused", reason: "missing_outcomes" })
+  })
+
+  it("accepts each item on its own evidence", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [invoices],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1 Paid" },
+              { index: 1, met: true, evidence: "Invoice 2 Paid" }
+            ]
+          }
+        ]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  it("refuses an item whose quotation the page does not show", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [{ ...invoices, items: ["invoice 1", "invoice 3"] }],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1 Paid" },
+              { index: 1, met: true, evidence: "Invoice 3 Paid" }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it("leaves the requirement unmet when one item is not met", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [
+          invoices,
+          { id: "r2", text: "the total is reported", kind: "read" }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1 Paid" },
+              { index: 1, met: false }
+            ]
+          },
+          { id: "r2", met: true }
+        ]
+      })
+    ).toEqual({ type: "partial", outcome: { met: ["r2"], unmet: ["r1"] } })
+  })
+
+  /** "Invoice 1 Paid" twice is one invoice, not two. */
+  it("refuses one item's quotation reused for another", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: paidPage,
+        requirements: [invoices],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1 Paid" },
+              { index: 1, met: true, evidence: "Invoice 1 Paid" }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it("refuses a quotation that does not name its item", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: observation({ visibleText: "Invoice 10 Paid. Paid." }),
+        requirements: [{ ...invoices, items: ["invoice 1"] }],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [{ index: 0, met: true, evidence: "Invoice 10 Paid" }]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  /**
+   * A batch names one control at top level and every field in its
+   * verification. Reading only the top level filtered out the verified
+   * fields of an itemized form.
+   */
+  it.each([
+    false,
+    true
+  ])("refuses a checkbox receipt used to claim a field value (batch: %s)", (batch) => {
+    const checked = step({
+      sequence: 1,
+      requirementId: "r1",
+      target: { name: "Given name" },
+      command: batch
+        ? {
+            type: "fill_form",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            fields: [{ type: "check", ref: "e1" }]
+          }
+        : { type: "check", snapshotId: "snapshot-1", generation: 1, ref: "e1" },
+      verification: {
+        outcome: "confirmed",
+        evidence: batch
+          ? {
+              kind: "fields",
+              summary: "The field is checked",
+              observedAt: 1,
+              fields: [{ name: "Given name" }]
+            }
+          : {
+              kind: "checked",
+              summary: "The control is checked",
+              observedAt: 1
+            }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [checked],
+        observation: observation({
+          visibleText: "Contact form",
+          elements: [
+            { name: "Given name", checked: true, value: "Ada" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the names are filled in",
+            kind: "change",
+            items: ["Given name Ada"]
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, items: [{ index: 0, met: true }] }]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
+  it.each([
+    ["Ada", "Given name Ada", "accepted"],
+    ["Bob", "Given name Ada", "refused"],
+    ["Ada", "Given name Ada saved", "refused"]
+  ])("binds a typed value %s to the whole item %s", (value, item, type) => {
+    const typed = step({
+      sequence: 1,
+      requirementId: "r1",
+      target: { name: "Given name" },
+      command: {
+        type: "clear_and_type",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        ref: "e1",
+        text: value
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "field",
+          summary: "The field holds its value",
+          observedAt: 1
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [typed],
+        observation: observation({ visibleText: "Contact form" }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the name is filled in",
+            kind: "change",
+            items: [item]
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, items: [{ index: 0, met: true }] }]
+      })
+    ).toMatchObject({ type })
+  })
+
+  it("credits each item from the verified fields of a batch", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [
+          { type: "clear_and_type", ref: "e1", text: "[redacted]" },
+          { type: "clear_and_type", ref: "e2", text: "[redacted]" }
+        ]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "Both fields hold their values",
+          observedAt: 1,
+          fields: [{ name: "Given name" }, { name: "Family name" }]
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({
+          visibleText: "Contact form",
+          elements: [
+            { name: "Given name", value: "Ada" },
+            { name: "Family name", value: "Lovelace" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the names are filled in",
+            kind: "change",
+            items: ["Given name Ada", "Family name Lovelace"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true },
+              { index: 1, met: true }
+            ]
+          }
+        ]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  /**
+   * "Status" is named by every item, so it identifies none: two receipts on
+   * one invoice's Status field must not credit both invoices.
+   */
+  it("credits no item from a field every item names", () => {
+    const filledStatus = (sequence: number) =>
+      step({
+        sequence,
+        requirementId: "r1",
+        command: {
+          type: "fill_form",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          fields: [{ type: "clear_and_type", ref: "e1", text: "[redacted]" }]
+        },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "fields",
+            summary: "The field holds its value",
+            observedAt: sequence,
+            fields: [{ name: "Status" }]
+          }
+        }
+      })
+    expect(
+      judgeAgentCompletion({
+        steps: [filledStatus(1), filledStatus(2)],
+        observation: observation({
+          visibleText: "Invoice form",
+          elements: [
+            { name: "Status", value: "Paid" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the invoices are marked paid",
+            kind: "change",
+            items: ["Invoice 1 Status Paid", "Invoice 2 Status Paid"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: true },
+              { index: 1, met: true }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused" })
+  })
+
+  /**
+   * A page that writes the state first ("Paid Given name Ada" style) cannot
+   * be bound by quotation, so the item's own verified receipt credits it
+   * instead of the quote being fatal.
+   */
+  it("credits an item by its receipt when its quotation is not bound to it", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [{ type: "clear_and_type", ref: "e1", text: "[redacted]" }]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "The field holds its value",
+          observedAt: 1,
+          fields: [{ name: "Given name" }]
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({
+          visibleText: "Saved Given name Ada",
+          elements: [
+            { name: "Given name", value: "Ada" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the name is filled in",
+            kind: "change",
+            items: ["Given name Ada"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [{ index: 0, met: true, evidence: "Saved Given name Ada" }]
+          }
+        ]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  /** "Paid Invoice 2" quotes invoice 1's state beside invoice 2's name. */
+  it("refuses a change quotation whose state does not follow its item", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: observation({
+          visibleText: "Invoice 1 Paid Invoice 2 Due"
+        }),
+        requirements: [{ ...invoices, items: ["invoice 2"] }],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [{ index: 0, met: true, evidence: "Paid Invoice 2" }]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
+  it.each([
+    ["Invoice 1 Paid Invoice 2 Due", "invoice 2", "Paid Invoice 2 Due"],
+    [
+      "Invoice 1 Due Invoice 2 Paid",
+      "invoice 1",
+      "Invoice 1 Due Invoice 2 Paid"
+    ],
+    ["Invoice 12 Paid", "invoice 1", "Invoice 12 Paid"]
+  ])("refuses a change quotation that is not about its item alone: %s", (page, item, evidence) => {
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: observation({ visibleText: page }),
+        requirements: [{ ...invoices, items: ["invoice 1", "invoice 2"] }],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              {
+                index: item === "invoice 1" ? 0 : 1,
+                met: true,
+                evidence
+              },
+              {
+                index: item === "invoice 1" ? 1 : 0,
+                met: false
+              }
+            ]
+          }
+        ]
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+})

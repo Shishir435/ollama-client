@@ -13,8 +13,13 @@ export const TERMINAL_AGENT_STATUSES = [
  */
 export const AGENT_STATUS_PREDECESSORS = {
   submitted: [],
-  /** One model call, before the run is allowed to look at anything. */
-  planning: ["submitted"],
+  /**
+   * One model call, before the run is allowed to look at anything. From
+   * `paused` when a run with no plan yet is resumed or answered: a question
+   * the planner asked, or a pause that landed mid-plan, returns to planning
+   * rather than skipping past it into an unplanned run.
+   */
+  planning: ["submitted", "paused"],
   /**
    * `deciding` is here because a decision can now be declined without
    * anything happening to the page: a completion the run cannot support is a

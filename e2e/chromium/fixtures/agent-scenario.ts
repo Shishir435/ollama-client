@@ -931,9 +931,13 @@ const runAgentScenarioAttempt = (
               function: {
                 name: "agent_plan",
                 arguments: {
-                  requirements: scenario.plan ?? [
-                    { text: scenario.goal, kind: "change" }
-                  ]
+                  /**
+                   * Each entry quotes the goal as its source, as a planner
+                   * is required to: an unsourced entry is refused.
+                   */
+                  requirements: (
+                    scenario.plan ?? [{ text: scenario.goal, kind: "change" }]
+                  ).map((entry) => ({ source: scenario.goal, ...entry }))
                 }
               }
             }

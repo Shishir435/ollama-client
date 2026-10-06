@@ -245,7 +245,12 @@
     "question_text": {
       "completion_refused": "Non sono riuscito a confermare il risultato. L’attività è completata? In caso contrario, cosa devo fare adesso?",
       "commands_refused": "L’ultima azione non è riuscita. Cosa dovrei provare invece?",
-      "no_progress": "Sto ripetendo azioni senza fare progressi. Cosa dovrei fare diversamente? Puoi anche fermarmi e completare tu l’attività."
+      "no_progress": "Sto ripetendo azioni senza fare progressi. Cosa dovrei fare diversamente? Puoi anche fermarmi e completare tu l’attività.",
+      "too_many_outcomes": "Questa attività chiede {{count}} risultati distinti e un'esecuzione può seguirne {{max}}. Quali deve svolgere questa esecuzione? Il resto può seguire in un'altra.",
+      "too_many_items": "Questa attività indica {{count}} righe o record e un'esecuzione può seguirne {{max}}. Quali deve svolgere questa esecuzione? Il resto può seguire in un'altra.",
+      "too_many_constraints": "Questa attività fissa {{count}} limiti distinti e un'esecuzione può tenerne {{max}}. Quali contano per questa esecuzione?",
+      "confirm_removal": "La tua risposta potrebbe significare che questa attività non richiede più: {{list}}. Rispondi sì per rimuovere, o no per tenere tutto.",
+      "confirm_lift": "La tua risposta potrebbe significare che questi limiti non valgono più: {{list}}. Rispondi «allow» per toglierli; qualsiasi altra risposta li mantiene."
     },
     "start_gate": {
       "after_page": "Il modello ha letto il contenuto di una pagina prima di scrivere questa attività, quindi viene sempre chiesta conferma.",
