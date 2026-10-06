@@ -1,5 +1,6 @@
 import type {
   AgentCancellationSignal,
+  AgentCompletionReviewPort,
   AgentFinding,
   AgentHistoryEntry,
   AgentInspectionFocus,
@@ -48,6 +49,12 @@ import type {
 } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ReasoningEffort } from "@/types/model"
+import {
+  AGENT_REVIEW_SYSTEM_PROMPT,
+  AGENT_REVIEW_TOOL,
+  agentReviewPrompt,
+  parseAgentCompletionReview
+} from "./agent-completion-review"
 import {
   AGENT_CONTEXT_MAX_TOKENS,
   AGENT_CONTEXT_MIN_TOKENS,
@@ -1165,13 +1172,15 @@ export interface ProviderAgentModelPortOptions {
 /** Provider-backed native decision port with bounded malformed-output retries. */
 export const createProviderAgentModelPort = (
   options: ProviderAgentModelPortOptions
-): AgentModelPort => {
+): AgentModelPort & AgentCompletionReviewPort => {
   const malformedByRun = new Map<string, number>()
   /**
    * Keyed by run because one port serves every run in the worker, and read
    * once by the controller on the step it belongs to.
    */
   const telemetryByRun = new Map<string, AgentStepTelemetry>()
+  /** What each run's last completion review cost, consumed once. */
+  const reviewTelemetryByRun = new Map<string, AgentStepTelemetry>()
   /** The reasoning of each run's last well-formed decision, consumed once. */
   const thinkingByRun = new Map<string, string>()
   const resolveProvider =
@@ -1268,6 +1277,96 @@ export const createProviderAgentModelPort = (
       const telemetry = telemetryByRun.get(runId)
       telemetryByRun.delete(runId)
       return telemetry
+    },
+    reviewTelemetry(runId) {
+      const telemetry = reviewTelemetryByRun.get(runId)
+      reviewTelemetryByRun.delete(runId)
+      return telemetry
+    },
+    /**
+     * The run's own model and provider, already authorized and already shown
+     * everything in the ledger, so a review discloses nothing new to anyone.
+     * A fresh conversation: no history, no page, no reasoning from the run.
+     *
+     * Retried once on a dropped stream or a malformed answer, like planning.
+     * A second failure throws, and the controller treats that as no review.
+     */
+    async review(state, request, signal) {
+      reviewTelemetryByRun.delete(state.id)
+      const compatibility = await compatibilityFor(state, signal)
+      assertAgentModelCompatibility(
+        compatibility,
+        options.allowExperimental === true
+      )
+      const provider = await resolveProvider(state.modelId, state.providerId)
+      assertProviderEnabled(provider, state.modelId)
+      const window = await windowFor(state, compatibility)
+      const prompt = agentReviewPrompt(request)
+      let promptTokens: number | undefined
+      let outputTokens: number | undefined
+      const attempt = async (feedback?: string) => {
+        const calls = new Map<string, ToolCall>()
+        let streamError: ChatStreamMessage["error"]
+        /** The stream's usage frame is a total, so only the last one counts. */
+        let metrics: StreamChunkMetrics | undefined
+        const scoped = providerSignal(signal)
+        try {
+          await provider.streamChat(
+            {
+              model: state.modelId,
+              messages: [
+                { role: "system", content: AGENT_REVIEW_SYSTEM_PROMPT },
+                { role: "user", content: prompt },
+                ...(feedback
+                  ? [{ role: "user" as const, content: feedback }]
+                  : [])
+              ],
+              tools: [AGENT_REVIEW_TOOL],
+              tool_choice: "required",
+              /** A verdict is a lookup, not a plan: no reasoning budget. */
+              think: false,
+              num_predict: AGENT_SHORT_RESPONSE_TOKENS,
+              num_ctx: agentContextWindow(window),
+              keep_alive: AGENT_KEEP_ALIVE
+            },
+            (chunk) => {
+              if (chunk.error) streamError = chunk.error
+              if (chunk.metrics) metrics = chunk.metrics
+              for (const call of chunk.toolCalls ?? []) calls.set(call.id, call)
+            },
+            scoped.signal
+          )
+          if (streamError) throw streamError
+          return parseAgentCompletionReview([...calls.values()])
+        } finally {
+          scoped.cleanup()
+          promptTokens = sum(promptTokens, metrics?.prompt_eval_count)
+          outputTokens = sum(outputTokens, metrics?.eval_count)
+        }
+      }
+      try {
+        let lastError: unknown
+        for (let tries = 0; tries <= 1; tries += 1) {
+          if (signal.aborted) throw new Error("Agent model request cancelled")
+          try {
+            return await attempt(
+              lastError instanceof AgentDecisionFormatError
+                ? lastError.feedback
+                : undefined
+            )
+          } catch (error) {
+            if (signal.aborted) throw error
+            lastError = error
+          }
+        }
+        throw lastError
+      } finally {
+        const telemetry = agentStepTelemetry({
+          reviewPromptTokens: promptTokens,
+          reviewOutputTokens: outputTokens
+        })
+        if (telemetry) reviewTelemetryByRun.set(state.id, telemetry)
+      }
     },
     decisionThinking(runId) {
       const thinking = thinkingByRun.get(runId)

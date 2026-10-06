@@ -1,4 +1,5 @@
 import type {
+  AgentCompletionReviewPort,
   AgentController,
   AgentModelPort,
   AgentPersistencePort
@@ -135,6 +136,31 @@ export const withDecisionTimeout = (
   }
 }
 
+/**
+ * A review on the same deadline as a decision. It runs while the run sits in
+ * `deciding`, where the step deadline is the only thing watching, and a
+ * wedged provider there would hold a finished run open indefinitely.
+ */
+export const withReviewTimeout = (
+  port: AgentCompletionReviewPort,
+  timeoutMs: number
+): AgentCompletionReviewPort => ({
+  reviewTelemetry: (runId) => port.reviewTelemetry?.(runId),
+  async review(state, request, signal) {
+    const scope = new AbortController()
+    const abort = () => scope.abort()
+    if (signal.aborted) scope.abort()
+    else signal.addEventListener?.("abort", abort, { once: true })
+    const timer = setTimeout(abort, timeoutMs)
+    try {
+      return await port.review(state, request, scope.signal)
+    } finally {
+      clearTimeout(timer)
+      signal.removeEventListener?.("abort", abort)
+    }
+  }
+})
+
 export interface BuildAgentControllerInput {
   runId: string
   sessions: AgentControlSessionRegistry
@@ -191,12 +217,12 @@ export const buildAgentController: BuildAgentController = (input) => {
     now: input.now
   })
 
-  const model = withDecisionTimeout(
-    createProviderAgentModelPort({
-      allowExperimental: input.allowExperimentalModel
-    }),
-    input.decisionTimeoutMs ?? DECISION_TIMEOUT_MS
-  )
+  const provider = createProviderAgentModelPort({
+    allowExperimental: input.allowExperimentalModel
+  })
+  const timeoutMs = input.decisionTimeoutMs ?? DECISION_TIMEOUT_MS
+  const model = withDecisionTimeout(provider, timeoutMs)
+  const review = withReviewTimeout(provider, timeoutMs)
   const effect = createAgentEffectPort(
     adapters,
     watchTabsOpenedBy,
@@ -207,6 +233,7 @@ export const buildAgentController: BuildAgentController = (input) => {
   const vision = model.vision
   return createAgentController({
     trace: traceAgentRun,
+    review,
     ...(adapters.screenshot ? { screenshot: adapters.screenshot } : {}),
     model: {
       /** Spread for the same reason `withDecisionTimeout` does. */

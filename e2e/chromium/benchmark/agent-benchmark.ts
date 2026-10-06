@@ -91,6 +91,14 @@ export interface AgentAttemptRecord {
   verifyMs?: number
   /** Malformed answers the run paid for and did not use. */
   retries?: number
+  /**
+   * Independent completion review: requests sent, time spent, and claims it
+   * would not support. Read against `succeeded` these say whether the
+   * reviewer catches false completions or rejects correct work.
+   */
+  reviews?: number
+  reviewMs?: number
+  reviewDisagreements?: number
 }
 
 /**
@@ -317,6 +325,9 @@ export const attemptTelemetry = (
     | "observeMs"
     | "verifyMs"
     | "retries"
+    | "reviews"
+    | "reviewMs"
+    | "reviewDisagreements"
   >
 > => {
   const total = (key: string): number | undefined => {
@@ -333,7 +344,10 @@ export const attemptTelemetry = (
     decideMs: total("decideMs"),
     observeMs: total("observeMs"),
     verifyMs: total("verifyMs"),
-    retries: total("retries")
+    retries: total("retries"),
+    reviews: total("reviews"),
+    reviewMs: total("reviewMs"),
+    reviewDisagreements: total("reviewDisagreements")
   }
   return Object.fromEntries(
     Object.entries(entries).filter(([, value]) => value !== undefined)

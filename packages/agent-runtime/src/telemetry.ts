@@ -12,6 +12,11 @@ import { agentStepTelemetry } from "@ollama-client/contracts"
 const ADDITIVE = [
   "decideMs",
   "planMs",
+  "reviewMs",
+  "reviews",
+  "reviewPromptTokens",
+  "reviewOutputTokens",
+  "reviewDisagreements",
   "observeMs",
   "captureMs",
   "resolveMs",

@@ -131,7 +131,29 @@ export type AgentCompletionJudgement =
         | "contradicted_state"
       /** Written for the model, from templates and its own words only. */
       feedback: string
+      /**
+       * Set only on a `needs_review` refusal an independent reviewer may
+       * settle: which planned ids no deterministic check could decide, and
+       * what the judge decided about every other one. Absent when the gap is
+       * missing evidence rather than missing judgement — a receipt with no
+       * recorded effect classes is not something reading can supply.
+       */
+      review?: AgentCompletionReviewScope
     }
+
+/**
+ * What a `needs_review` refusal leaves undecided, and nothing else.
+ *
+ * Every id outside `requirementIds` and `constraintIds` was judged
+ * deterministically, and `outcome` is that judgement. A reviewer can move
+ * only the listed ids, and only into `met`: deterministic failures return
+ * before a scope is ever built, so there is no failure here to override.
+ */
+export interface AgentCompletionReviewScope {
+  requirementIds: string[]
+  constraintIds: string[]
+  outcome: AgentRunOutcome
+}
 
 export interface AgentCompletionInput {
   evidenceLedger?: readonly AgentEvidenceRecord[]
@@ -934,6 +956,29 @@ const refusePlannedReadClaim = (
     }
   if (groundedCompletionQuote(evidence, requirementId, input.evidenceLedger))
     return undefined
+  /**
+   * A paraphrase of something the run did read is a question of meaning, not
+   * of provenance: "Revenue was $4.2M" against a retained "revenue rose to 4.2
+   * million". Exact matching cannot decide it, so it goes to review — but
+   * only when a grounded fact exists that could answer it. With none, there
+   * is nothing for a reviewer to read, and the claim is refused as before.
+   */
+  if (
+    input.evidenceLedger?.some(
+      (record) =>
+        record.kind === "observed_fact" &&
+        record.source !== undefined &&
+        (record.validity === "current" || record.validity === "historical") &&
+        (record.requirementId === undefined ||
+          record.requirementId === requirementId)
+    )
+  )
+    return {
+      type: "refused",
+      reason: "needs_review",
+      feedback:
+        "This read answer does not quote a retained observed fact exactly. Quote the fact verbatim, or the claim needs independent review; inputs and model findings are not proof."
+    }
   return {
     type: "refused",
     reason: "absent_evidence",
@@ -2094,6 +2139,7 @@ const judgePlanned = (
   const changes = allChanges(input.steps ?? [])
   const consumed = new Set<string>()
   let review: Extract<AgentCompletionJudgement, { type: "refused" }> | undefined
+  const reviewIds: string[] = []
   for (const requirement of requirements) {
     const claim = claims.get(requirement.id)
     if (!claim?.met) {
@@ -2123,22 +2169,37 @@ const judgePlanned = (
     }
     if (judged?.reason === "needs_review") {
       review = judged
+      reviewIds.push(requirement.id)
       continue
     }
     if (judged) return judged
     met.push(requirement.id)
   }
   const outcome = { met, unmet }
-  if (review) return review
+  if (review)
+    return {
+      ...review,
+      review: { requirementIds: reviewIds, constraintIds: [], outcome }
+    }
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0
     ? { type: "unmet", outcome }
     : { type: "partial", outcome }
 }
 
+/**
+ * Constraints judged in two halves: anything that settles the run — a
+ * violation, an unreadable record — is returned at once, and a limit nothing
+ * deterministic can check is collected for review. A violation found after a
+ * reviewable limit still wins; the order constraints were planned in is not
+ * a reason to ask a reviewer about a run that already broke one.
+ */
 const judgeConstraints = (
   input: AgentCompletionInput
-): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+):
+  | Extract<AgentCompletionJudgement, { type: "refused" }>
+  | { review: string[] } => {
+  const review: string[] = []
   for (const constraint of input.constraints ?? []) {
     if (!input.steps)
       return {
@@ -2173,25 +2234,57 @@ const judgeConstraints = (
         feedback:
           "An applied effect has no recorded consequential classes. Constraints need review; missing effect evidence is unknown."
       }
-    if (!constraint.forbids?.length)
-      return {
-        type: "refused",
-        reason: "needs_review",
-        feedback: `Constraint ${constraint.id} requires review; the requested scope or limit has no deterministic support. Preserve completed effects.`
-      }
+    if (!constraint.forbids?.length) review.push(constraint.id)
   }
-  return undefined
+  return { review }
+}
+
+const constraintReviewFeedback = (ids: readonly string[]): string =>
+  `Constraint ${ids.join(", ")} requires review; the requested scope or limit has no deterministic support. Preserve completed effects.`
+
+/**
+ * A planned completion: constraints that settle the run first, then every
+ * requirement, then any limit only a reviewer can read folded into the same
+ * review scope as the requirements that need one.
+ */
+const judgePlannedWithConstraints = (
+  input: AgentCompletionInput,
+  requirements: readonly AgentTaskRequirement[],
+  change: AgentStepReadout | "unreadable" | undefined
+): AgentCompletionJudgement => {
+  const constraints = judgeConstraints(input)
+  if ("type" in constraints) return constraints
+  const planned = judgePlanned(input, requirements, change)
+  if (constraints.review.length === 0) return planned
+  if (planned.type === "refused") {
+    if (!planned.review) return planned
+    return {
+      ...planned,
+      feedback: `${planned.feedback} ${constraintReviewFeedback(constraints.review)}`,
+      review: { ...planned.review, constraintIds: constraints.review }
+    }
+  }
+  return {
+    type: "refused",
+    reason: "needs_review",
+    feedback: constraintReviewFeedback(constraints.review),
+    review: {
+      requirementIds: [],
+      constraintIds: constraints.review,
+      outcome: planned.outcome ?? {
+        met: requirements.map((requirement) => requirement.id),
+        unmet: []
+      }
+    }
+  }
 }
 
 export const judgeAgentCompletion = (
   input: AgentCompletionInput
 ): AgentCompletionJudgement => {
   const change = input.steps ? lastChange(input.steps) : "unreadable"
-  if (input.requirements?.length) {
-    const constraintRefusal = judgeConstraints(input)
-    if (constraintRefusal) return constraintRefusal
-    return judgePlanned(input, input.requirements, change)
-  }
+  if (input.requirements?.length)
+    return judgePlannedWithConstraints(input, input.requirements, change)
   /** Only a run whose receipts say it changed nothing completes unevidenced. */
   if (change === undefined) {
     // A read needs no change evidence, but a supplied page quote must still be real.

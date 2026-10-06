@@ -943,6 +943,53 @@ Read the section your change touches; you do not need the whole file.
   half an hour, and what bounds a runaway run is the observation ceiling and
   the no-progress guard, not the clock.
 
+### Independent completion review
+
+A `needs_review` refusal that carries a `review` scope is put to a second
+reading before it reaches the model (`completion-review.ts`,
+`AgentCompletionReviewPort`). The scope names exactly the requirement and
+constraint ids no deterministic check could decide, plus the judge's outcome
+for every other id. Rules, all load-bearing:
+
+- **Only undecidable claims are reviewed.** A deterministic failure returns
+  before a scope is built, so a reviewer never sees one and cannot override
+  it. An accepted completion never pays for a review. A broken limit wins
+  over a reviewable one whatever order they were planned in. Missing effect
+  classes are an evidence gap, not a question of meaning, and carry no scope.
+- **A paraphrased read goes to review only if something could answer it.**
+  The ledger has to hold a grounded observed fact for that requirement (or
+  for none in particular). With nothing grounded, the read is still
+  `absent_evidence`.
+- **Fresh context, no effects.** The reviewer sees the goal, the scoped
+  requirements and limits, the acting model's claims for those ids, and the
+  grounded ledger records only — no history, page, screenshot or reasoning.
+  It has no browser, approval or plan port. The prompt keeps all
+  page-derived text in one JSON data block, with `<` escaped so a quotation
+  cannot close it.
+- **The runtime checks every verdict.** `supported` counts only with a cited
+  ledger id the runtime accepts: grounded, `current` or `historical`, not
+  bound to a different requirement, and an observed fact for a read. Ids
+  nobody asked about are ignored. A skipped or doubled answer is
+  insufficient. `contradicted` becomes `contradicted_state`, citations or
+  not, because it can only stop a success.
+- **No review is never a pass.** A missing port, a thrown or timed-out call,
+  a malformed answer and a spent budget (`MAX_AGENT_COMPLETION_REVIEWS` per
+  run) all leave the judge's refusal unchanged. The existing two-refusal
+  question to the user still bounds the loop. Nothing is re-executed to
+  satisfy a reviewer; the feedback says so.
+- **Default reviewer is the run's own model and provider**, already
+  authorized and already shown every ledger record, so a review discloses
+  nothing new. It is bounded by the decision timeout, retried once on a
+  malformed answer or a dropped stream, and run without a reasoning budget.
+  A separately configured reviewer does not exist yet; if one is added, it
+  has to pass the same disclosure check before it is sent anything.
+- **Cost and disagreement are durable.** `reviews`, `reviewMs`,
+  `reviewPromptTokens`, `reviewOutputTokens` and `reviewDisagreements` land
+  on the completion's own receipt: the rejected completion step, or a
+  `:review:` step written when the review settled the run. The benchmark
+  sums them per attempt. Read them against task predicates, because a
+  reviewer can be wrong in both directions.
+
 ## Screenshots
 
 - **A screenshot is an observation's companion, never a record.** The
