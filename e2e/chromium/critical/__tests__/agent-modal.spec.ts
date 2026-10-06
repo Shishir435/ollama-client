@@ -14,7 +14,8 @@ import { expect } from "../../fixtures/extension"
 runAgentScenario({
   name: "modal",
   goal: "Delete the item, confirming when asked.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   html: () =>
     `<!doctype html><title>Agent modal</title><main><h1>Items</h1><button onclick="document.querySelector('#confirm').hidden=false;this.disabled=true">Delete</button><div id="confirm" role="dialog" aria-label="Confirm delete" hidden><p>Delete this item?</p><button onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.closest('[role=dialog]').hidden=true">Delete</button><button>Cancel</button></div></main>`,
   decide(observation: AgentFixtureObservation) {
@@ -40,7 +41,7 @@ runAgentScenario({
   },
   async verify({ page, snapshot, wire }) {
     await expect(page.getByText("Status: Active")).toBeVisible()
-    expect(snapshot?.run?.result).toContain("Active")
+    expect(snapshot?.run?.result).toBeUndefined()
 
     // The opener is not clicked twice: the second decision can see that the
     // dialog owns its own Delete.

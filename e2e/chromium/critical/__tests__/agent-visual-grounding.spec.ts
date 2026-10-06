@@ -27,6 +27,7 @@ const canvasPage = `<!doctype html><title>Agent canvas</title>
 runAgentScenario({
   name: "visual click",
   goal: "Click the left half of the board and report the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   approvalScope: "run_origin",
   vision: true,
@@ -86,7 +87,8 @@ runAgentScenario({
     expect(context.screenshot).toBeUndefined()
     return {
       type: "complete",
-      summary: observation.text.match(/Status: \w+/)?.[0] ?? ""
+      summary: observation.text.match(/Status: \w+/)?.[0] ?? "",
+      evidence: observation.text.match(/Status: \w+/)?.[0]
     }
   },
   async verify({ snapshot, phases }) {

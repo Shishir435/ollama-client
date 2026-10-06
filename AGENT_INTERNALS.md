@@ -847,6 +847,8 @@ Read the section your change touches; you do not need the whole file.
   status/alert; ordinary document prose needs review. Bounded whole-row text
   cannot establish record identity for scoped controls; those need review.
   Row predicates require the complete row label to equal the record name.
+  An explicit predicate is authoritative: an ambiguous identity/state needs
+  review and must never fall back to an action receipt proving a weaker claim.
   Planned result text is built from the judged outcomes, never the model's
   free-form success summary. Itemized reads report only the checked item quotes,
   never their unchecked parent quote. Completion retries only read; effects are retained.

@@ -1,6 +1,7 @@
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import type {
+  AgentCompletionCheck,
   AgentPanelMessage,
   AgentPanelSnapshot
 } from "@ollama-client/contracts"
@@ -160,7 +161,11 @@ export interface AgentScenario {
    * its matching completion outcome; their `verify` callback independently
    * proves the page result, while every run still exercises a valid plan.
    */
-  plan?: readonly { text: string; kind: "change" | "read" }[]
+  plan?: readonly {
+    text: string
+    kind: "change" | "read"
+    check?: AgentCompletionCheck
+  }[]
   /**
    * How the panel answers an approval. `run_origin` widens it to the origin
    * for the rest of the run, which is what a user checking the box does.
@@ -180,6 +185,8 @@ export interface AgentScenario {
   goal: string
   /** The terminal run status the scenario is finished at. */
   status: "completed" | "partial" | "paused" | "failed"
+  /** Assert that an unsupported semantic outcome is explicitly deferred. */
+  completionReview?: boolean
   /** Included in the hosted-model matrix, which only runs a couple of tasks. */
   hosted?: boolean
   /** The fixture model reports itself as reading images. */
@@ -258,7 +265,7 @@ const normalizeScriptedDecision = (
     }
   }
   if (
-    scenario.plan === undefined &&
+    (scenario.plan?.length ?? 1) === 1 &&
     scripted.type !== "complete" &&
     !("requirementId" in scripted)
   )
@@ -1355,6 +1362,15 @@ const runAgentScenarioAttempt = (
           chatToolCalls: [...chatState.toolCalls],
           directChatResponse: chatState.directResponse,
           executionPath: executionPathFor(agentStarted, chatState.toolCalls)
+        }
+        if (scenario.completionReview) {
+          expect(outcome.snapshot?.run?.result).toBeUndefined()
+          expect(outcome.phases).toContainEqual(
+            expect.objectContaining({
+              phase: "completion_refused",
+              reason: "needs_review"
+            })
+          )
         }
         await scenario.verify(outcome)
       } finally {

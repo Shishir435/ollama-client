@@ -18,12 +18,12 @@ import { expect } from "../../fixtures/extension"
 const SAVE_PAGE = `<!doctype html>
 <title>Editor</title>
 <main>
-  <p id="status">Unsaved changes</p>
+  <p id="status" role="status">Unsaved changes</p>
   <button type="button" onclick="
     document.getElementById('status').textContent = 'Saving…';
     this.disabled = true;
     setTimeout(() => {
-      document.getElementById('status').textContent = 'All changes saved';
+      document.getElementById('status').textContent = 'Document saved';
     }, 1200);
   ">Save</button>
 </main>`
@@ -31,6 +31,13 @@ const SAVE_PAGE = `<!doctype html>
 runAgentScenario({
   name: "outcome-evidence",
   goal: "Save the document.",
+  plan: [
+    {
+      text: "the document is saved",
+      kind: "change",
+      check: { type: "record_state", record: "Document", state: "saved" }
+    }
+  ],
   status: "completed",
   html: () => SAVE_PAGE,
   /**
@@ -39,11 +46,11 @@ runAgentScenario({
    * the second run skip the over-claim this scenario exists to catch.
    */
   decide: (observation: AgentFixtureObservation, { step }) => {
-    if (observation.text.includes("All changes saved")) {
+    if (observation.text.includes("Document saved")) {
       return {
         type: "complete",
         summary: "Saved the document.",
-        evidence: "All changes saved"
+        evidence: "Document saved"
       }
     }
     if (observation.text.includes("Unsaved changes")) {
@@ -60,10 +67,10 @@ runAgentScenario({
      */
     return step === 2
       ? { type: "complete", summary: "Saved the document." }
-      : { type: "wait", condition: "All changes saved", timeoutMs: 8_000 }
+      : { type: "wait", condition: "Document saved", timeoutMs: 8_000 }
   },
   verify: async ({ page, snapshot, phases }) => {
-    await expect(page.locator("#status")).toHaveText("All changes saved")
+    await expect(page.locator("#status")).toHaveText("Document saved")
     expect(snapshot?.run?.status).toBe("completed")
     // The over-claim is refused, and the run's own record says so rather than
     // the refusal living only in the model's next prompt.

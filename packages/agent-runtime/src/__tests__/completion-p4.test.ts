@@ -139,6 +139,62 @@ const judge = (
   })
 
 describe("P4 deterministic completion", () => {
+  it("does not replace an ambiguous record predicate with a bound field receipt", () => {
+    expect(
+      judgeAgentCompletion({
+        observation: {
+          ...page,
+          elements: [{ ...page.elements[0], rowContext: "Invoice 1 copy" }]
+        },
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Name holds Ada",
+            check: {
+              type: "field",
+              name: "Name",
+              value: "Ada",
+              record: "Invoice 1"
+            }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Ada" }],
+        steps: [
+          {
+            runId: "r",
+            stepId: "s",
+            sequence: 1,
+            status: "verified",
+            at: 1,
+            requirementId: "r1",
+            mutating: true,
+            command: {
+              type: "clear_and_type",
+              ref: "e1",
+              snapshotId: "s1",
+              generation: 1,
+              text: "Ada"
+            },
+            target: {
+              ref: "e1",
+              tag: "input",
+              name: "Name",
+              rowContext: "Invoice 1 copy"
+            },
+            verification: {
+              outcome: "confirmed",
+              evidence: {
+                kind: "field",
+                summary: "Field contains the resolved value",
+                observedAt: 1
+              }
+            }
+          }
+        ]
+      })
+    ).toMatchObject({ reason: "needs_review" })
+  })
   it("does not substitute a satisfied checkbox predicate for saving an invoice", () => {
     expect(
       judgeAgentCompletion({

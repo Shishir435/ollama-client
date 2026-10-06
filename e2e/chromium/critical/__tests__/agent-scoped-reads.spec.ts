@@ -40,7 +40,8 @@ const TARGET = "Archive the ledger"
 runAgentScenario({
   name: "scoped-find-past-the-cap",
   goal: "Archive the ledger.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   timeoutMs: 120_000,
   html: () => crowdedPage(TARGET),
   plan: [{ text: "the ledger is archived", kind: "change" }],
@@ -97,7 +98,7 @@ runAgentScenario({
       )
     ).toBe(true)
     await expect(page.locator("#status")).toHaveText("Archived the ledger")
-    expect(snapshot?.run?.status).toBe("completed")
+    expect(snapshot?.run?.status).toBe("paused")
   }
 })
 
@@ -111,7 +112,7 @@ runAgentScenario({
   status: "completed",
   timeoutMs: 120_000,
   html: () =>
-    `<!doctype html><title>Many</title><main>${Array.from(
+    `<!doctype html><title>Many</title><main><p>Pickable rows: 120</p>${Array.from(
       { length: 120 },
       (_unused, index) => `<button type="button">Row ${index} pick</button>`
     ).join("")}</main>`,
@@ -127,7 +128,7 @@ runAgentScenario({
     return {
       type: "complete",
       summary: "Counted them.",
-      outcomes: [{ id: "r1", met: true }]
+      outcomes: [{ id: "r1", met: true, evidence: "Pickable rows: 120" }]
     }
   },
   verify: async ({ snapshot, wire }) => {

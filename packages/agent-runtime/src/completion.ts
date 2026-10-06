@@ -1824,6 +1824,13 @@ const judgeMetRequirement = (
       feedback:
         "The required identity, value or final state is not verified in the current observation. Read fresh evidence before considering any further action; do not repeat a completed effect."
     }
+  if (requirement.check)
+    return {
+      type: "refused",
+      reason: "needs_review",
+      feedback:
+        "The explicit predicate cannot establish the requested record or state. Preserve completed effects and review the claim; a receipt cannot replace this check."
+    }
   const refusal = judgeEvidence(
     claim.evidence,
     input,

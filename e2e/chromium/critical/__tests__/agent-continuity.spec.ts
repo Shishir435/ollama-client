@@ -21,6 +21,7 @@ const readPrompt = (request: unknown) =>
 runAgentScenario({
   name: "continuity",
   goal: "Click Continue and report the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   html: () =>
     `<!doctype html><title>Agent continuity</title><main>${agentConfirmingButton()}</main>`,
@@ -74,8 +75,11 @@ runAgentScenario({
  */
 runAgentScenario({
   name: "compare",
-  goal: "Read the price on both pages and say which is cheaper.",
-  plan: [{ text: "report which page has the cheaper price", kind: "read" }],
+  goal: "Read the price on both pages and report both prices.",
+  plan: [
+    { text: "report the first page price", kind: "read" },
+    { text: "report the second page price", kind: "read" }
+  ],
   status: "completed",
   html: (path) => {
     if (path.startsWith("/second"))
@@ -86,11 +90,13 @@ runAgentScenario({
     if (step === 1)
       return {
         type: "read",
-        finding: "Alpha costs 30 on the first page."
+        finding: "Price: 30",
+        sourceQuotes: [{ quote: "Price: 30", requirementId: "r1" }]
       }
     if (step === 2)
       return {
         type: "click",
+        requirementId: "r2",
         ref: agentFixtureElement(
           observation,
           (element) => element.name === "Beta"
@@ -99,21 +105,27 @@ runAgentScenario({
     if (step === 3)
       return {
         type: "read",
-        finding: "Beta costs 12 on the second page."
+        finding: "Price: 12",
+        sourceQuotes: [{ quote: "Price: 12", requirementId: "r2" }]
       }
-    return { type: "complete", summary: "Beta is cheaper: 12 against 30." }
+    return {
+      type: "complete",
+      summary: "Beta is cheaper: 12 against 30.",
+      outcomes: [
+        { id: "r1", met: true, evidence: "Price: 30" },
+        { id: "r2", met: true, evidence: "Price: 12" }
+      ]
+    }
   },
   async verify({ snapshot, wire }) {
-    expect(snapshot?.run?.result).toContain("Beta is cheaper")
+    expect(snapshot?.run?.result).toContain("Price: 30")
+    expect(snapshot?.run?.result).toContain("Price: 12")
 
     const last = readPrompt(wire.at(-1)?.request)
     const findings = (last.history as { finding?: string }[])
       .map((entry) => entry.finding)
       .filter(Boolean)
-    expect(findings).toEqual([
-      "Alpha costs 30 on the first page.",
-      "Beta costs 12 on the second page."
-    ])
+    expect(findings).toEqual(["Price: 30", "Price: 12"])
     // Both pages are named, though only one of them is on screen.
     const urls = new Set(
       (last.history as { url?: string }[])

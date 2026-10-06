@@ -27,6 +27,7 @@ const clickContinue = (observation: AgentFixtureObservation) =>
 runAgentScenario({
   name: "click",
   goal: "Click Continue and report the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   html: () => page(agentConfirmingButton()),
   decide: clickContinue,
@@ -47,6 +48,7 @@ runAgentScenario({
 runAgentScenario({
   name: "stale",
   goal: "Click Continue and report the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   html: () => page(agentConfirmingButton()),
   async decide(observation, { step, page: fixture }) {
@@ -82,6 +84,7 @@ runAgentScenario({
 runAgentScenario({
   name: "uncertain",
   goal: "Click Continue and report the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "paused",
   html: () => page(silentButton),
   decide: clickContinue,

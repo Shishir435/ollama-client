@@ -17,7 +17,7 @@ import { expect } from "../../fixtures/extension"
  * browser, which is the only place injection into such a frame can be
  * proved at all.
  */
-const continueButton = `<button type="button" onclick="document.body.insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.disabled=true">Continue</button>`
+const continueButton = `<button type="button" onclick="document.body.insertAdjacentHTML('beforeend','<p role=status>Status: Active</p>');this.disabled=true">Continue</button>`
 
 const SRCDOC_PAGE = `<!doctype html>
 <title>Panel</title>
@@ -34,12 +34,22 @@ runAgentScenario({
   allowRoutineActions: true,
   approvalScope: "run_origin",
   html: () => SRCDOC_PAGE,
-  plan: [{ text: "the panel shows the status", kind: "change" }],
+  plan: [{ text: "report the status", kind: "read" }],
   decide: (observation: AgentFixtureObservation) => {
     if (observation.text.includes("Status: Active")) {
       return {
         type: "complete",
         summary: "Status: Active",
+        sourceQuotes: [
+          {
+            quote: "Status: Active",
+            ref: agentFixtureElement(
+              observation,
+              (element) => element.name === "Status: Active"
+            )?.ref,
+            requirementId: "r1"
+          }
+        ],
         outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
       }
     }

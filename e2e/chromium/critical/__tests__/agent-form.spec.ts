@@ -11,6 +11,7 @@ const formPage =
 runAgentScenario({
   name: "form",
   goal: "Enter Alice in the Name field, continue, and tell me the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   hosted: true,
   html: (path) => (path.startsWith("/details") ? AGENT_DETAILS_PAGE : formPage),
@@ -53,7 +54,8 @@ runAgentScenario({
   name: "comment-with-empty-attachment",
   allowRoutineActions: true,
   goal: "Add the comment 'This is a test comment.' Keep the pull request open.",
-  status: "completed",
+  status: "paused",
+  completionReview: true,
   redirect: (path) =>
     path === "/comments" ? "/?comment=posted#issuecomment-1" : undefined,
   html: (path) =>
@@ -152,11 +154,12 @@ const searchPage =
 runAgentScenario({
   name: "search-enter-formdata-rewrite",
   goal: "Search the catalog for atlas and tell me what the results say.",
+  plan: [{ text: "report what the results say", kind: "read" }],
   status: "completed",
   html: (path) => {
     searchPaths.push(path)
     return path.startsWith("/search")
-      ? `<!doctype html><title>Results</title><main><h1>Results</h1><p>Results for ${new URL(path, "http://fixture").searchParams.get("q")}</p></main>`
+      ? `<!doctype html><title>Results</title><main><h1>Results</h1><p>Results for ${new URL(path, "http://fixture").searchParams.get("q")}</p><p>Matching items: 1</p></main>`
       : searchPage
   },
   decide(observation) {
@@ -164,7 +167,7 @@ runAgentScenario({
       return {
         type: "complete",
         summary: "Results for atlas",
-        evidence: "Results for atlas"
+        evidence: "Matching items: 1"
       }
     const field = agentFixtureElement(
       observation,

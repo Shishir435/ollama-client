@@ -35,7 +35,12 @@ const FIELDS = ["given", "family", "city"] as const
  */
 runAgentScenario({
   name: "form-prep",
-  goal: "Fill in the three name fields. Do not submit.",
+  goal: "Fill given with value-given, family with value-family and city with value-city. Do not submit.",
+  plan: FIELDS.map((name) => ({
+    text: `${name} holds value-${name}`,
+    kind: "change",
+    check: { type: "field", name, value: `value-${name}` }
+  })),
   status: "completed",
   approvalScope: "run_origin",
   html: () =>
@@ -52,13 +57,20 @@ runAgentScenario({
         type: "complete",
         summary: "All three filled.",
         // The value the last edit left behind; a filled form's own evidence.
-        evidence: `value-${FIELDS.at(-1)}`
+        outcomes: FIELDS.map((_, index) => ({ id: `r${index + 1}`, met: true }))
       }
     }
-    return { type: "clear_and_type", ref: next.ref, text: `value-${next.name}` }
+    return {
+      type: "clear_and_type",
+      ref: next.ref,
+      text: `value-${next.name}`,
+      requirementId: `r${FIELDS.indexOf(next.name as (typeof FIELDS)[number]) + 1}`
+    }
   },
   async verify({ page, snapshot, messages }) {
-    expect(snapshot?.run?.result).toContain("All three")
+    expect(snapshot?.run?.outcome?.met).toEqual(["r1", "r2", "r3"])
+    for (const field of FIELDS)
+      await expect(page.locator(`#${field}`)).toHaveValue(`value-${field}`)
 
     // One prompt, then the grant covers the rest.
     expect(approvalsAsked(messages)).toBe(1)
@@ -87,7 +99,8 @@ runAgentScenario({
  */
 runAgentScenario({
   name: "ambiguous",
-  goal: "Pick the right account.",
+  goal: "Pick the right account and report the selected account.",
+  plan: [{ text: "report the selected account", kind: "read" }],
   status: "completed",
   answer: "Use the second account.",
   html: () =>
@@ -110,7 +123,7 @@ runAgentScenario({
     }
   },
   async verify({ snapshot, messages, wire }) {
-    expect(snapshot?.run?.result).toContain("second account")
+    expect(snapshot?.run?.result).toContain("Selected account: second")
     expect(snapshot?.run?.question).toBeUndefined()
     expect(snapshot?.run?.answers).toEqual([
       expect.objectContaining({ text: "Use the second account." })
