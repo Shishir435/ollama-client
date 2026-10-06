@@ -175,7 +175,8 @@ describe("the whole task survives planning", () => {
   it.each([
     ["Mark invoices 1, 2 and 3 paid", ["invoice 1", "invoice 2", "invoice 3"]],
     ["Delete the rows for March and April", ["March row", "April row"]],
-    ["Email Alice, Bob and Carol", ["Alice", "Bob", "Carol"]]
+    ["Email Alice, Bob and Carol", ["Alice", "Bob", "Carol"]],
+    ["Mark invoice no. 5 paid", ["invoice 5"]]
   ])("accepts items the user named in: %s", (goal, items) => {
     const plan = parseAgentTaskPlan(
       [
@@ -1005,6 +1006,11 @@ describe("prohibitions read by rule", () => {
       "Don't touch anything, and especially not the delete button",
       ["destructive"]
     ],
+    [
+      "Don't delete the file, and you won't submit the form",
+      ["destructive", "submission"]
+    ],
+    ["Don't delete the file, and check out the cart", ["destructive"]],
     ["Don't delete, archive, and email anything", ["destructive", "submission"]]
   ])("%s", (goal, expected) => {
     expect(new Set(forbidden(goal))).toEqual(new Set(expected))

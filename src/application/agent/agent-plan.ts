@@ -471,22 +471,32 @@ const clauseFrom = (text: string, start: number): string => {
 }
 
 /**
- * From a cue to the end of what it negates: its sentence, commas and all,
- * unless a new clause starts at ", and", ", then" or ", but" with no comma
- * before it. "Don't delete the file, and send me the receipt" asks for the
- * send; "don't delete, archive, and email anything" lists three things not
- * to do, and the earlier comma is what says it is a list. A next clause
- * that is itself negated — "and especially not the delete button" — still
- * belongs to the prohibition.
+ * From a cue to the end of what it negates: its sentence, commas and all.
+ * The one cut is a new command: ", and", ", then" or ", but" followed
+ * directly by a consequential verb, with no comma before it and no negation
+ * after it. "Don't delete the file, and send me the receipt" asks for the
+ * send. Anything else keeps the whole sentence: "don't delete, archive, and
+ * email anything" is a list, and "…, and you won't submit the form" or
+ * "…, and especially not the delete button" are more of the prohibition.
+ * Reading too much costs a refusal; cutting wrongly lost a "don't".
  */
 const sentenceFrom = (text: string, start: number): string => {
   const rest = text.slice(start)
   const end = rest.search(/[.;:!?\n]/)
   const sentence = end === -1 ? rest : rest.slice(0, end)
   const clause = sentence.search(/,\s+(?:and|then|but)\b/i)
-  return clause !== -1 &&
-    !sentence.slice(0, clause).includes(",") &&
-    !/\b(?:not|never|no|nor|nothing|neither)\b/i.test(sentence.slice(clause))
+  if (clause === -1 || sentence.slice(0, clause).includes(",")) return sentence
+  const next = sentence.slice(clause)
+  const command = normalized(
+    next.replace(/^,\s+(?:and|then|but)\s+(?:then\s+)?/i, "")
+  )
+  const opensWithVerb = FORBIDDEN_VERBS.some(
+    ([, verb]) => command.match(verb)?.index === 0
+  )
+  return opensWithVerb &&
+    !/\b(?:not|never|no|nor|nothing|neither|without|avoid)\b|n['’]t\b/i.test(
+      next
+    )
     ? sentence.slice(0, clause)
     : sentence
 }
@@ -789,7 +799,8 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
     },
     /**
      * Every item is a row the user named: each of its words, digits included,
-     * in one sentence of the goal or an answer. Items are how a plan says
+     * in one sentence of the goal or an answer — a period ends one only
+     * before a capital, so "invoice no. 5" stays whole. Items are how a plan says
      * which rows; one the planner enumerated from "all nine invoices", or
      * assembled from two sentences — "invoice 1 paid" out of "mark invoice 2
      * paid; invoice 1 is overdue" — is work nobody asked for.
@@ -797,7 +808,7 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
     assertItemsQuoted(items: readonly string[]): void {
       if (!context) return
       const spoken = authority
-        .flatMap((text) => text.split(/[.;!?\n]+(?=\s|$)/))
+        .flatMap((text) => text.split(/[;!?\n]+|\.(?=\s+\p{Lu}|\s*$)/u))
         .map(itemTokens)
       const unquoted = items.find((item) => {
         const wanted = itemTokens(item)
