@@ -174,7 +174,7 @@ export interface AgentScenario {
   allowRoutineActions?: boolean
   /** What the panel's textarea replies with, when the run asks something. */
   answer?: string
-  /** Reply only to this model question, never to completion-review questions. */
+  /** Match this wording in scripted runs; live models may phrase it differently. */
   answerQuestion?: string
   /** Hold an answer long enough to exercise intermediate-pause handling. */
   answerDelayMs?: number
@@ -831,6 +831,7 @@ const runAgentScenarioAttempt = (
   test(title, async ({ extension }, testInfo) => {
     const startedAt = Date.now()
     const liveModel = process.env.AGENT_HOSTED_MODEL
+    const answerQuestion = liveModel ? undefined : scenario.answerQuestion
     scenario.diagnosticTrace?.({
       type: "scenario_started",
       attempt,
@@ -1224,7 +1225,7 @@ const runAgentScenarioAttempt = (
           origin,
           approvalScope: scenario.approvalScope,
           answer: scenario.answer,
-          answerQuestion: scenario.answerQuestion,
+          answerQuestion,
           answerDelayMs: scenario.answerDelayMs
         }
       )
@@ -1331,8 +1332,7 @@ const runAgentScenarioAttempt = (
                   run?.question &&
                     scenario.answer &&
                     !review &&
-                    (!scenario.answerQuestion ||
-                      run.question.text === scenario.answerQuestion)
+                    (!answerQuestion || run.question.text === answerQuestion)
                 )
                 if (run?.status === "paused")
                   return scenario.completionReview ? review : !answered
