@@ -182,6 +182,13 @@ describe("the whole task survives planning", () => {
     ["Mark invoice no. Twenty-one paid", ["invoice twenty-one"]],
     ["Mark invoice no. One hundred paid", ["invoice one hundred"]],
     ["Mark invoices nos. Five and Six paid", ["invoice five", "invoice six"]],
+    ["Update ref no. 5", ["ref no 5"]],
+    ["Update reference no. Five", ["reference five"]],
+    ["Update refs nos. Five and Six", ["ref five", "ref six"]],
+    ["Update references nos. 5 and 6", ["reference 5", "reference 6"]],
+    ["Update inv no. 5", ["inv 5"]],
+    ["Update ref. no. 5", ["ref no 5"]],
+    ["Update inv. no. Five", ["inv five"]],
     ["Email Mrs. Smith the receipt", ["Mrs Smith"]]
   ])("accepts items the user named in: %s", (goal, items) => {
     const plan = parseAgentTaskPlan(
