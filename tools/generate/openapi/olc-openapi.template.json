@@ -1362,7 +1362,7 @@
       },
       "CompletionUsage": {
         "type": "object",
-        "description": "Token counts for the whole turn, sent with the answer that completes it, in OpenAI's terms: cached input inside prompt_tokens, reasoning inside completion_tokens. All zero when the runtime reported none, and on a response that ends in tool_calls. cost is the runtime's own USD estimate, present only when it priced the model.",
+        "description": "Token counts for the whole turn, sent with the answer that completes it, in OpenAI's terms: cached input inside prompt_tokens, reasoning inside completion_tokens. Buffered responses use zero counts when the runtime reports no usage; streamed responses omit usage when the runtime reports no usage. A response that ends in tool_calls uses zero counts when buffered and omits usage when streamed. cost is the runtime's own USD estimate, present only when it priced the model.",
         "required": ["prompt_tokens", "completion_tokens", "total_tokens"],
         "properties": {
           "prompt_tokens": {

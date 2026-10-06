@@ -22,11 +22,7 @@ import { ChunkFeedbackButton } from "./chunk-feedback-button"
 import { CopyButton } from "./copy-button"
 import type { SourceItem } from "./message-sources-sheet"
 import { PreviewSheet } from "./preview-sheet"
-import {
-  hostOf,
-  SearchEngineBadge,
-  WebSourceFavicon
-} from "./web-search-sources-button"
+import { hostOf, SearchEngineBadge } from "./web-search-sources-button"
 
 export type SourceGroup = "local" | "knowledge" | "web"
 
@@ -94,12 +90,11 @@ const getSourceRowMeta = (
   }
 }
 
+/** Source icons stay local so displaying citations never contacts their origins. */
 const SourceIcon = ({
-  item,
   group,
   meta
 }: {
-  item: SourceItem
   group: SourceGroup
   meta: SourceRowMeta
 }) => (
@@ -112,11 +107,7 @@ const SourceIcon = ({
           ? "bg-tint-accent text-primary"
           : GROUP_META[group].chip
     )}>
-    {meta.isWeb && item.url ? (
-      <WebSourceFavicon url={item.url} />
-    ) : (
-      <meta.Icon className="icon-sm" aria-hidden="true" />
-    )}
+    <meta.Icon className="icon-sm" aria-hidden="true" />
   </div>
 )
 
@@ -226,7 +217,7 @@ const SourceRow = ({
   return (
     <div className="group/row">
       <div className="flex items-start gap-2 px-2 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5">
-        <SourceIcon item={item} group={group} meta={meta} />
+        <SourceIcon group={group} meta={meta} />
         <SourceDetails
           item={item}
           group={group}
