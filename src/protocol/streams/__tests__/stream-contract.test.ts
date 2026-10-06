@@ -215,6 +215,25 @@ describe("stream protocol", () => {
     })
   })
 
+  it("carries web citations, and only http(s) ones", () => {
+    const chunk = (url: string) => ({
+      version: 1,
+      type: "chat_chunk",
+      seq: 0,
+      webCitations: [{ url, title: "Page" }]
+    })
+    const parsed = parseChatStreamServerEvent(chunk("https://a.example/x"))
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    expect(parsed.data).toMatchObject({
+      webCitations: [{ url: "https://a.example/x", title: "Page" }]
+    })
+    expect(
+      ChatStreamServerEventSchema.safeParse(chunk("javascript:alert(1)"))
+        .success
+    ).toBe(false)
+  })
+
   it("normalizes one legacy boundary event into v1", () => {
     const parsed = parseChatStreamServerEvent({ seq: 2, delta: "hello" })
     expect(parsed.success).toBe(true)

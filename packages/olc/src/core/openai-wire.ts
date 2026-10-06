@@ -8,7 +8,11 @@
  * so it is rendered as transcript text — dropping it would hide the fact that a
  * tool ran at all.
  */
-import type { GeneratedImage } from "../backends/types.js"
+import type {
+  GeneratedImage,
+  TurnSource,
+  TurnUsage
+} from "../backends/types.js"
 import type {
   OpenAIMessage,
   OpenAIToolCall,
@@ -430,5 +434,72 @@ export const toolCallsChunk = (
     tool_calls: calls.map((call, index) => toToolCallPayload(call, index))
   })
 
-export const finishChunk = (id: string, model: string, finishReason: string) =>
-  chunk(id, model, {}, finishReason)
+/**
+ * OpenAI's `usage` object. Reasoning and cached counts go in the `*_details`
+ * objects OpenAI defines for them; `cost` is OpenRouter's field, filled only
+ * when the runtime priced the model.
+ */
+export const toUsagePayload = (usage: TurnUsage) => ({
+  prompt_tokens: usage.promptTokens,
+  completion_tokens: usage.completionTokens,
+  total_tokens: usage.promptTokens + usage.completionTokens,
+  ...(usage.cachedPromptTokens
+    ? { prompt_tokens_details: { cached_tokens: usage.cachedPromptTokens } }
+    : {}),
+  ...(usage.reasoningTokens
+    ? {
+        completion_tokens_details: { reasoning_tokens: usage.reasoningTokens }
+      }
+    : {}),
+  ...(usage.cost ? { cost: usage.cost } : {})
+})
+
+/**
+ * Sources as OpenAI `url_citation` annotations.
+ *
+ * No character span is claimed: the runtime reports which pages it consulted,
+ * not which sentence each one supports, and an invented `start_index` would
+ * attribute text to a page that never said it.
+ */
+export const toAnnotationsPayload = (sources: readonly TurnSource[]) =>
+  sources.map((source) => ({
+    type: "url_citation",
+    url_citation: {
+      url: source.url,
+      ...(source.title ? { title: source.title } : {})
+    }
+  }))
+
+export const annotationsChunk = (
+  id: string,
+  model: string,
+  sources: readonly TurnSource[]
+) => chunk(id, model, { annotations: toAnnotationsPayload(sources) })
+
+/**
+ * The finish chunk carries `usage` whenever it is known.
+ *
+ * OpenAI sends usage only on a trailing chunk with empty `choices`, and only to
+ * a client that set `stream_options.include_usage`; a client that did not ask
+ * may index `choices[0]` unguarded. An extra field on the finish chunk breaks
+ * nobody, and it is how a client that never asked still gets counts.
+ */
+export const finishChunk = (
+  id: string,
+  model: string,
+  finishReason: string,
+  usage?: TurnUsage
+) => ({
+  ...chunk(id, model, {}, finishReason),
+  ...(usage ? { usage: toUsagePayload(usage) } : {})
+})
+
+/** OpenAI's trailing usage chunk, for a client that set `include_usage`. */
+export const usageChunk = (id: string, model: string, usage: TurnUsage) => ({
+  id,
+  object: "chat.completion.chunk",
+  created: Math.floor(Date.now() / 1000),
+  model,
+  choices: [],
+  usage: toUsagePayload(usage)
+})

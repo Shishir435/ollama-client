@@ -562,6 +562,36 @@ const agentPlanContext = (state: AgentRunState): AgentPlanContext => ({
     : {})
 })
 
+/** Preserve readable boundaries on failure; oversized plans return a user question. */
+const agentPlanAfterFailure = (
+  context: AgentPlanContext,
+  lastError: unknown
+): AgentTaskPlan => {
+  const overCapPlan = (error: AgentPlanOverCapError): AgentTaskPlan => ({
+    requirements: [],
+    overCap: {
+      unit: error.unit,
+      requested: error.requested,
+      max: error.max
+    }
+  })
+  /** An oversized amendment needs the user's answer, just like an initial plan. */
+  if (lastError instanceof AgentPlanOverCapError) return overCapPlan(lastError)
+  /**
+   * On a planner failure, apply every boundary readable by rule. If that
+   * also exceeds the cap, ask the user rather than throwing or truncating.
+   */
+  if (context.current) {
+    try {
+      return agentRuleAmendment({ ...context, current: context.current })
+    } catch (error) {
+      if (error instanceof AgentPlanOverCapError) return overCapPlan(error)
+      throw error
+    }
+  }
+  throw lastError
+}
+
 const decisionPrompt = (input: {
   state: AgentRunState
   observation: AgentObservation
@@ -1299,30 +1329,7 @@ export const createProviderAgentModelPort = (
           lastError = error
         }
       }
-      /**
-       * An amendment the planner could not make is made by rule. The user's
-       * newest words may hold a prohibition, and a plan left as it was would
-       * let the run do what they just said not to; the rule adds every
-       * clause it can read and keeps everything already planned.
-       */
-      if (context.current)
-        return agentRuleAmendment({ ...context, current: context.current })
-      /**
-       * Twice over the cap is the goal's size, not a fumble. Said as a count
-       * with its bound, so the run can ask the user which part to do rather
-       * than failing the task or planning the first part and calling that
-       * all of it.
-       */
-      if (lastError instanceof AgentPlanOverCapError)
-        return {
-          requirements: [],
-          overCap: {
-            unit: lastError.unit,
-            requested: lastError.requested,
-            max: lastError.max
-          }
-        }
-      throw lastError
+      return agentPlanAfterFailure(context, lastError)
     },
     async decide(
       {

@@ -845,7 +845,9 @@ export const AgentPlanRecordSchema = z
          * effect it would allow, and answered only by "allow": a "yes" to
          * "no longer needs: don't submit" reads just as well as "yes, don't".
          */
-        lift: z.literal(true).optional()
+        lift: z.literal(true).optional(),
+        /** Removal frees capacity; the original added work still needs planning. */
+        provisional: z.literal(true).optional()
       })
       .strict()
       .optional()

@@ -490,7 +490,10 @@
       "generated_tokens": "生成トークン",
       "load_time": "読み込み時間",
       "prompt_eval_time": "プロンプト評価時間",
-      "speed_unit": "t/s"
+      "speed_unit": "t/s",
+      "cached_tokens": "キャッシュ済みプロンプトトークン",
+      "reasoning_tokens": "推論トークン",
+      "cost": "コスト"
     },
     "session_metrics": {
       "label_tokens": "トークン",

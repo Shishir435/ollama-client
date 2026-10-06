@@ -490,7 +490,10 @@
       "generated_tokens": "生成的 Token",
       "load_time": "加载时间",
       "prompt_eval_time": "提示词评估时间",
-      "speed_unit": "词元/秒"
+      "speed_unit": "词元/秒",
+      "cached_tokens": "缓存的提示词元",
+      "reasoning_tokens": "推理词元",
+      "cost": "费用"
     },
     "session_metrics": {
       "label_tokens": "令牌",

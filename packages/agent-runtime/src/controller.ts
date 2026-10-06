@@ -2149,7 +2149,7 @@ export const createAgentController = (
     state: AgentRunState,
     steering: readonly { text: string; at: number }[] | undefined,
     signal: AgentCancellationController["signal"]
-  ): Promise<AgentRunState | undefined> => {
+  ): Promise<{ state: AgentRunState; stop?: AgentTaskPlan } | undefined> => {
     const answers = steering?.length
       ? [
           ...(state.answers ?? []),
@@ -2163,12 +2163,13 @@ export const createAgentController = (
       : state.answers
     const amendment = await amendedPlan(state, answers, signal)
     if (signal.aborted) return undefined
-    return claim(state, "deciding", {
+    const deciding = await claim(state, "deciding", {
       observationCount: state.observationCount + 1,
       ...(steering?.length ? { answers } : {}),
-      ...amendment,
+      ...amendment.patch,
       updatedAt: dependencies.clock.now()
     })
+    return deciding ? { state: deciding, stop: amendment.stop } : undefined
   }
 
   /**
@@ -2248,8 +2249,9 @@ export const createAgentController = (
      * decision after the resume, rather than accepted and then dropped.
      */
     const steering = pendingSteering.get(state.id)
-    const deciding = await claimDeciding(state, steering, signal)
-    if (!deciding) return undefined
+    const claimed = await claimDeciding(state, steering, signal)
+    if (!claimed) return undefined
+    const deciding = claimed.state
     if (steering?.length) {
       const queued = pendingSteering.get(state.id) ?? []
       /** By identity: a correction typed during the claim is still waiting. */
@@ -2271,6 +2273,8 @@ export const createAgentController = (
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
     }
+    if (claimed.stop && (await stopsBeforePlanning(deciding, claimed.stop)))
+      return undefined
     if (deciding.plan?.pending) {
       await askRemoval(deciding)
       return undefined
@@ -2522,12 +2526,15 @@ export const createAgentController = (
       requirements: planned.requirements.length,
       constraints: planned.constraints?.length ?? 0
     })
-    return (
-      (await transition(planning, "observing", {
-        ...agentInitialPlanPatch(planning, planned),
-        updatedAt: dependencies.clock.now()
-      })) ?? undefined
-    )
+    const observed = await transition(planning, "observing", {
+      ...agentInitialPlanPatch(planning, planned, dependencies.clock.now()),
+      updatedAt: dependencies.clock.now()
+    })
+    if (observed?.plan?.pending) {
+      await askRemoval(observed)
+      return undefined
+    }
+    return observed ?? undefined
   }
 
   /**
@@ -2542,17 +2549,17 @@ export const createAgentController = (
     state: AgentRunState,
     answers: AgentRunState["answers"],
     signal: AgentCancellationController["signal"]
-  ): Promise<AgentStatePatch> => {
+  ): Promise<{ patch: AgentStatePatch; stop?: AgentTaskPlan }> => {
     const plan = dependencies.model.plan
     const answeredAt = agentPlanNeedsReconciling(state, answers)
-    if (!plan || answeredAt === undefined) return {}
+    if (!plan || answeredAt === undefined) return { patch: {} }
     const startedAt = dependencies.clock.now()
     let amended: AgentTaskPlan
     try {
       amended = await plan({ ...state, answers }, signal)
     } catch (error) {
       measure({ planMs: dependencies.clock.now() - startedAt })
-      if (signal.aborted) return {}
+      if (signal.aborted) return { patch: {} }
       /**
        * Not reconciled: the answer may hold a prohibition, and marking it
        * absorbed when nothing absorbed it is how "don't submit" would be
@@ -2561,9 +2568,12 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "plan_amendment_unavailable", {
         name: error instanceof Error ? error.name : typeof error
       })
-      return {}
+      return { patch: {} }
     }
     measure({ planMs: dependencies.clock.now() - startedAt })
+    /** A question must keep the answer outstanding and the existing plan whole. */
+    if (amended.overCap || amended.clarification || amended.limitation)
+      return { patch: {}, stop: amended }
     const patch = agentAmendedPlanPatch(
       state,
       amended,
@@ -2574,7 +2584,7 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "plan_amended", {
         version: patch.plan.version
       })
-    return patch
+    return { patch }
   }
 
   const runLoop = async (

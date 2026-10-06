@@ -78,6 +78,30 @@ export interface BackendContext {
   callClientTool: (invocation: ClientToolInvocation) => Promise<string>
 }
 
+/**
+ * Token counts for a whole turn, as the runtime reported them.
+ *
+ * Sent once, with the answer that completes the turn. A leg that parks on a
+ * client tool carries none: both runtimes report a model call's tokens only
+ * after its tools answer, so a parked leg could only offer a partial count.
+ */
+export interface TurnUsage {
+  /** Every input token, cached ones included, as OpenAI counts `prompt_tokens`. */
+  promptTokens: number
+  /** Every output token, reasoning included, as OpenAI counts `completion_tokens`. */
+  completionTokens: number
+  cachedPromptTokens?: number
+  reasoningTokens?: number
+  /** The runtime's own cost estimate in USD, when it prices the model. */
+  cost?: number
+}
+
+/** A web page the runtime's own search consulted while answering. */
+export interface TurnSource {
+  url: string
+  title?: string
+}
+
 export interface TurnStreamHandlers {
   onText: (delta: string) => void
   onReasoning: (delta: string) => void
@@ -85,6 +109,18 @@ export interface TurnStreamHandlers {
   onImage?: (image: GeneratedImage) => void
   /** Backend-specific extras a client may ignore, such as OpenCode patches. */
   onAuxiliary?: (payload: unknown) => void
+}
+
+/**
+ * A failure the runtime classified. `status` is the HTTP status the upstream
+ * service answered with, when it said; a client that reads 429 backs off where
+ * a bare 502 told it nothing.
+ */
+export interface TurnError {
+  message: string
+  type: string
+  status?: number
+  retryAfterSeconds?: number
 }
 
 export interface TurnRunSignals {
@@ -109,10 +145,14 @@ export type TurnResult =
       content: string
       reasoning: string
       images?: GeneratedImage[]
+      /** Pages the runtime's native web search consulted, most relevant first. */
+      sources?: TurnSource[]
+      /** The whole turn's usage, across every leg it took. */
+      usage?: TurnUsage
       finish?: string | null
     }
   | { status: "suspended" }
-  | { status: "failed"; error: { message: string; type: string } }
+  | { status: "failed"; error: TurnError }
 
 export interface BackendTurn {
   readonly id: string

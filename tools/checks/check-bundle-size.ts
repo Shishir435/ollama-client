@@ -486,8 +486,11 @@ const budgets: Budget[] = [
      * in item sentences and item-unique field names, to 312,049.
      * Context-bound numbering markers, localized removal replies and full-item
      * receipt facts took Chrome to 312,566. Firefox carries no Agent code.
+     * Provider web citations (`url_citation`) and usage details — cached and
+     * reasoning tokens, cost — through the stream schema and reducer: Chrome
+     * 303,436 and Firefox 218,360.
      */
-    max: isFirefox ? 218_500 : 313_000
+    max: isFirefox ? 219_500 : 314_000
   }
 ]
 

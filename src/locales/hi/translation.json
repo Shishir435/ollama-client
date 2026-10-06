@@ -490,7 +490,10 @@
       "generated_tokens": "उत्पन्न टोकन",
       "load_time": "लोड करने का समय",
       "prompt_eval_time": "प्रॉम्प्ट मूल्यांकन समय",
-      "speed_unit": "टोकन/से"
+      "speed_unit": "टोकन/से",
+      "cached_tokens": "कैश किए गए प्रॉम्प्ट टोकन",
+      "reasoning_tokens": "रीज़निंग टोकन",
+      "cost": "लागत"
     },
     "session_metrics": {
       "label_tokens": "टोकन",

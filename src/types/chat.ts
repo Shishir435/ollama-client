@@ -1,9 +1,14 @@
 import type { AgentConversationHandoff } from "@ollama-client/contracts/agent-handoff"
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
-import type { PermissionResumeSnapshot } from "@ollama-client/contracts/chat"
+import type {
+  PermissionResumeSnapshot,
+  WebCitation
+} from "@ollama-client/contracts/chat"
 import type { OptionalApiPermission } from "@/lib/permissions"
 import type { ToolCall } from "@/lib/tools/types"
 import type { SelectedModelRef } from "@/types/model"
+
+export type { WebCitation }
 
 export type Role = "user" | "assistant" | "system" | "tool"
 
@@ -199,11 +204,19 @@ export interface ChatMessage {
     prompt_eval_duration?: number
     eval_count?: number
     eval_duration?: number
+    /** Prompt tokens the provider served from its cache; part of `prompt_eval_count`. */
+    prompt_cached_count?: number
+    /** Reasoning tokens; part of `eval_count`. */
+    reasoning_count?: number
+    /** The provider's own cost figure in USD, real or estimated, when it sends one. */
+    cost_usd?: number
     ragQuery?: string
     ragSources?: RagSource[]
     usedContextChunks?: UsedContextChunk[]
     activityEvents?: ActivityEvent[]
     toolRuns?: ToolRun[]
+    /** Pages the provider's own web search cited, from `url_citation` annotations. */
+    webCitations?: WebCitation[]
     groundedOnlyMode?: boolean
     insufficientContext?: boolean
     promptInputLength?: number
@@ -338,6 +351,12 @@ export interface ChatStreamMessage {
    * trace updates live as tools run.
    */
   toolRuns?: ToolRun[]
+  /**
+   * Pages the provider's own web search cited. The reducer merges every list
+   * a turn carries by URL, since each model call in a tool loop reports its
+   * own.
+   */
+  webCitations?: WebCitation[]
   error?: AppFailure
   metrics?: {
     total_duration?: number
@@ -346,6 +365,12 @@ export interface ChatStreamMessage {
     prompt_eval_duration?: number
     eval_count?: number
     eval_duration?: number
+    /** Prompt tokens the provider served from its cache; part of `prompt_eval_count`. */
+    prompt_cached_count?: number
+    /** Reasoning tokens; part of `eval_count`. */
+    reasoning_count?: number
+    /** The provider's own cost figure in USD, real or estimated, when it sends one. */
+    cost_usd?: number
     sample_count?: number
     sample_duration?: number
   }

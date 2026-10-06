@@ -26,7 +26,9 @@ import {
   type BackendTurn,
   type GeneratedImage,
   type TurnResult,
-  type TurnStreamHandlers
+  type TurnSource,
+  type TurnStreamHandlers,
+  type TurnUsage
 } from "../backends/types.js"
 import {
   type ChatCompletionRequest,
@@ -45,6 +47,7 @@ import {
   startEventStream
 } from "./http.js"
 import {
+  annotationsChunk,
   contentChunk,
   extractTrailingToolResults,
   finishChunk,
@@ -52,8 +55,11 @@ import {
   patchChunk,
   reasoningChunk,
   roleChunk,
+  toAnnotationsPayload,
   toolCallsChunk,
-  toToolCallPayload
+  toToolCallPayload,
+  toUsagePayload,
+  usageChunk
 } from "./openai-wire.js"
 import type { PendingToolCalls } from "./pending-tool-calls.js"
 import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
@@ -173,7 +179,27 @@ export interface TurnFailure {
   message: string
   type: string
   status: number
+  retryAfterSeconds?: number
 }
+
+const failureBody = (failure: TurnFailure) => ({
+  message: failure.message,
+  type: failure.type,
+  ...(failure.retryAfterSeconds !== undefined
+    ? { retry_after: failure.retryAfterSeconds }
+    : {})
+})
+
+const sendFailure = (response: ServerResponse, failure: TurnFailure) => {
+  if (failure.retryAfterSeconds !== undefined && !response.headersSent) {
+    response.setHeader("Retry-After", String(failure.retryAfterSeconds))
+  }
+  sendJson(response, failure.status, { error: failureBody(failure) })
+}
+
+/** Whether a streaming client asked for OpenAI's trailing usage chunk. */
+const wantsUsageChunk = (body: ChatCompletionRequest): boolean =>
+  isRecord(body.stream_options) && body.stream_options.include_usage === true
 
 interface TurnEmitter {
   readonly streamMode: boolean
@@ -181,6 +207,10 @@ interface TurnEmitter {
   delta: (text: string, isReasoning: boolean) => void
   image: (image: GeneratedImage) => void
   auxiliary: (payload: unknown) => void
+  /** The completed turn's usage, written on the finish chunk. */
+  usage: (usage: TurnUsage) => void
+  /** Sources to attach to the answer; sent once, before it finishes. */
+  sources: (sources: readonly TurnSource[]) => void
   toolCalls: (calls: PendingToolCall[]) => void
   finish: (reason: string) => void
   fail: (failure: TurnFailure) => void
@@ -192,11 +222,13 @@ interface TurnEmitter {
 const createStreamEmitter = (
   response: ServerResponse,
   id: string,
-  model: string
+  model: string,
+  includeUsageChunk: boolean
 ): TurnEmitter => {
   let streamedContent = ""
   let streamedReasoning = ""
   const streamedImages: GeneratedImage[] = []
+  let turnUsage: TurnUsage | undefined
   const write = (payload: unknown) => {
     if (response.writableEnded) return
     response.write(`data: ${JSON.stringify(payload)}\n\n`)
@@ -232,11 +264,20 @@ const createStreamEmitter = (
       if (!payload) return
       write(patchChunk(id, model, [payload]))
     },
+    usage(usage) {
+      turnUsage = usage
+    },
+    sources(sources) {
+      if (sources.length > 0) write(annotationsChunk(id, model, sources))
+    },
     toolCalls(calls) {
       write(toolCallsChunk(id, model, calls))
     },
     finish(reason) {
-      write(finishChunk(id, model, reason))
+      write(finishChunk(id, model, reason, turnUsage))
+      if (turnUsage && includeUsageChunk) {
+        write(usageChunk(id, model, turnUsage))
+      }
       if (!response.writableEnded) {
         response.write("data: [DONE]\n\n")
         response.end()
@@ -244,12 +285,10 @@ const createStreamEmitter = (
     },
     fail(failure) {
       if (!response.headersSent) {
-        sendJson(response, failure.status, {
-          error: { message: failure.message, type: failure.type }
-        })
+        sendFailure(response, failure)
         return
       }
-      write({ error: failure })
+      write({ error: { ...failureBody(failure), status: failure.status } })
       if (!response.writableEnded) {
         response.write("data: [DONE]\n\n")
         response.end()
@@ -275,6 +314,12 @@ const createBufferEmitter = (
   let content = ""
   let reasoning = ""
   const images: GeneratedImage[] = []
+  let turnUsage: TurnUsage | undefined
+  let annotations: ReturnType<typeof toAnnotationsPayload> = []
+  /**
+   * `usage` is a required field of a non-streaming completion, so a runtime
+   * that never reported counts still gets zeros rather than a missing field.
+   */
   const envelope = (
     message: Record<string, unknown>,
     finishReason: string
@@ -284,7 +329,9 @@ const createBufferEmitter = (
     created: Math.floor(Date.now() / 1000),
     model,
     choices: [{ index: 0, message, finish_reason: finishReason }],
-    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+    usage: turnUsage
+      ? toUsagePayload(turnUsage)
+      : { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
   })
 
   return {
@@ -301,6 +348,12 @@ const createBufferEmitter = (
       images.push(generatedImage)
     },
     auxiliary() {},
+    usage(usage) {
+      turnUsage = usage
+    },
+    sources(sources) {
+      annotations = toAnnotationsPayload(sources)
+    },
     toolCalls(calls) {
       sendJson(
         response,
@@ -340,7 +393,8 @@ const createBufferEmitter = (
                     }))
                   ]
                 : content,
-            reasoning_content: reasoning || null
+            reasoning_content: reasoning || null,
+            ...(annotations.length > 0 ? { annotations } : {})
           },
           "stop"
         )
@@ -351,9 +405,7 @@ const createBufferEmitter = (
         if (!response.writableEnded) response.end()
         return
       }
-      sendJson(response, failure.status, {
-        error: { message: failure.message, type: failure.type }
-      })
+      sendFailure(response, failure)
     },
     get content() {
       return content
@@ -727,7 +779,12 @@ export const registerChatRoutes = (
     const activeModel = `${target.providerId}/${target.modelId}`
 
     const emitter = streamMode
-      ? createStreamEmitter(response, `chatcmpl-${Date.now()}`, activeModel)
+      ? createStreamEmitter(
+          response,
+          `chatcmpl-${Date.now()}`,
+          activeModel,
+          wantsUsageChunk(body)
+        )
       : createBufferEmitter(response, `chatcmpl-${Date.now()}`, activeModel)
 
     // A turn is abandoned once: the queue's deadline ends the response, which fires
@@ -841,7 +898,10 @@ export const registerChatRoutes = (
           emitter.fail({
             message: result.error.message,
             type: result.error.type,
-            status: 502
+            status: result.error.status ?? 502,
+            ...(result.error.retryAfterSeconds !== undefined
+              ? { retryAfterSeconds: result.error.retryAfterSeconds }
+              : {})
           })
           await discardTurn(turn as BackendTurn)
           return
@@ -851,6 +911,8 @@ export const registerChatRoutes = (
         const tailContent = unsentTail(result.content, emitter.content)
         if (tailContent) emitter.delta(tailContent, false)
         for (const image of result.images ?? []) emitter.image(image)
+        if (result.sources) emitter.sources(result.sources)
+        if (result.usage) emitter.usage(result.usage)
         if (
           !emitter.content &&
           !result.content &&

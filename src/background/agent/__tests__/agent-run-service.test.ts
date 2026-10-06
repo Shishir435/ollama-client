@@ -1082,6 +1082,34 @@ describe("a follow-up start", () => {
     expect(createRun).toHaveBeenCalledWith(state, "chat-1", "parent", undefined)
   })
 
+  it.each([
+    "retry",
+    "continue"
+  ] as const)("carries every parent boundary into %s", async (mode) => {
+    const constraints: NonNullable<AgentRunState["constraints"]> = [
+      { id: "c1", text: "only account A", kind: "scope" },
+      { id: "c2", text: "spend under $50", kind: "limit" },
+      { id: "c3", text: "exclude archived rows", kind: "exclude" },
+      {
+        id: "c4",
+        text: "never submit",
+        kind: "exclude",
+        forbids: ["submission"]
+      }
+    ]
+    const { service: agent } = service({
+      readRun: async () => parentRun({}, { constraints }),
+      readSteps: async () => parentSteps
+    })
+    const state = await agent.start({
+      ...startInput,
+      goal: "Try again",
+      sessionId: "chat-1",
+      followUp: { parentRunId: "parent", mode }
+    })
+    expect(state.previousRun?.constraints).toEqual(constraints)
+  })
+
   it("inherits what the parent itself inherited", async () => {
     const earlier = {
       action: "click",

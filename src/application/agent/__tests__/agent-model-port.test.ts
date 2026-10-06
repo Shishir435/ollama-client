@@ -936,6 +936,10 @@ describe("usable agent prompt", () => {
               findings: ["Stock: 3"],
               settledAt: 1
             },
+            constraints: [
+              { id: "c1", text: "only blue mugs", kind: "scope" },
+              { id: "c2", text: "under $20", kind: "limit" }
+            ],
             effects: [
               {
                 action: "click",
@@ -960,6 +964,10 @@ describe("usable agent prompt", () => {
       result: "It costs 12 dollars",
       requirementsMet: "1 of 1",
       findings: ["Stock: 3"],
+      constraints: [
+        { id: "c1", text: "only blue mugs", kind: "scope" },
+        { id: "c2", text: "under $20", kind: "limit" }
+      ],
       effects: [{ action: "click", role: "button", name: "Add to cart" }]
     })
     expect(String(sent.messages[0].content)).toContain(
@@ -1392,6 +1400,66 @@ describe("agent task contract on the wire", () => {
     })
     expect(sent[0]).toHaveLength(2)
     expect(sent[1]?.at(-1)).toContain("Merge the same outcome")
+  })
+
+  it("reports an oversized amendment instead of hiding it behind the rule fallback", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(planCall(nine)))
+    const port = modelPort(streamChat)
+    expect(
+      await port.plan?.(
+        {
+          ...state,
+          requirements: nine.slice(0, 8).map((entry, index) => ({
+            ...entry,
+            id: `r${index + 1}`,
+            kind: "read" as const
+          })),
+          plan: {
+            version: 1,
+            issued: { requirements: 8, constraints: 0 },
+            reconciledThrough: 1
+          },
+          answers: [
+            { questionId: "q", text: "Also page part 9", answeredAt: 5 }
+          ]
+        },
+        { aborted: false }
+      )
+    ).toEqual({
+      requirements: [],
+      overCap: { unit: "outcomes", requested: 9, max: 8 }
+    })
+    expect(streamChat).toHaveBeenCalledTimes(2)
+  })
+
+  it("reports the cap when a failed planner's rule amendment adds a ninth constraint", async () => {
+    const streamChat = vi.fn(async () => {
+      throw new Error("connection reset")
+    })
+    const port = modelPort(streamChat)
+    expect(
+      await port.plan?.(
+        {
+          ...state,
+          requirements: [{ id: "r1", text: "the page is read", kind: "read" }],
+          constraints: Array.from({ length: 8 }, (_, index) => ({
+            id: `c${index + 1}`,
+            text: `only section ${index + 1}`,
+            kind: "scope" as const
+          })),
+          plan: {
+            version: 1,
+            issued: { requirements: 1, constraints: 8 },
+            reconciledThrough: 1
+          },
+          answers: [{ questionId: "q", text: "never delete", answeredAt: 5 }]
+        },
+        { aborted: false }
+      )
+    ).toEqual({
+      requirements: [],
+      overCap: { unit: "constraints", requested: 9, max: 8 }
+    })
   })
 
   it("sends the run's constraints beside its requirements", async () => {

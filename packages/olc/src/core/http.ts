@@ -15,6 +15,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http"
 
 const JSON_BODY_LIMIT_BYTES = 50 * 1024 * 1024
+/** Rate-limit windows kept before expired ones are swept. */
+const MAX_RATE_LIMIT_BUCKETS = 256
 
 export interface RouteRequest {
   method: string
@@ -317,6 +319,14 @@ export const createRouter = ({
   const patterns = new Map<Route, string>()
   const buckets = new Map<string, { count: number; resetAt: number }>()
 
+  /** Expired windows are dropped once there are enough to matter. */
+  const sweepExpiredBuckets = (now: number) => {
+    if (buckets.size < MAX_RATE_LIMIT_BUCKETS) return
+    for (const [key, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(key)
+    }
+  }
+
   const setRateLimitHeaders = (
     response: ServerResponse,
     remaining: number,
@@ -399,6 +409,7 @@ export const createRouter = ({
       request.socket.remoteAddress ||
       "anonymous"
     const now = Date.now()
+    sweepExpiredBuckets(now)
     const previous = buckets.get(bucketKey)
     const bucket =
       !previous || previous.resetAt <= now

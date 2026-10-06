@@ -126,7 +126,7 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
       dropped: {
         type: "array",
         description:
-          "Only when amending a current plan: entries the user's answer appears to withdraw. To withdraw one item of a requirement, give the requirement's id and the item. These are proposals: the user is asked to confirm each before anything is removed. Anything not listed here is retained.",
+          "When amending a current plan or withdrawing previousRun constraints: entries the user's answer appears to withdraw. To withdraw one item of a requirement, give the requirement's id and the item. These are proposals: the user is asked to confirm each before anything is removed. Anything not listed here is retained.",
         items: {
           type: "object",
           properties: {
@@ -214,7 +214,7 @@ export interface AgentPlanContext {
   }
   /** The requirements of the run a follow-up continues. */
   previous?: readonly AgentPreviousRequirement[]
-  /** The prohibitions of the run a follow-up continues. */
+  /** Every user boundary of the run a follow-up continues. */
   previousConstraints?: readonly AgentTaskConstraint[]
 }
 
@@ -668,7 +668,7 @@ function overCapFeedback(
   requested: number,
   max: number
 ): string {
-  return `The plan named ${requested} ${unit} and a run holds at most ${max}: ${MAX_AGENT_REQUIREMENTS} requirements, ${MAX_AGENT_REQUIREMENT_ITEMS} items in one requirement, ${MAX_AGENT_PLAN_ITEMS} items in all, ${MAX_AGENT_CONSTRAINTS} constraints. Merge the same outcome for several rows or records into one requirement with items, and constraints that say the same thing. Keep genuinely different entries separate; do not drop any.`
+  return `The plan named ${requested} ${unit} and a run holds at most ${max}: ${MAX_AGENT_REQUIREMENTS} requirements, ${MAX_AGENT_REQUIREMENT_ITEMS} items in one requirement, ${MAX_AGENT_PLAN_ITEMS} items in all, ${MAX_AGENT_CONSTRAINTS} constraints. Merge the same outcome for several rows or records into one requirement with items, and constraints that say the same thing. Keep genuinely different entries separate; do not drop any. If the user explicitly withdraws a current entry or previousRun constraint, propose it in dropped for confirmation; it must free the capacity that was exceeded.`
 }
 
 const sourceFeedback = (text: string): string =>
@@ -895,12 +895,6 @@ const parsedRequirements = (
           .map((item) => boundedText(item, MAX_AGENT_REQUIREMENT_ITEM_CHARS))
           .filter((item): item is string => item !== undefined)
       : []
-    if (items.length > MAX_AGENT_REQUIREMENT_ITEMS)
-      throw new AgentPlanOverCapError(
-        "items",
-        items.length,
-        MAX_AGENT_REQUIREMENT_ITEMS
-      )
     const { id, prior } = identity.id(entry, kind, text)
     identity.assertItemsQuoted(
       items.filter((item) => !prior?.items?.includes(item))
@@ -919,12 +913,6 @@ const parsedRequirements = (
      * confirm.
      */
     const kept = [...new Set([...(prior?.items ?? []), ...items])]
-    if (kept.length > MAX_AGENT_REQUIREMENT_ITEMS)
-      throw new AgentPlanOverCapError(
-        "items",
-        kept.length,
-        MAX_AGENT_REQUIREMENT_ITEMS
-      )
     return [
       {
         id,
@@ -1015,34 +1003,6 @@ const proposedRemovals = (
 }
 
 /**
- * The previous run's prohibitions, added where this plan does not already
- * forbid the same effects. A follow-up's goal is usually the chat model's
- * words, and "don't submit" said to the first run must not end with it.
- */
-const withInheritedProhibitions = (
-  constraints: readonly AgentTaskConstraint[],
-  inherited: readonly AgentTaskConstraint[],
-  identity: PlanIdentity
-): AgentTaskConstraint[] => {
-  const result = [...constraints]
-  for (const prohibition of inherited) {
-    if (!prohibition.forbids?.length) continue
-    const enforced = new Set(
-      result.flatMap((constraint) => constraint.forbids ?? [])
-    )
-    if (prohibition.forbids.every((effect) => enforced.has(effect))) continue
-    result.push({
-      id: identity.nextConstraintId(),
-      text: prohibition.text,
-      kind: prohibition.kind,
-      ...(prohibition.source ? { source: prohibition.source } : {}),
-      forbids: [...prohibition.forbids]
-    })
-  }
-  return result
-}
-
-/**
  * The clauses the user wrote and the plan left out, added in the user's
  * words; a clause the plan carries without its forbidden effect gains it.
  */
@@ -1102,6 +1062,13 @@ const assertWithinCaps = (
       requirements.length,
       MAX_AGENT_REQUIREMENTS
     )
+  for (const requirement of requirements)
+    if ((requirement.items?.length ?? 0) > MAX_AGENT_REQUIREMENT_ITEMS)
+      throw new AgentPlanOverCapError(
+        "items",
+        requirement.items?.length ?? 0,
+        MAX_AGENT_REQUIREMENT_ITEMS
+      )
   const items = requirements.reduce(
     (total, requirement) => total + (requirement.items?.length ?? 0),
     0
@@ -1124,6 +1091,65 @@ const assertWithinCaps = (
       "The agent_plan call named no outcomes",
       PLAN_FEEDBACK
     )
+}
+
+/** Ask only about removals that address an exceeded cap and make the whole plan fit. */
+const pendingCapacityRemovals = (
+  error: unknown,
+  current: AgentPlanContext["current"],
+  requirements: AgentTaskRequirement[],
+  constraints: AgentTaskConstraint[],
+  removals: AgentPlanRemoval[]
+): AgentTaskPlan => {
+  if (!(error instanceof AgentPlanOverCapError) || !current) throw error
+  const totalItems = requirements.reduce(
+    (sum, requirement) => sum + (requirement.items?.length ?? 0),
+    0
+  )
+  const useful = removals.filter((removal) => {
+    const requirement = requirements.find((entry) => entry.id === removal.id)
+    if (requirement)
+      return (
+        (!removal.item && requirements.length > MAX_AGENT_REQUIREMENTS) ||
+        (((requirement.items?.length ?? 0) > MAX_AGENT_REQUIREMENT_ITEMS ||
+          totalItems > MAX_AGENT_PLAN_ITEMS) &&
+          (removal.item
+            ? requirement.items?.includes(removal.item)
+            : Boolean(requirement.items?.length)))
+      )
+    return !removal.item && constraints.length > MAX_AGENT_CONSTRAINTS
+  })
+  if (!useful.length) throw error
+  const whole = new Set(
+    useful.filter((entry) => !entry.item).map((entry) => entry.id)
+  )
+  const projected = requirements
+    .filter((entry) => !whole.has(entry.id))
+    .map((entry) => ({
+      ...entry,
+      ...(entry.items
+        ? {
+            items: entry.items.filter(
+              (item) =>
+                !useful.some(
+                  (removal) => removal.id === entry.id && removal.item === item
+                )
+            )
+          }
+        : {})
+    }))
+  assertWithinCaps(
+    projected,
+    constraints.filter((entry) => !whole.has(entry.id))
+  )
+  return AgentTaskPlanSchema.parse({
+    requirements: current.requirements.length
+      ? current.requirements
+      : requirements,
+    constraints: current.constraints,
+    proposedRemovals: useful,
+    provisional: true
+  })
 }
 
 /**
@@ -1156,8 +1182,24 @@ export const parseAgentTaskPlan = (
     )
   }
   const args = (call.arguments ?? {}) as PlanArgs
+  const initial = !context?.current
+  if (initial && context?.previousConstraints?.length)
+    context = {
+      ...context,
+      current: {
+        requirements: [],
+        constraints: context.previousConstraints,
+        issued: {
+          requirements: 0,
+          constraints: agentIssuedIds(
+            context.previousConstraints.map((entry) => entry.id),
+            "c"
+          )
+        }
+      }
+    }
   const current = context?.current
-  const unplannable = current ? undefined : unplannableAnswer(args)
+  const unplannable = initial ? unplannableAnswer(args) : undefined
   if (unplannable) return unplannable
   const rawRequirements = rawArray(args.requirements)
   if (!rawRequirements) {
@@ -1167,6 +1209,7 @@ export const parseAgentTaskPlan = (
     )
   }
   const identity = planIdentity(context)
+  const removals = current ? proposedRemovals(args.dropped, current) : []
   const requirements = parsedRequirements(rawRequirements, identity)
   let constraints = parsedConstraints(
     rawArray(args.constraints) ?? [],
@@ -1178,19 +1221,24 @@ export const parseAgentTaskPlan = (
   }
   if (context)
     constraints = withUserBoundaries(
-      current ? identity.newestAnswers : identity.authority,
+      current?.reconciledThrough !== undefined
+        ? identity.newestAnswers
+        : identity.authority,
       requirements,
       constraints,
       identity
     )
-  if (!current && context?.previousConstraints?.length)
-    constraints = withInheritedProhibitions(
+  try {
+    assertWithinCaps(requirements, constraints)
+  } catch (error) {
+    return pendingCapacityRemovals(
+      error,
+      current,
+      requirements,
       constraints,
-      context.previousConstraints,
-      identity
+      removals
     )
-  assertWithinCaps(requirements, constraints)
-  const removals = current ? proposedRemovals(args.dropped, current) : []
+  }
   return AgentTaskPlanSchema.parse({
     requirements,
     ...(constraints.length > 0 ? { constraints } : {}),
@@ -1218,7 +1266,9 @@ export const agentRuleAmendment = (
   const identity = planIdentity(context)
   const requirements = [...context.current.requirements]
   const constraints = withUserBoundaries(
-    identity.newestAnswers,
+    context.current.reconciledThrough === undefined
+      ? identity.authority
+      : identity.newestAnswers,
     requirements,
     context.current.constraints,
     identity

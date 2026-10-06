@@ -33,6 +33,35 @@ const planned: Pick<
 }
 
 describe("agent plan record", () => {
+  it("keeps added work outstanding after confirming a removal that frees capacity", () => {
+    const patch = agentAmendedPlanPatch(
+      planned,
+      {
+        requirements: planned.requirements ?? [],
+        constraints: planned.constraints,
+        proposedRemovals: [{ id: "r1" }],
+        provisional: true
+      },
+      9,
+      10
+    )
+    expect(patch.plan?.pending?.provisional).toBe(true)
+    const confirmed = agentConfirmedRemovalPatch(
+      { ...planned, ...patch },
+      "yes",
+      12,
+      12
+    )
+    expect(confirmed.requirements?.map(({ id }) => id)).toEqual(["r2"])
+    expect(confirmed.plan).toMatchObject({ reconciledThrough: 5 })
+    expect(confirmed.plan?.pending).toBeUndefined()
+    expect(
+      agentPlanNeedsReconciling({ ...planned, ...confirmed }, [
+        { questionId: "q", text: "Also the new outcome", answeredAt: 9 }
+      ])
+    ).toBe(9)
+  })
+
   it("counts every answer given before planning as reconciled", () => {
     expect(
       agentInitialPlanPatch(

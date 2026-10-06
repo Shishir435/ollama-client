@@ -490,7 +490,10 @@
       "generated_tokens": "Tokens générés",
       "load_time": "Temps de chargement",
       "prompt_eval_time": "Temps d'évaluation du prompt",
-      "speed_unit": "t/s"
+      "speed_unit": "t/s",
+      "cached_tokens": "Jetons de prompt en cache",
+      "reasoning_tokens": "Jetons de raisonnement",
+      "cost": "Coût"
     },
     "session_metrics": {
       "label_tokens": "Tokens",

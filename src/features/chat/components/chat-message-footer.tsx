@@ -124,6 +124,7 @@ export const ChatMessageFooter = ({
           ragQuery={msg.metrics?.ragQuery}
           usedContextChunks={msg.metrics?.usedContextChunks}
           toolRuns={msg.metrics?.toolRuns}
+          webCitations={msg.metrics?.webCitations}
           showRetrievedChunks={showRetrievedChunks}
           feedbackEnabled={feedbackEnabled}
         />

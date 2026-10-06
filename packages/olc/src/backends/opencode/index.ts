@@ -15,12 +15,13 @@
 
 import { createOpencodeClient } from "@opencode-ai/sdk"
 import { createOpencodeClient as createOpencodeV2Client } from "@opencode-ai/sdk/v2"
-import { type Router, sendJson } from "../../core/http.js"
+import { bindRequestAbort, type Router, sendJson } from "../../core/http.js"
 import {
   buildPromptParts,
   buildToolFlags,
   type PromptPart
 } from "../../core/openai-wire.js"
+import { hasUsage } from "../../core/usage.js"
 import type { ToolResultMessage } from "../../types.js"
 import { isRecord, withTimeout } from "../../util.js"
 import {
@@ -33,7 +34,9 @@ import {
   type StartTurnInput,
   type TurnResult,
   type TurnRunSignals,
-  type TurnStreamHandlers
+  type TurnSource,
+  type TurnStreamHandlers,
+  type TurnUsage
 } from "../types.js"
 import {
   collectModels,
@@ -43,6 +46,11 @@ import {
   resolveReasoningVariant
 } from "./catalog.js"
 import { resolveOpencodeConfig } from "./config.js"
+import {
+  collectOpencodeSources,
+  readOpencodeFailureStatus,
+  readOpencodeUsage
+} from "./evidence.js"
 import { createBackendSupervisor } from "./server.js"
 import { ToolManifest } from "./tool-manifest.js"
 import { createTurnReader, type TurnOutcome } from "./turn-events.js"
@@ -50,6 +58,8 @@ import { routeOpencodeWebSearch } from "./web-search.js"
 
 const TOOL_IDS_CACHE_TTL_MS = 60_000
 const MODEL_CATALOG_CACHE_TTL_MS = 30_000
+/** How long reading a settled leg's usage and sources may take; loopback. */
+const EVIDENCE_READ_TIMEOUT_MS = 5_000
 /**
  * How long a session's own control calls may take. Aborting or deleting a
  * session is a loopback request; one that has not answered by now is a wait
@@ -311,8 +321,12 @@ export const createOpencodeBackend = (
    */
   class OpencodeTurn implements BackendTurn {
     readonly id: string
-    private readonly promptBody: PromptBody
-    private prompted = false
+    /**
+     * The prompt, until OpenCode has it. Released once sent: a parked agent
+     * step would otherwise hold its screenshots for as long as it stays
+     * parked.
+     */
+    private promptBody: PromptBody | null
 
     constructor(id: string, promptBody: PromptBody) {
       this.id = id
@@ -323,15 +337,16 @@ export const createOpencodeBackend = (
       handlers: TurnStreamHandlers,
       signals: TurnRunSignals
     ): Promise<TurnResult> {
-      if (!this.prompted) {
-        this.prompted = true
+      const promptBody = this.promptBody
+      if (promptBody) {
+        this.promptBody = null
         await retryAsync(
           () =>
             v2Client.session.promptAsync({
               sessionID: this.id,
-              ...this.promptBody
+              ...promptBody
             }),
-          { label: "session.promptAsync" }
+          { label: "session.promptAsync", idempotent: false }
         )
       }
       return await this.readLeg(handlers, signals)
@@ -377,6 +392,40 @@ export const createOpencodeBackend = (
           "[Proxy] Failed to clean up session:",
           (error as Error).message
         )
+      }
+    }
+
+    /**
+     * The whole session's usage and the pages its web tools read, for the
+     * answer that completes the turn.
+     *
+     * Read once, after the turn settled, from the record the event feed and
+     * the poll both agree on. Not read for a leg that parks: OpenCode writes a
+     * step's tokens only once its tools answer, so a parked leg would report
+     * the steps before it and not the one it is waiting in. Best effort and
+     * bounded: a missing count must never cost the client its answer.
+     */
+    private async readEvidence(
+      abortSignal?: AbortSignal
+    ): Promise<{ usage?: TurnUsage; sources: TurnSource[] }> {
+      if (abortSignal?.aborted) return { sources: [] }
+      try {
+        const entries = await withTimeout(
+          turnReader.fetchSessionMessages(this.id),
+          EVIDENCE_READ_TIMEOUT_MS,
+          `session evidence(${this.id})`
+        )
+        const usage = readOpencodeUsage(entries)
+        return {
+          ...(hasUsage(usage) ? { usage } : {}),
+          sources: collectOpencodeSources(entries)
+        }
+      } catch (error) {
+        log("Session usage and sources unavailable", {
+          sessionId: this.id,
+          message: (error as Error).message
+        })
+        return { sources: [] }
       }
     }
 
@@ -430,7 +479,7 @@ export const createOpencodeBackend = (
           })
           final = await turnReader.pollForAssistantResponseWithRetries(
             this.id,
-            pollOptions,
+            { ...pollOptions, alreadyStreamed: stream.streamed() },
             opencode.POLL_TIMEOUT_RETRIES
           )
         } else if (collected.suspended) {
@@ -442,7 +491,7 @@ export const createOpencodeBackend = (
           })
           final = await turnReader.pollForAssistantResponseWithRetries(
             this.id,
-            pollOptions,
+            { ...pollOptions, alreadyStreamed: stream.streamed() },
             opencode.POLL_TIMEOUT_RETRIES
           )
         } else {
@@ -460,15 +509,19 @@ export const createOpencodeBackend = (
                 failure.data?.message ??
                 failure.message ??
                 "OpenCode provider error",
-              type: failure.name ?? "OpenCodeError"
+              type: failure.name ?? "OpenCodeError",
+              ...readOpencodeFailureStatus(failure)
             }
           }
         }
 
+        const { usage, sources } = await this.readEvidence(abortSignal)
         return {
           status: "completed",
           content: final.content,
           reasoning: final.reasoning,
+          ...(sources.length > 0 ? { sources } : {}),
+          ...(usage ? { usage } : {}),
           finish: final.finish ?? null
         }
       } finally {
@@ -519,7 +572,8 @@ export const createOpencodeBackend = (
       }
 
       const created = await retryAsync(() => client.session.create(), {
-        label: "session.create"
+        label: "session.create",
+        idempotent: false
       })
       const sessionId = (created as { data?: { id?: string } })?.data?.id
       if (!sessionId) throw new Error("Failed to create an OpenCode session")
@@ -585,11 +639,13 @@ export const createOpencodeBackend = (
           return
         }
 
-        const controller = new AbortController()
-        request.raw.on("close", () => {
-          if (response.writableEnded) return
-          controller.abort()
-        })
+        /**
+         * The plugin's connection, read from the response: a request's own
+         * `close` fires once its body is consumed, before this handler runs,
+         * so a call OpenCode cancelled stayed parked for the whole bridge
+         * deadline and could still be handed to the client.
+         */
+        const controller = bindRequestAbort(request, response)
 
         try {
           const output = await context.callClientTool({

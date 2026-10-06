@@ -1376,7 +1376,16 @@ run that produced it can always be repeated.
   and bound; the port retries once with feedback asking for repeated
   outcomes to become one requirement with `items`, and a second over-cap
   answer becomes `overCap` — a question naming that unit, asked before the
-  first look. An itemized requirement is answered item by item in
+  first look. An over-cap amendment asks the same question while retaining
+  the plan and leaving the user's answer unreconciled. When an amendment
+  proposes removals to make room, ask only about removals relevant to the
+  exceeded caps, and only when the projected whole plan fits after them.
+  Confirming them must leave the original additions outstanding for the next
+  planning call. A follow-up may propose removing an inherited constraint by
+  its previousRun id. An initial capacity-removal plan retains the inherited
+  limits, asks before observing, and leaves reconciliation unset until the
+  follow-up goal and answers fit; confirmation then replans the whole goal.
+  An itemized requirement is answered item by item in
   `outcomes[].items` and judged per item, each on its own quotation or its
   own verified change; one invoice's evidence never vouches for the rest. An
   item's quotation must name that item as a whole phrase and may not repeat
@@ -1408,8 +1417,8 @@ run that produced it can always be repeated.
   refusal and a question; reading too little let a forbidden effect through.
   The controller refuses a command whose resolved effect carries a forbidden
   class before policy is asked. A follow-up inherits the parent's
-  prohibitions (`previousRun.constraints`), because its goal is usually the
-  chat model's words.
+  boundaries (`previousRun.constraints`), including scopes and numeric
+  limits, because its goal is usually the chat model's words.
 - **Only the user's words amend a plan, and only the user's yes removes
   anything.** An answer, correction or steer newer than
   `plan.reconciledThrough` triggers one planning call, given the goal, the

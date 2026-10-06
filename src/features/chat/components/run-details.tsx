@@ -1,5 +1,8 @@
 import {
+  Brain,
   Clock,
+  Coins,
+  DatabaseZap,
   FileText,
   Gauge,
   LoaderCircle,
@@ -13,7 +16,11 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { formatDuration, formatTokensPerSecond } from "@/lib/format-utils"
+import {
+  formatDuration,
+  formatTokensPerSecond,
+  formatUsd
+} from "@/lib/format-utils"
 import type { ChatMessage } from "@/types"
 
 interface RunDetailsProps {
@@ -74,6 +81,30 @@ export const RunDetails = ({ metrics }: RunDetailsProps) => {
             icon: FileText,
             label: metrics.prompt_eval_count.toLocaleString(),
             tooltip: t("chat.metrics.prompt_tokens")
+          }
+        : null,
+      metrics.prompt_cached_count
+        ? {
+            key: "cached",
+            icon: DatabaseZap,
+            label: metrics.prompt_cached_count.toLocaleString(),
+            tooltip: t("chat.metrics.cached_tokens")
+          }
+        : null,
+      metrics.reasoning_count
+        ? {
+            key: "reasoning",
+            icon: Brain,
+            label: metrics.reasoning_count.toLocaleString(),
+            tooltip: t("chat.metrics.reasoning_tokens")
+          }
+        : null,
+      metrics.cost_usd
+        ? {
+            key: "cost",
+            icon: Coins,
+            label: formatUsd(metrics.cost_usd),
+            tooltip: t("chat.metrics.cost")
           }
         : null
     ].filter(Boolean) as Array<{

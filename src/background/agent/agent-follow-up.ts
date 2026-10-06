@@ -110,16 +110,10 @@ export const resolveAgentFollowUp = async (
 const previousRequirements = (
   state: NonNullable<DurableAgentRun["state"]>
 ): Pick<AgentPreviousRun, "requirements" | "constraints"> => {
-  /**
-   * Prohibitions travel with the chain: the follow-up's goal is often the
-   * chat model's words, and a "don't submit" the user gave the first run
-   * must still bind the second.
-   */
-  const prohibitions = (state.constraints ?? []).filter(
-    (constraint) => constraint.forbids?.length
-  )
-  const constraints =
-    prohibitions.length > 0 ? { constraints: prohibitions } : {}
+  /** Every user boundary travels with the chain, including scope and limits. */
+  const constraints = state.constraints?.length
+    ? { constraints: state.constraints }
+    : {}
   if (!state.requirements?.length) return constraints
   const met = new Set(state.outcome?.met ?? [])
   const unmet = new Set(state.outcome?.unmet ?? [])
