@@ -28,6 +28,8 @@ import {
   MAX_AGENT_FORM_FIELDS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_SOURCE_QUOTE_CHARS,
+  MAX_AGENT_SOURCE_QUOTES,
   MAX_AGENT_THINKING_CHARS
 } from "@ollama-client/contracts"
 import {
@@ -332,15 +334,18 @@ const agentDecisionParameters = (vision: boolean): ToolParameterSchema => ({
     reason: { type: "string", description: "Reason for fail." },
     sourceQuotes: {
       type: "array",
-      maxItems: 3,
-      description:
-        "Optional source quotations to retain for later answers. Copy at most 200 characters exactly from one observed source. Name its ref or extract_text frameId, and requirementId when applicable. A note is inference; a quotation is checked against the authorized observation.",
+      maxItems: MAX_AGENT_SOURCE_QUOTES,
+      description: `Optional source quotations to retain for later answers. Copy at most ${MAX_AGENT_SOURCE_QUOTE_CHARS} characters exactly from one observed source. Name its ref or extract_text frameId, and requirementId when applicable. A note is inference; a quotation is checked against the authorized observation.`,
       items: {
         type: "object",
         additionalProperties: false,
         required: ["quote"],
         properties: {
-          quote: { type: "string", minLength: 1, maxLength: 200 },
+          quote: {
+            type: "string",
+            minLength: 1,
+            maxLength: MAX_AGENT_SOURCE_QUOTE_CHARS
+          },
           ref: { type: "string" },
           frameId: { type: "integer", minimum: 0 },
           requirementId: { type: "string" }

@@ -2,7 +2,8 @@ import { boundAgentEvidence } from "@ollama-client/agent-runtime"
 import {
   type AgentEvidenceRecord,
   type AgentRunState,
-  MAX_AGENT_FINDING_CHARS
+  MAX_AGENT_FINDING_CHARS,
+  MAX_AGENT_SOURCE_QUOTE_CHARS
 } from "@ollama-client/contracts"
 import {
   AGENT_HANDOFF_STATUSES,
@@ -129,8 +130,14 @@ export const buildAgentConversationHandoff = (
             ...record,
             ...(record.quote
               ? {
-                  quote: handoffPlainText(record.quote, 200),
-                  ...(handoffPlainText(record.quote, 200) !== record.quote
+                  quote: handoffPlainText(
+                    record.quote,
+                    MAX_AGENT_SOURCE_QUOTE_CHARS
+                  ),
+                  ...(handoffPlainText(
+                    record.quote,
+                    MAX_AGENT_SOURCE_QUOTE_CHARS
+                  ) !== record.quote
                     ? { validity: "incomplete" as const }
                     : {})
                 }

@@ -7,7 +7,8 @@ import {
   type AgentRunState,
   type AgentSourceQuote,
   MAX_AGENT_LEDGER_BYTES,
-  MAX_AGENT_LEDGER_RECORDS
+  MAX_AGENT_LEDGER_RECORDS,
+  MAX_AGENT_SOURCE_QUOTES
 } from "@ollama-client/contracts"
 import { agentNormalizedClaim } from "./observed-text"
 import type {
@@ -395,7 +396,7 @@ export const agentCompletionEvidence = (
     ...(decision.outcomes ?? []).flatMap((outcome) =>
       outcome.evidence ? [{ quote: outcome.evidence }] : []
     )
-  ].slice(0, 3)
+  ].slice(0, MAX_AGENT_SOURCE_QUOTES)
   // Grounding establishes page provenance, not requirement satisfaction.
   const unboundQuotes = quotes.map(({ quote, ref, frameId }) => ({
     quote,
