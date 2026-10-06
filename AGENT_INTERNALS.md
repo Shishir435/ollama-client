@@ -844,9 +844,12 @@ Read the section your change touches; you do not need the whole file.
   Typed plan checks decide exact field, checked/selected, URL, row and record
   save/submission states; ambiguous claims return needs_review for independent
   review. Save/submission indicators must name the exact record in a current
-  status/alert or row; ordinary document prose needs review.
+  status/alert; ordinary document prose needs review. Bounded whole-row text
+  cannot establish record identity for scoped controls; those need review.
+  Row predicates require the complete row label to equal the record name.
   Planned result text is built from the judged outcomes, never the model's
-  free-form success summary. Completion retries only read; effects are retained.
+  free-form success summary. Itemized reads report only the checked item quotes,
+  never their unchecked parent quote. Completion retries only read; effects are retained.
   A planned page-changing command names the requirement id it advances, and
   that id is durable on the step receipt. This is the binding for result-verified
   state: planning happens before observation, so `Address` may legitimately

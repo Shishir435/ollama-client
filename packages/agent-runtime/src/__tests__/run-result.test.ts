@@ -5,6 +5,28 @@ import { agentRunResult } from "../run-result"
 const read = { id: "r1", text: "Report the status code", kind: "read" as const }
 
 describe("agentRunResult", () => {
+  it("omits unchecked parent quotes from verified itemized reads", () => {
+    const report = agentRunResult(
+      "Both invoices paid",
+      [{ ...read, items: ["Invoice 1", "Invoice 2"] }],
+      [
+        {
+          id: "r1",
+          met: true,
+          evidence: "Both invoices paid",
+          items: [
+            { index: 0, met: true, evidence: "Invoice 1: Draft" },
+            { index: 1, met: true, evidence: "Invoice 2: Draft" }
+          ]
+        }
+      ],
+      ["r1"]
+    )
+    expect(report).toBe(
+      "Verified: Report the status code\nVerified item: Invoice 1\nInvoice 1: Draft\nVerified item: Invoice 2\nInvoice 2: Draft"
+    )
+    expect(report).not.toContain("paid")
+  })
   it("reports supported items of an incomplete requirement without overstating the rest", () => {
     expect(
       agentRunResult(

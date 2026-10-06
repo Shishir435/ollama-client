@@ -9,11 +9,6 @@ const same = (a: string, b: string) =>
   agentNormalizedClaim(a) === agentNormalizedClaim(b)
 const escapePattern = (text: string) =>
   text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
-const namesRecord = (text: string | undefined, record: string) =>
-  new RegExp(
-    `(?:^|[^\\p{L}\\p{N}])${escapePattern(agentNormalizedClaim(record))}(?:$|[^\\p{L}\\p{N}])`,
-    "u"
-  ).test(agentNormalizedClaim(text ?? ""))
 
 /** Only independently observed facts, never inputs or model/tool claims. */
 export const groundedCompletionQuote = (
@@ -66,9 +61,7 @@ export const checkCompletionState = (
         (element.visible || element.offscreen) &&
         element.frameId === fact.source?.frameId &&
         same(element.name ?? "", fact.quote ?? "") &&
-        (element.role === "status" ||
-          element.role === "alert" ||
-          namesRecord(element.rowContext, check.record))
+        (element.role === "status" || element.role === "alert")
     )
     if (!status) return undefined
     // Exact identity and asserted state together. "not saved" and another
@@ -78,24 +71,30 @@ export const checkCompletionState = (
       "u"
     ).test(agentNormalizedClaim(fact.quote ?? ""))
   }
-  if (check.type === "row")
-    return observation.elements.some(
-      (element) =>
-        !element.sensitive &&
-        (element.visible || element.offscreen) &&
-        (namesRecord(element.rowContext, check.record) ||
-          ((element.role === "row" ||
+  if (check.type === "row") {
+    if (
+      observation.elements.some(
+        (element) =>
+          !element.sensitive &&
+          (element.visible || element.offscreen) &&
+          (element.role === "row" ||
             element.role === "listitem" ||
             element.tag === "tr") &&
-            same(element.name ?? "", check.record)))
+          same(element.name ?? "", check.record)
+      )
     )
+      return true
+    return undefined
+  }
+  // rowContext is bounded whole-row text, not a distinct record label.
+  // It cannot prove a scoped control belongs to the requested record.
+  if (check.record) return undefined
   const matches = observation.elements.filter(
     (element) =>
       !element.sensitive &&
       (element.visible || element.offscreen) &&
       same(element.name ?? "", check.name) &&
-      (check.frameId === undefined || element.frameId === check.frameId) &&
-      (!check.record || namesRecord(element.rowContext, check.record))
+      (check.frameId === undefined || element.frameId === check.frameId)
   )
   if (matches.length !== 1) return false
   const element = matches[0]

@@ -41,7 +41,7 @@ export const agentRunResult = (
               .join("\n")
           : ""
       const evidence =
-        verified && requirement.kind === "read"
+        verified && requirement.kind === "read" && !requirement.items?.length
           ? [claim?.evidence].filter(Boolean).join("\n")
           : ""
       return `${verified ? "Verified" : "Not verified"}: ${requirement.text}${evidence ? `\n${evidence}` : ""}${itemReport ? `\n${itemReport}` : ""}`

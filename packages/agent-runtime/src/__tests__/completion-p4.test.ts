@@ -265,7 +265,7 @@ describe("P4 deterministic completion", () => {
     ).toMatchObject({ type: "refused" })
   })
   it.each([
-    [{ type: "field", name: "Name", value: "Ada", record: "Invoice 1" }, true],
+    [{ type: "field", name: "Name", value: "Ada", record: "Invoice 1" }, false],
     [{ type: "field", name: "Name", value: "Ada", record: "Invoice 2" }, false],
     [{ type: "field", name: "Name", value: "Alice" }, false],
     [{ type: "checked", name: "Agree", checked: true }, true],
@@ -277,10 +277,63 @@ describe("P4 deterministic completion", () => {
       { type: "url", url: "https://example.com/invoice/1?view=submitted" },
       false
     ],
-    [{ type: "row", record: "Invoice 1" }, true],
+    [{ type: "row", record: "Invoice 1" }, false],
     [{ type: "row", record: "Invoice 10" }, false]
   ] as const)("checks observable predicate %j", (check, accepted) => {
     expect(judge(check).type === "accepted").toBe(accepted)
+  })
+  it("requires review for record identity inferred from whole-row text", () => {
+    for (const rowContext of [
+      "Invoice 1",
+      "Invoice 1 copy",
+      "Invoice 1 Name Ada"
+    ]) {
+      const observation = {
+        ...page,
+        elements: [{ ...page.elements[0], rowContext }]
+      }
+      for (const check of [
+        { type: "row", record: "Invoice 1" },
+        { type: "field", record: "Invoice 1", name: "Name", value: "Ada" },
+        { type: "checked", record: "Invoice 1", name: "Name", checked: true },
+        { type: "selected", record: "Invoice 1", name: "Name", value: "Ada" }
+      ] as const)
+        expect(judge(check, observation)).toMatchObject({
+          reason: "needs_review"
+        })
+    }
+  })
+  it("requires the whole row label to match the record", () => {
+    const check = { type: "row", record: "Invoice 1" } as const
+    const row = {
+      ...page.elements[0],
+      tag: "tr",
+      role: "row",
+      rowContext: undefined
+    }
+    expect(
+      judge(check, { ...page, elements: [{ ...row, name: "Invoice 1" }] })
+    ).toMatchObject({ type: "accepted" })
+    expect(
+      judge(check, { ...page, elements: [{ ...row, name: "Invoice 1 copy" }] })
+    ).toMatchObject({ reason: "needs_review" })
+  })
+  it("does not use an unrelated row as a save-status indicator", () => {
+    expect(
+      judge(
+        { type: "record_state", record: "Invoice 1", state: "saved" },
+        {
+          ...page,
+          elements: [
+            {
+              ...page.elements[3],
+              role: undefined,
+              rowContext: "Invoice 1 copy"
+            }
+          ]
+        }
+      )
+    ).toMatchObject({ reason: "needs_review" })
   })
   it("refuses ambiguous and truncated fields even when their prefixes match", () => {
     const check = { type: "field", name: "Name", value: "Ada" } as const
