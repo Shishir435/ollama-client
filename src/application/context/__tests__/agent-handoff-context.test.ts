@@ -15,6 +15,7 @@ import {
   MAX_AGENT_HANDOFF_CONTEXT_CHARS,
   MAX_AGENT_HANDOFFS_IN_CONTEXT,
   neutralizeAgentRows,
+  renderAgentHandoffBlock,
   renderAgentHandoffContext
 } from "../agent-handoff-context"
 
@@ -158,9 +159,76 @@ describe("the fenced agent context", () => {
     expect(rendered.block).toContain("effect-23")
     expect(rendered.block).toContain('"verificationKind":"activation"')
     expect(rendered.block).toContain("omitted details are unavailable")
-    expect(rendered.block).not.toContain('"quote"')
+    expect(rendered.block).toContain('"quote"')
     expect(value.evidenceLedger).toHaveLength(24)
     expect(value.evidenceLedger?.[0].quote).toHaveLength(200)
+  })
+
+  it("keeps observed facts whole when only part of the evidence fits", () => {
+    const value = handoff("run-facts", {
+      evidenceLedger: Array.from({ length: 24 }, (_, index) => ({
+        id: `fact-${index}`,
+        kind: "observed_fact",
+        validity: "historical",
+        observedAt: 1,
+        quote: `Plan ${index} costs $12. ${"q".repeat(170)}`,
+        source: {
+          tabId: 7,
+          frameId: 0,
+          documentId: "doc",
+          snapshotId: "snapshot",
+          generation: 1,
+          origin: "https://example.com"
+        }
+      }))
+    })
+    const budget = agentHandoffBudget({
+      contextWindowTokens: 8192,
+      remainingContextChars: 100000
+    })
+    const rendered = renderAgentHandoffContext([agentRow(1, value)], budget)
+    expect(rendered.block?.length).toBeLessThanOrEqual(budget)
+    expect(rendered.runIds).toEqual(["run-facts"])
+    expect(rendered.block).toContain("Plan 23 costs $12")
+    expect(rendered.block).toContain("Plan 22 costs $12")
+    expect(rendered.block).not.toContain('"id":"fact-0"')
+    expect(rendered.block).toContain("Result of run-facts")
+    expect(value.evidenceLedger?.[0].quote).toContain("Plan 0 costs $12")
+  })
+
+  it("uses a reference only when even one complete fact cannot fit", () => {
+    const value = handoff("run-single", {
+      evidenceLedger: [
+        {
+          id: "fact-one",
+          kind: "observed_fact",
+          validity: "historical",
+          observedAt: 1,
+          quote: "q".repeat(200),
+          source: {
+            tabId: 7,
+            frameId: 0,
+            documentId: "doc",
+            snapshotId: "snapshot",
+            generation: 1,
+            origin: "https://example.com"
+          }
+        }
+      ]
+    })
+    const reference = {
+      ...value,
+      evidenceLedger: value.evidenceLedger?.map(
+        ({ quote: _quote, ...ref }) => ref
+      )
+    }
+    const budget = renderAgentHandoffBlock(reference).length + 110
+    const rendered = renderAgentHandoffContext([agentRow(1, value)], budget)
+    expect(rendered.block?.length).toBeLessThanOrEqual(budget)
+    expect(rendered.block).toContain("fact-one")
+    expect(rendered.block).not.toContain('"quote"')
+    expect(rendered.block).toContain("omitted details are unavailable")
+    expect(rendered.runIds).toEqual(["run-single"])
   })
 
   it("renders nothing rather than a torn record when even one will not fit", () => {

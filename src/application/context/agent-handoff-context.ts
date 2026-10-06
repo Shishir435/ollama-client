@@ -143,14 +143,12 @@ const compactHandoff = (
   const compact = {
     ...handoff,
     findings: [...handoff.findings],
-    evidenceLedger: (handoff.evidenceLedger ?? []).map(
-      ({ quote: _quote, ...ref }) => ref
-    )
+    evidenceLedger: [...(handoff.evidenceLedger ?? [])]
   }
   const render = () =>
     renderHandoff(compact).replace(
       "</run>",
-      "Evidence condensed to references; omitted details are unavailable in this turn.\n</run>"
+      "Some evidence details omitted; omitted details are unavailable in this turn.\n</run>"
     )
   while (!fits(render()) && compact.evidenceLedger.length > 1) {
     compact.evidenceLedger.shift()
@@ -171,6 +169,11 @@ const compactHandoff = (
         Math.max(80, Math.floor(compact.result.length / 2))
       )
   }
+  if (fits(render())) return render()
+  // Only a record whose full quote cannot fit is reduced to a source reference.
+  compact.evidenceLedger = compact.evidenceLedger.map(
+    ({ quote: _quote, ...ref }) => ref
+  )
   if (fits(render())) return render()
   compact.evidenceLedger = []
   return fits(render()) ? render() : undefined
