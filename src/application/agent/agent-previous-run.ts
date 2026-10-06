@@ -45,6 +45,9 @@ export const agentPreviousRunRecord = (previousRun: AgentPreviousRun) => {
         }
       : {}),
     ...(handoff.findings.length > 0 ? { findings: handoff.findings } : {}),
+    ...(handoff.evidenceLedger
+      ? { evidenceLedger: handoff.evidenceLedger }
+      : {}),
     ...(previousRun.effects.length > 0
       ? {
           effects: previousRun.effects.map((effect) => ({

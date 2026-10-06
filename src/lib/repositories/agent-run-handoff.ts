@@ -1,6 +1,9 @@
+import { boundAgentEvidence } from "@ollama-client/agent-runtime"
 import {
+  type AgentEvidenceRecord,
   type AgentRunState,
-  MAX_AGENT_FINDING_CHARS
+  MAX_AGENT_FINDING_CHARS,
+  MAX_AGENT_SOURCE_QUOTE_CHARS
 } from "@ollama-client/contracts"
 import {
   AGENT_HANDOFF_STATUSES,
@@ -82,7 +85,8 @@ const isHandoffStatus = (
  */
 export const buildAgentConversationHandoff = (
   state: AgentRunState,
-  findings: readonly string[]
+  findings: readonly string[],
+  evidenceLedger: readonly AgentEvidenceRecord[] = []
 ): AgentConversationHandoff | undefined => {
   if (!isHandoffStatus(state.status)) return undefined
   const goal = handoffPlainText(state.goal, MAX_AGENT_HANDOFF_GOAL_CHARS)
@@ -114,6 +118,33 @@ export const buildAgentConversationHandoff = (
       : {}),
     ...(state.error ? { failure: state.error.code } : {}),
     findings: notes,
+    ...(evidenceLedger.length
+      ? {
+          evidenceLedger: boundAgentEvidence(
+            evidenceLedger.filter(
+              (record) =>
+                !record.source ||
+                state.allowedOrigins.includes(record.source.origin)
+            )
+          ).map((record) => ({
+            ...record,
+            ...(record.quote
+              ? {
+                  quote: handoffPlainText(
+                    record.quote,
+                    MAX_AGENT_SOURCE_QUOTE_CHARS
+                  ),
+                  ...(handoffPlainText(
+                    record.quote,
+                    MAX_AGENT_SOURCE_QUOTE_CHARS
+                  ) !== record.quote
+                    ? { validity: "incomplete" as const }
+                    : {})
+                }
+              : {})
+          }))
+        }
+      : {}),
     settledAt: state.updatedAt
   })
 }

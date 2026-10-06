@@ -3932,3 +3932,109 @@ describe("agent controller task contract", () => {
     ).toContain("not been folded into the plan")
   })
 })
+
+describe("durable grounded evidence", () => {
+  it("retains page A's source on the command receipt and recalls it on page B", async () => {
+    const inputs: AgentModelInput[] = []
+    const decide = vi.fn(
+      async (input: AgentModelInput): Promise<AgentDecision> => {
+        inputs.push(input)
+        return inputs.length === 1
+          ? {
+              type: "command",
+              command: command(),
+              sourceQuotes: [{ quote: "Plan A costs $12" }]
+            }
+          : { type: "complete", summary: "Plan A costs $12" }
+      }
+    )
+    const harness = createHarness({
+      decide,
+      observations: [
+        observation({ visibleText: "Plan A costs $12" }),
+        observation({
+          documentId: "document-b",
+          snapshotId: "snapshot-b",
+          visibleText: "Page B"
+        })
+      ]
+    })
+    await harness.controller.start("run-1")
+    expect(inputs[1].evidenceLedger).toContainEqual(
+      expect.objectContaining({
+        kind: "observed_fact",
+        validity: "historical",
+        quote: "Plan A costs $12",
+        source: expect.objectContaining({ documentId: "document-1" })
+      })
+    )
+    expect(harness.writtenSteps[0].evidenceLedger?.[0].quote).toBe(
+      "Plan A costs $12"
+    )
+    expect(harness.getState().status).toBe("completed")
+  })
+
+  it("does not promote text from a document the agent edited after restart", async () => {
+    const original = observation({ visibleText: "Plan A costs $12" })
+    const source = {
+      tabId: 7,
+      frameId: 0,
+      documentId: "document-1",
+      snapshotId: "snapshot-1",
+      generation: 1,
+      origin: "https://example.com"
+    }
+    const harness = createHarness({
+      observations: [original],
+      seedSteps: [
+        {
+          runId: "run-1",
+          stepId: "run-1:old",
+          status: "verified",
+          at: 1,
+          evidenceLedger: [
+            {
+              id: "written",
+              kind: "agent_input",
+              validity: "historical",
+              source,
+              observedAt: 1
+            }
+          ]
+        }
+      ],
+      decisions: [
+        {
+          type: "complete",
+          summary: "The text says $12",
+          sourceQuotes: [{ quote: "Plan A costs $12" }]
+        }
+      ]
+    })
+    await harness.controller.start("run-1")
+    expect(
+      harness.writtenSteps
+        .flatMap((step) => step.evidenceLedger ?? [])
+        .filter((record) => record.kind === "observed_fact")
+    ).toEqual([])
+  })
+
+  it("persists quotations for a direct read completion with no effects", async () => {
+    const harness = createHarness({
+      observations: [observation({ visibleText: "Plan A costs $12" })],
+      decisions: [
+        {
+          type: "complete",
+          summary: "$12",
+          sourceQuotes: [{ quote: "Plan A costs $12" }]
+        }
+      ]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().evidenceLedger?.[0].quote).toBe(
+      "Plan A costs $12"
+    )
+    expect(harness.writtenSteps).toEqual([])
+    expect(harness.calls).not.toContain("execute")
+  })
+})

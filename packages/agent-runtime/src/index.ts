@@ -4,6 +4,11 @@ export * from "./budgets"
 export * from "./completion"
 export * from "./control-failure"
 export * from "./controller"
+export {
+  agentUserEvidence,
+  boundAgentEvidence,
+  buildAgentEvidenceLedger
+} from "./evidence-ledger"
 export * from "./history"
 export * from "./observed-text"
 export * from "./plan-record"

@@ -324,6 +324,44 @@ Read the section your change touches; you do not need the whole file.
   two survives to step fifty without letting the page it came from change the
   goal.
 
+### Grounded evidence ledger
+
+- `sourceQuotes` on commands and completion proposes up to three short quotations.
+  `evidence-ledger.ts` matches each against one authorized, identified source.
+  A model note remains inference; it cannot create an observed fact. Composed
+  frame text has no span identity, so child-frame facts need a non-editable ref
+  or an explicit `extract_text` frame. Editable values and secret-shaped text
+  are excluded. The durable host also applies the existing credential redactor.
+- Records retain tab, frame, document, snapshot, generation, capture time,
+  approved origin and optional requirement id. Origin is the only retained URL
+  component. No complete page, screenshot, command value or reasoning enters
+  the ledger. User-answer references retain no answer text. Agent-input records
+  identify authored documents without retaining the values the agent entered.
+  Live authored text cannot be independent proof of the original fact. After
+  restart those values are unavailable by design, so later quotations from the
+  edited document are conservatively excluded as independent facts; verified
+  effects can still describe what was checked. A new document may supply facts.
+- Facts are recorded on the command's planned receipt before effects. A direct
+  read answer commits its quotations with the terminal run checkpoint, without
+  adding a fictitious action to the work log. Verification records retain the
+  verifier's exact kind: `activation` does not become `save`. Their source is
+  the action's observation, not an invented post-effect snapshot.
+- Projection is bounded to 24 records and 12 KB, dropping oldest first. Prompt
+  history and evidence share the existing history budget; omitted references
+  mean unknown. Receipts remain the durable source through history compaction
+  and worker recovery. Old receipts/checkpoints/handoffs decode without a ledger.
+- Only an observed fact with the exact current snapshot identity is current.
+  Navigation makes it historical; a new snapshot in the same document requires
+  refresh. Without a live observation, retained support is historical. This
+  records provenance, not semantic satisfaction of the task: completion checking
+  and independent review are separate work.
+- The settled chat handoff and follow-up carry the same bounded references as
+  untrusted data. Excluded origins contribute nothing. A quote changed by
+  handoff redaction is incomplete. `current_tab` and `read_tab` provide reference
+  ids too, but lack document identity and a fresh capture timestamp; they say
+  so and remain incomplete page-tool claims. Their retrieval time is not an
+  observation time. Existing session/run deletion and receipt retention apply.
+
 ## Input delivery
 
 - **Native input is chosen before the action and never swapped after it.**

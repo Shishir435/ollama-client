@@ -120,3 +120,67 @@ describe("text carried into a handoff", () => {
     expect(cleaned).not.toContain("sk-abcdefghijklmnop")
   })
 })
+
+it("carries provenance through the chat fence and omits excluded source records", async () => {
+  const record = {
+    id: "run-1:1:q0",
+    kind: "observed_fact" as const,
+    validity: "historical" as const,
+    observedAt: 2,
+    quote: "Plan A is $12",
+    source: {
+      tabId: 7,
+      frameId: 0,
+      documentId: "doc-a",
+      snapshotId: "s-a",
+      generation: 1,
+      origin: "https://example.com"
+    }
+  }
+  const handoff = buildAgentConversationHandoff(settled(), [], [record])
+  const { renderAgentHandoffBlock } = await import(
+    "@/application/context/agent-handoff-context"
+  )
+  if (!handoff) throw new Error("Expected settled handoff")
+  expect(renderAgentHandoffBlock(handoff)).toContain("run-1:1:q0")
+  expect(renderAgentHandoffBlock(handoff)).toContain("doc-a")
+  expect(
+    buildAgentConversationHandoff(
+      settled(),
+      [],
+      [
+        {
+          ...record,
+          source: { ...record.source, origin: "https://excluded.example" }
+        }
+      ]
+    )?.evidenceLedger
+  ).toEqual([])
+})
+
+it("cannot turn handoff redaction into a grounded quotation", () => {
+  const source = {
+    tabId: 7,
+    frameId: 0,
+    documentId: "doc-a",
+    snapshotId: "s-a",
+    generation: 1,
+    origin: "https://example.com"
+  }
+  const handoff = buildAgentConversationHandoff(
+    settled(),
+    [],
+    [
+      {
+        id: "quote",
+        kind: "observed_fact",
+        validity: "historical",
+        observedAt: 2,
+        source,
+        quote: "Go to https://evil.example/path?token=secret"
+      }
+    ]
+  )
+  expect(handoff?.evidenceLedger?.[0]).toMatchObject({ validity: "incomplete" })
+  expect(JSON.stringify(handoff)).not.toContain("token=secret")
+})

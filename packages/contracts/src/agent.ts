@@ -1,5 +1,10 @@
 import { z } from "zod"
 import { AgentCommandSchema } from "./agent-command"
+import {
+  AgentEvidenceLedgerSchema,
+  AgentSourceQuotesSchema,
+  MAX_AGENT_LEDGER_BYTES
+} from "./agent-evidence"
 
 export const AGENT_RUN_STATUSES = [
   "submitted",
@@ -139,7 +144,8 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
         .min(1)
         .max(MAX_AGENT_REQUIREMENT_ID_CHARS)
         .optional(),
-      finding: z.string().min(1).max(MAX_AGENT_FINDING_CHARS).optional()
+      finding: z.string().min(1).max(MAX_AGENT_FINDING_CHARS).optional(),
+      sourceQuotes: AgentSourceQuotesSchema.optional()
     })
     .strict(),
   z
@@ -160,6 +166,7 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
     .object({
       type: z.literal("complete"),
       summary: z.string().min(1).max(20_000),
+      sourceQuotes: AgentSourceQuotesSchema.optional(),
       evidence: z.string().min(1).max(MAX_AGENT_EVIDENCE_CHARS).optional(),
       /**
        * One entry per planned requirement, by id, each answered separately.
@@ -561,7 +568,8 @@ export const MAX_AGENT_HANDOFF_FINDINGS = 6
 export const MAX_AGENT_HANDOFF_CHARS =
   MAX_AGENT_HANDOFF_GOAL_CHARS +
   MAX_AGENT_HANDOFF_RESULT_CHARS +
-  MAX_AGENT_HANDOFF_FINDINGS * MAX_AGENT_FINDING_CHARS
+  MAX_AGENT_HANDOFF_FINDINGS * MAX_AGENT_FINDING_CHARS +
+  MAX_AGENT_LEDGER_BYTES
 
 /** Settled statuses only: a handoff is written by the commit that settles. */
 export const AGENT_HANDOFF_STATUSES = [
@@ -603,6 +611,7 @@ export const AgentConversationHandoffSchema = z
     findings: z
       .array(z.string().min(1).max(MAX_AGENT_FINDING_CHARS))
       .max(MAX_AGENT_HANDOFF_FINDINGS),
+    evidenceLedger: AgentEvidenceLedgerSchema.optional(),
     settledAt: z.number().int().nonnegative()
   })
   .strict()
@@ -1000,6 +1009,8 @@ export const AgentRunStateSchema = z
     plan: AgentPlanRecordSchema.optional(),
     /** Which of them the settled run could evidence. */
     outcome: AgentRunOutcomeSchema.optional(),
+    /** Source quotations captured with the terminal answer, committed with it. */
+    evidenceLedger: AgentEvidenceLedgerSchema.optional(),
     /** Bounded model-authored outcome retained for completed-run display. */
     result: z.string().min(1).max(20_000).optional(),
     error: AgentErrorSchema.optional(),

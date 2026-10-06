@@ -1,6 +1,7 @@
 import {
   agentCommittedEffects,
   agentInheritedEffects,
+  buildAgentEvidenceLedger,
   isTerminalAgentStatus
 } from "@ollama-client/agent-runtime"
 import type {
@@ -82,7 +83,21 @@ export const resolveAgentFollowUp = async (
 
   const handoff = buildAgentConversationHandoff(
     parent.state,
-    stepFindings(steps)
+    stepFindings(steps),
+    buildAgentEvidenceLedger(
+      [
+        ...steps,
+        {
+          runId: parent.id,
+          stepId: "answer",
+          status: "verified",
+          at: parent.state.updatedAt,
+          sequence: steps.length,
+          evidenceLedger: parent.state.evidenceLedger
+        }
+      ],
+      parent.state.allowedOrigins
+    )
   )
   if (!handoff) return { ok: false, reason: "unreadable" }
   const effects = agentInheritedEffects(

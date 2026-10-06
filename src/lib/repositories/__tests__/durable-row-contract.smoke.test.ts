@@ -43,9 +43,12 @@ beforeAll(() => {
   )
 })
 
+let owner: ReturnType<typeof createChatDbEngine> | undefined
+
 /** Stand in for the database owner; see chat-durability.smoke.test.ts. */
 const installOwner = () => {
   const engine = createChatDbEngine({ wasmBinary: Promise.resolve(wasmBuffer) })
+  owner = engine
   const ready = engine.submit({ op: "setBackend", backend: "legacy" })
   globalThis.__persistenceHostCall = async (request) => {
     await ready
@@ -87,9 +90,16 @@ beforeEach(async () => {
   await clearSqliteStore()
 }, TIMEOUT)
 
-afterEach(() => {
-  globalThis.__persistenceHostCall = undefined
-})
+afterEach(async () => {
+  try {
+    // Drain the legacy debounce before the next test deletes the stored image.
+    // Otherwise this owner can restore its old sessions after that deletion.
+    await owner?.submit({ op: "flush" })
+  } finally {
+    owner = undefined
+    globalThis.__persistenceHostCall = undefined
+  }
+}, TIMEOUT)
 
 const boot = async () => {
   vi.resetModules()

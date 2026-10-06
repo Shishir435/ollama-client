@@ -1,5 +1,6 @@
 import { browser } from "@/lib/browser-api"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
+import { browserReadResult } from "./browser-read-provenance"
 import {
   accessDeniedMessage,
   classifyTabAccess,
@@ -103,7 +104,10 @@ export const runCurrentTab = async (
     }
 
     const title = response?.title || tab.title || "Untitled"
-    return { content: text, sources: [{ title, url: tab.url }] }
+    return browserReadResult("current_tab", tab.id, text, {
+      title,
+      url: tab.url
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return {

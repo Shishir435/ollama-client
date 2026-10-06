@@ -64,7 +64,7 @@ const VARIANT_FIELDS: Record<string, string> = {
  * trusting the next person to edit both.
  */
 const VARIANT_OPTIONAL_FIELDS: Record<string, readonly string[]> = {
-  complete: ["evidence", "outcomes"]
+  complete: ["evidence", "outcomes", "sourceQuotes"]
 }
 
 /**
@@ -161,6 +161,7 @@ const DECISION_FIELDS = new Set([
   "type",
   "command",
   "finding",
+  "sourceQuotes",
   ...Object.values(COMMAND_FIELDS).flat(),
   ...Object.values(VARIANT_FIELDS),
   ...Object.values(VARIANT_OPTIONAL_FIELDS).flat()
@@ -278,7 +279,10 @@ const normalizeDecisionArguments = (
       ...(record.requirementId === undefined
         ? {}
         : { requirementId: record.requirementId }),
-      ...(record.finding === undefined ? {} : { finding: record.finding })
+      ...(record.finding === undefined ? {} : { finding: record.finding }),
+      ...(record.sourceQuotes === undefined
+        ? {}
+        : { sourceQuotes: record.sourceQuotes })
     }
   }
   const field = VARIANT_FIELDS[String(record.type)]

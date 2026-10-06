@@ -489,8 +489,12 @@ const budgets: Budget[] = [
      * Provider web citations (`url_citation`) and usage details — cached and
      * reasoning tokens, cost — through the stream schema and reducer: Chrome
      * 303,436 and Firefox 218,360.
+     * The grounded evidence ledger adds bounded source records, quote matching,
+     * durable decoding and chat handoff references: measured Chrome 316,590
+     * and Firefox 219,521. No model
+     * assets or content-script budgets change.
      */
-    max: isFirefox ? 219_500 : 314_000
+    max: isFirefox ? 220_000 : 317_500
   }
 ]
 

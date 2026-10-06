@@ -7,6 +7,9 @@ import {
   type AgentStepWrite,
   type AgentTransitionResult,
   type AgentTransitionWrite,
+  agentUserEvidence,
+  boundAgentEvidence,
+  buildAgentEvidenceLedger,
   isTerminalAgentStatus,
   MAX_AGENT_SUBMITTED_VALUE_CHARS,
   MAX_AGENT_SUBMITTED_VALUES,
@@ -18,6 +21,7 @@ import {
   AgentCommandSchema,
   AgentConsequentialEffectSchema,
   AgentDeadlineStateSchema,
+  AgentEvidenceLedgerSchema,
   type AgentRunState,
   AgentRunStateSchema,
   type AgentRunStatus,
@@ -31,6 +35,7 @@ import {
   MAX_AGENT_THINKING_CHARS
 } from "@ollama-client/contracts"
 import { z } from "zod"
+import { redactLogText } from "@/lib/log-redaction"
 import { logger } from "@/lib/logger"
 import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import {
@@ -165,6 +170,7 @@ const AgentStepReceiptSchema = z
     target: AgentStepTargetSchema.optional(),
     sourceUrl: z.string().max(2_048).optional(),
     finding: z.string().max(MAX_AGENT_FINDING_CHARS).optional(),
+    evidenceLedger: AgentEvidenceLedgerSchema.optional(),
     /** Display-only reasoning for the card; never read back into a prompt. */
     thinking: z.string().max(MAX_AGENT_THINKING_CHARS).optional(),
     /**
@@ -341,8 +347,16 @@ const serializeBounded = (
   return serialized
 }
 
+const safeEvidence = (records: AgentRunState["evidenceLedger"]) =>
+  records?.filter(
+    (record) => !record.quote || redactLogText(record.quote) === record.quote
+  )
+
 const serializeCheckpoint = (state: AgentRunState): string => {
-  const parsed = AgentRunStateSchema.parse(state)
+  const parsed = AgentRunStateSchema.parse({
+    ...state,
+    evidenceLedger: safeEvidence(state.evidenceLedger)
+  })
   return serializeBounded(
     { version: 1, state: parsed },
     MAX_AGENT_CHECKPOINT_BYTES,
@@ -363,6 +377,7 @@ const compactedCheckpoint = (
         ? {
             state: AgentRunStateSchema.parse({
               ...state,
+              evidenceLedger: safeEvidence(state.evidenceLedger),
               deadline: undefined,
               pauseReason: undefined
             })
@@ -485,6 +500,14 @@ const appendStepInTransaction = async (
     version: 1,
     ...input,
     command: redactAgentStepCommand(input.command),
+    ...(input.evidenceLedger
+      ? {
+          evidenceLedger: input.evidenceLedger.filter(
+            (record) =>
+              !record.quote || redactLogText(record.quote) === record.quote
+          )
+        }
+      : {}),
     ...(input.target ? { target: boundedStepTarget(input.target) } : {}),
     ...(input.finding
       ? { finding: input.finding.slice(0, MAX_AGENT_FINDING_CHARS) }
@@ -605,6 +628,43 @@ const listRunFindings = async (
   return [...latest.values()]
 }
 
+const listRunEvidence = async (
+  tx: Pick<SqlExecutor, "query">,
+  state: AgentRunState
+) => {
+  const rows = await tx.query(
+    "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id ASC",
+    [state.id]
+  )
+  const steps = rows.flatMap((row, sequence) => {
+    try {
+      const parsed = AgentStepReceiptSchema.safeParse(
+        JSON.parse(String(row.receipt))
+      )
+      return parsed.success ? [{ ...parsed.data, sequence }] : []
+    } catch {
+      return []
+    }
+  })
+  return boundAgentEvidence([
+    ...agentUserEvidence(state),
+    ...buildAgentEvidenceLedger(
+      [
+        ...steps,
+        {
+          runId: state.id,
+          stepId: "answer",
+          status: "verified",
+          at: state.updatedAt,
+          sequence: steps.length,
+          evidenceLedger: state.evidenceLedger
+        }
+      ],
+      state.allowedOrigins
+    )
+  ])
+}
+
 /**
  * Close the assistant row a run reports into, in the commit that settles the
  * run.
@@ -629,7 +689,8 @@ const settleLinkedMessage = async (
   const result = state.result?.trim()
   const handoff = buildAgentConversationHandoff(
     state,
-    await listRunFindings(tx, state.id)
+    await listRunFindings(tx, state.id),
+    await listRunEvidence(tx, state)
   )
   /**
    * A run a chat model delegated reports into a row its turn is still
@@ -1214,7 +1275,8 @@ const writeMissingHandoffs = async (
     if (!run?.state || run.resultMessageId === undefined) continue
     const handoff = buildAgentConversationHandoff(
       run.state,
-      await listRunFindings(tx, run.id)
+      await listRunFindings(tx, run.id),
+      await listRunEvidence(tx, run.state)
     )
     if (!handoff) continue
     await tx.run(
