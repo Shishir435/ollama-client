@@ -13,6 +13,7 @@ import {
   type AgentRunState,
   type AgentRunStatus,
   type AgentStepTelemetry,
+  type AgentTaskPlan,
   MAX_AGENT_ALLOWED_ORIGINS,
   MAX_AGENT_ANSWER_CHARS,
   MAX_AGENT_ANSWERS,
@@ -53,6 +54,14 @@ import {
   agentObservationHaystack,
   agentRenderedHaystack
 } from "./observed-text"
+import {
+  agentAmendedPlanPatch,
+  agentConfirmedRemovalPatch,
+  agentConstraintRefusal,
+  agentForbiddingConstraints,
+  agentInitialPlanPatch,
+  agentPlanNeedsReconciling
+} from "./plan-record"
 import type {
   AgentCancellationController,
   AgentController,
@@ -158,6 +167,12 @@ type AgentResolutionOutcome =
  * use the correction gets to. One that cannot is answering with controls the
  * page does not offer, and no number of further looks changes that.
  */
+const OUTSTANDING_EFFECT_FEEDBACK =
+  "The user's newest answer has not been folded into the plan yet, and it may forbid this. Nothing that cannot be undone runs until it has. Do something else for now, or ask_user."
+
+const OUTSTANDING_ANSWER_FEEDBACK =
+  "The user's newest answer has not been folded into the plan yet, and it may ask for more than the plan lists. Act on everything the user has asked, then complete again."
+
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
 /** Corrections one decision will take in at once; older ones are dropped. */
@@ -1498,6 +1513,39 @@ export const createAgentController = (
     return { ...decision, requirementId: opener.requirementId }
   }
 
+  /**
+   * What the task contract refuses before policy is asked, as the feedback
+   * the model is told, or undefined when it refuses nothing.
+   *
+   * While the user's newest words are unread by the planner, nothing that
+   * cannot be undone runs: the answer may be the "don't" a rule missed.
+   * Routine steps go on, and the run asks again at the next decision. And
+   * the user's own "do not submit" binds the effect, not the wording: a
+   * command whose grounded effect is a class a constraint forbids is refused,
+   * so the user is never asked to approve what they already said not to do.
+   */
+  const refusalByTaskContract = (
+    state: AgentRunState,
+    decision: Extract<AgentDecision, { type: "command" }>,
+    effect: ResolvedAgentEffect
+  ): string | undefined => {
+    if (
+      dependencies.model.plan &&
+      agentEffectIsConsequential(effect) &&
+      agentPlanNeedsReconciling(state, state.answers) !== undefined
+    ) {
+      dependencies.trace?.(state.id, "outstanding_answer_refused", {})
+      return OUTSTANDING_EFFECT_FEEDBACK
+    }
+    const broken = agentForbiddingConstraints(effect, state.constraints)
+    if (broken.length === 0) return undefined
+    dependencies.trace?.(state.id, "constraint_refused", {
+      constraints: broken.length,
+      command: decision.command.type
+    })
+    return agentConstraintRefusal(broken)
+  }
+
   const processCommand = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
@@ -1543,6 +1591,9 @@ export const createAgentController = (
     ) {
       return refuseCommand(state, decision.command, REPEATED_EFFECT_FEEDBACK)
     }
+    /** Before policy, like a repeat: see `refusalByTaskContract`. */
+    const contract = refusalByTaskContract(state, decision, effect)
+    if (contract) return refuseCommand(state, decision.command, contract)
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
@@ -1774,6 +1825,25 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * The user said something the plan has not absorbed — the amendment call
+   * failed and only its limits were read by rule. The answer may have added
+   * an outcome, and a run that completes before the planner has read it is
+   * a run that drops it, so completion waits; the next decision asks the
+   * planner again.
+   */
+  const outstandingAnswer = (
+    state: AgentRunState
+  ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
+    dependencies.model.plan &&
+    agentPlanNeedsReconciling(state, state.answers) !== undefined
+      ? {
+          type: "refused",
+          reason: "missing_outcomes",
+          feedback: OUTSTANDING_ANSWER_FEEDBACK
+        }
+      : undefined
+
   const processCompletion = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
@@ -1818,7 +1888,8 @@ export const createAgentController = (
     )
     if (!settled) return undefined
     observation = settled.observation
-    const judgement = challengeEarlyUnmet(state, settled.judgement)
+    const judgement =
+      outstandingAnswer(state) ?? challengeEarlyUnmet(state, settled.judgement)
     if (judgement.type !== "refused") {
       await settleJudgedRun(
         state,
@@ -2069,6 +2140,93 @@ export const createAgentController = (
       pendingSteering.delete(runId)
   }
 
+  /**
+   * The deciding claim, carrying the steering it takes off the queue and any
+   * amendment the user's words made to the plan, so answers and amendment
+   * commit together.
+   */
+  const claimDeciding = async (
+    state: AgentRunState,
+    steering: readonly { text: string; at: number }[] | undefined,
+    signal: AgentCancellationController["signal"]
+  ): Promise<AgentRunState | undefined> => {
+    const answers = steering?.length
+      ? [
+          ...(state.answers ?? []),
+          ...steering.map((entry) => ({
+            questionId: `${state.id}:steer:${entry.at}`,
+            question: "User correction while the run was working",
+            text: entry.text,
+            answeredAt: entry.at
+          }))
+        ].slice(-MAX_AGENT_ANSWERS)
+      : state.answers
+    const amendment = await amendedPlan(state, answers, signal)
+    if (signal.aborted) return undefined
+    return claim(state, "deciding", {
+      observationCount: state.observationCount + 1,
+      ...(steering?.length ? { answers } : {}),
+      ...amendment,
+      updatedAt: dependencies.clock.now()
+    })
+  }
+
+  /**
+   * Removals the planner proposed, put to the user by name. The list is the
+   * plan's own entries, so the user is asked about what the run would stop
+   * doing — not about a sentence the planner wrote. A removal the question
+   * has no room to name is dropped from the question and stays in the plan:
+   * a yes applies to every pending removal, so a cut list would let it
+   * remove one the user never saw.
+   */
+  const askRemoval = async (state: AgentRunState): Promise<void> => {
+    const plan = state.plan
+    const pending = plan?.pending
+    if (!plan || !pending) return
+    const entries = [
+      ...(state.requirements ?? []),
+      ...(state.constraints ?? [])
+    ]
+    const shown: typeof pending.removals = []
+    const named: string[] = []
+    for (const removal of pending.removals) {
+      const text =
+        entries.find((candidate) => candidate.id === removal.id)?.text ??
+        removal.id
+      const name = removal.item
+        ? `"${removal.item}" from "${text}"`
+        : `"${text}"`
+      if (named.length > 0 && [...named, name].join("; ").length > 1_500) break
+      shown.push(removal)
+      named.push(name)
+    }
+    const list = named.join("; ")
+    dependencies.trace?.(state.id, "plan_removal_asked", {
+      removals: shown.length
+    })
+    const them = shown.length === 1 ? "it" : "them"
+    await pause(state, "question", {
+      ...(shown.length < pending.removals.length
+        ? { plan: { ...plan, pending: { ...pending, removals: shown } } }
+        : {}),
+      question: {
+        id: pending.questionId,
+        text: pending.lift
+          ? `Your answer may mean these limits no longer apply: ${list}. Reply allow to lift ${them}; anything else keeps ${them}.`
+          : `Your answer may mean this task no longer needs: ${list}. Reply yes to remove ${them}, or no to keep ${them}.`,
+        display: [
+          {
+            key: pending.lift
+              ? "agent.question_text.confirm_lift"
+              : "agent.question_text.confirm_removal",
+            values: { list }
+          }
+        ],
+        askedAt: dependencies.clock.now()
+      }
+    })
+  }
+
   const observeAndDecide = async (
     state: AgentRunState,
     signal: AgentCancellationController["signal"]
@@ -2090,23 +2248,7 @@ export const createAgentController = (
      * decision after the resume, rather than accepted and then dropped.
      */
     const steering = pendingSteering.get(state.id)
-    const deciding = await claim(state, "deciding", {
-      observationCount: state.observationCount + 1,
-      ...(steering?.length
-        ? {
-            answers: [
-              ...(state.answers ?? []),
-              ...steering.map((entry) => ({
-                questionId: `${state.id}:steer:${entry.at}`,
-                question: "User correction while the run was working",
-                text: entry.text,
-                answeredAt: entry.at
-              }))
-            ].slice(-MAX_AGENT_ANSWERS)
-          }
-        : {}),
-      updatedAt: dependencies.clock.now()
-    })
+    const deciding = await claimDeciding(state, steering, signal)
     if (!deciding) return undefined
     if (steering?.length) {
       const queued = pendingSteering.get(state.id) ?? []
@@ -2128,6 +2270,10 @@ export const createAgentController = (
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
       refusedCompletions.delete(state.id)
+    }
+    if (deciding.plan?.pending) {
+      await askRemoval(deciding)
+      return undefined
     }
     let decision: AgentDecision | undefined
     const context: AgentResolutionContext = {}
@@ -2198,7 +2344,22 @@ export const createAgentController = (
     state: AgentRunState
   ): Promise<AgentRunState | null | undefined> => {
     if (state.requirements) return null
-    if (state.status !== "submitted" && state.status !== "planning") return null
+    /**
+     * A run paused before its plan landed has no plan to resume into. It
+     * plans first: resuming straight to observation is the weaker judge by
+     * another door.
+     */
+    const unplannedPause =
+      state.status === "paused" &&
+      dependencies.model.plan !== undefined &&
+      state.observationCount === 0 &&
+      state.stepCount === 0
+    if (
+      state.status !== "submitted" &&
+      state.status !== "planning" &&
+      !unplannedPause
+    )
+      return null
     if (!dependencies.model.plan) {
       if (state.status === "planning") {
         await fail(
@@ -2213,8 +2374,118 @@ export const createAgentController = (
     return state.status === "planning"
       ? state
       : await transition(state, "planning", {
+          ...(state.status === "paused"
+            ? {
+                pauseReason: undefined,
+                ...(state.deadline
+                  ? {
+                      deadline: resumeAgentDeadlines(
+                        state.deadline,
+                        dependencies.clock.now()
+                      )
+                    }
+                  : {})
+              }
+            : {}),
           updatedAt: dependencies.clock.now()
         })
+  }
+
+  /**
+   * Where an answered or corrected pause resumes to. A run that has not been
+   * planned yet — its planner asked the question — goes back to planning
+   * with the answer; everything else goes back to looking.
+   */
+  const resumedPhase = (state: AgentRunState): "planning" | "observing" =>
+    !state.requirements &&
+    dependencies.model.plan !== undefined &&
+    state.observationCount === 0 &&
+    state.stepCount === 0
+      ? "planning"
+      : "observing"
+
+  const failPlanning = async (
+    planning: AgentRunState,
+    error: unknown
+  ): Promise<void> => {
+    dependencies.trace?.(planning.id, "plan_unavailable", {
+      name: error instanceof Error ? error.name : typeof error
+    })
+    if (error instanceof AgentMalformedDecisionError) {
+      await fail(
+        planning,
+        "invalid_decision",
+        "The selected model could not produce a valid Agent task plan."
+      )
+      return
+    }
+    await failWith(
+      planning,
+      agentProviderFailure(
+        "model_unavailable",
+        error,
+        "The selected model could not produce an Agent task plan."
+      )
+    )
+  }
+
+  /**
+   * Said before anything happens to a page, which is the only time saying it
+   * costs nothing. A limitation ends the run in the planner's words; a
+   * question, or a goal larger than one run tracks, is asked, and the answer
+   * returns the run to planning with the user's words beside the goal.
+   */
+  /** The English a question carries beside its display key, for the model. */
+  const OVER_CAP_QUESTION = {
+    outcomes: (count: number, max: number) =>
+      `This task asks for ${count} separate outcomes, and one run can track ${max}. Which should this run do? The rest can follow in another.`,
+    items: (count: number, max: number) =>
+      `This task names ${count} rows or records, and one run can track ${max}. Which should this run do? The rest can follow in another.`,
+    constraints: (count: number, max: number) =>
+      `This task sets ${count} separate limits, and one run can hold ${max}. Which matter for this run?`
+  } as const
+
+  const stopsBeforePlanning = async (
+    planning: AgentRunState,
+    planned: AgentTaskPlan
+  ): Promise<boolean> => {
+    if (planned.limitation) {
+      dependencies.trace?.(planning.id, "plan_limitation", {})
+      await fail(planning, "goal_failed", planned.limitation)
+      return true
+    }
+    const overCap = planned.overCap
+    if (!planned.clarification && !overCap) return false
+    dependencies.trace?.(planning.id, "plan_question", {
+      overCap: overCap?.unit ?? "none",
+      requested: overCap?.requested ?? 0
+    })
+    await pause(planning, "question", {
+      question: {
+        /**
+         * By time, not by answer count: answers are capped, so a count stops
+         * moving at the cap and a stale panel could answer a newer question
+         * it never showed.
+         */
+        id: `${planning.id}:plan:${dependencies.clock.now()}`,
+        askedAt: dependencies.clock.now(),
+        ...(planned.clarification || !overCap
+          ? { text: planned.clarification ?? "" }
+          : {
+              text: OVER_CAP_QUESTION[overCap.unit](
+                overCap.requested,
+                overCap.max
+              ),
+              display: [
+                {
+                  key: `agent.question_text.too_many_${overCap.unit}`,
+                  values: { count: overCap.requested, max: overCap.max }
+                }
+              ]
+            })
+      }
+    })
+    return true
   }
 
   const planRequirements = async (
@@ -2227,35 +2498,19 @@ export const createAgentController = (
     const plan = dependencies.model.plan
     if (!plan) return undefined
     const startedAt = dependencies.clock.now()
-    let requirements: AgentRunState["requirements"]
+    let planned: AgentTaskPlan
     try {
-      requirements = (await plan(planning, signal)).requirements
+      planned = await plan(planning, signal)
     } catch (error) {
       if (signal.aborted) return undefined
-      dependencies.trace?.(state.id, "plan_unavailable", {
-        name: error instanceof Error ? error.name : typeof error
-      })
       measure({ planMs: dependencies.clock.now() - startedAt })
-      if (error instanceof AgentMalformedDecisionError) {
-        await fail(
-          planning,
-          "invalid_decision",
-          "The selected model could not produce a valid Agent task plan."
-        )
-      } else {
-        await failWith(
-          planning,
-          agentProviderFailure(
-            "model_unavailable",
-            error,
-            "The selected model could not produce an Agent task plan."
-          )
-        )
-      }
+      await failPlanning(planning, error)
       return undefined
     }
     measure({ planMs: dependencies.clock.now() - startedAt })
-    if (!requirements?.length) {
+    if (signal.aborted) return undefined
+    if (await stopsBeforePlanning(planning, planned)) return undefined
+    if (!planned.requirements?.length) {
       await fail(
         planning,
         "invalid_decision",
@@ -2264,14 +2519,62 @@ export const createAgentController = (
       return undefined
     }
     dependencies.trace?.(state.id, "planned", {
-      requirements: requirements.length
+      requirements: planned.requirements.length,
+      constraints: planned.constraints?.length ?? 0
     })
     return (
       (await transition(planning, "observing", {
-        requirements,
+        ...agentInitialPlanPatch(planning, planned),
         updatedAt: dependencies.clock.now()
       })) ?? undefined
     )
+  }
+
+  /**
+   * The user said something the plan has not absorbed: an answer, a
+   * correction, a steer. One planning call, given the goal and the user's
+   * words and nothing the page wrote, may amend the plan; nothing else can.
+   * A failed call leaves the plan as it was — the original authorization is
+   * still a valid one — and the answer still reaches the decision as a
+   * userAnswer.
+   */
+  const amendedPlan = async (
+    state: AgentRunState,
+    answers: AgentRunState["answers"],
+    signal: AgentCancellationController["signal"]
+  ): Promise<AgentStatePatch> => {
+    const plan = dependencies.model.plan
+    const answeredAt = agentPlanNeedsReconciling(state, answers)
+    if (!plan || answeredAt === undefined) return {}
+    const startedAt = dependencies.clock.now()
+    let amended: AgentTaskPlan
+    try {
+      amended = await plan({ ...state, answers }, signal)
+    } catch (error) {
+      measure({ planMs: dependencies.clock.now() - startedAt })
+      if (signal.aborted) return {}
+      /**
+       * Not reconciled: the answer may hold a prohibition, and marking it
+       * absorbed when nothing absorbed it is how "don't submit" would be
+       * lost. The next decision asks again.
+       */
+      dependencies.trace?.(state.id, "plan_amendment_unavailable", {
+        name: error instanceof Error ? error.name : typeof error
+      })
+      return {}
+    }
+    measure({ planMs: dependencies.clock.now() - startedAt })
+    const patch = agentAmendedPlanPatch(
+      state,
+      amended,
+      answeredAt,
+      dependencies.clock.now()
+    )
+    if (patch.plan && patch.plan.version !== state.plan?.version)
+      dependencies.trace?.(state.id, "plan_amended", {
+        version: patch.plan.version
+      })
+    return patch
   }
 
   const runLoop = async (
@@ -2461,7 +2764,7 @@ export const createAgentController = (
         state.updatedAt !== correction.pausedAt
       )
         return
-      const recorded = await transition(state, "observing", {
+      const recorded = await transition(state, resumedPhase(state), {
         ...(state.deadline
           ? {
               deadline: resumeAgentDeadlines(
@@ -2526,7 +2829,20 @@ export const createAgentController = (
        * one commit: a worker lost between them cannot leave an answered
        * question still waiting for its answer.
        */
-      const recorded = await transition(state, "observing", {
+      /**
+       * The answer to a removal question decides those removals and nothing
+       * else: a plain yes removes, anything else keeps.
+       */
+      const removal =
+        state.plan?.pending?.questionId === questionId
+          ? agentConfirmedRemovalPatch(
+              state,
+              text,
+              dependencies.clock.now(),
+              dependencies.clock.now()
+            )
+          : {}
+      const recorded = await transition(state, resumedPhase(state), {
         ...(state.deadline
           ? {
               deadline: resumeAgentDeadlines(
@@ -2537,6 +2853,7 @@ export const createAgentController = (
           : {}),
         pauseReason: undefined,
         answers,
+        ...removal,
         question: undefined,
         updatedAt: dependencies.clock.now()
       })

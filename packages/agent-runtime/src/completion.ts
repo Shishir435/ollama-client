@@ -175,6 +175,8 @@ export interface AgentCompletionOutcomeClaim {
   id: string
   met: boolean
   evidence?: string
+  /** One answer per item of an itemized requirement, by position. */
+  items?: readonly { index: number; met: boolean; evidence?: string }[]
 }
 
 /**
@@ -354,8 +356,18 @@ const quotationStatesReceiptFacts = (
     command?.type === "check" || command?.type === "uncheck"
       ? CHECKED_STATE_WORDS[command.type]
       : undefined
-  const words = claimWords(quoted)
-  const named = words.filter((word) => !CLAIM_FUNCTION_WORDS.has(word))
+  return statesOnlyFacts(quoted, facts, state)
+}
+
+/** Every substantive word must be a verified fact, not an added claim. */
+const statesOnlyFacts = (
+  quoted: string,
+  facts: ReadonlySet<string>,
+  state?: ReadonlySet<string>
+): boolean => {
+  const named = claimWords(quoted).filter(
+    (word) => !CLAIM_FUNCTION_WORDS.has(word)
+  )
   return (
     named.length > 0 &&
     named.every((word) => facts.has(word) || state?.has(word) === true)
@@ -1530,6 +1542,9 @@ const isSelfEvidence = (
  * failure: nothing was done to the page and the run can look again, so it is
  * fed back to the model rather than ending the run.
  */
+const MISSING_ITEM_OUTCOMES_FEEDBACK =
+  "A requirement that lists items is answered item by item: give items in its outcome, one per item by position from 0, each saying whether it is met and quoting the page text that shows it."
+
 const MISSING_OUTCOMES_FEEDBACK =
   "Answer every requirement the task was planned with, by id, saying for each whether it is met and quoting the page text that shows it."
 
@@ -1715,6 +1730,197 @@ const judgeMetRequirement = (
   return "stepId" in evidenced ? undefined : evidenced
 }
 
+/**
+ * An itemized requirement is met only when every item is, and each item is
+ * judged as a requirement of its own: its own quotation, or its own verified
+ * change consumed by identity. One invoice marked paid is evidence for one
+ * invoice. An item answered `met:false` leaves the requirement unmet; an
+ * item not answered at all is no answer, and the run is sent back.
+ */
+const judgeItemizedRequirement = (
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  claim: AgentCompletionOutcomeClaim,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>
+):
+  | Extract<AgentCompletionJudgement, { type: "refused" }>
+  | "unmet"
+  | undefined => {
+  const answers = new Map((claim.items ?? []).map((item) => [item.index, item]))
+  if (requirement.items.some((_, index) => !answers.has(index)))
+    return {
+      type: "refused",
+      reason: "missing_outcomes",
+      feedback: MISSING_ITEM_OUTCOMES_FEEDBACK
+    }
+  let allMet = true
+  const quoted = new Set<string>()
+  for (const [index, item] of requirement.items.entries()) {
+    const answer = answers.get(index)
+    if (!answer?.met) {
+      allMet = false
+      continue
+    }
+    /**
+     * Bound to its item, twice over. A quotation must name the item and may
+     * not be one another item already used — "Invoice 1 Paid" twice is one
+     * invoice, not two. A receipt standing in for a quotation must have
+     * acted on a control or row that names the item, because every item
+     * shares the requirement's id and the id alone would let any receipt
+     * vouch for any item.
+     */
+    const quote = answer.evidence?.trim()
+    const claim = quote ? agentNormalizedClaim(quote) : undefined
+    const bound =
+      claim !== undefined &&
+      namesItem(claim, item) &&
+      (requirement.kind !== "change" ||
+        quotesOnlyItsItem(claim, item, requirement.items)) &&
+      !quoted.has(claim)
+    /**
+     * A quotation not bound to its item is set aside, not fatal: the item's
+     * own verified receipt can still credit it. A page that writes "Paid
+     * Invoice 2" has the state first, which a quote alone cannot tell from
+     * the end of the row before it.
+     */
+    if (bound) quoted.add(claim)
+    const evidence = bound ? quote : undefined
+    const { items: _items, ...single } = requirement
+    const refusal = judgeMetRequirement(
+      { ...single, text: `${item}: ${requirement.text}` },
+      {
+        id: requirement.id,
+        met: true,
+        ...(evidence ? { evidence } : {})
+      },
+      input,
+      change,
+      changes.filter((receipt) =>
+        receiptNamesItem(receipt, item, requirement.items, input.observation)
+      ),
+      consumed
+    )
+    if (refusal)
+      return quote && !bound
+        ? {
+            type: "refused",
+            reason: "absent_evidence",
+            feedback: itemEvidenceFeedback(index, item)
+          }
+        : refusal
+  }
+  return allMet ? undefined : "unmet"
+}
+
+/**
+ * For a change, the quotation is about its item and nothing else: it starts
+ * at the item's name, carries a state after it, and names no other item of
+ * the requirement. "Paid Invoice 2" quotes invoice 1's state beside invoice
+ * 2's name, and "Invoice 1 Due Invoice 2 Paid" quotes invoice 2's. A page
+ * that writes the state first fails here and is credited only by the item's
+ * own receipt.
+ */
+const quotesOnlyItsItem = (
+  claim: string,
+  item: string,
+  items: readonly string[]
+): boolean => {
+  const phrase = agentNormalizedClaim(item)
+  if (!phrase || !claim.startsWith(phrase)) return false
+  const rest = claim.slice(phrase.length)
+  if (!/^[^\p{L}\p{N}]/u.test(rest) || !/[\p{L}\p{N}]/u.test(rest)) return false
+  return items.every((other) => other === item || !namesItem(claim, other))
+}
+
+/** Whether normalized text names an item as a whole phrase, not a prefix. */
+const namesItem = (text: string, item: string): boolean => {
+  const phrase = agentNormalizedClaim(item)
+  return phrase.length > 0 && containsCompletePhrase(text, phrase)
+}
+
+/**
+ * Whether a receipt acted on this item. Either its control or row names the
+ * item — "Invoice 3 — Due" names "invoice 3" — or the item names the control
+ * and no other item does: "Given name Ada" names the field "Given name", but
+ * "Status" is named by both "Invoice 1 Status" and "Invoice 2 Status" and
+ * identifies neither, so a receipt under that name alone credits no item.
+ * A reverse match must also prove the value or state the item adds.
+ */
+const receiptNamesItem = (
+  receipt: AgentStepReadout,
+  item: string,
+  items: readonly string[],
+  observation: AgentObservation
+): boolean =>
+  receiptNames(receipt).some(
+    (name) =>
+      namesItem(agentNormalizedClaim(name), item) ||
+      (namesItem(agentNormalizedClaim(item), name) &&
+        receiptProvesItem(receipt, item, observation) &&
+        items.every(
+          (other) =>
+            other === item || !namesItem(agentNormalizedClaim(other), name)
+        ))
+  )
+
+/** A reverse-name match owes every value or state the item adds to the name. */
+const receiptProvesItem = (
+  receipt: AgentStepReadout,
+  item: string,
+  observation: AgentObservation
+): boolean => {
+  if (!isResultVerifiedChange(receipt)) return false
+  if (receipt.command?.type !== "fill_form")
+    return quotationStatesReceiptFacts(item, receipt)
+  const index = matchingBatchField(
+    { id: receipt.requirementId ?? "", text: item, kind: "change" },
+    receipt,
+    observation,
+    new Set()
+  )
+  if (index === undefined || index < 0) return false
+  const field = receipt.command.fields[index]
+  const name = receipt.verification?.evidence.fields?.[index]?.name
+  const current = observation.elements.find(
+    (element) =>
+      agentNormalizedClaim(element.name ?? "") ===
+      agentNormalizedClaim(name ?? "")
+  )
+  if (!field || !name || !current) return false
+  const state =
+    field.type === "check" || field.type === "uncheck"
+      ? CHECKED_STATE_WORDS[field.type]
+      : undefined
+  return statesOnlyFacts(
+    item,
+    factWords([name, state ? undefined : current.value]),
+    state
+  )
+}
+
+/**
+ * Every name a receipt acted under: its control, its row, and — for a
+ * verified batch — each field the verifier checked. It vouches for an item
+ * when one names the other: a row "Invoice 3 — Due" names the item
+ * "invoice 3", and the item "Given name Ada" names the field "Given name". A batch's top-level
+ * target names one control at most, so reading only that filtered out the
+ * verified fields of an itemized form.
+ */
+const receiptNames = (receipt: AgentStepReadout): string[] =>
+  [
+    receipt.target?.name,
+    receipt.target?.rowContext,
+    ...(receipt.verification?.outcome === "confirmed" &&
+    receipt.verification.evidence.kind === "fields"
+      ? (receipt.verification.evidence.fields ?? []).map((field) => field.name)
+      : [])
+  ].filter((name): name is string => name !== undefined && name.length > 0)
+
+const itemEvidenceFeedback = (index: number, item: string): string =>
+  `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's.`
+
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
@@ -1766,15 +1972,28 @@ const judgePlanned = (
       unmet.push(requirement.id)
       continue
     }
-    const refusal = judgeMetRequirement(
-      requirement,
-      claim,
-      input,
-      change,
-      changes,
-      consumed
-    )
-    if (refusal) return refusal
+    const judged = requirement.items?.length
+      ? judgeItemizedRequirement(
+          { ...requirement, items: requirement.items },
+          claim,
+          input,
+          change,
+          changes,
+          consumed
+        )
+      : judgeMetRequirement(
+          requirement,
+          claim,
+          input,
+          change,
+          changes,
+          consumed
+        )
+    if (judged === "unmet") {
+      unmet.push(requirement.id)
+      continue
+    }
+    if (judged) return judged
     met.push(requirement.id)
   }
   const outcome = { met, unmet }

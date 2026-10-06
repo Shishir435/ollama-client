@@ -22,6 +22,16 @@ export const agentPreviousRunRecord = (previousRun: AgentPreviousRun) => {
         }
       : {}),
     ...(handoff.failure ? { failure: handoff.failure } : {}),
+    ...(previousRun.requirements?.length
+      ? {
+          requirements: previousRun.requirements.map((requirement) => ({
+            id: requirement.id,
+            text: requirement.text,
+            kind: requirement.kind,
+            ...(requirement.met !== undefined ? { met: requirement.met } : {})
+          }))
+        }
+      : {}),
     ...(handoff.findings.length > 0 ? { findings: handoff.findings } : {}),
     ...(previousRun.effects.length > 0
       ? {

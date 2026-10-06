@@ -92,6 +92,44 @@ export const resolveAgentFollowUp = async (
   if (!effects) return { ok: false, reason: "too_many_effects" }
   return {
     ok: true,
-    previousRun: { mode: request.mode, handoff, effects }
+    previousRun: {
+      mode: request.mode,
+      handoff,
+      effects,
+      ...previousRequirements(parent.state)
+    }
+  }
+}
+
+/**
+ * The parent's plan by id, each with what its settled outcome said of it, so
+ * the follow-up's planner can keep an id for the same outcome. Absent when
+ * the parent was never planned; `met` absent where the parent settled
+ * without judging that requirement (a failure, a stop).
+ */
+const previousRequirements = (
+  state: NonNullable<DurableAgentRun["state"]>
+): Pick<AgentPreviousRun, "requirements" | "constraints"> => {
+  /**
+   * Prohibitions travel with the chain: the follow-up's goal is often the
+   * chat model's words, and a "don't submit" the user gave the first run
+   * must still bind the second.
+   */
+  const prohibitions = (state.constraints ?? []).filter(
+    (constraint) => constraint.forbids?.length
+  )
+  const constraints =
+    prohibitions.length > 0 ? { constraints: prohibitions } : {}
+  if (!state.requirements?.length) return constraints
+  const met = new Set(state.outcome?.met ?? [])
+  const unmet = new Set(state.outcome?.unmet ?? [])
+  return {
+    ...constraints,
+    requirements: state.requirements.map(({ id, text, kind }) => ({
+      id,
+      text,
+      kind,
+      ...(met.has(id) ? { met: true } : unmet.has(id) ? { met: false } : {})
+    }))
   }
 }

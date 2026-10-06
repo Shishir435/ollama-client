@@ -84,9 +84,17 @@ const normalizeOutcomes = (value: unknown): unknown => {
   return value.map((entry) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry))
       return entry
-    const { evidence, ...rest } = entry as Record<string, unknown>
+    const { evidence, items, ...rest } = entry as Record<string, unknown>
     const quoted = typeof evidence === "string" ? evidence.trim() : undefined
-    return quoted ? { ...rest, evidence: quoted } : rest
+    /** Per-item answers carry their own quotes, emptied the same way. */
+    const answered = Array.isArray(items)
+      ? { items: normalizeOutcomes(items) }
+      : items === undefined
+        ? {}
+        : { items }
+    return quoted
+      ? { ...rest, ...answered, evidence: quoted }
+      : { ...rest, ...answered }
   })
 }
 

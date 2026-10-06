@@ -1157,7 +1157,11 @@ describe("usable agent prompt", () => {
               name: "agent_plan",
               arguments: {
                 requirements: [
-                  { text: "the form is submitted", kind: "change" }
+                  {
+                    text: "the page is read",
+                    kind: "read",
+                    source: "Read the page"
+                  }
                 ]
               }
             }
@@ -1169,7 +1173,12 @@ describe("usable agent prompt", () => {
 
       expect(await port.plan?.(state, { aborted: false })).toEqual({
         requirements: [
-          { id: "r1", text: "the form is submitted", kind: "change" }
+          {
+            id: "r1",
+            text: "the page is read",
+            kind: "read",
+            source: "Read the page"
+          }
         ]
       })
       expect(attempts).toBe(2)
@@ -1247,7 +1256,9 @@ describe("agent reasoning effort", () => {
         id: "call-plan",
         name: "agent_plan",
         arguments: {
-          requirements: [{ text: "the page is read", kind: "read" }]
+          requirements: [
+            { text: "the page is read", kind: "read", source: "Read the page" }
+          ]
         }
       }
     ],
@@ -1345,5 +1356,167 @@ describe("agent reasoning effort", () => {
       .mocked(readSetting)
       .mock.calls.filter(([setting]) => setting === SETTINGS.MODEL_CONFIGS)
     expect(configReads).toHaveLength(1)
+  })
+})
+
+describe("agent task contract on the wire", () => {
+  const planCall = (requirements: unknown[]): ChatStreamMessage => ({
+    toolCalls: [
+      { id: "call-plan", name: "agent_plan", arguments: { requirements } }
+    ],
+    done: true
+  })
+  const nine = Array.from({ length: 9 }, (_, index) => ({
+    text: `page part ${index + 1} is read`,
+    kind: "read",
+    source: "Read the page"
+  }))
+
+  /**
+   * The retry is told why: sending the same prompt twice to a model that
+   * named nine outcomes gets nine outcomes twice.
+   */
+  it("retries an over-cap plan with feedback, then reports the count", async () => {
+    const sent: string[][] = []
+    const streamChat = vi.fn(async (request, emit) => {
+      sent.push(
+        request.messages.map((message: { content: string }) => message.content)
+      )
+      emit(planCall(nine))
+    })
+    const port = modelPort(streamChat)
+
+    expect(await port.plan?.(state, { aborted: false })).toEqual({
+      requirements: [],
+      overCap: { unit: "outcomes", requested: 9, max: 8 }
+    })
+    expect(sent[0]).toHaveLength(2)
+    expect(sent[1]?.at(-1)).toContain("Merge the same outcome")
+  })
+
+  it("sends the run's constraints beside its requirements", async () => {
+    let sent: string | undefined
+    const streamChat = vi.fn(async (request, emit) => {
+      sent = request.messages.at(-1)?.content as string
+      emit(validChunk)
+    })
+    const port = modelPort(streamChat)
+
+    await port.decide(
+      {
+        state: {
+          ...state,
+          requirements: [
+            {
+              id: "r1",
+              text: "the field holds Alice",
+              kind: "change",
+              source: "fill in Alice",
+              since: 1
+            }
+          ],
+          constraints: [
+            {
+              id: "c1",
+              text: "without submitting it",
+              kind: "exclude",
+              forbids: ["submission"]
+            }
+          ]
+        },
+        observation
+      },
+      { aborted: false }
+    )
+
+    expect(sent).toContain(
+      '"constraints":[{"id":"c1","text":"without submitting it","kind":"exclude"}]'
+    )
+    expect(sent).not.toContain("fill in Alice")
+  })
+
+  /**
+   * An amendment call carries the user's answers and the plan in force — and
+   * not the page, which is exactly what may not amend it.
+   */
+  it("amends from the user's answers and the plan, never the observation", async () => {
+    let prompt: string | undefined
+    const streamChat = vi.fn(async (request, emit) => {
+      prompt = request.messages.at(-1)?.content as string
+      emit(
+        planCall([
+          { text: "the field holds Alice", kind: "change", keep: "r1" },
+          { text: "the email is set", kind: "change", source: "also the email" }
+        ])
+      )
+    })
+    const port = modelPort(streamChat)
+
+    const plan = await port.plan?.(
+      {
+        ...state,
+        requirements: [
+          { id: "r1", text: "the field holds Alice", kind: "change" }
+        ],
+        plan: {
+          version: 1,
+          issued: { requirements: 1, constraints: 0 },
+          reconciledThrough: 1
+        },
+        answers: [{ questionId: "q", text: "Also the email", answeredAt: 5 }]
+      },
+      { aborted: false }
+    )
+
+    expect(plan?.requirements.map((requirement) => requirement.id)).toEqual([
+      "r1",
+      "r2"
+    ])
+    expect(prompt).toContain('"userAnswer":"Also the email"')
+    expect(prompt).not.toContain(observation.visibleText)
+  })
+
+  /**
+   * A planner that cannot be reached does not turn the user's "never delete"
+   * into nothing: the port makes the amendment by rule.
+   */
+  it("amends by rule when the planner fails twice", async () => {
+    const streamChat = vi.fn(async () => {
+      throw new Error("connection reset")
+    })
+    const port = modelPort(streamChat)
+
+    const plan = await port.plan?.(
+      {
+        ...state,
+        requirements: [
+          { id: "r1", text: "the field holds Alice", kind: "change" }
+        ],
+        plan: {
+          version: 1,
+          issued: { requirements: 1, constraints: 0 },
+          reconciledThrough: 1
+        },
+        answers: [
+          {
+            questionId: "q",
+            text: "and never delete the old entry",
+            answeredAt: 5
+          }
+        ]
+      },
+      { aborted: false }
+    )
+
+    expect(streamChat).toHaveBeenCalledTimes(2)
+    expect(plan).toEqual({
+      requirements: [
+        { id: "r1", text: "the field holds Alice", kind: "change" }
+      ],
+      constraints: [
+        expect.objectContaining({ id: "c1", forbids: ["destructive"] })
+      ],
+      provisional: true
+    })
   })
 })

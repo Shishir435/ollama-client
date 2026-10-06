@@ -729,7 +729,8 @@ Read the section your change touches; you do not need the whole file.
   trimmed off is the one the next run could repeat. Start over carries nothing and is never refused.
 - **A child plans and asks afresh.** It inherits the parent's handoff and the
   consequential effects the chain committed (`state.previousRun`) — never its
-  grants, answers, requirements or origins. `parentRunId` is written on the
+  grants, answers, requirements or origins. The parent's requirement ids reach
+  the child's planner only as data it may keep an id from. `parentRunId` is written on the
   run row on every path.
 - **A committed consequential effect is never attempted twice unasked.**
   Submission, destruction, payment and download are recorded on each receipt
@@ -1352,7 +1353,94 @@ run that produced it can always be repeated.
 - Planning is optional only at the host boundary. A host with no planning port
   retains the legacy completion path, but once the port exists an exhausted or
   empty plan fails the run before its first observation. Planning failure must
-  never buy the weaker pre-requirements judge.
+  never buy the weaker pre-requirements judge. A run paused or asked a
+  question before its plan landed resumes into `planning`, never past it.
+- **The task contract is the goal plus three things the planner derives from
+  it.** The goal is immutable — `AgentStatePatch` cannot name it.
+  `requirements` are outcomes, `constraints` are what the user's words forbid
+  (`exclude`), confine (`scope`) or bound (`limit`), and `plan` records the
+  version, the highest id ever issued, the newest user answer reconciled and
+  each amendment. A new entry's `source` is required, must quote the goal or a
+  user answer (`agentQuotes`), and must name something the entry names; an
+  entry with no quote, a fabricated one, or a genuine but unrelated one is
+  refused, so an outcome nobody asked for cannot enter dressed as one
+  somebody did.
+- **An id keeps its meaning.** `keep` is honoured only for an entry that
+  reads like the one it names, and an entry restated word for word keeps its
+  id unasked — otherwise a planner that forgot `keep` put the same outcome in
+  the plan twice and the run could never answer both. Receipts bound to `r1`
+  must keep meaning the `r1` they were bound to.
+- **Over the cap is refused whole, never sliced.** More than
+  `MAX_AGENT_REQUIREMENTS` entries, or more items than the item caps, is
+  `AgentPlanOverCapError` naming its unit (outcomes, items or constraints)
+  and bound; the port retries once with feedback asking for repeated
+  outcomes to become one requirement with `items`, and a second over-cap
+  answer becomes `overCap` — a question naming that unit, asked before the
+  first look. An itemized requirement is answered item by item in
+  `outcomes[].items` and judged per item, each on its own quotation or its
+  own verified change; one invoice's evidence never vouches for the rest. An
+  item's quotation must name that item as a whole phrase and may not repeat
+  another item's; for a change it must start at the item's name, carry a
+  state after it, and name no other item ("Paid Invoice 2" and "Invoice 1
+  Due Invoice 2 Paid" each quote the wrong item's state). Items themselves
+  must be rows the user named — whole phrases of the goal or an answer — so
+  "all nine invoices" is one outcome, not nine invented rows. A receipt stands in for an
+  item only when its target, row, or — for a verified batch — one of its
+  checked fields names the item; every item shares the requirement's id.
+  If the item extends a control's name with a value or state, the confirmed
+  result must prove those added words too; a checked Given name control
+  does not prove the item Given name Ada.
+  A planner `clarification` is asked the same way; a `limitation` fails the
+  run as `goal_failed` in the planner's words.
+- **Negative clauses are found by rule as well as by the model.**
+  `agentGoalBoundaries` reads "don't / without / never", "only the …",
+  "under $N" and draft phrasings from the user's words and adds any the plan
+  left out as constraints. `forbids` — the consequential effect classes a
+  constraint rules out — comes only from a verb in the negation's own
+  sentence, never from the model; two clauses are two prohibitions even when
+  they open alike. Broad cues ("no", "nothing gets", "stop before") count
+  only when their sentence names an effect. The whole sentence is read and no
+  condition lifts it: "don't submit until I say so" means not now, and a
+  draft never sends. The one cut is a new command — ", and", ", then",
+  ", but" followed by a consequential verb, directly or after words like
+  "you can" or "please", with no list before it and no negation after it —
+  so "don't delete the file, and (you can) send me the receipt" still sends, while "…, and you won't submit" still forbids. Reading too much forbids too much, which costs a
+  refusal and a question; reading too little let a forbidden effect through.
+  The controller refuses a command whose resolved effect carries a forbidden
+  class before policy is asked. A follow-up inherits the parent's
+  prohibitions (`previousRun.constraints`), because its goal is usually the
+  chat model's words.
+- **Only the user's words amend a plan, and only the user's yes removes
+  anything.** An answer, correction or steer newer than
+  `plan.reconciledThrough` triggers one planning call, given the goal, the
+  answers and the plan in force — never an observation, finding or step.
+  Kept entries keep their ids **and their words** (a kept constraint keeps
+  what it forbids, a kept requirement its items); a reworded `keep` quoting
+  the newest answer is new work under a new id. New ids take the next
+  number after `plan.issued`. The amendment rides the deciding claim, and a
+  change bumps `plan.version` and stamps `since`.
+- **Removal is a question, never a reading.** What an amendment would drop —
+  an entry, or one item of a requirement — comes back as
+  `proposedRemovals`; the plan keeps everything, records it in
+  `plan.pending` with a question id, and the run asks the user by naming the
+  plan's own entries. Only a plain yes to that question removes them; the
+  localized yes/no words shown in all nine locales are accepted, preserving
+  their accents and combining marks. A no,
+  or any sentence, keeps everything (a sentence is then read by the planner
+  like any other answer). Lifting a prohibition — a constraint that forbids
+  an effect — is asked on its own, as a limit that would no longer apply,
+  and only "allow" lifts it: a "yes" there reads as well as "yes, don't". Every rule tried for telling a withdrawal from a
+  mention — cues, negations, clauses — was one phrasing short, and its
+  failure was requested work silently gone. Nothing removes the last
+  outcome.
+- **An unread answer holds back what cannot be undone.** When the planner
+  fails, the port amends by rule (`agentRuleAmendment`: the plan in force
+  plus every clause found in the newest answers). That plan is
+  `provisional`: its limits apply at once, but the answer stays
+  unreconciled, and while any answer is unreconciled the controller refuses
+  every consequential effect and every completion. The next decision asks
+  the planner again. A planner that never recovers ends the run on its
+  budget, not on a guess.
 - `agent-useful-workflows.spec.ts` exercises composer lookup, long editing, pane scrolling,
   paginated extraction, clarification, delayed save and native confirmation.
   Its hosted flag also runs these tasks against a real provider. Scripted

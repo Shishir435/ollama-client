@@ -473,8 +473,21 @@ const budgets: Budget[] = [
      * The RCA follow-up — no-progress change signatures, completion refusal
      * memory, and inherited-frame checks — took Chrome to 302,690. Firefox
      * carries no Agent code and is unchanged.
+     * The task contract — constraints, sourced and itemized requirements,
+     * rule-found negative clauses, user-only plan amendments — took Chrome
+     * to 308,170, and Firefox to 218,306 through the shared contract
+     * schemas its run-state decoding carries. Its review fixes — per-item
+     * completion, withdrawal and identity checks, the rule amendment — took
+     * Chrome to 309,395; the second round — provisional amendments, item
+     * evidence binding, kept limits — to 309,816; the third — item
+     * withdrawals and batch field names for items — to 310,127; confirmed
+     * removals, lift questions and the outstanding-answer gate replaced the
+     * withdrawal heuristics and took it to 311,532; proven abbreviations
+     * in item sentences and item-unique field names, to 312,049.
+     * Context-bound numbering markers, localized removal replies and full-item
+     * receipt facts took Chrome to 312,566. Firefox carries no Agent code.
      */
-    max: isFirefox ? 218_000 : 303_000
+    max: isFirefox ? 218_500 : 313_000
   }
 ]
 
