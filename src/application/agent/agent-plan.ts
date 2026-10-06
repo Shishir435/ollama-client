@@ -470,11 +470,25 @@ const clauseFrom = (text: string, start: number): string => {
     .slice(0, MAX_AGENT_REQUIREMENT_SOURCE_CHARS)
 }
 
-/** From a cue to the end of its sentence, commas and all. */
+/**
+ * From a cue to the end of what it negates: its sentence, commas and all,
+ * unless a new clause starts at ", and", ", then" or ", but" with no comma
+ * before it. "Don't delete the file, and send me the receipt" asks for the
+ * send; "don't delete, archive, and email anything" lists three things not
+ * to do, and the earlier comma is what says it is a list. A next clause
+ * that is itself negated — "and especially not the delete button" — still
+ * belongs to the prohibition.
+ */
 const sentenceFrom = (text: string, start: number): string => {
   const rest = text.slice(start)
   const end = rest.search(/[.;:!?\n]/)
-  return end === -1 ? rest : rest.slice(0, end)
+  const sentence = end === -1 ? rest : rest.slice(0, end)
+  const clause = sentence.search(/,\s+(?:and|then|but)\b/i)
+  return clause !== -1 &&
+    !sentence.slice(0, clause).includes(",") &&
+    !/\b(?:not|never|no|nor|nothing|neither)\b/i.test(sentence.slice(clause))
+    ? sentence.slice(0, clause)
+    : sentence
 }
 
 /**
@@ -774,14 +788,17 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
       }
     },
     /**
-     * Every item is a row the user named, as a whole phrase of the goal or an
-     * answer — digits included. Items are how a plan says which rows; one
-     * the planner enumerated from "all nine invoices", or added beside a
-     * kept entry, is work nobody asked for.
+     * Every item is a row the user named: each of its words, digits included,
+     * in one sentence of the goal or an answer. Items are how a plan says
+     * which rows; one the planner enumerated from "all nine invoices", or
+     * assembled from two sentences — "invoice 1 paid" out of "mark invoice 2
+     * paid; invoice 1 is overdue" — is work nobody asked for.
      */
     assertItemsQuoted(items: readonly string[]): void {
       if (!context) return
-      const spoken = authority.map(itemTokens)
+      const spoken = authority
+        .flatMap((text) => text.split(/[.;!?\n]+(?=\s|$)/))
+        .map(itemTokens)
       const unquoted = items.find((item) => {
         const wanted = itemTokens(item)
         return (

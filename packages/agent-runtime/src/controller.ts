@@ -2174,27 +2174,41 @@ export const createAgentController = (
   /**
    * Removals the planner proposed, put to the user by name. The list is the
    * plan's own entries, so the user is asked about what the run would stop
-   * doing — not about a sentence the planner wrote.
+   * doing — not about a sentence the planner wrote. A removal the question
+   * has no room to name is dropped from the question and stays in the plan:
+   * a yes applies to every pending removal, so a cut list would let it
+   * remove one the user never saw.
    */
   const askRemoval = async (state: AgentRunState): Promise<void> => {
-    const pending = state.plan?.pending
-    if (!pending) return
-    const list = pending.removals
-      .map((removal) => {
-        const entry = [
-          ...(state.requirements ?? []),
-          ...(state.constraints ?? [])
-        ].find((candidate) => candidate.id === removal.id)
-        const text = entry?.text ?? removal.id
-        return removal.item ? `"${removal.item}" from "${text}"` : `"${text}"`
-      })
-      .join("; ")
-      .slice(0, 1_500)
+    const plan = state.plan
+    const pending = plan?.pending
+    if (!plan || !pending) return
+    const entries = [
+      ...(state.requirements ?? []),
+      ...(state.constraints ?? [])
+    ]
+    const shown: typeof pending.removals = []
+    const named: string[] = []
+    for (const removal of pending.removals) {
+      const text =
+        entries.find((candidate) => candidate.id === removal.id)?.text ??
+        removal.id
+      const name = removal.item
+        ? `"${removal.item}" from "${text}"`
+        : `"${text}"`
+      if (named.length > 0 && [...named, name].join("; ").length > 1_500) break
+      shown.push(removal)
+      named.push(name)
+    }
+    const list = named.join("; ")
     dependencies.trace?.(state.id, "plan_removal_asked", {
-      removals: pending.removals.length
+      removals: shown.length
     })
-    const them = pending.removals.length === 1 ? "it" : "them"
+    const them = shown.length === 1 ? "it" : "them"
     await pause(state, "question", {
+      ...(shown.length < pending.removals.length
+        ? { plan: { ...plan, pending: { ...pending, removals: shown } } }
+        : {}),
       question: {
         id: pending.questionId,
         text: pending.lift

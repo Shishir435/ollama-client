@@ -1761,22 +1761,22 @@ const judgeItemizedRequirement = (
      * shares the requirement's id and the id alone would let any receipt
      * vouch for any item.
      */
-    const evidence = answer.evidence?.trim()
-    if (evidence) {
-      const claim = agentNormalizedClaim(evidence)
-      if (
-        !namesItem(claim, item) ||
-        (requirement.kind === "change" &&
-          !quotesOnlyItsItem(claim, item, requirement.items)) ||
-        quoted.has(claim)
-      )
-        return {
-          type: "refused",
-          reason: "absent_evidence",
-          feedback: itemEvidenceFeedback(index, item)
-        }
-      quoted.add(claim)
-    }
+    const quote = answer.evidence?.trim()
+    const claim = quote ? agentNormalizedClaim(quote) : undefined
+    const bound =
+      claim !== undefined &&
+      namesItem(claim, item) &&
+      (requirement.kind !== "change" ||
+        quotesOnlyItsItem(claim, item, requirement.items)) &&
+      !quoted.has(claim)
+    /**
+     * A quotation not bound to its item is set aside, not fatal: the item's
+     * own verified receipt can still credit it. A page that writes "Paid
+     * Invoice 2" has the state first, which a quote alone cannot tell from
+     * the end of the row before it.
+     */
+    if (bound) quoted.add(claim)
+    const evidence = bound ? quote : undefined
     const { items: _items, ...single } = requirement
     const refusal = judgeMetRequirement(
       { ...single, text: `${item}: ${requirement.text}` },
@@ -1796,7 +1796,14 @@ const judgeItemizedRequirement = (
       ),
       consumed
     )
-    if (refusal) return refusal
+    if (refusal)
+      return quote && !bound
+        ? {
+            type: "refused",
+            reason: "absent_evidence",
+            feedback: itemEvidenceFeedback(index, item)
+          }
+        : refusal
   }
   return allMet ? undefined : "unmet"
 }
@@ -1806,8 +1813,8 @@ const judgeItemizedRequirement = (
  * at the item's name, carries a state after it, and names no other item of
  * the requirement. "Paid Invoice 2" quotes invoice 1's state beside invoice
  * 2's name, and "Invoice 1 Due Invoice 2 Paid" quotes invoice 2's. A page
- * that writes the state first is refused here and can still be credited by
- * the item's own receipt.
+ * that writes the state first fails here and is credited only by the item's
+ * own receipt.
  */
 const quotesOnlyItsItem = (
   claim: string,

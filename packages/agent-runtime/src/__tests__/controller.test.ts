@@ -3730,6 +3730,56 @@ describe("agent controller task contract", () => {
       })
       expect(harness.getState().plan?.pending).toBeUndefined()
     })
+
+    /**
+     * A yes applies to every pending removal, so one the question had no
+     * room to name is not pending: it stays in the plan.
+     */
+    it("asks only about the removals the question can name", async () => {
+      const texts = Array.from({ length: 10 }, (_, index) =>
+        `item ${index} ${"detail ".repeat(25)}`.trim()
+      )
+      const all = readPlan(...texts)
+      let now = 10
+      const harness = createHarness({
+        plan: vi
+          .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
+          .mockResolvedValueOnce({ requirements: all })
+          .mockResolvedValueOnce({
+            requirements: all,
+            proposedRemovals: all.slice(1).map(({ id }) => ({ id }))
+          })
+          .mockResolvedValue({ requirements: all }),
+        clock: () => now,
+        decisions: [
+          { type: "ask_user", question: "Anything else?" },
+          completeAll("r1", "r10")
+        ],
+        observations: [observation(), observation(), observation()]
+      })
+      await harness.controller.start("run-1")
+      now = 20
+      await harness.controller.answerQuestion({
+        runId: "run-1",
+        questionId: harness.getState().question?.id ?? "",
+        text: "Only the first one matters"
+      })
+      const asked = harness.getState()
+      const pending = asked.plan?.pending?.removals ?? []
+      const list = String(asked.question?.display?.[0]?.values?.list)
+      expect(pending.length).toBeLessThan(9)
+      for (const { id } of pending)
+        expect(list).toContain(all.find((entry) => entry.id === id)?.text)
+      now = 30
+      await harness.controller.answerQuestion({
+        runId: "run-1",
+        questionId: asked.question?.id ?? "",
+        text: "Yes"
+      })
+      expect(
+        harness.getState().requirements?.map((requirement) => requirement.id)
+      ).toEqual(["r1", "r10"])
+    })
   })
 
   /**

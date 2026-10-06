@@ -188,6 +188,28 @@ describe("the whole task survives planning", () => {
     expect(plan.requirements[0]?.items).toEqual(items)
   })
 
+  /** Its words are all in the goal, but not about the same invoice. */
+  it("refuses an item assembled from two sentences", () => {
+    const goal = "Mark invoice 2 paid; invoice 1 is overdue"
+    expect(() =>
+      parseAgentTaskPlan(
+        [
+          call({
+            requirements: [
+              {
+                text: goal,
+                kind: "change",
+                source: goal,
+                items: ["invoice 2 paid", "invoice 1 paid"]
+              }
+            ]
+          })
+        ],
+        { goal }
+      )
+    ).toThrow(AgentDecisionFormatError)
+  })
+
   /** "All nine" names no rows; enumerating them is the planner's invention. */
   it("refuses items the user never named, new or added to a kept entry", () => {
     expect(() =>
@@ -976,7 +998,14 @@ describe("prohibitions read by rule", () => {
     ["Don't click the Submit or Delete buttons", ["submission", "destructive"]],
     ["Don't check out yet", ["payment"]],
     ["Save it as a draft, then send me the link", ["submission"]],
-    ["Fill in the address but do not place the order", ["payment"]]
+    ["Fill in the address but do not place the order", ["payment"]],
+    ["Don't delete the file, and send me the receipt", ["destructive"]],
+    ["Don't submit until I check it, then submit", ["submission"]],
+    [
+      "Don't touch anything, and especially not the delete button",
+      ["destructive"]
+    ],
+    ["Don't delete, archive, and email anything", ["destructive", "submission"]]
   ])("%s", (goal, expected) => {
     expect(new Set(forbidden(goal))).toEqual(new Set(expected))
   })

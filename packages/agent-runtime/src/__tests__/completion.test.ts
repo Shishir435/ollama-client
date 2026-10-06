@@ -2481,6 +2481,59 @@ describe("itemized requirements", () => {
     ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
   })
 
+  /**
+   * A page that writes the state first ("Paid Given name Ada" style) cannot
+   * be bound by quotation, so the item's own verified receipt credits it
+   * instead of the quote being fatal.
+   */
+  it("credits an item by its receipt when its quotation is not bound to it", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [{ type: "clear_and_type", ref: "e1", text: "[redacted]" }]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "The field holds its value",
+          observedAt: 1,
+          fields: [{ name: "Given name" }]
+        }
+      }
+    })
+    expect(
+      judgeAgentCompletion({
+        steps: [filled],
+        observation: observation({
+          visibleText: "Saved Given name Ada",
+          elements: [
+            { name: "Given name", value: "Ada" }
+          ] as AgentObservation["elements"]
+        }),
+        requirements: [
+          {
+            id: "r1",
+            text: "the name is filled in",
+            kind: "change",
+            items: ["Given name Ada"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [{ index: 0, met: true, evidence: "Saved Given name Ada" }]
+          }
+        ]
+      })
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
   /** "Paid Invoice 2" quotes invoice 1's state beside invoice 2's name. */
   it("refuses a change quotation whose state does not follow its item", () => {
     expect(

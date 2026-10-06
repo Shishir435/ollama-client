@@ -1398,7 +1398,9 @@ run that produced it can always be repeated.
   they open alike. Broad cues ("no", "nothing gets", "stop before") count
   only when their sentence names an effect. The whole sentence is read and no
   condition lifts it: "don't submit until I say so" means not now, and a
-  draft never sends. Reading too much forbids too much, which costs a
+  draft never sends. The one cut is a new clause — ", and", ", then",
+  ", but" with no list before it and no negation after it — so "don't
+  delete the file, and send me the receipt" still sends. Reading too much forbids too much, which costs a
   refusal and a question; reading too little let a forbidden effect through.
   The controller refuses a command whose resolved effect carries a forbidden
   class before policy is asked. A follow-up inherits the parent's
