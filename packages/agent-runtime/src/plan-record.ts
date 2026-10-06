@@ -31,24 +31,41 @@ export const agentNewestAnswerAt = (
     : undefined
 
 /**
- * The patch that fixes a run's first plan. Every answer the user had given by
- * then went into it, so they are all reconciled.
+ * The patch that fixes a run's first plan. A provisional capacity-removal
+ * plan leaves the goal and answers outstanding and carries a confirmation
+ * question; a complete initial plan reconciles every answer given so far.
  */
 export const agentInitialPlanPatch = (
-  state: Pick<AgentRunState, "answers">,
-  plan: AgentTaskPlan
-): AgentStatePatch => ({
-  requirements: plan.requirements,
-  ...(plan.constraints?.length ? { constraints: plan.constraints } : {}),
-  plan: {
-    version: 1,
-    issued: {
-      requirements: highest(plan.requirements, "r"),
-      constraints: highest(plan.constraints ?? [], "c")
-    },
-    reconciledThrough: agentNewestAnswerAt(state.answers) ?? 0
+  state: Pick<AgentRunState, "answers"> & Partial<Pick<AgentRunState, "id">>,
+  plan: AgentTaskPlan,
+  now = 0
+): AgentStatePatch => {
+  const patch: AgentStatePatch = {
+    requirements: plan.requirements,
+    ...(plan.constraints?.length ? { constraints: plan.constraints } : {}),
+    plan: {
+      version: 1,
+      issued: {
+        requirements: highest(plan.requirements, "r"),
+        constraints: highest(plan.constraints ?? [], "c")
+      },
+      ...(plan.provisional
+        ? {}
+        : { reconciledThrough: agentNewestAnswerAt(state.answers) ?? 0 })
+    }
   }
-})
+  return plan.proposedRemovals?.length
+    ? {
+        ...patch,
+        ...agentAmendedPlanPatch(
+          { ...patch, id: state.id ?? "initial" },
+          plan,
+          agentNewestAnswerAt(state.answers) ?? 0,
+          now
+        )
+      }
+    : patch
+}
 
 /** Whether the user has said something the plan has not been checked against. */
 export const agentPlanNeedsReconciling = (

@@ -1378,8 +1378,13 @@ run that produced it can always be repeated.
   answer becomes `overCap` — a question naming that unit, asked before the
   first look. An over-cap amendment asks the same question while retaining
   the plan and leaving the user's answer unreconciled. When an amendment
-  proposes removals to make room, ask for those first; confirming them must
-  leave the original additions outstanding for the next planning call.
+  proposes removals to make room, ask only about removals relevant to the
+  exceeded caps, and only when the projected whole plan fits after them.
+  Confirming them must leave the original additions outstanding for the next
+  planning call. A follow-up may propose removing an inherited constraint by
+  its previousRun id. An initial capacity-removal plan retains the inherited
+  limits, asks before observing, and leaves reconciliation unset until the
+  follow-up goal and answers fit; confirmation then replans the whole goal.
   An itemized requirement is answered item by item in
   `outcomes[].items` and judged per item, each on its own quotation or its
   own verified change; one invoice's evidence never vouches for the rest. An

@@ -2526,12 +2526,15 @@ export const createAgentController = (
       requirements: planned.requirements.length,
       constraints: planned.constraints?.length ?? 0
     })
-    return (
-      (await transition(planning, "observing", {
-        ...agentInitialPlanPatch(planning, planned),
-        updatedAt: dependencies.clock.now()
-      })) ?? undefined
-    )
+    const observed = await transition(planning, "observing", {
+      ...agentInitialPlanPatch(planning, planned, dependencies.clock.now()),
+      updatedAt: dependencies.clock.now()
+    })
+    if (observed?.plan?.pending) {
+      await askRemoval(observed)
+      return undefined
+    }
+    return observed ?? undefined
   }
 
   /**
