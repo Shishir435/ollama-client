@@ -1,5 +1,8 @@
+import { AgentCompletionCheckSchema } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
+import { z } from "zod"
 import type { ToolCall } from "@/lib/tools/types"
+import { AGENT_COMPLETION_CHECK_PARAMETERS } from "../agent-completion-check-parameters"
 import { AgentDecisionFormatError } from "../agent-decision-parser"
 import {
   AGENT_PLAN_TOOL,
@@ -16,6 +19,11 @@ const call = (args: unknown): ToolCall => ({
 })
 
 describe("parseAgentTaskPlan", () => {
+  it("keeps the model-facing predicate schema identical to the runtime contract", () => {
+    expect(AGENT_COMPLETION_CHECK_PARAMETERS).toEqual(
+      z.toJSONSchema(AgentCompletionCheckSchema)
+    )
+  })
   it("keeps typed predicates through plan decoding and advertises their schema", () => {
     const check = { type: "field", name: "Name", value: "Ada" }
     const plan = parseAgentTaskPlan([

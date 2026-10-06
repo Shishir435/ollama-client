@@ -24,8 +24,8 @@ import {
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
   MAX_AGENT_REQUIREMENTS
 } from "@ollama-client/contracts"
-import { z } from "zod"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
+import { AGENT_COMPLETION_CHECK_PARAMETERS } from "./agent-completion-check-parameters"
 import { AgentDecisionFormatError } from "./agent-decision-parser"
 import {
   AGENT_PREVIOUS_RUN_PROMPT,
@@ -76,7 +76,7 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
               description:
                 "change: something on a page must end up different. read: the goal asks you to report something."
             },
-            check: z.toJSONSchema(AgentCompletionCheckSchema),
+            check: AGENT_COMPLETION_CHECK_PARAMETERS,
             source: {
               type: "string",
               maxLength: MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
