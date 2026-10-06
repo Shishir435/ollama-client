@@ -626,15 +626,20 @@ const decisionPrompt = (input: {
   window: number
 }): string => {
   const remaining = agentRemainingBudget(input.state)
-  const history = boundedAgentContextEntries(
-    input.history,
-    input.window *
-      AGENT_HISTORY_SHARE *
-      (input.evidenceLedger?.length ? 0.5 : 1)
-  )
+  const contextTokens = input.window * AGENT_HISTORY_SHARE
   const evidenceLedger = boundedAgentContextEntries(
     input.evidenceLedger,
-    input.window * AGENT_HISTORY_SHARE * 0.5
+    contextTokens * 0.5
+  )
+  const evidenceTokens = evidenceLedger?.length
+    ? evidenceLedger.reduce(
+        (sum, record) => sum + JSON.stringify(record).length,
+        0
+      ) / AGENT_TOKEN_CHARS
+    : 0
+  const history = boundedAgentContextEntries(
+    input.history,
+    contextTokens - evidenceTokens
   )
   const envelope = {
     task: input.state.goal,

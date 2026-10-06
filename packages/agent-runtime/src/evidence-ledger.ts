@@ -186,6 +186,8 @@ export const buildAgentEvidenceLedger = (
           record.validity === "incomplete"
         )
           return [record]
+        if (record.kind === "verified_effect")
+          return [{ ...record, validity: "historical" as const }]
         if (
           !record.source ||
           record.kind === "user_input" ||
@@ -388,13 +390,17 @@ export const agentCompletionEvidence = (
   prefix: string
 ): AgentEvidenceRecord[] => {
   if (!steps) return []
-  const quotes = [
+  const quotes: AgentSourceQuote[] = [
     ...(decision.sourceQuotes ?? []),
     ...(decision.outcomes ?? []).flatMap((outcome) =>
-      outcome.evidence
-        ? [{ quote: outcome.evidence, requirementId: outcome.id }]
-        : []
+      outcome.evidence ? [{ quote: outcome.evidence }] : []
     )
   ].slice(0, 3)
-  return retainedQuotes(state, observation, quotes, steps, prefix)
+  // Grounding establishes page provenance, not requirement satisfaction.
+  const unboundQuotes = quotes.map(({ quote, ref, frameId }) => ({
+    quote,
+    ref,
+    frameId
+  }))
+  return retainedQuotes(state, observation, unboundQuotes, steps, prefix)
 }

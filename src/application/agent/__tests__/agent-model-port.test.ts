@@ -309,6 +309,44 @@ describe("createProviderAgentModelPort", () => {
     expect(prompt).toContain('"verificationKind":"activation"')
   })
 
+  it("returns unused evidence budget to history for a short ledger", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    const history = Array.from({ length: 100 }, (_, index) => ({
+      step: index + 1,
+      action: "x".repeat(500),
+      outcome: "confirmed" as const
+    }))
+    await port.decide({ state, observation, history }, { aborted: false })
+    await port.decide(
+      {
+        state,
+        observation,
+        history,
+        evidenceLedger: [
+          {
+            id: "inference",
+            kind: "model_inference",
+            validity: "incomplete",
+            observedAt: 1
+          }
+        ]
+      },
+      { aborted: false }
+    )
+    const baseline = JSON.parse(
+      String(streamChat.mock.calls[0][0].messages[1].content)
+    )
+    const withEvidence = JSON.parse(
+      String(streamChat.mock.calls[1][0].messages[1].content)
+    )
+    expect(withEvidence.history.length).toBeGreaterThanOrEqual(
+      baseline.history.length - 1
+    )
+    expect(withEvidence.evidenceLedger).toHaveLength(1)
+    expect(withEvidence.history.at(-1).step).toBe(100)
+  })
+
   it("carries the run's kept findings into the prompt", async () => {
     const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
     const port = modelPort(streamChat)

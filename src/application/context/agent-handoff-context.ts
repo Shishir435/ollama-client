@@ -132,6 +132,50 @@ export const renderAgentHandoffBlock = (
   handoff: AgentConversationHandoff
 ): string => fence([renderHandoff(handoff)])
 
+/** Degrade a single oversized reminder before losing the run itself. */
+const compactHandoff = (
+  handoff: AgentConversationHandoff,
+  maxChars: number
+): string | undefined => {
+  const fits = (text: string) => fence([text]).length <= maxChars
+  const full = renderHandoff(handoff)
+  if (fits(full)) return full
+  const compact = {
+    ...handoff,
+    findings: [...handoff.findings],
+    evidenceLedger: (handoff.evidenceLedger ?? []).map(
+      ({ quote: _quote, ...ref }) => ref
+    )
+  }
+  const render = () =>
+    renderHandoff(compact).replace(
+      "</run>",
+      "Evidence condensed to references; omitted details are unavailable in this turn.\n</run>"
+    )
+  while (!fits(render()) && compact.evidenceLedger.length > 1) {
+    compact.evidenceLedger.shift()
+  }
+  while (!fits(render()) && compact.findings.length > 0) compact.findings.pop()
+  // Preserve status and at least the newest source reference whenever possible.
+  while (
+    !fits(render()) &&
+    (compact.goal.length > 80 || (compact.result?.length ?? 0) > 80)
+  ) {
+    compact.goal = compact.goal.slice(
+      0,
+      Math.max(80, Math.floor(compact.goal.length / 2))
+    )
+    if (compact.result)
+      compact.result = compact.result.slice(
+        0,
+        Math.max(80, Math.floor(compact.result.length / 2))
+      )
+  }
+  if (fits(render())) return render()
+  compact.evidenceLedger = []
+  return fits(render()) ? render() : undefined
+}
+
 /** The fenced block for a turn, and which runs it carries a record of. */
 export interface AgentHandoffContext {
   block?: string
@@ -157,10 +201,14 @@ export const renderAgentHandoffContext = (
         ? [
             {
               runId: message.agentHandoff.runId,
-              text: renderHandoff(message.agentHandoff)
+              text: compactHandoff(message.agentHandoff, maxChars)
             }
           ]
         : []
+    )
+    .filter(
+      (record): record is { runId: string; text: string } =>
+        record.text !== undefined
     )
     .slice(-MAX_AGENT_HANDOFFS_IN_CONTEXT)
   const fenced = () => fence(records.map((record) => record.text))

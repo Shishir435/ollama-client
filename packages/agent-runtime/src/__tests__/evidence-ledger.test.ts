@@ -355,6 +355,52 @@ describe("grounded evidence ledger", () => {
         .success
     ).toBe(false)
   })
+  it("keeps a confirmed effect historical after a fresh snapshot of the same document", () => {
+    const effect: AgentEvidenceRecord = {
+      ...grounded()[0],
+      kind: "verified_effect",
+      validity: "historical",
+      verificationKind: "activation",
+      quote: undefined
+    }
+    const fresh = {
+      ...observation,
+      frames: observation.frames.map((frame) => ({
+        ...frame,
+        snapshotId: "s2",
+        generation: 2
+      }))
+    }
+    const restored = JSON.parse(JSON.stringify(steps([effect])))
+    expect(
+      buildAgentEvidenceLedger(restored, state.allowedOrigins, fresh)[0]
+    ).toMatchObject({ validity: "historical", verificationKind: "activation" })
+  })
+
+  it("does not bind completion outcome quotes to an unchecked requirement", () => {
+    for (const met of [true, false]) {
+      const records = agentCompletionEvidence(
+        state,
+        observation,
+        {
+          type: "complete",
+          summary: "Done",
+          outcomes: [{ id: "r1", met, evidence: "Plan A costs $12" }],
+          sourceQuotes: [{ quote: "Plan B costs $15", requirementId: "r1" }]
+        },
+        [],
+        "answer"
+      )
+      expect(records.map((record) => record.quote)).toEqual([
+        "Plan B costs $15",
+        "Plan A costs $12"
+      ])
+      expect(
+        records.every((record) => record.requirementId === undefined)
+      ).toBe(true)
+    }
+  })
+
   it("enforces count and byte bounds, including a single oversized corrupt record", () => {
     const records = Array.from({ length: 100 }, (_, index) => ({
       ...grounded()[0],

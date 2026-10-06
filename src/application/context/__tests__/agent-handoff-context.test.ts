@@ -127,6 +127,42 @@ describe("the fenced agent context", () => {
     expect(tight.runIds).toEqual(["run-b", "run-c"])
   })
 
+  it("keeps an evidence-heavy run in an 8192-token window by retaining references", () => {
+    const value = handoff("run-heavy", {
+      evidenceLedger: Array.from({ length: 24 }, (_, index) => ({
+        id: `effect-${index}`,
+        kind: "verified_effect",
+        validity: "historical",
+        verificationKind: "activation",
+        observedAt: 1,
+        quote: "q".repeat(200),
+        source: {
+          tabId: 7,
+          frameId: 0,
+          documentId: "doc",
+          snapshotId: "snapshot",
+          generation: 1,
+          origin: "https://example.com"
+        }
+      }))
+    })
+    const budget = agentHandoffBudget({
+      contextWindowTokens: 8192,
+      remainingContextChars: 100000
+    })
+    const rendered = renderAgentHandoffContext([agentRow(1, value)], budget)
+    expect(rendered.runIds).toEqual(["run-heavy"])
+    expect(rendered.block?.length).toBeLessThanOrEqual(budget)
+    expect(rendered.block).toContain('status="completed"')
+    expect(rendered.block).toContain("Result of run-heavy")
+    expect(rendered.block).toContain("effect-23")
+    expect(rendered.block).toContain('"verificationKind":"activation"')
+    expect(rendered.block).toContain("omitted details are unavailable")
+    expect(rendered.block).not.toContain('"quote"')
+    expect(value.evidenceLedger).toHaveLength(24)
+    expect(value.evidenceLedger?.[0].quote).toHaveLength(200)
+  })
+
   it("renders nothing rather than a torn record when even one will not fit", () => {
     expect(
       renderAgentHandoffContext([agentRow(1, handoff("run-a"))], 10)
