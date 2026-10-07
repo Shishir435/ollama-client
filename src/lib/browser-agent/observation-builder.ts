@@ -658,9 +658,16 @@ export const collectAgentMaskRegions = (
 ): {
   rects: { x: number; y: number; width: number; height: number }[]
   scroll: { x: number; y: number }
+  viewport: { width: number; height: number }
+  frameRects: {
+    rect: { x: number; y: number; width: number; height: number }
+    supported: boolean
+  }[]
 } => {
   const view = document.defaultView
   const rects: { x: number; y: number; width: number; height: number }[] = []
+  const frameRects: ReturnType<typeof collectAgentMaskRegions>["frameRects"] =
+    []
   for (const node of composedDescendants(document)) {
     const element = asElement(node)
     if (!element) continue
@@ -669,18 +676,66 @@ export const collectAgentMaskRegions = (
     if (!framed && !isSensitiveAgentElement(element)) continue
     for (const box of Array.from(element.getClientRects())) {
       if (box.width <= 0 || box.height <= 0) continue
-      rects.push({
+      const rect = {
         x: box.left,
         y: box.top,
         width: box.width,
         height: box.height
-      })
+      }
+      rects.push(rect)
+      if (framed)
+        frameRects.push({
+          rect,
+          supported:
+            !isSensitiveAgentElement(element) && supportedFrameStyle(element)
+        })
     }
   }
   return {
     rects,
-    scroll: { x: view?.scrollX ?? 0, y: view?.scrollY ?? 0 }
+    scroll: { x: view?.scrollX ?? 0, y: view?.scrollY ?? 0 },
+    viewport: { width: view?.innerWidth ?? 1, height: view?.innerHeight ?? 1 },
+    frameRects
   }
+}
+
+/** Axis-aligned positive 2D scaling/translation only. Effects with pixel spill stay masked. */
+const supportedFrameStyle = (element: Element): boolean => {
+  const view = element.ownerDocument.defaultView
+  if (!view) return false
+  for (
+    let current: Element | null = element;
+    current;
+    current =
+      current.parentElement ??
+      (current.getRootNode() as ShadowRoot).host ??
+      null
+  ) {
+    const style = view.getComputedStyle(current)
+    if (
+      (style.perspective && style.perspective !== "none") ||
+      (style.filter && style.filter !== "none") ||
+      (style.backdropFilter && style.backdropFilter !== "none")
+    )
+      return false
+    if (style.transform && style.transform !== "none") {
+      const values = /^matrix\(([^)]+)\)$/
+        .exec(style.transform)?.[1]
+        .split(",")
+        .map(Number)
+      if (
+        !values ||
+        values.length !== 6 ||
+        !values.every(Number.isFinite) ||
+        values[0] <= 0 ||
+        values[3] <= 0 ||
+        values[1] !== 0 ||
+        values[2] !== 0
+      )
+        return false
+    }
+  }
+  return true
 }
 
 export const isSensitiveAgentElement = (element: Element): boolean => {

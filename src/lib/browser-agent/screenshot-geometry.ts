@@ -24,6 +24,43 @@ export interface AgentCssPoint {
   y: number
 }
 
+/** CDP quads must be a positive axis-aligned rectangle; no rotation or guessing. */
+export const axisAlignedQuad = (
+  quad: readonly number[]
+): AgentCssRect | undefined => {
+  if (quad.length !== 8 || !quad.every(Number.isFinite)) return undefined
+  const [x, y, right, top, rightBottom, bottom, left, leftBottom] = quad
+  const close = (a: number, b: number) => Math.abs(a - b) < 0.01
+  if (
+    !close(y, top) ||
+    !close(right, rightBottom) ||
+    !close(bottom, leftBottom) ||
+    !close(x, left) ||
+    right <= x ||
+    bottom <= y
+  )
+    return undefined
+  return { x, y, width: right - x, height: bottom - y }
+}
+
+export const sameCssRect = (
+  first: AgentCssRect,
+  second: AgentCssRect
+): boolean =>
+  (["x", "y", "width", "height"] as const).every(
+    (key) => Math.abs(first[key] - second[key]) < 0.05
+  )
+
+export const rectThroughFrame = (
+  frame: { region: AgentCssRect; scaleX: number; scaleY: number },
+  rect: AgentCssRect
+): AgentCssRect => ({
+  x: frame.region.x + rect.x * frame.scaleX,
+  y: frame.region.y + rect.y * frame.scaleY,
+  width: rect.width * frame.scaleX,
+  height: rect.height * frame.scaleY
+})
+
 /** What `Page.getLayoutMetrics` reports, reduced to the two viewports. */
 export interface AgentCaptureLayout {
   cssLayoutViewport: {

@@ -794,6 +794,7 @@ const decisionPrompt = (input: {
           screenshot: {
             width: input.screenshot.imageWidth,
             height: input.screenshot.imageHeight,
+            ...visualFrameMetadata(input.screenshot),
             ...(input.screenshot.zoomed ? { zoomed: true } : {}),
             ...(input.screenshot.maskedRegions > 0
               ? { maskedRegions: input.screenshot.maskedRegions }
@@ -1669,3 +1670,22 @@ export const createProviderAgentModelPort = (
     }
   }
 }
+
+const visualFrameMetadata = (screenshot: AgentScreenshot) => ({
+  ...(screenshot.frames?.length
+    ? {
+        frames: screenshot.frames.map((frame) => ({
+          frameId: frame.frameId,
+          region: {
+            x: (frame.region.x - screenshot.region.x) * screenshot.scale,
+            y: (frame.region.y - screenshot.region.y) * screenshot.scale,
+            width: frame.region.width * screenshot.scale,
+            height: frame.region.height * screenshot.scale
+          }
+        }))
+      }
+    : {}),
+  ...(screenshot.frameLimitations?.length
+    ? { frameLimitations: screenshot.frameLimitations }
+    : {})
+})

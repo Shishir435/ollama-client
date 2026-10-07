@@ -101,7 +101,15 @@ export interface AgentScenarioContext {
   /** The action names the request's tool schema offered. */
   actions: string[]
   /** The attached screenshot's pixel size, as the prompt describes it. */
-  screenshot?: { width: number; height: number }
+  screenshot?: {
+    width: number
+    height: number
+    frames?: {
+      frameId: number
+      region: { x: number; y: number; width: number; height: number }
+    }[]
+    frameLimitations?: { frameId: number; reason: string }[]
+  }
 }
 
 export interface AgentScenarioOutcome {
@@ -1026,7 +1034,15 @@ const runAgentScenarioAttempt = (
         parsed.tools?.[0]?.function?.parameters?.properties?.type?.enum ?? []
       const envelope = JSON.parse(parsed.messages.at(-1)?.content ?? "{}") as {
         userAnswers?: { text: string; question?: string }[]
-        screenshot?: { width: number; height: number }
+        screenshot?: {
+          width: number
+          height: number
+          frames?: {
+            frameId: number
+            region: { x: number; y: number; width: number; height: number }
+          }[]
+          frameLimitations?: { frameId: number; reason: string }[]
+        }
       }
       const scriptedDecision = await scenario.decide(readObservation(parsed), {
         step,

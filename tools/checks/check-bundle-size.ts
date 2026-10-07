@@ -509,8 +509,11 @@ const budgets: Budget[] = [
      * list through the card, handoff and contract schemas Firefox also
      * ships — takes Chrome to 324,441 and Firefox to 220,012. Ceilings
      * 325,000 and 221,000 leave 559 and 988 bytes.
+     * P7 authorized frame masking and visual grounding measures Chrome at
+     * 326,690. Its geometry, session mapping and revalidation add 2,249 bytes;
+     * a 327,500 ceiling leaves 810 bytes. Firefox retains whole-frame masks.
      */
-    max: isFirefox ? 221_000 : 325_000
+    max: isFirefox ? 221_000 : 327_500
   }
 ]
 

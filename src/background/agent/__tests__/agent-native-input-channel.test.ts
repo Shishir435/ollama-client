@@ -48,7 +48,10 @@ const harness = (input: {
           case "DOM.getBoxModel": {
             const id = (params as { backendNodeId: number }).backendNodeId
             callback({
-              model: { content: input.boxes?.[String(id)] ?? [0, 0] }
+              model: {
+                content: input.boxes?.[String(id)] ?? [0, 0],
+                border: input.boxes?.[String(id)] ?? [0, 0]
+              }
             })
             return
           }
@@ -349,5 +352,35 @@ describe("Agent screenshot channel", () => {
     })
     await manager.detach("run-1")
     await expect(channel.captureScreenshot()).resolves.toBeUndefined()
+  })
+})
+
+describe("frame visual geometry channel", () => {
+  it("uses the exact owner quad and refuses ambiguous same-URL siblings", async () => {
+    const { manager } = harness({
+      trees: {
+        root: {
+          frame: { id: "F0", url: "https://example.com/" },
+          childFrames: [
+            {
+              frame: { id: "F1", parentId: "F0", url: "https://example.com/a" }
+            }
+          ]
+        }
+      },
+      owners: { F1: 11 },
+      boxes: { "11": [100, 80, 500, 80, 500, 380, 100, 380] }
+    })
+    await manager.attach("run", 7)
+    const channel = manager.nativeInput("run", 7)
+    const frames = [
+      { frameId: 0, url: "https://example.com/" },
+      { frameId: 2, parentFrameId: 0, url: "https://example.com/a" }
+    ]
+    expect(await channel?.frameGeometry?.(2, frames, [])).toEqual({
+      content: { x: 100, y: 80, width: 400, height: 300 },
+      border: { x: 100, y: 80, width: 400, height: 300 }
+    })
+    expect(await channel?.frameGeometry?.(3, frames, [])).toBeUndefined()
   })
 })

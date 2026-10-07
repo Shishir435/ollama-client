@@ -4,19 +4,24 @@ import type {
   AgentScreenshotPort,
   AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
+import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import type {
   AgentDialogState,
   AgentObservation,
   AgentObservationScope,
   AgentSnapshotIdentity
 } from "@ollama-client/contracts"
-
 import type { AgentCommandExecutorAdapter } from "@/lib/browser-agent/command-executor"
 import type {
   AgentDomMutationInstruction,
   AgentFormFillInstruction
 } from "@/lib/browser-agent/control-port"
 import type { AgentEffectVerifierAdapter } from "@/lib/browser-agent/effect-verifier"
+import { rootAgentSnapshotIdentity } from "@/lib/browser-agent/frame-identity"
+import {
+  collectAgentVisualRegions,
+  hitTestAgentVisualPoint
+} from "@/lib/browser-agent/frame-vision"
 import {
   type AgentInputPlatform,
   runAgentNativeInputPlan
@@ -181,14 +186,20 @@ export const createAgentBrowserAdapters = (input: {
     input.listFrames ??
     (async (tabId: number): Promise<AgentExtensionFrame[]> => {
       const frames = (await browser.webNavigation.getAllFrames({ tabId })) as
-        | { frameId: number; parentFrameId?: number; url: string }[]
+        | {
+            frameId: number
+            parentFrameId?: number
+            url: string
+            documentId?: string
+          }[]
         | null
       return (frames ?? []).map((frame) => ({
         frameId: frame.frameId,
         ...(frame.parentFrameId !== undefined && frame.parentFrameId >= 0
           ? { parentFrameId: frame.parentFrameId }
           : {}),
-        url: frame.url
+        url: frame.url,
+        documentId: frame.documentId
       }))
     })
 
@@ -221,6 +232,7 @@ export const createAgentBrowserAdapters = (input: {
     const {
       frame: _frame,
       point: _point,
+      visual: _visual,
       noSubmitStep: _noSubmitStep,
       rowContext: _rowContext,
       searchForm: _searchForm,
@@ -322,11 +334,19 @@ export const createAgentBrowserAdapters = (input: {
       const frame = targetFrame(effect)
       const frames = frame.frameId === 0 ? [] : await listFrames(frame.tabId)
       const offset = await channel.frameOffset(frame.frameId, frames)
+      const visual = effect.target.visual?.path.at(-1)
       return {
         cdpControl,
         attached: true,
         frameMapped: offset !== undefined,
-        ...(offset ? { frameOffset: offset } : {}),
+        ...(visual
+          ? {
+              frameOffset: { x: visual.region.x, y: visual.region.y },
+              frameScale: { x: visual.scaleX, y: visual.scaleY }
+            }
+          : offset
+            ? { frameOffset: offset }
+            : {}),
         platform
       }
     },
@@ -446,6 +466,92 @@ export const createAgentBrowserAdapters = (input: {
    * before it.
    */
   const lastPage = new Map<number, { documentId: string; generation: number }>()
+  const lastObservation = new Map<number, AgentObservation>()
+  const visualRegions = async (
+    observation: AgentObservation,
+    signal?: AgentCancellationSignal
+  ) => {
+    const frames = await listFrames(observation.tabId)
+    const channel = input.browserSessions?.nativeInput(
+      input.runId,
+      observation.tabId
+    )
+    return collectAgentVisualRegions({
+      observation,
+      regions: async (identity) => {
+        const live = frames.find((frame) => frame.frameId === identity.frameId)
+        // Child reveal requires the browser's current document identity, not URL similarity.
+        if (
+          identity.frameId !== observation.frameId &&
+          live?.documentId !== identity.documentId
+        )
+          return null
+        return input.sessions.sensitiveRegions(
+          { runId: input.runId, tabId: identity.tabId, frame: identity },
+          signal ? abortSignal(signal) : undefined
+        )
+      },
+      ...(channel?.frameGeometry
+        ? {
+            geometry: (
+              frameId: number,
+              viewports: { frameId: number; width: number; height: number }[]
+            ) =>
+              channel.frameGeometry?.(frameId, frames, viewports) ??
+              Promise.resolve(undefined)
+          }
+        : {})
+    })
+  }
+  const validateVisualTarget = async (effect: AuthorizedAgentEffect) => {
+    const visual = effect.target.visual
+    if (!visual) return
+    const observation = lastObservation.get(effect.snapshotIdentity.tabId)
+    if (
+      !observation ||
+      observation.snapshotId !== effect.snapshotIdentity.snapshotId
+    )
+      throw new AgentEffectNotAppliedError(
+        "Agent visual observation is no longer current"
+      )
+    const current = await visualRegions(observation)
+    if (
+      !current ||
+      current.scroll.x !== observation.scroll.x ||
+      current.scroll.y !== observation.scroll.y ||
+      visual.path.some(
+        (frame) =>
+          JSON.stringify(
+            current.frames.find(
+              (candidate) => candidate.frameId === frame.frameId
+            )
+          ) !== JSON.stringify(frame)
+      )
+    )
+      throw new AgentEffectNotAppliedError(
+        "Agent frame geometry or document changed before input"
+      )
+    const hit = await hitTestAgentVisualPoint({
+      root: rootAgentSnapshotIdentity(observation),
+      frames: current.frames,
+      point: visual.rootPoint,
+      hitTest: (frame, point) =>
+        input.sessions.hitTest({
+          runId: input.runId,
+          tabId: frame.tabId,
+          frame,
+          point
+        })
+    })
+    if (
+      hit.hit?.element?.ref !== effect.target.ref ||
+      hit.hit?.element?.frameId !== effect.target.frame?.frameId ||
+      JSON.stringify(hit.path) !== JSON.stringify(visual.path)
+    )
+      throw new AgentEffectNotAppliedError(
+        "Agent visual target moved before input"
+      )
+  }
   const screenshot: AgentScreenshotPort | undefined = imageEditor
     ? createAgentScreenshotPort({
         editor: imageEditor,
@@ -463,22 +569,9 @@ export const createAgentBrowserAdapters = (input: {
           }
         },
         sensitive: {
-          async regions(tabId, observation, signal) {
+          async regions(_tabId, observation, signal) {
             try {
-              const regions = await input.sessions.sensitiveRegions(
-                {
-                  runId: input.runId,
-                  tabId,
-                  frame: {
-                    snapshotId: observation.snapshotId,
-                    generation: observation.generation,
-                    tabId: observation.tabId,
-                    frameId: observation.frameId,
-                    documentId: observation.documentId
-                  }
-                },
-                abortSignal(signal)
-              )
+              const regions = await visualRegions(observation, signal)
               return regions ?? undefined
             } catch {
               return undefined
@@ -645,6 +738,7 @@ export const createAgentBrowserAdapters = (input: {
           width: observation.scroll.viewportWidth,
           height: observation.scroll.viewportHeight
         })
+        lastObservation.set(request.tabId, enriched)
         return enriched
       }
     },
@@ -653,6 +747,16 @@ export const createAgentBrowserAdapters = (input: {
       getTab,
       classifyAccess: classifyAgentTabAccess,
       resolveHistoryDestination,
+      visualFrames: async (observation) => {
+        const current = await visualRegions(observation)
+        if (
+          !current ||
+          current.scroll.x !== observation.scroll.x ||
+          current.scroll.y !== observation.scroll.y
+        )
+          return undefined
+        return current.frames
+      },
       hitTest: (identity, point) =>
         input.sessions.hitTest({
           runId: input.runId,
@@ -663,6 +767,7 @@ export const createAgentBrowserAdapters = (input: {
     },
     executor: {
       getTab,
+      validateVisualTarget,
       async getFrame(tabId, frameId) {
         const frame = (await browser.webNavigation.getFrame({
           tabId,

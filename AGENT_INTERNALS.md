@@ -1083,9 +1083,11 @@ for every other id. Rules, all load-bearing:
 - **Nothing leaves unmasked.** `screenshot-capture.ts` asks the page for
   every region a picture must cover (`agent_sensitive_regions`): each sensitive
   control in the *whole composed tree* — never the bounded observation, which
-  stops at its element budget — and every child frame, masked whole because a
-  frame the run cannot read may hold a sign-in form and one it can read cannot
-  be placed from the root. Regions are read at the observation's scroll
+  stops at its element budget — and every child frame. `frame-vision.ts` removes an owner mask only
+  for an authorized, observed document whose exact CDP owner quad matches one
+  unique measured frame region. It maps that document’s sensitive controls and
+  still-masked children into root coordinates. Opaque, unauthorized, unmapped
+  and geometrically unsupported frames remain masked whole. Regions are read at the observation's scroll
   position, then read again after the capture; any difference means the page
   moved under the picture and the step gets none. Masks are painted black in
   image pixels with a one-pixel margin and the long edge is bounded to
@@ -1119,10 +1121,23 @@ for every other id. Rules, all load-bearing:
   any other. Every click rule then applies — sensitive input, links,
   submitters, checkboxes — and only "not an activatable control" is waived,
   because a canvas is what a point exists to reach. A point inside a child
-  frame is refused; the frame's own refs name its controls. A stale picture
+  frame descends only through the capture’s authorized frame manifest, checking
+  the topmost iframe owner in each parent and resolving the child’s own ref. A stale picture
   cannot authorize a click: the screenshot must carry the command's snapshot
   and generation and the observation's scroll, and the executor re-hit-tests
   the point before anything is sent, refusing a control that moved.
+- **Frame vision supports positive axis-aligned 2D scale and translation.**
+  The session manager reads owner content/border quads in the owning CDP
+  session and composes OOPIF session offsets and scales into root coordinates.
+  Each revealed document retains its own snapshot, browser document id, scroll
+  and owner geometry. Before resolution and dispatch, every binding in the
+  clicked owner chain must still match; navigation, replacement, child scroll
+  or owner movement invalidates it. Same-URL ambiguous siblings are never
+  guessed. Rotation, skew, reflection, perspective and pixel-spilling filters
+  stay masked with an explicit geometry limitation. Older captures with no
+  frame manifest authorize only root input. Debugger-less Firefox continues
+  masking frames, while its existing DOM refs remain usable. Screenshot bytes
+  never enter durable state; a resolved visual target holds only geometry.
 
   What a visual click does **not** answer to is our own reachability
   reconstruction. `elementFromPoint` is the browser saying what a pointer at

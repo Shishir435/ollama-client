@@ -23,6 +23,7 @@ import {
 /** Actions that run as native input when a debugger is attached. */
 export const NATIVE_INPUT_AGENT_ACTIONS = [
   "click",
+  "click_point",
   "double_click",
   "hover",
   "type",
@@ -346,6 +347,7 @@ export interface AgentNativeInputPlanInput {
   point: AgentInputPoint
   /** Where that frame's viewport origin sits in the root viewport. */
   frameOffset: AgentInputPoint
+  frameScale?: AgentInputPoint
   /** Whether the target already holds focus, so typing needs no click first. */
   focused: boolean
   /** Where a drag is released, in the frame's viewport; required for `drag`. */
@@ -425,12 +427,13 @@ export const planAgentNativeInput = (
 ): AgentNativeInputPlan => {
   const builder: PlanBuilder = { steps: [], expected: [] }
   const root = {
-    x: input.point.x + input.frameOffset.x,
-    y: input.point.y + input.frameOffset.y
+    x: input.point.x * (input.frameScale?.x ?? 1) + input.frameOffset.x,
+    y: input.point.y * (input.frameScale?.y ?? 1) + input.frameOffset.y
   }
   const primary = primaryModifier(input.platform)
   switch (input.command.type) {
     case "click":
+    case "click_point":
       clickAt(builder, root, input.point, 1)
       break
     case "double_click":
@@ -818,10 +821,16 @@ export const chooseAgentInputBackend = (input: {
   ) {
     return { backend: "dom", reason: "action_not_native" }
   }
-  if (command.type === "click" && target.href) {
+  if (
+    (command.type === "click" || command.type === "click_point") &&
+    target.href
+  ) {
     return { backend: "dom", reason: "guarded_navigation" }
   }
-  if (command.type === "click" && target.submitter) {
+  if (
+    (command.type === "click" || command.type === "click_point") &&
+    target.submitter
+  ) {
     return { backend: "dom", reason: "guarded_submission" }
   }
   if (

@@ -72,7 +72,22 @@ export const hitTestAgentPointInDocument = (input: {
   if (typeof doc.elementFromPoint !== "function") return null
   const hit = doc.elementFromPoint(input.point.x, input.point.y)
   if (!hit) return null
-  if (isFrameElement(hit)) return { frameElement: true }
+  if (isFrameElement(hit)) {
+    const box = hit.getBoundingClientRect()
+    return {
+      frameElement: true,
+      ...(box.width > 0 && box.height > 0
+        ? {
+            frameRect: {
+              x: box.left,
+              y: box.top,
+              width: box.width,
+              height: box.height
+            }
+          }
+        : {})
+    }
+  }
   const observe = (element: Element, ref: string): AgentElement =>
     buildAgentElementObservation(
       element,

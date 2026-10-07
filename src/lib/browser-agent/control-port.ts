@@ -672,7 +672,17 @@ export const AgentSensitiveRegionsSchema = z
     rects: z.array(AgentCssRectSchema).max(MAX_AGENT_MASK_REGIONS),
     scroll: z
       .object({ x: z.number().finite(), y: z.number().finite() })
+      .strict(),
+    viewport: z
+      .object({ width: z.number().positive(), height: z.number().positive() })
       .strict()
+      .optional(),
+    frameRects: z
+      .array(
+        z.object({ rect: AgentCssRectSchema, supported: z.boolean() }).strict()
+      )
+      .max(MAX_AGENT_MASK_REGIONS)
+      .optional()
   })
   .strict()
   .nullable()
@@ -720,7 +730,8 @@ export type AgentHitTestRequest = z.infer<typeof AgentHitTestRequestSchema>
 export const AgentHitTestResultSchema = z
   .object({
     element: AgentElementSchema.optional(),
-    frameElement: z.boolean().optional()
+    frameElement: z.boolean().optional(),
+    frameRect: AgentCssRectSchema.optional()
   })
   .strict()
   .nullable()

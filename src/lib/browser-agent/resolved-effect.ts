@@ -18,6 +18,7 @@ import {
   type AgentObservation,
   type AgentScreenshot,
   type AgentSnapshotIdentity,
+  type AgentVisualFrame,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
 
@@ -29,6 +30,7 @@ import {
   agentFrameSnapshotIdentity,
   rootAgentSnapshotIdentity
 } from "./frame-identity"
+import { hitTestAgentVisualPoint } from "./frame-vision"
 import { imagePointToCss } from "./screenshot-geometry"
 
 export const READ_ONLY_AGENT_ACTIONS = [
@@ -65,6 +67,9 @@ export interface AgentEffectResolverAdapter {
     identity: AgentSnapshotIdentity,
     point: { x: number; y: number }
   ): Promise<AgentHitTestResult>
+  visualFrames?(
+    observation: AgentObservation
+  ): Promise<AgentVisualFrame[] | undefined>
 }
 
 const isReadOnlyAction = (type: string): type is ReadOnlyAgentAction =>
@@ -929,7 +934,11 @@ const findVisualElement = async (
   observation: AgentObservation,
   context: AgentResolutionContext | undefined,
   adapter: AgentEffectResolverAdapter
-): Promise<{ element: AgentElement; point: { x: number; y: number } }> => {
+): Promise<{
+  element: AgentElement
+  point: { x: number; y: number }
+  visual?: ResolvedAgentTarget["visual"]
+}> => {
   const screenshot = groundingScreenshot(command, observation, context)
   const point = imagePointToCss(screenshot, { x: command.x, y: command.y })
   if (!point) {
@@ -940,10 +949,21 @@ const findVisualElement = async (
   if (!adapter.hitTest) {
     throw new AgentGroundingError({ refusal: { reason: "visual_unavailable" } })
   }
-  const hit = await adapter.hitTest(
-    rootAgentSnapshotIdentity(observation),
-    point
-  )
+  const frames = screenshot.frames ?? []
+  if (frames.length) {
+    const current = await adapter.visualFrames?.(observation)
+    if (!current || JSON.stringify(current) !== JSON.stringify(frames))
+      throw new AgentStaleObservationError(
+        "Agent frame coordinates changed after the screenshot"
+      )
+  }
+  const grounded = await hitTestAgentVisualPoint({
+    root: rootAgentSnapshotIdentity(observation),
+    frames,
+    point,
+    hitTest: adapter.hitTest
+  })
+  const hit = grounded.hit
   if (!hit) {
     throw new AgentGroundingError({ refusal: { reason: "point_on_nothing" } })
   }
@@ -964,7 +984,17 @@ const findVisualElement = async (
   if (refused && !VISUAL_CLICK_WAIVED_REFUSALS.has(refused.reason)) {
     throw new AgentGroundingError({ refusal: refused })
   }
-  return { element, point }
+  if (
+    element.frameId !== (grounded.path.at(-1)?.frameId ?? observation.frameId)
+  )
+    throw new AgentStaleObservationError("Agent hit belongs to another frame")
+  return {
+    element,
+    point: grounded.point,
+    ...(grounded.path.length
+      ? { visual: { rootPoint: point, path: grounded.path } }
+      : {})
+  }
 }
 
 export const FORM_FILL_AGENT_ACTIONS = ["fill_form"] as const
@@ -1124,16 +1154,18 @@ export const resolveDomMutationAgentEffect = async (input: {
     input.adapter
   )
   let point: { x: number; y: number } | undefined
+  let visual: ResolvedAgentTarget["visual"]
   let element: AgentElement
   if (command.type === "click_point") {
-    const visual = await findVisualElement(
+    const grounded = await findVisualElement(
       command,
       observation,
       input.context,
       input.adapter
     )
-    element = visual.element
-    point = visual.point
+    element = grounded.element
+    point = grounded.point
+    visual = grounded.visual
   } else {
     element = findMutationElement(command, observation)
   }
@@ -1229,7 +1261,7 @@ export const resolveDomMutationAgentEffect = async (input: {
     command,
     target: {
       ...targetFromElement(element, observation, expected),
-      ...(point ? { point } : {}),
+      ...(point ? { point, visual } : {}),
       ...(drop ? { drop: drop.drop } : {}),
       ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {})
     },
