@@ -389,8 +389,14 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   `appearedAfterAction`: current quotes for that requirement that are absent
   from the first and, once the window closed, present in the second. Text
   another step produced, or text that was already there, is never marked.
-  It is newly observed text, not proof. The runtime still requires a citable
-  record, and the reviewer still judges what the text says. A worker with no
+  It is newly observed text, not proof. Beside it the request carries
+  `actions`: the action that opened each window, as its receipt records it
+  (command, control role and name; a sensitive control's name withheld). The
+  reviewer may use the text for an action-outcome only when that recorded
+  action is the claimed one. Text after "click Accept" is no evidence that
+  Continue was clicked, whatever requirement the model bound the click to.
+  The runtime still requires a citable record, and the reviewer still judges
+  what the text says. A worker with no
   windows (after a restart) sends nothing and claims nothing. Residual: an
   unrelated page update landing inside the window looks the same as the
   action's own result. The decision prompt tells the model that such an

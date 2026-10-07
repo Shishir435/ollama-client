@@ -87,6 +87,7 @@ import type {
   AgentModelInput,
   AgentPolicyDecision,
   AgentResolutionContext,
+  AgentReviewedAction,
   AgentStatePatch,
   AgentStepReadout,
   AgentStepWrite,
@@ -402,7 +403,14 @@ export const createAgentController = (
   let actionWindows:
     | {
         runId: string
-        byRequirement: Map<string, { before: string; after?: string }>
+        byRequirement: Map<
+          string,
+          {
+            before: string
+            after?: string
+            action: Omit<AgentReviewedAction, "requirementId">
+          }
+        >
       }
     | undefined
   const noProgressCounts = new Map<string, number>()
@@ -1476,8 +1484,17 @@ export const createAgentController = (
     const text = agentObservationHaystack(before)
     for (const window of actionWindows.byRequirement.values())
       if (window.after === undefined) window.after = text
-    if (status === "verified" && requirementId)
-      actionWindows.byRequirement.set(requirementId, { before: text })
+    if (status === "verified" && requirementId) {
+      const target = agentStepTargetFrom(effect.target)
+      actionWindows.byRequirement.set(requirementId, {
+        before: text,
+        action: {
+          command: effect.command.type,
+          ...(target?.role ? { role: target.role } : {}),
+          ...(target?.name ? { name: target.name } : {})
+        }
+      })
+    }
   }
 
   /**

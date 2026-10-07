@@ -11,7 +11,11 @@ import type {
   AgentCompletionReviewScope
 } from "./completion"
 import { agentHaystackStates } from "./observed-text"
-import type { AgentCompletionReviewRequest, AgentStepReadout } from "./ports"
+import type {
+  AgentCompletionReviewRequest,
+  AgentReviewedAction,
+  AgentStepReadout
+} from "./ports"
 
 /**
  * Review requests one run may send, retries inside the port not counted.
@@ -69,7 +73,14 @@ export const agentCompletionReviewRequest = (
    * Per requirement, the page before its own verified change and, once the
    * run changed something else, the page just before that.
    */
-  actionWindows?: ReadonlyMap<string, { before: string; after?: string }>
+  actionWindows?: ReadonlyMap<
+    string,
+    {
+      before: string
+      after?: string
+      action?: Omit<AgentReviewedAction, "requirementId">
+    }
+  >
 ): AgentCompletionReviewRequest => {
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
@@ -104,8 +115,15 @@ export const agentCompletionReviewRequest = (
             )
           })
           .map((record) => record.id)
+  const actions = actionWindows
+    ? requirements.flatMap((requirement) => {
+        const action = actionWindows.get(requirement.id)?.action
+        return action ? [{ requirementId: requirement.id, ...action }] : []
+      })
+    : undefined
   return {
     ...(appearedAfterAction ? { appearedAfterAction } : {}),
+    ...(actions?.length ? { actions } : {}),
     goal: state.goal,
     requirements,
     constraints: (state.constraints ?? []).filter((constraint) =>

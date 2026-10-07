@@ -95,6 +95,8 @@ const harness = (options: {
   initial?: Partial<AgentRunState>
   /** Receipts a previous worker wrote before this controller existed. */
   written?: AgentStepWrite[]
+  /** Commands click "Continue", and the page reports a status once one ran. */
+  clicks?: true
 }) => {
   let current = state(options.initial)
   const written: AgentStepWrite[] = [...(options.written ?? [])]
@@ -160,15 +162,27 @@ const harness = (options: {
     observation: {
       async observe() {
         generation += 1
-        return observation(generation)
+        const page = observation(generation)
+        return options.clicks && executed > 0
+          ? { ...page, visibleText: `${page.visibleText} Status: Active` }
+          : page
       }
     },
     effect: {
       async resolve(command: AgentCommand, page) {
         return {
           command,
-          target: { sensitive: false, maySubmit: false },
-          semanticEffects: ["read"],
+          target: options.clicks
+            ? {
+                ref: "e1",
+                tag: "button",
+                role: "button",
+                accessibleName: "Continue",
+                sensitive: false,
+                maySubmit: false
+              }
+            : { sensitive: false, maySubmit: false },
+          semanticEffects: options.clicks ? ["activation"] : ["read"],
           snapshotIdentity: {
             snapshotId: page.snapshotId,
             generation: page.generation,
@@ -222,6 +236,46 @@ const completionRefusals = (written: readonly AgentStepWrite[]) =>
   written.filter((step) => step.stepId.includes(":completion:"))
 
 describe("controller completion review", () => {
+  it("shows the reviewer the action that was actually performed", async () => {
+    const run = harness({
+      clicks: true,
+      review: async () => ({
+        verdicts: [{ id: "r1", verdict: "insufficient_evidence", sources: [] }]
+      }),
+      decisions: [
+        {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "click",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        },
+        {
+          type: "complete",
+          summary: "Clicked",
+          outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+        }
+      ]
+    })
+    await run.controller.start("run-1")
+    const request = run.requests[0]
+    expect(request?.actions).toEqual([
+      {
+        requirementId: "r1",
+        command: "click",
+        role: "button",
+        name: "Continue"
+      }
+    ])
+    const marked = request?.evidenceLedger.filter((record) =>
+      request.appearedAfterAction?.includes(record.id)
+    )
+    expect(marked?.map((record) => record.quote)).toEqual(["Status: Active"])
+  })
+
   it("without a reviewer, a claim the judge cannot decide is refused as before", async () => {
     const run = harness({ decisions: [complete, complete] })
     await run.controller.start("run-1")

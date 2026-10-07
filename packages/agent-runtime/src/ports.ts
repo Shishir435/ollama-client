@@ -797,6 +797,21 @@ export interface AgentCompletionReviewRequest {
    * still requires a citable record.
    */
   appearedAfterAction?: readonly string[]
+  /**
+   * The action that opened each requirement's window, as its receipt records
+   * it: the command and the control's role and name, a sensitive control's
+   * name withheld. What connects newly observed text to the action an
+   * outcome claims — text after "click Accept" is no evidence that Continue
+   * was clicked.
+   */
+  actions?: readonly AgentReviewedAction[]
+}
+
+export interface AgentReviewedAction {
+  requirementId: string
+  command: string
+  role?: string
+  name?: string
 }
 
 /**

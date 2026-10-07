@@ -440,6 +440,31 @@ describe("applying a completion review", () => {
     expect(build()).toBeUndefined()
   })
 
+  it("names the action each window opened with, from its receipt", () => {
+    const input = semanticInput()
+    const judgement = pending(input)
+    const request = agentCompletionReviewRequest(
+      { goal: "Click Continue", requirements: [saved], constraints: [] },
+      judgement.review,
+      input.outcomes,
+      input.evidenceLedger ?? [],
+      new Map([
+        [
+          "r1",
+          {
+            before: "",
+            action: { command: "click", role: "button", name: "Accept" }
+          }
+        ],
+        ["r9", { before: "", action: { command: "click" } }]
+      ])
+    )
+    /** Only the reviewed requirements, so the reviewer sees the real control. */
+    expect(request.actions).toEqual([
+      { requirementId: "r1", command: "click", role: "button", name: "Accept" }
+    ])
+  })
+
   it("tells the reviewer exactly what it will accept", () => {
     const requirements = [saved, answered]
     const activation = record("click", {

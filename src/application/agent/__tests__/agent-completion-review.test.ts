@@ -173,6 +173,30 @@ describe("completion review prompt", () => {
       ).evidence[0].appearedAfterAction
     ).toBeUndefined()
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("appearedAfterAction: true")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
+      "the recorded action is that same action on that same control"
+    )
+    const withAction = agentReviewPrompt({
+      ...request,
+      actions: [
+        {
+          requirementId: "r1",
+          command: "click",
+          role: "button",
+          name: "Accept"
+        }
+      ]
+    })
+    expect(
+      JSON.parse(
+        withAction.slice(
+          withAction.indexOf("<data>\n") + 7,
+          withAction.lastIndexOf("\n</data>")
+        )
+      ).actions
+    ).toEqual([
+      { for: "r1", command: "click", role: "button", control: "Accept" }
+    ])
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
   })
 
