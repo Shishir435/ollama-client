@@ -232,7 +232,8 @@ const budgets: Budget[] = [
      * announcement's onboarding recheck.
      */
     // Includes pinned quantized MiniLM, CPU WASM, tokenizer and license notices.
-    max: isFirefox ? 50_300_000 : 48_500_000
+    /** PR 9's recovery and review changes measure Chrome at 48,504,968. */
+    max: isFirefox ? 50_300_000 : 48_510_000
   },
   {
     metric: "zip",
@@ -514,7 +515,13 @@ const budgets: Budget[] = [
      * a 327,500 ceiling leaves 775 bytes. Firefox retains whole-frame masks.
      */
     /** PR 8: bounded inference retry policy and typed provider failures add about 1.7 kB gzip. */
-    max: isFirefox ? 221_000 : 330_000
+    /**
+     * PR 9: bounded recovery — durable strategy budget, three-way effect
+     * settlement, the evidence-only second verification, and the reviewer's
+     * citable and newSinceChange marks — measures Chrome at 331,237. A
+     * 332,000 ceiling leaves 763 bytes. Firefox measures 220,709, unchanged.
+     */
+    max: isFirefox ? 221_000 : 332_000
   }
 ]
 
