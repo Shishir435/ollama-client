@@ -202,9 +202,31 @@ describe("provider completion review port", () => {
     ])
     expect(port.reviewTelemetry?.("run-1")).toEqual({
       reviewPromptTokens: 300,
-      reviewOutputTokens: 20
+      reviewOutputTokens: 20,
+      reviewProviderRetries: 0,
+      reviewProviderBackoffMs: 0
     })
     expect(port.reviewTelemetry?.("run-1")).toBeUndefined()
+  })
+
+  it("does not retry an authentication error in a review stream", async () => {
+    const failure = {
+      status: 401,
+      message: "private provider detail",
+      userMessage: "Check credentials.",
+      retryable: true
+    }
+    const streamChat = vi.fn(async (_request, emit) =>
+      emit({ error: failure, done: true })
+    )
+    const port = createProviderAgentModelPort({
+      resolveProvider: async () => provider(streamChat),
+      resolveCompatibility: async () => supported
+    })
+    await expect(port.review(state, request, { aborted: false })).rejects.toBe(
+      failure
+    )
+    expect(streamChat).toHaveBeenCalledOnce()
   })
 
   it("retries one malformed answer with feedback, then gives up by throwing", async () => {

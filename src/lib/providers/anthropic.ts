@@ -1,10 +1,14 @@
+import { isRetryableProviderStatus } from "@ollama-client/runtime-core/retry"
 import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
   classifyProviderError,
+  providerErrorMessageKey,
+  providerErrorUserMessage,
   readProviderStreamChunk,
   throwProviderConnectionError,
+  throwProviderRefusal,
   throwProviderResponseError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
@@ -174,6 +178,7 @@ const AnthropicStreamEventSchema = z
         text: OptionalString,
         thinking: OptionalString,
         signature: OptionalString,
+        stop_reason: OptionalString,
         partial_json: OptionalString
       })
       .passthrough()
@@ -581,10 +586,24 @@ export class AnthropicProvider implements LLMProvider {
 
     const throwStreamError = (event: AnthropicStreamEvent): void => {
       if (event.type !== "error") return
-      const status = event.error?.type === "overloaded_error" ? 529 : undefined
+      const statuses: Record<string, number> = {
+        invalid_request_error: 400,
+        authentication_error: 401,
+        permission_error: 403,
+        not_found_error: 404,
+        request_too_large: 413,
+        rate_limit_error: 429,
+        api_error: 500,
+        overloaded_error: 529
+      }
+      const status = statuses[event.error?.type ?? ""]
       const message =
         event.error?.message || "Anthropic stream returned an error."
-      const classification = classifyProviderError(status, message)
+      const classification = classifyProviderError(
+        status,
+        message,
+        this.baseUrl
+      )
       throw createAppError(message, {
         kind: "provider",
         status,
@@ -592,13 +611,22 @@ export class AnthropicProvider implements LLMProvider {
         providerName: this.config.name,
         model,
         baseUrl: this.baseUrl,
-        retryable: event.error?.type === "overloaded_error",
+        retryable: status !== undefined && isRetryableProviderStatus(status),
         code: classification.code,
+        messageKey: providerErrorMessageKey(classification.code),
         phase: "read-stream",
         recoveryAction: classification.recoveryAction,
-        userMessage: classification.reason
-          ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
-          : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
+        userMessage:
+          status !== undefined
+            ? providerErrorUserMessage(status, {
+                baseUrl: this.baseUrl,
+                providerName: this.config.name,
+                model,
+                reason: classification.reason
+              })
+            : classification.reason
+              ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+              : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
         debug: event.error
       })
     }
@@ -719,6 +747,16 @@ export class AnthropicProvider implements LLMProvider {
       const event = parseEvent(line)
       if (!event) return
       throwStreamError(event)
+      if (
+        event.type === "message_delta" &&
+        event.delta?.stop_reason === "refusal"
+      ) {
+        throwProviderRefusal({
+          providerId: this.id,
+          providerName: this.config.name,
+          model
+        })
+      }
       if (event.type === "message_start") {
         inputTokens = event.message?.usage?.input_tokens
         outputTokens = event.message?.usage?.output_tokens

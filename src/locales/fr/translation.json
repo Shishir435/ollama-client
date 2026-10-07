@@ -741,7 +741,10 @@
       "context_trimmed_description": "Le contexte extrait des onglets dépassait ta limite et a été réduit avant l'envoi.",
       "context_retrieval_warning_title": "Échec de la récupération du contexte",
       "context_retrieval_warning_description": "Une partie du contexte enregistré n’a pas pu être recherchée. Des informations pertinentes peuvent manquer dans la réponse.",
-      "interrupted": "Réponse interrompue"
+      "interrupted": "Réponse interrompue",
+      "provider_auth": "Le fournisseur a refusé l’accès. Vérifiez sa clé API, ses identifiants ou les autorisations du compte dans les paramètres avant de recommencer.",
+      "provider_cors": "Le fournisseur local a bloqué l’origine de l’extension. Autorisez chrome-extension://* et moz-extension://* dans ses paramètres CORS, puis réessayez.",
+      "provider_refused": "Le modèle a refusé cette demande. Adaptez la tâche ou choisissez un autre modèle."
     },
     "composer": {
       "rag": "Fichiers",

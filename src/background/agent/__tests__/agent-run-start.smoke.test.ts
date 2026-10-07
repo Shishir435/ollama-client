@@ -163,7 +163,7 @@ describe("starting an Agent run against the real engine", () => {
           documentHeight: 100
         },
         dialogs: [],
-        capturedAt: 1_700_000_000_001
+        capturedAt: Date.now()
       }
       const provider = {
         id: "ollama",
@@ -229,7 +229,7 @@ describe("starting an Agent run against the real engine", () => {
         hasPerception: async () => true,
         getTab: async () => ({ url: observation.url }),
         classifyAccess: async () => "ok",
-        now: () => 1_700_000_000_001,
+        now: () => Date.now(),
         newRunId: () => "run-vertical-1",
         buildController: ({ persistence, now }) =>
           createAgentController({

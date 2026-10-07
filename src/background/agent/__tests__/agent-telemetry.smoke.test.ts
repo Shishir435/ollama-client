@@ -11,8 +11,8 @@ import {
   it,
   vi
 } from "vitest"
-
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
 import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
 import type { LLMProvider } from "@/lib/providers/types"
 import { ProviderType } from "@/lib/providers/types"
@@ -89,9 +89,9 @@ afterEach(() => {
 })
 
 describe("Agent step telemetry against the real engine", () => {
-  it(
-    "writes what a step cost onto its durable receipt",
-    async () => {
+  it.each([undefined, 429, 503])(
+    "retains durable work and telemetry through provider status %s",
+    async (transientStatus) => {
       vi.resetModules()
       installOwner()
       const [{ createAgentRunService }, modelModule, repository] =
@@ -101,6 +101,8 @@ describe("Agent step telemetry against the real engine", () => {
           import("@/lib/repositories/agent-runs")
         ])
 
+      let tick = Date.now()
+      const now = () => (tick = Math.max(tick + 5, Date.now()))
       const observationAt = (generation: number): AgentObservation => ({
         snapshotId: `snapshot-telemetry-${generation}`,
         generation,
@@ -121,7 +123,20 @@ describe("Agent step telemetry against the real engine", () => {
             generation
           }
         ],
-        elements: [],
+        elements: transientStatus
+          ? [
+              {
+                ref: "f0e1",
+                frameId: 0,
+                tag: "button",
+                name: "Show page",
+                visible: true,
+                enabled: true,
+                editable: false,
+                sensitive: false
+              }
+            ]
+          : [],
         visibleText: "Example",
         scroll: {
           x: 0,
@@ -132,12 +147,19 @@ describe("Agent step telemetry against the real engine", () => {
           documentHeight: 600
         },
         dialogs: [],
-        capturedAt: 1_700_000_000_000
+        capturedAt: now()
       })
       const observation = observationAt(1)
       let generation = 0
 
+      let clicked = false
+      let failedAfterClick = false
+      const execution = vi.fn()
+      const requestsAfterFailure: string[] = []
       const decisions = [
+        ...(transientStatus
+          ? [{ type: "click", ref: "f0e1", requirementId: "r1" }]
+          : []),
         { type: "read" },
         {
           type: "complete",
@@ -172,6 +194,16 @@ describe("Agent step telemetry against the real engine", () => {
          */
         async streamChat(request, emit) {
           const planning = request.tools?.[0]?.name === "agent_plan"
+          if (clicked && transientStatus && !failedAfterClick) {
+            failedAfterClick = true
+            throw createAppError("temporary provider failure after click", {
+              kind: "provider",
+              status: transientStatus,
+              retryable: true
+            })
+          }
+          if (failedAfterClick)
+            requestsAfterFailure.push(String(request.messages[1]?.content))
           emit({
             toolCalls: [
               {
@@ -202,12 +234,11 @@ describe("Agent step telemetry against the real engine", () => {
       } satisfies LLMProvider
 
       /** Advances so a phase measures something a constant clock could not. */
-      let tick = 1_700_000_000_000
       const service = createAgentRunService({
         hasPerception: async () => true,
         getTab: async () => ({ url: observation.url }),
         classifyAccess: async () => "ok",
-        now: () => (tick += 5),
+        now,
         newRunId: () => "run-telemetry-1",
         buildController: ({ persistence, now }) =>
           createAgentController({
@@ -229,8 +260,20 @@ describe("Agent step telemetry against the real engine", () => {
             effect: {
               resolve: async (command, current) => ({
                 command,
-                target: { sensitive: false, maySubmit: false },
-                semanticEffects: ["read"],
+                target: {
+                  ...(command.type === "click"
+                    ? {
+                        ref: command.ref,
+                        frameId: 0,
+                        tag: "button",
+                        accessibleName: "Show page"
+                      }
+                    : {}),
+                  sensitive: false,
+                  maySubmit: false
+                },
+                semanticEffects:
+                  command.type === "click" ? ["activation"] : ["read"],
                 snapshotIdentity: {
                   snapshotId: current.snapshotId,
                   generation: current.generation,
@@ -241,11 +284,18 @@ describe("Agent step telemetry against the real engine", () => {
                 sourceUrl: current.url,
                 sourceOrigin: current.origin
               }),
-              execute: async () => ({ executedAt: now() }),
-              verify: async () => ({
+              execute: async (effect) => {
+                execution(effect.command.type)
+                if (effect.command.type === "click") clicked = true
+                return { executedAt: now() }
+              },
+              verify: async ({ effect }) => ({
                 outcome: "confirmed" as const,
                 evidence: {
-                  kind: "read" as const,
+                  kind:
+                    effect.command.type === "click"
+                      ? ("activation" as const)
+                      : ("read" as const),
                   summary: "ok",
                   observedAt: now()
                 }
@@ -267,13 +317,22 @@ describe("Agent step telemetry against the real engine", () => {
 
       await vi.waitFor(async () => {
         const snapshot = await service.snapshot("run-telemetry-1")
-        expect(["completed", "failed"]).toContain(snapshot.run?.status)
+        expect(["completed", "failed", "paused"]).toContain(
+          snapshot.run?.status
+        )
       })
       const settled = await service.snapshot("run-telemetry-1")
       expect({
         status: settled.run?.status,
-        error: settled.run?.error
-      }).toEqual({ status: "completed", error: undefined })
+        error: settled.run?.error,
+        reason: settled.run?.pauseReason,
+        question: settled.run?.question
+      }).toEqual({
+        status: "completed",
+        error: undefined,
+        reason: undefined,
+        question: undefined
+      })
 
       const steps = await repository.listAgentSteps("run-telemetry-1")
       const measured = steps.filter((step) => step.telemetry !== undefined)
@@ -287,6 +346,28 @@ describe("Agent step telemetry against the real engine", () => {
       expect(last.telemetry?.outputTokens).toBe(77)
       /** Estimated separately, so it can never be read as the measurement. */
       expect(last.telemetry?.promptTokensEstimated).toBeGreaterThan(0)
+      if (transientStatus) {
+        expect(failedAfterClick).toBe(true)
+        expect(
+          execution.mock.calls.filter(([type]) => type === "click")
+        ).toHaveLength(1)
+        expect(
+          steps.some(
+            (step) =>
+              step.command?.type === "click" && step.status === "verified"
+          )
+        ).toBe(true)
+        expect(
+          steps.some((step) => step.telemetry?.providerRetries === 1)
+        ).toBe(true)
+        expect(
+          requestsAfterFailure.some(
+            (prompt) =>
+              prompt.includes('"verified_effect"') &&
+              prompt.includes('"activation"')
+          )
+        ).toBe(true)
+      }
     },
     TIMEOUT
   )

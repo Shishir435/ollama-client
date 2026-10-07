@@ -102,6 +102,21 @@ const activeElapsed = (
   return Math.max(0, now - startedAt - suspendedMs - openSuspension)
 }
 
+/** Active time still available to inference; waiting for a provider is active time. */
+export const remainingAgentActiveBudgetMs = (
+  state: AgentDeadlineState,
+  now: number
+): number =>
+  Math.max(
+    0,
+    Math.min(
+      AGENT_RUN_ACTIVE_BUDGET_MS -
+        activeElapsed(state.runStartedAt, state.runSuspendedMs, state, now),
+      AGENT_STEP_ACTIVE_BUDGET_MS -
+        activeElapsed(state.stepStartedAt, state.stepSuspendedMs, state, now)
+    )
+  )
+
 /**
  * Which ceiling a run has passed, if either. Returned rather than thrown
  * because the caller decides where a run may be stopped: mid-step is not one

@@ -39,6 +39,7 @@ import {
   resolveModelConfig
 } from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderManager } from "@/lib/providers/manager"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import { readSetting } from "@/lib/storage/setting-access"
@@ -74,6 +75,10 @@ import {
   assertAgentModelCompatibility,
   resolveAgentModelCompatibility
 } from "./agent-model-compatibility"
+import {
+  classifyAgentModelFailure,
+  runAgentModelRequest
+} from "./agent-model-retry"
 import { projectAgentObservation } from "./agent-observation-projection"
 import {
   AGENT_PLAN_SYSTEM_PROMPT,
@@ -993,6 +998,27 @@ const agentThinkingFields = (
   return { reasoningEffort: effort }
 }
 
+/** Re-read the saved gate without changing this request's provider or endpoint. */
+const assertCurrentProviderEnabled = async (
+  provider: LLMProvider,
+  modelId: string,
+  signal: AgentCancellationSignal
+): Promise<void> => {
+  if (signal.aborted)
+    throw new DOMException("Agent model request cancelled", "AbortError")
+  assertProviderEnabled(provider, modelId)
+  const current = await ProviderManager.getProviderConfig(provider.config.id)
+  if (signal.aborted)
+    throw new DOMException("Agent model request cancelled", "AbortError")
+  assertProviderEnabled(
+    {
+      ...provider,
+      config: { ...provider.config, enabled: current?.enabled === true }
+    },
+    modelId
+  )
+}
+
 const collectDecision = async (input: {
   provider: LLMProvider
   state: AgentRunState
@@ -1012,6 +1038,11 @@ const collectDecision = async (input: {
   thought?: (thinking: string | undefined) => void
   window: number
 }): Promise<AgentDecision> => {
+  await assertCurrentProviderEnabled(
+    input.provider,
+    input.state.modelId,
+    input.signal
+  )
   const calls = new Map<string, ToolCall>()
   /**
    * Kept to a little over what a step may store, from the end: a model that
@@ -1021,7 +1052,7 @@ const collectDecision = async (input: {
    */
   let reasoning = ""
   const prompt = decisionPrompt(input)
-  let streamError: string | undefined
+  let streamError: ChatStreamMessage["error"]
   const scoped = providerSignal(input.signal)
   const withScreenshot = input.screenshot !== undefined
   const offer: AgentVisualOffer = {
@@ -1077,7 +1108,7 @@ const collectDecision = async (input: {
           )
         }
         if (chunk.error) {
-          streamError = chunk.error.message || "Agent model request failed"
+          streamError = chunk.error
         }
         for (const call of chunk.toolCalls ?? []) calls.set(call.id, call)
       },
@@ -1108,7 +1139,8 @@ const collectDecision = async (input: {
       decodeMs: agentTelemetryMillis(metrics?.eval_duration)
     })
   }
-  if (streamError) throw new Error(streamError)
+  if (input.signal.aborted) throw new Error("Agent model request cancelled")
+  if (streamError) throw streamError
   const decision = parseAgentDecisionToolCalls(
     [...calls.values()],
     input.observation,
@@ -1176,33 +1208,40 @@ const retryUntilWellFormed = async (input: {
    * hands the controller whatever the previous step measured.
    */
   let retries = 0
+  const startedAt = Date.now()
   try {
-    for (let retry = 0; retry <= MAX_RETRIES_PER_DECISION; retry += 1) {
-      retries = retry
-      if (signal.aborted) throw new Error("Agent model request cancelled")
-      try {
-        return await collectDecision({
+    return await runAgentModelRequest({
+      state,
+      signal,
+      malformedRetries: MAX_RETRIES_PER_DECISION,
+      onMalformed(error) {
+        feedback = error.feedback
+        const malformed = (malformedByRun.get(state.id) ?? 0) + 1
+        malformedByRun.set(state.id, malformed)
+        return malformed < MAX_MALFORMED_PER_RUN
+      },
+      measured: (telemetry) => {
+        spent = { ...spent, ...telemetry }
+      },
+      request: (signal, _error, retry) => {
+        retries = retry
+        return collectDecision({
           ...input,
+          signal,
           retry,
           measured,
           ...(feedback ? { feedback } : {})
         })
-      } catch (error) {
-        if (!(error instanceof AgentDecisionFormatError)) throw error
-        feedback = error.feedback
-        const malformed = (malformedByRun.get(state.id) ?? 0) + 1
-        malformedByRun.set(state.id, malformed)
-        if (
-          malformed >= MAX_MALFORMED_PER_RUN ||
-          retry >= MAX_RETRIES_PER_DECISION
-        ) {
-          throw error
-        }
       }
-    }
-    throw new AgentDecisionFormatError("The model returned no decision")
+    })
   } finally {
-    input.report(agentStepTelemetry({ ...spent, retries }))
+    input.report(
+      agentStepTelemetry({
+        ...spent,
+        decideMs: Date.now() - startedAt,
+        retries
+      })
+    )
   }
 }
 
@@ -1369,8 +1408,8 @@ export const createProviderAgentModelPort = (
      * everything in the ledger, so a review discloses nothing new to anyone.
      * A fresh conversation: no history, no page, no reasoning from the run.
      *
-     * Retried once on a dropped stream or a malformed answer, like planning.
-     * A second failure throws, and the controller treats that as no review.
+     * Transient transport failures have two bounded retries; malformed output
+     * has one. Permanent failures throw, leaving the completion refusal intact.
      */
     async review(state, request, signal) {
       reviewTelemetryByRun.delete(state.id)
@@ -1407,7 +1446,7 @@ export const createProviderAgentModelPort = (
         reviewer.modelId,
         reviewer.providerId
       )
-      assertProviderEnabled(provider, reviewer.modelId)
+      await assertCurrentProviderEnabled(provider, reviewer.modelId, signal)
       const window = separate
         ? resolveAgentContextWindow({
             setting: await readAgentContextWindowSetting(),
@@ -1432,7 +1471,8 @@ export const createProviderAgentModelPort = (
         throw new AgentReviewTooLargeError(needed, agentContextWindow(window))
       let promptTokens: number | undefined
       let outputTokens: number | undefined
-      const attempt = async (feedback?: string) => {
+      const attempt = async (signal: AbortSignal, feedback?: string) => {
+        await assertCurrentProviderEnabled(provider, reviewer.modelId, signal)
         const calls = new Map<string, ToolCall>()
         let streamError: ChatStreamMessage["error"]
         /** The stream's usage frame is a total, so only the last one counts. */
@@ -1472,26 +1512,26 @@ export const createProviderAgentModelPort = (
           outputTokens = sum(outputTokens, metrics?.eval_count)
         }
       }
+      let providerRetries = 0
+      let providerBackoffMs = 0
       try {
-        let lastError: unknown
-        for (let tries = 0; tries <= 1; tries += 1) {
-          if (signal.aborted) throw new Error("Agent model request cancelled")
-          try {
-            return await attempt(
-              lastError instanceof AgentDecisionFormatError
-                ? lastError.feedback
-                : undefined
-            )
-          } catch (error) {
-            if (signal.aborted) throw error
-            lastError = error
-          }
-        }
-        throw lastError
+        return await runAgentModelRequest({
+          state,
+          signal,
+          malformedRetries: 1,
+          measured: (telemetry) => {
+            providerRetries = telemetry.providerRetries
+            providerBackoffMs = telemetry.providerBackoffMs
+          },
+          request: (signal, error) =>
+            attempt(signal, error ? AGENT_REVIEW_FEEDBACK : undefined)
+        })
       } finally {
         const telemetry = agentStepTelemetry({
           reviewPromptTokens: promptTokens,
           reviewOutputTokens: outputTokens,
+          reviewProviderRetries: providerRetries,
+          reviewProviderBackoffMs: providerBackoffMs,
           ...(separate ? { reviewSeparateModel: true } : {})
         })
         if (telemetry) reviewTelemetryByRun.set(state.id, telemetry)
@@ -1519,12 +1559,9 @@ export const createProviderAgentModelPort = (
       return policy
     },
     /**
-     * One call, before the run has looked at anything, retried once.
-     *
-     * Retried because a transient stream failure or one malformed response
-     * should not end an otherwise viable run. If both attempts fail, the
-     * controller stops the run before observation; planning failure must
-     * never buy the weaker pre-requirements completion gate.
+     * Planning happens before observation. Transient failures have two bounded
+     * retries and malformed output one; permanent failures stop immediately.
+     * A failed initial plan cannot buy the weaker unplanned completion gate.
      */
     async plan(state, signal) {
       const compatibility = await compatibilityFor(state, signal)
@@ -1533,7 +1570,7 @@ export const createProviderAgentModelPort = (
         options.allowExperimental === true
       )
       const provider = await resolveProvider(state.modelId, state.providerId)
-      assertProviderEnabled(provider, state.modelId)
+      await assertCurrentProviderEnabled(provider, state.modelId, signal)
       const window = await windowFor(state, compatibility)
       const context = agentPlanContext(state)
       const prompt = agentPlanPrompt(state.goal, state.previousRun, {
@@ -1542,7 +1579,11 @@ export const createProviderAgentModelPort = (
       })
       const thinking = agentThinkingFields(await reasoningEffortFor(state))
       /** One planning request; `feedback` says what was wrong with the last. */
-      const attempt = async (feedback?: string): Promise<AgentTaskPlan> => {
+      const attempt = async (
+        signal: AbortSignal,
+        feedback?: string
+      ): Promise<AgentTaskPlan> => {
+        await assertCurrentProviderEnabled(provider, state.modelId, signal)
         const calls = new Map<string, ToolCall>()
         let streamError: ChatStreamMessage["error"]
         const scoped = providerSignal(signal)
@@ -1576,33 +1617,27 @@ export const createProviderAgentModelPort = (
           scoped.cleanup()
         }
       }
-      let lastError: unknown
-      for (let tries = 0; tries <= 1; tries += 1) {
-        if (signal.aborted) throw new Error("Agent model request cancelled")
-        try {
-          /**
-           * The second attempt is told what was wrong with the first. A plan
-           * refused for naming nine outcomes, sent the same prompt again,
-           * names nine outcomes again.
-           */
-          return await attempt(
-            lastError instanceof AgentDecisionFormatError
-              ? lastError.feedback
-              : undefined
-          )
-        } catch (error) {
-          /**
-           * The stream's failure is retried on the same terms as a malformed
-           * answer. Only the parse was caught before, so a provider that
-           * dropped one connection skipped the second attempt and reached
-           * the controller as a planning failure without the retry it was
-           * promised.
-           */
-          if (signal.aborted) throw error
-          lastError = error
-        }
+      try {
+        return await runAgentModelRequest({
+          state,
+          signal,
+          malformedRetries: 1,
+          request: (signal, error) => attempt(signal, error?.feedback)
+        })
+      } catch (error) {
+        if (
+          signal.aborted ||
+          [
+            "authentication",
+            "configuration",
+            "capability",
+            "refusal",
+            "cancelled"
+          ].includes(classifyAgentModelFailure(error))
+        )
+          throw error
+        return agentPlanAfterFailure(context, error)
       }
-      return agentPlanAfterFailure(context, lastError)
     },
     async decide(
       {
@@ -1630,7 +1665,7 @@ export const createProviderAgentModelPort = (
         options.allowExperimental === true
       )
       const provider = await resolveProvider(state.modelId, state.providerId)
-      assertProviderEnabled(provider, state.modelId)
+      await assertCurrentProviderEnabled(provider, state.modelId, signal)
       return retryUntilWellFormed({
         provider,
         state,

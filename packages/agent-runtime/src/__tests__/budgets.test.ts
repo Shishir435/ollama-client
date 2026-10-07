@@ -16,6 +16,7 @@ import {
   expiredAgentDeadline,
   hashAgentObservation,
   initialAgentDeadlineState,
+  remainingAgentActiveBudgetMs,
   resumeAgentDeadlines,
   suspendAgentDeadlines
 } from "../budgets"
@@ -96,6 +97,24 @@ describe("agent budgets", () => {
     expect(
       expiredAgentDeadline(state, 1_400, { runMs: 10_000, stepMs: 300 })
     ).toBe("step")
+  })
+
+  it("shares suspension accounting with inference's remaining active time", () => {
+    const suspended = suspendAgentDeadlines(
+      initialAgentDeadlineState(0),
+      "approval",
+      100
+    )
+    expect(remainingAgentActiveBudgetMs(suspended, 10_100)).toBe(
+      AGENT_STEP_ACTIVE_BUDGET_MS - 100
+    )
+    const resumed = resumeAgentDeadlines(suspended, 10_100)
+    expect(remainingAgentActiveBudgetMs(resumed, 10_300)).toBe(
+      AGENT_STEP_ACTIVE_BUDGET_MS - 300
+    )
+    expect(
+      remainingAgentActiveBudgetMs(resumed, AGENT_RUN_ACTIVE_BUDGET_MS + 10_100)
+    ).toBe(0)
   })
 
   it("states the ceilings the product promises", () => {

@@ -741,7 +741,10 @@
       "context_trimmed_description": "Der extrahierte Tab-Kontext hat dein Limit überschritten und wurde vor dem Senden gekürzt.",
       "context_retrieval_warning_title": "Kontextabruf fehlgeschlagen",
       "context_retrieval_warning_description": "Ein Teil des gespeicherten Kontexts konnte nicht durchsucht werden. Der Antwort könnten relevante Informationen fehlen.",
-      "interrupted": "Antwort unterbrochen"
+      "interrupted": "Antwort unterbrochen",
+      "provider_auth": "Der Anbieter hat den Zugriff abgelehnt. Prüfe vor dem Neustart den API-Schlüssel, die Zugangsdaten oder die Kontoberechtigungen in den Einstellungen.",
+      "provider_cors": "Der lokale Anbieter hat den Erweiterungsursprung blockiert. Erlaube chrome-extension://* und moz-extension://* in seinen CORS-Einstellungen und versuche es erneut.",
+      "provider_refused": "Das Modell hat diese Anfrage abgelehnt. Passe die Aufgabe an oder wähle ein anderes Modell."
     },
     "composer": {
       "rag": "Dateien",
