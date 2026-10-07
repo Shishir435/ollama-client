@@ -234,6 +234,52 @@ describe("bounded model retries", () => {
     expect(request).toHaveBeenCalledOnce()
   })
 
+  it.each([
+    "owner",
+    "deadline"
+  ] as const)("normalizes a typed stream failure after %s cancellation", async (cause) => {
+    const owner = new AbortController()
+    const request = vi.fn(
+      async (signal: AbortSignal) =>
+        new Promise<never>((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(transient()), {
+            once: true
+          })
+        })
+    )
+    const pending = runAgentModelRequest({
+      state,
+      signal: owner.signal,
+      malformedRetries: 2,
+      request
+    })
+    const rejected = expect(pending).rejects.toMatchObject({
+      name: "AbortError"
+    })
+    if (cause === "owner") owner.abort()
+    else await vi.runAllTimersAsync()
+    await rejected
+    expect(request).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("treats an elapsed deadline as cancellation even before its timer fires", async () => {
+    const request = vi.fn(async () => {
+      vi.setSystemTime(Date.now() + 120_000)
+      throw transient()
+    })
+    await expect(
+      runAgentModelRequest({
+        state,
+        signal: new AbortController().signal,
+        malformedRetries: 2,
+        request
+      })
+    ).rejects.toMatchObject({ name: "AbortError" })
+    expect(request).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it("aborts a request at the common deadline after time already spent waiting", async () => {
     const request = vi
       .fn()

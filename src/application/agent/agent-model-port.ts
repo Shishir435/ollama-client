@@ -39,6 +39,7 @@ import {
   resolveModelConfig
 } from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderManager } from "@/lib/providers/manager"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import { readSetting } from "@/lib/storage/setting-access"
@@ -997,6 +998,22 @@ const agentThinkingFields = (
   return { reasoningEffort: effort }
 }
 
+/** Re-read the saved gate without changing this request's provider or endpoint. */
+const assertCurrentProviderEnabled = async (
+  provider: LLMProvider,
+  modelId: string
+): Promise<void> => {
+  assertProviderEnabled(provider, modelId)
+  const current = await ProviderManager.getProviderConfig(String(provider.id))
+  assertProviderEnabled(
+    {
+      ...provider,
+      config: { ...provider.config, enabled: current?.enabled === true }
+    },
+    modelId
+  )
+}
+
 const collectDecision = async (input: {
   provider: LLMProvider
   state: AgentRunState
@@ -1016,7 +1033,7 @@ const collectDecision = async (input: {
   thought?: (thinking: string | undefined) => void
   window: number
 }): Promise<AgentDecision> => {
-  assertProviderEnabled(input.provider, input.state.modelId)
+  await assertCurrentProviderEnabled(input.provider, input.state.modelId)
   const calls = new Map<string, ToolCall>()
   /**
    * Kept to a little over what a step may store, from the end: a model that
@@ -1420,7 +1437,7 @@ export const createProviderAgentModelPort = (
         reviewer.modelId,
         reviewer.providerId
       )
-      assertProviderEnabled(provider, reviewer.modelId)
+      await assertCurrentProviderEnabled(provider, reviewer.modelId)
       const window = separate
         ? resolveAgentContextWindow({
             setting: await readAgentContextWindowSetting(),
@@ -1446,7 +1463,7 @@ export const createProviderAgentModelPort = (
       let promptTokens: number | undefined
       let outputTokens: number | undefined
       const attempt = async (signal: AbortSignal, feedback?: string) => {
-        assertProviderEnabled(provider, reviewer.modelId)
+        await assertCurrentProviderEnabled(provider, reviewer.modelId)
         const calls = new Map<string, ToolCall>()
         let streamError: ChatStreamMessage["error"]
         /** The stream's usage frame is a total, so only the last one counts. */
@@ -1544,7 +1561,7 @@ export const createProviderAgentModelPort = (
         options.allowExperimental === true
       )
       const provider = await resolveProvider(state.modelId, state.providerId)
-      assertProviderEnabled(provider, state.modelId)
+      await assertCurrentProviderEnabled(provider, state.modelId)
       const window = await windowFor(state, compatibility)
       const context = agentPlanContext(state)
       const prompt = agentPlanPrompt(state.goal, state.previousRun, {
@@ -1557,7 +1574,7 @@ export const createProviderAgentModelPort = (
         signal: AbortSignal,
         feedback?: string
       ): Promise<AgentTaskPlan> => {
-        assertProviderEnabled(provider, state.modelId)
+        await assertCurrentProviderEnabled(provider, state.modelId)
         const calls = new Map<string, ToolCall>()
         let streamError: ChatStreamMessage["error"]
         const scoped = providerSignal(signal)
@@ -1639,7 +1656,7 @@ export const createProviderAgentModelPort = (
         options.allowExperimental === true
       )
       const provider = await resolveProvider(state.modelId, state.providerId)
-      assertProviderEnabled(provider, state.modelId)
+      await assertCurrentProviderEnabled(provider, state.modelId)
       return retryUntilWellFormed({
         provider,
         state,

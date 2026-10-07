@@ -171,7 +171,7 @@ export const runAgentModelRequest = async <T>(input: {
       throw cancelled()
   }
   const recover = async (error: unknown): Promise<void> => {
-    if (scope.signal.aborted || input.signal.aborted) throw error
+    assertActive()
     if (error instanceof AgentDecisionFormatError) {
       const allowed = input.onMalformed?.(error) ?? true
       if (!allowed || malformedRetries >= input.malformedRetries) throw error
