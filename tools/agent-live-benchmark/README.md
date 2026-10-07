@@ -38,10 +38,10 @@ it.
 
 ## What each suite is for
 
-**`synthetic.mjs`** — 18 one-line pages served from the same ephemeral origin as
+**`synthetic.mjs`** — 19 one-line pages served from the same ephemeral origin as
 the model wire: click, form, details, read, select, checkbox, uncheck, scroll,
 menu, modal, delayed, stale, ambiguous, spaform, keypress, redirect, open_tab,
-memory. Deterministic, fast, and every failure is attributable. `spaform` is the
+memory, canvas. Deterministic, fast, and every failure is attributable. `spaform` is the
 single-page form whose `submit` handler calls `preventDefault`; `delayed` lands
 its effect 1.2s after the click; `ambiguous` is expected to pause.
 
