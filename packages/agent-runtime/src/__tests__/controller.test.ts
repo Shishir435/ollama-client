@@ -491,8 +491,9 @@ describe("agent controller", () => {
     })
     await harness.controller.start("run-1")
     expect(harness.getState().question?.text).toBe("May I accept?")
+    // Asking the model whether it can see touches no renderer; the capture
+    // is what a frozen page cannot answer.
     expect(capture).not.toHaveBeenCalled()
-    expect(vision).not.toHaveBeenCalled()
   })
 
   it("claims a phase before observing or deciding", async () => {

@@ -14,6 +14,7 @@ import type {
   AgentStepWrite
 } from "../ports"
 import { isLegalAgentTransition } from "../state"
+import type { AgentVisionPolicy } from "../vision"
 
 /**
  * The picture rides beside the observation: taken only for a model that can
@@ -101,13 +102,21 @@ const harness = (options: {
     : never
   screenshotPort?: boolean
   decisions?: unknown[]
+  observations?: AgentObservation[]
+  visionPolicy?: AgentVisionPolicy
+  screenshotsPermitted?: boolean
 }) => {
   let current = state()
   const written: AgentStepWrite[] = []
   const decideInputs: AgentModelInput[] = []
   const resolveContexts: (AgentResolutionContext | undefined)[] = []
   const trace: string[] = []
-  const observations = [observation(1), observation(2), observation(3)]
+  const observations = options.observations ?? [
+    observation(1),
+    observation(2),
+    observation(3)
+  ]
+  const approvals: unknown[] = []
   const decisions = [
     ...(options.decisions ?? [
       {
@@ -150,6 +159,9 @@ const harness = (options: {
       }
     },
     model: {
+      ...(options.visionPolicy === undefined
+        ? {}
+        : { visionPolicy: async () => options.visionPolicy ?? "always" }),
       ...(options.vision === undefined
         ? {}
         : {
@@ -170,6 +182,12 @@ const harness = (options: {
         return next
       }
     },
+    ...(options.screenshotsPermitted === undefined
+      ? {}
+      : {
+          screenshotsPermitted: async () =>
+            options.screenshotsPermitted === true
+        }),
     ...(options.screenshotPort === false
       ? {}
       : {
@@ -208,13 +226,20 @@ const harness = (options: {
       }
     },
     policy: { evaluate: () => ({ type: "allow", risk: "low" }) },
-    approval: { request: async () => ({ type: "approved" }) },
+    approval: {
+      request: async (request) => {
+        approvals.push(request)
+        return { type: "approved" }
+      }
+    },
     takeover: { request: async () => ({ type: "takeover_started" }) }
   }
   return {
     controller: createAgentController(dependencies),
     decideInputs,
     resolveContexts,
+    approvals,
+    written,
     trace,
     state: () => current
   }
@@ -302,5 +327,212 @@ describe("controller screenshots", () => {
     })
     await run.controller.start("run-1")
     expect(zooms).toEqual([undefined, { x: 10, y: 20, width: 100, height: 50 }])
+  })
+
+  describe("asking to look", () => {
+    /**
+     * A canvas application on one URL: plenty of controls, so the auto rules
+     * skip the picture after the first step, and the state that matters is
+     * drawn rather than listed.
+     */
+    const busy = (generation: number): AgentObservation => ({
+      ...observation(generation),
+      elements: Array.from({ length: 8 }, (_value, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "button",
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      })) as unknown as AgentObservation["elements"]
+    })
+    const onDocument = (
+      current: AgentObservation,
+      documentId: string
+    ): AgentObservation => ({
+      ...current,
+      documentId,
+      frames: current.frames.map((frame) => ({ ...frame, documentId }))
+    })
+    const read = (generation: number) => ({
+      type: "command",
+      command: {
+        type: "read",
+        snapshotId: `snapshot-${generation}`,
+        generation
+      }
+    })
+    const look = (generation: number) => ({
+      type: "command",
+      command: {
+        type: "look",
+        snapshotId: `snapshot-${generation}`,
+        generation
+      }
+    })
+
+    it("pictures an unchanged canvas page after the first step when the model asks", async () => {
+      const captured: string[] = []
+      const run = harness({
+        vision: true,
+        visionPolicy: "auto",
+        observations: [busy(1), busy(2), busy(3), busy(4)],
+        capture: async (request) => {
+          captured.push(request.observation.snapshotId)
+          return screenshotFor(request.observation)
+        },
+        decisions: [
+          read(1),
+          look(2),
+          read(3),
+          { type: "complete", summary: "Done" }
+        ]
+      })
+      await run.controller.start("run-1")
+
+      /** Step 2 had no picture and was still offered one. */
+      expect(run.decideInputs[1]?.screenshot).toBeUndefined()
+      expect(run.decideInputs[1]?.visual).toEqual({ available: true })
+      /** The look buys the next step a picture of the same, unchanged URL. */
+      expect(run.decideInputs[2]?.screenshot?.snapshotId).toBe("snapshot-3")
+      expect(captured).toEqual(["snapshot-1", "snapshot-3"])
+      /** A step without a picture grounds nothing in one. */
+      expect(run.resolveContexts[1]?.screenshot).toBeUndefined()
+      expect(run.resolveContexts[2]?.screenshot?.snapshotId).toBe("snapshot-3")
+    })
+
+    it("reads only: no approval, no navigation, and no picture in the durable record", async () => {
+      const run = harness({
+        vision: true,
+        visionPolicy: "auto",
+        observations: [busy(1), busy(2), busy(3)],
+        decisions: [look(1), { type: "complete", summary: "Done" }]
+      })
+      await run.controller.start("run-1")
+      expect(run.state().status).toBe("completed")
+      expect(run.approvals).toEqual([])
+      expect(run.state().allowedOrigins).toEqual(["https://example.com"])
+      expect(run.written.some((step) => step.command?.type === "look")).toBe(
+        true
+      )
+      /** The picture is the decision's companion, never the receipt's. */
+      expect(JSON.stringify(run.written)).not.toContain("AAAA")
+      expect(JSON.stringify(run.written)).not.toContain("image/jpeg")
+    })
+
+    it("tells the model the true reason pictures are unavailable", async () => {
+      const textOnly = harness({ vision: false })
+      await textOnly.controller.start("run-1")
+      expect(textOnly.decideInputs[0]?.visual).toEqual({
+        available: false,
+        reason: "model_text_only"
+      })
+
+      const noPort = harness({ vision: true, screenshotPort: false })
+      await noPort.controller.start("run-1")
+      expect(noPort.decideInputs[0]?.visual).toMatchObject({
+        reason: "no_capture_path"
+      })
+
+      const capture = vi.fn(async () => undefined)
+      const unacknowledged = harness({
+        vision: true,
+        capture,
+        screenshotsPermitted: false
+      })
+      await unacknowledged.controller.start("run-1")
+      expect(unacknowledged.decideInputs[0]?.visual).toMatchObject({
+        reason: "not_permitted"
+      })
+      expect(capture).not.toHaveBeenCalled()
+
+      const off = harness({ vision: true, capture, visionPolicy: "never" })
+      await off.controller.start("run-1")
+      expect(off.decideInputs[0]?.visual).toMatchObject({
+        reason: "disabled_by_user"
+      })
+      expect(capture).not.toHaveBeenCalled()
+
+      const held = harness({
+        vision: true,
+        capture,
+        observations: [
+          {
+            ...observation(1),
+            dialogs: [
+              {
+                id: "held",
+                type: "alert",
+                message: "Hi",
+                origin: "https://example.com"
+              }
+            ]
+          } as AgentObservation
+        ],
+        decisions: [{ type: "ask_user", question: "Dismiss?" }]
+      })
+      await held.controller.start("run-1")
+      expect(held.decideInputs[0]?.visual).toMatchObject({
+        reason: "dialog_open"
+      })
+      expect(capture).not.toHaveBeenCalled()
+    })
+
+    it("withdraws look on a document whose requested picture came back empty", async () => {
+      let attempts = 0
+      const run = harness({
+        vision: true,
+        visionPolicy: "auto",
+        observations: [busy(1), busy(2), busy(3), busy(4)],
+        capture: async (request) => {
+          attempts += 1
+          /** Every picture after the first is refused, as masking would. */
+          return attempts === 1 ? screenshotFor(request.observation) : undefined
+        },
+        decisions: [
+          look(1),
+          read(2),
+          read(3),
+          { type: "complete", summary: "Done" }
+        ]
+      })
+      await run.controller.start("run-1")
+      expect(run.decideInputs[1]?.screenshot).toBeUndefined()
+      expect(run.decideInputs[1]?.visual).toEqual({
+        available: false,
+        reason: "capture_failed"
+      })
+      /** Withdrawn for the document, not for one step. */
+      expect(run.decideInputs[2]?.visual).toEqual({
+        available: false,
+        reason: "capture_failed"
+      })
+      expect(run.state().status).toBe("completed")
+    })
+
+    it("offers look again on a new document", async () => {
+      let attempts = 0
+      const run = harness({
+        vision: true,
+        visionPolicy: "auto",
+        observations: [
+          busy(1),
+          busy(2),
+          onDocument(busy(3), "document-2"),
+          onDocument(busy(4), "document-2")
+        ],
+        capture: async (request) => {
+          attempts += 1
+          return attempts === 1 ? screenshotFor(request.observation) : undefined
+        },
+        decisions: [look(1), read(2), { type: "complete", summary: "Done" }]
+      })
+      await run.controller.start("run-1")
+      expect(run.decideInputs[1]?.visual).toMatchObject({
+        reason: "capture_failed"
+      })
+      expect(run.decideInputs[2]?.visual).toEqual({ available: true })
+    })
   })
 })

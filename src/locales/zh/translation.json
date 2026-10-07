@@ -24,6 +24,7 @@
       "double_click": "双击控件",
       "click_point": "点击截图中的某个位置",
       "zoom": "放大截图",
+      "look": "重新截图",
       "hover": "悬停在控件上",
       "read": "读取页面",
       "inspect": "查看 {{region}}",

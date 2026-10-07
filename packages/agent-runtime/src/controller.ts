@@ -87,6 +87,8 @@ import type {
   AgentStepReadout,
   AgentStepWrite,
   AgentVerificationResult,
+  AgentVisualAccess,
+  AgentVisualUnavailableReason,
   AuthorizedAgentEffect,
   ResolvedAgentEffect
 } from "./ports"
@@ -116,7 +118,7 @@ import {
 import { mergeAgentStepTelemetry } from "./telemetry"
 import { agentCommandKeepingUserTab } from "./user-tab"
 import { classifyVerificationOutcome } from "./verification"
-import { agentPictureWarranted } from "./vision"
+import { type AgentVisionPolicy, agentPictureWarranted } from "./vision"
 
 /**
  * The result of a run the user finished after reviewing the page. Run data
@@ -826,6 +828,7 @@ export const createAgentController = (
       | "findings"
       | "evidenceLedger"
       | "screenshot"
+      | "visual"
     >
   ) => {
     let raw: unknown
@@ -944,33 +947,68 @@ export const createAgentController = (
   }
 
   /**
-   * Pictures the page for a model that can see, once the DOM observation is in
-   * hand so the two share one identity. A capture that fails or is refused —
-   * no path to the tab, a sensitive control that could not be masked — leaves
-   * the decision to the DOM alone; it never fails the run, and the picture
-   * lives only in the memory of this step.
+   * The documents, per run, where a picture the model asked for came back
+   * empty. `look` is withdrawn there: a page whose sensitive controls cannot
+   * be masked, or that moves under every capture, answers the same way the
+   * next time, and offering the command again would let a run spend its
+   * budget asking. A new document is new ground and offers it again, and so
+   * does any later picture of the same one landing. Only the asking is
+   * withdrawn — the pictures the vision policy takes on its own still try.
    */
+  const unpicturable = new Map<string, string>()
+
+  const visualUnavailable = (
+    reason: AgentVisualUnavailableReason
+  ): AgentVisualAccess => ({ available: false, reason })
+
   /**
-   * Whether this step gets a picture: what the model can read, what the user
-   * asked for, and — under `auto` — whether this particular step warrants
-   * one.
+   * Whether this step may be pictured at all, and if not, why — in the order
+   * the reasons are facts: what the model can read, whether the host can
+   * capture, whether the user allowed pictures to travel, whether the user
+   * turned them off, and then what this page allows. The reason travels to
+   * the model, so a run told "unavailable" is told the true one rather than
+   * left to infer that a text-only model has merely been unlucky.
+   */
+  const visualAccess = async (
+    state: AgentRunState,
+    observation: AgentObservation,
+    signal: AgentCancellationController["signal"]
+  ): Promise<{ access: AgentVisualAccess; policy?: AgentVisionPolicy }> => {
+    if (!(await dependencies.model.vision?.(state, signal)))
+      return { access: visualUnavailable("model_text_only") }
+    if (!dependencies.screenshot)
+      return { access: visualUnavailable("no_capture_path") }
+    if (
+      dependencies.screenshotsPermitted &&
+      !(await dependencies.screenshotsPermitted(state))
+    )
+      return { access: visualUnavailable("not_permitted") }
+    const policy =
+      (await dependencies.model.visionPolicy?.(state, signal)) ?? "always"
+    if (policy === "never")
+      return { access: visualUnavailable("disabled_by_user") }
+    /** Native dialogs freeze the renderer; its debugger-held text is the observation. */
+    if (observation.dialogs.length)
+      return { access: visualUnavailable("dialog_open"), policy }
+    return { access: { available: true }, policy }
+  }
+
+  /**
+   * Whether this step gets a picture once one is possible: under `auto`,
+   * whether this particular step warrants one.
    *
    * A capture costs an encode, a masking pass and, far the largest of the
    * three, an image prefill in the model's own window. Most steps decide from
    * text, so most of those pictures were paid for and never looked at.
    */
-  const wantsPicture = async (
+  const wantsPicture = (
+    policy: AgentVisionPolicy,
     state: AgentRunState,
     observation: AgentObservation,
-    signal: AgentCancellationController["signal"],
     inspection: AgentModelInput["inspection"],
     previousVerification?: AgentVerificationResult,
     history?: AgentModelInput["history"]
-  ): Promise<boolean> => {
-    if (!(await dependencies.model.vision?.(state, signal))) return false
-    const policy =
-      (await dependencies.model.visionPolicy?.(state, signal)) ?? "always"
-    if (policy === "never") return false
+  ): boolean => {
     if (policy === "always") return true
     if (
       agentPictureWarranted({
@@ -986,6 +1024,17 @@ export const createAgentController = (
     return false
   }
 
+  /**
+   * Pictures the page for a model that can see, once the DOM observation is in
+   * hand so the two share one identity. A capture that fails or is refused —
+   * no path to the tab, a sensitive control that could not be masked — leaves
+   * the decision to the DOM alone; it never fails the run, and the picture
+   * lives only in the memory of this step.
+   *
+   * What comes back beside the picture is whether the model may ask for one,
+   * which is a different answer from whether it got one: most steps carry no
+   * picture and may still `look`.
+   */
   const picture = async (
     state: AgentRunState,
     observation: AgentObservation,
@@ -993,26 +1042,78 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     previousVerification?: AgentVerificationResult,
     history?: AgentModelInput["history"]
-  ): Promise<AgentModelInput["screenshot"]> => {
-    // Native dialogs freeze the renderer; its debugger-held text is the observation.
-    if (
-      observation.dialogs.length ||
-      !dependencies.screenshot ||
-      !dependencies.model.vision
-    )
-      return undefined
+  ): Promise<Pick<AgentModelInput, "screenshot" | "visual">> => {
+    /**
+     * No picture landed. A look the run asked for and did not get is withdrawn
+     * for the document, and the model is told so rather than shown nothing and
+     * left to ask again.
+     */
+    const without = (
+      access: AgentVisualAccess
+    ): Pick<AgentModelInput, "visual"> => {
+      if (inspection?.look) unpicturable.set(state.id, observation.documentId)
+      return {
+        visual:
+          access.available &&
+          unpicturable.get(state.id) === observation.documentId
+            ? visualUnavailable("capture_failed")
+            : access
+      }
+    }
+    let access: AgentVisualAccess
+    let policy: AgentVisionPolicy | undefined
     try {
-      if (
-        !(await wantsPicture(
-          state,
-          observation,
-          signal,
-          inspection,
-          previousVerification,
-          history
-        ))
+      ;({ access, policy } = await visualAccess(state, observation, signal))
+    } catch (error) {
+      if (signal.aborted) return {}
+      dependencies.trace?.(state.id, "screenshot_failed", {
+        reason: error instanceof Error ? error.name : typeof error
+      })
+      return { visual: visualUnavailable("capture_failed") }
+    }
+    if (!access.available) {
+      if (inspection?.look)
+        dependencies.trace?.(state.id, "screenshot_unavailable", {
+          reason: access.reason
+        })
+      return { visual: access }
+    }
+    if (
+      !wantsPicture(
+        policy ?? "always",
+        state,
+        observation,
+        inspection,
+        previousVerification,
+        history
       )
-        return undefined
+    )
+      return without(access)
+    const screenshot = await capturePicture(
+      state,
+      observation,
+      inspection,
+      signal
+    )
+    if (signal.aborted) return {}
+    if (!screenshot) return without(access)
+    unpicturable.delete(state.id)
+    return { screenshot, visual: access }
+  }
+
+  /**
+   * One capture, bound to the observation it was taken with. A picture of
+   * another snapshot is no picture, and a capture that fails is an answer
+   * rather than a run failure.
+   */
+  const capturePicture = async (
+    state: AgentRunState,
+    observation: AgentObservation,
+    inspection: AgentModelInput["inspection"],
+    signal: AgentCancellationController["signal"]
+  ): Promise<AgentModelInput["screenshot"]> => {
+    if (!dependencies.screenshot) return undefined
+    try {
       const screenshot = await dependencies.screenshot.capture(
         {
           runId: state.id,
@@ -2484,7 +2585,7 @@ export const createAgentController = (
     let decision: AgentDecision | undefined
     const context: AgentResolutionContext = {}
     try {
-      const screenshot = await picture(
+      const pictured = await picture(
         deciding,
         observation,
         recalled.inspection,
@@ -2492,10 +2593,10 @@ export const createAgentController = (
         recalled.previousVerification,
         recalled.history
       )
-      if (screenshot) context.screenshot = screenshot
+      if (pictured.screenshot) context.screenshot = pictured.screenshot
       decision = await decide(deciding, observation, signal, {
         ...recalled,
-        ...(screenshot ? { screenshot } : {})
+        ...pictured
       })
     } catch (error) {
       /**

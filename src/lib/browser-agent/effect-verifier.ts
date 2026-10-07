@@ -403,6 +403,7 @@ export const READ_ONLY_AGENT_VERIFIERS = {
   extract: verifyPureRead,
   extract_text: verifyPureRead,
   zoom: verifyPureRead,
+  look: verifyPureRead,
   /**
    * Waiting is bounded looking, not sleeping.
    *

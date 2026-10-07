@@ -39,6 +39,21 @@ const observation = (
   }) as unknown as AgentObservation
 
 describe("agentPictureWarranted", () => {
+  it("takes one when the model asked to look at a page it has already seen", () => {
+    /**
+     * An ordinary step on a busy, unchanged page is exactly where the rules
+     * skip the picture, and exactly where a canvas or a chart holds the state
+     * the element list cannot describe. Asking is what reaches it.
+     */
+    expect(
+      agentPictureWarranted({
+        state: { stepCount: 4 },
+        observation: observation(),
+        inspection: { look: true }
+      })
+    ).toBe(true)
+  })
+
   it("takes one on the first step, which is what makes zoom reachable", () => {
     expect(
       agentPictureWarranted({

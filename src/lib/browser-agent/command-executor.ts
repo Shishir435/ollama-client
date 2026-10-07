@@ -1486,6 +1486,10 @@ export const READ_ONLY_AGENT_EXECUTORS = {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "zoom")
   },
+  async look(effect, adapter) {
+    await assertSource(effect, adapter, true)
+    return receipt(adapter, "look")
+  },
   async find(effect, adapter) {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "find")

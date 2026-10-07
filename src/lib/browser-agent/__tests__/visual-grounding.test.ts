@@ -257,6 +257,20 @@ describe("visual grounding resolution", () => {
     expect(effect.semanticEffects).toEqual(["read"])
     expect(effect.target).toEqual({ sensitive: false, maySubmit: false })
   })
+  it("resolves a look as a read that touches nothing and needs no picture", async () => {
+    const effect = await resolveReadOnlyAgentEffect({
+      command: AgentCommandSchema.parse({
+        type: "look",
+        snapshotId: "snapshot-1",
+        generation: 1
+      }),
+      observation: observation(),
+      adapter: adapter().instance
+    })
+    expect(effect.semanticEffects).toEqual(["read"])
+    expect(effect.target).toEqual({ sensitive: false, maySubmit: false })
+    expect(effect.destination).toBeUndefined()
+  })
 })
 
 /**

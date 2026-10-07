@@ -24,6 +24,7 @@
       "double_click": "Element doppelklicken",
       "click_point": "Auf einen Punkt im Screenshot klicken",
       "zoom": "In den Screenshot hineinzoomen",
+      "look": "Neuen Screenshot aufnehmen",
       "hover": "Über Element schweben",
       "read": "Seite lesen",
       "inspect": "{{region}} untersuchen",

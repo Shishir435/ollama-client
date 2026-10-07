@@ -50,6 +50,8 @@ export interface AgentInspectionFocus {
    * and the whole viewport is captured.
    */
   zoom?: AgentImageRect
+  /** The model asked for a fresh picture of the viewport. */
+  look?: true
 }
 
 /**
@@ -96,7 +98,32 @@ export interface AgentModelInput {
    * when the page could not be pictured without exposing a sensitive control.
    */
   screenshot?: AgentScreenshot
+  /**
+   * Whether this step may ask for a picture with `look`, and if not, why.
+   * Separate from `screenshot`: most steps carry no picture and may still
+   * ask for one. Absent from a host that predates it, which offers no `look`.
+   */
+  visual?: AgentVisualAccess
 }
+
+/**
+ * Why a run cannot be shown the page on this step, as the model is told it.
+ * The model's own limit, the host's, the user's two answers — notice not
+ * acknowledged, pictures turned off — and then the page's: a native dialog
+ * freezes the renderer, and a document whose picture already came back
+ * empty once is not asked again.
+ */
+export type AgentVisualUnavailableReason =
+  | "model_text_only"
+  | "no_capture_path"
+  | "not_permitted"
+  | "disabled_by_user"
+  | "dialog_open"
+  | "capture_failed"
+
+export type AgentVisualAccess =
+  | { available: true }
+  | { available: false; reason: AgentVisualUnavailableReason }
 
 export interface AgentScreenshotRequest {
   runId: string
@@ -901,6 +928,12 @@ export interface AgentControllerDependencies {
   observation: AgentObservationPort
   /** Absent means the host cannot picture the page; runs are text-only. */
   screenshot?: AgentScreenshotPort
+  /**
+   * Whether the user allowed this run's pictures to travel. Asked after the
+   * model's `vision`, which is a fact about the model; this is the user's
+   * answer about the run. Absent means permitted.
+   */
+  screenshotsPermitted?: (state: AgentRunState) => Promise<boolean>
   effect: AgentEffectPort
   policy: AgentPolicyPort
   persistence: AgentPersistencePort

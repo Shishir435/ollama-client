@@ -24,6 +24,7 @@
       "double_click": "Double-cliquer sur le contrôle",
       "click_point": "Cliquer sur un point de la capture",
       "zoom": "Agrandir la capture",
+      "look": "Prendre une nouvelle capture",
       "hover": "Survoler le contrôle",
       "read": "Lire la page",
       "inspect": "Inspecter {{region}}",

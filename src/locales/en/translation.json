@@ -24,6 +24,7 @@
       "double_click": "Double-click control",
       "click_point": "Click at a point in the screenshot",
       "zoom": "Zoom into the screenshot",
+      "look": "Take a fresh screenshot",
       "hover": "Hover over control",
       "read": "Read page",
       "inspect": "Inspect {{region}}",

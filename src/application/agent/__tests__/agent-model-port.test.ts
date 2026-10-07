@@ -907,6 +907,88 @@ describe("vision decisions", () => {
     expect(request.messages[0]?.content).not.toMatch(/screenshot/)
   })
 
+  const offered = (request: ChatRequest | undefined): string[] => {
+    const [tool] = request?.tools ?? []
+    if (!tool) throw new Error("No decision tool on the request")
+    return (
+      tool.parameters as unknown as {
+        properties: { type: { enum: string[] } }
+      }
+    ).properties.type.enum
+  }
+
+  it("offers look without a picture, and keeps the pixel commands for a step that has one", async () => {
+    const requests: ChatRequest[] = []
+    const port = modelPort(
+      async (request, emit) => {
+        requests.push(request)
+        emit(validChunk)
+      },
+      { ...supported, vision: true }
+    )
+    await port.decide(
+      { state, observation, visual: { available: true } },
+      { aborted: false }
+    )
+    const actions = offered(requests[0])
+    expect(actions).toContain("look")
+    expect(actions).not.toContain("click_point")
+    expect(actions).not.toContain("zoom")
+    expect(requests[0]?.messages.at(-1)?.images).toBeUndefined()
+    expect(requests[0]?.messages[0]?.content).toMatch(
+      /look captures the controlled tab's viewport/
+    )
+
+    await port.decide(
+      { state, observation, screenshot, visual: { available: true } },
+      { aborted: false }
+    )
+    expect(offered(requests[1])).toEqual(
+      expect.arrayContaining(["look", "click_point", "zoom"])
+    )
+  })
+
+  it("tells a text-only model the true limit and offers it nothing visual", async () => {
+    const requests: ChatRequest[] = []
+    const port = modelPort(
+      async (request, emit) => {
+        requests.push(request)
+        emit(validChunk)
+      },
+      { ...supported, vision: false }
+    )
+    await port.decide(
+      {
+        state,
+        observation,
+        visual: { available: false, reason: "model_text_only" }
+      },
+      { aborted: false }
+    )
+    expect(offered(requests[0])).not.toContain("look")
+    expect(requests[0]?.messages[0]?.content).toMatch(
+      /the selected model does not accept images/
+    )
+  })
+
+  it("withholds look from a model the port knows cannot read its result", async () => {
+    const requests: ChatRequest[] = []
+    const port = modelPort(
+      async (request, emit) => {
+        requests.push(request)
+        emit(validChunk)
+      },
+      { ...supported, vision: false }
+    )
+    /** A host that claimed access is overruled by the model's own answer. */
+    await port.decide(
+      { state, observation, visual: { available: true } },
+      { aborted: false }
+    )
+    expect(offered(requests[0])).not.toContain("look")
+    expect(requests[0]?.messages[0]?.content).toMatch(/does not accept images/)
+  })
+
   it("resolves vision once per run", async () => {
     const resolveCompatibility = vi.fn(async () => ({
       ...supported,

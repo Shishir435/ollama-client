@@ -232,28 +232,27 @@ export const buildAgentController: BuildAgentController = (input) => {
   )
   const screenshotsPermitted =
     input.screenshotsPermitted ?? defaultScreenshotsPermitted
-  const vision = model.vision
   return createAgentController({
     trace: traceAgentRun,
     review,
     ...(adapters.screenshot ? { screenshot: adapters.screenshot } : {}),
+    /**
+     * Asked by the controller after the model's own `vision`, so a run whose
+     * pictures the user has not cleared is told that, not that its model
+     * cannot see.
+     */
+    async screenshotsPermitted(state) {
+      const permitted = await screenshotsPermitted(state)
+      if (!permitted) {
+        traceAgentRun(input.runId, "screenshot_withheld", {
+          reason: "not_acknowledged"
+        })
+      }
+      return permitted
+    },
     model: {
       /** Spread for the same reason `withDecisionTimeout` does. */
       ...model,
-      ...(vision
-        ? {
-            async vision(state, signal) {
-              if (!(await vision(state, signal))) return false
-              const permitted = await screenshotsPermitted(state)
-              if (!permitted) {
-                traceAgentRun(input.runId, "screenshot_withheld", {
-                  reason: "not_acknowledged"
-                })
-              }
-              return permitted
-            }
-          }
-        : {}),
       async decide(request, signal) {
         traceAgentRun(input.runId, "deciding", {
           step: request.state.stepCount + 1,

@@ -24,6 +24,7 @@
       "double_click": "Fai doppio clic sul controllo",
       "click_point": "Fai clic su un punto dello screenshot",
       "zoom": "Ingrandisci lo screenshot",
+      "look": "Acquisisci un nuovo screenshot",
       "hover": "Passa sopra il controllo",
       "read": "Leggi la pagina",
       "inspect": "Ispeziona {{region}}",

@@ -300,6 +300,7 @@ export const currentAgentInspection = (
       offset: command.offset ?? 0,
       frameId: command.frameId ?? 0
     }
+  if (command.type === "look") return { look: true }
   if (command.type === "zoom") {
     return {
       zoom: {
