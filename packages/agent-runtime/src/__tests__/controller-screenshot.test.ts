@@ -105,8 +105,11 @@ const harness = (options: {
   observations?: AgentObservation[]
   visionPolicy?: AgentVisionPolicy
   screenshotsPermitted?: boolean
+  requirements?: AgentRunState["requirements"]
 }) => {
-  let current = state()
+  let current = state(
+    options.requirements ? { requirements: options.requirements } : {}
+  )
   const written: AgentStepWrite[] = []
   const decideInputs: AgentModelInput[] = []
   const resolveContexts: (AgentResolutionContext | undefined)[] = []
@@ -534,5 +537,51 @@ describe("controller screenshots", () => {
       })
       expect(run.decideInputs[2]?.visual).toEqual({ available: true })
     })
+  })
+
+  it("completes a read seen only in the picture, reported as seen, with no image kept", async () => {
+    const run = harness({
+      vision: true,
+      requirements: [
+        { id: "r1", text: "Report the canvas code", kind: "read" }
+      ],
+      decisions: [
+        {
+          type: "complete",
+          summary: "The canvas shows KV-305.",
+          outcomes: [{ id: "r1", met: true, evidence: "KV-305" }]
+        }
+      ]
+    })
+    await run.controller.start("run-1")
+    expect(run.state().status).toBe("completed")
+    expect(run.state().outcome).toEqual({
+      met: ["r1"],
+      unmet: [],
+      visual: ["r1"]
+    })
+    const durable = JSON.stringify([run.written, run.state()])
+    expect(durable).toContain("visual_observation")
+    expect(durable).not.toContain("AAAA")
+    expect(durable).not.toContain("image/jpeg")
+  })
+
+  it("does not complete that read without the picture", async () => {
+    const run = harness({
+      vision: false,
+      requirements: [
+        { id: "r1", text: "Report the canvas code", kind: "read" }
+      ],
+      decisions: [
+        {
+          type: "complete",
+          summary: "The canvas shows KV-305.",
+          outcomes: [{ id: "r1", met: true, evidence: "KV-305" }]
+        },
+        { type: "ask_user", question: "Stuck" }
+      ]
+    })
+    await run.controller.start("run-1")
+    expect(run.state().status).not.toBe("completed")
   })
 })

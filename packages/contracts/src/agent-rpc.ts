@@ -90,7 +90,9 @@ export const AgentRunCardSchema = z
     outcome: z
       .object({
         met: z.number().int().nonnegative(),
-        total: z.number().int().nonnegative()
+        total: z.number().int().nonnegative(),
+        /** Of the met, how many were only seen in a screenshot. */
+        visual: z.number().int().positive().optional()
       })
       .strict()
       .optional(),

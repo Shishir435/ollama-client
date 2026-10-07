@@ -205,6 +205,8 @@
       "loading": "正在加载运行…",
       "missing": "此运行的记录已不可用。",
       "outcome": "已完成 {{met}}/{{total}}",
+      "outcome_visual_one": "{{count}} 项仅在截图中看到，未经页面文本确认",
+      "outcome_visual_other": "{{count}} 项仅在截图中看到，未经页面文本确认",
       "continue": "继续",
       "retry": "重试",
       "start_over": "重新开始",

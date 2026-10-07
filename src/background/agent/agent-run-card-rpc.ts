@@ -53,7 +53,10 @@ export const toAgentRunCard = (
       ? {
           outcome: {
             met: state.outcome.met.length,
-            total: state.outcome.met.length + state.outcome.unmet.length
+            total: state.outcome.met.length + state.outcome.unmet.length,
+            ...(state.outcome.visual?.length
+              ? { visual: state.outcome.visual.length }
+              : {})
           }
         }
       : {}),

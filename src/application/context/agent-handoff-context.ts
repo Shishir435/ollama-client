@@ -100,6 +100,12 @@ const renderHandoff = (handoff: AgentConversationHandoff): string => {
     attributes.push(
       `requirements_met="${handoff.outcome.met} of ${handoff.outcome.total}"`
     )
+    /**
+     * Read off a screenshot, not confirmed from page text. The chat says so
+     * rather than repeating a picture's reading as a verified fact.
+     */
+    if (handoff.outcome.visual)
+      attributes.push(`seen_in_screenshot_only="${handoff.outcome.visual}"`)
   }
   if (handoff.failure) attributes.push(`failure="${handoff.failure}"`)
   const lines = [

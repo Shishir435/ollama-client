@@ -401,6 +401,96 @@ describe("grounded evidence ledger", () => {
     }
   })
 
+  it("records a read off the completing screenshot by its identity, never the image", () => {
+    const picture = {
+      snapshotId: "s1",
+      generation: 1,
+      tabId: 7,
+      frameId: 0,
+      documentId: "a",
+      capturedAt: 12,
+      mimeType: "image/jpeg" as const,
+      data: "IMAGEBYTES",
+      imageWidth: 100,
+      imageHeight: 100,
+      region: { x: 0, y: 0, width: 100, height: 100 },
+      scale: 1,
+      scroll: { x: 0, y: 0 },
+      maskedRegions: 0
+    }
+    const complete = (evidence: string) => ({
+      type: "complete" as const,
+      summary: "Done",
+      outcomes: [{ id: "r1", met: true, evidence }]
+    })
+    const records = agentCompletionEvidence(
+      state,
+      observation,
+      complete("KV-305"),
+      [],
+      "answer",
+      picture
+    )
+    expect(records).toEqual([
+      {
+        id: "answer:visual:r1",
+        kind: "visual_observation",
+        validity: "current",
+        source: {
+          tabId: 7,
+          frameId: 0,
+          documentId: "a",
+          snapshotId: "s1",
+          generation: 1,
+          origin: "https://example.com"
+        },
+        observedAt: 12,
+        requirementId: "r1",
+        quote: "KV-305"
+      }
+    ])
+    expect(JSON.stringify(records)).not.toContain("IMAGEBYTES")
+    expect(AgentEvidenceRecordSchema.safeParse(records[0]).success).toBe(true)
+
+    /** Text that grounds needs no picture, and none is recorded. */
+    expect(
+      agentCompletionEvidence(
+        state,
+        observation,
+        complete("Plan A costs $12"),
+        [],
+        "answer",
+        picture
+      ).map((record) => record.kind)
+    ).toEqual(["observed_fact"])
+    /** A picture of another snapshot, or none, records nothing. */
+    for (const other of [{ ...picture, generation: 2 }, undefined])
+      expect(
+        agentCompletionEvidence(
+          state,
+          observation,
+          complete("KV-305"),
+          [],
+          "answer",
+          other
+        )
+      ).toEqual([])
+    /** Only a planned read: a picture never stands for a change. */
+    expect(
+      agentCompletionEvidence(
+        {
+          ...state,
+          requirements: [{ id: "r1", text: "Render it", kind: "change" }]
+        },
+        observation,
+        complete("KV-305"),
+        [],
+        "answer",
+        picture
+      )
+    ).toEqual([])
+  })
+
   it("enforces count and byte bounds, including a single oversized corrupt record", () => {
     const records = Array.from({ length: 100 }, (_, index) => ({
       ...grounded()[0],

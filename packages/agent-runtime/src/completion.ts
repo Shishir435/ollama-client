@@ -9,7 +9,8 @@ import type {
 } from "@ollama-client/contracts"
 import {
   checkCompletionState,
-  groundedCompletionQuote
+  groundedCompletionQuote,
+  visualCompletionRead
 } from "./completion-support"
 import {
   agentHaystackStates,
@@ -955,6 +956,14 @@ const refusePlannedReadClaim = (
         "Quote the independently observed fact supporting this read result. Missing support is unknown; do not mark it verified."
     }
   if (groundedCompletionQuote(evidence, requirementId, input.evidenceLedger))
+    return undefined
+  /**
+   * Nothing the page said, but what the model read off the screenshot it
+   * completed on. Met, and reported as seen in a picture rather than
+   * verified; without this a value drawn into a canvas could never be an
+   * answer, however plainly the model was shown it.
+   */
+  if (visualCompletionRead(evidence, requirementId, input.evidenceLedger))
     return undefined
   /**
    * A paraphrase of something the run did read is a question of meaning, not
@@ -2202,7 +2211,17 @@ const judgePlanned = (
     if (judged) return judged
     met.push(requirement.id)
   }
-  const outcome = { met, unmet }
+  const visual = met.filter((id) => {
+    const evidence = claims.get(id)?.evidence
+    return (
+      requirements.some(
+        (requirement) => requirement.id === id && requirement.kind === "read"
+      ) &&
+      !groundedCompletionQuote(evidence, id, input.evidenceLedger) &&
+      visualCompletionRead(evidence, id, input.evidenceLedger) !== undefined
+    )
+  })
+  const outcome = { met, unmet, ...(visual.length ? { visual } : {}) }
   if (review) return withReviewScope(review, requirements, reviewIds, outcome)
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0

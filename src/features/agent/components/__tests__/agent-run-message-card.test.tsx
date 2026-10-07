@@ -227,6 +227,22 @@ describe("AgentRunMessageCard", () => {
     expect(
       screen.getByText(/agent\.card\.outcome:\{"met":1,"total":2\}/)
     ).toBeInTheDocument()
+    expect(screen.queryByText(/agent\.card\.outcome_visual/)).toBeNull()
+  })
+
+  it("says which met requirements were only seen in a screenshot", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({
+        status: "completed",
+        result: "The canvas shows KV-305.",
+        outcome: { met: 1, total: 1, visual: 1 }
+      })
+    })
+    render(inWorkspace(<AgentRunMessageCard msg={message()} />))
+    expect(
+      screen.getByText(/agent\.card\.outcome_visual:\{"count":1\}/)
+    ).toBeInTheDocument()
   })
 
   /**

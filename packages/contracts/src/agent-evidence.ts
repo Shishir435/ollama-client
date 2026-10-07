@@ -43,7 +43,14 @@ export const AgentEvidenceRecordSchema = z
       "user_input",
       "agent_input",
       "model_inference",
-      "page_tool_claim"
+      "page_tool_claim",
+      /**
+       * What the model read off a screenshot it was shown, bound to that
+       * picture's snapshot. The quote is the model's reading, not page text,
+       * and the image itself is never kept: it can settle a read requirement
+       * only as one seen in a screenshot, and never proves a change.
+       */
+      "visual_observation"
     ]),
     validity: z.enum([
       "current",
@@ -63,7 +70,9 @@ export const AgentEvidenceRecordSchema = z
   .strict()
   .superRefine((record, context) => {
     if (
-      (record.kind === "observed_fact" && (!record.source || !record.quote)) ||
+      ((record.kind === "observed_fact" ||
+        record.kind === "visual_observation") &&
+        (!record.source || !record.quote)) ||
       (record.kind === "verified_effect" &&
         (!record.source || !record.verificationKind))
     ) {

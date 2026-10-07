@@ -457,3 +457,66 @@ describe("agentTextChangeSignature", () => {
     ).toEqual({ noProgress: true, count: 2 })
   })
 })
+
+describe("visual reads and progress", () => {
+  const page = {
+    snapshotId: "s1",
+    generation: 1,
+    tabId: 7,
+    frameId: 0,
+    documentId: "d1",
+    url: "https://example.com/chart",
+    origin: "https://example.com",
+    title: "Chart",
+    elements: [],
+    visibleText: "Live chart",
+    scroll: {
+      x: 0,
+      y: 0,
+      viewportWidth: 100,
+      viewportHeight: 100,
+      documentWidth: 100,
+      documentHeight: 100
+    },
+    frames: [],
+    dialogs: [],
+    capturedAt: 1
+  } as unknown as AgentObservation
+  const look: AgentDecision = {
+    type: "command",
+    command: { type: "look", snapshotId: "s1", generation: 1 }
+  }
+  const point = (picture: string | undefined) => ({
+    url: page.url,
+    snapshotHash: hashAgentObservation(page, look, picture),
+    decision: look
+  })
+
+  it("counts a changed picture as progress for a look, and an unchanged one as a repeat", () => {
+    /** Text and controls stay put while the chart redraws. */
+    expect(
+      classifyNoProgress({
+        previous: point("frame-a"),
+        current: point("frame-b"),
+        previousCount: 3
+      })
+    ).toEqual({ noProgress: false, count: 0 })
+    expect(
+      classifyNoProgress({
+        previous: point("frame-a"),
+        current: point("frame-a"),
+        previousCount: 3
+      })
+    ).toEqual({ noProgress: true, count: 4 })
+  })
+
+  it("ignores the picture for any other command", () => {
+    const click: AgentDecision = {
+      type: "command",
+      command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 }
+    }
+    expect(hashAgentObservation(page, click, "frame-a")).toBe(
+      hashAgentObservation(page, click, "frame-b")
+    )
+  })
+})

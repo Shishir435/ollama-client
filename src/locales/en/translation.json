@@ -205,6 +205,8 @@
       "loading": "Loading the run…",
       "missing": "This run's record is no longer available.",
       "outcome": "{{met}} of {{total}} done",
+      "outcome_visual_one": "{{count}} seen only in a screenshot, not confirmed from page text",
+      "outcome_visual_other": "{{count}} seen only in a screenshot, not confirmed from page text",
       "continue": "Continue",
       "retry": "Retry",
       "start_over": "Start over",

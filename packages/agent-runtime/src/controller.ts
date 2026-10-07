@@ -13,6 +13,7 @@ import {
   type AgentPauseReason,
   type AgentRunState,
   type AgentRunStatus,
+  type AgentScreenshot,
   type AgentStepTelemetry,
   type AgentTaskPlan,
   MAX_AGENT_ALLOWED_ORIGINS,
@@ -1781,7 +1782,9 @@ export const createAgentController = (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
     steps: readonly AgentStepReadout[] | undefined,
-    observation: AgentObservation
+    observation: AgentObservation,
+    /** Held for this decision only; its records keep none of the image. */
+    screenshot?: AgentScreenshot
   ) =>
     boundAgentEvidence([
       ...buildAgentEvidenceLedger(
@@ -1804,7 +1807,8 @@ export const createAgentController = (
         observation,
         decision,
         steps,
-        `${state.id}:answer:${state.observationCount}`
+        `${state.id}:answer:${state.observationCount}`,
+        screenshot
       )
     ])
 
@@ -2090,7 +2094,8 @@ export const createAgentController = (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
     observation: AgentObservation,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    screenshot?: AgentScreenshot
   ): Promise<AgentRunState | undefined> => {
     /**
      * Receipts that cannot be read leave the judge with an unknown rather
@@ -2113,7 +2118,13 @@ export const createAgentController = (
         observation,
         evidence: decision.evidence,
         baselineText: baseline,
-        evidenceLedger: completionLedger(state, decision, steps, observation),
+        evidenceLedger: completionLedger(
+          state,
+          decision,
+          steps,
+          observation,
+          screenshot
+        ),
         constraints: state.constraints,
         tabOpenedBy: [...openedTabsByStep.entries()]
           .filter(
@@ -2152,7 +2163,8 @@ export const createAgentController = (
         state,
         decision,
         steps,
-        observation
+        observation,
+        screenshot
       )
       /**
        * A completion the reviewer settled leaves a receipt of its own, so
@@ -2300,7 +2312,13 @@ export const createAgentController = (
   ): Promise<AgentRunState | undefined> => {
     if (decision.type !== "command") refusedCommandCounts.delete(state.id)
     if (decision.type === "complete") {
-      return processCompletion(state, decision, observation, signal)
+      return processCompletion(
+        state,
+        decision,
+        observation,
+        signal,
+        context.screenshot
+      )
     }
     if (decision.type === "fail") {
       /** The model answered; it just cannot do this. The endpoint is fine. */
@@ -2357,7 +2375,9 @@ export const createAgentController = (
   const exhaustedNoProgressBudget = async (
     state: AgentRunState,
     observation: AgentObservation,
-    decision: AgentDecision
+    decision: AgentDecision,
+    /** The picture the decision was shown; hashed, never kept. */
+    picture?: string
   ): Promise<boolean> => {
     const changeSignature = agentTextChangeSignature(
       progressText.get(state.id),
@@ -2366,7 +2386,7 @@ export const createAgentController = (
     progressText.set(state.id, observation.visibleText)
     const progress: AgentProgressPoint = {
       url: observation.url,
-      snapshotHash: hashAgentObservation(observation, decision),
+      snapshotHash: hashAgentObservation(observation, decision, picture),
       decision,
       ...(changeSignature ? { changeSignature } : {})
     }
@@ -2627,7 +2647,12 @@ export const createAgentController = (
     }
     if (
       decision.type !== "complete" &&
-      (await exhaustedNoProgressBudget(deciding, observation, decision))
+      (await exhaustedNoProgressBudget(
+        deciding,
+        observation,
+        decision,
+        context.screenshot?.data
+      ))
     ) {
       return undefined
     }

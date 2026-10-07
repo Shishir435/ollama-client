@@ -55,6 +55,14 @@ const AgentRunRecord = ({ run }: { run: AgentRunCard }) => {
             met: run.outcome.met,
             total: run.outcome.total
           })}
+          {run.outcome.visual !== undefined && (
+            <>
+              {" · "}
+              {t("agent.card.outcome_visual", {
+                count: run.outcome.visual
+              })}
+            </>
+          )}
         </>
       )}
     </>

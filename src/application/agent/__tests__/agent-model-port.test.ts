@@ -948,6 +948,51 @@ describe("vision decisions", () => {
     )
   })
 
+  it("offers exactly the visual commands the parser accepts, for every offer", async () => {
+    const { agentDecisionTool } = await import("../agent-model-port")
+    const { parseAgentDecisionToolCalls } = await import(
+      "../agent-decision-parser"
+    )
+    const args = {
+      look: { type: "look" },
+      click_point: { type: "click_point", x: 1, y: 2 },
+      zoom: { type: "zoom", x: 0, y: 0, width: 10, height: 10 }
+    }
+    const accepts = (
+      type: keyof typeof args,
+      offer: { look: boolean; pointer: boolean }
+    ) => {
+      try {
+        parseAgentDecisionToolCalls(
+          [{ id: "c1", name: "agent_decision", arguments: args[type] }],
+          observation,
+          {
+            screenshot: offer.pointer,
+            ...(offer.look ? { visual: { available: true } } : {})
+          }
+        )
+        return true
+      } catch {
+        return false
+      }
+    }
+    for (const look of [false, true])
+      for (const pointer of [false, true]) {
+        const offer = { look, pointer }
+        const enumerated = (
+          agentDecisionTool(offer).parameters as unknown as {
+            properties: { type: { enum: string[] } }
+          }
+        ).properties.type.enum
+        for (const type of ["look", "click_point", "zoom"] as const)
+          expect([offer, type, enumerated.includes(type)]).toEqual([
+            offer,
+            type,
+            accepts(type, offer)
+          ])
+      }
+  })
+
   it("tells a text-only model the true limit and offers it nothing visual", async () => {
     const requests: ChatRequest[] = []
     const port = modelPort(

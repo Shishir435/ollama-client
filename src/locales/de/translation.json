@@ -205,6 +205,8 @@
       "loading": "Lauf wird geladen…",
       "missing": "Der Eintrag dieses Laufs ist nicht mehr verfügbar.",
       "outcome": "{{met}} von {{total}} erledigt",
+      "outcome_visual_one": "{{count}} nur im Screenshot gesehen, nicht im Seitentext bestätigt",
+      "outcome_visual_other": "{{count}} nur im Screenshot gesehen, nicht im Seitentext bestätigt",
       "continue": "Fortsetzen",
       "retry": "Erneut versuchen",
       "start_over": "Neu beginnen",

@@ -1053,6 +1053,22 @@ for every other id. Rules, all load-bearing:
   (`capture_failed`) until a new document or a later capture lands, so a page
   that cannot be masked does not eat the budget being asked again; the
   policy's own captures still try. `look` resolves and verifies as a pure read.
+- **A picture can answer a read, and says it did.** A value drawn into a
+  canvas is in no page text, so no quotation can ground it. When a
+  `complete` arrives with a screenshot bound to its own observation, a met
+  *read* outcome whose evidence nothing textual grounds is recorded as a
+  `visual_observation`: the picture's snapshot identity and origin plus the
+  model's own reading, never the image. The judge accepts that read only
+  against a current record, quoted exactly, and lists it in
+  `outcome.visual`; the card says "seen only in a screenshot" and the chat
+  handoff carries `seen_in_screenshot_only`. It never settles a change, the
+  reviewer does not count it as support, and text grounding wins whenever
+  both exist.
+- **A changing picture is progress for a visual read.** The no-progress
+  hash ignores pictures, so `look` after `look` on a live chart looked like a
+  repeat. For `look` and `zoom` only, a hash of the picture the decision was
+  shown is folded in, in memory; any other command ignores it, or a
+  repainting video would pass a loop off as progress.
 - **The run's page outline is hidden from every capture.** The viewport
   outline and the pressed-control highlight (`agent-page-indicator.ts`) are
   the debugger's `Overlay` domain, not page DOM, so observation, hit tests and

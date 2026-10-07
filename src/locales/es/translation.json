@@ -205,6 +205,8 @@
       "loading": "Cargando la ejecución…",
       "missing": "El registro de esta ejecución ya no está disponible.",
       "outcome": "{{met}} de {{total}} hechas",
+      "outcome_visual_one": "{{count}} visto solo en una captura, sin confirmar en el texto",
+      "outcome_visual_other": "{{count}} vistos solo en una captura, sin confirmar en el texto",
       "continue": "Continuar",
       "retry": "Reintentar",
       "start_over": "Empezar de nuevo",
