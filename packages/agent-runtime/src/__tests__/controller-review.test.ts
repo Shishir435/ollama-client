@@ -229,7 +229,8 @@ describe("controller completion review", () => {
       status: "paused",
       pauseReason: "question"
     })
-    expect(completionRefusals(run.written())).toHaveLength(2)
+    /** Two refusals, a recovery read, then the third refusal asks. */
+    expect(completionRefusals(run.written())).toHaveLength(3)
   })
 
   it("settles a supported claim and records what the review cost", async () => {

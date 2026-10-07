@@ -65,35 +65,47 @@ export const agentCompletionReviewRequest = (
   scope: AgentCompletionReviewScope,
   outcomes: readonly AgentCompletionOutcomeClaim[] | undefined,
   evidenceLedger: readonly AgentEvidenceRecord[],
-  /** The page before the run's first change, when this worker still holds it. */
-  baselineText?: string
+  /**
+   * Per requirement, the page before its own verified change and, once the
+   * run changed something else, the page just before that.
+   */
+  actionWindows?: ReadonlyMap<string, { before: string; after?: string }>
 ): AgentCompletionReviewRequest => {
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
   )
   const grounded = evidenceLedger.filter(groundedRecord)
   /**
-   * What the run's change produced, measured against the same baseline the
-   * judge's staleness rule reads. A reviewer asked whether "Continue is
-   * clicked" was met, shown only "Status: Active", rightly answered that the
-   * quote did not show a click — every such run was refused twice and asked
-   * the user about work it had finished. A status line that was not there
-   * before the click is the click's own evidence.
+   * Text that first appeared after the verified action bound to the same
+   * requirement, and before the run changed anything else. A reviewer asked
+   * whether "Continue is clicked" was met, shown only "Status: Active",
+   * rightly answered that the quote did not show a click — every such run was
+   * refused twice and asked the user about work it had finished. A status
+   * line that appeared right after that click is the click's evidence. A
+   * line some other step produced, or one already there, is not, so the
+   * window is the requirement's own and not the run's first change.
    */
-  const newSinceChange =
-    baselineText === undefined
+  const appearedAfterAction =
+    actionWindows === undefined
       ? undefined
       : grounded
-          .filter(
-            (record) =>
+          .filter((record) => {
+            const window = record.requirementId
+              ? actionWindows.get(record.requirementId)
+              : undefined
+            return (
+              window !== undefined &&
               record.kind === "observed_fact" &&
               record.validity === "current" &&
               record.quote !== undefined &&
-              !agentHaystackStates(record.quote, baselineText)
-          )
+              !agentHaystackStates(record.quote, window.before) &&
+              (window.after === undefined ||
+                agentHaystackStates(record.quote, window.after))
+            )
+          })
           .map((record) => record.id)
   return {
-    ...(newSinceChange ? { newSinceChange } : {}),
+    ...(appearedAfterAction ? { appearedAfterAction } : {}),
     goal: state.goal,
     requirements,
     constraints: (state.constraints ?? []).filter((constraint) =>

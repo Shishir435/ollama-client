@@ -391,6 +391,20 @@ export const createAgentController = (
    * evidence is new.
    */
   let changeBaseline: { runId: string; text: string } | undefined
+  /**
+   * What each requirement's own verified page change was surrounded by: the
+   * page before it, and the page before the run's next applied change, once
+   * there is one. Text inside that window appeared after this requirement's
+   * action and before anything else the run did — the only text the reviewer
+   * is told an action produced. Memory only and one run at a time, like the
+   * baseline; a restart loses it and the reviewer is told nothing.
+   */
+  let actionWindows:
+    | {
+        runId: string
+        byRequirement: Map<string, { before: string; after?: string }>
+      }
+    | undefined
   const noProgressCounts = new Map<string, number>()
   const refusedCommandCounts = new Map<string, number>()
   const refusedCompletions = new Map<
@@ -1444,6 +1458,29 @@ export const createAgentController = (
   }
 
   /**
+   * Closes every open window at this applied change, then opens one for its
+   * own requirement when the change verified. A step that only reacted, or
+   * one bound to no requirement, still closes the windows before it.
+   */
+  const recordActionWindow = (
+    runId: string,
+    effect: ResolvedAgentEffect,
+    status: AgentStepWrite["status"],
+    before: AgentObservation,
+    requirementId: string | undefined
+  ): void => {
+    if (!agentEffectChangesPage(effect) || !isAppliedAgentStepStatus(status))
+      return
+    if (actionWindows?.runId !== runId)
+      actionWindows = { runId, byRequirement: new Map() }
+    const text = agentObservationHaystack(before)
+    for (const window of actionWindows.byRequirement.values())
+      if (window.after === undefined) window.after = text
+    if (status === "verified" && requirementId)
+      actionWindows.byRequirement.set(requirementId, { before: text })
+  }
+
+  /**
    * The verifier's answer, asked twice when the first could not say.
    *
    * An effect nobody could confirm or rule out is asked about once more
@@ -1484,13 +1521,30 @@ export const createAgentController = (
     const action = classifyVerificationOutcome(first, risk)
     if (action.type !== "pause" || action.reason !== "unresolved_effect")
       return { verification: first, action, recoveryPatch: {} }
-    const plan = planAgentRecovery(verifying.recovery, {
-      trigger: "unresolved_effect",
-      now: dependencies.clock.now(),
-      visionAvailable: false
-    })
+    /**
+     * Per effect, not per episode: an episode opened by a stale snapshot has
+     * already tried `fresh_observation`, and must not cost this effect its
+     * second look. Only the run-wide budget bounds it.
+     */
+    const plan = planAgentRecovery(
+      verifying.recovery && { attempts: verifying.recovery.attempts },
+      {
+        trigger: "unresolved_effect",
+        now: dependencies.clock.now(),
+        visionAvailable: false
+      }
+    )
     if (plan.type !== "recover")
       return { verification: first, action, recoveryPatch: {} }
+    const recoveryPatch = { recovery: plan.recovery }
+    /** Spent durably before the verifier is asked again, never after. */
+    const charged = await claim(
+      verifying,
+      "verifying",
+      { ...recoveryPatch, updatedAt: dependencies.clock.now() },
+      ["verifying"]
+    )
+    if (!charged) return { verification: first, action, recoveryPatch: {} }
     dependencies.trace?.(verifying.id, "recovery_started", {
       trigger: "unresolved_effect",
       strategy: plan.strategy,
@@ -1501,7 +1555,7 @@ export const createAgentController = (
     return {
       verification: second,
       action: classifyVerificationOutcome(second, risk),
-      recoveryPatch: { recovery: plan.recovery }
+      recoveryPatch
     }
   }
 
@@ -1606,6 +1660,13 @@ export const createAgentController = (
           text: agentObservationHaystack(observation)
         }
       }
+      recordActionWindow(
+        state.id,
+        effect,
+        action.stepStatus,
+        observation,
+        requirementId
+      )
       await appendStep({
         runId: state.id,
         stepId,
@@ -2200,7 +2261,9 @@ export const createAgentController = (
       judgement.review,
       decision.outcomes,
       completionLedger(state, decision, steps, observation),
-      changeBaseline?.runId === state.id ? changeBaseline.text : undefined
+      actionWindows?.runId === state.id
+        ? actionWindows.byRequirement
+        : undefined
     )
     const startedAt = dependencies.clock.now()
     let answer: unknown
@@ -2238,6 +2301,29 @@ export const createAgentController = (
   /** Fixed template: a reviewer's acceptance carries none of its own words. */
   const REVIEW_SUPPORTED_SUMMARY =
     "Independent review found grounded support for every outcome it was asked to check."
+
+  /**
+   * The refusal limit is where a completion stalls, so recovery starts here:
+   * the no-progress count cannot reach its own limit first, since two
+   * identical refusals ask before three repeats. The user is asked only once
+   * the strategy is spent.
+   */
+  const recoverRefusedCompletion = async (
+    state: AgentRunState,
+    feedback: string,
+    signal: AgentCancellationController["signal"]
+  ): Promise<AgentRunState | undefined> => {
+    const recovery = await recover(state, "refused_completion", signal)
+    if (recovery.type === "recovering") {
+      refusedCompletions.delete(state.id)
+      return recovery.state
+    }
+    if (recovery.type === "exhausted")
+      await pause(state, "question", {
+        question: completionQuestion(state, feedback, recovery)
+      })
+    return undefined
+  }
 
   const processCompletion = async (
     state: AgentRunState,
@@ -2358,7 +2444,8 @@ export const createAgentController = (
       decision,
       signal,
       undefined,
-      "refused_completion"
+      "refused_completion",
+      judgement.feedback
     )
     if (stalled.type === "recovering") return stalled.state
     if (stalled.type === "stopped") return undefined
@@ -2395,21 +2482,8 @@ export const createAgentController = (
      * unchanged: nothing the run can see on its own is going to settle it, so
      * the person who set the goal is asked.
      */
-    if (refusals >= MAX_CONSECUTIVE_REFUSED_COMPLETIONS) {
-      await pause(state, "question", {
-        question: {
-          id: `${state.id}:q${state.observationCount}`,
-          text: `${judgement.feedback} I have reported this task finished twice and cannot support the claim. Is it done, and if not, what should I do next?`,
-          display: [
-            {
-              key: "agent.question_text.completion_refused"
-            }
-          ],
-          askedAt: dependencies.clock.now()
-        }
-      })
-      return undefined
-    }
+    if (refusals >= MAX_CONSECUTIVE_REFUSED_COMPLETIONS)
+      return recoverRefusedCompletion(state, judgement.feedback, signal)
     return claimObserving(state, false, ["deciding"])
   }
 
@@ -2651,6 +2725,21 @@ export const createAgentController = (
             : ""
         }. `
 
+  /** The question a refused claim ends in, after whatever recovery it spent. */
+  const completionQuestion = (
+    state: AgentRunState,
+    feedback: string,
+    recovery: { attempts: number; tried: readonly AgentRecoveryStrategy[] }
+  ) => ({
+    id: `${state.id}:q${state.observationCount}`,
+    text: `${feedback} I have reported this task finished twice and cannot support the claim. ${recoveryTriedText(recovery)}Is it done, and if not, what should I do next?`,
+    display: [
+      ...recoveryTriedDisplay(recovery),
+      { key: "agent.question_text.completion_refused" }
+    ],
+    askedAt: dependencies.clock.now()
+  })
+
   const recoveryTriedDisplay = (recovery: { attempts: number }) =>
     recovery.attempts === 0
       ? []
@@ -2697,7 +2786,9 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     /** The picture the decision was shown; hashed, never kept. */
     picture?: string,
-    trigger: AgentRecoveryTrigger = "no_progress"
+    trigger: AgentRecoveryTrigger = "no_progress",
+    /** Why the completion was refused, when the stall is a refused claim. */
+    completionFeedback?: string
   ): Promise<
     | { type: "progressing" }
     | { type: "recovering"; state: AgentRunState }
@@ -2740,15 +2831,18 @@ export const createAgentController = (
     const recovery = await recover(state, trigger, signal)
     if (recovery.type !== "exhausted") return recovery
     await pause(state, "question", {
-      question: {
-        id: `${state.id}:q${state.observationCount}`,
-        text: `${recoveryTriedText(recovery)}I am repeating actions without progress. What should I do differently? You can also stop and finish this task yourself.`,
-        display: [
-          ...recoveryTriedDisplay(recovery),
-          { key: "agent.question_text.no_progress" }
-        ],
-        askedAt: dependencies.clock.now()
-      }
+      question:
+        completionFeedback === undefined
+          ? {
+              id: `${state.id}:q${state.observationCount}`,
+              text: `${recoveryTriedText(recovery)}I am repeating actions without progress. What should I do differently? You can also stop and finish this task yourself.`,
+              display: [
+                ...recoveryTriedDisplay(recovery),
+                { key: "agent.question_text.no_progress" }
+              ],
+              askedAt: dependencies.clock.now()
+            }
+          : completionQuestion(state, completionFeedback, recovery)
     })
     return { type: "stopped" }
   }

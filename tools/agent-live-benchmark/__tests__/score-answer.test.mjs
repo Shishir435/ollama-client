@@ -347,6 +347,7 @@ describe("synthetic scorer", () => {
         url
       }).success
     assert.equal(wrongpath("http://127.0.0.1:1/wrongpath/old"), false)
+    assert.equal(wrongpath("http://127.0.0.1:1/old/details"), false)
     assert.equal(wrongpath("http://127.0.0.1:1/wrongpath/details"), true)
   })
 

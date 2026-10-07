@@ -152,24 +152,28 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("citable: true")
   })
 
-  it("tells the reviewer which page text the run's change produced", () => {
-    const prompt = agentReviewPrompt({ ...request, newSinceChange: ["fact-1"] })
+  it("tells the reviewer which page text appeared after the outcome's action", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      appearedAfterAction: ["fact-1"]
+    })
     const data = JSON.parse(
       prompt.slice(
         prompt.indexOf("<data>\n") + 7,
         prompt.lastIndexOf("\n</data>")
       )
     )
-    expect(data.evidence[0].newSinceChange).toBe(true)
+    expect(data.evidence[0].appearedAfterAction).toBe(true)
     expect(
       JSON.parse(
         agentReviewPrompt(request).slice(
           agentReviewPrompt(request).indexOf("<data>\n") + 7,
           agentReviewPrompt(request).lastIndexOf("\n</data>")
         )
-      ).evidence[0].newSinceChange
+      ).evidence[0].appearedAfterAction
     ).toBeUndefined()
-    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("newSinceChange: true")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("appearedAfterAction: true")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
   })
 
   it("keeps a hostile quotation inside the data block", () => {

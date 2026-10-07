@@ -1385,10 +1385,14 @@ describe("agent controller", () => {
       pauseReason: "question"
     })
     expect(harness.getState().question?.text).toContain("cannot support")
-    /** Two refusals, not a budget's worth. */
+    /**
+     * Two refusals, one targeted read under recovery, one more claim — not a
+     * budget's worth.
+     */
     expect(
       harness.writtenSteps.filter((step) => step.status === "rejected")
-    ).toHaveLength(2)
+    ).toHaveLength(3)
+    expect(harness.getState().recovery?.attempts).toBe(1)
     expect(harness.getState().error).toBeUndefined()
   })
 
@@ -4469,6 +4473,38 @@ describe("bounded recovery", () => {
       expect(refused?.verification?.evidence.summary).toContain(feedback)
     })
 
+    it("leaves a different control posting to the same form to policy", async () => {
+      const harness = createHarness({
+        state: recovering,
+        seedSteps: [
+          {
+            ...priorSave("verified"),
+            formAction: "https://example.com/checkout"
+          }
+        ],
+        effectOverrides: {
+          semanticEffects: ["submission"],
+          target: {
+            ref: "e6",
+            tag: "button",
+            role: "button",
+            accessibleName: "Place order",
+            formAction: "https://example.com/checkout",
+            sensitive: false,
+            maySubmit: true
+          }
+        },
+        decisions: [
+          { type: "command", command: click("e6", 1) },
+          { type: "ask_user", question: "Done?" }
+        ]
+      })
+
+      await harness.controller.resume("run-1")
+
+      expect(harness.calls).toContain("policy")
+    })
+
     it("may be tried again while recovering when it is known not to have applied", async () => {
       const harness = createHarness({
         state: recovering,
@@ -4590,6 +4626,105 @@ describe("bounded recovery", () => {
       expect(input.state.constraints).toEqual(constraints)
     }
     expect(harness.getState().requirements).toEqual(requirements)
+  })
+
+  it("starts recovery at the completion refusal limit, and asks only after it", async () => {
+    const { events, trace } = traced()
+    const harness = createHarness({
+      trace,
+      observe: freshPages(),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      effectOverrides: activation,
+      verification: [confirmed],
+      decide: async (input) =>
+        input.state.stepCount === 0
+          ? {
+              type: "command",
+              command: click("e1", input.observation.generation)
+            }
+          : { type: "complete", summary: "Done" }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        name: "recovery_started",
+        data: expect.objectContaining({ trigger: "refused_completion" })
+      })
+    )
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+    expect(harness.getState().question?.display).toEqual([
+      {
+        key: "agent.question_text.recovery_tried",
+        values: { count: 1 }
+      },
+      { key: "agent.question_text.completion_refused" }
+    ])
+  })
+
+  it("keeps the spent second look when the verifier fails on it", async () => {
+    let calls = 0
+    const harness = createHarness({
+      onVerify: async () => {
+        calls += 1
+        if (calls === 2) throw new Error("verifier lost")
+      },
+      verification: [
+        {
+          outcome: "ambiguous",
+          evidence: { kind: "dom", summary: "Unknown", observedAt: 2 }
+        }
+      ]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "unresolved_effect",
+      recovery: { attempts: 1 }
+    })
+    /** Charged in a verifying write before the verifier was asked again. */
+    const charge = harness.calls.indexOf(
+      "claim:verifying",
+      harness.calls.indexOf("verify")
+    )
+    expect(charge).toBeGreaterThan(-1)
+    expect(harness.calls.lastIndexOf("verify")).toBeGreaterThan(charge)
+  })
+
+  it("gives an ambiguous effect its second look inside an open episode", async () => {
+    const harness = createHarness({
+      state: runState({
+        status: "observing",
+        recovery: {
+          attempts: 1,
+          active: {
+            trigger: "stale_snapshot",
+            strategy: "fresh_observation",
+            tried: ["fresh_observation"],
+            startedAt: 1
+          }
+        }
+      }),
+      verification: [
+        {
+          outcome: "ambiguous",
+          evidence: { kind: "dom", summary: "Unknown", observedAt: 2 }
+        },
+        confirmed
+      ]
+    })
+
+    await harness.controller.resume("run-1")
+
+    expect(harness.calls.filter((call) => call === "verify")).toHaveLength(2)
+    expect(harness.getState().pauseReason).not.toBe("unresolved_effect")
+    expect(harness.getState().recovery?.attempts).toBe(2)
   })
 
   it("closes the episode when the user corrects the run, keeping the spent count", async () => {

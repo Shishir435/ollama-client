@@ -380,17 +380,33 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   judged a click-only change "supported" cited the activation effect, and the
   runtime refused it. That was the main source of questions on finished
   `stale` and `overlay` runs.
-- **The reviewer is told what the run's change produced.** A plan for "click
-  Continue and report the status" carries "Continue is clicked" as a change
-  outcome. No page text says "clicked", and a reviewer shown only "Status:
-  Active" rightly calls that insufficient. The review request now lists
-  `newSinceChange`: current page quotes absent from the baseline the
-  staleness rule already reads (the page before the run's first change). The
-  reviewer may treat newly appeared text as evidence that an action-outcome
-  happened, and still judges what the text says for any other outcome. A
-  worker with no baseline (after a restart) sends nothing and claims nothing.
-  The decision prompt tells the model that such an outcome's evidence is the
-  text the action produced, never the control's own label.
+- **The reviewer is told what each outcome's own action produced.** A plan
+  for "click Continue and report the status" carries "Continue is clicked" as
+  a change outcome. No page text says "clicked", and a reviewer shown only
+  "Status: Active" rightly calls that insufficient. The controller keeps, per
+  requirement, the page before that requirement's verified page-changing step
+  and the page before the run's next applied change. The review request lists
+  `appearedAfterAction`: current quotes for that requirement that are absent
+  from the first and, once the window closed, present in the second. Text
+  another step produced, or text that was already there, is never marked.
+  It is newly observed text, not proof. The runtime still requires a citable
+  record, and the reviewer still judges what the text says. A worker with no
+  windows (after a restart) sends nothing and claims nothing. Residual: an
+  unrelated page update landing inside the window looks the same as the
+  action's own result. The decision prompt tells the model that such an
+  outcome's evidence is the text the action produced, never the control's own
+  label.
+- **Refused completions recover at the refusal limit.** Two identical
+  refusals start `refused_completion` recovery (one targeted read). Only a
+  third pair asks the user, prefixed with what was tried.
+- **A second look at an ambiguous effect is per effect.** It is planned
+  against the run-wide budget alone, not the open episode's tried list. It
+  is charged in a `verifying` to `verifying` write before the verifier is
+  asked again, the one status-preserving edge in the state machine, so a
+  lost worker cannot refund it.
+- **Only the same control is a repeat while recovering.** A shared form
+  address goes to policy, which asks. A checkout's next step posts to the
+  same place as the one before it.
 - **Exhaustion is specific.** No progress and refused commands ask a question
   prefixed by `agent.question_text.recovery_tried` with the spent count. A
   page that stays stale through `fresh_observation` and `wait_for_condition`

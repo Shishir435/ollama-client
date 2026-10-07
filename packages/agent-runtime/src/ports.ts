@@ -790,11 +790,13 @@ export interface AgentCompletionReviewRequest {
   claims: readonly AgentCompletionOutcomeClaim[]
   evidenceLedger: readonly AgentEvidenceRecord[]
   /**
-   * Current page quotes, by record id, that were not on the page before the
-   * run's first change, so a change produced them. Absent when this worker
-   * holds no baseline (a restart loses it), which says nothing either way.
+   * Current page quotes, by record id, that first appeared after the verified
+   * action bound to the same requirement and before the run changed anything
+   * else. Absent when this worker holds no windows (a restart loses them),
+   * which says nothing either way. Never support on its own: the runtime
+   * still requires a citable record.
    */
-  newSinceChange?: readonly string[]
+  appearedAfterAction?: readonly string[]
 }
 
 /**

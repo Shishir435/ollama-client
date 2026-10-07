@@ -389,11 +389,20 @@ export const scoreSyntheticTask = ({
         success: completed && effects >= 1 && pageShowsActive && saysActive,
         predicate: "effect+page:Active"
       }
+    case "wrongpath":
+      /** Only the page Reports leads to, not any path ending in details. */
+      return {
+        success:
+          completed &&
+          pathOf(url) === "/wrongpath/details" &&
+          pageShowsActive &&
+          saysActive,
+        predicate: "navigation:/wrongpath/details+page:Active"
+      }
     case "form":
     case "details":
     case "menu":
     case "redirect":
-    case "wrongpath":
       // The form navigates (no /effect fetch on a plain submit); the others
       // navigate to a details page. Navigation, not an effect counter, is
       // the evidence — assert the URL moved and the landed page states it.

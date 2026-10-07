@@ -188,9 +188,11 @@ const SETTLEMENT_WEIGHT: Record<AgentEffectSettlement, number> = {
 /**
  * How this run's own earlier attempts at the same consequential effect
  * settled: the strongest answer among them, or undefined when the run never
- * tried it. Same control or same form, as a follow-up is judged. A routine
- * effect answers undefined, because repeating a click on a tab is not the
- * kind of thing this guards.
+ * tried it. Same control only. A shared form address is evidence, not proof —
+ * a checkout's next step posts to the same place as the one before it — so
+ * it is left to policy to ask about, never refused here. A routine effect
+ * answers undefined, because repeating a click on a tab is not the kind of
+ * thing this guards.
  */
 export const agentOwnEffectSettlement = (
   effect: ResolvedAgentEffect,
@@ -203,7 +205,7 @@ export const agentOwnEffectSettlement = (
     if (!weighty) continue
     const prior = priorEffect(step)
     if (!prior) continue
-    if (!sameControl(prior, candidate) && !sameForm(prior, candidate)) continue
+    if (!sameControl(prior, candidate)) continue
     const settlement = agentEffectSettlement(step.status)
     if (
       strongest === undefined ||

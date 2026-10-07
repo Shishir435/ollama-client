@@ -391,11 +391,13 @@ describe("applying a completion review", () => {
     ).toMatchObject({ reason: "needs_review" })
   })
 
-  it("marks the page text the run's change produced, and only that", () => {
+  it("marks only text that appeared after the outcome's own action", () => {
     const input = semanticInput({
       evidenceLedger: [
         record("before", { requirementId: "r1", quote: "Help menu" }),
         record("after", { requirementId: "r1", quote: "Status: Active" }),
+        record("later", { requirementId: "r1", quote: "Order placed" }),
+        record("other", { requirementId: "r2", quote: "Status: Active" }),
         record("old", {
           requirementId: "r1",
           quote: "Status: Active",
@@ -404,24 +406,38 @@ describe("applying a completion review", () => {
       ]
     })
     const judgement = pending(input)
-    const request = agentCompletionReviewRequest(
-      { goal: "Click Continue", requirements: [saved], constraints: [] },
-      judgement.review,
-      input.outcomes,
-      input.evidenceLedger ?? [],
-      /** The baseline is the observation haystack, already normalized. */
-      "help menu continue"
-    )
-    expect(request.newSinceChange).toEqual(["after"])
-    /** No baseline in this worker: nothing is claimed either way. */
-    expect(
+    const build = (
+      windows?: ReadonlyMap<string, { before: string; after?: string }>
+    ) =>
       agentCompletionReviewRequest(
         { goal: "Click Continue", requirements: [saved], constraints: [] },
         judgement.review,
         input.outcomes,
-        input.evidenceLedger ?? []
-      ).newSinceChange
-    ).toBeUndefined()
+        input.evidenceLedger ?? [],
+        windows
+      ).appearedAfterAction
+    /** The window closed at the next change: later text is not this action's. */
+    expect(
+      build(
+        new Map([
+          [
+            "r1",
+            {
+              before: "help menu continue",
+              after: "help menu status: active"
+            }
+          ]
+        ])
+      )
+    ).toEqual(["after"])
+    /** Still open: everything new since the action is inside it. */
+    expect(build(new Map([["r1", { before: "help menu continue" }]]))).toEqual([
+      "after",
+      "later"
+    ])
+    /** No window for a requirement, or none in this worker: nothing claimed. */
+    expect(build(new Map())).toEqual([])
+    expect(build()).toBeUndefined()
   })
 
   it("tells the reviewer exactly what it will accept", () => {
