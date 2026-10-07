@@ -4727,6 +4727,52 @@ describe("bounded recovery", () => {
     expect(harness.getState().recovery?.attempts).toBe(2)
   })
 
+  it("keeps the open episode's tried strategies when a second look is negative", async () => {
+    const inputs: AgentModelInput[] = []
+    const harness = createHarness({
+      state: runState({
+        status: "observing",
+        recovery: {
+          attempts: 2,
+          active: {
+            trigger: "no_progress",
+            strategy: "wait_for_condition",
+            tried: ["targeted_read", "wait_for_condition"],
+            startedAt: 1
+          }
+        }
+      }),
+      verification: [
+        {
+          outcome: "ambiguous",
+          evidence: { kind: "dom", summary: "Unknown", observedAt: 2 }
+        },
+        {
+          outcome: "negative",
+          evidence: { kind: "dom", summary: "No change", observedAt: 3 }
+        }
+      ],
+      decide: async (input) => {
+        inputs.push(input)
+        return inputs.length === 1
+          ? { type: "command", command: command() }
+          : { type: "ask_user", question: "Stop?" }
+      }
+    })
+
+    await harness.controller.resume("run-1")
+
+    expect(inputs[1]?.state.recovery).toEqual({
+      attempts: 3,
+      active: {
+        trigger: "no_progress",
+        strategy: "wait_for_condition",
+        tried: ["targeted_read", "wait_for_condition"],
+        startedAt: 1
+      }
+    })
+  })
+
   it("closes the episode when the user corrects the run, keeping the spent count", async () => {
     const harness = createHarness({
       state: runState({

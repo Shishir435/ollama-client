@@ -402,7 +402,8 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
 - **A second look at an ambiguous effect is per effect.** It is planned
   against the run-wide budget alone, not the open episode's tried list. It
   is charged in a `verifying` to `verifying` write before the verifier is
-  asked again, the one status-preserving edge in the state machine, so a
+  asked again, and an open episode is kept as it was so its tried strategies
+  stay tried. That write is the one status-preserving edge in the state machine, so a
   lost worker cannot refund it.
 - **Only the same control is a repeat while recovering.** A shared form
   address goes to policy, which asks. A checkout's next step posts to the

@@ -1536,7 +1536,19 @@ export const createAgentController = (
     )
     if (plan.type !== "recover")
       return { verification: first, action, recoveryPatch: {} }
-    const recoveryPatch = { recovery: plan.recovery }
+    /**
+     * Charged to the run, not opened as a new episode over an open one: the
+     * strategies an episode already tried stay tried until a page change
+     * verifies or the user answers.
+     */
+    const recoveryPatch = {
+      recovery: verifying.recovery?.active
+        ? {
+            attempts: plan.recovery.attempts,
+            active: verifying.recovery.active
+          }
+        : plan.recovery
+    }
     /** Spent durably before the verifier is asked again, never after. */
     const charged = await claim(
       verifying,

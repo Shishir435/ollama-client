@@ -79,7 +79,12 @@ runAgentScenario({
   ],
   verify: async ({ snapshot, phases, reviews }) => {
     expect(snapshot?.run?.status).toBe("paused")
-    expect(reviews()).toBe(2)
+    /**
+     * Two refusals, a recovery read, then a third claim: the review ceiling
+     * of three, never past it.
+     */
+    expect(reviews()).toBe(3)
+    expect(snapshot?.run?.recovery?.attempts).toBe(1)
     expect(phases).toContainEqual(
       expect.objectContaining({
         phase: "completion_reviewed",
