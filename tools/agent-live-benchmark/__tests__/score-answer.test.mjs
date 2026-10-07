@@ -441,12 +441,15 @@ describe("scoreSyntheticTask answer tasks", () => {
       completed: true,
       delegated: true,
       effects: 1,
+      body: "Pen Eraser Undo Redo Clear Render Rendered.",
       answer: "The canvas shows KV-305."
     }
     const score = (extra) => scoreSyntheticTask({ ...base, ...extra }).success
     assert.equal(score({}), true)
     /** Render was never pressed, so nothing was drawn to read. */
     assert.equal(score({ effects: 0 }), false)
+    /** The click landed but the drawing did not finish. */
+    assert.equal(score({ body: "Pen Eraser Undo Redo Clear Render" }), false)
     assert.equal(score({ answer: "I could not see the canvas." }), false)
     /** A code reachable from text means the fixture leaked, not a pass. */
     assert.equal(score({ observedText: "KV-305" }), false)

@@ -415,10 +415,12 @@ export const scoreSyntheticTask = ({
           completed &&
           delegated &&
           effects >= 1 &&
+          /** Render ran to the end: a canvas that failed to draw shows nothing. */
+          statesValue(body, "Rendered") &&
           answered("KV-305") &&
           !statesValue(readText, "KV-305") &&
           !statesValue(observedText, "KV-305"),
-        predicate: "effect+answer-from-picture:KV-305"
+        predicate: "effect+page:Rendered+answer-from-picture:KV-305"
       }
     case "scroll":
     case "modal":
