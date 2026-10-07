@@ -379,6 +379,7 @@ export const scoreSyntheticTask = ({
     case "click":
     case "stale":
     case "delayed":
+    case "overlay":
       return {
         success: completed && effects >= 1 && pageShowsActive && saysActive,
         predicate: "effect+page:Active"
@@ -392,6 +393,7 @@ export const scoreSyntheticTask = ({
     case "details":
     case "menu":
     case "redirect":
+    case "wrongpath":
       // The form navigates (no /effect fetch on a plain submit); the others
       // navigate to a details page. Navigation, not an effect counter, is
       // the evidence — assert the URL moved and the landed page states it.

@@ -6,7 +6,9 @@ import type { AgentStepReadout, ResolvedAgentEffect } from "../ports"
 import {
   agentCommittedEffects,
   agentEffectIsConsequential,
+  agentEffectSettlement,
   agentInheritedEffects,
+  agentOwnEffectSettlement,
   agentRepeatsPriorEffect,
   agentRepeatsPriorForm
 } from "../prior-effects"
@@ -336,5 +338,52 @@ describe("a repeat", () => {
 
     expect(agentEffectIsConsequential(routine)).toBe(false)
     expect(agentRepeatsPriorEffect(routine, prior)).toBe(false)
+  })
+})
+
+describe("how the run's own earlier attempt settled", () => {
+  const attempt = (status: AgentStepReadout["status"], stepId = "run:1") =>
+    receipt({
+      runId: "run",
+      stepId,
+      status,
+      command: click,
+      target: submitTarget,
+      consequential: ["submission"]
+    })
+
+  it.each([
+    ["verified", "confirmed"],
+    ["uncertain", "unknown"],
+    ["executed", "unknown"],
+    ["approved", "unknown"],
+    ["executing", "unknown"],
+    ["failed", "not_applied"],
+    ["rejected", "not_applied"],
+    ["planned", "not_applied"]
+  ] as const)("reads %s as %s", (status, settlement) => {
+    expect(agentEffectSettlement(status)).toBe(settlement)
+    expect(agentOwnEffectSettlement(effect(), [attempt(status)])).toBe(
+      settlement
+    )
+  })
+
+  it("takes the strongest answer across attempts", () => {
+    expect(
+      agentOwnEffectSettlement(effect(), [
+        attempt("failed", "run:1"),
+        attempt("uncertain", "run:2"),
+        attempt("failed", "run:3")
+      ])
+    ).toBe("unknown")
+  })
+
+  it("has nothing to say about a routine effect or one never tried", () => {
+    expect(
+      agentOwnEffectSettlement(effect({ semanticEffects: ["activation"] }), [
+        attempt("verified")
+      ])
+    ).toBeUndefined()
+    expect(agentOwnEffectSettlement(effect(), [])).toBeUndefined()
   })
 })

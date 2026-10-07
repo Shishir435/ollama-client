@@ -557,6 +557,7 @@ export type AgentStatePatch = Partial<
     | "pauseReason"
     | "plan"
     | "question"
+    | "recovery"
     | "requirements"
     | "result"
     | "scopedTabIds"
@@ -788,6 +789,12 @@ export interface AgentCompletionReviewRequest {
   constraints: readonly AgentTaskConstraint[]
   claims: readonly AgentCompletionOutcomeClaim[]
   evidenceLedger: readonly AgentEvidenceRecord[]
+  /**
+   * Current page quotes, by record id, that were not on the page before the
+   * run's first change, so a change produced them. Absent when this worker
+   * holds no baseline (a restart loses it), which says nothing either way.
+   */
+  newSinceChange?: readonly string[]
 }
 
 /**

@@ -285,7 +285,7 @@ describe("real-site scorer", () => {
 
 describe("synthetic scorer", () => {
   it("fails action tasks whose effect never fired", () => {
-    for (const kind of ["click", "stale", "delayed", "spaform"]) {
+    for (const kind of ["click", "stale", "delayed", "spaform", "overlay"]) {
       assert.equal(
         scoreSyntheticTask({
           kind,
@@ -335,6 +335,19 @@ describe("synthetic scorer", () => {
       }).success,
       false
     )
+  })
+
+  it("counts the wrong route as a miss and the recovered one as a pass", () => {
+    const wrongpath = (url) =>
+      scoreSyntheticTask({
+        kind: "wrongpath",
+        completed: true,
+        answer: "Status: Active",
+        body: "<main>Status: Active</main>",
+        url
+      }).success
+    assert.equal(wrongpath("http://127.0.0.1:1/wrongpath/old"), false)
+    assert.equal(wrongpath("http://127.0.0.1:1/wrongpath/details"), true)
   })
 
   it("checks the new tab for open_tab, never the opener", () => {

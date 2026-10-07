@@ -7,6 +7,7 @@ import type {
 } from "@ollama-client/contracts"
 import {
   MAX_AGENT_ALLOWED_ORIGINS,
+  MAX_AGENT_RECOVERY_ATTEMPTS,
   MAX_AGENT_SCOPED_TABS
 } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
@@ -827,16 +828,11 @@ describe("agent controller", () => {
     expect(rejected?.command).toBeDefined()
   })
 
-  it("asks for help after repeated grounding refusals", async () => {
+  it("asks for help after repeated grounding refusals and recovery", async () => {
     const harness = createHarness({
       /** The model keeps naming the same control the page will not offer. */
       decide: async () => ({ type: "command", command: command() }),
-      observations: [
-        observation(),
-        observation(),
-        observation(),
-        observation()
-      ],
+      observe: async () => observation(),
       effect: async () => {
         throw new AgentGroundingError({
           refusal: { reason: "hidden_target", ref: "e149" }
@@ -849,12 +845,27 @@ describe("agent controller", () => {
       status: "paused",
       pauseReason: "question"
     })
-    expect(harness.getState().question?.text).toContain("is not visible")
-    expect(harness.calls).not.toContain("execute")
-    /** Three chances, not one and not the whole observation budget. */
+    /** Refusals and repeats are one episode; the question says what was tried. */
     expect(
-      harness.writtenSteps.filter((step) => step.status === "rejected")
-    ).toHaveLength(3)
+      harness.writtenSteps.some(
+        (step) =>
+          step.status === "rejected" &&
+          step.verification?.evidence.summary.includes("is not visible")
+      )
+    ).toBe(true)
+    expect(harness.getState().question?.text).toContain("I already tried")
+    expect(harness.getState().question?.display?.[0]).toMatchObject({
+      key: "agent.question_text.recovery_tried"
+    })
+    expect(harness.calls).not.toContain("execute")
+    /**
+     * Strategies before the user, and a bounded number of them: the spent
+     * count is what ends this, not the observation budget.
+     */
+    const attempts = harness.getState().recovery?.attempts ?? 0
+    expect(attempts).toBeGreaterThan(0)
+    expect(attempts).toBeLessThanOrEqual(MAX_AGENT_RECOVERY_ATTEMPTS)
+    expect(harness.getState().observationCount).toBeLessThan(15)
   })
 
   it("resets consecutive refusals after a declined completion", async () => {
@@ -931,8 +942,10 @@ describe("agent controller", () => {
     expect(harness.getState().answers).toBeUndefined()
   })
 
-  it("does not blame the decision when the page went stale under it", async () => {
+  it("does not blame the decision when the page keeps going stale under it", async () => {
     const harness = createHarness({
+      decide: async () => ({ type: "command", command: command() }),
+      observe: async () => observation(),
       effect: async () => {
         throw new AgentStaleObservationError()
       }
@@ -942,6 +955,11 @@ describe("agent controller", () => {
       status: "failed",
       error: { code: "stale_snapshot" }
     })
+    /** Read again, then waited, before the run gave up on the page. */
+    expect(harness.getState().recovery?.active?.tried).toEqual([
+      "fresh_observation",
+      "wait_for_condition"
+    ])
   })
 
   it("reports an unreadable page as unsupported, not as a bad decision", async () => {
@@ -2165,23 +2183,25 @@ describe("agent controller", () => {
     expect(harness.getState().status).toBe("completed")
   })
 
-  it("asks for correction after three repeated semantic decisions without progress", async () => {
+  it("asks for correction once recovery is spent on repeated semantic decisions", async () => {
     const noChange: AgentVerificationResult = {
       outcome: "negative",
       evidence: { kind: "dom", summary: "No change", observedAt: 2 }
     }
+    let generation = 0
     const harness = createHarness({
-      decisions: [1, 2, 3, 4].map((generation) => ({
+      decide: async (input) => ({
         type: "command",
-        command: command(generation)
-      })),
-      observations: [1, 2, 3, 4].map((generation) =>
-        observation({
+        command: command(input.observation.generation)
+      }),
+      observe: async () => {
+        generation += 1
+        return observation({
           snapshotId: `snapshot-${generation}`,
           generation,
           capturedAt: generation
         })
-      ),
+      },
       verification: [noChange, noChange, noChange]
     })
 
@@ -2193,23 +2213,31 @@ describe("agent controller", () => {
         text: expect.stringContaining("What should I do differently")
       })
     })
+    /** Every repeat after the third was set aside for a strategy, not run. */
     expect(harness.calls.filter((call) => call === "execute")).toHaveLength(3)
+    /** A text-only model is never told to look. */
+    expect(harness.getState().recovery?.active?.tried).toEqual([
+      "targeted_read",
+      "wait_for_condition",
+      "alternate_route",
+      "revise_approach"
+    ])
   })
 
-  it("pauses with an unresolved effect after ambiguous verification", async () => {
-    const harness = createHarness({
-      verification: [
-        {
-          outcome: "ambiguous",
-          evidence: { kind: "dom", summary: "Unknown", observedAt: 2 }
-        }
-      ]
-    })
+  it("pauses with an unresolved effect when a second look is still ambiguous", async () => {
+    const ambiguous: AgentVerificationResult = {
+      outcome: "ambiguous",
+      evidence: { kind: "dom", summary: "Unknown", observedAt: 2 }
+    }
+    const harness = createHarness({ verification: [ambiguous, ambiguous] })
     await harness.controller.start("run-1")
     expect(harness.steps).toContain("uncertain")
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+    expect(harness.calls.filter((call) => call === "verify")).toHaveLength(2)
     expect(harness.getState()).toMatchObject({
       status: "paused",
-      pauseReason: "unresolved_effect"
+      pauseReason: "unresolved_effect",
+      recovery: { attempts: 1 }
     })
   })
 
@@ -2346,23 +2374,37 @@ describe("agent controller", () => {
     expect(harness.calls).toContain("observe:2")
   })
 
-  it("invalidates every pre-takeover element reference", async () => {
+  it("invalidates every pre-takeover element reference and recovers by reading again", async () => {
     const policyDecisions = [takeoverPolicy(), allow]
+    const inputs: AgentModelInput[] = []
+    const decisions: unknown[] = [
+      { type: "command", command: command(1) },
+      /** A reference bound before the user took over. */
+      { type: "command", command: command(1) },
+      { type: "complete", summary: "Done after takeover" }
+    ]
     const harness = createHarness({
       policy: () => policyDecisions.shift() ?? allow,
-      decisions: [
-        { type: "command", command: command(1) },
-        { type: "command", command: command(1) }
-      ],
+      decide: async (input) => {
+        inputs.push(input)
+        return decisions.shift() as AgentDecision
+      },
       observations: [
         observation(),
-        observation({ snapshotId: "snapshot-2", generation: 2 })
+        observation({ snapshotId: "snapshot-2", generation: 2 }),
+        observation({ snapshotId: "snapshot-3", generation: 3 })
       ]
     })
     await harness.controller.start("run-1")
     await harness.controller.completeTakeover("run-1")
-    expect(harness.getState().error?.code).toBe("stale_snapshot")
+    /** The stale reference never reached the resolver, let alone the page. */
     expect(harness.calls.filter((call) => call === "resolve")).toHaveLength(1)
+    expect(harness.calls).not.toContain("execute")
+    expect(inputs.at(-1)?.state.recovery?.active).toMatchObject({
+      trigger: "stale_snapshot",
+      strategy: "fresh_observation"
+    })
+    expect(harness.getState().status).toBe("completed")
   })
 
   it("continues only after a fresh post-takeover snapshot", async () => {
@@ -2842,15 +2884,15 @@ describe("the no-progress guard across page-changing steps", () => {
    */
   it("stops a step that keeps making the same change", async () => {
     const harness = createHarness({
-      decisions: clicks(8),
-      observations: Array.from({ length: 8 }, (_, index) =>
+      decisions: clicks(20),
+      observations: Array.from({ length: 20 }, (_, index) =>
         observation({
           snapshotId: `snapshot-${index + 1}`,
           generation: index + 1,
           visibleText: `Board${" Status: Active".repeat(index)}`
         })
       ),
-      verification: Array.from({ length: 8 }, () => confirmed),
+      verification: Array.from({ length: 20 }, () => confirmed),
       policy: () => ({ type: "allow", risk: "medium" }),
       effectOverrides: activation
     })
@@ -2861,19 +2903,21 @@ describe("the no-progress guard across page-changing steps", () => {
       status: "paused",
       pauseReason: "question"
     })
+    /** Recovery set the repeats aside; it did not click again. */
     expect(harness.steps.filter((step) => step === "executed").length).toBe(4)
+    expect(harness.getState().recovery?.attempts).toBeGreaterThan(0)
   })
 
   /** Another run went Details → back → Details → back for twenty-one steps. */
   it("stops a run going back and forth between two pages", async () => {
-    const decisions: AgentDecision[] = Array.from({ length: 10 }, (_, index) =>
+    const decisions: AgentDecision[] = Array.from({ length: 20 }, (_, index) =>
       index % 2 === 0
         ? { type: "command", command: clickAt(index + 1) }
         : { type: "command", command: command(index + 1) }
     )
     const harness = createHarness({
       decisions,
-      observations: Array.from({ length: 10 }, (_, index) =>
+      observations: Array.from({ length: 20 }, (_, index) =>
         observation({
           snapshotId: `snapshot-${index + 1}`,
           generation: index + 1,
@@ -2884,7 +2928,7 @@ describe("the no-progress guard across page-changing steps", () => {
           visibleText: index % 2 === 0 ? "Home Details" : "Status: Active"
         })
       ),
-      verification: Array.from({ length: 10 }, () => confirmed),
+      verification: Array.from({ length: 20 }, () => confirmed),
       policy: () => ({ type: "allow", risk: "medium" }),
       effectOverrides: activation
     })
@@ -4057,5 +4101,521 @@ describe("durable grounded evidence", () => {
     )
     expect(harness.writtenSteps).toEqual([])
     expect(harness.calls).not.toContain("execute")
+  })
+})
+
+describe("bounded recovery", () => {
+  const activation: Partial<ResolvedAgentEffect> = {
+    semanticEffects: ["activation"],
+    target: {
+      ref: "e1",
+      tag: "button",
+      role: "button",
+      accessibleName: "Open",
+      sensitive: false,
+      maySubmit: false
+    }
+  }
+  const click = (ref: string, generation: number): AgentCommand =>
+    ({
+      type: "click",
+      ref,
+      snapshotId: `snapshot-${generation}`,
+      generation
+    }) as AgentCommand
+  const waitFor = (generation: number): AgentCommand =>
+    ({
+      type: "wait",
+      condition: "Results are listed",
+      timeoutMs: 5_000,
+      snapshotId: `snapshot-${generation}`,
+      generation
+    }) as AgentCommand
+  /** A page that never changes on its own, at a new generation each look. */
+  const freshPages = () => {
+    let generation = 0
+    return async () => {
+      generation += 1
+      return observation({ snapshotId: `snapshot-${generation}`, generation })
+    }
+  }
+  const traced = () => {
+    const events: { name: string; data?: unknown }[] = []
+    return {
+      events,
+      trace: (_runId: string, name: string, data?: unknown) => {
+        events.push({ name, data })
+      }
+    }
+  }
+
+  it("recovers from a reference the page moved past by reading again", async () => {
+    const { events, trace } = traced()
+    let stale = true
+    const harness = createHarness({
+      trace,
+      observe: freshPages(),
+      decide: async (input) =>
+        input.state.stepCount === 0
+          ? { type: "command", command: command(input.observation.generation) }
+          : { type: "complete", summary: "Went back" },
+      effect: async (currentCommand, currentObservation) => {
+        if (stale) {
+          stale = false
+          throw new AgentStaleObservationError()
+        }
+        return resolvedEffect(currentObservation, currentCommand)
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).toBe("completed")
+    expect(harness.getState().question).toBeUndefined()
+    expect(events).toContainEqual({
+      name: "recovery_started",
+      data: {
+        trigger: "stale_snapshot",
+        strategy: "fresh_observation",
+        attempts: 1
+      }
+    })
+  })
+
+  it("gets past a covering overlay by taking another route instead of asking", async () => {
+    const inputs: AgentModelInput[] = []
+    let overlayClosed = false
+    let opened = false
+    const harness = createHarness({
+      observe: (() => {
+        let generation = 0
+        return async () => {
+          generation += 1
+          return observation({
+            snapshotId: `snapshot-${generation}`,
+            generation,
+            visibleText: opened ? "Panel open" : "Page text"
+          })
+        }
+      })(),
+      policy: () => ({ type: "allow", risk: "medium" }),
+      verification: Array.from({ length: 4 }, () => confirmed),
+      effectOverrides: activation,
+      decide: async (input) => {
+        inputs.push(input)
+        const generation = input.observation.generation
+        if (opened)
+          return {
+            type: "complete",
+            summary: "Opened",
+            evidence: "Panel open"
+          }
+        /** Told to recover, the model dismisses what covers the target. */
+        if (input.state.recovery?.active && !overlayClosed)
+          return { type: "command", command: click("e9", generation) }
+        return { type: "command", command: click("e1", generation) }
+      },
+      execute: async (authorized) => {
+        const ref = (authorized.command as { ref?: string }).ref
+        if (ref === "e9") {
+          overlayClosed = true
+          return { executedAt: 10 }
+        }
+        if (!overlayClosed)
+          throw new AgentEffectNotAppliedError("target_covered")
+        opened = true
+        return { executedAt: 10 }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().question).toBeUndefined()
+    expect(harness.getState().pauseReason).toBeUndefined()
+    /** Three covered clicks; the next repeat was set aside for the strategy. */
+    expect(
+      harness.writtenSteps.filter(
+        (step) =>
+          step.status === "failed" &&
+          step.verification?.evidence.kind === "stale_target"
+      )
+    ).toHaveLength(3)
+    expect(overlayClosed).toBe(true)
+    /** A verified page change closes the episode; the spent count stays. */
+    expect(harness.getState().recovery).toEqual({ attempts: 1 })
+    expect(
+      inputs.find((input) => input.state.recovery?.active)?.state.recovery
+        ?.active
+    ).toMatchObject({ trigger: "no_progress", strategy: "targeted_read" })
+  })
+
+  it("waits for content that arrives late once reading again did not help", async () => {
+    let generation = 0
+    let waited = false
+    const harness = createHarness({
+      observe: async () => {
+        generation += 1
+        return observation({
+          snapshotId: `snapshot-${generation}`,
+          generation,
+          visibleText: waited ? "Results: 3 items" : "Loading"
+        })
+      },
+      decide: async (input) => {
+        const at = input.observation.generation
+        if (input.observation.visibleText.startsWith("Results"))
+          return { type: "complete", summary: "3 items" }
+        if (input.state.recovery?.active?.strategy === "wait_for_condition")
+          return { type: "command", command: waitFor(at) }
+        return { type: "command", command: command(at) }
+      },
+      execute: async (authorized) => {
+        if (authorized.command.type === "wait") waited = true
+        return { executedAt: 10 }
+      },
+      verification: Array.from({ length: 6 }, () => confirmed)
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).toBe("completed")
+    expect(harness.getState().question).toBeUndefined()
+    expect(harness.getState().recovery?.active?.tried).toEqual([
+      "targeted_read",
+      "wait_for_condition"
+    ])
+  })
+
+  it("leaves a wrong navigation path for another route", async () => {
+    const harness = createHarness({
+      observe: freshPages(),
+      decide: async (input) => {
+        const at = input.observation.generation
+        const strategy = input.state.recovery?.active?.strategy
+        if (input.state.stepCount >= 3 && strategy === "alternate_route")
+          return { type: "complete", summary: "Found it another way" }
+        return {
+          type: "command",
+          command:
+            strategy === "alternate_route"
+              ? ({
+                  type: "navigate",
+                  url: "https://example.com/search?q=report",
+                  snapshotId: `snapshot-${at}`,
+                  generation: at
+                } as AgentCommand)
+              : command(at)
+        }
+      },
+      verification: Array.from({ length: 8 }, () => confirmed)
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().question).toBeUndefined()
+    expect(harness.getState().recovery?.active?.tried).toEqual([
+      "targeted_read",
+      "wait_for_condition",
+      "alternate_route"
+    ])
+    expect(harness.getState().status).toBe("completed")
+  })
+
+  it("offers a look only to a run that can picture the page, and takes one", async () => {
+    const capture = vi.fn(async () => undefined)
+    const inputs: AgentModelInput[] = []
+    const harness = createHarness({
+      vision: async () => true,
+      screenshot: { capture },
+      observe: freshPages(),
+      decide: async (input) => {
+        inputs.push(input)
+        return {
+          type: "command",
+          command: command(input.observation.generation)
+        }
+      },
+      verification: Array.from({ length: 3 }, () => confirmed)
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().recovery?.active?.tried).toContain(
+      "request_vision"
+    )
+    const looked = inputs.findIndex(
+      (input) => input.state.recovery?.active?.strategy === "request_vision"
+    )
+    expect(looked).toBeGreaterThan(0)
+  })
+
+  it("never refills its budget, so a restarted run asks at once", async () => {
+    const harness = createHarness({
+      state: runState({ recovery: { attempts: MAX_AGENT_RECOVERY_ATTEMPTS } }),
+      observe: freshPages(),
+      decide: async (input) => ({
+        type: "command",
+        command: command(input.observation.generation)
+      }),
+      verification: Array.from({ length: 3 }, () => confirmed)
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question",
+      recovery: { attempts: MAX_AGENT_RECOVERY_ATTEMPTS }
+    })
+    expect(harness.getState().question?.display?.[0]).toMatchObject({
+      key: "agent.question_text.recovery_tried",
+      values: { count: MAX_AGENT_RECOVERY_ATTEMPTS }
+    })
+  })
+
+  it("continues the spent count a previous worker left in the checkpoint", async () => {
+    const first = createHarness({
+      observe: freshPages(),
+      decide: async (input) => ({
+        type: "command",
+        command: command(input.observation.generation)
+      }),
+      verification: Array.from({ length: 3 }, () => confirmed),
+      /** The worker is lost once the first strategy has been committed. */
+      failClaimWhen: (phase) => phase === "deciding" && stopped,
+      trace: (_runId, name) => {
+        if (name === "recovery_started") stopped = true
+      }
+    })
+    let stopped = false
+    await first.controller.start("run-1")
+    const persisted = first.getState()
+    expect(persisted.recovery?.attempts).toBe(1)
+
+    const second = createHarness({
+      state: persisted,
+      observe: freshPages(),
+      decide: async (input) => ({
+        type: "command",
+        command: command(input.observation.generation)
+      }),
+      verification: Array.from({ length: 3 }, () => confirmed)
+    })
+    await second.controller.start("run-1")
+
+    expect(second.getState().recovery?.attempts).toBeGreaterThan(1)
+    expect(second.getState().recovery?.active?.tried[0]).toBe("targeted_read")
+  })
+
+  describe("an effect the run already applied", () => {
+    const save: Partial<ResolvedAgentEffect> = {
+      semanticEffects: ["submission"],
+      target: {
+        ref: "e5",
+        tag: "button",
+        role: "button",
+        accessibleName: "Save",
+        sensitive: false,
+        maySubmit: true
+      }
+    }
+    const priorSave = (status: AgentStepWrite["status"]): AgentStepWrite => ({
+      runId: "run-1",
+      stepId: "run-1:1",
+      status,
+      at: 5,
+      command: click("e5", 1),
+      mutating: true,
+      consequential: ["submission"],
+      target: { ref: "e5", role: "button", tag: "button", name: "Save" }
+    })
+    const recovering = runState({
+      status: "observing",
+      stepCount: 1,
+      observationCount: 1,
+      recovery: {
+        attempts: 1,
+        active: {
+          trigger: "no_progress",
+          strategy: "alternate_route",
+          tried: ["alternate_route"],
+          startedAt: 1
+        }
+      }
+    })
+
+    it.each([
+      ["verified", "was confirmed"],
+      ["uncertain", "not known whether it took effect"],
+      ["executed", "not known whether it took effect"]
+    ] as const)("is not repeated while recovering when its earlier attempt is %s", async (status, feedback) => {
+      const harness = createHarness({
+        state: recovering,
+        seedSteps: [priorSave(status)],
+        effectOverrides: save,
+        decisions: [
+          { type: "command", command: click("e5", 1) },
+          { type: "ask_user", question: "Done?" }
+        ]
+      })
+
+      await harness.controller.resume("run-1")
+
+      expect(harness.calls).not.toContain("policy")
+      expect(harness.calls).not.toContain("execute")
+      const refused = harness.writtenSteps.find(
+        (step) => step.status === "rejected"
+      )
+      expect(refused?.verification?.evidence.summary).toContain(feedback)
+    })
+
+    it("may be tried again while recovering when it is known not to have applied", async () => {
+      const harness = createHarness({
+        state: recovering,
+        seedSteps: [priorSave("failed")],
+        effectOverrides: save,
+        decisions: [
+          { type: "command", command: click("e5", 1) },
+          { type: "ask_user", question: "Done?" }
+        ]
+      })
+
+      await harness.controller.resume("run-1")
+
+      expect(harness.calls).toContain("policy")
+      expect(harness.calls).toContain("execute")
+    })
+
+    it("is refused when the receipts cannot show the earlier attempt missed", async () => {
+      const harness = createHarness({
+        state: recovering,
+        stepsFail: true,
+        effectOverrides: save,
+        decisions: [
+          { type: "command", command: click("e5", 1) },
+          { type: "ask_user", question: "Done?" }
+        ]
+      })
+
+      await harness.controller.resume("run-1")
+
+      expect(harness.calls).not.toContain("execute")
+    })
+  })
+
+  it("settles an ambiguous effect on a second look without applying it again", async () => {
+    const harness = createHarness({
+      verification: [
+        {
+          outcome: "ambiguous",
+          evidence: { kind: "dom", summary: "Unknown", observedAt: 2 }
+        },
+        confirmed
+      ]
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+    expect(harness.steps).not.toContain("uncertain")
+    expect(harness.getState().pauseReason).not.toBe("unresolved_effect")
+    expect(harness.getState().recovery?.attempts).toBe(1)
+  })
+
+  it("redecides with the effect known not applied when the second look is negative", async () => {
+    const inputs: AgentModelInput[] = []
+    const harness = createHarness({
+      verification: [
+        {
+          outcome: "ambiguous",
+          evidence: { kind: "dom", summary: "Unknown", observedAt: 2 }
+        },
+        {
+          outcome: "negative",
+          evidence: { kind: "dom", summary: "No change", observedAt: 3 }
+        }
+      ],
+      decide: async (input) => {
+        inputs.push(input)
+        return inputs.length === 1
+          ? { type: "command", command: command() }
+          : { type: "ask_user", question: "Stop?" }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
+    expect(inputs[1]?.state.recovery?.active).toMatchObject({
+      trigger: "unresolved_effect",
+      strategy: "fresh_observation"
+    })
+  })
+
+  it("keeps the task whole while revising the approach", async () => {
+    const requirements = [
+      { id: "r1", text: "Save the draft", kind: "change" as const },
+      { id: "r2", text: "Report the draft id", kind: "read" as const }
+    ]
+    const constraints = [
+      {
+        id: "c1",
+        text: "without publishing it",
+        kind: "exclude" as const,
+        forbids: ["submission" as const]
+      }
+    ]
+    const inputs: AgentModelInput[] = []
+    const harness = createHarness({
+      state: runState({ requirements, constraints }),
+      observe: freshPages(),
+      decide: async (input) => {
+        inputs.push(input)
+        return {
+          type: "command",
+          command: command(input.observation.generation)
+        }
+      },
+      verification: Array.from({ length: 3 }, () => confirmed)
+    })
+
+    await harness.controller.start("run-1")
+
+    const revising = inputs.filter(
+      (input) => input.state.recovery?.active?.strategy === "revise_approach"
+    )
+    expect(revising.length).toBeGreaterThan(0)
+    for (const input of revising) {
+      expect(input.state.requirements).toEqual(requirements)
+      expect(input.state.constraints).toEqual(constraints)
+    }
+    expect(harness.getState().requirements).toEqual(requirements)
+  })
+
+  it("closes the episode when the user corrects the run, keeping the spent count", async () => {
+    const harness = createHarness({
+      state: runState({
+        status: "paused",
+        pauseReason: "user",
+        updatedAt: 20,
+        recovery: {
+          attempts: 2,
+          active: {
+            trigger: "no_progress",
+            strategy: "wait_for_condition",
+            tried: ["targeted_read", "wait_for_condition"],
+            startedAt: 1
+          }
+        }
+      }),
+      decisions: [{ type: "ask_user", question: "Continue?" }]
+    })
+
+    await harness.controller.resume("run-1", {
+      text: "Use the menu instead",
+      pausedAt: 20
+    })
+
+    expect(harness.getState().recovery).toEqual({ attempts: 2 })
   })
 })

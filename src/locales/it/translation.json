@@ -254,6 +254,8 @@
       "completion_refused": "Non sono riuscito a confermare il risultato. L’attività è completata? In caso contrario, cosa devo fare adesso?",
       "commands_refused": "L’ultima azione non è riuscita. Cosa dovrei provare invece?",
       "no_progress": "Sto ripetendo azioni senza fare progressi. Cosa dovrei fare diversamente? Puoi anche fermarmi e completare tu l’attività.",
+      "recovery_tried_one": "Ho prima provato un altro approccio.",
+      "recovery_tried_other": "Ho prima provato {{count}} approcci diversi.",
       "too_many_outcomes": "Questa attività chiede {{count}} risultati distinti e un'esecuzione può seguirne {{max}}. Quali deve svolgere questa esecuzione? Il resto può seguire in un'altra.",
       "too_many_items": "Questa attività indica {{count}} righe o record e un'esecuzione può seguirne {{max}}. Quali deve svolgere questa esecuzione? Il resto può seguire in un'altra.",
       "too_many_constraints": "Questa attività fissa {{count}} limiti distinti e un'esecuzione può tenerne {{max}}. Quali contano per questa esecuzione?",

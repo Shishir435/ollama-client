@@ -26,14 +26,19 @@ const flatten = (value: unknown, prefix = ""): string[] => {
   )
 }
 
-const hasKey = (path: string): boolean => {
+const lookup = (path: string): unknown => {
   let node: unknown = en
   for (const part of path.split(".")) {
-    if (!node || typeof node !== "object") return false
+    if (!node || typeof node !== "object") return undefined
     node = (node as Record<string, unknown>)[part]
   }
-  return typeof node === "string"
+  return node
 }
+
+/** A plural key resolves through its `_other` form, as i18next resolves it with a count. */
+const hasKey = (path: string): boolean =>
+  typeof lookup(path) === "string" ||
+  typeof lookup(`${path}_other`) === "string"
 
 /** Every field any command variant reads when it is labelled. */
 const commandOf = (type: string, patch: Record<string, unknown> = {}) =>

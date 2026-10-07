@@ -208,19 +208,26 @@ runAgentScenario({
 })
 
 runAgentScenario({
-  name: "invalidates frame coordinates after child scrolling",
+  name: "invalidates frame coordinates after child scrolling, then recovers on a fresh picture",
   goal: "Click the left half of the board and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "failed",
+  status: "completed",
   vision: true,
   allowRoutineActions: true,
   html: (path) =>
     path === "/board"
       ? board.replace("</style>", "body{height:1500px}</style>")
       : framePage(false),
-  async decide(_observation, context) {
+  async decide(observation, context) {
+    if (observation.text.includes("Status: trusted left"))
+      return {
+        type: "complete",
+        summary: "Status: trusted left",
+        evidence: "Status: trusted left"
+      }
     const frame = context.screenshot?.frames?.[0]
     expect(frame).toBeDefined()
+    /** The child scrolls after the picture, so these coordinates go stale. */
     if (context.step === 1)
       await context.page
         .frameLocator("iframe")
@@ -235,11 +242,16 @@ runAgentScenario({
   },
   async verify({ page, snapshot, effects }) {
     await expect(page.frameLocator("iframe").getByRole("status")).toHaveText(
-      "Status: waiting"
+      "Status: trusted left"
     )
-    await expect.poll(effects).toBe(0)
-    expect(snapshot?.run?.error?.code).toBe("stale_snapshot")
-    expect(snapshot?.steps).toHaveLength(0)
+    /** The stale click never landed; the one on fresh coordinates did, once. */
+    await expect.poll(effects).toBe(1)
+    expect(
+      snapshot?.steps
+        .filter((step) => step.status === "verified")
+        .map((step) => step.command?.type)
+    ).toEqual(["click_point"])
+    expect(snapshot?.run?.recovery?.attempts).toBe(1)
   }
 })
 

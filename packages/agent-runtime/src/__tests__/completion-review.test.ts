@@ -13,6 +13,7 @@ import {
 import {
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
+  agentReviewRecordCitable,
   applyAgentCompletionReview
 } from "../completion-review"
 
@@ -388,6 +389,60 @@ describe("applying a completion review", () => {
         { id: "r1", verdict: "supported", sources: ["guess", "invented"] }
       ]).judgement
     ).toMatchObject({ reason: "needs_review" })
+  })
+
+  it("marks the page text the run's change produced, and only that", () => {
+    const input = semanticInput({
+      evidenceLedger: [
+        record("before", { requirementId: "r1", quote: "Help menu" }),
+        record("after", { requirementId: "r1", quote: "Status: Active" }),
+        record("old", {
+          requirementId: "r1",
+          quote: "Status: Active",
+          validity: "historical"
+        })
+      ]
+    })
+    const judgement = pending(input)
+    const request = agentCompletionReviewRequest(
+      { goal: "Click Continue", requirements: [saved], constraints: [] },
+      judgement.review,
+      input.outcomes,
+      input.evidenceLedger ?? [],
+      /** The baseline is the observation haystack, already normalized. */
+      "help menu continue"
+    )
+    expect(request.newSinceChange).toEqual(["after"])
+    /** No baseline in this worker: nothing is claimed either way. */
+    expect(
+      agentCompletionReviewRequest(
+        { goal: "Click Continue", requirements: [saved], constraints: [] },
+        judgement.review,
+        input.outcomes,
+        input.evidenceLedger ?? []
+      ).newSinceChange
+    ).toBeUndefined()
+  })
+
+  it("tells the reviewer exactly what it will accept", () => {
+    const requirements = [saved, answered]
+    const activation = record("click", {
+      kind: "verified_effect",
+      validity: "historical",
+      quote: undefined,
+      verificationKind: "activation",
+      requirementId: "r1"
+    })
+    const field = { ...activation, id: "field", verificationKind: "field" }
+    expect(agentReviewRecordCitable(activation, requirements)).toBe(false)
+    expect(agentReviewRecordCitable(field, requirements)).toBe(true)
+    expect(
+      agentReviewRecordCitable(
+        record("fact", { requirementId: "r2" }),
+        requirements
+      )
+    ).toBe(true)
+    expect(agentReviewRecordCitable(record("loose"), requirements)).toBe(false)
   })
 
   it("refuses to answer a read with an effect record", () => {

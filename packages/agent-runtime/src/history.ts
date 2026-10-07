@@ -238,6 +238,19 @@ export const buildAgentHistory = (
   return kept.length === 1 ? [shrinkToBound(kept[0], maxBytes)] : kept
 }
 
+/**
+ * The history entry, by the number the model is shown, of the run's last
+ * verified step: the newest thing the run did that it still has evidence for.
+ */
+export const lastVerifiedAgentHistoryStep = (
+  steps: readonly AgentStepReadout[]
+): number | undefined => {
+  const entries = latestByStep(steps)
+  for (let index = entries.length - 1; index >= 0; index -= 1)
+    if (entries[index].status === "verified") return index + 1
+  return undefined
+}
+
 /** The outcome of the step before this decision, or nothing on the first one. */
 export const previousAgentVerification = (
   steps: readonly AgentStepReadout[]

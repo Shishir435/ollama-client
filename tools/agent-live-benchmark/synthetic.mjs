@@ -73,7 +73,14 @@ const cases = [
     "memory",
     "Remember the reference code shown here, open Details, and report both the reference code and the status code."
   ],
-  ["canvas", "Click Render, then tell me the code drawn on the canvas."]
+  ["canvas", "Click Render, then tell me the code drawn on the canvas."],
+  /**
+   * Recovery cases, declared before PR 9 was measured: a banner covering the
+   * control until it is accepted, and a link whose page has moved, so the
+   * first route fails and another one on the page succeeds.
+   */
+  ["overlay", "Click Continue and report the status."],
+  ["wrongpath", "Open the status page and report the status."]
 ]
 const only = (process.env.AUDIT_ONLY ?? "")
   .split(",")
@@ -155,7 +162,27 @@ const STATIC_PAGES = {
     '<p id="state"></p>' +
     '<canvas width="480" height="160" style="display:block;border:1px solid #888"></canvas>'
 }
-const html = (kind, path) => {
+/**
+ * The recovery cases' pages, or undefined for any other case. A covering
+ * banner that only Accept removes, and a status link whose page has moved
+ * while Reports still lists it.
+ */
+const recoveryPage = (kind, path, wrap, effect) => {
+  if (kind === "wrongpath" && path.includes("/old"))
+    return '<!doctype html><title>Moved</title><main><p>This page has moved.</p><a href="/">Home</a></main>'
+  if (kind === "wrongpath" && !path.includes("/details"))
+    return wrap(
+      '<a href="/wrongpath/old">Status page</a><p>Older pages are listed under <a href="/wrongpath/details">Reports</a>.</p>'
+    )
+  if (kind === "overlay")
+    return wrap(
+      '<div id="banner" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center"><div style="background:#fff;padding:16px">We use cookies. <button type="button" onclick="document.getElementById(\'banner\').remove()">Accept</button></div></div><button type="button" onclick="' +
+        effect +
+        '">Continue</button>'
+    )
+  return undefined
+}
+const basePage = (kind, path) => {
   if (path.includes("/details"))
     return (
       "<!doctype html><title>Details</title><main>Status: Active" +
@@ -222,6 +249,13 @@ const html = (kind, path) => {
       '">Continue</button>'
   )
 }
+const html = (kind, path) =>
+  recoveryPage(
+    kind,
+    path,
+    (s) => `<!doctype html><title>Audit ${kind}</title><main>${s}</main>`,
+    "fetch('/effect');document.querySelector('main').innerHTML='<p>Status: Active</p>'"
+  ) ?? basePage(kind, path)
 const server = createServer(async (req, res) => {
   try {
     const path = req.url ?? "/"
@@ -594,6 +628,8 @@ try {
         ...supervisionTelemetry(messages, sentAt, Date.now()),
         approvalsGranted: (final?.run?.grants?.length ?? 0) + chatApprovals,
         observations: final?.run?.observationCount ?? 0,
+        /** Recovery strategies the run spent, from its own durable count. */
+        recoveries: final?.run?.recovery?.attempts ?? 0,
         errorCode: final?.run?.error?.code,
         pauseReason: final?.run?.pauseReason,
         latencyMs: Date.now() - sentAt,

@@ -11,6 +11,8 @@ import {
   type AgentObservation,
   AgentObservationSchema,
   type AgentPauseReason,
+  type AgentRecoveryStrategy,
+  type AgentRecoveryTrigger,
   type AgentRunState,
   type AgentRunStatus,
   type AgentScreenshot,
@@ -64,6 +66,7 @@ import {
   buildAgentFindings,
   buildAgentHistory,
   currentAgentInspection,
+  lastVerifiedAgentHistoryStep,
   previousAgentVerification
 } from "./history"
 import { agentObservationHaystack } from "./observed-text"
@@ -105,10 +108,16 @@ import {
   agentConsequentialEffects,
   agentConsequentialForm,
   agentEffectIsConsequential,
+  agentOwnEffectSettlement,
   agentRepeatsPriorEffect,
   agentRepeatsPriorForm
 } from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
+import {
+  AGENT_RECOVERY_REPEAT_FEEDBACK,
+  planAgentRecovery,
+  settledAgentRecovery
+} from "./recovery"
 import { agentResolutionFailure } from "./resolution-failure"
 import { agentRunResult } from "./run-result"
 import {
@@ -133,6 +142,29 @@ const AGENT_USER_CONFIRMED_RESULT =
 const MAX_LIVE_COMMANDS = MAX_AGENT_OBSERVATIONS * 2
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
+
+/**
+ * The recovery accounting a confirmed step leaves behind. A page-changing
+ * step that verified is the run back on ground it can trust, so the open
+ * episode closes; a read that verified changed nothing and leaves it open,
+ * or one look would end every episode. The spent count never changes here.
+ */
+/** Closes an open episode when the user has spoken; keeps the spent count. */
+const settledRecoveryPatch = (state: AgentRunState): AgentStatePatch =>
+  state.recovery?.active
+    ? { recovery: settledAgentRecovery(state.recovery) }
+    : {}
+
+const recoveryAfterVerified = (
+  verifying: AgentRunState,
+  recoveryPatch: AgentStatePatch,
+  effect: ResolvedAgentEffect
+): AgentStatePatch => {
+  const recovery = recoveryPatch.recovery ?? verifying.recovery
+  if (!recovery) return {}
+  if (!recovery.active || !agentEffectChangesPage(effect)) return { recovery }
+  return { recovery: settledAgentRecovery(recovery) }
+}
 
 const ownEffectPolicyFlags = (state: "repeat" | "unknown" | "none") =>
   state === "repeat"
@@ -1011,6 +1043,8 @@ export const createAgentController = (
     history?: AgentModelInput["history"]
   ): boolean => {
     if (policy === "always") return true
+    /** The strategy the run is recovering under asked for exactly this. */
+    if (state.recovery?.active?.strategy === "request_vision") return true
     if (
       agentPictureWarranted({
         state,
@@ -1151,23 +1185,42 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * A command bound to a page the run has already moved past. Nothing was
+   * attempted, so the run reads the page again rather than ending; only a
+   * page that keeps moving after every strategy the trigger allows ends it,
+   * with the same failure it always reported.
+   */
+  const recoverFromStaleSnapshot = async (
+    state: AgentRunState,
+    message: string,
+    signal: AgentCancellationController["signal"]
+  ): Promise<AgentResolutionOutcome> => {
+    const recovery = await recover(state, "stale_snapshot", signal)
+    if (recovery.type === "recovering")
+      return { type: "refused", state: recovery.state }
+    if (recovery.type === "exhausted")
+      await fail(state, "stale_snapshot", message)
+    return { type: "stopped" }
+  }
+
   const resolveEffect = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
     observation: AgentObservation,
-    context: AgentResolutionContext
+    context: AgentResolutionContext,
+    signal: AgentCancellationController["signal"]
   ): Promise<AgentResolutionOutcome> => {
     const { command } = decision
     if (
       command.snapshotId !== observation.snapshotId ||
       command.generation !== observation.generation
     ) {
-      await fail(
+      return recoverFromStaleSnapshot(
         state,
-        "stale_snapshot",
-        "The model referenced an obsolete page snapshot."
+        "The model referenced an obsolete page snapshot.",
+        signal
       )
-      return { type: "stopped" }
     }
 
     let effect: ResolvedAgentEffect
@@ -1191,9 +1244,11 @@ export const createAgentController = (
       if (failure.code === "invalid_decision") {
         return {
           type: "refused",
-          state: await refuseCommand(state, command, failure.message)
+          state: await refuseCommand(state, command, failure.message, signal)
         }
       }
+      if (failure.code === "stale_snapshot")
+        return recoverFromStaleSnapshot(state, failure.message, signal)
       await fail(state, failure.code, failure.message)
       return { type: "stopped" }
     }
@@ -1205,12 +1260,11 @@ export const createAgentController = (
       identity.tabId !== observation.tabId ||
       identity.documentId !== observation.documentId
     ) {
-      await fail(
+      return recoverFromStaleSnapshot(
         state,
-        "stale_snapshot",
-        "The resolved effect no longer belongs to the observed page."
+        "The resolved effect no longer belongs to the observed page.",
+        signal
       )
-      return { type: "stopped" }
     }
     return { type: "resolved", effect }
   }
@@ -1389,6 +1443,68 @@ export const createAgentController = (
     return undefined
   }
 
+  /**
+   * The verifier's answer, asked twice when the first could not say.
+   *
+   * An effect nobody could confirm or rule out is asked about once more
+   * before the user is: the page may simply not have finished answering.
+   * Evidence only — the verifier reads the page again against the same
+   * before-picture, and nothing is applied a second time. Charged to the
+   * run's recovery budget and written with whatever the step settles on, so
+   * the human boundary is unchanged when the answer is still unknown.
+   */
+  /**
+   * A step known not to have applied goes back to deciding. When a second
+   * look is what settled it, the spent attempt is written in the claim that
+   * reopens observation; otherwise the loop claims it as it always has.
+   */
+  const redecidingState = (
+    verifying: AgentRunState,
+    recoveryPatch: AgentStatePatch
+  ): Promise<AgentRunState | undefined> | AgentRunState =>
+    recoveryPatch.recovery
+      ? claim(
+          verifying,
+          "observing",
+          { ...recoveryPatch, updatedAt: dependencies.clock.now() },
+          ["verifying"]
+        )
+      : verifying
+
+  const settledVerification = async (
+    verifying: AgentRunState,
+    verify: () => Promise<AgentVerificationResult>,
+    risk: AuthorizedAgentEffect["authorization"]["risk"]
+  ): Promise<{
+    verification: AgentVerificationResult
+    action: ReturnType<typeof classifyVerificationOutcome>
+    recoveryPatch: AgentStatePatch
+  }> => {
+    const first = await verify()
+    const action = classifyVerificationOutcome(first, risk)
+    if (action.type !== "pause" || action.reason !== "unresolved_effect")
+      return { verification: first, action, recoveryPatch: {} }
+    const plan = planAgentRecovery(verifying.recovery, {
+      trigger: "unresolved_effect",
+      now: dependencies.clock.now(),
+      visionAvailable: false
+    })
+    if (plan.type !== "recover")
+      return { verification: first, action, recoveryPatch: {} }
+    dependencies.trace?.(verifying.id, "recovery_started", {
+      trigger: "unresolved_effect",
+      strategy: plan.strategy,
+      attempts: plan.recovery.attempts
+    })
+    measure({ recoveries: 1 })
+    const second = await verify()
+    return {
+      verification: second,
+      action: classifyVerificationOutcome(second, risk),
+      recoveryPatch: { recovery: plan.recovery }
+    }
+  }
+
   const executeAndVerify = async (
     state: AgentRunState,
     effect: ResolvedAgentEffect,
@@ -1446,18 +1562,23 @@ export const createAgentController = (
       })
       if (!verifying) return undefined
       failureState = verifying
-      const verification = await timed("verifyMs", () =>
-        dependencies.effect.verify(
-          {
-            effect: authorizedEffect,
-            receipt,
-            before: observation,
-            allowedOrigins: executing.allowedOrigins
-          },
-          signal
+      const verify = () =>
+        timed("verifyMs", () =>
+          dependencies.effect.verify(
+            {
+              effect: authorizedEffect,
+              receipt,
+              before: observation,
+              allowedOrigins: executing.allowedOrigins
+            },
+            signal
+          )
         )
+      const { verification, action, recoveryPatch } = await settledVerification(
+        verifying,
+        verify,
+        policy.risk
       )
-      const action = classifyVerificationOutcome(verification, policy.risk)
       /**
        * The evidence baseline is the page as it read before the *first*
        * change the run applied, and it does not move after that.
@@ -1505,7 +1626,8 @@ export const createAgentController = (
       if (action.type === "pause") {
         await pause(
           verifying,
-          action.reason === "unresolved_effect" ? "unresolved_effect" : "user"
+          action.reason === "unresolved_effect" ? "unresolved_effect" : "user",
+          recoveryPatch
         )
         return undefined
       }
@@ -1515,7 +1637,8 @@ export const createAgentController = (
       if (receipt.dialogOpened && isAppliedAgentStepStatus(action.stepStatus)) {
         rememberBoundRequirement(state.id, requirementId, receipt.dialogOpened)
       }
-      if (action.type === "redecide") return verifying
+      if (action.type === "redecide")
+        return redecidingState(verifying, recoveryPatch)
       /**
        * A step does not clear the no-progress guard, whatever it was meant to
        * do. Clearing on every page-changing class meant any click reset it —
@@ -1558,6 +1681,7 @@ export const createAgentController = (
             receipt.openedTabIds
           ),
           ...routineGrantPatch(verifying, routineOrigin),
+          ...recoveryAfterVerified(verifying, recoveryPatch, effect),
           updatedAt: dependencies.clock.now()
         },
         ["verifying"]
@@ -1666,7 +1790,8 @@ export const createAgentController = (
       state,
       decision,
       observation,
-      context
+      context,
+      signal
     )
     /** A refused command left the run alive and looking again, not stopped. */
     if (resolution.type === "refused") return resolution.state
@@ -1681,7 +1806,8 @@ export const createAgentController = (
         return refuseCommand(
           state,
           decision.command,
-          "A page-changing command must name the planned requirement it advances in requirementId."
+          "A page-changing command must name the planned requirement it advances in requirementId.",
+          signal
         )
     }
     /**
@@ -1694,11 +1820,33 @@ export const createAgentController = (
       state.previousRun &&
       agentRepeatsPriorEffect(effect, state.previousRun.effects)
     ) {
-      return refuseCommand(state, decision.command, REPEATED_EFFECT_FEEDBACK)
+      return refuseCommand(
+        state,
+        decision.command,
+        REPEATED_EFFECT_FEEDBACK,
+        signal
+      )
     }
+    /**
+     * A recovering run is the one most likely to try the thing that just
+     * went wrong again. Its own earlier attempt at a consequential effect is
+     * refused while that attempt is confirmed or unknown — only one known not
+     * to have reached the page may be tried again — and refused rather than
+     * put to the user, because the recovery exists to spend the run's
+     * attention before the user's.
+     */
+    const repeat = await recoveringRepeat(state, effect)
+    if (repeat)
+      return refuseCommand(
+        state,
+        decision.command,
+        AGENT_RECOVERY_REPEAT_FEEDBACK[repeat],
+        signal
+      )
     /** Before policy, like a repeat: see `refusalByTaskContract`. */
     const contract = refusalByTaskContract(state, decision, effect)
-    if (contract) return refuseCommand(state, decision.command, contract)
+    if (contract)
+      return refuseCommand(state, decision.command, contract, signal)
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
@@ -2051,7 +2199,8 @@ export const createAgentController = (
       state,
       judgement.review,
       decision.outcomes,
-      completionLedger(state, decision, steps, observation)
+      completionLedger(state, decision, steps, observation),
+      changeBaseline?.runId === state.id ? changeBaseline.text : undefined
     )
     const startedAt = dependencies.clock.now()
     let answer: unknown
@@ -2203,8 +2352,16 @@ export const createAgentController = (
       )
       return undefined
     }
-    if (await exhaustedNoProgressBudget(state, observation, decision))
-      return undefined
+    const stalled = await exhaustedNoProgressBudget(
+      state,
+      observation,
+      decision,
+      signal,
+      undefined,
+      "refused_completion"
+    )
+    if (stalled.type === "recovering") return stalled.state
+    if (stalled.type === "stopped") return undefined
     const now = dependencies.clock.now()
     const previous = refusedCompletions.get(state.id)
     const refusals =
@@ -2268,7 +2425,8 @@ export const createAgentController = (
   const refuseCommand = async (
     state: AgentRunState,
     command: AgentCommand,
-    feedback: string
+    feedback: string,
+    signal: AgentCancellationController["signal"]
   ): Promise<AgentRunState | undefined> => {
     const refusals = (refusedCommandCounts.get(state.id) ?? 0) + 1
     refusedCommandCounts.set(state.id, refusals)
@@ -2286,11 +2444,15 @@ export const createAgentController = (
       }
     })
     if (refusals >= MAX_CONSECUTIVE_REFUSED_COMMANDS) {
+      const recovery = await recover(state, "refused_commands", signal)
+      if (recovery.type === "recovering") return recovery.state
+      if (recovery.type === "stopped") return undefined
       await pause(state, "question", {
         question: {
           id: `${state.id}:q${state.observationCount}`,
-          text: `${feedback} What should I try instead?`,
+          text: `${feedback} ${recoveryTriedText(recovery)}What should I try instead?`,
           display: [
+            ...recoveryTriedDisplay(recovery),
             {
               key: "agent.question_text.commands_refused"
             }
@@ -2372,13 +2534,175 @@ export const createAgentController = (
       expected
     )
 
+  /**
+   * Whether `request_vision` is a strategy this run can use: a model that
+   * can see, a way to capture, and the user's leave. Any failure to find out
+   * is a no, because a strategy the run cannot carry out is a wasted attempt.
+   */
+  const recoveryVisionAvailable = async (
+    state: AgentRunState,
+    signal: AgentCancellationController["signal"]
+  ): Promise<boolean> => {
+    if (!dependencies.screenshot) return false
+    try {
+      if (!(await dependencies.model.vision?.(state, signal))) return false
+      if (
+        dependencies.screenshotsPermitted &&
+        !(await dependencies.screenshotsPermitted(state))
+      )
+        return false
+      return (
+        (await dependencies.model.visionPolicy?.(state, signal)) !== "never"
+      )
+    } catch {
+      return false
+    }
+  }
+
+  const lastEvidenceStep = async (
+    state: AgentRunState
+  ): Promise<number | undefined> => {
+    try {
+      return lastVerifiedAgentHistoryStep(
+        await dependencies.persistence.steps(state.id)
+      )
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
+   * The next strategy from the bounded set, committed in the same claim that
+   * sends the run back to observing, so the attempt is spent durably before
+   * anything acts on it. A worker restart reads the spent count back from the
+   * checkpoint and cannot hand a looping run a fresh budget.
+   *
+   * Called only from `deciding`: every trigger is a decision the run chose
+   * not to carry out, so nothing was applied to the page.
+   *
+   * The progress and refusal memory is kept, not cleared. A decision that
+   * still repeats under the new strategy has ignored it, and costs the run
+   * the next strategy at once rather than three more repeats; one that
+   * differs clears the count on its own.
+   */
+  const recover = async (
+    state: AgentRunState,
+    trigger: AgentRecoveryTrigger,
+    signal: AgentCancellationController["signal"]
+  ): Promise<
+    | { type: "recovering"; state: AgentRunState }
+    | {
+        type: "exhausted"
+        attempts: number
+        tried: readonly AgentRecoveryStrategy[]
+      }
+    | { type: "stopped" }
+  > => {
+    const evidenceStep = await lastEvidenceStep(state)
+    const plan = planAgentRecovery(state.recovery, {
+      trigger,
+      now: dependencies.clock.now(),
+      visionAvailable: await recoveryVisionAvailable(state, signal),
+      ...(evidenceStep !== undefined ? { evidenceStep } : {})
+    })
+    if (signal.aborted) return { type: "stopped" }
+    if (plan.type === "exhausted") {
+      dependencies.trace?.(state.id, "recovery_exhausted", {
+        trigger,
+        attempts: plan.attempts
+      })
+      return plan
+    }
+    dependencies.trace?.(state.id, "recovery_started", {
+      trigger,
+      strategy: plan.strategy,
+      attempts: plan.recovery.attempts
+    })
+    measure({ recoveries: 1 })
+    const recovering = await claim(
+      state,
+      "observing",
+      { recovery: plan.recovery, updatedAt: dependencies.clock.now() },
+      ["deciding"]
+    )
+    return recovering
+      ? { type: "recovering", state: recovering }
+      : { type: "stopped" }
+  }
+
+  /**
+   * What the question says the run already tried, so the user is asked
+   * after the strategies rather than instead of them. Strategy names are
+   * this build's vocabulary, never page text.
+   */
+  const recoveryTriedText = (recovery: {
+    attempts: number
+    tried: readonly AgentRecoveryStrategy[]
+  }): string =>
+    recovery.attempts === 0
+      ? ""
+      : `I already tried ${
+          recovery.attempts === 1
+            ? "one other approach"
+            : `${recovery.attempts} other approaches`
+        }${
+          recovery.tried.length
+            ? ` (${recovery.tried.map((name) => name.replaceAll("_", " ")).join(", ")})`
+            : ""
+        }. `
+
+  const recoveryTriedDisplay = (recovery: { attempts: number }) =>
+    recovery.attempts === 0
+      ? []
+      : [
+          {
+            key: "agent.question_text.recovery_tried",
+            values: { count: recovery.attempts }
+          }
+        ]
+
+  /**
+   * How the run's own earlier attempt at this effect settled, while a
+   * recovery is open; undefined when nothing stands in its way. Receipts
+   * that cannot be read cannot show the earlier attempt missed, so the
+   * answer is `unknown`.
+   */
+  const recoveringRepeat = async (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect
+  ): Promise<"confirmed" | "unknown" | undefined> => {
+    if (!state.recovery?.active || !agentEffectIsConsequential(effect))
+      return undefined
+    let settlement: ReturnType<typeof agentOwnEffectSettlement>
+    try {
+      settlement = agentOwnEffectSettlement(
+        effect,
+        await dependencies.persistence.steps(state.id)
+      )
+    } catch (error) {
+      dependencies.trace?.(state.id, "committed_effects_unavailable", {
+        reason: error instanceof Error ? error.name : typeof error
+      })
+      return "unknown"
+    }
+    return settlement === "confirmed" || settlement === "unknown"
+      ? settlement
+      : undefined
+  }
+
   const exhaustedNoProgressBudget = async (
     state: AgentRunState,
     observation: AgentObservation,
     decision: AgentDecision,
+    signal: AgentCancellationController["signal"],
     /** The picture the decision was shown; hashed, never kept. */
-    picture?: string
-  ): Promise<boolean> => {
+    picture?: string,
+    trigger: AgentRecoveryTrigger = "no_progress"
+  ): Promise<
+    | { type: "progressing" }
+    | { type: "recovering"; state: AgentRunState }
+    | { type: "stopped" }
+  > => {
     const changeSignature = agentTextChangeSignature(
       progressText.get(state.id),
       observation.visibleText
@@ -2402,16 +2726,31 @@ export const createAgentController = (
       [...(recentProgress.get(state.id) ?? []), progress].slice(-6)
     )
     noProgressCounts.set(state.id, result.count)
-    if (result.count < MAX_CONSECUTIVE_NO_PROGRESS) return false
+    /**
+     * A repeat, not merely a high count: a `wait` keeps the count it found,
+     * and a run told to wait for a condition must not be charged a strategy
+     * for doing it.
+     */
+    if (!result.noProgress || result.count < MAX_CONSECUTIVE_NO_PROGRESS)
+      return { type: "progressing" }
+    /**
+     * The repeated decision is not carried out: it is the third of its kind,
+     * and the run looks again under a strategy instead.
+     */
+    const recovery = await recover(state, trigger, signal)
+    if (recovery.type !== "exhausted") return recovery
     await pause(state, "question", {
       question: {
         id: `${state.id}:q${state.observationCount}`,
-        text: "I am repeating actions without progress. What should I do differently? You can also stop and finish this task yourself.",
-        display: [{ key: "agent.question_text.no_progress" }],
+        text: `${recoveryTriedText(recovery)}I am repeating actions without progress. What should I do differently? You can also stop and finish this task yourself.`,
+        display: [
+          ...recoveryTriedDisplay(recovery),
+          { key: "agent.question_text.no_progress" }
+        ],
         askedAt: dependencies.clock.now()
       }
     })
-    return true
+    return { type: "stopped" }
   }
 
   /**
@@ -2474,6 +2813,13 @@ export const createAgentController = (
     const deciding = await claim(state, "deciding", {
       observationCount: state.observationCount + 1,
       ...(steering?.length ? { answers } : {}),
+      /**
+       * A correction is the user choosing the approach, so the open recovery
+       * episode is over. Its spent attempts are not refunded.
+       */
+      ...(steering?.length && state.recovery?.active
+        ? { recovery: settledAgentRecovery(state.recovery) }
+        : {}),
       ...amendment.patch,
       updatedAt: dependencies.clock.now()
     })
@@ -2546,6 +2892,7 @@ export const createAgentController = (
         decision: AgentDecision
         context: AgentResolutionContext
       }
+    | { state: AgentRunState; recovering: true }
     | undefined
   > => {
     const recalled = await recallHistory(state)
@@ -2645,18 +2992,20 @@ export const createAgentController = (
       )
       return undefined
     }
-    if (
-      decision.type !== "complete" &&
-      (await exhaustedNoProgressBudget(
-        deciding,
-        observation,
-        decision,
-        context.screenshot?.data
-      ))
-    ) {
-      return undefined
-    }
-    return { state: deciding, observation, decision, context }
+    const stalled =
+      decision.type === "complete"
+        ? ({ type: "progressing" } as const)
+        : await exhaustedNoProgressBudget(
+            deciding,
+            observation,
+            decision,
+            signal,
+            context.screenshot?.data
+          )
+    if (stalled.type === "stopped") return undefined
+    return stalled.type === "recovering"
+      ? { state: stalled.state, recovering: true }
+      : { state: deciding, observation, decision, context }
   }
 
   /**
@@ -2915,6 +3264,21 @@ export const createAgentController = (
     return { patch }
   }
 
+  /** A recovery strategy already claimed the next observation; anything else is decided. */
+  const processPrepared = (
+    prepared: NonNullable<Awaited<ReturnType<typeof observeAndDecide>>>,
+    signal: AgentCancellationController["signal"]
+  ): Promise<AgentRunState | undefined> =>
+    "recovering" in prepared
+      ? Promise.resolve(prepared.state)
+      : processDecision(
+          prepared.state,
+          prepared.decision,
+          prepared.observation,
+          signal,
+          prepared.context
+        )
+
   const runLoop = async (
     initialState: AgentRunState,
     controller: AgentCancellationController,
@@ -2959,13 +3323,7 @@ export const createAgentController = (
       if (!prepared) return
       state = prepared.state
 
-      const next = await processDecision(
-        state,
-        prepared.decision,
-        prepared.observation,
-        controller.signal,
-        prepared.context
-      )
+      const next = await processPrepared(prepared, controller.signal)
       if (!next) return
       state = next
       observingClaimed = next.status === "observing"
@@ -3112,6 +3470,7 @@ export const createAgentController = (
             }
           : {}),
         pauseReason: undefined,
+        ...settledRecoveryPatch(state),
         answers: [
           ...(state.answers ?? []),
           {
@@ -3190,6 +3549,7 @@ export const createAgentController = (
             }
           : {}),
         pauseReason: undefined,
+        ...settledRecoveryPatch(state),
         answers,
         ...removal,
         question: undefined,
@@ -3250,6 +3610,7 @@ export const createAgentController = (
             }
           : {}),
         pauseReason: undefined,
+        ...settledRecoveryPatch(state),
         updatedAt: dependencies.clock.now()
       })
       if (!recorded) return

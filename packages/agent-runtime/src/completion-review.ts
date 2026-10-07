@@ -10,6 +10,7 @@ import type {
   AgentCompletionOutcomeClaim,
   AgentCompletionReviewScope
 } from "./completion"
+import { agentHaystackStates } from "./observed-text"
 import type { AgentCompletionReviewRequest, AgentStepReadout } from "./ports"
 
 /**
@@ -63,12 +64,36 @@ export const agentCompletionReviewRequest = (
   state: Pick<AgentRunState, "goal" | "requirements" | "constraints">,
   scope: AgentCompletionReviewScope,
   outcomes: readonly AgentCompletionOutcomeClaim[] | undefined,
-  evidenceLedger: readonly AgentEvidenceRecord[]
+  evidenceLedger: readonly AgentEvidenceRecord[],
+  /** The page before the run's first change, when this worker still holds it. */
+  baselineText?: string
 ): AgentCompletionReviewRequest => {
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
   )
+  const grounded = evidenceLedger.filter(groundedRecord)
+  /**
+   * What the run's change produced, measured against the same baseline the
+   * judge's staleness rule reads. A reviewer asked whether "Continue is
+   * clicked" was met, shown only "Status: Active", rightly answered that the
+   * quote did not show a click — every such run was refused twice and asked
+   * the user about work it had finished. A status line that was not there
+   * before the click is the click's own evidence.
+   */
+  const newSinceChange =
+    baselineText === undefined
+      ? undefined
+      : grounded
+          .filter(
+            (record) =>
+              record.kind === "observed_fact" &&
+              record.validity === "current" &&
+              record.quote !== undefined &&
+              !agentHaystackStates(record.quote, baselineText)
+          )
+          .map((record) => record.id)
   return {
+    ...(newSinceChange ? { newSinceChange } : {}),
     goal: state.goal,
     requirements,
     constraints: (state.constraints ?? []).filter((constraint) =>
@@ -77,7 +102,7 @@ export const agentCompletionReviewRequest = (
     claims: (outcomes ?? []).filter((claim) =>
       scope.requirementIds.includes(claim.id)
     ),
-    evidenceLedger: evidenceLedger.filter(groundedRecord)
+    evidenceLedger: grounded
   }
 }
 
@@ -123,6 +148,25 @@ const supports = (
     RESULT_EFFECT_KINDS.has(record.verificationKind)
   )
 }
+
+/**
+ * Whether the runtime will accept a record as a citation for the outcome it
+ * belongs to. The reviewer is shown this beside every record, computed by the
+ * same rule `applyAgentCompletionReview` applies, so the two cannot disagree:
+ * a reviewer that cited the verified click behind a change it rightly judged
+ * done had every completion it supported refused, and the run asked the user
+ * about work it had finished.
+ */
+export const agentReviewRecordCitable = (
+  record: AgentEvidenceRecord,
+  requirements: readonly AgentTaskRequirement[]
+): boolean =>
+  record.requirementId !== undefined &&
+  supports(
+    record,
+    record.requirementId,
+    requirements.find((entry) => entry.id === record.requirementId)
+  )
 
 export interface AgentCompletionReviewResult {
   judgement: AgentCompletionJudgement

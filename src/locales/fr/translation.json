@@ -254,6 +254,8 @@
       "completion_refused": "Je n’ai pas pu confirmer le résultat. La tâche est-elle terminée ? Sinon, que dois-je faire ensuite ?",
       "commands_refused": "La dernière action n’a pas pu être effectuée. Que devrais-je essayer à la place ?",
       "no_progress": "Je répète des actions sans progresser. Que devrais-je faire différemment ? Vous pouvez aussi m’arrêter et terminer la tâche vous-même.",
+      "recovery_tried_one": "J’ai d’abord essayé une autre approche.",
+      "recovery_tried_other": "J’ai d’abord essayé {{count}} autres approches.",
       "too_many_outcomes": "Cette tâche demande {{count}} résultats distincts, et une exécution peut en suivre {{max}}. Lesquels cette exécution doit-elle traiter ? Le reste pourra suivre dans une autre.",
       "too_many_items": "Cette tâche cite {{count}} lignes ou enregistrements, et une exécution peut en suivre {{max}}. Lesquels cette exécution doit-elle traiter ? Le reste pourra suivre dans une autre.",
       "too_many_constraints": "Cette tâche fixe {{count}} limites distinctes, et une exécution peut en tenir {{max}}. Lesquelles comptent pour cette exécution ?",
