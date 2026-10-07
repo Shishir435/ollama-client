@@ -316,7 +316,9 @@ export const scoreSyntheticTask = ({
   /** A browser task ran and completed; its own observations read the page. */
   delegated = false,
   /** The fixture pages' text the browser task's observations carried. */
-  observedText = ""
+  observedText = "",
+  /** An image-bearing decision message carried the rendered canvas observation. */
+  renderedCanvasScreenshot = false
 }) => {
   const answered = (value) => statesValue(answer, value)
   /** The value is in the reply and in a page this turn read. */
@@ -402,6 +404,27 @@ export const scoreSyntheticTask = ({
       return {
         success: completed && openTabActive && saysActive,
         predicate: "new-tab+page:Active"
+      }
+    case "canvas":
+      /**
+       * The code is drawn on a canvas by the Render click and is in no page
+       * text, so no DOM read can supply it: stating it means a picture was
+       * taken after the click, on a URL and a control list that did not
+       * change. A code found in any text read would mean the fixture leaked.
+       */
+      return {
+        success:
+          completed &&
+          delegated &&
+          effects >= 1 &&
+          /** Render ran to the end: a canvas that failed to draw shows nothing. */
+          statesValue(body, "Rendered") &&
+          renderedCanvasScreenshot &&
+          answered("KV-305") &&
+          !statesValue(readText, "KV-305") &&
+          !statesValue(observedText, "KV-305"),
+        predicate:
+          "effect+page:Rendered+rendered-canvas-screenshot+answer-from-picture:KV-305"
       }
     case "scroll":
     case "modal":

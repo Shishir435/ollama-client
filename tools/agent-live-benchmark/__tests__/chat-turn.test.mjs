@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
   agentObservedText,
+  agentSawRenderedCanvas,
   chatAnswered,
   chatAnswerFromWire,
   chatToolText,
@@ -305,6 +306,126 @@ describe("agentObservedText", () => {
       }
     ]
     assert.equal(agentObservedText(wire), "QP-719")
+  })
+})
+
+describe("agentSawRenderedCanvas", () => {
+  const origin = "http://127.0.0.1:5000"
+  const image = {
+    type: "image_url",
+    image_url: { url: "data:image/jpeg;base64,AAAA" }
+  }
+  const observation = (extra = {}) => ({
+    url: `${origin}/canvas`,
+    text: "Pen Eraser Undo Redo Clear Render Rendered.",
+    ...extra
+  })
+  const text = (
+    observed = observation(),
+    screenshot = { width: 480, height: 160 }
+  ) => ({
+    type: "text",
+    text: JSON.stringify({ observation: observed, screenshot })
+  })
+  const decision = (messages, extra = {}) => ({
+    path: "/v1/chat/completions",
+    status: 200,
+    request: {
+      tools: [{ function: { name: "agent_decision" } }],
+      messages,
+      ...extra
+    }
+  })
+  const user = (...content) => ({ role: "user", content })
+
+  it("requires the image and rendered fixture observation in the same decision message", () => {
+    const wire = [decision([user(text(), image)])]
+    assert.equal(agentSawRenderedCanvas(wire, origin), true)
+    for (const status of [undefined, 400, 503])
+      assert.equal(
+        agentSawRenderedCanvas([{ ...wire[0], status }], origin),
+        false
+      )
+    assert.equal(
+      agentSawRenderedCanvas([decision([user(text())])], origin),
+      false
+    )
+    assert.equal(
+      agentSawRenderedCanvas([decision([user(image)])], origin),
+      false
+    )
+    /** Another message's image is no companion to this observation. */
+    assert.equal(
+      agentSawRenderedCanvas([decision([user(text()), user(image)])], origin),
+      false
+    )
+    /** Nor is a picture from a request made before Render. */
+    assert.equal(
+      agentSawRenderedCanvas(
+        [
+          decision([user(text(observation({ text: "Pen Render" })), image)]),
+          decision([user(text())])
+        ],
+        origin
+      ),
+      false
+    )
+  })
+
+  it("rejects unrelated pages, chat images, negated states and unusable attachments", () => {
+    for (const observed of [
+      observation({ url: "https://elsewhere.example/canvas" }),
+      observation({ url: `${origin}/details` }),
+      observation({ text: "Not rendered." })
+    ])
+      assert.equal(
+        agentSawRenderedCanvas(
+          [decision([user(text(observed), image)])],
+          origin
+        ),
+        false
+      )
+    assert.equal(
+      agentSawRenderedCanvas(
+        [decision([user(text(), image)], { tools: [] })],
+        origin
+      ),
+      false
+    )
+    assert.equal(
+      agentSawRenderedCanvas(
+        [decision([{ role: "assistant", content: [text(), image] }])],
+        origin
+      ),
+      false
+    )
+    for (const url of [
+      "",
+      "data:image/jpeg;base64,",
+      "https://elsewhere.example/picture.jpg"
+    ])
+      assert.equal(
+        agentSawRenderedCanvas(
+          [decision([user(text(), { type: "image_url", image_url: { url } })])],
+          origin
+        ),
+        false
+      )
+    for (const screenshot of [null, { width: 0, height: 160 }, { width: 480 }])
+      assert.equal(
+        agentSawRenderedCanvas(
+          [decision([user(text(observation(), screenshot), image)])],
+          origin
+        ),
+        false
+      )
+    assert.equal(
+      agentSawRenderedCanvas(
+        [decision([user({ type: "text", text: "malformed" }, image)])],
+        origin
+      ),
+      false
+    )
   })
 })
 

@@ -982,6 +982,54 @@ describe("judgeAgentCompletion with planned requirements", () => {
   })
 
   /**
+   * A code drawn into a canvas is in no page text, so no quotation can ever
+   * ground it. What the model read off the picture it completed on settles
+   * the read — reported as seen in a screenshot, never as verified — and
+   * proves nothing about a change.
+   */
+  it("meets a read from the screenshot the run completed on, and says so", () => {
+    const visual = (
+      quote: string,
+      validity: "current" | "historical" = "current"
+    ): AgentEvidenceRecord => ({
+      ...observedFact(quote, validity),
+      id: `visual:${quote}`,
+      kind: "visual_observation",
+      requirementId: "r1"
+    })
+    const judge = (
+      kind: "read" | "change",
+      evidence: string,
+      ledger: AgentEvidenceRecord[] = [visual("KV-305")]
+    ) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation({ visibleText: "Pen Eraser Render" }),
+        evidenceLedger: ledger,
+        requirements: [{ id: "r1", text: "report the canvas code", kind }],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      })
+    expect(judge("read", "KV-305")).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+    })
+    /** Only what it read, exactly; and only off the current picture. */
+    expect(judge("read", "KV-306").type).toBe("refused")
+    expect(judge("read", "KV-305", [visual("KV-305", "historical")]).type).toBe(
+      "refused"
+    )
+    /** A picture never proves a change. */
+    expect(judge("change", "KV-305").type).toBe("refused")
+    /** Text grounding wins: that answer is verified, not merely seen. */
+    expect(
+      judge("read", "KV-305", [
+        visual("KV-305"),
+        { ...observedFact("KV-305"), requirementId: "r1" }
+      ])
+    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+  })
+
+  /**
    * gpt-6-luna clicked a link that opened in place, quoted the page title
    * and completed "Open Details in a new browser tab".
    */

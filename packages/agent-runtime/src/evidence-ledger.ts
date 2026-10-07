@@ -5,10 +5,13 @@ import {
   AgentEvidenceSourceSchema,
   type AgentObservation,
   type AgentRunState,
+  type AgentScreenshot,
   type AgentSourceQuote,
   MAX_AGENT_LEDGER_BYTES,
-  MAX_AGENT_LEDGER_RECORDS
+  MAX_AGENT_LEDGER_RECORDS,
+  MAX_AGENT_SOURCE_QUOTE_CHARS
 } from "@ollama-client/contracts"
+import { groundedCompletionQuote } from "./completion-support"
 import { agentNormalizedClaim } from "./observed-text"
 import type {
   AgentStepReadout,
@@ -175,6 +178,20 @@ export const groundAgentQuotes = (
     ]
   })
 
+/** Kinds kept as recorded: inputs and claims carry no current-state authority. */
+const UNGROUNDED_KINDS = new Set<AgentEvidenceRecord["kind"]>([
+  "user_input",
+  "agent_input",
+  "model_inference",
+  "page_tool_claim"
+])
+
+/** Kinds that are current only on the very snapshot they were read from. */
+const SNAPSHOT_BOUND_KINDS = new Set<AgentEvidenceRecord["kind"]>([
+  "observed_fact",
+  "visual_observation"
+])
+
 /** Durable quotations survive navigation; current-state authority does not. */
 export const buildAgentEvidenceLedger = (
   steps: readonly AgentStepReadout[],
@@ -194,14 +211,7 @@ export const buildAgentEvidenceLedger = (
           return [record]
         if (record.kind === "verified_effect")
           return [{ ...record, validity: "historical" as const }]
-        if (
-          !record.source ||
-          record.kind === "user_input" ||
-          record.kind === "agent_input" ||
-          record.kind === "model_inference" ||
-          record.kind === "page_tool_claim"
-        )
-          return [record]
+        if (!record.source || UNGROUNDED_KINDS.has(record.kind)) return [record]
         const frame =
           observation?.tabId === record.source.tabId
             ? observation.frames.find(
@@ -220,7 +230,7 @@ export const buildAgentEvidenceLedger = (
             ...record,
             validity: !observation
               ? ("historical" as const)
-              : sameSnapshot && record.kind === "observed_fact"
+              : sameSnapshot && SNAPSHOT_BOUND_KINDS.has(record.kind)
                 ? ("current" as const)
                 : sameDocument
                   ? ("requires_refresh" as const)
@@ -388,12 +398,87 @@ export const agentVerificationEvidence = (
   ])
 }
 
+/**
+ * The picture a decision was shown, if it belongs to the observation the
+ * decision was made on. A picture of another snapshot says nothing about the
+ * page being judged.
+ */
+const boundScreenshot = (
+  observation: AgentObservation,
+  screenshot: AgentScreenshot | undefined
+): AgentScreenshot | undefined =>
+  screenshot &&
+  screenshot.snapshotId === observation.snapshotId &&
+  screenshot.generation === observation.generation &&
+  screenshot.documentId === observation.documentId &&
+  screenshot.tabId === observation.tabId
+    ? screenshot
+    : undefined
+
+/**
+ * Read answers the model took off the screenshot it completed on, where no
+ * page text grounds them. Content-free beyond the model's own reading: the
+ * source is the picture's snapshot identity and origin, never the image, and
+ * only a planned read can be bound — a picture never proves a change.
+ */
+const visualCompletionEvidence = (
+  state: AgentRunState,
+  observation: AgentObservation,
+  decision: Extract<AgentDecision, { type: "complete" }>,
+  screenshot: AgentScreenshot | undefined,
+  grounded: readonly AgentEvidenceRecord[],
+  prefix: string
+): AgentEvidenceRecord[] => {
+  const picture = boundScreenshot(observation, screenshot)
+  if (!picture) return []
+  const source = agentEvidenceSource(observation, picture.frameId)
+  if (!source || !state.allowedOrigins.includes(source.origin)) return []
+  return (decision.outcomes ?? []).flatMap((outcome) => {
+    const requirement = state.requirements?.find(
+      (entry) => entry.id === outcome.id && entry.kind === "read"
+    )
+    if (!outcome.met || !requirement) return []
+    /** Itemized reads are judged by their items, never the parent evidence. */
+    const claims = requirement.items?.length
+      ? (outcome.items ?? [])
+          .filter((item) => item.met)
+          .map((item) => ({
+            evidence: item.evidence,
+            suffix: `:item:${item.index}`
+          }))
+      : [{ evidence: outcome.evidence, suffix: "" }]
+    return claims.flatMap((claim) => {
+      const quote = claim.evidence?.replaceAll(/\s+/g, " ").trim()
+      if (
+        !quote ||
+        quote.length > MAX_AGENT_SOURCE_QUOTE_CHARS ||
+        secretShaped(quote) ||
+        groundedCompletionQuote(quote, outcome.id, grounded)
+      )
+        return []
+      return [
+        {
+          id: `${prefix}:visual:${outcome.id}${claim.suffix}`,
+          kind: "visual_observation" as const,
+          validity: "current" as const,
+          source,
+          observedAt: picture.capturedAt,
+          requirementId: outcome.id,
+          quote
+        }
+      ]
+    })
+  })
+}
+
 export const agentCompletionEvidence = (
   state: AgentRunState,
   observation: AgentObservation,
   decision: Extract<AgentDecision, { type: "complete" }>,
   steps: readonly AgentStepReadout[] | undefined,
-  prefix: string
+  prefix: string,
+  /** The picture the completing decision was shown, if it was shown one. */
+  screenshot?: AgentScreenshot
 ): AgentEvidenceRecord[] => {
   if (!steps) return []
   const quotes: AgentSourceQuote[] = [
@@ -410,7 +495,16 @@ export const agentCompletionEvidence = (
     ])
   ]
   // Grounding establishes provenance only; the judge checks satisfaction.
-  return boundAgentEvidence(
-    retainedQuotes(state, observation, quotes, steps, prefix)
-  )
+  const grounded = retainedQuotes(state, observation, quotes, steps, prefix)
+  return boundAgentEvidence([
+    ...grounded,
+    ...visualCompletionEvidence(
+      state,
+      observation,
+      decision,
+      screenshot,
+      grounded,
+      prefix
+    )
+  ])
 }

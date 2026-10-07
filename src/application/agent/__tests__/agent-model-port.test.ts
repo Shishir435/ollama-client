@@ -907,6 +907,133 @@ describe("vision decisions", () => {
     expect(request.messages[0]?.content).not.toMatch(/screenshot/)
   })
 
+  const offered = (request: ChatRequest | undefined): string[] => {
+    const [tool] = request?.tools ?? []
+    if (!tool) throw new Error("No decision tool on the request")
+    return (
+      tool.parameters as unknown as {
+        properties: { type: { enum: string[] } }
+      }
+    ).properties.type.enum
+  }
+
+  it("offers look without a picture, and keeps the pixel commands for a step that has one", async () => {
+    const requests: ChatRequest[] = []
+    const port = modelPort(
+      async (request, emit) => {
+        requests.push(request)
+        emit(validChunk)
+      },
+      { ...supported, vision: true }
+    )
+    await port.decide(
+      { state, observation, visual: { available: true } },
+      { aborted: false }
+    )
+    const actions = offered(requests[0])
+    expect(actions).toContain("look")
+    expect(actions).not.toContain("click_point")
+    expect(actions).not.toContain("zoom")
+    expect(requests[0]?.messages.at(-1)?.images).toBeUndefined()
+    expect(requests[0]?.messages[0]?.content).toMatch(
+      /look captures the controlled tab's viewport/
+    )
+
+    await port.decide(
+      { state, observation, screenshot, visual: { available: true } },
+      { aborted: false }
+    )
+    expect(offered(requests[1])).toEqual(
+      expect.arrayContaining(["look", "click_point", "zoom"])
+    )
+  })
+
+  it("offers exactly the visual commands the parser accepts, for every offer", async () => {
+    const { agentDecisionTool } = await import("../agent-model-port")
+    const { parseAgentDecisionToolCalls } = await import(
+      "../agent-decision-parser"
+    )
+    const args = {
+      look: { type: "look" },
+      click_point: { type: "click_point", x: 1, y: 2 },
+      zoom: { type: "zoom", x: 0, y: 0, width: 10, height: 10 }
+    }
+    const accepts = (
+      type: keyof typeof args,
+      offer: { look: boolean; pointer: boolean }
+    ) => {
+      try {
+        parseAgentDecisionToolCalls(
+          [{ id: "c1", name: "agent_decision", arguments: args[type] }],
+          observation,
+          {
+            screenshot: offer.pointer,
+            ...(offer.look ? { visual: { available: true } } : {})
+          }
+        )
+        return true
+      } catch {
+        return false
+      }
+    }
+    for (const look of [false, true])
+      for (const pointer of [false, true]) {
+        const offer = { look, pointer }
+        const enumerated = (
+          agentDecisionTool(offer).parameters as unknown as {
+            properties: { type: { enum: string[] } }
+          }
+        ).properties.type.enum
+        for (const type of ["look", "click_point", "zoom"] as const)
+          expect([offer, type, enumerated.includes(type)]).toEqual([
+            offer,
+            type,
+            accepts(type, offer)
+          ])
+      }
+  })
+
+  it("tells a text-only model the true limit and offers it nothing visual", async () => {
+    const requests: ChatRequest[] = []
+    const port = modelPort(
+      async (request, emit) => {
+        requests.push(request)
+        emit(validChunk)
+      },
+      { ...supported, vision: false }
+    )
+    await port.decide(
+      {
+        state,
+        observation,
+        visual: { available: false, reason: "model_text_only" }
+      },
+      { aborted: false }
+    )
+    expect(offered(requests[0])).not.toContain("look")
+    expect(requests[0]?.messages[0]?.content).toMatch(
+      /the selected model does not accept images/
+    )
+  })
+
+  it("withholds look from a model the port knows cannot read its result", async () => {
+    const requests: ChatRequest[] = []
+    const port = modelPort(
+      async (request, emit) => {
+        requests.push(request)
+        emit(validChunk)
+      },
+      { ...supported, vision: false }
+    )
+    /** A host that claimed access is overruled by the model's own answer. */
+    await port.decide(
+      { state, observation, visual: { available: true } },
+      { aborted: false }
+    )
+    expect(offered(requests[0])).not.toContain("look")
+    expect(requests[0]?.messages[0]?.content).toMatch(/does not accept images/)
+  })
+
   it("resolves vision once per run", async () => {
     const resolveCompatibility = vi.fn(async () => ({
       ...supported,

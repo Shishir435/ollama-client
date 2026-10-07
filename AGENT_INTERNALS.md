@@ -1020,7 +1020,7 @@ for every other id. Rules, all load-bearing:
   controller pictures the tab (`AgentScreenshotPort`) only after the DOM
   observation is in hand and only for a model whose `vision` the model port
   resolved from the same evidence chain as tool calling; text-only models are
-  offered no `click_point`/`zoom` and cost the page no capture. The picture
+  offered no `look`/`click_point`/`zoom` and cost the page no capture. The picture
   carries the observation's snapshot identity and scroll, travels as the user
   message's image attachment, and is held for that decision and the resolution
   that follows — never persisted, logged, traced or shown. A capture that
@@ -1028,8 +1028,8 @@ for every other id. Rules, all load-bearing:
 - **`auto` is the default, and it is a question about the step.** A capture
   costs an encode, a masking pass and — far the largest — an image prefill in
   the model's own window, and most steps decide from text and never look at
-  it. `agentPictureWarranted` (`vision.ts`) takes one on an explicit `zoom`,
-  on the first step of the run, after a step that did not confirm, on the
+  it. `agentPictureWarranted` (`vision.ts`) takes one on an explicit `zoom` or
+  `look`, on the first step of the run, after a step that did not confirm, on the
   first step on a **page the run has not seen** (compared against the last
   recorded step's source URL, so a query or fragment moving buys nothing), and
   on a page the DOM can barely describe — four controls or fewer with a
@@ -1038,6 +1038,39 @@ for every other id. Rules, all load-bearing:
   screenshot exists, so a run that navigated to a canvas application and was
   refused a picture for having five buttons had no way left to ask to see it.
   `always` and `never` remain the user's to choose.
+- **Asking to see is not the same as having a picture.** `look` requests a
+  fresh capture of the viewport for the next step and is offered whenever the
+  run *may* picture the page, picture or not; `zoom` and `click_point` name
+  pixels and stay offered only alongside one. Without `look`, a same-URL
+  canvas whose state is drawn rather than listed was visible only on whichever
+  step the rules above happened to picture. Each step's model input carries
+  `visual` — available, or the true reason it is not, in fact order: model
+  text-only, no capture path, notice not acknowledged
+  (`screenshotsPermitted`, a controller dependency rather than a `vision`
+  wrapper, so a cleared model is never reported as blind), pictures turned
+  off, a dialog held — and the prompt states that reason. A `look` whose
+  capture comes back empty withdraws `look` for that document
+  (`capture_failed`) until a new document or a later capture lands, so a page
+  that cannot be masked does not eat the budget being asked again; the
+  policy's own captures still try. `look` resolves and verifies as a pure read.
+- **A picture can answer a read, and says it did.** A value drawn into a
+  canvas is in no page text, so no quotation can ground it. When a
+  `complete` arrives with a screenshot bound to its own observation, a met
+  *read* outcome whose evidence nothing textual grounds is recorded as a
+  `visual_observation`: the picture's snapshot identity and origin plus the
+  model's own reading, never the image. The judge accepts that read only
+  against a current record, quoted exactly, and lists it in
+  `outcome.visual`; the card says "seen only in a screenshot" and the chat
+  handoff carries `seen_in_screenshot_only`. It never settles a change, the
+  reviewer does not count it as support, and text grounding wins whenever
+  both support the same answer. Itemized reads retain each met item's own
+  evidence, never the unchecked parent quotation; any accepted item that
+  relies only on the picture marks its requirement in `outcome.visual`.
+- **A changing picture is progress for a visual read.** The no-progress
+  hash ignores pictures, so `look` after `look` on a live chart looked like a
+  repeat. For `look` and `zoom` only, a hash of the picture the decision was
+  shown is folded in, in memory; any other command ignores it, or a
+  repainting video would pass a loop off as progress.
 - **The run's page outline is hidden from every capture.** The viewport
   outline and the pressed-control highlight (`agent-page-indicator.ts`) are
   the debugger's `Overlay` domain, not page DOM, so observation, hit tests and

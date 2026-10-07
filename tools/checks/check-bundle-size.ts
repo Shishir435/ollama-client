@@ -502,8 +502,15 @@ const budgets: Budget[] = [
      * P5 independent completion review — the review port, its prompt, tool
      * and parser, verdict checks and review telemetry — measures Chrome at
      * 322,045 and Firefox at 218,667. The 323,000 ceiling leaves 955 bytes.
+     * P6 on-demand vision — the `look` command, per-step visual access with
+     * its reasons, the look-only tool variant and its prompts — measures
+     * Chrome at 323,811 and Firefox at 219,967. Picture-read evidence — the
+     * `visual_observation` record, its judge rule, the outcome's `visual`
+     * list through the card, handoff and contract schemas Firefox also
+     * ships — takes Chrome to 324,441 and Firefox to 220,012. Ceilings
+     * 325,000 and 221,000 leave 559 and 988 bytes.
      */
-    max: isFirefox ? 220_000 : 323_000
+    max: isFirefox ? 221_000 : 325_000
   }
 ]
 

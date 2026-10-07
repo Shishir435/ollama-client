@@ -516,6 +516,84 @@ describe("visual commands need a screenshot", () => {
       }
     })
   })
+  it("admits look only where it was offered, and refuses it with the true reason", async () => {
+    const { AgentDecisionFormatError, parseAgentDecisionToolCalls } =
+      await import("../agent-decision-parser")
+    const observation = {
+      snapshotId: "snapshot-1",
+      generation: 1,
+      tabId: 7,
+      frameId: 0,
+      documentId: "document-1",
+      url: "https://example.com/",
+      origin: "https://example.com",
+      title: "Example",
+      frames: [],
+      elements: [],
+      visibleText: "",
+      scroll: {
+        x: 0,
+        y: 0,
+        viewportWidth: 100,
+        viewportHeight: 100,
+        documentWidth: 100,
+        documentHeight: 100
+      },
+      dialogs: [],
+      capturedAt: 1
+    }
+    const look = [
+      { id: "c1", name: "agent_decision", arguments: { type: "look" } }
+    ]
+    const refusal = (
+      options: Parameters<typeof parseAgentDecisionToolCalls>[2]
+    ) => {
+      try {
+        parseAgentDecisionToolCalls(look, observation, options)
+      } catch (error) {
+        expect(error).toBeInstanceOf(AgentDecisionFormatError)
+        return (error as { feedback?: string }).feedback
+      }
+      throw new Error("Expected a refusal")
+    }
+
+    /** No screenshot is needed to ask for one. */
+    expect(
+      parseAgentDecisionToolCalls(look, observation, {
+        visual: { available: true }
+      })
+    ).toEqual({
+      type: "command",
+      command: { type: "look", snapshotId: "snapshot-1", generation: 1 }
+    })
+    expect(
+      refusal({ visual: { available: false, reason: "model_text_only" } })
+    ).toMatch(/does not accept images/)
+    expect(
+      refusal({ visual: { available: false, reason: "not_permitted" } })
+    ).toMatch(/not allowed screenshots/)
+    expect(refusal({})).toMatch(/No screenshot/)
+
+    /** A pointer command with look on offer is pointed at look, not refused flat. */
+    try {
+      parseAgentDecisionToolCalls(
+        [
+          {
+            id: "c1",
+            name: "agent_decision",
+            arguments: { type: "click_point", x: 1, y: 2 }
+          }
+        ],
+        observation,
+        { visual: { available: true } }
+      )
+      throw new Error("Expected a refusal")
+    } catch (error) {
+      expect((error as { feedback?: string }).feedback).toMatch(
+        /look to take a screenshot first/
+      )
+    }
+  })
 })
 
 /**

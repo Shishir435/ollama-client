@@ -140,7 +140,15 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
    * `zoom` asks for the next screenshot to be a magnified crop of a region,
    * read-only like `inspect`. Both are offered only to a vision model and only
    * when a screenshot travelled with the observation.
+   *
+   * `look` asks for a fresh picture of the viewport on the next step. It is
+   * the one visual command that needs no picture already present: a page
+   * that has not changed, but whose state lives in a canvas or a chart, gave
+   * the model no way to see it once the step that happened to carry a
+   * screenshot had passed. Read-only, and offered only where the run may
+   * picture the page at all.
    */
+  GroundedCommandSchema.extend({ type: z.literal("look") }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("click_point"),
     x: z.number().finite().nonnegative(),

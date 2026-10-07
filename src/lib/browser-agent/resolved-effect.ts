@@ -38,6 +38,7 @@ export const READ_ONLY_AGENT_ACTIONS = [
   "extract",
   "extract_text",
   "zoom",
+  "look",
   "wait",
   "scroll",
   "switch_tab",

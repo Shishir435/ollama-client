@@ -199,7 +199,8 @@ export const applyAgentCompletionReview = (
     }
   const outcome = {
     met: [...scope.outcome.met, ...scope.requirementIds],
-    unmet: scope.outcome.unmet
+    unmet: scope.outcome.unmet,
+    ...(scope.outcome.visual?.length ? { visual: scope.outcome.visual } : {})
   }
   return {
     disagreements: 0,

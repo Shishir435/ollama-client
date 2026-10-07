@@ -229,12 +229,30 @@ export const matchesAgentInspection = (
   ].some((value) => value?.toLowerCase().includes(needle))
 }
 
-/** Ignore unrelated page churn for targeted reads, but never ignore a changed answer. */
+/**
+ * Ignore unrelated page churn for targeted reads, but never ignore a changed
+ * answer.
+ *
+ * A visual read's answer is the picture. On a live canvas or chart the text
+ * and the controls stay put while what is drawn changes, so `look` after
+ * `look` hashed the same and a run watching a chart update was paused as
+ * repeating itself. The picture the decision was shown is folded in for those
+ * commands only — elsewhere a repainting video would pass a loop off as
+ * progress — and only as a hash held in memory, never the image.
+ */
 export const hashAgentObservation = (
   observation: AgentObservation,
-  decision?: AgentDecision
+  decision?: AgentDecision,
+  picture?: string
 ): string => {
   const command = decision?.type === "command" ? decision.command : undefined
+  if (
+    picture !== undefined &&
+    (command?.type === "look" || command?.type === "zoom")
+  )
+    return fnv1a(
+      `${hashAgentObservation(observation, decision)}${fnv1a(picture)}`
+    )
   if (command?.type === "inspect" || command?.type === "find") {
     const focus =
       command.type === "inspect"

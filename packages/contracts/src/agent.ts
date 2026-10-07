@@ -549,7 +549,15 @@ export const AgentRunOutcomeSchema = z
       .max(MAX_AGENT_REQUIREMENTS),
     unmet: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS),
+    /**
+     * The met reads whose only support was a screenshot: the model's reading
+     * of a picture, not text the page said. Shown as such, never as verified.
+     */
+    visual: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
       .max(MAX_AGENT_REQUIREMENTS)
+      .optional()
   })
   .strict()
 export type AgentRunOutcome = z.infer<typeof AgentRunOutcomeSchema>
@@ -603,7 +611,9 @@ export const AgentConversationHandoffSchema = z
     outcome: z
       .object({
         met: z.number().int().nonnegative(),
-        total: z.number().int().nonnegative()
+        total: z.number().int().nonnegative(),
+        /** Of the met, how many were only seen in a screenshot. */
+        visual: z.number().int().positive().optional()
       })
       .strict()
       .optional(),

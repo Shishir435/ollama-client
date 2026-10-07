@@ -30,6 +30,28 @@ export const groundedCompletionQuote = (
       same(record.quote, quote)
   )
 
+/**
+ * A read the model took off the screenshot it completed on, answered exactly
+ * as it read it. Current only: a reading of an earlier picture describes a
+ * page that may have moved since. Never independent support — the picture's
+ * own words are the model's — so it settles a read as seen, not verified.
+ */
+export const visualCompletionRead = (
+  quote: string | undefined,
+  requirementId: string,
+  ledger: readonly AgentEvidenceRecord[] | undefined
+) =>
+  ledger?.find(
+    (record) =>
+      record.kind === "visual_observation" &&
+      record.validity === "current" &&
+      record.source &&
+      record.quote &&
+      quote &&
+      record.requirementId === requirementId &&
+      same(record.quote, quote)
+  )
+
 /** Undefined is a semantic claim; false is a predicate we could not prove. */
 export const checkCompletionState = (
   requirement: AgentTaskRequirement,

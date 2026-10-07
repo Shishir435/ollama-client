@@ -57,6 +57,29 @@ describe("the fenced agent context", () => {
   })
 
   /**
+   * A read the run only saw in a screenshot reaches the chat marked as such,
+   * so the reply does not repeat a picture's reading as a verified fact.
+   */
+  it("marks requirements seen only in a screenshot", () => {
+    const seen = renderAgentHandoffContext(
+      [
+        agentRow(
+          1,
+          handoff("run-v", { outcome: { met: 2, total: 2, visual: 1 } })
+        )
+      ],
+      MAX_AGENT_HANDOFF_CONTEXT_CHARS
+    )
+    expect(seen.block).toContain('requirements_met="2 of 2"')
+    expect(seen.block).toContain('seen_in_screenshot_only="1"')
+    const read = renderAgentHandoffContext(
+      [agentRow(1, handoff("run-t", { outcome: { met: 2, total: 2 } }))],
+      MAX_AGENT_HANDOFF_CONTEXT_CHARS
+    )
+    expect(read.block).not.toContain("seen_in_screenshot_only")
+  })
+
+  /**
    * The case the fence exists for: a page the agent read writes something
    * shaped like a prompt boundary and an order. It must arrive as one inert
    * line inside the one fence, with the fence's own framing still around it.

@@ -5,6 +5,7 @@ import { join, resolve } from "node:path"
 import { chromium } from "playwright"
 import {
   agentObservedText,
+  agentSawRenderedCanvas,
   approveChatTools,
   chatAnswered,
   chatAnswerFromWire,
@@ -71,7 +72,8 @@ const cases = [
   [
     "memory",
     "Remember the reference code shown here, open Details, and report both the reference code and the status code."
-  ]
+  ],
+  ["canvas", "Click Render, then tell me the code drawn on the canvas."]
 ]
 const only = (process.env.AUDIT_ONLY ?? "")
   .split(",")
@@ -132,6 +134,27 @@ let profile,
     failureCode: "harness_not_reached"
   }))
 writeBaseline(out, inputs, results)
+/** Start pages that are fixed markup, with no per-task wiring. */
+const STATIC_PAGES = {
+  read: "<h1>Release</h1><p>Version: 0.14.0</p>",
+  /**
+   * Six controls, so `auto` vision skips the picture after the first step,
+   * and a code drawn only into the canvas by Render: the URL and the control
+   * list stay the same, so the only way to read it is to ask for a picture.
+   * The status line is what lets the click verify — a click whose only effect
+   * is pixels is an unresolved effect, and the run rightly pauses on it — and
+   * it never carries the code. It starts empty: a line reading "Not
+   * rendered." contains "rendered", so quoting "Rendered." was refused as
+   * text the page already showed.
+   */
+  canvas:
+    ["Pen", "Eraser", "Undo", "Redo", "Clear"]
+      .map((label) => `<button type="button">${label}</button>`)
+      .join("") +
+    "<button type=\"button\" onclick=\"fetch('/effect');const c=document.querySelector('canvas').getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,480,160);c.fillStyle='#000';c.font='bold 56px sans-serif';c.fillText('KV-305',90,100);document.getElementById('state').textContent='Rendered.'\">Render</button>" +
+    '<p id="state"></p>' +
+    '<canvas width="480" height="160" style="display:block;border:1px solid #888"></canvas>'
+}
 const html = (kind, path) => {
   if (path.includes("/details"))
     return (
@@ -143,7 +166,7 @@ const html = (kind, path) => {
     `<!doctype html><title>Audit ${kind}</title><main>${s}</main>`
   const effect =
     "fetch('/effect');document.querySelector('main').innerHTML='<p>Status: Active</p>'"
-  if (kind === "read") return wrap("<h1>Release</h1><p>Version: 0.14.0</p>")
+  if (Object.hasOwn(STATIC_PAGES, kind)) return wrap(STATIC_PAGES[kind])
   if (kind === "select")
     return wrap(
       '<label>Color <select><option value="red">Red</option><option value="blue">Blue</option></select></label>'
@@ -511,6 +534,7 @@ try {
           }
         }
       }
+      const renderedCanvasScreenshot = agentSawRenderedCanvas(wire, origin)
       const scored = scoreSyntheticGoal({
         kind,
         completed,
@@ -523,6 +547,7 @@ try {
         openTabActive,
         readText: chatToolText(wire),
         observedText: agentObservedText(wire, origin),
+        renderedCanvasScreenshot,
         delegated: delegated && final.run.status === "completed"
       })
       const success = scored.success
@@ -555,6 +580,11 @@ try {
         success,
         verdict,
         predicate,
+        ...(kind === "canvas" ? { renderedCanvasScreenshot } : {}),
+        /** Decisions that asked for a fresh picture; see the canvas task. */
+        lookCalls: logs.filter((entry) =>
+          /"phase":"decision".*"action":"look"/.test(JSON.stringify(entry.args))
+        ).length,
         expectedPause,
         status,
         delegated,

@@ -86,6 +86,7 @@ export const agentCommandDisplay = (
     case "double_click":
     case "click_point":
     case "zoom":
+    case "look":
     case "hover":
     case "type":
     case "clear_and_type":
