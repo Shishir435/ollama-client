@@ -517,3 +517,18 @@ describe("native input backend choice", () => {
     ).toEqual({ backend: "dom", reason: "action_not_native" })
   })
 })
+
+describe("scaled frame visual input", () => {
+  it("dispatches root CSS coordinates while retaining the exact local event expectations", () => {
+    const built = plan(
+      { type: "click_point", x: 1, y: 1 },
+      { frameScale: { x: 2, y: 0.5 } }
+    )
+    expect(built.steps[1]).toMatchObject({
+      x: 120,
+      y: 210,
+      type: "mousePressed"
+    })
+    expect(built.expected[1]).toEqual({ type: "mousedown", x: 10, y: 20 })
+  })
+})

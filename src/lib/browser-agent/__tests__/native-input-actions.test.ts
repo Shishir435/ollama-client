@@ -526,3 +526,50 @@ describe("native dialog interruption", () => {
     expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
   })
 })
+
+describe("frame visual execution revalidation", () => {
+  const bind = async () => {
+    const effect = await authorize(command({ type: "click", ref: "e1" }))
+    effect.command = command({ type: "click_point", x: 5, y: 5 })
+    effect.target.point = { x: 5, y: 5 }
+    effect.target.visual = { rootPoint: { x: 5, y: 5 }, path: [] }
+    return effect
+  }
+  it("refuses an invalidated frame before native preparation or DOM mutation", async () => {
+    const executor = adapter({
+      validateVisualTarget: vi.fn(async () => {
+        throw new AgentEffectNotAppliedError("Frame changed")
+      })
+    })
+    await expect(
+      executeDomMutationAgentEffect({
+        effect: await bind(),
+        adapter: executor,
+        signal
+      })
+    ).rejects.toBeInstanceOf(AgentEffectNotAppliedError)
+    expect(executor.prepareNativeInput).not.toHaveBeenCalled()
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+    expect(executor.mutate).not.toHaveBeenCalled()
+  })
+  it("rechecks the owner chain after preparation immediately before dispatch", async () => {
+    const validateVisualTarget = vi
+      .fn(async () => {})
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(
+        new AgentEffectNotAppliedError("Owner moved during preparation")
+      )
+    const executor = adapter({ validateVisualTarget })
+    await expect(
+      executeDomMutationAgentEffect({
+        effect: await bind(),
+        adapter: executor,
+        signal
+      })
+    ).rejects.toBeInstanceOf(AgentEffectNotAppliedError)
+    expect(executor.prepareNativeInput).toHaveBeenCalledTimes(1)
+    expect(validateVisualTarget).toHaveBeenCalledTimes(2)
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+    expect(executor.mutate).not.toHaveBeenCalled()
+  })
+})
