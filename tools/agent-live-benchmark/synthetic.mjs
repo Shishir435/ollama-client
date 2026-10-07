@@ -142,14 +142,16 @@ const STATIC_PAGES = {
    * list stay the same, so the only way to read it is to ask for a picture.
    * The status line is what lets the click verify — a click whose only effect
    * is pixels is an unresolved effect, and the run rightly pauses on it — and
-   * it never carries the code.
+   * it never carries the code. It starts empty: a line reading "Not
+   * rendered." contains "rendered", so quoting "Rendered." was refused as
+   * text the page already showed.
    */
   canvas:
     ["Pen", "Eraser", "Undo", "Redo", "Clear"]
       .map((label) => `<button type="button">${label}</button>`)
       .join("") +
     "<button type=\"button\" onclick=\"fetch('/effect');const c=document.querySelector('canvas').getContext('2d');c.fillStyle='#fff';c.fillRect(0,0,480,160);c.fillStyle='#000';c.font='bold 56px sans-serif';c.fillText('KV-305',90,100);document.getElementById('state').textContent='Rendered.'\">Render</button>" +
-    '<p id="state">Not rendered.</p>' +
+    '<p id="state"></p>' +
     '<canvas width="480" height="160" style="display:block;border:1px solid #888"></canvas>'
 }
 const html = (kind, path) => {
