@@ -113,6 +113,8 @@ export interface AgentScenarioOutcome {
   wire: { request: unknown; decision?: unknown; response?: string }[]
   /** Live count, so an assertion can poll it. */
   effects: () => number
+  /** Completion reviews the scripted reviewer answered. */
+  reviews: () => number
   /** Structural run trace lines the worker logged, oldest first. */
   phases: readonly Record<string, unknown>[]
   /** Which input backend this pass ran on, from the project that ran it. */
@@ -165,6 +167,18 @@ export interface AgentScenario {
     text: string
     kind: "change" | "read"
     check?: AgentCompletionCheck
+  }[]
+  /**
+   * The scripted independent reviewer, given the evidence records it was
+   * shown. Absent means it supports nothing, which leaves the judge's own
+   * refusal in place.
+   */
+  review?: (
+    evidence: readonly { id: string; quote?: string; for?: string }[]
+  ) => readonly {
+    id: string
+    verdict: "supported" | "contradicted" | "insufficient_evidence"
+    sources: readonly string[]
   }[]
   /**
    * How the panel answers an approval. `run_origin` widens it to the origin
@@ -551,6 +565,8 @@ const modelRouteFor = (
 ): string => {
   if (chatTurn) return "chat_turn"
   if (requestTools.includes("agent_plan")) return "agent_plan"
+  if (requestTools.includes("agent_completion_review"))
+    return "agent_completion_review"
   if (requestTools.includes("agent_decision")) return "agent_decision"
   if (path === "/api/tags" || path === "/v1/models") return "catalog"
   if (path === "/api/show") return "model_metadata"
@@ -866,6 +882,7 @@ const runAgentScenarioAttempt = (
     const dialogs: Dialog[] = []
     let fixturePage: Page | undefined
     let effects = 0
+    let reviews = 0
     let step = 0
     const phases: unknown[] = []
     const wire: AgentScenarioOutcome["wire"] = []
@@ -958,11 +975,49 @@ const runAgentScenarioAttempt = (
         done: true
       })}\n`
 
+    /**
+     * The independent completion review, answered off the step counter for
+     * the same reason as planning. An empty answer supports nothing, so a
+     * scenario that does not script a reviewer keeps the deterministic
+     * judge's refusal exactly as it was before review existed.
+     */
+    const answerReview = (parsed: {
+      messages?: { role?: string; content?: string }[]
+    }) => {
+      const prompt =
+        parsed.messages?.find((message) => message.role === "user")?.content ??
+        ""
+      const data = prompt.slice(
+        prompt.indexOf("<data>\n") + 7,
+        prompt.lastIndexOf("\n</data>")
+      )
+      const evidence = (JSON.parse(data) as { evidence: [] }).evidence
+      reviews += 1
+      return `${JSON.stringify({
+        model,
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              function: {
+                name: "agent_completion_review",
+                arguments: { verdicts: scenario.review?.(evidence) ?? [] }
+              }
+            }
+          ]
+        },
+        done: true
+      })}\n`
+    }
+
     const answerDecision = async (body: string): Promise<string> => {
       const parsed = JSON.parse(body)
       if (isChatTurn(parsed)) return answerChatTurn(parsed)
       if (parsed.tools?.[0]?.function?.name === "agent_plan")
         return answerPlan()
+      if (parsed.tools?.[0]?.function?.name === "agent_completion_review")
+        return answerReview(parsed)
       step += 1
       const lastMessage = parsed.messages?.at(-1) as
         | { images?: unknown[] }
@@ -1378,6 +1433,7 @@ const runAgentScenarioAttempt = (
           messages,
           wire,
           effects: () => effects,
+          reviews: () => reviews,
           backend:
             (testInfo.project.metadata.agentBenchmarkBackend as
               | string

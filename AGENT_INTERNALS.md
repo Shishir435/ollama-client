@@ -943,6 +943,77 @@ Read the section your change touches; you do not need the whole file.
   half an hour, and what bounds a runaway run is the observation ceiling and
   the no-progress guard, not the clock.
 
+### Independent completion review
+
+A `needs_review` refusal that carries a `review` scope is put to a second
+reading before it reaches the model (`completion-review.ts`,
+`AgentCompletionReviewPort`). The scope names exactly the requirement and
+constraint ids no deterministic check could decide, plus the judge's outcome
+for every other id. Rules, all load-bearing:
+
+- **Only undecidable claims are reviewed.** A deterministic failure returns
+  before a scope is built, so a reviewer never sees one and cannot override
+  it. An accepted completion never pays for a review. A broken limit wins
+  over a reviewable one whatever order they were planned in. Missing effect
+  classes are an evidence gap, not a question of meaning, and carry no scope.
+- **A paraphrased read goes to review only if something could answer it.**
+  The ledger has to hold a grounded observed fact bound to that requirement.
+  With nothing bound, the read is still `absent_evidence`.
+- **Fresh context, no effects.** The reviewer sees the goal, the scoped
+  requirements and limits, the acting model's claims for those ids, and the
+  grounded ledger records only — no history, page, screenshot or reasoning.
+  It has no browser, approval or plan port. The prompt keeps all
+  page-derived text in one JSON data block, with `<` escaped so a quotation
+  cannot close it.
+- **The runtime checks every verdict.** `supported` counts only with a cited
+  ledger record that is grounded, `current` or `historical`, and bound to
+  exactly the id under review. An unbound fact is plausible evidence of
+  anything, so it counts for nothing. A read or a limit is shown by an
+  observed fact. A change may also be shown by a verified effect whose kind
+  proves the resulting state (`field`, `fields`, `checked`, `arrangement`,
+  `condition`); an activation, submission or navigation only says the input
+  landed. A limit is supported only by a quotation the run bound to that
+  limit's id, which `groundAgentQuotes` accepts alongside requirement ids.
+  Ids nobody asked about are ignored. A skipped or doubled answer is
+  insufficient. `contradicted` becomes `contradicted_state`, citations or
+  not, because it can only stop a success.
+- **Itemized requirements are never reviewed.** A verdict answers for the
+  whole requirement, and one citation cannot say which item it supports, so
+  a refusal that includes an itemized requirement keeps no review scope.
+- **No review is never a pass.** A missing port, a thrown or timed-out call,
+  a malformed answer, a prompt too large for the reviewer's resolved window,
+  and a spent budget (`MAX_AGENT_COMPLETION_REVIEWS` per run) all leave the
+  judge's refusal unchanged. The prompt is never cut to fit, because a
+  reviewer must not judge evidence it was not shown. The budget is read from
+  the run's receipts as well as from memory, so a worker restart cannot
+  refund it.
+- **An item reported unmet keeps its requirement unmet.** An itemized
+  requirement with any item answered `met:false` settles as unmet and is
+  never put to review: a supported verdict on its other items would
+  otherwise carry the whole requirement into `met`. The existing two-refusal
+  question to the user still bounds the loop. Nothing is re-executed to
+  satisfy a reviewer; the feedback says so.
+- **Default reviewer is the run's own model and provider**, already
+  authorized and already shown every ledger record, so a review discloses
+  nothing new. It is bounded by the decision timeout, retried once on a
+  malformed answer or a dropped stream, and run without a reasoning budget.
+- **A separately configured reviewer passes the run's own gates first.**
+  Settings → Agent → Completion reviewer (`AGENT_COMPLETION_REVIEWER`) names
+  a provider and model. `resolveAgentCompletionReviewer`
+  (`src/background/agent/`) refuses it when its provider is gone, and when its
+  endpoint is remote and page content has not been acknowledged for remote
+  models. The port then applies the same enabled and tool-calling checks a
+  decision gets, resolved for that model. A refusal at any gate means no
+  review. It never falls back to the run's model: that would change who
+  judges without the user knowing. `reviewSeparateModel` marks these reviews
+  in telemetry so the two kinds of reviewer can be compared.
+- **Cost and disagreement are durable.** `reviews`, `reviewMs`,
+  `reviewPromptTokens`, `reviewOutputTokens` and `reviewDisagreements` land
+  on the completion's own receipt: the rejected completion step, or a
+  `:review:` step written when the review settled the run. The benchmark
+  sums them per attempt. Read them against task predicates, because a
+  reviewer can be wrong in both directions.
+
 ## Screenshots
 
 - **A screenshot is an observation's companion, never a record.** The

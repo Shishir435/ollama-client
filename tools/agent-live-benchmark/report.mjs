@@ -171,7 +171,12 @@ const numericKeys = [
   "chatCalls",
   "decideMs",
   "observeMs",
-  "verifyMs"
+  "verifyMs",
+  "reviews",
+  "reviewMs",
+  "reviewDisagreements",
+  "reviewPromptTokens",
+  "reviewOutputTokens"
 ]
 const labelKeys = [
   "task",

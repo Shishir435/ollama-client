@@ -499,8 +499,11 @@ const budgets: Budget[] = [
      * The planning JSON schema stays local to avoid shipping Zod's converter.
      * The 320,000 ceiling leaves 677 bytes of headroom; asset and content
      * budgets remain unchanged.
+     * P5 independent completion review — the review port, its prompt, tool
+     * and parser, verdict checks and review telemetry — measures Chrome at
+     * 322,045 and Firefox at 218,667. The 323,000 ceiling leaves 955 bytes.
      */
-    max: isFirefox ? 220_000 : 320_000
+    max: isFirefox ? 220_000 : 323_000
   }
 ]
 

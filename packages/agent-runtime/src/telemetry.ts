@@ -12,6 +12,11 @@ import { agentStepTelemetry } from "@ollama-client/contracts"
 const ADDITIVE = [
   "decideMs",
   "planMs",
+  "reviewMs",
+  "reviews",
+  "reviewPromptTokens",
+  "reviewOutputTokens",
+  "reviewDisagreements",
   "observeMs",
   "captureMs",
   "resolveMs",
@@ -57,5 +62,7 @@ export const mergeAgentStepTelemetry = (
   for (const key of ADDITIVE) merged[key] = add(base[key], next[key])
   for (const key of LATEST) merged[key] = next[key] ?? base[key]
   if (base.vision === true || next.vision === true) merged.vision = true
+  if (base.reviewSeparateModel === true || next.reviewSeparateModel === true)
+    merged.reviewSeparateModel = true
   return agentStepTelemetry(merged as AgentStepTelemetry)
 }

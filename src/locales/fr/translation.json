@@ -192,6 +192,11 @@
         "description": "Indique si chaque nouvelle exécution peut cliquer et saisir du texte sur le site de départ sans demander. L’envoi, la suppression, la connexion, le paiement et les nouveaux sites sont toujours soumis à confirmation, et rien n’est reporté à l’exécution suivante.",
         "allow_routine": "Autoriser sur le site de départ",
         "approve_each": "Approuver chaque action"
+      },
+      "completion_reviewer": {
+        "label": "Vérificateur de fin de tâche",
+        "description": "Quand une exécution affirme un résultat que les contrôles intégrés ne peuvent pas confirmer, ce modèle lit les preuves vérifiées de l'exécution et indique si elles appuient l'affirmation. Il n'agit jamais dans le navigateur. Un autre modèle ne reçoit ces preuves que s'il est activé, sait appeler des outils et, pour un serveur distant, si vous avez accepté d'envoyer le contenu des pages à des modèles distants.",
+        "same_as_run": "Même modèle que l'exécution"
       }
     },
     "card": {

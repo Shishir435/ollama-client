@@ -421,6 +421,8 @@ export const runNanobrowserScenario = (scenario: AgentScenario): void => {
           messages: [],
           wire: [],
           effects: () => effects,
+          /** Nanobrowser has no independent completion review. */
+          reviews: () => 0,
           phases: [],
           backend: "nanobrowser",
           attempt,

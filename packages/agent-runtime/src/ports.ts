@@ -1,6 +1,7 @@
 import type {
   AgentApprovalRequest,
   AgentCommand,
+  AgentCompletionReview,
   AgentConsequentialEffect,
   AgentDecision,
   AgentDialogState,
@@ -19,8 +20,11 @@ import type {
   AgentStepStatus,
   AgentStepTelemetry,
   AgentTakeoverRequest,
-  AgentTaskPlan
+  AgentTaskConstraint,
+  AgentTaskPlan,
+  AgentTaskRequirement
 } from "@ollama-client/contracts"
+import type { AgentCompletionOutcomeClaim } from "./completion"
 import type { AgentVisionPolicy } from "./vision"
 
 export type AgentRisk = "low" | "medium" | "high" | "critical"
@@ -739,6 +743,41 @@ export interface AgentModelPort {
   ): Promise<AgentTaskPlan>
 }
 
+/**
+ * What an independent reviewer is shown, and all it is shown.
+ *
+ * A fresh context on purpose: no history, no page, no reasoning from the run
+ * that is being judged. The goal and the requirements are the user's words as
+ * the plan fixed them; the claims are the acting model's; the ledger is what
+ * the runtime grounded. Only the ids a deterministic check could not decide
+ * are listed, so the reviewer cannot be asked to re-open one that was settled.
+ */
+export interface AgentCompletionReviewRequest {
+  goal: string
+  requirements: readonly AgentTaskRequirement[]
+  constraints: readonly AgentTaskConstraint[]
+  claims: readonly AgentCompletionOutcomeClaim[]
+  evidenceLedger: readonly AgentEvidenceRecord[]
+}
+
+/**
+ * A second reading of a completion, with no browser behind it.
+ *
+ * It has no effect port, no approval port and no way to write the plan: its
+ * answer is a verdict per id, which the runtime checks against the ledger
+ * before believing any of it. A thrown error, a cancelled request and an
+ * answer that cites nothing all leave the claim exactly as unreviewed.
+ */
+export interface AgentCompletionReviewPort {
+  review(
+    state: AgentRunState,
+    request: AgentCompletionReviewRequest,
+    signal: AgentCancellationSignal
+  ): Promise<AgentCompletionReview>
+  /** What the review that just resolved cost, read once like `decisionTelemetry`. */
+  reviewTelemetry?(runId: string): AgentStepTelemetry | undefined
+}
+
 /** What a resolver may ground a command in besides the DOM observation. */
 export interface AgentResolutionContext {
   screenshot?: AgentScreenshot
@@ -854,6 +893,11 @@ export interface AgentController {
 
 export interface AgentControllerDependencies {
   model: AgentModelPort
+  /**
+   * Absent means no second opinion: a claim no deterministic check can
+   * decide is sent back to the run and, if it returns unchanged, to the user.
+   */
+  review?: AgentCompletionReviewPort
   observation: AgentObservationPort
   /** Absent means the host cannot picture the page; runs are text-only. */
   screenshot?: AgentScreenshotPort

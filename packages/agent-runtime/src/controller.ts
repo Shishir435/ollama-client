@@ -4,6 +4,7 @@ import type {
 } from "@ollama-client/contracts"
 import {
   AGENT_ROUTINE_GRANT_EFFECTS,
+  AgentCompletionReviewSchema,
   type AgentDecision,
   AgentDecisionSchema,
   type AgentGrantableEffect,
@@ -40,6 +41,13 @@ import {
   judgeAgentCompletion,
   prematureUnmetFeedback
 } from "./completion"
+import {
+  agentCompletionNeedsReview,
+  agentCompletionReviewRequest,
+  agentRecordedReviews,
+  applyAgentCompletionReview,
+  MAX_AGENT_COMPLETION_REVIEWS
+} from "./completion-review"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
   agentCommandEvidence,
@@ -354,6 +362,12 @@ export const createAgentController = (
     string,
     { reason: string; count: number }
   >()
+  /**
+   * Review requests per run. Not cleared by a correction or an answer, unlike
+   * the refusal counters beside it: this is a cost ceiling, and a user
+   * replying to a question has not refunded the calls already made.
+   */
+  const reviewsByRun = new Map<string, number>()
 
   const claim = async (
     state: AgentRunState,
@@ -1888,6 +1902,89 @@ export const createAgentController = (
         }
       : undefined
 
+  /**
+   * A second, independent reading of a claim the judge could not decide.
+   *
+   * Asked only for a `needs_review` refusal that carries a scope, so a
+   * deterministic failure is never put to a reviewer and a completion the
+   * judge accepted never pays for one. Whatever goes wrong — no port, budget
+   * spent, a thrown or malformed answer — returns the judge's own refusal
+   * unchanged: an unavailable reviewer is no review, never a pass.
+   *
+   * `undefined` means the run was cancelled while the reviewer worked.
+   */
+  const reviewCompletion = async (
+    state: AgentRunState,
+    judgement: AgentCompletionJudgement,
+    decision: Extract<AgentDecision, { type: "complete" }>,
+    steps: readonly AgentStepReadout[] | undefined,
+    observation: AgentObservation,
+    signal: AgentCancellationController["signal"]
+  ): Promise<
+    { judgement: AgentCompletionJudgement; reviewed: boolean } | undefined
+  > => {
+    const port = dependencies.review
+    if (!port || !agentCompletionNeedsReview(judgement))
+      return { judgement, reviewed: false }
+    /**
+     * The receipts are the count that survives a worker restart; memory
+     * covers a review whose receipt could not be read back. The larger wins,
+     * so a restart never refunds the run's ceiling.
+     */
+    const spent = Math.max(
+      reviewsByRun.get(state.id) ?? 0,
+      agentRecordedReviews(steps)
+    )
+    if (spent >= MAX_AGENT_COMPLETION_REVIEWS) {
+      dependencies.trace?.(state.id, "completion_review_budget_exhausted", {
+        reviews: spent
+      })
+      return { judgement, reviewed: false }
+    }
+    reviewsByRun.set(state.id, spent + 1)
+    const request = agentCompletionReviewRequest(
+      state,
+      judgement.review,
+      decision.outcomes,
+      completionLedger(state, decision, steps, observation)
+    )
+    const startedAt = dependencies.clock.now()
+    let answer: unknown
+    try {
+      answer = await port.review(state, request, signal)
+    } catch {
+      if (signal.aborted) return undefined
+      dependencies.trace?.(state.id, "completion_review_failed")
+      return { judgement, reviewed: true }
+    } finally {
+      measure({ reviewMs: dependencies.clock.now() - startedAt, reviews: 1 })
+      measure(port.reviewTelemetry?.(state.id))
+    }
+    if (signal.aborted) return undefined
+    const parsed = AgentCompletionReviewSchema.safeParse(answer)
+    if (!parsed.success) {
+      dependencies.trace?.(state.id, "completion_review_malformed")
+      return { judgement, reviewed: true }
+    }
+    const result = applyAgentCompletionReview(judgement, request, parsed.data)
+    measure({ reviewDisagreements: result.disagreements })
+    dependencies.trace?.(state.id, "completion_reviewed", {
+      asked:
+        judgement.review.requirementIds.length +
+        judgement.review.constraintIds.length,
+      disagreements: result.disagreements,
+      outcome:
+        result.judgement.type === "refused"
+          ? result.judgement.reason
+          : result.judgement.type
+    })
+    return { judgement: result.judgement, reviewed: true }
+  }
+
+  /** Fixed template: a reviewer's acceptance carries none of its own words. */
+  const REVIEW_SUPPORTED_SUMMARY =
+    "Independent review found grounded support for every outcome it was asked to check."
+
   const processCompletion = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
@@ -1932,8 +2029,23 @@ export const createAgentController = (
     )
     if (!settled) return undefined
     observation = settled.observation
-    const judgement =
-      outstandingAnswer(state) ?? challengeEarlyUnmet(state, settled.judgement)
+    const outstanding = outstandingAnswer(state)
+    let judgement: AgentCompletionJudgement
+    let reviewed = false
+    if (outstanding) judgement = outstanding
+    else {
+      const review = await reviewCompletion(
+        state,
+        settled.judgement,
+        decision,
+        steps,
+        observation,
+        signal
+      )
+      if (!review) return undefined
+      reviewed = review.reviewed
+      judgement = challengeEarlyUnmet(state, review.judgement)
+    }
     if (judgement.type !== "refused") {
       const evidenceLedger = completionLedger(
         state,
@@ -1941,6 +2053,30 @@ export const createAgentController = (
         steps,
         observation
       )
+      /**
+       * A completion the reviewer settled leaves a receipt of its own, so
+       * what the review cost is durable on the run it was spent on. A
+       * refused one needs none: the refusal below is written either way and
+       * carries the same telemetry.
+       */
+      if (reviewed) {
+        const now = dependencies.clock.now()
+        await appendStep({
+          runId: state.id,
+          stepId: `${state.id}:review:${state.observationCount}`,
+          status: "verified",
+          at: now,
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "completion",
+              summary: REVIEW_SUPPORTED_SUMMARY,
+              observedAt: now
+            }
+          }
+        })
+      }
+      reviewsByRun.delete(state.id)
       await settleJudgedRun(
         state,
         judgement,

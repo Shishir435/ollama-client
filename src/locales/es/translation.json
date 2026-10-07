@@ -192,6 +192,11 @@
         "description": "Si cada nueva ejecución puede hacer clic y escribir en el sitio donde empieza sin preguntar. Enviar, eliminar, iniciar sesión, pagar y los sitios nuevos siempre se preguntan, y nada pasa a la siguiente ejecución.",
         "allow_routine": "Permitir en el sitio inicial",
         "approve_each": "Aprobar cada acción"
+      },
+      "completion_reviewer": {
+        "label": "Revisor de finalización",
+        "description": "Cuando una ejecución afirma algo que las comprobaciones integradas no pueden confirmar, este modelo lee las pruebas verificadas de la ejecución y dice si respaldan la afirmación. Nunca actúa en el navegador. Un modelo distinto solo recibe esas pruebas si está activado, puede usar herramientas y, en un servidor remoto, has aceptado enviar contenido de páginas a modelos remotos.",
+        "same_as_run": "El mismo modelo que la ejecución"
       }
     },
     "card": {

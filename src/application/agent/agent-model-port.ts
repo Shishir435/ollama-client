@@ -1,5 +1,6 @@
 import type {
   AgentCancellationSignal,
+  AgentCompletionReviewPort,
   AgentFinding,
   AgentHistoryEntry,
   AgentInspectionFocus,
@@ -48,6 +49,13 @@ import type {
 } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ReasoningEffort } from "@/types/model"
+import {
+  AGENT_REVIEW_FEEDBACK,
+  AGENT_REVIEW_SYSTEM_PROMPT,
+  AGENT_REVIEW_TOOL,
+  agentReviewPrompt,
+  parseAgentCompletionReview
+} from "./agent-completion-review"
 import {
   AGENT_CONTEXT_MAX_TOKENS,
   AGENT_CONTEXT_MIN_TOKENS,
@@ -335,7 +343,7 @@ const agentDecisionParameters = (vision: boolean): ToolParameterSchema => ({
     sourceQuotes: {
       type: "array",
       maxItems: MAX_AGENT_SOURCE_QUOTES,
-      description: `Optional source quotations to retain for later answers. Copy at most ${MAX_AGENT_SOURCE_QUOTE_CHARS} characters exactly from one observed source. Name its ref or extract_text frameId, and requirementId when applicable. A note is inference; a quotation is checked against the authorized observation.`,
+      description: `Optional source quotations to retain for later answers. Copy at most ${MAX_AGENT_SOURCE_QUOTE_CHARS} characters exactly from one observed source. Name its ref or extract_text frameId, and requirementId when applicable: the id of the requirement it answers, or of the limit (such as c1) it shows was respected. A note is inference; a quotation is checked against the authorized observation.`,
       items: {
         type: "object",
         additionalProperties: false,
@@ -1149,6 +1157,28 @@ const retryUntilWellFormed = async (input: {
   }
 }
 
+/**
+ * The review request's fixed cost: its instructions, its tool schema, and the
+ * one feedback message a retry may add.
+ */
+const AGENT_REVIEW_FIXED_TOKENS =
+  estimateTokens(AGENT_REVIEW_SYSTEM_PROMPT) +
+  estimateTokens(JSON.stringify(AGENT_REVIEW_TOOL)) +
+  estimateTokens(AGENT_REVIEW_FEEDBACK)
+
+/** A review whose evidence does not fit the reviewer's window; nothing was sent. */
+export class AgentReviewTooLargeError extends Error {
+  constructor(
+    readonly neededTokens: number,
+    readonly windowTokens: number
+  ) {
+    super(
+      `The completion review needs about ${neededTokens} tokens and the reviewer's window is ${windowTokens}`
+    )
+    this.name = "AgentReviewTooLargeError"
+  }
+}
+
 export interface ProviderAgentModelPortOptions {
   resolveProvider?: (
     modelId: string,
@@ -1160,18 +1190,29 @@ export interface ProviderAgentModelPortOptions {
     signal?: AbortSignal
   ) => Promise<AgentModelCompatibility>
   allowExperimental?: boolean
+  /**
+   * Which model reviews this run's completions. Absent means the run's own.
+   * The host decides, because whether a different model may be sent page
+   * evidence is a disclosure question this layer cannot answer; a reviewer
+   * the host refuses throws, and the review does not happen.
+   */
+  resolveReviewer?: (
+    state: AgentRunState
+  ) => Promise<{ providerId: string; modelId: string }>
 }
 
 /** Provider-backed native decision port with bounded malformed-output retries. */
 export const createProviderAgentModelPort = (
   options: ProviderAgentModelPortOptions
-): AgentModelPort => {
+): AgentModelPort & AgentCompletionReviewPort => {
   const malformedByRun = new Map<string, number>()
   /**
    * Keyed by run because one port serves every run in the worker, and read
    * once by the controller on the step it belongs to.
    */
   const telemetryByRun = new Map<string, AgentStepTelemetry>()
+  /** What each run's last completion review cost, consumed once. */
+  const reviewTelemetryByRun = new Map<string, AgentStepTelemetry>()
   /** The reasoning of each run's last well-formed decision, consumed once. */
   const thinkingByRun = new Map<string, string>()
   const resolveProvider =
@@ -1268,6 +1309,144 @@ export const createProviderAgentModelPort = (
       const telemetry = telemetryByRun.get(runId)
       telemetryByRun.delete(runId)
       return telemetry
+    },
+    reviewTelemetry(runId) {
+      const telemetry = reviewTelemetryByRun.get(runId)
+      reviewTelemetryByRun.delete(runId)
+      return telemetry
+    },
+    /**
+     * The run's own model and provider, already authorized and already shown
+     * everything in the ledger, so a review discloses nothing new to anyone.
+     * A fresh conversation: no history, no page, no reasoning from the run.
+     *
+     * Retried once on a dropped stream or a malformed answer, like planning.
+     * A second failure throws, and the controller treats that as no review.
+     */
+    async review(state, request, signal) {
+      reviewTelemetryByRun.delete(state.id)
+      const reviewer = (await options.resolveReviewer?.(state)) ?? {
+        providerId: state.providerId,
+        modelId: state.modelId
+      }
+      const separate =
+        reviewer.providerId !== state.providerId ||
+        reviewer.modelId !== state.modelId
+      /**
+       * A separate reviewer is held to the same model checks as the run's
+       * own, resolved for it rather than read from the run's caches, which
+       * describe a different model.
+       */
+      let compatibility: AgentModelCompatibility
+      if (separate) {
+        const scope = providerSignal(signal)
+        try {
+          compatibility = await resolveCompatibility(
+            reviewer.providerId,
+            reviewer.modelId,
+            scope.signal
+          )
+        } finally {
+          scope.cleanup()
+        }
+      } else compatibility = await compatibilityFor(state, signal)
+      assertAgentModelCompatibility(
+        compatibility,
+        options.allowExperimental === true
+      )
+      const provider = await resolveProvider(
+        reviewer.modelId,
+        reviewer.providerId
+      )
+      assertProviderEnabled(provider, reviewer.modelId)
+      const window = separate
+        ? resolveAgentContextWindow({
+            setting: await readAgentContextWindowSetting(),
+            ...(compatibility.context
+              ? { evidence: compatibility.context }
+              : {})
+          }).tokens
+        : await windowFor(state, compatibility)
+      const prompt = agentReviewPrompt(request)
+      /**
+       * Bounded against the window the reviewer will actually be given, like
+       * every other part of an Agent request. A review that does not fit is
+       * not sent at all: cutting the goal or the ledger to make it fit would
+       * ask the reviewer to judge evidence it was not shown, and an
+       * unavailable review already leaves the refusal unchanged.
+       */
+      const needed =
+        AGENT_REVIEW_FIXED_TOKENS +
+        estimateTokens(prompt) +
+        AGENT_SHORT_RESPONSE_TOKENS
+      if (needed > agentContextWindow(window))
+        throw new AgentReviewTooLargeError(needed, agentContextWindow(window))
+      let promptTokens: number | undefined
+      let outputTokens: number | undefined
+      const attempt = async (feedback?: string) => {
+        const calls = new Map<string, ToolCall>()
+        let streamError: ChatStreamMessage["error"]
+        /** The stream's usage frame is a total, so only the last one counts. */
+        let metrics: StreamChunkMetrics | undefined
+        const scoped = providerSignal(signal)
+        try {
+          await provider.streamChat(
+            {
+              model: reviewer.modelId,
+              messages: [
+                { role: "system", content: AGENT_REVIEW_SYSTEM_PROMPT },
+                { role: "user", content: prompt },
+                ...(feedback
+                  ? [{ role: "user" as const, content: feedback }]
+                  : [])
+              ],
+              tools: [AGENT_REVIEW_TOOL],
+              tool_choice: "required",
+              /** A verdict is a lookup, not a plan: no reasoning budget. */
+              think: false,
+              num_predict: AGENT_SHORT_RESPONSE_TOKENS,
+              num_ctx: agentContextWindow(window),
+              keep_alive: AGENT_KEEP_ALIVE
+            },
+            (chunk) => {
+              if (chunk.error) streamError = chunk.error
+              if (chunk.metrics) metrics = chunk.metrics
+              for (const call of chunk.toolCalls ?? []) calls.set(call.id, call)
+            },
+            scoped.signal
+          )
+          if (streamError) throw streamError
+          return parseAgentCompletionReview([...calls.values()])
+        } finally {
+          scoped.cleanup()
+          promptTokens = sum(promptTokens, metrics?.prompt_eval_count)
+          outputTokens = sum(outputTokens, metrics?.eval_count)
+        }
+      }
+      try {
+        let lastError: unknown
+        for (let tries = 0; tries <= 1; tries += 1) {
+          if (signal.aborted) throw new Error("Agent model request cancelled")
+          try {
+            return await attempt(
+              lastError instanceof AgentDecisionFormatError
+                ? lastError.feedback
+                : undefined
+            )
+          } catch (error) {
+            if (signal.aborted) throw error
+            lastError = error
+          }
+        }
+        throw lastError
+      } finally {
+        const telemetry = agentStepTelemetry({
+          reviewPromptTokens: promptTokens,
+          reviewOutputTokens: outputTokens,
+          ...(separate ? { reviewSeparateModel: true } : {})
+        })
+        if (telemetry) reviewTelemetryByRun.set(state.id, telemetry)
+      }
     },
     decisionThinking(runId) {
       const thinking = thinkingByRun.get(runId)
