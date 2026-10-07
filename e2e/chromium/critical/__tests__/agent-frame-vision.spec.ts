@@ -64,14 +64,17 @@ runAgentScenario({
   html: (path) =>
     path === "/board"
       ? board
-      : path === "/authorize"
+      : path === "/authorized-site"
         ? "<!doctype html><h1>Authorized origin</h1>"
         : `<!doctype html><style>iframe{position:absolute;left:100px;top:80px;width:400px;height:300px;border:4px solid blue;transform:scale(1.2,.9);transform-origin:top left}</style><h1>Board</h1><iframe id="embedded"></iframe><script>embedded.src='http://localhost:'+location.port+'/board'</script>`,
   decide(observation, context) {
     const url = new URL(observation.url)
     if (url.pathname === "/")
-      return { type: "navigate", url: `http://localhost:${url.port}/authorize` }
-    if (url.pathname === "/authorize")
+      return {
+        type: "navigate",
+        url: `http://localhost:${url.port}/authorized-site`
+      }
+    if (url.pathname === "/authorized-site")
       return { type: "navigate", url: `http://127.0.0.1:${url.port}/return` }
     if (observation.text.includes("Status: trusted left"))
       return {
@@ -104,10 +107,13 @@ runAgentScenario({
   status: "completed",
   vision: true,
   html: () =>
-    `<!doctype html><style>body{margin:0}iframe{position:absolute;top:100px;width:300px;height:240px;border:0}#allowed{left:50px}#opaque{left:500px}</style><p>Status: ready</p><iframe id="allowed" srcdoc="${`<!doctype html><style>body{margin:0;background:rgb(0,200,0)}input{position:absolute;left:20px;top:100px;width:100px;height:30px}</style><input type="password" value="secret">`.replaceAll('"', "&quot;")}"></iframe><iframe id="opaque" sandbox="allow-scripts" srcdoc="<body style='background:rgb(200,0,0)'>Private</body>"></iframe>`,
+    `<!doctype html><style>body{margin:0}iframe{position:absolute;top:100px;width:300px;height:240px;border:0}#allowed{left:50px}#opaque{left:500px}#rotated{left:900px;transform:rotate(15deg)}</style><p>Status: ready</p><iframe id="allowed" srcdoc="${`<!doctype html><style>body{margin:0;background:rgb(0,200,0)}input{position:absolute;left:20px;top:100px;width:100px;height:30px}</style><input type="password" value="secret">`.replaceAll('"', "&quot;")}"></iframe><iframe id="opaque" sandbox="allow-scripts" srcdoc="<body style='background:rgb(200,0,0)'>Private</body>"></iframe><iframe id="rotated" srcdoc="<body style='background:rgb(200,0,0)'>Unsupported rotation</body>"></iframe>`,
   decide(observation, context) {
     expect(observation.text).not.toContain("Private")
     expect(context.screenshot?.frames).toHaveLength(1)
+    expect(context.screenshot?.frameLimitations).toEqual([
+      expect.objectContaining({ reason: "unmapped_or_unsupported_geometry" })
+    ])
     return {
       type: "complete",
       summary: "Status: ready",
@@ -131,12 +137,13 @@ runAgentScenario({
       return [
         [80, 140],
         [100, 220],
-        [600, 200]
+        [600, 200],
+        [1100, 200]
       ].map(([x, y]) =>
         Array.from(
           ctx.getImageData(
             Math.round((x * image.width) / innerWidth),
-            Math.round((y * image.height) / innerHeight),
+            Math.round((y * image.width) / innerWidth),
             1,
             1
           ).data
@@ -153,20 +160,14 @@ runAgentScenario({
   name: "invalidates frame coordinates after child scrolling",
   goal: "Click the left half of the board and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "failed",
   vision: true,
   allowRoutineActions: true,
   html: (path) =>
     path === "/board"
       ? board.replace("</style>", "body{height:1500px}</style>")
       : framePage(false),
-  async decide(observation, context) {
-    if (observation.text.includes("Status: trusted left"))
-      return {
-        type: "complete",
-        summary: "Status: trusted left",
-        evidence: "Status: trusted left"
-      }
+  async decide(_observation, context) {
     const frame = context.screenshot?.frames?.[0]
     expect(frame).toBeDefined()
     if (context.step === 1)
@@ -183,18 +184,11 @@ runAgentScenario({
   },
   async verify({ page, snapshot, effects }) {
     await expect(page.frameLocator("iframe").getByRole("status")).toHaveText(
-      "Status: trusted left"
+      "Status: waiting"
     )
-    await expect.poll(effects).toBe(1)
-    expect(
-      snapshot?.steps.filter(
-        (step) =>
-          step.status === "verified" && step.command?.type === "click_point"
-      )
-    ).toHaveLength(1)
-    expect(snapshot?.steps.some((step) => step.status === "rejected")).toBe(
-      true
-    )
+    await expect.poll(effects).toBe(0)
+    expect(snapshot?.run?.error?.code).toBe("stale_snapshot")
+    expect(snapshot?.steps).toHaveLength(0)
   }
 })
 
@@ -209,7 +203,7 @@ runAgentScenario({
       ? board
       : '<!doctype html><p>Status: ready</p><iframe src="/board" width="300" height="240"></iframe><iframe src="/board" width="300" height="240"></iframe>',
   decide(_observation, context) {
-    expect(context.screenshot?.frames).toHaveLength(0)
+    expect(context.screenshot?.frames ?? []).toHaveLength(0)
     expect(context.screenshot?.frameLimitations).toHaveLength(2)
     return {
       type: "complete",

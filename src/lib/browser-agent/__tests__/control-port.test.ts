@@ -983,4 +983,33 @@ describe("Agent control port across frames", () => {
       }).success
     ).toBe(false)
   })
+
+  it("accepts a visual point in its bound child frame's local viewport", () => {
+    const base = mutationInstruction()
+    const visual = {
+      ...base,
+      command: {
+        snapshotId: base.command.snapshotId,
+        generation: base.command.generation,
+        type: "click_point",
+        x: 210,
+        y: 130
+      },
+      target: { ...base.target, frameId: 2 },
+      frame: childIdentity,
+      point: { x: 20, y: 30 }
+    }
+    expect(AgentDomMutationInstructionSchema.safeParse(visual).success).toBe(
+      true
+    )
+    for (const invalid of [
+      { ...visual, target: { ...visual.target, frameId: 3 } },
+      { ...visual, frame: { ...childIdentity, tabId: 8 } },
+      { ...visual, frame: { ...childIdentity, frameId: 0 } },
+      { ...visual, command: base.command }
+    ])
+      expect(AgentDomMutationInstructionSchema.safeParse(invalid).success).toBe(
+        false
+      )
+  })
 })

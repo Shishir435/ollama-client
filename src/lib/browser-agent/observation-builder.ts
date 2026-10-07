@@ -648,9 +648,9 @@ const isOccluded = (element: Element): boolean => {
  * Every region of this document a screenshot must paint over, found by
  * walking the whole composed tree rather than the bounded observation: a
  * sensitive control past the element budget is still on screen. Child frames
- * are masked whole — a frame the run cannot read may hold a sign-in form, and
- * one it can read cannot be placed from here — so an embedded page never
- * leaves in a picture. The scroll position is reported with the rects so a
+ * are masked whole here. The background may replace an authorized owner's
+ * mask only after matching its browser geometry and reading the child's
+ * own sensitive regions. The scroll position is reported with the rects so a
  * caller can prove the page did not move between two readings.
  */
 export const collectAgentMaskRegions = (
