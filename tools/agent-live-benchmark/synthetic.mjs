@@ -5,6 +5,7 @@ import { join, resolve } from "node:path"
 import { chromium } from "playwright"
 import {
   agentObservedText,
+  agentSawRenderedCanvas,
   approveChatTools,
   chatAnswered,
   chatAnswerFromWire,
@@ -533,6 +534,7 @@ try {
           }
         }
       }
+      const renderedCanvasScreenshot = agentSawRenderedCanvas(wire, origin)
       const scored = scoreSyntheticGoal({
         kind,
         completed,
@@ -545,6 +547,7 @@ try {
         openTabActive,
         readText: chatToolText(wire),
         observedText: agentObservedText(wire, origin),
+        renderedCanvasScreenshot,
         delegated: delegated && final.run.status === "completed"
       })
       const success = scored.success
@@ -577,6 +580,7 @@ try {
         success,
         verdict,
         predicate,
+        ...(kind === "canvas" ? { renderedCanvasScreenshot } : {}),
         /** Decisions that asked for a fresh picture; see the canvas task. */
         lookCalls: logs.filter((entry) =>
           /"phase":"decision".*"action":"look"/.test(JSON.stringify(entry.args))

@@ -124,6 +124,18 @@ test("shareable outcomes cannot contain page text, URLs, wire or arbitrary error
   })
 })
 
+test("canvas screenshot proof survives the shareable projection without image bytes", () => {
+  for (const renderedCanvasScreenshot of [true, false])
+    assert.deepEqual(
+      shareableAttempt({ renderedCanvasScreenshot, image: "private-bytes" }),
+      { renderedCanvasScreenshot }
+    )
+  assert.deepEqual(
+    shareableAttempt({ renderedCanvasScreenshot: "private-bytes" }),
+    {}
+  )
+})
+
 test("saved rows regenerate the report with no hand-maintained summary", () => {
   const dir = mkdtempSync(join(tmpdir(), "baseline-report-"))
   try {

@@ -316,7 +316,9 @@ export const scoreSyntheticTask = ({
   /** A browser task ran and completed; its own observations read the page. */
   delegated = false,
   /** The fixture pages' text the browser task's observations carried. */
-  observedText = ""
+  observedText = "",
+  /** An image-bearing decision message carried the rendered canvas observation. */
+  renderedCanvasScreenshot = false
 }) => {
   const answered = (value) => statesValue(answer, value)
   /** The value is in the reply and in a page this turn read. */
@@ -417,10 +419,12 @@ export const scoreSyntheticTask = ({
           effects >= 1 &&
           /** Render ran to the end: a canvas that failed to draw shows nothing. */
           statesValue(body, "Rendered") &&
+          renderedCanvasScreenshot &&
           answered("KV-305") &&
           !statesValue(readText, "KV-305") &&
           !statesValue(observedText, "KV-305"),
-        predicate: "effect+page:Rendered+answer-from-picture:KV-305"
+        predicate:
+          "effect+page:Rendered+rendered-canvas-screenshot+answer-from-picture:KV-305"
       }
     case "scroll":
     case "modal":

@@ -45,6 +45,10 @@ memory, canvas. Deterministic, fast, and every failure is attributable. `spaform
 single-page form whose `submit` handler calls `preventDefault`; `delayed` lands
 its effect 1.2s after the click; `ambiguous` is expected to pause.
 
+The canvas predicate requires an image-bearing agent decision message with
+the fixture's `Rendered` observation. Its row records the content-free
+`renderedCanvasScreenshot` signal; a `look` request alone does not count.
+
 **`real-sites.mjs`** — six tasks against Wikipedia, Hacker News, GitHub and
 DuckDuckGo. Slower, occasionally flaky, and the only thing here that observes a
 page nobody wrote for the test: pages with four to five hundred controls, live

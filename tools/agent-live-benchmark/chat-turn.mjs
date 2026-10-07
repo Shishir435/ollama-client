@@ -10,6 +10,7 @@
  * that never began. So the panel has to be idle for a whole window, not for
  * one read, and a send counts only once a turn visibly started.
  */
+import { statesValue } from "./score-answer.mjs"
 
 export const CHAT_LABELS = {
   sessions: "Chat Sessions",
@@ -326,6 +327,64 @@ export const agentObservedText = (wire, origin) =>
     )
     .filter(Boolean)
     .join("\n")
+
+/**
+ * A picture and the rendered canvas observation must travel in the same
+ * decision message. Asking to look, screenshot metadata alone, or an image
+ * sent before Render cannot establish that the model saw the drawn code.
+ * Returns only a boolean; no image bytes enter the scored report.
+ */
+export const agentSawRenderedCanvas = (wire, origin) =>
+  wire.some((rec) => {
+    if (
+      !(rec.status >= 200 && rec.status < 300) ||
+      !rec.path?.endsWith("/chat/completions") ||
+      !(rec.request?.tools ?? []).some(
+        (tool) => tool?.function?.name === "agent_decision"
+      )
+    )
+      return false
+    return (rec.request?.messages ?? []).some((message) => {
+      if (message.role !== "user" || !Array.isArray(message.content))
+        return false
+      if (
+        !message.content.some(
+          (part) =>
+            part?.type === "image_url" &&
+            /^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(
+              part.image_url?.url ?? ""
+            )
+        )
+      )
+        return false
+      try {
+        const { observation, screenshot } = JSON.parse(
+          messageText(message.content)
+        )
+        if (
+          !sameOrigin(observation?.url, origin) ||
+          new URL(observation.url).pathname !== "/canvas" ||
+          !Number.isFinite(screenshot?.width) ||
+          screenshot.width <= 0 ||
+          !Number.isFinite(screenshot?.height) ||
+          screenshot.height <= 0
+        )
+          return false
+        return [
+          observation.text,
+          observation.documentText,
+          observation.visibleText
+        ].some(
+          (text) =>
+            typeof text === "string" &&
+            statesValue(text, "Rendered") &&
+            !statesValue(text, "Not rendered")
+        )
+      } catch {
+        return false
+      }
+    })
+  })
 
 /**
  * The upstream's authorization header. A bearer key goes only over HTTPS or

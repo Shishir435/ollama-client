@@ -206,6 +206,8 @@ export const shareableAttempt = (row) => {
   for (const key of numericKeys)
     if (Number.isFinite(row[key]) && row[key] >= 0) safe[key] = row[key]
   if (typeof row.success === "boolean") safe.success = row.success
+  if (typeof row.renderedCanvasScreenshot === "boolean")
+    safe.renderedCanvasScreenshot = row.renderedCanvasScreenshot
   if (Array.isArray(row.executionStages))
     safe.executionStages = row.executionStages.map(safeLabel).filter(Boolean)
   return safe

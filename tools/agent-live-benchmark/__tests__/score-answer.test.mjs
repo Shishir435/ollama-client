@@ -442,10 +442,15 @@ describe("scoreSyntheticTask answer tasks", () => {
       delegated: true,
       effects: 1,
       body: "Pen Eraser Undo Redo Clear Render Rendered.",
+      renderedCanvasScreenshot: true,
       answer: "The canvas shows KV-305."
     }
     const score = (extra) => scoreSyntheticTask({ ...base, ...extra }).success
     assert.equal(score({}), true)
+    /** Correct code without a post-render image is not a visual read. */
+    assert.equal(score({ renderedCanvasScreenshot: false }), false)
+    assert.equal(score({ renderedCanvasScreenshot: undefined }), false)
+    assert.equal(score({ answer: "The canvas shows KV-306." }), false)
     /** Render was never pressed, so nothing was drawn to read. */
     assert.equal(score({ effects: 0 }), false)
     /** The click landed but the drawing did not finish. */
