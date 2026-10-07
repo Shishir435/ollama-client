@@ -665,6 +665,10 @@ export const collectAgentMaskRegions = (
   }[]
 } => {
   const view = document.defaultView
+  const viewport = {
+    width: view?.innerWidth ?? 1,
+    height: view?.innerHeight ?? 1
+  }
   const rects: { x: number; y: number; width: number; height: number }[] = []
   const frameRects: ReturnType<typeof collectAgentMaskRegions>["frameRects"] =
     []
@@ -674,8 +678,13 @@ export const collectAgentMaskRegions = (
     const framed =
       element.localName === "iframe" || element.localName === "frame"
     if (!framed && !isSensitiveAgentElement(element)) continue
-    for (const box of Array.from(element.getClientRects())) {
-      if (box.width <= 0 || box.height <= 0) continue
+    const frameStyle = framed
+      ? frameStyleFacts(element)
+      : { supported: false, pixelSpill: false }
+    const boxes = Array.from(element.getClientRects()).filter(
+      (box) => box.width > 0 && box.height > 0
+    )
+    for (const box of boxes) {
       const rect = {
         x: box.left,
         y: box.top,
@@ -686,23 +695,33 @@ export const collectAgentMaskRegions = (
       if (framed)
         frameRects.push({
           rect,
-          supported:
-            !isSensitiveAgentElement(element) && supportedFrameStyle(element)
+          supported: !isSensitiveAgentElement(element) && frameStyle.supported
         })
     }
+    // Filters can paint private frame pixels beyond every owner client rect.
+    if (boxes.length && frameStyle.pixelSpill)
+      rects.push({
+        x: 0,
+        y: 0,
+        ...viewport
+      })
   }
   return {
     rects,
     scroll: { x: view?.scrollX ?? 0, y: view?.scrollY ?? 0 },
-    viewport: { width: view?.innerWidth ?? 1, height: view?.innerHeight ?? 1 },
+    viewport,
     frameRects
   }
 }
 
-/** Axis-aligned positive 2D scaling/translation only. Effects with pixel spill stay masked. */
-const supportedFrameStyle = (element: Element): boolean => {
+/** Axis-aligned positive 2D scaling/translation only; unbounded filter spill masks the viewport. */
+const frameStyleFacts = (
+  element: Element
+): { supported: boolean; pixelSpill: boolean } => {
   const view = element.ownerDocument.defaultView
-  if (!view) return false
+  if (!view) return { supported: false, pixelSpill: false }
+  let supported = true
+  let pixelSpill = false
   for (
     let current: Element | null = element;
     current;
@@ -713,11 +732,13 @@ const supportedFrameStyle = (element: Element): boolean => {
   ) {
     const style = view.getComputedStyle(current)
     if (
-      (style.perspective && style.perspective !== "none") ||
       (style.filter && style.filter !== "none") ||
       (style.backdropFilter && style.backdropFilter !== "none")
-    )
-      return false
+    ) {
+      supported = false
+      pixelSpill = true
+    }
+    if (style.perspective && style.perspective !== "none") supported = false
     if (style.transform && style.transform !== "none") {
       const values = /^matrix\(([^)]+)\)$/
         .exec(style.transform)?.[1]
@@ -732,10 +753,10 @@ const supportedFrameStyle = (element: Element): boolean => {
         values[1] !== 0 ||
         values[2] !== 0
       )
-        return false
+        supported = false
     }
   }
-  return true
+  return { supported, pixelSpill }
 }
 
 export const isSensitiveAgentElement = (element: Element): boolean => {

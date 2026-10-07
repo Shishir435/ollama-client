@@ -1134,7 +1134,9 @@ for every other id. Rules, all load-bearing:
   clicked owner chain must still match; navigation, replacement, child scroll
   or owner movement invalidates it. Same-URL ambiguous siblings are never
   guessed. Rotation, skew, reflection, perspective and pixel-spilling filters
-  stay masked with an explicit geometry limitation. Older captures with no
+  stay masked with an explicit geometry limitation. A filter on a frame or
+  its composed ancestors masks the whole containing viewport, since its
+  pixels can spill beyond the owner rectangle. Older captures with no
   frame manifest authorize only root input. Debugger-less Firefox continues
   masking frames, while its existing DOM refs remain usable. Screenshot bytes
   never enter durable state; a resolved visual target holds only geometry.

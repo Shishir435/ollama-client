@@ -92,9 +92,15 @@ runAgentScenario({
     }
   },
   async verify({ page, effects, snapshot }) {
-    await expect(page.frameLocator("iframe").getByRole("status")).toHaveText(
-      "Status: trusted left"
-    )
+    const controlled = page
+      .context()
+      .pages()
+      .find((candidate) => candidate.url().endsWith("/return"))
+    expect(controlled).toBeDefined()
+    if (!controlled) throw new Error("The run's return tab is missing")
+    await expect(
+      controlled.frameLocator("iframe").getByRole("status")
+    ).toHaveText("Status: trusted left")
     await expect.poll(effects).toBe(1)
     expect(snapshot?.run?.allowedOrigins).toHaveLength(2)
   }
@@ -106,8 +112,12 @@ runAgentScenario({
   plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   vision: true,
-  html: () =>
-    `<!doctype html><style>body{margin:0}iframe{position:absolute;top:100px;width:300px;height:240px;border:0}#allowed{left:50px}#opaque{left:500px}#rotated{left:900px;transform:rotate(15deg)}</style><p>Status: ready</p><iframe id="allowed" srcdoc="${`<!doctype html><style>body{margin:0;background:rgb(0,200,0)}input{position:absolute;left:20px;top:100px;width:100px;height:30px}</style><input type="password" value="secret">`.replaceAll('"', "&quot;")}"></iframe><iframe id="opaque" sandbox="allow-scripts" srcdoc="<body style='background:rgb(200,0,0)'>Private</body>"></iframe><iframe id="rotated" srcdoc="<body style='background:rgb(200,0,0)'>Unsupported rotation</body>"></iframe>`,
+  html: (path) =>
+    path === "/allowed"
+      ? '<!doctype html><style>body{margin:0;background:rgb(0,200,0)}input{position:absolute;left:20px;top:100px;width:100px;height:30px}</style><input type="password" value="secret">'
+      : path === "/rotated"
+        ? "<!doctype html><body style='background:rgb(200,0,0)'>Unsupported rotation</body>"
+        : '<!doctype html><style>body{margin:0}iframe{position:absolute;top:100px;width:300px;height:240px;border:0}#allowed{left:50px}#opaque{left:500px}#rotated{left:900px;transform:rotate(15deg)}</style><p>Status: ready</p><iframe id="allowed" src="/allowed"></iframe><iframe id="opaque" sandbox="allow-scripts" srcdoc="<body style=\'background:rgb(200,0,0)\'>Private</body>"></iframe><iframe id="rotated" src="/rotated"></iframe>',
   decide(observation, context) {
     expect(observation.text).not.toContain("Private")
     expect(context.screenshot?.frames).toHaveLength(1)
@@ -153,6 +163,47 @@ runAgentScenario({
     expect(pixels[0][1]).toBeGreaterThan(150)
     for (const pixel of pixels.slice(1))
       expect(Math.max(...pixel)).toBeLessThan(30)
+  }
+})
+
+runAgentScenario({
+  name: "masks frame filter pixels beyond the owner's bounds",
+  goal: "Report the status shown on the page.",
+  plan: [{ text: "report the status", kind: "read" }],
+  status: "completed",
+  vision: true,
+  html: (path) =>
+    path === "/filtered"
+      ? "<!doctype html><body style='background:rgb(200,0,0)'>Filtered frame</body>"
+      : '<!doctype html><p>Status: ready</p><iframe src="/filtered" style="position:absolute;left:100px;top:100px;width:300px;height:240px;filter:blur(20px)"></iframe>',
+  decide(_observation, context) {
+    expect(context.screenshot?.frames ?? []).toHaveLength(0)
+    expect(context.screenshot?.frameLimitations).toEqual([
+      expect.objectContaining({ reason: "unmapped_or_unsupported_geometry" })
+    ])
+    return {
+      type: "complete",
+      summary: "Status: ready",
+      evidence: "Status: ready"
+    }
+  },
+  async verify({ page, wire }) {
+    const request = wire[0]?.request as { messages: { images?: string[] }[] }
+    const data = request.messages.at(-1)?.images?.[0]
+    expect(data).toBeDefined()
+    const pixel = await page.evaluate(async (data) => {
+      const image = new Image()
+      image.src = `data:image/jpeg;base64,${data}`
+      await image.decode()
+      const canvas = document.createElement("canvas")
+      canvas.width = image.width
+      canvas.height = image.height
+      const context = canvas.getContext("2d")
+      if (!context) throw new Error("No image context")
+      context.drawImage(image, 0, 0)
+      return Array.from(context.getImageData(90, 160, 1, 1).data).slice(0, 3)
+    }, data)
+    expect(Math.max(...pixel)).toBeLessThan(30)
   }
 })
 
