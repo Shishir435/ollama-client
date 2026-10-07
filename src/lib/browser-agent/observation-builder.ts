@@ -648,9 +648,9 @@ const isOccluded = (element: Element): boolean => {
  * Every region of this document a screenshot must paint over, found by
  * walking the whole composed tree rather than the bounded observation: a
  * sensitive control past the element budget is still on screen. Child frames
- * are masked whole — a frame the run cannot read may hold a sign-in form, and
- * one it can read cannot be placed from here — so an embedded page never
- * leaves in a picture. The scroll position is reported with the rects so a
+ * are masked whole here. The background may replace an authorized owner's
+ * mask only after matching its browser geometry and reading the child's
+ * own sensitive regions. The scroll position is reported with the rects so a
  * caller can prove the page did not move between two readings.
  */
 export const collectAgentMaskRegions = (
@@ -658,29 +658,105 @@ export const collectAgentMaskRegions = (
 ): {
   rects: { x: number; y: number; width: number; height: number }[]
   scroll: { x: number; y: number }
+  viewport: { width: number; height: number }
+  frameRects: {
+    rect: { x: number; y: number; width: number; height: number }
+    supported: boolean
+  }[]
 } => {
   const view = document.defaultView
+  const viewport = {
+    width: view?.innerWidth ?? 1,
+    height: view?.innerHeight ?? 1
+  }
   const rects: { x: number; y: number; width: number; height: number }[] = []
+  const frameRects: ReturnType<typeof collectAgentMaskRegions>["frameRects"] =
+    []
   for (const node of composedDescendants(document)) {
     const element = asElement(node)
     if (!element) continue
     const framed =
       element.localName === "iframe" || element.localName === "frame"
     if (!framed && !isSensitiveAgentElement(element)) continue
-    for (const box of Array.from(element.getClientRects())) {
-      if (box.width <= 0 || box.height <= 0) continue
-      rects.push({
+    const frameStyle = framed
+      ? frameStyleFacts(element)
+      : { supported: false, pixelSpill: false }
+    const boxes = Array.from(element.getClientRects()).filter(
+      (box) => box.width > 0 && box.height > 0
+    )
+    for (const box of boxes) {
+      const rect = {
         x: box.left,
         y: box.top,
         width: box.width,
         height: box.height
-      })
+      }
+      rects.push(rect)
+      if (framed)
+        frameRects.push({
+          rect,
+          supported: !isSensitiveAgentElement(element) && frameStyle.supported
+        })
     }
+    // Filters can paint private frame pixels beyond every owner client rect.
+    if (boxes.length && frameStyle.pixelSpill)
+      rects.push({
+        x: 0,
+        y: 0,
+        ...viewport
+      })
   }
   return {
     rects,
-    scroll: { x: view?.scrollX ?? 0, y: view?.scrollY ?? 0 }
+    scroll: { x: view?.scrollX ?? 0, y: view?.scrollY ?? 0 },
+    viewport,
+    frameRects
   }
+}
+
+/** Axis-aligned positive 2D scaling/translation only; unbounded filter spill masks the viewport. */
+const frameStyleFacts = (
+  element: Element
+): { supported: boolean; pixelSpill: boolean } => {
+  const view = element.ownerDocument.defaultView
+  if (!view) return { supported: false, pixelSpill: false }
+  let supported = true
+  let pixelSpill = false
+  for (
+    let current: Element | null = element;
+    current;
+    current =
+      current.parentElement ??
+      (current.getRootNode() as ShadowRoot).host ??
+      null
+  ) {
+    const style = view.getComputedStyle(current)
+    if (
+      (style.filter && style.filter !== "none") ||
+      (style.backdropFilter && style.backdropFilter !== "none")
+    ) {
+      supported = false
+      pixelSpill = true
+    }
+    if (style.perspective && style.perspective !== "none") supported = false
+    if (style.transform && style.transform !== "none") {
+      const values = /^matrix\(([^)]+)\)$/
+        .exec(style.transform)?.[1]
+        .split(",")
+        .map(Number)
+      if (
+        !values ||
+        values.length !== 6 ||
+        !values.every(Number.isFinite) ||
+        values[0] <= 0 ||
+        values[3] <= 0 ||
+        values[1] !== 0 ||
+        values[2] !== 0
+      )
+        supported = false
+    }
+  }
+  return { supported, pixelSpill }
 }
 
 export const isSensitiveAgentElement = (element: Element): boolean => {

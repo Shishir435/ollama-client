@@ -291,7 +291,7 @@ export const AgentDomMutationInstructionSchema = z
     target: AgentDomMutationTargetSchema,
     snapshotIdentity: AgentSnapshotIdentitySchema,
     frame: AgentSnapshotIdentitySchema,
-    /** Only a visual click names one, and only in the root frame. */
+    /** A visual click's point in the bound target frame's local CSS viewport. */
     point: z
       .object({ x: z.number().finite(), y: z.number().finite() })
       .strict()
@@ -300,11 +300,11 @@ export const AgentDomMutationInstructionSchema = z
   .strict()
   .superRefine(assertFrameBinding)
   .superRefine((instruction, context) => {
-    if (instruction.point && instruction.frame.frameId !== 0) {
+    if (instruction.point && instruction.command.type !== "click_point") {
       context.addIssue({
         code: "custom",
         path: ["point"],
-        message: "A visual point is measured in the root frame only"
+        message: "Only a visual click carries a viewport point"
       })
     }
     if (
@@ -672,7 +672,17 @@ export const AgentSensitiveRegionsSchema = z
     rects: z.array(AgentCssRectSchema).max(MAX_AGENT_MASK_REGIONS),
     scroll: z
       .object({ x: z.number().finite(), y: z.number().finite() })
+      .strict(),
+    viewport: z
+      .object({ width: z.number().positive(), height: z.number().positive() })
       .strict()
+      .optional(),
+    frameRects: z
+      .array(
+        z.object({ rect: AgentCssRectSchema, supported: z.boolean() }).strict()
+      )
+      .max(MAX_AGENT_MASK_REGIONS)
+      .optional()
   })
   .strict()
   .nullable()
@@ -720,7 +730,8 @@ export type AgentHitTestRequest = z.infer<typeof AgentHitTestRequestSchema>
 export const AgentHitTestResultSchema = z
   .object({
     element: AgentElementSchema.optional(),
-    frameElement: z.boolean().optional()
+    frameElement: z.boolean().optional(),
+    frameRect: AgentCssRectSchema.optional()
   })
   .strict()
   .nullable()

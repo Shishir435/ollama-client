@@ -1,4 +1,5 @@
 import {
+  type AgentCssRect,
   type AgentDialogState,
   MAX_AGENT_DIALOG_MESSAGE_CHARS
 } from "@ollama-client/contracts"
@@ -6,6 +7,10 @@ import {
 import type { AgentNativeInputStep } from "@/lib/browser-agent/native-input"
 import type { AgentRawCapture } from "@/lib/browser-agent/screenshot-capture"
 import type { AgentCaptureLayout } from "@/lib/browser-agent/screenshot-geometry"
+import {
+  axisAlignedQuad,
+  rectThroughFrame
+} from "@/lib/browser-agent/screenshot-geometry"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 import {
@@ -104,6 +109,7 @@ export interface AgentCdpFrame {
 /** An extension frame as `webNavigation` reports it; the root has no parent. */
 export interface AgentExtensionFrame {
   frameId: number
+  documentId?: string
   parentFrameId?: number
   url: string
 }
@@ -151,6 +157,12 @@ export interface AgentNativeInputChannel {
     frameId: number,
     frames: readonly AgentExtensionFrame[]
   ): Promise<{ x: number; y: number } | undefined>
+  /** Exact owner quads in root CSS coordinates. Unsupported transforms remain masked. */
+  frameGeometry?(
+    frameId: number,
+    frames: readonly AgentExtensionFrame[],
+    viewports: readonly { frameId: number; width: number; height: number }[]
+  ): Promise<{ content: AgentCssRect; border: AgentCssRect } | undefined>
   /** The root layout viewport's centre, for input that targets no element. */
   viewportCentre(): Promise<{ x: number; y: number } | undefined>
   /**
@@ -308,7 +320,7 @@ const MOUSE_EVENT_TYPES = {
 
 const isBoxModel = (
   value: unknown
-): value is { model: { content: number[] } } =>
+): value is { model: { content: number[]; border?: number[] } } =>
   typeof value === "object" &&
   value !== null &&
   "model" in value &&
@@ -1031,6 +1043,55 @@ export const createAgentBrowserSessionManager = (input?: {
     return undefined
   }
 
+  const frameGeometryOf = async (
+    attachment: Attachment,
+    frame: AgentCdpFrame,
+    frames: readonly AgentExtensionFrame[],
+    viewports: readonly { frameId: number; width: number; height: number }[],
+    depth = 0
+  ): Promise<{ content: AgentCssRect; border: AgentCssRect } | undefined> => {
+    if (depth > attachment.frames.size || !frame.parentCdpFrameId)
+      return undefined
+    const parent = attachment.frames.get(frame.parentCdpFrameId)
+    if (!parent) return undefined
+    await ensureDom(attachment, parent.sessionId)
+    const target = sessionTarget(attachment, parent.sessionId)
+    const owner = await send(target, "DOM.getFrameOwner", {
+      frameId: frame.cdpFrameId
+    })
+    if (!isFrameOwner(owner)) return undefined
+    const box = await send(target, "DOM.getBoxModel", {
+      backendNodeId: owner.backendNodeId
+    })
+    if (!isBoxModel(box) || !box.model.border) return undefined
+    let content = axisAlignedQuad(box.model.content)
+    let border = axisAlignedQuad(box.model.border)
+    if (!content || !border) return undefined
+    const top = sessionTop(attachment, parent)
+    if (top.parentCdpFrameId) {
+      const topBox = await frameGeometryOf(
+        attachment,
+        top,
+        frames,
+        viewports,
+        depth + 1
+      )
+      const topViewports = viewports.filter((viewport) => {
+        const mapped = mapExtensionFrame(attachment, viewport.frameId, frames)
+        return mapped.mapped && mapped.frame.cdpFrameId === top.cdpFrameId
+      })
+      if (!topBox || topViewports.length !== 1) return undefined
+      const transform = {
+        region: topBox.content,
+        scaleX: topBox.content.width / topViewports[0].width,
+        scaleY: topBox.content.height / topViewports[0].height
+      }
+      content = rectThroughFrame(transform, content)
+      border = rectThroughFrame(transform, border)
+    }
+    return { content, border }
+  }
+
   const heldMouse = (
     type: "mouseMoved" | "mouseReleased",
     x: number,
@@ -1227,6 +1288,25 @@ export const createAgentBrowserSessionManager = (input?: {
         attachment,
         mapExtensionFrame(attachment, frameId, frames)
       )
+    },
+    async frameGeometry(frameId, frames, viewports) {
+      if (
+        attachments.get(attachment.runId) !== attachment ||
+        attachment.tracking !== "tracking"
+      )
+        return undefined
+      const mapping = mapExtensionFrame(attachment, frameId, frames)
+      if (!mapping.mapped) return undefined
+      try {
+        return await frameGeometryOf(
+          attachment,
+          mapping.frame,
+          frames,
+          viewports
+        )
+      } catch {
+        return undefined
+      }
     },
     async viewportCentre() {
       if (attachments.get(attachment.runId) !== attachment) return undefined

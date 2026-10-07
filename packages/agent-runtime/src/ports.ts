@@ -22,7 +22,8 @@ import type {
   AgentTakeoverRequest,
   AgentTaskConstraint,
   AgentTaskPlan,
-  AgentTaskRequirement
+  AgentTaskRequirement,
+  AgentVisualFrame
 } from "@ollama-client/contracts"
 import type { AgentCompletionOutcomeClaim } from "./completion"
 import type { AgentVisionPolicy } from "./vision"
@@ -207,11 +208,13 @@ export interface ResolvedAgentTarget {
   expectedValue?: string
   expectedChecked?: boolean
   /**
-   * The CSS point a visual click named, in the root layout viewport. The
+   * The CSS point a visual click named, in the target frame’s layout viewport. The
    * executor aims there rather than at the control's centre, and the page
    * confirms the control is still what lies under it before anything is sent.
    */
   point?: { x: number; y: number }
+  /** Capture geometry for a child-frame click; revalidated before every dispatch. */
+  visual?: { rootPoint: { x: number; y: number }; path: AgentVisualFrame[] }
   /**
    * Where a drag ends: the observed element the pointer is released over,
    * grounded like the source so a drop is an effect on a control the run

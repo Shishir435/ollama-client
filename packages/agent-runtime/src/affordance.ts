@@ -687,7 +687,7 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
     case "point_on_nothing":
       return `${ref} names a point with nothing under it. Choose a point on a visible control, or use an element ref.`
     case "point_in_frame":
-      return `${ref} names a point inside an embedded frame. Use the frame's own refs, which carry the frame in their prefix.`
+      return `${ref} names a point inside a masked or geometrically ambiguous embedded frame. Use an authorized frame's own refs, which carry the frame in their prefix, or request a fresh look after the frame changes.`
     case "dialog_open":
       return "A dialog the page opened is holding it, so nothing on the page can be read or acted on. Answer it with handle_dialog, naming the dialogId the observation lists; accept false dismisses it."
     case "unknown_dialog":

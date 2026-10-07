@@ -1,6 +1,8 @@
 import { z } from "zod"
-
-import { AgentSnapshotIdentitySchema } from "./agent-observation"
+import {
+  AgentSnapshotIdentitySchema,
+  MAX_AGENT_OBSERVED_FRAMES
+} from "./agent-observation"
 
 /**
  * The longest edge a screenshot the model sees may have, and the most bytes
@@ -23,6 +25,17 @@ export const AgentCssRectSchema = z
   })
   .strict()
 export type AgentCssRect = z.infer<typeof AgentCssRectSchema>
+
+/** A revealed document's layout viewport, placed in the root CSS viewport. */
+export const AgentVisualFrameSchema = AgentSnapshotIdentitySchema.extend({
+  parentFrameId: z.number().int().nonnegative(),
+  owner: AgentCssRectSchema,
+  region: AgentCssRectSchema,
+  scaleX: z.number().finite().positive(),
+  scaleY: z.number().finite().positive(),
+  scroll: z.object({ x: z.number().finite(), y: z.number().finite() }).strict()
+}).strict()
+export type AgentVisualFrame = z.infer<typeof AgentVisualFrameSchema>
 
 /**
  * One ephemeral picture of the controlled tab, bound to the observation it was
@@ -50,6 +63,26 @@ export const AgentScreenshotSchema = AgentSnapshotIdentitySchema.extend({
   scroll: z.object({ x: z.number().finite(), y: z.number().finite() }).strict(),
   /** Sensitive controls painted over before the image left the device. */
   maskedRegions: z.number().int().nonnegative(),
+  /** Absent on older captures; those pictures grant no child-frame input. */
+  frames: z
+    .array(AgentVisualFrameSchema)
+    .max(MAX_AGENT_OBSERVED_FRAMES)
+    .optional(),
+  frameLimitations: z
+    .array(
+      z
+        .object({
+          frameId: z.number().int().nonnegative(),
+          reason: z.enum([
+            "unmapped_or_unsupported_geometry",
+            "unavailable_document",
+            "parent_masked"
+          ])
+        })
+        .strict()
+    )
+    .max(MAX_AGENT_OBSERVED_FRAMES)
+    .optional(),
   /** Set when the image is a magnified crop rather than the whole viewport. */
   zoomed: z.boolean().optional()
 }).strict()

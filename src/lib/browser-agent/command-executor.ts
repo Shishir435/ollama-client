@@ -1036,6 +1036,7 @@ export interface AgentNativeControlFacts {
   attached: boolean
   frameMapped: boolean
   frameOffset?: AgentInputPoint
+  frameScale?: AgentInputPoint
   platform: AgentInputPlatform
 }
 
@@ -1047,6 +1048,7 @@ export interface AgentNativeInputPreparation {
 }
 
 export interface AgentCommandExecutorAdapter {
+  validateVisualTarget?(effect: AuthorizedAgentEffect): Promise<void>
   getTab(tabId: number): Promise<{ id?: number; url?: string } | undefined>
   getFrame(
     tabId: number,
@@ -1293,10 +1295,18 @@ const executeNative = async (
     command: effect.command,
     point: prepared.point,
     frameOffset: facts.frameOffset,
+    frameScale: facts.frameScale,
     focused: prepared.focused,
     ...(prepared.dropPoint ? { dropPoint: prepared.dropPoint } : {}),
     platform: facts.platform
   })
+  if (effect.target.visual) {
+    if (!adapter.validateVisualTarget)
+      throw new AgentEffectNotAppliedError(
+        "Agent frame visual input is unavailable"
+      )
+    await adapter.validateVisualTarget(effect)
+  }
   onDispatch?.()
   try {
     await adapter.dispatchNativeInput(effect, plan, signal)
@@ -1678,6 +1688,13 @@ export const executeNavigationAgentEffect = async (input: {
 
 const executeClick: Executor = async (effect, adapter, signal) => {
   await assertSource(effect, adapter, true)
+  if (effect.target.visual) {
+    if (!adapter.validateVisualTarget)
+      throw new AgentEffectNotAppliedError(
+        "Agent frame visual input is unavailable"
+      )
+    await adapter.validateVisualTarget(effect)
+  }
   if (effect.destination) {
     await assertReadable(adapter, effect.destination.url)
   }
