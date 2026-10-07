@@ -943,6 +943,27 @@ Read the section your change touches; you do not need the whole file.
   half an hour, and what bounds a runaway run is the observation ceiling and
   the no-progress guard, not the clock.
 
+### Provider resilience
+
+Planning, decisions and completion reviews share `agent-model-retry.ts`.
+Authentication, CORS, configuration, capability mismatch and explicit wire
+refusals are permanent; provider statuses and closed error codes determine
+retryability, never raw prose. Typed rate limits, temporary service failures
+and dropped connections have at most two retries with exponential backoff.
+`Retry-After` is a minimum wait; guidance that cannot fit the remaining budget
+stops with the original provider error instead of retrying early.
+
+Malformed-output retries have their own existing budgets. All attempts and
+backoff share the decision timeout and the remaining active run/step time;
+waiting does not suspend the durable deadline. Cancellation aborts the active
+request or wait and removes timers/listeners. Every attempt starts a fresh
+collector and rechecks the selected provider's enabled gate. There is no
+fallback provider. Inference retries have no browser-effect port, so a failed
+request after a verified click retains its receipts/evidence without replaying
+that click. A permanent planning error cannot become a provisional amendment.
+Provider retry counts and backoff time are optional, numeric receipt telemetry,
+separate from malformed retries; review has separate fields for those costs.
+
 ### Independent completion review
 
 A `needs_review` refusal that carries a `review` scope is put to a second
@@ -995,8 +1016,9 @@ for every other id. Rules, all load-bearing:
   satisfy a reviewer; the feedback says so.
 - **Default reviewer is the run's own model and provider**, already
   authorized and already shown every ledger record, so a review discloses
-  nothing new. It is bounded by the decision timeout, retried once on a
-  malformed answer or a dropped stream, and run without a reasoning budget.
+  nothing new. It is bounded by the decision timeout, retried once on
+  malformed output and up to twice on eligible transient provider failures,
+  and run without a reasoning budget.
 - **A separately configured reviewer passes the run's own gates first.**
   Settings → Agent → Completion reviewer (`AGENT_COMPLETION_REVIEWER`) names
   a provider and model. `resolveAgentCompletionReviewer`

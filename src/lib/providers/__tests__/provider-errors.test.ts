@@ -204,6 +204,7 @@ describe("Ollama streamChat error", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
       status: 400,
+      headers: new Headers(),
       text: async () =>
         '{"error":"json: cannot unmarshal object into ... api.ImageData"}'
     } as unknown as Response)

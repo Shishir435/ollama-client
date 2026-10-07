@@ -741,7 +741,10 @@
       "context_trimmed_description": "Il contesto estratto dalle schede superava il tuo limite ed è stato ridotto prima dell'invio.",
       "context_retrieval_warning_title": "Recupero del contesto non riuscito",
       "context_retrieval_warning_description": "Non è stato possibile cercare in parte del contesto salvato. Nella risposta potrebbero mancare informazioni rilevanti.",
-      "interrupted": "Risposta interrotta"
+      "interrupted": "Risposta interrotta",
+      "provider_auth": "Il provider ha negato l’accesso. Controlla la chiave API, le credenziali o i permessi dell’account nelle impostazioni prima di ricominciare.",
+      "provider_cors": "Il provider locale ha bloccato l’origine dell’estensione. Consenti chrome-extension://* e moz-extension://* nelle sue impostazioni CORS, poi riprova.",
+      "provider_refused": "Il modello ha rifiutato questa richiesta. Modifica l’attività o scegli un altro modello."
     },
     "composer": {
       "rag": "File",

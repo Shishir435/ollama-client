@@ -741,7 +741,10 @@
       "context_trimmed_description": "抽出したタブのコンテキストが上限を超えたため、送信前に短縮しました。",
       "context_retrieval_warning_title": "コンテキストの取得に失敗しました",
       "context_retrieval_warning_description": "保存済みのコンテキストの一部を検索できませんでした。回答に関連情報が含まれない可能性があります。",
-      "interrupted": "応答が中断されました"
+      "interrupted": "応答が中断されました",
+      "provider_auth": "プロバイダーがアクセスを拒否しました。再開する前に、設定で API キー、認証情報、アカウントの権限を確認してください。",
+      "provider_cors": "ローカルプロバイダーが拡張機能のオリジンをブロックしました。CORS 設定で chrome-extension://* と moz-extension://* を許可してから再試行してください。",
+      "provider_refused": "モデルがこのリクエストを拒否しました。タスクを変更するか、別のモデルを選んでください。"
     },
     "composer": {
       "rag": "ファイル",

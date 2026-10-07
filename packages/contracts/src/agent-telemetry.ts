@@ -103,6 +103,13 @@ export const AgentStepTelemetrySchema = z
     observations: count.optional(),
     /** Malformed-decision retries spent inside this step. */
     retries: count.optional(),
+    /** Transient inference retries, separate from malformed output. */
+    providerRetries: count.optional(),
+    /** Active time waiting before retrying inference. */
+    providerBackoffMs: duration.optional(),
+    /** Transient review retries and their active waiting time. */
+    reviewProviderRetries: count.optional(),
+    reviewProviderBackoffMs: duration.optional(),
     /**
      * Whether an image travelled with the decision.
      *

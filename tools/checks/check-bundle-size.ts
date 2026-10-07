@@ -513,7 +513,8 @@ const budgets: Budget[] = [
      * 326,725. Its geometry, session mapping and revalidation add 2,284 bytes;
      * a 327,500 ceiling leaves 775 bytes. Firefox retains whole-frame masks.
      */
-    max: isFirefox ? 221_000 : 327_500
+    /** PR 8: bounded inference retry policy and typed provider failures add about 1.7 kB gzip. */
+    max: isFirefox ? 221_000 : 330_000
   }
 ]
 

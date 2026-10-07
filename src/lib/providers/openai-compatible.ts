@@ -11,6 +11,7 @@ import {
   providerErrorUserMessage,
   readProviderStreamChunk,
   throwProviderConnectionError,
+  throwProviderRefusal,
   throwProviderResponseError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
@@ -832,6 +833,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
               .object({
                 delta: z
                   .object({
+                    refusal: z.unknown().optional(),
                     content: z.unknown().optional(),
                     images: z.unknown().optional(),
                     reasoning: z.string().optional(),
@@ -846,7 +848,10 @@ export class OpenAICompatibleProvider implements LLMProvider {
                   .optional(),
                 /** Some servers attach the final annotations to `message`. */
                 message: z
-                  .object({ annotations: z.unknown().optional() })
+                  .object({
+                    annotations: z.unknown().optional(),
+                    refusal: z.unknown().optional()
+                  })
                   .passthrough()
                   .optional(),
                 finish_reason: z.string().nullable().optional()
@@ -1056,6 +1061,17 @@ export class OpenAICompatibleProvider implements LLMProvider {
       throwSseError(data)
       const choice = data.choices?.[0]
       const delta = choice?.delta
+      if (
+        (typeof delta?.refusal === "string" && delta.refusal.length > 0) ||
+        (typeof choice?.message?.refusal === "string" &&
+          choice.message.refusal.length > 0) ||
+        choice?.finish_reason === "content_filter"
+      )
+        throwProviderRefusal({
+          providerId: this.id,
+          providerName: this.config.name,
+          model
+        })
       captureReplayDetails(delta)
       emitReasoning(delta)
       emitOutput(delta)

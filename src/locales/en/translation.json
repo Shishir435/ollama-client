@@ -774,7 +774,10 @@
       "context_trimmed_description": "Extracted tab context exceeded your limit and was trimmed before sending.",
       "context_retrieval_warning_title": "Context retrieval failed",
       "context_retrieval_warning_description": "Some saved context could not be searched. The answer may be missing relevant information.",
-      "interrupted": "Response interrupted"
+      "interrupted": "Response interrupted",
+      "provider_auth": "The provider rejected access. Check its API key, credentials or account permissions in Settings before starting again.",
+      "provider_cors": "The local provider blocked the extension origin. Allow chrome-extension://* and moz-extension://* in its CORS settings, then try again.",
+      "provider_refused": "The model refused this request. Adjust the task or choose a different model."
     },
     "composer": {
       "rag": "Files",

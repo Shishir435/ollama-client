@@ -26,6 +26,26 @@ describe("mergeAgentStepTelemetry", () => {
    * numCtx describes the request, not the work. Summing it across a step's
    * two receipts would report a window twice the size of the one asked for.
    */
+  it("retains inference and review retry measurements when phases are merged", () => {
+    expect(
+      mergeAgentStepTelemetry(
+        {
+          providerRetries: 1,
+          providerBackoffMs: 500,
+          reviewProviderRetries: 1,
+          reviewProviderBackoffMs: 800
+        },
+        { providerRetries: 2, providerBackoffMs: 1_500, verifyMs: 10 }
+      )
+    ).toMatchObject({
+      providerRetries: 3,
+      providerBackoffMs: 2_000,
+      reviewProviderRetries: 1,
+      reviewProviderBackoffMs: 800,
+      verifyMs: 10
+    })
+  })
+
   it("takes the latest answer for what describes the request", () => {
     expect(
       mergeAgentStepTelemetry(

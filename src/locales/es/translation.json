@@ -741,7 +741,10 @@
       "context_trimmed_description": "El contexto extraído de las pestañas superó tu límite y se recortó antes de enviarlo.",
       "context_retrieval_warning_title": "Falló la recuperación de contexto",
       "context_retrieval_warning_description": "No se pudo buscar en parte del contexto guardado. La respuesta podría omitir información relevante.",
-      "interrupted": "Respuesta interrumpida"
+      "interrupted": "Respuesta interrumpida",
+      "provider_auth": "El proveedor rechazó el acceso. Revisa su clave API, credenciales o permisos de cuenta en Configuración antes de empezar de nuevo.",
+      "provider_cors": "El proveedor local bloqueó el origen de la extensión. Permite chrome-extension://* y moz-extension://* en su configuración CORS e inténtalo de nuevo.",
+      "provider_refused": "El modelo rechazó esta solicitud. Ajusta la tarea o elige otro modelo."
     },
     "composer": {
       "rag": "Archivos",
