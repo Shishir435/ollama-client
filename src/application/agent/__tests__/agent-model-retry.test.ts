@@ -263,6 +263,26 @@ describe("bounded model retries", () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it.each([
+    createAppError("auth", { status: 401 }),
+    createAppError("refused", { code: "OLC-MODEL-REFUSED" })
+  ])("preserves terminal provider errors when the deadline expires: %s", async (failure) => {
+    const request = vi.fn(async () => {
+      vi.setSystemTime(Date.now() + 120_000)
+      throw failure
+    })
+    await expect(
+      runAgentModelRequest({
+        state,
+        signal: new AbortController().signal,
+        malformedRetries: 2,
+        request
+      })
+    ).rejects.toBe(failure)
+    expect(request).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it("treats an elapsed deadline as cancellation even before its timer fires", async () => {
     const request = vi.fn(async () => {
       vi.setSystemTime(Date.now() + 120_000)

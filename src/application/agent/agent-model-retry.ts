@@ -171,6 +171,13 @@ export const runAgentModelRequest = async <T>(input: {
       throw cancelled()
   }
   const recover = async (error: unknown): Promise<void> => {
+    const kind = classifyAgentModelFailure(error)
+    if (
+      ["authentication", "configuration", "capability", "refusal"].includes(
+        kind
+      )
+    )
+      throw error
     assertActive()
     if (error instanceof AgentDecisionFormatError) {
       const allowed = input.onMalformed?.(error) ?? true
