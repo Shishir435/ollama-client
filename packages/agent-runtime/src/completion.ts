@@ -2212,13 +2212,18 @@ const judgePlanned = (
     met.push(requirement.id)
   }
   const visual = met.filter((id) => {
-    const evidence = claims.get(id)?.evidence
-    return (
-      requirements.some(
-        (requirement) => requirement.id === id && requirement.kind === "read"
-      ) &&
-      !groundedCompletionQuote(evidence, id, input.evidenceLedger) &&
-      visualCompletionRead(evidence, id, input.evidenceLedger) !== undefined
+    const requirement = requirements.find((entry) => entry.id === id)
+    if (requirement?.kind !== "read") return false
+    const claim = claims.get(id)
+    const evidence = requirement.items?.length
+      ? (claim?.items ?? [])
+          .filter((item) => item.met)
+          .map((item) => item.evidence)
+      : [claim?.evidence]
+    return evidence.some(
+      (quote) =>
+        !groundedCompletionQuote(quote, id, input.evidenceLedger) &&
+        visualCompletionRead(quote, id, input.evidenceLedger) !== undefined
     )
   })
   const outcome = { met, unmet, ...(visual.length ? { visual } : {}) }

@@ -11,6 +11,7 @@ import {
   MAX_AGENT_LEDGER_RECORDS,
   MAX_AGENT_SOURCE_QUOTE_CHARS
 } from "@ollama-client/contracts"
+import { groundedCompletionQuote } from "./completion-support"
 import { agentNormalizedClaim } from "./observed-text"
 import type {
   AgentStepReadout,
@@ -433,29 +434,40 @@ const visualCompletionEvidence = (
   const source = agentEvidenceSource(observation, picture.frameId)
   if (!source || !state.allowedOrigins.includes(source.origin)) return []
   return (decision.outcomes ?? []).flatMap((outcome) => {
-    const quote = outcome.evidence?.replaceAll(/\s+/g, " ").trim()
-    if (
-      !outcome.met ||
-      !quote ||
-      quote.length > MAX_AGENT_SOURCE_QUOTE_CHARS ||
-      secretShaped(quote) ||
-      !state.requirements?.some(
-        (entry) => entry.id === outcome.id && entry.kind === "read"
-      ) ||
-      grounded.some((record) => record.requirementId === outcome.id)
+    const requirement = state.requirements?.find(
+      (entry) => entry.id === outcome.id && entry.kind === "read"
     )
-      return []
-    return [
-      {
-        id: `${prefix}:visual:${outcome.id}`,
-        kind: "visual_observation" as const,
-        validity: "current" as const,
-        source,
-        observedAt: picture.capturedAt,
-        requirementId: outcome.id,
-        quote
-      }
-    ]
+    if (!outcome.met || !requirement) return []
+    /** Itemized reads are judged by their items, never the parent evidence. */
+    const claims = requirement.items?.length
+      ? (outcome.items ?? [])
+          .filter((item) => item.met)
+          .map((item) => ({
+            evidence: item.evidence,
+            suffix: `:item:${item.index}`
+          }))
+      : [{ evidence: outcome.evidence, suffix: "" }]
+    return claims.flatMap((claim) => {
+      const quote = claim.evidence?.replaceAll(/\s+/g, " ").trim()
+      if (
+        !quote ||
+        quote.length > MAX_AGENT_SOURCE_QUOTE_CHARS ||
+        secretShaped(quote) ||
+        groundedCompletionQuote(quote, outcome.id, grounded)
+      )
+        return []
+      return [
+        {
+          id: `${prefix}:visual:${outcome.id}${claim.suffix}`,
+          kind: "visual_observation" as const,
+          validity: "current" as const,
+          source,
+          observedAt: picture.capturedAt,
+          requirementId: outcome.id,
+          quote
+        }
+      ]
+    })
   })
 }
 

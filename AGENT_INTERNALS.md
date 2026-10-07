@@ -1063,7 +1063,9 @@ for every other id. Rules, all load-bearing:
   `outcome.visual`; the card says "seen only in a screenshot" and the chat
   handoff carries `seen_in_screenshot_only`. It never settles a change, the
   reviewer does not count it as support, and text grounding wins whenever
-  both exist.
+  both support the same answer. Itemized reads retain each met item's own
+  evidence, never the unchecked parent quotation; any accepted item that
+  relies only on the picture marks its requirement in `outcome.visual`.
 - **A changing picture is progress for a visual read.** The no-progress
   hash ignores pictures, so `look` after `look` on a live chart looked like a
   repeat. For `look` and `zoom` only, a hash of the picture the decision was

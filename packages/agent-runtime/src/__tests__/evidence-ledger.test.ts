@@ -1,13 +1,16 @@
 import type {
+  AgentDecision,
   AgentEvidenceRecord,
   AgentObservation,
-  AgentRunState
+  AgentRunState,
+  AgentScreenshot
 } from "@ollama-client/contracts"
 import {
   AgentEvidenceRecordSchema,
   MAX_AGENT_LEDGER_BYTES
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
+import { judgeAgentCompletion } from "../completion"
 import {
   agentCompletionEvidence,
   boundAgentEvidence,
@@ -63,6 +66,22 @@ const state: AgentRunState = {
   createdAt: 1,
   updatedAt: 10,
   requirements: [{ id: "r1", text: "Compare plans", kind: "read" }]
+}
+const picture: AgentScreenshot = {
+  snapshotId: "s1",
+  generation: 1,
+  tabId: 7,
+  frameId: 0,
+  documentId: "a",
+  capturedAt: 12,
+  mimeType: "image/jpeg",
+  data: "IMAGEBYTES",
+  imageWidth: 100,
+  imageHeight: 100,
+  region: { x: 0, y: 0, width: 100, height: 100 },
+  scale: 1,
+  scroll: { x: 0, y: 0 },
+  maskedRegions: 0
 }
 const grounded = () =>
   groundAgentQuotes(
@@ -402,22 +421,6 @@ describe("grounded evidence ledger", () => {
   })
 
   it("records a read off the completing screenshot by its identity, never the image", () => {
-    const picture = {
-      snapshotId: "s1",
-      generation: 1,
-      tabId: 7,
-      frameId: 0,
-      documentId: "a",
-      capturedAt: 12,
-      mimeType: "image/jpeg" as const,
-      data: "IMAGEBYTES",
-      imageWidth: 100,
-      imageHeight: 100,
-      region: { x: 0, y: 0, width: 100, height: 100 },
-      scale: 1,
-      scroll: { x: 0, y: 0 },
-      maskedRegions: 0
-    }
     const complete = (evidence: string) => ({
       type: "complete" as const,
       summary: "Done",
@@ -489,6 +492,157 @@ describe("grounded evidence ledger", () => {
         picture
       )
     ).toEqual([])
+  })
+
+  it("keeps screenshot answers alongside unrelated text for the same requirement", () => {
+    const decision: Extract<AgentDecision, { type: "complete" }> = {
+      type: "complete",
+      summary: "Done",
+      sourceQuotes: [{ quote: "Plan A costs $12", requirementId: "r1" }],
+      outcomes: [{ id: "r1", met: true, evidence: "KV-305" }]
+    }
+    const records = agentCompletionEvidence(
+      state,
+      observation,
+      decision,
+      [],
+      "answer",
+      picture
+    )
+    expect(records.map((record) => record.kind)).toEqual([
+      "observed_fact",
+      "visual_observation"
+    ])
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation,
+        requirements: state.requirements,
+        outcomes: decision.outcomes,
+        evidenceLedger: records
+      })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+    })
+  })
+
+  it.each([
+    false,
+    true
+  ])("completes itemized screenshot reads with mixed text support: %s", (mixed) => {
+    const planned: AgentRunState = {
+      ...state,
+      requirements: [
+        {
+          id: "r1",
+          text: "Report both plan prices",
+          kind: "read",
+          items: ["Plan A", "Plan B"]
+        }
+      ]
+    }
+    const decision: Extract<AgentDecision, { type: "complete" }> = {
+      type: "complete",
+      summary: "Done",
+      sourceQuotes: [{ quote: "Plan A", requirementId: "r1" }],
+      outcomes: [
+        {
+          id: "r1",
+          met: true,
+          /** The judge ignores a parent's quotation for itemized reads. */
+          evidence: "Plan A costs $12",
+          items: [
+            {
+              index: 0,
+              met: true,
+              evidence: mixed ? "Plan A costs $12" : "Plan A costs $22"
+            },
+            { index: 1, met: true, evidence: "Plan B costs $25" }
+          ]
+        }
+      ]
+    }
+    const records = agentCompletionEvidence(
+      planned,
+      observation,
+      decision,
+      [],
+      "answer",
+      picture
+    )
+    const visual = records.filter(
+      (record) => record.kind === "visual_observation"
+    )
+    expect(visual.map((record) => record.quote)).toEqual(
+      mixed ? ["Plan B costs $25"] : ["Plan A costs $22", "Plan B costs $25"]
+    )
+    expect(new Set(visual.map((record) => record.id)).size).toBe(visual.length)
+    expect(JSON.stringify(records)).not.toContain("IMAGEBYTES")
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation,
+        requirements: planned.requirements,
+        outcomes: decision.outcomes,
+        evidenceLedger: records
+      })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+    })
+    for (const screenshot of [undefined, { ...picture, generation: 2 }]) {
+      const ledger = agentCompletionEvidence(
+        planned,
+        observation,
+        decision,
+        [],
+        "answer",
+        screenshot
+      )
+      expect(
+        ledger.some((record) => record.kind === "visual_observation")
+      ).toBe(false)
+      expect(
+        judgeAgentCompletion({
+          steps: [],
+          observation,
+          requirements: planned.requirements,
+          outcomes: decision.outcomes,
+          evidenceLedger: ledger
+        }).type
+      ).toBe("refused")
+    }
+  })
+
+  it("does not retain unmet or sensitive item screenshot readings", () => {
+    const records = agentCompletionEvidence(
+      {
+        ...state,
+        requirements: [
+          { id: "r1", text: "Read the codes", kind: "read", items: ["A", "B"] }
+        ]
+      },
+      observation,
+      {
+        type: "complete",
+        summary: "Partial",
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: [
+              { index: 0, met: false, evidence: "A code: KV-305" },
+              { index: 1, met: true, evidence: "B token=private" }
+            ]
+          }
+        ]
+      },
+      [],
+      "answer",
+      picture
+    )
+    expect(records).toEqual([])
   })
 
   it("enforces count and byte bounds, including a single oversized corrupt record", () => {
