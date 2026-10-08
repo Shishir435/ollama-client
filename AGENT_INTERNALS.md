@@ -18,6 +18,7 @@ Read the section your change touches; you do not need the whole file.
 - [Perception: reachability](#perception-reachability)
 - [Projection and targeted reads](#projection-and-targeted-reads)
 - [Progress, refusals and findings](#progress-refusals-and-findings)
+- [Durable workflow progress](#durable-workflow-progress)
 - [Input delivery](#input-delivery)
 - [Forms, editors and drags](#forms-editors-and-drags)
 - [Native dialogs](#native-dialogs)
@@ -1752,3 +1753,33 @@ run that produced it can always be repeated.
 - The panel debug report uses its existing authenticated supervision port.
   Features never import background repositories. Store checks scan every JS
   bundle for debug helpers regardless of the caller's environment flags.
+
+## Durable workflow progress
+
+`workflow.ts` derives a bounded checkpoint from the current task plan and full
+receipt record before each decision. The checkpoint and selected quotations
+ride the deciding CAS together. Older rows decode without this optional field;
+resume rebuilds it before any model request or browser effect.
+
+Each requirement or named item has a progress entry, exact evidence references,
+receipt sequence for its latest applied or unresolved effect, and a fixed blocker
+reason. Item identity uses the completion judge's existing whole-phrase rules,
+so Invoice 1 is distinct from Invoice 10. `verified` uses the judge's exact
+receipt-support rules. `effect_confirmed` only means an effect landed; it does
+not prove a save or the whole goal. Model notes remain inferences. Neither notes
+nor progress bypass completion, permission, policy or effect ownership checks.
+
+Plan-bound facts get retention priority, one source per unit before additional
+sources. The existing ledger count/byte ceilings and twelve-step recent history
+remain. Facts from inactive or closed documents remain historical quotations;
+a new snapshot of the same document requires refresh. Superseded, missing,
+unauthorized or prompt-omitted support remains unknown. Receipt-read failures
+mark cached effects uncertain instead of presenting them as new work.
+
+Phases are a bounded cursor over the current requirements/items followed by
+review, rather than nested runs. A phase never refunds steps, active time,
+provider retries, recovery attempts or request token budgets. Workflow, ledger,
+recent history and inference notes share the existing context allocation; an
+oversized workflow is omitted whole with an explicit continuity warning.
+Terminal compaction drops the redundant workflow checkpoint, retaining outcomes,
+quotations and authoritative effect receipts for the report and handoff.

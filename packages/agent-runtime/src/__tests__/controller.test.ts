@@ -4800,3 +4800,274 @@ describe("bounded recovery", () => {
     expect(harness.getState().recovery).toEqual({ attempts: 2 })
   })
 })
+
+describe("durable workflow resume", () => {
+  it("reconstructs completed entities before inference and keeps global budgets and constraints", async () => {
+    const constraints: NonNullable<AgentRunState["constraints"]> = [
+      {
+        id: "c1",
+        text: "Do not submit",
+        kind: "exclude",
+        forbids: ["submission"]
+      }
+    ]
+    const seedSteps: AgentStepWrite[] = [
+      {
+        runId: "run-1",
+        stepId: "run-1:1",
+        status: "verified",
+        at: 1,
+        requirementId: "r1",
+        mutating: true,
+        command: {
+          type: "check",
+          ref: "e1",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        target: { name: "Invoice 1", role: "checkbox" },
+        verification: {
+          outcome: "confirmed",
+          evidence: { kind: "checked", summary: "Checked", observedAt: 1 }
+        }
+      },
+      ...Array.from(
+        { length: 20 },
+        (_, index): AgentStepWrite => ({
+          runId: "run-1",
+          stepId: `run-1:read:${index}`,
+          status: "verified",
+          at: index + 2,
+          command: { type: "read", snapshotId: "snapshot-1", generation: 1 },
+          verification: confirmed
+        })
+      )
+    ]
+    const harness = createHarness({
+      state: runState({
+        status: "paused",
+        pauseReason: "user",
+        stepCount: 21,
+        observationCount: 21,
+        requirements: [
+          {
+            id: "r1",
+            text: "Check",
+            kind: "change",
+            items: ["Invoice 1", "Invoice 2", "Invoice 10"]
+          }
+        ],
+        constraints
+      }),
+      seedSteps,
+      decide: async (input) => {
+        expect(input.state.workflow).toMatchObject({
+          entries: [
+            { itemIndex: 0, status: "verified" },
+            { itemIndex: 1, status: "pending" },
+            { itemIndex: 2, status: "pending" }
+          ],
+          phase: { index: 1 }
+        })
+        expect(harness.getState().workflow).toEqual(input.state.workflow)
+        expect(input.state.stepCount).toBe(21)
+        expect(input.state.observationCount).toBe(22)
+        expect(input.state.constraints).toEqual(constraints)
+        expect(input.history?.some((entry) => entry.action === "check")).toBe(
+          false
+        )
+        return { type: "ask_user", question: "Review the remaining work?" }
+      }
+    })
+    await harness.controller.resume("run-1")
+    expect(harness.calls).not.toContain("execute")
+    expect(harness.getState().status).toBe("paused")
+  })
+
+  it("uses older comparison facts at completion after the ledger is flooded by unrelated reads", async () => {
+    const makeFact = (id: string, quote: string, requirementId?: string) => ({
+      id,
+      quote,
+      requirementId,
+      kind: "observed_fact" as const,
+      validity: "current" as const,
+      observedAt: 1,
+      source: {
+        tabId: 8,
+        frameId: 0,
+        documentId: "old-tab",
+        snapshotId: "old",
+        generation: 1,
+        origin: "https://example.com"
+      }
+    })
+    const seedSteps: AgentStepWrite[] = [
+      {
+        runId: "run-1",
+        stepId: "price",
+        status: "verified",
+        at: 1,
+        evidenceLedger: [
+          makeFact("alpha", "Alpha costs $1", "r1"),
+          makeFact("beta", "Beta costs $2", "r1")
+        ]
+      },
+      ...Array.from(
+        { length: 35 },
+        (_, index): AgentStepWrite => ({
+          runId: "run-1",
+          stepId: `noise:${index}`,
+          status: "verified",
+          at: index + 2,
+          evidenceLedger: [
+            makeFact(`noise:${index}`, `Unrelated noise ${index}`)
+          ]
+        })
+      )
+    ]
+    const harness = createHarness({
+      state: runState({
+        status: "paused",
+        pauseReason: "user",
+        requirements: [
+          {
+            id: "r1",
+            text: "Compare Alpha and Beta prices",
+            kind: "read",
+            items: ["Alpha", "Beta"]
+          }
+        ],
+        stepCount: 36,
+        observationCount: 36
+      }),
+      seedSteps,
+      decide: async (input) => {
+        expect(
+          input.evidenceLedger?.some((record) => record.id === "alpha")
+        ).toBe(true)
+        expect(
+          input.state.workflow?.entries.map((entry) => entry.status)
+        ).toEqual(["supported", "supported"])
+        return {
+          type: "complete",
+          summary: "Alpha costs $1; Beta costs $2",
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              items: [
+                { index: 0, met: true, evidence: "Alpha costs $1" },
+                { index: 1, met: true, evidence: "Beta costs $2" }
+              ]
+            }
+          ]
+        }
+      }
+    })
+    await harness.controller.resume("run-1")
+    expect(harness.getState().status).toBe("completed")
+    expect(
+      harness.getState().evidenceLedger?.some((record) => record.id === "alpha")
+    ).toBe(true)
+    expect(harness.calls).not.toContain("execute")
+  })
+})
+
+describe("bounded entity phases", () => {
+  it("processes the remaining list exactly once after resuming a completed first item", async () => {
+    const entities = ["Invoice 1", "Invoice 2", "Invoice 10"]
+    const executed: string[] = []
+    let generation = 1
+    const harness = createHarness({
+      state: runState({
+        status: "paused",
+        pauseReason: "user",
+        stepCount: 1,
+        observationCount: 1,
+        requirements: [
+          { id: "r1", text: "Check", kind: "change", items: entities }
+        ]
+      }),
+      seedSteps: [
+        {
+          runId: "run-1",
+          stepId: "run-1:1",
+          status: "verified",
+          at: 1,
+          mutating: true,
+          requirementId: "r1",
+          command: {
+            type: "check",
+            ref: "e1",
+            snapshotId: "snapshot-1",
+            generation: 1
+          },
+          target: { name: entities[0], role: "checkbox" },
+          verification: {
+            outcome: "confirmed",
+            evidence: { kind: "checked", summary: "Checked", observedAt: 1 }
+          }
+        }
+      ],
+      observe: async () => {
+        generation += 1
+        return observation({
+          snapshotId: `snapshot-${generation}`,
+          generation,
+          visibleText: `Checked ${executed.join(" ")}`
+        })
+      },
+      decide: async ({ state, observation }) => {
+        const phase = state.workflow?.phase
+        if (!phase) throw new Error("Missing phase")
+        if (phase.kind === "review")
+          return {
+            type: "complete",
+            summary: "Checked every requested invoice",
+            outcomes: [
+              {
+                id: "r1",
+                met: true,
+                items: entities.map((_, index) => ({ index, met: true }))
+              }
+            ]
+          }
+        return {
+          type: "command",
+          requirementId: "r1",
+          command: {
+            type: "check",
+            ref: `e${phase.index + 1}`,
+            snapshotId: observation.snapshotId,
+            generation: observation.generation
+          }
+        }
+      },
+      effect: async (command, current) =>
+        resolvedEffect(current, command, {
+          semanticEffects: ["form_mutation"],
+          target: {
+            sensitive: false,
+            maySubmit: false,
+            role: "checkbox",
+            accessibleName:
+              entities[Number((command as { ref: string }).ref.slice(1)) - 1]
+          }
+        }),
+      execute: async (effect) => {
+        executed.push(effect.target.accessibleName ?? "")
+        return { executedAt: 10 }
+      },
+      verification: Array(3).fill({
+        outcome: "confirmed",
+        evidence: { kind: "checked", summary: "Checked", observedAt: 10 }
+      })
+    })
+    await harness.controller.resume("run-1")
+    expect(executed).toEqual(["Invoice 2", "Invoice 10"])
+    expect(harness.getState()).toMatchObject({
+      status: "completed",
+      stepCount: 3
+    })
+  })
+})

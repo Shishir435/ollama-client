@@ -2153,3 +2153,89 @@ describe("agent task contract on the wire", () => {
     })
   })
 })
+
+describe("workflow context budgeting", () => {
+  it("marks a progress reference unknown when its evidence cannot fit the model request", async () => {
+    vi.mocked(readSetting).mockImplementation(async (setting) =>
+      setting === SETTINGS.AGENT_CONTEXT_WINDOW ? 8_192 : undefined
+    )
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    const workflow: NonNullable<AgentRunState["workflow"]> = {
+      version: 1,
+      planVersion: 1,
+      throughSequence: 30,
+      entries: [
+        { requirementId: "r1", status: "supported", evidenceIds: ["old-price"] }
+      ],
+      phase: { index: 1, total: 1, kind: "review" }
+    }
+    const evidenceLedger = Array.from({ length: 24 }, (_, index) => ({
+      id: index === 0 ? "old-price" : `fact-${index}`,
+      quote: "界".repeat(200),
+      requirementId: "r1",
+      kind: "observed_fact" as const,
+      validity: "historical" as const,
+      observedAt: index,
+      source: {
+        tabId: 7,
+        frameId: 0,
+        documentId: "old",
+        snapshotId: `snapshot-${index}`,
+        generation: 1,
+        origin: "https://example.com"
+      }
+    }))
+    await port.decide(
+      { state: { ...state, workflow }, observation, evidenceLedger },
+      { aborted: false }
+    )
+    const prompt = JSON.parse(
+      String(streamChat.mock.calls[0]?.[0]?.messages[1]?.content)
+    )
+    expect(prompt.evidenceOmitted).toBeGreaterThan(0)
+    expect(prompt.workflow.entries[0]).toMatchObject({
+      status: "needs_refresh",
+      evidenceIds: [],
+      blocker: "evidence_unavailable"
+    })
+    expect(prompt.workflow.phase.kind).toBe("read")
+  })
+
+  it("omits an oversized workflow whole, and keeps the exact global step allowance", async () => {
+    vi.mocked(readSetting).mockImplementation(async (setting) =>
+      setting === SETTINGS.AGENT_CONTEXT_WINDOW ? 8_192 : undefined
+    )
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    const workflow: NonNullable<AgentRunState["workflow"]> = {
+      version: 1,
+      planVersion: 1,
+      throughSequence: 30,
+      entries: Array.from({ length: 24 }, (_, index) => ({
+        requirementId: `r${Math.floor(index / 12) + 1}`,
+        itemIndex: index % 12,
+        status: "verified",
+        evidenceIds: ["r".repeat(240)],
+        effect: { sequence: index + 1, settlement: "confirmed" }
+      })),
+      phase: { index: 24, total: 24, kind: "review" }
+    }
+    await port.decide(
+      {
+        state: { ...state, stepCount: 30, observationCount: 30, workflow },
+        observation
+      },
+      { aborted: false }
+    )
+    const prompt = JSON.parse(
+      String(streamChat.mock.calls[0]?.[0]?.messages[1]?.content)
+    )
+    expect(prompt.workflowOmitted).toBe(true)
+    expect(prompt).not.toHaveProperty("workflow")
+    expect(prompt.step).toBe(31)
+    expect(prompt.stepsRemaining).toBe(prompt.maxSteps - 30)
+    const system = String(streamChat.mock.calls[0]?.[0]?.messages[0]?.content)
+    expect(system).toContain("never assume earlier work is undone")
+  })
+})

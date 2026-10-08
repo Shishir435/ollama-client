@@ -174,6 +174,79 @@ describe("a run's task contract in the durable record", () => {
   )
 
   it(
+    "keeps workflow and evidence across a paused worker reload, then drops the redundant terminal progress",
+    async () => {
+      const { runs } = await boot()
+      const workflow = {
+        version: 1 as const,
+        planVersion: 2,
+        throughSequence: 1,
+        entries: [
+          {
+            requirementId: "r1",
+            itemIndex: 0,
+            status: "verified" as const,
+            evidenceIds: [],
+            effect: { sequence: 1, settlement: "confirmed" as const }
+          },
+          {
+            requirementId: "r1",
+            itemIndex: 1,
+            status: "pending" as const,
+            evidenceIds: []
+          }
+        ],
+        phase: { index: 1, total: 2, kind: "act" as const }
+      }
+      await runs.createAgentRun(runState("workflow-1"))
+      await runs.transitionAgentRun({
+        runId: "workflow-1",
+        from: "submitted",
+        to: "planning"
+      })
+      await runs.transitionAgentRun({
+        runId: "workflow-1",
+        from: "planning",
+        to: "observing",
+        patch: { ...plan, workflow, evidenceLedger: [], stepCount: 9 }
+      })
+      await runs.transitionAgentRun({
+        runId: "workflow-1",
+        from: "observing",
+        to: "pause_requested"
+      })
+      await runs.transitionAgentRun({
+        runId: "workflow-1",
+        from: "pause_requested",
+        to: "paused",
+        patch: { pauseReason: "user" }
+      })
+      const { runs: reloaded } = await boot()
+      const restored = (await reloaded.getAgentRun("workflow-1"))?.state
+      expect(restored).toMatchObject({
+        status: "paused",
+        workflow,
+        stepCount: 9,
+        constraints: plan.constraints
+      })
+      await reloaded.transitionAgentRun({
+        runId: "workflow-1",
+        from: "paused",
+        to: "cancelling"
+      })
+      await reloaded.transitionAgentRun({
+        runId: "workflow-1",
+        from: "cancelling",
+        to: "cancelled"
+      })
+      expect(
+        (await reloaded.getAgentRun("workflow-1"))?.state
+      ).not.toHaveProperty("workflow")
+    },
+    TIMEOUT
+  )
+
+  it(
     "hands a follow-up the parent's ids with what its outcome said of each",
     async () => {
       const { runs, resolveAgentFollowUp } = await boot()

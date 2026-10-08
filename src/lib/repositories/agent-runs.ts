@@ -13,6 +13,7 @@ import {
   isTerminalAgentStatus,
   MAX_AGENT_SUBMITTED_VALUE_CHARS,
   MAX_AGENT_SUBMITTED_VALUES,
+  projectAgentWorkflow,
   TERMINAL_AGENT_STATUSES
 } from "@ollama-client/agent-runtime"
 import {
@@ -355,7 +356,15 @@ const safeEvidence = (records: AgentRunState["evidenceLedger"]) =>
 const serializeCheckpoint = (state: AgentRunState): string => {
   const parsed = AgentRunStateSchema.parse({
     ...state,
-    evidenceLedger: safeEvidence(state.evidenceLedger)
+    evidenceLedger: safeEvidence(state.evidenceLedger),
+    ...(state.workflow
+      ? {
+          workflow: projectAgentWorkflow(
+            state.workflow,
+            safeEvidence(state.evidenceLedger) ?? []
+          )
+        }
+      : {})
   })
   return serializeBounded(
     { version: 1, state: parsed },
@@ -378,6 +387,7 @@ const compactedCheckpoint = (
             state: AgentRunStateSchema.parse({
               ...state,
               evidenceLedger: safeEvidence(state.evidenceLedger),
+              workflow: undefined,
               deadline: undefined,
               pauseReason: undefined,
               /** The spent count is the record; an open episode has nothing left to steer. */
@@ -664,7 +674,9 @@ const listRunEvidence = async (
           evidenceLedger: state.evidenceLedger
         }
       ],
-      state.allowedOrigins
+      state.allowedOrigins,
+      undefined,
+      state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
     )
   ])
 }

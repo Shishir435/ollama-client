@@ -144,7 +144,7 @@ const actionOf = (step: AgentStepReadout): string => {
  * step is appended several times as it moves through its lifecycle, and the
  * run wants the last thing known about it, not five copies of it.
  */
-const latestByStep = (
+export const latestAgentSteps = (
   steps: readonly AgentStepReadout[]
 ): AgentStepReadout[] => {
   const latest = new Map<string, AgentStepReadout>()
@@ -158,6 +158,9 @@ const latestByStep = (
             ...step,
             /** A later receipt without a command keeps the one that had it. */
             command: step.command ?? existing.command,
+            requirementId: step.requirementId ?? existing.requirementId,
+            mutating: step.mutating ?? existing.mutating,
+            consequential: step.consequential ?? existing.consequential,
             target: step.target ?? existing.target,
             sourceUrl: step.sourceUrl ?? existing.sourceUrl,
             finding: step.finding ?? existing.finding,
@@ -224,7 +227,7 @@ export const buildAgentHistory = (
 ): AgentHistoryEntry[] => {
   const maxSteps = limits.maxSteps ?? AGENT_HISTORY_MAX_STEPS
   const maxBytes = limits.maxBytes ?? AGENT_HISTORY_MAX_BYTES
-  const entries = latestByStep(steps).map(entryOf)
+  const entries = latestAgentSteps(steps).map(entryOf)
   const kept = entries.slice(Math.max(0, entries.length - maxSteps))
   /**
    * Dropped oldest first and one at a time, so the same run always produces
@@ -245,7 +248,7 @@ export const buildAgentHistory = (
 export const lastVerifiedAgentHistoryStep = (
   steps: readonly AgentStepReadout[]
 ): number | undefined => {
-  const entries = latestByStep(steps)
+  const entries = latestAgentSteps(steps)
   for (let index = entries.length - 1; index >= 0; index -= 1)
     if (entries[index].status === "verified") return index + 1
   return undefined
@@ -255,7 +258,7 @@ export const lastVerifiedAgentHistoryStep = (
 export const previousAgentVerification = (
   steps: readonly AgentStepReadout[]
 ): AgentVerificationResult | undefined => {
-  const settled = latestByStep(steps).filter((step) => step.verification)
+  const settled = latestAgentSteps(steps).filter((step) => step.verification)
   return settled.at(-1)?.verification
 }
 
@@ -294,7 +297,7 @@ export const agentStepTargetFrom = (
 export const currentAgentInspection = (
   steps: readonly AgentStepReadout[]
 ): AgentInspectionFocus | undefined => {
-  const command = latestByStep(steps).at(-1)?.command
+  const command = latestAgentSteps(steps).at(-1)?.command
   if (!command) return undefined
   if (command.type === "inspect")
     return {
@@ -343,7 +346,7 @@ export const buildAgentFindings = (
   limits: { max?: number; maxBytes?: number } = {}
 ): AgentFinding[] => {
   const collected: AgentFinding[] = []
-  latestByStep(steps).forEach((step, index) => {
+  latestAgentSteps(steps).forEach((step, index) => {
     if (!step.finding) return
     const source = step.sourceUrl
       ? agentStepSourceUrl(step.sourceUrl)
