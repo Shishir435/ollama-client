@@ -221,3 +221,55 @@ model screenshot; the existing frame masking/vision regressions cover that
 boundary separately. No new live-site account suite or unattended execution is
 introduced. Retain private debug evidence locally when manually investigating a
 false completion; share only the task/attempt, predicate and adjudication label.
+
+## Reliability release process (PR12)
+
+Status: **experimental preview; live qualification pending**. Freeze the exact
+clean candidate, corpus and recommended model configuration before examining
+held-out results. The predeclared correctness target is at least 90% independently
+correct outcomes across three attempts, with development and held-out splits
+also required to meet that target. Safe, independently satisfied handoffs count;
+provider, admission, site and infrastructure failures remain in the denominator.
+Zero observed false completions, duplicate consequential effects and unauthorized
+disclosures are required on this finite suite, together with exercised lifecycle
+faults. This is not a guarantee about production traffic.
+
+1. Run `pnpm verify`, the CI benchmark/scorer tests, `pnpm docs:build`, both
+   production builds and bundle checks. Require CI's critical browser,
+   frame-vision and real worker termination gates at this exact commit.
+2. On a controlled machine with Chromium and explicitly authorized provider
+   credentials, set `AUDIT_SPLIT=all AUDIT_ATTEMPTS=3` and run the qualification
+   command above for two distinct tools-and-vision models. Keep all 360 declared
+   attempts, including failures; never overwrite a failed pass with a summary.
+   Existing per-run token/time ceilings bound inference. Supervise runs and stop
+   the process if the provider's separately configured spend budget is reached.
+3. Run `pnpm benchmark:agent:release <exact-40-character-SHA> <first/qualification.json>
+   <second/qualification.json>`. Save its content-free JSON with the underlying
+   reports. It recomputes correctness and p50/p95 active latency from attempt
+   rows, validates two-model evidence and rejects another candidate's records.
+   A nonzero exit means promotion remains blocked; this does not block an
+   explicitly experimental preview package.
+4. Review independent false-success and adversarial/fault results. Investigate
+   with local private evidence, publishing only content-free adjudication. Do
+   not change held-out cases or predicates to make a failure pass. Narrow the
+   published supported scope or make a separate fix PR when targets are missed.
+5. Before promotion, predeclare latency and dollar budgets, configure explicit
+   provider prices and complete usage accounting, and collect a matched PR1
+   intervention baseline. Current reports have no configured cost estimate or
+   matched workflow baseline, so the command deliberately reports these two
+   unresolved blockers even for otherwise correct results. Approvals are not
+   unexpected interventions. Neither unknown prices nor unmatched older
+   thirty-task results can satisfy these targets.
+
+Continue the existing `release/0.14.0` → willing `preview` testers → `main`
+process; keep experimental opt-in. Do not tag or submit stores as part of this
+qualification command. The existing release workflow retains its exact-commit
+CI/artifact requirements. Publish qualified models/settings and supported
+workflows only with reproducible report records. Until then the preview guide
+labels supported candidates and pending qualification honestly.
+
+Invite a small willing cohort; let testers explicitly choose whether to share
+reports. No new automatic collection is introduced. Stop active runs and disable
+Agent to withdraw runtime access. Preserve receipts and unresolved effects;
+rollback behavior with a forward-compatible fix, not storage deletion or a
+migration-breaking downgrade. This PR changes no persistence schema.
