@@ -1,23 +1,43 @@
 import { sourceFacts } from "./qualification-fixtures.mjs"
 import { normalizeText } from "./score-answer.mjs"
 
+const denies = (clause) =>
+  /\b(not|no|never|failed|wrong|incorrect|unknown|unable|unconfirmed|unverified|cannot|can t|couldn t|didn t|doesn t|wasn t|weren t|isnt|isn t|aren t|hasn t|haven t)\b/.test(
+    clause
+  )
+/** A denial can refer back to the answer without spelling the value out again. */
+const deniesReportedFact = (clause) =>
+  denies(clause) &&
+  (/\b(?:that|this|the|my|our|reported|given|above|previous)\s+(?:reported\s+)?(?:reference|code|value|fact|answer|result|price|offer)\s+(?:is|was|are|were|has|have|could|can|does|did|isn t|wasn t|aren t|weren t|doesn t|didn t|never|failed)\b/.test(
+    clause
+  ) ||
+    /\b(?:it|that|this)\s+(?:is|was|isn t|wasn t)\s+(?:(?:not|never)\s+)?(?:correct|right|valid|verified|confirmed|wrong|incorrect|unknown|unconfirmed|unverified)\b/.test(
+      clause
+    ) ||
+    /\b(?:confirm|verify|validate)\s+(?:it|that|this|the\s+(?:reference|code|value|fact|answer|result))\b/.test(
+      clause
+    ))
+
 /** Whole values with an affirmative answer, not a disclaimer or a prefix match. */
 const affirms = (text, fact) => {
   const value = ` ${normalizeText(fact)} `
-  const clauses = String(text ?? "").split(
-    /[.!?;\n]+|,?\s+(?:but|whereas|while)\s+|,\s+(?:and\s+)?(?=(?:I|we)\b)/i
-  )
-  const assertions = clauses.filter((clause) =>
-    ` ${normalizeText(clause)} `.includes(value)
+  const clauses = String(text ?? "")
+    .split(
+      /[.!?;\n]+|,?\s+(?:but|whereas|while)\s+|,\s+(?:and\s+)?(?=(?:I|we)\b)/i
+    )
+    .map(normalizeText)
+  const firstAssertion = clauses.findIndex((clause) =>
+    ` ${clause} `.includes(value)
   )
   return (
-    assertions.length > 0 &&
-    assertions.every(
-      (clause) =>
-        !/\b(not|wrong|incorrect|unknown|unable|unconfirmed|unverified|cannot|can t|couldn t|isnt|isn t)\b/.test(
-          normalizeText(clause)
-        )
-    )
+    firstAssertion >= 0 &&
+    !clauses
+      .slice(firstAssertion)
+      .some(
+        (clause) =>
+          (` ${clause} `.includes(value) && denies(clause)) ||
+          deniesReportedFact(clause)
+      )
   )
 }
 /** Exact task-scoped result and affirmative status, not an incidental body substring. */
