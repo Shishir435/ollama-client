@@ -111,6 +111,95 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toMatch(/cannot act in the browser/)
   })
 
+  /**
+   * The reviewer is told which records the runtime will accept, by the
+   * runtime's own rule. Without it a reviewer cited the verified click behind
+   * a change it rightly judged done, and every such completion was refused.
+   */
+  it("marks which records the runtime accepts as citations", () => {
+    const effect = {
+      ...request.evidenceLedger[0],
+      id: "effect-1",
+      kind: "verified_effect" as const,
+      validity: "historical" as const,
+      quote: undefined,
+      verificationKind: "activation",
+      requirementId: "r2"
+    }
+    const prompt = agentReviewPrompt({
+      ...request,
+      requirements: [
+        ...request.requirements,
+        { id: "r2", kind: "change", text: "Continue has been clicked" }
+      ],
+      evidenceLedger: [...request.evidenceLedger, effect]
+    })
+    const data = JSON.parse(
+      prompt.slice(
+        prompt.indexOf("<data>\n") + 7,
+        prompt.lastIndexOf("\n</data>")
+      )
+    )
+    expect(
+      data.evidence.map((record: { id: string; citable: boolean }) => [
+        record.id,
+        record.citable
+      ])
+    ).toEqual([
+      ["fact-1", true],
+      ["effect-1", false]
+    ])
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("citable: true")
+  })
+
+  it("tells the reviewer which page text appeared after the outcome's action", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      appearedAfterAction: ["fact-1"]
+    })
+    const data = JSON.parse(
+      prompt.slice(
+        prompt.indexOf("<data>\n") + 7,
+        prompt.lastIndexOf("\n</data>")
+      )
+    )
+    expect(data.evidence[0].appearedAfterAction).toBe(true)
+    expect(
+      JSON.parse(
+        agentReviewPrompt(request).slice(
+          agentReviewPrompt(request).indexOf("<data>\n") + 7,
+          agentReviewPrompt(request).lastIndexOf("\n</data>")
+        )
+      ).evidence[0].appearedAfterAction
+    ).toBeUndefined()
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("appearedAfterAction: true")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
+      "one of the recorded actions is that same action on that same control"
+    )
+    const withAction = agentReviewPrompt({
+      ...request,
+      actions: [
+        {
+          requirementId: "r1",
+          command: "click",
+          role: "button",
+          name: "Accept"
+        }
+      ]
+    })
+    expect(
+      JSON.parse(
+        withAction.slice(
+          withAction.indexOf("<data>\n") + 7,
+          withAction.lastIndexOf("\n</data>")
+        )
+      ).actions
+    ).toEqual([
+      { for: "r1", command: "click", role: "button", control: "Accept" }
+    ])
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
+  })
+
   it("keeps a hostile quotation inside the data block", () => {
     const prompt = agentReviewPrompt(request)
     expect(prompt.match(/<\/data>/g)).toHaveLength(1)

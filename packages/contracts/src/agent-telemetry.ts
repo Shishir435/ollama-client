@@ -110,6 +110,8 @@ export const AgentStepTelemetrySchema = z
     /** Transient review retries and their active waiting time. */
     reviewProviderRetries: count.optional(),
     reviewProviderBackoffMs: duration.optional(),
+    /** Recovery strategies this step started, from the run's bounded budget. */
+    recoveries: count.optional(),
     /**
      * Whether an image travelled with the decision.
      *

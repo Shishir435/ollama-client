@@ -305,8 +305,8 @@ Read the section your change touches; you do not need the whole file.
   lost nothing: it records a rejected step carrying the affordance layer's own
   sentence — assembled from templates and the model's ref, never from page
   text — and looks again, exactly as a declined completion does. Three
-  consecutive refusals now pause with a question so the user can correct the
-  approach; the older `command_refused` error remains readable for saved runs. Failing on the first
+  consecutive refusals start a recovery strategy (below), and a question only
+  once the strategies are spent; the older `command_refused` error remains readable for saved runs. Failing on the first
   one answered a well-formed decision with `invalid_decision`, whose advice
   tells the user to find a larger model — wrong about what happened, and often
   wrong about whose fault it was, since a control the observation offered can
@@ -323,6 +323,105 @@ Read the section your change touches; you do not need the whole file.
   untrusted page-derived data, never an instruction, so a fact learned on step
   two survives to step fifty without letting the page it came from change the
   goal.
+
+### Bounded recovery
+
+The no-progress guard, three refused commands and a stale snapshot used to end
+in a question or a failure on the first trigger. Each now spends a strategy
+first (`recovery.ts`), and only an exhausted budget reaches the user.
+
+- **The budget is durable and never refills.** `AgentRunState.recovery`
+  carries `attempts` (capped by `MAX_AGENT_RECOVERY_ATTEMPTS`) and the open
+  episode: trigger, current strategy, strategies tried, and the last verified
+  history step. It is written in the same claim that sends the run back to
+  observing, so a worker restart reads the spent count back. The controller's
+  progress and refusal counters are still memory-only; what a restart cannot
+  do is refund an attempt. Terminal compaction keeps `attempts` and drops the
+  episode.
+- **A strategy is guidance or a fresh read, never an action.**
+  `fresh_observation`, `targeted_read`, `wait_for_condition`,
+  `request_vision`, `alternate_route` and `revise_approach` reach the model as
+  the `recovery` field with a fixed template. Every command a recovery leads to
+  goes through the same resolver, policy, persistence, executor and verifier.
+  `request_vision` is offered only when the run can picture the page, and it
+  forces a capture under the `auto` vision policy.
+- **The repeat that triggered it is not carried out.** The guard's memory is
+  kept across strategies, so a model that ignores the new strategy and repeats
+  itself costs the next strategy at once, not three more repeats. A `wait`
+  keeps the count it found and never triggers recovery. Only a real repeat
+  does.
+- **An episode closes on a verified page-changing step, a correction or an
+  answer**, never on a verified read: one look would otherwise end every
+  episode. Its tried list carries across triggers while it is open.
+- **The task is not the run's to revise.** Recovery never writes
+  requirements, constraints or the plan. `revise_approach` says so in its
+  template, and the system prompt repeats it.
+- **Effects settle three ways, not two.** `agentEffectSettlement` reads
+  `verified` as `confirmed`; `planned`, `rejected` and `failed` as
+  `not_applied`; and everything between (`approved`, `executing`, `executed`,
+  `uncertain`) as `unknown`. While an episode is open, a consequential effect
+  whose own earlier attempt is `confirmed` or `unknown` is refused before
+  policy. Only one known not to have applied may be tried again. Receipts that
+  cannot be read count as `unknown`.
+- **An unresolved effect gets evidence only.** An ambiguous verification is
+  asked once more against the same before-picture, charged as an
+  `unresolved_effect` attempt. Nothing is executed again. Confirmed advances,
+  negative redecides with the episode open, and still-ambiguous pauses
+  `unresolved_effect` exactly as before. The human reconciliation boundary is
+  unchanged.
+- **A refused completion gets one read, not the whole set.** A run that
+  keeps claiming it is done trips the guard on its repeated `complete`. As
+  `refused_completion` it is offered `targeted_read` only: waiting, pictures
+  and other routes cannot supply the quotation it is missing, and in live
+  runs they spent five strategies before the same question.
+- **The reviewer is told what counts as a citation.** Every record in the
+  review packet carries `citable`, computed by `agentReviewRecordCitable`, the
+  same rule `applyAgentCompletionReview` enforces. Before this, a reviewer that
+  judged a click-only change "supported" cited the activation effect, and the
+  runtime refused it. That was the main source of questions on finished
+  `stale` and `overlay` runs.
+- **The reviewer is told what each outcome's own action produced.** A plan
+  for "click Continue and report the status" carries "Continue is clicked" as
+  a change outcome. No page text says "clicked", and a reviewer shown only
+  "Status: Active" rightly calls that insufficient. The controller keeps, per
+  requirement, the page before that requirement's verified page-changing step
+  and the page before the run's next applied change. The review request lists
+  `appearedAfterAction`: current quotes for that requirement that are absent
+  from the first and, once the window closed, present in the second. Text
+  another step produced, or text that was already there, is never marked.
+  It is newly observed text, not proof. Beside it the request carries
+  `actions`: the actions applied in each window, in order, as their receipts
+  record them (command, control role and name; a sensitive control's name
+  withheld). A verified change bound to the same requirement as the change
+  right before it extends that window rather than replacing it, so a click
+  and the accept on the confirm it raised stay together. The reviewer may use
+  the text for an action-outcome only when one recorded action is the
+  claimed one. Text after "click Accept" is no evidence that
+  Continue was clicked, whatever requirement the model bound the click to.
+  The runtime still requires a citable record, and the reviewer still judges
+  what the text says. A worker with no
+  windows (after a restart) sends nothing and claims nothing. Residual: an
+  unrelated page update landing inside the window looks the same as the
+  action's own result. The decision prompt tells the model that such an
+  outcome's evidence is the text the action produced, never the control's own
+  label.
+- **Refused completions recover at the refusal limit.** Two identical
+  refusals start `refused_completion` recovery (one targeted read). Only a
+  third pair asks the user, prefixed with what was tried.
+- **A second look at an ambiguous effect is per effect.** It is planned
+  against the run-wide budget alone, not the open episode's tried list. It
+  is charged in a `verifying` to `verifying` write before the verifier is
+  asked again, and an open episode is kept as it was so its tried strategies
+  stay tried. That write is the one status-preserving edge in the state machine, so a
+  lost worker cannot refund it.
+- **Only the same control is a repeat while recovering.** A shared form
+  address goes to policy, which asks. A checkout's next step posts to the
+  same place as the one before it.
+- **Exhaustion is specific.** No progress and refused commands ask a question
+  prefixed by `agent.question_text.recovery_tried` with the spent count. A
+  page that stays stale through `fresh_observation` and `wait_for_condition`
+  fails `stale_snapshot` as it always did. An unreadable page is not a
+  recovery trigger: it is a permission boundary, not a transient state.
 
 ### Grounded evidence ledger
 

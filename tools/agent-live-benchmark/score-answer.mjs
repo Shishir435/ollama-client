@@ -379,6 +379,7 @@ export const scoreSyntheticTask = ({
     case "click":
     case "stale":
     case "delayed":
+    case "overlay":
       return {
         success: completed && effects >= 1 && pageShowsActive && saysActive,
         predicate: "effect+page:Active"
@@ -387,6 +388,16 @@ export const scoreSyntheticTask = ({
       return {
         success: completed && effects >= 1 && pageShowsActive && saysActive,
         predicate: "effect+page:Active"
+      }
+    case "wrongpath":
+      /** Only the page Reports leads to, not any path ending in details. */
+      return {
+        success:
+          completed &&
+          pathOf(url) === "/wrongpath/details" &&
+          pageShowsActive &&
+          saysActive,
+        predicate: "navigation:/wrongpath/details+page:Active"
       }
     case "form":
     case "details":

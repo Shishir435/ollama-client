@@ -254,6 +254,8 @@
       "completion_refused": "No pude confirmar el resultado. ¿Se completó la tarea? Si no, ¿qué debo hacer ahora?",
       "commands_refused": "No se pudo realizar la última acción. ¿Qué debería intentar en su lugar?",
       "no_progress": "Estoy repitiendo acciones sin avanzar. ¿Qué debería hacer de otra forma? También puedes detenerme y terminar la tarea tú.",
+      "recovery_tried_one": "Primero probé otro enfoque.",
+      "recovery_tried_other": "Primero probé {{count}} enfoques distintos.",
       "too_many_outcomes": "Esta tarea pide {{count}} resultados distintos y una ejecución puede seguir {{max}}. ¿Cuáles debe hacer esta ejecución? El resto puede venir en otra.",
       "too_many_items": "Esta tarea nombra {{count}} filas o registros y una ejecución puede seguir {{max}}. ¿Cuáles debe hacer esta ejecución? El resto puede venir en otra.",
       "too_many_constraints": "Esta tarea fija {{count}} límites distintos y una ejecución puede mantener {{max}}. ¿Cuáles importan en esta ejecución?",

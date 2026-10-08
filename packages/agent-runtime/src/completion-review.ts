@@ -10,7 +10,12 @@ import type {
   AgentCompletionOutcomeClaim,
   AgentCompletionReviewScope
 } from "./completion"
-import type { AgentCompletionReviewRequest, AgentStepReadout } from "./ports"
+import { agentHaystackStates } from "./observed-text"
+import type {
+  AgentCompletionReviewRequest,
+  AgentReviewedAction,
+  AgentStepReadout
+} from "./ports"
 
 /**
  * Review requests one run may send, retries inside the port not counted.
@@ -63,12 +68,64 @@ export const agentCompletionReviewRequest = (
   state: Pick<AgentRunState, "goal" | "requirements" | "constraints">,
   scope: AgentCompletionReviewScope,
   outcomes: readonly AgentCompletionOutcomeClaim[] | undefined,
-  evidenceLedger: readonly AgentEvidenceRecord[]
+  evidenceLedger: readonly AgentEvidenceRecord[],
+  /**
+   * Per requirement, the page before its own verified change and, once the
+   * run changed something else, the page just before that, with the actions
+   * applied in between.
+   */
+  actionWindows?: ReadonlyMap<
+    string,
+    {
+      before: string
+      after?: string
+      actions?: readonly Omit<AgentReviewedAction, "requirementId">[]
+    }
+  >
 ): AgentCompletionReviewRequest => {
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
   )
+  const grounded = evidenceLedger.filter(groundedRecord)
+  /**
+   * Text that first appeared after the verified action bound to the same
+   * requirement, and before the run changed anything else. A reviewer asked
+   * whether "Continue is clicked" was met, shown only "Status: Active",
+   * rightly answered that the quote did not show a click — every such run was
+   * refused twice and asked the user about work it had finished. A status
+   * line that appeared right after that click is the click's evidence. A
+   * line some other step produced, or one already there, is not, so the
+   * window is the requirement's own and not the run's first change.
+   */
+  const appearedAfterAction =
+    actionWindows === undefined
+      ? undefined
+      : grounded
+          .filter((record) => {
+            const window = record.requirementId
+              ? actionWindows.get(record.requirementId)
+              : undefined
+            return (
+              window !== undefined &&
+              record.kind === "observed_fact" &&
+              record.validity === "current" &&
+              record.quote !== undefined &&
+              !agentHaystackStates(record.quote, window.before) &&
+              (window.after === undefined ||
+                agentHaystackStates(record.quote, window.after))
+            )
+          })
+          .map((record) => record.id)
+  const actions = actionWindows
+    ? requirements.flatMap((requirement) => {
+        return (actionWindows.get(requirement.id)?.actions ?? []).map(
+          (action) => ({ requirementId: requirement.id, ...action })
+        )
+      })
+    : undefined
   return {
+    ...(appearedAfterAction ? { appearedAfterAction } : {}),
+    ...(actions?.length ? { actions } : {}),
     goal: state.goal,
     requirements,
     constraints: (state.constraints ?? []).filter((constraint) =>
@@ -77,7 +134,7 @@ export const agentCompletionReviewRequest = (
     claims: (outcomes ?? []).filter((claim) =>
       scope.requirementIds.includes(claim.id)
     ),
-    evidenceLedger: evidenceLedger.filter(groundedRecord)
+    evidenceLedger: grounded
   }
 }
 
@@ -123,6 +180,25 @@ const supports = (
     RESULT_EFFECT_KINDS.has(record.verificationKind)
   )
 }
+
+/**
+ * Whether the runtime will accept a record as a citation for the outcome it
+ * belongs to. The reviewer is shown this beside every record, computed by the
+ * same rule `applyAgentCompletionReview` applies, so the two cannot disagree:
+ * a reviewer that cited the verified click behind a change it rightly judged
+ * done had every completion it supported refused, and the run asked the user
+ * about work it had finished.
+ */
+export const agentReviewRecordCitable = (
+  record: AgentEvidenceRecord,
+  requirements: readonly AgentTaskRequirement[]
+): boolean =>
+  record.requirementId !== undefined &&
+  supports(
+    record,
+    record.requirementId,
+    requirements.find((entry) => entry.id === record.requirementId)
+  )
 
 export interface AgentCompletionReviewResult {
   judgement: AgentCompletionJudgement

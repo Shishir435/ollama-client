@@ -175,6 +175,7 @@ const numericKeys = [
   "reviews",
   "reviewMs",
   "reviewDisagreements",
+  "recoveries",
   "reviewPromptTokens",
   "reviewOutputTokens"
 ]

@@ -124,6 +124,14 @@ test("shareable outcomes cannot contain page text, URLs, wire or arbitrary error
   })
 })
 
+test("the spent recovery count survives the shareable projection", () => {
+  assert.equal(shareableAttempt({ task: "stale", recoveries: 2 }).recoveries, 2)
+  assert.equal(
+    shareableAttempt({ task: "stale", recoveries: -1 }).recoveries,
+    undefined
+  )
+})
+
 test("canvas screenshot proof survives the shareable projection without image bytes", () => {
   for (const renderedCanvasScreenshot of [true, false])
     assert.deepEqual(

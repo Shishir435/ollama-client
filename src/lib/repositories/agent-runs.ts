@@ -379,7 +379,11 @@ const compactedCheckpoint = (
               ...state,
               evidenceLedger: safeEvidence(state.evidenceLedger),
               deadline: undefined,
-              pauseReason: undefined
+              pauseReason: undefined,
+              /** The spent count is the record; an open episode has nothing left to steer. */
+              ...(state.recovery
+                ? { recovery: { attempts: state.recovery.attempts } }
+                : {})
             })
           }
         : {})

@@ -599,6 +599,8 @@ try {
         ...supervisionTelemetry(messages, sentAt, Date.now()),
         approvalsGranted: (final?.run?.grants?.length ?? 0) + chatApprovals,
         observations: final?.run?.observationCount ?? 0,
+        /** Recovery strategies the run spent, from its own durable count. */
+        recoveries: final?.run?.recovery?.attempts ?? 0,
         errorCode: final?.run?.error?.code,
         pauseReason: final?.run?.pauseReason,
         latencyMs: Date.now() - sentAt,

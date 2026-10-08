@@ -29,6 +29,7 @@ const ADDITIVE = [
   "providerBackoffMs",
   "reviewProviderRetries",
   "reviewProviderBackoffMs",
+  "recoveries",
   "promptTokens",
   "outputTokens",
   "promptTokensEstimated",

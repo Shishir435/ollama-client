@@ -120,13 +120,25 @@ const sameControl = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
  */
 export const agentCommittedEffects = (
   steps: readonly AgentStepReadout[]
-): AgentPriorEffect[] => {
+): AgentPriorEffect[] =>
+  mergedSteps(steps).flatMap(({ step, weighty }) => {
+    if (!weighty || !COMMITTED_STATUSES.includes(step.status)) return []
+    const effect = priorEffect(step)
+    return effect ? [effect] : []
+  })
+
+/**
+ * One entry per step: status from the newest receipt, description from any
+ * receipt that has it, and whether any receipt called it consequential.
+ */
+const mergedSteps = (
+  steps: readonly AgentStepReadout[]
+): { step: AgentStepReadout; weighty: boolean }[] => {
   const byStep = new Map<string, { step: AgentStepReadout; weighty: boolean }>()
   for (const step of [...steps].sort((a, b) => a.sequence - b.sequence)) {
     const seen = byStep.get(step.stepId)
     byStep.delete(step.stepId)
     byStep.set(step.stepId, {
-      /** Status from the newest receipt; description from any that has it. */
       step: seen
         ? {
             ...seen.step,
@@ -143,11 +155,65 @@ export const agentCommittedEffects = (
       weighty: (seen?.weighty ?? false) || receiptIsConsequential(step)
     })
   }
-  return [...byStep.values()].flatMap(({ step, weighty }) => {
-    if (!weighty || !COMMITTED_STATUSES.includes(step.status)) return []
-    const effect = priorEffect(step)
-    return effect ? [effect] : []
-  })
+  return [...byStep.values()]
+}
+
+/**
+ * What a step's last status proves about its effect, in three answers that
+ * must not be collapsed into two.
+ *
+ * `confirmed` landed and was seen to land. `not_applied` is known not to
+ * have reached the page: never approved, refused before execution, or
+ * verified negative. `unknown` is everything between — approved and then
+ * lost, executed and unverified, or verified ambiguous — and is the one a
+ * second attempt could double, so it is never treated as `not_applied`.
+ */
+export type AgentEffectSettlement = "not_applied" | "unknown" | "confirmed"
+
+export const agentEffectSettlement = (
+  status: AgentStepStatus
+): AgentEffectSettlement => {
+  if (status === "verified") return "confirmed"
+  if (status === "planned" || status === "rejected" || status === "failed")
+    return "not_applied"
+  return "unknown"
+}
+
+const SETTLEMENT_WEIGHT: Record<AgentEffectSettlement, number> = {
+  not_applied: 0,
+  unknown: 1,
+  confirmed: 2
+}
+
+/**
+ * How this run's own earlier attempts at the same consequential effect
+ * settled: the strongest answer among them, or undefined when the run never
+ * tried it. Same control only. A shared form address is evidence, not proof —
+ * a checkout's next step posts to the same place as the one before it — so
+ * it is left to policy to ask about, never refused here. A routine effect
+ * answers undefined, because repeating a click on a tab is not the kind of
+ * thing this guards.
+ */
+export const agentOwnEffectSettlement = (
+  effect: ResolvedAgentEffect,
+  steps: readonly AgentStepReadout[]
+): AgentEffectSettlement | undefined => {
+  if (!agentEffectIsConsequential(effect)) return undefined
+  const candidate = candidateFor(effect)
+  let strongest: AgentEffectSettlement | undefined
+  for (const { step, weighty } of mergedSteps(steps)) {
+    if (!weighty) continue
+    const prior = priorEffect(step)
+    if (!prior) continue
+    if (!sameControl(prior, candidate)) continue
+    const settlement = agentEffectSettlement(step.status)
+    if (
+      strongest === undefined ||
+      SETTLEMENT_WEIGHT[settlement] > SETTLEMENT_WEIGHT[strongest]
+    )
+      strongest = settlement
+  }
+  return strongest
 }
 
 /**

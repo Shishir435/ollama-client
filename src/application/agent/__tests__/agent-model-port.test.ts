@@ -1,5 +1,9 @@
+import { AGENT_RECOVERY_GUIDANCE } from "@ollama-client/agent-runtime"
 import type { AgentObservation, AgentRunState } from "@ollama-client/contracts"
-import { MAX_AGENT_THINKING_CHARS } from "@ollama-client/contracts"
+import {
+  MAX_AGENT_RECOVERY_ATTEMPTS,
+  MAX_AGENT_THINKING_CHARS
+} from "@ollama-client/contracts"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createAppError } from "@/lib/error-utils"
 import {
@@ -1176,6 +1180,66 @@ describe("usable agent prompt", () => {
     expect(String(sent.messages[0].content)).toContain(
       "Its effects already happened: never do them again."
     )
+  })
+  /**
+   * A recovering run is told the strategy as this build words it, what it
+   * already tried and where its evidence still holds — and nothing about the
+   * task changes with it.
+   */
+  it("tells a recovering run its strategy without restating the task", async () => {
+    let sent: ChatRequest | undefined
+    const port = modelPort(async (request, emit) => {
+      sent = request
+      emit(validChunk)
+    })
+    await port.decide(
+      {
+        state: {
+          ...state,
+          recovery: {
+            attempts: 2,
+            active: {
+              trigger: "no_progress",
+              strategy: "wait_for_condition",
+              tried: ["targeted_read", "wait_for_condition"],
+              startedAt: 1,
+              evidenceStep: 4
+            }
+          }
+        },
+        observation
+      },
+      { aborted: false }
+    )
+    if (!sent) throw new Error("No model request")
+    const prompt = JSON.parse(String(sent.messages[1].content))
+    expect(prompt.task).toBe(state.goal)
+    expect(prompt.recovery).toEqual({
+      reason: "no_progress",
+      strategy: "wait_for_condition",
+      instruction: AGENT_RECOVERY_GUIDANCE.wait_for_condition,
+      alreadyTried: ["targeted_read"],
+      attemptsLeft: MAX_AGENT_RECOVERY_ATTEMPTS - 2,
+      lastConfirmedStep: 4
+    })
+    expect(String(sent.messages[0].content)).toContain(
+      "Recovery never changes the task"
+    )
+  })
+  it("sends no recovery field once the episode has closed", async () => {
+    let sent: ChatRequest | undefined
+    const port = modelPort(async (request, emit) => {
+      sent = request
+      emit(validChunk)
+    })
+    await port.decide(
+      { state: { ...state, recovery: { attempts: 3 } }, observation },
+      { aborted: false }
+    )
+    if (!sent) throw new Error("No model request")
+    expect(
+      JSON.parse(String(sent.messages[1].content)).recovery
+    ).toBeUndefined()
   })
   it("reserves actual system and schema cost at a context rounding boundary", async () => {
     let sent: ChatRequest | undefined

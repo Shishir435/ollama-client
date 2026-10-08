@@ -38,7 +38,12 @@ export const AGENT_STATUS_PREDECESSORS = {
   awaiting_approval: ["deciding"],
   awaiting_takeover: ["deciding", "awaiting_approval"],
   executing: ["awaiting_approval"],
-  verifying: ["executing"],
+  /**
+   * `verifying` from itself is the one status-preserving write: a second look
+   * at an ambiguous effect charges its recovery attempt durably before it
+   * asks the verifier again, so a lost worker cannot refund it.
+   */
+  verifying: ["executing", "verifying"],
   pause_requested: [
     "submitted",
     "planning",

@@ -471,6 +471,95 @@ export const AgentDeadlineStateSchema = z
   )
 export type AgentDeadlineState = z.infer<typeof AgentDeadlineStateSchema>
 
+/**
+ * What stopped the run making headway, as recovery records it. A closed
+ * vocabulary of this build's own facts, never page text.
+ */
+export const AGENT_RECOVERY_TRIGGERS = [
+  /** The same decision on the same page, the no-progress guard's count. */
+  "no_progress",
+  /** The resolver refused consecutive commands. */
+  "refused_commands",
+  /**
+   * The same completion claimed again after it was refused. The run believes
+   * it is done, so the only strategy that can help is reading what would
+   * prove it; waiting, pictures and other routes cannot.
+   */
+  "refused_completion",
+  /** A command named a snapshot the page has already moved past. */
+  "stale_snapshot",
+  /**
+   * An applied effect whose verification could not say whether it landed.
+   * Recovery may only gather evidence about it: read the page again and ask
+   * the verifier again. It never applies the effect a second time.
+   */
+  "unresolved_effect"
+] as const
+export const AgentRecoveryTriggerSchema = z.enum(AGENT_RECOVERY_TRIGGERS)
+export type AgentRecoveryTrigger = z.infer<typeof AgentRecoveryTriggerSchema>
+
+/**
+ * The whole set of things a run may try before it spends the user's
+ * attention. Each one is guidance for the next decision or a fresh read; none
+ * is an action of its own, so every command a recovery leads to goes through
+ * the same resolver, policy, persistence, executor and verifier as any other.
+ */
+export const AGENT_RECOVERY_STRATEGIES = [
+  "fresh_observation",
+  "targeted_read",
+  "wait_for_condition",
+  "request_vision",
+  "alternate_route",
+  "revise_approach"
+] as const
+export const AgentRecoveryStrategySchema = z.enum(AGENT_RECOVERY_STRATEGIES)
+export type AgentRecoveryStrategy = z.infer<typeof AgentRecoveryStrategySchema>
+
+/**
+ * Strategies one run may spend, whatever triggered them. A run-wide ceiling
+ * rather than a per-episode one: a page that alternates between two states
+ * triggers afresh each time it settles, and only a budget that never refills
+ * ends that loop.
+ */
+export const MAX_AGENT_RECOVERY_ATTEMPTS = 6
+
+/**
+ * Durable recovery accounting. In the checkpoint, not in the controller's
+ * memory, so a worker restart cannot hand a looping run a fresh budget.
+ *
+ * `attempts` only ever grows. `active` is the episode in progress — its
+ * trigger, the strategy the next decision is told to use, the ones already
+ * tried — and is cleared once a page-changing step verifies, which is the
+ * run back on ground it can trust. `evidenceStep` names the last verified
+ * step, so the model is pointed at what still holds rather than at the step
+ * that went wrong.
+ */
+export const AgentRecoveryStateSchema = z
+  .object({
+    attempts: z.number().int().nonnegative().max(MAX_AGENT_RECOVERY_ATTEMPTS),
+    active: z
+      .object({
+        trigger: AgentRecoveryTriggerSchema,
+        strategy: AgentRecoveryStrategySchema,
+        tried: z
+          .array(AgentRecoveryStrategySchema)
+          .min(1)
+          .max(AGENT_RECOVERY_STRATEGIES.length),
+        startedAt: z.number().int().nonnegative(),
+        /** The run's history entry for its last verified step, if any. */
+        evidenceStep: z
+          .number()
+          .int()
+          .positive()
+          .max(MAX_AGENT_OBSERVATIONS + 5)
+          .optional()
+      })
+      .strict()
+      .optional()
+  })
+  .strict()
+export type AgentRecoveryState = z.infer<typeof AgentRecoveryStateSchema>
+
 /** A run holds a bounded allowlist, so growing it can be refused, never evicted. */
 export const MAX_AGENT_ALLOWED_ORIGINS = 25
 
@@ -1030,6 +1119,8 @@ export const AgentRunStateSchema = z
     question: AgentQuestionSchema.optional(),
     answers: z.array(AgentAnswerSchema).max(MAX_AGENT_ANSWERS).optional(),
     deadline: AgentDeadlineStateSchema.optional(),
+    /** Absent on rows written before recovery existed, and on runs that never needed it. */
+    recovery: AgentRecoveryStateSchema.optional(),
     /** The settled run this one follows, when it was started as a follow-up. */
     previousRun: AgentPreviousRunSchema.optional(),
     /**

@@ -202,16 +202,24 @@ export const withReasoningEffort = (
   }
 }
 
-/** Clicks a pending chat tool approval, if one is showing. */
-export const approveChatTools = (panel) =>
-  panel
+/**
+ * Clicks a pending chat tool approval, if one is showing.
+ *
+ * Absence answers at once, so a poll with nothing to approve stays cheap. A
+ * button that is there gets time to become clickable: in the Playwright
+ * Docker image it took longer than the old 250ms every time, so no run was
+ * ever approved and every attempt timed out with zero observations.
+ */
+export const approveChatTools = async (panel) => {
+  const button = panel
     .getByRole("button", { name: /^Allow (for this chat|once)$/ })
     .first()
-    .click({ timeout: 250 })
-    .then(
-      () => true,
-      () => false
-    )
+  if ((await button.count().catch(() => 0)) === 0) return false
+  return button.click({ timeout: 3000 }).then(
+    () => true,
+    () => false
+  )
+}
 
 /**
  * Whether the chat's last model call ended with an answer rather than a tool

@@ -13,6 +13,7 @@ import {
 import {
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
+  agentReviewRecordCitable,
   applyAgentCompletionReview
 } from "../completion-review"
 
@@ -388,6 +389,101 @@ describe("applying a completion review", () => {
         { id: "r1", verdict: "supported", sources: ["guess", "invented"] }
       ]).judgement
     ).toMatchObject({ reason: "needs_review" })
+  })
+
+  it("marks only text that appeared after the outcome's own action", () => {
+    const input = semanticInput({
+      evidenceLedger: [
+        record("before", { requirementId: "r1", quote: "Help menu" }),
+        record("after", { requirementId: "r1", quote: "Status: Active" }),
+        record("later", { requirementId: "r1", quote: "Order placed" }),
+        record("other", { requirementId: "r2", quote: "Status: Active" }),
+        record("old", {
+          requirementId: "r1",
+          quote: "Status: Active",
+          validity: "historical"
+        })
+      ]
+    })
+    const judgement = pending(input)
+    const build = (
+      windows?: ReadonlyMap<string, { before: string; after?: string }>
+    ) =>
+      agentCompletionReviewRequest(
+        { goal: "Click Continue", requirements: [saved], constraints: [] },
+        judgement.review,
+        input.outcomes,
+        input.evidenceLedger ?? [],
+        windows
+      ).appearedAfterAction
+    /** The window closed at the next change: later text is not this action's. */
+    expect(
+      build(
+        new Map([
+          [
+            "r1",
+            {
+              before: "help menu continue",
+              after: "help menu status: active"
+            }
+          ]
+        ])
+      )
+    ).toEqual(["after"])
+    /** Still open: everything new since the action is inside it. */
+    expect(build(new Map([["r1", { before: "help menu continue" }]]))).toEqual([
+      "after",
+      "later"
+    ])
+    /** No window for a requirement, or none in this worker: nothing claimed. */
+    expect(build(new Map())).toEqual([])
+    expect(build()).toBeUndefined()
+  })
+
+  it("names the action each window opened with, from its receipt", () => {
+    const input = semanticInput()
+    const judgement = pending(input)
+    const request = agentCompletionReviewRequest(
+      { goal: "Click Continue", requirements: [saved], constraints: [] },
+      judgement.review,
+      input.outcomes,
+      input.evidenceLedger ?? [],
+      new Map([
+        [
+          "r1",
+          {
+            before: "",
+            actions: [{ command: "click", role: "button", name: "Accept" }]
+          }
+        ],
+        ["r9", { before: "", actions: [{ command: "click" }] }]
+      ])
+    )
+    /** Only the reviewed requirements, so the reviewer sees the real control. */
+    expect(request.actions).toEqual([
+      { requirementId: "r1", command: "click", role: "button", name: "Accept" }
+    ])
+  })
+
+  it("tells the reviewer exactly what it will accept", () => {
+    const requirements = [saved, answered]
+    const activation = record("click", {
+      kind: "verified_effect",
+      validity: "historical",
+      quote: undefined,
+      verificationKind: "activation",
+      requirementId: "r1"
+    })
+    const field = { ...activation, id: "field", verificationKind: "field" }
+    expect(agentReviewRecordCitable(activation, requirements)).toBe(false)
+    expect(agentReviewRecordCitable(field, requirements)).toBe(true)
+    expect(
+      agentReviewRecordCitable(
+        record("fact", { requirementId: "r2" }),
+        requirements
+      )
+    ).toBe(true)
+    expect(agentReviewRecordCitable(record("loose"), requirements)).toBe(false)
   })
 
   it("refuses to answer a read with an effect record", () => {

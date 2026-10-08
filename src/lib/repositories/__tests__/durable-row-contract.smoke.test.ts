@@ -289,7 +289,18 @@ describe("durable job rows decode as their writers wrote them", () => {
         runId: "agent-terminal-1",
         from: "observing",
         to: "deciding",
-        patch: { updatedAt: 2 }
+        patch: {
+          updatedAt: 2,
+          recovery: {
+            attempts: 2,
+            active: {
+              trigger: "no_progress",
+              strategy: "wait_for_condition",
+              tried: ["targeted_read", "wait_for_condition"],
+              startedAt: 2
+            }
+          }
+        }
       })
       await repo.transitionAgentRun({
         runId: "agent-terminal-1",
@@ -310,9 +321,14 @@ describe("durable job rows decode as their writers wrote them", () => {
         state: {
           id: "agent-terminal-1",
           status: "completed",
-          observationCount: 1
+          observationCount: 1,
+          /** The spent count is kept; the open episode is not. */
+          recovery: { attempts: 2 }
         }
       })
+      expect(
+        JSON.parse(String(rows[0]?.checkpoint)).state.recovery.active
+      ).toBeUndefined()
       await expect(repo.getAgentRun("agent-terminal-1")).resolves.toMatchObject(
         {
           status: "completed",

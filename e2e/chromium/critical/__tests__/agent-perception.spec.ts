@@ -100,8 +100,14 @@ runAgentScenario({
   async verify({ snapshot, wire }) {
     expect(snapshot?.run?.pauseReason).toBe("question")
     expect(snapshot?.run?.question?.text).toContain("without progress")
-    /** Four identical decisions, not twenty-five. */
-    expect(snapshot?.run?.observationCount).toBe(4)
+    /**
+     * Four identical decisions, then one per recovery strategy a text-only
+     * model is offered — each repeat that ignores its strategy costs that
+     * strategy at once — and then the question. Eight, not twenty-five.
+     */
+    expect(snapshot?.run?.recovery?.attempts).toBe(4)
+    expect(snapshot?.run?.question?.text).toContain("I already tried 4")
+    expect(snapshot?.run?.observationCount).toBe(8)
 
     const answered = observations(wire).find((one) => one.unmatched)
     expect(answered?.unmatched?.region).toBe("sidebar")

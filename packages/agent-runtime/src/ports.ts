@@ -557,6 +557,7 @@ export type AgentStatePatch = Partial<
     | "pauseReason"
     | "plan"
     | "question"
+    | "recovery"
     | "requirements"
     | "result"
     | "scopedTabIds"
@@ -788,6 +789,30 @@ export interface AgentCompletionReviewRequest {
   constraints: readonly AgentTaskConstraint[]
   claims: readonly AgentCompletionOutcomeClaim[]
   evidenceLedger: readonly AgentEvidenceRecord[]
+  /**
+   * Current page quotes, by record id, that first appeared after the verified
+   * action bound to the same requirement and before the run changed anything
+   * else. Absent when this worker holds no windows (a restart loses them),
+   * which says nothing either way. Never support on its own: the runtime
+   * still requires a citable record.
+   */
+  appearedAfterAction?: readonly string[]
+  /**
+   * The actions applied in each requirement's window, in order, as their
+   * receipts record them: the command and the control's role and name, a
+   * sensitive control's name withheld. A click and the confirmation it raised
+   * are both listed. What connects newly observed text to the action an
+   * outcome claims — text after "click Accept" is no evidence that Continue
+   * was clicked.
+   */
+  actions?: readonly AgentReviewedAction[]
+}
+
+export interface AgentReviewedAction {
+  requirementId: string
+  command: string
+  role?: string
+  name?: string
 }
 
 /**
