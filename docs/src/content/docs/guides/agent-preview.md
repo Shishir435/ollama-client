@@ -10,8 +10,8 @@ card above the model's answer, and you supervise it from that card. Routine
 clicks and typing can run automatically; posting, destructive actions and
 sensitive steps still require your decision. It is experimental: success
 depends on the website and the selected model, and every step is checked
-against the page. Capable hosted models (through OpenRouter or a cloud
-provider) finish far more tasks than small local ones.
+against the page. Use a model with verified tool calling, and verified vision for visual tasks.
+No model is currently published as release-qualified on the new workflow suite.
 
 It is off unless you turn it on, from **Browser agent (experimental)** in the
 chat's Context sheet or **Settings → Agent**; until then the chat model
@@ -120,8 +120,10 @@ These are current limits, not design decisions.
   stays unread rather than guessed at.
 - **Frame limits.** A page with more than eleven child frames has the rest
   counted but not read, and a very large page can leave a frame no room to
-  report its controls; both are reported to the model as such. A frame with
-  no origin of its own — `srcdoc`, `about:blank` — cannot be read at all.
+  report its controls; both are reported to the model as such. Inherited
+  `srcdoc` and `about:blank` frames can be read when their creator origin is
+  allowed and the current document identity is known, with at most three such
+  frames per observation. Opaque sandboxed frames remain unread.
 - **Native dialogs need Chromium.** A click that opens `alert`, `confirm`
   or `prompt` is handed from the input executor to the debugger's dialog
   state. Agent can then answer the dialog, with approval before accepting a
@@ -156,12 +158,18 @@ These are current limits, not design decisions.
 
 ## What has actually been measured
 
-Thirty frozen tasks across ten families run with the debugger and without it,
-each scored by a predicate that reads the page rather than by what the run
-claimed, plus a live-model suite against real websites. Both live in the
-repository and write their counts to `artifacts/` when you run them; that
-output is the only record, so the figures you get are from your own run rather
-than from a table someone copied out of theirs.
+The repository contains a thirty-task scripted capability benchmark and a
+sixty-task controlled workflow suite: forty development tasks and twenty
+held-out tasks. The workflow suite uses real models and independent final-state
+predicates; its fixture/scorer unit tests are separate evidence. Three attempts
+per task with two capable models at the exact candidate are still pending.
+These suites do not establish reliability on every live website.
+
+Research comparisons, multi-page forms, draft editing, allowed embedded widgets,
+multiple tabs and exact-row changes are preview workflows, not a qualified
+production promise. Reports retain failures, required approvals and unexpected
+interventions separately. No qualified-model list or success rate is published
+until the repeated live results meet the release criteria.
 
 ## Choosing a model
 
@@ -190,8 +198,9 @@ with the question they answer. These instructions do not change permission or
 approval rules. Time spent answering or correcting a paused run does not count
 against its active-time budget.
 
-Repeated decisions, including short alternating loops, pause for your guidance.
-Repeated grounding refusals do the same. A premature completion gives a delayed
+Repeated decisions and grounding refusals trigger bounded recovery: fresh
+observations, targeted reads, waits or a different grounded route. Exhaustion
+asks for your guidance; recovery never refunds the run budgets. A premature completion gives a delayed
 save a bounded chance to produce evidence; it still cannot be accepted without
 that evidence. An unresolved side effect remains paused and cannot be resumed
 through the correction field.
@@ -200,3 +209,22 @@ Use **Export run report** to download the current run and its redacted step
 records as JSON. The report includes your goal, clarifications and page-derived
 text. It is saved locally only when you click the export button; nothing is
 sent to a feedback service automatically.
+
+
+## Disable and report a problem
+
+Stop the active run from its card first, then turn off **Settings → Agent →
+Browser agent (experimental)** to prevent new runs. Disabling the setting is
+not a substitute for stopping an active run. Keep the durable record when an
+effect is uncertain; inspect the page before starting another run.
+
+Preview testing is voluntary. Start with disposable pages and share a report
+only when you choose to. Review an exported run report before sharing: it can
+contain your goal and page text. Benchmark summaries omit raw page content;
+private debug evidence should stay local. There is no automatic feedback upload.
+
+Use the disable path if a preview update misbehaves. Preserve local data and
+install a forward-compatible fix; do not clear storage or downgrade across a
+forward-only migration to roll back runtime behavior. Closing the side panel
+pauses supervised work. Browser shutdown or worker loss cannot provide
+unattended execution, and interrupted effects require reconciliation.

@@ -122,7 +122,8 @@
     "proxy:bundle": "pnpm --filter @ollama-client/olc bundle",
     "olc": "tsx packages/olc/src/cli.ts",
     "benchmark:agent:qualification": "node tools/agent-live-benchmark/qualification.mjs",
-    "benchmark:agent:qualification:matrix": "node tools/agent-live-benchmark/qualification-matrix.mjs"
+    "benchmark:agent:qualification:matrix": "node tools/agent-live-benchmark/qualification-matrix.mjs",
+    "benchmark:agent:release": "node tools/agent-live-benchmark/release.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
