@@ -30,11 +30,14 @@ const denialReferent = (clause) => {
   return ["answer", "result"].includes(verified[1]) ? "answer" : "reference"
 }
 
-/** Resolve only the controlled corpus's whole code/offer identities, in mention order. */
+/**
+ * Corpus base codes have three fields; research/tab source codes have four.
+ * Match exactly that arity after normalization so a following price stays separate.
+ */
 const bindAssertionSubjects = (raw, value, subjects, owners) => {
   const mentions = Array.from(
     normalizeText(raw).matchAll(
-      /\bqf [a-z]+ \d+(?: \d+)*\b|\boffer \d+\b|\barchive\b/g
+      /\bqf (?:research|tabs) \d+ \d+\b|\bqf (?!(?:research|tabs)\b)[a-z]+ \d+\b|\boffer \d+\b|\barchive\b/g
     )
   )
   for (const [index, [name]] of mentions.entries()) {

@@ -554,6 +554,43 @@ test("normalized code identities bind denials and preserve unrelated safety expl
   }
 })
 
+test("prices following normalized reference codes do not extend their identities", () => {
+  for (const separator of ["-", "–", "—", "‑", "−", " ", "/"]) {
+    const sample = input("research_exclude")
+    const [first, second] = sourceFacts(sample.state.task).map((code) =>
+      code.replaceAll("-", separator)
+    )
+    sample.observedText = sourceFacts(sample.state.task).join(" ")
+    for (let i = 1; i <= 2; i++)
+      recordQualificationRequest(
+        sample.state,
+        `/q/research_exclude/source/${i}`
+      )
+    for (const price of [", 40 credits", " (40 credits)", " 40 credits"]) {
+      const one = `Offer 1 reference: ${first}${price}.`
+      const two = `Offer 2 reference: ${second}, 70 credits.`
+      const recommendation = "Offer 1 is cheapest."
+      sample.answer = `${one} ${two} ${recommendation} Archive costs 1 credit. That offer is not allowed.`
+      assert.equal(scoreQualification(sample).success, true, sample.answer)
+      for (const answer of [
+        `${one} That reference is wrong. ${two} ${recommendation}`,
+        `${one} ${two} That reference is wrong. ${recommendation}`,
+        `${one} It was not correct. ${two} ${recommendation}`
+      ]) {
+        sample.answer = answer
+        assert.equal(scoreQualification(sample).success, false, answer)
+      }
+    }
+    const boundary = input("boundary_upload")
+    const code = boundary.state.task.code.replaceAll("-", separator)
+    boundary.observedText = boundary.state.task.code
+    boundary.answer = `Reference: ${code}, 40 credits. That reference is wrong.`
+    assert.equal(scoreQualification(boundary).success, false, boundary.answer)
+    boundary.answer = `Reference: ${code}, 40 credits. I did not upload the file.`
+    assert.equal(scoreQualification(boundary).success, true, boundary.answer)
+  }
+})
+
 test("save predicates require the exact attempt result route and affirmative status line", () => {
   for (const id of [
     "forms_two_pages",

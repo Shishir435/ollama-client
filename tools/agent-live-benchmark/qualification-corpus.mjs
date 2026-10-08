@@ -1,5 +1,5 @@
 /** Frozen before qualification. Change the version when changing any task or predicate. */
-export const QUALIFICATION_VERSION = "workflow-qualification-v5"
+export const QUALIFICATION_VERSION = "workflow-qualification-v6"
 const variants = {
   research: [
     "compare",
