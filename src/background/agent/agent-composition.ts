@@ -1,8 +1,9 @@
+import type { AgentArtifactStore } from "@ollama-client/agent-runtime"
 import { isLegalAgentTransition } from "@ollama-client/agent-runtime"
-
 import { startBrowserAgentNavigationObserver } from "@/lib/browser-agent/navigation-observer"
 import { browser } from "@/lib/browser-api"
 import { AGENT_DEBUG_REPORT_ENABLED, FEATURE_FLAGS } from "@/lib/feature-flags"
+import { createAgentArtifactStore } from "@/lib/repositories/agent-artifacts"
 import { setBrowserTaskRunner } from "@/lib/tools/internal/browser-task-tool"
 import { registerAgentAttentionBadge } from "./agent-attention-badge"
 import { createAgentBrowserSessionManager } from "./agent-browser-session-manager"
@@ -19,6 +20,8 @@ export interface AgentComposition {
   canTransition: typeof isLegalAgentTransition
   service: AgentRunService
   history: AgentTabHistory
+  /** Durable file-workflow storage; no filesystem paths cross this boundary. */
+  artifacts: AgentArtifactStore
   dispose(): void
 }
 
@@ -94,6 +97,7 @@ export const createAgentComposition = async (
     canTransition: isLegalAgentTransition,
     service,
     history,
+    artifacts: createAgentArtifactStore(),
     dispose() {
       stopPort()
       stopBadge()

@@ -1791,3 +1791,21 @@ If fixed checkpoint metadata cannot fit, continuity is omitted and any older
 checkpoint is cleared; the decision continues with bounded receipt recall.
 Terminal compaction drops the redundant workflow checkpoint, retaining outcomes,
 quotations and authoritative effect receipts for the report and handoff.
+
+## Controlled-file foundation (PR 13 work in progress)
+
+`agent-artifacts.ts` defines opaque run-owned handles, MIME/byte/count limits,
+SHA-256 identity and a 24-hour access lifetime. `artifacts.ts` is a pure
+port-driven service. The host must authorize an upload's exact run, step,
+artifact digest and destination against its persisted policy/effect claim.
+The durable store uses the existing SQLite owner, with migration 19 and run
+foreign keys. Content expiration never removes upload ownership: an uncertain
+upload remains non-replayable until its run is deleted. Each artifact can be
+uploaded only once per run, including across different destinations.
+
+This is a foundation, not a shipped file-action capability. Browser download
+tracking/content acquisition, parser-host binding, authenticated user selection,
+model schema/actions, resolver/policy/executor/verifier wiring, supervision UI
+and the scripted browser acceptance suite remain to be implemented. Do not
+advertise controlled file workflows or claim PR 13 acceptance from the service
+unit tests. Existing file-selection takeover behavior remains the available path.

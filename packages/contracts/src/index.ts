@@ -1,4 +1,5 @@
 export * from "./agent"
+export * from "./agent-artifacts"
 export * from "./agent-command"
 export * from "./agent-completion-check"
 export * from "./agent-completion-review"
