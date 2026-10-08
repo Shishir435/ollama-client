@@ -5,34 +5,70 @@ import {
   MAX_AGENT_ARTIFACTS
 } from "@ollama-client/contracts"
 import { z } from "zod"
-import { query, run, runWithMeta, withTransaction } from "@/lib/sqlite/db"
+import {
+  flushSave,
+  query,
+  run,
+  runWithMeta,
+  withTransaction
+} from "@/lib/sqlite/db"
+import { decodeRow } from "./row-decoder"
 
-/** Decoding is fail-closed: a damaged artifact cannot reach a page or model. */
-const storedMetadata = (metadata: unknown) => {
-  if (typeof metadata !== "string")
-    throw new Error("Unreadable artifact metadata")
-  return AgentArtifactSchema.parse(JSON.parse(metadata))
+/** Parse JSON inside the row schema so corrupt content never escapes in errors. */
+const metadataSchema = z.preprocess((value) => {
+  if (typeof value !== "string") return undefined
+  try {
+    return JSON.parse(value)
+  } catch {
+    return undefined
+  }
+}, AgentArtifactSchema)
+const ArtifactMetadataRowSchema = z
+  .object({
+    id: z.string().uuid(),
+    metadata: metadataSchema
+  })
+  .refine((row) => row.id === row.metadata.id)
+const ArtifactRowSchema = ArtifactMetadataRowSchema.safeExtend({
+  bytes: z.instanceof(Uint8Array)
+})
+const CountRowSchema = z.object({ count: z.number().int().nonnegative() })
+const SizeRowSchema = z.object({ size: z.number().int().nonnegative() })
+
+/** Refuse corrupt rows instead of silently dropping artifacts from run bounds. */
+const requireRow = <T>(
+  schema: z.ZodType<T>,
+  row: unknown,
+  operation: string
+): T => {
+  const decoded = decodeRow(schema, row, {
+    table: "agent_artifacts",
+    operation
+  })
+  if (!decoded) throw new Error("Unreadable artifact row")
+  return decoded
 }
 
 /** One owner database; upload claims survive worker loss and artifact expiration. */
 export const createAgentArtifactStore = (): AgentArtifactStore => ({
   async list(runId) {
     const rows = await query(
-      "SELECT metadata FROM agent_artifacts WHERE runId = ?",
+      "SELECT id, metadata FROM agent_artifacts WHERE runId = ?",
       [runId]
     )
-    return rows.map((row) => storedMetadata(row.metadata))
+    return rows.map(
+      (row) => requireRow(ArtifactMetadataRowSchema, row, "list").metadata
+    )
   },
   async get(runId, artifactId) {
     const rows = await query(
-      "SELECT metadata, bytes FROM agent_artifacts WHERE runId = ? AND id = ?",
+      "SELECT id, metadata, bytes FROM agent_artifacts WHERE runId = ? AND id = ?",
       [runId, artifactId]
     )
     const row = rows[0]
     if (!row) return undefined
-    if (!(row.bytes instanceof Uint8Array))
-      throw new Error("Unreadable artifact bytes")
-    return { artifact: storedMetadata(row.metadata), bytes: row.bytes }
+    const decoded = requireRow(ArtifactRowSchema, row, "get")
+    return { artifact: decoded.metadata, bytes: decoded.bytes }
   },
   async put(artifact, bytes, maxArtifacts) {
     const valid = AgentArtifactSchema.parse(artifact)
@@ -43,13 +79,13 @@ export const createAgentArtifactStore = (): AgentArtifactStore => ({
         "SELECT COUNT(*) AS count FROM agent_artifacts WHERE runId = ?",
         [valid.runId]
       )
-      const count = z.number().int().nonnegative().parse(rows[0]?.count)
+      const count = requireRow(CountRowSchema, rows[0], "count").count
       if (count >= Math.min(maxArtifacts, MAX_AGENT_ARTIFACTS))
         throw new Error("Artifact count limit reached")
       const totals = await tx.query(
         "SELECT COALESCE(SUM(length(bytes)), 0) AS size FROM agent_artifacts"
       )
-      const totalBytes = z.number().int().nonnegative().parse(totals[0]?.size)
+      const totalBytes = requireRow(SizeRowSchema, totals[0], "size").size
       if (totalBytes + bytes.byteLength > MAX_AGENT_ARTIFACT_TOTAL_BYTES)
         throw new Error("Artifact storage byte limit reached")
       await tx.run(
@@ -70,6 +106,8 @@ export const createAgentArtifactStore = (): AgentArtifactStore => ({
       )
       claimed = result.changes === 1
     })
+    // Legacy transactions commit in memory; dispatch must wait for the saved image.
+    if (claimed) await flushSave()
     return claimed
   },
   async settleUpload(id, status) {
