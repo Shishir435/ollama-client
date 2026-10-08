@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger"
+import { ensureAgentArtifacts } from "./add-agent-artifacts"
 import {
   ensureAgentRunChatLinkage,
   ensureAgentRunLinkageIndexes
@@ -132,7 +133,8 @@ export const MIGRATIONS: Migration[] = [
     version: 18,
     name: "add-agent-run-chat-linkage",
     up: ensureAgentRunChatLinkage
-  }
+  },
+  { version: 19, name: "add-agent-artifacts", up: ensureAgentArtifacts }
 ]
 
 /** Highest known schema version; fresh databases are stamped with this. */

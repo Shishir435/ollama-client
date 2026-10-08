@@ -234,7 +234,8 @@ const budgets: Budget[] = [
     // Includes pinned quantized MiniLM, CPU WASM, tokenizer and license notices.
     /** PR 9's recovery and review changes measure Chrome at 48,504,968. */
     /** PR 10 workflow progress and context projection measure Chrome at 48,517,539. */
-    max: isFirefox ? 50_300_000 : 48_520_000
+    /** PR 13 artifact storage, migration and row decoding measure Chrome at 48,523,928. */
+    max: isFirefox ? 50_300_000 : 48_523_928
   },
   {
     metric: "zip",
@@ -528,7 +529,8 @@ const budgets: Budget[] = [
      * bytes (+3,013), Firefox at 221,131 (+422). The new ceilings retain
      * 750 and 869 bytes of headroom; asset and ZIP limits are unchanged.
      */
-    max: isFirefox ? 222_000 : 335_000
+    /** PR 13 artifact contracts/store decoding measure Chrome at 335,457 gzip bytes. */
+    max: isFirefox ? 222_000 : 335_457
   }
 ]
 

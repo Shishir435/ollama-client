@@ -1,5 +1,6 @@
 export * from "./action-label"
 export * from "./affordance"
+export * from "./artifacts"
 export * from "./budgets"
 export * from "./completion"
 export { agentReviewRecordCitable } from "./completion-review"
