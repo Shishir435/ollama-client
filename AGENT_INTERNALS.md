@@ -1768,6 +1768,10 @@ so Invoice 1 is distinct from Invoice 10. `verified` uses the judge's exact
 receipt-support rules. `effect_confirmed` only means an effect landed; it does
 not prove a save or the whole goal. Model notes remain inferences. Neither notes
 nor progress bypass completion, permission, policy or effect ownership checks.
+For a read outcome, retained facts mark it `supported` after any revealing effect
+is settled; the exact effect reference remains, and an unresolved effect still
+requires reconciliation. User answers retain content-free provenance references
+in the same bounded ledger, but never count as independently observed facts.
 
 Plan-bound facts get retention priority, one source per unit before additional
 sources. The existing ledger count/byte ceilings and twelve-step recent history
@@ -1781,5 +1785,7 @@ review, rather than nested runs. A phase never refunds steps, active time,
 provider retries, recovery attempts or request token budgets. Workflow, ledger,
 recent history and inference notes share the existing context allocation; an
 oversized workflow is omitted whole with an explicit continuity warning.
+If fixed checkpoint metadata cannot fit, continuity is omitted and any older
+checkpoint is cleared; the decision continues with bounded receipt recall.
 Terminal compaction drops the redundant workflow checkpoint, retaining outcomes,
 quotations and authoritative effect receipts for the report and handoff.

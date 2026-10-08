@@ -2965,12 +2965,12 @@ export const createAgentController = (
     const amendment = await amendedPlan(state, answers, signal)
     if (signal.aborted) return undefined
     const progress = buildAgentWorkflow(
-      { ...state, ...amendment.patch },
+      { ...state, ...amendment.patch, answers },
       receipts,
       observation
     )
     const deciding = await claim(state, "deciding", {
-      ...progress,
+      ...(progress ?? { workflow: undefined }),
       observationCount: state.observationCount + 1,
       ...(steering?.length ? { answers } : {}),
       /**

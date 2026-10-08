@@ -105,6 +105,92 @@ const step = (
 })
 
 describe("durable workflow progress", () => {
+  it("advances a supported read after a confirmed click but never skips an unresolved effect", () => {
+    const current = {
+      ...state,
+      requirements: [
+        { id: "r1", text: "Report the price", kind: "read" as const },
+        { id: "r2", text: "Read the status", kind: "read" as const }
+      ]
+    }
+    const click = step(1, {
+      requirementId: "r1",
+      mutating: true,
+      command: { type: "click", ref: "e1", snapshotId: "old", generation: 1 },
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "activation", summary: "Opened", observedAt: 1 }
+      },
+      evidenceLedger: [fact("price", "Alpha costs $1")]
+    })
+    const result = buildAgentWorkflow(current, [click], observation)
+    if (!result) throw new Error("missing progress")
+    expect(result?.workflow.entries[0]).toMatchObject({
+      status: "supported",
+      evidenceIds: ["price"],
+      effect: { sequence: 1, settlement: "confirmed" }
+    })
+    expect(result?.workflow.phase).toMatchObject({ index: 1, kind: "read" })
+    expect(
+      buildAgentWorkflow(
+        current,
+        [{ ...click, status: "uncertain" }],
+        observation
+      )?.workflow
+    ).toMatchObject({
+      entries: [
+        { status: "effect_uncertain", effect: { settlement: "unknown" } },
+        { status: "pending" }
+      ],
+      phase: { index: 0, kind: "reconcile" }
+    })
+    expect(projectAgentWorkflow(result.workflow, []).entries[0]).toMatchObject({
+      status: "needs_refresh",
+      effect: { sequence: 1, settlement: "confirmed" }
+    })
+  })
+
+  it("retains answer references under ledger pressure without treating them as observed support", () => {
+    const current = {
+      ...state,
+      answers: Array.from({ length: 10 }, (_, index) => ({
+        questionId: `q-${index}`,
+        answeredAt: index + 1,
+        text: "Private user answer"
+      }))
+    }
+    const receipts = Array.from({ length: 40 }, (_, index) =>
+      step(index + 1, {
+        evidenceLedger: [fact(`noise-${index}`, `Unrelated ${index}`, 20)]
+      })
+    )
+    const result = buildAgentWorkflow(current, receipts, observation)
+    expect(
+      result?.evidenceLedger.filter((record) => record.kind === "user_input")
+    ).toEqual(
+      current.answers.map((answer) => ({
+        id: answer.questionId,
+        kind: "user_input",
+        validity: "historical",
+        observedAt: answer.answeredAt
+      }))
+    )
+    expect(result?.evidenceLedger.length).toBeLessThanOrEqual(
+      MAX_AGENT_LEDGER_RECORDS
+    )
+    expect(
+      result?.workflow.entries.every((entry) => entry.status === "pending")
+    ).toBe(true)
+    expect(JSON.stringify(result)).not.toContain("Private user answer")
+    expect(
+      buildAgentWorkflow(
+        { ...current, ...result },
+        undefined,
+        observation
+      )?.evidenceLedger.filter((record) => record.kind === "user_input")
+    ).toHaveLength(10)
+  })
+
   it("retains four closed-tab comparison facts after forty later reads", () => {
     const early =
       state.requirements?.[0].items?.map((item, index) =>

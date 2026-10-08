@@ -35,6 +35,7 @@ import {
   AgentUnreadablePageError
 } from "../resolution-failure"
 import { isLegalAgentTransition } from "../state"
+import * as workflow from "../workflow"
 
 const runState = (overrides: Partial<AgentRunState> = {}): AgentRunState => ({
   version: 1,
@@ -4802,6 +4803,102 @@ describe("bounded recovery", () => {
 })
 
 describe("durable workflow resume", () => {
+  it("adds a new steering answer and its provenance in the same deciding claim", async () => {
+    let decisions = 0
+    const harness: ReturnType<typeof createHarness> = createHarness({
+      state: runState({
+        requirements: [{ id: "r1", text: "Report the status", kind: "read" }]
+      }),
+      onVerify: async () => {
+        expect(await harness.controller.steer?.("run-1", "Use Alpha")).toBe(
+          true
+        )
+      },
+      decide: async (input) => {
+        decisions += 1
+        if (decisions === 1) return { type: "command", command: command() }
+        const answer = input.state.answers?.at(-1)
+        expect(answer?.text).toBe("Use Alpha")
+        const reference = {
+          id: answer?.questionId,
+          kind: "user_input",
+          validity: "historical",
+          observedAt: answer?.answeredAt
+        }
+        expect(input.evidenceLedger).toContainEqual(reference)
+        expect(harness.getState().evidenceLedger).toContainEqual(reference)
+        return { type: "ask_user", question: "Continue?" }
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(decisions).toBe(2)
+    expect(harness.getState().question?.text).toBe("Continue?")
+  })
+
+  it("checkpoints and forwards user-answer provenance in a planned run", async () => {
+    const harness = createHarness({
+      state: runState({
+        status: "paused",
+        pauseReason: "user",
+        requirements: [{ id: "r1", text: "Report the status", kind: "read" }],
+        answers: [{ questionId: "q1", text: "Use Alpha", answeredAt: 10 }]
+      }),
+      decide: async (input) => {
+        const reference = {
+          id: "q1",
+          kind: "user_input",
+          validity: "historical",
+          observedAt: 10
+        }
+        expect(input.evidenceLedger).toContainEqual(reference)
+        expect(harness.getState().evidenceLedger).toContainEqual(reference)
+        expect(input.state.workflow?.entries[0].status).toBe("pending")
+        return { type: "ask_user", question: "Continue?" }
+      }
+    })
+    await harness.controller.resume("run-1")
+    expect(harness.getState().status).toBe("paused")
+  })
+
+  it("clears an older checkpoint when the replacement cannot fit and still decides", async () => {
+    const previous = {
+      version: 1 as const,
+      planVersion: 1,
+      throughSequence: 0,
+      entries: [
+        {
+          requirementId: "r1",
+          status: "pending" as const,
+          evidenceIds: []
+        }
+      ],
+      phase: { index: 0, total: 1, kind: "read" as const }
+    }
+    const oversized = vi
+      .spyOn(workflow, "buildAgentWorkflow")
+      .mockReturnValueOnce(undefined)
+    try {
+      const harness = createHarness({
+        state: runState({
+          status: "paused",
+          pauseReason: "user",
+          requirements: [{ id: "r1", text: "Report the status", kind: "read" }],
+          workflow: previous
+        }),
+        decide: async (input) => {
+          expect(input.state.workflow).toBeUndefined()
+          expect(harness.getState().workflow).toBeUndefined()
+          return { type: "ask_user", question: "Continue?" }
+        }
+      })
+      await harness.controller.resume("run-1")
+      expect(harness.getState().question?.text).toBe("Continue?")
+      expect(harness.getState().status).toBe("paused")
+    } finally {
+      oversized.mockRestore()
+    }
+  })
+
   it("reconstructs completed entities before inference and keeps global budgets and constraints", async () => {
     const constraints: NonNullable<AgentRunState["constraints"]> = [
       {

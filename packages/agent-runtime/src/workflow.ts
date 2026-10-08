@@ -15,6 +15,8 @@ import {
   isAgentChangeReceipt
 } from "./completion"
 import {
+  agentUserEvidence,
+  boundAgentEvidence,
   buildAgentEvidenceLedger,
   latestAgentEvidenceRecords
 } from "./evidence-ledger"
@@ -100,6 +102,7 @@ const workflowBlocker = (
 }
 
 const workflowStatus = (
+  kind: AgentTaskRequirement["kind"],
   available: boolean,
   effect: AgentWorkflowEntry["effect"],
   proven: boolean,
@@ -109,6 +112,7 @@ const workflowStatus = (
   if (!available) return "needs_refresh"
   if (effect?.settlement === "unknown") return "effect_uncertain"
   if (proven) return "verified"
+  if (kind === "read" && evidenceIds.length) return "supported"
   if (effect) return "effect_confirmed"
   if (evidenceIds.length) return "supported"
   if (blocker === "evidence_unavailable") return "needs_refresh"
@@ -159,7 +163,14 @@ const workflowEntry = (
   return {
     requirementId: requirement.id,
     ...(itemIndex !== undefined ? { itemIndex } : {}),
-    status: workflowStatus(available, effect, !!proven, evidenceIds, blocker),
+    status: workflowStatus(
+      requirement.kind,
+      available,
+      effect,
+      !!proven,
+      evidenceIds,
+      blocker
+    ),
     evidenceIds,
     ...(effect ? { effect } : {}),
     ...(blocker ? { blocker } : {})
@@ -322,15 +333,25 @@ export const buildAgentWorkflow = (
     if (
       state.workflow &&
       state.workflow.planVersion === (state.plan?.version ?? 1)
-    )
-      return {
-        workflow: projectAgentWorkflow(state.workflow, [], false),
-        evidenceLedger: []
-      }
+    ) {
+      const cached = AgentWorkflowSchema.safeParse(
+        projectAgentWorkflow(state.workflow, [], false)
+      )
+      return cached.success
+        ? {
+            workflow: cached.data,
+            evidenceLedger: boundAgentEvidence(agentUserEvidence(state))
+          }
+        : undefined
+    }
     steps = []
   }
   const latest = latestAgentSteps(steps)
-  const evidenceLedger = retainedWorkflowLedger(state, steps, observation)
+  /** Keep answer provenance within the same bounds, before deriving support. */
+  const evidenceLedger = boundAgentEvidence([
+    ...retainedWorkflowLedger(state, steps, observation),
+    ...agentUserEvidence(state)
+  ])
   const consumed = new Set<string>()
   const entries = units(state).map((unit) =>
     workflowEntry(
@@ -369,8 +390,12 @@ export const buildAgentWorkflow = (
       entry.blocker = "evidence_unavailable"
     }
   }
-  const workflow = AgentWorkflowSchema.parse(
+  if (JSON.stringify(checkpoint).length * 3 > MAX_AGENT_WORKFLOW_BYTES)
+    return undefined
+  const workflow = AgentWorkflowSchema.safeParse(
     projectAgentWorkflow(checkpoint, evidenceLedger)
   )
-  return { workflow, evidenceLedger }
+  return workflow.success
+    ? { workflow: workflow.data, evidenceLedger }
+    : undefined
 }
