@@ -158,6 +158,37 @@ test("read facts require observed provenance and an affirmative answer; cheapest
   assert.equal(scoreQualification(sample).success, false)
 })
 
+test("comparison denials belong to their own code or offer, not all earlier facts", () => {
+  const sample = input("research_exclude")
+  const [first, second] = sourceFacts(sample.state.task)
+  sample.observedText = `${first} ${second}`
+  for (let i = 1; i <= 2; i++)
+    recordQualificationRequest(sample.state, `/q/research_exclude/source/${i}`)
+  const comparison = `Offer 1 reference: ${first}. Offer 2 reference: ${second}. Offer 1 is the cheapest eligible offer.`
+  for (const answer of [
+    `${comparison} Archive costs 1 credit. That offer is not allowed by the task.`,
+    `${comparison} Archive costs 1 credit. It is not valid for this task.`,
+    `Offer 1 reference: ${first}, Offer 2 reference: ${second}, Archive costs 1 credit. That offer is not allowed. Offer 1 is cheapest.`,
+    `${comparison} Archive costs 1 credit, but that offer is not allowed by the task.`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, true, answer)
+  }
+  for (const answer of [
+    `Offer 1 reference: ${first}. That reference is wrong. Offer 2 reference: ${second}. Offer 1 is cheapest.`,
+    `Offer 1 reference: ${first}. Offer 2 reference: ${second}. That reference is wrong. Offer 1 is cheapest.`,
+    `${comparison} That offer is not eligible.`,
+    `${comparison} Archive costs 1 credit. I couldn't verify that reference.`,
+    `${comparison} My answer is incorrect.`
+  ]) {
+    sample.answer = answer
+    assert.equal(scoreQualification(sample).success, false, answer)
+  }
+  sample.answer = comparison
+  sample.observedText = first
+  assert.equal(scoreQualification(sample).success, false)
+})
+
 test("multi-tab score rejects same-tab navigation and closed source tabs", () => {
   const sample = input("tabs_two_tabs")
   sample.answer = sourceFacts(sample.state.task).join(" ")

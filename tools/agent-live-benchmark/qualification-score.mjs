@@ -5,40 +5,76 @@ const denies = (clause) =>
   /\b(not|no|never|failed|wrong|incorrect|unknown|unable|unconfirmed|unverified|cannot|can t|couldn t|didn t|doesn t|wasn t|weren t|isnt|isn t|aren t|hasn t|haven t)\b/.test(
     clause
   )
-/** A denial can refer back to the answer without spelling the value out again. */
-const deniesReportedFact = (clause) =>
-  denies(clause) &&
-  (/\b(?:that|this|the|my|our|reported|given|above|previous)\s+(?:reported\s+)?(?:reference|code|value|fact|answer|result|price|offer)\s+(?:is|was|are|were|has|have|could|can|does|did|isn t|wasn t|aren t|weren t|doesn t|didn t|never|failed)\b/.test(
-    clause
-  ) ||
+/** Keep the referent type: denying an offer is not denying an earlier code. */
+const denialReferent = (clause) => {
+  if (!denies(clause)) return null
+  const named = clause.match(
+    /\b(?:that|this|the|my|our|reported|given|above|previous)\s+(?:reported\s+)?(reference|code|value|fact|answer|result|price|offer)\s+(?:is|was|are|were|has|have|could|can|does|did|isn t|wasn t|aren t|weren t|doesn t|didn t|never|failed)\b/
+  )
+  if (named) {
+    if (named[1] === "offer" || named[1] === "price") return "offer"
+    if (named[1] === "answer" || named[1] === "result") return "answer"
+    return "reference"
+  }
+  if (
     /\b(?:it|that|this)\s+(?:is|was|isn t|wasn t)\s+(?:(?:not|never)\s+)?(?:correct|right|valid|verified|confirmed|wrong|incorrect|unknown|unconfirmed|unverified)\b/.test(
       clause
-    ) ||
-    /\b(?:confirm|verify|validate)\s+(?:it|that|this|the\s+(?:reference|code|value|fact|answer|result))\b/.test(
-      clause
-    ))
+    )
+  )
+    return "topic"
+  const verified = clause.match(
+    /\b(?:confirm|verify|validate)\s+(?:(?:that|this|the)\s+(reference|code|value|fact|answer|result)|(it|that|this))\b/
+  )
+  if (!verified) return null
+  if (!verified[1]) return "topic"
+  return ["answer", "result"].includes(verified[1]) ? "answer" : "reference"
+}
+
+/** Resolve only the controlled corpus's whole code/offer identities, in mention order. */
+const bindAssertionSubjects = (raw, value, subjects, owners) => {
+  const mentions = Array.from(
+    raw.matchAll(/\bQF-[a-z0-9-]+\b|\bOffer\s+\d+\b|\bArchive\b/gi)
+  )
+  for (const [index, [name]] of mentions.entries()) {
+    const identity = normalizeText(name)
+    if (/^QF-/i.test(name)) subjects.reference = identity === value
+    else {
+      const codes = []
+      for (const [next] of mentions.slice(index + 1)) {
+        if (!/^QF-/i.test(next)) break
+        codes.push(normalizeText(next))
+      }
+      if (codes.length) owners.set(identity, codes)
+      subjects.offer =
+        identity === value || (owners.get(identity) ?? []).includes(value)
+    }
+    subjects.topic = /^QF-/i.test(name) ? subjects.reference : subjects.offer
+  }
+}
 
 /** Whole values with an affirmative answer, not a disclaimer or a prefix match. */
 const affirms = (text, fact) => {
-  const value = ` ${normalizeText(fact)} `
-  const clauses = String(text ?? "")
-    .split(
-      /[.!?;\n]+|,?\s+(?:but|whereas|while)\s+|,\s+(?:and\s+)?(?=(?:I|we)\b)/i
-    )
-    .map(normalizeText)
-  const firstAssertion = clauses.findIndex((clause) =>
-    ` ${clause} `.includes(value)
+  const value = normalizeText(fact)
+  const clauses = String(text ?? "").split(
+    /[.!?;\n]+|,?\s+(?:but|whereas|while)\s+|,\s+(?:and\s+)?(?=(?:I|we)\b)/i
   )
-  return (
-    firstAssertion >= 0 &&
-    !clauses
-      .slice(firstAssertion)
-      .some(
-        (clause) =>
-          (` ${clause} `.includes(value) && denies(clause)) ||
-          deniesReportedFact(clause)
-      )
-  )
+  const subjects = {
+    reference: false,
+    offer: false,
+    topic: false,
+    answer: false
+  }
+  const owners = new Map()
+  for (const raw of clauses) {
+    const clause = normalizeText(raw)
+    const containsFact = ` ${clause} `.includes(` ${value} `)
+    if (containsFact && denies(clause)) return false
+    bindAssertionSubjects(raw, value, subjects, owners)
+    subjects.answer ||= containsFact
+    const referent = denialReferent(clause)
+    if (referent && subjects[referent]) return false
+  }
+  return subjects.answer
 }
 /** Exact task-scoped result and affirmative status, not an incidental body substring. */
 export const qualificationSaved = (input) => {
