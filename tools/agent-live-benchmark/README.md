@@ -199,7 +199,7 @@ second controlled origin.
 Run the existing synthetic capability suite and the scripted native-input,
 frame-vision, supervision and lifecycle regressions alongside this workflow
 suite. Those establish broader operation coverage; this workflow corpus does
-not replace them. `node --test tools/agent-live-benchmark/__tests__/*.test.mjs`
+not replace them. `node --test tools/agent-live-benchmark/__tests__/*.test.mjs e2e/chromium/benchmark/__tests__/qualification.test.mjs`
 checks fixture construction, scorer counterexamples and report integrity in CI.
 These **unit results** do not execute the browser agent. The Playwright benchmark
 is **scripted browser** coverage; only a real-provider qualification pass is

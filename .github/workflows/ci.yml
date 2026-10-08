@@ -47,7 +47,7 @@ jobs:
         run: pnpm check:static
 
       - name: Benchmark fixture and independent scorer tests
-        run: node --test tools/agent-live-benchmark/__tests__/*.test.mjs
+        run: node --test tools/agent-live-benchmark/__tests__/*.test.mjs e2e/chromium/benchmark/__tests__/qualification.test.mjs
 
   docs:
     name: Documentation build

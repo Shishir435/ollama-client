@@ -34,6 +34,7 @@ import {
   qualificationHtml,
   recordQualificationRequest
 } from "./qualification-fixtures.mjs"
+import { collectQualificationPages } from "./qualification-observe.mjs"
 import { qualificationDiagnostics } from "./qualification-report.mjs"
 import { scoreQualification } from "./qualification-score.mjs"
 import {
@@ -137,7 +138,8 @@ const inputs = baselineInputs({
           "tools/agent-live-benchmark/qualification-score.mjs",
           "tools/agent-live-benchmark/qualification-faults.mjs",
           "tools/agent-live-benchmark/qualification-report.mjs",
-          "tools/agent-live-benchmark/qualification-config.mjs"
+          "tools/agent-live-benchmark/qualification-config.mjs",
+          "tools/agent-live-benchmark/qualification-observe.mjs"
         ]
       : [])
   ],
@@ -767,46 +769,22 @@ try {
           }
         }
       }
-      const renderedCanvasScreenshot = agentSawRenderedCanvas(wire, origin)
-      const qualificationPages = []
-      if (qualification)
-        for (const page of context.pages()) {
-          if (page === panel || page.isClosed()) continue
-          const pageUrl = new URL(page.url())
-          if (![origin, externalOrigin].includes(pageUrl.origin)) continue
-          const widgetSaved = await page
-            .locator("iframe")
-            .evaluateAll((frames) =>
-              frames.some((frame) => {
-                try {
-                  return frame.contentDocument?.body.textContent.includes(
-                    "Saved"
-                  )
-                } catch {
-                  return false
-                }
-              })
-            )
-            .catch(() => false)
-          const childSaved = await Promise.all(
-            page
-              .frames()
-              .filter((frame) => frame !== page.mainFrame())
-              .map((frame) =>
-                frame
-                  .locator("body")
-                  .innerText()
-                  .then(
-                    (text) => text.includes("Saved"),
-                    () => false
-                  )
-              )
-          )
-          qualificationPages.push({
-            path: pageUrl.pathname,
-            widgetSaved: widgetSaved || childSaved.some(Boolean)
+      const renderedCanvasScreenshot = agentSawRenderedCanvas(
+        wire,
+        origin,
+        qualification
+          ? { path: current.qualification.base, frameOrigin: origin }
+          : {}
+      )
+      const qualificationPages = qualification
+        ? await collectQualificationPages({
+            context,
+            panel,
+            fixture,
+            state: current.qualification,
+            origins: [origin, externalOrigin]
           })
-        }
+        : []
       const scored = qualification
         ? scoreQualification({
             state: current.qualification,
