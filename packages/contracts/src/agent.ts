@@ -6,6 +6,19 @@ import {
   AgentSourceQuotesSchema,
   MAX_AGENT_LEDGER_BYTES
 } from "./agent-evidence"
+import {
+  MAX_AGENT_CONSTRAINTS,
+  MAX_AGENT_PLAN_AMENDMENTS,
+  MAX_AGENT_PLAN_ITEMS,
+  MAX_AGENT_PLAN_LIMITATION_CHARS,
+  MAX_AGENT_REQUIREMENT_CHARS,
+  MAX_AGENT_REQUIREMENT_ID_CHARS,
+  MAX_AGENT_REQUIREMENT_ITEM_CHARS,
+  MAX_AGENT_REQUIREMENT_ITEMS,
+  MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
+  MAX_AGENT_REQUIREMENTS
+} from "./agent-task-limits"
+import { AgentWorkflowSchema } from "./agent-workflow"
 
 export const AGENT_RUN_STATUSES = [
   "submitted",
@@ -115,24 +128,18 @@ export const MAX_AGENT_ROW_CONTEXT_CHARS = 140
  */
 export const MAX_AGENT_EVIDENCE_CHARS = 200
 
-export const MAX_AGENT_REQUIREMENTS = 8
-export const MAX_AGENT_REQUIREMENT_CHARS = 200
-export const MAX_AGENT_REQUIREMENT_ID_CHARS = 8
-/** The goal text an entry quotes as its reason to exist. */
-export const MAX_AGENT_REQUIREMENT_SOURCE_CHARS = 200
-/** Repeated items one requirement may enumerate, and how long each may be. */
-export const MAX_AGENT_REQUIREMENT_ITEMS = 12
-export const MAX_AGENT_REQUIREMENT_ITEM_CHARS = 80
-/**
- * Items across the whole plan. The plan rides every decision prompt and every
- * checkpoint, so its enumeration is bounded as a whole, not only per entry.
- */
-export const MAX_AGENT_PLAN_ITEMS = 24
-export const MAX_AGENT_CONSTRAINTS = 8
-/** How much of a planner's stated limitation the failed run keeps. */
-export const MAX_AGENT_PLAN_LIMITATION_CHARS = 1_000
-/** Amendments a run records; each one is a user answer the plan absorbed. */
-export const MAX_AGENT_PLAN_AMENDMENTS = 10
+export {
+  MAX_AGENT_CONSTRAINTS,
+  MAX_AGENT_PLAN_AMENDMENTS,
+  MAX_AGENT_PLAN_ITEMS,
+  MAX_AGENT_PLAN_LIMITATION_CHARS,
+  MAX_AGENT_REQUIREMENT_CHARS,
+  MAX_AGENT_REQUIREMENT_ID_CHARS,
+  MAX_AGENT_REQUIREMENT_ITEM_CHARS,
+  MAX_AGENT_REQUIREMENT_ITEMS,
+  MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
+  MAX_AGENT_REQUIREMENTS
+} from "./agent-task-limits"
 
 export const AgentDecisionSchema = z.discriminatedUnion("type", [
   z
@@ -1111,6 +1118,8 @@ export const AgentRunStateSchema = z
     outcome: AgentRunOutcomeSchema.optional(),
     /** Source quotations captured with the terminal answer, committed with it. */
     evidenceLedger: AgentEvidenceLedgerSchema.optional(),
+    /** Optional for checkpoints predating durable workflow progress. Rebuilt from receipts. */
+    workflow: AgentWorkflowSchema.optional(),
     /** Bounded model-authored outcome retained for completed-run display. */
     result: z.string().min(1).max(20_000).optional(),
     error: AgentErrorSchema.optional(),

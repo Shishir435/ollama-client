@@ -192,15 +192,32 @@ const SNAPSHOT_BOUND_KINDS = new Set<AgentEvidenceRecord["kind"]>([
   "visual_observation"
 ])
 
+/** Latest validity by record id, before retention priority can reorder records. */
+export const latestAgentEvidenceRecords = (
+  steps: readonly AgentStepReadout[]
+): AgentEvidenceRecord[] => {
+  const latest = new Map<string, AgentEvidenceRecord>()
+  for (const step of [...steps].sort((a, b) => a.sequence - b.sequence))
+    for (const record of step.evidenceLedger ?? []) {
+      const parsed = AgentEvidenceRecordSchema.safeParse(record)
+      latest.delete(record.id)
+      if (parsed.success) latest.set(record.id, parsed.data)
+    }
+  return [...latest.values()]
+}
+
 /** Durable quotations survive navigation; current-state authority does not. */
 export const buildAgentEvidenceLedger = (
   steps: readonly AgentStepReadout[],
   allowedOrigins: readonly string[],
-  observation?: AgentObservation
+  observation?: AgentObservation,
+  /** Highest priority first; retention still obeys the ledger ceilings. */
+  priorityIds: readonly string[] = [],
+  /** Durable-state references compete in the same retention pass as receipts. */
+  additionalRecords: readonly AgentEvidenceRecord[] = []
 ): AgentEvidenceRecord[] =>
   boundAgentEvidence(
-    steps
-      .flatMap((step) => step.evidenceLedger ?? [])
+    [...latestAgentEvidenceRecords(steps), ...additionalRecords]
       .flatMap((record) => {
         if (record.source && !allowedOrigins.includes(record.source.origin))
           return []
@@ -237,6 +254,13 @@ export const buildAgentEvidenceLedger = (
                   : ("historical" as const)
           }
         ]
+      })
+      .sort((a, b) => {
+        const rank = (id: string) => {
+          const index = priorityIds.indexOf(id)
+          return index < 0 ? 0 : priorityIds.length - index
+        }
+        return rank(a.id) - rank(b.id)
       })
   )
 

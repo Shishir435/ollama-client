@@ -562,6 +562,7 @@ export type AgentStatePatch = Partial<
     | "result"
     | "scopedTabIds"
     | "stepCount"
+    | "workflow"
     | "updatedAt"
   >
 >

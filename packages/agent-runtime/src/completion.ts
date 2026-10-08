@@ -1974,7 +1974,12 @@ const judgeItemizedRequirement = (
       input,
       change,
       changes.filter((receipt) =>
-        receiptNamesItem(receipt, item, requirement.items, input.observation)
+        agentReceiptNamesItem(
+          receipt,
+          item,
+          requirement.items,
+          input.observation
+        )
       ),
       consumed
     )
@@ -2035,7 +2040,7 @@ const namesItem = (text: string, item: string): boolean => {
  * identifies neither, so a receipt under that name alone credits no item.
  * A reverse match must also prove the value or state the item adds.
  */
-const receiptNamesItem = (
+export const agentReceiptNamesItem = (
   receipt: AgentStepReadout,
   item: string,
   items: readonly string[],
@@ -2419,4 +2424,33 @@ export const judgeAgentCompletion = (
     }
   }
   return { type: "accepted" }
+}
+
+/** Exact receipt support for compact progress, using the completion judge's rules. */
+export const agentWorkflowReceiptSupport = (
+  requirement: AgentTaskRequirement,
+  item: string | undefined,
+  steps: readonly AgentStepReadout[],
+  observation: AgentObservation,
+  consumed: Set<string>
+): AgentStepReadout | undefined => {
+  if (requirement.kind !== "change" || requirement.check) return undefined
+  const { items, ...single } = requirement
+  const changes = allChanges(steps).filter(
+    (receipt) =>
+      !item || agentReceiptNamesItem(receipt, item, items ?? [], observation)
+  )
+  const result = evidencePlannedChange(
+    item ? { ...single, text: `${item}: ${single.text}` } : single,
+    undefined,
+    {
+      type: "refused",
+      reason: "needs_review",
+      feedback: "Read fresh evidence without replaying a completed effect."
+    },
+    changes,
+    observation,
+    consumed
+  )
+  return "stepId" in result ? result : undefined
 }

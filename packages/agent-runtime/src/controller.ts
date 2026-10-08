@@ -130,6 +130,7 @@ import { mergeAgentStepTelemetry } from "./telemetry"
 import { agentCommandKeepingUserTab } from "./user-tab"
 import { classifyVerificationOutcome } from "./verification"
 import { type AgentVisionPolicy, agentPictureWarranted } from "./vision"
+import { buildAgentWorkflow } from "./workflow"
 
 /**
  * The result of a run the user finished after reviewing the page. Run data
@@ -713,7 +714,7 @@ export const createAgentController = (
       | "inspection"
       | "findings"
       | "evidenceLedger"
-    >
+    > & { receipts?: readonly AgentStepReadout[] }
   > => {
     try {
       const receipts = await dependencies.persistence.steps(state.id)
@@ -726,6 +727,7 @@ export const createAgentController = (
         ...buildAgentEvidenceLedger(receipts, state.allowedOrigins)
       ])
       return {
+        receipts,
         ...(history.length > 0 ? { history } : {}),
         ...(previous ? { previousVerification: previous } : {}),
         ...(inspection ? { inspection } : {}),
@@ -2064,7 +2066,8 @@ export const createAgentController = (
           ...(steps ?? [])
         ],
         state.allowedOrigins,
-        observation
+        observation,
+        state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
       ),
       ...agentCompletionEvidence(
         state,
@@ -2944,7 +2947,9 @@ export const createAgentController = (
   const claimDeciding = async (
     state: AgentRunState,
     steering: readonly { text: string; at: number }[] | undefined,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    observation: AgentObservation,
+    receipts: readonly AgentStepReadout[] | undefined
   ): Promise<{ state: AgentRunState; stop?: AgentTaskPlan } | undefined> => {
     const answers = steering?.length
       ? [
@@ -2959,7 +2964,13 @@ export const createAgentController = (
       : state.answers
     const amendment = await amendedPlan(state, answers, signal)
     if (signal.aborted) return undefined
+    const progress = buildAgentWorkflow(
+      { ...state, ...amendment.patch, answers },
+      receipts,
+      observation
+    )
     const deciding = await claim(state, "deciding", {
+      ...(progress ?? { workflow: undefined }),
       observationCount: state.observationCount + 1,
       ...(steering?.length ? { answers } : {}),
       /**
@@ -3031,6 +3042,28 @@ export const createAgentController = (
     })
   }
 
+  /** Refresh legacy, unplanned recall against the document now being observed. */
+  const refreshRecalledLedger = (
+    ledger: AgentModelInput["evidenceLedger"],
+    state: AgentRunState,
+    observation: AgentObservation
+  ) =>
+    ledger &&
+    buildAgentEvidenceLedger(
+      [
+        {
+          runId: state.id,
+          stepId: "recall",
+          status: "verified",
+          at: 0,
+          sequence: 0,
+          evidenceLedger: [...ledger]
+        }
+      ],
+      state.allowedOrigins,
+      observation
+    )
+
   const observeAndDecide = async (
     state: AgentRunState,
     signal: AgentCancellationController["signal"]
@@ -3044,7 +3077,7 @@ export const createAgentController = (
     | { state: AgentRunState; recovering: true }
     | undefined
   > => {
-    const recalled = await recallHistory(state)
+    const { receipts, ...recalled } = await recallHistory(state)
     const observation = await observe(state, signal, recalled.inspection)
     if (!observation) return undefined
     /**
@@ -3053,7 +3086,13 @@ export const createAgentController = (
      * decision after the resume, rather than accepted and then dropped.
      */
     const steering = pendingSteering.get(state.id)
-    const claimed = await claimDeciding(state, steering, signal)
+    const claimed = await claimDeciding(
+      state,
+      steering,
+      signal,
+      observation,
+      receipts
+    )
     if (!claimed) return undefined
     const deciding = claimed.state
     if (steering?.length) {
@@ -3083,21 +3122,9 @@ export const createAgentController = (
       await askRemoval(deciding)
       return undefined
     }
-    if (recalled.evidenceLedger)
-      recalled.evidenceLedger = buildAgentEvidenceLedger(
-        [
-          {
-            runId: state.id,
-            stepId: "recall",
-            status: "verified",
-            at: 0,
-            sequence: 0,
-            evidenceLedger: [...recalled.evidenceLedger]
-          }
-        ],
-        deciding.allowedOrigins,
-        observation
-      )
+    recalled.evidenceLedger = deciding.workflow
+      ? deciding.evidenceLedger
+      : refreshRecalledLedger(recalled.evidenceLedger, deciding, observation)
     let decision: AgentDecision | undefined
     const context: AgentResolutionContext = {}
     try {
