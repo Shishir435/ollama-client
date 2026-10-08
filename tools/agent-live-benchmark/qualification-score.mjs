@@ -33,22 +33,24 @@ const denialReferent = (clause) => {
 /** Resolve only the controlled corpus's whole code/offer identities, in mention order. */
 const bindAssertionSubjects = (raw, value, subjects, owners) => {
   const mentions = Array.from(
-    raw.matchAll(/\bQF-[a-z0-9-]+\b|\bOffer\s+\d+\b|\bArchive\b/gi)
+    normalizeText(raw).matchAll(
+      /\bqf [a-z]+ \d+(?: \d+)*\b|\boffer \d+\b|\barchive\b/g
+    )
   )
   for (const [index, [name]] of mentions.entries()) {
     const identity = normalizeText(name)
-    if (/^QF-/i.test(name)) subjects.reference = identity === value
+    if (/^qf /.test(name)) subjects.reference = identity === value
     else {
       const codes = []
       for (const [next] of mentions.slice(index + 1)) {
-        if (!/^QF-/i.test(next)) break
+        if (!/^qf /.test(next)) break
         codes.push(normalizeText(next))
       }
       if (codes.length) owners.set(identity, codes)
       subjects.offer =
         identity === value || (owners.get(identity) ?? []).includes(value)
     }
-    subjects.topic = /^QF-/i.test(name) ? subjects.reference : subjects.offer
+    subjects.topic = /^qf /.test(name) ? subjects.reference : subjects.offer
   }
 }
 
