@@ -146,3 +146,78 @@ inputs marks a pass incomplete. Setup failures are recorded by the task's
 Validation: `node --test tools/agent-live-benchmark/__tests__/*.test.mjs`, the
 repository checks, and the existing Playwright benchmark. A fixture pass is
 execution coverage; only the three real-model attempts establish a live baseline.
+
+## Workflow qualification (PR11)
+
+`qualification.mjs` reuses the synthetic runner's **ordinary chat → browser_task
+→ production controller** path. It freezes 60 controlled application workflows
+in `qualification-corpus.mjs`: 40 development and 20 held-out cases. Each family
+has six variants, with its last two held out: research/comparison, multi-page
+forms, rich editors, authorized widgets (including a canvas requiring coordinate
+input), multi-tab evidence, repeated rows, delayed saves, injection, origin
+boundaries and lifecycle faults. The long-history task has four reports behind
+four intermediate pages each, exceeding the twelve-step recent-history window.
+All mutations affect disposable fixture state; no live accounts or production
+records are needed. The independent scorer reads actual entered values, effect
+requests, exact record keys, remaining tabs, source facts and the final answer.
+The model's verdict and semantic reviewer are never its source of truth.
+
+Freeze prompts/recovery and candidate **before** selecting held-out tasks. The
+held-out split is public, operationally separated, not a secret blind test. Do
+not tune on its results; change the corpus version and declare a new hold-out
+if it is used for tuning. Changing fixtures, tasks or predicates changes the
+recorded corpus hash. The baseline also pins the build hash, candidate, policy
+source, reasoning effort, automatic-approval policy and time ceilings.
+
+```bash
+pnpm build
+# Tune on development only; defaults are 3 attempts and the development split.
+AUDIT_MODEL=<designated-vision-and-tools-model> AUDIT_REASONING_EFFORT=medium \
+  pnpm benchmark:agent:qualification
+# After freezing the candidate/configuration, run every task and keep failures.
+AUDIT_MODEL=<designated-vision-and-tools-model> AUDIT_REASONING_EFFORT=medium \
+  AUDIT_SPLIT=all AUDIT_ATTEMPTS=3 pnpm benchmark:agent:qualification
+# Repeat the same candidate/configuration with a distinct second capable model.
+AUDIT_MODEL=<second-vision-and-tools-model> AUDIT_REASONING_EFFORT=medium \
+  AUDIT_SPLIT=all AUDIT_ATTEMPTS=3 pnpm benchmark:agent:qualification
+pnpm benchmark:agent:qualification:matrix <first/qualification.json> <second/qualification.json>
+```
+
+Use `AUDIT_ONLY` with exact task IDs for diagnosis; an ID outside the selected
+split is rejected. Filtered passes cannot satisfy full-suite evidence coverage.
+`qualification.json` retains every declared attempt, including setup failure,
+site blockage, admission failure, provider refusal and safe handoff. It reports
+both splits, exact missing/duplicate attempt keys, externally adjudicated false
+completions, required approvals, unexpected interventions, duplicate effects,
+text-canary/egress disclosure and faults that were never exercised. It does not
+report a readiness percentage. A fault that was never injected is not a safety
+pass. A consent request alone is not a failure. Boundary tasks prohibit accessing
+external private content; frame grants outside the task's authorized origins are
+not automatically approved. Only the cross-origin widget task authorizes that
+second controlled origin.
+
+Run the existing synthetic capability suite and the scripted native-input,
+frame-vision, supervision and lifecycle regressions alongside this workflow
+suite. Those establish broader operation coverage; this workflow corpus does
+not replace them. `node --test tools/agent-live-benchmark/__tests__/*.test.mjs e2e/chromium/benchmark/__tests__/qualification.test.mjs`
+checks fixture construction, scorer counterexamples and report integrity in CI.
+These **unit results** do not execute the browser agent. The Playwright benchmark
+is **scripted browser** coverage; only a real-provider qualification pass is
+**live model** evidence. Missing Chromium, unavailable providers and setup faults
+remain explicitly invalid attempts. Do not publish unit results as live success.
+
+The matrix command requires two distinct models, three attempts per task, the
+whole corpus, clean candidates and a built artifact. It distinguishes matched
+settings from best-configured product evidence. It refuses incomplete/unsafe
+records; its evidence-completeness result is not the PR12 rollout decision.
+Competitor harnesses must run the same task declarations, fixtures and scorer,
+retain every attempted task and record their own exact configuration. Do not
+compare these workflows to the older thirty-task Nanobrowser report as if the
+corpora were matched. A competitor adapter has not been added here.
+
+Limits: text canaries and the controlled external sink detect the specified
+cross-origin text/egress violations. They cannot adjudicate pixels inside a
+model screenshot; the existing frame masking/vision regressions cover that
+boundary separately. No new live-site account suite or unattended execution is
+introduced. Retain private debug evidence locally when manually investigating a
+false completion; share only the task/attempt, predicate and adjudication label.

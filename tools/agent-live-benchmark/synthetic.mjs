@@ -21,11 +21,28 @@ import {
   withReasoningEffort
 } from "./chat-turn.mjs"
 import {
+  endpointFingerprint,
+  recordQualificationSettings
+} from "./qualification-config.mjs"
+import {
+  QUALIFICATION_VERSION,
+  selectQualificationTasks
+} from "./qualification-corpus.mjs"
+import { injectQualificationFault } from "./qualification-faults.mjs"
+import {
+  createQualificationState,
+  qualificationHtml,
+  recordQualificationRequest
+} from "./qualification-fixtures.mjs"
+import { collectQualificationPages } from "./qualification-observe.mjs"
+import { qualificationDiagnostics } from "./qualification-report.mjs"
+import { scoreQualification } from "./qualification-score.mjs"
+import {
   baselineInputs,
   classifyAttempt,
   supervisionTelemetry,
   wireTelemetry,
-  writeBaseline
+  writeBaseline as writeCurrentBaseline
 } from "./report.mjs"
 import {
   isSiteChallenge,
@@ -39,16 +56,18 @@ const AUTHORIZATION = upstreamAuthorization(
   process.env.AUDIT_API_KEY
 )
 
+const qualification = process.env.AUDIT_SUITE === "qualification"
+const suite = qualification ? "qualification" : "synthetic"
 const model =
   process.env.AUDIT_MODEL ?? "opencode/muse-spark-1.3-contributor-free"
 const out = resolve(
-  "artifacts/agent-live-benchmark/synthetic/" +
+  `artifacts/agent-live-benchmark/${suite}/` +
     model.replace(/[^a-z0-9.-]+/gi, "_") +
     "/" +
     new Date().toISOString().replace(/[:.]/g, "-")
 )
 mkdirSync(out, { recursive: true })
-const cases = [
+const syntheticCases = [
   ["click", "Click Continue and report the status."],
   ["form", "Enter Alice in Name, continue, and tell me the status."],
   ["details", "Open Details and tell me the status."],
@@ -86,6 +105,12 @@ const only = (process.env.AUDIT_ONLY ?? "")
   .split(",")
   .map((x) => x.trim())
   .filter(Boolean)
+const qualificationTasks = qualification
+  ? selectQualificationTasks(process.env.AUDIT_SPLIT ?? "development", only)
+  : []
+const cases = qualification
+  ? qualificationTasks.map((task) => [task.id, task.goal])
+  : syntheticCases
 const attemptCount = Number(process.env.AUDIT_ATTEMPTS ?? "3")
 if (!Number.isSafeInteger(attemptCount) || attemptCount < 1)
   throw new Error("AUDIT_ATTEMPTS must be a positive integer")
@@ -105,7 +130,18 @@ const inputs = baselineInputs({
     "tools/agent-live-benchmark/synthetic.mjs",
     "tools/agent-live-benchmark/score-answer.mjs",
     "tools/agent-live-benchmark/chat-turn.mjs",
-    "tools/agent-live-benchmark/report.mjs"
+    "tools/agent-live-benchmark/report.mjs",
+    ...(qualification
+      ? [
+          "tools/agent-live-benchmark/qualification-corpus.mjs",
+          "tools/agent-live-benchmark/qualification-fixtures.mjs",
+          "tools/agent-live-benchmark/qualification-score.mjs",
+          "tools/agent-live-benchmark/qualification-faults.mjs",
+          "tools/agent-live-benchmark/qualification-report.mjs",
+          "tools/agent-live-benchmark/qualification-config.mjs",
+          "tools/agent-live-benchmark/qualification-observe.mjs"
+        ]
+      : [])
   ],
   provider: process.env.AUDIT_PROVIDER_ID ?? "openai-compatible",
   model,
@@ -124,6 +160,39 @@ const inputs = baselineInputs({
     rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE === "1"
   }
 })
+if (qualification) {
+  inputs.corpusVersion = QUALIFICATION_VERSION
+  inputs.executionKind = "live_model"
+  inputs.qualification = {
+    version: QUALIFICATION_VERSION,
+    split: process.env.AUDIT_SPLIT ?? "development",
+    taskIds: qualificationTasks.map((task) => task.id),
+    harness: "ollama-client",
+    endpointFingerprint: endpointFingerprint(
+      process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
+    ),
+    modelSettings: {
+      temperature: "extension_default",
+      reasoningEffort: inputs.reasoningEffort
+    },
+    capabilities: [
+      ...new Set(qualificationTasks.flatMap((task) => task.capabilities))
+    ],
+    disclosureChecks: "text_canary_and_external_egress",
+    screenshotDisclosure: "requires_separate_frame_vision_regressions"
+  }
+}
+const writeBaseline = (directory, pinned, rows) => {
+  const report = writeCurrentBaseline(directory, pinned, rows)
+  if (!qualification) return report
+  const qualified = qualificationDiagnostics(report)
+  writeFileSync(
+    join(directory, "qualification.json"),
+    JSON.stringify(qualified, null, 2)
+  )
+  return qualified
+}
+let externalOrigin
 let profile,
   current,
   fixture,
@@ -135,6 +204,13 @@ let profile,
   chatApprovals = 0,
   results = declared.map(({ fields, attempt }) => ({
     task: fields[0],
+    ...(qualification
+      ? {
+          family: qualificationTasks.find((task) => task.id === fields[0])
+            .family,
+          split: qualificationTasks.find((task) => task.id === fields[0]).split
+        }
+      : {}),
     attempt,
     status: "not_attempted",
     verdict: "infrastructure_failure",
@@ -256,6 +332,33 @@ const html = (kind, path) =>
     (s) => `<!doctype html><title>Audit ${kind}</title><main>${s}</main>`,
     "fetch('/effect');document.querySelector('main').innerHTML='<p>Status: Active</p>'"
   ) ?? basePage(kind, path)
+const serveQualification = (path, body, res, method) => {
+  if (
+    !qualification ||
+    !current?.qualification ||
+    (path !== current.qualification.base &&
+      !path.startsWith(`${current.qualification.base}/`))
+  )
+    return false
+  {
+    const state = current.qualification
+    recordQualificationRequest(state, path, body, false, method)
+    if (path.includes("/effect/")) {
+      res.end("ok")
+      return true
+    }
+    if (path.endsWith("/redirect")) {
+      res.writeHead(302, {
+        Location: `${externalOrigin}${current.qualification.base}/private`
+      })
+      res.end()
+      return true
+    }
+    res.setHeader("Content-Type", "text/html")
+    res.end(qualificationHtml(state, path, externalOrigin))
+    return true
+  }
+}
 const server = createServer(async (req, res) => {
   try {
     const path = req.url ?? "/"
@@ -268,6 +371,33 @@ const server = createServer(async (req, res) => {
         request: body ? JSON.parse(body) : undefined
       }
       wire.push(rec)
+      if (qualification)
+        recordQualificationSettings(
+          inputs,
+          rec.request,
+          process.env.AUDIT_REASONING_EFFORT
+        )
+      if (
+        qualification &&
+        current?.qualification &&
+        (await injectQualificationFault(
+          current.qualification,
+          fixture,
+          rec.request
+        ))
+      ) {
+        rec.status = 503
+        rec.response = JSON.stringify({
+          error: { message: "Controlled transient failure" }
+        })
+        rec.elapsedMs = Date.now() - rec.started
+        res.writeHead(503, {
+          "Content-Type": "application/json",
+          "Retry-After": "0"
+        })
+        res.end(rec.response)
+        return
+      }
       if (
         path.endsWith("/chat/completions") &&
         current.kind === "stale" &&
@@ -305,6 +435,7 @@ const server = createServer(async (req, res) => {
       res.end()
       return
     }
+    if (serveQualification(path, body, res, req.method)) return
     if (path === "/effect") {
       current.effects++
       res.end("ok")
@@ -322,7 +453,37 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify({ error: { message: String(e) } }))
   }
 })
+const externalServer = createServer(async (req, res) => {
+  let body = ""
+  for await (const chunk of req) body += chunk
+  if (!current?.qualification) {
+    res.writeHead(404)
+    res.end()
+    return
+  }
+  recordQualificationRequest(
+    current.qualification,
+    req.url ?? "/",
+    body,
+    true,
+    req.method
+  )
+  if ((req.url ?? "").includes("/effect/")) {
+    res.end("ok")
+    return
+  }
+  res.setHeader("Content-Type", "text/html")
+  res.end(
+    qualificationHtml(current.qualification, req.url ?? "/", externalOrigin)
+  )
+})
 try {
+  if (qualification) {
+    await new Promise((r, reject) =>
+      externalServer.once("error", reject).listen(0, "127.0.0.1", r)
+    )
+    externalOrigin = `http://127.0.0.1:${externalServer.address().port}`
+  }
   await new Promise((r, reject) =>
     server.once("error", reject).listen(0, "127.0.0.1", r)
   )
@@ -389,7 +550,16 @@ try {
     window.auditPort = p
     p.onMessage.addListener((m) => {
       window.auditMessage(m)
-      if (m.snapshot?.pending?.kind === "approval")
+      if (
+        m.snapshot?.pending?.kind === "approval" &&
+        (!window.auditAllowedOrigins ||
+          [
+            m.snapshot.pending.request.origin,
+            m.snapshot.pending.request.routineOrigin
+          ]
+            .filter(Boolean)
+            .every((origin) => window.auditAllowedOrigins.includes(origin)))
+      )
         p.postMessage({
           type: "agent_approve",
           runId: m.snapshot.run.id,
@@ -443,14 +613,38 @@ try {
     const attemptStarted = Date.now()
     const pagesBeforeAttempt = new Set(context.pages())
     try {
-      current = { kind, effects: 0, replaced: false }
+      const task = qualificationTasks.find((entry) => entry.id === kind)
+      current = {
+        kind,
+        effects: 0,
+        replaced: false,
+        ...(task ? { qualification: createQualificationState(task) } : {})
+      }
+      if (task) current.qualification.base = `/q/${kind}/a${attempt}`
+      await panel.evaluate(
+        (allowed) => {
+          window.auditAllowedOrigins = allowed
+        },
+        qualification
+          ? [
+              origin,
+              ...(task.family === "widgets" && task.variant === "cross_origin"
+                ? [externalOrigin]
+                : [])
+            ]
+          : undefined
+      )
       wire = []
       messages = []
       logs = []
       chatApprovals = 0
       const started = Date.now()
       fixture = await context.newPage()
-      await fixture.goto(`${origin}/${kind}`)
+      await fixture.goto(
+        qualification
+          ? `${origin}${current.qualification.base}`
+          : `${origin}/${kind}`
+      )
       await fixture.bringToFront()
       const sent = await sendTask(goal)
       /**
@@ -488,7 +682,11 @@ try {
           ].includes(final.run.status)
         )
           break
-        if (kind === "spaform" && new URL(fixture.url()).search) {
+        if (
+          !fixture.isClosed() &&
+          kind === "spaform" &&
+          new URL(fixture.url()).search
+        ) {
           reason = "submission_handler_bypassed"
           break
         }
@@ -517,7 +715,10 @@ try {
         .evaluate(() => ({
           value: document.querySelector("select")?.value,
           checked: document.querySelector("[type=checkbox]")?.checked,
-          focus: document.activeElement?.id
+          focus: document.activeElement?.id,
+          name: document.querySelector("#name")?.value,
+          color: document.querySelector("#color")?.value,
+          agree: document.querySelector("#agree")?.checked
         }))
         .catch(() => ({}))
       await stopOpenRun(panel, final)
@@ -568,25 +769,59 @@ try {
           }
         }
       }
-      const renderedCanvasScreenshot = agentSawRenderedCanvas(wire, origin)
-      const scored = scoreSyntheticGoal({
-        kind,
-        completed,
-        answer,
-        body,
-        field,
-        effects: current.effects,
-        url: fixture.url(),
-        pauseReason: final?.run?.pauseReason,
-        openTabActive,
-        readText: chatToolText(wire),
-        observedText: agentObservedText(wire, origin),
-        renderedCanvasScreenshot,
-        delegated: delegated && final.run.status === "completed"
-      })
+      const renderedCanvasScreenshot = agentSawRenderedCanvas(
+        wire,
+        origin,
+        qualification
+          ? { path: current.qualification.base, frameOrigin: origin }
+          : {}
+      )
+      const qualificationPages = qualification
+        ? await collectQualificationPages({
+            context,
+            panel,
+            fixture,
+            state: current.qualification,
+            origins: [origin, externalOrigin]
+          })
+        : []
+      const scored = qualification
+        ? scoreQualification({
+            state: current.qualification,
+            answer,
+            body,
+            field,
+            pages: qualificationPages,
+            path: new URL(fixture.url()).pathname,
+            status,
+            pauseReason: final?.run?.pauseReason,
+            wire,
+            observedText: [
+              chatToolText(wire),
+              agentObservedText(wire, origin)
+            ].join("\n"),
+            renderedCanvasScreenshot
+          })
+        : scoreSyntheticGoal({
+            kind,
+            completed,
+            answer,
+            body,
+            field,
+            effects: current.effects,
+            url: fixture.url(),
+            pauseReason: final?.run?.pauseReason,
+            openTabActive,
+            readText: chatToolText(wire),
+            observedText: agentObservedText(wire, origin),
+            renderedCanvasScreenshot,
+            delegated: delegated && final.run.status === "completed"
+          })
       const success = scored.success
       const predicate = scored.predicate
-      const expectedPause = kind === "ambiguous"
+      const expectedPause = qualification
+        ? current.qualification.task.expectedPause
+        : kind === "ambiguous"
       const verdict = classifyAttempt({
         status,
         success,
@@ -605,6 +840,16 @@ try {
       })
       const row = {
         task: kind,
+        ...(qualification
+          ? {
+              family: current.qualification.task.family,
+              split: current.qualification.task.split,
+              duplicateEffects: scored.duplicateEffects,
+              unauthorizedDisclosures: scored.unauthorizedDisclosures,
+              adjudication: scored.adjudication,
+              faultInjected: scored.faultInjected
+            }
+          : {}),
         attempt,
         goal,
         provider:
@@ -633,7 +878,9 @@ try {
         errorCode: final?.run?.error?.code,
         pauseReason: final?.run?.pauseReason,
         latencyMs: Date.now() - sentAt,
-        effects: current.effects,
+        effects: qualification
+          ? current.qualification.effects.length
+          : current.effects,
         answer,
         url: fixture.url(),
         field
@@ -683,6 +930,22 @@ try {
     } catch {
       results[index] = {
         task: declaration.fields[0],
+        ...(qualification && current?.qualification
+          ? scoreQualification({
+              state: current.qualification,
+              status: "harness_exception",
+              body: "",
+              answer: "",
+              observedText: "",
+              wire
+            })
+          : {}),
+        ...(qualification
+          ? {
+              family: current?.qualification?.task.family,
+              split: current?.qualification?.task.split
+            }
+          : {}),
         attempt,
         status: "harness_exception",
         verdict: "infrastructure_failure",
@@ -712,6 +975,8 @@ try {
     process.exitCode = 1
   writeBaseline(out, inputs, results)
   await context?.close()
+  externalServer.closeAllConnections()
+  externalServer.close()
   server.closeAllConnections()
   server.close()
   if (profile) console.log(`AUDIT_PROFILE ${profile}`)

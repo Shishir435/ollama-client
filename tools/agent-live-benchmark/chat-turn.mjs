@@ -342,7 +342,7 @@ export const agentObservedText = (wire, origin) =>
  * sent before Render cannot establish that the model saw the drawn code.
  * Returns only a boolean; no image bytes enter the scored report.
  */
-export const agentSawRenderedCanvas = (wire, origin) =>
+export const agentSawRenderedCanvas = (wire, origin, options = {}) =>
   wire.some((rec) => {
     if (
       !(rec.status >= 200 && rec.status < 300) ||
@@ -371,11 +371,30 @@ export const agentSawRenderedCanvas = (wire, origin) =>
         )
         if (
           !sameOrigin(observation?.url, origin) ||
-          new URL(observation.url).pathname !== "/canvas" ||
+          new URL(observation.url).pathname !== (options.path ?? "/canvas") ||
           !Number.isFinite(screenshot?.width) ||
           screenshot.width <= 0 ||
           !Number.isFinite(screenshot?.height) ||
           screenshot.height <= 0
+        )
+          return false
+        if (
+          options.frameOrigin &&
+          !screenshot.frames?.some(
+            (frame) =>
+              observation.frames?.some(
+                (observed) =>
+                  observed.frameId === frame.frameId &&
+                  observed.access === "ok" &&
+                  observed.origin === options.frameOrigin
+              ) &&
+              frame.region?.width > 0 &&
+              frame.region?.height > 0 &&
+              frame.region.x >= 0 &&
+              frame.region.y >= 0 &&
+              frame.region.x + frame.region.width <= screenshot.width &&
+              frame.region.y + frame.region.height <= screenshot.height
+          )
         )
           return false
         return [
