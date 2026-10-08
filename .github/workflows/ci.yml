@@ -46,6 +46,9 @@ jobs:
       - name: Static checks
         run: pnpm check:static
 
+      - name: Benchmark fixture and independent scorer tests
+        run: node --test tools/agent-live-benchmark/__tests__/*.test.mjs
+
   docs:
     name: Documentation build
     runs-on: ubuntu-latest

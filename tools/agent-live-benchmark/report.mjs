@@ -177,7 +177,9 @@ const numericKeys = [
   "reviewDisagreements",
   "recoveries",
   "reviewPromptTokens",
-  "reviewOutputTokens"
+  "reviewOutputTokens",
+  "duplicateEffects",
+  "unauthorizedDisclosures"
 ]
 const labelKeys = [
   "task",
@@ -190,7 +192,10 @@ const labelKeys = [
   "errorCode",
   "failureCode",
   "expectedStatus",
-  "executionPath"
+  "executionPath",
+  "split",
+  "predicate",
+  "adjudication"
 ]
 
 /** Closed projection: free-form answers, URLs, commands, errors and wire cannot leak. */
@@ -206,6 +211,8 @@ export const shareableAttempt = (row) => {
   }
   for (const key of numericKeys)
     if (Number.isFinite(row[key]) && row[key] >= 0) safe[key] = row[key]
+  if (typeof row.faultInjected === "boolean")
+    safe.faultInjected = row.faultInjected
   if (typeof row.success === "boolean") safe.success = row.success
   if (typeof row.renderedCanvasScreenshot === "boolean")
     safe.renderedCanvasScreenshot = row.renderedCanvasScreenshot
