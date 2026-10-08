@@ -390,10 +390,13 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   from the first and, once the window closed, present in the second. Text
   another step produced, or text that was already there, is never marked.
   It is newly observed text, not proof. Beside it the request carries
-  `actions`: the action that opened each window, as its receipt records it
-  (command, control role and name; a sensitive control's name withheld). The
-  reviewer may use the text for an action-outcome only when that recorded
-  action is the claimed one. Text after "click Accept" is no evidence that
+  `actions`: the actions applied in each window, in order, as their receipts
+  record them (command, control role and name; a sensitive control's name
+  withheld). A verified change bound to the same requirement as the change
+  right before it extends that window rather than replacing it, so a click
+  and the accept on the confirm it raised stay together. The reviewer may use
+  the text for an action-outcome only when one recorded action is the
+  claimed one. Text after "click Accept" is no evidence that
   Continue was clicked, whatever requirement the model bound the click to.
   The runtime still requires a citable record, and the reviewer still judges
   what the text says. A worker with no

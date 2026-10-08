@@ -71,14 +71,15 @@ export const agentCompletionReviewRequest = (
   evidenceLedger: readonly AgentEvidenceRecord[],
   /**
    * Per requirement, the page before its own verified change and, once the
-   * run changed something else, the page just before that.
+   * run changed something else, the page just before that, with the actions
+   * applied in between.
    */
   actionWindows?: ReadonlyMap<
     string,
     {
       before: string
       after?: string
-      action?: Omit<AgentReviewedAction, "requirementId">
+      actions?: readonly Omit<AgentReviewedAction, "requirementId">[]
     }
   >
 ): AgentCompletionReviewRequest => {
@@ -117,8 +118,9 @@ export const agentCompletionReviewRequest = (
           .map((record) => record.id)
   const actions = actionWindows
     ? requirements.flatMap((requirement) => {
-        const action = actionWindows.get(requirement.id)?.action
-        return action ? [{ requirementId: requirement.id, ...action }] : []
+        return (actionWindows.get(requirement.id)?.actions ?? []).map(
+          (action) => ({ requirementId: requirement.id, ...action })
+        )
       })
     : undefined
   return {

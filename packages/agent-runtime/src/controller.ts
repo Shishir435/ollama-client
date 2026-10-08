@@ -335,6 +335,18 @@ const adoptedTabPatch = (
     : { controlledTabId }
 }
 
+/** An applied step as the reviewer is shown it, a sensitive name withheld. */
+const reviewedAction = (
+  effect: ResolvedAgentEffect
+): Omit<AgentReviewedAction, "requirementId"> => {
+  const target = agentStepTargetFrom(effect.target)
+  return {
+    command: effect.command.type,
+    ...(target?.role ? { role: target.role } : {}),
+    ...(target?.name ? { name: target.name } : {})
+  }
+}
+
 export const createAgentController = (
   dependencies: AgentControllerDependencies
 ): AgentController => {
@@ -399,16 +411,21 @@ export const createAgentController = (
    * action and before anything else the run did — the only text the reviewer
    * is told an action produced. Memory only and one run at a time, like the
    * baseline; a restart loses it and the reviewer is told nothing.
+   *
+   * `latest` is the requirement whose window the run's last applied change
+   * opened or extended; `actions` is everything applied inside one window,
+   * in order, so a click and the confirm it raised stay together.
    */
   let actionWindows:
     | {
         runId: string
+        latest?: string
         byRequirement: Map<
           string,
           {
             before: string
             after?: string
-            action: Omit<AgentReviewedAction, "requirementId">
+            actions: Omit<AgentReviewedAction, "requirementId">[]
           }
         >
       }
@@ -1469,6 +1486,13 @@ export const createAgentController = (
    * Closes every open window at this applied change, then opens one for its
    * own requirement when the change verified. A step that only reacted, or
    * one bound to no requirement, still closes the windows before it.
+   *
+   * A verified change bound to the same requirement as the change right
+   * before it extends that window instead: it keeps its first `before` and
+   * gains the action. "Click Continue" and the accept on the confirm it
+   * raised both advance one requirement; replacing the window recorded only
+   * the accept, and the reviewer, told to match the recorded action against
+   * "Continue is clicked", refused a run that had clicked it.
    */
   const recordActionWindow = (
     runId: string,
@@ -1481,20 +1505,22 @@ export const createAgentController = (
       return
     if (actionWindows?.runId !== runId)
       actionWindows = { runId, byRequirement: new Map() }
+    const verified = status === "verified" && requirementId !== undefined
+    const extended =
+      verified && actionWindows.latest === requirementId
+        ? actionWindows.byRequirement.get(requirementId)
+        : undefined
     const text = agentObservationHaystack(before)
     for (const window of actionWindows.byRequirement.values())
-      if (window.after === undefined) window.after = text
-    if (status === "verified" && requirementId) {
-      const target = agentStepTargetFrom(effect.target)
+      if (window.after === undefined && window !== extended) window.after = text
+    actionWindows.latest = verified ? requirementId : undefined
+    if (!verified) return
+    if (extended) extended.actions.push(reviewedAction(effect))
+    else
       actionWindows.byRequirement.set(requirementId, {
         before: text,
-        action: {
-          command: effect.command.type,
-          ...(target?.role ? { role: target.role } : {}),
-          ...(target?.name ? { name: target.name } : {})
-        }
+        actions: [reviewedAction(effect)]
       })
-    }
   }
 
   /**

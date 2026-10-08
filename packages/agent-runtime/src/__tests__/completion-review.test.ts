@@ -453,10 +453,10 @@ describe("applying a completion review", () => {
           "r1",
           {
             before: "",
-            action: { command: "click", role: "button", name: "Accept" }
+            actions: [{ command: "click", role: "button", name: "Accept" }]
           }
         ],
-        ["r9", { before: "", action: { command: "click" } }]
+        ["r9", { before: "", actions: [{ command: "click" }] }]
       ])
     )
     /** Only the reviewed requirements, so the reviewer sees the real control. */

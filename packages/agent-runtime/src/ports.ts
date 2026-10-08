@@ -798,9 +798,10 @@ export interface AgentCompletionReviewRequest {
    */
   appearedAfterAction?: readonly string[]
   /**
-   * The action that opened each requirement's window, as its receipt records
-   * it: the command and the control's role and name, a sensitive control's
-   * name withheld. What connects newly observed text to the action an
+   * The actions applied in each requirement's window, in order, as their
+   * receipts record them: the command and the control's role and name, a
+   * sensitive control's name withheld. A click and the confirmation it raised
+   * are both listed. What connects newly observed text to the action an
    * outcome claims — text after "click Accept" is no evidence that Continue
    * was clicked.
    */

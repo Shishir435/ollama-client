@@ -174,7 +174,7 @@ describe("completion review prompt", () => {
     ).toBeUndefined()
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("appearedAfterAction: true")
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain(
-      "the recorded action is that same action on that same control"
+      "one of the recorded actions is that same action on that same control"
     )
     const withAction = agentReviewPrompt({
       ...request,
