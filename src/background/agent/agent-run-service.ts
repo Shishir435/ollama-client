@@ -29,7 +29,8 @@ import {
   getAgentRunForResultMessage,
   getLatestAgentRun,
   listAgentSteps,
-  listIncompleteAgentRuns
+  listIncompleteAgentRuns,
+  setAgentRunUnattended
 } from "@/lib/repositories/agent-runs"
 import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
@@ -51,6 +52,7 @@ import { createAgentSupervision } from "./agent-supervision"
 import type { AgentTabHistory } from "./agent-tab-history"
 import { createAgentTabHistory } from "./agent-tab-history"
 import { traceAgentRun } from "./agent-trace"
+import { agentBrowserSessionId } from "./agent-unattended"
 
 export interface StartAgentRunInput {
   goal: string
@@ -116,6 +118,12 @@ export interface AgentRunService {
     correction?: { text: string; pausedAt: number }
   ): Promise<void>
   stop(runId: string): Promise<void>
+  setUnattended(
+    runId: string,
+    pausedAt: number,
+    enabled: boolean
+  ): Promise<void>
+  recoverUnattended(): Promise<void>
   /**
    * A correction for the working run's next decision, without pausing it.
    * Refused (`steer_unavailable`) when the run is not working in this worker.
@@ -377,6 +385,8 @@ export const createAgentRunService = (input?: {
   readRunForMessage?: typeof getAgentRunForResultMessage
   readLatestRun?: typeof getLatestAgentRun
   readIncompleteRuns?: typeof listIncompleteAgentRuns
+  browserSessionId?: () => Promise<string>
+  writeUnattended?: typeof setAgentRunUnattended
   readSteps?: typeof listAgentSteps
   buildController?: BuildAgentController
   hasPerception?: () => Promise<boolean>
@@ -1083,8 +1093,22 @@ export const createAgentRunService = (input?: {
     },
     awaitSettled,
     async pause(runId, reason = "user") {
+      let continuing = false
       try {
         const state = await loadRunning(runId)
+        if (
+          reason === "panel_closed" &&
+          state.unattended &&
+          state.status !== "paused" &&
+          state.unattended.providerId === state.providerId &&
+          state.unattended.modelId === state.modelId &&
+          state.allowedOrigins.every((origin) =>
+            state.unattended?.origins.includes(origin)
+          )
+        ) {
+          continuing = true
+          return
+        }
         if (state.status !== "paused") {
           await drive(state, (controller) =>
             controller.requestPause(runId, reason)
@@ -1094,7 +1118,8 @@ export const createAgentRunService = (input?: {
         // A panel can close after an earlier user/question pause already held
         // a dialog. That pause cannot transition again, but the last panel
         // must still release the browser it can no longer supervise.
-        if (reason === "panel_closed") await detachBrowserSession(runId)
+        if (reason === "panel_closed" && !continuing)
+          await detachBrowserSession(runId)
       }
     },
     async resume(runId, correction) {
@@ -1117,6 +1142,75 @@ export const createAgentRunService = (input?: {
         correction
           ? controller.resume(runId, correction)
           : controller.resume(runId)
+      )
+    },
+    async setUnattended(runId, pausedAt, enabled) {
+      if (
+        !(await (input?.writeUnattended ?? setAgentRunUnattended)(
+          runId,
+          pausedAt,
+          enabled,
+          await (input?.browserSessionId ?? agentBrowserSessionId)()
+        ))
+      )
+        throw new AgentRunError(
+          "steer_unavailable",
+          "Consent requires the current user pause"
+        )
+      announce(runId)
+    },
+    async recoverUnattended() {
+      const incomplete = (await readIncompleteRuns()).filter(
+        (run) => !isTerminalAgentStatus(run.status)
+      )
+      if (incomplete.length !== 1) return
+      const candidates = incomplete.filter(
+        (run) =>
+          run.state?.unattended &&
+          run.state.status === "paused" &&
+          run.state.pauseReason === "worker_lost"
+      )
+      if (candidates.length !== 1 || activeRunId) return
+      const state = await loadRunning(candidates[0].id)
+      const consent = state.unattended
+      if (
+        !consent ||
+        state.humanDecision ||
+        state.status !== "paused" ||
+        state.pauseReason !== "worker_lost" ||
+        consent.browserSessionId !==
+          (await (input?.browserSessionId ?? agentBrowserSessionId)()) ||
+        consent.providerId !== state.providerId ||
+        consent.modelId !== state.modelId ||
+        !consent.tabIds.includes(state.controlledTabId) ||
+        !(state.scopedTabIds ?? [state.controlledTabId]).every((tabId) =>
+          consent.tabIds.includes(tabId)
+        ) ||
+        !state.allowedOrigins.every((origin) =>
+          consent.origins.includes(origin)
+        ) ||
+        !(await hasPerception())
+      )
+        return
+      const tab = await getTab(state.controlledTabId)
+      if (
+        !tab?.url ||
+        !consent.origins.includes(originOf(tab.url)) ||
+        !state.allowedOrigins.includes(originOf(tab.url)) ||
+        (await classifyAccess(tab.url)) !== "ok"
+      )
+        return
+      if (activeRunId) return
+      activeRunId = state.id
+      lastRunId = state.id
+      if (!(await attachBrowserSession(state))) return
+      /** Resume always takes a fresh observation; no saved command is replayed. */
+      void drive(state, (controller) => controller.resume(state.id)).catch(
+        (error: unknown) => {
+          logger.warn("Unattended recovery stopped", "Agent", {
+            name: error instanceof Error ? error.name : typeof error
+          })
+        }
       )
     },
     stop: stopRun,

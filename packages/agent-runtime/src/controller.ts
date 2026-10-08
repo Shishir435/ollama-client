@@ -620,6 +620,10 @@ export const createAgentController = (
       now
     )
     const checkpoint = await claim(state, "awaiting_approval", {
+      humanDecision:
+        decision.type === "approval_required"
+          ? { kind: "approval", request: decision.request }
+          : undefined,
       deadline:
         decision.type === "approval_required"
           ? suspendAgentDeadlines(deadline, "approval", now)
@@ -1421,6 +1425,7 @@ export const createAgentController = (
         now
       )
       const waiting = await claim(state, "awaiting_takeover", {
+        humanDecision: { kind: "takeover", request: policy.request },
         deadline: suspendAgentDeadlines(deadline, "takeover", now),
         stepCount: stepNumber,
         updatedAt: now

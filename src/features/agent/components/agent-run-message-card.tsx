@@ -204,6 +204,7 @@ const LiveRunSupervision = ({ live }: { live: AgentWorkspaceConnection }) => {
       onCorrect={connection.correct}
       onSteer={connection.steer}
       onStop={connection.stop}
+      onSetUnattended={connection.setUnattended}
       onTakeoverStart={connection.beginTakeover}
       onTakeoverComplete={connection.completeTakeover}
       onResolveEffect={connection.resolveEffect}

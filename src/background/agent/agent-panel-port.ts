@@ -277,6 +277,13 @@ export const registerAgentPanelPort = (
           )
           return
         }
+        case "agent_set_unattended":
+          await service.setUnattended(
+            command.runId,
+            command.pausedAt,
+            command.enabled
+          )
+          return
         case "agent_pause":
           await service.pause(command.runId)
           return

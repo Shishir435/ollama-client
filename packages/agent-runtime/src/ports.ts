@@ -552,6 +552,7 @@ export type AgentStatePatch = Partial<
     | "error"
     | "evidenceLedger"
     | "grants"
+    | "humanDecision"
     | "observationCount"
     | "outcome"
     | "pauseReason"

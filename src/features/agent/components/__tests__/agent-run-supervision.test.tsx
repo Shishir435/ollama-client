@@ -406,3 +406,16 @@ describe("AgentRunSupervision", () => {
     })
   })
 })
+
+it("offers explicit unattended consent only at a current safe user pause", () => {
+  const set = vi.fn()
+  const h = supervise({
+    run: run("paused", { pauseReason: "user" }),
+    onSetUnattended: set
+  })
+  fireEvent.click(screen.getByRole("checkbox"))
+  expect(set).toHaveBeenCalledWith(true)
+  expect(screen.getByText("https://example.com")).toBeInTheDocument()
+  h.rerender({ run: run("paused", { pauseReason: "unresolved_effect" }) })
+  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+})

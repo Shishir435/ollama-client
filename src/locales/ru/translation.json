@@ -285,6 +285,13 @@
       "send": "Отправить агенту",
       "queued": "Отправлено. Агент прочтёт это на следующем шаге.",
       "heard": "Агент учёл вашу поправку."
+    },
+    "worker_lost": "Browser execution was interrupted. Safe recovery requires the original authorized browser session and page; otherwise resume manually.",
+    "unattended": {
+      "label": "Continue this task with the panel closed",
+      "help": "Resume after enabling. Uses the current tabs, sites and provider. Approvals, sign-in and CAPTCHA still require you. Stop from the page context menu or the Stop agent keyboard shortcut. Browser shutdown and sleep can interrupt work.",
+      "active": "Panel-close continuation enabled for this task. New tasks require new consent.",
+      "decision_interrupted": "This human decision is still unanswered. Resume to recheck the page and request a fresh decision:"
     }
   },
   "common": {

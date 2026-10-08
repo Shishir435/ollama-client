@@ -500,11 +500,71 @@ export const getAgentRunForResultMessage = async (
   return row ? parseRun(row) : null
 }
 
+/** Consent changes only at the exact user-visible pause, and flushes before acknowledgement. */
+export const setAgentRunUnattended = async (
+  runId: string,
+  pausedAt: number,
+  enabled: boolean,
+  browserSessionId: string
+): Promise<boolean> => {
+  let changed = false
+  await withTransaction(async (tx) => {
+    const rows = await tx.query(
+      `SELECT ${selectRunColumns} FROM agent_runs WHERE id = ?`,
+      [runId]
+    )
+    const row = rows[0] ? decodeRow(AgentRunRowSchema, rows[0], TABLE) : null
+    const state = row ? parseRun(row)?.state : undefined
+    if (
+      !state ||
+      state.status !== "paused" ||
+      state.updatedAt !== pausedAt ||
+      !["user", "panel_closed"].includes(state.pauseReason ?? "")
+    )
+      return
+    const next = AgentRunStateSchema.parse({
+      ...state,
+      unattended: enabled
+        ? {
+            approvedAt: Date.now(),
+            browserSessionId,
+            origins: [...state.allowedOrigins],
+            tabIds: [...(state.scopedTabIds ?? [state.controlledTabId])],
+            providerId: state.providerId,
+            modelId: state.modelId
+          }
+        : undefined
+    })
+    const result = await tx.runWithMeta(
+      "UPDATE agent_runs SET checkpoint = ? WHERE id = ? AND status = 'paused' AND updatedAt = ?",
+      [serializeCheckpoint(next), runId, pausedAt]
+    )
+    changed = result.changes > 0
+  })
+  if (changed) await flushSave()
+  return changed
+}
+
 const applyPatch = (
   state: AgentRunState,
   status: AgentRunStatus,
   patch?: AgentStatePatch
-): AgentRunState => AgentRunStateSchema.parse({ ...state, ...patch, status })
+): AgentRunState =>
+  AgentRunStateSchema.parse({
+    ...state,
+    ...patch,
+    status,
+    ...([
+      "observing",
+      "executing",
+      "completed",
+      "failed",
+      "cancelled",
+      "partial"
+    ].includes(status)
+      ? { humanDecision: undefined }
+      : {})
+  })
 
 const appendStepInTransaction = async (
   tx: SqlExecutor,

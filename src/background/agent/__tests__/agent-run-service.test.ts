@@ -1381,3 +1381,132 @@ describe("a run a chat turn delegated", () => {
     expect(controller.requestCancel).not.toHaveBeenCalled()
   })
 })
+
+/** Consent is run-owned; losing an observer grants nothing and replays nothing. */
+describe("unattended execution", () => {
+  beforeEach(() => runs.clear())
+  const consent = {
+    approvedAt: 900,
+    browserSessionId: "browser-1",
+    origins: ["https://example.com"],
+    tabIds: [7],
+    providerId: "ollama",
+    modelId: "qwen3"
+  }
+
+  it("continues authorized work on panel close, but a supervised run pauses", async () => {
+    const h = service()
+    const state = await h.service.start(startInput)
+    runs.set(state.id, { ...state, status: "deciding", unattended: consent })
+    await h.service.pause(state.id, "panel_closed")
+    expect(h.controller.requestPause).not.toHaveBeenCalled()
+    runs.set(state.id, { ...state, status: "deciding" })
+    await h.service.pause(state.id, "panel_closed")
+    expect(h.controller.requestPause).toHaveBeenCalledWith(
+      state.id,
+      "panel_closed"
+    )
+  })
+
+  it("cannot continue panel-free after the approved scope changes", async () => {
+    const h = service()
+    const state = await h.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "deciding",
+      unattended: consent,
+      allowedOrigins: [...state.allowedOrigins, "https://other.example"]
+    })
+    await h.service.pause(state.id, "panel_closed")
+    expect(h.controller.requestPause).toHaveBeenCalled()
+  })
+
+  it("resumes one safe worker-loss checkpoint after permission and scope checks", async () => {
+    const h = service({ browserSessionId: async () => "browser-1" })
+    const state = await h.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    // A replacement service has no in-memory owner.
+    const restarted = service({ browserSessionId: async () => "browser-1" })
+    await restarted.service.recoverUnattended()
+    expect(restarted.controller.resume).toHaveBeenCalledWith(state.id)
+    expect(restarted.controller.start).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    "user",
+    "question",
+    "unresolved_effect",
+    "takeover",
+    "panel_closed"
+  ] as const)("does not auto-resume the human boundary %s", async (pauseReason) => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason,
+      unattended: consent
+    })
+    const h = service({ browserSessionId: async () => "browser-1" })
+    await h.service.recoverUnattended()
+    expect(h.controller.resume).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    "browser_restart",
+    "origin",
+    "permission",
+    "provider",
+    "tab"
+  ])("rejects recovery after %s changes", async (changed) => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent,
+      ...(changed === "provider" ? { providerId: "other" } : {}),
+      ...(changed === "tab" ? { controlledTabId: 8 } : {})
+    })
+    const h = service({
+      browserSessionId: async () =>
+        changed === "browser_restart" ? "browser-2" : "browser-1",
+      hasPerception: async () => changed !== "permission",
+      getTab: async () => ({
+        url:
+          changed === "origin" ? "https://other.example" : "https://example.com"
+      })
+    })
+    await h.service.recoverUnattended()
+    expect(h.controller.resume).not.toHaveBeenCalled()
+  })
+
+  it("acknowledges consent only after its exact pause is durably saved", async () => {
+    let release: () => void = () => undefined
+    const write = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          release = () => resolve(true)
+        })
+    )
+    const h = service({
+      writeUnattended: write,
+      browserSessionId: async () => "browser-1"
+    })
+    let acknowledged = false
+    const saving = h.service.setUnattended("run-1", 1000, true).then(() => {
+      acknowledged = true
+    })
+    await Promise.resolve()
+    expect(acknowledged).toBe(false)
+    release()
+    await saving
+    expect(write).toHaveBeenCalledWith("run-1", 1000, true, "browser-1")
+  })
+})
