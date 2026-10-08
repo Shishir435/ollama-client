@@ -212,10 +212,12 @@ export const buildAgentEvidenceLedger = (
   allowedOrigins: readonly string[],
   observation?: AgentObservation,
   /** Highest priority first; retention still obeys the ledger ceilings. */
-  priorityIds: readonly string[] = []
+  priorityIds: readonly string[] = [],
+  /** Durable-state references compete in the same retention pass as receipts. */
+  additionalRecords: readonly AgentEvidenceRecord[] = []
 ): AgentEvidenceRecord[] =>
   boundAgentEvidence(
-    latestAgentEvidenceRecords(steps)
+    [...latestAgentEvidenceRecords(steps), ...additionalRecords]
       .flatMap((record) => {
         if (record.source && !allowedOrigins.includes(record.source.origin))
           return []

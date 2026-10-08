@@ -1774,7 +1774,9 @@ requires reconciliation. User answers retain content-free provenance references
 in the same bounded ledger, but never count as independently observed facts.
 
 Plan-bound facts get retention priority, one source per unit before additional
-sources. The existing ledger count/byte ceilings and twelve-step recent history
+sources. A first fact per item/document precedes answer references, which precede
+extra same-source detail; all compete in one retention pass. The existing ledger
+count/byte ceilings and twelve-step recent history
 remain. Facts from inactive or closed documents remain historical quotations;
 a new snapshot of the same document requires refresh. Superseded, missing,
 unauthorized or prompt-omitted support remains unknown. Receipt-read failures

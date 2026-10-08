@@ -105,6 +105,56 @@ const step = (
 })
 
 describe("durable workflow progress", () => {
+  it.each([
+    true,
+    false
+  ])("keeps comparison sources ahead of large answer references (itemized: %s)", (itemized) => {
+    const items = ["Alpha", "Beta", "Gamma", "Delta"]
+    const current = {
+      ...state,
+      requirements: [
+        {
+          id: "r1",
+          text: "Compare prices",
+          kind: "read" as const,
+          ...(itemized ? { items } : {})
+        }
+      ],
+      answers: Array.from({ length: 10 }, (_, index) => ({
+        questionId: `${"q".repeat(198)}${index}`,
+        answeredAt: index + 1,
+        text: "Private answer"
+      }))
+    }
+    const receipts = items.map((item, index) =>
+      step(index + 1, {
+        evidenceLedger: [
+          fact(`price-${item}`, `${item} ${"界".repeat(190)}`, index + 8)
+        ]
+      })
+    )
+    const result = buildAgentWorkflow(current, receipts, observation)
+    expect(
+      result?.workflow.entries.every((entry) => entry.status === "supported")
+    ).toBe(true)
+    for (const item of items)
+      expect(
+        result?.evidenceLedger.some((record) => record.id === `price-${item}`)
+      ).toBe(true)
+    const references =
+      result?.evidenceLedger.filter((record) => record.kind === "user_input") ??
+      []
+    expect(references.length).toBeGreaterThan(0)
+    expect(references.length).toBeLessThan(10)
+    expect(references.at(-1)?.id).toBe(current.answers.at(-1)?.questionId)
+    expect(
+      JSON.stringify(result?.evidenceLedger).length * 3
+    ).toBeLessThanOrEqual(MAX_AGENT_LEDGER_BYTES)
+    expect(result?.evidenceLedger.length).toBeLessThanOrEqual(
+      MAX_AGENT_LEDGER_RECORDS
+    )
+  })
+
   it("advances a supported read after a confirmed click but never skips an unresolved effect", () => {
     const current = {
       ...state,

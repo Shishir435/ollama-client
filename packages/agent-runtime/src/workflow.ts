@@ -235,15 +235,34 @@ const retainedWorkflowLedger = (
     }
     return balancedWorkflowSources([...unique.values()])
   })
+  const firstSources = perUnit.map((records) => {
+    const seen = new Set<string>()
+    return records.filter((record) => {
+      const source = record.source
+      if (!source) return false
+      const key = `${source.tabId}:${source.frameId}:${source.documentId}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  })
+  const answers = agentUserEvidence(state)
   const priority: string[] = []
   for (let rank = 0; rank < MAX_AGENT_WORKFLOW_EVIDENCE; rank += 1)
-    for (const records of perUnit)
+    for (const records of firstSources)
       if (records[rank]) priority.push(records[rank].id)
+  /** A first source per item/document outranks references, which outrank detail. */
+  priority.push(...[...answers].reverse().map((record) => record.id))
+  for (let rank = 0; rank < MAX_AGENT_WORKFLOW_EVIDENCE; rank += 1)
+    for (const records of perUnit)
+      if (records[rank] && !priority.includes(records[rank].id))
+        priority.push(records[rank].id)
   return buildAgentEvidenceLedger(
     steps,
     state.allowedOrigins,
     observation,
-    priority
+    priority,
+    answers
   )
 }
 
@@ -347,11 +366,7 @@ export const buildAgentWorkflow = (
     steps = []
   }
   const latest = latestAgentSteps(steps)
-  /** Keep answer provenance within the same bounds, before deriving support. */
-  const evidenceLedger = boundAgentEvidence([
-    ...retainedWorkflowLedger(state, steps, observation),
-    ...agentUserEvidence(state)
-  ])
+  const evidenceLedger = retainedWorkflowLedger(state, steps, observation)
   const consumed = new Set<string>()
   const entries = units(state).map((unit) =>
     workflowEntry(
