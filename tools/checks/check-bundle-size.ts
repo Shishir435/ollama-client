@@ -236,7 +236,8 @@ const budgets: Budget[] = [
     /** PR 10 workflow progress and context projection measure Chrome at 48,517,539. */
     /** PR 13 artifact storage, migration and row decoding measure Chrome at 48,523,928. */
     /** PR 14 lifecycle, scope guards, startup supervision and translated consent measure Chrome at 48,543,041. */
-    max: isFirefox ? 50_300_000 : 48_543_041
+    /** PR 14 completion receipts, limit review, loop recovery and consent_stale copy measure Chrome at 48,548,745. */
+    max: isFirefox ? 50_300_000 : 48_548_745
   },
   {
     metric: "zip",
@@ -532,7 +533,8 @@ const budgets: Budget[] = [
      */
     /** PR 13 artifact contracts/store decoding measure Chrome at 335,457 gzip bytes. */
     /** PR 14 lifecycle controls, scope guards and supervised recovery measure Chrome at 337,282 gzip bytes. */
-    max: isFirefox ? 222_000 : 337_282
+    /** PR 14 completion receipts, limit review and loop recovery measure Chrome at 338,551 gzip bytes. */
+    max: isFirefox ? 222_000 : 338_551
   }
 ]
 
