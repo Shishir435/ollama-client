@@ -6,6 +6,8 @@ import type {
 import { AgentTaskRequirementSchema } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import { judgeAgentCompletion } from "../completion"
+import { agentWriteHeldPlannedValue } from "../completion-support"
+import type { AgentStepReadout } from "../ports"
 import { agentRunResult } from "../run-result"
 
 const page: AgentObservation = {
@@ -465,5 +467,389 @@ describe("P4 deterministic completion", () => {
     expect(report).toBe(
       "Verified: Name is Ada\nNot verified: Invoice is submitted"
     )
+  })
+
+  describe("checks that outlive the page they were made on", () => {
+    const confirmed = (kind: string) => ({
+      outcome: "confirmed" as const,
+      evidence: { kind, summary: kind, observedAt: 1 }
+    })
+    const write = (
+      overrides: Partial<AgentStepReadout> = {}
+    ): AgentStepReadout => ({
+      runId: "r",
+      stepId: "s1",
+      sequence: 1,
+      status: "verified",
+      at: 1,
+      mutating: true,
+      consequential: [],
+      requirementId: "r1",
+      target: { ref: "e1", tag: "input", name: "Name" },
+      verification: confirmed("field"),
+      heldPlannedValue: true,
+      ...overrides
+    })
+    const submit = (
+      overrides: Partial<AgentStepReadout> = {}
+    ): AgentStepReadout => ({
+      runId: "r",
+      stepId: "s2",
+      sequence: 2,
+      status: "verified",
+      at: 2,
+      mutating: true,
+      consequential: ["submission"],
+      requirementId: "r2",
+      target: { ref: "e2", tag: "button", name: "Continue" },
+      verification: confirmed("submission"),
+      ...overrides
+    })
+    const leftPage: AgentObservation = {
+      ...page,
+      url: "https://example.com/details?name=Alice",
+      visibleText: "Status: Active",
+      elements: []
+    }
+    const judgeLeft = (steps: AgentStepReadout[]) =>
+      judgeAgentCompletion({
+        steps,
+        observation: leftPage,
+        evidenceLedger: [],
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "The Name field contains Alice",
+            check: { type: "field", name: "Name", value: "Alice" }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+
+    it("credits a field the run filled and then submitted off the page", () => {
+      expect(judgeLeft([write(), submit()])).toMatchObject({
+        type: "accepted"
+      })
+    })
+    it.each([
+      [
+        "the write never held the planned value",
+        [write({ heldPlannedValue: undefined }), submit()]
+      ],
+      ["nothing confirmed moved the page after it", [write()]],
+      [
+        "an unconfirmed change moved the page",
+        [
+          write(),
+          submit({
+            verification: { ...confirmed("submission"), outcome: "ambiguous" }
+          })
+        ]
+      ],
+      [
+        "the write advanced another requirement",
+        [write({ requirementId: "r2" }), submit()]
+      ],
+      [
+        "a later write replaced the value",
+        [
+          write(),
+          write({ stepId: "s3", sequence: 3, heldPlannedValue: undefined }),
+          submit({ sequence: 4 })
+        ]
+      ]
+    ] as const)("does not credit a vanished field when %s", (_, steps) => {
+      expect(judgeLeft([...steps])).toMatchObject({
+        type: "refused",
+        reason: "contradicted_state"
+      })
+    })
+    it("records a held value only for the exact confirmed planned result", () => {
+      const requirement = {
+        id: "r1",
+        kind: "change" as const,
+        text: "Name is Alice",
+        check: { type: "field" as const, name: "Name", value: "Alice" }
+      }
+      const target = { accessibleName: "Name", expectedValue: "Alice" }
+      expect(
+        agentWriteHeldPlannedValue(requirement, [target], confirmed("field"))
+      ).toBe(true)
+      expect(
+        agentWriteHeldPlannedValue(
+          requirement,
+          [{ accessibleName: "Email", expectedValue: "a@b.c" }, target],
+          confirmed("fields")
+        )
+      ).toBe(true)
+      expect(
+        agentWriteHeldPlannedValue(
+          requirement,
+          [target, { ...target, expectedValue: "Bob" }],
+          confirmed("fields")
+        )
+      ).toBe(false)
+      for (const [req, tgt, verification] of [
+        [
+          requirement,
+          { ...target, expectedValue: "XAlice" },
+          confirmed("field")
+        ],
+        [
+          requirement,
+          { ...target, accessibleName: "Email" },
+          confirmed("field")
+        ],
+        [requirement, { ...target, sensitive: true }, confirmed("field")],
+        [requirement, target, { ...confirmed("field"), outcome: "ambiguous" }],
+        [requirement, target, confirmed("activation")],
+        [{ ...requirement, check: undefined }, target, confirmed("field")],
+        [
+          {
+            ...requirement,
+            check: { ...requirement.check, record: "Invoice 1" }
+          },
+          target,
+          confirmed("field")
+        ]
+      ] as const)
+        expect(agentWriteHeldPlannedValue(req, [tgt], verification)).toBe(false)
+    })
+    it("credits a field a confirmed batch filled before the submission", () => {
+      const batch = write({
+        target: { ref: "e1", tag: "input", name: "Email" },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "fields",
+            summary: "All 2 fields hold the resolved value",
+            observedAt: 1,
+            fields: [{ name: "Email" }, { name: "Name" }]
+          }
+        }
+      })
+      expect(judgeLeft([batch, submit()])).toMatchObject({ type: "accepted" })
+      expect(
+        judgeLeft([
+          batch,
+          write({ stepId: "s3", sequence: 3, heldPlannedValue: undefined }),
+          submit({ sequence: 4 })
+        ])
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    })
+    it("still contradicts a field present on the page with another value", () => {
+      expect(
+        judgeAgentCompletion({
+          steps: [write(), submit()],
+          observation: page,
+          evidenceLedger: [],
+          requirements: [
+            {
+              id: "r1",
+              kind: "change",
+              text: "Name contains Alice",
+              check: { type: "field", name: "Name", value: "Alice" }
+            }
+          ],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+    })
+  })
+
+  describe("select options named by their label", () => {
+    const colors = (value: string) => ({
+      ...page,
+      elements: [
+        {
+          ...page.elements[2],
+          value,
+          options: [
+            { value: "red", label: "Red", disabled: false },
+            { value: "blue", label: "Blue", disabled: false },
+            { value: "grey", label: "Grey", disabled: true }
+          ]
+        }
+      ]
+    })
+    it.each([
+      ["Blue", "blue", true],
+      ["blue", "blue", true],
+      ["Red", "blue", false],
+      ["Green", "blue", false],
+      ["Grey", "grey", false]
+    ] as const)("checks %s against selected %s", (wanted, value, accepted) => {
+      expect(
+        judge({ type: "selected", name: "Color", value: wanted }, colors(value))
+          .type === "accepted"
+      ).toBe(accepted)
+    })
+  })
+
+  describe("constraints on the keys the run pressed", () => {
+    const pressed = (
+      key: string,
+      overrides: Partial<AgentStepReadout> = {}
+    ): AgentStepReadout => ({
+      runId: "r",
+      stepId: `press-${key}`,
+      sequence: 1,
+      status: "verified",
+      at: 1,
+      mutating: true,
+      consequential: [],
+      requirementId: "r1",
+      command: {
+        type: "press_key",
+        ref: "e1",
+        key,
+        snapshotId: "s1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "keyboard", summary: "moved", observedAt: 1 }
+      },
+      ...overrides
+    })
+    const focused: AgentObservation = {
+      ...page,
+      visibleText: "First Second",
+      elements: [
+        {
+          ref: "e1",
+          frameId: 0,
+          tag: "input",
+          name: "First",
+          value: "",
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: true
+        },
+        {
+          ref: "e2",
+          frameId: 0,
+          tag: "input",
+          name: "Second",
+          value: "",
+          focused: true,
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: true
+        }
+      ]
+    }
+    const judgeKeys = (text: string, steps: AgentStepReadout[]) =>
+      judgeAgentCompletion({
+        steps,
+        observation: focused,
+        evidenceLedger: [],
+        constraints: [{ id: "c1", text, kind: "scope" }],
+        requirements: [
+          { id: "r1", kind: "change", text: "Second has keyboard focus" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Second" }]
+      })
+    const constraintReviewed = (
+      judgement: ReturnType<typeof judgeAgentCompletion>
+    ) =>
+      judgement.type === "refused" &&
+      (judgement.review?.constraintIds ?? []).includes("c1")
+
+    it("settles a focus move whose planned check answers another question", () => {
+      const judgement = judgeAgentCompletion({
+        steps: [pressed("Tab")],
+        observation: focused,
+        evidenceLedger: [],
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Keyboard focus is on Second.",
+            check: { type: "field", name: "Second", value: "" }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Second" }]
+      })
+      expect(judgement).toMatchObject({ type: "accepted" })
+      expect(
+        judgeAgentCompletion({
+          steps: [pressed("Tab")],
+          observation: {
+            ...focused,
+            elements: focused.elements.map((element) => ({
+              ...element,
+              focused: element.name === "First"
+            }))
+          },
+          evidenceLedger: [],
+          requirements: [
+            {
+              id: "r1",
+              kind: "change",
+              text: "Keyboard focus is on Second.",
+              check: { type: "field", name: "Second", value: "" }
+            }
+          ],
+          outcomes: [{ id: "r1", met: true, evidence: "Second" }]
+        })
+      ).toMatchObject({ type: "refused", reason: "needs_review" })
+    })
+    it("needs no review when every change was a confirmed press of the named key", () => {
+      expect(
+        constraintReviewed(
+          judgeKeys("Move focus from First to Second using Tab.", [
+            pressed("Tab")
+          ])
+        )
+      ).toBe(false)
+    })
+    it.each([
+      ["another key was pressed", "Move focus using Tab.", [pressed("Enter")]],
+      [
+        "the press was not confirmed",
+        "Move focus using Tab.",
+        [
+          pressed("Tab", {
+            verification: {
+              outcome: "ambiguous",
+              evidence: { kind: "keyboard", summary: "?", observedAt: 1 }
+            }
+          })
+        ]
+      ],
+      [
+        "a click changed the page too",
+        "Move focus using Tab.",
+        [
+          pressed("Tab"),
+          pressed("Tab", {
+            stepId: "click",
+            sequence: 2,
+            command: {
+              type: "click",
+              ref: "e2",
+              snapshotId: "s1",
+              generation: 1
+            }
+          })
+        ]
+      ],
+      [
+        "the constraint names no key",
+        "Move focus only within this form.",
+        [pressed("Tab")]
+      ],
+      [
+        "the key is only part of a word",
+        "Move focus using Tabs panel.",
+        [pressed("Tab")]
+      ]
+    ] as const)("still reviews the constraint when %s", (_, text, steps) => {
+      expect(constraintReviewed(judgeKeys(text, [...steps]))).toBe(true)
+    })
   })
 })

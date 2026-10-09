@@ -1859,17 +1859,32 @@ const judgeMetRequirement = (
     requirement,
     input.observation,
     input.evidenceLedger,
-    claim.evidence
+    claim.evidence,
+    changes
   )
-  if (checked === true)
-    return typedCheckAgrees(requirement)
-      ? undefined
-      : {
-          type: "refused",
-          reason: "needs_review",
-          feedback:
-            "The predicate holds, but does not fully answer the requested outcome. Preserve completed effects and review the remaining claim."
-        }
+  if (checked === true) {
+    if (typedCheckAgrees(requirement)) return undefined
+    /**
+     * A check that holds but answers a different question — an empty "Second"
+     * field for "focus is on Second" — settles nothing either way. The
+     * requirement's own receipt can still settle it, exactly as it would with
+     * no check at all; only when none does is the claim left to review.
+     */
+    const credited = evidencePlannedChange(
+      requirement,
+      claim.evidence?.trim() || undefined,
+      {
+        type: "refused",
+        reason: "needs_review",
+        feedback:
+          "The predicate holds, but does not fully answer the requested outcome. Preserve completed effects and review the remaining claim."
+      },
+      changes,
+      input.observation,
+      consumed
+    )
+    return "stepId" in credited ? undefined : credited
+  }
   if (checked === false)
     return {
       type: "refused",
@@ -2246,6 +2261,33 @@ const judgePlanned = (
  * reviewable limit still wins; the order constraints were planned in is not
  * a reason to ask a reviewer about a run that already broke one.
  */
+/**
+ * A limit on how the run acts — "using Tab", "with the Enter key" — is about
+ * the run's own input, which no page shows and no quotation can cite, so a
+ * reviewer shown the page could only ever refuse it. The receipts answer it
+ * instead: every change the run applied was a confirmed press of a key the
+ * constraint names. A click, a typed value or an unconfirmed press leaves it
+ * to review, and a constraint naming no key is never read this way.
+ */
+const keyMethodHonored = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[]
+): boolean => {
+  const text = agentNormalizedClaim(constraint.text)
+  const named = (key: string) =>
+    containsCompletePhrase(text, agentNormalizedClaim(key))
+  const changes = allChanges(steps)
+  return (
+    changes.length > 0 &&
+    changes.every(
+      (step) =>
+        step.command?.type === "press_key" &&
+        step.verification?.outcome === "confirmed" &&
+        named(keyText(step.command.key))
+    )
+  )
+}
+
 const judgeConstraints = (
   input: AgentCompletionInput
 ):
@@ -2286,7 +2328,11 @@ const judgeConstraints = (
         feedback:
           "An applied effect has no recorded consequential classes. Constraints need review; missing effect evidence is unknown."
       }
-    if (!constraint.forbids?.length) review.push(constraint.id)
+    if (
+      !constraint.forbids?.length &&
+      !keyMethodHonored(constraint, input.steps)
+    )
+      review.push(constraint.id)
   }
   return { review }
 }

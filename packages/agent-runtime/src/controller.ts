@@ -51,6 +51,7 @@ import {
   applyAgentCompletionReview,
   MAX_AGENT_COMPLETION_REVIEWS
 } from "./completion-review"
+import { agentWriteHeldPlannedValue } from "./completion-support"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
   agentCommandEvidence,
@@ -239,6 +240,7 @@ const restatedStepEvidence = (
   AgentStepWrite,
   | "command"
   | "mutating"
+  | "heldPlannedValue"
   | "consequential"
   | "formAction"
   | "target"
@@ -247,6 +249,7 @@ const restatedStepEvidence = (
 > => ({
   ...(step.command ? { command: step.command } : {}),
   ...(step.mutating !== undefined ? { mutating: step.mutating } : {}),
+  ...(step.heldPlannedValue ? { heldPlannedValue: true } : {}),
   ...(step.consequential !== undefined
     ? { consequential: step.consequential }
     : {}),
@@ -545,6 +548,27 @@ export const createAgentController = (
       ...(formAction ? { formAction } : {})
     }
   }
+
+  /**
+   * Whether a confirmed write held exactly what its requirement's check names,
+   * recorded now because nothing later can tell: the receipt redacts the
+   * value, and a submission may take the control off the page.
+   */
+  const heldPlannedValueEvidence = (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect,
+    verification: AgentVerificationResult,
+    requirementId: string | undefined
+  ): Pick<AgentStepWrite, "heldPlannedValue"> =>
+    agentWriteHeldPlannedValue(
+      state.requirements?.find(
+        (requirement) => requirement.id === requirementId
+      ),
+      effect.batch?.fields.map((field) => field.target) ?? [effect.target],
+      verification
+    )
+      ? { heldPlannedValue: true }
+      : {}
 
   const fail = async (
     state: AgentRunState,
@@ -1735,6 +1759,7 @@ export const createAgentController = (
         status: action.stepStatus,
         command: effect.command,
         ...stepEvidence(effect),
+        ...heldPlannedValueEvidence(state, effect, verification, requirementId),
         risk: policy.risk,
         verification,
         evidenceLedger: agentVerificationEvidence(

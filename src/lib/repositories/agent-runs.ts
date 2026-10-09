@@ -160,6 +160,8 @@ const AgentStepReceiptSchema = z
     risk: z.enum(["low", "medium", "high", "critical"]).optional(),
     /** Whether the step changed the page; a completion is judged against it. */
     mutating: z.boolean().optional(),
+    /** A confirmed write held its requirement's planned value; never the value. */
+    heldPlannedValue: z.boolean().optional(),
     /** What a repeat would double; a follow-up reads this. */
     consequential: z
       .array(AgentConsequentialEffectSchema)

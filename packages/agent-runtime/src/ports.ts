@@ -627,6 +627,13 @@ export interface AgentStepWrite {
    */
   consequential?: AgentConsequentialEffect[]
   /**
+   * Whether this confirmed write left its control holding exactly the value
+   * its requirement's field or select check names. Recorded at verification,
+   * the only moment both are known, so a completion can credit a field the
+   * run then submitted off the page. A boolean, never the value itself.
+   */
+  heldPlannedValue?: boolean
+  /**
    * Where a consequential submission was sent, origin and path only. The
    * form, not the control: Enter in a field and a click on its button send
    * the same thing.
