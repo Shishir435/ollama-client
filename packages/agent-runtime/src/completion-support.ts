@@ -110,6 +110,28 @@ export const agentWriteHeldPlannedValue = (
  */
 const PAGE_LEAVING_KINDS = new Set(["submission", "navigation", "tab"])
 
+/**
+ * A followed link is verified as an `activation`, and so is a click that
+ * stayed put; only the verifier's own sentence tells them apart. These are
+ * the runtime's fixed wording for a click whose destination committed or
+ * whose page opened in a tab of its own — never page text.
+ */
+const PAGE_LEAVING_ACTIVATIONS = new Set([
+  "Authorized destination is committed",
+  "The site redirected its own link within its origin",
+  "Control opened a new tab"
+])
+
+const leftThePage = (step: AgentStepReadout): boolean => {
+  const verification = step.verification
+  if (verification?.outcome !== "confirmed") return false
+  return (
+    PAGE_LEAVING_KINDS.has(verification.evidence.kind) ||
+    (verification.evidence.kind === "activation" &&
+      PAGE_LEAVING_ACTIVATIONS.has(verification.evidence.summary))
+  )
+}
+
 /** Whether a confirmed write of either shape set a control of this name. */
 const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
   const evidence = step.verification?.evidence
@@ -145,13 +167,7 @@ const plannedValueLeftBehind = (
   return (
     write.heldPlannedValue === true &&
     write.requirementId === requirementId &&
-    changes
-      .slice(last + 1)
-      .some(
-        (later) =>
-          later.verification?.outcome === "confirmed" &&
-          PAGE_LEAVING_KINDS.has(later.verification.evidence.kind)
-      )
+    changes.slice(last + 1).some(leftThePage)
   )
 }
 

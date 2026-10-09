@@ -641,6 +641,22 @@ describe("P4 deterministic completion", () => {
       ] as const)
         expect(agentWriteHeldPlannedValue(req, [tgt], verification)).toBe(false)
     })
+    it("credits a field the run filled and then left by a followed link", () => {
+      const followed = submit({
+        consequential: [],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "activation",
+            summary: "Authorized destination is committed",
+            observedAt: 2
+          }
+        }
+      })
+      expect(judgeLeft([write(), followed])).toMatchObject({
+        type: "accepted"
+      })
+    })
     it("credits a field a confirmed batch filled before the submission", () => {
       const batch = write({
         target: { ref: "e1", tag: "input", name: "Email" },
@@ -725,6 +741,7 @@ describe("P4 deterministic completion", () => {
       mutating: true,
       consequential: [],
       requirementId: "r1",
+      target: { ref: "e1", tag: "input", name: "First" },
       command: {
         type: "press_key",
         ref: "e1",
@@ -874,7 +891,17 @@ describe("P4 deterministic completion", () => {
         [pressed("Tab")]
       ],
       ["the limit forbids that key", "Do not press Tab.", [pressed("Tab")]],
-      ["the limit counts presses", "Press Tab at most once.", [pressed("Tab")]]
+      ["the limit counts presses", "Press Tab at most once.", [pressed("Tab")]],
+      [
+        "the limit adds a condition",
+        "Use Tab only after saving the form.",
+        [pressed("Tab")]
+      ],
+      [
+        "the limit names a different control",
+        "Use Tab to reach Submit.",
+        [pressed("Tab")]
+      ]
     ] as const)("still reviews the constraint when %s", (_, text, steps) => {
       expect(constraintReviewed(judgeKeys(text, [...steps]))).toBe(true)
     })

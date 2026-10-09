@@ -2335,31 +2335,91 @@ const judgePlanned = (
  * constraint names. A click, a typed value or an unconfirmed press leaves it
  * to review, and a constraint naming no key is never read this way.
  */
-const KEY_METHOD_DISQUALIFIERS =
-  /\b(?:not|no|never|don'?t|doesn'?t|without|avoid|except|instead|only|once|twice|thrice|times?|at most|at least|more than|less than|fewer than|exactly|before|after|until|unless|\d+)\b/u
+/**
+ * The only words a "use this key" limit may hold besides the key and the
+ * controls the run moved between. An allowlist, not a list of bad words: "Do
+ * not press Tab", "Press Tab at most once" and "Tab only after saving" all
+ * name the key, and every word they add is one this shortcut cannot judge,
+ * so anything outside it leaves the limit to review.
+ */
+const KEY_METHOD_WORDS = new Set([
+  "use",
+  "uses",
+  "using",
+  "used",
+  "press",
+  "presses",
+  "pressing",
+  "pressed",
+  "hit",
+  "hitting",
+  "key",
+  "keys",
+  "keyboard",
+  "via",
+  "by",
+  "with",
+  "move",
+  "moving",
+  "reach",
+  "reaching",
+  "get",
+  "focus",
+  "navigate",
+  "navigating",
+  "go",
+  "from",
+  "to",
+  "into",
+  "onto",
+  "next",
+  "control",
+  "field"
+])
 
+/**
+ * A limit on how the run acts — "using Tab", "with the Enter key" — is about
+ * the run's own input, which no page shows and no quotation can cite, so a
+ * reviewer shown the page could only ever refuse it. The receipts answer it
+ * instead: every change the run applied was a confirmed press of a key the
+ * limit names, and the limit says nothing else.
+ */
 const keyMethodHonored = (
   constraint: AgentTaskConstraint,
-  steps: readonly AgentStepReadout[]
+  steps: readonly AgentStepReadout[],
+  observation: AgentObservation
 ): boolean => {
-  const text = agentNormalizedClaim(constraint.text)
-  /**
-   * Only a plain instruction to use a key. "Do not press Tab" and "press Tab
-   * at most once" name the key too, and a confirmed Tab breaks both: any
-   * negation or count leaves the constraint to review.
-   */
-  if (KEY_METHOD_DISQUALIFIERS.test(text)) return false
-  const named = (key: string) =>
-    containsCompletePhrase(text, agentNormalizedClaim(key))
   const changes = allChanges(steps)
-  return (
-    changes.length > 0 &&
-    changes.every(
+  if (
+    changes.length === 0 ||
+    !changes.every(
       (step) =>
         step.command?.type === "press_key" &&
-        step.verification?.outcome === "confirmed" &&
-        named(keyText(step.command.key))
+        step.verification?.outcome === "confirmed"
     )
+  )
+    return false
+  const keys = changes.map((step) =>
+    step.command?.type === "press_key" ? keyText(step.command.key) : ""
+  )
+  const text = agentNormalizedClaim(constraint.text)
+  if (
+    !keys.every((key) =>
+      containsCompletePhrase(text, agentNormalizedClaim(key))
+    )
+  )
+    return false
+  return claimsOnlyAct(
+    { id: constraint.id, kind: "change", text: constraint.text },
+    KEY_METHOD_WORDS,
+    factWords([
+      ...keys,
+      ...changes.map((step) => step.target?.name),
+      ...observation.elements
+        .filter((element) => element.focused && !element.sensitive)
+        .map((element) => element.name)
+    ]),
+    new Set(keys.flatMap((key) => claimWords(key)))
   )
 }
 
@@ -2405,7 +2465,7 @@ const judgeConstraints = (
       }
     if (
       !constraint.forbids?.length &&
-      !keyMethodHonored(constraint, input.steps)
+      !keyMethodHonored(constraint, input.steps, input.observation)
     )
       review.push(constraint.id)
   }
