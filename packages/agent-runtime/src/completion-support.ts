@@ -116,7 +116,7 @@ const PAGE_LEAVING_KINDS = new Set(["submission", "navigation", "tab"])
  * the runtime's fixed wording for a click whose destination committed or
  * whose page opened in a tab of its own — never page text.
  */
-const PAGE_LEAVING_ACTIVATIONS = new Set([
+export const AGENT_PAGE_LEAVING_ACTIVATIONS = new Set([
   "Authorized destination is committed",
   "The site redirected its own link within its origin",
   "Control opened a new tab"
@@ -128,7 +128,7 @@ const leftThePage = (step: AgentStepReadout): boolean => {
   return (
     PAGE_LEAVING_KINDS.has(verification.evidence.kind) ||
     (verification.evidence.kind === "activation" &&
-      PAGE_LEAVING_ACTIVATIONS.has(verification.evidence.summary))
+      AGENT_PAGE_LEAVING_ACTIVATIONS.has(verification.evidence.summary))
   )
 }
 
