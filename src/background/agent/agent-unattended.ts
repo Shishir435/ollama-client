@@ -1,9 +1,10 @@
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import { browser } from "@/lib/browser-api"
+import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import type { AgentRunService } from "./agent-run-service"
 
-const SESSION_KEY = "agent-unattended-browser-session"
+const SESSION_KEY = STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION
 const STOP_MENU = "stop-browser-agent"
 let session: Promise<string> | undefined
 

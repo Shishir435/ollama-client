@@ -276,12 +276,12 @@
       "queued": "Inviato. L’agente lo leggerà al prossimo passaggio.",
       "heard": "L’agente ha recepito la tua correzione."
     },
-    "worker_lost": "Browser execution was interrupted. Safe recovery requires the original authorized browser session and page; otherwise resume manually.",
+    "worker_lost": "L’esecuzione nel browser è stata interrotta. Per un ripristino sicuro servono la sessione del browser e la pagina autorizzate in origine; altrimenti riprendi manualmente.",
     "unattended": {
-      "label": "Continue this task with the panel closed",
-      "help": "Resume after enabling. Uses the current tabs, sites and provider. Approvals, sign-in and CAPTCHA still require you. Stop from the page context menu or the Stop agent keyboard shortcut. Browser shutdown and sleep can interrupt work.",
-      "active": "Panel-close continuation enabled for this task. New tasks require new consent.",
-      "decision_interrupted": "This human decision is still unanswered. Resume to recheck the page and request a fresh decision:"
+      "label": "Continuare questa attività con il pannello chiuso",
+      "help": "Riprendi dopo aver attivato questa opzione. Verranno usati le schede, i siti e il provider attuali. Le approvazioni, l’accesso e i CAPTCHA richiedono ancora il tuo intervento. Interrompi l’attività dal menu contestuale della pagina o con la scorciatoia da tastiera per arrestare l’agente. La chiusura del browser e la sospensione possono interrompere il lavoro.",
+      "active": "La continuazione con il pannello chiuso è attiva per questa attività. Le nuove attività richiedono un nuovo consenso.",
+      "decision_interrupted": "Questa decisione è ancora in attesa. Riprendi per ricontrollare la pagina e richiedere una nuova decisione:"
     }
   },
   "common": {

@@ -276,12 +276,12 @@
       "queued": "Gesendet. Der Agent liest es beim nächsten Schritt.",
       "heard": "Der Agent hat Ihre Korrektur übernommen."
     },
-    "worker_lost": "Browser execution was interrupted. Safe recovery requires the original authorized browser session and page; otherwise resume manually.",
+    "worker_lost": "Die Browser-Ausführung wurde unterbrochen. Eine sichere Wiederherstellung erfordert die ursprünglich autorisierte Browsersitzung und Seite. Andernfalls setzen Sie die Aufgabe manuell fort.",
     "unattended": {
-      "label": "Continue this task with the panel closed",
-      "help": "Resume after enabling. Uses the current tabs, sites and provider. Approvals, sign-in and CAPTCHA still require you. Stop from the page context menu or the Stop agent keyboard shortcut. Browser shutdown and sleep can interrupt work.",
-      "active": "Panel-close continuation enabled for this task. New tasks require new consent.",
-      "decision_interrupted": "This human decision is still unanswered. Resume to recheck the page and request a fresh decision:"
+      "label": "Diese Aufgabe bei geschlossenem Panel fortsetzen",
+      "help": "Aktivieren Sie diese Option und setzen Sie die Aufgabe dann fort. Es werden die aktuellen Tabs, Websites und der aktuelle Anbieter verwendet. Genehmigungen, Anmeldung und CAPTCHA erfordern weiterhin Ihre Mitwirkung. Stoppen Sie die Aufgabe über das Kontextmenü der Seite oder das Tastenkürzel zum Stoppen des Agenten. Das Beenden des Browsers und der Ruhezustand können die Arbeit unterbrechen.",
+      "active": "Die Fortsetzung bei geschlossenem Panel ist für diese Aufgabe aktiviert. Neue Aufgaben erfordern eine neue Zustimmung.",
+      "decision_interrupted": "Diese Entscheidung wurde noch nicht getroffen. Setzen Sie die Aufgabe fort, um die Seite erneut zu prüfen und eine neue Entscheidung anzufordern:"
     }
   },
   "common": {

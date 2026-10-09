@@ -276,12 +276,12 @@
       "queued": "已发送。代理将在下一步读取。",
       "heard": "代理已采纳你的纠正。"
     },
-    "worker_lost": "Browser execution was interrupted. Safe recovery requires the original authorized browser session and page; otherwise resume manually.",
+    "worker_lost": "浏览器执行已中断。安全恢复需要最初授权的浏览器会话和页面；否则请手动恢复。",
     "unattended": {
-      "label": "Continue this task with the panel closed",
-      "help": "Resume after enabling. Uses the current tabs, sites and provider. Approvals, sign-in and CAPTCHA still require you. Stop from the page context menu or the Stop agent keyboard shortcut. Browser shutdown and sleep can interrupt work.",
-      "active": "Panel-close continuation enabled for this task. New tasks require new consent.",
-      "decision_interrupted": "This human decision is still unanswered. Resume to recheck the page and request a fresh decision:"
+      "label": "关闭面板后继续此任务",
+      "help": "启用后请恢复任务。将使用当前标签页、网站和服务提供商。审批、登录和验证码仍需您参与。可通过页面右键菜单或停止代理的键盘快捷键停止任务。关闭浏览器或进入睡眠状态可能会中断工作。",
+      "active": "此任务已启用关闭面板后继续执行。新任务需要重新授权。",
+      "decision_interrupted": "此人工决策仍未得到回答。恢复任务以重新检查页面并请求新的决策："
     }
   },
   "common": {

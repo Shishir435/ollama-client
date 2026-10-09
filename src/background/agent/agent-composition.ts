@@ -82,7 +82,6 @@ export const createAgentComposition = async (
   setBrowserTaskRunner(createBrowserTaskRunner({ service }))
 
   const stopUnattended = registerAgentUnattendedControls(service, ready)
-  void ready.then(() => service.recoverUnattended()).catch(() => undefined)
 
   const stopBadge = registerAgentAttentionBadge({
     service,

@@ -286,12 +286,12 @@
       "queued": "Отправлено. Агент прочтёт это на следующем шаге.",
       "heard": "Агент учёл вашу поправку."
     },
-    "worker_lost": "Browser execution was interrupted. Safe recovery requires the original authorized browser session and page; otherwise resume manually.",
+    "worker_lost": "Выполнение в браузере прервано. Для безопасного восстановления нужны исходная разрешённая сессия браузера и страница; иначе возобновите работу вручную.",
     "unattended": {
-      "label": "Continue this task with the panel closed",
-      "help": "Resume after enabling. Uses the current tabs, sites and provider. Approvals, sign-in and CAPTCHA still require you. Stop from the page context menu or the Stop agent keyboard shortcut. Browser shutdown and sleep can interrupt work.",
-      "active": "Panel-close continuation enabled for this task. New tasks require new consent.",
-      "decision_interrupted": "This human decision is still unanswered. Resume to recheck the page and request a fresh decision:"
+      "label": "Продолжать эту задачу при закрытой панели",
+      "help": "После включения возобновите задачу. Будут использованы текущие вкладки, сайты и провайдер. Подтверждения, вход в аккаунт и CAPTCHA по-прежнему требуют вашего участия. Остановите задачу через контекстное меню страницы или сочетание клавиш для остановки агента. Закрытие браузера и спящий режим могут прервать работу.",
+      "active": "Продолжение при закрытой панели включено для этой задачи. Новые задачи требуют нового согласия.",
+      "decision_interrupted": "Это решение всё ещё ожидает вашего ответа. Возобновите задачу, чтобы повторно проверить страницу и запросить новое решение:"
     }
   },
   "common": {

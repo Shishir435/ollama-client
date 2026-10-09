@@ -1831,6 +1831,11 @@ observing and deciding phases of opted-in runs become `worker_lost` checkpoints
 eligible for automatic continuation. The service rechecks browser-session
 identity, perception permission, supported page access, the approved origin,
 controlled tab and provider/model before resuming from a fresh observation.
+Continuation is registered with the startup supervisor after workflow recovery.
+Its AbortSignal guards revalidation, browser attachment and each mutation before
+the first durable resume checkpoint. After that checkpoint, the run service owns
+the existing bounded execution loop rather than inheriting the startup deadline.
+Panel-free work pauses if its tab, origin or provider/model scope later grows.
 Executing/verifying effects remain uncertain and require human reconciliation;
 no saved command is replayed. Pending human requests are retained in the
 checkpoint; an interrupted approval or takeover stays paused and requires

@@ -15,13 +15,21 @@ import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
  * these lines happen to run in.
  */
 const persistenceReady = startPersistenceTopology()
-const databaseReady = initializeBackgroundStartup(persistenceReady)
+const databaseReady = initializeBackgroundStartup(
+  persistenceReady,
+  async (signal) => {
+    signal.throwIfAborted()
+    const composition = await agentComposition
+    signal.throwIfAborted()
+    await composition?.service.recoverUnattended(signal)
+  }
+)
 
-if (AGENT_PREVIEW_ENABLED) {
-  void import("@/background/agent/agent-composition").then(
-    ({ createAgentComposition }) => createAgentComposition(databaseReady)
-  )
-}
+const agentComposition = AGENT_PREVIEW_ENABLED
+  ? import("@/background/agent/agent-composition").then(
+      ({ createAgentComposition }) => createAgentComposition(databaseReady)
+    )
+  : Promise.resolve(undefined)
 registerPortRouter()
 registerMessageRouter()
 registerTabLifecycle()

@@ -1408,14 +1408,18 @@ describe("unattended execution", () => {
     )
   })
 
-  it("cannot continue panel-free after the approved scope changes", async () => {
+  it.each([
+    { allowedOrigins: ["https://example.com", "https://other.example"] },
+    { controlledTabId: 8 },
+    { scopedTabIds: [7, 8] }
+  ])("cannot continue panel-free after scope changes: %j", async (patch) => {
     const h = service()
     const state = await h.service.start(startInput)
     runs.set(state.id, {
       ...state,
       status: "deciding",
       unattended: consent,
-      allowedOrigins: [...state.allowedOrigins, "https://other.example"]
+      ...patch
     })
     await h.service.pause(state.id, "panel_closed")
     expect(h.controller.requestPause).toHaveBeenCalled()
@@ -1435,6 +1439,118 @@ describe("unattended execution", () => {
     await restarted.service.recoverUnattended()
     expect(restarted.controller.resume).toHaveBeenCalledWith(state.id)
     expect(restarted.controller.start).not.toHaveBeenCalled()
+  })
+
+  it("does not resume when startup is aborted during page revalidation", async () => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    const abort = new AbortController()
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      getTab: async () => {
+        abort.abort()
+        return { url: "https://example.com" }
+      }
+    })
+    await expect(h.service.recoverUnattended(abort.signal)).rejects.toThrow()
+    expect(h.controller.resume).not.toHaveBeenCalled()
+    expect(runs.get(state.id)?.status).toBe("paused")
+  })
+
+  it("checks startup cancellation immediately before the resume write", async () => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    const abort = new AbortController()
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      buildController: ({ persistence: port }) => ({
+        ...first.controller,
+        resume: async () => {
+          abort.abort()
+          await port.transition({
+            runId: state.id,
+            from: "paused",
+            to: "observing",
+            patch: {}
+          })
+        }
+      })
+    })
+    await expect(h.service.recoverUnattended(abort.signal)).rejects.toThrow()
+    expect(runs.get(state.id)?.status).toBe("paused")
+    expect(h.service.activeRunId()).toBeUndefined()
+  })
+
+  it("hands off only after the first durable checkpoint, without waiting for task completion", async () => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    let finish: () => void = () => undefined
+    const work = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      buildController: ({ persistence: port }) => ({
+        ...first.controller,
+        resume: async () => {
+          await port.transition({
+            runId: state.id,
+            from: "paused",
+            to: "observing",
+            patch: {}
+          })
+          await work
+        }
+      })
+    })
+    await h.service.recoverUnattended(new AbortController().signal)
+    expect(runs.get(state.id)?.status).toBe("observing")
+    finish()
+  })
+
+  it("pauses when a panel-free run later adopts an unconsented tab", async () => {
+    let port: AgentPersistencePort = persistence()
+    const controller = {
+      ...service().controller,
+      requestPause: vi.fn(async () => undefined)
+    }
+    const h = service({
+      buildController: ({ persistence: wrapped }) => {
+        port = wrapped
+        return controller
+      }
+    })
+    const state = await h.service.start(startInput)
+    runs.set(state.id, { ...state, status: "deciding", unattended: consent })
+    await h.service.pause(state.id, "panel_closed")
+    await port.claim({
+      runId: state.id,
+      phase: "observing",
+      expected: ["deciding"],
+      patch: { controlledTabId: 8, scopedTabIds: [7, 8] }
+    })
+    expect(controller.requestPause).toHaveBeenCalledWith(
+      state.id,
+      "panel_closed"
+    )
   })
 
   it.each([

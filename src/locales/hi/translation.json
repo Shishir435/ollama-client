@@ -276,12 +276,12 @@
       "queued": "भेजा गया। एजेंट इसे अगले चरण में पढ़ेगा।",
       "heard": "एजेंट ने आपका सुधार ले लिया है।"
     },
-    "worker_lost": "Browser execution was interrupted. Safe recovery requires the original authorized browser session and page; otherwise resume manually.",
+    "worker_lost": "ब्राउज़र में कार्य बाधित हो गया। सुरक्षित पुनर्प्राप्ति के लिए मूल रूप से अधिकृत ब्राउज़र सत्र और पेज आवश्यक हैं; अन्यथा कार्य को मैन्युअल रूप से फिर शुरू करें।",
     "unattended": {
-      "label": "Continue this task with the panel closed",
-      "help": "Resume after enabling. Uses the current tabs, sites and provider. Approvals, sign-in and CAPTCHA still require you. Stop from the page context menu or the Stop agent keyboard shortcut. Browser shutdown and sleep can interrupt work.",
-      "active": "Panel-close continuation enabled for this task. New tasks require new consent.",
-      "decision_interrupted": "This human decision is still unanswered. Resume to recheck the page and request a fresh decision:"
+      "label": "पैनल बंद होने पर भी यह कार्य जारी रखें",
+      "help": "इसे सक्षम करने के बाद कार्य फिर शुरू करें। वर्तमान टैब, साइटें और प्रदाता इस्तेमाल होंगे। स्वीकृति, साइन इन और CAPTCHA के लिए अब भी आपकी ज़रूरत होगी। पेज के संदर्भ मेनू या एजेंट रोकने के कीबोर्ड शॉर्टकट से कार्य रोकें। ब्राउज़र बंद होने या स्लीप मोड में जाने से कार्य बाधित हो सकता है।",
+      "active": "इस कार्य के लिए पैनल बंद होने पर भी जारी रखना सक्षम है। नए कार्यों के लिए नई सहमति आवश्यक है।",
+      "decision_interrupted": "आपका यह निर्णय अभी बाकी है। पेज को फिर से जाँचने और नया निर्णय माँगने के लिए कार्य फिर शुरू करें:"
     }
   },
   "common": {
