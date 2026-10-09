@@ -812,7 +812,8 @@ export interface AgentCompletionReviewRequest {
    * sensitive control's name withheld. A click and the confirmation it raised
    * are both listed. What connects newly observed text to the action an
    * outcome claims — text after "click Accept" is no evidence that Continue
-   * was clicked.
+   * was clicked. When limits are under review, every window's actions are
+   * listed: a limit on how the run acted is about all of them.
    */
   actions?: readonly AgentReviewedAction[]
 }
@@ -822,6 +823,8 @@ export interface AgentReviewedAction {
   command: string
   role?: string
   name?: string
+  /** The key a `press_key` sent, withheld with the name on a sensitive control. */
+  key?: string
 }
 
 /**

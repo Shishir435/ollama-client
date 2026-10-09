@@ -852,4 +852,156 @@ describe("P4 deterministic completion", () => {
       expect(constraintReviewed(judgeKeys(text, [...steps]))).toBe(true)
     })
   })
+
+  describe("limits that only restate when to stop", () => {
+    const selected = (
+      overrides: Partial<AgentStepReadout> = {}
+    ): AgentStepReadout => ({
+      runId: "r",
+      stepId: "pick",
+      sequence: 1,
+      status: "verified",
+      at: 1,
+      mutating: true,
+      consequential: [],
+      requirementId: "r1",
+      target: { ref: "e3", tag: "select", name: "Color" },
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "field", summary: "held", observedAt: 1 }
+      },
+      ...overrides
+    })
+    const judgeStop = (text: string, steps: AgentStepReadout[]) =>
+      judgeAgentCompletion({
+        steps,
+        observation: page,
+        evidenceLedger: [],
+        constraints: [{ id: "c1", text, kind: "limit" }],
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Blue is selected from Color.",
+            check: { type: "selected", name: "Color", value: "Blue" }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+
+    it.each([
+      "Stop once Blue is selected.",
+      "Finish when Blue is selected in Color"
+    ])("settles %s when that outcome is met and nothing followed", (text) => {
+      expect(judgeStop(text, [selected()])).toMatchObject({ type: "accepted" })
+    })
+    it.each([
+      [
+        "the run acted again after it",
+        "Stop once Blue is selected.",
+        [
+          selected(),
+          selected({ stepId: "more", sequence: 2, requirementId: "r2" })
+        ]
+      ],
+      ["it names something else", "Stop once Red is selected.", [selected()]],
+      ["it is not a stop condition", "Only select Blue.", [selected()]]
+    ] as const)("leaves it to review when %s", (_, text, steps) => {
+      expect(judgeStop(text, [...steps])).toMatchObject({
+        type: "refused",
+        reason: "needs_review"
+      })
+    })
+  })
+
+  describe("a page opened in a new tab", () => {
+    const detailsUrl = "https://example.com/open_tab/details"
+    const opened = (
+      overrides: Partial<AgentStepReadout> = {}
+    ): AgentStepReadout => ({
+      runId: "r",
+      stepId: "open",
+      sequence: 1,
+      status: "verified",
+      at: 1,
+      mutating: false,
+      consequential: [],
+      requirementId: "r1",
+      command: {
+        type: "open_tab",
+        url: detailsUrl,
+        snapshotId: "s1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "tab",
+          summary: "Destination committed",
+          observedAt: 1
+        }
+      },
+      ...overrides
+    })
+    const onDetails: AgentObservation = {
+      ...page,
+      url: detailsUrl,
+      title: "Details",
+      visibleText: "Status: Active",
+      elements: []
+    }
+    const judgeTab = (
+      text: string,
+      steps: AgentStepReadout[],
+      observation = onDetails
+    ) =>
+      judgeAgentCompletion({
+        steps,
+        observation,
+        evidenceLedger: [],
+        requirements: [{ id: "r1", kind: "change", text }],
+        outcomes: [{ id: "r1", met: true, evidence: "Status: Active" }]
+      })
+
+    it("is met by the run's confirmed open_tab receipt for it", () => {
+      expect(
+        judgeTab("Details is open in a new tab.", [opened()])
+      ).toMatchObject({ type: "accepted" })
+    })
+    it.each([
+      [
+        "the receipt served another requirement",
+        "Details is open in a new tab.",
+        [opened({ requirementId: "r2" })],
+        onDetails
+      ],
+      [
+        "the open was not confirmed",
+        "Details is open in a new tab.",
+        [
+          opened({
+            verification: {
+              outcome: "ambiguous",
+              evidence: { kind: "tab", summary: "?", observedAt: 1 }
+            }
+          })
+        ],
+        onDetails
+      ],
+      [
+        "the run is no longer on that page",
+        "Details is open in a new tab.",
+        [opened()],
+        { ...onDetails, url: "https://example.com/elsewhere" }
+      ],
+      [
+        "the requirement claims more than the open",
+        "Details is open in a new tab and saved.",
+        [opened()],
+        onDetails
+      ]
+    ] as const)("is not met when %s", (_, text, steps, observation) => {
+      expect(judgeTab(text, [...steps], observation).type).not.toBe("accepted")
+    })
+  })
 })

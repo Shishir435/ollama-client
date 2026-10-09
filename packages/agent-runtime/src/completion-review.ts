@@ -116,12 +116,22 @@ export const agentCompletionReviewRequest = (
             )
           })
           .map((record) => record.id)
+  /**
+   * A limit on how the run acted — a key, a method, staying on one form — is
+   * about every action it took, not one outcome's, so a limit under review
+   * sees them all, each still labelled with the outcome it served.
+   */
+  const actionIds =
+    scope.constraintIds.length > 0
+      ? [...(actionWindows?.keys() ?? [])]
+      : requirements.map((requirement) => requirement.id)
   const actions = actionWindows
-    ? requirements.flatMap((requirement) => {
-        return (actionWindows.get(requirement.id)?.actions ?? []).map(
-          (action) => ({ requirementId: requirement.id, ...action })
-        )
-      })
+    ? actionIds.flatMap((id) =>
+        (actionWindows.get(id)?.actions ?? []).map((action) => ({
+          requirementId: id,
+          ...action
+        }))
+      )
     : undefined
   return {
     ...(appearedAfterAction ? { appearedAfterAction } : {}),
@@ -170,8 +180,10 @@ const RESULT_EFFECT_KINDS = new Set([
 const supports = (
   record: AgentEvidenceRecord,
   id: string,
-  requirement: AgentTaskRequirement | undefined
+  requirement: AgentTaskRequirement | undefined,
+  limit = false
 ): boolean => {
+  if (limit && limitCitable(record)) return true
   if (!groundedRecord(record) || record.requirementId !== id) return false
   if (record.kind === "observed_fact") return true
   return (
@@ -180,6 +192,21 @@ const supports = (
     RESULT_EFFECT_KINDS.has(record.verificationKind)
   )
 }
+
+/**
+ * A confirmed action the runtime itself recorded, citable for a `scope` limit
+ * — one on how the run acted. A limit names no outcome, so no record is ever bound to its
+ * id, and a page quote cannot show which key was pressed: without this, every
+ * limit the planner wrote about method could only ever be refused, and the
+ * run asked the user about work it had finished the way it was told to. Only
+ * a runtime verification, never the acting model's own words, and the
+ * reviewer must still judge it against the listed actions.
+ */
+const limitCitable = (record: AgentEvidenceRecord): boolean =>
+  groundedRecord(record) && record.kind === "verified_effect"
+
+/** Whether a record can be cited for a limit under review; see `limitCitable`. */
+export const agentReviewRecordCitableForLimits = limitCitable
 
 /**
  * Whether the runtime will accept a record as a citation for the outcome it
@@ -245,13 +272,23 @@ export const applyAgentCompletionReview = (
       continue
     }
     const requirement = request.requirements.find((entry) => entry.id === id)
+    /**
+     * Only a limit on how the run acted. A `limit` such as a spending cap is
+     * about what the page shows, and a confirmed click says nothing of a
+     * total; it still needs a quotation bound to it.
+     */
+    const limit =
+      scope.constraintIds.includes(id) &&
+      request.constraints.some(
+        (constraint) => constraint.id === id && constraint.kind === "scope"
+      )
     const cited = (answer?.sources ?? [])
       .slice(0, MAX_AGENT_REVIEW_SOURCES)
       .map((source) => ledger.get(source))
       .filter((record): record is AgentEvidenceRecord => record !== undefined)
     if (
       answer?.verdict !== "supported" ||
-      !cited.some((record) => supports(record, id, requirement))
+      !cited.some((record) => supports(record, id, requirement, limit))
     )
       insufficient.push(id)
   }

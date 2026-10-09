@@ -347,7 +347,10 @@ const reviewedAction = (
   return {
     command: effect.command.type,
     ...(target?.role ? { role: target.role } : {}),
-    ...(target?.name ? { name: target.name } : {})
+    ...(target?.name ? { name: target.name } : {}),
+    ...(effect.command.type === "press_key" && !effect.target.sensitive
+      ? { key: effect.command.key }
+      : {})
   }
 }
 
@@ -2752,7 +2755,8 @@ export const createAgentController = (
   const recover = async (
     state: AgentRunState,
     trigger: AgentRecoveryTrigger,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    navigationLoop = false
   ): Promise<
     | { type: "recovering"; state: AgentRunState }
     | {
@@ -2767,6 +2771,7 @@ export const createAgentController = (
       trigger,
       now: dependencies.clock.now(),
       visionAvailable: await recoveryVisionAvailable(state, signal),
+      ...(navigationLoop ? { navigationLoop } : {}),
       ...(evidenceStep !== undefined ? { evidenceStep } : {})
     })
     if (signal.aborted) return { type: "stopped" }
@@ -2918,7 +2923,13 @@ export const createAgentController = (
      * The repeated decision is not carried out: it is the third of its kind,
      * and the run looks again under a strategy instead.
      */
-    const recovery = await recover(state, trigger, signal)
+    const recovery = await recover(
+      state,
+      trigger,
+      signal,
+      new Set((recentProgress.get(state.id) ?? []).map((point) => point.url))
+        .size > 1
+    )
     if (recovery.type !== "exhausted") return recovery
     await pause(state, "question", {
       question:

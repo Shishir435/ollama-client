@@ -3,7 +3,10 @@ export * from "./affordance"
 export * from "./artifacts"
 export * from "./budgets"
 export * from "./completion"
-export { agentReviewRecordCitable } from "./completion-review"
+export {
+  agentReviewRecordCitable,
+  agentReviewRecordCitableForLimits
+} from "./completion-review"
 export * from "./control-failure"
 export * from "./controller"
 export {

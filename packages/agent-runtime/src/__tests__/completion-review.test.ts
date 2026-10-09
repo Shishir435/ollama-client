@@ -664,4 +664,96 @@ describe("what a citation can support", () => {
       ).judgement
     ).toMatchObject({ type: "accepted" })
   })
+
+  describe("a limit on how the run acted", () => {
+    const method: AgentTaskConstraint = {
+      id: "c1",
+      kind: "scope",
+      text: "Move focus using Tab"
+    }
+    const pressed = record("tab", {
+      kind: "verified_effect",
+      quote: undefined,
+      verificationKind: "keyboard",
+      requirementId: "r1"
+    })
+    const input = semanticInput({
+      constraints: [method],
+      evidenceLedger: [record("fact-1", { requirementId: "r1" }), pressed]
+    })
+
+    it("accepts the run's own confirmed action as support", () => {
+      expect(
+        settle(
+          input,
+          [
+            { id: "r1", verdict: "supported", sources: ["fact-1"] },
+            { id: "c1", verdict: "supported", sources: ["tab"] }
+          ],
+          [method]
+        ).judgement
+      ).toMatchObject({ type: "accepted" })
+    })
+
+    it("never lets an action stand for an amount the page must show", () => {
+      const cap: AgentTaskConstraint = { ...method, kind: "limit" }
+      expect(
+        settle(
+          semanticInput({
+            constraints: [cap],
+            evidenceLedger: [record("fact-1", { requirementId: "r1" }), pressed]
+          }),
+          [
+            { id: "r1", verdict: "supported", sources: ["fact-1"] },
+            { id: "c1", verdict: "supported", sources: ["tab"] }
+          ],
+          [cap]
+        ).judgement
+      ).toMatchObject({ reason: "needs_review" })
+    })
+
+    it("still refuses a cited model inference", () => {
+      const inferred = record("guess", {
+        kind: "model_inference",
+        requirementId: "r1"
+      })
+      expect(
+        settle(
+          semanticInput({
+            constraints: [method],
+            evidenceLedger: [
+              record("fact-1", { requirementId: "r1" }),
+              inferred
+            ]
+          }),
+          [
+            { id: "r1", verdict: "supported", sources: ["fact-1"] },
+            { id: "c1", verdict: "supported", sources: ["guess"] }
+          ],
+          [method]
+        ).judgement
+      ).toMatchObject({ reason: "needs_review" })
+    })
+
+    it("shows the reviewer every action, and the key it pressed", () => {
+      const judgement = pending(input)
+      const request = agentCompletionReviewRequest(
+        { goal: "Tab to Second", requirements: [saved], constraints: [method] },
+        judgement.review,
+        input.outcomes,
+        input.evidenceLedger ?? [],
+        new Map([
+          [
+            "r1",
+            { before: "", actions: [{ command: "press_key", key: "Tab" }] }
+          ],
+          ["r9", { before: "", actions: [{ command: "click", name: "Other" }] }]
+        ])
+      )
+      expect(request.actions).toEqual([
+        { requirementId: "r1", command: "press_key", key: "Tab" },
+        { requirementId: "r9", command: "click", name: "Other" }
+      ])
+    })
+  })
 })

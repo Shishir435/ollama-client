@@ -1726,6 +1726,59 @@ const openedTabFor = (
       (samePage(receipt.command.url, input.observation.url) ||
         input.tabOpenedBy?.includes(receipt.stepId) === true)))
 
+const OPEN_TAB_ACT_WORDS = new Set([
+  "open",
+  "opened",
+  "opens",
+  "is",
+  "new",
+  "another",
+  "separate",
+  "second",
+  "browser",
+  "tab",
+  "window"
+])
+const OPEN_WORDS = new Set(["open", "opened", "opens"])
+
+/** The words of an address's path: `/open_tab/details` → open tab details. */
+const pathWords = (url: string): string =>
+  /^[a-z][a-z0-9+.-]*:\/\/[^/?#]+([^?#]*)/i.exec(url)?.[1] ?? ""
+
+/**
+ * "Details is open in a new tab", met by the run's own `open_tab` receipt for
+ * it. Which tab a page sits in is a claim no quotation shows, so the receipt
+ * is the only evidence there is — and a confirmed one is all of it: the
+ * verifier saw the destination commit in the tab it opened. The run must be
+ * on that page now, and the requirement may say nothing but that it opened:
+ * every other word has to name the page, by the control, the address or the
+ * title. "Details is open in a new tab and saved" is still a claim to prove.
+ */
+const openedTabMeets = (
+  requirement: AgentTaskRequirement,
+  input: AgentCompletionInput
+): boolean =>
+  requirement.kind === "change" &&
+  !requirement.check &&
+  NEW_TAB_PATTERN.test(requirement.text) &&
+  (input.steps ?? []).some(
+    (receipt) =>
+      receipt.requirementId === requirement.id &&
+      receipt.command?.type === "open_tab" &&
+      openedTabFor(requirement, receipt, input) &&
+      samePage(receipt.command.url, input.observation.url) &&
+      claimsOnlyAct(
+        requirement,
+        OPEN_TAB_ACT_WORDS,
+        factWords([
+          receipt.target?.name,
+          pathWords(receipt.command.url),
+          input.observation.title
+        ]),
+        OPEN_WORDS
+      )
+  )
+
 /**
  * Same scheme, host and path: where a page is, whatever its query picked up.
  * The package has no DOM `URL`, so the address is read by pattern, and one
@@ -1847,6 +1900,7 @@ const judgeMetRequirement = (
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   const unopened = refuseUnopenedTab(requirement, input)
   if (unopened) return unopened
+  if (openedTabMeets(requirement, input)) return undefined
   if (requirement.kind === "read")
     return refusePlannedReadClaim(claim.evidence, input, requirement.id)
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
@@ -2345,14 +2399,106 @@ const constraintReviewFeedback = (ids: readonly string[]): string =>
  * requirement, then any limit only a reviewer can read folded into the same
  * review scope as the requirements that need one.
  */
+/** Lowercase words, punctuation dropped: "Color." and "color" are one word. */
+const stopWords = (text: string): string[] =>
+  agentNormalizedClaim(text)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length > 0)
+
+/** "Stop once Blue is selected" → "blue is selected". */
+const STOP_CONDITION =
+  /^(?:stop|finish|end|be done|you are done)\s+(?:once|when|as soon as|after)\s+(.+)$/u
+const STOP_FILLER = new Set([
+  "is",
+  "are",
+  "was",
+  "has",
+  "have",
+  "been",
+  "the",
+  "a",
+  "an",
+  "it",
+  "from",
+  "in",
+  "on",
+  "of",
+  "to",
+  "field",
+  "control",
+  "option"
+])
+
+/**
+ * A limit that only restates when to stop — "Stop once Blue is selected" for
+ * the outcome "Blue is selected from Color" — adds nothing a page could show
+ * beyond that outcome. It holds when the outcome it names was judged met and
+ * the run changed nothing after the step that met it; a run that went on to
+ * act again is left to review. Every content word of the condition must be a
+ * word of that one outcome, so a condition naming anything else never reads
+ * as it.
+ */
+const stopConditionMet = (
+  constraint: AgentTaskConstraint,
+  requirements: readonly AgentTaskRequirement[],
+  met: ReadonlySet<string>,
+  steps: readonly AgentStepReadout[] | undefined
+): boolean => {
+  const condition = STOP_CONDITION.exec(
+    agentNormalizedClaim(constraint.text)
+  )?.[1]
+  if (!condition || !steps) return false
+  const words = stopWords(condition).filter((word) => !STOP_FILLER.has(word))
+  if (words.length === 0) return false
+  const last = lastChange(steps)
+  return requirements.some((requirement) => {
+    if (!met.has(requirement.id)) return false
+    const own = new Set(
+      stopWords(
+        [
+          requirement.text,
+          requirement.check && "name" in requirement.check
+            ? requirement.check.name
+            : "",
+          requirement.check && "value" in requirement.check
+            ? requirement.check.value
+            : ""
+        ].join(" ")
+      )
+    )
+    return (
+      words.every((word) => own.has(word)) &&
+      (last === undefined || last.requirementId === requirement.id)
+    )
+  })
+}
+
 const judgePlannedWithConstraints = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
   change: AgentStepReadout | "unreadable" | undefined
 ): AgentCompletionJudgement => {
-  const constraints = judgeConstraints(input)
-  if ("type" in constraints) return constraints
+  const judged = judgeConstraints(input)
+  if ("type" in judged) return judged
   const planned = judgePlanned(input, requirements, change)
+  /** Only what this judgement settled; a refusal settles nothing. */
+  const met = new Set<string>(
+    planned.type === "accepted"
+      ? (planned.outcome?.met ??
+          requirements.map((requirement) => requirement.id))
+      : planned.type === "refused"
+        ? []
+        : planned.outcome.met
+  )
+  const constraints = {
+    review: judged.review.filter((id) => {
+      const constraint = input.constraints?.find((entry) => entry.id === id)
+      return !(
+        constraint &&
+        stopConditionMet(constraint, requirements, met, input.steps)
+      )
+    })
+  }
   if (constraints.review.length === 0) return planned
   if (planned.type === "refused") {
     if (!planned.review) return planned

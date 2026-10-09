@@ -37,6 +37,27 @@ describe("planning a recovery", () => {
     )
   })
 
+  it("offers another route first when the run is going round a loop of pages", () => {
+    const loop = planAgentRecovery(undefined, {
+      ...start,
+      navigationLoop: true
+    })
+    expect(loop).toMatchObject({ strategy: "alternate_route" })
+    if (loop.type !== "recover") throw new Error("expected a recovery")
+    /** Then the usual order, without offering the route twice. */
+    expect(
+      planAgentRecovery(loop.recovery, { ...start, navigationLoop: true })
+    ).toMatchObject({ strategy: "targeted_read" })
+    /** A loop flag means nothing to a trigger other than no progress. */
+    expect(
+      planAgentRecovery(undefined, {
+        ...start,
+        trigger: "refused_completion",
+        navigationLoop: true
+      })
+    ).toMatchObject({ strategy: "targeted_read" })
+  })
+
   it("never offers a strategy the episode already tried, whatever triggered it", () => {
     const first = planAgentRecovery(undefined, {
       ...start,
