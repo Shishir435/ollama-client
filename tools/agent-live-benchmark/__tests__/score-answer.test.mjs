@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import {
   INBODY_RULES,
   scoreGoogleSearch,
+  scoreHnTopStory,
   scoreInbodyAnswer,
   scoreSyntheticTask,
   scoreVerdict,
@@ -94,6 +95,28 @@ describe("real-site scorer", () => {
       INBODY_RULES.hn_top
     )
     assert.equal(success, true)
+  })
+
+  it("accepts a short top-story title by the rendered ranking", () => {
+    const storyTitles = ["Cloudflare acquires Deno", "Our $445M Series D"]
+    assert.deepEqual(
+      scoreHnTopStory({
+        answer: "The top story is “Cloudflare acquires Deno”.",
+        storyTitles
+      }),
+      { success: true, reason: "top_story_title" }
+    )
+    for (const [answer, reason] of [
+      ["Hacker News", "top_story_missing"],
+      ["Our $445M Series D", "top_story_missing"],
+      ["Cloudflare acquires", "top_story_missing"],
+      ["1. Cloudflare acquires Deno 2. Our $445M Series D", "several_stories"]
+    ])
+      assert.equal(scoreHnTopStory({ answer, storyTitles }).reason, reason)
+    assert.equal(
+      scoreHnTopStory({ answer: "x", storyTitles: [] }).reason,
+      "top_story_unread"
+    )
   })
 
   it("rejects echoing the search query as a result title", () => {

@@ -91,6 +91,24 @@ export const scoreInbodyAnswer = (answer, body, rule) => {
   }
 }
 
+/**
+ * hn_top is judged against the rendered ranking, not a span length: a real
+ * top story can be three short words ("Cloudflare acquires Deno"), which the
+ * span rule scored as page chrome. The answer must hold the #1 title whole
+ * and not the #2 one, so a pasted list of stories is not an answer, and
+ * "Hacker News" holds neither.
+ */
+export const scoreHnTopStory = ({ answer, storyTitles }) => {
+  const said = ` ${normalizeText(answer)} `
+  const [first, second] = (storyTitles ?? []).map(normalizeText)
+  if (!first) return { success: false, reason: "top_story_unread" }
+  if (!said.includes(` ${first} `))
+    return { success: false, reason: "top_story_missing" }
+  if (second && said.includes(` ${second} `))
+    return { success: false, reason: "several_stories" }
+  return { success: true, reason: "top_story_title" }
+}
+
 /** wiki_search is deterministic: the run must land on the Firefox article. */
 export const scoreWikiSearch = ({ answer, url }) => {
   let host = ""
