@@ -1526,6 +1526,82 @@ describe("unattended execution", () => {
     finish()
   })
 
+  it.each([
+    "claim",
+    "transition"
+  ] as const)("keeps the controller when startup aborts during the committed %s write", async (method) => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    const abort = new AbortController()
+    const durable = persistence()
+    let finish: () => void = () => undefined
+    const work = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      persistence: {
+        ...durable,
+        async claim(input) {
+          const result = await durable.claim(input)
+          abort.abort()
+          return result
+        },
+        async transition(input) {
+          const result = await durable.transition(input)
+          abort.abort()
+          return result
+        }
+      },
+      buildController: ({ persistence: port }) => ({
+        ...first.controller,
+        resume: async () => {
+          if (method === "claim") {
+            await port.claim({
+              runId: state.id,
+              phase: "observing",
+              expected: ["paused"],
+              patch: {}
+            })
+          } else {
+            await port.transition({
+              runId: state.id,
+              from: "paused",
+              to: "observing",
+              patch: {}
+            })
+          }
+          // Startup's expired signal must no longer guard the user task.
+          await port.transition({
+            runId: state.id,
+            from: "observing",
+            to: "deciding",
+            patch: {}
+          })
+          await work
+        }
+      })
+    })
+    try {
+      await expect(
+        h.service.recoverUnattended(abort.signal)
+      ).resolves.toBeUndefined()
+      expect(abort.signal.aborted).toBe(true)
+      expect(h.service.activeRunId()).toBe(state.id)
+      await vi.waitFor(() =>
+        expect(runs.get(state.id)?.status).toBe("deciding")
+      )
+    } finally {
+      finish()
+    }
+  })
+
   it("pauses when a panel-free run later adopts an unconsented tab", async () => {
     let port: AgentPersistencePort = persistence()
     const controller = {
@@ -1601,6 +1677,29 @@ describe("unattended execution", () => {
     })
     await h.service.recoverUnattended()
     expect(h.controller.resume).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    "chrome://newtab",
+    "file:///tmp/page.html",
+    "not a URL"
+  ])("quietly skips unattended recovery on an unsupported tab: %s", async (url) => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      getTab: async () => ({ url })
+    })
+    await expect(h.service.recoverUnattended()).resolves.toBeUndefined()
+    expect(h.controller.resume).not.toHaveBeenCalled()
+    expect(h.service.activeRunId()).toBeUndefined()
+    expect(runs.get(state.id)?.status).toBe("paused")
   })
 
   it("acknowledges consent only after its exact pause is durably saved", async () => {

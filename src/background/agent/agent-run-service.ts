@@ -294,6 +294,15 @@ const originOf = (url: string): string => {
   return parsed.origin
 }
 
+/** A changed or recycled tab is ineligible, not a startup failure. */
+const unattendedTabOrigin = (url: string | undefined): string | undefined => {
+  try {
+    return originOf(url ?? "")
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Owns the live run: one at a time, started from the panel and driven by the
  * runtime controller.
@@ -1213,10 +1222,12 @@ export const createAgentRunService = (input?: {
       )
         return
       const tab = await getTab(state.controlledTabId)
+      const origin = unattendedTabOrigin(tab?.url)
       if (
         !tab?.url ||
-        !consent.origins.includes(originOf(tab.url)) ||
-        !state.allowedOrigins.includes(originOf(tab.url)) ||
+        !origin ||
+        !consent.origins.includes(origin) ||
+        !state.allowedOrigins.includes(origin) ||
         (await classifyAccess(tab.url)) !== "ok"
       )
         return
@@ -1242,7 +1253,9 @@ export const createAgentRunService = (input?: {
           if (!handedOff) signal?.throwIfAborted()
         }
         const handoff = () => {
-          check()
+          // Cancellation was checked before the write. Once it commits, the
+          // run service must take ownership even if startup expired meanwhile;
+          // rejecting here would strand an observing row without a controller.
           handedOff = true
           release()
         }
