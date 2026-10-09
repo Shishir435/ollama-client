@@ -16,6 +16,7 @@ import {
   agentReviewRecordCitable,
   applyAgentCompletionReview
 } from "../completion-review"
+import type { AgentReviewedAction } from "../ports"
 
 const source = {
   tabId: 7,
@@ -108,7 +109,8 @@ const pending = (input: AgentCompletionInput) => {
 const reviewRequest = (
   judgement: ReturnType<typeof pending>,
   input: AgentCompletionInput,
-  constraints: AgentTaskConstraint[] = []
+  constraints: AgentTaskConstraint[] = [],
+  appliedActions?: AgentReviewedAction[]
 ) =>
   agentCompletionReviewRequest(
     {
@@ -118,7 +120,9 @@ const reviewRequest = (
     },
     judgement.review,
     input.outcomes,
-    input.evidenceLedger ?? []
+    input.evidenceLedger ?? [],
+    undefined,
+    appliedActions
   )
 
 const settle = (
@@ -128,12 +132,13 @@ const settle = (
     verdict: "supported" | "contradicted" | "insufficient_evidence"
     sources?: string[]
   }[],
-  constraints: AgentTaskConstraint[] = []
+  constraints: AgentTaskConstraint[] = [],
+  appliedActions?: AgentReviewedAction[]
 ): { judgement: AgentCompletionJudgement; disagreements: number } => {
   const judgement = pending(input)
   return applyAgentCompletionReview(
     judgement,
-    reviewRequest(judgement, input, constraints),
+    reviewRequest(judgement, input, constraints, appliedActions),
     { verdicts: verdicts.map((entry) => ({ sources: [], ...entry })) }
   )
 }
@@ -682,7 +687,25 @@ describe("what a citation can support", () => {
       evidenceLedger: [record("fact-1", { requirementId: "r1" }), pressed]
     })
 
+    const applied: AgentReviewedAction[] = [
+      { requirementId: "r1", command: "press_key", key: "Tab" }
+    ]
+
     it("accepts the run's own confirmed action as support", () => {
+      expect(
+        settle(
+          input,
+          [
+            { id: "r1", verdict: "supported", sources: ["fact-1"] },
+            { id: "c1", verdict: "supported", sources: ["tab"] }
+          ],
+          [method],
+          applied
+        ).judgement
+      ).toMatchObject({ type: "accepted" })
+    })
+
+    it("refuses that support when the run's action list is not complete", () => {
       expect(
         settle(
           input,
@@ -692,7 +715,7 @@ describe("what a citation can support", () => {
           ],
           [method]
         ).judgement
-      ).toMatchObject({ type: "accepted" })
+      ).toMatchObject({ reason: "needs_review" })
     })
 
     it("never lets an action stand for an amount the page must show", () => {
@@ -735,8 +758,13 @@ describe("what a citation can support", () => {
       ).toMatchObject({ reason: "needs_review" })
     })
 
-    it("shows the reviewer every action, and the key it pressed", () => {
+    it("shows the reviewer every applied action, untagged ones too", () => {
       const judgement = pending(input)
+      const untagged: AgentReviewedAction = {
+        requirementId: "unbound",
+        command: "click",
+        name: "Other"
+      }
       const request = agentCompletionReviewRequest(
         { goal: "Tab to Second", requirements: [saved], constraints: [method] },
         judgement.review,
@@ -746,14 +774,12 @@ describe("what a citation can support", () => {
           [
             "r1",
             { before: "", actions: [{ command: "press_key", key: "Tab" }] }
-          ],
-          ["r9", { before: "", actions: [{ command: "click", name: "Other" }] }]
-        ])
+          ]
+        ]),
+        [...applied, untagged]
       )
-      expect(request.actions).toEqual([
-        { requirementId: "r1", command: "press_key", key: "Tab" },
-        { requirementId: "r9", command: "click", name: "Other" }
-      ])
+      expect(request.actions).toEqual([...applied, untagged])
+      expect(request.actionsComplete).toBe(true)
     })
   })
 })

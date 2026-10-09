@@ -72,6 +72,7 @@ export const agentWriteHeldPlannedValue = (
     accessibleName?: string
     expectedValue?: string
     sensitive?: boolean
+    frameId?: number
   }[],
   verification: { outcome: string; evidence: { kind: string } }
 ): boolean => {
@@ -84,10 +85,16 @@ export const agentWriteHeldPlannedValue = (
     !FIELD_WRITE_KINDS.has(verification.evidence.kind)
   )
     return false
+  /**
+   * The check's frame, when it names one: a Name field written in the page
+   * is not the Name field the requirement named inside a frame, and the
+   * receipt that later stands for it keeps no frame to tell them apart.
+   */
   const named = targets.filter(
     (target) =>
       target.accessibleName !== undefined &&
-      same(target.accessibleName, check.name)
+      same(target.accessibleName, check.name) &&
+      (check.frameId === undefined || target.frameId === check.frameId)
   )
   return (
     named.length === 1 &&
@@ -95,6 +102,13 @@ export const agentWriteHeldPlannedValue = (
     named[0].expectedValue === check.value
   )
 }
+
+/**
+ * What can take a filled control off the page: the form was sent, or the
+ * page navigated. A confirmed click or key press that left the field in
+ * place proves nothing about where it went.
+ */
+const PAGE_LEAVING_KINDS = new Set(["submission", "navigation", "tab"])
 
 /** Whether a confirmed write of either shape set a control of this name. */
 const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
@@ -113,7 +127,8 @@ const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
  * A control the run filled and then moved on from is not on the page it moved
  * to. Its absence contradicts nothing when the run's last write to a control
  * of that name was verified holding exactly the planned value and a confirmed
- * change came after it: the page left because the run left it. A later write
+ * submission or navigation came after it: the page left because the run
+ * left it. A later write
  * to the same name replaces the earlier one, so a value cleared or retyped
  * before leaving is never credited.
  */
@@ -132,7 +147,11 @@ const plannedValueLeftBehind = (
     write.requirementId === requirementId &&
     changes
       .slice(last + 1)
-      .some((later) => later.verification?.outcome === "confirmed")
+      .some(
+        (later) =>
+          later.verification?.outcome === "confirmed" &&
+          PAGE_LEAVING_KINDS.has(later.verification.evidence.kind)
+      )
   )
 }
 

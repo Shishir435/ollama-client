@@ -299,6 +299,11 @@ const allChanges = (steps: readonly AgentStepReadout[]): AgentStepReadout[] => {
     .filter(isChange)
 }
 
+/** Every change the run applied, oldest first; see `allChanges`. */
+export const agentAppliedChanges = (
+  steps: readonly AgentStepReadout[]
+): AgentStepReadout[] => allChanges(steps)
+
 /**
  * The last change the run applied, by durable order.
  *
@@ -2330,11 +2335,20 @@ const judgePlanned = (
  * constraint names. A click, a typed value or an unconfirmed press leaves it
  * to review, and a constraint naming no key is never read this way.
  */
+const KEY_METHOD_DISQUALIFIERS =
+  /\b(?:not|no|never|don'?t|doesn'?t|without|avoid|except|instead|only|once|twice|thrice|times?|at most|at least|more than|less than|fewer than|exactly|before|after|until|unless|\d+)\b/u
+
 const keyMethodHonored = (
   constraint: AgentTaskConstraint,
   steps: readonly AgentStepReadout[]
 ): boolean => {
   const text = agentNormalizedClaim(constraint.text)
+  /**
+   * Only a plain instruction to use a key. "Do not press Tab" and "press Tab
+   * at most once" name the key too, and a confirmed Tab breaks both: any
+   * negation or count leaves the constraint to review.
+   */
+  if (KEY_METHOD_DISQUALIFIERS.test(text)) return false
   const named = (key: string) =>
     containsCompletePhrase(text, agentNormalizedClaim(key))
   const changes = allChanges(steps)
@@ -2475,7 +2489,14 @@ const stopConditionMet = (
     )
     return (
       words.every((word) => own.has(word)) &&
-      (last === undefined || last.requirementId === requirement.id)
+      /**
+       * A change outcome is held by this run's own change: met with no
+       * change at all, it was already true, and stopping "once" it held
+       * says nothing about what this run did.
+       */
+      (last === undefined
+        ? requirement.kind !== "change"
+        : last.requirementId === requirement.id)
     )
   })
 }

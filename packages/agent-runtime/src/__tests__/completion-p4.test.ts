@@ -537,6 +537,23 @@ describe("P4 deterministic completion", () => {
         "the write never held the planned value",
         [write({ heldPlannedValue: undefined }), submit()]
       ],
+      [
+        "only a click came after it, not a submission",
+        [
+          write(),
+          submit({
+            consequential: [],
+            verification: {
+              outcome: "confirmed",
+              evidence: {
+                kind: "activation",
+                summary: "clicked",
+                observedAt: 1
+              }
+            }
+          })
+        ]
+      ],
       ["nothing confirmed moved the page after it", [write()]],
       [
         "an unconfirmed change moved the page",
@@ -602,6 +619,14 @@ describe("P4 deterministic completion", () => {
           confirmed("field")
         ],
         [requirement, { ...target, sensitive: true }, confirmed("field")],
+        [
+          {
+            ...requirement,
+            check: { ...requirement.check, frameId: 1 }
+          },
+          { ...target, frameId: 0 },
+          confirmed("field")
+        ],
         [requirement, target, { ...confirmed("field"), outcome: "ambiguous" }],
         [requirement, target, confirmed("activation")],
         [{ ...requirement, check: undefined }, target, confirmed("field")],
@@ -847,7 +872,9 @@ describe("P4 deterministic completion", () => {
         "the key is only part of a word",
         "Move focus using Tabs panel.",
         [pressed("Tab")]
-      ]
+      ],
+      ["the limit forbids that key", "Do not press Tab.", [pressed("Tab")]],
+      ["the limit counts presses", "Press Tab at most once.", [pressed("Tab")]]
     ] as const)("still reviews the constraint when %s", (_, text, steps) => {
       expect(constraintReviewed(judgeKeys(text, [...steps]))).toBe(true)
     })
@@ -905,7 +932,8 @@ describe("P4 deterministic completion", () => {
         ]
       ],
       ["it names something else", "Stop once Red is selected.", [selected()]],
-      ["it is not a stop condition", "Only select Blue.", [selected()]]
+      ["it is not a stop condition", "Only select Blue.", [selected()]],
+      ["this run changed nothing", "Stop once Blue is selected.", []]
     ] as const)("leaves it to review when %s", (_, text, steps) => {
       expect(judgeStop(text, [...steps])).toMatchObject({
         type: "refused",

@@ -81,7 +81,13 @@ export const agentCompletionReviewRequest = (
       after?: string
       actions?: readonly Omit<AgentReviewedAction, "requirementId">[]
     }
-  >
+  >,
+  /**
+   * Every change the run applied, from its receipts, tagged or not. Used for
+   * a scope limit instead of the windows, which keep only verified actions
+   * bound to an outcome.
+   */
+  appliedActions?: readonly AgentReviewedAction[]
 ): AgentCompletionReviewRequest => {
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
@@ -118,24 +124,24 @@ export const agentCompletionReviewRequest = (
           .map((record) => record.id)
   /**
    * A limit on how the run acted — a key, a method, staying on one form — is
-   * about every action it took, not one outcome's, so a limit under review
-   * sees them all, each still labelled with the outcome it served.
+   * about every action it took, so a limit under review sees every applied
+   * receipt, tagged or not, each labelled with the outcome it served.
    */
-  const actionIds =
-    scope.constraintIds.length > 0
-      ? [...(actionWindows?.keys() ?? [])]
-      : requirements.map((requirement) => requirement.id)
-  const actions = actionWindows
-    ? actionIds.flatMap((id) =>
-        (actionWindows.get(id)?.actions ?? []).map((action) => ({
-          requirementId: id,
-          ...action
-        }))
-      )
-    : undefined
+  const limits = scope.constraintIds.length > 0 && appliedActions !== undefined
+  const actions = limits
+    ? appliedActions
+    : actionWindows
+      ? requirements.flatMap((requirement) =>
+          (actionWindows.get(requirement.id)?.actions ?? []).map((action) => ({
+            requirementId: requirement.id,
+            ...action
+          }))
+        )
+      : undefined
   return {
     ...(appearedAfterAction ? { appearedAfterAction } : {}),
     ...(actions?.length ? { actions } : {}),
+    ...(limits ? { actionsComplete: true } : {}),
     goal: state.goal,
     requirements,
     constraints: (state.constraints ?? []).filter((constraint) =>
@@ -278,6 +284,7 @@ export const applyAgentCompletionReview = (
      * total; it still needs a quotation bound to it.
      */
     const limit =
+      request.actionsComplete === true &&
       scope.constraintIds.includes(id) &&
       request.constraints.some(
         (constraint) => constraint.id === id && constraint.kind === "scope"

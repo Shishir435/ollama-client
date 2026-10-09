@@ -816,6 +816,13 @@ export interface AgentCompletionReviewRequest {
    * listed: a limit on how the run acted is about all of them.
    */
   actions?: readonly AgentReviewedAction[]
+  /**
+   * Whether `actions` is every change the run applied, read from its
+   * receipts. Only then may a scope limit be supported by the run's own
+   * effects: a list missing an untagged action could hide the one that broke
+   * the limit.
+   */
+  actionsComplete?: boolean
 }
 
 export interface AgentReviewedAction {

@@ -38,6 +38,7 @@ import {
 } from "./budgets"
 import type { AgentCompletionJudgement } from "./completion"
 import {
+  agentAppliedChanges,
   agentEffectChangesPage,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
@@ -351,6 +352,25 @@ const reviewedAction = (
     ...(effect.command.type === "press_key" && !effect.target.sensitive
       ? { key: effect.command.key }
       : {})
+  }
+}
+
+/**
+ * An applied receipt as a scope limit's reviewer is shown it. A named key is
+ * kept, a single character is not: one typed into a sensitive field is that
+ * field's value, and a receipt no longer says whether the field was sensitive.
+ */
+const appliedReviewedAction = (step: AgentStepReadout): AgentReviewedAction => {
+  const key =
+    step.command?.type === "press_key" && step.command.key.length > 1
+      ? step.command.key
+      : undefined
+  return {
+    requirementId: step.requirementId ?? "unbound",
+    command: step.command?.type ?? "unknown",
+    ...(step.target?.role ? { role: step.target.role } : {}),
+    ...(step.target?.name ? { name: step.target.name } : {}),
+    ...(key ? { key } : {})
   }
 }
 
@@ -2356,7 +2376,9 @@ export const createAgentController = (
       completionLedger(state, decision, steps, observation),
       actionWindows?.runId === state.id
         ? actionWindows.byRequirement
-        : undefined
+        : undefined,
+      /** Unreadable receipts leave the list incomplete: no limit credit. */
+      steps ? agentAppliedChanges(steps).map(appliedReviewedAction) : undefined
     )
     const startedAt = dependencies.clock.now()
     let answer: unknown
