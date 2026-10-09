@@ -238,7 +238,8 @@ const budgets: Budget[] = [
     /** PR 14 lifecycle, scope guards, startup supervision and translated consent measure Chrome at 48,543,041. */
     /** PR 14 completion receipts, limit review, loop recovery and consent_stale copy measure Chrome at 48,548,745. */
     /** PR 14 source_changed/access_changed refusals measure Chrome at 48,549,065. */
-    max: isFirefox ? 50_300_000 : 48_549_065
+    /** PR 14 review tightening (frame, page-leaving, applied-action list) measures Chrome at 48,549,796. */
+    max: isFirefox ? 50_300_000 : 48_549_796
   },
   {
     metric: "zip",
@@ -536,7 +537,8 @@ const budgets: Budget[] = [
     /** PR 14 lifecycle controls, scope guards and supervised recovery measure Chrome at 337,282 gzip bytes. */
     /** PR 14 completion receipts, limit review and loop recovery measure Chrome at 338,551 gzip bytes. */
     /** PR 14 source_changed/access_changed refusals measure Chrome at 338,627 gzip bytes. */
-    max: isFirefox ? 222_000 : 338_627
+    /** PR 14 review tightening measures Chrome at 338,878 gzip bytes. */
+    max: isFirefox ? 222_000 : 338_878
   }
 ]
 
