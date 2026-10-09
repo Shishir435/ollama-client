@@ -23,7 +23,7 @@ import {
 } from "./app-server-client.js"
 import {
   CODEX_ISOLATION_OVERRIDES,
-  codexMcpIsolation,
+  createCodexMcpIsolationLoader,
   resolveCodexConfig
 } from "./config.js"
 import {
@@ -141,12 +141,6 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
   /** The account's latest rate-limit snapshot, for a 429's `Retry-After`. */
   let latestRateLimits: unknown
   let catalogCache: { expiresAt: number; raw: CodexModel[] } | null = null
-  /** One listing at a time: concurrent turns share it. */
-  let mcpIsolationInFlight: Promise<Record<string, false>> | null = null
-  let mcpIsolationCache: {
-    expiresAt: number
-    overrides: Record<string, false>
-  } | null = null
   let providerCapabilitiesCache: {
     expiresAt: number
     imageGeneration: boolean
@@ -253,34 +247,11 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
    * `config.toml` is covered without olc knowing it. A server that cannot be
    * listed is not guessed at: the thread starts with what Codex loads.
    */
-  const loadMcpIsolation = async (): Promise<Record<string, false>> => {
-    if (mcpIsolationCache && mcpIsolationCache.expiresAt > Date.now()) {
-      return mcpIsolationCache.overrides
-    }
-    mcpIsolationInFlight ??= (async () => {
-      await client.start()
-      try {
-        const overrides = codexMcpIsolation(
-          await client.request<unknown>("config/read", {})
-        )
-        mcpIsolationCache = { overrides, expiresAt: Date.now() + 30_000 }
-        return overrides
-      } catch (error) {
-        /**
-         * Not cached: a failed listing is the case that lets the operator's
-         * servers start, so the next thread asks again rather than inheriting
-         * thirty seconds of it.
-         */
-        log("Codex MCP servers could not be listed", {
-          message: (error as Error).message
-        })
-        return {}
-      } finally {
-        mcpIsolationInFlight = null
-      }
-    })()
-    return mcpIsolationInFlight
-  }
+  const loadMcpIsolation = createCodexMcpIsolationLoader({
+    start: () => client.start(),
+    read: () => client.request<unknown>("config/read", {}),
+    log
+  })
 
   const loadProviderCapabilities = async (): Promise<{
     imageGeneration: boolean

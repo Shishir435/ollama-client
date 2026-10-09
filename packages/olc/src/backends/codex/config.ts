@@ -92,3 +92,50 @@ export const codexMcpIsolation = (
     Object.keys(servers).map((name) => [`mcp_servers.${name}.enabled`, false])
   )
 }
+
+/**
+ * The operator's own MCP servers, switched off for every thread olc starts.
+ * Names come from the app-server's merged config, so a server added to
+ * `config.toml` is covered without olc knowing it. One listing at a time —
+ * concurrent turns share it — and only a success is kept: a failed start or
+ * listing is the case that lets the operator's servers run, so the next
+ * thread asks again, and a stuck promise can never outlive the failure.
+ */
+export const createCodexMcpIsolationLoader = ({
+  start,
+  read,
+  log,
+  now = Date.now,
+  ttlMs = 30_000
+}: {
+  start: () => Promise<void>
+  read: () => Promise<unknown>
+  log: (message: string, details: Record<string, unknown>) => void
+  now?: () => number
+  ttlMs?: number
+}): (() => Promise<Record<string, false>>) => {
+  let cache: { expiresAt: number; overrides: Record<string, false> } | null =
+    null
+  let inFlight: Promise<Record<string, false>> | null = null
+  const listing = async (): Promise<Record<string, false>> => {
+    try {
+      await start()
+      const overrides = codexMcpIsolation(await read())
+      cache = { overrides, expiresAt: now() + ttlMs }
+      return overrides
+    } catch (error) {
+      log("Codex MCP servers could not be listed", {
+        message: (error as Error).message
+      })
+      return {}
+    } finally {
+      inFlight = null
+    }
+  }
+  return () => {
+    if (cache && cache.expiresAt > now())
+      return Promise.resolve(cache.overrides)
+    inFlight ??= listing()
+    return inFlight
+  }
+}
