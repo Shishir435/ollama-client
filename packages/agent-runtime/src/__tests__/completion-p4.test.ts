@@ -967,6 +967,12 @@ describe("P4 deterministic completion", () => {
       expect(
         judgeTab("Details is open in a new tab.", [opened()])
       ).toMatchObject({ type: "accepted" })
+      /** The model often tags no requirement; the page binds it instead. */
+      expect(
+        judgeTab("Details is open in a new tab.", [
+          opened({ requirementId: undefined })
+        ])
+      ).toMatchObject({ type: "accepted" })
     })
     it.each([
       [

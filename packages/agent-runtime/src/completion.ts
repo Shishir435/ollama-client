@@ -1763,7 +1763,14 @@ const openedTabMeets = (
   NEW_TAB_PATTERN.test(requirement.text) &&
   (input.steps ?? []).some(
     (receipt) =>
-      receipt.requirementId === requirement.id &&
+      /**
+       * Untagged counts, as it does in `openedTabFor`: the model often names
+       * no requirement for an open, and the page the run is on, named by the
+       * requirement, is what binds the receipt to it. Tagged for another
+       * requirement does not.
+       */
+      (receipt.requirementId === undefined ||
+        receipt.requirementId === requirement.id) &&
       receipt.command?.type === "open_tab" &&
       openedTabFor(requirement, receipt, input) &&
       samePage(receipt.command.url, input.observation.url) &&
