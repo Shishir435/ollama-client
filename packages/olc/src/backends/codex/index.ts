@@ -141,6 +141,8 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
   /** The account's latest rate-limit snapshot, for a 429's `Retry-After`. */
   let latestRateLimits: unknown
   let catalogCache: { expiresAt: number; raw: CodexModel[] } | null = null
+  /** One listing at a time: concurrent turns share it. */
+  let mcpIsolationInFlight: Promise<Record<string, false>> | null = null
   let mcpIsolationCache: {
     expiresAt: number
     overrides: Record<string, false>
@@ -255,19 +257,29 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     if (mcpIsolationCache && mcpIsolationCache.expiresAt > Date.now()) {
       return mcpIsolationCache.overrides
     }
-    await client.start()
-    let overrides: Record<string, false> = {}
-    try {
-      overrides = codexMcpIsolation(
-        await client.request<unknown>("config/read", {})
-      )
-    } catch (error) {
-      log("Codex MCP servers could not be listed", {
-        message: (error as Error).message
-      })
-    }
-    mcpIsolationCache = { overrides, expiresAt: Date.now() + 30_000 }
-    return overrides
+    mcpIsolationInFlight ??= (async () => {
+      await client.start()
+      try {
+        const overrides = codexMcpIsolation(
+          await client.request<unknown>("config/read", {})
+        )
+        mcpIsolationCache = { overrides, expiresAt: Date.now() + 30_000 }
+        return overrides
+      } catch (error) {
+        /**
+         * Not cached: a failed listing is the case that lets the operator's
+         * servers start, so the next thread asks again rather than inheriting
+         * thirty seconds of it.
+         */
+        log("Codex MCP servers could not be listed", {
+          message: (error as Error).message
+        })
+        return {}
+      } finally {
+        mcpIsolationInFlight = null
+      }
+    })()
+    return mcpIsolationInFlight
   }
 
   const loadProviderCapabilities = async (): Promise<{
