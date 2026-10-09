@@ -67,7 +67,8 @@
       "unknown": "Agent n’a pas pu exécuter cette demande.",
       "disconnected": "L’agent se reconnectait et n’a pas reçu cette demande. Réessayez.",
       "turn_has_run": "Ce message a déjà lancé une tâche dans le navigateur.",
-      "steer_unavailable": "L’exécution ne travaille pas en ce moment et n’a pas pu le prendre en compte. Mettez-la en pause et corrigez-la."
+      "steer_unavailable": "L’exécution ne travaille pas en ce moment et n’a pas pu le prendre en compte. Mettez-la en pause et corrigez-la.",
+      "consent_stale": "L’exécution a avancé depuis l’affichage de ce choix, il n’a donc pas été enregistré. Vérifiez l’exécution et choisissez à nouveau."
     },
     "failure": {
       "budget_exhausted": "L'exécution a épuisé son budget d'étapes. Restreignez l'objectif ou reprenez depuis l'état actuel de la page.",

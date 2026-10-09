@@ -419,3 +419,29 @@ it("offers explicit unattended consent only at a current safe user pause", () =>
   h.rerender({ run: run("paused", { pauseReason: "unresolved_effect" }) })
   expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
 })
+
+it("names an interrupted decision through its display text, not raw page text", () => {
+  supervise({
+    run: run("paused", {
+      pauseReason: "user",
+      humanDecision: {
+        kind: "approval",
+        request: {
+          id: "approval-1",
+          runId: "agent-1",
+          stepId: "agent-1:1",
+          risk: "high",
+          action: "Click Submit order",
+          consequence: "The order is placed.",
+          display: {
+            action: { key: "agent.approval.action.click", values: {} },
+            consequence: []
+          },
+          createdAt: 1
+        }
+      }
+    })
+  })
+  expect(screen.getByText(/agent\.approval\.action\.click/)).toBeInTheDocument()
+  expect(screen.queryByText(/Click Submit order/)).not.toBeInTheDocument()
+})

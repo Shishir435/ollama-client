@@ -1724,4 +1724,14 @@ describe("unattended execution", () => {
     await saving
     expect(write).toHaveBeenCalledWith("run-1", 1000, true, "browser-1")
   })
+
+  it("refuses consent for a pause that moved on with its own reason", async () => {
+    const h = service({
+      writeUnattended: async () => false,
+      browserSessionId: async () => "browser-1"
+    })
+    await expect(
+      h.service.setUnattended("run-1", 1000, true)
+    ).rejects.toMatchObject({ reason: "consent_stale" })
+  })
 })

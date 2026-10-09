@@ -309,8 +309,20 @@ export const AgentRunSupervision = ({
         <p className="mt-2 text-micro text-muted-foreground">
           {t("agent.unattended.decision_interrupted")}{" "}
           {run.humanDecision.kind === "approval"
-            ? run.humanDecision.request.action
-            : run.humanDecision.request.instruction}
+            ? agentDisplayString(
+                t,
+                run.humanDecision.request.display && [
+                  run.humanDecision.request.display.action
+                ],
+                run.humanDecision.request.action,
+                AGENT_PAGE_TEXT_LIMIT
+              )
+            : agentDisplayString(
+                t,
+                run.humanDecision.request.display,
+                run.humanDecision.request.instruction,
+                AGENT_PAGE_TEXT_LIMIT
+              )}
         </p>
       )}
       <div className="mt-2">

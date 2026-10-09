@@ -67,7 +67,8 @@
       "unknown": "Agent no pudo completar esa solicitud.",
       "disconnected": "El agente se estaba reconectando y no lo recibió. Inténtalo de nuevo.",
       "turn_has_run": "Este mensaje ya inició una tarea en el navegador.",
-      "steer_unavailable": "La ejecución no está trabajando ahora, así que no pudo tomarlo. Páusala y corrígela."
+      "steer_unavailable": "La ejecución no está trabajando ahora, así que no pudo tomarlo. Páusala y corrígela.",
+      "consent_stale": "La ejecución avanzó desde que se mostró esa opción, así que no se guardó. Revisa la ejecución y vuelve a elegir."
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",

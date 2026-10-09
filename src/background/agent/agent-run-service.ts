@@ -264,6 +264,7 @@ export type AgentRunFailureReason =
   | "permission_denied"
   | "tab_unsupported"
   | "steer_unavailable"
+  | "consent_stale"
   | "unknown_run"
 
 /**
@@ -1182,7 +1183,7 @@ export const createAgentRunService = (input?: {
         ))
       )
         throw new AgentRunError(
-          "steer_unavailable",
+          "consent_stale",
           "Consent requires the current user pause"
         )
       announce(runId)

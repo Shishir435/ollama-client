@@ -67,7 +67,8 @@
       "unknown": "Agent non ha potuto completare la richiesta.",
       "disconnected": "L’agente si stava riconnettendo e non l’ha ricevuto. Riprova.",
       "turn_has_run": "Questo messaggio ha già avviato un’attività nel browser.",
-      "steer_unavailable": "L’esecuzione non sta lavorando ora e non ha potuto recepirlo. Mettila in pausa e correggila."
+      "steer_unavailable": "L’esecuzione non sta lavorando ora e non ha potuto recepirlo. Mettila in pausa e correggila.",
+      "consent_stale": "L’esecuzione è andata avanti da quando è stata mostrata questa scelta, quindi non è stata salvata. Controlla l’esecuzione e scegli di nuovo."
     },
     "failure": {
       "budget_exhausted": "L'esecuzione ha esaurito il budget di passi. Restringi l'obiettivo o riparti dallo stato attuale della pagina.",

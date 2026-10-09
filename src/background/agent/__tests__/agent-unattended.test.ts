@@ -58,10 +58,17 @@ describe("unattended browser controls", () => {
     const first = await agentBrowserSessionId()
     expect(first).toBe(api.stored["agent-unattended-browser-session"])
     expect(await agentBrowserSessionId()).toBe(first)
-    api.stored = {}
+    /** A worker restart keeps session storage, and with it the nonce. */
     vi.resetModules()
     const restarted = await import("../agent-unattended")
-    expect(await restarted.agentBrowserSessionId()).not.toBe(first)
+    expect(await restarted.agentBrowserSessionId()).toBe(first)
+    /** A browser restart clears session storage, which mints a new one. */
+    api.stored = {}
+    vi.resetModules()
+    const relaunched = await import("../agent-unattended")
+    const next = await relaunched.agentBrowserSessionId()
+    expect(next).not.toBe(first)
+    expect(next).toBe(api.stored["agent-unattended-browser-session"])
   })
 
   it("stops through the keyboard or page menu with no panel, and sleeps at human boundaries", async () => {

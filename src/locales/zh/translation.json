@@ -67,7 +67,8 @@
       "unknown": "Agent 无法完成该请求。",
       "disconnected": "Agent 正在重新连接，未收到该请求。请重试。",
       "turn_has_run": "此消息已启动过一个浏览器任务。",
-      "steer_unavailable": "运行当前未在工作，因此无法接收。请暂停后再纠正。"
+      "steer_unavailable": "运行当前未在工作，因此无法接收。请暂停后再纠正。",
+      "consent_stale": "显示该选项后运行已继续进行，因此未保存。请检查运行后重新选择。"
     },
     "failure": {
       "budget_exhausted": "运行已用完全部步骤预算。请缩小目标，或从页面当前状态重新开始。",

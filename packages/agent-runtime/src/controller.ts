@@ -686,7 +686,8 @@ export const createAgentController = (
 
     const answer = await dependencies.approval.request(decision.request, signal)
     if (answer.type !== "approved") {
-      await pause(checkpoint, "user")
+      /** Answered: the panel must not offer this request as still pending. */
+      await pause(checkpoint, "user", { humanDecision: undefined })
       return undefined
     }
     /**
@@ -1456,7 +1457,8 @@ export const createAgentController = (
       })
       if (!waiting) return undefined
       const answer = await dependencies.takeover.request(policy.request, signal)
-      if (answer.type === "cancelled") await pause(waiting, "takeover")
+      if (answer.type === "cancelled")
+        await pause(waiting, "takeover", { humanDecision: undefined })
       return undefined
     }
 

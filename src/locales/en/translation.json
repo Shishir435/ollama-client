@@ -67,7 +67,8 @@
       "unknown": "Agent could not complete that request.",
       "disconnected": "Agent was reconnecting and didn’t receive that. Try again.",
       "turn_has_run": "This message already started a browser task.",
-      "steer_unavailable": "The run is not working right now, so it could not take that. Pause it and correct it instead."
+      "steer_unavailable": "The run is not working right now, so it could not take that. Pause it and correct it instead.",
+      "consent_stale": "The run moved on since that choice was shown, so it was not saved. Check the run and choose again."
     },
     "failure": {
       "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",

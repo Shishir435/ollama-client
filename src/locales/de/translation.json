@@ -67,7 +67,8 @@
       "unknown": "Agent konnte diese Anfrage nicht ausführen.",
       "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut.",
       "turn_has_run": "Diese Nachricht hat bereits eine Browser-Aufgabe gestartet.",
-      "steer_unavailable": "Der Lauf arbeitet gerade nicht und konnte das nicht übernehmen. Halten Sie ihn an und korrigieren Sie ihn stattdessen."
+      "steer_unavailable": "Der Lauf arbeitet gerade nicht und konnte das nicht übernehmen. Halten Sie ihn an und korrigieren Sie ihn stattdessen.",
+      "consent_stale": "Der Lauf hat sich seit der Anzeige dieser Auswahl weiterbewegt, daher wurde sie nicht gespeichert. Prüfen Sie den Lauf und wählen Sie erneut."
     },
     "failure": {
       "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
