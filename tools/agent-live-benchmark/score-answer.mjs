@@ -102,9 +102,34 @@ export const scoreHnTopStory = ({ answer, storyTitles }) => {
   const said = ` ${normalizeText(answer)} `
   const [first, second] = (storyTitles ?? []).map(normalizeText)
   if (!first) return { success: false, reason: "top_story_unread" }
-  if (!said.includes(` ${first} `))
+  /** Whole-word spans of a title in the answer, as [start, end). */
+  const spans = (title) => {
+    const needle = ` ${title} `
+    const found = []
+    for (
+      let start = said.indexOf(needle);
+      start >= 0;
+      start = said.indexOf(needle, start + 1)
+    )
+      found.push([start, start + needle.length])
+    return found
+  }
+  const firsts = spans(first)
+  if (firsts.length === 0)
     return { success: false, reason: "top_story_missing" }
-  if (second && said.includes(` ${second} `))
+  /**
+   * One title can contain the other ("Cloudflare acquires" and "Cloudflare
+   * acquires Deno"), so a #2 occurrence counts only where it is not inside
+   * a #1 occurrence — and #1 inside a longer #2 is not #1 at all.
+   */
+  const inside = ([start, end], [outerStart, outerEnd]) =>
+    start >= outerStart &&
+    end <= outerEnd &&
+    outerEnd - outerStart > end - start
+  const seconds = second ? spans(second) : []
+  if (firsts.every((span) => seconds.some((outer) => inside(span, outer))))
+    return { success: false, reason: "several_stories" }
+  if (seconds.some((span) => !firsts.some((outer) => inside(span, outer))))
     return { success: false, reason: "several_stories" }
   return { success: true, reason: "top_story_title" }
 }

@@ -554,7 +554,11 @@ try {
             })
             success = scored.success
             predicate = `landed:google/search?q=youtube (${scored.reason})`
-          } else if (kind === "hn_top" && pageFields.storyTitles?.[0]) {
+          } else if (kind === "hn_top") {
+            /**
+             * No fallback to the span rule: that scores answer text alone,
+             * and a page the run left unread has no ranking to judge by.
+             */
             const scored = scoreHnTopStory({
               answer,
               storyTitles: pageFields.storyTitles

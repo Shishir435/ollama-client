@@ -117,6 +117,33 @@ describe("real-site scorer", () => {
       scoreHnTopStory({ answer: "x", storyTitles: [] }).reason,
       "top_story_unread"
     )
+    for (const [titles, answer, reason] of [
+      [
+        ["Cloudflare acquires", "Cloudflare acquires Deno"],
+        "Cloudflare acquires",
+        "top_story_title"
+      ],
+      [
+        ["Cloudflare acquires", "Cloudflare acquires Deno"],
+        "Cloudflare acquires Deno",
+        "several_stories"
+      ],
+      [
+        ["Cloudflare acquires Deno", "Our Cloudflare acquires Deno"],
+        "Cloudflare acquires Deno",
+        "top_story_title"
+      ],
+      [
+        ["Cloudflare acquires Deno", "Our Cloudflare acquires Deno"],
+        "Our Cloudflare acquires Deno",
+        "several_stories"
+      ]
+    ])
+      assert.equal(
+        scoreHnTopStory({ answer, storyTitles: titles }).reason,
+        reason,
+        `${answer} against ${titles.join(" / ")}`
+      )
   })
 
   it("rejects echoing the search query as a result title", () => {
