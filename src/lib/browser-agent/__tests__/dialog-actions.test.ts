@@ -310,7 +310,11 @@ describe("executeDialogAgentEffect", () => {
         }),
         signal
       })
-    ).rejects.toThrow(/source tab changed/)
+    ).rejects.toThrow(
+      new AgentEffectNotAppliedError(
+        "Agent source changed before execution: tab"
+      )
+    )
   })
 })
 

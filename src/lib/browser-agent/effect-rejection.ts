@@ -31,6 +31,13 @@ export const AGENT_EFFECT_REJECTIONS = {
   editorRefusedText: "editor_refused_text",
   /** Form state outside the target moved after the submission was approved. */
   formStateChanged: "form_state_changed",
+  /**
+   * The tab, document or frame the effect was approved on is not the one the
+   * browser holds now — the page navigated between the look and the act.
+   */
+  sourceChanged: "source_changed",
+  /** The tab became one the run may not touch (excluded, internal, private). */
+  accessChanged: "access_changed",
   /** A rejection this build raises without naming a reason. */
   unspecified: "unspecified"
 } as const
@@ -58,6 +65,8 @@ const REJECTION_MESSAGES: Record<AgentEffectRejectionReason, string> = {
   editor_refused_text:
     "Agent cannot edit this host through the browser's editing pipeline",
   form_state_changed: "Agent mutation form state changed after approval",
+  source_changed: "Agent source changed before execution",
+  access_changed: "Agent tab access changed before execution",
   unspecified: "Agent effect was refused by the page"
 }
 
@@ -70,6 +79,8 @@ const REJECTION_MESSAGES: Record<AgentEffectRejectionReason, string> = {
  */
 export const AGENT_EFFECT_REJECTION_FIELDS = [
   "frame",
+  "tab",
+  "document",
   "tag",
   "role",
   "name",

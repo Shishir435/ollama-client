@@ -16,6 +16,10 @@ import type {
   AgentDomMutationInstruction,
   AgentFormFillInstruction
 } from "@/lib/browser-agent/control-port"
+import {
+  AGENT_EFFECT_REJECTIONS,
+  agentRejectionMessage
+} from "@/lib/browser-agent/effect-rejection"
 import type { AgentEffectVerifierAdapter } from "@/lib/browser-agent/effect-verifier"
 import { rootAgentSnapshotIdentity } from "@/lib/browser-agent/frame-identity"
 import {
@@ -836,8 +840,11 @@ export const createAgentBrowserAdapters = (input: {
                 frameId: tool.frameId
               })) as { documentId?: string } | null
               if (!frame || frame.documentId !== tool.documentId) {
-                throw new Error(
-                  "Agent page-tool document changed before execution"
+                throw new AgentEffectNotAppliedError(
+                  agentRejectionMessage(
+                    AGENT_EFFECT_REJECTIONS.sourceChanged,
+                    "document"
+                  )
                 )
               }
               if (!input.sessions.executePageTool) {
