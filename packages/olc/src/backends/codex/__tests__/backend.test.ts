@@ -122,9 +122,22 @@ describe("Codex backend", () => {
           .split("\n")[0] as string
       )
       expect(firstThreadStart).toMatchObject({
-        config: { web_search: "disabled" },
+        config: {
+          web_search: "disabled",
+          "mcp_servers.alpha.enabled": false,
+          "mcp_servers.beta-docs.enabled": false
+        },
         dynamicTools: [{ name: "lookup" }]
       })
+      /** The operator's plugins never start for a proxied thread. */
+      expect(
+        JSON.parse(
+          readFileSync(
+            path.join(directory, "workspace", "argv.json"),
+            "utf8"
+          ).split("\n")[0] as string
+        )
+      ).toEqual(["app-server", "--stdio", "-c", "features.plugins=false"])
       const suspended = new Promise<void>((resolve) => {
         suspend = resolve
       })
@@ -170,6 +183,16 @@ describe("Codex backend", () => {
       expect(text).toEqual(["Result: 42"])
       expect(reasoning).toEqual(["Waiting. ", "Checked. "])
       await turn.dispose()
+      /** An ephemeral thread is released by unsubscribing; delete refuses it. */
+      expect(
+        readFileSync(
+          path.join(directory, "workspace", "thread-closes.jsonl"),
+          "utf8"
+        )
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+      ).toEqual([{ method: "thread/unsubscribe", threadId: "thread-1" }])
       expect(
         (await backend.listModels()).find(
           (model) => model.id === "codex/fake-codex"

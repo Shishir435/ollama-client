@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest"
-import { resolveCodexConfig } from "../config.js"
+import { codexMcpIsolation, resolveCodexConfig } from "../config.js"
 
 const originalEnv = { ...process.env }
 
@@ -49,5 +49,30 @@ describe("resolveCodexConfig", () => {
     expect(() =>
       resolveCodexConfig({ options: { CODEX_WEB_SEARCH_MODE: "surprise" } })
     ).toThrow("Invalid Codex web-search mode 'surprise'")
+  })
+})
+
+describe("codexMcpIsolation", () => {
+  it("switches off every MCP server the merged config lists", () => {
+    expect(
+      codexMcpIsolation({
+        config: { mcp_servers: { node_repl: {}, "computer-use": {} } },
+        origins: {}
+      })
+    ).toEqual({
+      "mcp_servers.node_repl.enabled": false,
+      "mcp_servers.computer-use.enabled": false
+    })
+  })
+
+  it.each([
+    undefined,
+    null,
+    {},
+    { config: {} },
+    { config: { mcp_servers: [] } },
+    { config: { mcp_servers: "x" } }
+  ])("adds nothing for a config with no server table: %j", (read) => {
+    expect(codexMcpIsolation(read)).toEqual({})
   })
 })
