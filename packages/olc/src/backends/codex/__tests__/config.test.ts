@@ -124,4 +124,23 @@ describe("createCodexMcpIsolationLoader", () => {
     expect(await load()).toEqual({})
     expect(await load()).toEqual({ "mcp_servers.node_repl.enabled": false })
   })
+
+  it("lists again once the cache expires", async () => {
+    let now = 0
+    const read = vi.fn(async () => listed)
+    const load = createCodexMcpIsolationLoader({
+      start: async () => undefined,
+      read,
+      log: vi.fn(),
+      now: () => now,
+      ttlMs: 10
+    })
+    await load()
+    now = 9
+    await load()
+    expect(read).toHaveBeenCalledTimes(1)
+    now = 10
+    await load()
+    expect(read).toHaveBeenCalledTimes(2)
+  })
 })
