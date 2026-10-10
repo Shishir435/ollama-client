@@ -98,6 +98,30 @@ export const scoreInbodyAnswer = (answer, body, rule) => {
  * and not the #2 one, so a pasted list of stories is not an answer, and
  * "Hacker News" holds neither.
  */
+/** Room for "The top story on Hacker News is", nothing more. */
+const HN_ANSWER_EXTRA_WORDS = 10
+const HEDGES = new Set([
+  "not",
+  "no",
+  "cannot",
+  "can",
+  "t",
+  "guess",
+  "maybe",
+  "perhaps",
+  "probably",
+  "might",
+  "unsure",
+  "unknown",
+  "unclear",
+  "unable",
+  "unverified",
+  "possibly",
+  "likely",
+  "seems",
+  "think"
+])
+
 export const scoreHnTopStory = ({ answer, storyTitles }) => {
   const said = ` ${normalizeText(answer)} `
   const [first, second] = (storyTitles ?? []).map(normalizeText)
@@ -131,6 +155,17 @@ export const scoreHnTopStory = ({ answer, storyTitles }) => {
     return { success: false, reason: "several_stories" }
   if (seconds.some((span) => !firsts.some((outer) => inside(span, outer))))
     return { success: false, reason: "several_stories" }
+  /**
+   * An answer, not a mention: "I cannot confirm the top story; X is a guess"
+   * holds the title too. The title alone, or a short sentence about it with
+   * no hedge, is an answer.
+   */
+  const rest = said.replace(` ${first} `, " ").trim().split(" ").filter(Boolean)
+  if (
+    rest.length > HN_ANSWER_EXTRA_WORDS ||
+    rest.some((word) => HEDGES.has(word))
+  )
+    return { success: false, reason: "not_an_answer" }
   return { success: true, reason: "top_story_title" }
 }
 

@@ -117,6 +117,23 @@ describe("real-site scorer", () => {
       scoreHnTopStory({ answer: "x", storyTitles: [] }).reason,
       "top_story_unread"
     )
+    for (const [answer, reason] of [
+      ["Cloudflare acquires Deno", "top_story_title"],
+      [
+        "The top story on Hacker News is Cloudflare acquires Deno.",
+        "top_story_title"
+      ],
+      [
+        "I cannot confirm the top story; Cloudflare acquires Deno is a guess",
+        "not_an_answer"
+      ],
+      ["It might be Cloudflare acquires Deno", "not_an_answer"]
+    ])
+      assert.equal(
+        scoreHnTopStory({ answer, storyTitles }).reason,
+        reason,
+        answer
+      )
     for (const [titles, answer, reason] of [
       [
         ["Cloudflare acquires", "Cloudflare acquires Deno"],
