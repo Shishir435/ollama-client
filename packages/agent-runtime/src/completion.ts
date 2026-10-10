@@ -2342,6 +2342,15 @@ const judgePlanned = (
  * name the key, and every word they add is one this shortcut cannot judge,
  * so anything outside it leaves the limit to review.
  */
+const PRESS_WORDS = new Set([
+  "press",
+  "presses",
+  "pressing",
+  "pressed",
+  "hit",
+  "hitting"
+])
+
 const KEY_METHOD_WORDS = new Set([
   "use",
   "uses",
@@ -2409,6 +2418,21 @@ const keyMethodHonored = (
     )
   )
     return false
+  /**
+   * "Press Tab" asks for a press, not a method: one press per time the key is
+   * named. A run that pressed it three times went past what was asked, so
+   * an instruction to press counts, while "using Tab" allows any number.
+   */
+  if (claimWords(constraint.text).some((word) => PRESS_WORDS.has(word))) {
+    for (const key of new Set(keys)) {
+      const named = completePhraseOccurrences(
+        text,
+        agentNormalizedClaim(key)
+      ).length
+      if (keys.filter((pressed) => pressed === key).length !== named)
+        return false
+    }
+  }
   return claimsOnlyAct(
     { id: constraint.id, kind: "change", text: constraint.text },
     KEY_METHOD_WORDS,
@@ -2556,7 +2580,8 @@ const stopConditionMet = (
        */
       (last === undefined
         ? requirement.kind !== "change"
-        : last.requirementId === requirement.id)
+        : last.requirementId === requirement.id &&
+          last.verification?.outcome === "confirmed")
     )
   })
 }

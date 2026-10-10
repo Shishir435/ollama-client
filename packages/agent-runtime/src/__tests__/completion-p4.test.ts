@@ -840,6 +840,22 @@ describe("P4 deterministic completion", () => {
         })
       ).toMatchObject({ type: "refused", reason: "needs_review" })
     })
+    it("credits an instruction to press when the presses match it", () => {
+      expect(
+        constraintReviewed(
+          judgeKeys("Press Tab to move to Second.", [pressed("Tab")])
+        )
+      ).toBe(false)
+      /** A method allows any number of presses. */
+      expect(
+        constraintReviewed(
+          judgeKeys("Move focus using Tab.", [
+            pressed("Tab"),
+            pressed("Tab", { stepId: "press-2", sequence: 2 })
+          ])
+        )
+      ).toBe(false)
+    })
     it("needs no review when every change was a confirmed press of the named key", () => {
       expect(
         constraintReviewed(
@@ -901,6 +917,15 @@ describe("P4 deterministic completion", () => {
         "the limit names a different control",
         "Use Tab to reach Submit.",
         [pressed("Tab")]
+      ],
+      [
+        "it asked for one press and the run pressed three",
+        "Press Tab to move to Second.",
+        [
+          pressed("Tab"),
+          pressed("Tab", { stepId: "press-2", sequence: 2 }),
+          pressed("Tab", { stepId: "press-3", sequence: 3 })
+        ]
       ]
     ] as const)("still reviews the constraint when %s", (_, text, steps) => {
       expect(constraintReviewed(judgeKeys(text, [...steps]))).toBe(true)
@@ -960,7 +985,19 @@ describe("P4 deterministic completion", () => {
       ],
       ["it names something else", "Stop once Red is selected.", [selected()]],
       ["it is not a stop condition", "Only select Blue.", [selected()]],
-      ["this run changed nothing", "Stop once Blue is selected.", []]
+      ["this run changed nothing", "Stop once Blue is selected.", []],
+      [
+        "its last change was not confirmed",
+        "Stop once Blue is selected.",
+        [
+          selected({
+            verification: {
+              outcome: "ambiguous",
+              evidence: { kind: "field", summary: "?", observedAt: 1 }
+            }
+          })
+        ]
+      ]
     ] as const)("leaves it to review when %s", (_, text, steps) => {
       expect(judgeStop(text, [...steps])).toMatchObject({
         type: "refused",
