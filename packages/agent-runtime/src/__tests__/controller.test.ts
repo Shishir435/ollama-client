@@ -621,6 +621,8 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(harness.calls).not.toContain("execute")
     expect(harness.getState().status).toBe("paused")
+    /** Answered, so the panel must not present it as still pending. */
+    expect(harness.getState().humanDecision).toBeUndefined()
   })
 
   it("advances after confirmed verification", async () => {
@@ -2354,6 +2356,19 @@ describe("agent controller", () => {
     expect(harness.calls).toContain("takeover")
     expect(harness.calls).not.toContain("execute")
     expect(harness.getState().status).toBe("awaiting_takeover")
+  })
+
+  it("clears the takeover request once the user cancels it", async () => {
+    const harness = createHarness({
+      policy: takeoverPolicy(),
+      takeover: { type: "cancelled" }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "takeover"
+    })
+    expect(harness.getState().humanDecision).toBeUndefined()
   })
 
   it("requires an explicit takeover completion event", async () => {

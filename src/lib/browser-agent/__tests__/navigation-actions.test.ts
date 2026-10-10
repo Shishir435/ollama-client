@@ -4,7 +4,10 @@ import type {
   AgentVerificationInput,
   AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
-import { evaluateAgentPolicy } from "@ollama-client/agent-runtime"
+import {
+  AgentEffectNotAppliedError,
+  evaluateAgentPolicy
+} from "@ollama-client/agent-runtime"
 import type {
   AgentCommand,
   AgentElement,
@@ -551,7 +554,7 @@ describe("Agent navigation actions", () => {
         adapter,
         signal
       })
-    ).rejects.toThrow("source tab changed")
+    ).rejects.toThrow("Agent source changed before execution: tab")
     expect(navigateSpy).not.toHaveBeenCalled()
   })
 
@@ -569,8 +572,25 @@ describe("Agent navigation actions", () => {
         }),
         signal
       })
-    ).rejects.toThrow("source document changed")
+    ).rejects.toThrow("Agent source changed before execution: document")
     expect(navigateSpy).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Nothing was sent, so the run must hear "not applied" and look again, not
+   * "may have landed" and stop for a human: a run whose page navigated to the
+   * very article it was waiting for was paused that way after succeeding.
+   */
+  it("refuses a moved page as not applied, never as an unknown effect", async () => {
+    await expect(
+      executeNavigationAgentEffect({
+        effect: await authorize(navigate("https://example.com/docs")),
+        adapter: executorAdapter({
+          getTab: async () => ({ id: 7, url: "https://moved.example/start" })
+        }),
+        signal
+      })
+    ).rejects.toBeInstanceOf(AgentEffectNotAppliedError)
   })
 
   it("navigates to the resolved destination rather than the raw command", async () => {

@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import {
   INBODY_RULES,
   scoreGoogleSearch,
+  scoreHnTopStory,
   scoreInbodyAnswer,
   scoreSyntheticTask,
   scoreVerdict,
@@ -94,6 +95,77 @@ describe("real-site scorer", () => {
       INBODY_RULES.hn_top
     )
     assert.equal(success, true)
+  })
+
+  it("accepts a short top-story title by the rendered ranking", () => {
+    const storyTitles = ["Cloudflare acquires Deno", "Our $445M Series D"]
+    assert.deepEqual(
+      scoreHnTopStory({
+        answer: "The top story is “Cloudflare acquires Deno”.",
+        storyTitles
+      }),
+      { success: true, reason: "top_story_title" }
+    )
+    for (const [answer, reason] of [
+      ["Hacker News", "top_story_missing"],
+      ["Our $445M Series D", "top_story_missing"],
+      ["Cloudflare acquires", "top_story_missing"],
+      ["1. Cloudflare acquires Deno 2. Our $445M Series D", "several_stories"]
+    ])
+      assert.equal(scoreHnTopStory({ answer, storyTitles }).reason, reason)
+    assert.equal(
+      scoreHnTopStory({ answer: "x", storyTitles: [] }).reason,
+      "top_story_unread"
+    )
+    for (const [answer, reason] of [
+      ["Cloudflare acquires Deno", "top_story_title"],
+      [
+        "The top story on Hacker News is Cloudflare acquires Deno.",
+        "top_story_title"
+      ],
+      [
+        "I cannot confirm the top story; Cloudflare acquires Deno is a guess",
+        "not_an_answer"
+      ],
+      ["It might be Cloudflare acquires Deno", "not_an_answer"],
+      [
+        "I can confirm the top story is Cloudflare acquires Deno",
+        "top_story_title"
+      ],
+      ["I can't confirm it, but Cloudflare acquires Deno", "not_an_answer"]
+    ])
+      assert.equal(
+        scoreHnTopStory({ answer, storyTitles }).reason,
+        reason,
+        answer
+      )
+    for (const [titles, answer, reason] of [
+      [
+        ["Cloudflare acquires", "Cloudflare acquires Deno"],
+        "Cloudflare acquires",
+        "top_story_title"
+      ],
+      [
+        ["Cloudflare acquires", "Cloudflare acquires Deno"],
+        "Cloudflare acquires Deno",
+        "several_stories"
+      ],
+      [
+        ["Cloudflare acquires Deno", "Our Cloudflare acquires Deno"],
+        "Cloudflare acquires Deno",
+        "top_story_title"
+      ],
+      [
+        ["Cloudflare acquires Deno", "Our Cloudflare acquires Deno"],
+        "Our Cloudflare acquires Deno",
+        "several_stories"
+      ]
+    ])
+      assert.equal(
+        scoreHnTopStory({ answer, storyTitles: titles }).reason,
+        reason,
+        `${answer} against ${titles.join(" / ")}`
+      )
   })
 
   it("rejects echoing the search query as a result title", () => {

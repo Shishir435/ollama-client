@@ -196,3 +196,30 @@ describe("agent startup recovery", () => {
     expect(repo.pruneTerminalAgentRuns).not.toHaveBeenCalled()
   })
 })
+
+it.each([
+  "awaiting_approval",
+  "awaiting_takeover",
+  "pause_requested"
+] as const)("never authorizes unattended recovery from %s", async (status) => {
+  const current = {
+    ...state(status),
+    unattended: {
+      approvedAt: 1,
+      browserSessionId: "browser-1",
+      origins: ["https://example.com"],
+      tabIds: [7],
+      providerId: "ollama",
+      modelId: "model"
+    }
+  }
+  repo.listIncompleteAgentRuns.mockResolvedValue([
+    { id: current.id, state: current }
+  ])
+  await recoverAgentRuns()
+  expect(repo.transitionAgentRun).not.toHaveBeenCalledWith(
+    expect.objectContaining({
+      patch: expect.objectContaining({ pauseReason: "worker_lost" })
+    })
+  )
+})

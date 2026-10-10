@@ -77,6 +77,8 @@ export const LEGACY_STORAGE_KEYS = {
 
 export const STORAGE_KEYS = {
   AGENT: {
+    /** Browser-session nonce; session-only, never persisted or synced. */
+    UNATTENDED_BROWSER_SESSION: "agent-unattended-browser-session",
     /** Whether the experimental browser agent is offered to the chat model at all. */
     ENABLED: "agent-enabled-v1",
     /** Whether the one-time "experimental browser agent" announcement was closed. */

@@ -27,6 +27,7 @@ import {
   INBODY_RULES,
   isSiteChallenge,
   scoreGoogleSearch,
+  scoreHnTopStory,
   scoreInbodyAnswer,
   scoreWikipediaRelease,
   scoreWikiSearch
@@ -480,6 +481,11 @@ try {
         .evaluate(() => {
           const firstResultTitle =
             document.querySelector("#search a h3")?.innerText?.trim() ?? ""
+          const storyTitles = [
+            ...document.querySelectorAll(".athing .titleline > a")
+          ]
+            .slice(0, 2)
+            .map((link) => link.innerText?.trim() ?? "")
           const releaseRow = [
             ...document.querySelectorAll("table.infobox tr")
           ].find(
@@ -487,11 +493,16 @@ try {
           )
           return {
             firstResultTitle,
+            storyTitles,
             infoboxRelease:
               releaseRow?.querySelector("td")?.innerText?.trim() ?? ""
           }
         })
-        .catch(() => ({ firstResultTitle: "", infoboxRelease: "" }))
+        .catch(() => ({
+          firstResultTitle: "",
+          storyTitles: [],
+          infoboxRelease: ""
+        }))
       const field = await fixture
         .evaluate(() => ({
           value: document.querySelector("select")?.value,
@@ -543,6 +554,17 @@ try {
             })
             success = scored.success
             predicate = `landed:google/search?q=youtube (${scored.reason})`
+          } else if (kind === "hn_top") {
+            /**
+             * No fallback to the span rule: that scores answer text alone,
+             * and a page the run left unread has no ranking to judge by.
+             */
+            const scored = scoreHnTopStory({
+              answer,
+              storyTitles: pageFields.storyTitles
+            })
+            success = scored.success
+            predicate = `top-story-title (${scored.reason})`
           } else {
             const rule = INBODY_RULES[kind] ?? {
               minWords: 3,

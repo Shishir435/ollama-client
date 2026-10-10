@@ -53,6 +53,7 @@ export const AGENT_PAUSE_REASONS = [
   "user",
   "panel_closed",
   "browser_disconnected",
+  "worker_lost",
   "unresolved_effect",
   "takeover",
   /** The model asked the user something and cannot proceed until answered. */
@@ -1072,6 +1073,24 @@ export type AgentPreviousRun = z.infer<typeof AgentPreviousRunSchema>
 export const AgentGoalAuthorSchema = z.enum(["model", "model_after_page"])
 export type AgentGoalAuthor = z.infer<typeof AgentGoalAuthorSchema>
 
+export const AgentPendingSupervisionSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("approval"),
+      request: AgentApprovalRequestSchema
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("takeover"),
+      request: AgentTakeoverRequestSchema
+    })
+    .strict()
+])
+export type AgentPendingSupervisionRecord = z.infer<
+  typeof AgentPendingSupervisionSchema
+>
+
 export const AgentRunStateSchema = z
   .object({
     version: z.literal(1),
@@ -1079,6 +1098,22 @@ export const AgentRunStateSchema = z
     goal: z.string().min(1).max(20_000),
     status: AgentRunStatusSchema,
     pauseReason: AgentPauseReasonSchema.optional(),
+    /** Retains an unanswered human request over worker loss; it never authorizes replay. */
+    humanDecision: AgentPendingSupervisionSchema.optional(),
+    /** Explicit user consent for this run, bounded to the scope shown when enabled. */
+    unattended: z
+      .object({
+        approvedAt: z.number().int().nonnegative(),
+        browserSessionId: z.string().min(1).max(100),
+        origins: z.array(z.string().min(1)).max(MAX_AGENT_ALLOWED_ORIGINS),
+        tabIds: z
+          .array(z.number().int().nonnegative())
+          .max(MAX_AGENT_SCOPED_TABS),
+        providerId: z.string().min(1),
+        modelId: z.string().min(1)
+      })
+      .strict()
+      .optional(),
     stepCount: z.number().int().nonnegative().max(MAX_AGENT_OBSERVATIONS),
     observationCount: z.number().int().nonnegative(),
     controlledTabId: z.number().int().nonnegative(),

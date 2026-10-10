@@ -1,5 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest"
-import { resolveCodexConfig } from "../config.js"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import {
+  codexMcpIsolation,
+  createCodexMcpIsolationLoader,
+  resolveCodexConfig
+} from "../config.js"
 
 const originalEnv = { ...process.env }
 
@@ -49,5 +53,94 @@ describe("resolveCodexConfig", () => {
     expect(() =>
       resolveCodexConfig({ options: { CODEX_WEB_SEARCH_MODE: "surprise" } })
     ).toThrow("Invalid Codex web-search mode 'surprise'")
+  })
+})
+
+describe("codexMcpIsolation", () => {
+  it("switches off every MCP server the merged config lists", () => {
+    expect(
+      codexMcpIsolation({
+        config: { mcp_servers: { node_repl: {}, "computer-use": {} } },
+        origins: {}
+      })
+    ).toEqual({
+      "mcp_servers.node_repl.enabled": false,
+      "mcp_servers.computer-use.enabled": false
+    })
+  })
+
+  it.each([
+    undefined,
+    null,
+    {},
+    { config: {} },
+    { config: { mcp_servers: [] } },
+    { config: { mcp_servers: "x" } }
+  ])("adds nothing for a config with no server table: %j", (read) => {
+    expect(codexMcpIsolation(read)).toEqual({})
+  })
+})
+
+describe("createCodexMcpIsolationLoader", () => {
+  const listed = { config: { mcp_servers: { node_repl: {} } } }
+
+  it("recovers after a failed start instead of keeping the failure", async () => {
+    const start = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error("Codex app-server exited"))
+      .mockResolvedValue(undefined)
+    const load = createCodexMcpIsolationLoader({
+      start,
+      read: async () => listed,
+      log: vi.fn()
+    })
+    expect(await load()).toEqual({})
+    expect(await load()).toEqual({ "mcp_servers.node_repl.enabled": false })
+    expect(start).toHaveBeenCalledTimes(2)
+  })
+
+  it("shares one listing between concurrent turns and keeps a success", async () => {
+    const read = vi.fn(async () => listed)
+    const load = createCodexMcpIsolationLoader({
+      start: async () => undefined,
+      read,
+      log: vi.fn()
+    })
+    await Promise.all([load(), load(), load()])
+    await load()
+    expect(read).toHaveBeenCalledTimes(1)
+  })
+
+  it("asks again after a failed listing", async () => {
+    const read = vi
+      .fn<() => Promise<unknown>>()
+      .mockRejectedValueOnce(new Error("config/read failed"))
+      .mockResolvedValue(listed)
+    const load = createCodexMcpIsolationLoader({
+      start: async () => undefined,
+      read,
+      log: vi.fn()
+    })
+    expect(await load()).toEqual({})
+    expect(await load()).toEqual({ "mcp_servers.node_repl.enabled": false })
+  })
+
+  it("lists again once the cache expires", async () => {
+    let now = 0
+    const read = vi.fn(async () => listed)
+    const load = createCodexMcpIsolationLoader({
+      start: async () => undefined,
+      read,
+      log: vi.fn(),
+      now: () => now,
+      ttlMs: 10
+    })
+    await load()
+    now = 9
+    await load()
+    expect(read).toHaveBeenCalledTimes(1)
+    now = 10
+    await load()
+    expect(read).toHaveBeenCalledTimes(2)
   })
 })

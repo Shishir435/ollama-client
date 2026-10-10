@@ -1156,10 +1156,19 @@ const assertReadable = async (
   url: string | undefined
 ): Promise<void> => {
   if ((await adapter.classifyAccess(url)) !== "ok") {
-    throw new Error("Agent tab access changed before execution")
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.accessChanged)
+    )
   }
 }
 
+/**
+ * Every check here runs before any input is sent, so a page that moved
+ * between the look and the act is a clean refusal, never an unknown effect.
+ * A plain error here read as "it may have landed": a `wait` whose page
+ * navigated to exactly the article it was waiting for paused the run for a
+ * human, after the run had already succeeded.
+ */
 const assertSource = async (
   effect: AuthorizedAgentEffect,
   adapter: AgentCommandExecutorAdapter,
@@ -1171,7 +1180,9 @@ const assertSource = async (
     !exactUrl(tab.url, effect.sourceUrl) ||
     !exactOrigin(tab.url, effect.sourceOrigin)
   ) {
-    throw new Error("Agent source tab changed before execution")
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.sourceChanged, "tab")
+    )
   }
   await assertReadable(adapter, tab.url)
   if (!requireDocument) return
@@ -1184,7 +1195,9 @@ const assertSource = async (
     frame.documentId !== effect.snapshotIdentity.documentId ||
     !exactUrl(frame.url, effect.sourceUrl)
   ) {
-    throw new Error("Agent source document changed before execution")
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.sourceChanged, "document")
+    )
   }
   await assertTargetFrame(effect, adapter)
 }
@@ -1205,7 +1218,7 @@ const assertTargetFrame = async (
   const frame = await adapter.getFrame(target.tabId, target.frameId)
   if (!frame || frame.documentId !== target.documentId) {
     throw new AgentEffectNotAppliedError(
-      "Agent target frame changed before execution"
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.sourceChanged, "frame")
     )
   }
   await assertReadable(

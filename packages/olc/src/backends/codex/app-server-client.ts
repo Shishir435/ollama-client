@@ -28,6 +28,7 @@ export class CodexAppServerClient {
   private readonly cwd: string
   private readonly log: ProxyLogger
   private readonly requestTimeoutMs: number
+  private readonly configOverrides: readonly string[]
   private process: ChildProcessWithoutNullStreams | null = null
   private startPromise: Promise<void> | null = null
   private nextId = 1
@@ -41,17 +42,21 @@ export class CodexAppServerClient {
     executable,
     cwd,
     log,
-    requestTimeoutMs = 30_000
+    requestTimeoutMs = 30_000,
+    configOverrides = []
   }: {
     executable: string
     cwd: string
     log: ProxyLogger
     requestTimeoutMs?: number
+    /** `key=value` pairs passed to the app-server as `-c` overrides. */
+    configOverrides?: readonly string[]
   }) {
     this.executable = executable
     this.cwd = cwd
     this.log = log
     this.requestTimeoutMs = requestTimeoutMs
+    this.configOverrides = configOverrides
   }
 
   start(): Promise<void> {
@@ -64,13 +69,21 @@ export class CodexAppServerClient {
   }
 
   private async startInner(): Promise<void> {
-    const child = spawn(this.executable, ["app-server", "--stdio"], {
-      cwd: this.cwd,
-      // npm exposes command-line packages as `.cmd` shims on Windows. Node cannot
-      // execute those directly, so let cmd.exe resolve the operator-selected binary.
-      shell: process.platform === "win32",
-      stdio: ["pipe", "pipe", "pipe"]
-    })
+    const child = spawn(
+      this.executable,
+      [
+        "app-server",
+        "--stdio",
+        ...this.configOverrides.flatMap((override) => ["-c", override])
+      ],
+      {
+        cwd: this.cwd,
+        // npm exposes command-line packages as `.cmd` shims on Windows. Node cannot
+        // execute those directly, so let cmd.exe resolve the operator-selected binary.
+        shell: process.platform === "win32",
+        stdio: ["pipe", "pipe", "pipe"]
+      }
+    )
     this.process = child
 
     const stdout = readline.createInterface({ input: child.stdout })

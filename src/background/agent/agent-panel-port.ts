@@ -107,6 +107,10 @@ const FAILURES: Record<AgentRunFailureReason, { key: string; text: string }> = {
     key: "agent.error.steer_unavailable",
     text: "The run is not working right now, so it could not take that. Pause it and correct it instead."
   },
+  consent_stale: {
+    key: "agent.error.consent_stale",
+    text: "The run moved on since that choice was shown, so it was not saved. Check the run and choose again."
+  },
   unknown_run: UNKNOWN_FAILURE
 }
 
@@ -277,6 +281,13 @@ export const registerAgentPanelPort = (
           )
           return
         }
+        case "agent_set_unattended":
+          await service.setUnattended(
+            command.runId,
+            command.pausedAt,
+            command.enabled
+          )
+          return
         case "agent_pause":
           await service.pause(command.runId)
           return

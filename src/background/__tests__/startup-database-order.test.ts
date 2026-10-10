@@ -198,6 +198,21 @@ afterEach(async () => {
 })
 
 describe("background database startup", () => {
+  it("supervises unattended continuation only after all workflow recovery settles", async () => {
+    const recovery = vi.fn(async (signal: AbortSignal) => {
+      signal.throwIfAborted()
+      expect(finished).toHaveLength(TASK_NAMES.length)
+    })
+    const { initializeBackgroundStartup } = await loadStartup()
+    const ready = initializeBackgroundStartup(Promise.resolve(), recovery)
+    await settle()
+    expect(recovery).not.toHaveBeenCalled()
+    releaseAll()
+    await ready
+    expect(recovery).toHaveBeenCalledOnce()
+    expect(recovery.mock.calls[0][0]).toBeInstanceOf(AbortSignal)
+  })
+
   it("touches no database until the persistence owner is ready", async () => {
     let markReady: () => void = () => undefined
     const persistenceReady = new Promise<void>((resolve) => {

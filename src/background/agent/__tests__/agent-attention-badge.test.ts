@@ -189,3 +189,37 @@ describe("the Agent's toolbar mark", () => {
     ])
   })
 })
+
+it("shows RUN for unattended work and keeps the attention mark for a human wait", async () => {
+  let listener: (id: string) => void = () => undefined
+  let current = {
+    ...state("deciding"),
+    unattended: {
+      approvedAt: 1,
+      browserSessionId: "browser-1",
+      origins: ["https://example.com"],
+      tabIds: [7],
+      providerId: "ollama",
+      modelId: "qwen3"
+    }
+  }
+  const action = { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn() }
+  const dispose = registerAgentAttentionBadge({
+    service: {
+      latestRunId: async () => current.id,
+      subscribe: (next) => {
+        listener = next
+        return () => undefined
+      }
+    },
+    action,
+    readRun: async () => current
+  })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(action.setBadgeText).toHaveBeenLastCalledWith({ text: "RUN" })
+  current = { ...current, status: "awaiting_approval" }
+  listener(current.id)
+  await vi.advanceTimersByTimeAsync(300)
+  expect(action.setBadgeText).toHaveBeenLastCalledWith({ text: "!" })
+  dispose()
+})

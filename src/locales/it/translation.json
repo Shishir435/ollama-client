@@ -67,7 +67,8 @@
       "unknown": "Agent non ha potuto completare la richiesta.",
       "disconnected": "L’agente si stava riconnettendo e non l’ha ricevuto. Riprova.",
       "turn_has_run": "Questo messaggio ha già avviato un’attività nel browser.",
-      "steer_unavailable": "L’esecuzione non sta lavorando ora e non ha potuto recepirlo. Mettila in pausa e correggila."
+      "steer_unavailable": "L’esecuzione non sta lavorando ora e non ha potuto recepirlo. Mettila in pausa e correggila.",
+      "consent_stale": "L’esecuzione è andata avanti da quando è stata mostrata questa scelta, quindi non è stata salvata. Controlla l’esecuzione e scegli di nuovo."
     },
     "failure": {
       "budget_exhausted": "L'esecuzione ha esaurito il budget di passi. Restringi l'obiettivo o riparti dallo stato attuale della pagina.",
@@ -275,6 +276,13 @@
       "send": "Invia all’agente",
       "queued": "Inviato. L’agente lo leggerà al prossimo passaggio.",
       "heard": "L’agente ha recepito la tua correzione."
+    },
+    "worker_lost": "L’esecuzione nel browser è stata interrotta. Per un ripristino sicuro servono la sessione del browser e la pagina autorizzate in origine; altrimenti riprendi manualmente.",
+    "unattended": {
+      "label": "Continuare questa attività con il pannello chiuso",
+      "help": "Riprendi dopo aver attivato questa opzione. Verranno usati le schede, i siti e il provider attuali. Le approvazioni, l’accesso e i CAPTCHA richiedono ancora il tuo intervento. Interrompi l’attività dal menu contestuale della pagina o con la scorciatoia da tastiera per arrestare l’agente. La chiusura del browser e la sospensione possono interrompere il lavoro.",
+      "active": "La continuazione con il pannello chiuso è attiva per questa attività. Le nuove attività richiedono un nuovo consenso.",
+      "decision_interrupted": "Questa decisione è ancora in attesa. Riprendi per ricontrollare la pagina e richiedere una nuova decisione:"
     }
   },
   "common": {

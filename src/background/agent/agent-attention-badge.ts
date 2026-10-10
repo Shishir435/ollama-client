@@ -50,7 +50,7 @@ export const registerAgentAttentionBadge = (input: {
   const readRun =
     input.readRun ??
     (async (runId: string) => (await getAgentRun(runId))?.state)
-  let shown: boolean | undefined
+  let shown: string | undefined
   let pendingRunId: string | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -59,18 +59,35 @@ export const registerAgentAttentionBadge = (input: {
    * remembered anyway would stop every later announcement for the same state
    * from trying again, and the mark would stay wrong until the state changed.
    */
-  const show = async (needsUser: boolean) => {
-    if (shown === needsUser) return
-    await input.action.setBadgeText({ text: needsUser ? "!" : "" })
-    if (needsUser)
-      await input.action.setBadgeBackgroundColor({ color: "#d97706" })
-    shown = needsUser
+  const show = async (text: string) => {
+    if (shown === text) return
+    await input.action.setBadgeText({ text })
+    if (text)
+      await input.action.setBadgeBackgroundColor({
+        color: text === "!" ? "#d97706" : "#7c3aed"
+      })
+    shown = text
   }
 
   const refresh = async (runId: string | undefined) => {
     try {
       const state = runId ? await readRun(runId) : undefined
-      await show(state !== undefined && WAITS_ON_USER.includes(state.status))
+      await show(
+        !state
+          ? ""
+          : WAITS_ON_USER.includes(state.status)
+            ? "!"
+            : state.unattended &&
+                ![
+                  "completed",
+                  "partial",
+                  "failed",
+                  "cancelled",
+                  "cancelling"
+                ].includes(state.status)
+              ? "RUN"
+              : ""
+      )
     } catch (error) {
       logger.warn("Agent attention badge could not be updated", "Agent", {
         name: error instanceof Error ? error.name : typeof error

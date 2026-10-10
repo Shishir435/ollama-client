@@ -9,6 +9,12 @@ export interface StorageKeyMetadata {
 }
 
 export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
+  [STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION]: {
+    key: STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION,
+    scope: "device-local",
+    reason:
+      "Session-only browser identity for unattended consent. Must stay in chrome.storage.session, never local or sync: browser shutdown must invalidate consent before tab IDs can be reused."
+  },
   [STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED]: {
     key: STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED,
     scope: "sync-safe",

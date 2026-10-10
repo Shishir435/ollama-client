@@ -1,9 +1,8 @@
 import { z } from "zod"
 import {
-  AgentApprovalRequestSchema,
+  AgentPendingSupervisionSchema,
   AgentRunStateSchema,
   AgentStepStatusSchema,
-  AgentTakeoverRequestSchema,
   MAX_AGENT_ANSWER_CHARS,
   MAX_AGENT_OBSERVATIONS,
   MAX_AGENT_ROW_CONTEXT_CHARS,
@@ -11,6 +10,9 @@ import {
 } from "./agent"
 import { AgentCommandSchema } from "./agent-command"
 import { AgentStepTelemetrySchema } from "./agent-telemetry"
+
+export type { AgentPendingSupervisionRecord } from "./agent"
+export { AgentPendingSupervisionSchema } from "./agent"
 
 export const AGENT_PANEL_PROTOCOL_VERSION = 1 as const
 
@@ -82,24 +84,6 @@ export const AgentStepRecordSchema = z
   })
   .strict()
 export type AgentStepRecord = z.infer<typeof AgentStepRecordSchema>
-
-export const AgentPendingSupervisionSchema = z.discriminatedUnion("kind", [
-  z
-    .object({
-      kind: z.literal("approval"),
-      request: AgentApprovalRequestSchema
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal("takeover"),
-      request: AgentTakeoverRequestSchema
-    })
-    .strict()
-])
-export type AgentPendingSupervisionRecord = z.infer<
-  typeof AgentPendingSupervisionSchema
->
 
 /**
  * Whether the selected model can drive a run at all, and what it will be able
@@ -244,6 +228,11 @@ const AnswerSchema = RunScopedSchema.extend({
  */
 export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
   RunScopedSchema.extend({ type: z.literal("agent_pause") }).strict(),
+  RunScopedSchema.extend({
+    type: z.literal("agent_set_unattended"),
+    enabled: z.boolean(),
+    pausedAt: z.number().int().nonnegative()
+  }).strict(),
   RunScopedSchema.extend({
     type: z.literal("agent_resume"),
     text: z.string().min(1).max(MAX_AGENT_ANSWER_CHARS).optional(),

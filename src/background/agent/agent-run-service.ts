@@ -29,7 +29,8 @@ import {
   getAgentRunForResultMessage,
   getLatestAgentRun,
   listAgentSteps,
-  listIncompleteAgentRuns
+  listIncompleteAgentRuns,
+  setAgentRunUnattended
 } from "@/lib/repositories/agent-runs"
 import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
@@ -51,6 +52,7 @@ import { createAgentSupervision } from "./agent-supervision"
 import type { AgentTabHistory } from "./agent-tab-history"
 import { createAgentTabHistory } from "./agent-tab-history"
 import { traceAgentRun } from "./agent-trace"
+import { agentBrowserSessionId } from "./agent-unattended"
 
 export interface StartAgentRunInput {
   goal: string
@@ -116,6 +118,12 @@ export interface AgentRunService {
     correction?: { text: string; pausedAt: number }
   ): Promise<void>
   stop(runId: string): Promise<void>
+  setUnattended(
+    runId: string,
+    pausedAt: number,
+    enabled: boolean
+  ): Promise<void>
+  recoverUnattended(signal?: AbortSignal): Promise<void>
   /**
    * A correction for the working run's next decision, without pausing it.
    * Refused (`steer_unavailable`) when the run is not working in this worker.
@@ -256,6 +264,7 @@ export type AgentRunFailureReason =
   | "permission_denied"
   | "tab_unsupported"
   | "steer_unavailable"
+  | "consent_stale"
   | "unknown_run"
 
 /**
@@ -284,6 +293,15 @@ const originOf = (url: string): string => {
     )
   }
   return parsed.origin
+}
+
+/** A changed or recycled tab is ineligible, not a startup failure. */
+const unattendedTabOrigin = (url: string | undefined): string | undefined => {
+  try {
+    return originOf(url ?? "")
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -377,6 +395,8 @@ export const createAgentRunService = (input?: {
   readRunForMessage?: typeof getAgentRunForResultMessage
   readLatestRun?: typeof getLatestAgentRun
   readIncompleteRuns?: typeof listIncompleteAgentRuns
+  browserSessionId?: () => Promise<string>
+  writeUnattended?: typeof setAgentRunUnattended
   readSteps?: typeof listAgentSteps
   buildController?: BuildAgentController
   hasPerception?: () => Promise<boolean>
@@ -616,6 +636,21 @@ export const createAgentRunService = (input?: {
     )
   }
 
+  const panelFreeRuns = new Set<string>()
+  const withinUnattendedScope = (state: AgentRunState): boolean => {
+    const consent = state.unattended
+    return Boolean(
+      consent &&
+        consent.providerId === state.providerId &&
+        consent.modelId === state.modelId &&
+        consent.tabIds.includes(state.controlledTabId) &&
+        (state.scopedTabIds ?? [state.controlledTabId]).every((id) =>
+          consent.tabIds.includes(id)
+        ) &&
+        state.allowedOrigins.every((origin) => consent.origins.includes(origin))
+    )
+  }
+
   const releaseBrowserSessionFor = async (state: AgentRunState) => {
     if (holdsDialogThroughPause(state)) return
     if (
@@ -630,6 +665,10 @@ export const createAgentRunService = (input?: {
       ].includes(state.status)
     ) {
       await detachBrowserSession(state.id)
+      return
+    }
+    if (panelFreeRuns.has(state.id) && !withinUnattendedScope(state)) {
+      await controllers.get(state.id)?.requestPause(state.id, "panel_closed")
       return
     }
     await followControlledTab(state)
@@ -682,12 +721,14 @@ export const createAgentRunService = (input?: {
     interruptedBrowserSessions.delete(runId)
     if (state.controlledTabId >= 0) history.forget(state.controlledTabId)
     controllers.delete(runId)
+    panelFreeRuns.delete(runId)
     if (activeRunId === runId) activeRunId = undefined
   }
 
   /** Assembled on first use, and reused for the life of the run. */
   const controllerFor = async (
-    state: AgentRunState
+    state: AgentRunState,
+    controllerPersistence = persistence
   ): Promise<AgentController> => {
     const existing = controllers.get(state.id)
     if (existing) return existing
@@ -699,7 +740,7 @@ export const createAgentRunService = (input?: {
       sessions,
       browserSessions,
       history,
-      persistence,
+      persistence: controllerPersistence,
       supervision,
       allowExperimentalModel: experimental.has(state.id),
       now
@@ -1083,8 +1124,19 @@ export const createAgentRunService = (input?: {
     },
     awaitSettled,
     async pause(runId, reason = "user") {
+      let continuing = false
       try {
         const state = await loadRunning(runId)
+        if (
+          reason === "panel_closed" &&
+          state.unattended &&
+          state.status !== "paused" &&
+          withinUnattendedScope(state)
+        ) {
+          panelFreeRuns.add(runId)
+          continuing = true
+          return
+        }
         if (state.status !== "paused") {
           await drive(state, (controller) =>
             controller.requestPause(runId, reason)
@@ -1094,7 +1146,8 @@ export const createAgentRunService = (input?: {
         // A panel can close after an earlier user/question pause already held
         // a dialog. That pause cannot transition again, but the last panel
         // must still release the browser it can no longer supervise.
-        if (reason === "panel_closed") await detachBrowserSession(runId)
+        if (reason === "panel_closed" && !continuing)
+          await detachBrowserSession(runId)
       }
     },
     async resume(runId, correction) {
@@ -1112,12 +1165,140 @@ export const createAgentRunService = (input?: {
           state.updatedAt !== correction.pausedAt)
       )
         return
+      panelFreeRuns.delete(runId)
       if (!(await attachBrowserSession(state))) return
       await drive(state, (controller) =>
         correction
           ? controller.resume(runId, correction)
           : controller.resume(runId)
       )
+    },
+    async setUnattended(runId, pausedAt, enabled) {
+      if (
+        !(await (input?.writeUnattended ?? setAgentRunUnattended)(
+          runId,
+          pausedAt,
+          enabled,
+          await (input?.browserSessionId ?? agentBrowserSessionId)()
+        ))
+      )
+        throw new AgentRunError(
+          "consent_stale",
+          "Consent requires the current user pause"
+        )
+      announce(runId)
+    },
+    async recoverUnattended(signal) {
+      signal?.throwIfAborted()
+      const incomplete = (await readIncompleteRuns()).filter(
+        (run) => !isTerminalAgentStatus(run.status)
+      )
+      if (incomplete.length !== 1) return
+      const candidates = incomplete.filter(
+        (run) =>
+          run.state?.unattended &&
+          run.state.status === "paused" &&
+          run.state.pauseReason === "worker_lost"
+      )
+      if (candidates.length !== 1 || activeRunId) return
+      const state = await loadRunning(candidates[0].id)
+      const consent = state.unattended
+      if (
+        !consent ||
+        state.humanDecision ||
+        state.status !== "paused" ||
+        state.pauseReason !== "worker_lost" ||
+        consent.browserSessionId !==
+          (await (input?.browserSessionId ?? agentBrowserSessionId)()) ||
+        consent.providerId !== state.providerId ||
+        consent.modelId !== state.modelId ||
+        !consent.tabIds.includes(state.controlledTabId) ||
+        !(state.scopedTabIds ?? [state.controlledTabId]).every((tabId) =>
+          consent.tabIds.includes(tabId)
+        ) ||
+        !state.allowedOrigins.every((origin) =>
+          consent.origins.includes(origin)
+        ) ||
+        !(await hasPerception())
+      )
+        return
+      const tab = await getTab(state.controlledTabId)
+      const origin = unattendedTabOrigin(tab?.url)
+      if (
+        !tab?.url ||
+        !origin ||
+        !consent.origins.includes(origin) ||
+        !state.allowedOrigins.includes(origin) ||
+        (await classifyAccess(tab.url)) !== "ok"
+      )
+        return
+      signal?.throwIfAborted()
+      if (activeRunId) return
+      activeRunId = state.id
+      lastRunId = state.id
+      try {
+        if (!(await attachBrowserSession(state))) {
+          if (activeRunId === state.id) activeRunId = undefined
+          return
+        }
+        signal?.throwIfAborted()
+        // Startup owns revalidation and the first durable resume write. After
+        // that checkpoint the run service owns the bounded execution loop;
+        // a long authorized task must not inherit startup's two-minute timer.
+        let handedOff = false
+        let release: () => void = () => undefined
+        const checkpoint = new Promise<void>((resolve) => {
+          release = resolve
+        })
+        const check = () => {
+          if (!handedOff) signal?.throwIfAborted()
+        }
+        const handoff = () => {
+          // Cancellation was checked before the write. Once it commits, the
+          // run service must take ownership even if startup expired meanwhile;
+          // rejecting here would strand an observing row without a controller.
+          handedOff = true
+          release()
+        }
+        const controller = await controllerFor(state, {
+          ...persistence,
+          async claim(input) {
+            check()
+            const result = await persistence.claim(input)
+            if (result.claimed) handoff()
+            return result
+          },
+          async transition(input) {
+            check()
+            const result = await persistence.transition(input)
+            if (result.transitioned) handoff()
+            return result
+          },
+          async appendStep(input) {
+            check()
+            await persistence.appendStep(input)
+          }
+        })
+        check()
+        // Resume observes afresh and never replays a saved command. Await the
+        // first checkpoint (or a no-op/failure), not the entire user task.
+        panelFreeRuns.add(state.id)
+        const running = controller
+          .resume(state.id)
+          .finally(() => settle(state.id))
+        await Promise.race([checkpoint, running])
+        void running.catch((error: unknown) => {
+          logger.warn("Unattended recovery stopped", "Agent", {
+            name: error instanceof Error ? error.name : typeof error
+          })
+        })
+      } catch (error) {
+        await detachBrowserSession(state.id)
+        controllers.delete(state.id)
+        panelFreeRuns.delete(state.id)
+        if (activeRunId === state.id) activeRunId = undefined
+        throw error
+      }
     },
     stop: stopRun,
     async steer(runId, text) {
