@@ -98,14 +98,18 @@ export const scoreInbodyAnswer = (answer, body, rule) => {
  * and not the #2 one, so a pasted list of stories is not an answer, and
  * "Hacker News" holds neither.
  */
+/**
+ * "can't" and "won't" normalize to two words; matched as a pair so an
+ * affirmative "I can confirm" is still an answer.
+ */
+const NEGATED_VERBS = / (?:can|won|don|couldn|isn|wasn) t /
+
 /** Room for "The top story on Hacker News is", nothing more. */
 const HN_ANSWER_EXTRA_WORDS = 10
 const HEDGES = new Set([
   "not",
   "no",
   "cannot",
-  "can",
-  "t",
   "guess",
   "maybe",
   "perhaps",
@@ -163,7 +167,8 @@ export const scoreHnTopStory = ({ answer, storyTitles }) => {
   const rest = said.replace(` ${first} `, " ").trim().split(" ").filter(Boolean)
   if (
     rest.length > HN_ANSWER_EXTRA_WORDS ||
-    rest.some((word) => HEDGES.has(word))
+    rest.some((word) => HEDGES.has(word)) ||
+    NEGATED_VERBS.test(` ${rest.join(" ")} `)
   )
     return { success: false, reason: "not_an_answer" }
   return { success: true, reason: "top_story_title" }

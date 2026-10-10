@@ -127,7 +127,12 @@ describe("real-site scorer", () => {
         "I cannot confirm the top story; Cloudflare acquires Deno is a guess",
         "not_an_answer"
       ],
-      ["It might be Cloudflare acquires Deno", "not_an_answer"]
+      ["It might be Cloudflare acquires Deno", "not_an_answer"],
+      [
+        "I can confirm the top story is Cloudflare acquires Deno",
+        "top_story_title"
+      ],
+      ["I can't confirm it, but Cloudflare acquires Deno", "not_an_answer"]
     ])
       assert.equal(
         scoreHnTopStory({ answer, storyTitles }).reason,
