@@ -642,6 +642,63 @@ describe("grounded evidence ledger", () => {
     ).toEqual([])
   })
 
+  it("matches supplied text only on word edges, never inside another word", () => {
+    const field = (value: string) => ({
+      ...observation,
+      elements: [
+        {
+          ref: "e1",
+          frameId: 0,
+          tag: "input",
+          name: "Coupon",
+          value,
+          visible: true,
+          enabled: true,
+          editable: true,
+          sensitive: false
+        }
+      ]
+    })
+    const read = (evidence: string) => ({
+      type: "complete" as const,
+      summary: "Done",
+      outcomes: [{ id: "r1", met: true, evidence }]
+    })
+    const kinds = (value: string, evidence: string) =>
+      agentCompletionEvidence(
+        state,
+        field(value),
+        read(evidence),
+        [],
+        "answer",
+        picture
+      ).map((record) => record.kind)
+    /** "AB-12" compacts into "Lab 12", but not on a word edge. */
+    expect(kinds("AB-12", "Lab 12 is open")).toEqual(["visual_observation"])
+    /** Whole words still match, joined or split. */
+    expect(kinds("KV305", "The code is KV 305")).toEqual([])
+    expect(kinds("KV 305", "Code KV-305")).toEqual([])
+    /** A quotation is held to the same edges. */
+    expect(
+      groundAgentQuotes(
+        state,
+        observation,
+        [{ quote: "Plan A costs $12" }],
+        ["AN-A"],
+        "x"
+      ).map((record) => record.quote)
+    ).toEqual(["Plan A costs $12"])
+    expect(
+      groundAgentQuotes(
+        state,
+        observation,
+        [{ quote: "Plan A costs $12" }],
+        ["plan-a"],
+        "x"
+      )
+    ).toEqual([])
+  })
+
   it("keeps screenshot answers alongside unrelated text for the same requirement", () => {
     const decision: Extract<AgentDecision, { type: "complete" }> = {
       type: "complete",

@@ -117,25 +117,53 @@ const quoteSource = (
   return source
 }
 
+interface CompactClaim {
+  text: string
+  /** Offsets in `text` where a word starts or ends. */
+  edges: ReadonlySet<number>
+}
+
 /**
- * Letters and digits, plus a point or comma between two digits. A typed value
- * reworded by spacing, case or punctuation — "KV-305" reported as "KV 305" —
- * is still the run's own text, but a decimal or grouping mark is part of the
- * number: "1.2" read off a chart is not the "12" a field holds.
+ * The words of a claim, lowercased and joined with nothing between them. A
+ * word is a run of letters and digits, and a point or comma between two
+ * digits stays inside it: "1.2" read off a chart is not the "12" a field
+ * holds. Spacing, case and other punctuation are dropped, so "KV-305"
+ * reported as "KV 305" is the same text.
  */
-const compactClaim = (text: string): string =>
-  text
-    .toLocaleLowerCase()
-    .replaceAll(/(?<!\p{N})[.,]|[.,](?!\p{N})/gu, " ")
-    .replaceAll(/[^\p{L}\p{N}.,]+/gu, "")
+const compactClaim = (text: string): CompactClaim => {
+  const words =
+    text.toLocaleLowerCase().match(/[\p{L}\p{N}]+(?:[.,]\p{N}+)*/gu) ?? []
+  const edges = new Set<number>([0])
+  let length = 0
+  for (const word of words) {
+    length += word.length
+    edges.add(length)
+  }
+  return { text: words.join(""), edges }
+}
+
+/**
+ * Whether `part` occurs in `whole` starting and ending on word edges. Joined
+ * text alone would find "ab12" inside "Lab 12 is open"; edges keep a supplied
+ * value from matching inside an unrelated word while "kv305" still matches
+ * the words "KV 305".
+ */
+const occursAtEdges = (whole: CompactClaim, part: string): boolean => {
+  for (
+    let at = whole.text.indexOf(part);
+    at >= 0;
+    at = whole.text.indexOf(part, at + 1)
+  )
+    if (whole.edges.has(at) && whole.edges.has(at + part.length)) return true
+  return false
+}
 
 /**
  * Whether a claim is text the run supplied rather than read: words it was
  * given or typed, or what an editable field now holds. Either way the page is
  * only repeating the run, so it can prove no read — whether the claim arrives
- * as a quotation or as something read off a screenshot. A value with nothing
- * left once compacted, such as a field holding only spaces, supplies nothing
- * and excludes nothing.
+ * as a quotation or as something read off a screenshot. A value with no words,
+ * such as a field holding only spaces, supplies nothing and excludes nothing.
  */
 const runSupplied = (
   claim: string,
@@ -143,11 +171,12 @@ const runSupplied = (
   observation: AgentObservation
 ): boolean => {
   const needle = compactClaim(claim)
-  if (!needle) return false
+  if (!needle.text) return false
   const supplies = (text: string) => {
     const value = compactClaim(text)
     return (
-      value.length > 0 && (needle.includes(value) || value.includes(needle))
+      value.text.length > 0 &&
+      (occursAtEdges(needle, value.text) || occursAtEdges(value, needle.text))
     )
   }
   return (
