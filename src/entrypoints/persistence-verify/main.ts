@@ -30,6 +30,7 @@ import {
   createAgentRun,
   getAgentRun,
   listAgentSteps,
+  setAgentRunUnattended,
   transitionAgentRun
 } from "@/lib/repositories/agent-runs"
 import * as chatHistory from "@/lib/repositories/sqlite-chat-history"
@@ -789,6 +790,59 @@ const verifyApi = {
     }
   },
 
+  /** Valid production consent for a real-tab, read-only worker continuation gate. */
+  async seedSafeUnattendedAgentRun(
+    runId: string,
+    origin: string
+  ): Promise<void> {
+    await writeSetting(SETTINGS.AGENT_ENABLED, true)
+    await ProviderManager.updateProviderConfig(ProviderId.OLLAMA, {
+      enabled: true,
+      baseUrl: origin
+    })
+    const tab = await browser.tabs.create({ url: origin, active: true })
+    if (tab.id === undefined) throw new Error("Fixture tab missing")
+    await waitForTabComplete(tab.id)
+    const sessionKey = STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION
+    const stored = (await browser.storage.session.get(sessionKey))[sessionKey]
+    const sessionId = typeof stored === "string" ? stored : crypto.randomUUID()
+    await browser.storage.session.set({ [sessionKey]: sessionId })
+    const now = Date.now()
+    await createAgentRun({
+      version: 1,
+      id: runId,
+      goal: "Read the fixture status.",
+      status: "submitted",
+      stepCount: 0,
+      observationCount: 0,
+      controlledTabId: tab.id,
+      providerId: "ollama",
+      modelId: "verify-model",
+      allowedOrigins: [origin],
+      createdAt: now,
+      updatedAt: now,
+      requirements: [
+        { id: "r1", text: "Read the fixture status.", kind: "read" }
+      ]
+    })
+    /** A lost compare-and-set fails at its own hop, not as a consent error later. */
+    const step = async (input: Parameters<typeof transitionAgentRun>[0]) => {
+      if (!(await transitionAgentRun(input)).transitioned)
+        throw new Error(`Fixture transition ${input.from}->${input.to} failed`)
+    }
+    await step({ runId, from: "submitted", to: "observing" })
+    await step({
+      runId,
+      from: "observing",
+      to: "pause_requested",
+      patch: { pauseReason: "user", updatedAt: now }
+    })
+    await step({ runId, from: "pause_requested", to: "paused" })
+    if (!(await setAgentRunUnattended(runId, now, true, sessionId)))
+      throw new Error("Fixture consent was not committed")
+    await step({ runId, from: "paused", to: "observing" })
+  },
+
   /**
    * Leaves a run exactly where a worker that died mid-effect leaves one:
    * `executing`, with the step it was applying still open. Nothing is
@@ -803,12 +857,27 @@ const verifyApi = {
    * which pauses whatever incomplete run it finds — so being knocked back to
    * `paused` is expected and is walked forward again rather than failing.
    */
-  async seedInterruptedAgentRun(runId: string): Promise<void> {
+  async seedInterruptedAgentRun(
+    runId: string,
+    unattended = false
+  ): Promise<void> {
     const now = Date.now()
     await createAgentRun({
       version: 1,
       id: runId,
       goal: "Submit the form and report the result.",
+      ...(unattended
+        ? {
+            unattended: {
+              approvedAt: now,
+              browserSessionId: "verify-session",
+              origins: ["https://example.com"],
+              tabIds: [1],
+              providerId: "ollama",
+              modelId: "verify-model"
+            }
+          }
+        : {}),
       status: "submitted",
       stepCount: 1,
       observationCount: 1,

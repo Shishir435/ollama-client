@@ -1,4 +1,5 @@
 import { Bot } from "lucide-react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AGENT_CONTEXT_MAX_TOKENS,
@@ -7,7 +8,8 @@ import {
 import {
   SettingsCard,
   SettingsFormField,
-  SettingsLevelGate
+  SettingsLevelGate,
+  SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
 import {
@@ -17,13 +19,26 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { isEmbeddingModel } from "@/features/model/lib/model-utils"
 import { useSetting } from "@/hooks/use-setting"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { SETTINGS } from "@/lib/storage/settings"
 
 const VISION_MODES = ["auto", "always", "never"] as const
+/** The reviewer select's value for "no separate reviewer". */
+const SAME_AS_RUN = "same"
+
+const reviewerKey = (providerId: string, modelId: string): string =>
+  JSON.stringify([providerId, modelId])
+const PERMISSION_MODES = ["allow_routine", "approve_each"] as const
 
 /**
- * The two knobs a run's cost is actually made of.
+ * What a run may do unasked, and the two knobs its cost is made of.
+ *
+ * The permission mode is read once per start and minted into that run's own
+ * grants, so changing it never widens a run already going, and no choice here
+ * covers a submission, a deletion, a sign-in or a payment.
  *
  * Both were literals in the decision path until now, and both are the kind of
  * thing only the person running it can answer: how much memory this machine
@@ -31,20 +46,107 @@ const VISION_MODES = ["auto", "always", "never"] as const
  * every step or only the ones that need it. `auto` is the default for each
  * and resolves from the model itself, so the controls exist for the cases
  * where the resolution is wrong rather than as a setup step.
+ *
+ * The whole agent is behind an opt-in, off by default, because nothing yet
+ * measures it across models. The other controls stay mounted while it is
+ * off, so a settings search that lands on one still finds it.
  */
 export const AgentSettings = () => {
   const { t } = useTranslation()
+  const [enabled, setEnabled] = useSetting(SETTINGS.AGENT_ENABLED)
   const [contextWindow, setContextWindow] = useSetting(
     SETTINGS.AGENT_CONTEXT_WINDOW
   )
   const [vision, setVision] = useSetting(SETTINGS.AGENT_VISION)
+  const [permissionMode, setPermissionMode] = useSetting(
+    SETTINGS.AGENT_PERMISSION_MODE
+  )
   const isAuto = contextWindow === "auto" || contextWindow === undefined
+  const [reviewer, setReviewer] = useSetting(SETTINGS.AGENT_COMPLETION_REVIEWER)
+  const { models } = useProviderModels()
+  /**
+   * Chat models only, keyed by provider and model together: two providers
+   * can serve a model under the same name, and the review goes to exactly
+   * the one picked. A saved reviewer whose provider no longer lists it stays
+   * selectable, so the control never shows a choice the run will not use.
+   */
+  const reviewers = useMemo(() => {
+    const entries = (models ?? [])
+      .filter(
+        (model) => !isEmbeddingModel(model.name, model.details?.families || [])
+      )
+      .map((model) => {
+        const providerId = model.providerId || DEFAULT_PROVIDER_ID
+        return {
+          key: reviewerKey(providerId, model.name),
+          providerId,
+          modelId: model.name,
+          label: model.providerName
+            ? `${model.name} · ${model.providerName}`
+            : model.name
+        }
+      })
+    if (
+      reviewer &&
+      !entries.some(
+        (entry) =>
+          entry.key === reviewerKey(reviewer.providerId, reviewer.modelId)
+      )
+    )
+      entries.push({
+        key: reviewerKey(reviewer.providerId, reviewer.modelId),
+        providerId: reviewer.providerId,
+        modelId: reviewer.modelId,
+        label: reviewer.modelId
+      })
+    return entries
+  }, [models, reviewer])
+  const reviewerValue = reviewer
+    ? reviewerKey(reviewer.providerId, reviewer.modelId)
+    : SAME_AS_RUN
 
   return (
     <SettingsCard
       icon={Bot}
       title={t("agent.settings.title")}
-      description={t("agent.settings.description")}>
+      description={t("agent.settings.description")}
+      badge={t("agent.experimental_badge")}>
+      <SettingsSwitch
+        id="agent-enabled"
+        label={t("agent.settings.enabled.label")}
+        description={t("agent.settings.enabled.description")}
+        checked={enabled === true}
+        onCheckedChange={setEnabled}
+      />
+
+      <SettingsFormField
+        focusId="agent-permission-mode"
+        label={t("agent.settings.permission_mode.label")}
+        description={t("agent.settings.permission_mode.description")}>
+        <Select
+          value={permissionMode ?? "allow_routine"}
+          onValueChange={(next) =>
+            setPermissionMode(next as (typeof PERMISSION_MODES)[number])
+          }>
+          <SelectTrigger>
+            <SelectValue>
+              {() =>
+                t(
+                  `agent.settings.permission_mode.${permissionMode ?? "allow_routine"}`
+                )
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {PERMISSION_MODES.map((mode) => (
+              <SelectItem key={mode} value={mode}>
+                {t(`agent.settings.permission_mode.${mode}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingsFormField>
+
       <SettingsFormField
         focusId="agent-context-window"
         label={t("agent.settings.context_window.label")}
@@ -56,7 +158,15 @@ export const AgentSettings = () => {
               setContextWindow(next === "auto" ? "auto" : 32_768)
             }>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {() =>
+                  t(
+                    isAuto
+                      ? "agent.settings.context_window.auto"
+                      : "agent.settings.context_window.custom"
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="auto">
@@ -89,6 +199,44 @@ export const AgentSettings = () => {
         </div>
       </SettingsFormField>
 
+      <SettingsLevelGate settingId="agent-completion-reviewer">
+        <SettingsFormField
+          focusId="agent-completion-reviewer"
+          label={t("agent.settings.completion_reviewer.label")}
+          description={t("agent.settings.completion_reviewer.description")}>
+          <Select
+            value={reviewerValue}
+            onValueChange={(next) => {
+              const picked = reviewers.find((entry) => entry.key === next)
+              setReviewer(
+                picked
+                  ? { providerId: picked.providerId, modelId: picked.modelId }
+                  : null
+              )
+            }}>
+            <SelectTrigger>
+              <SelectValue>
+                {() =>
+                  reviewers.find((entry) => entry.key === reviewerValue)
+                    ?.label ??
+                  t("agent.settings.completion_reviewer.same_as_run")
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SAME_AS_RUN}>
+                {t("agent.settings.completion_reviewer.same_as_run")}
+              </SelectItem>
+              {reviewers.map((entry) => (
+                <SelectItem key={entry.key} value={entry.key}>
+                  {entry.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingsFormField>
+      </SettingsLevelGate>
+
       <SettingsLevelGate settingId="agent-vision">
         <SettingsFormField
           focusId="agent-vision"
@@ -100,7 +248,9 @@ export const AgentSettings = () => {
               setVision(next as (typeof VISION_MODES)[number])
             }>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {() => t(`agent.settings.vision.${vision ?? "auto"}`)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {VISION_MODES.map((mode) => (

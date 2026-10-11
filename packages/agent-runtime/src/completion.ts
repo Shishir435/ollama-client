@@ -1,11 +1,17 @@
 import type {
   AgentCommand,
+  AgentEvidenceRecord,
   AgentObservation,
   AgentRunOutcome,
   AgentStepStatus,
+  AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
-
+import {
+  checkCompletionState,
+  groundedCompletionQuote,
+  visualCompletionRead
+} from "./completion-support"
 import {
   agentHaystackStates,
   agentNormalizedClaim,
@@ -88,9 +94,9 @@ export const agentEffectChangesPage = (effect: ResolvedAgentEffect): boolean =>
  * read. A change with no verification recorded is refused outright; there is
  * nothing for a quotation to add to a step nobody checked.
  *
- * A run that changed nothing owes none of this — a reading task's answer is
- * the thing it read, and asking it to quote a saved-state indicator that does
- * not exist would refuse every research goal.
+ * Planned reads require independently grounded source support. A quote
+ * establishes provenance; typed checks or exact receipt facts establish
+ * change outcomes. Ambiguous semantic claims return needs_review.
  */
 export type AgentCompletionJudgement =
   | { type: "accepted"; outcome?: AgentRunOutcome }
@@ -121,11 +127,38 @@ export type AgentCompletionJudgement =
         | "self_evidence"
         | "stale_evidence"
         | "missing_outcomes"
+        | "premature_unmet"
+        | "needs_review"
+        | "contradicted_state"
       /** Written for the model, from templates and its own words only. */
       feedback: string
+      /**
+       * Set only on a `needs_review` refusal an independent reviewer may
+       * settle: which planned ids no deterministic check could decide, and
+       * what the judge decided about every other one. Absent when the gap is
+       * missing evidence rather than missing judgement — a receipt with no
+       * recorded effect classes is not something reading can supply.
+       */
+      review?: AgentCompletionReviewScope
     }
 
+/**
+ * What a `needs_review` refusal leaves undecided, and nothing else.
+ *
+ * Every id outside `requirementIds` and `constraintIds` was judged
+ * deterministically, and `outcome` is that judgement. A reviewer can move
+ * only the listed ids, and only into `met`: deterministic failures return
+ * before a scope is ever built, so there is no failure here to override.
+ */
+export interface AgentCompletionReviewScope {
+  requirementIds: string[]
+  constraintIds: string[]
+  outcome: AgentRunOutcome
+}
+
 export interface AgentCompletionInput {
+  evidenceLedger?: readonly AgentEvidenceRecord[]
+  constraints?: readonly AgentTaskConstraint[]
   /**
    * The run's own receipts, oldest first, as persistence returns them.
    * `undefined` means they could not be read — which is not the same as
@@ -143,6 +176,14 @@ export interface AgentCompletionInput {
    * rather than guessed at.
    */
   baselineText?: string
+  /** Legacy metadata; never used as independent grounded support. */
+  observedTexts?: readonly string[]
+  /**
+   * The steps whose execution opened the tab the completion was decided on,
+   * by step id. Memory-only: a restart loses it, and an absent list never
+   * stands in for a tab a step opened.
+   */
+  tabOpenedBy?: readonly string[]
   /**
    * What the goal asks for, as the planning call fixed it. Absent means the
    * run was never planned — a host with no plan port, or a plan call that
@@ -158,6 +199,8 @@ export interface AgentCompletionOutcomeClaim {
   id: string
   met: boolean
   evidence?: string
+  /** One answer per item of an itemized requirement, by position. */
+  items?: readonly { index: number; met: boolean; evidence?: string }[]
 }
 
 /**
@@ -205,37 +248,72 @@ const APPLIED_STATUSES = new Set<AgentStepStatus>([
 export const isAppliedAgentStepStatus = (status: AgentStepStatus): boolean =>
   APPLIED_STATUSES.has(status)
 
-const isChange = (step: AgentStepReadout): boolean => {
+/**
+ * Whether a receipt is a change the completion gate reads.
+ *
+ * Exported because recovery reconciliation has to find the same receipts the
+ * judge will: a supervisor disposition belongs on exactly the recovered
+ * change rows a later completion is judged against, and two copies of this
+ * rule would be two places for that to drift.
+ */
+export const isAgentChangeReceipt = (
+  step: Pick<AgentStepReadout, "status" | "mutating" | "command">
+): boolean => {
   if (!isAppliedAgentStepStatus(step.status)) return false
   if (step.mutating !== undefined) return step.mutating
   return step.command !== undefined && CHANGING_COMMANDS.has(step.command.type)
 }
 
+const isChange = (step: AgentStepReadout): boolean => isAgentChangeReceipt(step)
+
 /**
- * The last change the run applied, by durable order.
+ * Every change the run applied, oldest first.
  *
- * A step is appended once per lifecycle change, so the receipts hold several
+ * Steps are appended once per lifecycle change, so the receipts hold several
  * rows for one step and only the newest says how it ended: reading them all
  * would let a step's superseded `executed` receipt stand for a step that went
  * on to fail, which is an applied change with no verification and refuses
  * every completion after it. Collapsed to the last receipt per step first,
  * the same way history is.
  *
- * Only the last change is then asked about: an earlier one that was
- * superseded says nothing about whether the run is finished, while the most
- * recent is the state the completion is claiming about.
+ * The collapsed rows are re-sorted because map order is first-seen order,
+ * not durable order: a step with receipts at sequences 1 and 3 would
+ * otherwise sort before a step first seen at 2, and the last change would be
+ * the wrong one.
  */
-const lastChange = (
-  steps: readonly AgentStepReadout[]
-): AgentStepReadout | undefined => {
+const allChanges = (steps: readonly AgentStepReadout[]): AgentStepReadout[] => {
   const latest = new Map<string, AgentStepReadout>()
   for (const step of [...steps].sort(
     (first, second) => first.sequence - second.sequence
   )) {
-    latest.set(step.stepId, step)
+    const previous = latest.get(step.stepId)
+    latest.set(
+      step.stepId,
+      previous?.requirementId && !step.requirementId
+        ? { ...step, requirementId: previous.requirementId }
+        : step
+    )
   }
-  return [...latest.values()].filter(isChange).at(-1)
+  return [...latest.values()]
+    .sort((first, second) => first.sequence - second.sequence)
+    .filter(isChange)
 }
+
+/** Every change the run applied, oldest first; see `allChanges`. */
+export const agentAppliedChanges = (
+  steps: readonly AgentStepReadout[]
+): AgentStepReadout[] => allChanges(steps)
+
+/**
+ * The last change the run applied, by durable order.
+ *
+ * Only the last change is asked about on the unplanned path: an earlier one
+ * that was superseded says nothing about whether the run is finished, while
+ * the most recent is the state the completion is claiming about.
+ */
+const lastChange = (
+  steps: readonly AgentStepReadout[]
+): AgentStepReadout | undefined => allChanges(steps).at(-1)
 
 /**
  * Verification evidence that answers what the step was for, rather than that
@@ -250,6 +328,8 @@ const lastChange = (
 const RESULT_VERIFIED_EVIDENCE = new Set([
   /** The control holds the value the step resolved. */
   "field",
+  /** Every field in a batch holds its resolved value. */
+  "fields",
   /** The control holds the checked state the step resolved. */
   "checked",
   /** The dragged item is where the drag meant to put it. */
@@ -264,6 +344,1235 @@ const provesItsOwnResult = (
   verification !== undefined &&
   RESULT_VERIFIED_EVIDENCE.has(verification.evidence.kind)
 
+/**
+ * The checked state a checkbox receipt confirmed, as a quotation would put
+ * it. Only the confirmed direction: `checked:false` names an uncheck and
+ * refuses a check.
+ */
+const CHECKED_STATE_WORDS = {
+  check: new Set(["checked", "ticked", "selected", "true", "yes"]),
+  uncheck: new Set(["unchecked", "unticked", "deselected", "cleared", "false"])
+} as const
+
+/**
+ * Whether a quotation is made only of what the receipt itself holds — its
+ * control's name, its value, the state it confirmed — so that it asserts
+ * nothing the receipt does not.
+ *
+ * The page never says `name=Alice` or `checked:false`; a model that read the
+ * address bar or wrote the state as data quotes that way, and refusing it
+ * while a requirement answered with no quotation at all is rescued sent a
+ * run its receipt had already finished back to ask the user. A word outside
+ * those facts — "Bob", "saved", a verifier sentence — is a claim, and refuses
+ * as before. Function words count for nothing, so at least one fact must be
+ * named.
+ */
+const quotationStatesReceiptFacts = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const command = receipt.command
+  const value =
+    command?.type === "select"
+      ? command.value
+      : command?.type === "type" ||
+          command?.type === "clear_and_type" ||
+          command?.type === "replace_text"
+        ? command.text
+        : undefined
+  const facts = factWords([receipt.target?.name, value])
+  const state =
+    command?.type === "check" || command?.type === "uncheck"
+      ? CHECKED_STATE_WORDS[command.type]
+      : undefined
+  return statesOnlyFacts(quoted, facts, state)
+}
+
+/** Every substantive word must be a verified fact, not an added claim. */
+const statesOnlyFacts = (
+  quoted: string,
+  facts: ReadonlySet<string>,
+  state?: ReadonlySet<string>
+): boolean => {
+  const named = claimWords(quoted).filter(
+    (word) => !CLAIM_FUNCTION_WORDS.has(word)
+  )
+  return (
+    named.length > 0 &&
+    named.every((word) => facts.has(word) || state?.has(word) === true)
+  )
+}
+
+/**
+ * A change whose verified state answers its requirement without a quotation:
+ * confirmed, and of a kind the verifier compared against the step's own
+ * intended result. `ambiguous` is excluded — the effect landed and the page
+ * has not shown its consequence, so nothing here vouches for the outcome.
+ */
+const isResultVerifiedChange = (step: AgentStepReadout): boolean =>
+  step.verification?.outcome === "confirmed" &&
+  provesItsOwnResult(step.verification)
+
+/**
+ * Whether the plan's own words are about the receipt's control.
+ *
+ * The binding between a requirement and the receipt that evidences it. The
+ * plan is fixed before the first observation, so it cannot be rewritten
+ * mid-run to bless whatever happened to verify: a verified change to
+ * checkbox B cannot satisfy a claim about checkbox A, because the plan's
+ * words for A do not name B's control. New receipts carry the requirement id
+ * the command explicitly advanced, so a brief plan label can bind to a longer
+ * accessible name without guessing. Legacy receipts fall back to requiring
+ * the full target name as a complete phrase. A receipt with neither binding
+ * binds to nothing.
+ */
+const requirementNamesReceiptTarget = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): boolean => {
+  if (receipt.requirementId !== undefined)
+    return receipt.requirementId === requirement.id
+  const name = receipt.target?.name
+  if (name === undefined) return false
+  const want = agentNormalizedClaim(name)
+  const text = agentNormalizedClaim(requirement.text)
+  return (
+    want.length > 0 && text.length > 0 && containsCompletePhrase(text, want)
+  )
+}
+
+const CLAIM_WORD_CHARACTER = /[\p{L}\p{N}_]/u
+
+/**
+ * Every occurrence whose neighbours are punctuation, whitespace, or string
+ * ends. Normalised values remain page text rather than regex source: `red`
+ * matches "use red," but never the `red` inside "infrared".
+ */
+const completePhraseOccurrences = (
+  text: string,
+  phrase: string
+): Array<{ start: number; end: number }> => {
+  const matches: Array<{ start: number; end: number }> = []
+  if (phrase.length === 0) return matches
+  let start = text.indexOf(phrase)
+  while (start !== -1) {
+    const end = start + phrase.length
+    const before = start === 0 ? undefined : text[start - 1]
+    const after = end === text.length ? undefined : text[end]
+    if (
+      (before === undefined || !CLAIM_WORD_CHARACTER.test(before)) &&
+      (after === undefined || !CLAIM_WORD_CHARACTER.test(after))
+    ) {
+      matches.push({ start, end })
+    }
+    start = text.indexOf(phrase, start + 1)
+  }
+  return matches
+}
+
+const containsCompletePhrase = (text: string, phrase: string): boolean =>
+  completePhraseOccurrences(text, phrase).length > 0
+
+/**
+ * "on" and "off" are states only when nothing follows them as their object:
+ * the planner writes "the Agree checkbox on the current page is unchecked",
+ * and reading that "on" as a state made the requirement assert both, so a
+ * verified uncheck could never vouch for it.
+ */
+const PREPOSITION_OBJECT =
+  "(?!\\s+(?:the|a|an|this|that|these|those|its|each|every|any|all|page|screen|site|tab|form)\\b)"
+const ON = `on${PREPOSITION_OBJECT}`
+const OFF = `off${PREPOSITION_OBJECT}`
+const ON_WORDS = `check|checked|tick|ticked|select|selected|${ON}`
+const OFF_WORDS = `uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|${OFF}`
+
+const CHECKED_OFF_PATTERN = new RegExp(`\\b(${OFF_WORDS})\\b`)
+const CHECKED_ON_PATTERN = new RegExp(`\\b(${ON_WORDS})\\b`)
+
+/**
+ * A state word scoped by a negation ("not checked", "isn't selected", "never
+ * ticked"). The negation sits up to three words before the state it flips —
+ * "not currently checked" still asserts off — so a bare opposite-word test
+ * that ignores it reads "not checked" as silence and lets a checked receipt
+ * vouch for it.
+ */
+const negated = (words: string): RegExp =>
+  new RegExp(
+    `\\b(?:not|never|neither|nor|without)\\b(?:\\s+\\w+){0,3}?\\s+(?:${words})\\b|n['’]t(?:\\s+\\w+){0,3}?\\s+(?:${words})\\b`
+  )
+const NEGATED_ON_PATTERN = negated(ON_WORDS)
+const NEGATED_OFF_PATTERN = negated(OFF_WORDS)
+const NEGATED_ON_PATTERN_GLOBAL = new RegExp(NEGATED_ON_PATTERN.source, "g")
+const NEGATED_OFF_PATTERN_GLOBAL = new RegExp(NEGATED_OFF_PATTERN.source, "g")
+
+/**
+ * A bare negation near a resolved value ("not blue", "blue is not selected").
+ * The window is deliberately small and fail-safe: a quoted value with a
+ * negation beside it is refused, and the run quotes what it meant instead —
+ * values are page text, so the quotation exists.
+ */
+const VALUE_NEGATED_BEFORE_PATTERN =
+  /(?:\b(?:not|never|neither|nor|without)\b|n['’]t)(?:\s+[\p{L}\p{N}_'-]+){0,3}\s*$/u
+const VALUE_NEGATED_AFTER_PATTERN =
+  /^\s+(?:(?:is|are|was|were|be|been|being|should|must|does|do|did|has|have|had|can|could|would|will|may|might)\s+(?:not|never)\b|(?:is|are|was|were|should|must|does|do|did|has|have|had|can|could|would|will|may|might)n['’]t\b)/u
+
+/** The state the requirement asserts, once negations flip what they scope. */
+const requirementAssertsOff = (text: string): boolean => {
+  if (NEGATED_ON_PATTERN.test(text)) return true
+  const unnegated = text
+    .replace(NEGATED_ON_PATTERN_GLOBAL, " ")
+    .replace(NEGATED_OFF_PATTERN_GLOBAL, " ")
+  return CHECKED_OFF_PATTERN.test(unnegated)
+}
+
+const requirementAssertsOn = (text: string): boolean => {
+  if (NEGATED_OFF_PATTERN.test(text)) return true
+  const unnegated = text
+    .replace(NEGATED_ON_PATTERN_GLOBAL, " ")
+    .replace(NEGATED_OFF_PATTERN_GLOBAL, " ")
+  return CHECKED_ON_PATTERN.test(unnegated)
+}
+
+/**
+ * Whether one complete value occurrence is the subject of a negated
+ * predicate. A negation before the value ("not blue") scopes forward; one
+ * after it must begin with an auxiliary ("blue is not selected"). Merely
+ * finding `not` nearby would misread "blue and not red" as negating blue.
+ */
+const valueOccurrenceIsNegated = (
+  text: string,
+  occurrence: { start: number; end: number }
+): boolean => {
+  const beforeClause = text
+    .slice(Math.max(0, occurrence.start - 80), occurrence.start)
+    .split(/[.!?,;:]|\b(?:but|instead|rather)\b/u)
+    .at(-1)
+  const afterClause = text
+    .slice(occurrence.end, occurrence.end + 80)
+    .split(/[.!?,;:]|\b(?:but|instead|rather)\b/u)[0]
+  return (
+    VALUE_NEGATED_BEFORE_PATTERN.test(beforeClause ?? "") ||
+    VALUE_NEGATED_AFTER_PATTERN.test(afterClause ?? "")
+  )
+}
+
+/**
+ * Whether one complete value occurrence is only one of several the
+ * requirement allows. "Color is Blue or Red" does not say the color is Blue,
+ * so a receipt for Blue cannot meet it; the list before an `or` counts too
+ * ("Blue, Red or Green").
+ */
+const VALUE_ALTERNATIVE_BEFORE_PATTERN =
+  /(?:\b(?:or|either|nor)\b|\/)(?:\s+[\p{L}\p{N}_'-]+){0,3}\s*$/u
+const VALUE_ALTERNATIVE_AFTER_PATTERN =
+  /^(?:\s*,\s*[^,.;:!?]{1,40}?)*,?\s*(?:\bor\b|\/)/u
+
+const valueOccurrenceIsAlternative = (
+  text: string,
+  occurrence: { start: number; end: number }
+): boolean => {
+  const beforeClause = text
+    .slice(Math.max(0, occurrence.start - 80), occurrence.start)
+    .split(/[.!?;:]|\b(?:but|instead|rather)\b/u)
+    .at(-1)
+  const afterClause = text
+    .slice(occurrence.end, occurrence.end + 80)
+    .split(/[.!?;:]|\b(?:but|instead|rather)\b/u)[0]
+  return (
+    VALUE_ALTERNATIVE_BEFORE_PATTERN.test(beforeClause ?? "") ||
+    VALUE_ALTERNATIVE_AFTER_PATTERN.test(afterClause ?? "")
+  )
+}
+
+/**
+ * Whether the resolved value is named as a complete phrase the requirement
+ * asserts: not negated, and not one of alternatives.
+ */
+const valueAssertedWithoutNegation = (text: string, value: string): boolean => {
+  const needle = agentNormalizedClaim(value)
+  return completePhraseOccurrences(text, needle).some(
+    (occurrence) =>
+      !valueOccurrenceIsNegated(text, occurrence) &&
+      !valueOccurrenceIsAlternative(text, occurrence)
+  )
+}
+
+/**
+ * Whether the requirement asserts the state the receipt confirmed, not its
+ * opposite.
+ *
+ * The receipt proves the control holds its resolved state but does not carry
+ * what that state was — a confirmed `checked` verification vouches for
+ * checked and for unchecked alike. The binding above is not enough: "Agree
+ * is unchecked" names Agree, so without this a run that checked the box
+ * satisfies a claim it is unchecked. For checkbox receipts the requirement
+ * must not assert the opposite direction; for value receipts (select, typed
+ * text) it must name the resolved value, which a quotation could also carry
+ * — values are quotable page text, so refusing here only sends the run to
+ * quote what it could have quoted. Both fail safe: an uncertain match
+ * refuses, and a refusal sends the run back to look again.
+ */
+const receiptResultAgrees = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): boolean => {
+  const text = agentNormalizedClaim(requirement.text)
+  const command = receipt.command
+  const kind = receipt.verification?.evidence.kind
+  if (
+    kind === "checked" &&
+    (command?.type === "check" || command?.type === "uncheck")
+  ) {
+    const direction =
+      command.type === "check"
+        ? requirementAssertsOn(text) && !requirementAssertsOff(text)
+        : requirementAssertsOff(text) && !requirementAssertsOn(text)
+    const stateText = text
+      .replaceAll(NEGATED_ON_PATTERN_GLOBAL, "unchecked")
+      .replaceAll(NEGATED_OFF_PATTERN_GLOBAL, "checked")
+    return (
+      direction &&
+      statesOnlyFacts(
+        stateText,
+        factWords([receipt.target?.name, "checkbox", "current"]),
+        new Set([...CHECKED_STATE_WORDS[command.type], command.type])
+      )
+    )
+  }
+  if (kind === "field" && command?.type === "select" && command.value) {
+    return valueAssertedForControl(text, command.value, receipt.target?.name)
+  }
+  if (
+    kind === "field" &&
+    (command?.type === "type" ||
+      command?.type === "clear_and_type" ||
+      command?.type === "replace_text") &&
+    command.text
+  ) {
+    return valueAssertedForControl(text, command.text, receipt.target?.name)
+  }
+  return true
+}
+
+/** Where a requirement joins one claim to the next. */
+const CLAUSE_BOUNDARY = /\s*(?:[,;]|\band\b|\bthen\b|\balso\b)\s*/u
+
+/**
+ * The value asserted for the receipt's own control, not merely somewhere in
+ * the requirement. "Set Name to Bob and Manager to Alice" holds Alice, so a
+ * receipt that put Alice in Name agreed with it; now a requirement that names
+ * the control must carry the value in the clause that names it. One that
+ * never names the control is bound by the requirement id alone, as before.
+ */
+const valueAssertedForControl = (
+  text: string,
+  value: string,
+  control: string | undefined
+): boolean => {
+  if (!valueAssertedWithoutNegation(text, value)) return false
+  const name = control ? agentNormalizedClaim(control) : ""
+  if (!name || !containsCompletePhrase(text, name)) return true
+  /**
+   * The value is held whole while the requirement is cut into clauses, so a
+   * value that itself holds a boundary ("Tom and Jerry", "Smith, John") is
+   * never split across two of them.
+   */
+  const HELD = "\u0001"
+  /**
+   * Only an occurrence the requirement asserts is held: in "Manager: Bob;
+   * Name: not Bob" the Bob beside Name is refused, not matched.
+   */
+  const held = completePhraseOccurrences(text, agentNormalizedClaim(value))
+    .filter(
+      (occurrence) =>
+        !valueOccurrenceIsNegated(text, occurrence) &&
+        !valueOccurrenceIsAlternative(text, occurrence)
+    )
+    .reverse()
+    .reduce(
+      (whole, { start, end }) =>
+        `${whole.slice(0, start)}${HELD}${whole.slice(end)}`,
+      text
+    )
+  return held
+    .split(CLAUSE_BOUNDARY)
+    .some(
+      (clause) => containsCompletePhrase(clause, name) && clause.includes(HELD)
+    )
+}
+
+/** A confirmed batch can evidence each control it checked, once per field. */
+const matchingBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  observation: AgentObservation,
+  consumed: Set<string>
+): number | undefined => {
+  if (
+    receipt.command?.type !== "fill_form" ||
+    receipt.verification?.outcome !== "confirmed" ||
+    receipt.verification.evidence.kind !== "fields"
+  )
+    return undefined
+  const names = receipt.verification.evidence.fields
+  if (!names || names.length !== receipt.command.fields.length) return undefined
+  const text = agentNormalizedClaim(requirement.text)
+  return receipt.command.fields.findIndex((field, index) => {
+    const key = `${receipt.stepId}:field:${index}`
+    if (consumed.has(key)) return false
+    const name = names[index]?.name
+    if (!name || !containsCompletePhrase(text, agentNormalizedClaim(name)))
+      return false
+    const matches = observation.elements.filter(
+      (element) =>
+        !element.sensitive &&
+        agentNormalizedClaim(element.name ?? "") === agentNormalizedClaim(name)
+    )
+    if (matches.length !== 1) return false
+    const current = matches[0]
+    if (field.type === "check")
+      return current.checked === true && !requirementAssertsOff(text)
+    if (field.type === "uncheck")
+      return current.checked === false && !requirementAssertsOn(text)
+    return (
+      !current.valueTruncated &&
+      current.value !== undefined &&
+      valueAssertedWithoutNegation(text, current.value)
+    )
+  })
+}
+
+/**
+ * Whether the quotation names the control the receipt acted on — the only
+ * link a quoted label has to the step that changed it. Compared exactly
+ * after normalising, the way self-evidence is.
+ */
+const quotationNamesReceiptTarget = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const name = receipt.target?.name
+  return (
+    name !== undefined &&
+    agentNormalizedClaim(name).length > 0 &&
+    agentNormalizedClaim(name) === agentNormalizedClaim(quoted)
+  )
+}
+
+/**
+ * The one field of a confirmed batch whose value the quotation is, when the
+ * batch was sent for this requirement. Filling Name with Alice and
+ * submitting leaves no "Alice" on the next page; the batch confirmed the
+ * field held it, and one field vouches for one requirement.
+ */
+const quotedBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  quoted: string,
+  consumed: Set<string>
+): number | undefined => {
+  if (
+    receipt.command?.type !== "fill_form" ||
+    receipt.requirementId !== requirement.id ||
+    receipt.verification?.outcome !== "confirmed" ||
+    receipt.verification.evidence.kind !== "fields"
+  )
+    return undefined
+  const want = agentNormalizedClaim(quoted)
+  if (!want) return undefined
+  const matches = receipt.command.fields.flatMap((field, index) => {
+    const value =
+      field.type === "select"
+        ? field.value
+        : field.type === "check" || field.type === "uncheck"
+          ? undefined
+          : field.text
+    /**
+     * The quotation matches what was filled, and the requirement asks for
+     * that value: filling Alice and quoting Alice does not meet "Name is Bob".
+     */
+    return value !== undefined &&
+      agentNormalizedClaim(value) === want &&
+      valueAssertedWithoutNegation(
+        agentNormalizedClaim(requirement.text),
+        value
+      ) &&
+      requirementNamesBatchField(requirement, receipt, index, value) &&
+      !consumed.has(`${receipt.stepId}:field:${index}`)
+      ? [index]
+      : []
+  })
+  return matches.length === 1 ? matches[0] : undefined
+}
+
+/**
+ * Whether the field the value went into is the one the requirement puts it
+ * in. A batch filling Email with Alice and Name with Bob must not meet "Name
+ * is Alice": the value is right and the control is not. The field whose
+ * verified name sits nearest the value in the requirement is the one it
+ * names. A requirement naming no field of the batch binds only a one-field
+ * batch, where there is no other control it could mean.
+ */
+const requirementNamesBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  index: number,
+  value: string
+): boolean => {
+  const evidence = receipt.verification?.evidence
+  const fieldCount =
+    receipt.command?.type === "fill_form" ? receipt.command.fields.length : 0
+  const names =
+    evidence?.kind === "fields"
+      ? (evidence.fields ?? []).map((field) =>
+          agentNormalizedClaim(field.name ?? "")
+        )
+      : []
+  const text = agentNormalizedClaim(requirement.text)
+  const valueAt = completePhraseOccurrences(text, agentNormalizedClaim(value))
+  /**
+   * The page's own name first; failing that, a word of it. The planner
+   * writes "Email" for a field the page calls "E-mail address", and
+   * refusing that sends a finished run back for review once the form is
+   * gone. A name or word two fields share at one distance is a tie, and a
+   * tie binds nothing.
+   */
+  const exact = nearestFieldName(names, valueAt, (name) =>
+    completePhraseOccurrences(text, name)
+  )
+  const named =
+    exact === undefined
+      ? nearestFieldName(names, valueAt, (name) =>
+          fieldNameWordOccurrences(text, name)
+        )
+      : exact
+  if (named === "tied") return false
+  if (named === undefined) return fieldCount === 1
+  return named === index
+}
+
+type PhraseSpan = { start: number; end: number }
+
+/** The field whose name sits nearest the value, or a tie between two. */
+const nearestFieldName = (
+  names: readonly string[],
+  valueAt: readonly PhraseSpan[],
+  occurrencesOf: (name: string) => PhraseSpan[]
+): number | "tied" | undefined => {
+  const distances = names.flatMap((name, index) =>
+    occurrencesOf(name).flatMap((at) =>
+      valueAt.map((occurrence) => ({
+        index,
+        distance:
+          at.end <= occurrence.start
+            ? occurrence.start - at.end
+            : at.start - occurrence.end
+      }))
+    )
+  )
+  const reached = distances.filter(({ distance }) => distance >= 0)
+  if (reached.length === 0) return undefined
+  const closest = Math.min(...reached.map(({ distance }) => distance))
+  const fields = new Set(
+    reached
+      .filter(({ distance }) => distance === closest)
+      .map(({ index }) => index)
+  )
+  return fields.size === 1 ? [...fields][0] : "tied"
+}
+
+/** Words too generic to say which field a requirement means. */
+const FIELD_NAME_FILLER = new Set([
+  "the",
+  "your",
+  "field",
+  "box",
+  "input",
+  "text",
+  "enter",
+  "type",
+  "and",
+  "for"
+])
+
+const compactFieldWord = (word: string): string =>
+  word.replaceAll(/[-_'’]/gu, "")
+
+/**
+ * Where a distinctive word of a field's name, compared without hyphens,
+ * appears in the requirement: "e-mail" is "email".
+ */
+const fieldNameWordOccurrences = (text: string, name: string): PhraseSpan[] => {
+  const words = new Set(
+    (name.match(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu) ?? [])
+      .map(compactFieldWord)
+      .filter((word) => word.length >= 3 && !FIELD_NAME_FILLER.has(word))
+  )
+  if (words.size === 0) return []
+  return [...text.matchAll(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu)].flatMap(
+    (match) =>
+      words.has(compactFieldWord(match[0]))
+        ? [{ start: match.index, end: match.index + match[0].length }]
+        : []
+  )
+}
+
+/**
+ * Whether the quotation is the value a value receipt confirmed the control
+ * holds — the selected option or the typed text. Selecting Blue leaves the
+ * word "Blue" exactly where it was, so the staleness rule refuses it, and
+ * the value is the phrase a model naturally quotes. Compared exactly after
+ * normalising, so only the receipt's own value is rescued.
+ */
+const quotationNamesReceiptValue = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const command = receipt.command
+  const value =
+    command?.type === "select"
+      ? command.value
+      : command?.type === "type" ||
+          command?.type === "clear_and_type" ||
+          command?.type === "replace_text"
+        ? command.text
+        : undefined
+  return (
+    value !== undefined &&
+    agentNormalizedClaim(value).length > 0 &&
+    agentNormalizedClaim(value) === agentNormalizedClaim(quoted)
+  )
+}
+
+/**
+ * Every met read needs a retained independent observed fact. Missing
+ * support, stale snapshots and model-authored findings stay unknown.
+ */
+/**
+ * A read asking for the present state cannot rest on a historical fact. The
+ * same answer decides both whether a quote is grounded and how the report
+ * labels it, or a stale quote could hide that a screenshot carried the read.
+ * The planner's explicit freshness wins — "still open last Friday" is
+ * historical — and only an older plan without it falls back to wording.
+ */
+const requiresCurrentState = (requirement: AgentTaskRequirement): boolean =>
+  requirement.freshness !== undefined
+    ? requirement.freshness === "current"
+    : [requirement.source, requirement.text].some(
+        (text) =>
+          text !== undefined &&
+          /\b(?:current|currently|now|latest|today|still)\b/i.test(text)
+      )
+
+const refusePlannedReadClaim = (
+  evidence: string | undefined,
+  input: AgentCompletionInput,
+  requirement: AgentTaskRequirement
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  if (!evidence?.trim())
+    return {
+      type: "refused",
+      reason: "missing_evidence",
+      feedback:
+        "Quote the independently observed fact supporting this read result. Missing support is unknown; do not mark it verified."
+    }
+  const requirementId = requirement.id
+  const current = requiresCurrentState(requirement)
+  if (
+    groundedCompletionQuote(
+      evidence,
+      requirementId,
+      input.evidenceLedger,
+      current
+    )
+  )
+    return undefined
+  /**
+   * Nothing the page said, but what the model read off the screenshot it
+   * completed on. Met, and reported as seen in a picture rather than
+   * verified; without this a value drawn into a canvas could never be an
+   * answer, however plainly the model was shown it.
+   */
+  if (visualCompletionRead(evidence, requirementId, input.evidenceLedger))
+    return undefined
+  /**
+   * A paraphrase of something the run did read is a question of meaning, not
+   * of provenance: "Revenue was $4.2M" against a retained "revenue rose to 4.2
+   * million". Exact matching cannot decide it, so it goes to review — but
+   * only when a grounded fact exists that could answer it. With none, there
+   * is nothing for a reviewer to read, and the claim is refused as before.
+   */
+  if (
+    input.evidenceLedger?.some(
+      (record) =>
+        record.kind === "observed_fact" &&
+        record.source !== undefined &&
+        (record.validity === "current" ||
+          (!current && record.validity === "historical")) &&
+        record.requirementId === requirementId
+    )
+  )
+    return {
+      type: "refused",
+      reason: "needs_review",
+      feedback:
+        "This read answer does not quote a retained observed fact exactly. Quote the fact verbatim, or the claim needs independent review; inputs and model findings are not proof."
+    }
+  return {
+    type: "refused",
+    reason: "absent_evidence",
+    feedback:
+      "This read claim has no grounded source in the evidence ledger. Request fresh authorized evidence or quote a retained observed fact; inputs and model findings are not proof."
+  }
+}
+
+const NO_SUBMISSION_MENTION_PATTERN =
+  /\b(?:do not|don't|never|without)\s+submitt?(?:ed|ing)?\b|\b(?:remain|stays?|is|was)\s+(?:not\s+submitted|unsubmitted)\b/i
+const NO_SUBMISSION_ONLY_PATTERN =
+  /^(?:(?:do not|don't|never)\s+submit(?:\s+(?:(?:the|this|a)\s+form|it))?|without\s+submitting(?:\s+(?:(?:the|this|a)\s+form|it))?|(?:(?:(?:the|this|a)\s+)?form\s+)?(?:remains?|stays?|is|was)\s+(?:not\s+submitted|unsubmitted))\.?$/i
+
+const NO_SUBMISSION_UNREADABLE_FEEDBACK =
+  "I cannot verify that the form stayed unsubmitted because the action record is incomplete. Ask the user to review the form before finishing."
+const NO_SUBMISSION_OCCURRED_FEEDBACK =
+  "This run already submitted the form. Do not claim it was left unsubmitted; mark that requirement unmet."
+
+/** A negative form constraint is proved by the run's complete effect record. */
+const noSubmissionEvidence = (
+  input: AgentCompletionInput
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  if (!input.steps) {
+    return {
+      type: "refused",
+      reason: "unverified_change",
+      feedback: NO_SUBMISSION_UNREADABLE_FEEDBACK
+    }
+  }
+  if (
+    input.steps.some(
+      (receipt) =>
+        isAppliedAgentStepStatus(receipt.status) &&
+        receipt.consequential?.includes("submission")
+    )
+  ) {
+    return {
+      type: "refused",
+      reason: "unverified_change",
+      feedback: NO_SUBMISSION_OCCURRED_FEEDBACK
+    }
+  }
+  return undefined
+}
+/**
+ * One met `change` requirement, after its quotation failed.
+ *
+ * Returns the receipt that evidences it, or the refusal to send back.
+ * Receipts are consumed by identity across requirements, and every exemption
+ * additionally binds the plan's words to the receipt's control, so one
+ * verified state vouches for one requirement — never the whole plan, and
+ * never a requirement about another control.
+ */
+const evidencePlannedChange = (
+  requirement: AgentTaskRequirement,
+  quoted: string | undefined,
+  refusal: Extract<AgentCompletionJudgement, { type: "refused" }>,
+  changes: readonly AgentStepReadout[],
+  observation: AgentObservation,
+  consumed: Set<string>
+):
+  | AgentStepReadout
+  | Extract<AgentCompletionJudgement, { type: "refused" }> => {
+  /**
+   * A quotation names the current page, and only it. A phrase from a page
+   * the run has left cannot be checked against anything the run can still
+   * see — not against findings, which are the model's own words, and not
+   * against verifier summaries, which are fixed template sentences. An
+   * outcome that must outlive its navigation needs result-verified state,
+   * which is page-independent — so an absent quotation is rescued only by a
+   * result-verified receipt it names in the receipt's own facts, its control,
+   * its value or its checked state: typing "Alice" and submitting leaves no
+   * "Alice" on the next page, and the receipt that confirmed the field held
+   * it is the evidence instead.
+   */
+  const absent = refusal.reason === "absent_evidence"
+  /**
+   * A state-only change adds no new words to the page — selecting Blue and
+   * ticking a checkbox leave exactly the label that was already there — so
+   * a quotation rule alone can never accept them. A confirmed
+   * result-verified receipt is the evidence instead, but only when the
+   * requirement is about that receipt's control and asserts the state it
+   * confirmed rather than its opposite; a missing quotation consumes the
+   * earliest such receipt the plan names, and a label quotation must
+   * additionally name the receipt's own control. An invented phrase is never
+   * rescued.
+   */
+  if (
+    refusal.reason === "missing_evidence" ||
+    refusal.reason === "self_evidence" ||
+    refusal.reason === "stale_evidence" ||
+    absent ||
+    refusal.reason === "needs_review"
+  ) {
+    for (const candidate of changes) {
+      const index = matchingBatchField(
+        requirement,
+        candidate,
+        observation,
+        consumed
+      )
+      if (index !== undefined && index >= 0 && quoted === undefined) {
+        consumed.add(`${candidate.stepId}:field:${index}`)
+        return candidate
+      }
+    }
+    if (quoted !== undefined) {
+      for (const candidate of changes) {
+        const index = quotedBatchField(requirement, candidate, quoted, consumed)
+        if (index === undefined) continue
+        consumed.add(`${candidate.stepId}:field:${index}`)
+        return candidate
+      }
+    }
+    const receipt = changes.find(
+      (candidate) =>
+        !consumed.has(candidate.stepId) &&
+        isResultVerifiedChange(candidate) &&
+        requirementNamesReceiptTarget(requirement, candidate) &&
+        receiptResultAgrees(requirement, candidate) &&
+        candidate.command?.type !== "fill_form" &&
+        (quoted === undefined
+          ? !absent
+          : quotationNamesReceiptTarget(quoted, candidate) ||
+            quotationNamesReceiptValue(quoted, candidate) ||
+            quotationStatesReceiptFacts(quoted, candidate))
+    )
+    if (receipt) {
+      consumed.add(receipt.stepId)
+      return receipt
+    }
+    const focused = changes.find(
+      (candidate) =>
+        !consumed.has(candidate.stepId) &&
+        quoted !== undefined &&
+        isBoundFocusMove(requirement, candidate, observation) &&
+        quotationNamesFocusedControl(quoted, observation)
+    )
+    if (focused) {
+      consumed.add(focused.stepId)
+      return focused
+    }
+    const submitted = changes.find(
+      (candidate) =>
+        !consumed.has(candidate.stepId) &&
+        isBoundSubmission(requirement, candidate) &&
+        (quoted === undefined || quotationIsReceiptSummary(quoted, candidate))
+    )
+    if (submitted) {
+      consumed.add(submitted.stepId)
+      return submitted
+    }
+  }
+  return refusal
+}
+
+/**
+ * Whether a requirement claims nothing a receipt does not prove.
+ *
+ * Every word must be one of three things: a word of the act the receipt
+ * performed ("focus", "click"), a function word that asserts nothing ("the",
+ * "on", "for"), or a fact the run's own receipts hold (the control's name,
+ * a value it typed, the key it pressed, the site it was on). Anything else
+ * — a negation, a second action, a result, a constraint — is a claim the
+ * receipt cannot vouch for, so the requirement is refused. Refusing an
+ * unknown word is the fail-safe direction: the run is sent back to quote
+ * evidence rather than credited with something it did not do.
+ */
+const claimsOnlyAct = (
+  requirement: AgentTaskRequirement,
+  actWords: ReadonlySet<string>,
+  facts: ReadonlySet<string>,
+  required: ReadonlySet<string> = actWords
+): boolean => {
+  const words = claimWords(requirement.text)
+  return (
+    words.some((word) => required.has(word)) &&
+    words.every(
+      (word) =>
+        actWords.has(word) || CLAIM_FUNCTION_WORDS.has(word) || facts.has(word)
+    )
+  )
+}
+
+/** Lowercased words, compared without hyphens or apostrophes. */
+const claimWords = (text: string): string[] =>
+  (agentNormalizedClaim(text).match(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu) ?? [])
+    .map(compactFieldWord)
+    .filter(Boolean)
+
+/**
+ * A fact is never a negation, even when a typed value or a control name
+ * holds one: typing "not now" must not let "Do not click Continue" pass.
+ */
+const NEGATION_WORDS = new Set([
+  "not",
+  "no",
+  "never",
+  "nor",
+  "neither",
+  "none",
+  "without",
+  "except",
+  "dont",
+  "doesnt",
+  "didnt",
+  "isnt",
+  "wasnt",
+  "arent",
+  "werent",
+  "cannot",
+  "cant",
+  "wont",
+  "shouldnt",
+  "mustnt"
+])
+
+const factWords = (values: readonly (string | undefined)[]): Set<string> =>
+  new Set(
+    values
+      .flatMap((value) => (value ? claimWords(value) : []))
+      .filter((word) => !NEGATION_WORDS.has(word))
+  )
+
+/**
+ * Words that assert nothing by themselves. Deliberately excludes every
+ * negation ("not", "no", "never", "don't"), every conjunction that could
+ * join a second claim ("and", "then", "but"), and every verb: those are
+ * claims, and a claim must be proved.
+ */
+const CLAIM_FUNCTION_WORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "this",
+  "its",
+  "it",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "has",
+  "have",
+  "had",
+  "now",
+  "here",
+  "there",
+  "just",
+  "please",
+  "on",
+  "in",
+  "at",
+  "to",
+  "into",
+  "onto",
+  "for",
+  "of",
+  "button",
+  "link",
+  "field",
+  "box",
+  "input",
+  "control",
+  "form",
+  "key",
+  "page",
+  "site",
+  "keyboard"
+])
+
+/**
+ * A confirmed key press the model sent for this requirement, which the
+ * verifier saw move focus. Moving focus from First to Second adds no words:
+ * "Second" was on the page before, so the staleness rule refused it, and
+ * the run asked the user what to do about a task it had finished.
+ *
+ * Tab reaching Save proves Save has focus, never that it was pressed, so
+ * the requirement may claim focus and name only the focused control and
+ * the key: "Focus the Save button" and "Keyboard focus is on Second" meet
+ * it; "Click Save", "Do not focus Search" and "Focus Search and type
+ * Alice" do not.
+ */
+const FOCUS_WORDS = new Set(["focus", "focused", "focuses", "focusing"])
+/**
+ * The act of moving focus with a key, as a plan describes it: "Second has
+ * focus after moving from First with Tab" claims the key, the control it was
+ * pressed on and the one that holds focus now — all three on the receipt and
+ * the page — and nothing else.
+ */
+const FOCUS_ACT_WORDS = new Set([
+  ...FOCUS_WORDS,
+  "move",
+  "moves",
+  "moved",
+  "moving",
+  "press",
+  "pressed",
+  "pressing",
+  "after",
+  "from",
+  "with",
+  "using"
+])
+
+const isBoundFocusMove = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  observation: AgentObservation
+): boolean =>
+  receipt.requirementId === requirement.id &&
+  receipt.command?.type === "press_key" &&
+  receipt.verification?.outcome === "confirmed" &&
+  receipt.verification.evidence.kind === "keyboard" &&
+  claimsOnlyAct(
+    withoutFocusSource(requirement, receipt.target?.name),
+    FOCUS_ACT_WORDS,
+    factWords([
+      keyText(receipt.command.key),
+      ...observation.elements
+        .filter((element) => element.focused)
+        .map((element) => element.name)
+    ]),
+    FOCUS_WORDS
+  )
+
+/**
+ * The requirement without "from <the control the key was pressed on>". The
+ * source is on the receipt, but only as where focus left: counted as a fact
+ * anywhere, "Focus First" would pass while Second holds focus.
+ */
+const withoutFocusSource = (
+  requirement: AgentTaskRequirement,
+  source: string | undefined
+): AgentTaskRequirement => {
+  const name = source?.trim()
+  if (!name) return requirement
+  const escaped = name.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return {
+    ...requirement,
+    text: requirement.text.replaceAll(
+      new RegExp(`\\bfrom\\s+(?:the\\s+)?${escaped}\\b`, "giu"),
+      " "
+    )
+  }
+}
+
+/** A pressed key as the words a requirement would name it by. */
+const keyText = (key: unknown): string =>
+  typeof key === "string"
+    ? key.replaceAll("+", " ")
+    : key && typeof key === "object" && "key" in key
+      ? [
+          ...((key as { modifiers?: readonly string[] }).modifiers ?? []),
+          String((key as { key: unknown }).key)
+        ].join(" ")
+      : ""
+
+/** Whether the quotation is the name of the one control focused now. */
+const quotationNamesFocusedControl = (
+  quoted: string,
+  observation: AgentObservation
+): boolean => {
+  const focused = observation.elements.filter((element) => element.focused)
+  if (focused.length !== 1) return false
+  const name = focused[0].name
+  return (
+    name !== undefined &&
+    agentNormalizedClaim(name).length > 0 &&
+    agentNormalizedClaim(name) === agentNormalizedClaim(quoted)
+  )
+}
+
+/**
+ * A confirmed submission the model sent for this requirement. The verifier
+ * confirmed the form committed the destination the user approved, which is
+ * what a "submit it" requirement asks; bound by the requirement id the
+ * command carried, never by name, so it vouches for its own requirement.
+ *
+ * It proves the form was sent, not what sending it achieved, so the
+ * requirement may claim the act and name only what the run's receipts
+ * hold: the control pressed, the values the form sent, the key and the
+ * site. "Click on Continue" and "Search in Google for Alice" (Alice sent)
+ * meet it; "Search for Alice excluding archived orders", "Search for Alice
+ * and read the first hit" and "The address is saved" do not.
+ */
+const SUBMISSION_WORDS = new Set([
+  "submit",
+  "submits",
+  "submitted",
+  "click",
+  "clicks",
+  "clicked",
+  "press",
+  "presses",
+  "pressed",
+  "continue",
+  "continued",
+  "send",
+  "sent",
+  "search",
+  "searched"
+])
+/**
+ * Typing may be named beside the send ("Type Alice and search" is still
+ * refused for its "and"), but never alone: "Enter Alice in the Name field"
+ * is a claim about the field, which the field's own receipt answers.
+ */
+const SUBMISSION_ACT_WORDS = new Set([
+  ...SUBMISSION_WORDS,
+  "type",
+  "typed",
+  "enter",
+  "entered",
+  "fill",
+  "filled"
+])
+
+const isBoundSubmission = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): boolean =>
+  receipt.requirementId === requirement.id &&
+  receipt.verification?.outcome === "confirmed" &&
+  receipt.verification.evidence.kind === "submission" &&
+  claimsOnlyAct(
+    requirement,
+    SUBMISSION_ACT_WORDS,
+    submissionFacts(requirement, receipt),
+    SUBMISSION_WORDS
+  )
+
+/**
+ * What a submission's own receipt proves for this requirement: the control
+ * it went through, the key, the site's host labels, and the values its GET
+ * query sent that the requirement puts where the form did.
+ *
+ * Never a value typed earlier: a page with two forms can hold Alice in one
+ * and send the other. And of several sent values, only one the requirement
+ * binds to its own control: with Alice in Search and Bob in Category,
+ * "Search for Alice" names Search beside Alice and is met, while "Search
+ * for Bob" names Search beside Bob, which Bob was not in, and is refused.
+ * One sent value needs no binding; there is no other control it could be.
+ */
+const submissionFacts = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout
+): Set<string> => {
+  const sent = receipt.verification?.evidence.values ?? []
+  const assigned =
+    sent.length === 1
+      ? new Map([[0, 0]])
+      : assignSentValues(agentNormalizedClaim(requirement.text), sent)
+  const bound = sent.filter((_, index) => assigned.get(index) === index)
+  return factWords([
+    receipt.target?.name,
+    receipt.command?.type === "press_key" ? keyText(receipt.command.key) : "",
+    hostLabels(receipt.sourceUrl),
+    hostLabels(receipt.formAction),
+    /** A bound value's label names a control this form sent from. */
+    ...bound.flatMap(({ name, value }) => [name, value])
+  ])
+}
+
+/**
+ * Which control's label the requirement puts each sent value beside, paired
+ * one to one, closest first: in "search for alice in category bob",
+ * Category is nearer Alice than Search is, but it is nearer still to Bob,
+ * so Bob takes it and Alice is left with Search. Two pairs at one distance
+ * competing for a label or a value bind neither. Returns value index →
+ * label index; a value the requirement does not name is absent.
+ */
+const assignSentValues = (
+  text: string,
+  sent: readonly { name?: string; value: string }[]
+): Map<number, number> => {
+  const pairs = sent.flatMap(({ name }, label) => {
+    const normalized = agentNormalizedClaim(name ?? "")
+    const exact = completePhraseOccurrences(text, normalized)
+    const labelAt = exact.length
+      ? exact
+      : fieldNameWordOccurrences(text, normalized)
+    return sent.flatMap(({ value }, valueIndex) =>
+      labelAt.flatMap((at) =>
+        completePhraseOccurrences(text, agentNormalizedClaim(value)).flatMap(
+          (occurrence) => {
+            const distance =
+              at.end <= occurrence.start
+                ? occurrence.start - at.end
+                : at.start - occurrence.end
+            return distance >= 0 ? [{ label, value: valueIndex, distance }] : []
+          }
+        )
+      )
+    )
+  })
+  const assigned = new Map<number, number>()
+  /** A value or label contested at its closest distance binds nothing. */
+  const settledValues = new Set<number>()
+  const settledLabels = new Set<number>()
+  const distances = [...new Set(pairs.map(({ distance }) => distance))].sort(
+    (first, second) => first - second
+  )
+  for (const distance of distances) {
+    const open = pairs.filter(
+      (pair) =>
+        pair.distance === distance &&
+        !settledValues.has(pair.value) &&
+        !settledLabels.has(pair.label)
+    )
+    const count = (key: "value" | "label", of: number) =>
+      new Set(
+        open
+          .filter((pair) => pair[key] === of)
+          .map((pair) => (key === "value" ? pair.label : pair.value))
+      ).size
+    for (const pair of open) {
+      if (count("value", pair.value) === 1 && count("label", pair.label) === 1)
+        assigned.set(pair.value, pair.label)
+    }
+    for (const pair of open) {
+      settledValues.add(pair.value)
+      settledLabels.add(pair.label)
+    }
+  }
+  return assigned
+}
+
+/**
+ * The labels of a URL's host, read without the DOM's URL parser, which this
+ * package does not have: `https://www.google.com/search` gives "www google
+ * com".
+ */
+const hostLabels = (url: string | undefined): string =>
+  url
+    ?.match(/^[a-z][a-z0-9+.-]*:\/\/(?:[^/?#@]*@)?([^/?#:]+)/iu)?.[1]
+    ?.replaceAll(".", " ") ?? ""
+
+/**
+ * The model quoting the verifier's sentence about the very step it cites —
+ * which the feedback asks it not to do, and which it does anyway. That
+ * sentence is the receipt, so it evidences nothing the receipt does not.
+ */
+const quotationIsReceiptSummary = (
+  quoted: string,
+  receipt: AgentStepReadout
+): boolean => {
+  const summary = receipt.verification?.evidence.summary
+  return (
+    summary !== undefined &&
+    agentNormalizedClaim(summary) === agentNormalizedClaim(quoted)
+  )
+}
+
 const MISSING_EVIDENCE_FEEDBACK =
   "This run changed the page, so complete needs evidence: a short phrase that is visible on the page now and shows the goal is met, such as a saved-state indicator or the new value itself. Observe the page and complete again with evidence, or keep working."
 
@@ -271,7 +1580,7 @@ const ABSENT_EVIDENCE_FEEDBACK =
   "The evidence string does not occur on the current page. Copy ONLY an exact phrase from observation text or an element value into evidence, without explanation or quotation marks. For an edit use the changed words themselves. Do not quote history or verifier commentary. If the result has not appeared, wait for it."
 
 const UNVERIFIED_CHANGE_FEEDBACK =
-  "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator, or make the change again — before completing."
+  "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator — before completing."
 
 const SELF_EVIDENCE_FEEDBACK =
   "The evidence named for complete is the label of the control this run acted on, which was on the page before the action and shows nothing about its outcome. Name what the page says now that it did not say before."
@@ -306,8 +1615,18 @@ const isSelfEvidence = (
  * failure: nothing was done to the page and the run can look again, so it is
  * fed back to the model rather than ending the run.
  */
+const MISSING_ITEM_OUTCOMES_FEEDBACK =
+  "A requirement that lists items is answered item by item: give items in its outcome, one per item by position from 0, each saying whether it is met and quoting the page text that shows it."
+
 const MISSING_OUTCOMES_FEEDBACK =
   "Answer every requirement the task was planned with, by id, saying for each whether it is met and quoting the page text that shows it."
+
+/**
+ * Sent back once when a run reports a requirement unmet while it still has
+ * steps to spend. Ids only: the feedback is a template, never page text.
+ */
+export const prematureUnmetFeedback = (ids: readonly string[]): string =>
+  `You reported ${ids.join(", ")} as not met, and the run still has steps left. First look at the page: if what you already did achieved it, answer complete with it met and quote the page text that shows it — do not repeat the action. If it is not done and can still be done, do it now. If it truly cannot, answer complete again with it unmet and say in the summary what stops it.`
 
 /**
  * The checks a single quotation has to survive, shared by both paths.
@@ -372,15 +1691,680 @@ const judgeEvidence = (
  * submit an empty one and pass, because submitting is a mutation and the
  * verifier confirmed a submission had happened.
  *
- * Each `change` requirement now owes its own quotation, and each quotation
- * faces the same four checks the single one used to. A `read` requirement
- * owes none: what it read is its answer, and asking a research goal to quote
- * a saved-state indicator that does not exist would refuse every one.
+ * Each change requires its own typed observable state or exact receipt
+ * facts; provenance alone cannot establish it. Each read requires grounded
+ * support, which may be historical when the run retained it before leaving.
  */
+/** A requirement that says where a page opens: a new tab or window. */
+const NEW_TAB_PATTERN =
+  /\b(?:new|another|separate|second)\s+(?:browser\s+)?(?:tab|window)\b/i
+
+const NEW_TAB_FEEDBACK =
+  "This requirement asks for a new tab, and no step in this run opened one: the page opened in the same tab. Use open_tab for it, or mark the requirement unmet."
+
+/**
+ * A confirmed step that put a page in a tab of its own: `open_tab`, or a
+ * click the verifier saw open one.
+ */
+const openedNewTab = (receipt: AgentStepReadout): boolean =>
+  isAppliedAgentStepStatus(receipt.status) &&
+  receipt.verification?.outcome === "confirmed" &&
+  (receipt.command?.type === "open_tab" ||
+    receipt.verification.evidence.kind === "tab" ||
+    receipt.verification.evidence.summary === "Control opened a new tab")
+
+/**
+ * Where a page opened is a claim no quotation shows: the page reads the same
+ * in either tab. gpt-6-luna clicked a link that opened in place, quoted the
+ * page's title, and completed "Open Details in a new browser tab" — a click
+ * is navigation, not a change, so no receipt stood in the way. The run's own
+ * record of a tab it opened is the only evidence, and unreadable receipts
+ * refuse rather than pass.
+ */
+const refuseUnopenedTab = (
+  requirement: AgentTaskRequirement,
+  input: AgentCompletionInput
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined =>
+  NEW_TAB_PATTERN.test(requirement.text) &&
+  !(input.steps ?? []).some((receipt) =>
+    openedTabFor(requirement, receipt, input)
+  )
+    ? {
+        type: "refused",
+        reason: "unverified_change",
+        feedback: NEW_TAB_FEEDBACK
+      }
+    : undefined
+
+/**
+ * A tab this requirement opened, not merely one the run opened: a tab opened
+ * for an earlier step says nothing about where Details went. Bound by the
+ * requirement id the step carried or the control it names, or, for an
+ * `open_tab` sent for no other requirement, by its address being the page the
+ * run completed on or that page being in the very tab it opened — a site may
+ * redirect the address it was asked for, and another step's tab is not it.
+ */
+const openedTabFor = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  input: AgentCompletionInput
+): boolean =>
+  openedNewTab(receipt) &&
+  (requirementNamesReceiptTarget(requirement, receipt) ||
+    (receipt.command?.type === "open_tab" &&
+      (receipt.requirementId === undefined ||
+        receipt.requirementId === requirement.id) &&
+      (samePage(receipt.command.url, input.observation.url) ||
+        input.tabOpenedBy?.includes(receipt.stepId) === true)))
+
+const OPEN_TAB_ACT_WORDS = new Set([
+  "open",
+  "opened",
+  "opens",
+  "is",
+  "new",
+  "another",
+  "separate",
+  "second",
+  "browser",
+  "tab",
+  "window"
+])
+const OPEN_WORDS = new Set(["open", "opened", "opens"])
+
+/** The words of an address's path: `/open_tab/details` → open tab details. */
+const pathWords = (url: string): string =>
+  /^[a-z][a-z0-9+.-]*:\/\/[^/?#]+([^?#]*)/i.exec(url)?.[1] ?? ""
+
+/**
+ * "Details is open in a new tab", met by the run's own `open_tab` receipt for
+ * it. Which tab a page sits in is a claim no quotation shows, so the receipt
+ * is the only evidence there is — and a confirmed one is all of it: the
+ * verifier saw the destination commit in the tab it opened. The run must be
+ * on that page now, and the requirement may say nothing but that it opened:
+ * every other word has to name the page, by the control, the address or the
+ * title. "Details is open in a new tab and saved" is still a claim to prove.
+ */
+const openedTabMeets = (
+  requirement: AgentTaskRequirement,
+  input: AgentCompletionInput,
+  consumed: Set<string>
+): boolean => {
+  if (
+    requirement.kind !== "change" ||
+    requirement.check ||
+    !NEW_TAB_PATTERN.test(requirement.text)
+  )
+    return false
+  /**
+   * Consumed by identity like every other change receipt: one opened tab is
+   * evidence for one opening, not for two requirements that each ask for one.
+   */
+  const receipt = (input.steps ?? []).find(
+    (receipt) =>
+      !consumed.has(receipt.stepId) &&
+      /**
+       * Untagged counts, as it does in `openedTabFor`: the model often names
+       * no requirement for an open, and the page the run is on, named by the
+       * requirement, is what binds the receipt to it. Tagged for another
+       * requirement does not.
+       */
+      (receipt.requirementId === undefined ||
+        receipt.requirementId === requirement.id) &&
+      receipt.command?.type === "open_tab" &&
+      openedTabFor(requirement, receipt, input) &&
+      samePage(receipt.command.url, input.observation.url) &&
+      claimsOnlyAct(
+        requirement,
+        OPEN_TAB_ACT_WORDS,
+        factWords([
+          receipt.target?.name,
+          pathWords(receipt.command.url),
+          input.observation.title
+        ]),
+        OPEN_WORDS
+      )
+  )
+  if (!receipt) return false
+  consumed.add(receipt.stepId)
+  return true
+}
+
+/**
+ * Same scheme, host and path: where a page is, whatever its query picked up.
+ * The package has no DOM `URL`, so the address is read by pattern, and one
+ * it cannot read matches nothing, which refuses.
+ */
+const samePage = (first: string, second: string): boolean => {
+  const page = (url: string) => {
+    const match = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)([^?#]*)/i.exec(url)
+    return match ? `${match[1].toLowerCase()}${match[2] || "/"}` : undefined
+  }
+  const a = page(first)
+  return a !== undefined && a === page(second)
+}
+
+const typedControlStateAgrees = (
+  check: Extract<
+    NonNullable<AgentTaskRequirement["check"]>,
+    { type: "field" | "selected" | "checked" }
+  >,
+  text: string
+): boolean => {
+  if (check.type === "checked")
+    return check.checked
+      ? requirementAssertsOn(text) && !requirementAssertsOff(text)
+      : requirementAssertsOff(text) && !requirementAssertsOn(text)
+  return check.value
+    ? valueAssertedWithoutNegation(text, check.value)
+    : /\bempty\b/u.test(text)
+}
+
+/** A predicate cannot silently replace a larger or different requested goal. */
+const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
+  const check = requirement.check
+  if (!check) return false
+  const text = agentNormalizedClaim(requirement.text)
+  const verbs = new Set([
+    "set",
+    "sets",
+    "setting",
+    "enter",
+    "entered",
+    "type",
+    "typed",
+    "fill",
+    "filled",
+    "contains",
+    "contain",
+    "holds",
+    "hold",
+    "value",
+    "equals",
+    "equal",
+    "should",
+    "must",
+    "checkbox",
+    "checked",
+    "check",
+    "unchecked",
+    "uncheck",
+    "tick",
+    "ticked",
+    "untick",
+    "unticked",
+    "selected",
+    "select",
+    "option",
+    "empty"
+  ])
+  if (
+    check.type === "field" ||
+    check.type === "selected" ||
+    check.type === "checked"
+  ) {
+    if (!containsCompletePhrase(text, agentNormalizedClaim(check.name)))
+      return false
+    if (!typedControlStateAgrees(check, text)) return false
+    const facts = factWords([
+      check.name,
+      check.record,
+      check.type === "checked" ? undefined : check.value
+    ])
+    return claimWords(text).every(
+      (word) =>
+        verbs.has(word) || CLAIM_FUNCTION_WORDS.has(word) || facts.has(word)
+    )
+  }
+  if (check.type === "control_transition") {
+    // A renamed button establishes only an outcome explicitly naming that
+    // transition; broader business claims still require independent review.
+    // Direction is bound too: "Paid changes to Pay" never vouches for a
+    // check from Pay to Paid, so the from label, a transition verb and the
+    // to label must appear in that order. "Replaces" reverses the order and
+    // is not accepted.
+    const froms = completePhraseOccurrences(
+      text,
+      agentNormalizedClaim(check.from)
+    )
+    const tos = completePhraseOccurrences(text, agentNormalizedClaim(check.to))
+    const ordered = froms.some((from) =>
+      tos.some(
+        (to) =>
+          from.end <= to.start &&
+          /\b(?:becomes?|became|changes?|changed|renamed|turns?|turned)\b/u.test(
+            text.slice(from.end, to.start)
+          )
+      )
+    )
+    return (
+      ordered &&
+      (!check.record ||
+        containsCompletePhrase(text, agentNormalizedClaim(check.record)))
+    )
+  }
+  const identity = check.type === "url" ? check.url : check.record
+  if (!containsCompletePhrase(text, agentNormalizedClaim(identity)))
+    return false
+  const acts =
+    check.type === "record_state"
+      ? new Set([
+          check.state,
+          {
+            saved: "save",
+            submitted: "submit",
+            open: "open",
+            closed: "close",
+            merged: "merge",
+            approved: "approve",
+            deleted: "delete"
+          }[check.state]
+        ])
+      : check.type === "url"
+        ? new Set([
+            "open",
+            "opened",
+            "navigate",
+            "arrive",
+            "arrived",
+            "url",
+            "new",
+            "browser",
+            "tab",
+            "window"
+          ])
+        : new Set(["exists", "exist", "present", "row", "record", "listed"])
+  return claimsOnlyAct(requirement, acts, factWords([identity]))
+}
+
+const judgeMetRequirement = (
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>,
+  credits?: Map<string, AgentStepReadout>
+): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
+  const unopened = refuseUnopenedTab(requirement, input)
+  if (unopened) return unopened
+  if (openedTabMeets(requirement, input, consumed)) return undefined
+  if (requirement.kind === "read")
+    return refusePlannedReadClaim(claim.evidence, input, requirement)
+  if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
+    const refusal = noSubmissionEvidence(input)
+    if (refusal) return refusal
+    if (NO_SUBMISSION_ONLY_PATTERN.test(requirement.text.trim()))
+      return undefined
+  }
+  const checked = checkCompletionState(
+    requirement,
+    input.observation,
+    input.evidenceLedger,
+    claim.evidence,
+    changes
+  )
+  if (checked === true) {
+    if (typedCheckAgrees(requirement)) return undefined
+    /**
+     * A check that holds but answers a different question — an empty "Second"
+     * field for "focus is on Second" — settles nothing either way. The
+     * requirement's own receipt can still settle it, exactly as it would with
+     * no check at all; only when none does is the claim left to review.
+     */
+    const credited = evidencePlannedChange(
+      requirement,
+      claim.evidence?.trim() || undefined,
+      {
+        type: "refused",
+        reason: "needs_review",
+        feedback:
+          "The predicate holds, but does not fully answer the requested outcome. Preserve completed effects and review the remaining claim."
+      },
+      changes,
+      input.observation,
+      consumed
+    )
+    if (!("stepId" in credited)) return credited
+    credits?.set(requirement.id, credited)
+    return undefined
+  }
+  if (checked === false)
+    return {
+      type: "refused",
+      reason: "contradicted_state",
+      feedback:
+        "The required identity, value or final state is not verified in the current observation. Read fresh evidence before considering any further action; do not repeat a completed effect."
+    }
+  if (requirement.check)
+    return {
+      type: "refused",
+      reason: "needs_review",
+      feedback:
+        "The explicit predicate cannot establish the requested record or state. Preserve completed effects and review the claim; a receipt cannot replace this check."
+    }
+  const refusal = judgeEvidence(
+    claim.evidence,
+    input,
+    change ?? "unreadable"
+  ) ?? {
+    type: "refused" as const,
+    reason: "needs_review" as const,
+    feedback:
+      "The quote has page provenance but does not deterministically prove this outcome. This claim needs review. Preserve completed effects and request fresh evidence; do not repeat the action."
+  }
+  const evidenced = evidencePlannedChange(
+    requirement,
+    claim.evidence?.trim() || undefined,
+    refusal,
+    changes,
+    input.observation,
+    consumed
+  )
+  if (!("stepId" in evidenced)) return evidenced
+  credits?.set(requirement.id, evidenced)
+  return undefined
+}
+
+/**
+ * An itemized requirement is met only when every item is, and each item is
+ * judged as a requirement of its own: its own quotation, or its own verified
+ * change consumed by identity. One invoice marked paid is evidence for one
+ * invoice. An item answered `met:false` leaves the requirement unmet; an
+ * item not answered at all is no answer, and the run is sent back.
+ */
+const judgeItemizedRequirement = (
+  requirement: AgentTaskRequirement & { items: readonly string[] },
+  claim: AgentCompletionOutcomeClaim,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>,
+  judgedItems: number[]
+):
+  | Extract<AgentCompletionJudgement, { type: "refused" }>
+  | "unmet"
+  | undefined => {
+  const answers = new Map((claim.items ?? []).map((item) => [item.index, item]))
+  if (requirement.items.some((_, index) => !answers.has(index)))
+    return {
+      type: "refused",
+      reason: "missing_outcomes",
+      feedback: MISSING_ITEM_OUTCOMES_FEEDBACK
+    }
+  let allMet = true
+  let review: Extract<AgentCompletionJudgement, { type: "refused" }> | undefined
+  const quoted = new Set<string>()
+  for (const [index, item] of requirement.items.entries()) {
+    const answer = answers.get(index)
+    if (!answer?.met) {
+      allMet = false
+      continue
+    }
+    /**
+     * Bound to its item, twice over. A quotation must name the item and may
+     * not be one another item already used — "Invoice 1 Paid" twice is one
+     * invoice, not two. A receipt standing in for a quotation must have
+     * acted on a control or row that names the item, because every item
+     * shares the requirement's id and the id alone would let any receipt
+     * vouch for any item.
+     */
+    const quote = answer.evidence?.trim()
+    const claim = quote ? agentNormalizedClaim(quote) : undefined
+    const bound =
+      claim !== undefined &&
+      namesItem(claim, item) &&
+      (requirement.kind !== "change" ||
+        quotesOnlyItsItem(claim, item, requirement.items)) &&
+      !quoted.has(claim)
+    /**
+     * A quotation not bound to its item is set aside, not fatal: the item's
+     * own verified receipt can still credit it. A page that writes "Paid
+     * Invoice 2" has the state first, which a quote alone cannot tell from
+     * the end of the row before it.
+     */
+    if (bound) quoted.add(claim)
+    const evidence = bound ? quote : undefined
+    const { items: _items, ...single } = requirement
+    const refusal = judgeMetRequirement(
+      { ...single, text: `${item}: ${requirement.text}` },
+      {
+        id: requirement.id,
+        met: true,
+        ...(evidence ? { evidence } : {})
+      },
+      input,
+      change,
+      changes.filter((receipt) =>
+        agentReceiptNamesItem(
+          receipt,
+          item,
+          requirement.items,
+          input.observation
+        )
+      ),
+      consumed
+    )
+    if (refusal?.reason === "needs_review") {
+      review = refusal
+      continue
+    }
+    if (refusal)
+      return quote && !bound
+        ? {
+            type: "refused",
+            reason: "absent_evidence",
+            feedback: itemEvidenceFeedback(index, item)
+          }
+        : refusal
+    judgedItems.push(index)
+  }
+  /**
+   * An item the run itself reported unmet leaves the requirement unmet,
+   * whatever a review of its other items could say. Returning the review
+   * instead let a supported verdict on one item carry the whole requirement
+   * into `met` with another item still unfinished.
+   */
+  if (!allMet) return "unmet"
+  return review
+}
+
+/**
+ * For a change, the quotation is about its item and nothing else: it starts
+ * at the item's name, carries a state after it, and names no other item of
+ * the requirement. "Paid Invoice 2" quotes invoice 1's state beside invoice
+ * 2's name, and "Invoice 1 Due Invoice 2 Paid" quotes invoice 2's. A page
+ * that writes the state first fails here and is credited only by the item's
+ * own receipt.
+ */
+const quotesOnlyItsItem = (
+  claim: string,
+  item: string,
+  items: readonly string[]
+): boolean => {
+  const phrase = agentNormalizedClaim(item)
+  if (!phrase || !claim.startsWith(phrase)) return false
+  const rest = claim.slice(phrase.length)
+  if (!/^[^\p{L}\p{N}]/u.test(rest) || !/[\p{L}\p{N}]/u.test(rest)) return false
+  return items.every((other) => other === item || !namesItem(claim, other))
+}
+
+/** Whether normalized text names an item as a whole phrase, not a prefix. */
+const namesItem = (text: string, item: string): boolean => {
+  const phrase = agentNormalizedClaim(item)
+  return phrase.length > 0 && containsCompletePhrase(text, phrase)
+}
+
+/**
+ * Whether a receipt acted on this item. Either its control or row names the
+ * item — "Invoice 3 — Due" names "invoice 3" — or the item names the control
+ * and no other item does: "Given name Ada" names the field "Given name", but
+ * "Status" is named by both "Invoice 1 Status" and "Invoice 2 Status" and
+ * identifies neither, so a receipt under that name alone credits no item.
+ * A reverse match must also prove the value or state the item adds.
+ */
+export const agentReceiptNamesItem = (
+  receipt: AgentStepReadout,
+  item: string,
+  items: readonly string[],
+  observation: AgentObservation
+): boolean =>
+  receiptNames(receipt).some(
+    (name) =>
+      namesItem(agentNormalizedClaim(name), item) ||
+      (namesItem(agentNormalizedClaim(item), name) &&
+        receiptProvesItem(receipt, item, observation) &&
+        items.every(
+          (other) =>
+            other === item || !namesItem(agentNormalizedClaim(other), name)
+        ))
+  )
+
+/** A reverse-name match owes every value or state the item adds to the name. */
+const receiptProvesItem = (
+  receipt: AgentStepReadout,
+  item: string,
+  observation: AgentObservation
+): boolean => {
+  if (!isResultVerifiedChange(receipt)) return false
+  if (receipt.command?.type !== "fill_form")
+    return quotationStatesReceiptFacts(item, receipt)
+  const index = matchingBatchField(
+    { id: receipt.requirementId ?? "", text: item, kind: "change" },
+    receipt,
+    observation,
+    new Set()
+  )
+  if (index === undefined || index < 0) return false
+  const field = receipt.command.fields[index]
+  const name = receipt.verification?.evidence.fields?.[index]?.name
+  const current = observation.elements.find(
+    (element) =>
+      agentNormalizedClaim(element.name ?? "") ===
+      agentNormalizedClaim(name ?? "")
+  )
+  if (!field || !name || !current) return false
+  const state =
+    field.type === "check" || field.type === "uncheck"
+      ? CHECKED_STATE_WORDS[field.type]
+      : undefined
+  return statesOnlyFacts(
+    item,
+    factWords([name, state ? undefined : current.value]),
+    state
+  )
+}
+
+/**
+ * Every name a receipt acted under: its control, its row, and — for a
+ * verified batch — each field the verifier checked. It vouches for an item
+ * when one names the other: a row "Invoice 3 — Due" names the item
+ * "invoice 3", and the item "Given name Ada" names the field "Given name". A batch's top-level
+ * target names one control at most, so reading only that filtered out the
+ * verified fields of an itemized form.
+ */
+const receiptNames = (receipt: AgentStepReadout): string[] =>
+  [
+    receipt.target?.name,
+    receipt.target?.rowContext,
+    ...(receipt.verification?.outcome === "confirmed" &&
+    receipt.verification.evidence.kind === "fields"
+      ? (receipt.verification.evidence.fields ?? []).map((field) => field.name)
+      : [])
+  ].filter((name): name is string => name !== undefined && name.length > 0)
+
+const itemEvidenceFeedback = (index: number, item: string): string =>
+  `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's.`
+
+/**
+ * An itemized requirement is met only item by item, and a review answers for
+ * the requirement as a whole: one supported citation cannot say which item it
+ * supports. A refusal that includes one keeps no scope and is never reviewed.
+ */
+const withReviewScope = (
+  review: Extract<AgentCompletionJudgement, { type: "refused" }>,
+  requirements: readonly AgentTaskRequirement[],
+  reviewIds: string[],
+  outcome: AgentRunOutcome
+): Extract<AgentCompletionJudgement, { type: "refused" }> =>
+  requirements.some(
+    (requirement) =>
+      requirement.items?.length && reviewIds.includes(requirement.id)
+  )
+    ? review
+    : {
+        ...review,
+        review: { requirementIds: reviewIds, constraintIds: [], outcome }
+      }
+
+const recordJudgedItems = (
+  items: NonNullable<AgentRunOutcome["items"]>,
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim,
+  judgedItems: number[],
+  input: AgentCompletionInput
+): void => {
+  if (requirement.items?.length) {
+    const visualItems = judgedItems.filter((index) => {
+      const quote = claim.items?.find((item) => item.index === index)?.evidence
+      return (
+        requirement.kind === "read" &&
+        !groundedCompletionQuote(
+          quote,
+          requirement.id,
+          input.evidenceLedger,
+          requiresCurrentState(requirement)
+        ) &&
+        visualCompletionRead(quote, requirement.id, input.evidenceLedger) !==
+          undefined
+      )
+    })
+    items.push({
+      id: requirement.id,
+      met: judgedItems,
+      ...(visualItems.length ? { visual: visualItems } : {})
+    })
+  }
+}
+
+/**
+ * The requirement stays unmet, but the items the run did finish are still
+ * judged for the report, on a copy of the consumed receipts so an unmet
+ * requirement credits nothing another one needs.
+ */
+const recordUnmetItems = (
+  items: NonNullable<AgentRunOutcome["items"]>,
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim | undefined,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>
+): void => {
+  if (
+    !claim ||
+    !requirement.items?.length ||
+    !claim.items?.some((item) => item.met)
+  )
+    return
+  const judgedItems: number[] = []
+  judgeItemizedRequirement(
+    { ...requirement, items: requirement.items },
+    claim,
+    input,
+    change,
+    changes,
+    new Set(consumed),
+    judgedItems
+  )
+  recordJudgedItems(items, requirement, claim, judgedItems, input)
+}
+
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
-  change: AgentStepReadout | "unreadable" | undefined
+  change: AgentStepReadout | "unreadable" | undefined,
+  credits?: Map<string, AgentStepReadout>
 ): AgentCompletionJudgement => {
   /**
    * The verification gate applies once, before any requirement is read: a
@@ -412,34 +2396,453 @@ const judgePlanned = (
     }
   const met: string[] = []
   const unmet: string[] = []
+  /**
+   * One verified state vouches for one requirement — never the whole plan.
+   * Each exemption consumes a distinct change receipt by identity, so a run
+   * that verified a single field still owes quotations (or further receipts)
+   * for everything else it claimed. The receipts are the bounded record: they
+   * carry the verified state, the source URL and the step identity, and the
+   * judge re-derives the same answer from them every time.
+   */
+  const changes = allChanges(input.steps ?? [])
+  const consumed = new Set<string>()
+  let review: Extract<AgentCompletionJudgement, { type: "refused" }> | undefined
+  const reviewIds: string[] = []
+  const items: NonNullable<AgentRunOutcome["items"]> = []
   for (const requirement of requirements) {
     const claim = claims.get(requirement.id)
     if (!claim?.met) {
       unmet.push(requirement.id)
+      recordUnmetItems(
+        items,
+        requirement,
+        claim,
+        input,
+        change,
+        changes,
+        consumed
+      )
       continue
     }
-    if (requirement.kind === "read") {
-      /**
-       * A read owes no quotation, but one it volunteers must still be real.
-       * An accepted completion carrying a phrase the page does not contain is
-       * a false record whichever kind of outcome it was attached to.
-       */
-      const refusal = claim.evidence
-        ? judgeEvidence(claim.evidence, input, change ?? "unreadable", false)
-        : undefined
-      if (refusal) return refusal
-      met.push(requirement.id)
+    const judgedItems: number[] = []
+    const judged = requirement.items?.length
+      ? judgeItemizedRequirement(
+          { ...requirement, items: requirement.items },
+          claim,
+          input,
+          change,
+          changes,
+          consumed,
+          judgedItems
+        )
+      : judgeMetRequirement(
+          requirement,
+          claim,
+          input,
+          change,
+          changes,
+          consumed,
+          credits
+        )
+    recordJudgedItems(items, requirement, claim, judgedItems, input)
+    if (judged === "unmet") {
+      unmet.push(requirement.id)
       continue
     }
-    const refusal = judgeEvidence(claim.evidence, input, change ?? "unreadable")
-    if (refusal) return refusal
+    if (judged?.reason === "needs_review") {
+      review = judged
+      reviewIds.push(requirement.id)
+      continue
+    }
+    if (judged) return judged
     met.push(requirement.id)
   }
-  const outcome = { met, unmet }
+  const visual = met.filter((id) => {
+    const requirement = requirements.find((entry) => entry.id === id)
+    if (requirement?.kind !== "read") return false
+    const claim = claims.get(id)
+    const evidence = requirement.items?.length
+      ? (claim?.items ?? [])
+          .filter((item) => item.met)
+          .map((item) => item.evidence)
+      : [claim?.evidence]
+    return evidence.some(
+      (quote) =>
+        !groundedCompletionQuote(
+          quote,
+          id,
+          input.evidenceLedger,
+          requiresCurrentState(requirement)
+        ) && visualCompletionRead(quote, id, input.evidenceLedger) !== undefined
+    )
+  })
+  const outcome = {
+    met,
+    unmet,
+    ...(items.length ? { items } : {}),
+    ...(visual.length ? { visual } : {})
+  }
+  if (review) return withReviewScope(review, requirements, reviewIds, outcome)
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0
     ? { type: "unmet", outcome }
     : { type: "partial", outcome }
+}
+
+/**
+ * Constraints judged in two halves: anything that settles the run — a
+ * violation, an unreadable record — is returned at once, and a limit nothing
+ * deterministic can check is collected for review. A violation found after a
+ * reviewable limit still wins; the order constraints were planned in is not
+ * a reason to ask a reviewer about a run that already broke one.
+ */
+/**
+ * A limit on how the run acts — "using Tab", "with the Enter key" — is about
+ * the run's own input, which no page shows and no quotation can cite, so a
+ * reviewer shown the page could only ever refuse it. The receipts answer it
+ * instead: every change the run applied was a confirmed press of a key the
+ * constraint names. A click, a typed value or an unconfirmed press leaves it
+ * to review, and a constraint naming no key is never read this way.
+ */
+/**
+ * The only words a "use this key" limit may hold besides the key and the
+ * controls the run moved between. An allowlist, not a list of bad words: "Do
+ * not press Tab", "Press Tab at most once" and "Tab only after saving" all
+ * name the key, and every word they add is one this shortcut cannot judge,
+ * so anything outside it leaves the limit to review.
+ */
+const PRESS_WORDS = new Set([
+  "press",
+  "presses",
+  "pressing",
+  "pressed",
+  "hit",
+  "hitting"
+])
+
+const KEY_METHOD_WORDS = new Set([
+  "use",
+  "uses",
+  "using",
+  "used",
+  "press",
+  "presses",
+  "pressing",
+  "pressed",
+  "hit",
+  "hitting",
+  "key",
+  "keys",
+  "keyboard",
+  "via",
+  "by",
+  "with",
+  "move",
+  "moving",
+  "reach",
+  "reaching",
+  "get",
+  "focus",
+  "navigate",
+  "navigating",
+  "go",
+  "from",
+  "to",
+  "into",
+  "onto",
+  "next",
+  "control",
+  "field"
+])
+
+/**
+ * A limit on how the run acts — "using Tab", "with the Enter key" — is about
+ * the run's own input, which no page shows and no quotation can cite, so a
+ * reviewer shown the page could only ever refuse it. The receipts answer it
+ * instead: every change the run applied was a confirmed press of a key the
+ * limit names, and the limit says nothing else.
+ */
+const keyMethodHonored = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[],
+  observation: AgentObservation
+): boolean => {
+  const changes = allChanges(steps)
+  if (
+    changes.length === 0 ||
+    !changes.every(
+      (step) =>
+        step.command?.type === "press_key" &&
+        step.verification?.outcome === "confirmed"
+    )
+  )
+    return false
+  const keys = changes.map((step) =>
+    step.command?.type === "press_key" ? keyText(step.command.key) : ""
+  )
+  const text = agentNormalizedClaim(constraint.text)
+  if (
+    !keys.every((key) =>
+      containsCompletePhrase(text, agentNormalizedClaim(key))
+    )
+  )
+    return false
+  /**
+   * "Press Tab" asks for a press, not a method: one press per time the key is
+   * named. A run that pressed it three times went past what was asked, so
+   * an instruction to press counts, while "using Tab" allows any number.
+   */
+  if (claimWords(constraint.text).some((word) => PRESS_WORDS.has(word))) {
+    for (const key of new Set(keys)) {
+      const named = completePhraseOccurrences(
+        text,
+        agentNormalizedClaim(key)
+      ).length
+      if (keys.filter((pressed) => pressed === key).length !== named)
+        return false
+    }
+  }
+  return claimsOnlyAct(
+    { id: constraint.id, kind: "change", text: constraint.text },
+    KEY_METHOD_WORDS,
+    factWords([
+      ...keys,
+      ...changes.map((step) => step.target?.name),
+      ...observation.elements
+        .filter((element) => element.focused && !element.sensitive)
+        .map((element) => element.name)
+    ]),
+    new Set(keys.flatMap((key) => claimWords(key)))
+  )
+}
+
+const judgeConstraints = (
+  input: AgentCompletionInput
+):
+  | Extract<AgentCompletionJudgement, { type: "refused" }>
+  | { review: string[] } => {
+  const review: string[] = []
+  for (const constraint of input.constraints ?? []) {
+    if (!input.steps)
+      return {
+        type: "refused",
+        reason: "unverified_change",
+        feedback:
+          "The effect record is unavailable; constraints cannot be verified. Read fresh evidence without repeating completed effects."
+      }
+    if (
+      input.steps.some(
+        (receipt) =>
+          isAppliedAgentStepStatus(receipt.status) &&
+          receipt.consequential?.some((effect) =>
+            constraint.forbids?.includes(effect)
+          )
+      )
+    )
+      return {
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: `The run violated constraint ${constraint.id}. Report the violation; do not claim full success.`
+      }
+    if (
+      input.steps.some(
+        (receipt) =>
+          isAgentChangeReceipt(receipt) && receipt.consequential === undefined
+      )
+    )
+      return {
+        type: "refused",
+        reason: "needs_review",
+        feedback:
+          "An applied effect has no recorded consequential classes. Constraints need review; missing effect evidence is unknown."
+      }
+    if (
+      !constraint.forbids?.length &&
+      !keyMethodHonored(constraint, input.steps, input.observation)
+    )
+      review.push(constraint.id)
+  }
+  return { review }
+}
+
+const constraintReviewFeedback = (ids: readonly string[]): string =>
+  `Constraint ${ids.join(", ")} requires review; the requested scope or limit has no deterministic support. Preserve completed effects.`
+
+/**
+ * A planned completion: constraints that settle the run first, then every
+ * requirement, then any limit only a reviewer can read folded into the same
+ * review scope as the requirements that need one.
+ */
+/** Lowercase words, punctuation dropped: "Color." and "color" are one word. */
+const stopWords = (text: string): string[] =>
+  agentNormalizedClaim(text)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length > 0)
+
+/** "Stop once Blue is selected" → "blue is selected". */
+const STOP_CONDITION =
+  /^(?:stop|finish|end|be done|you are done)\s+(?:once|when|as soon as|after)\s+(.+)$/u
+const STOP_FILLER = new Set([
+  "is",
+  "are",
+  "was",
+  "has",
+  "have",
+  "been",
+  "the",
+  "a",
+  "an",
+  "it",
+  "from",
+  "in",
+  "on",
+  "of",
+  "to",
+  "field",
+  "control",
+  "option"
+])
+
+/**
+ * A limit that only restates when to stop — "Stop once Blue is selected" for
+ * the outcome "Blue is selected from Color" — adds nothing a page could show
+ * beyond that outcome. It holds when the outcome it names was judged met and
+ * the run changed nothing after the step that met it; a run that went on to
+ * act again is left to review. Every content word of the condition must be a
+ * word of that one outcome, so a condition naming anything else never reads
+ * as it.
+ */
+const stopConditionMet = (
+  constraint: AgentTaskConstraint,
+  requirements: readonly AgentTaskRequirement[],
+  met: ReadonlySet<string>,
+  steps: readonly AgentStepReadout[] | undefined,
+  observation: AgentObservation,
+  credits: ReadonlyMap<string, AgentStepReadout>
+): boolean => {
+  const condition = STOP_CONDITION.exec(
+    agentNormalizedClaim(constraint.text)
+  )?.[1]
+  if (!condition || !steps) return false
+  const words = stopWords(condition).filter((word) => !STOP_FILLER.has(word))
+  if (words.length === 0) return false
+  const changes = allChanges(steps)
+  const last = changes.at(-1)
+  return requirements.some((requirement) => {
+    if (!met.has(requirement.id)) return false
+    const own = new Set(
+      stopWords(
+        [
+          requirement.text,
+          requirement.check && "name" in requirement.check
+            ? requirement.check.name
+            : "",
+          requirement.check && "value" in requirement.check
+            ? requirement.check.value
+            : ""
+        ].join(" ")
+      )
+    )
+    return (
+      words.every((word) => own.has(word)) &&
+      /**
+       * A change outcome is held by this run's own change: met with no
+       * change at all, it was already true, and stopping "once" it held
+       * says nothing about what this run did. The last change must be the
+       * one that established it, never an act past it:
+       * - an outcome with a state check ("Blue is selected") is set by a change
+       *   verified against that state; a Save after it acted past the stop;
+       * - one without (“Color shows Blue”, “the form is submitted”) is met
+       *   by a change the completion judge credits with it, so the last
+       *   change must be one: the one it credited, read with the run's own
+       *   quotation as the judge read it (a Tab press quoted by "Second"), or
+       *   one it credits on its own (the submit after a fill). A select
+       *   credited with Blue and a Save after it acted past the stop. A second
+       *   change verified the same way repeated an act that already met it.
+       */
+      (last === undefined
+        ? requirement.kind !== "change"
+        : last.requirementId === requirement.id &&
+          last.verification?.outcome === "confirmed" &&
+          (requirement.check
+            ? provesItsOwnResult(last.verification)
+            : (credits.get(requirement.id)?.stepId === last.stepId ||
+                agentWorkflowReceiptSupport(
+                  requirement,
+                  undefined,
+                  [last],
+                  observation,
+                  new Set()
+                )?.stepId === last.stepId) &&
+              !changes.some(
+                (change) =>
+                  change !== last &&
+                  change.requirementId === requirement.id &&
+                  change.verification?.outcome === "confirmed" &&
+                  change.verification.evidence.kind ===
+                    last.verification?.evidence.kind
+              )))
+    )
+  })
+}
+
+const judgePlannedWithConstraints = (
+  input: AgentCompletionInput,
+  requirements: readonly AgentTaskRequirement[],
+  change: AgentStepReadout | "unreadable" | undefined
+): AgentCompletionJudgement => {
+  const judged = judgeConstraints(input)
+  if ("type" in judged) return judged
+  /** The receipt the judge credited with each requirement it met. */
+  const credits = new Map<string, AgentStepReadout>()
+  const planned = judgePlanned(input, requirements, change, credits)
+  /** Only what this judgement settled; a refusal settles nothing. */
+  const met = new Set<string>(
+    planned.type === "accepted"
+      ? (planned.outcome?.met ??
+          requirements.map((requirement) => requirement.id))
+      : planned.type === "refused"
+        ? []
+        : planned.outcome.met
+  )
+  const constraints = {
+    review: judged.review.filter((id) => {
+      const constraint = input.constraints?.find((entry) => entry.id === id)
+      return !(
+        constraint &&
+        stopConditionMet(
+          constraint,
+          requirements,
+          met,
+          input.steps,
+          input.observation,
+          credits
+        )
+      )
+    })
+  }
+  if (constraints.review.length === 0) return planned
+  if (planned.type === "refused") {
+    if (!planned.review) return planned
+    return {
+      ...planned,
+      feedback: `${planned.feedback} ${constraintReviewFeedback(constraints.review)}`,
+      review: { ...planned.review, constraintIds: constraints.review }
+    }
+  }
+  return {
+    type: "refused",
+    reason: "needs_review",
+    feedback: constraintReviewFeedback(constraints.review),
+    review: {
+      requirementIds: [],
+      constraintIds: constraints.review,
+      outcome: planned.outcome ?? {
+        met: requirements.map((requirement) => requirement.id),
+        unmet: []
+      }
+    }
+  }
 }
 
 export const judgeAgentCompletion = (
@@ -447,7 +2850,7 @@ export const judgeAgentCompletion = (
 ): AgentCompletionJudgement => {
   const change = input.steps ? lastChange(input.steps) : "unreadable"
   if (input.requirements?.length)
-    return judgePlanned(input, input.requirements, change)
+    return judgePlannedWithConstraints(input, input.requirements, change)
   /** Only a run whose receipts say it changed nothing completes unevidenced. */
   if (change === undefined) {
     // A read needs no change evidence, but a supplied page quote must still be real.
@@ -535,4 +2938,33 @@ export const judgeAgentCompletion = (
     }
   }
   return { type: "accepted" }
+}
+
+/** Exact receipt support for compact progress, using the completion judge's rules. */
+export const agentWorkflowReceiptSupport = (
+  requirement: AgentTaskRequirement,
+  item: string | undefined,
+  steps: readonly AgentStepReadout[],
+  observation: AgentObservation,
+  consumed: Set<string>
+): AgentStepReadout | undefined => {
+  if (requirement.kind !== "change" || requirement.check) return undefined
+  const { items, ...single } = requirement
+  const changes = allChanges(steps).filter(
+    (receipt) =>
+      !item || agentReceiptNamesItem(receipt, item, items ?? [], observation)
+  )
+  const result = evidencePlannedChange(
+    item ? { ...single, text: `${item}: ${single.text}` } : single,
+    undefined,
+    {
+      type: "refused",
+      reason: "needs_review",
+      feedback: "Read fresh evidence without replaying a completed effect."
+    },
+    changes,
+    observation,
+    consumed
+  )
+  return "stepId" in result ? result : undefined
 }

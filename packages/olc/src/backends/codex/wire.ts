@@ -52,9 +52,14 @@ export const resolveCodexReasoningEffort = (
   }
 }
 
+/**
+ * `contextLength` is the window a turn on this model reported. `model/list`
+ * carries none, so a model is listed without one until it has run once.
+ */
 export const mapCodexModel = (
   model: CodexModel,
-  supportsTools = true
+  supportsTools = true,
+  contextLength?: number
 ): CatalogModel => {
   const efforts = codexReasoningEfforts(model)
   const defaultEffort = model.defaultReasoningEffort
@@ -67,6 +72,7 @@ export const mapCodexModel = (
     created: 0,
     owned_by: "codex",
     name: model.displayName || model.id,
+    ...(contextLength ? { context_length: contextLength } : {}),
     input_modalities: modalities,
     output_modalities: ["text"],
     supported_parameters: [

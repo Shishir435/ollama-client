@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest"
-import { formatDuration, formatTokensPerSecond } from "../format-utils"
+import {
+  formatDuration,
+  formatTokensPerSecond,
+  formatUsd
+} from "../format-utils"
 
 describe("format-utils", () => {
+  describe("formatUsd", () => {
+    it("keeps sub-cent costs distinguishable", () => {
+      expect(formatUsd(1.234)).toBe("$1.23")
+      expect(formatUsd(0.0567)).toBe("$0.057")
+      expect(formatUsd(0.0042)).toBe("$0.0042")
+      expect(formatUsd(0.000012)).toBe("$0.000012")
+    })
+  })
+
   describe("formatDuration", () => {
     it("should format milliseconds", () => {
       expect(formatDuration(500 * 1_000_000)).toBe("500ms")

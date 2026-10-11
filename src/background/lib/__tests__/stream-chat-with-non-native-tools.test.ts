@@ -87,6 +87,25 @@ describe("streamChatWithNonNativeTools", () => {
     expect(lastTrace?.[0]).toMatchObject({ toolId: "echo", status: "done" })
   })
 
+  it("forwards the provider's web citations", async () => {
+    const citations = [{ url: "https://a.example", title: "A" }]
+    const provider = scriptedProvider([
+      [{ delta: "answer" }, { webCitations: citations }, { done: true }]
+    ])
+
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithNonNativeTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      tools: [echoDef],
+      registry: registryWith(async () => ({ content: "" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+
+    expect(chunks.find((c) => c.webCitations)?.webCitations).toEqual(citations)
+  })
+
   it("never sends a tools array to the provider", async () => {
     const provider = scriptedProvider([[{ delta: "hi" }, { done: true }]])
     await streamChatWithNonNativeTools({

@@ -1,4 +1,16 @@
 {
+  "stopBrowserAgentMenu": {
+    "message": "ブラウザーエージェントを停止",
+    "description": "Stop the active browser agent task"
+  },
+  "agentTaskCompleted": {
+    "message": "完了",
+    "description": "Browser task completed"
+  },
+  "agentTaskAttention": {
+    "message": "一時停止",
+    "description": "Browser task needs human attention"
+  },
   "extName": {
     "message": "Ollama Client - Ollama、LM Studio、llama.cpp のローカル AI チャット",
     "description": "Extension name shown by Chrome and Chrome Web Store"

@@ -1,8 +1,9 @@
 # olc
 
-One CLI for native Ollama and local agent proxies. With no arguments, `olc`
-starts or reuses **native Ollama** with browser-extension access. Ollama keeps its
-own API and default port; it does not run behind the agent proxy.
+One CLI for native Ollama, local agent proxies, and olc-managed Docker servers.
+With no arguments, `olc` starts or reuses **native Ollama** with browser-extension
+access. Ollama keeps its own API and default port; it does not run behind the
+agent proxy.
 
 | Command | Behavior | Default bind |
 | --- | --- | --- |
@@ -10,6 +11,10 @@ own API and default port; it does not run behind the agent proxy.
 | `olc --lan` | Start/reuse a compatible LAN server | `0.0.0.0:11434` |
 | `olc -b codex` | Start the Codex proxy | `127.0.0.1:8083` |
 | `olc -b opencode` | Start the OpenCode proxy | `127.0.0.1:8084` |
+| `olc -b fm` (or `-b apple`) | Serve Apple Foundation Models (macOS 27) | `127.0.0.1:8085` |
+| `olc -b laya` | Build/start the Laya decision API in Docker | `127.0.0.1:8086` |
+| `olc -b searxng` | Start SearXNG and Valkey in Docker | `127.0.0.1:8080` |
+| `olc list` | List running backends and Docker services started by olc | — |
 
 `-b` and `--backend` are aliases. `--backend=codex` also works.
 
@@ -43,6 +48,7 @@ client  ──  POST /v1/chat/completions (messages + tools)  ──▶  olc  �
 | Proxy | `-K` API key, `-s` system prompt, `-n` no bridge |
 | OpenCode | `-u` URL, `-x` binary, `-a` agent, `-P` project, `-t` allowed tools, `-g` plugin directory |
 | Codex | `-C` binary, `-W` workspace, `-w` web-search mode |
+| Apple Foundation Models | `-F` binary |
 
 Short flags take separate values (`-p 8083`); long flags also accept
 `--name=value`. Short flags are case-sensitive and are not combined into clusters.
@@ -127,6 +133,59 @@ Requires Node ≥ 22.12 and an existing [Ollama installation](https://ollama.com
 `PATH` (or `--opencode`). The Codex backend needs the `codex` binary on `PATH`
 (or `--codex`) and an existing `codex login`; olc never reads, stores, or proxies
 the user's OpenAI credentials.
+
+Docker backends are optional and require Docker Engine or Docker Desktop; the
+SearXNG backend also requires the Docker Compose v2 plugin. `olc -b laya`
+builds olc's CPU HTTP server image around the official Laya inference package
+from the bundled Dockerfile on first use. Laya downloads
+its model into a Docker volume on first inference. `olc -b searxng` writes a
+private local config under olc's data directory (normally `~/.olc/services/searxng`), then starts SearXNG and
+Valkey without a repository clone or manual Compose setup. Both services bind
+to loopback by default; use `--port <port>` on the start command if a default
+port is already occupied, for example `olc -b searxng --port 18080`.
+Managed starts resolve the port from `--port`, `OLC_PORT`, `PORT` in the selected
+`--config` file, then the service default.
+
+Fresh SearXNG installs use the pinned image `2026.9.25-12f8b6515`. olc refreshes
+its managed Compose file on each start and updates only image defaults marked
+as olc-managed. Existing `.env` files without that marker keep their current
+`SEARXNG_VERSION`, including `latest`; edit that value explicitly to migrate a
+legacy install or choose another image.
+
+```bash
+olc -b laya
+olc -b laya status
+olc -b searxng
+olc -b searxng status
+olc list
+olc -b laya stop
+olc -b laya rm                 # remove container, keep model cache
+olc -b laya rm --purge-data    # also delete model cache
+olc -b searxng stop            # pause containers; preserve config and volumes
+olc -b searxng rm              # remove containers; keep config and volumes
+olc -b searxng rm --purge-data # delete SearXNG data and managed config
+```
+
+Laya serves typed decisions at `http://127.0.0.1:8086/v1/systemone`; SearXNG
+serves JSON search at `http://127.0.0.1:8080`. `olc list --json` returns running
+native Ollama, CLI proxy, and Docker services started by olc as JSON. Process
+entries include their PID; Docker entries include a health check. `stop`
+preserves service containers, config, and data. `rm` removes containers but preserves data unless
+`--purge-data` is supplied. The first Laya build and model download need network
+access; its first inference downloads the model. A healthy SearXNG endpoint does
+not guarantee every upstream search engine will return results; engines can
+rate-limit or challenge requests. `olc --version` reports the CLI release; Laya's
+`/health` response includes the bundled inference package version.
+SearXNG lifecycle commands verify olc's ownership marker before using Compose;
+purge removes only olc's local files and preserves unrelated files in that directory.
+If the SearXNG Compose file has been customized, purge removes the bundled
+SearXNG containers and data volumes but leaves the customized Compose file,
+`.env`, and `core-config/settings.yml` in place so added services are not
+orphaned. Added services and volumes are left untouched; they may still be
+running. The CLI prints the retained directory. Manage or stop added services
+with that Compose file, then inspect the retained directory before cleanup.
+Remove only the listed OLC config files if they are no longer needed; preserve
+other files and directories because they may contain user data.
 
 Nothing is published to a registry. Release bundles can be installed directly.
 
@@ -351,8 +410,15 @@ start fresh work while still computing a result for a turn it left parked.
 
 So the number of parked turns is bounded instead. `MAX_PARKED_TURNS` (default
 `4`) is how many may sit parked at once; admitting a fresh turn discards the
-oldest above that, never one whose resume request already exists. Each turn
-still carries its own `SUSPENDED_TURN_TTL_MS` deadline. Raise the cap for a
+oldest above that, never one whose resume request already exists. Turns whose
+request forced a tool call (`tool_choice` `"required"` or a named function)
+go first: they are decisions a client usually does not resume, while a turn
+that left the call to the model is usually one whose client is still running
+the tool — a chat turn waiting on a browser task, say, while that task's own
+decisions park beside it. Each turn still carries its own
+`SUSPENDED_TURN_TTL_MS` deadline, and each parked call its
+`BRIDGE_CALL_TIMEOUT_MS` one; both default to fifty minutes, because a client
+tool can take as long as its user does. Raise the cap for a
 client that genuinely interleaves several tool-calling turns; it is clamped to
 at least one, because parking is how a tool call reaches the client and zero
 would disable client tool calling rather than bound it.
@@ -434,6 +500,31 @@ Codex `webSearch` lifecycle items are forwarded as reasoning-status deltas, whil
 commentary-phase messages stay in reasoning instead of being concatenated into
 the final answer. Debug mode reports the selected native mode and the number of
 observed search events, but never logs the query text.
+
+### Apple Foundation Models backend
+
+| Option | Flag | Environment | Default |
+| --- | --- | --- | --- |
+| `FM_PATH` | `--fm` | `OLC_FM_PATH` | `fm` |
+
+macOS 27 ships Apple's on-device model with an `fm` CLI whose `fm serve`
+already speaks Chat Completions. It cannot be added to a browser extension
+directly: it answers the CORS preflight and then refuses the request itself
+with `403 Cross-site requests are not allowed` because the extension sends an
+`Origin`. `olc -b fm` starts `fm serve` on a private Unix socket, relays turns
+to it, and applies the proxy's own origin policy instead.
+
+It exists only on macOS: on Linux and Windows `-b fm` and `-b apple` are refused
+with that reason, and `olc --help` does not list them.
+
+It publishes one model, `apple/foundation`, with an 8,192-token context, text
+and image input, and no tool calling: offered a tool, the model answers in
+prose, so the catalog says so and a client sends none. It suits short chats,
+rewording and summarising a selection; retrieval and web search fill the
+window quickly. A conversation that outgrows it, and a request Apple's
+guardrails decline, are both reported in those words. Startup fails with a
+named reason when `fm` is missing or `fm available` says the model is not
+ready (Apple Intelligence off, or still downloading).
 
 ## Endpoints
 
@@ -538,6 +629,22 @@ new adapter's expectations.
   refused with `400 StaleToolResults` rather than folded into a new turn. A turn
   whose resume request is queued is not reaped while it waits, and the
   correlation is re-checked inside the queue slot.
+- **Usage is the whole turn's, sent with the answer that completes it.** It
+  rides on the finish chunk (and on OpenAI's trailing chunk when
+  `include_usage` is set). A response that ends in `tool_calls` carries none:
+  both runtimes report a model call's tokens only after its tools answer —
+  measured on Codex, nothing arrives while the call is parked — so that leg
+  could only offer a partial count. A turn the client never resumes, such as
+  a browser agent's forced decision, therefore reports no usage at all.
+- **Codex's context window is learned, not listed.** `model/list` carries no
+  window, so a Codex model appears in `/v1/models` without `context_length`
+  until it has run one turn in this proxy. OpenCode models carry theirs from
+  the start.
+- **Sources are what the runtime's search consulted.** Codex reports the pages
+  it opened and the hits each search returned; the answer is sent the pages it
+  links and opened, or the top hits when it did neither. OpenCode reports only
+  its tools' text, so a `websearch` result is read for its own result URLs and
+  a `webfetch` for the page it fetched — never every link a result quotes.
 - **Images ride along as file parts.** `image_url` and `input_image` content parts
   become OpenCode file parts, data URL and all, so a vision model sees them. What
   the model does with them is the model's business: a text-only model is sent the
@@ -556,6 +663,16 @@ new adapter's expectations.
   every result is `No client is attached to session …` is worse than no tool.
   Two proxies against one OpenCode server is therefore a single-bridge
   arrangement: give the second one its own server, or none of its tools work.
+- **Zen free-tier models refuse proxied turns.** OpenCode's gateway rejects a
+  free-tier request that carries per-tool disable flags with `FreeTierError`
+  ("can only be used from within OpenCode"), and this proxy always pins the
+  runtime's native tools off per turn — an agent that quietly reaches for the
+  server's own shell is neither visible nor wanted. Such a refusal is answered
+  with `403` and a message naming the model and the working paths (a
+  key-backed provider model, or OpenCode's own TUI/Desktop), never a generic
+  `502`. Unpinning the tools to satisfy the gateway is not on the table: an
+  unlisted tool stays enabled, so dropping the flags would hand the model an
+  unsupervised shell.
 
 ## Tests
 

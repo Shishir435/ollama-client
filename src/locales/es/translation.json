@@ -8,7 +8,7 @@
       "scroll_down": "Desplazar hacia abajo",
       "scroll_left": "Desplazar hacia la izquierda",
       "scroll_right": "Desplazar hacia la derecha",
-      "switch_tab": "Cambiar a la pestaña {{tab}}",
+      "switch_tab": "Cambiar a otra pestaña",
       "wait": "Esperar a {{condition}}",
       "clear_and_type": "Reemplazar el texto del campo",
       "press_key": "Pulsar {{key}}",
@@ -24,43 +24,51 @@
       "double_click": "Hacer doble clic en el control",
       "click_point": "Hacer clic en un punto de la captura",
       "zoom": "Ampliar la captura",
+      "look": "Tomar una captura nueva",
       "hover": "Pasar el cursor sobre el control",
       "read": "Leer la página",
       "inspect": "Inspeccionar {{region}}",
       "find": "Buscar «{{query}}»",
       "extract_text": "Leer el texto de la página",
       "handle_dialog_accept": "Aceptar el diálogo de la página",
-      "handle_dialog_dismiss": "Descartar el diálogo de la página"
+      "handle_dialog_dismiss": "Descartar el diálogo de la página",
+      "fill_form": "Rellenar campos del formulario: {{count}}",
+      "extract": "Consultar en la página: {{count}}",
+      "call_page_tool": "Usar la herramienta de la página «{{tool}}»"
     },
     "approval": {
       "title": "Aprobación necesaria",
+      "risk": {
+        "low": "Riesgo bajo",
+        "medium": "Riesgo medio",
+        "high": "Riesgo alto",
+        "critical": "Riesgo crítico"
+      },
       "allow": "Permitir una vez",
       "reject": "Rechazar",
       "allowForRun": "Permitir siempre este tipo de acción en {{origin}} durante esta ejecución"
     },
-    "attachment": {
-      "title": "Lo que permite este navegador",
-      "attaches": "Al iniciar, el depurador de Chrome se conecta a la pestaña elegida. Chrome muestra su propio aviso mientras está conectado, y la conexión termina al detener, al cederle el control o al finalizar.",
-      "no_debugger": "Este navegador no tiene depurador, así que la ejecución controla las páginas mediante los scripts de contenido de la extensión."
-    },
     "browser_disconnected": "El control del navegador se desconectó, por lo que Agent se pausó. Revisa la página antes de continuar.",
-    "completion": {
-      "summary": "Se enviaron {{count}} observaciones de página a {{provider}} durante esta ejecución."
-    },
     "controls": {
       "label": "Controles del Agente",
       "pause": "Pausar",
       "resume": "Reanudar",
       "stop": "Detener",
+      "takeover_start": "Haré este paso yo",
       "takeover_done": "Terminé — continuar"
     },
     "error": {
       "already_running": "Ya hay una ejecución de Agent en curso.",
       "browser_control_unavailable": "Agent no pudo conectar el control del navegador. Cierra DevTools u otro depurador e inténtalo de nuevo.",
-      "permission_denied": "Agent necesita permiso de observación de la página antes de empezar.",
+      "follow_up_unavailable": "Esa ejecución ya no se puede continuar desde aquí. Empieza de nuevo para plantear la tarea otra vez.",
+      "permission_denied": "El agente no puede observar páginas en este navegador.",
       "tab_unsupported": "Agent no puede ejecutarse en esta página. Abre una página web normal e inténtalo de nuevo.",
       "unreadable_update": "El panel recibió una actualización que no pudo leer.",
-      "unknown": "Agent no pudo completar esa solicitud."
+      "unknown": "Agent no pudo completar esa solicitud.",
+      "disconnected": "El agente se estaba reconectando y no lo recibió. Inténtalo de nuevo.",
+      "turn_has_run": "Este mensaje ya inició una tarea en el navegador.",
+      "steer_unavailable": "La ejecución no está trabajando ahora, así que no pudo tomarlo. Páusala y corrígela.",
+      "consent_stale": "La ejecución avanzó desde que se mostró esa opción, así que no se guardó. Revisa la ejecución y vuelve a elegir."
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",
@@ -75,28 +83,15 @@
       "verification_failed": "La ejecución no pudo confirmar el efecto de su última acción. Revise la página antes de volver a empezar.",
       "unknown": "La ejecución se detuvo por un motivo que no pudo nombrar. Revise la página y vuelva a empezar."
     },
-    "feedback": "Enviar comentarios",
-    "limits": {
-      "no_native_input": "La entrada de ratón y teclado es sintética; una página que solo responde a entrada real puede no reaccionar.",
-      "no_screenshots": "No se toman capturas, así que una tarea que solo puede resolverse mirando la página no funcionará.",
-      "no_dialogs": "La ejecución no puede ver ni responder los diálogos nativos alert, confirm y prompt."
-    },
     "model": {
       "label": "Modelo"
     },
     "observations": "{{count}} observaciones",
     "privacy": {
       "remote_notice": "Las observaciones de página se enviarán continuamente a este proveedor remoto mientras se ejecute el Agente.",
-      "acknowledge": "Entiendo",
       "remote_notice_screenshots": "Las observaciones de página y las capturas del área visible se enviarán continuamente a este proveedor remoto mientras el Agente se ejecuta."
     },
     "progress": "{{count}} de {{budget}} observaciones",
-    "provider": {
-      "label": "Proveedor",
-      "local": "Local",
-      "remote": "Remoto",
-      "missing": "Selecciona un modelo primero"
-    },
     "question": {
       "title": "Agent necesita una respuesta",
       "inputLabel": "Tu respuesta",
@@ -108,14 +103,6 @@
       "sent": "Las capturas del área visible se envían al modelo",
       "unused": "No se usan con un modelo solo de texto",
       "unknown": "Aún no determinado"
-    },
-    "start": {
-      "description": "Supervisa una tarea del navegador desde este panel.",
-      "goal": "¿Qué debe hacer el Agente?",
-      "placeholder": "Describe una tarea del navegador…",
-      "action": "Iniciar Agente",
-      "auto_actions": "Permitir acciones rutinarias para esta tarea",
-      "auto_actions_description": "Los clics y la escritura en este sitio son automáticos. Publicar, eliminar, visitar nuevos sitios y los pasos sensibles siguen requiriendo confirmación."
     },
     "status": {
       "submitted": "Iniciando",
@@ -142,42 +129,53 @@
       "verified": "Verificado",
       "rejected": "Rechazado",
       "failed": "Falló",
-      "uncertain": "Revisar"
-    },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agente",
-      "preview": "Vista previa"
+      "uncertain": "Revisar",
+      "dialog_opened": "Diálogo abierto"
     },
     "tab": {
       "label": "Pestaña controlada",
-      "missing": "Abre una página compatible"
+      "missing": "Abre una página compatible",
+      "show": "Mostrar esta pestaña"
     },
     "tabs": {
       "label": "Pestañas controladas",
-      "count": "{{count}} pestañas"
+      "count_one": "{{count}} pestaña",
+      "count_other": "{{count}} pestañas"
     },
     "takeover": {
-      "title": "Toma el control de este paso"
+      "title": "Toma el control de este paso",
+      "instruction": {
+        "file_upload": "Toma el control de la página, elige tú el archivo y luego continúa.",
+        "sensitive_step": "Toma el control de la página, completa tú el paso sensible y luego continúa."
+      }
     },
-    "title": "Agente supervisado",
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
     "unresolved_reviewed": "He revisado la página: continuar",
+    "unresolved_done": "Ya está hecho — terminar",
     "work_log": {
+      "action_needs_review": "Este paso requiere revisión.",
       "title": "Registro de trabajo",
-      "target": "«{{name}}»"
+      "target": "«{{name}}»",
+      "reasoning": "Razonamiento"
     },
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
-    "export_report": "Exportar informe (incluye texto de la página)",
-    "running_goal": "Trabajando en",
-    "requirements": {
-      "title": "Lo que pedía la tarea",
-      "met": "Hecho",
-      "unmet": "No hecho"
+    "experimental_badge": "Experimental",
+    "announcement": {
+      "title": "Experimental: un agente del navegador en el chat",
+      "description": "Tu modelo de chat ahora puede realizar tareas en tus pestañas: hacer clic, escribir y moverse entre páginas por ti. Permanece desactivado hasta que lo actives.",
+      "hosted_models": "Funciona mejor con modelos alojados potentes (por ejemplo, a través de OpenRouter o un proveedor en la nube). Los modelos locales pequeños a menudo no logran completar tareas de varios pasos.",
+      "approvals": "Pregunta antes de enviar formularios, iniciar sesión, pagar o eliminar algo, y puedes detenerlo en cualquier momento.",
+      "coming": "Es una versión temprana. Habrá detalles por pulir; llegarán más mejoras en las próximas versiones.",
+      "later": "Quizá más tarde",
+      "enable": "Activar agente"
     },
     "settings": {
       "title": "Agente del navegador",
-      "description": "Cuánto contexto puede pedir una ejecución a su modelo y cuándo fotografía la página.",
+      "description": "Lo que una ejecución puede hacer sin preguntar, cuánto contexto puede pedir a su modelo y cuándo captura la página.",
+      "enabled": {
+        "label": "Permitir que el modelo de chat use el agente del navegador",
+        "description": "Ofrece browser_task, que permite al modelo hacer clic, escribir y navegar en tus pestañas por ti. Experimental: su eficacia varía mucho según el modelo."
+      },
       "context_window": {
         "label": "Ventana de contexto",
         "description": "Automático toma la ventana más pequeña que informan este modelo y este servidor, y recurre a un tamaño conservador cuando ninguno lo dice. Fija un tamaño tú mismo si has subido el límite de tu servidor o si a una ejecución se le ha agotado la memoria.",
@@ -190,7 +188,104 @@
         "auto": "Cuando el paso la necesita",
         "always": "En cada paso",
         "never": "Nunca"
+      },
+      "permission_mode": {
+        "label": "Acciones rutinarias",
+        "description": "Si cada nueva ejecución puede hacer clic y escribir en el sitio donde empieza sin preguntar. Enviar, eliminar, iniciar sesión, pagar y los sitios nuevos siempre se preguntan, y nada pasa a la siguiente ejecución.",
+        "allow_routine": "Permitir en el sitio inicial",
+        "approve_each": "Aprobar cada acción"
+      },
+      "completion_reviewer": {
+        "label": "Revisor de finalización",
+        "description": "Cuando una ejecución afirma algo que las comprobaciones integradas no pueden confirmar, este modelo lee las pruebas verificadas de la ejecución y dice si respaldan la afirmación. Nunca actúa en el navegador. Un modelo distinto solo recibe esas pruebas si está activado, puede usar herramientas y, en un servidor remoto, has aceptado enviar contenido de páginas a modelos remotos.",
+        "same_as_run": "El mismo modelo que la ejecución"
       }
+    },
+    "card": {
+      "title": "Ejecución del agente",
+      "loading": "Cargando la ejecución…",
+      "missing": "El registro de esta ejecución ya no está disponible.",
+      "outcome": "{{met}} de {{total}} hechas",
+      "outcome_visual_one": "{{count}} visto solo en una captura, sin confirmar en el texto",
+      "outcome_visual_other": "{{count}} vistos solo en una captura, sin confirmar en el texto",
+      "continue": "Continuar",
+      "retry": "Reintentar",
+      "start_over": "Empezar de nuevo",
+      "ask": "Preguntar sobre esto",
+      "step_count_one": "{{count}} paso",
+      "step_count_other": "{{count}} pasos",
+      "page_count_one": "{{count}} página",
+      "page_count_other": "{{count}} páginas"
+    },
+    "follow_up": {
+      "continue_message": "Continúa la tarea en el navegador.",
+      "retry_message": "Vuelve a intentar la tarea en el navegador."
+    },
+    "paused_panel_closed": "En pausa porque se cerró el panel lateral. Reanuda cuando quieras.",
+    "approval_text": {
+      "accept_dialog": "Aceptar el {{kind}} de la página",
+      "accept_dialog_origin": "Aceptar el {{kind}} de {{origin}}",
+      "dismiss_dialog": "Descartar el {{kind}} de la página",
+      "dismiss_dialog_origin": "Descartar el {{kind}} de {{origin}}",
+      "dismiss_dialog_consequence": "Se indica al diálogo que fue descartado y no se confirma nada.",
+      "accept_dialog_consequence": "La página continúa como si hubieras pulsado su botón de confirmar, haga lo que haga.",
+      "accept_leave_consequence": "Se permite salir de la página. Lo que no haya guardado se pierde.",
+      "dialog_unreadable": "Su texto no se leyó: el diálogo pertenece a un marco que esta ejecución no puede leer.",
+      "fill_fields": "Establecer campos del formulario en un paso: {{count}}",
+      "fill_fields_consequence": "Cada control de la lista se establece en orden y se detiene en el primero que no se pueda establecer. El agente no pulsa Enviar, pero la página puede enviar el formulario automáticamente o guardar los cambios mientras escribes.",
+      "adopt_tab": "Tomar la pestaña «{{tab}}» en {{url}}",
+      "navigate": "Ir a {{url}}",
+      "navigate_consequence": "El navegador abre exactamente esta dirección: {{url}}",
+      "routine_follows": "Los clics y la escritura en {{origin}} se harán después sin preguntar, como en el sitio donde empezó esta tarea. Enviar un formulario seguirá pidiendo permiso.",
+      "no_submit_consequence": "Esto se introduce en el control mostrado abajo. No hay un paso de envío después, así que una página que guarda mientras escribes puede almacenarlo de inmediato.",
+      "command_consequence": "El navegador realiza esta acción en el control mostrado abajo.",
+      "prior_form": "Una ejecución anterior de esta tarea ya envió este formulario. Aprueba solo si es un envío nuevo y no el mismo otra vez.",
+      "repeated_effect": "Esta ejecución ya hizo esto una vez con el mismo control de esta página. Aprueba solo si debe volver a ocurrir.",
+      "unknown_prior_effect": "No se pudo leer el registro de acciones de esta ejecución. Esta acción podría repetir un efecto anterior. Aprueba solo si es seguro repetirla.",
+      "adopt_untitled_tab": "Tomar una pestaña en {{url}}"
+    },
+    "dialog_kind": {
+      "alert": "aviso",
+      "confirm": "diálogo de confirmación",
+      "prompt": "diálogo de entrada",
+      "beforeunload": "diálogo de salida de la página",
+      "dialog": "diálogo"
+    },
+    "question_text": {
+      "completion_refused": "No pude confirmar el resultado. ¿Se completó la tarea? Si no, ¿qué debo hacer ahora?",
+      "commands_refused": "No se pudo realizar la última acción. ¿Qué debería intentar en su lugar?",
+      "no_progress": "Estoy repitiendo acciones sin avanzar. ¿Qué debería hacer de otra forma? También puedes detenerme y terminar la tarea tú.",
+      "recovery_tried_one": "Primero probé otro enfoque.",
+      "recovery_tried_other": "Primero probé {{count}} enfoques distintos.",
+      "too_many_outcomes": "Esta tarea pide {{count}} resultados distintos y una ejecución puede seguir {{max}}. ¿Cuáles debe hacer esta ejecución? El resto puede venir en otra.",
+      "too_many_items": "Esta tarea nombra {{count}} filas o registros y una ejecución puede seguir {{max}}. ¿Cuáles debe hacer esta ejecución? El resto puede venir en otra.",
+      "too_many_constraints": "Esta tarea fija {{count}} límites distintos y una ejecución puede mantener {{max}}. ¿Cuáles importan en esta ejecución?",
+      "confirm_removal": "Tu respuesta puede significar que esta tarea ya no necesita: {{list}}. Responde sí para quitarlo o no para conservarlo todo.",
+      "confirm_lift": "Tu respuesta puede significar que estos límites ya no se aplican: {{list}}. Responde «allow» para quitarlos; cualquier otra respuesta los mantiene."
+    },
+    "start_gate": {
+      "after_page": "El modelo leyó contenido de una página antes de escribir esta tarea, así que siempre se pregunta.",
+      "other_tab": "Esta tarea se ejecuta en una pestaña distinta de la que estás viendo.",
+      "supervised": "El agente trabaja en la página paso a paso y pregunta antes de cualquier acción importante. Chrome muestra un aviso de depuración mientras trabaja.",
+      "routine": "En este sitio, los clics, la escritura y las búsquedas de esta tarea se ejecutan sin volver a preguntar. Publicar o enviar otros formularios, iniciar sesión, pagar, eliminar y abrir otros sitios siguen pidiendo permiso.",
+      "experimental_model": "Las llamadas a herramientas están activadas para este modelo porque tú lo configuraste, no porque el modelo lo indique. Un modelo que no sabe llamar herramientas no llegará lejos."
+    },
+    "steer": {
+      "label": "Guiar al agente",
+      "placeholder": "Corrígelo sin pausar…",
+      "send": "Enviar al agente",
+      "queued": "Enviado. El agente lo leerá en su próximo paso.",
+      "heard": "El agente ha tenido en cuenta tu corrección."
+    },
+    "worker_lost": "La ejecución en el navegador se interrumpió. La recuperación segura requiere la sesión del navegador y la página autorizadas originalmente; de lo contrario, reanuda la tarea manualmente.",
+    "unattended": {
+      "label": "Continuar esta tarea con el panel cerrado",
+      "help": "Reanuda la tarea después de activar esta opción. Se usarán las pestañas, los sitios y el proveedor actuales. Las aprobaciones, el inicio de sesión y los CAPTCHA siguen requiriendo tu intervención. Detén la tarea desde el menú contextual de la página o con el atajo de teclado para detener el agente. Cerrar el navegador o suspender el equipo puede interrumpir el trabajo.",
+      "active": "La continuación con el panel cerrado está activada para esta tarea. Las tareas nuevas requieren un nuevo consentimiento.",
+      "decision_interrupted": "Esta decisión sigue pendiente. Reanuda la tarea para volver a comprobar la página y solicitar una nueva decisión:",
+      "scope_changed": "El alcance de la tarea cambió. Revisa el permiso para continuar con el panel cerrado.",
+      "scope": "Pestañas: {{tabs}} · Proveedor: {{provider}} · Modelo: {{model}}",
+      "stop_menu": "Detener el agente del navegador"
     }
   },
   "common": {
@@ -243,7 +338,10 @@
     "name": "Ollama Client - Chat IA local con Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
     "description": "Chat privado con LLM mediante Ollama, LM Studio y llama.cpp, con RAG local, búsqueda web y contexto de página.",
-    "action_default_title": "Abrir Ollama Client"
+    "action_default_title": "Abrir Ollama Client",
+    "stop_browser_agent_menu": "Detener el agente del navegador",
+    "agent_task_completed": "Completado",
+    "agent_task_attention": "En pausa"
   },
   "selection_button": {
     "label": "Preguntar al LLM local",
@@ -356,7 +454,7 @@
     },
     "performance_notice": {
       "title": "Aviso de Rendimiento",
-      "message": "Esta extensión es una interfaz de usuario para tu proveedor local (Ollama por defecto). El tiempo de respuesta y la calidad de salida dependen totalmente del hardware de tu dispositivo (CPU, RAM, GPU) y del modelo específico que uses. La extensión no realiza ningún procesamiento por sí misma."
+      "message": "Las respuestas del chat provienen del proveedor elegido. Los embeddings integrados se generan en este dispositivo. La velocidad depende del modelo y del hardware que lo ejecuta."
     }
   },
   "chat": {
@@ -416,7 +514,10 @@
       "generated_tokens": "Tokens generados",
       "load_time": "Tiempo de carga",
       "prompt_eval_time": "Tiempo de evaluación del prompt",
-      "speed_unit": "t/s"
+      "speed_unit": "t/s",
+      "cached_tokens": "Tokens de prompt en caché",
+      "reasoning_tokens": "Tokens de razonamiento",
+      "cost": "Coste"
     },
     "session_metrics": {
       "label_tokens": "Tokens",
@@ -477,7 +578,8 @@
         "results_other": "{{count}} resultados",
         "restoreSession": "Reabriendo una pestaña cerrada",
         "list_reminders": "Listando recordatorios",
-        "cancel_reminder": "Cancelando recordatorio"
+        "cancel_reminder": "Cancelando recordatorio",
+        "browser_task": "Tarea en el navegador"
       },
       "debug": "Razonamiento de depuración"
     },
@@ -607,7 +709,14 @@
       "manage": "Administrar permisos",
       "not_granted": "No se concedió el permiso. Puedes intentarlo de nuevo o administrarlo en Ajustes.",
       "resume_failed": "No se pudo continuar la solicitud. Inténtalo de nuevo.",
-      "reminders": "Recordatorios"
+      "reminders": "Recordatorios",
+      "agent": {
+        "title": "El agente del navegador está desactivado",
+        "description": "Parece una tarea en el navegador. El agente es experimental y funciona mejor con modelos alojados.",
+        "enable": "Activar y continuar",
+        "continue_without": "Continuar sin él",
+        "manage": "Ajustes del agente"
+      }
     },
     "errors": {
       "unknown_error": "❌ Error desconocido: {{message}}",
@@ -647,8 +756,11 @@
       "context_trimmed_title": "Contexto recortado",
       "context_trimmed_description": "El contexto extraído de las pestañas superó tu límite y se recortó antes de enviarlo.",
       "context_retrieval_warning_title": "Falló la recuperación de contexto",
-      "context_retrieval_warning_description": "No se pudo recuperar el contexto de tus archivos. Se continúa sin él.",
-      "interrupted": "Respuesta interrumpida"
+      "context_retrieval_warning_description": "No se pudo buscar en parte del contexto guardado. La respuesta podría omitir información relevante.",
+      "interrupted": "Respuesta interrumpida",
+      "provider_auth": "El proveedor rechazó el acceso. Revisa su clave API, credenciales o permisos de cuenta en Configuración antes de empezar de nuevo.",
+      "provider_cors": "El proveedor local bloqueó el origen de la extensión. Permite chrome-extension://* y moz-extension://* en su configuración CORS e inténtalo de nuevo.",
+      "provider_refused": "El modelo rechazó esta solicitud. Ajusta la tarea o elige otro modelo."
     },
     "composer": {
       "rag": "Archivos",
@@ -661,11 +773,13 @@
       "tabs": "{{count}} pestañas",
       "files": "{{count}} archivos",
       "knowledge": "Conocimiento",
+      "images": "{{count}} imágenes",
       "web": "Web",
       "rows": {
         "tabs": "Contexto de página y pestañas",
         "knowledge": "Buscar en archivos subidos",
-        "web": "Búsqueda web"
+        "web": "Búsqueda web",
+        "agent": "Agente del navegador (experimental)"
       }
     },
     "artifacts": {
@@ -732,6 +846,12 @@
       "max_file_size_description": "Tamaño máximo permitido para archivos individuales. Los archivos más grandes pueden tardar más en procesarse.",
       "max_image_size_label": "Tamaño máximo de imagen (MB)",
       "max_image_size_description": "Tamaño máximo permitido para cada imagen adjunta a un mensaje para modelos de visión."
+    },
+    "errors": {
+      "title": "Error al subir el archivo",
+      "processing_failed": "No se pudo procesar o indexar el archivo. Comprueba los ajustes de embeddings y el almacenamiento disponible, y vuelve a intentarlo.",
+      "unsupported_type": "El tipo de archivo de {{name}} no es compatible. Usa texto, PDF, DOCX, CSV/TSV o HTML.",
+      "too_large": "{{name}} supera el tamaño máximo de archivo de {{max}} MB."
     }
   },
   "model": {
@@ -743,7 +863,11 @@
       "checking_model": "Comprobando modelo de incrustación para RAG/búsqueda...",
       "error": "No se pudo comprobar el estado. Haz clic para reintentar.",
       "required_for_rag": "El modelo de incrustación es necesario para las funciones RAG.",
-      "download_button": "Descargar Modelo"
+      "download_button": "Descargar Modelo",
+      "unavailable": "Proveedor de embeddings no disponible. Comprueba la conexión y vuelve a intentarlo.",
+      "unverified": "Modelo de embeddings sin verificar: este proveedor no tiene una lista de modelos.",
+      "download_failed": "Error al descargar embeddings",
+      "download_failed_description": "Comprueba la conexión con el proveedor y el espacio libre en disco, y vuelve a intentarlo."
     },
     "menu": {
       "select_placeholder": "Seleccionar modelo...",
@@ -753,6 +877,10 @@
       "search_placeholder": "Buscar modelo...",
       "no_model_found": "No se encontró ningún modelo.",
       "cloud_badge": "Nube{{plan}}",
+      "cloud_models": {
+        "label": "Modelos en la nube de Ollama",
+        "description": "Modelos :cloud alojados. Requieren Ollama con sesión iniciada y, a menudo, un plan de pago."
+      },
       "providers_unavailable": "{{names}} no devolvió modelos. Revisa el proveedor en la configuración o añade ID de modelo manualmente.",
       "selection_conflict": "Elige un proveedor para {{model}}: más de uno lo ofrece."
     },
@@ -800,6 +928,7 @@
     "embedding_config": {
       "title": "Modelo de embeddings, fragmentación, búsqueda y almacenamiento",
       "storage_stats_title": "Estadísticas de Almacenamiento",
+      "storage_stats_description": "Estadísticas actuales de uso del almacenamiento de vectores",
       "total_vectors": "Vectores Totales",
       "storage_used": "Almacenamiento Usado",
       "cache": "Caché",
@@ -1004,7 +1133,9 @@
       "all_sessions_title": "Todas las sesiones",
       "role_user": "Tú",
       "role_assistant": "Asistente IA",
-      "remote_image_blocked": "Imagen remota bloqueada"
+      "remote_image_blocked": "Imagen remota bloqueada",
+      "role_agent": "Agente",
+      "agent_no_result": "La ejecución del agente no registró ningún resultado."
     },
     "actions": {
       "more": "Más acciones para {{title}}",
@@ -1373,6 +1504,7 @@
       "prompts": "Biblioteca de prompts",
       "models": "Comportamiento del modelo",
       "extraction": "Página y pestañas",
+      "agent": "Agente",
       "context": "Conocimiento y web",
       "embeddings": "Conocimiento guardado",
       "providers": "Proveedores",
@@ -1601,6 +1733,34 @@
         "description": "Cambiar el modelo de embeddings puede volver incompatibles los vectores existentes. Reconstruye el índice para mantener resultados precisos o cambia sin reconstruir.",
         "switch_only": "Cambiar sin reconstruir",
         "switch_and_rebuild": "Cambiar y reconstruir"
+      },
+      "bundled": {
+        "provider_hint": "Elige un modelo de embeddings de Ollama, LM Studio, llama.cpp u otro proveedor local o alojado. Los idiomas compatibles dependen del modelo elegido.",
+        "mode_title": "Modo de embeddings",
+        "mode_bundled": "Integrado",
+        "mode_external": "Embeddings de proveedor",
+        "mode_bundled_help": "MiniLM se ejecuta en la extensión. No necesita servidor.",
+        "mode_external_help": "Usa Ollama, LM Studio, llama.cpp o un proveedor local o alojado.",
+        "switch_builtin": "Cambiar al modo integrado",
+        "switch_server": "Cambiar a embeddings de proveedor",
+        "mode_language_hint": "MiniLM integrado se ejecuta en la extensión y funciona mejor con inglés. Para otros idiomas, puedes probarlo o elegir un modelo multilingüe de un proveedor.",
+        "settings_description": "Elige cómo preparar archivos y recuerdos del chat para la búsqueda.",
+        "current_bundled": "En uso: MiniLM integrado · en este dispositivo",
+        "current_external": "Modo activo: embeddings de proveedor",
+        "server_model": "Modelo de embeddings del proveedor",
+        "switch_hint": "El cambio reconstruye los embeddings guardados. La configuración actual sigue activa hasta que termine.",
+        "title": "Embeddings integrados",
+        "active": "Los embeddings se generan localmente con MiniLM incluido, más adecuado para inglés. No se necesita servidor ni descarga. Para búsquedas multilingües, selecciona abajo un proveedor y modelo externos y reconstruye el índice para cambiar.",
+        "offer": "Ya están disponibles los embeddings integrados. Migra tus embeddings guardados o conserva tu servidor y modelo actuales.",
+        "details": "La migración reconstruye los embeddings guardados de archivos, páginas y chats en este dispositivo. Necesita espacio temporal para una copia del origen y el índice nuevo. El índice actual sigue activo hasta que termine correctamente. Sigue ejecutándose si cierras este diálogo o el panel lateral, y continúa tras reiniciar el navegador.",
+        "progress": "Reconstruyendo {{current}} de {{total}} embeddings",
+        "changed": "Cambió la configuración de embeddings o los vectores preparados son incompatibles. El índice actual sigue activo. Reinicia la migración.",
+        "error": "No se pudo completar la migración. Los embeddings actuales siguen activos. Revisa el proveedor, la conexión y el espacio disponible; después reanuda o cancela.",
+        "resume": "Reanudar migración",
+        "migrate": "Migrar a embeddings integrados",
+        "keep": "Conservar configuración actual",
+        "language_notice": "MiniLM se recomienda para textos en inglés. Para otros idiomas, usa un modelo de embeddings en un servidor para mejorar la búsqueda. Puedes probar MiniLM y volver a cambiar en Ajustes.",
+        "external": "Reconstruir con el modelo externo seleccionado"
       }
     },
     "prompts": {
@@ -2216,7 +2376,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Actualizar modelos",
+      "use_unverified": "Probar este modelo"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2247,7 +2409,8 @@
         "timeout": "El proveedor tardó demasiado. Comprueba que esté activo y que el puerto sea correcto.",
         "unavailable": "No se pudo acceder a Ollama. Puede estar detenido, usar otro puerto o bloquear orígenes de extensiones.",
         "server-error": "El proveedor devolvió un error del servidor. Revisa sus registros y vuelve a intentarlo."
-      }
+      },
+      "unverified": "Conexión sin verificar. Puedes probar un modelo configurado o abrir los ajustes del proveedor para comprobar el endpoint."
     }
   }
 }

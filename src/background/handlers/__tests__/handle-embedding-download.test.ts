@@ -4,7 +4,8 @@ import { createAppError } from "@/lib/error-utils"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
   checkEmbeddingModelExists,
-  downloadEmbeddingModelSilently
+  downloadEmbeddingModelSilently,
+  prepareEmbeddingModel
 } from "../handle-embedding-download"
 import { createMockResponse } from "./test-utils"
 
@@ -137,6 +138,61 @@ describe("Handle Embedding Download", () => {
       expect(result.exists).toBe(false)
     })
 
+    it("checks an explicitly selected remote provider even for the default model name", async () => {
+      const { ProviderFactory } = await import("@/lib/providers/factory")
+      vi.mocked(ProviderFactory.getProvider).mockResolvedValueOnce({
+        id: "custom:remote",
+        config: {
+          id: "custom:remote",
+          type: "openai-compatible",
+          baseUrl: "https://embeddings.example/v1"
+        },
+        getModels: vi.fn().mockResolvedValue([{ name: "all-minilm:latest" }])
+      } as never)
+      const result = await checkEmbeddingModelExists(
+        "all-minilm:latest",
+        "custom:remote"
+      )
+      expect(result).toMatchObject({
+        exists: true,
+        status: "available",
+        canDownload: false
+      })
+      expect(fetch).not.toHaveBeenCalled()
+    })
+    it("does not offer a download when Ollama is unreachable", async () => {
+      vi.mocked(fetch).mockRejectedValue(new Error("offline"))
+      expect(
+        await checkEmbeddingModelExists("all-minilm:latest", "ollama")
+      ).toMatchObject({ status: "unavailable", canDownload: false })
+    })
+    it("offers a download only after confirming a model is missing on Ollama", async () => {
+      vi.mocked(fetch).mockResolvedValue(createMockResponse({ models: [] }))
+      expect(
+        await checkEmbeddingModelExists("all-minilm:latest", "ollama")
+      ).toMatchObject({ status: "missing", canDownload: true })
+    })
+    it("reports a catalog-less remote model as unverified without contacting Ollama", async () => {
+      const { ProviderFactory } = await import("@/lib/providers/factory")
+      vi.mocked(ProviderFactory.getProvider).mockResolvedValueOnce({
+        id: "custom:no-catalog",
+        config: {
+          id: "custom:no-catalog",
+          type: "openai-compatible",
+          baseUrl: "https://catalogless.example/v1"
+        },
+        getModels: vi
+          .fn()
+          .mockRejectedValue(createAppError("no catalog", { status: 404 }))
+      } as never)
+      expect(
+        await checkEmbeddingModelExists(
+          "all-minilm:latest",
+          "custom:no-catalog"
+        )
+      ).toMatchObject({ status: "unverified", canDownload: false })
+      expect(fetch).not.toHaveBeenCalled()
+    })
     it("aborts an in-flight model check with the caller signal", async () => {
       const controller = new AbortController()
       let fetchSignal: AbortSignal | undefined
@@ -164,6 +220,17 @@ describe("Handle Embedding Download", () => {
   })
 
   describe("downloadEmbeddingModelSilently", () => {
+    it("does not pull when model availability is unconfirmed", async () => {
+      vi.mocked(fetch).mockRejectedValue(new Error("offline"))
+      const result = await downloadEmbeddingModelSilently("nomic-embed-text")
+      expect(result.success).toBe(false)
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.some(([url]) => String(url).endsWith("/api/pull"))
+      ).toBe(false)
+    })
+
     it("should skip download if model exists", async () => {
       // Mock checkEmbeddingModelExists behavior by mocking fetch response
       vi.mocked(fetch).mockResolvedValue(
@@ -306,4 +373,40 @@ describe("Handle Embedding Download", () => {
       )
     })
   })
+})
+
+it("checks Ollama before silently pulling a model mapped to another provider", async () => {
+  const { ProviderFactory } = await import("@/lib/providers/factory")
+  vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValueOnce({
+    id: "custom:remote",
+    config: { id: "custom:remote" },
+    getModels: async () => [{ name: "multilingual-e5-small" }]
+  } as never)
+  vi.mocked(fetch).mockReset()
+  vi.mocked(fetch)
+    .mockResolvedValueOnce(createMockResponse({ models: [] }))
+    .mockResolvedValueOnce(createMockResponse({ status: "success" }))
+  const result = await downloadEmbeddingModelSilently("multilingual-e5-small")
+  expect(result.success).toBe(true)
+  expect(fetch).toHaveBeenNthCalledWith(
+    1,
+    "http://localhost:11434/api/tags",
+    expect.anything()
+  )
+  expect(fetch).toHaveBeenNthCalledWith(
+    2,
+    "http://localhost:11434/api/pull",
+    expect.objectContaining({ method: "POST" })
+  )
+})
+
+it("does not retry or pull when preparation cannot confirm Ollama availability", async () => {
+  vi.mocked(fetch).mockReset().mockRejectedValue(new Error("offline"))
+  const result = await prepareEmbeddingModel({ model: "multilingual-e5-small" })
+  expect(result).toMatchObject({ ready: false, prepared: false })
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(fetch).toHaveBeenCalledWith(
+    "http://localhost:11434/api/tags",
+    expect.anything()
+  )
 })

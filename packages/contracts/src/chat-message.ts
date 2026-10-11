@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { AgentConversationHandoffSchema } from "./agent-handoff"
 import { AppFailureSchema } from "./app-failure"
 import { ChatMessageMetricsSchema, ToolCallSchema } from "./chat-activity"
 import { FileAttachmentSchema, ImageAttachmentSchema } from "./chat-attachments"
@@ -37,7 +38,21 @@ export const ChatMessageSchema = z.object({
   metrics: ChatMessageMetricsSchema.optional(),
   parentId: z.union([z.number(), z.string()]).optional(),
   childrenIds: z.array(z.union([z.number(), z.string()])).optional(),
-  siblingIds: z.array(z.union([z.number(), z.string()])).optional()
+  siblingIds: z.array(z.union([z.number(), z.string()])).optional(),
+  /**
+   * The Agent run this message reports, when one produced it.
+   *
+   * The pointer lives on the message rather than only on the run so that a
+   * branch inherits it by ancestry: a follow-up asked in one branch must not
+   * see a run that only ever happened in another.
+   */
+  agentRunId: z.string().optional(),
+  /**
+   * What a later turn in this branch is told about that run, written by the
+   * commit that settled it. Absent while the run is live, and on every
+   * message no run produced.
+   */
+  agentHandoff: AgentConversationHandoffSchema.optional()
 })
 
 /** Version-independent persisted chat-session metadata and optional messages. */

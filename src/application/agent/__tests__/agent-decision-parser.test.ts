@@ -66,6 +66,51 @@ const call = (argumentsValue: Record<string, unknown>) => ({
 })
 
 describe("parseAgentDecisionToolCalls", () => {
+  const withInputs = (focused: readonly boolean[]): AgentObservation => ({
+    ...observation,
+    elements: focused.map((isFocused, index) => ({
+      ref: `e${index + 1}`,
+      frameId: 0,
+      tag: "input",
+      name: `Field ${index + 1}`,
+      visible: true,
+      enabled: true,
+      editable: true,
+      sensitive: false,
+      ...(isFocused ? { focused: true } : {})
+    }))
+  })
+
+  /**
+   * A key goes to whatever holds focus; gpt-6-luna pressed Tab three times
+   * without a ref and the run failed on a page with one focused control.
+   */
+  it("sends a ref-less key press to the one focused control", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "press_key", key: "Tab" })],
+        withInputs([true, false])
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "press_key", key: "Tab", ref: "e1" }
+    })
+  })
+
+  it("does not guess a key press target when focus is unclear", () => {
+    for (const focus of [
+      [false, false],
+      [true, true]
+    ]) {
+      expect(() =>
+        parseAgentDecisionToolCalls(
+          [call({ type: "press_key", key: "Tab" })],
+          withInputs(focus)
+        )
+      ).toThrow(AgentDecisionFormatError)
+    }
+  })
+
   it("names the length a field broke, without quoting what broke it", () => {
     const quoted = "Ollama Client secret project codename ".repeat(12)
     let feedback = ""
@@ -471,6 +516,84 @@ describe("visual commands need a screenshot", () => {
       }
     })
   })
+  it("admits look only where it was offered, and refuses it with the true reason", async () => {
+    const { AgentDecisionFormatError, parseAgentDecisionToolCalls } =
+      await import("../agent-decision-parser")
+    const observation = {
+      snapshotId: "snapshot-1",
+      generation: 1,
+      tabId: 7,
+      frameId: 0,
+      documentId: "document-1",
+      url: "https://example.com/",
+      origin: "https://example.com",
+      title: "Example",
+      frames: [],
+      elements: [],
+      visibleText: "",
+      scroll: {
+        x: 0,
+        y: 0,
+        viewportWidth: 100,
+        viewportHeight: 100,
+        documentWidth: 100,
+        documentHeight: 100
+      },
+      dialogs: [],
+      capturedAt: 1
+    }
+    const look = [
+      { id: "c1", name: "agent_decision", arguments: { type: "look" } }
+    ]
+    const refusal = (
+      options: Parameters<typeof parseAgentDecisionToolCalls>[2]
+    ) => {
+      try {
+        parseAgentDecisionToolCalls(look, observation, options)
+      } catch (error) {
+        expect(error).toBeInstanceOf(AgentDecisionFormatError)
+        return (error as { feedback?: string }).feedback
+      }
+      throw new Error("Expected a refusal")
+    }
+
+    /** No screenshot is needed to ask for one. */
+    expect(
+      parseAgentDecisionToolCalls(look, observation, {
+        visual: { available: true }
+      })
+    ).toEqual({
+      type: "command",
+      command: { type: "look", snapshotId: "snapshot-1", generation: 1 }
+    })
+    expect(
+      refusal({ visual: { available: false, reason: "model_text_only" } })
+    ).toMatch(/does not accept images/)
+    expect(
+      refusal({ visual: { available: false, reason: "not_permitted" } })
+    ).toMatch(/not allowed screenshots/)
+    expect(refusal({})).toMatch(/No screenshot/)
+
+    /** A pointer command with look on offer is pointed at look, not refused flat. */
+    try {
+      parseAgentDecisionToolCalls(
+        [
+          {
+            id: "c1",
+            name: "agent_decision",
+            arguments: { type: "click_point", x: 1, y: 2 }
+          }
+        ],
+        observation,
+        { visual: { available: true } }
+      )
+      throw new Error("Expected a refusal")
+    } catch (error) {
+      expect((error as { feedback?: string }).feedback).toMatch(
+        /look to take a screenshot first/
+      )
+    }
+  })
 })
 
 /**
@@ -485,6 +608,15 @@ describe("visual commands need a screenshot", () => {
  * fact answered. Derived from the schema here so the next field cannot.
  */
 describe("optional decision fields", () => {
+  it("keeps a command's planned requirement binding", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "click", ref: "e1", requirementId: "r1" })],
+        observation
+      )
+    ).toMatchObject({ type: "command", requirementId: "r1" })
+  })
+
   it("passes through every optional field the complete variant declares", () => {
     const complete = AgentDecisionSchema.options.find(
       (option) => option.shape.type.value === "complete"

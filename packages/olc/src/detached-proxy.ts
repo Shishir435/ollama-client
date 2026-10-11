@@ -37,7 +37,7 @@ export function readProxyLaunchRequest(): Promise<ProxyLaunchRequest> {
       if (
         !isRecord(message.options) ||
         !isRecord(message.fileOptions) ||
-        !["codex", "opencode"].includes(String(message.options.BACKEND))
+        !["codex", "opencode", "fm"].includes(String(message.options.BACKEND))
       ) {
         reject(new Error("Invalid proxy launch configuration."))
       } else

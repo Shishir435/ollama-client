@@ -83,3 +83,5 @@ artifacts/
 .commandcode/
 # User-exported Agent runs can contain goals and page text.
 /agent-*.json
+
+.cache/bundled-embeddings/

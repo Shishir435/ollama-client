@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ComposerShell } from "@/components/layout/composer-shell"
@@ -38,11 +37,8 @@ const pendingSelectionStorage = getPlasmoStorageForKey(
 
 export const ChatInputBox = ({
   onSend,
-  stopGeneration,
-  leading
+  stopGeneration
 }: {
-  /** The surface toggle, rendered first in the control row. */
-  leading?: ReactNode
   onSend: (
     customInput?: string,
     customModel?: string,
@@ -54,12 +50,20 @@ export const ChatInputBox = ({
   const { t } = useTranslation()
   const { toast } = useToast()
   const { input, setInput, appendInput } = useChatInput()
-  const { promptLibraryOpen, focused, setPromptLibraryOpen, setFocused } =
-    useComposerUi()
+  const {
+    promptLibraryOpen,
+    focused,
+    focusRequest,
+    setPromptLibraryOpen,
+    setFocused
+  } = useComposerUi()
   const { isLoading } = useLoadStream()
   const { selectedTabIds } = useSelectedTabs()
   const { loadingIds, tabContents } = useTabContents()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    if (focusRequest > 0) textareaRef.current?.focus()
+  }, [focusRequest])
   const selectionStartRef = useRef<number | null>(null)
   const selectionEndRef = useRef<number | null>(null)
   const lastSelectionAppendRef = useRef<{ text: string; at: number } | null>(
@@ -429,7 +433,6 @@ export const ChatInputBox = ({
         />
 
         <ChatInputToolbar
-          leading={leading}
           inputLength={input.length}
           isLoading={isLoading}
           onFilesSelected={handleFilesSelected}

@@ -187,13 +187,74 @@ const budgets: Budget[] = [
      * the tool schema the model reads, the refusal vocabulary a batch needs
      * in order to say which of twelve fields was wrong, and the settings copy
      * in nine locales.
+     *
+     * Conversation handoffs took it to 9,704,341. The handoff's wire schema
+     * rides on every chat message, so every surface that parses messages
+     * carries it, along with the fence a later turn reads it inside.
+     *
+     * The PR1 Agent audit fixes took the measured Chrome build to 9,757,051:
+     * form evidence, dialog recovery and localized approval text ship on the
+     * run path. The three regression pages and spec are test-only.
+     *
+     * The run timeline took it to 9,761,411: row, duration and reasoning
+     * display, the settled card's record, steering, and their copy in nine
+     * locales.
+     *
+     * The hosted-model benchmark's fixes took it to 9,770,393: the search
+     * textarea and short-page fallbacks, completion evidence from receipts,
+     * the user-tab rule, the start address, the finish-reviewed control and
+     * its copy in nine locales. Their review fixes, 9,773,473: the routine
+     * consent sentence in nine locales and the visible-field submission.
+     * The second review round, 9,774,474: counted query pairs and the
+     * named-field binding for batch evidence. The third, 9,776,223: field
+     * names matched by word, alternatives and further claims refused. The
+     * fourth and fifth, 9,777,476: the receipt-bound focus and submission
+     * rule. The sixth and seventh, 9,778,832: labelled submitted values and
+     * their one-to-one binding. The follow-up the next benchmark run found,
+     * 9,779,107: hidden content out of page reads and the omission count, a
+     * partial run no longer holding admission, and routine consent written
+     * on landing. Its judge round, 9,780,444: receipt-fact quotations, read
+     * quotations from earlier pages, the focus source and followed-link
+     * redirects. Its review round, 9,782,640: control-bound receipt values,
+     * rendered-only earlier pages, the new-tab rule, the Defuddle leak check
+     * and the chat's delegation guidance. Its second review round,
+     * 9,783,659: the bound new tab, typed text kept out of read quotations,
+     * word-run hidden-text matching and the title-answered redirect. Its
+     * third, 9,784,507: tabs bound to the step that opened them, asserted
+     * values held whole, and the open_tab instruction. Release polish,
+     * 9,818,005: seven gateway vendor marks, the agent opt-in and its
+     * one-time announcement in nine locales. Its agent tab, 9,822,274: the
+     * tab's own chunk, the Context-sheet switch and labelled dropdowns. The
+     * Ollama cloud switch, 9,826,636. The agent-off notice, 9,830,198. The Ollama provider loading
+     * its setting lazily, 9,831,247. Apple's mark, 9,832,181. Named blocking runs and
+     * hidden resolved notices, 9,833,527. Stepped effort slider, 9,834,090. Its review round, 9,835,179: the
+     * suffix-aware favicon walk, the empty Ollama rail entry and the
+     * announcement's onboarding recheck.
      */
-    max: isFirefox ? 11_800_000 : 9_700_000
+    // Includes pinned quantized MiniLM, CPU WASM, tokenizer and license notices.
+    /** PR 9's recovery and review changes measure Chrome at 48,504,968. */
+    /** PR 10 workflow progress and context projection measure Chrome at 48,517,539. */
+    /** PR 13 artifact storage, migration and row decoding measure Chrome at 48,523,928. */
+    /** PR 14 lifecycle, scope guards, startup supervision and translated consent measure Chrome at 48,543,041. */
+    /** PR 14 completion receipts, limit review, loop recovery and consent_stale copy measure Chrome at 48,548,745. */
+    /** PR 14 source_changed/access_changed refusals measure Chrome at 48,549,065. */
+    /** PR 14 review tightening (frame, page-leaving, applied-action list) measures Chrome at 48,549,796. */
+    /** PR 14 followed-link credit and key-method allowlist measure Chrome at 48,550,281. */
+    /** PR 14 press counting and confirmed stop change measure Chrome at 48,550,528. */
+    /** PR 14 stop limit bound to its change and per-opening tab receipts measure Chrome at 48,550,622. */
+    /** PR 14 stop limit settled by its own submission measures Chrome at 48,550,737. */
+    /** PR 14 stop limit judged by how its outcome is met measures Chrome at 48,550,786. */
+    /** PR 14 stop limit refused past a select on a named control measures Chrome at 48,550,903. */
+    /** PR 14 stop limit met by a fill only for a control-state outcome measures Chrome at 48,551,361. */
+    /** 0.14.0 review remediation measures Chrome at 48,569,820. */
+    /** Its bot-review fixes measure Chrome at 48,572,145. */
+    /** Preview review — complete follow-up records, chat-bound starts, the Zen 403, exact record rows — measures Chrome at 48,572,994. */
+    max: isFirefox ? 50_300_000 : 48_572_994
   },
   {
     metric: "zip",
     field: "bytes",
-    max: isFirefox ? 4_350_000 : 3_300_000
+    max: isFirefox ? 24_500_000 : 23_600_000
   },
   {
     metric: "background",
@@ -314,8 +375,196 @@ const budgets: Budget[] = [
      * part of it is text the model reads: the batch's own tool schema and the
      * per-field refusals, without which a twelve-field batch can be refused
      * but not corrected. Firefox carries no Agent code and is unchanged.
+     *
+     * Requirement-scoped completion evidence, the atomic takeover resume, the
+     * reviewed-effect disposition, and the Agent reasoning-effort wiring — one
+     * verified state per requirement instead of one quotation rule for
+     * state-only controls, a Done-before-Started that converges on a single
+     * resume, a recorded review that lifts the unverified refusal without
+     * vouching for the effect, and the slider's answer on planning and
+     * decision requests — took it to 272,557. Firefox carries no Agent code
+     * and is unchanged.
+     *
+     * Boundary-aware, negation-safe requirement/result binding took the
+     * measured Chrome baseline to 273,173. Firefox carries no Agent code and
+     * is unchanged.
+     *
+     * Model readiness — the wire schema the panel is told the verdict in, the
+     * total mapping from the compatibility union onto it, and the catalog
+     * scan that names models which could run instead, plus the invalidation
+     * that keeps a cached verdict from outliving its evidence — took it to
+     * 274,474.
+     * The alternative to shipping it is the behaviour it replaces: Start
+     * stayed live for a model that cannot call tools, and the refusal arrived
+     * after the run had attached to a tab. Firefox carries no Agent code and
+     * is unchanged.
+     *
+     * Tying a run to the conversation it belongs to — the linkage migration
+     * and its repository ops, the commit that writes the request, the card and
+     * the run together, and the cleanup a deleted chat asks for — took the
+     * measured Chrome baseline to 276,291. Most of it is SQL: statements that
+     * have to name every column they write, the batching that keeps a large
+     * deletion inside the persistence bind ceiling, and the startup sweep that
+     * settles a run whose chat is gone. Firefox carries no Agent code and is
+     * unchanged.
+     *
+     * 277,000 rather than the usual next step above the measurement: 276,500
+     * left 209 bytes, which is less than one statement, and the 235,000
+     * ceiling above is here because 54 bytes of headroom stopped a release.
+     *
+     * Drawing a run's card in its chat — the read-only projection a card asks
+     * for, its wire schema in the registry the server validates against, and
+     * the handler that reaches it — took it to 277,280. The alternative is a
+     * card with no reader: the row it is drawn into is empty until the run
+     * settles, so without the projection a live run shows nothing at all.
+     * Firefox carries no Agent code and is unchanged.
+     *
+     * Conversation handoffs — the projection written in the settling commit,
+     * the sanitiser that strips links and secrets from what it carries, and
+     * the read that gives a follow-up the handoff the page never loaded — took
+     * it to 278,451. The alternative is a follow-up that knows nothing of the
+     * run above it, or one that reads the run's page-derived answer unfenced.
+     *
+     * Follow-up runs — reading the parent's record and committed effects from
+     * its own rows, the rule that refuses a repeat before policy, and the
+     * record in the decision and planning prompts — took it to 280,450. The
+     * alternative is a retry that knows nothing of the order the last run
+     * already placed.
+     *
+     * The toolbar mark for a run waiting on the user — the only signal a
+     * parked approval has once the Agent surface is gone and the panel is
+     * closed — took it to 281,140. The alternative is a run that pauses
+     * where nobody can see it.
+     *
+     * PR1 form completion evidence, native-dialog dismissal recording and
+     * row-specific approval context took the measured Chrome worker to
+     * 283,287. Firefox carries no Agent code and is unchanged.
+     *
+     * Starting runs from chat took it to 287,191: the `browser_task` runner,
+     * turn-row linkage and the wait on a delegated run now live in the
+     * worker, and the start prompt's confirmation hook rides on the tool
+     * loop every chat turn uses.
+     *
+     * Firefox compiles `browser_task` out, but the tool loop's confirmation
+     * hook, the turn fields it reads and the permission-mode setting are
+     * chat infrastructure both browsers share: 210,289.
+     *
+     * The run timeline took Chrome to 290,481: the page indicator drawn
+     * through the debugger overlay, page-opened tab adoption and grouping,
+     * steering, and the card record's step projection. Firefox moved to
+     * 212,329 on what chat shares: the browser-context preamble every turn
+     * with tab tools builds, and the panel tab `current_tab` now reads.
+     *
+     * The hosted-model benchmark's fixes took Chrome to 292,367: the live
+     * command record the completion judge reads, the user-tab rule, routine
+     * consent following an approved site, the start address and the
+     * finish-reviewed path. Their review fixes, 292,591: the approval's
+     * routine origin and the tighter evidence bindings. The second round,
+     * 292,960: the named-field binding and the whole-notice routine rule.
+     * The third, 293,394: word-level field names and the stricter landing.
+     * The fourth, 293,573: the focus-only and constrained-search rules.
+     * The fifth, 293,750: claims bound to the words a receipt proves. The
+     * sixth, 293,895: submitted values on the receipt and the panel's own
+     * verification projection. The seventh, 294,251: each submitted value
+     * bound to its control's label. The benchmark follow-up, 294,307: a
+     * partial run settling admission and routine consent written on landing.
+     * Its judge round, 294,757: receipt-fact quotations, observed pages for
+     * read quotations and the focus source. Its review round, 295,332:
+     * control-bound receipt values, the new-tab rule and the chat's
+     * delegation guidance; Firefox 212,632 for the same guidance and the
+     * Defuddle leak check. The second review round, Chrome 295,518: the
+     * bound new tab and typed text kept out of read quotations. The third,
+     * 295,811: tabs bound to the step that opened them. Release polish,
+     * Chrome 296,202 and Firefox 213,004: the gateway brand hosts and the
+     * opt-in gate on browser_task. The Ollama cloud switch, Chrome 296,980
+     * and Firefox 213,816: the provider reading its setting at list time.
+     * The agent-off guidance, Chrome 297,133. The Ollama provider loading
+     * its setting lazily, Firefox 214,025. The volatile tool source, Chrome
+     * 297,303. The refusal that names a blocking run's chat, Chrome 297,634.
+     * Review fixes, Firefox 214,221: the suffix-aware favicon walk and the
+     * cloud setting's failure fallback.
+     * Bundled migration catch-up and cancellation: Chrome 300,704 and
+     * Firefox 217,252. Model assets and content-script budgets are unchanged.
+     * The background-owned rebuild loop, its heartbeat and startup resume:
+     * Chrome 301,027 and Firefox 217,607.
+     * The RCA follow-up — no-progress change signatures, completion refusal
+     * memory, and inherited-frame checks — took Chrome to 302,690. Firefox
+     * carries no Agent code and is unchanged.
+     * The task contract — constraints, sourced and itemized requirements,
+     * rule-found negative clauses, user-only plan amendments — took Chrome
+     * to 308,170, and Firefox to 218,306 through the shared contract
+     * schemas its run-state decoding carries. Its review fixes — per-item
+     * completion, withdrawal and identity checks, the rule amendment — took
+     * Chrome to 309,395; the second round — provisional amendments, item
+     * evidence binding, kept limits — to 309,816; the third — item
+     * withdrawals and batch field names for items — to 310,127; confirmed
+     * removals, lift questions and the outstanding-answer gate replaced the
+     * withdrawal heuristics and took it to 311,532; proven abbreviations
+     * in item sentences and item-unique field names, to 312,049.
+     * Context-bound numbering markers, localized removal replies and full-item
+     * receipt facts took Chrome to 312,566. Firefox carries no Agent code.
+     * Provider web citations (`url_citation`) and usage details — cached and
+     * reasoning tokens, cost — through the stream schema and reducer: Chrome
+     * 303,436 and Firefox 218,360.
+     * The grounded evidence ledger adds bounded source records, quote matching,
+     * durable decoding and chat handoff references: measured Chrome 316,590
+     * and Firefox 219,521. No model
+     * assets or content-script budgets change.
+     * P4 deterministic completion — exact state predicates, grounded read
+     * support, constraint checks and verified-only reports — measures Chrome
+     * at 319,323, up 2,422 from the release baseline rebuilt at 316,901.
+     * The planning JSON schema stays local to avoid shipping Zod's converter.
+     * The 320,000 ceiling leaves 677 bytes of headroom; asset and content
+     * budgets remain unchanged.
+     * P5 independent completion review — the review port, its prompt, tool
+     * and parser, verdict checks and review telemetry — measures Chrome at
+     * 322,045 and Firefox at 218,667. The 323,000 ceiling leaves 955 bytes.
+     * P6 on-demand vision — the `look` command, per-step visual access with
+     * its reasons, the look-only tool variant and its prompts — measures
+     * Chrome at 323,811 and Firefox at 219,967. Picture-read evidence — the
+     * `visual_observation` record, its judge rule, the outcome's `visual`
+     * list through the card, handoff and contract schemas Firefox also
+     * ships — takes Chrome to 324,441 and Firefox to 220,012. Ceilings
+     * 325,000 and 221,000 leave 559 and 988 bytes.
+     * P7 authorized frame masking and visual grounding measures Chrome at
+     * 326,725. Its geometry, session mapping and revalidation add 2,284 bytes;
+     * a 327,500 ceiling leaves 775 bytes. Firefox retains whole-frame masks.
      */
-    max: isFirefox ? 210_000 : 272_000
+    /** PR 8: bounded inference retry policy and typed provider failures add about 1.7 kB gzip. */
+    /**
+     * PR 9: bounded recovery — durable strategy budget, three-way effect
+     * settlement, the evidence-only second verification, and the reviewer's
+     * citable and newSinceChange marks — measures Chrome at 331,237. A
+     * 332,000 ceiling leaves 763 bytes. Firefox measures 220,709, unchanged.
+     */
+    /**
+     * PR 10: receipt-derived workflow checkpoints, plan-linked evidence
+     * retention and context projection measure Chrome at 334,250 gzip
+     * bytes (+3,013), Firefox at 221,131 (+422). The new ceilings retain
+     * 750 and 869 bytes of headroom; asset and ZIP limits are unchanged.
+     */
+    /** PR 13 artifact contracts/store decoding measure Chrome at 335,457 gzip bytes. */
+    /** PR 14 lifecycle controls, scope guards and supervised recovery measure Chrome at 337,282 gzip bytes. */
+    /** PR 14 completion receipts, limit review and loop recovery measure Chrome at 338,551 gzip bytes. */
+    /** PR 14 source_changed/access_changed refusals measure Chrome at 338,627 gzip bytes. */
+    /** PR 14 review tightening measures Chrome at 338,878 gzip bytes. */
+    /** PR 14 followed-link credit and key-method allowlist measure Chrome at 339,001 gzip bytes. */
+    /** PR 14 press counting and confirmed stop change measure Chrome at 339,097 gzip bytes. */
+    /** PR 14 stop limit bound to its change and per-opening tab receipts measure Chrome at 339,137 gzip bytes. */
+    /** PR 14 stop limit settled by its own submission measures Chrome at 339,156 gzip bytes. */
+    /** PR 14 stop limit judged by how its outcome is met measures Chrome at 339,159 gzip bytes. */
+    /** PR 14 stop limit refused past a select on a named control measures Chrome at 339,217 gzip bytes. */
+    /** PR 14 stop limit met by a fill only for a control-state outcome measures Chrome at 339,259 gzip bytes. */
+    /**
+     * 0.14.0 review remediation — control transitions, current-state reads,
+     * per-item judgments, human-boundary pauses, the run token ceiling, wake
+     * alarms and notices — measures Chrome at 341,625 and Firefox at 222,257
+     * through the shared contract schemas. Terser was tried and rejected: it
+     * saved Chrome 1.7 kB but left the compiled-out Agent in Firefox (+106 kB).
+     */
+    /** Its bot-review fixes — bounded optional metadata, paused-decision tokens — measure Chrome at 342,286 and Firefox at 222,408. */
+    /** Preview review — complete follow-up records, chat-bound starts, the Zen 403 — measures Chrome at 342,501 and Firefox at 222,587. */
+    max: isFirefox ? 222_587 : 342_501
   }
 ]
 

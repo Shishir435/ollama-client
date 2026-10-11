@@ -422,6 +422,349 @@ describe("YouTube transcript extractor", () => {
         expect(result).toBe("Freshly rendered.")
       })
 
+      it("reads the consolidated 'In this video' panel once it shows the transcript", async () => {
+        // The Timeline / Chapters / Transcript panel exists while it shows the
+        // timeline, so its presence alone is not an open transcript: the click
+        // has to happen, and the segments it renders sit in a container the
+        // older selectors never matched.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+
+        const consolidated = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        consolidated.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        consolidated.innerHTML = "<div>Timeline</div>"
+        document.body.appendChild(consolidated)
+
+        const chip = document.createElement("button")
+        chip.textContent = "Transcript"
+        chip.addEventListener("click", () => {
+          setTimeout(() => {
+            consolidated.innerHTML = `
+              <transcript-segment-view-model>
+                <span class="ytAttributedStringHost" role="text">Rendered late.</span>
+              </transcript-segment-view-model>
+            `
+          }, 300)
+        })
+        document.body.appendChild(chip)
+
+        const result = await getTranscript()
+        expect(result).toBe("Rendered late.")
+      })
+
+      it("reads every batch the panel renders, not only the first", async () => {
+        mountPlayerResponse("123")
+        failCaptionFetch()
+
+        const segment = (text: string) =>
+          `<transcript-segment-view-model><span class="ytAttributedStringHost" role="text">${text}</span></transcript-segment-view-model>`
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        document.body.appendChild(panel)
+
+        const chip = document.createElement("button")
+        chip.textContent = "Transcript"
+        chip.addEventListener(
+          "click",
+          () => {
+            setTimeout(() => {
+              panel.innerHTML = segment("First batch.")
+            }, 100)
+            setTimeout(() => {
+              panel.insertAdjacentHTML("beforeend", segment("Second batch."))
+            }, 600)
+          },
+          { once: true }
+        )
+        document.body.appendChild(chip)
+
+        const result = await getTranscript()
+        expect(result).toBe("First batch.\nSecond batch.")
+      })
+
+      it("ignores transcript-shaped markup outside any panel", async () => {
+        // Nothing ties a stray cue group to the video being watched, so it is
+        // not a transcript for it.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        document.body.innerHTML = `
+          <div class="cue-group"><div class="cue">Leftover text.</div></div>
+        `
+
+        vi.useFakeTimers()
+        try {
+          const pending = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await pending).toBeNull()
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
+      it("bounds every click attempt by one shared wait", async () => {
+        // A button that never renders segments used to cost a full wait per
+        // retry — five of them before the page answered with metadata only.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          const started = Date.now()
+          let settledAt = 0
+          const pending = getTranscript().then((value) => {
+            settledAt = Date.now()
+            return value
+          })
+          await vi.advanceTimersByTimeAsync(30_000)
+          expect(await pending).toBeNull()
+          expect(settledAt - started).toBeLessThanOrEqual(8000)
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
+      it("moves on to a working control when the first click renders nothing", async () => {
+        // One dead control must not spend the whole budget: a working one that
+        // appears while it is being waited on still gets clicked.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const dead = document.createElement("button")
+        dead.setAttribute("aria-label", "Show transcript")
+        document.body.appendChild(dead)
+
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        document.body.appendChild(panel)
+
+        vi.useFakeTimers()
+        try {
+          setTimeout(() => {
+            const chip = document.createElement("div")
+            chip.setAttribute("role", "button")
+            chip.textContent = "Transcript"
+            chip.addEventListener("click", () => {
+              panel.innerHTML = `
+                <transcript-segment-view-model>
+                  <span class="ytAttributedStringHost" role="text">From the working chip.</span>
+                </transcript-segment-view-model>
+              `
+            })
+            document.body.appendChild(chip)
+          }, 1000)
+
+          const pending = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await pending).toBe("From the working chip.")
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
+      it("keeps waiting on the only control rather than clicking it again", async () => {
+        // A slow load on the one control there is. The click visibly opened the
+        // panel, so a second click would close it and the transcript on its
+        // way would never land.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        document.body.appendChild(panel)
+
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        let presses = 0
+        let pending: ReturnType<typeof setTimeout> | undefined
+        button.addEventListener("pointerdown", () => {
+          presses += 1
+          if (pending) {
+            clearTimeout(pending)
+            pending = undefined
+            panel.setAttribute(
+              "visibility",
+              "ENGAGEMENT_PANEL_VISIBILITY_HIDDEN"
+            )
+            return
+          }
+          panel.setAttribute(
+            "visibility",
+            "ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"
+          )
+          pending = setTimeout(() => {
+            panel.innerHTML = `
+              <transcript-segment-view-model>
+                <span class="ytAttributedStringHost" role="text">Slow load.</span>
+              </transcript-segment-view-model>
+            `
+          }, 3000)
+        })
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          const result = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await result).toBe("Slow load.")
+          expect(presses).toBe(1)
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
+      it("clicks again when the first click changed nothing", async () => {
+        // The control rendered before its handler was attached, so the first
+        // click did nothing at all. Nothing is pending, so a retry is safe.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        document.body.appendChild(panel)
+
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          setTimeout(() => {
+            button.addEventListener("click", () => {
+              panel.innerHTML = `
+                <transcript-segment-view-model>
+                  <span class="ytAttributedStringHost" role="text">Handler ready.</span>
+                </transcript-segment-view-model>
+              `
+            })
+          }, 2500)
+
+          const result = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await result).toBe("Handler ready.")
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
+      it("retries an ignored click while an unrelated panel keeps changing", async () => {
+        // Comments loading beside the video say nothing about the transcript
+        // control, so they must not make its ignored click look like a load.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute(
+          "target-id",
+          "engagement-panel-timeline-view-consolidated"
+        )
+        const comments = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        comments.setAttribute("target-id", "engagement-panel-comments-section")
+        document.body.append(panel, comments)
+
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          const churn = setInterval(() => {
+            comments.insertAdjacentHTML("beforeend", "<div>comment</div>")
+            comments.setAttribute(
+              "visibility",
+              comments.getAttribute("visibility") === "A" ? "B" : "A"
+            )
+          }, 200)
+          setTimeout(() => {
+            button.addEventListener("click", () => {
+              panel.innerHTML = `
+                <transcript-segment-view-model>
+                  <span class="ytAttributedStringHost" role="text">Retried.</span>
+                </transcript-segment-view-model>
+              `
+            })
+          }, 2500)
+
+          const result = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          clearInterval(churn)
+          expect(await result).toBe("Retried.")
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
+      it("waits on a transcript opening in a panel with another target id", async () => {
+        // The click mounts the transcript view at once and its segments land
+        // later. Every container that can be read is also watched, so this is
+        // seen as a pending load and not clicked again.
+        mountPlayerResponse("123")
+        failCaptionFetch()
+        const panel = document.createElement(
+          "ytd-engagement-panel-section-list-renderer"
+        )
+        panel.setAttribute("target-id", "engagement-panel-some-future-id")
+        document.body.appendChild(panel)
+
+        const button = document.createElement("button")
+        button.setAttribute("aria-label", "Show transcript")
+        let presses = 0
+        button.addEventListener("pointerdown", () => {
+          presses += 1
+          if (presses > 1) {
+            panel.innerHTML = ""
+            return
+          }
+          const view = document.createElement("ytd-transcript-renderer")
+          panel.appendChild(view)
+          setTimeout(() => {
+            view.innerHTML = `
+              <transcript-segment-view-model>
+                <span class="ytAttributedStringHost" role="text">Other panel.</span>
+              </transcript-segment-view-model>
+            `
+          }, 3000)
+        })
+        document.body.appendChild(button)
+
+        vi.useFakeTimers()
+        try {
+          const result = getTranscript()
+          await vi.advanceTimersByTimeAsync(20_000)
+          expect(await result).toBe("Other panel.")
+          expect(presses).toBe(1)
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+
       it("refetches when the inline payload names no video at all", async () => {
         // Unverifiable is not the same as current: without an id there is no way
         // to tell a stale payload from a fresh one, and the stale one's caption

@@ -253,6 +253,44 @@ describe("Agent control port", () => {
     ).toThrow("invalid origin")
   })
 
+  it("accepts a child srcdoc document on the origin it inherited, and only a child", () => {
+    const childBinding = { ...binding, frameId: 3, documentId: "document-3" }
+    const panel = (origin: string) =>
+      response({
+        ...childBinding,
+        observation: observation({
+          frameId: 3,
+          documentId: "document-3",
+          url: "about:srcdoc",
+          origin
+        })
+      })
+    expect(
+      validateAgentObservationResponse(
+        panel("https://example.com"),
+        childBinding as never,
+        1
+      ).origin
+    ).toBe("https://example.com")
+    /** A sandboxed panel is opaque, and stays unread. */
+    expect(() =>
+      validateAgentObservationResponse(panel("null"), childBinding as never, 1)
+    ).toThrow()
+    /** The page itself is never an inheriting document. */
+    expect(() =>
+      validateAgentObservationResponse(
+        response({
+          observation: observation({
+            url: "about:srcdoc",
+            origin: "https://example.com"
+          })
+        }),
+        binding,
+        1
+      )
+    ).toThrow("invalid origin")
+  })
+
   it("requires browser evidence for the exact main-frame document", () => {
     const { port } = createPort()
     expect(() =>
@@ -944,5 +982,85 @@ describe("Agent control port across frames", () => {
         frame: childIdentity
       }).success
     ).toBe(false)
+  })
+
+  it("accepts a visual point in its bound child frame's local viewport", () => {
+    const base = mutationInstruction()
+    const visual = {
+      ...base,
+      command: {
+        snapshotId: base.command.snapshotId,
+        generation: base.command.generation,
+        type: "click_point",
+        x: 210,
+        y: 130
+      },
+      target: { ...base.target, frameId: 2 },
+      frame: childIdentity,
+      point: { x: 20, y: 30 }
+    }
+    expect(AgentDomMutationInstructionSchema.safeParse(visual).success).toBe(
+      true
+    )
+    for (const invalid of [
+      { ...visual, target: { ...visual.target, frameId: 3 } },
+      { ...visual, frame: { ...childIdentity, tabId: 8 } },
+      { ...visual, frame: { ...childIdentity, frameId: 0 } },
+      { ...visual, command: base.command }
+    ])
+      expect(AgentDomMutationInstructionSchema.safeParse(invalid).success).toBe(
+        false
+      )
+  })
+
+  it("prepares a child visual click through the bound control port", async () => {
+    const { port, onMessage } = createPort()
+    const childBinding = {
+      ...binding,
+      frameId: childIdentity.frameId,
+      documentId: childIdentity.documentId
+    }
+    const session = createAgentControlSession({
+      port,
+      binding: childBinding,
+      sender: {
+        tabId: childBinding.tabId,
+        frameId: childBinding.frameId,
+        documentId: childBinding.documentId
+      }
+    })
+    const base = mutationInstruction()
+    const instruction = mutationInstruction({
+      command: {
+        type: "click_point",
+        snapshotId: base.command.snapshotId,
+        generation: base.command.generation,
+        x: 210,
+        y: 130
+      },
+      target: { ...base.target, frameId: childIdentity.frameId },
+      frame: childIdentity,
+      point: { x: 20, y: 30 }
+    })
+    const prepared = session.prepareNativeInput(instruction)
+    expect(port.postMessage).toHaveBeenCalledWith({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_prepare_native_input",
+      ...childBinding,
+      sequence: 1,
+      instruction
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_native_input_prepared",
+      ...childBinding,
+      sequence: 1,
+      point: instruction.point,
+      focused: false
+    })
+    await expect(prepared).resolves.toEqual({
+      point: instruction.point,
+      focused: false
+    })
   })
 })

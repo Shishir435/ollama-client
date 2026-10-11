@@ -33,7 +33,14 @@ const LOCAL_PROVIDER_BUSY_MESSAGE_KEY = "chat.errors.provider_busy"
 export const providerErrorMessageKey = (
   code: AppErrorCode
 ): string | undefined =>
-  code === "OLC-PROVIDER-BUSY" ? LOCAL_PROVIDER_BUSY_MESSAGE_KEY : undefined
+  (
+    ({
+      "OLC-PROVIDER-BUSY": LOCAL_PROVIDER_BUSY_MESSAGE_KEY,
+      "OLC-AUTH-FAILED": "chat.errors.provider_auth",
+      "OLC-CORS-BLOCKED": "chat.errors.provider_cors",
+      "OLC-MODEL-REFUSED": "chat.errors.provider_refused"
+    }) as Partial<Record<AppErrorCode, string>>
+  )[code]
 
 const reasonForCode = (code: AppErrorCode): string | undefined => {
   if (code === "OLC-CONTEXT-TOO-LARGE")
@@ -150,6 +157,24 @@ export const classifyProviderError = (
       code: "OLC-INPUT-UNSUPPORTED",
       reason: "Selected model does not support part of this request.",
       recoveryAction: "reduce-input"
+    }
+  }
+  /**
+   * Matched on text rather than status: older proxies forward the refusal
+   * with the upstream's 502, and the status alone cannot tell a policy
+   * refusal from a gateway that is down.
+   */
+  if (
+    includesAny(value, [
+      /free tier can only be used from within OpenCode/i,
+      /FreeTierError/
+    ])
+  ) {
+    return {
+      code: "OLC-FREE-TIER-REFUSED",
+      reason:
+        "OpenCode's free tier refused this request from a third-party client. Use a model from a key-backed provider, or run this model in OpenCode's own app.",
+      recoveryAction: "choose-model"
     }
   }
   if (status === 401 || status === 403) {
@@ -475,8 +500,7 @@ export const applyProviderErrorContext = (
  * `Retry-After`, and map the status to a safe user message. Raw response
  * bodies stay in `debug`, never in `userMessage`.
  *
- * Ollama does NOT use this: its local-provider 401/403 CORS special-case and
- * `>= 500`-only retryability differ intentionally.
+ * Ollama keeps its own local-provider 401/403 CORS advice.
  */
 export const throwProviderResponseError = async (
   response: Response,
@@ -522,5 +546,20 @@ export const throwProviderResponseError = async (
       reason: classification.reason
     }),
     debug: detail
+  })
+}
+
+/** Explicit wire refusals carry no raw model text and are never transient faults. */
+export const throwProviderRefusal = (context: ProviderErrorContext): never => {
+  throw createAppError("The model refused this request.", {
+    ...context,
+    kind: "provider",
+    code: "OLC-MODEL-REFUSED",
+    messageKey: providerErrorMessageKey("OLC-MODEL-REFUSED"),
+    phase: "response",
+    retryable: false,
+    recoveryAction: "reduce-input",
+    userMessage:
+      "The model refused this request. Adjust the task or choose a different model."
   })
 }

@@ -8,7 +8,7 @@
       "scroll_down": "Nach unten scrollen",
       "scroll_left": "Nach links scrollen",
       "scroll_right": "Nach rechts scrollen",
-      "switch_tab": "Zu Tab {{tab}} wechseln",
+      "switch_tab": "Zu einem anderen Tab wechseln",
       "wait": "Warten auf {{condition}}",
       "clear_and_type": "Text im Feld ersetzen",
       "press_key": "{{key}} drücken",
@@ -24,43 +24,51 @@
       "double_click": "Element doppelklicken",
       "click_point": "Auf einen Punkt im Screenshot klicken",
       "zoom": "In den Screenshot hineinzoomen",
+      "look": "Neuen Screenshot aufnehmen",
       "hover": "Über Element schweben",
       "read": "Seite lesen",
       "inspect": "{{region}} untersuchen",
       "find": "„{{query}}“ suchen",
       "extract_text": "Seitentext lesen",
       "handle_dialog_accept": "Dialog der Seite bestätigen",
-      "handle_dialog_dismiss": "Dialog der Seite abbrechen"
+      "handle_dialog_dismiss": "Dialog der Seite abbrechen",
+      "fill_form": "Formularfelder ausfüllen: {{count}}",
+      "extract": "Auf der Seite nachsehen: {{count}}",
+      "call_page_tool": "Werkzeug der Seite „{{tool}}“ verwenden"
     },
     "approval": {
       "title": "Genehmigung erforderlich",
+      "risk": {
+        "low": "Geringes Risiko",
+        "medium": "Mittleres Risiko",
+        "high": "Hohes Risiko",
+        "critical": "Kritisches Risiko"
+      },
       "allow": "Einmal erlauben",
       "reject": "Ablehnen",
       "allowForRun": "Diese Art von Aktion auf {{origin}} für diesen Lauf immer erlauben"
     },
-    "attachment": {
-      "title": "Was dieser Browser zulässt",
-      "attaches": "Beim Start verbindet sich der Debugger von Chrome mit dem gewählten Tab. Chrome zeigt währenddessen einen eigenen Hinweis; die Verbindung endet beim Stoppen, bei einer Übergabe an Sie oder am Ende des Laufs.",
-      "no_debugger": "Dieser Browser hat keinen Debugger, daher steuert der Lauf Seiten über die Content-Skripte der Erweiterung."
-    },
     "browser_disconnected": "Die Browsersteuerung wurde getrennt, daher wurde Agent pausiert. Prüfen Sie die Seite vor dem Fortsetzen.",
-    "completion": {
-      "summary": "Während dieses Laufs wurden {{count}} Seitenbeobachtungen an {{provider}} gesendet."
-    },
     "controls": {
       "label": "Agent-Steuerung",
       "pause": "Pausieren",
       "resume": "Fortsetzen",
       "stop": "Stoppen",
+      "takeover_start": "Ich übernehme diesen Schritt",
       "takeover_done": "Fertig — fortsetzen"
     },
     "error": {
       "already_running": "Ein Agent-Durchlauf läuft bereits.",
       "browser_control_unavailable": "Agent konnte die Browsersteuerung nicht verbinden. Schließen Sie DevTools oder einen anderen Debugger und versuchen Sie es erneut.",
-      "permission_denied": "Agent benötigt die Berechtigung zur Seitenbeobachtung, bevor er starten kann.",
+      "follow_up_unavailable": "Dieser Lauf kann hier nicht mehr fortgesetzt werden. Beginne neu, um die Aufgabe erneut zu stellen.",
+      "permission_denied": "Der Agent kann in diesem Browser keine Seiten beobachten.",
       "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
       "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
-      "unknown": "Agent konnte diese Anfrage nicht ausführen."
+      "unknown": "Agent konnte diese Anfrage nicht ausführen.",
+      "disconnected": "Der Agent hat sich gerade neu verbunden und das nicht erhalten. Versuche es erneut.",
+      "turn_has_run": "Diese Nachricht hat bereits eine Browser-Aufgabe gestartet.",
+      "steer_unavailable": "Der Lauf arbeitet gerade nicht und konnte das nicht übernehmen. Halten Sie ihn an und korrigieren Sie ihn stattdessen.",
+      "consent_stale": "Der Lauf hat sich seit der Anzeige dieser Auswahl weiterbewegt, daher wurde sie nicht gespeichert. Prüfen Sie den Lauf und wählen Sie erneut."
     },
     "failure": {
       "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
@@ -75,28 +83,15 @@
       "verification_failed": "Der Lauf konnte die Wirkung seiner letzten Aktion nicht bestätigen. Prüfen Sie die Seite, bevor Sie erneut starten.",
       "unknown": "Der Lauf endete ohne benennbaren Grund. Prüfen Sie die Seite und starten Sie erneut."
     },
-    "feedback": "Feedback senden",
-    "limits": {
-      "no_native_input": "Maus- und Tastatureingaben sind synthetisch; eine Seite, die nur auf echte Eingaben reagiert, antwortet möglicherweise nicht.",
-      "no_screenshots": "Es werden keine Screenshots erstellt; Aufgaben, die nur visuell lösbar sind, funktionieren nicht.",
-      "no_dialogs": "Native Dialoge (alert, confirm, prompt) kann der Lauf weder sehen noch beantworten."
-    },
     "model": {
       "label": "Modell"
     },
     "observations": "{{count}} Beobachtungen",
     "privacy": {
       "remote_notice": "Seitenbeobachtungen werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet.",
-      "acknowledge": "Verstanden",
       "remote_notice_screenshots": "Seitenbeobachtungen und Viewport-Screenshots werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet."
     },
     "progress": "{{count}} von {{budget}} Beobachtungen",
-    "provider": {
-      "label": "Anbieter",
-      "local": "Lokal",
-      "remote": "Remote",
-      "missing": "Zuerst Modell auswählen"
-    },
     "question": {
       "title": "Agent benötigt eine Antwort",
       "inputLabel": "Ihre Antwort",
@@ -108,14 +103,6 @@
       "sent": "Screenshots des Viewports werden an das Modell gesendet",
       "unused": "Nicht genutzt bei einem reinen Textmodell",
       "unknown": "Noch nicht ermittelt"
-    },
-    "start": {
-      "description": "Browseraufgabe in diesem Panel beaufsichtigen.",
-      "goal": "Was soll der Agent tun?",
-      "placeholder": "Eine Browseraufgabe beschreiben…",
-      "action": "Agent starten",
-      "auto_actions": "Routineaktionen für diese Aufgabe erlauben",
-      "auto_actions_description": "Klicken und Tippen auf dieser Website erfolgen automatisch. Veröffentlichen, Löschen, neue Websites und sensible Schritte erfordern weiterhin Ihre Zustimmung."
     },
     "status": {
       "submitted": "Startet",
@@ -142,42 +129,53 @@
       "verified": "Geprüft",
       "rejected": "Abgelehnt",
       "failed": "Fehlgeschlagen",
-      "uncertain": "Prüfen"
-    },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agent",
-      "preview": "Vorschau"
+      "uncertain": "Prüfen",
+      "dialog_opened": "Dialog geöffnet"
     },
     "tab": {
       "label": "Gesteuerter Tab",
-      "missing": "Unterstützte Webseite öffnen"
+      "missing": "Unterstützte Webseite öffnen",
+      "show": "Diesen Tab anzeigen"
     },
     "tabs": {
       "label": "Gesteuerte Tabs",
-      "count": "{{count}} Tabs"
+      "count_one": "{{count}} Tab",
+      "count_other": "{{count}} Tabs"
     },
     "takeover": {
-      "title": "Diesen Schritt übernehmen"
+      "title": "Diesen Schritt übernehmen",
+      "instruction": {
+        "file_upload": "Übernimm die Seite, wähle die Datei selbst aus und fahre dann fort.",
+        "sensitive_step": "Übernimm die Seite, erledige den vertraulichen Schritt selbst und fahre dann fort."
+      }
     },
-    "title": "Beaufsichtigter Agent",
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
     "unresolved_reviewed": "Seite geprüft — fortfahren",
+    "unresolved_done": "Erledigt – beenden",
     "work_log": {
+      "action_needs_review": "Dieser Schritt muss überprüft werden.",
       "title": "Arbeitsprotokoll",
-      "target": "„{{name}}“"
+      "target": "„{{name}}“",
+      "reasoning": "Überlegung"
     },
     "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
-    "export_report": "Laufbericht exportieren (enthält Seitentext)",
-    "running_goal": "Arbeitet an",
-    "requirements": {
-      "title": "Was die Aufgabe verlangt hat",
-      "met": "Erledigt",
-      "unmet": "Nicht erledigt"
+    "experimental_badge": "Experimentell",
+    "announcement": {
+      "title": "Experimentell: ein Browser-Agent im Chat",
+      "description": "Dein Chat-Modell kann jetzt Aufgaben in deinen Tabs erledigen und dafür klicken, tippen und zwischen Seiten wechseln. Er bleibt aus, bis du ihn einschaltest.",
+      "hosted_models": "Am besten funktioniert er mit leistungsfähigen gehosteten Modellen (zum Beispiel über OpenRouter oder einen Cloud-Anbieter). Kleine lokale Modelle schaffen mehrstufige Aufgaben oft nicht.",
+      "approvals": "Er fragt nach, bevor er Formulare absendet, sich anmeldet, bezahlt oder etwas löscht, und du kannst ihn jederzeit stoppen.",
+      "coming": "Dies ist eine frühe Version. Rechne mit Ecken und Kanten; weitere Verbesserungen kommen in den nächsten Versionen.",
+      "later": "Vielleicht später",
+      "enable": "Agent einschalten"
     },
     "settings": {
       "title": "Browser-Agent",
-      "description": "Wie viel Kontext ein Lauf von seinem Modell anfordern darf und wann er die Seite abbildet.",
+      "description": "Was ein Lauf ohne Rückfrage tun darf, wie viel Kontext er vom Modell anfordern darf und wann er die Seite abbildet.",
+      "enabled": {
+        "label": "Chat-Modell den Browser-Agenten nutzen lassen",
+        "description": "Stellt browser_task bereit, mit dem das Modell in deinen Tabs für dich klicken, tippen und navigieren kann. Experimentell: Wie gut es funktioniert, hängt stark vom Modell ab."
+      },
       "context_window": {
         "label": "Kontextfenster",
         "description": "Automatisch nimmt das kleinste Fenster, das dieses Modell und dieser Server melden, und greift auf eine konservative Größe zurück, wenn keiner etwas sagt. Lege selbst eine Größe fest, wenn du das Limit deines Servers erhöht hast oder einem Lauf der Speicher ausgegangen ist.",
@@ -190,7 +188,104 @@
         "auto": "Wenn der Schritt eines braucht",
         "always": "Bei jedem Schritt",
         "never": "Nie"
+      },
+      "permission_mode": {
+        "label": "Routineaktionen",
+        "description": "Ob jeder neue Lauf auf der Startseite ohne Rückfrage klicken und tippen darf. Absenden, Löschen, Anmelden, Bezahlen und neue Websites werden immer erfragt, und nichts wird in den nächsten Lauf übernommen.",
+        "allow_routine": "Auf der Startseite erlauben",
+        "approve_each": "Jede Aktion bestätigen"
+      },
+      "completion_reviewer": {
+        "label": "Abschlussprüfer",
+        "description": "Wenn ein Lauf etwas behauptet, das die eingebauten Prüfungen nicht bestätigen können, liest dieses Modell die belegten Nachweise des Laufs und beurteilt, ob sie die Behauptung stützen. Es handelt nie im Browser. Ein anderes Modell erhält diese Nachweise nur, wenn es aktiviert ist, Tools aufrufen kann und Sie bei einem entfernten Server zugestimmt haben, Seiteninhalte an entfernte Modelle zu senden.",
+        "same_as_run": "Dasselbe Modell wie der Lauf"
       }
+    },
+    "card": {
+      "title": "Agent-Lauf",
+      "loading": "Lauf wird geladen…",
+      "missing": "Der Eintrag dieses Laufs ist nicht mehr verfügbar.",
+      "outcome": "{{met}} von {{total}} erledigt",
+      "outcome_visual_one": "{{count}} nur im Screenshot gesehen, nicht im Seitentext bestätigt",
+      "outcome_visual_other": "{{count}} nur im Screenshot gesehen, nicht im Seitentext bestätigt",
+      "continue": "Fortsetzen",
+      "retry": "Erneut versuchen",
+      "start_over": "Neu beginnen",
+      "ask": "Dazu fragen",
+      "step_count_one": "{{count}} Schritt",
+      "step_count_other": "{{count}} Schritte",
+      "page_count_one": "{{count}} Seite",
+      "page_count_other": "{{count}} Seiten"
+    },
+    "follow_up": {
+      "continue_message": "Setze die Browser-Aufgabe fort.",
+      "retry_message": "Versuche die Browser-Aufgabe noch einmal."
+    },
+    "paused_panel_closed": "Pausiert, weil die Seitenleiste geschlossen wurde. Fortsetzen, wenn du bereit bist.",
+    "approval_text": {
+      "accept_dialog": "{{kind}} der Seite bestätigen",
+      "accept_dialog_origin": "{{kind}} von {{origin}} bestätigen",
+      "dismiss_dialog": "{{kind}} der Seite schließen",
+      "dismiss_dialog_origin": "{{kind}} von {{origin}} schließen",
+      "dismiss_dialog_consequence": "Der Dialog wird als geschlossen gemeldet, nichts wird bestätigt.",
+      "accept_dialog_consequence": "Die Seite macht weiter, als hättest du ihre Bestätigen-Schaltfläche gedrückt – was auch immer diese tut.",
+      "accept_leave_consequence": "Die Seite darf verlassen werden. Nicht Gespeichertes geht verloren.",
+      "dialog_unreadable": "Der Text wurde nicht gelesen: Der Dialog gehört zu einem Frame, den dieser Lauf nicht lesen darf.",
+      "fill_fields": "Formularfelder in einem Schritt setzen: {{count}}",
+      "fill_fields_consequence": "Jedes unten aufgeführte Steuerelement wird der Reihe nach gesetzt; beim ersten, das nicht gesetzt werden kann, wird angehalten. Der Agent drückt nicht auf Senden, aber die Seite kann das Formular automatisch senden oder Änderungen beim Tippen speichern.",
+      "adopt_tab": "Den Tab „{{tab}}“ unter {{url}} übernehmen",
+      "navigate": "Zu {{url}} wechseln",
+      "navigate_consequence": "Der Browser öffnet genau diese Adresse: {{url}}",
+      "routine_follows": "Klicks und Eingaben auf {{origin}} laufen danach ohne Rückfrage, wie auf der Seite, auf der diese Aufgabe begonnen hat. Das Absenden eines Formulars fragt weiterhin nach.",
+      "no_submit_consequence": "Dies wird in das unten gezeigte Steuerelement eingegeben. Es folgt kein Senden-Schritt, daher kann eine Seite, die beim Tippen speichert, es sofort übernehmen.",
+      "command_consequence": "Der Browser führt diese Aktion am unten gezeigten Steuerelement aus.",
+      "prior_form": "Ein früherer Lauf dieser Aufgabe hat dieses Formular bereits gesendet. Bestätige nur, wenn es eine neue Übermittlung ist und nicht dieselbe noch einmal.",
+      "repeated_effect": "Dieser Lauf hat das bereits einmal mit demselben Steuerelement auf dieser Seite getan. Bestätige nur, wenn es noch einmal geschehen soll.",
+      "unknown_prior_effect": "Der Aktionsverlauf dieses Laufs konnte nicht gelesen werden. Diese Aktion könnte eine frühere Wirkung wiederholen. Bestätige nur, wenn eine Wiederholung sicher ist.",
+      "adopt_untitled_tab": "Einen Tab unter {{url}} übernehmen"
+    },
+    "dialog_kind": {
+      "alert": "Hinweis",
+      "confirm": "Bestätigungsdialog",
+      "prompt": "Eingabedialog",
+      "beforeunload": "Dialog zum Verlassen der Seite",
+      "dialog": "Dialog"
+    },
+    "question_text": {
+      "completion_refused": "Ich konnte das Ergebnis nicht bestätigen. Ist die Aufgabe erledigt? Wenn nicht, was soll ich als Nächstes tun?",
+      "commands_refused": "Die letzte Aktion konnte nicht ausgeführt werden. Was soll ich stattdessen versuchen?",
+      "no_progress": "Ich wiederhole Aktionen, ohne voranzukommen. Was soll ich anders machen? Du kannst auch anhalten und die Aufgabe selbst beenden.",
+      "recovery_tried_one": "Ich habe zuerst einen anderen Ansatz versucht.",
+      "recovery_tried_other": "Ich habe zuerst {{count}} andere Ansätze versucht.",
+      "too_many_outcomes": "Diese Aufgabe verlangt {{count}} getrennte Ergebnisse, ein Durchlauf kann {{max}} verfolgen. Welche soll dieser Durchlauf erledigen? Der Rest kann in einem weiteren Durchlauf folgen.",
+      "too_many_items": "Diese Aufgabe nennt {{count}} Zeilen oder Einträge, ein Durchlauf kann {{max}} verfolgen. Welche soll dieser Durchlauf erledigen? Der Rest kann in einem weiteren Durchlauf folgen.",
+      "too_many_constraints": "Diese Aufgabe setzt {{count}} getrennte Grenzen, ein Durchlauf kann {{max}} berücksichtigen. Welche davon gelten für diesen Durchlauf?",
+      "confirm_removal": "Deine Antwort könnte bedeuten, dass diese Aufgabe Folgendes nicht mehr braucht: {{list}}. Antworte mit Ja zum Entfernen oder Nein, um alles zu behalten.",
+      "confirm_lift": "Deine Antwort könnte bedeuten, dass diese Grenzen nicht mehr gelten: {{list}}. Antworte mit „allow“, um sie aufzuheben; jede andere Antwort behält sie."
+    },
+    "start_gate": {
+      "after_page": "Das Modell hat vor dem Formulieren dieser Aufgabe Seiteninhalte gelesen, daher wird immer nachgefragt.",
+      "other_tab": "Diese Aufgabe läuft in einem anderen Tab als dem, den Sie gerade ansehen.",
+      "supervised": "Der Agent arbeitet Schritt für Schritt auf der Seite und fragt vor allem Folgenreichen nach. Chrome zeigt währenddessen einen Debugging-Hinweis an.",
+      "routine": "Auf dieser Website laufen Klicks, Eingaben und Suchen für diese Aufgabe ohne erneute Nachfrage. Das Absenden anderer Formulare, Anmelden, Bezahlen, Löschen und das Öffnen anderer Websites werden weiterhin abgefragt.",
+      "experimental_model": "Tool-Aufrufe sind für dieses Modell aktiv, weil Sie sie eingeschaltet haben, nicht weil das Modell sie meldet. Ein Modell ohne Tool-Aufrufe kommt nicht weit."
+    },
+    "steer": {
+      "label": "Den Agenten lenken",
+      "placeholder": "Korrigieren, ohne anzuhalten…",
+      "send": "An den Agenten senden",
+      "queued": "Gesendet. Der Agent liest es beim nächsten Schritt.",
+      "heard": "Der Agent hat Ihre Korrektur übernommen."
+    },
+    "worker_lost": "Die Browser-Ausführung wurde unterbrochen. Eine sichere Wiederherstellung erfordert die ursprünglich autorisierte Browsersitzung und Seite. Andernfalls setzen Sie die Aufgabe manuell fort.",
+    "unattended": {
+      "label": "Diese Aufgabe bei geschlossenem Panel fortsetzen",
+      "help": "Aktivieren Sie diese Option und setzen Sie die Aufgabe dann fort. Es werden die aktuellen Tabs, Websites und der aktuelle Anbieter verwendet. Genehmigungen, Anmeldung und CAPTCHA erfordern weiterhin Ihre Mitwirkung. Stoppen Sie die Aufgabe über das Kontextmenü der Seite oder das Tastenkürzel zum Stoppen des Agenten. Das Beenden des Browsers und der Ruhezustand können die Arbeit unterbrechen.",
+      "active": "Die Fortsetzung bei geschlossenem Panel ist für diese Aufgabe aktiviert. Neue Aufgaben erfordern eine neue Zustimmung.",
+      "decision_interrupted": "Diese Entscheidung wurde noch nicht getroffen. Setzen Sie die Aufgabe fort, um die Seite erneut zu prüfen und eine neue Entscheidung anzufordern:",
+      "scope_changed": "Der Aufgabenbereich hat sich geändert. Prüfen Sie die Zustimmung zum Fortsetzen bei geschlossenem Panel.",
+      "scope": "Tabs: {{tabs}} · Anbieter: {{provider}} · Modell: {{model}}",
+      "stop_menu": "Browser-Agent stoppen"
     }
   },
   "common": {
@@ -243,7 +338,10 @@
     "name": "Ollama Client - Lokaler KI-Chat mit Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
     "description": "Lokale Erweiterung für private LLM-Chats mit Ollama, LM Studio und llama.cpp, mit lokalem RAG, Websuche und Seitenkontext.",
-    "action_default_title": "Ollama Client öffnen"
+    "action_default_title": "Ollama Client öffnen",
+    "stop_browser_agent_menu": "Browser-Agent stoppen",
+    "agent_task_completed": "Abgeschlossen",
+    "agent_task_attention": "Pausiert"
   },
   "selection_button": {
     "label": "Lokalen LLM fragen",
@@ -356,7 +454,7 @@
     },
     "performance_notice": {
       "title": "Leistungshinweis",
-      "message": "Diese Erweiterung ist eine Benutzeroberfläche für Ihren lokalen Provider (Ollama standardmäßig). Reaktionszeit und Ausgabequalität hängen vollständig von der Hardware Ihres Geräts (CPU, RAM, GPU) und dem verwendeten Modell ab. Die Erweiterung selbst führt keine Verarbeitung durch."
+      "message": "Chat-Antworten kommen von Ihrem gewählten Anbieter. Integrierte Embeddings werden auf diesem Gerät berechnet. Die Geschwindigkeit hängt vom Modell und der verwendeten Hardware ab."
     }
   },
   "chat": {
@@ -416,7 +514,10 @@
       "generated_tokens": "Generierte Token",
       "load_time": "Ladezeit",
       "prompt_eval_time": "Prompt-Evaluierungszeit",
-      "speed_unit": "T/s"
+      "speed_unit": "T/s",
+      "cached_tokens": "Zwischengespeicherte Prompt-Tokens",
+      "reasoning_tokens": "Reasoning-Tokens",
+      "cost": "Kosten"
     },
     "session_metrics": {
       "label_tokens": "Token",
@@ -477,7 +578,8 @@
         "results_other": "{{count}} Ergebnisse",
         "restoreSession": "Geschlossenen Tab wieder öffnen",
         "list_reminders": "Erinnerungen auflisten",
-        "cancel_reminder": "Erinnerung wird abgebrochen"
+        "cancel_reminder": "Erinnerung wird abgebrochen",
+        "browser_task": "Browser-Aufgabe"
       },
       "debug": "Debug-Reasoning"
     },
@@ -607,7 +709,14 @@
       "manage": "Berechtigungen verwalten",
       "not_granted": "Die Berechtigung wurde nicht erteilt. Versuche es erneut oder verwalte sie in den Einstellungen.",
       "resume_failed": "Die Anfrage konnte nicht fortgesetzt werden. Versuche es erneut.",
-      "reminders": "Erinnerungen"
+      "reminders": "Erinnerungen",
+      "agent": {
+        "title": "Der Browser-Agent ist aus",
+        "description": "Das sieht nach einer Aufgabe im Browser aus. Der Agent ist experimentell und funktioniert am besten mit gehosteten Modellen.",
+        "enable": "Einschalten und fortfahren",
+        "continue_without": "Ohne fortfahren",
+        "manage": "Agent-Einstellungen"
+      }
     },
     "errors": {
       "unknown_error": "❌ Unbekannter Fehler: {{message}}",
@@ -647,8 +756,11 @@
       "context_trimmed_title": "Kontext gekürzt",
       "context_trimmed_description": "Der extrahierte Tab-Kontext hat dein Limit überschritten und wurde vor dem Senden gekürzt.",
       "context_retrieval_warning_title": "Kontextabruf fehlgeschlagen",
-      "context_retrieval_warning_description": "Der Kontext aus deinen Dateien konnte nicht abgerufen werden. Es geht ohne ihn weiter.",
-      "interrupted": "Antwort unterbrochen"
+      "context_retrieval_warning_description": "Ein Teil des gespeicherten Kontexts konnte nicht durchsucht werden. Der Antwort könnten relevante Informationen fehlen.",
+      "interrupted": "Antwort unterbrochen",
+      "provider_auth": "Der Anbieter hat den Zugriff abgelehnt. Prüfe vor dem Neustart den API-Schlüssel, die Zugangsdaten oder die Kontoberechtigungen in den Einstellungen.",
+      "provider_cors": "Der lokale Anbieter hat den Erweiterungsursprung blockiert. Erlaube chrome-extension://* und moz-extension://* in seinen CORS-Einstellungen und versuche es erneut.",
+      "provider_refused": "Das Modell hat diese Anfrage abgelehnt. Passe die Aufgabe an oder wähle ein anderes Modell."
     },
     "composer": {
       "rag": "Dateien",
@@ -661,11 +773,13 @@
       "tabs": "{{count}} Tabs",
       "files": "{{count}} Dateien",
       "knowledge": "Wissen",
+      "images": "{{count}} Bilder",
       "web": "Web",
       "rows": {
         "tabs": "Seiten- und Tab-Kontext",
         "knowledge": "Hochgeladene Dateien durchsuchen",
-        "web": "Websuche"
+        "web": "Websuche",
+        "agent": "Browser-Agent (experimentell)"
       }
     },
     "artifacts": {
@@ -732,6 +846,12 @@
       "max_file_size_description": "Maximal zulässige Größe für einzelne Dateien. Größere Dateien benötigen möglicherweise länger zur Verarbeitung.",
       "max_image_size_label": "Maximale Bildgröße (MB)",
       "max_image_size_description": "Maximal zulässige Größe für jedes an eine Nachricht angehängte Bild für Vision-Modelle."
+    },
+    "errors": {
+      "title": "Datei-Upload fehlgeschlagen",
+      "processing_failed": "Die Datei konnte nicht verarbeitet oder indexiert werden. Prüfe die Embedding-Einstellungen und den freien Speicherplatz und versuche es erneut.",
+      "unsupported_type": "Der Dateityp von {{name}} wird nicht unterstützt. Verwende Text, PDF, DOCX, CSV/TSV oder HTML.",
+      "too_large": "{{name}} überschreitet die maximale Dateigröße von {{max}} MB."
     }
   },
   "model": {
@@ -743,7 +863,11 @@
       "checking_model": "RAG-/Such-Embedding-Modell wird geprüft...",
       "error": "Status konnte nicht geprüft werden. Zum erneuten Versuch klicken.",
       "required_for_rag": "Das Embedding-Modell ist für RAG-Funktionen erforderlich.",
-      "download_button": "Modell herunterladen"
+      "download_button": "Modell herunterladen",
+      "unavailable": "Embedding-Anbieter nicht erreichbar. Prüfe die Verbindung und versuche es erneut.",
+      "unverified": "Embedding-Modell nicht bestätigt: Dieser Anbieter hat keine Modellliste.",
+      "download_failed": "Embedding-Download fehlgeschlagen",
+      "download_failed_description": "Prüfe die Verbindung zum Anbieter und den freien Speicherplatz und versuche es erneut."
     },
     "menu": {
       "select_placeholder": "Modell auswählen...",
@@ -753,6 +877,10 @@
       "search_placeholder": "Modell suchen...",
       "no_model_found": "Kein Modell gefunden.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Ollama-Cloud-Modelle",
+        "description": "Gehostete :cloud-Modelle. Erfordern ein angemeldetes Ollama und oft ein kostenpflichtiges Abo."
+      },
       "providers_unavailable": "{{names}} hat keine Modelle zurückgegeben. Prüfe den Anbieter in den Einstellungen oder füge Modell-IDs manuell hinzu.",
       "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit."
     },
@@ -800,6 +928,7 @@
     "embedding_config": {
       "title": "Embedding-Modell, Chunking, Suche und Speicher",
       "storage_stats_title": "Speicherstatistiken",
+      "storage_stats_description": "Aktuelle Statistiken zur Vektorspeicher-Nutzung",
       "total_vectors": "Gesamtvektoren",
       "storage_used": "Verwendeter Speicher",
       "cache": "Cache",
@@ -1004,7 +1133,9 @@
       "all_sessions_title": "Alle Chat-Sitzungen",
       "role_user": "Du",
       "role_assistant": "KI-Assistent",
-      "remote_image_blocked": "Externes Bild blockiert"
+      "remote_image_blocked": "Externes Bild blockiert",
+      "role_agent": "Agent",
+      "agent_no_result": "Der Agent-Lauf hat kein Ergebnis festgehalten."
     },
     "actions": {
       "more": "Weitere Aktionen für {{title}}",
@@ -1373,6 +1504,7 @@
       "prompts": "Prompt-Bibliothek",
       "models": "Modellverhalten",
       "extraction": "Seite & Tabs",
+      "agent": "Agent",
       "context": "Wissen & Web",
       "embeddings": "Gespeichertes Wissen",
       "providers": "Anbieter",
@@ -1601,6 +1733,34 @@
         "description": "Beim Wechsel des Einbettungsmodells können vorhandene Vektoren inkompatibel werden. Erstelle den Index neu, um Suchergebnisse korrekt zu halten, oder wechsle ohne Neuaufbau.",
         "switch_only": "Wechseln ohne Neuaufbau",
         "switch_and_rebuild": "Wechseln und Neuaufbau"
+      },
+      "bundled": {
+        "provider_hint": "Wählen Sie ein Embedding-Modell von Ollama, LM Studio, llama.cpp oder einem anderen lokalen oder gehosteten Anbieter. Die Sprachunterstützung hängt vom gewählten Modell ab.",
+        "mode_title": "Embedding-Modus",
+        "mode_bundled": "Integriert",
+        "mode_external": "Anbieter-Embeddings",
+        "mode_bundled_help": "MiniLM läuft in der Erweiterung. Kein Server nötig.",
+        "mode_external_help": "Nutzen Sie Ollama, LM Studio, llama.cpp oder einen lokalen oder gehosteten Anbieter.",
+        "switch_builtin": "Zum integrierten Modus wechseln",
+        "switch_server": "Zu Anbieter-Embeddings wechseln",
+        "mode_language_hint": "Das integrierte MiniLM läuft in der Erweiterung und eignet sich am besten für Englisch. Für andere Sprachen können Sie es ausprobieren oder ein mehrsprachiges Anbietermodell wählen.",
+        "settings_description": "Wählen Sie, wie Dateien und Chat-Erinnerungen für die Suche aufbereitet werden.",
+        "current_bundled": "Aktuell: integriertes MiniLM · auf diesem Gerät",
+        "current_external": "Aktiver Modus: Anbieter-Embeddings",
+        "server_model": "Embedding-Modell des Anbieters",
+        "switch_hint": "Beim Wechsel werden gespeicherte Embeddings neu erstellt. Die aktuelle Einrichtung bleibt bis zum Abschluss aktiv.",
+        "title": "Integrierte Embeddings",
+        "active": "Embeddings werden lokal mit dem enthaltenen MiniLM-Modell erstellt, das sich am besten für Englisch eignet. Kein Server oder Download nötig. Wählen Sie für mehrsprachige Suche unten einen externen Anbieter und ein Modell und erstellen Sie zum Wechseln den Index neu.",
+        "offer": "Integrierte Embeddings sind jetzt verfügbar. Migrieren Sie Ihre gespeicherten Embeddings oder behalten Sie Ihren aktuellen Server und Ihr Modell.",
+        "details": "Die Migration erstellt gespeicherte Datei-, Seiten- und Chat-Embeddings auf diesem Gerät neu. Sie benötigt vorübergehend Speicher für eine Quellkopie und den neuen Index. Der aktuelle Index bleibt bis zum erfolgreichen Abschluss aktiv. Sie läuft weiter, wenn Sie diesen Dialog oder die Seitenleiste schließen, und wird nach einem Browser-Neustart fortgesetzt.",
+        "progress": "{{current}} von {{total}} Embeddings werden neu erstellt",
+        "changed": "Die Embedding-Konfiguration wurde geändert oder die vorbereiteten Vektoren sind inkompatibel. Ihr aktueller Index bleibt aktiv. Starten Sie die Migration neu.",
+        "error": "Die Migration konnte nicht abgeschlossen werden. Ihre aktuellen Embeddings bleiben aktiv. Prüfen Sie Anbieter, Verbindung und freien Speicher und setzen Sie fort oder brechen Sie ab.",
+        "resume": "Migration fortsetzen",
+        "migrate": "Zu integrierten Embeddings migrieren",
+        "keep": "Aktuelle Einrichtung behalten",
+        "language_notice": "MiniLM wird für englische Texte empfohlen. Verwenden Sie für andere Sprachen ein serverbasiertes Embedding-Modell für bessere Suchergebnisse. Sie können MiniLM trotzdem ausprobieren und in den Einstellungen zurückwechseln.",
+        "external": "Mit gewähltem externem Modell neu erstellen"
       }
     },
     "prompts": {
@@ -2216,7 +2376,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Modelle aktualisieren",
+      "use_unverified": "Dieses Modell ausprobieren"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2247,7 +2409,8 @@
         "timeout": "Der Anbieter antwortet zu langsam. Prüfe, ob er läuft und der Port stimmt.",
         "unavailable": "Ollama ist nicht erreichbar. Es ist möglicherweise gestoppt, nutzt einen anderen Port oder blockiert Erweiterungs-Ursprünge.",
         "server-error": "Der Anbieter meldete einen Serverfehler. Prüfe seine Logs und versuche es erneut."
-      }
+      },
+      "unverified": "Verbindung nicht bestätigt. Du kannst ein konfiguriertes Modell ausprobieren oder den Endpunkt in den Anbietereinstellungen prüfen."
     }
   }
 }

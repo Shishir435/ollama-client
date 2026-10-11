@@ -1,5 +1,6 @@
 import type { Database, Sqlite3Static } from "@sqlite.org/sqlite-wasm"
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
+import { ensureAgentRunLinkageIndexes } from "@/lib/sqlite/migrations/add-agent-run-chat-linkage"
 import { asMigrationDatabase } from "@/lib/sqlite/migrations/database"
 import {
   LATEST_SCHEMA_VERSION,
@@ -271,6 +272,7 @@ export const openLegacyBlobDb = async (
     // SCHEMA_SQL is the latest schema, so stamp the new database at the latest
     // version and skip the migration runner below.
     database.exec(SCHEMA_SQL)
+    ensureAgentRunLinkageIndexes(migrationDb)
     setSchemaVersion(migrationDb, LATEST_SCHEMA_VERSION)
     await writeLegacyBlob(exportImage())
   }

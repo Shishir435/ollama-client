@@ -102,6 +102,21 @@ const activeElapsed = (
   return Math.max(0, now - startedAt - suspendedMs - openSuspension)
 }
 
+/** Active time still available to inference; waiting for a provider is active time. */
+export const remainingAgentActiveBudgetMs = (
+  state: AgentDeadlineState,
+  now: number
+): number =>
+  Math.max(
+    0,
+    Math.min(
+      AGENT_RUN_ACTIVE_BUDGET_MS -
+        activeElapsed(state.runStartedAt, state.runSuspendedMs, state, now),
+      AGENT_STEP_ACTIVE_BUDGET_MS -
+        activeElapsed(state.stepStartedAt, state.stepSuspendedMs, state, now)
+    )
+  )
+
 /**
  * Which ceiling a run has passed, if either. Returned rather than thrown
  * because the caller decides where a run may be stopped: mid-step is not one
@@ -163,6 +178,20 @@ export interface AgentProgressPoint {
   url: string
   snapshotHash: string
   decision: AgentDecision
+  /**
+   * What the page's visible text gained and lost since the previous point,
+   * hashed; absent when it did not change or there is no previous point.
+   *
+   * A changed page is normally the run getting somewhere, which is why the
+   * snapshot hash alone cannot see a run that repeats one action whose
+   * effect *accumulates*: a canvas that appends a status line per click, a
+   * button that adds the same toast each time. Every observation differs
+   * from the last, yet each step made the same change as the one before it.
+   * One run clicked the same point eighteen times after the first click had
+   * already met the goal. A counter stepping 1 → 2 → 3 changes differently
+   * each time and stays progress.
+   */
+  changeSignature?: string
 }
 
 export interface AgentNoProgressInput {
@@ -215,12 +244,30 @@ export const matchesAgentInspection = (
   ].some((value) => value?.toLowerCase().includes(needle))
 }
 
-/** Ignore unrelated page churn for targeted reads, but never ignore a changed answer. */
+/**
+ * Ignore unrelated page churn for targeted reads, but never ignore a changed
+ * answer.
+ *
+ * A visual read's answer is the picture. On a live canvas or chart the text
+ * and the controls stay put while what is drawn changes, so `look` after
+ * `look` hashed the same and a run watching a chart update was paused as
+ * repeating itself. The picture the decision was shown is folded in for those
+ * commands only — elsewhere a repainting video would pass a loop off as
+ * progress — and only as a hash held in memory, never the image.
+ */
 export const hashAgentObservation = (
   observation: AgentObservation,
-  decision?: AgentDecision
+  decision?: AgentDecision,
+  picture?: string
 ): string => {
   const command = decision?.type === "command" ? decision.command : undefined
+  if (
+    picture !== undefined &&
+    (command?.type === "look" || command?.type === "zoom")
+  )
+    return fnv1a(
+      `${hashAgentObservation(observation, decision)}${fnv1a(picture)}`
+    )
   if (command?.type === "inspect" || command?.type === "find") {
     const focus =
       command.type === "inspect"
@@ -252,6 +299,30 @@ export const hashAgentObservation = (
   )
 }
 
+/**
+ * The text an observation gained and lost relative to the one before it,
+ * hashed, after stripping what the two share at either end. Only the
+ * signature is kept, never the text.
+ */
+export const agentTextChangeSignature = (
+  before: string | undefined,
+  after: string
+): string | undefined => {
+  if (before === undefined || before === after) return undefined
+  const shorter = Math.min(before.length, after.length)
+  let start = 0
+  while (start < shorter && before[start] === after[start]) start += 1
+  let end = 0
+  while (
+    end < shorter - start &&
+    before[before.length - 1 - end] === after[after.length - 1 - end]
+  )
+    end += 1
+  return fnv1a(
+    `${before.slice(start, before.length - end)}\u0000${after.slice(start, after.length - end)}`
+  )
+}
+
 export const classifyNoProgress = (
   input: AgentNoProgressInput
 ): AgentNoProgressResult => {
@@ -261,12 +332,14 @@ export const classifyNoProgress = (
     }
   }
   const candidates = input.recent ?? (input.previous ? [input.previous] : [])
+  const change = input.current.changeSignature
   const same = candidates.some(
     (previous) =>
       previous.url === input.current.url &&
       decisionFingerprint(previous.decision) ===
         decisionFingerprint(input.current.decision) &&
-      previous.snapshotHash === input.current.snapshotHash
+      (previous.snapshotHash === input.current.snapshotHash ||
+        (change !== undefined && previous.changeSignature === change))
   )
   return {
     noProgress: same,

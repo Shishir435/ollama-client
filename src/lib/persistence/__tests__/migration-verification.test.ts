@@ -85,6 +85,8 @@ const importedTables = {
   model_pull_runs: 0,
   agent_runs: 0,
   agent_steps: 0,
+  agent_artifacts: 0,
+  agent_artifact_uploads: 0,
   vector_cleanup_receipts: 0,
   chunk_feedback: 0
 }

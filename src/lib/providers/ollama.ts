@@ -2,12 +2,17 @@ import {
   PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH,
   PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH
 } from "@ollama-client/contracts/provider-rpc"
+import {
+  isRetryableProviderStatus,
+  parseRetryAfter
+} from "@ollama-client/runtime-core/retry"
 import { z } from "zod"
 import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
   classifyProviderError,
   localCorsForbiddenMessage,
+  providerErrorMessageKey,
   providerErrorUserMessage,
   readProviderStreamChunk,
   throwProviderConnectionError
@@ -303,11 +308,27 @@ export class OllamaProvider implements LLMProvider {
    * daemons do not implement it. A missing or malformed response therefore
    * leaves the ordinary `/api/tags` catalog untouched. Only `:cloud` entries
    * are merged; local download recommendations still belong to model pulling.
+   * Nothing is requested while the user has not asked for cloud models.
    */
   private async getCloudRecommendations(
     baseUrl: string,
     signal?: AbortSignal
   ): Promise<ProviderModel[]> {
+    /**
+     * Loaded here rather than at the top: the settings layer reaches browser
+     * storage, and the docs generator imports this provider in plain Node.
+     */
+    const wanted = await Promise.all([
+      import("@/lib/storage/setting-access"),
+      import("@/lib/storage/settings")
+    ])
+      .then(([{ readSetting }, { SETTINGS }]) =>
+        readSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
+      )
+      /** Unreadable counts as off: recommendations must never cost the local catalog. */
+      .catch(() => false)
+    if (!wanted) return []
+
     const cached = cloudRecommendationCache.get(baseUrl)
     if (cached && cached.expiresAt > Date.now()) return cached.models
 
@@ -596,11 +617,16 @@ export class OllamaProvider implements LLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text()
+      const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
       const classification = classifyProviderError(
         response.status,
         errorText,
         resolveProviderBaseUrl(this.config)
       )
+      const code =
+        response.status === 401 || response.status === 403
+          ? "OLC-CORS-BLOCKED"
+          : classification.code
       throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
         kind: "provider",
         status: response.status,
@@ -608,17 +634,17 @@ export class OllamaProvider implements LLMProvider {
         providerName: this.config.name,
         model,
         baseUrl,
-        retryable: response.status >= 500,
-        code:
-          response.status === 401 || response.status === 403
-            ? "OLC-CORS-BLOCKED"
-            : classification.code,
+        retryable: isRetryableProviderStatus(response.status),
+        retryAfterMs,
+        code,
+        messageKey: providerErrorMessageKey(code),
         phase: "response",
         recoveryAction: classification.recoveryAction,
         userMessage:
           response.status === 401 || response.status === 403
             ? localCorsForbiddenMessage(response.status)
             : providerErrorUserMessage(response.status, {
+                retryAfterMs,
                 providerName: this.config.name,
                 model,
                 reason: classification.reason

@@ -62,6 +62,29 @@ export const SETTINGS = {
     { defaultValue: false, parser: z.boolean() }
   ),
   /**
+   * The browser agent is experimental: nothing benchmarks it across models
+   * yet, so it is opt-in, and while off `browser_task` is not offered to the
+   * chat model at all rather than offered and refused.
+   */
+  AGENT_ENABLED: defineSetting<boolean>(STORAGE_KEYS.AGENT.ENABLED, {
+    defaultValue: false,
+    parser: z.boolean()
+  }),
+  /**
+   * Ollama's `:cloud` recommendations need a signed-in daemon and often a paid
+   * plan; without one, choosing one fails at send time with an error that
+   * names the local server. Off until asked for. Models the user pulled
+   * themselves come from `/api/tags` and are listed either way.
+   */
+  OLLAMA_CLOUD_MODELS: defineSetting<boolean>(
+    STORAGE_KEYS.PROVIDER.OLLAMA_CLOUD_MODELS,
+    { defaultValue: false, parser: z.boolean() }
+  ),
+  AGENT_ANNOUNCEMENT_DISMISSED: defineSetting<boolean>(
+    STORAGE_KEYS.AGENT.ANNOUNCEMENT_DISMISSED,
+    { defaultValue: false, parser: z.boolean() }
+  ),
+  /**
    * `auto` resolves the window from what the model and the server report and
    * holds it inside a conservative maximum; a number overrides both, because
    * a user who raised their own `num_ctx` knows something no catalog does.
@@ -91,6 +114,30 @@ export const SETTINGS = {
       defaultValue: "auto",
       parser: z.enum(["auto", "always", "never"])
     }
+  ),
+  /**
+   * `allow_routine` lets each new run click and type on the site it starts on
+   * without asking; `approve_each` asks for every step. Read once per start:
+   * the run gets its own grants from it, so no grant outlives a run and
+   * submissions, deletions, sign-in and payment are asked about either way.
+   */
+  AGENT_PERMISSION_MODE: defineSetting<"allow_routine" | "approve_each">(
+    STORAGE_KEYS.AGENT.PERMISSION_MODE,
+    {
+      defaultValue: "allow_routine",
+      parser: z.enum(["allow_routine", "approve_each"])
+    }
+  ),
+  /**
+   * Who reads a completion the deterministic judge could not decide. `null`
+   * is the run's own model, already authorized for everything a review sees.
+   * Any other model passes the same enabled, tool-calling and remote-page
+   * checks as a run before it is sent anything; failing them means no review
+   * rather than a quiet switch back to a different judge.
+   */
+  AGENT_COMPLETION_REVIEWER: defineSetting<SelectedModelRef | null>(
+    STORAGE_KEYS.AGENT.COMPLETION_REVIEWER,
+    { defaultValue: null, parser: SelectedModelRefSchema }
   ),
   LANGUAGE: defineSetting<string>(STORAGE_KEYS.LANGUAGE, {
     defaultValue: "en"
@@ -154,6 +201,10 @@ export const SETTINGS = {
           )
         )
     }
+  ),
+  BUNDLED_EMBEDDING_NOTICE_DISMISSED: defineSetting<boolean>(
+    STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED,
+    { defaultValue: false, parser: z.boolean() }
   ),
   EMBEDDING_SELECTED_MODEL: defineSetting<string>(
     STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,

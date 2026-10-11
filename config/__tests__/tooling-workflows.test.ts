@@ -21,6 +21,7 @@ const gateCommands = [
   "e2e:chromium:critical",
   "verify:sw-turn-recovery",
   "verify:sw-agent-recovery",
+  "verify:extraction-inert",
   "verify:opfs-migration",
   "verify:firefox-opfs-migration"
 ]

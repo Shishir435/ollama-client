@@ -8,18 +8,25 @@
  */
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { resolveCodexConfig } from "./backends/codex/config.js"
+import { checkCodexVersion } from "./backends/codex/version-check.js"
 import {
   parseArgs,
   readConfigFile,
   selectBackend,
   USAGE
 } from "./cli-options.js"
-import { resolveConfig } from "./config.js"
+import { resolveConfig, resolveManagedPort } from "./config.js"
 import {
   isProxyChild,
   readProxyLaunchRequest,
   startDetachedProxy
 } from "./detached-proxy.js"
+import {
+  registerManagedProcess,
+  unregisterManagedProcess
+} from "./managed-processes.js"
+import { listManagedServers, runManagedService } from "./managed-services.js"
 import { resolveOllamaOptions } from "./ollama/config.js"
 import { monitorOllama } from "./ollama/foreground.js"
 import { runOllama } from "./ollama/runner.js"
@@ -65,6 +72,10 @@ const main = async () => {
     return
   }
 
+  if (parsed.command === "list") {
+    if (await runManagedCommand(parsed, {})) return
+  }
+
   const defaultConfigPath = path.join(moduleDirectory, "..", "config.json")
   let fileOptions: ReturnType<typeof readConfigFile>
   let backend: ReturnType<typeof selectBackend>
@@ -75,6 +86,14 @@ const main = async () => {
       parsed.configPath ?? defaultConfigPath,
       !!parsed.configPath
     )
+  } catch (error) {
+    reportError(error, 2)
+    return
+  }
+
+  if (await runManagedCommand(parsed, fileOptions)) return
+
+  try {
     backend = selectBackend(parsed.options, fileOptions)
     mode = resolveProcessMode(parsed.options, fileOptions)
     if (backend === "ollama")
@@ -94,6 +113,12 @@ const main = async () => {
     const request = { options: parsed.options, fileOptions }
     const { BIND_HOST, PORT } = resolveConfig(parsed.options, fileOptions)
     await assertProxyPortAvailable({ backend, host: BIND_HOST, port: PORT })
+    if (backend === "codex") {
+      const warning = await checkCodexVersion({
+        executable: resolveCodexConfig(request).CODEX_PATH
+      })
+      if (warning) console.warn(warning)
+    }
     if (mode.detached) {
       const result = await startDetachedProxy(request, PORT)
       console.log(
@@ -109,6 +134,47 @@ const main = async () => {
   } catch (error) {
     reportError(error, 1)
   }
+}
+
+async function runManagedCommand(
+  parsed: ReturnType<typeof parseArgs>,
+  fileOptions: ReturnType<typeof readConfigFile>
+): Promise<boolean> {
+  if (parsed.command === "list") {
+    try {
+      await listManagedServers(parsed.options.JSON === true)
+    } catch (error) {
+      if (parsed.options.JSON === true) {
+        const message =
+          error instanceof Error ? error.message : "Unexpected failure"
+        console.log(JSON.stringify({ servers: [], status: "error", message }))
+        process.exitCode = 1
+      } else reportError(error, 1)
+    }
+    return true
+  }
+
+  if (parsed.command === "laya" || parsed.command === "searxng") {
+    if (!parsed.action) {
+      reportError(new Error("A service action is required."), 2)
+      return true
+    }
+    try {
+      await runManagedService(
+        parsed.command,
+        parsed.action,
+        parsed.action === "start"
+          ? resolveManagedPort(parsed.options.PORT, fileOptions.PORT)
+          : undefined,
+        parsed.options.PURGE_DATA === true,
+        path.resolve(moduleDirectory, "../services")
+      )
+    } catch (error) {
+      reportError(error, 1)
+    }
+    return true
+  }
+  return false
 }
 
 /**
@@ -175,7 +241,33 @@ async function runNativeCli(
   nativeOptions: ReturnType<typeof resolveOllamaOptions>
 ): Promise<void> {
   try {
-    const { session, ...result } = await runOllama(nativeOptions)
+    const runResult = await runOllama(nativeOptions)
+    const { session, ...result } = runResult
+    let processRecordId: string | undefined
+    if (result.ready && runResult.pid) {
+      try {
+        processRecordId = await registerManagedProcess({
+          service: "ollama",
+          url: result.url,
+          pid: runResult.pid
+        })
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unexpected failure"
+        console.error(`[olc] Could not track the Ollama process: ${message}`)
+      }
+    }
+    if (processRecordId && session) {
+      const recordId = processRecordId
+      void session.finished
+        .then(() => unregisterManagedProcess(recordId))
+        .catch((error: unknown) =>
+          console.error(
+            "[olc] Could not clear the Ollama process record:",
+            error
+          )
+        )
+    }
     console.log(
       nativeOptions.json
         ? JSON.stringify(result)

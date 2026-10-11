@@ -124,6 +124,7 @@ export const ChatMessageFooter = ({
           ragQuery={msg.metrics?.ragQuery}
           usedContextChunks={msg.metrics?.usedContextChunks}
           toolRuns={msg.metrics?.toolRuns}
+          webCitations={msg.metrics?.webCitations}
           showRetrievedChunks={showRetrievedChunks}
           feedbackEnabled={feedbackEnabled}
         />
@@ -150,14 +151,14 @@ export const ChatMessageFooter = ({
           />
         )}
 
-        {!isUser && msg.model && !isLoading && (
+        {!isUser && msg.model && onRegenerate && !isLoading && (
           <TooltipActionButton
             trigger={<span />}
             tooltip={t("chat.actions.switch_model_tooltip")}
             icon={
               <RegenerateButton
                 model={msg.model}
-                onSelectModel={(model) => onRegenerate?.(model)}
+                onSelectModel={(model) => onRegenerate(model)}
               />
             }
           />

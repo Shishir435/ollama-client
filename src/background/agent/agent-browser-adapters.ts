@@ -4,19 +4,28 @@ import type {
   AgentScreenshotPort,
   AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
+import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import type {
   AgentDialogState,
   AgentObservation,
   AgentObservationScope,
   AgentSnapshotIdentity
 } from "@ollama-client/contracts"
-
 import type { AgentCommandExecutorAdapter } from "@/lib/browser-agent/command-executor"
 import type {
   AgentDomMutationInstruction,
   AgentFormFillInstruction
 } from "@/lib/browser-agent/control-port"
+import {
+  AGENT_EFFECT_REJECTIONS,
+  agentRejectionMessage
+} from "@/lib/browser-agent/effect-rejection"
 import type { AgentEffectVerifierAdapter } from "@/lib/browser-agent/effect-verifier"
+import { rootAgentSnapshotIdentity } from "@/lib/browser-agent/frame-identity"
+import {
+  collectAgentVisualRegions,
+  hitTestAgentVisualPoint
+} from "@/lib/browser-agent/frame-vision"
 import {
   type AgentInputPlatform,
   runAgentNativeInputPlan
@@ -29,10 +38,7 @@ import {
 } from "@/lib/browser-agent/screenshot-capture"
 import { createOffscreenAgentImageEditor } from "@/lib/browser-agent/screenshot-image"
 import { browser } from "@/lib/browser-api"
-import {
-  classifyAgentTabAccess,
-  queryActiveTab
-} from "@/lib/browser-tab-access"
+import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 import { AGENT_WEBMCP_COMPILED, FEATURE_FLAGS } from "@/lib/feature-flags"
 import type {
   AgentBrowserSessionManager,
@@ -40,6 +46,7 @@ import type {
 } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { waitForAgentNavigation } from "./agent-navigation-settlement"
+import { groupAgentTab } from "./agent-tab-group"
 import type { AgentTabHistory } from "./agent-tab-history"
 
 export interface AgentBrowserAdapters {
@@ -183,14 +190,20 @@ export const createAgentBrowserAdapters = (input: {
     input.listFrames ??
     (async (tabId: number): Promise<AgentExtensionFrame[]> => {
       const frames = (await browser.webNavigation.getAllFrames({ tabId })) as
-        | { frameId: number; parentFrameId?: number; url: string }[]
+        | {
+            frameId: number
+            parentFrameId?: number
+            url: string
+            documentId?: string
+          }[]
         | null
       return (frames ?? []).map((frame) => ({
         frameId: frame.frameId,
         ...(frame.parentFrameId !== undefined && frame.parentFrameId >= 0
           ? { parentFrameId: frame.parentFrameId }
           : {}),
-        url: frame.url
+        url: frame.url,
+        documentId: frame.documentId
       }))
     })
 
@@ -206,29 +219,43 @@ export const createAgentBrowserAdapters = (input: {
     return controller.signal
   }
 
+  /**
+   * A resolved target as the page may be told it. The wire schema is strict,
+   * so a field that is ours rather than the page's is a parse failure before a
+   * byte is sent — and the step then reads as an effect that may have
+   * happened. `frame` travels on the instruction and `point` beside it;
+   * `noSubmitStep`, `rowContext` and `searchForm` are approval evidence. One
+   * helper for every instruction: two hand-kept copies of this list drifted,
+   * and a batch fill on any search box paused as unresolved.
+   */
+  const wireTarget = (
+    target: AuthorizedAgentEffect["target"],
+    ref: string,
+    frameId: number
+  ): AgentDomMutationInstruction["target"] => {
+    const {
+      frame: _frame,
+      point: _point,
+      visual: _visual,
+      noSubmitStep: _noSubmitStep,
+      rowContext: _rowContext,
+      searchForm: _searchForm,
+      ...wire
+    } = target
+    return { ...wire, ref, frameId } as AgentDomMutationInstruction["target"]
+  }
+
   const mutationInstruction = (
     effect: AuthorizedAgentEffect
   ): AgentDomMutationInstruction => {
     if (!effect.target.ref || !effect.target.tag) {
       throw new Error("Agent mutation target is not an observed element")
     }
-    /**
-     * The frame identity travels as the instruction's own field, never inside
-     * the wire target: that target is validated by a strict schema with no
-     * `frame` key, so leaking it there is a parse failure before a byte is
-     * sent. `noSubmitStep` is dropped for the same reason — it is policy's
-     * evidence about the target, not a fact the page is told.
-     */
-    const {
-      frame: targetFrame,
-      point,
-      noSubmitStep: _noSubmitStep,
-      ...target
-    } = effect.target
-    const frame = targetFrame ?? effect.snapshotIdentity
+    const frame = effect.target.frame ?? effect.snapshotIdentity
+    const point = effect.target.point
     return {
       command: effect.command,
-      target: { ...target, ref: effect.target.ref, frameId: frame.frameId },
+      target: wireTarget(effect.target, effect.target.ref, frame.frameId),
       snapshotIdentity: effect.snapshotIdentity,
       frame,
       ...(point ? { point } : {})
@@ -237,10 +264,8 @@ export const createAgentBrowserAdapters = (input: {
 
   /**
    * The batch as the page receives it: whole grounded commands and strict wire
-   * targets, with the frame carried once on the instruction. Each field is
-   * stripped exactly as a lone mutation's target is — `frame` and
-   * `noSubmitStep` are ours, not the page's, and a strict schema rejects them
-   * before a byte is sent.
+   * targets, with the frame carried once on the instruction. Each field goes
+   * through `wireTarget`, the same strip a lone mutation's target takes.
    */
   const formFillInstruction = (
     effect: AuthorizedAgentEffect
@@ -258,15 +283,9 @@ export const createAgentBrowserAdapters = (input: {
         if (!field.target.ref || !field.target.tag) {
           throw new Error("Agent form fill target is not an observed element")
         }
-        const {
-          frame: _fieldFrame,
-          point: _point,
-          noSubmitStep: _noSubmitStep,
-          ...target
-        } = field.target
         return {
           command: field.command,
-          target: { ...target, ref: field.target.ref, frameId: frame.frameId }
+          target: wireTarget(field.target, field.target.ref, frame.frameId)
         }
       })
     } as AgentFormFillInstruction
@@ -319,11 +338,19 @@ export const createAgentBrowserAdapters = (input: {
       const frame = targetFrame(effect)
       const frames = frame.frameId === 0 ? [] : await listFrames(frame.tabId)
       const offset = await channel.frameOffset(frame.frameId, frames)
+      const visual = effect.target.visual?.path.at(-1)
       return {
         cdpControl,
         attached: true,
         frameMapped: offset !== undefined,
-        ...(offset ? { frameOffset: offset } : {}),
+        ...(visual
+          ? {
+              frameOffset: { x: visual.region.x, y: visual.region.y },
+              frameScale: { x: visual.scaleX, y: visual.scaleY }
+            }
+          : offset
+            ? { frameOffset: offset }
+            : {}),
         platform
       }
     },
@@ -443,6 +470,92 @@ export const createAgentBrowserAdapters = (input: {
    * before it.
    */
   const lastPage = new Map<number, { documentId: string; generation: number }>()
+  const lastObservation = new Map<number, AgentObservation>()
+  const visualRegions = async (
+    observation: AgentObservation,
+    signal?: AgentCancellationSignal
+  ) => {
+    const frames = await listFrames(observation.tabId)
+    const channel = input.browserSessions?.nativeInput(
+      input.runId,
+      observation.tabId
+    )
+    return collectAgentVisualRegions({
+      observation,
+      regions: async (identity) => {
+        const live = frames.find((frame) => frame.frameId === identity.frameId)
+        // Child reveal requires the browser's current document identity, not URL similarity.
+        if (
+          identity.frameId !== observation.frameId &&
+          live?.documentId !== identity.documentId
+        )
+          return null
+        return input.sessions.sensitiveRegions(
+          { runId: input.runId, tabId: identity.tabId, frame: identity },
+          signal ? abortSignal(signal) : undefined
+        )
+      },
+      ...(channel?.frameGeometry
+        ? {
+            geometry: (
+              frameId: number,
+              viewports: { frameId: number; width: number; height: number }[]
+            ) =>
+              channel.frameGeometry?.(frameId, frames, viewports) ??
+              Promise.resolve(undefined)
+          }
+        : {})
+    })
+  }
+  const validateVisualTarget = async (effect: AuthorizedAgentEffect) => {
+    const visual = effect.target.visual
+    if (!visual) return
+    const observation = lastObservation.get(effect.snapshotIdentity.tabId)
+    if (
+      !observation ||
+      observation.snapshotId !== effect.snapshotIdentity.snapshotId
+    )
+      throw new AgentEffectNotAppliedError(
+        "Agent visual observation is no longer current"
+      )
+    const current = await visualRegions(observation)
+    if (
+      !current ||
+      current.scroll.x !== observation.scroll.x ||
+      current.scroll.y !== observation.scroll.y ||
+      visual.path.some(
+        (frame) =>
+          JSON.stringify(
+            current.frames.find(
+              (candidate) => candidate.frameId === frame.frameId
+            )
+          ) !== JSON.stringify(frame)
+      )
+    )
+      throw new AgentEffectNotAppliedError(
+        "Agent frame geometry or document changed before input"
+      )
+    const hit = await hitTestAgentVisualPoint({
+      root: rootAgentSnapshotIdentity(observation),
+      frames: current.frames,
+      point: visual.rootPoint,
+      hitTest: (frame, point) =>
+        input.sessions.hitTest({
+          runId: input.runId,
+          tabId: frame.tabId,
+          frame,
+          point
+        })
+    })
+    if (
+      hit.hit?.element?.ref !== effect.target.ref ||
+      hit.hit?.element?.frameId !== effect.target.frame?.frameId ||
+      JSON.stringify(hit.path) !== JSON.stringify(visual.path)
+    )
+      throw new AgentEffectNotAppliedError(
+        "Agent visual target moved before input"
+      )
+  }
   const screenshot: AgentScreenshotPort | undefined = imageEditor
     ? createAgentScreenshotPort({
         editor: imageEditor,
@@ -460,22 +573,9 @@ export const createAgentBrowserAdapters = (input: {
           }
         },
         sensitive: {
-          async regions(tabId, observation, signal) {
+          async regions(_tabId, observation, signal) {
             try {
-              const regions = await input.sessions.sensitiveRegions(
-                {
-                  runId: input.runId,
-                  tabId,
-                  frame: {
-                    snapshotId: observation.snapshotId,
-                    generation: observation.generation,
-                    tabId: observation.tabId,
-                    frameId: observation.frameId,
-                    documentId: observation.documentId
-                  }
-                },
-                abortSignal(signal)
-              )
+              const regions = await visualRegions(observation, signal)
               return regions ?? undefined
             } catch {
               return undefined
@@ -642,6 +742,7 @@ export const createAgentBrowserAdapters = (input: {
           width: observation.scroll.viewportWidth,
           height: observation.scroll.viewportHeight
         })
+        lastObservation.set(request.tabId, enriched)
         return enriched
       }
     },
@@ -650,6 +751,16 @@ export const createAgentBrowserAdapters = (input: {
       getTab,
       classifyAccess: classifyAgentTabAccess,
       resolveHistoryDestination,
+      visualFrames: async (observation) => {
+        const current = await visualRegions(observation)
+        if (
+          !current ||
+          current.scroll.x !== observation.scroll.x ||
+          current.scroll.y !== observation.scroll.y
+        )
+          return undefined
+        return current.frames
+      },
       hitTest: (identity, point) =>
         input.sessions.hitTest({
           runId: input.runId,
@@ -660,12 +771,25 @@ export const createAgentBrowserAdapters = (input: {
     },
     executor: {
       getTab,
+      validateVisualTarget,
       async getFrame(tabId, frameId) {
         const frame = (await browser.webNavigation.getFrame({
           tabId,
           frameId
-        })) as { documentId?: string; url: string } | null
-        return frame ? { documentId: frame.documentId, url: frame.url } : null
+        })) as {
+          documentId?: string
+          url: string
+          parentFrameId?: number
+        } | null
+        return frame
+          ? {
+              documentId: frame.documentId,
+              url: frame.url,
+              ...(frame.parentFrameId === undefined
+                ? {}
+                : { parentFrameId: frame.parentFrameId })
+            }
+          : null
       },
       classifyAccess: classifyAgentTabAccess,
       async scroll(
@@ -716,8 +840,11 @@ export const createAgentBrowserAdapters = (input: {
                 frameId: tool.frameId
               })) as { documentId?: string } | null
               if (!frame || frame.documentId !== tool.documentId) {
-                throw new Error(
-                  "Agent page-tool document changed before execution"
+                throw new AgentEffectNotAppliedError(
+                  agentRejectionMessage(
+                    AGENT_EFFECT_REJECTIONS.sourceChanged,
+                    "document"
+                  )
                 )
               }
               if (!input.sessions.executePageTool) {
@@ -747,9 +874,6 @@ export const createAgentBrowserAdapters = (input: {
               )?.id
           }
         : {}),
-      async activateTab(tabId) {
-        await browser.tabs.update(tabId, { active: true })
-      },
       async goHistory(tabId, direction) {
         if (direction === "back") {
           await browser.tabs.goBack(tabId)
@@ -763,7 +887,13 @@ export const createAgentBrowserAdapters = (input: {
         await browser.tabs.update(tabId, { url })
       },
       async createTab({ url, openerTabId }) {
-        return browser.tabs.create({ url, openerTabId, active: false })
+        const tab = await browser.tabs.create({
+          url,
+          openerTabId,
+          active: false
+        })
+        if (tab.id !== undefined) void groupAgentTab(input.runId, tab.id)
+        return tab
       },
       now
     },
@@ -792,9 +922,6 @@ export const createAgentBrowserAdapters = (input: {
             return frame?.documentId
           }
         }),
-      async getActiveTabId() {
-        return (await queryActiveTab())?.id
-      },
       getTab,
       classifyAccess: classifyAgentTabAccess,
       now

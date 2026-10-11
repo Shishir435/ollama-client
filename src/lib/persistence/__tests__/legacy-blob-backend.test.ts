@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
+import initSqlJs from "sql.js/dist/sql-wasm.js"
 import {
   afterEach,
   beforeAll,
@@ -317,6 +318,92 @@ describe("legacy blob backend", () => {
   // Backup restore
   // -------------------------------------------------------------------------
 
+  /**
+   * The upgrade every existing user makes, on the one backend vitest can run.
+   * OPFS is the backend that broke — it runs the schema script before the
+   * migrations on every open — and the schema test covers that ordering; this
+   * one proves the legacy path lands in the same shape.
+   */
+  it("opens and migrates a profile from before the Agent chat linkage", async () => {
+    const source = await bootEngine()
+    await addSession(source, "before-linkage")
+    for (const sql of [
+      "DROP INDEX IF EXISTS idx_messages_agent_run",
+      "DROP INDEX IF EXISTS idx_agent_runs_session",
+      "ALTER TABLE messages DROP COLUMN agentRunId",
+      "ALTER TABLE messages DROP COLUMN agentHandoff",
+      "ALTER TABLE agent_runs DROP COLUMN sessionId",
+      "ALTER TABLE agent_runs DROP COLUMN requestMessageId",
+      "ALTER TABLE agent_runs DROP COLUMN resultMessageId",
+      "ALTER TABLE agent_runs DROP COLUMN parentRunId",
+      "PRAGMA user_version = 17"
+    ]) {
+      await source.submit({ op: "run", sql })
+    }
+    await source.submit({ op: "flush" })
+    const profile = bytesOf(await source.submit({ op: "exportDb" }))
+
+    await deleteLegacyBlob()
+    await writeLegacyBlob(profile)
+    const upgraded = await bootEngine()
+
+    await expect(sessionIds(upgraded)).resolves.toEqual(["before-linkage"])
+    const indexes = (await upgraded.submit({
+      op: "query",
+      sql: `SELECT name FROM sqlite_master
+             WHERE type = 'index'
+               AND name IN ('idx_messages_agent_run', 'idx_agent_runs_session')
+             ORDER BY name`
+    })) as QueryRow[]
+    expect(indexes.map((row) => row.name)).toEqual([
+      "idx_agent_runs_session",
+      "idx_messages_agent_run"
+    ])
+  })
+
+  /**
+   * The image is saved only when the open repaired something. An index made
+   * in memory and not counted would be rebuilt on every open and never land.
+   */
+  it("saves a repaired linkage index into the stored image", async () => {
+    const source = await bootEngine()
+    await source.submit({ op: "run", sql: "DROP INDEX idx_messages_agent_run" })
+    await source.submit({ op: "flush" })
+    const image = bytesOf(await source.submit({ op: "exportDb" }))
+
+    await deleteLegacyBlob()
+    await writeLegacyBlob(image)
+    await bootEngine()
+
+    const stored = await readLegacyBlob()
+    if (!stored) throw new Error("no stored image")
+    const SQL = await initSqlJs({
+      locateFile: () => require.resolve("sql.js/dist/sql-wasm.wasm")
+    })
+    const reopened = new SQL.Database(stored)
+    expect(
+      reopened.exec(
+        "SELECT name FROM sqlite_master WHERE name = 'idx_messages_agent_run'"
+      )[0]?.values
+    ).toEqual([["idx_messages_agent_run"]])
+    reopened.close()
+  })
+
+  it("gives a fresh database the linkage indexes too", async () => {
+    const engine = await bootEngine()
+    const indexes = (await engine.submit({
+      op: "query",
+      sql: `SELECT name FROM sqlite_master
+             WHERE type = 'index'
+               AND name IN ('idx_messages_agent_run', 'idx_agent_runs_session')
+             ORDER BY name`
+    })) as QueryRow[]
+    expect(indexes.map((row) => row.name)).toEqual([
+      "idx_agent_runs_session",
+      "idx_messages_agent_run"
+    ])
+  })
+
   it("replaces the blob with a verified backup", async () => {
     const source = await bootEngine()
     await addSession(source, "from-backup")
@@ -341,6 +428,60 @@ describe("legacy blob backend", () => {
     // The stored blob moved with it, so the next boot agrees.
     await expect(sessionIds(await bootEngine())).resolves.toEqual([
       "from-backup"
+    ])
+  })
+
+  /**
+   * A restored chat that lost its runs, or kept them unlinked, would draw
+   * every card as "record no longer available" — the backup would have
+   * carried the words and dropped the thing they were about.
+   */
+  it("round-trips a chat holding an Agent card with the run it reports", async () => {
+    const source = await bootEngine()
+    await addSession(source, "with-agent")
+    await source.submit({
+      op: "run",
+      sql: `INSERT INTO messages (id, sessionId, role, content, timestamp, done, agentRunId)
+            VALUES (1, 'with-agent', 'user', 'Find the hours', 1, 1, NULL),
+                   (2, 'with-agent', 'assistant', 'Open 9 to 5.', 2, 1, 'run-1')`
+    })
+    await source.submit({
+      op: "run",
+      sql: `INSERT INTO agent_runs (id, status, checkpoint, createdAt, updatedAt,
+              sessionId, requestMessageId, resultMessageId)
+            VALUES ('run-1', 'completed', '{}', 1, 2, 'with-agent', 1, 2)`
+    })
+    await source.submit({ op: "flush" })
+    const backup = bytesOf(await source.submit({ op: "exportDb" }))
+
+    await deleteLegacyBlob()
+    const target = await bootEngine()
+    await target.submit({
+      op: "importDb",
+      bytes: backup.buffer.slice(
+        backup.byteOffset,
+        backup.byteOffset + backup.byteLength
+      ) as ArrayBuffer
+    })
+
+    await expect(
+      target.submit({
+        op: "query",
+        sql: "SELECT id, agentRunId FROM messages WHERE agentRunId IS NOT NULL"
+      })
+    ).resolves.toEqual([{ id: 2, agentRunId: "run-1" }])
+    await expect(
+      target.submit({
+        op: "query",
+        sql: "SELECT id, sessionId, requestMessageId, resultMessageId FROM agent_runs"
+      })
+    ).resolves.toEqual([
+      {
+        id: "run-1",
+        sessionId: "with-agent",
+        requestMessageId: 1,
+        resultMessageId: 2
+      }
     ])
   })
 

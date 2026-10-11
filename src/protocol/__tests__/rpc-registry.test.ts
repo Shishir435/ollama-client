@@ -20,10 +20,14 @@ describe("RPC method registry", () => {
     RpcMethod.ModelsGetLibraryVariants,
     RpcMethod.EmbeddingsCheckModel,
     RpcMethod.EmbeddingsGenerate,
+    // Both local methods only read input/index state; neither persists results.
+    RpcMethod.EmbeddingsNativeGenerate,
+    RpcMethod.EmbeddingsNativeStatus,
     RpcMethod.IngestionGet,
     RpcMethod.ModelPullGet,
     RpcMethod.ModelPullListActive,
-    RpcMethod.DiagnosticsGetBundle
+    RpcMethod.DiagnosticsGetBundle,
+    RpcMethod.AgentGetRun
   ] satisfies readonly RpcMethod[]
 
   it("registers every method exactly once", () => {

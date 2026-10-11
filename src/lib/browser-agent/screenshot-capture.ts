@@ -11,7 +11,7 @@ import {
   AgentScreenshotSchema,
   MAX_AGENT_SCREENSHOT_EDGE_PX
 } from "@ollama-client/contracts"
-
+import type { AgentVisualRegions } from "./frame-vision"
 import {
   type AgentCaptureLayout,
   boundedImageSize,
@@ -25,7 +25,7 @@ import {
  * The capture pipeline, with the browser behind three small ports.
  *
  * A picture leaves the device only after every region the page itself names
- * — each sensitive control in the whole composed tree and every child frame —
+ * — sensitive controls and every unrevealed child frame —
  * has been painted over, only when those regions read identically before and
  * after the capture, and only at a bounded size. When any of that cannot be
  * guaranteed — the page will not answer, it moved during the capture, no
@@ -55,7 +55,7 @@ export interface AgentScreenshotSource {
 export interface AgentSensitiveRegionSource {
   /**
    * Every rect the page says a picture must cover — sensitive controls and
-   * child frames, read from the whole composed tree — with the scroll they
+   * unrevealed child frames, composed through authorized document geometry — with the scroll they
    * were read at. `undefined` means the page could not be asked, which the
    * pipeline treats as "do not picture this page".
    */
@@ -64,7 +64,10 @@ export interface AgentSensitiveRegionSource {
     observation: AgentObservation,
     signal: AgentCancellationSignal
   ): Promise<
-    { rects: AgentCssRect[]; scroll: { x: number; y: number } } | undefined
+    | ({ rects: AgentCssRect[]; scroll: { x: number; y: number } } & Partial<
+        Pick<AgentVisualRegions, "frames" | "frameLimitations">
+      >)
+    | undefined
   >
 }
 
@@ -258,6 +261,7 @@ export const createAgentScreenshotPort = (input: {
         y: request.observation.scroll.y
       },
       maskedRegions: imageMasks.length,
+      ...visualCaptureMetadata(before),
       ...(zoomed ? { zoomed: true } : {})
     }
     const parsed = AgentScreenshotSchema.safeParse(candidate)
@@ -273,3 +277,10 @@ export const createAgentScreenshotPort = (input: {
     }
   }
 }
+
+const visualCaptureMetadata = (regions: Partial<AgentVisualRegions>) => ({
+  ...(regions.frames ? { frames: regions.frames } : {}),
+  ...(regions.frameLimitations
+    ? { frameLimitations: regions.frameLimitations }
+    : {})
+})

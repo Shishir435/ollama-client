@@ -1,0 +1,732 @@
+import type {
+  AgentPanelSnapshot,
+  AgentRunState
+} from "@ollama-client/contracts"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+import type { ToolContext } from "@/lib/tools/types"
+
+const settings = vi.hoisted(() => ({
+  values: new Map<string, unknown>(),
+  writes: [] as [string, unknown][]
+}))
+vi.mock("@/lib/storage/setting-access", () => ({
+  readSetting: vi.fn(
+    async (descriptor: { key: string; defaultValue?: unknown }) =>
+      settings.values.has(descriptor.key)
+        ? settings.values.get(descriptor.key)
+        : descriptor.defaultValue
+  ),
+  writeSetting: vi.fn(async (descriptor: { key: string }, value: unknown) => {
+    settings.writes.push([descriptor.key, value])
+  })
+}))
+vi.mock("@/lib/browser-tab-access", () => ({
+  classifyAgentTabAccess: vi.fn(async (url: string) =>
+    url.startsWith("https://") ? "ok" : "restricted"
+  )
+}))
+vi.mock("../agent-provider-disclosure", () => ({
+  resolveAgentProviderDisclosure: vi.fn()
+}))
+
+import { STORAGE_KEYS } from "@/lib/constants"
+import { createBrowserTaskRunner } from "../agent-browser-task"
+import { AgentRunError, type AgentRunService } from "../agent-run-service"
+
+type Provider = AgentPanelSnapshot["provider"]
+
+const local: Provider = {
+  name: "Ollama",
+  model: "qwen3",
+  location: "local",
+  screenshots: false,
+  readiness: { status: "ready", reason: "metadata", vision: "unsupported" }
+}
+
+const remote: Provider = {
+  ...local,
+  name: "Hosted",
+  location: "remote",
+  screenshots: true
+}
+
+const runState = (patch: Partial<AgentRunState> = {}): AgentRunState => ({
+  version: 1,
+  id: "run-1",
+  goal: "Find the pricing page",
+  status: "submitted",
+  stepCount: 0,
+  observationCount: 0,
+  controlledTabId: 7,
+  providerId: "ollama",
+  modelId: "qwen3",
+  allowedOrigins: ["https://example.com"],
+  createdAt: 1,
+  updatedAt: 1,
+  ...patch
+})
+
+const turn = (patch: Partial<ToolContext> = {}): ToolContext => ({
+  sessionId: "chat-1",
+  assistantMessageId: 42,
+  providerId: "ollama",
+  model: "qwen3",
+  browserTabId: 7,
+  ...patch
+})
+
+const request = { goal: "Find the pricing page", continuePrevious: false }
+
+const serviceStub = (patch: Partial<AgentRunService> = {}) =>
+  ({
+    delegate: vi.fn(async () => runState()),
+    awaitSettled: vi.fn(async () => runState({ status: "completed" })),
+    stop: vi.fn(async () => undefined),
+    ...patch
+  }) as unknown as AgentRunService
+
+const tabs: Record<number, { id: number; url: string }> = {
+  7: { id: 7, url: "https://example.com/start" },
+  9: { id: 9, url: "https://other.example/page" },
+  11: { id: 11, url: "chrome://settings" }
+}
+
+const runner = (
+  service: AgentRunService,
+  provider: Provider = local,
+  patch: Partial<Parameters<typeof createBrowserTaskRunner>[0]> = {}
+) =>
+  createBrowserTaskRunner({
+    service,
+    disclose: async () => provider,
+    getTab: async (id) => tabs[id],
+    activeTab: async () => tabs[9],
+    readHandoff: async () => ({
+      version: 1,
+      runId: "run-1",
+      goal: "Find the pricing page",
+      status: "completed",
+      result: "Pricing is under Plans.",
+      findings: [],
+      settledAt: 2
+    }),
+    ...patch
+  })
+
+beforeEach(() => {
+  settings.values.clear()
+  settings.writes.length = 0
+})
+
+describe("the browser task's start prompt", () => {
+  it("names the goal and the banner, and leaves a clean first start to the grant", async () => {
+    const demand = await runner(serviceStub()).confirmation(request, turn())
+
+    expect(demand).toEqual({
+      always: false,
+      summary: "Find the pricing page",
+      notes: ["agent.start_gate.supervised", "agent.start_gate.routine"]
+    })
+  })
+
+  it("says nothing of searches when each action is approved, or after a page", async () => {
+    const task = runner(serviceStub())
+
+    const read = await task.confirmation(
+      request,
+      turn({ pageContentInContext: true })
+    )
+    expect(read.notes).not.toContain("agent.start_gate.routine")
+
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "approve_each")
+    const each = await task.confirmation(request, turn())
+    expect(each.notes).not.toContain("agent.start_gate.routine")
+  })
+
+  /**
+   * A goal written after the model read a page may be what the page told it
+   * to write, so no grant from earlier in the chat covers it.
+   */
+  it("always asks when the turn read page content before the task", async () => {
+    const task = runner(serviceStub())
+
+    for (const ctx of [
+      turn({ pageContentInContext: true }),
+      turn({ taintGeneration: 1 })
+    ]) {
+      const demand = await task.confirmation(request, ctx)
+      expect(demand.always).toBe(true)
+      expect(demand.notes).toContain("agent.start_gate.after_page")
+    }
+  })
+
+  it("always asks about a tab other than the one on screen", async () => {
+    const demand = await runner(serviceStub()).confirmation(
+      { ...request, tabId: 9 },
+      turn()
+    )
+
+    expect(demand.always).toBe(true)
+    expect(demand.notes).toContain("agent.start_gate.other_tab")
+  })
+
+  it("carries the remote notice until it has been acknowledged", async () => {
+    const task = runner(serviceStub(), remote)
+
+    const first = await task.confirmation(request, turn())
+    expect(first.always).toBe(true)
+    expect(first.notes).toContain("agent.privacy.remote_notice_screenshots")
+
+    settings.values.set(
+      STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED,
+      true
+    )
+    settings.values.set(STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED, true)
+    const later = await task.confirmation(request, turn())
+    expect(later.always).toBe(false)
+  })
+
+  it("scopes its grant to the origin of the tab it would start on", async () => {
+    const task = runner(serviceStub())
+
+    await expect(task.origin(request, turn())).resolves.toBe(
+      "https://example.com"
+    )
+    await expect(
+      task.origin(request, turn({ browserTabId: undefined }))
+    ).resolves.toBe("https://other.example")
+  })
+})
+
+describe("running a browser task", () => {
+  it("delegates into the turn's own row and hands back the run's record", async () => {
+    const service = serviceStub()
+    const result = await runner(service).run(request, turn())
+
+    expect(service.delegate).toHaveBeenCalledWith({
+      goal: "Find the pricing page",
+      tabId: 7,
+      providerId: "ollama",
+      modelId: "qwen3",
+      sessionId: "chat-1",
+      messageId: 42,
+      goalAuthor: "model",
+      allowRoutineActions: true
+    })
+    expect(result.provenance).toBe("web-untrusted")
+    expect(result.isError).toBeUndefined()
+    expect(result.content).toContain("<agent_runs>")
+    expect(result.content).toContain("Result: Pricing is under Plans.")
+  })
+
+  it("tells the chat model to report an unfinished run rather than retry it", async () => {
+    const partial = serviceStub({
+      awaitSettled: vi.fn(async () => runState({ status: "partial" }))
+    })
+    const unfinished = await runner(partial).run(request, turn())
+    expect(unfinished.content).toContain("The browser task did not finish.")
+    expect(unfinished.content).toContain("do not start it again in this turn")
+
+    const done = await runner(serviceStub()).run(request, turn())
+    expect(done.content).not.toContain("did not finish")
+  })
+
+  it("marks a goal written after reading a page as the model's, not the user's", async () => {
+    const service = serviceStub()
+    await runner(service).run(
+      request,
+      turn({ pageContentInContext: true, userConfirmed: true })
+    )
+
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ goalAuthor: "model_after_page" })
+    )
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+  })
+
+  const confirmedWithNote = (patch: Partial<ToolContext> = {}) =>
+    turn({
+      userConfirmed: true,
+      confirmedNotes: [
+        "agent.start_gate.supervised",
+        "agent.start_gate.routine"
+      ],
+      ...patch
+    })
+
+  it("gives search consent only from a prompt that showed the note", async () => {
+    const service = serviceStub()
+    const task = runner(service)
+
+    await task.run(request, confirmedWithNote())
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allowSearches: true })
+    )
+
+    /** A start an earlier grant covered showed nothing. */
+    await task.run(request, turn())
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+
+    await task.run(
+      request,
+      confirmedWithNote({ confirmedNotes: ["agent.start_gate.supervised"] })
+    )
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+  })
+
+  /**
+   * The prompt was prepared in one mode and answered in another. The mode
+   * the user switched to can narrow what the prompt said, never widen it.
+   */
+  it("drops search consent when the mode changed to approve-each while asking", async () => {
+    const service = serviceStub()
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "approve_each")
+    await runner(service).run(request, confirmedWithNote())
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+  })
+
+  it("mints no routine grants when the user asked to approve each action", async () => {
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "approve_each")
+    const service = serviceStub()
+    await runner(service).run(request, turn())
+
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ allowRoutineActions: false })
+    )
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ allowSearches: expect.anything() })
+    )
+  })
+
+  it("names the previous run only when the model says it continues one", async () => {
+    const service = serviceStub()
+    const task = runner(service)
+
+    await task.run(request, turn({ previousAgentRunId: "run-0" }))
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ previousRunId: expect.anything() })
+    )
+
+    await task.run(
+      { ...request, continuePrevious: true },
+      turn({ previousAgentRunId: "run-0" })
+    )
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ previousRunId: "run-0" })
+    )
+  })
+
+  it("refuses outside a saved chat turn", async () => {
+    const service = serviceStub()
+    const result = await runner(service).run(
+      request,
+      turn({ assistantMessageId: undefined })
+    )
+
+    expect(result.isError).toBe(true)
+    expect(service.delegate).not.toHaveBeenCalled()
+  })
+
+  it("refuses a model that cannot drive a run", async () => {
+    const service = serviceStub()
+    const result = await runner(service, {
+      ...local,
+      readiness: {
+        status: "unsupported",
+        reason: "reported_unsupported",
+        vision: "unknown"
+      }
+    }).run(request, turn())
+
+    expect(result.isError).toBe(true)
+    expect(service.delegate).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Tool calling the user switched on is theirs to try, once they approved
+   * a prompt that said so; unasked, it is refused like any unconfirmed model.
+   */
+  it("starts on a model with overridden tool calling only after approval", async () => {
+    const experimental: Provider = {
+      ...local,
+      readiness: {
+        status: "experimental",
+        reason: "user_override",
+        vision: "unknown"
+      }
+    }
+    const service = serviceStub()
+    const task = runner(service, experimental)
+
+    expect((await task.run(request, turn())).isError).toBe(true)
+    await task.run(request, turn({ userConfirmed: true }))
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ allowExperimentalModel: true })
+    )
+  })
+
+  it("records the remote acknowledgement the approved prompt carried", async () => {
+    const service = serviceStub()
+    const task = runner(service, remote)
+
+    expect((await task.run(request, turn())).isError).toBe(true)
+    expect(service.delegate).not.toHaveBeenCalled()
+
+    await task.run(request, turn({ userConfirmed: true }))
+    expect(settings.writes).toEqual([
+      [STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED, true],
+      [STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED, true]
+    ])
+    expect(service.delegate).toHaveBeenCalledOnce()
+  })
+
+  it("refuses a page the run may not touch", async () => {
+    const service = serviceStub()
+    const result = await runner(service).run(
+      { ...request, tabId: 11 },
+      turn({ userConfirmed: true })
+    )
+
+    expect(result.isError).toBe(true)
+    expect(service.delegate).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Asked from brave://extensions to search DuckDuckGo, the run refused the
+   * settings page and the chat told the user to open a website first. A
+   * named start address opens in a new tab, after the approval, instead.
+   */
+  it("opens the start address in a new tab when the tab in view is a browser page", async () => {
+    const service = serviceStub({
+      delegate: vi.fn(async () => runState({ controlledTabId: 12 }))
+    })
+    const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+    const groupTab = vi.fn(async () => undefined)
+    const task = runner(service, local, { openTab, groupTab })
+    const start = {
+      ...request,
+      startUrl: "https://duckduckgo.com/"
+    }
+    const ctx = turn({ browserTabId: 11, userConfirmed: true })
+
+    expect(await task.origin(start, ctx)).toBe("https://duckduckgo.com")
+    expect(openTab).not.toHaveBeenCalled()
+
+    await task.run(start, { ...ctx, approvedOrigin: "https://duckduckgo.com" })
+    expect(openTab).toHaveBeenCalledExactlyOnceWith("https://duckduckgo.com/")
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 12 })
+    )
+    /** It opened in the background; the run's group is what names it. */
+    expect(groupTab).toHaveBeenCalledExactlyOnceWith("run-1", 12)
+  })
+
+  describe("a start tab no run ends up driving", () => {
+    const opening = (service: AgentRunService) => {
+      const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+      const groupTab = vi.fn(async () => undefined)
+      const closeTab = vi.fn(async () => undefined)
+      const task = runner(service, local, { openTab, groupTab, closeTab })
+      const start = { ...request, startUrl: "https://duckduckgo.com/" }
+      const ctx = {
+        ...turn({ browserTabId: 11, userConfirmed: true }),
+        approvedOrigin: "https://duckduckgo.com"
+      }
+      return { task, start, ctx, openTab, groupTab, closeTab }
+    }
+
+    /** Another run is unresolved; the tab this start opened is nobody's. */
+    it("is closed when the run service refuses the start", async () => {
+      const { task, start, ctx, closeTab, groupTab } = opening(
+        serviceStub({
+          delegate: vi.fn(async () => {
+            throw new AgentRunError("already_running", "busy")
+          })
+        })
+      )
+      await task.run(start, ctx)
+      expect(closeTab).toHaveBeenCalledExactlyOnceWith(12)
+      expect(groupTab).not.toHaveBeenCalled()
+    })
+
+    it("is closed when the turn stopped before the run started", async () => {
+      const service = serviceStub()
+      const { task, start, ctx, closeTab } = opening(service)
+      const stopped = new AbortController()
+      stopped.abort()
+      await task.run(start, { ...ctx, signal: stopped.signal })
+      expect(closeTab).toHaveBeenCalledExactlyOnceWith(12)
+      expect(service.delegate).not.toHaveBeenCalled()
+    })
+
+    /**
+     * A replayed call hands back the run it already started, still on its
+     * own tab; grouping the fresh one under it would mislabel a stray tab.
+     */
+    it("is closed, not grouped, when a replay returns a run on another tab", async () => {
+      const { task, start, ctx, closeTab, groupTab } = opening(
+        serviceStub({
+          delegate: vi.fn(async () => runState({ controlledTabId: 7 }))
+        })
+      )
+      await task.run(start, ctx)
+      expect(groupTab).not.toHaveBeenCalled()
+      expect(closeTab).toHaveBeenCalledExactlyOnceWith(12)
+    })
+
+    /** It may have failed after the run existed; its tab is left alone. */
+    it("is kept when the start failed unexpectedly", async () => {
+      const { task, start, ctx, closeTab } = opening(
+        serviceStub({
+          delegate: vi.fn(async () => {
+            throw new Error("storage went away")
+          })
+        })
+      )
+      await task.run(start, ctx)
+      expect(closeTab).not.toHaveBeenCalled()
+    })
+
+    it("never closes the user's own tab", async () => {
+      const closeTab = vi.fn(async () => undefined)
+      await runner(
+        serviceStub({
+          delegate: vi.fn(async () => {
+            throw new AgentRunError("already_running", "busy")
+          })
+        }),
+        local,
+        { closeTab }
+      ).run(request, turn({ userConfirmed: true }))
+      expect(closeTab).not.toHaveBeenCalled()
+    })
+  })
+
+  it("keeps the user's own tab when the start address is on its site", async () => {
+    const service = serviceStub()
+    const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+    const groupTab = vi.fn(async () => undefined)
+    await runner(service, local, { openTab, groupTab }).run(
+      { ...request, startUrl: "https://example.com/pricing" },
+      turn({ userConfirmed: true })
+    )
+    expect(openTab).not.toHaveBeenCalled()
+    /** The user's own tab is never filed under the agent's group. */
+    expect(groupTab).not.toHaveBeenCalled()
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 7 })
+    )
+  })
+
+  /**
+   * "Open Google and search for hey" from an ordinary page started on that
+   * page, then asked again to leave it for Google, then again to submit.
+   * The site the task names is where it starts, under the one approval.
+   */
+  it("opens a start address on another site instead of leaving the user's tab", async () => {
+    const service = serviceStub()
+    const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+    const task = runner(service, local, { openTab })
+    const start = { ...request, startUrl: "https://www.google.com/" }
+
+    expect(await task.origin(start, turn())).toBe("https://www.google.com")
+    await task.run(start, {
+      ...turn({ userConfirmed: true }),
+      approvedOrigin: "https://www.google.com"
+    })
+    expect(openTab).toHaveBeenCalledExactlyOnceWith("https://www.google.com/")
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 12 })
+    )
+  })
+
+  it("keeps a tab the model named, whatever the start address", async () => {
+    const service = serviceStub()
+    const openTab = vi.fn(async (url: string) => ({ id: 12, url }))
+    await runner(service, local, { openTab }).run(
+      { ...request, tabId: 9, startUrl: "https://www.google.com/" },
+      turn({ userConfirmed: true })
+    )
+    expect(openTab).not.toHaveBeenCalled()
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 9 })
+    )
+  })
+
+  it("tells the model to name a start address when the tab is a browser page", async () => {
+    const service = serviceStub()
+    const result = await runner(service).run(
+      request,
+      turn({ browserTabId: 11, userConfirmed: true })
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("start_url")
+  })
+
+  it("refuses when the tab moved to another site after approval", async () => {
+    const service = serviceStub()
+    const result = await runner(service).run(
+      request,
+      turn({ approvedOrigin: "https://other.example", userConfirmed: true })
+    )
+
+    expect(result.content).toContain("tab changed")
+    expect(service.delegate).not.toHaveBeenCalled()
+  })
+
+  it("tells the model why a start was refused", async () => {
+    const service = serviceStub({
+      delegate: vi.fn(async () => {
+        throw new AgentRunError("already_running", "busy")
+      })
+    })
+    const result = await runner(service).run(request, turn())
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("Another browser task is still running")
+  })
+
+  /**
+   * A paused run in another chat refuses every start. Said generically, the
+   * model told the user the tool was "temporarily busy", with no card in
+   * front of them to stop.
+   */
+  it("names the state of the run holding the agent, not its chat", async () => {
+    const service = serviceStub({
+      delegate: vi.fn(async () => {
+        throw new AgentRunError("already_running", "unresolved", "run-9")
+      })
+    })
+    const describeRun = vi.fn(async () => ({ status: "awaiting_user" }))
+    const result = await runner(service, local, { describeRun }).run(
+      request,
+      turn()
+    )
+
+    expect(describeRun).toHaveBeenCalledWith("run-9")
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain(
+      "A browser task in another chat is still awaiting user"
+    )
+    expect(result.content).toContain("Do not say the tool is busy")
+  })
+
+  it("stops waiting, not the run, once the wait runs out", async () => {
+    const service = serviceStub({
+      awaitSettled: vi.fn(
+        (_runId: string, signal?: AbortSignal) =>
+          new Promise<AgentRunState>((_resolve, reject) => {
+            signal?.addEventListener("abort", () => reject(signal.reason))
+          })
+      )
+    })
+    const result = await runner(service, local, { waitMs: 5 }).run(
+      request,
+      turn()
+    )
+
+    expect(result.isError).toBeUndefined()
+    expect(result.content).toContain("still running")
+    expect(service.stop).not.toHaveBeenCalled()
+  })
+
+  it("stops the run when the user stops the turn", async () => {
+    const controller = new AbortController()
+    const service = serviceStub({
+      awaitSettled: vi.fn(
+        (_runId: string, signal?: AbortSignal) =>
+          new Promise<AgentRunState>((_resolve, reject) => {
+            signal?.addEventListener("abort", () => reject(signal.reason))
+            controller.abort()
+          })
+      )
+    })
+    const result = await runner(service).run(
+      request,
+      turn({ signal: controller.signal })
+    )
+
+    expect(result.isError).toBe(true)
+    expect(service.stop).toHaveBeenCalledWith("run-1")
+  })
+
+  it("starts nothing for a turn stopped while the task was admitted", async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const service = serviceStub()
+    const result = await runner(service).run(
+      request,
+      turn({ signal: controller.signal })
+    )
+
+    expect(result.isError).toBe(true)
+    expect(service.delegate).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A stop that lands while the run is being admitted fires before the wait
+   * listens for it; the run that start produced is stopped regardless.
+   */
+  it("stops the run when the turn was stopped during its start", async () => {
+    const controller = new AbortController()
+    const service = serviceStub({
+      delegate: vi.fn(async () => {
+        controller.abort()
+        return runState()
+      }),
+      awaitSettled: vi.fn(
+        (_runId: string, signal?: AbortSignal) =>
+          new Promise<AgentRunState>((_resolve, reject) => {
+            if (signal?.aborted) reject(signal.reason)
+            signal?.addEventListener("abort", () => reject(signal.reason))
+          })
+      )
+    })
+    const result = await runner(service).run(
+      request,
+      turn({ signal: controller.signal })
+    )
+
+    expect(result.isError).toBe(true)
+    expect(service.stop).toHaveBeenCalledWith("run-1")
+  })
+
+  /** An older card's Continue must not follow whichever run came last. */
+  it("follows the run the card named, whatever ran since", async () => {
+    const service = serviceStub()
+    await runner(service).run(
+      request,
+      turn({ previousAgentRunId: "newest", followUpRunId: "older" })
+    )
+
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ previousRunId: "older" })
+    )
+  })
+
+  it("hands the delegating call's id to the run, and relays a second-task refusal", async () => {
+    const service = serviceStub()
+    await runner(service).run(request, turn({ toolCallId: "call-1" }))
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({ toolCallId: "call-1" })
+    )
+
+    const refusing = serviceStub({
+      delegate: vi.fn(async () => {
+        throw new AgentRunError("turn_has_run", "second")
+      })
+    })
+    const result = await runner(refusing).run(request, turn())
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("already ran in this turn")
+  })
+})

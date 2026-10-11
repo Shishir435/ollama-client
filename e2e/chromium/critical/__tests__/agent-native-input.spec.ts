@@ -70,6 +70,7 @@ const dropdownPage = `<!doctype html><title>Agent dropdown</title><main>
 runAgentScenario({
   name: "native dropdown",
   goal: "Choose the South region and report the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   approvalScope: "run_origin",
   html: () => dropdownPage,
@@ -137,6 +138,7 @@ const controlledPage = `<!doctype html><title>Agent controlled input</title><mai
 runAgentScenario({
   name: "native typing",
   goal: "Enter Alice as the name and report how many keys the page counted.",
+  plan: [{ text: "report how many keys the page counted", kind: "read" }],
   status: "completed",
   approvalScope: "run_origin",
   html: () => controlledPage,
@@ -145,7 +147,7 @@ runAgentScenario({
       return {
         type: "complete",
         summary: observation.text.match(/Keys: \d+/)?.[0] ?? "",
-        evidence: "Value: Alice"
+        evidence: observation.text.match(/Keys: \d+/)?.[0]
       }
     const field = agentFixtureElement(
       observation,
@@ -197,6 +199,7 @@ const listboxPage = `<!doctype html><title>Agent listbox</title><main>
 runAgentScenario({
   name: "native keyboard navigation",
   goal: "Select the Large size with the keyboard and report the status.",
+  plan: [{ text: "report the status", kind: "read" }],
   status: "completed",
   approvalScope: "run_origin",
   html: () => listboxPage,

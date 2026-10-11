@@ -87,16 +87,38 @@ const renderImages = (images?: ImageAttachment[]): string => {
     </div>`
 }
 
+const roleLabel = (msg: ChatMessage, t: TFunction): string => {
+  if (msg.role === "user") return t("sessions.export.role_user")
+  return msg.agentRunId
+    ? t("sessions.export.role_agent")
+    : t("sessions.export.role_assistant")
+}
+
+/**
+ * A run's row holds its result once the run settles, written by the same
+ * commit. Until then — or for a run that ended with nothing to say — the row
+ * is empty, and an empty block under an "Agent" heading reads as a failed
+ * export rather than as a run with no answer.
+ */
+const renderBody = (
+  msg: ChatMessage,
+  t: TFunction,
+  md: ReturnType<typeof createMarkdownParser>
+): string =>
+  msg.agentRunId && !msg.content.trim()
+    ? `<p>${escapeHtml(t("sessions.export.agent_no_result"))}</p>`
+    : parseMessageContent(msg.content, md)
+
 const renderMessage = (
   msg: ChatMessage,
   t: TFunction,
   md: ReturnType<typeof createMarkdownParser>
 ): string => `
   <div class="message ${msg.role === "user" ? "user-message" : "ai-message"}">
-    <div class="message-header">${msg.role === "user" ? t("sessions.export.role_user") : t("sessions.export.role_assistant")}</div>
+    <div class="message-header">${escapeHtml(roleLabel(msg, t))}</div>
     <div class="message-content">
       ${renderImages(msg.images)}
-      ${parseMessageContent(msg.content, md)}
+      ${renderBody(msg, t, md)}
     </div>
   </div>
   `

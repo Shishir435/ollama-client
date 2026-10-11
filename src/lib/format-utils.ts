@@ -36,6 +36,16 @@ export const formatTokensPerSecond = (
 }
 
 /**
+ * A provider-reported cost in US dollars. A single turn usually costs well
+ * under a cent, so small amounts keep enough digits to be told apart.
+ */
+export const formatUsd = (amount: number): string => {
+  if (amount >= 1) return `$${amount.toFixed(2)}`
+  if (amount >= 0.01) return `$${amount.toFixed(3)}`
+  return `$${amount.toPrecision(2)}`
+}
+
+/**
  * Filesystem-safe ISO-ish timestamp suffix (no colons or dots) for
  * download filenames. Same shape as `2026-05-21T13-42-08-321Z`.
  */

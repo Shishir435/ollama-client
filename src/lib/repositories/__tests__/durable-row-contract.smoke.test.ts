@@ -43,9 +43,12 @@ beforeAll(() => {
   )
 })
 
+let owner: ReturnType<typeof createChatDbEngine> | undefined
+
 /** Stand in for the database owner; see chat-durability.smoke.test.ts. */
 const installOwner = () => {
   const engine = createChatDbEngine({ wasmBinary: Promise.resolve(wasmBuffer) })
+  owner = engine
   const ready = engine.submit({ op: "setBackend", backend: "legacy" })
   globalThis.__persistenceHostCall = async (request) => {
     await ready
@@ -87,9 +90,16 @@ beforeEach(async () => {
   await clearSqliteStore()
 }, TIMEOUT)
 
-afterEach(() => {
-  globalThis.__persistenceHostCall = undefined
-})
+afterEach(async () => {
+  try {
+    // Drain the legacy debounce before the next test deletes the stored image.
+    // Otherwise this owner can restore its old sessions after that deletion.
+    await owner?.submit({ op: "flush" })
+  } finally {
+    owner = undefined
+    globalThis.__persistenceHostCall = undefined
+  }
+}, TIMEOUT)
 
 const boot = async () => {
   vi.resetModules()
@@ -279,7 +289,18 @@ describe("durable job rows decode as their writers wrote them", () => {
         runId: "agent-terminal-1",
         from: "observing",
         to: "deciding",
-        patch: { updatedAt: 2 }
+        patch: {
+          updatedAt: 2,
+          recovery: {
+            attempts: 2,
+            active: {
+              trigger: "no_progress",
+              strategy: "wait_for_condition",
+              tried: ["targeted_read", "wait_for_condition"],
+              startedAt: 2
+            }
+          }
+        }
       })
       await repo.transitionAgentRun({
         runId: "agent-terminal-1",
@@ -300,9 +321,14 @@ describe("durable job rows decode as their writers wrote them", () => {
         state: {
           id: "agent-terminal-1",
           status: "completed",
-          observationCount: 1
+          observationCount: 1,
+          /** The spent count is kept; the open episode is not. */
+          recovery: { attempts: 2 }
         }
       })
+      expect(
+        JSON.parse(String(rows[0]?.checkpoint)).state.recovery.active
+      ).toBeUndefined()
       await expect(repo.getAgentRun("agent-terminal-1")).resolves.toMatchObject(
         {
           status: "completed",
@@ -360,6 +386,33 @@ describe("durable job rows decode as their writers wrote them", () => {
         },
         at: 3
       })
+      await repo.appendAgentStep({
+        runId: "agent-redaction-1",
+        stepId: "agent-redaction-1:3",
+        status: "verified",
+        command: {
+          type: "fill_form",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          fields: [
+            {
+              type: "clear_and_type",
+              ref: "e3",
+              text: "private-email@example.com"
+            }
+          ]
+        },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "fields",
+            summary: "All fields hold the resolved value",
+            observedAt: 4,
+            fields: [{ name: "Email" }]
+          }
+        },
+        at: 4
+      })
 
       const stored = await db.query(
         "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id",
@@ -368,7 +421,57 @@ describe("durable job rows decode as their writers wrote them", () => {
       const serialized = JSON.stringify(stored)
       expect(serialized).not.toContain("private-profile-value")
       expect(serialized).not.toContain("private-option-value")
+      expect(serialized).not.toContain("private-email@example.com")
+      expect(serialized).not.toContain("valueDigest")
       expect(serialized).toContain("[redacted]")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "refuses a partial step history for completion while keeping readable panel rows",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const db = await import("@/lib/sqlite/db")
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-partial-history",
+        goal: "Prepare a form without submitting",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 1,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt: 1,
+        updatedAt: 1
+      })
+      await repo.appendAgentStep({
+        runId: "agent-partial-history",
+        stepId: "agent-partial-history:1",
+        status: "verified",
+        at: 2,
+        mutating: false
+      })
+      await db.run(
+        "INSERT INTO agent_steps (runId, stepId, status, receipt, createdAt) VALUES (?, ?, ?, ?, ?)",
+        [
+          "agent-partial-history",
+          "agent-partial-history:2",
+          "verified",
+          "{unreadable",
+          3
+        ]
+      )
+
+      await expect(
+        repo.listAgentSteps("agent-partial-history")
+      ).resolves.toHaveLength(1)
+      await expect(
+        repo.listCompleteAgentSteps("agent-partial-history")
+      ).rejects.toThrow("Agent step history is incomplete")
     },
     TIMEOUT
   )

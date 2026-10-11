@@ -9,7 +9,9 @@ services:
     restart: unless-stopped
     ports:
       - "${SEARXNG_HOST:-127.0.0.1}:${SEARXNG_PORT:-8080}:${SEARXNG_PORT:-8080}"
-    env_file: ./.env
+    env_file:
+      - path: ./.env
+        required: false
     volumes:
       - ./core-config/:/etc/searxng/:rw
       - core-data:/var/cache/searxng/

@@ -11,6 +11,8 @@ import type {
   AgentElementReferenceSnapshot,
   AgentElementReferenceStore
 } from "./element-references"
+import { agentVisibleGetQuery } from "./form-submission"
+import { httpOrigin, inheritsFrameOrigin } from "./inherited-frame-origin"
 
 export const AGENT_OBSERVATION_LIMITS = {
   elements: 2_000,
@@ -646,9 +648,9 @@ const isOccluded = (element: Element): boolean => {
  * Every region of this document a screenshot must paint over, found by
  * walking the whole composed tree rather than the bounded observation: a
  * sensitive control past the element budget is still on screen. Child frames
- * are masked whole — a frame the run cannot read may hold a sign-in form, and
- * one it can read cannot be placed from here — so an embedded page never
- * leaves in a picture. The scroll position is reported with the rects so a
+ * are masked whole here. The background may replace an authorized owner's
+ * mask only after matching its browser geometry and reading the child's
+ * own sensitive regions. The scroll position is reported with the rects so a
  * caller can prove the page did not move between two readings.
  */
 export const collectAgentMaskRegions = (
@@ -656,29 +658,105 @@ export const collectAgentMaskRegions = (
 ): {
   rects: { x: number; y: number; width: number; height: number }[]
   scroll: { x: number; y: number }
+  viewport: { width: number; height: number }
+  frameRects: {
+    rect: { x: number; y: number; width: number; height: number }
+    supported: boolean
+  }[]
 } => {
   const view = document.defaultView
+  const viewport = {
+    width: view?.innerWidth ?? 1,
+    height: view?.innerHeight ?? 1
+  }
   const rects: { x: number; y: number; width: number; height: number }[] = []
+  const frameRects: ReturnType<typeof collectAgentMaskRegions>["frameRects"] =
+    []
   for (const node of composedDescendants(document)) {
     const element = asElement(node)
     if (!element) continue
     const framed =
       element.localName === "iframe" || element.localName === "frame"
     if (!framed && !isSensitiveAgentElement(element)) continue
-    for (const box of Array.from(element.getClientRects())) {
-      if (box.width <= 0 || box.height <= 0) continue
-      rects.push({
+    const frameStyle = framed
+      ? frameStyleFacts(element)
+      : { supported: false, pixelSpill: false }
+    const boxes = Array.from(element.getClientRects()).filter(
+      (box) => box.width > 0 && box.height > 0
+    )
+    for (const box of boxes) {
+      const rect = {
         x: box.left,
         y: box.top,
         width: box.width,
         height: box.height
-      })
+      }
+      rects.push(rect)
+      if (framed)
+        frameRects.push({
+          rect,
+          supported: !isSensitiveAgentElement(element) && frameStyle.supported
+        })
     }
+    // Filters can paint private frame pixels beyond every owner client rect.
+    if (boxes.length && frameStyle.pixelSpill)
+      rects.push({
+        x: 0,
+        y: 0,
+        ...viewport
+      })
   }
   return {
     rects,
-    scroll: { x: view?.scrollX ?? 0, y: view?.scrollY ?? 0 }
+    scroll: { x: view?.scrollX ?? 0, y: view?.scrollY ?? 0 },
+    viewport,
+    frameRects
   }
+}
+
+/** Axis-aligned positive 2D scaling/translation only; unbounded filter spill masks the viewport. */
+const frameStyleFacts = (
+  element: Element
+): { supported: boolean; pixelSpill: boolean } => {
+  const view = element.ownerDocument.defaultView
+  if (!view) return { supported: false, pixelSpill: false }
+  let supported = true
+  let pixelSpill = false
+  for (
+    let current: Element | null = element;
+    current;
+    current =
+      current.parentElement ??
+      (current.getRootNode() as ShadowRoot).host ??
+      null
+  ) {
+    const style = view.getComputedStyle(current)
+    if (
+      (style.filter && style.filter !== "none") ||
+      (style.backdropFilter && style.backdropFilter !== "none")
+    ) {
+      supported = false
+      pixelSpill = true
+    }
+    if (style.perspective && style.perspective !== "none") supported = false
+    if (style.transform && style.transform !== "none") {
+      const values = /^matrix\(([^)]+)\)$/
+        .exec(style.transform)?.[1]
+        .split(",")
+        .map(Number)
+      if (
+        !values ||
+        values.length !== 6 ||
+        !values.every(Number.isFinite) ||
+        values[0] <= 0 ||
+        values[3] <= 0 ||
+        values[1] !== 0 ||
+        values[2] !== 0
+      )
+        supported = false
+    }
+  }
+  return { supported, pixelSpill }
 }
 
 export const isSensitiveAgentElement = (element: Element): boolean => {
@@ -807,18 +885,64 @@ export const resolveAgentFormSubmitter = (
   return form ? formSubmitters(form)[0] : undefined
 }
 
+const NON_TEXT_INPUT_TYPES = [
+  "button",
+  "checkbox",
+  "file",
+  "hidden",
+  "image",
+  "radio",
+  "reset",
+  "submit"
+]
+
+const isTextEntryInput = (element: Element): boolean =>
+  element instanceof HTMLInputElement &&
+  !NON_TEXT_INPUT_TYPES.includes(element.type.toLowerCase())
+
+/**
+ * A textarea that is a search box. Enter in a textarea starts a new line, so
+ * it was never a submission — but DuckDuckGo and Google both render their
+ * search field as a `<textarea name="q">` and submit it from a key handler.
+ * Pressed as a plain key, Enter reached the page's own script, which
+ * navigated off the approved path, and the step failed on a search the user
+ * had asked for. It is a submission when the textarea says it is a single
+ * line and is the form's only text entry, in a GET form with a submitter: a
+ * newline there means nothing, while a comment box posts, a writing field
+ * has rows, and a multi-field form has other fields.
+ */
+const isSearchTextarea = (element: HTMLTextAreaElement): boolean => {
+  const form = element.form
+  if (!form || form.method.toLowerCase() !== "get") return false
+  /**
+   * The field has to say it is one line. Both search pages mark theirs —
+   * `rows="1"`, a combobox role, DuckDuckGo's `enterkeyhint="search"` — and
+   * a writing field says the opposite, so a lone textarea in a GET form is
+   * not enough: Enter there would send an unfinished draft.
+   */
+  if (element.getAttribute("aria-multiline") === "true") return false
+  const rows = Number(element.getAttribute("rows")?.trim())
+  if (Number.isFinite(rows) && rows > 1) return false
+  const role = element.getAttribute("role")
+  const singleLine =
+    element.getAttribute("rows")?.trim() === "1" ||
+    role === "combobox" ||
+    role === "searchbox" ||
+    element.getAttribute("enterkeyhint") === "search"
+  if (!singleLine) return false
+  if (formSubmitters(form).length === 0) return false
+  return !Array.from(form.elements).some(
+    (control) =>
+      control !== element &&
+      (control instanceof HTMLTextAreaElement || isTextEntryInput(control))
+  )
+}
+
 const maySubmitWithEnter = (element: Element): boolean => {
-  if (!(element instanceof HTMLInputElement) || !element.form) return false
-  return ![
-    "button",
-    "checkbox",
-    "file",
-    "hidden",
-    "image",
-    "radio",
-    "reset",
-    "submit"
-  ].includes(element.type.toLowerCase())
+  if (element instanceof HTMLTextAreaElement) return isSearchTextarea(element)
+  return (
+    isTextEntryInput(element) && Boolean((element as HTMLInputElement).form)
+  )
 }
 
 const associatedForm = (element: Element): HTMLFormElement | null => {
@@ -886,6 +1010,28 @@ const stableFormFingerprint = (form: HTMLFormElement): string => {
     hash = Math.imul(hash, 0x01000193)
   }
   return (hash >>> 0).toString(16).padStart(8, "0")
+}
+
+/**
+ * A control whose value an approval may show: not sensitive, and not hidden
+ * by itself or anything above it — by attribute or by style — since a
+ * `display:none` field is a hidden field by another name. Read with the same
+ * predicates visibility uses, without the viewport: a search box scrolled
+ * out of sight still shows what it holds.
+ */
+const isShowableFormControl = (control: Element): boolean => {
+  if (isSensitiveAgentElement(control)) return false
+  const view = control.ownerDocument.defaultView
+  for (
+    let current: Element | null = control;
+    current;
+    current = composedParent(current)
+  ) {
+    if (isSemanticallyHidden(current)) return false
+    const style = view?.getComputedStyle(current)
+    if (!style || isHiddenByStyle(style)) return false
+  }
+  return true
 }
 
 const hasSensitiveFormControl = (form: HTMLFormElement): boolean =>
@@ -958,6 +1104,77 @@ const collectVisibleText = (
     result += truncate(addition, limit - result.length)
   }
   return result
+}
+
+const controlKey = (element: Element): string =>
+  `${element.tagName}|${element.getAttribute("aria-label") ?? ""}|${normalizedText(element.textContent ?? "")}`
+
+/**
+ * Only rendered copies count: a hidden twin kept for another layout belongs
+ * to the same record. Offscreen copies still count, since a record below the
+ * fold is still another record.
+ */
+const repeatsControl = (
+  container: Element,
+  element: Element,
+  pass: AgentObservationPass
+): boolean => {
+  const key = controlKey(element)
+  let copies = 0
+  for (const candidate of container.querySelectorAll(element.tagName)) {
+    if (controlKey(candidate) === key && !isChainHidden(candidate, pass))
+      copies += 1
+    if (copies > 1) return true
+  }
+  return false
+}
+
+const RECORD_TAGS = "div, section, article"
+
+/**
+ * Whether an element is one of several same-tag siblings that each carry a
+ * link: the shape of a list of records. The nearest such ancestor is the
+ * record, so a wrapper holding several records is never reached, whatever
+ * controls those records hold.
+ */
+const repeatsAsRecord = (
+  current: Element,
+  pass: AgentObservationPass
+): boolean =>
+  current.matches(RECORD_TAGS) &&
+  current.querySelector("a[href]") !== null &&
+  Array.from(current.parentElement?.children ?? []).some(
+    (sibling) =>
+      sibling !== current &&
+      sibling.tagName === current.tagName &&
+      !isChainHidden(sibling, pass) &&
+      sibling.querySelector("a[href]") !== null
+  )
+
+/** A bounded row label beside repeated controls such as Delete buttons. */
+const rowContextOf = (
+  element: Element,
+  pass: AgentObservationPass,
+  scope: AgentTextScope
+): string | undefined => {
+  for (
+    let current = composedParent(element);
+    current;
+    current = composedParent(current)
+  ) {
+    if (current.matches("li, tr, [role='row'], [role='listitem']"))
+      return collectVisibleText(current, 140, pass, scope) || undefined
+    if (!repeatsAsRecord(current, pass)) continue
+    /**
+     * A record holding a second rendered copy of this control is really a
+     * wrapper around several records. Checked only once a record is found:
+     * scanning every ancestor would be quadratic on a page of many controls.
+     */
+    if (repeatsControl(current, element, pass)) return undefined
+    const text = collectVisibleText(current, 141, pass, scope)
+    return text && text.length <= 140 ? text : undefined
+  }
+  return undefined
 }
 
 /**
@@ -1275,6 +1492,51 @@ const elementHref = (element: Element): string | undefined => {
  * describe what submitting this control would do, and a control that submits
  * nothing has nothing to say about them. The contract requires as much.
  */
+/**
+ * A form the page itself marks as a search, with nothing to fill in but the
+ * query. Its one text field is a search box — `type="search"`, a searchbox or
+ * combobox role, `enterkeyhint="search"` — or the form is a search landmark;
+ * every other control is a button, a hidden input or an empty file picker.
+ * Google's form carries hidden inputs and pickers, so they are allowed; a select, a checkbox or a second field
+ * is a form with settings, which "Apply" on a preferences page is, and it is
+ * not a search.
+ */
+const isSearchForm = (form: HTMLFormElement): boolean => {
+  if (hasSensitiveFormControl(form)) return false
+  let field: Element | undefined
+  for (const control of Array.from(form.elements)) {
+    if (control instanceof HTMLFieldSetElement) continue
+    if (control instanceof HTMLButtonElement) continue
+    if (control instanceof HTMLInputElement) {
+      const type = control.type.toLowerCase()
+      if (["hidden", "submit", "image", "button", "reset"].includes(type))
+        continue
+      /**
+       * Google's form holds two hidden, empty pickers for adding images and
+       * files to a search. An empty one sends nothing; one with a file chosen
+       * made the form sensitive above.
+       */
+      if (type === "file") continue
+    }
+    const entry =
+      control instanceof HTMLTextAreaElement || isTextEntryInput(control)
+    if (!entry || field) return false
+    field = control
+  }
+  if (!field) return false
+  const landmark =
+    form.getAttribute("role") === "search" ||
+    form.closest('search, [role="search"]') !== null
+  const role = field.getAttribute("role")
+  return (
+    landmark ||
+    (field as HTMLInputElement).type?.toLowerCase() === "search" ||
+    role === "searchbox" ||
+    role === "combobox" ||
+    field.getAttribute("enterkeyhint") === "search"
+  )
+}
+
 const observedFormFields = (
   element: Element,
   maySubmit: boolean
@@ -1283,12 +1545,31 @@ const observedFormFields = (
   if (!form && !maySubmit) return {}
   const action = formAction(element)
   const method = formMethod(element)
+  const sensitive = Boolean(form && hasSensitiveFormControl(form))
+  const query =
+    maySubmit && form && action && method === "get" && !sensitive
+      ? agentVisibleGetQuery(
+          form,
+          resolveAgentFormSubmitter(element),
+          isShowableFormControl
+        )
+      : undefined
   return {
     ...(maySubmit && action ? { formAction: action } : {}),
     ...(maySubmit && method ? { formMethod: method } : {}),
+    ...(query !== undefined &&
+    action &&
+    action.length + query.length + 1 <= MAX_AGENT_DESTINATION_URL_CHARS
+      ? { formQuery: query }
+      : {}),
     ...(form ? { formFingerprint: stableFormFingerprint(form) } : {}),
-    ...(maySubmit && form && hasSensitiveFormControl(form)
-      ? { formHasSensitiveControl: true }
+    ...(maySubmit && sensitive ? { formHasSensitiveControl: true } : {}),
+    ...(maySubmit &&
+    form &&
+    method === "get" &&
+    !sensitive &&
+    isSearchForm(form)
+      ? { searchForm: true }
       : {}),
     ...(maySubmit ? { maySubmit: true } : {})
   }
@@ -1380,6 +1661,10 @@ const buildElementObservation = (
   const submitter = isSubmitter(element)
   const maySubmit = submitter || maySubmitWithEnter(element)
   const group = groupOf(element, modalIds)
+  const rowContext =
+    !sensitive && (visible || offscreen)
+      ? rowContextOf(element, pass, visible ? "viewport" : "rendered")
+      : undefined
   const scroll = scrollState(element, pass)
   return {
     ref,
@@ -1415,7 +1700,8 @@ const buildElementObservation = (
     sensitive,
     ...(isMultiline(element) ? { multiline: true } : {}),
     ...(isMarkedDraggable(element) ? { draggable: true } : {}),
-    ...(group ? { group } : {})
+    ...(group ? { group } : {}),
+    ...(rowContext ? { rowContext } : {})
   }
 }
 
@@ -1934,7 +2220,19 @@ export const buildAgentObservation = (input: {
     Math.max(0, input.elementLimit ?? AGENT_OBSERVATION_LIMITS.elements)
   )
   const url = new URL(input.document.location.href)
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
+  /**
+   * A child `srcdoc` document's address carries no origin — `location.origin`
+   * is derived from `about:srcdoc` and reads `"null"` — so the document's own
+   * origin is asked instead: the window's `origin`, which is the one it
+   * inherited, or `"null"` when a sandbox made it opaque.
+   */
+  const origin =
+    url.protocol === "http:" || url.protocol === "https:"
+      ? url.origin
+      : frameId !== 0 && inheritsFrameOrigin(url.href)
+        ? httpOrigin(input.document.defaultView?.origin)
+        : undefined
+  if (!origin) {
     throw new Error("Agent observations require an HTTP(S) document")
   }
   const snapshot = input.references.beginSnapshot({
@@ -1991,7 +2289,7 @@ export const buildAgentObservation = (input: {
     frameId,
     documentId: input.documentId,
     url: url.href,
-    origin: url.origin,
+    origin,
     title: truncate(input.document.title, AGENT_OBSERVATION_LIMITS.titleChars),
     /**
      * A single frame's observation lists itself. Composition into the page's
@@ -2001,7 +2299,7 @@ export const buildAgentObservation = (input: {
       {
         frameId,
         documentId: input.documentId,
-        origin: url.origin,
+        origin,
         url: url.href,
         access: "ok",
         snapshotId: snapshot.snapshotId,

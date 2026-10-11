@@ -8,7 +8,7 @@
       "scroll_down": "向下滚动",
       "scroll_left": "向左滚动",
       "scroll_right": "向右滚动",
-      "switch_tab": "切换到标签页 {{tab}}",
+      "switch_tab": "切换到另一个标签页",
       "wait": "等待 {{condition}}",
       "clear_and_type": "替换字段中的文本",
       "press_key": "按 {{key}}",
@@ -24,43 +24,51 @@
       "double_click": "双击控件",
       "click_point": "点击截图中的某个位置",
       "zoom": "放大截图",
+      "look": "重新截图",
       "hover": "悬停在控件上",
       "read": "读取页面",
       "inspect": "查看 {{region}}",
       "find": "查找“{{query}}”",
       "extract_text": "读取页面文本",
       "handle_dialog_accept": "接受页面对话框",
-      "handle_dialog_dismiss": "关闭页面对话框"
+      "handle_dialog_dismiss": "关闭页面对话框",
+      "fill_form": "填写表单字段：{{count}}",
+      "extract": "在页面上查找：{{count}}",
+      "call_page_tool": "使用页面工具“{{tool}}”"
     },
     "approval": {
       "title": "需要批准",
+      "risk": {
+        "low": "低风险",
+        "medium": "中等风险",
+        "high": "高风险",
+        "critical": "严重风险"
+      },
       "allow": "允许一次",
       "reject": "拒绝",
       "allowForRun": "本次运行始终允许在 {{origin}} 上执行此类操作"
     },
-    "attachment": {
-      "title": "此浏览器允许的操作",
-      "attaches": "启动后，Chrome 的调试器会连接到你选择的标签页。连接期间 Chrome 会显示自己的提示条；停止、交由你接管或运行结束时都会断开。",
-      "no_debugger": "此浏览器没有调试器，因此运行通过扩展的内容脚本来操作页面。"
-    },
     "browser_disconnected": "浏览器控制已断开，因此 Agent 已暂停。请检查页面后再继续。",
-    "completion": {
-      "summary": "本次运行中有 {{count}} 次页面观察发送给 {{provider}}。"
-    },
     "controls": {
       "label": "智能体控制",
       "pause": "暂停",
       "resume": "继续",
       "stop": "停止",
+      "takeover_start": "这一步由我来操作",
       "takeover_done": "我已完成 — 继续"
     },
     "error": {
       "already_running": "已有一个 Agent 运行正在进行。",
       "browser_control_unavailable": "Agent 无法连接浏览器控制。请关闭 DevTools 或其他调试器后重试。",
-      "permission_denied": "启动前 Agent 需要页面观察权限。",
+      "follow_up_unavailable": "此运行已无法从这里继续。请重新开始以再次设置任务。",
+      "permission_denied": "Agent 无法在此浏览器中观察页面。",
       "tab_unsupported": "Agent 无法在此页面运行。请打开普通网页后重试。",
       "unreadable_update": "面板收到了无法读取的更新。",
-      "unknown": "Agent 无法完成该请求。"
+      "unknown": "Agent 无法完成该请求。",
+      "disconnected": "Agent 正在重新连接，未收到该请求。请重试。",
+      "turn_has_run": "此消息已启动过一个浏览器任务。",
+      "steer_unavailable": "运行当前未在工作，因此无法接收。请暂停后再纠正。",
+      "consent_stale": "显示该选项后运行已继续进行，因此未保存。请检查运行后重新选择。"
     },
     "failure": {
       "budget_exhausted": "运行已用完全部步骤预算。请缩小目标，或从页面当前状态重新开始。",
@@ -75,28 +83,15 @@
       "verification_failed": "运行无法确认上一步操作的结果。重新开始前请检查页面。",
       "unknown": "运行因无法说明的原因停止。请检查页面后重新开始。"
     },
-    "feedback": "发送反馈",
-    "limits": {
-      "no_native_input": "鼠标和键盘输入是合成的；只响应真实输入的页面可能不会有反应。",
-      "no_screenshots": "不会截屏，因此只能通过查看页面完成的任务无法进行。",
-      "no_dialogs": "运行既看不到也无法回应 alert、confirm 和 prompt 等原生对话框。"
-    },
     "model": {
       "label": "模型"
     },
     "observations": "{{count}} 次观察",
     "privacy": {
       "remote_notice": "智能体运行期间，页面观察内容将持续发送给此远程提供商。",
-      "acknowledge": "我已了解",
       "remote_notice_screenshots": "Agent 运行期间，页面观测结果和视口截图将持续发送到此远程提供商。"
     },
     "progress": "{{budget}} 次观察中的第 {{count}} 次",
-    "provider": {
-      "label": "提供商",
-      "local": "本地",
-      "remote": "远程",
-      "missing": "请先选择模型"
-    },
     "question": {
       "title": "Agent 需要答复",
       "inputLabel": "你的答复",
@@ -108,14 +103,6 @@
       "sent": "视口截图会发送给模型",
       "unused": "纯文本模型不使用",
       "unknown": "尚未确定"
-    },
-    "start": {
-      "description": "在此面板中监督浏览器任务。",
-      "goal": "希望智能体做什么？",
-      "placeholder": "描述一个浏览器任务…",
-      "action": "启动智能体",
-      "auto_actions": "允许此任务的常规操作",
-      "auto_actions_description": "在此网站上自动点击和输入。发布、删除、访问新网站及敏感操作仍会请求确认。"
     },
     "status": {
       "submitted": "正在启动",
@@ -142,42 +129,53 @@
       "verified": "已验证",
       "rejected": "已拒绝",
       "failed": "失败",
-      "uncertain": "需检查"
-    },
-    "surface": {
-      "chat": "聊天",
-      "agent": "智能体",
-      "preview": "预览"
+      "uncertain": "需检查",
+      "dialog_opened": "已打开对话框"
     },
     "tab": {
       "label": "受控标签页",
-      "missing": "请打开受支持的网页"
+      "missing": "请打开受支持的网页",
+      "show": "显示此标签页"
     },
     "tabs": {
       "label": "受控标签页",
-      "count": "{{count}} 个标签页"
+      "count_one": "{{count}} 个标签页",
+      "count_other": "{{count}} 个标签页"
     },
     "takeover": {
-      "title": "接管此步骤"
+      "title": "接管此步骤",
+      "instruction": {
+        "file_upload": "接管页面，自己选择文件，然后继续。",
+        "sensitive_step": "接管页面，自己完成敏感步骤，然后继续。"
+      }
     },
-    "title": "监督式智能体",
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
     "unresolved_reviewed": "已查看页面 — 继续",
+    "unresolved_done": "已完成 — 结束",
     "work_log": {
+      "action_needs_review": "此步骤需要检查。",
       "title": "工作日志",
-      "target": "“{{name}}”"
+      "target": "“{{name}}”",
+      "reasoning": "推理"
     },
     "correction": "已暂停。说明需要更改的内容，然后继续。",
-    "export_report": "导出运行报告（包含页面文本）",
-    "running_goal": "正在执行",
-    "requirements": {
-      "title": "任务要求的内容",
-      "met": "已完成",
-      "unmet": "未完成"
+    "experimental_badge": "实验性",
+    "announcement": {
+      "title": "实验性：聊天中的浏览器代理",
+      "description": "你的聊天模型现在可以在标签页中替你完成任务：点击、输入并在页面之间跳转。在你开启之前，它保持关闭。",
+      "hosted_models": "搭配能力较强的托管模型（例如通过 OpenRouter 或云服务商）效果最好。小型本地模型往往无法完成多步骤任务。",
+      "approvals": "在提交表单、登录、付款或删除任何内容之前，它都会先询问你，你也可以随时停止它。",
+      "coming": "这是早期版本，难免有不完善之处；后续版本会持续改进。",
+      "later": "以后再说",
+      "enable": "开启代理"
     },
     "settings": {
       "title": "浏览器代理",
-      "description": "一次运行可以向模型索取多少上下文，以及何时对页面拍照。",
+      "description": "运行在不询问的情况下可以做什么、可向模型请求多少上下文，以及何时为页面截图。",
+      "enabled": {
+        "label": "允许聊天模型使用浏览器代理",
+        "description": "提供 browser_task，让模型代你在标签页中点击、输入和导航。实验性功能：效果因模型而异，差别很大。"
+      },
       "context_window": {
         "label": "上下文窗口",
         "description": "自动模式取该模型与该服务器所报告的较小窗口；两者都未说明时退回到保守大小。如果你调高了服务器自身的上限，或某次运行耗尽了内存，可自行设定大小。",
@@ -190,7 +188,104 @@
         "auto": "步骤需要时",
         "always": "每一步",
         "never": "从不"
+      },
+      "permission_mode": {
+        "label": "常规操作",
+        "description": "每次新运行是否可以在起始网站上直接点击和输入而无需询问。提交、删除、登录、付款和新网站始终会询问，且不会延续到下一次运行。",
+        "allow_routine": "在起始网站上允许",
+        "approve_each": "逐项批准操作"
+      },
+      "completion_reviewer": {
+        "label": "完成情况审核模型",
+        "description": "当运行声称完成了内置检查无法确认的结果时，此模型会读取运行中经过核实的证据，判断其是否支持该声明。它从不在浏览器中执行操作。只有当另一个模型已启用、能够调用工具，且在其为远程服务器时你已同意向远程模型发送页面内容，才会把这些证据发送给它。",
+        "same_as_run": "与运行相同的模型"
       }
+    },
+    "card": {
+      "title": "智能体运行",
+      "loading": "正在加载运行…",
+      "missing": "此运行的记录已不可用。",
+      "outcome": "已完成 {{met}}/{{total}}",
+      "outcome_visual_one": "{{count}} 项仅在截图中看到，未经页面文本确认",
+      "outcome_visual_other": "{{count}} 项仅在截图中看到，未经页面文本确认",
+      "continue": "继续",
+      "retry": "重试",
+      "start_over": "重新开始",
+      "ask": "就此提问",
+      "step_count_one": "{{count}} 个步骤",
+      "step_count_other": "{{count}} 个步骤",
+      "page_count_one": "{{count}} 个页面",
+      "page_count_other": "{{count}} 个页面"
+    },
+    "follow_up": {
+      "continue_message": "继续这个浏览器任务。",
+      "retry_message": "重新尝试这个浏览器任务。"
+    },
+    "paused_panel_closed": "侧边栏已关闭，因此已暂停。准备好后继续。",
+    "approval_text": {
+      "accept_dialog": "接受页面的{{kind}}",
+      "accept_dialog_origin": "接受来自 {{origin}} 的{{kind}}",
+      "dismiss_dialog": "关闭页面的{{kind}}",
+      "dismiss_dialog_origin": "关闭来自 {{origin}} 的{{kind}}",
+      "dismiss_dialog_consequence": "对话框会被告知已关闭，不会确认任何内容。",
+      "accept_dialog_consequence": "页面会像你按下了它的确认按钮一样继续，无论该操作是什么。",
+      "accept_leave_consequence": "允许离开页面。未保存的内容将丢失。",
+      "dialog_unreadable": "未读取其文本：该对话框属于此运行无权读取的框架。",
+      "fill_fields": "一步设置表单字段：{{count}}",
+      "fill_fields_consequence": "按顺序设置下面列出的每个控件，遇到无法设置的控件即停止。代理不会点击“提交”，但页面可能自动提交表单，或在输入时保存更改。",
+      "adopt_tab": "接管 {{url}} 上的标签页“{{tab}}”",
+      "navigate": "前往 {{url}}",
+      "navigate_consequence": "浏览器将打开这个完整地址：{{url}}",
+      "routine_follows": "之后在 {{origin}} 上的点击和输入将不再询问，与本任务开始的网站相同。提交表单仍会询问。",
+      "no_submit_consequence": "这将输入到下方显示的控件中。之后没有提交步骤，因此边输入边保存的页面可能会立即保存。",
+      "command_consequence": "浏览器将在下方显示的控件上执行此操作。",
+      "prior_form": "此任务之前的一次运行已经提交过这个表单。只有在这是一次新的提交而不是重复提交时才批准。",
+      "repeated_effect": "此运行已经通过此页面上的同一控件执行过一次。只有在需要再次执行时才批准。",
+      "unknown_prior_effect": "无法读取本次运行的操作记录。此操作可能重复之前的效果。只有确认重复操作安全时才批准。",
+      "adopt_untitled_tab": "接管 {{url}} 上的一个标签页"
+    },
+    "dialog_kind": {
+      "alert": "提示框",
+      "confirm": "确认对话框",
+      "prompt": "输入对话框",
+      "beforeunload": "离开页面对话框",
+      "dialog": "对话框"
+    },
+    "question_text": {
+      "completion_refused": "无法确认结果。任务完成了吗？如果没有，接下来该怎么做？",
+      "commands_refused": "上一步操作未能执行。我应该改试什么？",
+      "no_progress": "我在重复操作却没有进展。我应该换种什么做法？你也可以停止我，自己完成任务。",
+      "recovery_tried_one": "我已先尝试了 {{count}} 种其他方法。",
+      "recovery_tried_other": "我已先尝试了 {{count}} 种其他方法。",
+      "too_many_outcomes": "此任务要求 {{count}} 个不同的结果，而一次运行最多跟踪 {{max}} 个。这次运行应完成哪些？其余的可以在另一次运行中继续。",
+      "too_many_items": "此任务列出了 {{count}} 行或记录，而一次运行最多跟踪 {{max}} 个。这次运行应完成哪些？其余的可以在另一次运行中继续。",
+      "too_many_constraints": "此任务设定了 {{count}} 个不同的限制，而一次运行最多保留 {{max}} 个。这次运行需要遵守哪些？",
+      "confirm_removal": "你的回答可能表示此任务不再需要：{{list}}。回复“是”以移除，或回复“否”以全部保留。",
+      "confirm_lift": "你的回答可能表示这些限制不再适用：{{list}}。回复“allow”以解除；其他任何回复都会保留它们。"
+    },
+    "start_gate": {
+      "after_page": "模型在写下此任务前读取过页面内容，因此每次都会询问。",
+      "other_tab": "此任务将在另一个标签页中运行，而不是你正在查看的标签页。",
+      "supervised": "智能体会在页面上逐步操作，执行任何重要操作前都会询问。运行期间 Chrome 会显示调试横幅。",
+      "routine": "在此网站上，此任务的点击、输入和搜索将不再询问。发布或提交其他表单、登录、付款、删除和打开其他网站仍会询问。",
+      "experimental_model": "此模型的工具调用是你手动开启的，而非模型自身报告支持。无法调用工具的模型走不了多远。"
+    },
+    "steer": {
+      "label": "引导代理",
+      "placeholder": "无需暂停即可纠正…",
+      "send": "发送给代理",
+      "queued": "已发送。代理将在下一步读取。",
+      "heard": "代理已采纳你的纠正。"
+    },
+    "worker_lost": "浏览器执行已中断。安全恢复需要最初授权的浏览器会话和页面；否则请手动恢复。",
+    "unattended": {
+      "label": "关闭面板后继续此任务",
+      "help": "启用后请恢复任务。将使用当前标签页、网站和服务提供商。审批、登录和验证码仍需您参与。可通过页面右键菜单或停止代理的键盘快捷键停止任务。关闭浏览器或进入睡眠状态可能会中断工作。",
+      "active": "此任务已启用关闭面板后继续执行。新任务需要重新授权。",
+      "decision_interrupted": "此人工决策仍未得到回答。恢复任务以重新检查页面并请求新的决策：",
+      "scope_changed": "任务范围已更改。继续之前，请检查关闭面板后继续执行的授权。",
+      "scope": "标签页：{{tabs}} · 提供商：{{provider}} · 模型：{{model}}",
+      "stop_menu": "停止浏览器代理"
     }
   },
   "common": {
@@ -243,7 +338,10 @@
     "name": "Ollama Client - Ollama、LM Studio、llama.cpp 本地 AI 聊天",
     "short_name": "Ollama Client",
     "description": "通过 Ollama、LM Studio 和 llama.cpp 进行私密 LLM 聊天，支持本地 RAG、网页搜索和页面上下文。",
-    "action_default_title": "打开 Ollama Client"
+    "action_default_title": "打开 Ollama Client",
+    "stop_browser_agent_menu": "停止浏览器代理",
+    "agent_task_completed": "已完成",
+    "agent_task_attention": "已暂停"
   },
   "selection_button": {
     "label": "询问本地 LLM",
@@ -356,7 +454,7 @@
     },
     "performance_notice": {
       "title": "性能提示",
-      "message": "此扩展是本地提供方（默认 Ollama）的用户界面。响应时间和模型输出质量完全取决于设备硬件（CPU、RAM、GPU）以及所使用的模型。扩展本身不进行任何处理。"
+      "message": "聊天回答由您选择的提供商生成。内置嵌入在此设备上运行。速度取决于模型及其运行硬件。"
     }
   },
   "chat": {
@@ -416,7 +514,10 @@
       "generated_tokens": "生成的 Token",
       "load_time": "加载时间",
       "prompt_eval_time": "提示词评估时间",
-      "speed_unit": "词元/秒"
+      "speed_unit": "词元/秒",
+      "cached_tokens": "缓存的提示词元",
+      "reasoning_tokens": "推理词元",
+      "cost": "费用"
     },
     "session_metrics": {
       "label_tokens": "令牌",
@@ -477,7 +578,8 @@
         "results_other": "{{count}} 条结果",
         "restoreSession": "重新打开已关闭的标签页",
         "list_reminders": "列出提醒",
-        "cancel_reminder": "正在取消提醒"
+        "cancel_reminder": "正在取消提醒",
+        "browser_task": "浏览器任务"
       },
       "debug": "调试推理"
     },
@@ -607,7 +709,14 @@
       "manage": "管理权限",
       "not_granted": "未授予权限。你可以重试，或在设置中进行管理。",
       "resume_failed": "无法继续该请求。请重试。",
-      "reminders": "提醒"
+      "reminders": "提醒",
+      "agent": {
+        "title": "浏览器代理已关闭",
+        "description": "这看起来是需要在浏览器中完成的任务。代理为实验性功能，搭配托管模型效果最好。",
+        "enable": "开启并继续",
+        "continue_without": "不使用并继续",
+        "manage": "代理设置"
+      }
     },
     "errors": {
       "unknown_error": "❌ 未知错误: {{message}}",
@@ -647,8 +756,11 @@
       "context_trimmed_title": "上下文已裁剪",
       "context_trimmed_description": "提取的标签页上下文超出了你的限制，已在发送前裁剪。",
       "context_retrieval_warning_title": "上下文检索失败",
-      "context_retrieval_warning_description": "无法从你的文件中检索上下文，将不使用上下文继续。",
-      "interrupted": "响应已中断"
+      "context_retrieval_warning_description": "无法搜索部分已保存的上下文。回答可能缺少相关信息。",
+      "interrupted": "响应已中断",
+      "provider_auth": "提供商拒绝了访问。重新开始前，请在设置中检查其 API 密钥、凭据或账户权限。",
+      "provider_cors": "本地提供商阻止了扩展来源。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，然后重试。",
+      "provider_refused": "模型拒绝了此请求。请调整任务或选择其他模型。"
     },
     "composer": {
       "rag": "文件",
@@ -661,11 +773,13 @@
       "tabs": "{{count}} 个标签页",
       "files": "{{count}} 个文件",
       "knowledge": "知识",
+      "images": "{{count}} 张图片",
       "web": "网页",
       "rows": {
         "tabs": "页面和标签页上下文",
         "knowledge": "搜索已上传的文件",
-        "web": "网页搜索"
+        "web": "网页搜索",
+        "agent": "浏览器代理（实验性）"
       }
     },
     "artifacts": {
@@ -732,6 +846,12 @@
       "max_file_size_description": "单个文件允许的最大大小。较大的文件可能需要更长的处理时间。",
       "max_image_size_label": "最大图片大小 (MB)",
       "max_image_size_description": "为视觉模型附加到消息的每张图片的最大允许大小。"
+    },
+    "errors": {
+      "title": "文件上传失败",
+      "processing_failed": "无法处理此文件或为其建立索引。请检查嵌入设置和可用存储空间，然后重试。",
+      "unsupported_type": "不支持 {{name}} 的文件类型。请使用文本、PDF、DOCX、CSV/TSV 或 HTML。",
+      "too_large": "{{name}} 超过了 {{max}} MB 的文件大小上限。"
     }
   },
   "model": {
@@ -743,7 +863,11 @@
       "checking_model": "正在检查 RAG/搜索嵌入模型...",
       "error": "无法检查状态。点击重试。",
       "required_for_rag": "RAG 功能需要嵌入模型。",
-      "download_button": "下载模型"
+      "download_button": "下载模型",
+      "unavailable": "嵌入提供商不可用。请检查连接后重试。",
+      "unverified": "嵌入模型尚未验证：此提供商没有模型列表。",
+      "download_failed": "嵌入下载失败",
+      "download_failed_description": "请检查提供商连接和可用磁盘空间，然后重试。"
     },
     "menu": {
       "select_placeholder": "选择模型...",
@@ -753,6 +877,10 @@
       "search_placeholder": "搜索模型...",
       "no_model_found": "未找到模型。",
       "cloud_badge": "云端{{plan}}",
+      "cloud_models": {
+        "label": "Ollama 云端模型",
+        "description": "托管的 :cloud 模型。需要已登录的 Ollama，通常还需要付费套餐。"
+      },
       "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。",
       "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。"
     },
@@ -800,6 +928,7 @@
     "embedding_config": {
       "title": "嵌入模型、分块、搜索与存储",
       "storage_stats_title": "存储统计",
+      "storage_stats_description": "当前向量存储使用统计",
       "total_vectors": "总向量数",
       "storage_used": "已用存储空间",
       "cache": "缓存",
@@ -1004,7 +1133,9 @@
       "all_sessions_title": "所有会话",
       "role_user": "你",
       "role_assistant": "AI助手",
-      "remote_image_blocked": "已阻止远程图片"
+      "remote_image_blocked": "已阻止远程图片",
+      "role_agent": "智能体",
+      "agent_no_result": "智能体运行未记录任何结果。"
     },
     "actions": {
       "more": "{{title}} 的更多操作",
@@ -1373,6 +1504,7 @@
       "prompts": "提示词库",
       "models": "模型行为",
       "extraction": "页面和标签页",
+      "agent": "代理",
       "context": "知识与网络",
       "embeddings": "已保存的知识",
       "providers": "服务商",
@@ -1601,6 +1733,34 @@
         "description": "更换嵌入模型可能导致现有向量不兼容。重建索引以保持搜索结果准确，或直接切换不重建。",
         "switch_only": "直接切换不重建",
         "switch_and_rebuild": "切换并重建"
+      },
+      "bundled": {
+        "provider_hint": "选择 Ollama、LM Studio、llama.cpp 或其他本地或托管提供商的嵌入模型。支持的语言取决于所选模型。",
+        "mode_title": "嵌入模式",
+        "mode_bundled": "内置",
+        "mode_external": "提供商嵌入",
+        "mode_bundled_help": "MiniLM 在扩展中运行，无需服务器。",
+        "mode_external_help": "使用 Ollama、LM Studio、llama.cpp 或本地或托管提供商。",
+        "switch_builtin": "切换到内置模式",
+        "switch_server": "切换到提供商嵌入",
+        "mode_language_hint": "内置 MiniLM 在扩展中运行，最适合英文。其他语言可以尝试使用，也可以选择提供商的多语言模型。",
+        "settings_description": "选择如何处理文件和聊天记忆以用于搜索。",
+        "current_bundled": "当前使用：内置 MiniLM · 在此设备上运行",
+        "current_external": "当前模式：提供商嵌入",
+        "server_model": "提供商嵌入模型",
+        "switch_hint": "切换时会重建已保存的嵌入。重建完成前，当前设置继续生效。",
+        "title": "内置嵌入",
+        "active": "使用随附的 MiniLM 在本地生成嵌入，最适合英文，无需服务器或下载。如需多语言检索，请在下方选择外部提供商和模型，然后重建索引以切换。",
+        "offer": "内置嵌入现已可用。您可以迁移已保存的嵌入，也可以继续使用当前服务器和模型。",
+        "details": "迁移会在此设备上重建已保存的文件、网页和聊天嵌入，需要为源数据副本和新索引预留临时空间。重建成功前，当前索引保持有效。关闭此对话框或侧边栏后仍会继续运行，浏览器重启后也会继续。",
+        "progress": "正在重建嵌入：{{current}} / {{total}}",
+        "changed": "嵌入配置已更改，或暂存的向量不兼容。当前索引仍然有效。请重新开始迁移。",
+        "error": "迁移未能完成，当前嵌入仍然有效。请检查所选提供商、连接和可用存储空间，然后继续或取消。",
+        "resume": "继续迁移",
+        "migrate": "迁移到内置嵌入",
+        "keep": "保留当前设置",
+        "language_notice": "MiniLM 推荐用于英文文本。其他语言建议使用服务器上的嵌入模型，以获得更好的检索效果。您仍可尝试 MiniLM，并随时在设置中切换回去。",
+        "external": "使用所选外部模型重建"
       }
     },
     "prompts": {
@@ -2216,7 +2376,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "刷新模型",
+      "use_unverified": "试用此模型"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2247,7 +2409,8 @@
         "timeout": "提供商响应超时。请检查它是否运行以及端口是否正确。",
         "unavailable": "无法连接 Ollama。它可能已停止、使用其他端口或阻止扩展来源。",
         "server-error": "提供商返回服务器错误。请检查日志后重试。"
-      }
+      },
+      "unverified": "连接尚未验证。你可以尝试已配置的模型，或打开提供商设置以检查端点。"
     }
   }
 }

@@ -1,4 +1,5 @@
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
+import { MAX_WEB_CITATIONS } from "@ollama-client/contracts/chat"
 import { CHAT_STREAM_EVENT_TYPES } from "@ollama-client/contracts/streams"
 import {
   makeThinkingParserState,
@@ -6,9 +7,16 @@ import {
   type ThinkingParserState
 } from "./thinking-stream"
 
+/** A page a provider-side web search cited, as the reducer merges it. */
+export interface StreamWebCitation {
+  url: string
+  title?: string
+}
+
 /** Metrics fields the reducer reads or writes; callers may carry more fields. */
 export interface StreamAssistantMetrics {
   toolRuns?: unknown[]
+  webCitations?: StreamWebCitation[]
   ragQuery?: string
   ragSources?: unknown[]
   eval_count?: number
@@ -58,6 +66,7 @@ export interface StreamMessage {
   generatedImages?: Array<{ imageId?: string }>
   replayArtifact?: unknown
   toolRuns?: unknown[]
+  webCitations?: StreamWebCitation[]
   done?: boolean
   error?: AppFailure & { debug?: unknown }
   aborted?: boolean
@@ -204,6 +213,31 @@ const mergeGeneratedImages = (
   return merged
 }
 
+/**
+ * Union by URL, first seen first. Each model call in a tool loop reports its
+ * own list, so a later list adds to the turn's citations rather than replacing
+ * them; the cap is what a persisted message accepts.
+ */
+const mergeWebCitations = (
+  current: StreamWebCitation[] | undefined,
+  incoming: readonly StreamWebCitation[]
+): StreamWebCitation[] => {
+  const merged = (current ?? []).map((citation) => ({ ...citation }))
+  const byUrl = new Map(merged.map((citation) => [citation.url, citation]))
+  for (const citation of incoming) {
+    const known = byUrl.get(citation.url)
+    if (known) {
+      if (!known.title && citation.title) known.title = citation.title
+      continue
+    }
+    if (merged.length >= MAX_WEB_CITATIONS) break
+    const copy = { ...citation }
+    merged.push(copy)
+    byUrl.set(copy.url, copy)
+  }
+  return merged
+}
+
 interface AppliedPayload<TMessage extends StreamAssistantMessage> {
   assistant: TMessage
   thinkingState: ThinkingParserState
@@ -231,6 +265,13 @@ const applyStreamPayload = <TMessage extends StreamAssistantMessage>(
   }
   if (msg.toolRuns) {
     metrics = { ...metrics, toolRuns: msg.toolRuns }
+    changed = true
+  }
+  if (msg.webCitations?.length) {
+    metrics = {
+      ...metrics,
+      webCitations: mergeWebCitations(metrics?.webCitations, msg.webCitations)
+    }
     changed = true
   }
   if (msg.replayArtifact) {

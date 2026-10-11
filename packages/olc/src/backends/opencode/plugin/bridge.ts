@@ -57,8 +57,15 @@ const callBridge = async (
       "X-OLC-Token": manifest.token
     },
     body: JSON.stringify(payload),
-    signal
-  })
+    signal,
+    /**
+     * Bun, which runs OpenCode, ends a fetch after five minutes unless told
+     * not to; the proxy answers a bridge call when the client's tool does,
+     * which can take far longer. Node ignores the option. The signal still
+     * ends the call when the turn is cancelled.
+     */
+    timeout: false
+  } as RequestInit & { timeout: false })
 
   const body = await response.text()
   let parsed: { output?: unknown; error?: unknown } | null = null

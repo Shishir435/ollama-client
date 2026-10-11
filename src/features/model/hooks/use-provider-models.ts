@@ -321,6 +321,15 @@ export const useProviderModels = () => {
     })
   }, [queryClientInstance])
 
+  /** One provider's catalog, for a change only that provider reads. */
+  const refreshProvider = useCallback(
+    (providerId: string) =>
+      queryClientInstance.refetchQueries({
+        queryKey: queryKeys.model.providerModels(providerId)
+      }),
+    [queryClientInstance]
+  )
+
   const { mutateAsync: deleteModel } = useMutation({
     mutationFn: async (
       target: { modelName: string; providerId?: string } | string
@@ -397,12 +406,17 @@ export const useProviderModels = () => {
     isLoading,
     error,
     refresh,
+    refreshProvider,
     status,
     version: isOllama ? version : null,
     versionError,
     deleteModel,
     selectedProviderId,
     selectedProviderCapabilities,
-    unavailableProviders
+    unavailableProviders,
+    /** Whether Ollama is on, so a menu can offer it before it lists a model. */
+    ollamaEnabled: enabledProviders.some(
+      (provider) => provider.id === DEFAULT_PROVIDER_ID
+    )
   }
 }

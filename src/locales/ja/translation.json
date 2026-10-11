@@ -8,7 +8,7 @@
       "scroll_down": "下にスクロール",
       "scroll_left": "左にスクロール",
       "scroll_right": "右にスクロール",
-      "switch_tab": "タブ {{tab}} に切り替え",
+      "switch_tab": "別のタブに切り替え",
       "wait": "{{condition}} を待機",
       "clear_and_type": "フィールドのテキストを置き換え",
       "press_key": "{{key}} を押す",
@@ -24,43 +24,51 @@
       "double_click": "コントロールをダブルクリック",
       "click_point": "スクリーンショット上の座標をクリック",
       "zoom": "スクリーンショットを拡大",
+      "look": "新しいスクリーンショットを撮る",
       "hover": "コントロールにホバー",
       "read": "ページを読む",
       "inspect": "{{region}} を詳しく見る",
       "find": "「{{query}}」を検索",
       "extract_text": "ページのテキストを読む",
       "handle_dialog_accept": "ページのダイアログを承認",
-      "handle_dialog_dismiss": "ページのダイアログを閉じる"
+      "handle_dialog_dismiss": "ページのダイアログを閉じる",
+      "fill_form": "フォームの項目を入力: {{count}}",
+      "extract": "ページ内を調べる: {{count}}",
+      "call_page_tool": "ページのツール「{{tool}}」を使う"
     },
     "approval": {
       "title": "承認が必要です",
+      "risk": {
+        "low": "低リスク",
+        "medium": "中リスク",
+        "high": "高リスク",
+        "critical": "重大なリスク"
+      },
       "allow": "今回のみ許可",
       "reject": "拒否",
       "allowForRun": "この実行中は {{origin}} でこの種の操作を常に許可する"
     },
-    "attachment": {
-      "title": "このブラウザーでできること",
-      "attaches": "実行を開始すると、Chrome のデバッガーが選択したタブに接続します。接続中は Chrome 自身のバナーが表示され、停止・操作の引き継ぎ・完了のいずれかで接続は解除されます。",
-      "no_debugger": "このブラウザーにはデバッガーがないため、実行は拡張機能のコンテンツスクリプトを通じてページを操作します。"
-    },
     "browser_disconnected": "ブラウザー制御が切断されたため、Agent を一時停止しました。再開前にページを確認してください。",
-    "completion": {
-      "summary": "この実行では、{{count}} 件のページ観測が {{provider}} に送信されました。"
-    },
     "controls": {
       "label": "エージェント操作",
       "pause": "一時停止",
       "resume": "再開",
       "stop": "停止",
+      "takeover_start": "この手順は自分で操作する",
       "takeover_done": "操作完了 — 続行"
     },
     "error": {
       "already_running": "Agent の実行は既に進行中です。",
       "browser_control_unavailable": "Agent はブラウザー制御に接続できませんでした。DevTools または別のデバッガーを閉じて再試行してください。",
-      "permission_denied": "開始する前に、ページ観測の権限が必要です。",
+      "follow_up_unavailable": "この実行はここから続行できなくなりました。最初からやり直してタスクを設定してください。",
+      "permission_denied": "このブラウザではエージェントがページを観察できません。",
       "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
       "unreadable_update": "パネルは読み取れない更新を受け取りました。",
-      "unknown": "Agent はその要求を完了できませんでした。"
+      "unknown": "Agent はその要求を完了できませんでした。",
+      "disconnected": "エージェントが再接続中だったため受け取れませんでした。もう一度お試しください。",
+      "turn_has_run": "このメッセージはすでにブラウザータスクを開始しています。",
+      "steer_unavailable": "実行が現在動作していないため、受け取れませんでした。一時停止して修正してください。",
+      "consent_stale": "この選択肢が表示された後に実行が進んだため、保存されませんでした。実行を確認して、もう一度選んでください。"
     },
     "failure": {
       "budget_exhausted": "実行がステップの上限をすべて使い切りました。目標を絞るか、現在のページの状態から始め直してください。",
@@ -75,28 +83,15 @@
       "verification_failed": "直前の操作の結果を確認できませんでした。始め直す前にページをご確認ください。",
       "unknown": "理由を特定できないまま実行が停止しました。ページを確認してから、もう一度開始してください。"
     },
-    "feedback": "フィードバックを送信",
-    "limits": {
-      "no_native_input": "マウスとキーボードの入力は合成されたものです。実際の入力にしか反応しないページは動作しないことがあります。",
-      "no_screenshots": "スクリーンショットは取得しないため、ページを見ることでしか行えない作業はできません。",
-      "no_dialogs": "ネイティブの alert・confirm・prompt ダイアログは、実行から見ることも応答することもできません。"
-    },
     "model": {
       "label": "モデル"
     },
     "observations": "観測 {{count}} 回",
     "privacy": {
       "remote_notice": "エージェントの実行中、ページ観測はこのリモートプロバイダーへ継続的に送信されます。",
-      "acknowledge": "理解しました",
       "remote_notice_screenshots": "エージェントの実行中、ページの観測結果とビューポートのスクリーンショットがこのリモートプロバイダーへ継続的に送信されます。"
     },
     "progress": "{{budget}} 回中 {{count}} 回の観測",
-    "provider": {
-      "label": "プロバイダー",
-      "local": "ローカル",
-      "remote": "リモート",
-      "missing": "先にモデルを選択"
-    },
     "question": {
       "title": "Agent が回答を求めています",
       "inputLabel": "あなたの回答",
@@ -108,14 +103,6 @@
       "sent": "ビューポートのスクリーンショットをモデルに送信します",
       "unused": "テキスト専用モデルでは使用しません",
       "unknown": "未確定"
-    },
-    "start": {
-      "description": "このパネルからブラウザー作業を監督します。",
-      "goal": "エージェントに何をさせますか？",
-      "placeholder": "ブラウザー作業を1つ説明…",
-      "action": "エージェントを開始",
-      "auto_actions": "このタスクの日常的な操作を許可",
-      "auto_actions_description": "このサイトでのクリックと入力は自動で行います。投稿、削除、新しいサイト、機密情報を扱う操作は引き続き確認します。"
     },
     "status": {
       "submitted": "開始中",
@@ -142,42 +129,53 @@
       "verified": "検証済み",
       "rejected": "拒否",
       "failed": "失敗",
-      "uncertain": "要確認"
-    },
-    "surface": {
-      "chat": "チャット",
-      "agent": "エージェント",
-      "preview": "プレビュー"
+      "uncertain": "要確認",
+      "dialog_opened": "ダイアログが開きました"
     },
     "tab": {
       "label": "操作対象タブ",
-      "missing": "対応するウェブページを開いてください"
+      "missing": "対応するウェブページを開いてください",
+      "show": "このタブを表示"
     },
     "tabs": {
       "label": "操作中のタブ",
-      "count": "{{count}} 個のタブ"
+      "count_one": "{{count}} 個のタブ",
+      "count_other": "{{count}} 個のタブ"
     },
     "takeover": {
-      "title": "この手順を引き継ぐ"
+      "title": "この手順を引き継ぐ",
+      "instruction": {
+        "file_upload": "ページを操作してご自身でファイルを選び、その後続行してください。",
+        "sensitive_step": "ページを操作してご自身で機密性の高い手順を完了し、その後続行してください。"
+      }
     },
-    "title": "監督付きエージェント",
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
     "unresolved_reviewed": "ページを確認した — 続行",
+    "unresolved_done": "完了しました — 終了",
     "work_log": {
+      "action_needs_review": "この手順は確認が必要です。",
       "title": "作業ログ",
-      "target": "「{{name}}」"
+      "target": "「{{name}}」",
+      "reasoning": "推論"
     },
     "correction": "一時停止中です。変更点を説明してから続行してください。",
-    "export_report": "実行レポートを出力（ページのテキストを含む）",
-    "running_goal": "実行中のタスク",
-    "requirements": {
-      "title": "タスクが求めていたこと",
-      "met": "完了",
-      "unmet": "未完了"
+    "experimental_badge": "試験運用",
+    "announcement": {
+      "title": "試験運用：チャットのブラウザエージェント",
+      "description": "チャットモデルが、クリック、入力、ページ間の移動を代わりに行い、タブ内でタスクを実行できるようになりました。オンにするまでは無効のままです。",
+      "hosted_models": "高性能なホスト型モデル（OpenRouter やクラウドプロバイダ経由など）で最もよく動作します。小さなローカルモデルでは、複数ステップのタスクを完了できないことがよくあります。",
+      "approvals": "フォームの送信、サインイン、支払い、削除の前には必ず確認し、いつでも停止できます。",
+      "coming": "これは初期バージョンです。粗い部分がありますが、今後のリリースで改善が続きます。",
+      "later": "あとで",
+      "enable": "エージェントをオンにする"
     },
     "settings": {
       "title": "ブラウザエージェント",
-      "description": "実行がモデルに要求できるコンテキスト量と、ページを画像として捉えるタイミング。",
+      "description": "実行が確認なしで行えること、モデルに要求できるコンテキストの量、ページを撮影するタイミング。",
+      "enabled": {
+        "label": "チャットモデルにブラウザエージェントの使用を許可",
+        "description": "browser_task を提供し、モデルがあなたの代わりにタブ内でクリック、入力、移動できるようにします。試験運用中：動作の精度はモデルによって大きく異なります。"
+      },
       "context_window": {
         "label": "コンテキストウィンドウ",
         "description": "自動は、このモデルとこのサーバーが報告するうち最も小さいウィンドウを取り、どちらも示さない場合は控えめなサイズに戻ります。サーバー側の上限を引き上げた場合や、実行がメモリ不足になった場合は、自分でサイズを指定してください。",
@@ -190,7 +188,104 @@
         "auto": "ステップに必要なとき",
         "always": "毎ステップ",
         "never": "撮らない"
+      },
+      "permission_mode": {
+        "label": "定型的な操作",
+        "description": "新しい実行ごとに、開始したサイト上で確認なしにクリックや入力をしてよいかどうか。送信、削除、サインイン、支払い、新しいサイトは常に確認され、次の実行には何も引き継がれません。",
+        "allow_routine": "開始サイトでは許可",
+        "approve_each": "操作ごとに承認"
+      },
+      "completion_reviewer": {
+        "label": "完了レビュー担当",
+        "description": "組み込みのチェックで確認できない内容を実行が主張したとき、このモデルが実行の検証済み証拠を読み、主張を裏付けるかを判断します。ブラウザーで操作することはありません。別のモデルにその証拠が送られるのは、そのモデルが有効でツールを呼び出せ、リモートサーバーの場合はページ内容をリモートモデルに送ることに同意済みのときだけです。",
+        "same_as_run": "実行と同じモデル"
       }
+    },
+    "card": {
+      "title": "エージェントの実行",
+      "loading": "実行を読み込んでいます…",
+      "missing": "この実行の記録はもう利用できません。",
+      "outcome": "{{total}} 件中 {{met}} 件完了",
+      "outcome_visual_one": "{{count}} 件はスクリーンショットのみで確認（ページテキスト未確認）",
+      "outcome_visual_other": "{{count}} 件はスクリーンショットのみで確認（ページテキスト未確認）",
+      "continue": "続ける",
+      "retry": "再試行",
+      "start_over": "最初からやり直す",
+      "ask": "これについて質問",
+      "step_count_one": "{{count}} ステップ",
+      "step_count_other": "{{count}} ステップ",
+      "page_count_one": "{{count}} ページ",
+      "page_count_other": "{{count}} ページ"
+    },
+    "follow_up": {
+      "continue_message": "ブラウザータスクを続けてください。",
+      "retry_message": "ブラウザータスクをもう一度試してください。"
+    },
+    "paused_panel_closed": "サイドパネルが閉じられたため一時停止しました。準備ができたら再開してください。",
+    "approval_text": {
+      "accept_dialog": "ページの{{kind}}を承認",
+      "accept_dialog_origin": "{{origin}} の{{kind}}を承認",
+      "dismiss_dialog": "ページの{{kind}}を閉じる",
+      "dismiss_dialog_origin": "{{origin}} の{{kind}}を閉じる",
+      "dismiss_dialog_consequence": "ダイアログには閉じられたことが伝えられ、何も確定されません。",
+      "accept_dialog_consequence": "確認ボタンを押したものとしてページが続行します。その操作が何であってもです。",
+      "accept_leave_consequence": "ページから移動できるようになります。保存されていない内容は失われます。",
+      "dialog_unreadable": "テキストは読み取られていません。このダイアログは、この実行が読み取りを許可されていないフレームのものです。",
+      "fill_fields": "フォームの項目を一度に設定: {{count}}",
+      "fill_fields_consequence": "下に挙げたコントロールを順に設定し、設定できないものがあればそこで止まります。エージェントは送信ボタンを押しませんが、ページが自動でフォームを送信したり、入力中の変更を保存したりする場合があります。",
+      "adopt_tab": "{{url}} のタブ「{{tab}}」を引き継ぐ",
+      "navigate": "{{url}} に移動",
+      "navigate_consequence": "ブラウザはこのアドレスをそのまま開きます: {{url}}",
+      "routine_follows": "以降、{{origin}} でのクリックと入力は、このタスクを始めたサイトと同じく確認なしで行われます。フォームの送信は引き続き確認します。",
+      "no_submit_consequence": "下に表示されたコントロールに入力されます。送信の手順はないため、入力中に保存するページではすぐに保存される場合があります。",
+      "command_consequence": "ブラウザは下に表示されたコントロールでこの操作を行います。",
+      "prior_form": "このタスクの以前の実行で、このフォームはすでに送信されています。同じものの再送信ではなく、新しい送信の場合のみ承認してください。",
+      "repeated_effect": "この実行では、このページの同じコントロールで一度すでに行っています。もう一度行うべき場合のみ承認してください。",
+      "unknown_prior_effect": "この実行の操作記録を読み取れませんでした。この操作は以前の効果を繰り返す可能性があります。繰り返しても安全な場合にのみ承認してください。",
+      "adopt_untitled_tab": "{{url}} のタブを引き継ぐ"
+    },
+    "dialog_kind": {
+      "alert": "警告ダイアログ",
+      "confirm": "確認ダイアログ",
+      "prompt": "入力ダイアログ",
+      "beforeunload": "ページ移動の確認ダイアログ",
+      "dialog": "ダイアログ"
+    },
+    "question_text": {
+      "completion_refused": "結果を確認できませんでした。タスクは完了していますか？ 完了していない場合、次に何をすればよいですか？",
+      "commands_refused": "直前の操作を実行できませんでした。代わりに何を試せばよいですか？",
+      "no_progress": "進展がないまま操作を繰り返しています。何を変えればよいですか？ 停止してご自身でタスクを完了することもできます。",
+      "recovery_tried_one": "先に別の方法を{{count}}通り試しました。",
+      "recovery_tried_other": "先に別の方法を{{count}}通り試しました。",
+      "too_many_outcomes": "このタスクは {{count}} 個の別々の結果を求めていますが、1 回の実行で追跡できるのは {{max}} 個です。この実行ではどれを行いますか？残りは別の実行で続けられます。",
+      "too_many_items": "このタスクは {{count}} 件の行やレコードを挙げていますが、1 回の実行で追跡できるのは {{max}} 件です。この実行ではどれを行いますか？残りは別の実行で続けられます。",
+      "too_many_constraints": "このタスクは {{count}} 個の別々の制限を設けていますが、1 回の実行で保持できるのは {{max}} 個です。この実行で重要なのはどれですか？",
+      "confirm_removal": "あなたの回答は、このタスクで次のものが不要になったという意味かもしれません：{{list}}。削除するには「はい」、すべて残すには「いいえ」と答えてください。",
+      "confirm_lift": "あなたの回答は、次の制限がもう不要という意味かもしれません：{{list}}。解除するには「allow」と答えてください。それ以外の回答では維持されます。"
+    },
+    "start_gate": {
+      "after_page": "このタスクを書く前にモデルがページの内容を読んだため、毎回確認します。",
+      "other_tab": "このタスクは、表示中のタブとは別のタブで実行されます。",
+      "supervised": "エージェントはページ上で一歩ずつ作業し、重要な操作の前には確認します。作業中、Chrome にはデバッグのバナーが表示されます。",
+      "routine": "このサイトでは、このタスクのクリック、入力、検索を再確認なしで実行します。その他のフォームの投稿や送信、サインイン、支払い、削除、他のサイトを開く操作は引き続き確認します。",
+      "experimental_model": "このモデルのツール呼び出しは、モデル自身の申告ではなく、あなたの設定によって有効になっています。ツールを呼び出せないモデルでは、あまり進みません。"
+    },
+    "steer": {
+      "label": "エージェントに指示",
+      "placeholder": "一時停止せずに修正…",
+      "send": "エージェントに送信",
+      "queued": "送信しました。エージェントは次のステップで読み取ります。",
+      "heard": "エージェントが修正を受け取りました。"
+    },
+    "worker_lost": "ブラウザーでの実行が中断されました。安全に復旧するには、最初に許可したブラウザーセッションとページが必要です。それ以外の場合は手動で再開してください。",
+    "unattended": {
+      "label": "パネルを閉じてもこのタスクを続行する",
+      "help": "有効にしてから再開してください。現在のタブ、サイト、プロバイダーを使用します。承認、ログイン、CAPTCHAには引き続きあなたの操作が必要です。ページのコンテキストメニューまたはエージェント停止のキーボードショートカットで停止できます。ブラウザーの終了やスリープにより作業が中断されることがあります。",
+      "active": "このタスクはパネルを閉じても続行する設定です。新しいタスクには新たな同意が必要です。",
+      "decision_interrupted": "この判断はまだ回答されていません。再開するとページを再確認し、新たな判断を求めます：",
+      "scope_changed": "タスクの対象範囲が変更されました。続行する前に、パネルを閉じた状態での実行への同意を確認してください。",
+      "scope": "タブ: {{tabs}} · プロバイダー: {{provider}} · モデル: {{model}}",
+      "stop_menu": "ブラウザーエージェントを停止"
     }
   },
   "common": {
@@ -243,7 +338,10 @@
     "name": "Ollama Client - Ollama、LM Studio、llama.cpp のローカル AI チャット",
     "short_name": "Ollama Client",
     "description": "Ollama、LM Studio、llama.cpp によるプライベートな LLM チャット。ローカル RAG、ウェブ検索、ページコンテキストに対応。",
-    "action_default_title": "Ollama Client を開く"
+    "action_default_title": "Ollama Client を開く",
+    "stop_browser_agent_menu": "ブラウザーエージェントを停止",
+    "agent_task_completed": "完了",
+    "agent_task_attention": "一時停止"
   },
   "selection_button": {
     "label": "ローカルLLMに聞く",
@@ -356,7 +454,7 @@
     },
     "performance_notice": {
       "title": "パフォーマンスに関する注意",
-      "message": "この拡張機能はローカルプロバイダー（既定はOllama）のユーザーインターフェースです。応答時間とモデルの出力品質は、お使いのデバイスのハードウェア（CPU、RAM、GPU）と使用するモデルに完全に依存します。拡張機能自体による処理は行われません。"
+      "message": "チャットの回答は選択したプロバイダーが生成します。内蔵の埋め込みはこの端末上で計算します。速度はモデルと実行するハードウェアによって異なります。"
     }
   },
   "chat": {
@@ -416,7 +514,10 @@
       "generated_tokens": "生成トークン",
       "load_time": "読み込み時間",
       "prompt_eval_time": "プロンプト評価時間",
-      "speed_unit": "t/s"
+      "speed_unit": "t/s",
+      "cached_tokens": "キャッシュ済みプロンプトトークン",
+      "reasoning_tokens": "推論トークン",
+      "cost": "コスト"
     },
     "session_metrics": {
       "label_tokens": "トークン",
@@ -477,7 +578,8 @@
         "results_other": "{{count}} 件の結果",
         "restoreSession": "閉じたタブを再度開いています",
         "list_reminders": "リマインダーを一覧表示",
-        "cancel_reminder": "リマインダーをキャンセル中"
+        "cancel_reminder": "リマインダーをキャンセル中",
+        "browser_task": "ブラウザータスク"
       },
       "debug": "デバッグ推論"
     },
@@ -607,7 +709,14 @@
       "manage": "権限を管理",
       "not_granted": "権限が許可されませんでした。もう一度試すか、設定で管理してください。",
       "resume_failed": "リクエストを続行できませんでした。もう一度お試しください。",
-      "reminders": "リマインダー"
+      "reminders": "リマインダー",
+      "agent": {
+        "title": "ブラウザエージェントはオフです",
+        "description": "ブラウザでの操作のようです。エージェントは試験運用中で、ホスト型モデルで最もよく動作します。",
+        "enable": "オンにして続行",
+        "continue_without": "使わずに続行",
+        "manage": "エージェント設定"
+      }
     },
     "errors": {
       "unknown_error": "❌ 不明なエラー: {{message}}",
@@ -647,8 +756,11 @@
       "context_trimmed_title": "コンテキストを短縮しました",
       "context_trimmed_description": "抽出したタブのコンテキストが上限を超えたため、送信前に短縮しました。",
       "context_retrieval_warning_title": "コンテキストの取得に失敗しました",
-      "context_retrieval_warning_description": "ファイルからコンテキストを取得できませんでした。コンテキストなしで続行します。",
-      "interrupted": "応答が中断されました"
+      "context_retrieval_warning_description": "保存済みのコンテキストの一部を検索できませんでした。回答に関連情報が含まれない可能性があります。",
+      "interrupted": "応答が中断されました",
+      "provider_auth": "プロバイダーがアクセスを拒否しました。再開する前に、設定で API キー、認証情報、アカウントの権限を確認してください。",
+      "provider_cors": "ローカルプロバイダーが拡張機能のオリジンをブロックしました。CORS 設定で chrome-extension://* と moz-extension://* を許可してから再試行してください。",
+      "provider_refused": "モデルがこのリクエストを拒否しました。タスクを変更するか、別のモデルを選んでください。"
     },
     "composer": {
       "rag": "ファイル",
@@ -661,11 +773,13 @@
       "tabs": "{{count}} 個のタブ",
       "files": "{{count}} 個のファイル",
       "knowledge": "ナレッジ",
+      "images": "{{count}} 枚の画像",
       "web": "Web",
       "rows": {
         "tabs": "ページとタブのコンテキスト",
         "knowledge": "アップロードしたファイルを検索",
-        "web": "ウェブ検索"
+        "web": "ウェブ検索",
+        "agent": "ブラウザエージェント（試験運用）"
       }
     },
     "artifacts": {
@@ -732,6 +846,12 @@
       "max_file_size_description": "個々のファイルの最大許容サイズ。大きなファイルは処理に時間がかかる場合があります。",
       "max_image_size_label": "最大画像サイズ (MB)",
       "max_image_size_description": "ビジョンモデル向けにメッセージへ添付する各画像の最大サイズ。"
+    },
+    "errors": {
+      "title": "ファイルのアップロードに失敗しました",
+      "processing_failed": "ファイルの処理またはインデックス作成に失敗しました。埋め込み設定と空き容量を確認して再試行してください。",
+      "unsupported_type": "{{name}} のファイル形式は未対応です。テキスト、PDF、DOCX、CSV/TSV、HTML を使用してください。",
+      "too_large": "{{name}} はファイルサイズの上限 {{max}} MB を超えています。"
     }
   },
   "model": {
@@ -743,7 +863,11 @@
       "checking_model": "RAG/検索用エンベディングモデルを確認中...",
       "error": "ステータスを確認できませんでした。再試行するにはクリックしてください。",
       "required_for_rag": "エンベディングモデルはRAG機能に必要です。",
-      "download_button": "モデルをダウンロード"
+      "download_button": "モデルをダウンロード",
+      "unavailable": "埋め込みプロバイダーを利用できません。接続を確認して再試行してください。",
+      "unverified": "埋め込みモデルは未確認です。このプロバイダーにはモデル一覧がありません。",
+      "download_failed": "埋め込みのダウンロードに失敗しました",
+      "download_failed_description": "プロバイダーへの接続とディスクの空き容量を確認して再試行してください。"
     },
     "menu": {
       "select_placeholder": "モデルを選択...",
@@ -753,6 +877,10 @@
       "search_placeholder": "モデルを検索...",
       "no_model_found": "モデルが見つかりません。",
       "cloud_badge": "クラウド{{plan}}",
+      "cloud_models": {
+        "label": "Ollama クラウドモデル",
+        "description": "ホスト型の :cloud モデル。サインイン済みの Ollama と、多くの場合は有料プランが必要です。"
+      },
       "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。",
       "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。"
     },
@@ -800,6 +928,7 @@
     "embedding_config": {
       "title": "埋め込みモデル、チャンク分割、検索、ストレージ",
       "storage_stats_title": "ストレージ統計",
+      "storage_stats_description": "ベクトルストレージの現在の使用状況",
       "total_vectors": "総ベクトル数",
       "storage_used": "使用ストレージ",
       "cache": "キャッシュ",
@@ -1004,7 +1133,9 @@
       "all_sessions_title": "すべてのチャットセッション",
       "role_user": "あなた",
       "role_assistant": "AIアシスタント",
-      "remote_image_blocked": "リモート画像をブロックしました"
+      "remote_image_blocked": "リモート画像をブロックしました",
+      "role_agent": "エージェント",
+      "agent_no_result": "エージェントの実行は結果を記録しませんでした。"
     },
     "actions": {
       "more": "{{title}} のその他のアクション",
@@ -1373,6 +1504,7 @@
       "prompts": "プロンプトライブラリ",
       "models": "モデルの挙動",
       "extraction": "ページとタブ",
+      "agent": "エージェント",
       "context": "ナレッジとウェブ",
       "embeddings": "保存済みナレッジ",
       "providers": "プロバイダー",
@@ -1601,6 +1733,34 @@
         "description": "埋め込みモデルを変更すると既存のベクトルが互換性を失う可能性があります。検索結果の精度を保つために再構築するか、再構築せずに切り替えます。",
         "switch_only": "再構築せずに切り替え",
         "switch_and_rebuild": "切り替えて再構築"
+      },
+      "bundled": {
+        "provider_hint": "Ollama、LM Studio、llama.cpp、または他のローカル・ホスト型プロバイダーから埋め込みモデルを選びます。対応言語は選んだモデルによって異なります。",
+        "mode_title": "埋め込みモード",
+        "mode_bundled": "内蔵",
+        "mode_external": "プロバイダーの埋め込み",
+        "mode_bundled_help": "MiniLMが拡張機能内で動作します。サーバーは不要です。",
+        "mode_external_help": "Ollama、LM Studio、llama.cpp、またはローカル・ホスト型プロバイダーを使用します。",
+        "switch_builtin": "内蔵モードに切り替える",
+        "switch_server": "プロバイダーの埋め込みに切り替える",
+        "mode_language_hint": "内蔵MiniLMは拡張機能内で動作し、英語に最適です。他の言語では、試してみるかプロバイダーの多言語モデルを選べます。",
+        "settings_description": "ファイルやチャットの記憶を検索用に処理する方法を選びます。",
+        "current_bundled": "現在使用中：内蔵MiniLM・この端末上",
+        "current_external": "有効なモード：プロバイダーの埋め込み",
+        "server_model": "プロバイダーの埋め込みモデル",
+        "switch_hint": "切り替えると保存済みの埋め込みを再構築します。完了するまで現在の設定が有効です。",
+        "title": "内蔵の埋め込み",
+        "active": "同梱のMiniLMで埋め込みをローカル生成します。英語に最適で、サーバーやダウンロードは不要です。多言語検索には、以下で外部プロバイダーとモデルを選び、インデックスを再構築して切り替えてください。",
+        "offer": "内蔵の埋め込みが利用可能になりました。保存済みの埋め込みを移行するか、現在のサーバーとモデルを引き続き使用できます。",
+        "details": "保存済みのファイル、ページ、チャットの埋め込みをこの端末で再構築します。元データのコピーと新しいインデックス用に一時的な空き容量が必要です。成功するまでは現在のインデックスを使用します。このダイアログやサイドパネルを閉じても処理は続き、ブラウザーを再起動しても再開されます。",
+        "progress": "{{total}}件中{{current}}件の埋め込みを再構築中",
+        "changed": "埋め込み設定が変更されたか、準備済みベクトルに互換性がありません。現在のインデックスは有効です。移行を最初からやり直してください。",
+        "error": "移行を完了できませんでした。現在の埋め込みは有効です。選択したプロバイダー、接続、空き容量を確認し、再開またはキャンセルしてください。",
+        "resume": "移行を再開",
+        "migrate": "内蔵の埋め込みに移行",
+        "keep": "現在の設定を維持",
+        "language_notice": "MiniLMは英語のテキストに推奨されます。他の言語では、検索精度を高めるためにサーバー上の埋め込みモデルを使用してください。MiniLMを試してから、設定で元に戻すこともできます。",
+        "external": "選択した外部モデルで再構築"
       }
     },
     "prompts": {
@@ -2216,7 +2376,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "モデル一覧を更新",
+      "use_unverified": "このモデルを試す"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2247,7 +2409,8 @@
         "timeout": "プロバイダーの応答がタイムアウトしました。動作状況とポートを確認してください。",
         "unavailable": "Ollama に接続できません。停止中、別ポート、または拡張機能オリジンの拒否が考えられます。",
         "server-error": "プロバイダーでサーバーエラーが発生しました。ログを確認して再試行してください。"
-      }
+      },
+      "unverified": "接続は未確認です。設定済みのモデルを試すか、プロバイダー設定を開いて接続先を確認してください。"
     }
   }
 }

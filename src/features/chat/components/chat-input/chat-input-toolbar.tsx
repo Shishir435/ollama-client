@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsButton } from "@/components/settings-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
@@ -10,13 +9,6 @@ import { InputMetrics } from "./input-metrics"
 import { VoiceInputButton } from "./voice-input-button"
 
 export interface ChatInputToolbarProps {
-  /**
-   * The surface toggle, next to the settings button. It is the row's other
-   * control that is about the panel rather than about the message, so the two
-   * sit together at the end of the group instead of the switch leading a row
-   * of message controls.
-   */
-  leading?: ReactNode
   inputLength: number
   isLoading: boolean
   onFilesSelected: (files: FileList) => void
@@ -33,7 +25,6 @@ export interface ChatInputToolbarProps {
 }
 
 export const ChatInputToolbar = ({
-  leading,
   inputLength,
   isLoading,
   onFilesSelected,
@@ -81,8 +72,6 @@ export const ChatInputToolbar = ({
           className="shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground"
           iconClassName="icon-sm"
         />
-
-        {leading}
 
         <VoiceInputButton disabled={isLoading} />
       </div>

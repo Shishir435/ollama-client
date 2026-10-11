@@ -150,7 +150,6 @@ const verifierAdapter = (
   overrides: Partial<AgentEffectVerifierAdapter> = {}
 ): AgentEffectVerifierAdapter => ({
   observe: async () => after,
-  getActiveTabId: async () => 7,
   getTab: async () => ({ url: after.url }),
   classifyAccess: async () => "ok",
   now: () => 10,
@@ -191,7 +190,6 @@ const executorAdapter = (
   scroll: vi.fn(),
   mutate,
   fillForm,
-  activateTab: vi.fn(),
   goHistory: vi.fn(),
   resolveHistoryDestination: async () => undefined,
   wait: vi.fn(),
@@ -250,6 +248,246 @@ describe("Agent DOM mutation resolution and policy", () => {
     })
   })
 
+  /**
+   * DuckDuckGo commits every field the form sent and then removes its own
+   * tracking fields. The tab already reported the tidied address while the
+   * observation still saw the page it left, and the working search was left
+   * for review.
+   */
+  it.each([
+    [
+      "confirmed",
+      "/?ia=web&q=test",
+      "the site dropped its hidden fields",
+      "/?q=test"
+    ],
+    ["ambiguous", "/?ia=web", "the search term is gone", "/?q=test"],
+    ["ambiguous", "/?tag=a", "a repeated value was dropped", "/?tag=a&tag=a"],
+    ["ambiguous", "/?q=test&q=other", "another value rides along", "/?q=test"],
+    ["ambiguous", "/?q=test", "the requested fragment is gone", "/?q=test#top"],
+    ["confirmed", "/?q=test#top", "the site added a fragment", "/?q=test"]
+  ])("judges a GET submission %s when %s", async (outcome, landedPath, _label, submittedPath) => {
+    const before = observation({
+      elements: [
+        element({
+          type: "submit",
+          formAction: new URL("/", location.href).href,
+          formMethod: "get",
+          maySubmit: true,
+          submitter: true
+        })
+      ]
+    })
+    const verification: AgentVerificationInput = {
+      effect: await authorize(command({ type: "click", ref: "e1" }), before),
+      /** The executor reports the visible fields only. */
+      receipt: {
+        executedAt: 5,
+        submissionUrl: new URL(submittedPath, location.href).href
+      },
+      before,
+      allowedOrigins: [location.origin]
+    }
+    const result = await verifyDomMutationAgentEffect({
+      verification,
+      /** The tab has the tidied address; the observation is not caught up. */
+      adapter: verifierAdapter(before, {
+        getTab: async () => ({
+          url: new URL(landedPath, location.href).href
+        })
+      }),
+      signal
+    })
+    expect(result.outcome).toBe(outcome)
+  })
+
+  /**
+   * Wikipedia's search suggestion links to `Special:Search?search=Firefox`
+   * and its server answers with the article. A page's own link its site
+   * resolved to the page it named is a click that worked; a sign-in, a
+   * challenge, an unnamed path or another origin is still left for review.
+   */
+  it.each([
+    ["confirmed", "/wiki/Firefox", "Firefox - Wikipedia"],
+    ["ambiguous", "https://elsewhere.example/wiki/Firefox", "Firefox"],
+    /** The site sent the link somewhere it did not name. */
+    ["ambiguous", "/login?next=%2Fwiki%2FFirefox", "Sign in"],
+    ["ambiguous", "/challenge", "Just a moment..."],
+    ["ambiguous", "/wiki/Main_Page", "Wikipedia"],
+    /** Named, but a sign-in path never counts. */
+    ["ambiguous", "/login/Firefox", "Firefox"],
+    /** Named by the address, not answered by the page. */
+    ["ambiguous", "/challenge/Firefox", "Just a moment..."],
+    /** An encoded sign-in path is still a sign-in path. */
+    ["ambiguous", "/%6Cogin/Firefox", "Firefox - Sign in"]
+  ])("judges a followed link that committed %s at %s", async (outcome, landedPath, title) => {
+    const link = new URL(
+      "/w/index.php?title=Special%3ASearch&search=Firefox",
+      location.href
+    ).href
+    const before = observation({
+      elements: [element({ tag: "a", name: "Firefox", href: link })]
+    })
+    const landed = new URL(landedPath, location.href).href
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      observation({
+        url: landed,
+        title,
+        documentId: "document-2",
+        generation: 2
+      }),
+      before,
+      { getTab: async () => ({ url: landed }) }
+    )
+    expect(result.outcome).toBe(outcome)
+  })
+
+  /** An observation that has not caught up still shows the page the click left. */
+  it("does not take a redirected link's title from a stale observation", async () => {
+    const link = new URL(
+      "/w/index.php?title=Special%3ASearch&search=Firefox",
+      location.href
+    ).href
+    const before = observation({
+      elements: [element({ tag: "a", name: "Firefox", href: link })]
+    })
+    const landed = new URL("/challenge/Firefox", location.href).href
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      observation({ title: "Firefox search", generation: 2 }),
+      before,
+      { getTab: async () => ({ url: landed }) }
+    )
+    expect(result.outcome).toBe("ambiguous")
+  })
+
+  /**
+   * The completion judge binds a searched value to what this form sent, so
+   * the receipt keeps the visible query it was approved with — never the
+   * landed address, whose hidden fields may be tokens.
+   */
+  it.each([
+    ["q=Alice", undefined, [{ name: "Search", value: "Alice" }]],
+    ["q=Alice&category=", undefined, [{ name: "Search", value: "Alice" }]],
+    /**
+     * Each value keeps the label of the control in this form that held it;
+     * Bob in another form on the page lends Category nothing.
+     */
+    [
+      "q=Alice&category=Bob",
+      undefined,
+      [
+        { name: "Search", value: "Alice" },
+        { name: "Category", value: "Bob" }
+      ]
+    ],
+    /** A value no control of this form holds keeps no label. */
+    [
+      "q=Alice&tag=Carol",
+      undefined,
+      [{ name: "Search", value: "Alice" }, { value: "Carol" }]
+    ],
+    ["q=Alice", true, undefined],
+    [undefined, undefined, undefined]
+  ])("records the visible query %s a confirmed GET submission sent", async (formQuery, sensitive, values) => {
+    const form = { formFingerprint: "0000abcd" }
+    const before = observation({
+      elements: [
+        element({
+          type: "submit",
+          formAction: new URL("/", location.href).href,
+          formMethod: "get",
+          maySubmit: true,
+          submitter: true,
+          ...form,
+          ...(formQuery ? { formQuery } : {}),
+          ...(sensitive ? { formHasSensitiveControl: true } : {})
+        }),
+        element({
+          ref: "e2",
+          tag: "input",
+          name: "Search",
+          editable: true,
+          value: "Alice",
+          ...form
+        }),
+        element({
+          ref: "e3",
+          tag: "select",
+          name: "Category",
+          value: "Bob",
+          ...form
+        }),
+        element({
+          ref: "e4",
+          tag: "input",
+          name: "Other form",
+          editable: true,
+          value: "Bob",
+          formFingerprint: "ffff0000"
+        })
+      ]
+    })
+    const landed = new URL("/?q=Alice&token=secret-csrf", location.href).href
+    const result = await verifyDomMutationAgentEffect({
+      verification: {
+        effect: await authorize(command({ type: "click", ref: "e1" }), before),
+        receipt: { executedAt: 5, submissionUrl: landed },
+        before,
+        allowedOrigins: [location.origin]
+      },
+      adapter: verifierAdapter(before, {
+        getTab: async () => ({ url: landed })
+      }),
+      signal
+    })
+    expect(result.outcome).toBe("confirmed")
+    expect(result.evidence.values).toEqual(values)
+    expect(JSON.stringify(result)).not.toContain("secret-csrf")
+  })
+
+  it("does not confirm a submission whose observed page holds another query", async () => {
+    const before = observation({
+      elements: [
+        element({
+          type: "submit",
+          formAction: new URL("/submit", location.href).href,
+          formMethod: "post",
+          maySubmit: true,
+          submitter: true
+        })
+      ]
+    })
+    const verification: AgentVerificationInput = {
+      effect: await authorize(command({ type: "click", ref: "e1" }), before),
+      receipt: {
+        executedAt: 5,
+        submissionUrl: new URL("/submit", location.href).href
+      },
+      before,
+      allowedOrigins: [location.origin]
+    }
+    const judged = (observedPath: string) =>
+      verifyDomMutationAgentEffect({
+        verification,
+        adapter: verifierAdapter(
+          observation({
+            url: new URL(observedPath, location.href).href,
+            documentId: "document-after"
+          }),
+          {
+            getTab: async () => ({
+              url: new URL("/results?q=approved&ref=x", location.href).href
+            })
+          }
+        ),
+        signal
+      })
+    expect((await judged("/results?q=approved")).outcome).toBe("confirmed")
+    expect((await judged("/results?q=other")).outcome).toBe("ambiguous")
+  })
+
   it("derives submission and formaction from a submit control", async () => {
     const destination = new URL("/finish", location.href).href
     const before = observation({
@@ -294,6 +532,82 @@ describe("Agent DOM mutation resolution and policy", () => {
     )
     expect(policy.type).toBe("approval_required")
     expect(policy.risk).toBe("high")
+  })
+
+  /**
+   * A GET form can still change state through its handler or endpoint, so
+   * Enter stays a submission no routine grant covers. What changes is the
+   * address the approval shows: it used to be missing its query.
+   */
+  it("asks for Enter in a same-origin search as a submission to its full address", async () => {
+    const before = observation({
+      elements: [
+        element({
+          tag: "input",
+          type: "search",
+          editable: true,
+          focused: true,
+          maySubmit: true,
+          formAction: new URL("/search", location.href).href,
+          formMethod: "get",
+          formQuery: "q=atlas"
+        })
+      ]
+    })
+    const enter = command({ type: "press_key", ref: "e1", key: "Enter" })
+    const effect = await resolve(enter, before)
+    expect(effect.semanticEffects).toEqual(["form_mutation", "submission"])
+    expect(effect.target.formQuery).toBe("q=atlas")
+    expect(effect.destination?.url).toBe(
+      new URL("/search?q=atlas", location.href).href
+    )
+    const policy = await decide(enter, before)
+    expect(policy.type).toBe("approval_required")
+    expect(policy.risk).toBe("high")
+  })
+
+  it.each([
+    ["a POST form", { formMethod: "post" as const, formQuery: undefined }],
+    [
+      "a form with no preview",
+      { formMethod: "get" as const, formQuery: undefined }
+    ],
+    [
+      "another origin",
+      {
+        formMethod: "get" as const,
+        formQuery: "q=atlas",
+        formAction: "https://elsewhere.example/search"
+      }
+    ],
+    [
+      "a sensitive form",
+      {
+        formMethod: "get" as const,
+        formQuery: "q=atlas",
+        formHasSensitiveControl: true
+      }
+    ]
+  ])("shows only the form's action for %s", async (_name, patch) => {
+    const before = observation({
+      elements: [
+        element({
+          tag: "input",
+          type: "text",
+          editable: true,
+          focused: true,
+          maySubmit: true,
+          formAction: new URL("/search", location.href).href,
+          ...patch
+        })
+      ]
+    })
+    const effect = await resolve(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      before
+    )
+    expect(effect.semanticEffects).toContain("submission")
+    expect(effect.destination?.url).not.toContain("?")
   })
 
   it("uses the submitter formaction instead of a command-provided destination", async () => {
@@ -479,44 +793,44 @@ describe("Agent DOM mutation resolution and policy", () => {
   })
 })
 
-describe("Agent DOM mutation execution", () => {
-  const liveEffect = async (
-    action: AgentCommand,
-    target: Element
-  ): Promise<{
-    effect: AuthorizedAgentEffect & { frame: AgentSnapshotIdentity }
-    references: ReturnType<typeof createAgentElementReferenceStore>
-  }> => {
-    if (!target.isConnected) document.body.append(target)
-    const references = createAgentElementReferenceStore({
-      documentId: "document-1",
-      frameId: 0
-    })
-    const snapshot = references.beginSnapshot({
-      minimumGeneration: 1,
-      createSnapshotId: () => "snapshot-1"
-    })
-    const ref = snapshot.reference(target)
-    const before = observation({
-      elements: [
-        buildAgentElementObservation(
-          target,
-          ref,
-          0,
-          snapshot.verificationId(target)
-        )
-      ]
-    })
-    const effect = await authorize(action, before)
-    return {
-      effect: {
-        ...effect,
-        frame: effect.target.frame ?? effect.snapshotIdentity
-      },
-      references
-    }
+const liveEffect = async (
+  action: AgentCommand,
+  target: Element
+): Promise<{
+  effect: AuthorizedAgentEffect & { frame: AgentSnapshotIdentity }
+  references: ReturnType<typeof createAgentElementReferenceStore>
+}> => {
+  if (!target.isConnected) document.body.append(target)
+  const references = createAgentElementReferenceStore({
+    documentId: "document-1",
+    frameId: 0
+  })
+  const snapshot = references.beginSnapshot({
+    minimumGeneration: 1,
+    createSnapshotId: () => "snapshot-1"
+  })
+  const ref = snapshot.reference(target)
+  const before = observation({
+    elements: [
+      buildAgentElementObservation(
+        target,
+        ref,
+        0,
+        snapshot.verificationId(target)
+      )
+    ]
+  })
+  const effect = await authorize(action, before)
+  return {
+    effect: {
+      ...effect,
+      frame: effect.target.frame ?? effect.snapshotIdentity
+    },
+    references
   }
+}
 
+describe("Agent DOM mutation execution", () => {
   it("clicks a visual target our own visibility check calls gone", async () => {
     /*
      * A run on YouTube spent seventeen of its steps here. Every click on a
@@ -980,6 +1294,9 @@ describe("Agent DOM mutation execution", () => {
     const nativeSubmit = vi
       .spyOn(HTMLFormElement.prototype, "submit")
       .mockImplementation(() => undefined)
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
     const { effect, references } = await liveEffect(
       command({ type: "click", ref: "e1" }),
       submit
@@ -1001,6 +1318,7 @@ describe("Agent DOM mutation execution", () => {
     expect(submitHandler).toHaveBeenCalledOnce()
     expect(submissionUrl).toBeUndefined()
     expect(nativeSubmit).not.toHaveBeenCalled()
+    expect(assign).not.toHaveBeenCalled()
     expect(clickHandler).not.toHaveBeenCalled()
   })
 
@@ -1024,6 +1342,9 @@ describe("Agent DOM mutation execution", () => {
     const nativeSubmit = vi
       .spyOn(HTMLFormElement.prototype, "submit")
       .mockImplementation(() => undefined)
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
     const { effect, references } = await liveEffect(
       command({ type: "click", ref: "e1" }),
       submit
@@ -1040,7 +1361,8 @@ describe("Agent DOM mutation execution", () => {
     expect(submissionUrl).toBe(
       new URL("/finish?intent=save", location.href).href
     )
-    expect(nativeSubmit).toHaveBeenCalledOnce()
+    expect(assign).toHaveBeenCalledExactlyOnceWith(submissionUrl)
+    expect(nativeSubmit).not.toHaveBeenCalled()
     expect(clickHandler).not.toHaveBeenCalled()
   })
 
@@ -1104,6 +1426,176 @@ describe("Agent DOM mutation execution", () => {
     expect(
       submittedForm?.querySelectorAll('input[name="intent"]')
     ).toHaveLength(1)
+  })
+
+  /**
+   * The approval named the full address. The form binding compares selected
+   * options, not every option's value, so a page could move the query under
+   * an approval that still matched; the live query is compared instead.
+   */
+  it("refuses a search whose live query no longer matches the approved one", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "atlas"
+    form.append(input)
+    document.body.append(form)
+    input.focus()
+    const submit = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      input
+    )
+    expect(effect.target.formQuery).toBe("q=atlas")
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect: {
+          ...effect,
+          target: { ...effect.target, formQuery: "q=other" }
+        },
+        document,
+        references,
+        signal
+      })
+    ).toThrow(AgentEffectNotAppliedError)
+    expect(submit).not.toHaveBeenCalled()
+
+    executeAgentDomMutationInDocument({ effect, document, references, signal })
+    expect(submit).toHaveBeenCalledExactlyOnceWith(
+      new URL("/search?q=atlas", location.href).href
+    )
+  })
+
+  /**
+   * A native submission fires a bubbling `formdata` event after every check,
+   * and a listener on the document could rewrite the entry list in it. The
+   * checked address is navigated to directly, so no such event is fired.
+   */
+  /**
+   * DuckDuckGo's search box is a textarea. Enter there used to be a plain
+   * key press the page's own script turned into a navigation off the
+   * approved path; it is the guarded submission an input's Enter is.
+   */
+  it("submits Enter in a search-box textarea to the approved address", async () => {
+    const form = document.createElement("form")
+    form.action = "/"
+    form.method = "get"
+    const hidden = document.createElement("input")
+    hidden.type = "hidden"
+    hidden.name = "ia"
+    hidden.value = "web"
+    const query = document.createElement("textarea")
+    query.name = "q"
+    query.rows = 1
+    query.value = "test"
+    const search = document.createElement("button")
+    search.type = "submit"
+    search.setAttribute("aria-label", "Search")
+    form.append(hidden, query, search)
+    document.body.append(form)
+    query.focus()
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      query
+    )
+    expect(effect.semanticEffects).toContain("submission")
+
+    const submitted = executeAgentDomMutationInDocument({
+      effect,
+      document,
+      references,
+      signal
+    })
+    /** Loaded with its hidden field; recorded and verified without it. */
+    expect(assign).toHaveBeenCalledExactlyOnceWith(
+      new URL("/?ia=web&q=test", location.href).href
+    )
+    expect(submitted).toBe(new URL("/?q=test", location.href).href)
+  })
+
+  it("loads exactly the approved search address past a formdata listener", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "atlas"
+    form.append(input)
+    document.body.append(form)
+    input.focus()
+    const rewrite = vi.fn((event: Event) => {
+      ;(event as FormDataEvent).formData.set("q", "exfiltrated")
+    })
+    document.addEventListener("formdata", rewrite)
+    const nativeSubmit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const assign = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      input
+    )
+    const approved = new URL("/search?q=atlas", location.href).href
+
+    try {
+      expect(
+        executeAgentDomMutationInDocument({
+          effect,
+          document,
+          references,
+          signal
+        })
+      ).toBe(approved)
+      expect(assign).toHaveBeenCalledExactlyOnceWith(approved)
+      expect(nativeSubmit).not.toHaveBeenCalled()
+      expect(rewrite).not.toHaveBeenCalled()
+    } finally {
+      document.removeEventListener("formdata", rewrite)
+    }
+  })
+
+  /**
+   * The early check runs before the page's submit handlers; a handler that
+   * rewrites a field would otherwise send an address nobody approved.
+   */
+  it("refuses a search a submit handler rewrote after approval", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "atlas"
+    form.append(input)
+    document.body.append(form)
+    input.focus()
+    form.addEventListener("submit", () => {
+      input.value = "exfiltrated"
+    })
+    const submit = vi
+      .spyOn(window.location, "assign")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      input
+    )
+    expect(effect.target.formQuery).toBe("q=atlas")
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("changed after the page's submit handlers ran")
+    expect(submit).not.toHaveBeenCalled()
   })
 
   it("navigates observed links without invoking page click handlers", async () => {
@@ -1555,5 +2047,46 @@ describe("Agent DOM mutation across frames", () => {
       before
     )
     expect(verification.outcome).toBe("confirmed")
+  })
+})
+
+describe("delegated submit ownership", () => {
+  it("lets the document handler own the unprevented event and never submits twice", async () => {
+    const form = document.createElement("form")
+    form.action = "/comments"
+    form.method = "post"
+    const button = document.createElement("button")
+    button.type = "submit"
+    button.textContent = "Close pull request"
+    form.append(button)
+    document.body.append(form)
+    const received: boolean[] = []
+    const handler = (event: Event) => {
+      if (event.target !== form) return
+      received.push(event.defaultPrevented)
+      event.preventDefault()
+      button.textContent = "Reopen pull request"
+    }
+    document.addEventListener("submit", handler)
+    const native = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    try {
+      const { effect, references } = await liveEffect(
+        command({ type: "click", ref: "e1" }),
+        button
+      )
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+      expect(received).toEqual([false])
+      expect(button.textContent).toBe("Reopen pull request")
+      expect(native).not.toHaveBeenCalled()
+    } finally {
+      document.removeEventListener("submit", handler)
+    }
   })
 })

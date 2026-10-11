@@ -24,6 +24,9 @@ export enum RpcMethod {
   ModelsGetLibraryVariants = "models.getLibraryVariants",
   EmbeddingsCheckModel = "embeddings.checkModel",
   EmbeddingsPrepareModel = "embeddings.prepareModel",
+  EmbeddingsNativeGenerate = "embeddings.nativeGenerate",
+  EmbeddingsNativeStatus = "embeddings.nativeStatus",
+  EmbeddingsNativeCommand = "embeddings.nativeCommand",
   EmbeddingsGenerate = "embeddings.generate",
   IngestionSubmit = "ingestions.submit",
   IngestionGet = "ingestions.get",
@@ -35,7 +38,9 @@ export enum RpcMethod {
   ModelPullListActive = "models.listActivePulls",
   DiagnosticsRun = "diagnostics.run",
   DiagnosticsGetBundle = "diagnostics.getBundle",
-  DiagnosticsClear = "diagnostics.clear"
+  DiagnosticsClear = "diagnostics.clear",
+  AgentForgetChatRows = "agents.forgetChatRows",
+  AgentGetRun = "agents.getRun"
 }
 
 /** Safe error categories exposed by the RPC server. */

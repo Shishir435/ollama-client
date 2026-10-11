@@ -23,6 +23,7 @@ import {
   writeFileSync
 } from "node:fs"
 import { resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 
 import type { AgentBenchmarkReport } from "../../e2e/chromium/benchmark/agent-benchmark"
 import {
@@ -30,9 +31,6 @@ import {
   renderAgentBenchmarkMarkdown
 } from "../../e2e/chromium/benchmark/agent-benchmark"
 import { benchmarkExpectedAttempts } from "../../e2e/chromium/benchmark/benchmark-counts"
-
-const inputDir = resolve(process.argv[2] ?? "artifacts/e2e/benchmark-partials")
-const outputDir = resolve(process.argv[3] ?? "artifacts/e2e/benchmark")
 
 const collect = (directory: string): string[] => {
   const entries = readdirSync(directory, { withFileTypes: true })
@@ -46,16 +44,33 @@ const collect = (directory: string): string[] => {
   })
 }
 
-const main = (): void => {
+export interface AgentBenchmarkMergeResult {
+  exitCode: number
+  messages: string[]
+  errors: string[]
+}
+
+export const mergeAgentBenchmarkDirectory = (
+  inputDirectory: string,
+  outputDirectory: string
+): AgentBenchmarkMergeResult => {
+  const inputDir = resolve(inputDirectory)
+  const outputDir = resolve(outputDirectory)
   if (!statSync(inputDir, { throwIfNoEntry: false })?.isDirectory()) {
-    console.error(`No benchmark partials directory at ${inputDir}`)
-    process.exit(1)
+    return {
+      exitCode: 1,
+      messages: [],
+      errors: [`No benchmark partials directory at ${inputDir}`]
+    }
   }
 
   const files = collect(inputDir)
   if (files.length === 0) {
-    console.error(`No agent-benchmark-*.json partials under ${inputDir}`)
-    process.exit(1)
+    return {
+      exitCode: 1,
+      messages: [],
+      errors: [`No agent-benchmark-*.json partials under ${inputDir}`]
+    }
   }
 
   const partials = files.map(
@@ -74,18 +89,38 @@ const main = (): void => {
     renderAgentBenchmarkMarkdown(merged.report)
   )
 
-  console.log(
-    `Merged ${partials.length} partial(s): ${merged.found} of ${merged.expected} attempts.`
-  )
-  if (merged.duplicates.length > 0) {
-    console.error(`Recorded twice: ${merged.duplicates.join(", ")}`)
-  }
-  if (!merged.complete) {
-    console.error(
+  const errors: string[] = []
+  if (merged.duplicates.length > 0)
+    errors.push(`Recorded twice: ${merged.duplicates.join(", ")}`)
+  if (merged.reasoningEfforts.length > 1)
+    errors.push(
+      `Partials use mixed reasoning efforts: ${merged.reasoningEfforts.join(", ")}`
+    )
+  if (!merged.complete)
+    errors.push(
       "The pass is not complete. The record is written for inspection, but it does not stand as a measurement."
     )
-    process.exit(1)
+  return {
+    exitCode: merged.complete ? 0 : 1,
+    messages: [
+      `Merged ${partials.length} partial(s): ${merged.found} of ${merged.expected} attempts.`
+    ],
+    errors
   }
 }
 
-main()
+const main = (): void => {
+  const result = mergeAgentBenchmarkDirectory(
+    process.argv[2] ?? "artifacts/e2e/benchmark-partials",
+    process.argv[3] ?? "artifacts/e2e/benchmark"
+  )
+  for (const message of result.messages) console.log(message)
+  for (const error of result.errors) console.error(error)
+  process.exitCode = result.exitCode
+}
+
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+)
+  main()

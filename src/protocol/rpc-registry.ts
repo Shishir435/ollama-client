@@ -1,4 +1,10 @@
 import {
+  AgentForgetChatRowsRequestSchema,
+  AgentForgetChatRowsResultSchema,
+  AgentGetRunRequestSchema,
+  AgentGetRunResultSchema
+} from "@ollama-client/contracts/agent-rpc"
+import {
   ModelPullCancelRequestSchema,
   ModelPullCancelResultSchema,
   ModelPullGetRequestSchema,
@@ -13,6 +19,12 @@ import {
   EmbeddingsCheckModelResultSchema,
   EmbeddingsGenerateRequestSchema,
   EmbeddingsGenerateResultSchema,
+  EmbeddingsNativeCommandRequestSchema,
+  EmbeddingsNativeCommandResultSchema,
+  EmbeddingsNativeGenerateRequestSchema,
+  EmbeddingsNativeGenerateResultSchema,
+  EmbeddingsNativeStatusRequestSchema,
+  EmbeddingsNativeStatusResultSchema,
   EmbeddingsPrepareModelRequestSchema,
   EmbeddingsPrepareModelResultSchema,
   ModelsGetDetailsRequestSchema,
@@ -64,6 +76,28 @@ const extensionPagesOnly = ["extension-page"] as const
  * may perform cold-start or pull work, while ordinary queries stay bounded.
  */
 export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
+  [RpcMethod.EmbeddingsNativeGenerate]: {
+    request: EmbeddingsNativeGenerateRequestSchema,
+    response: EmbeddingsNativeGenerateResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 65000,
+    operation: "query"
+  },
+  [RpcMethod.EmbeddingsNativeStatus]: {
+    request: EmbeddingsNativeStatusRequestSchema,
+    response: EmbeddingsNativeStatusResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 65000,
+    operation: "query"
+  },
+  [RpcMethod.EmbeddingsNativeCommand]: {
+    request: EmbeddingsNativeCommandRequestSchema,
+    response: EmbeddingsNativeCommandResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 125000,
+    operation: "command"
+  },
+
   [RpcMethod.ProvidersList]: {
     request: ProvidersListRequestSchema,
     response: ProvidersListResultSchema,
@@ -271,6 +305,30 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     allowedSources: extensionPagesOnly,
     timeoutMs: 5_000,
     operation: "command"
+  },
+  /*
+   * Extension pages only, like every method: a page-controlled script that
+   * could send this would be able to stop a run and delete the receipts of
+   * what it already did. Bounded by the stops it waits on, each of which
+   * detaches a browser session.
+   */
+  [RpcMethod.AgentForgetChatRows]: {
+    request: AgentForgetChatRowsRequestSchema,
+    response: AgentForgetChatRowsResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 30_000,
+    operation: "command"
+  },
+  /**
+   * A chat card reading the run it reports. A read with no side effects, so a
+   * card that times out simply asks again on its next refresh.
+   */
+  [RpcMethod.AgentGetRun]: {
+    request: AgentGetRunRequestSchema,
+    response: AgentGetRunResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "query"
   }
 }
 

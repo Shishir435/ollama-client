@@ -9,6 +9,12 @@ export interface StorageKeyMetadata {
 }
 
 export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
+  [STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION]: {
+    key: STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION,
+    scope: "device-local",
+    reason:
+      "Session-only browser identity for unattended consent. Must stay in chrome.storage.session, never local or sync: browser shutdown must invalidate consent before tab IDs can be reused."
+  },
   [STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED]: {
     key: STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED,
     scope: "sync-safe",
@@ -27,11 +33,41 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "How much context a run may ask its model for. Device-local because it is a statement about this machine's memory and this server's allocation, not about the account."
   },
+  [STORAGE_KEYS.PROVIDER.OLLAMA_CLOUD_MODELS]: {
+    key: STORAGE_KEYS.PROVIDER.OLLAMA_CLOUD_MODELS,
+    scope: "device-local",
+    reason:
+      "Whether Ollama's hosted-model recommendations are listed. Device-local because whether they work depends on this machine's Ollama being signed in to a plan that covers them."
+  },
+  [STORAGE_KEYS.AGENT.COMPLETION_REVIEWER]: {
+    key: STORAGE_KEYS.AGENT.COMPLETION_REVIEWER,
+    scope: "sync-safe",
+    reason:
+      "Provider-qualified model chosen to review Agent completions; a preference like the selected model, holding no page or credential data."
+  },
+  [STORAGE_KEYS.AGENT.ENABLED]: {
+    key: STORAGE_KEYS.AGENT.ENABLED,
+    scope: "device-local",
+    reason:
+      "Opt-in for the experimental browser agent; off means the chat model is never offered browser_task. Device-local because letting a model drive this browser is consent given on this browser."
+  },
+  [STORAGE_KEYS.AGENT.ANNOUNCEMENT_DISMISSED]: {
+    key: STORAGE_KEYS.AGENT.ANNOUNCEMENT_DISMISSED,
+    scope: "sync-safe",
+    reason:
+      "Whether the experimental browser agent announcement was closed, so it is shown once per account rather than once per device. Contains no page or provider data."
+  },
   [STORAGE_KEYS.AGENT.VISION]: {
     key: STORAGE_KEYS.AGENT.VISION,
     scope: "sync-safe",
     reason:
       "Whether a run may picture the page for a model that can see. A preference about the agent, carrying no page or provider data."
+  },
+  [STORAGE_KEYS.AGENT.PERMISSION_MODE]: {
+    key: STORAGE_KEYS.AGENT.PERMISSION_MODE,
+    scope: "device-local",
+    reason:
+      "Whether each new run may click and type on the page it starts on without asking. A preference each run mints its own grants from, never a grant itself; device-local because it is consent given on this browser."
   },
   [STORAGE_KEYS.BACKUP.IMPORT_JOURNAL]: {
     key: STORAGE_KEYS.BACKUP.IMPORT_JOURNAL,
@@ -253,6 +289,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     key: STORAGE_KEYS.TTS.AUTO_PLAY,
     scope: "sync-safe",
     reason: "Speech preference."
+  },
+  [STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED]: {
+    key: STORAGE_KEYS.EMBEDDINGS.BUNDLED_NOTICE_DISMISSED,
+    scope: "device-local",
+    reason:
+      "Acknowledgement of the bundled embedding migration offer on this device."
   },
   [STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL]: {
     key: STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,

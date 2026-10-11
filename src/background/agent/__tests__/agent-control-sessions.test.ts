@@ -268,7 +268,10 @@ describe("Agent control session registry across frames", () => {
     documentId: "document-1",
     url: "https://example.com/start"
   }
-  const childObservation = (frameId: number): AgentObservation => ({
+  const childObservation = (
+    frameId: number,
+    overrides: Partial<AgentObservation> = {}
+  ): AgentObservation => ({
     ...observation({
       snapshotId: `snapshot-f${frameId}`,
       frameId,
@@ -298,7 +301,8 @@ describe("Agent control session registry across frames", () => {
         editable: false,
         sensitive: false
       }
-    ]
+    ],
+    ...overrides
   })
   const openByFrame = (
     sessions: Record<number, AgentControlSession>
@@ -366,11 +370,100 @@ describe("Agent control session registry across frames", () => {
       { minimumGeneration: 1 },
       undefined
     )
+
     expect(child.observe).toHaveBeenCalledWith(
       { minimumGeneration: 1, elementLimit: 0, textOffset: 24_000 },
       undefined
     )
     expect(open).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not discover tools in an inherited frame whose origin could not be verified", async () => {
+    const root = session()
+    const opaque = session({
+      frameId: 2,
+      observe: vi.fn(async () => {
+        throw new AgentControlFailedError({
+          reason: "observation_invalid",
+          issues: [{ path: "origin", code: "invalid_value" }]
+        })
+      }),
+      discoverPageTools: vi.fn(async () => [])
+    })
+    const open = openByFrame({ 0: root, 2: opaque })
+    const registry = createAgentControlSessionRegistry({
+      open: open as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "opaque-document",
+            url: "about:srcdoc"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 1,
+      allowedOrigins
+    })
+    await registry.discoverPageTools?.({
+      runId: "run-1",
+      tabId: 7,
+      allowedOrigins
+    })
+
+    expect(opaque.discoverPageTools).not.toHaveBeenCalled()
+    expect(opaque.disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("discovers tools in an inherited frame only after its document origin is verified", async () => {
+    const root = session()
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async () =>
+        childObservation(2, {
+          url: "about:srcdoc",
+          origin: "https://example.com"
+        })
+      ),
+      discoverPageTools: vi.fn(async () => [])
+    })
+    const registry = createAgentControlSessionRegistry({
+      open: openByFrame({ 0: root, 2: child }) as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            url: "about:srcdoc"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+
+    await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 1,
+      allowedOrigins
+    })
+    await registry.discoverPageTools?.({
+      runId: "run-1",
+      tabId: 7,
+      allowedOrigins
+    })
+
+    expect(child.discoverPageTools).toHaveBeenCalledOnce()
   })
 
   it("reads authorized child frames through their own sessions and lists the rest", async () => {

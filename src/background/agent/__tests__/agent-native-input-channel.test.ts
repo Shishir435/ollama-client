@@ -48,7 +48,10 @@ const harness = (input: {
           case "DOM.getBoxModel": {
             const id = (params as { backendNodeId: number }).backendNodeId
             callback({
-              model: { content: input.boxes?.[String(id)] ?? [0, 0] }
+              model: {
+                content: input.boxes?.[String(id)] ?? [0, 0],
+                border: input.boxes?.[String(id)] ?? [0, 0]
+              }
             })
             return
           }
@@ -269,6 +272,46 @@ describe("Agent native input channel", () => {
 })
 
 describe("Agent screenshot channel", () => {
+  /**
+   * The run's outline is the debugger's overlay, which a real Chromium draws
+   * into `Page.captureScreenshot`. A model shown it would take it for page.
+   */
+  it("hides the page indicator for the capture and restores it after", async () => {
+    const { manager, commands } = harness({})
+    await manager.attach("run-1", 7)
+    const channel = manager.nativeInput("run-1", 7)
+    if (!channel) throw new Error("channel missing")
+    await channel.captureScreenshot()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const methods = commands.map((command) => command.method)
+    const capture = methods.lastIndexOf("Page.captureScreenshot")
+    expect(methods.lastIndexOf("Overlay.hideHighlight")).toBeLessThan(capture)
+    expect(methods.lastIndexOf("Overlay.highlightRect")).toBeGreaterThan(
+      capture
+    )
+  })
+
+  it("outlines the control a native press lands on", async () => {
+    const { manager, sent } = harness({})
+    await manager.attach("run-1", 7)
+    const channel = manager.nativeInput("run-1", 7)
+    if (!channel) throw new Error("channel missing")
+    await channel.dispatch({
+      kind: "mouse",
+      type: "mousePressed",
+      x: 12,
+      y: 34,
+      button: "left",
+      clickCount: 1,
+      modifiers: 0
+    })
+    expect(sent("DOM.getNodeForLocation")[0]?.params).toMatchObject({
+      x: 12,
+      y: 34
+    })
+  })
+
   it("captures a JPEG of the viewport with its layout, and a scaled clip when asked", async () => {
     const { manager, sent, commands } = harness({})
     await manager.attach("run-1", 7)
@@ -309,5 +352,35 @@ describe("Agent screenshot channel", () => {
     })
     await manager.detach("run-1")
     await expect(channel.captureScreenshot()).resolves.toBeUndefined()
+  })
+})
+
+describe("frame visual geometry channel", () => {
+  it("uses the exact owner quad and refuses ambiguous same-URL siblings", async () => {
+    const { manager } = harness({
+      trees: {
+        root: {
+          frame: { id: "F0", url: "https://example.com/" },
+          childFrames: [
+            {
+              frame: { id: "F1", parentId: "F0", url: "https://example.com/a" }
+            }
+          ]
+        }
+      },
+      owners: { F1: 11 },
+      boxes: { "11": [100, 80, 500, 80, 500, 380, 100, 380] }
+    })
+    await manager.attach("run", 7)
+    const channel = manager.nativeInput("run", 7)
+    const frames = [
+      { frameId: 0, url: "https://example.com/" },
+      { frameId: 2, parentFrameId: 0, url: "https://example.com/a" }
+    ]
+    expect(await channel?.frameGeometry?.(2, frames, [])).toEqual({
+      content: { x: 100, y: 80, width: 400, height: 300 },
+      border: { x: 100, y: 80, width: 400, height: 300 }
+    })
+    expect(await channel?.frameGeometry?.(3, frames, [])).toBeUndefined()
   })
 })

@@ -1,7 +1,20 @@
+import { AGENT_RECOVERY_GUIDANCE } from "@ollama-client/agent-runtime"
 import type { AgentObservation, AgentRunState } from "@ollama-client/contracts"
-import { describe, expect, it, vi } from "vitest"
+import {
+  MAX_AGENT_RECOVERY_ATTEMPTS,
+  MAX_AGENT_THINKING_CHARS
+} from "@ollama-client/contracts"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { createAppError } from "@/lib/error-utils"
+import {
+  plasmoDeviceStorage,
+  plasmoSyncStorage
+} from "@/lib/plasmo-global-storage"
+import { ProviderManager } from "@/lib/providers/manager"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import { ProviderType } from "@/lib/providers/types"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ToolDefinition } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types"
 import { AGENT_DECISION_TOOL_NAME } from "../agent-decision-parser"
@@ -117,6 +130,24 @@ const modelPort = (
     resolveCompatibility: async () => compatibility,
     allowExperimental
   })
+
+vi.mock("@/lib/storage/setting-access", () => ({ readSetting: vi.fn() }))
+
+/** Provider/model-scoped stored config the Agent slider writes. */
+const storeReasoningEffort = (effort: string | undefined) => {
+  vi.mocked(readSetting).mockImplementation(async (setting) =>
+    setting === SETTINGS.MODEL_CONFIGS
+      ? {
+          [`${state.providerId}::${state.modelId}`]:
+            effort === undefined ? {} : { reasoning_effort: effort }
+        }
+      : undefined
+  )
+}
+
+beforeEach(() => {
+  vi.mocked(readSetting).mockReset()
+})
 
 describe("createProviderAgentModelPort", () => {
   it("fails closed before contacting an incompatible model", async () => {
@@ -254,6 +285,76 @@ describe("createProviderAgentModelPort", () => {
     // Every control of the inspected region is present despite the budget.
     const shownB = (userContent.match(/form \\"b\\"/g) ?? []).length
     expect(shownB).toBeGreaterThanOrEqual(200)
+  })
+
+  it("sends grounded references as untrusted data with the exact verifier kind", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      {
+        state,
+        observation,
+        evidenceLedger: [
+          {
+            id: "run:1:effect",
+            kind: "verified_effect",
+            validity: "historical",
+            observedAt: 2,
+            verificationKind: "activation",
+            source: {
+              tabId: 7,
+              frameId: 0,
+              documentId: "document-1",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              origin: "https://example.com"
+            }
+          }
+        ]
+      },
+      { aborted: false }
+    )
+    const prompt = String(streamChat.mock.calls[0]?.[0]?.messages[1]?.content)
+    expect(prompt).toContain('"id":"run:1:effect"')
+    expect(prompt).toContain('"verificationKind":"activation"')
+  })
+
+  it("returns unused evidence budget to history for a short ledger", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    const history = Array.from({ length: 100 }, (_, index) => ({
+      step: index + 1,
+      action: "x".repeat(500),
+      outcome: "confirmed" as const
+    }))
+    await port.decide({ state, observation, history }, { aborted: false })
+    await port.decide(
+      {
+        state,
+        observation,
+        history,
+        evidenceLedger: [
+          {
+            id: "inference",
+            kind: "model_inference",
+            validity: "incomplete",
+            observedAt: 1
+          }
+        ]
+      },
+      { aborted: false }
+    )
+    const baseline = JSON.parse(
+      String(streamChat.mock.calls[0][0].messages[1].content)
+    )
+    const withEvidence = JSON.parse(
+      String(streamChat.mock.calls[1][0].messages[1].content)
+    )
+    expect(withEvidence.history.length).toBeGreaterThanOrEqual(
+      baseline.history.length - 1
+    )
+    expect(withEvidence.evidenceLedger).toHaveLength(1)
+    expect(withEvidence.history.at(-1).step).toBe(100)
   })
 
   it("carries the run's kept findings into the prompt", async () => {
@@ -780,14 +881,16 @@ describe("vision decisions", () => {
       height: 600,
       maskedRegions: 1
     })
+    const [decisionTool] = request.tools ?? []
+    if (!decisionTool) throw new Error("No decision tool on the request")
     const actions = (
-      request.tools?.[0]?.parameters as unknown as {
+      decisionTool.parameters as unknown as {
         properties: { type: { enum: string[] } }
       }
     ).properties.type.enum
     expect(actions).toContain("click_point")
     expect(actions).toContain("zoom")
-    expect(request.messages[0]?.content).toMatch(
+    expect(request.messages.at(-1)?.content).toMatch(
       /screenshot of the controlled tab/
     )
   })
@@ -803,13 +906,143 @@ describe("vision decisions", () => {
     await port.decide({ state, observation, screenshot }, { aborted: false })
     const request = requests[0]
     expect(request.messages.at(-1)?.images).toBeUndefined()
+    const [textOnlyTool] = request.tools ?? []
+    if (!textOnlyTool) throw new Error("No decision tool on the request")
     const actions = (
-      request.tools?.[0]?.parameters as unknown as {
+      textOnlyTool.parameters as unknown as {
         properties: { type: { enum: string[] } }
       }
     ).properties.type.enum
     expect(actions).not.toContain("click_point")
     expect(request.messages[0]?.content).not.toMatch(/screenshot/)
+  })
+
+  const offered = (request: ChatRequest | undefined): string[] => {
+    const [tool] = request?.tools ?? []
+    if (!tool) throw new Error("No decision tool on the request")
+    return (
+      tool.parameters as unknown as {
+        properties: { type: { enum: string[] } }
+      }
+    ).properties.type.enum
+  }
+
+  it("offers look without a picture, and keeps the pixel commands for a step that has one", async () => {
+    const requests: ChatRequest[] = []
+    const port = modelPort(
+      async (request, emit) => {
+        requests.push(request)
+        emit(validChunk)
+      },
+      { ...supported, vision: true }
+    )
+    await port.decide(
+      { state, observation, visual: { available: true } },
+      { aborted: false }
+    )
+    const actions = offered(requests[0])
+    expect(actions).toContain("look")
+    expect(actions).toContain("click_point")
+    expect(actions).toContain("zoom")
+    expect(requests[0]?.messages.at(-1)?.images).toBeUndefined()
+    expect(requests[0]?.messages.at(-1)?.content).toMatch(
+      /look captures the controlled tab's viewport/
+    )
+
+    await port.decide(
+      { state, observation, screenshot, visual: { available: true } },
+      { aborted: false }
+    )
+    expect(requests[1]?.tools).toEqual(requests[0]?.tools)
+    expect(requests[1]?.messages[0]).toEqual(requests[0]?.messages[0])
+  })
+
+  it("offers exactly the visual commands the parser accepts, for every offer", async () => {
+    const { agentDecisionTool } = await import("../agent-model-port")
+    const { parseAgentDecisionToolCalls } = await import(
+      "../agent-decision-parser"
+    )
+    const args = {
+      look: { type: "look" },
+      click_point: { type: "click_point", x: 1, y: 2 },
+      zoom: { type: "zoom", x: 0, y: 0, width: 10, height: 10 }
+    }
+    const accepts = (
+      type: keyof typeof args,
+      offer: { look: boolean; pointer: boolean }
+    ) => {
+      try {
+        parseAgentDecisionToolCalls(
+          [{ id: "c1", name: "agent_decision", arguments: args[type] }],
+          observation,
+          {
+            screenshot: offer.pointer,
+            ...(offer.look ? { visual: { available: true } } : {})
+          }
+        )
+        return true
+      } catch {
+        return false
+      }
+    }
+    for (const look of [false, true])
+      for (const pointer of [false, true]) {
+        const offer = { look, pointer }
+        const enumerated = (
+          agentDecisionTool(offer).parameters as unknown as {
+            properties: { type: { enum: string[] } }
+          }
+        ).properties.type.enum
+        for (const type of ["look", "click_point", "zoom"] as const)
+          expect([offer, type, enumerated.includes(type)]).toEqual([
+            offer,
+            type,
+            accepts(type, offer)
+          ])
+      }
+  })
+
+  it("tells a text-only model the true limit and offers it nothing visual", async () => {
+    const requests: ChatRequest[] = []
+    const port = modelPort(
+      async (request, emit) => {
+        requests.push(request)
+        emit(validChunk)
+      },
+      { ...supported, vision: false }
+    )
+    await port.decide(
+      {
+        state,
+        observation,
+        visual: { available: false, reason: "model_text_only" }
+      },
+      { aborted: false }
+    )
+    expect(offered(requests[0])).not.toContain("look")
+    expect(requests[0]?.messages.at(-1)?.content).toMatch(
+      /the selected model does not accept images/
+    )
+  })
+
+  it("withholds look from a model the port knows cannot read its result", async () => {
+    const requests: ChatRequest[] = []
+    const port = modelPort(
+      async (request, emit) => {
+        requests.push(request)
+        emit(validChunk)
+      },
+      { ...supported, vision: false }
+    )
+    /** A host that claimed access is overruled by the model's own answer. */
+    await port.decide(
+      { state, observation, visual: { available: true } },
+      { aborted: false }
+    )
+    expect(offered(requests[0])).not.toContain("look")
+    expect(requests[0]?.messages.at(-1)?.content).toMatch(
+      /does not accept images/
+    )
   })
 
   it("resolves vision once per run", async () => {
@@ -884,6 +1117,131 @@ describe("usable agent prompt", () => {
       }
     ])
   })
+  /**
+   * A follow-up's record rides the decision as its own field, beside the goal
+   * rather than inside it, with the effects it must not repeat and without
+   * their page addresses.
+   */
+  it("sends a follow-up the earlier run's record as data", async () => {
+    let sent: ChatRequest | undefined
+    const port = modelPort(async (request, emit) => {
+      sent = request
+      emit(validChunk)
+    })
+    await port.decide(
+      {
+        state: {
+          ...state,
+          previousRun: {
+            mode: "continue",
+            handoff: {
+              version: 1,
+              runId: "parent",
+              status: "completed",
+              goal: "Find the blue mug",
+              result: "It costs 12 dollars",
+              outcome: { met: 1, total: 1 },
+              findings: ["Stock: 3"],
+              settledAt: 1
+            },
+            constraints: [
+              { id: "c1", text: "only blue mugs", kind: "scope" },
+              { id: "c2", text: "under $20", kind: "limit" }
+            ],
+            effects: [
+              {
+                action: "click",
+                page: "https://shop.example/cart",
+                role: "button",
+                name: "Add to cart"
+              }
+            ]
+          }
+        },
+        observation
+      },
+      { aborted: false }
+    )
+    if (!sent) throw new Error("No model request")
+    const prompt = JSON.parse(String(sent.messages[1].content))
+    expect(prompt.task).toBe(state.goal)
+    expect(prompt.previousRun).toEqual({
+      relation: "continue",
+      status: "completed",
+      task: "Find the blue mug",
+      result: "It costs 12 dollars",
+      requirementsMet: "1 of 1",
+      findings: ["Stock: 3"],
+      constraints: [
+        { id: "c1", text: "only blue mugs", kind: "scope" },
+        { id: "c2", text: "under $20", kind: "limit" }
+      ],
+      effects: [{ action: "click", role: "button", name: "Add to cart" }]
+    })
+    expect(String(sent.messages[0].content)).toContain(
+      "Its effects already happened: never do them again."
+    )
+  })
+  /**
+   * A recovering run is told the strategy as this build words it, what it
+   * already tried and where its evidence still holds — and nothing about the
+   * task changes with it.
+   */
+  it("tells a recovering run its strategy without restating the task", async () => {
+    let sent: ChatRequest | undefined
+    const port = modelPort(async (request, emit) => {
+      sent = request
+      emit(validChunk)
+    })
+    await port.decide(
+      {
+        state: {
+          ...state,
+          recovery: {
+            attempts: 2,
+            active: {
+              trigger: "no_progress",
+              strategy: "wait_for_condition",
+              tried: ["targeted_read", "wait_for_condition"],
+              startedAt: 1,
+              evidenceStep: 4
+            }
+          }
+        },
+        observation
+      },
+      { aborted: false }
+    )
+    if (!sent) throw new Error("No model request")
+    const prompt = JSON.parse(String(sent.messages[1].content))
+    expect(prompt.task).toBe(state.goal)
+    expect(prompt.recovery).toEqual({
+      reason: "no_progress",
+      strategy: "wait_for_condition",
+      instruction: AGENT_RECOVERY_GUIDANCE.wait_for_condition,
+      alreadyTried: ["targeted_read"],
+      attemptsLeft: MAX_AGENT_RECOVERY_ATTEMPTS - 2,
+      lastConfirmedStep: 4
+    })
+    expect(String(sent.messages[0].content)).toContain(
+      "Recovery never changes the task"
+    )
+  })
+  it("sends no recovery field once the episode has closed", async () => {
+    let sent: ChatRequest | undefined
+    const port = modelPort(async (request, emit) => {
+      sent = request
+      emit(validChunk)
+    })
+    await port.decide(
+      { state: { ...state, recovery: { attempts: 3 } }, observation },
+      { aborted: false }
+    )
+    if (!sent) throw new Error("No model request")
+    expect(
+      JSON.parse(String(sent.messages[1].content)).recovery
+    ).toBeUndefined()
+  })
   it("reserves actual system and schema cost at a context rounding boundary", async () => {
     let sent: ChatRequest | undefined
     const port = modelPort(async (request, emit) => {
@@ -904,6 +1262,294 @@ describe("usable agent prompt", () => {
       Math.ceil(String(sent.messages[1].content).length / 3.5) + fixed + 4096
     expect(sent.num_ctx).toBeGreaterThanOrEqual(estimated)
   })
+  describe("provider recovery", () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    it("preserves typed stream failures, clears partial calls, and never changes provider", async () => {
+      const failures = [429, 503]
+      const streamChat = vi.fn(async (_request, emit) => {
+        const status = failures.shift()
+        if (status)
+          emit({
+            toolCalls: [
+              {
+                id: "partial",
+                name: AGENT_DECISION_TOOL_NAME,
+                arguments: { type: "click", ref: "e999" }
+              }
+            ],
+            error: {
+              status,
+              message: "private detail",
+              retryable: true,
+              retryAfterMs: 800
+            },
+            done: true
+          })
+        else emit(validChunk)
+      })
+      const resolveProvider = vi.fn(async () => provider(streamChat))
+      const port = createProviderAgentModelPort({
+        resolveProvider,
+        resolveCompatibility: async () => supported
+      })
+      const pending = port.decide(
+        { state, observation },
+        new AbortController().signal
+      )
+      await vi.runAllTimersAsync()
+      expect(await pending).toEqual({ type: "complete", summary: "Done" })
+      expect(resolveProvider).toHaveBeenCalledExactlyOnceWith(
+        state.modelId,
+        state.providerId
+      )
+      expect(streamChat).toHaveBeenCalledTimes(3)
+      expect(streamChat.mock.calls.map(([request]) => request)).toEqual([
+        streamChat.mock.calls[0][0],
+        streamChat.mock.calls[0][0],
+        streamChat.mock.calls[0][0]
+      ])
+      expect(port.decisionTelemetry?.(state.id)).toMatchObject({
+        providerRetries: 2,
+        providerBackoffMs: 1_800,
+        retries: 0,
+        decideMs: 1_800
+      })
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it.each([
+      "decide",
+      "plan"
+    ] as const)("stops %s immediately on authentication failure", async (stage) => {
+      const failure = {
+        status: 401,
+        message: "private key detail",
+        userMessage: "Check the provider credentials.",
+        retryable: true
+      }
+      const streamChat = vi.fn(async (_request, emit) =>
+        emit({ error: failure, done: true })
+      )
+      const port = modelPort(streamChat)
+      const pending =
+        stage === "decide"
+          ? port.decide({ state, observation }, { aborted: false })
+          : port.plan?.(state, { aborted: false })
+      await expect(pending).rejects.toBe(failure)
+      expect(streamChat).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it("cannot hide an authentication failure in a provisional plan amendment", async () => {
+      const failure = createAppError("private detail", {
+        status: 403,
+        userMessage: "Check account access."
+      })
+      const streamChat = vi.fn(async () => {
+        throw failure
+      })
+      const port = modelPort(streamChat)
+      await expect(
+        port.plan?.(
+          {
+            ...state,
+            requirements: [{ id: "r1", text: "read the page", kind: "read" }],
+            answers: [{ questionId: "q", text: "never delete", answeredAt: 5 }]
+          },
+          { aborted: false }
+        )
+      ).rejects.toBe(failure)
+      expect(streamChat).toHaveBeenCalledOnce()
+    })
+
+    it.each(
+      (["decide", "plan", "review"] as const).flatMap((stage) =>
+        [true, false].map((builtInEnabled) => ({ stage, builtInEnabled }))
+      )
+    )("rechecks custom Ollama settings for $stage with built-in enabled=$builtInEnabled", async ({
+      stage,
+      builtInEnabled
+    }) => {
+      const sync = new Map<string, unknown>()
+      const local = new Map<string, unknown>()
+      for (const [storage, backing] of [
+        [plasmoSyncStorage, sync],
+        [plasmoDeviceStorage, local]
+      ] as const) {
+        vi.spyOn(storage, "get").mockImplementation(async (key) =>
+          backing.get(key)
+        )
+        vi.spyOn(storage, "set").mockImplementation(async (key, value) => {
+          backing.set(key, value)
+          return null
+        })
+        vi.spyOn(storage, "remove").mockImplementation(async (key) => {
+          backing.delete(key)
+        })
+      }
+      try {
+        const streamChat = vi.fn(async (_request, emit) =>
+          emit({
+            error: { status: 503, message: "busy", retryable: true },
+            done: true
+          })
+        )
+        const selected = provider(streamChat)
+        selected.config = {
+          ...selected.config,
+          id: "custom:ollama-test",
+          name: "Custom Ollama",
+          baseUrl: "http://localhost:12434"
+        }
+        const customState = { ...state, providerId: selected.config.id }
+        await ProviderManager.saveProviders([
+          selected.config,
+          { ...selected.config, id: "ollama", enabled: builtInEnabled }
+        ])
+        const resolveProvider = vi.fn(async () => selected)
+        const port = createProviderAgentModelPort({
+          resolveProvider,
+          resolveCompatibility: async () => supported
+        })
+        const signal = new AbortController().signal
+        const pending =
+          stage === "decide"
+            ? port.decide({ state: customState, observation }, signal)
+            : stage === "plan"
+              ? port.plan?.(customState, signal)
+              : port.review(
+                  customState,
+                  {
+                    goal: state.goal,
+                    requirements: [],
+                    constraints: [],
+                    claims: [],
+                    evidenceLedger: []
+                  },
+                  signal
+                )
+        const rejected = expect(pending).rejects.toMatchObject({
+          code: "OLC-PROVIDER-DISABLED"
+        })
+        await vi.advanceTimersByTimeAsync(100)
+        await ProviderManager.updateProviderConfig(selected.config.id, {
+          enabled: false
+        })
+        expect(selected.config.enabled).toBe(true)
+        expect(
+          (await ProviderManager.getProviderConfig(selected.config.id))?.enabled
+        ).toBe(false)
+        await vi.advanceTimersByTimeAsync(400)
+        await rejected
+        expect(streamChat).toHaveBeenCalledOnce()
+        expect(resolveProvider).toHaveBeenCalledOnce()
+        expect(vi.getTimerCount()).toBe(0)
+      } finally {
+        for (const storage of [plasmoSyncStorage, plasmoDeviceStorage]) {
+          vi.mocked(storage.get).mockReset().mockResolvedValue(undefined)
+          vi.mocked(storage.set).mockReset().mockResolvedValue(null)
+          vi.mocked(storage.remove).mockReset().mockResolvedValue(undefined)
+        }
+      }
+    })
+
+    it.each(
+      (["decide", "plan", "review"] as const).flatMap((stage) =>
+        (["owner", "deadline"] as const).map((cause) => ({ stage, cause }))
+      )
+    )("does not start $stage inference after $cause cancellation during the settings read", async ({
+      stage,
+      cause
+    }) => {
+      const owner = new AbortController()
+      const selected = provider(vi.fn())
+      let readCount = 0
+      let release: (() => void) | undefined
+      const spy = vi
+        .spyOn(ProviderManager, "getProviderConfig")
+        .mockImplementation(async () => {
+          readCount += 1
+          if (readCount === 2)
+            await new Promise<void>((resolve) => {
+              release = resolve
+            })
+          return selected.config
+        })
+      try {
+        const port = createProviderAgentModelPort({
+          resolveProvider: async () => selected,
+          resolveCompatibility: async () => supported
+        })
+        const pending =
+          stage === "decide"
+            ? port.decide({ state, observation }, owner.signal)
+            : stage === "plan"
+              ? port.plan?.(state, owner.signal)
+              : port.review(
+                  state,
+                  {
+                    goal: state.goal,
+                    requirements: [],
+                    constraints: [],
+                    claims: [],
+                    evidenceLedger: []
+                  },
+                  owner.signal
+                )
+        const rejected = expect(pending).rejects.toMatchObject({
+          name: "AbortError"
+        })
+        await vi.advanceTimersByTimeAsync(0)
+        expect(release).toBeDefined()
+        if (cause === "owner") owner.abort()
+        else await vi.advanceTimersByTimeAsync(120_000)
+        release?.()
+        await rejected
+        expect(selected.streamChat).not.toHaveBeenCalled()
+        expect(vi.getTimerCount()).toBe(0)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it("does not return a planning amendment when a deadline abort emits a typed failure", async () => {
+      const streamChat = vi.fn(
+        async (_request, emit, signal) =>
+          new Promise<void>((resolve) => {
+            signal?.addEventListener(
+              "abort",
+              () => {
+                emit({
+                  error: { status: 503, message: "busy", retryable: true },
+                  done: true
+                })
+                resolve()
+              },
+              { once: true }
+            )
+          })
+      )
+      const port = modelPort(streamChat)
+      const pending = port.plan?.(
+        {
+          ...state,
+          requirements: [{ id: "r1", text: "read the page", kind: "read" }],
+          answers: [{ questionId: "q", text: "never delete", answeredAt: 5 }]
+        },
+        new AbortController().signal
+      )
+      const rejected = expect(pending).rejects.toMatchObject({
+        name: "AbortError"
+      })
+      await vi.runAllTimersAsync()
+      await rejected
+      expect(streamChat).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
+    })
+  })
+
   describe("decision telemetry", () => {
     it("keeps the provider's own usage the collector used to discard", async () => {
       const streamChat = vi.fn(async (_request, emit) => {
@@ -1016,6 +1662,31 @@ describe("usable agent prompt", () => {
      * measured nothing is handed the previous step's tokens and persists
      * them a second time, which doubles a run's reported cost.
      */
+    it("keeps the end of a decision's streamed reasoning, once", async () => {
+      const streamChat = vi.fn(async (_request, emit) => {
+        emit({ thinkingDelta: "x".repeat(4_000), done: false })
+        emit({ thinkingDelta: " so click Delete.", done: false })
+        emit(validChunk)
+      })
+      const port = modelPort(streamChat)
+
+      await port.decide({ state, observation }, { aborted: false })
+
+      const thinking = port.decisionThinking?.(state.id)
+      expect(thinking?.length).toBeLessThanOrEqual(MAX_AGENT_THINKING_CHARS)
+      expect(thinking?.startsWith("…")).toBe(true)
+      expect(thinking?.endsWith("so click Delete.")).toBe(true)
+      expect(port.decisionThinking?.(state.id)).toBeUndefined()
+    })
+
+    it("reports no reasoning for a model that streamed none", async () => {
+      const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+      const port = modelPort(streamChat)
+
+      await port.decide({ state, observation }, { aborted: false })
+      expect(port.decisionThinking?.(state.id)).toBeUndefined()
+    })
+
     it("answers one reader per decision", async () => {
       const streamChat = vi.fn(async (_request, emit) =>
         emit({
@@ -1034,15 +1705,19 @@ describe("usable agent prompt", () => {
     })
 
     /**
-     * A plan that fails leaves the run unplanned, which is to say judged by
-     * the weaker pre-requirements rule. Only the parse was retried, so a
-     * provider that dropped one connection bought the easier gate.
+     * A plan that fails now stops the run before observation. Only the parse
+     * was retried, so a provider that dropped one connection skipped the
+     * retry promised by the planning boundary.
      */
     it("retries a planning call whose stream failed", async () => {
       let attempts = 0
       const streamChat = vi.fn(async (_request, emit) => {
         attempts += 1
-        if (attempts === 1) throw new Error("connection reset")
+        if (attempts === 1)
+          throw createAppError("connection reset", {
+            kind: "network",
+            retryable: true
+          })
         emit({
           toolCalls: [
             {
@@ -1050,7 +1725,11 @@ describe("usable agent prompt", () => {
               name: "agent_plan",
               arguments: {
                 requirements: [
-                  { text: "the form is submitted", kind: "change" }
+                  {
+                    text: "the page is read",
+                    kind: "read",
+                    source: "Read the page"
+                  }
                 ]
               }
             }
@@ -1062,10 +1741,34 @@ describe("usable agent prompt", () => {
 
       expect(await port.plan?.(state, { aborted: false })).toEqual({
         requirements: [
-          { id: "r1", text: "the form is submitted", kind: "change" }
+          {
+            id: "r1",
+            text: "the page is read",
+            kind: "read",
+            source: "Read the page"
+          }
         ]
       })
       expect(attempts).toBe(2)
+    })
+
+    it("preserves provider errors emitted as planning stream chunks", async () => {
+      const providerFailure = {
+        status: 503,
+        message: "private provider detail",
+        messageKey: "provider.errors.serverUnavailable",
+        userMessage: "The provider is temporarily unavailable.",
+        retryable: true
+      }
+      const streamChat = vi.fn(async (_request, emit) => {
+        emit({ error: providerFailure, done: true })
+      })
+      const port = modelPort(streamChat)
+
+      await expect(port.plan?.(state, { aborted: false })).rejects.toBe(
+        providerFailure
+      )
+      expect(streamChat).toHaveBeenCalledTimes(3)
     })
 
     /** A cancellation is not a fumble, so the second attempt is not owed. */
@@ -1111,5 +1814,429 @@ describe("usable agent prompt", () => {
       expect(sent).toContain("r1")
       expect(sent).toContain("the field holds Alice")
     })
+  })
+})
+
+describe("agent reasoning effort", () => {
+  const planChunk: ChatStreamMessage = {
+    toolCalls: [
+      {
+        id: "call-plan",
+        name: "agent_plan",
+        arguments: {
+          requirements: [
+            { text: "the page is read", kind: "read", source: "Read the page" }
+          ]
+        }
+      }
+    ],
+    done: true
+  }
+
+  it("forwards a stored effort on decisions instead of forcing thinking off", async () => {
+    storeReasoningEffort("medium")
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+
+    await port.decide(
+      { state: { ...state, id: "run-effort-decide" }, observation },
+      { aborted: false }
+    )
+
+    const request = streamChat.mock.calls[0]?.[0]
+    expect(request?.reasoningEffort).toBe("medium")
+    expect(request?.think).toBeUndefined()
+  })
+
+  it("keeps today's wire when no effort is stored", async () => {
+    storeReasoningEffort(undefined)
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+
+    await port.decide(
+      { state: { ...state, id: "run-effort-unset" }, observation },
+      { aborted: false }
+    )
+
+    const request = streamChat.mock.calls[0]?.[0]
+    expect(request?.think).toBe(false)
+    expect(request?.reasoningEffort).toBeUndefined()
+  })
+
+  it("treats auto like unset and none like off", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+
+    storeReasoningEffort("auto")
+    await port.decide(
+      { state: { ...state, id: "run-effort-auto" }, observation },
+      { aborted: false }
+    )
+    expect(streamChat.mock.calls[0]?.[0]?.think).toBe(false)
+    expect(streamChat.mock.calls[0]?.[0]?.reasoningEffort).toBeUndefined()
+
+    storeReasoningEffort("none")
+    await port.decide(
+      { state: { ...state, id: "run-effort-none" }, observation },
+      { aborted: false }
+    )
+    expect(streamChat.mock.calls[1]?.[0]?.think).toBe(false)
+    expect(streamChat.mock.calls[1]?.[0]?.reasoningEffort).toBe("none")
+  })
+
+  it("forwards a stored effort on the planning call too", async () => {
+    storeReasoningEffort("medium")
+    const streamChat = vi.fn(async (_request, emit) => emit(planChunk))
+    const port = modelPort(streamChat)
+
+    await port.plan?.({ ...state, id: "run-effort-plan" }, { aborted: false })
+
+    const request = streamChat.mock.calls[0]?.[0]
+    expect(request?.reasoningEffort).toBe("medium")
+    expect(request?.think).toBeUndefined()
+  })
+
+  it("keeps the planning call on today's wire when no effort is stored", async () => {
+    storeReasoningEffort(undefined)
+    const streamChat = vi.fn(async (_request, emit) => emit(planChunk))
+    const port = modelPort(streamChat)
+
+    await port.plan?.(
+      { ...state, id: "run-effort-plan-unset" },
+      { aborted: false }
+    )
+
+    const request = streamChat.mock.calls[0]?.[0]
+    expect(request?.think).toBe(false)
+    expect(request?.reasoningEffort).toBeUndefined()
+  })
+
+  it("resolves the stored effort once per run", async () => {
+    storeReasoningEffort("medium")
+    const streamChat = vi.fn(async (_request, emit) => emit(planChunk))
+    const port = modelPort(streamChat)
+    const run = { ...state, id: "run-effort-once" }
+
+    await port.plan?.(run, { aborted: false })
+    await port.plan?.(run, { aborted: false })
+
+    const configReads = vi
+      .mocked(readSetting)
+      .mock.calls.filter(([setting]) => setting === SETTINGS.MODEL_CONFIGS)
+    expect(configReads).toHaveLength(1)
+  })
+})
+
+describe("agent task contract on the wire", () => {
+  const planCall = (requirements: unknown[]): ChatStreamMessage => ({
+    toolCalls: [
+      { id: "call-plan", name: "agent_plan", arguments: { requirements } }
+    ],
+    done: true
+  })
+  const nine = Array.from({ length: 9 }, (_, index) => ({
+    text: `page part ${index + 1} is read`,
+    kind: "read",
+    source: "Read the page"
+  }))
+
+  /**
+   * The retry is told why: sending the same prompt twice to a model that
+   * named nine outcomes gets nine outcomes twice.
+   */
+  it("retries an over-cap plan with feedback, then reports the count", async () => {
+    const sent: string[][] = []
+    const streamChat = vi.fn(async (request, emit) => {
+      sent.push(
+        request.messages.map((message: { content: string }) => message.content)
+      )
+      emit(planCall(nine))
+    })
+    const port = modelPort(streamChat)
+
+    expect(await port.plan?.(state, { aborted: false })).toEqual({
+      requirements: [],
+      overCap: { unit: "outcomes", requested: 9, max: 8 }
+    })
+    expect(sent[0]).toHaveLength(2)
+    expect(sent[1]?.at(-1)).toContain("Merge the same outcome")
+  })
+
+  it("reports an oversized amendment instead of hiding it behind the rule fallback", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(planCall(nine)))
+    const port = modelPort(streamChat)
+    expect(
+      await port.plan?.(
+        {
+          ...state,
+          requirements: nine.slice(0, 8).map((entry, index) => ({
+            ...entry,
+            id: `r${index + 1}`,
+            kind: "read" as const
+          })),
+          plan: {
+            version: 1,
+            issued: { requirements: 8, constraints: 0 },
+            reconciledThrough: 1
+          },
+          answers: [
+            { questionId: "q", text: "Also page part 9", answeredAt: 5 }
+          ]
+        },
+        { aborted: false }
+      )
+    ).toEqual({
+      requirements: [],
+      overCap: { unit: "outcomes", requested: 9, max: 8 }
+    })
+    expect(streamChat).toHaveBeenCalledTimes(2)
+  })
+
+  it("reports the cap when a failed planner's rule amendment adds a ninth constraint", async () => {
+    const streamChat = vi.fn(async () => {
+      throw createAppError("connection reset", {
+        kind: "network",
+        retryable: true
+      })
+    })
+    const port = modelPort(streamChat)
+    expect(
+      await port.plan?.(
+        {
+          ...state,
+          requirements: [{ id: "r1", text: "the page is read", kind: "read" }],
+          constraints: Array.from({ length: 8 }, (_, index) => ({
+            id: `c${index + 1}`,
+            text: `only section ${index + 1}`,
+            kind: "scope" as const
+          })),
+          plan: {
+            version: 1,
+            issued: { requirements: 1, constraints: 8 },
+            reconciledThrough: 1
+          },
+          answers: [{ questionId: "q", text: "never delete", answeredAt: 5 }]
+        },
+        { aborted: false }
+      )
+    ).toEqual({
+      requirements: [],
+      overCap: { unit: "constraints", requested: 9, max: 8 }
+    })
+  })
+
+  it("sends the run's constraints beside its requirements", async () => {
+    let sent: string | undefined
+    const streamChat = vi.fn(async (request, emit) => {
+      sent = request.messages.at(-1)?.content as string
+      emit(validChunk)
+    })
+    const port = modelPort(streamChat)
+
+    await port.decide(
+      {
+        state: {
+          ...state,
+          requirements: [
+            {
+              id: "r1",
+              text: "the field holds Alice",
+              kind: "change",
+              source: "fill in Alice",
+              since: 1
+            }
+          ],
+          constraints: [
+            {
+              id: "c1",
+              text: "without submitting it",
+              kind: "exclude",
+              forbids: ["submission"]
+            }
+          ]
+        },
+        observation
+      },
+      { aborted: false }
+    )
+
+    expect(sent).toContain(
+      '"constraints":[{"id":"c1","text":"without submitting it","kind":"exclude"}]'
+    )
+    expect(sent).not.toContain("fill in Alice")
+  })
+
+  /**
+   * An amendment call carries the user's answers and the plan in force — and
+   * not the page, which is exactly what may not amend it.
+   */
+  it("amends from the user's answers and the plan, never the observation", async () => {
+    let prompt: string | undefined
+    const streamChat = vi.fn(async (request, emit) => {
+      prompt = request.messages.at(-1)?.content as string
+      emit(
+        planCall([
+          { text: "the field holds Alice", kind: "change", keep: "r1" },
+          { text: "the email is set", kind: "change", source: "also the email" }
+        ])
+      )
+    })
+    const port = modelPort(streamChat)
+
+    const plan = await port.plan?.(
+      {
+        ...state,
+        requirements: [
+          { id: "r1", text: "the field holds Alice", kind: "change" }
+        ],
+        plan: {
+          version: 1,
+          issued: { requirements: 1, constraints: 0 },
+          reconciledThrough: 1
+        },
+        answers: [{ questionId: "q", text: "Also the email", answeredAt: 5 }]
+      },
+      { aborted: false }
+    )
+
+    expect(plan?.requirements.map((requirement) => requirement.id)).toEqual([
+      "r1",
+      "r2"
+    ])
+    expect(prompt).toContain('"userAnswer":"Also the email"')
+    expect(prompt).not.toContain(observation.visibleText)
+  })
+
+  /**
+   * A planner that cannot be reached does not turn the user's "never delete"
+   * into nothing: the port makes the amendment by rule.
+   */
+  it("amends by rule after transient planning retries are exhausted", async () => {
+    const streamChat = vi.fn(async () => {
+      throw createAppError("connection reset", {
+        kind: "network",
+        retryable: true
+      })
+    })
+    const port = modelPort(streamChat)
+
+    const plan = await port.plan?.(
+      {
+        ...state,
+        requirements: [
+          { id: "r1", text: "the field holds Alice", kind: "change" }
+        ],
+        plan: {
+          version: 1,
+          issued: { requirements: 1, constraints: 0 },
+          reconciledThrough: 1
+        },
+        answers: [
+          {
+            questionId: "q",
+            text: "and never delete the old entry",
+            answeredAt: 5
+          }
+        ]
+      },
+      { aborted: false }
+    )
+
+    expect(streamChat).toHaveBeenCalledTimes(3)
+    expect(plan).toEqual({
+      requirements: [
+        { id: "r1", text: "the field holds Alice", kind: "change" }
+      ],
+      constraints: [
+        expect.objectContaining({ id: "c1", forbids: ["destructive"] })
+      ],
+      provisional: true
+    })
+  })
+})
+
+describe("workflow context budgeting", () => {
+  it("marks a progress reference unknown when its evidence cannot fit the model request", async () => {
+    vi.mocked(readSetting).mockImplementation(async (setting) =>
+      setting === SETTINGS.AGENT_CONTEXT_WINDOW ? 8_192 : undefined
+    )
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    const workflow: NonNullable<AgentRunState["workflow"]> = {
+      version: 1,
+      planVersion: 1,
+      throughSequence: 30,
+      entries: [
+        { requirementId: "r1", status: "supported", evidenceIds: ["old-price"] }
+      ],
+      phase: { index: 1, total: 1, kind: "review" }
+    }
+    const evidenceLedger = Array.from({ length: 24 }, (_, index) => ({
+      id: index === 0 ? "old-price" : `fact-${index}`,
+      quote: "界".repeat(200),
+      requirementId: "r1",
+      kind: "observed_fact" as const,
+      validity: "historical" as const,
+      observedAt: index,
+      source: {
+        tabId: 7,
+        frameId: 0,
+        documentId: "old",
+        snapshotId: `snapshot-${index}`,
+        generation: 1,
+        origin: "https://example.com"
+      }
+    }))
+    await port.decide(
+      { state: { ...state, workflow }, observation, evidenceLedger },
+      { aborted: false }
+    )
+    const prompt = JSON.parse(
+      String(streamChat.mock.calls[0]?.[0]?.messages[1]?.content)
+    )
+    expect(prompt.evidenceOmitted).toBeGreaterThan(0)
+    expect(prompt.workflow.entries[0]).toMatchObject({
+      status: "needs_refresh",
+      evidenceIds: [],
+      blocker: "evidence_unavailable"
+    })
+    expect(prompt.workflow.phase.kind).toBe("read")
+  })
+
+  it("omits an oversized workflow whole, and keeps the exact global step allowance", async () => {
+    vi.mocked(readSetting).mockImplementation(async (setting) =>
+      setting === SETTINGS.AGENT_CONTEXT_WINDOW ? 8_192 : undefined
+    )
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    const workflow: NonNullable<AgentRunState["workflow"]> = {
+      version: 1,
+      planVersion: 1,
+      throughSequence: 30,
+      entries: Array.from({ length: 24 }, (_, index) => ({
+        requirementId: `r${Math.floor(index / 12) + 1}`,
+        itemIndex: index % 12,
+        status: "verified",
+        evidenceIds: ["r".repeat(240)],
+        effect: { sequence: index + 1, settlement: "confirmed" }
+      })),
+      phase: { index: 24, total: 24, kind: "review" }
+    }
+    await port.decide(
+      {
+        state: { ...state, stepCount: 30, observationCount: 30, workflow },
+        observation
+      },
+      { aborted: false }
+    )
+    const prompt = JSON.parse(
+      String(streamChat.mock.calls[0]?.[0]?.messages[1]?.content)
+    )
+    expect(prompt.workflowOmitted).toBe(true)
+    expect(prompt).not.toHaveProperty("workflow")
+    expect(prompt.step).toBe(31)
+    expect(prompt.stepsRemaining).toBe(prompt.maxSteps - 30)
+    const system = String(streamChat.mock.calls[0]?.[0]?.messages[0]?.content)
+    expect(system).toContain("never assume earlier work is undone")
   })
 })

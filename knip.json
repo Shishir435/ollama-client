@@ -18,7 +18,9 @@
     "babel-plugin-react-compiler",
     "geckodriver",
     "shadcn",
-    "@opencode-ai/plugin"
+    "@opencode-ai/plugin",
+    "onnxruntime-web",
+    "@huggingface/tokenizers"
   ],
   "ignoreBinaries": ["geckodriver", "preview"],
   "workspaces": {

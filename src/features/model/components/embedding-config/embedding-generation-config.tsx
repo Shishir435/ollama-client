@@ -1,8 +1,8 @@
 import { Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
-  SettingsCard,
   SettingsFormField,
+  SettingsSection,
   SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -20,7 +20,7 @@ export const EmbeddingGenerationConfig = ({
   const { t } = useTranslation()
 
   return (
-    <SettingsCard
+    <SettingsSection
       icon={Zap}
       title={t("model.embedding_config.embedding_gen_title")}
       description={t("model.embedding_config.embedding_gen_description")}>
@@ -55,6 +55,6 @@ export const EmbeddingGenerationConfig = ({
           }
         />
       </div>
-    </SettingsCard>
+    </SettingsSection>
   )
 }

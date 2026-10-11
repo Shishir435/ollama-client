@@ -339,14 +339,14 @@ const main = (): void => {
   expectLazyLocaleArtifacts("build/firefox-mv2-prod", "Firefox")
   expectChunk(
     "build/chrome-mv3-prod",
-    /^agent-panel-[\w-]+\.js$/,
+    /^agent-workspace-[\w-]+\.js$/,
     true,
     "Agent Preview",
     "Chrome"
   )
   expectChunk(
     "build/firefox-mv2-prod",
-    /^agent-panel-[\w-]+\.js$/,
+    /^agent-workspace-[\w-]+\.js$/,
     false,
     "Agent Preview",
     "Firefox"
@@ -384,12 +384,14 @@ const main = (): void => {
     'Firefox manifest must declare data_collection_permissions.required: ["none"]'
   )
 
+  expectPermission(chromeManifest, "tabGroups", "Chrome")
+  expectOptionalPermission(firefoxManifest, "tabGroups", "Firefox")
+
   for (const permission of [
     "bookmarks",
     "history",
     "notifications",
     "downloads",
-    "tabGroups",
     "alarms",
     "sessions"
   ]) {

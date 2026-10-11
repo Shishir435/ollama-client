@@ -1,14 +1,21 @@
 import { useCallback, useState } from "react"
-import { IngestionClient } from "@/application/ingestion/ingestion-client"
+import { useTranslation } from "react-i18next"
+import {
+  IngestionClient,
+  IngestionFailureError
+} from "@/application/ingestion/ingestion-client"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_FILE_UPLOAD_CONFIG } from "@/lib/constants"
-import { getDisplayErrorMessage } from "@/lib/error-display"
 import type {
   FileProcessingState,
   ProcessedFile
 } from "@/lib/file-processors/types"
+import { logger } from "@/lib/logger"
 import { SETTINGS } from "@/lib/storage/settings"
-import { validateFileForUpload } from "./file-upload-pipeline"
+import {
+  FileUploadValidationError,
+  validateFileForUpload
+} from "./file-upload-pipeline"
 
 export interface UseFileUploadOptions {
   onFileProcessed?: (file: ProcessedFile) => void
@@ -19,7 +26,8 @@ export interface UseFileUploadOptions {
 const buildSubmittedStates = (
   files: File[],
   maxFileSize: number,
-  onError?: (error: Error) => void
+  onError: ((error: Error) => void) | undefined,
+  displayError: (error: unknown) => string
 ): Map<File, FileProcessingState> => {
   const submittedStates = new Map<File, FileProcessingState>()
   for (const file of files) {
@@ -28,7 +36,7 @@ const buildSubmittedStates = (
       submittedStates.set(file, {
         file,
         status: "error",
-        error: error.message
+        error: displayError(error)
       })
       onError?.(error)
       continue
@@ -48,6 +56,19 @@ const mergeProcessingStates = (
 }
 
 export function useFileUpload(options: UseFileUploadOptions = {}) {
+  const { t } = useTranslation()
+  const displayError = useCallback(
+    (error: unknown) =>
+      error instanceof FileUploadValidationError
+        ? t(`file_upload.errors.${error.reason}`, {
+            name: error.fileName,
+            max: error.maxMb
+          })
+        : error instanceof IngestionFailureError
+          ? error.message
+          : t("file_upload.errors.processing_failed"),
+    [t]
+  )
   const [config] = useSetting(SETTINGS.FILE_UPLOAD_CONFIG)
   const safeConfig = config || DEFAULT_FILE_UPLOAD_CONFIG
   const {
@@ -89,14 +110,16 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         })
         onFileProcessed?.(result)
       } catch (error) {
-        const errorMessage = getDisplayErrorMessage(error, "Unknown error")
+        logger.error("File ingestion failed", "useFileUpload", { error })
+        const errorMessage = displayError(error)
         setFileState(file, { status: "error", error: errorMessage })
-        onError?.(error instanceof Error ? error : new Error(errorMessage))
+        onError?.(new Error(errorMessage))
       }
     },
     [
       onFileProcessed,
       onError,
+      displayError,
       safeConfig.autoEmbedFiles,
       safeConfig.showEmbeddingProgress,
       setFileState
@@ -110,6 +133,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         fileArray,
         maxFileSize,
         onError
+          ? (error) => onError(new Error(displayError(error)))
+          : undefined,
+        displayError
       )
       setProcessingStates((previous) =>
         mergeProcessingStates(previous, submittedStates)
@@ -120,7 +146,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         await processFile(file)
       }
     },
-    [maxFileSize, onError, processFile]
+    [maxFileSize, onError, processFile, displayError]
   )
 
   const clearProcessingState = useCallback((file: File) => {

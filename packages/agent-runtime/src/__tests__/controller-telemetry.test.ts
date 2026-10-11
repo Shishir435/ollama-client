@@ -7,6 +7,7 @@ import type {
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 
+import { initialAgentDeadlineState } from "../budgets"
 import { createAgentController } from "../controller"
 import type {
   AgentControllerDependencies,
@@ -110,13 +111,23 @@ const harness = (options: {
   /** Advances one millisecond per read, so every phase measures non-zero. */
   tickingClock?: boolean
   decisionTelemetry?: () => AgentStepTelemetry | undefined
+  decisionThinking?: () => string | undefined
+  initial?: Partial<AgentRunState>
+  observations?: AgentObservation[]
+  /** How many step reads fail before they succeed; Infinity never recovers. */
+  failingStepReads?: number
 }) => {
-  let current = state()
+  let failingStepReads = options.failingStepReads ?? 0
+  let current = state(options.initial)
   const written: AgentStepWrite[] = []
   const decideInputs: AgentModelInput[] = []
   const resolveContexts: (AgentResolutionContext | undefined)[] = []
   const trace: string[] = []
-  const observations = [observation(1), observation(2), observation(3)]
+  const observations = options.observations ?? [
+    observation(1),
+    observation(2),
+    observation(3)
+  ]
   const decisions = [
     ...(options.decisions ?? [
       {
@@ -160,6 +171,10 @@ const harness = (options: {
         written.push(input)
       },
       async steps(runId) {
+        if (failingStepReads > 0) {
+          failingStepReads -= 1
+          throw new Error("steps unavailable")
+        }
         return written
           .filter((step) => step.runId === runId)
           .map((step, index) => ({ ...step, sequence: index + 1 }))
@@ -180,6 +195,9 @@ const harness = (options: {
       },
       ...(options.decisionTelemetry
         ? { decisionTelemetry: options.decisionTelemetry }
+        : {}),
+      ...(options.decisionThinking
+        ? { decisionThinking: options.decisionThinking }
         : {})
     },
     observation: {
@@ -284,6 +302,23 @@ describe("controller step telemetry", () => {
   })
 
   /**
+   * A decision has no step id yet, so its reasoning waits for the first
+   * receipt written after it and is claimed there, once.
+   */
+  it("files a decision's reasoning on the first receipt of its step", async () => {
+    const thoughts = ["Reading the page first.", undefined]
+    const run = harness({ decisionThinking: () => thoughts.shift() })
+    await run.controller.start("run-1")
+
+    const receipts = run.written().filter((s) => s.stepId === "run-1:1")
+    expect(receipts[0].thinking).toBe("Reading the page first.")
+    expect(receipts.slice(1).every((s) => s.thinking === undefined)).toBe(true)
+    expect(run.written().filter((s) => s.thinking !== undefined)).toHaveLength(
+      1
+    )
+  })
+
+  /**
    * A write cannot appear in the row it is writing, so a step's persistence
    * cost lands on that same step's next receipt — and on nothing else. Parked
    * alongside the phases still waiting for a step id, it was claimed by the
@@ -365,5 +400,99 @@ describe("controller step telemetry", () => {
     for (const step of run.written()) {
       expect(step.telemetry?.promptTokens).toBeUndefined()
     }
+  })
+})
+
+describe("controller run token ceiling", () => {
+  it("keeps a question's tokens on the run, so a resume still counts them", async () => {
+    const run = harness({
+      decisions: [{ type: "ask_user", question: "Which one?" }],
+      decisionTelemetry: () => ({ promptTokens: 1_200, outputTokens: 30 })
+    })
+    await run.controller.start("run-1")
+
+    expect(run.state().status).toBe("paused")
+    expect(run.state().pauseReason).toBe("question")
+    expect(run.state().unreceiptedTokens).toBe(1_230)
+  })
+
+  it("stops before deciding once receipts and paused decisions reach the ceiling", async () => {
+    const run = harness({ initial: { unreceiptedTokens: 1_000_000 } })
+    await run.controller.start("run-1")
+
+    expect(run.state().status).toBe("failed")
+    expect(run.state().error?.code).toBe("budget_exhausted")
+    expect(run.decideInputs).toHaveLength(0)
+  })
+})
+
+describe("controller run token ceiling with unreadable history", () => {
+  it("reads receipts again for the total when the recall lost them", async () => {
+    const run = harness({ failingStepReads: 1 })
+    await run.controller.start("run-1")
+    expect(run.state().status).toBe("completed")
+  })
+
+  it("counts this worker's own steps when receipts stay unreadable", async () => {
+    const run = harness({
+      failingStepReads: Number.POSITIVE_INFINITY,
+      decisions: [
+        {
+          type: "command",
+          command: { type: "read", snapshotId: "snapshot-1", generation: 1 }
+        },
+        {
+          type: "command",
+          command: { type: "read", snapshotId: "snapshot-2", generation: 2 }
+        }
+      ],
+      decisionTelemetry: () => ({ promptTokens: 1_000_000 })
+    })
+    await run.controller.start("run-1")
+    expect(run.state().status).toBe("failed")
+    expect(run.state().error?.code).toBe("budget_exhausted")
+    expect(run.decideInputs).toHaveLength(1)
+  })
+})
+
+describe("controller human boundary", () => {
+  it("suspends the active-time clock while the user signs in", async () => {
+    const gate: AgentObservation = {
+      ...observation(1),
+      elements: [
+        {
+          ref: "e1",
+          tag: "input",
+          type: "password",
+          visible: true,
+          enabled: true,
+          editable: true,
+          sensitive: true,
+          frameId: 0,
+          formFingerprint: "aaaaaaaa"
+        },
+        {
+          ref: "e2",
+          tag: "button",
+          name: "Next",
+          visible: true,
+          enabled: true,
+          editable: false,
+          sensitive: false,
+          frameId: 0,
+          formFingerprint: "aaaaaaaa"
+        }
+      ]
+    }
+    const run = harness({
+      initial: { deadline: initialAgentDeadlineState(1) },
+      observations: [gate]
+    })
+    await run.controller.start("run-1")
+
+    expect(run.state().status).toBe("paused")
+    expect(run.state().pauseReason).toBe("takeover")
+    expect(run.state().deadline?.suspendedAt).toBeDefined()
+    expect(run.state().deadline?.suspensionKind).toBe("takeover")
   })
 })

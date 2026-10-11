@@ -41,6 +41,11 @@ import {
   agentRejectionMessage,
   agentRejectionReason
 } from "./effect-rejection"
+import {
+  frameAccessUrl,
+  httpOrigin,
+  inheritsFrameOrigin
+} from "./inherited-frame-origin"
 
 export const AGENT_CONTROL_VERSION = 1 as const
 
@@ -184,6 +189,7 @@ const AgentDomMutationTargetSchema = z
     href: z.url().max(2_048).optional(),
     formAction: z.url().max(2_048).optional(),
     formMethod: z.enum(["get", "post", "dialog"]).optional(),
+    formQuery: z.string().max(2_048).optional(),
     formFingerprint: z
       .string()
       .regex(/^[0-9a-f]{8}$/)
@@ -285,7 +291,7 @@ export const AgentDomMutationInstructionSchema = z
     target: AgentDomMutationTargetSchema,
     snapshotIdentity: AgentSnapshotIdentitySchema,
     frame: AgentSnapshotIdentitySchema,
-    /** Only a visual click names one, and only in the root frame. */
+    /** A visual click's point in the bound target frame's local CSS viewport. */
     point: z
       .object({ x: z.number().finite(), y: z.number().finite() })
       .strict()
@@ -294,11 +300,11 @@ export const AgentDomMutationInstructionSchema = z
   .strict()
   .superRefine(assertFrameBinding)
   .superRefine((instruction, context) => {
-    if (instruction.point && instruction.frame.frameId !== 0) {
+    if (instruction.point && instruction.command.type !== "click_point") {
       context.addIssue({
         code: "custom",
         path: ["point"],
-        message: "A visual point is measured in the root frame only"
+        message: "Only a visual click carries a viewport point"
       })
     }
     if (
@@ -666,7 +672,17 @@ export const AgentSensitiveRegionsSchema = z
     rects: z.array(AgentCssRectSchema).max(MAX_AGENT_MASK_REGIONS),
     scroll: z
       .object({ x: z.number().finite(), y: z.number().finite() })
+      .strict(),
+    viewport: z
+      .object({ width: z.number().positive(), height: z.number().positive() })
       .strict()
+      .optional(),
+    frameRects: z
+      .array(
+        z.object({ rect: AgentCssRectSchema, supported: z.boolean() }).strict()
+      )
+      .max(MAX_AGENT_MASK_REGIONS)
+      .optional()
   })
   .strict()
   .nullable()
@@ -714,7 +730,8 @@ export type AgentHitTestRequest = z.infer<typeof AgentHitTestRequestSchema>
 export const AgentHitTestResultSchema = z
   .object({
     element: AgentElementSchema.optional(),
-    frameElement: z.boolean().optional()
+    frameElement: z.boolean().optional(),
+    frameRect: AgentCssRectSchema.optional()
   })
   .strict()
   .nullable()
@@ -1014,9 +1031,14 @@ export const validateAgentObservationResponse = (
     throw new Error("Agent observation response binding mismatch")
   }
   const observedUrl = new URL(response.observation.url)
+  const inherited =
+    binding.frameId !== 0 &&
+    inheritsFrameOrigin(observedUrl.href) &&
+    httpOrigin(response.observation.origin) === response.observation.origin
   if (
-    !["http:", "https:"].includes(observedUrl.protocol) ||
-    observedUrl.origin !== response.observation.origin
+    !inherited &&
+    (!["http:", "https:"].includes(observedUrl.protocol) ||
+      observedUrl.origin !== response.observation.origin)
   ) {
     throw new Error("Agent observation response has an invalid origin")
   }
@@ -1615,7 +1637,11 @@ export const openAgentControlSession = async (input: {
         : "Agent frame document is unavailable"
     )
   }
-  if ((await adapter.classifyAccess(frame.url)) !== "ok") {
+  if (
+    (await adapter.classifyAccess(
+      await frameAccessUrl(frame, (id) => adapter.getFrame(input.tabId, id))
+    )) !== "ok"
+  ) {
     throw new Error(
       frameId === 0
         ? "Agent main-frame document is not readable"

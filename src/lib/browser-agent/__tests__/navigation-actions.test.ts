@@ -4,7 +4,10 @@ import type {
   AgentVerificationInput,
   AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
-import { evaluateAgentPolicy } from "@ollama-client/agent-runtime"
+import {
+  AgentEffectNotAppliedError,
+  evaluateAgentPolicy
+} from "@ollama-client/agent-runtime"
 import type {
   AgentCommand,
   AgentElement,
@@ -144,7 +147,6 @@ const executorAdapter = (
   scroll: vi.fn(),
   mutate: vi.fn(),
   fillForm: vi.fn(async () => ({ applied: 0 })),
-  activateTab: vi.fn(),
   goHistory: vi.fn(),
   resolveHistoryDestination: async () => undefined,
   wait: vi.fn(),
@@ -158,7 +160,6 @@ const verifierAdapter = (
   overrides: Partial<AgentEffectVerifierAdapter> = {}
 ): AgentEffectVerifierAdapter => ({
   observe: async () => observation({ generation: 2 }),
-  getActiveTabId: async () => 7,
   getTab: async () => ({ url: "https://example.com/docs" }),
   classifyAccess: async () => "ok",
   now: () => 10,
@@ -553,7 +554,7 @@ describe("Agent navigation actions", () => {
         adapter,
         signal
       })
-    ).rejects.toThrow("source tab changed")
+    ).rejects.toThrow("Agent source changed before execution: tab")
     expect(navigateSpy).not.toHaveBeenCalled()
   })
 
@@ -571,8 +572,25 @@ describe("Agent navigation actions", () => {
         }),
         signal
       })
-    ).rejects.toThrow("source document changed")
+    ).rejects.toThrow("Agent source changed before execution: document")
     expect(navigateSpy).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Nothing was sent, so the run must hear "not applied" and look again, not
+   * "may have landed" and stop for a human: a run whose page navigated to the
+   * very article it was waiting for was paused that way after succeeding.
+   */
+  it("refuses a moved page as not applied, never as an unknown effect", async () => {
+    await expect(
+      executeNavigationAgentEffect({
+        effect: await authorize(navigate("https://example.com/docs")),
+        adapter: executorAdapter({
+          getTab: async () => ({ id: 7, url: "https://moved.example/start" })
+        }),
+        signal
+      })
+    ).rejects.toBeInstanceOf(AgentEffectNotAppliedError)
   })
 
   it("navigates to the resolved destination rather than the raw command", async () => {
@@ -639,6 +657,35 @@ describe("Agent navigation actions", () => {
       verifierAdapter({
         getTab: async () => ({ url: "https://example.com/start" })
       })
+    )
+    expect(result.outcome).toBe("ambiguous")
+  })
+
+  /**
+   * DuckDuckGo commits `?q=test&ia=web` for `?q=test`; reading the added
+   * parameter as another destination paused a search that had worked.
+   */
+  it("confirms a destination the site added parameters to on arrival", async () => {
+    const landed = "https://example.com/search?q=test&ia=web"
+    const result = await verify(
+      navigate("https://example.com/search?q=test"),
+      verifierAdapter({
+        getTab: async () => ({ url: landed }),
+        observe: async () =>
+          observation({ generation: 2, documentId: "document-2", url: landed })
+      })
+    )
+    expect(result.outcome).toBe("confirmed")
+  })
+
+  it.each([
+    ["a changed value", "https://example.com/search?q=other&ia=web"],
+    ["a dropped parameter", "https://example.com/search?ia=web"],
+    ["another path", "https://example.com/results?q=test"]
+  ])("still reports %s as another destination", async (_label, landed) => {
+    const result = await verify(
+      navigate("https://example.com/search?q=test"),
+      verifierAdapter({ getTab: async () => ({ url: landed }) })
     )
     expect(result.outcome).toBe("ambiguous")
   })

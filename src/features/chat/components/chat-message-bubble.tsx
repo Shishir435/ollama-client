@@ -1,7 +1,9 @@
 import { TriangleAlert } from "lucide-react"
-import { memo, useState } from "react"
+import { memo, Suspense, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
+import { useRecoveryCooldown } from "@/features/chat/hooks/use-recovery-cooldown"
+import { useAgentRunRenderer } from "@/features/chat/lib/agent-run-renderer"
 import type { PermissionResumeResult } from "@/features/chat/lib/resume-permission-turn"
 import type { ChatMessage } from "@/types"
 import { ChatErrorReportAction } from "./chat-error-report-action"
@@ -41,14 +43,29 @@ export const ChatMessageBubble = memo(
     onFork?: (content: string) => void
     onDelete?: () => void
     onNavigate?: (nodeId: number | string) => void
-    onResolvePermission?: () => Promise<PermissionResumeResult>
+    /** `enable: false` continues without turning the capability on. */
+    onResolvePermission?: (enable?: boolean) => Promise<PermissionResumeResult>
   }) => {
     const { t } = useTranslation()
     const [editorMode, setEditorMode] = useState<"edit" | "fork" | null>(null)
     const isUser = msg.role === "user"
+    const AgentRunCard = useAgentRunRenderer()
+    const agentRow = !isUser && Boolean(msg.agentRunId)
     const permissionNotice = msg.metrics?.permissionNotice
     const showErrorTreatment =
       !isLoading && !isStreaming && hasAssistantError(msg)
+    /**
+     * A turn that delegated a browser run is not regenerated: asking again
+     * would ask the model to start the task again, beside a run that already
+     * acted on a page. The card's own follow-ups are the way to carry on.
+     */
+    const cooldown = useRecoveryCooldown(
+      msg.error?.recoveryAction === "wait-retry"
+        ? msg.error.retryAfterMs
+        : undefined,
+      msg.timestamp
+    )
+    const onRegenerateTurn = agentRow ? undefined : onRegenerate
     const canRetry =
       !isUser &&
       // An empty answer is retryable for the same reason an interrupted one is:
@@ -56,7 +73,7 @@ export const ChatMessageBubble = memo(
       (Boolean(msg.error?.retryable) ||
         Boolean(msg.metrics?.interrupted) ||
         Boolean(msg.metrics?.emptyResponse)) &&
-      Boolean(onRegenerate) &&
+      Boolean(onRegenerateTurn) &&
       !isLoading &&
       !isStreaming
 
@@ -105,6 +122,16 @@ export const ChatMessageBubble = memo(
           />
         ) : (
           <>
+            {/*
+              A run's card sits above the answer of the turn that started it:
+              the run is what the model delegated, the text is what it made
+              of the result.
+            */}
+            {agentRow && AgentRunCard && (
+              <Suspense fallback={null}>
+                <AgentRunCard msg={msg} />
+              </Suspense>
+            )}
             {showErrorTreatment ? (
               // A failed turn is styled as a failure, not as model output: same
               // copy in the same neutral bubble reads as something the model
@@ -125,7 +152,9 @@ export const ChatMessageBubble = memo(
                 <ChatErrorReportAction
                   msg={msg}
                   sessionId={sessionId}
-                  onRetry={onRegenerate ? () => onRegenerate() : undefined}
+                  onRetry={
+                    onRegenerateTurn ? () => onRegenerateTurn() : undefined
+                  }
                 />
               </div>
             ) : (
@@ -142,8 +171,8 @@ export const ChatMessageBubble = memo(
               isLoading={isLoading}
               showRetrievedChunks={showRetrievedChunks}
               feedbackEnabled={feedbackEnabled}
-              onRegenerate={onRegenerate}
-              canRetry={canRetry}
+              onRegenerate={cooldown > 0 ? undefined : onRegenerateTurn}
+              canRetry={canRetry && cooldown === 0}
               onEdit={() => setEditorMode("edit")}
               onFork={
                 isUser && !isBusy ? () => setEditorMode("fork") : undefined

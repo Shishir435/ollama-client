@@ -15,6 +15,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http"
 
 const JSON_BODY_LIMIT_BYTES = 50 * 1024 * 1024
+/** Rate-limit windows kept before expired ones are swept. */
+const MAX_RATE_LIMIT_BUCKETS = 256
 
 export interface RouteRequest {
   method: string
@@ -193,6 +195,36 @@ const readJsonBody = (request: IncomingMessage): Promise<unknown> =>
     request.on("error", reject)
   })
 
+export const isLocalListenerHost = (
+  host: string | undefined,
+  localAddress: string | undefined,
+  localPort: number | undefined
+): boolean => {
+  if (!host || !localPort) return false
+  try {
+    const url = new URL(`http://${host}`)
+    if (
+      url.username ||
+      url.password ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash
+    )
+      return false
+    if (Number(url.port || 80) !== localPort) return false
+    const address = localAddress?.replace(/^::ffff:/, "")
+    return [
+      "localhost",
+      "127.0.0.1",
+      "[::1]",
+      address,
+      address && `[${address}]`
+    ].includes(url.hostname)
+  } catch {
+    return false
+  }
+}
+
 const applyOriginPolicy = (
   request: IncomingMessage,
   response: ServerResponse,
@@ -317,6 +349,14 @@ export const createRouter = ({
   const patterns = new Map<Route, string>()
   const buckets = new Map<string, { count: number; resetAt: number }>()
 
+  /** Expired windows are dropped once there are enough to matter. */
+  const sweepExpiredBuckets = (now: number) => {
+    if (buckets.size < MAX_RATE_LIMIT_BUCKETS) return
+    for (const [key, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(key)
+    }
+  }
+
   const setRateLimitHeaders = (
     response: ServerResponse,
     remaining: number,
@@ -354,6 +394,22 @@ export const createRouter = ({
     const url = new URL(request.url ?? "/", "http://localhost")
     const method = (request.method ?? "GET").toUpperCase()
 
+    if (
+      !isLocalListenerHost(
+        request.headers.host,
+        request.socket.localAddress,
+        request.socket.localPort
+      )
+    ) {
+      sendJson(response, 403, {
+        error: {
+          type: "Forbidden",
+          code: "host_not_allowed",
+          message: "Host must address this proxy listener."
+        }
+      })
+      return
+    }
     if (!applyOriginPolicy(request, response, allowedOrigins)) return
     if (handlePreflight(method, response, allowedHeaders)) return
 
@@ -399,6 +455,7 @@ export const createRouter = ({
       request.socket.remoteAddress ||
       "anonymous"
     const now = Date.now()
+    sweepExpiredBuckets(now)
     const previous = buckets.get(bucketKey)
     const bucket =
       !previous || previous.resetAt <= now

@@ -15,6 +15,7 @@ import { browser, supportsSessions, supportsTabGroups } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import {
   hasPermission,
+  isOptionalPermission,
   type OptionalApiPermission,
   removePermission,
   requestPermission
@@ -54,8 +55,9 @@ const OPTIONAL_PERMISSIONS: OptionalPermissionMeta[] = [
   { perm: "downloads", focusId: "permission-downloads", available: () => true },
   {
     perm: "tabGroups",
+    /** Required on Chromium, so a switch there could never turn it off. */
     focusId: "permission-tab-groups",
-    available: supportsTabGroups
+    available: () => supportsTabGroups() && isOptionalPermission("tabGroups")
   },
   { perm: "alarms", focusId: "permission-alarms", available: () => true },
   {

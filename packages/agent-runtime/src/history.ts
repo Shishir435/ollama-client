@@ -1,3 +1,4 @@
+import { MAX_AGENT_ROW_CONTEXT_CHARS } from "@ollama-client/contracts"
 import type {
   AgentFinding,
   AgentHistoryEntry,
@@ -117,6 +118,17 @@ const actionOf = (step: AgentStepReadout): string => {
   if (command.type === "scroll") return `scroll ${command.direction}`
   if (command.type === "drag") return `drag onto ${command.to}`
   /**
+   * The point is the decision. Read back as a bare "click_point", a run on a
+   * canvas could not tell where it had already clicked, and clicked the same
+   * spot eighteen times after the first click had done what it asked.
+   */
+  if (command.type === "click_point") {
+    return `click_point at (${Math.round(command.x)}, ${Math.round(command.y)})`
+  }
+  if (command.type === "zoom") {
+    return `zoom into (${Math.round(command.x)}, ${Math.round(command.y)}) ${Math.round(command.width)}×${Math.round(command.height)}`
+  }
+  /**
    * The direction is the whole decision here: a run reading back
    * "handle_dialog" could not tell the confirmation it refused from the one
    * it gave, which is exactly the fact a later step needs.
@@ -132,7 +144,7 @@ const actionOf = (step: AgentStepReadout): string => {
  * step is appended several times as it moves through its lifecycle, and the
  * run wants the last thing known about it, not five copies of it.
  */
-const latestByStep = (
+export const latestAgentSteps = (
   steps: readonly AgentStepReadout[]
 ): AgentStepReadout[] => {
   const latest = new Map<string, AgentStepReadout>()
@@ -146,6 +158,11 @@ const latestByStep = (
             ...step,
             /** A later receipt without a command keeps the one that had it. */
             command: step.command ?? existing.command,
+            requirementId: step.requirementId ?? existing.requirementId,
+            mutating: step.mutating ?? existing.mutating,
+            heldPlannedValue:
+              step.heldPlannedValue ?? existing.heldPlannedValue,
+            consequential: step.consequential ?? existing.consequential,
             target: step.target ?? existing.target,
             sourceUrl: step.sourceUrl ?? existing.sourceUrl,
             finding: step.finding ?? existing.finding,
@@ -157,13 +174,22 @@ const latestByStep = (
   return [...latest.values()].sort((a, b) => a.sequence - b.sequence)
 }
 
+/**
+ * The target as the model reads it back: the row text is for the person
+ * reading the log, and the prompt already carries the page it came from.
+ */
+const historyTarget = ({
+  rowContext: _rowContext,
+  ...target
+}: AgentStepTarget): AgentStepTarget => target
+
 const entryOf = (step: AgentStepReadout, index: number): AgentHistoryEntry => {
   const url = step.sourceUrl ? agentStepSourceUrl(step.sourceUrl) : undefined
   return {
     step: index + 1,
     action: actionOf(step).slice(0, MAX_ACTION_CHARS),
     outcome: outcomeOf(step),
-    ...(step.target ? { target: step.target } : {}),
+    ...(step.target ? { target: historyTarget(step.target) } : {}),
     ...(url ? { url } : {}),
     ...(step.verification?.evidence.summary
       ? {
@@ -203,7 +229,7 @@ export const buildAgentHistory = (
 ): AgentHistoryEntry[] => {
   const maxSteps = limits.maxSteps ?? AGENT_HISTORY_MAX_STEPS
   const maxBytes = limits.maxBytes ?? AGENT_HISTORY_MAX_BYTES
-  const entries = latestByStep(steps).map(entryOf)
+  const entries = latestAgentSteps(steps).map(entryOf)
   const kept = entries.slice(Math.max(0, entries.length - maxSteps))
   /**
    * Dropped oldest first and one at a time, so the same run always produces
@@ -217,11 +243,24 @@ export const buildAgentHistory = (
   return kept.length === 1 ? [shrinkToBound(kept[0], maxBytes)] : kept
 }
 
+/**
+ * The history entry, by the number the model is shown, of the run's last
+ * verified step: the newest thing the run did that it still has evidence for.
+ */
+export const lastVerifiedAgentHistoryStep = (
+  steps: readonly AgentStepReadout[]
+): number | undefined => {
+  const entries = latestAgentSteps(steps)
+  for (let index = entries.length - 1; index >= 0; index -= 1)
+    if (entries[index].status === "verified") return index + 1
+  return undefined
+}
+
 /** The outcome of the step before this decision, or nothing on the first one. */
 export const previousAgentVerification = (
   steps: readonly AgentStepReadout[]
 ): AgentVerificationResult | undefined => {
-  const settled = latestByStep(steps).filter((step) => step.verification)
+  const settled = latestAgentSteps(steps).filter((step) => step.verification)
   return settled.at(-1)?.verification
 }
 
@@ -242,7 +281,10 @@ export const agentStepTargetFrom = (
     ...(target.role ? { role: target.role } : {}),
     ...(target.sensitive || !target.accessibleName
       ? {}
-      : { name: target.accessibleName.slice(0, 120) })
+      : { name: target.accessibleName.slice(0, 120) }),
+    ...(target.sensitive || !target.rowContext
+      ? {}
+      : { rowContext: target.rowContext.slice(0, MAX_AGENT_ROW_CONTEXT_CHARS) })
   }
   return Object.keys(entry).length > 0 ? entry : undefined
 }
@@ -257,7 +299,7 @@ export const agentStepTargetFrom = (
 export const currentAgentInspection = (
   steps: readonly AgentStepReadout[]
 ): AgentInspectionFocus | undefined => {
-  const command = latestByStep(steps).at(-1)?.command
+  const command = latestAgentSteps(steps).at(-1)?.command
   if (!command) return undefined
   if (command.type === "inspect")
     return {
@@ -276,6 +318,7 @@ export const currentAgentInspection = (
       offset: command.offset ?? 0,
       frameId: command.frameId ?? 0
     }
+  if (command.type === "look") return { look: true }
   if (command.type === "zoom") {
     return {
       zoom: {
@@ -305,7 +348,7 @@ export const buildAgentFindings = (
   limits: { max?: number; maxBytes?: number } = {}
 ): AgentFinding[] => {
   const collected: AgentFinding[] = []
-  latestByStep(steps).forEach((step, index) => {
+  latestAgentSteps(steps).forEach((step, index) => {
     if (!step.finding) return
     const source = step.sourceUrl
       ? agentStepSourceUrl(step.sourceUrl)

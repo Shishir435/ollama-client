@@ -27,6 +27,7 @@ export interface ChatCompletionRequest {
   messages?: OpenAIMessage[]
   model?: unknown
   stream?: unknown
+  stream_options?: unknown
   tools?: unknown
   tool_choice?: unknown
   reasoning_effort?: unknown
@@ -112,5 +113,13 @@ export type ProxyLogger = (message: string, details?: unknown) => void
 
 export type RetryAsync = <T>(
   operation: () => Promise<T>,
-  options?: { label?: string; timeoutMs?: number }
+  options?: {
+    label?: string
+    timeoutMs?: number
+    /**
+     * False for an operation that starts work: it is then retried only when
+     * the request provably never arrived (`isUndeliveredError`).
+     */
+    idempotent?: boolean
+  }
 ) => Promise<T>

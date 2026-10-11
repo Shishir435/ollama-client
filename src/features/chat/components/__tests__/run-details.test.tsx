@@ -11,7 +11,10 @@ vi.mock("react-i18next", () => ({
         "chat.metrics.prompt_eval_time": "Prompt Eval Time",
         "chat.metrics.generation_speed": "Generation Speed",
         "chat.metrics.generated_tokens": "Generated Tokens",
-        "chat.metrics.prompt_tokens": "Prompt Tokens"
+        "chat.metrics.prompt_tokens": "Prompt Tokens",
+        "chat.metrics.cached_tokens": "Cached Prompt Tokens",
+        "chat.metrics.reasoning_tokens": "Reasoning Tokens",
+        "chat.metrics.cost": "Cost"
       })[key] ?? key
   })
 }))
@@ -48,5 +51,26 @@ describe("RunDetails", () => {
     expect(screen.getAllByText("Generation Speed").length).toBeGreaterThan(1)
     expect(screen.getByText("Generated Tokens")).toBeInTheDocument()
     expect(screen.getByText("Prompt Tokens")).toBeInTheDocument()
+    expect(screen.queryByText("Cached Prompt Tokens")).not.toBeInTheDocument()
+  })
+
+  it("adds cached, reasoning and cost when the provider's usage carries them", () => {
+    render(
+      <RunDetails
+        metrics={{
+          prompt_eval_count: 67_491,
+          eval_count: 269,
+          prompt_cached_count: 52_480,
+          reasoning_count: 86,
+          cost_usd: 0.0042
+        }}
+      />
+    )
+
+    expect(
+      screen.getByText(
+        `Generated Tokens: ${(269).toLocaleString()}, Prompt Tokens: ${(67_491).toLocaleString()}, Cached Prompt Tokens: ${(52_480).toLocaleString()}, Reasoning Tokens: 86, Cost: $0.0042`
+      )
+    ).toBeInTheDocument()
   })
 })

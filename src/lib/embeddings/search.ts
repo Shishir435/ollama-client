@@ -16,8 +16,38 @@ import {
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
 import { cosineSimilarityOptimized, normalizeVector } from "./math"
+import { readNativeIndexState } from "./native/state"
 import type { SearchResult, VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
+
+let nativeGeneration = 0
+let generationRefresh: Promise<void> | undefined
+const refreshIndexGeneration = async (): Promise<void> => {
+  for (;;) {
+    if (generationRefresh) {
+      await generationRefresh
+      continue
+    }
+    const { generation } = await readNativeIndexState()
+    if (generationRefresh) continue
+    if (nativeGeneration === generation) return
+    const work = (async () => {
+      searchCache.clear()
+      keywordIndexManager.clear()
+      await hnswIndexManager.clearIndex()
+      await keywordIndexManager.buildFromDocuments(
+        await vectorDb.vectors.toArray()
+      )
+      nativeGeneration = generation
+    })()
+    generationRefresh = work
+    try {
+      await work
+    } finally {
+      if (generationRefresh === work) generationRefresh = undefined
+    }
+  }
+}
 
 const HNSW_REBUILD_COOLDOWN_MS = 30000
 let lastHnswRebuildAttempt: { dimension: number; timestamp: number } | null =
@@ -299,6 +329,7 @@ export const searchSimilarVectors = async (
   queryEmbedding: number[],
   options: VectorSearchOptions = {}
 ): Promise<SearchResult[]> => {
+  await refreshIndexGeneration()
   const config = await getEmbeddingConfig()
   const limit = options.limit ?? config.defaultSearchLimit
   const minSimilarity = options.minSimilarity ?? config.defaultMinSimilarity
@@ -388,6 +419,7 @@ export const searchHybrid = async (
     embeddingDimension?: number
   } = {}
 ): Promise<SearchResult[]> => {
+  await refreshIndexGeneration()
   const { limit = 10, ...searchOptions } = options
 
   const startTime = performance.now()

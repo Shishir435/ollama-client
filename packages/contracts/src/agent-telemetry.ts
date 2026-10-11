@@ -43,6 +43,29 @@ export const AgentStepTelemetrySchema = z
      * it. Absent on every step but the first, and on an unplanned run.
      */
     planMs: duration.optional(),
+    /**
+     * Wall-clock spent in independent completion review, on the receipt of
+     * the completion it judged. Its own field for the same reason as
+     * `planMs`: whether a second opinion is worth paying for is a question
+     * about this number, and folding it into `decideMs` would hide it.
+     */
+    reviewMs: duration.optional(),
+    /** Review requests the controller sent for this completion. */
+    reviews: count.optional(),
+    /** Provider-reported tokens the review spent, kept apart from the run's own. */
+    reviewPromptTokens: count.optional(),
+    reviewOutputTokens: count.optional(),
+    /**
+     * Outcomes the acting model claimed met that the reviewer did not
+     * support. The number that says whether the reviewer is catching
+     * anything — or, read against task predicates, rejecting correct work.
+     */
+    reviewDisagreements: count.optional(),
+    /**
+     * Whether a separately configured model did the review rather than the
+     * run's own, so disagreement can be compared between the two.
+     */
+    reviewSeparateModel: z.boolean().optional(),
     /** Wall-clock spent taking the decision's observation. */
     observeMs: duration.optional(),
     /** Wall-clock spent capturing and masking the screenshot, when one was taken. */
@@ -76,10 +99,22 @@ export const AgentStepTelemetrySchema = z
 
     /** The context window actually requested, so runner churn is visible. */
     numCtx: count.optional(),
+    cachedPromptTokens: count.optional(),
+    reasoningTokens: count.optional(),
+    costUsd: z.number().nonnegative().max(1_000_000).optional(),
     /** How many full observations this step cost, settle and wait included. */
     observations: count.optional(),
     /** Malformed-decision retries spent inside this step. */
     retries: count.optional(),
+    /** Transient inference retries, separate from malformed output. */
+    providerRetries: count.optional(),
+    /** Active time waiting before retrying inference. */
+    providerBackoffMs: duration.optional(),
+    /** Transient review retries and their active waiting time. */
+    reviewProviderRetries: count.optional(),
+    reviewProviderBackoffMs: duration.optional(),
+    /** Recovery strategies this step started, from the run's bounded budget. */
+    recoveries: count.optional(),
     /**
      * Whether an image travelled with the decision.
      *

@@ -102,10 +102,12 @@ const startFakeOllama = async () => {
         numGpu: body.options?.num_gpu,
         numBatch: body.options?.num_batch
       })
-      const userPrompt =
+      /** Per-turn runtime context rides on the user message; key by what the user typed. */
+      const userPrompt = (
         [...(body.messages ?? [])]
           .reverse()
           .find((message) => message.role === "user")?.content ?? ""
+      ).replace(/\n\n<runtime_context>[\s\S]*<\/runtime_context>$/, "")
       const call = (promptCalls.get(userPrompt) ?? 0) + 1
       promptCalls.set(userPrompt, call)
       response.setHeader("Content-Type", "application/x-ndjson")

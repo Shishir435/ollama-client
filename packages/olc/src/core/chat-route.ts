@@ -26,7 +26,9 @@ import {
   type BackendTurn,
   type GeneratedImage,
   type TurnResult,
-  type TurnStreamHandlers
+  type TurnSource,
+  type TurnStreamHandlers,
+  type TurnUsage
 } from "../backends/types.js"
 import {
   type ChatCompletionRequest,
@@ -45,6 +47,7 @@ import {
   startEventStream
 } from "./http.js"
 import {
+  annotationsChunk,
   contentChunk,
   extractTrailingToolResults,
   finishChunk,
@@ -52,8 +55,11 @@ import {
   patchChunk,
   reasoningChunk,
   roleChunk,
+  toAnnotationsPayload,
   toolCallsChunk,
-  toToolCallPayload
+  toToolCallPayload,
+  toUsagePayload,
+  usageChunk
 } from "./openai-wire.js"
 import type { PendingToolCalls } from "./pending-tool-calls.js"
 import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
@@ -71,6 +77,16 @@ import {
  * otherwise conclude that it will not stop.
  */
 const TURN_DISCARD_TIMEOUT_MS = 8_000
+
+/**
+ * Whether a request made a tool call mandatory: OpenAI's `"required"`, or a
+ * named function (`{ type: "function", function: { name } }`).
+ */
+const forcesToolCall = (toolChoice: unknown): boolean =>
+  toolChoice === "required" ||
+  (typeof toolChoice === "object" &&
+    toolChoice !== null &&
+    (toolChoice as { type?: unknown }).type === "function")
 
 const createRequestId = () =>
   `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
@@ -163,7 +179,27 @@ export interface TurnFailure {
   message: string
   type: string
   status: number
+  retryAfterSeconds?: number
 }
+
+const failureBody = (failure: TurnFailure) => ({
+  message: failure.message,
+  type: failure.type,
+  ...(failure.retryAfterSeconds !== undefined
+    ? { retry_after: failure.retryAfterSeconds }
+    : {})
+})
+
+const sendFailure = (response: ServerResponse, failure: TurnFailure) => {
+  if (failure.retryAfterSeconds !== undefined && !response.headersSent) {
+    response.setHeader("Retry-After", String(failure.retryAfterSeconds))
+  }
+  sendJson(response, failure.status, { error: failureBody(failure) })
+}
+
+/** Whether a streaming client asked for OpenAI's trailing usage chunk. */
+const wantsUsageChunk = (body: ChatCompletionRequest): boolean =>
+  isRecord(body.stream_options) && body.stream_options.include_usage === true
 
 interface TurnEmitter {
   readonly streamMode: boolean
@@ -171,6 +207,10 @@ interface TurnEmitter {
   delta: (text: string, isReasoning: boolean) => void
   image: (image: GeneratedImage) => void
   auxiliary: (payload: unknown) => void
+  /** The completed turn's usage, written on the finish chunk. */
+  usage: (usage: TurnUsage) => void
+  /** Sources to attach to the answer; sent once, before it finishes. */
+  sources: (sources: readonly TurnSource[]) => void
   toolCalls: (calls: PendingToolCall[]) => void
   finish: (reason: string) => void
   fail: (failure: TurnFailure) => void
@@ -182,11 +222,13 @@ interface TurnEmitter {
 const createStreamEmitter = (
   response: ServerResponse,
   id: string,
-  model: string
+  model: string,
+  includeUsageChunk: boolean
 ): TurnEmitter => {
   let streamedContent = ""
   let streamedReasoning = ""
   const streamedImages: GeneratedImage[] = []
+  let turnUsage: TurnUsage | undefined
   const write = (payload: unknown) => {
     if (response.writableEnded) return
     response.write(`data: ${JSON.stringify(payload)}\n\n`)
@@ -222,11 +264,20 @@ const createStreamEmitter = (
       if (!payload) return
       write(patchChunk(id, model, [payload]))
     },
+    usage(usage) {
+      turnUsage = usage
+    },
+    sources(sources) {
+      if (sources.length > 0) write(annotationsChunk(id, model, sources))
+    },
     toolCalls(calls) {
       write(toolCallsChunk(id, model, calls))
     },
     finish(reason) {
-      write(finishChunk(id, model, reason))
+      write(finishChunk(id, model, reason, turnUsage))
+      if (turnUsage && includeUsageChunk) {
+        write(usageChunk(id, model, turnUsage))
+      }
       if (!response.writableEnded) {
         response.write("data: [DONE]\n\n")
         response.end()
@@ -234,12 +285,10 @@ const createStreamEmitter = (
     },
     fail(failure) {
       if (!response.headersSent) {
-        sendJson(response, failure.status, {
-          error: { message: failure.message, type: failure.type }
-        })
+        sendFailure(response, failure)
         return
       }
-      write({ error: failure })
+      write({ error: { ...failureBody(failure), status: failure.status } })
       if (!response.writableEnded) {
         response.write("data: [DONE]\n\n")
         response.end()
@@ -265,6 +314,12 @@ const createBufferEmitter = (
   let content = ""
   let reasoning = ""
   const images: GeneratedImage[] = []
+  let turnUsage: TurnUsage | undefined
+  let annotations: ReturnType<typeof toAnnotationsPayload> = []
+  /**
+   * `usage` is a required field of a non-streaming completion, so a runtime
+   * that never reported counts still gets zeros rather than a missing field.
+   */
   const envelope = (
     message: Record<string, unknown>,
     finishReason: string
@@ -274,7 +329,9 @@ const createBufferEmitter = (
     created: Math.floor(Date.now() / 1000),
     model,
     choices: [{ index: 0, message, finish_reason: finishReason }],
-    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+    usage: turnUsage
+      ? toUsagePayload(turnUsage)
+      : { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
   })
 
   return {
@@ -291,6 +348,12 @@ const createBufferEmitter = (
       images.push(generatedImage)
     },
     auxiliary() {},
+    usage(usage) {
+      turnUsage = usage
+    },
+    sources(sources) {
+      annotations = toAnnotationsPayload(sources)
+    },
     toolCalls(calls) {
       sendJson(
         response,
@@ -330,7 +393,8 @@ const createBufferEmitter = (
                     }))
                   ]
                 : content,
-            reasoning_content: reasoning || null
+            reasoning_content: reasoning || null,
+            ...(annotations.length > 0 ? { annotations } : {})
           },
           "stop"
         )
@@ -341,9 +405,7 @@ const createBufferEmitter = (
         if (!response.writableEnded) response.end()
         return
       }
-      sendJson(response, failure.status, {
-        error: { message: failure.message, type: failure.type }
-      })
+      sendFailure(response, failure)
     },
     get content() {
       return content
@@ -375,6 +437,16 @@ export const registerChatRoutes = (
 ) => {
   /** Turns parked on a client tool result, with the deadline that discards them. */
   const parkedTurns = new Map<string, NodeJS.Timeout>()
+  /**
+   * Turns whose request made a tool call mandatory (`tool_choice` "required" or
+   * a named function). A client that forces a call is asking for a decision,
+   * and one that never resumes such a turn is the common case — the
+   * extension's browser agent sends one per step. A turn that left the choice
+   * to the model parked because the model reached for a client tool, and its
+   * client is usually still computing the result. Neither is discarded on that
+   * basis alone; it only decides which goes first when the cap is exceeded.
+   */
+  const forcedTurns = new Set<string>()
 
   const clearParked = (turnId: string) => {
     const timer = parkedTurns.get(turnId)
@@ -394,6 +466,9 @@ export const registerChatRoutes = (
    */
   const discardTurn = async (turn: BackendTurn, { abort = false } = {}) => {
     clearParked(turn.id)
+    forcedTurns.delete(turn.id)
+    /** Whatever the path here, nothing will drive this turn again. */
+    pending.closeTurn(turn.id, "The proxy discarded this turn")
     const release = async () => {
       if (abort) await turn.abort()
       await turn.dispose()
@@ -418,7 +493,7 @@ export const registerChatRoutes = (
       log("Discarding a turn whose tool results never came back", {
         turnId: turn.id
       })
-      pending.failTurn(
+      pending.closeTurn(
         turn.id,
         "The client abandoned this turn before returning a tool result"
       )
@@ -485,15 +560,28 @@ export const registerChatRoutes = (
    * carrying its results already exists and may be queued behind this one.
    */
   const reapExcessParkedTurns = async (requestId: string): Promise<number> => {
-    const reapable = [...parkedTurns.keys()].filter(
+    for (const turnId of forcedTurns) {
+      if (!backend.findTurn(turnId)) forcedTurns.delete(turnId)
+    }
+    /**
+     * Forced decisions first, oldest first within each kind. A client running
+     * a long tool of its own — a browser task a chat turn delegated, whose
+     * steps are forced decisions of their own — would otherwise lose the turn
+     * waiting on it to its own steps after the fourth one.
+     */
+    const parked = [...parkedTurns.keys()].filter(
       (turnId) => !resumeHolds.has(turnId)
     )
+    const reapable = [
+      ...parked.filter((turnId) => forcedTurns.has(turnId)),
+      ...parked.filter((turnId) => !forcedTurns.has(turnId))
+    ]
     /** Room for the turn about to be admitted, so the steady state is the cap. */
     const excess = reapable.length - Math.max(0, config.MAX_PARKED_TURNS - 1)
     if (excess <= 0) return 0
     for (const turnId of reapable.slice(0, excess)) {
       clearParked(turnId)
-      pending.failTurn(
+      pending.closeTurn(
         turnId,
         "The proxy discarded this parked turn to stay within its parked-turn limit"
       )
@@ -691,7 +779,12 @@ export const registerChatRoutes = (
     const activeModel = `${target.providerId}/${target.modelId}`
 
     const emitter = streamMode
-      ? createStreamEmitter(response, `chatcmpl-${Date.now()}`, activeModel)
+      ? createStreamEmitter(
+          response,
+          `chatcmpl-${Date.now()}`,
+          activeModel,
+          wantsUsageChunk(body)
+        )
       : createBufferEmitter(response, `chatcmpl-${Date.now()}`, activeModel)
 
     // A turn is abandoned once: the queue's deadline ends the response, which fires
@@ -701,7 +794,7 @@ export const registerChatRoutes = (
       if (abandoned || settled || suspended || !turn) return
       abandoned = true
       log("Abandoning a turn", { requestId, turnId: turn.id, reason })
-      pending.failTurn(turn.id, reason)
+      pending.closeTurn(turn.id, reason)
       void discardTurn(turn, { abort: true })
     }
 
@@ -729,6 +822,7 @@ export const registerChatRoutes = (
             ? { reasoningEffort: reasoningEffort.value }
             : {})
         })
+        if (forcesToolCall(body.tool_choice)) forcedTurns.add(turn.id)
       } else {
         clearParked(turn.id)
         log("Resuming a parked turn", {
@@ -804,7 +898,10 @@ export const registerChatRoutes = (
           emitter.fail({
             message: result.error.message,
             type: result.error.type,
-            status: 502
+            status: result.error.status ?? 502,
+            ...(result.error.retryAfterSeconds !== undefined
+              ? { retryAfterSeconds: result.error.retryAfterSeconds }
+              : {})
           })
           await discardTurn(turn as BackendTurn)
           return
@@ -814,6 +911,8 @@ export const registerChatRoutes = (
         const tailContent = unsentTail(result.content, emitter.content)
         if (tailContent) emitter.delta(tailContent, false)
         for (const image of result.images ?? []) emitter.image(image)
+        if (result.sources) emitter.sources(result.sources)
+        if (result.usage) emitter.usage(result.usage)
         if (
           !emitter.content &&
           !result.content &&
@@ -839,7 +938,7 @@ export const registerChatRoutes = (
         })
         settled = true
         if (turn) {
-          pending.failTurn(turn.id, `The turn failed: ${message}`)
+          pending.closeTurn(turn.id, `The turn failed: ${message}`)
           await discardTurn(turn, { abort: true })
         }
 
@@ -995,6 +1094,7 @@ export const registerChatRoutes = (
       ])
       for (const turnId of held) {
         clearParked(turnId)
+        forcedTurns.delete(turnId)
         resumeHolds.delete(turnId)
         pending.failTurn(turnId, "The proxy is shutting down")
         const turn = backend.findTurn(turnId)

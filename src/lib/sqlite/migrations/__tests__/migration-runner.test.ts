@@ -74,6 +74,14 @@ vi.mock("../add-vector-cleanup-receipts-table", () => ({
     ensureVectorCleanupReceiptsTable(db)
 }))
 
+const ensureAgentRunChatLinkage = vi.fn()
+const ensureAgentRunLinkageIndexes = vi.fn<(db: unknown) => number>(() => 0)
+vi.mock("../add-agent-run-chat-linkage", () => ({
+  ensureAgentRunChatLinkage: (db: unknown) => ensureAgentRunChatLinkage(db),
+  ensureAgentRunLinkageIndexes: (db: unknown) =>
+    ensureAgentRunLinkageIndexes(db)
+}))
+
 const rebuildAgentRunsTables = vi.fn()
 const agentRunsTablesAreStale = vi.fn<(db: unknown) => boolean>(() => false)
 vi.mock("../rebuild-agent-runs-tables", () => ({
@@ -106,7 +114,9 @@ const makeDb = (
       "thinking",
       "replayArtifact",
       "updatedAt",
-      "error"
+      "error",
+      "agentRunId",
+      "agentHandoff"
     ],
     sessions: schema.sessions ?? ["pinned", "systemPrompt", "tags"]
   }
@@ -151,7 +161,11 @@ const makeDb = (
           "status",
           "checkpoint",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "sessionId",
+          "requestMessageId",
+          "resultMessageId",
+          "parentRunId"
         ],
         agent_steps: ["id", "runId", "stepId", "status", "receipt", "createdAt"]
       }
@@ -311,7 +325,7 @@ describe("migration-runner", () => {
 
     const repaired = repairSchemaDrift(db as never)
 
-    expect(repaired).toBe(10)
+    expect(repaired).toBe(11)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledWith(db)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledWith(db)
@@ -322,6 +336,7 @@ describe("migration-runner", () => {
     expect(ensureModelPullRunsTable).toHaveBeenCalledWith(db)
     expect(ensureVectorCleanupReceiptsTable).toHaveBeenCalledWith(db)
     expect(rebuildAgentRunsTables).toHaveBeenCalledWith(db)
+    expect(ensureAgentRunChatLinkage).toHaveBeenCalledWith(db)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
@@ -342,5 +357,80 @@ describe("migration-runner", () => {
     expect(ensureModelPullRunsTable).not.toHaveBeenCalled()
     expect(ensureVectorCleanupReceiptsTable).not.toHaveBeenCalled()
     expect(rebuildAgentRunsTables).not.toHaveBeenCalled()
+    expect(ensureAgentRunChatLinkage).not.toHaveBeenCalled()
+  })
+
+  it("ensures the linkage indexes on every open", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION)
+
+    expect(repairSchemaDrift(db as never)).toBe(0)
+    expect(ensureAgentRunLinkageIndexes).toHaveBeenCalledTimes(1)
+  })
+
+  /**
+   * The legacy backend saves its image only when something was repaired. An
+   * index created and not counted is rebuilt in memory on every open.
+   */
+  it("counts an index it had to create as a repair", () => {
+    ensureAgentRunLinkageIndexes.mockReturnValueOnce(2)
+    const db = makeDb(LATEST_SCHEMA_VERSION)
+
+    expect(repairSchemaDrift(db as never)).toBe(2)
+  })
+
+  /**
+   * A rebuilt Agent table is created at the shape migration 17 shipped, while
+   * `user_version` already says 18 — so nothing would ever add the linkage
+   * columns and every query naming them would answer `no such column`.
+   */
+  /**
+   * A profile missing only one linkage column reported itself current and then
+   * answered `no such column` to every query the repository ships.
+   */
+  it("repairs an Agent table missing any one linkage column", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION, {
+      agentRunColumns: [
+        "id",
+        "status",
+        "checkpoint",
+        "createdAt",
+        "updatedAt",
+        "sessionId",
+        "requestMessageId",
+        "parentRunId"
+      ]
+    })
+
+    repairSchemaDrift(db as never)
+
+    expect(ensureAgentRunChatLinkage).toHaveBeenCalledWith(db)
+  })
+
+  it("repairs messages missing only the handoff column", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION, {
+      messages: [
+        "thinking",
+        "replayArtifact",
+        "updatedAt",
+        "error",
+        "agentRunId"
+      ]
+    })
+
+    repairSchemaDrift(db as never)
+
+    expect(ensureAgentRunChatLinkage).toHaveBeenCalledWith(db)
+  })
+
+  it("carries a rebuilt Agent table up to the current shape", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION, {
+      agentRunColumns: ["id", "state"]
+    })
+    agentRunsTablesAreStale.mockReturnValueOnce(true)
+
+    repairSchemaDrift(db as never)
+
+    expect(rebuildAgentRunsTables).toHaveBeenCalledWith(db)
+    expect(ensureAgentRunChatLinkage).toHaveBeenCalledWith(db)
   })
 })

@@ -39,6 +39,7 @@ export const AppFailureSchema = z.object({
       "OLC-PROVIDER-OVERLOADED",
       "OLC-PROVIDER-BUSY",
       "OLC-PROVIDER-TIMEOUT",
+      "OLC-MODEL-REFUSED",
       "OLC-STREAM-DROPPED",
       "OLC-UNKNOWN"
     ])

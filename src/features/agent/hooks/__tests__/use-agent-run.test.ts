@@ -35,12 +35,6 @@ vi.mock("@/lib/browser-api", () => ({
   browser: { runtime: { connect: () => connect() } }
 }))
 
-const requestPerception = vi.fn(async () => true)
-
-vi.mock("@/lib/permissions", () => ({
-  requestAgentPerceptionPermission: () => requestPerception()
-}))
-
 const emit = (snapshot: AgentPanelSnapshot) => {
   for (const listener of messageListeners) {
     listener({ type: "agent_snapshot", version: 1, snapshot })
@@ -77,8 +71,6 @@ const runningSnapshot: AgentPanelSnapshot = {
   }
 }
 
-const model = { providerId: "ollama", modelId: "qwen3", tabId: 7 }
-
 describe("useAgentRun", () => {
   beforeEach(() => {
     posted.length = 0
@@ -86,12 +78,10 @@ describe("useAgentRun", () => {
     disconnectListeners.clear()
     disconnect.mockClear()
     connect.mockClear()
-    requestPerception.mockClear()
-    requestPerception.mockResolvedValue(true)
   })
 
   it("reads historical debug reports through a correlated background request", async () => {
-    const hook = renderHook(() => useAgentRun(model))
+    const hook = renderHook(() => useAgentRun())
     const pending = hook.result.current.debugReport("historical-run")
     const command = posted[0] as {
       type: string
@@ -126,7 +116,7 @@ describe("useAgentRun", () => {
 
   it("cleans up pending debug reads when the panel closes", async () => {
     const controller = new AbortController()
-    const hook = renderHook(() => useAgentRun(model))
+    const hook = renderHook(() => useAgentRun())
     const pending = hook.result.current.debugReport(
       undefined,
       controller.signal
@@ -140,7 +130,7 @@ describe("useAgentRun", () => {
 
   it("refreshes only supervised active runs and stops the heartbeat on unmount", async () => {
     vi.useFakeTimers()
-    const hook = renderHook(() => useAgentRun(model))
+    const hook = renderHook(() => useAgentRun())
     try {
       act(() => emit(runningSnapshot))
       act(() => vi.advanceTimersByTime(20_000))
@@ -155,70 +145,22 @@ describe("useAgentRun", () => {
   })
 
   it("renders whatever the background last published", () => {
-    const { result } = renderHook(() => useAgentRun(model))
+    const { result } = renderHook(() => useAgentRun())
 
     expect(result.current.snapshot).toEqual({ steps: [] })
     act(() => emit(runningSnapshot))
     expect(result.current.snapshot.run?.status).toBe("awaiting_approval")
   })
 
-  it("starts a run on the exact tab displayed by the panel", async () => {
-    const { result } = renderHook(() => useAgentRun(model))
+  it("offers no way to start a run: runs begin in chat", () => {
+    const { result } = renderHook(() => useAgentRun())
 
-    await act(async () => {
-      result.current.start("  Find the pricing page  ", true)
-      await Promise.resolve()
-    })
-
-    expect(posted).toEqual([
-      {
-        type: "agent_start",
-        goal: "Find the pricing page",
-        tabId: 7,
-        providerId: "ollama",
-        modelId: "qwen3",
-        allowRoutineActions: true,
-        allowExperimentalModel: undefined
-      }
-    ])
-  })
-
-  it("asks for page-observation permission before it starts anything", async () => {
-    requestPerception.mockResolvedValue(false)
-    const { result } = renderHook(() => useAgentRun(model))
-
-    await act(async () => {
-      result.current.start("Find the pricing page")
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-
-    expect(requestPerception).toHaveBeenCalledOnce()
-    expect(posted).toEqual([])
-    expect(result.current.failure?.messageKey).toBe(
-      "agent.error.permission_denied"
-    )
-  })
-
-  it("sends nothing without a model or a goal", async () => {
-    const { result } = renderHook(() => useAgentRun({}))
-
-    await act(async () => {
-      result.current.start("Find the pricing page")
-      await Promise.resolve()
-    })
-    expect(posted).toEqual([])
-
-    const withModel = renderHook(() => useAgentRun(model))
-    await act(async () => {
-      withModel.result.current.start("   ")
-      await Promise.resolve()
-    })
+    expect("start" in result.current).toBe(false)
     expect(posted).toEqual([])
   })
 
   it("answers the request the snapshot is showing", () => {
-    const { result } = renderHook(() => useAgentRun(model))
+    const { result } = renderHook(() => useAgentRun())
     act(() => emit(runningSnapshot))
 
     act(() => result.current.approve())
@@ -233,7 +175,7 @@ describe("useAgentRun", () => {
   })
 
   it("answers nothing when no request is parked", () => {
-    const { result } = renderHook(() => useAgentRun(model))
+    const { result } = renderHook(() => useAgentRun())
     act(() => emit({ ...runningSnapshot, pending: undefined }))
 
     act(() => result.current.approve())
@@ -243,7 +185,7 @@ describe("useAgentRun", () => {
   })
 
   it("surfaces a refusal by key and clears it on the next command", () => {
-    const { result } = renderHook(() => useAgentRun(model))
+    const { result } = renderHook(() => useAgentRun())
     act(() => emit(runningSnapshot))
 
     act(() => {
@@ -251,7 +193,7 @@ describe("useAgentRun", () => {
         listener({
           type: "agent_command_failed",
           version: 1,
-          command: "agent_start",
+          command: "agent_stop",
           messageKey: "agent.error.tab_unsupported",
           message: "Agent cannot run on this page."
         })
@@ -266,7 +208,7 @@ describe("useAgentRun", () => {
   })
 
   it("discards a message the contract does not describe", () => {
-    const { result } = renderHook(() => useAgentRun(model))
+    const { result } = renderHook(() => useAgentRun())
     act(() => emit(runningSnapshot))
 
     act(() => {
@@ -281,7 +223,7 @@ describe("useAgentRun", () => {
   it("reconnects after the background worker drops the port", () => {
     vi.useFakeTimers()
     try {
-      renderHook(() => useAgentRun(model))
+      renderHook(() => useAgentRun())
       expect(connect).toHaveBeenCalledOnce()
 
       act(() => {
@@ -300,7 +242,7 @@ describe("useAgentRun", () => {
   it("stops reconnecting once the surface unmounts", () => {
     vi.useFakeTimers()
     try {
-      const { unmount } = renderHook(() => useAgentRun(model))
+      const { unmount } = renderHook(() => useAgentRun())
       unmount()
 
       act(() => {
@@ -317,7 +259,7 @@ describe("useAgentRun", () => {
   })
 
   it("closes the port when the surface unmounts", () => {
-    const { unmount } = renderHook(() => useAgentRun(model))
+    const { unmount } = renderHook(() => useAgentRun())
 
     unmount()
 

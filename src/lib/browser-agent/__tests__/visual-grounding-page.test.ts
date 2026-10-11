@@ -43,6 +43,38 @@ const snapshotWith = (...elements: Element[]) => {
 }
 
 describe("visual grounding in the page", () => {
+  it.each([
+    false,
+    true
+  ])("masks the viewport for a filter on a frame or its shadow host (%s)", (onHost) => {
+    const host = document.createElement("div")
+    const frame = document.createElement("iframe")
+    host.attachShadow({ mode: "open" }).append(frame)
+    document.body.append(host)
+    ;(onHost ? host : frame).style.filter = "blur(20px)"
+    vi.spyOn(frame, "getClientRects").mockReturnValue([
+      rect(100, 100, 300, 150)
+    ] as unknown as DOMRectList)
+    const { references } = snapshotWith()
+    const regions = collectAgentSensitiveRegionsInDocument({
+      identity,
+      document,
+      references
+    })
+    expect(regions?.frameRects).toEqual([
+      {
+        rect: { x: 100, y: 100, width: 300, height: 150 },
+        supported: false
+      }
+    ])
+    expect(regions?.rects).toContainEqual({
+      x: 0,
+      y: 0,
+      width: innerWidth,
+      height: innerHeight
+    })
+  })
+
   it("names every sensitive control and every child frame in the whole page, with the scroll it read at", () => {
     const password = document.createElement("input")
     password.type = "password"

@@ -257,6 +257,20 @@ describe("visual grounding resolution", () => {
     expect(effect.semanticEffects).toEqual(["read"])
     expect(effect.target).toEqual({ sensitive: false, maySubmit: false })
   })
+  it("resolves a look as a read that touches nothing and needs no picture", async () => {
+    const effect = await resolveReadOnlyAgentEffect({
+      command: AgentCommandSchema.parse({
+        type: "look",
+        snapshotId: "snapshot-1",
+        generation: 1
+      }),
+      observation: observation(),
+      adapter: adapter().instance
+    })
+    expect(effect.semanticEffects).toEqual(["read"])
+    expect(effect.target).toEqual({ sensitive: false, maySubmit: false })
+    expect(effect.destination).toBeUndefined()
+  })
 })
 
 /**
@@ -399,5 +413,108 @@ describe("a visual click cannot outrank the control it lands on", () => {
         sensitive: false
       })
     ).rejects.toBeInstanceOf(AgentGroundingError)
+  })
+})
+
+describe("frame visual binding", () => {
+  const visual = {
+    snapshotId: "child",
+    generation: 1,
+    tabId: 7,
+    frameId: 2,
+    documentId: "d2",
+    parentFrameId: 0,
+    owner: { x: 100, y: 100, width: 400, height: 300 },
+    region: { x: 100, y: 100, width: 400, height: 300 },
+    scaleX: 2,
+    scaleY: 2,
+    scroll: { x: 0, y: 0 }
+  }
+  const frameObservation = () =>
+    observation({
+      frames: [
+        ...observation().frames,
+        {
+          frameId: 2,
+          parentFrameId: 0,
+          documentId: "d2",
+          snapshotId: "child",
+          generation: 1,
+          origin: "https://embed.example",
+          url: "https://embed.example/board",
+          access: "ok"
+        }
+      ]
+    })
+  const frameAdapter = () => {
+    const base = adapter().instance
+    base.visualFrames = async () => [visual]
+    base.hitTest = vi.fn(async (identity) =>
+      identity.frameId === 0
+        ? { frameElement: true, frameRect: visual.owner }
+        : { element: { ...canvas, frameId: 2, ref: "f2e9" } }
+    )
+    return base
+  }
+  it("binds local coordinates to the child document and retains cross-origin policy", async () => {
+    const base = frameAdapter()
+    const effect = await resolveDomMutationAgentEffect({
+      command: clickPoint(400, 400),
+      observation: frameObservation(),
+      adapter: base,
+      context: { screenshot: screenshot({ frames: [visual] }) }
+    })
+    expect(effect.target).toMatchObject({
+      point: { x: 50, y: 50 },
+      frame: { frameId: 2, documentId: "d2", snapshotId: "child" },
+      visual: { rootPoint: { x: 200, y: 200 }, path: [visual] }
+    })
+    expect(effect.frameOrigin).toBe("https://embed.example")
+    expect(
+      evaluateAgentPolicy({
+        runId: "run",
+        stepId: "run:1",
+        effect,
+        allowedOrigins: ["https://example.com"],
+        scopedTabIds: [7],
+        now: 3
+      }).type
+    ).not.toBe("allowed")
+  })
+  it.each([
+    "scroll",
+    "geometry",
+    "document"
+  ])("rejects stale %s coordinates before any hit test", async (change) => {
+    const base = frameAdapter()
+    const changed = { ...visual }
+    if (change === "scroll") changed.scroll = { x: 0, y: 20 }
+    if (change === "geometry") changed.region = { ...visual.region, x: 101 }
+    if (change === "document") changed.documentId = "replacement"
+    base.visualFrames = async () => [changed]
+    await expect(
+      resolveDomMutationAgentEffect({
+        command: clickPoint(),
+        observation: frameObservation(),
+        adapter: base,
+        context: { screenshot: screenshot({ frames: [visual] }) }
+      })
+    ).rejects.toBeInstanceOf(AgentStaleObservationError)
+    expect(base.hitTest).not.toHaveBeenCalled()
+  })
+  it("rejects a sibling document returned by the hit test", async () => {
+    const base = frameAdapter()
+    base.hitTest = async (identity) =>
+      identity.frameId === 0
+        ? { frameElement: true, frameRect: visual.owner }
+        : { element: { ...canvas, frameId: 3, ref: "f3e9" } }
+    await expect(
+      resolveDomMutationAgentEffect({
+        command: clickPoint(),
+        observation: frameObservation(),
+        adapter: base,
+        context: { screenshot: screenshot({ frames: [visual] }) }
+      })
+    ).rejects.toBeInstanceOf(AgentStaleObservationError)
   })
 })

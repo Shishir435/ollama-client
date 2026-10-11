@@ -1,3 +1,4 @@
+import { classifyAttempt } from "../../../tools/agent-live-benchmark/report.mjs"
 import type {
   AgentFixtureElement,
   AgentFixtureObservation,
@@ -8,14 +9,19 @@ import {
   agentFixtureElement,
   runAgentScenario
 } from "../fixtures/agent-scenario"
+import { test } from "../fixtures/extension"
+import { runNanobrowserScenario } from "../fixtures/nanobrowser-scenario"
 import type { AgentAttemptRecord } from "./agent-benchmark"
 import {
   approvalsAsked,
   attemptTelemetry,
   countRepeatedTargets,
+  createAgentBenchmarkTrace,
   recordAttempt
 } from "./agent-benchmark"
 import { benchmarkAttempts } from "./benchmark-counts"
+
+type AgentRun = NonNullable<AgentScenarioOutcome["snapshot"]>["run"]
 
 /**
  * How a frozen evaluation task is declared and recorded.
@@ -33,7 +39,15 @@ export {
   benchmarkTaskCount
 } from "./benchmark-counts"
 
-export const benchmarkModel = process.env.AGENT_HOSTED_MODEL ?? "fixture-agent"
+export const benchmarkModel =
+  process.env.AGENT_HOSTED_MODEL ??
+  (process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+    ? "codex/gpt-6-luna"
+    : "fixture-agent")
+
+/** Make browser use explicit so the live task measures the agent, not a guess. */
+export const benchmarkPrompt = (goal: string): string =>
+  `Use the browser to complete this task: ${goal}`
 
 export interface BenchmarkTask
   extends Pick<
@@ -48,18 +62,57 @@ export interface BenchmarkTask
     | "answer"
     | "navigationDelayMs"
     | "hosted"
+    | "plan"
   > {
   family: string
   name: string
 }
 
 /**
- * Records one attempt.
+ * Separates durable active time from supervisor waits.
  *
  * Everything here is a count, a label or a boolean: no page text, no entered
  * text, no URL. A report that carried page content could not be attached to an
  * issue, which is the only reason to write one.
  */
+const supervisionAccounting = (outcome: AgentScenarioOutcome) => {
+  const deadline = outcome.snapshot?.run?.deadline
+  const now = Date.now()
+  const humanWaitMs = deadline
+    ? deadline.runSuspendedMs +
+      (deadline.suspendedAt === undefined
+        ? 0
+        : Math.max(0, now - deadline.suspendedAt))
+    : undefined
+  return {
+    ...(deadline && humanWaitMs !== undefined
+      ? {
+          humanWaitMs,
+          activeMs: Math.max(0, now - deadline.runStartedAt - humanWaitMs)
+        }
+      : {}),
+    interventions: new Set(
+      outcome.messages.flatMap((m) => {
+        if (m.type !== "agent_snapshot") return []
+        const ids: string[] = []
+        if (m.snapshot.pending?.kind === "takeover")
+          ids.push(`takeover:${m.snapshot.pending.request.id}`)
+        if (m.snapshot.run?.question)
+          ids.push(`question:${m.snapshot.run.question.id}`)
+        return ids
+      })
+    ).size
+  }
+}
+
+const limitationRecord = (scoringFailed: boolean, run: AgentRun) => {
+  if (scoringFailed) return { firstLimitation: "score_predicate_failed" }
+  if (run?.error?.code) return { firstLimitation: run.error.code }
+  if (run?.pauseReason) return { firstLimitation: run.pauseReason }
+  return {}
+}
+
+/** Record correctness independently from the run, keeping failures and telemetry. */
 export const recordBenchmarkAttempt = async (input: {
   attempts: AgentAttemptRecord[]
   family: string
@@ -67,11 +120,13 @@ export const recordBenchmarkAttempt = async (input: {
   outcome: AgentScenarioOutcome
   expectedStatus: string
   succeeded?: AgentScenario["succeeded"]
+  diagnosticTrace?: (event: Record<string, unknown>) => void
 }): Promise<void> => {
   const { outcome } = input
   const run = outcome.snapshot?.run
   const steps = outcome.snapshot?.steps ?? []
   const targets = countRepeatedTargets(steps)
+  let scoringFailed = false
   let met: boolean | undefined
   if (input.succeeded) {
     try {
@@ -79,47 +134,75 @@ export const recordBenchmarkAttempt = async (input: {
     } catch {
       /** A predicate that cannot read the page has not proved the goal met. */
       met = false
+      scoringFailed = true
+      input.diagnosticTrace?.({
+        type: "score_predicate_failed",
+        attempt: outcome.attempt,
+        scoreError: true
+      })
     }
   }
+  const status =
+    run?.status ??
+    outcome.terminalStatus ??
+    (outcome.directChatResponse ? "completed" : "not-started")
   recordAttempt(input.attempts, {
+    verdict: classifyAttempt({
+      status,
+      success: met,
+      expectedStatus: input.expectedStatus,
+      pauseReason: run?.pauseReason,
+      errorCode: run?.error?.code,
+      infrastructureFailure: scoringFailed
+    }),
+    executionStages: [
+      ...((outcome.chatModelCalls ?? 0) > 0 ? ["direct_chat"] : []),
+      ...(outcome.chatToolCalls ?? []),
+      ...(outcome.wire.some((w) =>
+        JSON.stringify(w.request).includes("agent_plan")
+      )
+        ? ["planning"]
+        : []),
+      ...(run ? ["runtime_execution"] : [])
+    ],
     family: input.family,
     scenario: input.scenario,
     attempt: outcome.attempt,
     backend: outcome.backend,
-    terminalStatus: run?.status ?? "unknown",
+    ...(outcome.executionPath ? { executionPath: outcome.executionPath } : {}),
+    terminalStatus: status,
     expectedStatus: input.expectedStatus,
     ...(run?.pauseReason ? { pauseReason: run.pauseReason } : {}),
     ...(run?.error?.code ? { errorCode: run.error.code } : {}),
     steps: new Set(steps.map((step) => step.stepId)).size,
     observations: run?.observationCount ?? 0,
-    modelCalls: outcome.wire.length,
+    modelCalls: outcome.wire.length + (outcome.chatModelCalls ?? 0),
     approvalsAsked: approvalsAsked(outcome.messages).length,
     approvalsGranted: run?.grants?.length ?? 0,
     repeatedTargets: targets.repeated,
     ambiguousTargets: targets.ambiguous,
     wallMs: Date.now() - input.outcome.startedAt,
+    ...supervisionAccounting(outcome),
     ...(met === undefined ? {} : { succeeded: met }),
     ...(met === undefined
       ? {}
-      : { falseCompletion: run?.status === "completed" && !met }),
+      : {
+          falseCompletion: status === "completed" && !met && !scoringFailed
+        }),
     /**
      * The steps' own durable telemetry first: it covers every provider rather
      * than one wire format, and it survives the worker restart that makes a
      * run worth measuring. The fixture wire stays as the fallback for a run
      * whose steps recorded nothing.
      */
+    ...attemptTelemetry(steps),
     ...(outcome.tokens
       ? {
           promptTokens: outcome.tokens.prompt,
           completionTokens: outcome.tokens.completion
         }
       : {}),
-    ...attemptTelemetry(steps),
-    ...(run?.error?.code
-      ? { firstLimitation: run.error.code }
-      : run?.pauseReason
-        ? { firstLimitation: run.pauseReason }
-        : {})
+    ...limitationRecord(scoringFailed, run)
   })
 }
 
@@ -137,8 +220,76 @@ export const benchmarkTask = (
 ): void => {
   const { family, name, succeeded, ...rest } = task
   const scenario = `${family}/${name}`
-  runAgentScenario({
+  const product =
+    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+      ? "nanobrowser"
+      : "ollama-client"
+  let trace: ReturnType<typeof createAgentBenchmarkTrace> | undefined
+  let traceDisabled = false
+  const diagnosticTrace = (event: Record<string, unknown>) => {
+    if (traceDisabled) return
+    try {
+      if (!trace) {
+        trace = createAgentBenchmarkTrace({
+          product,
+          scenario,
+          model: benchmarkModel
+        })
+        console.info(`[agent-benchmark] diagnostic trace: ${trace.path}`)
+      }
+      trace.record(event)
+    } catch {
+      traceDisabled = true
+      console.warn("[agent-benchmark] diagnostic trace could not be written")
+    }
+  }
+  const runScenario =
+    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+      ? runNanobrowserScenario
+      : runAgentScenario
+  /** Playwright requires a destructured fixture argument. */
+  // biome-ignore lint/correctness/noEmptyPattern: No fixtures are needed to record a setup failure.
+  test.afterEach(({}, info) => {
+    const match = info.title.match(
+      /^Agent (.+?)(?: attempt (\d+))? through production boundaries$/
+    )
+    if (!match || match[1] !== scenario) return
+    const attempt = Number(match[2] ?? 1)
+    const backend = String(
+      info.project.metadata.agentBenchmarkBackend ?? "unknown"
+    )
+    if (
+      attempts.some(
+        (a) =>
+          a.scenario === scenario &&
+          a.attempt === attempt &&
+          a.backend === backend
+      )
+    )
+      return
+    recordAttempt(attempts, {
+      family,
+      scenario,
+      attempt,
+      backend,
+      terminalStatus: "harness_exception",
+      expectedStatus: task.status,
+      verdict: "infrastructure_failure",
+      firstLimitation: "harness_exception",
+      steps: 0,
+      observations: 0,
+      modelCalls: 0,
+      approvalsAsked: 0,
+      approvalsGranted: 0,
+      repeatedTargets: 0,
+      ambiguousTargets: 0,
+      wallMs: info.duration
+    })
+  })
+  runScenario({
     ...rest,
+    goal: benchmarkPrompt(task.goal),
+    diagnosticTrace,
     ...(succeeded ? { succeeded } : {}),
     name: scenario,
     gated: false,
@@ -150,8 +301,53 @@ export const benchmarkTask = (
         scenario,
         outcome,
         expectedStatus: task.status,
+        diagnosticTrace,
         ...(succeeded ? { succeeded } : {})
       })
+      /**
+       * The answer text goes to the test's own attachments, never the trace:
+       * traces are allowlisted to labels and counts so they can be shared,
+       * and the report must carry no page text. Every page here is a
+       * synthetic fixture, and without the text a false completion on the
+       * read path cannot be told apart from a scorer that misread a correct
+       * reply. The trace records only where the answer came from and its
+       * length.
+       */
+      const answer = outcome.snapshot?.run?.result ?? outcome.chatResponse
+      if (answer) {
+        const source = outcome.snapshot?.run?.result ? "run_result" : "chat"
+        diagnosticTrace({
+          type: "answer_observed",
+          attempt: outcome.attempt,
+          answerSource: source,
+          answerChars: answer.length
+        })
+        await test.info().attach(`answer-${source}`, {
+          body: answer,
+          contentType: "text/plain"
+        })
+      }
+      const record = attempts.at(-1)
+      if (record)
+        diagnosticTrace({
+          type: "task_result",
+          attempt: record.attempt,
+          executionPath: record.executionPath,
+          status: record.terminalStatus,
+          expectedStatus: record.expectedStatus,
+          pauseReason: record.pauseReason,
+          errorCode: record.errorCode,
+          steps: record.steps,
+          observations: record.observations,
+          modelCalls: record.modelCalls,
+          approvalsAsked: record.approvalsAsked,
+          approvalsGranted: record.approvalsGranted,
+          repeatedTargets: record.repeatedTargets,
+          ambiguousTargets: record.ambiguousTargets,
+          succeeded: record.succeeded,
+          falseCompletion: record.falseCompletion,
+          firstLimitation: record.firstLimitation
+        })
       onRecorded?.(outcome)
     }
   })
@@ -173,6 +369,122 @@ export const observableButton = (label = "Continue"): string =>
   `<button type="button" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.disabled=true">${label}</button>`
 
 /**
+ * Markdown and letter case are presentation, not content: a chat reply that
+ * says "**Status:** Active" states the same fact as "Status: Active".
+ */
+const normalizedAnswer = (text: string): string =>
+  text
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+const phrasePattern = (value: string): string =>
+  value.split(" ").map(escapeRegex).join("\\s+")
+
+const DENIAL_PATTERN =
+  /\b(?:not(?!\s+only)|never|no|cannot|can['’]t|couldn['’]t|could\s+not|didn['’]t|did\s+not|doesn['’]t|does\s+not|isn['’]t|is\s+not|aren['’]t|are\s+not|wasn['’]t|was\s+not|weren['’]t|were\s+not|unable\s+to|failed\s+to)\b/i
+
+const affirmativeOccurrence = (
+  text: string,
+  start: number,
+  end: number
+): boolean => {
+  const prefix = text.slice(Math.max(0, start - 64), start)
+  const claim = text.slice(start, end)
+  if (DENIAL_PATTERN.test(`${prefix} ${claim}`)) return false
+  const suffix = text.slice(end, end + 40)
+  return !/^\s+(?:(?:is|are|was|were)\s+)?(?:not|incorrect|false|untrue|unconfirmed|unverified)\b/i.test(
+    suffix
+  )
+}
+
+const affirmedMatch = (text: string, pattern: RegExp): boolean => {
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0
+    if (affirmativeOccurrence(text, start, start + match[0].length)) return true
+  }
+  return false
+}
+
+/**
+ * Whether an answer carries a fact.
+ *
+ * The literal fact, or its value as a whole word when the answer also names
+ * the fact's label. Requiring an affirmative assertion keeps "not Active"
+ * and "could not confirm Status: Active" from passing on the value alone.
+ */
+export const answerCarriesFact = (
+  answer: string | undefined,
+  fact: string,
+  value = fact.split(/:\s*/).at(-1) ?? fact
+): boolean => {
+  if (!answer) return false
+  const said = normalizedAnswer(answer)
+  const factText = normalizedAnswer(fact)
+  const valueText = normalizedAnswer(value)
+  const labelText = fact.includes(":")
+    ? normalizedAnswer(fact.split(/:\s*/, 1)[0] ?? "")
+    : factText.endsWith(` ${valueText}`) && factText !== valueText
+      ? factText.slice(0, -(valueText.length + 1))
+      : ""
+
+  const factPattern = new RegExp(`\\b${phrasePattern(factText)}\\b`, "g")
+  for (const sentence of said.split(/[.!?;\n]+/)) {
+    if (affirmedMatch(sentence, factPattern)) return true
+    if (!labelText || !valueText) continue
+    const labeledValue = new RegExp(
+      `\\b${phrasePattern(labelText)}\\b(?:\\W+\\w+){0,6}\\W+\\b${phrasePattern(valueText)}\\b`,
+      "g"
+    )
+    if (affirmedMatch(sentence, labeledValue)) return true
+  }
+  return false
+}
+
+/**
+ * A back-navigation task is only complete when its receipts show both the
+ * Details visit and a confirmed Back command, and the tab has returned home.
+ */
+export const reportsBackNavigation = async (
+  outcome: AgentScenarioOutcome
+): Promise<boolean> => {
+  const pageIsHome = new URL(outcome.page.url()).pathname === "/"
+  if (!pageIsHome) return false
+
+  const steps = outcome.snapshot?.steps
+  if (!steps) {
+    if (outcome.executionPath !== "planner_navigator") return false
+    const history = outcome.navigationEvents ?? []
+    const detailsIndex = history.findIndex(
+      (event) => event.path === "/details" && event.kind === "document"
+    )
+    const returnedHome = history
+      .slice(detailsIndex + 1)
+      .some((event) => event.path === "/" && event.kind === "history_traversal")
+    if (detailsIndex < 0 || !returnedHome) return false
+    return reportsFact("Home")(outcome)
+  }
+
+  const confirmed = (step: (typeof steps)[number]) =>
+    step.status === "verified" && step.verification?.outcome === "confirmed"
+  const detailsIndex = steps.findIndex(
+    (step) =>
+      step.command?.type === "click" &&
+      step.target?.name?.toLowerCase() === "details" &&
+      confirmed(step)
+  )
+  if (detailsIndex < 0) return false
+  const returned = steps
+    .slice(detailsIndex + 1)
+    .some((step) => step.command?.type === "back" && confirmed(step))
+  if (!returned) return false
+  return reportsFact("Home")(outcome)
+}
+
+/**
  * A reading task's answer, checked against what the page actually says.
  *
  * `Boolean(run.result)` was circular: `result` is the model's own completion
@@ -183,13 +495,11 @@ export const observableButton = (label = "Continue"): string =>
  * vacuously, and the answer has to carry it.
  */
 export const reportsFact =
-  (fact: string) =>
+  (fact: string, value?: string) =>
   async (outcome: AgentScenarioOutcome): Promise<boolean> => {
     const rendered = await outcome.page.locator("body").innerText()
-    return (
-      rendered.includes(fact) &&
-      Boolean(outcome.snapshot?.run?.result?.includes(fact))
-    )
+    const result = outcome.snapshot?.run?.result ?? outcome.chatResponse
+    return rendered.includes(fact) && answerCarriesFact(result, fact, value)
   }
 
 /**
@@ -198,9 +508,10 @@ export const reportsFact =
  * is asked.
  */
 export const reportsFactFromAnyTab =
-  (fact: string) =>
+  (fact: string, value?: string) =>
   async (outcome: AgentScenarioOutcome): Promise<boolean> => {
-    if (!outcome.snapshot?.run?.result?.includes(fact)) return false
+    const result = outcome.snapshot?.run?.result ?? outcome.chatResponse
+    if (!answerCarriesFact(result, fact, value)) return false
     for (const open of outcome.page.context().pages()) {
       try {
         if ((await open.locator("body").innerText()).includes(fact)) return true

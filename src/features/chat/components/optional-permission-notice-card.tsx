@@ -1,4 +1,4 @@
-import { LockKeyhole, Settings } from "lucide-react"
+import { LockKeyhole, MousePointerClick, Settings } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ export const OptionalPermissionNoticeCard = ({
   onEnable
 }: {
   notice: PermissionNotice
-  onEnable: () => Promise<PermissionResumeResult>
+  onEnable: (enable?: boolean) => Promise<PermissionResumeResult>
 }) => {
   const { t } = useTranslation()
   const [enabling, setEnabling] = useState(false)
@@ -19,12 +19,19 @@ export const OptionalPermissionNoticeCard = ({
     "permission-denied" | "resume-failed" | null
   >(null)
   const feature = t(notice.labelKey)
+  /**
+   * The agent is an experimental setting, not a browser permission, and a
+   * request can look like a browser task without being one — so its card also
+   * offers to send the message as it was.
+   */
+  const agent = notice.capabilityId === "browserAgent"
+  const Icon = agent ? MousePointerClick : LockKeyhole
 
-  const enable = async () => {
+  const enable = async (turnOn = true) => {
     setEnabling(true)
     setFailure(null)
     try {
-      const result = await onEnable()
+      const result = await onEnable(turnOn)
       if (result !== "started") setFailure(result)
     } catch {
       setFailure("resume-failed")
@@ -35,7 +42,9 @@ export const OptionalPermissionNoticeCard = ({
 
   const manage = () => {
     void openOptionsInTab(
-      runtime.getURL(`options.html?tab=privacy&focus=${notice.focusId}`)
+      runtime.getURL(
+        `options.html?tab=${agent ? "agent" : "privacy"}&focus=${notice.focusId}`
+      )
     )
   }
 
@@ -45,14 +54,18 @@ export const OptionalPermissionNoticeCard = ({
       className="mx-2 rounded-panel border border-app-primary/25 bg-app-primary-soft/35 p-3">
       <div className="flex items-start gap-2.5">
         <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control bg-surface-sunken text-app-primary">
-          <LockKeyhole className="icon-sm" />
+          <Icon className="icon-sm" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">
-            {t("chat.permissions.disabled_notice", { feature })}
+            {agent
+              ? t("chat.permissions.agent.title")
+              : t("chat.permissions.disabled_notice", { feature })}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {t("chat.permissions.enable_description")}
+            {agent
+              ? t("chat.permissions.agent.description")
+              : t("chat.permissions.enable_description")}
           </p>
           {failure && (
             <p className="mt-1 text-xs text-status-danger">
@@ -67,11 +80,24 @@ export const OptionalPermissionNoticeCard = ({
             <Button size="sm" onClick={() => void enable()} disabled={enabling}>
               {enabling
                 ? t("chat.permissions.enabling")
-                : t("chat.permissions.enable", { feature })}
+                : agent
+                  ? t("chat.permissions.agent.enable")
+                  : t("chat.permissions.enable", { feature })}
             </Button>
+            {agent && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void enable(false)}
+                disabled={enabling}>
+                {t("chat.permissions.agent.continue_without")}
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={manage}>
               <Settings className="icon-xs" />
-              {t("chat.permissions.manage")}
+              {agent
+                ? t("chat.permissions.agent.manage")
+                : t("chat.permissions.manage")}
             </Button>
           </div>
         </div>

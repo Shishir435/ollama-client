@@ -2,21 +2,50 @@
 import fs from "node:fs"
 import type { ProxyOptions } from "./config.js"
 
-export const USAGE = `olc — start native Ollama or an agent proxy
+/**
+ * Apple's Foundation Models backend exists only on macOS, so Linux and Windows
+ * help does not offer a backend they cannot start.
+ */
+const macOnlyUsage = (platform: NodeJS.Platform) =>
+  platform === "darwin"
+    ? {
+        line: "  olc -b fm                   Apple Foundation Models (macOS 27), 127.0.0.1:8085\n",
+        backends: "opencode, or fm (alias apple)",
+        port: "; fm: 8085",
+        proxyOnly: ", opencode or fm",
+        options:
+          "Apple Foundation Models options (-b fm):\n  -F, --fm <path>             fm executable (default fm; macOS 27 or later)\n\n"
+      }
+    : {
+        line: "",
+        backends: "or opencode",
+        port: "",
+        proxyOnly: " or -b opencode",
+        options: ""
+      }
+
+export const usageFor = (platform: NodeJS.Platform = process.platform) => {
+  const mac = macOnlyUsage(platform)
+  return `olc — start and manage local servers
 
 Usage: olc [options]
 
+  olc list                    List running Docker services managed by olc
+  olc -b laya [--port <n>]    Build/start the Laya decision server
+  olc -b laya stop|status|rm  Manage the Laya decision server
+  olc -b searxng [--port <n>] Start local SearXNG web search
+  olc -b searxng stop|status|rm Manage local SearXNG
   olc                         Native Ollama, 127.0.0.1:11434
   olc --lan                   Native Ollama, 0.0.0.0:11434
   olc -b codex                Codex proxy, 127.0.0.1:8083
   olc -b opencode             OpenCode proxy, 127.0.0.1:8084
-  olc update                  Install the latest release
+${mac.line}  olc update                  Install the latest release
   olc update 0.13.3           Install a specific release
 
 Shared options:
-  -b, --backend <name>        ollama (default), codex, or opencode
+  -b, --backend <name>        ollama (default), codex, ${mac.backends}, laya, searxng
   -H, --host <address>        Bind address (default 127.0.0.1)
-  -p, --port <number>         Ollama: 11434; Codex: 8083; OpenCode: 8084
+  -p, --port <number>         Ollama: 11434; Codex: 8083; OpenCode: 8084; Docker backend: custom${mac.port}
   -o, --allowed-origins <list>
                                Comma-separated browser origins
   -c, --config <path>         JSON options; CLI > environment > file > defaults
@@ -25,6 +54,10 @@ Shared options:
   -d, --debug                 Verbose diagnostics; implies --foreground
   -V, --version               Print the installed version
   -h, --help                  Show help
+
+Docker service removal:
+  olc -b <laya|searxng> rm    Remove service containers; keep downloaded data
+      --purge-data            Also remove model/search data and local config
 
 Native Ollama options:
   -l, --lan                   Use LAN access for a standalone server
@@ -53,7 +86,7 @@ in place. A version that has no release is refused by name, with the versions
 that do exist. Running from a repository checkout is refused too: update that
 with git. olc update --check never touches the installation.
 
-Proxy-only options (require -b codex or -b opencode):
+Proxy-only options (require -b codex${mac.proxyOnly}):
   -K, --api-key <key>         Require a bearer token
   -s, --system-prompt <text>  Override the client's system prompt
   -n, --no-bridge             Disable the client tool bridge
@@ -67,7 +100,7 @@ OpenCode options (-b opencode):
                                Comma-separated tools to leave enabled
   -g, --plugin-dir <path>     Bridge plugin directory
 
-Codex options (-b codex):
+${mac.options}Codex options (-b codex):
   -C, --codex <path>          Codex executable
   -W, --codex-project-dir <path>
                                Empty workspace for turns
@@ -78,6 +111,9 @@ Short flags take separate values and are case-sensitive. Long options accept
 --name=value. Exit codes: 0 ready/help, 1 runtime failure
 (or --check not ready), 2 invalid arguments/configuration.
 `
+}
+
+export const USAGE = usageFor()
 
 export const SHORT_FLAG_ALIASES = {
   "-b": "--backend",
@@ -105,6 +141,7 @@ export const SHORT_FLAG_ALIASES = {
   "-C": "--codex",
   "-W": "--codex-project-dir",
   "-w": "--codex-web-search",
+  "-F": "--fm",
   "-h": "--help",
   "-V": "--version"
 } as const
@@ -126,6 +163,7 @@ const VALUE_FLAGS: Record<string, string> = {
   "--codex": "CODEX_PATH",
   "--codex-project-dir": "CODEX_PROJECT_DIR",
   "--codex-web-search": "CODEX_WEB_SEARCH_MODE",
+  "--fm": "FM_PATH",
   "--config": "CONFIG_PATH"
 }
 const BOOLEAN_FLAGS: Record<string, [string, boolean]> = {
@@ -137,12 +175,21 @@ const BOOLEAN_FLAGS: Record<string, [string, boolean]> = {
   "--local": ["LOCAL", true],
   "--check": ["CHECK", true],
   "--json": ["JSON", true],
+  "--purge-data": ["PURGE_DATA", true],
   "--version": ["VERSION", true]
 }
 
 /** Subcommands are the first token or nothing, so a flag can never be mistaken for one. */
-export const COMMANDS = ["update"] as const
-export type Command = "serve" | (typeof COMMANDS)[number]
+export const COMMANDS = ["update", "list"] as const
+export type Command = "serve" | (typeof COMMANDS)[number] | "laya" | "searxng"
+export type ServiceAction = "start" | "stop" | "status" | "rm"
+
+const SERVICE_ACTIONS = new Set<ServiceAction>([
+  "start",
+  "stop",
+  "status",
+  "rm"
+])
 
 /** Narrows a raw token to a command without asserting that it is one. */
 function isCommand(value: string): value is (typeof COMMANDS)[number] {
@@ -161,11 +208,16 @@ const UPDATE_FLAGS = new Set(["CHECK", "JSON", "VERSION"])
 function readCommand(argv: string[]): {
   command: Command
   target?: string
+  action?: ServiceAction
   start: number
+  skipIndices?: Set<number>
 } {
   const first = argv[0]
+  const managedService = readManagedBackend(argv)
+  if (managedService) return managedService
   if (first === undefined || !isCommand(first))
     return { command: "serve", start: 0 }
+  if (first === "list") return { command: first, start: 1 }
   const second = argv[1]
   /** The one positional olc has: the version `update` should install. */
   return second !== undefined && !second.startsWith("-")
@@ -173,12 +225,113 @@ function readCommand(argv: string[]): {
     : { command: first, start: 1 }
 }
 
+/** Docker servers use the same backend selector as every other olc server. */
+function readManagedBackend(argv: string[]):
+  | {
+      command: "laya" | "searxng"
+      action: ServiceAction
+      start: number
+      skipIndices: Set<number>
+    }
+  | undefined {
+  const { selectors, valueIndices } = findBackendSelectors(argv)
+  if (selectors.length > 1)
+    throw new Error("--backend was supplied more than once")
+  const selector = selectors[0]
+  if (selector?.backend !== "laya" && selector?.backend !== "searxng")
+    return undefined
+
+  const skipIndices = new Set([selector.flag, selector.value])
+  const action = findServiceAction(argv, valueIndices, skipIndices)
+  return {
+    command: selector.backend,
+    action,
+    start: 0,
+    skipIndices
+  }
+}
+
+interface BackendSelector {
+  flag: number
+  value: number
+  backend: string
+}
+
+function findBackendSelectors(argv: string[]): {
+  selectors: BackendSelector[]
+  valueIndices: Set<number>
+} {
+  const valueIndices = new Set<number>()
+  const selectors: BackendSelector[] = []
+  for (let index = 0; index < argv.length; index++) {
+    if (valueIndices.has(index)) continue
+    const selector = backendSelectorAt(argv, index)
+    if (selector) {
+      selectors.push(selector)
+      if (selector.value !== selector.flag) valueIndices.add(selector.value)
+      continue
+    }
+    const valueIndex = optionValueIndex(argv, index)
+    if (valueIndex !== undefined) valueIndices.add(valueIndex)
+  }
+  return { selectors, valueIndices }
+}
+
+function backendSelectorAt(
+  argv: string[],
+  index: number
+): BackendSelector | undefined {
+  const token = argv[index] as string
+  const equals = token.startsWith("--") ? token.indexOf("=") : -1
+  const typedFlag = equals < 0 ? token : token.slice(0, equals)
+  const flag =
+    SHORT_FLAG_ALIASES[typedFlag as keyof typeof SHORT_FLAG_ALIASES] ??
+    typedFlag
+  if (flag !== "--backend") return undefined
+  const value = equals < 0 ? argv[index + 1] : token.slice(equals + 1)
+  if (value === undefined) return undefined
+  return {
+    flag: index,
+    value: equals < 0 ? index + 1 : index,
+    backend: value
+  }
+}
+
+function optionValueIndex(argv: string[], index: number): number | undefined {
+  const token = argv[index] as string
+  const equals = token.startsWith("--") ? token.indexOf("=") : -1
+  const typedFlag = equals < 0 ? token : token.slice(0, equals)
+  const flag =
+    SHORT_FLAG_ALIASES[typedFlag as keyof typeof SHORT_FLAG_ALIASES] ??
+    typedFlag
+  return VALUE_FLAGS[flag] && equals < 0 && argv[index + 1] !== undefined
+    ? index + 1
+    : undefined
+}
+
+function findServiceAction(
+  argv: string[],
+  valueIndices: Set<number>,
+  skipIndices: Set<number>
+): ServiceAction {
+  for (let index = 0; index < argv.length; index++) {
+    if (valueIndices.has(index) || skipIndices.has(index)) continue
+    const candidate = argv[index]
+    if (candidate && SERVICE_ACTIONS.has(candidate as ServiceAction)) {
+      skipIndices.add(index)
+      return candidate as ServiceAction
+    }
+  }
+  return "start"
+}
+
 /** Reject missing values and repeated options instead of guessing user intent. */
 export function parseArgs(argv: string[]) {
   const options: ProxyOptions = {}
   let help = false
-  const { command, target, start } = readCommand(argv)
+  const { command, target, action, start, skipIndices } = readCommand(argv)
   for (let index = start; index < argv.length; index++) {
+    if (skipIndices?.has(index)) continue
     const token = argv[index] as string
     const equals = token.startsWith("--") ? token.indexOf("=") : -1
     const flag = equals < 0 ? token : token.slice(0, equals)
@@ -207,9 +360,17 @@ export function parseArgs(argv: string[]) {
   validatePort(options.PORT)
   /** Checked before CONFIG_PATH is removed, so --config cannot slip through. */
   if (command === "update") assertUpdateOptions(options)
+  assertServiceCommandOptions(command, action, options)
   const configPath = options.CONFIG_PATH as string | undefined
   delete options.CONFIG_PATH
-  return { options, help, configPath, command, target }
+  return {
+    options,
+    help,
+    configPath,
+    command,
+    target,
+    ...(action ? { action } : {})
+  }
 }
 
 /** Name the option the way the user typed it, not the way it is stored. */
@@ -234,6 +395,46 @@ function assertUpdateOptions(options: ProxyOptions): void {
     )
 }
 
+/** Keep server flags from being silently accepted where they have no effect. */
+function assertCommandOptions(
+  command: string,
+  options: ProxyOptions,
+  allowed: string[]
+): void {
+  const stray = Object.keys(options).find((key) => !allowed.includes(key))
+  if (stray)
+    throw new Error(
+      `${flagFor(stray)} is not supported by olc ${command}. See olc --help.`
+    )
+}
+
+/** Options are intentionally narrow for lifecycle commands. */
+function assertServiceCommandOptions(
+  command: Command,
+  action: ServiceAction | undefined,
+  options: ProxyOptions
+): void {
+  if (
+    "PURGE_DATA" in options &&
+    !((command === "laya" || command === "searxng") && action === "rm")
+  )
+    throw new Error(
+      "--purge-data is only supported by `olc -b laya rm` and `olc -b searxng rm`."
+    )
+  if (command === "list") {
+    assertCommandOptions(command, options, ["JSON"])
+    return
+  }
+  if (command !== "laya" && command !== "searxng") return
+  const allowed =
+    action === "start"
+      ? ["PORT", "CONFIG_PATH"]
+      : action === "rm"
+        ? ["PURGE_DATA"]
+        : []
+  assertCommandOptions(`${command} ${action}`, options, allowed)
+}
+
 /** An explicit missing or invalid config is an error; never silently fall back. */
 export function readConfigFile(
   candidate: string,
@@ -254,12 +455,23 @@ export function readConfigFile(
 export function selectBackend(
   options: ProxyOptions,
   file: ProxyOptions,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform
 ) {
-  const backend = options.BACKEND ?? env.OLC_BACKEND ?? file.BACKEND ?? "ollama"
-  if (!["ollama", "codex", "opencode"].includes(String(backend))) {
+  const requested =
+    options.BACKEND ?? env.OLC_BACKEND ?? file.BACKEND ?? "ollama"
+  /** `apple` is the name people reach for; `fm` is the tool it runs. */
+  const backend = requested === "apple" ? "fm" : requested
+  if (backend === "fm" && platform !== "darwin") {
     throw new Error(
-      "Backend must be ollama, codex, or opencode. Use -b <name>."
+      "Apple Foundation Models (-b fm) run only on macOS 27 or later. Use -b codex or -b opencode here."
+    )
+  }
+  if (!["ollama", "codex", "opencode", "fm"].includes(String(backend))) {
+    throw new Error(
+      platform === "darwin"
+        ? "Backend must be ollama, codex, opencode, or fm (alias apple). Use -b <name>."
+        : "Backend must be ollama, codex, or opencode. Use -b <name>."
     )
   }
   const native = [
@@ -302,10 +514,19 @@ export function selectBackend(
     optionRule("PLUGIN_DIR", "OPENCODE_PROXY_PLUGIN_DIR"),
     optionRule("PLUGIN_RUNTIME_DIR", "OPENCODE_PLUGIN_RUNTIME_DIR")
   ]
+  const fm = [optionRule("FM_PATH", "OLC_FM_PATH")]
   const forbidden =
     backend === "ollama"
-      ? [...proxy, ...codex, ...opencode]
-      : [...native, ...(backend === "codex" ? opencode : codex)]
+      ? [...proxy, ...codex, ...opencode, ...fm]
+      : backend === "fm"
+        ? [
+            ...native,
+            ...codex,
+            ...opencode,
+            optionRule("BRIDGE_ENABLED", "OLC_BRIDGE_ENABLED"),
+            optionRule("PROJECT_DIR")
+          ]
+        : [...native, ...fm, ...(backend === "codex" ? opencode : codex)]
   const invalid = forbidden.find(
     ({ key, envKeys }) =>
       key in options ||
@@ -321,7 +542,7 @@ export function selectBackend(
       `${invalid.key} is not supported by ${backend}; remove it from CLI, environment, or config, or select the matching backend with -b. See olc --help.`
     )
   }
-  return backend as "ollama" | "codex" | "opencode"
+  return backend as "ollama" | "codex" | "opencode" | "fm"
 }
 
 interface BackendOptionRule {

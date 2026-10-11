@@ -180,7 +180,13 @@ describe("frontier provider wire contracts", () => {
     })
     expect(requestBody(fetchMock)).toMatchObject({
       model: "claude-sonnet-4-6",
-      system: "Be concise.",
+      system: [
+        {
+          type: "text",
+          text: "Be concise.",
+          cache_control: { type: "ephemeral" }
+        }
+      ],
       stream: true,
       tools: [
         {

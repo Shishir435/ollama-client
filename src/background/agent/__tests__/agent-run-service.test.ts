@@ -2,7 +2,12 @@ import type {
   AgentController,
   AgentPersistencePort
 } from "@ollama-client/agent-runtime"
-import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
+import type {
+  AgentPauseReason,
+  AgentRunState,
+  AgentRunStatus
+} from "@ollama-client/contracts"
+import { MAX_AGENT_PRIOR_EFFECTS } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { DurableAgentRun } from "@/lib/repositories/agent-runs"
@@ -10,6 +15,7 @@ import type {
   AgentBrowserSessionInterruption,
   AgentBrowserSessionManager
 } from "../agent-browser-session-manager"
+import type { BuildAgentController } from "../agent-run-controller"
 import { createAgentRunService } from "../agent-run-service"
 import { createAgentSupervision } from "../agent-supervision"
 
@@ -45,6 +51,7 @@ const service = (
     requestCancel: vi.fn(async () => undefined),
     completeTakeover: vi.fn(async () => undefined),
     resolveEffect: vi.fn(async () => undefined),
+    finishReviewed: vi.fn(async () => undefined),
     answerQuestion: vi.fn(async () => undefined)
   }
   const sessions = {
@@ -63,12 +70,15 @@ const service = (
     persistence: persistence(),
     createRun: vi.fn(async (state: AgentRunState) => {
       runs.set(state.id, state)
+      return true
     }),
     readRun: async (runId: string) => {
       const state = runs.get(runId)
       return state ? ({ state } as DurableAgentRun) : null
     },
     readSteps: vi.fn(async () => []),
+    readCompleteSteps: vi.fn(async () => []),
+    readRunForMessage: vi.fn(async () => null),
     readIncompleteRuns: async () =>
       [...runs.values()]
         .filter(
@@ -77,6 +87,7 @@ const service = (
         )
         .map((state) => ({ state, id: state.id }) as DurableAgentRun),
     buildController: () => controller,
+    isAgentEnabled: async () => true,
     hasPerception: async () => true,
     getTab: async () => ({ url: "https://example.com/start" }),
     classifyAccess: async () => "ok",
@@ -106,7 +117,7 @@ const browserSessions = () => {
     attach: vi.fn(async (_runId: string, _tabId: number) => undefined),
     detach: vi.fn(async (_runId: string) => undefined),
     isAttached: vi.fn(() => true),
-    attachedTabId: vi.fn(() => 7),
+    attachedTabId: vi.fn((_runId: string): number | undefined => 7),
     frames: vi.fn(() => ({ status: "tracking" as const, frames: [] })),
     mapFrame: vi.fn(() => ({
       mapped: false as const,
@@ -145,6 +156,7 @@ const transitionController = (to: AgentRunStatus) =>
       requestCancel: vi.fn(transition),
       completeTakeover: vi.fn(transition),
       resolveEffect: vi.fn(async () => undefined),
+      finishReviewed: vi.fn(async () => undefined),
       answerQuestion: vi.fn(async () => undefined)
     } satisfies AgentController
   })
@@ -185,6 +197,29 @@ describe("Agent run service", () => {
     expect((await agent.snapshot(state.id)).run?.grants).toEqual(state.grants)
   })
 
+  it("adds search consent on the starting origin only beside routine consent", async () => {
+    const { service: agent } = service()
+    const state = await agent.start({
+      ...startInput,
+      allowRoutineActions: true,
+      allowSearches: true
+    })
+    expect(state.grants).toEqual([
+      {
+        origin: "https://example.com",
+        effects: ["activation", "form_mutation"],
+        grantedAt: 1_000,
+        searches: true
+      }
+    ])
+  })
+
+  it("never hands over search consent without routine consent", async () => {
+    const { service: agent } = service()
+    const state = await agent.start({ ...startInput, allowSearches: true })
+    expect(state.grants).toBeUndefined()
+  })
+
   it("persists and authorizes the tab before attaching browser control", async () => {
     const order: string[] = []
     const browser = browserSessions()
@@ -196,6 +231,7 @@ describe("Agent run service", () => {
       createRun: async (state) => {
         runs.set(state.id, state)
         order.push("persist")
+        return true
       },
       classifyAccess: async () => {
         order.push("authorize")
@@ -313,6 +349,7 @@ describe("Agent run service", () => {
         requestCancel: vi.fn(async () => undefined),
         completeTakeover: vi.fn(async () => undefined),
         resolveEffect: vi.fn(async () => undefined),
+        finishReviewed: vi.fn(async () => undefined),
         answerQuestion: vi.fn(async () => undefined)
       } satisfies AgentController
     })
@@ -391,6 +428,272 @@ describe("Agent run service", () => {
     expect(runs.get("run-1")?.status).toBe(status)
   })
 
+  const pausingController = (pauseReason: AgentPauseReason) =>
+    vi.fn(({ persistence: port }) => ({
+      start: vi.fn(async () => undefined),
+      requestPause: vi.fn(async (runId: string) => {
+        const state = await port.load(runId)
+        if (!state) return
+        await port.transition({
+          runId,
+          from: state.status,
+          to: "paused",
+          patch: { pauseReason, pausedAt: 2_000 }
+        })
+      }),
+      resume: vi.fn(async () => undefined),
+      requestCancel: vi.fn(async (runId: string) => {
+        const state = await port.load(runId)
+        if (!state) return
+        await port.transition({ runId, from: state.status, to: "cancelling" })
+      }),
+      completeTakeover: vi.fn(async () => undefined),
+      resolveEffect: vi.fn(async () => undefined),
+      finishReviewed: vi.fn(async () => undefined),
+      answerQuestion: vi.fn(async () => undefined)
+    })) as unknown as BuildAgentController
+
+  const heldDialog = {
+    id: "d1",
+    type: "confirm" as const,
+    origin: "https://example.com",
+    message: "Delete this item?"
+  }
+
+  it.each([
+    "user",
+    "question",
+    "unresolved_effect"
+  ] as const)("keeps an open dialog and the session through a %s pause", async (reason) => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController(reason)
+    })
+    await agent.start(startInput)
+
+    await agent.pause("run-1")
+
+    expect(runs.get("run-1")?.status).toBe("paused")
+    expect(browser.manager.detach).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    "panel_closed",
+    "takeover"
+  ] as const)("still lets go of the dialog on a %s pause", async (reason) => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController(reason)
+    })
+    await agent.start(startInput)
+
+    await agent.pause("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("detaches on a user pause when no dialog is open", async () => {
+    const browser = browserSessions()
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("user")
+    })
+    await agent.start(startInput)
+
+    await agent.pause("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("releases a dialog it held through a pause once the run is stopped", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("user")
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+    expect(browser.manager.detach).not.toHaveBeenCalled()
+
+    await agent.stop("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("releases a held dialog when the last panel closes after a user pause", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("user")
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+    expect(browser.manager.detach).not.toHaveBeenCalled()
+
+    await agent.pause("run-1", "panel_closed")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  it("records a dialog dismissed when browser control ends", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const port = persistence()
+    const appendStep = vi.fn(port.appendStep)
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+
+    expect(appendStep.mock.invocationCallOrder[0]).toBeLessThan(
+      browser.manager.detach.mock.invocationCallOrder[0]
+    )
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "uncertain",
+        verification: expect.objectContaining({ outcome: "ambiguous" })
+      })
+    )
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "verified",
+        command: expect.objectContaining({
+          type: "handle_dialog",
+          dialogId: "d1",
+          accept: false
+        }),
+        verification: expect.objectContaining({
+          evidence: expect.objectContaining({ kind: "dialog_release" })
+        })
+      })
+    )
+  })
+
+  it("retains dialog-release intent when the final receipt write fails", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const port = persistence()
+    const appendStep = vi.fn(port.appendStep)
+    appendStep.mockImplementationOnce(port.appendStep)
+    appendStep.mockRejectedValueOnce(new Error("storage unavailable"))
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "uncertain" })
+    )
+    await agent.pause("run-1", "panel_closed")
+    const writes = appendStep.mock.calls.map(([step]) => step)
+    expect(writes.map((step) => step.status)).toEqual([
+      "uncertain",
+      "verified",
+      "verified"
+    ])
+    expect(new Set(writes.map((step) => step.stepId)).size).toBe(1)
+  })
+
+  it("records a new session's dialog after an older dismissal stays uncertain", async () => {
+    const browser = browserSessions()
+    let attached = false
+    browser.manager.attach.mockImplementation(async () => {
+      attached = true
+    })
+    browser.manager.detach.mockImplementation(async () => {
+      attached = false
+    })
+    browser.manager.attachedTabId.mockImplementation(() =>
+      attached ? 7 : undefined
+    )
+    browser.manager.openDialog.mockImplementation(() =>
+      attached ? (heldDialog as never) : undefined
+    )
+    const port = persistence()
+    const appendStep = vi.fn(port.appendStep)
+    appendStep.mockImplementationOnce(port.appendStep)
+    appendStep.mockRejectedValueOnce(new Error("first final write failed"))
+    appendStep.mockRejectedValueOnce(new Error("retry failed"))
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+
+    await agent.start(startInput)
+    await agent.pause("run-1")
+    await agent.resume("run-1")
+    await agent.pause("run-1", "panel_closed")
+
+    const writes = appendStep.mock.calls.map(([step]) => step)
+    const intents = writes.filter((step) => step.status === "uncertain")
+    expect(intents).toHaveLength(2)
+    expect(intents[0]?.stepId).not.toBe(intents[1]?.stepId)
+    expect(writes.at(-1)).toMatchObject({
+      stepId: intents[1]?.stepId,
+      status: "verified"
+    })
+    expect(browser.manager.attach).toHaveBeenCalledTimes(2)
+    expect(browser.manager.detach).toHaveBeenCalledTimes(2)
+  })
+
+  it("releases a held dialog if the intent receipt cannot be stored", async () => {
+    const browser = browserSessions()
+    browser.manager.openDialog.mockReturnValue(heldDialog as never)
+    const port = persistence()
+    const appendStep = vi
+      .fn()
+      .mockRejectedValue(new Error("storage unavailable"))
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: pausingController("panel_closed"),
+      persistence: { ...port, appendStep }
+    })
+    await agent.start(startInput)
+    await agent.pause("run-1")
+
+    expect(appendStep).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "uncertain" })
+    )
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+  })
+
+  /**
+   * `partial` is resumable from its card, so the incomplete query returns it,
+   * but it is settled and must not hold admission.
+   */
+  it("starts beside a partial run but not beside a paused one", async () => {
+    const stored = (status: AgentRunState["status"]) =>
+      ({ id: `old-${status}`, status }) as DurableAgentRun
+    const partial = service({
+      readIncompleteRuns: async () => [stored("partial")]
+    })
+    await partial.service.start(startInput)
+    expect(partial.controller.start).toHaveBeenCalledTimes(1)
+
+    runs.clear()
+    const paused = service({
+      readIncompleteRuns: async () => [stored("partial"), stored("paused")]
+    })
+    await expect(paused.service.start(startInput)).rejects.toMatchObject({
+      reason: "already_running"
+    })
+    expect(paused.service.activeRunId()).toBe("old-paused")
+  })
+
   it("admits only one simultaneous start before the durable lookup settles", async () => {
     let release = () => {}
     const gate = new Promise<void>((resolve) => {
@@ -419,12 +722,13 @@ describe("Agent run service", () => {
 
   it("holds admission until the insert settles and releases after a failed insert", async () => {
     let rejectInsert: (error: Error) => void = () => {}
-    const gate = new Promise<void>((_resolve, reject) => {
+    const gate = new Promise<boolean>((_resolve, reject) => {
       rejectInsert = reject
     })
     const createRun = vi
       .fn(async (state: AgentRunState) => {
         runs.set(state.id, state)
+        return true
       })
       .mockImplementationOnce(() => gate)
     const { service: agent, controller } = service({ createRun })
@@ -492,7 +796,7 @@ describe("Agent run service", () => {
     ["addressless tab", { getTab: async () => ({}) }],
     ["non-http page", { getTab: async () => ({ url: "chrome://settings" }) }]
   ])("writes no run row for a %s", async (_label, overrides) => {
-    const createRun = vi.fn(async () => undefined)
+    const createRun = vi.fn(async () => true)
     const { service: agent } = service({ ...overrides, createRun })
 
     await expect(agent.start(startInput)).rejects.toThrow()
@@ -614,6 +918,7 @@ describe("Agent run service tab scope", () => {
         requestCancel: vi.fn(async () => undefined),
         completeTakeover: vi.fn(async () => undefined),
         resolveEffect: vi.fn(async () => undefined),
+        finishReviewed: vi.fn(async () => undefined),
         answerQuestion: vi.fn(async () => undefined)
       }))
     })
@@ -623,5 +928,859 @@ describe("Agent run service tab scope", () => {
     await vi.waitFor(() =>
       expect(order).toEqual(["attach:7", "detach", "attach:9", "claimed:true"])
     )
+  })
+
+  /**
+   * Done pressed before Started still holds the run loop inside its parked
+   * takeover wait, and a bare completion call no-ops against that guard. The
+   * service answers started first so the loop exits, then resumes the run —
+   * one Done press, no stall, no supervision leak.
+   */
+  it("releases a parked takeover wait before completing it", async () => {
+    const supervision = createAgentSupervision()
+    const { service: agent, controller } = service({ supervision })
+    await agent.start(startInput)
+    runs.set("run-1", {
+      ...(runs.get("run-1") as AgentRunState),
+      status: "awaiting_takeover"
+    })
+    const parked = supervision.takeover.request(
+      {
+        id: "takeover-1",
+        runId: "run-1",
+        stepId: "run-1:1",
+        reason: "file_upload",
+        instruction: "Choose the file, then continue.",
+        createdAt: 1_000
+      },
+      { aborted: false }
+    )
+
+    await agent.completeTakeover("run-1")
+
+    await expect(parked).resolves.toEqual({ type: "takeover_started" })
+    expect(supervision.pending("run-1")).toBeUndefined()
+    expect(controller.completeTakeover).toHaveBeenCalledWith("run-1")
+  })
+
+  it("completes an acknowledged takeover without answering anything", async () => {
+    const supervision = createAgentSupervision()
+    const answerTakeover = vi.spyOn(supervision, "answerTakeover")
+    const { service: agent, controller } = service({ supervision })
+    await agent.start(startInput)
+    runs.set("run-1", {
+      ...(runs.get("run-1") as AgentRunState),
+      status: "awaiting_takeover"
+    })
+
+    await agent.completeTakeover("run-1")
+
+    expect(answerTakeover).not.toHaveBeenCalled()
+    expect(controller.completeTakeover).toHaveBeenCalledWith("run-1")
+  })
+})
+
+describe("a follow-up start", () => {
+  const parentState = (patch: Partial<AgentRunState> = {}): AgentRunState => ({
+    version: 1,
+    id: "parent",
+    goal: "Post the review on https://forum.example/new",
+    status: "failed",
+    stepCount: 2,
+    observationCount: 2,
+    controlledTabId: 7,
+    providerId: "ollama",
+    modelId: "qwen3",
+    allowedOrigins: ["https://forum.example", "https://other.example"],
+    grants: [
+      {
+        origin: "https://forum.example",
+        effects: ["activation", "submission"],
+        grantedAt: 1
+      }
+    ],
+    requirements: [{ id: "r1", text: "The review is posted", kind: "change" }],
+    answers: [{ questionId: "q1", text: "Use the short one", answeredAt: 1 }],
+    error: { code: "goal_failed", message: "Stopped", retryable: true },
+    createdAt: 1,
+    updatedAt: 5,
+    ...patch
+  })
+  const parentSteps = [
+    {
+      runId: "parent",
+      stepId: "parent:2",
+      status: "verified" as const,
+      at: 4,
+      sequence: 4,
+      command: {
+        type: "click",
+        ref: "e1",
+        snapshotId: "s",
+        generation: 1
+      } as const,
+      target: { role: "button", tag: "button", name: "Post review" },
+      sourceUrl: "https://forum.example/new",
+      consequential: ["submission" as const],
+      finding: "The draft is saved as #42"
+    }
+  ]
+  const parentRun = (
+    patch: Partial<DurableAgentRun> = {},
+    state: Partial<AgentRunState> = {}
+  ): DurableAgentRun => ({
+    id: "parent",
+    status: "failed",
+    state: parentState(state),
+    compacted: true,
+    createdAt: 1,
+    updatedAt: 5,
+    sessionId: "chat-1",
+    ...patch
+  })
+
+  beforeEach(() => {
+    runs.clear()
+  })
+
+  it("carries the parent's record and committed effects, and nothing it was given", async () => {
+    const createRun = vi.fn(async (state: AgentRunState) => {
+      runs.set(state.id, state)
+      return true
+    })
+    const { service: agent } = service({
+      createRun,
+      readRun: async (runId) => (runId === "parent" ? parentRun() : null),
+      readCompleteSteps: async () => parentSteps
+    })
+
+    const state = await agent.start({
+      ...startInput,
+      goal: "Try again",
+      sessionId: "chat-1",
+      followUp: { parentRunId: "parent", mode: "retry" }
+    })
+
+    expect(state.previousRun).toMatchObject({
+      mode: "retry",
+      handoff: {
+        runId: "parent",
+        status: "failed",
+        failure: "goal_failed",
+        findings: ["The draft is saved as #42"]
+      },
+      effects: [
+        {
+          action: "click",
+          page: "https://forum.example/new",
+          role: "button",
+          name: "Post review"
+        }
+      ]
+    })
+    /** A handoff carries no links, even in the parent's own goal. */
+    expect(state.previousRun?.handoff.goal).not.toContain("forum.example")
+    /** Fresh planning and fresh approvals: nothing the parent was given. */
+    expect(state.grants).toBeUndefined()
+    expect(state.requirements).toBeUndefined()
+    expect(state.answers).toBeUndefined()
+    expect(state.allowedOrigins).toEqual(["https://example.com"])
+    expect(createRun).toHaveBeenCalledWith(state, "chat-1", "parent", undefined)
+  })
+
+  it.each([
+    "retry",
+    "continue"
+  ] as const)("carries every parent boundary into %s", async (mode) => {
+    const constraints: NonNullable<AgentRunState["constraints"]> = [
+      { id: "c1", text: "only account A", kind: "scope" },
+      { id: "c2", text: "spend under $50", kind: "limit" },
+      { id: "c3", text: "exclude archived rows", kind: "exclude" },
+      {
+        id: "c4",
+        text: "never submit",
+        kind: "exclude",
+        forbids: ["submission"]
+      }
+    ]
+    const { service: agent } = service({
+      readRun: async () => parentRun({}, { constraints }),
+      readCompleteSteps: async () => parentSteps
+    })
+    const state = await agent.start({
+      ...startInput,
+      goal: "Try again",
+      sessionId: "chat-1",
+      followUp: { parentRunId: "parent", mode }
+    })
+    expect(state.previousRun?.constraints).toEqual(constraints)
+  })
+
+  it("inherits what the parent itself inherited", async () => {
+    const earlier = {
+      action: "click",
+      role: "button",
+      name: "Pay now"
+    }
+    const { service: agent } = service({
+      readRun: async () =>
+        parentRun(
+          {},
+          {
+            previousRun: {
+              mode: "retry",
+              handoff: {
+                version: 1,
+                runId: "grandparent",
+                status: "failed",
+                goal: "Pay",
+                findings: [],
+                settledAt: 1
+              },
+              effects: [earlier]
+            }
+          }
+        ),
+      readCompleteSteps: async () => parentSteps
+    })
+
+    const state = await agent.start({
+      ...startInput,
+      sessionId: "chat-1",
+      followUp: { parentRunId: "parent", mode: "retry" }
+    })
+
+    expect(state.previousRun?.effects.map((effect) => effect.name)).toEqual([
+      "Pay now",
+      "Post review"
+    ])
+  })
+
+  it.each([
+    ["the parent is gone", async () => null, "chat-1"],
+    [
+      "the parent is still live",
+      async () => parentRun({ status: "paused" }, { status: "paused" }),
+      "chat-1"
+    ],
+    ["the parent belongs to another chat", async () => parentRun(), "chat-2"],
+    [
+      "the parent cannot be read",
+      async () => {
+        throw new Error("owner unavailable")
+      },
+      "chat-1"
+    ]
+  ])("is refused, creating nothing, when %s", async (_, readRun, sessionId) => {
+    const createRun = vi.fn(async () => true)
+    const { service: agent, controller } = service({
+      createRun,
+      readRun,
+      readCompleteSteps: async () => parentSteps
+    })
+
+    await expect(
+      agent.start({
+        ...startInput,
+        sessionId,
+        followUp: { parentRunId: "parent", mode: "continue" }
+      })
+    ).rejects.toMatchObject({ reason: "follow_up_unavailable" })
+    expect(createRun).not.toHaveBeenCalled()
+    expect(controller.start).not.toHaveBeenCalled()
+  })
+
+  it("is refused rather than trimmed when the chain committed too much", async () => {
+    const createRun = vi.fn(async () => true)
+    const many = Array.from({ length: MAX_AGENT_PRIOR_EFFECTS }, (_, i) => ({
+      action: "click",
+      role: "button",
+      name: `Pay ${i}`
+    }))
+    const { service: agent } = service({
+      createRun,
+      readRun: async () =>
+        parentRun(
+          {},
+          {
+            previousRun: {
+              mode: "retry",
+              handoff: {
+                version: 1,
+                runId: "grandparent",
+                status: "failed",
+                goal: "Pay",
+                findings: [],
+                settledAt: 1
+              },
+              effects: many
+            }
+          }
+        ),
+      readCompleteSteps: async () => parentSteps
+    })
+
+    await expect(
+      agent.start({
+        ...startInput,
+        sessionId: "chat-1",
+        followUp: { parentRunId: "parent", mode: "retry" }
+      })
+    ).rejects.toMatchObject({ reason: "follow_up_unavailable" })
+    expect(createRun).not.toHaveBeenCalled()
+  })
+
+  it("is refused when the parent's receipts cannot be read", async () => {
+    const createRun = vi.fn(async () => true)
+    const { service: agent } = service({
+      createRun,
+      readRun: async () => parentRun(),
+      readCompleteSteps: async () => {
+        throw new Error("owner unavailable")
+      }
+    })
+
+    await expect(
+      agent.start({
+        ...startInput,
+        sessionId: "chat-1",
+        followUp: { parentRunId: "parent", mode: "retry" }
+      })
+    ).rejects.toMatchObject({ reason: "follow_up_unavailable" })
+    expect(createRun).not.toHaveBeenCalled()
+  })
+})
+
+describe("a run a chat turn delegated", () => {
+  beforeEach(() => {
+    runs.clear()
+  })
+
+  const delegation = {
+    ...startInput,
+    sessionId: "chat-1",
+    messageId: 42,
+    goalAuthor: "model_after_page" as const,
+    allowRoutineActions: true
+  }
+
+  it("is refused when its chat was deleted mid-start, and drives nothing", async () => {
+    const createRun = vi.fn(async () => false)
+    const { service: agent, controller } = service({ createRun })
+
+    await expect(agent.delegate(delegation)).rejects.toMatchObject({
+      reason: "chat_unavailable"
+    })
+    expect(agent.activeRunId()).toBeUndefined()
+    expect(controller.start).not.toHaveBeenCalled()
+
+    createRun.mockImplementation(async () => true)
+    await expect(agent.delegate(delegation)).resolves.toBeDefined()
+  })
+
+  it("is filed against the turn's row and keeps who wrote its goal", async () => {
+    const createRun = vi.fn(async (state: AgentRunState) => {
+      runs.set(state.id, state)
+      return true
+    })
+    const { service: agent } = service({ createRun })
+
+    const state = await agent.delegate(delegation)
+
+    expect(state.goalAuthor).toBe("model_after_page")
+    expect(createRun).toHaveBeenCalledWith(state, "chat-1", undefined, {
+      kind: "turn",
+      messageId: 42
+    })
+  })
+
+  it("finds the run it already started for the same row", async () => {
+    const createRun = vi.fn()
+    const existing = {
+      id: "run-0",
+      goal: "Earlier",
+      toolCallId: "call-1"
+    } as AgentRunState
+    const { service: agent } = service({
+      createRun,
+      readRunForMessage: vi.fn(async () => ({
+        id: "run-0",
+        state: existing
+      })) as never
+    })
+
+    await expect(
+      agent.delegate({ ...delegation, toolCallId: "call-1" })
+    ).resolves.toBe(existing)
+    expect(createRun).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A second call in the same turn is a second task. Handing it the first
+   * run's record would report a task that never started.
+   */
+  it("refuses a different call in a turn that already delegated a run", async () => {
+    const createRun = vi.fn()
+    const { service: agent } = service({
+      createRun,
+      readRunForMessage: vi.fn(async () => ({
+        id: "run-0",
+        state: { id: "run-0", goal: "Earlier", toolCallId: "call-1" }
+      })) as never
+    })
+
+    await expect(
+      agent.delegate({ ...delegation, toolCallId: "call-2" })
+    ).rejects.toMatchObject({ reason: "turn_has_run" })
+    expect(createRun).not.toHaveBeenCalled()
+  })
+
+  it("records the delegating call on the run", async () => {
+    const { service: agent } = service()
+
+    const state = await agent.delegate({ ...delegation, toolCallId: "call-9" })
+
+    expect(state.toolCallId).toBe("call-9")
+  })
+
+  it("follows the chat's previous run in the mode its status calls for", async () => {
+    const first = service({ newRunId: () => "parent" })
+    const parent = await first.service.start(startInput)
+    runs.set(parent.id, { ...parent, status: "failed" })
+    const createRun = vi.fn(async (state: AgentRunState) => {
+      runs.set(state.id, state)
+      return true
+    })
+    const { service: agent } = service({
+      createRun,
+      newRunId: () => "child"
+    })
+
+    const child = await agent.delegate({
+      ...delegation,
+      previousRunId: "parent"
+    })
+
+    expect(child.previousRun?.mode).toBe("retry")
+    expect(createRun).toHaveBeenCalledWith(child, "chat-1", "parent", {
+      kind: "turn",
+      messageId: 42
+    })
+  })
+
+  it("resolves at once for a run that has already settled", async () => {
+    const { service: agent } = service()
+    const state = await agent.start(startInput)
+    runs.set(state.id, { ...state, status: "completed" })
+
+    await expect(agent.awaitSettled(state.id)).resolves.toMatchObject({
+      status: "completed"
+    })
+  })
+
+  it("resolves when a write settles the run", async () => {
+    const { service: agent } = service({
+      buildController: transitionController("cancelled")
+    })
+    const state = await agent.start(startInput)
+
+    const settled = agent.awaitSettled(state.id)
+    await agent.stop(state.id)
+
+    await expect(settled).resolves.toMatchObject({ status: "cancelled" })
+  })
+
+  /** Whether the run stops too is the waiter's call, never the wait's. */
+  it("ends only the wait when it is aborted", async () => {
+    const { service: agent, controller } = service()
+    const state = await agent.start(startInput)
+    const waiting = new AbortController()
+
+    const abandoned = agent.awaitSettled(state.id, waiting.signal)
+    waiting.abort("gone")
+
+    await expect(abandoned).rejects.toBe("gone")
+    expect(controller.requestCancel).not.toHaveBeenCalled()
+  })
+})
+
+/** Consent is run-owned; losing an observer grants nothing and replays nothing. */
+describe("unattended execution", () => {
+  beforeEach(() => runs.clear())
+  const consent = {
+    approvedAt: 900,
+    browserSessionId: "browser-1",
+    origins: ["https://example.com"],
+    tabIds: [7],
+    providerId: "ollama",
+    modelId: "qwen3"
+  }
+
+  it("continues authorized work on panel close, but a supervised run pauses", async () => {
+    const h = service()
+    const state = await h.service.start(startInput)
+    runs.set(state.id, { ...state, status: "deciding", unattended: consent })
+    await h.service.pause(state.id, "panel_closed")
+    expect(h.controller.requestPause).not.toHaveBeenCalled()
+    runs.set(state.id, { ...state, status: "deciding" })
+    await h.service.pause(state.id, "panel_closed")
+    expect(h.controller.requestPause).toHaveBeenCalledWith(
+      state.id,
+      "panel_closed"
+    )
+  })
+
+  it.each([
+    { allowedOrigins: ["https://example.com", "https://other.example"] },
+    { controlledTabId: 8 },
+    { scopedTabIds: [7, 8] }
+  ])("cannot continue panel-free after scope changes: %j", async (patch) => {
+    const h = service()
+    const state = await h.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "deciding",
+      unattended: consent,
+      ...patch
+    })
+    await h.service.pause(state.id, "panel_closed")
+    expect(h.controller.requestPause).toHaveBeenCalled()
+  })
+
+  it("resumes one safe worker-loss checkpoint after permission and scope checks", async () => {
+    const h = service({ browserSessionId: async () => "browser-1" })
+    const state = await h.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    // A replacement service has no in-memory owner.
+    const restarted = service({ browserSessionId: async () => "browser-1" })
+    await restarted.service.recoverUnattended()
+    expect(restarted.controller.resume).toHaveBeenCalledWith(state.id)
+    expect(restarted.controller.start).not.toHaveBeenCalled()
+  })
+
+  it("does not resume when startup is aborted during page revalidation", async () => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    const abort = new AbortController()
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      getTab: async () => {
+        abort.abort()
+        return { url: "https://example.com" }
+      }
+    })
+    await expect(h.service.recoverUnattended(abort.signal)).rejects.toThrow()
+    expect(h.controller.resume).not.toHaveBeenCalled()
+    expect(runs.get(state.id)?.status).toBe("paused")
+  })
+
+  it("checks startup cancellation immediately before the resume write", async () => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    const abort = new AbortController()
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      buildController: ({ persistence: port }) => ({
+        ...first.controller,
+        resume: async () => {
+          abort.abort()
+          await port.transition({
+            runId: state.id,
+            from: "paused",
+            to: "observing",
+            patch: {}
+          })
+        }
+      })
+    })
+    await expect(h.service.recoverUnattended(abort.signal)).rejects.toThrow()
+    expect(runs.get(state.id)?.status).toBe("paused")
+    expect(h.service.activeRunId()).toBeUndefined()
+  })
+
+  it("hands off only after the first durable checkpoint, without waiting for task completion", async () => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    let finish: () => void = () => undefined
+    const work = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      buildController: ({ persistence: port }) => ({
+        ...first.controller,
+        resume: async () => {
+          await port.transition({
+            runId: state.id,
+            from: "paused",
+            to: "observing",
+            patch: {}
+          })
+          await work
+        }
+      })
+    })
+    await h.service.recoverUnattended(new AbortController().signal)
+    expect(runs.get(state.id)?.status).toBe("observing")
+    finish()
+  })
+
+  it.each([
+    "claim",
+    "transition"
+  ] as const)("keeps the controller when startup aborts during the committed %s write", async (method) => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    const abort = new AbortController()
+    const durable = persistence()
+    let finish: () => void = () => undefined
+    const work = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      persistence: {
+        ...durable,
+        async claim(input) {
+          const result = await durable.claim(input)
+          abort.abort()
+          return result
+        },
+        async transition(input) {
+          const result = await durable.transition(input)
+          abort.abort()
+          return result
+        }
+      },
+      buildController: ({ persistence: port }) => ({
+        ...first.controller,
+        resume: async () => {
+          if (method === "claim") {
+            await port.claim({
+              runId: state.id,
+              phase: "observing",
+              expected: ["paused"],
+              patch: {}
+            })
+          } else {
+            await port.transition({
+              runId: state.id,
+              from: "paused",
+              to: "observing",
+              patch: {}
+            })
+          }
+          // Startup's expired signal must no longer guard the user task.
+          await port.transition({
+            runId: state.id,
+            from: "observing",
+            to: "deciding",
+            patch: {}
+          })
+          await work
+        }
+      })
+    })
+    try {
+      await expect(
+        h.service.recoverUnattended(abort.signal)
+      ).resolves.toBeUndefined()
+      expect(abort.signal.aborted).toBe(true)
+      expect(h.service.activeRunId()).toBe(state.id)
+      await vi.waitFor(() =>
+        expect(runs.get(state.id)?.status).toBe("deciding")
+      )
+    } finally {
+      finish()
+    }
+  })
+
+  it("pauses when a panel-free run later adopts an unconsented tab", async () => {
+    let port: AgentPersistencePort = persistence()
+    const controller = {
+      ...service().controller,
+      requestPause: vi.fn(async () => undefined)
+    }
+    const h = service({
+      buildController: ({ persistence: wrapped }) => {
+        port = wrapped
+        return controller
+      }
+    })
+    const state = await h.service.start(startInput)
+    runs.set(state.id, { ...state, status: "deciding", unattended: consent })
+    await h.service.pause(state.id, "panel_closed")
+    await port.claim({
+      runId: state.id,
+      phase: "observing",
+      expected: ["deciding"],
+      patch: { controlledTabId: 8, scopedTabIds: [7, 8] }
+    })
+    expect(controller.requestPause).toHaveBeenCalledWith(
+      state.id,
+      "consent_scope_changed"
+    )
+  })
+
+  it.each([
+    "user",
+    "question",
+    "unresolved_effect",
+    "takeover",
+    "panel_closed"
+  ] as const)("does not auto-resume the human boundary %s", async (pauseReason) => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason,
+      unattended: consent
+    })
+    const h = service({ browserSessionId: async () => "browser-1" })
+    await h.service.recoverUnattended()
+    expect(h.controller.resume).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    "browser_restart",
+    "origin",
+    "permission",
+    "provider",
+    "tab"
+  ])("rejects recovery after %s changes", async (changed) => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent,
+      ...(changed === "provider" ? { providerId: "other" } : {}),
+      ...(changed === "tab" ? { controlledTabId: 8 } : {})
+    })
+    const h = service({
+      browserSessionId: async () =>
+        changed === "browser_restart" ? "browser-2" : "browser-1",
+      hasPerception: async () => changed !== "permission",
+      getTab: async () => ({
+        url:
+          changed === "origin" ? "https://other.example" : "https://example.com"
+      })
+    })
+    await h.service.recoverUnattended()
+    expect(h.controller.resume).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    "chrome://newtab",
+    "file:///tmp/page.html",
+    "not a URL"
+  ])("quietly skips unattended recovery on an unsupported tab: %s", async (url) => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: consent
+    })
+    const h = service({
+      browserSessionId: async () => "browser-1",
+      getTab: async () => ({ url })
+    })
+    await expect(h.service.recoverUnattended()).resolves.toBeUndefined()
+    expect(h.controller.resume).not.toHaveBeenCalled()
+    expect(h.service.activeRunId()).toBeUndefined()
+    expect(runs.get(state.id)?.status).toBe("paused")
+  })
+
+  it("acknowledges consent only after its exact pause is durably saved", async () => {
+    let release: () => void = () => undefined
+    const write = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          release = () => resolve(true)
+        })
+    )
+    const h = service({
+      writeUnattended: write,
+      browserSessionId: async () => "browser-1"
+    })
+    let acknowledged = false
+    const saving = h.service.setUnattended("run-1", 1000, true).then(() => {
+      acknowledged = true
+    })
+    await Promise.resolve()
+    expect(acknowledged).toBe(false)
+    release()
+    await saving
+    expect(write).toHaveBeenCalledWith("run-1", 1000, true, "browser-1")
+  })
+
+  it("refuses consent for a pause that moved on with its own reason", async () => {
+    const h = service({
+      writeUnattended: async () => false,
+      browserSessionId: async () => "browser-1"
+    })
+    await expect(
+      h.service.setUnattended("run-1", 1000, true)
+    ).rejects.toMatchObject({ reason: "consent_stale" })
+  })
+})
+
+describe("Agent switch during unattended recovery", () => {
+  it("keeps an authorized worker-loss checkpoint paused when Agent is disabled", async () => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: {
+        approvedAt: 1_000,
+        browserSessionId: "browser-1",
+        origins: state.allowedOrigins,
+        tabIds: [state.controlledTabId],
+        providerId: state.providerId,
+        modelId: state.modelId
+      }
+    })
+    const restarted = service({
+      isAgentEnabled: async () => false,
+      browserSessionId: async () => "browser-1"
+    })
+    await restarted.service.recoverUnattended()
+    expect(restarted.controller.resume).not.toHaveBeenCalled()
+    expect(runs.get(state.id)?.pauseReason).toBe("worker_lost")
   })
 })

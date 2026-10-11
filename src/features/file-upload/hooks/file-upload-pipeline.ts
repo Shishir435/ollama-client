@@ -5,22 +5,31 @@ import {
   getActiveKnowledgeSetId
 } from "@/lib/knowledge/knowledge-sets"
 
+/** Structured validation stays untranslated until the UI presents it. */
+export class FileUploadValidationError extends Error {
+  constructor(
+    readonly reason: "unsupported_type" | "too_large",
+    readonly fileName: string,
+    readonly maxMb: number
+  ) {
+    super(
+      reason === "too_large"
+        ? "File exceeds maximum size"
+        : "Unsupported file type"
+    )
+    this.name = "FileUploadValidationError"
+  }
+}
+
 export const validateFileForUpload = (
   file: File,
   maxFileSize: number
-): Error | null => {
-  if (!isFileTypeSupported(file)) {
-    return new Error(
-      `Unsupported file type: "${file.name}". Supported formats: Text files (.txt, .md, .js, .ts, etc.), PDF (.pdf), DOCX (.docx), CSV/TSV (.csv, .tsv), and HTML (.html).`
-    )
-  }
-
-  if (file.size > maxFileSize) {
-    return new Error(
-      `File "${file.name}" exceeds maximum size of ${(maxFileSize / 1024 / 1024).toFixed(0)}MB`
-    )
-  }
-
+): FileUploadValidationError | null => {
+  const maxMb = Math.round(maxFileSize / 1024 / 1024)
+  if (!isFileTypeSupported(file))
+    return new FileUploadValidationError("unsupported_type", file.name, maxMb)
+  if (file.size > maxFileSize)
+    return new FileUploadValidationError("too_large", file.name, maxMb)
   return null
 }
 

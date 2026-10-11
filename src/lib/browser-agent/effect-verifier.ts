@@ -4,17 +4,23 @@ import type {
   AgentVerificationResult,
   ResolvedAgentBatchField
 } from "@ollama-client/agent-runtime"
-import { agentObservationStates } from "@ollama-client/agent-runtime"
+import {
+  agentObservationStates,
+  MAX_AGENT_SUBMITTED_VALUE_CHARS,
+  MAX_AGENT_SUBMITTED_VALUES
+} from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
 import { normalizeAgentEditorText } from "./editor-text"
+import { AgentNavigationTimeoutError } from "./navigation-errors"
 import type {
   DialogAgentAction,
   DomMutationAgentAction,
   NavigationAgentAction,
   ReadOnlyAgentAction
 } from "./resolved-effect"
+import { AUTHENTICATION_PATH, PAYMENT_PATH } from "./resolved-effect"
 
 export interface AgentEffectVerifierAdapter {
   observe(
@@ -30,7 +36,6 @@ export interface AgentEffectVerifierAdapter {
     signal: AgentCancellationSignal,
     sourceDocumentId?: string
   ): Promise<void>
-  getActiveTabId(): Promise<number | undefined>
   getTab(tabId: number): Promise<{ url?: string } | undefined>
   classifyAccess(url?: string): Promise<TabAccess>
   /**
@@ -64,10 +69,125 @@ const observeAfter = (
     signal
   )
 
+/** Words only, lowercased and space-padded, for whole-word comparison. */
+const comparableWords = (text: string): string =>
+  ` ${text
+    .toLowerCase()
+    .replaceAll(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()} `
+
+/**
+ * The value a link asked for that its own site's landing path names, as
+ * comparable words: `Special:Search?search=Firefox` answered with
+ * `/wiki/Firefox` names "firefox". The address alone is not the evidence —
+ * `/challenge/Firefox` names it too — so the caller also asks the landed
+ * page's title. A sign-in or payment path never counts, whatever it is named.
+ */
+const valueTheSiteResolved = (
+  landedUrl: string,
+  requestedUrl: string
+): string | undefined => {
+  try {
+    const landed = new URL(landedUrl)
+    const requested = new URL(requestedUrl)
+    if (landed.origin !== requested.origin) return undefined
+    /** Decoded first: `/%6Cogin/Firefox` is a sign-in page too. */
+    const decoded = decodeURIComponent(landed.pathname)
+    if (AUTHENTICATION_PATH.test(decoded)) return undefined
+    if (PAYMENT_PATH.test(decoded)) return undefined
+    const path = comparableWords(decoded)
+    return [...requested.searchParams.values()]
+      .map(comparableWords)
+      .find((words) => words.trim().length >= 3 && path.includes(words))
+  } catch {
+    return undefined
+  }
+}
+
+const samePagePath = (first: string, second: string): boolean => {
+  try {
+    const a = new URL(first)
+    const b = new URL(second)
+    return a.origin === b.origin && a.pathname === b.pathname
+  } catch {
+    return false
+  }
+}
+
 const sameUrl = (first: string | undefined, second: string): boolean => {
   if (!first) return false
   try {
     return new URL(first).href === new URL(second).href
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The observation is of the page the tab holds: same origin and path, and no
+ * parameter both carry with different values. Dropping a parameter is the
+ * site's to do between the two reads; refusing that is how a working search
+ * whose tracking fields the site removed was left for review.
+ */
+const samePage = (first: string, second: string): boolean => {
+  try {
+    const a = new URL(first)
+    const b = new URL(second)
+    if (a.origin !== b.origin || a.pathname !== b.pathname) return false
+    /**
+     * A parameter one address dropped is the site's cleanup; one both carry
+     * with different values is a different page. `?q=approved` observed as
+     * `?q=other` is not the page the form was sent to.
+     */
+    for (const name of new Set(a.searchParams.keys())) {
+      if (!b.searchParams.has(name)) continue
+      const left = a.searchParams.getAll(name).sort()
+      const right = b.searchParams.getAll(name).sort()
+      if (
+        left.length !== right.length ||
+        left.some((value, index) => value !== right[index])
+      )
+        return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether the tab landed on the address asked for, allowing what a site adds
+ * on arrival. Searching DuckDuckGo for `?q=test` commits `?q=test&ia=web`, and
+ * reading that as "a different destination" paused a search that had worked.
+ * Same origin and path, every requested parameter present with exactly its
+ * values, and a requested fragment kept; parameters the request did not
+ * name, and a fragment it did not ask for, are the site's. A different
+ * path, host or value is still a different destination.
+ */
+const landedAt = (committed: string, requested: string): boolean => {
+  if (sameUrl(committed, requested)) return true
+  try {
+    const landed = new URL(committed)
+    const asked = new URL(requested)
+    if (landed.origin !== asked.origin || landed.pathname !== asked.pathname)
+      return false
+    /** A requested fragment is part of where the user asked to go. */
+    if (asked.hash && landed.hash !== asked.hash) return false
+    /**
+     * Every requested parameter lands with exactly its requested values:
+     * `?tag=a&tag=a` is not met by one `tag=a`, and `?q=approved` is not
+     * met by `?q=approved&q=other`, whose page may search for `other`.
+     */
+    for (const name of new Set(asked.searchParams.keys())) {
+      const want = asked.searchParams.getAll(name).sort()
+      const got = landed.searchParams.getAll(name).sort()
+      if (
+        want.length !== got.length ||
+        want.some((value, index) => value !== got[index])
+      )
+        return false
+    }
+    return true
   } catch {
     return false
   }
@@ -284,6 +404,7 @@ export const READ_ONLY_AGENT_VERIFIERS = {
   extract: verifyPureRead,
   extract_text: verifyPureRead,
   zoom: verifyPureRead,
+  look: verifyPureRead,
   /**
    * Waiting is bounded looking, not sleeping.
    *
@@ -424,16 +545,14 @@ export const READ_ONLY_AGENT_VERIFIERS = {
     ) {
       throw new Error("Invalid switch-tab effect")
     }
-    const active = await adapter.getActiveTabId()
-    if (active !== input.effect.command.tabId) {
-      return result(
-        "negative",
-        "tab",
-        "Requested tab is not active",
-        adapter.now()
-      )
+    /**
+     * The tab the run now drives, whether or not the user is looking at it:
+     * switching never brings it to the front.
+     */
+    const tab = await adapter.getTab(input.effect.command.tabId)
+    if (!tab) {
+      return result("negative", "tab", "Requested tab is gone", adapter.now())
     }
-    const tab = await adapter.getTab(active)
     return tab?.url &&
       sameUrl(
         tab.url,
@@ -443,7 +562,7 @@ export const READ_ONLY_AGENT_VERIFIERS = {
       ? result(
           "confirmed",
           "tab",
-          "Requested readable tab is active",
+          "Requested readable tab is controlled",
           adapter.now()
         )
       : result(
@@ -517,26 +636,55 @@ const verifyCommittedDestination = async (
   if (!tab?.url) {
     return result("negative", kind, "Destination tab is gone", adapter.now())
   }
-  if (!sameUrl(tab.url, destination.url)) {
-    return sameUrl(tab.url, input.effect.sourceUrl)
-      ? result(
-          "ambiguous",
-          kind,
-          "Navigation did not settle before verification",
-          adapter.now()
-        )
-      : result(
-          "ambiguous",
-          kind,
-          "A different destination committed",
-          adapter.now()
-        )
-  }
+  const landed = landedAt(tab.url, destination.url)
+  if (!landed && sameUrl(tab.url, input.effect.sourceUrl))
+    return result(
+      "ambiguous",
+      kind,
+      "Navigation did not settle before verification",
+      adapter.now()
+    )
+  /**
+   * A link the page itself showed, which its own site resolved to the page
+   * it named — in the landing path and in the landed page's own title, since
+   * an address can name a value a challenge page never answers. Wikipedia's search suggestions link to
+   * `Special:Search?search=Firefox`, answered with the article, and every
+   * such click paused the run as an unresolved effect on the page it had
+   * asked for. Only that shape: a redirect to a sign-in, a challenge or any
+   * path the link did not name stays for review, as does a model-composed
+   * address and another origin.
+   */
+  const committedUrl = tab.url
+  const resolved =
+    !landed && kind === "activation" && destination.source === "observed"
+      ? valueTheSiteResolved(tab.url, destination.url)
+      : undefined
+  const followedLink =
+    resolved !== undefined &&
+    (await observeAfter(input, adapter, signal, tabId).then(
+      /**
+       * The title counts only from an observation of the committed page: one
+       * that has not caught up is still showing the page the click left.
+       */
+      (after) =>
+        samePagePath(after.url, committedUrl) &&
+        comparableWords(after.title).includes(resolved),
+      () => false
+    ))
+  if (!landed && !followedLink)
+    return result(
+      "ambiguous",
+      kind,
+      "A different destination committed",
+      adapter.now()
+    )
   return (await adapter.classifyAccess(tab.url)) === "ok"
     ? result(
         "confirmed",
         kind,
-        "Authorized destination is committed",
+        landed
+          ? "Authorized destination is committed"
+          : "The site redirected its own link within its origin",
         adapter.now()
       )
     : result(
@@ -564,7 +712,7 @@ export const NAVIGATION_AGENT_VERIFIERS = {
      * answered but the page did not move.
      */
     const after = await observeAfter(input, adapter, signal)
-    if (!sameUrl(after.url, input.effect.destination?.url ?? "")) {
+    if (!landedAt(after.url, input.effect.destination?.url ?? "")) {
       return result(
         "ambiguous",
         "navigation",
@@ -652,6 +800,12 @@ const pageEvidence = (observation: AgentObservation): string =>
     documentId: observation.documentId,
     title: observation.title,
     visibleText: observation.visibleText,
+    /**
+     * Text the step added below the fold is still a change. Comparing only
+     * the viewport made a click whose result landed off-screen read as
+     * having done nothing, and paused the run as an unresolved effect.
+     */
+    documentText: observation.documentText,
     elements: observation.elements.map((element) => ({
       tag: element.tag,
       role: element.role,
@@ -855,18 +1009,80 @@ const verifyCheckedMutation: Verifier = async (input, adapter, signal) => {
       )
 }
 
-const verifySubmission: Verifier = async (input, adapter, signal) => {
+/**
+ * The values a GET submission sent, as proof of what this form carried
+ * rather than anything typed elsewhere on the page, each with the label of
+ * the control that held it.
+ *
+ * Read from `formQuery`, the query of visible fields the approval's address
+ * was built from and the executor refused to send if it had changed — never
+ * from the landed address, which carries hidden fields such as tokens, and
+ * these values are kept on a durable receipt. Absent when the form has a
+ * hidden or sensitive control, since `formQuery` is then never built. A
+ * value too long to keep whole is dropped rather than cut, so no fragment
+ * of it reads as a word it never was.
+ *
+ * The label is what lets `q=Alice&category=Bob` prove "Search for Alice"
+ * and not "Search for Bob": parameter names are the site's, while the
+ * control's name is the word a requirement uses. It is taken from the
+ * control of this same form holding exactly that value; a value no single
+ * control holds keeps no label.
+ */
+const submittedValues = (
+  input: AgentVerificationInput
+): { name?: string; value: string }[] => {
+  const target = input.effect.target
+  if (target.formQuery === undefined || target.formHasSensitiveControl)
+    return []
+  const controls = input.before.elements.filter(
+    (element) =>
+      target.formFingerprint !== undefined &&
+      element.formFingerprint === target.formFingerprint
+  )
+  return [...new URLSearchParams(target.formQuery).values()]
+    .filter(
+      (value) =>
+        value.trim().length > 0 &&
+        value.length <= MAX_AGENT_SUBMITTED_VALUE_CHARS
+    )
+    .slice(0, MAX_AGENT_SUBMITTED_VALUES)
+    .map((value) => {
+      const holders = controls.filter((element) => element.value === value)
+      const name = holders.length === 1 ? holders[0].name?.trim() : undefined
+      return name ? { name: name.slice(0, 120), value } : { value }
+    })
+}
+
+const waitForSubmissionNavigation = async (
+  input: AgentVerificationInput,
+  adapter: AgentEffectVerifierAdapter,
+  signal: AgentCancellationSignal
+): Promise<void> => {
   const tabId = input.effect.snapshotIdentity.tabId
   const expectedUrl =
     input.receipt.submissionUrl ?? input.effect.destination?.url
-  if (expectedUrl)
-    await adapter.waitForNavigation?.(
-      tabId,
-      input.effect.sourceUrl,
-      expectedUrl,
-      signal,
-      input.before.documentId
-    )
+  if (expectedUrl) {
+    try {
+      await adapter.waitForNavigation?.(
+        tabId,
+        input.effect.sourceUrl,
+        expectedUrl,
+        signal,
+        input.before.documentId
+      )
+    } catch (error) {
+      // Only a navigation deadline permits read-only reconciliation. Aborts
+      // and adapter failures must keep propagating without another observation.
+      if (signal.aborted || !(error instanceof AgentNavigationTimeoutError))
+        throw error
+    }
+  }
+  if (signal.aborted) throw new Error("Agent submission verification cancelled")
+}
+
+const verifySubmission: Verifier = async (input, adapter, signal) => {
+  const tabId = input.effect.snapshotIdentity.tabId
+  await waitForSubmissionNavigation(input, adapter, signal)
   const tab = await adapter.getTab(tabId)
   if (!tab?.url) {
     return result(
@@ -877,20 +1093,24 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     )
   }
   if (!sameUrl(tab.url, input.effect.sourceUrl)) {
+    const requested =
+      input.receipt.submissionUrl ?? input.effect.destination?.url
     if (
       input.effect.destination &&
-      sameUrl(
-        tab.url,
-        input.receipt.submissionUrl ?? input.effect.destination.url
-      ) &&
+      requested &&
+      landedAt(tab.url, requested) &&
       (await adapter.classifyAccess(tab.url)) === "ok"
     ) {
-      return result(
-        "confirmed",
-        "submission",
-        "Form committed its resolved destination",
-        adapter.now()
-      )
+      const values = submittedValues(input)
+      return {
+        outcome: "confirmed",
+        evidence: {
+          kind: "submission",
+          summary: "Form committed its resolved destination",
+          observedAt: adapter.now(),
+          ...(values.length ? { values } : {})
+        }
+      }
     }
     // POST/redirect/GET normally lands on a result page, often back on the
     // source page with a new comment anchor. The guarded submission receipt
@@ -906,7 +1126,7 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     ) {
       const after = await observeAfter(input, adapter, signal)
       if (
-        sameUrl(after.url, tab.url) &&
+        samePage(after.url, tab.url) &&
         after.origin === input.effect.destination.origin &&
         after.documentId !== input.before.documentId
       ) {
@@ -930,12 +1150,20 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     after.documentId !== input.before.documentId ||
     pageEvidence(after) !== pageEvidence(input.before)
   ) {
-    return result(
+    const confirmed = result(
       "confirmed",
       "submission",
       "Form submission produced an observable page change",
       adapter.now()
     )
+    const transition = controlTransition(input, after)
+    return {
+      ...confirmed,
+      evidence: {
+        ...confirmed.evidence,
+        ...(transition ? { controlTransition: transition } : {})
+      }
+    }
   }
   return result(
     "ambiguous",
@@ -976,6 +1204,39 @@ const receivesInputOnFocus = (
       target.inputType?.toLowerCase() ?? ""
     ))
 
+const controlTransition = (
+  input: AgentVerificationInput,
+  after: AgentObservation
+) => {
+  const target = input.effect.target
+  const from = target.accessibleName
+  if (
+    target.frameId === undefined ||
+    !target.verificationId ||
+    !from ||
+    from.length > 500 ||
+    target.sensitive ||
+    after.documentId !== input.before.documentId
+  )
+    return undefined
+  const matches = after.elements.filter(
+    (element) =>
+      element.verificationId === target.verificationId &&
+      element.frameId === target.frameId &&
+      !element.sensitive &&
+      (element.visible || element.offscreen)
+  )
+  const to = matches.length === 1 ? matches[0].name : undefined
+  if (!to || to === from || to.length > 500) return undefined
+  return {
+    from,
+    to,
+    verificationId: target.verificationId,
+    frameId: target.frameId,
+    documentId: after.documentId
+  }
+}
+
 const verifyActivation: Verifier = async (input, adapter, signal) => {
   if (input.effect.semanticEffects.includes("submission")) {
     return verifySubmission(input, adapter, signal)
@@ -991,10 +1252,31 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
   }
   const after = await observeAfter(input, adapter, signal)
   if (pageEvidence(after) !== pageEvidence(input.before)) {
-    return result(
+    const transition = controlTransition(input, after)
+    const confirmed = result(
       "confirmed",
       "activation",
       "Control activation produced an observable page change",
+      adapter.now()
+    )
+    return {
+      ...confirmed,
+      evidence: {
+        ...confirmed.evidence,
+        ...(transition ? { controlTransition: transition } : {})
+      }
+    }
+  }
+  /**
+   * A link that opens its page in a new tab leaves this one exactly as it
+   * was, so the click read as having done nothing and paused the run as an
+   * unresolved effect while the page it asked for sat in the next tab.
+   */
+  if (input.receipt.openedTabIds?.length) {
+    return result(
+      "confirmed",
+      "activation",
+      "Control opened a new tab",
       adapter.now()
     )
   }
@@ -1300,12 +1582,19 @@ const verifyFormFill: Verifier = async (input, adapter, signal) => {
         `${applied} of ${fields.length} fields were applied; the rest were refused`,
         adapter.now()
       )
-    : result(
-        "confirmed",
-        "fields",
-        `All ${applied} fields hold the resolved value`,
-        adapter.now()
-      )
+    : {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: `All ${applied} fields hold the resolved value`,
+          observedAt: adapter.now(),
+          fields: fields.map((field) =>
+            field.target.sensitive
+              ? {}
+              : { name: field.target.accessibleName?.slice(0, 120) }
+          )
+        }
+      }
 }
 
 export const verifyFormFillAgentEffect = async (input: {

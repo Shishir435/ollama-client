@@ -1,0 +1,661 @@
+import type {
+  AgentConversationHandoff,
+  AgentPanelSnapshot,
+  AgentRunState
+} from "@ollama-client/contracts"
+import { agentReadinessPermitsStart } from "@/application/agent/agent-model-readiness"
+import { renderAgentHandoffBlock } from "@/application/context/agent-handoff-context"
+import { browser } from "@/lib/browser-api"
+import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
+import { logger } from "@/lib/logger"
+import { getAgentRun } from "@/lib/repositories/agent-runs"
+import { getMessagesByIds } from "@/lib/repositories/chat-history"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
+import { normalizeGrantOrigin } from "@/lib/tools/approval/approval-policy"
+import type {
+  BrowserTaskRequest,
+  BrowserTaskRunner
+} from "@/lib/tools/internal/browser-task-tool"
+import type { ToolContext, ToolResult } from "@/lib/tools/types"
+import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
+import {
+  AgentRunError,
+  type AgentRunFailureReason,
+  type AgentRunService
+} from "./agent-run-service"
+import { groupAgentTab } from "./agent-tab-group"
+
+type ProviderDisclosure = AgentPanelSnapshot["provider"]
+
+/**
+ * How long the chat turn waits for its run. A run's own active budget is
+ * forty minutes and time spent waiting on the user does not count against
+ * it, so a run can outlast any wait; past this the turn ends, says so, and
+ * the card in the same message keeps supervising the run.
+ */
+export const BROWSER_TASK_WAIT_MS = 45 * 60_000
+
+/**
+ * What the model is told when a start is refused. Plain English for the
+ * model to relay: the card has nothing to show for a run that never existed,
+ * so this is where the user learns why, through the model's answer.
+ */
+/** The start prompt's note that its approval covers searches on the site. */
+const ROUTINE_NOTE = "agent.start_gate.routine"
+
+const REFUSALS: Record<AgentRunFailureReason, string> = {
+  already_running:
+    "Another browser task is still running or paused. Tell the user to finish or stop it from its card before starting a new one.",
+  turn_has_run:
+    "A browser task already ran in this turn and its result is above. Do not start another now; answer from that result, and if more browser work is needed, tell the user to ask for it in a new message.",
+  browser_control_unavailable:
+    "The browser agent could not take control of the tab. Another debugger or DevTools may be attached; ask the user to close it and try again.",
+  follow_up_unavailable:
+    "The previous browser task can no longer be continued. Start it again without continue_previous_task if the user still wants it.",
+  permission_denied:
+    "The browser agent is missing a browser permission it needs.",
+  tab_unsupported:
+    "The browser agent cannot work on that tab, which is a browser or extension page rather than a website. If the task names a site, call browser_task again now, in this same turn, with start_url set to that site's address; it opens in a new tab. Do not tell the user you will do it instead of doing it. Only when the task names no site, ask the user to open an ordinary web page (http or https).",
+  steer_unavailable:
+    "The browser task is not running, so it could not take a correction.",
+  consent_stale:
+    "The browser task changed before the user's choice to continue unattended was saved.",
+  chat_unavailable:
+    "This chat was deleted while the browser task was starting, so it was not started.",
+  unknown_run: "The browser task could not be found."
+}
+
+const failure = (content: string): ToolResult => ({ content, isError: true })
+
+const TURN_STOPPED =
+  "The user stopped this turn, so the browser task was stopped."
+
+interface ResolvedTab {
+  id: number
+  url: string
+  /** Opened for this task from its start address, not the user's own tab. */
+  opened?: true
+}
+
+/** What a delegated run needs from the turn; the legacy port has none. */
+interface TurnLink {
+  sessionId: string
+  messageId: number
+  providerId: string
+  modelId: string
+  signal?: AbortSignal
+  pageFirst: boolean
+  previousRunId?: string
+  followUpRunId?: string
+  toolCallId?: string
+}
+
+/**
+ * `runless` marks a refusal the run service gave before writing anything, so
+ * no run can be driving the tab this start opened. An unexpected failure is
+ * not one: it may have come after the run existed.
+ */
+type Refusal = { ok: false; result: ToolResult; runless?: true }
+
+/**
+ * The run this one follows. A card's Continue or Retry names its own run, and
+ * that wins whatever the model said: an older card must not continue the
+ * newest run and inherit the wrong record. Otherwise the model's own
+ * `continue_previous_task` picks the newest run in the branch.
+ */
+const followedRun = (
+  request: BrowserTaskRequest,
+  turn: TurnLink
+): { previousRunId?: string } => {
+  if (turn.followUpRunId) return { previousRunId: turn.followUpRunId }
+  return request.continuePrevious && turn.previousRunId
+    ? { previousRunId: turn.previousRunId }
+    : {}
+}
+
+/** How long a start address may take to load before the run begins anyway. */
+const START_TAB_LOAD_MS = 15_000
+
+export interface BrowserTaskRunnerDependencies {
+  service: AgentRunService
+  disclose?: (
+    providerId: string,
+    modelId: string
+  ) => Promise<ProviderDisclosure>
+  getTab?: (tabId: number) => Promise<{ id?: number; url?: string } | undefined>
+  activeTab?: () => Promise<{ id?: number; url?: string } | undefined>
+  /** Opens a start address in a new tab and resolves once it has loaded. */
+  openTab?: (url: string) => Promise<{ id?: number; url?: string } | undefined>
+  /** Files a tab the run opened under the run's tab group. */
+  groupTab?: (runId: string, tabId: number) => Promise<void>
+  /** Closes a start tab this task opened that no run ended up driving. */
+  closeTab?: (tabId: number) => Promise<void>
+  readHandoff?: (
+    messageId: number
+  ) => Promise<AgentConversationHandoff | undefined>
+  /** What state an unfinished run is in, so a refusal can say so. */
+  describeRun?: (runId: string) => Promise<{ status: string } | undefined>
+  waitMs?: number
+}
+
+/**
+ * An unfinished run in another chat refuses every new start, by design — a
+ * paused run is still the user's. Said generically, the model answered "the
+ * tool is temporarily busy", and the user had no card in front of them to
+ * stop. The refusal names the run's state instead. It never names the other
+ * chat: this result goes to this chat's model, possibly another provider, and
+ * the other conversation's title is not this one's to disclose.
+ */
+export const blockedByRunRefusal = (blocking?: { status: string }): string => {
+  if (!blocking) return REFUSALS.already_running
+  return `A browser task in another chat is still ${blocking.status.replace(/_/g, " ")}, and only one can run at a time. Tell the user to open that chat and stop or finish it from its card, then ask again. Do not say the tool is busy or retry now.`
+}
+
+/**
+ * The agent side of `browser_task`: which tab, whether the model may drive it,
+ * what the start prompt says, and the wait for the run's answer.
+ */
+export const createBrowserTaskRunner = (
+  dependencies: BrowserTaskRunnerDependencies
+): BrowserTaskRunner => {
+  const { service } = dependencies
+  const describeRun =
+    dependencies.describeRun ??
+    (async (runId: string) => {
+      const run = await getAgentRun(runId)
+      return run ? { status: run.status } : undefined
+    })
+  const disclose =
+    dependencies.disclose ??
+    ((providerId: string, modelId: string) =>
+      resolveAgentProviderDisclosure(providerId, modelId))
+  const getTab =
+    dependencies.getTab ??
+    (async (tabId: number) => {
+      try {
+        return await browser.tabs.get(tabId)
+      } catch {
+        return undefined
+      }
+    })
+  /**
+   * Only when the turn carried no tab of its own: the worker has no window,
+   * so this is the last focused one's, which is right far more often than it
+   * is wrong and is the tab the start prompt then names.
+   */
+  const activeTab =
+    dependencies.activeTab ??
+    (async () => {
+      try {
+        const [tab] = await browser.tabs.query({
+          active: true,
+          lastFocusedWindow: true
+        })
+        return tab
+      } catch {
+        return undefined
+      }
+    })
+  const readHandoff =
+    dependencies.readHandoff ??
+    (async (messageId: number) => {
+      const [row] = await getMessagesByIds([messageId])
+      return row?.agentHandoff
+    })
+  const waitMs = dependencies.waitMs ?? BROWSER_TASK_WAIT_MS
+  const groupTab = dependencies.groupTab ?? groupAgentTab
+  const closeTab =
+    dependencies.closeTab ??
+    (async (tabId: number) => {
+      try {
+        await browser.tabs.remove(tabId)
+      } catch {
+        /** Already closed, by the user or the page. */
+      }
+    })
+  /**
+   * A start tab opens in the background before the run exists, so a start
+   * that ends without a run driving it would leave an unmarked tab behind.
+   * Only a tab this task opened is ever closed; the user's own never is.
+   */
+  const discard = (tab: ResolvedTab | undefined): void => {
+    if (tab?.opened) void closeTab(tab.id)
+  }
+  const openTab =
+    dependencies.openTab ??
+    (async (url: string) => {
+      try {
+        /**
+         * Opened beside the user's tab, not over it: the run drives it in
+         * the background and the user keeps the tab they are working in.
+         */
+        const created = await browser.tabs.create({ url, active: false })
+        if (typeof created.id !== "number") return undefined
+        /** Loaded, or as far as it got; the start refuses what is not a site. */
+        for (let waited = 0; waited < START_TAB_LOAD_MS; waited += 250) {
+          const tab = await getTab(created.id)
+          if (tab?.url && (tab as { status?: string }).status === "complete")
+            return tab
+          await new Promise((resolve) => setTimeout(resolve, 250))
+        }
+        return await getTab(created.id)
+      } catch {
+        return undefined
+      }
+    })
+
+  const resolveTab = async (
+    request: BrowserTaskRequest,
+    ctx: ToolContext
+  ): Promise<ResolvedTab | undefined> => {
+    const tabId = request.tabId ?? ctx.browserTabId
+    const tab = tabId !== undefined ? await getTab(tabId) : await activeTab()
+    if (typeof tab?.id !== "number" || !tab.url) return undefined
+    return { id: tab.id, url: tab.url }
+  }
+
+  /**
+   * The tab the task can start on without opening anything. A tab the agent
+   * cannot drive — a browser settings page, the new-tab page — is no tab at
+   * all here, which is what lets a named start address take its place.
+   */
+  const usableTab = async (
+    request: BrowserTaskRequest,
+    ctx: ToolContext
+  ): Promise<ResolvedTab | undefined> => {
+    const tab = await resolveTab(request, ctx)
+    return tab && (await classifyAgentTabAccess(tab.url)) === "ok"
+      ? tab
+      : undefined
+  }
+
+  /**
+   * The tab in view when the task belongs there. A start address on another
+   * site means the user named where to go ("open Google and search…"):
+   * starting on the page in view would cost a second approval to leave it
+   * for the site the first approval already named. A tab the model named
+   * keeps its place, and a start address on the tab's own site changes
+   * nothing.
+   */
+  const tabInView = async (
+    request: BrowserTaskRequest,
+    ctx: ToolContext
+  ): Promise<ResolvedTab | undefined> => {
+    const tab = await usableTab(request, ctx)
+    if (!tab || !request.startUrl || request.tabId !== undefined) return tab
+    return normalizeGrantOrigin(tab.url) ===
+      normalizeGrantOrigin(request.startUrl)
+      ? tab
+      : undefined
+  }
+
+  /** Page content in the turn, or a tool result that brought some in. */
+  const readPageFirst = (ctx: ToolContext): boolean =>
+    ctx.pageContentInContext === true || (ctx.taintGeneration ?? 0) > 0
+
+  const needsRemoteAcknowledgement = async (
+    provider: ProviderDisclosure
+  ): Promise<{ observations: boolean; screenshots: boolean }> => {
+    if (provider?.location !== "remote")
+      return { observations: false, screenshots: false }
+    const [observations, screenshots] = await Promise.all([
+      readSetting(SETTINGS.AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED),
+      readSetting(SETTINGS.AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED)
+    ])
+    return {
+      observations: observations !== true,
+      screenshots: provider.screenshots !== false && screenshots !== true
+    }
+  }
+
+  const discloseFor = async (ctx: ToolContext): Promise<ProviderDisclosure> => {
+    if (!ctx.providerId || !ctx.model) return undefined
+    try {
+      return await disclose(ctx.providerId, ctx.model)
+    } catch {
+      return undefined
+    }
+  }
+
+  /** The run's answer for the model, fenced as the page data it is. */
+  const report = async (
+    state: AgentRunState,
+    messageId: number
+  ): Promise<ToolResult> => {
+    const handoff = await readHandoff(messageId).catch(() => undefined)
+    const block = handoff ? renderAgentHandoffBlock(handoff) : undefined
+    const answer =
+      block ??
+      `The browser task ended with status "${state.status}"${state.result ? `: ${state.result}` : "."}`
+    /**
+     * An unfinished run is reported, not retried. Told only the status, a
+     * chat model relaunched browser_task — or took a screenshot — in the same
+     * turn, starting a second supervised run the user never asked for.
+     */
+    const content =
+      state.status === "completed"
+        ? answer
+        : `${answer}\n\nThe browser task did not finish. Tell the user what was done and what is missing; do not start it again in this turn unless the user asks.`
+    return {
+      content,
+      provenance: "web-untrusted",
+      ...(state.status === "failed" ? { isError: true } : {})
+    }
+  }
+
+  /**
+   * Whether the start prompt offers search consent on the starting site
+   * (`AgentGrant.searches`), saying so in `agent.start_gate.routine`, so a
+   * search the user asked for is not a second question about the same
+   * decision. Never after the model read a page: that goal may be the page's
+   * words, and its searches stay the user's to see one by one.
+   */
+  const startCoversSearches = (mode: unknown, pageFirst: boolean): boolean =>
+    mode !== "approve_each" && !pageFirst
+
+  /**
+   * The consent is given only by a prompt the user answered that carried the
+   * note, and only while the setting still allows it: a mode changed while
+   * the prompt was open narrows the run, never widens it. A start covered by
+   * an earlier grant showed nothing and gets nothing.
+   */
+  const searchesConsented = (
+    ctx: ToolContext,
+    mode: unknown,
+    pageFirst: boolean
+  ): boolean =>
+    ctx.userConfirmed === true &&
+    ctx.confirmedNotes?.includes(ROUTINE_NOTE) === true &&
+    startCoversSearches(mode, pageFirst)
+
+  const turnLink = (ctx: ToolContext): TurnLink | undefined =>
+    ctx.sessionId &&
+    ctx.assistantMessageId !== undefined &&
+    ctx.providerId &&
+    ctx.model
+      ? {
+          sessionId: ctx.sessionId,
+          messageId: ctx.assistantMessageId,
+          providerId: ctx.providerId,
+          modelId: ctx.model,
+          ...(ctx.signal ? { signal: ctx.signal } : {}),
+          pageFirst: readPageFirst(ctx),
+          ...(ctx.previousAgentRunId
+            ? { previousRunId: ctx.previousAgentRunId }
+            : {}),
+          ...(ctx.followUpRunId ? { followUpRunId: ctx.followUpRunId } : {}),
+          ...(ctx.toolCallId ? { toolCallId: ctx.toolCallId } : {})
+        }
+      : undefined
+
+  /**
+   * Everything a start is refused for before anything is written: no turn to
+   * report into, a model that cannot drive a run, a remote notice nobody was
+   * shown, a tab the run may not touch or one that changed after approval.
+   */
+  /**
+   * The tab in view when the task belongs there, else the start address opened in
+   * a new tab. Opened only here, after the start was approved against that
+   * address's own origin — never while the prompt was being asked.
+   */
+  const startTab = async (
+    request: BrowserTaskRequest,
+    ctx: ToolContext
+  ): Promise<ResolvedTab | undefined> => {
+    const tab = await tabInView(request, ctx)
+    if (tab || !request.startUrl) return tab
+    const opened = await openTab(request.startUrl)
+    return typeof opened?.id === "number" && opened.url
+      ? { id: opened.id, url: opened.url, opened: true }
+      : undefined
+  }
+
+  const admit = async (
+    request: BrowserTaskRequest,
+    ctx: ToolContext
+  ): Promise<
+    | { ok: true; turn: TurnLink; tab: ResolvedTab; experimental: boolean }
+    | Refusal
+  > => {
+    const turn = turnLink(ctx)
+    if (!turn) {
+      return {
+        ok: false,
+        result: failure(
+          "Browser tasks can only be started from a saved chat conversation."
+        )
+      }
+    }
+    const provider = await discloseFor(ctx)
+    /**
+     * Tool calling the user switched on for a model that never reported it is
+     * theirs to try, and the start prompt said so. Approving that prompt is
+     * the same "start anyway" the old start screen asked for.
+     */
+    const experimental =
+      provider?.readiness?.status === "experimental" &&
+      ctx.userConfirmed === true
+    if (!agentReadinessPermitsStart(provider?.readiness, experimental)) {
+      return {
+        ok: false,
+        result: failure(
+          "The selected model cannot drive the browser agent, which needs confirmed tool calling for every step. Tell the user to choose a model whose tool calling is confirmed."
+        )
+      }
+    }
+    const remote = await needsRemoteAcknowledgement(provider)
+    if (remote.observations || remote.screenshots) {
+      /**
+       * The start prompt carried the notice, so approving it is the
+       * acknowledgement. A call that reached here unasked has not been shown
+       * it, and a remote model is not sent a page on a guess.
+       */
+      if (!ctx.userConfirmed) {
+        return {
+          ok: false,
+          result: failure(
+            "The user has not yet agreed to send page content to this remote model."
+          )
+        }
+      }
+      await writeSetting(SETTINGS.AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED, true)
+      if (remote.screenshots)
+        await writeSetting(SETTINGS.AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED, true)
+    }
+    const tab = await startTab(request, ctx)
+    if (!tab || (await classifyAgentTabAccess(tab.url)) !== "ok") {
+      discard(tab)
+      return { ok: false, result: failure(REFUSALS.tab_unsupported) }
+    }
+    if (
+      ctx.approvedOrigin &&
+      normalizeGrantOrigin(tab.url) !== ctx.approvedOrigin
+    ) {
+      discard(tab)
+      return {
+        ok: false,
+        result: failure(
+          "The tab changed after the user approved the task. Ask again on the page they are looking at now."
+        )
+      }
+    }
+    return { ok: true, turn, tab, experimental }
+  }
+
+  const start = async (
+    request: BrowserTaskRequest,
+    turn: TurnLink,
+    admitted: { tab: ResolvedTab; experimental: boolean },
+    ctx: ToolContext
+  ): Promise<{ ok: true; state: AgentRunState } | Refusal> => {
+    const mode = await readSetting(SETTINGS.AGENT_PERMISSION_MODE)
+    try {
+      const state = await service.delegate({
+        goal: request.goal,
+        tabId: admitted.tab.id,
+        providerId: turn.providerId,
+        modelId: turn.modelId,
+        sessionId: turn.sessionId,
+        messageId: turn.messageId,
+        goalAuthor: turn.pageFirst ? "model_after_page" : "model",
+        ...(turn.toolCallId ? { toolCallId: turn.toolCallId } : {}),
+        allowRoutineActions: mode !== "approve_each",
+        ...(searchesConsented(ctx, mode, turn.pageFirst)
+          ? { allowSearches: true }
+          : {}),
+        ...(admitted.experimental ? { allowExperimentalModel: true } : {}),
+        ...followedRun(request, turn)
+      })
+      /**
+       * A start tab opens in the background before the run has an id, so it
+       * joins the run's group here — the one mark that says which tab the
+       * agent is working in. The user's own tab is never grouped. A replayed
+       * call returns the run it already started, on its own tab: the tab
+       * this admission opened is then nobody's, and is closed, not grouped.
+       */
+      if (admitted.tab.opened) {
+        if (state.controlledTabId === admitted.tab.id)
+          void groupTab(state.id, admitted.tab.id)
+        else discard(admitted.tab)
+      }
+      return { ok: true, state }
+    } catch (error) {
+      if (error instanceof AgentRunError) {
+        if (error.reason === "already_running" && error.blockingRunId) {
+          const blocking = await describeRun(error.blockingRunId).catch(
+            () => undefined
+          )
+          return {
+            ok: false,
+            runless: true,
+            result: failure(blockedByRunRefusal(blocking))
+          }
+        }
+        return {
+          ok: false,
+          runless: true,
+          result: failure(REFUSALS[error.reason])
+        }
+      }
+      logger.error("Browser task could not start", "Agent", {
+        name: error instanceof Error ? error.name : typeof error
+      })
+      return { ok: false, result: failure("The browser task could not start.") }
+    }
+  }
+
+  /**
+   * The run's answer, or why there is none yet. A turn stopped by the user
+   * stops the run with it: nobody is left to read the answer, and a run
+   * nobody reads should not keep driving a tab.
+   */
+  const wait = async (
+    state: AgentRunState,
+    turn: TurnLink
+  ): Promise<ToolResult> => {
+    const waiting = new AbortController()
+    const timer = setTimeout(() => waiting.abort("wait_elapsed"), waitMs)
+    const onTurnAbort = () => waiting.abort("turn_aborted")
+    /**
+     * A stop that landed while the run was being admitted fired before this
+     * listener existed; the run it started is stopped all the same.
+     */
+    if (turn.signal?.aborted) onTurnAbort()
+    else turn.signal?.addEventListener("abort", onTurnAbort, { once: true })
+    try {
+      const settled = await service.awaitSettled(state.id, waiting.signal)
+      return report(settled, turn.messageId)
+    } catch (error) {
+      if (waiting.signal.reason === "wait_elapsed") {
+        return {
+          content:
+            "The browser task is still running and is shown to the user in this conversation. Tell the user it continues there; its result will be available to later messages.",
+          provenance: "trusted"
+        }
+      }
+      if (turn.signal?.aborted) {
+        await service.stop(state.id).catch((stopError: unknown) => {
+          logger.warn(
+            "Browser task stop after an abandoned turn failed",
+            "Agent",
+            {
+              runId: state.id,
+              name:
+                stopError instanceof Error ? stopError.name : typeof stopError
+            }
+          )
+        })
+        return failure(TURN_STOPPED)
+      }
+      logger.warn("Browser task wait failed", "Agent", {
+        runId: state.id,
+        name: error instanceof Error ? error.name : typeof error
+      })
+      return failure("The browser task stopped without a result.")
+    } finally {
+      clearTimeout(timer)
+      turn.signal?.removeEventListener("abort", onTurnAbort)
+    }
+  }
+
+  return {
+    async origin(request, ctx) {
+      const tab = await tabInView(request, ctx)
+      if (tab) return normalizeGrantOrigin(tab.url)
+      return request.startUrl
+        ? normalizeGrantOrigin(request.startUrl)
+        : normalizeGrantOrigin((await resolveTab(request, ctx))?.url)
+    },
+
+    async confirmation(request, ctx) {
+      const provider = await discloseFor(ctx)
+      const remote = await needsRemoteAcknowledgement(provider)
+      const otherTab =
+        request.tabId !== undefined && request.tabId !== ctx.browserTabId
+      const afterPage = readPageFirst(ctx)
+      const experimental = provider?.readiness?.status === "experimental"
+      const covers = startCoversSearches(
+        await readSetting(SETTINGS.AGENT_PERMISSION_MODE),
+        afterPage
+      )
+      const notes = [
+        ...(afterPage ? ["agent.start_gate.after_page"] : []),
+        ...(experimental ? ["agent.start_gate.experimental_model"] : []),
+        ...(otherTab ? ["agent.start_gate.other_tab"] : []),
+        ...(remote.screenshots
+          ? ["agent.privacy.remote_notice_screenshots"]
+          : remote.observations
+            ? ["agent.privacy.remote_notice"]
+            : []),
+        "agent.start_gate.supervised",
+        ...(covers ? [ROUTINE_NOTE] : [])
+      ]
+      return {
+        always:
+          afterPage ||
+          otherTab ||
+          experimental ||
+          remote.observations ||
+          remote.screenshots,
+        summary: request.goal,
+        notes
+      }
+    },
+
+    async run(request, ctx) {
+      const admitted = await admit(request, ctx)
+      if (!admitted.ok) return admitted.result
+      if (ctx.signal?.aborted) {
+        discard(admitted.tab)
+        return failure(TURN_STOPPED)
+      }
+      const started = await start(request, admitted.turn, admitted, ctx)
+      if (!started.ok) {
+        if (started.runless) discard(admitted.tab)
+        return started.result
+      }
+      return wait(started.state, admitted.turn)
+    }
+  }
+}

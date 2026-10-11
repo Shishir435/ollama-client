@@ -2,7 +2,12 @@ import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
-import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
+import { resolveActiveTabContext } from "@/background/lib/active-tab-context"
+import {
+  buildBrowserContextGuidance,
+  buildToolSystemGuidance,
+  offersTabTools
+} from "@/background/lib/build-tool-system-guidance"
 import { withErrorContext } from "@/background/lib/error-handler"
 import {
   resolveModelCapabilities,
@@ -12,7 +17,8 @@ import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
-import { createAppError } from "@/lib/error-utils"
+import { buildToolContext } from "@/background/lib/tool-turn-context"
+import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
   getStoredModelConfig,
@@ -39,29 +45,6 @@ import type {
   PortStatusFunction
 } from "@/types"
 
-/**
- * Limits the number of messages sent to the model to stay within context window constraints.
- * Specifically targets Small Language Models (SLMs) like those in the 135M-0.6B parameter range
- * which typically have very shallow context windows.
- *
- * When truncating, the system prompt (if present) is preserved so the user-configured
- * behaviour is not silently lost.
- */
-const limitMessagesForModel = (
-  model: string,
-  messages: ChatMessage[]
-): ChatMessage[] => {
-  if (model.includes("135m") || model.includes("0.6b")) {
-    const systemMsg = messages.find((m) => m.role === "system")
-    const nonSystem = messages.filter((m) => m.role !== "system")
-    const limit = systemMsg ? 4 : 5
-    const result = nonSystem.slice(-limit)
-    if (systemMsg) result.unshift(systemMsg)
-    return result
-  }
-  return messages
-}
-
 const getSessionSystemPrompt = async (
   sessionId?: string
 ): Promise<string | undefined> => {
@@ -79,6 +62,13 @@ const getSessionSystemPrompt = async (
   }
 }
 
+/**
+ * Turns that can delegate a browser task get more model rounds: reading the
+ * tabs, the task itself and the answer about it already spend three of the
+ * usual five.
+ */
+const BROWSER_TASK_MAX_ITERATIONS = 8
+
 const latestUserMessage = (messages: ChatMessage[]): ChatMessage | undefined =>
   [...messages].reverse().find((message) => message.role === "user")
 
@@ -95,13 +85,17 @@ const buildMemoryContextHeader = async ({
   clientContextPrepared,
   retrievalToolsActive,
   conversationMessages,
-  port
+  port,
+  signal,
+  requestId
 }: {
   enabled: boolean
   clientContextPrepared?: boolean
   retrievalToolsActive: boolean
   conversationMessages: ChatMessage[]
   port: ChatStreamSink
+  signal: AbortSignal
+  requestId: string
 }): Promise<string> => {
   if (!enabled || clientContextPrepared || retrievalToolsActive) return ""
   const lastUserMessage = conversationMessages[conversationMessages.length - 1]
@@ -113,9 +107,27 @@ const buildMemoryContextHeader = async ({
   const enhancedResults = await retrieveContextEnhanced(
     lastUserMessage.content,
     {
-      type: "chat"
+      type: "chat",
+      signal
     }
-  )
+  ).catch((error: unknown) => {
+    signal.throwIfAborted()
+    if (isAbortError(error)) throw error
+    logger.warn("Memory retrieval unavailable", "handleChatWithModel", {
+      error
+    })
+    safePostChatStreamEvent(port, {
+      version: 1,
+      type: CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING,
+      requestId,
+      payload: {
+        variant: "destructive",
+        titleKey: "chat.errors.context_retrieval_warning_title",
+        descriptionKey: "chat.errors.context_retrieval_warning_description"
+      }
+    })
+    return []
+  })
   if (enhancedResults.length === 0) return ""
 
   const { formattedContext, sources } = formatEnhancedResults(enhancedResults)
@@ -150,18 +162,27 @@ const injectSystemMessage = (
   contextHeader: string,
   guidance: string
 ): void => {
-  const systemIndex = messages.findIndex((message) => message.role === "system")
-  if (systemIndex === -1) {
-    messages.unshift({
-      role: "system",
-      content: systemPrompt + contextHeader + guidance
-    })
+  if (!messages.some((message) => message.role === "system")) {
+    messages.unshift({ role: "system", content: systemPrompt })
+  }
+  const dynamicContext = contextHeader + guidance
+  if (!dynamicContext) return
+  const block = `<runtime_context>${dynamicContext}\n</runtime_context>`
+  let userIndex = messages.length - 1
+  while (userIndex >= 0 && messages[userIndex].role !== "user") userIndex -= 1
+  if (userIndex >= 0) {
+    messages[userIndex] = {
+      ...messages[userIndex],
+      content: `${messages[userIndex].content}\n\n${block}`
+    }
     return
   }
-  messages[systemIndex] = {
-    ...messages[systemIndex],
-    content: messages[systemIndex].content + contextHeader + guidance
-  }
+  /**
+   * With no user turn to carry it, the context becomes its own trailing
+   * system message: the leading system prompt stays byte-stable for caching,
+   * and no user turn is fabricated to change the roles.
+   */
+  messages.push({ role: "system", content: block })
 }
 
 const createChunkHandler = (
@@ -200,7 +221,7 @@ const createChunkHandler = (
 /**
  * Main handler for streaming chat interactions.
  * Features:
- * 1. Model-specific context window limiting.
+ * 1. Preservation of conversation history.
  * 2. Automated memory/RAG injection from past conversations.
  * 3. Dynamic system prompt assembly.
  * 4. Cross-origin safe message streaming via browser ports.
@@ -223,9 +244,7 @@ export const handleChatWithModel = withErrorContext(
     const conversationMessages = messages.filter(
       (message) => !message.metrics?.permissionNotice
     )
-    const preparedMessages = [
-      ...limitMessagesForModel(model, conversationMessages)
-    ]
+    const preparedMessages = [...conversationMessages]
     const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
     const sessionSystemPrompt = await getSessionSystemPrompt(
       msg.payload.sessionId
@@ -276,20 +295,35 @@ export const handleChatWithModel = withErrorContext(
           resolvedCapabilities,
           ac.signal
         )
+    /**
+     * Both native modes send tool definitions; they differ only in the role a
+     * result returns under. Checking for `native` alone left a model probed
+     * as `native-user-results` offered no tools at all.
+     */
     const nativeTools =
-      resolvedTools?.mode === "native" ? resolvedTools.tools : undefined
+      resolvedTools && resolvedTools.mode !== "non-native"
+        ? resolvedTools.tools
+        : undefined
     const contextHeader = await buildMemoryContextHeader({
       enabled: isMemoryEnabled,
       clientContextPrepared: msg.payload.clientContextPrepared,
       retrievalToolsActive: hasRetrievalTool(resolvedTools),
       conversationMessages,
-      port
+      port,
+      signal: ac.signal,
+      requestId: msg.payload.requestId || abortKey
     })
+    const browserContext = buildBrowserContextGuidance(
+      resolvedTools?.tools,
+      offersTabTools(resolvedTools?.tools)
+        ? await resolveActiveTabContext(msg.payload.browserTabId)
+        : undefined
+    )
     injectSystemMessage(
       preparedMessages,
       systemPrompt,
       contextHeader,
-      buildToolSystemGuidance(nativeTools)
+      browserContext + buildToolSystemGuidance(nativeTools)
     )
 
     const request = {
@@ -336,11 +370,7 @@ export const handleChatWithModel = withErrorContext(
       const toolResultMaxChars = await readSetting(
         SETTINGS.MAX_TOOL_RESULT_CHARS
       )
-      const ctx = {
-        signal: ac.signal,
-        sessionId: msg.payload.sessionId,
-        model
-      }
+      const ctx = buildToolContext(msg, conversationMessages, ac.signal)
       const mode: ToolLoopMode = resolvedTools.mode
       const durableRun = msg.payload.requestId
         ? await getToolLoopRun(msg.payload.requestId)
@@ -372,6 +402,12 @@ export const handleChatWithModel = withErrorContext(
           }
         : undefined
 
+      const maxIterations = resolvedTools.tools.some(
+        (tool) => tool.name === "browser_task"
+      )
+        ? BROWSER_TASK_MAX_ITERATIONS
+        : undefined
+
       try {
         if (resolvedTools.mode === "non-native") {
           await streamChatWithNonNativeTools({
@@ -384,7 +420,8 @@ export const handleChatWithModel = withErrorContext(
             ctx,
             toolResultMaxChars,
             initialState,
-            onCheckpoint
+            onCheckpoint,
+            maxIterations
           })
         } else {
           await streamChatWithTools({
@@ -398,7 +435,8 @@ export const handleChatWithModel = withErrorContext(
             toolResultMode:
               resolvedTools.mode === "native-user-results" ? "user" : "tool",
             initialState,
-            onCheckpoint
+            onCheckpoint,
+            maxIterations
           })
         }
       } finally {

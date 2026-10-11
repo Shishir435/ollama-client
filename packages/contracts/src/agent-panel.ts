@@ -1,26 +1,33 @@
 import { z } from "zod"
 import {
-  AgentApprovalRequestSchema,
+  AgentPendingSupervisionSchema,
   AgentRunStateSchema,
   AgentStepStatusSchema,
-  AgentTakeoverRequestSchema,
   MAX_AGENT_ANSWER_CHARS,
-  MAX_AGENT_OBSERVATIONS
+  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_ROW_CONTEXT_CHARS,
+  MAX_AGENT_THINKING_CHARS
 } from "./agent"
 import { AgentCommandSchema } from "./agent-command"
 import { AgentStepTelemetrySchema } from "./agent-telemetry"
 
+export type { AgentPendingSupervisionRecord } from "./agent"
+export { AgentPendingSupervisionSchema } from "./agent"
+
 export const AGENT_PANEL_PROTOCOL_VERSION = 1 as const
 
 export const AgentRiskSchema = z.enum(["low", "medium", "high", "critical"])
+
+export const MAX_PANEL_EVIDENCE_KIND_CHARS = 120
+export const MAX_PANEL_EVIDENCE_SUMMARY_CHARS = 1_000
 
 export const AgentVerificationRecordSchema = z
   .object({
     outcome: z.enum(["confirmed", "negative", "ambiguous"]),
     evidence: z
       .object({
-        kind: z.string().min(1).max(120),
-        summary: z.string().min(1).max(1_000),
+        kind: z.string().min(1).max(MAX_PANEL_EVIDENCE_KIND_CHARS),
+        summary: z.string().min(1).max(MAX_PANEL_EVIDENCE_SUMMARY_CHARS),
         observedAt: z.number().int().nonnegative()
       })
       .strict()
@@ -39,6 +46,13 @@ export const AgentStepRecordSchema = z
     sequence: z.number().int().nonnegative(),
     status: AgentStepStatusSchema,
     at: z.number().int().nonnegative(),
+    /**
+     * When the step's first receipt was written. `at` is its latest, so the
+     * two together are how long the step has taken — collapsed receipts kept
+     * only the last time, and a log that shows a clock but no duration cannot
+     * say which step the run spent its minutes on.
+     */
+    startedAt: z.number().int().nonnegative().optional(),
     command: AgentCommandSchema.optional(),
     risk: AgentRiskSchema.optional(),
     verification: AgentVerificationRecordSchema.optional(),
@@ -52,12 +66,15 @@ export const AgentStepRecordSchema = z
         ref: z.string().max(40).optional(),
         tag: z.string().max(40).optional(),
         role: z.string().max(60).optional(),
-        name: z.string().max(120).optional()
+        name: z.string().max(120).optional(),
+        rowContext: z.string().max(MAX_AGENT_ROW_CONTEXT_CHARS).optional()
       })
       .strict()
       .optional(),
     sourceUrl: z.string().max(2_048).optional(),
     finding: z.string().max(500).optional(),
+    /** The decision's streamed reasoning, bounded; display text only. */
+    thinking: z.string().max(MAX_AGENT_THINKING_CHARS).optional(),
     /**
      * What the step cost. Numbers only by its own schema, so it crosses the
      * panel port under the same rule as everything else here: a record is
@@ -68,23 +85,59 @@ export const AgentStepRecordSchema = z
   .strict()
 export type AgentStepRecord = z.infer<typeof AgentStepRecordSchema>
 
-export const AgentPendingSupervisionSchema = z.discriminatedUnion("kind", [
-  z
-    .object({
-      kind: z.literal("approval"),
-      request: AgentApprovalRequestSchema
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal("takeover"),
-      request: AgentTakeoverRequestSchema
-    })
-    .strict()
-])
-export type AgentPendingSupervisionRecord = z.infer<
-  typeof AgentPendingSupervisionSchema
->
+/**
+ * Whether the selected model can drive a run at all, and what it will be able
+ * to see while it does.
+ *
+ * Tool calling is the requirement; vision is an option. A run without vision
+ * reads the DOM and works, so the panel says "text only" rather than refusing
+ * — and a run whose tool calling is unknown is refused, because enabling it on
+ * a guess is how a model spends a user's steps answering in prose.
+ *
+ * Every field mirrors a variant of the background's own compatibility union so
+ * the two cannot drift: a variant added there without a label here is a
+ * typecheck failure, not a raw key on screen.
+ */
+export const AGENT_READINESS_STATUSES = [
+  "ready",
+  "experimental",
+  "unsupported"
+] as const
+
+export const AGENT_READINESS_REASONS = [
+  "metadata",
+  "verified_probe",
+  "user_override",
+  "reported_unsupported",
+  "unverified",
+  "unknown"
+] as const
+
+/**
+ * Three states, not two. Absent evidence and a reported "no" are different
+ * facts: the first may become vision once a catalog answers, the second never
+ * will, and collapsing them told users their vision model was text-only.
+ */
+export const AGENT_READINESS_VISION = [
+  "supported",
+  "unsupported",
+  "unknown"
+] as const
+
+export const AgentModelReadinessSchema = z
+  .object({
+    status: z.enum(AGENT_READINESS_STATUSES),
+    reason: z.enum(AGENT_READINESS_REASONS),
+    vision: z.enum(AGENT_READINESS_VISION),
+    /**
+     * Models on the same provider whose own catalog reports tool calling,
+     * offered when the selected one cannot run. Bounded, because this is a
+     * hint beside a refusal and not a model picker.
+     */
+    alternatives: z.array(z.string().min(1).max(200)).max(3).optional()
+  })
+  .strict()
+export type AgentModelReadiness = z.infer<typeof AgentModelReadinessSchema>
 
 /** Which endpoint answers the run, disclosed to the user before it starts. */
 export const AgentProviderDisclosureSchema = z
@@ -97,7 +150,12 @@ export const AgentProviderDisclosureSchema = z
      * model that reads images. Absent when it could not be determined, which
      * the panel shows as unknown rather than as "no".
      */
-    screenshots: z.boolean().optional()
+    screenshots: z.boolean().optional(),
+    /**
+     * Whether a run can start with this model. Absent while it is still being
+     * resolved; the panel shows nothing rather than guessing "ready".
+     */
+    readiness: AgentModelReadinessSchema.optional()
   })
   .strict()
 
@@ -164,20 +222,17 @@ const AnswerSchema = RunScopedSchema.extend({
 /**
  * Panel to background. Every answer names the request it answers, so a click
  * on a stale panel cannot authorize whatever step replaced the one it saw.
+ *
+ * Nothing here starts a run. A run is started by the chat model calling
+ * `browser_task` from a turn; the panel only supervises what is running.
  */
 export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
-  z
-    .object({
-      type: z.literal("agent_start"),
-      goal: z.string().min(1).max(20_000),
-      tabId: z.number().int().nonnegative(),
-      providerId: z.string().min(1),
-      modelId: z.string().min(1),
-      allowRoutineActions: z.boolean().optional(),
-      allowExperimentalModel: z.boolean().optional()
-    })
-    .strict(),
   RunScopedSchema.extend({ type: z.literal("agent_pause") }).strict(),
+  RunScopedSchema.extend({
+    type: z.literal("agent_set_unattended"),
+    enabled: z.boolean(),
+    pausedAt: z.number().int().nonnegative()
+  }).strict(),
   RunScopedSchema.extend({
     type: z.literal("agent_resume"),
     text: z.string().min(1).max(MAX_AGENT_ANSWER_CHARS).optional(),
@@ -190,6 +245,15 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
       { message: "A correction requires its pause timestamp" }
     ),
   RunScopedSchema.extend({ type: z.literal("agent_stop") }).strict(),
+  /**
+   * A correction typed while the run works, for its next decision. It answers
+   * nothing and resumes nothing: an approval, a question and an unresolved
+   * effect each keep their own control.
+   */
+  RunScopedSchema.extend({
+    type: z.literal("agent_steer"),
+    text: z.string().min(1).max(MAX_AGENT_ANSWER_CHARS)
+  }).strict(),
   RunScopedSchema.extend({
     type: z.literal("agent_complete_takeover")
   }).strict(),
@@ -200,6 +264,10 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
    */
   RunScopedSchema.extend({
     type: z.literal("agent_resolve_effect"),
+    pausedAt: z.number().int().nonnegative()
+  }).strict(),
+  RunScopedSchema.extend({
+    type: z.literal("agent_finish_reviewed"),
     pausedAt: z.number().int().nonnegative()
   }).strict(),
   AnswerSchema.extend({

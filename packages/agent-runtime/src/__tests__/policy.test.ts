@@ -47,6 +47,26 @@ const input = (
 })
 
 describe("resolved-effect policy", () => {
+  it("shows the target's row in approval evidence", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["destructive"], {
+          target: {
+            sensitive: false,
+            maySubmit: false,
+            accessibleName: "Delete",
+            rowContext: "old-report-2023.pdf Delete"
+          }
+        })
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+    if (decision.type === "approval_required") {
+      expect(decision.request.risk).toBe("critical")
+      expect(decision.request.pageEvidence).toBe("Delete — old-report-2023.pdf")
+    }
+  })
+
   it("derives risk from target semantics rather than command name", () => {
     expect(evaluateAgentPolicy(input(effect(["read"])))).toEqual({
       type: "allow",
@@ -472,6 +492,76 @@ describe("resolved-effect policy", () => {
     })
   })
 
+  /**
+   * The start prompt's search consent. "Open Google and search for hey"
+   * asked about the Enter after the start was approved; a comment on a pull
+   * request, or an "Apply" on a preferences page, must still ask.
+   */
+  describe("the start prompt's search grant", () => {
+    const searchGrant = {
+      ...grant(["activation", "form_mutation"]),
+      searches: true as const
+    }
+    const search = (target: Partial<ResolvedAgentEffect["target"]> = {}) =>
+      effect(["submission"], {
+        target: {
+          sensitive: false,
+          maySubmit: true,
+          submitter: true,
+          formMethod: "get",
+          searchForm: true,
+          ...target
+        }
+      })
+
+    it("covers a GET search the page marks as one, on its origin", () => {
+      expect(
+        evaluateAgentPolicy(input(search(), { grants: [searchGrant] }))
+      ).toEqual({
+        type: "granted",
+        risk: "high",
+        origin: "https://example.com"
+      })
+    })
+
+    /**
+     * A preferences form's "Apply" sends a GET query as a search does; the
+     * query is not what makes a search, the page marking the form as one is.
+     */
+    it("still asks about a POST, a GET form that is not a search, or a sensitive one", () => {
+      for (const target of [
+        { formMethod: "post" as const },
+        { searchForm: undefined, formQuery: "theme=dark" },
+        { formHasSensitiveControl: true }
+      ]) {
+        expect(
+          evaluateAgentPolicy(input(search(target), { grants: [searchGrant] }))
+            .type
+        ).toBe("approval_required")
+      }
+    })
+
+    it("covers nothing on another origin, and no destructive search", () => {
+      expect(
+        evaluateAgentPolicy(
+          input(search(), {
+            grants: [{ ...searchGrant, origin: "https://other.example" }]
+          })
+        ).type
+      ).toBe("approval_required")
+      expect(
+        evaluateAgentPolicy(
+          input(
+            effect(["submission", "destructive"], {
+              target: search().target
+            }),
+            { grants: [searchGrant] }
+          )
+        ).type
+      ).toBe("approval_required")
+    })
+  })
+
   it("does not let a submission grant cover a destructive one", () => {
     expect(
       evaluateAgentPolicy(
@@ -595,6 +685,42 @@ describe("tab scope policy", () => {
       request: { action: "Adopt tab 9 at https://example.com/other" }
     })
   })
+
+  it("names an adopted tab by its title, never its number", () => {
+    const named = switchTab(9)
+    named.target = { ...named.target, accessibleName: "Quarterly report" }
+    const decision = evaluateAgentPolicy(input(named, { scopedTabIds: [1] }))
+    expect(decision).toMatchObject({
+      type: "approval_required",
+      request: {
+        display: {
+          action: {
+            key: "agent.approval_text.adopt_tab",
+            values: {
+              tab: "Quarterly report",
+              url: "https://example.com/other"
+            }
+          }
+        }
+      }
+    })
+  })
+
+  it("names an untitled adopted tab by its address alone", () => {
+    const decision = evaluateAgentPolicy(
+      input(switchTab(9), { scopedTabIds: [1] })
+    )
+    expect(decision).toMatchObject({
+      request: {
+        display: {
+          action: {
+            key: "agent.approval_text.adopt_untitled_tab",
+            values: { url: "https://example.com/other" }
+          }
+        }
+      }
+    })
+  })
 })
 
 describe("child frame policy", () => {
@@ -699,6 +825,11 @@ describe("a batched fill's approval", () => {
       decision.type === "approval_required" ? decision.request : undefined
     expect(request?.action).toBe("Set 3 form fields in one step")
     expect(request?.pageEvidence).toBe("1. Given name\n2. Family name\n3. City")
+    /** The same count, as a key the panel can say in the user's language. */
+    expect(request?.display).toEqual({
+      action: { key: "agent.approval_text.fill_fields", values: { count: 3 } },
+      consequence: [{ key: "agent.approval_text.fill_fields_consequence" }]
+    })
   })
 
   it("says what a batch cannot do without promising what the page will not", () => {
@@ -753,5 +884,284 @@ describe("a batched fill's approval", () => {
     expect(request?.pageEvidence?.length).toBeLessThanOrEqual(1_000)
     /** Cut short is said, never silently done. */
     expect(request?.pageEvidence).toContain("more")
+  })
+})
+
+describe("a form an earlier run already sent", () => {
+  const submit = effect(["submission"], {
+    target: { sensitive: false, maySubmit: true, accessibleName: "Send" }
+  })
+
+  /**
+   * Maybe the same order, maybe a checkout's next step: the user decides,
+   * told why, and cannot have decided in advance — a grant for submissions
+   * on this origin does not cover it, and none is offered.
+   */
+  it("always asks, names the earlier run, and offers no grant", () => {
+    const decision = evaluateAgentPolicy(
+      input(submit, {
+        repeatsPriorForm: true,
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation", "form_mutation", "submission"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.grantable).toBeUndefined()
+    expect(decision.request.consequence).toMatch(
+      /^An earlier run this task follows already sent this form\./
+    )
+  })
+
+  it("is the ordinary grantable approval without the flag", () => {
+    const decision = evaluateAgentPolicy(
+      input(submit, {
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["submission"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("granted")
+  })
+
+  it("never lowers a critical price", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["submission", "payment"]), { repeatsPriorForm: true })
+    )
+
+    expect(decision.risk).toBe("critical")
+  })
+
+  /**
+   * Enter in the card field of a form the parent already sent: the user
+   * takes the step over, and is the one sending it again, so the handover
+   * says what the earlier run did.
+   */
+  it("tells the user on a takeover too", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["submission", "sensitive_input"], {
+          target: {
+            sensitive: true,
+            maySubmit: true,
+            accessibleName: "Card number"
+          }
+        }),
+        { repeatsPriorForm: true }
+      )
+    )
+
+    expect(decision.type).toBe("takeover_required")
+    if (decision.type !== "takeover_required") return
+    expect(decision.request.instruction).toMatch(
+      /^An earlier run this task follows already sent this form\./
+    )
+    expect(decision.request.instruction.length).toBeLessThanOrEqual(1_000)
+  })
+
+  it("leaves an ordinary takeover's words alone", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["submission", "sensitive_input"], {
+          target: { sensitive: true, maySubmit: true }
+        })
+      )
+    )
+
+    expect(decision.type).toBe("takeover_required")
+    if (decision.type !== "takeover_required") return
+    expect(decision.request.instruction).not.toContain("earlier run")
+  })
+})
+
+describe("a control this run already committed through", () => {
+  const deleteButton = {
+    sensitive: false,
+    maySubmit: false,
+    accessibleName: "Delete"
+  }
+
+  /**
+   * A pause that lost the page's own confirmation leaves the run looking at
+   * the same Delete button. Asking again is right; asking as though it were
+   * the first delete is not.
+   */
+  it("asks as a repeat, at no less than high, with no grant", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["activation"], { target: deleteButton }), {
+        repeatsCommittedEffect: true,
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.grantable).toBeUndefined()
+    expect(decision.request.consequence).toMatch(
+      /^This run already did this once/
+    )
+    expect(decision.request.consequence.length).toBeLessThanOrEqual(1_000)
+  })
+
+  it("asks without claiming a repeat when action history is unreadable", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["activation"], { target: deleteButton }), {
+        committedEffectsUnknown: true,
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation"],
+            grantedAt: 1
+          }
+        ]
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.grantable).toBeUndefined()
+    expect(decision.request.consequence).toMatch(/^This run's action record/)
+    expect(decision.request.display?.consequence[0]?.key).toBe(
+      "agent.approval_text.unknown_prior_effect"
+    )
+  })
+
+  it("keeps a destructive repeat critical", () => {
+    const decision = evaluateAgentPolicy(
+      input(effect(["activation", "destructive"], { target: deleteButton }), {
+        repeatsCommittedEffect: true
+      })
+    )
+
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("critical")
+    if (decision.type !== "approval_required") return
+    expect(decision.request.consequence).toMatch(
+      /^This run already did this once/
+    )
+  })
+
+  /**
+   * Routine consent carrying to a newly opened site has to be something the
+   * approval says, not a side effect the user never saw.
+   */
+  describe("routine consent on a newly opened site", () => {
+    const routine = [
+      {
+        origin: "https://example.com",
+        effects: ["activation", "form_mutation"] as (
+          | "activation"
+          | "form_mutation"
+        )[],
+        grantedAt: 1
+      }
+    ]
+    const opening = (semantic: readonly AgentSemanticEffect[]) =>
+      effect(semantic, {
+        destination: {
+          url: "https://duckduckgo.com/",
+          origin: "https://duckduckgo.com",
+          source: "model"
+        }
+      })
+
+    it("names the site and says so in the approval", () => {
+      const decision = evaluateAgentPolicy(
+        input(opening(["navigation"]), { grants: [...routine] })
+      )
+      expect(decision.type).toBe("approval_required")
+      if (decision.type !== "approval_required") return
+      expect(decision.request.routineOrigin).toBe("https://duckduckgo.com")
+      expect(decision.request.consequence).toContain(
+        "Clicks and typing on https://duckduckgo.com will then run without asking"
+      )
+      expect(decision.request.display?.consequence).toContainEqual({
+        key: "agent.approval_text.routine_follows",
+        values: { origin: "https://duckduckgo.com" }
+      })
+    })
+
+    it("carries nothing when the notice would not reach the user whole", () => {
+      const long = `https://duckduckgo.com/?q=${"a".repeat(1_500)}`
+      const decision = evaluateAgentPolicy(
+        input(
+          effect(["navigation"], {
+            destination: {
+              url: long,
+              origin: "https://duckduckgo.com",
+              source: "model"
+            }
+          }),
+          { grants: [...routine] }
+        )
+      )
+      expect(decision.type).toBe("approval_required")
+      if (decision.type !== "approval_required") return
+      expect(decision.request.routineOrigin).toBeUndefined()
+      expect(decision.request.consequence).not.toContain("without asking")
+    })
+
+    it("carries routine consent on a repeat only when both notices fit", () => {
+      const carried = new Set<boolean>()
+      for (let length = 0; length <= 1_000; length += 25) {
+        const decision = evaluateAgentPolicy(
+          input(
+            effect(["navigation"], {
+              destination: {
+                url: `https://duckduckgo.com/?q=${"a".repeat(length)}`,
+                origin: "https://duckduckgo.com",
+                source: "model"
+              }
+            }),
+            { grants: [...routine], repeatsCommittedEffect: true }
+          )
+        )
+        expect(decision.type).toBe("approval_required")
+        if (decision.type !== "approval_required") continue
+        const { consequence, routineOrigin } = decision.request
+        expect(consequence).toMatch(/^This run already did this once/)
+        expect(consequence.length).toBeLessThanOrEqual(1_000)
+        expect(consequence.includes("Submitting a form still asks.")).toBe(
+          routineOrigin !== undefined
+        )
+        carried.add(routineOrigin !== undefined)
+      }
+      expect([...carried].sort()).toEqual([false, true])
+    })
+
+    it("offers nothing for a submission or a run without routine consent", () => {
+      for (const decision of [
+        evaluateAgentPolicy(
+          input(opening(["form_mutation", "submission"]), {
+            grants: [...routine]
+          })
+        ),
+        evaluateAgentPolicy(input(opening(["navigation"])))
+      ]) {
+        expect(decision.type).toBe("approval_required")
+        if (decision.type === "approval_required")
+          expect(decision.request.routineOrigin).toBeUndefined()
+      }
+    })
   })
 })
