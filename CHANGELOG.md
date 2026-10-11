@@ -52,6 +52,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - `olc -b fm` no longer hangs at startup when `fm serve` accepts the socket but
   never answers its health check.
 - A partial agent result keeps the answers of items it verified.
+- Answer sources are kept when a provider reports the same citations in both
+  the streamed delta and the final message.
+- Two `olc -b laya` commands run at once no longer undo each other's upgrade;
+  the second stops and names the command still in progress.
 
 ### Development
 

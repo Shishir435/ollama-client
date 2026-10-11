@@ -26,6 +26,8 @@ const PORT_LABEL = "io.ollama-client.olc.port"
 const LAYA_CONTAINER = "olc-laya"
 const LAYA_ROLLBACK_CONTAINER = "olc-laya-rollback"
 const LAYA_RECOVERY_FILE = "laya-replacement.json"
+const LAYA_LOCK_VOLUME = "olc-laya-lock"
+const LOCK_OWNER_LABEL = "io.ollama-client.olc.lock-owner"
 const LAYA_IMAGE = `ollama-client/laya:${OLC_VERSION}`
 const LAYA_DEFAULT_PORT = 8086
 const SEARXNG_DEFAULT_PORT = 8080
@@ -36,6 +38,8 @@ const SEARXNG_OWNERSHIP_FILE = ".olc-managed.json"
 const SEARXNG_OWNERSHIP_SCHEMA = 2
 const SEARXNG_COMPOSE_SERVICES = ["core", "valkey"] as const
 const DOCKER_TIMEOUT_MS = 10 * 60 * 1000
+/** Past an image build plus a replacement, a held lock is abandoned. */
+const LAYA_LOCK_STALE_MS = 3 * DOCKER_TIMEOUT_MS
 const DOCKER_LIST_TIMEOUT_MS = 7_000
 const DOCKER_LIST_COMMAND_TIMEOUT_MS = 5_000
 const DOCKER_HEALTH_TIMEOUT_MS = 1_500
@@ -281,6 +285,21 @@ async function waitForHttp(
   return false
 }
 
+/**
+ * One olc command at a time may touch the Laya container. Recovery,
+ * replacement and cleanup each read the rollback container to decide what to
+ * do, so two concurrent starts could both pass the backup check, and the one
+ * whose rename failed would then find the other's backup and roll back the
+ * replacement that command had just started.
+ *
+ * The lock is a Docker volume, because the containers it guards belong to the
+ * daemon, not to a data directory: two commands with different
+ * `OLC_DATA_DIR`s, or two users on one daemon, share `olc-laya` and must share
+ * its lock. A volume needs no subnet, so a daemon whose address pools are
+ * spent can still stop or remove Laya. `volume create` is idempotent and keeps
+ * the first creator's labels, so each claimant writes a unique owner and holds
+ * the lock only if its own owner is the one that stuck.
+ */
 async function layaAction(
   action: ServiceAction,
   requestedPort: string | number | undefined,
@@ -288,6 +307,145 @@ async function layaAction(
   servicesRoot: string
 ): Promise<void> {
   await requireDocker()
+  const owner = `${os.hostname()}@${process.pid}@${Date.now()}@${randomBytes(6).toString("hex")}`
+  await claimLayaLock(owner)
+  try {
+    await lockedLayaAction(action, requestedPort, purgeData, servicesRoot)
+  } finally {
+    if (
+      (await lockVolumeOwner(LAYA_LOCK_VOLUME).catch(() => undefined))
+        ?.owner === owner
+    )
+      await removeLockVolume(LAYA_LOCK_VOLUME).catch(() => undefined)
+  }
+}
+
+interface LockVolumeHolder {
+  managed: boolean
+  owner: string
+}
+
+async function lockVolumeOwner(
+  name: string
+): Promise<LockVolumeHolder | undefined> {
+  try {
+    const result = await docker([
+      "volume",
+      "inspect",
+      "--format",
+      `{{index .Labels "${MANAGED_LABEL}"}}|{{index .Labels "${LOCK_OWNER_LABEL}"}}`,
+      name
+    ])
+    const [managed, owner = ""] = result.stdout.trim().split("|")
+    return { managed: managed === "true", owner }
+  } catch (error) {
+    if (/no such volume|not found/i.test((error as Error).message))
+      return undefined
+    throw error
+  }
+}
+
+async function removeLockVolume(name: string): Promise<void> {
+  await docker(["volume", "rm", name]).catch((error: Error) => {
+    if (!/no such volume|not found/i.test(error.message)) throw error
+  })
+}
+
+/** Create the volume if absent; true only if this owner's label stuck. */
+async function claimLockVolume(name: string, owner: string): Promise<boolean> {
+  await docker([
+    "volume",
+    "create",
+    "--label",
+    `${MANAGED_LABEL}=true`,
+    "--label",
+    `${LOCK_OWNER_LABEL}=${owner}`,
+    name
+  ])
+  const holder = await lockVolumeOwner(name)
+  if (holder && !holder.managed)
+    throw new Error(
+      `Docker volume ${name} exists but is not an olc lock; it was left untouched.`
+    )
+  return holder?.owner === owner
+}
+
+/** A holder on this host whose process is gone, or past any plausible run. */
+function layaLockAbandoned(owner: string): boolean {
+  const [host, pid, at] = owner.split("@")
+  const startedAt = Number(at)
+  if (!Number.isFinite(startedAt)) return false
+  if (Date.now() - startedAt > LAYA_LOCK_STALE_MS) return true
+  if (host !== os.hostname()) return false
+  try {
+    process.kill(Number(pid), 0)
+    return false
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ESRCH"
+  }
+}
+
+type LockClaim = { held: true } | { held: false; holder?: string }
+
+/**
+ * Claim a lock volume, taking it over from an abandoned holder without racing
+ * another taker. The takeover is itself a lock, named after the abandoned
+ * holder, so of two commands that judged the same holder abandoned only one
+ * may remove it; the winner checks the holder again before removing it, and
+ * releases the takeover only once the lock is its own. A later taker
+ * therefore finds the new holder, never the old one, and backs off.
+ *
+ * A takeover lock is claimed by this same rule, so a command that died
+ * mid-takeover leaves a takeover the next command can itself take over
+ * rather than one that blocks every command for good. The depth bound only
+ * stops a pathological chain; each level needs its own dead holder.
+ */
+async function claimLock(
+  name: string,
+  owner: string,
+  depth = 0
+): Promise<LockClaim> {
+  if (await claimLockVolume(name, owner)) return { held: true }
+  const holder = await lockVolumeOwner(name)
+  if (!holder) return { held: false }
+  if (!layaLockAbandoned(holder.owner) || depth >= 3)
+    return { held: false, holder: holder.owner }
+  const takeover = `${name}-takeover-${createHash("sha256").update(holder.owner).digest("hex").slice(0, 16)}`
+  if (!(await claimLock(takeover, owner, depth + 1)).held)
+    return { held: false }
+  try {
+    if ((await lockVolumeOwner(name))?.owner === holder.owner)
+      await removeLockVolume(name)
+    return (await claimLockVolume(name, owner))
+      ? { held: true }
+      : { held: false }
+  } finally {
+    await removeLockVolume(takeover)
+  }
+}
+
+async function claimLayaLock(owner: string): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const claim = await claimLock(LAYA_LOCK_VOLUME, owner)
+    if (claim.held) return
+    if (claim.holder) {
+      const [host, pid] = claim.holder.split("@")
+      throw new Error(
+        `Another olc command is changing the Laya server (PID ${pid} on ${host}). Wait for it to finish, or run \`docker volume rm ${LAYA_LOCK_VOLUME}\` if it did not.`
+      )
+    }
+  }
+  throw new Error(
+    "Another olc command claimed the Laya lock at the same moment. Try again."
+  )
+}
+
+async function lockedLayaAction(
+  action: ServiceAction,
+  requestedPort: string | number | undefined,
+  purgeData: boolean,
+  servicesRoot: string
+): Promise<void> {
   await recoverLayaReplacement(action)
   const state = await containerState(LAYA_CONTAINER)
   const labels =

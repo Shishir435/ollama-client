@@ -249,7 +249,8 @@ const budgets: Budget[] = [
     /** 0.14.0 review remediation measures Chrome at 48,569,820. */
     /** Its bot-review fixes measure Chrome at 48,572,145. */
     /** Preview review — complete follow-up records, chat-bound starts, the Zen 403, exact record rows — measures Chrome at 48,572,994. */
-    max: isFirefox ? 50_300_000 : 48_572_994
+    /** Preview follow-ups — screenshot reads exclude the run's own text, merged citation cap, the daemon-wide Laya lock — measure Chrome at 48,573,467. */
+    max: isFirefox ? 50_300_000 : 48_573_467
   },
   {
     metric: "zip",
@@ -564,7 +565,8 @@ const budgets: Budget[] = [
      */
     /** Its bot-review fixes — bounded optional metadata, paused-decision tokens — measure Chrome at 342,286 and Firefox at 222,408. */
     /** Preview review — complete follow-up records, chat-bound starts, the Zen 403 — measures Chrome at 342,501 and Firefox at 222,587. */
-    max: isFirefox ? 222_587 : 342_501
+    /** Preview follow-ups measure Chrome at 342,672 and Firefox at 222,601. */
+    max: isFirefox ? 222_601 : 342_672
   }
 ]
 

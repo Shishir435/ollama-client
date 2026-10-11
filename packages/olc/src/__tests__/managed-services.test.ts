@@ -73,7 +73,49 @@ function mockDocker(
   )
 }
 
+/**
+ * Docker volumes by name, as the daemon holds them: `create` is idempotent
+ * and keeps the first creator's labels.
+ */
+const volumes = new Map<string, string[]>()
+
+function volumeDocker(args: string[]): { stdout: string; stderr: string } {
+  const name = args.at(-1) as string
+  if (args[1] === "create") {
+    if (!volumes.has(name))
+      volumes.set(
+        name,
+        args.filter((_, i) => args[i - 1] === "--label")
+      )
+    return { stdout: `${name}\n`, stderr: "" }
+  }
+  if (args[1] === "inspect") {
+    const labels = volumes.get(name)
+    if (!labels)
+      throw dockerError(
+        `Error response from daemon: get ${name}: no such volume`
+      )
+    const label = (key: string) =>
+      labels
+        .find((entry) => entry.startsWith(`${key}=`))
+        ?.slice(key.length + 1) ?? ""
+    return {
+      stdout: `${label("io.ollama-client.olc.managed")}|${label("io.ollama-client.olc.lock-owner")}`,
+      stderr: ""
+    }
+  }
+  if (args[1] === "rm") {
+    if (!volumes.delete(name))
+      throw dockerError(
+        `Error response from daemon: get ${name}: no such volume`
+      )
+    return { stdout: "", stderr: "" }
+  }
+  return { stdout: "", stderr: "" }
+}
+
 function basicDocker(args: string[]): { stdout: string; stderr: string } {
+  if (args[0] === "volume") return volumeDocker(args)
   if (args[0] === "info") return { stdout: "27.0", stderr: "" }
   if (args[0] === "compose" && args[1] === "version")
     return { stdout: "Docker Compose version v2", stderr: "" }
@@ -173,6 +215,7 @@ beforeEach(async () => {
     vi.fn(async () => successResponse())
   )
   dockerMock.mockReset()
+  volumes.clear()
   listenersMock.mockReset()
   processIdentityMock.mockReset()
   listenersMock.mockResolvedValue([
@@ -649,6 +692,120 @@ describe("managed Docker service lifecycle", () => {
     expect(dockerMock.mock.calls.some(([, args]) => args[0] === "rename")).toBe(
       false
     )
+  })
+
+  it("refuses a second Laya command while another is replacing the server", async () => {
+    const containers = new Map([
+      ["olc-laya", { state: "running", labels: "true|laya|8086|0.13.0" }]
+    ])
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let reachedStop: () => void = () => {}
+    const stopping = new Promise<void>((resolve) => {
+      reachedStop = resolve
+    })
+    const calls: string[][] = []
+    mockDocker(async (args) => {
+      calls.push(args)
+      if (args[0] === "stop") {
+        reachedStop()
+        await held
+      }
+      return layaReplacementDocker(args, containers)
+    })
+
+    const first = runManagedService(
+      "laya",
+      "start",
+      undefined,
+      false,
+      servicesRoot
+    ).catch((error: Error) => error)
+    await stopping
+    const before = calls.length
+
+    await expect(
+      runManagedService("laya", "start", undefined, false, servicesRoot)
+    ).rejects.toThrow("Another olc command is changing the Laya server")
+    expect(
+      calls
+        .slice(before)
+        .some((args) => args[0] === "rename" || args[0] === "rm")
+    ).toBe(false)
+
+    release()
+    await first
+    /** The lock is released with the command that held it. */
+    await expect(
+      runManagedService("laya", "status", undefined, false, servicesRoot)
+    ).resolves.toBeUndefined()
+  })
+
+  const lockLabels = (owner: string) => [
+    "io.ollama-client.olc.managed=true",
+    `io.ollama-client.olc.lock-owner=${owner}`
+  ]
+
+  it("takes over a Laya lock whose holder on this host is gone", async () => {
+    const gone = `${os.hostname()}@999999999@${Date.now()}@dead`
+    volumes.set("olc-laya-lock", lockLabels(gone))
+    const calls: string[][] = []
+    mockDocker(async (args) => {
+      calls.push(args)
+      return layaReplacementDocker(args, new Map())
+    })
+
+    await runManagedService("laya", "status", undefined, false, servicesRoot)
+
+    expect(calls).toContainEqual(["volume", "rm", "olc-laya-lock"])
+    /** Released afterwards, takeover included. */
+    expect([...volumes.keys()]).toEqual([])
+  })
+
+  it("backs off when another command is already taking the same lock over", async () => {
+    const gone = `${os.hostname()}@999999999@${Date.now()}@dead`
+    volumes.set("olc-laya-lock", lockLabels(gone))
+    const takeover = `olc-laya-lock-takeover-${createHash("sha256").update(gone).digest("hex").slice(0, 16)}`
+    volumes.set(
+      takeover,
+      lockLabels(`${os.hostname()}@${process.pid}@${Date.now()}@peer`)
+    )
+    mockDocker(async (args) => layaReplacementDocker(args, new Map()))
+
+    await expect(
+      runManagedService("laya", "status", undefined, false, servicesRoot)
+    ).rejects.toThrow("claimed the Laya lock at the same moment")
+    /** The abandoned lock is the other taker's to remove, not this one's. */
+    expect(volumes.get("olc-laya-lock")).toEqual(lockLabels(gone))
+    expect(volumes.has(takeover)).toBe(true)
+  })
+
+  it("recovers a takeover left behind by a command that died mid-takeover", async () => {
+    const gone = `${os.hostname()}@999999999@${Date.now()}@dead`
+    const takeover = `olc-laya-lock-takeover-${createHash("sha256").update(gone).digest("hex").slice(0, 16)}`
+    volumes.set("olc-laya-lock", lockLabels(gone))
+    volumes.set(
+      takeover,
+      lockLabels(`${os.hostname()}@999999998@${Date.now()}@crashed`)
+    )
+    mockDocker(async (args) => layaReplacementDocker(args, new Map()))
+
+    await runManagedService("laya", "status", undefined, false, servicesRoot)
+
+    /** Both the abandoned lock and the dead takeover are gone, and so is ours. */
+    expect([...volumes.keys()]).toEqual([])
+  })
+
+  it("leaves a volume it does not own named like its lock alone", async () => {
+    volumes.set("olc-laya-lock", [])
+    mockDocker(async (args) => layaReplacementDocker(args, new Map()))
+
+    await expect(
+      runManagedService("laya", "status", undefined, false, servicesRoot)
+    ).rejects.toThrow("is not an olc lock")
+    expect(volumes.get("olc-laya-lock")).toEqual([])
   })
 
   it("restores the previous Laya container when a replacement fails to start", async () => {

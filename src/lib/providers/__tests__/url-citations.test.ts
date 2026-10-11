@@ -43,6 +43,34 @@ describe("readUrlCitations", () => {
     expect(citations[0]?.url).toBe("https://a.example/0")
   })
 
+  it("merges both annotation fields by URL and caps them together", () => {
+    const nine = Array.from({ length: 9 }, (_, i) =>
+      cite(`https://same.example/${i}`)
+    )
+    expect(readUrlCitations(nine, nine)).toHaveLength(9)
+    const others = Array.from({ length: 9 }, (_, i) =>
+      cite(`https://other.example/${i}`)
+    )
+    const merged = readUrlCitations(nine, others)
+    expect(merged).toHaveLength(MAX_WEB_CITATIONS)
+    expect(merged[0]).toEqual({ url: "https://same.example/0" })
+    expect(merged.at(-1)).toEqual({
+      url: `https://other.example/${MAX_WEB_CITATIONS - 10}`
+    })
+  })
+
+  it("keeps a title a repeated source supplies after an untitled first copy", () => {
+    expect(
+      readUrlCitations(
+        [cite("https://a.example")],
+        [
+          cite("https://a.example", "A page"),
+          cite("https://a.example", "Later")
+        ]
+      )
+    ).toEqual([{ url: "https://a.example", title: "A page" }])
+  })
+
   it("trims an overlong title rather than dropping the citation", () => {
     const [citation] = readUrlCitations([
       cite("https://a.example", "x".repeat(600))
