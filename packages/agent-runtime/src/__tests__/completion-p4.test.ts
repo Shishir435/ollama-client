@@ -1006,6 +1006,28 @@ describe("P4 deterministic completion", () => {
         judgeSubmitStop([filled, submitted("submit", 2)])
       ).not.toMatchObject({ type: "refused", reason: "needs_review" })
     })
+    it("settles a stop on a search submitted after filling its field", () => {
+      expect(
+        judgeAgentCompletion({
+          steps: [
+            selected({
+              stepId: "fill",
+              target: { ref: "e6", tag: "input", name: "Search" }
+            }),
+            submitted("submit", 2)
+          ],
+          observation: page,
+          evidenceLedger: [],
+          constraints: [
+            { id: "c1", text: "Stop once Search for Alice.", kind: "limit" }
+          ],
+          requirements: [
+            { id: "r1", kind: "change", text: "Search for Alice." }
+          ],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).not.toMatchObject({ type: "refused", reason: "needs_review" })
+    })
     it("leaves it to review when the form was submitted twice", () => {
       expect(
         judgeSubmitStop([submitted("submit", 1), submitted("again", 2)])

@@ -2547,6 +2547,36 @@ const STOP_FILLER = new Set([
   "option"
 ])
 
+/** Words that say an outcome is a control's state rather than an act. */
+const CONTROL_STATE_WORDS = new Set([
+  ...CHECKED_STATE_WORDS.check,
+  ...CHECKED_STATE_WORDS.uncheck,
+  "chosen",
+  "set",
+  "filled",
+  "entered",
+  "contains",
+  "holds"
+])
+
+/**
+ * Whether the receipt set the state the outcome is: the outcome names the
+ * receipt's control and says it holds something ("Blue is selected from
+ * Color"). "Search for Alice" names the Search field too, but it is an act,
+ * so the fill before it only prepared it.
+ */
+const setsOutcomeState = (
+  words: ReadonlySet<string>,
+  receipt: AgentStepReadout
+): boolean => {
+  const name = stopWords(receipt.target?.name ?? "")
+  return (
+    name.length > 0 &&
+    name.every((word) => words.has(word)) &&
+    [...words].some((word) => CONTROL_STATE_WORDS.has(word))
+  )
+}
+
 /**
  * A limit that only restates when to stop — "Stop once Blue is selected" for
  * the outcome "Blue is selected from Color" — adds nothing a page could show
@@ -2556,15 +2586,6 @@ const STOP_FILLER = new Set([
  * word of that one outcome, so a condition naming anything else never reads
  * as it.
  */
-/** Whether every word of the receipt's control name is one of `words`. */
-const namesControl = (
-  words: ReadonlySet<string>,
-  receipt: AgentStepReadout
-): boolean => {
-  const name = stopWords(receipt.target?.name ?? "")
-  return name.length > 0 && name.every((word) => words.has(word))
-}
-
 const stopConditionMet = (
   constraint: AgentTaskConstraint,
   requirements: readonly AgentTaskRequirement[],
@@ -2605,9 +2626,9 @@ const stopConditionMet = (
        *   verified against that state; a Save after it acted past the stop;
        * - one without (“the form is submitted”) is met by the act itself, so
        *   an earlier change verified the same way already met it, and so did
-       *   an earlier change that proved the state of a control the outcome
-       *   names (“Blue is selected from Color”, then Save); the fills before
-       *   a submit set controls it never names, and are preparation.
+       *   an earlier change that set the control state the outcome states
+       *   (“Blue is selected from Color”, then Save); the fills before a
+       *   submit or a search are preparation, not the outcome.
        */
       (last === undefined
         ? requirement.kind !== "change"
@@ -2623,7 +2644,7 @@ const stopConditionMet = (
                   (change.verification.evidence.kind ===
                     last.verification?.evidence.kind ||
                     (provesItsOwnResult(change.verification) &&
-                      namesControl(own, change)))
+                      setsOutcomeState(own, change)))
               )))
     )
   })
