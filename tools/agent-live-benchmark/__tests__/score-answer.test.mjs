@@ -146,6 +146,12 @@ describe("real-site scorer", () => {
       ["Cloudflare acquires Deno is ranked #3", "not_an_answer"],
       ["The 2nd story is Cloudflare acquires Deno", "not_an_answer"],
       ["Cloudflare acquires Deno is in last place", "not_an_answer"],
+      ["Cloudflare acquires Deno is the second highest story", "not_an_answer"],
+      ["Cloudflare acquires Deno is the third one", "not_an_answer"],
+      [
+        "The top story, last I looked: Cloudflare acquires Deno",
+        "top_story_title"
+      ],
       [
         "The top story is Cloudflare acquires Deno as of my last check",
         "top_story_title"

@@ -2591,23 +2591,27 @@ const stopConditionMet = (
        * A change outcome is held by this run's own change: met with no
        * change at all, it was already true, and stopping "once" it held
        * says nothing about what this run did. The last change must be the
-       * one that established it: a Save after a select that already proved
-       * Blue held acted after the condition held. Only an earlier change that
-       * proved the state rules it out, so a submission that is itself the
-       * outcome ("Stop once the form is submitted") still settles.
+       * one that established it, never an act past it:
+       * - an outcome with a state check ("Blue is selected") is set by a change
+       *   verified against that state; a Save after it acted past the stop;
+       * - one without (“the form is submitted”) is met by the act itself, so
+       *   an earlier change verified the same way already met it, while the
+       *   fills before a submit are preparation, not the outcome.
        */
       (last === undefined
         ? requirement.kind !== "change"
         : last.requirementId === requirement.id &&
           last.verification?.outcome === "confirmed" &&
-          (provesItsOwnResult(last.verification) ||
-            !changes.some(
-              (change) =>
-                change !== last &&
-                change.requirementId === requirement.id &&
-                change.verification?.outcome === "confirmed" &&
-                provesItsOwnResult(change.verification)
-            )))
+          (requirement.check
+            ? provesItsOwnResult(last.verification)
+            : !changes.some(
+                (change) =>
+                  change !== last &&
+                  change.requirementId === requirement.id &&
+                  change.verification?.outcome === "confirmed" &&
+                  change.verification.evidence.kind ===
+                    last.verification?.evidence.kind
+              )))
     )
   })
 }

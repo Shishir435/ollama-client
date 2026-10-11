@@ -974,6 +974,43 @@ describe("P4 deterministic completion", () => {
     ])("settles %s when that outcome is met and nothing followed", (text) => {
       expect(judgeStop(text, [selected()])).toMatchObject({ type: "accepted" })
     })
+    const submitted = (stepId: string, sequence: number) =>
+      selected({
+        stepId,
+        sequence,
+        target: { ref: "e5", tag: "button", name: "Submit" },
+        verification: {
+          outcome: "confirmed",
+          evidence: { kind: "submission", summary: "submitted", observedAt: 1 }
+        }
+      })
+    const filled = selected({
+      stepId: "fill",
+      target: { ref: "e6", tag: "input", name: "Email" }
+    })
+    const judgeSubmitStop = (steps: AgentStepReadout[]) =>
+      judgeAgentCompletion({
+        steps,
+        observation: page,
+        evidenceLedger: [],
+        constraints: [
+          { id: "c1", text: "Stop once the form is submitted.", kind: "limit" }
+        ],
+        requirements: [
+          { id: "r1", kind: "change", text: "The form is submitted." }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    it("settles a stop on a submit after the fills that prepared it", () => {
+      expect(
+        judgeSubmitStop([filled, submitted("submit", 2)])
+      ).not.toMatchObject({ type: "refused", reason: "needs_review" })
+    })
+    it("leaves it to review when the form was submitted twice", () => {
+      expect(
+        judgeSubmitStop([submitted("submit", 1), submitted("again", 2)])
+      ).toMatchObject({ type: "refused", reason: "needs_review" })
+    })
     it("settles a stop on a submission that is itself the outcome", () => {
       expect(
         judgeAgentCompletion({
