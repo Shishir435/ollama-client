@@ -782,6 +782,22 @@ describe("managed Docker service lifecycle", () => {
     expect(volumes.has(takeover)).toBe(true)
   })
 
+  it("recovers a takeover left behind by a command that died mid-takeover", async () => {
+    const gone = `${os.hostname()}@999999999@${Date.now()}@dead`
+    const takeover = `olc-laya-lock-takeover-${createHash("sha256").update(gone).digest("hex").slice(0, 16)}`
+    volumes.set("olc-laya-lock", lockLabels(gone))
+    volumes.set(
+      takeover,
+      lockLabels(`${os.hostname()}@999999998@${Date.now()}@crashed`)
+    )
+    mockDocker(async (args) => layaReplacementDocker(args, new Map()))
+
+    await runManagedService("laya", "status", undefined, false, servicesRoot)
+
+    /** Both the abandoned lock and the dead takeover are gone, and so is ours. */
+    expect([...volumes.keys()]).toEqual([])
+  })
+
   it("leaves a volume it does not own named like its lock alone", async () => {
     volumes.set("olc-laya-lock", [])
     mockDocker(async (args) => layaReplacementDocker(args, new Map()))

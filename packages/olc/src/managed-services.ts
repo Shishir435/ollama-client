@@ -385,24 +385,40 @@ function layaLockAbandoned(owner: string): boolean {
   }
 }
 
+type LockClaim = { held: true } | { held: false; holder?: string }
+
 /**
- * Take an abandoned lock over without racing another taker. The takeover is
- * itself a lock, named after the abandoned holder, so of two commands that
- * judged the same holder abandoned only one may remove it; the winner checks
- * the holder again before removing it, and releases the takeover only once
- * the lock is its own. A later taker therefore finds the new holder, never
- * the old one, and backs off.
+ * Claim a lock volume, taking it over from an abandoned holder without racing
+ * another taker. The takeover is itself a lock, named after the abandoned
+ * holder, so of two commands that judged the same holder abandoned only one
+ * may remove it; the winner checks the holder again before removing it, and
+ * releases the takeover only once the lock is its own. A later taker
+ * therefore finds the new holder, never the old one, and backs off.
+ *
+ * A takeover lock is claimed by this same rule, so a command that died
+ * mid-takeover leaves a takeover the next command can itself take over
+ * rather than one that blocks every command for good. The depth bound only
+ * stops a pathological chain; each level needs its own dead holder.
  */
-async function takeOverLayaLock(
-  abandoned: string,
-  owner: string
-): Promise<boolean> {
-  const takeover = `${LAYA_LOCK_VOLUME}-takeover-${createHash("sha256").update(abandoned).digest("hex").slice(0, 16)}`
-  if (!(await claimLockVolume(takeover, owner))) return false
+async function claimLock(
+  name: string,
+  owner: string,
+  depth = 0
+): Promise<LockClaim> {
+  if (await claimLockVolume(name, owner)) return { held: true }
+  const holder = await lockVolumeOwner(name)
+  if (!holder) return { held: false }
+  if (!layaLockAbandoned(holder.owner) || depth >= 3)
+    return { held: false, holder: holder.owner }
+  const takeover = `${name}-takeover-${createHash("sha256").update(holder.owner).digest("hex").slice(0, 16)}`
+  if (!(await claimLock(takeover, owner, depth + 1)).held)
+    return { held: false }
   try {
-    if ((await lockVolumeOwner(LAYA_LOCK_VOLUME))?.owner === abandoned)
-      await removeLockVolume(LAYA_LOCK_VOLUME)
-    return await claimLockVolume(LAYA_LOCK_VOLUME, owner)
+    if ((await lockVolumeOwner(name))?.owner === holder.owner)
+      await removeLockVolume(name)
+    return (await claimLockVolume(name, owner))
+      ? { held: true }
+      : { held: false }
   } finally {
     await removeLockVolume(takeover)
   }
@@ -410,16 +426,14 @@ async function takeOverLayaLock(
 
 async function claimLayaLock(owner: string): Promise<void> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (await claimLockVolume(LAYA_LOCK_VOLUME, owner)) return
-    const holder = await lockVolumeOwner(LAYA_LOCK_VOLUME)
-    if (!holder) continue
-    if (!layaLockAbandoned(holder.owner)) {
-      const [host, pid] = holder.owner.split("@")
+    const claim = await claimLock(LAYA_LOCK_VOLUME, owner)
+    if (claim.held) return
+    if (claim.holder) {
+      const [host, pid] = claim.holder.split("@")
       throw new Error(
         `Another olc command is changing the Laya server (PID ${pid} on ${host}). Wait for it to finish, or run \`docker volume rm ${LAYA_LOCK_VOLUME}\` if it did not.`
       )
     }
-    if (await takeOverLayaLock(holder.owner, owner)) return
   }
   throw new Error(
     "Another olc command claimed the Laya lock at the same moment. Try again."
