@@ -195,6 +195,36 @@ const readJsonBody = (request: IncomingMessage): Promise<unknown> =>
     request.on("error", reject)
   })
 
+export const isLocalListenerHost = (
+  host: string | undefined,
+  localAddress: string | undefined,
+  localPort: number | undefined
+): boolean => {
+  if (!host || !localPort) return false
+  try {
+    const url = new URL(`http://${host}`)
+    if (
+      url.username ||
+      url.password ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash
+    )
+      return false
+    if (Number(url.port || 80) !== localPort) return false
+    const address = localAddress?.replace(/^::ffff:/, "")
+    return [
+      "localhost",
+      "127.0.0.1",
+      "[::1]",
+      address,
+      address && `[${address}]`
+    ].includes(url.hostname)
+  } catch {
+    return false
+  }
+}
+
 const applyOriginPolicy = (
   request: IncomingMessage,
   response: ServerResponse,
@@ -364,6 +394,22 @@ export const createRouter = ({
     const url = new URL(request.url ?? "/", "http://localhost")
     const method = (request.method ?? "GET").toUpperCase()
 
+    if (
+      !isLocalListenerHost(
+        request.headers.host,
+        request.socket.localAddress,
+        request.socket.localPort
+      )
+    ) {
+      sendJson(response, 403, {
+        error: {
+          type: "Forbidden",
+          code: "host_not_allowed",
+          message: "Host must address this proxy listener."
+        }
+      })
+      return
+    }
     if (!applyOriginPolicy(request, response, allowedOrigins)) return
     if (handlePreflight(method, response, allowedHeaders)) return
 

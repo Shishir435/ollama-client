@@ -220,7 +220,13 @@ describe("AnthropicProvider", () => {
     const body = JSON.parse(
       (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
     )
-    expect(body.system).toBe("Be concise.")
+    expect(body.system).toEqual([
+      {
+        type: "text",
+        text: "Be concise.",
+        cache_control: { type: "ephemeral" }
+      }
+    ])
     expect(body.temperature).toBe(1)
     expect(body.tools).toEqual([
       {

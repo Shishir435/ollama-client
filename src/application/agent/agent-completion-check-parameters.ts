@@ -40,6 +40,11 @@ export const AGENT_COMPLETION_CHECK_PARAMETERS = {
       ["name", "value"]
     ),
     predicate(
+      "control_transition",
+      { from: name, to: name, frameId: control.frameId, record: name },
+      ["from", "to"]
+    ),
+    predicate(
       "url",
       { url: { type: "string", maxLength: 2_048, format: "uri" } },
       ["url"]
@@ -47,7 +52,21 @@ export const AGENT_COMPLETION_CHECK_PARAMETERS = {
     predicate("row", { record: name }, ["record"]),
     predicate(
       "record_state",
-      { record: name, state: { type: "string", enum: ["saved", "submitted"] } },
+      {
+        record: name,
+        state: {
+          type: "string",
+          enum: [
+            "saved",
+            "submitted",
+            "open",
+            "closed",
+            "merged",
+            "approved",
+            "deleted"
+          ]
+        }
+      },
       ["record", "state"]
     )
   ]

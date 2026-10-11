@@ -284,7 +284,7 @@ describe("itemized requirements under review", () => {
     expect(agentCompletionNeedsReview(judgement)).toBe(false)
     expect(judgement).toEqual({
       type: "unmet",
-      outcome: { met: [], unmet: ["r2"] }
+      outcome: { met: [], unmet: ["r2"], items: [{ id: "r2", met: [] }] }
     })
   })
 

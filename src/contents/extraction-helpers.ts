@@ -20,9 +20,10 @@ export interface ReliabilityMeasurement {
 }
 
 export const htmlToPlainText = (html: string): string => {
-  const container = document.createElement("div")
-  container.innerHTML = html
-  return normalizeWhitespaceForLLM(container.textContent || "")
+  // Template contents are inert: parsing cannot load images or execute handlers.
+  const template = document.createElement("template")
+  template.innerHTML = html
+  return normalizeWhitespaceForLLM(template.content.textContent || "")
 }
 
 export const stripHtmlIfNeeded = (content: string): string => {

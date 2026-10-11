@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/class-names"
 import type { AgentCommandFailure } from "../hooks/use-agent-run"
 import { agentDisplayString } from "../lib/display-text"
@@ -85,6 +86,12 @@ const pauseNoticeFor = (reason?: AgentRunState["pauseReason"]) => {
   if (reason === "browser_disconnected") {
     return {
       messageKey: "agent.browser_disconnected",
+      tone: "warning" as const
+    }
+  }
+  if (reason === "consent_scope_changed") {
+    return {
+      messageKey: "agent.unattended.scope_changed",
       tone: "warning" as const
     }
   }
@@ -284,12 +291,14 @@ export const AgentRunSupervision = ({
 
       {onSetUnattended &&
         run.status === "paused" &&
-        (run.pauseReason === "user" || run.pauseReason === "panel_closed") && (
-          <label className="mt-2 block text-micro">
-            <input
-              type="checkbox"
+        (run.pauseReason === "user" ||
+          run.pauseReason === "panel_closed" ||
+          run.pauseReason === "consent_scope_changed") && (
+          <div className="mt-2 block text-micro">
+            <Switch
               checked={Boolean(run.unattended)}
-              onChange={(event) => onSetUnattended(event.target.checked)}
+              onCheckedChange={(enabled) => onSetUnattended(enabled)}
+              aria-label={t("agent.unattended.label")}
             />{" "}
             {t("agent.unattended.label")}
             <span className="block text-muted-foreground">
@@ -298,7 +307,14 @@ export const AgentRunSupervision = ({
             <span className="block text-muted-foreground">
               {run.allowedOrigins.join(", ")}
             </span>
-          </label>
+            <span className="block text-muted-foreground">
+              {t("agent.unattended.scope", {
+                tabs: (run.scopedTabIds ?? [run.controlledTabId]).join(", "),
+                provider: run.providerId,
+                model: run.modelId
+              })}
+            </span>
+          </div>
         )}
       {run.unattended && (
         <p className="mt-2 text-micro text-muted-foreground">

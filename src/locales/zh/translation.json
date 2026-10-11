@@ -282,7 +282,10 @@
       "label": "关闭面板后继续此任务",
       "help": "启用后请恢复任务。将使用当前标签页、网站和服务提供商。审批、登录和验证码仍需您参与。可通过页面右键菜单或停止代理的键盘快捷键停止任务。关闭浏览器或进入睡眠状态可能会中断工作。",
       "active": "此任务已启用关闭面板后继续执行。新任务需要重新授权。",
-      "decision_interrupted": "此人工决策仍未得到回答。恢复任务以重新检查页面并请求新的决策："
+      "decision_interrupted": "此人工决策仍未得到回答。恢复任务以重新检查页面并请求新的决策：",
+      "scope_changed": "任务范围已更改。继续之前，请检查关闭面板后继续执行的授权。",
+      "scope": "标签页：{{tabs}} · 提供商：{{provider}} · 模型：{{model}}",
+      "stop_menu": "停止浏览器代理"
     }
   },
   "common": {
@@ -335,7 +338,10 @@
     "name": "Ollama Client - Ollama、LM Studio、llama.cpp 本地 AI 聊天",
     "short_name": "Ollama Client",
     "description": "通过 Ollama、LM Studio 和 llama.cpp 进行私密 LLM 聊天，支持本地 RAG、网页搜索和页面上下文。",
-    "action_default_title": "打开 Ollama Client"
+    "action_default_title": "打开 Ollama Client",
+    "stop_browser_agent_menu": "停止浏览器代理",
+    "agent_task_completed": "已完成",
+    "agent_task_attention": "已暂停"
   },
   "selection_button": {
     "label": "询问本地 LLM",

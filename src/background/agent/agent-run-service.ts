@@ -32,6 +32,8 @@ import {
   listIncompleteAgentRuns,
   setAgentRunUnattended
 } from "@/lib/repositories/agent-runs"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentControlSessionRegistry } from "./agent-control-sessions"
@@ -384,6 +386,11 @@ const DIALOG_HOLDING_PAUSES: readonly AgentPauseReason[] = [
   "unresolved_effect"
 ]
 
+const isSafeUnattendedCheckpoint = (run: { state?: AgentRunState | null }) =>
+  run.state?.unattended &&
+  run.state.status === "paused" &&
+  run.state.pauseReason === "worker_lost"
+
 export const createAgentRunService = (input?: {
   browserSessions?: AgentBrowserSessionManager
   sessions?: AgentControlSessionRegistry
@@ -399,6 +406,7 @@ export const createAgentRunService = (input?: {
   writeUnattended?: typeof setAgentRunUnattended
   readSteps?: typeof listAgentSteps
   buildController?: BuildAgentController
+  isAgentEnabled?: () => Promise<boolean>
   hasPerception?: () => Promise<boolean>
   getTab?: (tabId: number) => Promise<{ url?: string } | undefined>
   classifyAccess?: typeof classifyAgentTabAccess
@@ -411,6 +419,9 @@ export const createAgentRunService = (input?: {
   const now = input?.now ?? (() => Date.now())
   const newRunId = input?.newRunId ?? (() => globalThis.crypto.randomUUID())
   const hasPerception = input?.hasPerception ?? hasAgentPerceptionPermission
+  const browserSessionId = input?.browserSessionId ?? agentBrowserSessionId
+  const isAgentEnabled =
+    input?.isAgentEnabled ?? (() => readSetting(SETTINGS.AGENT_ENABLED))
   const createRun = input?.createRun ?? createLinkedAgentRun
   const readRun = input?.readRun ?? getAgentRun
   const readRunForMessage =
@@ -668,7 +679,9 @@ export const createAgentRunService = (input?: {
       return
     }
     if (panelFreeRuns.has(state.id) && !withinUnattendedScope(state)) {
-      await controllers.get(state.id)?.requestPause(state.id, "panel_closed")
+      await controllers
+        .get(state.id)
+        ?.requestPause(state.id, "consent_scope_changed")
       return
     }
     await followControlledTab(state)
@@ -1190,16 +1203,13 @@ export const createAgentRunService = (input?: {
     },
     async recoverUnattended(signal) {
       signal?.throwIfAborted()
+      if (!(await isAgentEnabled())) return
+      signal?.throwIfAborted()
       const incomplete = (await readIncompleteRuns()).filter(
         (run) => !isTerminalAgentStatus(run.status)
       )
       if (incomplete.length !== 1) return
-      const candidates = incomplete.filter(
-        (run) =>
-          run.state?.unattended &&
-          run.state.status === "paused" &&
-          run.state.pauseReason === "worker_lost"
-      )
+      const candidates = incomplete.filter(isSafeUnattendedCheckpoint)
       if (candidates.length !== 1 || activeRunId) return
       const state = await loadRunning(candidates[0].id)
       const consent = state.unattended
@@ -1208,17 +1218,8 @@ export const createAgentRunService = (input?: {
         state.humanDecision ||
         state.status !== "paused" ||
         state.pauseReason !== "worker_lost" ||
-        consent.browserSessionId !==
-          (await (input?.browserSessionId ?? agentBrowserSessionId)()) ||
-        consent.providerId !== state.providerId ||
-        consent.modelId !== state.modelId ||
-        !consent.tabIds.includes(state.controlledTabId) ||
-        !(state.scopedTabIds ?? [state.controlledTabId]).every((tabId) =>
-          consent.tabIds.includes(tabId)
-        ) ||
-        !state.allowedOrigins.every((origin) =>
-          consent.origins.includes(origin)
-        ) ||
+        consent.browserSessionId !== (await browserSessionId()) ||
+        !withinUnattendedScope(state) ||
         !(await hasPerception())
       )
         return

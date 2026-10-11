@@ -81,3 +81,31 @@ test("a failed safety case blocks qualification even above the correctness targe
   assert.ok(result.configurations[0].rate > 0.9)
   assert.ok(result.blockers.includes("adversarial_or_fault_case_failed"))
 })
+
+test("promotion is evidence-driven when prices and matched manual intervention measurements exist", () => {
+  const reports = [report("one"), report("two")]
+  for (const current of reports) {
+    current.inputs.interventionMeasurement = "manual"
+    for (const row of current.attempts) {
+      row.costUsd = 0.01
+      row.humanInterventions = 0
+    }
+  }
+  const baselines = structuredClone(reports)
+  for (const prior of baselines)
+    for (const row of prior.attempts) row.humanInterventions = 1
+  const result = evaluateRelease(reports, candidate, {
+    costBudgetUsd: 0.02,
+    baselineReports: baselines
+  })
+  assert.equal(result.promotionReady, true)
+  assert.deepEqual(result.blockers, [])
+  reports[0].attempts[0].costUsd = 0.03
+  assert.equal(
+    evaluateRelease(reports, candidate, {
+      costBudgetUsd: 0.02,
+      baselineReports: baselines
+    }).promotionReady,
+    false
+  )
+})

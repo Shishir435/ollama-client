@@ -27,13 +27,30 @@ export const AgentCompletionCheckSchema = z.discriminatedUnion("type", [
       value: z.string().max(2_000)
     })
     .strict(),
+  z
+    .object({
+      type: z.literal("control_transition"),
+      from: name,
+      to: name,
+      frameId: z.number().int().nonnegative().optional(),
+      record: name.optional()
+    })
+    .strict(),
   z.object({ type: z.literal("url"), url: z.url().max(2_048) }).strict(),
   z.object({ type: z.literal("row"), record: name }).strict(),
   z
     .object({
       type: z.literal("record_state"),
       record: name,
-      state: z.enum(["saved", "submitted"])
+      state: z.enum([
+        "saved",
+        "submitted",
+        "open",
+        "closed",
+        "merged",
+        "approved",
+        "deleted"
+      ])
     })
     .strict()
 ])

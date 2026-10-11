@@ -99,6 +99,9 @@ export const AgentStepTelemetrySchema = z
 
     /** The context window actually requested, so runner churn is visible. */
     numCtx: count.optional(),
+    cachedPromptTokens: count.optional(),
+    reasoningTokens: count.optional(),
+    costUsd: z.number().nonnegative().max(1_000_000).optional(),
     /** How many full observations this step cost, settle and wait included. */
     observations: count.optional(),
     /** Malformed-decision retries spent inside this step. */

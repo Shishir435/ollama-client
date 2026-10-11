@@ -171,9 +171,26 @@ describe("local provider wire contracts", () => {
         details: expect.objectContaining({
           family: "llama-cpp",
           parameter_size: "9B"
-        }),
-        capabilityHints: { contextLength: 262_144 }
+        })
       })
     ])
   })
+})
+
+it("reads llama.cpp's loaded slot window rather than its training limit", async () => {
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(
+      jsonResponse({ data: [{ id: "model", meta: { n_ctx_train: 262144 } }] })
+    )
+    .mockResolvedValueOnce(
+      jsonResponse({ default_generation_settings: { n_ctx: 4096 } })
+    )
+  const [model] = await new LlamaCppProvider({
+    id: ProviderId.LLAMA_CPP,
+    type: ProviderType.OPENAI,
+    enabled: true,
+    name: "llama.cpp",
+    baseUrl: "http://localhost:8000/v1"
+  }).getModels()
+  expect(model.capabilityHints?.contextLength).toBe(4096)
 })

@@ -9,7 +9,7 @@ const percentile = (values, fraction) => {
 }
 
 /** Readiness is stricter than declaration completeness. Never excludes failed attempts. */
-export const evaluateRelease = (reports, candidateSha) => {
+export const evaluateRelease = (reports, candidateSha, evidence = {}) => {
   const blockers = []
   const matrix = qualifyMatrix(reports)
   if (!/^[a-f0-9]{40}$/.test(candidateSha ?? ""))
@@ -67,18 +67,70 @@ export const evaluateRelease = (reports, candidateSha) => {
         : null
     }
   })
-  // Current reports have no configured prices or matched PR1 workflow baseline.
-  // Do not manufacture either metric from counters or incomparable corpora.
-  blockers.push(
-    "cost_budget_not_qualified",
-    "matched_intervention_improvement_not_qualified"
-  )
+  const costQualified =
+    Number.isFinite(evidence.costBudgetUsd) &&
+    evidence.costBudgetUsd >= 0 &&
+    reports.length > 0 &&
+    reports.every(
+      (report) =>
+        report.attempts.length > 0 &&
+        report.attempts.every(
+          (row) =>
+            Number.isFinite(row.costUsd) &&
+            row.costUsd >= 0 &&
+            row.costUsd <= evidence.costBudgetUsd
+        )
+    )
+  if (!costQualified) blockers.push("cost_budget_not_qualified")
+  if (!matchedInterventionImprovement(reports, evidence.baselineReports))
+    blockers.push("matched_intervention_improvement_not_qualified")
   return {
     candidateSha,
-    decision: "retain_experimental_preview",
-    promotionReady: false,
+    decision: blockers.length
+      ? "retain_experimental_preview"
+      : "eligible_for_promotion_review",
+    promotionReady: blockers.length === 0,
     blockers: [...new Set(blockers)],
     matrix,
     configurations
   }
+}
+
+/** Compare declared attempts only when both runs measured real human interventions. */
+const matchedInterventionImprovement = (reports, baselines) => {
+  if (!Array.isArray(baselines) || !reports.length) return false
+  return reports.every((report) => {
+    const baseline = baselines.find(
+      (entry) =>
+        entry.inputs?.model === report.inputs.model &&
+        entry.inputs.executionKind === "live_model" &&
+        entry.inputs.corpusHash === report.inputs.corpusHash
+    )
+    if (
+      !baseline ||
+      baseline.attempts.length !== report.attempts.length ||
+      report.inputs.interventionMeasurement !== "manual" ||
+      baseline.inputs.interventionMeasurement !== "manual"
+    )
+      return false
+    let before = 0
+    let after = 0
+    for (const row of report.attempts) {
+      const prior = baseline.attempts.filter(
+        (entry) => entry.task === row.task && entry.attempt === row.attempt
+      )
+      if (
+        prior.length !== 1 ||
+        prior[0].success !== true ||
+        !Number.isInteger(row.humanInterventions) ||
+        row.humanInterventions < 0 ||
+        !Number.isInteger(prior[0].humanInterventions) ||
+        prior[0].humanInterventions < 0
+      )
+        return false
+      before += prior[0].humanInterventions
+      after += row.humanInterventions
+    }
+    return after < before
+  })
 }

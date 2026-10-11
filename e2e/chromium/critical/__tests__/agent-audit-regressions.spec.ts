@@ -180,3 +180,79 @@ runAgentScenario({
     ).toBe("Delete — old-report-2023.pdf")
   }
 })
+
+runAgentScenario({
+  name: "audit-pr-list-detail-delegated-close",
+  goal: "Close PR42.",
+  status: "completed",
+  plan: [
+    {
+      text: "PR42 is closed",
+      kind: "change",
+      check: { type: "record_state", record: "PR42", state: "closed" }
+    }
+  ],
+  timeoutMs: 120_000,
+  html: (path) =>
+    path.startsWith("/pr/")
+      ? `<!doctype html><title>PR42</title><main>
+    <p>PR7 Closed. Security issue disclosed.</p><h1>PR42</h1>
+    <p role="status" id="state">PR42 Open</p>
+    <form action="/close" method="post"><button type="submit" id="close">Close pull request</button></form>
+    </main><script>
+    window.__requests = 0;
+    document.addEventListener('submit', async event => {
+      window.__originalPrevented = event.defaultPrevented;
+      event.preventDefault(); window.__requests++;
+      await fetch('/effect', {method:'POST'});
+      document.querySelector('#state').textContent = 'PR42 Closed';
+      document.querySelector('#close').textContent = 'Reopen pull request';
+    });</script>`
+      : `<!doctype html><title>Pull requests</title><main>
+    <div><a href="/pr/41">PR41</a> Closed</div>
+    <div><a href="/pr/42">PR42</a> Open</div></main>`,
+  decide(observation) {
+    if (!observation.url.includes("/pr/"))
+      return {
+        type: "click",
+        ref: agentFixtureElement(
+          observation,
+          (element) => element.name === "PR42"
+        )?.ref
+      }
+    if (observation.text.includes("PR42 Closed"))
+      return {
+        type: "complete",
+        summary: "Closed PR42.",
+        outcomes: [{ id: "r1", met: true, evidence: "PR42 Closed" }]
+      }
+    return {
+      type: "click",
+      requirementId: "r1",
+      ref: agentFixtureElement(
+        observation,
+        (element) => element.name === "Close pull request"
+      )?.ref
+    }
+  },
+  async verify({ page, effects, snapshot }) {
+    await expect(page.getByRole("status")).toHaveText("PR42 Closed")
+    await expect(
+      page.getByRole("button", { name: "Reopen pull request" })
+    ).toBeVisible()
+    expect(
+      await page.evaluate(
+        () =>
+          (window as typeof window & { __originalPrevented?: boolean })
+            .__originalPrevented
+      )
+    ).toBe(false)
+    expect(
+      await page.evaluate(
+        () => (window as typeof window & { __requests?: number }).__requests
+      )
+    ).toBe(1)
+    expect(effects()).toBe(1)
+    expect(snapshot?.run?.status).toBe("completed")
+  }
+})

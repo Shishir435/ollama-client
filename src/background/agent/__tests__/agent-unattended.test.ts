@@ -17,6 +17,8 @@ const api = vi.hoisted(() => {
 })
 vi.mock("@/lib/browser-api", () => ({
   browser: {
+    permissions: { contains: async () => false },
+    i18n: { getMessage: () => "Stop browser agent" },
     storage: {
       session: {
         get: async () => api.stored,
@@ -37,6 +39,7 @@ vi.mock("@/lib/browser-api", () => ({
     contextMenus: {
       remove: async () => undefined,
       create: vi.fn(),
+      update: vi.fn(async () => undefined),
       onClicked: {
         addListener: (
           listener: (info: { menuItemId: string | number }) => void

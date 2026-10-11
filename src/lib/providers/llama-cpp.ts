@@ -21,6 +21,27 @@ interface LlamaCppModel {
   }
 }
 
+/** /props reports the server slot window; training metadata does not. */
+const loadedContextLength = async (
+  baseUrl: string,
+  signal?: AbortSignal
+): Promise<number | undefined> => {
+  try {
+    const response = await fetch(
+      `${baseUrl.replace(/\/v1\/?$/, "")}/props`,
+      signal ? { signal } : undefined
+    )
+    if (!response.ok) return undefined
+    const size = (await response.json())?.default_generation_settings?.n_ctx
+    return typeof size === "number" && Number.isSafeInteger(size) && size > 0
+      ? size
+      : undefined
+  } catch (error) {
+    if (signal?.aborted) throw error
+    return undefined
+  }
+}
+
 export class LlamaCppProvider extends OpenAICompatibleProvider {
   id = ProviderId.LLAMA_CPP
 
@@ -90,6 +111,7 @@ export class LlamaCppProvider extends OpenAICompatibleProvider {
 
     try {
       const json = await response.json()
+      const contextLength = await loadedContextLength(cleanBase, signal)
       // Llama.cpp returns { data: [ { id: "...", meta: { ... } } ] }
       logger.debug("Raw response", "LlamaCpp", { response: json })
 
@@ -135,8 +157,8 @@ export class LlamaCppProvider extends OpenAICompatibleProvider {
             parameter_size: paramSize,
             quantization_level: ""
           },
-          ...(meta.n_ctx_train && {
-            capabilityHints: { contextLength: meta.n_ctx_train }
+          ...(contextLength && {
+            capabilityHints: { contextLength }
           })
         }
       })

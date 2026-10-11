@@ -360,9 +360,9 @@ describe("agent startup recovery against the real engine", () => {
   )
 })
 
-it(
-  "persists exact-pause unattended consent and recovers only safe checkpoints",
-  async () => {
+it.each(["user", "consent_scope_changed"] as const)(
+  "persists exact-pause %s unattended consent and recovers only safe checkpoints",
+  async (pauseReason) => {
     const repo = await boot()
     await repo.createAgentRun(runState("submitted"))
     await walkTo(repo, "run-recovery", "observing")
@@ -370,7 +370,7 @@ it(
       runId: "run-recovery",
       from: "observing",
       to: "pause_requested",
-      patch: { pauseReason: "user", updatedAt: 2000 }
+      patch: { pauseReason, updatedAt: 2000 }
     })
     await repo.transitionAgentRun({
       runId: "run-recovery",

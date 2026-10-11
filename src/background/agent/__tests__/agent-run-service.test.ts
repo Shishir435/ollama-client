@@ -85,6 +85,7 @@ const service = (
         )
         .map((state) => ({ state, id: state.id }) as DurableAgentRun),
     buildController: () => controller,
+    isAgentEnabled: async () => true,
     hasPerception: async () => true,
     getTab: async () => ({ url: "https://example.com/start" }),
     classifyAccess: async () => "ok",
@@ -1625,7 +1626,7 @@ describe("unattended execution", () => {
     })
     expect(controller.requestPause).toHaveBeenCalledWith(
       state.id,
-      "panel_closed"
+      "consent_scope_changed"
     )
   })
 
@@ -1733,5 +1734,32 @@ describe("unattended execution", () => {
     await expect(
       h.service.setUnattended("run-1", 1000, true)
     ).rejects.toMatchObject({ reason: "consent_stale" })
+  })
+})
+
+describe("Agent switch during unattended recovery", () => {
+  it("keeps an authorized worker-loss checkpoint paused when Agent is disabled", async () => {
+    const first = service()
+    const state = await first.service.start(startInput)
+    runs.set(state.id, {
+      ...state,
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: {
+        approvedAt: 1_000,
+        browserSessionId: "browser-1",
+        origins: state.allowedOrigins,
+        tabIds: [state.controlledTabId],
+        providerId: state.providerId,
+        modelId: state.modelId
+      }
+    })
+    const restarted = service({
+      isAgentEnabled: async () => false,
+      browserSessionId: async () => "browser-1"
+    })
+    await restarted.service.recoverUnattended()
+    expect(restarted.controller.resume).not.toHaveBeenCalled()
+    expect(runs.get(state.id)?.pauseReason).toBe("worker_lost")
   })
 })

@@ -147,12 +147,18 @@ test("@critical chat names the panel's tab and reads it through current_tab", as
     expect(first.tools?.map((tool) => tool.function?.name)).toContain(
       "current_tab"
     )
+    /** Browser guidance is per-turn context on the user message, keeping the system prefix cacheable. */
     const system = first.messages?.find((message) => message.role === "system")
-    expect(system?.content).toContain("inside the user's web browser")
-    expect(system?.content).toContain(
+    expect(system?.content).not.toContain("inside the user's web browser")
+    const user = [...(first.messages ?? [])]
+      .reverse()
+      .find((message) => message.role === "user")
+    expect(user?.content).toContain("<runtime_context>")
+    expect(user?.content).toContain("inside the user's web browser")
+    expect(user?.content).toContain(
       `"${PAGE_TITLE}" at ${origin}/o/r/pull/421.`
     )
-    expect(system?.content).not.toContain("tab=files")
+    expect(user?.content).not.toContain("tab=files")
 
     const toolResult = chats
       .at(-1)

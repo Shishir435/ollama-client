@@ -150,6 +150,8 @@ const OptionalString = z.string().optional().catch(undefined)
 const UsageSchema = z
   .object({
     input_tokens: z.number().optional().catch(undefined),
+    cache_read_input_tokens: z.number().optional().catch(undefined),
+    cache_creation_input_tokens: z.number().optional().catch(undefined),
     output_tokens: z.number().optional().catch(undefined)
   })
   .passthrough()
@@ -407,7 +409,15 @@ export class AnthropicProvider implements LLMProvider {
     return {
       model: request.model,
       messages: mapped.messages,
-      system: mapped.system,
+      system: mapped.system
+        ? [
+            {
+              type: "text",
+              text: mapped.system,
+              cache_control: { type: "ephemeral" }
+            }
+          ]
+        : undefined,
       stream: true,
       max_tokens: policy.thinkEnabled
         ? Math.max(requestedMaxTokens, thinkingBudget + 1024)
@@ -481,6 +491,7 @@ export class AnthropicProvider implements LLMProvider {
     const contentBlocks = new Map<number, AnthropicContentBlock>()
     let buffer = ""
     let inputTokens: number | undefined
+    let cachedTokens: number | undefined
     let outputTokens: number | undefined
     let emittedDone = false
 
@@ -552,6 +563,7 @@ export class AnthropicProvider implements LLMProvider {
         metrics: {
           total_duration: (Date.now() - startTime) * 1_000_000,
           prompt_eval_count: inputTokens,
+          prompt_cached_count: cachedTokens,
           eval_count: outputTokens
         }
       })
@@ -758,7 +770,14 @@ export class AnthropicProvider implements LLMProvider {
         })
       }
       if (event.type === "message_start") {
-        inputTokens = event.message?.usage?.input_tokens
+        const usage = event.message?.usage
+        cachedTokens = usage?.cache_read_input_tokens
+        inputTokens =
+          usage?.input_tokens === undefined
+            ? undefined
+            : usage.input_tokens +
+              (usage.cache_read_input_tokens ?? 0) +
+              (usage.cache_creation_input_tokens ?? 0)
         outputTokens = event.message?.usage?.output_tokens
         return
       }

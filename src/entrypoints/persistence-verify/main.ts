@@ -30,6 +30,7 @@ import {
   createAgentRun,
   getAgentRun,
   listAgentSteps,
+  setAgentRunUnattended,
   transitionAgentRun
 } from "@/lib/repositories/agent-runs"
 import * as chatHistory from "@/lib/repositories/sqlite-chat-history"
@@ -787,6 +788,54 @@ const verifyApi = {
       byteLength: bytes.byteLength,
       magic: new TextDecoder().decode(bytes.slice(0, 15))
     }
+  },
+
+  /** Valid production consent for a real-tab, read-only worker continuation gate. */
+  async seedSafeUnattendedAgentRun(
+    runId: string,
+    origin: string
+  ): Promise<void> {
+    await writeSetting(SETTINGS.AGENT_ENABLED, true)
+    await ProviderManager.updateProviderConfig(ProviderId.OLLAMA, {
+      enabled: true,
+      baseUrl: origin
+    })
+    const tab = await browser.tabs.create({ url: origin, active: true })
+    if (tab.id === undefined) throw new Error("Fixture tab missing")
+    await waitForTabComplete(tab.id)
+    const sessionKey = STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION
+    const stored = (await browser.storage.session.get(sessionKey))[sessionKey]
+    const sessionId = typeof stored === "string" ? stored : crypto.randomUUID()
+    await browser.storage.session.set({ [sessionKey]: sessionId })
+    const now = Date.now()
+    await createAgentRun({
+      version: 1,
+      id: runId,
+      goal: "Read the fixture status.",
+      status: "submitted",
+      stepCount: 0,
+      observationCount: 0,
+      controlledTabId: tab.id,
+      providerId: "ollama",
+      modelId: "verify-model",
+      allowedOrigins: [origin],
+      createdAt: now,
+      updatedAt: now,
+      requirements: [
+        { id: "r1", text: "Read the fixture status.", kind: "read" }
+      ]
+    })
+    await transitionAgentRun({ runId, from: "submitted", to: "observing" })
+    await transitionAgentRun({
+      runId,
+      from: "observing",
+      to: "pause_requested",
+      patch: { pauseReason: "user", updatedAt: now }
+    })
+    await transitionAgentRun({ runId, from: "pause_requested", to: "paused" })
+    if (!(await setAgentRunUnattended(runId, now, true, sessionId)))
+      throw new Error("Fixture consent was not committed")
+    await transitionAgentRun({ runId, from: "paused", to: "observing" })
   },
 
   /**

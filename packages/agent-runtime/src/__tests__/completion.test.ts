@@ -2666,7 +2666,10 @@ describe("itemized requirements", () => {
           }
         ]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0, 1] }] }
+    })
   })
 
   /**
@@ -2775,7 +2778,10 @@ describe("itemized requirements", () => {
           }
         ]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0] }] }
+    })
   })
 
   /** "Paid Invoice 2" quotes invoice 1's state beside invoice 2's name. */
@@ -2831,5 +2837,35 @@ describe("itemized requirements", () => {
         ]
       })
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+})
+
+describe("release review evidence regressions", () => {
+  it("does not mistake disclosed for a pre-existing Closed state", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [step({ sequence: 1 })],
+        observation: observation({ visibleText: "Closed" }),
+        baselineText: "security issue disclosed",
+        evidence: "Closed"
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+  it("requires fresh support for a current-state read", () => {
+    const result = judgeAgentCompletion({
+      steps: [],
+      observation: observation(),
+      evidenceLedger: [observedFact("Invoice 1 is paid", "historical")],
+      requirements: [
+        {
+          id: "r1",
+          text: "Report the current status of Invoice 1",
+          kind: "read",
+          freshness: "current"
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 is paid" }]
+    })
+    expect(result).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
 })

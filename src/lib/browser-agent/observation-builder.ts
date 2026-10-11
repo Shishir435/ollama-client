@@ -1117,8 +1117,22 @@ const rowContextOf = (
     current;
     current = composedParent(current)
   ) {
-    if (!current.matches("li, tr, [role='row']")) continue
-    return collectVisibleText(current, 140, pass, scope) || undefined
+    if (current.matches("li, tr, [role='row'], [role='listitem']"))
+      return collectVisibleText(current, 140, pass, scope) || undefined
+    if (!current.matches("div") || !current.querySelector("a[href]")) continue
+    const siblings = current.parentElement?.children
+    if (
+      !siblings ||
+      !Array.from(siblings).some(
+        (sibling) =>
+          sibling !== current &&
+          sibling.matches("div") &&
+          sibling.querySelector("a[href]")
+      )
+    )
+      continue
+    const text = collectVisibleText(current, 141, pass, scope)
+    if (text && text.length <= 140) return text
   }
   return undefined
 }

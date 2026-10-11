@@ -3,7 +3,7 @@ import type {
   AgentObservation,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
-import { agentNormalizedClaim } from "./observed-text"
+import { agentHaystackStates, agentNormalizedClaim } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
 
 const same = (a: string, b: string) =>
@@ -200,6 +200,45 @@ export const checkCompletionState = (
   const check = requirement.check
   if (!check) return undefined
   if (check.type === "url") return observation.url === check.url
+  if (check.type === "control_transition") {
+    const after = observation.elements.filter(
+      (element) =>
+        !element.sensitive &&
+        (element.visible || element.offscreen) &&
+        same(element.name ?? "", check.to) &&
+        (check.frameId === undefined || element.frameId === check.frameId) &&
+        (!check.record ||
+          agentHaystackStates(
+            check.record,
+            agentNormalizedClaim(element.rowContext ?? "")
+          ))
+    )
+    if (after.length !== 1 || same(check.from, check.to)) return false
+    return changes.some(
+      (step) =>
+        step.verification?.outcome === "confirmed" &&
+        step.requirementId === requirement.id &&
+        same(
+          step.verification.evidence.controlTransition?.from ?? "",
+          check.from
+        ) &&
+        same(
+          step.verification.evidence.controlTransition?.to ?? "",
+          check.to
+        ) &&
+        after[0].verificationId ===
+          step.verification.evidence.controlTransition?.verificationId &&
+        after[0].frameId ===
+          step.verification.evidence.controlTransition?.frameId &&
+        observation.documentId ===
+          step.verification.evidence.controlTransition?.documentId &&
+        (!check.record ||
+          agentHaystackStates(
+            check.record,
+            agentNormalizedClaim(step.target?.rowContext ?? "")
+          ))
+    )
+  }
   if (check.type === "record_state") {
     const fact = groundedCompletionQuote(quote, requirement.id, ledger, true)
     if (!fact?.source) return false

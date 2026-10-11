@@ -59,6 +59,29 @@ describe("LMStudioProvider.getModels", () => {
     // 8192 tokens would have rendered as "8K"; the id says 8B and that is the
     // only place a size can come from, since no LM Studio endpoint reports one.
     expect(model.details?.parameter_size).toBe("8B")
+    expect(model.capabilityHints?.contextLength).toBeUndefined()
+  })
+
+  it("uses the smallest loaded instance window instead of the training maximum", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        v0Response([{ id: "qwen3-8b", max_context_length: 262144 }]) as Response
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          models: [
+            {
+              key: "qwen3-8b",
+              loaded_instances: [
+                { id: "qwen3-8b", config: { context_length: 8192 } },
+                { id: "other", config: { context_length: 16384 } }
+              ]
+            }
+          ]
+        })
+      } as Response)
+    const [model] = await makeProvider().getModels()
     expect(model.capabilityHints?.contextLength).toBe(8192)
   })
 

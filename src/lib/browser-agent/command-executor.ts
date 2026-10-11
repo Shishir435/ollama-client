@@ -603,64 +603,25 @@ const submitThroughPageHandlers = (
       agentRejectionMessage(AGENT_EFFECT_REJECTIONS.formStateChanged)
     )
   }
-  let committed: string | undefined
-  /**
-   * A listener cannot throw back to `requestSubmit`'s caller, so a refusal
-   * raised while the page's submission was being enforced is held here and
-   * thrown once `requestSubmit` returns. The default was already cancelled,
-   * so nothing was sent.
-   */
-  let refused: unknown
-  /**
-   * Registered last, so the page's own listeners — an inline `onsubmit`
-   * attribute included — have already run and already decided whether this
-   * submission is theirs.
-   */
-  const enforceDestination = (event: Event): void => {
-    if (event.defaultPrevented) return
-    event.preventDefault()
-    try {
-      committed = submitApprovedDestination(
-        element,
-        form,
-        submitter,
-        destination,
-        method,
-        effect.target.formQuery
-      )
-    } catch (error) {
-      refused = error
-    }
-  }
-  form.addEventListener("submit", enforceDestination)
-  try {
-    /**
-     * `requestSubmit` validates its argument before it dispatches anything,
-     * so a submitter it will not accept costs nothing and the approved
-     * destination is submitted directly instead. Falling back rather than
-     * throwing keeps an unusual submitter from becoming an unresolved effect.
-     */
-    try {
-      if (submitter instanceof HTMLElement && submitter.isConnected) {
-        form.requestSubmit(submitter as HTMLElement & { form: HTMLFormElement })
-      } else {
-        form.requestSubmit()
-      }
-    } catch {
-      return submitApprovedDestination(
-        element,
-        form,
-        submitter,
-        destination,
-        method,
-        effect.target.formQuery
-      )
-    }
-  } finally {
-    form.removeEventListener("submit", enforceDestination)
-  }
-  if (refused) throw refused
-  return committed
+  // A synthetic submit has no native default action. Dispatch it without
+  // pre-cancelling so form, root, document and window handlers all see the
+  // original state. Once propagation completes, the application has decided
+  // whether to own it; only an unhandled event gets our guarded native submit.
+  // Even stopPropagation cannot bypass destination enforcement this way.
+  const event = new SubmitEvent("submit", {
+    bubbles: true,
+    cancelable: true,
+    submitter: submitter instanceof HTMLElement ? submitter : null
+  })
+  if (!form.dispatchEvent(event)) return undefined
+  return submitApprovedDestination(
+    element,
+    form,
+    submitter,
+    destination,
+    method,
+    effect.target.formQuery
+  )
 }
 
 const executeKey = (

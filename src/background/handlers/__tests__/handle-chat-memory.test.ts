@@ -169,7 +169,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
       expect.objectContaining({
         messages: expect.arrayContaining([
           expect.objectContaining({
-            role: "system",
+            role: "user",
             content: expect.stringContaining(
               "context from previous conversations"
             )

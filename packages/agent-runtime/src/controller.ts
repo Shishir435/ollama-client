@@ -71,6 +71,7 @@ import {
   lastVerifiedAgentHistoryStep,
   previousAgentVerification
 } from "./history"
+import { agentObservationNeedsHuman } from "./human-boundary"
 import { agentObservationHaystack } from "./observed-text"
 import {
   agentAmendedPlanPatch,
@@ -123,6 +124,7 @@ import {
 } from "./recovery"
 import { agentResolutionFailure } from "./resolution-failure"
 import { agentRunResult } from "./run-result"
+import { agentRunTokens, MAX_AGENT_RUN_TOKENS } from "./run-token-budget"
 import {
   AGENT_STATUS_PREDECESSORS,
   agentTabScope,
@@ -2547,7 +2549,8 @@ export const createAgentController = (
           decision.summary,
           state.requirements,
           decision.outcomes,
-          judgement.outcome?.met
+          judgement.outcome?.met,
+          judgement.outcome
         ),
         evidenceLedger
       )
@@ -3129,69 +3132,45 @@ export const createAgentController = (
       observation
     )
 
-  const observeAndDecide = async (
+  const acknowledgeSteering = (
+    runId: string,
+    steering: { text: string; at: number }[] | undefined
+  ): void => {
+    if (!steering?.length) return
+    const queued = pendingSteering.get(runId) ?? []
+    const later = queued.filter((entry) => !steering.includes(entry))
+    if (later.length) pendingSteering.set(runId, later)
+    else pendingSteering.delete(runId)
+  }
+
+  const stopAtObservedBoundary = async (
     state: AgentRunState,
-    signal: AgentCancellationController["signal"]
-  ): Promise<
-    | {
-        state: AgentRunState
-        observation: AgentObservation
-        decision: AgentDecision
-        context: AgentResolutionContext
-      }
-    | { state: AgentRunState; recovering: true }
-    | undefined
-  > => {
-    const { receipts, ...recalled } = await recallHistory(state)
-    const observation = await observe(state, signal, recalled.inspection)
-    if (!observation) return undefined
-    /**
-     * Taken off the queue only once the claim that records it has landed. A
-     * pause or stop that wins the claim leaves the correction queued for the
-     * decision after the resume, rather than accepted and then dropped.
-     */
-    const steering = pendingSteering.get(state.id)
-    const claimed = await claimDeciding(
-      state,
-      steering,
-      signal,
-      observation,
-      receipts
-    )
-    if (!claimed) return undefined
-    const deciding = claimed.state
-    if (steering?.length) {
-      const queued = pendingSteering.get(state.id) ?? []
-      /** By identity: a correction typed during the claim is still waiting. */
-      const later = queued.filter((entry) => !steering.includes(entry))
-      if (later.length > 0) pendingSteering.set(state.id, later)
-      else pendingSteering.delete(state.id)
+    observation: AgentObservation,
+    receipts: readonly AgentStepReadout[]
+  ): Promise<boolean> => {
+    if (agentRunTokens(receipts) >= MAX_AGENT_RUN_TOKENS) {
+      await fail(
+        state,
+        "budget_exhausted",
+        "The Agent cumulative token budget is exhausted."
+      )
+      return true
     }
-    /**
-     * A new instruction is new ground: the no-progress and refusal memory
-     * describe the approach the user just corrected.
-     */
-    if (steering?.length) {
-      previousProgress.delete(state.id)
-      recentProgress.delete(state.id)
-      progressText.delete(state.id)
-      challengedUnmet.delete(state.id)
-      clearBoundRequirement(state.id)
-      noProgressCounts.delete(state.id)
-      refusedCommandCounts.delete(state.id)
-      refusedCompletions.delete(state.id)
+    if (agentObservationNeedsHuman(observation)) {
+      await pause(state, "takeover")
+      return true
     }
-    if (claimed.stop && (await stopsBeforePlanning(deciding, claimed.stop)))
-      return undefined
-    if (deciding.plan?.pending) {
-      await askRemoval(deciding)
-      return undefined
-    }
-    recalled.evidenceLedger = deciding.workflow
-      ? deciding.evidenceLedger
-      : refreshRecalledLedger(recalled.evidenceLedger, deciding, observation)
+    return false
+  }
+
+  const decideFromObservation = async (
+    deciding: AgentRunState,
+    observation: AgentObservation,
+    recalled: Awaited<ReturnType<typeof recallHistory>>,
+    signal: AgentCancellationController["signal"],
+    context: AgentResolutionContext
+  ): Promise<AgentDecision | undefined> => {
     let decision: AgentDecision | undefined
-    const context: AgentResolutionContext = {}
     try {
       const pictured = await picture(
         deciding,
@@ -3233,6 +3212,76 @@ export const createAgentController = (
       )
       return undefined
     }
+    return decision
+  }
+
+  const observeAndDecide = async (
+    state: AgentRunState,
+    signal: AgentCancellationController["signal"]
+  ): Promise<
+    | {
+        state: AgentRunState
+        observation: AgentObservation
+        decision: AgentDecision
+        context: AgentResolutionContext
+      }
+    | { state: AgentRunState; recovering: true }
+    | undefined
+  > => {
+    const { receipts, ...recalled } = await recallHistory(state)
+    const observation = await observe(state, signal, recalled.inspection)
+    if (!observation) return undefined
+    if (await stopAtObservedBoundary(state, observation, receipts ?? []))
+      return undefined
+    /**
+     * Taken off the queue only once the claim that records it has landed. A
+     * pause or stop that wins the claim leaves the correction queued for the
+     * decision after the resume, rather than accepted and then dropped.
+     */
+    const steering = pendingSteering.get(state.id)
+    const claimed = await claimDeciding(
+      state,
+      steering,
+      signal,
+      observation,
+      receipts
+    )
+    if (!claimed) return undefined
+    const deciding = claimed.state
+    acknowledgeSteering(state.id, steering)
+
+    /**
+     * A new instruction is new ground: the no-progress and refusal memory
+     * describe the approach the user just corrected.
+     */
+    if (steering?.length) {
+      previousProgress.delete(state.id)
+      recentProgress.delete(state.id)
+      progressText.delete(state.id)
+      challengedUnmet.delete(state.id)
+      clearBoundRequirement(state.id)
+      noProgressCounts.delete(state.id)
+      refusedCommandCounts.delete(state.id)
+      refusedCompletions.delete(state.id)
+    }
+    if (claimed.stop && (await stopsBeforePlanning(deciding, claimed.stop)))
+      return undefined
+    if (deciding.plan?.pending) {
+      await askRemoval(deciding)
+      return undefined
+    }
+    recalled.evidenceLedger = deciding.workflow
+      ? deciding.evidenceLedger
+      : refreshRecalledLedger(recalled.evidenceLedger, deciding, observation)
+    const context: AgentResolutionContext = {}
+    const decision = await decideFromObservation(
+      deciding,
+      observation,
+      { ...recalled, receipts },
+      signal,
+      context
+    )
+    if (!decision) return undefined
     const stalled =
       decision.type === "complete"
         ? ({ type: "progressing" } as const)

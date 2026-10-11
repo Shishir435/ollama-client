@@ -45,29 +45,6 @@ import type {
   PortStatusFunction
 } from "@/types"
 
-/**
- * Limits the number of messages sent to the model to stay within context window constraints.
- * Specifically targets Small Language Models (SLMs) like those in the 135M-0.6B parameter range
- * which typically have very shallow context windows.
- *
- * When truncating, the system prompt (if present) is preserved so the user-configured
- * behaviour is not silently lost.
- */
-const limitMessagesForModel = (
-  model: string,
-  messages: ChatMessage[]
-): ChatMessage[] => {
-  if (model.includes("135m") || model.includes("0.6b")) {
-    const systemMsg = messages.find((m) => m.role === "system")
-    const nonSystem = messages.filter((m) => m.role !== "system")
-    const limit = systemMsg ? 4 : 5
-    const result = nonSystem.slice(-limit)
-    if (systemMsg) result.unshift(systemMsg)
-    return result
-  }
-  return messages
-}
-
 const getSessionSystemPrompt = async (
   sessionId?: string
 ): Promise<string | undefined> => {
@@ -187,15 +164,17 @@ const injectSystemMessage = (
 ): void => {
   const systemIndex = messages.findIndex((message) => message.role === "system")
   if (systemIndex === -1) {
-    messages.unshift({
-      role: "system",
-      content: systemPrompt + contextHeader + guidance
-    })
-    return
+    messages.unshift({ role: "system", content: systemPrompt })
   }
-  messages[systemIndex] = {
-    ...messages[systemIndex],
-    content: messages[systemIndex].content + contextHeader + guidance
+  const dynamicContext = contextHeader + guidance
+  if (!dynamicContext) return
+  let userIndex = messages.length - 1
+  while (userIndex >= 0 && messages[userIndex].role !== "user") userIndex -= 1
+  if (userIndex >= 0) {
+    messages[userIndex] = {
+      ...messages[userIndex],
+      content: `${messages[userIndex].content}\n\n<runtime_context>${dynamicContext}\n</runtime_context>`
+    }
   }
 }
 
@@ -235,7 +214,7 @@ const createChunkHandler = (
 /**
  * Main handler for streaming chat interactions.
  * Features:
- * 1. Model-specific context window limiting.
+ * 1. Preservation of conversation history.
  * 2. Automated memory/RAG injection from past conversations.
  * 3. Dynamic system prompt assembly.
  * 4. Cross-origin safe message streaming via browser ports.
@@ -258,9 +237,7 @@ export const handleChatWithModel = withErrorContext(
     const conversationMessages = messages.filter(
       (message) => !message.metrics?.permissionNotice
     )
-    const preparedMessages = [
-      ...limitMessagesForModel(model, conversationMessages)
-    ]
+    const preparedMessages = [...conversationMessages]
     const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
     const sessionSystemPrompt = await getSessionSystemPrompt(
       msg.payload.sessionId

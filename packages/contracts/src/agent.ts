@@ -52,6 +52,7 @@ export type AgentRunStatus = z.infer<typeof AgentRunStatusSchema>
 export const AGENT_PAUSE_REASONS = [
   "user",
   "panel_closed",
+  "consent_scope_changed",
   "browser_disconnected",
   "worker_lost",
   "unresolved_effect",
@@ -604,6 +605,8 @@ export const AgentTaskRequirementSchema = z
      */
     kind: z.enum(["change", "read"]),
     check: AgentCompletionCheckSchema.optional(),
+    /** Current-state questions cannot be answered from a document left behind. */
+    freshness: z.enum(["current", "historical"]).optional(),
     /**
      * The words of the goal — or of a user's answer — this outcome answers,
      * quoted. Checked against them when the plan is parsed, so an outcome
@@ -651,6 +654,35 @@ export const AgentRunOutcomeSchema = z
      * The met reads whose only support was a screenshot: the model's reading
      * of a picture, not text the page said. Shown as such, never as verified.
      */
+    items: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+            met: z
+              .array(
+                z
+                  .number()
+                  .int()
+                  .nonnegative()
+                  .max(MAX_AGENT_REQUIREMENT_ITEMS - 1)
+              )
+              .max(MAX_AGENT_REQUIREMENT_ITEMS),
+            visual: z
+              .array(
+                z
+                  .number()
+                  .int()
+                  .nonnegative()
+                  .max(MAX_AGENT_REQUIREMENT_ITEMS - 1)
+              )
+              .max(MAX_AGENT_REQUIREMENT_ITEMS)
+              .optional()
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
     visual: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
       .max(MAX_AGENT_REQUIREMENTS)
@@ -985,6 +1017,8 @@ export const AgentPreviousRequirementSchema = z
     text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
     kind: z.enum(["change", "read"]),
     check: AgentCompletionCheckSchema.optional(),
+    /** Current-state questions cannot be answered from a document left behind. */
+    freshness: z.enum(["current", "historical"]).optional(),
     met: z.boolean().optional()
   })
   .strict()

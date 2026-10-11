@@ -102,6 +102,16 @@ const AgentVerificationSchema = z
         kind: z.string().max(200),
         summary: z.string().max(2_000),
         observedAt: z.number().int().nonnegative(),
+        controlTransition: z
+          .object({
+            from: z.string().min(1).max(500),
+            to: z.string().min(1).max(500),
+            verificationId: z.string().min(1).max(200),
+            frameId: z.number().int().nonnegative(),
+            documentId: z.string().min(1).max(200)
+          })
+          .strict()
+          .optional(),
         fields: z
           .array(
             z
@@ -521,7 +531,9 @@ export const setAgentRunUnattended = async (
       !state ||
       state.status !== "paused" ||
       state.updatedAt !== pausedAt ||
-      !["user", "panel_closed"].includes(state.pauseReason ?? "")
+      !["user", "panel_closed", "consent_scope_changed"].includes(
+        state.pauseReason ?? ""
+      )
     )
       return
     const next = AgentRunStateSchema.parse({

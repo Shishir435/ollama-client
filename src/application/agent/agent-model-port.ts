@@ -879,6 +879,10 @@ const decisionPrompt = (input: {
   )
   return JSON.stringify({
     ...envelope,
+    visualGuidance: agentVisualAccessPrompt(
+      input.visual,
+      input.screenshot !== undefined
+    ),
     observation: projectAgentObservation(input.observation, {
       pageContentChars: chars,
       pageContentMaxChars: maxChars,
@@ -1074,6 +1078,7 @@ const assertCurrentProviderEnabled = async (
 
 const collectDecision = async (input: {
   provider: LLMProvider
+  visionSchema: boolean
   state: AgentRunState
   observation: AgentObservation
   retry: number
@@ -1108,10 +1113,6 @@ const collectDecision = async (input: {
   let streamError: ChatStreamMessage["error"]
   const scoped = providerSignal(input.signal)
   const withScreenshot = input.screenshot !== undefined
-  const offer: AgentVisualOffer = {
-    look: input.visual?.available === true,
-    pointer: withScreenshot
-  }
   const numCtx = agentContextWindow(input.window)
   const numPredict = agentResponseTokens(input.window, input.observation)
   const thinking = agentThinkingFields(input.reasoningEffort)
@@ -1132,10 +1133,7 @@ const collectDecision = async (input: {
         messages: [
           {
             role: "system",
-            content: `${SYSTEM_PROMPT}${agentVisualAccessPrompt(
-              input.visual,
-              withScreenshot
-            )}`
+            content: SYSTEM_PROMPT
           },
           {
             role: "user",
@@ -1145,7 +1143,9 @@ const collectDecision = async (input: {
               : {})
           }
         ],
-        tools: [agentDecisionTool(offer)],
+        tools: [
+          input.visionSchema ? AGENT_VISION_DECISION_TOOL : AGENT_DECISION_TOOL
+        ],
         tool_choice: "required",
         ...thinking,
         num_predict: numPredict,
@@ -1182,11 +1182,18 @@ const collectDecision = async (input: {
         ? {}
         : { firstTokenMs: firstChunkAt - startedAt }),
       promptChars: prompt.length,
-      promptTokensEstimated: estimateTokens(prompt),
+      promptTokensEstimated:
+        estimateTokens(prompt) +
+        AGENT_INSTRUCTION_TOKENS +
+        AGENT_TOOL_SCHEMA_TOKENS +
+        (withScreenshot ? AGENT_SCREENSHOT_TOKENS : 0),
       numCtx,
       ...(withScreenshot ? { vision: true } : {}),
       promptTokens: metrics?.prompt_eval_count,
       outputTokens: metrics?.eval_count,
+      cachedPromptTokens: metrics?.prompt_cached_count,
+      reasoningTokens: metrics?.reasoning_count,
+      costUsd: metrics?.cost_usd,
       loadMs: agentTelemetryMillis(metrics?.load_duration),
       prefillMs: agentTelemetryMillis(metrics?.prompt_eval_duration),
       decodeMs: agentTelemetryMillis(metrics?.eval_duration)
@@ -1213,6 +1220,7 @@ const collectDecision = async (input: {
  */
 const retryUntilWellFormed = async (input: {
   provider: LLMProvider
+  visionSchema: boolean
   state: AgentRunState
   observation: AgentObservation
   window: number
@@ -1246,6 +1254,12 @@ const retryUntilWellFormed = async (input: {
       decideMs: (spent.decideMs ?? 0) + (attempt.decideMs ?? 0),
       promptTokens: sum(spent.promptTokens, attempt.promptTokens),
       outputTokens: sum(spent.outputTokens, attempt.outputTokens),
+      cachedPromptTokens: sum(
+        spent.cachedPromptTokens,
+        attempt.cachedPromptTokens
+      ),
+      reasoningTokens: sum(spent.reasoningTokens, attempt.reasoningTokens),
+      costUsd: sum(spent.costUsd, attempt.costUsd),
       promptTokensEstimated: sum(
         spent.promptTokensEstimated,
         attempt.promptTokensEstimated
@@ -1721,6 +1735,7 @@ export const createProviderAgentModelPort = (
       await assertCurrentProviderEnabled(provider, state.modelId, signal)
       return retryUntilWellFormed({
         provider,
+        visionSchema: compatibility.vision === true,
         state,
         observation,
         window: await windowFor(state, compatibility),

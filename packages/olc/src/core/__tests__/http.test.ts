@@ -248,3 +248,19 @@ describe("bindRequestAbort", () => {
     ).toBe(false)
   })
 })
+
+describe("listener Host boundary", () => {
+  it("refuses rebinding names and wrong ports, preserving native loopback clients", async () => {
+    const { isLocalListenerHost } = await import("../http.js")
+    expect(isLocalListenerHost("evil.example:8083", "127.0.0.1", 8083)).toBe(
+      false
+    )
+    expect(isLocalListenerHost("localhost:8084", "127.0.0.1", 8083)).toBe(false)
+    expect(isLocalListenerHost("127.0.0.1:8083", "127.0.0.1", 8083)).toBe(true)
+    expect(isLocalListenerHost("localhost:8083", "127.0.0.1", 8083)).toBe(true)
+    expect(isLocalListenerHost("[::1]:8083", "::1", 8083)).toBe(true)
+    expect(
+      isLocalListenerHost("127.0.0.1:8083@evil.example:8083", "127.0.0.1", 8083)
+    ).toBe(false)
+  })
+})

@@ -595,7 +595,7 @@ describe("provider contracts", () => {
       expect.objectContaining({
         name: "llama-cpp-model",
         size: 1234,
-        capabilityHints: { contextLength: 32768 },
+
         details: expect.objectContaining({ parameter_size: "7B" })
       })
     ])

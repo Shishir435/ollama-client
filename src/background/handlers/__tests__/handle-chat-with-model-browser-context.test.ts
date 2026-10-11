@@ -105,13 +105,17 @@ describe("handleChatWithModel browser context", () => {
     )
 
     expect(resolveActiveTabContext).toHaveBeenCalledWith(9)
-    const system = sentRequest().messages[0]
-    expect(system.role).toBe("system")
-    expect(system.content).toContain("inside the user's web browser")
-    expect(system.content).toContain(
+    const system = sentRequest().messages.find(
+      (message) => message.role === "user"
+    )
+    expect(sentRequest().messages[0].content).not.toContain(
+      "Start runs from chat #421"
+    )
+    expect(system?.content).toContain("inside the user's web browser")
+    expect(system?.content).toContain(
       '"Start runs from chat #421" at https://github.com/o/r/pull/421'
     )
-    expect(system.content).toContain("You have tools available: current_tab")
+    expect(system?.content).toContain("You have tools available: current_tab")
   })
 
   it("offers tools to a model whose results return as user messages", async () => {
@@ -130,9 +134,9 @@ describe("handleChatWithModel browser context", () => {
     expect(sentRequest().tools?.map((entry) => entry.name)).toEqual([
       "current_tab"
     ])
-    expect(sentRequest().messages[0].content).toContain(
-      "inside the user's web browser"
-    )
+    expect(
+      sentRequest().messages.find((message) => message.role === "user")?.content
+    ).toContain("inside the user's web browser")
   })
 
   it("adds no browser context when no tab tool is offered", async () => {
