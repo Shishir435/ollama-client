@@ -2568,7 +2568,8 @@ const stopConditionMet = (
   if (!condition || !steps) return false
   const words = stopWords(condition).filter((word) => !STOP_FILLER.has(word))
   if (words.length === 0) return false
-  const last = lastChange(steps)
+  const changes = allChanges(steps)
+  const last = changes.at(-1)
   return requirements.some((requirement) => {
     if (!met.has(requirement.id)) return false
     const own = new Set(
@@ -2590,15 +2591,23 @@ const stopConditionMet = (
        * A change outcome is held by this run's own change: met with no
        * change at all, it was already true, and stopping "once" it held
        * says nothing about what this run did. The last change must be the
-       * one that established it — verified against the state it set, not a
-       * later Save tagged for the same outcome, which acted after the
-       * condition held.
+       * one that established it: a Save after a select that already proved
+       * Blue held acted after the condition held. Only an earlier change that
+       * proved the state rules it out, so a submission that is itself the
+       * outcome ("Stop once the form is submitted") still settles.
        */
       (last === undefined
         ? requirement.kind !== "change"
         : last.requirementId === requirement.id &&
           last.verification?.outcome === "confirmed" &&
-          provesItsOwnResult(last.verification))
+          (provesItsOwnResult(last.verification) ||
+            !changes.some(
+              (change) =>
+                change !== last &&
+                change.requirementId === requirement.id &&
+                change.verification?.outcome === "confirmed" &&
+                provesItsOwnResult(change.verification)
+            )))
     )
   })
 }

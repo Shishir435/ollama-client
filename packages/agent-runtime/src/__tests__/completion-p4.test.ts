@@ -974,6 +974,38 @@ describe("P4 deterministic completion", () => {
     ])("settles %s when that outcome is met and nothing followed", (text) => {
       expect(judgeStop(text, [selected()])).toMatchObject({ type: "accepted" })
     })
+    it("settles a stop on a submission that is itself the outcome", () => {
+      expect(
+        judgeAgentCompletion({
+          steps: [
+            selected({
+              target: { ref: "e5", tag: "button", name: "Submit" },
+              verification: {
+                outcome: "confirmed",
+                evidence: {
+                  kind: "submission",
+                  summary: "submitted",
+                  observedAt: 1
+                }
+              }
+            })
+          ],
+          observation: page,
+          evidenceLedger: [],
+          constraints: [
+            {
+              id: "c1",
+              text: "Stop once the form is submitted.",
+              kind: "limit"
+            }
+          ],
+          requirements: [
+            { id: "r1", kind: "change", text: "The form is submitted." }
+          ],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).not.toMatchObject({ type: "refused", reason: "needs_review" })
+    })
     it.each([
       [
         "the run acted again after it",

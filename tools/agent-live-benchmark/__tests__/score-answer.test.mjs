@@ -144,7 +144,16 @@ describe("real-site scorer", () => {
       ["#1 on Hacker News: Cloudflare acquires Deno", "top_story_title"],
       ["The second story is Cloudflare acquires Deno", "not_an_answer"],
       ["Cloudflare acquires Deno is ranked #3", "not_an_answer"],
-      ["The 2nd story is Cloudflare acquires Deno", "not_an_answer"]
+      ["The 2nd story is Cloudflare acquires Deno", "not_an_answer"],
+      ["Cloudflare acquires Deno is in last place", "not_an_answer"],
+      [
+        "The top story is Cloudflare acquires Deno as of my last check",
+        "top_story_title"
+      ],
+      [
+        "Cloudflare acquires Deno, checked a second time just now",
+        "top_story_title"
+      ]
     ])
       assert.equal(
         scoreHnTopStory({ answer, storyTitles }).reason,
