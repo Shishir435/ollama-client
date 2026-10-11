@@ -241,7 +241,8 @@ const budgets: Budget[] = [
     /** PR 14 review tightening (frame, page-leaving, applied-action list) measures Chrome at 48,549,796. */
     /** PR 14 followed-link credit and key-method allowlist measure Chrome at 48,550,281. */
     /** PR 14 press counting and confirmed stop change measure Chrome at 48,550,528. */
-    max: isFirefox ? 50_300_000 : 48_550_528
+    /** PR 14 stop limit bound to its change and per-opening tab receipts measure Chrome at 48,550,622. */
+    max: isFirefox ? 50_300_000 : 48_550_622
   },
   {
     metric: "zip",
@@ -542,7 +543,8 @@ const budgets: Budget[] = [
     /** PR 14 review tightening measures Chrome at 338,878 gzip bytes. */
     /** PR 14 followed-link credit and key-method allowlist measure Chrome at 339,001 gzip bytes. */
     /** PR 14 press counting and confirmed stop change measure Chrome at 339,097 gzip bytes. */
-    max: isFirefox ? 222_000 : 339_097
+    /** PR 14 stop limit bound to its change and per-opening tab receipts measure Chrome at 339,137 gzip bytes. */
+    max: isFirefox ? 222_000 : 339_137
   }
 ]
 
