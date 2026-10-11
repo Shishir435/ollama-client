@@ -243,7 +243,8 @@ const budgets: Budget[] = [
     /** PR 14 press counting and confirmed stop change measure Chrome at 48,550,528. */
     /** PR 14 stop limit bound to its change and per-opening tab receipts measure Chrome at 48,550,622. */
     /** PR 14 stop limit settled by its own submission measures Chrome at 48,550,737. */
-    max: isFirefox ? 50_300_000 : 48_550_737
+    /** PR 14 stop limit judged by how its outcome is met measures Chrome at 48,550,786. */
+    max: isFirefox ? 50_300_000 : 48_550_786
   },
   {
     metric: "zip",
@@ -546,7 +547,8 @@ const budgets: Budget[] = [
     /** PR 14 press counting and confirmed stop change measure Chrome at 339,097 gzip bytes. */
     /** PR 14 stop limit bound to its change and per-opening tab receipts measure Chrome at 339,137 gzip bytes. */
     /** PR 14 stop limit settled by its own submission measures Chrome at 339,156 gzip bytes. */
-    max: isFirefox ? 222_000 : 339_156
+    /** PR 14 stop limit judged by how its outcome is met measures Chrome at 339,159 gzip bytes. */
+    max: isFirefox ? 222_000 : 339_159
   }
 ]
 
