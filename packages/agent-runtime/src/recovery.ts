@@ -74,6 +74,12 @@ export interface AgentRecoveryStart {
   now: number
   /** Whether the run may picture this page at all; `request_vision` is skipped when it may not. */
   visionAvailable: boolean
+  /**
+   * The repeats span more than one page: the run is going round a loop of
+   * links, not waiting on one page. Reading or waiting again replays the
+   * loop, so the other route is offered first.
+   */
+  navigationLoop?: boolean
   evidenceStep?: number
 }
 
@@ -107,7 +113,16 @@ export const planAgentRecovery = (
   const tried = current?.active?.tried ?? []
   const exhausted = { type: "exhausted" as const, attempts, tried }
   if (attempts >= MAX_AGENT_RECOVERY_ATTEMPTS) return exhausted
-  const strategy = STRATEGY_ORDER[start.trigger].find(
+  const order =
+    start.navigationLoop && start.trigger === "no_progress"
+      ? [
+          "alternate_route" as const,
+          ...STRATEGY_ORDER.no_progress.filter(
+            (candidate) => candidate !== "alternate_route"
+          )
+        ]
+      : STRATEGY_ORDER[start.trigger]
+  const strategy = order.find(
     (candidate) =>
       !tried.includes(candidate) &&
       (candidate !== "request_vision" || start.visionAvailable)

@@ -102,6 +102,10 @@ export default defineConfig({
     // which a custom command calling `sidePanel.open()` cannot do. Rebindable at
     // chrome://extensions/shortcuts; the browser may drop the default on conflict.
     commands: {
+      "stop-agent": {
+        description: "Stop the current browser agent run",
+        suggested_key: { default: "Alt+Shift+X", mac: "Command+Shift+X" }
+      },
       _execute_action: {
         suggested_key: {
           default: "Alt+Shift+O",

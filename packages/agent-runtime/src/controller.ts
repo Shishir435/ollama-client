@@ -38,6 +38,7 @@ import {
 } from "./budgets"
 import type { AgentCompletionJudgement } from "./completion"
 import {
+  agentAppliedChanges,
   agentEffectChangesPage,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
@@ -51,6 +52,7 @@ import {
   applyAgentCompletionReview,
   MAX_AGENT_COMPLETION_REVIEWS
 } from "./completion-review"
+import { agentWriteHeldPlannedValue } from "./completion-support"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
   agentCommandEvidence,
@@ -239,6 +241,7 @@ const restatedStepEvidence = (
   AgentStepWrite,
   | "command"
   | "mutating"
+  | "heldPlannedValue"
   | "consequential"
   | "formAction"
   | "target"
@@ -247,6 +250,7 @@ const restatedStepEvidence = (
 > => ({
   ...(step.command ? { command: step.command } : {}),
   ...(step.mutating !== undefined ? { mutating: step.mutating } : {}),
+  ...(step.heldPlannedValue ? { heldPlannedValue: true } : {}),
   ...(step.consequential !== undefined
     ? { consequential: step.consequential }
     : {}),
@@ -344,7 +348,29 @@ const reviewedAction = (
   return {
     command: effect.command.type,
     ...(target?.role ? { role: target.role } : {}),
-    ...(target?.name ? { name: target.name } : {})
+    ...(target?.name ? { name: target.name } : {}),
+    ...(effect.command.type === "press_key" && !effect.target.sensitive
+      ? { key: effect.command.key }
+      : {})
+  }
+}
+
+/**
+ * An applied receipt as a scope limit's reviewer is shown it. A named key is
+ * kept, a single character is not: one typed into a sensitive field is that
+ * field's value, and a receipt no longer says whether the field was sensitive.
+ */
+const appliedReviewedAction = (step: AgentStepReadout): AgentReviewedAction => {
+  const key =
+    step.command?.type === "press_key" && step.command.key.length > 1
+      ? step.command.key
+      : undefined
+  return {
+    requirementId: step.requirementId ?? "unbound",
+    command: step.command?.type ?? "unknown",
+    ...(step.target?.role ? { role: step.target.role } : {}),
+    ...(step.target?.name ? { name: step.target.name } : {}),
+    ...(key ? { key } : {})
   }
 }
 
@@ -546,6 +572,27 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * Whether a confirmed write held exactly what its requirement's check names,
+   * recorded now because nothing later can tell: the receipt redacts the
+   * value, and a submission may take the control off the page.
+   */
+  const heldPlannedValueEvidence = (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect,
+    verification: AgentVerificationResult,
+    requirementId: string | undefined
+  ): Pick<AgentStepWrite, "heldPlannedValue"> =>
+    agentWriteHeldPlannedValue(
+      state.requirements?.find(
+        (requirement) => requirement.id === requirementId
+      ),
+      effect.batch?.fields.map((field) => field.target) ?? [effect.target],
+      verification
+    )
+      ? { heldPlannedValue: true }
+      : {}
+
   const fail = async (
     state: AgentRunState,
     code: Parameters<typeof agentFailure>[0],
@@ -620,6 +667,10 @@ export const createAgentController = (
       now
     )
     const checkpoint = await claim(state, "awaiting_approval", {
+      humanDecision:
+        decision.type === "approval_required"
+          ? { kind: "approval", request: decision.request }
+          : undefined,
       deadline:
         decision.type === "approval_required"
           ? suspendAgentDeadlines(deadline, "approval", now)
@@ -658,7 +709,8 @@ export const createAgentController = (
 
     const answer = await dependencies.approval.request(decision.request, signal)
     if (answer.type !== "approved") {
-      await pause(checkpoint, "user")
+      /** Answered: the panel must not offer this request as still pending. */
+      await pause(checkpoint, "user", { humanDecision: undefined })
       return undefined
     }
     /**
@@ -1421,13 +1473,15 @@ export const createAgentController = (
         now
       )
       const waiting = await claim(state, "awaiting_takeover", {
+        humanDecision: { kind: "takeover", request: policy.request },
         deadline: suspendAgentDeadlines(deadline, "takeover", now),
         stepCount: stepNumber,
         updatedAt: now
       })
       if (!waiting) return undefined
       const answer = await dependencies.takeover.request(policy.request, signal)
-      if (answer.type === "cancelled") await pause(waiting, "takeover")
+      if (answer.type === "cancelled")
+        await pause(waiting, "takeover", { humanDecision: undefined })
       return undefined
     }
 
@@ -1730,6 +1784,7 @@ export const createAgentController = (
         status: action.stepStatus,
         command: effect.command,
         ...stepEvidence(effect),
+        ...heldPlannedValueEvidence(state, effect, verification, requirementId),
         risk: policy.risk,
         verification,
         evidenceLedger: agentVerificationEvidence(
@@ -2321,7 +2376,9 @@ export const createAgentController = (
       completionLedger(state, decision, steps, observation),
       actionWindows?.runId === state.id
         ? actionWindows.byRequirement
-        : undefined
+        : undefined,
+      /** Unreadable receipts leave the list incomplete: no limit credit. */
+      steps ? agentAppliedChanges(steps).map(appliedReviewedAction) : undefined
     )
     const startedAt = dependencies.clock.now()
     let answer: unknown
@@ -2720,7 +2777,8 @@ export const createAgentController = (
   const recover = async (
     state: AgentRunState,
     trigger: AgentRecoveryTrigger,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    navigationLoop = false
   ): Promise<
     | { type: "recovering"; state: AgentRunState }
     | {
@@ -2735,6 +2793,7 @@ export const createAgentController = (
       trigger,
       now: dependencies.clock.now(),
       visionAvailable: await recoveryVisionAvailable(state, signal),
+      ...(navigationLoop ? { navigationLoop } : {}),
       ...(evidenceStep !== undefined ? { evidenceStep } : {})
     })
     if (signal.aborted) return { type: "stopped" }
@@ -2886,7 +2945,13 @@ export const createAgentController = (
      * The repeated decision is not carried out: it is the third of its kind,
      * and the run looks again under a strategy instead.
      */
-    const recovery = await recover(state, trigger, signal)
+    const recovery = await recover(
+      state,
+      trigger,
+      signal,
+      new Set((recentProgress.get(state.id) ?? []).map((point) => point.url))
+        .size > 1
+    )
     if (recovery.type !== "exhausted") return recovery
     await pause(state, "question", {
       question:

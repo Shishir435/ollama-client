@@ -35,7 +35,12 @@ const transition = async (
 
 const pauseAfterRecovery = async (
   state: AgentRunState,
-  reason: "panel_closed" | "takeover" | "unresolved_effect",
+  reason:
+    | "panel_closed"
+    | "takeover"
+    | "unresolved_effect"
+    | "worker_lost"
+    | "user",
   now: number,
   signal?: AbortSignal
 ): Promise<void> => {
@@ -59,6 +64,20 @@ const pauseAfterRecovery = async (
    */
   const requested = await transition(state, "pause_requested", patch, signal)
   if (requested) await transition(requested, "paused", patch, signal)
+}
+
+/** Only read-only phases of an explicitly authorized run are safe automatic checkpoints. */
+const recoveredPauseReason = (
+  state: AgentRunState
+): Parameters<typeof pauseAfterRecovery>[1] => {
+  if (state.status === "awaiting_takeover") return "takeover"
+  if (state.unattended && state.status === "awaiting_approval") return "user"
+  if (
+    state.unattended &&
+    ["submitted", "observing", "deciding"].includes(state.status)
+  )
+    return "worker_lost"
+  return "panel_closed"
 }
 
 /**
@@ -93,12 +112,7 @@ export const recoverAgentRuns = async (signal?: AbortSignal): Promise<void> => {
       continue
     }
 
-    await pauseAfterRecovery(
-      state,
-      state.status === "awaiting_takeover" ? "takeover" : "panel_closed",
-      now,
-      signal
-    )
+    await pauseAfterRecovery(state, recoveredPauseReason(state), now, signal)
   }
   signal?.throwIfAborted()
 }

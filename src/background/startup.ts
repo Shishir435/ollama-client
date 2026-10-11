@@ -435,7 +435,8 @@ const runStartupTasks = async (
  */
 const runDatabaseStartup = async (
   lifecycleReady: Promise<boolean>,
-  persistenceReady: Promise<void>
+  persistenceReady: Promise<void>,
+  recoverUnattended?: (signal: AbortSignal) => Promise<void>
 ): Promise<void> => {
   // Observed before the lifecycle branch can return early: an owner failure
   // nobody awaited is an unhandled rejection in the worker.
@@ -466,15 +467,32 @@ const runDatabaseStartup = async (
   }
   await runStartupTasks(SCHEMA_STARTUP_TASKS, 1)
   await runStartupTasks(WORKFLOW_STARTUP_TASKS, WORKFLOW_STARTUP_CONCURRENCY)
+  if (recoverUnattended) {
+    await runStartupTasks(
+      [
+        {
+          id: "unattended-agent-runs",
+          name: "unattended agent continuation",
+          run: recoverUnattended
+        }
+      ],
+      1
+    )
+  }
 }
 
 export const initializeBackgroundStartup = (
-  persistenceReady: Promise<void> = Promise.resolve()
+  persistenceReady: Promise<void> = Promise.resolve(),
+  recoverUnattended?: (signal: AbortSignal) => Promise<void>
 ) => {
   // A scheduled destructive reset must complete before any other startup
   // task opens the chat database — an open handle would block the delete.
   const lifecycleReady = resumeLifecycleWithRetry()
-  const databaseReady = runDatabaseStartup(lifecycleReady, persistenceReady)
+  const databaseReady = runDatabaseStartup(
+    lifecycleReady,
+    persistenceReady,
+    recoverUnattended
+  )
   // MV3 workers can start without a browser onStartup event (extension reload,
   // event wakeup). Reconcile the request-origin rule on every worker boot.
   void updateDNRRules()

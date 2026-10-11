@@ -32,6 +32,7 @@ export interface AgentRunConnection {
   steer(text: string): void
   debugReport: AgentDebugReporter
   stop(): void
+  setUnattended(enabled: boolean): void
   completeTakeover(): void
   resolveEffect(): void
   finishReviewed(): void
@@ -232,6 +233,16 @@ export const useAgentRun = (): AgentRunConnection => {
     pause: () => runScoped("agent_pause"),
     resume: () => runScoped("agent_resume"),
     stop: () => runScoped("agent_stop"),
+    setUnattended(enabled) {
+      const run = snapshot.run
+      if (!run || run.status !== "paused") return
+      send({
+        type: "agent_set_unattended",
+        runId: run.id,
+        pausedAt: run.updatedAt,
+        enabled
+      })
+    },
     completeTakeover: () => {
       if (!runId) return
       send({ type: "agent_complete_takeover", runId })

@@ -359,3 +359,111 @@ describe("agent startup recovery against the real engine", () => {
     TIMEOUT
   )
 })
+
+it(
+  "persists exact-pause unattended consent and recovers only safe checkpoints",
+  async () => {
+    const repo = await boot()
+    await repo.createAgentRun(runState("submitted"))
+    await walkTo(repo, "run-recovery", "observing")
+    await repo.transitionAgentRun({
+      runId: "run-recovery",
+      from: "observing",
+      to: "pause_requested",
+      patch: { pauseReason: "user", updatedAt: 2000 }
+    })
+    await repo.transitionAgentRun({
+      runId: "run-recovery",
+      from: "pause_requested",
+      to: "paused"
+    })
+    expect(
+      await repo.setAgentRunUnattended("run-recovery", 1999, true, "browser-1")
+    ).toBe(false)
+    expect(
+      await repo.setAgentRunUnattended("run-recovery", 2000, true, "browser-1")
+    ).toBe(true)
+    await Promise.all(
+      owners.splice(0).map((engine) => engine.submit({ op: "flush" }))
+    )
+    installOwner()
+    const saved = (await repo.getAgentRun("run-recovery"))?.state
+    expect(saved?.unattended).toMatchObject({
+      browserSessionId: "browser-1",
+      origins: saved?.allowedOrigins,
+      tabIds: [7],
+      providerId: "ollama",
+      modelId: "model"
+    })
+    await repo.transitionAgentRun({
+      runId: "run-recovery",
+      from: "paused",
+      to: "observing"
+    })
+    expect(
+      await repo.setAgentRunUnattended("run-recovery", 2000, false, "browser-1")
+    ).toBe(false)
+    const recovery = await import("../agent-recovery")
+    await recovery.recoverAgentRuns()
+    expect((await repo.getAgentRun("run-recovery"))?.state).toMatchObject({
+      status: "paused",
+      pauseReason: "worker_lost",
+      unattended: saved?.unattended
+    })
+    await recovery.recoverAgentRuns()
+    expect((await repo.getAgentRun("run-recovery"))?.state?.pauseReason).toBe(
+      "worker_lost"
+    )
+  },
+  TIMEOUT
+)
+
+it(
+  "keeps an unanswered approval durable after worker loss without granting it",
+  async () => {
+    const repo = await boot()
+    await repo.createAgentRun(
+      runState("submitted", {
+        unattended: {
+          approvedAt: 1,
+          browserSessionId: "browser-1",
+          origins: ["https://example.com"],
+          tabIds: [7],
+          providerId: "ollama",
+          modelId: "model"
+        }
+      })
+    )
+    await walkTo(repo, "run-recovery", "deciding")
+    const pending = {
+      kind: "approval" as const,
+      request: {
+        id: "approval-1",
+        runId: "run-recovery",
+        stepId: "step-1",
+        risk: "critical" as const,
+        action: "Submit the form",
+        consequence: "Sends this form",
+        createdAt: 100
+      }
+    }
+    await repo.claimAgentRunPhase({
+      runId: "run-recovery",
+      phase: "awaiting_approval",
+      expected: ["deciding"],
+      patch: { humanDecision: pending }
+    })
+    const recovery = await import("../agent-recovery")
+    await recovery.recoverAgentRuns()
+    expect((await repo.getAgentRun("run-recovery"))?.state).toMatchObject({
+      status: "paused",
+      pauseReason: "user",
+      humanDecision: pending
+    })
+    expect(await repo.listAgentSteps("run-recovery")).toHaveLength(0)
+    expect(
+      (await repo.getAgentRun("run-recovery"))?.state?.grants
+    ).toBeUndefined()
+  },
+  TIMEOUT
+)

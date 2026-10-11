@@ -51,6 +51,7 @@ const isImageThreadRequest = (message) => {
 
 const handleThreadStart = (message) => {
   appendFileSync("thread-starts.jsonl", `${JSON.stringify(message.params)}\n`)
+  appendFileSync("argv.json", `${JSON.stringify(process.argv.slice(2))}\n`)
   if (isImageThreadRequest(message)) {
     const threadId =
       message.params?.model === "fake-codex-delayed"
@@ -311,7 +312,38 @@ const handleToolResult = () => {
   })
 }
 
+const handleConfigRead = (message) => {
+  send({
+    id: message.id,
+    result: {
+      config: {
+        mcp_servers: { alpha: { command: "alpha" }, "beta-docs": { url: "x" } }
+      },
+      origins: {}
+    }
+  })
+}
+
+/** Ephemeral threads cannot be deleted, exactly as the real App Server says. */
+const handleThreadClose = (message) => {
+  appendFileSync(
+    "thread-closes.jsonl",
+    `${JSON.stringify({ method: message.method, ...message.params })}\n`
+  )
+  if (message.method === "thread/delete") {
+    send({
+      id: message.id,
+      error: { code: -32600, message: "thread is not persisted" }
+    })
+    return
+  }
+  send({ id: message.id, result: {} })
+}
+
 const handlers = new Map([
+  ["config/read", handleConfigRead],
+  ["thread/delete", handleThreadClose],
+  ["thread/unsubscribe", handleThreadClose],
   ["initialize", handleInitialize],
   ["model/list", handleModelList],
   ["modelProvider/capabilities/read", handleCapabilities],

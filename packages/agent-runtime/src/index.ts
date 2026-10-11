@@ -3,7 +3,11 @@ export * from "./affordance"
 export * from "./artifacts"
 export * from "./budgets"
 export * from "./completion"
-export { agentReviewRecordCitable } from "./completion-review"
+export {
+  agentReviewRecordCitable,
+  agentReviewRecordCitableForLimits
+} from "./completion-review"
+export { AGENT_PAGE_LEAVING_ACTIVATIONS } from "./completion-support"
 export * from "./control-failure"
 export * from "./controller"
 export {

@@ -235,7 +235,18 @@ const budgets: Budget[] = [
     /** PR 9's recovery and review changes measure Chrome at 48,504,968. */
     /** PR 10 workflow progress and context projection measure Chrome at 48,517,539. */
     /** PR 13 artifact storage, migration and row decoding measure Chrome at 48,523,928. */
-    max: isFirefox ? 50_300_000 : 48_523_928
+    /** PR 14 lifecycle, scope guards, startup supervision and translated consent measure Chrome at 48,543,041. */
+    /** PR 14 completion receipts, limit review, loop recovery and consent_stale copy measure Chrome at 48,548,745. */
+    /** PR 14 source_changed/access_changed refusals measure Chrome at 48,549,065. */
+    /** PR 14 review tightening (frame, page-leaving, applied-action list) measures Chrome at 48,549,796. */
+    /** PR 14 followed-link credit and key-method allowlist measure Chrome at 48,550,281. */
+    /** PR 14 press counting and confirmed stop change measure Chrome at 48,550,528. */
+    /** PR 14 stop limit bound to its change and per-opening tab receipts measure Chrome at 48,550,622. */
+    /** PR 14 stop limit settled by its own submission measures Chrome at 48,550,737. */
+    /** PR 14 stop limit judged by how its outcome is met measures Chrome at 48,550,786. */
+    /** PR 14 stop limit refused past a select on a named control measures Chrome at 48,550,903. */
+    /** PR 14 stop limit met by a fill only for a control-state outcome measures Chrome at 48,551,361. */
+    max: isFirefox ? 50_300_000 : 48_551_361
   },
   {
     metric: "zip",
@@ -530,7 +541,18 @@ const budgets: Budget[] = [
      * 750 and 869 bytes of headroom; asset and ZIP limits are unchanged.
      */
     /** PR 13 artifact contracts/store decoding measure Chrome at 335,457 gzip bytes. */
-    max: isFirefox ? 222_000 : 335_457
+    /** PR 14 lifecycle controls, scope guards and supervised recovery measure Chrome at 337,282 gzip bytes. */
+    /** PR 14 completion receipts, limit review and loop recovery measure Chrome at 338,551 gzip bytes. */
+    /** PR 14 source_changed/access_changed refusals measure Chrome at 338,627 gzip bytes. */
+    /** PR 14 review tightening measures Chrome at 338,878 gzip bytes. */
+    /** PR 14 followed-link credit and key-method allowlist measure Chrome at 339,001 gzip bytes. */
+    /** PR 14 press counting and confirmed stop change measure Chrome at 339,097 gzip bytes. */
+    /** PR 14 stop limit bound to its change and per-opening tab receipts measure Chrome at 339,137 gzip bytes. */
+    /** PR 14 stop limit settled by its own submission measures Chrome at 339,156 gzip bytes. */
+    /** PR 14 stop limit judged by how its outcome is met measures Chrome at 339,159 gzip bytes. */
+    /** PR 14 stop limit refused past a select on a named control measures Chrome at 339,217 gzip bytes. */
+    /** PR 14 stop limit met by a fill only for a control-state outcome measures Chrome at 339,259 gzip bytes. */
+    max: isFirefox ? 222_000 : 339_259
   }
 ]
 

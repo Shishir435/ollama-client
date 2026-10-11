@@ -803,12 +803,27 @@ const verifyApi = {
    * which pauses whatever incomplete run it finds — so being knocked back to
    * `paused` is expected and is walked forward again rather than failing.
    */
-  async seedInterruptedAgentRun(runId: string): Promise<void> {
+  async seedInterruptedAgentRun(
+    runId: string,
+    unattended = false
+  ): Promise<void> {
     const now = Date.now()
     await createAgentRun({
       version: 1,
       id: runId,
       goal: "Submit the form and report the result.",
+      ...(unattended
+        ? {
+            unattended: {
+              approvedAt: now,
+              browserSessionId: "verify-session",
+              origins: ["https://example.com"],
+              tabIds: [1],
+              providerId: "ollama",
+              modelId: "verify-model"
+            }
+          }
+        : {}),
       status: "submitted",
       stepCount: 1,
       observationCount: 1,

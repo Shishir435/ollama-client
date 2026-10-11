@@ -15,6 +15,7 @@ import type { AgentRunService } from "./agent-run-service"
 import { createAgentRunService } from "./agent-run-service"
 import type { AgentTabHistory } from "./agent-tab-history"
 import { createAgentTabHistory } from "./agent-tab-history"
+import { registerAgentUnattendedControls } from "./agent-unattended"
 
 export interface AgentComposition {
   canTransition: typeof isLegalAgentTransition
@@ -80,6 +81,8 @@ export const createAgentComposition = async (
    */
   setBrowserTaskRunner(createBrowserTaskRunner({ service }))
 
+  const stopUnattended = registerAgentUnattendedControls(service, ready)
+
   const stopBadge = registerAgentAttentionBadge({
     service,
     action: browser.action
@@ -101,6 +104,7 @@ export const createAgentComposition = async (
     dispose() {
       stopPort()
       stopBadge()
+      stopUnattended()
       setAgentForgetStopper(undefined)
       setBrowserTaskRunner(undefined)
       observer.stop()

@@ -299,6 +299,11 @@ const allChanges = (steps: readonly AgentStepReadout[]): AgentStepReadout[] => {
     .filter(isChange)
 }
 
+/** Every change the run applied, oldest first; see `allChanges`. */
+export const agentAppliedChanges = (
+  steps: readonly AgentStepReadout[]
+): AgentStepReadout[] => allChanges(steps)
+
 /**
  * The last change the run applied, by durable order.
  *
@@ -1726,6 +1731,79 @@ const openedTabFor = (
       (samePage(receipt.command.url, input.observation.url) ||
         input.tabOpenedBy?.includes(receipt.stepId) === true)))
 
+const OPEN_TAB_ACT_WORDS = new Set([
+  "open",
+  "opened",
+  "opens",
+  "is",
+  "new",
+  "another",
+  "separate",
+  "second",
+  "browser",
+  "tab",
+  "window"
+])
+const OPEN_WORDS = new Set(["open", "opened", "opens"])
+
+/** The words of an address's path: `/open_tab/details` → open tab details. */
+const pathWords = (url: string): string =>
+  /^[a-z][a-z0-9+.-]*:\/\/[^/?#]+([^?#]*)/i.exec(url)?.[1] ?? ""
+
+/**
+ * "Details is open in a new tab", met by the run's own `open_tab` receipt for
+ * it. Which tab a page sits in is a claim no quotation shows, so the receipt
+ * is the only evidence there is — and a confirmed one is all of it: the
+ * verifier saw the destination commit in the tab it opened. The run must be
+ * on that page now, and the requirement may say nothing but that it opened:
+ * every other word has to name the page, by the control, the address or the
+ * title. "Details is open in a new tab and saved" is still a claim to prove.
+ */
+const openedTabMeets = (
+  requirement: AgentTaskRequirement,
+  input: AgentCompletionInput,
+  consumed: Set<string>
+): boolean => {
+  if (
+    requirement.kind !== "change" ||
+    requirement.check ||
+    !NEW_TAB_PATTERN.test(requirement.text)
+  )
+    return false
+  /**
+   * Consumed by identity like every other change receipt: one opened tab is
+   * evidence for one opening, not for two requirements that each ask for one.
+   */
+  const receipt = (input.steps ?? []).find(
+    (receipt) =>
+      !consumed.has(receipt.stepId) &&
+      /**
+       * Untagged counts, as it does in `openedTabFor`: the model often names
+       * no requirement for an open, and the page the run is on, named by the
+       * requirement, is what binds the receipt to it. Tagged for another
+       * requirement does not.
+       */
+      (receipt.requirementId === undefined ||
+        receipt.requirementId === requirement.id) &&
+      receipt.command?.type === "open_tab" &&
+      openedTabFor(requirement, receipt, input) &&
+      samePage(receipt.command.url, input.observation.url) &&
+      claimsOnlyAct(
+        requirement,
+        OPEN_TAB_ACT_WORDS,
+        factWords([
+          receipt.target?.name,
+          pathWords(receipt.command.url),
+          input.observation.title
+        ]),
+        OPEN_WORDS
+      )
+  )
+  if (!receipt) return false
+  consumed.add(receipt.stepId)
+  return true
+}
+
 /**
  * Same scheme, host and path: where a page is, whatever its query picked up.
  * The package has no DOM `URL`, so the address is read by pattern, and one
@@ -1843,10 +1921,12 @@ const judgeMetRequirement = (
   input: AgentCompletionInput,
   change: AgentStepReadout | "unreadable" | undefined,
   changes: readonly AgentStepReadout[],
-  consumed: Set<string>
+  consumed: Set<string>,
+  credits?: Map<string, AgentStepReadout>
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   const unopened = refuseUnopenedTab(requirement, input)
   if (unopened) return unopened
+  if (openedTabMeets(requirement, input, consumed)) return undefined
   if (requirement.kind === "read")
     return refusePlannedReadClaim(claim.evidence, input, requirement.id)
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
@@ -1859,17 +1939,34 @@ const judgeMetRequirement = (
     requirement,
     input.observation,
     input.evidenceLedger,
-    claim.evidence
+    claim.evidence,
+    changes
   )
-  if (checked === true)
-    return typedCheckAgrees(requirement)
-      ? undefined
-      : {
-          type: "refused",
-          reason: "needs_review",
-          feedback:
-            "The predicate holds, but does not fully answer the requested outcome. Preserve completed effects and review the remaining claim."
-        }
+  if (checked === true) {
+    if (typedCheckAgrees(requirement)) return undefined
+    /**
+     * A check that holds but answers a different question — an empty "Second"
+     * field for "focus is on Second" — settles nothing either way. The
+     * requirement's own receipt can still settle it, exactly as it would with
+     * no check at all; only when none does is the claim left to review.
+     */
+    const credited = evidencePlannedChange(
+      requirement,
+      claim.evidence?.trim() || undefined,
+      {
+        type: "refused",
+        reason: "needs_review",
+        feedback:
+          "The predicate holds, but does not fully answer the requested outcome. Preserve completed effects and review the remaining claim."
+      },
+      changes,
+      input.observation,
+      consumed
+    )
+    if (!("stepId" in credited)) return credited
+    credits?.set(requirement.id, credited)
+    return undefined
+  }
   if (checked === false)
     return {
       type: "refused",
@@ -1902,7 +1999,9 @@ const judgeMetRequirement = (
     input.observation,
     consumed
   )
-  return "stepId" in evidenced ? undefined : evidenced
+  if (!("stepId" in evidenced)) return evidenced
+  credits?.set(requirement.id, evidenced)
+  return undefined
 }
 
 /**
@@ -2137,7 +2236,8 @@ const withReviewScope = (
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
-  change: AgentStepReadout | "unreadable" | undefined
+  change: AgentStepReadout | "unreadable" | undefined,
+  credits?: Map<string, AgentStepReadout>
 ): AgentCompletionJudgement => {
   /**
    * The verification gate applies once, before any requirement is read: a
@@ -2202,7 +2302,8 @@ const judgePlanned = (
           input,
           change,
           changes,
-          consumed
+          consumed,
+          credits
         )
     if (judged === "unmet") {
       unmet.push(requirement.id)
@@ -2246,6 +2347,126 @@ const judgePlanned = (
  * reviewable limit still wins; the order constraints were planned in is not
  * a reason to ask a reviewer about a run that already broke one.
  */
+/**
+ * A limit on how the run acts — "using Tab", "with the Enter key" — is about
+ * the run's own input, which no page shows and no quotation can cite, so a
+ * reviewer shown the page could only ever refuse it. The receipts answer it
+ * instead: every change the run applied was a confirmed press of a key the
+ * constraint names. A click, a typed value or an unconfirmed press leaves it
+ * to review, and a constraint naming no key is never read this way.
+ */
+/**
+ * The only words a "use this key" limit may hold besides the key and the
+ * controls the run moved between. An allowlist, not a list of bad words: "Do
+ * not press Tab", "Press Tab at most once" and "Tab only after saving" all
+ * name the key, and every word they add is one this shortcut cannot judge,
+ * so anything outside it leaves the limit to review.
+ */
+const PRESS_WORDS = new Set([
+  "press",
+  "presses",
+  "pressing",
+  "pressed",
+  "hit",
+  "hitting"
+])
+
+const KEY_METHOD_WORDS = new Set([
+  "use",
+  "uses",
+  "using",
+  "used",
+  "press",
+  "presses",
+  "pressing",
+  "pressed",
+  "hit",
+  "hitting",
+  "key",
+  "keys",
+  "keyboard",
+  "via",
+  "by",
+  "with",
+  "move",
+  "moving",
+  "reach",
+  "reaching",
+  "get",
+  "focus",
+  "navigate",
+  "navigating",
+  "go",
+  "from",
+  "to",
+  "into",
+  "onto",
+  "next",
+  "control",
+  "field"
+])
+
+/**
+ * A limit on how the run acts — "using Tab", "with the Enter key" — is about
+ * the run's own input, which no page shows and no quotation can cite, so a
+ * reviewer shown the page could only ever refuse it. The receipts answer it
+ * instead: every change the run applied was a confirmed press of a key the
+ * limit names, and the limit says nothing else.
+ */
+const keyMethodHonored = (
+  constraint: AgentTaskConstraint,
+  steps: readonly AgentStepReadout[],
+  observation: AgentObservation
+): boolean => {
+  const changes = allChanges(steps)
+  if (
+    changes.length === 0 ||
+    !changes.every(
+      (step) =>
+        step.command?.type === "press_key" &&
+        step.verification?.outcome === "confirmed"
+    )
+  )
+    return false
+  const keys = changes.map((step) =>
+    step.command?.type === "press_key" ? keyText(step.command.key) : ""
+  )
+  const text = agentNormalizedClaim(constraint.text)
+  if (
+    !keys.every((key) =>
+      containsCompletePhrase(text, agentNormalizedClaim(key))
+    )
+  )
+    return false
+  /**
+   * "Press Tab" asks for a press, not a method: one press per time the key is
+   * named. A run that pressed it three times went past what was asked, so
+   * an instruction to press counts, while "using Tab" allows any number.
+   */
+  if (claimWords(constraint.text).some((word) => PRESS_WORDS.has(word))) {
+    for (const key of new Set(keys)) {
+      const named = completePhraseOccurrences(
+        text,
+        agentNormalizedClaim(key)
+      ).length
+      if (keys.filter((pressed) => pressed === key).length !== named)
+        return false
+    }
+  }
+  return claimsOnlyAct(
+    { id: constraint.id, kind: "change", text: constraint.text },
+    KEY_METHOD_WORDS,
+    factWords([
+      ...keys,
+      ...changes.map((step) => step.target?.name),
+      ...observation.elements
+        .filter((element) => element.focused && !element.sensitive)
+        .map((element) => element.name)
+    ]),
+    new Set(keys.flatMap((key) => claimWords(key)))
+  )
+}
+
 const judgeConstraints = (
   input: AgentCompletionInput
 ):
@@ -2286,7 +2507,11 @@ const judgeConstraints = (
         feedback:
           "An applied effect has no recorded consequential classes. Constraints need review; missing effect evidence is unknown."
       }
-    if (!constraint.forbids?.length) review.push(constraint.id)
+    if (
+      !constraint.forbids?.length &&
+      !keyMethodHonored(constraint, input.steps, input.observation)
+    )
+      review.push(constraint.id)
   }
   return { review }
 }
@@ -2299,14 +2524,154 @@ const constraintReviewFeedback = (ids: readonly string[]): string =>
  * requirement, then any limit only a reviewer can read folded into the same
  * review scope as the requirements that need one.
  */
+/** Lowercase words, punctuation dropped: "Color." and "color" are one word. */
+const stopWords = (text: string): string[] =>
+  agentNormalizedClaim(text)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length > 0)
+
+/** "Stop once Blue is selected" → "blue is selected". */
+const STOP_CONDITION =
+  /^(?:stop|finish|end|be done|you are done)\s+(?:once|when|as soon as|after)\s+(.+)$/u
+const STOP_FILLER = new Set([
+  "is",
+  "are",
+  "was",
+  "has",
+  "have",
+  "been",
+  "the",
+  "a",
+  "an",
+  "it",
+  "from",
+  "in",
+  "on",
+  "of",
+  "to",
+  "field",
+  "control",
+  "option"
+])
+
+/**
+ * A limit that only restates when to stop — "Stop once Blue is selected" for
+ * the outcome "Blue is selected from Color" — adds nothing a page could show
+ * beyond that outcome. It holds when the outcome it names was judged met and
+ * the run changed nothing after the step that met it; a run that went on to
+ * act again is left to review. Every content word of the condition must be a
+ * word of that one outcome, so a condition naming anything else never reads
+ * as it.
+ */
+const stopConditionMet = (
+  constraint: AgentTaskConstraint,
+  requirements: readonly AgentTaskRequirement[],
+  met: ReadonlySet<string>,
+  steps: readonly AgentStepReadout[] | undefined,
+  observation: AgentObservation,
+  credits: ReadonlyMap<string, AgentStepReadout>
+): boolean => {
+  const condition = STOP_CONDITION.exec(
+    agentNormalizedClaim(constraint.text)
+  )?.[1]
+  if (!condition || !steps) return false
+  const words = stopWords(condition).filter((word) => !STOP_FILLER.has(word))
+  if (words.length === 0) return false
+  const changes = allChanges(steps)
+  const last = changes.at(-1)
+  return requirements.some((requirement) => {
+    if (!met.has(requirement.id)) return false
+    const own = new Set(
+      stopWords(
+        [
+          requirement.text,
+          requirement.check && "name" in requirement.check
+            ? requirement.check.name
+            : "",
+          requirement.check && "value" in requirement.check
+            ? requirement.check.value
+            : ""
+        ].join(" ")
+      )
+    )
+    return (
+      words.every((word) => own.has(word)) &&
+      /**
+       * A change outcome is held by this run's own change: met with no
+       * change at all, it was already true, and stopping "once" it held
+       * says nothing about what this run did. The last change must be the
+       * one that established it, never an act past it:
+       * - an outcome with a state check ("Blue is selected") is set by a change
+       *   verified against that state; a Save after it acted past the stop;
+       * - one without (“Color shows Blue”, “the form is submitted”) is met
+       *   by a change the completion judge credits with it, so the last
+       *   change must be one: the one it credited, read with the run's own
+       *   quotation as the judge read it (a Tab press quoted by "Second"), or
+       *   one it credits on its own (the submit after a fill). A select
+       *   credited with Blue and a Save after it acted past the stop. A second
+       *   change verified the same way repeated an act that already met it.
+       */
+      (last === undefined
+        ? requirement.kind !== "change"
+        : last.requirementId === requirement.id &&
+          last.verification?.outcome === "confirmed" &&
+          (requirement.check
+            ? provesItsOwnResult(last.verification)
+            : (credits.get(requirement.id)?.stepId === last.stepId ||
+                agentWorkflowReceiptSupport(
+                  requirement,
+                  undefined,
+                  [last],
+                  observation,
+                  new Set()
+                )?.stepId === last.stepId) &&
+              !changes.some(
+                (change) =>
+                  change !== last &&
+                  change.requirementId === requirement.id &&
+                  change.verification?.outcome === "confirmed" &&
+                  change.verification.evidence.kind ===
+                    last.verification?.evidence.kind
+              )))
+    )
+  })
+}
+
 const judgePlannedWithConstraints = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
   change: AgentStepReadout | "unreadable" | undefined
 ): AgentCompletionJudgement => {
-  const constraints = judgeConstraints(input)
-  if ("type" in constraints) return constraints
-  const planned = judgePlanned(input, requirements, change)
+  const judged = judgeConstraints(input)
+  if ("type" in judged) return judged
+  /** The receipt the judge credited with each requirement it met. */
+  const credits = new Map<string, AgentStepReadout>()
+  const planned = judgePlanned(input, requirements, change, credits)
+  /** Only what this judgement settled; a refusal settles nothing. */
+  const met = new Set<string>(
+    planned.type === "accepted"
+      ? (planned.outcome?.met ??
+          requirements.map((requirement) => requirement.id))
+      : planned.type === "refused"
+        ? []
+        : planned.outcome.met
+  )
+  const constraints = {
+    review: judged.review.filter((id) => {
+      const constraint = input.constraints?.find((entry) => entry.id === id)
+      return !(
+        constraint &&
+        stopConditionMet(
+          constraint,
+          requirements,
+          met,
+          input.steps,
+          input.observation,
+          credits
+        )
+      )
+    })
+  }
   if (constraints.review.length === 0) return planned
   if (planned.type === "refused") {
     if (!planned.review) return planned

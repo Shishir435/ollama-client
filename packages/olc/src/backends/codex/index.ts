@@ -21,7 +21,11 @@ import {
   type AppServerMessage,
   CodexAppServerClient
 } from "./app-server-client.js"
-import { resolveCodexConfig } from "./config.js"
+import {
+  CODEX_ISOLATION_OVERRIDES,
+  createCodexMcpIsolationLoader,
+  resolveCodexConfig
+} from "./config.js"
 import {
   classifyCodexError,
   collectCodexSources,
@@ -128,7 +132,8 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     executable: codex.CODEX_PATH,
     cwd: codex.PROJECT_DIR,
     log,
-    requestTimeoutMs: Math.min(config.REQUEST_TIMEOUT_MS, 60_000)
+    requestTimeoutMs: Math.min(config.REQUEST_TIMEOUT_MS, 60_000),
+    configOverrides: CODEX_ISOLATION_OVERRIDES
   })
   const turns = new Map<string, CodexTurn>()
   /** Context windows turns have reported, by model id; `model/list` has none. */
@@ -235,6 +240,18 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     catalogCache = { raw: models, expiresAt: Date.now() + 30_000 }
     return models
   }
+
+  /**
+   * The operator's own MCP servers, switched off for every thread olc starts.
+   * Names come from the app-server's merged config, so a server added to
+   * `config.toml` is covered without olc knowing it. A server that cannot be
+   * listed is not guessed at: the thread starts with what Codex loads.
+   */
+  const loadMcpIsolation = createCodexMcpIsolationLoader({
+    start: () => client.start(),
+    read: () => client.request<unknown>("config/read", {}),
+    log
+  })
 
   const loadProviderCapabilities = async (): Promise<{
     imageGeneration: boolean
@@ -355,7 +372,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     async dispose(): Promise<void> {
       turns.delete(this.id)
       try {
-        await client.request("thread/delete", { threadId: this.id })
+        await client.request("thread/unsubscribe", { threadId: this.id })
       } catch (error) {
         log("Codex thread cleanup failed", {
           threadId: this.id,
@@ -732,7 +749,10 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
           sandbox: "read-only",
           ephemeral: true,
           serviceName: "ollama_client_olc",
-          config: { web_search: webSearch.threadMode },
+          config: {
+            web_search: webSearch.threadMode,
+            ...(await loadMcpIsolation())
+          },
           ...(prompt.system
             ? { baseInstructions: CODEX_CLIENT_BASE_INSTRUCTIONS }
             : {}),
@@ -769,7 +789,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
           sandbox: "read-only",
           ephemeral: true,
           serviceName: "ollama_client_olc",
-          config: { web_search: "disabled" },
+          config: { web_search: "disabled", ...(await loadMcpIsolation()) },
           developerInstructions: imageInstructions
         }
       )

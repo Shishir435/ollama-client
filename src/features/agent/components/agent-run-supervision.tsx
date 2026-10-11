@@ -58,6 +58,7 @@ export interface AgentRunSupervisionProps {
   /** A correction for the working run's next decision, without pausing it. */
   onSteer?: (text: string) => void
   onStop: () => void
+  onSetUnattended?: (enabled: boolean) => void
   onTakeoverStart: () => void
   onTakeoverComplete: () => void
   onResolveEffect: () => void
@@ -77,6 +78,9 @@ const pauseNoticeFor = (reason?: AgentRunState["pauseReason"]) => {
       messageKey: "agent.unresolved",
       tone: "danger" as const
     }
+  }
+  if (reason === "worker_lost") {
+    return { messageKey: "agent.worker_lost", tone: "warning" as const }
   }
   if (reason === "browser_disconnected") {
     return {
@@ -232,6 +236,7 @@ export const AgentRunSupervision = ({
   onCorrect,
   onSteer,
   onStop,
+  onSetUnattended,
   onTakeoverStart,
   onTakeoverComplete,
   onResolveEffect,
@@ -277,6 +282,49 @@ export const AgentRunSupervision = ({
         onTakeoverComplete={onTakeoverComplete}
       />
 
+      {onSetUnattended &&
+        run.status === "paused" &&
+        (run.pauseReason === "user" || run.pauseReason === "panel_closed") && (
+          <label className="mt-2 block text-micro">
+            <input
+              type="checkbox"
+              checked={Boolean(run.unattended)}
+              onChange={(event) => onSetUnattended(event.target.checked)}
+            />{" "}
+            {t("agent.unattended.label")}
+            <span className="block text-muted-foreground">
+              {t("agent.unattended.help")}
+            </span>
+            <span className="block text-muted-foreground">
+              {run.allowedOrigins.join(", ")}
+            </span>
+          </label>
+        )}
+      {run.unattended && (
+        <p className="mt-2 text-micro text-muted-foreground">
+          {t("agent.unattended.active")}
+        </p>
+      )}
+      {run.status === "paused" && run.humanDecision && (
+        <p className="mt-2 text-micro text-muted-foreground">
+          {t("agent.unattended.decision_interrupted")}{" "}
+          {run.humanDecision.kind === "approval"
+            ? agentDisplayString(
+                t,
+                run.humanDecision.request.display && [
+                  run.humanDecision.request.display.action
+                ],
+                run.humanDecision.request.action,
+                AGENT_PAGE_TEXT_LIMIT
+              )
+            : agentDisplayString(
+                t,
+                run.humanDecision.request.display,
+                run.humanDecision.request.instruction,
+                AGENT_PAGE_TEXT_LIMIT
+              )}
+        </p>
+      )}
       <div className="mt-2">
         {failure && (
           <section

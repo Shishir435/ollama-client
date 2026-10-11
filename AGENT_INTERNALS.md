@@ -1093,8 +1093,16 @@ for every other id. Rules, all load-bearing:
   observed fact. A change may also be shown by a verified effect whose kind
   proves the resulting state (`field`, `fields`, `checked`, `arrangement`,
   `condition`); an activation, submission or navigation only says the input
-  landed. A limit is supported only by a quotation the run bound to that
-  limit's id, which `groundAgentQuotes` accepts alongside requirement ids.
+  landed. A limit is supported by a quotation the run bound to that limit's
+  id, which `groundAgentQuotes` accepts alongside requirement ids. One
+  exception: a `scope` limit — one on how the run acted, such as which key
+  it pressed — may also cite any grounded `verified_effect`, unbound, but
+  only when the review request carries `actionsComplete`, i.e. the reviewer
+  was shown every applied action the run took. No record is ever bound to
+  a limit's id and no page quote can show which key was pressed, so without
+  this every method limit could only be refused; the reviewer still judges
+  the limit against the full action list, and a spending cap or other
+  non-`scope` limit keeps the bound-quotation rule.
   Ids nobody asked about are ignored. A skipped or doubled answer is
   insufficient. `contradicted` becomes `contradicted_state`, citations or
   not, because it can only stop a success.
@@ -1809,3 +1817,49 @@ model schema/actions, resolver/policy/executor/verifier wiring, supervision UI
 and the scripted browser acceptance suite remain to be implemented. Do not
 advertise controlled file workflows or claim PR 13 acceptance from the service
 unit tests. Existing file-selection takeover behavior remains the available path.
+
+## Opt-in unattended execution (PR 14)
+
+Pause the current run, explicitly enable **Continue this task with the panel
+closed**, then Resume. Consent is stored and flushed at the exact displayed
+user pause. Closing the last subscription grants no consent. Runs without
+consent retain pause-on-close. Consent names the current origins, tabs, provider
+and model; it is never inherited by a new or follow-up run. Scope expansion
+prevents panel-close continuation until the user reviews consent again.
+
+The toolbar shows `RUN` while unattended work is active and `!` at human
+boundaries. **Stop browser agent** in the page context menu and the **Stop the
+current browser agent run** extension shortcut stop through the same durable
+cancellation path, without opening a panel. The default shortcut is
+Alt+Shift+X (Command+Shift+X on macOS); browser conflicts may require rebinding
+it in extension shortcut settings.
+
+Startup first performs the existing durable recovery. Only submitted,
+observing and deciding phases of opted-in runs become `worker_lost` checkpoints
+eligible for automatic continuation. The service rechecks browser-session
+identity, perception permission, supported page access, the approved origin,
+controlled tab and provider/model before resuming from a fresh observation.
+Continuation is registered with the startup supervisor after workflow recovery.
+Its AbortSignal guards revalidation, browser attachment and each mutation before
+the first durable resume checkpoint. After that checkpoint, the run service owns
+the existing bounded execution loop rather than inheriting the startup deadline.
+Panel-free work pauses if its tab, origin or provider/model scope later grows.
+Executing/verifying effects remain uncertain and require human reconciliation;
+no saved command is replayed. Pending human requests are retained in the
+checkpoint; an interrupted approval or takeover stays paused and requires
+fresh page validation and consent, rather than accepting a stale request.
+
+Browser-session identity uses session-only extension storage. Browser shutdown
+clears it, preventing consent from attaching to a recycled tab id. No alarm,
+scheduling, cloud runner or execution while the machine is off is introduced.
+Best-effort browser API heartbeats run only during active authorized work;
+human waits may let MV3 sleep. Existing active-time and provider budgets still
+apply, and lost time/network may end or pause work. Automatic recovery on the
+next worker wake does not guarantee immediate waking after worker termination.
+
+`verify:sw-agent-recovery` kills the actual packaged worker for both supervised
+and opted-in interrupted effects. Unit and SQLite tests cover safe checkpoint
+selection, scope/permission/session rejection, durable consent, unanswered
+human boundaries, panel-close continuation, indicators and external stopping.
+Scripted/unit success is not live-model qualification. Browser acceptance must
+be run in an environment with the packaged extension and Chromium available.

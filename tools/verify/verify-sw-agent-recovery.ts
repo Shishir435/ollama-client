@@ -44,7 +44,13 @@ interface AgentOutcome {
 const results: GateResult[] = []
 const record = gateRecorder(results)
 
-const run = async (): Promise<void> => {
+const run = async (unattended = false): Promise<void> => {
+  const recordMode = (
+    gate: string,
+    pass: boolean,
+    detail: Record<string, unknown>
+  ) =>
+    record(`${unattended ? "unattended" : "supervised"}-${gate}`, pass, detail)
   await withExtensionHarness({
     buildPath,
     page: "persistence-verify.html",
@@ -55,12 +61,16 @@ const run = async (): Promise<void> => {
       findServiceWorker,
       httpJson
     }) {
-      const runId = "verify-agent-sw-loss"
-      await page.evaluate(verifyCall("seedInterruptedAgentRun", runId))
+      const runId = unattended
+        ? "verify-unattended-sw-loss"
+        : "verify-agent-sw-loss"
+      await page.evaluate(
+        verifyCall("seedInterruptedAgentRun", runId, unattended)
+      )
       const seeded = await page.evaluate<AgentOutcome>(
         verifyCall("agentRunOutcome", runId)
       )
-      record(
+      recordMode(
         "agent-run-interrupted",
         seeded.status === "executing" &&
           seeded.stepStatuses.at(-1) === "executing",
@@ -76,7 +86,7 @@ const run = async (): Promise<void> => {
         Boolean,
         "original service-worker termination"
       )
-      record("agent-sw-terminated", workerGone, {
+      recordMode("agent-sw-terminated", workerGone, {
         originalWorkerId: originalWorker.id,
         closeResult
       })
@@ -98,13 +108,13 @@ const run = async (): Promise<void> => {
         "replacement service worker"
       )
 
-      record(
+      recordMode(
         "agent-run-paused-unresolved",
         settled.status === "paused" &&
           settled.pauseReason === "unresolved_effect",
         { settled }
       )
-      record(
+      recordMode(
         "agent-effect-not-reissued",
         settled.stepIds.length === seeded.stepIds.length &&
           settled.stepStatuses.at(-1) === "uncertain",
@@ -119,7 +129,7 @@ const run = async (): Promise<void> => {
       const reread = await page.evaluate<AgentOutcome>(
         verifyCall("agentRunOutcome", runId)
       )
-      record(
+      recordMode(
         "agent-recovery-is-durable",
         reread.status === "paused" &&
           reread.pauseReason === "unresolved_effect" &&
@@ -132,6 +142,7 @@ const run = async (): Promise<void> => {
 
 const main = async (): Promise<void> => {
   await run()
+  await run(true)
   reportGates({
     artifactDir,
     name: "sw-agent-recovery",

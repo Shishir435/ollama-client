@@ -67,7 +67,8 @@
       "unknown": "Agent no pudo completar esa solicitud.",
       "disconnected": "El agente se estaba reconectando y no lo recibió. Inténtalo de nuevo.",
       "turn_has_run": "Este mensaje ya inició una tarea en el navegador.",
-      "steer_unavailable": "La ejecución no está trabajando ahora, así que no pudo tomarlo. Páusala y corrígela."
+      "steer_unavailable": "La ejecución no está trabajando ahora, así que no pudo tomarlo. Páusala y corrígela.",
+      "consent_stale": "La ejecución avanzó desde que se mostró esa opción, así que no se guardó. Revisa la ejecución y vuelve a elegir."
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",
@@ -275,6 +276,13 @@
       "send": "Enviar al agente",
       "queued": "Enviado. El agente lo leerá en su próximo paso.",
       "heard": "El agente ha tenido en cuenta tu corrección."
+    },
+    "worker_lost": "La ejecución en el navegador se interrumpió. La recuperación segura requiere la sesión del navegador y la página autorizadas originalmente; de lo contrario, reanuda la tarea manualmente.",
+    "unattended": {
+      "label": "Continuar esta tarea con el panel cerrado",
+      "help": "Reanuda la tarea después de activar esta opción. Se usarán las pestañas, los sitios y el proveedor actuales. Las aprobaciones, el inicio de sesión y los CAPTCHA siguen requiriendo tu intervención. Detén la tarea desde el menú contextual de la página o con el atajo de teclado para detener el agente. Cerrar el navegador o suspender el equipo puede interrumpir el trabajo.",
+      "active": "La continuación con el panel cerrado está activada para esta tarea. Las tareas nuevas requieren un nuevo consentimiento.",
+      "decision_interrupted": "Esta decisión sigue pendiente. Reanuda la tarea para volver a comprobar la página y solicitar una nueva decisión:"
     }
   },
   "common": {

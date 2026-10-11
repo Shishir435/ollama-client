@@ -79,6 +79,24 @@ interface PromptBody {
   parts: PromptPart[]
 }
 
+/**
+ * The SDK client returns an HTTP refusal as `{ error }` instead of throwing,
+ * so a refused delete used to log "Session cleaned up" and leave the session
+ * on the server — the blind spot that hid the Codex backend's leak, where a
+ * cleanup call was refused on every turn and nothing said so.
+ */
+export const assertSessionControl = (result: unknown, action: string): void => {
+  if (!result || typeof result !== "object" || !("error" in result)) return
+  const { error, response } = result as {
+    error?: unknown
+    response?: { status?: number }
+  }
+  if (error === undefined || error === null) return
+  throw new Error(
+    `OpenCode refused session ${action}${response?.status ? ` (HTTP ${response.status})` : ""}`
+  )
+}
+
 export const createOpencodeBackend = (
   context: BackendContext
 ): AgentBackend => {
@@ -365,10 +383,13 @@ export const createOpencodeBackend = (
 
     async abort(): Promise<void> {
       try {
-        await withTimeout(
-          client.session.abort({ path: { id: this.id } }),
-          SESSION_CONTROL_TIMEOUT_MS,
-          `session.abort(${this.id})`
+        assertSessionControl(
+          await withTimeout(
+            client.session.abort({ path: { id: this.id } }),
+            SESSION_CONTROL_TIMEOUT_MS,
+            `session.abort(${this.id})`
+          ),
+          "abort"
         )
       } catch (error) {
         log("Session abort failed", {
@@ -381,10 +402,13 @@ export const createOpencodeBackend = (
     async dispose(): Promise<void> {
       turns.delete(this.id)
       try {
-        await withTimeout(
-          client.session.delete({ path: { id: this.id } }),
-          SESSION_CONTROL_TIMEOUT_MS,
-          `session.delete(${this.id})`
+        assertSessionControl(
+          await withTimeout(
+            client.session.delete({ path: { id: this.id } }),
+            SESSION_CONTROL_TIMEOUT_MS,
+            `session.delete(${this.id})`
+          ),
+          "delete"
         )
         log("Session cleaned up", { sessionId: this.id })
       } catch (error) {

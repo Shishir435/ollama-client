@@ -59,6 +59,8 @@ const REFUSALS: Record<AgentRunFailureReason, string> = {
     "The browser agent cannot work on that tab, which is a browser or extension page rather than a website. If the task names a site, call browser_task again now, in this same turn, with start_url set to that site's address; it opens in a new tab. Do not tell the user you will do it instead of doing it. Only when the task names no site, ask the user to open an ordinary web page (http or https).",
   steer_unavailable:
     "The browser task is not running, so it could not take a correction.",
+  consent_stale:
+    "The browser task changed before the user's choice to continue unattended was saved.",
   unknown_run: "The browser task could not be found."
 }
 

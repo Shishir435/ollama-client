@@ -91,6 +91,125 @@ export const scoreInbodyAnswer = (answer, body, rule) => {
   }
 }
 
+/**
+ * hn_top is judged against the rendered ranking, not a span length: a real
+ * top story can be three short words ("Cloudflare acquires Deno"), which the
+ * span rule scored as page chrome. The answer must hold the #1 title whole
+ * and not the #2 one, so a pasted list of stories is not an answer, and
+ * "Hacker News" holds neither.
+ */
+/**
+ * Every "n't" contraction normalizes to two words ("haven't" → "haven t"),
+ * so it is matched as that pair rather than listed verb by verb, which let
+ * an unlisted one through. An affirmative "I can confirm" has no "t" after it
+ * and is still an answer. The apostrophe-less spellings are words of their own.
+ */
+const NEGATED_VERBS = / [a-z]+n t /
+
+/**
+ * A rank other than first: "The second story is X" names X with no hedge and
+ * is still the wrong answer. Matched as a rank phrase, never a bare word, so
+ * "as of my last check" and "a second time" stay answers: an ordinal past
+ * first up to two rank modifiers before a rank noun ("second highest story"), after a
+ * rank verb ("is the 3rd", "in last place"), or a number given as a rank
+ * ("#2", "number 3", "ranked 4"). "1" and "first" stay answers.
+ */
+const ORDINAL =
+  "(?:second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|last|bottom|(?:[2-9]|[1-9][0-9])(?:st|nd|rd|th))"
+/**
+ * The only words allowed between an ordinal and its rank noun: "second
+ * highest story" is a rank, "a second time on Hacker News" is not.
+ */
+const RANK_MODIFIER =
+  "(?:highest|top|most|best|biggest|ranked|rated|popular|voted|upvoted|listed|hottest|trending)"
+const OTHER_RANK = new RegExp(
+  [
+    ` ${ORDINAL} (?:${RANK_MODIFIER} ){0,2}(?:story|stories|place|position|spot|item|entry|post|link|ranked|on hacker news|on hn|on the (?:front )?page) `,
+    ` (?:is|at|ranks|ranked|in) (?:the )?${ORDINAL} `,
+    ` (?:number|rank|ranked|position|no|spot) (?:[2-9]|[1-9][0-9]) `
+  ].join("|")
+)
+
+/** Room for "The top story on Hacker News is", nothing more. */
+const HN_ANSWER_EXTRA_WORDS = 10
+const HEDGES = new Set([
+  "not",
+  "no",
+  "never",
+  "cannot",
+  "cant",
+  "dont",
+  "didnt",
+  "havent",
+  "hasnt",
+  "isnt",
+  "wasnt",
+  "couldnt",
+  "guess",
+  "maybe",
+  "perhaps",
+  "probably",
+  "might",
+  "unsure",
+  "unknown",
+  "unclear",
+  "unable",
+  "unverified",
+  "possibly",
+  "likely",
+  "seems",
+  "think"
+])
+
+export const scoreHnTopStory = ({ answer, storyTitles }) => {
+  const said = ` ${normalizeText(answer)} `
+  const [first, second] = (storyTitles ?? []).map(normalizeText)
+  if (!first) return { success: false, reason: "top_story_unread" }
+  /** Whole-word spans of a title in the answer, as [start, end). */
+  const spans = (title) => {
+    const needle = ` ${title} `
+    const found = []
+    for (
+      let start = said.indexOf(needle);
+      start >= 0;
+      start = said.indexOf(needle, start + 1)
+    )
+      found.push([start, start + needle.length])
+    return found
+  }
+  const firsts = spans(first)
+  if (firsts.length === 0)
+    return { success: false, reason: "top_story_missing" }
+  /**
+   * One title can contain the other ("Cloudflare acquires" and "Cloudflare
+   * acquires Deno"), so a #2 occurrence counts only where it is not inside
+   * a #1 occurrence — and #1 inside a longer #2 is not #1 at all.
+   */
+  const inside = ([start, end], [outerStart, outerEnd]) =>
+    start >= outerStart &&
+    end <= outerEnd &&
+    outerEnd - outerStart > end - start
+  const seconds = second ? spans(second) : []
+  if (firsts.every((span) => seconds.some((outer) => inside(span, outer))))
+    return { success: false, reason: "several_stories" }
+  if (seconds.some((span) => !firsts.some((outer) => inside(span, outer))))
+    return { success: false, reason: "several_stories" }
+  /**
+   * An answer, not a mention: "I cannot confirm the top story; X is a guess"
+   * holds the title too. The title alone, or a short sentence about it with
+   * no hedge, is an answer.
+   */
+  const rest = said.replace(` ${first} `, " ").trim().split(" ").filter(Boolean)
+  if (
+    rest.length > HN_ANSWER_EXTRA_WORDS ||
+    rest.some((word) => HEDGES.has(word)) ||
+    NEGATED_VERBS.test(` ${rest.join(" ")} `) ||
+    OTHER_RANK.test(` ${rest.join(" ")} `)
+  )
+    return { success: false, reason: "not_an_answer" }
+  return { success: true, reason: "top_story_title" }
+}
+
 /** wiki_search is deterministic: the run must land on the Firefox article. */
 export const scoreWikiSearch = ({ answer, url }) => {
   let host = ""

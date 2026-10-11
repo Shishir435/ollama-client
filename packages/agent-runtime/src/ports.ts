@@ -552,6 +552,7 @@ export type AgentStatePatch = Partial<
     | "error"
     | "evidenceLedger"
     | "grants"
+    | "humanDecision"
     | "observationCount"
     | "outcome"
     | "pauseReason"
@@ -625,6 +626,13 @@ export interface AgentStepWrite {
    * Absent only on receipts written before it existed.
    */
   consequential?: AgentConsequentialEffect[]
+  /**
+   * Whether this confirmed write left its control holding exactly the value
+   * its requirement's field or select check names. Recorded at verification,
+   * the only moment both are known, so a completion can credit a field the
+   * run then submitted off the page. A boolean, never the value itself.
+   */
+  heldPlannedValue?: boolean
   /**
    * Where a consequential submission was sent, origin and path only. The
    * form, not the control: Enter in a field and a click on its button send
@@ -804,9 +812,17 @@ export interface AgentCompletionReviewRequest {
    * sensitive control's name withheld. A click and the confirmation it raised
    * are both listed. What connects newly observed text to the action an
    * outcome claims — text after "click Accept" is no evidence that Continue
-   * was clicked.
+   * was clicked. When limits are under review, every window's actions are
+   * listed: a limit on how the run acted is about all of them.
    */
   actions?: readonly AgentReviewedAction[]
+  /**
+   * Whether `actions` is every change the run applied, read from its
+   * receipts. Only then may a scope limit be supported by the run's own
+   * effects: a list missing an untagged action could hide the one that broke
+   * the limit.
+   */
+  actionsComplete?: boolean
 }
 
 export interface AgentReviewedAction {
@@ -814,6 +830,8 @@ export interface AgentReviewedAction {
   command: string
   role?: string
   name?: string
+  /** The key a `press_key` sent, withheld with the name on a sensitive control. */
+  key?: string
 }
 
 /**

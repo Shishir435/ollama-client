@@ -4,6 +4,7 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { agentNormalizedClaim } from "./observed-text"
+import type { AgentStepReadout } from "./ports"
 
 const same = (a: string, b: string) =>
   agentNormalizedClaim(a) === agentNormalizedClaim(b)
@@ -52,12 +53,149 @@ export const visualCompletionRead = (
       same(record.quote, quote)
   )
 
+/** A control write the verifier confirmed by the value it left behind. */
+const FIELD_WRITE_KINDS = new Set(["field", "fields"])
+
+/**
+ * Whether a confirmed write left its control holding exactly the value the
+ * requirement it advanced names. Decided when the step is verified, the one
+ * moment both are known: a receipt redacts what was typed, and the control
+ * may be gone from the page a later submission opened. A plain `type`
+ * appends, so it holds the planned value only when its resolved result is
+ * that value, which is what `expectedValue` already says. A batch holds it
+ * only through the one field of that name it set; two of the same name are
+ * no answer.
+ */
+export const agentWriteHeldPlannedValue = (
+  requirement: AgentTaskRequirement | undefined,
+  targets: readonly {
+    accessibleName?: string
+    expectedValue?: string
+    sensitive?: boolean
+    frameId?: number
+  }[],
+  verification: { outcome: string; evidence: { kind: string } }
+): boolean => {
+  const check = requirement?.check
+  if (
+    !check ||
+    (check.type !== "field" && check.type !== "selected") ||
+    check.record ||
+    verification.outcome !== "confirmed" ||
+    !FIELD_WRITE_KINDS.has(verification.evidence.kind)
+  )
+    return false
+  /**
+   * The check's frame, when it names one: a Name field written in the page
+   * is not the Name field the requirement named inside a frame, and the
+   * receipt that later stands for it keeps no frame to tell them apart.
+   */
+  const named = targets.filter(
+    (target) =>
+      target.accessibleName !== undefined &&
+      same(target.accessibleName, check.name) &&
+      (check.frameId === undefined || target.frameId === check.frameId)
+  )
+  return (
+    named.length === 1 &&
+    !named[0].sensitive &&
+    named[0].expectedValue === check.value
+  )
+}
+
+/**
+ * What can take a filled control off the page: the form was sent, or the
+ * page navigated. A confirmed click or key press that left the field in
+ * place proves nothing about where it went.
+ */
+const PAGE_LEAVING_KINDS = new Set(["submission", "navigation", "tab"])
+
+/**
+ * A followed link is verified as an `activation`, and so is a click that
+ * stayed put; only the verifier's own sentence tells them apart. These are
+ * the runtime's fixed wording for a click whose destination committed or
+ * whose page opened in a tab of its own — never page text.
+ */
+export const AGENT_PAGE_LEAVING_ACTIVATIONS = new Set([
+  "Authorized destination is committed",
+  "The site redirected its own link within its origin",
+  "Control opened a new tab"
+])
+
+const leftThePage = (step: AgentStepReadout): boolean => {
+  const verification = step.verification
+  if (verification?.outcome !== "confirmed") return false
+  return (
+    PAGE_LEAVING_KINDS.has(verification.evidence.kind) ||
+    (verification.evidence.kind === "activation" &&
+      AGENT_PAGE_LEAVING_ACTIVATIONS.has(verification.evidence.summary))
+  )
+}
+
+/** Whether a confirmed write of either shape set a control of this name. */
+const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
+  const evidence = step.verification?.evidence
+  if (evidence?.kind === "field")
+    return step.target?.name !== undefined && same(step.target.name, name)
+  return (
+    evidence?.kind === "fields" &&
+    (evidence.fields ?? []).some(
+      (field) => field.name !== undefined && same(field.name, name)
+    )
+  )
+}
+
+/**
+ * A control the run filled and then moved on from is not on the page it moved
+ * to. Its absence contradicts nothing when the run's last write to a control
+ * of that name was verified holding exactly the planned value and a confirmed
+ * submission or navigation came after it: the page left because the run
+ * left it. A later write
+ * to the same name replaces the earlier one, so a value cleared or retyped
+ * before leaving is never credited.
+ */
+const plannedValueLeftBehind = (
+  requirementId: string,
+  name: string,
+  changes: readonly AgentStepReadout[]
+): boolean => {
+  let last = -1
+  for (const [index, step] of changes.entries())
+    if (writesControlNamed(step, name)) last = index
+  if (last < 0) return false
+  const write = changes[last]
+  return (
+    write.heldPlannedValue === true &&
+    write.requirementId === requirementId &&
+    changes.slice(last + 1).some(leftThePage)
+  )
+}
+
+/**
+ * A select is read by its option, and the planner names the option the way
+ * the page shows it. `value` is what the page submits, which is often a
+ * lowercase key behind a capitalized label; the label the user sees is the
+ * same option, so either identifies it. The option must still be the one
+ * selected and must not be disabled.
+ */
+const selectedOptionMatches = (
+  element: AgentObservation["elements"][number],
+  wanted: string
+): boolean =>
+  element.options?.some(
+    (option) =>
+      option.value === element.value &&
+      !option.disabled &&
+      (option.value === wanted || same(option.label, wanted))
+  ) === true
+
 /** Undefined is a semantic claim; false is a predicate we could not prove. */
 export const checkCompletionState = (
   requirement: AgentTaskRequirement,
   observation: AgentObservation,
   ledger: readonly AgentEvidenceRecord[] | undefined,
-  quote: string | undefined
+  quote: string | undefined,
+  changes: readonly AgentStepReadout[] = []
 ): boolean | undefined => {
   const check = requirement.check
   if (!check) return undefined
@@ -118,14 +256,17 @@ export const checkCompletionState = (
       same(element.name ?? "", check.name) &&
       (check.frameId === undefined || element.frameId === check.frameId)
   )
+  if (
+    matches.length === 0 &&
+    check.type !== "checked" &&
+    plannedValueLeftBehind(requirement.id, check.name, changes)
+  )
+    return true
   if (matches.length !== 1) return false
   const element = matches[0]
   if (check.type === "checked") return element.checked === check.checked
-  if (element.valueTruncated || element.value !== check.value) return false
-  return (
-    check.type !== "selected" ||
-    element.options?.some(
-      (option) => option.value === check.value && !option.disabled
-    ) === true
-  )
+  if (element.valueTruncated) return false
+  if (check.type === "selected")
+    return selectedOptionMatches(element, check.value)
+  return element.value === check.value
 }

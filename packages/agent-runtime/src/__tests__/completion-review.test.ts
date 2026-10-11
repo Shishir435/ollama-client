@@ -16,6 +16,7 @@ import {
   agentReviewRecordCitable,
   applyAgentCompletionReview
 } from "../completion-review"
+import type { AgentReviewedAction } from "../ports"
 
 const source = {
   tabId: 7,
@@ -108,7 +109,8 @@ const pending = (input: AgentCompletionInput) => {
 const reviewRequest = (
   judgement: ReturnType<typeof pending>,
   input: AgentCompletionInput,
-  constraints: AgentTaskConstraint[] = []
+  constraints: AgentTaskConstraint[] = [],
+  appliedActions?: AgentReviewedAction[]
 ) =>
   agentCompletionReviewRequest(
     {
@@ -118,7 +120,9 @@ const reviewRequest = (
     },
     judgement.review,
     input.outcomes,
-    input.evidenceLedger ?? []
+    input.evidenceLedger ?? [],
+    undefined,
+    appliedActions
   )
 
 const settle = (
@@ -128,12 +132,13 @@ const settle = (
     verdict: "supported" | "contradicted" | "insufficient_evidence"
     sources?: string[]
   }[],
-  constraints: AgentTaskConstraint[] = []
+  constraints: AgentTaskConstraint[] = [],
+  appliedActions?: AgentReviewedAction[]
 ): { judgement: AgentCompletionJudgement; disagreements: number } => {
   const judgement = pending(input)
   return applyAgentCompletionReview(
     judgement,
-    reviewRequest(judgement, input, constraints),
+    reviewRequest(judgement, input, constraints, appliedActions),
     { verdicts: verdicts.map((entry) => ({ sources: [], ...entry })) }
   )
 }
@@ -663,5 +668,118 @@ describe("what a citation can support", () => {
         [limit]
       ).judgement
     ).toMatchObject({ type: "accepted" })
+  })
+
+  describe("a limit on how the run acted", () => {
+    const method: AgentTaskConstraint = {
+      id: "c1",
+      kind: "scope",
+      text: "Move focus using Tab"
+    }
+    const pressed = record("tab", {
+      kind: "verified_effect",
+      quote: undefined,
+      verificationKind: "keyboard",
+      requirementId: "r1"
+    })
+    const input = semanticInput({
+      constraints: [method],
+      evidenceLedger: [record("fact-1", { requirementId: "r1" }), pressed]
+    })
+
+    const applied: AgentReviewedAction[] = [
+      { requirementId: "r1", command: "press_key", key: "Tab" }
+    ]
+
+    it("accepts the run's own confirmed action as support", () => {
+      expect(
+        settle(
+          input,
+          [
+            { id: "r1", verdict: "supported", sources: ["fact-1"] },
+            { id: "c1", verdict: "supported", sources: ["tab"] }
+          ],
+          [method],
+          applied
+        ).judgement
+      ).toMatchObject({ type: "accepted" })
+    })
+
+    it("refuses that support when the run's action list is not complete", () => {
+      expect(
+        settle(
+          input,
+          [
+            { id: "r1", verdict: "supported", sources: ["fact-1"] },
+            { id: "c1", verdict: "supported", sources: ["tab"] }
+          ],
+          [method]
+        ).judgement
+      ).toMatchObject({ reason: "needs_review" })
+    })
+
+    it("never lets an action stand for an amount the page must show", () => {
+      const cap: AgentTaskConstraint = { ...method, kind: "limit" }
+      expect(
+        settle(
+          semanticInput({
+            constraints: [cap],
+            evidenceLedger: [record("fact-1", { requirementId: "r1" }), pressed]
+          }),
+          [
+            { id: "r1", verdict: "supported", sources: ["fact-1"] },
+            { id: "c1", verdict: "supported", sources: ["tab"] }
+          ],
+          [cap]
+        ).judgement
+      ).toMatchObject({ reason: "needs_review" })
+    })
+
+    it("still refuses a cited model inference", () => {
+      const inferred = record("guess", {
+        kind: "model_inference",
+        requirementId: "r1"
+      })
+      expect(
+        settle(
+          semanticInput({
+            constraints: [method],
+            evidenceLedger: [
+              record("fact-1", { requirementId: "r1" }),
+              inferred
+            ]
+          }),
+          [
+            { id: "r1", verdict: "supported", sources: ["fact-1"] },
+            { id: "c1", verdict: "supported", sources: ["guess"] }
+          ],
+          [method]
+        ).judgement
+      ).toMatchObject({ reason: "needs_review" })
+    })
+
+    it("shows the reviewer every applied action, untagged ones too", () => {
+      const judgement = pending(input)
+      const untagged: AgentReviewedAction = {
+        requirementId: "unbound",
+        command: "click",
+        name: "Other"
+      }
+      const request = agentCompletionReviewRequest(
+        { goal: "Tab to Second", requirements: [saved], constraints: [method] },
+        judgement.review,
+        input.outcomes,
+        input.evidenceLedger ?? [],
+        new Map([
+          [
+            "r1",
+            { before: "", actions: [{ command: "press_key", key: "Tab" }] }
+          ]
+        ]),
+        [...applied, untagged]
+      )
+      expect(request.actions).toEqual([...applied, untagged])
+      expect(request.actionsComplete).toBe(true)
+    })
   })
 })
