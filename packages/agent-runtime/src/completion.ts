@@ -952,12 +952,17 @@ const quotationNamesReceiptValue = (
  * A read asking for the present state cannot rest on a historical fact. The
  * same answer decides both whether a quote is grounded and how the report
  * labels it, or a stale quote could hide that a screenshot carried the read.
+ * The planner's explicit freshness wins — "still open last Friday" is
+ * historical — and only an older plan without it falls back to wording.
  */
 const requiresCurrentState = (requirement: AgentTaskRequirement): boolean =>
-  requirement.freshness === "current" ||
-  /\b(?:current|currently|now|latest|today|still)\b/i.test(
-    requirement.source ?? requirement.text
-  )
+  requirement.freshness !== undefined
+    ? requirement.freshness === "current"
+    : [requirement.source, requirement.text].some(
+        (text) =>
+          text !== undefined &&
+          /\b(?:current|currently|now|latest|today|still)\b/i.test(text)
+      )
 
 const refusePlannedReadClaim = (
   evidence: string | undefined,
@@ -1914,12 +1919,28 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
   if (check.type === "control_transition") {
     // A renamed button establishes only an outcome explicitly naming that
     // transition; broader business claims still require independent review.
+    // Direction is bound too: "Paid changes to Pay" never vouches for a
+    // check from Pay to Paid, so the from label, a transition verb and the
+    // to label must appear in that order. "Replaces" reverses the order and
+    // is not accepted.
+    const froms = completePhraseOccurrences(
+      text,
+      agentNormalizedClaim(check.from)
+    )
+    const tos = completePhraseOccurrences(text, agentNormalizedClaim(check.to))
+    const ordered = froms.some((from) =>
+      tos.some(
+        (to) =>
+          from.end <= to.start &&
+          /\b(?:becomes?|became|changes?|changed|renamed|turns?|turned)\b/u.test(
+            text.slice(from.end, to.start)
+          )
+      )
+    )
     return (
-      containsCompletePhrase(text, agentNormalizedClaim(check.from)) &&
-      containsCompletePhrase(text, agentNormalizedClaim(check.to)) &&
+      ordered &&
       (!check.record ||
-        containsCompletePhrase(text, agentNormalizedClaim(check.record))) &&
-      /\b(?:becomes?|changes?|changed|renamed|replaces?|turns?)\b/u.test(text)
+        containsCompletePhrase(text, agentNormalizedClaim(check.record)))
     )
   }
   const identity = check.type === "url" ? check.url : check.record
@@ -2306,6 +2327,39 @@ const recordJudgedItems = (
   }
 }
 
+/**
+ * The requirement stays unmet, but the items the run did finish are still
+ * judged for the report, on a copy of the consumed receipts so an unmet
+ * requirement credits nothing another one needs.
+ */
+const recordUnmetItems = (
+  items: NonNullable<AgentRunOutcome["items"]>,
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim | undefined,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>
+): void => {
+  if (
+    !claim ||
+    !requirement.items?.length ||
+    !claim.items?.some((item) => item.met)
+  )
+    return
+  const judgedItems: number[] = []
+  judgeItemizedRequirement(
+    { ...requirement, items: requirement.items },
+    claim,
+    input,
+    change,
+    changes,
+    new Set(consumed),
+    judgedItems
+  )
+  recordJudgedItems(items, requirement, claim, judgedItems, input)
+}
+
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
@@ -2359,6 +2413,15 @@ const judgePlanned = (
     const claim = claims.get(requirement.id)
     if (!claim?.met) {
       unmet.push(requirement.id)
+      recordUnmetItems(
+        items,
+        requirement,
+        claim,
+        input,
+        change,
+        changes,
+        consumed
+      )
       continue
     }
     const judgedItems: number[] = []

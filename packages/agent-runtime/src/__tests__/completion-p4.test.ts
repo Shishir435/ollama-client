@@ -1426,4 +1426,22 @@ describe("renamed-control receipt binding", () => {
       )
     ).toBe(false)
   })
+
+  it("accepts the transition only in the direction the requirement states", () => {
+    const clicked: AgentStepReadout = {
+      ...receipt,
+      command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 },
+      target: { ref: "e1", tag: "button", name: "Close" }
+    }
+    const judge = (text: string) =>
+      judgeAgentCompletion({
+        steps: [clicked],
+        observation: after,
+        requirements: [{ ...requirement, text }],
+        outcomes: [{ id: "r1", met: true }]
+      }).type
+    expect(judge("Close changes to Reopen")).toBe("accepted")
+    expect(judge("Reopen changes to Close")).not.toBe("accepted")
+    expect(judge("Reopen replaces Close")).not.toBe("accepted")
+  })
 })

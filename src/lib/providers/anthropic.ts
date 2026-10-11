@@ -68,11 +68,15 @@ const appendMessage = (
 const mapMessages = (
   messages: ChatMessage[],
   expectedReplay: { providerId: string; model: string }
-): { system?: string; messages: AnthropicMessage[] } => {
+): { system?: string[]; messages: AnthropicMessage[] } => {
+  /**
+   * Kept as separate blocks, in order: the leading prompt is the stable,
+   * cacheable one, and a trailing system message carrying per-turn context
+   * must not be joined into it, or every turn would rewrite the cached text.
+   */
   const system = messages
     .filter((message) => message.role === "system" && message.content.trim())
     .map((message) => message.content)
-    .join("\n")
   const mapped: AnthropicMessage[] = []
 
   for (const message of messages) {
@@ -137,7 +141,7 @@ const mapMessages = (
     )
   }
 
-  return { system: system || undefined, messages: mapped }
+  return { system: system.length ? system : undefined, messages: mapped }
 }
 
 const mapTool = (tool: ToolDefinition) => ({
@@ -409,15 +413,11 @@ export class AnthropicProvider implements LLMProvider {
     return {
       model: request.model,
       messages: mapped.messages,
-      system: mapped.system
-        ? [
-            {
-              type: "text",
-              text: mapped.system,
-              cache_control: { type: "ephemeral" }
-            }
-          ]
-        : undefined,
+      system: mapped.system?.map((text, index) =>
+        index === 0
+          ? { type: "text", text, cache_control: { type: "ephemeral" } }
+          : { type: "text", text }
+      ),
       stream: true,
       max_tokens: policy.thinkEnabled
         ? Math.max(requestedMaxTokens, thinkingBudget + 1024)

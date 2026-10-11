@@ -83,6 +83,8 @@ const run = async () => {
       while (controls === 0 && Date.now() < deadline)
         await page.waitForTimeout(25)
       assert.ok(controls > 0, "the live-sink control never loaded")
+      /** A quiet window after the control, so a late probe still gets counted. */
+      await page.waitForTimeout(500)
       const state = await page.evaluate(() => ({
         text: document.documentElement.dataset.extracted,
         executed: document.documentElement.dataset.executed

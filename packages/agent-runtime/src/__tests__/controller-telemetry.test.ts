@@ -114,7 +114,10 @@ const harness = (options: {
   decisionThinking?: () => string | undefined
   initial?: Partial<AgentRunState>
   observations?: AgentObservation[]
+  /** How many step reads fail before they succeed; Infinity never recovers. */
+  failingStepReads?: number
 }) => {
+  let failingStepReads = options.failingStepReads ?? 0
   let current = state(options.initial)
   const written: AgentStepWrite[] = []
   const decideInputs: AgentModelInput[] = []
@@ -168,6 +171,10 @@ const harness = (options: {
         written.push(input)
       },
       async steps(runId) {
+        if (failingStepReads > 0) {
+          failingStepReads -= 1
+          throw new Error("steps unavailable")
+        }
         return written
           .filter((step) => step.runId === runId)
           .map((step, index) => ({ ...step, sequence: index + 1 }))
@@ -416,6 +423,35 @@ describe("controller run token ceiling", () => {
     expect(run.state().status).toBe("failed")
     expect(run.state().error?.code).toBe("budget_exhausted")
     expect(run.decideInputs).toHaveLength(0)
+  })
+})
+
+describe("controller run token ceiling with unreadable history", () => {
+  it("reads receipts again for the total when the recall lost them", async () => {
+    const run = harness({ failingStepReads: 1 })
+    await run.controller.start("run-1")
+    expect(run.state().status).toBe("completed")
+  })
+
+  it("counts this worker's own steps when receipts stay unreadable", async () => {
+    const run = harness({
+      failingStepReads: Number.POSITIVE_INFINITY,
+      decisions: [
+        {
+          type: "command",
+          command: { type: "read", snapshotId: "snapshot-1", generation: 1 }
+        },
+        {
+          type: "command",
+          command: { type: "read", snapshotId: "snapshot-2", generation: 2 }
+        }
+      ],
+      decisionTelemetry: () => ({ promptTokens: 1_000_000 })
+    })
+    await run.controller.start("run-1")
+    expect(run.state().status).toBe("failed")
+    expect(run.state().error?.code).toBe("budget_exhausted")
+    expect(run.decideInputs).toHaveLength(1)
   })
 })
 

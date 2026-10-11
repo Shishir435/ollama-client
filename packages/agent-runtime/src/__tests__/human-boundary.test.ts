@@ -151,3 +151,45 @@ it("does not treat an optional password form among settings as a sign-in", () =>
     )
   ).toBe(false)
 })
+
+it("recognizes a sign-in by its form's submit control in any language, ignoring hidden twins", () => {
+  const form = "eeeeeeee"
+  const field = control("p1", {
+    type: "password",
+    sensitive: true,
+    formFingerprint: form
+  })
+  const submit = control("b1", {
+    tag: "button",
+    name: "Iniciar sesión",
+    editable: false,
+    submitter: true,
+    formFingerprint: form
+  })
+  expect(agentObservationNeedsHuman(page("Cuenta", "", [field, submit]))).toBe(
+    true
+  )
+  expect(
+    agentObservationNeedsHuman(
+      page("Cuenta", "", [
+        field,
+        control("p2", {
+          type: "password",
+          sensitive: true,
+          visible: false,
+          formFingerprint: form
+        }),
+        submit
+      ])
+    )
+  ).toBe(true)
+  /** A plain button that does not submit the form is not an offer to sign in. */
+  expect(
+    agentObservationNeedsHuman(
+      page("Cuenta", "", [
+        field,
+        { ...submit, type: "button", submitter: undefined }
+      ])
+    )
+  ).toBe(false)
+})

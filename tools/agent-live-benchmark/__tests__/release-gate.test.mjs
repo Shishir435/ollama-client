@@ -177,3 +177,20 @@ test("the release command passes its budget and baselines to the gate", () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test("the release command refuses an empty budget instead of reading it as zero", () => {
+  const run = spawnSync(
+    process.execPath,
+    [
+      fileURLToPath(new URL("../release.mjs", import.meta.url)),
+      candidate,
+      "--budget",
+      " ",
+      "a.json",
+      "b.json"
+    ],
+    { encoding: "utf8" }
+  )
+  assert.notEqual(run.status, 0)
+  assert.match(run.stderr, /--budget takes a non-negative US dollar amount/)
+})

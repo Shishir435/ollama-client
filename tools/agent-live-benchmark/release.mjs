@@ -15,7 +15,11 @@ let costBudgetUsd
 while (args.length) {
   const arg = args.shift()
   if (arg === "--budget") {
-    costBudgetUsd = Number(args.shift())
+    /** `Number("")` is 0, so an unset shell variable must not become a budget. */
+    const budget = args.shift()
+    if (!budget?.trim())
+      throw new Error("--budget takes a non-negative US dollar amount")
+    costBudgetUsd = Number(budget)
     if (!Number.isFinite(costBudgetUsd) || costBudgetUsd < 0)
       throw new Error("--budget takes a non-negative US dollar amount")
   } else if (arg === "--baseline") {

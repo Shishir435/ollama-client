@@ -95,9 +95,42 @@ describe("Agent observation builder", () => {
     expect(buttons[0].rowContext).toBe("Fix parser Delete")
   })
 
-  it("never labels a control with a wrapper spanning several records", () => {
+  it("labels each record when the records differ in their controls", () => {
+    document.body.innerHTML =
+      '<div><div><section><div><a href="/pull/1">Fix parser</a> <button>Close</button></div></section><section><div><a href="/pull/2">Add docs</a> <button>Reopen</button></div></section></div><div><a href="/other">Other</a></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "Fix parser Close",
+      "Add docs Reopen"
+    ])
+  })
+
+  it("keeps one record's label when another record's control is hidden", () => {
+    document.body.innerHTML =
+      '<div><div><section><div><a href="/pull/1">Fix parser</a> <button>Close</button></div></section><section><div><a href="/pull/2">Add docs</a> <button style="display:none">Close</button></div></section></div><div><a href="/other">Other</a></div></div>'
+    const [button] = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(button.rowContext).toBe("Fix parser Close")
+  })
+
+  it("finds each record in nested repeated sections rather than their wrapper", () => {
     document.body.innerHTML =
       '<div><div><section><div><a href="/pull/1">Fix parser</a> <button>Close</button></div></section><section><div><a href="/pull/2">Add docs</a> <button>Close</button></div></section></div><div><a href="/other">Other</a></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "Fix parser Close",
+      "Add docs Close"
+    ])
+  })
+
+  it("never labels a control with a wrapper spanning several records", () => {
+    document.body.innerHTML =
+      '<div><div><a href="/pull/1">Fix parser</a> <button>Close</button><span><a href="/pull/2">Add docs</a> <button>Close</button></span></div><div><a href="/other">Other</a></div></div>'
     const buttons = build().elements.filter(
       (element) => element.tag === "button"
     )

@@ -1,20 +1,19 @@
 import type { AgentObservation } from "@ollama-client/contracts"
 
-const CREDENTIAL_SUBMIT =
-  /^(?:sign in|sign on|log in|login|log on|continue|next|submit|verify|confirm|authenticate|enter|go|ok|sign up|create account)$/i
 const SIGN_IN_PAGE =
   /(?:^|[^a-z])(?:sign[ _-]?in|sign[ _-]?on|log[ _-]?in|sso|auth(?:enticate|orize)?)(?:[^a-z]|$)/i
 
 type ObservedElement = AgentObservation["elements"][number]
 
-const submitsCredentials = (element: ObservedElement): boolean =>
-  element.visible &&
-  element.enabled !== false &&
-  (element.tag === "button" ||
-    element.role === "button" ||
-    (element.tag === "input" &&
-      ["submit", "button"].includes(element.type ?? ""))) &&
-  CREDENTIAL_SUBMIT.test(element.name?.trim() ?? "")
+/**
+ * Any rendered control that submits the form — whatever it says, in
+ * whatever language. Binding it to the password's own form is what makes it
+ * evidence; its label is not.
+ */
+const submitsForm = (element: ObservedElement): boolean =>
+  element.submitter === true ||
+  (element.tag === "input" && element.type === "submit") ||
+  (element.tag === "button" && (element.type ?? "submit") === "submit")
 
 const NON_TEXT_INPUTS = new Set([
   "hidden",
@@ -39,8 +38,13 @@ const isSignInField = (
 ): boolean => {
   const form = field.formFingerprint
   if (!form) return signInPage
+  /** Hidden or disabled controls and other frames are not part of what the user sees. */
   const inForm = observation.elements.filter(
-    (element) => element.formFingerprint === form
+    (element) =>
+      element.formFingerprint === form &&
+      element.frameId === field.frameId &&
+      element.visible &&
+      element.enabled !== false
   )
   if (inForm.filter((element) => element.type === "password").length !== 1)
     return false
@@ -51,7 +55,7 @@ const isSignInField = (
       !NON_TEXT_INPUTS.has(element.type ?? "")
   )
   if (otherFields.length > 2) return false
-  return signInPage || inForm.some(submitsCredentials)
+  return signInPage || inForm.some(submitsForm)
 }
 
 /** Detect rendered interaction gates, not prose mentioning login or CAPTCHA. */

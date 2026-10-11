@@ -3163,8 +3163,31 @@ export const createAgentController = (
   const stopAtObservedBoundary = async (
     state: AgentRunState,
     observation: AgentObservation,
-    receipts: readonly AgentStepReadout[]
+    recalled: readonly AgentStepReadout[] | undefined
   ): Promise<boolean> => {
+    /**
+     * History may degrade to nothing; the token ceiling may not. When the
+     * recall could not read receipts they are read once more, and if they
+     * still cannot be, the steps this worker wrote are counted from memory —
+     * a run never decides again as if it had spent nothing.
+     */
+    let receipts = recalled
+    if (!receipts) {
+      try {
+        receipts = await dependencies.persistence.steps(state.id)
+      } catch {
+        receipts = [...telemetryByStep]
+          .filter(([stepId]) => stepId.startsWith(`${state.id}:`))
+          .map(([stepId, telemetry], index) => ({
+            runId: state.id,
+            stepId,
+            sequence: index + 1,
+            status: "verified" as const,
+            at: 0,
+            telemetry
+          }))
+      }
+    }
     if (
       agentRunTokens(receipts) +
         (state.unreceiptedTokens ?? 0) +
@@ -3266,7 +3289,7 @@ export const createAgentController = (
     const { receipts, ...recalled } = await recallHistory(state)
     const observation = await observe(state, signal, recalled.inspection)
     if (!observation) return undefined
-    if (await stopAtObservedBoundary(state, observation, receipts ?? []))
+    if (await stopAtObservedBoundary(state, observation, receipts))
       return undefined
     /**
      * Taken off the queue only once the claim that records it has landed. A

@@ -1129,6 +1129,28 @@ const repeatsControl = (
   return false
 }
 
+const RECORD_TAGS = "div, section, article"
+
+/**
+ * Whether an element is one of several same-tag siblings that each carry a
+ * link: the shape of a list of records. The nearest such ancestor is the
+ * record, so a wrapper holding several records is never reached, whatever
+ * controls those records hold.
+ */
+const repeatsAsRecord = (
+  current: Element,
+  pass: AgentObservationPass
+): boolean =>
+  current.matches(RECORD_TAGS) &&
+  current.querySelector("a[href]") !== null &&
+  Array.from(current.parentElement?.children ?? []).some(
+    (sibling) =>
+      sibling !== current &&
+      sibling.tagName === current.tagName &&
+      !isChainHidden(sibling, pass) &&
+      sibling.querySelector("a[href]") !== null
+  )
+
 /** A bounded row label beside repeated controls such as Delete buttons. */
 const rowContextOf = (
   element: Element,
@@ -1142,25 +1164,15 @@ const rowContextOf = (
   ) {
     if (current.matches("li, tr, [role='row'], [role='listitem']"))
       return collectVisibleText(current, 140, pass, scope) || undefined
-    if (!current.matches("div") || !current.querySelector("a[href]")) continue
+    if (!repeatsAsRecord(current, pass)) continue
     /**
-     * A wrapper holding a second copy of this control spans several records,
-     * and so does every ancestor above it: its text would name the wrong one.
+     * A record holding a second rendered copy of this control is really a
+     * wrapper around several records. Checked only once a record is found:
+     * scanning every ancestor would be quadratic on a page of many controls.
      */
     if (repeatsControl(current, element, pass)) return undefined
-    const siblings = current.parentElement?.children
-    if (
-      !siblings ||
-      !Array.from(siblings).some(
-        (sibling) =>
-          sibling !== current &&
-          sibling.matches("div") &&
-          sibling.querySelector("a[href]")
-      )
-    )
-      continue
     const text = collectVisibleText(current, 141, pass, scope)
-    if (text && text.length <= 140) return text
+    return text && text.length <= 140 ? text : undefined
   }
   return undefined
 }
