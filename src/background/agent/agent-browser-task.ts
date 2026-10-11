@@ -61,6 +61,8 @@ const REFUSALS: Record<AgentRunFailureReason, string> = {
     "The browser task is not running, so it could not take a correction.",
   consent_stale:
     "The browser task changed before the user's choice to continue unattended was saved.",
+  chat_unavailable:
+    "This chat was deleted while the browser task was starting, so it was not started.",
   unknown_run: "The browser task could not be found."
 }
 

@@ -70,12 +70,14 @@ const service = (
     persistence: persistence(),
     createRun: vi.fn(async (state: AgentRunState) => {
       runs.set(state.id, state)
+      return true
     }),
     readRun: async (runId: string) => {
       const state = runs.get(runId)
       return state ? ({ state } as DurableAgentRun) : null
     },
     readSteps: vi.fn(async () => []),
+    readCompleteSteps: vi.fn(async () => []),
     readRunForMessage: vi.fn(async () => null),
     readIncompleteRuns: async () =>
       [...runs.values()]
@@ -229,6 +231,7 @@ describe("Agent run service", () => {
       createRun: async (state) => {
         runs.set(state.id, state)
         order.push("persist")
+        return true
       },
       classifyAccess: async () => {
         order.push("authorize")
@@ -719,12 +722,13 @@ describe("Agent run service", () => {
 
   it("holds admission until the insert settles and releases after a failed insert", async () => {
     let rejectInsert: (error: Error) => void = () => {}
-    const gate = new Promise<void>((_resolve, reject) => {
+    const gate = new Promise<boolean>((_resolve, reject) => {
       rejectInsert = reject
     })
     const createRun = vi
       .fn(async (state: AgentRunState) => {
         runs.set(state.id, state)
+        return true
       })
       .mockImplementationOnce(() => gate)
     const { service: agent, controller } = service({ createRun })
@@ -792,7 +796,7 @@ describe("Agent run service", () => {
     ["addressless tab", { getTab: async () => ({}) }],
     ["non-http page", { getTab: async () => ({ url: "chrome://settings" }) }]
   ])("writes no run row for a %s", async (_label, overrides) => {
-    const createRun = vi.fn(async () => undefined)
+    const createRun = vi.fn(async () => true)
     const { service: agent } = service({ ...overrides, createRun })
 
     await expect(agent.start(startInput)).rejects.toThrow()
@@ -1042,11 +1046,12 @@ describe("a follow-up start", () => {
   it("carries the parent's record and committed effects, and nothing it was given", async () => {
     const createRun = vi.fn(async (state: AgentRunState) => {
       runs.set(state.id, state)
+      return true
     })
     const { service: agent } = service({
       createRun,
       readRun: async (runId) => (runId === "parent" ? parentRun() : null),
-      readSteps: async () => parentSteps
+      readCompleteSteps: async () => parentSteps
     })
 
     const state = await agent.start({
@@ -1100,7 +1105,7 @@ describe("a follow-up start", () => {
     ]
     const { service: agent } = service({
       readRun: async () => parentRun({}, { constraints }),
-      readSteps: async () => parentSteps
+      readCompleteSteps: async () => parentSteps
     })
     const state = await agent.start({
       ...startInput,
@@ -1136,7 +1141,7 @@ describe("a follow-up start", () => {
             }
           }
         ),
-      readSteps: async () => parentSteps
+      readCompleteSteps: async () => parentSteps
     })
 
     const state = await agent.start({
@@ -1167,11 +1172,11 @@ describe("a follow-up start", () => {
       "chat-1"
     ]
   ])("is refused, creating nothing, when %s", async (_, readRun, sessionId) => {
-    const createRun = vi.fn(async () => undefined)
+    const createRun = vi.fn(async () => true)
     const { service: agent, controller } = service({
       createRun,
       readRun,
-      readSteps: async () => parentSteps
+      readCompleteSteps: async () => parentSteps
     })
 
     await expect(
@@ -1186,7 +1191,7 @@ describe("a follow-up start", () => {
   })
 
   it("is refused rather than trimmed when the chain committed too much", async () => {
-    const createRun = vi.fn(async () => undefined)
+    const createRun = vi.fn(async () => true)
     const many = Array.from({ length: MAX_AGENT_PRIOR_EFFECTS }, (_, i) => ({
       action: "click",
       role: "button",
@@ -1212,7 +1217,7 @@ describe("a follow-up start", () => {
             }
           }
         ),
-      readSteps: async () => parentSteps
+      readCompleteSteps: async () => parentSteps
     })
 
     await expect(
@@ -1226,11 +1231,11 @@ describe("a follow-up start", () => {
   })
 
   it("is refused when the parent's receipts cannot be read", async () => {
-    const createRun = vi.fn(async () => undefined)
+    const createRun = vi.fn(async () => true)
     const { service: agent } = service({
       createRun,
       readRun: async () => parentRun(),
-      readSteps: async () => {
+      readCompleteSteps: async () => {
         throw new Error("owner unavailable")
       }
     })
@@ -1259,9 +1264,24 @@ describe("a run a chat turn delegated", () => {
     allowRoutineActions: true
   }
 
+  it("is refused when its chat was deleted mid-start, and drives nothing", async () => {
+    const createRun = vi.fn(async () => false)
+    const { service: agent, controller } = service({ createRun })
+
+    await expect(agent.delegate(delegation)).rejects.toMatchObject({
+      reason: "chat_unavailable"
+    })
+    expect(agent.activeRunId()).toBeUndefined()
+    expect(controller.start).not.toHaveBeenCalled()
+
+    createRun.mockImplementation(async () => true)
+    await expect(agent.delegate(delegation)).resolves.toBeDefined()
+  })
+
   it("is filed against the turn's row and keeps who wrote its goal", async () => {
     const createRun = vi.fn(async (state: AgentRunState) => {
       runs.set(state.id, state)
+      return true
     })
     const { service: agent } = service({ createRun })
 
@@ -1329,6 +1349,7 @@ describe("a run a chat turn delegated", () => {
     runs.set(parent.id, { ...parent, status: "failed" })
     const createRun = vi.fn(async (state: AgentRunState) => {
       runs.set(state.id, state)
+      return true
     })
     const { service: agent } = service({
       createRun,

@@ -663,6 +663,16 @@ new adapter's expectations.
   every result is `No client is attached to session …` is worse than no tool.
   Two proxies against one OpenCode server is therefore a single-bridge
   arrangement: give the second one its own server, or none of its tools work.
+- **Zen free-tier models refuse proxied turns.** OpenCode's gateway rejects a
+  free-tier request that carries per-tool disable flags with `FreeTierError`
+  ("can only be used from within OpenCode"), and this proxy always pins the
+  runtime's native tools off per turn — an agent that quietly reaches for the
+  server's own shell is neither visible nor wanted. Such a refusal is answered
+  with `403` and a message naming the model and the working paths (a
+  key-backed provider model, or OpenCode's own TUI/Desktop), never a generic
+  `502`. Unpinning the tools to satisfy the gateway is not on the table: an
+  unlisted tool stays enabled, so dropping the flags would hand the model an
+  unsupervised shell.
 
 ## Tests
 

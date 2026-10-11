@@ -3,8 +3,9 @@ import type {
   AgentObservation,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
-import { agentHaystackStates, agentNormalizedClaim } from "./observed-text"
+import { agentNormalizedClaim } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
+import { agentRowContextBeyond } from "./row-context"
 
 const same = (a: string, b: string) =>
   agentNormalizedClaim(a) === agentNormalizedClaim(b)
@@ -189,6 +190,57 @@ const selectedOptionMatches = (
       (option.value === wanted || same(option.label, wanted))
   ) === true
 
+type ControlTransitionCheck = Extract<
+  NonNullable<AgentTaskRequirement["check"]>,
+  { type: "control_transition" }
+>
+
+const checkControlTransition = (
+  requirementId: string,
+  check: ControlTransitionCheck,
+  observation: AgentObservation,
+  changes: readonly AgentStepReadout[]
+): boolean | undefined => {
+  /**
+   * Row context is whole-row text, so finding the record's name inside it
+   * cannot tell "Record 1" from "Record 1 copy". A row proves ownership only
+   * when what it says besides the control's own label is exactly the
+   * record; anything less is left to independent review, never decided
+   * either way.
+   */
+  const ownsRecord = (name: string | undefined, row: string | undefined) =>
+    !check.record || same(agentRowContextBeyond(name, row) ?? "", check.record)
+  const undecided = check.record ? undefined : false
+  if (same(check.from, check.to)) return false
+  const after = observation.elements.filter(
+    (element) =>
+      !element.sensitive &&
+      (element.visible || element.offscreen) &&
+      same(element.name ?? "", check.to) &&
+      (check.frameId === undefined || element.frameId === check.frameId) &&
+      ownsRecord(element.name, element.rowContext)
+  )
+  if (after.length !== 1) return undecided
+  const proved = changes.some(
+    (step) =>
+      step.verification?.outcome === "confirmed" &&
+      step.requirementId === requirementId &&
+      same(
+        step.verification.evidence.controlTransition?.from ?? "",
+        check.from
+      ) &&
+      same(step.verification.evidence.controlTransition?.to ?? "", check.to) &&
+      after[0].verificationId ===
+        step.verification.evidence.controlTransition?.verificationId &&
+      after[0].frameId ===
+        step.verification.evidence.controlTransition?.frameId &&
+      observation.documentId ===
+        step.verification.evidence.controlTransition?.documentId &&
+      ownsRecord(step.target?.name, step.target?.rowContext)
+  )
+  return proved || undecided
+}
+
 /** Undefined is a semantic claim; false is a predicate we could not prove. */
 export const checkCompletionState = (
   requirement: AgentTaskRequirement,
@@ -200,45 +252,8 @@ export const checkCompletionState = (
   const check = requirement.check
   if (!check) return undefined
   if (check.type === "url") return observation.url === check.url
-  if (check.type === "control_transition") {
-    const after = observation.elements.filter(
-      (element) =>
-        !element.sensitive &&
-        (element.visible || element.offscreen) &&
-        same(element.name ?? "", check.to) &&
-        (check.frameId === undefined || element.frameId === check.frameId) &&
-        (!check.record ||
-          agentHaystackStates(
-            check.record,
-            agentNormalizedClaim(element.rowContext ?? "")
-          ))
-    )
-    if (after.length !== 1 || same(check.from, check.to)) return false
-    return changes.some(
-      (step) =>
-        step.verification?.outcome === "confirmed" &&
-        step.requirementId === requirement.id &&
-        same(
-          step.verification.evidence.controlTransition?.from ?? "",
-          check.from
-        ) &&
-        same(
-          step.verification.evidence.controlTransition?.to ?? "",
-          check.to
-        ) &&
-        after[0].verificationId ===
-          step.verification.evidence.controlTransition?.verificationId &&
-        after[0].frameId ===
-          step.verification.evidence.controlTransition?.frameId &&
-        observation.documentId ===
-          step.verification.evidence.controlTransition?.documentId &&
-        (!check.record ||
-          agentHaystackStates(
-            check.record,
-            agentNormalizedClaim(step.target?.rowContext ?? "")
-          ))
-    )
-  }
+  if (check.type === "control_transition")
+    return checkControlTransition(requirement.id, check, observation, changes)
   if (check.type === "record_state") {
     const fact = groundedCompletionQuote(quote, requirement.id, ledger, true)
     if (!fact?.source) return false

@@ -28,10 +28,11 @@ export type AgentRunPlacement =
  * pointing at a run that was never created, a reload that lost the task, and a
  * second Start from a panel that had not seen the first one land.
  *
- * A run whose chat cannot be found is still started, unlinked. The linkage is
- * how a run is presented, not how it is supervised: refusing to drive a
- * browser because a row is missing would trade a working feature for a tidier
- * table.
+ * A run whose chat cannot be found is not created, and this resolves false.
+ * The chat card is where a run is supervised — its approvals, questions and
+ * Stop — and chat deletion finds runs by their session, so a run started
+ * unlinked after its chat was deleted would act with nothing able to stop it.
+ * A start with no chat at all is created unlinked, as before.
  *
  * Whether the chat is there is decided inside that one commit, never before
  * it. Asking first and writing after left a window in which a chat deleted
@@ -46,11 +47,11 @@ export const createLinkedAgentRun = async (
   sessionId?: string,
   parentRunId?: string,
   placement: AgentRunPlacement = { kind: "new_turn" }
-): Promise<void> => {
+): Promise<boolean> => {
   const lineage = parentRunId ? { parentRunId } : {}
   if (!sessionId) {
     await createAgentRun(state, lineage)
-    return
+    return true
   }
 
   if (placement.kind === "turn") {
@@ -70,13 +71,12 @@ export const createLinkedAgentRun = async (
         params
       })
     )
-      return
-    logger.warn("Agent run started without its chat row", "Agent", {
+      return true
+    logger.warn("Agent run refused without its chat row", "Agent", {
       runId: state.id,
       reason: "message_unavailable"
     })
-    await createAgentRun(state, lineage)
-    return
+    return false
   }
 
   const appended = await appendRunTurn(
@@ -113,10 +113,10 @@ export const createLinkedAgentRun = async (
     }
   )
 
-  if (appended) return
-  logger.warn("Agent run started without its chat rows", "Agent", {
+  if (appended) return true
+  logger.warn("Agent run refused without its chat rows", "Agent", {
     runId: state.id,
     reason: "session_missing"
   })
-  await createAgentRun(state, lineage)
+  return false
 }

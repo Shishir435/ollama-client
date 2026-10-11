@@ -37,6 +37,14 @@ beforeAll(() => {
   )
 })
 
+/**
+ * The legacy backend writes its image on a 1s debounce. Flushed after each
+ * test, so a write left pending by a short test cannot land in the store the
+ * next test has just cleared and hand it a database that already holds its
+ * session.
+ */
+let settleOwner: (() => Promise<unknown>) | undefined
+
 const installOwner = () => {
   const engine = createChatDbEngine({ wasmBinary: Promise.resolve(wasmBuffer) })
   const ready = engine.submit({ op: "setBackend", backend: "legacy" })
@@ -44,6 +52,7 @@ const installOwner = () => {
     await ready
     return engine.submit(request)
   }
+  settleOwner = () => ready.then(() => engine.submit({ op: "flush" }))
 }
 
 const clearSqliteStore = (): Promise<void> =>
@@ -80,9 +89,11 @@ beforeEach(async () => {
   await clearSqliteStore()
 }, TIMEOUT)
 
-afterEach(() => {
+afterEach(async () => {
+  await settleOwner?.()
+  settleOwner = undefined
   globalThis.__persistenceHostCall = undefined
-})
+}, TIMEOUT)
 
 const runState = (id: string): AgentRunState => ({
   version: 1,
@@ -197,14 +208,47 @@ describe("an Agent run and the conversation it belongs to", () => {
   )
 
   it(
-    "starts the run anyway when the chat cannot be found",
+    "refuses a run whose chat cannot be found, so none acts unsupervised",
     async () => {
       const { facade, runs, createLinkedAgentRun } = await boot()
 
-      await createLinkedAgentRun(runState("agent-link-2"), "s-missing")
+      expect(
+        await createLinkedAgentRun(runState("agent-link-2"), "s-missing")
+      ).toBe(false)
 
       expect(await facade.getMessagesBySession("s-missing")).toEqual([])
-      const run = await runs.getAgentRun("agent-link-2")
+      expect(await runs.getAgentRun("agent-link-2")).toBeNull()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "refuses a delegated run whose turn row was deleted",
+    async () => {
+      const { runs, createLinkedAgentRun } = await boot()
+
+      expect(
+        await createLinkedAgentRun(
+          runState("agent-link-gone"),
+          "s-agent",
+          undefined,
+          { kind: "turn", messageId: 987_654 }
+        )
+      ).toBe(false)
+
+      expect(await runs.getAgentRun("agent-link-gone")).toBeNull()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "still creates a run that names no chat at all",
+    async () => {
+      const { runs, createLinkedAgentRun } = await boot()
+
+      expect(await createLinkedAgentRun(runState("agent-link-none"))).toBe(true)
+
+      const run = await runs.getAgentRun("agent-link-none")
       expect(run?.status).toBe("submitted")
       expect(run?.sessionId).toBeUndefined()
     },

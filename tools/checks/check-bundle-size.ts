@@ -248,7 +248,8 @@ const budgets: Budget[] = [
     /** PR 14 stop limit met by a fill only for a control-state outcome measures Chrome at 48,551,361. */
     /** 0.14.0 review remediation measures Chrome at 48,569,820. */
     /** Its bot-review fixes measure Chrome at 48,572,145. */
-    max: isFirefox ? 50_300_000 : 48_572_145
+    /** Preview review — complete follow-up records, chat-bound starts, the Zen 403, exact record rows — measures Chrome at 48,572,994. */
+    max: isFirefox ? 50_300_000 : 48_572_994
   },
   {
     metric: "zip",
@@ -562,7 +563,8 @@ const budgets: Budget[] = [
      * saved Chrome 1.7 kB but left the compiled-out Agent in Firefox (+106 kB).
      */
     /** Its bot-review fixes — bounded optional metadata, paused-decision tokens — measure Chrome at 342,286 and Firefox at 222,408. */
-    max: isFirefox ? 222_500 : 342_286
+    /** Preview review — complete follow-up records, chat-bound starts, the Zen 403 — measures Chrome at 342,501 and Firefox at 222,587. */
+    max: isFirefox ? 222_587 : 342_501
   }
 ]
 

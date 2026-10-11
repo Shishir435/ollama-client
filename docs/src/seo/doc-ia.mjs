@@ -71,7 +71,7 @@ export const DOC_SECTIONS = [
         slug: "compare/lm-studio-vs-ollama-client"
       },
       {
-        label: "Browser agent benchmark",
+        label: "Browser Agent Benchmark (interim)",
         slug: "compare/browser-agent-benchmark-0.14.0"
       }
     ]

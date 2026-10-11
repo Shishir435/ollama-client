@@ -176,6 +176,23 @@ describe("providerErrorUserMessage", () => {
     })
   })
 
+  it("names a free-tier refusal instead of blaming the proxy", () => {
+    const refusal =
+      "Error from provider (Console): OpenCode's free tier can only be used from within OpenCode"
+    for (const status of [403, 502, undefined]) {
+      expect(classifyProviderError(status, refusal)).toEqual({
+        code: "OLC-FREE-TIER-REFUSED",
+        reason:
+          "OpenCode's free tier refused this request from a third-party client. Use a model from a key-backed provider, or run this model in OpenCode's own app.",
+        recoveryAction: "choose-model"
+      })
+    }
+    expect(classifyProviderError(403, "forbidden")).toEqual({
+      code: "OLC-AUTH-FAILED",
+      recoveryAction: "test-connection"
+    })
+  })
+
   it("redacts usernames from path-shaped model IDs", () => {
     expect(
       sanitizeModelIdentifier(

@@ -51,9 +51,18 @@ import {
   readOpencodeFailureStatus,
   readOpencodeUsage
 } from "./evidence.js"
+import {
+  FREE_TIER_REFUSAL_TYPE,
+  freeTierRefusalMessage,
+  isFreeTierRefusal
+} from "./free-tier-refusal.js"
 import { createBackendSupervisor } from "./server.js"
 import { ToolManifest } from "./tool-manifest.js"
-import { createTurnReader, type TurnOutcome } from "./turn-events.js"
+import {
+  createTurnReader,
+  type MessageFailure,
+  type TurnOutcome
+} from "./turn-events.js"
 import { routeOpencodeWebSearch } from "./web-search.js"
 
 const TOOL_IDS_CACHE_TTL_MS = 60_000
@@ -96,6 +105,33 @@ export const assertSessionControl = (result: unknown, action: string): void => {
     `OpenCode refused session ${action}${response?.status ? ` (HTTP ${response.status})` : ""}`
   )
 }
+
+/**
+ * A failed turn as the core answers it. Zen's free-tier gate keeps its own
+ * 403 and a message naming the model, so it is not reported as a proxy that
+ * is down; anything else carries whatever status OpenCode reported.
+ */
+const failedTurn = (failure: MessageFailure, model: string): TurnResult =>
+  isFreeTierRefusal(failure)
+    ? {
+        status: "failed",
+        error: {
+          message: freeTierRefusalMessage(model),
+          type: FREE_TIER_REFUSAL_TYPE,
+          status: 403
+        }
+      }
+    : {
+        status: "failed",
+        error: {
+          message:
+            failure.data?.message ??
+            failure.message ??
+            "OpenCode provider error",
+          type: failure.name ?? "OpenCodeError",
+          ...readOpencodeFailureStatus(failure)
+        }
+      }
 
 export const createOpencodeBackend = (
   context: BackendContext
@@ -345,10 +381,13 @@ export const createOpencodeBackend = (
      * parked.
      */
     private promptBody: PromptBody | null
+    /** The model asked for, kept past the prompt so a refusal can name it. */
+    private readonly model: string
 
     constructor(id: string, promptBody: PromptBody) {
       this.id = id
       this.promptBody = promptBody
+      this.model = `${promptBody.model.providerID}/${promptBody.model.modelID}`
     }
 
     async run(
@@ -525,18 +564,7 @@ export const createOpencodeBackend = (
         if (final.suspended) return { status: "suspended" }
 
         if (final.error && !final.content && !final.reasoning) {
-          const failure = final.error
-          return {
-            status: "failed",
-            error: {
-              message:
-                failure.data?.message ??
-                failure.message ??
-                "OpenCode provider error",
-              type: failure.name ?? "OpenCodeError",
-              ...readOpencodeFailureStatus(failure)
-            }
-          }
+          return failedTurn(final.error, this.model)
         }
 
         const { usage, sources } = await this.readEvidence(abortSignal)

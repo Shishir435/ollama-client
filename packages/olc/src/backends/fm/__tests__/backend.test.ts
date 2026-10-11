@@ -184,6 +184,7 @@ const http = require("node:http")
 const socket = process.argv[process.argv.indexOf("--socket") + 1]
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
+    if (process.env.FAKE_FM_MODE === "silent") return
     res.end(JSON.stringify({ models: [{ name: "system", available: true }] }))
     return
   }
@@ -236,6 +237,20 @@ describe.runIf(process.platform === "darwin")("fm serve relay", () => {
       status: "failed",
       error: { message: expect.stringContaining("before the answer finished") }
     })
+  })
+
+  /** A socket that accepts but never answers `/health` still hits the deadline. */
+  it("gives up on a server that never answers its health check", async () => {
+    vi.stubEnv("FAKE_FM_MODE", "silent")
+    const backend = createFmBackend(context({ FM_PATH: fake }), 1_000)
+    try {
+      await expect(backend.ensureReady()).rejects.toThrow(
+        "fm serve did not become ready in time"
+      )
+    } finally {
+      await backend.shutdown()
+      vi.unstubAllEnvs()
+    }
   })
 
   /** CLI, then environment, then config file. */

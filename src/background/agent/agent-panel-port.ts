@@ -111,6 +111,8 @@ const FAILURES: Record<AgentRunFailureReason, { key: string; text: string }> = {
     key: "agent.error.consent_stale",
     text: "The run moved on since that choice was shown, so it was not saved. Check the run and choose again."
   },
+  /** Its chat is gone, so no panel is left to read anything more specific. */
+  chat_unavailable: UNKNOWN_FAILURE,
   unknown_run: UNKNOWN_FAILURE
 }
 

@@ -1427,6 +1427,46 @@ describe("renamed-control receipt binding", () => {
     ).toBe(false)
   })
 
+  it("proves a record only by its exact row, and leaves a near-name to review", () => {
+    const scoped = {
+      ...requirement,
+      text: "Record 1: Close becomes Reopen",
+      check: { ...requirement.check, record: "Record 1" }
+    }
+    const inRow = (row: string) => ({
+      observation: {
+        ...after,
+        elements: [{ ...after.elements[0], rowContext: `${row} Reopen` }]
+      },
+      clicked: {
+        ...receipt,
+        target: {
+          ref: "e1",
+          tag: "button",
+          name: "Close",
+          rowContext: `${row} Close`
+        }
+      }
+    })
+    const exact = inRow("Record 1")
+    expect(
+      checkCompletionState(scoped, exact.observation, [], undefined, [
+        exact.clicked
+      ])
+    ).toBe(true)
+    const copy = inRow("Record 1 copy")
+    expect(
+      checkCompletionState(scoped, copy.observation, [], undefined, [
+        copy.clicked
+      ])
+    ).toBeUndefined()
+    expect(
+      checkCompletionState(scoped, exact.observation, [], undefined, [
+        copy.clicked
+      ])
+    ).toBeUndefined()
+  })
+
   it("accepts the transition only in the direction the requirement states", () => {
     const clicked: AgentStepReadout = {
       ...receipt,

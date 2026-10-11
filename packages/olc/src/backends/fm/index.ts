@@ -116,7 +116,10 @@ interface FmStreamChunk {
   error?: { message?: string }
 }
 
-export const createFmBackend = (context: BackendContext): AgentBackend => {
+export const createFmBackend = (
+  context: BackendContext,
+  readyTimeoutMs = READY_TIMEOUT_MS
+): AgentBackend => {
   const { log } = context
   /** CLI, then environment, then config file, as every other option. */
   const executable = stringOption(
@@ -222,10 +225,16 @@ export const createFmBackend = (context: BackendContext): AgentBackend => {
     })
     exited.catch(() => undefined)
 
-    const deadline = Date.now() + READY_TIMEOUT_MS
+    const deadline = Date.now() + readyTimeoutMs
     while (true) {
+      /**
+       * A server that accepts the socket but never answers would otherwise
+       * hold this race open past the deadline; the signal also bounds the
+       * body read, since aborting the request destroys its response.
+       */
+      const attempt = AbortSignal.timeout(Math.max(1, deadline - Date.now()))
       const health = await Promise.race([
-        call("GET", "/health")
+        call("GET", "/health", undefined, attempt)
           .then(async (response) =>
             response.statusCode === 200 ? readBody(response) : undefined
           )

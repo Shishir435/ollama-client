@@ -33,7 +33,7 @@ import { createRequestQueue } from "../queue.js"
  * runtime can be checked against the same expectations.
  */
 interface FakeBackendOptions {
-  mode: "answer" | "tool" | "fail" | "image"
+  mode: "answer" | "tool" | "fail" | "refused" | "image"
   answer?: string
   /** Holds `ensureReady` so a caller can leave while the backend is starting. */
   readyDelayMs?: number
@@ -143,6 +143,17 @@ const createFakeBackend = (
           error: options.failure ?? {
             message: "upstream exploded",
             type: "FakeError"
+          }
+        }
+      }
+
+      if (options.mode === "refused") {
+        return {
+          status: "failed",
+          error: {
+            message: "policy refused this request",
+            type: "PolicyRefused",
+            status: 403
           }
         }
       }
@@ -596,6 +607,25 @@ describe("chat completions", () => {
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({
       error: { message: "upstream exploded", type: "FakeError" }
+    })
+    expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("answers a backend-stated upstream status instead of 502", async () => {
+    harness = await startHarness({ mode: "refused" })
+    const response = await fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: false,
+        messages: askedForTabs
+      })
+    })
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({
+      error: { message: "policy refused this request", type: "PolicyRefused" }
     })
     expect(harness.calls.dispose).toBe(1)
   })

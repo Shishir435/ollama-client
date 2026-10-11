@@ -29,6 +29,7 @@ import {
   getAgentRunForResultMessage,
   getLatestAgentRun,
   listAgentSteps,
+  listCompleteAgentSteps,
   listIncompleteAgentRuns,
   setAgentRunUnattended
 } from "@/lib/repositories/agent-runs"
@@ -267,6 +268,7 @@ export type AgentRunFailureReason =
   | "tab_unsupported"
   | "steer_unavailable"
   | "consent_stale"
+  | "chat_unavailable"
   | "unknown_run"
 
 /**
@@ -405,6 +407,7 @@ export const createAgentRunService = (input?: {
   browserSessionId?: () => Promise<string>
   writeUnattended?: typeof setAgentRunUnattended
   readSteps?: typeof listAgentSteps
+  readCompleteSteps?: typeof listCompleteAgentSteps
   buildController?: BuildAgentController
   isAgentEnabled?: () => Promise<boolean>
   hasPerception?: () => Promise<boolean>
@@ -428,6 +431,7 @@ export const createAgentRunService = (input?: {
     input?.readRunForMessage ?? getAgentRunForResultMessage
   const readLatestRun = input?.readLatestRun ?? getLatestAgentRun
   const readSteps = input?.readSteps ?? listAgentSteps
+  const readCompleteSteps = input?.readCompleteSteps ?? listCompleteAgentSteps
   const readIncompleteRuns =
     input?.readIncompleteRuns ?? listIncompleteAgentRuns
   const classifyAccess = input?.classifyAccess ?? classifyAgentTabAccess
@@ -896,7 +900,7 @@ export const createAgentRunService = (input?: {
     const followUp = await resolveAgentFollowUp(
       request.followUp,
       request.sessionId,
-      { run: readRun, steps: readSteps }
+      { run: readRun, steps: readCompleteSteps }
     )
     if (followUp.ok) return followUp.previousRun
     logger.warn("Agent follow-up refused", "Agent", {
@@ -977,12 +981,19 @@ export const createAgentRunService = (input?: {
         previousRun
       })
 
-      await createRun(
+      const created = await createRun(
         state,
         request.sessionId,
         previousRun ? request.followUp?.parentRunId : undefined,
         request.placement
       )
+      /** The chat was deleted mid-start: nothing could supervise this run. */
+      if (created === false) {
+        throw new AgentRunError(
+          "chat_unavailable",
+          "The chat this run belongs to no longer exists"
+        )
+      }
       activeRunId = state.id
       lastRunId = state.id
       if (request.allowExperimentalModel) experimental.add(state.id)

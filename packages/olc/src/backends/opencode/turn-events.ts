@@ -76,8 +76,18 @@ interface MessagePart {
 export interface MessageFailure {
   name?: string
   message?: string
-  /** `APIError` adds the upstream `statusCode` and `responseHeaders`. */
-  data?: { message?: string; statusCode?: number; responseHeaders?: unknown }
+  /**
+   * The provider error payload OpenCode attached, when it did. `message` is
+   * the sentence; `responseBody` carries the gateway's own code (such as
+   * Zen's `FreeTierError`); `APIError` adds the upstream `statusCode` and
+   * `responseHeaders`.
+   */
+  data?: {
+    message?: string
+    responseBody?: unknown
+    statusCode?: number
+    responseHeaders?: unknown
+  }
 }
 
 interface MessageInfo {
