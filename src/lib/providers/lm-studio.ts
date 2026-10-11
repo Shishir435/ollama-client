@@ -9,6 +9,7 @@ import {
   normalizeLmStudioLoadedModel
 } from "./model-lifecycle"
 import { OpenAICompatibleProvider } from "./openai-compatible"
+import { readOptionalMetadata } from "./optional-metadata"
 import { decodeProviderJson } from "./response-decoding"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
@@ -30,52 +31,52 @@ const LMStudioModelCatalogSchema = z
   })
   .passthrough()
 
-const loadedContextLengths = async (baseUrl: string, signal?: AbortSignal) => {
-  const lengths = new Map<string, number>()
-  try {
-    const response = await fetch(
-      `${baseUrl}/api/v1/models`,
-      signal ? { signal } : undefined
-    )
-    if (!response.ok) return lengths
-    const data = await response.json()
-    for (const model of Array.isArray(data?.models) ? data.models : []) {
-      if (typeof model.key !== "string") continue
-      const instances = Array.isArray(model.loaded_instances)
-        ? model.loaded_instances
-        : []
-      const reported = instances
-        .map(
-          (instance: { config?: { context_length?: unknown } }) =>
-            instance.config?.context_length
-        )
-        .filter(
-          (value: unknown): value is number =>
-            typeof value === "number" &&
-            Number.isSafeInteger(value) &&
-            value > 0
-        )
-      // Several instances may route this id: the smallest is the safe window.
-      if (reported.length) lengths.set(model.key, Math.min(...reported))
-      for (const instance of instances) {
-        const size = instance.config?.context_length
-        if (
-          typeof instance.id === "string" &&
-          typeof size === "number" &&
-          Number.isSafeInteger(size) &&
-          size > 0
-        )
-          lengths.set(
-            instance.id,
-            Math.min(lengths.get(instance.id) ?? size, size)
+const loadedContextLengths = (baseUrl: string, signal?: AbortSignal) =>
+  readOptionalMetadata(
+    async (bounded) => {
+      const lengths = new Map<string, number>()
+      const response = await fetch(`${baseUrl}/api/v1/models`, {
+        signal: bounded
+      })
+      if (!response.ok) return lengths
+      const data = await response.json()
+      for (const model of Array.isArray(data?.models) ? data.models : []) {
+        if (typeof model.key !== "string") continue
+        const instances = Array.isArray(model.loaded_instances)
+          ? model.loaded_instances
+          : []
+        const reported = instances
+          .map(
+            (instance: { config?: { context_length?: unknown } }) =>
+              instance.config?.context_length
           )
+          .filter(
+            (value: unknown): value is number =>
+              typeof value === "number" &&
+              Number.isSafeInteger(value) &&
+              value > 0
+          )
+        // Several instances may route this id: the smallest is the safe window.
+        if (reported.length) lengths.set(model.key, Math.min(...reported))
+        for (const instance of instances) {
+          const size = instance.config?.context_length
+          if (
+            typeof instance.id === "string" &&
+            typeof size === "number" &&
+            Number.isSafeInteger(size) &&
+            size > 0
+          )
+            lengths.set(
+              instance.id,
+              Math.min(lengths.get(instance.id) ?? size, size)
+            )
+        }
       }
-    }
-  } catch (error) {
-    if (signal?.aborted) throw error
-  }
-  return lengths
-}
+      return lengths
+    },
+    new Map<string, number>(),
+    signal
+  )
 
 /**
  * Specialized provider for LM Studio specific metadata.

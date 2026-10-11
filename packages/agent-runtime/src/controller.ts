@@ -124,7 +124,12 @@ import {
 } from "./recovery"
 import { agentResolutionFailure } from "./resolution-failure"
 import { agentRunResult } from "./run-result"
-import { agentRunTokens, MAX_AGENT_RUN_TOKENS } from "./run-token-budget"
+import {
+  agentRunTokens,
+  agentTelemetryTokens,
+  MAX_AGENT_RUN_TOKENS,
+  withoutAgentTelemetryTokens
+} from "./run-token-budget"
 import {
   AGENT_STATUS_PREDECESSORS,
   agentTabScope,
@@ -509,8 +514,21 @@ export const createAgentController = (
     reason: AgentPauseReason,
     extra: AgentStatePatch = {}
   ): Promise<AgentRunState | undefined> => {
+    /**
+     * A decision that pauses writes no receipt, so its tokens would wait in
+     * `pendingTelemetry` where the ceiling cannot see them across a resume or
+     * a worker restart. They move onto the run here and leave the pending
+     * record, so the next receipt does not count them twice.
+     */
+    if (state.status === "paused") return state
+    const spent = agentTelemetryTokens(pendingTelemetry)
+    if (spent > 0)
+      pendingTelemetry = withoutAgentTelemetryTokens(pendingTelemetry)
     const paused = () => ({
       ...pausePatch(reason, dependencies.clock.now()),
+      ...(spent > 0
+        ? { unreceiptedTokens: (state.unreceiptedTokens ?? 0) + spent }
+        : {}),
       ...(state.deadline && (reason === "question" || reason === "user")
         ? {
             deadline: suspendAgentDeadlines(
@@ -522,7 +540,6 @@ export const createAgentController = (
         : {}),
       ...extra
     })
-    if (state.status === "paused") return state
     if (state.status === "pause_requested") {
       return transition(state, "paused", paused())
     }
@@ -3148,7 +3165,12 @@ export const createAgentController = (
     observation: AgentObservation,
     receipts: readonly AgentStepReadout[]
   ): Promise<boolean> => {
-    if (agentRunTokens(receipts) >= MAX_AGENT_RUN_TOKENS) {
+    if (
+      agentRunTokens(receipts) +
+        (state.unreceiptedTokens ?? 0) +
+        agentTelemetryTokens(pendingTelemetry) >=
+      MAX_AGENT_RUN_TOKENS
+    ) {
       await fail(
         state,
         "budget_exhausted",
@@ -3157,7 +3179,20 @@ export const createAgentController = (
       return true
     }
     if (agentObservationNeedsHuman(observation)) {
-      await pause(state, "takeover")
+      /** Signing in or solving a challenge is the user's time, not the run's. */
+      await pause(
+        state,
+        "takeover",
+        state.deadline
+          ? {
+              deadline: suspendAgentDeadlines(
+                state.deadline,
+                "takeover",
+                dependencies.clock.now()
+              )
+            }
+          : {}
+      )
       return true
     }
     return false

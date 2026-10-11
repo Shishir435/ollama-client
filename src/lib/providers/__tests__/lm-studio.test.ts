@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { LMStudioProvider } from "../lm-studio"
+import { OPTIONAL_METADATA_TIMEOUT_MS } from "../optional-metadata"
 import { ProviderId, ProviderType } from "../types"
 
 /*
@@ -83,6 +84,33 @@ describe("LMStudioProvider.getModels", () => {
       } as Response)
     const [model] = await makeProvider().getModels()
     expect(model.capabilityHints?.contextLength).toBe(8192)
+  })
+
+  it("returns the catalog without a window when the loaded-model read stalls", async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(
+          v0Response([
+            { id: "qwen3-8b", max_context_length: 262144 }
+          ]) as Response
+        )
+        .mockImplementationOnce(
+          (_url, init) =>
+            new Promise((_resolve, reject) =>
+              init?.signal?.addEventListener("abort", () =>
+                reject(init.signal?.reason)
+              )
+            )
+        )
+      const pending = makeProvider().getModels()
+      await vi.advanceTimersByTimeAsync(OPTIONAL_METADATA_TIMEOUT_MS)
+      const [model] = await pending
+      expect(model.name).toBe("qwen3-8b")
+      expect(model.capabilityHints?.contextLength).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("forwards the reported capability tags", async () => {

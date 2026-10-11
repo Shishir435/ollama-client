@@ -11,8 +11,10 @@ import ts from "typescript"
 const run = async () => {
   const root = mkdtempSync(join(tmpdir(), "extraction-inert-"))
   let probes = 0
+  let controls = 0
   const server = createServer((request, response) => {
     if (request.url?.startsWith("/probe")) probes++
+    if (request.url?.startsWith("/control")) controls++
     response.setHeader("Content-Type", "text/html")
     response.end(
       "<!doctype html><title>Inert extraction regression</title><p>Fixture</p>"
@@ -53,6 +55,11 @@ const run = async () => {
     const require = name => {const exports = {}; modules[name](exports, require); return exports;};
     const {htmlToPlainText} = require("helper");
     document.documentElement.dataset.extracted = htmlToPlainText(${JSON.stringify(`<p>Decoded &amp; safe</p><img src="http://127.0.0.1:${port}/probe" onerror="document.documentElement.dataset.executed='yes'">`)});
+    // Positive control: the same markup through a live sink does load, so a
+    // zero probe count below is the helper's doing, not a short wait.
+    const live = document.createElement("div");
+    live.innerHTML = ${JSON.stringify(`<img src="http://127.0.0.1:${port}/control">`)};
+    document.body.append(live);
   `
     )
     const context = await chromium.launchPersistentContext(
@@ -72,7 +79,10 @@ const run = async () => {
       await page.waitForFunction(
         () => document.documentElement.dataset.extracted !== undefined
       )
-      await page.waitForTimeout(250)
+      const deadline = Date.now() + 10_000
+      while (controls === 0 && Date.now() < deadline)
+        await page.waitForTimeout(25)
+      assert.ok(controls > 0, "the live-sink control never loaded")
       const state = await page.evaluate(() => ({
         text: document.documentElement.dataset.extracted,
         executed: document.documentElement.dataset.executed

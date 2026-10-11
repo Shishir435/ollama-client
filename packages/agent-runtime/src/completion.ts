@@ -948,6 +948,17 @@ const quotationNamesReceiptValue = (
  * Every met read needs a retained independent observed fact. Missing
  * support, stale snapshots and model-authored findings stay unknown.
  */
+/**
+ * A read asking for the present state cannot rest on a historical fact. The
+ * same answer decides both whether a quote is grounded and how the report
+ * labels it, or a stale quote could hide that a screenshot carried the read.
+ */
+const requiresCurrentState = (requirement: AgentTaskRequirement): boolean =>
+  requirement.freshness === "current" ||
+  /\b(?:current|currently|now|latest|today|still)\b/i.test(
+    requirement.source ?? requirement.text
+  )
+
 const refusePlannedReadClaim = (
   evidence: string | undefined,
   input: AgentCompletionInput,
@@ -961,11 +972,7 @@ const refusePlannedReadClaim = (
         "Quote the independently observed fact supporting this read result. Missing support is unknown; do not mark it verified."
     }
   const requirementId = requirement.id
-  const current =
-    requirement.freshness === "current" ||
-    /\b(?:current|currently|now|latest|today|still)\b/i.test(
-      requirement.source ?? requirement.text
-    )
+  const current = requiresCurrentState(requirement)
   if (
     groundedCompletionQuote(
       evidence,
@@ -2281,7 +2288,12 @@ const recordJudgedItems = (
       const quote = claim.items?.find((item) => item.index === index)?.evidence
       return (
         requirement.kind === "read" &&
-        !groundedCompletionQuote(quote, requirement.id, input.evidenceLedger) &&
+        !groundedCompletionQuote(
+          quote,
+          requirement.id,
+          input.evidenceLedger,
+          requiresCurrentState(requirement)
+        ) &&
         visualCompletionRead(quote, requirement.id, input.evidenceLedger) !==
           undefined
       )
@@ -2393,8 +2405,12 @@ const judgePlanned = (
       : [claim?.evidence]
     return evidence.some(
       (quote) =>
-        !groundedCompletionQuote(quote, id, input.evidenceLedger) &&
-        visualCompletionRead(quote, id, input.evidenceLedger) !== undefined
+        !groundedCompletionQuote(
+          quote,
+          id,
+          input.evidenceLedger,
+          requiresCurrentState(requirement)
+        ) && visualCompletionRead(quote, id, input.evidenceLedger) !== undefined
     )
   })
   const outcome = {

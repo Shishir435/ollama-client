@@ -74,6 +74,30 @@ describe("Agent observation builder", () => {
     ])
   })
 
+  it("labels repeated div rows by their own record", () => {
+    document.body.innerHTML =
+      '<div><div><a href="/pull/1">Fix parser</a> <button>Close</button></div><div><a href="/pull/2">Add docs</a> <button>Close</button></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "Fix parser Close",
+      "Add docs Close"
+    ])
+  })
+
+  it("never labels a control with a wrapper spanning several records", () => {
+    document.body.innerHTML =
+      '<div><div><section><div><a href="/pull/1">Fix parser</a> <button>Close</button></div></section><section><div><a href="/pull/2">Add docs</a> <button>Close</button></div></section></div><div><a href="/other">Other</a></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      undefined,
+      undefined
+    ])
+  })
+
   it("exposes an empty editor's rendered placeholder separately from its ARIA name", () => {
     document.body.innerHTML =
       '<div contenteditable="true" aria-label="Chat with assistant"><p data-placeholder="Ask assistant"><br></p></div>'

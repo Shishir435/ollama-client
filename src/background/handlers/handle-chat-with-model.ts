@@ -162,19 +162,24 @@ const injectSystemMessage = (
   contextHeader: string,
   guidance: string
 ): void => {
-  const systemIndex = messages.findIndex((message) => message.role === "system")
+  let systemIndex = messages.findIndex((message) => message.role === "system")
   if (systemIndex === -1) {
     messages.unshift({ role: "system", content: systemPrompt })
+    systemIndex = 0
   }
   const dynamicContext = contextHeader + guidance
   if (!dynamicContext) return
+  const block = `\n\n<runtime_context>${dynamicContext}\n</runtime_context>`
   let userIndex = messages.length - 1
   while (userIndex >= 0 && messages[userIndex].role !== "user") userIndex -= 1
-  if (userIndex >= 0) {
-    messages[userIndex] = {
-      ...messages[userIndex],
-      content: `${messages[userIndex].content}\n\n<runtime_context>${dynamicContext}\n</runtime_context>`
-    }
+  /**
+   * With no user turn to carry it, the context goes on the system message
+   * rather than into a fabricated user turn that would change the roles.
+   */
+  const target = userIndex >= 0 ? userIndex : systemIndex
+  messages[target] = {
+    ...messages[target],
+    content: `${messages[target].content}${block}`
   }
 }
 

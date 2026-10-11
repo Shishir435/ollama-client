@@ -139,6 +139,27 @@ describe("handleChatWithModel browser context", () => {
     ).toContain("inside the user's web browser")
   })
 
+  it("keeps the context on the system message when no user turn exists", async () => {
+    vi.mocked(resolveModelTools).mockResolvedValue({
+      tools: [tool("current_tab")],
+      mode: "native"
+    } as never)
+    vi.mocked(resolveActiveTabContext).mockResolvedValue(undefined)
+    const request = message(9)
+    request.payload.messages = [{ role: "assistant", content: "Hello" }]
+
+    await handleChatWithModel(
+      request,
+      createMockPort("chat"),
+      createMockIsPortClosed(false)
+    )
+
+    const sent = sentRequest().messages
+    expect(sent.map((entry) => entry.role)).toEqual(["system", "assistant"])
+    expect(sent[0].content).toContain("<runtime_context>")
+    expect(sent[0].content).toContain("inside the user's web browser")
+  })
+
   it("adds no browser context when no tab tool is offered", async () => {
     vi.mocked(resolveModelTools).mockResolvedValue({
       tools: [tool("web_search")],

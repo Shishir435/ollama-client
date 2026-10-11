@@ -122,6 +122,7 @@ const matchedInterventionImprovement = (reports, baselines) => {
       if (
         prior.length !== 1 ||
         prior[0].success !== true ||
+        row.success !== true ||
         !Number.isInteger(row.humanInterventions) ||
         row.humanInterventions < 0 ||
         !Number.isInteger(prior[0].humanInterventions) ||

@@ -825,17 +825,22 @@ const verifyApi = {
         { id: "r1", text: "Read the fixture status.", kind: "read" }
       ]
     })
-    await transitionAgentRun({ runId, from: "submitted", to: "observing" })
-    await transitionAgentRun({
+    /** A lost compare-and-set fails at its own hop, not as a consent error later. */
+    const step = async (input: Parameters<typeof transitionAgentRun>[0]) => {
+      if (!(await transitionAgentRun(input)).transitioned)
+        throw new Error(`Fixture transition ${input.from}->${input.to} failed`)
+    }
+    await step({ runId, from: "submitted", to: "observing" })
+    await step({
       runId,
       from: "observing",
       to: "pause_requested",
       patch: { pauseReason: "user", updatedAt: now }
     })
-    await transitionAgentRun({ runId, from: "pause_requested", to: "paused" })
+    await step({ runId, from: "pause_requested", to: "paused" })
     if (!(await setAgentRunUnattended(runId, now, true, sessionId)))
       throw new Error("Fixture consent was not committed")
-    await transitionAgentRun({ runId, from: "paused", to: "observing" })
+    await step({ runId, from: "paused", to: "observing" })
   },
 
   /**

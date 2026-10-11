@@ -1106,6 +1106,19 @@ const collectVisibleText = (
   return result
 }
 
+const controlKey = (element: Element): string =>
+  `${element.tagName}|${element.getAttribute("aria-label") ?? ""}|${normalizedText(element.textContent ?? "")}`
+
+const repeatsControl = (container: Element, element: Element): boolean => {
+  const key = controlKey(element)
+  let copies = 0
+  for (const candidate of container.querySelectorAll(element.tagName)) {
+    if (controlKey(candidate) === key) copies += 1
+    if (copies > 1) return true
+  }
+  return false
+}
+
 /** A bounded row label beside repeated controls such as Delete buttons. */
 const rowContextOf = (
   element: Element,
@@ -1120,6 +1133,11 @@ const rowContextOf = (
     if (current.matches("li, tr, [role='row'], [role='listitem']"))
       return collectVisibleText(current, 140, pass, scope) || undefined
     if (!current.matches("div") || !current.querySelector("a[href]")) continue
+    /**
+     * A wrapper holding a second copy of this control spans several records,
+     * and so does every ancestor above it: its text would name the wrong one.
+     */
+    if (repeatsControl(current, element)) return undefined
     const siblings = current.parentElement?.children
     if (
       !siblings ||

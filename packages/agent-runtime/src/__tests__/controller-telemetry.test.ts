@@ -7,6 +7,7 @@ import type {
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 
+import { initialAgentDeadlineState } from "../budgets"
 import { createAgentController } from "../controller"
 import type {
   AgentControllerDependencies,
@@ -111,13 +112,19 @@ const harness = (options: {
   tickingClock?: boolean
   decisionTelemetry?: () => AgentStepTelemetry | undefined
   decisionThinking?: () => string | undefined
+  initial?: Partial<AgentRunState>
+  observations?: AgentObservation[]
 }) => {
-  let current = state()
+  let current = state(options.initial)
   const written: AgentStepWrite[] = []
   const decideInputs: AgentModelInput[] = []
   const resolveContexts: (AgentResolutionContext | undefined)[] = []
   const trace: string[] = []
-  const observations = [observation(1), observation(2), observation(3)]
+  const observations = options.observations ?? [
+    observation(1),
+    observation(2),
+    observation(3)
+  ]
   const decisions = [
     ...(options.decisions ?? [
       {
@@ -386,5 +393,68 @@ describe("controller step telemetry", () => {
     for (const step of run.written()) {
       expect(step.telemetry?.promptTokens).toBeUndefined()
     }
+  })
+})
+
+describe("controller run token ceiling", () => {
+  it("keeps a question's tokens on the run, so a resume still counts them", async () => {
+    const run = harness({
+      decisions: [{ type: "ask_user", question: "Which one?" }],
+      decisionTelemetry: () => ({ promptTokens: 1_200, outputTokens: 30 })
+    })
+    await run.controller.start("run-1")
+
+    expect(run.state().status).toBe("paused")
+    expect(run.state().pauseReason).toBe("question")
+    expect(run.state().unreceiptedTokens).toBe(1_230)
+  })
+
+  it("stops before deciding once receipts and paused decisions reach the ceiling", async () => {
+    const run = harness({ initial: { unreceiptedTokens: 1_000_000 } })
+    await run.controller.start("run-1")
+
+    expect(run.state().status).toBe("failed")
+    expect(run.state().error?.code).toBe("budget_exhausted")
+    expect(run.decideInputs).toHaveLength(0)
+  })
+})
+
+describe("controller human boundary", () => {
+  it("suspends the active-time clock while the user signs in", async () => {
+    const gate: AgentObservation = {
+      ...observation(1),
+      elements: [
+        {
+          ref: "e1",
+          tag: "input",
+          type: "password",
+          visible: true,
+          enabled: true,
+          editable: true,
+          sensitive: true,
+          frameId: 0
+        },
+        {
+          ref: "e2",
+          tag: "button",
+          name: "Next",
+          visible: true,
+          enabled: true,
+          editable: false,
+          sensitive: false,
+          frameId: 0
+        }
+      ]
+    }
+    const run = harness({
+      initial: { deadline: initialAgentDeadlineState(1) },
+      observations: [gate]
+    })
+    await run.controller.start("run-1")
+
+    expect(run.state().status).toBe("paused")
+    expect(run.state().pauseReason).toBe("takeover")
+    expect(run.state().deadline?.suspendedAt).toBeDefined()
+    expect(run.state().deadline?.suspensionKind).toBe("takeover")
   })
 })

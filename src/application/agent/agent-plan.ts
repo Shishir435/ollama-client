@@ -955,7 +955,7 @@ const parsedCompletionCheck = (raw: unknown): AgentTaskRequirement["check"] => {
   if (!parsed.success)
     throw new AgentDecisionFormatError(
       "The plan carried an invalid completion predicate",
-      "Repair check using one of field, checked, selected, url, row or record_state and its schema fields; do not drop the requested outcome."
+      "Repair check using one of field, checked, selected, control_transition, url, row or record_state and its schema fields; do not drop the requested outcome."
     )
   return parsed.data
 }

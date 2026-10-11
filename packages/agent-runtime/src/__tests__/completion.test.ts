@@ -2868,4 +2868,35 @@ describe("release review evidence regressions", () => {
     })
     expect(result).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
+  it("labels a current-state read carried by a screenshot as seen, even beside a stale quote", () => {
+    const result = judgeAgentCompletion({
+      steps: [],
+      observation: observation(),
+      evidenceLedger: [
+        {
+          ...observedFact("Invoice 1 is paid", "historical"),
+          requirementId: "r1"
+        },
+        {
+          ...observedFact("Invoice 1 is paid"),
+          id: "visual:paid",
+          kind: "visual_observation",
+          requirementId: "r1"
+        }
+      ],
+      requirements: [
+        {
+          id: "r1",
+          text: "Report the current status of Invoice 1",
+          kind: "read",
+          freshness: "current"
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 is paid" }]
+    })
+    expect(result).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+    })
+  })
 })

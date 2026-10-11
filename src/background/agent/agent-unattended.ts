@@ -78,7 +78,8 @@ export const registerAgentUnattendedControls = (
   browser.alarms?.onAlarm.addListener(alarm)
   browser.commands.onCommand.addListener(command)
   browser.contextMenus.onClicked.addListener(menu)
-  void browser.contextMenus
+  /** Visibility updates wait for the item to exist, or the first one fails silently. */
+  const menuReady = browser.contextMenus
     .remove(STOP_MENU)
     .catch(() => undefined)
     .then(() => {
@@ -97,9 +98,10 @@ export const registerAgentUnattendedControls = (
     })
 
   let working = false
-  let refresh = Promise.resolve()
+  let refresh: Promise<void> = menuReady
+  /** The boundary each run last notified for; cleared once it leaves it. */
   const notified = new Map<string, string>()
-  const refreshRun = (id: string) => {
+  const refreshRun = (id: string, initial = false) => {
     refresh = refresh
       .then(async () => {
         const { run } = await service.snapshot(id)
@@ -129,11 +131,14 @@ export const registerAgentUnattendedControls = (
               ["paused", "awaiting_approval", "awaiting_takeover"].includes(
                 run.status
               ))
-          if (boundary && notified.get(id) !== run.status) {
+          if (!boundary) notified.delete(id)
+          else if (notified.get(id) !== run.status) {
             notified.set(id, run.status)
-            await notifyUnattended(id, run.status === "completed").catch(
-              () => undefined
-            )
+            /** A boundary already reached before this worker started was announced then. */
+            if (!initial)
+              await notifyUnattended(id, run.status === "completed").catch(
+                () => undefined
+              )
           }
         }
       })
@@ -141,11 +146,11 @@ export const registerAgentUnattendedControls = (
         working = false
       })
   }
-  const unsubscribe = service.subscribe(refreshRun)
+  const unsubscribe = service.subscribe((id) => refreshRun(id))
   void ready
     .then(() => service.latestRunId())
     .then((id) => {
-      if (id && !disposed) refreshRun(id)
+      if (id && !disposed) refreshRun(id, true)
     })
     .catch(() => undefined)
   /** Browser API traffic prevents idle loss only during bounded authorized work. Human waits may sleep. */

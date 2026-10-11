@@ -194,3 +194,26 @@ it("reads llama.cpp's loaded slot window rather than its training limit", async 
   }).getModels()
   expect(model.capabilityHints?.contextLength).toBe(4096)
 })
+
+it("leaves every window unknown when a llama.cpp router lists several models", async () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    jsonResponse({
+      data: [
+        { id: "small", meta: { n_ctx_train: 8192 } },
+        { id: "large", meta: { n_ctx_train: 262144 } }
+      ]
+    })
+  )
+  const models = await new LlamaCppProvider({
+    id: ProviderId.LLAMA_CPP,
+    type: ProviderType.OPENAI,
+    enabled: true,
+    name: "llama.cpp",
+    baseUrl: "http://localhost:8000/v1"
+  }).getModels()
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+  expect(models.map((model) => model.capabilityHints?.contextLength)).toEqual([
+    undefined,
+    undefined
+  ])
+})

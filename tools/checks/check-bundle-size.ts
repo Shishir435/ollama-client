@@ -247,7 +247,8 @@ const budgets: Budget[] = [
     /** PR 14 stop limit refused past a select on a named control measures Chrome at 48,550,903. */
     /** PR 14 stop limit met by a fill only for a control-state outcome measures Chrome at 48,551,361. */
     /** 0.14.0 review remediation measures Chrome at 48,569,820. */
-    max: isFirefox ? 50_300_000 : 48_569_820
+    /** Its bot-review fixes measure Chrome at 48,571,300. */
+    max: isFirefox ? 50_300_000 : 48_571_300
   },
   {
     metric: "zip",
@@ -560,7 +561,8 @@ const budgets: Budget[] = [
      * through the shared contract schemas. Terser was tried and rejected: it
      * saved Chrome 1.7 kB but left the compiled-out Agent in Firefox (+106 kB).
      */
-    max: isFirefox ? 222_500 : 341_625
+    /** Its bot-review fixes — bounded optional metadata, paused-decision tokens — measure Chrome at 342,033 and Firefox at 222,408. */
+    max: isFirefox ? 222_500 : 342_033
   }
 ]
 

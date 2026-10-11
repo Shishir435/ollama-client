@@ -1197,6 +1197,12 @@ export const AgentRunStateSchema = z
     question: AgentQuestionSchema.optional(),
     answers: z.array(AgentAnswerSchema).max(MAX_AGENT_ANSWERS).optional(),
     deadline: AgentDeadlineStateSchema.optional(),
+    /**
+     * Tokens spent by decisions that paused before any receipt claimed them,
+     * such as a question. Kept here so the run's token ceiling survives the
+     * pause and a worker restart; absent means none.
+     */
+    unreceiptedTokens: z.number().int().nonnegative().optional(),
     /** Absent on rows written before recovery existed, and on runs that never needed it. */
     recovery: AgentRecoveryStateSchema.optional(),
     /** The settled run this one follows, when it was started as a follow-up. */
