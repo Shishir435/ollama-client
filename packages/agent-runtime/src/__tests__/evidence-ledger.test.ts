@@ -678,6 +678,9 @@ describe("grounded evidence ledger", () => {
     /** Whole words still match, joined or split. */
     expect(kinds("KV305", "The code is KV 305")).toEqual([])
     expect(kinds("KV 305", "Code KV-305")).toEqual([])
+    /** A point after a letter is punctuation; only between digits is it a number. */
+    expect(kinds("AB.12", "AB 12")).toEqual([])
+    expect(kinds("12", "Version 1.2")).toEqual(["visual_observation"])
     /** A quotation is held to the same edges. */
     expect(
       groundAgentQuotes(

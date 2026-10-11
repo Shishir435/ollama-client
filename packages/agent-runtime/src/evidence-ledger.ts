@@ -125,14 +125,17 @@ interface CompactClaim {
 
 /**
  * The words of a claim, lowercased and joined with nothing between them. A
- * word is a run of letters and digits, and a point or comma between two
- * digits stays inside it: "1.2" read off a chart is not the "12" a field
+ * word is a run of letters and digits, and a point or comma with a digit on
+ * both sides stays inside it — after a letter it is punctuation, so "AB.12"
+ * is the words "ab" and "12": "1.2" read off a chart is not the "12" a field
  * holds. Spacing, case and other punctuation are dropped, so "KV-305"
  * reported as "KV 305" is the same text.
  */
 const compactClaim = (text: string): CompactClaim => {
   const words =
-    text.toLocaleLowerCase().match(/[\p{L}\p{N}]+(?:[.,]\p{N}+)*/gu) ?? []
+    text
+      .toLocaleLowerCase()
+      .match(/(?:[\p{L}\p{N}]|(?<=\p{N})[.,](?=\p{N}))+/gu) ?? []
   const edges = new Set<number>([0])
   let length = 0
   for (const word of words) {
