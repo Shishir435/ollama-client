@@ -226,5 +226,19 @@ private debug evidence should stay local. There is no automatic feedback upload.
 Use the disable path if a preview update misbehaves. Preserve local data and
 install a forward-compatible fix; do not clear storage or downgrade across a
 forward-only migration to roll back runtime behavior. Closing the side panel
-pauses supervised work. Browser shutdown or worker loss cannot provide
-unattended execution, and interrupted effects require reconciliation.
+pauses supervised work unless this task has explicit panel-close consent.
+Disabling Agent also prevents automatic worker recovery. Browser shutdown clears
+that consent's session identity; machine sleep interrupts execution. On a worker
+wake, opted-in safe checkpoints can resume after permission, tab, origin and
+provider/model checks. Interrupted effects require reconciliation and are never
+replayed automatically.
+
+With the optional alarms permission already granted, active panel-free tasks keep
+a one-minute browser wake alarm. Recovery still rechecks consent and the Agent
+switch. If notification permission is already granted, completion and human
+boundaries produce a content-free desktop notification. Neither control requests
+permissions from a background event.
+
+Current qualification fixtures are generated variants from ten workflow families,
+not sixty independent real-world workflows. Live-model reports, measured prices
+and comparable manual-intervention baselines are separate release evidence.

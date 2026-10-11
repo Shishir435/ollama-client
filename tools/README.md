@@ -90,6 +90,7 @@ only after merging the reports.
 | `pnpm e2e:release:run` | Consume those four builds; run critical Chromium, both worker-recovery gates, and Chrome/Firefox migration gates |
 | `pnpm verify:sw-turn-recovery` | Kill a real MV3 worker mid-turn; a fresh one must resume the durable turn exactly once. Needs `benchmark:build` |
 | `pnpm verify:sw-agent-recovery` | Kill a real MV3 worker mid-effect; a fresh one must settle the Agent run as unresolved without reissuing it. Needs `benchmark:build` |
+| `pnpm verify:extraction-inert` | Load the real `htmlToPlainText` in an MV3 isolated content script; extracted HTML must fire no handler and request no resource |
 | `pnpm e2e:release` | Build all four targets and run the release browser gates |
 | `pnpm verify:release` | Static checks + coverage, all four builds, manifest/bundle checks, docs build, and release browser gates; each browser target builds once |
 | `pnpm verify:agent-endpoints [baseUrl]` | Probe a deployed docs site for the agent contract: Markdown negotiation, 404 status and body, JSON API errors, rate-limit headers, and every machine-readable file. Defaults to production; pass a preview URL to check a deploy before promoting it. Needs network, no build |
