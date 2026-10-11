@@ -162,25 +162,27 @@ const injectSystemMessage = (
   contextHeader: string,
   guidance: string
 ): void => {
-  let systemIndex = messages.findIndex((message) => message.role === "system")
-  if (systemIndex === -1) {
+  if (!messages.some((message) => message.role === "system")) {
     messages.unshift({ role: "system", content: systemPrompt })
-    systemIndex = 0
   }
   const dynamicContext = contextHeader + guidance
   if (!dynamicContext) return
-  const block = `\n\n<runtime_context>${dynamicContext}\n</runtime_context>`
+  const block = `<runtime_context>${dynamicContext}\n</runtime_context>`
   let userIndex = messages.length - 1
   while (userIndex >= 0 && messages[userIndex].role !== "user") userIndex -= 1
-  /**
-   * With no user turn to carry it, the context goes on the system message
-   * rather than into a fabricated user turn that would change the roles.
-   */
-  const target = userIndex >= 0 ? userIndex : systemIndex
-  messages[target] = {
-    ...messages[target],
-    content: `${messages[target].content}${block}`
+  if (userIndex >= 0) {
+    messages[userIndex] = {
+      ...messages[userIndex],
+      content: `${messages[userIndex].content}\n\n${block}`
+    }
+    return
   }
+  /**
+   * With no user turn to carry it, the context becomes its own trailing
+   * system message: the leading system prompt stays byte-stable for caching,
+   * and no user turn is fabricated to change the roles.
+   */
+  messages.push({ role: "system", content: block })
 }
 
 const createChunkHandler = (

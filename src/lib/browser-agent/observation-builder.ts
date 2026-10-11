@@ -1109,11 +1109,21 @@ const collectVisibleText = (
 const controlKey = (element: Element): string =>
   `${element.tagName}|${element.getAttribute("aria-label") ?? ""}|${normalizedText(element.textContent ?? "")}`
 
-const repeatsControl = (container: Element, element: Element): boolean => {
+/**
+ * Only rendered copies count: a hidden twin kept for another layout belongs
+ * to the same record. Offscreen copies still count, since a record below the
+ * fold is still another record.
+ */
+const repeatsControl = (
+  container: Element,
+  element: Element,
+  pass: AgentObservationPass
+): boolean => {
   const key = controlKey(element)
   let copies = 0
   for (const candidate of container.querySelectorAll(element.tagName)) {
-    if (controlKey(candidate) === key) copies += 1
+    if (controlKey(candidate) === key && !isChainHidden(candidate, pass))
+      copies += 1
     if (copies > 1) return true
   }
   return false
@@ -1137,7 +1147,7 @@ const rowContextOf = (
      * A wrapper holding a second copy of this control spans several records,
      * and so does every ancestor above it: its text would name the wrong one.
      */
-    if (repeatsControl(current, element)) return undefined
+    if (repeatsControl(current, element, pass)) return undefined
     const siblings = current.parentElement?.children
     if (
       !siblings ||

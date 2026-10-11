@@ -5,32 +5,70 @@ const CREDENTIAL_SUBMIT =
 const SIGN_IN_PAGE =
   /(?:^|[^a-z])(?:sign[ _-]?in|sign[ _-]?on|log[ _-]?in|sso|auth(?:enticate|orize)?)(?:[^a-z]|$)/i
 
+type ObservedElement = AgentObservation["elements"][number]
+
+const submitsCredentials = (element: ObservedElement): boolean =>
+  element.visible &&
+  element.enabled !== false &&
+  (element.tag === "button" ||
+    element.role === "button" ||
+    (element.tag === "input" &&
+      ["submit", "button"].includes(element.type ?? ""))) &&
+  CREDENTIAL_SUBMIT.test(element.name?.trim() ?? "")
+
+const NON_TEXT_INPUTS = new Set([
+  "hidden",
+  "checkbox",
+  "radio",
+  "submit",
+  "button",
+  "password"
+])
+
+/**
+ * Whether this password field is a sign-in rather than an optional password
+ * form among other settings. A sign-in form holds one password and at most a
+ * username beside it, and its own submit control offers to send them; a
+ * change-password form carries current, new and confirm fields, and a
+ * settings form many more. A button elsewhere on the page proves nothing.
+ */
+const isSignInField = (
+  field: ObservedElement,
+  observation: AgentObservation,
+  signInPage: boolean
+): boolean => {
+  const form = field.formFingerprint
+  if (!form) return signInPage
+  const inForm = observation.elements.filter(
+    (element) => element.formFingerprint === form
+  )
+  if (inForm.filter((element) => element.type === "password").length !== 1)
+    return false
+  const otherFields = inForm.filter(
+    (element) =>
+      element.editable &&
+      element.tag !== "button" &&
+      !NON_TEXT_INPUTS.has(element.type ?? "")
+  )
+  if (otherFields.length > 2) return false
+  return signInPage || inForm.some(submitsCredentials)
+}
+
 /** Detect rendered interaction gates, not prose mentioning login or CAPTCHA. */
 export const agentObservationNeedsHuman = (
   observation: AgentObservation
 ): boolean => {
   const visible = observation.elements.filter((element) => element.visible)
-  /**
-   * A rendered password field is a credential gate when something on the
-   * page offers to submit it — whatever that button says ("Submit", "Next",
-   * "Verify") — or the page calls itself a sign-in. A password field on a page
-   * the task only reads is not a gate, and pausing there would stall the read.
-   */
+  const signInPage =
+    SIGN_IN_PAGE.test(observation.title) ||
+    SIGN_IN_PAGE.test(observation.url ?? "")
   if (
     visible.some(
-      (element) => element.type === "password" && element.enabled !== false
-    ) &&
-    (visible.some(
       (element) =>
+        element.type === "password" &&
         element.enabled !== false &&
-        (element.tag === "button" ||
-          element.role === "button" ||
-          (element.tag === "input" &&
-            ["submit", "button"].includes(element.type ?? ""))) &&
-        CREDENTIAL_SUBMIT.test(element.name?.trim() ?? "")
-    ) ||
-      SIGN_IN_PAGE.test(observation.title) ||
-      SIGN_IN_PAGE.test(observation.url ?? ""))
+        isSignInField(element, observation, signInPage)
+    )
   )
     return true
   if (

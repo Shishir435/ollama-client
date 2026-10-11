@@ -139,7 +139,7 @@ describe("handleChatWithModel browser context", () => {
     ).toContain("inside the user's web browser")
   })
 
-  it("keeps the context on the system message when no user turn exists", async () => {
+  it("adds the context as a trailing system message when no user turn exists", async () => {
     vi.mocked(resolveModelTools).mockResolvedValue({
       tools: [tool("current_tab")],
       mode: "native"
@@ -155,9 +155,14 @@ describe("handleChatWithModel browser context", () => {
     )
 
     const sent = sentRequest().messages
-    expect(sent.map((entry) => entry.role)).toEqual(["system", "assistant"])
-    expect(sent[0].content).toContain("<runtime_context>")
-    expect(sent[0].content).toContain("inside the user's web browser")
+    expect(sent.map((entry) => entry.role)).toEqual([
+      "system",
+      "assistant",
+      "system"
+    ])
+    expect(sent[0].content).not.toContain("<runtime_context>")
+    expect(sent[2].content).toContain("<runtime_context>")
+    expect(sent[2].content).toContain("inside the user's web browser")
   })
 
   it("adds no browser context when no tab tool is offered", async () => {

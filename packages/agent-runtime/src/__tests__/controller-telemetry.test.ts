@@ -432,7 +432,8 @@ describe("controller human boundary", () => {
           enabled: true,
           editable: true,
           sensitive: true,
-          frameId: 0
+          frameId: 0,
+          formFingerprint: "aaaaaaaa"
         },
         {
           ref: "e2",
@@ -442,7 +443,8 @@ describe("controller human boundary", () => {
           enabled: true,
           editable: false,
           sensitive: false,
-          frameId: 0
+          frameId: 0,
+          formFingerprint: "aaaaaaaa"
         }
       ]
     }

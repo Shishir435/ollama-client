@@ -86,6 +86,15 @@ describe("Agent observation builder", () => {
     ])
   })
 
+  it("keeps a row's label when a hidden twin of its control sits beside it", () => {
+    document.body.innerHTML =
+      '<div><div><a href="/pull/1">Fix parser</a> <button>Delete</button><button style="display:none">Delete</button></div><div><a href="/pull/2">Add docs</a> <button>Delete</button></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons[0].rowContext).toBe("Fix parser Delete")
+  })
+
   it("never labels a control with a wrapper spanning several records", () => {
     document.body.innerHTML =
       '<div><div><section><div><a href="/pull/1">Fix parser</a> <button>Close</button></div></section><section><div><a href="/pull/2">Add docs</a> <button>Close</button></div></section></div><div><a href="/other">Other</a></div></div>'
