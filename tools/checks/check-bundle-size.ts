@@ -246,7 +246,9 @@ const budgets: Budget[] = [
     /** PR 14 stop limit judged by how its outcome is met measures Chrome at 48,550,786. */
     /** PR 14 stop limit refused past a select on a named control measures Chrome at 48,550,903. */
     /** PR 14 stop limit met by a fill only for a control-state outcome measures Chrome at 48,551,361. */
-    max: isFirefox ? 50_300_000 : 48_551_361
+    /** 0.14.0 review remediation measures Chrome at 48,569,820. */
+    /** Its bot-review fixes measure Chrome at 48,572,145. */
+    max: isFirefox ? 50_300_000 : 48_572_145
   },
   {
     metric: "zip",
@@ -552,7 +554,15 @@ const budgets: Budget[] = [
     /** PR 14 stop limit judged by how its outcome is met measures Chrome at 339,159 gzip bytes. */
     /** PR 14 stop limit refused past a select on a named control measures Chrome at 339,217 gzip bytes. */
     /** PR 14 stop limit met by a fill only for a control-state outcome measures Chrome at 339,259 gzip bytes. */
-    max: isFirefox ? 222_000 : 339_259
+    /**
+     * 0.14.0 review remediation — control transitions, current-state reads,
+     * per-item judgments, human-boundary pauses, the run token ceiling, wake
+     * alarms and notices — measures Chrome at 341,625 and Firefox at 222,257
+     * through the shared contract schemas. Terser was tried and rejected: it
+     * saved Chrome 1.7 kB but left the compiled-out Agent in Firefox (+106 kB).
+     */
+    /** Its bot-review fixes — bounded optional metadata, paused-decision tokens — measure Chrome at 342,286 and Firefox at 222,408. */
+    max: isFirefox ? 222_500 : 342_286
   }
 ]
 

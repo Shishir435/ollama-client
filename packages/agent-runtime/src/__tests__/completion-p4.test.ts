@@ -6,7 +6,10 @@ import type {
 import { AgentTaskRequirementSchema } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import { judgeAgentCompletion } from "../completion"
-import { agentWriteHeldPlannedValue } from "../completion-support"
+import {
+  agentWriteHeldPlannedValue,
+  checkCompletionState
+} from "../completion-support"
 import type { AgentStepReadout } from "../ports"
 import { agentRunResult } from "../run-result"
 
@@ -110,7 +113,7 @@ const fact = (
   ...overrides
 })
 const judge = (
-  check?: AgentCompletionCheck,
+  check?: Exclude<AgentCompletionCheck, { type: "control_transition" }>,
   observation = page,
   evidence = "Invoice 1 saved",
   ledger = [fact(evidence)]
@@ -1345,5 +1348,100 @@ describe("P4 deterministic completion", () => {
         ])
       ).toMatchObject({ type: "accepted" })
     })
+  })
+})
+
+describe("renamed-control receipt binding", () => {
+  const requirement = {
+    id: "r1",
+    kind: "change" as const,
+    text: "Close becomes Reopen",
+    check: { type: "control_transition" as const, from: "Close", to: "Reopen" }
+  }
+  const after = {
+    ...page,
+    elements: [
+      {
+        ...page.elements[0],
+        tag: "button",
+        name: "Reopen",
+        verificationId: "same-button"
+      }
+    ]
+  }
+  const receipt: AgentStepReadout = {
+    runId: "r",
+    stepId: "s",
+    sequence: 1,
+    status: "verified",
+    at: 1,
+    requirementId: "r1",
+    verification: {
+      outcome: "confirmed",
+      evidence: {
+        kind: "activation",
+        summary: "changed",
+        observedAt: 1,
+        controlTransition: {
+          from: "Close",
+          to: "Reopen",
+          frameId: 0,
+          documentId: "d1",
+          verificationId: "same-button"
+        }
+      }
+    }
+  }
+  it("requires a receipt from the same requirement, frame, document and control", () => {
+    expect(
+      checkCompletionState(requirement, after, [], undefined, [receipt])
+    ).toBe(true)
+    expect(checkCompletionState(requirement, after, [], undefined, [])).toBe(
+      false
+    )
+    expect(
+      checkCompletionState(requirement, after, [], undefined, [
+        { ...receipt, requirementId: "r2" }
+      ])
+    ).toBe(false)
+    expect(
+      checkCompletionState(
+        requirement,
+        { ...after, documentId: "other" },
+        [],
+        undefined,
+        [receipt]
+      )
+    ).toBe(false)
+    expect(
+      checkCompletionState(
+        requirement,
+        {
+          ...after,
+          elements: [{ ...after.elements[0], verificationId: "other-button" }]
+        },
+        [],
+        undefined,
+        [receipt]
+      )
+    ).toBe(false)
+  })
+
+  it("accepts the transition only in the direction the requirement states", () => {
+    const clicked: AgentStepReadout = {
+      ...receipt,
+      command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 },
+      target: { ref: "e1", tag: "button", name: "Close" }
+    }
+    const judge = (text: string) =>
+      judgeAgentCompletion({
+        steps: [clicked],
+        observation: after,
+        requirements: [{ ...requirement, text }],
+        outcomes: [{ id: "r1", met: true }]
+      }).type
+    expect(judge("Close changes to Reopen")).toBe("accepted")
+    expect(judge("Reopen changes to Close")).not.toBe("accepted")
+    expect(judge("Reopen replaces Close")).not.toBe("accepted")
   })
 })

@@ -13,6 +13,7 @@ import type { AgentObservation } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
 import { normalizeAgentEditorText } from "./editor-text"
+import { AgentNavigationTimeoutError } from "./navigation-errors"
 import type {
   DialogAgentAction,
   DomMutationAgentAction,
@@ -1052,18 +1053,36 @@ const submittedValues = (
     })
 }
 
-const verifySubmission: Verifier = async (input, adapter, signal) => {
+const waitForSubmissionNavigation = async (
+  input: AgentVerificationInput,
+  adapter: AgentEffectVerifierAdapter,
+  signal: AgentCancellationSignal
+): Promise<void> => {
   const tabId = input.effect.snapshotIdentity.tabId
   const expectedUrl =
     input.receipt.submissionUrl ?? input.effect.destination?.url
-  if (expectedUrl)
-    await adapter.waitForNavigation?.(
-      tabId,
-      input.effect.sourceUrl,
-      expectedUrl,
-      signal,
-      input.before.documentId
-    )
+  if (expectedUrl) {
+    try {
+      await adapter.waitForNavigation?.(
+        tabId,
+        input.effect.sourceUrl,
+        expectedUrl,
+        signal,
+        input.before.documentId
+      )
+    } catch (error) {
+      // Only a navigation deadline permits read-only reconciliation. Aborts
+      // and adapter failures must keep propagating without another observation.
+      if (signal.aborted || !(error instanceof AgentNavigationTimeoutError))
+        throw error
+    }
+  }
+  if (signal.aborted) throw new Error("Agent submission verification cancelled")
+}
+
+const verifySubmission: Verifier = async (input, adapter, signal) => {
+  const tabId = input.effect.snapshotIdentity.tabId
+  await waitForSubmissionNavigation(input, adapter, signal)
   const tab = await adapter.getTab(tabId)
   if (!tab?.url) {
     return result(
@@ -1131,12 +1150,20 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
     after.documentId !== input.before.documentId ||
     pageEvidence(after) !== pageEvidence(input.before)
   ) {
-    return result(
+    const confirmed = result(
       "confirmed",
       "submission",
       "Form submission produced an observable page change",
       adapter.now()
     )
+    const transition = controlTransition(input, after)
+    return {
+      ...confirmed,
+      evidence: {
+        ...confirmed.evidence,
+        ...(transition ? { controlTransition: transition } : {})
+      }
+    }
   }
   return result(
     "ambiguous",
@@ -1177,6 +1204,39 @@ const receivesInputOnFocus = (
       target.inputType?.toLowerCase() ?? ""
     ))
 
+const controlTransition = (
+  input: AgentVerificationInput,
+  after: AgentObservation
+) => {
+  const target = input.effect.target
+  const from = target.accessibleName
+  if (
+    target.frameId === undefined ||
+    !target.verificationId ||
+    !from ||
+    from.length > 500 ||
+    target.sensitive ||
+    after.documentId !== input.before.documentId
+  )
+    return undefined
+  const matches = after.elements.filter(
+    (element) =>
+      element.verificationId === target.verificationId &&
+      element.frameId === target.frameId &&
+      !element.sensitive &&
+      (element.visible || element.offscreen)
+  )
+  const to = matches.length === 1 ? matches[0].name : undefined
+  if (!to || to === from || to.length > 500) return undefined
+  return {
+    from,
+    to,
+    verificationId: target.verificationId,
+    frameId: target.frameId,
+    documentId: after.documentId
+  }
+}
+
 const verifyActivation: Verifier = async (input, adapter, signal) => {
   if (input.effect.semanticEffects.includes("submission")) {
     return verifySubmission(input, adapter, signal)
@@ -1192,12 +1252,20 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
   }
   const after = await observeAfter(input, adapter, signal)
   if (pageEvidence(after) !== pageEvidence(input.before)) {
-    return result(
+    const transition = controlTransition(input, after)
+    const confirmed = result(
       "confirmed",
       "activation",
       "Control activation produced an observable page change",
       adapter.now()
     )
+    return {
+      ...confirmed,
+      evidence: {
+        ...confirmed.evidence,
+        ...(transition ? { controlTransition: transition } : {})
+      }
+    }
   }
   /**
    * A link that opens its page in a new tab leaves this one exactly as it

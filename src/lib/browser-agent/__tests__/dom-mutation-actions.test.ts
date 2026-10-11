@@ -793,44 +793,44 @@ describe("Agent DOM mutation resolution and policy", () => {
   })
 })
 
-describe("Agent DOM mutation execution", () => {
-  const liveEffect = async (
-    action: AgentCommand,
-    target: Element
-  ): Promise<{
-    effect: AuthorizedAgentEffect & { frame: AgentSnapshotIdentity }
-    references: ReturnType<typeof createAgentElementReferenceStore>
-  }> => {
-    if (!target.isConnected) document.body.append(target)
-    const references = createAgentElementReferenceStore({
-      documentId: "document-1",
-      frameId: 0
-    })
-    const snapshot = references.beginSnapshot({
-      minimumGeneration: 1,
-      createSnapshotId: () => "snapshot-1"
-    })
-    const ref = snapshot.reference(target)
-    const before = observation({
-      elements: [
-        buildAgentElementObservation(
-          target,
-          ref,
-          0,
-          snapshot.verificationId(target)
-        )
-      ]
-    })
-    const effect = await authorize(action, before)
-    return {
-      effect: {
-        ...effect,
-        frame: effect.target.frame ?? effect.snapshotIdentity
-      },
-      references
-    }
+const liveEffect = async (
+  action: AgentCommand,
+  target: Element
+): Promise<{
+  effect: AuthorizedAgentEffect & { frame: AgentSnapshotIdentity }
+  references: ReturnType<typeof createAgentElementReferenceStore>
+}> => {
+  if (!target.isConnected) document.body.append(target)
+  const references = createAgentElementReferenceStore({
+    documentId: "document-1",
+    frameId: 0
+  })
+  const snapshot = references.beginSnapshot({
+    minimumGeneration: 1,
+    createSnapshotId: () => "snapshot-1"
+  })
+  const ref = snapshot.reference(target)
+  const before = observation({
+    elements: [
+      buildAgentElementObservation(
+        target,
+        ref,
+        0,
+        snapshot.verificationId(target)
+      )
+    ]
+  })
+  const effect = await authorize(action, before)
+  return {
+    effect: {
+      ...effect,
+      frame: effect.target.frame ?? effect.snapshotIdentity
+    },
+    references
   }
+}
 
+describe("Agent DOM mutation execution", () => {
   it("clicks a visual target our own visibility check calls gone", async () => {
     /*
      * A run on YouTube spent seventeen of its steps here. Every click on a
@@ -2047,5 +2047,46 @@ describe("Agent DOM mutation across frames", () => {
       before
     )
     expect(verification.outcome).toBe("confirmed")
+  })
+})
+
+describe("delegated submit ownership", () => {
+  it("lets the document handler own the unprevented event and never submits twice", async () => {
+    const form = document.createElement("form")
+    form.action = "/comments"
+    form.method = "post"
+    const button = document.createElement("button")
+    button.type = "submit"
+    button.textContent = "Close pull request"
+    form.append(button)
+    document.body.append(form)
+    const received: boolean[] = []
+    const handler = (event: Event) => {
+      if (event.target !== form) return
+      received.push(event.defaultPrevented)
+      event.preventDefault()
+      button.textContent = "Reopen pull request"
+    }
+    document.addEventListener("submit", handler)
+    const native = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    try {
+      const { effect, references } = await liveEffect(
+        command({ type: "click", ref: "e1" }),
+        button
+      )
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+      expect(received).toEqual([false])
+      expect(button.textContent).toBe("Reopen pull request")
+      expect(native).not.toHaveBeenCalled()
+    } finally {
+      document.removeEventListener("submit", handler)
+    }
   })
 })

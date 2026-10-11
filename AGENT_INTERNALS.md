@@ -1836,8 +1836,7 @@ it in extension shortcut settings.
 
 Startup first performs the existing durable recovery. Only submitted,
 observing and deciding phases of opted-in runs become `worker_lost` checkpoints
-eligible for automatic continuation. The service rechecks browser-session
-identity, perception permission, supported page access, the approved origin,
+eligible for automatic continuation. The service rechecks the Agent switch, browser-session identity, perception permission, supported page access, the approved origin,
 controlled tab and provider/model before resuming from a fresh observation.
 Continuation is registered with the startup supervisor after workflow recovery.
 Its AbortSignal guards revalidation, browser attachment and each mutation before
@@ -1850,16 +1849,64 @@ checkpoint; an interrupted approval or takeover stays paused and requires
 fresh page validation and consent, rather than accepting a stale request.
 
 Browser-session identity uses session-only extension storage. Browser shutdown
-clears it, preventing consent from attaching to a recycled tab id. No alarm,
-scheduling, cloud runner or execution while the machine is off is introduced.
+clears it, preventing consent from attaching to a recycled tab id. If the optional alarms permission is already granted, a one-minute browser
+alarm wakes the worker to run the same consent and permission revalidation.
+Without that permission, recovery waits for another worker wake. No cloud
+runner or execution while the machine is off is introduced.
 Best-effort browser API heartbeats run only during active authorized work;
 human waits may let MV3 sleep. Existing active-time and provider budgets still
-apply, and lost time/network may end or pause work. Automatic recovery on the
-next worker wake does not guarantee immediate waking after worker termination.
+apply, and lost time/network may end or pause work. Automatic recovery on the next worker wake does not guarantee immediate
+waking after worker termination. Existing notification permission enables a
+content-free completion or attention notification; otherwise the toolbar badge
+remains the indicator. The stop menu is localized and visible only while a
+non-terminal run exists.
 
 `verify:sw-agent-recovery` kills the actual packaged worker for both supervised
-and opted-in interrupted effects. Unit and SQLite tests cover safe checkpoint
+and opted-in interrupted effects. It also seeds a real tab with persisted browser-session, origin, provider/model consent, kills the worker and proves one new read-only decision from the replacement. Its held decision scenarios close the actual supervision page and stop from an authenticated extension page while no side panel exists. The latter exercises the durable stop transport, not native context-menu interaction. Unit and SQLite tests cover safe checkpoint
 selection, scope/permission/session rejection, durable consent, unanswered
 human boundaries, panel-close continuation, indicators and external stopping.
 Scripted/unit success is not live-model qualification. Browser acceptance must
 be run in an environment with the packaged extension and Chromium available.
+
+## Release review hardening
+
+HTML-to-text conversion uses inert template contents; parser-created nodes never
+enter the live document. Submission dispatch lets all delegated page listeners
+finish before a guarded native default. A navigation deadline is a typed timeout,
+not a cancellation; submission verification reads the fresh page after that
+specific timeout without reissuing the effect.
+
+Completion quotations use Unicode phrase boundaries. Typed record states and
+control transitions avoid global occurrence counting across overlapping text
+sources. A renamed control requires a verifier receipt binding its before/after
+names, document, frame and stable identity; a different Reopen button is no proof.
+Current-state reads require current source support. Item summaries consume judged
+item outcomes; screenshot-only support is labeled as seen in a screenshot.
+
+Decision system policy stays fixed. The schema stays fixed for the run's measured
+model modality; visual availability travels in the user observation and the parser
+still refuses unavailable commands. Cache, reasoning and reported cost counters
+are retained on decision receipts. A cumulative one-million-token accounting
+ceiling, including review, is checked before further decisions and survives worker
+recovery through receipts. An already bounded request may cross that ceiling;
+provider omissions and interrupted requests prevent exact billing guarantees.
+
+Scope constraints without authoritative record bindings and payment limits without
+authoritative amount bindings refuse consequential work before approval. They
+remain on the plan and require a human handoff, rather than accepting a model's
+claim that the destination or price is within bounds. General observation-time
+challenge detection covers rendered password login forms and explicit human
+verification gates; localized or unusual challenges can still require the model's
+existing takeover path.
+
+Chat keeps conversation history regardless of model parameter-count substrings.
+Dynamic retrieved context, active-tab metadata and date/tool guidance are appended
+to the current user message, keeping the configured system policy stable.
+LM Studio reads loaded-instance context lengths from `/api/v1/models`, taking
+the smallest routed instance when several are loaded. llama.cpp reads the slot
+window from `/props`. Missing loaded-window evidence stays unknown; a training
+maximum is not an allocated server window. These optional metadata requests do
+not gate the model catalog.
+
+References: [LM Studio model list](https://lmstudio.ai/docs/developer/rest/list),
+[llama.cpp server properties](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md#get-props-get-server-global-properties).

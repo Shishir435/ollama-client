@@ -12,11 +12,17 @@ const api = vi.hoisted(() => {
     commands,
     menus,
     stored: {} as Record<string, unknown>,
-    platform: vi.fn(async () => undefined)
+    platform: vi.fn(async () => undefined),
+    granted: false,
+    order: [] as string[],
+    notify: vi.fn(async () => "")
   }
 })
 vi.mock("@/lib/browser-api", () => ({
   browser: {
+    permissions: { contains: async () => api.granted },
+    notifications: { create: api.notify },
+    i18n: { getMessage: () => "Stop browser agent" },
     storage: {
       session: {
         get: async () => api.stored,
@@ -25,7 +31,10 @@ vi.mock("@/lib/browser-api", () => ({
         }
       }
     },
-    runtime: { getPlatformInfo: api.platform },
+    runtime: {
+      getPlatformInfo: api.platform,
+      getURL: (path: string) => `chrome-extension://id${path}`
+    },
     commands: {
       onCommand: {
         addListener: (listener: (name: string) => void) =>
@@ -36,7 +45,12 @@ vi.mock("@/lib/browser-api", () => ({
     },
     contextMenus: {
       remove: async () => undefined,
-      create: vi.fn(),
+      create: vi.fn(() => {
+        api.order.push("create")
+      }),
+      update: vi.fn(async () => {
+        api.order.push("update")
+      }),
       onClicked: {
         addListener: (
           listener: (info: { menuItemId: string | number }) => void
@@ -51,6 +65,9 @@ vi.mock("@/lib/browser-api", () => ({
 afterEach(() => {
   vi.useRealTimers()
   api.platform.mockClear()
+  api.notify.mockClear()
+  api.granted = false
+  api.order = []
 })
 
 describe("unattended browser controls", () => {
@@ -110,5 +127,38 @@ describe("unattended browser controls", () => {
     dispose()
     expect(api.commands.size).toBe(0)
     expect(api.menus.size).toBe(0)
+  })
+
+  it("creates the stop menu before showing it, and notifies each new boundary once", async () => {
+    api.granted = true
+    let listener: (id: string) => void = () => undefined
+    let status = "completed"
+    const service = {
+      latestRunId: async () => "run-1",
+      stop: vi.fn(),
+      subscribe: (next: typeof listener) => {
+        listener = next
+        return () => undefined
+      },
+      snapshot: async () => ({ run: { unattended: {}, status } })
+    } as unknown as AgentRunService
+    const dispose = registerAgentUnattendedControls(service, Promise.resolve())
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+    await settle()
+    expect(api.order[0]).toBe("create")
+    /** A run that finished before this worker started was announced then. */
+    expect(api.notify).not.toHaveBeenCalled()
+    for (const next of [
+      "awaiting_approval",
+      "deciding",
+      "awaiting_approval",
+      "awaiting_approval"
+    ]) {
+      status = next
+      listener("run-1")
+      await settle()
+    }
+    expect(api.notify).toHaveBeenCalledTimes(2)
+    dispose()
   })
 })

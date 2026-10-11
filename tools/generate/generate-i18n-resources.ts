@@ -28,6 +28,9 @@ type ExtensionMessages = {
   short_name: string
   description: string
   action_default_title: string
+  stop_browser_agent_menu: string
+  agent_task_completed: string
+  agent_task_attention: string
 }
 
 type TranslationJson = {
@@ -43,7 +46,10 @@ function assertExtensionMessages(
     "name",
     "short_name",
     "description",
-    "action_default_title"
+    "action_default_title",
+    "stop_browser_agent_menu",
+    "agent_task_completed",
+    "agent_task_attention"
   ] satisfies Array<keyof ExtensionMessages>
 
   const missingKeys = requiredKeys.filter((key) => !extension?.[key])
@@ -57,6 +63,18 @@ function assertExtensionMessages(
 
 function toChromeMessages(extension: ExtensionMessages) {
   return {
+    stopBrowserAgentMenu: {
+      message: extension.stop_browser_agent_menu,
+      description: "Stop the active browser agent task"
+    },
+    agentTaskCompleted: {
+      message: extension.agent_task_completed,
+      description: "Browser task completed"
+    },
+    agentTaskAttention: {
+      message: extension.agent_task_attention,
+      description: "Browser task needs human attention"
+    },
     extName: {
       message: extension.name,
       description: "Extension name shown by Chrome and Chrome Web Store"

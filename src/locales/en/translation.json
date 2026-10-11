@@ -282,7 +282,10 @@
       "label": "Continue this task with the panel closed",
       "help": "Resume after enabling. Uses the current tabs, sites and provider. Approvals, sign-in and CAPTCHA still require you. Stop from the page context menu or the Stop agent keyboard shortcut. Browser shutdown and sleep can interrupt work.",
       "active": "Panel-close continuation enabled for this task. New tasks require new consent.",
-      "decision_interrupted": "This human decision is still unanswered. Resume to recheck the page and request a fresh decision:"
+      "decision_interrupted": "This human decision is still unanswered. Resume to recheck the page and request a fresh decision:",
+      "scope_changed": "Task scope changed. Review panel-close consent before continuing.",
+      "scope": "Tabs: {{tabs}} · Provider: {{provider}} · Model: {{model}}",
+      "stop_menu": "Stop browser agent"
     }
   },
   "common": {
@@ -335,7 +338,10 @@
     "name": "Ollama Client - Local AI Chat for Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
     "description": "Local-first private LLM chat with Ollama, LM Studio, and llama.cpp, with local RAG, web search, and page context.",
-    "action_default_title": "Open Ollama Client"
+    "action_default_title": "Open Ollama Client",
+    "stop_browser_agent_menu": "Stop browser agent",
+    "agent_task_completed": "Completed",
+    "agent_task_attention": "Paused"
   },
   "selection_button": {
     "label": "Ask Local LLM",

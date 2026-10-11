@@ -72,6 +72,7 @@ const REMINDER_INTENT = [
  * question about code or files.
  */
 const BROWSER_ACTION_INTENT = [
+  /\b(?:close|merge|approve|delete|reopen|submit|save)\b.{0,40}\b(?:this|that|the|these)\b.{0,30}\b(?:pull\s+requests?|prs?|issues?|records?|rows?|forms?|changes?|comments?)\b/i,
   /\b(?:open|go\s+to|navigate\s+to|visit|browse\s+to|head\s+(?:over\s+)?to|load)\b.{0,20}(?:https?:\/\/|www\.|\b[a-z0-9-]+\.(?:com|org|net|io|ai|dev|app|co|edu|gov)\b)/i,
   /\b(?:open|go\s+to|navigate\s+to|visit|head\s+(?:over\s+)?to)\b.{1,40}\b(?:and|then)\s+(?:search|click|type|fill|sign\s+in|log\s+in|find|look\s+up|add|book|buy|order)\b/i,
   /\b(?:search|look\s+up|find)\b.{0,60}\b(?:on|in|using)\s+(?:duck\s*duck\s*go|google|bing|wikipedia|youtube|amazon|github|reddit|ebay)\b/i,

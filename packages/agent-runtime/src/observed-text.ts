@@ -45,7 +45,14 @@ export const agentHaystackStates = (
   haystack: string
 ): boolean => {
   const needle = agentNormalizedClaim(claim)
-  return needle.length > 0 && haystack.includes(needle)
+  if (!needle) return false
+  const escaped = needle.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  // Unicode word boundaries keep Closed distinct from disclosed and Invoice 1
+  // distinct from Invoice 10. Punctuation in a quotation remains literal.
+  return new RegExp(
+    `(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`,
+    "u"
+  ).test(haystack)
 }
 
 export const agentObservationStates = (

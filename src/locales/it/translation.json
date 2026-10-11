@@ -282,7 +282,10 @@
       "label": "Continuare questa attività con il pannello chiuso",
       "help": "Riprendi dopo aver attivato questa opzione. Verranno usati le schede, i siti e il provider attuali. Le approvazioni, l’accesso e i CAPTCHA richiedono ancora il tuo intervento. Interrompi l’attività dal menu contestuale della pagina o con la scorciatoia da tastiera per arrestare l’agente. La chiusura del browser e la sospensione possono interrompere il lavoro.",
       "active": "La continuazione con il pannello chiuso è attiva per questa attività. Le nuove attività richiedono un nuovo consenso.",
-      "decision_interrupted": "Questa decisione è ancora in attesa. Riprendi per ricontrollare la pagina e richiedere una nuova decisione:"
+      "decision_interrupted": "Questa decisione è ancora in attesa. Riprendi per ricontrollare la pagina e richiedere una nuova decisione:",
+      "scope_changed": "L’ambito dell’attività è cambiato. Rivedi il consenso a continuare con il pannello chiuso.",
+      "scope": "Schede: {{tabs}} · Fornitore: {{provider}} · Modello: {{model}}",
+      "stop_menu": "Arresta l’agente del browser"
     }
   },
   "common": {
@@ -335,7 +338,10 @@
     "name": "Ollama Client - Chat IA locale con Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
     "description": "Chat private con LLM tramite Ollama, LM Studio e llama.cpp, con RAG locale, ricerca web e contesto di pagina.",
-    "action_default_title": "Apri Ollama Client"
+    "action_default_title": "Apri Ollama Client",
+    "stop_browser_agent_menu": "Arresta l’agente del browser",
+    "agent_task_completed": "Completato",
+    "agent_task_attention": "In pausa"
   },
   "selection_button": {
     "label": "Chiedi al LLM locale",

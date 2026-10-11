@@ -413,11 +413,11 @@ it("offers explicit unattended consent only at a current safe user pause", () =>
     run: run("paused", { pauseReason: "user" }),
     onSetUnattended: set
   })
-  fireEvent.click(screen.getByRole("checkbox"))
+  fireEvent.click(screen.getByRole("switch"))
   expect(set).toHaveBeenCalledWith(true)
   expect(screen.getByText("https://example.com")).toBeInTheDocument()
   h.rerender({ run: run("paused", { pauseReason: "unresolved_effect" }) })
-  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument()
+  expect(screen.queryByRole("switch")).not.toBeInTheDocument()
 })
 
 it("names an interrupted decision through its display text, not raw page text", () => {

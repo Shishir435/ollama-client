@@ -346,8 +346,14 @@ export const agentForbiddingConstraints = (
   const classes = agentConsequentialEffects(effect)
   if (classes.length === 0) return []
   return constraints.flatMap((constraint) => {
-    const effects = classes.filter((effect) =>
-      constraint.forbids?.includes(effect)
+    // Scope and amount limits currently have no authoritative machine-readable
+    // record identity or price binding. A model's assertion cannot authorize
+    // irreversible work within them. Keep the user's bound and hand it off.
+    const unprovenBound =
+      constraint.kind === "scope" ||
+      (constraint.kind === "limit" && classes.includes("payment"))
+    const effects = classes.filter(
+      (effect) => unprovenBound || constraint.forbids?.includes(effect)
     )
     return effects.length > 0 ? [{ constraint, effects }] : []
   })
@@ -357,7 +363,7 @@ export const agentForbiddingConstraints = (
 export const agentConstraintRefusal = (
   broken: ReturnType<typeof agentForbiddingConstraints>
 ): string =>
-  `This step would be a ${[...new Set(broken.flatMap((entry) => entry.effects))].join(" and ")}, which the user ruled out (${broken
+  `This step would be a ${[...new Set(broken.flatMap((entry) => entry.effects))].join(" and ")}, whose user constraint cannot be safely established (${broken
     .map((entry) => `${entry.constraint.id}: "${entry.constraint.text}"`)
     .join(
       "; "

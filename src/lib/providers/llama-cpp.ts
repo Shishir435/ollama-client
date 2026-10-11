@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
 import { OpenAICompatibleProvider } from "./openai-compatible"
+import { readOptionalMetadata } from "./optional-metadata"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
 /**
@@ -20,6 +21,26 @@ interface LlamaCppModel {
     size?: number | string
   }
 }
+
+/** /props reports the server slot window; training metadata does not. */
+const loadedContextLength = (
+  baseUrl: string,
+  signal?: AbortSignal
+): Promise<number | undefined> =>
+  readOptionalMetadata(
+    async (bounded) => {
+      const response = await fetch(`${baseUrl.replace(/\/v1\/?$/, "")}/props`, {
+        signal: bounded
+      })
+      if (!response.ok) return undefined
+      const size = (await response.json())?.default_generation_settings?.n_ctx
+      return typeof size === "number" && Number.isSafeInteger(size) && size > 0
+        ? size
+        : undefined
+    },
+    undefined,
+    signal
+  )
 
 export class LlamaCppProvider extends OpenAICompatibleProvider {
   id = ProviderId.LLAMA_CPP
@@ -98,6 +119,14 @@ export class LlamaCppProvider extends OpenAICompatibleProvider {
         : Array.isArray(json.models)
           ? json.models
           : []
+      /**
+       * An unqualified /props describes one model. A router serving several
+       * cannot say whose window it reported, so the hint stays unknown.
+       */
+      const contextLength =
+        list.length === 1
+          ? await loadedContextLength(cleanBase, signal)
+          : undefined
 
       return list.map((item: LlamaCppModel) => {
         const id = item.id || item.name || item.model || ""
@@ -135,8 +164,8 @@ export class LlamaCppProvider extends OpenAICompatibleProvider {
             parameter_size: paramSize,
             quantization_level: ""
           },
-          ...(meta.n_ctx_train && {
-            capabilityHints: { contextLength: meta.n_ctx_train }
+          ...(contextLength && {
+            capabilityHints: { contextLength }
           })
         }
       })

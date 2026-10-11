@@ -948,10 +948,26 @@ const quotationNamesReceiptValue = (
  * Every met read needs a retained independent observed fact. Missing
  * support, stale snapshots and model-authored findings stay unknown.
  */
+/**
+ * A read asking for the present state cannot rest on a historical fact. The
+ * same answer decides both whether a quote is grounded and how the report
+ * labels it, or a stale quote could hide that a screenshot carried the read.
+ * The planner's explicit freshness wins — "still open last Friday" is
+ * historical — and only an older plan without it falls back to wording.
+ */
+const requiresCurrentState = (requirement: AgentTaskRequirement): boolean =>
+  requirement.freshness !== undefined
+    ? requirement.freshness === "current"
+    : [requirement.source, requirement.text].some(
+        (text) =>
+          text !== undefined &&
+          /\b(?:current|currently|now|latest|today|still)\b/i.test(text)
+      )
+
 const refusePlannedReadClaim = (
   evidence: string | undefined,
   input: AgentCompletionInput,
-  requirementId: string
+  requirement: AgentTaskRequirement
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   if (!evidence?.trim())
     return {
@@ -960,7 +976,16 @@ const refusePlannedReadClaim = (
       feedback:
         "Quote the independently observed fact supporting this read result. Missing support is unknown; do not mark it verified."
     }
-  if (groundedCompletionQuote(evidence, requirementId, input.evidenceLedger))
+  const requirementId = requirement.id
+  const current = requiresCurrentState(requirement)
+  if (
+    groundedCompletionQuote(
+      evidence,
+      requirementId,
+      input.evidenceLedger,
+      current
+    )
+  )
     return undefined
   /**
    * Nothing the page said, but what the model read off the screenshot it
@@ -982,7 +1007,8 @@ const refusePlannedReadClaim = (
       (record) =>
         record.kind === "observed_fact" &&
         record.source !== undefined &&
-        (record.validity === "current" || record.validity === "historical") &&
+        (record.validity === "current" ||
+          (!current && record.validity === "historical")) &&
         record.requirementId === requirementId
     )
   )
@@ -1890,14 +1916,50 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
         verbs.has(word) || CLAIM_FUNCTION_WORDS.has(word) || facts.has(word)
     )
   }
+  if (check.type === "control_transition") {
+    // A renamed button establishes only an outcome explicitly naming that
+    // transition; broader business claims still require independent review.
+    // Direction is bound too: "Paid changes to Pay" never vouches for a
+    // check from Pay to Paid, so the from label, a transition verb and the
+    // to label must appear in that order. "Replaces" reverses the order and
+    // is not accepted.
+    const froms = completePhraseOccurrences(
+      text,
+      agentNormalizedClaim(check.from)
+    )
+    const tos = completePhraseOccurrences(text, agentNormalizedClaim(check.to))
+    const ordered = froms.some((from) =>
+      tos.some(
+        (to) =>
+          from.end <= to.start &&
+          /\b(?:becomes?|became|changes?|changed|renamed|turns?|turned)\b/u.test(
+            text.slice(from.end, to.start)
+          )
+      )
+    )
+    return (
+      ordered &&
+      (!check.record ||
+        containsCompletePhrase(text, agentNormalizedClaim(check.record)))
+    )
+  }
   const identity = check.type === "url" ? check.url : check.record
   if (!containsCompletePhrase(text, agentNormalizedClaim(identity)))
     return false
   const acts =
     check.type === "record_state"
-      ? new Set(
-          check.state === "saved" ? ["save", "saved"] : ["submit", "submitted"]
-        )
+      ? new Set([
+          check.state,
+          {
+            saved: "save",
+            submitted: "submit",
+            open: "open",
+            closed: "close",
+            merged: "merge",
+            approved: "approve",
+            deleted: "delete"
+          }[check.state]
+        ])
       : check.type === "url"
         ? new Set([
             "open",
@@ -1928,7 +1990,7 @@ const judgeMetRequirement = (
   if (unopened) return unopened
   if (openedTabMeets(requirement, input, consumed)) return undefined
   if (requirement.kind === "read")
-    return refusePlannedReadClaim(claim.evidence, input, requirement.id)
+    return refusePlannedReadClaim(claim.evidence, input, requirement)
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
     const refusal = noSubmissionEvidence(input)
     if (refusal) return refusal
@@ -2017,7 +2079,8 @@ const judgeItemizedRequirement = (
   input: AgentCompletionInput,
   change: AgentStepReadout | "unreadable" | undefined,
   changes: readonly AgentStepReadout[],
-  consumed: Set<string>
+  consumed: Set<string>,
+  judgedItems: number[]
 ):
   | Extract<AgentCompletionJudgement, { type: "refused" }>
   | "unmet"
@@ -2094,6 +2157,7 @@ const judgeItemizedRequirement = (
             feedback: itemEvidenceFeedback(index, item)
           }
         : refusal
+    judgedItems.push(index)
   }
   /**
    * An item the run itself reported unmet leaves the requirement unmet,
@@ -2233,6 +2297,69 @@ const withReviewScope = (
         review: { requirementIds: reviewIds, constraintIds: [], outcome }
       }
 
+const recordJudgedItems = (
+  items: NonNullable<AgentRunOutcome["items"]>,
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim,
+  judgedItems: number[],
+  input: AgentCompletionInput
+): void => {
+  if (requirement.items?.length) {
+    const visualItems = judgedItems.filter((index) => {
+      const quote = claim.items?.find((item) => item.index === index)?.evidence
+      return (
+        requirement.kind === "read" &&
+        !groundedCompletionQuote(
+          quote,
+          requirement.id,
+          input.evidenceLedger,
+          requiresCurrentState(requirement)
+        ) &&
+        visualCompletionRead(quote, requirement.id, input.evidenceLedger) !==
+          undefined
+      )
+    })
+    items.push({
+      id: requirement.id,
+      met: judgedItems,
+      ...(visualItems.length ? { visual: visualItems } : {})
+    })
+  }
+}
+
+/**
+ * The requirement stays unmet, but the items the run did finish are still
+ * judged for the report, on a copy of the consumed receipts so an unmet
+ * requirement credits nothing another one needs.
+ */
+const recordUnmetItems = (
+  items: NonNullable<AgentRunOutcome["items"]>,
+  requirement: AgentTaskRequirement,
+  claim: AgentCompletionOutcomeClaim | undefined,
+  input: AgentCompletionInput,
+  change: AgentStepReadout | "unreadable" | undefined,
+  changes: readonly AgentStepReadout[],
+  consumed: Set<string>
+): void => {
+  if (
+    !claim ||
+    !requirement.items?.length ||
+    !claim.items?.some((item) => item.met)
+  )
+    return
+  const judgedItems: number[] = []
+  judgeItemizedRequirement(
+    { ...requirement, items: requirement.items },
+    claim,
+    input,
+    change,
+    changes,
+    new Set(consumed),
+    judgedItems
+  )
+  recordJudgedItems(items, requirement, claim, judgedItems, input)
+}
+
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
@@ -2281,12 +2408,23 @@ const judgePlanned = (
   const consumed = new Set<string>()
   let review: Extract<AgentCompletionJudgement, { type: "refused" }> | undefined
   const reviewIds: string[] = []
+  const items: NonNullable<AgentRunOutcome["items"]> = []
   for (const requirement of requirements) {
     const claim = claims.get(requirement.id)
     if (!claim?.met) {
       unmet.push(requirement.id)
+      recordUnmetItems(
+        items,
+        requirement,
+        claim,
+        input,
+        change,
+        changes,
+        consumed
+      )
       continue
     }
+    const judgedItems: number[] = []
     const judged = requirement.items?.length
       ? judgeItemizedRequirement(
           { ...requirement, items: requirement.items },
@@ -2294,7 +2432,8 @@ const judgePlanned = (
           input,
           change,
           changes,
-          consumed
+          consumed,
+          judgedItems
         )
       : judgeMetRequirement(
           requirement,
@@ -2305,6 +2444,7 @@ const judgePlanned = (
           consumed,
           credits
         )
+    recordJudgedItems(items, requirement, claim, judgedItems, input)
     if (judged === "unmet") {
       unmet.push(requirement.id)
       continue
@@ -2328,11 +2468,20 @@ const judgePlanned = (
       : [claim?.evidence]
     return evidence.some(
       (quote) =>
-        !groundedCompletionQuote(quote, id, input.evidenceLedger) &&
-        visualCompletionRead(quote, id, input.evidenceLedger) !== undefined
+        !groundedCompletionQuote(
+          quote,
+          id,
+          input.evidenceLedger,
+          requiresCurrentState(requirement)
+        ) && visualCompletionRead(quote, id, input.evidenceLedger) !== undefined
     )
   })
-  const outcome = { met, unmet, ...(visual.length ? { visual } : {}) }
+  const outcome = {
+    met,
+    unmet,
+    ...(items.length ? { items } : {}),
+    ...(visual.length ? { visual } : {})
+  }
   if (review) return withReviewScope(review, requirements, reviewIds, outcome)
   if (unmet.length === 0) return { type: "accepted", outcome }
   return met.length === 0

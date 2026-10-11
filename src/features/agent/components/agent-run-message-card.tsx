@@ -259,7 +259,16 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
         </span>
         {status && (
           <span
-            className="ml-auto shrink-0 rounded-chip bg-background px-1.5 text-micro text-muted-foreground"
+            className={cn(
+              "ml-auto shrink-0 rounded-chip px-1.5 text-micro",
+              status === "completed"
+                ? "bg-tint-success text-status-success"
+                : status === "failed"
+                  ? "bg-tint-danger text-status-danger"
+                  : status === "partial" || needsUser
+                    ? "bg-tint-warning text-status-warning"
+                    : "bg-background text-muted-foreground"
+            )}
             aria-live={settled ? undefined : "polite"}>
             {t(`agent.status.${status}`)}
           </span>

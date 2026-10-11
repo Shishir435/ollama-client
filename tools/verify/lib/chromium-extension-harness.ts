@@ -75,6 +75,7 @@ export class PageSession {
     { resolve: (value: unknown) => void; reject: (error: Error) => void }
   >()
   private sessionId = ""
+  private targetId = ""
 
   private constructor(ws: WebSocket) {
     this.ws = ws
@@ -97,6 +98,7 @@ export class PageSession {
     const created = (await page.sendBrowser("Target.createTarget", {
       url
     })) as { targetId: string }
+    page.targetId = created.targetId
     const attached = (await page.sendBrowser("Target.attachToTarget", {
       targetId: created.targetId,
       flatten: true
@@ -158,6 +160,11 @@ export class PageSession {
     return result.result.value as T
   }
 
+  async closeTarget(): Promise<void> {
+    await this.sendBrowser("Target.closeTarget", { targetId: this.targetId })
+    this.close()
+  }
+
   close(): void {
     this.ws.close()
   }
@@ -173,6 +180,7 @@ export interface ExtensionHarness {
   /** The worker running when the harness came up. */
   originalWorker: CdpTarget
   page: PageSession
+  openPage(path: string): Promise<PageSession>
   listTargets(): Promise<CdpTarget[]>
   findServiceWorker(targets: CdpTarget[]): CdpTarget | undefined
   httpJson(path: string): Promise<unknown>
@@ -301,6 +309,11 @@ export const withExtensionHarness = async (input: {
       extensionId,
       originalWorker,
       page: attached,
+      openPage: (path) =>
+        PageSession.open(
+          browserWsUrl,
+          `chrome-extension://${extensionId}/${path}`
+        ),
       listTargets,
       findServiceWorker: serviceWorkerIn,
       httpJson

@@ -1106,6 +1106,51 @@ const collectVisibleText = (
   return result
 }
 
+const controlKey = (element: Element): string =>
+  `${element.tagName}|${element.getAttribute("aria-label") ?? ""}|${normalizedText(element.textContent ?? "")}`
+
+/**
+ * Only rendered copies count: a hidden twin kept for another layout belongs
+ * to the same record. Offscreen copies still count, since a record below the
+ * fold is still another record.
+ */
+const repeatsControl = (
+  container: Element,
+  element: Element,
+  pass: AgentObservationPass
+): boolean => {
+  const key = controlKey(element)
+  let copies = 0
+  for (const candidate of container.querySelectorAll(element.tagName)) {
+    if (controlKey(candidate) === key && !isChainHidden(candidate, pass))
+      copies += 1
+    if (copies > 1) return true
+  }
+  return false
+}
+
+const RECORD_TAGS = "div, section, article"
+
+/**
+ * Whether an element is one of several same-tag siblings that each carry a
+ * link: the shape of a list of records. The nearest such ancestor is the
+ * record, so a wrapper holding several records is never reached, whatever
+ * controls those records hold.
+ */
+const repeatsAsRecord = (
+  current: Element,
+  pass: AgentObservationPass
+): boolean =>
+  current.matches(RECORD_TAGS) &&
+  current.querySelector("a[href]") !== null &&
+  Array.from(current.parentElement?.children ?? []).some(
+    (sibling) =>
+      sibling !== current &&
+      sibling.tagName === current.tagName &&
+      !isChainHidden(sibling, pass) &&
+      sibling.querySelector("a[href]") !== null
+  )
+
 /** A bounded row label beside repeated controls such as Delete buttons. */
 const rowContextOf = (
   element: Element,
@@ -1117,8 +1162,17 @@ const rowContextOf = (
     current;
     current = composedParent(current)
   ) {
-    if (!current.matches("li, tr, [role='row']")) continue
-    return collectVisibleText(current, 140, pass, scope) || undefined
+    if (current.matches("li, tr, [role='row'], [role='listitem']"))
+      return collectVisibleText(current, 140, pass, scope) || undefined
+    if (!repeatsAsRecord(current, pass)) continue
+    /**
+     * A record holding a second rendered copy of this control is really a
+     * wrapper around several records. Checked only once a record is found:
+     * scanning every ancestor would be quadratic on a page of many controls.
+     */
+    if (repeatsControl(current, element, pass)) return undefined
+    const text = collectVisibleText(current, 141, pass, scope)
+    return text && text.length <= 140 ? text : undefined
   }
   return undefined
 }

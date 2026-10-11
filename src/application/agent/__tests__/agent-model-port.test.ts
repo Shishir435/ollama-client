@@ -890,7 +890,7 @@ describe("vision decisions", () => {
     ).properties.type.enum
     expect(actions).toContain("click_point")
     expect(actions).toContain("zoom")
-    expect(request.messages[0]?.content).toMatch(
+    expect(request.messages.at(-1)?.content).toMatch(
       /screenshot of the controlled tab/
     )
   })
@@ -942,10 +942,10 @@ describe("vision decisions", () => {
     )
     const actions = offered(requests[0])
     expect(actions).toContain("look")
-    expect(actions).not.toContain("click_point")
-    expect(actions).not.toContain("zoom")
+    expect(actions).toContain("click_point")
+    expect(actions).toContain("zoom")
     expect(requests[0]?.messages.at(-1)?.images).toBeUndefined()
-    expect(requests[0]?.messages[0]?.content).toMatch(
+    expect(requests[0]?.messages.at(-1)?.content).toMatch(
       /look captures the controlled tab's viewport/
     )
 
@@ -953,9 +953,8 @@ describe("vision decisions", () => {
       { state, observation, screenshot, visual: { available: true } },
       { aborted: false }
     )
-    expect(offered(requests[1])).toEqual(
-      expect.arrayContaining(["look", "click_point", "zoom"])
-    )
+    expect(requests[1]?.tools).toEqual(requests[0]?.tools)
+    expect(requests[1]?.messages[0]).toEqual(requests[0]?.messages[0])
   })
 
   it("offers exactly the visual commands the parser accepts, for every offer", async () => {
@@ -1021,7 +1020,7 @@ describe("vision decisions", () => {
       { aborted: false }
     )
     expect(offered(requests[0])).not.toContain("look")
-    expect(requests[0]?.messages[0]?.content).toMatch(
+    expect(requests[0]?.messages.at(-1)?.content).toMatch(
       /the selected model does not accept images/
     )
   })
@@ -1041,7 +1040,9 @@ describe("vision decisions", () => {
       { aborted: false }
     )
     expect(offered(requests[0])).not.toContain("look")
-    expect(requests[0]?.messages[0]?.content).toMatch(/does not accept images/)
+    expect(requests[0]?.messages.at(-1)?.content).toMatch(
+      /does not accept images/
+    )
   })
 
   it("resolves vision once per run", async () => {

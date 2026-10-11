@@ -42,11 +42,44 @@ describe("agentRunResult", () => {
             ]
           }
         ],
-        []
+        [],
+        { met: [], unmet: ["r1"], items: [{ id: "r1", met: [0] }] }
       )
     ).toBe(
       "Not verified: Report the status code\nVerified item: Invoice 1\nInvoice 1: Draft\nNot verified item: Invoice 2"
     )
+  })
+  it("reports items the judge supported when the run itself left the requirement unmet", () => {
+    expect(
+      agentRunResult(
+        "Found one",
+        [{ ...read, items: ["Invoice 1", "Invoice 2"] }],
+        [
+          {
+            id: "r1",
+            met: false,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1: Draft" },
+              { index: 1, met: false }
+            ]
+          }
+        ],
+        [],
+        { met: [], unmet: ["r1"], items: [{ id: "r1", met: [0] }] }
+      )
+    ).toBe(
+      "Not verified: Report the status code\nVerified item: Invoice 1\nInvoice 1: Draft\nNot verified item: Invoice 2"
+    )
+    /** Without a judged item, an unmet requirement lists nothing item by item. */
+    expect(
+      agentRunResult(
+        "Found none",
+        [{ ...read, items: ["Invoice 1", "Invoice 2"] }],
+        [{ id: "r1", met: false }],
+        [],
+        { met: [], unmet: ["r1"] }
+      )
+    ).toBe("Not verified: Report the status code")
   })
   /**
    * gpt-6-luna completed "report the status code" with the summary "Opened
@@ -90,4 +123,28 @@ describe("agentRunResult", () => {
       )
     ).toBe("Not verified: Report the status code\nVerified: Name is Alice")
   })
+})
+
+it("never promotes an unjudged item or a screenshot reading to Verified", () => {
+  const requirements = [{ ...read, items: ["Invoice 1", "Invoice 2"] }]
+  const outcomes = [
+    {
+      id: "r1",
+      met: true,
+      items: [
+        { index: 0, met: true, evidence: "Invoice 1 paid" },
+        { index: 1, met: true, evidence: "Invoice 2 paid" }
+      ]
+    }
+  ]
+  expect(agentRunResult("Both paid", requirements, outcomes, [])).not.toContain(
+    "Verified item"
+  )
+  const report = agentRunResult("Both paid", requirements, outcomes, [], {
+    met: [],
+    unmet: ["r1"],
+    items: [{ id: "r1", met: [0], visual: [0] }]
+  })
+  expect(report).toContain("Seen in screenshot item: Invoice 1")
+  expect(report).toContain("Not verified item: Invoice 2")
 })

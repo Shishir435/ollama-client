@@ -1,4 +1,16 @@
 {
+  "stopBrowserAgentMenu": {
+    "message": "Arrêter l’agent du navigateur",
+    "description": "Stop the active browser agent task"
+  },
+  "agentTaskCompleted": {
+    "message": "Terminé",
+    "description": "Browser task completed"
+  },
+  "agentTaskAttention": {
+    "message": "En pause",
+    "description": "Browser task needs human attention"
+  },
   "extName": {
     "message": "Ollama Client - Chat IA local avec Ollama, LM Studio, llama.cpp",
     "description": "Extension name shown by Chrome and Chrome Web Store"

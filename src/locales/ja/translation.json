@@ -282,7 +282,10 @@
       "label": "パネルを閉じてもこのタスクを続行する",
       "help": "有効にしてから再開してください。現在のタブ、サイト、プロバイダーを使用します。承認、ログイン、CAPTCHAには引き続きあなたの操作が必要です。ページのコンテキストメニューまたはエージェント停止のキーボードショートカットで停止できます。ブラウザーの終了やスリープにより作業が中断されることがあります。",
       "active": "このタスクはパネルを閉じても続行する設定です。新しいタスクには新たな同意が必要です。",
-      "decision_interrupted": "この判断はまだ回答されていません。再開するとページを再確認し、新たな判断を求めます："
+      "decision_interrupted": "この判断はまだ回答されていません。再開するとページを再確認し、新たな判断を求めます：",
+      "scope_changed": "タスクの対象範囲が変更されました。続行する前に、パネルを閉じた状態での実行への同意を確認してください。",
+      "scope": "タブ: {{tabs}} · プロバイダー: {{provider}} · モデル: {{model}}",
+      "stop_menu": "ブラウザーエージェントを停止"
     }
   },
   "common": {
@@ -335,7 +338,10 @@
     "name": "Ollama Client - Ollama、LM Studio、llama.cpp のローカル AI チャット",
     "short_name": "Ollama Client",
     "description": "Ollama、LM Studio、llama.cpp によるプライベートな LLM チャット。ローカル RAG、ウェブ検索、ページコンテキストに対応。",
-    "action_default_title": "Ollama Client を開く"
+    "action_default_title": "Ollama Client を開く",
+    "stop_browser_agent_menu": "ブラウザーエージェントを停止",
+    "agent_task_completed": "完了",
+    "agent_task_attention": "一時停止"
   },
   "selection_button": {
     "label": "ローカルLLMに聞く",

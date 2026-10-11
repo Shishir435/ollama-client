@@ -853,7 +853,7 @@ try {
         attempt,
         goal,
         provider:
-          "OLC OpenCode " +
+          `OLC ${model.startsWith("codex/") ? "Codex" : "OpenCode"} ` +
           (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"),
         model,
         success,

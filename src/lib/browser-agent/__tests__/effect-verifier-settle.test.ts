@@ -280,3 +280,54 @@ describe("Agent effect settle window", () => {
     expect(looks).toHaveLength(1)
   })
 })
+
+describe("intercepted form navigation deadline", () => {
+  it("reads the updated page after a navigation timeout without replaying submission", async () => {
+    const { AgentNavigationTimeoutError } = await import("../navigation-errors")
+    const before = observation()
+    const after = observation({
+      generation: 2,
+      snapshotId: "snapshot-2",
+      visibleText: "Pull request 42 Closed"
+    })
+    const { adapter, looks } = settlingAdapter([after])
+    adapter.waitForNavigation = async () => {
+      throw new AgentNavigationTimeoutError()
+    }
+    const verification: AgentVerificationInput = {
+      effect: {
+        ...effect({
+          semanticEffects: ["submission"],
+          destination: {
+            url: "https://example.com/close",
+            source: "observed",
+            origin: "https://example.com"
+          }
+        }),
+        authorization: {
+          type: "approval",
+          risk: "high",
+          approvalId: "a1",
+          authorizedAt: 2
+        }
+      },
+      receipt: { executedAt: 0, inputDelivery: "delivered" },
+      before,
+      allowedOrigins: ["https://example.com"]
+    }
+    const result = await verifyDomMutationAgentEffect({
+      verification,
+      adapter,
+      signal
+    })
+    expect(result.outcome).toBe("confirmed")
+    expect(looks).toHaveLength(1)
+    adapter.waitForNavigation = async () => {
+      throw new Error("cancelled")
+    }
+    await expect(
+      verifyDomMutationAgentEffect({ verification, adapter, signal })
+    ).rejects.toThrow("cancelled")
+    expect(looks).toHaveLength(1)
+  })
+})

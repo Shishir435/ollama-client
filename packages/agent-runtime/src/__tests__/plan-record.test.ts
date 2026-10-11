@@ -164,6 +164,27 @@ describe("agent plan record", () => {
     ).toEqual([])
   })
 
+  it("refuses consequential scope and payment bounds without authoritative bindings", () => {
+    const scope = { id: "c1", text: "Only Record 42", kind: "scope" as const }
+    const limit = {
+      id: "c2",
+      text: "Spend at most 10 credits",
+      kind: "limit" as const
+    }
+    expect(
+      agentForbiddingConstraints({ semanticEffects: ["destructive"] }, [scope])
+    ).toEqual([{ constraint: scope, effects: ["destructive"] }])
+    expect(
+      agentForbiddingConstraints({ semanticEffects: ["payment"] }, [limit])
+    ).toEqual([{ constraint: limit, effects: ["payment"] }])
+    expect(
+      agentForbiddingConstraints({ semanticEffects: ["read", "navigation"] }, [
+        scope,
+        limit
+      ])
+    ).toEqual([])
+  })
+
   describe("confirmed removal", () => {
     const pending = {
       ...planned,

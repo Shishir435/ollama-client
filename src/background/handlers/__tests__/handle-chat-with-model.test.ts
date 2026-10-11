@@ -313,7 +313,7 @@ describe("handleChatWithModel", () => {
 
       const request = mockStreamChat.mock.calls[0][0]
       const systemMsg = request.messages.find(
-        (m: ChatMessage) => m.role === "system"
+        (m: ChatMessage) => m.role === "user"
       )
       expect(systemMsg.content).toContain("[Context truncated due to length]")
       expect(systemMsg.content).not.toContain(longContext)
@@ -472,8 +472,8 @@ describe("handleChatWithModel", () => {
     })
   })
 
-  describe("message limiting for small models", () => {
-    it("should limit messages for 135m models", async () => {
+  describe("history preservation regardless of parameter count", () => {
+    it("preserves history for 135m ids", async () => {
       const messages = Array.from({ length: 10 }, (_, i) => ({
         role: i % 2 === 0 ? ("user" as const) : ("assistant" as const),
         content: `Message ${i}`
@@ -490,10 +490,10 @@ describe("handleChatWithModel", () => {
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
       const callArgs = mockStreamChat.mock.calls[0][0]
-      expect(callArgs.messages.length).toBeLessThanOrEqual(6) // 5 last + 1 system
+      expect(callArgs.messages.length).toBe(11)
     })
 
-    it("should limit messages for 0.6b models", async () => {
+    it("preserves history for 0.6b ids", async () => {
       const messages = Array.from({ length: 10 }, (_, i) => ({
         role: i % 2 === 0 ? ("user" as const) : ("assistant" as const),
         content: `Message ${i}`
@@ -510,7 +510,7 @@ describe("handleChatWithModel", () => {
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
       const callArgs = mockStreamChat.mock.calls[0][0]
-      expect(callArgs.messages.length).toBeLessThanOrEqual(6)
+      expect(callArgs.messages.length).toBe(11)
     })
 
     it("should not limit messages for regular models", async () => {

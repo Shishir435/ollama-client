@@ -282,7 +282,10 @@
       "label": "Diese Aufgabe bei geschlossenem Panel fortsetzen",
       "help": "Aktivieren Sie diese Option und setzen Sie die Aufgabe dann fort. Es werden die aktuellen Tabs, Websites und der aktuelle Anbieter verwendet. Genehmigungen, Anmeldung und CAPTCHA erfordern weiterhin Ihre Mitwirkung. Stoppen Sie die Aufgabe über das Kontextmenü der Seite oder das Tastenkürzel zum Stoppen des Agenten. Das Beenden des Browsers und der Ruhezustand können die Arbeit unterbrechen.",
       "active": "Die Fortsetzung bei geschlossenem Panel ist für diese Aufgabe aktiviert. Neue Aufgaben erfordern eine neue Zustimmung.",
-      "decision_interrupted": "Diese Entscheidung wurde noch nicht getroffen. Setzen Sie die Aufgabe fort, um die Seite erneut zu prüfen und eine neue Entscheidung anzufordern:"
+      "decision_interrupted": "Diese Entscheidung wurde noch nicht getroffen. Setzen Sie die Aufgabe fort, um die Seite erneut zu prüfen und eine neue Entscheidung anzufordern:",
+      "scope_changed": "Der Aufgabenbereich hat sich geändert. Prüfen Sie die Zustimmung zum Fortsetzen bei geschlossenem Panel.",
+      "scope": "Tabs: {{tabs}} · Anbieter: {{provider}} · Modell: {{model}}",
+      "stop_menu": "Browser-Agent stoppen"
     }
   },
   "common": {
@@ -335,7 +338,10 @@
     "name": "Ollama Client - Lokaler KI-Chat mit Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
     "description": "Lokale Erweiterung für private LLM-Chats mit Ollama, LM Studio und llama.cpp, mit lokalem RAG, Websuche und Seitenkontext.",
-    "action_default_title": "Ollama Client öffnen"
+    "action_default_title": "Ollama Client öffnen",
+    "stop_browser_agent_menu": "Browser-Agent stoppen",
+    "agent_task_completed": "Abgeschlossen",
+    "agent_task_attention": "Pausiert"
   },
   "selection_button": {
     "label": "Lokalen LLM fragen",

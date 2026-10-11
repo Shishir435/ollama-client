@@ -428,6 +428,13 @@ export interface AgentVerificationEvidence {
   observedAt: number
   /** Bounded control names for a confirmed batch, in command order. */
   fields?: { name?: string }[]
+  controlTransition?: {
+    from: string
+    to: string
+    verificationId: string
+    frameId: number
+    documentId: string
+  }
   /**
    * The values a confirmed GET submission sent, each with the label of the
    * control it came from when the observation showed one — what the form

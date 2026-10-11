@@ -1,6 +1,7 @@
 import type {
   AgentEvidenceRecord,
-  AgentObservation
+  AgentObservation,
+  AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 
@@ -2666,7 +2667,10 @@ describe("itemized requirements", () => {
           }
         ]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0, 1] }] }
+    })
   })
 
   /**
@@ -2775,7 +2779,10 @@ describe("itemized requirements", () => {
           }
         ]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0] }] }
+    })
   })
 
   /** "Paid Invoice 2" quotes invoice 1's state beside invoice 2's name. */
@@ -2831,5 +2838,128 @@ describe("itemized requirements", () => {
         ]
       })
     ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+})
+
+describe("release review evidence regressions", () => {
+  it("does not mistake disclosed for a pre-existing Closed state", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [step({ sequence: 1 })],
+        observation: observation({ visibleText: "Closed" }),
+        baselineText: "security issue disclosed",
+        evidence: "Closed"
+      })
+    ).toMatchObject({ type: "accepted" })
+  })
+  it("requires fresh support for a current-state read", () => {
+    const result = judgeAgentCompletion({
+      steps: [],
+      observation: observation(),
+      evidenceLedger: [observedFact("Invoice 1 is paid", "historical")],
+      requirements: [
+        {
+          id: "r1",
+          text: "Report the current status of Invoice 1",
+          kind: "read",
+          freshness: "current"
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 is paid" }]
+    })
+    expect(result).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+  it("reports the items a run finished even when the requirement stays unmet", () => {
+    const result = judgeAgentCompletion({
+      steps: [],
+      observation: observation({ visibleText: "Invoice 1 Paid" }),
+      evidenceLedger: [
+        { ...observedFact("Invoice 1 Paid"), requirementId: "r1" }
+      ],
+      requirements: [
+        {
+          id: "r1",
+          text: "Report each invoice status",
+          kind: "read",
+          items: ["Invoice 1", "Invoice 2"]
+        }
+      ],
+      outcomes: [
+        {
+          id: "r1",
+          met: false,
+          items: [
+            { index: 0, met: true, evidence: "Invoice 1 Paid" },
+            { index: 1, met: false }
+          ]
+        }
+      ]
+    })
+    expect(result).toMatchObject({
+      type: "unmet",
+      outcome: { met: [], unmet: ["r1"], items: [{ id: "r1", met: [0] }] }
+    })
+  })
+
+  it("lets explicit freshness decide, and reads both texts only without it", () => {
+    const judge = (requirement: Partial<AgentTaskRequirement>) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          {
+            ...observedFact("Issue 7 was open", "historical"),
+            requirementId: "r1"
+          }
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Report whether Issue 7 was still open last Friday",
+            kind: "read",
+            ...requirement
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Issue 7 was open" }]
+      }).type
+    expect(judge({ freshness: "historical" })).toBe("accepted")
+    expect(
+      judge({
+        text: "Report the current state of Issue 7",
+        source: "Issue 7"
+      })
+    ).toBe("refused")
+  })
+
+  it("labels a current-state read carried by a screenshot as seen, even beside a stale quote", () => {
+    const result = judgeAgentCompletion({
+      steps: [],
+      observation: observation(),
+      evidenceLedger: [
+        {
+          ...observedFact("Invoice 1 is paid", "historical"),
+          requirementId: "r1"
+        },
+        {
+          ...observedFact("Invoice 1 is paid"),
+          id: "visual:paid",
+          kind: "visual_observation",
+          requirementId: "r1"
+        }
+      ],
+      requirements: [
+        {
+          id: "r1",
+          text: "Report the current status of Invoice 1",
+          kind: "read",
+          freshness: "current"
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Invoice 1 is paid" }]
+    })
+    expect(result).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+    })
   })
 })
