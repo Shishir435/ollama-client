@@ -1921,7 +1921,8 @@ const judgeMetRequirement = (
   input: AgentCompletionInput,
   change: AgentStepReadout | "unreadable" | undefined,
   changes: readonly AgentStepReadout[],
-  consumed: Set<string>
+  consumed: Set<string>,
+  credits?: Map<string, AgentStepReadout>
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   const unopened = refuseUnopenedTab(requirement, input)
   if (unopened) return unopened
@@ -1962,7 +1963,9 @@ const judgeMetRequirement = (
       input.observation,
       consumed
     )
-    return "stepId" in credited ? undefined : credited
+    if (!("stepId" in credited)) return credited
+    credits?.set(requirement.id, credited)
+    return undefined
   }
   if (checked === false)
     return {
@@ -1996,7 +1999,9 @@ const judgeMetRequirement = (
     input.observation,
     consumed
   )
-  return "stepId" in evidenced ? undefined : evidenced
+  if (!("stepId" in evidenced)) return evidenced
+  credits?.set(requirement.id, evidenced)
+  return undefined
 }
 
 /**
@@ -2231,7 +2236,8 @@ const withReviewScope = (
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
-  change: AgentStepReadout | "unreadable" | undefined
+  change: AgentStepReadout | "unreadable" | undefined,
+  credits?: Map<string, AgentStepReadout>
 ): AgentCompletionJudgement => {
   /**
    * The verification gate applies once, before any requirement is read: a
@@ -2296,7 +2302,8 @@ const judgePlanned = (
           input,
           change,
           changes,
-          consumed
+          consumed,
+          credits
         )
     if (judged === "unmet") {
       unmet.push(requirement.id)
@@ -2561,7 +2568,8 @@ const stopConditionMet = (
   requirements: readonly AgentTaskRequirement[],
   met: ReadonlySet<string>,
   steps: readonly AgentStepReadout[] | undefined,
-  observation: AgentObservation
+  observation: AgentObservation,
+  credits: ReadonlyMap<string, AgentStepReadout>
 ): boolean => {
   const condition = STOP_CONDITION.exec(
     agentNormalizedClaim(constraint.text)
@@ -2596,10 +2604,11 @@ const stopConditionMet = (
        * - an outcome with a state check ("Blue is selected") is set by a change
        *   verified against that state; a Save after it acted past the stop;
        * - one without (“Color shows Blue”, “the form is submitted”) is met
-       *   by whichever change the completion judge would credit with it, so
-       *   that change must be the last: a select credited with Blue and a
-       *   Save after it acted past the stop, while a submit or search the
-       *   judge credits on its own completes the fills before it. A second
+       *   by a change the completion judge credits with it, so the last
+       *   change must be one: the one it credited, read with the run's own
+       *   quotation as the judge read it (a Tab press quoted by "Second"), or
+       *   one it credits on its own (the submit after a fill). A select
+       *   credited with Blue and a Save after it acted past the stop. A second
        *   change verified the same way repeated an act that already met it.
        */
       (last === undefined
@@ -2608,13 +2617,14 @@ const stopConditionMet = (
           last.verification?.outcome === "confirmed" &&
           (requirement.check
             ? provesItsOwnResult(last.verification)
-            : agentWorkflowReceiptSupport(
-                requirement,
-                undefined,
-                [last],
-                observation,
-                new Set()
-              )?.stepId === last.stepId &&
+            : (credits.get(requirement.id)?.stepId === last.stepId ||
+                agentWorkflowReceiptSupport(
+                  requirement,
+                  undefined,
+                  [last],
+                  observation,
+                  new Set()
+                )?.stepId === last.stepId) &&
               !changes.some(
                 (change) =>
                   change !== last &&
@@ -2634,7 +2644,9 @@ const judgePlannedWithConstraints = (
 ): AgentCompletionJudgement => {
   const judged = judgeConstraints(input)
   if ("type" in judged) return judged
-  const planned = judgePlanned(input, requirements, change)
+  /** The receipt the judge credited with each requirement it met. */
+  const credits = new Map<string, AgentStepReadout>()
+  const planned = judgePlanned(input, requirements, change, credits)
   /** Only what this judgement settled; a refusal settles nothing. */
   const met = new Set<string>(
     planned.type === "accepted"
@@ -2654,7 +2666,8 @@ const judgePlannedWithConstraints = (
           requirements,
           met,
           input.steps,
-          input.observation
+          input.observation,
+          credits
         )
       )
     })

@@ -930,6 +930,26 @@ describe("P4 deterministic completion", () => {
     ] as const)("still reviews the constraint when %s", (_, text, steps) => {
       expect(constraintReviewed(judgeKeys(text, [...steps]))).toBe(true)
     })
+    it("settles a stop on the focus move its quotation credited", () => {
+      const judgement = judgeAgentCompletion({
+        steps: [pressed("Tab")],
+        observation: focused,
+        evidenceLedger: [],
+        constraints: [
+          {
+            id: "c1",
+            text: "Stop once Second has keyboard focus",
+            kind: "limit"
+          }
+        ],
+        requirements: [
+          { id: "r1", kind: "change", text: "Second has keyboard focus" }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "Second" }]
+      })
+      expect(constraintReviewed(judgement)).toBe(false)
+      expect(judgement).toMatchObject({ type: "accepted" })
+    })
   })
 
   describe("limits that only restate when to stop", () => {
