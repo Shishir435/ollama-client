@@ -983,6 +983,22 @@ describe("P4 deterministic completion", () => {
           selected({ stepId: "more", sequence: 2, requirementId: "r2" })
         ]
       ],
+      [
+        "a later Save for the same outcome acted after it held",
+        "Stop once Blue is selected.",
+        [
+          selected(),
+          selected({
+            stepId: "save",
+            sequence: 2,
+            target: { ref: "e4", tag: "button", name: "Save" },
+            verification: {
+              outcome: "confirmed",
+              evidence: { kind: "activation", summary: "saved", observedAt: 2 }
+            }
+          })
+        ]
+      ],
       ["it names something else", "Stop once Red is selected.", [selected()]],
       ["it is not a stop condition", "Only select Blue.", [selected()]],
       ["this run changed nothing", "Stop once Blue is selected.", []],
@@ -1100,6 +1116,35 @@ describe("P4 deterministic completion", () => {
       ]
     ] as const)("is not met when %s", (_, text, steps, observation) => {
       expect(judgeTab(text, [...steps], observation).type).not.toBe("accepted")
+    })
+    it("spends one opened tab on one opening requirement", () => {
+      const judgeTwo = (steps: AgentStepReadout[]) =>
+        judgeAgentCompletion({
+          steps,
+          observation: onDetails,
+          evidenceLedger: [],
+          requirements: [
+            { id: "r1", kind: "change", text: "Details is open in a new tab." },
+            {
+              id: "r2",
+              kind: "change",
+              text: "Details is open in a second tab."
+            }
+          ],
+          outcomes: [
+            { id: "r1", met: true, evidence: "Status: Active" },
+            { id: "r2", met: true, evidence: "Status: Active" }
+          ]
+        })
+      expect(judgeTwo([opened({ requirementId: undefined })]).type).not.toBe(
+        "accepted"
+      )
+      expect(
+        judgeTwo([
+          opened({ requirementId: undefined }),
+          opened({ stepId: "open2", sequence: 2, requirementId: undefined })
+        ])
+      ).toMatchObject({ type: "accepted" })
     })
   })
 })

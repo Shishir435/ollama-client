@@ -1761,13 +1761,22 @@ const pathWords = (url: string): string =>
  */
 const openedTabMeets = (
   requirement: AgentTaskRequirement,
-  input: AgentCompletionInput
-): boolean =>
-  requirement.kind === "change" &&
-  !requirement.check &&
-  NEW_TAB_PATTERN.test(requirement.text) &&
-  (input.steps ?? []).some(
+  input: AgentCompletionInput,
+  consumed: Set<string>
+): boolean => {
+  if (
+    requirement.kind !== "change" ||
+    requirement.check ||
+    !NEW_TAB_PATTERN.test(requirement.text)
+  )
+    return false
+  /**
+   * Consumed by identity like every other change receipt: one opened tab is
+   * evidence for one opening, not for two requirements that each ask for one.
+   */
+  const receipt = (input.steps ?? []).find(
     (receipt) =>
+      !consumed.has(receipt.stepId) &&
       /**
        * Untagged counts, as it does in `openedTabFor`: the model often names
        * no requirement for an open, and the page the run is on, named by the
@@ -1790,6 +1799,10 @@ const openedTabMeets = (
         OPEN_WORDS
       )
   )
+  if (!receipt) return false
+  consumed.add(receipt.stepId)
+  return true
+}
 
 /**
  * Same scheme, host and path: where a page is, whatever its query picked up.
@@ -1912,7 +1925,7 @@ const judgeMetRequirement = (
 ): Extract<AgentCompletionJudgement, { type: "refused" }> | undefined => {
   const unopened = refuseUnopenedTab(requirement, input)
   if (unopened) return unopened
-  if (openedTabMeets(requirement, input)) return undefined
+  if (openedTabMeets(requirement, input, consumed)) return undefined
   if (requirement.kind === "read")
     return refusePlannedReadClaim(claim.evidence, input, requirement.id)
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
@@ -2576,12 +2589,16 @@ const stopConditionMet = (
       /**
        * A change outcome is held by this run's own change: met with no
        * change at all, it was already true, and stopping "once" it held
-       * says nothing about what this run did.
+       * says nothing about what this run did. The last change must be the
+       * one that established it — verified against the state it set, not a
+       * later Save tagged for the same outcome, which acted after the
+       * condition held.
        */
       (last === undefined
         ? requirement.kind !== "change"
         : last.requirementId === requirement.id &&
-          last.verification?.outcome === "confirmed")
+          last.verification?.outcome === "confirmed" &&
+          provesItsOwnResult(last.verification))
     )
   })
 }

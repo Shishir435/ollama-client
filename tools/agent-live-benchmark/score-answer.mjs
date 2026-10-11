@@ -106,6 +106,14 @@ export const scoreInbodyAnswer = (answer, body, rule) => {
  */
 const NEGATED_VERBS = / [a-z]+n t /
 
+/**
+ * A rank other than first: "The second story is X" names X with no hedge and
+ * is still the wrong answer. Ordinals past first, and a number given as a
+ * rank ("#2", "number 3", "rank 4"); "1" and "first" stay answers.
+ */
+const OTHER_RANK =
+  / (?:second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|last|bottom|(?:[2-9]|[1-9][0-9])(?:st|nd|rd|th)|(?:number|rank|ranked|position|no) (?:[2-9]|[1-9][0-9])) /
+
 /** Room for "The top story on Hacker News is", nothing more. */
 const HN_ANSWER_EXTRA_WORDS = 10
 const HEDGES = new Set([
@@ -179,7 +187,8 @@ export const scoreHnTopStory = ({ answer, storyTitles }) => {
   if (
     rest.length > HN_ANSWER_EXTRA_WORDS ||
     rest.some((word) => HEDGES.has(word)) ||
-    NEGATED_VERBS.test(` ${rest.join(" ")} `)
+    NEGATED_VERBS.test(` ${rest.join(" ")} `) ||
+    OTHER_RANK.test(` ${rest.join(" ")} `)
   )
     return { success: false, reason: "not_an_answer" }
   return { success: true, reason: "top_story_title" }
