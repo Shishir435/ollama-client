@@ -1009,10 +1009,10 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const collectCitations = (
       choice: NonNullable<OpenAiSseData["choices"]>[number] | undefined
     ): void => {
-      const webCitations = [
-        ...readUrlCitations(choice?.delta?.annotations),
-        ...readUrlCitations(choice?.message?.annotations)
-      ]
+      const webCitations = readUrlCitations(
+        choice?.delta?.annotations,
+        choice?.message?.annotations
+      )
       if (webCitations.length > 0) onChunk({ webCitations, done: false })
     }
 

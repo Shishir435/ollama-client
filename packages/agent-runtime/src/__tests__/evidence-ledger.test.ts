@@ -494,6 +494,154 @@ describe("grounded evidence ledger", () => {
     ).toEqual([])
   })
 
+  it("never records the run's own typed text as a read off the screenshot", () => {
+    const complete = {
+      type: "complete" as const,
+      summary: "Done",
+      outcomes: [{ id: "r1", met: true, evidence: "KV-305" }]
+    }
+    const typed: AgentStepReadout = {
+      runId: "run",
+      stepId: "guess",
+      sequence: 1,
+      status: "verified",
+      at: 1,
+      mutating: true,
+      command: {
+        type: "clear_and_type",
+        ref: "e1",
+        snapshotId: "s1",
+        generation: 1,
+        text: "KV-305"
+      }
+    }
+    expect(
+      agentCompletionEvidence(
+        state,
+        observation,
+        complete,
+        [typed],
+        "answer",
+        picture
+      )
+    ).toEqual([])
+    /** Nor the same value reworded by spacing, case or punctuation. */
+    expect(
+      agentCompletionEvidence(
+        state,
+        observation,
+        {
+          ...complete,
+          outcomes: [{ id: "r1", met: true, evidence: "The code is kv 305" }]
+        },
+        [typed],
+        "answer",
+        picture
+      )
+    ).toEqual([])
+    /** Nor what an editable field now holds, typed or not. */
+    expect(
+      agentCompletionEvidence(
+        state,
+        {
+          ...observation,
+          elements: [
+            {
+              ref: "e1",
+              frameId: 0,
+              tag: "input",
+              name: "Code",
+              value: "KV-305",
+              visible: true,
+              enabled: true,
+              editable: true,
+              sensitive: false
+            }
+          ]
+        },
+        complete,
+        [],
+        "answer",
+        picture
+      )
+    ).toEqual([])
+  })
+
+  it("does not let a blank editable field hide a screenshot answer", () => {
+    const records = agentCompletionEvidence(
+      state,
+      {
+        ...observation,
+        elements: [
+          {
+            ref: "e1",
+            frameId: 0,
+            tag: "input",
+            name: "Notes",
+            value: "   ",
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false
+          }
+        ]
+      },
+      {
+        type: "complete",
+        summary: "Done",
+        outcomes: [{ id: "r1", met: true, evidence: "KV-305" }]
+      },
+      [],
+      "answer",
+      picture
+    )
+    expect(records.map((record) => record.kind)).toEqual(["visual_observation"])
+  })
+
+  it("keeps a decimal answer that only looks like a field's number when compacted", () => {
+    const withField = (value: string) => ({
+      ...observation,
+      elements: [
+        {
+          ref: "e1",
+          frameId: 0,
+          tag: "input",
+          name: "Quantity",
+          value,
+          visible: true,
+          enabled: true,
+          editable: true,
+          sensitive: false
+        }
+      ]
+    })
+    const read = (evidence: string) => ({
+      type: "complete" as const,
+      summary: "Done",
+      outcomes: [{ id: "r1", met: true, evidence }]
+    })
+    expect(
+      agentCompletionEvidence(
+        state,
+        withField("12"),
+        read("1.2"),
+        [],
+        "answer",
+        picture
+      ).map((record) => record.kind)
+    ).toEqual(["visual_observation"])
+    expect(
+      agentCompletionEvidence(
+        state,
+        withField("1.2"),
+        read("1.2"),
+        [],
+        "answer",
+        picture
+      )
+    ).toEqual([])
+  })
+
   it("keeps screenshot answers alongside unrelated text for the same requirement", () => {
     const decision: Extract<AgentDecision, { type: "complete" }> = {
       type: "complete",

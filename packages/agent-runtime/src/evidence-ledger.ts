@@ -118,6 +118,47 @@ const quoteSource = (
 }
 
 /**
+ * Letters and digits, plus a point or comma between two digits. A typed value
+ * reworded by spacing, case or punctuation — "KV-305" reported as "KV 305" —
+ * is still the run's own text, but a decimal or grouping mark is part of the
+ * number: "1.2" read off a chart is not the "12" a field holds.
+ */
+const compactClaim = (text: string): string =>
+  text
+    .toLocaleLowerCase()
+    .replaceAll(/(?<!\p{N})[.,]|[.,](?!\p{N})/gu, " ")
+    .replaceAll(/[^\p{L}\p{N}.,]+/gu, "")
+
+/**
+ * Whether a claim is text the run supplied rather than read: words it was
+ * given or typed, or what an editable field now holds. Either way the page is
+ * only repeating the run, so it can prove no read — whether the claim arrives
+ * as a quotation or as something read off a screenshot. A value with nothing
+ * left once compacted, such as a field holding only spaces, supplies nothing
+ * and excludes nothing.
+ */
+const runSupplied = (
+  claim: string,
+  authored: readonly string[],
+  observation: AgentObservation
+): boolean => {
+  const needle = compactClaim(claim)
+  if (!needle) return false
+  const supplies = (text: string) => {
+    const value = compactClaim(text)
+    return (
+      value.length > 0 && (needle.includes(value) || value.includes(needle))
+    )
+  }
+  return (
+    authored.some(supplies) ||
+    observation.elements.some(
+      (item) => item.editable === true && !!item.value && supplies(item.value)
+    )
+  )
+}
+
+/**
  * Match one contiguous source, never a concatenation of separate controls.
  * Editable values and authored text are not independent source evidence.
  * Composed frame text has no per-span identity: use a ref or extract_text
@@ -144,25 +185,7 @@ export const groundAgentQuotes = (
       return []
     const needle = agentNormalizedClaim(claim.quote)
     if (!needle || secretShaped(claim.quote)) return []
-    if (
-      authored.some((text) => {
-        const value = agentNormalizedClaim(text)
-        return (
-          value.length > 0 && (needle.includes(value) || value.includes(needle))
-        )
-      })
-    )
-      return []
-    if (
-      observation.elements.some(
-        (item) =>
-          item.editable &&
-          item.value &&
-          (needle.includes(agentNormalizedClaim(item.value)) ||
-            agentNormalizedClaim(item.value).includes(needle))
-      )
-    )
-      return []
+    if (runSupplied(claim.quote, authored, observation)) return []
     const source = quoteSource(state, observation, claim, needle)
     if (!source) return []
     return [
@@ -451,12 +474,19 @@ const visualCompletionEvidence = (
   decision: Extract<AgentDecision, { type: "complete" }>,
   screenshot: AgentScreenshot | undefined,
   grounded: readonly AgentEvidenceRecord[],
+  steps: readonly AgentStepReadout[],
   prefix: string
 ): AgentEvidenceRecord[] => {
   const picture = boundScreenshot(observation, screenshot)
   if (!picture) return []
   const source = agentEvidenceSource(observation, picture.frameId)
   if (!source || !state.allowedOrigins.includes(source.origin)) return []
+  /** A document the run wrote into unrecorded text cannot show what it read. */
+  if (authoredDocument(steps, observation, source.frameId)) return []
+  const authored = agentAuthoredText(
+    { goal: "", goalAuthor: "model_after_page" },
+    steps
+  )
   return (decision.outcomes ?? []).flatMap((outcome) => {
     const requirement = state.requirements?.find(
       (entry) => entry.id === outcome.id && entry.kind === "read"
@@ -477,6 +507,7 @@ const visualCompletionEvidence = (
         !quote ||
         quote.length > MAX_AGENT_SOURCE_QUOTE_CHARS ||
         secretShaped(quote) ||
+        runSupplied(quote, authored, observation) ||
         groundedCompletionQuote(quote, outcome.id, grounded)
       )
         return []
@@ -528,6 +559,7 @@ export const agentCompletionEvidence = (
       decision,
       screenshot,
       grounded,
+      steps,
       prefix
     )
   ])
