@@ -8,7 +8,7 @@ import type {
 import type { Dialog, Page } from "@playwright/test"
 
 import { hostedBenchmarkReasoningEffort } from "../benchmark/benchmark-config"
-import { expect, test } from "./extension"
+import { expect, test, waitForProviderDefaults } from "./extension"
 
 /**
  * One supervised Agent run, end to end, against a scripted model.
@@ -1160,6 +1160,7 @@ const runAgentScenarioAttempt = (
       if (testInfo.project.metadata.agentDomBackend !== true)
         page.on("dialog", (dialog) => dialogs.push(dialog))
       await page.goto(origin)
+      await waitForProviderDefaults(panel)
       await panel.evaluate(
         async ({ origin, model, hosted, approveEach, reasoningEffort }) => {
           const providerId = hosted ? "custom:openai:agent-fixture" : "ollama"

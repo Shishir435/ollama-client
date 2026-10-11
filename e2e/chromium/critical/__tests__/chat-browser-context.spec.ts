@@ -1,7 +1,7 @@
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 
-import { expect, test } from "../../fixtures/extension"
+import { expect, test, waitForProviderDefaults } from "../../fixtures/extension"
 
 /**
  * A chat model in the side panel is told where it is and what "this" means.
@@ -100,6 +100,7 @@ test("@critical chat names the panel's tab and reads it through current_tab", as
     await panel.goto(
       `chrome-extension://${extension.extensionId}/sidepanel.html`
     )
+    await waitForProviderDefaults(panel)
     await panel.evaluate(
       async ({ origin, model }) => {
         await chrome.storage.sync.set({

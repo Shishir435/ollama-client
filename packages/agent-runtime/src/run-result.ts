@@ -36,7 +36,9 @@ export const agentRunResult = (
         (claim?.items ?? []).map((item) => [item.index, item])
       )
       const itemReport =
-        requirement.items?.length && claim?.met
+        /** Items the judge supported still show when the whole stayed unmet. */
+        requirement.items?.length &&
+        (claim?.met || (judgedItems?.met.length ?? 0) > 0)
           ? requirement.items
               .map((item, index) => {
                 const answer = items.get(index)

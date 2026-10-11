@@ -49,6 +49,38 @@ describe("agentRunResult", () => {
       "Not verified: Report the status code\nVerified item: Invoice 1\nInvoice 1: Draft\nNot verified item: Invoice 2"
     )
   })
+  it("reports items the judge supported when the run itself left the requirement unmet", () => {
+    expect(
+      agentRunResult(
+        "Found one",
+        [{ ...read, items: ["Invoice 1", "Invoice 2"] }],
+        [
+          {
+            id: "r1",
+            met: false,
+            items: [
+              { index: 0, met: true, evidence: "Invoice 1: Draft" },
+              { index: 1, met: false }
+            ]
+          }
+        ],
+        [],
+        { met: [], unmet: ["r1"], items: [{ id: "r1", met: [0] }] }
+      )
+    ).toBe(
+      "Not verified: Report the status code\nVerified item: Invoice 1\nInvoice 1: Draft\nNot verified item: Invoice 2"
+    )
+    /** Without a judged item, an unmet requirement lists nothing item by item. */
+    expect(
+      agentRunResult(
+        "Found none",
+        [{ ...read, items: ["Invoice 1", "Invoice 2"] }],
+        [{ id: "r1", met: false }],
+        [],
+        { met: [], unmet: ["r1"] }
+      )
+    ).toBe("Not verified: Report the status code")
+  })
   /**
    * gpt-6-luna completed "report the status code" with the summary "Opened
    * Details and found the status code." and the evidence "Status code:

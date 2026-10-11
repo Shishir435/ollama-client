@@ -335,4 +335,20 @@ export const test = base.extend<{ extension: ExtensionSession }>({
   }
 })
 
+/**
+ * Waits for a fresh profile's first-run provider defaults to land before a
+ * test writes its own provider config. The extension reads the empty config
+ * and writes the defaults back; a fixture written in between is overwritten
+ * by that write, and the chat then reaches whatever answers on 11434.
+ */
+export const waitForProviderDefaults = async (page: Page): Promise<void> => {
+  await page.waitForFunction(
+    async () =>
+      (await chrome.storage.sync.get("llm_providers_config_v1"))
+        .llm_providers_config_v1 !== undefined,
+    undefined,
+    { timeout: 15_000, polling: 100 }
+  )
+}
+
 export { expect } from "@playwright/test"
