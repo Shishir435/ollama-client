@@ -99,17 +99,28 @@ export const scoreInbodyAnswer = (answer, body, rule) => {
  * "Hacker News" holds neither.
  */
 /**
- * "can't" and "won't" normalize to two words; matched as a pair so an
- * affirmative "I can confirm" is still an answer.
+ * Every "n't" contraction normalizes to two words ("haven't" → "haven t"),
+ * so it is matched as that pair rather than listed verb by verb, which let
+ * an unlisted one through. An affirmative "I can confirm" has no "t" after it
+ * and is still an answer. The apostrophe-less spellings are words of their own.
  */
-const NEGATED_VERBS = / (?:can|won|don|couldn|isn|wasn) t /
+const NEGATED_VERBS = / [a-z]+n t /
 
 /** Room for "The top story on Hacker News is", nothing more. */
 const HN_ANSWER_EXTRA_WORDS = 10
 const HEDGES = new Set([
   "not",
   "no",
+  "never",
   "cannot",
+  "cant",
+  "dont",
+  "didnt",
+  "havent",
+  "hasnt",
+  "isnt",
+  "wasnt",
+  "couldnt",
   "guess",
   "maybe",
   "perhaps",

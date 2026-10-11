@@ -1093,8 +1093,16 @@ for every other id. Rules, all load-bearing:
   observed fact. A change may also be shown by a verified effect whose kind
   proves the resulting state (`field`, `fields`, `checked`, `arrangement`,
   `condition`); an activation, submission or navigation only says the input
-  landed. A limit is supported only by a quotation the run bound to that
-  limit's id, which `groundAgentQuotes` accepts alongside requirement ids.
+  landed. A limit is supported by a quotation the run bound to that limit's
+  id, which `groundAgentQuotes` accepts alongside requirement ids. One
+  exception: a `scope` limit — one on how the run acted, such as which key
+  it pressed — may also cite any grounded `verified_effect`, unbound, but
+  only when the review request carries `actionsComplete`, i.e. the reviewer
+  was shown every applied action the run took. No record is ever bound to
+  a limit's id and no page quote can show which key was pressed, so without
+  this every method limit could only be refused; the reviewer still judges
+  the limit against the full action list, and a spending cap or other
+  non-`scope` limit keeps the bound-quotation rule.
   Ids nobody asked about are ignored. A skipped or doubled answer is
   insufficient. `contradicted` becomes `contradicted_state`, citations or
   not, because it can only stop a success.
