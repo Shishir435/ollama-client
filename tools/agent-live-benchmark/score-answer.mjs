@@ -110,15 +110,21 @@ const NEGATED_VERBS = / [a-z]+n t /
  * A rank other than first: "The second story is X" names X with no hedge and
  * is still the wrong answer. Matched as a rank phrase, never a bare word, so
  * "as of my last check" and "a second time" stay answers: an ordinal past
- * first up to two words before a rank noun ("second highest story"), after a
+ * first up to two rank modifiers before a rank noun ("second highest story"), after a
  * rank verb ("is the 3rd", "in last place"), or a number given as a rank
  * ("#2", "number 3", "ranked 4"). "1" and "first" stay answers.
  */
 const ORDINAL =
   "(?:second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|last|bottom|(?:[2-9]|[1-9][0-9])(?:st|nd|rd|th))"
+/**
+ * The only words allowed between an ordinal and its rank noun: "second
+ * highest story" is a rank, "a second time on Hacker News" is not.
+ */
+const RANK_MODIFIER =
+  "(?:highest|top|most|best|biggest|ranked|rated|popular|voted|upvoted|listed|hottest|trending)"
 const OTHER_RANK = new RegExp(
   [
-    ` ${ORDINAL} (?:[a-z]+ ){0,2}(?:story|stories|place|position|spot|item|entry|post|link|ranked|on hacker news|on hn|on the (?:front )?page) `,
+    ` ${ORDINAL} (?:${RANK_MODIFIER} ){0,2}(?:story|stories|place|position|spot|item|entry|post|link|ranked|on hacker news|on hn|on the (?:front )?page) `,
     ` (?:is|at|ranks|ranked|in) (?:the )?${ORDINAL} `,
     ` (?:number|rank|ranked|position|no|spot) (?:[2-9]|[1-9][0-9]) `
   ].join("|")

@@ -2556,6 +2556,15 @@ const STOP_FILLER = new Set([
  * word of that one outcome, so a condition naming anything else never reads
  * as it.
  */
+/** Whether every word of the receipt's control name is one of `words`. */
+const namesControl = (
+  words: ReadonlySet<string>,
+  receipt: AgentStepReadout
+): boolean => {
+  const name = stopWords(receipt.target?.name ?? "")
+  return name.length > 0 && name.every((word) => words.has(word))
+}
+
 const stopConditionMet = (
   constraint: AgentTaskConstraint,
   requirements: readonly AgentTaskRequirement[],
@@ -2595,8 +2604,10 @@ const stopConditionMet = (
        * - an outcome with a state check ("Blue is selected") is set by a change
        *   verified against that state; a Save after it acted past the stop;
        * - one without (“the form is submitted”) is met by the act itself, so
-       *   an earlier change verified the same way already met it, while the
-       *   fills before a submit are preparation, not the outcome.
+       *   an earlier change verified the same way already met it, and so did
+       *   an earlier change that proved the state of a control the outcome
+       *   names (“Blue is selected from Color”, then Save); the fills before
+       *   a submit set controls it never names, and are preparation.
        */
       (last === undefined
         ? requirement.kind !== "change"
@@ -2609,8 +2620,10 @@ const stopConditionMet = (
                   change !== last &&
                   change.requirementId === requirement.id &&
                   change.verification?.outcome === "confirmed" &&
-                  change.verification.evidence.kind ===
-                    last.verification?.evidence.kind
+                  (change.verification.evidence.kind ===
+                    last.verification?.evidence.kind ||
+                    (provesItsOwnResult(change.verification) &&
+                      namesControl(own, change)))
               )))
     )
   })

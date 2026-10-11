@@ -159,7 +159,16 @@ describe("real-site scorer", () => {
       [
         "Cloudflare acquires Deno, checked a second time just now",
         "top_story_title"
-      ]
+      ],
+      [
+        "Cloudflare acquires Deno, checked a second time on Hacker News",
+        "top_story_title"
+      ],
+      [
+        "Cloudflare acquires Deno is the second most upvoted story",
+        "not_an_answer"
+      ],
+      ["Cloudflare acquires Deno is second on Hacker News", "not_an_answer"]
     ])
       assert.equal(
         scoreHnTopStory({ answer, storyTitles }).reason,
