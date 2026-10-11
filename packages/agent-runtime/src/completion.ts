@@ -2547,36 +2547,6 @@ const STOP_FILLER = new Set([
   "option"
 ])
 
-/** Words that say an outcome is a control's state rather than an act. */
-const CONTROL_STATE_WORDS = new Set([
-  ...CHECKED_STATE_WORDS.check,
-  ...CHECKED_STATE_WORDS.uncheck,
-  "chosen",
-  "set",
-  "filled",
-  "entered",
-  "contains",
-  "holds"
-])
-
-/**
- * Whether the receipt set the state the outcome is: the outcome names the
- * receipt's control and says it holds something ("Blue is selected from
- * Color"). "Search for Alice" names the Search field too, but it is an act,
- * so the fill before it only prepared it.
- */
-const setsOutcomeState = (
-  words: ReadonlySet<string>,
-  receipt: AgentStepReadout
-): boolean => {
-  const name = stopWords(receipt.target?.name ?? "")
-  return (
-    name.length > 0 &&
-    name.every((word) => words.has(word)) &&
-    [...words].some((word) => CONTROL_STATE_WORDS.has(word))
-  )
-}
-
 /**
  * A limit that only restates when to stop — "Stop once Blue is selected" for
  * the outcome "Blue is selected from Color" — adds nothing a page could show
@@ -2590,7 +2560,8 @@ const stopConditionMet = (
   constraint: AgentTaskConstraint,
   requirements: readonly AgentTaskRequirement[],
   met: ReadonlySet<string>,
-  steps: readonly AgentStepReadout[] | undefined
+  steps: readonly AgentStepReadout[] | undefined,
+  observation: AgentObservation
 ): boolean => {
   const condition = STOP_CONDITION.exec(
     agentNormalizedClaim(constraint.text)
@@ -2624,11 +2595,12 @@ const stopConditionMet = (
        * one that established it, never an act past it:
        * - an outcome with a state check ("Blue is selected") is set by a change
        *   verified against that state; a Save after it acted past the stop;
-       * - one without (“the form is submitted”) is met by the act itself, so
-       *   an earlier change verified the same way already met it, and so did
-       *   an earlier change that set the control state the outcome states
-       *   (“Blue is selected from Color”, then Save); the fills before a
-       *   submit or a search are preparation, not the outcome.
+       * - one without (“Color shows Blue”, “the form is submitted”) is met
+       *   by whichever change the completion judge would credit with it, so
+       *   that change must be the last: a select credited with Blue and a
+       *   Save after it acted past the stop, while a submit or search the
+       *   judge credits on its own completes the fills before it. A second
+       *   change verified the same way repeated an act that already met it.
        */
       (last === undefined
         ? requirement.kind !== "change"
@@ -2636,15 +2608,20 @@ const stopConditionMet = (
           last.verification?.outcome === "confirmed" &&
           (requirement.check
             ? provesItsOwnResult(last.verification)
-            : !changes.some(
+            : agentWorkflowReceiptSupport(
+                requirement,
+                undefined,
+                [last],
+                observation,
+                new Set()
+              )?.stepId === last.stepId &&
+              !changes.some(
                 (change) =>
                   change !== last &&
                   change.requirementId === requirement.id &&
                   change.verification?.outcome === "confirmed" &&
-                  (change.verification.evidence.kind ===
-                    last.verification?.evidence.kind ||
-                    (provesItsOwnResult(change.verification) &&
-                      setsOutcomeState(own, change)))
+                  change.verification.evidence.kind ===
+                    last.verification?.evidence.kind
               )))
     )
   })
@@ -2672,7 +2649,13 @@ const judgePlannedWithConstraints = (
       const constraint = input.constraints?.find((entry) => entry.id === id)
       return !(
         constraint &&
-        stopConditionMet(constraint, requirements, met, input.steps)
+        stopConditionMet(
+          constraint,
+          requirements,
+          met,
+          input.steps,
+          input.observation
+        )
       )
     })
   }
