@@ -147,8 +147,13 @@ const grantableFor = (
   const origin = actingOrigin(input)
   const destination = input.effect.destination
   const grantable: readonly string[] = AGENT_GRANTABLE_EFFECTS
+  /**
+   * A committing-label control is asked about every time, so its approval
+   * must not offer a standing grant that `standingGrantFor` would ignore.
+   */
   if (
     risk === "critical" ||
+    input.effect.target.committingLabel === true ||
     !input.allowedOrigins.includes(origin) ||
     (destination && destination.origin !== origin) ||
     !input.effect.semanticEffects.every((effect) => grantable.includes(effect))
@@ -647,6 +652,20 @@ const grantFor = (
 }
 
 /**
+ * The grant that covers this effect without asking, if any. A control
+ * labelled as ordering, paying or sending is asked about every time: it
+ * resolved to a plain activation only because a script, not a form, does the
+ * committing, and a run's standing consent to click was never consent to buy.
+ */
+const standingGrantFor = (
+  input: AgentPolicyInput,
+  risk: AgentRisk
+): AgentGrant | undefined =>
+  input.effect.target.committingLabel === true
+    ? undefined
+    : grantFor(input, risk)
+
+/**
  * A submission the start prompt's search consent covers: a GET form the page
  * marks as a search with nothing to fill in but the query (`searchForm`), on
  * the grant's own origin. A query string alone is not a search — a
@@ -820,7 +839,7 @@ export const evaluateAgentPolicy = (
     return { type: "allow", risk }
   }
 
-  const granted = grantFor(input, risk)
+  const granted = standingGrantFor(input, risk)
   if (granted) return { type: "granted", risk, origin: granted.origin }
 
   return {

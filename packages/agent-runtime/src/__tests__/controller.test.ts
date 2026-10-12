@@ -219,11 +219,17 @@ const createHarness = (options: HarnessOptions = {}) => {
     ...(options.observations ?? [observation(), observation()])
   ]
   const verifications = [...(options.verification ?? [confirmed])]
+  /**
+   * Statuses the next reads report instead of the stored one, one per read:
+   * the run as a request saw it just before the loop moved it on.
+   */
+  const staleLoads: AgentRunStatus[] = []
 
   const persistence: AgentControllerDependencies["persistence"] = {
     async load() {
       calls.push(`load:${state.status}`)
-      return state
+      const stale = staleLoads.shift()
+      return stale ? { ...state, status: stale } : state
     },
     async claim(input) {
       calls.push(`claim:${input.phase}`)
@@ -357,6 +363,7 @@ const createHarness = (options: HarnessOptions = {}) => {
     calls,
     steps,
     writtenSteps: written,
+    staleLoads,
     controller: createAgentController(dependencies),
     getState: () => state
   }
@@ -2348,6 +2355,95 @@ describe("agent controller", () => {
     await running
     expect(order).toEqual(["abort-after-cancelling"])
     expect(harness.getState().status).toBe("cancelled")
+  })
+
+  it("still stops a run that moved on between the stop's read and its write", async () => {
+    const page = deferred<AgentObservation>()
+    const aborted: string[] = []
+    const harness = createHarness({
+      observe: async () => page.promise,
+      createCancellationController: () => {
+        let done = false
+        return {
+          signal: {
+            get aborted() {
+              return done
+            }
+          },
+          abort() {
+            aborted.push(harness.getState().status)
+            done = true
+            page.reject(new Error("aborted"))
+          }
+        }
+      }
+    })
+    const running = harness.controller.start("run-1")
+    await vi.waitFor(() => expect(harness.getState().status).toBe("observing"))
+    harness.calls.length = 0
+    harness.staleLoads.push("submitted")
+    await harness.controller.requestCancel("run-1")
+    await running
+    expect(
+      harness.calls.filter((call) => call === "transition:cancelling")
+    ).toHaveLength(2)
+    expect(aborted).toEqual(["cancelling"])
+    expect(harness.getState().status).toBe("cancelled")
+  })
+
+  it("still pauses a run that moved on between the pause's read and its write", async () => {
+    const page = deferred<AgentObservation>()
+    const harness = createHarness({
+      observe: async () => page.promise,
+      createCancellationController: () => {
+        let done = false
+        return {
+          signal: {
+            get aborted() {
+              return done
+            }
+          },
+          abort() {
+            done = true
+            page.reject(new Error("aborted"))
+          }
+        }
+      }
+    })
+    const running = harness.controller.start("run-1")
+    await vi.waitFor(() => expect(harness.getState().status).toBe("observing"))
+    harness.staleLoads.push("submitted")
+    await harness.controller.requestPause("run-1")
+    await running
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "user"
+    })
+  })
+
+  it("retries a stop whose reread shows the status it just lost from", async () => {
+    const harness = createHarness({ state: runState({ status: "observing" }) })
+    harness.staleLoads.push("deciding", "deciding")
+    await harness.controller.requestCancel("run-1")
+    expect(harness.getState().status).toBe("cancelled")
+  })
+
+  it("reports a stop it cannot record instead of returning as if it had", async () => {
+    const harness = createHarness({ state: runState({ status: "observing" }) })
+    harness.staleLoads.push(...Array<AgentRunStatus>(8).fill("deciding"))
+    await expect(harness.controller.requestCancel("run-1")).rejects.toThrow(
+      "could not be recorded"
+    )
+    expect(harness.getState().status).toBe("observing")
+  })
+
+  it("gives up a stop only when the run is already stopping or done", async () => {
+    const harness = createHarness({ state: runState({ status: "cancelled" }) })
+    await harness.controller.requestCancel("run-1")
+    await harness.controller.requestPause("run-1")
+    expect(
+      harness.calls.filter((call) => call.startsWith("transition:"))
+    ).toEqual([])
   })
 
   it("enters awaiting_takeover for sensitive targets", async () => {

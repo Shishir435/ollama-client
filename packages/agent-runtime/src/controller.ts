@@ -133,6 +133,7 @@ import {
 import {
   AGENT_STATUS_PREDECESSORS,
   agentTabScope,
+  isLegalAgentTransition,
   isTerminalAgentStatus
 } from "./state"
 import { mergeAgentStepTelemetry } from "./telemetry"
@@ -235,6 +236,13 @@ const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
 /** Corrections one decision will take in at once; older ones are dropped. */
 const MAX_QUEUED_STEERING = 3
+
+/**
+ * Reads a pause or stop may take before it gives up. Each failed attempt means
+ * the loop moved the run between the read and the compare-and-set, which a
+ * live run does a handful of times per step, so a few rereads always land.
+ */
+const MAX_STOP_ATTEMPTS = 8
 
 /**
  * What a re-recorded step keeps from the receipt it restates. A disposition
@@ -3723,13 +3731,46 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * Commits a pause or stop against whatever status the run holds now.
+   *
+   * The request reads the run and compare-and-sets from what it read. The
+   * loop it is stopping keeps moving in between — observing to deciding, an
+   * approval landing — and a stale read then lost the race silently: the
+   * stop returned without aborting anything and the run went on. A failed
+   * write is reread and tried again; only a status the request can no longer
+   * leave from (terminal, or already pausing or stopping) ends it quietly.
+   *
+   * A request that cannot land throws rather than returning as if it had:
+   * the panel reports a failed command, and the user can press again. A
+   * reread showing the status that was just refused proves nothing — the
+   * loop can go observing, deciding and back to observing between two reads
+   * — so only the attempt count bounds the retries.
+   */
+  const commitStop = async (
+    runId: string,
+    to: "pause_requested" | "cancelling",
+    patchFor: (state: AgentRunState) => AgentStatePatch
+  ): Promise<{ from: AgentRunState; to: AgentRunState } | undefined> => {
+    for (let attempt = 0; attempt < MAX_STOP_ATTEMPTS; attempt += 1) {
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        isTerminalAgentStatus(state.status) ||
+        !isLegalAgentTransition(state.status, to)
+      )
+        return undefined
+      const committed = await transition(state, to, patchFor(state))
+      if (committed) return { from: state, to: committed }
+    }
+    throw new Error(`Agent ${to} could not be recorded`)
+  }
+
   const requestPause = async (
     runId: string,
     reason: AgentPauseReason = "user"
   ): Promise<void> => {
-    const state = await dependencies.persistence.load(runId)
-    if (!state || isTerminalAgentStatus(state.status)) return
-    const requested = await transition(state, "pause_requested", {
+    const requested = await commitStop(runId, "pause_requested", (state) => ({
       ...pausePatch(reason, dependencies.clock.now()),
       ...(state.deadline && reason === "user"
         ? {
@@ -3740,14 +3781,15 @@ export const createAgentController = (
             )
           }
         : {})
-    })
+    }))
     if (!requested) return
     active.get(runId)?.abort()
     await transition(
-      requested,
+      requested.to,
       "paused",
       pausePatch(
-        state.status === "executing" || state.status === "verifying"
+        requested.from.status === "executing" ||
+          requested.from.status === "verifying"
           ? "unresolved_effect"
           : reason,
         dependencies.clock.now()
@@ -3756,14 +3798,12 @@ export const createAgentController = (
   }
 
   const requestCancel = async (runId: string): Promise<void> => {
-    const state = await dependencies.persistence.load(runId)
-    if (!state || isTerminalAgentStatus(state.status)) return
-    const cancelling = await transition(state, "cancelling", {
+    const cancelling = await commitStop(runId, "cancelling", () => ({
       updatedAt: dependencies.clock.now()
-    })
+    }))
     if (!cancelling) return
     active.get(runId)?.abort()
-    await transition(cancelling, "cancelled", {
+    await transition(cancelling.to, "cancelled", {
       updatedAt: dependencies.clock.now()
     })
   }

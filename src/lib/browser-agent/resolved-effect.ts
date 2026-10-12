@@ -597,6 +597,130 @@ const DESTRUCTIVE_LABELS = [
   /(?:删除|移除|清除)/u
 ] as const
 
+/**
+ * A whole word, where a letter or digit on either side would make it part of
+ * another word. `\b` only knows ASCII, so "überweisen" or "réserver" would
+ * never match at their edges with it.
+ */
+const labelWords = (words: readonly string[]): RegExp =>
+  new RegExp(
+    `(?<![\\p{L}\\p{N}])(?:${words.join("|")})(?![\\p{L}\\p{N}])`,
+    "iu"
+  )
+
+/**
+ * Labels of controls that order, pay, send or publish something. A script
+ * button with one of these labels commits as surely as a form submitter does,
+ * but it carries no submitter to classify, so the click read as a routine
+ * activation that a run's standing consent covered. Raise-only: a match makes
+ * policy ask, and a miss changes nothing. Scripts whose words run together,
+ * or are inflected inside a word, match as substrings.
+ */
+const CONSEQUENTIAL_LABELS = [
+  labelWords([
+    "place (?:the |your |my )?order",
+    "order now",
+    "buy",
+    "buy now",
+    "purchase",
+    "pay",
+    "pay now",
+    "check ?out",
+    "send",
+    "transfer",
+    "post",
+    "publish",
+    "submit",
+    "subscribe",
+    "donate",
+    "book now",
+    "reserve",
+    "confirm"
+  ]),
+  labelWords([
+    "bestellen",
+    "kaufen",
+    "bezahlen",
+    "zahlen",
+    "senden",
+    "absenden",
+    "überweisen",
+    "veröffentlichen",
+    "abonnieren",
+    "buchen",
+    "bestätigen"
+  ]),
+  labelWords([
+    "comprar",
+    "pagar",
+    "enviar",
+    "transferir",
+    "publicar",
+    "suscribirse",
+    "reservar",
+    "confirmar",
+    "realizar pedido"
+  ]),
+  labelWords([
+    "commander",
+    "acheter",
+    "payer",
+    "envoyer",
+    "transférer",
+    "publier",
+    "s['’]abonner",
+    "réserver",
+    "confirmer",
+    "valider la commande"
+  ]),
+  labelWords([
+    "ordina",
+    "acquista",
+    "compra",
+    "paga",
+    "invia",
+    "trasferisci",
+    "pubblica",
+    "iscriviti",
+    "abbonati",
+    "prenota",
+    "conferma"
+  ]),
+  labelWords([
+    "заказать",
+    "купить",
+    "оплатить",
+    "отправить",
+    "перевести",
+    "опубликовать",
+    "подписаться",
+    "забронировать",
+    "подтвердить",
+    "оформить заказ"
+  ]),
+  /(?:注文|購入|支払|送信|送金|振込|投稿|予約|確定)/u,
+  /(?:下单|购买|支付|付款|发送|转账|发布|订阅|预订|确认|提交)/u,
+  /(?:खरीदें|भुगतान|भेजें|ट्रांसफर|प्रकाशित|ऑर्डर|बुक करें|पुष्टि)/u
+] as const
+
+const isConsequentialLabel = (value?: string): boolean =>
+  Boolean(value && CONSEQUENTIAL_LABELS.some((pattern) => pattern.test(value)))
+
+/**
+ * The target's `committingLabel` evidence: an activation whose control is
+ * labelled as committing, and only one no form already classifies as a
+ * submission.
+ */
+const committingLabelOf = (
+  effects: readonly AgentSemanticEffect[],
+  element: AgentElement
+): { committingLabel?: true } =>
+  effects.includes("activation") &&
+  !effects.includes("submission") &&
+  isConsequentialLabel(element.name)
+    ? { committingLabel: true }
+    : {}
+
 const isDomMutationAction = (type: string): type is DomMutationAgentAction =>
   (DOM_MUTATION_AGENT_ACTIONS as readonly string[]).includes(type)
 
@@ -1263,7 +1387,8 @@ export const resolveDomMutationAgentEffect = async (input: {
       ...targetFromElement(element, observation, expected),
       ...(point ? { point, visual } : {}),
       ...(drop ? { drop: drop.drop } : {}),
-      ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {})
+      ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {}),
+      ...committingLabelOf(effects, element)
     },
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],
