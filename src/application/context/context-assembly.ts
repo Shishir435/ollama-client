@@ -27,6 +27,8 @@ export interface PromptContextStats {
 
 export interface ContextAssemblyResult {
   contentWithRAG: string
+  /** The Agent runs whose fenced record this turn carries. */
+  agentHandoffRunIds: string[]
   ragSources: RagSources | null
   promptContextStats: PromptContextStats
   pageContextAdded: boolean
@@ -65,6 +67,7 @@ export class ContextAssembly {
   private ragSources: RagSources | null = null
   private pageContextAdded = false
   private ragInstructionAdded = false
+  private agentHandoffRunIds: string[] = []
 
   constructor(
     private readonly plan: ContextPlan,
@@ -173,6 +176,18 @@ export class ContextAssembly {
     })
   }
 
+  /**
+   * The fenced records of earlier Agent runs in this branch, counted against
+   * the same budget as retrieved context so the two never claim the window
+   * twice. The caller sized the block from `remainingRagBudget`.
+   */
+  appendAgentHandoffs(context: { block?: string; runIds: string[] }): void {
+    if (!context.block) return
+    this.appendPlainContext(context.block)
+    this.ragContextLength += context.block.length
+    this.agentHandoffRunIds = context.runIds
+  }
+
   appendFileFallback(files: ContextFileInput[] | undefined): void {
     if (this.contentWithRAG !== this.plan.userContent || !files?.length) return
     this.contentWithRAG = `${this.contentWithRAG}\n\n---\n\n${buildFileFullTextFallback(files)}`
@@ -188,6 +203,7 @@ export class ContextAssembly {
 
     return {
       contentWithRAG: this.contentWithRAG,
+      agentHandoffRunIds: this.agentHandoffRunIds,
       ragSources: this.ragSources,
       promptContextStats: {
         promptInputLength: this.plan.userContent.length,

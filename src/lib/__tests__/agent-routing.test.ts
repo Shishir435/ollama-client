@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest"
 
 import {
   NON_NEGOTIABLE_ROUTES,
-  notFoundMarkdown,
   parseAccept,
   preferredRepresentation,
   resolveRequest

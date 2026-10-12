@@ -18,6 +18,7 @@ import {
   type AgentObservation,
   type AgentScreenshot,
   type AgentSnapshotIdentity,
+  type AgentVisualFrame,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
 
@@ -29,6 +30,7 @@ import {
   agentFrameSnapshotIdentity,
   rootAgentSnapshotIdentity
 } from "./frame-identity"
+import { hitTestAgentVisualPoint } from "./frame-vision"
 import { imagePointToCss } from "./screenshot-geometry"
 
 export const READ_ONLY_AGENT_ACTIONS = [
@@ -38,6 +40,7 @@ export const READ_ONLY_AGENT_ACTIONS = [
   "extract",
   "extract_text",
   "zoom",
+  "look",
   "wait",
   "scroll",
   "switch_tab",
@@ -48,7 +51,9 @@ export const READ_ONLY_AGENT_ACTIONS = [
 export type ReadOnlyAgentAction = (typeof READ_ONLY_AGENT_ACTIONS)[number]
 
 export interface AgentEffectResolverAdapter {
-  getTab(tabId: number): Promise<{ id?: number; url?: string } | undefined>
+  getTab(
+    tabId: number
+  ): Promise<{ id?: number; url?: string; title?: string } | undefined>
   classifyAccess(url?: string): Promise<TabAccess>
   resolveHistoryDestination(
     tabId: number,
@@ -62,6 +67,9 @@ export interface AgentEffectResolverAdapter {
     identity: AgentSnapshotIdentity,
     point: { x: number; y: number }
   ): Promise<AgentHitTestResult>
+  visualFrames?(
+    observation: AgentObservation
+  ): Promise<AgentVisualFrame[] | undefined>
 }
 
 const isReadOnlyAction = (type: string): type is ReadOnlyAgentAction =>
@@ -105,6 +113,7 @@ const targetFromObservation = (
     tag: element.tag,
     role: element.role,
     accessibleName: element.name,
+    rowContext: element.rowContext,
     inputType: element.type,
     sensitive: element.sensitive,
     maySubmit: false
@@ -165,6 +174,7 @@ export const resolveReadOnlyAgentEffect = async (input: {
   )
 
   let resolvedDestination: AgentDestination | undefined
+  let tabTitle: string | undefined
   if (command.type === "switch_tab") {
     const tab = await input.adapter.getTab(command.tabId)
     if (!tab?.url || tab.id !== command.tabId) {
@@ -173,6 +183,7 @@ export const resolveReadOnlyAgentEffect = async (input: {
       )
     }
     resolvedDestination = destination(tab.url)
+    tabTitle = tab.title?.replaceAll(/\s+/g, " ").trim().slice(0, 120)
   } else if (command.type === "back" || command.type === "forward") {
     const url = await input.adapter.resolveHistoryDestination(
       observation.tabId,
@@ -221,7 +232,15 @@ export const resolveReadOnlyAgentEffect = async (input: {
       }
     })
   }
-  const target = targetFromObservation(command, observation)
+  /**
+   * A tab is named by its title, which is how the log, the approval and the
+   * history can say which tab without a browser's internal number. Read only
+   * once the destination passed the access check above.
+   */
+  const target = {
+    ...targetFromObservation(command, observation),
+    ...(tabTitle ? { accessibleName: tabTitle } : {})
+  }
   /* A referenced scroll is bound to its target's frame; nothing else has one. */
   const frame = target.frame
     ? agentFramePage(observation, target.frame)
@@ -279,9 +298,9 @@ const DOWNLOAD_EXTENSIONS = new Set([
  * that carry this class are new-origin approval and full-URL display, both of
  * which hold when none of these patterns match.
  */
-const AUTHENTICATION_PATH =
+export const AUTHENTICATION_PATH =
   /(?:^|\/)(?:login|log-in|signin|sign-in|sign_in|auth|authorize|oauth2?|sso|saml|mfa|2fa|session)(?:\/|$)/i
-const PAYMENT_PATH =
+export const PAYMENT_PATH =
   /(?:^|\/)(?:checkout|payment|payments|pay|billing|purchase|subscribe|subscription)(?:\/|$)/i
 
 const MINIMUM_EGRESS_SPAN = 12
@@ -617,6 +636,7 @@ const targetFromElement = (
   tag: element.tag,
   role: element.role,
   accessibleName: element.name,
+  rowContext: element.rowContext,
   inputType: element.type,
   observedValue: element.value,
   observedChecked: element.checked,
@@ -624,8 +644,10 @@ const targetFromElement = (
   href: element.href,
   formAction: element.formAction,
   formMethod: element.formMethod,
+  formQuery: element.formQuery,
   formFingerprint: element.formFingerprint,
   formHasSensitiveControl: element.formHasSensitiveControl,
+  ...(element.searchForm ? { searchForm: true } : {}),
   submitter: element.submitter,
   expectedValue: expected?.value,
   expectedChecked: expected?.checked,
@@ -671,6 +693,52 @@ const formDestination = (
   if (!element.formAction) return undefined
   const url = new URL(element.formAction)
   return { url: url.href, origin: url.origin, source: "observed" }
+}
+
+/**
+ * Where Enter in a same-origin search box goes, query and all.
+ *
+ * Only the address the approval shows. A GET form may still change state
+ * through its handler or its endpoint, so Enter stays a submission — priced,
+ * granted and verified as one; a routine grant never covers it. What the
+ * preview fixes is the prompt: "the complete destination URL" used to be an
+ * address missing its `?q=`. The executor refuses to send a form whose live
+ * query no longer matches it.
+ */
+const sameOriginSearchDestination = (
+  element: AgentElement,
+  page: { url: string }
+): AgentDestination | undefined => {
+  if (
+    element.formMethod !== "get" ||
+    element.formQuery === undefined ||
+    element.formHasSensitiveControl ||
+    !element.formAction
+  ) {
+    return undefined
+  }
+  const url = new URL(element.formAction)
+  if (url.origin !== new URL(page.url).origin) return undefined
+  url.search = element.formQuery
+  url.hash = ""
+  return { url: url.href, origin: url.origin, source: "observed" }
+}
+
+/** What Enter in a field that submits does, and the address it shows. */
+const enterSemantics = (
+  element: AgentElement,
+  observation: AgentObservation,
+  source: { url: string }
+): { destination?: AgentDestination; effects: AgentSemanticEffect[] } => {
+  /** A child frame's form is judged against the frame's own page. */
+  const search = sameOriginSearchDestination(
+    element,
+    agentFramePage(observation, element) ?? source
+  )
+  return {
+    destination: search ?? formDestination(element),
+    effects: ["form_mutation", "submission"]
+  }
 }
 
 const linkDestination = (
@@ -866,7 +934,11 @@ const findVisualElement = async (
   observation: AgentObservation,
   context: AgentResolutionContext | undefined,
   adapter: AgentEffectResolverAdapter
-): Promise<{ element: AgentElement; point: { x: number; y: number } }> => {
+): Promise<{
+  element: AgentElement
+  point: { x: number; y: number }
+  visual?: ResolvedAgentTarget["visual"]
+}> => {
   const screenshot = groundingScreenshot(command, observation, context)
   const point = imagePointToCss(screenshot, { x: command.x, y: command.y })
   if (!point) {
@@ -877,10 +949,21 @@ const findVisualElement = async (
   if (!adapter.hitTest) {
     throw new AgentGroundingError({ refusal: { reason: "visual_unavailable" } })
   }
-  const hit = await adapter.hitTest(
-    rootAgentSnapshotIdentity(observation),
-    point
-  )
+  const frames = screenshot.frames ?? []
+  if (frames.length) {
+    const current = await adapter.visualFrames?.(observation)
+    if (!current || JSON.stringify(current) !== JSON.stringify(frames))
+      throw new AgentStaleObservationError(
+        "Agent frame coordinates changed after the screenshot"
+      )
+  }
+  const grounded = await hitTestAgentVisualPoint({
+    root: rootAgentSnapshotIdentity(observation),
+    frames,
+    point,
+    hitTest: adapter.hitTest
+  })
+  const hit = grounded.hit
   if (!hit) {
     throw new AgentGroundingError({ refusal: { reason: "point_on_nothing" } })
   }
@@ -901,7 +984,17 @@ const findVisualElement = async (
   if (refused && !VISUAL_CLICK_WAIVED_REFUSALS.has(refused.reason)) {
     throw new AgentGroundingError({ refusal: refused })
   }
-  return { element, point }
+  if (
+    element.frameId !== (grounded.path.at(-1)?.frameId ?? observation.frameId)
+  )
+    throw new AgentStaleObservationError("Agent hit belongs to another frame")
+  return {
+    element,
+    point: grounded.point,
+    ...(grounded.path.length
+      ? { visual: { rootPoint: point, path: grounded.path } }
+      : {})
+  }
 }
 
 export const FORM_FILL_AGENT_ACTIONS = ["fill_form"] as const
@@ -1061,16 +1154,18 @@ export const resolveDomMutationAgentEffect = async (input: {
     input.adapter
   )
   let point: { x: number; y: number } | undefined
+  let visual: ResolvedAgentTarget["visual"]
   let element: AgentElement
   if (command.type === "click_point") {
-    const visual = await findVisualElement(
+    const grounded = await findVisualElement(
       command,
       observation,
       input.context,
       input.adapter
     )
-    element = visual.element
-    point = visual.point
+    element = grounded.element
+    point = grounded.point
+    visual = grounded.visual
   } else {
     element = findMutationElement(command, observation)
   }
@@ -1141,8 +1236,9 @@ export const resolveDomMutationAgentEffect = async (input: {
       break
     case "press_key":
       if (command.key === "Enter" && element.maySubmit) {
-        destination = formDestination(element)
-        effects.push("form_mutation", "submission")
+        const enter = enterSemantics(element, observation, source)
+        destination = enter.destination
+        effects.push(...enter.effects)
       } else {
         effects.push("activation")
       }
@@ -1165,7 +1261,7 @@ export const resolveDomMutationAgentEffect = async (input: {
     command,
     target: {
       ...targetFromElement(element, observation, expected),
-      ...(point ? { point } : {}),
+      ...(point ? { point, visual } : {}),
       ...(drop ? { drop: drop.drop } : {}),
       ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {})
     },

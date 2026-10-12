@@ -127,7 +127,9 @@ export const SiteSpecificOverrides = ({
           if (next !== null) onValueChange(next as PerSiteRuleMode)
         }}>
         <SelectTrigger className="h-9">
-          <SelectValue />
+          <SelectValue>
+            {() => t(`settings.permissions.siteProfiles.modes.${value}`)}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {(["inherit", "always", "never"] as PerSiteRuleMode[]).map((mode) => (

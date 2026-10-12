@@ -1,6 +1,7 @@
 import {
   RPC_CANCEL_MESSAGE_TYPE,
-  RPC_REQUEST_MESSAGE_TYPE
+  RPC_REQUEST_MESSAGE_TYPE,
+  RpcMethod
 } from "@ollama-client/contracts/rpc"
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
@@ -77,6 +78,15 @@ export const registerMessageRouter = () => {
     }
 
     if (message.type === RPC_REQUEST_MESSAGE_TYPE) {
+      // Chromium inference is handled exclusively by the existing offscreen host.
+      if (
+        (typeof __FIREFOX_BG_OWNER__ === "undefined" ||
+          !__FIREFOX_BG_OWNER__) &&
+        (rawMessage as { method?: unknown }).method ===
+          RpcMethod.EmbeddingsNativeGenerate
+      )
+        return
+
       handleRpcRequest(
         rawMessage,
         sender,

@@ -77,6 +77,12 @@ export const LEGACY_STORAGE_KEYS = {
 
 export const STORAGE_KEYS = {
   AGENT: {
+    /** Browser-session nonce; session-only, never persisted or synced. */
+    UNATTENDED_BROWSER_SESSION: "agent-unattended-browser-session",
+    /** Whether the experimental browser agent is offered to the chat model at all. */
+    ENABLED: "agent-enabled-v1",
+    /** Whether the one-time "experimental browser agent" announcement was closed. */
+    ANNOUNCEMENT_DISMISSED: "agent-announcement-dismissed-v1",
     /** One-time acknowledgement before page observations reach a remote model. */
     REMOTE_OBSERVATION_ACKNOWLEDGED: "agent-remote-observation-acknowledged-v1",
     /** Separate acknowledgement before viewport screenshots reach a remote model. */
@@ -84,7 +90,11 @@ export const STORAGE_KEYS = {
     /** The window a run decides in: "auto", or an explicit token count. */
     CONTEXT_WINDOW: "agent-context-window-v1",
     /** Whether the run may picture the page for a model that can see. */
-    VISION: "agent-vision-v1"
+    VISION: "agent-vision-v1",
+    /** Which routine actions a new run may take without asking. */
+    PERMISSION_MODE: "agent-permission-mode-v1",
+    /** The model that independently reviews completions; absent means the run's own. */
+    COMPLETION_REVIEWER: "agent-completion-reviewer-v1"
   },
   BACKUP: {
     /** Durable rollback state for interrupted portable-settings imports. */
@@ -148,6 +158,8 @@ export const STORAGE_KEYS = {
     // request and fingerprinted by base URL. Keeps discovery from asking a
     // chat-only endpoint for a model list it will never have.
     MODEL_CATALOG_SUPPORT: "provider-model-catalog-support",
+    /** Whether Ollama's hosted-model recommendations are listed beside local models. */
+    OLLAMA_CLOUD_MODELS: "provider-ollama-cloud-models-v1",
     // Whether an unrecognized remote provider may be asked for its favicon, so
     // it shows its own icon instead of a generic glyph.
     FAVICON_LOOKUP: "provider-favicon-lookup",
@@ -219,6 +231,7 @@ export const STORAGE_KEYS = {
     APPROVAL_GRANTS: "tools-approval-grants"
   },
   EMBEDDINGS: {
+    BUNDLED_NOTICE_DISMISSED: "embeddings-bundled-notice-dismissed",
     SELECTED_MODEL: "embeddings-selected-model",
     AUTO_DOWNLOADED: "embeddings-auto-downloaded",
     CONFIG: "embeddings-config",

@@ -48,11 +48,21 @@ const service = (
   start: vi.fn(async () => {
     throw new Error("unused")
   }),
+  delegate: vi.fn(async () => {
+    throw new Error("unused")
+  }),
+  awaitSettled: vi.fn(async () => {
+    throw new Error("unused")
+  }),
   pause: vi.fn(async () => undefined),
   resume: vi.fn(async () => undefined),
   stop: vi.fn(async () => undefined),
+  setUnattended: vi.fn(async () => undefined),
+  recoverUnattended: vi.fn(async () => undefined),
+  steer: vi.fn(async () => undefined),
   completeTakeover: vi.fn(async () => undefined),
   resolveEffect: vi.fn(async () => undefined),
+  finishReviewed: vi.fn(async () => undefined),
   answerApproval: vi.fn(() => true),
   answerTakeover: vi.fn(() => true),
   answerQuestion: vi.fn(async () => undefined),
@@ -322,7 +332,7 @@ describe("Agent panel port", () => {
 
   it("reports a refusal as a key with safe text", async () => {
     const agent = service({
-      start: vi.fn(async () => {
+      stop: vi.fn(async () => {
         throw new AgentRunError(
           "tab_unsupported",
           "Agent tab access denied: excluded for https://secret.example/page"
@@ -331,6 +341,31 @@ describe("Agent panel port", () => {
     })
     registerAgentPanelPort({ service: agent })
     const { port, emit, messages } = createPort()
+
+    connect(port)
+    await settled()
+    emit({ type: "agent_stop", runId: "run-1" })
+    await settled()
+
+    const failure = messages.find(
+      (message) => message.type === "agent_command_failed"
+    )
+    expect(failure).toMatchObject({
+      command: "agent_stop",
+      messageKey: "agent.error.tab_unsupported"
+    })
+    expect(JSON.stringify(failure)).not.toContain("secret.example")
+  })
+
+  /**
+   * A run is started by the chat model through `browser_task`. A panel that
+   * could still start one would be a second way in that skips the start
+   * prompt, so the command is not in the contract at all.
+   */
+  it("refuses to start a run: runs begin in chat", async () => {
+    const agent = service()
+    registerAgentPanelPort({ service: agent })
+    const { port, emit } = createPort()
 
     connect(port)
     await settled()
@@ -343,14 +378,8 @@ describe("Agent panel port", () => {
     })
     await settled()
 
-    const failure = messages.find(
-      (message) => message.type === "agent_command_failed"
-    )
-    expect(failure).toMatchObject({
-      command: "agent_start",
-      messageKey: "agent.error.tab_unsupported"
-    })
-    expect(JSON.stringify(failure)).not.toContain("secret.example")
+    expect(agent.start).not.toHaveBeenCalled()
+    expect(port.disconnect).toHaveBeenCalledOnce()
   })
 
   it("answers the parked request the panel names", async () => {
@@ -399,7 +428,7 @@ describe("Agent panel port", () => {
     await settled()
 
     expect(unsubscribe).toHaveBeenCalledOnce()
-    expect(agent.pause).toHaveBeenCalledWith("run-1")
+    expect(agent.pause).toHaveBeenCalledWith("run-1", "panel_closed")
     expect(messages).toHaveLength(delivered)
   })
 
@@ -419,6 +448,6 @@ describe("Agent panel port", () => {
 
     second.close()
     await settled()
-    expect(agent.pause).toHaveBeenCalledWith("run-1")
+    expect(agent.pause).toHaveBeenCalledWith("run-1", "panel_closed")
   })
 })

@@ -29,6 +29,11 @@ import {
 } from "./effect-rejection"
 import type { AgentElementReferenceStore } from "./element-references"
 import {
+  agentGuardedGetQuery,
+  agentGuardedSubmissionEntries
+} from "./form-submission"
+import { frameAccessUrl } from "./inherited-frame-origin"
+import {
   type AgentInputBackendChoice,
   type AgentInputPlatform,
   type AgentInputPoint,
@@ -401,42 +406,6 @@ const associatedForm = (element: Element): HTMLFormElement | null =>
     ? element.form
     : null
 
-const successfulControlValues = (
-  control: Element
-): readonly string[] | undefined => {
-  if (
-    !(control instanceof HTMLInputElement) &&
-    !(control instanceof HTMLSelectElement) &&
-    !(control instanceof HTMLTextAreaElement)
-  ) {
-    return undefined
-  }
-  if (!control.name || control.matches(":disabled")) return undefined
-  if (control instanceof HTMLInputElement) {
-    const type = control.type.toLowerCase()
-    if (["button", "file", "image", "reset", "submit"].includes(type)) {
-      return undefined
-    }
-    if (["checkbox", "radio"].includes(type) && !control.checked) {
-      return undefined
-    }
-    return [control.value]
-  }
-  if (control instanceof HTMLSelectElement) {
-    return Array.from(control.selectedOptions)
-      .filter(
-        (option) =>
-          !option.disabled &&
-          !(
-            option.parentElement instanceof HTMLOptGroupElement &&
-            option.parentElement.disabled
-          )
-      )
-      .map((option) => option.value)
-  }
-  return [control.value]
-}
-
 const appendSubmissionValue = (
   form: HTMLFormElement,
   name: string,
@@ -468,26 +437,50 @@ const buildGuardedSubmission = (
   guarded.enctype = submitter?.formEnctype || form.enctype
   guarded.acceptCharset = form.acceptCharset
   guarded.target = "_self"
-  for (const control of Array.from(form.elements)) {
-    const values =
-      control instanceof Element ? successfulControlValues(control) : undefined
-    if (!values || !("name" in control)) continue
-    for (const value of values) {
-      appendSubmissionValue(guarded, String(control.name), value)
-    }
-  }
-  if (submitter?.name) {
-    if (
-      submitter instanceof HTMLInputElement &&
-      submitter.type.toLowerCase() === "image"
-    ) {
-      appendSubmissionValue(guarded, `${submitter.name}.x`, "0")
-      appendSubmissionValue(guarded, `${submitter.name}.y`, "0")
-    } else {
-      appendSubmissionValue(guarded, submitter.name, submitter.value)
-    }
+  for (const [name, value] of agentGuardedSubmissionEntries(form, submitter)) {
+    appendSubmissionValue(guarded, name, value)
   }
   return guarded
+}
+
+/**
+ * The submitted address as the verifier and the record see it: every field
+ * but the form's hidden inputs. A site may drop its own hidden fields once it
+ * arrives — DuckDuckGo removes its tracking fields — so they cannot be what
+ * a landing is checked against, while a visible field the user's value went
+ * into, such as the search term, must still be there. Hidden values, CSRF
+ * tokens among them, also stay out of the run's record.
+ */
+const visibleSubmissionHref = (
+  form: HTMLFormElement,
+  submitter: AgentFormSubmitter | undefined,
+  submitted: URL
+): string => {
+  const hidden = new Map<string, number>()
+  for (const control of Array.from(form.elements)) {
+    if (
+      control instanceof HTMLInputElement &&
+      control.type === "hidden" &&
+      control.name &&
+      !control.disabled
+    ) {
+      const key = `${control.name}\u0000${control.value}`
+      hidden.set(key, (hidden.get(key) ?? 0) + 1)
+    }
+  }
+  const visible = new URLSearchParams()
+  for (const [name, value] of agentGuardedSubmissionEntries(form, submitter)) {
+    const key = `${name}\u0000${value}`
+    const remaining = hidden.get(key) ?? 0
+    if (remaining > 0) {
+      hidden.set(key, remaining - 1)
+      continue
+    }
+    visible.append(name, value)
+  }
+  const reported = new URL(submitted.href)
+  reported.search = visible.toString()
+  return reported.href
 }
 
 /**
@@ -500,7 +493,8 @@ const submitApprovedDestination = (
   form: HTMLFormElement,
   submitter: ReturnType<typeof resolveAgentFormSubmitter>,
   destination: string,
-  method: "get" | "post"
+  method: "get" | "post",
+  approvedQuery?: string
 ): string => {
   const guarded = buildGuardedSubmission(form, submitter, destination, method)
   const submitted = new URL(destination)
@@ -511,6 +505,31 @@ const submitApprovedDestination = (
         query.append(control.name, control.value)
     }
     submitted.search = query.toString()
+    /**
+     * Checked on the copy about to be sent, after the page's own submit
+     * handlers ran: a handler that rewrote a field would otherwise send an
+     * address the user was never shown. Nothing is sent, but the handlers
+     * did run, so this is not a clean refusal — page code may have acted,
+     * and the step is left for the user to look at rather than retried.
+     */
+    if (approvedQuery !== undefined && query.toString() !== approvedQuery) {
+      throw new Error(
+        "Agent submission query changed after the page's submit handlers ran"
+      )
+    }
+    /**
+     * Navigated to directly rather than submitted: a native submission fires
+     * a bubbling `formdata` event, and a listener on the document could edit
+     * the entry list after the check above — sending an address the user was
+     * never shown. The checked address is the one that is loaded.
+     */
+    if (submitted.protocol !== "http:" && submitted.protocol !== "https:") {
+      throw new Error("Agent submission destination is not a web address")
+    }
+    const view = element.ownerDocument.defaultView
+    if (!view) throw new Error("Agent submission has no window to navigate")
+    view.location.assign(submitted.href)
+    return visibleSubmissionHref(form, submitter, submitted)
   }
   try {
     element.ownerDocument.body.append(guarded)
@@ -569,50 +588,40 @@ const submitThroughPageHandlers = (
     throw new Error("Agent form is not valid for submission")
   }
   const method = effect.target.formMethod
-  let committed: string | undefined
   /**
-   * Registered last, so the page's own listeners — an inline `onsubmit`
-   * attribute included — have already run and already decided whether this
-   * submission is theirs.
+   * An approval that showed the full address is bound to it. The form
+   * fingerprint compares selected options, not every option's value or
+   * whether one was disabled since, so a page could move the query under an
+   * approval that still matched; the live query is compared instead.
    */
-  const enforceDestination = (event: Event): void => {
-    if (event.defaultPrevented) return
-    event.preventDefault()
-    committed = submitApprovedDestination(
-      element,
-      form,
-      submitter,
-      destination,
-      method
+  if (
+    effect.target.formQuery !== undefined &&
+    (method !== "get" ||
+      agentGuardedGetQuery(form, submitter) !== effect.target.formQuery)
+  ) {
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.formStateChanged)
     )
   }
-  form.addEventListener("submit", enforceDestination)
-  try {
-    /**
-     * `requestSubmit` validates its argument before it dispatches anything,
-     * so a submitter it will not accept costs nothing and the approved
-     * destination is submitted directly instead. Falling back rather than
-     * throwing keeps an unusual submitter from becoming an unresolved effect.
-     */
-    try {
-      if (submitter instanceof HTMLElement && submitter.isConnected) {
-        form.requestSubmit(submitter as HTMLElement & { form: HTMLFormElement })
-      } else {
-        form.requestSubmit()
-      }
-    } catch {
-      return submitApprovedDestination(
-        element,
-        form,
-        submitter,
-        destination,
-        method
-      )
-    }
-  } finally {
-    form.removeEventListener("submit", enforceDestination)
-  }
-  return committed
+  // A synthetic submit has no native default action. Dispatch it without
+  // pre-cancelling so form, root, document and window handlers all see the
+  // original state. Once propagation completes, the application has decided
+  // whether to own it; only an unhandled event gets our guarded native submit.
+  // Even stopPropagation cannot bypass destination enforcement this way.
+  const event = new SubmitEvent("submit", {
+    bubbles: true,
+    cancelable: true,
+    submitter: submitter instanceof HTMLElement ? submitter : null
+  })
+  if (!form.dispatchEvent(event)) return undefined
+  return submitApprovedDestination(
+    element,
+    form,
+    submitter,
+    destination,
+    method,
+    effect.target.formQuery
+  )
 }
 
 const executeKey = (
@@ -988,6 +997,7 @@ export interface AgentNativeControlFacts {
   attached: boolean
   frameMapped: boolean
   frameOffset?: AgentInputPoint
+  frameScale?: AgentInputPoint
   platform: AgentInputPlatform
 }
 
@@ -999,11 +1009,16 @@ export interface AgentNativeInputPreparation {
 }
 
 export interface AgentCommandExecutorAdapter {
+  validateVisualTarget?(effect: AuthorizedAgentEffect): Promise<void>
   getTab(tabId: number): Promise<{ id?: number; url?: string } | undefined>
   getFrame(
     tabId: number,
     frameId: number
-  ): Promise<{ documentId?: string; url: string } | null>
+  ): Promise<{
+    documentId?: string
+    url: string
+    parentFrameId?: number
+  } | null>
   classifyAccess(url?: string): Promise<TabAccess>
   scroll(
     command: Extract<AuthorizedAgentEffect["command"], { type: "scroll" }>,
@@ -1065,7 +1080,6 @@ export interface AgentCommandExecutorAdapter {
    * another. Absent means this browser cannot answer a dialog at all.
    */
   handleDialog?(effect: AuthorizedAgentEffect): Promise<"answered" | "not_open">
-  activateTab(tabId: number): Promise<void>
   goHistory(tabId: number, direction: "back" | "forward"): Promise<void>
   resolveHistoryDestination(
     tabId: number,
@@ -1103,10 +1117,19 @@ const assertReadable = async (
   url: string | undefined
 ): Promise<void> => {
   if ((await adapter.classifyAccess(url)) !== "ok") {
-    throw new Error("Agent tab access changed before execution")
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.accessChanged)
+    )
   }
 }
 
+/**
+ * Every check here runs before any input is sent, so a page that moved
+ * between the look and the act is a clean refusal, never an unknown effect.
+ * A plain error here read as "it may have landed": a `wait` whose page
+ * navigated to exactly the article it was waiting for paused the run for a
+ * human, after the run had already succeeded.
+ */
 const assertSource = async (
   effect: AuthorizedAgentEffect,
   adapter: AgentCommandExecutorAdapter,
@@ -1118,7 +1141,9 @@ const assertSource = async (
     !exactUrl(tab.url, effect.sourceUrl) ||
     !exactOrigin(tab.url, effect.sourceOrigin)
   ) {
-    throw new Error("Agent source tab changed before execution")
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.sourceChanged, "tab")
+    )
   }
   await assertReadable(adapter, tab.url)
   if (!requireDocument) return
@@ -1131,7 +1156,9 @@ const assertSource = async (
     frame.documentId !== effect.snapshotIdentity.documentId ||
     !exactUrl(frame.url, effect.sourceUrl)
   ) {
-    throw new Error("Agent source document changed before execution")
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.sourceChanged, "document")
+    )
   }
   await assertTargetFrame(effect, adapter)
 }
@@ -1152,10 +1179,13 @@ const assertTargetFrame = async (
   const frame = await adapter.getFrame(target.tabId, target.frameId)
   if (!frame || frame.documentId !== target.documentId) {
     throw new AgentEffectNotAppliedError(
-      "Agent target frame changed before execution"
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.sourceChanged, "frame")
     )
   }
-  await assertReadable(adapter, frame.url)
+  await assertReadable(
+    adapter,
+    await frameAccessUrl(frame, (id) => adapter.getFrame(target.tabId, id))
+  )
 }
 
 type Executor = (
@@ -1239,10 +1269,18 @@ const executeNative = async (
     command: effect.command,
     point: prepared.point,
     frameOffset: facts.frameOffset,
+    frameScale: facts.frameScale,
     focused: prepared.focused,
     ...(prepared.dropPoint ? { dropPoint: prepared.dropPoint } : {}),
     platform: facts.platform
   })
+  if (effect.target.visual) {
+    if (!adapter.validateVisualTarget)
+      throw new AgentEffectNotAppliedError(
+        "Agent frame visual input is unavailable"
+      )
+    await adapter.validateVisualTarget(effect)
+  }
   onDispatch?.()
   try {
     await adapter.dispatchNativeInput(effect, plan, signal)
@@ -1432,6 +1470,10 @@ export const READ_ONLY_AGENT_EXECUTORS = {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "zoom")
   },
+  async look(effect, adapter) {
+    await assertSource(effect, adapter, true)
+    return receipt(adapter, "look")
+  },
   async find(effect, adapter) {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "find")
@@ -1479,7 +1521,11 @@ export const READ_ONLY_AGENT_EXECUTORS = {
       throw new Error("Agent switch-tab destination changed")
     }
     await assertReadable(adapter, target.url)
-    await adapter.activateTab(effect.command.tabId)
+    /**
+     * The run moves; the user's browser does not. The receipt names the tab
+     * the run drives from now on, and it is never brought to the front: the
+     * user may be working in another one.
+     */
     return receipt(adapter, "switch_tab", effect.command.tabId)
   },
   async back(effect, adapter) {
@@ -1616,6 +1662,13 @@ export const executeNavigationAgentEffect = async (input: {
 
 const executeClick: Executor = async (effect, adapter, signal) => {
   await assertSource(effect, adapter, true)
+  if (effect.target.visual) {
+    if (!adapter.validateVisualTarget)
+      throw new AgentEffectNotAppliedError(
+        "Agent frame visual input is unavailable"
+      )
+    await adapter.validateVisualTarget(effect)
+  }
   if (effect.destination) {
     await assertReadable(adapter, effect.destination.url)
   }

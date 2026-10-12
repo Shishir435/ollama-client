@@ -3,7 +3,6 @@ import {
   hasAgentPerceptionPermission,
   hasPermission,
   removePermission,
-  requestAgentPerceptionPermission,
   requestPermission,
   requestPermissions
 } from "@/lib/permissions"
@@ -49,13 +48,11 @@ describe("permissions helper", () => {
     })
   })
 
-  it("requests webNavigation only through the Agent user-gesture helper", async () => {
+  it("checks webNavigation for the Agent without ever requesting it", async () => {
     contains.mockResolvedValue(true)
-    request.mockResolvedValue(true)
     await expect(hasAgentPerceptionPermission()).resolves.toBe(true)
-    await expect(requestAgentPerceptionPermission()).resolves.toBe(true)
     expect(contains).toHaveBeenCalledWith({ permissions: ["webNavigation"] })
-    expect(request).toHaveBeenCalledWith({ permissions: ["webNavigation"] })
+    expect(request).not.toHaveBeenCalled()
   })
 
   it("removePermission returns the removal result", async () => {

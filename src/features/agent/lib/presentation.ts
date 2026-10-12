@@ -1,12 +1,30 @@
 import {
-  isTerminalAgentStatus,
-  TERMINAL_AGENT_STATUSES
+  agentCommandDisplay,
+  agentRowContextBeyond,
+  isTerminalAgentStatus
 } from "@ollama-client/agent-runtime"
 import type {
   AgentCommand,
+  AgentDisplayText,
+  AgentModelReadiness,
   AgentRunState,
   AgentStepRecord
 } from "@ollama-client/contracts"
+
+export interface AgentProviderPresentation {
+  name: string
+  model: string
+  location: "local" | "remote"
+  /** Whether viewport screenshots travel with observations; absent is unknown. */
+  screenshots?: boolean
+  /** Whether a run can start with this model; absent while still resolving. */
+  readiness?: AgentModelReadiness
+}
+
+export interface AgentTabPresentation {
+  title: string
+  url: string
+}
 
 export const AGENT_PAGE_TEXT_LIMIT = 240
 export const AGENT_LOG_TEXT_LIMIT = 500
@@ -17,6 +35,19 @@ export const AGENT_LOG_TEXT_LIMIT = 500
  * rather than one that clips.
  */
 export const AGENT_EVIDENCE_TEXT_LIMIT = 1_000
+
+/**
+ * Model reasoning keeps its line breaks — it is paragraphs, and one run-on
+ * line of it is unreadable — and loses every other control character.
+ */
+export const agentReasoningText = (value: string): string =>
+  Array.from(value, (character) => {
+    const code = character.charCodeAt(0)
+    return character === "\n" || (code >= 32 && code !== 127) ? character : " "
+  })
+    .join("")
+    .replaceAll(/\n{3,}/g, "\n\n")
+    .trim()
 
 /** Page-derived text is flattened before display so it cannot imitate controls. */
 export const agentPlainText = (value: string, limit: number): string => {
@@ -48,54 +79,28 @@ export interface AgentActionLabel {
   values?: Record<string, string | number>
 }
 
-const pageValue = (value: string) =>
-  agentPlainText(value, AGENT_PAGE_TEXT_LIMIT)
+/**
+ * Every string value flattened, because a label is rendered and page text
+ * must not be able to imitate one. Numbers pass as they are.
+ */
+export const agentDisplayValues = (
+  values?: AgentDisplayText["values"]
+): AgentActionLabel["values"] =>
+  values
+    ? Object.fromEntries(
+        Object.entries(values).map(([name, value]) => [
+          name,
+          typeof value === "string"
+            ? agentPlainText(value, AGENT_PAGE_TEXT_LIMIT)
+            : value
+        ])
+      )
+    : undefined
 
 export const agentActionLabel = (command?: AgentCommand): AgentActionLabel => {
-  if (!command) return { key: "agent.action.step" }
-  switch (command.type) {
-    case "navigate":
-    case "open_tab":
-      return {
-        key: `agent.action.${command.type}`,
-        values: { url: pageValue(command.url) }
-      }
-    case "scroll":
-      return { key: `agent.action.scroll_${command.direction}` }
-    case "switch_tab":
-      return {
-        key: "agent.action.switch_tab",
-        values: { tab: command.tabId }
-      }
-    case "wait":
-      return {
-        key: "agent.action.wait",
-        values: { condition: pageValue(command.condition) }
-      }
-    case "press_key":
-      return {
-        key: "agent.action.press_key",
-        values: { key: pageValue(command.key) }
-      }
-    case "inspect":
-      return {
-        key: "agent.action.inspect",
-        values: { region: pageValue(command.target) }
-      }
-    case "find":
-      return {
-        key: "agent.action.find",
-        values: { query: pageValue(command.query) }
-      }
-    case "handle_dialog":
-      return {
-        key: command.accept
-          ? "agent.action.handle_dialog_accept"
-          : "agent.action.handle_dialog_dismiss"
-      }
-    default:
-      return { key: `agent.action.${command.type}` }
-  }
+  const display = agentCommandDisplay(command)
+  const values = agentDisplayValues(display.values)
+  return values ? { key: display.key, values } : { key: display.key }
 }
 
 /**
@@ -173,11 +178,21 @@ const AGENT_FAILURE_CODES = new Set([
   "verification_failed"
 ])
 
+/**
+ * A row's state as a person reads it. A click that raised the page's own
+ * `confirm()` verifies — the dialog opening is the confirmed effect — but
+ * "Verified" beside a Delete whose confirmation is still on screen says the
+ * file is gone when nothing has been deleted yet.
+ */
+export type AgentWorkLogStatus = AgentStepRecord["status"] | "dialog_opened"
+
 export interface AgentWorkLogItem {
   id: string
   at: number
   label: AgentActionLabel
-  status: AgentStepRecord["status"]
+  status: AgentWorkLogStatus
+  /** How long the step took, first receipt to last, once it has settled. */
+  durationMs?: number
   /**
    * The control the step acted on, in the page's own words.
    *
@@ -188,9 +203,17 @@ export interface AgentWorkLogItem {
    * there when the control was sensitive.
    */
   target?: string
+  /**
+   * The row the control sits in, less the control's own label: which of
+   * five "Delete" buttons this was. Page text, flattened like the name.
+   */
+  row?: string
   /** The model's own note for this step, if it left one. */
   note?: string
+  /** The reasoning the model streamed for this step's decision. */
+  thinking?: string
   detail?: string
+  detailLabel?: AgentActionLabel
 }
 
 /**
@@ -208,6 +231,12 @@ export interface AgentWorkLogItem {
  * as twenty repetitions of "Click control" — the run's own account of what it
  * was doing existed and the supervisor could not see it.
  */
+const displayStatus = (step: AgentStepRecord): AgentWorkLogStatus =>
+  step.status === "verified" &&
+  step.verification?.evidence.kind === "native_dialog"
+    ? "dialog_opened"
+    : step.status
+
 export const toAgentWorkLog = (
   steps: readonly AgentStepRecord[]
 ): AgentWorkLogItem[] => {
@@ -218,26 +247,41 @@ export const toAgentWorkLog = (
   }
   return [...latest.values()]
     .sort((first, second) => first.sequence - second.sequence)
-    .map((step) => ({
-      id: step.stepId,
-      at: step.at,
-      label: agentActionLabel(step.command),
-      status: step.status,
-      ...(step.target?.name
-        ? { target: agentPlainText(step.target.name, AGENT_PAGE_TEXT_LIMIT) }
-        : {}),
-      ...(step.finding
-        ? { note: agentPlainText(step.finding, AGENT_LOG_TEXT_LIMIT) }
-        : {}),
-      ...(step.verification?.evidence.summary
-        ? {
-            detail: agentPlainText(
-              step.verification.evidence.summary,
-              AGENT_LOG_TEXT_LIMIT
-            )
-          }
-        : {})
-    }))
+    .map((step) => {
+      const status = displayStatus(step)
+      const row = agentRowContextBeyond(
+        step.target?.name,
+        step.target?.rowContext
+      )
+      const durationMs =
+        step.startedAt !== undefined &&
+        !OPEN_AGENT_STEP_STATUSES.includes(step.status) &&
+        step.at > step.startedAt
+          ? step.at - step.startedAt
+          : undefined
+      return {
+        id: step.stepId,
+        at: step.at,
+        label: agentActionLabel(step.command),
+        status,
+        ...(durationMs === undefined ? {} : { durationMs }),
+        ...(step.target?.name
+          ? { target: agentPlainText(step.target.name, AGENT_PAGE_TEXT_LIMIT) }
+          : {}),
+        ...(row ? { row: agentPlainText(row, AGENT_PAGE_TEXT_LIMIT) } : {}),
+        ...(step.finding
+          ? { note: agentPlainText(step.finding, AGENT_LOG_TEXT_LIMIT) }
+          : {}),
+        ...(step.thinking
+          ? { thinking: agentReasoningText(step.thinking) }
+          : {}),
+        ...(step.status === "rejected"
+          ? { detailLabel: { key: "agent.work_log.action_needs_review" } }
+          : step.status === "failed" || step.status === "uncertain"
+            ? { detailLabel: { key: `agent.step_status.${step.status}` } }
+            : {})
+      }
+    })
 }
 
 /**
@@ -249,22 +293,3 @@ export const toAgentWorkLog = (
  */
 export const agentRunIsActive = (status: AgentRunState["status"]): boolean =>
   !isTerminalAgentStatus(status) && status !== "paused"
-
-const SETTLED_AGENT_STATUSES: readonly AgentRunState["status"][] =
-  TERMINAL_AGENT_STATUSES
-
-/**
- * The tab the panel shows and gates Start on.
- *
- * While a run is unresolved that is the tab it controls, whatever the user is
- * looking at. Once it has settled, the record of where it ran says nothing
- * about where the next run would start — the tab may be closed by now — so
- * the panel goes back to the page in front of the user. Gating on the stale
- * tab is how a finished run left Start disabled on a perfectly good page.
- */
-export const visibleAgentTab = <T>(
-  run: Pick<AgentRunState, "status"> | null | undefined,
-  runTab: T | undefined,
-  candidateTab: T | undefined
-): T | undefined =>
-  run && !SETTLED_AGENT_STATUSES.includes(run.status) ? runTab : candidateTab

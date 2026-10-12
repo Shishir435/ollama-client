@@ -36,9 +36,14 @@ export class ToolRegistry {
 
   /** Resolve every source's tools into a deduped, validated definition list. */
   async listDefinitions(): Promise<ToolDefinition[]> {
-    // Reuse the cached route map until a register() invalidates it, so direct
-    // callers don't re-run every source's (future async/MCP) listTools per turn.
-    if (this.route) {
+    /**
+     * Reuse the cached route map until a register() invalidates it, so direct
+     * callers don't re-run every source's (future async/MCP) listTools per
+     * turn — unless a source is volatile. The internal source's list follows
+     * the agent opt-in, and caching its first answer kept `browser_task`
+     * missing for the worker's whole life after the user turned it on.
+     */
+    if (this.route && !this.sources.some((source) => source.volatile)) {
       return [...this.route.values()].map((entry) => entry.definition)
     }
     const route = new Map<string, RegisteredTool>()
@@ -87,7 +92,11 @@ export class ToolRegistry {
     ctx: ToolContext
   ): Promise<ToolResult> {
     if (!this.route) await this.listDefinitions()
-    const entry = this.route?.get(name)
+    let entry = this.route?.get(name)
+    if (!entry && this.sources.some((s) => s.volatile)) {
+      await this.listDefinitions()
+      entry = this.route?.get(name)
+    }
     if (!entry) {
       return { content: `Unknown tool: ${name}`, isError: true }
     }

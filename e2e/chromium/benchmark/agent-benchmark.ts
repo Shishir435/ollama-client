@@ -1,6 +1,19 @@
-import { mkdirSync, writeFileSync } from "node:fs"
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { AgentPanelMessage } from "@ollama-client/contracts"
+import {
+  type BaselineInputs,
+  type BaselineSummary,
+  type BaselineVerdict,
+  baselineInputs,
+  classifyAttempt,
+  renderBaseline,
+  summarizeBaseline
+} from "../../../tools/agent-live-benchmark/report.mjs"
+import {
+  hostedBenchmarkReasoningEffort,
+  nanobrowserBenchmarkReasoningEffort
+} from "./benchmark-config"
 
 /**
  * The frozen record of one benchmark pass.
@@ -13,10 +26,17 @@ import type { AgentPanelMessage } from "@ollama-client/contracts"
  * only reason to write one.
  */
 export interface AgentAttemptRecord {
+  verdict?: BaselineVerdict
+  activeMs?: number
+  humanWaitMs?: number
+  interventions?: number
+  executionStages?: string[]
   family: string
   scenario: string
   attempt: number
   backend: string
+  /** Product path: browser agent, read-only current-tab tool or paired agents. */
+  executionPath?: string
   terminalStatus: string
   /**
    * The status the task declares as its finish. Some tasks are meant to pause
@@ -71,6 +91,180 @@ export interface AgentAttemptRecord {
   verifyMs?: number
   /** Malformed answers the run paid for and did not use. */
   retries?: number
+  /**
+   * Independent completion review: requests sent, time spent, and claims it
+   * would not support. Read against `succeeded` these say whether the
+   * reviewer catches false completions or rejects correct work.
+   */
+  reviews?: number
+  reviewMs?: number
+  reviewDisagreements?: number
+  /** Provider-reported tokens the reviews spent, apart from the run's own. */
+  reviewPromptTokens?: number
+  reviewOutputTokens?: number
+}
+
+/**
+ * A local-only, content-free event stream for debugging benchmark attempts.
+ * It is deliberately separate from the comparable summary report.
+ */
+export interface AgentBenchmarkTrace {
+  path: string
+  record(event: Record<string, unknown>): void
+}
+
+const SAFE_TRACE_KEYS = new Set([
+  "type",
+  "actor",
+  "state",
+  "product",
+  "scenario",
+  "attempt",
+  "model",
+  "fixtureData",
+  "executionPath",
+  "status",
+  "pauseReason",
+  "errorCode",
+  "stepCount",
+  "observationCount",
+  "requirementCount",
+  "requirementKinds",
+  "step",
+  "sequence",
+  "action",
+  "decision",
+  "risk",
+  "verificationOutcome",
+  "evidenceKind",
+  "targetTag",
+  "targetRole",
+  "hasTarget",
+  "durationMs",
+  "phase",
+  "from",
+  "to",
+  "outcome",
+  "authorization",
+  "backend",
+  "inputDelivery",
+  "claimed",
+  "transitioned",
+  "screenshot",
+  "visual",
+  "reason",
+  "elements",
+  "grantable",
+  "originPresent",
+  "approvalAnswer",
+  "approvalScope",
+  "modelRoute",
+  "requestTools",
+  "responseTools",
+  "httpStatus",
+  "requestBytes",
+  "responseBytes",
+  "providerErrorCode",
+  "failureCode",
+  "finishReason",
+  "failureClass",
+  "chatToolCalls",
+  "modelCalls",
+  "steps",
+  "observations",
+  "approvalsAsked",
+  "approvalsGranted",
+  "repeatedTargets",
+  "ambiguousTargets",
+  "succeeded",
+  "falseCompletion",
+  "firstLimitation",
+  "expectedStatus",
+  "scoreError",
+  "timedOut",
+  "eventCount",
+  "answerSource",
+  "answerChars"
+])
+
+const SAFE_TRACE_ARRAY_KEYS = new Set([
+  "requirementKinds",
+  "grantable",
+  "requestTools",
+  "responseTools",
+  "chatToolCalls"
+])
+
+const isSafeTraceLabel = (value: unknown): value is string =>
+  typeof value === "string" &&
+  value.length <= 120 &&
+  /^[a-zA-Z0-9_./:-]+$/.test(value)
+
+const safeTraceFields = (
+  event: Record<string, unknown>
+): Record<string, unknown> => {
+  const safe: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(event)) {
+    if (!SAFE_TRACE_KEYS.has(key)) continue
+    if (SAFE_TRACE_ARRAY_KEYS.has(key) && Array.isArray(value)) {
+      safe[key] = value.filter(isSafeTraceLabel).slice(0, 40)
+    } else if (typeof value === "string" && isSafeTraceLabel(value)) {
+      safe[key] = value
+    } else if (typeof value === "number" && Number.isFinite(value)) {
+      safe[key] = value
+    } else if (typeof value === "boolean") {
+      safe[key] = value
+    }
+  }
+  return safe
+}
+
+/** Create a per-task trace that stays under the ignored benchmark artifacts directory. */
+export const createAgentBenchmarkTrace = (metadata: {
+  product: string
+  scenario: string
+  model: string
+}): AgentBenchmarkTrace => {
+  const directory = resolve(
+    process.env.AGENT_BENCHMARK_OUTPUT_DIR ?? "artifacts/e2e/benchmark"
+  )
+  mkdirSync(directory, { recursive: true })
+  const slug = `${metadata.product}-${metadata.scenario}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 96)
+  const path = resolve(
+    directory,
+    `agent-benchmark-trace-${slug}-${process.pid}-${Date.now()}.ndjson`
+  )
+  let eventCount = 0
+  let truncated = false
+  const append = (event: Record<string, unknown>) => {
+    appendFileSync(
+      path,
+      `${JSON.stringify({ at: new Date().toISOString(), ...safeTraceFields(event) })}\n`
+    )
+  }
+  append({
+    type: "trace_header",
+    ...metadata,
+    fixtureData: true
+  })
+  return {
+    path,
+    record(event) {
+      if (eventCount >= 2_000) {
+        if (!truncated) {
+          truncated = true
+          append({ type: "trace_truncated", eventCount })
+        }
+        return
+      }
+      eventCount += 1
+      append(event)
+    }
+  }
 }
 
 export interface AgentFamilySummary {
@@ -104,9 +298,12 @@ export interface AgentFamilySummary {
 }
 
 export interface AgentBenchmarkReport {
+  inputs?: BaselineInputs
+  baseline?: BaselineSummary
   measuredAt: string
   backend: string
   model: string
+  reasoningEffort?: string
   attempts: AgentAttemptRecord[]
   families: AgentFamilySummary[]
 }
@@ -131,6 +328,11 @@ export const attemptTelemetry = (
     | "observeMs"
     | "verifyMs"
     | "retries"
+    | "reviews"
+    | "reviewMs"
+    | "reviewDisagreements"
+    | "reviewPromptTokens"
+    | "reviewOutputTokens"
   >
 > => {
   const total = (key: string): number | undefined => {
@@ -147,7 +349,12 @@ export const attemptTelemetry = (
     decideMs: total("decideMs"),
     observeMs: total("observeMs"),
     verifyMs: total("verifyMs"),
-    retries: total("retries")
+    retries: total("retries"),
+    reviews: total("reviews"),
+    reviewMs: total("reviewMs"),
+    reviewDisagreements: total("reviewDisagreements"),
+    reviewPromptTokens: total("reviewPromptTokens"),
+    reviewOutputTokens: total("reviewOutputTokens")
   }
   return Object.fromEntries(
     Object.entries(entries).filter(([, value]) => value !== undefined)
@@ -363,6 +570,11 @@ export const renderAgentBenchmarkMarkdown = (
     "",
     `Across every family: ${totals.completed} of ${totals.attempts} attempts reported completion and ${totals.succeeded} met the task's own predicate. ${totals.falseCompletions} reported a completion the page did not support; ${totals.missedCompletions} met the goal and never said so.`
   )
+  if (report.inputs && report.baseline)
+    lines.push(
+      "",
+      renderBaseline({ inputs: report.inputs, summary: report.baseline })
+    )
   return `${lines.join("\n")}\n`
 }
 
@@ -370,13 +582,64 @@ export const buildAgentBenchmarkReport = (
   attempts: AgentAttemptRecord[],
   backend: string,
   model = backend
-): AgentBenchmarkReport => ({
-  measuredAt: new Date().toISOString(),
-  backend,
-  model,
-  attempts,
-  families: summarizeAttempts(attempts)
-})
+): AgentBenchmarkReport => {
+  const reasoningEffort =
+    process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+      ? nanobrowserBenchmarkReasoningEffort()
+      : hostedBenchmarkReasoningEffort()
+  return {
+    inputs: baselineInputs({
+      buildDirectory:
+        process.env.AGENT_BENCHMARK_PRODUCT === "nanobrowser"
+          ? process.env.NANOBROWSER_EXTENSION_PATH
+          : "build/chrome-mv3-prod",
+      corpusFiles: [
+        "e2e/chromium/benchmark/__tests__/benchmark-agent.spec.ts",
+        "e2e/chromium/benchmark/benchmark-tasks.ts",
+        "e2e/chromium/fixtures/agent-scenario.ts",
+        "e2e/chromium/benchmark/agent-benchmark.ts",
+        "tools/agent-live-benchmark/report.mjs"
+      ],
+      provider: process.env.AGENT_HOSTED_MODEL
+        ? (process.env.AGENT_HOSTED_WIRE ?? "openai-compatible")
+        : "scripted_fixture",
+      model,
+      reasoningEffort,
+      visionMode: "per_scenario_capability",
+      budgets: {
+        taskTimeoutMs: process.env.AGENT_HOSTED_MODEL ? 240000 : 60000,
+        runtimeSource: "policySourceHash"
+      },
+      policy: {
+        permissionMode: "allow_routine_or_per_scenario",
+        approvals: "scripted",
+        fixtureData: true
+      }
+    }),
+    baseline: summarizeBaseline(
+      attempts.map((a) => ({
+        ...a,
+        success: a.succeeded,
+        failureCode: a.firstLimitation,
+        verdict:
+          a.verdict ??
+          classifyAttempt({
+            status: a.terminalStatus,
+            success: a.succeeded,
+            expectedStatus: a.expectedStatus,
+            pauseReason: a.pauseReason,
+            errorCode: a.errorCode
+          })
+      }))
+    ),
+    measuredAt: new Date().toISOString(),
+    backend,
+    model,
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+    attempts,
+    families: summarizeAttempts(attempts)
+  }
+}
 
 /**
  * One pass's attempts, as far as this process saw them.
@@ -393,7 +656,9 @@ export const writeAgentBenchmarkReport = (
   label?: string
 ): string => {
   const report = buildAgentBenchmarkReport(attempts, backend, model)
-  const directory = resolve("artifacts/e2e/benchmark")
+  const directory = resolve(
+    process.env.AGENT_BENCHMARK_OUTPUT_DIR ?? "artifacts/e2e/benchmark"
+  )
   mkdirSync(directory, { recursive: true })
   const suffix = label ? `-${label}` : ""
   const stamp = Date.now()
@@ -414,6 +679,8 @@ export interface AgentBenchmarkMerge {
   complete: boolean
   /** Attempts recorded twice — a shard uploaded under two names, say. */
   duplicates: string[]
+  /** Distinct effort labels; "<missing>" means a partial recorded no effort. */
+  reasoningEfforts: string[]
 }
 
 /**
@@ -438,18 +705,51 @@ export const mergeAgentBenchmarkReports = (
     seen.add(key)
   }
   const first = partials[0]
+  const reasoningEfforts = [
+    ...new Set(
+      partials.map((partial) => partial.reasoningEffort ?? "<missing>")
+    )
+  ].sort()
+  const consistentInputs =
+    new Set(partials.map((p) => JSON.stringify(p.inputs ?? null))).size <= 1
+  const consistentReasoningEffort = reasoningEfforts.length <= 1
   return {
     report: {
+      ...(first?.inputs ? { inputs: first.inputs } : {}),
+      baseline: summarizeBaseline(
+        attempts.map((a) => ({
+          ...a,
+          success: a.succeeded,
+          failureCode: a.firstLimitation,
+          verdict:
+            a.verdict ??
+            classifyAttempt({
+              status: a.terminalStatus,
+              success: a.succeeded,
+              expectedStatus: a.expectedStatus,
+              pauseReason: a.pauseReason,
+              errorCode: a.errorCode
+            })
+        }))
+      ),
       measuredAt: new Date().toISOString(),
       backend: first?.backend ?? "unknown",
       model: first?.model ?? "unknown",
+      ...(consistentReasoningEffort && first?.reasoningEffort
+        ? { reasoningEffort: first.reasoningEffort }
+        : {}),
       attempts,
       families: summarizeAttempts(attempts)
     },
     found: attempts.length,
     expected,
-    complete: attempts.length === expected && duplicates.length === 0,
-    duplicates: [...new Set(duplicates)]
+    complete:
+      attempts.length === expected &&
+      duplicates.length === 0 &&
+      consistentReasoningEffort &&
+      consistentInputs,
+    duplicates: [...new Set(duplicates)],
+    reasoningEfforts
   }
 }
 

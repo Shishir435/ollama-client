@@ -122,9 +122,22 @@ describe("Codex backend", () => {
           .split("\n")[0] as string
       )
       expect(firstThreadStart).toMatchObject({
-        config: { web_search: "disabled" },
+        config: {
+          web_search: "disabled",
+          "mcp_servers.alpha.enabled": false,
+          "mcp_servers.beta-docs.enabled": false
+        },
         dynamicTools: [{ name: "lookup" }]
       })
+      /** The operator's plugins never start for a proxied thread. */
+      expect(
+        JSON.parse(
+          readFileSync(
+            path.join(directory, "workspace", "argv.json"),
+            "utf8"
+          ).split("\n")[0] as string
+        )
+      ).toEqual(["app-server", "--stdio", "-c", "features.plugins=false"])
       const suspended = new Promise<void>((resolve) => {
         suspend = resolve
       })
@@ -154,15 +167,37 @@ describe("Codex backend", () => {
         hasUnannouncedToolCalls: () => false,
         releaseToolResults: () => releaseToolResult?.("42")
       })
+      /** The whole turn's usage, reported once by the leg that completes it. */
       expect(outcome).toEqual({
         status: "completed",
         content: "Result: 42",
-        reasoning: "Checked. ",
+        reasoning: "Waiting. Checked. ",
+        usage: {
+          promptTokens: 2500,
+          completionTokens: 120,
+          cachedPromptTokens: 900,
+          reasoningTokens: 40
+        },
         finish: "stop"
       })
       expect(text).toEqual(["Result: 42"])
-      expect(reasoning).toEqual(["Checked. "])
+      expect(reasoning).toEqual(["Waiting. ", "Checked. "])
       await turn.dispose()
+      /** An ephemeral thread is released by unsubscribing; delete refuses it. */
+      expect(
+        readFileSync(
+          path.join(directory, "workspace", "thread-closes.jsonl"),
+          "utf8"
+        )
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+      ).toEqual([{ method: "thread/unsubscribe", threadId: "thread-1" }])
+      expect(
+        (await backend.listModels()).find(
+          (model) => model.id === "codex/fake-codex"
+        )?.context_length
+      ).toBe(272000)
 
       const nativeSearchTurn = await backend.startTurn({
         requestId: "request-native-search",
@@ -205,6 +240,10 @@ describe("Codex backend", () => {
       expect(threadStarts[1].developerInstructions).toContain(
         "Native web search is enabled"
       )
+      expect(threadStarts[1].developerInstructions).toContain("Stay concise")
+      expect(threadStarts[1].baseInstructions).toContain(
+        "no project, workspace, repository or files of your own"
+      )
       const nativeText: string[] = []
       const nativeReasoning: string[] = []
       const nativeOutcome = await nativeSearchTurn.run(
@@ -219,7 +258,10 @@ describe("Codex backend", () => {
       )
       expect(nativeOutcome).toMatchObject({
         status: "completed",
-        content: "Verified answer."
+        content: "Verified answer.",
+        sources: [
+          { url: "https://example.com/current", title: "Current answer" }
+        ]
       })
       expect(nativeText).toEqual(["Verified answer."])
       expect(nativeReasoning.join("")).toContain("Checking sources.")
@@ -238,6 +280,15 @@ describe("Codex backend", () => {
           b64Json: expect.stringMatching(/^iVBOR/)
         })
       ])
+      const imageThreadStart = readFileSync(
+        path.join(directory, "workspace", "thread-starts.jsonl"),
+        "utf8"
+      )
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line))
+        .at(-1)
+      expect(imageThreadStart).not.toHaveProperty("baseInstructions")
     } finally {
       await backend.shutdown()
     }

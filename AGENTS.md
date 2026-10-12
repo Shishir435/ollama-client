@@ -53,6 +53,7 @@ pnpm proxy:opencode         # Run the olc proxy with OpenCode
 pnpm proxy:opencode:debug   # Run OpenCode with verbose proxy logging
 pnpm proxy:codex            # Run the olc proxy with Codex
 pnpm proxy:codex:debug      # Run Codex with verbose proxy logging
+pnpm proxy:fm               # Serve Apple Foundation Models (macOS 27)
 pnpm proxy:bundle           # Bundle it to packages/olc/dist/olc.mjs
 
 pnpm generate:resources     # Validate locales, regenerate derived extension assets
@@ -172,8 +173,8 @@ Differs sharply by server, so check before assuming a field exists.
   with the size class like a curated mark would. It is offered only for a
   `custom:` id: a built-in with a real icon must never be reduced to a letter.
 - **Favicons are the tier below**, for unrecognized *remote* providers only (`provider-favicon.ts`, served by `providers.icons`). Rules, all load-bearing:
-  - The configured base URL is asked first. Its parent site is asked **only** after a settled "nothing here" (401/403/404/410, or a 200 carrying non-image bytes — a gateway guards `/favicon.ico` behind its key like every other path). Timeouts and 5xx are never chased.
-  - Exactly one label is stripped (`api.acme.com` → `acme.com`), never down to a public suffix.
+  - The configured base URL is asked first. The vendor's site — its registrable domain, then that domain's `www.` host — is asked **only** after a settled "nothing here" (401/403/404/410, a refused redirect, or a 200 carrying non-image bytes — a gateway guards `/favicon.ico` behind its key like every other path), each candidate after the one before it. Timeouts and 5xx are never chased.
+  - The walk goes straight to the registrable domain (`integrate.api.nvidia.com` → `nvidia.com`), never down to a public suffix — ccTLD registries (`com.ar`) and shared hosts (`vercel.app`, `github.io`, `workers.dev`) count as suffixes, so `api.my-router.vercel.app` stops at `my-router.vercel.app`. `www.` is asked directly because vendor sites redirect their bare domain there, and redirects stay refused.
   - No third-party favicon service, ever: that would hand every configured provider URL to whoever runs it.
   - Loopback, private, CGNAT and link-local hosts are refused (`169.254.169.254` is the cloud metadata endpoint, and this fetch reaches what a page cannot), and **redirects are refused, not followed** — the host check vets the address we picked, not the one a 302 would pick for a request holding `<all_urls>`.
   - Responses are sniffed from leading bytes rather than trusted from `Content-Type`, capped at 32KB. Hits and misses are both remembered device-local; nothing is recorded once the caller aborted.
@@ -293,7 +294,7 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 | `model/` | model management UI, provider/embedding settings |
 | `file-upload/` | ingestion for RAG, per-format `processors/` |
 | `prompt/` | prompt templates |
-| `settings/` | six intent tabs, settings registry, i18n-backed search, legacy deep-link redirects |
+| `settings/` | seven intent tabs (the agent tab is Chromium-only), settings registry, i18n-backed search, legacy deep-link redirects |
 | `selection-actions/` | in-page selection overlay |
 | `web-search/`, `permissions/`, `privacy/`, `knowledge/`, `memory/`, `context/`, `tabs/`, `diagnostics/` | auxiliary |
 
@@ -306,9 +307,11 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 - Pipeline: `src/application/context/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`), driven by `src/application/context/build-context.ts`. It left `src/features/chat/` when context building went to the background — a feature directory cannot own work the background performs.
 - **All** file, memory and live-page splitting goes through `src/lib/embeddings/chunker.ts`. Do not build a parallel text splitter.
 - Plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
-- Embedding strategy chain: provider-native → shared model → Ollama fallback.
+- New installs use bundled MiniLM embeddings (`src/lib/embeddings/native/`). Existing users retain the provider-native → shared model → Ollama fallback chain until they opt in.
+- Bundled inference uses a lazy dedicated CPU WASM worker in the existing Chromium offscreen document / Firefox background page. Model, tokenizer and runtime ship locally, pinned and hash-checked at build time. Never download executable code, model weights or tokenizer assets from remote URLs at runtime. Reading packaged assets via `fetch()` of extension-local URLs (`chrome-extension://` / `moz-extension://`) is allowed and requires no network connection.
+- Native migration stages every saved vector in Dexie and commits replacements with the active vector-space pointer in one transaction. This index pointer belongs with the vectors, not in a separate settings write. Concurrent source changes prevent the swap. The background owns the batch loop (`driveNativeMigration`), so closing the dialog or side panel never stalls it; a worker lost mid-rebuild resumes at startup, while a failed batch sets `failed` and waits for the user's Resume. Provider settings remain in chrome.storage, as does the device-local announcement dismissal.
 - Hybrid search: keyword (`minisearch`) + dense (`hnsw`), configurable weights.
-- Reranking is a **cosine-similarity re-scorer** (`reranker.ts`), on by default — **not** a cross-encoder. A transformers.js / ONNX Runtime cross-encoder was blocked by MV3 CSP and never shipped; neither library is a dependency. `config.ts` accepts the legacy `transformers-js`/`onnxruntime-web` strings only as a shim collapsing them to `cosine`.
+- Reranking is a **cosine-similarity re-scorer** (`reranker.ts`), on by default — **not** a cross-encoder. A transformers.js / ONNX Runtime cross-encoder was blocked by MV3 CSP and never shipped; Transformers.js is not a dependency. ONNX Runtime now ships for the bundled embedder, not a cross-encoder. `config.ts` accepts the legacy `transformers-js`/`onnxruntime-web` strings only as a shim collapsing them to `cosine`.
 - There is no `src/lib/rag/core/` tree. Any doc referencing one is stale.
 
 ### Web search
@@ -327,14 +330,17 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 - Run `pnpm generate:resources` after locale edits.
 - Keep privacy-sensitive tools on the same permission and scope filters as their indexing/search pipeline. A live tool must not bypass user exclusions.
 - Browser-data tools pass two independent gates before any provider sees them (`background/lib/tool-exposure-policy.ts`): the optional permission is granted **and** the current request asks for that data (`optional-permission-intent.ts`, which tolerates a one-edit typo in the keyword carrying the intent). Provider-side `tool_choice: auto` is not a privacy boundary.
+- **The chat model is told it lives in the browser.** Whenever a tab tool is offered, `buildBrowserContextGuidance` says the model runs in the side panel beside the user's tab, that "this", a PR, an article and the like mean that tab, and that `current_tab` reads it; `browser_task` is for acting, not reading. The panel's tab (`browserTabId`) contributes its title and query-less URL as flattened metadata only after `classifyTabAccess` passes it — never its body, never an excluded or internal page, never incognito. `current_tab` reads that tab before falling back to the last focused window, which is another window's page when two are open. Without this, a hosted runtime's own persona answered "what's this PR?" with an empty workspace. This guidance, tool guidance and memory context ride on the latest user message in a `<runtime_context>` block — or, when the request has no user turn, a trailing system message of their own — never the leading system prompt, so the system prefix stays byte-stable for provider prompt caching.
+- **`browser_task` is experimental and opt-in** (`SETTINGS.AGENT_ENABLED`, off by default; Settings → Agent or the Context sheet). While off it is neither listed nor callable, and a request that reads as a browser task gets the `browserAgent` notice card instead of a reply. The internal tool source is `volatile`, so `ToolRegistry` re-lists it every turn: caching its first answer kept `browser_task` missing for the worker's lifetime after the user turned the agent on.
+- `browser_task` is exempt from the intent gate on purpose: the model deciding when the browser is needed is the feature. Its gate is the tool loop's approval, which `confirmation` forces whenever the turn could be carrying page text ([details](./AGENT_INTERNALS.md#starting-a-run-from-chat)).
 
 ### Agent runtimes via the olc proxy
 
 `packages/olc` is a Node CLI, not extension code. Bare `olc` manages native
 Ollama on port 11434; `-b codex|opencode` runs an agent proxy (8083 / 8084)
-that serves a local agent runtime over `/v1/chat/completions`, so that
-runtime's models reach the extension through the ordinary OpenAI-compatible
-custom-provider flow.
+and `-b fm` (alias `apple`) serves Apple's on-device Foundation Model (8085),
+each over `/v1/chat/completions`, so those models reach the extension through
+the ordinary OpenAI-compatible custom-provider flow.
 
 - **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the
   extension: provider-shaped behaviour belongs behind the provider's own wire
@@ -394,6 +400,11 @@ editing the agent itself.
   stay inside that adapter and never become model tools. The rule is about
   shipped extension code; `tools/verify/**` drives Chromium's DevTools
   endpoint from outside the extension and is not covered by it.
+- **Runs are started by the chat model, never by a mode.** There is no
+  Chat/Act toggle and no panel command that starts a run: `browser_task`
+  delegates a whole task to the supervised controller from an ordinary turn,
+  and the run reports into that turn's own row. The chat model never receives
+  the agent's own actions as tools.
 - **Firefox receives no `debugger` permission.** The session manager reports
   `cdpControl: false` and `frameTracking: false`; never claim a CDP-only
   capability there. `__AGENT_PREVIEW_ENABLED__` compiles the agent out of
@@ -553,7 +564,7 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
 
 ## Constraints
 
-- MV3 CSP blocks dynamic eval; WASM is allowed via `'wasm-unsafe-eval'`. ONNX Runtime is bundled, never fetched.
+- MV3 CSP blocks dynamic eval; WASM is allowed via `'wasm-unsafe-eval'`. ONNX Runtime is bundled, never downloaded from a remote origin at runtime.
 - Firefox lacks Chrome's `declarativeNetRequest` semantics. Cross-origin provider requests rely on `host_permissions: ["<all_urls>"]` plus CORS-friendly endpoints.
 - Provider model-name collisions make routing ambiguous. `ProviderFactory` resolves via the saved mapping first, Ollama fallback last.
 - Token budgeting in `lib/embeddings/chunker.ts` is approximate (`chars / 4`).

@@ -73,7 +73,6 @@ const adapters = (): AgentBrowserAdapters => ({
     scroll: vi.fn(async () => undefined),
     mutate: vi.fn(async () => undefined),
     fillForm: vi.fn(async () => ({ applied: 0 })),
-    activateTab: vi.fn(async () => undefined),
     goHistory: vi.fn(async () => undefined),
     resolveHistoryDestination: async () => undefined,
     wait: vi.fn(async () => undefined),
@@ -84,7 +83,6 @@ const adapters = (): AgentBrowserAdapters => ({
   },
   verifier: {
     observe: vi.fn(async () => observation({ generation: 2 })),
-    getActiveTabId: async () => 7,
     getTab: async () => ({ url: "https://example.com/start" }),
     classifyAccess: async () => "ok",
     now: () => 2_000
@@ -196,7 +194,8 @@ describe("Agent effect port", () => {
 
   it("routes a click to the DOM mutation family and verifies it there", async () => {
     const deps = adapters()
-    const port = createAgentEffectPort(deps)
+    const stop = vi.fn()
+    const port = createAgentEffectPort(deps, () => ({ tabIds: [], stop }))
     const effect = await port.resolve(
       { type: "click", ref: "e1", snapshotId: "snapshot-1", generation: 1 },
       observation()
@@ -219,5 +218,42 @@ describe("Agent effect port", () => {
     expect(["confirmed", "negative", "ambiguous"]).toContain(
       verification.outcome
     )
+    expect(stop).toHaveBeenCalledOnce()
+  })
+
+  /**
+   * A `target="_blank"` link leaves its own page exactly as it was, so the
+   * click read as having done nothing while the page it opened sat in the
+   * next tab. The tab is reported on the receipt, which the verifier credits
+   * and the controller adopts into the run's scope.
+   */
+  it("reports a tab the page opened while the click ran", async () => {
+    const deps = adapters()
+    const opened: number[] = []
+    const port = createAgentEffectPort(deps, () => ({
+      tabIds: opened,
+      stop: vi.fn()
+    }))
+    const effect = await port.resolve(
+      { type: "click", ref: "e1", snapshotId: "snapshot-1", generation: 1 },
+      observation()
+    )
+    const receipt = await port.execute(authorized(effect), signal)
+    opened.push(44)
+
+    expect(receipt.openedTabIds).toEqual([44])
+    const verification = await port.verify(
+      {
+        effect: authorized(effect),
+        receipt,
+        before: observation(),
+        allowedOrigins: ["https://example.com"]
+      },
+      signal
+    )
+    expect(verification).toMatchObject({
+      outcome: "confirmed",
+      evidence: { summary: "Control opened a new tab" }
+    })
   })
 })

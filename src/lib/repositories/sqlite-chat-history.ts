@@ -1,3 +1,4 @@
+import { AgentConversationHandoffSchema } from "@ollama-client/contracts/agent-handoff"
 import {
   ChatMessageErrorSchema,
   ChatMessageMetricsSchema
@@ -56,7 +57,16 @@ const MessageTreeRowSchema = z.object({
     .number()
     .nullish()
     .transform((value) => value ?? undefined),
-  timestamp: z.number()
+  timestamp: z.number(),
+  /**
+   * A resolved permission notice: kept as a tree anchor but never shown, so
+   * it must not count as a branch the user can step back to. Stepping to it
+   * showed an empty conversation.
+   */
+  hidden: z
+    .number()
+    .nullish()
+    .transform((value) => value === 1)
 })
 
 export type MessageTreeRow = z.infer<typeof MessageTreeRowSchema>
@@ -117,6 +127,21 @@ const parseMessageError = (raw: RowValue): ChatMessage["error"] => {
   }
 }
 
+/**
+ * A handoff that no longer decodes is dropped rather than half-read. It is
+ * page-derived text a later prompt will carry, so a row that fails its own
+ * bounds is exactly the one that must not reach one.
+ */
+const parseAgentHandoff = (raw: RowValue): ChatMessage["agentHandoff"] => {
+  if (typeof raw !== "string" || raw.length === 0) return undefined
+  try {
+    const result = AgentConversationHandoffSchema.safeParse(JSON.parse(raw))
+    return result.success ? result.data : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const messageFromRow = (row: Row): StoredMessage => ({
   id: row.id as number,
   sessionId: row.sessionId as string,
@@ -129,7 +154,9 @@ const messageFromRow = (row: Row): StoredMessage => ({
   metrics: parseMetrics(row.metrics),
   thinking: (row.thinking as string | null) ?? undefined,
   replayArtifact: parseStoredReplayArtifact(row.replayArtifact),
-  error: parseMessageError(row.error)
+  error: parseMessageError(row.error),
+  agentRunId: (row.agentRunId as string | null) ?? undefined,
+  agentHandoff: parseAgentHandoff(row.agentHandoff)
 })
 
 const fileFromRow = (row: Row): StoredFile => ({
@@ -482,7 +509,7 @@ export const getMessageTreeBySession = async (
   sessionId: string
 ): Promise<MessageTreeRow[]> => {
   const rows = await query(
-    "SELECT id, parentId, timestamp FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
+    "SELECT id, parentId, timestamp, (CASE WHEN json_valid(metrics) THEN json_extract(metrics, '$.permissionNotice.resolvedAt') IS NOT NULL ELSE 0 END) AS hidden FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
     [sessionId]
   )
   const decoded = decodeRows(MessageTreeRowSchema, rows, {
@@ -574,8 +601,8 @@ const insertMessage = async (
   const timestamp = message.timestamp ?? Date.now()
   const { lastInsertRowid } = await executor.runWithMeta(
     `INSERT INTO messages
-     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, error, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, error, updatedAt, agentRunId)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       message.sessionId,
       message.role,
@@ -590,7 +617,8 @@ const insertMessage = async (
       message.error ? JSON.stringify(message.error) : null,
       // Seed last-touched at creation so a shell that dies before its first
       // streaming write still ages into "stale" for the interrupted sweep.
-      timestamp
+      timestamp,
+      message.agentRunId ?? null
     ]
   )
   return lastInsertRowid
@@ -771,6 +799,10 @@ export const updateMessageWithImages = async (
  *     checkpoint is live. Excluding sessions that have any checkpoint row
  *     keeps those live waits from being finalized (rows are deleted on
  *     completion and pruned when abandoned).
+ *   - Agent ownership: a row an Agent run reports into is written once when
+ *     the run starts and again when it settles, and nothing in between — a
+ *     run lasting longer than `staleMs` looked orphaned. Its run owns it, and
+ *     startup reconciliation settles the ones a dead worker left.
  *
  * Returns the count fixed.
  */
@@ -790,6 +822,7 @@ export const finalizeInterruptedMessages = async (
   const rows = await query(
     `SELECT id, metrics FROM messages
      WHERE role = 'assistant' AND done = 0
+       AND agentRunId IS NULL
        AND (updatedAt IS NULL OR updatedAt < ?)
        AND id NOT IN (
          SELECT assistantMessageId FROM turn_runs
@@ -836,6 +869,120 @@ export const deleteMessagesBySession = async (
   )
   await run("DELETE FROM messages WHERE sessionId = ?", [sessionId])
   return (before[0]?.count as number) ?? 0
+}
+
+export interface RunTurnStatement {
+  sql: string
+  params: (string | number | null)[]
+}
+
+export interface AppendedRunTurn {
+  requestMessageId: number
+  resultMessageId: number
+}
+
+/**
+ * Write a request, the assistant row that will report on it, and the durable
+ * job that answers it — in one commit.
+ *
+ * Separate writes gave every failure between them its own broken shape: a run
+ * with no card, a card pointing at a run that was never created, a reload that
+ * lost the task, and a retry from the UI that started the work twice. One
+ * commit has none of those states because it has no between.
+ *
+ * `alongside` is handed the two message ids and returns the statement that
+ * files the job against them. It is a statement rather than a callback into
+ * another repository because this module owns the chat tables and nothing
+ * else: the job's own repository composes its INSERT, and neither module has
+ * to know what the other stores.
+ *
+ * A session that is not there resolves `undefined` rather than throwing, so
+ * the decision is the caller's and is made once, inside the transaction. A
+ * caller that checked first and then called had a window: a chat deleted
+ * between the two turned "start this run without linkage" into a failed start.
+ *
+ * The request hangs off the session's current leaf, read in the same
+ * transaction. Inserted with no parent it was a second root: the assistant row
+ * became the active leaf, the conversation so far was no longer an ancestor of
+ * it, and loading the chat showed the run with everything before it gone.
+ */
+export const appendRunTurn = async (
+  request: Omit<StoredMessage, "id">,
+  placeholder: (requestMessageId: number) => Omit<StoredMessage, "id">,
+  alongside: (ids: AppendedRunTurn) => RunTurnStatement
+): Promise<AppendedRunTurn | undefined> => {
+  let appended: AppendedRunTurn | undefined
+
+  await withTransaction(async (transaction) => {
+    const existing = await transaction.query(
+      "SELECT id, currentLeafId FROM sessions WHERE id = ?",
+      [request.sessionId]
+    )
+    const session = existing[0]
+    if (!session) return
+    const leafId = session.currentLeafId
+    const requestMessageId = await insertMessage(
+      {
+        ...request,
+        ...(request.parentId === undefined && typeof leafId === "number"
+          ? { parentId: leafId }
+          : {})
+      },
+      transaction
+    )
+    const resultMessageId = await insertMessage(
+      placeholder(requestMessageId),
+      transaction
+    )
+    const ids = { requestMessageId, resultMessageId }
+    const statement = alongside(ids)
+    await transaction.run(statement.sql, statement.params)
+    await updateSessionWithExecutor(
+      request.sessionId,
+      { updatedAt: Date.now(), currentLeafId: resultMessageId },
+      transaction
+    )
+    appended = ids
+  })
+
+  if (appended) await flushSave()
+  return appended
+}
+
+/**
+ * File a durable job against an assistant row a chat turn already owns, in
+ * one commit: the row gains the job's id and the job's own statement runs
+ * beside it.
+ *
+ * The counterpart of {@link appendRunTurn} for work a model delegated from
+ * inside a turn. That turn wrote the request and the row, and is still
+ * streaming into it, so nothing here inserts a message or moves the leaf.
+ * Only an unclaimed assistant row of the named chat qualifies: a row already
+ * carrying a job keeps the one it has, and `undefined` leaves the decision to
+ * the caller, the same as a missing chat does above.
+ */
+export const attachRunToMessage = async (
+  sessionId: string,
+  messageId: number,
+  runId: string,
+  alongside: RunTurnStatement
+): Promise<boolean> => {
+  let attached = false
+
+  await withTransaction(async (transaction) => {
+    const claimed = await transaction.runWithMeta(
+      `UPDATE messages SET agentRunId = ?
+        WHERE id = ? AND sessionId = ? AND role = 'assistant'
+          AND agentRunId IS NULL`,
+      [runId, messageId, sessionId]
+    )
+    if (claimed.changes === 0) return
+    await transaction.run(alongside.sql, alongside.params)
+    attached = true
+  })
+
+  if (attached) await flushSave()
+  return attached
 }
 
 export interface DeletedMessageSubtree {

@@ -1,9 +1,12 @@
 import {
   AGENT_GRANTABLE_EFFECTS,
+  AGENT_ROUTINE_GRANT_EFFECTS,
   type AgentApprovalRequest,
+  type AgentDisplayText,
   type AgentGrant,
   type AgentTakeoverRequest
 } from "@ollama-client/contracts"
+import { agentCommandDisplay } from "./action-label"
 import type {
   AgentPolicyDecision,
   AgentPolicyInput,
@@ -11,6 +14,7 @@ import type {
   AgentSemanticEffect
 } from "./ports"
 import { isAgentAuthoredDestination } from "./provenance"
+import { agentRowContextBeyond } from "./row-context"
 
 const RISK_ORDER: readonly AgentRisk[] = ["low", "medium", "high", "critical"]
 
@@ -98,6 +102,15 @@ const takeoverInstruction = (reason: AgentTakeoverRequest["reason"]): string =>
     ? "Take control of the page, choose the file yourself, then explicitly continue."
     : "Take control of the page, complete the sensitive step, then explicitly continue."
 
+const takeoverDisplay = (
+  reason: AgentTakeoverRequest["reason"]
+): AgentDisplayText => ({
+  key:
+    reason === "file_upload"
+      ? "agent.takeover.instruction.file_upload"
+      : "agent.takeover.instruction.sensitive_step"
+})
+
 const makeTakeoverRequest = (
   input: AgentPolicyInput,
   reason: AgentTakeoverRequest["reason"]
@@ -107,6 +120,7 @@ const makeTakeoverRequest = (
   stepId: input.stepId,
   reason,
   instruction: takeoverInstruction(reason),
+  display: [takeoverDisplay(reason)],
   createdAt: input.now
 })
 
@@ -174,7 +188,16 @@ const hasNoSubmitStep = (input: AgentPolicyInput): boolean =>
  */
 const dialogAction = (
   input: AgentPolicyInput
-): { action: string; consequence: string } | undefined => {
+):
+  | {
+      action: string
+      consequence: string
+      display: {
+        action: AgentDisplayText
+        consequence: AgentDisplayText[]
+      }
+    }
+  | undefined => {
   const command = input.effect.command
   if (command.type !== "handle_dialog") return undefined
   const kind = input.effect.dialog?.type ?? "dialog"
@@ -187,24 +210,42 @@ const dialogAction = (
    */
   const frameOrigin = input.effect.frameOrigin
   const origin = actingOrigin(input)
-  const whose =
+  const foreign =
     frameOrigin !== undefined || !input.allowedOrigins.includes(origin)
-      ? `${origin}'s`
-      : "the page's"
+  const whose = foreign ? `${origin}'s` : "the page's"
+  const direction = command.accept ? "accept" : "dismiss"
+  const actionDisplay: AgentDisplayText = {
+    key: `agent.approval_text.${direction}_dialog${foreign ? "_origin" : ""}`,
+    values: {
+      kindKey: `agent.dialog_kind.${kind}`,
+      ...(foreign ? { origin } : {})
+    }
+  }
   /**
    * An embedded frame the run was not authorized to read had its dialog text
    * withheld, so neither the model nor the panel can show what is being
    * agreed to. The user is told that, rather than being shown a prompt with
    * an empty quotation and left to assume the dialog was empty.
    */
-  const unreadable =
+  const withheld =
     frameOrigin !== undefined && !input.allowedOrigins.includes(frameOrigin)
-      ? " Its text was not read: the dialog belongs to a frame this run is not authorized to read."
-      : ""
+  const unreadable = withheld
+    ? " Its text was not read: the dialog belongs to a frame this run is not authorized to read."
+    : ""
+  const unreadableDisplay: AgentDisplayText[] = withheld
+    ? [{ key: "agent.approval_text.dialog_unreadable" }]
+    : []
   if (!command.accept) {
     return {
       action: `Dismiss ${whose} ${kind} dialog`,
-      consequence: `The dialog is told it was dismissed and nothing is confirmed.${unreadable}`
+      consequence: `The dialog is told it was dismissed and nothing is confirmed.${unreadable}`,
+      display: {
+        action: actionDisplay,
+        consequence: [
+          { key: "agent.approval_text.dismiss_dialog_consequence" },
+          ...unreadableDisplay
+        ]
+      }
     }
   }
   return {
@@ -213,7 +254,19 @@ const dialogAction = (
       (kind === "beforeunload"
         ? "The page is allowed to leave; anything it has not saved is discarded."
         : "The page proceeds as though the user pressed its confirm button, whatever that action is.") +
-      unreadable
+      unreadable,
+    display: {
+      action: actionDisplay,
+      consequence: [
+        {
+          key:
+            kind === "beforeunload"
+              ? "agent.approval_text.accept_leave_consequence"
+              : "agent.approval_text.accept_dialog_consequence"
+        },
+        ...unreadableDisplay
+      ]
+    }
   }
 }
 
@@ -227,9 +280,16 @@ const dialogAction = (
  * that named one of twelve was a weaker disclosure than the twelve separate
  * approvals it replaces, which is the one thing batching may not cost.
  */
-const batchAction = (input: AgentPolicyInput): string | undefined => {
+const batchFieldCount = (input: AgentPolicyInput): number | undefined => {
   const fields = input.effect.batch?.fields.length
-  if (input.effect.command.type !== "fill_form" || !fields) return undefined
+  return input.effect.command.type === "fill_form" && fields
+    ? fields
+    : undefined
+}
+
+const batchAction = (input: AgentPolicyInput): string | undefined => {
+  const fields = batchFieldCount(input)
+  if (fields === undefined) return undefined
   return fields === 1
     ? "Set 1 form field"
     : `Set ${fields} form fields in one step`
@@ -253,6 +313,21 @@ const MAX_EVIDENCE_CHARS = 1_000
  * each, and a prompt the user has to read past to reach the buttons is a
  * prompt they stop reading.
  */
+/**
+ * The control and the row it sits in, so one of five identical Delete
+ * buttons is named by the file beside it. The row's own copy of the label is
+ * left out.
+ */
+const rowEvidence = (input: AgentPolicyInput): string | undefined => {
+  const { accessibleName, rowContext } = input.effect.target
+  const row = agentRowContextBeyond(accessibleName, rowContext)
+  if (!row) return accessibleName
+  return `${accessibleName ?? input.effect.command.type} — ${row}`.slice(
+    0,
+    1_000
+  )
+}
+
 const batchEvidence = (input: AgentPolicyInput): string | undefined => {
   const fields = input.effect.batch?.fields
   if (!fields?.length) return undefined
@@ -282,7 +357,120 @@ const batchEvidence = (input: AgentPolicyInput): string | undefined => {
   return listed.join("\n")
 }
 
+/**
+ * The approval's sentences as keys, chosen by the same branches that choose
+ * the English beside them so the two cannot describe different effects.
+ */
+const approvalDisplay = (
+  input: AgentPolicyInput
+): NonNullable<AgentApprovalRequest["display"]> => {
+  const dialog = dialogAction(input)
+  if (dialog) return dialog.display
+  const destination = input.effect.destination?.url
+  const adopting = adoptsTab(input)
+  const fields = batchFieldCount(input)
+  const action: AgentDisplayText =
+    fields !== undefined
+      ? { key: "agent.approval_text.fill_fields", values: { count: fields } }
+      : adopting !== undefined && destination
+        ? input.effect.target.accessibleName
+          ? {
+              key: "agent.approval_text.adopt_tab",
+              values: {
+                tab: input.effect.target.accessibleName,
+                url: destination
+              }
+            }
+          : {
+              key: "agent.approval_text.adopt_untitled_tab",
+              values: { url: destination }
+            }
+        : destination
+          ? {
+              key: "agent.approval_text.navigate",
+              values: { url: destination }
+            }
+          : agentCommandDisplay(input.effect.command)
+  const consequence: AgentDisplayText = destination
+    ? {
+        key: "agent.approval_text.navigate_consequence",
+        values: { url: destination }
+      }
+    : fields !== undefined
+      ? { key: "agent.approval_text.fill_fields_consequence" }
+      : hasNoSubmitStep(input)
+        ? { key: "agent.approval_text.no_submit_consequence" }
+        : { key: "agent.approval_text.command_consequence" }
+  return { action, consequence: [consequence] }
+}
+
+/**
+ * The site a new-origin navigation opens, when the run's routine consent
+ * would carry to it. Never for a submission, whose destination is where a
+ * form sent data rather than a site the user chose to go to.
+ */
+const routineOriginFor = (input: AgentPolicyInput): string | undefined => {
+  const origin = input.effect.destination?.origin
+  if (
+    !origin ||
+    input.allowedOrigins.includes(origin) ||
+    input.effect.semanticEffects.includes("submission")
+  )
+    return undefined
+  const consented = (input.grants ?? []).some((grant) =>
+    AGENT_ROUTINE_GRANT_EFFECTS.every((routine) =>
+      (grant.effects as readonly string[]).includes(routine)
+    )
+  )
+  return consented ? origin : undefined
+}
+
+export const AGENT_ROUTINE_FOLLOWS_CONSEQUENCE = (origin: string): string =>
+  `Clicks and typing on ${origin} will then run without asking, as on the site this task started on. Submitting a form still asks.`
+
 const makeApprovalRequest = (
+  input: AgentPolicyInput,
+  risk: Exclude<AgentRisk, "low">,
+  notice?: NonNullable<ReturnType<typeof repeatNotice>>
+): AgentApprovalRequest => {
+  const request = withNotice(makeBaseApprovalRequest(input, risk), notice)
+  const routineOrigin = routineOriginFor(input)
+  if (!routineOrigin) return request
+  /**
+   * Routine consent is carried only when the notice saying so reaches the
+   * user whole. A long destination URL would push it past the consequence
+   * cap, and a cut-off notice still carrying `routineOrigin` would grant
+   * what the user was never told; that approval simply does not carry it.
+   */
+  const consequence = `${request.consequence} ${AGENT_ROUTINE_FOLLOWS_CONSEQUENCE(routineOrigin)}`
+  if (
+    consequence.length > MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS ||
+    (request.display &&
+      request.display.consequence.length >= MAX_DISPLAY_SENTENCES)
+  )
+    return request
+  return {
+    ...request,
+    routineOrigin,
+    consequence,
+    ...(request.display
+      ? {
+          display: {
+            ...request.display,
+            consequence: [
+              ...request.display.consequence,
+              {
+                key: "agent.approval_text.routine_follows",
+                values: { origin: routineOrigin }
+              }
+            ]
+          }
+        }
+      : {})
+  }
+}
+
+const makeBaseApprovalRequest = (
   input: AgentPolicyInput,
   risk: Exclude<AgentRisk, "low">
 ): AgentApprovalRequest => {
@@ -293,7 +481,7 @@ const makeApprovalRequest = (
     dialog?.action ??
     batchAction(input) ??
     (adopting
-      ? `Adopt tab ${adopting} at ${destination}`
+      ? `Adopt tab ${input.effect.target.accessibleName ?? adopting} at ${destination}`
       : destination
         ? `Allow navigation to ${destination}`
         : `Allow ${input.effect.command.type}`)
@@ -309,14 +497,117 @@ const makeApprovalRequest = (
       (destination
         ? `The browser will use the complete destination URL: ${destination}`
         : batchAction(input)
-          ? "The browser will set each control listed above, in order, and stops at the first one it cannot set. The batch presses nothing, so it cannot submit the form — but a page that saves as you type may store each change as it is made."
+          ? "The browser will set each control listed below, in order, and stops at the first one it cannot set. The batch presses nothing, so it cannot submit the form — but a page that saves as you type may store each change as it is made."
           : hasNoSubmitStep(input)
-            ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
-            : "The browser will perform the resolved page effect shown above."),
-    pageEvidence: batchEvidence(input) ?? input.effect.target.accessibleName,
+            ? "The browser will enter this into the control shown below. No submit step follows it, so on a page that saves as you type the change may already be stored."
+            : "The browser will perform the resolved page effect shown below."),
+    display: approvalDisplay(input),
+    pageEvidence: batchEvidence(input) ?? rowEvidence(input),
     createdAt: input.now
   }
 }
+
+/** The takeover request's own bound on its instruction. */
+const MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS = 1_000
+
+/** The approval request's own bound on its consequence. */
+const MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS = 1_000
+
+/**
+ * Said first in an approval for a form an earlier run already sent. The
+ * earlier run's record is page-derived, so this names the fact and not its
+ * words.
+ */
+export const AGENT_PRIOR_FORM_CONSEQUENCE =
+  "An earlier run this task follows already sent this form. Approve only if this is a new submission, not the same one again."
+
+const AGENT_PRIOR_FORM_DISPLAY: AgentDisplayText = {
+  key: "agent.approval_text.prior_form"
+}
+
+/** The display list's own bound in the approval and takeover schemas. */
+const MAX_DISPLAY_SENTENCES = 4
+
+/**
+ * Said first in an approval for a consequential effect this run already
+ * committed through the same control.
+ */
+export const AGENT_REPEATED_EFFECT_CONSEQUENCE =
+  "This run already did this once, through the same control on this page. Approve only if it should happen again."
+export const AGENT_UNKNOWN_EFFECT_CONSEQUENCE =
+  "This run's action record could not be read. This action may repeat an earlier effect. Approve only if repeating it is safe."
+
+/** What the user is told first when an effect may be a repeat, if anything. */
+const repeatNotice = (
+  input: AgentPolicyInput
+): { text: string; display: AgentDisplayText } | undefined =>
+  input.committedEffectsUnknown
+    ? {
+        text: AGENT_UNKNOWN_EFFECT_CONSEQUENCE,
+        display: { key: "agent.approval_text.unknown_prior_effect" }
+      }
+    : input.repeatsCommittedEffect
+      ? {
+          text: AGENT_REPEATED_EFFECT_CONSEQUENCE,
+          display: { key: "agent.approval_text.repeated_effect" }
+        }
+      : input.repeatsPriorForm
+        ? {
+            text: AGENT_PRIOR_FORM_CONSEQUENCE,
+            display: AGENT_PRIOR_FORM_DISPLAY
+          }
+        : undefined
+
+/**
+ * A possible repeat — a second send to a form the chain already sent, or
+ * the same control this run already committed through — priced as a
+ * decision the user makes now: at least high, never covered by a grant, and
+ * never offered for widening. Refusing it outright would stop a checkout at
+ * its second step; allowing it on a grant would place a second order unasked.
+ */
+const repeatApproval = (
+  input: AgentPolicyInput,
+  baseline: AgentRisk,
+  notice: NonNullable<ReturnType<typeof repeatNotice>>
+): AgentPolicyDecision => {
+  const risk = raiseRisk(baseline, "high") as Exclude<AgentRisk, "low">
+  const { grantable: _grantable, ...request } = makeApprovalRequest(
+    input,
+    risk,
+    notice
+  )
+  return { type: "approval_required", risk, request }
+}
+
+/**
+ * The repeat notice said first. Added before routine consent is weighed, so
+ * the routine notice is measured against the consequence the user actually
+ * reads and is dropped with its grant when the two do not fit together.
+ */
+const withNotice = (
+  request: AgentApprovalRequest,
+  notice: NonNullable<ReturnType<typeof repeatNotice>> | undefined
+): AgentApprovalRequest =>
+  notice
+    ? {
+        ...request,
+        consequence: `${notice.text} ${request.consequence}`.slice(
+          0,
+          MAX_AGENT_APPROVAL_CONSEQUENCE_CHARS
+        ),
+        ...(request.display
+          ? {
+              display: {
+                ...request.display,
+                consequence: [
+                  notice.display,
+                  ...request.display.consequence
+                ].slice(0, MAX_DISPLAY_SENTENCES)
+              }
+            }
+          : {})
+      }
+    : request
 
 /**
  * Whether a grant the user already gave covers this effect.
@@ -343,12 +634,31 @@ const grantFor = (
   ) {
     return undefined
   }
+  const search = isShownSearch(input)
   return input.grants.find(
     (grant) =>
       grant.origin === origin &&
-      input.effect.semanticEffects.every((effect) =>
-        (grant.effects as readonly string[]).includes(effect)
+      input.effect.semanticEffects.every(
+        (effect) =>
+          (grant.effects as readonly string[]).includes(effect) ||
+          (effect === "submission" && search && grant.searches === true)
       )
+  )
+}
+
+/**
+ * A submission the start prompt's search consent covers: a GET form the page
+ * marks as a search with nothing to fill in but the query (`searchForm`), on
+ * the grant's own origin. A query string alone is not a search — a
+ * preferences form's "Apply" sends one too.
+ */
+const isShownSearch = (input: AgentPolicyInput): boolean => {
+  const target = input.effect.target
+  return (
+    target?.formMethod === "get" &&
+    target.searchForm === true &&
+    target.formHasSensitiveControl !== true &&
+    !target.sensitive
   )
 }
 
@@ -451,10 +761,30 @@ export const evaluateAgentPolicy = (
 
   const takeover = takeoverReason(input)
   if (takeover) {
+    const request = makeTakeoverRequest(input, takeover)
+    const notice = repeatNotice(input)
     return {
       type: "takeover_required",
       risk: "critical",
-      request: makeTakeoverRequest(input, takeover)
+      /**
+       * A handover is the user doing the step themselves, so the one who
+       * sends the form again is the one who must be told an earlier run
+       * already sent it — the approval path says so, and this is the other
+       * way the same send reaches a person.
+       */
+      request: notice
+        ? {
+            ...request,
+            instruction: `${notice.text} ${request.instruction}`.slice(
+              0,
+              MAX_AGENT_TAKEOVER_INSTRUCTION_CHARS
+            ),
+            display: [notice.display, ...(request.display ?? [])].slice(
+              0,
+              MAX_DISPLAY_SENTENCES
+            )
+          }
+        : request
     }
   }
 
@@ -478,6 +808,9 @@ export const evaluateAgentPolicy = (
       risk = raiseRisk(risk, "critical")
     }
   }
+
+  const notice = repeatNotice(input)
+  if (notice) return repeatApproval(input, risk, notice)
 
   if (risk === "low") return { type: "allow", risk }
   if (

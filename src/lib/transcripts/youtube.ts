@@ -29,12 +29,56 @@ type YouTubePlayerResponse = {
   }
 }
 
-const YOUTUBE_TRANSCRIPT_PANEL_SELECTOR =
-  'ytd-transcript-renderer, yt-section-list-renderer[data-target-id="PAmodern_transcript_view"], yt-section-list-renderer[panel-target-id="PAmodern_transcript_view"]'
+/**
+ * Every container YouTube has rendered a transcript into. The consolidated "In
+ * this video" panel (Timeline / Chapters / Transcript chips) swaps the modern
+ * transcript view into `engagement-panel-timeline-view-consolidated`, so the
+ * older selectors matched nothing once it shipped: the click opened the panel
+ * and the read beside it found no transcript.
+ */
+const YOUTUBE_TRANSCRIPT_PANEL_SELECTOR = [
+  "ytd-transcript-renderer",
+  'yt-section-list-renderer[data-target-id="PAmodern_transcript_view"]',
+  'yt-section-list-renderer[panel-target-id="PAmodern_transcript_view"]',
+  'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]',
+  'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-timeline-view-consolidated"]'
+].join(", ")
 
 const MODERN_TRANSCRIPT_SEGMENT_SELECTOR = "transcript-segment-view-model"
 const LEGACY_TRANSCRIPT_SEGMENT_SELECTOR =
   "div.cue-group, ytd-transcript-segment-renderer"
+const ANY_TRANSCRIPT_SEGMENT_SELECTOR = `${MODERN_TRANSCRIPT_SEGMENT_SELECTOR}, ${LEGACY_TRANSCRIPT_SEGMENT_SELECTOR}`
+
+/**
+ * How long opening the panel may take in all, across every click attempt: a
+ * button that never renders segments must not cost one full wait per retry.
+ */
+const PANEL_SEGMENT_WAIT_MS = 6000
+/**
+ * How long one click gets to produce its first segment. Short of the whole
+ * budget, so a dead control leaves time to find and click a working one.
+ */
+const PANEL_CLICK_WAIT_MS = 2000
+/** Once segments are arriving, how far past the budget they may finish. */
+const PANEL_SEGMENT_GRACE_MS = 2000
+const PANEL_SEGMENT_POLL_MS = 250
+/** Segments arrive in batches; the count holding this long means they stopped. */
+const PANEL_SEGMENT_SETTLE_MS = 750
+
+/**
+ * The container actually holding transcript segments.
+ *
+ * A matching container is not enough on its own: the consolidated panel exists
+ * while it shows Timeline or Chapters, and treating that as an open transcript
+ * skipped the click that would have switched it over. Only these containers
+ * are read, never a segment elsewhere: nothing ties stray transcript-shaped
+ * markup to the video being watched, and a container the click check below
+ * does not watch could not tell a pending load from an ignored click.
+ */
+const findTranscriptContainer = (): Element | null =>
+  Array.from(document.querySelectorAll(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR)).find(
+    (container) => container.querySelector(ANY_TRANSCRIPT_SEGMENT_SELECTOR)
+  ) ?? null
 /**
  * Attempts to open the YouTube transcript panel by clicking:
  * 1. The "more" button in description (if collapsed)
@@ -161,11 +205,33 @@ const findTranscriptButtonByText = (): HTMLElement | null => {
   return button
 }
 
-const findTranscriptButton = (): HTMLElement | null =>
-  findTranscriptButtonInSection() ||
-  findTranscriptButtonBySelectors() ||
-  findTranscriptButtonByTouchFeedback() ||
-  findTranscriptButtonByText()
+/**
+ * The control to click next: one never clicked, then one whose click changed
+ * nothing (typically rendered before its handler was attached), and never one
+ * whose click visibly started something — its load may still be pending, and
+ * a second click can close the panel or restart it. An ignored control is
+ * clicked again once, since "ignored" is read from the page and a load that
+ * shows nothing is indistinguishable from it. Null when only those are left.
+ */
+const findTranscriptButton = (
+  clicked: ReadonlySet<HTMLElement>,
+  pending: ReadonlySet<HTMLElement>
+): HTMLElement | null => {
+  const preferred =
+    findTranscriptButtonInSection() ||
+    findTranscriptButtonBySelectors() ||
+    findTranscriptButtonByTouchFeedback() ||
+    findTranscriptButtonByText()
+  if (!preferred || !clicked.has(preferred)) return preferred
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>("button, div[role='button']")
+  ).filter(isTranscriptButton)
+  return (
+    candidates.find((button) => !clicked.has(button)) ??
+    [preferred, ...candidates].find((button) => !pending.has(button)) ??
+    null
+  )
+}
 
 const expandYouTubeDescription = async (): Promise<void> => {
   logger.debug("Step 1: Looking for 'more' button...", "TranscriptExtractor")
@@ -222,12 +288,83 @@ const clickTranscriptButton = (button: HTMLElement): void => {
   )
 }
 
-const transcriptPanelExists = (): boolean =>
-  Boolean(document.querySelector(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR))
+const transcriptPanelExists = (): boolean => Boolean(findTranscriptContainer())
+
+const transcriptSegmentCount = (): number =>
+  findTranscriptContainer()?.querySelectorAll(ANY_TRANSCRIPT_SEGMENT_SELECTOR)
+    .length ?? 0
+
+/**
+ * Waits for the panel's segments to arrive and stop arriving. They come from a
+ * network request the click starts and render in batches, so returning on the
+ * first segment read a long video's transcript cut short.
+ */
+const waitForTranscriptSegments = async (
+  deadline: number
+): Promise<boolean> => {
+  const firstSegmentBy = Math.min(deadline, Date.now() + PANEL_CLICK_WAIT_MS)
+  const settleBy = deadline + PANEL_SEGMENT_GRACE_MS
+  let count = transcriptSegmentCount()
+  let stableSince = Date.now()
+  while (Date.now() < settleBy) {
+    if (count === 0 && Date.now() >= firstSegmentBy) break
+    if (count > 0 && Date.now() - stableSince >= PANEL_SEGMENT_SETTLE_MS) break
+    await new Promise((resolve) => setTimeout(resolve, PANEL_SEGMENT_POLL_MS))
+    const next = transcriptSegmentCount()
+    if (next !== count) {
+      count = next
+      stableSince = Date.now()
+    }
+  }
+  return count > 0
+}
+
+/** Panels a transcript control opens; no other panel's state says anything. */
+const TRANSCRIPT_TARGET_PANEL_SELECTOR = [
+  'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]',
+  'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-timeline-view-consolidated"]'
+].join(", ")
+
+/** YouTube's loading indicator, read only inside a transcript panel. */
+const TRANSCRIPT_SPINNER_SELECTOR =
+  "tp-yt-paper-spinner, yt-spinner, .yt-spinner"
+
+/**
+ * What a transcript click visibly changes: the control's own pressed or
+ * selected state, the transcript panels' visibility and spinners, and how
+ * many transcript containers are mounted anywhere — every container
+ * {@link findTranscriptContainer} can read, so no load it could answer from
+ * goes unseen. Other panels are left out, and so is raw markup, which a
+ * timeline's current-time highlight churns on its own. The
+ * same answer before and after a click means the page ignored it — typically
+ * a control rendered before its handler was attached. YouTube's own transcript
+ * command expands its panel as it runs, so a click that started a load shows
+ * up here at once rather than only when segments land.
+ */
+const clickEffectSignature = (button: HTMLElement): string => {
+  const control = ["aria-pressed", "aria-selected", "aria-expanded"]
+    .map((name) => button.getAttribute(name) ?? "")
+    .join("|")
+  const panels = Array.from(
+    document.querySelectorAll(TRANSCRIPT_TARGET_PANEL_SELECTOR)
+  )
+    .map(
+      (panel) =>
+        `${panel.getAttribute("target-id") ?? ""}:${panel.getAttribute("visibility") ?? ""}:${panel.querySelectorAll(TRANSCRIPT_SPINNER_SELECTOR).length}`
+    )
+    .join(",")
+  const containers = document.querySelectorAll(
+    YOUTUBE_TRANSCRIPT_PANEL_SELECTOR
+  ).length
+  return `${control}#${panels}#${containers}`
+}
+
+type TranscriptClickOutcome = "opened" | "pending" | "ignored"
 
 const openTranscriptWithButton = async (
-  button: HTMLElement
-): Promise<boolean> => {
+  button: HTMLElement,
+  deadline: number
+): Promise<TranscriptClickOutcome> => {
   logger.debug("Found transcript button!", "TranscriptExtractor", {
     buttonText: button.textContent?.trim() || "",
     ariaLabel: button.getAttribute("aria-label") || "",
@@ -235,25 +372,16 @@ const openTranscriptWithButton = async (
     classes: button.className
   })
   logger.debug("Clicking transcript button...", "TranscriptExtractor")
+  const before = clickEffectSignature(button)
   clickTranscriptButton(button)
-  await new Promise((resolve) => setTimeout(resolve, 1500))
-  if (transcriptPanelExists()) {
-    logger.debug("Transcript panel successfully opened!", "TranscriptExtractor")
-    return true
-  }
-  logger.debug(
-    "Transcript panel not found after clicking, waiting longer...",
-    "TranscriptExtractor"
-  )
-  await new Promise((resolve) => setTimeout(resolve, 1500))
-  const opened = transcriptPanelExists()
-  if (opened) {
-    logger.debug(
-      "Transcript panel appeared after longer wait!",
-      "TranscriptExtractor"
-    )
-  }
-  return opened
+  const opened = await waitForTranscriptSegments(deadline)
+  const outcome: TranscriptClickOutcome = opened
+    ? "opened"
+    : clickEffectSignature(button) === before
+      ? "ignored"
+      : "pending"
+  logger.debug(`Transcript click outcome: ${outcome}`, "TranscriptExtractor")
+  return outcome
 }
 
 const logTranscriptButtonSamples = (): void => {
@@ -289,13 +417,34 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
     "TranscriptExtractor"
   )
   const maxRetries = 5
-  for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+  const deadline = Date.now() + PANEL_SEGMENT_WAIT_MS
+  const clicked = new Set<HTMLElement>()
+  const pending = new Set<HTMLElement>()
+  for (
+    let attempt = 1;
+    attempt <= maxRetries && Date.now() < deadline;
+    attempt += 1
+  ) {
     logger.debug(
       `Attempt ${attempt}/${maxRetries} to find transcript button...`,
       "TranscriptExtractor"
     )
-    const button = findTranscriptButton()
-    if (button && (await openTranscriptWithButton(button))) return true
+    const button = findTranscriptButton(clicked, pending)
+    if (button) {
+      const retry = clicked.has(button)
+      clicked.add(button)
+      const outcome = await openTranscriptWithButton(button, deadline)
+      if (outcome === "opened") return true
+      // A retried control is done either way: one more click is the most an
+      // ambiguous "ignored" earns.
+      if (outcome === "pending" || retry) pending.add(button)
+    } else if (
+      pending.size > 0 &&
+      (await waitForTranscriptSegments(deadline))
+    ) {
+      // Nothing new to click: the load already started may still land.
+      return true
+    }
     if (attempt < maxRetries) {
       logger.debug(
         `Waiting before retry ${attempt + 1}...`,
@@ -687,9 +836,7 @@ const extractTextFromYouTubeSegment = (segment: Element): string => {
 }
 
 const extractYouTubePanelTranscript = (): string | null => {
-  const transcriptContainer = document.querySelector(
-    YOUTUBE_TRANSCRIPT_PANEL_SELECTOR
-  )
+  const transcriptContainer = findTranscriptContainer()
   if (!transcriptContainer) {
     logger.debug("Transcript container not found", "TranscriptExtractor")
     return null
@@ -760,7 +907,7 @@ export const extractYouTubeTranscript = async (): Promise<string | null> => {
   // otherwise is the original defect wearing a different hat: no id lives in
   // that DOM, so an unverifiable panel is indistinguishable from one a
   // navigation left behind.
-  const mountedPanel = document.querySelector(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR)
+  const mountedPanel = findTranscriptContainer()
   if (mountedPanel) {
     if (!documentBelongsToCurrentVideo()) {
       logger.warn(

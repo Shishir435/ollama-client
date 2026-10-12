@@ -9,6 +9,7 @@ interface SettingsSectionProps
   description?: React.ReactNode
   icon?: LucideIcon
   badge?: React.ReactNode
+  headerActions?: React.ReactNode
 }
 
 export const SettingsSection = ({
@@ -16,6 +17,7 @@ export const SettingsSection = ({
   description,
   icon: Icon,
   badge,
+  headerActions,
   className,
   children,
   ...props
@@ -27,6 +29,11 @@ export const SettingsSection = ({
           {Icon && <Icon className="icon-md text-muted-foreground" />}
           <h3 className="text-sm font-semibold">{title}</h3>
           {badge && <MiniBadge text={badge} />}
+          {headerActions && (
+            <div className="ml-auto flex items-center gap-3">
+              {headerActions}
+            </div>
+          )}
         </div>
         {description && (
           <p className="text-xs text-muted-foreground">{description}</p>

@@ -91,8 +91,12 @@ const arrivedSomewhereNew = (
 }
 
 export const agentPictureWarranted = (input: AgentPictureContext): boolean => {
-  /** An explicit zoom is the model asking, and it names a region to magnify. */
-  if (input.inspection?.zoom) return true
+  /**
+   * An explicit zoom or look is the model asking: one names a region to
+   * magnify, the other the whole viewport, on a page the rules below may have
+   * judged already seen.
+   */
+  if (input.inspection?.zoom || input.inspection?.look) return true
   /**
    * The first step always gets one. It is the baseline the model reasons
    * against, and it is also what makes `zoom` reachable at all — that command

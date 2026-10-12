@@ -65,9 +65,21 @@ export default defineConfig({
       "contextMenus",
       // offscreen: production permission — the hidden document that hosts
       // the single SQLite worker owning durable chat history (Chromium only).
+      // debugger + webNavigation: the browser agent drives the page over CDP
+      // and needs every frame's identity to bind an effect to its frame.
+      // tabGroups: the agent groups the tabs it opens, and the chat reads the
+      // user's groups. All three arrive in 0.14.0 together, so an update from
+      // 0.13.x asks for consent once rather than once per feature.
       ...(browser === "firefox"
         ? []
-        : ["sidePanel", "declarativeNetRequest", "offscreen", "debugger"])
+        : [
+            "sidePanel",
+            "declarativeNetRequest",
+            "offscreen",
+            "debugger",
+            "webNavigation",
+            "tabGroups"
+          ])
     ],
     // Optional API permissions requested from the Permissions UI.
     // Declared so they can be requested at runtime via src/lib/permissions.ts;
@@ -78,10 +90,11 @@ export default defineConfig({
       "history",
       "notifications",
       "downloads",
-      "tabGroups",
+      // Standing on Chromium; Firefox's tabGroups API is newer, so it stays
+      // something a user turns on there.
+      ...(browser === "firefox" ? ["tabGroups"] : []),
       "alarms",
-      "sessions",
-      "webNavigation"
+      "sessions"
     ],
     // Browser-level keyboard command. Uses the reserved
     // `_execute_action` so the hotkey mirrors a toolbar-icon click: with
@@ -89,6 +102,14 @@ export default defineConfig({
     // which a custom command calling `sidePanel.open()` cannot do. Rebindable at
     // chrome://extensions/shortcuts; the browser may drop the default on conflict.
     commands: {
+      ...(browser === "firefox"
+        ? {}
+        : {
+            "stop-agent": {
+              description: "Stop the current browser agent run",
+              suggested_key: { default: "Alt+Shift+X", mac: "Command+Shift+X" }
+            }
+          }),
       _execute_action: {
         suggested_key: {
           default: "Alt+Shift+O",
@@ -128,7 +149,8 @@ export default defineConfig({
     browser_specific_settings: {
       gecko: {
         id: "shishirchaurasiya435@gmail.com",
-        strict_min_version: "113.0",
+        // Packaged inference uses ES module workers (Firefox 114+).
+        strict_min_version: "114.0",
         data_collection_permissions: {
           required: ["none"]
         }

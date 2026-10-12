@@ -8,7 +8,7 @@
       "scroll_down": "Défiler vers le bas",
       "scroll_left": "Défiler vers la gauche",
       "scroll_right": "Défiler vers la droite",
-      "switch_tab": "Passer à l’onglet {{tab}}",
+      "switch_tab": "Passer à un autre onglet",
       "wait": "Attendre {{condition}}",
       "clear_and_type": "Remplacer le texte du champ",
       "press_key": "Appuyer sur {{key}}",
@@ -24,43 +24,51 @@
       "double_click": "Double-cliquer sur le contrôle",
       "click_point": "Cliquer sur un point de la capture",
       "zoom": "Agrandir la capture",
+      "look": "Prendre une nouvelle capture",
       "hover": "Survoler le contrôle",
       "read": "Lire la page",
       "inspect": "Inspecter {{region}}",
       "find": "Rechercher « {{query}} »",
       "extract_text": "Lire le texte de la page",
       "handle_dialog_accept": "Accepter la boîte de dialogue de la page",
-      "handle_dialog_dismiss": "Fermer la boîte de dialogue de la page"
+      "handle_dialog_dismiss": "Fermer la boîte de dialogue de la page",
+      "fill_form": "Remplir des champs du formulaire : {{count}}",
+      "extract": "Rechercher sur la page : {{count}}",
+      "call_page_tool": "Utiliser l’outil de la page « {{tool}} »"
     },
     "approval": {
       "title": "Approbation requise",
+      "risk": {
+        "low": "Risque faible",
+        "medium": "Risque moyen",
+        "high": "Risque élevé",
+        "critical": "Risque critique"
+      },
       "allow": "Autoriser une fois",
       "reject": "Refuser",
       "allowForRun": "Toujours autoriser ce type d'action sur {{origin}} pour cette exécution"
     },
-    "attachment": {
-      "title": "Ce que permet ce navigateur",
-      "attaches": "Au démarrage, le débogueur de Chrome se connecte à l'onglet choisi. Chrome affiche son propre bandeau pendant ce temps, et la connexion cesse à l'arrêt, lors d'une reprise en main ou à la fin.",
-      "no_debugger": "Ce navigateur n'a pas de débogueur : l'exécution pilote les pages via les scripts de contenu de l'extension."
-    },
     "browser_disconnected": "Le contrôle du navigateur s’est déconnecté. Agent est donc en pause. Vérifiez la page avant de reprendre.",
-    "completion": {
-      "summary": "{{count}} observations de page ont été envoyées à {{provider}} pendant cette exécution."
-    },
     "controls": {
       "label": "Commandes de l’Agent",
       "pause": "Pause",
       "resume": "Reprendre",
       "stop": "Arrêter",
+      "takeover_start": "Je m’en charge",
       "takeover_done": "Terminé — continuer"
     },
     "error": {
       "already_running": "Une exécution d’Agent est déjà en cours.",
       "browser_control_unavailable": "Agent n’a pas pu connecter le contrôle du navigateur. Fermez DevTools ou un autre débogueur, puis réessayez.",
-      "permission_denied": "Agent a besoin de l’autorisation d’observation de page avant de démarrer.",
+      "follow_up_unavailable": "Cette exécution ne peut plus être poursuivie d’ici. Recommencez pour redonner la tâche.",
+      "permission_denied": "L’agent ne peut pas observer les pages dans ce navigateur.",
       "tab_unsupported": "Agent ne peut pas s’exécuter sur cette page. Ouvre une page web normale et réessaie.",
       "unreadable_update": "Le panneau a reçu une mise à jour qu’il n’a pas pu lire.",
-      "unknown": "Agent n’a pas pu exécuter cette demande."
+      "unknown": "Agent n’a pas pu exécuter cette demande.",
+      "disconnected": "L’agent se reconnectait et n’a pas reçu cette demande. Réessayez.",
+      "turn_has_run": "Ce message a déjà lancé une tâche dans le navigateur.",
+      "steer_unavailable": "L’exécution ne travaille pas en ce moment et n’a pas pu le prendre en compte. Mettez-la en pause et corrigez-la.",
+      "consent_stale": "L’exécution a avancé depuis l’affichage de ce choix, il n’a donc pas été enregistré. Vérifiez l’exécution et choisissez à nouveau."
     },
     "failure": {
       "budget_exhausted": "L'exécution a épuisé son budget d'étapes. Restreignez l'objectif ou reprenez depuis l'état actuel de la page.",
@@ -75,28 +83,15 @@
       "verification_failed": "L'exécution n'a pas pu confirmer l'effet de sa dernière action. Vérifiez la page avant de relancer.",
       "unknown": "L'exécution s'est arrêtée sans raison identifiable. Vérifiez la page, puis relancez."
     },
-    "feedback": "Envoyer un avis",
-    "limits": {
-      "no_native_input": "Les entrées souris et clavier sont synthétiques ; une page qui ne réagit qu'à de vraies entrées peut ne pas répondre.",
-      "no_screenshots": "Aucune capture d'écran n'est prise : une tâche qui exige de regarder la page ne fonctionnera pas.",
-      "no_dialogs": "L'exécution ne peut ni voir ni répondre aux boîtes natives alert, confirm et prompt."
-    },
     "model": {
       "label": "Modèle"
     },
     "observations": "{{count}} observations",
     "privacy": {
       "remote_notice": "Les observations de page seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent.",
-      "acknowledge": "J’ai compris",
       "remote_notice_screenshots": "Les observations de page et les captures de la zone visible seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent."
     },
     "progress": "{{count}} observations sur {{budget}}",
-    "provider": {
-      "label": "Fournisseur",
-      "local": "Local",
-      "remote": "Distant",
-      "missing": "Sélectionnez d’abord un modèle"
-    },
     "question": {
       "title": "Agent a besoin d'une réponse",
       "inputLabel": "Votre réponse",
@@ -108,14 +103,6 @@
       "sent": "Les captures de la zone visible sont envoyées au modèle",
       "unused": "Non utilisées avec un modèle texte seul",
       "unknown": "Pas encore déterminé"
-    },
-    "start": {
-      "description": "Supervisez une tâche du navigateur depuis ce panneau.",
-      "goal": "Que doit faire l’Agent ?",
-      "placeholder": "Décrivez une tâche du navigateur…",
-      "action": "Démarrer l’Agent",
-      "auto_actions": "Autoriser les actions courantes pour cette tâche",
-      "auto_actions_description": "Les clics et la saisie sur ce site sont automatiques. Les publications, suppressions, nouveaux sites et étapes sensibles demandent encore votre accord."
     },
     "status": {
       "submitted": "Démarrage",
@@ -142,42 +129,53 @@
       "verified": "Vérifié",
       "rejected": "Refusé",
       "failed": "Échec",
-      "uncertain": "À vérifier"
-    },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agent",
-      "preview": "Aperçu"
+      "uncertain": "À vérifier",
+      "dialog_opened": "Boîte de dialogue ouverte"
     },
     "tab": {
       "label": "Onglet contrôlé",
-      "missing": "Ouvrez une page prise en charge"
+      "missing": "Ouvrez une page prise en charge",
+      "show": "Afficher cet onglet"
     },
     "tabs": {
       "label": "Onglets contrôlés",
-      "count": "{{count}} onglets"
+      "count_one": "{{count}} onglet",
+      "count_other": "{{count}} onglets"
     },
     "takeover": {
-      "title": "Prenez le contrôle de cette étape"
+      "title": "Prenez le contrôle de cette étape",
+      "instruction": {
+        "file_upload": "Prenez le contrôle de la page, choisissez vous-même le fichier, puis continuez.",
+        "sensitive_step": "Prenez le contrôle de la page, effectuez vous-même l’étape sensible, puis continuez."
+      }
     },
-    "title": "Agent supervisé",
     "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
     "unresolved_reviewed": "J'ai vérifié la page — continuer",
+    "unresolved_done": "C’est fait — terminer",
     "work_log": {
+      "action_needs_review": "Cette étape doit être vérifiée.",
       "title": "Journal de travail",
-      "target": "« {{name}} »"
+      "target": "« {{name}} »",
+      "reasoning": "Raisonnement"
     },
     "correction": "En pause. Décrivez le changement souhaité, puis continuez.",
-    "export_report": "Exporter le rapport (contient le texte de la page)",
-    "running_goal": "Tâche en cours",
-    "requirements": {
-      "title": "Ce que la tâche demandait",
-      "met": "Fait",
-      "unmet": "Non fait"
+    "experimental_badge": "Expérimental",
+    "announcement": {
+      "title": "Expérimental : un agent de navigateur dans le chat",
+      "description": "Votre modèle de chat peut désormais effectuer des tâches dans vos onglets : cliquer, saisir et passer d’une page à l’autre à votre place. Il reste désactivé tant que vous ne l’activez pas.",
+      "hosted_models": "Il fonctionne mieux avec des modèles hébergés performants (par exemple via OpenRouter ou un fournisseur cloud). Les petits modèles locaux n’arrivent souvent pas à terminer une tâche en plusieurs étapes.",
+      "approvals": "Il demande avant d’envoyer un formulaire, de se connecter, de payer ou de supprimer quoi que ce soit, et vous pouvez l’arrêter à tout moment.",
+      "coming": "Il s’agit d’une première version. Attendez-vous à quelques imperfections ; d’autres améliorations arrivent dans les prochaines versions.",
+      "later": "Plus tard",
+      "enable": "Activer l’agent"
     },
     "settings": {
       "title": "Agent de navigation",
-      "description": "Quelle quantité de contexte une exécution peut demander à son modèle, et quand elle photographie la page.",
+      "description": "Ce qu’une exécution peut faire sans demander, combien de contexte elle peut demander à son modèle et quand elle capture la page.",
+      "enabled": {
+        "label": "Autoriser le modèle de chat à utiliser l’agent du navigateur",
+        "description": "Propose browser_task, qui permet au modèle de cliquer, saisir et naviguer dans vos onglets à votre place. Expérimental : son efficacité varie beaucoup d’un modèle à l’autre."
+      },
       "context_window": {
         "label": "Fenêtre de contexte",
         "description": "Automatique prend la plus petite fenêtre que ce modèle et ce serveur signalent, et se rabat sur une taille prudente quand aucun ne se prononce. Fixez vous-même une taille si vous avez relevé la limite de votre serveur ou si une exécution a manqué de mémoire.",
@@ -190,7 +188,104 @@
         "auto": "Quand l'étape en a besoin",
         "always": "À chaque étape",
         "never": "Jamais"
+      },
+      "permission_mode": {
+        "label": "Actions courantes",
+        "description": "Indique si chaque nouvelle exécution peut cliquer et saisir du texte sur le site de départ sans demander. L’envoi, la suppression, la connexion, le paiement et les nouveaux sites sont toujours soumis à confirmation, et rien n’est reporté à l’exécution suivante.",
+        "allow_routine": "Autoriser sur le site de départ",
+        "approve_each": "Approuver chaque action"
+      },
+      "completion_reviewer": {
+        "label": "Vérificateur de fin de tâche",
+        "description": "Quand une exécution affirme un résultat que les contrôles intégrés ne peuvent pas confirmer, ce modèle lit les preuves vérifiées de l'exécution et indique si elles appuient l'affirmation. Il n'agit jamais dans le navigateur. Un autre modèle ne reçoit ces preuves que s'il est activé, sait appeler des outils et, pour un serveur distant, si vous avez accepté d'envoyer le contenu des pages à des modèles distants.",
+        "same_as_run": "Même modèle que l'exécution"
       }
+    },
+    "card": {
+      "title": "Exécution de l'agent",
+      "loading": "Chargement de l'exécution…",
+      "missing": "L'enregistrement de cette exécution n'est plus disponible.",
+      "outcome": "{{met}} sur {{total}} faites",
+      "outcome_visual_one": "{{count}} vu seulement sur une capture, non confirmé par le texte",
+      "outcome_visual_other": "{{count}} vus seulement sur une capture, non confirmés par le texte",
+      "continue": "Continuer",
+      "retry": "Réessayer",
+      "start_over": "Recommencer",
+      "ask": "Poser une question",
+      "step_count_one": "{{count}} étape",
+      "step_count_other": "{{count}} étapes",
+      "page_count_one": "{{count}} page",
+      "page_count_other": "{{count}} pages"
+    },
+    "follow_up": {
+      "continue_message": "Poursuis la tâche dans le navigateur.",
+      "retry_message": "Réessaie la tâche dans le navigateur."
+    },
+    "paused_panel_closed": "En pause car le panneau latéral a été fermé. Reprenez quand vous voulez.",
+    "approval_text": {
+      "accept_dialog": "Accepter la {{kind}} de la page",
+      "accept_dialog_origin": "Accepter la {{kind}} de {{origin}}",
+      "dismiss_dialog": "Fermer la {{kind}} de la page",
+      "dismiss_dialog_origin": "Fermer la {{kind}} de {{origin}}",
+      "dismiss_dialog_consequence": "La boîte de dialogue est informée qu’elle a été fermée, et rien n’est confirmé.",
+      "accept_dialog_consequence": "La page continue comme si vous aviez cliqué sur son bouton de confirmation, quelle que soit son action.",
+      "accept_leave_consequence": "La page peut être quittée. Tout ce qui n’a pas été enregistré est perdu.",
+      "dialog_unreadable": "Son texte n’a pas été lu : la boîte de dialogue appartient à un cadre que cette exécution n’est pas autorisée à lire.",
+      "fill_fields": "Définir des champs du formulaire en une étape : {{count}}",
+      "fill_fields_consequence": "Chaque contrôle listé est défini dans l’ordre, avec arrêt au premier qui ne peut pas l’être. L’agent n’appuie pas sur Envoyer, mais la page peut soumettre le formulaire automatiquement ou enregistrer les modifications pendant la saisie.",
+      "adopt_tab": "Prendre l’onglet « {{tab}} » sur {{url}}",
+      "navigate": "Aller à {{url}}",
+      "navigate_consequence": "Le navigateur ouvre exactement cette adresse : {{url}}",
+      "routine_follows": "Les clics et la saisie sur {{origin}} se feront ensuite sans demander, comme sur le site où cette tâche a commencé. L’envoi d’un formulaire demandera toujours.",
+      "no_submit_consequence": "Ceci est saisi dans le contrôle affiché ci-dessous. Aucune étape d’envoi ne suit, donc une page qui enregistre pendant la saisie peut le conserver immédiatement.",
+      "command_consequence": "Le navigateur effectue cette action sur le contrôle affiché ci-dessous.",
+      "prior_form": "Une exécution précédente de cette tâche a déjà envoyé ce formulaire. N’approuvez que s’il s’agit d’un nouvel envoi, et non du même.",
+      "repeated_effect": "Cette exécution l’a déjà fait une fois, avec le même contrôle sur cette page. N’approuvez que si cela doit se reproduire.",
+      "unknown_prior_effect": "L’historique des actions de cette exécution est illisible. Cette action peut répéter un effet antérieur. N’approuvez que si cette répétition est sûre.",
+      "adopt_untitled_tab": "Prendre un onglet sur {{url}}"
+    },
+    "dialog_kind": {
+      "alert": "alerte",
+      "confirm": "boîte de confirmation",
+      "prompt": "boîte de saisie",
+      "beforeunload": "boîte de sortie de page",
+      "dialog": "boîte de dialogue"
+    },
+    "question_text": {
+      "completion_refused": "Je n’ai pas pu confirmer le résultat. La tâche est-elle terminée ? Sinon, que dois-je faire ensuite ?",
+      "commands_refused": "La dernière action n’a pas pu être effectuée. Que devrais-je essayer à la place ?",
+      "no_progress": "Je répète des actions sans progresser. Que devrais-je faire différemment ? Vous pouvez aussi m’arrêter et terminer la tâche vous-même.",
+      "recovery_tried_one": "J’ai d’abord essayé une autre approche.",
+      "recovery_tried_other": "J’ai d’abord essayé {{count}} autres approches.",
+      "too_many_outcomes": "Cette tâche demande {{count}} résultats distincts, et une exécution peut en suivre {{max}}. Lesquels cette exécution doit-elle traiter ? Le reste pourra suivre dans une autre.",
+      "too_many_items": "Cette tâche cite {{count}} lignes ou enregistrements, et une exécution peut en suivre {{max}}. Lesquels cette exécution doit-elle traiter ? Le reste pourra suivre dans une autre.",
+      "too_many_constraints": "Cette tâche fixe {{count}} limites distinctes, et une exécution peut en tenir {{max}}. Lesquelles comptent pour cette exécution ?",
+      "confirm_removal": "Ta réponse peut signifier que cette tâche n’a plus besoin de : {{list}}. Réponds oui pour retirer, ou non pour tout garder.",
+      "confirm_lift": "Ta réponse peut signifier que ces limites ne s’appliquent plus : {{list}}. Réponds « allow » pour les lever ; toute autre réponse les conserve."
+    },
+    "start_gate": {
+      "after_page": "Le modèle a lu le contenu d’une page avant de rédiger cette tâche : elle est donc toujours soumise à confirmation.",
+      "other_tab": "Cette tâche s’exécute dans un autre onglet que celui que vous regardez.",
+      "supervised": "L’agent agit sur la page étape par étape et demande avant toute action importante. Chrome affiche un bandeau de débogage pendant ce temps.",
+      "routine": "Sur ce site, les clics, la saisie et les recherches de cette tâche s’exécutent sans nouvelle demande. Publier ou envoyer d’autres formulaires, se connecter, payer, supprimer et ouvrir d’autres sites demandent toujours.",
+      "experimental_model": "Les appels d’outils sont activés pour ce modèle parce que vous l’avez choisi, pas parce que le modèle l’indique. Un modèle incapable d’appeler des outils n’ira pas loin."
+    },
+    "steer": {
+      "label": "Orienter l’agent",
+      "placeholder": "Le corriger sans mettre en pause…",
+      "send": "Envoyer à l’agent",
+      "queued": "Envoyé. L’agent le lira à sa prochaine étape.",
+      "heard": "L’agent a pris en compte votre correction."
+    },
+    "worker_lost": "L’exécution dans le navigateur a été interrompue. Une reprise sûre nécessite la session du navigateur et la page initialement autorisées ; sinon, reprenez manuellement.",
+    "unattended": {
+      "label": "Continuer cette tâche avec le panneau fermé",
+      "help": "Reprenez après avoir activé cette option. Les onglets, sites et fournisseur actuels seront utilisés. Les approbations, la connexion et les CAPTCHA nécessitent toujours votre intervention. Arrêtez la tâche depuis le menu contextuel de la page ou avec le raccourci clavier d’arrêt de l’agent. La fermeture du navigateur et la mise en veille peuvent interrompre le travail.",
+      "active": "La poursuite avec le panneau fermé est activée pour cette tâche. Les nouvelles tâches nécessitent un nouveau consentement.",
+      "decision_interrupted": "Cette décision est toujours en attente. Reprenez pour vérifier à nouveau la page et demander une nouvelle décision :",
+      "scope_changed": "Le périmètre de la tâche a changé. Vérifiez le consentement à continuer avec le panneau fermé.",
+      "scope": "Onglets : {{tabs}} · Fournisseur : {{provider}} · Modèle : {{model}}",
+      "stop_menu": "Arrêter l’agent du navigateur"
     }
   },
   "common": {
@@ -243,7 +338,10 @@
     "name": "Ollama Client - Chat IA local avec Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
     "description": "Chat privé avec des LLM via Ollama, LM Studio et llama.cpp, avec RAG local, recherche web et contexte de page.",
-    "action_default_title": "Ouvrir Ollama Client"
+    "action_default_title": "Ouvrir Ollama Client",
+    "stop_browser_agent_menu": "Arrêter l’agent du navigateur",
+    "agent_task_completed": "Terminé",
+    "agent_task_attention": "En pause"
   },
   "selection_button": {
     "label": "Demander au LLM local",
@@ -356,7 +454,7 @@
     },
     "performance_notice": {
       "title": "Avis de Performance",
-      "message": "Cette extension est une interface utilisateur pour votre fournisseur local (Ollama par défaut). Le temps de réponse et la qualité de sortie dépendent entièrement du matériel de votre appareil (CPU, RAM, GPU) et du modèle utilisé. Aucun traitement n'est effectué par l'extension elle-même."
+      "message": "Les réponses du chat proviennent du fournisseur choisi. Les embeddings intégrés sont calculés sur cet appareil. La vitesse dépend du modèle et du matériel utilisé."
     }
   },
   "chat": {
@@ -416,7 +514,10 @@
       "generated_tokens": "Tokens générés",
       "load_time": "Temps de chargement",
       "prompt_eval_time": "Temps d'évaluation du prompt",
-      "speed_unit": "t/s"
+      "speed_unit": "t/s",
+      "cached_tokens": "Jetons de prompt en cache",
+      "reasoning_tokens": "Jetons de raisonnement",
+      "cost": "Coût"
     },
     "session_metrics": {
       "label_tokens": "Tokens",
@@ -477,7 +578,8 @@
         "results_other": "{{count}} résultats",
         "restoreSession": "Réouverture d’un onglet fermé",
         "list_reminders": "Liste des rappels",
-        "cancel_reminder": "Annulation du rappel"
+        "cancel_reminder": "Annulation du rappel",
+        "browser_task": "Tâche dans le navigateur"
       },
       "debug": "Raisonnement de débogage"
     },
@@ -607,7 +709,14 @@
       "manage": "Gérer les autorisations",
       "not_granted": "L’autorisation n’a pas été accordée. Réessayez ou gérez-la dans les paramètres.",
       "resume_failed": "Impossible de poursuivre la demande. Réessayez.",
-      "reminders": "Rappels"
+      "reminders": "Rappels",
+      "agent": {
+        "title": "L’agent du navigateur est désactivé",
+        "description": "Cela ressemble à une tâche dans le navigateur. L’agent est expérimental et fonctionne mieux avec des modèles hébergés.",
+        "enable": "Activer et continuer",
+        "continue_without": "Continuer sans",
+        "manage": "Réglages de l’agent"
+      }
     },
     "errors": {
       "unknown_error": "❌ Erreur inconnue : {{message}}",
@@ -647,8 +756,11 @@
       "context_trimmed_title": "Contexte réduit",
       "context_trimmed_description": "Le contexte extrait des onglets dépassait ta limite et a été réduit avant l'envoi.",
       "context_retrieval_warning_title": "Échec de la récupération du contexte",
-      "context_retrieval_warning_description": "Impossible de récupérer le contexte depuis tes fichiers. La suite se fait sans lui.",
-      "interrupted": "Réponse interrompue"
+      "context_retrieval_warning_description": "Une partie du contexte enregistré n’a pas pu être recherchée. Des informations pertinentes peuvent manquer dans la réponse.",
+      "interrupted": "Réponse interrompue",
+      "provider_auth": "Le fournisseur a refusé l’accès. Vérifiez sa clé API, ses identifiants ou les autorisations du compte dans les paramètres avant de recommencer.",
+      "provider_cors": "Le fournisseur local a bloqué l’origine de l’extension. Autorisez chrome-extension://* et moz-extension://* dans ses paramètres CORS, puis réessayez.",
+      "provider_refused": "Le modèle a refusé cette demande. Adaptez la tâche ou choisissez un autre modèle."
     },
     "composer": {
       "rag": "Fichiers",
@@ -661,11 +773,13 @@
       "tabs": "{{count}} onglets",
       "files": "{{count}} fichiers",
       "knowledge": "Connaissances",
+      "images": "{{count}} images",
       "web": "Web",
       "rows": {
         "tabs": "Contexte de la page et des onglets",
         "knowledge": "Rechercher dans les fichiers importés",
-        "web": "Recherche web"
+        "web": "Recherche web",
+        "agent": "Agent du navigateur (expérimental)"
       }
     },
     "artifacts": {
@@ -732,6 +846,12 @@
       "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités.",
       "max_image_size_label": "Taille maximale d'image (Mo)",
       "max_image_size_description": "Taille maximale autorisée pour chaque image jointe à un message pour les modèles de vision."
+    },
+    "errors": {
+      "title": "Échec de l’importation du fichier",
+      "processing_failed": "Impossible de traiter ou d’indexer ce fichier. Vérifiez les paramètres d’embeddings et le stockage disponible, puis réessayez.",
+      "unsupported_type": "Le type de fichier de {{name}} n’est pas pris en charge. Utilisez du texte, PDF, DOCX, CSV/TSV ou HTML.",
+      "too_large": "{{name}} dépasse la taille maximale de {{max}} Mo."
     }
   },
   "model": {
@@ -743,7 +863,11 @@
       "checking_model": "Vérification du modèle d'incrustation RAG/recherche...",
       "error": "Impossible de vérifier l'état. Cliquez pour réessayer.",
       "required_for_rag": "Le modèle d'incrustation est requis pour les fonctionnalités RAG.",
-      "download_button": "Télécharger le Modèle"
+      "download_button": "Télécharger le Modèle",
+      "unavailable": "Fournisseur d’embeddings indisponible. Vérifiez la connexion et réessayez.",
+      "unverified": "Modèle d’embeddings non vérifié : ce fournisseur n’a pas de liste de modèles.",
+      "download_failed": "Échec du téléchargement des embeddings",
+      "download_failed_description": "Vérifiez la connexion au fournisseur et l’espace disque disponible, puis réessayez."
     },
     "menu": {
       "select_placeholder": "Sélectionner un modèle...",
@@ -753,6 +877,10 @@
       "search_placeholder": "Rechercher un modèle...",
       "no_model_found": "Aucun modèle trouvé.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Modèles cloud d’Ollama",
+        "description": "Modèles :cloud hébergés. Nécessitent un Ollama connecté et souvent un abonnement payant."
+      },
       "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Vérifiez le fournisseur dans les paramètres ou ajoutez des identifiants de modèle manuellement.",
       "selection_conflict": "Choisissez un fournisseur pour {{model}} — plusieurs le proposent."
     },
@@ -800,6 +928,7 @@
     "embedding_config": {
       "title": "Modèle d'embedding, découpage, recherche et stockage",
       "storage_stats_title": "Statistiques de Stockage",
+      "storage_stats_description": "Statistiques actuelles d’utilisation du stockage des vecteurs",
       "total_vectors": "Vecteurs Totaux",
       "storage_used": "Stockage Utilisé",
       "cache": "Cache",
@@ -1004,7 +1133,9 @@
       "all_sessions_title": "Toutes les sessions",
       "role_user": "Vous",
       "role_assistant": "Assistant IA",
-      "remote_image_blocked": "Image distante bloquée"
+      "remote_image_blocked": "Image distante bloquée",
+      "role_agent": "Agent",
+      "agent_no_result": "L'exécution de l'agent n'a enregistré aucun résultat."
     },
     "actions": {
       "more": "Plus d'actions pour {{title}}",
@@ -1373,6 +1504,7 @@
       "prompts": "Bibliothèque de prompts",
       "models": "Comportement du modèle",
       "extraction": "Page et onglets",
+      "agent": "Agent",
       "context": "Connaissances et web",
       "embeddings": "Connaissances enregistrées",
       "providers": "Fournisseurs",
@@ -1601,6 +1733,34 @@
         "description": "Changer de modèle d'embeddings peut rendre les vecteurs existants incompatibles. Reconstruisez l'index pour garder des résultats précis, ou changez sans reconstruire.",
         "switch_only": "Changer sans reconstruire",
         "switch_and_rebuild": "Changer et reconstruire"
+      },
+      "bundled": {
+        "provider_hint": "Choisissez un modèle d’embeddings d’Ollama, LM Studio, llama.cpp ou d’un autre fournisseur local ou hébergé. Les langues prises en charge dépendent du modèle choisi.",
+        "mode_title": "Mode d’embeddings",
+        "mode_bundled": "Intégré",
+        "mode_external": "Embeddings du fournisseur",
+        "mode_bundled_help": "MiniLM fonctionne dans l’extension. Aucun serveur requis.",
+        "mode_external_help": "Utilisez Ollama, LM Studio, llama.cpp ou un fournisseur local ou hébergé.",
+        "switch_builtin": "Passer au mode intégré",
+        "switch_server": "Passer aux embeddings du fournisseur",
+        "mode_language_hint": "MiniLM intégré fonctionne dans l’extension et convient surtout à l’anglais. Pour les autres langues, vous pouvez l’essayer ou choisir un modèle multilingue auprès d’un fournisseur.",
+        "settings_description": "Choisissez comment préparer les fichiers et souvenirs de chat pour la recherche.",
+        "current_bundled": "Actuellement : MiniLM intégré · sur cet appareil",
+        "current_external": "Mode actif : embeddings du fournisseur",
+        "server_model": "Modèle d’embeddings du fournisseur",
+        "switch_hint": "Le changement reconstruit les embeddings enregistrés. La configuration actuelle reste active jusqu’à la fin.",
+        "title": "Embeddings intégrés",
+        "active": "Les embeddings sont calculés localement avec MiniLM inclus, surtout adapté à l’anglais. Aucun serveur ni téléchargement requis. Pour la recherche multilingue, sélectionnez un fournisseur et un modèle externes ci-dessous, puis reconstruisez l’index pour basculer.",
+        "offer": "Les embeddings intégrés sont disponibles. Migrez vos embeddings enregistrés ou conservez votre serveur et votre modèle actuels.",
+        "details": "La migration reconstruit les embeddings enregistrés des fichiers, pages et discussions sur cet appareil. Elle nécessite un espace temporaire pour une copie des sources et le nouvel index. Votre index actuel reste actif jusqu’à la réussite. Elle continue si vous fermez cette fenêtre ou le panneau latéral, et reprend après un redémarrage du navigateur.",
+        "progress": "Reconstruction de {{current}} embeddings sur {{total}}",
+        "changed": "La configuration des embeddings a changé ou les vecteurs préparés sont incompatibles. L’index actuel reste actif. Redémarrez la migration.",
+        "error": "La migration n’a pas pu se terminer. Les embeddings actuels restent actifs. Vérifiez le fournisseur, la connexion et l’espace disponible, puis reprenez ou annulez.",
+        "resume": "Reprendre la migration",
+        "migrate": "Migrer vers les embeddings intégrés",
+        "keep": "Conserver la configuration actuelle",
+        "language_notice": "MiniLM est recommandé pour les textes en anglais. Pour les autres langues, utilisez un modèle d’embeddings sur serveur pour améliorer la recherche. Vous pouvez tout de même essayer MiniLM et revenir en arrière dans les paramètres.",
+        "external": "Reconstruire avec le modèle externe sélectionné"
       }
     },
     "prompts": {
@@ -2216,7 +2376,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Actualiser les modèles",
+      "use_unverified": "Essayer ce modèle"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2247,7 +2409,8 @@
         "timeout": "Le fournisseur met trop de temps à répondre. Vérifiez son fonctionnement et le port.",
         "unavailable": "Ollama est inaccessible. Il peut être arrêté, utiliser un autre port ou bloquer les origines d’extension.",
         "server-error": "Le fournisseur a renvoyé une erreur serveur. Consultez ses journaux, puis réessayez."
-      }
+      },
+      "unverified": "Connexion non vérifiée. Vous pouvez essayer un modèle configuré ou ouvrir les paramètres du fournisseur pour vérifier le point d’accès."
     }
   }
 }

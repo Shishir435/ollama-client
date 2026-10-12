@@ -18,15 +18,18 @@ Read the section your change touches; you do not need the whole file.
 - [Perception: reachability](#perception-reachability)
 - [Projection and targeted reads](#projection-and-targeted-reads)
 - [Progress, refusals and findings](#progress-refusals-and-findings)
+- [Durable workflow progress](#durable-workflow-progress)
 - [Input delivery](#input-delivery)
 - [Forms, editors and drags](#forms-editors-and-drags)
 - [Native dialogs](#native-dialogs)
 - [Policy: pricing and consent](#policy-pricing-and-consent)
+- [Follow-up runs](#follow-up-runs)
 - [Verification, waiting and completion](#verification-waiting-and-completion)
 - [Screenshots](#screenshots)
 - [Supervision receipts and the work log](#supervision-receipts-and-the-work-log)
 - [Recovery evidence](#recovery-evidence)
 - [Read-only session tools and capture](#read-only-session-tools-and-capture)
+- [Starting a run from chat](#starting-a-run-from-chat)
 - [Panel supervision surface](#panel-supervision-surface)
 - [Measured behaviour and benchmarks](#measured-behaviour-and-benchmarks)
 - [Task-completion contracts](#task-completion-contracts)
@@ -41,9 +44,46 @@ Read the section your change touches; you do not need the whole file.
   runner drives Chromium's own DevTools endpoint from outside the extension
   to kill and restart the worker — the thing under test cannot own the switch
   that kills it, and nothing there ships or is reachable by a model. Attach only after the run
-  service authorizes the user-selected tab; detach at pause, takeover, stop,
-  completion, and failure boundaries. An unexpected disconnect pauses the run,
+  service authorizes the tab the run starts on (the one the side panel showed
+  when the message was sent, unless the start prompt named another); detach at pause, takeover, stop,
+  completion, and failure boundaries — except a pause the run comes back from
+  on the same page (user, question, unresolved effect) while a native dialog
+  is held, which keeps the session so the dialog is not dismissed (see
+  [Native dialogs](#native-dialogs)). An unexpected disconnect pauses the run,
   and an interrupted effect remains unresolved rather than being replayed.
+- **The run works in the background; the user keeps their own tab.** Nothing
+  the agent does brings a tab to the front or focuses a window. A start
+  address opens beside the user's tab (`active: false`), `open_tab` does the
+  same, and `switch_tab` moves the run — its receipt names the tab it now
+  drives — without activating anything; its verification asks whether that
+  tab still holds the destination, never whether it is the active one. What
+  makes a background tab drivable is `Emulation.setFocusEmulationEnabled`,
+  sent on attach: a hidden Chromium tab otherwise runs timers about once a
+  second and no animation frames, which stalls the page's own scripts and
+  every settle the run waits on. Measured in a real Chromium with the tab
+  behind another: without it, 3 timer ticks in 3s and no frames; with it,
+  full-rate timers, running frames, `visibilityState: "visible"`.
+  It is page-wide: a cross-origin iframe in its own process, measured the
+  same way, went from 3 ticks and no frames to full rate from the one call
+  on the page, so child sessions need none. A start tab `browser_task`
+  opened joins the run's tab group once the run has an id — opened in the
+  background, the group is what says which tab the agent is in; the user's
+  own tab is never grouped, and a replay that hands back a run on another
+  tab leaves the fresh one ungrouped. A start tab no run ends up driving —
+  the service refused the start, the turn stopped, a replay returned another
+  tab's run, or admission refused the page — is closed; a start that failed
+  unexpectedly keeps it, since a run may already hold it. The details card's "Controlled tab" row is a
+  button that brings the tab and its window forward — on the user's click,
+  the one way a run's tab reaches the front, for a handover or a page to
+  review. A settled card offers the same through `AgentRunCard.tabId`, which
+  the background sets only while the tab is still open on one of the run's
+  allowed origins — tab ids are reused after a browser restart — and
+  `showAgentTab` checks the tab against `tabOrigins` again at the click,
+  because a settled card stops refreshing. The run's tab also keeps playing media and
+  animations after the user leaves it, since the page believes it is in
+  front. Screenshots and debugger input reach a hidden tab either way. Detaching
+  ends the emulation. The debugger banner is Chrome's and shows on every tab
+  while any tab is attached; nothing here can hide it.
 - **An unresolved effect is resolved by the supervisor, not by a guess.**
   `resolveEffect` records that the user has looked at the page and continues
   the run from a fresh observation, with the generation bumped so no reference
@@ -74,6 +114,21 @@ Read the section your change touches; you do not need the whole file.
   joins the scope in the same claim that moves the run onto it. The debugger
   attachment follows the controlled tab in that write, before any page work
   is claimed there.
+- **A tab the page opens because the run acted is the run's.** The effect
+  port watches `tabs.onCreated` from the moment an element action touches
+  the page until its verification settles, and reports tabs whose opener is
+  the controlled tab on the receipt (`openedTabIds`). The verifier credits a
+  click that did nothing but open one — a `target="_blank"` link left its own
+  page unchanged and paused as an unresolved effect — and the confirmed claim
+  adds them to the scope without moving the run. Switching to one asks
+  nothing; switching to any other tab still does.
+- **Agent tabs are grouped when `tabGroups` is granted.** A tab the run opens,
+  or the page opens for it, joins one group per run labelled with the
+  extension's short name (`agent-tab-group.ts`). Calls for a run are chained,
+  so two tabs opened together share one group, and a later run from the same
+  tab gets its own. The start tab is never moved into it. The permission
+  stays optional; without it — or if the permission query fails — tabs open
+  ungrouped.
 
 ## Perception: frames and identity
 
@@ -91,7 +146,19 @@ Read the section your change touches; you do not need the whole file.
   that fails any of them is listed in `observation.frames` with its origin and
   the reason, never its URL, and contributes no elements; the model is told it
   exists so it can ask rather than conclude the control is missing.
-  `about:blank` and `srcdoc` frames have no origin and are omitted.
+  A `srcdoc` or script-written `about:blank` child — most in-page editors and
+  embedded previews — has no origin in its address and is judged as the
+  document that created it: the nearest addressed ancestor's URL for the
+  user's exclusions (`frameAccessUrl`), its origin for the allowlist. It is
+  read after every frame with an address of its own, at most three per
+  observation (pages make `about:blank` frames for ads too), and only with a
+  document id. Inside, the origin is `window.origin`: `location.origin` is
+  derived from `about:srcdoc` and reads `"null"`. A sandbox without
+  `allow-same-origin` really is opaque, reports `"null"`, and stays unread;
+  a document reporting any origin other than the one it was authorized under
+  is listed `unauthorized_origin`. No extra permission is involved:
+  `scripting.executeScript` with `frameIds` already reaches these frames under
+  `<all_urls>` — what kept them unread was this code.
 - **Frames and elements are bounded together.** Root first, then children in
   frame-id order up to `MAX_AGENT_OBSERVED_FRAMES`; frames past the cap are
   counted in `omittedFrames`, never listed, so the list itself honours the
@@ -218,9 +285,19 @@ Read the section your change touches; you do not need the whole file.
     the answer and a changed page is a different answer.
   - The controller cleared the guard's memory after every confirmed
     verification. A pure read verifies `confirmed` by definition, so a repeat
-    could never accumulate. It is cleared on `agentEffectChangesPage(effect)`
-    now — navigation needs no exemption, since going somewhere changes the url
-    the guard compares first.
+    could never accumulate. It was then cleared on
+    `agentEffectChangesPage(effect)` instead, which is the class a step
+    *intended*: every click reset it, so a run alternating "open Details" and
+    "back" for twenty-one steps, or clicking one canvas point eighteen times,
+    never accumulated either. No step clears it now. A step that moved the
+    run on already reads as progress, because the next observation hashes
+    differently.
+  - A changed page is not always a new one. Each point also carries
+    `changeSignature` — a hash of the visible text the step added and
+    removed — and the same decision making the same change counts as a
+    repeat even though no two observations hash alike. That is the shape of
+    an accumulating effect (a status line appended per click); a counter
+    stepping 1 → 2 → 3 changes differently each time and stays progress.
   - `classifyNoProgress` took a `verificationOutcome` input that reset the
     count on `confirmed`. Nothing ever passed it, and wiring it as written
     would have made the loop unkillable. It is gone; do not reintroduce it.
@@ -229,8 +306,8 @@ Read the section your change touches; you do not need the whole file.
   lost nothing: it records a rejected step carrying the affordance layer's own
   sentence — assembled from templates and the model's ref, never from page
   text — and looks again, exactly as a declined completion does. Three
-  consecutive refusals now pause with a question so the user can correct the
-  approach; the older `command_refused` error remains readable for saved runs. Failing on the first
+  consecutive refusals start a recovery strategy (below), and a question only
+  once the strategies are spent; the older `command_refused` error remains readable for saved runs. Failing on the first
   one answered a well-formed decision with `invalid_decision`, whose advice
   tells the user to find a larger model — wrong about what happened, and often
   wrong about whose fault it was, since a control the observation offered can
@@ -247,6 +324,143 @@ Read the section your change touches; you do not need the whole file.
   untrusted page-derived data, never an instruction, so a fact learned on step
   two survives to step fifty without letting the page it came from change the
   goal.
+
+### Bounded recovery
+
+The no-progress guard, three refused commands and a stale snapshot used to end
+in a question or a failure on the first trigger. Each now spends a strategy
+first (`recovery.ts`), and only an exhausted budget reaches the user.
+
+- **The budget is durable and never refills.** `AgentRunState.recovery`
+  carries `attempts` (capped by `MAX_AGENT_RECOVERY_ATTEMPTS`) and the open
+  episode: trigger, current strategy, strategies tried, and the last verified
+  history step. It is written in the same claim that sends the run back to
+  observing, so a worker restart reads the spent count back. The controller's
+  progress and refusal counters are still memory-only; what a restart cannot
+  do is refund an attempt. Terminal compaction keeps `attempts` and drops the
+  episode.
+- **A strategy is guidance or a fresh read, never an action.**
+  `fresh_observation`, `targeted_read`, `wait_for_condition`,
+  `request_vision`, `alternate_route` and `revise_approach` reach the model as
+  the `recovery` field with a fixed template. Every command a recovery leads to
+  goes through the same resolver, policy, persistence, executor and verifier.
+  `request_vision` is offered only when the run can picture the page, and it
+  forces a capture under the `auto` vision policy.
+- **The repeat that triggered it is not carried out.** The guard's memory is
+  kept across strategies, so a model that ignores the new strategy and repeats
+  itself costs the next strategy at once, not three more repeats. A `wait`
+  keeps the count it found and never triggers recovery. Only a real repeat
+  does.
+- **An episode closes on a verified page-changing step, a correction or an
+  answer**, never on a verified read: one look would otherwise end every
+  episode. Its tried list carries across triggers while it is open.
+- **The task is not the run's to revise.** Recovery never writes
+  requirements, constraints or the plan. `revise_approach` says so in its
+  template, and the system prompt repeats it.
+- **Effects settle three ways, not two.** `agentEffectSettlement` reads
+  `verified` as `confirmed`; `planned`, `rejected` and `failed` as
+  `not_applied`; and everything between (`approved`, `executing`, `executed`,
+  `uncertain`) as `unknown`. While an episode is open, a consequential effect
+  whose own earlier attempt is `confirmed` or `unknown` is refused before
+  policy. Only one known not to have applied may be tried again. Receipts that
+  cannot be read count as `unknown`.
+- **An unresolved effect gets evidence only.** An ambiguous verification is
+  asked once more against the same before-picture, charged as an
+  `unresolved_effect` attempt. Nothing is executed again. Confirmed advances,
+  negative redecides with the episode open, and still-ambiguous pauses
+  `unresolved_effect` exactly as before. The human reconciliation boundary is
+  unchanged.
+- **A refused completion gets one read, not the whole set.** A run that
+  keeps claiming it is done trips the guard on its repeated `complete`. As
+  `refused_completion` it is offered `targeted_read` only: waiting, pictures
+  and other routes cannot supply the quotation it is missing, and in live
+  runs they spent five strategies before the same question.
+- **The reviewer is told what counts as a citation.** Every record in the
+  review packet carries `citable`, computed by `agentReviewRecordCitable`, the
+  same rule `applyAgentCompletionReview` enforces. Before this, a reviewer that
+  judged a click-only change "supported" cited the activation effect, and the
+  runtime refused it. That was the main source of questions on finished
+  `stale` and `overlay` runs.
+- **The reviewer is told what each outcome's own action produced.** A plan
+  for "click Continue and report the status" carries "Continue is clicked" as
+  a change outcome. No page text says "clicked", and a reviewer shown only
+  "Status: Active" rightly calls that insufficient. The controller keeps, per
+  requirement, the page before that requirement's verified page-changing step
+  and the page before the run's next applied change. The review request lists
+  `appearedAfterAction`: current quotes for that requirement that are absent
+  from the first and, once the window closed, present in the second. Text
+  another step produced, or text that was already there, is never marked.
+  It is newly observed text, not proof. Beside it the request carries
+  `actions`: the actions applied in each window, in order, as their receipts
+  record them (command, control role and name; a sensitive control's name
+  withheld). A verified change bound to the same requirement as the change
+  right before it extends that window rather than replacing it, so a click
+  and the accept on the confirm it raised stay together. The reviewer may use
+  the text for an action-outcome only when one recorded action is the
+  claimed one. Text after "click Accept" is no evidence that
+  Continue was clicked, whatever requirement the model bound the click to.
+  The runtime still requires a citable record, and the reviewer still judges
+  what the text says. A worker with no
+  windows (after a restart) sends nothing and claims nothing. Residual: an
+  unrelated page update landing inside the window looks the same as the
+  action's own result. The decision prompt tells the model that such an
+  outcome's evidence is the text the action produced, never the control's own
+  label.
+- **Refused completions recover at the refusal limit.** Two identical
+  refusals start `refused_completion` recovery (one targeted read). Only a
+  third pair asks the user, prefixed with what was tried.
+- **A second look at an ambiguous effect is per effect.** It is planned
+  against the run-wide budget alone, not the open episode's tried list. It
+  is charged in a `verifying` to `verifying` write before the verifier is
+  asked again, and an open episode is kept as it was so its tried strategies
+  stay tried. That write is the one status-preserving edge in the state machine, so a
+  lost worker cannot refund it.
+- **Only the same control is a repeat while recovering.** A shared form
+  address goes to policy, which asks. A checkout's next step posts to the
+  same place as the one before it.
+- **Exhaustion is specific.** No progress and refused commands ask a question
+  prefixed by `agent.question_text.recovery_tried` with the spent count. A
+  page that stays stale through `fresh_observation` and `wait_for_condition`
+  fails `stale_snapshot` as it always did. An unreadable page is not a
+  recovery trigger: it is a permission boundary, not a transient state.
+
+### Grounded evidence ledger
+
+- `sourceQuotes` on commands and completion proposes up to three short quotations.
+  `evidence-ledger.ts` matches each against one authorized, identified source.
+  A model note remains inference; it cannot create an observed fact. Composed
+  frame text has no span identity, so child-frame facts need a non-editable ref
+  or an explicit `extract_text` frame. Editable values and secret-shaped text
+  are excluded. The durable host also applies the existing credential redactor.
+- Records retain tab, frame, document, snapshot, generation, capture time,
+  approved origin and optional requirement id. Origin is the only retained URL
+  component. No complete page, screenshot, command value or reasoning enters
+  the ledger. User-answer references retain no answer text. Agent-input records
+  identify authored documents without retaining the values the agent entered.
+  Live authored text cannot be independent proof of the original fact. After
+  restart those values are unavailable by design, so later quotations from the
+  edited document are conservatively excluded as independent facts; verified
+  effects can still describe what was checked. A new document may supply facts.
+- Facts are recorded on the command's planned receipt before effects. A direct
+  read answer commits its quotations with the terminal run checkpoint, without
+  adding a fictitious action to the work log. Verification records retain the
+  verifier's exact kind: `activation` does not become `save`. Their source is
+  the action's observation, not an invented post-effect snapshot.
+- Projection is bounded to 24 records and 12 KB, dropping oldest first. Prompt
+  history and evidence share the existing history budget; omitted references
+  mean unknown. Receipts remain the durable source through history compaction
+  and worker recovery. Old receipts/checkpoints/handoffs decode without a ledger.
+- Only an observed fact with the exact current snapshot identity is current.
+  Navigation makes it historical; a new snapshot in the same document requires
+  refresh. Without a live observation, retained support is historical. This
+  records provenance, not semantic satisfaction of the task: completion checking
+  and independent review are separate work.
+- The settled chat handoff and follow-up carry the same bounded references as
+  untrusted data. Excluded origins contribute nothing. A quote changed by
+  handoff redaction is incomplete. `current_tab` and `read_tab` provide reference
+  ids too, but lack document identity and a fresh capture timestamp; they say
+  so and remain incomplete page-tool claims. Their retrieval time is not an
+  observation time. Existing session/run deletion and receipt retention apply.
 
 ## Input delivery
 
@@ -414,6 +628,19 @@ Read the section your change touches; you do not need the whole file.
   still held before detaching — dismissal confirms nothing and keeps a
   `beforeunload` on the page, and detaching for a takeover is what lets the
   user's own click raise a fresh dialog.
+- **A pause does not answer a held dialog.** A dismissed `confirm` is the page
+  being told "no", so detaching at every pause cancelled whatever the run had
+  just asked for: a user who paused while a Delete button's confirmation was
+  held came back to an undeleted item, a model that pressed Delete again and
+  a second approval for one decision. `releaseBrowserSessionFor` therefore
+  keeps the session — and the dialog — through a `pause_requested` or
+  `paused` state whose reason is `user`, `question` or `unresolved_effect`
+  whenever `openDialog` reports one; resuming re-attaches
+  idempotently, observes the same dialog, and asks about it once. The tab
+  stays blocked while paused, which is what the page itself would do with its
+  dialog on screen. Closing the last panel releases even a dialog held by an
+  earlier pause. A takeover, a lost browser, every stop and every terminal
+  state also let go.
 - **A blocked page is observed as blocked, not asked.** A dialog blocks the
   document's script, so no control port can answer: every observation the run
   takes goes through one seam in `agent-browser-adapters.ts`, which reports
@@ -491,14 +718,102 @@ Read the section your change touches; you do not need the whole file.
   and `file_selection` stay critical or takeover, a grant never covers a step
   carrying one of them, and a submission riding along with one is priced by
   the one.
-- **Routine-action consent starts with the task.** The start screen's selected
-  checkbox sends `allowRoutineActions`; the background creates only activation
-  and form-mutation grants (`AGENT_ROUTINE_GRANT_EFFECTS`, deliberately
-  narrower than `AGENT_GRANTABLE_EFFECTS`) for the starting origin in that
-  run. Omitted consent keeps per-step review. Submission, destruction, new
+- **An unresolved effect has two ways out.** "I've reviewed the page —
+  continue" re-observes and decides again; "It's done — finish"
+  (`agent_finish_reviewed`) completes the run on the user's word, the one
+  `paused → completed` edge, with a fixed result saying the user confirmed
+  it. Both name the pause they answer, so a stale panel resolves nothing.
+- **A browser page is no place to start; a named site is.** From a tab the
+  agent cannot drive (`brave://extensions`, the new-tab page) `browser_task`
+  refuses and tells the model to pass `start_url`. With one, the start is
+  approved against that address's origin and the site opens in a new tab
+  only after the approval. A usable tab in view keeps the run when it is
+  already on that site or the model named it; on another site it does not,
+  because starting there made "open Google and search…" cost a second
+  approval to leave the page for the site the first one already named.
+- **A run never navigates the user's own tab to another site.** The first
+  tab in a run's scope is the page the user was on; a `navigate` from it to
+  another origin runs as `open_tab` (`user-tab.ts`), with the same
+  destination and approval. Same-origin moves and tabs the run opened are
+  unchanged. A navigation counts as landed when the committed URL keeps the
+  requested origin, path and every requested parameter — a site adding
+  `&ia=web` on arrival is not another destination. A GET submission is
+  recorded and verified by its visible fields only: the executor loads the
+  full address but reports it without the form's hidden inputs, which a site
+  may drop on arrival and which stay out of the record. A missing search
+  term is still another destination.
+- **Routine consent follows a site only when the approval says so.** An
+  approval to open a new site, in a run given routine consent, names the
+  site as `routineOrigin` and adds the sentence that clicks and typing there
+  will not ask; approving it writes the grant. Submissions never carry it.
+- **A search-box textarea submits on Enter like an input.** DuckDuckGo and
+  Google render their search field as `<textarea name="q">`. Enter there is
+  a submission when the textarea says it is one line (`rows="1"`, a
+  combobox or searchbox role, `enterkeyhint="search"`, never
+  `aria-multiline`), is the form's only text entry, and sits in a GET form
+  with a submitter; anywhere else it stays a newline.
+- **Enter in a same-origin search shows the address it opens, and stays a
+  submission.** A GET form can change state through its handler or its
+  endpoint, so Enter is priced, granted and verified as a submission; a
+  routine grant never covers it. The one consent that does is the start
+  prompt's search grant on the starting site (below), and only for a form
+  the page marks as a search. What the observation adds is `formQuery`,
+  the query the executor's guarded copy would send, so the approval's
+  "complete destination URL" carries the `?q=` it used to be missing. It is
+  offered only when every contributing control is non-sensitive and rendered
+  and the form holds no hidden input at all — named or not, enabled or not —
+  because hidden values never cross the control port and a `display:none`
+  field is a hidden field by another name. The query is built by one helper
+  shared with the guarded submission (`form-submission.ts`), in its order,
+  and the executor refuses a submission whose live query differs from the
+  approved one: the form fingerprint compares selected options, not every
+  option's value, so it alone could not hold the address still. It checks
+  twice — before the page's submit handlers, as a clean refusal, and on the
+  guarded copy about to be sent, after them, where a mismatch sends nothing
+  but is an unresolved effect, because the handlers' own code already ran.
+  The checked address is then loaded with `location.assign`, never through a
+  native submission: that fires a bubbling `formdata` event after every
+  check, and a document listener could rewrite the entry list in it. Only an
+  `http(s)` address is loaded. POST keeps the native submission, since its
+  body is not shown as an address.
+- **Routine-action consent is a preference each run mints grants from.**
+  `AGENT_PERMISSION_MODE` (device-local, "allow on the starting site" by
+  default) is read once per start; `allow_routine` makes the background create
+  only activation and form-mutation grants (`AGENT_ROUTINE_GRANT_EFFECTS`,
+  deliberately narrower than `AGENT_GRANTABLE_EFFECTS`) for the starting
+  origin in that run, and `approve_each` keeps per-step review. A remembered
+  preference is not a carried grant: changing it never widens a run already
+  going, and a new run receives no previous run's grants. Destruction, new
   origins and sensitive controls retain their own gates — a submission is
   widened only from an approval the user was shown, never in advance from a
-  checkbox; a new run receives no previous run's grants.
+  setting. The `browser_task` start prompt is such an approval: under
+  `allow_routine` it carries `agent.start_gate.routine`, saying searches on
+  the starting site will not ask, and the starting grant then carries
+  `searches` (`allowSearches`). A search the user asked for is one decision,
+  not three.
+  - A search is a GET submission from a form the page marks as one
+    (`searchForm`): its one text field is a search box (`type="search"`, a
+    searchbox or combobox role, `enterkeyhint="search"`) or the form is a
+    search landmark, and every other control is a button, a hidden input or
+    an empty file picker. Google's form carries both. Hidden values are not
+    shown, deliberately: they go back only to the origin that wrote them, and
+    `matchesFormState` refuses a send if any of them changed since the
+    observation, so they add nothing the page's own script could not already
+    send. Refusing them would make every real Google search ask. A query string
+    alone is not enough — a preferences form's "Apply" sends one — and a
+    POST, a form with a select, checkbox or second field, or a sensitive
+    form still asks. The `submission` effect itself is never pre-granted.
+    `searchForm` is approval evidence and is stripped from the wire target by `wireTarget`, the one helper every instruction's targets go through — a batch fill once kept its own copy of the strip list, missed `searchForm`, and paused every `fill_form` on a search box as unresolved.
+  - The consent comes from the prompt the user answered, read through
+    `ToolContext.confirmedNotes`, and the mode must still allow it at start:
+    a setting changed while the prompt was open narrows the run, never
+    widens it. A start covered by an earlier grant showed no prompt and gets
+    no search consent.
+  - Never for a `model_after_page` goal, whose searches a page may have
+    written.
+
+  The preference replaced a per-task checkbox that reset to
+  checked on every panel mount while its label said "for this task".
 - **An edit with no submission step says so, and says only that.**
   `noSubmitStep` is set on an edit whose target belongs to no form — an
   editing host, or a bare field in an application that saves on input — so the
@@ -526,6 +841,65 @@ Read the section your change touches; you do not need the whole file.
   honest limit: a value the run typed is its own, so a model that copies a
   field value into a box and then navigates with it is stopped by that
   approval rather than by this rule.
+
+## Follow-up runs
+
+- **A follow-up is a chat message.** A settled card offers Continue
+  (completed, partial), Retry (failed, cancelled), Start over and Ask; each
+  drafts a message in the chat composer that the user still sends, and the
+  model decides whether the browser is needed again. A run it starts from
+  there asks for approval like any other.
+- **A card names its run; otherwise the background names the parent.**
+  Continue and Retry draft the message with the card's run id beside it
+  (`agentFollowUpRunId` on the turn — attached only when the message sent
+  is still the drafted text, in the chat it was drafted in; Ask drafts
+  nothing and clears it),
+  and that run is the parent whatever ran since — an older card continuing
+  the newest run would inherit the wrong record. Without one, `browser_task`
+  takes `continue_previous_task: true` and nothing about what the previous
+  run did; the parent is the newest run in the branch (`previousAgentRunId`),
+  and the mode follows its status. `resolveAgentFollowUp` reads the parent's
+  checkpoint and receipts
+  and refuses (`follow_up_unavailable`) when the parent is gone, still live,
+  in another chat, or unreadable: a follow-up that guessed what was done is
+  the one that repeats it. A chain that committed more than
+  `MAX_AGENT_PRIOR_EFFECTS` is refused too, never trimmed — the effect
+  trimmed off is the one the next run could repeat. Start over carries nothing and is never refused.
+- **A child plans and asks afresh.** It inherits the parent's handoff and the
+  consequential effects the chain committed (`state.previousRun`) — never its
+  grants, answers, requirements or origins. The parent's requirement ids reach
+  the child's planner only as data it may keep an id from. `parentRunId` is written on the
+  run row on every path.
+- **A committed consequential effect is never attempted twice unasked.**
+  Submission, destruction, payment and download are recorded on each receipt
+  as `consequential` (the classes), with the form's action, origin and path,
+  for a submission or payment; `agentCommittedEffects` reads the steps whose
+  last receipt is executed, verified or uncertain. Two matches, two answers:
+  - *The same command on the same control* (role, tag, name, and page when
+    both know it) is a repeat. The controller refuses it before policy is
+    asked, so the user is never prompted to approve the second order, and
+    hands it back to the model like any other refusal. Coarse on purpose: a
+    false match costs a look again, a miss costs a second purchase.
+  - *The same form sent by a different control* — Enter in a field after a
+    click on its button, or a checkout's next step posting to the same
+    address — may or may not be one. Policy prices it at least high, accepts
+    no grant for it, offers none, and says in the approval that an earlier
+    run already sent this form. Refusing it would stop a checkout at step
+    two; allowing it on a grant would place a second order unasked.
+  Receipts older than the flag count a critical change.
+- **Inside one run, the same control twice is asked as a repeat.** The
+  controller reads the run's own receipts through the same
+  `agentCommittedEffects` and, when a consequential effect matches one this
+  run already committed by the same-control rule, tells policy
+  `repeatsCommittedEffect`. It is asked rather than refused — two rows of a
+  list share a "Delete" label, and deleting both is an ordinary task — but
+  priced like the prior-form case: at least high, no grant covering it, none
+  offered, and the approval opens by saying this run already did it once.
+  What it exists for is a page whose own confirmation was lost between the
+  two clicks: the first press landed, and a fresh approval would have read as
+  the first delete. If receipts cannot be read, policy asks without claiming
+  a repeat occurred: the approval says the earlier effect is unknown, costs
+  at least high risk and cannot use a grant.
 
 ## Verification, waiting and completion
 
@@ -563,7 +937,31 @@ Read the section your change touches; you do not need the whole file.
   Where a quotation is required it has to be in the observation the run
   decided on, read by the same matcher `wait` uses (`observed-text.ts`) so a
   run cannot complete on evidence its own wait would reject. A run that only
-  read owes none — what it read is its answer.
+  read needs an independently observed quotation retained in the evidence ledger.
+  Current quotes are grounded before judging; historical observed facts survive
+  navigation and restart, while requires_refresh and model/input records do not
+  prove a read. A quote establishes provenance, never automatic goal satisfaction.
+  Typed plan checks decide exact field, checked/selected, URL, row and record
+  save/submission states; ambiguous claims return needs_review for independent
+  review. Save/submission indicators must name the exact record in a current
+  status/alert; ordinary document prose needs review. Bounded whole-row text
+  cannot establish record identity for scoped controls; those need review.
+  Row predicates require the complete row label to equal the record name.
+  An explicit predicate is authoritative: an ambiguous identity/state needs
+  review and must never fall back to an action receipt proving a weaker claim.
+  Planned result text is built from the judged outcomes, never the model's
+  free-form success summary. Itemized reads report only the checked item quotes,
+  never their unchecked parent quote. Completion retries only read; effects are retained.
+  A planned page-changing command names the requirement id it advances, and
+  that id is durable on the step receipt. This is the binding for result-verified
+  state: planning happens before observation, so `Address` may legitimately
+  lead to a `Billing Address` control, while label containment alone cannot
+  distinguish that alias from the wrong control. The id may name any planned
+  requirement: opening an accordion or applying a filter can change page state
+  only to reveal information for a `read` requirement. A page-changing command
+  in a planned run is refused before execution when the id is absent or unknown.
+  Legacy receipts have no id and use the conservative full-label fallback;
+  never restore reverse label containment.
   Changes are counted from the resolved effect's own classes and recorded
   durably on the receipt as `mutating`, because a worker restart keeps the
   receipts and loses everything else; navigation is not a change, or every
@@ -645,13 +1043,114 @@ Read the section your change touches; you do not need the whole file.
   half an hour, and what bounds a runaway run is the observation ceiling and
   the no-progress guard, not the clock.
 
+### Provider resilience
+
+Planning, decisions and completion reviews share `agent-model-retry.ts`.
+Authentication, CORS, configuration, capability mismatch and explicit wire
+refusals are permanent; provider statuses and closed error codes determine
+retryability, never raw prose. Typed rate limits, temporary service failures
+and dropped connections have at most two retries with exponential backoff.
+`Retry-After` is a minimum wait; guidance that cannot fit the remaining budget
+stops with the original provider error instead of retrying early.
+
+Malformed-output retries have their own existing budgets. All attempts and
+backoff share the decision timeout and the remaining active run/step time;
+waiting does not suspend the durable deadline. Cancellation aborts the active
+request or wait and removes timers/listeners. Every attempt starts a fresh
+collector and rechecks the selected provider's enabled gate. There is no
+fallback provider. Inference retries have no browser-effect port, so a failed
+request after a verified click retains its receipts/evidence without replaying
+that click. A permanent planning error cannot become a provisional amendment.
+Provider retry counts and backoff time are optional, numeric receipt telemetry,
+separate from malformed retries; review has separate fields for those costs.
+
+### Independent completion review
+
+A `needs_review` refusal that carries a `review` scope is put to a second
+reading before it reaches the model (`completion-review.ts`,
+`AgentCompletionReviewPort`). The scope names exactly the requirement and
+constraint ids no deterministic check could decide, plus the judge's outcome
+for every other id. Rules, all load-bearing:
+
+- **Only undecidable claims are reviewed.** A deterministic failure returns
+  before a scope is built, so a reviewer never sees one and cannot override
+  it. An accepted completion never pays for a review. A broken limit wins
+  over a reviewable one whatever order they were planned in. Missing effect
+  classes are an evidence gap, not a question of meaning, and carry no scope.
+- **A paraphrased read goes to review only if something could answer it.**
+  The ledger has to hold a grounded observed fact bound to that requirement.
+  With nothing bound, the read is still `absent_evidence`.
+- **Fresh context, no effects.** The reviewer sees the goal, the scoped
+  requirements and limits, the acting model's claims for those ids, and the
+  grounded ledger records only — no history, page, screenshot or reasoning.
+  It has no browser, approval or plan port. The prompt keeps all
+  page-derived text in one JSON data block, with `<` escaped so a quotation
+  cannot close it.
+- **The runtime checks every verdict.** `supported` counts only with a cited
+  ledger record that is grounded, `current` or `historical`, and bound to
+  exactly the id under review. An unbound fact is plausible evidence of
+  anything, so it counts for nothing. A read or a limit is shown by an
+  observed fact. A change may also be shown by a verified effect whose kind
+  proves the resulting state (`field`, `fields`, `checked`, `arrangement`,
+  `condition`); an activation, submission or navigation only says the input
+  landed. A limit is supported by a quotation the run bound to that limit's
+  id, which `groundAgentQuotes` accepts alongside requirement ids. One
+  exception: a `scope` limit — one on how the run acted, such as which key
+  it pressed — may also cite any grounded `verified_effect`, unbound, but
+  only when the review request carries `actionsComplete`, i.e. the reviewer
+  was shown every applied action the run took. No record is ever bound to
+  a limit's id and no page quote can show which key was pressed, so without
+  this every method limit could only be refused; the reviewer still judges
+  the limit against the full action list, and a spending cap or other
+  non-`scope` limit keeps the bound-quotation rule.
+  Ids nobody asked about are ignored. A skipped or doubled answer is
+  insufficient. `contradicted` becomes `contradicted_state`, citations or
+  not, because it can only stop a success.
+- **Itemized requirements are never reviewed.** A verdict answers for the
+  whole requirement, and one citation cannot say which item it supports, so
+  a refusal that includes an itemized requirement keeps no review scope.
+- **No review is never a pass.** A missing port, a thrown or timed-out call,
+  a malformed answer, a prompt too large for the reviewer's resolved window,
+  and a spent budget (`MAX_AGENT_COMPLETION_REVIEWS` per run) all leave the
+  judge's refusal unchanged. The prompt is never cut to fit, because a
+  reviewer must not judge evidence it was not shown. The budget is read from
+  the run's receipts as well as from memory, so a worker restart cannot
+  refund it.
+- **An item reported unmet keeps its requirement unmet.** An itemized
+  requirement with any item answered `met:false` settles as unmet and is
+  never put to review: a supported verdict on its other items would
+  otherwise carry the whole requirement into `met`. The existing two-refusal
+  question to the user still bounds the loop. Nothing is re-executed to
+  satisfy a reviewer; the feedback says so.
+- **Default reviewer is the run's own model and provider**, already
+  authorized and already shown every ledger record, so a review discloses
+  nothing new. It is bounded by the decision timeout, retried once on
+  malformed output and up to twice on eligible transient provider failures,
+  and run without a reasoning budget.
+- **A separately configured reviewer passes the run's own gates first.**
+  Settings → Agent → Completion reviewer (`AGENT_COMPLETION_REVIEWER`) names
+  a provider and model. `resolveAgentCompletionReviewer`
+  (`src/background/agent/`) refuses it when its provider is gone, and when its
+  endpoint is remote and page content has not been acknowledged for remote
+  models. The port then applies the same enabled and tool-calling checks a
+  decision gets, resolved for that model. A refusal at any gate means no
+  review. It never falls back to the run's model: that would change who
+  judges without the user knowing. `reviewSeparateModel` marks these reviews
+  in telemetry so the two kinds of reviewer can be compared.
+- **Cost and disagreement are durable.** `reviews`, `reviewMs`,
+  `reviewPromptTokens`, `reviewOutputTokens` and `reviewDisagreements` land
+  on the completion's own receipt: the rejected completion step, or a
+  `:review:` step written when the review settled the run. The benchmark
+  sums them per attempt. Read them against task predicates, because a
+  reviewer can be wrong in both directions.
+
 ## Screenshots
 
 - **A screenshot is an observation's companion, never a record.** The
   controller pictures the tab (`AgentScreenshotPort`) only after the DOM
   observation is in hand and only for a model whose `vision` the model port
   resolved from the same evidence chain as tool calling; text-only models are
-  offered no `click_point`/`zoom` and cost the page no capture. The picture
+  offered no `look`/`click_point`/`zoom` and cost the page no capture. The picture
   carries the observation's snapshot identity and scroll, travels as the user
   message's image attachment, and is held for that decision and the resolution
   that follows — never persisted, logged, traced or shown. A capture that
@@ -659,8 +1158,8 @@ Read the section your change touches; you do not need the whole file.
 - **`auto` is the default, and it is a question about the step.** A capture
   costs an encode, a masking pass and — far the largest — an image prefill in
   the model's own window, and most steps decide from text and never look at
-  it. `agentPictureWarranted` (`vision.ts`) takes one on an explicit `zoom`,
-  on the first step of the run, after a step that did not confirm, on the
+  it. `agentPictureWarranted` (`vision.ts`) takes one on an explicit `zoom` or
+  `look`, on the first step of the run, after a step that did not confirm, on the
   first step on a **page the run has not seen** (compared against the last
   recorded step's source URL, so a query or fragment moving buys nothing), and
   on a page the DOM can barely describe — four controls or fewer with a
@@ -669,12 +1168,56 @@ Read the section your change touches; you do not need the whole file.
   screenshot exists, so a run that navigated to a canvas application and was
   refused a picture for having five buttons had no way left to ask to see it.
   `always` and `never` remain the user's to choose.
+- **Asking to see is not the same as having a picture.** `look` requests a
+  fresh capture of the viewport for the next step and is offered whenever the
+  run *may* picture the page, picture or not; `zoom` and `click_point` name
+  pixels and stay offered only alongside one. Without `look`, a same-URL
+  canvas whose state is drawn rather than listed was visible only on whichever
+  step the rules above happened to picture. Each step's model input carries
+  `visual` — available, or the true reason it is not, in fact order: model
+  text-only, no capture path, notice not acknowledged
+  (`screenshotsPermitted`, a controller dependency rather than a `vision`
+  wrapper, so a cleared model is never reported as blind), pictures turned
+  off, a dialog held — and the prompt states that reason. A `look` whose
+  capture comes back empty withdraws `look` for that document
+  (`capture_failed`) until a new document or a later capture lands, so a page
+  that cannot be masked does not eat the budget being asked again; the
+  policy's own captures still try. `look` resolves and verifies as a pure read.
+- **A picture can answer a read, and says it did.** A value drawn into a
+  canvas is in no page text, so no quotation can ground it. When a
+  `complete` arrives with a screenshot bound to its own observation, a met
+  *read* outcome whose evidence nothing textual grounds is recorded as a
+  `visual_observation`: the picture's snapshot identity and origin plus the
+  model's own reading, never the image. The judge accepts that read only
+  against a current record, quoted exactly, and lists it in
+  `outcome.visual`; the card says "seen only in a screenshot" and the chat
+  handoff carries `seen_in_screenshot_only`. It never settles a change, the
+  reviewer does not count it as support, and text grounding wins whenever
+  both support the same answer. Itemized reads retain each met item's own
+  evidence, never the unchecked parent quotation; any accepted item that
+  relies only on the picture marks its requirement in `outcome.visual`.
+- **A changing picture is progress for a visual read.** The no-progress
+  hash ignores pictures, so `look` after `look` on a live chart looked like a
+  repeat. For `look` and `zoom` only, a hash of the picture the decision was
+  shown is folded in, in memory; any other command ignores it, or a
+  repainting video would pass a loop off as progress.
+- **The run's page outline is hidden from every capture.** The viewport
+  outline and the pressed-control highlight (`agent-page-indicator.ts`) are
+  the debugger's `Overlay` domain, not page DOM, so observation, hit tests and
+  forms never see them. A real Chromium does draw the overlay into
+  `Page.captureScreenshot` — measured, not assumed — so a capture suspends it
+  and nothing may redraw it until the capture has returned. The suspend flag
+  is read again immediately before every draw, and a suspend waits for draws
+  already sent to land before it hides the overlay, so a show started by a
+  navigation or the post-click timer cannot finish inside a capture.
 - **Nothing leaves unmasked.** `screenshot-capture.ts` asks the page for
   every region a picture must cover (`agent_sensitive_regions`): each sensitive
   control in the *whole composed tree* — never the bounded observation, which
-  stops at its element budget — and every child frame, masked whole because a
-  frame the run cannot read may hold a sign-in form and one it can read cannot
-  be placed from the root. Regions are read at the observation's scroll
+  stops at its element budget — and every child frame. `frame-vision.ts` removes an owner mask only
+  for an authorized, observed document whose exact CDP owner quad matches one
+  unique measured frame region. It maps that document’s sensitive controls and
+  still-masked children into root coordinates. Opaque, unauthorized, unmapped
+  and geometrically unsupported frames remain masked whole. Regions are read at the observation's scroll
   position, then read again after the capture; any difference means the page
   moved under the picture and the step gets none. Masks are painted black in
   image pixels with a one-pixel margin and the long edge is bounded to
@@ -708,10 +1251,25 @@ Read the section your change touches; you do not need the whole file.
   any other. Every click rule then applies — sensitive input, links,
   submitters, checkboxes — and only "not an activatable control" is waived,
   because a canvas is what a point exists to reach. A point inside a child
-  frame is refused; the frame's own refs name its controls. A stale picture
+  frame descends only through the capture’s authorized frame manifest, checking
+  the topmost iframe owner in each parent and resolving the child’s own ref. A stale picture
   cannot authorize a click: the screenshot must carry the command's snapshot
   and generation and the observation's scroll, and the executor re-hit-tests
   the point before anything is sent, refusing a control that moved.
+- **Frame vision supports positive axis-aligned 2D scale and translation.**
+  The session manager reads owner content/border quads in the owning CDP
+  session and composes OOPIF session offsets and scales into root coordinates.
+  Each revealed document retains its own snapshot, browser document id, scroll
+  and owner geometry. Before resolution and dispatch, every binding in the
+  clicked owner chain must still match; navigation, replacement, child scroll
+  or owner movement invalidates it. Same-URL ambiguous siblings are never
+  guessed. Rotation, skew, reflection, perspective and pixel-spilling filters
+  stay masked with an explicit geometry limitation. A filter on a frame or
+  its composed ancestors masks the whole containing viewport, since its
+  pixels can spill beyond the owner rectangle. Older captures with no
+  frame manifest authorize only root input. Debugger-less Firefox continues
+  masking frames, while its existing DOM refs remain usable. Screenshot bytes
+  never enter durable state; a resolved visual target holds only geometry.
 
   What a visual click does **not** answer to is our own reachability
   reconstruction. `elementFromPoint` is the browser saying what a pointer at
@@ -762,6 +1320,24 @@ Read the section your change touches; you do not need the whole file.
   surface went dead at exactly the point in a run where there was most to
   supervise. A literal that has to agree with a budget will eventually not,
   so the schema reads `MAX_AGENT_OBSERVATIONS` rather than a number.
+- **A row names its row, its time and its reasoning.** The collapsed row
+  carries the target and the list row it sat in (`rowContext`, less the
+  control's own label, via `agentRowContextBeyond`), so five Delete clicks
+  name five files. The panel port keeps each step's first receipt time as
+  `startedAt`, and a settled row shows how long it took. A click whose
+  verification evidence is `native_dialog` reads "Dialog opened", not
+  Verified — the file is not gone while its confirmation is on screen. The
+  decision's streamed reasoning is collected by the model port, bounded to
+  its tail (`MAX_AGENT_THINKING_CHARS`), filed on the step's first receipt
+  and shown behind its own collapsed disclosure; it is dropped first if a
+  receipt would overflow, and never read back into a prompt. The history the
+  model reads keeps the target without `rowContext`.
+- **A settled card keeps its record.** The card RPC carries the collapsed
+  steps (without telemetry or page addresses) and a count of distinct pages;
+  the card shows "N steps · M pages" over the same work log the live card
+  drew, so the count is the rows' own. The result renders through chat's
+  markdown renderer — it is the model's answer — while page-derived evidence
+  in the rows stays flattened text.
 - **A row says what was acted on and why.** The step's `target.name` and the
   model's own `finding` were both durable and neither was rendered, so a log
   of twenty steps read as twenty repetitions of "Click control" — the run's
@@ -813,25 +1389,96 @@ Read the section your change touches; you do not need the whole file.
 - Read-only helpers: `src/lib/browser-sessions.ts`. Model tools: `src/lib/tools/internal/browser-session-tools.ts`.
 - `sessions` is an optional permission. Always check browser support **and** the live permission before reading recently-closed or synced-device sessions.
 - Session URLs must pass the same unreadable/never-read filters as other browser tools.
-- Do not expose `sessions.restore()` to a model until tool execution has a real interactive approval boundary.
+- `restore_session` is medium risk, so the tool loop asks before its first use in a chat; keep it behind that approval.
 - `tabCapture` + `offscreen` is a Chromium 116+ prototype. Any capture flow must start from a user gesture, preserve tab audio, show persistent recording state and a Stop control, stop on permission revoke, and keep data ephemeral until explicitly saved.
 
 
+## Starting a run from chat
+
+- **`browser_task` is a chat tool that delegates, never a set of controls.**
+  `browser_task(goal, tab_id?, continue_previous_task?)` sits beside the other
+  internal tools and hands the whole task to the supervised controller, so
+  planning, the affordance layer, per-step approvals and the completion judge
+  run exactly as for any run. The chat model never gets click or type tools.
+  The tool describes itself in `src/lib/tools/internal/`; the runner is the
+  agent's (`agent-browser-task.ts`), installed by the composition, so a build
+  without the agent — Firefox — offers no tool. Its result is the run's
+  handoff, fenced as untrusted page data exactly as a later turn receives it.
+- **The start is asked about once per chat and site, and always when it
+  could be carrying page text.** The tool is `medium` risk with an
+  origin-scoped grant resolver, so the tool loop's own approval asks before
+  the first run on a site in a chat. `confirmation` forces the prompt,
+  whatever grant exists, when the turn's context carried something read off a
+  page (an attached tab or file, retrieved documents, a previous run's record,
+  in this turn or anywhere earlier in the history the model reads:
+  `pageContentInContext`), when a tool result advanced `taintGeneration`,
+  when the model named another tab, when the model's tool calling is only the
+  user's override, and when a remote provider's notice has not been
+  acknowledged. The prompt shows the goal as plain text and the notices as
+  keys; approving it is the acknowledgement those notices ask for.
+- **A goal the model wrote after reading a page is not the user's words.**
+  The run records `goalAuthor: "model_after_page"`, and `agentAuthoredText`
+  leaves that goal out, so the egress rule cannot be laundered through a task
+  a page talked the model into writing.
+- **The run reports into the turn's own row.** `attachRunToMessage` claims
+  the assistant row the turn is streaming into and inserts the run in one
+  commit; there is no request row of its own (`requestMessageId` stays
+  empty). The settle writes the handoff and leaves `done` and `content` to
+  the turn, and startup reconciliation only closes rows of runs that have a
+  request row. One run per row: a tool call replayed after a worker restart
+  names the same call id, finds the run it already started (`delegate` looks
+  it up by row and compares `toolCallId`) and waits on it again. A different
+  call in the same turn is refused (`turn_has_run`) rather than handed the
+  first run's record, which would report a task that never started.
+- **The turn waits, bounded, and stops the run only when it was stopped.**
+  `awaitSettled` ends a wait and nothing else. A stop that lands while the
+  run is being admitted is checked for, not only listened for: it fired
+  before the wait existed, and the run would otherwise keep driving the tab. The runner waits up to
+  forty-five minutes and then tells the model the run continues on its card;
+  a turn the user stopped stops its run, because nobody is left to read the
+  answer. Admission is still one unresolved run at a time across chats — a
+  second start is refused with a sentence the model relays.
+- **The tab is the panel's.** The side panel reads its own window's active
+  tab at send time and the turn carries it as `browserTabId`; a worker has no
+  window, and `lastFocusedWindow` is only the fallback for a turn that did
+  not carry one.
+- **Hosted runtimes behind olc wait as long as the run does.** A chat turn
+  parked on `browser_task` would otherwise be reaped by the run's own forced
+  decisions, or time out at the bridge's old five minutes; see
+  `packages/olc/AGENTS.md`. Nothing here knows olc exists.
+
 ## Panel supervision surface
 
-- **The browser's own limits are disclosed before a run, not after it
-  stalls.** `AgentBrowserDisclosure` travels on every panel snapshot, read
-  from the session manager rather than guessed from a user agent, and the
-  panel names what attaching means — Chromium shows its own debugging banner
-  the moment a run attaches, and a banner with nothing beside it is what
-  sends someone to ask a developer. A browser with no debugger states what it
-  therefore cannot do: synthetic input only, no screenshots, no native
-  dialogs.
+- **Chat is the only workspace, and there is no mode.** A run is started by
+  the chat model calling `browser_task` (see [Starting a run from
+  chat](#starting-a-run-from-chat)), drawn as a card above that turn's own
+  answer, and followed up by sending another message. The shell lends chat the
+  card renderer and a door back to the composer, so chat imports none of the
+  Agent. The card of the run the panel's port holds carries its approval,
+  handover, question and controls, each with its own control; the composer
+  never carries a decision. The port lives as long as the panel does, so
+  chatting while a run works does not pause it — only closing the last panel
+  does. The Chat/Act toggle and its preflight are gone: a toggle whose silent
+  revert to Chat hid every refused start was the wrong place for the decision,
+  and the model reading the request is the right one once runs target hosted
+  models.
+- **A run waiting on the user marks the toolbar icon.** `registerAgentAttentionBadge`
+  shows `!` while the latest run is awaiting approval, awaiting a handover,
+  or paused — including the pause taken when the last panel closed — and
+  clears it when the run moves on. It says only that; nothing a page wrote.
+
+- **The debugging banner is named before a run, not after it appears.** The
+  start prompt says that Chromium shows its own banner while a run works; a
+  banner with nothing beside it is what sends someone to ask a developer.
+  `AgentBrowserDisclosure` still travels on every panel snapshot, read from
+  the session manager rather than guessed from a user agent.
 - **A failure leads with the recovery.** `AgentError.message` is written in
-  English for whoever reads a receipt and says what happened; the panel shows
-  `agent.failure.<code>` first, in the reader's language, and keeps the
-  original beneath so the words the run used survive for a bug report. A code
-  with no key falls back to the `unknown` advice rather than to nothing.
+  English for whoever reads a receipt and says what happened; the run's card
+  shows `agent.failure.<code>`, in the reader's language, and the message
+  never crosses the card's RPC — it can name a provider URL. The words the run
+  used survive in the durable record and the debug report, which is where a
+  bug report reads them. A code with no key falls back to the `unknown` advice
+  rather than to nothing.
   A failure the layer below already named keeps its own name: `AgentError`
   carries an optional `messageKey` and `agentProviderFailure` reads the
   provider's `messageKey`, `userMessage` and `retryable` structurally (never
@@ -852,6 +1499,29 @@ Read the section your change touches; you do not need the whole file.
   same label the work log uses, so the two cannot disagree — shows progress
   against the observation budget that will stop the run, and counts every tab
   the run drives once it has adopted more than the one it started on.
+- **The runtime names sentences; the panel says them.** An approval, a
+  takeover and a question the run itself asks carry `display` — i18n keys and
+  their values (`AgentDisplayText`) — beside the English `action`,
+  `consequence`, `instruction` or `text`, which stays for receipts, tests and
+  records written before `display` existed. The panel renders `display` when
+  it is there and the flattened English otherwise; a value named `…Key` is a
+  key translated before it is interpolated (a dialog's kind). Commands are
+  labelled once, by `agentCommandDisplay` in the runtime, for the log, the
+  line above it and the approval alike, and the switch is exhaustive, so a
+  command added without a label fails typecheck instead of showing
+  `agent.action.fill_form`. `agent-i18n.test.ts` looks up every key the
+  runtime can emit.
+- **The card's controls never scroll away.** Pause, Resume and Stop sit under
+  the progress bar, above the attention area and the bounded log; they used
+  to be the last row of that log, out of sight on a long run. The log follows
+  its newest row unless the reader has scrolled up. Every pause reason says
+  why on the card — a closed panel included — and a command the worker never
+  received, or refused, is shown on the run rather than in a composer that is
+  back in Chat by then.
+- **An approval arriving is brought into view and announced, never
+  pre-answered.** It scrolls into view and focus moves to the card, not to
+  Allow, so an Enter meant for something else cannot approve an effect; focus
+  does not move at all while the user is typing.
 - Panel copy is i18n like everything else: every key exists in all nine
   locales, and `pnpm generate:resources` runs after a locale edit.
 - **A run's record comes out as text, in a dev build.** From the side panel's
@@ -873,6 +1543,25 @@ Read the section your change touches; you do not need the whole file.
   output directory, the same production bundle, with the dump kept. Only
   `WXT_AGENT_DEBUG=1` turns it on, so a release build cannot acquire it by
   forgetting a flag.
+- **A refusal's coaching stays with the model.** Completion and grounding
+  feedback is kept in the durable receipt for recovery and debugging, but a
+  rejected work-log row uses translated review copy and a question uses its
+  translated prompt without interpolating that feedback. A verifier's advice
+  about quotations and internal evidence is not a question for the user.
+- **An approval names its exact row and risk.** A control in a visible list or
+  table row carries a bounded `rowContext` from rendered text, so identical
+  Delete buttons can be distinguished in the approval evidence. The panel
+  labels the policy's risk in the reader's language; it does not recompute it.
+- **A released native dialog leaves a receipt.** Before the session manager
+  detaches and dismisses a held dialog, the run service writes an uncertain,
+  non-mutating release receipt. It appends a verified receipt under the same
+  step id after detach succeeds. If that final write fails, durable history
+  keeps the uncertain marker and cleanup retries the final write before the
+  next attachment. A failed retry leaves that marker uncertain and is
+  quarantined, so a later session's dialog gets its own receipt even when its
+  dialog id repeats. If storage rejects the initial intent, cleanup still
+  detaches so a closed panel cannot leave the page blocked by a dialog; the
+  failure is logged.
 
 ## Measured behaviour and benchmarks
 
@@ -911,6 +1600,17 @@ run that produced it can always be repeated.
 - Clarifications carry their question and answer into `agent-model-port.ts`.
   A user correction applies only to the exact user-paused state (`pausedAt`);
   it cannot resume an unresolved side effect or answer an approval.
+- **A run can be steered without pausing it.** `agent_steer` queues text in
+  the controller that is driving the run; the next `deciding` claim writes it
+  as an answer ("User correction while the run was working") and clears the
+  no-progress and refusal memory, because it describes an approach the user
+  just corrected. The decision already in flight never hears it. It answers
+  nothing and resumes nothing, and a run this worker is not driving refuses
+  it (`steer_unavailable`). An accepted correction leaves the queue only once
+  the claim recording it has landed — a pause that wins that claim keeps it
+  for the decision after the resume — and a run that reached a terminal
+  state drops what it never heard. The queue is memory only, so a worker
+  restart loses it; the card says when the words were taken.
 - `MAX_AGENT_TEXT_CHARS` is the shared editing value ceiling across commands,
   observations and the control port. `valueTruncated` refuses editing and
   prevents verification from accepting a prefix as the whole result. A value
@@ -931,12 +1631,128 @@ run that produced it can always be repeated.
   on the renderer using debugger state, does not replay input, and verifies
   that the same dialog is held. A held dialog skips screenshot capture,
   because the renderer cannot answer it. The following dialog decision keeps its own
-  approval. Browser fixtures must register a passive Playwright dialog
+  approval. When the plan has a single change requirement, an accept
+  that names none advances the requirement of the step that opened the dialog;
+  with more than one, the model binds it, since the plan may have given the
+  confirmation its own. Browser fixtures must register a passive Playwright dialog
   listener, otherwise Playwright dismisses it before the extension can answer.
+- **An early "not met" is asked about once.** `partial` and `unmet` are the
+  model's own answers and the judge takes them as given, but a run that fixed
+  a typo and answered "save: not met" without ever pressing Save had stopped,
+  not failed. While observations remain, the first `met:false` on each
+  requirement comes back as a `premature_unmet` refusal naming the ids; the
+  second answer settles the run. The prompt says `met:false` is for what
+  cannot be done, not what is not done yet.
 - Completion retries read evidence only. Missing evidence is never accepted
   because a timeout elapsed. Repeated or alternating decisions pause for a
   correction; user/question pauses suspend active-time accounting. A supplied
   completion quote is checked even for a run that only read or scrolled.
+- A confirmed `fill_form` receipt records each checked field's bounded name,
+  never its value or a reversible digest of it. The judge may use one batch to
+  satisfy several field requirements only while the current observation
+  shows the named controls holding the required values. A no-submit
+  requirement reads a complete run history of applied consequential receipts;
+  an unreadable receipt or any submission prevents it from being claimed as met.
+- Planning is optional only at the host boundary. A host with no planning port
+  retains the legacy completion path, but once the port exists an exhausted or
+  empty plan fails the run before its first observation. Planning failure must
+  never buy the weaker pre-requirements judge. A run paused or asked a
+  question before its plan landed resumes into `planning`, never past it.
+- **The task contract is the goal plus three things the planner derives from
+  it.** The goal is immutable — `AgentStatePatch` cannot name it.
+  `requirements` are outcomes, `constraints` are what the user's words forbid
+  (`exclude`), confine (`scope`) or bound (`limit`), and `plan` records the
+  version, the highest id ever issued, the newest user answer reconciled and
+  each amendment. A new entry's `source` is required, must quote the goal or a
+  user answer (`agentQuotes`), and must name something the entry names; an
+  entry with no quote, a fabricated one, or a genuine but unrelated one is
+  refused, so an outcome nobody asked for cannot enter dressed as one
+  somebody did.
+- **An id keeps its meaning.** `keep` is honoured only for an entry that
+  reads like the one it names, and an entry restated word for word keeps its
+  id unasked — otherwise a planner that forgot `keep` put the same outcome in
+  the plan twice and the run could never answer both. Receipts bound to `r1`
+  must keep meaning the `r1` they were bound to.
+- **Over the cap is refused whole, never sliced.** More than
+  `MAX_AGENT_REQUIREMENTS` entries, or more items than the item caps, is
+  `AgentPlanOverCapError` naming its unit (outcomes, items or constraints)
+  and bound; the port retries once with feedback asking for repeated
+  outcomes to become one requirement with `items`, and a second over-cap
+  answer becomes `overCap` — a question naming that unit, asked before the
+  first look. An over-cap amendment asks the same question while retaining
+  the plan and leaving the user's answer unreconciled. When an amendment
+  proposes removals to make room, ask only about removals relevant to the
+  exceeded caps, and only when the projected whole plan fits after them.
+  Confirming them must leave the original additions outstanding for the next
+  planning call. A follow-up may propose removing an inherited constraint by
+  its previousRun id. An initial capacity-removal plan retains the inherited
+  limits, asks before observing, and leaves reconciliation unset until the
+  follow-up goal and answers fit; confirmation then replans the whole goal.
+  An itemized requirement is answered item by item in
+  `outcomes[].items` and judged per item, each on its own quotation or its
+  own verified change; one invoice's evidence never vouches for the rest. An
+  item's quotation must name that item as a whole phrase and may not repeat
+  another item's; for a change it must start at the item's name, carry a
+  state after it, and name no other item ("Paid Invoice 2" and "Invoice 1
+  Due Invoice 2 Paid" each quote the wrong item's state). Items themselves
+  must be rows the user named — whole phrases of the goal or an answer — so
+  "all nine invoices" is one outcome, not nine invented rows. A receipt stands in for an
+  item only when its target, row, or — for a verified batch — one of its
+  checked fields names the item; every item shares the requirement's id.
+  If the item extends a control's name with a value or state, the confirmed
+  result must prove those added words too; a checked Given name control
+  does not prove the item Given name Ada.
+  A planner `clarification` is asked the same way; a `limitation` fails the
+  run as `goal_failed` in the planner's words.
+- **Negative clauses are found by rule as well as by the model.**
+  `agentGoalBoundaries` reads "don't / without / never", "only the …",
+  "under $N" and draft phrasings from the user's words and adds any the plan
+  left out as constraints. `forbids` — the consequential effect classes a
+  constraint rules out — comes only from a verb in the negation's own
+  sentence, never from the model; two clauses are two prohibitions even when
+  they open alike. Broad cues ("no", "nothing gets", "stop before") count
+  only when their sentence names an effect. The whole sentence is read and no
+  condition lifts it: "don't submit until I say so" means not now, and a
+  draft never sends. The one cut is a new command — ", and", ", then",
+  ", but" followed by a consequential verb, directly or after words like
+  "you can" or "please", with no list before it and no negation after it —
+  so "don't delete the file, and (you can) send me the receipt" still sends, while "…, and you won't submit" still forbids. Reading too much forbids too much, which costs a
+  refusal and a question; reading too little let a forbidden effect through.
+  The controller refuses a command whose resolved effect carries a forbidden
+  class before policy is asked. A follow-up inherits the parent's
+  boundaries (`previousRun.constraints`), including scopes and numeric
+  limits, because its goal is usually the chat model's words.
+- **Only the user's words amend a plan, and only the user's yes removes
+  anything.** An answer, correction or steer newer than
+  `plan.reconciledThrough` triggers one planning call, given the goal, the
+  answers and the plan in force — never an observation, finding or step.
+  Kept entries keep their ids **and their words** (a kept constraint keeps
+  what it forbids, a kept requirement its items); a reworded `keep` quoting
+  the newest answer is new work under a new id. New ids take the next
+  number after `plan.issued`. The amendment rides the deciding claim, and a
+  change bumps `plan.version` and stamps `since`.
+- **Removal is a question, never a reading.** What an amendment would drop —
+  an entry, or one item of a requirement — comes back as
+  `proposedRemovals`; the plan keeps everything, records it in
+  `plan.pending` with a question id, and the run asks the user by naming the
+  plan's own entries. Only a plain yes to that question removes them; the
+  localized yes/no words shown in all nine locales are accepted, preserving
+  their accents and combining marks. A no,
+  or any sentence, keeps everything (a sentence is then read by the planner
+  like any other answer). Lifting a prohibition — a constraint that forbids
+  an effect — is asked on its own, as a limit that would no longer apply,
+  and only "allow" lifts it: a "yes" there reads as well as "yes, don't". Every rule tried for telling a withdrawal from a
+  mention — cues, negations, clauses — was one phrasing short, and its
+  failure was requested work silently gone. Nothing removes the last
+  outcome.
+- **An unread answer holds back what cannot be undone.** When the planner
+  fails, the port amends by rule (`agentRuleAmendment`: the plan in force
+  plus every clause found in the newest answers). That plan is
+  `provisional`: its limits apply at once, but the answer stays
+  unreconciled, and while any answer is unreconciled the controller refuses
+  every consequential effect and every completion. The next decision asks
+  the planner again. A planner that never recovers ends the run on its
+  budget, not on a guess.
 - `agent-useful-workflows.spec.ts` exercises composer lookup, long editing, pane scrolling,
   paginated extraction, clarification, delayed save and native confirmation.
   Its hosted flag also runs these tasks against a real provider. Scripted
@@ -945,3 +1761,152 @@ run that produced it can always be repeated.
 - The panel debug report uses its existing authenticated supervision port.
   Features never import background repositories. Store checks scan every JS
   bundle for debug helpers regardless of the caller's environment flags.
+
+## Durable workflow progress
+
+`workflow.ts` derives a bounded checkpoint from the current task plan and full
+receipt record before each decision. The checkpoint and selected quotations
+ride the deciding CAS together. Older rows decode without this optional field;
+resume rebuilds it before any model request or browser effect.
+
+Each requirement or named item has a progress entry, exact evidence references,
+receipt sequence for its latest applied or unresolved effect, and a fixed blocker
+reason. Item identity uses the completion judge's existing whole-phrase rules,
+so Invoice 1 is distinct from Invoice 10. `verified` uses the judge's exact
+receipt-support rules. `effect_confirmed` only means an effect landed; it does
+not prove a save or the whole goal. Model notes remain inferences. Neither notes
+nor progress bypass completion, permission, policy or effect ownership checks.
+For a read outcome, retained facts mark it `supported` after any revealing effect
+is settled; the exact effect reference remains, and an unresolved effect still
+requires reconciliation. User answers retain content-free provenance references
+in the same bounded ledger, but never count as independently observed facts.
+
+Plan-bound facts get retention priority, one source per unit before additional
+sources. A first fact per item/document precedes answer references, which precede
+extra same-source detail; all compete in one retention pass. The existing ledger
+count/byte ceilings and twelve-step recent history
+remain. Facts from inactive or closed documents remain historical quotations;
+a new snapshot of the same document requires refresh. Superseded, missing,
+unauthorized or prompt-omitted support remains unknown. Receipt-read failures
+mark cached effects uncertain instead of presenting them as new work.
+
+Phases are a bounded cursor over the current requirements/items followed by
+review, rather than nested runs. A phase never refunds steps, active time,
+provider retries, recovery attempts or request token budgets. Workflow, ledger,
+recent history and inference notes share the existing context allocation; an
+oversized workflow is omitted whole with an explicit continuity warning.
+If fixed checkpoint metadata cannot fit, continuity is omitted and any older
+checkpoint is cleared; the decision continues with bounded receipt recall.
+Terminal compaction drops the redundant workflow checkpoint, retaining outcomes,
+quotations and authoritative effect receipts for the report and handoff.
+
+## Controlled-file foundation (PR 13 work in progress)
+
+`agent-artifacts.ts` defines opaque run-owned handles, MIME/byte/count limits,
+SHA-256 identity and a 24-hour access lifetime. `artifacts.ts` is a pure
+port-driven service. The host must authorize an upload's exact run, step,
+artifact digest and destination against its persisted policy/effect claim.
+The durable store uses the existing SQLite owner, with migration 19 and run
+foreign keys. Content expiration never removes upload ownership: an uncertain
+upload remains non-replayable until its run is deleted. Each artifact can be
+uploaded only once per run, including across different destinations.
+
+This is a foundation, not a shipped file-action capability. Browser download
+tracking/content acquisition, parser-host binding, authenticated user selection,
+model schema/actions, resolver/policy/executor/verifier wiring, supervision UI
+and the scripted browser acceptance suite remain to be implemented. Do not
+advertise controlled file workflows or claim PR 13 acceptance from the service
+unit tests. Existing file-selection takeover behavior remains the available path.
+
+## Opt-in unattended execution (PR 14)
+
+Pause the current run, explicitly enable **Continue this task with the panel
+closed**, then Resume. Consent is stored and flushed at the exact displayed
+user pause. Closing the last subscription grants no consent. Runs without
+consent retain pause-on-close. Consent names the current origins, tabs, provider
+and model; it is never inherited by a new or follow-up run. Scope expansion
+prevents panel-close continuation until the user reviews consent again.
+
+The toolbar shows `RUN` while unattended work is active and `!` at human
+boundaries. **Stop browser agent** in the page context menu and the **Stop the
+current browser agent run** extension shortcut stop through the same durable
+cancellation path, without opening a panel. The default shortcut is
+Alt+Shift+X (Command+Shift+X on macOS); browser conflicts may require rebinding
+it in extension shortcut settings.
+
+Startup first performs the existing durable recovery. Only submitted,
+observing and deciding phases of opted-in runs become `worker_lost` checkpoints
+eligible for automatic continuation. The service rechecks the Agent switch, browser-session identity, perception permission, supported page access, the approved origin,
+controlled tab and provider/model before resuming from a fresh observation.
+Continuation is registered with the startup supervisor after workflow recovery.
+Its AbortSignal guards revalidation, browser attachment and each mutation before
+the first durable resume checkpoint. After that checkpoint, the run service owns
+the existing bounded execution loop rather than inheriting the startup deadline.
+Panel-free work pauses if its tab, origin or provider/model scope later grows.
+Executing/verifying effects remain uncertain and require human reconciliation;
+no saved command is replayed. Pending human requests are retained in the
+checkpoint; an interrupted approval or takeover stays paused and requires
+fresh page validation and consent, rather than accepting a stale request.
+
+Browser-session identity uses session-only extension storage. Browser shutdown
+clears it, preventing consent from attaching to a recycled tab id. If the optional alarms permission is already granted, a one-minute browser
+alarm wakes the worker to run the same consent and permission revalidation.
+Without that permission, recovery waits for another worker wake. No cloud
+runner or execution while the machine is off is introduced.
+Best-effort browser API heartbeats run only during active authorized work;
+human waits may let MV3 sleep. Existing active-time and provider budgets still
+apply, and lost time/network may end or pause work. Automatic recovery on the next worker wake does not guarantee immediate
+waking after worker termination. Existing notification permission enables a
+content-free completion or attention notification; otherwise the toolbar badge
+remains the indicator. The stop menu is localized and visible only while a
+non-terminal run exists.
+
+`verify:sw-agent-recovery` kills the actual packaged worker for both supervised
+and opted-in interrupted effects. It also seeds a real tab with persisted browser-session, origin, provider/model consent, kills the worker and proves one new read-only decision from the replacement. Its held decision scenarios close the actual supervision page and stop from an authenticated extension page while no side panel exists. The latter exercises the durable stop transport, not native context-menu interaction. Unit and SQLite tests cover safe checkpoint
+selection, scope/permission/session rejection, durable consent, unanswered
+human boundaries, panel-close continuation, indicators and external stopping.
+Scripted/unit success is not live-model qualification. Browser acceptance must
+be run in an environment with the packaged extension and Chromium available.
+
+## Release review hardening
+
+HTML-to-text conversion uses inert template contents; parser-created nodes never
+enter the live document. Submission dispatch lets all delegated page listeners
+finish before a guarded native default. A navigation deadline is a typed timeout,
+not a cancellation; submission verification reads the fresh page after that
+specific timeout without reissuing the effect.
+
+Completion quotations use Unicode phrase boundaries. Typed record states and
+control transitions avoid global occurrence counting across overlapping text
+sources. A renamed control requires a verifier receipt binding its before/after
+names, document, frame and stable identity; a different Reopen button is no proof.
+Current-state reads require current source support. Item summaries consume judged
+item outcomes; screenshot-only support is labeled as seen in a screenshot.
+
+Decision system policy stays fixed. The schema stays fixed for the run's measured
+model modality; visual availability travels in the user observation and the parser
+still refuses unavailable commands. Cache, reasoning and reported cost counters
+are retained on decision receipts. A cumulative one-million-token accounting
+ceiling, including review, is checked before further decisions and survives worker
+recovery through receipts. An already bounded request may cross that ceiling;
+provider omissions and interrupted requests prevent exact billing guarantees.
+
+Scope constraints without authoritative record bindings and payment limits without
+authoritative amount bindings refuse consequential work before approval. They
+remain on the plan and require a human handoff, rather than accepting a model's
+claim that the destination or price is within bounds. General observation-time
+challenge detection covers rendered password login forms and explicit human
+verification gates; localized or unusual challenges can still require the model's
+existing takeover path.
+
+Chat keeps conversation history regardless of model parameter-count substrings.
+Dynamic retrieved context, active-tab metadata and date/tool guidance are appended
+to the current user message, keeping the configured system policy stable.
+LM Studio reads loaded-instance context lengths from `/api/v1/models`, taking
+the smallest routed instance when several are loaded. llama.cpp reads the slot
+window from `/props`. Missing loaded-window evidence stays unknown; a training
+maximum is not an allocated server window. These optional metadata requests do
+not gate the model catalog.
+
+References: [LM Studio model list](https://lmstudio.ai/docs/developer/rest/list),
+[llama.cpp server properties](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md#get-props-get-server-global-properties).

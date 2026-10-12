@@ -1,21 +1,28 @@
+import type { AgentArtifactStore } from "@ollama-client/agent-runtime"
 import { isLegalAgentTransition } from "@ollama-client/agent-runtime"
-
 import { startBrowserAgentNavigationObserver } from "@/lib/browser-agent/navigation-observer"
 import { browser } from "@/lib/browser-api"
 import { AGENT_DEBUG_REPORT_ENABLED, FEATURE_FLAGS } from "@/lib/feature-flags"
-import { hasAgentPerceptionPermission } from "@/lib/permissions"
+import { createAgentArtifactStore } from "@/lib/repositories/agent-artifacts"
+import { setBrowserTaskRunner } from "@/lib/tools/internal/browser-task-tool"
+import { registerAgentAttentionBadge } from "./agent-attention-badge"
 import { createAgentBrowserSessionManager } from "./agent-browser-session-manager"
+import { createBrowserTaskRunner } from "./agent-browser-task"
+import { setAgentForgetStopper } from "./agent-forget-rpc"
 import { registerAgentPanelPort } from "./agent-panel-port"
 import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
 import type { AgentRunService } from "./agent-run-service"
 import { createAgentRunService } from "./agent-run-service"
 import type { AgentTabHistory } from "./agent-tab-history"
 import { createAgentTabHistory } from "./agent-tab-history"
+import { registerAgentUnattendedControls } from "./agent-unattended"
 
 export interface AgentComposition {
   canTransition: typeof isLegalAgentTransition
   service: AgentRunService
   history: AgentTabHistory
+  /** Durable file-workflow storage; no filesystem paths cross this boundary. */
+  artifacts: AgentArtifactStore
   dispose(): void
 }
 
@@ -23,10 +30,9 @@ export interface AgentComposition {
  * Assembles the Agent background: one run service, the panel transport, and
  * the navigation record back/forward is planned against.
  *
- * The navigation observer needs `webNavigation`, which is optional and granted
- * from the panel, so it is attached only once the permission is in hand — a
- * missing grant leaves the run service refusing to start rather than reading
- * an API that is not there.
+ * `webNavigation` is an install-time permission on Chromium, so the
+ * navigation observer attaches with the composition rather than waiting on a
+ * grant the panel used to request from the first Start.
  */
 export const createAgentComposition = async (
   ready: Promise<void> = Promise.resolve()
@@ -61,40 +67,47 @@ export const createAgentComposition = async (
     }
   })
 
-  let observer:
-    | ReturnType<typeof startBrowserAgentNavigationObserver>
-    | undefined
-  const startObserver = () => {
-    observer ??= startBrowserAgentNavigationObserver((snapshot) => {
-      /*
-       * Back and forward are planned against the tab's own history, which a
-       * child frame's navigation does not enter.
-       */
-      if (snapshot.frameId === 0) history.record(snapshot.tabId, snapshot.url)
-    })
-  }
-  if (await hasAgentPerceptionPermission()) startObserver()
-
   /*
-   * The grant usually arrives mid-session, from the panel's first Start.
-   * Without this the run that triggered the prompt would drive a browser
-   * whose navigation nobody is watching until the next worker start.
+   * A chat, or a branch of one, was deleted. The request arrives through the
+   * RPC server, which authorizes the sender; what it needs done — stopping a
+   * run, detaching its browser session — is this service's.
    */
-  const onPermissionAdded = () => {
-    void hasAgentPerceptionPermission().then((granted) => {
-      if (granted) startObserver()
-    })
-  }
-  browser.permissions.onAdded.addListener(onPermissionAdded)
+  setAgentForgetStopper((runId) => service.stop(runId))
+
+  /**
+   * The chat model's way in. A run is started by the model calling
+   * `browser_task` from a chat turn, never from a mode the user switches to;
+   * without this the tool is not offered at all.
+   */
+  setBrowserTaskRunner(createBrowserTaskRunner({ service }))
+
+  const stopUnattended = registerAgentUnattendedControls(service, ready)
+
+  const stopBadge = registerAgentAttentionBadge({
+    service,
+    action: browser.action
+  })
+
+  const observer = startBrowserAgentNavigationObserver((snapshot) => {
+    /*
+     * Back and forward are planned against the tab's own history, which a
+     * child frame's navigation does not enter.
+     */
+    if (snapshot.frameId === 0) history.record(snapshot.tabId, snapshot.url)
+  })
 
   return {
     canTransition: isLegalAgentTransition,
     service,
     history,
+    artifacts: createAgentArtifactStore(),
     dispose() {
       stopPort()
-      browser.permissions.onAdded.removeListener(onPermissionAdded)
-      observer?.stop()
+      stopBadge()
+      stopUnattended()
+      setAgentForgetStopper(undefined)
+      setBrowserTaskRunner(undefined)
+      observer.stop()
       void browserSessions.dispose()
     }
   }

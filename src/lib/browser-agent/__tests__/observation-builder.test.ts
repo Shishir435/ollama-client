@@ -62,6 +62,84 @@ const appendButtons = (count: number) => {
 }
 
 describe("Agent observation builder", () => {
+  it("distinguishes identical buttons by their visible list row", () => {
+    document.body.innerHTML =
+      "<ul><li>budget.pdf <button>Delete</button></li><li>old-report-2023.pdf <button>Delete</button></li></ul>"
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "budget.pdf Delete",
+      "old-report-2023.pdf Delete"
+    ])
+  })
+
+  it("labels repeated div rows by their own record", () => {
+    document.body.innerHTML =
+      '<div><div><a href="/pull/1">Fix parser</a> <button>Close</button></div><div><a href="/pull/2">Add docs</a> <button>Close</button></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "Fix parser Close",
+      "Add docs Close"
+    ])
+  })
+
+  it("keeps a row's label when a hidden twin of its control sits beside it", () => {
+    document.body.innerHTML =
+      '<div><div><a href="/pull/1">Fix parser</a> <button>Delete</button><button style="display:none">Delete</button></div><div><a href="/pull/2">Add docs</a> <button>Delete</button></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons[0].rowContext).toBe("Fix parser Delete")
+  })
+
+  it("labels each record when the records differ in their controls", () => {
+    document.body.innerHTML =
+      '<div><div><section><div><a href="/pull/1">Fix parser</a> <button>Close</button></div></section><section><div><a href="/pull/2">Add docs</a> <button>Reopen</button></div></section></div><div><a href="/other">Other</a></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "Fix parser Close",
+      "Add docs Reopen"
+    ])
+  })
+
+  it("keeps one record's label when another record's control is hidden", () => {
+    document.body.innerHTML =
+      '<div><div><section><div><a href="/pull/1">Fix parser</a> <button>Close</button></div></section><section><div><a href="/pull/2">Add docs</a> <button style="display:none">Close</button></div></section></div><div><a href="/other">Other</a></div></div>'
+    const [button] = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(button.rowContext).toBe("Fix parser Close")
+  })
+
+  it("finds each record in nested repeated sections rather than their wrapper", () => {
+    document.body.innerHTML =
+      '<div><div><section><div><a href="/pull/1">Fix parser</a> <button>Close</button></div></section><section><div><a href="/pull/2">Add docs</a> <button>Close</button></div></section></div><div><a href="/other">Other</a></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "Fix parser Close",
+      "Add docs Close"
+    ])
+  })
+
+  it("never labels a control with a wrapper spanning several records", () => {
+    document.body.innerHTML =
+      '<div><div><a href="/pull/1">Fix parser</a> <button>Close</button><span><a href="/pull/2">Add docs</a> <button>Close</button></span></div><div><a href="/other">Other</a></div></div>'
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      undefined,
+      undefined
+    ])
+  })
+
   it("exposes an empty editor's rendered placeholder separately from its ARIA name", () => {
     document.body.innerHTML =
       '<div contenteditable="true" aria-label="Chat with assistant"><p data-placeholder="Ask assistant"><br></p></div>'
@@ -198,6 +276,202 @@ describe("Agent observation builder", () => {
     })
   })
 
+  it("previews the query a search form would send", () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const field = document.createElement("input")
+    field.type = "search"
+    field.name = "q"
+    field.value = "atlas notebook"
+    const button = document.createElement("button")
+    button.textContent = "Search"
+    form.append(field, button)
+    document.body.append(form)
+
+    expect(build().elements[0]).toMatchObject({
+      formMethod: "get",
+      formQuery: "q=atlas+notebook"
+    })
+  })
+
+  /**
+   * A nameless or disabled hidden input contributes nothing to the query,
+   * but a page's handler reads it either way; a `display:none` text field is
+   * a hidden field by another name.
+   */
+  it.each([
+    [
+      "a nameless hidden input",
+      () => {
+        const input = document.createElement("input")
+        input.type = "hidden"
+        return input
+      }
+    ],
+    [
+      "a disabled hidden input",
+      () => {
+        const input = document.createElement("input")
+        input.type = "hidden"
+        input.name = "state"
+        input.disabled = true
+        return input
+      }
+    ],
+    [
+      "a text field hidden by CSS",
+      () => {
+        const input = document.createElement("input")
+        input.name = "session"
+        input.value = "secret"
+        input.style.display = "none"
+        return input
+      }
+    ]
+  ])("offers no preview for a form with %s", (_name, extra) => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const field = document.createElement("input")
+    field.name = "q"
+    field.value = "atlas"
+    form.append(field, extra())
+    document.body.append(form)
+
+    expect(build().elements[0]).not.toHaveProperty("formQuery")
+  })
+
+  /** Hidden values stay in the page; a preview would carry them across. */
+  it("offers no preview for a form with a hidden control", () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const field = document.createElement("input")
+    field.name = "q"
+    field.value = "atlas"
+    const token = document.createElement("input")
+    token.type = "hidden"
+    token.name = "session"
+    token.value = "secret"
+    form.append(field, token)
+    document.body.append(form)
+
+    expect(build().elements[0]).not.toHaveProperty("formQuery")
+  })
+
+  describe("a form the page marks as a search", () => {
+    const searchPage = (
+      configure: (form: HTMLFormElement, field: HTMLElement) => void
+    ) => {
+      const form = document.createElement("form")
+      form.action = "/search"
+      const field = document.createElement("textarea")
+      field.name = "q"
+      field.setAttribute("rows", "1")
+      field.setAttribute("role", "combobox")
+      field.value = "hey"
+      const token = document.createElement("input")
+      token.type = "hidden"
+      token.name = "source"
+      token.value = "hp"
+      /** Google's add-image and add-file pickers, hidden and empty. */
+      const picker = document.createElement("input")
+      picker.type = "file"
+      picker.hidden = true
+      const button = document.createElement("input")
+      button.type = "submit"
+      button.value = "Google Search"
+      form.setAttribute("role", "search")
+      form.append(picker, field, token, button)
+      configure(form, field)
+      document.body.append(form)
+      return build().elements.filter((element) => element.maySubmit)
+    }
+
+    /**
+     * Google's homepage form as it is served: `role="search"`, a combobox
+     * textarea, hidden inputs, empty file pickers and a submitter.
+     */
+    it("marks Google's form, hidden inputs and all, on the field and its button", () => {
+      const submitting = searchPage(() => {})
+      expect(submitting).toHaveLength(2)
+      for (const element of submitting)
+        expect(element).toMatchObject({ searchForm: true, formMethod: "get" })
+    })
+
+    it("marks a search landmark and a type=search field", () => {
+      expect(
+        searchPage((_form, field) => {
+          field.removeAttribute("role")
+        })[0]
+      ).toHaveProperty("searchForm", true)
+      expect(
+        searchPage((form) => {
+          form.removeAttribute("role")
+        })[0]
+      ).toHaveProperty("searchForm", true)
+
+      const form = document.createElement("form")
+      form.action = "/find"
+      const field = document.createElement("input")
+      field.type = "search"
+      field.name = "q"
+      form.append(field)
+      document.body.replaceChildren(form)
+      expect(build().elements[0]).toHaveProperty("searchForm", true)
+    })
+
+    /**
+     * A preferences page's "Apply" sends a GET query too; a query alone is
+     * not a search, and neither is a lone field that never says it is one.
+     */
+    it.each([
+      [
+        "a settings select beside the field",
+        (form: HTMLFormElement) => {
+          const select = document.createElement("select")
+          select.name = "theme"
+          const option = document.createElement("option")
+          option.value = "dark"
+          option.textContent = "Dark"
+          select.append(option)
+          form.append(select)
+        }
+      ],
+      [
+        "a checkbox beside the field",
+        (form: HTMLFormElement) => {
+          const box = document.createElement("input")
+          box.type = "checkbox"
+          box.name = "safe"
+          form.append(box)
+        }
+      ],
+      [
+        "a second text field",
+        (form: HTMLFormElement) => {
+          const other = document.createElement("input")
+          other.name = "where"
+          form.append(other)
+        }
+      ],
+      [
+        "a POST method",
+        (form: HTMLFormElement) => {
+          form.method = "post"
+        }
+      ],
+      [
+        "a field that never says it is a search",
+        (form: HTMLFormElement, field: HTMLElement) => {
+          form.removeAttribute("role")
+          field.removeAttribute("role")
+        }
+      ]
+    ])("does not mark a form with %s", (_name, configure) => {
+      for (const element of searchPage(configure))
+        expect(element).not.toHaveProperty("searchForm")
+    })
+  })
+
   it("names the form a control belongs to even when Enter would not submit it", () => {
     /**
      * A `<textarea>` never submits on Enter, so it reports no submit
@@ -221,6 +495,89 @@ describe("Agent observation builder", () => {
     expect(inForm.maySubmit).toBeUndefined()
     expect(inForm.formAction).toBeUndefined()
     expect(outsideForm.formFingerprint).toBeUndefined()
+  })
+
+  /**
+   * DuckDuckGo's search field, as the page renders it: a textarea named q
+   * in a GET form with hidden fields and a submit button. Enter there is a
+   * search, and pressing it as a plain key sent it off the approved path.
+   */
+  it("reports a search-box textarea as submitting on Enter", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/"
+    const hidden = document.createElement("input")
+    hidden.type = "hidden"
+    hidden.name = "ia"
+    hidden.value = "web"
+    const query = document.createElement("textarea")
+    query.name = "q"
+    query.rows = 1
+    query.setAttribute("aria-label", "Search with DuckDuckGo")
+    const search = document.createElement("button")
+    search.type = "submit"
+    search.setAttribute("aria-label", "Search")
+    form.append(hidden, query, search)
+    document.body.append(form)
+
+    const field = build().elements.find((element) => element.tag === "textarea")
+    expect(field?.maySubmit).toBe(true)
+    expect(field?.formMethod).toBe("get")
+  })
+
+  it("keeps Enter a newline in a lone textarea that does not say it is one line", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/draft"
+    const draft = document.createElement("textarea")
+    draft.setAttribute("aria-label", "Message")
+    const send = document.createElement("button")
+    send.textContent = "Send"
+    form.append(draft, send)
+    document.body.append(form)
+
+    const textarea = build().elements.find(
+      (element) => element.tag === "textarea"
+    )
+    expect(textarea?.maySubmit).toBeUndefined()
+  })
+
+  it("keeps Enter a newline in a multi-row textarea whatever its role says", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/draft"
+    const draft = document.createElement("textarea")
+    draft.rows = 4
+    draft.setAttribute("role", "combobox")
+    draft.setAttribute("aria-label", "Message")
+    const send = document.createElement("button")
+    send.textContent = "Send"
+    form.append(draft, send)
+    document.body.append(form)
+
+    const textarea = build().elements.find(
+      (element) => element.tag === "textarea"
+    )
+    expect(textarea?.maySubmit).toBeUndefined()
+  })
+
+  it("keeps Enter a newline in a textarea beside other text fields", () => {
+    const form = document.createElement("form")
+    form.method = "get"
+    form.action = "/search"
+    const title = document.createElement("input")
+    title.setAttribute("aria-label", "Title")
+    const body = document.createElement("textarea")
+    body.setAttribute("aria-label", "Body")
+    const submit = document.createElement("button")
+    submit.textContent = "Go"
+    form.append(title, body, submit)
+    document.body.append(form)
+
+    const textarea = build().elements.find(
+      (element) => element.tag === "textarea"
+    )
+    expect(textarea?.maySubmit).toBeUndefined()
   })
 
   it("keeps repeated controls distinct across observation generations", () => {

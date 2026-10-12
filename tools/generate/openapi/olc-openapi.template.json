@@ -441,7 +441,7 @@
               "text/event-stream": {
                 "schema": {
                   "type": "string",
-                  "description": "OpenAI-compatible data events followed by data: [DONE]."
+                  "description": "OpenAI-compatible data events followed by data: [DONE]. The finish chunk of the response completing a turn carries the turn's usage; pages the runtime's own web search consulted arrive as delta.annotations of type url_citation before it."
                 }
               }
             },
@@ -914,7 +914,7 @@
         }
       },
       "RateLimitExceeded": {
-        "description": "The caller exceeded the configured window. Wait for Retry-After, then retry with exponential backoff. Do not blindly replay a non-idempotent generation.",
+        "description": "The caller exceeded the configured window, or the runtime's own provider refused for its usage limit. Wait for Retry-After when present, then retry with exponential backoff. Do not blindly replay a non-idempotent generation.",
         "headers": {
           "Retry-After": {
             "$ref": "#/components/headers/RetryAfter"
@@ -1137,6 +1137,16 @@
             "type": "boolean",
             "default": false
           },
+          "stream_options": {
+            "type": "object",
+            "description": "include_usage=true adds OpenAI's trailing usage chunk with empty choices. Usage rides on the finish chunk of a completing response either way.",
+            "properties": {
+              "include_usage": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          },
           "tools": {
             "type": "array",
             "items": {
@@ -1334,7 +1344,8 @@
                   "type": "integer"
                 },
                 "message": {
-                  "$ref": "#/components/schemas/ChatMessage"
+                  "$ref": "#/components/schemas/ChatMessage",
+                  "description": "An answer whose runtime searched the web also carries annotations: url_citation entries naming the pages consulted, without character spans."
                 },
                 "finish_reason": {
                   "type": ["string", "null"]
@@ -1342,6 +1353,51 @@
               },
               "additionalProperties": true
             }
+          },
+          "usage": {
+            "$ref": "#/components/schemas/CompletionUsage"
+          }
+        },
+        "additionalProperties": true
+      },
+      "CompletionUsage": {
+        "type": "object",
+        "description": "Token counts for the whole turn, sent with the answer that completes it, in OpenAI's terms: cached input inside prompt_tokens, reasoning inside completion_tokens. Buffered responses use zero counts when the runtime reports no usage; streamed responses omit usage when the runtime reports no usage. A response that ends in tool_calls uses zero counts when buffered and omits usage when streamed. cost is the runtime's own USD estimate, present only when it priced the model.",
+        "required": ["prompt_tokens", "completion_tokens", "total_tokens"],
+        "properties": {
+          "prompt_tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completion_tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "prompt_tokens_details": {
+            "type": "object",
+            "properties": {
+              "cached_tokens": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "completion_tokens_details": {
+            "type": "object",
+            "properties": {
+              "reasoning_tokens": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "cost": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "additionalProperties": true

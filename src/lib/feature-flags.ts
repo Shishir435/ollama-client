@@ -7,6 +7,15 @@ export const AGENT_PREVIEW_ENABLED =
   typeof __AGENT_PREVIEW_ENABLED__ !== "undefined" && __AGENT_PREVIEW_ENABLED__
 
 /**
+ * True in tests without injected defines; folded away where the Agent is
+ * compiled out. For chat-side code that exists only because runs do — the
+ * conversation handoff a later turn reads — so Firefox, which has no runs,
+ * carries none of it.
+ */
+export const AGENT_PREVIEW_COMPILED =
+  typeof __AGENT_PREVIEW_ENABLED__ === "undefined" || __AGENT_PREVIEW_ENABLED__
+
+/**
  * The Agent run-record dump on the background console. Development builds
  * only — the record quotes page text, so a store build erases it.
  */

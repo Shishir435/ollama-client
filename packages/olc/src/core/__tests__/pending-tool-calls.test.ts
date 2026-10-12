@@ -148,4 +148,20 @@ describe("PendingToolCalls", () => {
     pending.fail(other.callId, "cleanup")
     await expect(other.promise).rejects.toThrow("cleanup")
   })
+
+  it("fails a closed turn's calls and refuses the ones it makes after", async () => {
+    const pending = new PendingToolCalls()
+    const parked = pending.register({ turnId: "t1", tool: "list_tabs" })
+    const other = pending.register({ turnId: "t2", tool: "list_tabs" })
+    pending.closeTurn("t1", "discarded")
+
+    await expect(parked.promise).rejects.toThrow("discarded")
+    const late = pending.register({ turnId: "t1", tool: "read_tab" })
+    await expect(late.promise).rejects.toThrow("discarded")
+    expect(pending.hasPending("t1")).toBe(false)
+    expect(pending.isClosed("t1")).toBe(true)
+    expect(pending.hasPending("t2")).toBe(true)
+    pending.fail(other.callId, "cleanup")
+    await other.promise.catch(() => {})
+  })
 })

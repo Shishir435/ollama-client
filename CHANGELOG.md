@@ -11,55 +11,79 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [0.14.0]
 
+### Added
+
+- **Browser agent preview (Chromium, experimental, off by default).** The chat
+  model hands a task to a supervised agent with `browser_task`; the run's card
+  appears above that turn's answer and follow-ups are ordinary messages. There
+  is no mode to switch into. Submissions, destructive actions, payments,
+  sign-ins and sensitive fields always ask first. Firefox keeps the DOM backend
+  and says so.
+- The agent reads child frames on allowed sites, open shadow roots and large
+  pages within its context budget, can take a screenshot when it needs one,
+  and works in a background tab without bringing it to the front.
+- A settled run can be continued, retried or started over from its card. A
+  retry never repeats an effect the parent run already completed, and is
+  refused if that record cannot be read in full.
+- A paused run can be set to **continue with the panel closed**. Consent is
+  per run and names the model and scope; supervised runs still pause on close.
+- Built-in offline embeddings: new installs index files, pages and chat memory
+  with a bundled MiniLM model, no embedding server needed. Existing users keep
+  their setup until they choose **Migrate to built-in embeddings**.
+- `olc` manages local Docker servers (Laya, SearXNG), and `olc list` shows
+  every backend it started. Codex and OpenCode token usage, web sources and
+  context length are passed through to the extension.
+
+### Changed
+
+- Agent completion is checked, not trusted: a task is reported done only when
+  page evidence supports each requirement, undecided claims go to an
+  independent review, and the final report lists verified, partial and unmet
+  items separately.
+- The agent retries temporary provider failures (429/503) a bounded number of
+  times and recovers from stalls within a fixed budget before asking you.
+  Authentication and configuration errors stop immediately.
+- Runtime context now rides on the latest user message, so the system prompt
+  stays byte-stable for provider prompt caching.
+
+### Fixed
+
+- YouTube transcripts are read from the consolidated transcript panel.
+- `olc -b fm` no longer hangs at startup when `fm serve` accepts the socket but
+  never answers its health check.
+- A partial agent result keeps the answers of items it verified.
+- Answer sources are kept when a provider reports the same citations in both
+  the streamed delta and the final message.
+- Two `olc -b laya` commands run at once no longer undo each other's upgrade;
+  the second stops and names the command still in progress.
+
 ### Development
 
-- Supervised Agent Preview begins behind a disabled-by-default release gate.
-  Versioned contracts now define its commands, observations, lifecycle,
-  approvals, takeovers, and safe error vocabulary, while a new pure runtime
-  package enforces legal run transitions and strict isolation from Chat. This
-  foundation adds no browser permission, browser mutation, or visible Agent UI.
-- Agent Preview now completes ordinary tasks rather than only passing fixtures.
-  A page whose markup the observation could not read is observed; a wrong
-  command costs one retry with the reason instead of ending the run; each
-  decision sees what the run already did and why it turned out that way; the
-  model receives a page rather than the executor's bookkeeping, with the
-  context window sized to fit it; and an approval can be widened to a site for
-  the rest of one run, while a question the model asks is durable and
-  answerable. Submissions, destructive actions, payments, sign-ins and
-  sensitive fields keep asking every time. Startup recovery is now proven
-  against the real database at every phase a worker can be lost in, and a
-  frozen benchmark records what each task family actually costs.
-- Agent Preview on Chromium owns its debugger sessions: attached when a run
-  starts on an authorized tab, released on pause, takeover, stop, completion
-  and failure, and paused clearly when the debugger disconnects or the tab
-  closes. Firefox keeps the DOM backend and says so.
-- Agent Preview knows which frame a control is in. Every reference is bound to
-  its tab, frame, document and observation generation; child frames on
-  allowed sites are read through their own sessions and composed into one
-  page, frames on other sites are listed by origin and left alone, and a frame
-  that navigates invalidates only its own references. A run drives the tab it
-  started on and the tabs it opened; adopting any other tab asks first. The
-  debugger's frame tree is tracked and mapped onto extension frames only when
-  the join is exact.
-- Agent Preview sees controls inside web components and knows which ones a
-  cover blocks. Observation now descends into open shadow roots, so a
-  component's controls and text are read like any other, while a closed root
-  stays unread rather than guessed at. A visible control whose click points are
-  all covered by an unrelated element is reported to the model as covered, so
-  it dismisses the overlay or scrolls rather than clicking where the pointer
-  cannot reach.
-- Agent Preview keeps a large application within its context budget. The
-  window is partitioned across instructions, tools, history, output and page
-  content, and the page is projected to fit its share: an overview keeps the
-  controls a decision acts on and reports the rest by region. Three read-only
-  actions reveal what it summarised — inspect a region, find controls by a
-  query, or extract the page's full text — none of which mutates the page or
-  asks approval. A fact the model records is now kept past the recent-step
-  window, with the page it came from, and stays untrusted page data.
+- Frozen benchmark and held-out qualification suites, plus a release
+  assessment that gates agent rollout on two-model live evidence.
+- Run-owned artifact handles lay the groundwork for agent file workflows; no
+  file actions are exposed to the model yet.
+
+## [0.13.4]
+
+### Fixed
+
+- OpenCode Zen free-tier refusals are answered with `403` and an actionable
+  message instead of a generic `502`. The gateway rejects free-tier requests
+  carrying per-tool disable flags, which this proxy always sends to keep the
+  runtime's native tools off; the refusal now names the model and the working
+  paths (a key-backed provider model, or OpenCode's own TUI/Desktop) so the
+  extension no longer reports the proxy as down.
 
 ## [0.13.3]
 
 ### Added
+
+- `olc -b fm` (alias `-b apple`) serves Apple's on-device Foundation Model on
+  macOS 27 at `127.0.0.1:8085`, so it can be added as an OpenAI-compatible
+  provider. `fm serve` refuses browser requests on its own; olc runs it on a
+  private socket and applies its own origin policy. The model is listed as
+  `apple/foundation` with its 8K context, image input and no tool calling.
 
 - Web search can route through the selected agent runtime's native search tool.
   Ollama Client still exposes one provider-neutral `web_search` tool and keeps
@@ -70,6 +94,32 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 
+- The browser agent ships as **experimental** and opt-in, with its own settings
+  tab and a switch in the chat's Context sheet. Until it is turned on, the chat
+  model is neither offered `browser_task` nor able to call it. Every profile, new or upgraded, sees a
+  one-time notice introducing it, which recommends capable hosted models.
+  Asking for a browser task while it is off shows a card instead of a reply:
+  **Turn on and continue** enables it and runs the same request, **Continue
+  without** sends it as it was, and the model is told browser actions are off
+  rather than calling them denied.
+- On Chromium, `tabGroups` is now a required permission alongside `debugger`
+  and `webNavigation`, so the update from 0.13.x asks for consent once and
+  tab-group reading and the agent's own tab group work without a further
+  prompt. It stays optional on Firefox, and its switch leaves Chromium's
+  Privacy panel because a required permission cannot be revoked there.
+- Ollama's hosted `:cloud` recommendations are off by default, with a switch at
+  the top of Ollama's list in the model menu. They need a signed-in daemon and
+  often a paid plan, and without one a chosen model failed at send time.
+  `:cloud` models pulled with `ollama pull` are listed either way.
+- Custom providers on NVIDIA, Vercel AI Gateway, Cloudflare AI Gateway,
+  Fireworks, DeepInfra, Hugging Face and Cerebras show their vendor's mark.
+  Other remote providers look for a favicon on the vendor's own site — its
+  registrable domain, then `www.` — instead of only one level above the API
+  host, still without following redirects.
+- The session stats sit in the middle of the chat header; the thinking panel
+  and the model menu's provider rail now share the radius of the surfaces
+  around them. Settings dropdowns show their option's label rather than its
+  stored value.
 - All olc backends now detach by default. `--debug` implies foreground; explicit
   `--foreground`/`--detached` control the session. Detached proxies report readiness,
   PID, private logs, and shutdown instructions.

@@ -8,7 +8,7 @@
       "scroll_down": "Scorri verso il basso",
       "scroll_left": "Scorri a sinistra",
       "scroll_right": "Scorri a destra",
-      "switch_tab": "Passa alla scheda {{tab}}",
+      "switch_tab": "Passa a un’altra scheda",
       "wait": "Attendi {{condition}}",
       "clear_and_type": "Sostituisci il testo del campo",
       "press_key": "Premi {{key}}",
@@ -24,43 +24,51 @@
       "double_click": "Fai doppio clic sul controllo",
       "click_point": "Fai clic su un punto dello screenshot",
       "zoom": "Ingrandisci lo screenshot",
+      "look": "Acquisisci un nuovo screenshot",
       "hover": "Passa sopra il controllo",
       "read": "Leggi la pagina",
       "inspect": "Ispeziona {{region}}",
       "find": "Cerca «{{query}}»",
       "extract_text": "Leggi il testo della pagina",
       "handle_dialog_accept": "Accetta la finestra di dialogo della pagina",
-      "handle_dialog_dismiss": "Chiudi la finestra di dialogo della pagina"
+      "handle_dialog_dismiss": "Chiudi la finestra di dialogo della pagina",
+      "fill_form": "Compila campi del modulo: {{count}}",
+      "extract": "Cerca nella pagina: {{count}}",
+      "call_page_tool": "Usa lo strumento della pagina «{{tool}}»"
     },
     "approval": {
       "title": "Approvazione richiesta",
+      "risk": {
+        "low": "Rischio basso",
+        "medium": "Rischio medio",
+        "high": "Rischio alto",
+        "critical": "Rischio critico"
+      },
       "allow": "Consenti una volta",
       "reject": "Rifiuta",
       "allowForRun": "Consenti sempre questo tipo di azione su {{origin}} per questa esecuzione"
     },
-    "attachment": {
-      "title": "Cosa consente questo browser",
-      "attaches": "All'avvio il debugger di Chrome si collega alla scheda scelta. Chrome mostra un proprio avviso mentre è collegato, e il collegamento termina all'arresto, quando passa il controllo a te o al termine.",
-      "no_debugger": "Questo browser non ha un debugger, quindi l'esecuzione guida le pagine tramite gli script di contenuto dell'estensione."
-    },
     "browser_disconnected": "Il controllo del browser si è disconnesso, quindi Agent è in pausa. Controlla la pagina prima di riprendere.",
-    "completion": {
-      "summary": "Durante questa esecuzione sono state inviate {{count}} osservazioni di pagina a {{provider}}."
-    },
     "controls": {
       "label": "Controlli Agente",
       "pause": "Pausa",
       "resume": "Riprendi",
       "stop": "Interrompi",
+      "takeover_start": "Faccio io questo passaggio",
       "takeover_done": "Fatto — continua"
     },
     "error": {
       "already_running": "Un’esecuzione di Agent è già in corso.",
       "browser_control_unavailable": "Agent non ha potuto collegare il controllo del browser. Chiudi DevTools o un altro debugger e riprova.",
-      "permission_denied": "Agent ha bisogno dell’autorizzazione a osservare la pagina prima di iniziare.",
+      "follow_up_unavailable": "Questa esecuzione non può più essere proseguita da qui. Ricomincia per assegnare di nuovo il compito.",
+      "permission_denied": "L’agente non può osservare le pagine in questo browser.",
       "tab_unsupported": "Agent non può essere eseguito su questa pagina. Apri una normale pagina web e riprova.",
       "unreadable_update": "Il pannello ha ricevuto un aggiornamento che non è riuscito a leggere.",
-      "unknown": "Agent non ha potuto completare la richiesta."
+      "unknown": "Agent non ha potuto completare la richiesta.",
+      "disconnected": "L’agente si stava riconnettendo e non l’ha ricevuto. Riprova.",
+      "turn_has_run": "Questo messaggio ha già avviato un’attività nel browser.",
+      "steer_unavailable": "L’esecuzione non sta lavorando ora e non ha potuto recepirlo. Mettila in pausa e correggila.",
+      "consent_stale": "L’esecuzione è andata avanti da quando è stata mostrata questa scelta, quindi non è stata salvata. Controlla l’esecuzione e scegli di nuovo."
     },
     "failure": {
       "budget_exhausted": "L'esecuzione ha esaurito il budget di passi. Restringi l'obiettivo o riparti dallo stato attuale della pagina.",
@@ -75,28 +83,15 @@
       "verification_failed": "L'esecuzione non ha potuto confermare l'effetto dell'ultima azione. Controlla la pagina prima di riavviare.",
       "unknown": "L'esecuzione si è fermata per un motivo non identificabile. Controlla la pagina e riavvia."
     },
-    "feedback": "Invia feedback",
-    "limits": {
-      "no_native_input": "L'input di mouse e tastiera è sintetico: una pagina che risponde solo a input reali potrebbe non reagire.",
-      "no_screenshots": "Non vengono acquisite schermate, quindi un'attività risolvibile solo guardando la pagina non funzionerà.",
-      "no_dialogs": "L'esecuzione non può vedere né rispondere alle finestre native alert, confirm e prompt."
-    },
     "model": {
       "label": "Modello"
     },
     "observations": "{{count}} osservazioni",
     "privacy": {
       "remote_notice": "Le osservazioni della pagina saranno inviate continuamente a questo provider remoto mentre l’Agente è in esecuzione.",
-      "acknowledge": "Ho capito",
       "remote_notice_screenshots": "Le osservazioni della pagina e gli screenshot dell’area visibile saranno inviati continuamente a questo provider remoto mentre l’Agente è in esecuzione."
     },
     "progress": "{{count}} di {{budget}} osservazioni",
-    "provider": {
-      "label": "Provider",
-      "local": "Locale",
-      "remote": "Remoto",
-      "missing": "Seleziona prima un modello"
-    },
     "question": {
       "title": "Agent ha bisogno di una risposta",
       "inputLabel": "La tua risposta",
@@ -108,14 +103,6 @@
       "sent": "Gli screenshot dell’area visibile vengono inviati al modello",
       "unused": "Non usati con un modello solo testo",
       "unknown": "Non ancora determinato"
-    },
-    "start": {
-      "description": "Supervisiona un’attività del browser da questo pannello.",
-      "goal": "Cosa deve fare l’Agente?",
-      "placeholder": "Descrivi un’attività del browser…",
-      "action": "Avvia Agente",
-      "auto_actions": "Consenti le azioni di routine per questa attività",
-      "auto_actions_description": "Clic e digitazione su questo sito sono automatici. Pubblicazioni, eliminazioni, nuovi siti e passaggi sensibili richiedono ancora conferma."
     },
     "status": {
       "submitted": "Avvio",
@@ -142,42 +129,53 @@
       "verified": "Verificato",
       "rejected": "Rifiutato",
       "failed": "Non riuscito",
-      "uncertain": "Controlla"
-    },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agente",
-      "preview": "Anteprima"
+      "uncertain": "Controlla",
+      "dialog_opened": "Finestra di dialogo aperta"
     },
     "tab": {
       "label": "Scheda controllata",
-      "missing": "Apri una pagina supportata"
+      "missing": "Apri una pagina supportata",
+      "show": "Mostra questa scheda"
     },
     "tabs": {
       "label": "Schede controllate",
-      "count": "{{count}} schede"
+      "count_one": "{{count}} scheda",
+      "count_other": "{{count}} schede"
     },
     "takeover": {
-      "title": "Prendi il controllo di questo passaggio"
+      "title": "Prendi il controllo di questo passaggio",
+      "instruction": {
+        "file_upload": "Prendi il controllo della pagina, scegli tu il file, poi continua.",
+        "sensitive_step": "Prendi il controllo della pagina, completa tu il passaggio riservato, poi continua."
+      }
     },
-    "title": "Agente supervisionato",
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
     "unresolved_reviewed": "Ho controllato la pagina: continua",
+    "unresolved_done": "Fatto — termina",
     "work_log": {
+      "action_needs_review": "Questo passaggio richiede una verifica.",
       "title": "Registro attività",
-      "target": "«{{name}}»"
+      "target": "«{{name}}»",
+      "reasoning": "Ragionamento"
     },
     "correction": "In pausa. Descrivi cosa cambiare, poi continua.",
-    "export_report": "Esporta rapporto (include il testo della pagina)",
-    "running_goal": "In lavorazione",
-    "requirements": {
-      "title": "Cosa chiedeva l'attività",
-      "met": "Fatto",
-      "unmet": "Non fatto"
+    "experimental_badge": "Sperimentale",
+    "announcement": {
+      "title": "Sperimentale: un agente del browser nella chat",
+      "description": "Il tuo modello di chat ora può svolgere attività nelle tue schede: fare clic, digitare e spostarsi tra le pagine al posto tuo. Resta disattivato finché non lo attivi.",
+      "hosted_models": "Funziona meglio con modelli ospitati capaci (ad esempio tramite OpenRouter o un provider cloud). I modelli locali piccoli spesso non riescono a completare attività in più passaggi.",
+      "approvals": "Chiede prima di inviare moduli, accedere, pagare o eliminare qualsiasi cosa, e puoi fermarlo in qualsiasi momento.",
+      "coming": "È una prima versione. Aspettati qualche imperfezione; altri miglioramenti arriveranno nelle prossime versioni.",
+      "later": "Più tardi",
+      "enable": "Attiva l’agente"
     },
     "settings": {
       "title": "Agente del browser",
-      "description": "Quanto contesto un'esecuzione può chiedere al suo modello e quando fotografa la pagina.",
+      "description": "Cosa può fare un’esecuzione senza chiedere, quanto contesto può chiedere al modello e quando cattura la pagina.",
+      "enabled": {
+        "label": "Consenti al modello di chat di usare l’agente del browser",
+        "description": "Offre browser_task, che permette al modello di fare clic, digitare e navigare nelle tue schede al posto tuo. Sperimentale: l’efficacia varia molto da un modello all’altro."
+      },
       "context_window": {
         "label": "Finestra di contesto",
         "description": "Automatico prende la finestra più piccola che questo modello e questo server dichiarano, e ripiega su una dimensione prudente quando nessuno dei due si esprime. Imposta tu una dimensione se hai alzato il limite del tuo server o se un'esecuzione ha esaurito la memoria.",
@@ -190,7 +188,104 @@
         "auto": "Quando il passo ne ha bisogno",
         "always": "A ogni passo",
         "never": "Mai"
+      },
+      "permission_mode": {
+        "label": "Azioni di routine",
+        "description": "Se ogni nuova esecuzione può fare clic e digitare sul sito da cui parte senza chiedere. Invio, eliminazione, accesso, pagamento e nuovi siti vengono sempre chiesti, e nulla passa all’esecuzione successiva.",
+        "allow_routine": "Consenti sul sito iniziale",
+        "approve_each": "Approva ogni azione"
+      },
+      "completion_reviewer": {
+        "label": "Revisore del completamento",
+        "description": "Quando un'esecuzione dichiara qualcosa che i controlli integrati non possono confermare, questo modello legge le prove verificate dell'esecuzione e dice se supportano la dichiarazione. Non agisce mai nel browser. Un modello diverso riceve quelle prove solo se è attivo, può chiamare strumenti e, per un server remoto, hai acconsentito a inviare il contenuto delle pagine a modelli remoti.",
+        "same_as_run": "Lo stesso modello dell'esecuzione"
       }
+    },
+    "card": {
+      "title": "Esecuzione dell'agente",
+      "loading": "Caricamento dell'esecuzione…",
+      "missing": "Il registro di questa esecuzione non è più disponibile.",
+      "outcome": "{{met}} di {{total}} completate",
+      "outcome_visual_one": "{{count}} visto solo in uno screenshot, non confermato dal testo",
+      "outcome_visual_other": "{{count}} visti solo in uno screenshot, non confermati dal testo",
+      "continue": "Continua",
+      "retry": "Riprova",
+      "start_over": "Ricomincia",
+      "ask": "Chiedi a riguardo",
+      "step_count_one": "{{count}} passaggio",
+      "step_count_other": "{{count}} passaggi",
+      "page_count_one": "{{count}} pagina",
+      "page_count_other": "{{count}} pagine"
+    },
+    "follow_up": {
+      "continue_message": "Continua l’attività nel browser.",
+      "retry_message": "Riprova l’attività nel browser."
+    },
+    "paused_panel_closed": "In pausa perché il pannello laterale è stato chiuso. Riprendi quando vuoi.",
+    "approval_text": {
+      "accept_dialog": "Accetta la {{kind}} della pagina",
+      "accept_dialog_origin": "Accetta la {{kind}} di {{origin}}",
+      "dismiss_dialog": "Chiudi la {{kind}} della pagina",
+      "dismiss_dialog_origin": "Chiudi la {{kind}} di {{origin}}",
+      "dismiss_dialog_consequence": "Alla finestra viene comunicato che è stata chiusa e nulla viene confermato.",
+      "accept_dialog_consequence": "La pagina prosegue come se avessi premuto il suo pulsante di conferma, qualunque cosa faccia.",
+      "accept_leave_consequence": "La pagina può essere lasciata. Ciò che non è stato salvato va perso.",
+      "dialog_unreadable": "Il testo non è stato letto: la finestra appartiene a un frame che questa esecuzione non può leggere.",
+      "fill_fields": "Imposta campi del modulo in un solo passaggio: {{count}}",
+      "fill_fields_consequence": "Ogni controllo elencato viene impostato in ordine, fermandosi al primo che non si può impostare. L’agente non preme Invia, ma la pagina può inviare il modulo automaticamente o salvare le modifiche mentre scrivi.",
+      "adopt_tab": "Prendi la scheda «{{tab}}» su {{url}}",
+      "navigate": "Vai a {{url}}",
+      "navigate_consequence": "Il browser apre esattamente questo indirizzo: {{url}}",
+      "routine_follows": "Clic e digitazione su {{origin}} avverranno poi senza chiedere, come sul sito da cui è partita questa attività. L’invio di un modulo chiederà comunque.",
+      "no_submit_consequence": "Questo viene inserito nel controllo mostrato sotto. Non segue alcun invio, quindi una pagina che salva mentre scrivi può memorizzarlo subito.",
+      "command_consequence": "Il browser esegue questa azione sul controllo mostrato sotto.",
+      "prior_form": "Un’esecuzione precedente di questa attività ha già inviato questo modulo. Approva solo se si tratta di un nuovo invio e non dello stesso.",
+      "repeated_effect": "Questa esecuzione l’ha già fatto una volta, con lo stesso controllo su questa pagina. Approva solo se deve accadere di nuovo.",
+      "unknown_prior_effect": "Il registro delle azioni di questa esecuzione non è leggibile. Questa azione potrebbe ripetere un effetto precedente. Approva solo se ripeterla è sicuro.",
+      "adopt_untitled_tab": "Prendi una scheda su {{url}}"
+    },
+    "dialog_kind": {
+      "alert": "finestra di avviso",
+      "confirm": "finestra di conferma",
+      "prompt": "finestra di inserimento",
+      "beforeunload": "finestra di uscita dalla pagina",
+      "dialog": "finestra di dialogo"
+    },
+    "question_text": {
+      "completion_refused": "Non sono riuscito a confermare il risultato. L’attività è completata? In caso contrario, cosa devo fare adesso?",
+      "commands_refused": "L’ultima azione non è riuscita. Cosa dovrei provare invece?",
+      "no_progress": "Sto ripetendo azioni senza fare progressi. Cosa dovrei fare diversamente? Puoi anche fermarmi e completare tu l’attività.",
+      "recovery_tried_one": "Ho prima provato un altro approccio.",
+      "recovery_tried_other": "Ho prima provato {{count}} approcci diversi.",
+      "too_many_outcomes": "Questa attività chiede {{count}} risultati distinti e un'esecuzione può seguirne {{max}}. Quali deve svolgere questa esecuzione? Il resto può seguire in un'altra.",
+      "too_many_items": "Questa attività indica {{count}} righe o record e un'esecuzione può seguirne {{max}}. Quali deve svolgere questa esecuzione? Il resto può seguire in un'altra.",
+      "too_many_constraints": "Questa attività fissa {{count}} limiti distinti e un'esecuzione può tenerne {{max}}. Quali contano per questa esecuzione?",
+      "confirm_removal": "La tua risposta potrebbe significare che questa attività non richiede più: {{list}}. Rispondi sì per rimuovere, o no per tenere tutto.",
+      "confirm_lift": "La tua risposta potrebbe significare che questi limiti non valgono più: {{list}}. Rispondi «allow» per toglierli; qualsiasi altra risposta li mantiene."
+    },
+    "start_gate": {
+      "after_page": "Il modello ha letto il contenuto di una pagina prima di scrivere questa attività, quindi viene sempre chiesta conferma.",
+      "other_tab": "Questa attività viene eseguita in una scheda diversa da quella che stai guardando.",
+      "supervised": "L’agente lavora sulla pagina un passo alla volta e chiede prima di qualsiasi azione importante. Nel frattempo Chrome mostra un banner di debug.",
+      "routine": "Su questo sito, clic, digitazione e ricerche per questa attività vengono eseguiti senza chiedere di nuovo. Pubblicare o inviare altri moduli, accedere, pagare, eliminare e aprire altri siti richiedono ancora conferma.",
+      "experimental_model": "Le chiamate agli strumenti sono attive per questo modello perché le hai abilitate tu, non perché il modello le dichiari. Un modello che non sa chiamare strumenti non andrà lontano."
+    },
+    "steer": {
+      "label": "Guida l’agente",
+      "placeholder": "Correggilo senza metterlo in pausa…",
+      "send": "Invia all’agente",
+      "queued": "Inviato. L’agente lo leggerà al prossimo passaggio.",
+      "heard": "L’agente ha recepito la tua correzione."
+    },
+    "worker_lost": "L’esecuzione nel browser è stata interrotta. Per un ripristino sicuro servono la sessione del browser e la pagina autorizzate in origine; altrimenti riprendi manualmente.",
+    "unattended": {
+      "label": "Continuare questa attività con il pannello chiuso",
+      "help": "Riprendi dopo aver attivato questa opzione. Verranno usati le schede, i siti e il provider attuali. Le approvazioni, l’accesso e i CAPTCHA richiedono ancora il tuo intervento. Interrompi l’attività dal menu contestuale della pagina o con la scorciatoia da tastiera per arrestare l’agente. La chiusura del browser e la sospensione possono interrompere il lavoro.",
+      "active": "La continuazione con il pannello chiuso è attiva per questa attività. Le nuove attività richiedono un nuovo consenso.",
+      "decision_interrupted": "Questa decisione è ancora in attesa. Riprendi per ricontrollare la pagina e richiedere una nuova decisione:",
+      "scope_changed": "L’ambito dell’attività è cambiato. Rivedi il consenso a continuare con il pannello chiuso.",
+      "scope": "Schede: {{tabs}} · Fornitore: {{provider}} · Modello: {{model}}",
+      "stop_menu": "Arresta l’agente del browser"
     }
   },
   "common": {
@@ -243,7 +338,10 @@
     "name": "Ollama Client - Chat IA locale con Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
     "description": "Chat private con LLM tramite Ollama, LM Studio e llama.cpp, con RAG locale, ricerca web e contesto di pagina.",
-    "action_default_title": "Apri Ollama Client"
+    "action_default_title": "Apri Ollama Client",
+    "stop_browser_agent_menu": "Arresta l’agente del browser",
+    "agent_task_completed": "Completato",
+    "agent_task_attention": "In pausa"
   },
   "selection_button": {
     "label": "Chiedi al LLM locale",
@@ -356,7 +454,7 @@
     },
     "performance_notice": {
       "title": "Avviso di Prestazioni",
-      "message": "Questa estensione è un'interfaccia utente per il tuo provider locale (Ollama per impostazione predefinita). Il tempo di risposta e la qualità dell'output dipendono interamente dall'hardware del tuo dispositivo (CPU, RAM, GPU) e dal modello specifico utilizzato. L'estensione non esegue alcuna elaborazione."
+      "message": "Le risposte della chat provengono dal fornitore scelto. Gli embedding integrati vengono generati su questo dispositivo. La velocità dipende dal modello e dall’hardware utilizzato."
     }
   },
   "chat": {
@@ -416,7 +514,10 @@
       "generated_tokens": "Token generati",
       "load_time": "Tempo di caricamento",
       "prompt_eval_time": "Tempo val. prompt",
-      "speed_unit": "t/s"
+      "speed_unit": "t/s",
+      "cached_tokens": "Token del prompt in cache",
+      "reasoning_tokens": "Token di ragionamento",
+      "cost": "Costo"
     },
     "session_metrics": {
       "label_tokens": "Token",
@@ -477,7 +578,8 @@
         "results_other": "{{count}} risultati",
         "restoreSession": "Riapertura di una scheda chiusa",
         "list_reminders": "Elenco promemoria",
-        "cancel_reminder": "Annullamento promemoria"
+        "cancel_reminder": "Annullamento promemoria",
+        "browser_task": "Attività nel browser"
       },
       "debug": "Ragionamento di debug"
     },
@@ -607,7 +709,14 @@
       "manage": "Gestisci autorizzazioni",
       "not_granted": "L’autorizzazione non è stata concessa. Riprova o gestiscila nelle Impostazioni.",
       "resume_failed": "Impossibile continuare la richiesta. Riprova.",
-      "reminders": "Promemoria"
+      "reminders": "Promemoria",
+      "agent": {
+        "title": "L’agente del browser è disattivato",
+        "description": "Sembra un’attività nel browser. L’agente è sperimentale e funziona meglio con modelli ospitati.",
+        "enable": "Attiva e continua",
+        "continue_without": "Continua senza",
+        "manage": "Impostazioni agente"
+      }
     },
     "errors": {
       "unknown_error": "❌ Errore sconosciuto: {{message}}",
@@ -647,8 +756,11 @@
       "context_trimmed_title": "Contesto ridotto",
       "context_trimmed_description": "Il contesto estratto dalle schede superava il tuo limite ed è stato ridotto prima dell'invio.",
       "context_retrieval_warning_title": "Recupero del contesto non riuscito",
-      "context_retrieval_warning_description": "Non è stato possibile recuperare il contesto dai tuoi file. Si continua senza.",
-      "interrupted": "Risposta interrotta"
+      "context_retrieval_warning_description": "Non è stato possibile cercare in parte del contesto salvato. Nella risposta potrebbero mancare informazioni rilevanti.",
+      "interrupted": "Risposta interrotta",
+      "provider_auth": "Il provider ha negato l’accesso. Controlla la chiave API, le credenziali o i permessi dell’account nelle impostazioni prima di ricominciare.",
+      "provider_cors": "Il provider locale ha bloccato l’origine dell’estensione. Consenti chrome-extension://* e moz-extension://* nelle sue impostazioni CORS, poi riprova.",
+      "provider_refused": "Il modello ha rifiutato questa richiesta. Modifica l’attività o scegli un altro modello."
     },
     "composer": {
       "rag": "File",
@@ -661,11 +773,13 @@
       "tabs": "{{count}} schede",
       "files": "{{count}} file",
       "knowledge": "Conoscenza",
+      "images": "{{count}} immagini",
       "web": "Web",
       "rows": {
         "tabs": "Contesto di pagina e schede",
         "knowledge": "Cerca nei file caricati",
-        "web": "Ricerca web"
+        "web": "Ricerca web",
+        "agent": "Agente del browser (sperimentale)"
       }
     },
     "artifacts": {
@@ -732,6 +846,12 @@
       "max_file_size_description": "Dimensione massima consentita per i singoli file. I file più grandi potrebbero richiedere più tempo per l'elaborazione.",
       "max_image_size_label": "Dimensione massima immagine (MB)",
       "max_image_size_description": "Dimensione massima consentita per ogni immagine allegata a un messaggio per i modelli di visione."
+    },
+    "errors": {
+      "title": "Caricamento del file non riuscito",
+      "processing_failed": "Impossibile elaborare o indicizzare il file. Controlla le impostazioni degli embedding e lo spazio disponibile, poi riprova.",
+      "unsupported_type": "Il tipo di file di {{name}} non è supportato. Usa testo, PDF, DOCX, CSV/TSV o HTML.",
+      "too_large": "{{name}} supera la dimensione massima di {{max}} MB."
     }
   },
   "model": {
@@ -743,7 +863,11 @@
       "checking_model": "Verifica modello di embedding per RAG/ricerca in corso...",
       "error": "Impossibile verificare lo stato. Fai clic per riprovare.",
       "required_for_rag": "Il modello di embedding è richiesto per le funzionalità RAG.",
-      "download_button": "Scarica Modello"
+      "download_button": "Scarica Modello",
+      "unavailable": "Provider di embedding non disponibile. Controlla la connessione e riprova.",
+      "unverified": "Modello di embedding non verificato: questo provider non ha un elenco di modelli.",
+      "download_failed": "Download degli embedding non riuscito",
+      "download_failed_description": "Controlla la connessione al provider e lo spazio disponibile su disco, poi riprova."
     },
     "menu": {
       "select_placeholder": "Seleziona modello...",
@@ -753,6 +877,10 @@
       "search_placeholder": "Cerca modello...",
       "no_model_found": "Nessun modello trovato.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Modelli cloud di Ollama",
+        "description": "Modelli :cloud ospitati. Richiedono Ollama con accesso effettuato e spesso un piano a pagamento."
+      },
       "providers_unavailable": "{{names}} non ha restituito modelli. Controlla il provider nelle impostazioni o aggiungi gli ID modello manualmente.",
       "selection_conflict": "Scegli un provider per {{model}}: più di uno lo offre."
     },
@@ -800,6 +928,7 @@
     "embedding_config": {
       "title": "Modello di embedding, suddivisione, ricerca e archiviazione",
       "storage_stats_title": "Statistiche di Archiviazione",
+      "storage_stats_description": "Statistiche attuali sull’uso dello spazio dei vettori",
       "total_vectors": "Vettori Totali",
       "storage_used": "Spazio Utilizzato",
       "cache": "Cache",
@@ -1004,7 +1133,9 @@
       "all_sessions_title": "Tutte le sessioni",
       "role_user": "Tu",
       "role_assistant": "Assistente IA",
-      "remote_image_blocked": "Immagine remota bloccata"
+      "remote_image_blocked": "Immagine remota bloccata",
+      "role_agent": "Agente",
+      "agent_no_result": "L'esecuzione dell'agente non ha registrato alcun risultato."
     },
     "actions": {
       "more": "Altre azioni per {{title}}",
@@ -1373,6 +1504,7 @@
       "prompts": "Libreria di prompt",
       "models": "Comportamento del modello",
       "extraction": "Pagina e schede",
+      "agent": "Agente",
       "context": "Conoscenza e web",
       "embeddings": "Conoscenza salvata",
       "providers": "Provider",
@@ -1601,6 +1733,34 @@
         "description": "Cambiare il modello di embedding può rendere incompatibili i vettori esistenti. Ricostruisci l'indice per mantenere risultati accurati, oppure cambia senza ricostruire.",
         "switch_only": "Cambia senza ricostruire",
         "switch_and_rebuild": "Cambia e ricostruisci"
+      },
+      "bundled": {
+        "provider_hint": "Scegli un modello di embedding di Ollama, LM Studio, llama.cpp o di un altro fornitore locale o ospitato. Le lingue supportate dipendono dal modello scelto.",
+        "mode_title": "Modalità embedding",
+        "mode_bundled": "Integrata",
+        "mode_external": "Embedding del fornitore",
+        "mode_bundled_help": "MiniLM funziona nell’estensione. Non serve un server.",
+        "mode_external_help": "Usa Ollama, LM Studio, llama.cpp o un fornitore locale o ospitato.",
+        "switch_builtin": "Passa alla modalità integrata",
+        "switch_server": "Passa agli embedding del fornitore",
+        "mode_language_hint": "MiniLM integrato funziona nell’estensione ed è più adatto all’inglese. Per altre lingue puoi provarlo o scegliere un modello multilingue di un fornitore.",
+        "settings_description": "Scegli come preparare file e ricordi delle chat per la ricerca.",
+        "current_bundled": "In uso: MiniLM integrato · su questo dispositivo",
+        "current_external": "Modalità attiva: embedding del fornitore",
+        "server_model": "Modello di embedding del fornitore",
+        "switch_hint": "Il passaggio ricostruisce gli embedding salvati. La configurazione attuale resta attiva fino al completamento.",
+        "title": "Embedding integrati",
+        "active": "Gli embedding vengono generati localmente con MiniLM incluso, più adatto all’inglese. Non servono server o download. Per la ricerca multilingue, seleziona un fornitore e un modello esterni qui sotto, poi ricostruisci l’indice per passare al nuovo modello.",
+        "offer": "Sono disponibili gli embedding integrati. Migra gli embedding salvati oppure mantieni il server e il modello attuali.",
+        "details": "La migrazione ricostruisce gli embedding salvati di file, pagine e chat su questo dispositivo. Richiede spazio temporaneo per una copia delle fonti e il nuovo indice. L’indice attuale resta attivo fino al completamento. Continua anche se chiudi questa finestra o il pannello laterale, e riprende dopo il riavvio del browser.",
+        "progress": "Ricostruzione di {{current}} embedding su {{total}}",
+        "changed": "La configurazione degli embedding è cambiata o i vettori preparati sono incompatibili. L’indice attuale resta attivo. Riavvia la migrazione.",
+        "error": "Impossibile completare la migrazione. Gli embedding attuali restano attivi. Controlla il fornitore, la connessione e lo spazio disponibile, poi riprendi o annulla.",
+        "resume": "Riprendi migrazione",
+        "migrate": "Migra agli embedding integrati",
+        "keep": "Mantieni configurazione attuale",
+        "language_notice": "MiniLM è consigliato per testi in inglese. Per altre lingue, usa un modello di embedding su server per migliorare la ricerca. Puoi comunque provare MiniLM e tornare indietro nelle impostazioni.",
+        "external": "Ricostruisci con il modello esterno selezionato"
       }
     },
     "prompts": {
@@ -2216,7 +2376,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Aggiorna modelli",
+      "use_unverified": "Prova questo modello"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2247,7 +2409,8 @@
         "timeout": "Il provider impiega troppo tempo. Controlla che sia attivo e che la porta sia corretta.",
         "unavailable": "Ollama non è raggiungibile. Potrebbe essere fermo, su un’altra porta o bloccare le origini dell’estensione.",
         "server-error": "Il provider ha restituito un errore server. Controlla i log e riprova."
-      }
+      },
+      "unverified": "Connessione non verificata. Puoi provare un modello configurato o aprire le impostazioni del provider per controllare l’endpoint."
     }
   }
 }

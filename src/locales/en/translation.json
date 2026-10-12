@@ -8,7 +8,7 @@
       "scroll_down": "Scroll down",
       "scroll_left": "Scroll left",
       "scroll_right": "Scroll right",
-      "switch_tab": "Switch to tab {{tab}}",
+      "switch_tab": "Switch to another tab",
       "wait": "Wait for {{condition}}",
       "clear_and_type": "Replace text in field",
       "press_key": "Press {{key}}",
@@ -24,43 +24,51 @@
       "double_click": "Double-click control",
       "click_point": "Click at a point in the screenshot",
       "zoom": "Zoom into the screenshot",
+      "look": "Take a fresh screenshot",
       "hover": "Hover over control",
       "read": "Read page",
       "inspect": "Inspect {{region}}",
       "find": "Find “{{query}}”",
       "extract_text": "Read page text",
       "handle_dialog_accept": "Accept the page’s dialog",
-      "handle_dialog_dismiss": "Dismiss the page’s dialog"
+      "handle_dialog_dismiss": "Dismiss the page’s dialog",
+      "fill_form": "Fill form fields: {{count}}",
+      "extract": "Look up on the page: {{count}}",
+      "call_page_tool": "Use the page’s tool “{{tool}}”"
     },
     "approval": {
       "title": "Approval required",
+      "risk": {
+        "low": "Low risk",
+        "medium": "Medium risk",
+        "high": "High risk",
+        "critical": "Critical risk"
+      },
       "allow": "Allow once",
       "reject": "Reject",
       "allowForRun": "Always allow this kind of action on {{origin}} for this run"
     },
-    "attachment": {
-      "title": "What this browser allows",
-      "attaches": "Starting a run attaches Chrome's debugger to the tab you choose. Chrome shows its own banner while it is attached, and the run detaches when it stops, pauses for you to take over, or finishes.",
-      "no_debugger": "This browser has no debugger, so the run drives pages through the extension's content scripts instead."
-    },
     "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",
-    "completion": {
-      "summary": "{{count}} page observations were sent to {{provider}} during this run."
-    },
     "controls": {
       "label": "Agent controls",
       "pause": "Pause",
       "resume": "Resume",
       "stop": "Stop",
+      "takeover_start": "I’ll do this step",
       "takeover_done": "I’m done — continue"
     },
     "error": {
       "already_running": "An Agent run is already in progress.",
       "browser_control_unavailable": "Agent could not attach browser control. Close DevTools or another debugger and try again.",
-      "permission_denied": "Agent needs page-observation permission before it can start.",
+      "follow_up_unavailable": "That run can no longer be continued from here. Start over to set the task again.",
+      "permission_denied": "Agent can’t observe pages in this browser.",
       "tab_unsupported": "Agent cannot run on this page. Open a normal web page and try again.",
       "unreadable_update": "The panel received an update it could not read.",
-      "unknown": "Agent could not complete that request."
+      "unknown": "Agent could not complete that request.",
+      "disconnected": "Agent was reconnecting and didn’t receive that. Try again.",
+      "turn_has_run": "This message already started a browser task.",
+      "steer_unavailable": "The run is not working right now, so it could not take that. Pause it and correct it instead.",
+      "consent_stale": "The run moved on since that choice was shown, so it was not saved. Check the run and choose again."
     },
     "failure": {
       "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",
@@ -75,28 +83,15 @@
       "verification_failed": "The run could not confirm what its last action did. Check the page before starting again.",
       "unknown": "The run stopped for a reason it could not name. Check the page, then start again."
     },
-    "feedback": "Send feedback",
-    "limits": {
-      "no_native_input": "Pointer and keyboard input is synthetic, so a page that only reacts to real input may not respond.",
-      "no_screenshots": "No screenshots are taken, so a task that can only be done by looking at the page will not work.",
-      "no_dialogs": "Native alert, confirm and prompt dialogs cannot be seen or answered by the run."
-    },
     "model": {
       "label": "Model"
     },
     "observations": "{{count}} observations",
     "privacy": {
       "remote_notice": "Page observations will be sent continuously to this remote provider while Agent runs.",
-      "acknowledge": "I understand",
       "remote_notice_screenshots": "Page observations and viewport screenshots will be sent continuously to this remote provider while Agent runs."
     },
     "progress": "{{count}} of {{budget}} observations",
-    "provider": {
-      "label": "Provider",
-      "local": "Local",
-      "remote": "Remote",
-      "missing": "Select a model first"
-    },
     "question": {
       "title": "Agent needs an answer",
       "inputLabel": "Your answer",
@@ -108,14 +103,6 @@
       "sent": "Viewport screenshots are sent to the model",
       "unused": "Not used with a text-only model",
       "unknown": "Not determined yet"
-    },
-    "start": {
-      "description": "Supervise a browser task from this panel.",
-      "goal": "What should Agent do?",
-      "placeholder": "Describe one browser task…",
-      "action": "Start Agent",
-      "auto_actions": "Allow routine actions for this task",
-      "auto_actions_description": "Clicks and typing on this site run automatically. Posting, deleting, new sites and sensitive steps still ask."
     },
     "status": {
       "submitted": "Starting",
@@ -142,42 +129,53 @@
       "verified": "Verified",
       "rejected": "Rejected",
       "failed": "Failed",
-      "uncertain": "Review"
-    },
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agent",
-      "preview": "Preview"
+      "uncertain": "Review",
+      "dialog_opened": "Dialog opened"
     },
     "tab": {
       "label": "Controlled tab",
-      "missing": "Open a supported web page"
+      "missing": "Open a supported web page",
+      "show": "Show this tab"
     },
     "tabs": {
       "label": "Controlled tabs",
-      "count": "{{count}} tabs"
+      "count_one": "{{count}} tab",
+      "count_other": "{{count}} tabs"
     },
     "takeover": {
-      "title": "Take over this step"
+      "title": "Take over this step",
+      "instruction": {
+        "file_upload": "Take control of the page, choose the file yourself, then continue.",
+        "sensitive_step": "Take control of the page, complete the sensitive step yourself, then continue."
+      }
     },
-    "title": "Supervised Agent",
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
     "unresolved_reviewed": "I've reviewed the page — continue",
+    "unresolved_done": "It's done — finish",
     "work_log": {
+      "action_needs_review": "This step needs review.",
       "title": "Work log",
-      "target": "“{{name}}”"
+      "target": "“{{name}}”",
+      "reasoning": "Reasoning"
     },
     "correction": "Paused. Describe what should change, then continue.",
-    "export_report": "Export run report (includes page text)",
-    "running_goal": "Working on",
-    "requirements": {
-      "title": "What the task asked for",
-      "met": "Done",
-      "unmet": "Not done"
+    "experimental_badge": "Experimental",
+    "announcement": {
+      "title": "Experimental: a browser agent in chat",
+      "description": "Your chat model can now carry out tasks in your tabs, clicking, typing and moving between pages for you. It is off until you turn it on.",
+      "hosted_models": "It works best with capable hosted models (for example through OpenRouter or a cloud provider). Small local models often can't finish a multi-step task.",
+      "approvals": "It asks before submitting forms, signing in, paying or deleting anything, and you can stop it at any time.",
+      "coming": "This is an early version. Expect rough edges; more improvements are coming in the next releases.",
+      "later": "Maybe later",
+      "enable": "Turn on agent"
     },
     "settings": {
       "title": "Browser agent",
-      "description": "How much context a run may ask its model for, and when it pictures the page.",
+      "description": "What a run may do without asking, how much context it may ask its model for, and when it pictures the page.",
+      "enabled": {
+        "label": "Let the chat model use the browser agent",
+        "description": "Offers browser_task, which lets the model click, type and navigate in your tabs for you. Experimental: how well it works varies a lot between models."
+      },
       "context_window": {
         "label": "Context window",
         "description": "Automatic reads the smallest window this model and this server both report, and falls back to a conservative size when neither says. Set a size yourself if you have raised your server's own limit, or if a run has run out of memory.",
@@ -190,7 +188,104 @@
         "auto": "When the step needs one",
         "always": "Every step",
         "never": "Never"
+      },
+      "permission_mode": {
+        "label": "Routine actions",
+        "description": "Whether each new run may click and type on the site it starts on without asking. Submitting, deleting, signing in, paying and new sites are always asked about, and nothing carries over to the next run.",
+        "allow_routine": "Allow on the starting site",
+        "approve_each": "Approve each action"
+      },
+      "completion_reviewer": {
+        "label": "Completion reviewer",
+        "description": "When a run claims something the built-in checks cannot confirm, this model reads the run's grounded evidence and says whether it supports the claim. It never acts in the browser. A different model is sent that evidence only if it is enabled, can call tools, and, for a remote server, you have agreed to send page content to remote models.",
+        "same_as_run": "Same model as the run"
       }
+    },
+    "card": {
+      "title": "Agent run",
+      "loading": "Loading the run…",
+      "missing": "This run's record is no longer available.",
+      "outcome": "{{met}} of {{total}} done",
+      "outcome_visual_one": "{{count}} seen only in a screenshot, not confirmed from page text",
+      "outcome_visual_other": "{{count}} seen only in a screenshot, not confirmed from page text",
+      "continue": "Continue",
+      "retry": "Retry",
+      "start_over": "Start over",
+      "ask": "Ask about it",
+      "step_count_one": "{{count}} step",
+      "step_count_other": "{{count}} steps",
+      "page_count_one": "{{count}} page",
+      "page_count_other": "{{count}} pages"
+    },
+    "follow_up": {
+      "continue_message": "Continue the browser task.",
+      "retry_message": "Try the browser task again."
+    },
+    "paused_panel_closed": "Paused because the side panel closed. Resume when you’re ready.",
+    "approval_text": {
+      "accept_dialog": "Accept the page’s {{kind}}",
+      "accept_dialog_origin": "Accept the {{kind}} from {{origin}}",
+      "dismiss_dialog": "Dismiss the page’s {{kind}}",
+      "dismiss_dialog_origin": "Dismiss the {{kind}} from {{origin}}",
+      "dismiss_dialog_consequence": "The dialog is told it was dismissed, and nothing is confirmed.",
+      "accept_dialog_consequence": "The page continues as if you pressed its confirm button, whatever that does.",
+      "accept_leave_consequence": "The page is allowed to leave. Anything it hasn’t saved is lost.",
+      "dialog_unreadable": "Its text wasn’t read: the dialog belongs to a frame this run isn’t allowed to read.",
+      "fill_fields": "Set form fields in one step: {{count}}",
+      "fill_fields_consequence": "Each control listed below is set in order, stopping at the first one that can’t be set. Agent does not press Submit, but the page may submit automatically or save changes as you type.",
+      "adopt_tab": "Take over the tab “{{tab}}” at {{url}}",
+      "navigate": "Go to {{url}}",
+      "navigate_consequence": "The browser opens this exact address: {{url}}",
+      "routine_follows": "Clicks and typing on {{origin}} will then run without asking, as on the site this task started on. Submitting a form still asks.",
+      "no_submit_consequence": "This is entered into the control shown below. No submit step follows, so a page that saves as you type may store it right away.",
+      "command_consequence": "The browser performs this action on the control shown below.",
+      "prior_form": "An earlier run in this task already sent this form. Approve only if this is a new submission, not the same one again.",
+      "repeated_effect": "This run already did this once, with the same control on this page. Approve only if it should happen again.",
+      "unknown_prior_effect": "This run’s action record could not be read. This action may repeat an earlier effect. Approve only if repeating it is safe.",
+      "adopt_untitled_tab": "Take over a tab at {{url}}"
+    },
+    "dialog_kind": {
+      "alert": "alert",
+      "confirm": "confirmation dialog",
+      "prompt": "input dialog",
+      "beforeunload": "leave-page dialog",
+      "dialog": "dialog"
+    },
+    "question_text": {
+      "completion_refused": "I couldn’t confirm the result. Is the task done? If not, what should I do next?",
+      "commands_refused": "The last action could not run. What should I try instead?",
+      "no_progress": "I’m repeating actions without making progress. What should I do differently? You can also stop and finish the task yourself.",
+      "recovery_tried_one": "I tried one other approach first.",
+      "recovery_tried_other": "I tried {{count}} other approaches first.",
+      "too_many_outcomes": "This task asks for {{count}} separate outcomes, and one run can track {{max}}. Which should this run do? The rest can follow in another run.",
+      "too_many_items": "This task names {{count}} rows or records, and one run can track {{max}}. Which should this run do? The rest can follow in another run.",
+      "too_many_constraints": "This task sets {{count}} separate limits, and one run can hold {{max}}. Which of them matter for this run?",
+      "confirm_removal": "Your answer may mean this task no longer needs: {{list}}. Reply yes to remove, or no to keep everything.",
+      "confirm_lift": "Your answer may mean these limits no longer apply: {{list}}. Reply allow to lift them; anything else keeps them."
+    },
+    "start_gate": {
+      "after_page": "The model read page content before writing this task, so it is always asked about.",
+      "other_tab": "This task runs on a different tab from the one you are looking at.",
+      "supervised": "The agent works on the page step by step and asks before anything consequential. Chrome shows a debugging banner while it works.",
+      "routine": "On this site, clicks, typing and searches for this task run without asking again. Posting or sending other forms, signing in, paying, deleting and opening other sites still ask.",
+      "experimental_model": "Tool calling is on for this model because you set it, not because the model reported it. A model that cannot call tools will not get far."
+    },
+    "steer": {
+      "label": "Steer the agent",
+      "placeholder": "Correct it without pausing…",
+      "send": "Send to the agent",
+      "queued": "Sent. The agent reads it at its next step.",
+      "heard": "The agent has taken your correction."
+    },
+    "worker_lost": "Browser execution was interrupted. Safe recovery requires the original authorized browser session and page; otherwise resume manually.",
+    "unattended": {
+      "label": "Continue this task with the panel closed",
+      "help": "Resume after enabling. Uses the current tabs, sites and provider. Approvals, sign-in and CAPTCHA still require you. Stop from the page context menu or the Stop agent keyboard shortcut. Browser shutdown and sleep can interrupt work.",
+      "active": "Panel-close continuation enabled for this task. New tasks require new consent.",
+      "decision_interrupted": "This human decision is still unanswered. Resume to recheck the page and request a fresh decision:",
+      "scope_changed": "Task scope changed. Review panel-close consent before continuing.",
+      "scope": "Tabs: {{tabs}} · Provider: {{provider}} · Model: {{model}}",
+      "stop_menu": "Stop browser agent"
     }
   },
   "common": {
@@ -243,7 +338,10 @@
     "name": "Ollama Client - Local AI Chat for Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
     "description": "Local-first private LLM chat with Ollama, LM Studio, and llama.cpp, with local RAG, web search, and page context.",
-    "action_default_title": "Open Ollama Client"
+    "action_default_title": "Open Ollama Client",
+    "stop_browser_agent_menu": "Stop browser agent",
+    "agent_task_completed": "Completed",
+    "agent_task_attention": "Paused"
   },
   "selection_button": {
     "label": "Ask Local LLM",
@@ -356,7 +454,7 @@
     },
     "performance_notice": {
       "title": "Performance Notice",
-      "message": "This extension is a user interface for your local provider (Ollama by default). Response time and model output quality depend entirely on your device's hardware (CPU, RAM, GPU) and the specific model you're using. No processing is done by the extension itself."
+      "message": "Chat answers come from your chosen provider. Built-in embeddings run on this device. Speed depends on the model and the hardware running it."
     }
   },
   "chat": {
@@ -449,7 +547,10 @@
       "generated_tokens": "Generated Tokens",
       "load_time": "Load Time",
       "prompt_eval_time": "Prompt Eval Time",
-      "speed_unit": "t/s"
+      "speed_unit": "t/s",
+      "cached_tokens": "Cached Prompt Tokens",
+      "reasoning_tokens": "Reasoning Tokens",
+      "cost": "Cost"
     },
     "session_metrics": {
       "label_tokens": "Tokens",
@@ -511,7 +612,8 @@
         "previous_conversation": "Previous conversation",
         "memory": "Memory",
         "results_one": "{{count}} result",
-        "results_other": "{{count}} results"
+        "results_other": "{{count}} results",
+        "browser_task": "Browser task"
       }
     },
     "feedback": {
@@ -640,7 +742,14 @@
       "manage": "Manage permissions",
       "not_granted": "Permission was not granted. You can try again or manage it in Settings.",
       "resume_failed": "Couldn’t continue the request. Try again.",
-      "reminders": "Reminders"
+      "reminders": "Reminders",
+      "agent": {
+        "title": "The browser agent is off",
+        "description": "This looks like a task in the browser. The agent is experimental and works best with hosted models.",
+        "enable": "Turn on and continue",
+        "continue_without": "Continue without",
+        "manage": "Agent settings"
+      }
     },
     "errors": {
       "unknown_error": "❌ Unknown error: {{message}}",
@@ -680,8 +789,11 @@
       "context_trimmed_title": "Context trimmed",
       "context_trimmed_description": "Extracted tab context exceeded your limit and was trimmed before sending.",
       "context_retrieval_warning_title": "Context retrieval failed",
-      "context_retrieval_warning_description": "Couldn't retrieve context from your files. Continuing without it.",
-      "interrupted": "Response interrupted"
+      "context_retrieval_warning_description": "Some saved context could not be searched. The answer may be missing relevant information.",
+      "interrupted": "Response interrupted",
+      "provider_auth": "The provider rejected access. Check its API key, credentials or account permissions in Settings before starting again.",
+      "provider_cors": "The local provider blocked the extension origin. Allow chrome-extension://* and moz-extension://* in its CORS settings, then try again.",
+      "provider_refused": "The model refused this request. Adjust the task or choose a different model."
     },
     "composer": {
       "rag": "Files",
@@ -694,11 +806,13 @@
       "tabs": "{{count}} tabs",
       "files": "{{count}} files",
       "knowledge": "Knowledge",
+      "images": "{{count}} images",
       "web": "Web",
       "rows": {
         "tabs": "Page & tab context",
         "knowledge": "Search uploaded files",
-        "web": "Web search"
+        "web": "Web search",
+        "agent": "Browser agent (experimental)"
       }
     },
     "artifacts": {
@@ -732,6 +846,12 @@
       "max_file_size_description": "Maximum allowed size for individual files. Larger files may take longer to process.",
       "max_image_size_label": "Maximum Image Size (MB)",
       "max_image_size_description": "Maximum allowed size for each image attached to a message for vision models."
+    },
+    "errors": {
+      "title": "File upload failed",
+      "processing_failed": "Could not process or index this file. Check embedding settings and available storage, then retry.",
+      "unsupported_type": "The file type of {{name}} is not supported. Use text, PDF, DOCX, CSV/TSV, or HTML.",
+      "too_large": "{{name}} exceeds the maximum file size of {{max}} MB."
     }
   },
   "model": {
@@ -743,7 +863,11 @@
       "checking_model": "Checking RAG/search embedding model...",
       "error": "Unable to check status. Click to retry.",
       "required_for_rag": "The embedding model is required for RAG features.",
-      "download_button": "Download Model"
+      "download_button": "Download Model",
+      "unavailable": "Embedding provider unavailable. Check the connection and try again.",
+      "unverified": "Embedding model not verified: this provider has no model list.",
+      "download_failed": "Embedding download failed",
+      "download_failed_description": "Check the provider connection and available disk space, then retry."
     },
     "menu": {
       "select_placeholder": "Select model...",
@@ -753,6 +877,10 @@
       "search_placeholder": "Search model...",
       "no_model_found": "No model found.",
       "cloud_badge": "Cloud{{plan}}",
+      "cloud_models": {
+        "label": "Ollama cloud models",
+        "description": "Hosted :cloud models. Need a signed-in Ollama and often a paid plan."
+      },
       "providers_unavailable": "{{names}} returned no models. Check the provider in settings, or add model IDs manually.",
       "selection_conflict": "Pick a provider for {{model}} — more than one serves it."
     },
@@ -847,6 +975,7 @@
     "embedding_config": {
       "title": "Embedding model, chunking, search and storage",
       "storage_stats_title": "Storage Statistics",
+      "storage_stats_description": "Current vector storage usage statistics",
       "total_vectors": "Total Vectors",
       "storage_used": "Storage Used",
       "cache": "Cache",
@@ -1004,7 +1133,9 @@
       "all_sessions_title": "All Chat Sessions",
       "role_user": "You",
       "role_assistant": "AI Assistant",
-      "remote_image_blocked": "Remote image blocked"
+      "remote_image_blocked": "Remote image blocked",
+      "role_agent": "Agent",
+      "agent_no_result": "The agent run recorded no result."
     },
     "actions": {
       "more": "More actions for {{title}}",
@@ -1379,6 +1510,7 @@
       "prompts": "Prompt library",
       "models": "Model behavior",
       "extraction": "Page & tabs",
+      "agent": "Agent",
       "context": "Knowledge & web",
       "embeddings": "Saved knowledge",
       "providers": "Providers",
@@ -1811,6 +1943,34 @@
         "description": "Changing embedding models can make existing vectors incompatible. Rebuild the index to keep search results accurate, or switch without rebuilding.",
         "switch_only": "Switch Without Rebuild",
         "switch_and_rebuild": "Switch & Rebuild"
+      },
+      "bundled": {
+        "provider_hint": "Choose an embedding model from Ollama, LM Studio, llama.cpp, or another local or hosted provider. Language support depends on the model you choose.",
+        "mode_title": "Embedding mode",
+        "mode_bundled": "Built-in",
+        "mode_external": "Provider embeddings",
+        "mode_bundled_help": "MiniLM runs in the extension. No server needed.",
+        "mode_external_help": "Use Ollama, LM Studio, llama.cpp, or a local or hosted provider.",
+        "switch_builtin": "Switch to built-in mode",
+        "switch_server": "Switch to provider embeddings",
+        "mode_language_hint": "Built-in MiniLM runs in the extension and works best with English. For other languages, you can try it or choose a multilingual model from a provider.",
+        "settings_description": "Choose how files and chat memories are prepared for search.",
+        "current_bundled": "Currently using: built-in MiniLM · on this device",
+        "current_external": "Active mode: provider embeddings",
+        "server_model": "Provider embedding model",
+        "switch_hint": "Switching rebuilds your saved embeddings. Your current setup stays active until the rebuild finishes.",
+        "title": "Built-in embeddings",
+        "active": "Embeddings run locally with the included MiniLM model, best suited to English. No server or download is needed. For multilingual retrieval, select an external provider and model below, then rebuild the index to switch.",
+        "offer": "Built-in embeddings are now available. Migrate your saved embeddings, or keep your current server and model.",
+        "details": "Migration rebuilds saved file, page and chat embeddings on this device. It needs temporary storage for a source snapshot and replacement index. Your current index stays active until the rebuild succeeds. It keeps running if you close this dialog or the side panel, and continues after a browser restart.",
+        "progress": "Rebuilding {{current}} of {{total}} embeddings",
+        "changed": "The embedding configuration changed or staged vectors are incompatible. Your current index remains active. Restart the migration.",
+        "error": "Migration could not finish. Your current embeddings remain active. Check the selected provider, connection and available storage, then resume or cancel.",
+        "resume": "Resume migration",
+        "migrate": "Migrate to built-in embeddings",
+        "keep": "Keep current setup",
+        "language_notice": "MiniLM is recommended for English text. For other languages, use a server-backed embedding model for better retrieval. You can still try MiniLM and switch back in Settings.",
+        "external": "Rebuild with selected external model"
       }
     },
     "prompts": {
@@ -2216,7 +2376,9 @@
       "description": "Embedding-only models are hidden. You can change this choice later.",
       "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
       "placeholder": "Select a model",
-      "use": "Use this model"
+      "use": "Use this model",
+      "refresh": "Refresh models",
+      "use_unverified": "Try this model"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2247,7 +2409,8 @@
         "timeout": "Provider took too long to respond. Check that it is running and the port is correct.",
         "unavailable": "Could not reach Ollama. It may be stopped, on another port, or blocking extension origins.",
         "server-error": "Provider returned a server error. Check its logs, then retry."
-      }
+      },
+      "unverified": "Connection not verified. You can try a configured model, or open provider setup to check the endpoint."
     }
   }
 }

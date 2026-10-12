@@ -57,6 +57,24 @@ const requestApiPermissions = async (
   }
 }
 
+/**
+ * Whether this build lists the permission as optional, so a user can grant and
+ * revoke it. A permission this browser requires at install cannot be removed —
+ * `permissions.remove` rejects it — so it has no switch to show.
+ */
+export const isOptionalPermission = (
+  permission: OptionalApiPermission
+): boolean => {
+  try {
+    const optional = (
+      browser.runtime.getManifest() as { optional_permissions?: unknown[] }
+    ).optional_permissions
+    return Array.isArray(optional) && optional.includes(permission)
+  } catch {
+    return false
+  }
+}
+
 /** Is the optional permission currently granted? Never throws. */
 export const hasPermission = async (
   perm: OptionalApiPermission
@@ -70,12 +88,13 @@ export const requestPermission = async (
   perm: OptionalApiPermission
 ): Promise<boolean> => requestPermissions([perm])
 
-/** User-gesture entrypoint for enabling the Chromium Agent perception path. */
+/**
+ * Is the Chromium Agent perception path available? `webNavigation` is an
+ * install-time permission there, so this is false only on a browser that never
+ * declared it — never a prompt to answer.
+ */
 export const hasAgentPerceptionPermission = (): Promise<boolean> =>
   hasApiPermission("webNavigation")
-
-export const requestAgentPerceptionPermission = (): Promise<boolean> =>
-  requestApiPermissions(["webNavigation"])
 
 /** Request several related optional permissions from one user gesture. */
 export const requestPermissions = async (

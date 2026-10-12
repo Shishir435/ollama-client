@@ -99,6 +99,35 @@ describe("UnifiedSourcesButton", () => {
     expect(screen.getByText("Also found (1)")).toBeInTheDocument()
   })
 
+  it("lists a provider's own web citations with the app's web results", () => {
+    render(
+      <UnifiedSourcesButton
+        toolRuns={
+          [
+            {
+              toolId: "web_search",
+              category: "web",
+              sources: [{ title: "News", url: "https://news.test", used: true }]
+            }
+          ] as never
+        }
+        webCitations={[
+          { url: "https://news.test", title: "Duplicate of a listed result" },
+          { url: "https://nodejs.org/en", title: "Node.js" },
+          { url: "https://untitled.test/page" }
+        ]}
+      />
+    )
+
+    expect(screen.getByText("Sources (3)")).toBeInTheDocument()
+    expect(screen.getByText("Web (3)")).toBeInTheDocument()
+    expect(screen.getByText("Node.js")).toBeInTheDocument()
+    expect(screen.getByText("https://untitled.test/page")).toBeInTheDocument()
+    expect(
+      screen.queryByText("Duplicate of a listed result")
+    ).not.toBeInTheDocument()
+  })
+
   it("translates app-generated chunk titles and leaves content titles alone", () => {
     render(
       <UnifiedSourcesButton

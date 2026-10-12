@@ -22,7 +22,10 @@ export interface ChatMessageListProps {
   onUpdateMessage: (message: ChatMessage, content: string) => void
   onForkMessage: (message: ChatMessage, content: string) => void
   onDeleteMessage: (message: ChatMessage) => void
-  onResolvePermission: (message: ChatMessage) => Promise<PermissionResumeResult>
+  onResolvePermission: (
+    message: ChatMessage,
+    enable?: boolean
+  ) => Promise<PermissionResumeResult>
   onNavigate?: (nodeId: number | string) => void
   hasMore: boolean
   onLoadMore: () => void
@@ -197,7 +200,7 @@ export const ChatMessageList = ({
                   onDelete={() => onDeleteMessage(msg)}
                   onResolvePermission={
                     msg.metrics?.permissionNotice
-                      ? () => onResolvePermission(msg)
+                      ? (enable?: boolean) => onResolvePermission(msg, enable)
                       : undefined
                   }
                   onNavigate={onNavigate}

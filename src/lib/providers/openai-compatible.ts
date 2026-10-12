@@ -11,6 +11,7 @@ import {
   providerErrorUserMessage,
   readProviderStreamChunk,
   throwProviderConnectionError,
+  throwProviderRefusal,
   throwProviderResponseError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
@@ -47,6 +48,7 @@ import {
   ProviderId,
   ProviderServiceProfile
 } from "./types"
+import { readUrlCitations } from "./url-citations"
 
 const isCatalogRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -413,6 +415,37 @@ const streamErrorStatus = (error: unknown): number | undefined => {
   if (kind.includes("rate_limit")) return 429
   if (kind.includes("overload")) return 529
   return undefined
+}
+
+const positiveNumber = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined
+
+/**
+ * The parts of an OpenAI `usage` object beyond the two totals: cached prompt
+ * tokens and reasoning tokens from the `*_details` objects, and OpenRouter's
+ * `cost`, which the olc proxy also fills with its runtime's estimate. Each is
+ * read only when present; a server that omits them reports nothing extra.
+ */
+const usageDetails = (
+  usage: Record<string, unknown>
+): Pick<
+  NonNullable<ChatStreamMessage["metrics"]>,
+  "prompt_cached_count" | "reasoning_count" | "cost_usd"
+> => {
+  const cached = positiveNumber(
+    asRecord(usage.prompt_tokens_details)?.cached_tokens
+  )
+  const reasoning = positiveNumber(
+    asRecord(usage.completion_tokens_details)?.reasoning_tokens
+  )
+  const cost = positiveNumber(usage.cost)
+  return {
+    ...(cached !== undefined ? { prompt_cached_count: cached } : {}),
+    ...(reasoning !== undefined ? { reasoning_count: reasoning } : {}),
+    ...(cost !== undefined ? { cost_usd: cost } : {})
+  }
 }
 
 const streamErrorRetryAfter = (error: unknown): number | undefined => {
@@ -800,6 +833,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
               .object({
                 delta: z
                   .object({
+                    refusal: z.unknown().optional(),
                     content: z.unknown().optional(),
                     images: z.unknown().optional(),
                     reasoning: z.string().optional(),
@@ -807,7 +841,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
                     thinking: z.string().optional(),
                     thoughts: z.string().optional(),
                     reasoning_details: z.array(z.unknown()).optional(),
-                    tool_calls: z.array(z.unknown()).optional()
+                    tool_calls: z.array(z.unknown()).optional(),
+                    annotations: z.unknown().optional()
+                  })
+                  .passthrough()
+                  .optional(),
+                /** Some servers attach the final annotations to `message`. */
+                message: z
+                  .object({
+                    annotations: z.unknown().optional(),
+                    refusal: z.unknown().optional()
                   })
                   .passthrough()
                   .optional(),
@@ -958,6 +1001,21 @@ export class OpenAICompatibleProvider implements LLMProvider {
       if (generatedImages.length > 0) onChunk({ generatedImages, done: false })
     }
 
+    /**
+     * Sent as they arrive, on a non-terminal chunk: the tool loops keep only
+     * metrics and replay state from a provider's done chunk, so anything
+     * riding on it would be lost. The reducer merges repeats.
+     */
+    const collectCitations = (
+      choice: NonNullable<OpenAiSseData["choices"]>[number] | undefined
+    ): void => {
+      const webCitations = readUrlCitations(
+        choice?.delta?.annotations,
+        choice?.message?.annotations
+      )
+      if (webCitations.length > 0) onChunk({ webCitations, done: false })
+    }
+
     const accumulateToolCalls = (
       delta: NonNullable<OpenAiSseData["choices"]>[number]["delta"]
     ): void => {
@@ -989,7 +1047,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
         prompt_eval_count: usage.prompt_tokens,
         prompt_eval_duration: promptEvalDurationNs,
         eval_count: usage.completion_tokens,
-        eval_duration: evalDurationNs
+        eval_duration: evalDurationNs,
+        ...usageDetails(usage)
       }
       onChunk({ done: false, metrics: latestMetrics })
     }
@@ -1002,9 +1061,21 @@ export class OpenAICompatibleProvider implements LLMProvider {
       throwSseError(data)
       const choice = data.choices?.[0]
       const delta = choice?.delta
+      if (
+        (typeof delta?.refusal === "string" && delta.refusal.length > 0) ||
+        (typeof choice?.message?.refusal === "string" &&
+          choice.message.refusal.length > 0) ||
+        choice?.finish_reason === "content_filter"
+      )
+        throwProviderRefusal({
+          providerId: this.id,
+          providerName: this.config.name,
+          model
+        })
       captureReplayDetails(delta)
       emitReasoning(delta)
       emitOutput(delta)
+      collectCitations(choice)
       accumulateToolCalls(delta)
       if (choice?.finish_reason === "tool_calls") emitToolCalls()
       updateUsage(data.usage)

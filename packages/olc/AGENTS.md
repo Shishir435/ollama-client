@@ -7,7 +7,7 @@ options, endpoints, build outputs and known limits.
 
 `packages/olc` is a Node CLI, not extension code. Bare `olc` manages native Ollama
 through `src/ollama/` on port 11434; it never wraps Ollama in the proxy.
-`-b` / `--backend codex|opencode` explicitly selects the agent proxies on ports 8083 (Codex) and 8084 (OpenCode).
+`-b` / `--backend codex|opencode|fm` explicitly selects the proxies on ports 8083 (Codex), 8084 (OpenCode) and 8085 (Apple Foundation Models; `-b apple` is an alias).
 All CLI backends detach by default; `--debug` or `--foreground` stays attached.
 Proxy readiness crosses a private IPC handoff before the launcher exits.
 Foreground native sessions stop only the standalone child they create, never an adopted service.
@@ -21,6 +21,15 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 
 - **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the extension: provider-shaped behaviour belongs behind the provider's own wire format, not behind a base-URL check in a handler.
 - **An image is a part, not text.** An `image_url` content part carries no `text`, so flattening a message to a string drops it silently and leaves the model answering about pictures it never saw. `buildPromptParts` emits image parts as OpenCode file parts alongside the text, in message order.
+- **A client that names the model's role replaces the runtime's persona.**
+  Codex's base prompt is a coding agent's, standing in `cwd`, and a client's
+  system prompt reached the thread only as `developerInstructions` beneath it.
+  A browser client whose user asked about the pull request open in the tab
+  was answered by a coding agent reporting that its workspace — the empty
+  directory this proxy creates for it — held no git repository. When the
+  request carries a system prompt, the Codex thread starts with
+  `CODEX_CLIENT_BASE_INSTRUCTIONS`, which defers to the client and says there
+  is no workspace; a request without one keeps Codex's own base.
 - **Capabilities travel in the catalog.** `/v1/models` reports the runtime's own tool-calling, reasoning and modality flags as `capabilities`, `supported_parameters`, `input_modalities` and `output_modalities` — exactly what `openai-compatible.ts` already reads. A provider-level image tool is a dedicated image-output model, not an output flag on every text model.
 - **An empty catalog is not an answer, and is never cached.** A backend that
   is up has not necessarily finished discovering its providers, so
@@ -39,6 +48,12 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   startup is shared infrastructure rather than one request's work — so a
   catalog read arriving in that window used to ask a runtime that was not up
   and answer `502`.
+- **An old Codex CLI is reported, never updated.** Codex lists models by
+  client version, and an old CLI cannot parse the model cache a newer one
+  writes, so it silently shows fewer models. At start olc compares
+  `codex --version` with the Codex the ChatGPT app bundles and the version in
+  `~/.codex/models_cache.json`, and warns on stderr when it is behind. It
+  never runs `codex update`: when to update is the user's call.
 - **Generated images are bytes, not links.** `/v1/images/generations` accepts the OpenAI-compatible `b64_json` shape and returns only validated base64 from the selected backend. A missing runtime image operation is `501`, never a text fallback disguised as image generation.
 - **Tool calls round-trip through the wire format.** The runtime does not forward a caller's tool definitions to its model, so the proxy registers them, parks a call mid-turn, emits it as an OpenAI `tool_calls` delta with `finish_reason: "tool_calls"`, and resumes the same turn when the next request carries matching `tool_call_id`s. The extension's native tool loop drives it unchanged, and its approval and permission gates still apply because the tools still execute in the extension.
 - Inside the proxy, `src/core/` is runtime-agnostic and every runtime detail sits behind the `AgentBackend` port (`src/backends/types.ts`), with OpenCode as the first adapter. A new runtime is an adapter plus a registry entry, never a change in `core/`.
@@ -52,8 +67,26 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   throws away work it is about to hand back. What is not defensible is
   unbounded, so `MAX_PARKED_TURNS` caps how many turns may sit parked and a
   fresh request discards the oldest above it, never one with a resume hold.
-  Before that, only each turn's own ten-minute TTL ended one, and a
+  Before that, only each turn's own TTL ended one, and a
   twenty-five-step run held twenty-five live sessions at once.
+- **Forced decisions are reaped first; the wait for a client tool is long.**
+  A turn whose request forced a tool call goes before one that left the call
+  to the model. The extension's chat turn delegates a browser task as an
+  optional call and waits on it while the task's own forced decisions park
+  beside it; oldest-first alone discarded the chat turn after four steps and
+  its result came back as `StaleToolResults`. For the same task the parked
+  call and turn deadlines are fifty minutes, not five and ten: nothing holds
+  the queue while a turn is parked, the cap bounds the sessions, and the
+  OpenCode bridge's fetch is told not to time out (Bun ends one at five
+  minutes). Ordering is not inference — nothing is discarded because it
+  forced a call, only chosen first when the cap is already exceeded.
+- **A discarded turn is closed, not just failed.** Failing a parked call
+  hands the runtime a tool error, and the model carries on and calls another
+  tool before the interrupt lands. Parked, that call belonged to no request,
+  and every later decision streamed a role chunk and nothing else. Every
+  discard path goes through `pending.closeTurn`, which fails the turn's calls
+  and refuses any it makes afterwards, and the Codex adapter answers a tool
+  call from an aborted turn at once.
 - **Every terminal path settles the session and the slot.** A response that
   stopped is not a session that ended: a parked turn is a live runtime session
   and a parked call is a promise something awaits. `ChatRoutes.inspect()`
@@ -85,5 +118,7 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   operator can only reach for if the proxy says so. Shortening the window
   trades a wedged proxy for overlapping turns and lengthening it trades the
   other way; neither is free.
-- **A browser origin is refused unless it is allowed.** The proxy listens on loopback and runs an agent, so a wildcard `Access-Control-Allow-Origin` would let any page spend a turn — a missing response header does not stop a simple request. `ALLOWED_ORIGINS` defaults to the extension schemes; a request with no `Origin` is not a page and is left alone.
+- **A browser origin is refused unless it is allowed.** The proxy listens on loopback and runs an agent, so a wildcard `Access-Control-Allow-Origin` would let any page spend a turn — a missing response header does not stop a simple request. `ALLOWED_ORIGINS` defaults to the extension schemes; a request with no `Origin` is allowed for native CLI clients, subject to the same listener Host check. Host must name localhost, a loopback address or the listener’s actual local address at its bound port; arbitrary DNS names are refused before routing. Extension-scheme wildcards trust every installed extension, so deployments needing an exact extension identity must configure exact `ALLOWED_ORIGINS` entries. This is a local-client trust boundary, not authentication between operating-system users.
+- **`fm` is macOS-only, in the CLI too.** `selectBackend` refuses `-b fm`/`-b apple` elsewhere by name before anything starts, and `usageFor` leaves it out of Linux and Windows help, so no one is offered a backend their system cannot run.
+- **`fm` is relayed, never exposed.** `fm serve` refuses any request carrying an `Origin`, so the adapter owns a private Unix socket in a `0700` temporary directory and is the only thing that reaches it; the proxy's origin policy is the one a browser meets. Its catalog flags are measured, not hoped for: no tool calling, because the model answers a tool in prose, and an 8,192-token window.
 - `packages/olc/README.md` has the options, endpoints, build outputs and known limits.

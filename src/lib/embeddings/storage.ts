@@ -3,10 +3,11 @@ import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
 import { normalizeVector } from "./math"
+import { BUNDLED_MODEL } from "./native/constants"
+import { readNativeIndexState } from "./native/state"
 import type { VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
 
@@ -200,13 +201,28 @@ export const storeVector = async (
   // Normalize embedding for faster similarity searches
   const { normalized, norm } = normalizeVector(embedding)
 
-  const id = await vectorDb.vectors.add({
-    content,
-    embedding,
-    normalizedEmbedding: normalized,
-    norm,
-    metadata: resolvedMetadata
-  })
+  const id = await vectorDb.transaction(
+    "rw",
+    vectorDb.vectors,
+    vectorDb.embeddingState,
+    async () => {
+      const state = await readNativeIndexState()
+      if (
+        (state.mode === "bundled" &&
+          resolvedMetadata.embeddingModel !== BUNDLED_MODEL) ||
+        (state.mode === "external" &&
+          resolvedMetadata.embeddingModel === BUNDLED_MODEL)
+      )
+        throw new Error("Embedding selection changed. Please retry indexing.")
+      return vectorDb.vectors.add({
+        content,
+        embedding,
+        normalizedEmbedding: normalized,
+        norm,
+        metadata: resolvedMetadata
+      })
+    }
+  )
 
   // Add to keyword index for full-text search
   keywordIndexManager.addDocument(id, content, {

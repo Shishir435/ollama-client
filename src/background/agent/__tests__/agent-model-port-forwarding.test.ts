@@ -1,7 +1,10 @@
-import type { AgentModelPort } from "@ollama-client/agent-runtime"
+import type {
+  AgentCompletionReviewPort,
+  AgentModelPort
+} from "@ollama-client/agent-runtime"
 import { describe, expect, it, vi } from "vitest"
 
-import { withDecisionTimeout } from "../agent-run-controller"
+import { withDecisionTimeout, withReviewTimeout } from "../agent-run-controller"
 
 /**
  * The provider's model port reaches the controller through two object
@@ -56,5 +59,50 @@ describe("withDecisionTimeout", () => {
 
     expect(source.decide).toHaveBeenCalledTimes(1)
     expect(wrapped.decide).not.toBe(source.decide)
+  })
+})
+
+describe("withReviewTimeout", () => {
+  it("forwards what the review cost", () => {
+    const wrapped = withReviewTimeout(
+      {
+        review: vi.fn(),
+        reviewTelemetry: () => ({ reviewPromptTokens: 7 })
+      },
+      1_000
+    )
+    expect(wrapped.reviewTelemetry?.("run-1")).toEqual({
+      reviewPromptTokens: 7
+    })
+  })
+
+  /** A wedged provider must not hold a finished run open in `deciding`. */
+  it("aborts a review that outlives the decision deadline", async () => {
+    vi.useFakeTimers()
+    try {
+      let seen: Parameters<AgentCompletionReviewPort["review"]>[2] | undefined
+      const wrapped = withReviewTimeout(
+        {
+          review: (_state, _request, signal) => {
+            seen = signal
+            return new Promise((_resolve, reject) =>
+              signal.addEventListener?.("abort", () =>
+                reject(new Error("aborted"))
+              )
+            )
+          }
+        },
+        1_000
+      )
+      const pending = wrapped.review({ id: "run-1" } as never, {} as never, {
+        aborted: false
+      })
+      const settled = expect(pending).rejects.toThrow("aborted")
+      await vi.advanceTimersByTimeAsync(1_000)
+      await settled
+      expect(seen?.aborted).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

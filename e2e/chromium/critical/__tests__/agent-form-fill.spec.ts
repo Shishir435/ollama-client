@@ -33,7 +33,7 @@ const PROFILE_PAGE = `<!doctype html>
     <input id="news" name="news" type="checkbox" aria-label="Send me news" />
     <button type="submit">Save profile</button>
   </form>
-  <p id="status">Nothing saved</p>
+  <p id="status" role="status">Nothing saved</p>
 </main>`
 
 const FIELDS = [
@@ -45,15 +45,33 @@ const FIELDS = [
 
 runAgentScenario({
   name: "fill-form-in-one-decision",
-  goal: "Fill in the profile form and save it.",
+  goal: "Fill Given name with Ada, Family name with Lovelace, City with London, Postcode with NW1 4RY, select gb in Country, check Send me news and save the profile.",
   status: "completed",
   timeoutMs: 120_000,
   html: () => PROFILE_PAGE,
   allowRoutineActions: true,
   approvalScope: "run_origin",
   plan: [
-    { text: "the profile fields hold the given values", kind: "change" },
-    { text: "the profile is saved", kind: "change" }
+    ...FIELDS.map(({ label, value }) => ({
+      text: `${label} holds ${value}`,
+      kind: "change" as const,
+      check: { type: "field" as const, name: label, value }
+    })),
+    {
+      text: "Country selected gb",
+      kind: "change",
+      check: { type: "selected", name: "Country", value: "gb" }
+    },
+    {
+      text: "Send me news is checked",
+      kind: "change",
+      check: { type: "checked", name: "Send me news", checked: true }
+    },
+    {
+      text: "the profile is saved",
+      kind: "change",
+      check: { type: "record_state", record: "Profile", state: "saved" }
+    }
   ],
   /**
    * Branching on the page rather than on a decision counter: a refusal or a
@@ -67,8 +85,11 @@ runAgentScenario({
         type: "complete",
         summary: "Filled the profile and saved it.",
         outcomes: [
-          { id: "r1", met: true, evidence: "Ada" },
-          { id: "r2", met: true, evidence: "Profile saved" }
+          ...Array.from({ length: 6 }, (_, index) => ({
+            id: `r${index + 1}`,
+            met: true
+          })),
+          { id: "r7", met: true, evidence: "Profile saved" }
         ]
       }
     }
@@ -80,6 +101,7 @@ runAgentScenario({
       const news = named("Send me news")
       return {
         type: "fill_form",
+        requirementId: "r1",
         fields: [
           ...FIELDS.map((field) => ({
             type: "clear_and_type" as const,
@@ -94,7 +116,9 @@ runAgentScenario({
       }
     }
     const save = named("Save profile")
-    return save ? { type: "click", ref: save.ref } : { type: "read" }
+    return save
+      ? { type: "click", ref: save.ref, requirementId: "r7" }
+      : { type: "read" }
   },
   verify: async ({ page, snapshot, wire }) => {
     /** Every value landed, from one decision. */
@@ -144,7 +168,7 @@ runAgentScenario({
  */
 runAgentScenario({
   name: "fill-form-partial-recovers",
-  goal: "Fill in the profile form.",
+  goal: "Fill in the profile form with the given name Ada.",
   status: "completed",
   timeoutMs: 120_000,
   allowRoutineActions: true,
@@ -156,7 +180,7 @@ runAgentScenario({
     <input id="given" name="given" aria-label="Given name" />
     <input id="family" name="family" aria-label="Family name" disabled />
   </form>
-  <p id="status">Nothing saved</p>
+  <p id="status" role="status">Nothing saved</p>
 </main>
 <script>
   /** Counts every value ever written, so a repeat is visible. */
@@ -192,6 +216,7 @@ runAgentScenario({
     const withFamily = context.step === 1 && family
     return {
       type: "fill_form",
+      requirementId: "r1",
       fields: [
         { type: "clear_and_type", ref: given?.ref ?? "", text: "Ada" },
         ...(withFamily
@@ -218,5 +243,60 @@ runAgentScenario({
     )
     expect(writes.filter((entry) => entry === "given=Ada")).toHaveLength(1)
     expect(snapshot?.run?.status).toBe("completed")
+  }
+})
+
+/**
+ * A batch fill on a form the page marks as a search. Its wire targets once
+ * carried `searchForm`, which the strict page schema rejects, so every
+ * `fill_form` on a search box — Google's among them — failed before a byte
+ * was sent and paused as an effect that may have happened. A unit test
+ * mocks the parse's caller; only the real boundary shows the leak.
+ */
+const SEARCH_PAGE = `<!doctype html>
+<title>Search</title>
+<main>
+  <form action="/results" method="get" role="search">
+    <input type="file" hidden />
+    <textarea name="q" rows="1" role="combobox" aria-label="Search"></textarea>
+    <input type="hidden" name="source" value="hp" />
+    <input type="submit" value="Search" />
+  </form>
+</main>`
+
+runAgentScenario({
+  name: "fill-form-search-box",
+  goal: "Type youtube into the search box.",
+  status: "completed",
+  timeoutMs: 60_000,
+  html: () => SEARCH_PAGE,
+  allowRoutineActions: true,
+  plan: [{ text: "the search box holds youtube", kind: "change" }],
+  decide: (observation: AgentFixtureObservation) => {
+    const box = agentFixtureElement(
+      observation,
+      (element) => element.name === "Search" && element.tag === "textarea"
+    )
+    if (box && box.value !== "youtube") {
+      return {
+        type: "fill_form",
+        requirementId: "r1",
+        fields: [{ type: "clear_and_type", ref: box.ref, text: "youtube" }]
+      }
+    }
+    return {
+      type: "complete",
+      summary: "Typed youtube into the search box.",
+      outcomes: [{ id: "r1", met: true, evidence: "youtube" }]
+    }
+  },
+  verify: async ({ page, snapshot }) => {
+    await expect(page.locator('textarea[name="q"]')).toHaveValue("youtube")
+    expect(snapshot?.run?.status).toBe("completed")
+    expect(
+      snapshot?.steps
+        .filter((step) => step.command?.type === "fill_form")
+        .map((step) => step.status)
+    ).toEqual(["verified"])
   }
 })

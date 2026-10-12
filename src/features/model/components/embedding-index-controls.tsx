@@ -1,7 +1,7 @@
 import { Database, Loader2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard } from "@/components/settings"
+import { SettingsSection } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/class-names"
 import { buildKeywordIndexFromExisting } from "@/lib/embeddings/auto-index"
@@ -52,9 +52,9 @@ export const EmbeddingIndexControls = () => {
   }
 
   return (
-    <SettingsCard
+    <SettingsSection
       icon={Database}
-      focusId="rebuild-keyword-index"
+      data-settings-focus-id="rebuild-keyword-index"
       title={t("settings.embeddings.rebuild_index.title")}
       description={t("settings.embeddings.rebuild_index.description")}
       headerActions={
@@ -108,6 +108,6 @@ export const EmbeddingIndexControls = () => {
           {rebuildResult}
         </div>
       )}
-    </SettingsCard>
+    </SettingsSection>
   )
 }

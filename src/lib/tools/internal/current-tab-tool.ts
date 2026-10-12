@@ -1,5 +1,6 @@
 import { browser } from "@/lib/browser-api"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
+import { browserReadResult } from "./browser-read-provenance"
 import {
   accessDeniedMessage,
   classifyTabAccess,
@@ -14,7 +15,7 @@ import {
 export const currentTabDefinition: ToolDefinition = {
   name: "current_tab",
   description:
-    "Read the main readable text of the user's currently active browser tab (including the transcript when it is a YouTube video). Use when the user refers to 'this page', 'the current tab', or 'this video'. Set force=true when the user asks to refresh, refetch, rescrape, reload, or get the latest tab content.",
+    "Read the main readable text of the user's currently active browser tab (including the transcript when it is a YouTube video). It returns only what the page shows now, button and link labels included, and it clicks, opens and reveals nothing: a label such as 'Open dialog' is a control on the page, not something that happened. Use when the user refers to 'this page', 'the current tab', or 'this video'. Set force=true when the user asks to refresh, refetch, rescrape, reload, or get the latest tab content.",
   displayNameKey: "chat.reasoning.trace.tab",
   category: "browser",
   iconKey: "panels-top-left",
@@ -35,9 +36,27 @@ export const currentTabDefinition: ToolDefinition = {
   }
 }
 
+/**
+ * The tab the side panel showed when the message was sent, when the turn
+ * carried one.
+ *
+ * "Active" was answered from `lastFocusedWindow`, which is whichever window
+ * the user touched last: with two windows open, a question typed in one
+ * window's panel read the other window's page. The panel's own tab is the
+ * one the user means; the window query remains for a turn without it.
+ */
+const panelTab = async (tabId: number | undefined) => {
+  if (tabId === undefined) return undefined
+  try {
+    return await browser.tabs.get(tabId)
+  } catch {
+    return undefined
+  }
+}
+
 export const runCurrentTab = async (
   args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
   try {
     // From a background service worker / side panel there is no "current
@@ -46,6 +65,7 @@ export const runCurrentTab = async (
     // user is looking at lives); fall back through currentWindow then any
     // active tab.
     const tab =
+      (await panelTab(ctx.browserTabId)) ??
       (
         await browser.tabs.query({ active: true, lastFocusedWindow: true })
       )[0] ??
@@ -84,7 +104,10 @@ export const runCurrentTab = async (
     }
 
     const title = response?.title || tab.title || "Untitled"
-    return { content: text, sources: [{ title, url: tab.url }] }
+    return browserReadResult("current_tab", tab.id, text, {
+      title,
+      url: tab.url
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return {

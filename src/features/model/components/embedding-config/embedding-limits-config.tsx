@@ -2,8 +2,8 @@ import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   SectionResetButton,
-  SettingsCard,
   SettingsFormField,
+  SettingsSection,
   SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
@@ -21,7 +21,7 @@ export const EmbeddingLimitsConfig = ({
   const { t } = useTranslation()
 
   return (
-    <SettingsCard
+    <SettingsSection
       icon={Settings}
       title={t("model.embedding_config.limits_title")}
       description={t("model.embedding_config.limits_description")}>
@@ -103,6 +103,6 @@ export const EmbeddingLimitsConfig = ({
           <SectionResetButton sectionId="embedding-limits" />
         </div>
       </div>
-    </SettingsCard>
+    </SettingsSection>
   )
 }

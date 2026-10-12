@@ -1,5 +1,7 @@
 import type { AgentCancellationSignal } from "@ollama-client/agent-runtime"
 
+import { AgentNavigationTimeoutError } from "@/lib/browser-agent/navigation-errors"
+
 /** Observe navigation settling; never dispatch or retry a browser effect. */
 export const waitForAgentNavigation = async (input: {
   tabId: number
@@ -27,7 +29,7 @@ export const waitForAgentNavigation = async (input: {
       if (documentId && documentId !== input.sourceDocumentId) return
     }
     const remaining = deadline - Date.now()
-    if (remaining <= 0) throw new Error("Agent navigation did not settle")
+    if (remaining <= 0) throw new AgentNavigationTimeoutError()
     await new Promise<void>((resolve, reject) => {
       const abort = () => {
         clearTimeout(timer)

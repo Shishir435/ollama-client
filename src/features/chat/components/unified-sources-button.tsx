@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import type { RagSource, ToolRun } from "@/types"
+import type { RagSource, ToolRun, WebCitation } from "@/types"
 import type { SourceItem } from "./message-sources-sheet"
 import {
   type UnifiedSection,
@@ -22,6 +22,8 @@ export interface UnifiedSourcesButtonProps {
   ragQuery?: string
   usedContextChunks?: UsedChunk[]
   toolRuns?: ToolRun[]
+  /** Pages the provider's own web search cited for this answer. */
+  webCitations?: WebCitation[]
   showRetrievedChunks?: boolean
   feedbackEnabled?: boolean
 }
@@ -36,6 +38,7 @@ export function UnifiedSourcesButton({
   ragQuery,
   usedContextChunks = [],
   toolRuns = [],
+  webCitations = [],
   showRetrievedChunks = true,
   feedbackEnabled = true
 }: UnifiedSourcesButtonProps) {
@@ -93,9 +96,25 @@ export function UnifiedSourcesButton({
     publishedAt: source.publishedAt,
     kind: "web"
   }))
-  const usedWebItems = webItems.filter(
-    (_, index) => webSources[index]?.used !== false
-  )
+  /**
+   * A provider's own search reports only which pages it cited, so a citation
+   * carries no excerpt; one the app's search already listed is not repeated.
+   */
+  const listedUrls = new Set(webSources.map((source) => source.url))
+  const citationItems: SourceItem[] = webCitations
+    .filter((citation) => !listedUrls.has(citation.url))
+    .map((citation, index) => ({
+      id: `citation-${index}-${citation.url}`,
+      title: citation.title || citation.url,
+      content: "",
+      score: 0,
+      url: citation.url,
+      kind: "web"
+    }))
+  const usedWebItems = [
+    ...webItems.filter((_, index) => webSources[index]?.used !== false),
+    ...citationItems
+  ]
   const unusedWebItems = webItems.filter(
     (_, index) => webSources[index]?.used === false
   )

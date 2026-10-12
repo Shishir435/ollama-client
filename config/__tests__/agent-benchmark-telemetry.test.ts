@@ -48,6 +48,38 @@ describe("benchmark telemetry", () => {
     })
   })
 
+  /** A review is a second model call, and its cost is reported apart. */
+  it("sums what independent reviews cost, tokens included", () => {
+    expect(
+      attemptTelemetry([
+        {
+          telemetry: {
+            reviews: 1,
+            reviewMs: 800,
+            reviewDisagreements: 1,
+            reviewPromptTokens: 1_200,
+            reviewOutputTokens: 30
+          }
+        },
+        {
+          telemetry: {
+            reviews: 1,
+            reviewMs: 700,
+            reviewDisagreements: 0,
+            reviewPromptTokens: 1_300,
+            reviewOutputTokens: 25
+          }
+        }
+      ])
+    ).toEqual({
+      reviews: 2,
+      reviewMs: 1_500,
+      reviewDisagreements: 1,
+      reviewPromptTokens: 2_500,
+      reviewOutputTokens: 55
+    })
+  })
+
   /** Unmeasured and zero are different claims, so absent stays absent. */
   it("reports nothing for a phase no step measured", () => {
     expect(attemptTelemetry([{ telemetry: { decideMs: 10 } }])).toEqual({

@@ -56,6 +56,9 @@ const storeMessageChunks = async (message: MigrationMessage): Promise<void> => {
     const result = await generateEmbedding(chunk.text)
     if ("error" in result) continue
     await storeVector(chunk.text, result.embedding, {
+      embeddingModel: result.model,
+      embeddingProviderId: result.providerId,
+      embeddingDim: result.embedding.length,
       type: "chat",
       source: "chat",
       sessionId: message.sessionId,

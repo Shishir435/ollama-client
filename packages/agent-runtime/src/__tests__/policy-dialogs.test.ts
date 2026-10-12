@@ -90,6 +90,13 @@ describe("dialog policy", () => {
     expect(decision.request.grantable).toBeUndefined()
     expect(decision.request.action).toBe("Accept the page's confirm dialog")
     expect(decision.request.pageEvidence).toBe("Delete this project?")
+    expect(decision.request.display).toEqual({
+      action: {
+        key: "agent.approval_text.accept_dialog",
+        values: { kindKey: "agent.dialog_kind.confirm" }
+      },
+      consequence: [{ key: "agent.approval_text.accept_dialog_consequence" }]
+    })
   })
 
   it("says what leaving a page with unsaved work costs", () => {

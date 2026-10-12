@@ -168,6 +168,37 @@ describe("AnthropicProvider", () => {
     expect(chunks).toContainEqual(expect.objectContaining({ delta: "ok" }))
   })
 
+  it("caches only the leading system prompt, not trailing per-turn context", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [
+          { role: "system", content: "Be concise." },
+          { role: "user", content: "Hi" },
+          { role: "assistant", content: "Hello" },
+          { role: "system", content: "<runtime_context>tab</runtime_context>" }
+        ]
+      },
+      () => {}
+    )
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+    )
+    expect(body.system).toEqual([
+      {
+        type: "text",
+        text: "Be concise.",
+        cache_control: { type: "ephemeral" }
+      },
+      { type: "text", text: "<runtime_context>tab</runtime_context>" }
+    ])
+  })
+
   it("maps system, tools, and tool results to native content blocks", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -220,7 +251,13 @@ describe("AnthropicProvider", () => {
     const body = JSON.parse(
       (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
     )
-    expect(body.system).toBe("Be concise.")
+    expect(body.system).toEqual([
+      {
+        type: "text",
+        text: "Be concise.",
+        cache_control: { type: "ephemeral" }
+      }
+    ])
     expect(body.temperature).toBe(1)
     expect(body.tools).toEqual([
       {

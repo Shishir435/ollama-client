@@ -1,6 +1,7 @@
 /** Codex app-server adapter for OLC's runtime-neutral backend port. */
 import fs from "node:fs"
 import { buildPromptParts } from "../../core/openai-wire.js"
+import { hasUsage } from "../../core/usage.js"
 import type { ToolResultMessage } from "../../types.js"
 import { isRecord } from "../../util.js"
 import type {
@@ -12,14 +13,25 @@ import type {
   StartTurnInput,
   TurnResult,
   TurnRunSignals,
-  TurnStreamHandlers
+  TurnStreamHandlers,
+  TurnUsage
 } from "../types.js"
 import { BackendInputError } from "../types.js"
 import {
   type AppServerMessage,
   CodexAppServerClient
 } from "./app-server-client.js"
-import { resolveCodexConfig } from "./config.js"
+import {
+  CODEX_ISOLATION_OVERRIDES,
+  createCodexMcpIsolationLoader,
+  resolveCodexConfig
+} from "./config.js"
+import {
+  classifyCodexError,
+  collectCodexSources,
+  readCodexContextWindow,
+  readCodexUsage
+} from "./evidence.js"
 import {
   type CodexModel,
   mapCodexImageGenerationModel,
@@ -47,41 +59,66 @@ interface ModelProviderCapabilities {
   webSearch?: boolean
 }
 
-type QueueResult =
-  | { type: "message"; message: AppServerMessage }
-  | { type: "suspended" }
-
+/**
+ * One thread's notifications, read by one leg at a time.
+ *
+ * A waiter is either handed a message or woken empty by `wake`, never both,
+ * so a notification that arrives in the same tick as a suspension stays
+ * queued for the next leg. Racing a message promise against the suspension
+ * dropped it: the waiter had already received it when the race was decided.
+ * Waking is also how a leg stops waiting without attaching a reaction to a
+ * long-lived promise per notification, which retained memory for every delta
+ * a turn streamed.
+ */
 class MessageQueue {
   private readonly messages: AppServerMessage[] = []
-  private readonly waiters = new Set<(message: AppServerMessage) => void>()
+  private waiter: ((message: AppServerMessage | null) => void) | null = null
 
   push(message: AppServerMessage): void {
-    const waiter = this.waiters.values().next().value
-    if (waiter) {
-      this.waiters.delete(waiter)
-      waiter(message)
+    const waiter = this.waiter
+    if (!waiter) {
+      this.messages.push(message)
       return
     }
-    this.messages.push(message)
+    this.waiter = null
+    waiter(message)
   }
 
-  async next(suspended: Promise<void>): Promise<QueueResult> {
-    const queued = this.messages.shift()
-    if (queued) return { type: "message", message: queued }
+  /** A queued message, without waiting. */
+  shift(): AppServerMessage | undefined {
+    return this.messages.shift()
+  }
 
-    let waiter: ((message: AppServerMessage) => void) | undefined
-    const message = new Promise<AppServerMessage>((resolve) => {
-      waiter = resolve
-      this.waiters.add(resolve)
+  /** The next message, or `null` when `wake` ends the wait first. */
+  next(): Promise<AppServerMessage | null> {
+    const queued = this.messages.shift()
+    if (queued) return Promise.resolve(queued)
+    return new Promise((resolve) => {
+      this.waiter = resolve
     })
-    const result = await Promise.race([
-      message.then((value) => ({ type: "message" as const, message: value })),
-      suspended.then(() => ({ type: "suspended" as const }))
-    ])
-    if (waiter) this.waiters.delete(waiter)
-    return result
+  }
+
+  wake(): void {
+    const waiter = this.waiter
+    this.waiter = null
+    waiter?.(null)
   }
 }
+
+/**
+ * The persona a thread runs as when the client brought its own.
+ *
+ * Codex's own base prompt is a coding agent's, working in `cwd`. The client's
+ * system prompt only reached the thread as `developerInstructions`, beneath
+ * that base, so a browser client whose user asked "what are we doing in this
+ * PR?" was answered by a coding agent reporting an empty workspace with no
+ * git repository — the empty directory this proxy creates so the runtime has
+ * somewhere harmless to stand. A client that states who the model is has
+ * answered that question; the base steps aside and says only that there is
+ * no workspace. A client with no system prompt keeps Codex as it is.
+ */
+export const CODEX_CLIENT_BASE_INSTRUCTIONS =
+  "You are a model served to a client application through a chat API. The client's developer instructions define your role, your context and your tools, and they take precedence over any assumption about where you are running. You have no project, workspace, repository or files of your own: never inspect the working directory or report on it, and never claim a workspace is empty. Use only the tools the client provides, following their descriptions."
 
 export const createCodexBackend = (context: BackendContext): AgentBackend => {
   const { config, log } = context
@@ -95,9 +132,14 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     executable: codex.CODEX_PATH,
     cwd: codex.PROJECT_DIR,
     log,
-    requestTimeoutMs: Math.min(config.REQUEST_TIMEOUT_MS, 60_000)
+    requestTimeoutMs: Math.min(config.REQUEST_TIMEOUT_MS, 60_000),
+    configOverrides: CODEX_ISOLATION_OVERRIDES
   })
   const turns = new Map<string, CodexTurn>()
+  /** Context windows turns have reported, by model id; `model/list` has none. */
+  const contextWindows = new Map<string, number>()
+  /** The account's latest rate-limit snapshot, for a 429's `Retry-After`. */
+  let latestRateLimits: unknown
   let catalogCache: { expiresAt: number; raw: CodexModel[] } | null = null
   let providerCapabilitiesCache: {
     expiresAt: number
@@ -110,6 +152,9 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     const threadId =
       typeof params.threadId === "string" ? params.threadId : undefined
     if (threadId) turns.get(threadId)?.push(message)
+    if (message.method === "account/rateLimits/updated") {
+      latestRateLimits = params.rateLimits
+    }
     if (message.method === "olc/appServerExited") {
       for (const turn of turns.values()) turn.push(message)
     }
@@ -121,6 +166,19 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       const threadId = String(params.threadId ?? "")
       const turn = turns.get(threadId)
       if (!turn) throw new Error("Codex requested a tool for an unknown turn")
+      /**
+       * An aborted turn is being interrupted. Its failed call handed the model
+       * a tool error, and the model may reach for another tool before the
+       * interrupt lands; answering at once keeps that call from parking.
+       */
+      if (turn.signal.aborted) {
+        return {
+          contentItems: [
+            { type: "inputText", text: "Tool failed: the turn was cancelled" }
+          ],
+          success: false
+        }
+      }
       try {
         const output = await context.callClientTool({
           turnId: turn.id,
@@ -183,6 +241,18 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     return models
   }
 
+  /**
+   * The operator's own MCP servers, switched off for every thread olc starts.
+   * Names come from the app-server's merged config, so a server added to
+   * `config.toml` is covered without olc knowing it. A server that cannot be
+   * listed is not guessed at: the thread starts with what Codex loads.
+   */
+  const loadMcpIsolation = createCodexMcpIsolationLoader({
+    start: () => client.start(),
+    read: () => client.request<unknown>("config/read", {}),
+    log
+  })
+
   const loadProviderCapabilities = async (): Promise<{
     imageGeneration: boolean
     webSearch: boolean
@@ -222,9 +292,14 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     readonly id: string
     readonly signal: AbortSignal
     private readonly abortController = new AbortController()
-    private readonly aborted: Promise<void>
     private readonly queue = new MessageQueue()
-    private readonly input: StartTurnInput
+    /**
+     * The request, until Codex has it. Released once `turn/start` is sent: a
+     * parked agent step would otherwise hold its screenshots for as long as
+     * the turn stays parked.
+     */
+    private input: StartTurnInput | null
+    private readonly modelId: string
     private codexTurnId: string | null = null
     private interruptPromise: Promise<void> | null = null
     private started = false
@@ -234,15 +309,17 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     private nativeWebSearchEvents = 0
     private readonly images: GeneratedImage[] = []
     private readonly imageItemIds = new Set<string>()
+    private readonly webSearchItems: Record<string, unknown>[] = []
     private lastError: string | null = null
+    private lastErrorInfo: unknown = null
+    /** The thread's cumulative usage, as Codex last reported it. */
+    private usageTotal: TurnUsage | null = null
 
     constructor(threadId: string, input: StartTurnInput) {
       this.id = threadId
       this.input = input
+      this.modelId = input.model.modelId
       this.signal = this.abortController.signal
-      this.aborted = new Promise((resolve) => {
-        this.signal.addEventListener("abort", () => resolve(), { once: true })
-      })
     }
 
     push(message: AppServerMessage): void {
@@ -253,9 +330,11 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       handlers: TurnStreamHandlers,
       signals: TurnRunSignals
     ): Promise<TurnResult> {
-      if (!this.started) {
+      if (!this.started && this.input) {
         this.started = true
-        const prompt = buildPromptParts(this.input.messages)
+        const { messages, reasoningEffort } = this.input
+        this.input = null
+        const prompt = buildPromptParts(messages)
         const response = await client.request<TurnStartResponse>("turn/start", {
           threadId: this.id,
           input: prompt.parts.map((part) =>
@@ -263,9 +342,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
               ? { type: "image", url: part.url }
               : { type: "text", text: part.text, text_elements: [] }
           ),
-          ...(this.input.reasoningEffort
-            ? { effort: this.input.reasoningEffort }
-            : {})
+          ...(reasoningEffort ? { effort: reasoningEffort } : {})
         })
         const turnId = response?.turn?.id
         if (!turnId) throw new Error("Codex did not return a turn id")
@@ -295,7 +372,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     async dispose(): Promise<void> {
       turns.delete(this.id)
       try {
-        await client.request("thread/delete", { threadId: this.id })
+        await client.request("thread/unsubscribe", { threadId: this.id })
       } catch (error) {
         log("Codex thread cleanup failed", {
           threadId: this.id,
@@ -341,6 +418,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       handlers: TurnStreamHandlers
     ): void {
       this.nativeWebSearchEvents += 1
+      this.webSearchItems.push(item)
       const action = isRecord(item.action) ? item.action : {}
       const query =
         (typeof item.query === "string" && item.query.trim()) ||
@@ -402,6 +480,25 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     private recordNotificationError(params: Record<string, unknown>): void {
       const error = isRecord(params.error) ? params.error : {}
       if (typeof error.message === "string") this.lastError = error.message
+      if (error.codexErrorInfo) this.lastErrorInfo = error.codexErrorInfo
+    }
+
+    /**
+     * Keep the thread's running usage for the completed answer, and remember
+     * the model's window for the catalog.
+     *
+     * Reported once, when the turn completes, never on a leg that parks: Codex
+     * reports a call's tokens only after its client tool answers — on
+     * gpt-6-luna nothing arrived in eight seconds of a parked call — so a
+     * parked leg holds only the calls before it. A partial count is worse
+     * than none.
+     */
+    private recordTokenUsage(params: Record<string, unknown>): void {
+      const tokenUsage = isRecord(params.tokenUsage) ? params.tokenUsage : {}
+      const window = readCodexContextWindow(tokenUsage)
+      if (window) contextWindows.set(this.modelId, window)
+      const total = readCodexUsage(tokenUsage.total)
+      if (total) this.usageTotal = total
     }
 
     private appServerExitedResult(params: Record<string, unknown>): TurnResult {
@@ -419,11 +516,16 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
         threadId: this.id,
         webSearchEvents: this.nativeWebSearchEvents
       })
+      const sources = collectCodexSources(this.webSearchItems, this.content)
       return {
         status: "completed",
         content: this.content,
         reasoning: this.reasoning,
         ...(this.images.length > 0 ? { images: [...this.images] } : {}),
+        ...(sources.length > 0 ? { sources } : {}),
+        ...(this.usageTotal && hasUsage(this.usageTotal)
+          ? { usage: this.usageTotal }
+          : {}),
         finish: "stop"
       }
     }
@@ -434,13 +536,15 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       const turnError = isRecord(turn.error) ? turn.error : {}
       return {
         status: "failed",
-        error: {
+        error: classifyCodexError({
           type: status === "interrupted" ? "CodexInterrupted" : "CodexError",
           message:
             (typeof turnError.message === "string" && turnError.message) ||
             this.lastError ||
-            `Codex turn ended with status '${status}'`
-        }
+            `Codex turn ended with status '${status}'`,
+          errorInfo: turnError.codexErrorInfo ?? this.lastErrorInfo,
+          rateLimits: latestRateLimits
+        })
       }
     }
 
@@ -467,6 +571,9 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
         case "error":
           this.recordNotificationError(params)
           return null
+        case "thread/tokenUsage/updated":
+          this.recordTokenUsage(params)
+          return null
         case "olc/appServerExited":
           return this.appServerExitedResult(params)
         case "turn/completed":
@@ -482,22 +589,40 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       handlers: TurnStreamHandlers,
       signals: TurnRunSignals
     ): Promise<TurnResult> {
-      while (true) {
-        const next = await this.queue.next(
-          Promise.race([signals.suspended, this.aborted])
-        )
-        if (next.type === "suspended") {
-          return this.signal.aborted
-            ? this.interruptedResult()
-            : { status: "suspended" }
+      /**
+       * One stop listener per leg, not one reaction per notification. It is
+       * inert once the leg ends, so a late settle cannot wake the next leg.
+       */
+      let active = true
+      let stopped = this.signal.aborted
+      const stop = () => {
+        if (!active) return
+        stopped = true
+        this.queue.wake()
+      }
+      void signals.suspended.then(stop)
+      this.signal.addEventListener("abort", stop, { once: true })
+      try {
+        while (true) {
+          const message =
+            this.queue.shift() ?? (stopped ? null : await this.queue.next())
+          if (!message) {
+            if (!stopped) continue
+            return this.signal.aborted
+              ? this.interruptedResult()
+              : { status: "suspended" }
+          }
+          const params = isRecord(message.params) ? message.params : {}
+          const result = this.handleNotification(
+            message.method ?? "",
+            params,
+            handlers
+          )
+          if (result) return result
         }
-        const params = isRecord(next.message.params) ? next.message.params : {}
-        const result = this.handleNotification(
-          next.message.method ?? "",
-          params,
-          handlers
-        )
-        if (result) return result
+      } finally {
+        active = false
+        this.signal.removeEventListener("abort", stop)
       }
     }
 
@@ -539,7 +664,13 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
         loadProviderCapabilities()
       ])
       return [
-        ...models.map((model) => mapCodexModel(model, config.BRIDGE_ENABLED)),
+        ...models.map((model) =>
+          mapCodexModel(
+            model,
+            config.BRIDGE_ENABLED,
+            contextWindows.get(model.id)
+          )
+        ),
         ...(capabilities.imageGeneration
           ? [mapCodexImageGenerationModel()]
           : [])
@@ -618,7 +749,13 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
           sandbox: "read-only",
           ephemeral: true,
           serviceName: "ollama_client_olc",
-          config: { web_search: webSearch.threadMode },
+          config: {
+            web_search: webSearch.threadMode,
+            ...(await loadMcpIsolation())
+          },
+          ...(prompt.system
+            ? { baseInstructions: CODEX_CLIENT_BASE_INSTRUCTIONS }
+            : {}),
           ...(developerInstructions ? { developerInstructions } : {}),
           ...(tools.length > 0 ? { dynamicTools: tools } : {})
         }
@@ -652,7 +789,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
           sandbox: "read-only",
           ephemeral: true,
           serviceName: "ollama_client_olc",
-          config: { web_search: "disabled" },
+          config: { web_search: "disabled", ...(await loadMcpIsolation()) },
           developerInstructions: imageInstructions
         }
       )

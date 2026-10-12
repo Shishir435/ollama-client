@@ -64,30 +64,35 @@ export const useEmbeddingSettingsState = () => {
     [setConfig]
   )
 
-  const resolveProviderForModel = useCallback(
-    (modelName: string) =>
-      models.find((model) => model.name === modelName)?.providerId ||
-      DEFAULT_PROVIDER_ID,
-    [models]
-  )
-
   const applyModelChange = useCallback(
-    (model: string, providerId: string) => {
+    (
+      model: string,
+      providerId: string,
+      embeddingStrategy?: EmbeddingConfig["embeddingStrategy"]
+    ) => {
       setSelectedModel(model)
       updateConfig({
         sharedEmbeddingModel: model,
-        sharedEmbeddingProviderId: providerId
+        sharedEmbeddingProviderId: providerId,
+        ...(embeddingStrategy ? { embeddingStrategy } : {})
       })
     },
     [setSelectedModel, updateConfig]
   )
 
+  const normalizeSelectedModel = useCallback(
+    (model: string) =>
+      applyModelChange(
+        model,
+        config.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
+      ),
+    [applyModelChange, config.sharedEmbeddingProviderId]
+  )
+
   const modelExists = useEmbeddingModelCheck({
     selectedModel,
-    setSelectedModel,
-    applyModelChange,
-    embeddingModels,
-    resolveProviderForModel
+    setSelectedModel: normalizeSelectedModel,
+    providerId: config.sharedEmbeddingProviderId || DEFAULT_PROVIDER_ID
   })
 
   return {
@@ -98,7 +103,6 @@ export const useEmbeddingSettingsState = () => {
     hasAdvancedModels,
     modelExists,
     updateConfig,
-    resolveProviderForModel,
     applyModelChange
   }
 }

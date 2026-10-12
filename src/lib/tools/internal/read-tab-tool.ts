@@ -1,4 +1,5 @@
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
+import { browserReadResult } from "./browser-read-provenance"
 import {
   accessDeniedMessage,
   classifyTabAccess,
@@ -141,10 +142,10 @@ export const runReadTab = async (
       ambiguous.length > 0
         ? `\n\n(Note: ${ambiguous.length} other open tab(s) also matched; read the one titled "${target.title}".)`
         : ""
-    return {
-      content: `${text}${note}`,
-      sources: [{ title: response.title || target.title, url: target.url }]
-    }
+    return browserReadResult("read_tab", target.id, `${text}${note}`, {
+      title: response.title || target.title,
+      url: target.url
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return {

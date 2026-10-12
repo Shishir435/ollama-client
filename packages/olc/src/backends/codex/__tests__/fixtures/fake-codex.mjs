@@ -51,6 +51,7 @@ const isImageThreadRequest = (message) => {
 
 const handleThreadStart = (message) => {
   appendFileSync("thread-starts.jsonl", `${JSON.stringify(message.params)}\n`)
+  appendFileSync("argv.json", `${JSON.stringify(process.argv.slice(2))}\n`)
   if (isImageThreadRequest(message)) {
     const threadId =
       message.params?.model === "fake-codex-delayed"
@@ -136,7 +137,14 @@ const completeNativeSearchTurn = (message) => {
         type: "webSearch",
         id: "search-1",
         query: "current answer",
-        action: { type: "search", query: "current answer" }
+        action: { type: "search", query: "current answer" },
+        results: [
+          {
+            type: "text_result",
+            title: "Current answer",
+            url: "https://example.com/current"
+          }
+        ]
       }
     }
   })
@@ -226,18 +234,33 @@ const handleTurnStart = (message) => {
     return
   }
   send({ id: message.id, result: { turn: { id: "turn-1" } } })
-  send({
-    id: "dynamic-tool-1",
-    method: "item/tool/call",
-    params: {
-      threadId: "thread-1",
-      turnId: "turn-1",
-      callId: "call-1",
-      namespace: null,
-      tool: "lookup",
-      arguments: { query: "answer" }
-    }
-  })
+  /**
+   * The call and a notification in one write, so the proxy reads both in the
+   * same tick: the call parks the leg, and the notification must still reach
+   * the leg that resumes it rather than be lost to the suspension.
+   */
+  process.stdout.write(
+    `${JSON.stringify({
+      id: "dynamic-tool-1",
+      method: "item/tool/call",
+      params: {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        callId: "call-1",
+        namespace: null,
+        tool: "lookup",
+        arguments: { query: "answer" }
+      }
+    })}\n${JSON.stringify({
+      method: "item/reasoning/summaryTextDelta",
+      params: { threadId: "thread-1", turnId: "turn-1", delta: "Waiting. " }
+    })}\n`
+  )
+  /**
+   * After the call, as a live App Server sends it: the tool is dispatched as
+   * soon as the model emits it, and usage lands when the response completes.
+   */
+  setTimeout(() => sendTokenUsage({ inputTokens: 1000, outputTokens: 50 }), 50)
 }
 
 const handleTurnInterrupt = (message) => {
@@ -245,7 +268,33 @@ const handleTurnInterrupt = (message) => {
   send({ id: message.id, result: {} })
 }
 
+/** The thread's running usage, as `thread/tokenUsage/updated` reports it. */
+const sendTokenUsage = (total) =>
+  send({
+    method: "thread/tokenUsage/updated",
+    params: {
+      threadId: "thread-1",
+      turnId: "turn-1",
+      tokenUsage: {
+        total: {
+          cachedInputTokens: 0,
+          reasoningOutputTokens: 0,
+          totalTokens: total.inputTokens + total.outputTokens,
+          ...total
+        },
+        last: total,
+        modelContextWindow: 272000
+      }
+    }
+  })
+
 const handleToolResult = () => {
+  sendTokenUsage({
+    inputTokens: 2500,
+    outputTokens: 120,
+    cachedInputTokens: 900,
+    reasoningOutputTokens: 40
+  })
   send({
     method: "item/reasoning/summaryTextDelta",
     params: { threadId: "thread-1", turnId: "turn-1", delta: "Checked. " }
@@ -263,7 +312,38 @@ const handleToolResult = () => {
   })
 }
 
+const handleConfigRead = (message) => {
+  send({
+    id: message.id,
+    result: {
+      config: {
+        mcp_servers: { alpha: { command: "alpha" }, "beta-docs": { url: "x" } }
+      },
+      origins: {}
+    }
+  })
+}
+
+/** Ephemeral threads cannot be deleted, exactly as the real App Server says. */
+const handleThreadClose = (message) => {
+  appendFileSync(
+    "thread-closes.jsonl",
+    `${JSON.stringify({ method: message.method, ...message.params })}\n`
+  )
+  if (message.method === "thread/delete") {
+    send({
+      id: message.id,
+      error: { code: -32600, message: "thread is not persisted" }
+    })
+    return
+  }
+  send({ id: message.id, result: {} })
+}
+
 const handlers = new Map([
+  ["config/read", handleConfigRead],
+  ["thread/delete", handleThreadClose],
+  ["thread/unsubscribe", handleThreadClose],
   ["initialize", handleInitialize],
   ["model/list", handleModelList],
   ["modelProvider/capabilities/read", handleCapabilities],

@@ -5,7 +5,13 @@ import type {
   AgentTakeoverDecision
 } from "@ollama-client/agent-runtime"
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
-import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
+import type {
+  AgentFollowUpMode,
+  AgentGoalAuthor,
+  AgentPauseReason,
+  AgentRunState,
+  AgentRunStatus
+} from "@ollama-client/contracts"
 import {
   AGENT_ROUTINE_GRANT_EFFECTS,
   AgentRunStateSchema
@@ -18,17 +24,29 @@ import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import type { DurableAgentStep } from "@/lib/repositories/agent-runs"
 import {
   createAgentPersistencePort,
-  createAgentRun,
   createInitialAgentDeadline,
   getAgentRun,
+  getAgentRunForResultMessage,
   getLatestAgentRun,
   listAgentSteps,
-  listIncompleteAgentRuns
+  listCompleteAgentSteps,
+  listIncompleteAgentRuns,
+  setAgentRunUnattended
 } from "@/lib/repositories/agent-runs"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentControlSessionRegistry } from "./agent-control-sessions"
+import {
+  type AgentFollowUpRequest,
+  resolveAgentFollowUp
+} from "./agent-follow-up"
 import type { BuildAgentController } from "./agent-run-controller"
+import {
+  type AgentRunPlacement,
+  createLinkedAgentRun
+} from "./agent-run-linkage"
 import type {
   AgentPendingSupervision,
   AgentSupervision
@@ -37,14 +55,45 @@ import { createAgentSupervision } from "./agent-supervision"
 import type { AgentTabHistory } from "./agent-tab-history"
 import { createAgentTabHistory } from "./agent-tab-history"
 import { traceAgentRun } from "./agent-trace"
+import { agentBrowserSessionId } from "./agent-unattended"
 
 export interface StartAgentRunInput {
   goal: string
   tabId: number
   providerId: string
   modelId: string
+  /** The chat whose rows are written in the same commit as the run. */
+  sessionId?: string
+  /** The settled run this one follows, and how; see `agent-follow-up.ts`. */
+  followUp?: AgentFollowUpRequest
   allowRoutineActions?: boolean
+  /**
+   * Searches on the starting site too (`AgentGrant.searches`), when the
+   * approval that started the run said so. Only with routine actions, and
+   * never from a setting alone.
+   */
+  allowSearches?: boolean
   allowExperimentalModel?: boolean
+  /** Set when a chat model wrote the goal; absent means the user did. */
+  goalAuthor?: AgentGoalAuthor
+  /** Where the run's card is drawn; a new turn of its own by default. */
+  placement?: AgentRunPlacement
+  toolCallId?: string
+}
+
+/**
+ * A run a chat turn delegated: the row it reports into is the turn's own, and
+ * `previousRunId` names the run of this chat it continues, when the model said
+ * it continues one.
+ */
+export interface DelegateAgentRunInput
+  extends Omit<StartAgentRunInput, "followUp" | "placement" | "sessionId"> {
+  sessionId: string
+  messageId: number
+  goalAuthor: AgentGoalAuthor
+  previousRunId?: string
+  /** The delegating tool call; a replay names the same one. */
+  toolCallId?: string
 }
 
 export interface AgentRunSnapshot {
@@ -55,14 +104,37 @@ export interface AgentRunSnapshot {
 
 export interface AgentRunService {
   start(input: StartAgentRunInput): Promise<AgentRunState>
-  pause(runId: string): Promise<void>
+  /**
+   * Starts the run a chat turn delegated, or finds the one it already did.
+   * The turn's tool loop re-runs an in-flight call after a worker restart,
+   * and the row it reports into is what says a run was already started.
+   */
+  delegate(input: DelegateAgentRunInput): Promise<AgentRunState>
+  /**
+   * Resolves with the run once it is terminal. An abort ends the wait and
+   * nothing else: whether the run should stop too is the waiter's decision.
+   */
+  awaitSettled(runId: string, signal?: AbortSignal): Promise<AgentRunState>
+  pause(runId: string, reason?: AgentPauseReason): Promise<void>
   resume(
     runId: string,
     correction?: { text: string; pausedAt: number }
   ): Promise<void>
   stop(runId: string): Promise<void>
+  setUnattended(
+    runId: string,
+    pausedAt: number,
+    enabled: boolean
+  ): Promise<void>
+  recoverUnattended(signal?: AbortSignal): Promise<void>
+  /**
+   * A correction for the working run's next decision, without pausing it.
+   * Refused (`steer_unavailable`) when the run is not working in this worker.
+   */
+  steer(runId: string, text: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
   resolveEffect(input: { runId: string; pausedAt: number }): Promise<void>
+  finishReviewed(input: { runId: string; pausedAt: number }): Promise<void>
   answerApproval(input: {
     runId: string
     requestId: string
@@ -189,9 +261,14 @@ const guardingBrowserOwnership = (
 
 export type AgentRunFailureReason =
   | "already_running"
+  | "turn_has_run"
   | "browser_control_unavailable"
+  | "follow_up_unavailable"
   | "permission_denied"
   | "tab_unsupported"
+  | "steer_unavailable"
+  | "consent_stale"
+  | "chat_unavailable"
   | "unknown_run"
 
 /**
@@ -202,7 +279,9 @@ export type AgentRunFailureReason =
 export class AgentRunError extends Error {
   constructor(
     readonly reason: AgentRunFailureReason,
-    message: string
+    message: string,
+    /** The unfinished run that refused this start, when one did. */
+    readonly blockingRunId?: string
   ) {
     super(message)
     this.name = "AgentRunError"
@@ -220,6 +299,15 @@ const originOf = (url: string): string => {
   return parsed.origin
 }
 
+/** A changed or recycled tab is ineligible, not a startup failure. */
+const unattendedTabOrigin = (url: string | undefined): string | undefined => {
+  try {
+    return originOf(url ?? "")
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Owns the live run: one at a time, started from the panel and driven by the
  * runtime controller.
@@ -228,18 +316,100 @@ const originOf = (url: string): string => {
  * parked approval, the durable row and the control session all belong to that
  * one run, and nothing here can say which of two runs a page effect served.
  */
+/**
+ * A run as it is admitted: its own tab and origin, the routine grants its
+ * start was given, and nothing inherited but what a follow-up must not repeat.
+ */
+const initialRunState = ({
+  request,
+  id,
+  origin,
+  startedAt,
+  previousRun
+}: {
+  request: StartAgentRunInput
+  id: string
+  origin: string
+  startedAt: number
+  previousRun: AgentRunState["previousRun"]
+}): AgentRunState =>
+  AgentRunStateSchema.parse({
+    version: 1,
+    id,
+    goal: request.goal,
+    status: "submitted",
+    stepCount: 0,
+    observationCount: 0,
+    controlledTabId: request.tabId,
+    providerId: request.providerId,
+    modelId: request.modelId,
+    allowedOrigins: [origin],
+    ...(request.allowRoutineActions
+      ? {
+          grants: [
+            {
+              origin,
+              effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
+              grantedAt: startedAt,
+              ...(request.allowSearches ? { searches: true as const } : {})
+            }
+          ]
+        }
+      : {}),
+    scopedTabIds: [request.tabId],
+    deadline: createInitialAgentDeadline(startedAt),
+    /**
+     * The parent's record and what it committed — never its grants, answers,
+     * requirements or origins. A follow-up plans again and asks again; what
+     * it inherits is only what it must not repeat.
+     */
+    ...(previousRun ? { previousRun } : {}),
+    ...(request.goalAuthor ? { goalAuthor: request.goalAuthor } : {}),
+    ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
+    createdAt: startedAt,
+    updatedAt: startedAt
+  } satisfies AgentRunState)
+
+/**
+ * How a delegated run follows the one before it: one that got somewhere is
+ * carried on from, one that stopped short is tried again. The same choice
+ * the card's buttons used to make.
+ */
+const FOLLOW_UP_MODE: Partial<Record<AgentRunStatus, AgentFollowUpMode>> = {
+  completed: "continue",
+  failed: "retry",
+  cancelled: "retry"
+}
+
+/** Pauses the run comes back from on the same page, holding its dialog. */
+const DIALOG_HOLDING_PAUSES: readonly AgentPauseReason[] = [
+  "user",
+  "question",
+  "unresolved_effect"
+]
+
+const isSafeUnattendedCheckpoint = (run: { state?: AgentRunState | null }) =>
+  run.state?.unattended &&
+  run.state.status === "paused" &&
+  run.state.pauseReason === "worker_lost"
+
 export const createAgentRunService = (input?: {
   browserSessions?: AgentBrowserSessionManager
   sessions?: AgentControlSessionRegistry
   supervision?: AgentSupervision
   history?: AgentTabHistory
   persistence?: AgentPersistencePort
-  createRun?: typeof createAgentRun
+  createRun?: typeof createLinkedAgentRun
   readRun?: typeof getAgentRun
+  readRunForMessage?: typeof getAgentRunForResultMessage
   readLatestRun?: typeof getLatestAgentRun
   readIncompleteRuns?: typeof listIncompleteAgentRuns
+  browserSessionId?: () => Promise<string>
+  writeUnattended?: typeof setAgentRunUnattended
   readSteps?: typeof listAgentSteps
+  readCompleteSteps?: typeof listCompleteAgentSteps
   buildController?: BuildAgentController
+  isAgentEnabled?: () => Promise<boolean>
   hasPerception?: () => Promise<boolean>
   getTab?: (tabId: number) => Promise<{ url?: string } | undefined>
   classifyAccess?: typeof classifyAgentTabAccess
@@ -252,10 +422,16 @@ export const createAgentRunService = (input?: {
   const now = input?.now ?? (() => Date.now())
   const newRunId = input?.newRunId ?? (() => globalThis.crypto.randomUUID())
   const hasPerception = input?.hasPerception ?? hasAgentPerceptionPermission
-  const createRun = input?.createRun ?? createAgentRun
+  const browserSessionId = input?.browserSessionId ?? agentBrowserSessionId
+  const isAgentEnabled =
+    input?.isAgentEnabled ?? (() => readSetting(SETTINGS.AGENT_ENABLED))
+  const createRun = input?.createRun ?? createLinkedAgentRun
   const readRun = input?.readRun ?? getAgentRun
+  const readRunForMessage =
+    input?.readRunForMessage ?? getAgentRunForResultMessage
   const readLatestRun = input?.readLatestRun ?? getLatestAgentRun
   const readSteps = input?.readSteps ?? listAgentSteps
+  const readCompleteSteps = input?.readCompleteSteps ?? listCompleteAgentSteps
   const readIncompleteRuns =
     input?.readIncompleteRuns ?? listIncompleteAgentRuns
   const classifyAccess = input?.classifyAccess ?? classifyAgentTabAccess
@@ -291,11 +467,139 @@ export const createAgentRunService = (input?: {
       dispose: async () => undefined
     } satisfies AgentBrowserSessionManager)
 
+  const recordedDialogDismissals = new Set<string>()
+  const browserSessionIds = new Map<string, string>()
+  const pendingDialogDismissals = new Map<
+    string,
+    { runId: string; dialogId: string; stepId: string; detached: boolean }
+  >()
+  const finishPendingDialogDismissals = async (
+    runId: string,
+    quarantineOnFailure = false
+  ): Promise<void> => {
+    for (const [dismissalId, pending] of pendingDialogDismissals) {
+      if (pending.runId !== runId) continue
+      if (!pending.detached) {
+        if (quarantineOnFailure) pendingDialogDismissals.delete(dismissalId)
+        continue
+      }
+      try {
+        const at = now()
+        await persistence.appendStep({
+          runId,
+          stepId: pending.stepId,
+          status: "verified",
+          at,
+          command: {
+            type: "handle_dialog",
+            snapshotId: `dialog-release:${pending.dialogId}`,
+            generation: 0,
+            dialogId: pending.dialogId,
+            accept: false
+          },
+          mutating: false,
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "dialog_release",
+              summary:
+                "Browser control ended with the native dialog dismissed.",
+              observedAt: at
+            }
+          }
+        })
+        recordedDialogDismissals.add(dismissalId)
+        pendingDialogDismissals.delete(dismissalId)
+      } catch (error) {
+        // The uncertain intent remains durable. A new attachment must not
+        // inherit this session's pending release or suppress its own dialog.
+        if (quarantineOnFailure) pendingDialogDismissals.delete(dismissalId)
+        logger.warn("Agent dialog release receipt failed", "Agent", {
+          runId,
+          name: error instanceof Error ? error.name : typeof error
+        })
+      }
+    }
+  }
+  const attachBrowserControl = async (
+    runId: string,
+    tabId: number
+  ): Promise<void> => {
+    const alreadyAttached = browserSessions.attachedTabId(runId) !== undefined
+    if (!alreadyAttached) await finishPendingDialogDismissals(runId, true)
+    await browserSessions.attach(runId, tabId)
+    if (!alreadyAttached) {
+      browserSessionIds.set(runId, globalThis.crypto.randomUUID())
+    }
+  }
   const detachBrowserSession = async (runId: string): Promise<void> => {
     try {
+      const tabId = browserSessions.attachedTabId(runId)
+      const held =
+        tabId === undefined
+          ? undefined
+          : browserSessions.openDialog(runId, tabId)
+      const dismissalId = held
+        ? `${runId}:dialog-release:${browserSessionIds.get(runId) ?? "unknown"}:${held.id}`
+        : undefined
+      if (
+        held &&
+        dismissalId &&
+        !recordedDialogDismissals.has(dismissalId) &&
+        !pendingDialogDismissals.has(dismissalId)
+      ) {
+        const at = now()
+        const stepId = dismissalId
+        // Persist the uncertain release before detach can dismiss the dialog.
+        // If the worker dies or the final write fails, history still records
+        // that the dialog outcome is unresolved.
+        try {
+          await persistence.appendStep({
+            runId,
+            stepId,
+            status: "uncertain",
+            at,
+            command: {
+              type: "handle_dialog",
+              snapshotId: `dialog-release:${held.id}`,
+              generation: 0,
+              dialogId: held.id,
+              accept: false
+            },
+            mutating: false,
+            verification: {
+              outcome: "ambiguous",
+              evidence: {
+                kind: "dialog_release",
+                summary:
+                  "Browser control release started; dialog outcome is unconfirmed.",
+                observedAt: at
+              }
+            }
+          })
+          pendingDialogDismissals.set(dismissalId, {
+            runId,
+            dialogId: held.id,
+            stepId,
+            detached: false
+          })
+        } catch (error) {
+          // The page cannot stay blocked by an orphaned dialog when storage
+          // fails. Release it, while leaving the failed write visible in logs.
+          logger.warn("Agent dialog release intent failed", "Agent", {
+            runId,
+            name: error instanceof Error ? error.name : typeof error
+          })
+        }
+      }
       await browserSessions.detach(runId)
+      if (dismissalId) {
+        const pending = pendingDialogDismissals.get(dismissalId)
+        if (pending) pending.detached = true
+      }
+      await finishPendingDialogDismissals(runId)
     } catch (error) {
-      logger.warn("Agent browser detach failed", "Agent", {
+      logger.warn("Agent browser release failed", "Agent", {
         runId,
         name: error instanceof Error ? error.name : typeof error
       })
@@ -306,6 +610,8 @@ export const createAgentRunService = (input?: {
   const controllers = new Map<string, AgentController>()
   const experimental = new Set<string>()
   const interruptedBrowserSessions = new Set<string>()
+  /** In-flight Done presses, so two of them converge on one resume. */
+  const takeoverCompletions = new Map<string, Promise<void>>()
   let admitting = false
   let activeRunId: string | undefined
   let lastRunId: string | undefined
@@ -315,7 +621,53 @@ export const createAgentRunService = (input?: {
   }
   supervision.subscribe(announce)
 
+  /**
+   * A pause the run will come back from keeps a dialog it is holding.
+   *
+   * Letting go of the debugger dismisses a held dialog, because a detached
+   * tab would otherwise stay frozen with nothing to answer it — and a
+   * dismissed `confirm` is the page being told "no". A user who paused while
+   * a Delete button's confirmation was open came back to a page that had
+   * cancelled the delete, a model that clicked Delete again, and a second
+   * approval for the same decision. So a pause taken by the user, for a
+   * question, or over an unresolved effect keeps the session and the dialog
+   * exactly as they were; resuming observes the same dialog and asks about
+   * it. A takeover still lets go: the user is about to act on the page
+   * themselves, and a page held by a dialog they cannot see is one they
+   * cannot act on. A closed panel or a lost browser lets go as before.
+   */
+  const holdsDialogThroughPause = (state: AgentRunState): boolean => {
+    if (state.status !== "pause_requested" && state.status !== "paused") {
+      return false
+    }
+    if (
+      !state.pauseReason ||
+      !DIALOG_HOLDING_PAUSES.includes(state.pauseReason)
+    ) {
+      return false
+    }
+    return (
+      browserSessions.openDialog(state.id, state.controlledTabId) !== undefined
+    )
+  }
+
+  const panelFreeRuns = new Set<string>()
+  const withinUnattendedScope = (state: AgentRunState): boolean => {
+    const consent = state.unattended
+    return Boolean(
+      consent &&
+        consent.providerId === state.providerId &&
+        consent.modelId === state.modelId &&
+        consent.tabIds.includes(state.controlledTabId) &&
+        (state.scopedTabIds ?? [state.controlledTabId]).every((id) =>
+          consent.tabIds.includes(id)
+        ) &&
+        state.allowedOrigins.every((origin) => consent.origins.includes(origin))
+    )
+  }
+
   const releaseBrowserSessionFor = async (state: AgentRunState) => {
+    if (holdsDialogThroughPause(state)) return
     if (
       [
         "awaiting_takeover",
@@ -328,6 +680,12 @@ export const createAgentRunService = (input?: {
       ].includes(state.status)
     ) {
       await detachBrowserSession(state.id)
+      return
+    }
+    if (panelFreeRuns.has(state.id) && !withinUnattendedScope(state)) {
+      await controllers
+        .get(state.id)
+        ?.requestPause(state.id, "consent_scope_changed")
       return
     }
     await followControlledTab(state)
@@ -348,7 +706,7 @@ export const createAgentRunService = (input?: {
     if (attached === undefined || attached === state.controlledTabId) return
     await detachBrowserSession(state.id)
     try {
-      await browserSessions.attach(state.id, state.controlledTabId)
+      await attachBrowserControl(state.id, state.controlledTabId)
     } catch (error) {
       interruptedBrowserSessions.add(state.id)
       logger.warn("Agent browser attach did not follow the run", "Agent", {
@@ -380,12 +738,14 @@ export const createAgentRunService = (input?: {
     interruptedBrowserSessions.delete(runId)
     if (state.controlledTabId >= 0) history.forget(state.controlledTabId)
     controllers.delete(runId)
+    panelFreeRuns.delete(runId)
     if (activeRunId === runId) activeRunId = undefined
   }
 
   /** Assembled on first use, and reused for the life of the run. */
   const controllerFor = async (
-    state: AgentRunState
+    state: AgentRunState,
+    controllerPersistence = persistence
   ): Promise<AgentController> => {
     const existing = controllers.get(state.id)
     if (existing) return existing
@@ -397,7 +757,7 @@ export const createAgentRunService = (input?: {
       sessions,
       browserSessions,
       history,
-      persistence,
+      persistence: controllerPersistence,
       supervision,
       allowExperimentalModel: experimental.has(state.id),
       now
@@ -420,6 +780,63 @@ export const createAgentRunService = (input?: {
     return state
   }
 
+  /**
+   * One Done press, run to completion.
+   *
+   * Done pressed before Started still holds the run loop inside its parked
+   * takeover wait, and the completion call below no-ops against that guard —
+   * the stall that left file and sensitive-input handoffs in
+   * `awaiting_takeover` with no new observation. Answering started here
+   * releases the loop first; the answer is idempotent, so an already
+   * acknowledged Started is answered nothing twice.
+   *
+   * The settle announces synchronously while the loop unwinds on microtasks
+   * already queued ahead of the waiter, so the wait below ends after the run
+   * is free rather than while it is still guarded. The timeout is deadlock
+   * insurance only: even if it fires, the next Done press converges, because
+   * the parked wait is already settled and cannot stall twice.
+   */
+  const runTakeoverCompletion = async (runId: string): Promise<void> => {
+    const state = await loadRunning(runId)
+    if (state.status !== "awaiting_takeover") return
+    const pending = supervision.pending(runId)
+    if (pending?.kind === "takeover") {
+      let settled = false
+      let release: () => void = () => undefined
+      const unsubscribe = supervision.subscribe((announced) => {
+        if (announced !== runId || settled) return
+        settled = true
+        unsubscribe()
+        release()
+      })
+      const exited = new Promise<void>((resolve) => {
+        release = () => resolve()
+        setTimeout(() => {
+          if (settled) return
+          settled = true
+          unsubscribe()
+          resolve()
+        }, 10_000)
+      })
+      const answered = supervision.answerTakeover({
+        runId,
+        requestId: pending.request.id,
+        decision: { type: "takeover_started" }
+      })
+      if (answered) await exited
+      else if (!settled) {
+        // A Started press won the race and its settle already announced
+        // before this subscription existed: nothing to wait for.
+        settled = true
+        unsubscribe()
+      }
+    }
+    const fresh = await loadRunning(runId)
+    if (fresh.status !== "awaiting_takeover") return
+    if (!(await attachBrowserSession(fresh))) return
+    await drive(fresh, (controller) => controller.completeTakeover(runId))
+  }
+
   const attachBrowserSession = async (
     state: AgentRunState
   ): Promise<boolean> => {
@@ -433,7 +850,7 @@ export const createAgentRunService = (input?: {
     }
     interruptedBrowserSessions.delete(state.id)
     try {
-      await browserSessions.attach(state.id, state.controlledTabId)
+      await attachBrowserControl(state.id, state.controlledTabId)
     } catch (error) {
       if (
         typeof error === "object" &&
@@ -472,136 +889,290 @@ export const createAgentRunService = (input?: {
       })
   })
 
-  return {
-    async start(request) {
-      // All panels share this service. Reserve admission before any async
-      // read/check/write, including the durable unresolved-run lookup.
-      if (admitting) {
+  /**
+   * The record a follow-up start carries, or a refusal that leaves nothing
+   * behind: no rows, no run, the panel told why.
+   */
+  const previousRunFor = async (
+    request: StartAgentRunInput
+  ): Promise<AgentRunState["previousRun"]> => {
+    if (!request.followUp) return undefined
+    const followUp = await resolveAgentFollowUp(
+      request.followUp,
+      request.sessionId,
+      { run: readRun, steps: readCompleteSteps }
+    )
+    if (followUp.ok) return followUp.previousRun
+    logger.warn("Agent follow-up refused", "Agent", {
+      parentRunId: request.followUp.parentRunId,
+      reason: followUp.reason
+    })
+    throw new AgentRunError(
+      "follow_up_unavailable",
+      `Agent follow-up unavailable: ${followUp.reason}`
+    )
+  }
+
+  const start = async (request: StartAgentRunInput): Promise<AgentRunState> => {
+    // All panels share this service. Reserve admission before any async
+    // read/check/write, including the durable unresolved-run lookup.
+    if (admitting) {
+      throw new AgentRunError(
+        "already_running",
+        "An Agent start is in progress"
+      )
+    }
+    admitting = true
+    try {
+      /*
+       * The durable rows decide, not the in-memory flag: an MV3 worker
+       * restart forgets the active run, and a paused run the user has not
+       * settled is still that user's run. Asking SQL is what keeps a restart
+       * from letting a second run start beside it.
+       */
+      /**
+       * The incomplete query counts `partial` as resumable, because a partial
+       * run's card can continue it. It is still settled, and admitting on that
+       * query refused every later run after one partial result, with nothing
+       * the user could stop to clear it.
+       */
+      const unresolved =
+        activeRunId ??
+        (await readIncompleteRuns()).find(
+          (run) => !isTerminalAgentStatus(run.status)
+        )?.id
+      if (unresolved) {
+        activeRunId = unresolved
+        lastRunId = unresolved
         throw new AgentRunError(
           "already_running",
-          "An Agent start is in progress"
+          "An Agent run is already unresolved",
+          unresolved
         )
       }
-      admitting = true
-      try {
-        /*
-         * The durable rows decide, not the in-memory flag: an MV3 worker
-         * restart forgets the active run, and a paused run the user has not
-         * settled is still that user's run. Asking SQL is what keeps a restart
-         * from letting a second run start beside it.
-         */
-        const unresolved = activeRunId ?? (await readIncompleteRuns())[0]?.id
-        if (unresolved) {
-          activeRunId = unresolved
-          lastRunId = unresolved
-          throw new AgentRunError(
-            "already_running",
-            "An Agent run is already unresolved"
-          )
-        }
-        if (!(await hasPerception())) {
-          throw new AgentRunError(
-            "permission_denied",
-            "Agent perception permission is not granted"
-          )
-        }
-        const tab = await getTab(request.tabId)
-        const address = tab?.url
-        if (!address) {
-          throw new AgentRunError("tab_unsupported", "Agent tab has no address")
-        }
-        const access = await classifyAccess(address)
-        if (access !== "ok") {
-          throw new AgentRunError(
-            "tab_unsupported",
-            `Agent tab access denied: ${access}`
-          )
-        }
-        const startedAt = now()
-        const state = AgentRunStateSchema.parse({
-          version: 1,
-          id: newRunId(),
-          goal: request.goal,
-          status: "submitted",
-          stepCount: 0,
-          observationCount: 0,
-          controlledTabId: request.tabId,
-          providerId: request.providerId,
-          modelId: request.modelId,
-          allowedOrigins: [originOf(address)],
-          ...(request.allowRoutineActions
-            ? {
-                grants: [
-                  {
-                    origin: originOf(address),
-                    effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
-                    grantedAt: startedAt
-                  }
-                ]
-              }
-            : {}),
-          scopedTabIds: [request.tabId],
-          deadline: createInitialAgentDeadline(startedAt),
-          createdAt: startedAt,
-          updatedAt: startedAt
-        } satisfies AgentRunState)
+      if (!(await hasPerception())) {
+        throw new AgentRunError(
+          "permission_denied",
+          "Agent perception permission is not granted"
+        )
+      }
+      const tab = await getTab(request.tabId)
+      const address = tab?.url
+      if (!address) {
+        throw new AgentRunError("tab_unsupported", "Agent tab has no address")
+      }
+      const access = await classifyAccess(address)
+      if (access !== "ok") {
+        throw new AgentRunError(
+          "tab_unsupported",
+          `Agent tab access denied: ${access}`
+        )
+      }
+      /**
+       * Read after admission and before the row exists, so the parent it
+       * describes is the one this run is created against.
+       */
+      const previousRun = await previousRunFor(request)
+      const state = initialRunState({
+        request,
+        id: newRunId(),
+        origin: originOf(address),
+        startedAt: now(),
+        previousRun
+      })
 
-        await createRun(state)
-        activeRunId = state.id
-        lastRunId = state.id
-        if (request.allowExperimentalModel) experimental.add(state.id)
-        history.record(request.tabId, address)
-        announce(state.id)
-        try {
-          const attached = await attachBrowserSession(state)
-          if (!attached) return state
-        } catch (error) {
-          await persistence.transition({
-            runId: state.id,
-            from: "submitted",
-            to: "failed",
-            patch: {
-              error: {
-                code: "observation_failed",
-                message: "Agent could not attach browser control.",
-                retryable: true
-              },
-              updatedAt: now()
-            }
-          })
-          await settle(state.id)
-          throw error
-        }
-        /**
-         * Detached on purpose — `start` returns once the run is admitted, not
-         * once it finishes — but its rejection is not. Every other `drive`
-         * call site is awaited by a caller that reports the failure; this one
-         * discarded it, so a run that threw on its first step left no error
-         * on the row, no line in the log and a panel that waited. That cost
-         * two browser gates thirty seconds each and an afternoon to find.
-         *
-         * Logging is all this does. The run is still left where it stopped:
-         * transitioning it to `failed` needs the predecessor it stopped in,
-         * which this layer does not know, and is its own change.
-         */
-        void drive(state, (controller) => controller.start(state.id)).catch(
-          (error: unknown) => {
-            logger.error("Agent run stopped without settling", "Agent", {
-              runId: state.id,
-              name: error instanceof Error ? error.name : typeof error,
-              message: error instanceof Error ? error.message : "unknown"
-            })
-          }
-        )
-        return state
-      } finally {
-        admitting = false
-      }
-    },
-    async pause(runId) {
-      await drive(await loadRunning(runId), (controller) =>
-        controller.requestPause(runId)
+      const created = await createRun(
+        state,
+        request.sessionId,
+        previousRun ? request.followUp?.parentRunId : undefined,
+        request.placement
       )
+      /** The chat was deleted mid-start: nothing could supervise this run. */
+      if (created === false) {
+        throw new AgentRunError(
+          "chat_unavailable",
+          "The chat this run belongs to no longer exists"
+        )
+      }
+      activeRunId = state.id
+      lastRunId = state.id
+      if (request.allowExperimentalModel) experimental.add(state.id)
+      history.record(request.tabId, address)
+      announce(state.id)
+      try {
+        const attached = await attachBrowserSession(state)
+        if (!attached) return state
+      } catch (error) {
+        await persistence.transition({
+          runId: state.id,
+          from: "submitted",
+          to: "failed",
+          patch: {
+            error: {
+              code: "observation_failed",
+              message: "Agent could not attach browser control.",
+              retryable: true
+            },
+            updatedAt: now()
+          }
+        })
+        await settle(state.id)
+        throw error
+      }
+      /**
+       * Detached on purpose — `start` returns once the run is admitted, not
+       * once it finishes — but its rejection is not. Every other `drive`
+       * call site is awaited by a caller that reports the failure; this one
+       * discarded it, so a run that threw on its first step left no error
+       * on the row, no line in the log and a panel that waited. That cost
+       * two browser gates thirty seconds each and an afternoon to find.
+       *
+       * Logging is all this does. The run is still left where it stopped:
+       * transitioning it to `failed` needs the predecessor it stopped in,
+       * which this layer does not know, and is its own change.
+       */
+      void drive(state, (controller) => controller.start(state.id)).catch(
+        (error: unknown) => {
+          logger.error("Agent run stopped without settling", "Agent", {
+            runId: state.id,
+            name: error instanceof Error ? error.name : typeof error,
+            message: error instanceof Error ? error.message : "unknown"
+          })
+        }
+      )
+      return state
+    } finally {
+      admitting = false
+    }
+  }
+
+  const awaitSettled = (
+    runId: string,
+    signal?: AbortSignal
+  ): Promise<AgentRunState> =>
+    new Promise<AgentRunState>((resolve, reject) => {
+      let done = false
+      const finish = (outcome: () => void) => {
+        if (done) return
+        done = true
+        listeners.delete(check)
+        signal?.removeEventListener("abort", onAbort)
+        outcome()
+      }
+      function check(announced: string) {
+        if (announced !== runId || done) return
+        void persistence
+          .load(runId)
+          .then((state) => {
+            if (!state) {
+              finish(() =>
+                reject(new AgentRunError("unknown_run", "Agent run is unknown"))
+              )
+              return
+            }
+            if (isTerminalAgentStatus(state.status))
+              finish(() => resolve(state))
+          })
+          .catch((error: unknown) => finish(() => reject(error)))
+      }
+      function onAbort() {
+        finish(() =>
+          reject(signal?.reason ?? new DOMException("Aborted", "AbortError"))
+        )
+      }
+      if (signal?.aborted) {
+        onAbort()
+        return
+      }
+      signal?.addEventListener("abort", onAbort, { once: true })
+      listeners.add(check)
+      check(runId)
+    })
+
+  const stopRun = async (runId: string) => {
+    await drive(await loadRunning(runId), (controller) =>
+      controller.requestCancel(runId)
+    )
+  }
+
+  return {
+    start,
+    async delegate(request) {
+      /**
+       * The row already carries a run. The same call replayed after a worker
+       * restart gets that run back; any other call in the turn is a second
+       * task, and handing it the first run's record would report a task that
+       * never started. The goal stands in for a call id the run predates.
+       */
+      const existing = await readRunForMessage(request.messageId)
+      if (existing?.state) {
+        const replay = existing.state.toolCallId
+          ? existing.state.toolCallId === request.toolCallId
+          : existing.state.goal === request.goal
+        if (replay) return existing.state
+        throw new AgentRunError(
+          "turn_has_run",
+          "This turn already delegated a browser task"
+        )
+      }
+      /**
+       * The parent's status picks the mode; a parent that is gone still names
+       * one, so the follow-up is refused rather than started as a fresh run
+       * that knows nothing of what the parent committed.
+       */
+      const parent = request.previousRunId
+        ? await readRun(request.previousRunId)
+        : null
+      const mode: AgentFollowUpMode =
+        (parent?.state && FOLLOW_UP_MODE[parent.state.status]) || "continue"
+      return start({
+        goal: request.goal,
+        tabId: request.tabId,
+        providerId: request.providerId,
+        modelId: request.modelId,
+        sessionId: request.sessionId,
+        goalAuthor: request.goalAuthor,
+        ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
+        placement: { kind: "turn", messageId: request.messageId },
+        ...(request.allowRoutineActions ? { allowRoutineActions: true } : {}),
+        ...(request.allowRoutineActions && request.allowSearches
+          ? { allowSearches: true }
+          : {}),
+        ...(request.allowExperimentalModel
+          ? { allowExperimentalModel: true }
+          : {}),
+        ...(request.previousRunId
+          ? { followUp: { parentRunId: request.previousRunId, mode } }
+          : {})
+      })
+    },
+    awaitSettled,
+    async pause(runId, reason = "user") {
+      let continuing = false
+      try {
+        const state = await loadRunning(runId)
+        if (
+          reason === "panel_closed" &&
+          state.unattended &&
+          state.status !== "paused" &&
+          withinUnattendedScope(state)
+        ) {
+          panelFreeRuns.add(runId)
+          continuing = true
+          return
+        }
+        if (state.status !== "paused") {
+          await drive(state, (controller) =>
+            controller.requestPause(runId, reason)
+          )
+        }
+      } finally {
+        // A panel can close after an earlier user/question pause already held
+        // a dialog. That pause cannot transition again, but the last panel
+        // must still release the browser it can no longer supervise.
+        if (reason === "panel_closed" && !continuing)
+          await detachBrowserSession(runId)
+      }
     },
     async resume(runId, correction) {
       const state = await loadRunning(runId)
@@ -618,6 +1189,7 @@ export const createAgentRunService = (input?: {
           state.updatedAt !== correction.pausedAt)
       )
         return
+      panelFreeRuns.delete(runId)
       if (!(await attachBrowserSession(state))) return
       await drive(state, (controller) =>
         correction
@@ -625,16 +1197,145 @@ export const createAgentRunService = (input?: {
           : controller.resume(runId)
       )
     },
-    async stop(runId) {
-      await drive(await loadRunning(runId), (controller) =>
-        controller.requestCancel(runId)
+    async setUnattended(runId, pausedAt, enabled) {
+      if (
+        !(await (input?.writeUnattended ?? setAgentRunUnattended)(
+          runId,
+          pausedAt,
+          enabled,
+          await (input?.browserSessionId ?? agentBrowserSessionId)()
+        ))
       )
+        throw new AgentRunError(
+          "consent_stale",
+          "Consent requires the current user pause"
+        )
+      announce(runId)
+    },
+    async recoverUnattended(signal) {
+      signal?.throwIfAborted()
+      if (!(await isAgentEnabled())) return
+      signal?.throwIfAborted()
+      const incomplete = (await readIncompleteRuns()).filter(
+        (run) => !isTerminalAgentStatus(run.status)
+      )
+      if (incomplete.length !== 1) return
+      const candidates = incomplete.filter(isSafeUnattendedCheckpoint)
+      if (candidates.length !== 1 || activeRunId) return
+      const state = await loadRunning(candidates[0].id)
+      const consent = state.unattended
+      if (
+        !consent ||
+        state.humanDecision ||
+        state.status !== "paused" ||
+        state.pauseReason !== "worker_lost" ||
+        consent.browserSessionId !== (await browserSessionId()) ||
+        !withinUnattendedScope(state) ||
+        !(await hasPerception())
+      )
+        return
+      const tab = await getTab(state.controlledTabId)
+      const origin = unattendedTabOrigin(tab?.url)
+      if (
+        !tab?.url ||
+        !origin ||
+        !consent.origins.includes(origin) ||
+        !state.allowedOrigins.includes(origin) ||
+        (await classifyAccess(tab.url)) !== "ok"
+      )
+        return
+      signal?.throwIfAborted()
+      if (activeRunId) return
+      activeRunId = state.id
+      lastRunId = state.id
+      try {
+        if (!(await attachBrowserSession(state))) {
+          if (activeRunId === state.id) activeRunId = undefined
+          return
+        }
+        signal?.throwIfAborted()
+        // Startup owns revalidation and the first durable resume write. After
+        // that checkpoint the run service owns the bounded execution loop;
+        // a long authorized task must not inherit startup's two-minute timer.
+        let handedOff = false
+        let release: () => void = () => undefined
+        const checkpoint = new Promise<void>((resolve) => {
+          release = resolve
+        })
+        const check = () => {
+          if (!handedOff) signal?.throwIfAborted()
+        }
+        const handoff = () => {
+          // Cancellation was checked before the write. Once it commits, the
+          // run service must take ownership even if startup expired meanwhile;
+          // rejecting here would strand an observing row without a controller.
+          handedOff = true
+          release()
+        }
+        const controller = await controllerFor(state, {
+          ...persistence,
+          async claim(input) {
+            check()
+            const result = await persistence.claim(input)
+            if (result.claimed) handoff()
+            return result
+          },
+          async transition(input) {
+            check()
+            const result = await persistence.transition(input)
+            if (result.transitioned) handoff()
+            return result
+          },
+          async appendStep(input) {
+            check()
+            await persistence.appendStep(input)
+          }
+        })
+        check()
+        // Resume observes afresh and never replays a saved command. Await the
+        // first checkpoint (or a no-op/failure), not the entire user task.
+        panelFreeRuns.add(state.id)
+        const running = controller
+          .resume(state.id)
+          .finally(() => settle(state.id))
+        await Promise.race([checkpoint, running])
+        void running.catch((error: unknown) => {
+          logger.warn("Unattended recovery stopped", "Agent", {
+            name: error instanceof Error ? error.name : typeof error
+          })
+        })
+      } catch (error) {
+        await detachBrowserSession(state.id)
+        controllers.delete(state.id)
+        panelFreeRuns.delete(state.id)
+        if (activeRunId === state.id) activeRunId = undefined
+        throw error
+      }
+    },
+    stop: stopRun,
+    async steer(runId, text) {
+      const controller = controllers.get(runId)
+      if (!(await controller?.steer?.(runId, text))) {
+        throw new AgentRunError(
+          "steer_unavailable",
+          "The Agent run is not working, so it cannot take a correction"
+        )
+      }
     },
     async completeTakeover(runId) {
-      const state = await loadRunning(runId)
-      if (state.status !== "awaiting_takeover") return
-      if (!(await attachBrowserSession(state))) return
-      await drive(state, (controller) => controller.completeTakeover(runId))
+      const ongoing = takeoverCompletions.get(runId)
+      if (ongoing) {
+        await ongoing
+        return
+      }
+      const completion = runTakeoverCompletion(runId)
+      takeoverCompletions.set(runId, completion)
+      try {
+        await completion
+      } finally {
+        if (takeoverCompletions.get(runId) === completion)
+          takeoverCompletions.delete(runId)
+      }
     },
     /**
      * Browser control was released when the run paused, so it is re-attached
@@ -660,6 +1361,20 @@ export const createAgentRunService = (input?: {
       if (!(await attachBrowserSession(state))) return
       await drive(state, (controller) =>
         controller.resolveEffect({ runId, pausedAt })
+      )
+    },
+    /** No browser attach: the run ends on the user's word, not a new look. */
+    async finishReviewed({ runId, pausedAt }) {
+      const state = await loadRunning(runId)
+      if (
+        state.status !== "paused" ||
+        state.pauseReason !== "unresolved_effect" ||
+        state.updatedAt !== pausedAt
+      ) {
+        return
+      }
+      await drive(state, (controller) =>
+        controller.finishReviewed({ runId, pausedAt })
       )
     },
     answerApproval: (answer) => supervision.answerApproval(answer),

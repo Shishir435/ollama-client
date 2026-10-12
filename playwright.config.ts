@@ -1,4 +1,15 @@
+import { resolve } from "node:path"
 import { defineConfig } from "@playwright/test"
+
+const benchmarkArtifactDirectory = process.env.AGENT_BENCHMARK_ARTIFACT_DIR
+const benchmarkArtifactPath = (...parts: string[]) =>
+  resolve(benchmarkArtifactDirectory ?? "artifacts/e2e", ...parts)
+const htmlReportDirectory = benchmarkArtifactDirectory
+  ? benchmarkArtifactPath("html-report")
+  : "artifacts/e2e/html"
+const jsonReportPath = benchmarkArtifactDirectory
+  ? benchmarkArtifactPath("playwright-results.json")
+  : "artifacts/e2e/results.json"
 
 const chromiumProject = (
   name: string,
@@ -10,9 +21,23 @@ const chromiumProject = (
   metadata: { extensionBuildPath }
 })
 
+const benchmarkProduct = process.env.AGENT_BENCHMARK_PRODUCT
+const benchmarkExtensionBuildPath = (() => {
+  if (benchmarkProduct !== "nanobrowser") return "build/chrome-mv3-prod"
+  const extensionPath = process.env.NANOBROWSER_EXTENSION_PATH
+  if (!extensionPath) {
+    throw new Error(
+      "Set NANOBROWSER_EXTENSION_PATH to Nanobrowser's built extension directory."
+    )
+  }
+  return extensionPath
+})()
+
 export default defineConfig({
   testDir: "./e2e/chromium",
-  outputDir: "artifacts/e2e/test-results",
+  outputDir: benchmarkArtifactDirectory
+    ? benchmarkArtifactPath("test-results")
+    : "artifacts/e2e/test-results",
   /**
    * One worker on one runner, measured rather than assumed. Two were tried:
    * the fourteen agent scenarios in a shard split evenly across both workers
@@ -38,13 +63,13 @@ export default defineConfig({
   },
   reporter: [
     ["list"],
-    ["html", { outputFolder: "artifacts/e2e/html", open: "never" }],
+    ["html", { outputFolder: htmlReportDirectory, open: "never" }],
     /**
      * Per-test durations, retries included, written on every run. The HTML
      * report is only uploaded when something failed, which left a slow green
      * gate with nothing to read afterwards but the job's own total.
      */
-    ["json", { outputFile: "artifacts/e2e/results.json" }]
+    ["json", { outputFile: jsonReportPath }]
   ],
   // The extension fixture launches its own persistent context so profiles can
   // survive full browser restarts. It therefore owns trace, screenshot, and
@@ -57,8 +82,7 @@ export default defineConfig({
         "build/chrome-mv3-prod"
       ),
       metadata: {
-        extensionBuildPath: "build/chrome-mv3-prod",
-        agentObservationGrant: true
+        extensionBuildPath: "build/chrome-mv3-prod"
       }
     },
     {
@@ -70,7 +94,7 @@ export default defineConfig({
       ...chromiumProject(
         "chromium-agent-benchmark",
         "**/benchmark-agent.spec.ts",
-        "build/chrome-mv3-prod"
+        benchmarkExtensionBuildPath
       ),
       /**
        * Every task its own group, so `--shard` can divide them: they are all
@@ -81,9 +105,11 @@ export default defineConfig({
        */
       fullyParallel: true,
       metadata: {
-        extensionBuildPath: "build/chrome-mv3-prod",
-        agentObservationGrant: true,
-        agentBenchmarkBackend: "cdp"
+        extensionBuildPath: benchmarkExtensionBuildPath,
+        agentBenchmarkBackend: "cdp",
+        ...(benchmarkProduct === "nanobrowser"
+          ? { agentBenchmarkProduct: "nanobrowser" }
+          : {})
       }
     },
     {
@@ -108,7 +134,6 @@ export default defineConfig({
       fullyParallel: true,
       metadata: {
         extensionBuildPath: "build/chrome-mv3-prod",
-        agentObservationGrant: true,
         agentDomBackend: true,
         agentBenchmarkBackend: "dom"
       }
@@ -116,6 +141,11 @@ export default defineConfig({
     chromiumProject(
       "chromium-production",
       "**/install-and-boot.spec.ts",
+      "build/chrome-mv3-prod"
+    ),
+    chromiumProject(
+      "chromium-chat",
+      "**/chat-*.spec.ts",
       "build/chrome-mv3-prod"
     ),
     chromiumProject(

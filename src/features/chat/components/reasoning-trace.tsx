@@ -1,4 +1,5 @@
 import {
+  Bot,
   Camera,
   ChevronDown,
   Circle,
@@ -55,7 +56,8 @@ const TOOL_ICONS: Record<
   "file-text": FileText,
   "text-select": TextSelect,
   download: Download,
-  camera: Camera
+  camera: Camera,
+  bot: Bot
 }
 
 const ACTIVITY_ICONS: Record<
@@ -439,7 +441,7 @@ export const ReasoningTrace = ({
       {context.hasDetails && detailsOpen && (
         <div
           ref={reasoningBodyRef}
-          className="scroll-fade-y flex max-h-72 flex-col gap-2 overflow-y-auto rounded-panel border border-border-subtle bg-surface-sunken px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          className="scroll-fade-y flex max-h-72 flex-col gap-2 overflow-y-auto rounded-control border border-border-subtle bg-surface-sunken px-3 py-2 text-xs leading-relaxed text-muted-foreground">
           {context.activityEvents.length > 0 && (
             <ol className="flex flex-col gap-1.5">
               {context.activityEvents.map((event) => (

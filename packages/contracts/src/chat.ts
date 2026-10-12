@@ -11,12 +11,15 @@ export {
   ActivityEventSchema,
   ActivityTextSchema,
   ChatMessageMetricsSchema,
+  MAX_WEB_CITATIONS,
   PermissionNoticeSchema,
   type PermissionResumeSnapshot,
   PermissionResumeSnapshotSchema,
   ToolCallSchema,
   ToolRunSchema,
-  UsedContextChunkSchema
+  UsedContextChunkSchema,
+  type WebCitation,
+  WebCitationSchema
 } from "./chat-activity"
 export {
   type FileAttachmentParsed,

@@ -6,9 +6,12 @@ import type {
   BackendContext,
   BackendTurn,
   CatalogModel,
+  TurnError,
   TurnResult,
   TurnRunSignals,
-  TurnStreamHandlers
+  TurnSource,
+  TurnStreamHandlers,
+  TurnUsage
 } from "../../backends/types.js"
 import { resolveConfig } from "../../config.js"
 import type {
@@ -30,10 +33,16 @@ import { createRequestQueue } from "../queue.js"
  * runtime can be checked against the same expectations.
  */
 interface FakeBackendOptions {
-  mode: "answer" | "tool" | "fail" | "image"
+  mode: "answer" | "tool" | "fail" | "refused" | "image"
   answer?: string
   /** Holds `ensureReady` so a caller can leave while the backend is starting. */
   readyDelayMs?: number
+  /** Returned with the answer that completes a turn. */
+  usage?: TurnUsage
+  /** Returned with a completed answer. */
+  sources?: TurnSource[]
+  /** The failure `fail` mode returns. */
+  failure?: TurnError
 }
 
 /** A prompt that makes the fake backend hold the queue for a while. */
@@ -131,7 +140,21 @@ const createFakeBackend = (
       if (options.mode === "fail") {
         return {
           status: "failed",
-          error: { message: "upstream exploded", type: "FakeError" }
+          error: options.failure ?? {
+            message: "upstream exploded",
+            type: "FakeError"
+          }
+        }
+      }
+
+      if (options.mode === "refused") {
+        return {
+          status: "failed",
+          error: {
+            message: "policy refused this request",
+            type: "PolicyRefused",
+            status: 403
+          }
         }
       }
 
@@ -154,6 +177,8 @@ const createFakeBackend = (
           status: "completed",
           content: `${this.streamed}${options.answer ?? "done"}`,
           reasoning: "",
+          ...(options.sources ? { sources: options.sources } : {}),
+          ...(options.usage ? { usage: options.usage } : {}),
           finish: "stop"
         }
       }
@@ -210,6 +235,7 @@ const createFakeBackend = (
         status: "completed",
         content: this.streamed,
         reasoning: "",
+        ...(options.usage ? { usage: options.usage } : {}),
         finish: "stop"
       }
     }
@@ -581,6 +607,25 @@ describe("chat completions", () => {
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({
       error: { message: "upstream exploded", type: "FakeError" }
+    })
+    expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("answers a backend-stated upstream status instead of 502", async () => {
+    harness = await startHarness({ mode: "refused" })
+    const response = await fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: false,
+        messages: askedForTabs
+      })
+    })
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({
+      error: { message: "policy refused this request", type: "PolicyRefused" }
     })
     expect(harness.calls.dispose).toBe(1)
   })
@@ -967,6 +1012,230 @@ const oneShotDecision = (harness: Harness, step: number) =>
     tools: [{ type: "function", function: { name: "list_tabs" } }]
   })
 
+/** Every SSE frame of one streamed request, parsed, plus the response. */
+const streamFrames = async (url: string, body: unknown) => {
+  const response = await fetch(`${url}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  })
+  const frames = (await response.text())
+    .split("\n")
+    .filter((line) => line.startsWith("data: ") && !line.includes("[DONE]"))
+    .map((line) => JSON.parse(line.slice(6)))
+  return { response, frames }
+}
+
+const LEG_USAGE: TurnUsage = {
+  promptTokens: 1200,
+  completionTokens: 80,
+  cachedPromptTokens: 1000,
+  reasoningTokens: 30,
+  cost: 0.0004
+}
+
+const OPENAI_USAGE = {
+  prompt_tokens: 1200,
+  completion_tokens: 80,
+  total_tokens: 1280,
+  prompt_tokens_details: { cached_tokens: 1000 },
+  completion_tokens_details: { reasoning_tokens: 30 },
+  cost: 0.0004
+}
+
+const SOURCES: TurnSource[] = [
+  {
+    url: "https://nodejs.org/en/blog/release/v24.21.0",
+    title: "Node.js 24.21.0"
+  },
+  { url: "https://nodejs.org/en" }
+]
+
+describe("usage, sources and classified failures", () => {
+  it("puts the leg's usage on the finish chunk without being asked", async () => {
+    harness = await startHarness({ mode: "answer", usage: LEG_USAGE })
+    const { frames } = await streamFrames(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+
+    const finish = frames.find((frame) => frame.choices?.[0]?.finish_reason)
+    expect(finish.usage).toEqual(OPENAI_USAGE)
+    // No `choices: []` frame for a client that did not ask: one that indexes
+    // `choices[0]` unguarded would crash on it.
+    expect(frames.some((frame) => frame.choices?.length === 0)).toBe(false)
+  })
+
+  it("adds OpenAI's trailing usage chunk when include_usage is set", async () => {
+    harness = await startHarness({ mode: "answer", usage: LEG_USAGE })
+    const { frames } = await streamFrames(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      stream_options: { include_usage: true },
+      messages: askedForTabs
+    })
+
+    const last = frames.at(-1)
+    expect(last.choices).toEqual([])
+    expect(last.usage).toEqual(OPENAI_USAGE)
+  })
+
+  it("reports the whole turn's usage on the leg that completes it, none on a parked one", async () => {
+    harness = await startHarness({ mode: "tool", usage: LEG_USAGE })
+    const tools = [{ type: "function", function: { name: "list_tabs" } }]
+    const parked = await streamFrames(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs,
+      tools
+    })
+    const parkedFinish = parked.frames.find(
+      (frame) => frame.choices?.[0]?.finish_reason
+    )
+    expect(parkedFinish.choices[0].finish_reason).toBe("tool_calls")
+    expect(parkedFinish).not.toHaveProperty("usage")
+
+    const call = parked.frames.find(
+      (frame) => frame.choices?.[0]?.delta?.tool_calls
+    ).choices[0].delta.tool_calls[0]
+    const resumed = await streamFrames(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        ...askedForTabs,
+        { role: "assistant", content: "", tool_calls: [call] },
+        { role: "tool", tool_call_id: call.id, content: "two tabs" }
+      ],
+      tools
+    })
+    const finish = resumed.frames.find(
+      (frame) => frame.choices?.[0]?.finish_reason
+    )
+    expect(finish.choices[0].finish_reason).toBe("stop")
+    expect(finish.usage).toEqual(OPENAI_USAGE)
+  })
+
+  it("streams sources as url_citation annotations before the finish", async () => {
+    harness = await startHarness({ mode: "answer", sources: SOURCES })
+    const { frames } = await streamFrames(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+
+    const index = frames.findIndex(
+      (frame) => frame.choices?.[0]?.delta?.annotations
+    )
+    const finishIndex = frames.findIndex(
+      (frame) => frame.choices?.[0]?.finish_reason
+    )
+    expect(index).toBeGreaterThan(-1)
+    expect(index).toBeLessThan(finishIndex)
+    expect(frames[index].choices[0].delta.annotations).toEqual([
+      {
+        type: "url_citation",
+        url_citation: {
+          url: "https://nodejs.org/en/blog/release/v24.21.0",
+          title: "Node.js 24.21.0"
+        }
+      },
+      { type: "url_citation", url_citation: { url: "https://nodejs.org/en" } }
+    ])
+  })
+
+  it("returns usage and annotations in the non-streaming envelope", async () => {
+    harness = await startHarness({
+      mode: "answer",
+      usage: LEG_USAGE,
+      sources: SOURCES
+    })
+    const response = await fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "fake/model-a", messages: askedForTabs })
+    })
+    const body = (await response.json()) as {
+      usage: unknown
+      choices: { message: { annotations?: unknown[] } }[]
+    }
+
+    expect(body.usage).toEqual(OPENAI_USAGE)
+    expect(body.choices[0].message.annotations).toHaveLength(2)
+  })
+
+  it("keeps zeroed usage when the runtime reported none", async () => {
+    harness = await startHarness({ mode: "answer" })
+    const response = await fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "fake/model-a", messages: askedForTabs })
+    })
+    const body = (await response.json()) as {
+      usage: unknown
+      choices: { message: Record<string, unknown> }[]
+    }
+
+    expect(body.usage).toEqual({
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0
+    })
+    expect(body.choices[0].message).not.toHaveProperty("annotations")
+  })
+
+  it("streams a rate-limited failure as 429 with its retry delay", async () => {
+    harness = await startHarness({
+      mode: "fail",
+      failure: {
+        message: "usage limit reached",
+        type: "CodexError",
+        status: 429,
+        retryAfterSeconds: 120
+      }
+    })
+    const turn = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+
+    expect(turn.error).toEqual({
+      message: "usage limit reached",
+      type: "CodexError",
+      retry_after: 120,
+      status: 429
+    })
+  })
+
+  it("answers a non-streaming rate limit with 429 and Retry-After", async () => {
+    harness = await startHarness({
+      mode: "fail",
+      failure: {
+        message: "usage limit reached",
+        type: "CodexError",
+        status: 429,
+        retryAfterSeconds: 120
+      }
+    })
+    const response = await fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "fake/model-a", messages: askedForTabs })
+    })
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get("retry-after")).toBe("120")
+    expect(await response.json()).toEqual({
+      error: {
+        message: "usage limit reached",
+        type: "CodexError",
+        retry_after: 120
+      }
+    })
+  })
+})
+
 describe("a client that never resumes its turns", () => {
   it("does not accumulate a parked session per decision", async () => {
     harness = await startHarness({ mode: "tool" })
@@ -1034,6 +1303,77 @@ describe("a client that never resumes its turns", () => {
     expect(stale.status).toBe(400)
     expect(stale.content).toContain("StaleToolResults")
     expect(second.toolCalls[0]?.id).toBeDefined()
+  })
+
+  it("refuses a tool call from a turn it discarded instead of parking it", async () => {
+    /**
+     * Failing a reaped turn's call hands the runtime a tool error, and the
+     * model carries on and calls another tool before the interrupt lands.
+     * Parked, that call belonged to no request; the runtime sat waiting on
+     * it, and the next decision it was asked for streamed a role and nothing.
+     */
+    harness = await startHarness({ mode: "tool" }, { MAX_PARKED_TURNS: 2 })
+    await oneShotDecision(harness, 1)
+    await oneShotDecision(harness, 2)
+    await oneShotDecision(harness, 3)
+
+    const late = harness.pending.register({
+      turnId: "turn_1",
+      tool: "list_tabs"
+    })
+    await expect(late.promise).rejects.toThrow("parked-turn limit")
+    expect(harness.pending.hasPending("turn_1")).toBe(false)
+
+    const next = await oneShotDecision(harness, 4)
+    expect(next.status).toBe(200)
+    expect(next.finishReason).toBe("tool_calls")
+  })
+
+  it("keeps a turn that left the call optional over forced decisions", async () => {
+    /**
+     * A chat turn delegates a long client tool and parks on it; that tool's own
+     * steps are forced decisions that park beside it. Oldest-first discarded
+     * the chat turn once the steps passed the cap, and the tool's result came
+     * back as StaleToolResults.
+     */
+    harness = await startHarness({ mode: "tool" }, { MAX_PARKED_TURNS: 2 })
+    const chat = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [{ role: "user", content: "delegate a task" }],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    expect(chat.finishReason).toBe("tool_calls")
+    for (let step = 1; step <= 4; step += 1) {
+      const decision = await streamTurn(harness.url, {
+        model: "fake/model-a",
+        stream: true,
+        tool_choice: "required",
+        messages: [{ role: "user", content: `forced step ${step}` }],
+        tools: [{ type: "function", function: { name: "list_tabs" } }]
+      })
+      expect(decision.finishReason).toBe("tool_calls")
+    }
+
+    const call = chat.toolCalls[0]
+    const resumed = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        { role: "user", content: "delegate a task" },
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            { id: call?.id, type: "function", function: call?.function }
+          ]
+        },
+        { role: "tool", tool_call_id: call?.id, content: "task done" }
+      ],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    expect(resumed.status).toBe(200)
+    expect(resumed.content).not.toContain("StaleToolResults")
   })
 
   it("settles a turn whose resume is still queued when the proxy shuts down", async () => {

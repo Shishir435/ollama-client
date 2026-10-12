@@ -1,5 +1,6 @@
 import {
   AgentMalformedDecisionError,
+  type AgentVisualAccess,
   agentAffordanceFeedback,
   classifyAgentAffordance
 } from "@ollama-client/agent-runtime"
@@ -10,6 +11,7 @@ import {
 } from "@ollama-client/contracts"
 import { logger } from "@/lib/logger"
 import type { ToolCall } from "@/lib/tools/types"
+import { agentVisualUnavailableSentence } from "./agent-visual-access"
 
 export const AGENT_DECISION_TOOL_NAME = "agent_decision"
 
@@ -40,7 +42,40 @@ const STALE_FEEDBACK =
 const NO_SCREENSHOT_FEEDBACK =
   "No screenshot was attached to this observation, so click_point and zoom are not available. Use an element ref from the observation."
 
+const LOOK_FIRST_FEEDBACK =
+  "No screenshot was attached to this observation, so click_point and zoom are not available yet. Use an element ref from the observation, or look to take a screenshot first."
+
 const VISUAL_COMMANDS = new Set(["click_point", "zoom"])
+
+/**
+ * What a visual command the model was not offered is refused with. The
+ * reason, where the host gave one, is the true one, so a model told it
+ * cannot see is not left to try again on the next step.
+ */
+const visualRefusal = (
+  type: string,
+  options: AgentDecisionParseOptions
+): AgentDecisionFormatError | undefined => {
+  const visual = options.visual
+  if (type === "look") {
+    if (visual?.available) return undefined
+    return new AgentDecisionFormatError(
+      "The agent decision asked for a screenshot it was not offered",
+      visual
+        ? agentVisualUnavailableSentence(visual.reason)
+        : NO_SCREENSHOT_FEEDBACK
+    )
+  }
+  if (!VISUAL_COMMANDS.has(type) || options.screenshot) return undefined
+  return new AgentDecisionFormatError(
+    "The agent decision used a visual command without a screenshot",
+    visual === undefined
+      ? NO_SCREENSHOT_FEEDBACK
+      : visual.available
+        ? LOOK_FIRST_FEEDBACK
+        : agentVisualUnavailableSentence(visual.reason)
+  )
+}
 
 /**
  * The field each non-command decision carries, and the optional ones beside
@@ -64,7 +99,7 @@ const VARIANT_FIELDS: Record<string, string> = {
  * trusting the next person to edit both.
  */
 const VARIANT_OPTIONAL_FIELDS: Record<string, readonly string[]> = {
-  complete: ["evidence", "outcomes"]
+  complete: ["evidence", "outcomes", "sourceQuotes"]
 }
 
 /**
@@ -84,9 +119,17 @@ const normalizeOutcomes = (value: unknown): unknown => {
   return value.map((entry) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry))
       return entry
-    const { evidence, ...rest } = entry as Record<string, unknown>
+    const { evidence, items, ...rest } = entry as Record<string, unknown>
     const quoted = typeof evidence === "string" ? evidence.trim() : undefined
-    return quoted ? { ...rest, evidence: quoted } : rest
+    /** Per-item answers carry their own quotes, emptied the same way. */
+    const answered = Array.isArray(items)
+      ? { items: normalizeOutcomes(items) }
+      : items === undefined
+        ? {}
+        : { items }
+    return quoted
+      ? { ...rest, ...answered, evidence: quoted }
+      : { ...rest, ...answered }
   })
 }
 
@@ -125,6 +168,7 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   click: ["ref"],
   click_point: ["x", "y"],
   zoom: ["x", "y", "width", "height"],
+  look: [],
   double_click: ["ref"],
   hover: ["ref"],
   type: ["ref", "text"],
@@ -153,6 +197,7 @@ const DECISION_FIELDS = new Set([
   "type",
   "command",
   "finding",
+  "sourceQuotes",
   ...Object.values(COMMAND_FIELDS).flat(),
   ...Object.values(VARIANT_FIELDS),
   ...Object.values(VARIANT_OPTIONAL_FIELDS).flat()
@@ -221,6 +266,21 @@ const invalidFieldsFeedback = (
   )
 }
 
+/**
+ * A key goes to whatever holds focus, and a model pressing Tab says so by
+ * leaving the ref out. Measured on gpt-6-luna: three Tab presses without one
+ * were refused as invalid and the run failed on a page that showed exactly
+ * one focused control. Only an unambiguous focus is filled in.
+ */
+const fillFocusedKeyTarget = (
+  command: Record<string, unknown>,
+  observation: AgentObservation
+): void => {
+  if (command.type !== "press_key" || command.ref !== undefined) return
+  const focused = observation.elements.filter((element) => element.focused)
+  if (focused.length === 1) command.ref = focused[0].ref
+}
+
 const normalizeDecisionArguments = (
   raw: unknown,
   observation: AgentObservation
@@ -247,10 +307,19 @@ const normalizeDecisionArguments = (
     for (const field of fields) {
       if (record[field] !== undefined) command[field] = record[field]
     }
-    /** A finding belongs to the decision, not to the command's wire shape. */
-    return record.finding === undefined
-      ? { type: "command", command }
-      : { type: "command", command, finding: record.finding }
+    fillFocusedKeyTarget(command, observation)
+    /** These fields belong to the decision, not the command's wire shape. */
+    return {
+      type: "command",
+      command,
+      ...(record.requirementId === undefined
+        ? {}
+        : { requirementId: record.requirementId }),
+      ...(record.finding === undefined ? {} : { finding: record.finding }),
+      ...(record.sourceQuotes === undefined
+        ? {}
+        : { sourceQuotes: record.sourceQuotes })
+    }
   }
   const field = VARIANT_FIELDS[String(record.type)]
   if (!field) return raw
@@ -301,6 +370,8 @@ const assertGroundedDecision = (
 export interface AgentDecisionParseOptions {
   /** Whether a screenshot travelled with the observation the model decided on. */
   screenshot?: boolean
+  /** Whether the model was offered `look`, and if not, why. */
+  visual?: AgentVisualAccess
 }
 
 /** Accept exactly one native tool call and no provider-specific response shape. */
@@ -329,19 +400,12 @@ export const parseAgentDecisionToolCalls = (
    * tool schema a text-only model sees never offers these, so reaching here
    * means the model invented one.
    */
-  if (
-    normalized &&
-    typeof normalized === "object" &&
-    "command" in normalized &&
-    VISUAL_COMMANDS.has(
-      String((normalized as { command?: { type?: unknown } }).command?.type)
-    ) &&
-    !options.screenshot
-  ) {
-    throw new AgentDecisionFormatError(
-      "The agent decision used a visual command without a screenshot",
-      NO_SCREENSHOT_FEEDBACK
+  if (normalized && typeof normalized === "object" && "command" in normalized) {
+    const refused = visualRefusal(
+      String((normalized as { command?: { type?: unknown } }).command?.type),
+      options
     )
+    if (refused) throw refused
   }
   const parsed = AgentDecisionSchema.safeParse(normalized)
   if (!parsed.success) {

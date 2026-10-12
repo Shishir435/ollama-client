@@ -1,5 +1,6 @@
 import { resolve } from "node:path"
 import type { defineConfig } from "wxt"
+import { prepareBundledEmbeddings } from "../tools/generate/prepare-bundled-embeddings"
 
 type WxtHooks = NonNullable<Parameters<typeof defineConfig>[0]["hooks"]>
 
@@ -137,7 +138,28 @@ export const publicWasmAssets = (target: BuildTarget): PublicAsset[] => {
 }
 
 export const hooks: WxtHooks = {
-  "build:publicAssets": (wxt, files) => {
+  "build:publicAssets": async (wxt, files) => {
+    files.push(...(await prepareBundledEmbeddings()))
+    for (const file of [
+      "ort.wasm.min.mjs",
+      "ort-wasm-simd-threaded.mjs",
+      "ort-wasm-simd-threaded.wasm"
+    ]) {
+      files.push({
+        absoluteSrc: resolve(`node_modules/onnxruntime-web/dist/${file}`),
+        relativeDest: `assets/embeddings/runtime/${file}`
+      })
+    }
+    files.push({
+      absoluteSrc: resolve(
+        "node_modules/@huggingface/tokenizers/dist/tokenizers.mjs"
+      ),
+      relativeDest: "assets/embeddings/runtime/tokenizers.mjs"
+    })
+    files.push({
+      absoluteSrc: resolve("src/lib/embeddings/native/worker.mjs"),
+      relativeDest: "assets/embeddings/worker.mjs"
+    })
     const promoIndex = files.findIndex(
       (file) => file.relativeDest === "assets/icon-promo-light.png"
     )

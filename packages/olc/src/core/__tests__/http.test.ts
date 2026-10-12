@@ -1,4 +1,9 @@
-import { createServer, type Server, type ServerResponse } from "node:http"
+import {
+  createServer,
+  request as httpRequest,
+  type Server,
+  type ServerResponse
+} from "node:http"
 import type { AddressInfo } from "node:net"
 import { afterEach, describe, expect, it } from "vitest"
 import {
@@ -141,6 +146,39 @@ describe("router origin policy", () => {
     expect(response.headers.get("access-control-allow-origin")).toBeNull()
   })
 
+  it("refuses a request whose Host names another listener before routing", async () => {
+    const url = await startServer(["chrome-extension://*"])
+    const { port } = new URL(url)
+    const send = (host: string) =>
+      new Promise<{ status: number; body: string }>((resolve, reject) => {
+        const outgoing = httpRequest(
+          {
+            host: "127.0.0.1",
+            port,
+            path: "/v1/chat/completions",
+            method: "POST",
+            headers: { Host: host, "Content-Type": "application/json" }
+          },
+          (incoming) => {
+            let body = ""
+            incoming.on("data", (chunk) => {
+              body += chunk
+            })
+            incoming.on("end", () =>
+              resolve({ status: incoming.statusCode ?? 0, body })
+            )
+          }
+        )
+        outgoing.on("error", reject)
+        outgoing.end("{}")
+      })
+
+    const refused = await send(`evil.example:${port}`)
+    expect(refused.status).toBe(403)
+    expect(JSON.parse(refused.body).error.code).toBe("host_not_allowed")
+    expect((await send(`127.0.0.1:${port}`)).status).toBe(200)
+  })
+
   it("returns machine-readable errors and rate-limit guidance", async () => {
     const url = await startServer([], { limit: 1, windowMs: 60_000 })
 
@@ -245,6 +283,22 @@ describe("bindRequestAbort", () => {
         request(),
         response({ closed: true, writableEnded: true })
       ).signal.aborted
+    ).toBe(false)
+  })
+})
+
+describe("listener Host boundary", () => {
+  it("refuses rebinding names and wrong ports, preserving native loopback clients", async () => {
+    const { isLocalListenerHost } = await import("../http.js")
+    expect(isLocalListenerHost("evil.example:8083", "127.0.0.1", 8083)).toBe(
+      false
+    )
+    expect(isLocalListenerHost("localhost:8084", "127.0.0.1", 8083)).toBe(false)
+    expect(isLocalListenerHost("127.0.0.1:8083", "127.0.0.1", 8083)).toBe(true)
+    expect(isLocalListenerHost("localhost:8083", "127.0.0.1", 8083)).toBe(true)
+    expect(isLocalListenerHost("[::1]:8083", "::1", 8083)).toBe(true)
+    expect(
+      isLocalListenerHost("127.0.0.1:8083@evil.example:8083", "127.0.0.1", 8083)
     ).toBe(false)
   })
 })

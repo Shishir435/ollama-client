@@ -1,3 +1,4 @@
+import { registerNativeEmbeddingHost } from "@/lib/embeddings/native/host"
 import { registerIngestionProcessorHost } from "@/lib/ingestion/ingestion-processor-host"
 import { registerPersistenceHost } from "@/lib/persistence/owner-host"
 
@@ -18,6 +19,7 @@ import { registerPersistenceHost } from "@/lib/persistence/owner-host"
 const isOffscreenDocument = !chrome.storage?.local
 
 if (isOffscreenDocument) {
+  registerNativeEmbeddingHost()
   registerPersistenceHost()
   registerIngestionProcessorHost()
 } else {

@@ -21,10 +21,31 @@ import {
   type Worker
 } from "@playwright/test"
 
+const isMissingPathError = (error: unknown): boolean => {
+  if (typeof error !== "object" || error === null || !("code" in error))
+    return false
+  const code = (error as { code?: unknown }).code
+  return code === "ENOENT" || code === "ENOTDIR"
+}
+
 const findFileRecursive = (directory: string, targetName: string): string => {
-  for (const entry of readdirSync(directory)) {
+  let entries: string[]
+  try {
+    entries = readdirSync(directory)
+  } catch (error) {
+    if (isMissingPathError(error)) return ""
+    throw error
+  }
+
+  for (const entry of entries) {
     const fullPath = resolve(directory, entry)
-    const stats = statSync(fullPath)
+    let stats: ReturnType<typeof statSync>
+    try {
+      stats = statSync(fullPath)
+    } catch (error) {
+      if (isMissingPathError(error)) continue
+      throw error
+    }
     if (stats.isFile() && entry === targetName) return fullPath
     if (stats.isDirectory()) {
       const found = findFileRecursive(fullPath, targetName)
@@ -149,31 +170,22 @@ const createExtensionSession = async (
 }> => {
   let buildPath = extensionBuildPathFor(testInfo)
   const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-e2e-`)
-  // Headless Chromium cannot accept the native optional-permission bubble.
-  // Install identical production JS with a test-only install-time grant.
-  // This does not test the permission prompt; all runtime permission checks run.
-  if (testInfo.project.metadata.agentObservationGrant === true) {
+  /**
+   * A project may ask for the browser Firefox gives us: no debugger, so the
+   * session manager reports `backend: "dom"` and every action runs through
+   * the content script. Removing the permission is the only honest way to
+   * get that on Chromium — a flag the extension read would be a second code
+   * path, and the point of measuring the two is that they are the same code
+   * seeing a different browser.
+   */
+  if (testInfo.project.metadata.agentDomBackend === true) {
     const copiedBuild = resolve(userDataDir, "extension")
     cpSync(buildPath, copiedBuild, { recursive: true })
     const manifestPath = resolve(copiedBuild, "manifest.json")
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
-    manifest.permissions.push("webNavigation")
-    manifest.optional_permissions = manifest.optional_permissions.filter(
-      (permission: string) => permission !== "webNavigation"
+    manifest.permissions = manifest.permissions.filter(
+      (permission: string) => permission !== "debugger"
     )
-    /**
-     * A project may ask for the browser Firefox gives us: no debugger, so the
-     * session manager reports `backend: "dom"` and every action runs through
-     * the content script. Removing the permission is the only honest way to
-     * get that on Chromium — a flag the extension read would be a second code
-     * path, and the point of measuring the two is that they are the same code
-     * seeing a different browser.
-     */
-    if (testInfo.project.metadata.agentDomBackend === true) {
-      manifest.permissions = manifest.permissions.filter(
-        (permission: string) => permission !== "debugger"
-      )
-    }
     writeFileSync(manifestPath, JSON.stringify(manifest))
     buildPath = copiedBuild
   }
@@ -322,5 +334,21 @@ export const test = base.extend<{ extension: ExtensionSession }>({
     }
   }
 })
+
+/**
+ * Waits for a fresh profile's first-run provider defaults to land before a
+ * test writes its own provider config. The extension reads the empty config
+ * and writes the defaults back; a fixture written in between is overwritten
+ * by that write, and the chat then reaches whatever answers on 11434.
+ */
+export const waitForProviderDefaults = async (page: Page): Promise<void> => {
+  await page.waitForFunction(
+    async () =>
+      (await chrome.storage.sync.get("llm_providers_config_v1"))
+        .llm_providers_config_v1 !== undefined,
+    undefined,
+    { timeout: 15_000, polling: 100 }
+  )
+}
 
 export { expect } from "@playwright/test"

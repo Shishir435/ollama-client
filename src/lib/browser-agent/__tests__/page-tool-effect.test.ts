@@ -186,7 +186,6 @@ describe("page-tool effect family", () => {
         executePageTool: vi
           .fn()
           .mockResolvedValue({ result: "published", navigation: false }),
-        activateTab: vi.fn(),
         goHistory: vi.fn(),
         resolveHistoryDestination: vi.fn(),
         wait: vi.fn(),
@@ -205,7 +204,6 @@ describe("page-tool effect family", () => {
       },
       adapter: {
         observe: vi.fn(),
-        getActiveTabId: vi.fn(),
         getTab: vi.fn(),
         classifyAccess: vi.fn(),
         now: () => 4

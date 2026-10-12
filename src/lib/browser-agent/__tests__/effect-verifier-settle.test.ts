@@ -106,7 +106,6 @@ const settlingAdapter = (pages: AgentObservation[]) => {
       looks.push(clock)
       return pages[Math.min(looks.length - 1, pages.length - 1)]
     },
-    getActiveTabId: async () => 7,
     getTab: async () => ({ url: "https://example.com/form" }),
     classifyAccess: async () => "ok",
     async wait(ms) {
@@ -156,6 +155,20 @@ describe("Agent effect settle window", () => {
     ])
     expect(result.outcome).toBe("confirmed")
     expect(looks).toHaveLength(2)
+  })
+
+  it("confirms an effect that landed below the fold", async () => {
+    /**
+     * A canvas click appended a status line under the viewport: the visible
+     * text was unchanged, so the click read as having done nothing and the
+     * run paused as an unresolved effect.
+     */
+    const { result } = await verify(
+      [observation({ documentText: "Save Status: Active" })],
+      {},
+      observation({ documentText: "Save" })
+    )
+    expect(result.outcome).toBe("confirmed")
   })
 
   it("returns the moment the effect is there rather than sleeping", async () => {
@@ -264,6 +277,57 @@ describe("Agent effect settle window", () => {
       signal
     })
     expect(result.outcome).toBe("ambiguous")
+    expect(looks).toHaveLength(1)
+  })
+})
+
+describe("intercepted form navigation deadline", () => {
+  it("reads the updated page after a navigation timeout without replaying submission", async () => {
+    const { AgentNavigationTimeoutError } = await import("../navigation-errors")
+    const before = observation()
+    const after = observation({
+      generation: 2,
+      snapshotId: "snapshot-2",
+      visibleText: "Pull request 42 Closed"
+    })
+    const { adapter, looks } = settlingAdapter([after])
+    adapter.waitForNavigation = async () => {
+      throw new AgentNavigationTimeoutError()
+    }
+    const verification: AgentVerificationInput = {
+      effect: {
+        ...effect({
+          semanticEffects: ["submission"],
+          destination: {
+            url: "https://example.com/close",
+            source: "observed",
+            origin: "https://example.com"
+          }
+        }),
+        authorization: {
+          type: "approval",
+          risk: "high",
+          approvalId: "a1",
+          authorizedAt: 2
+        }
+      },
+      receipt: { executedAt: 0, inputDelivery: "delivered" },
+      before,
+      allowedOrigins: ["https://example.com"]
+    }
+    const result = await verifyDomMutationAgentEffect({
+      verification,
+      adapter,
+      signal
+    })
+    expect(result.outcome).toBe("confirmed")
+    expect(looks).toHaveLength(1)
+    adapter.waitForNavigation = async () => {
+      throw new Error("cancelled")
+    }
+    await expect(
+      verifyDomMutationAgentEffect({ verification, adapter, signal })
+    ).rejects.toThrow("cancelled")
     expect(looks).toHaveLength(1)
   })
 })

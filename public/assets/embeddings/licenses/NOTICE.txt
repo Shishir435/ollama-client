@@ -1,0 +1,16 @@
+Bundled embeddings
+
+ONNX Runtime Web 1.30.0
+https://github.com/microsoft/onnxruntime/tree/v1.30.0
+Copyright Microsoft Corporation. MIT license; see onnxruntime-MIT.txt and onnxruntime-ThirdPartyNotices.txt.
+
+Hugging Face tokenizers.js 0.2.0
+https://github.com/huggingface/tokenizers.js
+Apache License 2.0; see Apache-2.0.txt.
+
+Xenova/all-MiniLM-L6-v2 (quantized ONNX conversion)
+Revision 751bff37182d3f1213fa05d7196b954e230abad9
+https://huggingface.co/Xenova/all-MiniLM-L6-v2/tree/751bff37182d3f1213fa05d7196b954e230abad9
+Based on sentence-transformers/all-MiniLM-L6-v2.
+Apache License 2.0; see Apache-2.0.txt and ../model/README.md.
+Weights are unmodified. This extension pools and normalizes token-window embeddings for long inputs.

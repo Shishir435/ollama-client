@@ -1,7 +1,7 @@
 import { Loader2, Search } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard } from "@/components/settings"
+import { SettingsSection } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -54,9 +54,9 @@ export const EmbeddingTestSearch = ({
   }
 
   return (
-    <SettingsCard
+    <SettingsSection
       icon={Search}
-      focusId="embeddings-test-search"
+      data-settings-focus-id="embeddings-test-search"
       title={t("settings.embeddings.test_search.title")}
       description={t("settings.embeddings.test_search.description")}>
       <div className="flex gap-2 mb-3">
@@ -114,6 +114,6 @@ export const EmbeddingTestSearch = ({
           )}
         </div>
       )}
-    </SettingsCard>
+    </SettingsSection>
   )
 }

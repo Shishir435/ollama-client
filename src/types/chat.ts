@@ -1,8 +1,14 @@
+import type { AgentConversationHandoff } from "@ollama-client/contracts/agent-handoff"
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
-import type { PermissionResumeSnapshot } from "@ollama-client/contracts/chat"
+import type {
+  PermissionResumeSnapshot,
+  WebCitation
+} from "@ollama-client/contracts/chat"
 import type { OptionalApiPermission } from "@/lib/permissions"
 import type { ToolCall } from "@/lib/tools/types"
 import type { SelectedModelRef } from "@/types/model"
+
+export type { WebCitation }
 
 export type Role = "user" | "assistant" | "system" | "tool"
 
@@ -91,6 +97,7 @@ export interface PermissionNotice {
     | "tabGroups"
     | "sessions"
     | "reminders"
+    | "browserAgent"
   focusId: string
   labelKey: string
   missingPermissions: OptionalApiPermission[]
@@ -175,6 +182,20 @@ export interface ChatMessage {
    * error so the UI can offer an inline retry for retryable failures.
    */
   error?: Partial<AppFailure>
+  /**
+   * The Agent run this message reports, when one produced it.
+   *
+   * On the message rather than only on the run, so a branch inherits it by
+   * ancestry: a follow-up asked in one branch must not see a run that only
+   * ever happened in another.
+   */
+  agentRunId?: string
+  /**
+   * What a later turn in this branch is told about that run: a bounded,
+   * page-derived projection the context builder fences. Written by the commit
+   * that settled the run.
+   */
+  agentHandoff?: AgentConversationHandoff
   timestamp?: number
   metrics?: {
     total_duration?: number
@@ -183,11 +204,19 @@ export interface ChatMessage {
     prompt_eval_duration?: number
     eval_count?: number
     eval_duration?: number
+    /** Prompt tokens the provider served from its cache; part of `prompt_eval_count`. */
+    prompt_cached_count?: number
+    /** Reasoning tokens; part of `eval_count`. */
+    reasoning_count?: number
+    /** The provider's own cost figure in USD, real or estimated, when it sends one. */
+    cost_usd?: number
     ragQuery?: string
     ragSources?: RagSource[]
     usedContextChunks?: UsedContextChunk[]
     activityEvents?: ActivityEvent[]
     toolRuns?: ToolRun[]
+    /** Pages the provider's own web search cited, from `url_citation` annotations. */
+    webCitations?: WebCitation[]
     groundedOnlyMode?: boolean
     insufficientContext?: boolean
     promptInputLength?: number
@@ -269,6 +298,10 @@ export interface ToolRun {
   args?: Record<string, unknown>
   /** Short preview of the tool's output (shown as the step's result). */
   resultPreview?: string
+  /** What the approval prompt says the call will do; model-written text. */
+  confirmationSummary?: string
+  /** Translation keys for notices the approval prompt must show. */
+  confirmationNotes?: string[]
 }
 
 export interface ChatSession {
@@ -318,6 +351,12 @@ export interface ChatStreamMessage {
    * trace updates live as tools run.
    */
   toolRuns?: ToolRun[]
+  /**
+   * Pages the provider's own web search cited. The reducer merges every list
+   * a turn carries by URL, since each model call in a tool loop reports its
+   * own.
+   */
+  webCitations?: WebCitation[]
   error?: AppFailure
   metrics?: {
     total_duration?: number
@@ -326,6 +365,12 @@ export interface ChatStreamMessage {
     prompt_eval_duration?: number
     eval_count?: number
     eval_duration?: number
+    /** Prompt tokens the provider served from its cache; part of `prompt_eval_count`. */
+    prompt_cached_count?: number
+    /** Reasoning tokens; part of `eval_count`. */
+    reasoning_count?: number
+    /** The provider's own cost figure in USD, real or estimated, when it sends one. */
+    cost_usd?: number
     sample_count?: number
     sample_duration?: number
   }
@@ -353,6 +398,17 @@ export interface ChatWithModelMessage {
      * embeds the original user query.
      */
     clientContextPrepared?: boolean
+    /** Durable turns only: the row this turn streams into. */
+    assistantMessageId?: number
+    /** Durable turns only: the tab the side panel showed at send time. */
+    browserTabId?: number
+    /**
+     * Durable turns only: the context carried page, document or agent-record
+     * text before the model wrote anything.
+     */
+    pageContentInContext?: boolean
+    /** Durable turns only: the run whose card drafted this message. */
+    agentFollowUpRunId?: string
   }
 }
 

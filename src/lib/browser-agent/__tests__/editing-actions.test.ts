@@ -154,7 +154,6 @@ const verifierAdapter = (
   after: AgentObservation
 ): AgentEffectVerifierAdapter => ({
   observe: async () => after,
-  getActiveTabId: async () => 7,
   getTab: async () => ({ url: after.url }),
   classifyAccess: async () => "ok",
   now: () => 10
@@ -472,7 +471,6 @@ describe("editing on the DOM backend", () => {
         })
         return undefined
       },
-      activateTab: vi.fn(),
       goHistory: vi.fn(),
       resolveHistoryDestination: async () => undefined,
       wait: vi.fn(),
@@ -516,7 +514,6 @@ describe("editing on the DOM backend", () => {
         return undefined
       },
       fileChooserOpened: async () => true,
-      activateTab: vi.fn(),
       goHistory: vi.fn(),
       resolveHistoryDestination: async () => undefined,
       wait: vi.fn(),

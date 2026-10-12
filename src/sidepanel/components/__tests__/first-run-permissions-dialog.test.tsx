@@ -214,3 +214,189 @@ describe("FirstRunPermissionsDialog", () => {
     )
   })
 })
+
+vi.mock("@/components/ui/select", () => ({
+  Select: ({ value, onValueChange, children }: any) => (
+    <select
+      aria-label="model"
+      value={value}
+      onChange={(event) => onValueChange(event.target.value)}>
+      <option value="" />
+      {children}
+    </select>
+  ),
+  SelectTrigger: () => null,
+  SelectValue: () => null,
+  SelectContent: ({ children }: any) => <>{children}</>,
+  SelectItem: ({ value, children }: any) => (
+    <option value={value}>{children}</option>
+  )
+}))
+
+const resumeModels = (providerId = "ollama") =>
+  onboarding.get.mockResolvedValue({
+    version: 2,
+    stage: "model-choice",
+    providerId,
+    modelRef: { providerId, modelId: "qwen3" }
+  })
+
+it("enables the chosen provider before committing its model", async () => {
+  resumeModels()
+  render(<FirstRunPermissionsDialog />)
+  const use = await screen.findByRole("button", {
+    name: "onboarding.model.use_unverified"
+  })
+  await waitFor(() => expect(use).not.toBeDisabled())
+  fireEvent.click(use)
+  await waitFor(() =>
+    expect(onboarding.selectModel).toHaveBeenCalledWith({
+      providerId: "ollama",
+      modelId: "qwen3"
+    })
+  )
+  expect(rpc.call).toHaveBeenCalledWith(RpcMethod.ProvidersSetEnabled, {
+    providerId: "ollama",
+    enabled: true
+  })
+})
+it("refreshes an empty model screen without a back-navigation detour", async () => {
+  resumeModels()
+  const original = rpc.call.getMockImplementation()
+  if (!original) throw new Error("Missing RPC fixture")
+  let available = false
+  rpc.call.mockImplementation(async (method, ...args) =>
+    method === RpcMethod.ProvidersListModels && !available
+      ? { models: [], failures: [] }
+      : original(method, ...args)
+  )
+  render(<FirstRunPermissionsDialog />)
+  await screen.findByText("onboarding.model.none")
+  expect(
+    screen.getByRole("button", { name: "onboarding.model.use_unverified" })
+  ).toBeDisabled()
+  fireEvent.click(
+    screen.getByRole("button", { name: "onboarding.provider.open_setup" })
+  )
+  expect(api.openOptionsInTab).toHaveBeenCalled()
+  available = true
+  fireEvent.click(
+    screen.getByRole("button", { name: "onboarding.model.refresh" })
+  )
+  await screen.findByRole("option", { name: /qwen3/ })
+})
+it("does not present a catalog-less stored test as verified", async () => {
+  resumeModels()
+  const original = rpc.call.getMockImplementation()
+  if (!original) throw new Error("Missing RPC fixture")
+  rpc.call.mockImplementation(async (method, ...args) =>
+    method === RpcMethod.ProvidersTestConnection
+      ? { reachable: false, modelListSupported: false }
+      : original(method, ...args)
+  )
+  render(<FirstRunPermissionsDialog />)
+  fireEvent.click(
+    await screen.findByRole("button", { name: "onboarding.model.refresh" })
+  )
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "onboarding.model.use_unverified" })
+    ).not.toBeDisabled()
+  )
+  expect(screen.getByText("onboarding.provider.unverified")).toBeInTheDocument()
+  expect(
+    screen.queryByRole("button", { name: "onboarding.model.use" })
+  ).toBeNull()
+})
+it("drops an old model when the user changes providers", async () => {
+  resumeModels()
+  const original = rpc.call.getMockImplementation()
+  if (!original) throw new Error("Missing RPC fixture")
+  rpc.call.mockImplementation(async (method, ...args) =>
+    method === RpcMethod.ProvidersList
+      ? {
+          providers: [
+            { id: "ollama", name: "Ollama", type: "ollama", enabled: true },
+            {
+              id: "lm-studio",
+              name: "LM Studio",
+              type: "openai-compatible",
+              enabled: false
+            }
+          ]
+        }
+      : method === RpcMethod.ProvidersListModels &&
+          args[0]?.providerId === "lm-studio"
+        ? { models: [], failures: [] }
+        : original(method, ...args)
+  )
+  render(<FirstRunPermissionsDialog />)
+  await screen.findByRole("option", { name: /qwen3/ })
+  fireEvent.click(screen.getByRole("button", { name: "common.actions.back" }))
+  await screen.findByText("onboarding.provider.connect_title")
+  fireEvent.click(screen.getByRole("button", { name: "common.actions.back" }))
+  fireEvent.click(await screen.findByText("LM Studio"))
+  fireEvent.click(
+    await screen.findByRole("button", { name: "settings.providers.test" })
+  )
+  await screen.findByText("onboarding.model.none")
+  expect(
+    screen.getByRole("button", { name: "onboarding.model.use" })
+  ).toBeDisabled()
+  expect(onboarding.selectModel).not.toHaveBeenCalled()
+})
+
+it("hides MiniLM and other embedding models from the onboarding chat picker", async () => {
+  resumeModels()
+  const original = rpc.call.getMockImplementation()
+  if (!original) throw new Error("Missing RPC fixture")
+  rpc.call.mockImplementation(async (method, ...args) =>
+    method === RpcMethod.ProvidersListModels
+      ? {
+          models: [
+            { name: "all-minilm:latest", providerId: "ollama" },
+            { name: "nomic-embed-text:latest", providerId: "ollama" },
+            { name: "bge-m3:latest", providerId: "ollama" },
+            {
+              name: "opaque-vector-model",
+              providerId: "ollama",
+              capabilityHints: { modelType: "embedding" }
+            },
+            { name: "gemma4:2b-mlx", providerId: "ollama" }
+          ],
+          failures: []
+        }
+      : original(method, ...args)
+  )
+  render(<FirstRunPermissionsDialog />)
+  await screen.findByRole("option", { name: /gemma4:2b-mlx/ })
+  for (const name of ["all-minilm", "nomic-embed", "bge-m3", "opaque-vector"])
+    expect(screen.queryByRole("option", { name: new RegExp(name) })).toBeNull()
+  expect(
+    screen.getByRole("button", { name: "onboarding.model.use_unverified" })
+  ).toBeDisabled()
+})
+
+it.each([
+  RpcMethod.ProvidersTestConnection,
+  RpcMethod.ProvidersListModels
+])("invalidates stale choices when refresh fails at %s", async (failedMethod) => {
+  resumeModels()
+  render(<FirstRunPermissionsDialog />)
+  await screen.findByRole("option", { name: /qwen3/ })
+  const original = rpc.call.getMockImplementation()
+  if (!original) throw new Error("Missing RPC fixture")
+  rpc.call.mockImplementation(async (method, ...args) => {
+    if (method === failedMethod) throw new Error("offline")
+    return original(method, ...args)
+  })
+  fireEvent.click(
+    screen.getByRole("button", { name: "onboarding.model.refresh" })
+  )
+  await waitFor(() =>
+    expect(screen.queryByRole("option", { name: /qwen3/ })).toBeNull()
+  )
+  expect(
+    screen.queryByRole("button", { name: "onboarding.model.use" })
+  ).toBeNull()
+})

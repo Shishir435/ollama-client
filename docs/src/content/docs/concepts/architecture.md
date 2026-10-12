@@ -450,7 +450,7 @@ See the [API reference](/reference/lib/repositories/chat-history/) for the full 
 
 Reranking is on by default and is a **cosine-similarity re-scorer**, not a cross-encoder. After hybrid search returns candidates, `src/lib/embeddings/reranker.ts` re-scores them by embedding cosine similarity against the query embedding, giving a semantic-only ordering independent of the keyword weight used in stage 1.
 
-A real cross-encoder was attempted via transformers.js / ONNX Runtime and abandoned: MV3's CSP blocked the path it needed, and neither library is a dependency of this project. `config.ts` still accepts the legacy `transformers-js` and `onnxruntime-web` backend strings, purely as a migration shim that collapses them to `cosine`.
+A real cross-encoder was attempted via transformers.js / ONNX Runtime and abandoned: MV3's CSP blocked the path it needed, and ONNX Runtime is now a pinned dependency for the bundled local embedding worker; the cross-encoder path remains unavailable. `config.ts` still accepts the legacy `transformers-js` and `onnxruntime-web` backend strings, purely as a migration shim that collapses them to `cosine`.
 
 :::note[Constraint]
 There is no OCR pipeline, and no cross-encoder reranking. Retrieval precision comes from chunking, hybrid weighting, and cosine re-scoring only.

@@ -77,6 +77,46 @@ describe("pdfExporter print fragment", () => {
     expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;")
   })
 
+  it("names an Agent run's row and prints its result", async () => {
+    await pdfExporter.exportSession(
+      makeSession({
+        messages: [
+          { id: 1, role: "user", content: "Find the hours", done: true },
+          {
+            id: 2,
+            role: "assistant",
+            content: "Open 9 to 5.",
+            agentRunId: "run-1",
+            done: true
+          }
+        ]
+      }),
+      mockT
+    )
+
+    const { html } = onlyJob()
+    expect(html).toContain("sessions.export.role_agent")
+    expect(html).not.toContain("sessions.export.role_assistant")
+    expect(html).toContain("Open 9 to 5.")
+  })
+
+  /**
+   * A run still going, or one that ended with nothing to say, leaves its row
+   * empty. An empty block under the heading reads as a broken export.
+   */
+  it("says so when an Agent run's row holds no result", async () => {
+    await pdfExporter.exportSession(
+      makeSession({
+        messages: [
+          { id: 2, role: "assistant", content: "  ", agentRunId: "run-1" }
+        ]
+      }),
+      mockT
+    )
+
+    expect(onlyJob().html).toContain("sessions.export.agent_no_result")
+  })
+
   it("blocks remote message images by default and records the flag", async () => {
     await pdfExporter.exportSession(
       makeSession({

@@ -1,4 +1,9 @@
 import { logger } from "@/lib/logger"
+import { ensureAgentArtifacts } from "./add-agent-artifacts"
+import {
+  ensureAgentRunChatLinkage,
+  ensureAgentRunLinkageIndexes
+} from "./add-agent-run-chat-linkage"
 import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
@@ -123,7 +128,13 @@ export const MIGRATIONS: Migration[] = [
     version: 17,
     name: "ensure-agent-runs-tables",
     up: rebuildAgentRunsTables
-  }
+  },
+  {
+    version: 18,
+    name: "add-agent-run-chat-linkage",
+    up: ensureAgentRunChatLinkage
+  },
+  { version: 19, name: "add-agent-artifacts", up: ensureAgentArtifacts }
 ]
 
 /** Highest known schema version; fresh databases are stamped with this. */
@@ -151,9 +162,19 @@ export const setSchemaVersion = (
   db.run(`PRAGMA user_version = ${Math.trunc(version)}`)
 }
 
+/** What migration 18 adds; the drift repair checks for all of them. */
+const AGENT_RUN_LINKAGE_COLUMNS = [
+  "sessionId",
+  "requestMessageId",
+  "resultMessageId",
+  "parentRunId"
+] as const
+
+const MESSAGE_LINKAGE_COLUMNS = ["agentRunId", "agentHandoff"] as const
+
 const getTableColumns = (
   db: MigrationDatabase,
-  table: "messages" | "sessions"
+  table: "messages" | "sessions" | "agent_runs"
 ) => {
   const stmt = db.prepare(`PRAGMA table_info(${table})`)
   const columns = new Set<string>()
@@ -197,6 +218,9 @@ const hasTable = (
 export const repairSchemaDrift = (db: MigrationDatabase): number => {
   const messageColumns = getTableColumns(db, "messages")
   const sessionColumns = getTableColumns(db, "sessions")
+  const agentRunColumns = hasTable(db, "agent_runs")
+    ? getTableColumns(db, "agent_runs")
+    : new Set<string>()
   const repairs: Array<{ missing: boolean; apply: () => void }> = [
     {
       missing: !messageColumns.has("thinking"),
@@ -260,7 +284,31 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
         !hasTable(db, "agent_runs") ||
         !hasTable(db, "agent_steps") ||
         agentRunsTablesAreStale(db),
-      apply: () => rebuildAgentRunsTables(db)
+      /*
+       * The rebuild creates the shape migration 17 shipped, which is the shape
+       * before the chat linkage existed. Applying both leaves a repaired
+       * profile at the current shape rather than one migration behind it —
+       * which is where a rebuilt table sat while `user_version` already said
+       * 18, so nothing would ever add the columns.
+       */
+      apply: () => {
+        rebuildAgentRunsTables(db)
+        ensureAgentRunChatLinkage(db)
+      }
+    },
+    {
+      /*
+       * Every column, not a representative one. A profile missing only
+       * `resultMessageId` reported itself current and then answered `no such
+       * column` to every query the repository ships.
+       */
+      missing:
+        (agentRunColumns.size > 0 &&
+          !AGENT_RUN_LINKAGE_COLUMNS.every((column) =>
+            agentRunColumns.has(column)
+          )) ||
+        !MESSAGE_LINKAGE_COLUMNS.every((column) => messageColumns.has(column)),
+      apply: () => ensureAgentRunChatLinkage(db)
     }
   ]
 
@@ -270,6 +318,13 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
     repair.apply()
     repaired += 1
   }
+  /**
+   * On every open, and counted when it creates anything, so a legacy image
+   * saves the index rather than rebuilding it in memory on each open. A fresh
+   * database gets its indexes right after the schema script, so this finds
+   * nothing to do there.
+   */
+  repaired += ensureAgentRunLinkageIndexes(db)
 
   if (repaired > 0) {
     logger.warn(

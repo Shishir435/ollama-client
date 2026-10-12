@@ -132,11 +132,24 @@ export const AgentElementSchema = z
     download: z.boolean().optional(),
     formAction: z.url().max(2_048).optional(),
     formMethod: z.enum(["get", "post", "dialog"]).optional(),
+    /**
+     * The query a GET form would send now, when every value in it is one the
+     * observation may show — no hidden and no sensitive control. It is what
+     * lets Enter in a search box be approved as the address it goes to.
+     */
+    formQuery: z.string().max(2_048).optional(),
     formFingerprint: z
       .string()
       .regex(/^[0-9a-f]{8}$/)
       .optional(),
     formHasSensitiveControl: z.boolean().optional(),
+    /**
+     * A GET form the page marks as a search, with nothing to fill in but the
+     * query: its one text field is a search box, or the form is a search
+     * landmark, and every other control is a button or hidden. What the
+     * start prompt's search consent covers.
+     */
+    searchForm: z.literal(true).optional(),
     maySubmit: z.boolean().optional(),
     submitter: z.boolean().optional(),
     options: z.array(AgentSelectOptionSchema).max(200).optional(),
@@ -196,7 +209,9 @@ export const AgentElementSchema = z
      * are common and a flat list gives a decision no way to tell two
      * identically named controls apart; the group is what does.
      */
-    group: z.string().min(1).max(80).optional()
+    group: z.string().min(1).max(80).optional(),
+    /** Nearby list or table row, so duplicate controls can be distinguished. */
+    rowContext: z.string().min(1).max(140).optional()
   })
   .strict()
   .superRefine((element, context) => {

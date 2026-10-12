@@ -3,6 +3,8 @@ import {
   supportsSyncedSessions,
   supportsTabGroups
 } from "@/lib/browser-api"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type {
   ToolContext,
   ToolDefinition,
@@ -23,6 +25,11 @@ import {
   runListSyncedSessions,
   runRestoreSession
 } from "./browser-session-tools"
+import {
+  browserTaskAvailable,
+  browserTaskDefinition,
+  runBrowserTask
+} from "./browser-task-tool"
 import {
   captureScreenshotDefinition,
   runCaptureScreenshot
@@ -74,7 +81,16 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: listRemindersDefinition, run: runListReminders },
   { definition: cancelReminderDefinition, run: runCancelReminder },
   { definition: saveArtifactDefinition, run: runSaveArtifact },
-  { definition: captureScreenshotDefinition, run: runCaptureScreenshot }
+  { definition: captureScreenshotDefinition, run: runCaptureScreenshot },
+  /**
+   * The build constant inline, as the side panel reads it: Firefox has no
+   * Agent, so it carries neither the tool nor its description. Absent in
+   * tests, where it counts as compiled in.
+   */
+  ...(typeof __AGENT_PREVIEW_ENABLED__ === "undefined" ||
+  __AGENT_PREVIEW_ENABLED__
+    ? [{ definition: browserTaskDefinition, run: runBrowserTask }]
+    : [])
 ]
 
 const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
@@ -93,6 +109,9 @@ const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
   if (tool.definition.name === "list_synced_sessions") {
     return supportsSyncedSessions()
   }
+  if (tool.definition.name === "browser_task") {
+    return browserTaskAvailable() && (await readSetting(SETTINGS.AGENT_ENABLED))
+  }
   return true
 }
 
@@ -106,6 +125,8 @@ export const createInternalToolSource = (): ToolSource => {
   )
   return {
     id: "internal",
+    /** `browser_task` follows the agent opt-in, which the user can flip at any time. */
+    volatile: true,
     listTools: async () => {
       const visible = await Promise.all(
         INTERNAL_TOOLS.map(async (tool) => ({
@@ -119,7 +140,12 @@ export const createInternalToolSource = (): ToolSource => {
     },
     callTool: async (name, args, ctx) => {
       const tool = byName.get(name)
-      if (!tool) {
+      /**
+       * A tool that was not offered is not callable either: a model can name
+       * `browser_task` from memory or from page text while the agent is off,
+       * and listing it hidden only means something if calling it is refused.
+       */
+      if (!tool || !(await isToolVisible(tool))) {
         return { content: `Unknown internal tool: ${name}`, isError: true }
       }
       return tool.run(args, ctx)

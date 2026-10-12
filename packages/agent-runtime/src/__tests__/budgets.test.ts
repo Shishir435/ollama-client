@@ -10,11 +10,13 @@ import {
   AGENT_RUN_ACTIVE_BUDGET_MS,
   AGENT_STEP_ACTIVE_BUDGET_MS,
   agentRemainingBudget,
+  agentTextChangeSignature,
   beginAgentStepDeadline,
   classifyNoProgress,
   expiredAgentDeadline,
   hashAgentObservation,
   initialAgentDeadlineState,
+  remainingAgentActiveBudgetMs,
   resumeAgentDeadlines,
   suspendAgentDeadlines
 } from "../budgets"
@@ -95,6 +97,24 @@ describe("agent budgets", () => {
     expect(
       expiredAgentDeadline(state, 1_400, { runMs: 10_000, stepMs: 300 })
     ).toBe("step")
+  })
+
+  it("shares suspension accounting with inference's remaining active time", () => {
+    const suspended = suspendAgentDeadlines(
+      initialAgentDeadlineState(0),
+      "approval",
+      100
+    )
+    expect(remainingAgentActiveBudgetMs(suspended, 10_100)).toBe(
+      AGENT_STEP_ACTIVE_BUDGET_MS - 100
+    )
+    const resumed = resumeAgentDeadlines(suspended, 10_100)
+    expect(remainingAgentActiveBudgetMs(resumed, 10_300)).toBe(
+      AGENT_STEP_ACTIVE_BUDGET_MS - 300
+    )
+    expect(
+      remainingAgentActiveBudgetMs(resumed, AGENT_RUN_ACTIVE_BUDGET_MS + 10_100)
+    ).toBe(0)
   })
 
   it("states the ceilings the product promises", () => {
@@ -407,5 +427,115 @@ describe("agent budgets", () => {
         previousCount: 0
       })
     ).toEqual({ noProgress: true, count: 1 })
+  })
+})
+
+describe("agentTextChangeSignature", () => {
+  it("signs an accumulating change the same way each time", () => {
+    const once = agentTextChangeSignature("Board", "Board Status: Active")
+    const twice = agentTextChangeSignature(
+      "Board Status: Active",
+      "Board Status: Active Status: Active"
+    )
+    expect(once).toBeDefined()
+    expect(twice).toBe(once)
+  })
+
+  it("signs a counter's steps differently", () => {
+    expect(agentTextChangeSignature("Quantity 1", "Quantity 2")).not.toBe(
+      agentTextChangeSignature("Quantity 2", "Quantity 3")
+    )
+  })
+
+  it("has nothing to sign without a change or a previous page", () => {
+    expect(agentTextChangeSignature(undefined, "Page")).toBeUndefined()
+    expect(agentTextChangeSignature("Page", "Page")).toBeUndefined()
+  })
+
+  it("counts the same decision making the same change as no progress", () => {
+    const click: AgentDecision = {
+      type: "command",
+      command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 }
+    }
+    expect(
+      classifyNoProgress({
+        previous: {
+          url: "https://example.com",
+          snapshotHash: "one",
+          decision: click,
+          changeSignature: "added-status"
+        },
+        current: {
+          url: "https://example.com",
+          snapshotHash: "two",
+          decision: click,
+          changeSignature: "added-status"
+        },
+        previousCount: 1
+      })
+    ).toEqual({ noProgress: true, count: 2 })
+  })
+})
+
+describe("visual reads and progress", () => {
+  const page = {
+    snapshotId: "s1",
+    generation: 1,
+    tabId: 7,
+    frameId: 0,
+    documentId: "d1",
+    url: "https://example.com/chart",
+    origin: "https://example.com",
+    title: "Chart",
+    elements: [],
+    visibleText: "Live chart",
+    scroll: {
+      x: 0,
+      y: 0,
+      viewportWidth: 100,
+      viewportHeight: 100,
+      documentWidth: 100,
+      documentHeight: 100
+    },
+    frames: [],
+    dialogs: [],
+    capturedAt: 1
+  } as unknown as AgentObservation
+  const look: AgentDecision = {
+    type: "command",
+    command: { type: "look", snapshotId: "s1", generation: 1 }
+  }
+  const point = (picture: string | undefined) => ({
+    url: page.url,
+    snapshotHash: hashAgentObservation(page, look, picture),
+    decision: look
+  })
+
+  it("counts a changed picture as progress for a look, and an unchanged one as a repeat", () => {
+    /** Text and controls stay put while the chart redraws. */
+    expect(
+      classifyNoProgress({
+        previous: point("frame-a"),
+        current: point("frame-b"),
+        previousCount: 3
+      })
+    ).toEqual({ noProgress: false, count: 0 })
+    expect(
+      classifyNoProgress({
+        previous: point("frame-a"),
+        current: point("frame-a"),
+        previousCount: 3
+      })
+    ).toEqual({ noProgress: true, count: 4 })
+  })
+
+  it("ignores the picture for any other command", () => {
+    const click: AgentDecision = {
+      type: "command",
+      command: { type: "click", ref: "e1", snapshotId: "s1", generation: 1 }
+    }
+    expect(hashAgentObservation(page, click, "frame-a")).toBe(
+      hashAgentObservation(page, click, "frame-b")
+    )
   })
 })

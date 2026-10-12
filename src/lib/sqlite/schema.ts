@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS messages (
   replayArtifact TEXT,
   error TEXT,
   updatedAt INTEGER,
+  -- Which Agent run produced this message, and the bounded projection a later
+  -- turn reads instead of the run's step log. Both nullable: a chat that never
+  -- started a run is every column empty and every query unchanged.
+  agentRunId TEXT,
+  agentHandoff TEXT,
   FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE
 );
 
@@ -153,17 +158,29 @@ CREATE TABLE IF NOT EXISTS model_pull_runs (
 
 CREATE INDEX IF NOT EXISTS idx_model_pull_runs_status ON model_pull_runs(status);
 
--- Agent owns its own lifecycle and never borrows chat rows. The checkpoint is
--- bounded and compacted atomically with a terminal status transition.
+-- Agent owns its own lifecycle. The checkpoint is bounded and compacted
+-- atomically with a terminal status transition.
+-- The linkage columns say which conversation a run belongs to. They carry no
+-- foreign key to messages on purpose: a key would put agent rows inside the
+-- message-subtree delete transaction, which repairs sessions.currentLeafId and
+-- must not gain a new way to fail.
 CREATE TABLE IF NOT EXISTS agent_runs (
   id TEXT PRIMARY KEY,
   status TEXT NOT NULL,
   checkpoint TEXT NOT NULL,
   createdAt INTEGER NOT NULL,
-  updatedAt INTEGER NOT NULL
+  updatedAt INTEGER NOT NULL,
+  sessionId TEXT,
+  requestMessageId INTEGER,
+  resultMessageId INTEGER,
+  parentRunId TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
+-- The linkage indexes are not here. This script runs on every open, before the
+-- migrations, and on a profile older than migration 18 the columns they index
+-- do not exist yet: the CREATE INDEX failed and the database never opened.
+-- ensureAgentRunLinkageIndexes creates them once the columns are guaranteed.
 
 -- Append-only, bounded evidence. Browser effects are claimed in this log
 -- before execution and an interrupted executing/verifying phase is unresolved.
@@ -202,4 +219,21 @@ SELECT
   AVG(was_helpful) as avg_score
 FROM chunk_feedback
 GROUP BY chunk_vector_id;
+CREATE TABLE IF NOT EXISTS agent_artifacts (
+  id TEXT PRIMARY KEY,
+  runId TEXT NOT NULL,
+  metadata TEXT NOT NULL,
+  bytes BLOB NOT NULL,
+  expiresAt INTEGER NOT NULL,
+  FOREIGN KEY(runId) REFERENCES agent_runs(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_agent_artifacts_run ON agent_artifacts(runId);
+CREATE TABLE IF NOT EXISTS agent_artifact_uploads (
+  id TEXT PRIMARY KEY,
+  runId TEXT NOT NULL,
+  artifactId TEXT NOT NULL,
+  intent TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('claimed', 'completed', 'uncertain')),
+  FOREIGN KEY(runId) REFERENCES agent_runs(id) ON DELETE CASCADE
+);
 `

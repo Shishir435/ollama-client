@@ -1,0 +1,707 @@
+import { readFileSync } from "node:fs"
+import { createRequire } from "node:module"
+import type { AgentRunState } from "@ollama-client/contracts"
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest"
+import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
+import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
+
+/**
+ * The commit that ties a run to the conversation it belongs to, driven against
+ * the real engine.
+ *
+ * Every state this covers is one a worker dying at the wrong moment used to
+ * produce, and none of them can be asserted against mocks: what is being tested
+ * is that SQLite either has all of the rows or none of them.
+ */
+
+const TIMEOUT = 25_000
+const CREATED_AT = 1_700_000_000_000
+
+const require = createRequire(import.meta.url)
+const wasmPath = require.resolve("@sqlite.org/sqlite-wasm/sqlite3.wasm")
+let wasmBuffer: ArrayBuffer
+
+beforeAll(() => {
+  const wasm = readFileSync(wasmPath)
+  wasmBuffer = wasm.buffer.slice(
+    wasm.byteOffset,
+    wasm.byteOffset + wasm.byteLength
+  )
+})
+
+/**
+ * The legacy backend writes its image on a 1s debounce. Flushed after each
+ * test, so a write left pending by a short test cannot land in the store the
+ * next test has just cleared and hand it a database that already holds its
+ * session.
+ */
+let settleOwner: (() => Promise<unknown>) | undefined
+
+const installOwner = () => {
+  const engine = createChatDbEngine({ wasmBinary: Promise.resolve(wasmBuffer) })
+  const ready = engine.submit({ op: "setBackend", backend: "legacy" })
+  globalThis.__persistenceHostCall = async (request) => {
+    await ready
+    return engine.submit(request)
+  }
+  settleOwner = () => ready.then(() => engine.submit({ op: "flush" }))
+}
+
+const clearSqliteStore = (): Promise<void> =>
+  new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(SQLITE_DB_NAME, 1)
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(SQLITE_DB_STORE)) {
+        db.createObjectStore(SQLITE_DB_STORE)
+      }
+    }
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(SQLITE_DB_STORE)) {
+        db.close()
+        resolve()
+        return
+      }
+      const tx = db.transaction([SQLITE_DB_STORE], "readwrite")
+      tx.objectStore(SQLITE_DB_STORE).delete(SQLITE_DB_KEY)
+      tx.oncomplete = () => {
+        db.close()
+        resolve()
+      }
+      tx.onerror = () => {
+        db.close()
+        reject(tx.error)
+      }
+    }
+  })
+
+beforeEach(async () => {
+  await clearSqliteStore()
+}, TIMEOUT)
+
+afterEach(async () => {
+  await settleOwner?.()
+  settleOwner = undefined
+  globalThis.__persistenceHostCall = undefined
+}, TIMEOUT)
+
+const runState = (id: string): AgentRunState => ({
+  version: 1,
+  id,
+  goal: "Compare the two plans",
+  status: "submitted",
+  stepCount: 0,
+  observationCount: 0,
+  controlledTabId: 7,
+  providerId: "ollama",
+  modelId: "qwen3",
+  allowedOrigins: ["https://example.com"],
+  createdAt: CREATED_AT,
+  updatedAt: CREATED_AT
+})
+
+const boot = async () => {
+  vi.resetModules()
+  installOwner()
+  const facade = await import("@/lib/repositories/chat-history")
+  await facade.addSession({
+    id: "s-agent",
+    title: "Agent chat",
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+    messages: []
+  })
+  const runs = await import("@/lib/repositories/agent-runs")
+  const { createLinkedAgentRun } = await import(
+    "@/background/agent/agent-run-linkage"
+  )
+  return { facade, runs, createLinkedAgentRun }
+}
+
+describe("an Agent run and the conversation it belongs to", () => {
+  it(
+    "writes the request, its card and the run in one commit",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+
+      await createLinkedAgentRun(runState("agent-link-1"), "s-agent")
+
+      const messages = await facade.getMessagesBySession("s-agent")
+      expect(messages.map((message) => message.role)).toEqual([
+        "user",
+        "assistant"
+      ])
+      expect(messages[1]?.parentId).toBe(messages[0]?.id)
+      expect(messages[0]?.content).toBe("Compare the two plans")
+      expect(messages[1]?.done).toBe(false)
+      expect(messages[1]?.agentRunId).toBe("agent-link-1")
+
+      const run = await runs.getAgentRun("agent-link-1")
+      expect(run?.sessionId).toBe("s-agent")
+      expect(run?.requestMessageId).toBe(messages[0]?.id)
+      expect(run?.resultMessageId).toBe(messages[1]?.id)
+
+      /* The card is where the conversation continues from. */
+      const session = await facade.getSession("s-agent")
+      expect(session?.currentLeafId).toBe(messages[1]?.id)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "hangs the request off the conversation it was asked in",
+    async () => {
+      /*
+       * Inserted with no parent the request was a second root: the card became
+       * the active leaf, the conversation so far was no longer an ancestor of
+       * it, and loading the chat showed the run with everything before it gone.
+       */
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      const earlier = await facade.appendMessage({
+        sessionId: "s-agent",
+        role: "user",
+        content: "What are these plans?",
+        timestamp: CREATED_AT - 10,
+        done: true
+      })
+
+      await createLinkedAgentRun(runState("agent-link-0"), "s-agent")
+
+      const messages = await facade.getMessagesBySession("s-agent")
+      const request = messages.find(
+        (message) => message.agentRunId === undefined && message.id !== earlier
+      )
+      expect(request?.parentId).toBe(earlier)
+      const run = await runs.getAgentRun("agent-link-0")
+      expect(run?.requestMessageId).toBe(request?.id)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "settles a run whose chat was deleted while nobody was listening",
+    async () => {
+      /* The event that tells the background is one-way; this is the answer
+         for the one that never arrived. */
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-10"), "s-agent")
+      await facade.deleteSessionRow("s-agent")
+
+      const { recoverAndPruneAgentRuns } = await import(
+        "@/background/agent/agent-recovery"
+      )
+      await recoverAndPruneAgentRuns()
+
+      expect(await runs.getAgentRun("agent-link-10")).toBeNull()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "refuses a run whose chat cannot be found, so none acts unsupervised",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+
+      expect(
+        await createLinkedAgentRun(runState("agent-link-2"), "s-missing")
+      ).toBe(false)
+
+      expect(await facade.getMessagesBySession("s-missing")).toEqual([])
+      expect(await runs.getAgentRun("agent-link-2")).toBeNull()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "refuses a delegated run whose turn row was deleted",
+    async () => {
+      const { runs, createLinkedAgentRun } = await boot()
+
+      expect(
+        await createLinkedAgentRun(
+          runState("agent-link-gone"),
+          "s-agent",
+          undefined,
+          { kind: "turn", messageId: 987_654 }
+        )
+      ).toBe(false)
+
+      expect(await runs.getAgentRun("agent-link-gone")).toBeNull()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "still creates a run that names no chat at all",
+    async () => {
+      const { runs, createLinkedAgentRun } = await boot()
+
+      expect(await createLinkedAgentRun(runState("agent-link-none"))).toBe(true)
+
+      const run = await runs.getAgentRun("agent-link-none")
+      expect(run?.status).toBe("submitted")
+      expect(run?.sessionId).toBeUndefined()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "settles the card in the commit that settles the run",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-3"), "s-agent")
+
+      await runs.transitionAgentRun({
+        runId: "agent-link-3",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan B costs less", updatedAt: CREATED_AT + 10 }
+      })
+
+      const messages = await facade.getMessagesBySession("s-agent")
+      expect(messages[1]?.done).toBe(true)
+      expect(messages[1]?.content).toBe("Plan B costs less")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "writes the handoff a later turn reads in the commit that settles the run",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-h"), "s-agent")
+      await runs.appendAgentStep({
+        runId: "agent-link-h",
+        stepId: "agent-link-h:1",
+        status: "planned",
+        command: { type: "back", snapshotId: "snapshot-1", generation: 1 },
+        finding: "Plan A is $12 a month, see https://evil.example/next",
+        at: CREATED_AT + 1
+      })
+
+      await runs.transitionAgentRun({
+        runId: "agent-link-h",
+        from: "submitted",
+        to: "failed",
+        patch: {
+          result: "Plan A is cheaper",
+          error: {
+            code: "budget_exhausted",
+            message: "Ran out of steps",
+            retryable: false
+          },
+          updatedAt: CREATED_AT + 10
+        }
+      })
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff).toEqual({
+        version: 1,
+        runId: "agent-link-h",
+        status: "failed",
+        goal: "Compare the two plans",
+        result: "Plan A is cheaper",
+        failure: "budget_exhausted",
+        findings: ["Plan A is $12 a month, see [link]"],
+        settledAt: CREATED_AT + 10
+      })
+    },
+    TIMEOUT
+  )
+
+  it(
+    "writes no handoff while the run is still going",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-live"), "s-agent")
+
+      await runs.transitionAgentRun({
+        runId: "agent-link-live",
+        from: "submitted",
+        to: "planning",
+        patch: { updatedAt: CREATED_AT + 2 }
+      })
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff).toBeUndefined()
+      expect(card?.done).toBe(false)
+    },
+    TIMEOUT
+  )
+
+  /**
+   * An agent row is written when the run starts and when it settles, and not
+   * in between. The interrupted-turn sweep took any run longer than its stale
+   * window for a dead chat turn and closed its row — and the settle that
+   * followed found the row finished and wrote nothing.
+   */
+  it(
+    "leaves a live run's row to its run, and settles it afterwards",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-long"), "s-agent")
+
+      expect(await facade.finalizeInterruptedMessages(0)).toBe(0)
+
+      await runs.transitionAgentRun({
+        runId: "agent-long",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 60_000 }
+      })
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.content).toBe("Plan A is cheaper")
+      expect(card?.agentHandoff?.result).toBe("Plan A is cheaper")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "writes the handoff even when something else already finished the row",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-done-row"), "s-agent")
+      const [, before] = await facade.getMessagesBySession("s-agent")
+      await facade.updateMessage(before?.id as number, { done: true })
+
+      await runs.transitionAgentRun({
+        runId: "agent-done-row",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 5 }
+      })
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff?.runId).toBe("agent-done-row")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "gives a run settled before handoffs existed one at startup",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-old"), "s-agent")
+      await runs.transitionAgentRun({
+        runId: "agent-old",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 5 }
+      })
+      const db = await import("@/lib/sqlite/db")
+      await db.run("UPDATE messages SET agentHandoff = NULL")
+
+      await runs.reconcileAgentRunLinkage()
+
+      const [, card] = await facade.getMessagesBySession("s-agent")
+      expect(card?.agentHandoff?.runId).toBe("agent-old")
+    },
+    TIMEOUT
+  )
+
+  /**
+   * Pruning is by status, never by age alone: a browser closed for six weeks
+   * still owes the user the run it interrupted. A settled run may go, and the
+   * handoff it left on its row stays behind for the turns that follow.
+   */
+  it(
+    "prunes by status: an old interrupted run keeps its row, a settled one leaves its handoff",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-old-live"), "s-agent")
+      await runs.transitionAgentRun({
+        runId: "agent-old-live",
+        from: "submitted",
+        to: "planning",
+        patch: { updatedAt: CREATED_AT + 1 }
+      })
+      await createLinkedAgentRun(runState("agent-old-done"), "s-agent")
+      await runs.transitionAgentRun({
+        runId: "agent-old-done",
+        from: "submitted",
+        to: "failed",
+        patch: { result: "Plan A is cheaper", updatedAt: CREATED_AT + 2 }
+      })
+
+      const sixWeeksLater = CREATED_AT + 42 * 24 * 60 * 60 * 1000
+      await runs.pruneTerminalAgentRuns(
+        sixWeeksLater - runs.TERMINAL_AGENT_RETENTION_MS
+      )
+
+      expect((await runs.getAgentRun("agent-old-live"))?.status).toBe(
+        "planning"
+      )
+      expect(await runs.getAgentRun("agent-old-done")).toBeNull()
+      const settledCard = (await facade.getMessagesBySession("s-agent")).find(
+        (message) => message.agentRunId === "agent-old-done"
+      )
+      expect(settledCard?.agentHandoff?.result).toBe("Plan A is cheaper")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "keeps the receipts when a branch of the conversation is deleted",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-4"), "s-agent")
+      const messages = await facade.getMessagesBySession("s-agent")
+      const requestId = messages[0]?.id as number
+
+      const deleted = await facade.deleteMessageSubtree(requestId)
+      await runs.orphanAgentRunMessages(deleted?.messageIds ?? [])
+
+      const run = await runs.getAgentRun("agent-link-4")
+      expect(run).not.toBeNull()
+      expect(run?.requestMessageId).toBeUndefined()
+      expect(run?.resultMessageId).toBeUndefined()
+      expect(run?.sessionId).toBe("s-agent")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "takes the run with the chat when the chat is deleted",
+    async () => {
+      const { runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-5"), "s-agent")
+      await runs.appendAgentStep({
+        runId: "agent-link-5",
+        stepId: "agent-link-5:1",
+        status: "planned",
+        command: { type: "back", snapshotId: "snapshot-1", generation: 1 },
+        at: CREATED_AT + 1
+      })
+
+      /* Settled only: a run still attached to a browser keeps the row that is
+         the only handle recovery has for stopping it. */
+      expect(await runs.deleteSettledAgentRunsForSession("s-agent")).toBe(0)
+      await runs.transitionAgentRun({
+        runId: "agent-link-5",
+        from: "submitted",
+        to: "failed",
+        patch: { updatedAt: CREATED_AT + 5 }
+      })
+      expect(await runs.deleteSettledAgentRunsForSession("s-agent")).toBe(1)
+
+      expect(await runs.getAgentRun("agent-link-5")).toBeNull()
+      expect(await runs.listAgentSteps("agent-link-5")).toEqual([])
+    },
+    TIMEOUT
+  )
+
+  it(
+    "finishes a card the worker died before settling",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-6"), "s-agent")
+      /*
+       * The shape a worker lost between the two writes leaves behind: the run
+       * is settled and its card is still waiting. Nothing later knows to look,
+       * so startup asks.
+       */
+      const db = await import("@/lib/sqlite/db")
+      await db.run(
+        "UPDATE agent_runs SET status = 'completed' WHERE id = 'agent-link-6'"
+      )
+
+      await runs.reconcileAgentRunLinkage()
+
+      const messages = await facade.getMessagesBySession("s-agent")
+      expect(messages[1]?.done).toBe(true)
+    },
+    TIMEOUT
+  )
+
+  it(
+    "cleans up a subtree far larger than one statement may bind",
+    async () => {
+      /*
+       * The orphan UPDATE names every id four times and the live-run lookup
+       * twice, against a 20,000 bind ceiling. Unbatched, a deleted subtree of
+       * a few thousand messages was refused by the owner — and the cleanup
+       * that refusal skipped is what keeps a live run from outliving its card.
+       */
+      const { runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-8"), "s-agent")
+      const many = Array.from({ length: 12_000 }, (_, index) => index + 1)
+
+      await expect(
+        runs.listLiveAgentRunsForMessages(many)
+      ).resolves.toBeInstanceOf(Array)
+      await expect(runs.orphanAgentRunMessages(many)).resolves.toBeUndefined()
+
+      const run = await runs.getAgentRun("agent-link-8")
+      expect(run?.requestMessageId).toBeUndefined()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "collects a run left behind by a chat it would not stop for",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-9"), "s-agent")
+      /* The chat is gone; the run would not stop, so its row stayed. */
+      await facade.deleteSessionRow("s-agent")
+      expect(await runs.deleteSettledAgentRunsForSession("s-agent")).toBe(0)
+
+      await runs.transitionAgentRun({
+        runId: "agent-link-9",
+        from: "submitted",
+        to: "failed",
+        patch: { updatedAt: CREATED_AT + 9 }
+      })
+      await runs.reconcileAgentRunLinkage()
+
+      expect(await runs.getAgentRun("agent-link-9")).toBeNull()
+    },
+    TIMEOUT
+  )
+
+  it(
+    "drops pointers to messages that no longer exist",
+    async () => {
+      const { facade, runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-link-7"), "s-agent")
+      const messages = await facade.getMessagesBySession("s-agent")
+
+      /* A delete that never told the background — a lost event, or a crash. */
+      await facade.deleteMessageSubtree(messages[0]?.id as number)
+      await runs.reconcileAgentRunLinkage()
+
+      const run = await runs.getAgentRun("agent-link-7")
+      expect(run?.requestMessageId).toBeUndefined()
+      expect(run?.resultMessageId).toBeUndefined()
+    },
+    TIMEOUT
+  )
+})
+
+describe("a follow-up run", () => {
+  /**
+   * The lineage and the inherited record are durable facts about the child:
+   * a worker restart mid-run must come back knowing what it may not repeat.
+   */
+  it(
+    "keeps its parent, the parent's record and what the parent committed",
+    async () => {
+      const { runs, createLinkedAgentRun } = await boot()
+      await createLinkedAgentRun(runState("agent-parent"), "s-agent")
+      await runs.appendAgentStep({
+        runId: "agent-parent",
+        stepId: "agent-parent:1",
+        status: "verified",
+        at: CREATED_AT,
+        command: {
+          type: "click",
+          ref: "e1",
+          snapshotId: "s",
+          generation: 1
+        },
+        target: { role: "button", name: "Post review" },
+        sourceUrl: "https://example.com/new",
+        mutating: true,
+        consequential: ["submission"]
+      })
+
+      const steps = await runs.listAgentSteps("agent-parent")
+      expect(steps[0]).toMatchObject({ consequential: ["submission"] })
+
+      const previousRun = {
+        mode: "retry" as const,
+        handoff: {
+          version: 1 as const,
+          runId: "agent-parent",
+          status: "failed" as const,
+          goal: "Compare the two plans",
+          findings: [],
+          settledAt: CREATED_AT
+        },
+        effects: [
+          {
+            action: "click",
+            page: "https://example.com/new",
+            role: "button",
+            name: "Post review"
+          }
+        ]
+      }
+      await createLinkedAgentRun(
+        { ...runState("agent-child"), previousRun },
+        "s-agent",
+        "agent-parent"
+      )
+
+      const child = await runs.getAgentRun("agent-child")
+      expect(child?.parentRunId).toBe("agent-parent")
+      expect(child?.state?.previousRun).toEqual(previousRun)
+    },
+    TIMEOUT
+  )
+})
+
+it(
+  "keeps source evidence through SQLite decoding, settlement and deletion",
+  async () => {
+    const { facade, runs, createLinkedAgentRun } = await boot()
+    const state = runState("ledger-sql")
+    await createLinkedAgentRun(state, "s-agent")
+    await runs.appendAgentStep({
+      runId: state.id,
+      stepId: "ledger-sql:1",
+      status: "planned",
+      at: CREATED_AT,
+      evidenceLedger: [
+        {
+          id: "ledger-sql:1:q0",
+          kind: "observed_fact",
+          validity: "current",
+          quote: "Plan A costs $12",
+          observedAt: CREATED_AT,
+          source: {
+            tabId: 7,
+            frameId: 0,
+            documentId: "doc-a",
+            snapshotId: "s-a",
+            generation: 1,
+            origin: "https://example.com"
+          }
+        }
+      ]
+    })
+    await runs.appendAgentStep({
+      runId: state.id,
+      stepId: "ledger-sql:1",
+      status: "verified",
+      at: CREATED_AT + 1
+    })
+    const read = await runs.listAgentSteps(state.id)
+    expect(read[0].evidenceLedger?.[0].source?.documentId).toBe("doc-a")
+    await runs.transitionAgentRun({
+      runId: state.id,
+      from: "submitted",
+      to: "failed",
+      patch: { updatedAt: CREATED_AT + 2 }
+    })
+    const [, card] = await facade.getMessagesBySession("s-agent")
+    expect(card?.agentHandoff?.evidenceLedger?.[0]).toMatchObject({
+      id: "ledger-sql:1:q0",
+      validity: "historical",
+      quote: "Plan A costs $12"
+    })
+    await runs.deleteSettledAgentRunsForSession("s-agent")
+    expect(await runs.listAgentSteps(state.id)).toEqual([])
+  },
+  TIMEOUT
+)

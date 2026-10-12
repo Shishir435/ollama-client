@@ -1,3 +1,4 @@
+import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type {
   AgentPanelCommand,
   AgentPanelSnapshot
@@ -8,7 +9,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { requestAgentPerceptionPermission } from "@/lib/permissions"
 import {
   type AgentDebugReporter,
   requestAgentDebugReport
@@ -25,14 +25,17 @@ export interface AgentRunConnection {
   snapshot: AgentPanelSnapshot
   failure?: AgentCommandFailure
   busy: boolean
-  start(goal: string, allowRoutineActions?: boolean): void
   pause(): void
   resume(): void
   correct(text: string): void
+  /** A correction for the working run's next decision; it does not pause. */
+  steer(text: string): void
   debugReport: AgentDebugReporter
   stop(): void
+  setUnattended(enabled: boolean): void
   completeTakeover(): void
   resolveEffect(): void
+  finishReviewed(): void
   approve(scope?: "run_origin"): void
   reject(): void
   answerQuestion(text: string): void
@@ -41,24 +44,17 @@ export interface AgentRunConnection {
 
 const EMPTY: AgentPanelSnapshot = { steps: [] }
 
-interface UseAgentRunInput {
-  providerId?: string
-  modelId?: string
-  /** Exact tab displayed by the panel when Start is pressed. */
-  tabId?: number
-  allowExperimentalModel?: boolean
-}
-
 /**
- * Holds the panel's supervision port for as long as the Agent surface is
- * mounted.
+ * Holds the panel's supervision port for as long as the panel is open. Runs
+ * are started by the chat model, never from here; this only watches and
+ * answers them.
  *
  * The panel never keeps its own copy of run state: every control sends a
  * command and the next snapshot from the background is the answer. That is why
  * a run survives the panel closing — what the panel shows is a view of the
  * durable run, not the run itself.
  */
-export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
+export const useAgentRun = (): AgentRunConnection => {
   const [snapshot, setSnapshot] = useState<AgentPanelSnapshot>(EMPTY)
   const [failure, setFailure] = useState<AgentCommandFailure>()
   const [busy, setBusy] = useState(false)
@@ -106,11 +102,9 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
       if (parsed.data.type === "agent_debug_report") return
       setBusy(false)
       if (parsed.data.type === "agent_snapshot") {
+        const run = parsed.data.snapshot.run
         active = Boolean(
-          parsed.data.snapshot.run &&
-            !["completed", "failed", "cancelled", "paused"].includes(
-              parsed.data.snapshot.run.status
-            )
+          run && !isTerminalAgentStatus(run.status) && run.status !== "paused"
         )
         setSnapshot(parsed.data.snapshot)
         return
@@ -158,12 +152,26 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
     }
   }, [])
 
-  const send = useCallback((command: AgentPanelCommand) => {
+  /**
+   * Whether the command reached a port; a reconnect window has none. A
+   * command that went nowhere says so on the run, or a Stop pressed between
+   * connections would look like a Stop the Agent ignored.
+   */
+  const send = useCallback((command: AgentPanelCommand): boolean => {
     const port = portRef.current
-    if (!port) return
+    if (!port) {
+      setBusy(false)
+      setFailure({
+        command: command.type,
+        messageKey: "agent.error.disconnected",
+        message: "Agent was reconnecting and did not receive that."
+      })
+      return false
+    }
     setFailure(undefined)
     setBusy(true)
     port.postMessage(command)
+    return true
   }, [])
 
   const debugReport = useCallback<AgentDebugReporter>((runId, signal) => {
@@ -174,47 +182,6 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
 
   const runId = snapshot.run?.id
   const pending = snapshot.pending
-  const { providerId, modelId, tabId, allowExperimentalModel } = input
-
-  const start = useCallback(
-    (goal: string, allowRoutineActions = false) => {
-      if (!providerId || !modelId || typeof tabId !== "number") return
-      const trimmed = goal.trim()
-      if (!trimmed) return
-      setBusy(true)
-      /*
-       * The permission request goes first and unawaited-by-anything-else:
-       * Chromium only honours `permissions.request` while the click that
-       * caused it is still the current task, and an already-granted
-       * permission resolves without prompting. Querying the tab first would
-       * spend the gesture and leave the user with a silent refusal.
-       */
-      void requestAgentPerceptionPermission()
-        .then((granted) => {
-          if (!granted) {
-            setBusy(false)
-            setFailure({
-              command: "agent_start",
-              messageKey: "agent.error.permission_denied",
-              message: "Agent needs page-observation permission to start."
-            })
-            return undefined
-          }
-          send({
-            type: "agent_start",
-            goal: trimmed,
-            tabId,
-            providerId,
-            modelId,
-            ...(allowRoutineActions ? { allowRoutineActions: true } : {}),
-            allowExperimentalModel
-          })
-        })
-        .catch(() => setBusy(false))
-    },
-    [allowExperimentalModel, modelId, providerId, tabId, send]
-  )
-
   const runScoped = useCallback(
     (type: "agent_pause" | "agent_resume" | "agent_stop") => {
       if (!runId) return
@@ -255,13 +222,27 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
         pausedAt: run.updatedAt
       })
     },
+    steer(text) {
+      const trimmed = text.trim()
+      if (!runId || !trimmed) return
+      send({ type: "agent_steer", runId, text: trimmed })
+    },
     snapshot,
     failure,
     busy,
-    start,
     pause: () => runScoped("agent_pause"),
     resume: () => runScoped("agent_resume"),
     stop: () => runScoped("agent_stop"),
+    setUnattended(enabled) {
+      const run = snapshot.run
+      if (!run || run.status !== "paused") return
+      send({
+        type: "agent_set_unattended",
+        runId: run.id,
+        pausedAt: run.updatedAt,
+        enabled
+      })
+    },
     completeTakeover: () => {
       if (!runId) return
       send({ type: "agent_complete_takeover", runId })
@@ -274,6 +255,11 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
       const run = snapshot?.run
       if (!runId || !run || run.pauseReason !== "unresolved_effect") return
       send({ type: "agent_resolve_effect", runId, pausedAt: run.updatedAt })
+    },
+    finishReviewed: () => {
+      const run = snapshot?.run
+      if (!runId || !run || run.pauseReason !== "unresolved_effect") return
+      send({ type: "agent_finish_reviewed", runId, pausedAt: run.updatedAt })
     },
     approve: (scope?: "run_origin") => {
       if (!runId || !pending) return

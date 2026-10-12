@@ -1,9 +1,12 @@
 import type {
   AgentApprovalRequest,
   AgentCommand,
+  AgentCompletionReview,
+  AgentConsequentialEffect,
   AgentDecision,
   AgentDialogState,
   AgentError,
+  AgentEvidenceRecord,
   AgentGrant,
   AgentImageRect,
   AgentObservation,
@@ -17,8 +20,12 @@ import type {
   AgentStepStatus,
   AgentStepTelemetry,
   AgentTakeoverRequest,
-  AgentTaskPlan
+  AgentTaskConstraint,
+  AgentTaskPlan,
+  AgentTaskRequirement,
+  AgentVisualFrame
 } from "@ollama-client/contracts"
+import type { AgentCompletionOutcomeClaim } from "./completion"
 import type { AgentVisionPolicy } from "./vision"
 
 export type AgentRisk = "low" | "medium" | "high" | "critical"
@@ -44,6 +51,8 @@ export interface AgentInspectionFocus {
    * and the whole viewport is captured.
    */
   zoom?: AgentImageRect
+  /** The model asked for a fresh picture of the viewport. */
+  look?: true
 }
 
 /**
@@ -74,6 +83,7 @@ export interface AgentModelInput {
    * a fact learned early survives a long run. Page-derived and untrusted.
    */
   findings?: readonly AgentFinding[]
+  evidenceLedger?: readonly AgentEvidenceRecord[]
   /**
    * How the step before this decision turned out. Declared since the loop was
    * written and never populated, so every decision was made as if it were the
@@ -89,7 +99,32 @@ export interface AgentModelInput {
    * when the page could not be pictured without exposing a sensitive control.
    */
   screenshot?: AgentScreenshot
+  /**
+   * Whether this step may ask for a picture with `look`, and if not, why.
+   * Separate from `screenshot`: most steps carry no picture and may still
+   * ask for one. Absent from a host that predates it, which offers no `look`.
+   */
+  visual?: AgentVisualAccess
 }
+
+/**
+ * Why a run cannot be shown the page on this step, as the model is told it.
+ * The model's own limit, the host's, the user's two answers — notice not
+ * acknowledged, pictures turned off — and then the page's: a native dialog
+ * freezes the renderer, and a document whose picture already came back
+ * empty once is not asked again.
+ */
+export type AgentVisualUnavailableReason =
+  | "model_text_only"
+  | "no_capture_path"
+  | "not_permitted"
+  | "disabled_by_user"
+  | "dialog_open"
+  | "capture_failed"
+
+export type AgentVisualAccess =
+  | { available: true }
+  | { available: false; reason: AgentVisualUnavailableReason }
 
 export interface AgentScreenshotRequest {
   runId: string
@@ -152,6 +187,7 @@ export interface ResolvedAgentTarget {
   tag?: string
   role?: string
   accessibleName?: string
+  rowContext?: string
   inputType?: string
   observedValue?: string
   observedChecked?: boolean
@@ -159,17 +195,26 @@ export interface ResolvedAgentTarget {
   href?: string
   formAction?: string
   formMethod?: "get" | "post" | "dialog"
+  /**
+   * The GET query the approval's address was built from; the executor
+   * refuses a submission whose live query differs.
+   */
+  formQuery?: string
   formFingerprint?: string
   formHasSensitiveControl?: boolean
+  /** The page marks the form as a search; see `AgentElement.searchForm`. */
+  searchForm?: boolean
   submitter?: boolean
   expectedValue?: string
   expectedChecked?: boolean
   /**
-   * The CSS point a visual click named, in the root layout viewport. The
+   * The CSS point a visual click named, in the target frame’s layout viewport. The
    * executor aims there rather than at the control's centre, and the page
    * confirms the control is still what lies under it before anything is sent.
    */
   point?: { x: number; y: number }
+  /** Capture geometry for a child-frame click; revalidated before every dispatch. */
+  visual?: { rootPoint: { x: number; y: number }; path: AgentVisualFrame[] }
   /**
    * Where a drag ends: the observed element the pointer is released over,
    * grounded like the source so a drop is an effect on a control the run
@@ -358,16 +403,45 @@ export interface AgentExecutionReceipt {
   fileChooser?: boolean
   /** A held native dialog interrupted this activation; no input is replayed. */
   dialogOpened?: string
+  /**
+   * Tabs the page opened from the controlled tab while this step ran — a
+   * `target="_blank"` link, a `window.open` its handler made. Filled until
+   * the step's verification settles, because the browser reports a new tab a
+   * moment after the click that caused it. The run adopts them into its
+   * scope: the page opened them because the run acted, so switching to one
+   * is not reaching into a tab the user was working in.
+   */
+  openedTabIds?: number[]
   /** Ephemeral, bounded page-authored WebMCP result; verification labels it untrusted. */
   pageToolResult?: string
   /** The WebMCP API reports navigation by resolving the invocation to null. */
   pageToolNavigation?: boolean
 }
 
+/** Bounds on the submitted values a GET submission's evidence carries. */
+export const MAX_AGENT_SUBMITTED_VALUES = 8
+export const MAX_AGENT_SUBMITTED_VALUE_CHARS = 200
+
 export interface AgentVerificationEvidence {
   kind: string
   summary: string
   observedAt: number
+  /** Bounded control names for a confirmed batch, in command order. */
+  fields?: { name?: string }[]
+  controlTransition?: {
+    from: string
+    to: string
+    verificationId: string
+    frameId: number
+    documentId: string
+  }
+  /**
+   * The values a confirmed GET submission sent, each with the label of the
+   * control it came from when the observation showed one — what the form
+   * actually carried, and so the only values that submission proves.
+   * Absent for a POST, or a form with a hidden or sensitive control.
+   */
+  values?: { name?: string; value: string }[]
 }
 
 export type AgentVerificationResult =
@@ -424,6 +498,25 @@ export interface AgentPolicyInput {
    * it was. See `provenance.ts`.
    */
   authoredText?: readonly string[]
+  /**
+   * The effect sends a submission or payment to a form an earlier run in
+   * this chain already sent one to, through a different control. Not proof
+   * of a repeat — a checkout's next step posts to the same place — so the
+   * user decides, told what the earlier run did, and cannot have decided in
+   * advance.
+   */
+  repeatsPriorForm?: boolean
+  /**
+   * The same command on the same control this run already committed a
+   * consequential effect through. Two rows can share a "Delete" label, so it
+   * is asked rather than refused — but asked as a repeat, never granted, and
+   * never mistaken for the first time. The case it exists for is a pause that
+   * lost the page's own confirmation: the click landed, the dialog it raised
+   * is gone, and a fresh approval would have read as the first delete.
+   */
+  repeatsCommittedEffect?: boolean
+  /** Durable history could not prove whether this effect was already done. */
+  committedEffectsUnknown?: boolean
   now: number
 }
 
@@ -460,18 +553,24 @@ export type AgentStatePatch = Partial<
     AgentRunState,
     | "allowedOrigins"
     | "answers"
+    | "constraints"
     | "deadline"
     | "controlledTabId"
     | "error"
+    | "evidenceLedger"
     | "grants"
+    | "humanDecision"
     | "observationCount"
     | "outcome"
     | "pauseReason"
+    | "plan"
     | "question"
+    | "recovery"
     | "requirements"
     | "result"
     | "scopedTabIds"
     | "stepCount"
+    | "workflow"
     | "updatedAt"
   >
 >
@@ -501,6 +600,12 @@ export interface AgentStepTarget {
   tag?: string
   role?: string
   name?: string
+  /**
+   * The visible text of the list or table row the control sits in, so a log
+   * of three "Delete" clicks says which file each one was. Page text,
+   * bounded, and dropped with the name for a sensitive control.
+   */
+  rowContext?: string
 }
 
 export interface AgentStepWrite {
@@ -509,6 +614,8 @@ export interface AgentStepWrite {
   status: AgentStepStatus
   at: number
   command?: AgentCommand
+  /** Planned outcome this step was chosen to advance. */
+  requirementId?: string
   risk?: AgentRisk
   /**
    * Whether this step changed the page rather than read it, taken from the
@@ -518,12 +625,39 @@ export interface AgentStepWrite {
    * user evidence that the submission landed.
    */
   mutating?: boolean
+  /**
+   * Which classes of the effect a repeat would double — a submission, a
+   * payment, a delete, a download — empty when none. Durable for the same
+   * reason as `mutating`: a follow-up reads the receipts to learn what it
+   * must not do again, long after the controller that took the step is gone.
+   * Absent only on receipts written before it existed.
+   */
+  consequential?: AgentConsequentialEffect[]
+  /**
+   * Whether this confirmed write left its control holding exactly the value
+   * its requirement's field or select check names. Recorded at verification,
+   * the only moment both are known, so a completion can credit a field the
+   * run then submitted off the page. A boolean, never the value itself.
+   */
+  heldPlannedValue?: boolean
+  /**
+   * Where a consequential submission was sent, origin and path only. The
+   * form, not the control: Enter in a field and a click on its button send
+   * the same thing.
+   */
+  formAction?: string
   verification?: AgentVerificationResult
   target?: AgentStepTarget
   /** The page the step was taken on, so history can say where it happened. */
   sourceUrl?: string
   /** Model-authored note attached to the step it belongs to. */
   finding?: string
+  evidenceLedger?: AgentEvidenceRecord[]
+  /**
+   * The reasoning the model streamed for the decision that opened this step,
+   * bounded, for the supervisor's card only. Never read back into a prompt.
+   */
+  thinking?: string
   /**
    * What the step cost, in numbers only. Optional because a step a worker
    * restart settled measured nothing, and an absent record must read as
@@ -631,6 +765,12 @@ export interface AgentModelPort {
    */
   decisionTelemetry?(runId: string): AgentStepTelemetry | undefined
   /**
+   * The reasoning the decision that just resolved streamed, bounded, for the
+   * run named. A reader for the same reason as `decisionTelemetry`; a model
+   * that streamed none, or a port that does not collect it, returns nothing.
+   */
+  decisionThinking?(runId: string): string | undefined
+  /**
    * What the goal asks for, decided before the run looks at anything.
    *
    * Taken from the goal alone and on purpose: the model has not seen the page
@@ -640,12 +780,83 @@ export interface AgentModelPort {
    *
    * Optional because a host that cannot plan must still be able to run. That
    * run is judged the way runs were judged before requirements existed, which
-   * is weaker — so a host that can plan should.
+   * is weaker. Once a host supplies this port, planning is part of the safety
+   * boundary: a failed or empty plan stops the run rather than silently
+   * falling back to that weaker judge.
    */
   plan?(
     state: AgentRunState,
     signal: AgentCancellationSignal
   ): Promise<AgentTaskPlan>
+}
+
+/**
+ * What an independent reviewer is shown, and all it is shown.
+ *
+ * A fresh context on purpose: no history, no page, no reasoning from the run
+ * that is being judged. The goal and the requirements are the user's words as
+ * the plan fixed them; the claims are the acting model's; the ledger is what
+ * the runtime grounded. Only the ids a deterministic check could not decide
+ * are listed, so the reviewer cannot be asked to re-open one that was settled.
+ */
+export interface AgentCompletionReviewRequest {
+  goal: string
+  requirements: readonly AgentTaskRequirement[]
+  constraints: readonly AgentTaskConstraint[]
+  claims: readonly AgentCompletionOutcomeClaim[]
+  evidenceLedger: readonly AgentEvidenceRecord[]
+  /**
+   * Current page quotes, by record id, that first appeared after the verified
+   * action bound to the same requirement and before the run changed anything
+   * else. Absent when this worker holds no windows (a restart loses them),
+   * which says nothing either way. Never support on its own: the runtime
+   * still requires a citable record.
+   */
+  appearedAfterAction?: readonly string[]
+  /**
+   * The actions applied in each requirement's window, in order, as their
+   * receipts record them: the command and the control's role and name, a
+   * sensitive control's name withheld. A click and the confirmation it raised
+   * are both listed. What connects newly observed text to the action an
+   * outcome claims — text after "click Accept" is no evidence that Continue
+   * was clicked. When limits are under review, every window's actions are
+   * listed: a limit on how the run acted is about all of them.
+   */
+  actions?: readonly AgentReviewedAction[]
+  /**
+   * Whether `actions` is every change the run applied, read from its
+   * receipts. Only then may a scope limit be supported by the run's own
+   * effects: a list missing an untagged action could hide the one that broke
+   * the limit.
+   */
+  actionsComplete?: boolean
+}
+
+export interface AgentReviewedAction {
+  requirementId: string
+  command: string
+  role?: string
+  name?: string
+  /** The key a `press_key` sent, withheld with the name on a sensitive control. */
+  key?: string
+}
+
+/**
+ * A second reading of a completion, with no browser behind it.
+ *
+ * It has no effect port, no approval port and no way to write the plan: its
+ * answer is a verdict per id, which the runtime checks against the ledger
+ * before believing any of it. A thrown error, a cancelled request and an
+ * answer that cites nothing all leave the claim exactly as unreviewed.
+ */
+export interface AgentCompletionReviewPort {
+  review(
+    state: AgentRunState,
+    request: AgentCompletionReviewRequest,
+    signal: AgentCancellationSignal
+  ): Promise<AgentCompletionReview>
+  /** What the review that just resolved cost, read once like `decisionTelemetry`. */
+  reviewTelemetry?(runId: string): AgentStepTelemetry | undefined
 }
 
 /** What a resolver may ground a command in besides the DOM observation. */
@@ -735,6 +946,12 @@ export interface AgentController {
    */
   resolveEffect(input: { runId: string; pausedAt: number }): Promise<void>
   /**
+   * The other way out of an unresolved effect: the user looked at the page
+   * and the task is done. The run completes on their word, without another
+   * look, and its result says so.
+   */
+  finishReviewed(input: { runId: string; pausedAt: number }): Promise<void>
+  /**
    * Records the user's answer to the run's open question and resumes it. The
    * question id is named so a click on a stale panel cannot answer whatever
    * question replaced the one it showed.
@@ -744,13 +961,33 @@ export interface AgentController {
     questionId: string
     text: string
   }): Promise<void>
+  /**
+   * A correction typed while the run works, taken into the next decision
+   * without pausing it. Queued rather than applied: the decision in flight
+   * was asked before the user spoke, and the next one is the first that can
+   * hear it. It cannot answer an approval, a question or an unresolved
+   * effect — those still wait for their own control. Resolves whether it was
+   * accepted: a run that is not working has no next decision to hear it.
+   */
+  steer?(runId: string, text: string): Promise<boolean>
 }
 
 export interface AgentControllerDependencies {
   model: AgentModelPort
+  /**
+   * Absent means no second opinion: a claim no deterministic check can
+   * decide is sent back to the run and, if it returns unchanged, to the user.
+   */
+  review?: AgentCompletionReviewPort
   observation: AgentObservationPort
   /** Absent means the host cannot picture the page; runs are text-only. */
   screenshot?: AgentScreenshotPort
+  /**
+   * Whether the user allowed this run's pictures to travel. Asked after the
+   * model's `vision`, which is a fact about the model; this is the user's
+   * answer about the run. Absent means permitted.
+   */
+  screenshotsPermitted?: (state: AgentRunState) => Promise<boolean>
   effect: AgentEffectPort
   policy: AgentPolicyPort
   persistence: AgentPersistencePort

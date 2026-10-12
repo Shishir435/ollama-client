@@ -455,18 +455,19 @@ describe("messages", () => {
 
   it("getMessageTreeBySession selects only the tree columns", async () => {
     mockedQuery.mockResolvedValueOnce([
-      { id: 1, parentId: null, timestamp: 10 },
-      { id: 2, parentId: 1, timestamp: 20 }
+      { id: 1, parentId: null, timestamp: 10, hidden: 0 },
+      { id: 2, parentId: 1, timestamp: 20, hidden: 1 }
     ])
     const nodes = await repo.getMessageTreeBySession("s1")
     const [sql, params] = mockedQuery.mock.calls[0]
+    /** A derived flag, never the metrics body it is read from. */
     expect(sql).toBe(
-      "SELECT id, parentId, timestamp FROM messages WHERE sessionId = ? ORDER BY timestamp ASC"
+      "SELECT id, parentId, timestamp, (CASE WHEN json_valid(metrics) THEN json_extract(metrics, '$.permissionNotice.resolvedAt') IS NOT NULL ELSE 0 END) AS hidden FROM messages WHERE sessionId = ? ORDER BY timestamp ASC"
     )
     expect(params).toEqual(["s1"])
     expect(nodes).toEqual([
-      { id: 1, parentId: undefined, timestamp: 10 },
-      { id: 2, parentId: 1, timestamp: 20 }
+      { id: 1, parentId: undefined, timestamp: 10, hidden: false },
+      { id: 2, parentId: 1, timestamp: 20, hidden: true }
     ])
   })
 
@@ -554,7 +555,9 @@ describe("messages", () => {
       null,
       null,
       // updatedAt seeded to the creation timestamp
-      100
+      100,
+      // no Agent run produced this message
+      null
     ])
   })
 
@@ -831,6 +834,7 @@ describe("messages", () => {
     mockedQuery.mockResolvedValueOnce([])
     const before = Date.now()
     await repo.finalizeInterruptedMessages(20_000)
+    const after = Date.now()
     const [sql, params] = mockedQuery.mock.calls[0]
     expect(sql).toContain("done = 0")
     expect(sql).toContain("updatedAt IS NULL OR updatedAt <")
@@ -844,9 +848,15 @@ describe("messages", () => {
     // long tool-approval wait isn't finalized as interrupted.
     expect(sql).toContain("sessionId NOT IN")
     expect(sql).toContain("FROM tool_loop_runs")
-    // Cutoff = now - staleMs, so a live turn touched within 20s is excluded.
+    /**
+     * Cutoff = now - staleMs, so a live turn touched within 20s is excluded.
+     * "Now" is read inside the call, so it lies between the two readings
+     * here; asserting it against `before` alone failed whenever the clock
+     * ticked during the call.
+     */
     const cutoff = params?.[0] as number
-    expect(cutoff).toBeLessThanOrEqual(before - 20_000)
+    expect(cutoff).toBeGreaterThanOrEqual(before - 20_000)
+    expect(cutoff).toBeLessThanOrEqual(after - 20_000)
   })
 
   it("touchMessageActivity bumps only updatedAt for the given id", async () => {
