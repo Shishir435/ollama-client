@@ -180,6 +180,40 @@ describe("resolved-effect policy", () => {
     })
   })
 
+  it("asks before a routine click on a control labelled as ordering or sending", () => {
+    const grants = [
+      {
+        origin: "https://example.com",
+        effects: ["activation" as const, "form_mutation" as const],
+        grantedAt: 1
+      }
+    ]
+    const plain = evaluateAgentPolicy({
+      ...input(
+        effect(["activation"], {
+          target: { sensitive: false, maySubmit: false }
+        })
+      ),
+      grants
+    })
+    const committing = evaluateAgentPolicy({
+      ...input(
+        effect(["activation"], {
+          target: { sensitive: false, maySubmit: false, committingLabel: true }
+        })
+      ),
+      grants
+    })
+    expect(plain.type).toBe("granted")
+    expect(committing).toMatchObject({
+      type: "approval_required",
+      risk: "high"
+    })
+    if (committing.type !== "approval_required") throw new Error("unreachable")
+    expect(committing.request.grantable).toBeUndefined()
+    expect(committing.request.origin).toBeUndefined()
+  })
+
   it("requires approval for a new origin", () => {
     const decision = evaluateAgentPolicy(
       input(

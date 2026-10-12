@@ -231,6 +231,13 @@ export interface ResolvedAgentTarget {
    * not a decision: policy words the approval with it.
    */
   noSubmitStep?: boolean
+  /**
+   * Set on an activation whose control is labelled as ordering, paying,
+   * sending or publishing something ("Place order", "Send"). A script button
+   * commits as surely as a form submitter but has no submitter to classify.
+   * Evidence, not a decision: policy never lets standing consent cover it.
+   */
+  committingLabel?: boolean
 }
 
 /** The destination of a drag, in the terms its later recheck compares. */
