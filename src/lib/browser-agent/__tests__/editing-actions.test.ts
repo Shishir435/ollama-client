@@ -290,6 +290,37 @@ describe("editing resolution", () => {
     expect(binned.semanticEffects).toEqual(["drag", "destructive"])
   })
 
+  it("marks a script button labelled as ordering or sending, and nothing else", async () => {
+    const button = (ref: string, name: string): AgentElement =>
+      element({
+        ref,
+        tag: "button",
+        type: undefined,
+        value: undefined,
+        editable: false,
+        multiline: false,
+        name
+      })
+    const before = observation({
+      elements: [
+        button("e1", "Place order"),
+        button("e2", "Senden"),
+        button("e3", "Réserver la table"),
+        button("e4", "立即购买"),
+        button("e5", "PayPal options"),
+        button("e6", "Sender details"),
+        button("e7", "Show filters")
+      ]
+    })
+    const marked = await Promise.all(
+      ["e1", "e2", "e3", "e4", "e5", "e6", "e7"].map(async (ref) => {
+        const resolved = await resolve(command({ type: "click", ref }), before)
+        return resolved.target.committingLabel === true
+      })
+    )
+    expect(marked).toEqual([true, true, true, true, false, false, false])
+  })
+
   it("turns a click on a file input into a file-upload takeover", async () => {
     const before = observation({
       elements: [

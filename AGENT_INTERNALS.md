@@ -784,7 +784,8 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   origin in that run, and `approve_each` keeps per-step review. A remembered
   preference is not a carried grant: changing it never widens a run already
   going, and a new run receives no previous run's grants. Destruction, new
-  origins and sensitive controls retain their own gates — a submission is
+  origins, sensitive controls and buttons labelled as committing retain
+  their own gates — a submission is
   widened only from an approval the user was shown, never in advance from a
   setting. The `browser_task` start prompt is such an approval: under
   `allow_routine` it carries `agent.start_gate.routine`, saying searches on
@@ -841,6 +842,12 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   honest limit: a value the run typed is its own, so a model that copies a
   field value into a box and then navigates with it is stopped by that
   approval rather than by this rule.
+- **A button labelled as committing is asked about every time.** A script
+  "Place order", "Send" or "Transfer" carries no form submitter, so it
+  resolves to a plain activation that routine consent would cover. The
+  resolver marks such a target `committingLabel` from its accessible name
+  (nine locales, whole words), and policy never covers it with a grant.
+  Raise-only: a miss changes nothing, a false match costs one prompt.
 
 ## Follow-up runs
 
@@ -1518,6 +1525,15 @@ for every other id. Rules, all load-bearing:
   why on the card — a closed panel included — and a command the worker never
   received, or refused, is shown on the run rather than in a composer that is
   back in Chat by then.
+- **Pause and Stop cannot lose to the loop.** `requestPause` and
+  `requestCancel` compare-and-set from the status they read, and the loop
+  moves the run several times a step, so a stale read used to fail silently
+  and the run carried on. `commitStop` rereads and retries until the write
+  lands or the run is terminal, already pausing or stopping; the abort still
+  follows the committed write, never precedes it. A stop that still cannot
+  land throws, so the panel reports a failed command instead of a silent
+  no-op. A committing-label approval offers no standing grant, since none
+  would ever cover it.
 - **An approval arriving is brought into view and announced, never
   pre-answered.** It scrolls into view and focus moves to the card, not to
   Allow, so an Enter meant for something else cannot approve an effect; focus
