@@ -2421,9 +2421,16 @@ describe("agent controller", () => {
     })
   })
 
-  it("reports a stop it cannot record instead of returning as if it had", async () => {
+  it("retries a stop whose reread shows the status it just lost from", async () => {
     const harness = createHarness({ state: runState({ status: "observing" }) })
     harness.staleLoads.push("deciding", "deciding")
+    await harness.controller.requestCancel("run-1")
+    expect(harness.getState().status).toBe("cancelled")
+  })
+
+  it("reports a stop it cannot record instead of returning as if it had", async () => {
+    const harness = createHarness({ state: runState({ status: "observing" }) })
+    harness.staleLoads.push(...Array<AgentRunStatus>(8).fill("deciding"))
     await expect(harness.controller.requestCancel("run-1")).rejects.toThrow(
       "could not be recorded"
     )
