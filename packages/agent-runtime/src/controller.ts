@@ -3742,16 +3742,16 @@ export const createAgentController = (
    * leave from (terminal, or already pausing or stopping) ends it quietly.
    *
    * A request that cannot land throws rather than returning as if it had:
-   * the panel reports a failed command, and the user can press again. That
-   * is a write refused from a status nobody moved, which no reread fixes,
-   * or a run moved more often than the attempts allow.
+   * the panel reports a failed command, and the user can press again. A
+   * reread showing the status that was just refused proves nothing — the
+   * loop can go observing, deciding and back to observing between two reads
+   * — so only the attempt count bounds the retries.
    */
   const commitStop = async (
     runId: string,
     to: "pause_requested" | "cancelling",
     patchFor: (state: AgentRunState) => AgentStatePatch
   ): Promise<{ from: AgentRunState; to: AgentRunState } | undefined> => {
-    let refusedFrom: AgentRunStatus | undefined
     for (let attempt = 0; attempt < MAX_STOP_ATTEMPTS; attempt += 1) {
       const state = await dependencies.persistence.load(runId)
       if (
@@ -3760,10 +3760,8 @@ export const createAgentController = (
         !isLegalAgentTransition(state.status, to)
       )
         return undefined
-      if (state.status === refusedFrom) break
       const committed = await transition(state, to, patchFor(state))
       if (committed) return { from: state, to: committed }
-      refusedFrom = state.status
     }
     throw new Error(`Agent ${to} could not be recorded`)
   }

@@ -307,18 +307,41 @@ describe("editing resolution", () => {
         button("e2", "Senden"),
         button("e3", "Réserver la table"),
         button("e4", "立即购买"),
-        button("e5", "PayPal options"),
-        button("e6", "Sender details"),
-        button("e7", "Show filters")
+        button("e5", "Realizar pedido"),
+        button("e6", "Invia messaggio"),
+        button("e7", "Оплатить заказ"),
+        button("e8", "注文を確定する"),
+        button("e9", "अभी खरीदें"),
+        button("e10", "PayPal options"),
+        button("e11", "Sender details"),
+        button("e12", "Show filters")
       ]
     })
     const marked = await Promise.all(
-      ["e1", "e2", "e3", "e4", "e5", "e6", "e7"].map(async (ref) => {
+      [
+        "e1",
+        "e2",
+        "e3",
+        "e4",
+        "e5",
+        "e6",
+        "e7",
+        "e8",
+        "e9",
+        "e10",
+        "e11",
+        "e12"
+      ].map(async (ref) => {
         const resolved = await resolve(command({ type: "click", ref }), before)
         return resolved.target.committingLabel === true
       })
     )
-    expect(marked).toEqual([true, true, true, true, false, false, false])
+    expect(marked).toEqual([
+      ...Array<boolean>(9).fill(true),
+      false,
+      false,
+      false
+    ])
   })
 
   it("turns a click on a file input into a file-upload takeover", async () => {
