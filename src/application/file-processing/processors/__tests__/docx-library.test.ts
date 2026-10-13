@@ -8,6 +8,11 @@ import { describe, expect, it } from "vitest"
 const require = createRequire(import.meta.url)
 const mammoth = require("mammoth") as typeof import("mammoth")
 const JSZip = require("jszip") as typeof import("jszip")
+const converterOptions = {
+  encoding: "utf8",
+  timeout: 4_000,
+  killSignal: "SIGKILL"
+} as const
 
 const document = async () => {
   const zip = new JSZip()
@@ -37,6 +42,12 @@ const document = async () => {
 }
 
 describe("Mammoth dependency compatibility", () => {
+  it("bounds the blocking CLI call below Vitest's test deadline", () => {
+    expect(converterOptions).toMatchObject({
+      timeout: 4_000,
+      killSignal: "SIGKILL"
+    })
+  })
   it("uses an argparse version without sprintf-js", () => {
     const fromMammoth = createRequire(require.resolve("mammoth"))
     const parser = fromMammoth("argparse/package.json")
@@ -62,7 +73,7 @@ describe("Mammoth dependency compatibility", () => {
       const result = spawnSync(
         process.execPath,
         [require.resolve("mammoth/bin/mammoth"), path],
-        { encoding: "utf8" }
+        converterOptions
       )
       expect(result.status, result.stderr).toBe(0)
       expect(result.stdout.trim()).toBe("<p>Security update DOCX fixture</p>")
