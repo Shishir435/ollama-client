@@ -128,7 +128,8 @@
     "benchmark:agent:qualification:matrix": "node tools/agent-live-benchmark/qualification-matrix.mjs",
     "benchmark:agent:release": "node tools/agent-live-benchmark/release.mjs",
     "benchmark:agent:live:docker": "bash tools/agent-live-benchmark/run-live.docker.sh",
-    "benchmark:agent:nightly": "bash tools/agent-live-benchmark/nightly.sh"
+    "benchmark:agent:nightly": "bash tools/agent-live-benchmark/nightly.sh",
+    "benchmark:agent:rescore": "node tools/agent-live-benchmark/rescore.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

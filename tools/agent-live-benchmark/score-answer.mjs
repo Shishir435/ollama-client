@@ -350,7 +350,7 @@ const NOT_DONE_PATTERN = new RegExp(
     String.raw`\b(?:i|we)\s+(?:could\s*not|couldn't|cannot|can't|can\s+not|was\s+unable|were\s+unable|am\s+unable|'m\s+unable|am\s+not\s+able|'m\s+not\s+able|wasn't\s+able|was\s+not\s+able|didn't\s+manage|did\s+not\s+manage|failed|haven't\s+been\s+able|have\s+not\s+been\s+able|don't\s+have\s+(?:access|the\s+ability)|do\s+not\s+have\s+(?:access|the\s+ability))\b`,
     String.raw`\b(?:unable|not\s+able)\s+to\b`,
     String.raw`\b(?:could\s*not|couldn't|cannot|can't)\s+(?:be\s+)?(?:started|completed|finished|done|verified|confirmed|found|saved|submitted)\b`,
-    String.raw`\b(?:was|were|is|has)\s*(?:not|n't)\s+(?:been\s+)?(?:completed|finished|done|saved|submitted|started|verified|confirmed|possible)\b`,
+    String.raw`\b(?:was|were|is|has|have)\s*(?:not|n't)\s+(?:been\s+)?(?:completed|finished|done|saved|submitted|started|verified|confirmed|possible|changed|updated|applied|sent|placed|created|deleted|made|entered|selected|clicked|opened|found|read)\b`,
     String.raw`\bnot\s+(?:yet\s+)?(?:done|finished|complete|completed|verified|confirmed)\b`,
     String.raw`\b(?:did\s*not|didn't|does\s*not|doesn't)\s+(?:complete|finish|succeed|work|go\s+through|start)\b`,
     /**
@@ -360,7 +360,8 @@ const NOT_DONE_PATTERN = new RegExp(
      */
     String.raw`\b(?:i|we|it|this|that|whether|the\s+(?:browser\s+agent|agent|browser\s+task|task|tool|site|page|result|outcome|save|submission|order|change|update|effect|action|form|request|model|status))\b[^.!?\n]{0,60}?\b(?:refused|declined|blocked|unavailable|uncertain|unclear|unverified|unconfirmed|not\s+(?:available|sure|certain|supported|enabled|allowed))\b`,
     String.raw`\b(?:paused|waiting\s+for\s+(?:you|your)|needs?\s+your|requires?\s+your)\b`,
-    String.raw`\b(?:ran|run)\s+out\s+of\b|\bstopped\s+before\b|\bbefore\s+(?:i|we)\s+could\b|\b(?:only\s+)?partially\b|\bonly\s+(?:managed|got)\s+to\b`
+    String.raw`\b(?:task|run|agent|attempt|it|this|that)\s+(?:has\s+|had\s+)?(?:failed|stopped|errored|ended\s+early)\b|\bfailed\s+(?:before|to)\b`,
+    String.raw`\b(?:ran|run)\s+out\s+of\b|\bstopped\s+before\b|\bbefore\s+(?:i|we|it|the\s+task)\s+could\b|\b(?:only\s+)?partially\b|\bonly\s+(?:managed|got)\s+to\b`
   ].join("|"),
   "i"
 )

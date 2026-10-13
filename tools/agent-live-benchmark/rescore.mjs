@@ -1,0 +1,103 @@
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
+import { fileURLToPath } from "node:url"
+import { qualificationDiagnostics } from "./qualification-report.mjs"
+import {
+  classifyAttempt,
+  failureOrigin,
+  successClaim,
+  wireTelemetry,
+  writeBaseline
+} from "./report.mjs"
+import { isSiteChallenge } from "./score-answer.mjs"
+
+/**
+ * Classifies a finished attempt again from its private evidence, with the
+ * scorer as it is now. A classification fix then reaches a pass already run
+ * instead of costing another one. The oracle's `success` is kept as recorded:
+ * it came from server state at the time and cannot be recomputed afterwards.
+ * Attempts the harness never ran, or that threw, keep their row unchanged.
+ */
+export const rescoreAttempt = (row, evidence) => {
+  const recorded = evidence?.row
+  if (!recorded || evidence.harnessError) return row
+  const { status, success, answer, errorCode, pauseReason } = recorded
+  const wire = evidence.wire ?? []
+  const admissionFailure =
+    status === "turn_not_started" ||
+    (!evidence.finalRun &&
+      wireTelemetry(wire).executionStages.includes("browser_task_admission"))
+  const timedOut = status === "harness_timeout" && !admissionFailure
+  const verdict = classifyAttempt({
+    status,
+    success,
+    answer,
+    expectedPause: recorded.expectedPause,
+    pauseReason,
+    errorCode,
+    infrastructureFailure: status === "harness_invalid" || timedOut,
+    admissionFailure,
+    providerFailure: wire.some((rec) => rec.status >= 400),
+    siteBlocked: isSiteChallenge(evidence.body),
+    unclearOracle: evidence.scored?.unclear === true
+  })
+  return {
+    ...row,
+    verdict,
+    successClaimed: successClaim({ status, answer }),
+    failureOrigin: failureOrigin({ verdict, status, errorCode })
+  }
+}
+
+/**
+ * Re-scores a pass directory in place: baseline.json, baseline.md and, for a
+ * qualification pass, qualification.json. Records which verdicts moved.
+ */
+export const rescorePass = (directory) => {
+  const report = JSON.parse(
+    readFileSync(join(directory, "baseline.json"), "utf8")
+  )
+  const changed = []
+  const rows = report.attempts.map((row) => {
+    const path = join(
+      directory,
+      `${row.task}-${row.attempt}`,
+      "local-debug",
+      "evidence.json"
+    )
+    if (!existsSync(path)) return row
+    const next = rescoreAttempt(row, JSON.parse(readFileSync(path, "utf8")))
+    if (next.verdict !== row.verdict)
+      changed.push({
+        task: row.task,
+        attempt: row.attempt,
+        from: row.verdict,
+        to: next.verdict
+      })
+    return next
+  })
+  const inputs = {
+    ...report.inputs,
+    rescored: { at: new Date().toISOString(), changed }
+  }
+  const rescored = writeBaseline(directory, inputs, rows)
+  if (report.inputs.qualification)
+    writeFileSync(
+      join(directory, "qualification.json"),
+      JSON.stringify(qualificationDiagnostics(rescored), null, 2)
+    )
+  return changed
+}
+
+/** Usage: rescore.mjs <pass directory>... */
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const directories = process.argv.slice(2)
+  if (!directories.length)
+    throw new Error("Pass one or more benchmark pass directories")
+  for (const directory of directories) {
+    if (!readdirSync(directory).includes("baseline.json"))
+      throw new Error(`${directory} has no baseline.json`)
+    const changed = rescorePass(directory)
+    console.log(JSON.stringify({ directory, changed }, null, 2))
+  }
+}

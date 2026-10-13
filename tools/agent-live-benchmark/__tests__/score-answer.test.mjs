@@ -628,6 +628,12 @@ describe("classifyClaim", () => {
     ],
     ["I'm not sure the order went through.", "not_claimed"],
     ["The item status is Unavailable.", "claimed"],
+    [
+      "The widget wasn’t changed or saved—the browser task failed before it could complete.",
+      "not_claimed"
+    ],
+    ["The browser task failed.", "not_claimed"],
+    ["Nothing was sent; the run stopped before the form.", "not_claimed"],
     ["Done. The account is now blocked as you asked.", "claimed"],
     ["The site blocked the request with a captcha.", "not_claimed"],
     ["I've selected Blue and submitted the form.", "claimed"],

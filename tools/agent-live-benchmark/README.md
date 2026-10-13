@@ -178,7 +178,12 @@ left them. `evidence.json` contains:
 - the final run, the final page HTML and the panel's text;
 - the panel snapshots, the full model wire and the worker's trace.
 
-A harness exception writes the same file with its stack. The pass's
+A harness exception writes the same file with its stack. Because the
+evidence keeps each attempt's status, answer and wire, a fix to the
+classification reaches a pass already run: `pnpm benchmark:agent:rescore
+<pass directory>` classifies every attempt again, keeps the oracle's recorded
+`success`, rewrites the reports and lists the verdicts that moved under
+`inputs.rescored`. The pass's
 `local-debug/failures.jsonl` has one line per attempt that did not succeed:
 verdict, failure origin, claim, codes, retries, the last five decisions, and
 the answer and chat reply, clipped. The Docker runner saves its own log and,
