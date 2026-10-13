@@ -138,7 +138,7 @@ const inputs = baselineInputs({
     permissionMode: "allow_routine",
     approvals: "automatic",
     interventions: "none",
-    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE === "1"
+    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE !== "0"
   }
 })
 let profile,
@@ -674,7 +674,7 @@ try {
         field
       }
       results[index] = row
-      if (process.env.AUDIT_DEBUG_EVIDENCE === "1") {
+      if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
         const dir = join(out, `${kind}-${attempt}`, "local-debug")
         mkdirSync(dir, { recursive: true, mode: 0o700 })
         writeFileSync(

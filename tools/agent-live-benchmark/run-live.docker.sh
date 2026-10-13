@@ -93,7 +93,7 @@ if [[ -n "$backend" && "$backend" != codex ]]; then
   exit 1
 fi
 if [[ -z "$backend" ]]; then
-  "$repository_root/node_modules/.bin/tsx" packages/olc/src/cli.ts --backend codex --port "$olc_port" >"$olc_log" 2>&1 &
+  "$repository_root/node_modules/.bin/tsx" packages/olc/src/cli.ts --backend codex --debug --port "$olc_port" >"$olc_log" 2>&1 &
   olc_pid=$!
   for _ in $(seq 1 180); do
     backend="$(health_backend || true)"

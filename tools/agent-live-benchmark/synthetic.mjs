@@ -21,6 +21,15 @@ import {
   withReasoningEffort
 } from "./chat-turn.mjs"
 import {
+  appendFailureDigest,
+  callTimeline,
+  decisionTrace,
+  failureDigest,
+  plainQualificationState,
+  recordFixtureRequest,
+  writeAttemptEvidence
+} from "./evidence.mjs"
+import {
   endpointFingerprint,
   recordQualificationSettings
 } from "./qualification-config.mjs"
@@ -172,7 +181,7 @@ const inputs = baselineInputs({
     permissionMode: "allow_routine",
     approvals: "automatic",
     interventions: "none",
-    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE === "1"
+    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE !== "0"
   }
 })
 if (qualification) {
@@ -218,6 +227,9 @@ let profile,
   wire = [],
   messages = [],
   logs = [],
+  /** Console errors from the panel and the fixture, for the evidence. */
+  panelErrors = [],
+  pageErrors = [],
   chatApprovals = 0,
   results = declared.map(({ fields, attempt }) => ({
     task: fields[0],
@@ -349,6 +361,19 @@ const html = (kind, path) =>
     (s) => `<!doctype html><title>Audit ${kind}</title><main>${s}</main>`,
     "fetch('/effect');document.querySelector('main').innerHTML='<p>Status: Active</p>'"
   ) ?? basePage(kind, path)
+/**
+ * A trap's own server answer — a rejection, a 500, a deferred commit, a data
+ * read — sent as the fixture decided it, never flattened to a 200.
+ */
+const replyWith = (res, answer) => {
+  res.writeHead(answer.status ?? 200, {
+    "Content-Type": answer.type ?? "text/plain"
+  })
+  res.end(answer.body ?? "ok")
+  return true
+}
+/** Assigned once the browser is up: stops the extension's service worker. */
+let restartExtensionWorker
 const serveQualification = (path, body, res, method) => {
   if (
     !qualification ||
@@ -359,7 +384,8 @@ const serveQualification = (path, body, res, method) => {
     return false
   {
     const state = current.qualification
-    recordQualificationRequest(state, path, body, false, method)
+    const answer = recordQualificationRequest(state, path, body, false, method)
+    if (answer) return replyWith(res, answer)
     if (path.includes("/effect/")) {
       res.end("ok")
       return true
@@ -382,6 +408,8 @@ const server = createServer(async (req, res) => {
     const path = req.url ?? "/"
     let body = ""
     for await (const c of req) body += c
+    if (!path.startsWith("/v1/"))
+      recordFixtureRequest(current?.requests, req, res)
     if (path.startsWith("/v1/")) {
       rec = {
         path,
@@ -401,7 +429,8 @@ const server = createServer(async (req, res) => {
         (await injectQualificationFault(
           current.qualification,
           fixture,
-          rec.request
+          rec.request,
+          { restartWorker: restartExtensionWorker }
         ))
       ) {
         rec.status = 503
@@ -488,18 +517,23 @@ const server = createServer(async (req, res) => {
 const externalServer = createServer(async (req, res) => {
   let body = ""
   for await (const chunk of req) body += chunk
+  recordFixtureRequest(current?.requests, req, res, true)
   if (!current?.qualification) {
     res.writeHead(404)
     res.end()
     return
   }
-  recordQualificationRequest(
+  const answer = recordQualificationRequest(
     current.qualification,
     req.url ?? "/",
     body,
     true,
     req.method
   )
+  if (answer) {
+    replyWith(res, answer)
+    return
+  }
   if ((req.url ?? "").includes("/effect/")) {
     res.end("ok")
     return
@@ -542,6 +576,13 @@ try {
     } catch {}
   })
   panel = await context.newPage()
+  panel.on("console", (message) => {
+    if (message.type() === "error")
+      panelErrors.push({ at: Date.now(), text: message.text().slice(0, 1000) })
+  })
+  panel.on("pageerror", (error) =>
+    panelErrors.push({ at: Date.now(), text: String(error).slice(0, 1000) })
+  )
   await panel.goto(`chrome-extension://${ext}/sidepanel.html`)
   await panel.evaluate(
     async ({ origin, model }) => {
@@ -606,6 +647,21 @@ try {
     })
   }
   await connectPanel()
+  /**
+   * The Send trap's fault: the worker is stopped over CDP the way Chrome
+   * stops an idle one, then woken by the panel reconnecting its port. Throws
+   * when either step fails, so the fault is reported as not exercised.
+   */
+  restartExtensionWorker = async () => {
+    const cdp = await context.newCDPSession(panel)
+    try {
+      await cdp.send("ServiceWorker.enable")
+      await cdp.send("ServiceWorker.stopAllWorkers")
+    } finally {
+      await cdp.detach().catch(() => {})
+    }
+    await connectPanel()
+  }
   await panel
     .getByRole("button", { name: "Skip for now", exact: true })
     .click({ timeout: 3000 })
@@ -704,6 +760,7 @@ try {
         kind,
         effects: 0,
         replaced: false,
+        requests: [],
         ...(task ? { qualification: createQualificationState(task) } : {})
       }
       if (task) current.qualification.base = `/q/${kind}/a${attempt}`
@@ -723,9 +780,21 @@ try {
       wire = []
       messages = []
       logs = []
+      panelErrors = []
+      pageErrors = []
       chatApprovals = 0
       const started = Date.now()
       fixture = await context.newPage()
+      fixture.on("console", (message) => {
+        if (message.type() === "error")
+          pageErrors.push({
+            at: Date.now(),
+            text: message.text().slice(0, 1000)
+          })
+      })
+      fixture.on("pageerror", (error) =>
+        pageErrors.push({ at: Date.now(), text: String(error).slice(0, 1000) })
+      )
       await fixture.goto(
         qualification
           ? `${origin}${current.qualification.base}`
@@ -995,28 +1064,51 @@ try {
         field
       }
       results[index] = row
-      if (process.env.AUDIT_DEBUG_EVIDENCE === "1") {
+      /**
+       * Private evidence for improving the harness and the agent, on unless
+       * AUDIT_DEBUG_EVIDENCE=0. Images and credentials are redacted from the
+       * wire; the final page and panel are kept as screenshots beside it.
+       */
+      if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
         const dir = join(out, `${kind}-${attempt}`, "local-debug")
-        mkdirSync(dir, { recursive: true, mode: 0o700 })
-        writeFileSync(
-          join(dir, "evidence.json"),
-          JSON.stringify(
-            { row, messages, wire, logs, body },
-            (key, value) =>
-              [
-                "image_url",
-                "image",
-                "images",
-                "screenshot",
-                "authorization",
-                "apiKey"
-              ].includes(key)
-                ? "[REDACTED]"
-                : value,
-            2
-          ),
-          { mode: 0o600 }
-        )
+        const [fixtureHtml, panelText] = await Promise.all([
+          fixture.content().catch(() => ""),
+          panel
+            .locator("body")
+            .innerText()
+            .then((text) => text.slice(-8000))
+            .catch(() => "")
+        ])
+        writeAttemptEvidence(dir, {
+          row,
+          scored,
+          timing: { attemptStarted, started, sentAt, ended: Date.now() },
+          timeline: callTimeline(wire, sentAt),
+          decisions: decisionTrace(wire),
+          fixtureRequests: current.requests,
+          qualificationState: plainQualificationState(current.qualification),
+          pageErrors,
+          panelErrors: panelErrors.filter((entry) => entry.at >= started),
+          finalRun: final?.run,
+          fixtureUrl: fixture.url(),
+          fixtureHtml,
+          panelText,
+          body,
+          messages,
+          wire,
+          logs
+        })
+        await Promise.all([
+          fixture
+            .screenshot({ path: join(dir, "fixture.png"), fullPage: true })
+            .catch(() => {}),
+          panel.screenshot({ path: join(dir, "panel.png") }).catch(() => {})
+        ])
+        if (!["achieved", "safely_handed_off"].includes(verdict))
+          appendFailureDigest(
+            join(out, "local-debug"),
+            failureDigest(row, wire)
+          )
       }
       const report = writeBaseline(out, inputs, results)
       console.log(JSON.stringify(report.attempts[index]))
@@ -1036,7 +1128,30 @@ try {
         ).map((page) => page.close().catch(() => {}))
       )
       await fixture.close()
-    } catch {
+    } catch (error) {
+      if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
+        const dir = join(out, `${kind}-${attempt}`, "local-debug")
+        writeAttemptEvidence(dir, {
+          harnessError: error instanceof Error ? error.stack : String(error),
+          timeline: callTimeline(wire, attemptStarted),
+          fixtureRequests: current?.requests,
+          qualificationState: plainQualificationState(current?.qualification),
+          pageErrors,
+          panelErrors: panelErrors.filter(
+            (entry) => entry.at >= attemptStarted
+          ),
+          messages,
+          wire,
+          logs
+        })
+        appendFailureDigest(join(out, "local-debug"), {
+          task: kind,
+          attempt,
+          verdict: "infrastructure_failure",
+          failureCode: "harness_exception",
+          harnessError: error instanceof Error ? error.message : String(error)
+        })
+      }
       results[index] = {
         task: declaration.fields[0],
         ...(qualification && current?.qualification
