@@ -96,9 +96,8 @@ describe("handleChatWithModel - Contextual Memory", () => {
     vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) =>
       key === STORAGE_KEYS.MEMORY.ENABLED ? true : undefined
     )
-    const { retrieveContextEnhanced } = await import(
-      "@/application/context/rag/rag-pipeline"
-    )
+    const { retrieveContextEnhanced } =
+      await import("@/application/context/rag/rag-pipeline")
     vi.mocked(retrieveContextEnhanced).mockRejectedValueOnce(
       new Error("Query embedding failed")
     )
@@ -126,9 +125,8 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
   it("should inject context when memory is enabled", async () => {
     const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
-    const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-      "@/application/context/rag/rag-pipeline"
-    )
+    const { retrieveContextEnhanced, formatEnhancedResults } =
+      await import("@/application/context/rag/rag-pipeline")
 
     // Mock Memory Enabled
     vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
@@ -183,9 +181,8 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
   it("should NOT retrieve memory when the client already prepared context", async () => {
     const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
-    const { retrieveContextEnhanced } = await import(
-      "@/application/context/rag/rag-pipeline"
-    )
+    const { retrieveContextEnhanced } =
+      await import("@/application/context/rag/rag-pipeline")
 
     // Memory enabled, but the UI already built page/file/memory context for
     // this turn — the background must not run a second memory retrieval.
@@ -225,9 +222,8 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
   it("should NOT inject memory on a regenerate turn when retrieval tools are active", async () => {
     const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
-    const { retrieveContextEnhanced } = await import(
-      "@/application/context/rag/rag-pipeline"
-    )
+    const { retrieveContextEnhanced } =
+      await import("@/application/context/rag/rag-pipeline")
 
     // Memory enabled, regenerate path (clientContextPrepared unset), but the
     // model has rag_search/file_search this turn — it pulls memory itself, so
@@ -267,9 +263,8 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
   it("should NOT inject context when memory is disabled", async () => {
     const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
-    const { retrieveContextEnhanced } = await import(
-      "@/application/context/rag/rag-pipeline"
-    )
+    const { retrieveContextEnhanced } =
+      await import("@/application/context/rag/rag-pipeline")
 
     // Mock Memory Disabled
     vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {

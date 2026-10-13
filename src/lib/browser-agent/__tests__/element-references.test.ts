@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { createAgentElementReferenceStore } from "../element-references"
 
 describe("Agent element references", () => {

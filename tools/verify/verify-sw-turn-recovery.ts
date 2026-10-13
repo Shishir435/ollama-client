@@ -16,7 +16,6 @@
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import { resolve } from "node:path"
-
 import {
   type ExtensionHarness,
   type GateResult,

@@ -1,7 +1,6 @@
 import { AgentControlFailedError } from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import type { AgentControlSession } from "@/lib/browser-agent/control-port"
 import { createAgentControlSessionRegistry } from "../agent-control-sessions"
 

@@ -26,7 +26,6 @@ import { useModelInfo } from "@/features/model/hooks/use-model-info"
 import { cn } from "@/lib/class-names"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
-
 import { ModelCapabilityBadges } from "./model-capabilities/capability-badges"
 
 const fileTypeMap: Record<number, string> = {

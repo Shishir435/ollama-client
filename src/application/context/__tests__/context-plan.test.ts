@@ -37,17 +37,17 @@ describe("context plan", () => {
     { groundedOnlyMode: true, retrievalToolsActive: false },
     { groundedOnlyMode: false, retrievalToolsActive: true },
     { groundedOnlyMode: true, retrievalToolsActive: true }
-  ])("does not pre-inject stored context for policy $groundedOnlyMode/$retrievalToolsActive", ({
-    groundedOnlyMode,
-    retrievalToolsActive
-  }) => {
-    const plan = createContextPlan({
-      rawInput: "question",
-      maxRagContextChars: 500,
-      groundedOnlyMode,
-      retrievalToolsActive
-    })
+  ])(
+    "does not pre-inject stored context for policy $groundedOnlyMode/$retrievalToolsActive",
+    ({ groundedOnlyMode, retrievalToolsActive }) => {
+      const plan = createContextPlan({
+        rawInput: "question",
+        maxRagContextChars: 500,
+        groundedOnlyMode,
+        retrievalToolsActive
+      })
 
-    expect(plan.injectStoredContext).toBe(false)
-  })
+      expect(plan.injectStoredContext).toBe(false)
+    }
+  )
 })

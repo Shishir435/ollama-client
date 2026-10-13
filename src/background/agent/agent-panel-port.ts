@@ -10,7 +10,6 @@ import {
   AgentPanelMessageSchema
 } from "@ollama-client/contracts"
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
-
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { AGENT_DEBUG_REPORT_ENABLED } from "@/lib/feature-flags"

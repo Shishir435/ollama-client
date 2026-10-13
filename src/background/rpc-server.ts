@@ -143,16 +143,14 @@ const handlers = {
   [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear(),
   [RpcMethod.AgentForgetChatRows]: async (request) => {
     if (!AGENT_PREVIEW_ENABLED) return { forgotten: true }
-    const { forgetAgentChatRows } = await import(
-      "@/background/agent/agent-forget-rpc"
-    )
+    const { forgetAgentChatRows } =
+      await import("@/background/agent/agent-forget-rpc")
     return forgetAgentChatRows(request)
   },
   [RpcMethod.AgentGetRun]: async (request) => {
     if (!AGENT_PREVIEW_ENABLED) return {}
-    const { getAgentRunCard } = await import(
-      "@/background/agent/agent-run-card-rpc"
-    )
+    const { getAgentRunCard } =
+      await import("@/background/agent/agent-run-card-rpc")
     return getAgentRunCard(request)
   }
 } satisfies RpcHandlers

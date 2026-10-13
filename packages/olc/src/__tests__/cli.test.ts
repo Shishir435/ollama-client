@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { parseArgs } from "../cli.js"
 import { SHORT_FLAG_ALIASES } from "../cli-options.js"
+import { parseArgs } from "../cli.js"
 import { resolveManagedPort } from "../config.js"
 
 describe("parseArgs", () => {

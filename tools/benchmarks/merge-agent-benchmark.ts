@@ -24,7 +24,6 @@ import {
 } from "node:fs"
 import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-
 import type { AgentBenchmarkReport } from "../../e2e/chromium/benchmark/agent-benchmark"
 import {
   mergeAgentBenchmarkReports,

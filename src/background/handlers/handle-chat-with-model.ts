@@ -101,9 +101,8 @@ const buildMemoryContextHeader = async ({
   const lastUserMessage = conversationMessages[conversationMessages.length - 1]
   if (!lastUserMessage || lastUserMessage.role !== "user") return ""
 
-  const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-    "@/application/context/rag/rag-pipeline"
-  )
+  const { retrieveContextEnhanced, formatEnhancedResults } =
+    await import("@/application/context/rag/rag-pipeline")
   const enhancedResults = await retrieveContextEnhanced(
     lastUserMessage.content,
     {

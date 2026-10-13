@@ -90,23 +90,21 @@ const OllamaModelCatalogSchema = z
             .catch(undefined)
         })
         .passthrough()
-        .transform(
-          (model): ProviderModel => ({
-            ...model,
-            model: model.model ?? model.name,
-            modified_at: model.modified_at ?? "",
-            size: model.size ?? 0,
-            digest: model.digest ?? "",
-            details: {
-              parent_model: model.details?.parent_model ?? "",
-              format: model.details?.format ?? "",
-              family: model.details?.family ?? "",
-              families: model.details?.families ?? [],
-              parameter_size: model.details?.parameter_size ?? "",
-              quantization_level: model.details?.quantization_level ?? ""
-            }
-          })
-        )
+        .transform((model): ProviderModel => ({
+          ...model,
+          model: model.model ?? model.name,
+          modified_at: model.modified_at ?? "",
+          size: model.size ?? 0,
+          digest: model.digest ?? "",
+          details: {
+            parent_model: model.details?.parent_model ?? "",
+            format: model.details?.format ?? "",
+            family: model.details?.family ?? "",
+            families: model.details?.families ?? [],
+            parameter_size: model.details?.parameter_size ?? "",
+            quantization_level: model.details?.quantization_level ?? ""
+          }
+        }))
     )
   })
   .passthrough()
@@ -369,39 +367,37 @@ export class OllamaProvider implements LLMProvider {
       )
       const models = data.recommendations
         .filter(({ model }) => model.endsWith(":cloud"))
-        .map(
-          (recommendation): ProviderModel => ({
-            name: recommendation.model,
-            model: recommendation.model,
-            modified_at: "",
-            size: 0,
-            digest: `ollama-cloud:${recommendation.model}`,
-            details: {
-              parent_model: "",
-              format: "cloud",
-              family: "",
-              families: [],
-              parameter_size: "",
-              quantization_level: ""
-            },
-            ...(recommendation.context_length != null && {
-              capabilityHints: {
-                contextLength: recommendation.context_length
-              }
-            }),
-            cloud: {
-              ...(recommendation.description && {
-                description: recommendation.description
-              }),
-              ...(recommendation.required_plan && {
-                requiredPlan: recommendation.required_plan
-              }),
-              ...(recommendation.max_output_tokens != null && {
-                maxOutputTokens: recommendation.max_output_tokens
-              })
+        .map((recommendation): ProviderModel => ({
+          name: recommendation.model,
+          model: recommendation.model,
+          modified_at: "",
+          size: 0,
+          digest: `ollama-cloud:${recommendation.model}`,
+          details: {
+            parent_model: "",
+            format: "cloud",
+            family: "",
+            families: [],
+            parameter_size: "",
+            quantization_level: ""
+          },
+          ...(recommendation.context_length != null && {
+            capabilityHints: {
+              contextLength: recommendation.context_length
             }
-          })
-        )
+          }),
+          cloud: {
+            ...(recommendation.description && {
+              description: recommendation.description
+            }),
+            ...(recommendation.required_plan && {
+              requiredPlan: recommendation.required_plan
+            }),
+            ...(recommendation.max_output_tokens != null && {
+              maxOutputTokens: recommendation.max_output_tokens
+            })
+          }
+        }))
       cloudRecommendationCache.set(baseUrl, {
         expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS,
         models

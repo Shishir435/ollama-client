@@ -10,7 +10,6 @@ vi.mock("@/protocol/extension-client", () => ({
 import type { ProviderConfig } from "@/lib/providers/types"
 import { ProviderId, ProviderType } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
-
 import { useProviderHealth } from "../use-provider-health"
 
 const mockedCall = vi.mocked(extensionRpcClient.call)

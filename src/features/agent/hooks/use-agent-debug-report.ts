@@ -3,7 +3,6 @@ import {
   AgentPanelMessageSchema
 } from "@ollama-client/contracts"
 import { useEffect } from "react"
-
 import type { browser } from "@/lib/browser-api"
 import { AGENT_DEBUG_REPORT_ENABLED } from "@/lib/feature-flags"
 

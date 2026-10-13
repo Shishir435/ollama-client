@@ -735,98 +735,100 @@ describe("grounded evidence ledger", () => {
     })
   })
 
-  it.each([
-    false,
-    true
-  ])("completes itemized screenshot reads with mixed text support: %s", (mixed) => {
-    const planned: AgentRunState = {
-      ...state,
-      requirements: [
-        {
-          id: "r1",
-          text: "Report both plan prices",
-          kind: "read",
-          items: ["Plan A", "Plan B"]
-        }
-      ]
-    }
-    const decision: Extract<AgentDecision, { type: "complete" }> = {
-      type: "complete",
-      summary: "Done",
-      sourceQuotes: [{ quote: "Plan A", requirementId: "r1" }],
-      outcomes: [
-        {
-          id: "r1",
-          met: true,
-          /** The judge ignores a parent's quotation for itemized reads. */
-          evidence: "Plan A costs $12",
-          items: [
-            {
-              index: 0,
-              met: true,
-              evidence: mixed ? "Plan A costs $12" : "Plan A costs $22"
-            },
-            { index: 1, met: true, evidence: "Plan B costs $25" }
-          ]
-        }
-      ]
-    }
-    const records = agentCompletionEvidence(
-      planned,
-      observation,
-      decision,
-      [],
-      "answer",
-      picture
-    )
-    const visual = records.filter(
-      (record) => record.kind === "visual_observation"
-    )
-    expect(visual.map((record) => record.quote)).toEqual(
-      mixed ? ["Plan B costs $25"] : ["Plan A costs $22", "Plan B costs $25"]
-    )
-    expect(new Set(visual.map((record) => record.id)).size).toBe(visual.length)
-    expect(JSON.stringify(records)).not.toContain("IMAGEBYTES")
-    expect(
-      judgeAgentCompletion({
-        steps: [],
-        observation,
-        requirements: planned.requirements,
-        outcomes: decision.outcomes,
-        evidenceLedger: records
-      })
-    ).toEqual({
-      type: "accepted",
-      outcome: {
-        met: ["r1"],
-        unmet: [],
-        visual: ["r1"],
-        items: [{ id: "r1", met: [0, 1], visual: mixed ? [1] : [0, 1] }]
+  it.each([false, true])(
+    "completes itemized screenshot reads with mixed text support: %s",
+    (mixed) => {
+      const planned: AgentRunState = {
+        ...state,
+        requirements: [
+          {
+            id: "r1",
+            text: "Report both plan prices",
+            kind: "read",
+            items: ["Plan A", "Plan B"]
+          }
+        ]
       }
-    })
-    for (const screenshot of [undefined, { ...picture, generation: 2 }]) {
-      const ledger = agentCompletionEvidence(
+      const decision: Extract<AgentDecision, { type: "complete" }> = {
+        type: "complete",
+        summary: "Done",
+        sourceQuotes: [{ quote: "Plan A", requirementId: "r1" }],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            /** The judge ignores a parent's quotation for itemized reads. */
+            evidence: "Plan A costs $12",
+            items: [
+              {
+                index: 0,
+                met: true,
+                evidence: mixed ? "Plan A costs $12" : "Plan A costs $22"
+              },
+              { index: 1, met: true, evidence: "Plan B costs $25" }
+            ]
+          }
+        ]
+      }
+      const records = agentCompletionEvidence(
         planned,
         observation,
         decision,
         [],
         "answer",
-        screenshot
+        picture
       )
-      expect(
-        ledger.some((record) => record.kind === "visual_observation")
-      ).toBe(false)
+      const visual = records.filter(
+        (record) => record.kind === "visual_observation"
+      )
+      expect(visual.map((record) => record.quote)).toEqual(
+        mixed ? ["Plan B costs $25"] : ["Plan A costs $22", "Plan B costs $25"]
+      )
+      expect(new Set(visual.map((record) => record.id)).size).toBe(
+        visual.length
+      )
+      expect(JSON.stringify(records)).not.toContain("IMAGEBYTES")
       expect(
         judgeAgentCompletion({
           steps: [],
           observation,
           requirements: planned.requirements,
           outcomes: decision.outcomes,
-          evidenceLedger: ledger
-        }).type
-      ).toBe("refused")
+          evidenceLedger: records
+        })
+      ).toEqual({
+        type: "accepted",
+        outcome: {
+          met: ["r1"],
+          unmet: [],
+          visual: ["r1"],
+          items: [{ id: "r1", met: [0, 1], visual: mixed ? [1] : [0, 1] }]
+        }
+      })
+      for (const screenshot of [undefined, { ...picture, generation: 2 }]) {
+        const ledger = agentCompletionEvidence(
+          planned,
+          observation,
+          decision,
+          [],
+          "answer",
+          screenshot
+        )
+        expect(
+          ledger.some((record) => record.kind === "visual_observation")
+        ).toBe(false)
+        expect(
+          judgeAgentCompletion({
+            steps: [],
+            observation,
+            requirements: planned.requirements,
+            outcomes: decision.outcomes,
+            evidenceLedger: ledger
+          }).type
+        ).toBe("refused")
+      }
     }
-  })
+  )
 
   it("does not retain unmet or sensitive item screenshot readings", () => {
     const records = agentCompletionEvidence(

@@ -45,7 +45,6 @@ vi.mock("@/lib/sqlite/db", () => {
 
 import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import { query, resetSQLiteDatabase, run } from "@/lib/sqlite/db"
-
 import * as repo from "../sqlite-chat-history"
 
 const mockedQuery = vi.mocked(query)

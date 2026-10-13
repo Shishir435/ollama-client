@@ -2,7 +2,6 @@ import type {
   AgentModelReadiness,
   AgentPanelSnapshot
 } from "@ollama-client/contracts"
-
 import {
   type AgentModelCompatibility,
   resolveAgentModelCompatibility

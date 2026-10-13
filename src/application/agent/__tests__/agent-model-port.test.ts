@@ -959,9 +959,8 @@ describe("vision decisions", () => {
 
   it("offers exactly the visual commands the parser accepts, for every offer", async () => {
     const { agentDecisionTool } = await import("../agent-model-port")
-    const { parseAgentDecisionToolCalls } = await import(
-      "../agent-decision-parser"
-    )
+    const { parseAgentDecisionToolCalls } =
+      await import("../agent-decision-parser")
     const args = {
       look: { type: "look" },
       click_point: { type: "click_point", x: 1, y: 2 },
@@ -1319,28 +1318,28 @@ describe("usable agent prompt", () => {
       expect(vi.getTimerCount()).toBe(0)
     })
 
-    it.each([
-      "decide",
-      "plan"
-    ] as const)("stops %s immediately on authentication failure", async (stage) => {
-      const failure = {
-        status: 401,
-        message: "private key detail",
-        userMessage: "Check the provider credentials.",
-        retryable: true
+    it.each(["decide", "plan"] as const)(
+      "stops %s immediately on authentication failure",
+      async (stage) => {
+        const failure = {
+          status: 401,
+          message: "private key detail",
+          userMessage: "Check the provider credentials.",
+          retryable: true
+        }
+        const streamChat = vi.fn(async (_request, emit) =>
+          emit({ error: failure, done: true })
+        )
+        const port = modelPort(streamChat)
+        const pending =
+          stage === "decide"
+            ? port.decide({ state, observation }, { aborted: false })
+            : port.plan?.(state, { aborted: false })
+        await expect(pending).rejects.toBe(failure)
+        expect(streamChat).toHaveBeenCalledOnce()
+        expect(vi.getTimerCount()).toBe(0)
       }
-      const streamChat = vi.fn(async (_request, emit) =>
-        emit({ error: failure, done: true })
-      )
-      const port = modelPort(streamChat)
-      const pending =
-        stage === "decide"
-          ? port.decide({ state, observation }, { aborted: false })
-          : port.plan?.(state, { aborted: false })
-      await expect(pending).rejects.toBe(failure)
-      expect(streamChat).toHaveBeenCalledOnce()
-      expect(vi.getTimerCount()).toBe(0)
-    })
+    )
 
     it("cannot hide an authentication failure in a provisional plan amendment", async () => {
       const failure = createAppError("private detail", {
@@ -1368,151 +1367,152 @@ describe("usable agent prompt", () => {
       (["decide", "plan", "review"] as const).flatMap((stage) =>
         [true, false].map((builtInEnabled) => ({ stage, builtInEnabled }))
       )
-    )("rechecks custom Ollama settings for $stage with built-in enabled=$builtInEnabled", async ({
-      stage,
-      builtInEnabled
-    }) => {
-      const sync = new Map<string, unknown>()
-      const local = new Map<string, unknown>()
-      for (const [storage, backing] of [
-        [plasmoSyncStorage, sync],
-        [plasmoDeviceStorage, local]
-      ] as const) {
-        vi.spyOn(storage, "get").mockImplementation(async (key) =>
-          backing.get(key)
-        )
-        vi.spyOn(storage, "set").mockImplementation(async (key, value) => {
-          backing.set(key, value)
-          return null
-        })
-        vi.spyOn(storage, "remove").mockImplementation(async (key) => {
-          backing.delete(key)
-        })
-      }
-      try {
-        const streamChat = vi.fn(async (_request, emit) =>
-          emit({
-            error: { status: 503, message: "busy", retryable: true },
-            done: true
+    )(
+      "rechecks custom Ollama settings for $stage with built-in enabled=$builtInEnabled",
+      async ({ stage, builtInEnabled }) => {
+        const sync = new Map<string, unknown>()
+        const local = new Map<string, unknown>()
+        for (const [storage, backing] of [
+          [plasmoSyncStorage, sync],
+          [plasmoDeviceStorage, local]
+        ] as const) {
+          vi.spyOn(storage, "get").mockImplementation(async (key) =>
+            backing.get(key)
+          )
+          vi.spyOn(storage, "set").mockImplementation(async (key, value) => {
+            backing.set(key, value)
+            return null
           })
-        )
-        const selected = provider(streamChat)
-        selected.config = {
-          ...selected.config,
-          id: "custom:ollama-test",
-          name: "Custom Ollama",
-          baseUrl: "http://localhost:12434"
+          vi.spyOn(storage, "remove").mockImplementation(async (key) => {
+            backing.delete(key)
+          })
         }
-        const customState = { ...state, providerId: selected.config.id }
-        await ProviderManager.saveProviders([
-          selected.config,
-          { ...selected.config, id: "ollama", enabled: builtInEnabled }
-        ])
-        const resolveProvider = vi.fn(async () => selected)
-        const port = createProviderAgentModelPort({
-          resolveProvider,
-          resolveCompatibility: async () => supported
-        })
-        const signal = new AbortController().signal
-        const pending =
-          stage === "decide"
-            ? port.decide({ state: customState, observation }, signal)
-            : stage === "plan"
-              ? port.plan?.(customState, signal)
-              : port.review(
-                  customState,
-                  {
-                    goal: state.goal,
-                    requirements: [],
-                    constraints: [],
-                    claims: [],
-                    evidenceLedger: []
-                  },
-                  signal
-                )
-        const rejected = expect(pending).rejects.toMatchObject({
-          code: "OLC-PROVIDER-DISABLED"
-        })
-        await vi.advanceTimersByTimeAsync(100)
-        await ProviderManager.updateProviderConfig(selected.config.id, {
-          enabled: false
-        })
-        expect(selected.config.enabled).toBe(true)
-        expect(
-          (await ProviderManager.getProviderConfig(selected.config.id))?.enabled
-        ).toBe(false)
-        await vi.advanceTimersByTimeAsync(400)
-        await rejected
-        expect(streamChat).toHaveBeenCalledOnce()
-        expect(resolveProvider).toHaveBeenCalledOnce()
-        expect(vi.getTimerCount()).toBe(0)
-      } finally {
-        for (const storage of [plasmoSyncStorage, plasmoDeviceStorage]) {
-          vi.mocked(storage.get).mockReset().mockResolvedValue(undefined)
-          vi.mocked(storage.set).mockReset().mockResolvedValue(null)
-          vi.mocked(storage.remove).mockReset().mockResolvedValue(undefined)
+        try {
+          const streamChat = vi.fn(async (_request, emit) =>
+            emit({
+              error: { status: 503, message: "busy", retryable: true },
+              done: true
+            })
+          )
+          const selected = provider(streamChat)
+          selected.config = {
+            ...selected.config,
+            id: "custom:ollama-test",
+            name: "Custom Ollama",
+            baseUrl: "http://localhost:12434"
+          }
+          const customState = { ...state, providerId: selected.config.id }
+          await ProviderManager.saveProviders([
+            selected.config,
+            { ...selected.config, id: "ollama", enabled: builtInEnabled }
+          ])
+          const resolveProvider = vi.fn(async () => selected)
+          const port = createProviderAgentModelPort({
+            resolveProvider,
+            resolveCompatibility: async () => supported
+          })
+          const signal = new AbortController().signal
+          const pending =
+            stage === "decide"
+              ? port.decide({ state: customState, observation }, signal)
+              : stage === "plan"
+                ? port.plan?.(customState, signal)
+                : port.review(
+                    customState,
+                    {
+                      goal: state.goal,
+                      requirements: [],
+                      constraints: [],
+                      claims: [],
+                      evidenceLedger: []
+                    },
+                    signal
+                  )
+          const rejected = expect(pending).rejects.toMatchObject({
+            code: "OLC-PROVIDER-DISABLED"
+          })
+          await vi.advanceTimersByTimeAsync(100)
+          await ProviderManager.updateProviderConfig(selected.config.id, {
+            enabled: false
+          })
+          expect(selected.config.enabled).toBe(true)
+          expect(
+            (await ProviderManager.getProviderConfig(selected.config.id))
+              ?.enabled
+          ).toBe(false)
+          await vi.advanceTimersByTimeAsync(400)
+          await rejected
+          expect(streamChat).toHaveBeenCalledOnce()
+          expect(resolveProvider).toHaveBeenCalledOnce()
+          expect(vi.getTimerCount()).toBe(0)
+        } finally {
+          for (const storage of [plasmoSyncStorage, plasmoDeviceStorage]) {
+            vi.mocked(storage.get).mockReset().mockResolvedValue(undefined)
+            vi.mocked(storage.set).mockReset().mockResolvedValue(null)
+            vi.mocked(storage.remove).mockReset().mockResolvedValue(undefined)
+          }
         }
       }
-    })
+    )
 
     it.each(
       (["decide", "plan", "review"] as const).flatMap((stage) =>
         (["owner", "deadline"] as const).map((cause) => ({ stage, cause }))
       )
-    )("does not start $stage inference after $cause cancellation during the settings read", async ({
-      stage,
-      cause
-    }) => {
-      const owner = new AbortController()
-      const selected = provider(vi.fn())
-      let readCount = 0
-      let release: (() => void) | undefined
-      const spy = vi
-        .spyOn(ProviderManager, "getProviderConfig")
-        .mockImplementation(async () => {
-          readCount += 1
-          if (readCount === 2)
-            await new Promise<void>((resolve) => {
-              release = resolve
-            })
-          return selected.config
-        })
-      try {
-        const port = createProviderAgentModelPort({
-          resolveProvider: async () => selected,
-          resolveCompatibility: async () => supported
-        })
-        const pending =
-          stage === "decide"
-            ? port.decide({ state, observation }, owner.signal)
-            : stage === "plan"
-              ? port.plan?.(state, owner.signal)
-              : port.review(
-                  state,
-                  {
-                    goal: state.goal,
-                    requirements: [],
-                    constraints: [],
-                    claims: [],
-                    evidenceLedger: []
-                  },
-                  owner.signal
-                )
-        const rejected = expect(pending).rejects.toMatchObject({
-          name: "AbortError"
-        })
-        await vi.advanceTimersByTimeAsync(0)
-        expect(release).toBeDefined()
-        if (cause === "owner") owner.abort()
-        else await vi.advanceTimersByTimeAsync(120_000)
-        release?.()
-        await rejected
-        expect(selected.streamChat).not.toHaveBeenCalled()
-        expect(vi.getTimerCount()).toBe(0)
-      } finally {
-        spy.mockRestore()
+    )(
+      "does not start $stage inference after $cause cancellation during the settings read",
+      async ({ stage, cause }) => {
+        const owner = new AbortController()
+        const selected = provider(vi.fn())
+        let readCount = 0
+        let release: (() => void) | undefined
+        const spy = vi
+          .spyOn(ProviderManager, "getProviderConfig")
+          .mockImplementation(async () => {
+            readCount += 1
+            if (readCount === 2)
+              await new Promise<void>((resolve) => {
+                release = resolve
+              })
+            return selected.config
+          })
+        try {
+          const port = createProviderAgentModelPort({
+            resolveProvider: async () => selected,
+            resolveCompatibility: async () => supported
+          })
+          const pending =
+            stage === "decide"
+              ? port.decide({ state, observation }, owner.signal)
+              : stage === "plan"
+                ? port.plan?.(state, owner.signal)
+                : port.review(
+                    state,
+                    {
+                      goal: state.goal,
+                      requirements: [],
+                      constraints: [],
+                      claims: [],
+                      evidenceLedger: []
+                    },
+                    owner.signal
+                  )
+          const rejected = expect(pending).rejects.toMatchObject({
+            name: "AbortError"
+          })
+          await vi.advanceTimersByTimeAsync(0)
+          expect(release).toBeDefined()
+          if (cause === "owner") owner.abort()
+          else await vi.advanceTimersByTimeAsync(120_000)
+          release?.()
+          await rejected
+          expect(selected.streamChat).not.toHaveBeenCalled()
+          expect(vi.getTimerCount()).toBe(0)
+        } finally {
+          spy.mockRestore()
+        }
       }
-    })
+    )
 
     it("does not return a planning amendment when a deadline abort emits a typed failure", async () => {
       const streamChat = vi.fn(

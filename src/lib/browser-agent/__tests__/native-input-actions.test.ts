@@ -7,7 +7,6 @@ import {
 import type { AgentElement, AgentObservation } from "@ollama-client/contracts"
 import { type AgentCommand, AgentCommandSchema } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import {
   type AgentCommandExecutorAdapter,
   type AgentNativeControlFacts,
@@ -99,9 +98,11 @@ const authorize = async (
   action: AgentCommand,
   before = observation()
 ): Promise<AuthorizedAgentEffect> => ({
-  ...(await (action.type === "scroll"
-    ? resolveReadOnlyAgentEffect
-    : resolveDomMutationAgentEffect)({
+  ...(await (
+    action.type === "scroll"
+      ? resolveReadOnlyAgentEffect
+      : resolveDomMutationAgentEffect
+  )({
     command: action,
     observation: before,
     adapter: resolverAdapter

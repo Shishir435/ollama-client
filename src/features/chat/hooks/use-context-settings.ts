@@ -8,7 +8,6 @@ import {
   ShieldCheck
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
 import {
   useWebSearchActive,

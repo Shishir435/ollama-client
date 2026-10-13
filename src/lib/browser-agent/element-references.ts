@@ -221,10 +221,10 @@ export const createAgentElementReferenceStore = (input: {
     matches(identity) {
       return Boolean(
         active &&
-          active.snapshotId === identity.snapshotId &&
-          active.generation === identity.generation &&
-          active.documentId === identity.documentId &&
-          identity.frameId === input.frameId
+        active.snapshotId === identity.snapshotId &&
+        active.generation === identity.generation &&
+        active.documentId === identity.documentId &&
+        identity.frameId === input.frameId
       )
     },
     matchesFormState(ref, identity) {

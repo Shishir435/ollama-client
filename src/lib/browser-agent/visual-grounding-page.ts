@@ -2,7 +2,6 @@ import type {
   AgentElement,
   AgentSnapshotIdentity
 } from "@ollama-client/contracts"
-
 import type { AgentHitTestResult, AgentSensitiveRegions } from "./control-port"
 import type { AgentElementReferenceStore } from "./element-references"
 import {

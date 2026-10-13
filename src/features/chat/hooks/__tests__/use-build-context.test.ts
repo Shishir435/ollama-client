@@ -1,8 +1,6 @@
 import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { browser } from "@/lib/browser-api"
-
 import { useBuildContext } from "../use-build-context"
 
 vi.mock("@/lib/browser-api", () => ({

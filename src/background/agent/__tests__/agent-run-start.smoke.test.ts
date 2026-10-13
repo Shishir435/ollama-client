@@ -11,7 +11,6 @@ import {
   it,
   vi
 } from "vitest"
-
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
 import type { LLMProvider } from "@/lib/providers/types"

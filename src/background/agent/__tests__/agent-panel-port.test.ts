@@ -4,15 +4,14 @@ import {
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { registerAgentPanelPort } from "../agent-panel-port"
 import { AgentRunError, type AgentRunService } from "../agent-run-service"
 
 const debug = vi.hoisted(() => ({
   enabled: false,
-  report: vi.fn(
-    async (_runId?: string): Promise<unknown> => ({ runId: "old-run" })
-  )
+  report: vi.fn(async (_runId?: string): Promise<unknown> => ({
+    runId: "old-run"
+  }))
 }))
 vi.mock("@/lib/feature-flags", () => ({
   get AGENT_DEBUG_REPORT_ENABLED() {

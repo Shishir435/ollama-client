@@ -12,7 +12,6 @@ import {
   type AgentSnapshotIdentity
 } from "@ollama-client/contracts"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import {
   type AgentCommandExecutorAdapter,
   executeAgentDomMutationInDocument,

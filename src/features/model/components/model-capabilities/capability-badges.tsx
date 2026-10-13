@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next"
-
 import { Badge } from "@/components/ui/badge"
 import {
   Tooltip,
@@ -9,7 +8,6 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/class-names"
 import type { ModelCapabilities } from "@/lib/providers/capabilities"
-
 import { BADGE_FLAGS, CAPABILITY_META } from "./capability-meta"
 
 interface ModelCapabilityBadgesProps {

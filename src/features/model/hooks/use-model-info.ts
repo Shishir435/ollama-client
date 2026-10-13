@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query"
-
 import { fetchModelInfo } from "@/features/model/lib/fetch-model-info"
 import { logger } from "@/lib/logger"
 import { queryKeys } from "@/lib/query-keys"

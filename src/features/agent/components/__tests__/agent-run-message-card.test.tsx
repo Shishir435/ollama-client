@@ -3,7 +3,6 @@ import type { AgentRunCard } from "@ollama-client/contracts/agent-rpc"
 import { fireEvent, render, screen } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import type { ChatMessage } from "@/types"
 import type { AgentRunConnection } from "../../hooks/use-agent-run"
 import { AgentChatComposerContext } from "../../lib/agent-chat-composer"

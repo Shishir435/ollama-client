@@ -39,35 +39,35 @@ const executionOrder = (command: string, parents: string[] = []): string[] => {
 }
 
 describe("tooling workflow execution", () => {
-  it.each([
-    "verify:browser-smoke",
-    "verify:local-browsers"
-  ])("%s builds each production target only once before checking it", (command) => {
-    const order = executionOrder(command)
-    expect(order.filter((step) => buildTargets.includes(step))).toEqual([
-      "build",
-      "build:firefox"
-    ])
-    expect(order.indexOf("check:browser-smoke")).toBeGreaterThan(
-      order.indexOf("build:firefox")
-    )
-  })
-
-  it.each([
-    "verify:release",
-    "e2e:release"
-  ])("%s builds each release target once and retains all recovery gates", (command) => {
-    const order = executionOrder(command)
-    expect(order.filter((step) => buildTargets.includes(step))).toEqual(
-      buildTargets
-    )
-    for (const gate of gateCommands.slice(5)) {
-      expect(order.filter((step) => step === gate)).toHaveLength(1)
-      expect(order.indexOf(gate)).toBeGreaterThan(
-        order.indexOf("benchmark:build:firefox")
+  it.each(["verify:browser-smoke", "verify:local-browsers"])(
+    "%s builds each production target only once before checking it",
+    (command) => {
+      const order = executionOrder(command)
+      expect(order.filter((step) => buildTargets.includes(step))).toEqual([
+        "build",
+        "build:firefox"
+      ])
+      expect(order.indexOf("check:browser-smoke")).toBeGreaterThan(
+        order.indexOf("build:firefox")
       )
     }
-  })
+  )
+
+  it.each(["verify:release", "e2e:release"])(
+    "%s builds each release target once and retains all recovery gates",
+    (command) => {
+      const order = executionOrder(command)
+      expect(order.filter((step) => buildTargets.includes(step))).toEqual(
+        buildTargets
+      )
+      for (const gate of gateCommands.slice(5)) {
+        expect(order.filter((step) => step === gate)).toHaveLength(1)
+        expect(order.indexOf(gate)).toBeGreaterThan(
+          order.indexOf("benchmark:build:firefox")
+        )
+      }
+    }
+  )
 
   it("can run release browser gates on CI artifacts without rebuilding", () => {
     const order = executionOrder("e2e:release:run")

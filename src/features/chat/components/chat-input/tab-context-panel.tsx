@@ -9,7 +9,6 @@ import {
   SquareMinus
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { EmptyState } from "@/components/feedback"
 import { ListRow, ListRowTitleButton } from "@/components/layout"

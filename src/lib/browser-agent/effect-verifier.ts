@@ -10,7 +10,6 @@ import {
   MAX_AGENT_SUBMITTED_VALUES
 } from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
-
 import type { TabAccess } from "@/lib/browser-tab-access"
 import { normalizeAgentEditorText } from "./editor-text"
 import { AgentNavigationTimeoutError } from "./navigation-errors"

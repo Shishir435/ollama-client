@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import type { VectorDocument } from "@/lib/embeddings/types"
 import { formatEnhancedResults, retrieveContextEnhanced } from "../rag-pipeline"
 

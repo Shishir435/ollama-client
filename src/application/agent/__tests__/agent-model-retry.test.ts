@@ -197,28 +197,28 @@ describe("bounded model retries", () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it.each([
-    "run",
-    "step"
-  ] as const)("honors the remaining %s ceiling rather than granting a fresh decision timeout", async (kind) => {
-    const now = Date.now()
-    const deadline = initialAgentDeadlineState(now)
-    if (kind === "run")
-      deadline.runStartedAt -= AGENT_RUN_ACTIVE_BUDGET_MS - 300
-    else deadline.stepStartedAt -= AGENT_STEP_ACTIVE_BUDGET_MS - 300
-    const failure = transient(503, 1_000)
-    const request = vi.fn().mockRejectedValue(failure)
-    await expect(
-      runAgentModelRequest({
-        state: { ...state, deadline },
-        signal: new AbortController().signal,
-        malformedRetries: 2,
-        request
-      })
-    ).rejects.toBe(failure)
-    expect(request).toHaveBeenCalledOnce()
-    expect(vi.getTimerCount()).toBe(0)
-  })
+  it.each(["run", "step"] as const)(
+    "honors the remaining %s ceiling rather than granting a fresh decision timeout",
+    async (kind) => {
+      const now = Date.now()
+      const deadline = initialAgentDeadlineState(now)
+      if (kind === "run")
+        deadline.runStartedAt -= AGENT_RUN_ACTIVE_BUDGET_MS - 300
+      else deadline.stepStartedAt -= AGENT_STEP_ACTIVE_BUDGET_MS - 300
+      const failure = transient(503, 1_000)
+      const request = vi.fn().mockRejectedValue(failure)
+      await expect(
+        runAgentModelRequest({
+          state: { ...state, deadline },
+          signal: new AbortController().signal,
+          malformedRetries: 2,
+          request
+        })
+      ).rejects.toBe(failure)
+      expect(request).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
+    }
+  )
 
   it("never retries earlier than Retry-After when guidance cannot fit", async () => {
     const failure = transient(429, 120_000)
@@ -234,54 +234,57 @@ describe("bounded model retries", () => {
     expect(request).toHaveBeenCalledOnce()
   })
 
-  it.each([
-    "owner",
-    "deadline"
-  ] as const)("normalizes a typed stream failure after %s cancellation", async (cause) => {
-    const owner = new AbortController()
-    const request = vi.fn(
-      async (signal: AbortSignal) =>
-        new Promise<never>((_resolve, reject) => {
-          signal.addEventListener("abort", () => reject(transient()), {
-            once: true
+  it.each(["owner", "deadline"] as const)(
+    "normalizes a typed stream failure after %s cancellation",
+    async (cause) => {
+      const owner = new AbortController()
+      const request = vi.fn(
+        async (signal: AbortSignal) =>
+          new Promise<never>((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(transient()), {
+              once: true
+            })
           })
-        })
-    )
-    const pending = runAgentModelRequest({
-      state,
-      signal: owner.signal,
-      malformedRetries: 2,
-      request
-    })
-    const rejected = expect(pending).rejects.toMatchObject({
-      name: "AbortError"
-    })
-    if (cause === "owner") owner.abort()
-    else await vi.runAllTimersAsync()
-    await rejected
-    expect(request).toHaveBeenCalledOnce()
-    expect(vi.getTimerCount()).toBe(0)
-  })
+      )
+      const pending = runAgentModelRequest({
+        state,
+        signal: owner.signal,
+        malformedRetries: 2,
+        request
+      })
+      const rejected = expect(pending).rejects.toMatchObject({
+        name: "AbortError"
+      })
+      if (cause === "owner") owner.abort()
+      else await vi.runAllTimersAsync()
+      await rejected
+      expect(request).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
+    }
+  )
 
   it.each([
     createAppError("auth", { status: 401 }),
     createAppError("refused", { code: "OLC-MODEL-REFUSED" })
-  ])("preserves terminal provider errors when the deadline expires: %s", async (failure) => {
-    const request = vi.fn(async () => {
-      vi.setSystemTime(Date.now() + 120_000)
-      throw failure
-    })
-    await expect(
-      runAgentModelRequest({
-        state,
-        signal: new AbortController().signal,
-        malformedRetries: 2,
-        request
+  ])(
+    "preserves terminal provider errors when the deadline expires: %s",
+    async (failure) => {
+      const request = vi.fn(async () => {
+        vi.setSystemTime(Date.now() + 120_000)
+        throw failure
       })
-    ).rejects.toBe(failure)
-    expect(request).toHaveBeenCalledOnce()
-    expect(vi.getTimerCount()).toBe(0)
-  })
+      await expect(
+        runAgentModelRequest({
+          state,
+          signal: new AbortController().signal,
+          malformedRetries: 2,
+          request
+        })
+      ).rejects.toBe(failure)
+      expect(request).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
+    }
+  )
 
   it("treats an elapsed deadline as cancellation even before its timer fires", async () => {
     const request = vi.fn(async () => {

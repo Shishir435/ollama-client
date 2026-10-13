@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { resolveProviderBaseUrl } from "../base-url"
 import { ProviderId, ProviderType } from "../types"
 

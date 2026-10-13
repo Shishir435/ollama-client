@@ -4,7 +4,6 @@ import {
   type AgentRecoveryTrigger,
   MAX_AGENT_RECOVERY_ATTEMPTS
 } from "@ollama-client/contracts"
-
 import type { AgentEffectSettlement } from "./prior-effects"
 
 /**

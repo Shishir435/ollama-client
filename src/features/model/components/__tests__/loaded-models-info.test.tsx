@@ -18,7 +18,6 @@ vi.mock("react-i18next", () => ({
 
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { extensionRpcClient } from "@/protocol/extension-client"
-
 import { LoadedModelsInfo } from "../loaded-models-info"
 
 const mockedCall = vi.mocked(extensionRpcClient.call)

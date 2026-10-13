@@ -8,7 +8,6 @@ import {
 import { describe, expect, it, vi } from "vitest"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ProviderId, ProviderType } from "@/lib/providers/types"
-
 import { ProviderSettings } from "../provider-settings"
 
 const state = vi.hoisted(() => ({

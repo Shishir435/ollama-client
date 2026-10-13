@@ -5,7 +5,6 @@ import {
   AgentObservationSchema
 } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import {
   type AgentDomMutationInstruction,
   AgentDomMutationInstructionSchema,

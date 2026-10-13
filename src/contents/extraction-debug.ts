@@ -1,5 +1,4 @@
 import type { extractContentWithLoading } from "@/lib/content-extractor"
-
 import {
   detectSiteProfile,
   measureReliability,

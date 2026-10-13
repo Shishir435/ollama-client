@@ -5,7 +5,6 @@ import {
   MAX_AGENT_DESTINATION_URL_CHARS,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
-
 import { agentEditorText, isAgentEditingHost } from "./editor-page"
 import type {
   AgentElementReferenceSnapshot,

@@ -5,7 +5,6 @@ import {
   readPersistenceBackend
 } from "../backend"
 import { describeWorkerError, ensureMigrated } from "../owner-host"
-
 import {
   decodeBind,
   decodeRows,

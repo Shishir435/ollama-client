@@ -1,10 +1,8 @@
 import { useTranslation } from "react-i18next"
-
 import { TwoColumnGrid } from "@/components/layout"
 import { ConfirmActionDialog } from "@/components/settings"
 import { useEmbeddingStorageMaintenance } from "@/features/model/hooks/use-embedding-storage-maintenance"
 import type { EmbeddingConfig } from "@/lib/constants"
-
 import { EmbeddingIndexControls } from "../embedding-index-controls"
 import { DatabaseManagementSection } from "./database-management-section"
 import { EmbeddingLimitsConfig } from "./embedding-limits-config"

@@ -8,7 +8,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join, relative } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-
 import { AnthropicProvider } from "../../src/lib/providers/anthropic"
 import { LlamaCppProvider } from "../../src/lib/providers/llama-cpp"
 import { LMStudioProvider } from "../../src/lib/providers/lm-studio"

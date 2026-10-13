@@ -78,9 +78,8 @@ describe("isEmbeddableChatMessage", () => {
 
 describe("getEmbeddableMessagesBySession", () => {
   it("groups embeddable messages from SQLite by sessionId", async () => {
-    const { countMessages, getAllMessages } = await import(
-      "@/lib/repositories/chat-history"
-    )
+    const { countMessages, getAllMessages } =
+      await import("@/lib/repositories/chat-history")
     vi.mocked(countMessages).mockResolvedValue(2)
     vi.mocked(getAllMessages).mockResolvedValue([
       { role: "user", content: "Tell me about TypeScript", sessionId: "s1" },
@@ -100,9 +99,8 @@ describe("getEmbeddableMessagesBySession", () => {
   })
 
   it("falls back to legacy sessions when SQLite count is 0", async () => {
-    const { countMessages, getAllSessions } = await import(
-      "@/lib/repositories/chat-history"
-    )
+    const { countMessages, getAllSessions } =
+      await import("@/lib/repositories/chat-history")
     vi.mocked(countMessages).mockResolvedValue(0)
     vi.mocked(getAllSessions).mockResolvedValue([
       {
@@ -125,9 +123,8 @@ describe("getEmbeddableMessagesBySession", () => {
   })
 
   it("falls back to legacy sessions when countMessages throws", async () => {
-    const { countMessages, getAllSessions } = await import(
-      "@/lib/repositories/chat-history"
-    )
+    const { countMessages, getAllSessions } =
+      await import("@/lib/repositories/chat-history")
     vi.mocked(countMessages).mockRejectedValue(new Error("DB unavailable"))
     vi.mocked(getAllSessions).mockResolvedValue([
       {
@@ -143,9 +140,8 @@ describe("getEmbeddableMessagesBySession", () => {
   })
 
   it("skips messages without sessionId in SQLite path", async () => {
-    const { countMessages, getAllMessages } = await import(
-      "@/lib/repositories/chat-history"
-    )
+    const { countMessages, getAllMessages } =
+      await import("@/lib/repositories/chat-history")
     vi.mocked(countMessages).mockResolvedValue(1)
     vi.mocked(getAllMessages).mockResolvedValue([
       {

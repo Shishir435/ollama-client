@@ -118,32 +118,35 @@ describe("embedding provider identity", () => {
       screen.getByRole("option", { name: "all-minilm:latest (First)" })
     ).toBeInTheDocument()
   })
-  it.each([
-    "unavailable",
-    "unverified",
-    "missing"
-  ])("offers setup, never an Ollama download, for remote %s", async (status) => {
-    state.call.mockResolvedValue({ exists: false, status, canDownload: false })
-    render(<EmbeddingStatusIndicator />)
-    await waitFor(() =>
-      expect(state.call).toHaveBeenCalledWith(
-        expect.anything(),
-        { model: "all-minilm:latest", providerId: "custom:second" },
-        expect.anything()
-      )
-    )
-    await screen.findByRole("button", { name: "common.actions.retry" })
-    expect(
-      screen.queryByRole("button", {
-        name: "model.embedding_status.download_button"
+  it.each(["unavailable", "unverified", "missing"])(
+    "offers setup, never an Ollama download, for remote %s",
+    async (status) => {
+      state.call.mockResolvedValue({
+        exists: false,
+        status,
+        canDownload: false
       })
-    ).toBeNull()
-    fireEvent.click(
-      screen.getByRole("button", { name: "onboarding.provider.open_setup" })
-    )
-    expect(state.openOptions).toHaveBeenCalled()
-    expect(state.pullModel).not.toHaveBeenCalled()
-  })
+      render(<EmbeddingStatusIndicator />)
+      await waitFor(() =>
+        expect(state.call).toHaveBeenCalledWith(
+          expect.anything(),
+          { model: "all-minilm:latest", providerId: "custom:second" },
+          expect.anything()
+        )
+      )
+      await screen.findByRole("button", { name: "common.actions.retry" })
+      expect(
+        screen.queryByRole("button", {
+          name: "model.embedding_status.download_button"
+        })
+      ).toBeNull()
+      fireEvent.click(
+        screen.getByRole("button", { name: "onboarding.provider.open_setup" })
+      )
+      expect(state.openOptions).toHaveBeenCalled()
+      expect(state.pullModel).not.toHaveBeenCalled()
+    }
+  )
   it("downloads only a model confirmed missing on the selected Ollama", async () => {
     state.config.sharedEmbeddingProviderId = "ollama"
     state.call.mockResolvedValue({
@@ -161,27 +164,27 @@ describe("embedding provider identity", () => {
   })
 })
 
-it.each([
-  true,
-  false
-])("keeps the selector disabled and controls the starting notice explicitly (%s)", (showRebuildNotice) => {
-  render(
-    <EmbeddingModelSelector
-      selectedModel="all-minilm:latest"
-      config={DEFAULT_EMBEDDING_CONFIG}
-      embeddingModels={[]}
-      hasAdvancedModels={false}
-      isRebuilding
-      showRebuildNotice={showRebuildNotice}
-      rebuildProgress={null}
-      onModelSelected={vi.fn()}
-      onToggleShowAdvanced={vi.fn()}
-    />
-  )
-  expect(screen.getByRole("combobox")).toBeDisabled()
-  const notice = screen.queryByText(
-    "settings.embeddings.rebuild_index.status_starting"
-  )
-  if (showRebuildNotice) expect(notice).toBeInTheDocument()
-  else expect(notice).toBeNull()
-})
+it.each([true, false])(
+  "keeps the selector disabled and controls the starting notice explicitly (%s)",
+  (showRebuildNotice) => {
+    render(
+      <EmbeddingModelSelector
+        selectedModel="all-minilm:latest"
+        config={DEFAULT_EMBEDDING_CONFIG}
+        embeddingModels={[]}
+        hasAdvancedModels={false}
+        isRebuilding
+        showRebuildNotice={showRebuildNotice}
+        rebuildProgress={null}
+        onModelSelected={vi.fn()}
+        onToggleShowAdvanced={vi.fn()}
+      />
+    )
+    expect(screen.getByRole("combobox")).toBeDisabled()
+    const notice = screen.queryByText(
+      "settings.embeddings.rebuild_index.status_starting"
+    )
+    if (showRebuildNotice) expect(notice).toBeInTheDocument()
+    else expect(notice).toBeNull()
+  }
+)

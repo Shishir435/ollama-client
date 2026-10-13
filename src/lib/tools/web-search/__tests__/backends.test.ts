@@ -269,19 +269,19 @@ describe("web search backends", () => {
     ).rejects.toThrow("Brave search failed with HTTP 500")
   })
 
-  it.each([
-    {},
-    { web: null }
-  ])("treats a missing Brave web section as an empty search", async (payload) => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(payload)))
+  it.each([{}, { web: null }])(
+    "treats a missing Brave web section as an empty search",
+    async (payload) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(payload)))
 
-    await expect(
-      braveBackend.search(
-        { query: "no matches" },
-        { provider: "brave", enabled: true, apiKey: "key" }
-      )
-    ).resolves.toEqual([])
-  })
+      await expect(
+        braveBackend.search(
+          { query: "no matches" },
+          { provider: "brave", enabled: true, apiKey: "key" }
+        )
+      ).resolves.toEqual([])
+    }
+  )
 
   it.each([
     [

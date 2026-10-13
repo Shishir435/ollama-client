@@ -64,15 +64,13 @@ export async function processKnowledge(
 
     const pageDocuments = (pages || [])
       .filter((page) => page.text.trim().length > 0)
-      .map(
-        (page): ChunkDocument => ({
-          pageContent: page.text,
-          metadata: {
-            ...baseMetadata,
-            page: page.pageNumber
-          }
-        })
-      )
+      .map((page): ChunkDocument => ({
+        pageContent: page.text,
+        metadata: {
+          ...baseMetadata,
+          page: page.pageNumber
+        }
+      }))
 
     const documents: ChunkDocument[] =
       pageDocuments.length > 0

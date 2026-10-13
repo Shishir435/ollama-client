@@ -1,5 +1,4 @@
 import type { AgentRunState } from "@ollama-client/contracts"
-
 import { logger } from "@/lib/logger"
 import {
   createAgentRun,

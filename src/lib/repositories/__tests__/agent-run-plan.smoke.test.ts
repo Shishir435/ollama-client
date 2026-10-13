@@ -102,9 +102,8 @@ const boot = async () => {
   installOwner()
   await import("@/lib/repositories/chat-history")
   const runs = await import("@/lib/repositories/agent-runs")
-  const { resolveAgentFollowUp } = await import(
-    "@/background/agent/agent-follow-up"
-  )
+  const { resolveAgentFollowUp } =
+    await import("@/background/agent/agent-follow-up")
   return { runs, resolveAgentFollowUp }
 }
 

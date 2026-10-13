@@ -7,7 +7,6 @@ import type {
   ResolvedAgentEffect
 } from "@ollama-client/agent-runtime"
 import type { AgentCommand, AgentObservation } from "@ollama-client/contracts"
-
 import type { AgentCommandExecutorAdapter } from "./command-executor"
 import type { AgentEffectVerifierAdapter } from "./effect-verifier"
 import { rootAgentSnapshotIdentity } from "./frame-identity"

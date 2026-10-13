@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo } from "react"
-
 import { useSetting } from "@/hooks/use-setting"
 import {
   DEFAULT_EMBEDDING_CONFIG,
@@ -11,7 +10,6 @@ import {
   recommendedEmbeddingBaseSet
 } from "@/lib/embeddings/model-name-filter"
 import { SETTINGS } from "@/lib/storage/settings"
-
 import { useEmbeddingModelCheck } from "./use-embedding-model-check"
 import { useProviderModels } from "./use-provider-models"
 

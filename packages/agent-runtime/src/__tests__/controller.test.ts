@@ -940,17 +940,20 @@ describe("agent controller", () => {
     expect(harness.getState().deadline?.runSuspendedMs).toBe(1_000_000)
   })
 
-  it.each([
-    "unresolved_effect",
-    "question"
-  ] as const)("cannot correct past %s", async (pauseReason) => {
-    const harness = createHarness({
-      state: runState({ status: "paused", pauseReason, updatedAt: 20 })
-    })
-    await harness.controller.resume("run-1", { text: "Continue", pausedAt: 20 })
-    expect(harness.calls).not.toContain("decide")
-    expect(harness.getState().answers).toBeUndefined()
-  })
+  it.each(["unresolved_effect", "question"] as const)(
+    "cannot correct past %s",
+    async (pauseReason) => {
+      const harness = createHarness({
+        state: runState({ status: "paused", pauseReason, updatedAt: 20 })
+      })
+      await harness.controller.resume("run-1", {
+        text: "Continue",
+        pausedAt: 20
+      })
+      expect(harness.calls).not.toContain("decide")
+      expect(harness.getState().answers).toBeUndefined()
+    }
+  )
 
   it("does not blame the decision when the page keeps going stale under it", async () => {
     const harness = createHarness({
@@ -1491,68 +1494,71 @@ describe("agent controller", () => {
   it.each([
     ["the page showed it first", true],
     ["the run typed it first", false]
-  ])("judges an earlier-page read quotation when %s", async (_label, pageFirst) => {
-    const typed: AgentCommand = {
-      type: "type",
-      ref: "e1",
-      text: "QP-719",
-      snapshotId: "snapshot-1",
-      generation: 1
-    }
-    const pages = pageFirst
-      ? [
-          observation({ visibleText: "Reference QP-719" }),
-          observation({ visibleText: "Reference QP-719" }),
-          observation({ visibleText: "Status code: ZX-482" })
-        ]
-      : [
-          observation({ visibleText: "Notes" }),
-          observation({ visibleText: "Notes QP-719" }),
-          observation({ visibleText: "Status code: ZX-482" })
-        ]
-    let decisions = 0
-    const harness = createHarness({
-      state: runState({
-        requirements: [
-          { id: "r1", text: "Report the reference", kind: "read" },
-          { id: "r2", text: "Type QP-719 into the note", kind: "change" }
-        ]
-      }),
-      effectOverrides: { semanticEffects: ["form_mutation"] },
-      verification: [confirmedValue, confirmed],
-      observe: async () => pages[Math.min(decisions, pages.length - 1)],
-      decide: async () => {
-        decisions += 1
-        if (decisions === 1)
-          return {
-            type: "command",
-            command: typed,
-            requirementId: "r2",
-            sourceQuotes: pageFirst
-              ? [{ quote: "Reference QP-719", requirementId: "r1" }]
-              : []
-          }
-        if (decisions === 2)
-          return { type: "command", command: command(), requirementId: "r2" }
-        return {
-          type: "complete",
-          summary: "QP-719",
-          outcomes: [
-            {
-              id: "r1",
-              met: true,
-              evidence: pageFirst ? "Reference QP-719" : "QP-719"
-            },
-            { id: "r2", met: true }
-          ]
-        }
+  ])(
+    "judges an earlier-page read quotation when %s",
+    async (_label, pageFirst) => {
+      const typed: AgentCommand = {
+        type: "type",
+        ref: "e1",
+        text: "QP-719",
+        snapshotId: "snapshot-1",
+        generation: 1
       }
-    })
+      const pages = pageFirst
+        ? [
+            observation({ visibleText: "Reference QP-719" }),
+            observation({ visibleText: "Reference QP-719" }),
+            observation({ visibleText: "Status code: ZX-482" })
+          ]
+        : [
+            observation({ visibleText: "Notes" }),
+            observation({ visibleText: "Notes QP-719" }),
+            observation({ visibleText: "Status code: ZX-482" })
+          ]
+      let decisions = 0
+      const harness = createHarness({
+        state: runState({
+          requirements: [
+            { id: "r1", text: "Report the reference", kind: "read" },
+            { id: "r2", text: "Type QP-719 into the note", kind: "change" }
+          ]
+        }),
+        effectOverrides: { semanticEffects: ["form_mutation"] },
+        verification: [confirmedValue, confirmed],
+        observe: async () => pages[Math.min(decisions, pages.length - 1)],
+        decide: async () => {
+          decisions += 1
+          if (decisions === 1)
+            return {
+              type: "command",
+              command: typed,
+              requirementId: "r2",
+              sourceQuotes: pageFirst
+                ? [{ quote: "Reference QP-719", requirementId: "r1" }]
+                : []
+            }
+          if (decisions === 2)
+            return { type: "command", command: command(), requirementId: "r2" }
+          return {
+            type: "complete",
+            summary: "QP-719",
+            outcomes: [
+              {
+                id: "r1",
+                met: true,
+                evidence: pageFirst ? "Reference QP-719" : "QP-719"
+              },
+              { id: "r2", met: true }
+            ]
+          }
+        }
+      })
 
-    await harness.controller.start("run-1")
+      await harness.controller.start("run-1")
 
-    expect(harness.getState().status === "completed").toBe(pageFirst)
-  })
+      expect(harness.getState().status === "completed").toBe(pageFirst)
+    }
+  )
 
   /**
    * A site redirected the tab `open_tab` opened, so the address no longer
@@ -4009,17 +4015,17 @@ describe("agent controller task contract", () => {
       expect(harness.getState().plan?.pending).toBeUndefined()
     })
 
-    it.each([
-      "No",
-      "Keep the phone too, actually"
-    ])("keeps everything on: %s", async (answer) => {
-      const harness = await askedToRemove(answer, [completeAll("r1", "r2")])
-      expect(harness.getState()).toMatchObject({
-        status: "completed",
-        requirements: readPlan("the hours", "the phone")
-      })
-      expect(harness.getState().plan?.pending).toBeUndefined()
-    })
+    it.each(["No", "Keep the phone too, actually"])(
+      "keeps everything on: %s",
+      async (answer) => {
+        const harness = await askedToRemove(answer, [completeAll("r1", "r2")])
+        expect(harness.getState()).toMatchObject({
+          status: "completed",
+          requirements: readPlan("the hours", "the phone")
+        })
+        expect(harness.getState().plan?.pending).toBeUndefined()
+      }
+    )
 
     /**
      * A yes applies to every pending removal, so one the question had no
@@ -4564,26 +4570,29 @@ describe("bounded recovery", () => {
       ["verified", "was confirmed"],
       ["uncertain", "not known whether it took effect"],
       ["executed", "not known whether it took effect"]
-    ] as const)("is not repeated while recovering when its earlier attempt is %s", async (status, feedback) => {
-      const harness = createHarness({
-        state: recovering,
-        seedSteps: [priorSave(status)],
-        effectOverrides: save,
-        decisions: [
-          { type: "command", command: click("e5", 1) },
-          { type: "ask_user", question: "Done?" }
-        ]
-      })
+    ] as const)(
+      "is not repeated while recovering when its earlier attempt is %s",
+      async (status, feedback) => {
+        const harness = createHarness({
+          state: recovering,
+          seedSteps: [priorSave(status)],
+          effectOverrides: save,
+          decisions: [
+            { type: "command", command: click("e5", 1) },
+            { type: "ask_user", question: "Done?" }
+          ]
+        })
 
-      await harness.controller.resume("run-1")
+        await harness.controller.resume("run-1")
 
-      expect(harness.calls).not.toContain("policy")
-      expect(harness.calls).not.toContain("execute")
-      const refused = harness.writtenSteps.find(
-        (step) => step.status === "rejected"
-      )
-      expect(refused?.verification?.evidence.summary).toContain(feedback)
-    })
+        expect(harness.calls).not.toContain("policy")
+        expect(harness.calls).not.toContain("execute")
+        const refused = harness.writtenSteps.find(
+          (step) => step.status === "rejected"
+        )
+        expect(refused?.verification?.evidence.summary).toContain(feedback)
+      }
+    )
 
     it("leaves a different control posting to the same form to policy", async () => {
       const harness = createHarness({
@@ -5039,17 +5048,14 @@ describe("durable workflow resume", () => {
           evidence: { kind: "checked", summary: "Checked", observedAt: 1 }
         }
       },
-      ...Array.from(
-        { length: 20 },
-        (_, index): AgentStepWrite => ({
-          runId: "run-1",
-          stepId: `run-1:read:${index}`,
-          status: "verified",
-          at: index + 2,
-          command: { type: "read", snapshotId: "snapshot-1", generation: 1 },
-          verification: confirmed
-        })
-      )
+      ...Array.from({ length: 20 }, (_, index): AgentStepWrite => ({
+        runId: "run-1",
+        stepId: `run-1:read:${index}`,
+        status: "verified",
+        at: index + 2,
+        command: { type: "read", snapshotId: "snapshot-1", generation: 1 },
+        verification: confirmed
+      }))
     ]
     const harness = createHarness({
       state: runState({
@@ -5120,18 +5126,13 @@ describe("durable workflow resume", () => {
           makeFact("beta", "Beta costs $2", "r1")
         ]
       },
-      ...Array.from(
-        { length: 35 },
-        (_, index): AgentStepWrite => ({
-          runId: "run-1",
-          stepId: `noise:${index}`,
-          status: "verified",
-          at: index + 2,
-          evidenceLedger: [
-            makeFact(`noise:${index}`, `Unrelated noise ${index}`)
-          ]
-        })
-      )
+      ...Array.from({ length: 35 }, (_, index): AgentStepWrite => ({
+        runId: "run-1",
+        stepId: `noise:${index}`,
+        status: "verified",
+        at: index + 2,
+        evidenceLedger: [makeFact(`noise:${index}`, `Unrelated noise ${index}`)]
+      }))
     ]
     const harness = createHarness({
       state: runState({

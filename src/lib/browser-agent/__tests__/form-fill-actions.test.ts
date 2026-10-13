@@ -9,7 +9,6 @@ import type {
   AgentObservation
 } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { executeAgentFormFillInDocument } from "../command-executor"
 import { createAgentElementReferenceStore } from "../element-references"
 import { buildAgentElementObservation } from "../observation-builder"

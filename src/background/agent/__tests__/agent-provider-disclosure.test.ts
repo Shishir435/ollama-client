@@ -38,9 +38,8 @@ vi.mock("@/lib/providers/model-discovery", () => ({
   discoverProviderModels: async () => ({ models: discoveredModels() })
 }))
 
-const { resolveAgentProviderDisclosure } = await import(
-  "../agent-provider-disclosure"
-)
+const { resolveAgentProviderDisclosure } =
+  await import("../agent-provider-disclosure")
 
 const ready: AgentModelCompatibility = {
   status: "supported",
@@ -134,9 +133,8 @@ describe("resolveAgentProviderDisclosure", () => {
      */
     vi.resetModules()
     storageListeners.clear()
-    const { resolveAgentProviderDisclosure: freshResolve } = await import(
-      "../agent-provider-disclosure"
-    )
+    const { resolveAgentProviderDisclosure: freshResolve } =
+      await import("../agent-provider-disclosure")
     const unsupported = async () =>
       ({ status: "unsupported", reason: "reported_unsupported" }) as const
 

@@ -1,6 +1,5 @@
 import type { AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import {
   type AgentBrowserFrame,
   authorizeAgentFrame,

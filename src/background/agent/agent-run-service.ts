@@ -16,7 +16,6 @@ import {
   AGENT_ROUTINE_GRANT_EFFECTS,
   AgentRunStateSchema
 } from "@ollama-client/contracts"
-
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 import { logger } from "@/lib/logger"
@@ -86,8 +85,10 @@ export interface StartAgentRunInput {
  * `previousRunId` names the run of this chat it continues, when the model said
  * it continues one.
  */
-export interface DelegateAgentRunInput
-  extends Omit<StartAgentRunInput, "followUp" | "placement" | "sessionId"> {
+export interface DelegateAgentRunInput extends Omit<
+  StartAgentRunInput,
+  "followUp" | "placement" | "sessionId"
+> {
   sessionId: string
   messageId: number
   goalAuthor: AgentGoalAuthor
@@ -656,13 +657,13 @@ export const createAgentRunService = (input?: {
     const consent = state.unattended
     return Boolean(
       consent &&
-        consent.providerId === state.providerId &&
-        consent.modelId === state.modelId &&
-        consent.tabIds.includes(state.controlledTabId) &&
-        (state.scopedTabIds ?? [state.controlledTabId]).every((id) =>
-          consent.tabIds.includes(id)
-        ) &&
-        state.allowedOrigins.every((origin) => consent.origins.includes(origin))
+      consent.providerId === state.providerId &&
+      consent.modelId === state.modelId &&
+      consent.tabIds.includes(state.controlledTabId) &&
+      (state.scopedTabIds ?? [state.controlledTabId]).every((id) =>
+        consent.tabIds.includes(id)
+      ) &&
+      state.allowedOrigins.every((origin) => consent.origins.includes(origin))
     )
   }
 

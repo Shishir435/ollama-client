@@ -166,46 +166,46 @@ beforeEach(() => {
 })
 
 describe("durable turn runtime", () => {
-  it.each([
-    "start",
-    "recovery"
-  ] as const)("does not recover a turn already owned by a live %s in this worker", async (owner) => {
-    const releaseGeneration = deferred<void>()
-    mocks.getIncompleteTurnRuns.mockResolvedValue([
-      {
-        ...submission,
-        status: "generating",
-        userMessageId: 1,
-        assistantMessageId: 2,
-        updatedAt: 12
-      } satisfies DurableTurnRun
-    ])
-    mocks.handleChat.mockImplementationOnce(async (_message, port) => {
-      port.postMessage({ delta: "before-worker-kill " })
-      await releaseGeneration.promise
-      port.postMessage({ done: true })
-    })
-    const running =
-      owner === "start"
-        ? startDurableTurn(submission, 1, 2, {})
-        : resumeIncompleteTurnRuns()
-    try {
-      await vi.waitFor(() => expect(mocks.handleChat).toHaveBeenCalledOnce())
-      await resumeIncompleteTurnRuns()
-      await startDurableTurn(submission, 1, 2, {})
-      expect(mocks.contextBuild).toHaveBeenCalledOnce()
-      expect(mocks.handleChat).toHaveBeenCalledOnce()
-      expect(hasAbortController(submission.id)).toBe(true)
-      expect(mocks.updateTurnRun).not.toHaveBeenCalledWith(
-        submission.id,
-        expect.objectContaining({ status: "completed" })
-      )
-    } finally {
-      releaseGeneration.resolve()
-      await running
+  it.each(["start", "recovery"] as const)(
+    "does not recover a turn already owned by a live %s in this worker",
+    async (owner) => {
+      const releaseGeneration = deferred<void>()
+      mocks.getIncompleteTurnRuns.mockResolvedValue([
+        {
+          ...submission,
+          status: "generating",
+          userMessageId: 1,
+          assistantMessageId: 2,
+          updatedAt: 12
+        } satisfies DurableTurnRun
+      ])
+      mocks.handleChat.mockImplementationOnce(async (_message, port) => {
+        port.postMessage({ delta: "before-worker-kill " })
+        await releaseGeneration.promise
+        port.postMessage({ done: true })
+      })
+      const running =
+        owner === "start"
+          ? startDurableTurn(submission, 1, 2, {})
+          : resumeIncompleteTurnRuns()
+      try {
+        await vi.waitFor(() => expect(mocks.handleChat).toHaveBeenCalledOnce())
+        await resumeIncompleteTurnRuns()
+        await startDurableTurn(submission, 1, 2, {})
+        expect(mocks.contextBuild).toHaveBeenCalledOnce()
+        expect(mocks.handleChat).toHaveBeenCalledOnce()
+        expect(hasAbortController(submission.id)).toBe(true)
+        expect(mocks.updateTurnRun).not.toHaveBeenCalledWith(
+          submission.id,
+          expect.objectContaining({ status: "completed" })
+        )
+      } finally {
+        releaseGeneration.resolve()
+        await running
+      }
+      expect(hasAbortController(submission.id)).toBe(false)
     }
-    expect(hasAbortController(submission.id)).toBe(false)
-  })
+  )
 
   it("owns context and generation after the sidepanel submits", async () => {
     await startDurableTurn(submission, 1, 2, {})
@@ -590,9 +590,8 @@ describe("durable turn runtime", () => {
 
 describe("durable turn cancellation", () => {
   it("commits the stop before anything acts on it", async () => {
-    const { requestDurableTurnStop } = await import(
-      "@/background/durable-turn-runtime"
-    )
+    const { requestDurableTurnStop } =
+      await import("@/background/durable-turn-runtime")
 
     await expect(requestDurableTurnStop("turn-1")).resolves.toBe(true)
     expect(mocks.markTurnCancelling).toHaveBeenCalledWith("turn-1")
@@ -601,9 +600,8 @@ describe("durable turn cancellation", () => {
   it("answers false for a key that names no live turn", async () => {
     // Selection-action scope keys travel the same stop path.
     mocks.markTurnCancelling.mockResolvedValue(false)
-    const { requestDurableTurnStop } = await import(
-      "@/background/durable-turn-runtime"
-    )
+    const { requestDurableTurnStop } =
+      await import("@/background/durable-turn-runtime")
 
     await expect(
       requestDurableTurnStop("provider-stream-response#3")
@@ -614,9 +612,8 @@ describe("durable turn cancellation", () => {
     // Losing the intent costs one reissued turn on the next boot; refusing to
     // stop is worse.
     mocks.markTurnCancelling.mockRejectedValue(new Error("db gone"))
-    const { requestDurableTurnStop } = await import(
-      "@/background/durable-turn-runtime"
-    )
+    const { requestDurableTurnStop } =
+      await import("@/background/durable-turn-runtime")
 
     await expect(requestDurableTurnStop("turn-1")).resolves.toBe(false)
   })
@@ -631,9 +628,8 @@ describe("durable turn cancellation", () => {
       order.push("read-resumable")
       return []
     })
-    const { resumeIncompleteTurnRuns } = await import(
-      "@/background/durable-turn-runtime"
-    )
+    const { resumeIncompleteTurnRuns } =
+      await import("@/background/durable-turn-runtime")
 
     await resumeIncompleteTurnRuns()
 
@@ -657,9 +653,8 @@ describe("interrupted cancellation recovery", () => {
       return true
     })
     mocks.getIncompleteTurnRuns.mockResolvedValue([])
-    const { resumeIncompleteTurnRuns } = await import(
-      "@/background/durable-turn-runtime"
-    )
+    const { resumeIncompleteTurnRuns } =
+      await import("@/background/durable-turn-runtime")
 
     await resumeIncompleteTurnRuns()
 
@@ -678,9 +673,8 @@ describe("interrupted cancellation recovery", () => {
     ])
     mocks.updateMessage.mockRejectedValueOnce(new Error("db gone"))
     mocks.getIncompleteTurnRuns.mockResolvedValue([])
-    const { resumeIncompleteTurnRuns } = await import(
-      "@/background/durable-turn-runtime"
-    )
+    const { resumeIncompleteTurnRuns } =
+      await import("@/background/durable-turn-runtime")
 
     await expect(resumeIncompleteTurnRuns()).resolves.toBeUndefined()
     // Settling it here would strand an unfinished assistant no later boot can

@@ -176,97 +176,97 @@ describe("agent budgets", () => {
     ).toEqual({ noProgress: false, count: 2 })
   })
 
-  it.each([
-    "inspect",
-    "find"
-  ] as const)("counts changed %s results as progress while ignoring unrelated text", (type) => {
-    const element: AgentElement = {
-      ref: "e1",
-      frameId: 0,
-      tag: "button",
-      name: "Save",
-      group: "form",
-      visible: true,
-      enabled: true,
-      editable: false,
-      sensitive: false
-    }
-    const before: AgentObservation = {
-      snapshotId: "s1",
-      generation: 1,
-      tabId: 7,
-      frameId: 0,
-      documentId: "d",
-      url: "https://example.com",
-      origin: "https://example.com",
-      title: "Page",
-      elements: [element],
-      visibleText: "Clock 1",
-      scroll: {
-        x: 0,
-        y: 0,
-        viewportWidth: 100,
-        viewportHeight: 100,
-        documentWidth: 100,
-        documentHeight: 100
-      },
-      frames: [],
-      dialogs: [],
-      capturedAt: 1
-    }
-    const decision: AgentDecision = {
-      type: "command",
-      command:
-        type === "inspect"
-          ? { type, target: "form", snapshotId: "s1", generation: 1 }
-          : { type, query: "Save", snapshotId: "s1", generation: 1 }
-    }
-    const hash = hashAgentObservation(before, decision)
-    expect(
-      hashAgentObservation({ ...before, visibleText: "Clock 2" }, decision)
-    ).toBe(hash)
-    const renumbered = {
-      ...before,
-      elements: [
-        { ...element, name: "Home", group: "nav" },
-        { ...element, ref: "e2", verificationId: "fresh-render" }
-      ]
-    }
-    expect(hashAgentObservation(renumbered, decision)).toBe(hash)
-    expect(
-      classifyNoProgress({
-        previous: { url: before.url, snapshotHash: hash, decision },
-        current: {
-          url: renumbered.url,
-          snapshotHash: hashAgentObservation(renumbered, decision),
-          decision
+  it.each(["inspect", "find"] as const)(
+    "counts changed %s results as progress while ignoring unrelated text",
+    (type) => {
+      const element: AgentElement = {
+        ref: "e1",
+        frameId: 0,
+        tag: "button",
+        name: "Save",
+        group: "form",
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      }
+      const before: AgentObservation = {
+        snapshotId: "s1",
+        generation: 1,
+        tabId: 7,
+        frameId: 0,
+        documentId: "d",
+        url: "https://example.com",
+        origin: "https://example.com",
+        title: "Page",
+        elements: [element],
+        visibleText: "Clock 1",
+        scroll: {
+          x: 0,
+          y: 0,
+          viewportWidth: 100,
+          viewportHeight: 100,
+          documentWidth: 100,
+          documentHeight: 100
         },
-        previousCount: 2
-      })
-    ).toEqual({ noProgress: true, count: 3 })
-    expect(
-      hashAgentObservation(
-        { ...before, elements: [{ ...element, enabled: false }] },
-        decision
-      )
-    ).not.toBe(hash)
-    const after = {
-      ...before,
-      elements: [element, { ...element, ref: "e2", name: "Save draft" }]
-    }
-    expect(hashAgentObservation(after, decision)).not.toBe(hash)
-    expect(
-      classifyNoProgress({
-        previous: { url: before.url, snapshotHash: hash, decision },
-        current: {
-          url: after.url,
-          snapshotHash: hashAgentObservation(after, decision),
+        frames: [],
+        dialogs: [],
+        capturedAt: 1
+      }
+      const decision: AgentDecision = {
+        type: "command",
+        command:
+          type === "inspect"
+            ? { type, target: "form", snapshotId: "s1", generation: 1 }
+            : { type, query: "Save", snapshotId: "s1", generation: 1 }
+      }
+      const hash = hashAgentObservation(before, decision)
+      expect(
+        hashAgentObservation({ ...before, visibleText: "Clock 2" }, decision)
+      ).toBe(hash)
+      const renumbered = {
+        ...before,
+        elements: [
+          { ...element, name: "Home", group: "nav" },
+          { ...element, ref: "e2", verificationId: "fresh-render" }
+        ]
+      }
+      expect(hashAgentObservation(renumbered, decision)).toBe(hash)
+      expect(
+        classifyNoProgress({
+          previous: { url: before.url, snapshotHash: hash, decision },
+          current: {
+            url: renumbered.url,
+            snapshotHash: hashAgentObservation(renumbered, decision),
+            decision
+          },
+          previousCount: 2
+        })
+      ).toEqual({ noProgress: true, count: 3 })
+      expect(
+        hashAgentObservation(
+          { ...before, elements: [{ ...element, enabled: false }] },
           decision
-        },
-        previousCount: 2
-      })
-    ).toEqual({ noProgress: false, count: 0 })
-  })
+        )
+      ).not.toBe(hash)
+      const after = {
+        ...before,
+        elements: [element, { ...element, ref: "e2", name: "Save draft" }]
+      }
+      expect(hashAgentObservation(after, decision)).not.toBe(hash)
+      expect(
+        classifyNoProgress({
+          previous: { url: before.url, snapshotHash: hash, decision },
+          current: {
+            url: after.url,
+            snapshotHash: hashAgentObservation(after, decision),
+            decision
+          },
+          previousCount: 2
+        })
+      ).toEqual({ noProgress: false, count: 0 })
+    }
+  )
 
   it("detects an alternating read loop", () => {
     const a = {
@@ -283,20 +283,20 @@ describe("agent budgets", () => {
     ).toEqual({ noProgress: true, count: 3 })
   })
 
-  it.each([
-    "user",
-    "question"
-  ] as const)("excludes %s pauses from active deadlines", (kind) => {
-    const paused = suspendAgentDeadlines(
-      initialAgentDeadlineState(0),
-      kind,
-      100
-    )
-    expect(expiredAgentDeadline(paused, 1_000_000)).toBeUndefined()
-    expect(
-      expiredAgentDeadline(resumeAgentDeadlines(paused, 1_000_000), 1_000_100)
-    ).toBeUndefined()
-  })
+  it.each(["user", "question"] as const)(
+    "excludes %s pauses from active deadlines",
+    (kind) => {
+      const paused = suspendAgentDeadlines(
+        initialAgentDeadlineState(0),
+        kind,
+        100
+      )
+      expect(expiredAgentDeadline(paused, 1_000_000)).toBeUndefined()
+      expect(
+        expiredAgentDeadline(resumeAgentDeadlines(paused, 1_000_000), 1_000_100)
+      ).toBeUndefined()
+    }
+  )
 
   it("counts a repeated inspection as no-progress even when the page moved", () => {
     /**

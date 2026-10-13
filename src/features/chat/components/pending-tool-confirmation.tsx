@@ -1,7 +1,6 @@
 import { ShieldAlert } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import { runtime } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"

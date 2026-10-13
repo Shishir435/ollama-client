@@ -1069,50 +1069,50 @@ describe("P4 deterministic completion", () => {
         judgeSubmitStop([submitted("submit", 1), submitted("again", 2)])
       ).toMatchObject({ type: "refused", reason: "needs_review" })
     })
-    it.each([
-      "Blue is selected from Color.",
-      "Color shows Blue."
-    ])("leaves it to review when a Save followed a select for %s", (outcome) => {
-      expect(
-        judgeAgentCompletion({
-          steps: [
-            selected({
-              command: {
-                type: "select",
-                ref: "e3",
-                snapshotId: "s1",
-                generation: 1,
-                value: "Blue"
-              }
-            }),
-            selected({
-              stepId: "save",
-              sequence: 2,
-              target: { ref: "e4", tag: "button", name: "Save" },
-              verification: {
-                outcome: "confirmed",
-                evidence: {
-                  kind: "activation",
-                  summary: "saved",
-                  observedAt: 2
+    it.each(["Blue is selected from Color.", "Color shows Blue."])(
+      "leaves it to review when a Save followed a select for %s",
+      (outcome) => {
+        expect(
+          judgeAgentCompletion({
+            steps: [
+              selected({
+                command: {
+                  type: "select",
+                  ref: "e3",
+                  snapshotId: "s1",
+                  generation: 1,
+                  value: "Blue"
                 }
+              }),
+              selected({
+                stepId: "save",
+                sequence: 2,
+                target: { ref: "e4", tag: "button", name: "Save" },
+                verification: {
+                  outcome: "confirmed",
+                  evidence: {
+                    kind: "activation",
+                    summary: "saved",
+                    observedAt: 2
+                  }
+                }
+              })
+            ],
+            observation: page,
+            evidenceLedger: [],
+            constraints: [
+              {
+                id: "c1",
+                text: `Stop once ${outcome.replace(/\.$/, "")}`,
+                kind: "limit"
               }
-            })
-          ],
-          observation: page,
-          evidenceLedger: [],
-          constraints: [
-            {
-              id: "c1",
-              text: `Stop once ${outcome.replace(/\.$/, "")}`,
-              kind: "limit"
-            }
-          ],
-          requirements: [{ id: "r1", kind: "change", text: outcome }],
-          outcomes: [{ id: "r1", met: true }]
-        })
-      ).toMatchObject({ type: "refused", reason: "needs_review" })
-    })
+            ],
+            requirements: [{ id: "r1", kind: "change", text: outcome }],
+            outcomes: [{ id: "r1", met: true }]
+          })
+        ).toMatchObject({ type: "refused", reason: "needs_review" })
+      }
+    )
     it("leaves it to review when a Save followed an unchecked select", () => {
       expect(
         judgeAgentCompletion({

@@ -6,7 +6,6 @@ import {
   MAX_AGENT_HANDOFF_RESULT_CHARS
 } from "@ollama-client/contracts/agent-handoff"
 import { describe, expect, it } from "vitest"
-
 import type { ChatMessage } from "@/types"
 import {
   AGENT_ROW_HISTORY_TEXT,

@@ -380,9 +380,8 @@ test("shareable qualification rows retain adjudication and safety counts but nev
 })
 
 test("recorded exact request settings contain no credentials or messages", async () => {
-  const { endpointFingerprint, recordQualificationSettings } = await import(
-    "../../../../tools/agent-live-benchmark/qualification-config.mjs"
-  )
+  const { endpointFingerprint, recordQualificationSettings } =
+    await import("../../../../tools/agent-live-benchmark/qualification-config.mjs")
   assert.equal(
     endpointFingerprint("https://user:password@example.org/v1?key=secret"),
     endpointFingerprint("https://example.org/v1")

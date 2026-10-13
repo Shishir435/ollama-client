@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { ToolRegistry } from "../tool-registry"
 import type { ToolDefinition, ToolSource } from "../types"
 

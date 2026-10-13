@@ -1,6 +1,5 @@
 import { Bot, Brain, Code, Settings, Sparkles, Zap } from "lucide-react"
 import { describe, expect, it } from "vitest"
-
 import { formatParameterSize, getModelIcon } from "../model-utils"
 
 describe("formatParameterSize", () => {

@@ -2,7 +2,6 @@ import {
   type AgentConversationHandoff,
   MAX_AGENT_HANDOFF_CHARS
 } from "@ollama-client/contracts/agent-handoff"
-
 import type { ChatMessage } from "@/types"
 
 /** How many runs of a branch a later turn is told about, newest kept. */

@@ -1,7 +1,6 @@
 import { ChevronLeft } from "lucide-react"
 import type React from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 
 interface ContextSubViewProps {

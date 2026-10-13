@@ -181,7 +181,7 @@ export const streamChatWithNonNativeTools = async ({
 
   if (initialState) onChunk({ toolRuns: [...toolRuns] })
 
-  for (; state.iteration < maxIterations; ) {
+  for (; state.iteration < maxIterations;) {
     if (signal?.aborted) {
       onChunk({ done: true, aborted: true })
       return

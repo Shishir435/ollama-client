@@ -203,9 +203,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should inject system prompt from model config", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -244,9 +243,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should not inject system prompt if one already exists", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -283,9 +281,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("caps injected memory context to the RAG char budget", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.MEMORY.ENABLED) return true
         if (key === STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS) return 20
@@ -321,9 +318,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should include keep_alive and runtime options from model config", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -367,9 +363,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("uses the selected provider's config for duplicate model names", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -402,9 +397,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("does not inherit reasoning effort from a legacy bare config", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -438,9 +432,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should upgrade legacy default context before streaming", async () => {
-      const { getPlasmoStoredValue } = await import(
-        "@/lib/plasmo-global-storage"
-      )
+      const { getPlasmoStoredValue } =
+        await import("@/lib/plasmo-global-storage")
       vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
@@ -536,9 +529,8 @@ describe("handleChatWithModel", () => {
 
   describe("AbortController management", () => {
     it("should set AbortController on request start", async () => {
-      const { setAbortController } = await import(
-        "@/background/lib/abort-controller-registry"
-      )
+      const { setAbortController } =
+        await import("@/background/lib/abort-controller-registry")
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -557,9 +549,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should clear AbortController after successful completion", async () => {
-      const { clearAbortController } = await import(
-        "@/background/lib/abort-controller-registry"
-      )
+      const { clearAbortController } =
+        await import("@/background/lib/abort-controller-registry")
 
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
@@ -575,9 +566,8 @@ describe("handleChatWithModel", () => {
     })
 
     it("should clear AbortController after error", async () => {
-      const { clearAbortController } = await import(
-        "@/background/lib/abort-controller-registry"
-      )
+      const { clearAbortController } =
+        await import("@/background/lib/abort-controller-registry")
       mockStreamChat.mockRejectedValueOnce(new Error("Generic error"))
 
       const message: ChatWithModelMessage = {

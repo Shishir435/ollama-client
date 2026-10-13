@@ -21,7 +21,6 @@ import {
   type AgentVisualFrame,
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
-
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type { AgentHitTestResult } from "./control-port"
 import { replaceAgentTextOnce } from "./editor-text"

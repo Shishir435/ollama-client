@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-
 import type { ModelCapabilities } from "@/lib/providers/capabilities"
 import { ModelCapabilityBadges } from "../capability-badges"
 

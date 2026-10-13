@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "vitest"
-
 import { consumePrintJob, printJobKey, purgeStalePrintJobs } from "../print-job"
 
 const putJob = (jobId: string, payload: unknown) => {

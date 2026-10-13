@@ -1,7 +1,6 @@
 import type { AgentPriorEffect } from "@ollama-client/contracts"
 import { MAX_AGENT_PRIOR_EFFECTS } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import type { AgentStepReadout, ResolvedAgentEffect } from "../ports"
 import {
   agentCommittedEffects,

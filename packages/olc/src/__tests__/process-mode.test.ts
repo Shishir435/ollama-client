@@ -4,16 +4,15 @@ import { resolveOllamaOptions } from "../ollama/config.js"
 import { resolveProcessMode } from "../process-mode.js"
 
 describe("process mode", () => {
-  it.each([
-    "ollama",
-    "codex",
-    "opencode"
-  ])("defaults %s to detached", (BACKEND) => {
-    expect(resolveProcessMode({ BACKEND }, {}, {})).toEqual({
-      detached: true,
-      debug: false
-    })
-  })
+  it.each(["ollama", "codex", "opencode"])(
+    "defaults %s to detached",
+    (BACKEND) => {
+      expect(resolveProcessMode({ BACKEND }, {}, {})).toEqual({
+        detached: true,
+        debug: false
+      })
+    }
+  )
   it("supports explicit switches independently of log verbosity", () => {
     expect(
       resolveProcessMode(parseArgs(["--foreground"]).options, {}, {})
