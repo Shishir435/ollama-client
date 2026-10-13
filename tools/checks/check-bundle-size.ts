@@ -44,7 +44,12 @@ const sharedBudgets: Budget[] = [
    * Stripping those `reason` strings from production builds would buy back
    * several KB across every bundle and is the real fix when this bites again.
    */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 236_250 },
+  /*
+   * Security updates to DOMPurify and markdown-it add 619 gzip bytes:
+   * 236,119 -> 236,738 in both browsers. Preserve the prior 131-byte
+   * headroom; all other content-script ceilings remain unchanged.
+   */
+  { metric: "selectionOverlay", field: "gzipBytes", max: 236_869 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
@@ -252,7 +257,8 @@ const budgets: Budget[] = [
     /** Preview follow-ups — screenshot reads exclude the run's own text, merged citation cap, the daemon-wide Laya lock — measure Chrome at 48,573,467. */
     /** Supplied text matched on word edges measures Chrome at 48,573,677. */
     /** Stop retry and committing-label approvals measure Chrome at 48,575,482. */
-    max: isFirefox ? 50_300_000 : 48_575_482
+    // Security updates add 2,759 Chrome bytes, preserving existing headroom.
+    max: isFirefox ? 50_300_000 : 48_578_241
   },
   {
     metric: "zip",
