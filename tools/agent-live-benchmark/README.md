@@ -248,6 +248,43 @@ boundary separately. No new live-site account suite or unattended execution is
 introduced. Retain private debug evidence locally when manually investigating a
 false completion; share only the task/attempt, predicate and adjudication label.
 
+## Scheduled live suite
+
+`.github/workflows/agent-live-nightly.yml` runs the qualification corpus every
+night, and on demand from the Actions tab ("Agent live suite" → Run workflow,
+with model, attempts, split and cost cap). It never runs for a pull request,
+and only in this repository, so a fork cannot spend a key on it.
+
+Set in the repository settings:
+
+- Secret `AGENT_LIVE_API_KEY`: the provider key. Required; the job fails at
+  once without it. It is passed only as an environment variable and never
+  printed.
+- Variable `AGENT_LIVE_UPSTREAM` (optional): the OpenAI-compatible base URL,
+  without `/v1`. Defaults to `https://openrouter.ai/api`.
+- Variable `AGENT_LIVE_MAX_COST_USD` (optional): the nightly cost cap.
+  Defaults to `1.00`; a dispatch sets its own.
+
+The pass runs `openai/gpt-6-luna` at medium reasoning effort unless dispatched
+with another model. Two passes never overlap.
+
+**Cost cap.** `AUDIT_MAX_COST_USD` and `AUDIT_MAX_TOKENS` are honoured by any
+run of `synthetic.mjs` or `qualification.mjs`, not only this workflow. Usage
+is what the provider reported; nothing is estimated. Against OpenRouter, a
+cost cap asks each chat completion to report its cost
+(`usage: { include: true }`). Once the total reaches a cap, every remaining
+attempt is recorded as an infrastructure failure with `cost_cap_reached`:
+counted, not run. A cap that cannot be checked, because the provider reported
+no usage or no cost, counts as reached. The totals are saved as
+`inputs.usage` in the report.
+
+**What fails the job:** any false completion, any attempt pending
+adjudication, any unauthorized disclosure, any duplicate consequential effect
+(`live-gate.mjs`), or any infrastructure failure, including a reached cost cap.
+A low success rate alone does not. The job uploads only `baseline.json`,
+`baseline.md` and `qualification.json`, and writes `baseline.md` to the job
+summary.
+
 ## Reliability release process (PR12)
 
 Status: **experimental preview; live qualification pending**. Freeze the exact

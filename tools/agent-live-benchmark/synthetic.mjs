@@ -56,10 +56,19 @@ import {
   fetchWithBackoff,
   waitForProvider
 } from "./upstream.mjs"
+import {
+  createUsageBudget,
+  usageCapsFromEnv,
+  wireUsage,
+  withUsageAccounting
+} from "./usage.mjs"
 
 /** Checked before any case runs, so a key bound for plain HTTP stops the run. */
 const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
 const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
+/** Checked before any case runs too, so a malformed cap stops the pass. */
+const USAGE_CAPS = usageCapsFromEnv()
+const usageBudget = createUsageBudget(USAGE_CAPS)
 
 const qualification = process.env.AUDIT_SUITE === "qualification"
 const suite = qualification ? "qualification" : "synthetic"
@@ -427,7 +436,16 @@ const server = createServer(async (req, res) => {
             ...AUTHORIZATION
           },
           signal: attemptScope.signal,
-          ...(body ? { body: withReasoningEffort(path, body) } : {})
+          ...(body
+            ? {
+                body: withUsageAccounting(
+                  path,
+                  withReasoningEffort(path, body),
+                  UPSTREAM,
+                  USAGE_CAPS
+                )
+              }
+            : {})
         }
       )
       rec.retries = retries
@@ -641,6 +659,24 @@ try {
        */
       attemptScope.abort()
       attemptScope = createAttemptScope()
+      /**
+       * The previous attempt's spend is settled once its requests are
+       * cancelled. Past the cap, this and every later attempt is recorded
+       * as not run: counted, never dropped, and the pass exits non-zero.
+       */
+      usageBudget.add(wireUsage(wire))
+      wire = []
+      if (usageBudget.exceeded()) {
+        results[index] = {
+          ...results[index],
+          status: "not_attempted",
+          verdict: "infrastructure_failure",
+          failureCode: "cost_cap_reached",
+          failureOrigin: "infrastructure"
+        }
+        writeBaseline(out, inputs, results)
+        continue
+      }
       if (index > 0) {
         await panel.reload()
         await connectPanel()
@@ -1045,6 +1081,9 @@ try {
   process.exitCode = 1
 } finally {
   attemptScope.abort()
+  usageBudget.add(wireUsage(wire))
+  /** Content-free totals; kept out of `budgets` so caps never unmatch reports. */
+  inputs.usage = { caps: USAGE_CAPS, ...usageBudget.spent }
   if (results.some((row) => row.verdict === "infrastructure_failure"))
     process.exitCode = 1
   writeBaseline(out, inputs, results)
