@@ -286,6 +286,21 @@
       "scope_changed": "L’ambito dell’attività è cambiato. Rivedi il consenso a continuare con il pannello chiuso.",
       "scope": "Schede: {{tabs}} · Fornitore: {{provider}} · Modello: {{model}}",
       "stop_menu": "Arresta l’agente del browser"
+    },
+    "readiness": {
+      "not_qualified": {
+        "title": "Agente del browser: funziona con questo modello, non ancora qualificato.",
+        "fix": "Può chiamare strumenti, ma non ha una qualifica registrata, quindi verifica ciò che riporta."
+      },
+      "experimental": {
+        "title": "Agente del browser: la chiamata di strumenti di questo modello non è confermata.",
+        "fix": "Conferma la chiamata di strumenti nelle capacità del modello o scegli un modello con chiamata di strumenti confermata."
+      },
+      "unsupported": {
+        "title": "Agente del browser: questo modello non può guidarlo.",
+        "fix": "Scegli un modello con chiamata di strumenti confermata."
+      },
+      "alternatives": "Su questo provider: {{models}}."
     }
   },
   "common": {

@@ -1,4 +1,6 @@
 import type { AgentModelReadiness } from "@ollama-client/contracts"
+import { STORAGE_KEYS } from "@/lib/constants"
+import { ProviderStorageKey } from "@/lib/providers/types"
 import type { AgentModelCompatibility } from "./agent-model-compatibility"
 
 /**
@@ -54,3 +56,17 @@ export const agentReadinessPermitsStart = (
   if (readiness.status === "ready") return true
   return readiness.status === "experimental" && allowExperimental
 }
+
+/**
+ * The stored evidence a readiness verdict is derived from: the user's own
+ * capability overrides, what a probe learned, which servers have a catalog,
+ * and the provider configs saying which server is asked. A change to any of
+ * them can change the verdict, so the background drops its cached answers and
+ * the composer asks again.
+ */
+export const AGENT_READINESS_EVIDENCE_KEYS: readonly string[] = [
+  STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES,
+  STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES,
+  STORAGE_KEYS.PROVIDER.MODEL_CATALOG_SUPPORT,
+  ProviderStorageKey.CONFIG
+]

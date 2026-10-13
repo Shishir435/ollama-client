@@ -44,11 +44,11 @@ const effect = (state, key, values = {}) =>
     "POST"
   )
 
-test("60 frozen workflows; 40 development and 20 separately selected held-out tasks", () => {
-  assert.equal(QUALIFICATION_TASKS.length, 60)
-  assert.equal(new Set(QUALIFICATION_TASKS.map((entry) => entry.id)).size, 60)
-  assert.equal(selectQualificationTasks("development").length, 40)
-  assert.equal(selectQualificationTasks("held_out").length, 20)
+test("75 frozen workflows; 50 development and 25 separately selected held-out tasks", () => {
+  assert.equal(QUALIFICATION_TASKS.length, 75)
+  assert.equal(new Set(QUALIFICATION_TASKS.map((entry) => entry.id)).size, 75)
+  assert.equal(selectQualificationTasks("development").length, 50)
+  assert.equal(selectQualificationTasks("held_out").length, 25)
   assert.throws(() =>
     selectQualificationTasks("development", ["tabs_four_tabs"])
   )
@@ -293,7 +293,8 @@ const report = (model = "model-a") => ({
       family: entry.family,
       split: entry.split,
       verdict: "achieved",
-      faultInjected: entry.family === "lifecycle",
+      faultInjected:
+        entry.family === "lifecycle" || entry.id === "traps_send_restart",
       adjudication: "deterministic_external_state"
     }))
   )
@@ -309,8 +310,8 @@ test("all declarations, invalidity, refusal, blockage and false completions rema
   sample.attempts[3].interventions = 1
   const summary = summarizeQualification(sample)
   assert.equal(summary.complete, true)
-  assert.equal(summary.splits.development.endToEnd.denominator, 120)
-  assert.equal(summary.splits.held_out.endToEnd.denominator, 60)
+  assert.equal(summary.splits.development.endToEnd.denominator, 150)
+  assert.equal(summary.splits.held_out.endToEnd.denominator, 75)
   assert.equal(
     summary.falseCompletions[0].adjudication,
     "deterministic_external_state"

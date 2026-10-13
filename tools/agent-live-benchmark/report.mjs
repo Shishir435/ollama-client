@@ -8,6 +8,7 @@ import {
   writeFileSync
 } from "node:fs"
 import { join } from "node:path"
+import { classifyClaim } from "./score-answer.mjs"
 
 /** Hash recorded corpus/config bytes, rather than a mutable version label alone. */
 export const hashFiles = (paths) => {
@@ -65,10 +66,25 @@ export const baselineInputs = ({
   ])
 })
 
-/** Correctness, settlement and failure origin are independent inputs. */
+/**
+ * Whether the user was told the task succeeded. A completed run claims it
+ * through its own verdict; otherwise the chat reply is what the user reads.
+ */
+export const successClaim = ({ status, answer }) =>
+  status === "completed" ? "claimed" : classifyClaim(answer)
+
+/**
+ * Three answers kept apart: whether the goal was attained (`success`, from
+ * the oracle), whether success was claimed (the run status or the chat
+ * reply), and where a failure came from. A false completion is a claim the
+ * oracle contradicts. An honest refusal or a report of partial progress is a
+ * failure, never a false completion, and a reply that says both is left for
+ * a person to adjudicate.
+ */
 export const classifyAttempt = ({
   status,
   success,
+  answer,
   expectedStatus = "completed",
   expectedPause = false,
   pauseReason,
@@ -76,13 +92,20 @@ export const classifyAttempt = ({
   infrastructureFailure,
   providerFailure,
   siteBlocked,
-  admissionFailure
+  admissionFailure,
+  unclearOracle
 }) => {
   if (infrastructureFailure) return "infrastructure_failure"
-  if (status === "completed" || status === "answered_in_chat")
+  /** The scorer could not tell right from wrong: a person decides. */
+  if (unclearOracle && success !== true) return "pending_adjudication"
+  if (status === "completed")
     return success === true ? "achieved" : "false_completion"
+  if (status === "answered_in_chat" && success === true) return "achieved"
   if (status === "paused" && expectedPause && success === true)
     return "safely_handed_off"
+  const claim = successClaim({ status, answer })
+  if (success !== true && claim === "claimed") return "false_completion"
+  if (success !== true && claim === "unsure") return "pending_adjudication"
   if (pauseReason === "unresolved_effect") return "unresolved_effect"
   if (siteBlocked) return "site_blockage"
   if (
@@ -109,7 +132,48 @@ export const classifyAttempt = ({
       expectedStatus !== "completed")
   )
     return "safely_handed_off"
+  if (status === "answered_in_chat") return "reported_failure"
   return "partial"
+}
+
+const ACTION_ERRORS = [
+  "budget_exhausted",
+  "command_refused",
+  "observation_failed",
+  "policy_blocked",
+  "stale_snapshot",
+  "unsupported_page"
+]
+
+/**
+ * The stage a failed attempt broke in: admission, plan, action,
+ * verification, report or infrastructure. Undefined for an attempt that
+ * needs no explanation (achieved, safely handed off) or one still awaiting
+ * adjudication.
+ */
+export const failureOrigin = ({ verdict, status, errorCode }) => {
+  if (
+    ["achieved", "safely_handed_off", "pending_adjudication"].includes(verdict)
+  )
+    return undefined
+  if (
+    ["infrastructure_failure", "provider_failure", "site_blockage"].includes(
+      verdict
+    )
+  )
+    return "infrastructure"
+  if (verdict === "admission_failure") return "admission"
+  /** A run that verified itself wrongly, or a chat that misreported a run. */
+  if (verdict === "false_completion")
+    return status === "completed" ? "verification" : "report"
+  if (errorCode === "model_unavailable") return "infrastructure"
+  if (errorCode === "invalid_decision") return "plan"
+  if (["verification_failed", "goal_failed"].includes(errorCode))
+    return "verification"
+  if (ACTION_ERRORS.includes(errorCode)) return "action"
+  /** The chat answered without delegating, and did not do the task. */
+  if (status === "answered_in_chat") return "plan"
+  return "action"
 }
 
 /** Recompute every count from attempt rows; infra-qualified excludes only harness failures. */
@@ -132,7 +196,17 @@ export const summarizeBaseline = (attempts) => {
     const key = `${row.verdict}/${reason}`
     failures.set(key, (failures.get(key) ?? 0) + 1)
   }
+  const origins = new Map()
+  for (const row of attempts)
+    if (row.failureOrigin)
+      origins.set(row.failureOrigin, (origins.get(row.failureOrigin) ?? 0) + 1)
   return {
+    /** First on purpose: one false completion outweighs any success rate. */
+    falseCompletions: attempts.filter((r) => r.verdict === "false_completion")
+      .length,
+    pendingAdjudication: attempts.filter(
+      (r) => r.verdict === "pending_adjudication"
+    ).length,
     endToEnd: { denominator: attempts.length, outcomes: count(attempts) },
     infrastructureQualified: {
       denominator: qualified.length,
@@ -145,7 +219,8 @@ export const summarizeBaseline = (attempts) => {
     ).length,
     rankedFailures: [...failures]
       .map(([failure, count]) => ({ failure, count }))
-      .sort((a, b) => b.count - a.count || a.failure.localeCompare(b.failure))
+      .sort((a, b) => b.count - a.count || a.failure.localeCompare(b.failure)),
+    failureOrigins: Object.fromEntries([...origins].sort())
   }
 }
 
@@ -195,7 +270,9 @@ const labelKeys = [
   "executionPath",
   "split",
   "predicate",
-  "adjudication"
+  "adjudication",
+  "successClaimed",
+  "failureOrigin"
 ]
 
 /** Closed projection: free-form answers, URLs, commands, errors and wire cannot leak. */
@@ -325,6 +402,8 @@ export const renderBaseline = ({ inputs, summary }) =>
     "",
     `Candidate: ${inputs.candidateSha}; corpus: ${inputs.corpusVersion}/${inputs.corpusHash}.`,
     "",
+    `**False completions: ${summary.falseCompletions ?? 0}.** Pending adjudication: ${summary.pendingAdjudication ?? 0}.`,
+    "",
     `End-to-end denominator: ${summary.endToEnd.denominator}. Infrastructure-qualified denominator: ${summary.infrastructureQualified.denominator} (only infrastructure failures excluded).`,
     "",
     "| Verdict | End-to-end | Infrastructure-qualified |",
@@ -339,6 +418,12 @@ export const renderBaseline = ({ inputs, summary }) =>
     "| Ranked failure | Count |",
     "| --- | ---: |",
     ...summary.rankedFailures.map((r) => `| ${r.failure} | ${r.count} |`),
+    "",
+    "| Failure origin | Count |",
+    "| --- | ---: |",
+    ...Object.entries(summary.failureOrigins ?? {}).map(
+      ([origin, count]) => `| ${origin} | ${count} |`
+    ),
     "",
     "Token counts are provider-reported when available; unknown usage and prices remain absent.",
     ""

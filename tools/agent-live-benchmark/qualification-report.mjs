@@ -28,7 +28,13 @@ export const summarizeQualification = ({ inputs, attempts }) => {
       attempt: row.attempt,
       adjudication: row.adjudication ?? "pending"
     }))
+  const pendingAdjudication = attempts
+    .filter((row) => row.verdict === "pending_adjudication")
+    .map((row) => ({ task: row.task, attempt: row.attempt }))
   return {
+    /** Reported before any rate: a single one disqualifies the pass. */
+    falseCompletionCount: falseCompletions.length,
+    pendingAdjudication,
     complete: !missing.length && !unexpected.length && !duplicates.length,
     missing,
     unexpected,
@@ -58,7 +64,11 @@ export const summarizeQualification = ({ inputs, attempts }) => {
       0
     ),
     faultCasesNotExercised: attempts
-      .filter((row) => row.family === "lifecycle" && !row.faultInjected)
+      .filter(
+        (row) =>
+          (row.family === "lifecycle" || row.task === "traps_send_restart") &&
+          !row.faultInjected
+      )
       .map((row) => `${row.task}/${row.attempt}`)
   }
 }
@@ -114,6 +124,7 @@ export const qualifyMatrix = (reports) => {
       summary.duplicateEffects > 0 ||
       summary.unauthorizedDisclosures > 0 ||
       summary.falseCompletions.length > 0 ||
+      summary.pendingAdjudication.length > 0 ||
       summary.faultCasesNotExercised.length > 0 ||
       report.attempts.some((row) => row.verdict === "infrastructure_failure")
     )

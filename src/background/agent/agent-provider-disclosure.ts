@@ -6,15 +6,17 @@ import {
   type AgentModelCompatibility,
   resolveAgentModelCompatibility
 } from "@/application/agent/agent-model-compatibility"
-import { agentModelReadiness } from "@/application/agent/agent-model-readiness"
+import {
+  AGENT_READINESS_EVIDENCE_KEYS,
+  agentModelReadiness
+} from "@/application/agent/agent-model-readiness"
 import { browser } from "@/lib/browser-api"
-import { STORAGE_KEYS } from "@/lib/constants"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { getModelCapabilityStates } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { discoverProviderModels } from "@/lib/providers/model-discovery"
-import { ProviderStorageKey } from "@/lib/providers/types"
+import type { LLMProvider } from "@/lib/providers/types"
 import { readStoredSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 
@@ -65,18 +67,38 @@ const compatibilityByModel = new Map<string, AgentModelCompatibility>()
 const settled = (compatibility: AgentModelCompatibility): boolean =>
   compatibility.status !== "unsupported" && compatibility.vision !== undefined
 
+/**
+ * How a disclosure is read. `readOnly` is for an RPC query, which must not
+ * persist anything: catalog discovery then records nothing it learns. The
+ * signal is the caller's, so a cancelled query stops its provider requests.
+ */
+export interface DisclosureReadOptions {
+  signal?: AbortSignal
+  readOnly?: boolean
+}
+
+const readOnlyDiscovery = (provider: LLMProvider, signal?: AbortSignal) =>
+  discoverProviderModels(provider, signal, { record: false })
+
 const resolveCompatibility = async (
   providerId: string,
   modelId: string,
-  resolve: typeof resolveAgentModelCompatibility
+  resolve: typeof resolveAgentModelCompatibility,
+  { signal, readOnly }: DisclosureReadOptions = {}
 ): Promise<AgentModelCompatibility | undefined> => {
   const key = `${providerId}\u0000${modelId}`
   const remembered = compatibilityByModel.get(key)
   if (remembered) return remembered
   let compatibility: AgentModelCompatibility | undefined
   try {
-    compatibility = await resolve(providerId, modelId)
+    compatibility = await resolve(
+      providerId,
+      modelId,
+      signal,
+      readOnly ? { discoverModels: readOnlyDiscovery } : {}
+    )
   } catch {
+    signal?.throwIfAborted()
     return undefined
   }
   if (settled(compatibility)) compatibilityByModel.set(key, compatibility)
@@ -92,21 +114,6 @@ const resolveCompatibility = async (
  * suggested — under-suggesting is the safe direction for a hint.
  */
 const alternativesByProvider = new Map<string, string[]>()
-
-/**
- * The keys that decide a verdict: the user's own overrides, what a probe
- * learned, and the provider configs that say which server was asked. A change
- * to any of them makes every remembered answer a claim about evidence that is
- * no longer current, so the whole cache goes rather than one entry — the keys
- * are maps covering every model, and reading which entries moved would be a
- * second copy of the resolver.
- */
-const EVIDENCE_KEYS = [
-  STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES,
-  STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES,
-  STORAGE_KEYS.PROVIDER.MODEL_CATALOG_SUPPORT,
-  ProviderStorageKey.CONFIG
-]
 
 let watchingEvidence = false
 
@@ -129,7 +136,7 @@ const watchEvidence = (): void => {
     const onChanged = browser.storage?.onChanged
     if (!onChanged?.addListener) return
     onChanged.addListener((changes) => {
-      if (!EVIDENCE_KEYS.some((key) => key in changes)) return
+      if (!AGENT_READINESS_EVIDENCE_KEYS.some((key) => key in changes)) return
       compatibilityByModel.clear()
       alternativesByProvider.clear()
     })
@@ -140,7 +147,8 @@ const watchEvidence = (): void => {
 
 const resolveAlternatives = async (
   providerId: string,
-  modelId: string
+  modelId: string,
+  { signal, readOnly }: DisclosureReadOptions = {}
 ): Promise<string[]> => {
   const remembered = alternativesByProvider.get(providerId)
   const candidates =
@@ -148,7 +156,9 @@ const resolveAlternatives = async (
     (await (async () => {
       try {
         const provider = await ProviderFactory.getProvider(providerId)
-        const discovery = await discoverProviderModels(provider)
+        const discovery = await discoverProviderModels(provider, signal, {
+          record: readOnly !== true
+        })
         return discovery.models
           .filter((model) => {
             const { toolCalling } = getModelCapabilityStates({
@@ -204,14 +214,20 @@ const UNRESOLVED: AgentModelReadiness = {
 const readinessFor = async (
   providerId: string,
   modelId: string,
-  resolve: typeof resolveAgentModelCompatibility
+  resolve: typeof resolveAgentModelCompatibility,
+  options: DisclosureReadOptions = {}
 ): Promise<AgentModelReadiness> => {
-  const compatibility = await resolveCompatibility(providerId, modelId, resolve)
+  const compatibility = await resolveCompatibility(
+    providerId,
+    modelId,
+    resolve,
+    options
+  )
   const readiness = compatibility
     ? agentModelReadiness(compatibility)
     : UNRESOLVED
   if (readiness.status !== "unsupported") return readiness
-  const alternatives = await resolveAlternatives(providerId, modelId)
+  const alternatives = await resolveAlternatives(providerId, modelId, options)
   return alternatives.length > 0 ? { ...readiness, alternatives } : readiness
 }
 
@@ -221,7 +237,8 @@ export const resolveAgentProviderDisclosure = async (
   modelId?: string,
   dependencies: {
     resolveCompatibility?: typeof resolveAgentModelCompatibility
-  } = {}
+  } = {},
+  options: DisclosureReadOptions = {}
 ): Promise<AgentPanelSnapshot["provider"]> => {
   const selected =
     providerId && modelId
@@ -234,7 +251,8 @@ export const resolveAgentProviderDisclosure = async (
   const readiness = await readinessFor(
     selected.providerId,
     selected.modelId,
-    dependencies.resolveCompatibility ?? resolveAgentModelCompatibility
+    dependencies.resolveCompatibility ?? resolveAgentModelCompatibility,
+    options
   )
   /**
    * Read off readiness rather than resolved a second time: "unknown" is not

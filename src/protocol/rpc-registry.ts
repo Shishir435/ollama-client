@@ -1,6 +1,8 @@
 import {
   AgentForgetChatRowsRequestSchema,
   AgentForgetChatRowsResultSchema,
+  AgentGetReadinessRequestSchema,
+  AgentGetReadinessResultSchema,
   AgentGetRunRequestSchema,
   AgentGetRunResultSchema
 } from "@ollama-client/contracts/agent-rpc"
@@ -328,6 +330,18 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     response: AgentGetRunResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 10_000,
+    operation: "query"
+  },
+  /**
+   * The composer asking whether the selected model could drive the agent.
+   * A read: the verdict is memoized in memory only, never written, so a
+   * timed-out answer is simply asked for again.
+   */
+  [RpcMethod.AgentGetReadiness]: {
+    request: AgentGetReadinessRequestSchema,
+    response: AgentGetReadinessResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
     operation: "query"
   }
 }

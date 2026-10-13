@@ -19,6 +19,8 @@ import {
 import {
   baselineInputs,
   classifyAttempt,
+  failureOrigin,
+  successClaim,
   supervisionTelemetry,
   wireTelemetry,
   writeBaseline
@@ -32,12 +34,17 @@ import {
   scoreWikipediaRelease,
   scoreWikiSearch
 } from "./score-answer.mjs"
+import {
+  createAttemptScope,
+  fetchWithBackoff,
+  waitForProvider
+} from "./upstream.mjs"
 
 /** Checked before any case runs, so a key bound for plain HTTP stops the run. */
-const AUTHORIZATION = upstreamAuthorization(
-  process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084",
-  process.env.AUDIT_API_KEY
-)
+const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
+const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
+/** Cancels whatever the current attempt still has streaming upstream. */
+let attemptScope = createAttemptScope()
 
 const model =
   process.env.AUDIT_MODEL ?? "opencode/muse-spark-1.3-contributor-free"
@@ -131,7 +138,7 @@ const inputs = baselineInputs({
     permissionMode: "allow_routine",
     approvals: "automatic",
     interventions: "none",
-    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE === "1"
+    rawDebugEvidence: process.env.AUDIT_DEBUG_EVIDENCE !== "0"
   }
 })
 let profile,
@@ -219,12 +226,13 @@ const html = (kind, path) => {
   )
 }
 const server = createServer(async (req, res) => {
+  let rec
   try {
     const path = req.url ?? "/"
     let body = ""
     for await (const c of req) body += c
     if (path.startsWith("/v1/")) {
-      const rec = {
+      rec = {
         path,
         started: Date.now(),
         request: body ? JSON.parse(body) : undefined
@@ -241,17 +249,19 @@ const server = createServer(async (req, res) => {
           e.replaceWith(e.cloneNode(true))
         })
       }
-      const upstream = await fetch(
-        (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084") + path,
+      const { response: upstream, retries } = await fetchWithBackoff(
+        UPSTREAM + path,
         {
           method: req.method,
           headers: {
             "Content-Type": "application/json",
             ...AUTHORIZATION
           },
+          signal: attemptScope.signal,
           ...(body ? { body: withReasoningEffort(path, body) } : {})
         }
       )
+      rec.retries = retries
       res.writeHead(upstream.status, {
         "Content-Type":
           upstream.headers.get("content-type") ?? "application/json"
@@ -280,7 +290,9 @@ const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "text/html")
     res.end(html(current?.kind ?? "click", path))
   } catch (e) {
-    res.statusCode = 502
+    /** Unreachable after every retry, or cut off by the attempt's end. */
+    if (rec && rec.status === undefined) rec.status = 502
+    if (!res.headersSent) res.statusCode = 502
     res.end(JSON.stringify({ error: { message: String(e) } }))
   }
 })
@@ -404,6 +416,20 @@ try {
     const attempt = declaration.attempt
     const attemptStarted = Date.now()
     try {
+      attemptScope.abort()
+      attemptScope = createAttemptScope()
+      if (!(await waitForProvider(UPSTREAM, AUTHORIZATION))) {
+        results[index] = {
+          ...results[index],
+          status: "provider_unavailable",
+          verdict: "infrastructure_failure",
+          failureCode: "provider_unavailable",
+          failureOrigin: "infrastructure",
+          wallMs: Date.now() - attemptStarted
+        }
+        writeBaseline(out, inputs, results)
+        continue
+      }
       current = { kind, effects: 0, replaced: false }
       wire = []
       messages = []
@@ -587,18 +613,27 @@ try {
           predicate = `chromium+release+answer:${expect} (${scored.reason})`
         } else success = answer.includes(expect)
       }
+      const admissionFailure =
+        status === "turn_not_started" ||
+        (!final &&
+          wireTelemetry(wire).executionStages.includes(
+            "browser_task_admission"
+          ))
+      /** See synthetic.mjs: a deadline with no run and no answer is void. */
+      const timedOut = status === "harness_timeout" && !admissionFailure
+      const failureCode = timedOut
+        ? wire.some((w) => w.status >= 500)
+          ? "provider_unavailable"
+          : "harness_timeout"
+        : undefined
       const verdict = classifyAttempt({
         status,
         success,
+        answer,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
-        infrastructureFailure: status === "harness_invalid",
-        admissionFailure:
-          status === "turn_not_started" ||
-          (!final &&
-            wireTelemetry(wire).executionStages.includes(
-              "browser_task_admission"
-            )),
+        infrastructureFailure: status === "harness_invalid" || timedOut,
+        admissionFailure,
         providerFailure: wire.some((w) => w.status >= 400),
         siteBlocked: isSiteChallenge(body)
       })
@@ -612,6 +647,13 @@ try {
         model,
         success,
         verdict,
+        successClaimed: successClaim({ status, answer }),
+        failureOrigin: failureOrigin({
+          verdict,
+          status,
+          errorCode: final?.run?.error?.code
+        }),
+        ...(failureCode ? { failureCode } : {}),
         predicate,
         status,
         delegated,
@@ -632,7 +674,7 @@ try {
         field
       }
       results[index] = row
-      if (process.env.AUDIT_DEBUG_EVIDENCE === "1") {
+      if (process.env.AUDIT_DEBUG_EVIDENCE !== "0") {
         const dir = join(out, `${kind}-${attempt}`, "local-debug")
         mkdirSync(dir, { recursive: true, mode: 0o700 })
         writeFileSync(
@@ -673,6 +715,7 @@ try {
         status: "harness_exception",
         verdict: "infrastructure_failure",
         failureCode: "harness_exception",
+        failureOrigin: "infrastructure",
         wallMs: Date.now() - attemptStarted,
         ...wireTelemetry(wire)
       }
@@ -687,6 +730,7 @@ try {
   )
   process.exitCode = 1
 } finally {
+  attemptScope.abort()
   if (results.some((row) => row.verdict === "infrastructure_failure"))
     process.exitCode = 1
   writeBaseline(out, inputs, results)

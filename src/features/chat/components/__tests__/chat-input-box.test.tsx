@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ChatInputBox } from "@/features/chat/components/chat-input-box"
+import { AgentComposerNoticeContext } from "@/features/chat/lib/agent-composer-notice"
 
 const composer = vi.hoisted(() => ({
   focusRequest: 0,
@@ -147,6 +148,19 @@ describe("ChatInputBox", () => {
         }
       }
     })
+  })
+
+  it("draws the agent line the shell supplies, and none without one", () => {
+    const Notice = () => <p>agent readiness</p>
+    const { unmount } = render(
+      <AgentComposerNoticeContext.Provider value={Notice}>
+        <ChatInputBox onSend={vi.fn()} stopGeneration={vi.fn()} />
+      </AgentComposerNoticeContext.Provider>
+    )
+    expect(screen.getByText("agent readiness")).toBeInTheDocument()
+    unmount()
+    render(<ChatInputBox onSend={vi.fn()} stopGeneration={vi.fn()} />)
+    expect(screen.queryByText("agent readiness")).not.toBeInTheDocument()
   })
 
   it("opens prompt sheet on ctrl slash", () => {

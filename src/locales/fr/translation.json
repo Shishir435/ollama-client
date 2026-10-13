@@ -286,6 +286,21 @@
       "scope_changed": "Le périmètre de la tâche a changé. Vérifiez le consentement à continuer avec le panneau fermé.",
       "scope": "Onglets : {{tabs}} · Fournisseur : {{provider}} · Modèle : {{model}}",
       "stop_menu": "Arrêter l’agent du navigateur"
+    },
+    "readiness": {
+      "not_qualified": {
+        "title": "Agent du navigateur : fonctionne avec ce modèle, pas encore qualifié.",
+        "fix": "Il peut appeler des outils, mais n'a aucune qualification enregistrée : vérifiez ce qu'il rapporte."
+      },
+      "experimental": {
+        "title": "Agent du navigateur : l'appel d'outils de ce modèle n'est pas confirmé.",
+        "fix": "Confirmez l'appel d'outils dans les capacités du modèle ou choisissez un modèle dont l'appel d'outils est confirmé."
+      },
+      "unsupported": {
+        "title": "Agent du navigateur : ce modèle ne peut pas le piloter.",
+        "fix": "Choisissez un modèle dont l'appel d'outils est confirmé."
+      },
+      "alternatives": "Chez ce fournisseur : {{models}}."
     }
   },
   "common": {

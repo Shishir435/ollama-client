@@ -20,6 +20,14 @@ export const evaluateRelease = (reports, candidateSha, evidence = {}) => {
     blockers.push("wrong_release_candidate")
   const configurations = reports.map((report) => {
     const rows = report.attempts
+    const falseCompletions = rows.filter(
+      (row) => row.verdict === "false_completion"
+    ).length
+    const pendingAdjudication = rows.filter(
+      (row) => row.verdict === "pending_adjudication"
+    ).length
+    if (falseCompletions > 0) blockers.push("false_completions")
+    if (pendingAdjudication > 0) blockers.push("pending_adjudication")
     const correct = rows.filter(
       (row) =>
         row.success === true &&
@@ -58,6 +66,8 @@ export const evaluateRelease = (reports, candidateSha, evidence = {}) => {
     if (!latencyComplete) blockers.push("missing_active_latency")
     return {
       model: report.inputs.model,
+      falseCompletions,
+      pendingAdjudication,
       correct,
       attempted: rows.length,
       rate,
@@ -86,6 +96,10 @@ export const evaluateRelease = (reports, candidateSha, evidence = {}) => {
     blockers.push("matched_intervention_improvement_not_qualified")
   return {
     candidateSha,
+    falseCompletions: configurations.reduce(
+      (total, configuration) => total + configuration.falseCompletions,
+      0
+    ),
     decision: blockers.length
       ? "retain_experimental_preview"
       : "eligible_for_promotion_review",
