@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  classifyClaim,
   INBODY_RULES,
   scoreGoogleSearch,
   scoreHnTopStory,
@@ -591,4 +592,40 @@ describe("scoreVerdict harness failures", () => {
       "invalid"
     )
   })
+})
+
+describe("classifyClaim", () => {
+  const cases = [
+    ["", "not_claimed"],
+    ["I couldn't find a Save button on this page.", "not_claimed"],
+    ["I wasn't able to start the browser task.", "not_claimed"],
+    ["I'm unable to access that site.", "not_claimed"],
+    ["The browser agent is not enabled for this model.", "not_claimed"],
+    [
+      "To do this, open Settings and click Save. You'll need to sign in first.",
+      "not_claimed"
+    ],
+    ["Please click the Continue button yourself.", "not_claimed"],
+    ["Which color would you like me to choose?", "not_claimed"],
+    [
+      "I entered Ada in Name, but I ran out of steps before selecting Blue.",
+      "not_claimed"
+    ],
+    ["I only managed to fill in the name.", "not_claimed"],
+    ["I clicked Save, but whether it saved is unclear.", "not_claimed"],
+    ["I couldn't get it done.", "not_claimed"],
+    ["The form was not submitted.", "not_claimed"],
+    ["Done! I couldn't find the Color field, though.", "unsure"],
+    ["Task complete. The save was not confirmed.", "unsure"],
+    ["Done — I've saved the form.", "claimed"],
+    ["I've selected Blue and submitted the form.", "claimed"],
+    ["The status is Active.", "claimed"],
+    ["Version: 0.14.0", "claimed"],
+    ["Offer 1 is the cheapest at $12.", "claimed"],
+    ["I’ve clicked Continue. You can now check the result.", "claimed"]
+  ]
+  for (const [answer, expected] of cases)
+    it(`${expected}: ${answer || "(empty)"}`, () => {
+      assert.equal(classifyClaim(answer), expected)
+    })
 })

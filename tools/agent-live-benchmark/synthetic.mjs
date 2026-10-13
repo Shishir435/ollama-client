@@ -40,6 +40,8 @@ import { scoreQualification } from "./qualification-score.mjs"
 import {
   baselineInputs,
   classifyAttempt,
+  failureOrigin,
+  successClaim,
   supervisionTelemetry,
   wireTelemetry,
   writeBaseline as writeCurrentBaseline
@@ -49,12 +51,15 @@ import {
   scoreSyntheticGoal,
   statesActive
 } from "./score-answer.mjs"
+import {
+  createAttemptScope,
+  fetchWithBackoff,
+  waitForProvider
+} from "./upstream.mjs"
 
 /** Checked before any case runs, so a key bound for plain HTTP stops the run. */
-const AUTHORIZATION = upstreamAuthorization(
-  process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084",
-  process.env.AUDIT_API_KEY
-)
+const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
+const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
 
 const qualification = process.env.AUDIT_SUITE === "qualification"
 const suite = qualification ? "qualification" : "synthetic"
@@ -193,6 +198,8 @@ const writeBaseline = (directory, pinned, rows) => {
   return qualified
 }
 let externalOrigin
+/** Cancels whatever the current attempt still has streaming upstream. */
+let attemptScope = createAttemptScope()
 let profile,
   current,
   fixture,
@@ -360,12 +367,13 @@ const serveQualification = (path, body, res, method) => {
   }
 }
 const server = createServer(async (req, res) => {
+  let rec
   try {
     const path = req.url ?? "/"
     let body = ""
     for await (const c of req) body += c
     if (path.startsWith("/v1/")) {
-      const rec = {
+      rec = {
         path,
         started: Date.now(),
         request: body ? JSON.parse(body) : undefined
@@ -387,6 +395,7 @@ const server = createServer(async (req, res) => {
         ))
       ) {
         rec.status = 503
+        rec.injected = true
         rec.response = JSON.stringify({
           error: { message: "Controlled transient failure" }
         })
@@ -409,17 +418,19 @@ const server = createServer(async (req, res) => {
           e.replaceWith(e.cloneNode(true))
         })
       }
-      const upstream = await fetch(
-        (process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084") + path,
+      const { response: upstream, retries } = await fetchWithBackoff(
+        UPSTREAM + path,
         {
           method: req.method,
           headers: {
             "Content-Type": "application/json",
             ...AUTHORIZATION
           },
+          signal: attemptScope.signal,
           ...(body ? { body: withReasoningEffort(path, body) } : {})
         }
       )
+      rec.retries = retries
       res.writeHead(upstream.status, {
         "Content-Type":
           upstream.headers.get("content-type") ?? "application/json"
@@ -449,7 +460,9 @@ const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "text/html")
     res.end(html(current?.kind ?? "click", path))
   } catch (e) {
-    res.statusCode = 502
+    /** Unreachable after every retry, or cut off by the attempt's end. */
+    if (rec && rec.status === undefined) rec.status = 502
+    if (!res.headersSent) res.statusCode = 502
     res.end(JSON.stringify({ error: { message: String(e) } }))
   }
 })
@@ -545,28 +558,35 @@ try {
   await panel.exposeFunction("auditMessage", (m) =>
     messages.push({ at: Date.now(), ...m })
   )
-  await panel.evaluate(() => {
-    const p = chrome.runtime.connect({ name: "agent-run-port" })
-    window.auditPort = p
-    p.onMessage.addListener((m) => {
-      window.auditMessage(m)
-      if (
-        m.snapshot?.pending?.kind === "approval" &&
-        (!window.auditAllowedOrigins ||
-          [
-            m.snapshot.pending.request.origin,
-            m.snapshot.pending.request.routineOrigin
-          ]
-            .filter(Boolean)
-            .every((origin) => window.auditAllowedOrigins.includes(origin)))
-      )
-        p.postMessage({
-          type: "agent_approve",
-          runId: m.snapshot.run.id,
-          requestId: m.snapshot.pending.request.id
-        })
+  /**
+   * The run port and its auto-approver. Re-run after every panel reload,
+   * since a reload drops the port and the listener.
+   */
+  const connectPanel = async () => {
+    await panel.evaluate(() => {
+      const p = chrome.runtime.connect({ name: "agent-run-port" })
+      window.auditPort = p
+      p.onMessage.addListener((m) => {
+        window.auditMessage(m)
+        if (
+          m.snapshot?.pending?.kind === "approval" &&
+          (!window.auditAllowedOrigins ||
+            [
+              m.snapshot.pending.request.origin,
+              m.snapshot.pending.request.routineOrigin
+            ]
+              .filter(Boolean)
+              .every((origin) => window.auditAllowedOrigins.includes(origin)))
+        )
+          p.postMessage({
+            type: "agent_approve",
+            runId: m.snapshot.run.id,
+            requestId: m.snapshot.pending.request.id
+          })
+      })
     })
-  })
+  }
+  await connectPanel()
   await panel
     .getByRole("button", { name: "Skip for now", exact: true })
     .click({ timeout: 3000 })
@@ -613,6 +633,35 @@ try {
     const attemptStarted = Date.now()
     const pagesBeforeAttempt = new Set(context.pages())
     try {
+      /**
+       * Each attempt starts from a clean slate: nothing the last one left
+       * streaming upstream, and a freshly loaded panel. A turn stuck in the
+       * old panel then cannot hold the composer, and the next attempt's
+       * clock starts on a panel that can accept its task.
+       */
+      attemptScope.abort()
+      attemptScope = createAttemptScope()
+      if (index > 0) {
+        await panel.reload()
+        await connectPanel()
+      }
+      /**
+       * A provider that is down is not the attempt's fault. The attempt is
+       * recorded as an infrastructure failure, counted rather than dropped,
+       * and the pass moves on instead of timing out against it.
+       */
+      if (!(await waitForProvider(UPSTREAM, AUTHORIZATION))) {
+        results[index] = {
+          ...results[index],
+          status: "provider_unavailable",
+          verdict: "infrastructure_failure",
+          failureCode: "provider_unavailable",
+          failureOrigin: "infrastructure",
+          wallMs: Date.now() - attemptStarted
+        }
+        writeBaseline(out, inputs, results)
+        continue
+      }
       const task = qualificationTasks.find((entry) => entry.id === kind)
       current = {
         kind,
@@ -822,19 +871,35 @@ try {
       const expectedPause = qualification
         ? current.qualification.task.expectedPause
         : kind === "ambiguous"
+      const admissionFailure =
+        status === "turn_not_started" ||
+        (!final &&
+          wireTelemetry(wire).executionStages.includes(
+            "browser_task_admission"
+          ))
+      /**
+       * A deadline with no run and no answer is the harness's problem: the
+       * chat never got a turn through, so nothing about the agent was
+       * measured. It stays in the end-to-end denominator as an
+       * infrastructure failure. A run still going at the deadline is the
+       * agent's, and a chat that kept asking admission is admission's.
+       */
+      const timedOut = status === "harness_timeout" && !admissionFailure
+      const providerDown = wire.some((w) => w.status >= 500 && !w.injected)
+      const failureCode = timedOut
+        ? providerDown
+          ? "provider_unavailable"
+          : "harness_timeout"
+        : undefined
       const verdict = classifyAttempt({
         status,
         success,
+        answer,
         expectedPause,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
-        infrastructureFailure: status === "harness_invalid",
-        admissionFailure:
-          status === "turn_not_started" ||
-          (!final &&
-            wireTelemetry(wire).executionStages.includes(
-              "browser_task_admission"
-            )),
+        infrastructureFailure: status === "harness_invalid" || timedOut,
+        admissionFailure,
         providerFailure: wire.some((w) => w.status >= 400),
         siteBlocked: isSiteChallenge(body)
       })
@@ -858,6 +923,13 @@ try {
         model,
         success,
         verdict,
+        successClaimed: successClaim({ status, answer }),
+        failureOrigin: failureOrigin({
+          verdict,
+          status,
+          errorCode: final?.run?.error?.code
+        }),
+        ...(failureCode ? { failureCode } : {}),
         predicate,
         ...(kind === "canvas" ? { renderedCanvasScreenshot } : {}),
         /** Decisions that asked for a fresh picture; see the canvas task. */
@@ -950,6 +1022,7 @@ try {
         status: "harness_exception",
         verdict: "infrastructure_failure",
         failureCode: "harness_exception",
+        failureOrigin: "infrastructure",
         wallMs: Date.now() - attemptStarted,
         ...wireTelemetry(wire)
       }
@@ -971,6 +1044,7 @@ try {
   )
   process.exitCode = 1
 } finally {
+  attemptScope.abort()
   if (results.some((row) => row.verdict === "infrastructure_failure"))
     process.exitCode = 1
   writeBaseline(out, inputs, results)

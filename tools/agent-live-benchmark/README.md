@@ -117,13 +117,39 @@ read `baseline.json`, recompute `summary` with `summarizeBaseline(attempts)`,
 and call `renderBaseline`; both functions are in `report.mjs`. Neither
 function calls a provider or copies headline scores from old reports.
 
-Verdicts distinguish achieved, false completion, partial (including
-interruption and fulfilled-but-unsettled work), safe handoff, unresolved
-effect, admission failure, provider failure, infrastructure failure, and
-site blockage. End-to-end counts include every declared attempt. The
-infrastructure-qualified denominator excludes **only infrastructure failures**;
-provider, admission and site failures remain visible. Ranked failures are
-computed from the recorded outcomes, with codes when available.
+Each attempt is scored on three separate answers: whether the goal was
+attained (the oracle's `success`), whether success was claimed
+(`successClaimed`: a completed run, or the chat reply read by `classifyClaim`),
+and where a failure came from (`failureOrigin`: admission, plan, action,
+verification, report or infrastructure). A **false completion** is a claim the
+oracle contradicts. An honest refusal, a report of partial progress,
+instructions for the user or a question back is a failure (`reported_failure`
+when the chat answered without a run), never a false completion. A reply that
+says both that the task is done and that it is not is `pending_adjudication`:
+a person rules on it, and the release gate stays closed until they do.
+Admission failure is checked before the chat reply, so a chat explaining a
+refused start is scored as admission.
+
+Other verdicts: partial (including interruption and fulfilled-but-unsettled
+work), safe handoff, unresolved effect, provider failure, infrastructure
+failure, and site blockage. End-to-end counts include every declared attempt.
+The infrastructure-qualified denominator excludes **only infrastructure
+failures**; provider, admission and site failures remain visible. Summaries,
+`baseline.md` and the release gate report the false-completion count before
+any rate. Ranked failures are computed from the recorded outcomes, with codes
+when available.
+
+The harness keeps one attempt from spending the next one's time. Provider
+answers of 408, 425, 429 and 5xx are retried with back-off (honouring
+`Retry-After`) before any byte reaches the extension. Whatever an attempt
+still has streaming upstream is cancelled when it ends, because a proxy that
+serves one request at a time otherwise holds the next attempt behind it. The
+qualification runner also reloads the side panel between attempts. Before each
+attempt the provider must answer `/v1/models`; if it doesn't within three
+minutes, the attempt is recorded as an infrastructure failure
+(`provider_unavailable`) and the pass moves on. An attempt that reaches its
+deadline with no run and no answer is likewise an infrastructure failure
+(`harness_timeout`): counted, never dropped.
 
 The wire records direct chat, page-reading tools, delegation admission,
 planning and runtime execution separately. Token counts are included only

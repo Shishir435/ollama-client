@@ -5,8 +5,10 @@ import { join } from "node:path"
 import { test } from "node:test"
 import {
   classifyAttempt,
+  failureOrigin,
   renderBaseline,
   shareableAttempt,
+  successClaim,
   summarizeBaseline,
   supervisionTelemetry,
   wireTelemetry,
@@ -229,5 +231,146 @@ test("a fulfilled checkbox remains distinguishable from a settled completion", (
     summarizeBaseline([{ verdict, success: goal.success }])
       .fulfilledButUnsettled,
     1
+  )
+})
+
+test("an honest refusal in chat is a failure, not a false completion", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer: "I couldn't find a Save button on this page."
+    }),
+    "reported_failure"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer: "The status is Active."
+    }),
+    "false_completion"
+  )
+})
+
+test("admission failure is checked before the chat answer is read", () => {
+  const refused = {
+    status: "answered_in_chat",
+    success: false,
+    admissionFailure: true
+  }
+  assert.equal(
+    classifyAttempt({
+      ...refused,
+      answer: "I wasn't able to start the browser task with this model."
+    }),
+    "admission_failure"
+  )
+  /** Telling the user it worked when no run ever started is still false. */
+  assert.equal(
+    classifyAttempt({ ...refused, answer: "Done — I've saved the form." }),
+    "false_completion"
+  )
+})
+
+test("a chat that claims what a failed run did not do is a false completion", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "failed",
+      success: false,
+      errorCode: "budget_exhausted",
+      answer: "I've submitted the form and it was saved."
+    }),
+    "false_completion"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "failed",
+      success: false,
+      errorCode: "budget_exhausted",
+      answer:
+        "I entered the name, but I ran out of steps before selecting Blue."
+    }),
+    "partial"
+  )
+})
+
+test("a reply that both claims and denies success waits for a person", () => {
+  const verdict = classifyAttempt({
+    status: "answered_in_chat",
+    success: false,
+    answer: "Done! I couldn't find the Color field, though."
+  })
+  assert.equal(verdict, "pending_adjudication")
+  assert.equal(failureOrigin({ verdict }), undefined)
+})
+
+test("an expected pause with an uncertain-effect reply is never a false completion", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "paused",
+      success: false,
+      pauseReason: "unresolved_effect",
+      answer: "I clicked Save, but the result is uncertain, so I paused."
+    }),
+    "unresolved_effect"
+  )
+})
+
+test("a run's own verdict is its claim whatever the chat says", () => {
+  assert.equal(successClaim({ status: "completed", answer: "" }), "claimed")
+  assert.equal(
+    classifyAttempt({
+      status: "completed",
+      success: false,
+      answer: "I couldn't do it."
+    }),
+    "false_completion"
+  )
+})
+
+test("every failure names the stage it came from", () => {
+  const cases = [
+    [{ verdict: "infrastructure_failure" }, "infrastructure"],
+    [{ verdict: "provider_failure" }, "infrastructure"],
+    [{ verdict: "admission_failure" }, "admission"],
+    [{ verdict: "false_completion", status: "completed" }, "verification"],
+    [{ verdict: "false_completion", status: "answered_in_chat" }, "report"],
+    [{ verdict: "partial", errorCode: "invalid_decision" }, "plan"],
+    [{ verdict: "partial", errorCode: "verification_failed" }, "verification"],
+    [{ verdict: "partial", errorCode: "budget_exhausted" }, "action"],
+    [{ verdict: "reported_failure", status: "answered_in_chat" }, "plan"],
+    [{ verdict: "achieved" }, undefined],
+    [{ verdict: "safely_handed_off" }, undefined]
+  ]
+  for (const [input, origin] of cases)
+    assert.equal(failureOrigin(input), origin, JSON.stringify(input))
+})
+
+test("false completions lead the summary and the rendered report", () => {
+  const summary = summarizeBaseline([
+    { verdict: "achieved", success: true },
+    { verdict: "false_completion", success: false, failureOrigin: "report" },
+    { verdict: "pending_adjudication", success: false },
+    { verdict: "partial", success: false, failureOrigin: "action" }
+  ])
+  assert.equal(Object.keys(summary)[0], "falseCompletions")
+  assert.equal(summary.falseCompletions, 1)
+  assert.equal(summary.pendingAdjudication, 1)
+  assert.deepEqual(summary.failureOrigins, { action: 1, report: 1 })
+  const rendered = renderBaseline({
+    inputs: { candidateSha: "abc", corpusVersion: "v", corpusHash: "h" },
+    summary
+  })
+  assert.ok(
+    rendered.indexOf("False completions: 1") <
+      rendered.indexOf("| Verdict | End-to-end")
+  )
+})
+
+test("claim and origin labels survive the shareable projection", () => {
+  assert.deepEqual(
+    shareableAttempt({ successClaimed: "not_claimed", failureOrigin: "plan" }),
+    { successClaimed: "not_claimed", failureOrigin: "plan" }
   )
 })

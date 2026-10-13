@@ -194,3 +194,26 @@ test("the release command refuses an empty budget instead of reading it as zero"
   assert.notEqual(run.status, 0)
   assert.match(run.stderr, /--budget takes a non-negative US dollar amount/)
 })
+
+test("false completions are counted first and block release on their own", () => {
+  const sample = report("one")
+  const row = sample.attempts.find((entry) => entry.family === "research")
+  row.success = false
+  row.verdict = "false_completion"
+  const result = evaluateRelease([sample, report("two")], candidate)
+  assert.equal(Object.keys(result)[1], "falseCompletions")
+  assert.equal(result.falseCompletions, 1)
+  assert.equal(result.configurations[0].falseCompletions, 1)
+  assert.ok(result.blockers.includes("false_completions"))
+})
+
+test("an attempt awaiting adjudication blocks release until a person rules on it", () => {
+  const sample = report("one")
+  const row = sample.attempts.find((entry) => entry.family === "research")
+  row.success = false
+  row.verdict = "pending_adjudication"
+  const result = evaluateRelease([sample, report("two")], candidate)
+  assert.equal(result.configurations[0].pendingAdjudication, 1)
+  assert.ok(result.blockers.includes("pending_adjudication"))
+  assert.equal(result.matrix.qualificationEvidenceComplete, false)
+})
