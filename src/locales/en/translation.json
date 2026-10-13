@@ -286,6 +286,21 @@
       "scope_changed": "Task scope changed. Review panel-close consent before continuing.",
       "scope": "Tabs: {{tabs}} · Provider: {{provider}} · Model: {{model}}",
       "stop_menu": "Stop browser agent"
+    },
+    "readiness": {
+      "not_qualified": {
+        "title": "Browser agent: works with this model, not yet qualified.",
+        "fix": "It can call tools, but it has no recorded qualification pass, so check what it reports."
+      },
+      "experimental": {
+        "title": "Browser agent: this model's tool calling is unconfirmed.",
+        "fix": "Confirm tool calling in the model's capabilities, or pick a model whose tool calling is confirmed."
+      },
+      "unsupported": {
+        "title": "Browser agent: this model cannot drive it.",
+        "fix": "Choose a model whose tool calling is confirmed."
+      },
+      "alternatives": "On this provider: {{models}}."
     }
   },
   "common": {

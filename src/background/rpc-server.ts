@@ -152,6 +152,12 @@ const handlers = {
     const { getAgentRunCard } =
       await import("@/background/agent/agent-run-card-rpc")
     return getAgentRunCard(request)
+  },
+  [RpcMethod.AgentGetReadiness]: async (request) => {
+    if (!AGENT_PREVIEW_ENABLED) return { qualified: false }
+    const { getAgentReadiness } =
+      await import("@/background/agent/agent-readiness-rpc")
+    return getAgentReadiness(request)
   }
 } satisfies RpcHandlers
 

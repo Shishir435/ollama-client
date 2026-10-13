@@ -286,6 +286,21 @@
       "scope_changed": "El alcance de la tarea cambió. Revisa el permiso para continuar con el panel cerrado.",
       "scope": "Pestañas: {{tabs}} · Proveedor: {{provider}} · Modelo: {{model}}",
       "stop_menu": "Detener el agente del navegador"
+    },
+    "readiness": {
+      "not_qualified": {
+        "title": "Agente del navegador: funciona con este modelo, aún no calificado.",
+        "fix": "Puede llamar a herramientas, pero no tiene una calificación registrada, así que revisa lo que informa."
+      },
+      "experimental": {
+        "title": "Agente del navegador: las llamadas a herramientas de este modelo no están confirmadas.",
+        "fix": "Confirma las llamadas a herramientas en las capacidades del modelo o elige un modelo con llamadas a herramientas confirmadas."
+      },
+      "unsupported": {
+        "title": "Agente del navegador: este modelo no puede controlarlo.",
+        "fix": "Elige un modelo con llamadas a herramientas confirmadas."
+      },
+      "alternatives": "En este proveedor: {{models}}."
     }
   },
   "common": {

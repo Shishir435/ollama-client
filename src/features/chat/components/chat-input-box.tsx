@@ -4,6 +4,7 @@ import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
 import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
+import { useAgentComposerNotice } from "@/features/chat/lib/agent-composer-notice"
 import {
   useChatInput,
   useComposerUi
@@ -49,6 +50,7 @@ export const ChatInputBox = ({
 }) => {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const AgentNotice = useAgentComposerNotice()
   const { input, setInput, appendInput } = useChatInput()
   const {
     promptLibraryOpen,
@@ -400,6 +402,9 @@ export const ChatInputBox = ({
           })}
         />
       )}
+
+      {/* oxlint-disable-next-line react/static-components -- The notice is an existing component supplied by context, not created during render. */}
+      {AgentNotice && <AgentNotice />}
 
       <ComposerShell
         isFocused={focused}

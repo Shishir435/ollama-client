@@ -6,7 +6,7 @@ import {
   MAX_AGENT_ALLOWED_ORIGINS,
   MAX_AGENT_OBSERVATIONS
 } from "./agent"
-import { AgentStepRecordSchema } from "./agent-panel"
+import { AgentModelReadinessSchema, AgentStepRecordSchema } from "./agent-panel"
 
 /**
  * How many ids one request may carry. The sender batches by this same
@@ -128,3 +128,32 @@ export const AgentGetRunResultSchema = z
 export type AgentGetRunRequest = z.infer<typeof AgentGetRunRequestSchema>
 export type AgentRunCard = z.infer<typeof AgentRunCardSchema>
 export type AgentGetRunResult = z.infer<typeof AgentGetRunResultSchema>
+
+/** The panel asks whether a model could drive the browser agent at all. */
+export const AgentGetReadinessRequestSchema = z
+  .object({
+    providerId: z.string().min(1).max(200),
+    modelId: z.string().min(1).max(200)
+  })
+  .strict()
+
+/**
+ * Two separate answers. `readiness` says whether the model can call tools a
+ * step at a time: interface-compatible. `qualified` says whether it has a
+ * recorded qualification pass: task-qualified. A model can be the first
+ * without the second. `readiness` is absent when the provider is not
+ * configured.
+ */
+export const AgentGetReadinessResultSchema = z
+  .object({
+    readiness: AgentModelReadinessSchema.optional(),
+    qualified: z.boolean()
+  })
+  .strict()
+
+export type AgentGetReadinessRequest = z.infer<
+  typeof AgentGetReadinessRequestSchema
+>
+export type AgentGetReadinessResult = z.infer<
+  typeof AgentGetReadinessResultSchema
+>

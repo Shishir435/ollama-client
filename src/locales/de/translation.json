@@ -286,6 +286,21 @@
       "scope_changed": "Der Aufgabenbereich hat sich geändert. Prüfen Sie die Zustimmung zum Fortsetzen bei geschlossenem Panel.",
       "scope": "Tabs: {{tabs}} · Anbieter: {{provider}} · Modell: {{model}}",
       "stop_menu": "Browser-Agent stoppen"
+    },
+    "readiness": {
+      "not_qualified": {
+        "title": "Browser-Agent: funktioniert mit diesem Modell, noch nicht qualifiziert.",
+        "fix": "Es kann Tools aufrufen, hat aber keinen erfassten Qualifizierungslauf. Prüfe daher, was es meldet."
+      },
+      "experimental": {
+        "title": "Browser-Agent: Der Tool-Aufruf dieses Modells ist nicht bestätigt.",
+        "fix": "Bestätige den Tool-Aufruf in den Fähigkeiten des Modells oder wähle ein Modell mit bestätigtem Tool-Aufruf."
+      },
+      "unsupported": {
+        "title": "Browser-Agent: Dieses Modell kann ihn nicht steuern.",
+        "fix": "Wähle ein Modell mit bestätigtem Tool-Aufruf."
+      },
+      "alternatives": "Bei diesem Anbieter: {{models}}."
     }
   },
   "common": {

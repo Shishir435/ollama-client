@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react"
 import { AgentChatComposerContext } from "@/features/agent/lib/agent-chat-composer"
 import { Chat } from "@/features/chat/components/chat"
+import { AgentComposerNoticeContext } from "@/features/chat/lib/agent-composer-notice"
 import { AgentRunRendererContext } from "@/features/chat/lib/agent-run-renderer"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 import { chatSessionStore } from "@/features/sessions/stores/chat-session-store"
@@ -30,6 +31,25 @@ const AgentRunCard =
       )
     : undefined
 
+/** The composer's line about the selected model's readiness, likewise. */
+const AgentReadiness =
+  typeof __AGENT_PREVIEW_ENABLED__ !== "undefined" && __AGENT_PREVIEW_ENABLED__
+    ? lazy(() =>
+        import("@/features/agent/components/agent-readiness-line").then(
+          (module) => ({ default: module.SelectedModelAgentReadiness })
+        )
+      )
+    : undefined
+
+/** Loaded with the Agent chunk; until then the composer shows no line. */
+const AgentComposerNotice = AgentReadiness
+  ? () => (
+      <Suspense fallback={null}>
+        <AgentReadiness />
+      </Suspense>
+    )
+  : undefined
+
 /**
  * A follow-up is a chat message the user sends, drafted in the composer. Ask
  * drafts nothing and so ties the next message to no run.
@@ -51,9 +71,9 @@ const draftInChatComposer = (text?: string, followUpRunId?: string) => {
  *
  * A run is started by the chat model calling `browser_task`, supervised by its
  * card in the turn that started it, and followed up by sending another
- * message. The Agent lends chat two things and owns no screen of its own: the
- * card for a run's row, and the door back to the composer its follow-ups
- * use. Chat imports neither — the shell is the one place that knows both.
+ * message. The Agent lends chat three things and owns no screen of its own:
+ * the card for a run's row, the door back to the composer its follow-ups
+ * use, and the composer's line about the model's readiness. Chat imports neither — the shell is the one place that knows both.
  *
  * Until the Agent chunk has loaded, and always on Firefox, this is plain chat.
  */
@@ -66,7 +86,9 @@ export const SidepanelWorkspace = () => {
         <AgentWorkspace>
           <AgentRunRendererContext.Provider value={AgentRunCard}>
             <AgentChatComposerContext.Provider value={draftInChatComposer}>
-              <Chat embedded />
+              <AgentComposerNoticeContext.Provider value={AgentComposerNotice}>
+                <Chat embedded />
+              </AgentComposerNoticeContext.Provider>
             </AgentChatComposerContext.Provider>
           </AgentRunRendererContext.Provider>
         </AgentWorkspace>
