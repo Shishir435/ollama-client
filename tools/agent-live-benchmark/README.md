@@ -12,15 +12,20 @@ answered every request `503` after one cancelled turn — is invisible to it.
 
 ## Running
 
-```bash
-pnpm build                                   # the scripts load build/chrome-mv3-prod
-AUDIT_UPSTREAM=http://127.0.0.1:8087 \
-AUDIT_MODEL=opencode/muse-spark-1.3-contributor-free \
-  node tools/agent-live-benchmark/synthetic.mjs
+Live runs go through the olc Codex proxy (`codex/gpt-6-luna` at `xhigh`), in
+the Playwright Docker image:
 
-AUDIT_UPSTREAM=http://127.0.0.1:8087 \
-  node tools/agent-live-benchmark/real-sites.mjs
+```bash
+pnpm build                                   # the suites load build/chrome-mv3-prod
+pnpm benchmark:agent:live:docker qualification   # or synthetic, real-sites
+AUDIT_ONLY=forms_draft,rows_two_rows AUDIT_ATTEMPTS=1 \
+  pnpm benchmark:agent:live:docker qualification  # a targeted re-run
 ```
+
+`run-live.docker.sh` reuses olc Codex on port 8083 (`pnpm proxy:codex`) or
+starts it for the run and stops it afterwards. Codex signs in through its own
+CLI; no API key is involved. Logs go to `artifacts/agent-live-benchmark/logs/`.
+Running a suite directly with `node` still works for an endpoint of your own:
 
 | variable | meaning |
 | --- | --- |
@@ -248,42 +253,32 @@ boundary separately. No new live-site account suite or unattended execution is
 introduced. Retain private debug evidence locally when manually investigating a
 false completion; share only the task/attempt, predicate and adjudication label.
 
-## Scheduled live suite
+## Nightly live suite
 
-`.github/workflows/agent-live-nightly.yml` runs the qualification corpus every
-night, and on demand from the Actions tab ("Agent live suite" → Run workflow,
-with model, attempts, split and cost cap). It never runs for a pull request,
-and only in this repository, so a fork cannot spend a key on it.
+`nightly.sh` is the nightly pass: a production build, the qualification
+corpus in Docker against olc Codex (one attempt per task unless
+`AUDIT_ATTEMPTS` says otherwise), then `live-gate.mjs`. It refuses a dirty
+tree. It runs on the machine signed in to Codex, not in GitHub Actions, which
+has no Codex session. Schedule it with launchd or cron, for example:
 
-Set in the repository settings:
+```bash
+# crontab -e
+41 2 * * * cd ~/Projects/ollama-client && bash tools/agent-live-benchmark/nightly.sh >> artifacts/agent-live-benchmark/logs/nightly.log 2>&1
+```
 
-- Secret `AGENT_LIVE_API_KEY`: the provider key. Required; the job fails at
-  once without it. It is passed only as an environment variable and never
-  printed.
-- Variable `AGENT_LIVE_UPSTREAM` (optional): the OpenAI-compatible base URL,
-  without `/v1`. Defaults to `https://openrouter.ai/api`.
-- Variable `AGENT_LIVE_MAX_COST_USD` (optional): the nightly cost cap.
-  Defaults to `0.15`, under the key's $0.20 daily limit; a dispatch sets its own.
-
-The pass runs `openai/gpt-6-luna` at medium reasoning effort unless dispatched
-with another model. Two passes never overlap.
-
-**Cost cap.** `AUDIT_MAX_COST_USD` and `AUDIT_MAX_TOKENS` are honoured by any
-run of `synthetic.mjs` or `qualification.mjs`, not only this workflow. Usage
-is what the provider reported; nothing is estimated. Against OpenRouter, a
-cost cap asks each chat completion to report its cost
-(`usage: { include: true }`). Once the total reaches a cap, every remaining
+**Token and cost caps.** `AUDIT_MAX_TOKENS` and `AUDIT_MAX_COST_USD` are
+honoured by any run of `synthetic.mjs` or `qualification.mjs`. Usage is what
+the provider reported; nothing is estimated. olc reports tokens, not cost, so
+cap a Codex pass by tokens. Once the total reaches a cap, every remaining
 attempt is recorded as an infrastructure failure with `cost_cap_reached`:
 counted, not run. A cap that cannot be checked, because the provider reported
-no usage or no cost, counts as reached. The totals are saved as
-`inputs.usage` in the report.
+no usage (or no cost, for a cost cap), counts as reached. The totals are saved
+as `inputs.usage` in the report.
 
-**What fails the job:** any false completion, any attempt pending
+**What fails the pass:** any false completion, any attempt pending
 adjudication, any unauthorized disclosure, any duplicate consequential effect
-(`live-gate.mjs`), or any infrastructure failure, including a reached cost cap.
-A low success rate alone does not. The job uploads only `baseline.json`,
-`baseline.md` and `qualification.json`, and writes `baseline.md` to the job
-summary.
+(`live-gate.mjs`), or any infrastructure failure, including a reached cap. A
+low success rate alone does not.
 
 ## Reliability release process (PR12)
 
