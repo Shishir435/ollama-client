@@ -68,6 +68,42 @@ const REFUSALS: Record<AgentRunFailureReason, string> = {
 
 const failure = (content: string): ToolResult => ({ content, isError: true })
 
+/**
+ * Why a start was refused, when nothing the model can do before this turn
+ * ends would change the answer. The code leads the result so a reader — the
+ * model, a trace, the benchmark — can tell this refusal from one worth
+ * correcting, like a tab the agent cannot drive.
+ */
+export type BrowserTaskTerminalRefusal =
+  | "model_not_ready"
+  | "already_running"
+  | "turn_has_run"
+  | "browser_control_unavailable"
+  | "permission_denied"
+  | "chat_unavailable"
+
+const TERMINAL_START_REFUSALS: ReadonlySet<AgentRunFailureReason> = new Set([
+  "already_running",
+  "turn_has_run",
+  "browser_control_unavailable",
+  "permission_denied",
+  "chat_unavailable"
+])
+
+const terminalFailure = (
+  code: BrowserTaskTerminalRefusal,
+  content: string
+): ToolResult =>
+  failure(
+    `browser_task refused (${code}). ${content} This will not change during this turn: do not call browser_task again in this turn. Tell the user why it could not start.`
+  )
+
+/**
+ * Turns remembered at once: enough for every chat open in a window, and
+ * bounded so a long-lived worker does not keep every turn it ever saw.
+ */
+const MAX_REFUSED_TURNS = 64
+
 const TURN_STOPPED =
   "The user stopped this turn, so the browser task was stopped."
 
@@ -369,6 +405,36 @@ export const createBrowserTaskRunner = (
     ctx.confirmedNotes?.includes(ROUTINE_NOTE) === true &&
     startCoversSearches(mode, pageFirst)
 
+  /**
+   * Turns whose start was refused for good. A chat model told "the model
+   * cannot drive the agent" asked to start the same task again, and again,
+   * until the turn timed out — each call re-running admission and, where the
+   * start prompt applied, asking the user again. A repeat in the same turn
+   * gets the first answer back at once.
+   */
+  const refusedTurns = new Map<
+    string,
+    { code: BrowserTaskTerminalRefusal; content: string }
+  >()
+  const turnKey = (ctx: ToolContext): string | undefined =>
+    ctx.sessionId && ctx.assistantMessageId !== undefined
+      ? `${ctx.sessionId}:${ctx.assistantMessageId}`
+      : undefined
+  const refuseForTurn = (
+    ctx: ToolContext,
+    code: BrowserTaskTerminalRefusal,
+    content: string
+  ): ToolResult => {
+    const key = turnKey(ctx)
+    if (key) {
+      refusedTurns.delete(key)
+      refusedTurns.set(key, { code, content })
+      while (refusedTurns.size > MAX_REFUSED_TURNS)
+        refusedTurns.delete(refusedTurns.keys().next().value as string)
+    }
+    return terminalFailure(code, content)
+  }
+
   const turnLink = (ctx: ToolContext): TurnLink | undefined =>
     ctx.sessionId &&
     ctx.assistantMessageId !== undefined &&
@@ -437,11 +503,18 @@ export const createBrowserTaskRunner = (
       provider?.readiness?.status === "experimental" &&
       ctx.userConfirmed === true
     if (!agentReadinessPermitsStart(provider?.readiness, experimental)) {
+      const content =
+        "The selected model cannot drive the browser agent, which needs confirmed tool calling for every step. Tell the user to choose a model whose tool calling is confirmed."
+      /**
+       * An experimental model is one approved prompt away from starting, so
+       * only a model no approval can admit is refused for the whole turn.
+       */
       return {
         ok: false,
-        result: failure(
-          "The selected model cannot drive the browser agent, which needs confirmed tool calling for every step. Tell the user to choose a model whose tool calling is confirmed."
-        )
+        result:
+          provider?.readiness?.status === "experimental"
+            ? failure(content)
+            : refuseForTurn(ctx, "model_not_ready", content)
       }
     }
     const remote = await needsRemoteAcknowledgement(provider)
@@ -529,13 +602,23 @@ export const createBrowserTaskRunner = (
           return {
             ok: false,
             runless: true,
-            result: failure(blockedByRunRefusal(blocking))
+            result: refuseForTurn(
+              ctx,
+              "already_running",
+              blockedByRunRefusal(blocking)
+            )
           }
         }
         return {
           ok: false,
           runless: true,
-          result: failure(REFUSALS[error.reason])
+          result: TERMINAL_START_REFUSALS.has(error.reason)
+            ? refuseForTurn(
+                ctx,
+                error.reason as BrowserTaskTerminalRefusal,
+                REFUSALS[error.reason]
+              )
+            : failure(REFUSALS[error.reason])
         }
       }
       logger.error("Browser task could not start", "Agent", {
@@ -609,6 +692,9 @@ export const createBrowserTaskRunner = (
     },
 
     async confirmation(request, ctx) {
+      /** Nothing will start, so there is nothing to ask the user about. */
+      const key = turnKey(ctx)
+      if (key && refusedTurns.has(key)) return {}
       const provider = await discloseFor(ctx)
       const remote = await needsRemoteAcknowledgement(provider)
       const otherTab =
@@ -644,6 +730,9 @@ export const createBrowserTaskRunner = (
     },
 
     async run(request, ctx) {
+      const key = turnKey(ctx)
+      const refused = key ? refusedTurns.get(key) : undefined
+      if (refused) return terminalFailure(refused.code, refused.content)
       const admitted = await admit(request, ctx)
       if (!admitted.ok) return admitted.result
       if (ctx.signal?.aborted) {

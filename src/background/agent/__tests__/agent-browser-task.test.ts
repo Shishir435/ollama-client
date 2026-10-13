@@ -728,4 +728,72 @@ describe("running a browser task", () => {
     expect(result.isError).toBe(true)
     expect(result.content).toContain("already ran in this turn")
   })
+
+  describe("a start refused for good", () => {
+    const unsupported: Provider = {
+      ...local,
+      readiness: {
+        status: "unsupported",
+        reason: "reported_unsupported",
+        vision: "unknown"
+      }
+    }
+
+    it("is refused at once on a repeat in the same turn, without admission or a prompt", async () => {
+      const service = serviceStub()
+      const disclose = vi.fn(async () => unsupported)
+      const task = runner(service, unsupported, { disclose })
+
+      const first = await task.run(request, turn())
+      expect(first.isError).toBe(true)
+      expect(first.content).toMatch(/^browser_task refused \(model_not_ready\)/)
+      expect(first.content).toContain("do not call browser_task again")
+      expect(disclose).toHaveBeenCalledTimes(1)
+
+      const prompt = await task.confirmation(request, turn())
+      const second = await task.run(request, turn())
+      expect(prompt).toEqual({})
+      expect(second).toEqual(first)
+      expect(disclose).toHaveBeenCalledTimes(1)
+      expect(service.delegate).not.toHaveBeenCalled()
+    })
+
+    it("does not carry into the next turn", async () => {
+      const disclose = vi.fn(async () => unsupported)
+      const task = runner(serviceStub(), unsupported, { disclose })
+      await task.run(request, turn())
+      await task.run(request, turn({ assistantMessageId: 43 }))
+      expect(disclose).toHaveBeenCalledTimes(2)
+    })
+
+    it("codes a run-service refusal that will not change this turn", async () => {
+      const service = serviceStub({
+        delegate: vi.fn(async () => {
+          throw new AgentRunError("turn_has_run", "second")
+        })
+      })
+      const task = runner(service)
+      const first = await task.run(request, turn())
+      expect(first.content).toMatch(/^browser_task refused \(turn_has_run\)/)
+      await task.run(request, turn())
+      expect(service.delegate).toHaveBeenCalledTimes(1)
+    })
+
+    it("leaves a refusal the model can correct open to a retry", async () => {
+      const service = serviceStub()
+      const task = runner(service)
+      const onSettings = await task.run(
+        request,
+        turn({ browserTabId: 11, userConfirmed: true })
+      )
+      expect(onSettings.isError).toBe(true)
+      expect(onSettings.content).not.toMatch(/^browser_task refused/)
+
+      await task.run(
+        { ...request, startUrl: "https://example.com" },
+        turn({ browserTabId: 7, userConfirmed: true })
+      )
+      expect(service.delegate).toHaveBeenCalledTimes(1)
+    })
+  })
 })
