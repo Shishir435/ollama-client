@@ -1,6 +1,8 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { browser } from "@/lib/browser-api"
+import { STORAGE_KEYS } from "@/lib/constants"
 import { SETTINGS } from "@/lib/storage/settings"
 
 const call = vi.hoisted(() => vi.fn())
@@ -88,5 +90,30 @@ describe("useAgentReadiness", () => {
     const absent = renderHook(() => useAgentReadiness())
     await flush()
     expect(absent.result.current).toEqual({ kind: "hidden" })
+  })
+
+  it("asks again when the evidence behind the verdict changes", async () => {
+    vi.useFakeTimers()
+    try {
+      call.mockResolvedValue({ readiness: ready, qualified: false })
+      const addListener = vi.mocked(browser.storage.onChanged.addListener)
+      addListener.mockClear()
+      renderHook(() => useAgentReadiness())
+      await flush()
+      expect(call).toHaveBeenCalledTimes(1)
+      const onChanged = addListener.mock.calls.at(-1)?.[0] as unknown as (
+        changes: Record<string, unknown>
+      ) => void
+
+      onChanged({ unrelated: {} })
+      await act(async () => vi.advanceTimersByTime(500))
+      expect(call).toHaveBeenCalledTimes(1)
+
+      onChanged({ [STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES]: {} })
+      await act(async () => vi.advanceTimersByTime(500))
+      expect(call).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

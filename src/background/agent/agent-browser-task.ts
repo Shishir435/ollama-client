@@ -506,15 +506,19 @@ export const createBrowserTaskRunner = (
       const content =
         "The selected model cannot drive the browser agent, which needs confirmed tool calling for every step. Tell the user to choose a model whose tool calling is confirmed."
       /**
-       * An experimental model is one approved prompt away from starting, so
-       * only a model no approval can admit is refused for the whole turn.
+       * Refused for the whole turn only when the verdict is definite. An
+       * experimental model is one approved prompt away from starting, and a
+       * lookup that failed (no disclosure, or `unknown`) may succeed on the
+       * next call, so neither is remembered.
        */
+      const definite =
+        provider?.readiness?.status === "unsupported" &&
+        provider.readiness.reason !== "unknown"
       return {
         ok: false,
-        result:
-          provider?.readiness?.status === "experimental"
-            ? failure(content)
-            : refuseForTurn(ctx, "model_not_ready", content)
+        result: definite
+          ? refuseForTurn(ctx, "model_not_ready", content)
+          : failure(content)
       }
     }
     const remote = await needsRemoteAcknowledgement(provider)

@@ -758,6 +758,26 @@ describe("running a browser task", () => {
       expect(service.delegate).not.toHaveBeenCalled()
     })
 
+    it("remembers nothing when the readiness lookup itself failed", async () => {
+      const unknown: Provider = {
+        ...local,
+        readiness: {
+          status: "unsupported",
+          reason: "unknown",
+          vision: "unknown"
+        }
+      }
+      for (const provider of [undefined, unknown]) {
+        const disclose = vi.fn(async () => provider)
+        const task = runner(serviceStub(), provider, { disclose })
+        const first = await task.run(request, turn())
+        expect(first.isError).toBe(true)
+        expect(first.content).not.toMatch(/^browser_task refused/)
+        await task.run(request, turn())
+        expect(disclose).toHaveBeenCalledTimes(2)
+      }
+    })
+
     it("does not carry into the next turn", async () => {
       const disclose = vi.fn(async () => unsupported)
       const task = runner(serviceStub(), unsupported, { disclose })

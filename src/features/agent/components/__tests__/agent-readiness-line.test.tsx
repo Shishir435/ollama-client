@@ -67,7 +67,7 @@ describe("AgentReadinessLine", () => {
         }}
       />
     )
-    const line = screen.getByRole("alert")
+    const line = screen.getByRole("status")
     expect(line).toHaveTextContent("agent.readiness.experimental.title")
     expect(line).toHaveTextContent("agent.readiness.experimental.fix")
   })
@@ -85,7 +85,7 @@ describe("AgentReadinessLine", () => {
         }}
       />
     )
-    const line = screen.getByRole("alert")
+    const line = screen.getByRole("status")
     expect(line).toHaveTextContent("agent.readiness.unsupported.title")
     expect(line).toHaveTextContent("agent.readiness.unsupported.fix")
     expect(line).toHaveTextContent('"models":"qwen3:8b, llama3.1"')

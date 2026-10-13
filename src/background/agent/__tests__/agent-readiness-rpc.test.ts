@@ -16,20 +16,54 @@ describe("getAgentReadiness", () => {
       readiness
     }))
     await expect(
+      getAgentReadiness({ providerId: "ollama", modelId: "qwen3" }, undefined, {
+        disclose
+      })
+    ).resolves.toEqual({ readiness, qualified: false })
+    expect(disclose).toHaveBeenCalledWith(
+      "ollama",
+      "qwen3",
+      {},
+      { readOnly: true }
+    )
+  })
+
+  it("reads without recording and passes the caller's cancellation on", async () => {
+    const disclose = vi.fn(async () => undefined)
+    const controller = new AbortController()
+    await getAgentReadiness(
+      { providerId: "ollama", modelId: "qwen3" },
+      controller.signal,
+      { disclose }
+    )
+    expect(disclose).toHaveBeenCalledWith(
+      "ollama",
+      "qwen3",
+      {},
+      { readOnly: true, signal: controller.signal }
+    )
+  })
+
+  it("stops once the caller has cancelled", async () => {
+    const controller = new AbortController()
+    const disclose = vi.fn(async () => {
+      controller.abort()
+      return undefined
+    })
+    await expect(
       getAgentReadiness(
         { providerId: "ollama", modelId: "qwen3" },
+        controller.signal,
         { disclose }
       )
-    ).resolves.toEqual({ readiness, qualified: false })
-    expect(disclose).toHaveBeenCalledWith("ollama", "qwen3")
+    ).rejects.toBeDefined()
   })
 
   it("names no readiness for a provider that is not configured", async () => {
     await expect(
-      getAgentReadiness(
-        { providerId: "gone", modelId: "qwen3" },
-        { disclose: async () => undefined }
-      )
+      getAgentReadiness({ providerId: "gone", modelId: "qwen3" }, undefined, {
+        disclose: async () => undefined
+      })
     ).resolves.toEqual({ qualified: false })
   })
 })

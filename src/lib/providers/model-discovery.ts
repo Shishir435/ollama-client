@@ -46,16 +46,20 @@ export interface ModelDiscoveryResult {
  *    for a connection test — so the verdict travels with the result.
  *
  * `force` bypasses only the remembered answer, never the recording: an explicit
- * connection test re-probes and updates what is stored.
+ * connection test re-probes and updates what is stored. `record: false` is for
+ * an RPC query, which must not persist anything: it still honours what is
+ * remembered, and learns nothing.
  */
 export const discoverModels = async (
   config: ProviderConfig | undefined,
   resolveProvider: () => Promise<Pick<LLMProvider, "getModels">>,
   signal?: AbortSignal,
-  options: { force?: boolean } = {}
+  options: { force?: boolean; record?: boolean } = {}
 ): Promise<ModelDiscoveryResult> => {
   const remember = (supported: boolean) =>
-    config ? recordModelCatalogSupport(config, supported) : Promise.resolve()
+    config && options.record !== false
+      ? recordModelCatalogSupport(config, supported)
+      : Promise.resolve()
   if (
     config &&
     !options.force &&
@@ -88,6 +92,6 @@ export const discoverModels = async (
 export const discoverProviderModels = (
   provider: LLMProvider,
   signal?: AbortSignal,
-  options: { force?: boolean } = {}
+  options: { force?: boolean; record?: boolean } = {}
 ): Promise<ModelDiscoveryResult> =>
   discoverModels(provider.config, async () => provider, signal, options)

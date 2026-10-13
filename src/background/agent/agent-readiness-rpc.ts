@@ -12,12 +12,20 @@ import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
  */
 export const getAgentReadiness = async (
   { providerId, modelId }: AgentGetReadinessRequest,
+  signal?: AbortSignal,
   dependencies: {
     disclose?: typeof resolveAgentProviderDisclosure
   } = {}
 ): Promise<AgentGetReadinessResult> => {
   const disclose = dependencies.disclose ?? resolveAgentProviderDisclosure
-  const disclosure = await disclose(providerId, modelId)
+  /** A query: it records nothing it learns, and stops when the caller does. */
+  const disclosure = await disclose(
+    providerId,
+    modelId,
+    {},
+    { readOnly: true, ...(signal ? { signal } : {}) }
+  )
+  signal?.throwIfAborted()
   return {
     ...(disclosure?.readiness ? { readiness: disclosure.readiness } : {}),
     qualified: isQualifiedAgentModel(modelId)

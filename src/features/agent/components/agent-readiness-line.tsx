@@ -35,8 +35,12 @@ export const AgentReadinessLine = ({
   const alternatives = readiness.alternatives ?? []
 
   return (
-    <p
-      role={tone === "muted" ? "status" : "alert"}
+    /**
+     * Guidance, not an emergency: it arrives after the model is picked, and an
+     * assertive alert would cut into whatever the screen reader was saying.
+     */
+    <output
+      aria-live="polite"
       data-testid="agent-readiness-line"
       className={cn(
         "flex items-start gap-1.5 px-1 pb-1.5 text-micro",
@@ -55,7 +59,7 @@ export const AgentReadinessLine = ({
             })}`}
         </span>
       </span>
-    </p>
+    </output>
   )
 }
 
