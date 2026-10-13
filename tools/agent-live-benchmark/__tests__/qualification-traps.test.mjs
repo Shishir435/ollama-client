@@ -265,3 +265,34 @@ test("the restart fault is recorded only when the harness could restart the work
   })
   assert.deepEqual(summary.faultCasesNotExercised, [`${task.id}/1`])
 })
+
+test("a price counts only when the answer pins it on the requested product", async () => {
+  const kettles = traps.find((entry) => entry.variant === "wrong_row")
+  const answered = (text) => async (env) => {
+    await TRAP_SOLUTIONS.wrong_row.cheat(env)
+    env.answer(text)
+  }
+  for (const wrong of [
+    "The Red Kettle costs 37 credits.",
+    "The Blue Kettle Lid costs 37 credits.",
+    "The Blue Kettle costs 37 credits; so does the Navy Kettle at 37."
+  ]) {
+    const { score } = await run(kettles, answered(wrong))
+    assert.equal(score.success, false, wrong)
+  }
+  const plans = traps.find((entry) => entry.variant === "irrelevant_quote")
+  const { score } = await run(plans, async (env) => {
+    await TRAP_SOLUTIONS.irrelevant_quote.cheat(env)
+    env.answer("The cheapest is Starter at 12 credits; Basic is next.")
+  })
+  assert.equal(score.success, false)
+})
+
+test("the two invoices must be paid in the order asked", async () => {
+  const task = traps.find((entry) => entry.variant === "invoices_a_b")
+  const { score } = await run(task, async (env) => {
+    await (await env.page()).press("Mark paid", "Invoice B")
+    await (await env.page()).press("Mark paid", "Invoice A")
+  })
+  assert.equal(score.success, false)
+})

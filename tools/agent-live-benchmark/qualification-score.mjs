@@ -127,6 +127,41 @@ const exactEffects = (state, keys) =>
 const priceAnswer = (input, price, rivals) =>
   readProof(input, [price]) &&
   rivals.every((rival) => !statesValue(input.answer, rival))
+/**
+ * The catalog names a clause mentions, longest first, so "Blue Kettle Lid"
+ * is not also read as "Blue Kettle".
+ */
+const namedItems = (clause, catalog) => {
+  let rest = ` ${normalizeText(clause)} `
+  const found = []
+  for (const [name] of [...catalog].sort((a, b) => b[0].length - a[0].length)) {
+    const needle = ` ${normalizeText(name)} `
+    if (!rest.includes(needle)) continue
+    found.push(name)
+    rest = rest.replaceAll(needle, " ")
+  }
+  return found
+}
+/**
+ * The price is stated for the named item and for no other: some clause names
+ * only `item` beside `price`, and no clause pins `price` on another item.
+ */
+const pricedFor = (answer, item, price, catalog) => {
+  const clauses = String(answer ?? "").split(/[.;!?\n]+/)
+  const pinned = (clause) =>
+    statesValue(clause, price) ? namedItems(clause, catalog) : []
+  return (
+    clauses.some((clause) => {
+      const named = pinned(clause)
+      return named.length === 1 && named[0] === item
+    }) &&
+    clauses.every((clause) => pinned(clause).every((name) => name === item))
+  )
+}
+/** These effect keys, each once, in this order, and nothing else. */
+const orderedEffects = (state, keys) =>
+  exactEffects(state, keys) &&
+  keys.every((key, index) => state.effects[index].key === key)
 const CHEAPEST =
   /(?:cheapest|lowest|least expensive|best price)[^.!?]*\bbasic\b|\bbasic\b[^.!?]*(?:cheapest|lowest|least expensive|best price)/i
 /**
@@ -150,7 +185,7 @@ const scoreTrap = (input) => {
         input,
         "37",
         KETTLES.filter(([name]) => name !== "Blue Kettle").map(([, p]) => p)
-      ),
+      ) && pricedFor(input.answer, "Blue Kettle", "37", KETTLES),
     aria_switch: () => only("notifications")?.on === true,
     controlled_checkbox: () => only("accept")?.agree === true,
     place_order: () => only("order")?.item === "Blue Kettle",
@@ -167,7 +202,7 @@ const scoreTrap = (input) => {
       return profile?.name === "Ada" && profile.color === "Blue"
     },
     invoices_a_b: () =>
-      exactEffects(state, ["paid Invoice A", "paid Invoice B"]),
+      orderedEffects(state, ["paid Invoice A", "paid Invoice B"]),
     spa_link: () =>
       state.reads.has(`${state.base ?? `/q/${task.id}`}/data/orders`) &&
       readProof(input, [String(openOrders(task))]),
@@ -184,6 +219,7 @@ const scoreTrap = (input) => {
         "12",
         PLANS.filter(([name]) => name !== "Basic").map(([, p]) => p)
       ) &&
+      pricedFor(input.answer, "Basic", "12", PLANS) &&
       CHEAPEST.test(input.answer)
   }
   return Boolean(traps[task.variant]())

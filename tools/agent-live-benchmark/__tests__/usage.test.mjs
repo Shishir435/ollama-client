@@ -31,7 +31,19 @@ test("usage is read from each response's last usage frame", () => {
     call(JSON.stringify({ usage: { prompt_tokens: 3, completion_tokens: 2 } })),
     { path: "/v1/models", status: 200, response: "{}" }
   ])
-  assert.deepEqual(usage, { tokens: 20, unreported: 0, costUsd: 0.002 })
+  assert.deepEqual(usage, {
+    tokens: 20,
+    unreported: 0,
+    uncosted: 1,
+    costUsd: 0.002
+  })
+})
+
+test("one priced call cannot hide another call's unknown cost", () => {
+  const budget = createUsageBudget({ maxCostUsd: 1 })
+  budget.add({ tokens: 20, unreported: 0, uncosted: 1, costUsd: 0.002 })
+  assert.equal(budget.spent.costUnknown, true)
+  assert.equal(budget.exceeded(), true)
 })
 
 test("an answered call with no usage is counted as unreported; injected faults cost nothing", () => {
@@ -41,7 +53,7 @@ test("an answered call with no usage is counted as unreported; injected faults c
       call("", { status: 503, injected: true }),
       call("", { status: 502 })
     ]),
-    { tokens: 0, unreported: 1 }
+    { tokens: 0, unreported: 1, uncosted: 0 }
   )
 })
 

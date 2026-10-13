@@ -12,13 +12,13 @@ answered every request `503` after one cancelled turn — is invisible to it.
 
 ## Running
 
-Live runs go through the olc Codex proxy (`codex/gpt-6-luna` at `xhigh`), in
+Live runs go through the olc Codex proxy (`codex/gpt-6-luna` at `high`), in
 the Playwright Docker image:
 
 ```bash
 pnpm build                                   # the suites load build/chrome-mv3-prod
 pnpm benchmark:agent:live:docker qualification   # or synthetic, real-sites
-AUDIT_ONLY=forms_draft,rows_two_rows AUDIT_ATTEMPTS=1 \
+AUDIT_ONLY=forms_draft,rows_first AUDIT_ATTEMPTS=1 \
   pnpm benchmark:agent:live:docker qualification  # a targeted re-run
 ```
 
@@ -295,7 +295,8 @@ false completion; share only the task/attempt, predicate and adjudication label.
 `nightly.sh` is the nightly pass: a production build, the qualification
 corpus in Docker against olc Codex (one attempt per task unless
 `AUDIT_ATTEMPTS` says otherwise), then `live-gate.mjs`. It refuses a dirty
-tree. It runs on the machine signed in to Codex, not in GitHub Actions, which
+tree, and caps the pass at 15,000,000 reported tokens unless
+`AUDIT_MAX_TOKENS` says otherwise. It runs on the machine signed in to Codex, not in GitHub Actions, which
 has no Codex session. Schedule it with launchd or cron, for example:
 
 ```bash

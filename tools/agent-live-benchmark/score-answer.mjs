@@ -353,8 +353,12 @@ const NOT_DONE_PATTERN = new RegExp(
     String.raw`\b(?:was|were|is|has)\s*(?:not|n't)\s+(?:been\s+)?(?:completed|finished|done|saved|submitted|started|verified|confirmed|possible)\b`,
     String.raw`\bnot\s+(?:yet\s+)?(?:done|finished|complete|completed|verified|confirmed)\b`,
     String.raw`\b(?:did\s*not|didn't|does\s*not|doesn't)\s+(?:complete|finish|succeed|work|go\s+through|start)\b`,
-    String.raw`\b(?:refused|declined|blocked|unavailable|uncertain|unclear|unverified|unconfirmed)\b`,
-    String.raw`\bnot\s+(?:available|sure|certain|supported|enabled|allowed)\b`,
+    /**
+     * Words like "unavailable" or "unclear" deny the task only when they are
+     * said of it: the reply's speaker, the task, the tool or the result.
+     * "Other colors are unavailable" beside a wrong price is still a claim.
+     */
+    String.raw`\b(?:i|we|it|this|that|whether|the\s+(?:browser\s+agent|agent|browser\s+task|task|tool|site|page|result|outcome|save|submission|order|change|update|effect|action|form|request|model|status))\b[^.!?\n]{0,60}?\b(?:refused|declined|blocked|unavailable|uncertain|unclear|unverified|unconfirmed|not\s+(?:available|sure|certain|supported|enabled|allowed))\b`,
     String.raw`\b(?:paused|waiting\s+for\s+(?:you|your)|needs?\s+your|requires?\s+your)\b`,
     String.raw`\b(?:ran|run)\s+out\s+of\b|\bstopped\s+before\b|\bbefore\s+(?:i|we)\s+could\b|\b(?:only\s+)?partially\b|\bonly\s+(?:managed|got)\s+to\b`
   ].join("|"),

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Runs a live agent suite in the Playwright Docker image against the olc Codex
 # proxy on the host. The model and effort default to codex/gpt-6-luna at
-# xhigh; no API key is involved, Codex signs in through its own CLI.
+# high; no API key is involved, Codex signs in through its own CLI.
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repository_root"
@@ -14,11 +14,12 @@ Usage: bash tools/agent-live-benchmark/run-live.docker.sh <qualification|synthet
 
 Environment (all optional):
   AUDIT_MODEL             default codex/gpt-6-luna
-  AUDIT_REASONING_EFFORT  default xhigh
+  AUDIT_REASONING_EFFORT  default high
   AUDIT_ATTEMPTS          attempts per task (harness default 3)
   AUDIT_SPLIT             qualification split: development or held_out
   AUDIT_ONLY              comma-separated task ids
   AUDIT_MAX_TOKENS        stop starting attempts past this many reported tokens
+  AUDIT_MAX_COST_USD      the same for reported cost (olc reports tokens only)
   AGENT_LIVE_OLC_PORT     olc Codex port on the host, default 8083; reused when
                           already running, started (and stopped after) otherwise
   AGENT_BENCHMARK_DOCKER_IMAGE  override the Playwright image
@@ -113,16 +114,16 @@ fi
 env_args=(
   -e "AUDIT_UPSTREAM=$container_base_url"
   -e "AUDIT_MODEL=${AUDIT_MODEL:-codex/gpt-6-luna}"
-  -e "AUDIT_REASONING_EFFORT=${AUDIT_REASONING_EFFORT:-xhigh}"
+  -e "AUDIT_REASONING_EFFORT=${AUDIT_REASONING_EFFORT:-high}"
 )
-for name in AUDIT_ATTEMPTS AUDIT_SPLIT AUDIT_ONLY AUDIT_MAX_TOKENS AUDIT_DEBUG_EVIDENCE; do
+for name in AUDIT_ATTEMPTS AUDIT_SPLIT AUDIT_ONLY AUDIT_MAX_TOKENS AUDIT_MAX_COST_USD AUDIT_DEBUG_EVIDENCE; do
   if [[ -n "${!name:-}" ]]; then env_args+=(-e "$name=${!name}"); fi
 done
 
 set +e
 docker run --rm --init --ipc=host \
   --pids-limit="${AGENT_BENCHMARK_DOCKER_PIDS_LIMIT:-2048}" \
-  "${network_args[@]}" \
+  ${network_args[@]+"${network_args[@]}"} \
   --mount "type=bind,source=$repository_root,target=/workspace" \
   --mount "type=volume,source=ollama-client-benchmark-node-modules-v${playwright_version//./-},target=/workspace/node_modules" \
   --mount "type=volume,source=ollama-client-benchmark-pnpm-store,target=/workspace/.pnpm-store" \

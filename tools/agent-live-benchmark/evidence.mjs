@@ -20,8 +20,30 @@ const REDACTED_KEYS = new Set([
   "apiKey"
 ])
 
-export const redactEvidence = (_key, value) =>
-  REDACTED_KEYS.has(_key) ? "[REDACTED]" : value
+/**
+ * Credentials that can sit inside a string — a bearer header echoed in an
+ * error, a key in a URL query, a provider key in response text — scrubbed
+ * wherever they appear, since redacting by property name cannot reach them.
+ */
+const SECRET_PATTERNS = [
+  [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi, "$1 [REDACTED]"],
+  [/\b(sk|pk|rk|sess|ghp|gho|xox[abp])[-_][A-Za-z0-9_-]{12,}/g, "[REDACTED]"],
+  [
+    /([?&;\s"']|^)((?:api[_-]?key|access[_-]?token|token|secret|password|passwd|auth|authorization|key|signature|sig|session)=)[^&\s"';#]+/gi,
+    "$1$2[REDACTED]"
+  ]
+]
+
+export const scrubSecrets = (text) =>
+  SECRET_PATTERNS.reduce(
+    (value, [pattern, replacement]) => value.replace(pattern, replacement),
+    text
+  )
+
+export const redactEvidence = (key, value) => {
+  if (REDACTED_KEYS.has(key)) return "[REDACTED]"
+  return typeof value === "string" ? scrubSecrets(value) : value
+}
 
 const phaseOf = (request) => {
   const names = (request?.tools ?? []).map((tool) => tool.function?.name)
@@ -121,7 +143,7 @@ export const recordFixtureRequest = (log, req, res, external = false) => {
   const entry = {
     at: Date.now(),
     method: req.method,
-    path: req.url,
+    path: scrubSecrets(String(req.url ?? "")),
     ...(external ? { external: true } : {})
   }
   log.push(entry)
@@ -181,7 +203,7 @@ export const appendFailureDigest = (directory, digest) => {
   mkdirSync(directory, { recursive: true, mode: 0o700 })
   appendFileSync(
     join(directory, "failures.jsonl"),
-    `${JSON.stringify(digest)}\n`,
+    `${JSON.stringify(digest, redactEvidence)}\n`,
     { mode: 0o600 }
   )
 }

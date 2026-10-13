@@ -37,7 +37,9 @@ const finite = (value) =>
 /**
  * Provider-reported usage across every chat completion in `wire`. Only the
  * last usage frame of a response counts, since streams repeat a running
- * total. `unreported` counts answered calls that reported no usage at all.
+ * total. `unreported` counts answered calls that reported no usage at all,
+ * and `uncosted` calls that reported tokens but no cost, so one priced call
+ * cannot hide another's unknown cost.
  * `costUsd` is present only when the provider reported a cost (as OpenRouter
  * does in `usage.cost`); it is never estimated from token counts. A fault the
  * harness injected never reached the provider and costs nothing.
@@ -45,6 +47,7 @@ const finite = (value) =>
 export const wireUsage = (wire) => {
   let tokens = 0
   let unreported = 0
+  let uncosted = 0
   let costUsd
   for (const record of wire ?? []) {
     if (!record.path?.endsWith("/chat/completions") || record.injected) continue
@@ -59,10 +62,12 @@ export const wireUsage = (wire) => {
       (finite(usage.completion_tokens) ?? 0)
     const cost = finite(usage.cost)
     if (cost !== undefined) costUsd = (costUsd ?? 0) + cost
+    else uncosted += 1
   }
   return {
     tokens,
     unreported,
+    uncosted,
     ...(costUsd === undefined ? {} : { costUsd })
   }
 }
@@ -110,6 +115,7 @@ export const createUsageBudget = ({ maxCostUsd, maxTokens } = {}) => {
         spent.tokensUnknown = true
         spent.costUnknown = true
       }
+      if (usage.uncosted > 0) spent.costUnknown = true
       if (usage.costUsd === undefined) {
         if (usage.tokens > 0) spent.costUnknown = true
       } else spent.costUsd += usage.costUsd

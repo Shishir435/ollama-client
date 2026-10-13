@@ -618,6 +618,18 @@ describe("classifyClaim", () => {
     ["Done! I couldn't find the Color field, though.", "unsure"],
     ["Task complete. The save was not confirmed.", "unsure"],
     ["Done — I've saved the form.", "claimed"],
+    [
+      "The Blue Kettle costs 9 credits. Other colors are unavailable.",
+      "claimed"
+    ],
+    [
+      "The Blue Kettle costs 9 credits, though other sizes are not available.",
+      "claimed"
+    ],
+    ["I'm not sure the order went through.", "not_claimed"],
+    ["The item status is Unavailable.", "claimed"],
+    ["Done. The account is now blocked as you asked.", "claimed"],
+    ["The site blocked the request with a captcha.", "not_claimed"],
     ["I've selected Blue and submitted the form.", "claimed"],
     ["The status is Active.", "claimed"],
     ["Version: 0.14.0", "claimed"],

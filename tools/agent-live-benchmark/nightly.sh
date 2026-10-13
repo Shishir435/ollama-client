@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # The nightly live pass: a production build, the qualification suite in Docker
-# against olc Codex (codex/gpt-6-luna, xhigh), then the gate. Run it from a
+# against olc Codex (codex/gpt-6-luna, high), then the gate. Run it from a
 # scheduler on the machine signed in to Codex; see README "Nightly live suite".
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -15,7 +15,10 @@ fi
 
 pnpm build
 suite_status=0
+# Unattended, so never uncapped. A first guess, to be tuned from the
+# inputs.usage totals real passes record; set AUDIT_MAX_TOKENS to change it.
 AUDIT_ATTEMPTS="${AUDIT_ATTEMPTS:-1}" \
+AUDIT_MAX_TOKENS="${AUDIT_MAX_TOKENS:-15000000}" \
   bash tools/agent-live-benchmark/run-live.docker.sh qualification || suite_status=$?
 node tools/agent-live-benchmark/live-gate.mjs artifacts/agent-live-benchmark/qualification
 if [[ "$suite_status" != 0 ]]; then

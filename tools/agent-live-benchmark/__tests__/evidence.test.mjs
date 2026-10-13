@@ -11,6 +11,7 @@ import {
   failureDigest,
   plainQualificationState,
   recordFixtureRequest,
+  scrubSecrets,
   streamedToolCalls,
   writeAttemptEvidence
 } from "../evidence.mjs"
@@ -160,6 +161,49 @@ test("evidence is written privately, without images or credentials", () => {
         .trim()
         .split("\n").length,
       2
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test("credentials inside strings are scrubbed from evidence, request paths and digests", () => {
+  assert.equal(
+    scrubSecrets("upstream said: Authorization: Bearer abcdef0123456789"),
+    "upstream said: Authorization: Bearer [REDACTED]"
+  )
+  assert.equal(
+    scrubSecrets("/q/a/search?q=kettle&api_key=s3cr3tvalue&page=2"),
+    "/q/a/search?q=kettle&api_key=[REDACTED]&page=2"
+  )
+  assert.equal(
+    scrubSecrets("key sk-or-v1-0123456789abcdef0123 leaked"),
+    "key [REDACTED] leaked"
+  )
+  assert.equal(
+    scrubSecrets("Status: Active. Offer 1 costs 12."),
+    "Status: Active. Offer 1 costs 12."
+  )
+
+  const log = []
+  recordFixtureRequest(
+    log,
+    { method: "GET", url: "/q/a?token=abc123&q=x" },
+    new EventEmitter()
+  )
+  assert.equal(log[0].path, "/q/a?token=[REDACTED]&q=x")
+
+  const dir = mkdtempSync(join(tmpdir(), "evidence-"))
+  try {
+    writeAttemptEvidence(dir, {
+      wire: [{ response: "error: invalid Bearer abcdefghijkl0123" }]
+    })
+    assert.ok(
+      !readFileSync(join(dir, "evidence.json"), "utf8").includes("abcdefghijkl")
+    )
+    appendFailureDigest(dir, { answer: "used password=hunter22 to sign in" })
+    assert.ok(
+      !readFileSync(join(dir, "failures.jsonl"), "utf8").includes("hunter22")
     )
   } finally {
     rmSync(dir, { recursive: true, force: true })
