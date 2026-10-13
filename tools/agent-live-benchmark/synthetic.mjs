@@ -149,6 +149,7 @@ const inputs = baselineInputs({
       ? [
           "tools/agent-live-benchmark/qualification-corpus.mjs",
           "tools/agent-live-benchmark/qualification-fixtures.mjs",
+          "tools/agent-live-benchmark/qualification-traps.mjs",
           "tools/agent-live-benchmark/qualification-score.mjs",
           "tools/agent-live-benchmark/qualification-faults.mjs",
           "tools/agent-live-benchmark/qualification-report.mjs",

@@ -1,5 +1,32 @@
-/** Inject one declared lifecycle fault at the first relevant decision, not by sleeping. */
-export const injectQualificationFault = async (state, fixture, request) => {
+/**
+ * Inject one declared lifecycle fault at the first relevant decision, not by
+ * sleeping. The Send trap restarts the extension's service worker at the
+ * first decision after the send was committed; `restartWorker` is the
+ * harness's, and a restart that fails leaves the fault not exercised, which
+ * the qualification summary reports.
+ */
+export const injectQualificationFault = async (
+  state,
+  fixture,
+  request,
+  { restartWorker } = {}
+) => {
+  if (state.task.family === "traps" && state.task.variant === "send_restart") {
+    if (
+      state.faultInjected ||
+      !state.effects.length ||
+      !restartWorker ||
+      !(request?.tools ?? []).some(
+        (tool) => tool.function?.name === "agent_decision"
+      )
+    )
+      return false
+    state.faultInjected = await restartWorker().then(
+      () => true,
+      () => false
+    )
+    return false
+  }
   if (
     state.task.family !== "lifecycle" ||
     state.faultInjected ||

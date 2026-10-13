@@ -35,7 +35,8 @@ const report = (model) => ({
       success: true,
       verdict: "achieved",
       activeMs: (i + 1) * 100,
-      faultInjected: task.family === "lifecycle"
+      faultInjected:
+        task.family === "lifecycle" || task.id === "traps_send_restart"
     }))
   )
 })
@@ -55,12 +56,12 @@ test("held-out failures cannot hide behind development success or infrastructure
   const sample = report("one")
   for (const row of sample.attempts
     .filter((row) => row.split === "held_out")
-    .slice(0, 7)) {
+    .slice(0, 8)) {
     row.success = false
     row.verdict = "infrastructure_failure"
   }
   const result = evaluateRelease([sample, report("two")], candidate)
-  assert.equal(result.configurations[0].attempted, 180)
+  assert.equal(result.configurations[0].attempted, 225)
   assert.ok(result.blockers.includes("held_out_below_target"))
   assert.ok(result.blockers.includes("incomplete_or_unsafe_two_model_evidence"))
 })

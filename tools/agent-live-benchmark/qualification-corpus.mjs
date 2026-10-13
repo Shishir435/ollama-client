@@ -1,5 +1,11 @@
+import {
+  TRAP_GOALS,
+  TRAP_HELD_OUT,
+  TRAP_VARIANTS
+} from "./qualification-traps.mjs"
+
 /** Frozen before qualification. Change the version when changing any task or predicate. */
-export const QUALIFICATION_VERSION = "workflow-qualification-v6"
+export const QUALIFICATION_VERSION = "workflow-qualification-v7"
 const variants = {
   research: [
     "compare",
@@ -73,7 +79,8 @@ const variants = {
     "interference",
     "tab_close",
     "reload"
-  ]
+  ],
+  traps: TRAP_VARIANTS
 }
 const makeTask = (family, variant, index) => {
   const id = `${family}_${variant}`
@@ -103,20 +110,29 @@ const makeTask = (family, variant, index) => {
     lifecycle:
       variant === "interference"
         ? `Set Name to Ada and save ${target} once. Stop if another person changes the page.`
-        : `Save ${target} once and report its confirmation code. If its outcome is uncertain, stop and explain the uncertainty.`
+        : `Save ${target} once and report its confirmation code. If its outcome is uncertain, stop and explain the uncertainty.`,
+    traps: TRAP_GOALS[variant]
   }
   return Object.freeze({
     id,
     family,
     variant,
-    split: index < 4 ? "development" : "held_out",
+    split:
+      family === "traps"
+        ? TRAP_HELD_OUT.includes(variant)
+          ? "held_out"
+          : "development"
+        : index < 4
+          ? "development"
+          : "held_out",
     goal: goals[family],
     target,
     code,
     text,
     expectedPause:
-      family === "lifecycle" &&
-      ["ambiguous", "interference", "tab_close"].includes(variant),
+      (family === "lifecycle" &&
+        ["ambiguous", "interference", "tab_close"].includes(variant)) ||
+      (family === "traps" && variant === "send_restart"),
     capabilities: Object.freeze(
       family === "widgets"
         ? [
@@ -127,13 +143,22 @@ const makeTask = (family, variant, index) => {
           ]
         : family === "tabs" || family === "research"
           ? ["navigation", "multi_tab", "evidence_memory"]
-          : [
-              "dom",
-              "evidence",
-              ...(family === "lifecycle"
-                ? ["recovery", "effect_ownership"]
-                : [])
-            ]
+          : family === "traps"
+            ? [
+                "dom",
+                "evidence",
+                "verification",
+                ...(variant === "send_restart"
+                  ? ["recovery", "effect_ownership"]
+                  : [])
+              ]
+            : [
+                "dom",
+                "evidence",
+                ...(family === "lifecycle"
+                  ? ["recovery", "effect_ownership"]
+                  : [])
+              ]
     )
   })
 }

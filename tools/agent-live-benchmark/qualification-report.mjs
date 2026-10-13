@@ -64,7 +64,11 @@ export const summarizeQualification = ({ inputs, attempts }) => {
       0
     ),
     faultCasesNotExercised: attempts
-      .filter((row) => row.family === "lifecycle" && !row.faultInjected)
+      .filter(
+        (row) =>
+          (row.family === "lifecycle" || row.task === "traps_send_restart") &&
+          !row.faultInjected
+      )
       .map((row) => `${row.task}/${row.attempt}`)
   }
 }

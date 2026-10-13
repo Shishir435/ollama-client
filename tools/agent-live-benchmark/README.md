@@ -43,10 +43,10 @@ it.
 
 ## What each suite is for
 
-**`synthetic.mjs`** — 19 one-line pages served from the same ephemeral origin as
+**`synthetic.mjs`** — 21 one-line pages served from the same ephemeral origin as
 the model wire: click, form, details, read, select, checkbox, uncheck, scroll,
 menu, modal, delayed, stale, ambiguous, spaform, keypress, redirect, open_tab,
-memory, canvas. Deterministic, fast, and every failure is attributable. `spaform` is the
+memory, canvas, and the two recovery cases overlay and wrongpath. Deterministic, fast, and every failure is attributable. `spaform` is the
 single-page form whose `submit` handler calls `preventDefault`; `delayed` lands
 its effect 1.2s after the click; `ambiguous` is expected to pause.
 
@@ -54,8 +54,8 @@ The canvas predicate requires an image-bearing agent decision message with
 the fixture's `Rendered` observation. Its row records the content-free
 `renderedCanvasScreenshot` signal; a `look` request alone does not count.
 
-**`real-sites.mjs`** — six tasks against Wikipedia, Hacker News, GitHub and
-DuckDuckGo. Slower, occasionally flaky, and the only thing here that observes a
+**`real-sites.mjs`** — seven tasks against Wikipedia, Hacker News, GitHub,
+DuckDuckGo and Google. Slower, occasionally flaky, and the only thing here that observes a
 page nobody wrote for the test: pages with four to five hundred controls, live
 widgets that repaint while the model is deciding, and real latency.
 
@@ -162,11 +162,30 @@ when a provider reports usage. No price configuration is currently defined,
 so no cost is estimated. Active/wait times are observed intervals, and
 scripted/automatic approvals do not measure a human's decision latency.
 
-Detailed page text and model evidence require `AUDIT_DEBUG_EVIDENCE=1`; this
-writes private `local-debug/evidence.json` files inside ignored artifacts.
-Do not share these files. Image payloads and credential fields are redacted;
-screenshots are not saved. By default only the content-free baseline is saved.
-This supersedes the unconditional evidence/screenshot output described above.
+Every run also keeps private evidence for improving the harness and the agent
+(turn it off with `AUDIT_DEBUG_EVIDENCE=0`). Per attempt,
+`<task>-<attempt>/local-debug/` holds `evidence.json` and two screenshots,
+`fixture.png` and `panel.png`, of the page and the side panel as the attempt
+left them. `evidence.json` contains:
+
+- the row, the scorer's verdict and timings;
+- one timeline row per model call: phase, status, retries, duration, tokens,
+  finish reason and the tool called;
+- the agent's decisions as the model wrote them;
+- every request the fixture servers answered, with its status;
+- the qualification state (effects, values, reads, injected faults);
+- page and panel console errors;
+- the final run, the final page HTML and the panel's text;
+- the panel snapshots, the full model wire and the worker's trace.
+
+A harness exception writes the same file with its stack. The pass's
+`local-debug/failures.jsonl` has one line per attempt that did not succeed:
+verdict, failure origin, claim, codes, retries, the last five decisions, and
+the answer and chat reply, clipped. The Docker runner saves its own log and,
+when it started olc, olc's debug log under `artifacts/agent-live-benchmark/logs/`.
+Image payloads and credentials are redacted from the wire. Everything under
+`local-debug/` is private: never share or commit it. Only the content-free
+baseline is shareable.
 
 The Playwright benchmark retains its existing report format and adds the same
 baseline inputs, verdict summary, denominators and failure ranking. Legacy
@@ -181,12 +200,30 @@ execution coverage; only the three real-model attempts establish a live baseline
 ## Workflow qualification (PR11)
 
 `qualification.mjs` reuses the synthetic runner's **ordinary chat → browser_task
-→ production controller** path. It freezes 60 controlled application workflows
-in `qualification-corpus.mjs`: 40 development and 20 held-out cases. Each family
-has six variants, with its last two held out: research/comparison, multi-page
-forms, rich editors, authorized widgets (including a canvas requiring coordinate
-input), multi-tab evidence, repeated rows, delayed saves, injection, origin
-boundaries and lifecycle faults. The long-history task has four reports behind
+→ production controller** path. It freezes 75 controlled application workflows
+in `qualification-corpus.mjs`: 50 development and 25 held-out cases. Ten
+families have six variants each, with the last two held out:
+research/comparison, multi-page forms, rich editors, authorized widgets
+(including a canvas requiring coordinate input), multi-tab evidence, repeated
+rows, delayed saves, injection, origin boundaries and lifecycle faults.
+
+The `traps` family (15 tasks, five held out) is built so that the obvious
+evidence is wrong, and is where false completions show up first: a
+submission the server rejects while the page changes, an optimistic "Saved"
+toast over a server 500, a commit that lands seconds after the request, a
+price quoted from the neighbouring row, an ARIA switch, a link whose handler
+and `href` go to different places, a React-style controlled checkbox, a
+script-only "Place order" button, "no travel insurance" against a pre-ticked
+add-on, a delete among look-alike rows, "enter Ada and select Blue", Invoice A
+then B behind identical buttons, a Send followed by a service-worker restart,
+a request longer than 2,000 characters with its limit at the end, and a
+comparison answered by an irrelevant exact quote. Pages and server rules are
+in `qualification-traps.mjs`. `qualification-cheats.mjs` holds a scripted
+solution and the trap's own mistake for each; the tests drive both through
+the real pages and require the solution to pass, the mistake to fail, and an
+agent that does nothing to fail. The Send trap needs the harness to stop the
+extension's service worker over CDP; if that fails, the attempt is reported
+under `faultCasesNotExercised` rather than passed. The long-history task has four reports behind
 four intermediate pages each, exceeding the twelve-step recent-history window.
 All mutations affect disposable fixture state; no live accounts or production
 records are needed. The independent scorer reads actual entered values, effect

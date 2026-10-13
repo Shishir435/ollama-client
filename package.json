@@ -122,6 +122,8 @@
     "proxy:build": "pnpm --filter @ollama-client/olc build",
     "proxy:bundle": "pnpm --filter @ollama-client/olc bundle",
     "olc": "tsx packages/olc/src/cli.ts",
+    "benchmark:agent:synthetic": "node tools/agent-live-benchmark/synthetic.mjs",
+    "benchmark:agent:real-sites": "node tools/agent-live-benchmark/real-sites.mjs",
     "benchmark:agent:qualification": "node tools/agent-live-benchmark/qualification.mjs",
     "benchmark:agent:qualification:matrix": "node tools/agent-live-benchmark/qualification-matrix.mjs",
     "benchmark:agent:release": "node tools/agent-live-benchmark/release.mjs",
