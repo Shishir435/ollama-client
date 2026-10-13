@@ -22,7 +22,7 @@ on:
         options: [development, held_out]
       max_cost_usd:
         description: Stop starting attempts once provider-reported cost reaches this
-        default: "1.00"
+        default: "0.15"
 
 # Two passes would share one provider key and one budget.
 concurrency:
@@ -45,7 +45,7 @@ jobs:
       AUDIT_REASONING_EFFORT: medium
       AUDIT_ATTEMPTS: ${{ inputs.attempts || '1' }}
       AUDIT_SPLIT: ${{ inputs.split || 'development' }}
-      AUDIT_MAX_COST_USD: ${{ inputs.max_cost_usd || vars.AGENT_LIVE_MAX_COST_USD || '1.00' }}
+      AUDIT_MAX_COST_USD: ${{ inputs.max_cost_usd || vars.AGENT_LIVE_MAX_COST_USD || '0.15' }}
     steps:
       - name: Require the provider key
         run: |

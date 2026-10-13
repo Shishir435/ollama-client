@@ -263,7 +263,7 @@ Set in the repository settings:
 - Variable `AGENT_LIVE_UPSTREAM` (optional): the OpenAI-compatible base URL,
   without `/v1`. Defaults to `https://openrouter.ai/api`.
 - Variable `AGENT_LIVE_MAX_COST_USD` (optional): the nightly cost cap.
-  Defaults to `1.00`; a dispatch sets its own.
+  Defaults to `0.15`, under the key's $0.20 daily limit; a dispatch sets its own.
 
 The pass runs `openai/gpt-6-luna` at medium reasoning effort unless dispatched
 with another model. Two passes never overlap.
