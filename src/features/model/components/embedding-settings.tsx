@@ -18,6 +18,9 @@ import { NativeEmbeddingSection } from "./native-embedding-section"
 
 /** Composition root for the embeddings settings screen. */
 export const EmbeddingSettings = () => {
+  // Preserve the existing manual memoization boundary during the toolchain migration.
+  "use no memo"
+
   const { t } = useTranslation()
   const native = useNativeEmbeddings()
   const settings = useEmbeddingSettingsState()

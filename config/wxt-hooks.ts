@@ -1,4 +1,6 @@
+import { readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
+import { minifySync } from "vite"
 import type { defineConfig } from "wxt"
 import { prepareBundledEmbeddings } from "../tools/generate/prepare-bundled-embeddings"
 
@@ -137,6 +139,15 @@ export const publicWasmAssets = (target: BuildTarget): PublicAsset[] => {
   return assets
 }
 
+/** Compact the standalone worker with the same Oxc minifier used by Vite. */
+export const minifyEmbeddingWorker = (source: string): string => {
+  const result = minifySync("worker.mjs", source, { module: true })
+  if (result.errors.length > 0) {
+    throw new Error("Cannot minify bundled embedding worker")
+  }
+  return result.code
+}
+
 export const hooks: WxtHooks = {
   "build:publicAssets": async (wxt, files) => {
     files.push(...(await prepareBundledEmbeddings()))
@@ -156,8 +167,17 @@ export const hooks: WxtHooks = {
       ),
       relativeDest: "assets/embeddings/runtime/tokenizers.mjs"
     })
+    let workerSource = resolve("src/lib/embeddings/native/worker.mjs")
+    if (wxt.config.command === "build") {
+      const compactSource = resolve(".cache/bundled-embeddings/worker.mjs")
+      await writeFile(
+        compactSource,
+        minifyEmbeddingWorker(await readFile(workerSource, "utf8"))
+      )
+      workerSource = compactSource
+    }
     files.push({
-      absoluteSrc: resolve("src/lib/embeddings/native/worker.mjs"),
+      absoluteSrc: workerSource,
       relativeDest: "assets/embeddings/worker.mjs"
     })
     const promoIndex = files.findIndex(

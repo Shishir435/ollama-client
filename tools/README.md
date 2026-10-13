@@ -138,3 +138,6 @@ Git operations. Vitest reads this override for every project; CLI
 `--maxWorkers` does not override workers declared inside projects. Node 24
 uses isolated processes to avoid recycled VM mock state; assertions and
 coverage thresholds are unchanged.
+
+The pre-push TypeScript generators and checks use `node --import tsx` so
+verification does not require the CLI launcher's temporary IPC socket.

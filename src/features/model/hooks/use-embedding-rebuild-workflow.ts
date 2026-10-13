@@ -17,6 +17,9 @@ export const useEmbeddingRebuildWorkflow = ({
   memoryEnabled,
   applyModelChange
 }: UseEmbeddingRebuildWorkflowOptions) => {
+  // Preserve manual callback memoization around the external rebuild workflow.
+  "use no memo"
+
   const { stats, refresh } = useEmbeddingDimensionStats()
   const rebuildState = useEmbeddingRebuild({
     memoryEnabled,

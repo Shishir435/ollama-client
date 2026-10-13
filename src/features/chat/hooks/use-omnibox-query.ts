@@ -44,6 +44,9 @@ export const useOmniboxQuery = ({
   sendMessage,
   isModelReady
 }: UseOmniboxQueryOptions): void => {
+  // Preserve the imperative runtime subscription boundary and committed callbacks.
+  "use no memo"
+
   const lastOmniboxQueryRef = useRef<{ query: string; at: number } | null>(null)
   const isModelReadyRef = useRef(isModelReady)
   useLayoutEffect(() => {

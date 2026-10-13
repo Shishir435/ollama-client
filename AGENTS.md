@@ -554,6 +554,7 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 - Oxlint enforces exhaustive hook dependencies; destructure stable hook methods before using them in callbacks. Oxfmt sorts imports automatically, preserving side-effect import order, and does not canonicalize Tailwind class values.
 - Oxlint 1.87.0 has no cognitive-complexity rule equivalent to the former maximum of 25. Cyclomatic complexity measures something different and is not substituted.
 - `@shadcn/lint` enforces `shadcn/no-raw-colors` against the discovered Tailwind theme. Use semantic color tokens. Other shadcn design rules are not enabled; add deliberate policies in `.oxlintrc.json`, using the [rule documentation](https://github.com/shadcn-ui/lint/blob/main/docs/rules.md).
+- Preserve existing manual memoization boundaries when lint fixes would otherwise enable new compiler caches; `"use no memo"` affects compilation, not lint validation.
 - Reviewed exceptions stay local and explain the external synchronization, controller snapshot, or runtime prop forwarding that the static linter cannot infer. Never disable a rule globally to hide a finding.
 
 ### Git hooks (`.husky`)

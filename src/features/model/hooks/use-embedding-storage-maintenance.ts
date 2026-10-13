@@ -23,6 +23,9 @@ export interface UseEmbeddingStorageMaintenanceOptions {
 export const useEmbeddingStorageMaintenance = ({
   onStoreChanged
 }: UseEmbeddingStorageMaintenanceOptions) => {
+  // Preserve manual callbacks around external storage reads and confirmed mutations.
+  "use no memo"
+
   const { t } = useTranslation()
   const { toast } = useToast()
   const { open: confirmOpen, openDialog, closeDialog } = useConfirmAction()

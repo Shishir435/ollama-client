@@ -9,6 +9,9 @@ export const useRecoveryCooldown = (
   cooldownMs: number | undefined,
   timestamp: number | undefined
 ): number => {
+  // Preserve the timer-owned countdown boundary rather than adding compiler caches.
+  "use no memo"
+
   // Only reached for a message with no timestamp; persisted messages always
   // carry one, which is what keeps the window stable across remounts.
   const [mountedAt] = useState(() => Date.now())
@@ -19,7 +22,7 @@ export const useRecoveryCooldown = (
 
   useEffect(() => {
     if (!cooldownMs) {
-      // oxlint-disable-next-line react/set-state-in-effect -- The countdown synchronizes with wall-clock time and must reset when the recovery deadline changes.
+      // oxlint-disable-next-line react/set-state-in-effect -- The countdown synchronizes with wall-clock time and resets when the recovery deadline changes.
       setRemaining(0)
       return
     }

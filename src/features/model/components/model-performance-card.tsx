@@ -36,6 +36,9 @@ export const ModelPerformanceCard = ({
   config,
   updateConfig
 }: ModelPerformanceCardProps) => {
+  // Preserve the manual draft and save-on-unmount boundary.
+  "use no memo"
+
   const { t } = useTranslation()
   const [keepAliveInput, setKeepAliveInput] = useState(
     stringifyKeepAlive(config.keep_alive)

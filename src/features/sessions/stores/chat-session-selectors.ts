@@ -3,6 +3,9 @@ import { useShallow } from "zustand/react/shallow"
 import { chatSessionStore } from "./chat-session-store"
 
 export const useChatSessions = () => {
+  // Keep Zustand shallow selection as the existing memoization boundary.
+  "use no memo"
+
   const store = chatSessionStore(
     useShallow((s) => ({
       sessions: s.sessions,

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react"
+import { useLayoutEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import {
   type ChatStreamPort,
@@ -106,15 +106,18 @@ export const useChatStream = ({
 }: UseChatStreamProps) => {
   const { t } = useTranslation()
   const { toast } = useToast()
-  const [session] = useState(
-    () =>
-      new ChatStreamSession({
-        connectPort: createPort,
-        schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
-        createRequestId,
-        getLastDisconnectError: () => browser.runtime.lastError?.message
-      })
-  )
+  const sessionRef = useRef<ChatStreamSession | null>(null)
+
+  // oxlint-disable-next-line react/refs -- Safe lazy initialization: the constructor only stores ports and does not connect or mutate external state.
+  if (!sessionRef.current) {
+    sessionRef.current = new ChatStreamSession({
+      connectPort: createPort,
+      schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
+      createRequestId,
+      getLastDisconnectError: () => browser.runtime.lastError?.message
+    })
+  }
+  const session = sessionRef.current
 
   const renderAssistant = (
     assistant: ChatMessage,

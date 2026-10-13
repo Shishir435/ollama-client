@@ -219,6 +219,9 @@ export const useSpeechRecognition = ({
   onError,
   onNotice
 }: UseSpeechRecognitionCallbacks) => {
+  // Keep the native event adapter outside automatic compiler caching.
+  "use no memo"
+
   const [supported, setSupported] = useState(isSpeechRecognitionSupported())
   const [listening, setListening] = useState(false)
   // True while a language-pack download is pending. The API has no percent

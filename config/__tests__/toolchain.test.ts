@@ -6,18 +6,32 @@ import {
   rmSync,
   writeFileSync
 } from "node:fs"
+import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 
 const root = resolve(import.meta.dirname, "../..")
 const readJson = (path: string) =>
   JSON.parse(readFileSync(resolve(root, path), "utf8"))
-const lintFixture = (source: string, test = false) => {
-  const directory = mkdtempSync(join(root, ".lint-fixture-"))
+const lintFixture = (
+  source: string,
+  test = false,
+  staged = false,
+  extension = "tsx"
+) => {
+  const directory = mkdtempSync(join(tmpdir(), "olc-lint-"))
   const target = test ? join(directory, "__tests__") : directory
   mkdirSync(target, { recursive: true })
-  const file = join(target, "fixture.tsx")
+  const file = join(target, `fixture.${extension}`)
   writeFileSync(file, source)
+  const flags = staged
+    ? readJson("package.json")
+        ["lint-staged"]["*.{js,jsx,mjs,cjs,ts,tsx,json,jsonc,css}"].find(
+          (command: string) => command.startsWith("oxlint ")
+        )
+        .split(" ")
+        .slice(1)
+    : ["--deny-warnings", "--format", "json"]
   try {
     return spawnSync(
       process.execPath,
@@ -25,9 +39,7 @@ const lintFixture = (source: string, test = false) => {
         resolve(root, "node_modules/oxlint/bin/oxlint"),
         "--config",
         resolve(root, ".oxlintrc.json"),
-        "--deny-warnings",
-        "--format",
-        "json",
+        ...flags,
         file
       ],
       { cwd: root, encoding: "utf8" }
@@ -138,6 +150,18 @@ describe("Oxc toolchain", () => {
     )
     expect(result.stdout).toContain("export const values = [z, a]\n")
     expect(formatFixture(result.stdout).stdout).toBe(result.stdout)
+  })
+
+  it("accepts staged formatter-only files without hiding source lint errors", () => {
+    for (const extension of ["json", "css"]) {
+      const source =
+        extension === "json" ? '{"value":1}' : ".fixture{display:block}"
+      const result = lintFixture(source, false, true, extension)
+      expect(result.status, result.stdout + result.stderr).toBe(0)
+    }
+    expect(
+      lintFixture("export type Invalid = any", false, true, "ts").status
+    ).toBe(1)
   })
 
   it("honors rule-specific suppression reasons", () => {
