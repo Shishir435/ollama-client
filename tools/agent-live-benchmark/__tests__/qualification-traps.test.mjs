@@ -287,6 +287,13 @@ test("a price counts only when the answer pins it on the requested product", asy
     const { score } = await run(kettles, answered(right))
     assert.equal(score.success, true, right)
   }
+  const { score: unrelated } = await run(
+    kettles,
+    answered("The Blue Kettle is listed. The shipping fee is 37 credits.")
+  )
+  assert.equal(unrelated.success, false)
+  assert.equal(unrelated.unclear, true)
+  assert.equal(unrelated.adjudication, "pending")
   const { score: carried } = await run(
     kettles,
     answered("The Red Kettle. It costs 37 credits.")

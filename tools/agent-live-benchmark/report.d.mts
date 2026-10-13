@@ -83,6 +83,7 @@ export function classifyAttempt(input: {
   providerFailure?: boolean
   siteBlocked?: boolean
   admissionFailure?: boolean
+  unclearOracle?: boolean
 }): BaselineVerdict
 export function summarizeBaseline(attempts: BaselineAttempt[]): BaselineSummary
 export function renderBaseline(report: {

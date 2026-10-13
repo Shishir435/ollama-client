@@ -374,3 +374,24 @@ test("claim and origin labels survive the shareable projection", () => {
     { successClaimed: "not_claimed", failureOrigin: "plan" }
   )
 })
+
+test("an answer the scorer could not bind goes to a person, whatever was claimed", () => {
+  for (const status of ["completed", "answered_in_chat"])
+    assert.equal(
+      classifyAttempt({
+        status,
+        success: false,
+        answer: "The shipping fee is 37 credits.",
+        unclearOracle: true
+      }),
+      "pending_adjudication"
+    )
+  assert.equal(
+    classifyAttempt({
+      status: "completed",
+      success: true,
+      unclearOracle: true
+    }),
+    "achieved"
+  )
+})

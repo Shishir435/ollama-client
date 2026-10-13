@@ -92,9 +92,12 @@ export const classifyAttempt = ({
   infrastructureFailure,
   providerFailure,
   siteBlocked,
-  admissionFailure
+  admissionFailure,
+  unclearOracle
 }) => {
   if (infrastructureFailure) return "infrastructure_failure"
+  /** The scorer could not tell right from wrong: a person decides. */
+  if (unclearOracle && success !== true) return "pending_adjudication"
   if (status === "completed")
     return success === true ? "achieved" : "false_completion"
   if (status === "answered_in_chat" && success === true) return "achieved"
