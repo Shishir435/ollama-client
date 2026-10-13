@@ -280,6 +280,18 @@ test("a price counts only when the answer pins it on the requested product", asy
     const { score } = await run(kettles, answered(wrong))
     assert.equal(score.success, false, wrong)
   }
+  for (const right of [
+    "The Blue Kettle. It costs 37 credits.",
+    "Blue Kettle: 37 credits."
+  ]) {
+    const { score } = await run(kettles, answered(right))
+    assert.equal(score.success, true, right)
+  }
+  const { score: carried } = await run(
+    kettles,
+    answered("The Red Kettle. It costs 37 credits.")
+  )
+  assert.equal(carried.success, false)
   const plans = traps.find((entry) => entry.variant === "irrelevant_quote")
   const { score } = await run(plans, async (env) => {
     await TRAP_SOLUTIONS.irrelevant_quote.cheat(env)

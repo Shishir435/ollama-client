@@ -143,19 +143,23 @@ const namedItems = (clause, catalog) => {
   return found
 }
 /**
- * The price is stated for the named item and for no other: some clause names
- * only `item` beside `price`, and no clause pins `price` on another item.
+ * The price is stated for the named item and for no other: some clause binds
+ * `price` to `item` alone, and no clause binds it to another item. A clause
+ * that names nothing ("It costs 37 credits.") speaks of the item the clause
+ * before it named, as a reader would take it.
  */
 const pricedFor = (answer, item, price, catalog) => {
-  const clauses = String(answer ?? "").split(/[.;!?\n]+/)
-  const pinned = (clause) =>
-    statesValue(clause, price) ? namedItems(clause, catalog) : []
+  let subject = []
+  const bound = String(answer ?? "")
+    .split(/[.;!?\n]+/)
+    .flatMap((clause) => {
+      const named = namedItems(clause, catalog)
+      if (named.length) subject = named
+      return statesValue(clause, price) ? [subject] : []
+    })
   return (
-    clauses.some((clause) => {
-      const named = pinned(clause)
-      return named.length === 1 && named[0] === item
-    }) &&
-    clauses.every((clause) => pinned(clause).every((name) => name === item))
+    bound.some((named) => named.length === 1 && named[0] === item) &&
+    bound.every((named) => named.every((name) => name === item))
   )
 }
 /** These effect keys, each once, in this order, and nothing else. */
