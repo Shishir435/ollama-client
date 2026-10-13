@@ -1,8 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import type React from "react"
-import { FormProvider, useForm } from "react-hook-form"
+import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { describe, expect, it } from "vitest"
-
 import { ControlledNumberInput as FormNumberInput } from "@/components/forms"
 
 /**
@@ -31,7 +30,7 @@ const TestWrapper = ({
     mode: "onChange"
   })
   // Expose the form's value so assertions can read it.
-  const value = methods.watch("top_k")
+  const value = useWatch({ control: methods.control, name: "top_k" })
   return (
     <FormProvider {...methods}>
       <span data-testid="watched-value">

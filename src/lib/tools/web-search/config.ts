@@ -36,7 +36,7 @@ export const normalizeWebSearchConfig = (
 ): WebSearchProviderConfig => {
   const normalized = {
     ...DEFAULT_WEB_SEARCH_CONFIG,
-    ...(config ?? {})
+    ...config
   }
   if (normalized.provider === "searxng" && !normalized.endpoint?.trim()) {
     normalized.endpoint = DEFAULT_SEARXNG_ENDPOINT

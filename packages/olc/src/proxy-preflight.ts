@@ -208,7 +208,7 @@ function occupant({
  */
 function printable(value: string, limit: number): string {
   const stripped = value
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
+    // oxlint-disable-next-line eslint/no-control-regex -- removing them is the point
     .replace(/[\u0000-\u001f\u007f-\u009f]/g, "")
     .trim()
   if (!stripped) return "an unnamed process"

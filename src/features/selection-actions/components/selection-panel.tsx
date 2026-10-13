@@ -56,6 +56,7 @@ export function SelectionPanel() {
 
   return (
     <TooltipProvider>
+      {/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- The content controller manages this nonmodal overlay; native dialog lifecycle would change selection behavior. */}
       <Card className="sa-panel-card" role="dialog" aria-label={actionLabel}>
         <CardHeader className="sa-card-header">
           <PanelHeader />

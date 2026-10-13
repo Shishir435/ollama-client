@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState
+} from "react"
 
 /**
  * Minimal Web Speech `SpeechRecognition` shape. Typed locally (not as a global
@@ -227,12 +233,14 @@ export const useSpeechRecognition = ({
     onError,
     onNotice
   })
-  callbacksRef.current = {
-    onLiveTranscript,
-    onFinalTranscript,
-    onError,
-    onNotice
-  }
+  useLayoutEffect(() => {
+    callbacksRef.current = {
+      onLiveTranscript,
+      onFinalTranscript,
+      onError,
+      onNotice
+    }
+  }, [onLiveTranscript, onFinalTranscript, onError, onNotice])
 
   // Web Speech never works in Brave (cloud keys stripped, on-device install
   // hangs) — hide the control there instead of failing on click.

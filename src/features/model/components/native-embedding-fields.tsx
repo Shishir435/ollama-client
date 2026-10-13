@@ -60,12 +60,12 @@ export const NativeEmbeddingFields = ({
       )}
       {rebuilding && (
         <>
-          <p className="text-xs" role="status">
+          <output className="block text-xs">
             {t("settings.embeddings.bundled.progress", {
               current: state.current,
               total: state.total
             })}
-          </p>
+          </output>
           <Progress
             value={state.total ? (100 * state.current) / state.total : 0}
           />

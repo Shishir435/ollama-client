@@ -28,6 +28,7 @@ export const TextSplittingSettings = () => {
 
   // Sync local state with storage
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- Hydrated storage settings must replace the local editable chunk-size drafts.
     setChunkSize(safeChunkSize)
     setChunkOverlap(safeChunkOverlap)
   }, [safeChunkSize, safeChunkOverlap])

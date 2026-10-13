@@ -92,7 +92,7 @@ describe("calculateSessionMetrics", () => {
   it("returns averageSpeed=0 when eval_duration is zero", () => {
     const msg = makeAssistantMsg({
       metrics: {
-        ...(makeAssistantMsg().metrics ?? {}),
+        ...makeAssistantMsg().metrics,
         eval_duration: 0
       }
     })
@@ -103,7 +103,7 @@ describe("calculateSessionMetrics", () => {
   it("returns averageSpeed=0 for tiny bogus eval_duration", () => {
     const msg = makeAssistantMsg({
       metrics: {
-        ...(makeAssistantMsg().metrics ?? {}),
+        ...makeAssistantMsg().metrics,
         eval_count: 100,
         eval_duration: 100_000
       }

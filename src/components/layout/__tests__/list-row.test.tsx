@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-
 import {
   ListRow,
   ListRowButton,
@@ -201,7 +200,11 @@ describe("ListRow slots", () => {
       <ListRow
         leading={<span data-testid="lead">i</span>}
         description={<ListRowDescription>Formats</ListRowDescription>}
-        trailing={<button data-testid="trail" type="button" />}>
+        trailing={
+          <button data-testid="trail" type="button">
+            Action
+          </button>
+        }>
         <ListRowTitle>Upload files</ListRowTitle>
       </ListRow>
     )
@@ -221,7 +224,11 @@ describe("ListRow slots", () => {
       <ListRow
         leading={<span data-testid="lead">i</span>}
         below={<button type="button">Preview</button>}
-        trailing={<button data-testid="trail" type="button" />}>
+        trailing={
+          <button data-testid="trail" type="button">
+            Action
+          </button>
+        }>
         <ListRowTitle>A tab</ListRowTitle>
       </ListRow>
     )

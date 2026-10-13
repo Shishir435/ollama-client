@@ -107,7 +107,7 @@ vi.mock("@/features/chat/hooks/use-image-attachments", () => ({
 }))
 
 vi.mock("@/features/prompt/components/prompt-selector-sheet", () => ({
-  PromptSelectorSheet: () => <div role="dialog">Prompt sheet open</div>
+  PromptSelectorSheet: () => <dialog open>Prompt sheet open</dialog>
 }))
 
 vi.mock("@/features/tabs/hooks/use-tab-contents", () => ({

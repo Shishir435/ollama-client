@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useLayoutEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   type ChatStreamPort,
@@ -106,17 +106,15 @@ export const useChatStream = ({
 }: UseChatStreamProps) => {
   const { t } = useTranslation()
   const { toast } = useToast()
-  const sessionRef = useRef<ChatStreamSession | null>(null)
-
-  if (!sessionRef.current) {
-    sessionRef.current = new ChatStreamSession({
-      connectPort: createPort,
-      schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
-      createRequestId,
-      getLastDisconnectError: () => browser.runtime.lastError?.message
-    })
-  }
-  const session = sessionRef.current
+  const [session] = useState(
+    () =>
+      new ChatStreamSession({
+        connectPort: createPort,
+        schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
+        createRequestId,
+        getLastDisconnectError: () => browser.runtime.lastError?.message
+      })
+  )
 
   const renderAssistant = (
     assistant: ChatMessage,
@@ -277,7 +275,9 @@ export const useChatStream = ({
       handleSuccessTerminal(terminal, options)
     }
   }
-  session.updateCallbacks(callbacks)
+  useLayoutEffect(() => {
+    session.updateCallbacks(callbacks)
+  })
 
   return {
     startStream: (

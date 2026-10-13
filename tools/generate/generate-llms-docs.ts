@@ -18,7 +18,6 @@ import {
 } from "node:fs"
 import { dirname, join, relative } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-
 import { notFoundMarkdown } from "../../docs/src/lib/agent-routing.js"
 import {
   SITE_DESCRIPTION,
@@ -77,7 +76,6 @@ function routeFromSource(path: string) {
     : withoutExt
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: existing MDX scanner keeps quote, comment and bracket state together; parser regression tests cover it.
 function stripMdxExportDeclarations(body: string) {
   const lines = body.split("\n")
   const cleaned: string[] = []

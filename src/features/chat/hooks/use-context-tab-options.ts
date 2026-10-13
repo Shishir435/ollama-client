@@ -1,7 +1,6 @@
 import { AppWindow } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useTabStatusMap } from "@/features/tabs/hooks/use-tab-status-map"
@@ -78,6 +77,7 @@ export const useContextTabOptions = ({
     const allowedIds = new Set(tabOptions.map((option) => option.value))
     const next = selectedTabIds.filter((id) => allowedIds.has(id))
     if (next.length !== selectedTabIds.length) setSelectedTabIds(next)
+    // oxlint-disable-next-line react/set-state-in-effect -- Browser tab removal must clear a preview referring to a tab that no longer exists.
     if (previewTabId && !allowedIds.has(previewTabId)) setPreviewTabId(null)
   }, [previewTabId, selectedTabIds, setSelectedTabIds, tabOptions])
 

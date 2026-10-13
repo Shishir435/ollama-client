@@ -20,6 +20,7 @@ export const useOpenTabs = (enabled: boolean) => {
   }, [enabled])
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- The effect loads browser tab state asynchronously through the browser adapter.
     fetchTabs()
   }, [fetchTabs])
 

@@ -229,6 +229,7 @@ export const ModelMenu = ({
 
   useEffect(() => {
     if (!open) return
+    // oxlint-disable-next-line react/set-state-in-effect -- Opening the provider picker resets its search and selects a currently available provider.
     setSearchQuery("")
     setActiveProviderId((current) => {
       if (current && railGroups[current]) return current
@@ -357,6 +358,7 @@ export const ModelMenu = ({
                 render={
                   <Button
                     variant="ghost"
+                    // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/role-has-required-aria-props -- Composite picker uses a button trigger; Base UI merges aria-expanded and aria-controls at runtime.
                     role="combobox"
                     aria-expanded={open}
                     className="h-8 min-w-0 max-w-full justify-between gap-1.5 rounded-panel px-2 font-medium items-center transition-all"
@@ -542,6 +544,7 @@ export const ModelMenu = ({
                   placeholder={t("model.menu.search_placeholder")}
                   aria-label={t("model.menu.search_placeholder")}
                   className="h-8 pl-8 text-xs"
+                  // oxlint-disable-next-line jsx-a11y/no-autofocus -- Focus is intentionally requested for this user-opened composer, search field or dialog.
                   autoFocus
                 />
               </div>

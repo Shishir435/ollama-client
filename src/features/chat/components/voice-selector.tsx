@@ -90,6 +90,7 @@ export const VoiceSelector = ({
         render={
           <Button
             variant="outline"
+            // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/role-has-required-aria-props -- Composite picker uses a button trigger; Base UI merges aria-expanded and aria-controls at runtime.
             role="combobox"
             aria-expanded={open}
             aria-label={t("chat.voice_selector.select_voice")}

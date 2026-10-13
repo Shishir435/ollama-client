@@ -227,6 +227,7 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     if (!validTabKeys.has(activeTab)) {
+      // oxlint-disable-next-line react/set-state-in-effect -- Externally disabled features must return an invalid active settings tab to general.
       setActiveTab("general")
     }
   }, [activeTab, validTabKeys])

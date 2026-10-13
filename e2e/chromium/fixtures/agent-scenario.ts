@@ -6,7 +6,6 @@ import type {
   AgentPanelSnapshot
 } from "@ollama-client/contracts"
 import type { Dialog, Page } from "@playwright/test"
-
 import { hostedBenchmarkReasoningEffort } from "../benchmark/benchmark-config"
 import { expect, test, waitForProviderDefaults } from "./extension"
 
@@ -851,7 +850,6 @@ const runAgentScenarioAttempt = (
     scenario.gated === false
       ? `Agent ${scenario.name}${suffix} through production boundaries`
       : `@critical Agent ${scenario.name}${suffix} through production boundaries`
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: This callback owns the complete extension-run lifecycle; provider forwarding and message tracing are split into helpers above.
   test(title, async ({ extension }, testInfo) => {
     const startedAt = Date.now()
     const liveModel = process.env.AGENT_HOSTED_MODEL
@@ -1402,9 +1400,9 @@ const runAgentScenarioAttempt = (
                   ) === true
                 const answered = Boolean(
                   run?.question &&
-                    scenario.answer &&
-                    !review &&
-                    (!answerQuestion || run.question.text === answerQuestion)
+                  scenario.answer &&
+                  !review &&
+                  (!answerQuestion || run.question.text === answerQuestion)
                 )
                 if (run?.status === "paused")
                   return scenario.completionReview ? review : !answered

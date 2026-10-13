@@ -53,7 +53,7 @@ const buildAssistantMessage = (
     ? {
         ragSources: ragSources.sources,
         ragQuery: ragSources.query,
-        ...(promptContextStats || {})
+        ...promptContextStats
       }
     : promptContextStats || undefined
 })

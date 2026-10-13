@@ -88,6 +88,7 @@ export const RAGSettings = () => {
       setActiveKnowledgeSetIdState(activeId)
     }
     loadSettings()
+    // oxlint-disable-next-line react/set-state-in-effect -- External knowledge-set and embedding settings must replace the editable retrieval drafts.
     setTopK(
       config.defaultSearchLimit ?? DEFAULT_EMBEDDING_CONFIG.defaultSearchLimit
     )
@@ -97,6 +98,7 @@ export const RAGSettings = () => {
 
   useEffect(() => {
     if (!activeSet) return
+    // oxlint-disable-next-line react/set-state-in-effect -- External knowledge-set and embedding settings must replace the editable retrieval drafts.
     setKnowledgePrompt(activeSet.ragPrompt || DEFAULT_RAG_PROMPT)
     setKnowledgeQuestionPrompt(
       activeSet.questionPrompt || defaultQuestionPrompt
@@ -110,6 +112,7 @@ export const RAGSettings = () => {
   }, [activeSet, topK, defaultQuestionPrompt])
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- External knowledge-set and embedding settings must replace the editable retrieval drafts.
     setMinRerankScore(
       config.minRerankScore ?? DEFAULT_EMBEDDING_CONFIG.minRerankScore
     )

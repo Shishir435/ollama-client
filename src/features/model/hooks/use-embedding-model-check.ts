@@ -37,6 +37,7 @@ export const useEmbeddingModelCheck = ({
   const nativeMode = state?.mode
   useEffect(() => {
     if (!nativeMode || nativeMode === "bundled") {
+      // oxlint-disable-next-line react/set-state-in-effect -- The model-existence state follows the external native-worker mode before a provider check.
       setModelExists(nativeMode === "bundled")
       return
     }

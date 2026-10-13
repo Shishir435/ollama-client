@@ -14,7 +14,6 @@ import {
 } from "lucide-react"
 import { useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -253,7 +252,7 @@ export const AgentRunSupervision = ({
   const currentAction = currentAgentAction(steps)
   const pauseNotice = pauseNoticeFor(run.pauseReason)
   const workLog = toAgentWorkLog(steps)
-  const log = useFollowLatest(workLog.length)
+  const { ref: logRef, onScroll: onLogScroll } = useFollowLatest(workLog.length)
 
   return (
     <div className="mt-1.5">
@@ -466,8 +465,8 @@ export const AgentRunSupervision = ({
        * must not push the rest of the chat off the screen.
        */}
       <div
-        ref={log.ref}
-        onScroll={log.onScroll}
+        ref={logRef}
+        onScroll={onLogScroll}
         className="max-h-64 overflow-y-auto overscroll-contain">
         <AgentWorkLog
           items={workLog}

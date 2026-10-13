@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getPlasmoStorageForKey } from "@/lib/plasmo-global-storage"
@@ -46,7 +46,9 @@ export const useOmniboxQuery = ({
 }: UseOmniboxQueryOptions): void => {
   const lastOmniboxQueryRef = useRef<{ query: string; at: number } | null>(null)
   const isModelReadyRef = useRef(isModelReady)
-  isModelReadyRef.current = isModelReady
+  useLayoutEffect(() => {
+    isModelReadyRef.current = isModelReady
+  }, [isModelReady])
 
   const consumeOmniboxQuery = useCallback(
     async (rawQuery: string, issuedAt: number) => {

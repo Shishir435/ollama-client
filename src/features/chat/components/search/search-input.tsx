@@ -30,6 +30,7 @@ export const SearchInput = ({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="pl-9 h-10 text-sm shadow-xs transition-all focus:ring-2 focus:ring-primary/20"
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- Focus is intentionally requested for this user-opened composer, search field or dialog.
         autoFocus={autoFocus}
       />
       {isSearching && (

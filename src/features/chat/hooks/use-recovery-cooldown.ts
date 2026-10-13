@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
 /**
  * Countdown until a cooled-down recovery action becomes usable. Anchored to the
@@ -11,14 +11,15 @@ export const useRecoveryCooldown = (
 ): number => {
   // Only reached for a message with no timestamp; persisted messages always
   // carry one, which is what keeps the window stable across remounts.
-  const mountedAt = useRef(Date.now())
-  const deadline = (timestamp ?? mountedAt.current) + (cooldownMs ?? 0)
+  const [mountedAt] = useState(() => Date.now())
+  const deadline = (timestamp ?? mountedAt) + (cooldownMs ?? 0)
   const [remaining, setRemaining] = useState(() =>
     Math.max(0, deadline - Date.now())
   )
 
   useEffect(() => {
     if (!cooldownMs) {
+      // oxlint-disable-next-line react/set-state-in-effect -- The countdown synchronizes with wall-clock time and must reset when the recovery deadline changes.
       setRemaining(0)
       return
     }

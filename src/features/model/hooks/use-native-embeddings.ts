@@ -66,6 +66,7 @@ export const useNativeEmbeddings = () => {
   /** A worker lost mid-batch leaves "building" without a failure; nudging it is idempotent. */
   const stalled = state?.migration === "building" && !state.failed
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- The effect resumes the external embedding worker after a stalled migration is observed.
     if (stalled) void command("resume")
   }, [stalled, command])
   return {

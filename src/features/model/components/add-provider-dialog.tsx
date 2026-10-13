@@ -226,6 +226,7 @@ export const AddProviderDialog = ({
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder={t("settings.providers.add.name_placeholder")}
+              // oxlint-disable-next-line jsx-a11y/no-autofocus -- Focus is intentionally requested for this user-opened composer, search field or dialog.
               autoFocus
             />
           </div>

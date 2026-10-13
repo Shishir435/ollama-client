@@ -129,6 +129,12 @@ and retains the exact extension ZIPs used for publishing.
 
 Keep the command alias in `package.json`, update imports and path-relative
 assets, and update this guide. Maintained JavaScript/TypeScript tools are
-linted and formatted by Biome; TypeScript tools are included in typechecking.
+linted by Oxlint and formatted by Oxfmt; TypeScript tools are included in typechecking.
 Keep package-owned build scripts inside their package (for example OLC).
 Share helpers only when multiple maintained runners need the same behavior.
+
+On memory-limited runners, set `VITEST_MAX_WORKERS=2` before `pnpm verify` or
+Git operations. Vitest reads this override for every project; CLI
+`--maxWorkers` does not override workers declared inside projects. Node 24
+uses isolated processes to avoid recycled VM mock state; assertions and
+coverage thresholds are unchanged.

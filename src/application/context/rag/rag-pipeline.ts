@@ -114,9 +114,12 @@ const retrieveFullMode = async (
   resolved: ResolvedRetrievalOptions
 ): Promise<EnhancedSearchResult[]> => {
   logger.info("Full mode selected, skipping re-ranking and MMR", "RAGPipeline")
-  const embedding = await generateEmbedding(query, undefined, undefined, {
-    ...(resolved.signal ? { signal: resolved.signal } : {})
-  })
+  const embedding = await generateEmbedding(
+    query,
+    undefined,
+    undefined,
+    resolved.signal ? { signal: resolved.signal } : {}
+  )
   if ("error" in embedding) {
     logger.error(
       "Failed to generate query embedding (full mode)",
@@ -335,9 +338,12 @@ export async function retrieveContextEnhanced(
   const resolved = resolveRetrievalOptions(options)
   if (resolved.mode === "full") return retrieveFullMode(query, resolved)
   resolved.signal?.throwIfAborted()
-  const embedding = await generateEmbedding(query, undefined, undefined, {
-    ...(resolved.signal ? { signal: resolved.signal } : {})
-  })
+  const embedding = await generateEmbedding(
+    query,
+    undefined,
+    undefined,
+    resolved.signal ? { signal: resolved.signal } : {}
+  )
   if ("error" in embedding) {
     logger.error("Failed to generate query embedding", "RAGPipeline", {
       error: embedding.error

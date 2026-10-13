@@ -350,7 +350,6 @@ export const ReasoningTrace = ({
     setDetailsOpen((open) => !open)
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on thinking growth
   useEffect(() => {
     if (detailsOpen && context.isBusy && reasoningBodyRef.current) {
       reasoningBodyRef.current.scrollTop = reasoningBodyRef.current.scrollHeight

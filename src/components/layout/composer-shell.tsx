@@ -27,7 +27,6 @@ export const ComposerShell = ({
   onDragLeave,
   onDrop
 }: ComposerShellProps) => (
-  // biome-ignore lint/a11y/noStaticElementInteractions: Drag and drop zone wrapper.
   <div
     onDragOver={onDragOver}
     onDragLeave={onDragLeave}

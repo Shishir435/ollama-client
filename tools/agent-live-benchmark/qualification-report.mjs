@@ -78,7 +78,7 @@ export const qualifyMatrix = (reports) => {
       modelSettings: inputs.qualification?.modelSettings,
       endpointFingerprint: inputs.qualification?.endpointFingerprint,
       requestSettings: (inputs.qualification?.requestSettings ?? [])
-        .map(({ model, ...settings }) => settings)
+        .map(({ model: _model, ...settings }) => settings)
         .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
     })
   const valid = reports.every(

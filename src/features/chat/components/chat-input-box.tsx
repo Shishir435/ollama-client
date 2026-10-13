@@ -388,9 +388,12 @@ export const ChatInputBox = ({
           open={promptLibraryOpen}
           onSelect={handleSelectPrompt}
           onClose={() => setPromptLibraryOpen(false)}
+          // oxlint-disable-next-line react/refs -- The prompt sheet reads the selection snapshot captured before the user opens it.
           variableContext={buildPromptTemplateVariableContext({
             input,
+            // oxlint-disable-next-line react/refs -- Selection events capture this snapshot before the prompt sheet opens.
             selectionStart: selectionStartRef.current,
+            // oxlint-disable-next-line react/refs -- Selection events capture this snapshot before the prompt sheet opens.
             selectionEnd: selectionEndRef.current,
             selectedTabIds,
             tabContents
@@ -429,6 +432,7 @@ export const ChatInputBox = ({
             "focus-visible:ring-0 focus-visible:ring-offset-0",
             "placeholder:text-foreground-tertiary"
           )}
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- Focus is intentionally requested for this user-opened composer, search field or dialog.
           autoFocus
         />
 

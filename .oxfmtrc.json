@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "endOfLine": "lf",
+  "singleQuote": false,
+  "semi": false,
+  "trailingComma": "none",
+  "bracketSameLine": true,
+  "arrowParens": "always",
+  "quoteProps": "as-needed",
+  "bracketSpacing": true,
+  "sortImports": {
+    "sortSideEffects": false,
+    "newlinesBetween": false
+  },
+  "ignorePatterns": [
+    "docs/**",
+    "public/**",
+    ".claude/**",
+    "src/globals.css",
+    "src/features/selection-actions/selection-overlay.css",
+    "public/_locales/**",
+    "**/*.md",
+    "**/*.mdx",
+    "**/*.yaml",
+    "**/*.yml",
+    "**/*.html",
+    "**/*.svg",
+    "**/*.toml"
+  ],
+  "sortPackageJson": false,
+  "embeddedLanguageFormatting": "off"
+}

@@ -107,7 +107,8 @@ export const useMarkdownParser = (markdown: string) => {
 
   /** The inputs the current `html` was produced from. */
   const renderedRef = useRef({ markdown, hljsReady })
-  const lastRenderAtRef = useRef(Date.now())
+  const [mountedAt] = useState(() => Date.now())
+  const lastRenderAtRef = useRef(mountedAt)
 
   /**
    * Throttle rather than debounce: the first change after an idle gap renders

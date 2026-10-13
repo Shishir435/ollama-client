@@ -1,10 +1,9 @@
 import type * as React from "react"
-
 import { cn } from "@/lib/class-names"
 
 function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: generic shadcn Label primitive; callers associate it via htmlFor or wrapping
+    // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- generic shadcn Label primitive; callers associate it via htmlFor or wrapping
     <label
       data-slot="label"
       className={cn(

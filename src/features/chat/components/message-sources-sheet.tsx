@@ -105,7 +105,7 @@ export function MessageSourcesSheet({
                     />
                   </div>
                 )}
-                <Accordion className="divide-y divide-border-subtle overflow-hidden rounded-control border border-border">
+                <Accordion className="divide-y divide-border overflow-hidden rounded-control border border-border">
                   {section.items.map((item) => {
                     const value = getItemValue(item)
                     const meta = renderMetadata(item)

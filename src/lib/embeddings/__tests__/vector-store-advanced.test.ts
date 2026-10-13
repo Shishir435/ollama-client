@@ -243,11 +243,15 @@ describe("Vector Store - Advanced Tests", () => {
       // Store enough vectors to exceed limit
       // Each vector is ~100 bytes overhead + content + embedding
       for (let i = 0; i < 20; i++) {
-        await storeVector(`Content ${i}`, new Array(10).fill(0.1), {
-          type: "chat",
-          source: "",
-          timestamp: Date.now() + i
-        })
+        await storeVector(
+          `Content ${i}`,
+          Array.from({ length: 10 }, () => 0.1),
+          {
+            type: "chat",
+            source: "",
+            timestamp: Date.now() + i
+          }
+        )
       }
 
       // Should have deleted some old ones
@@ -441,18 +445,22 @@ describe("Vector Store - Advanced Tests", () => {
       for (let i = 0; i < 60; i++) {
         vectors.push({
           content: `Doc ${i}`,
-          embedding: new Array(10).fill(0.1),
+          embedding: Array.from({ length: 10 }, () => 0.1),
           metadata: { source: "", type: "chat", timestamp: i } // Old timestamps
         })
       }
       await vectorDb.vectors.bulkAdd(vectors as any)
 
       // Trigger cleanup by adding one more
-      await storeVector("New", new Array(10).fill(0.1), {
-        type: "chat",
-        source: "",
-        timestamp: 1000
-      })
+      await storeVector(
+        "New",
+        Array.from({ length: 10 }, () => 0.1),
+        {
+          type: "chat",
+          source: "",
+          timestamp: 1000
+        }
+      )
 
       const count = await vectorDb.vectors.count()
       expect(count).toBeLessThan(60)

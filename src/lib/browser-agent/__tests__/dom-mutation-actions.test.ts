@@ -13,7 +13,6 @@ import {
   type AgentSnapshotIdentity
 } from "@ollama-client/contracts"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import {
   type AgentCommandExecutorAdapter,
   DOM_MUTATION_AGENT_EXECUTORS,
@@ -224,29 +223,32 @@ describe("Agent DOM mutation resolution and policy", () => {
       "takeover_required",
       "critical"
     ]
-  ] as const)("applies submission policy to a form with %s", async (_label, attributes, fileCount, expectedPolicy, expectedRisk) => {
-    document.body.innerHTML = `<form action="/comments" method="post"><input type="hidden" name="authenticity_token" value="private-csrf"><textarea name="comment[body]">This is a test comment.</textarea><input ${attributes}><button>Comment</button></form>`
-    const submit = document.querySelector("button")
-    if (!submit) throw new Error("Missing comment submit button")
-    const control = document.querySelectorAll("input")[1]
-    if (control.type === "file") {
-      vi.spyOn(control, "files", "get").mockReturnValue(
-        fileCount === null ? null : ({ length: fileCount } as FileList)
+  ] as const)(
+    "applies submission policy to a form with %s",
+    async (_label, attributes, fileCount, expectedPolicy, expectedRisk) => {
+      document.body.innerHTML = `<form action="/comments" method="post"><input type="hidden" name="authenticity_token" value="private-csrf"><textarea name="comment[body]">This is a test comment.</textarea><input ${attributes}><button>Comment</button></form>`
+      const submit = document.querySelector("button")
+      if (!submit) throw new Error("Missing comment submit button")
+      const control = document.querySelectorAll("input")[1]
+      if (control.type === "file") {
+        vi.spyOn(control, "files", "get").mockReturnValue(
+          fileCount === null ? null : ({ length: fileCount } as FileList)
+        )
+      }
+      const observed = buildAgentElementObservation(submit, "e1", 0)
+      const before = observation({ elements: [observed] })
+      const action = command({ type: "click", ref: "e1" })
+      const policy = await decide(action, before)
+      expect(policy.type).toBe(expectedPolicy)
+      expect(policy.risk).toBe(expectedRisk)
+      expect(JSON.stringify(await resolve(action, before))).not.toContain(
+        "private-csrf"
       )
+      expect(buildAgentElementObservation(control, "e2", 0)).toMatchObject({
+        sensitive: true
+      })
     }
-    const observed = buildAgentElementObservation(submit, "e1", 0)
-    const before = observation({ elements: [observed] })
-    const action = command({ type: "click", ref: "e1" })
-    const policy = await decide(action, before)
-    expect(policy.type).toBe(expectedPolicy)
-    expect(policy.risk).toBe(expectedRisk)
-    expect(JSON.stringify(await resolve(action, before))).not.toContain(
-      "private-csrf"
-    )
-    expect(buildAgentElementObservation(control, "e2", 0)).toMatchObject({
-      sensitive: true
-    })
-  })
+  )
 
   /**
    * DuckDuckGo commits every field the form sent and then removes its own
@@ -266,40 +268,43 @@ describe("Agent DOM mutation resolution and policy", () => {
     ["ambiguous", "/?q=test&q=other", "another value rides along", "/?q=test"],
     ["ambiguous", "/?q=test", "the requested fragment is gone", "/?q=test#top"],
     ["confirmed", "/?q=test#top", "the site added a fragment", "/?q=test"]
-  ])("judges a GET submission %s when %s", async (outcome, landedPath, _label, submittedPath) => {
-    const before = observation({
-      elements: [
-        element({
-          type: "submit",
-          formAction: new URL("/", location.href).href,
-          formMethod: "get",
-          maySubmit: true,
-          submitter: true
-        })
-      ]
-    })
-    const verification: AgentVerificationInput = {
-      effect: await authorize(command({ type: "click", ref: "e1" }), before),
-      /** The executor reports the visible fields only. */
-      receipt: {
-        executedAt: 5,
-        submissionUrl: new URL(submittedPath, location.href).href
-      },
-      before,
-      allowedOrigins: [location.origin]
+  ])(
+    "judges a GET submission %s when %s",
+    async (outcome, landedPath, _label, submittedPath) => {
+      const before = observation({
+        elements: [
+          element({
+            type: "submit",
+            formAction: new URL("/", location.href).href,
+            formMethod: "get",
+            maySubmit: true,
+            submitter: true
+          })
+        ]
+      })
+      const verification: AgentVerificationInput = {
+        effect: await authorize(command({ type: "click", ref: "e1" }), before),
+        /** The executor reports the visible fields only. */
+        receipt: {
+          executedAt: 5,
+          submissionUrl: new URL(submittedPath, location.href).href
+        },
+        before,
+        allowedOrigins: [location.origin]
+      }
+      const result = await verifyDomMutationAgentEffect({
+        verification,
+        /** The tab has the tidied address; the observation is not caught up. */
+        adapter: verifierAdapter(before, {
+          getTab: async () => ({
+            url: new URL(landedPath, location.href).href
+          })
+        }),
+        signal
+      })
+      expect(result.outcome).toBe(outcome)
     }
-    const result = await verifyDomMutationAgentEffect({
-      verification,
-      /** The tab has the tidied address; the observation is not caught up. */
-      adapter: verifierAdapter(before, {
-        getTab: async () => ({
-          url: new URL(landedPath, location.href).href
-        })
-      }),
-      signal
-    })
-    expect(result.outcome).toBe(outcome)
-  })
+  )
 
   /**
    * Wikipedia's search suggestion links to `Special:Search?search=Firefox`
@@ -320,28 +325,31 @@ describe("Agent DOM mutation resolution and policy", () => {
     ["ambiguous", "/challenge/Firefox", "Just a moment..."],
     /** An encoded sign-in path is still a sign-in path. */
     ["ambiguous", "/%6Cogin/Firefox", "Firefox - Sign in"]
-  ])("judges a followed link that committed %s at %s", async (outcome, landedPath, title) => {
-    const link = new URL(
-      "/w/index.php?title=Special%3ASearch&search=Firefox",
-      location.href
-    ).href
-    const before = observation({
-      elements: [element({ tag: "a", name: "Firefox", href: link })]
-    })
-    const landed = new URL(landedPath, location.href).href
-    const result = await verify(
-      command({ type: "click", ref: "e1" }),
-      observation({
-        url: landed,
-        title,
-        documentId: "document-2",
-        generation: 2
-      }),
-      before,
-      { getTab: async () => ({ url: landed }) }
-    )
-    expect(result.outcome).toBe(outcome)
-  })
+  ])(
+    "judges a followed link that committed %s at %s",
+    async (outcome, landedPath, title) => {
+      const link = new URL(
+        "/w/index.php?title=Special%3ASearch&search=Firefox",
+        location.href
+      ).href
+      const before = observation({
+        elements: [element({ tag: "a", name: "Firefox", href: link })]
+      })
+      const landed = new URL(landedPath, location.href).href
+      const result = await verify(
+        command({ type: "click", ref: "e1" }),
+        observation({
+          url: landed,
+          title,
+          documentId: "document-2",
+          generation: 2
+        }),
+        before,
+        { getTab: async () => ({ url: landed }) }
+      )
+      expect(result.outcome).toBe(outcome)
+    }
+  )
 
   /** An observation that has not caught up still shows the page the click left. */
   it("does not take a redirected link's title from a stale observation", async () => {
@@ -390,62 +398,68 @@ describe("Agent DOM mutation resolution and policy", () => {
     ],
     ["q=Alice", true, undefined],
     [undefined, undefined, undefined]
-  ])("records the visible query %s a confirmed GET submission sent", async (formQuery, sensitive, values) => {
-    const form = { formFingerprint: "0000abcd" }
-    const before = observation({
-      elements: [
-        element({
-          type: "submit",
-          formAction: new URL("/", location.href).href,
-          formMethod: "get",
-          maySubmit: true,
-          submitter: true,
-          ...form,
-          ...(formQuery ? { formQuery } : {}),
-          ...(sensitive ? { formHasSensitiveControl: true } : {})
+  ])(
+    "records the visible query %s a confirmed GET submission sent",
+    async (formQuery, sensitive, values) => {
+      const form = { formFingerprint: "0000abcd" }
+      const before = observation({
+        elements: [
+          element({
+            type: "submit",
+            formAction: new URL("/", location.href).href,
+            formMethod: "get",
+            maySubmit: true,
+            submitter: true,
+            ...form,
+            ...(formQuery ? { formQuery } : {}),
+            ...(sensitive ? { formHasSensitiveControl: true } : {})
+          }),
+          element({
+            ref: "e2",
+            tag: "input",
+            name: "Search",
+            editable: true,
+            value: "Alice",
+            ...form
+          }),
+          element({
+            ref: "e3",
+            tag: "select",
+            name: "Category",
+            value: "Bob",
+            ...form
+          }),
+          element({
+            ref: "e4",
+            tag: "input",
+            name: "Other form",
+            editable: true,
+            value: "Bob",
+            formFingerprint: "ffff0000"
+          })
+        ]
+      })
+      const landed = new URL("/?q=Alice&token=secret-csrf", location.href).href
+      const result = await verifyDomMutationAgentEffect({
+        verification: {
+          effect: await authorize(
+            command({ type: "click", ref: "e1" }),
+            before
+          ),
+          receipt: { executedAt: 5, submissionUrl: landed },
+          before,
+          allowedOrigins: [location.origin]
+        },
+        adapter: verifierAdapter(before, {
+          getTab: async () => ({ url: landed })
         }),
-        element({
-          ref: "e2",
-          tag: "input",
-          name: "Search",
-          editable: true,
-          value: "Alice",
-          ...form
-        }),
-        element({
-          ref: "e3",
-          tag: "select",
-          name: "Category",
-          value: "Bob",
-          ...form
-        }),
-        element({
-          ref: "e4",
-          tag: "input",
-          name: "Other form",
-          editable: true,
-          value: "Bob",
-          formFingerprint: "ffff0000"
-        })
-      ]
-    })
-    const landed = new URL("/?q=Alice&token=secret-csrf", location.href).href
-    const result = await verifyDomMutationAgentEffect({
-      verification: {
-        effect: await authorize(command({ type: "click", ref: "e1" }), before),
-        receipt: { executedAt: 5, submissionUrl: landed },
-        before,
-        allowedOrigins: [location.origin]
-      },
-      adapter: verifierAdapter(before, {
-        getTab: async () => ({ url: landed })
-      }),
-      signal
-    })
-    expect(result.outcome).toBe("confirmed")
-    expect(result.evidence.values).toEqual(values)
-    expect(JSON.stringify(result)).not.toContain("secret-csrf")
-  })
+        signal
+      })
+      expect(result.outcome).toBe("confirmed")
+      expect(result.evidence.values).toEqual(values)
+      expect(JSON.stringify(result)).not.toContain("secret-csrf")
+    }
+  )
 
   it("does not confirm a submission whose observed page holds another query", async () => {
     const before = observation({
@@ -1395,6 +1409,7 @@ describe("Agent DOM mutation execution", () => {
     vi.spyOn(HTMLFormElement.prototype, "submit").mockImplementation(function (
       this: HTMLFormElement
     ) {
+      // oxlint-disable-next-line typescript/no-this-alias -- The fixture records the actual callback receiver so assertions can verify its identity.
       submittedForm = this
     })
     const { effect, references } = await liveEffect(
@@ -1681,16 +1696,19 @@ describe("Agent DOM mutation verification", () => {
     ["confirmed", "new"],
     ["negative", "old"],
     ["ambiguous", "user edit"]
-  ] as const)("classifies field verification as %s", async (expected, value) => {
-    const action = command({
-      type: "clear_and_type",
-      ref: "e1",
-      text: "new"
-    })
-    await expect(
-      verify(action, fieldAfter(value), fieldBefore("old"))
-    ).resolves.toMatchObject({ outcome: expected })
-  })
+  ] as const)(
+    "classifies field verification as %s",
+    async (expected, value) => {
+      const action = command({
+        type: "clear_and_type",
+        ref: "e1",
+        text: "new"
+      })
+      await expect(
+        verify(action, fieldAfter(value), fieldBefore("old"))
+      ).resolves.toMatchObject({ outcome: expected })
+    }
+  )
 
   it("verifies field state without echoing its value into evidence", async () => {
     const secretLikeValue = "private-profile-value"
@@ -1855,48 +1873,54 @@ describe("Agent DOM mutation verification", () => {
       "restricted",
       "ambiguous"
     ]
-  ] as const)("verifies a submission redirect to %s", async (_label, destination, documentId, dispatched, access, outcome) => {
-    const formAction = new URL("/comments", location.href).href
-    const before = observation({
-      elements: [
-        element({
-          type: "submit",
-          maySubmit: true,
-          submitter: true,
-          formAction
-        })
-      ]
-    })
-    const url = new URL(destination, location.href)
-    const after = observation({
-      url: url.href,
-      origin: url.origin,
-      documentId,
-      visibleText: "Posted comment",
-      elements: []
-    })
-    const observe = vi.fn(async () => after)
-    const result = await verifyDomMutationAgentEffect({
-      verification: {
-        effect: await authorize(command({ type: "click", ref: "e1" }), before),
-        receipt: {
-          executedAt: 5,
-          ...(dispatched ? { submissionUrl: formAction } : {})
+  ] as const)(
+    "verifies a submission redirect to %s",
+    async (_label, destination, documentId, dispatched, access, outcome) => {
+      const formAction = new URL("/comments", location.href).href
+      const before = observation({
+        elements: [
+          element({
+            type: "submit",
+            maySubmit: true,
+            submitter: true,
+            formAction
+          })
+        ]
+      })
+      const url = new URL(destination, location.href)
+      const after = observation({
+        url: url.href,
+        origin: url.origin,
+        documentId,
+        visibleText: "Posted comment",
+        elements: []
+      })
+      const observe = vi.fn(async () => after)
+      const result = await verifyDomMutationAgentEffect({
+        verification: {
+          effect: await authorize(
+            command({ type: "click", ref: "e1" }),
+            before
+          ),
+          receipt: {
+            executedAt: 5,
+            ...(dispatched ? { submissionUrl: formAction } : {})
+          },
+          before,
+          allowedOrigins: [location.origin]
         },
-        before,
-        allowedOrigins: [location.origin]
-      },
-      adapter: verifierAdapter(after, {
-        observe,
-        classifyAccess: async () => access
-      }),
-      signal
-    })
-    expect(result.outcome).toBe(outcome)
-    if (url.origin !== location.origin || access !== "ok") {
-      expect(observe).not.toHaveBeenCalled()
+        adapter: verifierAdapter(after, {
+          observe,
+          classifyAccess: async () => access
+        }),
+        signal
+      })
+      expect(result.outcome).toBe(outcome)
+      if (url.origin !== location.origin || access !== "ok") {
+        expect(observe).not.toHaveBeenCalled()
+      }
     }
-  })
+  )
 
   it("ships one resolver, executor, and verifier entry for every mutation action", () => {
     expect(Object.keys(DOM_MUTATION_AGENT_EXECUTORS).sort()).toEqual(

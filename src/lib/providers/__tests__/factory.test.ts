@@ -19,88 +19,64 @@ vi.mock("../manager", () => ({
 }))
 
 vi.mock("../anthropic", () => ({
-  AnthropicProvider: vi
-    .fn()
-    // biome-ignore lint: Vitest mock constructor requires regular function
-    .mockImplementation(function () {
-      return { id: "anthropic", streamChat: vi.fn() }
-    })
+  AnthropicProvider: vi.fn().mockImplementation(function () {
+    return { id: "anthropic", streamChat: vi.fn() }
+  })
 }))
 
 vi.mock("../ollama", () => {
   return {
-    OllamaProvider: vi
-      .fn()
-      // biome-ignore lint: Vitest mock constructor requires regular function
-      .mockImplementation(function () {
-        return { id: "ollama", streamChat: vi.fn() }
-      })
+    OllamaProvider: vi.fn().mockImplementation(function () {
+      return { id: "ollama", streamChat: vi.fn() }
+    })
   }
 })
 
 vi.mock("../openai-compatible", () => {
   return {
-    OpenAICompatibleProvider: vi
-      .fn()
-      // biome-ignore lint: Vitest mock constructor requires regular function
-      .mockImplementation(function () {
-        return { id: "openai", streamChat: vi.fn() }
-      })
+    OpenAICompatibleProvider: vi.fn().mockImplementation(function () {
+      return { id: "openai", streamChat: vi.fn() }
+    })
   }
 })
 
 vi.mock("../lm-studio", () => {
   return {
-    LMStudioProvider: vi
-      .fn()
-      // biome-ignore lint: Vitest mock constructor requires regular function
-      .mockImplementation(function () {
-        return { id: "lm-studio", streamChat: vi.fn() }
-      })
+    LMStudioProvider: vi.fn().mockImplementation(function () {
+      return { id: "lm-studio", streamChat: vi.fn() }
+    })
   }
 })
 
 vi.mock("../llama-cpp", () => {
   return {
-    LlamaCppProvider: vi
-      .fn()
-      // biome-ignore lint: Vitest mock constructor requires regular function
-      .mockImplementation(function () {
-        return { id: "llama-cpp", streamChat: vi.fn() }
-      })
+    LlamaCppProvider: vi.fn().mockImplementation(function () {
+      return { id: "llama-cpp", streamChat: vi.fn() }
+    })
   }
 })
 
 vi.mock("../vllm", () => {
   return {
-    VllmProvider: vi
-      .fn()
-      // biome-ignore lint: Vitest mock constructor requires regular function
-      .mockImplementation(function () {
-        return { id: "vllm", streamChat: vi.fn() }
-      })
+    VllmProvider: vi.fn().mockImplementation(function () {
+      return { id: "vllm", streamChat: vi.fn() }
+    })
   }
 })
 
 vi.mock("../localai", () => {
   return {
-    LocalAIProvider: vi
-      .fn()
-      // biome-ignore lint: Vitest mock constructor requires regular function
-      .mockImplementation(function () {
-        return { id: "localai", streamChat: vi.fn() }
-      })
+    LocalAIProvider: vi.fn().mockImplementation(function () {
+      return { id: "localai", streamChat: vi.fn() }
+    })
   }
 })
 
 vi.mock("../koboldcpp", () => {
   return {
-    KoboldCppProvider: vi
-      .fn()
-      // biome-ignore lint: Vitest mock constructor requires regular function
-      .mockImplementation(function () {
-        return { id: "koboldcpp", streamChat: vi.fn() }
-      })
+    KoboldCppProvider: vi.fn().mockImplementation(function () {
+      return { id: "koboldcpp", streamChat: vi.fn() }
+    })
   }
 })
 

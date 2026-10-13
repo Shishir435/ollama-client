@@ -31,11 +31,12 @@ export const useChatSessions = () => {
     }))
   )
 
+  const { sessions, hasSession, loadSessions } = store
   useEffect(() => {
-    if (!store.sessions.length && !store.hasSession) {
-      store.loadSessions()
+    if (!sessions.length && !hasSession) {
+      loadSessions()
     }
-  }, [store.hasSession, store.loadSessions, store.sessions.length])
+  }, [hasSession, loadSessions, sessions.length])
 
   return store
 }

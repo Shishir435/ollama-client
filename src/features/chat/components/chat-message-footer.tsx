@@ -8,6 +8,7 @@ import {
   SquarePen,
   Trash2
 } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { ProviderIcon } from "@/components/icons"
@@ -51,6 +52,7 @@ export const ChatMessageFooter = ({
   onNavigate?: (nodeId: number | string) => void
 }) => {
   const { t } = useTranslation()
+  const [mountedAt] = useState(() => Date.now())
   const siblingIds = msg.siblingIds ?? []
   const siblingIndex =
     msg.id != null
@@ -200,7 +202,7 @@ export const ChatMessageFooter = ({
 
       {isUser ? (
         <div className="ml-auto shrink-0 text-micro text-foreground-tertiary tabular-nums">
-          {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {
+          {new Date(msg.timestamp || mountedAt).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit"
           })}

@@ -30,6 +30,7 @@ class MockUtterance implements UtteranceHandlers {
 
   constructor(text: string) {
     this.text = text
+    // oxlint-disable-next-line typescript/no-this-alias -- The fixture records the actual callback receiver so assertions can verify its identity.
     lastUtterance = this
   }
 }

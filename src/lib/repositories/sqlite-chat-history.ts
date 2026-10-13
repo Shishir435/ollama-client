@@ -837,7 +837,7 @@ export const finalizeInterruptedMessages = async (
   if (rows.length === 0) return 0
 
   for (const row of rows) {
-    const metrics = { ...(parseMetrics(row.metrics) ?? {}), interrupted: true }
+    const metrics = { ...parseMetrics(row.metrics), interrupted: true }
     await run("UPDATE messages SET done = 1, metrics = ? WHERE id = ?", [
       JSON.stringify(metrics),
       row.id as number

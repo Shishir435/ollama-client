@@ -25,7 +25,6 @@ export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
   return (
     <TooltipActionButton
       trigger={
-        // biome-ignore lint/a11y/useAnchorContent: children are forwarded by Base UI's render-prop merge at runtime
         <a
           href={issueUrl}
           target="_blank"

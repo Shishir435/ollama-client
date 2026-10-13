@@ -65,6 +65,7 @@ export function FeedbackSettings() {
   }, [])
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- The effect starts an asynchronous feedback-statistics repository read.
     loadStats()
   }, [loadStats])
 

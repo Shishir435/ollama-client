@@ -29,6 +29,7 @@ export const SessionTagsDialog = ({
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- Opening the dialog seeds an editable draft from the current persisted tags.
     if (open) setValue(tags.join(", "))
   }, [open, tags])
 

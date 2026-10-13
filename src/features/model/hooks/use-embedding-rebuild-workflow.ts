@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react"
-
 import { useEmbeddingDimensionStats } from "./use-embedding-dimension-stats"
 import { useEmbeddingRebuild } from "./use-embedding-rebuild"
 
@@ -23,6 +22,7 @@ export const useEmbeddingRebuildWorkflow = ({
     memoryEnabled,
     onStoreChanged: refresh
   })
+  const { rebuild } = rebuildState
   const [confirmRebuildOpen, setConfirmRebuildOpen] = useState(false)
   const [pendingModel, setPendingModel] =
     useState<PendingEmbeddingModel | null>(null)
@@ -46,8 +46,8 @@ export const useEmbeddingRebuildWorkflow = ({
     if (!pendingModel) return
     applyModelChange(pendingModel.model, pendingModel.providerId)
     setPendingModel(null)
-    await rebuildState.rebuild()
-  }, [applyModelChange, pendingModel, rebuildState.rebuild])
+    await rebuild()
+  }, [applyModelChange, pendingModel, rebuild])
 
   return {
     ...rebuildState,

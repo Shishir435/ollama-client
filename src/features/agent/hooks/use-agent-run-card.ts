@@ -2,7 +2,6 @@ import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type { AgentRunCard } from "@ollama-client/contracts/agent-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useEffect, useState } from "react"
-
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
@@ -33,6 +32,7 @@ export const useAgentRunCard = (runId: string): AgentRunCardState => {
     let timer: ReturnType<typeof setTimeout> | undefined
     // A request the schema refuses would fail, and be retried, forever.
     if (!runId) {
+      // oxlint-disable-next-line react/set-state-in-effect -- The external run subscription resets loading or missing state when its run identity changes.
       setState({ kind: "missing" })
       return
     }

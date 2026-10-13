@@ -21,6 +21,7 @@ export const EmbeddingSettings = () => {
   const { t } = useTranslation()
   const native = useNativeEmbeddings()
   const settings = useEmbeddingSettingsState()
+  const { updateConfig } = settings
   const rebuild = useEmbeddingRebuildWorkflow({
     memoryEnabled: settings.memoryEnabled,
     applyModelChange: settings.applyModelChange
@@ -28,8 +29,8 @@ export const EmbeddingSettings = () => {
 
   const handleToggleShowAdvanced = useCallback(
     (checked: boolean) =>
-      settings.updateConfig({ showAdvancedEmbeddingModels: checked }),
-    [settings.updateConfig]
+      updateConfig({ showAdvancedEmbeddingModels: checked }),
+    [updateConfig]
   )
 
   return (

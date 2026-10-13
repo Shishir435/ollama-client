@@ -19,7 +19,7 @@ Two subsystems keep their detail in their own file, because neither is needed fo
 
 ## Project overview
 
-Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files and optional provider-backed web search. WXT, React 19, TypeScript 6, Tailwind v4, Biome.
+Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files and optional provider-backed web search. WXT, React 19, TypeScript 6, Tailwind v4, Oxlint and Oxfmt.
 
 Built-in verified providers: **Ollama, LM Studio, llama.cpp**. vLLM, LocalAI, KoboldCPP and other compatible servers are added through the OpenAI-compatible custom-provider flow. Anthropic is a custom provider on the native Claude Messages API. `openai-compatible.ts` is the shared implementation, not a separate built-in tile.
 
@@ -39,10 +39,10 @@ pnpm test:run               # Vitest, one-shot
 pnpm test:related           # Only tests affected by working-tree changes
 pnpm test:coverage          # Coverage report
 
-pnpm lint:check             # Biome check (no writes)
-pnpm lint:fix               # Biome check --write
-pnpm format:check           # Biome format check
-pnpm format:fix             # Biome format --write
+pnpm lint:check             # Oxlint, warnings fail (no writes)
+pnpm lint:fix               # Oxlint --fix, warnings fail
+pnpm format:check           # Oxfmt format check
+pnpm format:fix             # Oxfmt format --write
 pnpm typecheck              # tsc --noEmit, extension and packages
 
 pnpm docs:dev               # Astro dev for the docs site (docs/)
@@ -59,7 +59,7 @@ pnpm proxy:bundle           # Bundle it to packages/olc/dist/olc.mjs
 pnpm generate:resources     # Validate locales, regenerate derived extension assets
 ```
 
-**Before opening a PR:** `pnpm typecheck && pnpm lint:check && pnpm test:run`.
+**Before opening a PR:** `pnpm typecheck && pnpm lint:check && pnpm format:check && pnpm test:run`.
 **If you touched `docs/` or `src/locales/`:** also `pnpm docs:build && pnpm generate:resources`.
 
 ## Architecture
@@ -549,15 +549,18 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 
 ### Lint and formatting
 
-- Biome, not ESLint/Prettier: 2-space indent, LF, double quotes, no semicolons (except ASI hazards), no trailing commas, bracket-same-line JSX.
-- `__tests__/` may use `noExplicitAny`. Vendored shadcn a11y suppressions are per-line comments in the offending file — there is no blanket override for `src/components/ui/**`.
-- Biome rewrites some Tailwind arbitrary values to canonical form (`row-end-[-1]` → `-row-end-1`) and enforces exhaustive hook dependencies, so a `deps.join()` trick fails — memoize instead.
+- Oxlint for linting and Oxfmt for formatting: 2-space indent, LF, double quotes, no semicolons (except ASI hazards), no trailing commas, bracket-same-line JSX.
+- `__tests__/` may use explicit `any`. Vendored shadcn a11y suppressions are per-line comments in the offending file — there is no blanket override for `src/components/ui/**`.
+- Oxlint enforces exhaustive hook dependencies; destructure stable hook methods before using them in callbacks. Oxfmt sorts imports automatically, preserving side-effect import order, and does not canonicalize Tailwind class values.
+- Oxlint 1.87.0 has no cognitive-complexity rule equivalent to the former maximum of 25. Cyclomatic complexity measures something different and is not substituted.
+- `@shadcn/lint` enforces `shadcn/no-raw-colors` against the discovered Tailwind theme. Use semantic color tokens. Other shadcn design rules are not enabled; add deliberate policies in `.oxlintrc.json`, using the [rule documentation](https://github.com/shadcn-ui/lint/blob/main/docs/rules.md).
+- Reviewed exceptions stay local and explain the external synchronization, controller snapshot, or runtime prop forwarding that the static linter cannot infer. Never disable a rule globally to hide a finding.
 
 ### Git hooks (`.husky`)
 
 Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a release branch into `preview`, validate it there, then merge `preview` into `main`. Do not promote a release branch directly to `main`.
 
-- `pre-commit`: lint-staged (Biome fixes on staged files and `test:related`) → one full `typecheck`. **Does not run the full suite.**
+- `pre-commit`: lint-staged (Oxfmt then Oxlint fixes on staged files and `test:related`) → one full `typecheck`. **Does not run the full suite.**
 - `pre-push`: production dependency audit → `pnpm verify` (shared static checks and full tests) → `package` + `bundle:check` for both browsers, because a bundle budget can only be measured against a real build and finding out from CI costs a whole round trip. Browser automation, docs and release gates still belong to CI / `verify:release`.
 - `tools/README.md` documents command ownership and prerequisites. `check:static` is shared by CI and local verification; `verify:ci-parity` runs static checks and coverage on committed HEAD in a clean worktree.
 - Never bypass with `--no-verify`. If a hook fails, fix the cause.

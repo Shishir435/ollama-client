@@ -40,7 +40,7 @@ export function PanelMarkdown({ content }: { content: string }) {
     <div
       ref={containerRef}
       className="sa-markdown"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized by DOMPurify
+      // oxlint-disable-next-line react/no-danger -- Sanitized by DOMPurify
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

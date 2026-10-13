@@ -20,11 +20,10 @@ export type ControlledNumberInputValidation = Omit<
 
 export type NumberInputValidation = ControlledNumberInputValidation
 
-export interface ControlledNumberInputProps
-  extends Omit<
-    ComponentProps<typeof Input>,
-    "name" | "type" | "value" | "defaultValue" | "onChange"
-  > {
+export interface ControlledNumberInputProps extends Omit<
+  ComponentProps<typeof Input>,
+  "name" | "type" | "value" | "defaultValue" | "onChange"
+> {
   name: string
   validation?: ControlledNumberInputValidation
   commitMode?: "change" | "blur"
@@ -68,29 +67,36 @@ export const ControlledNumberInput = ({
   })
   const { error } = getFieldState(name, formState)
   const [draftValue, setDraftValue] = useState<string | null>(null)
+  const {
+    value,
+    name: fieldName,
+    ref: fieldRef,
+    onChange: fieldOnChange,
+    onBlur: fieldOnBlur
+  } = field
   const renderedValue =
     draftValue ??
-    (field.value === autoValue
+    (value === autoValue
       ? ""
-      : field.value === undefined || field.value === null
+      : value === undefined || value === null
         ? ""
-        : String(field.value))
+        : String(value))
 
   const commitValue = (raw: string) => {
     if (raw === "") {
-      field.onChange(autoValue)
+      fieldOnChange(autoValue)
       return
     }
     const parsed = Number(raw)
-    field.onChange(Number.isNaN(parsed) ? raw : parsed)
+    fieldOnChange(Number.isNaN(parsed) ? raw : parsed)
   }
 
   const input = (
     <Input
       {...props}
       id={inputId}
-      name={field.name}
-      ref={field.ref}
+      name={fieldName}
+      ref={fieldRef}
       type="number"
       placeholder={autoLabel ?? props.placeholder}
       value={renderedValue}
@@ -109,7 +115,7 @@ export const ControlledNumberInput = ({
           commitValue(event.currentTarget.value)
           setDraftValue(null)
         }
-        field.onBlur()
+        fieldOnBlur()
         onBlur?.(event)
       }}
     />

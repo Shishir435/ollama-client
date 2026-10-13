@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react"
-
 import { getEmbeddingDimensionStats } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 
@@ -42,6 +41,7 @@ export const useEmbeddingDimensionStats =
     }, [])
 
     useEffect(() => {
+      // oxlint-disable-next-line react/set-state-in-effect -- The effect starts an asynchronous vector-store read rather than deriving state from props.
       refresh()
     }, [refresh])
 

@@ -3,7 +3,6 @@ import {
   type AgentDialogState,
   MAX_AGENT_DIALOG_MESSAGE_CHARS
 } from "@ollama-client/contracts"
-
 import type { AgentNativeInputStep } from "@/lib/browser-agent/native-input"
 import type { AgentRawCapture } from "@/lib/browser-agent/screenshot-capture"
 import type { AgentCaptureLayout } from "@/lib/browser-agent/screenshot-geometry"
@@ -520,6 +519,7 @@ export const createAgentBrowserSessionManager = (input?: {
       }
 
   const emit = (event: AgentBrowserSessionInterruption) => {
+    // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot listeners or frame records before callbacks and removal mutate the collection.
     for (const listener of [...listeners]) listener(event)
   }
 
@@ -826,6 +826,7 @@ export const createAgentBrowserSessionManager = (input?: {
     event
   ) => {
     if (typeof event.sessionId !== "string") return
+    // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot listeners or frame records before callbacks and removal mutate the collection.
     for (const frame of [...attachment.frames.values()]) {
       if (frame.sessionId === event.sessionId) {
         attachment.frames.delete(frame.cdpFrameId)

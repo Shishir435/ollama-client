@@ -264,6 +264,7 @@ const ModuleResetItem = ({
       data-settings-focus-id={focusId}
       className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-state-hover">
       <div className="flex min-w-0 flex-1 items-center gap-3">
+        {/* oxlint-disable-next-line react/static-components -- The renderer is an existing component supplied by context or the icon registry, not created during render. */}
         <ModuleIcon className="icon-md shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

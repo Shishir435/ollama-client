@@ -49,21 +49,20 @@ export const benchmarkModel =
 export const benchmarkPrompt = (goal: string): string =>
   `Use the browser to complete this task: ${goal}`
 
-export interface BenchmarkTask
-  extends Pick<
-    AgentScenario,
-    | "goal"
-    | "status"
-    | "html"
-    | "decide"
-    | "succeeded"
-    | "approvalScope"
-    | "vision"
-    | "answer"
-    | "navigationDelayMs"
-    | "hosted"
-    | "plan"
-  > {
+export interface BenchmarkTask extends Pick<
+  AgentScenario,
+  | "goal"
+  | "status"
+  | "html"
+  | "decide"
+  | "succeeded"
+  | "approvalScope"
+  | "vision"
+  | "answer"
+  | "navigationDelayMs"
+  | "hosted"
+  | "plan"
+> {
   family: string
   name: string
 }
@@ -248,7 +247,7 @@ export const benchmarkTask = (
       ? runNanobrowserScenario
       : runAgentScenario
   /** Playwright requires a destructured fixture argument. */
-  // biome-ignore lint/correctness/noEmptyPattern: No fixtures are needed to record a setup failure.
+  // oxlint-disable-next-line eslint/no-empty-pattern -- No fixtures are needed to record a setup failure.
   test.afterEach(({}, info) => {
     const match = info.title.match(
       /^Agent (.+?)(?: attempt (\d+))? through production boundaries$/
