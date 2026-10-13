@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next"
-
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { cn } from "@/lib/class-names"
 import type { ChatMessage } from "@/types"

@@ -15,7 +15,6 @@ import { imageToStoredFile } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
 import type { ChatMessage, ChatSessionState } from "@/types"
-
 import type { ChatSessionGet, ChatSessionSet } from "./chat-session-store-types"
 
 let loadSessionMessagesRequestId = 0

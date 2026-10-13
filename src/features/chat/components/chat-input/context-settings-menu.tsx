@@ -71,6 +71,7 @@ export const ContextSettingsMenu = ({
   // The attachments view empties out when the user removes the last item — fall
   // back to the main panel instead of stranding them on a blank list.
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- Removing the final attachment returns an open menu to its main view.
     if (view === "attachments" && attachmentCount === 0) setView("main")
   }, [view, attachmentCount])
 

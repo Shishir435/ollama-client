@@ -38,6 +38,7 @@ function FileViewerSheet({ file }: FileViewerSheetProps) {
   useEffect(() => {
     if (!open) return
 
+    // oxlint-disable-next-line react/set-state-in-effect -- Opening the file resets its preview before the asynchronous full-text repository read.
     setFullText(file.textPreview || "")
     if (!file.fileId) return
 

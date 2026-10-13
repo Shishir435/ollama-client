@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-
 import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"

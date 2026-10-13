@@ -18,11 +18,11 @@ export const normalizeVector = (
   norm = Math.sqrt(norm)
 
   if (norm === 0) {
-    return { normalized: new Array(len).fill(0), norm: 0 }
+    return { normalized: Array.from({ length: len }, () => 0), norm: 0 }
   }
 
   // Normalize
-  const normalized = new Array(len)
+  const normalized: number[] = []
   for (let i = 0; i < len; i++) {
     normalized[i] = embedding[i] / norm
   }

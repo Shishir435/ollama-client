@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest"
-
 import type { ChatMessage, FileAttachment } from "@/types"
-
 import {
   buildSiblingsMap,
   collectDescendantIds,

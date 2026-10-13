@@ -1,7 +1,6 @@
 import { AgentControlFailedError } from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import { MESSAGE_KEYS } from "@/lib/constants"
 import {
   AGENT_CONTROL_VERSION,
@@ -23,9 +22,9 @@ import {
   validateAgentObservationResponse
 } from "../control-port"
 
-class FakeEvent<T extends (...args: never[]) => unknown>
-  implements AgentControlEvent<T>
-{
+class FakeEvent<
+  T extends (...args: never[]) => unknown
+> implements AgentControlEvent<T> {
   listeners = new Set<T>()
   addListener = (listener: T) => this.listeners.add(listener)
   removeListener = (listener: T) => this.listeners.delete(listener)
@@ -615,27 +614,26 @@ describe("Agent control port", () => {
     expect(port.disconnect).toHaveBeenCalledOnce()
   })
 
-  it.each([
-    "file:///tmp/page.html",
-    "chrome://settings",
-    "ftp://example.com"
-  ])("refuses non-http(s) tab access for %s", async (url) => {
-    const { port } = createPort()
-    const adapter: AgentControlBrowserAdapter = {
-      getTab: async () => ({ url }),
-      getFrame: vi.fn(),
-      listFrames: vi.fn(async () => []),
-      inject: vi.fn(),
-      connect: vi.fn(() => port),
-      classifyAccess: async (candidate) =>
-        candidate?.startsWith("http") ? "ok" : "restricted",
-      createNonce: () => binding.nonce
+  it.each(["file:///tmp/page.html", "chrome://settings", "ftp://example.com"])(
+    "refuses non-http(s) tab access for %s",
+    async (url) => {
+      const { port } = createPort()
+      const adapter: AgentControlBrowserAdapter = {
+        getTab: async () => ({ url }),
+        getFrame: vi.fn(),
+        listFrames: vi.fn(async () => []),
+        inject: vi.fn(),
+        connect: vi.fn(() => port),
+        classifyAccess: async (candidate) =>
+          candidate?.startsWith("http") ? "ok" : "restricted",
+        createNonce: () => binding.nonce
+      }
+      await expect(
+        openAgentControlSession({ runId: "run-1", tabId: 7, adapter })
+      ).rejects.toThrow("restricted")
+      expect(adapter.inject).not.toHaveBeenCalled()
     }
-    await expect(
-      openAgentControlSession({ runId: "run-1", tabId: 7, adapter })
-    ).rejects.toThrow("restricted")
-    expect(adapter.inject).not.toHaveBeenCalled()
-  })
+  )
 
   it("reuses excluded-site classification before injection", async () => {
     const { port } = createPort()
@@ -842,14 +840,21 @@ describe("Agent control failures", () => {
     ["nonce", "fedcba9876543210"],
     ["runId", "other-run"],
     ["sequence", 2]
-  ])("refuses a failure that is not bound to the request (%s)", (field, value) => {
-    expect(
-      readAgentControlFailure(failure({ [field]: value }), binding, 1)
-    ).toBeUndefined()
-    expect(() =>
-      validateAgentObservationResponse(failure({ [field]: value }), binding, 1)
-    ).not.toThrow(AgentControlFailedError)
-  })
+  ])(
+    "refuses a failure that is not bound to the request (%s)",
+    (field, value) => {
+      expect(
+        readAgentControlFailure(failure({ [field]: value }), binding, 1)
+      ).toBeUndefined()
+      expect(() =>
+        validateAgentObservationResponse(
+          failure({ [field]: value }),
+          binding,
+          1
+        )
+      ).not.toThrow(AgentControlFailedError)
+    }
+  )
 
   it("rejects a failure carrying more issues than the cap allows", () => {
     expect(

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import config from "../../wxt.config"
 
 type ManifestFn = (env: {

@@ -158,7 +158,7 @@ export const MarkdownRenderer = ({ content }: { content: string }) => {
       <div
         ref={containerRef}
         className="markdown-container typeset typeset-chat max-w-none px-2 py-1"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: Content is sanitized by DOMPurify in useMarkdownParser
+        // oxlint-disable-next-line react/no-danger -- Content is sanitized by DOMPurify in useMarkdownParser
         dangerouslySetInnerHTML={{ __html: html }}
       />
       <MarkdownCodeBlockActions containerRef={containerRef} html={html} />

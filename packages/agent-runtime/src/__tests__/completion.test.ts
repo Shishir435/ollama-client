@@ -4,7 +4,6 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import { agentEffectChangesPage, judgeAgentCompletion } from "../completion"
 import type {
   AgentSemanticEffect,
@@ -1681,18 +1680,21 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ["Name: Alice", "accepted"],
     ["Name: Bob", "refused"],
     ["Alice saved", "refused"]
-  ])("judges the absent quotation %s by the receipt's facts", (evidence, type) => {
-    expect(
-      judgeAgentCompletion({
-        steps: [typedName],
-        observation: observation({ visibleText: "Details Status: Active" }),
-        requirements: [
-          { id: "r1", text: "Enter Alice in the Name field", kind: "change" }
-        ],
-        outcomes: [{ id: "r1", met: true, evidence }]
-      }).type
-    ).toBe(type)
-  })
+  ])(
+    "judges the absent quotation %s by the receipt's facts",
+    (evidence, type) => {
+      expect(
+        judgeAgentCompletion({
+          steps: [typedName],
+          observation: observation({ visibleText: "Details Status: Active" }),
+          requirements: [
+            { id: "r1", text: "Enter Alice in the Name field", kind: "change" }
+          ],
+          outcomes: [{ id: "r1", met: true, evidence }]
+        }).type
+      ).toBe(type)
+    }
+  )
 
   /**
    * "Set Name to Bob and Manager to Alice" holds Alice, but not for Name: a
@@ -2519,59 +2521,64 @@ describe("itemized requirements", () => {
    * verification. Reading only the top level filtered out the verified
    * fields of an itemized form.
    */
-  it.each([
-    false,
-    true
-  ])("refuses a checkbox receipt used to claim a field value (batch: %s)", (batch) => {
-    const checked = step({
-      sequence: 1,
-      requirementId: "r1",
-      target: { name: "Given name" },
-      command: batch
-        ? {
-            type: "fill_form",
-            snapshotId: "snapshot-1",
-            generation: 1,
-            fields: [{ type: "check", ref: "e1" }]
-          }
-        : { type: "check", snapshotId: "snapshot-1", generation: 1, ref: "e1" },
-      verification: {
-        outcome: "confirmed",
-        evidence: batch
+  it.each([false, true])(
+    "refuses a checkbox receipt used to claim a field value (batch: %s)",
+    (batch) => {
+      const checked = step({
+        sequence: 1,
+        requirementId: "r1",
+        target: { name: "Given name" },
+        command: batch
           ? {
-              kind: "fields",
-              summary: "The field is checked",
-              observedAt: 1,
-              fields: [{ name: "Given name" }]
+              type: "fill_form",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              fields: [{ type: "check", ref: "e1" }]
             }
           : {
-              kind: "checked",
-              summary: "The control is checked",
-              observedAt: 1
-            }
-      }
-    })
-    expect(
-      judgeAgentCompletion({
-        steps: [checked],
-        observation: observation({
-          visibleText: "Contact form",
-          elements: [
-            { name: "Given name", checked: true, value: "Ada" }
-          ] as AgentObservation["elements"]
-        }),
-        requirements: [
-          {
-            id: "r1",
-            text: "the names are filled in",
-            kind: "change",
-            items: ["Given name Ada"]
-          }
-        ],
-        outcomes: [{ id: "r1", met: true, items: [{ index: 0, met: true }] }]
+              type: "check",
+              snapshotId: "snapshot-1",
+              generation: 1,
+              ref: "e1"
+            },
+        verification: {
+          outcome: "confirmed",
+          evidence: batch
+            ? {
+                kind: "fields",
+                summary: "The field is checked",
+                observedAt: 1,
+                fields: [{ name: "Given name" }]
+              }
+            : {
+                kind: "checked",
+                summary: "The control is checked",
+                observedAt: 1
+              }
+        }
       })
-    ).toMatchObject({ type: "refused" })
-  })
+      expect(
+        judgeAgentCompletion({
+          steps: [checked],
+          observation: observation({
+            visibleText: "Contact form",
+            elements: [
+              { name: "Given name", checked: true, value: "Ada" }
+            ] as AgentObservation["elements"]
+          }),
+          requirements: [
+            {
+              id: "r1",
+              text: "the names are filled in",
+              kind: "change",
+              items: ["Given name Ada"]
+            }
+          ],
+          outcomes: [{ id: "r1", met: true, items: [{ index: 0, met: true }] }]
+        })
+      ).toMatchObject({ type: "refused" })
+    }
+  )
 
   it.each([
     ["Ada", "Given name Ada", "accepted"],
@@ -2813,32 +2820,35 @@ describe("itemized requirements", () => {
       "Invoice 1 Due Invoice 2 Paid"
     ],
     ["Invoice 12 Paid", "invoice 1", "Invoice 12 Paid"]
-  ])("refuses a change quotation that is not about its item alone: %s", (page, item, evidence) => {
-    expect(
-      judgeAgentCompletion({
-        steps: changed,
-        observation: observation({ visibleText: page }),
-        requirements: [{ ...invoices, items: ["invoice 1", "invoice 2"] }],
-        outcomes: [
-          {
-            id: "r1",
-            met: true,
-            items: [
-              {
-                index: item === "invoice 1" ? 0 : 1,
-                met: true,
-                evidence
-              },
-              {
-                index: item === "invoice 1" ? 1 : 0,
-                met: false
-              }
-            ]
-          }
-        ]
-      })
-    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
-  })
+  ])(
+    "refuses a change quotation that is not about its item alone: %s",
+    (page, item, evidence) => {
+      expect(
+        judgeAgentCompletion({
+          steps: changed,
+          observation: observation({ visibleText: page }),
+          requirements: [{ ...invoices, items: ["invoice 1", "invoice 2"] }],
+          outcomes: [
+            {
+              id: "r1",
+              met: true,
+              items: [
+                {
+                  index: item === "invoice 1" ? 0 : 1,
+                  met: true,
+                  evidence
+                },
+                {
+                  index: item === "invoice 1" ? 1 : 0,
+                  met: false
+                }
+              ]
+            }
+          ]
+        })
+      ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+    }
+  )
 })
 
 describe("release review evidence regressions", () => {

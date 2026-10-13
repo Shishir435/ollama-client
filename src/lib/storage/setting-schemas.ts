@@ -43,14 +43,12 @@ export const ContentExtractionConfigSchema = z
     siteOverrides: z.record(z.string(), ContentExtractionOverrideSchema)
   })
   .partial()
-  .transform(
-    (stored): ContentExtractionConfig => ({
-      ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
-      ...stored,
-      siteOverrides:
-        stored.siteOverrides ?? DEFAULT_CONTENT_EXTRACTION_CONFIG.siteOverrides
-    })
-  )
+  .transform((stored): ContentExtractionConfig => ({
+    ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
+    ...stored,
+    siteOverrides:
+      stored.siteOverrides ?? DEFAULT_CONTENT_EXTRACTION_CONFIG.siteOverrides
+  }))
 
 const storedRerankerBackend = z
   .enum(["none", "cosine", "transformers-js", "onnxruntime-web"])
@@ -135,12 +133,10 @@ export const FileUploadConfigSchema = z
     embeddingBatchSize: positiveInteger
   })
   .partial()
-  .transform(
-    (stored): FileUploadConfig => ({
-      ...DEFAULT_FILE_UPLOAD_CONFIG,
-      ...stored
-    })
-  )
+  .transform((stored): FileUploadConfig => ({
+    ...DEFAULT_FILE_UPLOAD_CONFIG,
+    ...stored
+  }))
 
 export const SelectedModelRefSchema = z
   .object({

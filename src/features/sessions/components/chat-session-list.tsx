@@ -36,9 +36,10 @@ export const ChatSessionList = ({
     () =>
       groupChatSessions(filteredSessions).flatMap((group) => [
         { type: "group", id: group.id },
-        ...group.sessions.map(
-          (session): SessionListRow => ({ type: "session", session })
-        )
+        ...group.sessions.map((session): SessionListRow => ({
+          type: "session",
+          session
+        }))
       ]),
     [filteredSessions]
   )

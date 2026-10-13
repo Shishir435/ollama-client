@@ -56,7 +56,12 @@ describe("ReasoningEffortMenu", () => {
     })
     expect(useModelConfigMock).toHaveBeenCalledWith("gpt-5.6-sol", "openai")
 
+    expect(trigger).toHaveAttribute("aria-expanded", "false")
     fireEvent.click(trigger)
+    expect(trigger).toHaveAttribute("aria-expanded", "true")
+    expect(
+      document.getElementById(trigger.getAttribute("aria-controls") ?? "")
+    ).toBeInTheDocument()
     /** The trigger carries the same label, so pick the range input. */
     const controls = await screen.findAllByLabelText(
       "settings.model.parameters.reasoning_effort.label"

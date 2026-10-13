@@ -53,7 +53,7 @@ runAgentScenario({
     expect(firstObservation(wire).modals ?? []).toEqual([])
     const afterOpen = JSON.parse(
       String(
-        (wire[1]?.request as { messages: { content: string }[] }).messages.at(
+        (wire[1]!.request as { messages: { content: string }[] }).messages.at(
           -1
         )?.content
       )

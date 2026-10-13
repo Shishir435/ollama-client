@@ -5,7 +5,6 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import { MAX_AGENT_COMPLETION_REVIEWS } from "../completion-review"
 import { createAgentController } from "../controller"
 import type {

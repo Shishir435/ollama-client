@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import type { ChatStreamMessage } from "@/types"
-
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
 import { type ChatRequest, type ProviderConfig, ProviderType } from "../types"
@@ -22,7 +21,7 @@ const fakeStreamResponse = () =>
   }) as unknown as Response
 
 const bodyOf = (fetchMock: ReturnType<typeof vi.spyOn>) =>
-  JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)
+  JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string)
 
 const imageRequest: ChatRequest = {
   model: "m",

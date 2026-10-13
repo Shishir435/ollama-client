@@ -23,9 +23,12 @@ export interface UseEmbeddingStorageMaintenanceOptions {
 export const useEmbeddingStorageMaintenance = ({
   onStoreChanged
 }: UseEmbeddingStorageMaintenanceOptions) => {
+  // Preserve manual callbacks around external storage reads and confirmed mutations.
+  "use no memo"
+
   const { t } = useTranslation()
   const { toast } = useToast()
-  const confirmDialog = useConfirmAction()
+  const { open: confirmOpen, openDialog, closeDialog } = useConfirmAction()
   const [storageStats, setStorageStats] = useState<{
     totalVectors: number
     totalSizeMB: number
@@ -61,6 +64,7 @@ export const useEmbeddingStorageMaintenance = ({
   }, [])
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- The effect starts asynchronous vector-store reads; state changes follow the settled external read.
     loadStats()
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") loadStats()
@@ -124,22 +128,22 @@ export const useEmbeddingStorageMaintenance = ({
   const openConfirm = useCallback(
     (action: EmbeddingMaintenanceAction) => {
       setConfirmAction(action)
-      confirmDialog.openDialog()
+      openDialog()
     },
-    [confirmDialog.openDialog]
+    [openDialog]
   )
 
   const closeConfirm = useCallback(() => {
-    confirmDialog.closeDialog()
+    closeDialog()
     setConfirmAction(null)
-  }, [confirmDialog.closeDialog])
+  }, [closeDialog])
 
   return {
     storageStats,
     cacheStats,
     isCleaning,
     confirmAction,
-    confirmOpen: confirmDialog.open,
+    confirmOpen,
     loadStats,
     openConfirm,
     closeConfirm,

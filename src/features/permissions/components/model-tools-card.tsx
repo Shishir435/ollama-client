@@ -78,6 +78,7 @@ const ModelToolOverridesSection = () => {
   )
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- The effect reads effective provider permissions asynchronously through the RPC client.
     loadEffective(targetProviderId, targetName)
   }, [targetProviderId, targetName, loadEffective])
 

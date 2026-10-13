@@ -1,6 +1,5 @@
 import { Window } from "happy-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import { createAgentElementReferenceStore } from "../element-references"
 import {
   AGENT_OBSERVATION_LIMITS,
@@ -155,13 +154,13 @@ describe("Agent observation builder", () => {
     expect(build().elements[0]).not.toHaveProperty("placeholder")
   })
 
-  it.each([
-    "hidden",
-    'contenteditable="false"'
-  ])("ignores %s descendant placeholder hints", (attribute) => {
-    document.body.innerHTML = `<div contenteditable="true"><p ${attribute} data-placeholder="Hidden hint"><br></p></div>`
-    expect(build().elements[0]).not.toHaveProperty("placeholder")
-  })
+  it.each(["hidden", 'contenteditable="false"'])(
+    "ignores %s descendant placeholder hints",
+    (attribute) => {
+      document.body.innerHTML = `<div contenteditable="true"><p ${attribute} data-placeholder="Hidden hint"><br></p></div>`
+      expect(build().elements[0]).not.toHaveProperty("placeholder")
+    }
+  )
 
   it("names standard labelled fields and excludes hidden label text", () => {
     document.body.innerHTML =

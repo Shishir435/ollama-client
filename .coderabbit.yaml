@@ -1,6 +1,6 @@
 reviews:
   # Quiet means only the most important feedback. This repo already enforces
-  # style, types and layout through Biome, tsc and contract tests in CI, so
+  # style, types and layout through Oxlint, Oxfmt, tsc and contract tests in CI, so
   # review comments should be reserved for functional correctness, broken
   # invariants and security — never style, formatting or summaries of the
   # diff. Anything CI already gates is noise here.

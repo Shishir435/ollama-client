@@ -9,9 +9,7 @@ import {
   createAgentController,
   evaluateAgentPolicy
 } from "@ollama-client/agent-runtime"
-
 import type { AgentRunState } from "@ollama-client/contracts"
-
 import { createProviderAgentModelPort } from "@/application/agent/agent-model-port"
 import { logger } from "@/lib/logger"
 import { readStoredSetting } from "@/lib/storage/setting-access"

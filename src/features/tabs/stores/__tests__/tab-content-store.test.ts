@@ -42,12 +42,10 @@ describe("useTabContentStore", () => {
   })
 
   it("should build content from selected tabs", async () => {
-    const { useTabContents } = await import(
-      "@/features/tabs/hooks/use-tab-contents"
-    )
-    const { useSelectedTabs } = await import(
-      "@/features/tabs/stores/selected-tabs-store"
-    )
+    const { useTabContents } =
+      await import("@/features/tabs/hooks/use-tab-contents")
+    const { useSelectedTabs } =
+      await import("@/features/tabs/stores/selected-tabs-store")
 
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["1"],
@@ -81,12 +79,10 @@ describe("useTabContentStore", () => {
   })
 
   it("should handle errors in tab content", async () => {
-    const { useTabContents } = await import(
-      "@/features/tabs/hooks/use-tab-contents"
-    )
-    const { useSelectedTabs } = await import(
-      "@/features/tabs/stores/selected-tabs-store"
-    )
+    const { useTabContents } =
+      await import("@/features/tabs/hooks/use-tab-contents")
+    const { useSelectedTabs } =
+      await import("@/features/tabs/stores/selected-tabs-store")
 
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["1"],
@@ -115,12 +111,10 @@ describe("useTabContentStore", () => {
   })
 
   it("should handle missing tab content", async () => {
-    const { useTabContents } = await import(
-      "@/features/tabs/hooks/use-tab-contents"
-    )
-    const { useSelectedTabs } = await import(
-      "@/features/tabs/stores/selected-tabs-store"
-    )
+    const { useTabContents } =
+      await import("@/features/tabs/hooks/use-tab-contents")
+    const { useSelectedTabs } =
+      await import("@/features/tabs/stores/selected-tabs-store")
 
     vi.mocked(useSelectedTabs).mockReturnValue({
       selectedTabIds: ["1"],

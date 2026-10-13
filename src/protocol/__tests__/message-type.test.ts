@@ -6,13 +6,10 @@ describe("getMessageType", () => {
     expect(getMessageType({ type: "chat_chunk" })).toBe("chat_chunk")
   })
 
-  it.each([
-    null,
-    [],
-    {},
-    { type: 1 },
-    "chat_chunk"
-  ])("rejects malformed input %#", (value) => {
-    expect(getMessageType(value)).toBeUndefined()
-  })
+  it.each([null, [], {}, { type: 1 }, "chat_chunk"])(
+    "rejects malformed input %#",
+    (value) => {
+      expect(getMessageType(value)).toBeUndefined()
+    }
+  )
 })

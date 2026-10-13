@@ -1,5 +1,4 @@
 import { vi } from "vitest"
-
 import type { ToolDefinition } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types"
 
@@ -45,7 +44,7 @@ export const requestBody = (
   fetchMock: ReturnType<typeof vi.spyOn>,
   call = 0
 ): Record<string, unknown> =>
-  JSON.parse((fetchMock.mock.calls[call]?.[1] as RequestInit).body as string)
+  JSON.parse((fetchMock.mock.calls[call]![1] as RequestInit).body as string)
 
 export const collectChunks = () => {
   const chunks: ChatStreamMessage[] = []

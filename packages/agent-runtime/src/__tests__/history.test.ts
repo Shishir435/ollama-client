@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import {
   AGENT_FINDINGS_MAX,
   AGENT_HISTORY_MAX_STEPS,
@@ -338,14 +337,12 @@ describe("agentStepSourceUrl", () => {
     expect(agentStepSourceUrl(given)).toBe(expected)
   })
 
-  it.each([
-    "javascript:alert(1)",
-    "data:text/html,x",
-    "about:blank",
-    "nope"
-  ])("refuses %s outright", (given) => {
-    expect(agentStepSourceUrl(given)).toBeUndefined()
-  })
+  it.each(["javascript:alert(1)", "data:text/html,x", "about:blank", "nope"])(
+    "refuses %s outright",
+    (given) => {
+      expect(agentStepSourceUrl(given)).toBeUndefined()
+    }
+  )
 
   it("bounds a path the page made long", () => {
     expect(

@@ -3,7 +3,6 @@ import type {
   AgentModelPort
 } from "@ollama-client/agent-runtime"
 import { describe, expect, it, vi } from "vitest"
-
 import { withDecisionTimeout, withReviewTimeout } from "../agent-run-controller"
 
 /**

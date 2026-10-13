@@ -1,8 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type React from "react"
-import { FormProvider, useForm } from "react-hook-form"
+import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { describe, expect, it, vi } from "vitest"
-
 import { ControlledNumberInput } from "../controlled-number-input"
 
 const NumberInputWrapper = ({
@@ -16,7 +15,7 @@ const NumberInputWrapper = ({
     defaultValues: { limit: defaultValue },
     mode: "onChange"
   })
-  const value = methods.watch("limit")
+  const value = useWatch({ control: methods.control, name: "limit" })
 
   return (
     <FormProvider {...methods}>

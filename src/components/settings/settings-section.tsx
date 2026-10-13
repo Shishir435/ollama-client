@@ -3,8 +3,10 @@ import type React from "react"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { cn } from "@/lib/class-names"
 
-interface SettingsSectionProps
-  extends Omit<React.ComponentProps<"section">, "title"> {
+interface SettingsSectionProps extends Omit<
+  React.ComponentProps<"section">,
+  "title"
+> {
   title?: React.ReactNode
   description?: React.ReactNode
   icon?: LucideIcon

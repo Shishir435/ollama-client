@@ -389,34 +389,33 @@ describe("resolved-effect policy", () => {
     ).toEqual({ type: "allow", risk: "medium" })
   })
 
-  it.each([
-    "javascript:alert(1)",
-    "data:text/plain,secret",
-    "file:///tmp/a"
-  ])("blocks non-http and non-https destination %s", (url) => {
-    expect(
-      evaluateAgentPolicy(
-        input(
-          effect(["navigation"], {
-            destination: { url, origin: "null", source: "model" }
-          })
+  it.each(["javascript:alert(1)", "data:text/plain,secret", "file:///tmp/a"])(
+    "blocks non-http and non-https destination %s",
+    (url) => {
+      expect(
+        evaluateAgentPolicy(
+          input(
+            effect(["navigation"], {
+              destination: { url, origin: "null", source: "model" }
+            })
+          )
         )
-      )
-    ).toEqual({
-      type: "blocked",
-      risk: "critical",
-      reason: "unsupported_scheme"
-    })
-  })
+      ).toEqual({
+        type: "blocked",
+        risk: "critical",
+        reason: "unsupported_scheme"
+      })
+    }
+  )
 
-  it.each([
-    "authentication",
-    "payment"
-  ] as const)("requires takeover for %s destinations", (semanticEffect) => {
-    expect(evaluateAgentPolicy(input(effect([semanticEffect]))).type).toBe(
-      "takeover_required"
-    )
-  })
+  it.each(["authentication", "payment"] as const)(
+    "requires takeover for %s destinations",
+    (semanticEffect) => {
+      expect(evaluateAgentPolicy(input(effect([semanticEffect]))).type).toBe(
+        "takeover_required"
+      )
+    }
+  )
 
   it("requires takeover for sensitive inputs", () => {
     const decision = evaluateAgentPolicy(

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { cn } from "../class-names"
 
 describe("utils", () => {
@@ -8,12 +8,14 @@ describe("utils", () => {
     })
 
     it("should handle conditional classes", () => {
-      expect(cn("foo", true && "bar", false && "baz")).toBe("foo bar")
+      const enabled = vi.fn(() => true)()
+      const disabled = vi.fn(() => false)()
+      expect(cn("foo", enabled && "bar", disabled && "baz")).toBe("foo bar")
     })
 
     it("should merge tailwind classes", () => {
       expect(cn("p-4 p-2")).toBe("p-2")
-      expect(cn("text-red-500", "text-blue-500")).toBe("text-blue-500")
+      expect(cn("text-status-danger", "text-feature-2")).toBe("text-feature-2")
     })
   })
 })

@@ -1,6 +1,5 @@
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import type { AgentDomMutationInstruction } from "../control-port"
 import { createAgentElementReferenceStore } from "../element-references"
 import {

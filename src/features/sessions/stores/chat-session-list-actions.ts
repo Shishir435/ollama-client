@@ -3,7 +3,6 @@ import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
 import type { ChatSession, ChatSessionState } from "@/types"
-
 import type { ChatSessionGet, ChatSessionSet } from "./chat-session-store-types"
 
 export const createChatSessionListActions = (

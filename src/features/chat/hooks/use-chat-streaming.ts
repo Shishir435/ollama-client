@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react"
-
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChatStream } from "@/features/chat/hooks/use-chat-stream"
 import { logger } from "@/lib/logger"

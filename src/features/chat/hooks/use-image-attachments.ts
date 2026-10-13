@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react"
-
 import {
   HEIC_EXTENSION_PATTERN,
   HEIC_MIME_TYPES,

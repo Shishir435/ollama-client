@@ -1,6 +1,5 @@
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react"
 import { createContext, useContext } from "react"
-
 import type { ProviderModel } from "@/types"
 import type {
   SelectionActionId,

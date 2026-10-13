@@ -55,8 +55,8 @@
     "benchmark:build": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/chrome-mv3-benchmark wxt build",
     "benchmark:build:firefox": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/firefox-mv2-benchmark wxt build -b firefox --mv2 --mode production",
     "bundle:report": "tsx tools/checks/check-bundle-size.ts",
-    "bundle:check": "tsx tools/checks/check-bundle-size.ts --check",
-    "bundle:check:firefox": "tsx tools/checks/check-bundle-size.ts build/firefox-mv2-prod --check",
+    "bundle:check": "node --import tsx tools/checks/check-bundle-size.ts --check",
+    "bundle:check:firefox": "node --import tsx tools/checks/check-bundle-size.ts build/firefox-mv2-prod --check",
     "benchmark:browser": "tsx tools/benchmarks/benchmark-browser-persistence.ts",
     "spike:build": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_SPIKE_OWNER=1 WXT_OUTPUT_DIR=build/chrome-mv3-spike wxt build",
     "spike:build:firefox": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_SPIKE_OWNER=1 WXT_OUTPUT_DIR=build/firefox-mv2-spike wxt build -b firefox --mv2 --mode production",
@@ -90,13 +90,13 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest watch",
-    "lint": "biome check .",
-    "lint:fix": "biome check . --write",
-    "lint:check": "biome check . --max-diagnostics=100",
+    "lint": "oxlint --deny-warnings .",
+    "lint:fix": "oxlint --deny-warnings --fix .",
+    "lint:check": "oxlint --deny-warnings .",
     "test:related": "vitest related --run",
-    "format": "biome format .",
-    "format:fix": "biome format --write .",
-    "format:check": "biome format .",
+    "format": "oxfmt --check .",
+    "format:fix": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
     "typecheck": "pnpm typecheck:packages && tsc6 -p tsconfig.json --noEmit",
     "typecheck:packages": "pnpm typecheck:contracts && pnpm typecheck:runtime-core && pnpm typecheck:chat-runtime && pnpm typecheck:agent-runtime && pnpm typecheck:olc",
     "typecheck:contracts": "tsc6 -p packages/contracts/tsconfig.json --noEmit",
@@ -108,9 +108,9 @@
     "audit": "pnpm audit",
     "clean": "rm -rf build .plasmo .wxt .output node_modules",
     "prepare": "husky",
-    "generate:resources": "pnpm exec tsx tools/generate/generate-i18n-resources.ts",
+    "generate:resources": "node --import tsx tools/generate/generate-i18n-resources.ts",
     "check:generated": "pnpm generate:resources && git diff --exit-code -- public/_locales",
-    "check:i18n": "pnpm exec tsx tools/checks/check-i18n-drift.ts --strict",
+    "check:i18n": "node --import tsx tools/checks/check-i18n-drift.ts --strict",
     "check:compatibility": "node tools/checks/check-compatibility-ledger.mjs",
     "proxy": "pnpm exec tsx packages/olc/src/cli.ts --backend opencode",
     "proxy:debug": "pnpm exec tsx packages/olc/src/cli.ts --backend opencode --debug",
@@ -177,8 +177,8 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
     "@playwright/test": "1.60.0",
+    "@shadcn/lint": "0.2.0",
     "@sqlite.org/sqlite-wasm": "3.53.0-build1",
     "@tailwindcss/postcss": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
@@ -207,6 +207,8 @@
     "jsdom": "^24.1.3",
     "knip": "^6.24.0",
     "lint-staged": "^16.4.0",
+    "oxfmt": "0.72.0",
+    "oxlint": "1.87.0",
     "playwright": "^1.60.0",
     "postcss": "8.5.18",
     "rollup-plugin-visualizer": "^6.0.11",
@@ -223,8 +225,9 @@
     "wxt": "^0.20.26"
   },
   "lint-staged": {
-    "*.{js,jsx,mjs,cjs,ts,tsx,json}": [
-      "biome check --write --no-errors-on-unmatched",
+    "*.{js,jsx,mjs,cjs,ts,tsx,json,jsonc,css}": [
+      "oxfmt --write --no-error-on-unmatched-pattern",
+      "oxlint --fix --deny-warnings --no-error-on-unmatched-pattern",
       "pnpm test:related"
     ]
   },

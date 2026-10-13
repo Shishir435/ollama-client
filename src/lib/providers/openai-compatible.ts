@@ -1025,8 +1025,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
           const record = asRecord(fragment)
           return Boolean(
             record &&
-              Number.isInteger(record.index) &&
-              Number(record.index) >= 0
+            Number.isInteger(record.index) &&
+            Number(record.index) >= 0
           )
         }
       )

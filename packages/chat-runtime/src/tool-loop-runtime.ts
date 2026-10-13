@@ -140,7 +140,7 @@ export class ToolLoopCoordinator<
     TResult extends ToolExecutionResult
   >(ports: ToolPhasePorts<TToolCall, TPrepared, TResult>): Promise<void> {
     const calls = this.state.pendingToolCalls ?? []
-    for (let index = this.state.nextToolIndex ?? 0; index < calls.length; ) {
+    for (let index = this.state.nextToolIndex ?? 0; index < calls.length;) {
       const prepared = await ports.prepare(
         calls[index],
         this.state.taintGeneration ?? 0

@@ -29,6 +29,7 @@ export const NativeEmbeddingSection = ({
       title={t("settings.embeddings.bundled.mode_title")}
       description={t("settings.embeddings.bundled.settings_description")}>
       <NativeEmbeddingFields native={native} settingsView targetMode={selected}>
+        {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Programmatic settings deep-link focus selects the external embedding mode; the radios remain keyboard controls. */}
         <fieldset
           className="space-y-4"
           aria-label={t("settings.embeddings.bundled.mode_title")}

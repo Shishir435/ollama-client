@@ -1,5 +1,4 @@
 import type { AgentPanelMessage } from "@ollama-client/contracts"
-
 import type { AgentFixtureObservation } from "../../fixtures/agent-scenario"
 import {
   agentFixtureElement,

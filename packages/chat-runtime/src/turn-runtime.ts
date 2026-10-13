@@ -22,8 +22,10 @@ export interface TurnSubmission<TContext, TMessage> {
   createdAt: number
 }
 
-export interface DurableTurnRun<TContext, TMessage>
-  extends TurnSubmission<TContext, TMessage> {
+export interface DurableTurnRun<TContext, TMessage> extends TurnSubmission<
+  TContext,
+  TMessage
+> {
   status: TurnStatus
   contextReceipt?: ContextReceipt
   userMessageId?: number

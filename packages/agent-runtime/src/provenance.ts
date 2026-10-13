@@ -1,5 +1,4 @@
 import type { AgentCommand, AgentRunState } from "@ollama-client/contracts"
-
 import type { AgentStepReadout } from "./ports"
 
 /**

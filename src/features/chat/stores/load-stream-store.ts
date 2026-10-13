@@ -1,6 +1,5 @@
 import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
-
 import type { LoadStreamState } from "@/types"
 
 export const loadStreamStore = create<LoadStreamState>((set) => ({

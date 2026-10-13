@@ -28,9 +28,11 @@ updates:
           - tailwind-merge
           - tailwind-scrollbar
           - tw-animate-css
-      biome:
+      oxc:
         patterns:
-          - "@biomejs/biome"
+          - oxlint
+          - oxfmt
+          - "@shadcn/lint"
       vitest:
         patterns:
           - vitest

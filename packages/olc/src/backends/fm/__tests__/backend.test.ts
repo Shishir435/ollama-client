@@ -37,14 +37,14 @@ describe("fm backend selection", () => {
   })
 
   /** Refused by name up front, rather than failing once startup looks for fm. */
-  it.each([
-    "linux",
-    "win32"
-  ] as const)("refuses fm on %s with the reason", (platform) => {
-    expect(() =>
-      selectBackend(parseArgs(["-b", "apple"]).options, {}, {}, platform)
-    ).toThrow(/only on macOS 27 or later/)
-  })
+  it.each(["linux", "win32"] as const)(
+    "refuses fm on %s with the reason",
+    (platform) => {
+      expect(() =>
+        selectBackend(parseArgs(["-b", "apple"]).options, {}, {}, platform)
+      ).toThrow(/only on macOS 27 or later/)
+    }
+  )
 
   it("offers fm in help on macOS only", () => {
     expect(usageFor("darwin")).toContain("olc -b fm")
@@ -94,18 +94,15 @@ describe("fm catalog", () => {
     })
   })
 
-  it.each([
-    "",
-    "apple/foundation",
-    "foundation",
-    "system",
-    "apple/system"
-  ])("routes %j to the on-device model", async (requested) => {
-    expect(await createFmBackend(context()).resolveModel(requested)).toEqual({
-      providerId: "apple",
-      modelId: "foundation"
-    })
-  })
+  it.each(["", "apple/foundation", "foundation", "system", "apple/system"])(
+    "routes %j to the on-device model",
+    async (requested) => {
+      expect(await createFmBackend(context()).resolveModel(requested)).toEqual({
+        providerId: "apple",
+        modelId: "foundation"
+      })
+    }
+  )
 
   it("names the only model when asked for another", async () => {
     expect(
@@ -258,17 +255,20 @@ describe.runIf(process.platform === "darwin")("fm serve relay", () => {
     [{ FM_PATH: "/nonexistent/cli-fm" }, {}, "/nonexistent/cli-fm", true],
     [{}, { FM_PATH: "/nonexistent/file-fm" }, "/nonexistent/env-fm", true],
     [{}, { FM_PATH: "/nonexistent/file-fm" }, "/nonexistent/file-fm", false]
-  ])("resolves the executable in precedence order (%#)", async (options, file, expected, withEnv) => {
-    if (withEnv) vi.stubEnv("OLC_FM_PATH", "/nonexistent/env-fm")
-    else vi.stubEnv("OLC_FM_PATH", "")
-    const backend = createFmBackend(context(options, file))
-    try {
-      await expect(backend.ensureReady()).rejects.toThrow(
-        `'${expected}' was not found`
-      )
-    } finally {
-      await backend.shutdown()
-      vi.unstubAllEnvs()
+  ])(
+    "resolves the executable in precedence order (%#)",
+    async (options, file, expected, withEnv) => {
+      if (withEnv) vi.stubEnv("OLC_FM_PATH", "/nonexistent/env-fm")
+      else vi.stubEnv("OLC_FM_PATH", "")
+      const backend = createFmBackend(context(options, file))
+      try {
+        await expect(backend.ensureReady()).rejects.toThrow(
+          `'${expected}' was not found`
+        )
+      } finally {
+        await backend.shutdown()
+        vi.unstubAllEnvs()
+      }
     }
-  })
+  )
 })

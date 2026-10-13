@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
 import { ModelSettingsForm } from "../model-settings-form"
 

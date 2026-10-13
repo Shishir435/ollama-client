@@ -111,21 +111,24 @@ describe("embedding upgrade announcement", () => {
   it.each([
     [false, ["common.cancel"]],
     [true, ["common.cancel", "settings.embeddings.bundled.resume"]]
-  ] as const)("offers only valid rebuild controls (failed: %s)", async (failed, labels) => {
-    fixture.migration = "building"
-    fixture.failed = failed
-    fixture.settings.set(SETTINGS.AGENT_ENABLED.key, true)
-    await renderSettled()
-    const dialog = await screen.findByRole("dialog", { name: title })
-    const buttons = Array.from(dialog.querySelectorAll("button"))
-      .map((button) => button.textContent)
-      .filter(Boolean)
-    expect(buttons).toEqual(labels)
-    if (failed) {
-      fireEvent.click(screen.getByText("settings.embeddings.bundled.resume"))
-      expect(fixture.command).toHaveBeenCalledWith("resume")
+  ] as const)(
+    "offers only valid rebuild controls (failed: %s)",
+    async (failed, labels) => {
+      fixture.migration = "building"
+      fixture.failed = failed
+      fixture.settings.set(SETTINGS.AGENT_ENABLED.key, true)
+      await renderSettled()
+      const dialog = await screen.findByRole("dialog", { name: title })
+      const buttons = Array.from(dialog.querySelectorAll("button"))
+        .map((button) => button.textContent)
+        .filter(Boolean)
+      expect(buttons).toEqual(labels)
+      if (failed) {
+        fireEvent.click(screen.getByText("settings.embeddings.bundled.resume"))
+        expect(fixture.command).toHaveBeenCalledWith("resume")
+      }
     }
-  })
+  )
 
   it("offers migration on Firefox without waiting for an absent agent", async () => {
     vi.stubGlobal("__AGENT_PREVIEW_ENABLED__", false)
@@ -137,17 +140,16 @@ describe("embedding upgrade announcement", () => {
     expect(fixture.command).toHaveBeenCalledWith("keep")
   })
 
-  it.each([
-    "fresh",
-    "dismissed",
-    "onboarding"
-  ])("does not show for %s profiles", async (profile) => {
-    fixture.settings.set(SETTINGS.AGENT_ANNOUNCEMENT_DISMISSED.key, true)
-    if (profile === "fresh") fixture.mode = "bundled"
-    if (profile === "dismissed") fixture.dismissed = true
-    if (profile === "onboarding") fixture.stage = "privacy"
-    await renderSettled()
-    expect(screen.queryByRole("dialog")).toBeNull()
-    expect(fixture.command).not.toHaveBeenCalled()
-  })
+  it.each(["fresh", "dismissed", "onboarding"])(
+    "does not show for %s profiles",
+    async (profile) => {
+      fixture.settings.set(SETTINGS.AGENT_ANNOUNCEMENT_DISMISSED.key, true)
+      if (profile === "fresh") fixture.mode = "bundled"
+      if (profile === "dismissed") fixture.dismissed = true
+      if (profile === "onboarding") fixture.stage = "privacy"
+      await renderSettled()
+      expect(screen.queryByRole("dialog")).toBeNull()
+      expect(fixture.command).not.toHaveBeenCalled()
+    }
+  )
 })

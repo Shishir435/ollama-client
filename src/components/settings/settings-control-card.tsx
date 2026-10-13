@@ -41,6 +41,7 @@ export const SettingsControlCard = ({
     const focusTarget = new URLSearchParams(window.location.search).get("focus")
     if (focusTarget !== id) return
 
+    // oxlint-disable-next-line react/set-state-in-effect -- The highlight synchronizes with the browser deep-link URL and expires on its own timer.
     setIsDeepLinkHighlighted(true)
     const timeoutId = window.setTimeout(() => {
       setIsDeepLinkHighlighted(false)

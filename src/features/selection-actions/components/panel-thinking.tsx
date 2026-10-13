@@ -16,6 +16,7 @@ export function PanelThinking({
 
   useEffect(() => {
     if (isThinking) {
+      // oxlint-disable-next-line react/set-state-in-effect -- Streaming state drives automatic expansion while users can still toggle the details.
       setExpanded(true)
     } else if (thinkingText) {
       setExpanded(false)

@@ -1,5 +1,4 @@
 import type { AgentModelReadiness } from "@ollama-client/contracts"
-
 import type { AgentModelCompatibility } from "./agent-model-compatibility"
 
 /**

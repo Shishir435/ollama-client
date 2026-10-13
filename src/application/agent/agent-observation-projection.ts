@@ -328,10 +328,10 @@ const isHiddenOutright = (element: AgentElement): boolean =>
 const carriesInformation = (element: AgentElement): boolean =>
   Boolean(
     element.name ||
-      element.placeholder ||
-      element.value ||
-      element.options?.length ||
-      element.scroll
+    element.placeholder ||
+    element.value ||
+    element.options?.length ||
+    element.scroll
   )
 
 /**

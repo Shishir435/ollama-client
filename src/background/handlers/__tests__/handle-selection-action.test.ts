@@ -204,9 +204,8 @@ describe("handleSelectionAction", () => {
   })
 
   it("registers the abort controller under the per-connection scope key", async () => {
-    const { setAbortController } = await import(
-      "@/background/lib/abort-controller-registry"
-    )
+    const { setAbortController } =
+      await import("@/background/lib/abort-controller-registry")
     const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
     vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
       if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {

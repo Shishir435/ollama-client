@@ -2,7 +2,6 @@ import type { AgentApprovalRequest } from "@ollama-client/contracts"
 import { ShieldQuestion } from "lucide-react"
 import { useEffect, useId, useRef } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import { agentDisplayString } from "../lib/display-text"
 import {

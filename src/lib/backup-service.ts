@@ -396,7 +396,7 @@ const importPortableStorageSections = async (
   )
   if (syncData === undefined && localData === undefined) return
   try {
-    const mergedData = { ...(localData ?? {}), ...(syncData ?? {}) }
+    const mergedData = { ...localData, ...syncData }
     const { settings, providerConfigs } =
       preparePortableStorageImport(mergedData)
     await importPortableStorageTransaction(settings, providerConfigs)

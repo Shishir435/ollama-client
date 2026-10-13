@@ -1,6 +1,5 @@
 import type * as React from "react"
 import { useTranslation } from "react-i18next"
-
 import {
   AlertDialog,
   AlertDialogAction,

@@ -255,7 +255,7 @@ const maybeScheduleHnswRebuild = (
   const sameDimension = lastHnswRebuildAttempt?.dimension === queryDimension
   const withinCooldown = Boolean(
     lastHnswRebuildAttempt &&
-      now - lastHnswRebuildAttempt.timestamp < HNSW_REBUILD_COOLDOWN_MS
+    now - lastHnswRebuildAttempt.timestamp < HNSW_REBUILD_COOLDOWN_MS
   )
   if (sameDimension && withinCooldown) return
   lastHnswRebuildAttempt = { dimension: queryDimension, timestamp: now }

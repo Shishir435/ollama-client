@@ -144,6 +144,7 @@ export const useIconMask = (source?: string): string | null => {
 
   useEffect(() => {
     if (!source) {
+      // oxlint-disable-next-line react/set-state-in-effect -- The mask synchronizes with the external image cache before any asynchronous image conversion.
       setMask(null)
       return
     }

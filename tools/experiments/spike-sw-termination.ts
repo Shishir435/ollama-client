@@ -215,7 +215,6 @@ const ownerCall = (op: string, payload?: unknown): string =>
     payload === undefined ? "" : `, ${JSON.stringify(payload)}`
   })`
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: retained experimental scenario sequence; changing it would change historical owner-gate evidence.
 const run = async (): Promise<void> => {
   const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-sw-term-`)
   const child = spawn(

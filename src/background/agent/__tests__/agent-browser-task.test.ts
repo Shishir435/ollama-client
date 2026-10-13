@@ -3,7 +3,6 @@ import type {
   AgentRunState
 } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import type { ToolContext } from "@/lib/tools/types"
 
 const settings = vi.hoisted(() => ({

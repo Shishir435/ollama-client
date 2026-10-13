@@ -43,6 +43,7 @@ interface OverlayAppProps {
   onClose: () => void
 }
 
+// oxlint-disable react/refs -- The content controller owns these snapshot refs and explicitly remounts or rerenders the overlay when they change.
 export function SelectionOverlayApp({
   container,
   tooltipContainer,
@@ -61,7 +62,9 @@ export function SelectionOverlayApp({
     createSelectionOverlayState
   )
   const stateRef = useRef(state)
-  stateRef.current = state
+  useLayoutEffect(() => {
+    stateRef.current = state
+  }, [state])
   const streamPortRef = useRef<chrome.runtime.Port | null>(null)
   // Init from modelsRef so remounts (selectionKey++) don't re-fetch already-loaded models
   const modelsLoadedRef = useRef(modelsRef.current.length > 0)
@@ -106,6 +109,7 @@ export function SelectionOverlayApp({
       const capture = captureRef.current
       if (!capture) return
 
+      // oxlint-disable-next-line react/immutability -- This effect controls the content controller-owned DOM host, not React state or a data prop.
       container.style.display = "block"
       placeSelectionOverlay(
         container,
@@ -118,6 +122,7 @@ export function SelectionOverlayApp({
   // ── Show/hide container ──────────────────────────────────────────────
   useEffect(() => {
     if (state.panelState === "idle" && state.mode !== "toolbar") {
+      // oxlint-disable-next-line react/immutability -- This effect controls the content controller-owned DOM host, not React state or a data prop.
       container.style.display = "none"
       placedRef.current = false
     }
@@ -289,3 +294,4 @@ export function SelectionOverlayApp({
     </SelectionOverlayProvider>
   )
 }
+// oxlint-enable react/refs

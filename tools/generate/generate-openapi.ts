@@ -3,7 +3,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-
 import { OLC_PUBLIC_ROUTES } from "../../packages/olc/src/core/public-api-contract.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))

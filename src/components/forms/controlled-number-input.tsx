@@ -20,11 +20,10 @@ export type ControlledNumberInputValidation = Omit<
 
 export type NumberInputValidation = ControlledNumberInputValidation
 
-export interface ControlledNumberInputProps
-  extends Omit<
-    ComponentProps<typeof Input>,
-    "name" | "type" | "value" | "defaultValue" | "onChange"
-  > {
+export interface ControlledNumberInputProps extends Omit<
+  ComponentProps<typeof Input>,
+  "name" | "type" | "value" | "defaultValue" | "onChange"
+> {
   name: string
   validation?: ControlledNumberInputValidation
   commitMode?: "change" | "blur"
@@ -70,9 +69,11 @@ export const ControlledNumberInput = ({
   const [draftValue, setDraftValue] = useState<string | null>(null)
   const renderedValue =
     draftValue ??
+    // oxlint-disable-next-line react/refs -- React Hook Form values and event callbacks are ordinary data; the forwarded callback ref does not make them RefObject reads.
     (field.value === autoValue
       ? ""
-      : field.value === undefined || field.value === null
+      : // oxlint-disable-next-line react/refs -- React Hook Form values and event callbacks are ordinary data; the forwarded callback ref does not make them RefObject reads.
+        field.value === undefined || field.value === null
         ? ""
         : String(field.value))
 

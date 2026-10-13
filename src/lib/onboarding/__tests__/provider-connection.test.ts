@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-
 import { ProviderType } from "@/lib/providers/types"
 import { checkProviderConnection } from "../provider-connection"
 

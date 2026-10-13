@@ -364,9 +364,12 @@ export async function retrieveContextFromSources(
   )
   const texts = chunks.map((chunk) => chunk.pageContent)
 
-  const queryEmbedding = await generateEmbedding(query, undefined, undefined, {
-    ...(options.signal ? { signal: options.signal } : {})
-  })
+  const queryEmbedding = await generateEmbedding(
+    query,
+    undefined,
+    undefined,
+    options.signal ? { signal: options.signal } : {}
+  )
   if ("error" in queryEmbedding) {
     logger.warn(
       "Failed to generate query embedding for in-memory sources, using keyword fallback",

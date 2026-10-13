@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next"
-
 import { SettingsCard, SettingsFormField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
 import { useSetting } from "@/hooks/use-setting"

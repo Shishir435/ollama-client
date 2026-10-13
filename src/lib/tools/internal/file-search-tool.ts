@@ -40,9 +40,8 @@ export const runFileSearch = async (
     }
   }
 
-  const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-    "@/application/context/rag/rag-pipeline"
-  )
+  const { retrieveContextEnhanced, formatEnhancedResults } =
+    await import("@/application/context/rag/rag-pipeline")
 
   const results = await retrieveContextEnhanced(query, { type: "file" })
   if (results.length === 0) {

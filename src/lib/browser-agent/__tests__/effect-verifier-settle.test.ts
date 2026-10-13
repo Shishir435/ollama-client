@@ -5,7 +5,6 @@ import type {
 } from "@ollama-client/agent-runtime"
 import type { AgentElement, AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import {
   type AgentEffectVerifierAdapter,
   verifyDomMutationAgentEffect

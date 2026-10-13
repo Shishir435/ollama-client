@@ -1,6 +1,5 @@
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import { describe, expect, it, vi } from "vitest"
-
 import { MESSAGE_KEYS } from "@/lib/constants"
 import {
   AGENT_CONTROL_VERSION,
@@ -21,6 +20,7 @@ class FakeEvent<T extends (...args: never[]) => unknown> {
     this.listeners.delete(listener)
   }
   emit(...args: Parameters<T>) {
+    // oxlint-disable-next-line unicorn/no-useless-spread -- Mirror the browser event dispatcher snapshot when callbacks mutate subscriptions.
     for (const listener of [...this.listeners]) listener(...args)
   }
 }

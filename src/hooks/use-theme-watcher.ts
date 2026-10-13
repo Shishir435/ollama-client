@@ -1,5 +1,4 @@
 import { useEffect } from "react"
-
 import { useThemeStore } from "@/stores/theme"
 
 export const useThemeWatcher = () => {

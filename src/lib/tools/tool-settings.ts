@@ -41,7 +41,7 @@ export const getToolFamilySettings = async (): Promise<ToolFamilySettings> => {
     enabled: stored?.enabled ?? DEFAULT_TOOL_FAMILY_SETTINGS.enabled,
     families: {
       ...DEFAULT_TOOL_FAMILY_SETTINGS.families,
-      ...(stored?.families ?? {})
+      ...stored?.families
     }
   }
 }

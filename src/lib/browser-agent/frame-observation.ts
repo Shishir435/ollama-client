@@ -7,7 +7,6 @@ import {
   MAX_AGENT_OBSERVED_ELEMENTS,
   MAX_AGENT_OBSERVED_FRAMES
 } from "@ollama-client/contracts"
-
 import type { TabAccess } from "@/lib/browser-tab-access"
 import {
   inheritsFrameOrigin,

@@ -109,10 +109,7 @@ const dragEvent = (
 ): Event => {
   const Ctor = ((view as (Window & typeof globalThis) | null | undefined)
     ?.DragEvent ?? globalThis.DragEvent) as
-    | (new (
-        type: string,
-        init: DragEventInit
-      ) => DragEvent)
+    | (new (type: string, init: DragEventInit) => DragEvent)
     | undefined
   const event =
     typeof Ctor === "function"

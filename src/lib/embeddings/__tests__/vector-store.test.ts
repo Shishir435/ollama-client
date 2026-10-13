@@ -658,11 +658,15 @@ describe("Advanced Features", () => {
     // Store enough vectors to exceed limit
     // Each vector is ~100-200 bytes + overhead
     for (let i = 0; i < 20; i++) {
-      await storeVector(`Content ${i}`, new Array(10).fill(0.1), {
-        type: "chat",
-        timestamp: Date.now() + i,
-        source: "test"
-      })
+      await storeVector(
+        `Content ${i}`,
+        Array.from({ length: 10 }, () => 0.1),
+        {
+          type: "chat",
+          timestamp: Date.now() + i,
+          source: "test"
+        }
+      )
     }
 
     // Check if some were deleted (oldest first)

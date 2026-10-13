@@ -6,7 +6,6 @@ import {
   MAX_AGENT_HANDOFF_RESULT_CHARS
 } from "@ollama-client/contracts/agent-handoff"
 import { describe, expect, it } from "vitest"
-
 import {
   buildAgentConversationHandoff,
   handoffPlainText
@@ -138,9 +137,8 @@ it("carries provenance through the chat fence and omits excluded source records"
     }
   }
   const handoff = buildAgentConversationHandoff(settled(), [], [record])
-  const { renderAgentHandoffBlock } = await import(
-    "@/application/context/agent-handoff-context"
-  )
+  const { renderAgentHandoffBlock } =
+    await import("@/application/context/agent-handoff-context")
   if (!handoff) throw new Error("Expected settled handoff")
   expect(renderAgentHandoffBlock(handoff)).toContain("run-1:1:q0")
   expect(renderAgentHandoffBlock(handoff)).toContain("doc-a")

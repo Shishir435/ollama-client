@@ -6,7 +6,6 @@ import {
   MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS,
   MAX_AGENT_PRIOR_EFFECTS
 } from "@ollama-client/contracts"
-
 import { agentStepSourceUrl, agentStepTargetFrom } from "./history"
 import type { AgentStepReadout, ResolvedAgentEffect } from "./ports"
 

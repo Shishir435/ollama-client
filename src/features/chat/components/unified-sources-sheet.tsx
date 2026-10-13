@@ -184,7 +184,7 @@ const SourceRowActions = ({
 }) => (
   <div className="flex shrink-0 items-center gap-1">
     {item.score > 0 && (
-      <span className="rounded-control bg-emerald-500/12 px-1.5 py-0.5 text-micro font-medium text-emerald-400 tabular-nums">
+      <span className="rounded-control bg-tint-success px-1.5 py-0.5 text-micro font-medium text-status-success tabular-nums">
         {item.score.toFixed(2)}
       </span>
     )}
@@ -254,7 +254,8 @@ const SourceSection = ({
   const toggle = (id: string) =>
     setExpandedIds((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
 
@@ -299,7 +300,7 @@ const SourceSection = ({
           />
         </div>
       </div>
-      <div className="divide-y divide-border-subtle overflow-hidden rounded-control border border-border">
+      <div className="divide-y divide-border overflow-hidden rounded-control border border-border">
         {visible.map((item) => (
           <SourceRow
             key={`${section.group}-${item.id}`}

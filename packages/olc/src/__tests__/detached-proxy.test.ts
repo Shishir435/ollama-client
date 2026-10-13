@@ -49,22 +49,21 @@ describe("detached proxy handshake", () => {
     expect(child.unref).toHaveBeenCalledOnce()
     expect(child.kill).not.toHaveBeenCalled()
   })
-  it.each([
-    "exit",
-    "disconnect",
-    "error"
-  ])("reports %s before readiness as failure", async (event) => {
-    const child = childFixture()
-    const promise = awaitProxyHandoff(
-      child as unknown as ChildProcess,
-      request,
-      "/tmp/proxy.log"
-    )
-    child.emit(event, new Error("failure"))
-    await expect(promise).rejects.toThrow("Logs: /tmp/proxy.log")
-    expect(child.kill).toHaveBeenCalledExactlyOnceWith("SIGTERM")
-    expect(child.unref).not.toHaveBeenCalled()
-  })
+  it.each(["exit", "disconnect", "error"])(
+    "reports %s before readiness as failure",
+    async (event) => {
+      const child = childFixture()
+      const promise = awaitProxyHandoff(
+        child as unknown as ChildProcess,
+        request,
+        "/tmp/proxy.log"
+      )
+      child.emit(event, new Error("failure"))
+      await expect(promise).rejects.toThrow("Logs: /tmp/proxy.log")
+      expect(child.kill).toHaveBeenCalledExactlyOnceWith("SIGTERM")
+      expect(child.unref).not.toHaveBeenCalled()
+    }
+  )
   it("does not report a backend startup error as success or echo configuration", async () => {
     const child = childFixture()
     const promise = awaitProxyHandoff(

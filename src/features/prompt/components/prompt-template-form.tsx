@@ -38,6 +38,7 @@ export const PromptTemplateForm = ({
   // Load initial values
   useEffect(() => {
     if (initialValues) {
+      // oxlint-disable-next-line react/set-state-in-effect -- External template selection replaces the editable form draft.
       setTemplate({
         title: initialValues.title || "",
         description: initialValues.description || "",

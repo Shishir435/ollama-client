@@ -109,7 +109,7 @@ export const SettingsChangeDialog = ({
             const isBool = typeof write.value === "boolean"
             return (
               <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: settings preview rows can share storageKey/field; index suffix prevents future key collisions
+                // oxlint-disable-next-line react/no-array-index-key -- settings preview rows can share storageKey/field; index suffix prevents future key collisions
                 key={`${write.storageKey}.${write.field ?? "__scalar__"}.${index}`}
                 className="flex items-center gap-3 px-3 py-2.5 not-last:border-b not-last:border-border">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-surface-sunken text-muted-foreground">

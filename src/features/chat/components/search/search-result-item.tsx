@@ -18,6 +18,7 @@ export const SearchResultItem = ({
   const formatTimestamp = (timestamp: number) => {
     try {
       const date = new Date(timestamp)
+      // oxlint-disable-next-line react/purity -- Relative result labels intentionally reflect the current clock on each render.
       const now = Date.now()
       const diffMs = now - timestamp
       const diffMins = Math.floor(diffMs / 60000)

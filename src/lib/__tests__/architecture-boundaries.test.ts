@@ -1,6 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-
 import ts from "typescript"
 import { describe, expect, it } from "vitest"
 
@@ -287,7 +286,7 @@ describe("architecture import boundaries", () => {
 
   it("keeps the contracts package independent of the extension environment", () => {
     const contractSources = walk(contractsRoot)
-      .filter((file) => /\.ts$/.test(file))
+      .filter((file) => file.endsWith(".ts"))
       .filter((file) => !file.endsWith(".test.ts"))
     const offenders = contractSources.flatMap((file) => {
       const source = readFileSync(file, "utf8")
@@ -304,7 +303,7 @@ describe("architecture import boundaries", () => {
 
   it("keeps runtime-core independent of extension and browser adapters", () => {
     const runtimeSources = walk(runtimeCoreRoot)
-      .filter((file) => /\.ts$/.test(file))
+      .filter((file) => file.endsWith(".ts"))
       .filter((file) => !file.endsWith(".test.ts"))
     const offenders = runtimeSources.flatMap((file) => {
       const source = readFileSync(file, "utf8")
@@ -325,7 +324,7 @@ describe("architecture import boundaries", () => {
 
   it("keeps chat-runtime behind contracts and relative ports", () => {
     const runtimeSources = walk(chatRuntimeRoot)
-      .filter((file) => /\.ts$/.test(file))
+      .filter((file) => file.endsWith(".ts"))
       .filter((file) => !file.endsWith(".test.ts"))
     const offenders = runtimeSources.flatMap((file) => {
       const source = readFileSync(file, "utf8")
@@ -347,7 +346,7 @@ describe("architecture import boundaries", () => {
 
   it("keeps agent-runtime behind contracts and relative ports", () => {
     const runtimeSources = walk(agentRuntimeRoot)
-      .filter((file) => /\.ts$/.test(file))
+      .filter((file) => file.endsWith(".ts"))
       .filter((file) => !file.endsWith(".test.ts"))
     const offenders = runtimeSources.flatMap((file) => {
       const source = readFileSync(file, "utf8")

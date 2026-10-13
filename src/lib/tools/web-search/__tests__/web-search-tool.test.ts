@@ -72,17 +72,15 @@ describe("web_search tool", () => {
   })
 
   it("is absent from the source when disabled", async () => {
-    const { createWebSearchToolSource } = await import(
-      "../web-search-tool-source"
-    )
+    const { createWebSearchToolSource } =
+      await import("../web-search-tool-source")
     await expect(createWebSearchToolSource().listTools()).resolves.toEqual([])
   })
 
   it("is listed when config is enabled and valid", async () => {
     configState.current.enabled = true
-    const { createWebSearchToolSource } = await import(
-      "../web-search-tool-source"
-    )
+    const { createWebSearchToolSource } =
+      await import("../web-search-tool-source")
     const tools = await createWebSearchToolSource().listTools()
     expect(tools.map((tool) => tool.name)).toEqual(["web_search"])
   })
@@ -94,9 +92,8 @@ describe("web_search tool", () => {
       executionSource: "native",
       nativeMode: "live"
     }
-    const { createWebSearchToolSource } = await import(
-      "../web-search-tool-source"
-    )
+    const { createWebSearchToolSource } =
+      await import("../web-search-tool-source")
 
     await expect(createWebSearchToolSource().listTools()).resolves.toHaveLength(
       1

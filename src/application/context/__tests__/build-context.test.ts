@@ -61,7 +61,6 @@ import {
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import type { ChatMessage } from "@/types"
-
 import { type BuildRagContextOptions, buildRagContext } from "../build-context"
 
 const mockedClassify = vi.mocked(classifyQuery)

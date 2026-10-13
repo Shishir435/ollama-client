@@ -30,11 +30,9 @@ import {
 const RPC_TIMEOUT_MS = 30_000
 
 declare global {
-  // eslint-disable-next-line no-var
   var __persistenceHostCall:
     | ((request: PersistenceOp) => Promise<unknown>)
     | undefined
-  // eslint-disable-next-line no-var
   var __persistenceEnsureOwner: (() => Promise<void>) | undefined
 }
 

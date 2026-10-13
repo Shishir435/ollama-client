@@ -10,8 +10,10 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/class-names"
 
-export interface TooltipActionButtonProps
-  extends Omit<React.ComponentProps<typeof Button>, "children" | "aria-label"> {
+export interface TooltipActionButtonProps extends Omit<
+  React.ComponentProps<typeof Button>,
+  "children" | "aria-label"
+> {
   label?: React.ReactNode
   labelKey?: string
   tooltip?: React.ReactNode

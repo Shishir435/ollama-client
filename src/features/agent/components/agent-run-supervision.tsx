@@ -14,7 +14,6 @@ import {
 } from "lucide-react"
 import { useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -467,6 +466,7 @@ export const AgentRunSupervision = ({
        */}
       <div
         ref={log.ref}
+        // oxlint-disable-next-line react/refs -- The scroll handler is an event callback; the sibling DOM ref does not make it a render-time ref read.
         onScroll={log.onScroll}
         className="max-h-64 overflow-y-auto overscroll-contain">
         <AgentWorkLog

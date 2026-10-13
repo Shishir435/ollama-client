@@ -1,7 +1,6 @@
 import type { AgentPanelSnapshot } from "@ollama-client/contracts"
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { useAgentRun } from "../use-agent-run"
 
 vi.mock("@/lib/feature-flags", () => ({ AGENT_DEBUG_REPORT_ENABLED: true }))
@@ -227,6 +226,7 @@ describe("useAgentRun", () => {
       expect(connect).toHaveBeenCalledOnce()
 
       act(() => {
+        // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot disconnect listeners because cleanup mutates subscriptions during dispatch.
         for (const listener of [...disconnectListeners]) listener()
       })
       act(() => {
@@ -246,6 +246,7 @@ describe("useAgentRun", () => {
       unmount()
 
       act(() => {
+        // oxlint-disable-next-line unicorn/no-useless-spread -- Snapshot disconnect listeners because cleanup mutates subscriptions during dispatch.
         for (const listener of [...disconnectListeners]) listener()
       })
       act(() => {

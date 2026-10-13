@@ -158,41 +158,41 @@ describe("prepareTurnSubmission", () => {
     })
   })
 
-  it.each([
-    "regenerate",
-    "fork"
-  ] as const)("builds a %s turn from the last persisted user", (mode) => {
-    const contextMessages: ChatMessage[] = [
-      { id: 1, role: "user", content: "first" },
-      { id: 2, role: "assistant", content: "first answer", done: true },
-      { id: 3, role: "user", content: "again" }
-    ]
+  it.each(["regenerate", "fork"] as const)(
+    "builds a %s turn from the last persisted user",
+    (mode) => {
+      const contextMessages: ChatMessage[] = [
+        { id: 1, role: "user", content: "first" },
+        { id: 2, role: "assistant", content: "first answer", done: true },
+        { id: 3, role: "user", content: "again" }
+      ]
 
-    const result = prepareTurnSubmission({
-      ...policy,
-      mode,
-      contextMessages
-    })
-
-    expect(result).toMatchObject({
-      submission: {
+      const result = prepareTurnSubmission({
+        ...policy,
         mode,
-        providerId: "ollama",
-        request: {
-          context: {
-            rawInput: "again",
-            messages: contextMessages.slice(0, 2),
-            hasTabContext: false,
-            contextText: "",
-            tabDocuments: [],
-            groundedOnlyMode: false
-          },
-          userMessage: contextMessages[2]
-        }
-      },
-      userMessageId: 3
-    })
-  })
+        contextMessages
+      })
+
+      expect(result).toMatchObject({
+        submission: {
+          mode,
+          providerId: "ollama",
+          request: {
+            context: {
+              rawInput: "again",
+              messages: contextMessages.slice(0, 2),
+              hasTabContext: false,
+              contextText: "",
+              tabDocuments: [],
+              groundedOnlyMode: false
+            },
+            userMessage: contextMessages[2]
+          }
+        },
+        userMessageId: 3
+      })
+    }
+  )
 
   it("does not build a replay turn without a persisted user message", () => {
     expect(

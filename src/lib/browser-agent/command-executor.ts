@@ -8,7 +8,6 @@ import {
   type AgentSnapshotIdentity,
   parseAgentKeyCombination
 } from "@ollama-client/contracts"
-
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type {
   AgentFormFillInstruction,

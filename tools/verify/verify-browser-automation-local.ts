@@ -215,7 +215,6 @@ const captureOptionsTabSmoke = async (
 const runChromiumExtensionChecks = async (
   ollamaModels: string[],
   forceHeadful = false
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: existing browser scenario and headful fallback share one context lifecycle.
 ): Promise<void> => {
   logStep("Chromium Extension Automation")
   const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-chromium-`)
@@ -238,7 +237,7 @@ const runChromiumExtensionChecks = async (
         serviceWorker = await context.waitForEvent("serviceworker", {
           timeout: 10000
         })
-      } catch (_) {}
+      } catch {}
     }
 
     if (serviceWorker) {
@@ -669,7 +668,6 @@ const verifyChatConversationFromExtension = async (
           })
         }, 90000)
 
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: serialized page callback must contain its own stream/error handling.
         port.onMessage.addListener((msg: StreamMessage) => {
           if (typeof msg?.delta === "string") {
             content += msg.delta
@@ -764,7 +762,6 @@ const verifyChatConversationViaHttp = async (
             messages: [{ role: "user", content: prompt }]
           })
         })
-          // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: serialized page callback keeps the existing Ollama streaming parser self-contained.
           .then(async (res) => {
             if (!res.ok) {
               const text = await res.text()

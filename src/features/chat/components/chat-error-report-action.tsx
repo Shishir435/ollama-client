@@ -232,6 +232,7 @@ export const ChatErrorReportAction = ({
   const recoveryContext: ErrorRecoveryContext = {
     error: msg.error ?? {},
     retry: onRetry,
+    // oxlint-disable-next-line react/purity -- Recovery eligibility must use the current clock on every countdown render, not a stale memoized time.
     ageMs: msg.timestamp ? Math.max(0, Date.now() - msg.timestamp) : 0,
     openSettings: (focusId) => {
       // Tab comes from the settings registry, so moving a control between tabs

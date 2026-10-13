@@ -1,6 +1,5 @@
 import type { AgentConversationHandoff } from "@ollama-client/contracts/agent-handoff"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import type { ChatMessage } from "@/types"
 
 const getMessagesByIds = vi.hoisted(() => vi.fn())

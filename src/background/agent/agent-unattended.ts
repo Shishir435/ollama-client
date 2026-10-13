@@ -115,14 +115,14 @@ export const registerAgentUnattendedControls = (
             .catch(() => undefined)
           working = Boolean(
             run?.unattended &&
-              !isTerminalAgentStatus(run.status) &&
-              ![
-                "paused",
-                "pause_requested",
-                "cancelling",
-                "awaiting_approval",
-                "awaiting_takeover"
-              ].includes(run.status)
+            !isTerminalAgentStatus(run.status) &&
+            ![
+              "paused",
+              "pause_requested",
+              "cancelling",
+              "awaiting_approval",
+              "awaiting_takeover"
+            ].includes(run.status)
           )
           await updateWakeAlarm(working)
           const boundary =

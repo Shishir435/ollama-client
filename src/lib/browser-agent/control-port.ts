@@ -25,7 +25,6 @@ import {
   MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
 import { z } from "zod"
-
 import { browser } from "@/lib/browser-api"
 import {
   classifyAgentTabAccess,

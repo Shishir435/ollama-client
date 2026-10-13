@@ -141,7 +141,7 @@ describe("ModelMenu", () => {
     /** Only Ollama reads the switch; every other catalog stays cached. */
     const { refresh, refreshProvider } = useProviderModelsMock.mock.results.at(
       -1
-    )?.value as {
+    )!.value as {
       refresh: ReturnType<typeof vi.fn>
       refreshProvider: ReturnType<typeof vi.fn>
     }

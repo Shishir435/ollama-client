@@ -42,6 +42,7 @@ export const AdvancedSection = ({
 }: AdvancedSectionProps) => {
   const [open, setOpen] = useState(defaultOpen)
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- A settings-search deep link must expand the editable section and leave it expanded afterward.
     if (forceOpen) setOpen(true)
   }, [forceOpen])
   // Destructive blocks are always expanded and have no toggle.

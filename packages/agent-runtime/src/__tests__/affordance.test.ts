@@ -4,7 +4,6 @@ import type {
   AgentObservation
 } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-
 import {
   AGENT_AFFORDANCE_REASONS,
   AgentGroundingError,
@@ -267,17 +266,18 @@ const PAGE_SCOPED_REASONS = [
 ] as const
 
 describe("agentAffordanceFeedback", () => {
-  it.each(
-    AGENT_AFFORDANCE_REASONS
-  )("states what to do instead for %s", (reason) => {
-    const feedback = agentAffordanceFeedback({ reason, ref: "e1" })
-    expect(feedback.endsWith(".")).toBe(true)
-    if ((PAGE_SCOPED_REASONS as readonly string[]).includes(reason)) {
-      expect(feedback).not.toContain('"e1"')
-      return
+  it.each(AGENT_AFFORDANCE_REASONS)(
+    "states what to do instead for %s",
+    (reason) => {
+      const feedback = agentAffordanceFeedback({ reason, ref: "e1" })
+      expect(feedback.endsWith(".")).toBe(true)
+      if ((PAGE_SCOPED_REASONS as readonly string[]).includes(reason)) {
+        expect(feedback).not.toContain('"e1"')
+        return
+      }
+      expect(feedback).toContain('"e1"')
     }
-    expect(feedback).toContain('"e1"')
-  })
+  )
 
   it("keeps the page-scoped set to the reasons that name no control", () => {
     // A new reason has to be classified on purpose: one that names a control

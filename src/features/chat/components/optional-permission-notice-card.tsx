@@ -50,6 +50,7 @@ export const OptionalPermissionNoticeCard = ({
 
   return (
     <div
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- This live region announces permission controls, not the result of a calculation.
       role="status"
       className="mx-2 rounded-panel border border-app-primary/25 bg-app-primary-soft/35 p-3">
       <div className="flex items-start gap-2.5">

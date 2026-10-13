@@ -1,5 +1,11 @@
 import { Zap } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState
+} from "react"
 import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
 import {
@@ -30,6 +36,9 @@ export const ModelPerformanceCard = ({
   config,
   updateConfig
 }: ModelPerformanceCardProps) => {
+  // Preserve the manual draft and save-on-unmount boundary.
+  "use no memo"
+
   const { t } = useTranslation()
   const [keepAliveInput, setKeepAliveInput] = useState(
     stringifyKeepAlive(config.keep_alive)
@@ -47,10 +56,13 @@ export const ModelPerformanceCard = ({
     [config.keep_alive, updateConfig]
   )
   const saveKeepAliveRef = useRef(saveKeepAlive)
-  keepAliveInputRef.current = keepAliveInput
-  saveKeepAliveRef.current = saveKeepAlive
+  useLayoutEffect(() => {
+    keepAliveInputRef.current = keepAliveInput
+    saveKeepAliveRef.current = saveKeepAlive
+  }, [keepAliveInput, saveKeepAlive])
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- External model configuration changes must replace the local editable keep-alive draft.
     setKeepAliveInput(stringifyKeepAlive(config.keep_alive))
   }, [config.keep_alive])
 

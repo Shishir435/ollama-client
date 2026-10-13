@@ -1,6 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { useInterruptedTurnRecovery } from "../use-interrupted-turn-recovery"
 
 const finalizeInterruptedMessages = vi.fn()

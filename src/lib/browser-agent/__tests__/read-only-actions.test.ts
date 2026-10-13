@@ -6,7 +6,6 @@ import {
 } from "@ollama-client/agent-runtime"
 import type { AgentCommand, AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import {
   type AgentCommandExecutorAdapter,
   executeAgentScrollInDocument,
@@ -287,32 +286,35 @@ describe("read-only Agent effects", () => {
     ["confirmed", 20, 120, 500],
     ["negative", 400, 400, 500],
     ["ambiguous", 20, 20, 500]
-  ] as const)("classifies scroll verification as %s", async (expected, beforeY, afterY, documentHeight) => {
-    const before = observation({
-      scroll: { ...observation().scroll, y: beforeY, documentHeight }
-    })
-    const after = observation({
-      snapshotId: "snapshot-2",
-      generation: 2,
-      scroll: { ...before.scroll, y: afterY }
-    })
-    const input = await verificationInput(
-      {
-        type: "scroll",
-        direction: "down",
-        snapshotId: "snapshot-1",
-        generation: 1
-      },
-      before
-    )
-    await expect(
-      verifyReadOnlyAgentEffect({
-        verification: input,
-        adapter: verifierAdapter(after),
-        signal
+  ] as const)(
+    "classifies scroll verification as %s",
+    async (expected, beforeY, afterY, documentHeight) => {
+      const before = observation({
+        scroll: { ...observation().scroll, y: beforeY, documentHeight }
       })
-    ).resolves.toMatchObject({ outcome: expected })
-  })
+      const after = observation({
+        snapshotId: "snapshot-2",
+        generation: 2,
+        scroll: { ...before.scroll, y: afterY }
+      })
+      const input = await verificationInput(
+        {
+          type: "scroll",
+          direction: "down",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        before
+      )
+      await expect(
+        verifyReadOnlyAgentEffect({
+          verification: input,
+          adapter: verifierAdapter(after),
+          signal
+        })
+      ).resolves.toMatchObject({ outcome: expected })
+    }
+  )
 
   it("rejects a document scroll after its snapshot was invalidated", () => {
     const references = {

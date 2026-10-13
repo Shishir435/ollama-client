@@ -5,7 +5,6 @@ import type {
 } from "@ollama-client/contracts"
 import { AgentPanelMessageSchema } from "@ollama-client/contracts"
 import { useCallback, useEffect, useRef, useState } from "react"
-
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"

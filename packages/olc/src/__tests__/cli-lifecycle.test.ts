@@ -143,23 +143,24 @@ describe.skipIf(process.platform === "win32")(
       expect(run.stdout()).toContain(`kill -TERM ${pid}`)
     }, 15000)
 
-    it.each([
-      "--debug",
-      "--foreground"
-    ])("%s stays attached and shuts down on SIGTERM", async (flag) => {
-      const port = await unusedPort()
-      const run = launch([flag, "--port", String(port)])
-      await expect
-        .poll(run.stdout, { timeout: 10000 })
-        .toContain("foreground; Ctrl-C")
-      expect(run.child.exitCode).toBeNull()
-      await delay(50)
-      expect(run.child.exitCode).toBeNull()
-      expect(run.stdout()).not.toContain("(detached")
-      run.child.kill("SIGTERM")
-      expect((await run.exited)[0]).toBe(143)
-      await expect(fetch(`http://127.0.0.1:${port}/health`)).rejects.toThrow()
-    }, 15000)
+    it.each(["--debug", "--foreground"])(
+      "%s stays attached and shuts down on SIGTERM",
+      async (flag) => {
+        const port = await unusedPort()
+        const run = launch([flag, "--port", String(port)])
+        await expect
+          .poll(run.stdout, { timeout: 10000 })
+          .toContain("foreground; Ctrl-C")
+        expect(run.child.exitCode).toBeNull()
+        await delay(50)
+        expect(run.child.exitCode).toBeNull()
+        expect(run.stdout()).not.toContain("(detached")
+        run.child.kill("SIGTERM")
+        expect((await run.exited)[0]).toBe(143)
+        await expect(fetch(`http://127.0.0.1:${port}/health`)).rejects.toThrow()
+      },
+      15000
+    )
 
     it("does not stop an existing proxy when a second launch collides with its port", async () => {
       const port = await unusedPort()

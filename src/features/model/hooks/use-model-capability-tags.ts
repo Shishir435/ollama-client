@@ -1,5 +1,4 @@
 import { useQueries } from "@tanstack/react-query"
-
 import { fetchModelInfo } from "@/features/model/lib/fetch-model-info"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"

@@ -16,7 +16,6 @@ import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useDebounce } from "@/hooks/use-debounce"
 import { logger } from "@/lib/logger"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
-
 import { SearchEmptyState } from "./search/search-empty-state"
 import { SearchInput } from "./search/search-input"
 import { SearchResultGroup } from "./search/search-result-group"
@@ -45,6 +44,7 @@ export const SemanticChatSearchDialog = ({
   // Seed the query when the dialog opens — e.g. escalated from the sidebar
   // title filter via Enter. Cold opens (keyboard shortcut) seed an empty string.
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- The search session resets its draft and results when its opening query or empty query changes.
     if (open) setSearchQuery(initialQuery)
   }, [open, initialQuery])
   const { search, isSearching, error } = useSemanticChatSearch()
@@ -113,6 +113,7 @@ export const SemanticChatSearchDialog = ({
   useEffect(() => {
     // Clear previous results if query is empty
     if (!debouncedQuery.trim()) {
+      // oxlint-disable-next-line react/set-state-in-effect -- The search session resets its draft and results when its opening query or empty query changes.
       setResults([])
       currentSearchRef.current = null
       return

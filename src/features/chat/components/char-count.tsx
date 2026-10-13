@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 
 export const CharCount = ({ count }: { count: number }) => {

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { agentRunResult } from "../run-result"
 
 const read = { id: "r1", text: "Report the status code", kind: "read" as const }

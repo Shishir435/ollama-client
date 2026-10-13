@@ -2,7 +2,6 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
-
 import { LANGUAGES } from "../../src/i18n/languages"
 
 interface ExtensionManifest {

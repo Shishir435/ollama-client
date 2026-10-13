@@ -2,7 +2,6 @@ import type {
   AgentRunOutcome,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
-
 import type { AgentCompletionOutcomeClaim } from "./completion"
 
 /** The run record's own ceiling; the summary is cut before anything is added. */

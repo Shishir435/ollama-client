@@ -140,23 +140,23 @@ describe("model catalog routes", () => {
     })
   })
 
-  it.each([
-    "/v1/models",
-    "/v1/models/model-a"
-  ])("maps backend catalog failures on %s to 502", async (path) => {
-    const listModels = vi.fn(async () => {
-      throw new Error("catalog offline")
-    })
-    const { baseUrl } = await start(backend(listModels))
+  it.each(["/v1/models", "/v1/models/model-a"])(
+    "maps backend catalog failures on %s to 502",
+    async (path) => {
+      const listModels = vi.fn(async () => {
+        throw new Error("catalog offline")
+      })
+      const { baseUrl } = await start(backend(listModels))
 
-    const response = await fetch(`${baseUrl}${path}`)
+      const response = await fetch(`${baseUrl}${path}`)
 
-    expect(response.status).toBe(502)
-    expect(await response.json()).toEqual({
-      error: {
-        message: "Could not read the model catalog: catalog offline",
-        type: "CatalogError"
-      }
-    })
-  })
+      expect(response.status).toBe(502)
+      expect(await response.json()).toEqual({
+        error: {
+          message: "Could not read the model catalog: catalog offline",
+          type: "CatalogError"
+        }
+      })
+    }
+  )
 })

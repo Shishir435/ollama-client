@@ -104,9 +104,9 @@ export function resolveOllamaOptions(
     port,
     explicitHost: Boolean(
       options.LAN ||
-        options.LOCAL ||
-        options.BIND_HOST !== undefined ||
-        configuredHost
+      options.LOCAL ||
+      options.BIND_HOST !== undefined ||
+      configuredHost
     ),
     origins: mergeOrigins(
       env.OLLAMA_ORIGINS,

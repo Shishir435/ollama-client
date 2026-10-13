@@ -128,7 +128,7 @@ Docs site source lives in `docs/`, but not every docs page is hand-edited there.
 
 The git hooks are split:
 
-- **pre-commit** runs `lint-staged` (Biome fixes on staged files and related
+- **pre-commit** runs `lint-staged` (Oxfmt formatting, Oxlint fixes on staged files and related
   tests), then one full typecheck.
 - **pre-push** audits production dependencies and runs `pnpm verify`.
 - **CI/release verification** owns browser builds, bundle budgets, coverage,
@@ -224,3 +224,17 @@ These are real, scoped, valuable for the project right now:
 - For setup questions, the
   [docs site](https://www.ollamaclient.in/) is usually
   the right starting point.
+
+### Lint and formatting
+
+Run `pnpm lint:check` and `pnpm format:check` to check without writes, or
+`pnpm lint:fix` and `pnpm format:fix` to apply fixes. Oxlint treats warnings as
+failures; type-aware linting is not enabled. Oxfmt preserves double quotes, no
+semicolons and no trailing commas, and sorts imports without reordering
+side-effect imports. It covers TS, TSX, JS, MJS, JSON and CSS; docs, public,
+`.claude` and the two standalone CSS stylesheets remain excluded.
+
+Install the Oxc extension in VS Code or Zed for the checked-in editor settings.
+The shadcn plugin enforces semantic theme colors through `shadcn/no-raw-colors`.
+Other design policies can be added deliberately in `.oxlintrc.json`; see the
+[available rules](https://github.com/shadcn-ui/lint/blob/main/docs/rules.md).

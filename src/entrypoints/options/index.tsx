@@ -1,5 +1,4 @@
 import { createRoot } from "react-dom/client"
-
 import { i18nReady } from "@/i18n/config"
 import OptionsIndex from "@/options/index"
 

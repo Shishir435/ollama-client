@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest"
-
 import { createAgentBrowserSessionManager } from "../agent-browser-session-manager"
 
 type Debuggee = { tabId?: number }

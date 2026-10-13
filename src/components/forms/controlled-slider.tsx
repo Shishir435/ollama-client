@@ -7,11 +7,10 @@ import { Slider } from "@/components/ui/slider"
 
 type SliderProps = React.ComponentProps<typeof Slider>
 
-export interface ControlledSliderProps
-  extends Omit<
-    SliderProps,
-    "name" | "value" | "defaultValue" | "onValueChange"
-  > {
+export interface ControlledSliderProps extends Omit<
+  SliderProps,
+  "name" | "value" | "defaultValue" | "onValueChange"
+> {
   name: string
   fallbackValue?: number
   onNumberValueChange?: (value: number) => void

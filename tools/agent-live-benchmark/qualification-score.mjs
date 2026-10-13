@@ -42,18 +42,20 @@ const bindAssertionSubjects = (raw, value, subjects, owners) => {
   )
   for (const [index, [name]] of mentions.entries()) {
     const identity = normalizeText(name)
-    if (/^qf /.test(name)) subjects.reference = identity === value
+    if (name.startsWith("qf ")) subjects.reference = identity === value
     else {
       const codes = []
       for (const [next] of mentions.slice(index + 1)) {
-        if (!/^qf /.test(next)) break
+        if (!next.startsWith("qf ")) break
         codes.push(normalizeText(next))
       }
       if (codes.length) owners.set(identity, codes)
       subjects.offer =
         identity === value || (owners.get(identity) ?? []).includes(value)
     }
-    subjects.topic = /^qf /.test(name) ? subjects.reference : subjects.offer
+    subjects.topic = name.startsWith("qf ")
+      ? subjects.reference
+      : subjects.offer
   }
 }
 

@@ -129,6 +129,7 @@ export const ChatMessageBubble = memo(
             */}
             {agentRow && AgentRunCard && (
               <Suspense fallback={null}>
+                {/* oxlint-disable-next-line react/static-components -- The renderer is an existing component supplied by context or the icon registry, not created during render. */}
                 <AgentRunCard msg={msg} />
               </Suspense>
             )}

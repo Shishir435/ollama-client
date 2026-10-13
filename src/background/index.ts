@@ -1,5 +1,4 @@
 import "webextension-polyfill"
-
 import { registerMessageRouter } from "@/background/message-router"
 import { startPersistenceTopology } from "@/background/persistence-readiness"
 import { registerPortRouter } from "@/background/port-router"

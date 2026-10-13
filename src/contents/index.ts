@@ -3,7 +3,6 @@ import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import type { ChromeMessage } from "@/types"
-
 import { contentDebugLog } from "./content-debug"
 import { installContentScriptMarkers, registerYouTubeInit } from "./debug-init"
 import { safeSendResponse } from "./message-response"

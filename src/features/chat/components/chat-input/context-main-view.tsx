@@ -6,7 +6,6 @@ import {
   Lock
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import {
   ListRow,

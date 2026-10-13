@@ -181,9 +181,8 @@ it("uses bounded saved-file fallback when the real query-embedding pipeline fail
   const actual =
     await vi.importActual<typeof import("../rag-pipeline")>("../rag-pipeline")
   const { retrieveContextEnhanced } = await import("../rag-pipeline")
-  const { generateEmbedding } = await import(
-    "@/application/embeddings/embedding-service"
-  )
+  const { generateEmbedding } =
+    await import("@/application/embeddings/embedding-service")
   vi.mocked(retrieveContextEnhanced).mockImplementationOnce(
     actual.retrieveContextEnhanced
   )
@@ -223,9 +222,8 @@ describe("retrieveContextFromSources", () => {
   })
 
   it("returns formatted results when embedding succeeds", async () => {
-    const { generateEmbedding, generateEmbeddingsBatch } = await import(
-      "@/application/embeddings/embedding-service"
-    )
+    const { generateEmbedding, generateEmbeddingsBatch } =
+      await import("@/application/embeddings/embedding-service")
     const { formatEnhancedResults } = await import("../rag-pipeline")
 
     vi.mocked(generateEmbedding).mockResolvedValueOnce({
@@ -254,9 +252,8 @@ describe("retrieveContextFromSources", () => {
   })
 
   it("falls back to keyword context when embedding fails", async () => {
-    const { generateEmbedding } = await import(
-      "@/application/embeddings/embedding-service"
-    )
+    const { generateEmbedding } =
+      await import("@/application/embeddings/embedding-service")
 
     vi.mocked(generateEmbedding).mockResolvedValueOnce({ error: "failed" })
 
@@ -275,9 +272,8 @@ describe("retrieveContextFromSources", () => {
   })
 
   it("falls back to keyword context when a source embedding is rate-limited", async () => {
-    const { generateEmbeddingsBatch } = await import(
-      "@/application/embeddings/embedding-service"
-    )
+    const { generateEmbeddingsBatch } =
+      await import("@/application/embeddings/embedding-service")
 
     vi.mocked(generateEmbeddingsBatch).mockResolvedValueOnce([
       { error: "rate limited", failure: { status: 429 } }
@@ -296,9 +292,8 @@ describe("retrieveContextFromSources", () => {
   })
 
   it("keeps successful semantic candidates when another source embedding fails", async () => {
-    const { generateEmbeddingsBatch } = await import(
-      "@/application/embeddings/embedding-service"
-    )
+    const { generateEmbeddingsBatch } =
+      await import("@/application/embeddings/embedding-service")
     const { formatEnhancedResults } = await import("../rag-pipeline")
     const { chunkDocuments } = await import("@/lib/embeddings/chunker")
     vi.mocked(formatEnhancedResults).mockClear()
@@ -325,9 +320,8 @@ describe("retrieveContextFromSources", () => {
   })
 
   it("recovers keyword-relevant failed chunks when semantic scores are below threshold", async () => {
-    const { cosineSimilarity, generateEmbeddingsBatch } = await import(
-      "@/application/embeddings/embedding-service"
-    )
+    const { cosineSimilarity, generateEmbeddingsBatch } =
+      await import("@/application/embeddings/embedding-service")
     const { formatEnhancedResults } = await import("../rag-pipeline")
     const { chunkDocuments } = await import("@/lib/embeddings/chunker")
     vi.mocked(cosineSimilarity).mockReturnValueOnce(0.1)

@@ -8,7 +8,6 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { MAX_AGENT_PLAN_AMENDMENTS } from "@ollama-client/contracts"
-
 import type { AgentStatePatch, ResolvedAgentEffect } from "./ports"
 import { agentConsequentialEffects } from "./prior-effects"
 

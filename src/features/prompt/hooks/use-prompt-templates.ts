@@ -41,6 +41,7 @@ export const usePromptTemplates = () => {
   }, [])
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- The effect loads persisted templates and subscribes to external template changes.
     void reload()
     return subscribePromptTemplates(() => void reload())
   }, [reload])

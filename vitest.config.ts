@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
 const COVERAGE_MODE = process.argv.includes("--coverage")
+const PROCESS_ISOLATION =
+  COVERAGE_MODE || Number(process.versions.node.split(".")[0]) >= 24
 const COVERAGE_SHARD = process.env.VITEST_COVERAGE_SHARD === "true"
 const COVERAGE_TEST_TIMEOUT_MS = 30_000
 
@@ -26,13 +28,12 @@ export default defineConfig({
         extends: true,
         test: {
           name: "unit-vm",
-          // V8 coverage and Node 24 can crash while vmThreads recycle their
-          // contexts during a shard/report merge. Process isolation keeps
-          // coverage cleanup out of the VM finalizer path; local test runs
-          // keep the faster VM pool.
-          pool: COVERAGE_MODE ? "forks" : "vmThreads",
+          // Node 24 VM recycling can leak module mocks between files or crash
+          // coverage cleanup. Process isolation preserves per-file mock state;
+          // older Node versions keep the faster VM pool for local runs.
+          pool: PROCESS_ISOLATION ? "forks" : "vmThreads",
           maxWorkers: COVERAGE_MODE ? 4 : 6,
-          ...(COVERAGE_MODE ? {} : { vmMemoryLimit: "256MB" }),
+          ...(PROCESS_ISOLATION ? {} : { vmMemoryLimit: "256MB" }),
           testTimeout: COVERAGE_MODE ? COVERAGE_TEST_TIMEOUT_MS : 5_000,
           include: [
             "src/**/*.{test,spec}.{ts,tsx}",

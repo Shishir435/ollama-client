@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import type { AgentStepReadout } from "../ports"
 import { agentAuthoredText, isAgentAuthoredDestination } from "../provenance"
 

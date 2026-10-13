@@ -245,16 +245,14 @@ describe("agent plan record", () => {
       ).toEqual({ plan: planned.plan })
     })
 
-    it.each([
-      "sí",
-      "sì",
-      "हाँ",
-      "नहीं"
-    ])("preserves combining marks in %s", (answer) => {
-      expect(
-        agentConfirmedRemovalPatch(pending, answer.normalize("NFD"), 12, 13)
-      ).toEqual(agentConfirmedRemovalPatch(pending, answer, 12, 13))
-    })
+    it.each(["sí", "sì", "हाँ", "नहीं"])(
+      "preserves combining marks in %s",
+      (answer) => {
+        expect(
+          agentConfirmedRemovalPatch(pending, answer.normalize("NFD"), 12, 13)
+        ).toEqual(agentConfirmedRemovalPatch(pending, answer, 12, 13))
+      }
+    )
 
     it("keeps everything on no, and on a sentence leaves the answer to the planner", () => {
       expect(agentConfirmedRemovalPatch(pending, "no", 12, 13)).toEqual({

@@ -5,7 +5,6 @@ import type {
   AgentScreenshot
 } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
-
 import { createAgentController } from "../controller"
 import type {
   AgentControllerDependencies,

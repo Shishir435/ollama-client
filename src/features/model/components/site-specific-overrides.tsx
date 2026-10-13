@@ -109,6 +109,7 @@ export const SiteSpecificOverrides = ({
   useEffect(() => {
     const siteKeys = Object.keys(config.siteOverrides)
     if (siteKeys.length > 0 && !selectedSiteOverride) {
+      // oxlint-disable-next-line react/set-state-in-effect -- External override deletion must clear selection or select the first remaining persisted site.
       setSelectedSiteOverride(siteKeys[0])
     } else if (siteKeys.length === 0) {
       setSelectedSiteOverride(null)
@@ -227,6 +228,7 @@ export const SiteSpecificOverrides = ({
                 render={
                   <Button
                     variant="outline"
+                    // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/role-has-required-aria-props -- Composite picker uses a button trigger; Base UI merges aria-expanded and aria-controls at runtime.
                     role="combobox"
                     className="w-full justify-between"
                   />

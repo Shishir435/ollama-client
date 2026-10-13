@@ -13,7 +13,6 @@ import {
   MAX_AGENT_HANDOFF_GOAL_CHARS,
   MAX_AGENT_HANDOFF_RESULT_CHARS
 } from "@ollama-client/contracts/agent-handoff"
-
 import { redactLogText } from "@/lib/log-redaction"
 
 /**

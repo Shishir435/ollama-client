@@ -107,6 +107,7 @@ export const useMarkdownParser = (markdown: string) => {
 
   /** The inputs the current `html` was produced from. */
   const renderedRef = useRef({ markdown, hljsReady })
+  // oxlint-disable-next-line react/purity -- The initial render clock anchors the streaming throttle; later effects update the timestamp.
   const lastRenderAtRef = useRef(Date.now())
 
   /**

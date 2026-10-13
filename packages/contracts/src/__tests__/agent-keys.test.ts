@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { AgentCommandSchema } from "../agent-command"
 import {
   AgentKeyCombinationSchema,
