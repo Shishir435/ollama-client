@@ -301,13 +301,25 @@ false completion; share only the task/attempt, predicate and adjudication label.
 corpus in Docker against olc Codex (one attempt per task unless
 `AUDIT_ATTEMPTS` says otherwise), then `live-gate.mjs`. It refuses a dirty
 tree, and caps the pass at 15,000,000 reported tokens unless
-`AUDIT_MAX_TOKENS` says otherwise. It runs on the machine signed in to Codex, not in GitHub Actions, which
-has no Codex session. Schedule it with launchd or cron, for example:
+`AUDIT_MAX_TOKENS` says otherwise. It runs on the machine signed in to Codex. Schedule it with launchd or cron, for example:
 
 ```bash
 # crontab -e
 41 2 * * * cd ~/Projects/ollama-client && bash tools/agent-live-benchmark/nightly.sh >> artifacts/agent-live-benchmark/logs/nightly.log 2>&1
 ```
+
+The scheduled and manually dispatchable GitHub workflow
+`.github/workflows/agent-live-nightly.yml` uses a separately configured hosted
+endpoint; GitHub-hosted runners have no local Codex session. Set
+`AGENT_LIVE_API_KEY` as a repository secret and `AGENT_LIVE_MODEL` as a
+repository variable, using the model id returned by that endpoint. Optional
+variables are `AGENT_LIVE_UPSTREAM` (default OpenRouter) and
+`AGENT_LIVE_MAX_COST_USD` (default $0.15). A dispatch can select the model,
+split, attempt count and cost cap. The key is available only to the live job,
+private evidence is explicitly disabled, and artifact upload includes only
+content-free summaries. No pull-request trigger exists; the repository guard
+also excludes forks. The summary is posted even when a pass fails its gate.
+A dispatch requires the workflow on the default branch and a configured key.
 
 **Token and cost caps.** `AUDIT_MAX_TOKENS` and `AUDIT_MAX_COST_USD` are
 honoured by any run of `synthetic.mjs` or `qualification.mjs`. Usage is what
@@ -316,7 +328,20 @@ cap a Codex pass by tokens. Once the total reaches a cap, every remaining
 attempt is recorded as an infrastructure failure with `cost_cap_reached`:
 counted, not run. A cap that cannot be checked, because the provider reported
 no usage (or no cost, for a cost cap), counts as reached. The totals are saved
-as `inputs.usage` in the report.
+as `inputs.usage` in the report. Capped streams request
+`stream_options.include_usage`. The check happens between attempts, so the
+last in-flight attempt can exceed the cap; a provider-side spending limit is
+needed for a strict dollar ceiling.
+
+**Codex accounting limitation:** olc reports cumulative tokens only when the
+backend turn completes. Parked tool calls, including forced agent decisions,
+carry no counts. Asking for streaming usage cannot recover those counts.
+Consequently the capped local nightly can stop after its first attempt with
+`tokensUnknown: true`. It stays fail-closed; do not treat missing tokens as
+zero or publish the reported subtotal as total spend. For a complete capped
+nightly use the hosted workflow with an endpoint that reports per-call usage.
+Explicit development passes through olc can run uncapped, as the saved
+baseline did.
 
 **What fails the pass:** any false completion, any attempt pending
 adjudication, any unauthorized disclosure, any duplicate consequential effect

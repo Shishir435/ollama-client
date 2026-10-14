@@ -135,20 +135,30 @@ export const createUsageBudget = ({ maxCostUsd, maxTokens } = {}) => {
 }
 
 /**
- * OpenRouter reports a request's cost only when asked, through
- * `usage: { include: true }`. Added to chat completions sent to it, and only
- * to it, when a cost cap is set: another provider may reject a field it does
- * not know. Any other body is forwarded untouched.
+ * Request streaming token accounting when capped. OpenRouter additionally
+ * needs its own usage flag for cost. Missing accounting still stops the pass;
+ * in particular, olc cannot report the cost of a parked Codex tool call.
  */
 export const withUsageAccounting = (path, body, upstream, caps) => {
   if (
-    caps?.maxCostUsd === undefined ||
     !path.endsWith("/chat/completions") ||
-    new URL(upstream).hostname !== "openrouter.ai"
+    (caps?.maxTokens === undefined && caps?.maxCostUsd === undefined)
   )
     return body
   try {
-    return JSON.stringify({ ...JSON.parse(body), usage: { include: true } })
+    const request = JSON.parse(body)
+    const tokenAccounting = request.stream === true
+    const costAccounting =
+      caps?.maxCostUsd !== undefined &&
+      new URL(upstream).hostname === "openrouter.ai"
+    if (!tokenAccounting && !costAccounting) return body
+    return JSON.stringify({
+      ...request,
+      ...(tokenAccounting
+        ? { stream_options: { ...request.stream_options, include_usage: true } }
+        : {}),
+      ...(costAccounting ? { usage: { ...request.usage, include: true } } : {})
+    })
   } catch {
     return body
   }

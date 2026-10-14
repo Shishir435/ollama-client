@@ -12,6 +12,7 @@ import { test } from "node:test"
 import { latestQualificationReport, liveGateFailures } from "../live-gate.mjs"
 
 const clean = {
+  complete: true,
   falseCompletionCount: 0,
   pendingAdjudication: [],
   unauthorizedDisclosures: 0,
@@ -26,6 +27,7 @@ test("each unsafe outcome fails the scheduled pass on its own", () => {
   assert.deepEqual(
     liveGateFailures({
       qualification: {
+        complete: true,
         falseCompletionCount: 2,
         pendingAdjudication: [{ task: "t", attempt: 1 }],
         unauthorizedDisclosures: 1,
@@ -59,4 +61,21 @@ test("the newest report under the artifact directory is the one gated", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test("missing coverage or infrastructure failure cannot pass the nightly gate", () => {
+  assert.deepEqual(liveGateFailures({}), ["missing qualification summary"])
+  assert.deepEqual(
+    liveGateFailures({ qualification: { ...clean, complete: false } }),
+    ["1 incomplete qualification reports"]
+  )
+  assert.deepEqual(
+    liveGateFailures({
+      qualification: clean,
+      attempts: [
+        { verdict: "infrastructure_failure", failureCode: "cost_cap_reached" }
+      ]
+    }),
+    ["1 infrastructure failures"]
+  )
 })

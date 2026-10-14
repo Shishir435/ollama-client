@@ -131,3 +131,32 @@ test("only OpenRouter chat completions are asked to report cost, and only under 
     body
   )
 })
+
+test("a capped stream requests tokens and preserves other streaming options", () => {
+  const body = JSON.stringify({
+    stream: true,
+    stream_options: { other: true },
+    messages: []
+  })
+  for (const caps of [{ maxTokens: 100 }, { maxCostUsd: 1 }]) {
+    const asked = JSON.parse(
+      withUsageAccounting(
+        "/v1/chat/completions",
+        body,
+        "http://127.0.0.1:8083",
+        caps
+      )
+    )
+    assert.deepEqual(asked.stream_options, { other: true, include_usage: true })
+    assert.equal(asked.usage, undefined)
+  }
+  assert.equal(
+    withUsageAccounting(
+      "/v1/chat/completions",
+      body,
+      "http://127.0.0.1:8083",
+      {}
+    ),
+    body
+  )
+})

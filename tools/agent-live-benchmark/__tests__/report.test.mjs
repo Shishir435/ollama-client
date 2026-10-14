@@ -266,6 +266,14 @@ test("admission failure is checked before the chat answer is read", () => {
     }),
     "admission_failure"
   )
+  assert.equal(
+    classifyAttempt({
+      ...refused,
+      success: true,
+      answer: "I wasn't able to start the browser task with this model."
+    }),
+    "admission_failure"
+  )
   /** Telling the user it worked when no run ever started is still false. */
   assert.equal(
     classifyAttempt({ ...refused, answer: "Done — I've saved the form." }),

@@ -96,6 +96,18 @@ export const classifyAttempt = ({
   unclearOracle
 }) => {
   if (infrastructureFailure) return "infrastructure_failure"
+  /** Admission is resolved before interpreting a standalone chat answer. */
+  if (
+    admissionFailure ||
+    ["not-started", "turn_not_started", "browser_task_not_started"].includes(
+      status
+    )
+  ) {
+    const claim = successClaim({ status, answer })
+    if (success !== true && claim === "claimed") return "false_completion"
+    if (success !== true && claim === "unsure") return "pending_adjudication"
+    return "admission_failure"
+  }
   /** The scorer could not tell right from wrong: a person decides. */
   if (unclearOracle && success !== true) return "pending_adjudication"
   if (status === "completed")
@@ -118,13 +130,6 @@ export const classifyAttempt = ({
     ].includes(errorCode)
   )
     return "provider_failure"
-  if (
-    admissionFailure ||
-    ["not-started", "turn_not_started", "browser_task_not_started"].includes(
-      status
-    )
-  )
-    return "admission_failure"
   if (
     status === "awaiting_takeover" ||
     (success === true &&
