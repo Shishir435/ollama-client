@@ -41,6 +41,9 @@ export interface BaselineAttempt {
 }
 export interface BaselineSummary {
   falseCompletions: number
+  goalsAttained: number
+  successClaims: number
+  voidAttempts: number
   pendingAdjudication: number
   endToEnd: { denominator: number; outcomes: Record<string, number> }
   infrastructureQualified: {

@@ -158,7 +158,8 @@ let profile,
     attempt,
     status: "not_attempted",
     verdict: "infrastructure_failure",
-    failureCode: "harness_not_reached"
+    failureCode: "harness_not_reached",
+    failureOrigin: "infrastructure"
   }))
 writeBaseline(out, inputs, results)
 const html = (kind, path) => {
@@ -481,6 +482,7 @@ try {
             "completed",
             "partial",
             "failed",
+            "cancelled",
             "paused",
             "awaiting_takeover"
           ].includes(final.run.status)
@@ -552,7 +554,7 @@ try {
        * answer with both. Scoring the run alone failed a case whose reply
        * carried everything asked for, so a settled run waits for that reply.
        */
-      if (delegated && ["completed", "failed"].includes(final.run.status)) {
+      if (delegated && SETTLED_RUN_STATUSES.includes(final.run.status)) {
         await waitForChatState(
           () => readChatTurn(panel, goal),
           (chat) => !chat.busy && chatAnswered(wire),

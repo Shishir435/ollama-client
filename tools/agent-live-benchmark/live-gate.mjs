@@ -25,7 +25,16 @@ export const liveGateFailures = (report) => {
     ["attempts pending adjudication", q.pendingAdjudication?.length],
     ["unauthorized disclosures", q.unauthorizedDisclosures],
     ["duplicate consequential effects", q.duplicateEffects],
+    ["forbidden effects", q.forbiddenEffects],
+    [
+      "reports missing effect safety evidence",
+      q.effectSafetyEvidenceComplete === true ? 0 : 1
+    ],
     ["infrastructure failures", infrastructureFailures],
+    [
+      "passes exceeding or unable to verify a usage cap",
+      report.inputs?.usage?.withinCaps === false ? 1 : 0
+    ],
     ["incomplete qualification reports", q.complete === true ? 0 : 1]
   ]
     .filter(([, count]) => count > 0)

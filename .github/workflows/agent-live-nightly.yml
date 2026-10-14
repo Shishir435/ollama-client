@@ -6,7 +6,8 @@ name: Agent live suite
 # from running it on a schedule of their own.
 on:
   schedule:
-    - cron: "41 2 * * *"
+    # 02:41 India time (Asia/Calcutta).
+    - cron: "11 21 * * *"
   workflow_dispatch:
     inputs:
       model:
@@ -17,9 +18,9 @@ on:
         default: "1"
       split:
         description: Corpus split (development or held_out)
-        default: development
+        default: all
         type: choice
-        options: [development, held_out]
+        options: [all, development, held_out]
       max_cost_usd:
         description: Stop starting attempts once provider-reported cost reaches this
         default: "0.15"
@@ -44,7 +45,7 @@ jobs:
       AUDIT_MODEL: ${{ inputs.model || vars.AGENT_LIVE_MODEL }}
       AUDIT_REASONING_EFFORT: high
       AUDIT_ATTEMPTS: ${{ inputs.attempts || '1' }}
-      AUDIT_SPLIT: ${{ inputs.split || 'development' }}
+      AUDIT_SPLIT: ${{ inputs.split || 'all' }}
       AUDIT_DEBUG_EVIDENCE: "0"
       AUDIT_MAX_COST_USD: ${{ inputs.max_cost_usd || vars.AGENT_LIVE_MAX_COST_USD || '0.15' }}
     steps:

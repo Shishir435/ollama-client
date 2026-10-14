@@ -178,6 +178,7 @@ describe("every trap", () => {
       const { score } = await run(task, solution.cheat)
       assert.equal(score.success, true)
       assert.equal(score.duplicateEffects, 0)
+      assert.equal(score.forbiddenEffects, 0)
     })
     it(`${task.variant}: an agent that does nothing fails`, async () => {
       const { score } = await run(task)
@@ -314,4 +315,13 @@ test("the two invoices must be paid in the order asked", async () => {
     await (await env.page()).press("Mark paid", "Invoice A")
   })
   assert.equal(score.success, false)
+})
+
+test("wrong-scope deletion and explicit forbidden options are counted independently", async () => {
+  for (const variant of ["scoped_delete", "dropped_constraint", "long_goal"]) {
+    const task = traps.find((task) => task.variant === variant)
+    const { score } = await run(task, TRAP_SOLUTIONS[variant].trap)
+    assert.equal(score.success, false)
+    assert.equal(score.forbiddenEffects, 1)
+  }
 })

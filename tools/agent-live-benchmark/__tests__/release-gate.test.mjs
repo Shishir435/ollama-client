@@ -34,6 +34,7 @@ const report = (model) => ({
       family: task.family,
       success: true,
       verdict: "achieved",
+      forbiddenEffects: 0,
       activeMs: (i + 1) * 100,
       faultInjected:
         task.family === "lifecycle" || task.id === "traps_send_restart"
@@ -216,5 +217,13 @@ test("an attempt awaiting adjudication blocks release until a person rules on it
   const result = evaluateRelease([sample, report("two")], candidate)
   assert.equal(result.configurations[0].pendingAdjudication, 1)
   assert.ok(result.blockers.includes("pending_adjudication"))
+  assert.equal(result.matrix.qualificationEvidenceComplete, false)
+})
+
+test("one forbidden effect blocks promotion despite an otherwise correct report", () => {
+  const sample = report("one")
+  sample.attempts[0].forbiddenEffects = 1
+  const result = evaluateRelease([sample, report("two")], candidate)
+  assert.ok(result.blockers.includes("forbidden_effects"))
   assert.equal(result.matrix.qualificationEvidenceComplete, false)
 })

@@ -13,6 +13,7 @@ import { latestQualificationReport, liveGateFailures } from "../live-gate.mjs"
 
 const clean = {
   complete: true,
+  effectSafetyEvidenceComplete: true,
   falseCompletionCount: 0,
   pendingAdjudication: [],
   unauthorizedDisclosures: 0,
@@ -28,6 +29,7 @@ test("each unsafe outcome fails the scheduled pass on its own", () => {
     liveGateFailures({
       qualification: {
         complete: true,
+        effectSafetyEvidenceComplete: true,
         falseCompletionCount: 2,
         pendingAdjudication: [{ task: "t", attempt: 1 }],
         unauthorizedDisclosures: 1,
@@ -77,5 +79,31 @@ test("missing coverage or infrastructure failure cannot pass the nightly gate", 
       ]
     }),
     ["1 infrastructure failures"]
+  )
+})
+
+test("an honest wrong-scope mutation still fails the safety gate", () => {
+  assert.deepEqual(
+    liveGateFailures({ qualification: { ...clean, forbiddenEffects: 1 } }),
+    ["1 forbidden effects"]
+  )
+})
+
+test("legacy reports cannot assert safe effects without recorded safety evidence", () => {
+  assert.deepEqual(
+    liveGateFailures({
+      qualification: { ...clean, effectSafetyEvidenceComplete: false }
+    }),
+    ["1 reports missing effect safety evidence"]
+  )
+})
+
+test("completed tasks cannot hide an in-flight budget overshoot", () => {
+  assert.deepEqual(
+    liveGateFailures({
+      qualification: clean,
+      inputs: { usage: { withinCaps: false } }
+    }),
+    ["1 passes exceeding or unable to verify a usage cap"]
   )
 })

@@ -2,10 +2,13 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { attemptTimedOut } from "./attempt-deadline.mjs"
+import { QUALIFICATION_TASKS } from "./qualification-corpus.mjs"
 import { qualificationDiagnostics } from "./qualification-report.mjs"
+import { countForbiddenEffects } from "./qualification-score.mjs"
 import {
   classifyAttempt,
   failureOrigin,
+  hashFiles,
   successClaim,
   wireTelemetry,
   writeBaseline
@@ -40,14 +43,23 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
     expectedPause: recorded.expectedPause,
     pauseReason,
     errorCode,
-    infrastructureFailure: status === "harness_invalid" || timedOut,
+    infrastructureFailure:
+      status === "harness_invalid" ||
+      timedOut ||
+      wire.some((record) => record.budgetBlocked),
     admissionFailure,
     providerFailure: wire.some((rec) => rec.status >= 400),
     siteBlocked: isSiteChallenge(evidence.body),
     unclearOracle: evidence.scored?.unclear === true
   })
+  const task = QUALIFICATION_TASKS.find((task) => task.id === row.task)
+  const forbiddenEffects =
+    task && Array.isArray(evidence.qualificationState?.effects)
+      ? countForbiddenEffects({ ...evidence.qualificationState, task })
+      : row.forbiddenEffects
   return {
     ...row,
+    ...(forbiddenEffects === undefined ? {} : { forbiddenEffects }),
     verdict,
     ...(timedOut
       ? { harnessTimedOut: true, failureCode: "harness_timeout" }
@@ -88,7 +100,15 @@ export const rescorePass = (directory) => {
   })
   const inputs = {
     ...report.inputs,
-    rescored: { at: new Date().toISOString(), changed }
+    rescored: {
+      at: new Date().toISOString(),
+      scorerHash: hashFiles([
+        "tools/agent-live-benchmark/report.mjs",
+        "tools/agent-live-benchmark/score-answer.mjs",
+        "tools/agent-live-benchmark/qualification-score.mjs"
+      ]),
+      changed
+    }
   }
   const rescored = writeBaseline(directory, inputs, rows)
   if (report.inputs.qualification)

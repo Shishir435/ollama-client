@@ -82,7 +82,7 @@ test("independent correctness never turns interrupted or uncertain effects into 
   )
 })
 
-test("both denominators include admission/provider/site failures; only infrastructure is excluded from qualified", () => {
+test("every denominator includes admission, provider, site and infrastructure failures", () => {
   const attempts = [
     "achieved",
     "admission_failure",
@@ -94,7 +94,7 @@ test("both denominators include admission/provider/site failures; only infrastru
   ].map((verdict) => ({ verdict, success: verdict === "partial" }))
   const summary = summarizeBaseline(attempts)
   assert.equal(summary.endToEnd.denominator, 7)
-  assert.equal(summary.infrastructureQualified.denominator, 6)
+  assert.equal(summary.infrastructureQualified.denominator, 7)
   assert.equal(summary.fulfilledButUnsettled, 2)
   assert.deepEqual(summary.rankedFailures[0], {
     failure: "partial/partial",
@@ -401,5 +401,24 @@ test("an answer the scorer could not bind goes to a person, whatever was claimed
       unclearOracle: true
     }),
     "achieved"
+  )
+})
+
+test("uncertain claims remain pending even when the goal was attained", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: true,
+      answer: "Done. I could not complete the task."
+    }),
+    "pending_adjudication"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: true,
+      answer: "I could not complete the task."
+    }),
+    "reported_failure"
   )
 })

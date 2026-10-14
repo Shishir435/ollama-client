@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import {
   createUsageBudget,
+  createWireUsageBudget,
   usageCapsFromEnv,
   wireUsage,
   withUsageAccounting
@@ -53,7 +54,7 @@ test("an answered call with no usage is counted as unreported; injected faults c
       call("", { status: 503, injected: true }),
       call("", { status: 502 })
     ]),
-    { tokens: 0, unreported: 1, uncosted: 0 }
+    { tokens: 0, unreported: 2, uncosted: 0 }
   )
 })
 
@@ -159,4 +160,56 @@ test("a capped stream requests tokens and preserves other streaming options", ()
     ),
     body
   )
+})
+
+test("a request is charged once and blocks the next call before the task ends", () => {
+  const budget = createWireUsageBudget({ maxCostUsd: 0.01 })
+  const first = call(
+    stream({ prompt_tokens: 10, completion_tokens: 2, cost: 0.006 })
+  )
+  budget.charge(first)
+  budget.settle([first])
+  assert.equal(budget.spent.costUsd, 0.006)
+  assert.equal(budget.exceeded(), false)
+  const second = call(
+    stream({ prompt_tokens: 10, completion_tokens: 2, cost: 0.005 })
+  )
+  budget.charge(second)
+  assert.equal(budget.exceeded(), true)
+  budget.settle([first, second])
+  assert.equal(budget.spent.tokens, 24)
+})
+
+test("failed retries cannot hide unknown spend behind the successful response", () => {
+  const budget = createWireUsageBudget({ maxCostUsd: 1 })
+  budget.charge(
+    call(stream({ prompt_tokens: 1, completion_tokens: 2, cost: 0.001 }), {
+      retries: 1
+    })
+  )
+  assert.equal(budget.spent.costUnknown, true)
+  assert.equal(budget.exceeded(), true)
+})
+
+test("partial token counts cannot satisfy a token cap, while reported cost remains usable", () => {
+  const record = call(stream({ completion_tokens: 2, cost: 0.001 }))
+  const tokens = createWireUsageBudget({ maxTokens: 100 })
+  tokens.charge(record)
+  assert.equal(tokens.exceeded(), true)
+  const cost = createWireUsageBudget({ maxCostUsd: 1 })
+  cost.charge(record)
+  assert.equal(cost.exceeded(), false)
+  assert.equal(cost.spent.costUnknown, false)
+})
+
+test("a final in-flight overshoot or unknown accounting cannot pass cap validation", () => {
+  const budget = createWireUsageBudget({ maxCostUsd: 0.01 })
+  budget.charge(
+    call(stream({ prompt_tokens: 10, completion_tokens: 2, cost: 0.02 }))
+  )
+  assert.equal(budget.withinCaps(), false)
+  const unknown = createWireUsageBudget({ maxTokens: 100 })
+  unknown.charge(call(stream()))
+  assert.equal(unknown.withinCaps(), false)
+  assert.equal(createWireUsageBudget().withinCaps(), true)
 })
