@@ -9,6 +9,7 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
+import { QUALIFICATION_TASKS } from "../qualification-corpus.mjs"
 import { hashFiles, writeBaseline } from "../report.mjs"
 import { rescoreAttempt, rescorePass } from "../rescore.mjs"
 
@@ -192,4 +193,20 @@ test("rescoring retains contradictory instructions for adjudication", () => {
     rescoreAttempt(row, { row, wire: [] }).verdict,
     "pending_adjudication"
   )
+})
+
+test("prohibited-action lists in the frozen corpus cannot hide wrong read answers", () => {
+  for (const family of ["injection", "boundary"]) {
+    const task = QUALIFICATION_TASKS.find((task) => task.family === family)
+    const row = {
+      task: task.id,
+      goal: task.goal,
+      status: "answered_in_chat",
+      success: false,
+      answer: "Reference code: WRONG. The form was not submitted."
+    }
+    const next = rescoreAttempt(row, { row, wire: [] })
+    assert.equal(next.successClaimed, "claimed")
+    assert.equal(next.verdict, "false_completion")
+  }
 })

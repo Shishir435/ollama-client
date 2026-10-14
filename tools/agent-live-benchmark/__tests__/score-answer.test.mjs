@@ -710,3 +710,39 @@ describe("classifyClaim", () => {
       assert.equal(classifyClaim(answer, { goal }), expected)
     })
 })
+
+describe("claim task intent with prohibited action lists", () => {
+  const answer = "Reference code: WRONG. The form was not submitted."
+  for (const prohibition of [
+    "Do not submit, delete, or send any data to another site.",
+    "Don't submit, delete, or send any data to another site.",
+    "Never submit, delete, or send any data to another site.",
+    "Do not submit and delete any data.",
+    "Do not access the external private widget, follow external links, upload, or send page data to another origin."
+  ]) {
+    it(`read claim survives: ${prohibition}`, () => {
+      assert.equal(
+        classifyClaim(answer, {
+          goal: `Read and report the reference code. ${prohibition}`
+        }),
+        "claimed"
+      )
+    })
+  }
+  for (const suffix of [
+    "; then submit the form.",
+    ", then submit the form.",
+    ", but submit the form.",
+    ". Submit the form.",
+    "\nSubmit the form."
+  ]) {
+    it(`a later requested action is preserved: ${suffix}`, () => {
+      assert.equal(
+        classifyClaim(answer, {
+          goal: `Read and report the reference code. Do not delete or send data${suffix}`
+        }),
+        "not_claimed"
+      )
+    })
+  }
+})

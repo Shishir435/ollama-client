@@ -405,7 +405,7 @@ const isReadAssertion = (sentence, pattern) =>
 /** A prohibited action is not a requested action; positive mutations still block the exemption. */
 const taskIntent = (goal) => {
   const requested = String(goal ?? "").replace(
-    /\b(?:do not|don't|never)\s+(?:(?!\band\b)[^,.;!?\n])+/gi,
+    /\b(?:do not|don't|never)\s+(?:(?!\b(?:but|then|instead)\b)[^.;!?\n])+/gi,
     ""
   )
   if (ACTION_GOAL_PATTERN.test(requested)) return "action"

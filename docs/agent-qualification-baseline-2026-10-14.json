@@ -420,7 +420,7 @@
         "taskTimeoutMs": 2700000,
         "answerTimeoutMs": 45000
       },
-      "scorerHash": "ca17da656728948d5007ec7181f9a3af97632f9ee5e45537708ba6bbc6ca0a47",
+      "scorerHash": "56f1e0e17079f87cccb4743db2561f7fc229aaa5f34b4e65dfefe870bd1b8818",
       "summary": {
         "falseCompletions": 0,
         "goalsAttained": 19,
@@ -997,7 +997,7 @@
         "taskTimeoutMs": 2700000,
         "answerTimeoutMs": 45000
       },
-      "scorerHash": "ca17da656728948d5007ec7181f9a3af97632f9ee5e45537708ba6bbc6ca0a47",
+      "scorerHash": "56f1e0e17079f87cccb4743db2561f7fc229aaa5f34b4e65dfefe870bd1b8818",
       "summary": {
         "falseCompletions": 2,
         "goalsAttained": 27,
@@ -1325,5 +1325,5 @@
       }
     ]
   },
-  "scorerHash": "ca17da656728948d5007ec7181f9a3af97632f9ee5e45537708ba6bbc6ca0a47"
+  "scorerHash": "56f1e0e17079f87cccb4743db2561f7fc229aaa5f34b4e65dfefe870bd1b8818"
 }
