@@ -1029,6 +1029,7 @@ try {
         status,
         success,
         answer,
+        goal,
         expectedPause,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
@@ -1060,7 +1061,7 @@ try {
         model,
         success,
         verdict,
-        successClaimed: successClaim({ status, answer }),
+        successClaimed: successClaim({ status, answer, goal }),
         failureOrigin: failureOrigin({
           verdict,
           status,

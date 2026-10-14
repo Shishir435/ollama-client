@@ -26,6 +26,7 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
   const recorded = evidence?.row
   if (!recorded || evidence.harnessError) return row
   const { status, success, answer, errorCode, pauseReason } = recorded
+  const goal = recorded.goal ?? row.goal
   const wire = evidence.wire ?? []
   const admissionFailure =
     status === "turn_not_started" ||
@@ -41,6 +42,7 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
     status,
     success,
     answer,
+    goal,
     expectedPause: recorded.expectedPause,
     pauseReason,
     errorCode,
@@ -65,7 +67,7 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
     ...(timedOut
       ? { harnessTimedOut: true, failureCode: "harness_timeout" }
       : {}),
-    successClaimed: successClaim({ status, answer }),
+    successClaimed: successClaim({ status, answer, goal }),
     failureOrigin: failureOrigin({ verdict, status, errorCode })
   }
 }

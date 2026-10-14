@@ -640,6 +640,7 @@ try {
         status,
         success,
         answer,
+        goal,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
         infrastructureFailure: status === "harness_invalid" || timedOut,
@@ -657,7 +658,7 @@ try {
         model,
         success,
         verdict,
-        successClaimed: successClaim({ status, answer }),
+        successClaimed: successClaim({ status, answer, goal }),
         failureOrigin: failureOrigin({
           verdict,
           status,

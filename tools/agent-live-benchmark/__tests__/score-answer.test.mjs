@@ -617,8 +617,62 @@ describe("classifyClaim", () => {
     ["I clicked Save, but whether it saved is unclear.", "not_claimed"],
     ["I couldn't get it done.", "not_claimed"],
     ["The form was not submitted.", "not_claimed"],
-    ["Blue Kettle costs 39 credits. An order was not placed.", "claimed"],
-    ["Status: Active. The form was not submitted.", "claimed"],
+    [
+      "Done. I could not submit the form. Please click Submit yourself.",
+      "unsure",
+      "Submit the form."
+    ],
+    [
+      "Does the Blue Kettle cost 39 credits? An order was not placed.",
+      "not_claimed",
+      "What does the Blue Kettle cost?"
+    ],
+    [
+      "Does the Blue Kettle cost 39 credits. An order was not placed.",
+      "not_claimed",
+      "What does the Blue Kettle cost?"
+    ],
+    [
+      "Status: Active. The form was not submitted.",
+      "not_claimed",
+      "Submit the form."
+    ],
+    [
+      "Status: unchanged. The update was not saved.",
+      "not_claimed",
+      "Save the update."
+    ],
+    ["Status: Active. The form was not submitted.", "unsure"],
+    [
+      "Status: Active. The form was not submitted.",
+      "unsure",
+      "Compare prices."
+    ],
+    [
+      "Blue Kettle costs 39 credits. An order was not placed.",
+      "not_claimed",
+      "Place an order for the Blue Kettle."
+    ],
+    [
+      "Blue Kettle costs 39 credits. An order was not placed.",
+      "claimed",
+      "Report the Blue Kettle price; do not place an order."
+    ],
+    [
+      "Status: Active. The form was not submitted.",
+      "not_claimed",
+      "Report the status, then submit the form."
+    ],
+    [
+      "Blue Kettle costs 39 credits. An order was not placed.",
+      "claimed",
+      "What does the Blue Kettle cost?"
+    ],
+    [
+      "Status: Active. The form was not submitted.",
+      "claimed",
+      "Report the current status."
+    ],
     ["I entered Ada. Blue was not selected.", "not_claimed"],
     [
       "Blue Kettle costs 39 credits. I could not compare the prices.",
@@ -651,8 +705,8 @@ describe("classifyClaim", () => {
     ["Offer 1 is the cheapest at $12.", "claimed"],
     ["I’ve clicked Continue. You can now check the result.", "claimed"]
   ]
-  for (const [answer, expected] of cases)
+  for (const [answer, expected, goal] of cases)
     it(`${expected}: ${answer || "(empty)"}`, () => {
-      assert.equal(classifyClaim(answer), expected)
+      assert.equal(classifyClaim(answer, { goal }), expected)
     })
 })

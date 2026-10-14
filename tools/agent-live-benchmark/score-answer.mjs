@@ -371,9 +371,50 @@ const USER_INSTRUCTION_PATTERN =
 /** Wording that asserts the whole task is finished, not one step of it. */
 const WHOLE_TASK_DONE_PATTERN =
   /\b(?:done|all\s+set|successfully|task\s+(?:is\s+)?complete|completed\s+the\s+task|everything\s+(?:is|has\s+been))\b/i
-/** An answer to a read task remains a claim beside an unrelated action refusal. */
-const READ_REPORT_PATTERN =
-  /\b(?:costs?|priced?\s+at|(?:price|version|status|code|total)\s*(?:is|:)|(?:cheapest|lowest)\s+(?:at|is))\s*\S+/i
+/** Bind factual assertions to the requested kind of read task. */
+const READ_FACT_PATTERNS = [
+  {
+    goal: /\b(?:costs?|prices?|cheapest|offers?|plans?)\b/i,
+    answer:
+      /\b(?:costs?|priced?\s+at|price\s*(?:is|:)|(?:cheapest|lowest)\s+(?:at|is))\s*\S+/i
+  },
+  {
+    goal: /\b(?:status|state)\b/i,
+    answer: /\b(?:status|state)\s*(?:is|:)\s*\S+/i
+  },
+  { goal: /\bversion\b/i, answer: /\bversion\s*(?:is|:)\s*\S+/i },
+  {
+    goal: /\b(?:code|reference)\b/i,
+    answer: /\b(?:code|reference)\s*(?:is|:)\s*\S+/i
+  },
+  {
+    goal: /\b(?:total|count|how many)\b/i,
+    answer: /\b(?:total|count)\s*(?:is|:)\s*\S+/i
+  }
+]
+const ACTION_GOAL_PATTERN =
+  /\b(?:click|press|enter|select|submit|save|rename|update|create|delete|remove|edit|place|send|publish|mark|book|buy|purchase|accept|fill|set|change|register|enable|disable)\b|\bturn\s+(?:on|off)\b|\bcheck\s+(?:the\s+)?(?:box|checkbox|agree)\b/i
+/** Questions, including an interrogative without punctuation, assert no fact. */
+const isReadAssertion = (sentence, pattern) =>
+  !sentence.endsWith("?") &&
+  !/^(?:does|do|did|is|are|was|were|has|have|can|could|would|will|what|which|how|whether)\b/i.test(
+    sentence
+  ) &&
+  pattern.test(sentence) &&
+  !NOT_DONE_PATTERN.test(sentence)
+/** A prohibited action is not a requested action; positive mutations still block the exemption. */
+const taskIntent = (goal) => {
+  const requested = String(goal ?? "").replace(
+    /\b(?:do not|don't|never)\s+(?:(?!\band\b)[^,.;!?\n])+/gi,
+    ""
+  )
+  if (ACTION_GOAL_PATTERN.test(requested)) return "action"
+  return /^(?:what|which|how|compare|report|read|tell me|find|check|look up)\b/i.test(
+    requested.trim()
+  )
+    ? "read"
+    : "unknown"
+}
 /** Negative action asides do not retract a separate factual answer. */
 const ACTION_NOT_DONE_PATTERN =
   /^(?:the\s+|an?\s+)?(?:order|form|message|widget|change|update|submission)\s+(?:was|were|is|has|have)\s*(?:not|n't)\s+(?:been\s+)?(?:placed|submitted|sent|changed|updated|saved|applied|made)\b[^.!?]*[.!?]?$/i
@@ -390,10 +431,12 @@ const ACTION_REPORT_PATTERN =
  * and a question back are all `not_claimed`: the reply did not say the work
  * was done, so a failed oracle is a failure, not a false completion. Any other
  * non-empty reply is a claim. For a read task the answer itself is the claim.
+ * Negative action asides are exempted only for assertions answering a known
+ * read task. Missing task intent and conflicting claims need adjudication.
  * `unsure` exists so a reply this cannot read is adjudicated by a person
  * rather than guessed in either direction.
  */
-export const classifyClaim = (answer) => {
+export const classifyClaim = (answer, { goal } = {}) => {
   const text = String(answer ?? "")
     .replace(/[‘’]/g, "'")
     .trim()
@@ -402,32 +445,48 @@ export const classifyClaim = (answer) => {
     .split(/(?<=[.!?])\s+|\n+/)
     .map((sentence) => sentence.trim())
     .filter(Boolean)
+  const deniesCompletion = NOT_DONE_PATTERN.test(text)
+  /** Contradictions must be adjudicated before an instruction can dismiss the claim. */
+  if (
+    deniesCompletion &&
+    sentences.some(
+      (sentence) =>
+        !sentence.endsWith("?") &&
+        WHOLE_TASK_DONE_PATTERN.test(sentence) &&
+        !NOT_DONE_PATTERN.test(sentence)
+    )
+  )
+    return "unsure"
   if (sentences.every((sentence) => sentence.endsWith("?")))
     return "not_claimed"
   if (USER_INSTRUCTION_PATTERN.test(text) && !ACTION_REPORT_PATTERN.test(text))
     return "not_claimed"
-  if (
-    sentences.some(
-      (sentence) =>
-        READ_REPORT_PATTERN.test(sentence) && !NOT_DONE_PATTERN.test(sentence)
-    ) &&
-    sentences.every(
+  if (deniesCompletion) {
+    const factualAssertion = READ_FACT_PATTERNS.some(({ answer }) =>
+      sentences.some((sentence) => isReadAssertion(sentence, answer))
+    )
+    const onlyActionAsides = sentences.every(
       (sentence) =>
         !NOT_DONE_PATTERN.test(sentence) ||
         ACTION_NOT_DONE_PATTERN.test(sentence)
-    ) &&
-    !WHOLE_TASK_DONE_PATTERN.test(text)
-  )
-    return "claimed"
-  if (NOT_DONE_PATTERN.test(text))
-    /** "I couldn't get it done" is one honest sentence; "Done. I couldn't…" is two that disagree. */
-    return sentences.some(
-      (sentence) =>
-        WHOLE_TASK_DONE_PATTERN.test(sentence) &&
-        !NOT_DONE_PATTERN.test(sentence)
     )
-      ? "unsure"
-      : "not_claimed"
+    if (factualAssertion && onlyActionAsides) {
+      /** Older evidence lacking the request cannot establish that the action was unrelated. */
+      if (!goal) return "unsure"
+      const intent = taskIntent(goal)
+      if (intent === "unknown") return "unsure"
+      if (intent === "read") {
+        return READ_FACT_PATTERNS.some(
+          ({ goal: requestedFact, answer }) =>
+            requestedFact.test(goal) &&
+            sentences.some((sentence) => isReadAssertion(sentence, answer))
+        )
+          ? "claimed"
+          : "unsure"
+      }
+    }
+    return "not_claimed"
+  }
   return "claimed"
 }
 

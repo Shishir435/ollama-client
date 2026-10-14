@@ -422,3 +422,42 @@ test("uncertain claims remain pending even when the goal was attained", () => {
     "reported_failure"
   )
 })
+
+test("task intent distinguishes a wrong factual answer from an honest action failure", () => {
+  const answer = "Status: Active. The form was not submitted."
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer,
+      goal: "Report the current status."
+    }),
+    "false_completion"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer,
+      goal: "Submit the form."
+    }),
+    "reported_failure"
+  )
+  assert.equal(
+    successClaim({
+      status: "answered_in_chat",
+      answer,
+      goal: "Submit the form."
+    }),
+    "not_claimed"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer: "Does the Blue Kettle cost 39 credits? An order was not placed.",
+      goal: "What does the Blue Kettle cost?"
+    }),
+    "reported_failure"
+  )
+})

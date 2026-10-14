@@ -139,6 +139,7 @@ test("an unrelated action refusal does not hide a wrong read answer", () => {
   const row = {
     status: "answered_in_chat",
     success: false,
+    goal: "What does the Blue Kettle cost?",
     answer: "Blue Kettle costs 39 credits. An order was not placed."
   }
   assert.equal(
@@ -165,5 +166,30 @@ test("real-site refused starts still fail admission without a delegated run", ()
       ]
     }).verdict,
     "admission_failure"
+  )
+})
+
+test("rescoring preserves task intent for honest action failures", () => {
+  for (const [goal, answer] of [
+    ["Submit the form.", "Status: Active. The form was not submitted."],
+    ["Save the update.", "Status: unchanged. The update was not saved."]
+  ]) {
+    const row = { status: "answered_in_chat", success: false, goal, answer }
+    const next = rescoreAttempt(row, { row, wire: [] })
+    assert.equal(next.successClaimed, "not_claimed")
+    assert.equal(next.verdict, "reported_failure")
+  }
+})
+
+test("rescoring retains contradictory instructions for adjudication", () => {
+  const row = {
+    status: "answered_in_chat",
+    success: false,
+    goal: "Submit the form.",
+    answer: "Done. I could not submit the form. Please click Submit yourself."
+  }
+  assert.equal(
+    rescoreAttempt(row, { row, wire: [] }).verdict,
+    "pending_adjudication"
   )
 })

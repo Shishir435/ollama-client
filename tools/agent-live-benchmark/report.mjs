@@ -70,8 +70,8 @@ export const baselineInputs = ({
  * Whether the user was told the task succeeded. A completed run claims it
  * through its own verdict; otherwise the chat reply is what the user reads.
  */
-export const successClaim = ({ status, answer }) =>
-  status === "completed" ? "claimed" : classifyClaim(answer)
+export const successClaim = ({ status, answer, goal }) =>
+  status === "completed" ? "claimed" : classifyClaim(answer, { goal })
 
 /**
  * Three answers kept apart: whether the goal was attained (`success`, from
@@ -85,6 +85,7 @@ export const classifyAttempt = ({
   status,
   success,
   answer,
+  goal,
   expectedStatus = "completed",
   expectedPause = false,
   pauseReason,
@@ -96,7 +97,7 @@ export const classifyAttempt = ({
   unclearOracle
 }) => {
   if (infrastructureFailure) return "infrastructure_failure"
-  const claim = successClaim({ status, answer })
+  const claim = successClaim({ status, answer, goal })
   if (claim === "unsure") return "pending_adjudication"
   /** Admission is resolved before interpreting a standalone chat answer. */
   if (
