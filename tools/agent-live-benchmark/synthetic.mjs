@@ -3,6 +3,7 @@ import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
+import { attemptTimedOut, taskTimeoutFromEnv } from "./attempt-deadline.mjs"
 import {
   agentObservedText,
   agentSawRenderedCanvas,
@@ -73,6 +74,7 @@ import {
 } from "./usage.mjs"
 
 /** Checked before any case runs, so a key bound for plain HTTP stops the run. */
+const TASK_TIMEOUT_MS = taskTimeoutFromEnv()
 const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
 const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
 /** Checked before any case runs too, so a malformed cap stops the pass. */
@@ -153,6 +155,7 @@ const inputs = baselineInputs({
     "tools/agent-live-benchmark/synthetic.mjs",
     "tools/agent-live-benchmark/score-answer.mjs",
     "tools/agent-live-benchmark/chat-turn.mjs",
+    "tools/agent-live-benchmark/attempt-deadline.mjs",
     "tools/agent-live-benchmark/report.mjs",
     ...(qualification
       ? [
@@ -173,7 +176,7 @@ const inputs = baselineInputs({
   visionMode: "capability_resolved",
   budgets: {
     attempts: attemptCount,
-    taskTimeoutMs: 150000,
+    taskTimeoutMs: TASK_TIMEOUT_MS,
     answerTimeoutMs: 45000
   },
   policy: {
@@ -822,7 +825,12 @@ try {
        * run is the end of the case rather than a wait for the deadline.
        */
       let idleSince
-      while (sent.started && Date.now() - sentAt < 150000) {
+      let deadlineReached = false
+      while (sent.started) {
+        if (Date.now() - sentAt >= TASK_TIMEOUT_MS) {
+          deadlineReached = true
+          break
+        }
         final = messages
           .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
           .at(-1)?.snapshot
@@ -983,14 +991,8 @@ try {
           wireTelemetry(wire).executionStages.includes(
             "browser_task_admission"
           ))
-      /**
-       * A deadline with no run and no answer is the harness's problem: the
-       * chat never got a turn through, so nothing about the agent was
-       * measured. It stays in the end-to-end denominator as an
-       * infrastructure failure. A run still going at the deadline is the
-       * agent's, and a chat that kept asking admission is admission's.
-       */
-      const timedOut = status === "harness_timeout" && !admissionFailure
+      /** Every unfinished attempt stopped by the harness is void, even with a live run. */
+      const timedOut = attemptTimedOut({ status, deadlineReached })
       const providerDown = wire.some((w) => w.status >= 500 && !w.injected)
       const failureCode = timedOut
         ? providerDown
@@ -1036,7 +1038,7 @@ try {
           status,
           errorCode: final?.run?.error?.code
         }),
-        ...(failureCode ? { failureCode } : {}),
+        ...(failureCode ? { failureCode, harnessTimedOut: timedOut } : {}),
         predicate,
         ...(kind === "canvas" ? { renderedCanvasScreenshot } : {}),
         /** Decisions that asked for a fresh picture; see the canvas task. */

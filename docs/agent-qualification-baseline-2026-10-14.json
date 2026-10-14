@@ -15,7 +15,8 @@
       "denominator": 150,
       "outcomes": {
         "achieved": 26,
-        "partial": 93,
+        "infrastructure_failure": 16,
+        "partial": 77,
         "pending_adjudication": 2,
         "provider_failure": 3,
         "safely_handed_off": 2,
@@ -23,10 +24,10 @@
       }
     },
     "infrastructureQualified": {
-      "denominator": 150,
+      "denominator": 134,
       "outcomes": {
         "achieved": 26,
-        "partial": 93,
+        "partial": 77,
         "pending_adjudication": 2,
         "provider_failure": 3,
         "safely_handed_off": 2,
@@ -40,16 +41,20 @@
         "count": 50
       },
       {
-        "failure": "partial/partial",
-        "count": 24
-      },
-      {
         "failure": "unresolved_effect/unresolved_effect",
         "count": 24
       },
       {
+        "failure": "infrastructure_failure/harness_timeout",
+        "count": 16
+      },
+      {
         "failure": "partial/invalid_decision",
         "count": 16
+      },
+      {
+        "failure": "partial/partial",
+        "count": 8
       },
       {
         "failure": "provider_failure/question",
@@ -69,8 +74,8 @@
       }
     ],
     "failureOrigins": {
-      "action": 99,
-      "infrastructure": 3,
+      "action": 83,
+      "infrastructure": 19,
       "plan": 16,
       "verification": 2
     }
@@ -99,7 +104,8 @@
           "denominator": 150,
           "outcomes": {
             "achieved": 26,
-            "partial": 93,
+            "infrastructure_failure": 16,
+            "partial": 77,
             "pending_adjudication": 2,
             "provider_failure": 3,
             "safely_handed_off": 2,
@@ -107,10 +113,10 @@
           }
         },
         "infrastructureQualified": {
-          "denominator": 150,
+          "denominator": 134,
           "outcomes": {
             "achieved": 26,
-            "partial": 93,
+            "partial": 77,
             "pending_adjudication": 2,
             "provider_failure": 3,
             "safely_handed_off": 2,
@@ -124,16 +130,20 @@
             "count": 50
           },
           {
-            "failure": "partial/partial",
-            "count": 24
-          },
-          {
             "failure": "unresolved_effect/unresolved_effect",
             "count": 24
           },
           {
+            "failure": "infrastructure_failure/harness_timeout",
+            "count": 16
+          },
+          {
             "failure": "partial/invalid_decision",
             "count": 16
+          },
+          {
+            "failure": "partial/partial",
+            "count": 8
           },
           {
             "failure": "provider_failure/question",
@@ -153,8 +163,8 @@
           }
         ],
         "failureOrigins": {
-          "action": 99,
-          "infrastructure": 3,
+          "action": 83,
+          "infrastructure": 19,
           "plan": 16,
           "verification": 2
         }
@@ -302,7 +312,7 @@
       "attempts": 3,
       "goalAttained": 0,
       "verdicts": {
-        "partial": 3
+        "infrastructure_failure": 3
       }
     },
     "traps_wrong_row": {
@@ -355,6 +365,20 @@
         "partial": 2,
         "achieved": 1
       }
+    }
+  },
+  "harnessTimeouts": 16,
+  "abortedValidation": {
+    "candidateSha": "b208bb437ab5d245e846ff8ebe5c443aa845e9a4",
+    "dirty": false,
+    "denominator": 40,
+    "settledAttempts": 18,
+    "unfinishedAttempts": 22,
+    "harnessTimeouts": 1,
+    "outcomes": {
+      "infrastructure_failure": 23,
+      "partial": 13,
+      "unresolved_effect": 4
     }
   }
 }

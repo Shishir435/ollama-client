@@ -150,3 +150,20 @@ test("an attempt waits for a provider that comes back, and gives up on one that 
   )
   assert.ok(clock >= 60_000)
 })
+
+test("all provider 5xx answers receive bounded backoff", async () => {
+  for (const status of [501, 507, 599]) {
+    const { fetchImpl, calls } = scripted(reply(status), reply(200))
+    const { response, retries } = await fetchWithBackoff(
+      "http://upstream",
+      {},
+      {
+        fetchImpl,
+        wait: async () => {}
+      }
+    )
+    assert.equal(response.status, 200)
+    assert.equal(retries, 1)
+    assert.equal(calls.length, 2)
+  }
+})

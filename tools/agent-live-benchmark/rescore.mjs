@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { attemptTimedOut } from "./attempt-deadline.mjs"
 import { qualificationDiagnostics } from "./qualification-report.mjs"
 import {
   classifyAttempt,
@@ -18,7 +19,7 @@ import { isSiteChallenge } from "./score-answer.mjs"
  * it came from server state at the time and cannot be recomputed afterwards.
  * Attempts the harness never ran, or that threw, keep their row unchanged.
  */
-export const rescoreAttempt = (row, evidence) => {
+export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
   const recorded = evidence?.row
   if (!recorded || evidence.harnessError) return row
   const { status, success, answer, errorCode, pauseReason } = recorded
@@ -27,7 +28,11 @@ export const rescoreAttempt = (row, evidence) => {
     status === "turn_not_started" ||
     (!evidence.finalRun &&
       wireTelemetry(wire).executionStages.includes("browser_task_admission"))
-  const timedOut = status === "harness_timeout" && !admissionFailure
+  const deadlineReached =
+    recorded.harnessTimedOut === true ||
+    (Number.isFinite(taskTimeoutMs) &&
+      evidence.timing?.ended - evidence.timing?.sentAt >= taskTimeoutMs)
+  const timedOut = attemptTimedOut({ status, deadlineReached })
   const verdict = classifyAttempt({
     status,
     success,
@@ -44,6 +49,9 @@ export const rescoreAttempt = (row, evidence) => {
   return {
     ...row,
     verdict,
+    ...(timedOut
+      ? { harnessTimedOut: true, failureCode: "harness_timeout" }
+      : {}),
     successClaimed: successClaim({ status, answer }),
     failureOrigin: failureOrigin({ verdict, status, errorCode })
   }
@@ -66,7 +74,9 @@ export const rescorePass = (directory) => {
       "evidence.json"
     )
     if (!existsSync(path)) return row
-    const next = rescoreAttempt(row, JSON.parse(readFileSync(path, "utf8")))
+    const next = rescoreAttempt(row, JSON.parse(readFileSync(path, "utf8")), {
+      taskTimeoutMs: report.inputs.budgets?.taskTimeoutMs
+    })
     if (next.verdict !== row.verdict)
       changed.push({
         task: row.task,

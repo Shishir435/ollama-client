@@ -152,9 +152,13 @@ serves one request at a time otherwise holds the next attempt behind it. The
 qualification runner also reloads the side panel between attempts. Before each
 attempt the provider must answer `/v1/models`; if it doesn't within three
 minutes, the attempt is recorded as an infrastructure failure
-(`provider_unavailable`) and the pass moves on. An attempt that reaches its
-deadline with no run and no answer is likewise an infrastructure failure
-(`harness_timeout`): counted, never dropped.
+(`provider_unavailable`) and the pass moves on. Every attempt that reaches its harness deadline unfinished is an
+infrastructure failure (`harness_timeout`), including a run still deciding,
+acting or verifying: counted, never dropped. The default deadline is 45
+minutes so the product's forty-minute active budget can settle the run.
+`AUDIT_TASK_TIMEOUT_MS` permits an explicit shorter diagnostic deadline;
+its value is pinned in `inputs.budgets.taskTimeoutMs`. A settled pause or
+handoff is an outcome, rather than a harness timeout.
 
 The wire records direct chat, page-reading tools, delegation admission,
 planning and runtime execution separately. Token counts are included only

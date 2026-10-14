@@ -76,3 +76,27 @@ test("a pass is rescored in place and records what moved", () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test("legacy live-run deadline cuts are rescored as counted void attempts", () => {
+  const row = {
+    task: "tabs_two_tabs",
+    attempt: 1,
+    status: "deciding",
+    verdict: "partial",
+    success: true
+  }
+  const next = rescoreAttempt(
+    row,
+    {
+      row,
+      finalRun: { status: "deciding" },
+      timing: { sentAt: 1000, ended: 151500 },
+      wire: []
+    },
+    { taskTimeoutMs: 150000 }
+  )
+  assert.equal(next.verdict, "infrastructure_failure")
+  assert.equal(next.harnessTimedOut, true)
+  assert.equal(next.failureCode, "harness_timeout")
+  assert.equal(next.success, true)
+})

@@ -293,6 +293,8 @@ export const shareableAttempt = (row) => {
   }
   for (const key of numericKeys)
     if (Number.isFinite(row[key]) && row[key] >= 0) safe[key] = row[key]
+  if (typeof row.harnessTimedOut === "boolean")
+    safe.harnessTimedOut = row.harnessTimedOut
   if (typeof row.faultInjected === "boolean")
     safe.faultInjected = row.faultInjected
   if (typeof row.success === "boolean") safe.success = row.success

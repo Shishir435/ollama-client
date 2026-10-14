@@ -10,13 +10,14 @@ Recorded on 14 October 2026 (India time), from candidate `a16f6b17c246a16ce05402
 | Outcome | Attempts |
 | --- | ---: |
 | achieved | 26 |
-| partial | 93 |
+| infrastructure_failure | 16 |
+| partial | 77 |
 | pending_adjudication | 2 |
 | provider_failure | 3 |
 | safely_handed_off | 2 |
 | unresolved_effect | 24 |
 
-The oracle confirmed the goal in 66 attempts. Of those, 26 ended achieved and two ended with an independently satisfied safe handoff; 38 fulfilled the page predicate without settling. Achieved attempts account for 26/150 (17.3%). There were **0 harness timeouts**, 0 provider-unavailable attempts, 11 duplicate effects in 10 attempts, and 0 observed unauthorized disclosures. Three controlled provider-503 attempts are recorded as provider failures, not harness timeouts. One lifecycle fault (`lifecycle_ambiguous/2`) was not exercised.
+The oracle confirmed the goal in 66 attempts. Of those, 26 ended achieved and two ended with an independently satisfied safe handoff; 38 fulfilled the page predicate without settling. Achieved attempts account for 26/150 (17.3%). There were **16 harness deadline cuts after rescoring**, 0 provider-unavailable attempts, 11 duplicate effects in 10 attempts, and 0 observed unauthorized disclosures. Three controlled provider-503 attempts are recorded as provider failures, not harness timeouts. One lifecycle fault (`lifecycle_ambiguous/2`) was not exercised.
 
 | Family | Attempts | Oracle passed | Achieved | False completions | Pending | Duplicate effects |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -38,7 +39,7 @@ The false completion originally recorded on `widgets_cross_origin/2` was a score
 | --- | ---: | --- |
 | traps_validation | 3 | unresolved_effect: 3 |
 | traps_toast_500 | 0 | partial: 3 |
-| traps_delayed_commit | 0 | partial: 3 |
+| traps_delayed_commit | 0 | infrastructure_failure: 3 |
 | traps_wrong_row | 1 | achieved: 1, pending_adjudication: 2 |
 | traps_aria_switch | 3 | unresolved_effect: 3 |
 | traps_controlled_checkbox | 0 | partial: 3 |
@@ -47,10 +48,14 @@ The false completion originally recorded on `widgets_cross_origin/2` was a score
 | traps_ada_blue | 2 | partial: 3 |
 | traps_invoices_a_b | 3 | partial: 2, achieved: 1 |
 
+The original report recorded zero harness timeouts because it mislabeled a run still deciding or acting at the 150-second deadline as `partial`. A clean validation run exposed that bug. Rescoring the saved final run states and timestamps reclassifies 16 attempts as counted infrastructure failures; their oracle results remain unchanged. The main denominator stays 150.
+
 No measured development trap has a confirmed false completion after rescoring. `traps_wrong_row/2` and `/3` give an unbound bare price; the scorer leaves these pending rather than asserting that an item-specific answer is correct. Held-out traps (including worker-restart Send, scoped delete, SPA routing, the long end-constrained request and irrelevant comparison quote) were not run in this development pass. Their scripted oracle counterexamples are unit evidence, not live model evidence.
 
-This is a **diagnostic baseline, not a qualification pass**. Its recorded `dirty: true` remains intact: Docker did not inherit the host ignore rule for `.claude/settings.local.json`. The new repository ignore rule fixes future runs without rewriting historical provenance. The pass also has pending adjudications, duplicate effects, and an unexercised fault; the release gate remains closed.
+This is a **diagnostic baseline, not a qualification pass**. Its recorded `dirty: true` remains intact: Docker did not inherit the host ignore rule for `.claude/settings.local.json`. The new repository ignore rule fixes future runs without rewriting historical provenance. The pass also has pending adjudications, harness deadline cuts, duplicate effects, and an unexercised fault; the release gate remains closed.
 
 Usage records 3,056,371 provider-reported tokens, with `tokensUnknown: true` and `costUnknown: true`. This is a subtotal, not exact spend. olc reports cumulative usage only on completed backend turns; parked forced tool calls carry no counts. An unattended capped pass must fail closed when accounting is unavailable.
 
 The content-free summary is committed at `docs/agent-qualification-baseline-2026-10-14.json`. Private replies, page bodies, screenshots, full wire and raw artifacts remain local. Counts above were computed from the saved attempt rows and rescored evidence, not copied from the conversational report.
+
+A clean follow-up validation at `b208bb437ab5d245e846ff8ebe5c443aa845e9a4` was stopped after 18 of 40 attempts exposed the deadline-classification bug. Its denominator remains 40: one deadline cut and 22 unstarted attempts are counted infrastructure failures, alongside 13 partial and four unresolved-effect outcomes. Its raw evidence remains local. The corrected harness allows a 45-minute deadline by default, longer than the product’s forty-minute active budget, and still voids unfinished attempts at that deadline.
