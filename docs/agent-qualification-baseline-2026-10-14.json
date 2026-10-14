@@ -420,7 +420,7 @@
         "taskTimeoutMs": 2700000,
         "answerTimeoutMs": 45000
       },
-      "scorerHash": "0de16653ce08f8d89c24038c97d82912b3097f1843d9b045c125dcf460174eec",
+      "scorerHash": "4b374e273f28d9627f9715fc4a8c824b06098f506d494129d6cfda4acf389632",
       "summary": {
         "falseCompletions": 0,
         "goalsAttained": 19,
@@ -997,7 +997,7 @@
         "taskTimeoutMs": 2700000,
         "answerTimeoutMs": 45000
       },
-      "scorerHash": "0de16653ce08f8d89c24038c97d82912b3097f1843d9b045c125dcf460174eec",
+      "scorerHash": "4b374e273f28d9627f9715fc4a8c824b06098f506d494129d6cfda4acf389632",
       "summary": {
         "falseCompletions": 2,
         "goalsAttained": 27,
@@ -1289,5 +1289,40 @@
         }
       }
     }
+  },
+  "historicalScorerHash": "4b374e273f28d9627f9715fc4a8c824b06098f506d494129d6cfda4acf389632",
+  "capSmoke": {
+    "candidateSha": "ba529ffb0fd131aff5880ef0ba4298ee452c7dbb",
+    "dirty": true,
+    "declaredAttempts": 2,
+    "usage": {
+      "caps": {
+        "maxTokens": 1
+      },
+      "tokens": 0,
+      "costUsd": 0,
+      "tokensUnknown": true,
+      "costUnknown": true,
+      "withinCaps": false
+    },
+    "outcomes": {
+      "infrastructure_failure": 2
+    },
+    "attempts": [
+      {
+        "task": "traps_wrong_row",
+        "status": "harness_budget_exhausted",
+        "failureCode": "cost_cap_reached",
+        "verdict": "infrastructure_failure",
+        "modelCalls": 2
+      },
+      {
+        "task": "traps_irrelevant_quote",
+        "status": "not_attempted",
+        "failureCode": "cost_cap_reached",
+        "verdict": "infrastructure_failure",
+        "modelCalls": null
+      }
+    ]
   }
 }
