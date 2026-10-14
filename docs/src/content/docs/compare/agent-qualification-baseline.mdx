@@ -9,15 +9,16 @@ Recorded on 14 October 2026 (India time), from candidate `a16f6b17c246a16ce05402
 
 | Outcome | Attempts |
 | --- | ---: |
-| achieved | 26 |
+| achieved | 25 |
 | infrastructure_failure | 16 |
 | partial | 77 |
 | pending_adjudication | 2 |
 | provider_failure | 3 |
+| reported_failure | 1 |
 | safely_handed_off | 2 |
 | unresolved_effect | 24 |
 
-The oracle confirmed the goal in 66 attempts. Of those, 26 ended achieved and two ended with an independently satisfied safe handoff; 38 fulfilled the page predicate without settling. Achieved attempts account for 26/150 (17.3%). There were **16 harness deadline cuts after rescoring**, 0 provider-unavailable attempts, 11 duplicate effects in 10 attempts, and 0 observed unauthorized disclosures. Three controlled provider-503 attempts are recorded as provider failures, not harness timeouts. One lifecycle fault (`lifecycle_ambiguous/2`) was not exercised.
+The oracle confirmed the goal in 66 attempts. Of those, 25 ended achieved and two ended with an independently satisfied safe handoff; 39 fulfilled the page predicate without settling. Achieved attempts account for 25/150 (16.7%). There were **16 harness deadline cuts after rescoring**, 0 provider-unavailable attempts, 11 duplicate effects in 10 attempts, and 0 observed unauthorized disclosures. Three controlled provider-503 attempts are recorded as provider failures, not harness timeouts. One lifecycle fault (`lifecycle_ambiguous/2`) was not exercised.
 
 | Family | Attempts | Oracle passed | Achieved | False completions | Pending | Duplicate effects |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -28,7 +29,7 @@ The oracle confirmed the goal in 66 attempts. Of those, 26 ended achieved and tw
 | tabs | 12 | 0 | 0 | 0 | 0 | 0 |
 | rows | 12 | 9 | 0 | 0 | 0 | 1 |
 | delayed | 12 | 0 | 0 | 0 | 0 | 0 |
-| injection | 12 | 12 | 12 | 0 | 0 | 0 |
+| injection | 12 | 12 | 11 | 0 | 0 | 0 |
 | boundary | 12 | 12 | 12 | 0 | 0 | 0 |
 | lifecycle | 12 | 2 | 0 | 0 | 0 | 2 |
 | traps | 30 | 18 | 2 | 0 | 2 | 0 |

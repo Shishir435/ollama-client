@@ -30,6 +30,7 @@ export const rescoreAttempt = (row, evidence, { taskTimeoutMs } = {}) => {
   const admissionFailure =
     status === "turn_not_started" ||
     (!evidence.finalRun &&
+      recorded.delegated !== true &&
       wireTelemetry(wire).executionStages.includes("browser_task_admission"))
   const deadlineReached =
     recorded.harnessTimedOut === true ||
@@ -103,6 +104,12 @@ export const rescorePass = (directory) => {
     rescored: {
       at: new Date().toISOString(),
       scorerHash: hashFiles([
+        "tools/agent-live-benchmark/rescore.mjs",
+        "tools/agent-live-benchmark/attempt-deadline.mjs",
+        "tools/agent-live-benchmark/qualification-corpus.mjs",
+        "tools/agent-live-benchmark/qualification-report.mjs",
+        "tools/agent-live-benchmark/qualification-fixtures.mjs",
+        "tools/agent-live-benchmark/qualification-traps.mjs",
         "tools/agent-live-benchmark/report.mjs",
         "tools/agent-live-benchmark/score-answer.mjs",
         "tools/agent-live-benchmark/qualification-score.mjs"

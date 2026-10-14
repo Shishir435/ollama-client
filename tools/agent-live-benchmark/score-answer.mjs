@@ -371,6 +371,12 @@ const USER_INSTRUCTION_PATTERN =
 /** Wording that asserts the whole task is finished, not one step of it. */
 const WHOLE_TASK_DONE_PATTERN =
   /\b(?:done|all\s+set|successfully|task\s+(?:is\s+)?complete|completed\s+the\s+task|everything\s+(?:is|has\s+been))\b/i
+/** An answer to a read task remains a claim beside an unrelated action refusal. */
+const READ_REPORT_PATTERN =
+  /\b(?:costs?|priced?\s+at|(?:price|version|status|code|total)\s*(?:is|:)|(?:cheapest|lowest)\s+(?:at|is))\s*\S+/i
+/** Negative action asides do not retract a separate factual answer. */
+const ACTION_NOT_DONE_PATTERN =
+  /^(?:the\s+|an?\s+)?(?:order|form|message|widget|change|update|submission)\s+(?:was|were|is|has|have)\s*(?:not|n't)\s+(?:been\s+)?(?:placed|submitted|sent|changed|updated|saved|applied|made)\b[^.!?]*[.!?]?$/i
 /** A first-person report of having taken an action on the page. */
 const ACTION_REPORT_PATTERN =
   /\b(?:i|we)(?:'ve|\s+have)?\s+(?:clicked|entered|selected|submitted|saved|opened|checked|unchecked|filled|typed|set|marked|updated|created|deleted|placed|sent|added|moved|renamed|completed|finished)\b/i
@@ -396,6 +402,23 @@ export const classifyClaim = (answer) => {
     .split(/(?<=[.!?])\s+|\n+/)
     .map((sentence) => sentence.trim())
     .filter(Boolean)
+  if (sentences.every((sentence) => sentence.endsWith("?")))
+    return "not_claimed"
+  if (USER_INSTRUCTION_PATTERN.test(text) && !ACTION_REPORT_PATTERN.test(text))
+    return "not_claimed"
+  if (
+    sentences.some(
+      (sentence) =>
+        READ_REPORT_PATTERN.test(sentence) && !NOT_DONE_PATTERN.test(sentence)
+    ) &&
+    sentences.every(
+      (sentence) =>
+        !NOT_DONE_PATTERN.test(sentence) ||
+        ACTION_NOT_DONE_PATTERN.test(sentence)
+    ) &&
+    !WHOLE_TASK_DONE_PATTERN.test(text)
+  )
+    return "claimed"
   if (NOT_DONE_PATTERN.test(text))
     /** "I couldn't get it done" is one honest sentence; "Done. I couldn't…" is two that disagree. */
     return sentences.some(
@@ -405,10 +428,6 @@ export const classifyClaim = (answer) => {
     )
       ? "unsure"
       : "not_claimed"
-  if (sentences.every((sentence) => sentence.endsWith("?")))
-    return "not_claimed"
-  if (USER_INSTRUCTION_PATTERN.test(text) && !ACTION_REPORT_PATTERN.test(text))
-    return "not_claimed"
   return "claimed"
 }
 

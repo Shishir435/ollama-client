@@ -607,6 +607,8 @@ describe("classifyClaim", () => {
     ],
     ["Please click the Continue button yourself.", "not_claimed"],
     ["Which color would you like me to choose?", "not_claimed"],
+    ["The Blue Kettle costs 39 credits?", "not_claimed"],
+    ["Please check whether the Blue Kettle costs 39 credits.", "not_claimed"],
     [
       "I entered Ada in Name, but I ran out of steps before selecting Blue.",
       "not_claimed"
@@ -615,6 +617,13 @@ describe("classifyClaim", () => {
     ["I clicked Save, but whether it saved is unclear.", "not_claimed"],
     ["I couldn't get it done.", "not_claimed"],
     ["The form was not submitted.", "not_claimed"],
+    ["Blue Kettle costs 39 credits. An order was not placed.", "claimed"],
+    ["Status: Active. The form was not submitted.", "claimed"],
+    ["I entered Ada. Blue was not selected.", "not_claimed"],
+    [
+      "Blue Kettle costs 39 credits. I could not compare the prices.",
+      "not_claimed"
+    ],
     ["Done! I couldn't find the Color field, though.", "unsure"],
     ["Task complete. The save was not confirmed.", "unsure"],
     ["Done — I've saved the form.", "claimed"],

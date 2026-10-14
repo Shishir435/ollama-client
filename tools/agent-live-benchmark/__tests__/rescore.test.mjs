@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
-import { writeBaseline } from "../report.mjs"
+import { hashFiles, writeBaseline } from "../report.mjs"
 import { rescoreAttempt, rescorePass } from "../rescore.mjs"
 
 const honest = {
@@ -72,6 +72,20 @@ test("a pass is rescored in place and records what moved", () => {
     assert.equal(report.summary.falseCompletions, 0)
     assert.equal(report.attempts[1].verdict, "infrastructure_failure")
     assert.equal(report.inputs.rescored.changed.length, 1)
+    assert.equal(
+      report.inputs.rescored.scorerHash,
+      hashFiles([
+        "tools/agent-live-benchmark/rescore.mjs",
+        "tools/agent-live-benchmark/attempt-deadline.mjs",
+        "tools/agent-live-benchmark/qualification-corpus.mjs",
+        "tools/agent-live-benchmark/qualification-report.mjs",
+        "tools/agent-live-benchmark/qualification-fixtures.mjs",
+        "tools/agent-live-benchmark/qualification-traps.mjs",
+        "tools/agent-live-benchmark/report.mjs",
+        "tools/agent-live-benchmark/score-answer.mjs",
+        "tools/agent-live-benchmark/qualification-score.mjs"
+      ])
+    )
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -99,4 +113,57 @@ test("legacy live-run deadline cuts are rescored as counted void attempts", () =
   assert.equal(next.harnessTimedOut, true)
   assert.equal(next.failureCode, "harness_timeout")
   assert.equal(next.success, true)
+})
+
+test("real-site delegated runs are not mistaken for admission refusals", () => {
+  for (const status of ["completed", "failed", "paused"]) {
+    const row = { status, delegated: true, success: status === "completed" }
+    const next = rescoreAttempt(row, {
+      row,
+      wire: [
+        {
+          path: "/v1/chat/completions",
+          request: { messages: [{ role: "tool", name: "browser_task" }] }
+        }
+      ],
+      messages: [],
+      logs: [],
+      body: ""
+    })
+    assert.notEqual(next.verdict, "admission_failure")
+    if (status === "completed") assert.equal(next.verdict, "achieved")
+  }
+})
+
+test("an unrelated action refusal does not hide a wrong read answer", () => {
+  const row = {
+    status: "answered_in_chat",
+    success: false,
+    answer: "Blue Kettle costs 39 credits. An order was not placed."
+  }
+  assert.equal(
+    rescoreAttempt(row, { row, wire: [] }).verdict,
+    "false_completion"
+  )
+})
+
+test("real-site refused starts still fail admission without a delegated run", () => {
+  const row = {
+    status: "answered_in_chat",
+    delegated: false,
+    success: false,
+    answer: "I could not start the task."
+  }
+  assert.equal(
+    rescoreAttempt(row, {
+      row,
+      wire: [
+        {
+          path: "/v1/chat/completions",
+          request: { messages: [{ role: "tool", name: "browser_task" }] }
+        }
+      ]
+    }).verdict,
+    "admission_failure"
+  )
 })

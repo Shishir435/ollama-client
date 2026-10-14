@@ -420,7 +420,7 @@
         "taskTimeoutMs": 2700000,
         "answerTimeoutMs": 45000
       },
-      "scorerHash": "4b374e273f28d9627f9715fc4a8c824b06098f506d494129d6cfda4acf389632",
+      "scorerHash": "ce05786892db62a9277e35acce32d881d426450cd43c3aa49498d0b3bfb71809",
       "summary": {
         "falseCompletions": 0,
         "goalsAttained": 19,
@@ -997,7 +997,7 @@
         "taskTimeoutMs": 2700000,
         "answerTimeoutMs": 45000
       },
-      "scorerHash": "4b374e273f28d9627f9715fc4a8c824b06098f506d494129d6cfda4acf389632",
+      "scorerHash": "ce05786892db62a9277e35acce32d881d426450cd43c3aa49498d0b3bfb71809",
       "summary": {
         "falseCompletions": 2,
         "goalsAttained": 27,
@@ -1324,5 +1324,6 @@
         "modelCalls": null
       }
     ]
-  }
+  },
+  "scorerHash": "ce05786892db62a9277e35acce32d881d426450cd43c3aa49498d0b3bfb71809"
 }
