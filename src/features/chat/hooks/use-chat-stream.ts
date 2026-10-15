@@ -8,12 +8,9 @@ import {
 } from "@/application/turns/chat-stream-session"
 import { useToast } from "@/hooks/use-toast"
 import { browser } from "@/lib/browser-api"
-import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
-import {
-  formatErrorForDisplay,
-  getDisplayErrorMessage
-} from "@/lib/error-display"
-import { buildErrorReportUrl } from "@/lib/error-report"
+import { MESSAGE_KEYS } from "@/lib/constants"
+import { EXTERNAL_URLS } from "@/lib/constants/urls"
+import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
@@ -74,29 +71,6 @@ const resolveTerminalErrorContext = (
   }
 }
 
-const buildIssueUrl = (
-  terminal: ErrorTerminal,
-  errorMessage: string,
-  context: ReturnType<typeof resolveTerminalErrorContext>
-): string | undefined => {
-  const { error } = terminal
-  if (!context.isProviderError || error.status < 500) return undefined
-  return buildErrorReportUrl({
-    status: error.status,
-    kind: error.kind,
-    message: errorMessage,
-    providerId: context.providerId,
-    providerName: context.providerName,
-    model: context.model,
-    baseUrl: error.baseUrl,
-    code: error.code,
-    phase: error.phase,
-    incidentId: error.incidentId,
-    durationMs: error.durationMs,
-    recoveryAction: error.recoveryAction
-  })
-}
-
 export const useChatStream = ({
   setMessages,
   setIsLoading,
@@ -130,28 +104,31 @@ export const useChatStream = ({
   ): void => {
     const { error, partial } = terminal
     const context = resolveTerminalErrorContext(terminal, options)
+    const provider = context.providerName || t("chat.errors.provider_fallback")
     const localizedUserMessage = error.messageKey
-      ? t(error.messageKey)
+      ? t(error.messageKey, {
+          provider,
+          model: context.model || t("chat.errors.model_fallback"),
+          setupGuideUrl: EXTERNAL_URLS.SETUP_GUIDE
+        })
       : error.userMessage
-    const displayError = formatErrorForDisplay(
-      { ...error, userMessage: localizedUserMessage },
-      t("chat.errors.unknown_error_description")
-    )
+    const message = getDisplayErrorMessage(error) || t("chat.errors.no_message")
     const errMsg =
       localizedUserMessage ??
-      ERROR_MESSAGES[error.status] ??
       (context.isProviderError && error.status > 0
         ? providerErrorUserMessage(error.status, {
             providerName: context.providerName,
             model: context.model,
             baseUrl: error.baseUrl
           })
-        : t("chat.errors.unknown_error", {
-            message:
-              getDisplayErrorMessage(error) || t("chat.errors.no_message")
-          }))
-    const issueUrl = buildIssueUrl(terminal, errMsg, context)
+        : context.providerName
+          ? t("chat.errors.unknown_error", { message, provider })
+          : t("chat.errors.unknown_error_generic", { message }))
 
+    /*
+     * The failure is rendered as the assistant's own bubble, with its retry
+     * and issue-report actions. No toast: it would only repeat that bubble.
+     */
     void renderAssistant(
       {
         ...partial,
@@ -176,28 +153,6 @@ export const useChatStream = ({
       },
       options
     )
-    toast({
-      variant: "destructive",
-      title: displayError.kind
-        ? context.isProviderError && context.providerName
-          ? `${context.providerName} error`
-          : displayError.title
-        : t("chat.errors.response_failed_title"),
-      description:
-        context.isProviderError && context.providerName
-          ? `${displayError.message}${
-              error.retryable ? " This may be temporary; try again." : ""
-            }`
-          : displayError.message,
-      ...(issueUrl && {
-        action: {
-          label: "Open new issue",
-          onClick: () => {
-            void browser.tabs.create({ url: issueUrl })
-          }
-        }
-      })
-    })
   }
 
   const handleSuccessTerminal = (

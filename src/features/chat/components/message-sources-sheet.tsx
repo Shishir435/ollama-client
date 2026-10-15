@@ -97,7 +97,7 @@ export function MessageSourcesSheet({
               <div key={section.label ?? i} className="space-y-1.5">
                 {section.label && (
                   <div className="flex items-center justify-between gap-1 px-0.5">
-                    <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {section.label}
                     </span>
                     <CopyButton

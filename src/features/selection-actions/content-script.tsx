@@ -6,7 +6,8 @@ import {
   createLatestSelectionConfigRefresh,
   loadSelectedPanelModel,
   loadSelectionConfig,
-  syncSelectionLanguage
+  syncSelectionLanguage,
+  watchSystemTheme
 } from "@/features/selection-actions/content-settings"
 import {
   getSelectionCapture,
@@ -50,6 +51,9 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       const modelsRef = { current: [] as ProviderModel[] }
       const panelModelRef = { current: "" }
       const panelProviderIdRef = { current: undefined as string | undefined }
+
+      /** Where focus goes back to when the overlay closes with focus inside it. */
+      let returnFocusTarget: HTMLElement | null = null
 
       let overlayInteractingUntil = 0
       let selectionKey = 0
@@ -133,10 +137,31 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       }
 
       // ── Show / hide ──────────────────────────────────────────────────
+      /**
+       * Close the overlay. Unmounting the app, not just hiding it, is what
+       * stops an in-flight selection stream (its unmount cleanup cancels the
+       * port); a hidden panel kept spending the model's tokens otherwise.
+       */
       const hide = () => {
         if (!container) return
+        const shadow = container.getRootNode()
+        const focusWasInside =
+          shadow instanceof ShadowRoot &&
+          !!shadow.activeElement &&
+          container.contains(shadow.activeElement)
+        const wasShown = container.style.display !== "none"
         container.style.display = "none"
         panelActiveRef.current = false
+        if (wasShown) root?.render(null)
+        if (focusWasInside && returnFocusTarget?.isConnected) {
+          returnFocusTarget.focus({ preventScroll: true })
+        }
+      }
+
+      /** The toolbar is anchored to where the selection was; scrolling leaves it stranded. */
+      const handleScroll = () => {
+        if (panelActiveRef.current) return
+        if (container && container.style.display !== "none") hide()
       }
 
       // ── Stream (imported lazily to avoid init-order issues) ──────────
@@ -162,6 +187,12 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
           ...capture,
           range: capture.range?.cloneRange()
         }
+        const active = document.activeElement
+        returnFocusTarget =
+          capture.editableTarget ??
+          (active instanceof HTMLElement && active !== ui.shadowHost
+            ? active
+            : null)
         selectionKey++
         renderApp()
       }
@@ -205,6 +236,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
 
       // ── Storage watchers ─────────────────────────────────────────────
       chrome.storage.onChanged.addListener(handleThemeChange)
+      const unwatchSystemTheme = watchSystemTheme(() => void applyTheme())
       const storageWatchCallbacks = {
         [STORAGE_KEYS.LANGUAGE]: (change: { newValue?: unknown }) => {
           const lng = change.newValue as string | undefined
@@ -234,6 +266,10 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       document.addEventListener("mouseup", queueSelectionCheck, true)
       document.addEventListener("keyup", queueSelectionCheck, true)
       document.addEventListener("keydown", handleEscape, true)
+      window.addEventListener("scroll", handleScroll, {
+        capture: true,
+        passive: true
+      })
       queueSelectionCheck()
 
       ctx.onInvalidated(() => {
@@ -247,7 +283,9 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         document.removeEventListener("mouseup", queueSelectionCheck, true)
         document.removeEventListener("keyup", queueSelectionCheck, true)
         document.removeEventListener("keydown", handleEscape, true)
+        window.removeEventListener("scroll", handleScroll, true)
         chrome.storage.onChanged.removeListener(handleThemeChange)
+        unwatchSystemTheme()
         plasmoSyncStorage.unwatch(storageWatchCallbacks)
         root?.unmount()
         ui.remove()

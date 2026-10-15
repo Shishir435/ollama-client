@@ -106,6 +106,7 @@ describe("ChatMessageBubble", () => {
           error: { kind: "provider", status: 500 },
           timestamp: 1
         }}
+        announceError
       />
     )
 
@@ -119,6 +120,25 @@ describe("ChatMessageBubble", () => {
     ).toBeInTheDocument()
     expect(
       screen.getByText("chat.errors.issue_draft_notice")
+    ).toBeInTheDocument()
+  })
+
+  it("does not re-announce an older failure as an alert", () => {
+    render(
+      <ChatMessageBubble
+        msg={{
+          role: "assistant",
+          content: "Provider failed",
+          done: true,
+          error: { kind: "provider", status: 500 },
+          timestamp: 1
+        }}
+      />
+    )
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(
+      screen.getByText("chat.errors.response_failed_title")
     ).toBeInTheDocument()
   })
 })

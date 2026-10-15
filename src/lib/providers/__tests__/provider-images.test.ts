@@ -108,6 +108,40 @@ describe("provider image input", () => {
 describe("provider image output", () => {
   afterEach(() => vi.restoreAllMocks())
 
+  it("reads a successful image body once without cloning it", async () => {
+    const response = Response.json({ data: [{ b64_json: ONE_PIXEL_PNG }] })
+    const json = vi.spyOn(response, "json")
+    const clone = vi.spyOn(response, "clone")
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(response)
+    const onChunk = vi.fn()
+    await new OpenAICompatibleProvider(openaiConfig).generateImage(
+      { model: "image-model", prompt: "a fox" },
+      onChunk
+    )
+    expect(json).toHaveBeenCalledOnce()
+    expect(clone).not.toHaveBeenCalled()
+    expect(onChunk).toHaveBeenCalledWith(
+      expect.objectContaining({ generatedImages: expect.any(Array) })
+    )
+  })
+
+  it.each(["not JSON", JSON.stringify({ data: "invalid" })])(
+    "rejects malformed image payloads safely: %s",
+    async (body) => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(body))
+      await expect(
+        new OpenAICompatibleProvider(openaiConfig).generateImage(
+          { model: "image-model", prompt: "a fox" },
+          () => {}
+        )
+      ).rejects.toMatchObject({
+        kind: "provider",
+        userMessage:
+          "The provider returned an invalid image generation response."
+      })
+    }
+  )
+
   it("normalizes OpenAI-compatible image generations into chat chunks", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ data: [{ b64_json: ONE_PIXEL_PNG }] }), {
@@ -190,5 +224,66 @@ describe("provider image output", () => {
       true
     )
     expect(chunks.at(-1)?.done).toBe(true)
+  })
+  it("falls back to chat when a 200 body reports the Images endpoint is missing", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        Response.json({
+          error: "Unexpected endpoint or method. (POST /v1/images/generations)"
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "hi" } }] })}\n\ndata: [DONE]\n\n`,
+          { status: 200 }
+        )
+      )
+    const chunks: ChatStreamMessage[] = []
+
+    await new OpenAICompatibleProvider(openaiConfig).generateImage?.(
+      { model: "google/gemma-4-26b-a4b", prompt: "hello" },
+      (chunk) => chunks.push(chunk)
+    )
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://localhost:8000/v1/chat/completions",
+      expect.objectContaining({ method: "POST" })
+    )
+    expect(chunks.at(-1)?.done).toBe(true)
+  })
+
+  it("reports a server error carried in a 200 image response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ error: { message: "Model failed to load" } })
+    )
+
+    await expect(
+      new OpenAICompatibleProvider(openaiConfig).generateImage?.(
+        { model: "image-model", prompt: "a fox" },
+        () => {}
+      )
+    ).rejects.toMatchObject({
+      kind: "provider",
+      message: "Image generation error: Model failed to load",
+      userMessage: expect.stringContaining(
+        "reported an error instead of an image"
+      )
+    })
+  })
+
+  it("surfaces an HTTP 500 from the Images endpoint as a server error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("boom", { status: 500 })
+    )
+
+    const failure = await new OpenAICompatibleProvider(openaiConfig)
+      .generateImage?.({ model: "image-model", prompt: "a fox" }, () => {})
+      .catch((error: unknown) => error)
+
+    expect(failure).toMatchObject({ kind: "provider", status: 500 })
+    expect((failure as { userMessage?: string }).userMessage).not.toContain(
+      "invalid image generation response"
+    )
   })
 })

@@ -380,8 +380,6 @@
     "agent_task_unchecked": "完了（一部未確認）"
   },
   "selection_button": {
-    "label": "ローカルLLMに聞く",
-    "tooltip": "ローカルLLMクライアントに追加",
     "actions": {
       "summarize": {
         "label": "要約する",
@@ -439,7 +437,18 @@
       "cancel": "キャンセル",
       "cancel_tip": "生成をキャンセル",
       "run": "実行",
-      "instruction_ph": "指示"
+      "instruction_ph": "指示",
+      "toolbar_label": "選択範囲のアクション",
+      "custom_instruction_label": "カスタム指示",
+      "model_label": "モデル",
+      "model_placeholder": "モデルを選択",
+      "action_label": "アクション",
+      "no_model": "このアクションを実行するモデルを選んでください。",
+      "connection_lost": "拡張機能との接続が切れました。アクションをもう一度実行してください。",
+      "action_failed": "アクションが完了前に停止しました。もう一度実行してください。",
+      "copied": "コピーしました",
+      "copy_failed": "コピーできませんでした。テキストを選択して Ctrl+C を押してください。",
+      "apply_failed": "ページのテキストを変更できませんでした。代わりに結果をコピーしてください。"
     }
   },
   "welcome": {
@@ -458,12 +467,14 @@
       },
       "no_models": {
         "title": "モデルが見つかりません",
-        "message": "開始するにはモデルをpull（取得）してください"
+        "message": "開始するにはモデルをpull（取得）してください",
+        "message_generic": "プロバイダーでチャットモデルをインストールまたは読み込んでから、もう一度確認してください。"
       },
       "ready": {
         "title": "チャット準備完了",
         "message": "プロバイダーは接続され使用可能です"
-      }
+      },
+      "provider_fallback": "プロバイダー"
     },
     "setup_guide": {
       "hint": "以下のセットアップガイドに従って、Ollamaとモデルをインストールしてください。",
@@ -505,7 +516,6 @@
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "ウェブ検索にはツール呼び出しが必要ですが、このモデルは対応していません。モデル設定でツールフォールバックを有効にしてください。",
       "drop_files_here": "ここにファイルをドロップ",
-      "attachments": "添付 {{count}} 件",
       "images": {
         "remove": "{{name}} を削除",
         "too_large": "{{name}} は画像の上限 {{max}}MB を超えています。",
@@ -515,7 +525,13 @@
         "screenshot_failed": "このページをキャプチャできませんでした。一部のページはキャプチャできません。"
       },
       "screenshot": "スクリーンショットを撮る",
-      "auto_screenshot": "スクリーンショットを自動添付"
+      "auto_screenshot": "スクリーンショットを自動添付",
+      "reading_tabs_title": "タブを読み込み中",
+      "reading_tabs_body_one": "{{count}} 個のタブをまだ読み込んでいます。少ししてからもう一度送信してください。",
+      "reading_tabs_body_other": "{{count}} 個のタブをまだ読み込んでいます。少ししてからもう一度送信してください。",
+      "reading_tabs_button": "タブを読み込み中…",
+      "attachments_one": "添付 {{count}} 件",
+      "attachments_other": "添付 {{count}} 件"
     },
     "context_preview": {
       "files": "添付ファイル",
@@ -641,18 +657,11 @@
       "rag_context_label": "RAGコンテキスト ({{count}})",
       "char_counts": "タブ文字数: {{tab}} | RAG文字数: {{rag}}",
       "trimmed": "切り詰め済み",
-      "view_web": "{{count}} 件のウェブソースを表示",
-      "view_web_plural": "{{count}} 件のウェブソースを表示",
       "web_engine": "{{engine}} 経由",
-      "web_no_snippet": "プレビューはありません。",
       "web_published": "公開日: {{date}}",
       "web_score": "スコア {{score}}",
-      "web_source": "{{count}} 件のウェブソース",
-      "web_source_plural": "{{count}} 件のウェブソース",
-      "web_title": "ウェブソース ({{count}})",
       "web_unused_hint": "設定でウェブ検索の結果件数を増やすと、より多くの結果をモデルに渡せます。",
       "web_unused_label": "見つかったが未送信 ({{count}})",
-      "web_used_label": "モデルに送信済み ({{count}})",
       "unified_tooltip": "{{count}} 件のソース",
       "unified_aria": "{{count}} 件のソースを表示",
       "unified_title": "ソース ({{count}})",
@@ -796,7 +805,21 @@
       "interrupted": "応答が中断されました",
       "provider_auth": "プロバイダーがアクセスを拒否しました。再開する前に、設定で API キー、認証情報、アカウントの権限を確認してください。",
       "provider_cors": "ローカルプロバイダーが拡張機能のオリジンをブロックしました。CORS 設定で chrome-extension://* と moz-extension://* を許可してから再試行してください。",
-      "provider_refused": "モデルがこのリクエストを拒否しました。タスクを変更するか、別のモデルを選んでください。"
+      "provider_refused": "モデルがこのリクエストを拒否しました。タスクを変更するか、別のモデルを選んでください。",
+      "unknown_error_generic": "リクエストに失敗しました: {{message}}。しばらくしてから再試行してください。",
+      "provider_fallback": "プロバイダー",
+      "model_fallback": "選択したモデル",
+      "provider_unreachable": "{{provider}} に接続できません。起動してから再試行してください。",
+      "provider_cors_remote": "{{provider}} がこの拡張機能のリクエストを拒否しました。サーバーで OLLAMA_ORIGINS=chrome-extension://*,moz-extension://* を設定して許可してください。",
+      "provider_cors_other": "{{provider}} がこの拡張機能をブロックしました。CORS 設定で chrome-extension://* と moz-extension://* を許可してください。詳しくは[セットアップガイド]({{setupGuideUrl}})を参照してください。",
+      "context_too_long": "このチャットは {{model}} には長すぎます。新しいチャットを開始するか、コンテキストの大きいモデルを選んでください。",
+      "payment_required": "{{provider}} で {{model}} を使うには支払いまたはクレジットが必要です。ローカルモデルを選ぶか、クレジットを追加してください。",
+      "model_not_found": "{{provider}} に {{model}} がありません。プルするか、別のモデルを選んでください。",
+      "provider_server_error": "{{provider}} で {{model}} の実行中に内部エラーが発生しました。再試行し、繰り返す場合はサーバーログを確認してください。",
+      "out_of_memory": "{{model}} には、このマシンの空きメモリより多くのメモリが必要です。他のアプリを閉じるか、より小さいモデルを選んでください。",
+      "model_crashed": "{{model}} が読み込み中にクラッシュしました。再試行し、繰り返す場合は {{provider}} のログを確認してください。",
+      "ollama_cloud_signin": "{{model}} は Ollama のクラウドで動作します。`ollama signin` でサインインするか、ローカルモデルを選んでください。",
+      "ollama_cloud_unreachable": "{{model}} 用の Ollama に接続できません。Ollama を起動してください。すでに起動している場合、このクラウドモデルには `ollama signin` が必要です。"
     },
     "composer": {
       "rag": "ファイル",
@@ -853,6 +876,16 @@
       "allow_once": "今回のみ許可",
       "allow_session": "このチャットで許可",
       "allow_always": "常に許可"
+    },
+    "shortcuts": {
+      "new_chat_started": "新しいチャットを開始しました",
+      "theme_dark": "ダークテーマをオンにしました",
+      "theme_light": "ライトテーマをオンにしました",
+      "clear_confirm": "このチャットを削除して新しいチャットを開始しますか？",
+      "cleared": "チャットを削除しました。新しいチャットを開始しました。",
+      "copied": "応答をコピーしました",
+      "exported_json": "チャットを JSON でエクスポートしました",
+      "exported_pdf": "チャットを PDF でエクスポートしました"
     }
   },
   "file_upload": {
@@ -875,7 +908,8 @@
     },
     "area": {
       "files_ready": "{{count}} ファイル準備完了",
-      "files_ready_plural": "{{count}} ファイル準備完了"
+      "files_ready_plural": "{{count}} ファイル準備完了",
+      "empty_hint": "ここにファイルをドロップするか、ファイルを選択してください。"
     },
     "settings": {
       "max_file_size_label": "最大ファイルサイズ (MB)",
@@ -918,7 +952,10 @@
         "description": "ホスト型の :cloud モデル。サインイン済みの Ollama と、多くの場合は有料プランが必要です。"
       },
       "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。",
-      "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。"
+      "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。",
+      "no_model_match": "一致するモデルはありません。",
+      "providers_unreachable": "{{names}} に接続できません。サーバーが実行中か、プロバイダー設定のアドレスが正しいかを確認してください。",
+      "retry": "再試行"
     },
     "version": {
       "tooltip": "Providerバージョン: {{version}}"
@@ -1071,7 +1108,8 @@
       "checking": "ローカルプロバイダーを確認中...",
       "error": "ローカルプロバイダーに接続できません",
       "empty": "ローカルプロバイダーに接続しましたが、チャットモデルが見つかりません",
-      "ready": "ローカルプロバイダー準備完了"
+      "ready": "ローカルプロバイダー準備完了",
+      "unreachable": "{{provider}} に接続できません"
     },
     "capabilities": {
       "edit_tooltip": "機能を設定",
@@ -1145,16 +1183,14 @@
     "selector": {
       "title": "チャットセッション",
       "create_new": "新しいチャットを作成",
-      "create_new_aria": "新しいチャットを作成",
-      "start_new": "新しいチャットを開始",
       "search_placeholder": "タイトルでチャットを検索...",
       "clear_search": "チャット検索をクリア",
       "no_sessions": "チャットセッションはまだありません",
-      "no_sessions_hint": "最初のチャットを作成して始めましょう",
       "no_matches": "一致するチャットはありません",
       "no_matches_hint": "別のタイトルを試してください。",
       "session_count": "{{count}} セッション",
-      "session_count_plural": "{{count}} セッション"
+      "session_count_plural": "{{count}} セッション",
+      "select_session": "{{title}} を開く"
     },
     "delete": {
       "aria_label": "チャットセッションを削除: {{title}}",
@@ -1187,7 +1223,11 @@
       "action": "タグを編集"
     },
     "groups": {
-      "pinned": "ピン留め"
+      "pinned": "ピン留め",
+      "today": "今日",
+      "yesterday": "昨日",
+      "last7Days": "過去 7 日間",
+      "older": "それ以前"
     }
   },
   "tabs": {
@@ -1199,7 +1239,10 @@
       "view_content": "抽出されたコンテンツを表示",
       "refresh_now": "コンテキストを今すぐ更新",
       "select_all": "すべて選択",
-      "clear_selection": "選択を解除"
+      "clear_selection": "選択を解除",
+      "no_matches": "\"{{query}}\" に一致するタブはありません",
+      "all_excluded": "開いているタブはすべてコンテキストから除外されています。",
+      "no_tabs": "読み込める開いているタブはありません。"
     },
     "context": "コンテキスト",
     "inspector": {
@@ -1302,7 +1345,15 @@
         "description": "任意のページからチャットのサイドパネルを開くためのブラウザレベルのショートカットを設定します。この割り当てはブラウザが管理します。下のアドレスをコピーしてアドレスバーに貼り付け、キーを設定または変更してください。",
         "copy": "アドレスをコピー",
         "copied": "コピーしました — アドレスバーに貼り付けてください"
-      }
+      },
+      "reset_to_default": "デフォルトに戻す",
+      "categories": {
+        "navigation": "ナビゲーション",
+        "actions": "アクション",
+        "toggles": "切り替え"
+      },
+      "search_placeholder": "ショートカットを検索",
+      "conflict": "\"{{label}}\" で使用中です。別のキーを選んでください。"
     },
     "content_extraction": {
       "title": "コンテンツ抽出",
@@ -1645,7 +1696,8 @@
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
-        "api_key_required": "Enter an API key."
+        "api_key_required": "Enter an API key.",
+        "searxng_json_disabled": "SearXNG が JSON 形式の結果を拒否しました。settings.yml の search.formats に json を追加して再起動してください。ログインやプロキシの背後にある場合は、この拡張機能のアクセスを許可してください。"
       },
       "beta_badge": "Beta",
       "beta_tooltip": "Beta. If you run into issues, please report them.",
@@ -1901,6 +1953,16 @@
       "failure_notice": {
         "title": "前回のリセットが完了しませんでした",
         "description": "前回のリセットは完了前に失敗しました。一部のデータが残っている可能性があります。詳細はコンソールを確認して、もう一度お試しください。"
+      },
+      "chat_dialog": {
+        "title": "すべてのチャットを削除しますか？",
+        "description": "このデバイス上のすべてのチャットを削除し、拡張機能を再起動します。元に戻すことはできません。",
+        "confirm": "チャットを削除"
+      },
+      "module_dialog": {
+        "title": "{{module}} をリセットしますか？",
+        "description": "この項目に保存された内容を消去し、デフォルトに戻します。元に戻すことはできません。",
+        "confirm": "リセット"
       }
     },
     "providers": {
@@ -1927,7 +1989,6 @@
         "success_description": "{{url}} の {{name}} に正常に接続しました。{{count}} 個のモデルが見つかりました。",
         "success_description_manual": "{{url}} の {{name}} に正常に接続しました。モデル一覧は公開されていないため、追加した {{count}} 件のモデルIDを使用します。",
         "failed_title": "接続失敗",
-        "failed_description": "{{url}} に接続できませんでした。{{error}}",
         "no_models_title": "モデルが見つかりません",
         "no_model_list_title": "モデル一覧がありません",
         "no_models_description": "{{url}} には到達できましたが、モデルは返されませんでした。プロバイダーが実行中で、ベースURLが正しく、少なくとも1つのモデルがインストールまたはロードされていることを確認してください。",
@@ -1936,10 +1997,10 @@
         "inline_success_manual": "{{url}} に接続しました。モデル一覧は公開されていないため、追加した {{count}} 件のモデルIDを使用します。",
         "inline_no_models": "{{url}} には到達できましたが、モデルは返されませんでした。プロバイダーが実行中で、モデルがインストールまたはロードされていることを確認してください。",
         "inline_no_model_list": "{{url}} には到達できましたが、モデル一覧は公開されていません。使用したいモデルIDを「モデルID」に追加してください。",
-        "inline_failed": "{{url}} に接続できませんでした。{{error}}",
         "default_url": "デフォルト URL",
         "api_key_required_title": "APIキーが必要です",
-        "api_key_required": "接続をテストする前に、{{name}} のAPIキーを追加してください。"
+        "api_key_required": "接続をテストする前に、{{name}} のAPIキーを追加してください。",
+        "failed_fallback": "{{url}} に接続できませんでした。プロバイダーが実行中で、ベース URL が正しいことを確認してください。"
       },
       "add": {
         "button": "プロバイダーを追加",
@@ -1998,7 +2059,14 @@
           "120000": "2 分ごと",
           "300000": "5 分ごと"
         }
-      }
+      },
+      "saved_title": "{{name}} を保存しました",
+      "save_failed_title": "{{name}} を保存できませんでした",
+      "save_failed_description": "変更はフォームに残っています。もう一度保存してください。",
+      "enable_failed_title": "{{name}} をオンにできませんでした",
+      "disable_failed_title": "{{name}} をオフにできませんでした",
+      "toggle_failed_description": "以前の状態に戻りました。しばらくしてから再試行してください。",
+      "status_off": "オフ"
     },
     "migration": {
       "title": "データ移行",
@@ -2240,7 +2308,9 @@
       }
     },
     "search": {
-      "placeholder": "設定を検索…"
+      "placeholder": "設定を検索…",
+      "shortcut_label": "設定を検索するショートカット",
+      "no_results": "'{{query}}' に一致する設定はありません"
     },
     "restore_sessions": {
       "title": "閉じたタブを再度開く",
@@ -2251,6 +2321,11 @@
     "export_privacy": {
       "remote_images_label": "エクスポートでリモート画像を読み込む",
       "remote_images_hint": "印刷・PDF エクスポートが外部サーバーから画像を読み込むことを許可します。オフの場合、エクスポートは完全にオフラインのまま行われ、リモート画像はプレースホルダーに置き換えられます。"
+    },
+    "beta_badge": "ベータ",
+    "nav_label": "設定のセクション",
+    "more_section": {
+      "title": "プロンプト、音声、ショートカット"
     }
   },
   "guides": {
@@ -2300,7 +2375,9 @@
   "errorBoundary": {
     "title": "問題が発生しました",
     "description": "予期しないエラーが発生しました。この問題は内部的に記録されました。",
-    "reload": "再読み込み"
+    "reload": "再読み込み",
+    "show_details": "詳細を表示",
+    "copy_details": "詳細をコピー"
   },
   "knowledge_sets": {
     "title": "ナレッジセット",
@@ -2350,7 +2427,8 @@
       "not_found": "プロバイダー設定が見つかりません。",
       "provider_failed": "プロバイダーへのリクエストに失敗しました。",
       "timeout": "バックグラウンドのリクエストがタイムアウトしました。もう一度お試しください。",
-      "internal": "バックグラウンドのリクエストに失敗しました。もう一度お試しください。"
+      "internal": "バックグラウンドのリクエストに失敗しました。もう一度お試しください。",
+      "upstream_not_found": "プロバイダーは応答しましたが、要求した内容ではありませんでした。ベース URL とモデル名を確認してください。"
     }
   },
   "diagnostics": {
@@ -2414,7 +2492,9 @@
       "placeholder": "Select a model",
       "use": "Use this model",
       "refresh": "モデル一覧を更新",
-      "use_unverified": "このモデルを試す"
+      "use_unverified": "このモデルを試す",
+      "none_unverified": "チャットモデルが見つかりません。プロバイダー設定で接続を確認してから、「モデル一覧を更新」を選択してください。",
+      "use_failed": "このモデルに切り替えられませんでした。再試行するか、別のモデルを選んでください。"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2444,9 +2524,13 @@
         "not-found": "サーバーは応答しましたが、有効なエンドポイントではありません。ポートとベース URL を確認してください。",
         "timeout": "プロバイダーの応答がタイムアウトしました。動作状況とポートを確認してください。",
         "unavailable": "Ollama に接続できません。停止中、別ポート、または拡張機能オリジンの拒否が考えられます。",
-        "server-error": "プロバイダーでサーバーエラーが発生しました。ログを確認して再試行してください。"
+        "server-error": "プロバイダーでサーバーエラーが発生しました。ログを確認して再試行してください。",
+        "cors-other": "{{provider}} は動作していますが、この拡張機能をブロックしました。CORS 設定で chrome-extension://* と moz-extension://* を許可してから再起動してください。",
+        "rate-limited": "{{provider}} は現在リクエストを制限しています。少し待ってから再試行してください。",
+        "payment": "{{provider}} には支払いまたはクレジットが必要です。アカウントを確認してから再試行してください。"
       },
-      "unverified": "接続は未確認です。設定済みのモデルを試すか、プロバイダー設定を開いて接続先を確認してください。"
+      "unverified": "接続は未確認です。設定済みのモデルを試すか、プロバイダー設定を開いて接続先を確認してください。",
+      "support_code": "サポートコード"
     }
   }
 }

@@ -1,6 +1,7 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { createAppError } from "@/lib/error-utils"
 import { ProviderId, ProviderType } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import { useProviderSettingsState } from "../use-provider-settings-state"
@@ -706,5 +707,54 @@ describe("useProviderSettingsState", () => {
     // The test streamed a token from the chat endpoint, which the background
     // check never does — that verdict outranks the remembered catalog answer.
     expect(hook.result.current.headerStatus.label).toBe("connected")
+  })
+
+  it("shows a classified failure inline only, with the Ollama origins command", async () => {
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama, custom] } as never
+      }
+      if (method === RpcMethod.ProvidersTestConnection) {
+        throw createAppError("blocked", {
+          kind: "provider",
+          status: 403,
+          messageKey: "onboarding.provider.errors.cors",
+          messageParams: { provider: "Ollama" }
+        })
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const hook = await testConnectionFor(ollama.id)
+
+    expect(hook.result.current.connectionStatus).toEqual({
+      success: false,
+      message: "onboarding.provider.errors.cors"
+    })
+    expect(hook.result.current.connectionFixCommand).toContain(
+      "OLLAMA_ORIGINS="
+    )
+    expect(mocks.toast).not.toHaveBeenCalled()
+  })
+
+  it("names a failed save by provider instead of a bare Error", async () => {
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama, custom] } as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+    const hook = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(hook.result.current.providers).toHaveLength(2))
+
+    await act(async () => {
+      await hook.result.current.handleSave(hook.result.current.activeConfig!)
+    })
+
+    expect(mocks.toast).toHaveBeenCalledWith({
+      variant: "destructive",
+      title: "settings.providers.save_failed_title Ollama",
+      description: "settings.providers.save_failed_description"
+    })
   })
 })

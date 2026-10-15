@@ -65,8 +65,8 @@ describe("ProviderGrid", () => {
       name: /settings.providers.add.button/
     })
     expect(
-      within(addProvider).getByText("settings.providers.beta_badge")
-    ).toBeInTheDocument()
+      within(addProvider).queryByText("settings.providers.beta_badge")
+    ).toBeNull()
     fireEvent.click(addProvider)
     expect(onAdd).toHaveBeenCalled()
   })
@@ -170,5 +170,58 @@ describe("ProviderGrid", () => {
     )
 
     expect(container.querySelector(".bg-status-success")).toBeInTheDocument()
+  })
+
+  it("announces the selected tile and its status without relying on color", () => {
+    render(
+      <ProviderGrid
+        providers={providers}
+        selectedId="ollama"
+        providerHealth={{
+          ollama: { success: false } as never
+        }}
+        manualTestStatus={null}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+      />
+    )
+
+    const ollama = screen.getByRole("button", { name: /Ollama/ })
+    const openai = screen.getByRole("button", { name: /OpenAI/ })
+    expect(ollama).toHaveAttribute("aria-pressed", "true")
+    expect(openai).toHaveAttribute("aria-pressed", "false")
+    expect(
+      within(ollama).getByText("settings.providers.connection_failed")
+    ).toHaveClass("sr-only")
+    expect(
+      within(openai).getByText("settings.providers.status_off")
+    ).toHaveClass("sr-only")
+  })
+
+  it("keeps the beta info button outside the tile button", () => {
+    render(
+      <ProviderGrid
+        providers={[
+          {
+            id: "custom:openai:abc123",
+            name: "Home server",
+            type: ProviderType.OPENAI,
+            enabled: true
+          }
+        ]}
+        selectedId="custom:openai:abc123"
+        providerHealth={{}}
+        manualTestStatus={null}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+      />
+    )
+
+    const info = screen.getByRole("button", {
+      name: "settings.providers.beta_notice"
+    })
+    const tile = screen.getByRole("button", { name: /Home server/ })
+    expect(tile.contains(info)).toBe(false)
+    expect(info.closest("button")).toBe(info)
   })
 })

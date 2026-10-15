@@ -53,7 +53,7 @@ export const PresetPicker = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: t("settings.presets.error_title", "Failed to apply preset"),
+        title: t("settings.presets.error_title"),
         description: error instanceof Error ? error.message : String(error)
       })
     } finally {

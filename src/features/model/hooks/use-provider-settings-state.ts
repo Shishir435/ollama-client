@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useReducer, useRef } from "react"
+import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "@/hooks/use-toast"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import {
+  OLLAMA_CORS_COMMAND,
+  OLLAMA_CORS_MESSAGE_KEY
+} from "@/lib/onboarding/provider-connection"
 import type {
   CustomProviderWire,
   ProviderServiceProfile
@@ -90,6 +94,8 @@ export const useProviderSettingsState = () => {
     defaultUrl: t("settings.providers.test_connection.default_url")
   })
 
+  const [connectionFixCommand, setConnectionFixCommand] = useState<string>()
+
   const setConnectionFailure = (message: string): void => {
     dispatch({
       type: "connection-status-set",
@@ -166,31 +172,35 @@ export const useProviderSettingsState = () => {
     })
   }
 
+  /**
+   * A failed test is shown once, inline beside the form, in the words the
+   * background classified it with. A toast would only repeat it, and the raw
+   * browser error ("Failed to fetch") names nothing the user can change.
+   */
   const handleConnectionFailure = (error: unknown): void => {
     logger.error("Connection test failed", "ProviderSettings", { error })
-    const errorMessage =
-      isAppError(error) && error.messageKey
-        ? t(error.messageKey, error.messageParams)
-        : getDisplayErrorMessage(error, "Failed to connect")
-    const errorWithHint =
-      errorMessage.toLowerCase().includes("failed to fetch") &&
-      cspCompatibilityHint
-        ? `${errorMessage}. ${cspCompatibilityHint}`
-        : errorMessage
-    setConnectionFailure(
-      t("settings.providers.test_connection.inline_failed", {
-        url: displayUrl,
-        error: errorWithHint
-      })
+    const classified = isAppError(error) && error.messageKey
+    const errorMessage = classified
+      ? t(error.messageKey as string, error.messageParams)
+      : getDisplayErrorMessage(
+          error,
+          t("settings.providers.test_connection.failed_fallback", {
+            url: displayUrl
+          })
+        )
+    const unreachable =
+      isAppError(error) &&
+      error.messageKey === "onboarding.provider.errors.unavailable"
+    setConnectionFixCommand(
+      isAppError(error) && error.messageKey === OLLAMA_CORS_MESSAGE_KEY
+        ? OLLAMA_CORS_COMMAND
+        : undefined
     )
-    toast({
-      title: t("settings.providers.test_connection.failed_title"),
-      description: t("settings.providers.test_connection.failed_description", {
-        url: displayUrl,
-        error: errorWithHint
-      }),
-      variant: "destructive"
-    })
+    setConnectionFailure(
+      unreachable && cspCompatibilityHint
+        ? `${errorMessage} ${cspCompatibilityHint}`
+        : errorMessage
+    )
   }
 
   const handleTestConnection = async () => {
@@ -202,6 +212,7 @@ export const useProviderSettingsState = () => {
       enabled: activeConfig.enabled
     })
     dispatch({ type: "connection-test-started" })
+    setConnectionFixCommand(undefined)
     try {
       const command = await testProviderConnection(activeConfig)
       if (command.kind === "api-key-required") {
@@ -251,8 +262,7 @@ export const useProviderSettingsState = () => {
         })
         if (showSuccessToast) {
           toast({
-            title: t("settings.saved"),
-            description: `Configuration for ${config.name} saved.`
+            title: t("settings.providers.saved_title", { name: config.name })
           })
         }
         return true
@@ -267,8 +277,10 @@ export const useProviderSettingsState = () => {
         if (showErrorToast) {
           toast({
             variant: "destructive",
-            title: "Error",
-            description: "Failed to save configuration."
+            title: t("settings.providers.save_failed_title", {
+              name: config.name
+            }),
+            description: t("settings.providers.save_failed_description")
           })
         }
         return false
@@ -457,8 +469,13 @@ export const useProviderSettingsState = () => {
           })
           toast({
             variant: "destructive",
-            title: "Error",
-            description: "Failed to update provider state."
+            title: t(
+              enabled
+                ? "settings.providers.enable_failed_title"
+                : "settings.providers.disable_failed_title",
+              { name: activeConfig.name }
+            ),
+            description: t("settings.providers.toggle_failed_description")
           })
         }
       })
@@ -496,6 +513,9 @@ export const useProviderSettingsState = () => {
     isRemoteEndpoint,
     testingConnection,
     connectionStatus,
+    connectionFixCommand: connectionStatus?.success
+      ? undefined
+      : connectionFixCommand,
     hasUnsavedChanges,
     providerHealth,
     headerStatus,

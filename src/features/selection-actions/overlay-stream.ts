@@ -17,7 +17,12 @@ export interface StreamChunkResult {
 export interface StreamCallbacks {
   onChunk: (result: StreamChunkResult) => void
   onDone: () => void
-  onError: (message: string) => void
+  /**
+   * `messageKey` names a `selection_button.*` translation the overlay renders
+   * in place of `message`; the overlay only carries that subtree, so a key from
+   * any other part of the catalog is ignored and the text is used instead.
+   */
+  onError: (message: string, messageKey?: string) => void
 }
 
 export function connectSelectionStream(
@@ -33,7 +38,7 @@ export function connectSelectionStream(
 
   port.onDisconnect.addListener(() => {
     if (chrome.runtime.lastError) {
-      callbacks.onError("Connection lost. Try again.")
+      callbacks.onError("", "selection_button.panel.connection_lost")
     }
   })
 
@@ -66,11 +71,14 @@ export function connectSelectionStream(
     }
 
     if (message.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR) {
-      callbacks.onError(
-        message.failure.userMessage ??
-          message.failure.message ??
-          "Selection action failed. Try again."
-      )
+      const { messageKey, userMessage, message: text } = message.failure
+      if (messageKey?.startsWith("selection_button.")) {
+        callbacks.onError(userMessage ?? text, messageKey)
+      } else if (userMessage || text) {
+        callbacks.onError(userMessage || text)
+      } else {
+        callbacks.onError("", "selection_button.panel.action_failed")
+      }
     }
   })
 

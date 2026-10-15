@@ -1,3 +1,4 @@
+import { MODEL_DISCOVERY_FAILURE } from "@ollama-client/contracts/provider-rpc"
 import {
   AlertTriangle,
   Loader2,
@@ -26,7 +27,12 @@ const iconMap = {
 
 export const ProviderStatusIndicator = () => {
   const { t } = useTranslation()
-  const { status: rawStatus, refresh, error } = useProviderModels()
+  const {
+    status: rawStatus,
+    refresh,
+    error,
+    unavailableProviders = []
+  } = useProviderModels()
   const status = rawStatus as keyof typeof iconMap
 
   const getLabelMap = () => ({
@@ -75,6 +81,23 @@ export const ProviderStatusIndicator = () => {
               {error}
             </div>
           )}
+          {status !== "loading" &&
+            unavailableProviders.map((failure) => (
+              <div
+                key={failure.providerId}
+                className={cn(
+                  "mt-1 max-w-xs text-xs",
+                  STATUS_STYLES.danger.text
+                )}>
+                {t(
+                  failure.code ===
+                    MODEL_DISCOVERY_FAILURE.MODEL_LIST_UNSUPPORTED
+                    ? "model.menu.providers_unavailable"
+                    : "model.menu.providers_unreachable",
+                  { names: failure.providerName ?? failure.providerId }
+                )}
+              </div>
+            ))}
         </>
       }
     />

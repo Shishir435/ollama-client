@@ -53,7 +53,8 @@ export const ApprovalsCard = () => {
                   {grant.origin === NO_ORIGIN
                     ? t("settings.permissions.approvals.origin_any")
                     : grant.origin}
-                  {" · "}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
                   {t("settings.permissions.approvals.granted_on", {
                     date: new Date(grant.grantedAt).toLocaleDateString(
                       i18n.language

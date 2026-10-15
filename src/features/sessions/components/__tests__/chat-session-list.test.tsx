@@ -83,8 +83,8 @@ describe("ChatSessionList", () => {
       />
     )
 
-    expect(screen.getByText("Today")).toBeInTheDocument()
-    expect(screen.getByText("Older")).toBeInTheDocument()
+    expect(screen.getByText("sessions.groups.today")).toBeInTheDocument()
+    expect(screen.getByText("sessions.groups.older")).toBeInTheDocument()
 
     const todayButton = screen.getAllByRole("button", {
       name: "sessions.selector.select_session"
@@ -117,5 +117,26 @@ describe("ChatSessionList", () => {
     rerender(<ChatSessionList {...props} query="missing" />)
     expect(screen.getByText("sessions.selector.no_matches")).toBeInTheDocument()
     vi.useRealTimers()
+  })
+
+  it("invites creating a chat when there are none", () => {
+    const onCreate = vi.fn()
+    render(
+      <ChatSessionList
+        sessions={[]}
+        currentSessionId={null}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        onCreate={onCreate}
+      />
+    )
+
+    expect(
+      screen.getByText("sessions.selector.no_sessions")
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: "sessions.selector.create_new" })
+    )
+    expect(onCreate).toHaveBeenCalledTimes(1)
   })
 })

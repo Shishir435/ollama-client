@@ -332,7 +332,11 @@ const normalizeLegacyServerEvent = (value: unknown): unknown => {
     const { error, ...rest } = versioned
     const failure = isRecord(error)
       ? error
-      : { status: 0, message: "Selection action failed. Try again." }
+      : {
+          status: 0,
+          message: "Selection action failed. Try again.",
+          messageKey: "selection_button.panel.action_failed"
+        }
     return { ...rest, failure }
   }
   return versioned

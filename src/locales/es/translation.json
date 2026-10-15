@@ -380,8 +380,6 @@
     "agent_task_unchecked": "Hecho, sin comprobar todo"
   },
   "selection_button": {
-    "label": "Preguntar al LLM local",
-    "tooltip": "Añadir al cliente LLM local",
     "actions": {
       "summarize": {
         "label": "Resumir",
@@ -439,7 +437,18 @@
       "cancel": "Cancelar",
       "cancel_tip": "Cancelar generación",
       "run": "Ejecutar",
-      "instruction_ph": "Instrucción"
+      "instruction_ph": "Instrucción",
+      "toolbar_label": "Acciones de selección",
+      "custom_instruction_label": "Instrucción personalizada",
+      "model_label": "Modelo",
+      "model_placeholder": "Elige un modelo",
+      "action_label": "Acción",
+      "no_model": "Elige un modelo para ejecutar esta acción.",
+      "connection_lost": "Se perdió la conexión con la extensión. Vuelve a ejecutar la acción.",
+      "action_failed": "La acción se detuvo antes de terminar. Vuelve a ejecutarla.",
+      "copied": "Copiado",
+      "copy_failed": "No se pudo copiar. Selecciona el texto y pulsa Ctrl+C.",
+      "apply_failed": "No se pudo cambiar el texto de la página. Copia el resultado en su lugar."
     }
   },
   "welcome": {
@@ -458,12 +467,14 @@
       },
       "no_models": {
         "title": "No se Encontraron Modelos",
-        "message": "Por favor, descarga un modelo para empezar"
+        "message": "Por favor, descarga un modelo para empezar",
+        "message_generic": "Instala o carga un modelo de chat en tu proveedor y vuelve a comprobarlo."
       },
       "ready": {
         "title": "Listo para Chatear",
         "message": "El proveedor está conectado y listo para usar"
-      }
+      },
+      "provider_fallback": "tu proveedor"
     },
     "setup_guide": {
       "hint": "Sigue la guía de configuración a continuación para instalar Ollama y los modelos.",
@@ -505,7 +516,6 @@
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "La búsqueda web requiere llamadas a herramientas, que este modelo no admite. Activa el fallback de herramientas en la configuración del modelo.",
       "drop_files_here": "Soltar archivos aquí",
-      "attachments": "{{count}} adjuntos",
       "images": {
         "remove": "Quitar {{name}}",
         "too_large": "{{name}} supera el límite de imagen de {{max}} MB.",
@@ -515,7 +525,13 @@
         "screenshot_failed": "No se pudo capturar esta página. Algunas páginas no se pueden capturar."
       },
       "screenshot": "Capturar pantalla",
-      "auto_screenshot": "Adjuntar captura automáticamente"
+      "auto_screenshot": "Adjuntar captura automáticamente",
+      "reading_tabs_title": "Leyendo pestañas",
+      "reading_tabs_body_one": "Todavía se está leyendo {{count}} pestaña. Vuelve a enviar en un momento.",
+      "reading_tabs_body_other": "Todavía se están leyendo {{count}} pestañas. Vuelve a enviar en un momento.",
+      "reading_tabs_button": "Leyendo pestañas…",
+      "attachments_one": "{{count}} adjunto",
+      "attachments_other": "{{count}} adjuntos"
     },
     "context_preview": {
       "files": "Archivos adjuntos",
@@ -641,18 +657,11 @@
       "rag_context_label": "Contexto RAG ({{count}})",
       "char_counts": "caracts. pestaña: {{tab}} | caracts. RAG: {{rag}}",
       "trimmed": "recortado",
-      "view_web": "Ver {{count}} fuente web",
-      "view_web_plural": "Ver {{count}} fuentes web",
       "web_engine": "vía {{engine}}",
-      "web_no_snippet": "No hay vista previa disponible.",
       "web_published": "Publicado: {{date}}",
       "web_score": "puntuación {{score}}",
-      "web_source": "{{count}} fuente web",
-      "web_source_plural": "{{count}} fuentes web",
-      "web_title": "Fuentes web ({{count}})",
       "web_unused_hint": "Aumenta el número de resultados de búsqueda web en Ajustes para enviar más de estos al modelo.",
       "web_unused_label": "También encontrados — no enviados ({{count}})",
-      "web_used_label": "Enviados al modelo ({{count}})",
       "unified_tooltip": "{{count}} fuentes",
       "unified_aria": "Ver {{count}} fuentes",
       "unified_title": "Fuentes ({{count}})",
@@ -796,7 +805,21 @@
       "interrupted": "Respuesta interrumpida",
       "provider_auth": "El proveedor rechazó el acceso. Revisa su clave API, credenciales o permisos de cuenta en Configuración antes de empezar de nuevo.",
       "provider_cors": "El proveedor local bloqueó el origen de la extensión. Permite chrome-extension://* y moz-extension://* en su configuración CORS e inténtalo de nuevo.",
-      "provider_refused": "El modelo rechazó esta solicitud. Ajusta la tarea o elige otro modelo."
+      "provider_refused": "El modelo rechazó esta solicitud. Ajusta la tarea o elige otro modelo.",
+      "unknown_error_generic": "La solicitud falló: {{message}}. Vuelve a intentarlo en un momento.",
+      "provider_fallback": "El proveedor",
+      "model_fallback": "el modelo seleccionado",
+      "provider_unreachable": "No se puede acceder a {{provider}}. Inícialo y vuelve a intentarlo.",
+      "provider_cors_remote": "{{provider}} rechazó las solicitudes de esta extensión. Permítelas configurando OLLAMA_ORIGINS=chrome-extension://*,moz-extension://* en el servidor.",
+      "provider_cors_other": "{{provider}} bloqueó esta extensión. Permite chrome-extension://* y moz-extension://* en su configuración de CORS; consulta la [guía de configuración]({{setupGuideUrl}}).",
+      "context_too_long": "Este chat es demasiado largo para {{model}}. Inicia un chat nuevo o elige un modelo con más contexto.",
+      "payment_required": "{{provider}} requiere un pago o créditos para {{model}}. Elige un modelo local o añade créditos.",
+      "model_not_found": "{{provider}} no tiene {{model}}. Descárgalo o elige otro modelo.",
+      "provider_server_error": "{{provider}} tuvo un error interno al ejecutar {{model}}. Vuelve a intentarlo; si se repite, revisa el registro del servidor.",
+      "out_of_memory": "{{model}} necesita más memoria de la que hay libre en este equipo. Cierra otras aplicaciones o elige un modelo más pequeño.",
+      "model_crashed": "{{model}} falló al cargarse. Vuelve a intentarlo; si se repite, revisa el registro de {{provider}}.",
+      "ollama_cloud_signin": "{{model}} se ejecuta en la nube de Ollama. Inicia sesión con `ollama signin` o elige un modelo local.",
+      "ollama_cloud_unreachable": "No se puede conectar con Ollama para {{model}}. Inicia Ollama. Si ya está en marcha, este modelo en la nube necesita `ollama signin`."
     },
     "composer": {
       "rag": "Archivos",
@@ -853,6 +876,16 @@
       "allow_once": "Permitir una vez",
       "allow_session": "Permitir en este chat",
       "allow_always": "Permitir siempre"
+    },
+    "shortcuts": {
+      "new_chat_started": "Nuevo chat iniciado",
+      "theme_dark": "Tema oscuro activado",
+      "theme_light": "Tema claro activado",
+      "clear_confirm": "¿Eliminar este chat e iniciar uno nuevo?",
+      "cleared": "Chat eliminado. Nuevo chat iniciado.",
+      "copied": "Respuesta copiada",
+      "exported_json": "Chat exportado como JSON",
+      "exported_pdf": "Chat exportado como PDF"
     }
   },
   "file_upload": {
@@ -875,7 +908,8 @@
     },
     "area": {
       "files_ready": "{{count}} archivo listo",
-      "files_ready_plural": "{{count}} archivos listos"
+      "files_ready_plural": "{{count}} archivos listos",
+      "empty_hint": "Suelta archivos aquí o elige archivos."
     },
     "settings": {
       "max_file_size_label": "Tamaño Máximo de Archivo (MB)",
@@ -918,7 +952,10 @@
         "description": "Modelos :cloud alojados. Requieren Ollama con sesión iniciada y, a menudo, un plan de pago."
       },
       "providers_unavailable": "{{names}} no devolvió modelos. Revisa el proveedor en la configuración o añade ID de modelo manualmente.",
-      "selection_conflict": "Elige un proveedor para {{model}}: más de uno lo ofrece."
+      "selection_conflict": "Elige un proveedor para {{model}}: más de uno lo ofrece.",
+      "no_model_match": "Ningún modelo coincide.",
+      "providers_unreachable": "No se puede acceder a {{names}}. Comprueba que el servidor esté activo y la dirección en la configuración del proveedor.",
+      "retry": "Reintentar"
     },
     "version": {
       "tooltip": "Versión de Provider: {{version}}"
@@ -1071,7 +1108,8 @@
       "checking": "Comprobando proveedor local...",
       "error": "Proveedor local no accesible",
       "empty": "Proveedor local accesible, pero no se encontraron modelos de chat",
-      "ready": "Proveedor local listo"
+      "ready": "Proveedor local listo",
+      "unreachable": "No se puede acceder a {{provider}}"
     },
     "capabilities": {
       "edit_tooltip": "Definir capacidades",
@@ -1145,16 +1183,14 @@
     "selector": {
       "title": "Sesiones de Chat",
       "create_new": "Crear Nuevo Chat",
-      "create_new_aria": "Crear Nuevo Chat",
-      "start_new": "Iniciar Nuevo Chat",
       "search_placeholder": "Buscar chats por título...",
       "clear_search": "Borrar búsqueda de chats",
       "no_sessions": "Aún no hay sesiones de chat",
-      "no_sessions_hint": "Crea tu primer chat para empezar",
       "no_matches": "No hay chats coincidentes",
       "no_matches_hint": "Prueba con otro título.",
       "session_count": "{{count}} sesión",
-      "session_count_plural": "{{count}} sesiones"
+      "session_count_plural": "{{count}} sesiones",
+      "select_session": "Abrir {{title}}"
     },
     "delete": {
       "aria_label": "Eliminar sesión de chat: {{title}}",
@@ -1187,7 +1223,11 @@
       "action": "Editar etiquetas"
     },
     "groups": {
-      "pinned": "Fijados"
+      "pinned": "Fijados",
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "last7Days": "Últimos 7 días",
+      "older": "Anteriores"
     }
   },
   "tabs": {
@@ -1199,7 +1239,10 @@
       "view_content": "Ver contenido extraído",
       "refresh_now": "Actualizar contexto ahora",
       "select_all": "Seleccionar todo",
-      "clear_selection": "Borrar selección"
+      "clear_selection": "Borrar selección",
+      "no_matches": "Ninguna pestaña coincide con \"{{query}}\"",
+      "all_excluded": "Todas las pestañas abiertas están excluidas del contexto.",
+      "no_tabs": "No hay pestañas abiertas para leer."
     },
     "context": "Contexto",
     "inspector": {
@@ -1302,7 +1345,15 @@
         "description": "Configura un atajo a nivel de navegador para abrir el panel lateral de chat desde cualquier página. El navegador gestiona esta asignación: copia la dirección de abajo y pégala en la barra de direcciones para establecer o cambiar la tecla.",
         "copy": "Copiar dirección",
         "copied": "Copiado: pégalo en la barra de direcciones"
-      }
+      },
+      "categories": {
+        "navigation": "Navegación",
+        "actions": "Acciones",
+        "toggles": "Interruptores"
+      },
+      "search_placeholder": "Buscar atajos",
+      "conflict": "Ya lo usa \"{{label}}\". Elige otra tecla.",
+      "reset_to_default": "Restablecer valor predeterminado"
     },
     "content_extraction": {
       "title": "Extracción de Contenido",
@@ -1645,7 +1696,8 @@
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
-        "api_key_required": "Enter an API key."
+        "api_key_required": "Enter an API key.",
+        "searxng_json_disabled": "SearXNG rechazó los resultados en JSON. Añade json a search.formats en settings.yml y reinícialo. Si está detrás de un inicio de sesión o un proxy, permite el acceso a esta extensión."
       },
       "beta_badge": "Beta",
       "beta_tooltip": "Beta. If you run into issues, please report them.",
@@ -1901,6 +1953,16 @@
       "failure_notice": {
         "title": "El último restablecimiento no terminó",
         "description": "El restablecimiento anterior falló antes de completarse. Es posible que queden algunos datos. Revisa la consola para más detalles e inténtalo de nuevo."
+      },
+      "chat_dialog": {
+        "title": "¿Eliminar todos los chats?",
+        "description": "Esto elimina todos los chats de este dispositivo y reinicia la extensión. No se puede deshacer.",
+        "confirm": "Eliminar chats"
+      },
+      "module_dialog": {
+        "title": "¿Restablecer {{module}}?",
+        "description": "Esto borra lo guardado para esta área y restaura sus valores predeterminados. No se puede deshacer.",
+        "confirm": "Restablecer"
       }
     },
     "providers": {
@@ -1927,7 +1989,6 @@
         "success_description": "Conectado correctamente a {{name}} en {{url}}. Se encontraron {{count}} modelo(s).",
         "success_description_manual": "Conectado correctamente a {{name}} en {{url}}. No publica una lista de modelos, así que se usan los {{count}} ID de modelo que añadiste.",
         "failed_title": "Error de conexión",
-        "failed_description": "No se pudo acceder a {{url}}. {{error}}",
         "no_models_title": "No se encontraron modelos",
         "no_model_list_title": "Sin lista de modelos",
         "no_models_description": "Se pudo acceder a {{url}}, pero no se devolvieron modelos. Asegúrate de que el proveedor esté en ejecución, que la URL base sea correcta y que haya al menos un modelo instalado o cargado.",
@@ -1936,10 +1997,10 @@
         "inline_success_manual": "Conectado a {{url}}. No publica una lista de modelos, así que se usan los {{count}} ID de modelo que añadiste.",
         "inline_no_models": "Se pudo acceder a {{url}}, pero no se devolvieron modelos. Comprueba que el proveedor esté en ejecución y tenga modelos instalados o cargados.",
         "inline_no_model_list": "Se pudo acceder a {{url}}, pero no publica una lista de modelos. Añade los ID de modelo que quieras usar en «ID de modelo».",
-        "inline_failed": "No se pudo acceder a {{url}}. {{error}}",
         "default_url": "URL predeterminada",
         "api_key_required_title": "Se requiere clave API",
-        "api_key_required": "Añade una clave API para {{name}} antes de probar la conexión."
+        "api_key_required": "Añade una clave API para {{name}} antes de probar la conexión.",
+        "failed_fallback": "No se pudo acceder a {{url}}. Comprueba que el proveedor esté activo y que la URL base sea correcta."
       },
       "add": {
         "button": "Añadir proveedor",
@@ -1998,7 +2059,14 @@
           "120000": "Cada 2 minutos",
           "300000": "Cada 5 minutos"
         }
-      }
+      },
+      "saved_title": "{{name}} guardado",
+      "save_failed_title": "No se pudo guardar {{name}}",
+      "save_failed_description": "Tus cambios siguen en el formulario. Vuelve a guardar.",
+      "enable_failed_title": "No se pudo activar {{name}}",
+      "disable_failed_title": "No se pudo desactivar {{name}}",
+      "toggle_failed_description": "Volvió a su estado anterior. Vuelve a intentarlo en un momento.",
+      "status_off": "Desactivado"
     },
     "migration": {
       "title": "Migración de Datos",
@@ -2240,7 +2308,9 @@
       }
     },
     "search": {
-      "placeholder": "Buscar ajustes…"
+      "placeholder": "Buscar ajustes…",
+      "shortcut_label": "Atajo para buscar en los ajustes",
+      "no_results": "Ningún ajuste coincide con '{{query}}'"
     },
     "restore_sessions": {
       "title": "Reabrir pestañas cerradas",
@@ -2251,6 +2321,11 @@
     "export_privacy": {
       "remote_images_label": "Cargar imágenes remotas en las exportaciones",
       "remote_images_hint": "Permite que las exportaciones de impresión y PDF carguen imágenes de servidores externos. Si está desactivado, las exportaciones permanecen totalmente sin conexión y las imágenes remotas se sustituyen por un marcador de posición."
+    },
+    "beta_badge": "Beta",
+    "nav_label": "Secciones de ajustes",
+    "more_section": {
+      "title": "Prompts, voz y atajos"
     }
   },
   "guides": {
@@ -2300,7 +2375,9 @@
   "errorBoundary": {
     "title": "Algo salió mal",
     "description": "Se produjo un error inesperado. Hemos registrado este problema internamente.",
-    "reload": "Recargar"
+    "reload": "Recargar",
+    "show_details": "Mostrar detalles",
+    "copy_details": "Copiar detalles"
   },
   "knowledge_sets": {
     "title": "Conjuntos de conocimiento",
@@ -2350,7 +2427,8 @@
       "not_found": "No se encontró la configuración del proveedor.",
       "provider_failed": "La solicitud al proveedor falló.",
       "timeout": "La solicitud en segundo plano agotó el tiempo. Inténtalo de nuevo.",
-      "internal": "La solicitud en segundo plano falló. Inténtalo de nuevo."
+      "internal": "La solicitud en segundo plano falló. Inténtalo de nuevo.",
+      "upstream_not_found": "El proveedor respondió, pero no con lo que se pidió. Comprueba la URL base y el nombre del modelo."
     }
   },
   "diagnostics": {
@@ -2414,7 +2492,9 @@
       "placeholder": "Select a model",
       "use": "Use this model",
       "refresh": "Actualizar modelos",
-      "use_unverified": "Probar este modelo"
+      "use_unverified": "Probar este modelo",
+      "none_unverified": "No se encontraron modelos de chat. Comprueba la conexión en la configuración del proveedor y luego selecciona Actualizar modelos.",
+      "use_failed": "No se pudo cambiar a este modelo. Vuelve a intentarlo o elige otro."
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2444,9 +2524,13 @@
         "not-found": "El servidor respondió, pero no es un endpoint válido. Comprueba el puerto y la URL base.",
         "timeout": "El proveedor tardó demasiado. Comprueba que esté activo y que el puerto sea correcto.",
         "unavailable": "No se pudo acceder a Ollama. Puede estar detenido, usar otro puerto o bloquear orígenes de extensiones.",
-        "server-error": "El proveedor devolvió un error del servidor. Revisa sus registros y vuelve a intentarlo."
+        "server-error": "El proveedor devolvió un error del servidor. Revisa sus registros y vuelve a intentarlo.",
+        "cors-other": "{{provider}} está activo, pero bloqueó esta extensión. Permite chrome-extension://* y moz-extension://* en su configuración de CORS y luego reinícialo.",
+        "rate-limited": "{{provider}} está limitando las solicitudes ahora mismo. Espera un momento y vuelve a intentarlo.",
+        "payment": "{{provider}} requiere pago o créditos. Revisa tu cuenta y vuelve a intentarlo."
       },
-      "unverified": "Conexión sin verificar. Puedes probar un modelo configurado o abrir los ajustes del proveedor para comprobar el endpoint."
+      "unverified": "Conexión sin verificar. Puedes probar un modelo configurado o abrir los ajustes del proveedor para comprobar el endpoint.",
+      "support_code": "Código de soporte"
     }
   }
 }

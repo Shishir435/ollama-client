@@ -222,7 +222,7 @@ export const SemanticChatSearchDialog = ({
           <div className="space-y-8 p-4">
             {titleMatches.length > 0 && (
               <section className="space-y-1">
-                <h3 className="px-1 text-micro font-semibold uppercase tracking-wide text-muted-foreground">
+                <h3 className="px-1 text-xs font-medium text-muted-foreground">
                   {t("chat.search.matching_titles")}
                 </h3>
                 {titleMatches.map((session) => (

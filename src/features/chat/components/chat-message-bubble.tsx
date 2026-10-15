@@ -29,7 +29,8 @@ export const ChatMessageBubble = memo(
     onFork,
     onDelete,
     onNavigate,
-    onResolvePermission
+    onResolvePermission,
+    announceError = false
   }: {
     msg: ChatMessage
     sessionId?: string
@@ -45,6 +46,12 @@ export const ChatMessageBubble = memo(
     onNavigate?: (nodeId: number | string) => void
     /** `enable: false` continues without turning the capability on. */
     onResolvePermission?: (enable?: boolean) => Promise<PermissionResumeResult>
+    /**
+     * Whether a failure here is announced as an alert. Only the latest message
+     * should be: every historical failure carrying `role="alert"` makes a
+     * screen reader re-announce old errors whenever the list re-renders them.
+     */
+    announceError?: boolean
   }) => {
     const { t } = useTranslation()
     const [editorMode, setEditorMode] = useState<"edit" | "fork" | null>(null)
@@ -138,7 +145,7 @@ export const ChatMessageBubble = memo(
               // copy in the same neutral bubble reads as something the model
               // said. The rail + icon separate the two at a glance.
               <div
-                role="alert"
+                role={announceError ? "alert" : undefined}
                 className="mt-0.5 w-full border-l-2 border-destructive/50 pl-2">
                 <div className="flex items-center gap-1.5 px-2 pb-0.5 text-micro font-medium text-destructive/80">
                   <TriangleAlert className="icon-xs shrink-0" />

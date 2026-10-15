@@ -32,10 +32,12 @@ import {
   AddProviderDialog,
   type AddProviderDialogProps
 } from "@/features/model/components/add-provider-dialog"
+import { OllamaOriginsCommand } from "@/features/model/components/ollama-origins-command"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useToast } from "@/hooks/use-toast"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { isLikelyEmbeddingModelName } from "@/lib/embeddings/model-name-filter"
+import { OLLAMA_CORS_MESSAGE_KEY } from "@/lib/onboarding/provider-connection"
 import {
   getOnboardingState,
   type OnboardingStage,
@@ -81,10 +83,12 @@ const hasSelectedModel = (
 
 const ModelConnectionNotice = ({
   verified,
-  failed
+  failed,
+  provider
 }: {
   verified: boolean
   failed: boolean
+  provider: string
 }) => {
   const { t } = useTranslation()
   return (
@@ -99,7 +103,7 @@ const ModelConnectionNotice = ({
       )}
       {failed && (
         <p role="alert" className="text-xs text-destructive">
-          {t("onboarding.provider.connection_failed")}
+          {t("onboarding.provider.connection_failed", { provider })}
         </p>
       )}
     </>
@@ -124,12 +128,14 @@ export const FirstRunPermissionsDialog = () => {
   const [errorSupportCode, setErrorSupportCode] = useState<string>()
   const [connectionError, setConnectionError] = useState<{
     messageKey?: string
+    messageParams?: Record<string, string | number | boolean>
     fallback: string
   }>()
   const selectedProvider = useMemo(
     () => providers.find((provider) => provider.id === providerId),
     [providerId, providers]
   )
+  const providerName = selectedProvider?.name ?? providerId ?? ""
 
   useEffect(() => {
     let active = true
@@ -211,6 +217,7 @@ export const FirstRunPermissionsDialog = () => {
       setModelId("")
       const safeError = error as {
         messageKey?: string
+        messageParams?: Record<string, string | number | boolean>
         userMessage?: string
         context?: unknown
       }
@@ -221,8 +228,10 @@ export const FirstRunPermissionsDialog = () => {
       )
       setConnectionError({
         messageKey: safeError.messageKey,
+        messageParams: safeError.messageParams,
         fallback:
-          safeError.userMessage ?? t("onboarding.provider.connection_failed")
+          safeError.userMessage ??
+          t("onboarding.provider.connection_failed", { provider: providerName })
       })
     } finally {
       setBusy(false)
@@ -245,7 +254,7 @@ export const FirstRunPermissionsDialog = () => {
     } catch {
       toast({
         variant: "destructive",
-        title: t("onboarding.provider.connection_failed")
+        title: t("onboarding.model.use_failed")
       })
     } finally {
       setBusy(false)
@@ -287,8 +296,8 @@ export const FirstRunPermissionsDialog = () => {
         : "OLC-PROVIDER-CONNECTION-001"
       setErrorSupportCode(supportCode)
       toast({
-        title: t("onboarding.provider.connection_failed"),
-        description: `${safeError.userMessage ?? t("errors.rpc.provider_failed")} (${supportCode})`,
+        title: t("settings.providers.add.failed_title"),
+        description: `${safeError.userMessage ?? t("errors.rpc.provider_failed")} ${t("onboarding.provider.support_code")}: ${supportCode}`,
         variant: "destructive"
       })
       return false
@@ -411,15 +420,27 @@ export const FirstRunPermissionsDialog = () => {
                   </div>
                 )}
                 {errorSupportCode && (
-                  <div className="space-y-1 rounded-control bg-tint-danger p-2 text-xs text-destructive">
+                  <div
+                    role="alert"
+                    className="space-y-1 rounded-control bg-tint-danger p-2 text-xs text-destructive">
                     <div className="flex gap-2">
                       <TriangleAlert className="icon-sm shrink-0" />
                       {connectionError?.messageKey
-                        ? t(connectionError.messageKey)
+                        ? t(connectionError.messageKey, {
+                            provider: providerName,
+                            ...connectionError.messageParams
+                          })
                         : (connectionError?.fallback ??
-                          t("onboarding.provider.connection_failed"))}
+                          t("onboarding.provider.connection_failed", {
+                            provider: providerName
+                          }))}
                     </div>
-                    <code className="select-all">{errorSupportCode}</code>
+                    {connectionError?.messageKey ===
+                      OLLAMA_CORS_MESSAGE_KEY && <OllamaOriginsCommand />}
+                    <div>
+                      {t("onboarding.provider.support_code")}:{" "}
+                      <code className="select-all">{errorSupportCode}</code>
+                    </div>
                   </div>
                 )}
               </>
@@ -434,10 +455,13 @@ export const FirstRunPermissionsDialog = () => {
                 <ModelConnectionNotice
                   verified={connectionVerified}
                   failed={Boolean(errorSupportCode)}
+                  provider={providerName}
                 />
                 {models.length === 0 ? (
                   <div className="rounded-control bg-tint-warning p-2 text-xs">
-                    {t("onboarding.model.none")}
+                    {connectionVerified
+                      ? t("onboarding.model.none", { provider: providerName })
+                      : t("onboarding.model.none_unverified")}
                   </div>
                 ) : (
                   <Select

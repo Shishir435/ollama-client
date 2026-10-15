@@ -33,8 +33,13 @@ export async function copySelectionResult(resultText: string) {
   const text = resultText.trim()
   if (!text) return false
 
-  await navigator.clipboard.writeText(text)
-  return true
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    // Pages can deny clipboard access (permissions policy, lost focus).
+    return false
+  }
 }
 
 export function replaceCapturedSelection(

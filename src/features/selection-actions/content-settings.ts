@@ -110,3 +110,14 @@ export async function applyStoredTheme(container: HTMLElement) {
         : window.matchMedia("(prefers-color-scheme: dark)").matches
   container.classList.toggle("dark", isDark)
 }
+
+/**
+ * Re-run `onChange` when the OS colour scheme flips, so a "system" theme
+ * preference follows it without a page reload. Returns the unsubscribe.
+ */
+export function watchSystemTheme(onChange: () => void): () => void {
+  const query = window.matchMedia?.("(prefers-color-scheme: dark)")
+  if (!query) return () => {}
+  query.addEventListener("change", onChange)
+  return () => query.removeEventListener("change", onChange)
+}

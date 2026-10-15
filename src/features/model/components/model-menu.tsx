@@ -1,3 +1,4 @@
+import { MODEL_DISCOVERY_FAILURE } from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import {
   Check,
@@ -132,6 +133,21 @@ export const ModelMenu = ({
     unavailableProviders,
     ollamaEnabled
   } = useProviderModels()
+
+  const providerFailureNames = (unreachable: boolean) =>
+    unavailableProviders
+      .filter(
+        (failure) =>
+          (failure.code === MODEL_DISCOVERY_FAILURE.REQUEST_FAILED) ===
+          unreachable
+      )
+      .map(
+        (failure) =>
+          failure.providerName || getProviderDisplayName(failure.providerId)
+      )
+      .join(", ")
+  const unreachableProviderNames = providerFailureNames(true)
+  const emptyProviderNames = providerFailureNames(false)
 
   const [cloudModels] = useSetting(SETTINGS.OLLAMA_CLOUD_MODELS)
   /**
@@ -484,7 +500,7 @@ export const ModelMenu = ({
                       ? railGroups[activeProviderId]?.name
                       : t("model.menu.models_label")}
                   </p>
-                  <p className="text-nano text-muted-foreground tabular-nums">
+                  <p className="text-micro text-muted-foreground tabular-nums">
                     {visibleModels.length} {t("model.menu.models_label")}
                   </p>
                 </div>
@@ -514,16 +530,32 @@ export const ModelMenu = ({
                 </div>
               )}
               {unavailableProviders.length > 0 && (
-                <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-micro text-status-warning">
-                  {t("model.menu.providers_unavailable", {
-                    names: unavailableProviders
-                      .map(
-                        (failure) =>
-                          failure.providerName ||
-                          getProviderDisplayName(failure.providerId)
-                      )
-                      .join(", ")
-                  })}
+                <div className="mx-1 mb-1 flex items-start gap-2 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    {unreachableProviderNames && (
+                      <p>
+                        {t("model.menu.providers_unreachable", {
+                          names: unreachableProviderNames
+                        })}
+                      </p>
+                    )}
+                    {emptyProviderNames && (
+                      <p>
+                        {t("model.menu.providers_unavailable", {
+                          names: emptyProviderNames
+                        })}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="-my-0.5 shrink-0 text-status-warning"
+                    disabled={isLoading}
+                    onClick={() => refresh()}>
+                    {t("model.menu.retry")}
+                  </Button>
                 </div>
               )}
 
@@ -573,7 +605,9 @@ export const ModelMenu = ({
               <div className="min-h-0 flex-1 border-t border-border pt-1">
                 {visibleModels.length === 0 ? (
                   <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">
-                    {t("model.menu.no_model_found")}
+                    {searchQuery.trim()
+                      ? t("model.menu.no_model_match")
+                      : t("model.menu.no_model_found")}
                   </div>
                 ) : (
                   <Virtuoso
@@ -627,7 +661,7 @@ export const ModelMenu = ({
                                 {model.details?.parameter_size && (
                                   <Badge
                                     variant="outline"
-                                    className="h-4 shrink-0 border px-1 text-nano font-mono text-muted-foreground border-border">
+                                    className="h-4 shrink-0 border px-1 text-micro text-muted-foreground border-border">
                                     {formatParameterSize(
                                       model.details.parameter_size
                                     )}
@@ -637,7 +671,7 @@ export const ModelMenu = ({
                                   <Badge
                                     variant="outline"
                                     title={model.cloud.description}
-                                    className="h-4 shrink-0 border px-1 text-nano capitalize text-muted-foreground border-border">
+                                    className="h-4 shrink-0 border px-1 text-micro capitalize text-muted-foreground border-border">
                                     {t("model.menu.cloud_badge", {
                                       plan: model.cloud.requiredPlan
                                         ? ` · ${model.cloud.requiredPlan}`
@@ -648,7 +682,7 @@ export const ModelMenu = ({
                                 {model.details?.quantization_level && (
                                   <Badge
                                     variant="outline"
-                                    className="h-4 shrink-0 px-1 text-nano font-mono text-muted-foreground border-border">
+                                    className="h-4 shrink-0 px-1 text-micro text-muted-foreground border-border">
                                     {model.details.quantization_level}
                                   </Badge>
                                 )}
@@ -686,7 +720,7 @@ export const ModelMenu = ({
                                 void handleSelect(model.name, providerId)
                               }
                               className="flex items-center gap-1.5">
-                              <span className="truncate font-medium text-micro">
+                              <span className="truncate text-xs font-medium">
                                 {model.name}
                               </span>
                               {/*
@@ -707,7 +741,7 @@ export const ModelMenu = ({
                                   </Badge>
                                 )}
                               {model.size ? (
-                                <span className="shrink-0 whitespace-nowrap text-nano text-muted-foreground tabular-nums">
+                                <span className="shrink-0 whitespace-nowrap text-micro text-muted-foreground tabular-nums">
                                   {formatFileSize(model.size, t)}
                                 </span>
                               ) : null}

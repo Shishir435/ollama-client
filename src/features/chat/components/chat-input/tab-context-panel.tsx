@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/feedback"
 import { ListRow, ListRowTitleButton } from "@/components/layout"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import type { TabListEmptyReason } from "@/features/chat/hooks/use-context-tab-options"
 import { cn } from "@/lib/class-names"
 
 const trimPreview = (text: string, max = 140) => {
@@ -87,6 +88,7 @@ const TabOptionRow = ({
 
 interface TabContextPanelProps {
   filteredTabOptions: { value: string; label: string }[]
+  emptyReason?: TabListEmptyReason | null
   allVisibleSelected: boolean
   toggleAllVisible: () => void
   tabContents: Record<number, { html?: string; title?: string } | undefined>
@@ -101,6 +103,7 @@ interface TabContextPanelProps {
 
 export const TabContextPanel = ({
   filteredTabOptions,
+  emptyReason = null,
   allVisibleSelected,
   toggleAllVisible,
   tabContents,
@@ -199,8 +202,14 @@ export const TabContextPanel = ({
           {filteredTabOptions.length === 0 && (
             <EmptyState
               density="compact"
-              icon={AppWindow}
-              title={t("tabs.inspector.no_content")}
+              icon={emptyReason === "search" ? Search : AppWindow}
+              title={
+                emptyReason === "search"
+                  ? t("tabs.select.no_matches", { query: tabSearch.trim() })
+                  : emptyReason === "excluded"
+                    ? t("tabs.select.all_excluded")
+                    : t("tabs.select.no_tabs")
+              }
             />
           )}
         </div>

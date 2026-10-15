@@ -101,7 +101,7 @@ export const ChatSessionItem = ({
                 {session.title}
               </div>
             </div>
-            <div className="mt-0.5 truncate text-micro text-sidebar-foreground/45">
+            <div className="mt-0.5 truncate text-micro text-muted-foreground">
               {session.tags?.length
                 ? session.tags.map((tag) => `#${tag}`).join(" · ")
                 : session.modelId || updatedTime}

@@ -173,7 +173,9 @@ const rpcError = (
 ): RpcErrorPayload => ({
   code,
   status: options.status ?? 500,
-  fallbackMessage: options.fallbackMessage ?? "The background request failed",
+  fallbackMessage:
+    options.fallbackMessage ??
+    "Something in the extension went wrong. Reload the extension and retry.",
   supportCode: supportCode(code, requestId),
   ...(options.messageKey && { messageKey: options.messageKey }),
   ...(options.messageParams && { messageParams: options.messageParams }),
@@ -191,26 +193,38 @@ const normalizeRpcError = (
   if (!isAppError(error)) {
     return rpcError(RpcErrorCode.Internal, requestId, {
       status: 500,
-      fallbackMessage: "The background request failed",
+      fallbackMessage:
+        "Something in the extension went wrong. Reload the extension and retry.",
       messageKey: "errors.rpc.internal"
     })
   }
+  /*
+   * `not_found` means a stored provider config is gone. A 404 the provider
+   * itself answered says the base URL or model is wrong, and telling the user
+   * their provider "isn't set up any more" would send them the wrong way.
+   */
   const code =
     error.kind === "validation"
       ? RpcErrorCode.InvalidRequest
-      : error.status === 404
+      : error.messageKey === "errors.rpc.not_found"
         ? RpcErrorCode.NotFound
         : RpcErrorCode.ProviderFailed
+  const upstreamNotFound =
+    code === RpcErrorCode.ProviderFailed && error.status === 404
   return rpcError(code, requestId, {
     status: error.status ?? (code === RpcErrorCode.InvalidRequest ? 400 : 500),
     fallbackMessage:
       error.userMessage ??
-      (code === RpcErrorCode.NotFound
-        ? "Provider configuration was not found"
+      (upstreamNotFound
+        ? "The provider answered, but not with what was asked for. Check the base URL and model name."
         : "The provider request failed"),
     messageKey:
       error.messageKey ??
-      (error.userMessage ? undefined : `errors.rpc.${code}`),
+      (error.userMessage
+        ? undefined
+        : upstreamNotFound
+          ? "errors.rpc.upstream_not_found"
+          : `errors.rpc.${code}`),
     messageParams: error.messageParams,
     retryable: error.retryable,
     retryAfterMs: error.retryAfterMs,
@@ -394,7 +408,8 @@ export const handleRpcRequest = async (
     const normalized = cancelled
       ? rpcError(RpcErrorCode.Timeout, requestId, {
           status: 408,
-          fallbackMessage: "The background request timed out",
+          fallbackMessage:
+            "The extension didn't respond in time. Retry; if it keeps happening, reload the extension.",
           messageKey: "errors.rpc.timeout",
           retryable: true
         })

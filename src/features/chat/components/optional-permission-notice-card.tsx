@@ -69,7 +69,7 @@ export const OptionalPermissionNoticeCard = ({
               : t("chat.permissions.enable_description")}
           </p>
           {failure && (
-            <p className="mt-1 text-xs text-status-danger">
+            <p role="alert" className="mt-1 text-xs text-status-danger">
               {t(
                 failure === "permission-denied"
                   ? "chat.permissions.not_granted"

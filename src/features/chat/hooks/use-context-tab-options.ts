@@ -11,6 +11,8 @@ import {
 } from "@/lib/per-site-profiles"
 import { matchesUserPattern } from "@/lib/url-pattern"
 
+export type TabListEmptyReason = "search" | "excluded" | "none"
+
 interface UseContextTabOptionsArgs {
   tabAccess: boolean
   excludedPatterns: string[]
@@ -145,8 +147,22 @@ export const useContextTabOptions = ({
     ? tabContents[parseInt(previewTabId, 10)]
     : null
 
+  /**
+   * Why the list is empty, when it is: a search that matched nothing, open tabs
+   * that exclusions or per-site profiles all hide, or simply no open tabs.
+   */
+  const emptyReason: TabListEmptyReason | null =
+    filteredTabOptions.length > 0
+      ? null
+      : tabOptions.length > 0
+        ? "search"
+        : openTabs.some((tab) => tab.id !== undefined)
+          ? "excluded"
+          : "none"
+
   return {
     filteredTabOptions,
+    emptyReason,
     allVisibleSelected,
     toggleAllVisible,
     tabContents,

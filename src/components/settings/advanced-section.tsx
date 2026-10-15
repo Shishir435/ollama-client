@@ -70,7 +70,7 @@ export const AdvancedSection = ({
             type="button"
             aria-expanded={expanded}
             onClick={() => setOpen((v) => !v)}
-            className="flex w-full items-center rounded-control text-left hover:bg-state-hover">
+            className="flex w-full items-center rounded-control text-left outline-none hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-focus">
             {headerInner}
           </button>
         )}

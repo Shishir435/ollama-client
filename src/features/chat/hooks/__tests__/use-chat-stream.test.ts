@@ -658,16 +658,44 @@ describe("useChatStream", () => {
       })
     })
 
-    expect(mockToast).toHaveBeenCalledWith({
-      variant: "destructive",
-      title: "Provider error",
-      description:
-        "Provider failed. Check the selected provider, model, and provider logs. This may be temporary; try again.",
-      action: {
-        label: "Open new issue",
-        onClick: expect.any(Function)
-      }
+    // The bubble carries the failure and its actions; a toast would repeat it.
+    expect(mockToast).not.toHaveBeenCalled()
+    const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(lastMessages?.at(-1)?.content).toContain("internal error")
+    expect(lastMessages?.at(-1)?.content).not.toContain("HTTP 500")
+  })
+
+  it("fills provider and model into a keyed provider failure", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "glm-5.3:cloud",
+        providerId: "ollama",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
     })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      listener({
+        error: {
+          status: 0,
+          kind: "provider",
+          code: "OLC-PROVIDER-UNREACHABLE",
+          messageKey: "chat.errors.ollama_cloud_signin",
+          providerId: "ollama",
+          providerName: "Ollama",
+          message: "fetch failed"
+        }
+      })
+    })
+
+    expect(mockToast).not.toHaveBeenCalled()
+    const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(lastMessages?.at(-1)?.content).toBe(
+      "chat.errors.ollama_cloud_signin"
+    )
   })
 
   it("names the selected provider and hides the issue URL behind an action", () => {
@@ -702,12 +730,7 @@ describe("useChatStream", () => {
       })
     })
 
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "llama.cpp error",
-        description: expect.not.stringContaining("https://")
-      })
-    )
+    expect(mockToast).not.toHaveBeenCalled()
     const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
     expect(lastMessages?.at(-1)?.content).not.toContain("[Open a new issue](")
     expect(lastMessages?.at(-1)?.content).toContain("llama.cpp")
@@ -787,17 +810,11 @@ describe("useChatStream", () => {
       })
     })
 
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "chat.errors.response_failed_title",
-        description: "Tool-loop checkpoint failed"
-      })
-    )
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.not.objectContaining({ action: expect.anything() })
-    )
+    expect(mockToast).not.toHaveBeenCalled()
     const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
-    expect(lastMessages?.at(-1)?.content).toBe("chat.errors.unknown_error")
+    expect(lastMessages?.at(-1)?.content).toBe(
+      "chat.errors.unknown_error_generic"
+    )
   })
 
   it("should stop stream correctly", () => {

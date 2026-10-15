@@ -625,7 +625,7 @@ export class AnthropicProvider implements LLMProvider {
         baseUrl: this.baseUrl,
         retryable: status !== undefined && isRetryableProviderStatus(status),
         code: classification.code,
-        messageKey: providerErrorMessageKey(classification.code),
+        messageKey: providerErrorMessageKey(classification.code, { status }),
         phase: "read-stream",
         recoveryAction: classification.recoveryAction,
         userMessage:

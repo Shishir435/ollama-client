@@ -7,6 +7,8 @@ import type {
   SelectionPanelState
 } from "./types"
 
+export type SelectionOverlayNotice = "copied" | "copy_failed" | "apply_failed"
+
 /**
  * What the overlay is currently showing. Every field is derived in
  * `SelectionOverlayApp` from the reducer state, the capture, or the settings the
@@ -20,6 +22,10 @@ export interface SelectionOverlayView {
   isMoreMenuOpen: boolean
   resultText: string
   errorText: string
+  /** Translation key for the failure; rendered instead of `errorText` when set. */
+  errorKey: string
+  /** Outcome of the last copy / replace / insert, shown beside the result. */
+  notice: SelectionOverlayNotice | null
   isThinking: boolean
   thinkingText: string
   availableModels: ProviderModel[]

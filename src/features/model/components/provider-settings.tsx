@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { AddProviderDialog } from "@/features/model/components/add-provider-dialog"
+import { OllamaOriginsCommand } from "@/features/model/components/ollama-origins-command"
 import { ProviderConnectionFields } from "@/features/model/components/provider-connection-fields"
 import { ProviderCustomModels } from "@/features/model/components/provider-custom-models"
 import { ProviderGrid } from "@/features/model/components/provider-grid"
@@ -62,6 +63,7 @@ export const ProviderSettings = () => {
     isRemoteEndpoint,
     testingConnection,
     connectionStatus,
+    connectionFixCommand,
     hasUnsavedChanges,
     providerHealth,
     headerStatus,
@@ -105,49 +107,6 @@ export const ProviderSettings = () => {
           onAdd={() => setAddOpen(true)}
         />
       </div>
-
-      <SettingsSwitch
-        id="provider-icon-lookup"
-        label={t("settings.providers.icon_lookup.label")}
-        description={t("settings.providers.icon_lookup.description")}
-        checked={iconLookup}
-        onCheckedChange={setIconLookup}
-      />
-
-      <SettingsControlCard
-        id="provider-catalog-refresh"
-        label={t("settings.providers.catalog_refresh.label")}
-        description={t("settings.providers.catalog_refresh.description")}
-        control={
-          <Select
-            // The same normalization the queries poll on, so a value synced
-            // from another device cannot leave the trigger blank or disagree
-            // with the interval actually in force.
-            value={String(normalizeCatalogRefreshMs(catalogRefreshMs))}
-            onValueChange={(next) => {
-              if (next !== null) {
-                setCatalogRefreshMs(normalizeCatalogRefreshMs(Number(next)))
-              }
-            }}>
-            <SelectTrigger id="provider-catalog-refresh" className="w-48">
-              <SelectValue>
-                {() =>
-                  t(
-                    `settings.providers.catalog_refresh.options.${normalizeCatalogRefreshMs(catalogRefreshMs)}`
-                  )
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {CATALOG_REFRESH_CHOICES_MS.map((option) => (
-                <SelectItem key={option} value={String(option)}>
-                  {t(`settings.providers.catalog_refresh.options.${option}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-      />
 
       <AddProviderDialog
         open={addOpen}
@@ -244,6 +203,7 @@ export const ProviderSettings = () => {
           {connectionStatus && (
             <StatusCallout
               className="rounded-none border-x-0"
+              role={connectionStatus.success ? "status" : "alert"}
               variant={connectionStatus.success ? "success" : "danger"}
               icon={connectionStatus.success ? CheckCircle2 : XCircle}
               title={
@@ -251,7 +211,16 @@ export const ProviderSettings = () => {
                   ? t("settings.providers.test_connection.success_title")
                   : t("settings.providers.test_connection.failed_title")
               }
-              description={connectionStatus.message}
+              description={
+                connectionFixCommand ? (
+                  <div className="space-y-2">
+                    <p>{connectionStatus.message}</p>
+                    <OllamaOriginsCommand />
+                  </div>
+                ) : (
+                  connectionStatus.message
+                )
+              }
             />
           )}
 
@@ -278,6 +247,49 @@ export const ProviderSettings = () => {
         </Card>
       )}
 
+      <SettingsSwitch
+        id="provider-icon-lookup"
+        label={t("settings.providers.icon_lookup.label")}
+        description={t("settings.providers.icon_lookup.description")}
+        checked={iconLookup}
+        onCheckedChange={setIconLookup}
+      />
+
+      <SettingsControlCard
+        id="provider-catalog-refresh"
+        label={t("settings.providers.catalog_refresh.label")}
+        description={t("settings.providers.catalog_refresh.description")}
+        control={
+          <Select
+            // The same normalization the queries poll on, so a value synced
+            // from another device cannot leave the trigger blank or disagree
+            // with the interval actually in force.
+            value={String(normalizeCatalogRefreshMs(catalogRefreshMs))}
+            onValueChange={(next) => {
+              if (next !== null) {
+                setCatalogRefreshMs(normalizeCatalogRefreshMs(Number(next)))
+              }
+            }}>
+            <SelectTrigger id="provider-catalog-refresh" className="w-48">
+              <SelectValue>
+                {() =>
+                  t(
+                    `settings.providers.catalog_refresh.options.${normalizeCatalogRefreshMs(catalogRefreshMs)}`
+                  )
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {CATALOG_REFRESH_CHOICES_MS.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {t(`settings.providers.catalog_refresh.options.${option}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
+
       {pendingRemoval && (
         <AlertDialog
           open
@@ -298,6 +310,7 @@ export const ProviderSettings = () => {
             <AlertDialogFooter>
               <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
               <AlertDialogAction
+                variant="destructive"
                 onClick={async () => {
                   if (await removeProvider(pendingRemoval.id)) {
                     setPendingRemoval(null)

@@ -42,7 +42,9 @@ export const SettingsFormField = ({
         {label}
       </Label>
       {description && (
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="max-w-prose text-xs text-muted-foreground">
+          {description}
+        </p>
       )}
       {children}
       {error && <p className="text-xs text-destructive">{error}</p>}

@@ -179,7 +179,7 @@ describe("Ollama embeddings", () => {
 
     expect(isAppError(error)).toBe(true)
     if (isAppError(error)) {
-      expect(error.userMessage).toContain("returned HTTP 500")
+      expect(error.userMessage).toContain("hit an internal error")
       expect(error.userMessage).not.toContain("private-value")
       expect(error.debug).toContain("private-value")
     }

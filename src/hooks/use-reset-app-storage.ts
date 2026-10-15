@@ -8,9 +8,9 @@ import { logger } from "@/lib/logger"
 
 export type { ResetKey }
 
+/** Whether the reset ran (or was scheduled). Callers own the user-facing copy. */
 export interface ResetOutcome {
   ok: boolean
-  message: string
 }
 
 export const useResetAppStorage = () => {
@@ -22,19 +22,16 @@ export const useResetAppStorage = () => {
         // delete and fail re-initialization. The background reopens this
         // options page when it is done.
         await scheduleDestructiveReset(key, window.location.href)
-        return { ok: true, message: "Resetting..." }
+        return { ok: true }
       }
 
       await performAppReset(key)
-      return { ok: true, message: `${String(key)} has been reset.` }
+      return { ok: true }
     } catch (err) {
       logger.error("Failed to reset app data", "useResetAppStorage", {
         error: err
       })
-      return {
-        ok: false,
-        message: "Failed to reset app data. Check console for details."
-      }
+      return { ok: false }
     }
   }, [])
 

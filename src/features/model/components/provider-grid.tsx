@@ -88,67 +88,83 @@ export const ProviderGrid = ({
 
         const isConnected = !manualModelsOnly && status?.success === true
         const hasFailed = !manualModelsOnly && status?.success === false
+        const isBeta = isBetaProvider(provider.id)
+        const statusLabelKey = !provider.enabled
+          ? "settings.providers.status_off"
+          : hasFailed
+            ? "settings.providers.connection_failed"
+            : isConnected
+              ? "settings.providers.connected"
+              : manualModelsOnly
+                ? "settings.providers.manual_models"
+                : "settings.providers.not_tested"
 
         return (
-          <Button
-            key={provider.id}
-            type="button"
-            onClick={() => onSelect(provider.id)}
-            className={cn(
-              "h-11 justify-start px-3 transition-colors",
-              isSelected
-                ? "border-primary/40 bg-state-selected text-accent-foreground"
-                : "border-border bg-card text-card-foreground hover:bg-state-hover"
-            )}>
-            <span className="flex items-center gap-2 min-w-0">
-              <span
-                className={cn(
-                  "inline-block size-2.5 shrink-0 rounded-full",
-                  getStatusDotClass(provider.enabled, hasFailed, isConnected)
-                )}
-              />
+          <div key={provider.id} className="relative">
+            <Button
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => onSelect(provider.id)}
+              className={cn(
+                "h-11 w-full justify-start px-3 transition-colors",
+                isBeta && "pr-9",
+                isSelected
+                  ? "border-primary/40 bg-state-selected text-accent-foreground"
+                  : "border-border bg-card text-card-foreground hover:bg-state-hover"
+              )}>
+              <span className="flex items-center gap-2 min-w-0">
+                <span
+                  className={cn(
+                    "inline-block size-2.5 shrink-0 rounded-full",
+                    getStatusDotClass(provider.enabled, hasFailed, isConnected)
+                  )}
+                />
 
-              <ProviderIcon
-                providerId={String(provider.id)}
-                brand={resolveProviderBrand({
-                  id: String(provider.id),
-                  baseUrl: provider.baseUrl,
-                  name: provider.name,
-                  serviceProfile: provider.serviceProfile
-                })}
-                fallbackName={provider.name}
-                iconUrl={providerIcons[String(provider.id)]}
-                className="icon-sm shrink-0 text-muted-foreground"
-              />
+                <ProviderIcon
+                  providerId={String(provider.id)}
+                  brand={resolveProviderBrand({
+                    id: String(provider.id),
+                    baseUrl: provider.baseUrl,
+                    name: provider.name,
+                    serviceProfile: provider.serviceProfile
+                  })}
+                  fallbackName={provider.name}
+                  iconUrl={providerIcons[String(provider.id)]}
+                  className="icon-sm shrink-0 text-muted-foreground"
+                />
 
-              <span className="flex items-center gap-1.5 min-w-0">
-                <span className="font-medium truncate">{provider.name}</span>
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-medium truncate">{provider.name}</span>
+                  <span className="sr-only">{t(statusLabelKey)}</span>
 
-                {isBetaProvider(provider.id) && (
-                  <>
+                  {isBeta && (
                     <MiniBadge text={t("settings.providers.beta_badge")} />
-                    <TooltipActionButton
-                      trigger={
-                        <span className="inline-flex text-foreground-tertiary transition-colors hover:text-foreground" />
-                      }
-                      icon={Info}
-                      iconClassName="icon-xs"
-                      label={t("settings.providers.beta_notice")}
-                      tooltipClassName="max-w-xs text-xs"
+                  )}
+
+                  {provider.id === DEFAULT_PROVIDER_ID && (
+                    <MiniBadge text={t("settings.providers.default")} />
+                  )}
+
+                  {isCustomProviderId(String(provider.id)) && (
+                    <MiniBadge
+                      text={t("settings.providers.add.custom_badge")}
                     />
-                  </>
-                )}
-
-                {provider.id === DEFAULT_PROVIDER_ID && (
-                  <MiniBadge text={t("settings.providers.default")} />
-                )}
-
-                {isCustomProviderId(String(provider.id)) && (
-                  <MiniBadge text={t("settings.providers.add.custom_badge")} />
-                )}
+                  )}
+                </span>
               </span>
-            </span>
-          </Button>
+            </Button>
+            {isBeta && (
+              <TooltipActionButton
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground-tertiary transition-colors hover:text-foreground"
+                variant="ghost"
+                size="icon-xs"
+                icon={Info}
+                iconClassName="icon-xs"
+                label={t("settings.providers.beta_notice")}
+                tooltipClassName="max-w-xs text-xs"
+              />
+            )}
+          </div>
         )
       })}
 
@@ -163,7 +179,6 @@ export const ProviderGrid = ({
           <span className="font-medium">
             {t("settings.providers.add.button")}
           </span>
-          <MiniBadge text={t("settings.providers.beta_badge")} />
         </span>
       </Button>
     </div>

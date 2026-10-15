@@ -25,12 +25,12 @@ vi.mock("react-i18next", () => ({
 const CATALOG: Record<string, string> = {
   "chat.reasoning.aria_label": "Activity log",
   "chat.reasoning.title": "Activity",
-  "chat.reasoning.debug": "Debug reasoning",
+  "chat.reasoning.debug": "Show thinking",
   "chat.reasoning.trace.planning": "Planning",
   "chat.reasoning.trace.preparing": "Preparing context",
   "chat.reasoning.trace.thinking": "Thinking",
   "chat.reasoning.trace.page": "Reading page",
-  "chat.reasoning.trace.files": "RAG",
+  "chat.reasoning.trace.files": "Searching files",
   "chat.reasoning.trace.web": "Searching web",
   "chat.reasoning.trace.knowledge": "RAG search",
   "chat.reasoning.trace.documents": "Reading files",
@@ -81,7 +81,7 @@ describe("ReasoningTrace", () => {
     expect(
       screen.getByRole("button", { name: /Activity/i })
     ).toBeInTheDocument()
-    expect(screen.getByText("RAG")).toBeInTheDocument()
+    expect(screen.getByText("Searching files")).toBeInTheDocument()
     expect(screen.getByText("Searching web")).toBeInTheDocument()
     expect(screen.queryByText("Planning")).not.toBeInTheDocument()
     expect(screen.queryByText("Answering")).not.toBeInTheDocument()
@@ -90,7 +90,7 @@ describe("ReasoningTrace", () => {
     ).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
-    const debugLabel = screen.getByText("Debug reasoning")
+    const debugLabel = screen.getByText("Show thinking")
     const debugSummary = debugLabel.closest("summary")
     const debugDetails = debugLabel.closest("details")
     expect(debugSummary).toHaveClass("outline-none", "focus-visible:ring-focus")
@@ -104,8 +104,8 @@ describe("ReasoningTrace", () => {
 
     const toggle = screen.getByRole("button", { name: /Activity/i })
     fireEvent.click(toggle)
-    expect(screen.getByText("Debug reasoning")).toBeInTheDocument()
-    fireEvent.click(screen.getByText("Debug reasoning"))
+    expect(screen.getByText("Show thinking")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("Show thinking"))
     expect(screen.getByText("private reasoning detail")).toBeInTheDocument()
 
     fireEvent.click(toggle)
@@ -317,7 +317,7 @@ describe("ReasoningTrace", () => {
     )
     expect(screen.queryByText("live thoughts")).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
-    fireEvent.click(screen.getByText("Debug reasoning"))
+    fireEvent.click(screen.getByText("Show thinking"))
     expect(screen.getByText("live thoughts")).toBeInTheDocument()
   })
 
@@ -343,7 +343,7 @@ describe("ReasoningTrace", () => {
       expect(screen.queryByText("streamed thought")).not.toBeInTheDocument()
     )
     fireEvent.click(screen.getByRole("button", { name: /Activity/i }))
-    fireEvent.click(screen.getByText("Debug reasoning"))
+    fireEvent.click(screen.getByText("Show thinking"))
     expect(screen.getByText("streamed thought")).toBeInTheDocument()
   })
 
@@ -367,7 +367,7 @@ describe("ReasoningTrace", () => {
         screen.getByText("reasoning that should stay in the trace")
       ).not.toBeVisible()
     )
-    fireEvent.click(screen.getByText("Debug reasoning"))
+    fireEvent.click(screen.getByText("Show thinking"))
     expect(
       screen.getByText("reasoning that should stay in the trace")
     ).toBeInTheDocument()
@@ -389,7 +389,7 @@ describe("ReasoningTrace", () => {
     ).toBeInTheDocument()
     expect(screen.queryByText("Answering")).not.toBeInTheDocument()
     expect(screen.queryByText("Searching web")).not.toBeInTheDocument()
-    expect(screen.queryByText("RAG")).not.toBeInTheDocument()
+    expect(screen.queryByText("Searching files")).not.toBeInTheDocument()
   })
 
   it("shows page only when actual selected page context was sent", () => {
@@ -415,7 +415,7 @@ describe("ReasoningTrace", () => {
     )
 
     expect(screen.queryByText("Reading page")).not.toBeInTheDocument()
-    expect(screen.getByText("RAG")).toBeInTheDocument()
+    expect(screen.getByText("Searching files")).toBeInTheDocument()
   })
 
   it("keeps durable page and RAG icons after message is done", () => {
@@ -442,7 +442,7 @@ describe("ReasoningTrace", () => {
     )
 
     expect(screen.getByText("Reading page")).toBeInTheDocument()
-    expect(screen.getByText("RAG")).toBeInTheDocument()
+    expect(screen.getByText("Searching files")).toBeInTheDocument()
     expect(screen.queryByText("Answering")).not.toBeInTheDocument()
   })
 

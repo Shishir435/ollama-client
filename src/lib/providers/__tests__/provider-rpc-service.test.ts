@@ -477,6 +477,65 @@ describe("ProviderRpcService", () => {
     ).rejects.toMatchObject({ status: 401 })
   })
 
+  it("classifies a stopped server instead of rethrowing the fetch error", async () => {
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw new TypeError("Failed to fetch")
+      }
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({
+        target: "draft",
+        config: draft(configs[0])
+      })
+    ).rejects.toMatchObject({
+      code: "OLC-PROVIDER-UNREACHABLE",
+      messageKey: "onboarding.provider.errors.unavailable",
+      messageParams: { provider: "Ollama" }
+    })
+  })
+
+  it("names the origins fix when a local Ollama refuses the extension", async () => {
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw createAppError("Forbidden", { kind: "provider", status: 403 })
+      }
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({
+        target: "draft",
+        config: draft(configs[0])
+      })
+    ).rejects.toMatchObject({
+      code: "OLC-CORS-BLOCKED",
+      messageKey: "onboarding.provider.errors.cors"
+    })
+  })
+
+  it("reads a remote 401 as a rejected key", async () => {
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "custom:openai:remote",
+      getModels: async () => {
+        throw createAppError("Unauthorized", { kind: "provider", status: 401 })
+      }
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({
+        target: "draft",
+        config: draft(configs[1])
+      })
+    ).rejects.toMatchObject({
+      code: "OLC-AUTH-FAILED",
+      messageKey: "onboarding.provider.errors.auth",
+      messageParams: { provider: "Remote" }
+    })
+  })
+
   it("keeps a stored credential background-only when testing an edited draft", async () => {
     await ProviderRpcService.testConnection({
       target: "draft",

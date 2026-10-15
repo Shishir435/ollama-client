@@ -84,7 +84,7 @@ export function AttachmentList({
         <EmptyState
           density="compact"
           icon={FileText}
-          title={t("file_upload.area.files_ready", { count: 0 })}
+          title={t("file_upload.area.empty_hint")}
           className="rounded-control border border-border bg-surface-sunken"
         />
       )}

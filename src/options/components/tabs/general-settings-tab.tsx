@@ -29,9 +29,8 @@ export default function GeneralSettingsTab({
       <PresetPicker />
       <SettingsLevelGate level="power">
         <AdvancedSection
-          title={t("settings.sections.more")}
-          forceOpen={Boolean(activeFocusId)}
-          summary={`${t("settings.tabs.prompts")} · ${t("settings.tabs.voices")} · ${t("settings.tabs.shortcuts")}`}>
+          title={t("settings.more_section.title")}
+          forceOpen={Boolean(activeFocusId)}>
           <SectionStack>
             <SpeechSettings />
             <PromptTemplateManager />

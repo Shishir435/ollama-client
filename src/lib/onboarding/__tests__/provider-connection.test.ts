@@ -1,150 +1,128 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
+import { createAppError } from "@/lib/error-utils"
 import { ProviderType } from "@/lib/providers/types"
-import { checkProviderConnection } from "../provider-connection"
+import {
+  classifyProviderConnectionFailure,
+  OLLAMA_CORS_MESSAGE_KEY,
+  providerConnectionError,
+  providerConnectionFailureMessageKey
+} from "../provider-connection"
 
-const config = {
-  id: "ollama",
-  type: ProviderType.OLLAMA,
-  enabled: true,
-  name: "Ollama",
-  baseUrl: "http://localhost:11434"
-}
+const local = { baseUrl: "http://localhost:11434" }
+const remote = { baseUrl: "https://api.example.com/v1" }
 
-afterEach(() => {
-  vi.unstubAllGlobals()
+const status = (code: number) =>
+  createAppError(`HTTP ${code}`, { kind: "provider", status: code })
+
+describe("classifyProviderConnectionFailure", () => {
+  it("keeps opaque network failures honest", () => {
+    expect(
+      classifyProviderConnectionFailure(new TypeError("Failed to fetch"), local)
+    ).toBe("unavailable")
+    expect(
+      classifyProviderConnectionFailure(
+        createAppError("down", { kind: "provider", status: 0 }),
+        local
+      )
+    ).toBe("unavailable")
+  })
+
+  it("reads a local 401/403 as the server refusing the extension origin", () => {
+    expect(classifyProviderConnectionFailure(status(403), local)).toBe("cors")
+    expect(classifyProviderConnectionFailure(status(401), local)).toBe("cors")
+  })
+
+  it("reads a remote 401/403 as a rejected key", () => {
+    expect(classifyProviderConnectionFailure(status(401), remote)).toBe("auth")
+    expect(classifyProviderConnectionFailure(status(403), remote)).toBe("auth")
+  })
+
+  it("separates a wrong base URL, a timeout and a server error", () => {
+    expect(classifyProviderConnectionFailure(status(404), local)).toBe(
+      "not-found"
+    )
+    expect(classifyProviderConnectionFailure(status(504), local)).toBe(
+      "timeout"
+    )
+    expect(
+      classifyProviderConnectionFailure(
+        new DOMException("timed out", "TimeoutError"),
+        local
+      )
+    ).toBe("timeout")
+    expect(classifyProviderConnectionFailure(status(500), local)).toBe(
+      "server-error"
+    )
+  })
 })
 
-describe("checkProviderConnection", () => {
-  it("reports a connected Ollama endpoint and model count", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ models: [{ name: "qwen" }] }), {
-        status: 200
-      })
-    )
-    vi.stubGlobal("fetch", fetchMock)
-
-    await expect(checkProviderConnection(config)).resolves.toEqual({
-      kind: "connected",
-      modelCount: 1
-    })
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:11434/api/tags",
-      expect.objectContaining({ signal: expect.any(AbortSignal) })
-    )
+describe("providerConnectionFailureMessageKey", () => {
+  it("offers the OLLAMA_ORIGINS command only to Ollama", () => {
+    expect(
+      providerConnectionFailureMessageKey("cors", ProviderType.OLLAMA)
+    ).toBe(OLLAMA_CORS_MESSAGE_KEY)
+    expect(
+      providerConnectionFailureMessageKey("cors", ProviderType.OPENAI)
+    ).toBe("onboarding.provider.errors.cors-other")
+    expect(
+      providerConnectionFailureMessageKey("unavailable", ProviderType.OLLAMA)
+    ).toBe("onboarding.provider.errors.unavailable")
   })
+})
 
-  it("classifies a local forbidden response as CORS", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("", { status: 403 }))
-    )
-
-    await expect(checkProviderConnection(config)).resolves.toEqual({
-      kind: "cors",
-      status: 403
-    })
-  })
-
-  it("keeps opaque network failures honest", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch")))
-
-    await expect(checkProviderConnection(config)).resolves.toEqual({
-      kind: "unavailable"
-    })
-  })
-
-  it("sends x-api-key (not Bearer) for Anthropic", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ data: [{ id: "claude-sonnet" }] }), {
-        status: 200
-      })
-    )
-    vi.stubGlobal("fetch", fetchMock)
-
-    await expect(
-      checkProviderConnection({
-        id: "custom:anthropic:abc",
-        type: ProviderType.ANTHROPIC,
+describe("providerConnectionError", () => {
+  it("carries a key, the provider name and safe text, never the raw cause", () => {
+    const error = providerConnectionError(
+      new TypeError("Failed to fetch http://user:secret@localhost:11434"),
+      {
+        id: "ollama",
+        type: ProviderType.OLLAMA,
         enabled: true,
-        name: "Anthropic",
-        baseUrl: "https://api.anthropic.com/v1",
-        apiKey: "sk-ant-test"
-      })
-    ).resolves.toEqual({ kind: "connected", modelCount: 1 })
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.anthropic.com/v1/models",
-      expect.objectContaining({
-        headers: {
-          "x-api-key": "sk-ant-test",
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        }
-      })
+        name: "Ollama",
+        baseUrl: "http://localhost:11434"
+      },
+      "ollama"
     )
-  })
 
-  it("keeps keyless generic Anthropic-compatible checks versioned", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ data: [] }), {
-        status: 200
-      })
-    )
-    vi.stubGlobal("fetch", fetchMock)
-
-    await checkProviderConnection({
-      id: "custom:anthropic:local",
-      type: ProviderType.ANTHROPIC,
-      enabled: true,
-      name: "Local Messages",
-      baseUrl: "http://localhost:8080/v1"
+    expect(error).toMatchObject({
+      kind: "provider",
+      code: "OLC-PROVIDER-UNREACHABLE",
+      messageKey: "onboarding.provider.errors.unavailable",
+      messageParams: { provider: "Ollama" },
+      retryable: true
     })
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8080/v1/models",
-      expect.objectContaining({
-        headers: { "anthropic-version": "2023-06-01" }
-      })
+    expect(error.status).toBeUndefined()
+    expect(error.userMessage).toBe(
+      "Can't reach Ollama. Start it, then retry. If it's running, check the base URL."
     )
+    expect(error.userMessage).not.toContain("secret")
+  })
+})
+
+describe("classifyProviderConnectionFailure for Ollama and quota statuses", () => {
+  it("reads a remote Ollama 403 as the origin block, not a rejected key", () => {
+    const error = createAppError("Forbidden", { kind: "provider", status: 403 })
+    expect(
+      classifyProviderConnectionFailure(error, {
+        baseUrl: "https://llm.example.com",
+        type: ProviderType.OLLAMA
+      })
+    ).toBe("cors")
   })
 
-  it("sends no auth header for Ollama even when an apiKey is set", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ models: [] }), { status: 200 })
+  it("separates rate limits and payment from server errors", () => {
+    const config = { baseUrl: "https://api.example.com" }
+    expect(
+      classifyProviderConnectionFailure(
+        createAppError("Too many", { kind: "provider", status: 429 }),
+        config
       )
-    vi.stubGlobal("fetch", fetchMock)
-
-    // OllamaProvider never sends auth, so the onboarding check must not either —
-    // otherwise it passes behind a proxy the real model requests would fail.
-    await checkProviderConnection({ ...config, apiKey: "leak-me" })
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:11434/api/tags",
-      expect.objectContaining({ headers: undefined })
-    )
-  })
-
-  it("sends Bearer auth for OpenAI-compatible endpoints", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ data: [] }), { status: 200 })
+    ).toBe("rate-limited")
+    expect(
+      classifyProviderConnectionFailure(
+        createAppError("Pay", { kind: "provider", status: 402 }),
+        config
       )
-    vi.stubGlobal("fetch", fetchMock)
-
-    await checkProviderConnection({
-      id: "custom:openai:abc",
-      type: ProviderType.OPENAI,
-      enabled: true,
-      name: "vLLM",
-      baseUrl: "http://localhost:8000/v1",
-      apiKey: "secret"
-    })
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8000/v1/models",
-      expect.objectContaining({
-        headers: { Authorization: "Bearer secret" }
-      })
-    )
+    ).toBe("payment")
   })
 })

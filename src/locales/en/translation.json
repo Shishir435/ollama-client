@@ -177,7 +177,7 @@
       "description": "What a run may do without asking, how much context it may ask its model for, and when it pictures the page.",
       "enabled": {
         "label": "Let the chat model use the browser agent",
-        "description": "Offers browser_task, which lets the model click, type and navigate in your tabs for you. Experimental: how well it works varies a lot between models."
+        "description": "Lets the model click, type and navigate in your tabs. Experimental: how well it works varies a lot between models."
       },
       "context_window": {
         "label": "Context window",
@@ -187,7 +187,7 @@
       },
       "vision": {
         "label": "Screenshots",
-        "description": "A picture costs an image prefill in the model's window on every step that takes one. Automatic takes one on the first step, after a step that did not land, and on pages the page structure cannot describe.",
+        "description": "Each screenshot uses part of the model's context on that step. Automatic takes one on the first step, after a step that didn't work, and on pages that can't be read as text.",
         "auto": "When the step needs one",
         "always": "Every step",
         "never": "Never"
@@ -380,12 +380,10 @@
     "agent_task_unchecked": "Done, not all checked"
   },
   "selection_button": {
-    "label": "Ask Local LLM",
-    "tooltip": "Add to Local LLM Client",
     "actions": {
       "summarize": {
         "label": "Summarize",
-        "short": "Summary"
+        "short": "Summarize"
       },
       "rewrite": {
         "label": "Rewrite professionally",
@@ -397,7 +395,7 @@
       },
       "fix-grammar": {
         "label": "Fix grammar",
-        "short": "Grammar"
+        "short": "Fix"
       },
       "explain": {
         "label": "Explain simply",
@@ -405,11 +403,11 @@
       },
       "action-items": {
         "label": "Extract action items",
-        "short": "Actions"
+        "short": "To-dos"
       },
       "translate-english": {
         "label": "Translate to English",
-        "short": "English"
+        "short": "Translate"
       },
       "custom": {
         "label": "Custom prompt",
@@ -428,18 +426,29 @@
       "unpin": "Unpin panel",
       "close": "Close",
       "more": "More actions",
-      "open_chat": "Open in Chat",
+      "open_chat": "Open in chat",
       "open_chat_tip": "Open result in chat",
       "copy": "Copy result",
       "retry": "Retry action",
-      "insert": "Insert Below",
+      "insert": "Insert below",
       "insert_tip": "Insert result below selection",
       "replace": "Replace",
       "replace_tip": "Replace selected text",
       "cancel": "Cancel",
       "cancel_tip": "Cancel generation",
       "run": "Run",
-      "instruction_ph": "Instruction"
+      "instruction_ph": "Instruction",
+      "toolbar_label": "Selection actions",
+      "custom_instruction_label": "Custom instruction",
+      "model_label": "Model",
+      "model_placeholder": "Choose a model",
+      "action_label": "Action",
+      "no_model": "Choose a model to run this action.",
+      "connection_lost": "Lost the connection to the extension. Run the action again.",
+      "action_failed": "The action stopped before it finished. Run it again.",
+      "copied": "Copied",
+      "copy_failed": "Couldn't copy. Select the text and press Ctrl+C.",
+      "apply_failed": "Couldn't change the page text. Copy the result instead."
     }
   },
   "welcome": {
@@ -449,21 +458,23 @@
     "start_chatting": "Start Chatting",
     "status": {
       "connecting": {
-        "title": "Connecting...",
-        "message": "Establishing connection to local provider"
+        "title": "Connecting…",
+        "message": "Checking your providers."
       },
       "connection_failed": {
-        "title": "Connection Failed",
-        "message": "Failed to connect to provider. Is the server running?"
+        "title": "Can't reach {{provider}}",
+        "message": "Start it, then select Retry."
       },
       "no_models": {
-        "title": "No Models Found",
-        "message": "Install at least one chat model and one embeddings model to continue"
+        "title": "No chat models yet",
+        "message": "Run `ollama pull llama3.2`, then check again.",
+        "message_generic": "Install or load a chat model in your provider, then check again."
       },
       "ready": {
-        "title": "Ready to Chat",
-        "message": "Provider is connected and ready to use"
-      }
+        "title": "Ready to chat",
+        "message": "Your provider is connected."
+      },
+      "provider_fallback": "your provider"
     },
     "setup_guide": {
       "hint": "Follow the setup guide below to install Ollama and models.",
@@ -529,7 +540,7 @@
       "clear": "Clear"
     },
     "input": {
-      "placeholder": "Type a message or ctrl + /",
+      "placeholder": "Ask anything",
       "images": {
         "remove": "Remove {{name}}",
         "too_large": "{{name}} is larger than the {{max}}MB image limit.",
@@ -546,9 +557,14 @@
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "Web search needs tool calling, which this model doesn't support. Enable tool fallback in model settings to use it.",
       "drop_files_here": "Drop files here",
-      "attachments": "{{count}} attachments",
       "screenshot": "Capture screenshot",
-      "auto_screenshot": "Auto-attach screenshot"
+      "auto_screenshot": "Auto-attach screenshot",
+      "reading_tabs_title": "Reading tabs",
+      "reading_tabs_body_one": "Still reading {{count}} tab. Send again in a moment.",
+      "reading_tabs_body_other": "Still reading {{count}} tabs. Send again in a moment.",
+      "reading_tabs_button": "Reading tabs…",
+      "attachments_one": "{{count}} attachment",
+      "attachments_other": "{{count}} attachments"
     },
     "context_preview": {
       "files": "Attached files",
@@ -602,7 +618,7 @@
     "reasoning": {
       "aria_label": "Activity log",
       "title": "Activity",
-      "debug": "Debug reasoning",
+      "debug": "Show thinking",
       "thinking": "Thinking…",
       "done": "Done",
       "hide": "Hide",
@@ -614,7 +630,7 @@
         "preparing": "Preparing context",
         "thinking": "Thinking",
         "page": "Reading page",
-        "files": "RAG",
+        "files": "Searching files",
         "web": "Searching web",
         "knowledge": "Searching knowledge",
         "tab": "Reading tab",
@@ -674,18 +690,11 @@
       "rag_context_label": "RAG Context ({{count}})",
       "char_counts": "tab chars: {{tab}} | rag chars: {{rag}}",
       "trimmed": "trimmed",
-      "web_source": "{{count}} web source",
-      "web_source_plural": "{{count}} web sources",
-      "view_web": "View {{count}} web source",
-      "view_web_plural": "View {{count}} web sources",
-      "web_title": "Web Sources ({{count}})",
-      "web_used_label": "Sent to the model ({{count}})",
       "web_unused_label": "Also found — not sent ({{count}})",
       "web_unused_hint": "Raise the web search result count in Settings to feed more of these to the model.",
       "web_published": "Published: {{date}}",
       "web_engine": "via {{engine}}",
       "web_score": "score {{score}}",
-      "web_no_snippet": "No preview available.",
       "unified_tooltip": "{{count}} sources",
       "unified_aria": "View {{count}} sources",
       "unified_title": "Sources ({{count}})",
@@ -706,13 +715,13 @@
       "button_label": "Search Chats",
       "dialog_title": "Semantic Chat Search",
       "dialog_description": "Search your chat history by meaning, not just keywords",
-      "beta_badge": "Beta v0.3.0",
+      "beta_badge": "Beta",
       "placeholder": "Search conversations by meaning...",
       "scope_all": "All Chats",
       "scope_current": "Current Chat",
       "searching": "Searching chat history...",
-      "no_results": "No results found. Try a different search query.",
-      "no_results_description": "Try adjusting your keywords or search scope.",
+      "no_results": "No chats match.",
+      "no_results_description": "Try describing it differently.",
       "start_typing": "Start typing to search your chat history semantically...",
       "start_typing_description": "Search through your chat history using semantic search.",
       "role_you": "You",
@@ -783,15 +792,15 @@
         "title": "The browser agent is off",
         "description": "This looks like a task in the browser. The agent is experimental and works best with hosted models.",
         "enable": "Turn on and continue",
-        "continue_without": "Continue without",
+        "continue_without": "Answer without the agent",
         "manage": "Agent settings"
       }
     },
     "errors": {
-      "unknown_error": "❌ Unknown error: {{message}}",
+      "unknown_error": "The request failed: {{message}}. Retry, or check that {{provider}} is running.",
       "no_message": "No message",
-      "response_failed_title": "Response Generation Failed",
-      "unknown_error_description": "An unknown error occurred",
+      "response_failed_title": "Couldn't get a response",
+      "unknown_error_description": "The request failed. Retry, or check that the provider is running.",
       "provider_replay_invalid": "This response cannot be continued safely. Retry the turn to rebuild its provider context.",
       "provider_busy": "The local endpoint is still finishing an earlier request and cannot start another. Wait about a minute, or restart it.",
       "report_issue": "Report issue",
@@ -810,15 +819,15 @@
       "diagnostics_copy_failed_description": "Clipboard access was refused. Focus this panel and try again.",
       "empty_response": "The model finished without sending an answer. It may have been unloaded, or the conversation may have left no room to reply. Try again, or start a new chat.",
       "thinking_only_response": "I did not receive a final answer from the model. Please try again.",
-      "provider_selection_required_title": "Model provider selection required",
-      "provider_selection_required_description": "Select a provider for \"{{model}}\" in the model menu before sending a message.",
+      "provider_selection_required_title": "Choose where to run {{model}}",
+      "provider_selection_required_description": "More than one server offers this model. Pick one in the model menu.",
       "no_model_selected_title": "No model selected",
       "no_model_selected_description": "Select a model in the model menu before sending a message.",
       "chat_create_failed_title": "Couldn't start chat",
       "chat_create_failed_description": "Creating the chat failed. Please try again.",
       "message_save_failed_title": "Couldn't send message",
       "message_save_failed_description": "Saving the message failed. Please try again.",
-      "context_preparation_failed": "I couldn't prepare the context for this message. Please try again, or reduce the selected context/files if this keeps happening.",
+      "context_preparation_failed": "Couldn't read the selected tabs or files. Retry with fewer attached.",
       "context_preparation_failed_title": "Context preparation failed",
       "context_preparation_failed_description": "The message was saved, but the assistant could not start because context preparation failed.",
       "insufficient_page_context": "Insufficient page context. Select at least one tab with relevant extracted content and try again.\n\nTo turn this off, open [{{settingsLabel}}]({{settingsLink}}).",
@@ -827,9 +836,23 @@
       "context_retrieval_warning_title": "Context retrieval failed",
       "context_retrieval_warning_description": "Some saved context could not be searched. The answer may be missing relevant information.",
       "interrupted": "Response interrupted",
-      "provider_auth": "The provider rejected access. Check its API key, credentials or account permissions in Settings before starting again.",
-      "provider_cors": "The local provider blocked the extension origin. Allow chrome-extension://* and moz-extension://* in its CORS settings, then try again.",
-      "provider_refused": "The model refused this request. Adjust the task or choose a different model."
+      "provider_auth": "{{provider}} rejected the API key. Check it in provider settings.",
+      "provider_cors": "{{provider}} blocked this extension. Restart it with OLLAMA_ORIGINS set — see the [setup guide]({{setupGuideUrl}}).",
+      "provider_refused": "The model refused this request. Adjust the task or choose a different model.",
+      "unknown_error_generic": "The request failed: {{message}}. Retry in a moment.",
+      "provider_fallback": "The provider",
+      "model_fallback": "the selected model",
+      "provider_unreachable": "Can't reach {{provider}}. Start it, then retry.",
+      "provider_cors_remote": "{{provider}} refused this extension's requests. Allow it by setting OLLAMA_ORIGINS=chrome-extension://*,moz-extension://* on the server.",
+      "provider_cors_other": "{{provider}} blocked this extension. Allow chrome-extension://* and moz-extension://* in its CORS settings — see the [setup guide]({{setupGuideUrl}}).",
+      "context_too_long": "This chat is too long for {{model}}. Start a new chat or pick a model with a larger context.",
+      "payment_required": "{{provider}} needs payment or credits for {{model}}. Choose a local model or add credits.",
+      "model_not_found": "{{provider}} doesn't have {{model}}. Pull it or pick another model.",
+      "provider_server_error": "{{provider}} hit an internal error running {{model}}. Retry; if it repeats, check the server log.",
+      "out_of_memory": "{{model}} needs more memory than this machine has free. Close other apps or pick a smaller model.",
+      "model_crashed": "{{model}} crashed while loading. Retry; if it repeats, check the {{provider}} log.",
+      "ollama_cloud_signin": "{{model}} runs on Ollama's cloud. Sign in with `ollama signin` or pick a local model.",
+      "ollama_cloud_unreachable": "Can't reach Ollama for {{model}}. Start Ollama. If it's already running, this cloud model needs `ollama signin`."
     },
     "composer": {
       "rag": "Files",
@@ -853,6 +876,16 @@
     },
     "artifacts": {
       "empty": "No artifact content"
+    },
+    "shortcuts": {
+      "new_chat_started": "New chat started",
+      "theme_dark": "Dark theme on",
+      "theme_light": "Light theme on",
+      "clear_confirm": "Delete this chat and start a new one?",
+      "cleared": "Chat deleted. New chat started.",
+      "copied": "Response copied",
+      "exported_json": "Chat exported as JSON",
+      "exported_pdf": "Chat exported as PDF"
     }
   },
   "file_upload": {
@@ -875,7 +908,8 @@
     },
     "area": {
       "files_ready": "{{count}} file ready",
-      "files_ready_plural": "{{count}} files ready"
+      "files_ready_plural": "{{count}} files ready",
+      "empty_hint": "Drop files here or choose files."
     },
     "settings": {
       "max_file_size_label": "Maximum File Size (MB)",
@@ -911,14 +945,17 @@
       "refresh_aria_label": "Refresh models",
       "refresh_tooltip": "Refresh models",
       "search_placeholder": "Search model...",
-      "no_model_found": "No model found.",
+      "no_model_found": "No models yet. Check the provider in settings, or add model IDs.",
       "cloud_badge": "Cloud{{plan}}",
       "cloud_models": {
         "label": "Ollama cloud models",
         "description": "Hosted :cloud models. Need a signed-in Ollama and often a paid plan."
       },
-      "providers_unavailable": "{{names}} returned no models. Check the provider in settings, or add model IDs manually.",
-      "selection_conflict": "Pick a provider for {{model}} — more than one serves it."
+      "providers_unavailable": "{{names}} returned no models. Add model IDs in provider settings.",
+      "selection_conflict": "Pick a provider for {{model}} — more than one serves it.",
+      "no_model_match": "No models match.",
+      "providers_unreachable": "Can't reach {{names}}. Check the server is running and the address in provider settings.",
+      "retry": "Retry"
     },
     "capabilities": {
       "edit_tooltip": "Set capabilities",
@@ -1027,13 +1064,13 @@
       "database_management": {
         "remove_duplicates_confirm": "Remove duplicate embeddings? This will keep only the first occurrence of each unique message.",
         "remove_duplicates_success": "Removed {{deleted}} duplicate(s). Kept {{kept}} unique embedding(s).",
-        "remove_duplicates_error": "Failed to remove duplicates. Check console for details.",
+        "remove_duplicates_error": "Duplicates weren't removed. Reload the extension and try again.",
         "clear_chat_confirm": "Clear all chat embeddings? This will delete all semantic search data for chats. You can backfill later.",
         "clear_chat_success": "Cleared {{count}} chat embedding(s).",
-        "clear_chat_error": "Failed to clear chat vectors. Check console for details.",
+        "clear_chat_error": "Chat search data wasn't cleared. Reload the extension and try again.",
         "clear_all_confirm": "Clear ALL embeddings? This will delete all semantic search data (chats, files, webpages). This action cannot be undone.",
         "clear_all_success": "All embeddings cleared.",
-        "clear_all_error": "Failed to clear all vectors. Check console for details."
+        "clear_all_error": "Search data wasn't cleared. Reload the extension and try again."
       },
       "chunking_title": "Chunking Settings",
       "chunking_description": "Configure how text is split into chunks for embedding",
@@ -1078,8 +1115,8 @@
       "ann_backend_group": "Backends",
       "ann_backend_ts": "TypeScript HNSW",
       "ann_backend_bruteforce": "Brute Force",
-      "ann_min_vectors_label": "ANN Min Vectors",
-      "ann_min_vectors_description": "Minimum number of vectors before ANN is used (0 = always).",
+      "ann_min_vectors_label": "Fast search threshold",
+      "ann_min_vectors_description": "Use fast approximate search once this many chunks are saved (0 = always).",
       "enhanced_chunking_label": "Enhanced Chunking",
       "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
       "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
@@ -1115,10 +1152,11 @@
       "feedback_clear_error": "Failed to clear feedback"
     },
     "provider_status": {
-      "checking": "Checking local provider...",
-      "error": "Local provider not reachable",
-      "empty": "Local provider reached, but no chat models found",
-      "ready": "Local provider ready"
+      "checking": "Checking providers…",
+      "error": "Couldn't load models",
+      "empty": "No chat models found",
+      "ready": "Models ready",
+      "unreachable": "Can't reach {{provider}}"
     }
   },
   "prompts": {
@@ -1144,17 +1182,15 @@
   "sessions": {
     "selector": {
       "title": "Chat Sessions",
-      "create_new": "Create New Chat",
-      "create_new_aria": "Create New Chat",
-      "start_new": "Start New Chat",
+      "create_new": "New chat",
       "search_placeholder": "Search chats by title...",
       "clear_search": "Clear chat search",
-      "no_sessions": "No chat sessions yet",
-      "no_sessions_hint": "Create your first chat to get started",
+      "no_sessions": "No chats yet",
       "no_matches": "No matching chats",
       "no_matches_hint": "Try a different title.",
       "session_count": "{{count}} session",
-      "session_count_plural": "{{count}} sessions"
+      "session_count_plural": "{{count}} sessions",
+      "select_session": "Open {{title}}"
     },
     "delete": {
       "aria_label": "Delete chat session: {{title}}",
@@ -1187,7 +1223,11 @@
       "action": "Edit tags"
     },
     "groups": {
-      "pinned": "Pinned"
+      "pinned": "Pinned",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last7Days": "Last 7 days",
+      "older": "Older"
     }
   },
   "tabs": {
@@ -1199,7 +1239,10 @@
       "view_content": "View extracted content",
       "refresh_now": "Refresh context now",
       "select_all": "Select all",
-      "clear_selection": "Clear selection"
+      "clear_selection": "Clear selection",
+      "no_matches": "No tabs match \"{{query}}\"",
+      "all_excluded": "All open tabs are excluded from context.",
+      "no_tabs": "No open tabs to read."
     },
     "context": "Context",
     "inspector": {
@@ -1233,7 +1276,7 @@
         "chat": "Chats",
         "chat_count": "{{sessions}} sessions · {{messages}} messages",
         "knowledge": "Knowledge and memory",
-        "knowledge_count": "{{files}} files · {{vectors}} vectors",
+        "knowledge_count": "{{files}} files indexed",
         "agent": "Agent runs",
         "agent_count": "{{runs}} saved runs and recovery receipts",
         "settings": "Local settings and provider secrets",
@@ -1269,10 +1312,10 @@
       "description": "If relevant page context is missing, the assistant returns an insufficient-context message instead of guessing."
     },
     "shortcuts": {
-      "title": "Keyboard Shortcuts",
+      "title": "Keyboard shortcuts",
       "description": "Customize keyboard shortcuts for quick access to features.",
       "recording": "Press keys...",
-      "reset_all": "Reset All Shortcuts",
+      "reset_all": "Reset all shortcuts",
       "browser": {
         "title": "Open from anywhere",
         "description": "Set a browser-level shortcut to open the chat side panel from any page. The browser manages this binding — copy the address below and paste it into your address bar to set or change the key.",
@@ -1308,7 +1351,15 @@
       "export_json": "Export as JSON",
       "export_json_desc": "Export current chat as JSON file",
       "export_pdf": "Export as PDF",
-      "export_pdf_desc": "Export current chat as PDF file"
+      "export_pdf_desc": "Export current chat as PDF file",
+      "reset_to_default": "Reset to default",
+      "categories": {
+        "navigation": "Navigation",
+        "actions": "Actions",
+        "toggles": "Toggles"
+      },
+      "search_placeholder": "Search shortcuts",
+      "conflict": "Already used by \"{{label}}\". Pick another key."
     },
     "content_extraction": {
       "title": "Content Extraction",
@@ -1387,9 +1438,9 @@
       }
     },
     "model": {
-      "title": "Model Settings",
+      "title": "Model settings",
       "switch_model": "Switch model",
-      "description": "Configure parameters for optimal performance.",
+      "description": "Applies to {{model}}.",
       "configuration_title": "Model Configuration",
       "configuration_description": "Configure your AI model parameters.",
       "system": {
@@ -1529,8 +1580,8 @@
       "capabilities": "Capabilities",
       "technical_details": "Technical Details",
       "unknown_file_type": "Unknown",
-      "params_label": "Params",
-      "context_label": "Ctx"
+      "params_label": "parameters",
+      "context_label": "context"
     },
     "loaded_models": {
       "title": "Loaded Models",
@@ -1557,8 +1608,8 @@
       "shortcuts": "Shortcuts"
     },
     "permissions": {
-      "title": "Permissions & privacy",
-      "description": "See and control what this extension can access. Everything stays on your device.",
+      "title": "Privacy & permissions",
+      "description": "See what this extension can access and where your data goes.",
       "overview": {
         "title": "Local by default",
         "description": "Chats, settings, files, and indexes stay in this browser profile. Optional access is visible, revocable, and never granted silently."
@@ -1707,24 +1758,24 @@
     },
     "context": {
       "sections": {
-        "conversation": "Conversation Context",
+        "conversation": "Conversation context",
         "conversation_description": "What the assistant remembers and how chat history is indexed.",
-        "prompt_budget": "Prompt Budget",
+        "prompt_budget": "Prompt budget",
         "prompt_budget_description": "Caps on how much context is packed into each prompt.",
         "grounding": "Grounding",
         "grounding_description": "Restrict answers to the page you are viewing.",
         "retrieval": "Retrieval",
         "retrieval_description": "Where the assistant looks beyond the conversation — the web and your knowledge base.",
-        "files_chunking": "Files & Chunking",
+        "files_chunking": "Files and chunking",
         "files_chunking_description": "How uploaded files are accepted and split for retrieval."
       },
       "file_upload": {
-        "title": "File Ingestion",
+        "title": "File uploads",
         "description": "Configure how files are processed for knowledge retrieval."
       },
       "embedding_health": {
-        "title": "Mixed embedding dimensions detected",
-        "description": "Embeddings are stored at multiple dimensions ({{dimensions}}). Search and memory can fail until everything is rebuilt.",
+        "title": "Saved knowledge needs rebuilding",
+        "description": "Some saved knowledge was indexed by a different embedding model ({{dimensions}} dimensions). Search and memory can fail until you rebuild it.",
         "note": "Rebuild clears all embeddings and re-embeds chat history. File uploads will need to be re-uploaded to restore knowledge.",
         "memory_disabled": "Memory is off, so chat embeddings were not rebuilt.",
         "action": "Rebuild embeddings",
@@ -1800,7 +1851,8 @@
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
-        "api_key_required": "Enter an API key."
+        "api_key_required": "Enter an API key.",
+        "searxng_json_disabled": "SearXNG refused JSON results. Add json to search.formats in settings.yml and restart it. If it sits behind a login or proxy, let this extension through."
       },
       "beta_badge": "Beta",
       "beta_tooltip": "Beta. If you run into issues, please report them.",
@@ -1835,10 +1887,12 @@
     },
     "page": {
       "title": "Ollama Client Settings",
-      "description": "Manage all aspects of your Ollama setup in one place. For tips and setup guidance, visit the Help tab."
+      "description": "Connect a model server, then choose how chats, pages and knowledge work."
     },
     "search": {
-      "placeholder": "Search settings…"
+      "placeholder": "Search settings…",
+      "shortcut_label": "Shortcut to search settings",
+      "no_results": "No settings match '{{query}}'"
     },
     "presets": {
       "title": "Presets",
@@ -1933,7 +1987,7 @@
       }
     },
     "embeddings": {
-      "title": "Vector Embeddings",
+      "title": "Saved knowledge",
       "description": "Embeddings enable semantic search, retrieval augmented generation, and context-aware features for file uploads and chat history.",
       "test_generation": {
         "title": "Test Embedding Generation",
@@ -2063,17 +2117,17 @@
       }
     },
     "reset": {
-      "title": "Reset Settings",
-      "description": "Clear stored data by module or reset everything to defaults",
+      "title": "Reset data",
+      "description": "Reset one area to its defaults, or erase everything.",
       "danger_zone": {
-        "title": "Danger Zone",
-        "description": "This will clear all data and cannot be undone",
-        "button": "Reset All"
+        "title": "Erase everything",
+        "description": "This deletes chats, knowledge, settings and API keys on this device. It can't be undone.",
+        "button": "Erase all data"
       },
       "dialog": {
-        "title": "Confirm Reset",
-        "description": "This will clear all data and cannot be undone.",
-        "confirm": "Yes, Reset All",
+        "title": "Erase all data?",
+        "description": "This deletes chats, knowledge, settings and API keys on this device. It can't be undone.",
+        "confirm": "Erase all data",
         "cancel": "Cancel"
       },
       "modules": {
@@ -2109,47 +2163,56 @@
       "item_count_plural": "{{count}} items",
       "reset_button": "Reset",
       "failure_notice": {
-        "title": "Last reset did not finish",
-        "description": "The previous reset failed before completing. Some data may remain. Check the console for details and try again."
+        "title": "Last reset didn't finish",
+        "description": "Some data wasn't cleared. Reload the extension and try again."
+      },
+      "chat_dialog": {
+        "title": "Delete all chats?",
+        "description": "This deletes every chat on this device and restarts the extension. It can't be undone.",
+        "confirm": "Delete chats"
+      },
+      "module_dialog": {
+        "title": "Reset {{module}}?",
+        "description": "This clears what is saved for this area and restores its defaults. It can't be undone.",
+        "confirm": "Reset"
       }
     },
     "providers": {
       "default": "Default",
       "beta_badge": "Beta",
-      "beta_notice": "This provider is in beta. If you face any issue, please report it or open an issue on the repo.",
+      "beta_notice": "Beta. Report problems on GitHub.",
       "enabled": "Enabled",
       "disabled": "Disabled",
       "inactive": "Inactive",
       "connected": "Connected",
-      "connection_failed": "Connection Failed",
-      "manual_models": "Model IDs only",
-      "not_tested": "Not Tested",
-      "test": "Test",
+      "connection_failed": "Couldn't connect",
+      "manual_models": "Using your model IDs",
+      "not_tested": "Not tested",
+      "test": "Test connection",
       "save": "Save",
       "saved": "Saved",
       "base_url": "Base URL",
       "base_url_default": "Default",
-      "api_key": "API Key",
-      "custom_models": "Manual model IDs",
+      "api_key": "API key",
+      "custom_models": "Model IDs",
       "custom_models_description": "Add IDs missing from discovery. Removing one only removes the manual entry; it never deletes the model from the server.",
       "test_connection": {
-        "success_title": "Connection Successful",
+        "success_title": "Connected",
         "success_description": "Successfully connected to {{name}} at {{url}}. Found {{count}} model(s).",
         "success_description_manual": "Successfully connected to {{name}} at {{url}}. It publishes no model list, so the {{count}} model ID(s) you added are used.",
-        "failed_title": "Connection Failed",
-        "failed_description": "Could not reach {{url}}. {{error}}",
-        "no_models_title": "No Models Found",
-        "no_model_list_title": "No Model List",
+        "failed_title": "Couldn't connect",
+        "no_models_title": "No models found",
+        "no_model_list_title": "No model list",
         "no_models_description": "Reached {{url}}, but no models were returned. Make sure the provider is running, the base URL is correct, and at least one model is installed or loaded.",
         "no_model_list_description": "Reached {{url}}, but this endpoint does not publish a model list. Add the model IDs you want to use under Model IDs, then test again.",
         "inline_success": "Connected to {{url}}. Found {{count}} model(s).",
         "inline_success_manual": "Connected to {{url}}. It publishes no model list, so the {{count}} model ID(s) you added are used.",
         "inline_no_models": "Reached {{url}}, but no models were returned. Check that the provider is running and has models installed or loaded.",
         "inline_no_model_list": "Reached {{url}}, but it does not publish a model list. Add the model IDs you want to use under Model IDs.",
-        "inline_failed": "Could not reach {{url}}. {{error}}",
         "default_url": "default URL",
         "api_key_required_title": "API key required",
-        "api_key_required": "Add an API key for {{name}} before testing the connection."
+        "api_key_required": "Add an API key for {{name}} before testing the connection.",
+        "failed_fallback": "Couldn't reach {{url}}. Check that the provider is running and the base URL is correct."
       },
       "add": {
         "button": "Add provider",
@@ -2186,7 +2249,7 @@
         "custom_badge": "Custom"
       },
       "models": {
-        "title": "Model IDs (optional)",
+        "title": "Model IDs",
         "description": "Add IDs missing from discovery. Removing one later will not delete the model from the server.",
         "add": "Add",
         "remove": "Remove",
@@ -2194,11 +2257,11 @@
       },
       "icon_lookup": {
         "label": "Show provider site icons",
-        "description": "Ask an unrecognized provider for its icon, so it is easier to tell apart. Only that provider's own address is contacted — and its main site if the address itself has no icon — never a third-party icon service. Providers with a built-in logo are never asked."
+        "description": "Show each provider's own site icon. Try the provider's address first, then its main domain and www host if no icon is found. No third-party icon service is contacted."
       },
       "catalog_refresh": {
         "label": "Model list refresh",
-        "description": "How often an open panel re-asks your providers for their model lists. Pulling, deleting or editing a provider refreshes it immediately regardless, so this only catches a provider that comes up or goes away while you watch. Lower values mean more requests to remote providers.",
+        "description": "How often an open panel checks your providers for new models.",
         "options": {
           "0": "Off",
           "10000": "Every 10 seconds",
@@ -2208,7 +2271,14 @@
           "120000": "Every 2 minutes",
           "300000": "Every 5 minutes"
         }
-      }
+      },
+      "saved_title": "{{name}} saved",
+      "save_failed_title": "Couldn't save {{name}}",
+      "save_failed_description": "Your changes are still in the form. Retry saving.",
+      "enable_failed_title": "Couldn't turn on {{name}}",
+      "disable_failed_title": "Couldn't turn off {{name}}",
+      "toggle_failed_description": "It's back to its previous state. Retry in a moment.",
+      "status_off": "Off"
     },
     "migration": {
       "title": "Data Migration",
@@ -2236,7 +2306,7 @@
           "sync": "Preferences (Sync)",
           "local": "Local Storage",
           "database": "Database (SQLite)",
-          "vectorDb": "Vector Embeddings (Dexie)",
+          "vectorDb": "Saved knowledge",
           "knowledgeDb": "Knowledge Sets (Dexie)"
         },
         "legacy_chat_backup": "This backup was made by version 0.6.3 or earlier, which stored chats in a format the extension no longer reads. Its settings, embeddings, and knowledge sets were restored; its chats were not.",
@@ -2251,6 +2321,11 @@
     "export_privacy": {
       "remote_images_label": "Load remote images in exports",
       "remote_images_hint": "Allow print and PDF exports to load images from external servers. When off, exports stay fully offline and remote images are replaced with a placeholder."
+    },
+    "beta_badge": "Beta",
+    "nav_label": "Settings sections",
+    "more_section": {
+      "title": "Prompts, speech and shortcuts"
     }
   },
   "guides": {
@@ -2299,8 +2374,10 @@
   },
   "errorBoundary": {
     "title": "Something went wrong",
-    "description": "An unexpected error occurred. We've logged this issue internally.",
-    "reload": "Reload"
+    "description": "This panel hit an error. Reload to continue.",
+    "reload": "Reload",
+    "show_details": "Show details",
+    "copy_details": "Copy details"
   },
   "knowledge_sets": {
     "title": "Knowledge Sets",
@@ -2342,15 +2419,16 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "Failed to fetch models",
+    "failed_to_fetch_models": "The model list didn't load. Check that your providers are running, then refresh.",
     "rpc": {
-      "invalid_request": "The request was invalid.",
-      "invalid_response": "The background response was invalid.",
+      "invalid_request": "The extension sent a request it couldn't handle. Reload the extension and retry.",
+      "invalid_response": "The extension sent back something unexpected. Reload the extension and retry.",
       "forbidden": "This action is not allowed from this page.",
-      "not_found": "The provider configuration was not found.",
-      "provider_failed": "The provider request failed.",
-      "timeout": "The background request timed out. Please try again.",
-      "internal": "The background request failed. Please try again."
+      "not_found": "That provider isn't set up any more. Choose it again in settings.",
+      "provider_failed": "The provider couldn't complete the request. Check that it's running, then retry.",
+      "timeout": "The extension didn't respond in time. Retry; if it keeps happening, reload the extension.",
+      "internal": "Something in the extension went wrong. Reload the extension and retry.",
+      "upstream_not_found": "The provider answered, but not with what was asked for. Check the base URL and model name."
     }
   },
   "diagnostics": {
@@ -2378,13 +2456,13 @@
       "permissions": "Browser permissions",
       "sync_storage": "Sync storage",
       "local_storage": "Local storage",
-      "chat_repository": "Chat repository",
+      "chat_repository": "Saved chats",
       "vector_store": "Vector store",
       "provider_discovery": "Provider and model discovery",
       "migration": "Persistence migration",
-      "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints",
-      "turn_retention": "Durable turn retention"
+      "dnr_rules": "Local server access rule",
+      "turn_checkpoint": "Reply recovery",
+      "turn_retention": "Finished replies cleanup"
     }
   },
   "onboarding": {
@@ -2410,11 +2488,13 @@
     "model": {
       "title": "Choose a chat model",
       "description": "Embedding-only models are hidden. You can change this choice later.",
-      "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
+      "none": "Connected, but {{provider}} has no chat models yet. Install one, then select Refresh models.",
       "placeholder": "Select a model",
       "use": "Use this model",
       "refresh": "Refresh models",
-      "use_unverified": "Try this model"
+      "use_unverified": "Try this model",
+      "none_unverified": "No chat models found. Check the connection in provider setup, then select Refresh models.",
+      "use_failed": "Couldn't switch to this model. Retry, or pick another one."
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2432,21 +2512,25 @@
       "connect_title": "Check provider connection",
       "connect_description": "Connect to {{provider}} and discover its available models.",
       "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
-      "connection_failed": "Connection failed. Use this support code when asking for help.",
+      "connection_failed": "Couldn't connect to {{provider}}",
       "title": "Connect a provider",
       "description": "Check the default Ollama endpoint now. You can change it or configure another provider later.",
       "connected": "Connected. Found {{count}} model(s).",
       "skip": "Skip for now",
       "open_setup": "Set up provider",
       "errors": {
-        "cors": "Ollama is running but blocked this extension. Restart it with the command below.",
-        "auth": "The provider rejected its API key or access settings.",
-        "not-found": "Server responded, but this is not a valid provider endpoint. Check the port and base URL.",
-        "timeout": "Provider took too long to respond. Check that it is running and the port is correct.",
-        "unavailable": "Could not reach Ollama. It may be stopped, on another port, or blocking extension origins.",
-        "server-error": "Provider returned a server error. Check its logs, then retry."
+        "cors": "{{provider}} is running but blocked this extension. Restart it with the command below.",
+        "auth": "{{provider}} rejected the API key. Check it in provider settings.",
+        "not-found": "Something answered, but it isn't {{provider}}. Check the port and base URL.",
+        "timeout": "{{provider}} took too long to answer. Check that it's running and the port is correct.",
+        "unavailable": "Can't reach {{provider}}. Start it, then retry. If it's running, check the base URL.",
+        "server-error": "{{provider}} hit a server error. Check its log, then retry.",
+        "cors-other": "{{provider}} is running but blocked this extension. Allow chrome-extension://* and moz-extension://* in its CORS settings, then restart it.",
+        "rate-limited": "{{provider}} is limiting requests right now. Wait a moment, then retry.",
+        "payment": "{{provider}} needs payment or credits. Check your account, then retry."
       },
-      "unverified": "Connection not verified. You can try a configured model, or open provider setup to check the endpoint."
+      "unverified": "Connection not verified. You can try a configured model, or open provider setup to check the endpoint.",
+      "support_code": "Support code"
     }
   }
 }

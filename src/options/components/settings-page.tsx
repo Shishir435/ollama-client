@@ -44,6 +44,7 @@ import {
 import type { SettingsSearchRecord } from "@/features/settings/settings-search-index"
 import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
+import { motionSafeScrollBehavior } from "@/lib/reduced-motion"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import GeneralSettingsTab from "@/options/components/tabs/general-settings-tab"
@@ -174,7 +175,7 @@ export const SettingsPage = () => {
           key: "knowledge",
           label: t("settings.tabs.context"),
           icon: Brain,
-          badge: "Beta"
+          badge: t("settings.beta_badge")
         },
         {
           key: "browser",
@@ -262,7 +263,10 @@ export const SettingsPage = () => {
       const focusContainer =
         focusTarget.closest("[data-settings-focus='true']") || focusTarget
 
-      focusContainer.scrollIntoView({ block: "center", behavior: "smooth" })
+      focusContainer.scrollIntoView({
+        block: "center",
+        behavior: motionSafeScrollBehavior()
+      })
 
       focusContainer.classList.add(
         "ring-2",

@@ -16,10 +16,10 @@ import {
   useShortcutStore
 } from "@/stores/shortcut-store"
 
-const CATEGORY_LABELS = {
-  navigation: "Navigation",
-  actions: "Actions",
-  toggles: "Toggles"
+const CATEGORY_LABEL_KEYS = {
+  navigation: "settings.shortcuts.categories.navigation",
+  actions: "settings.shortcuts.categories.actions",
+  toggles: "settings.shortcuts.categories.toggles"
 } as const
 
 const MODIFIER_KEYS = ["Control", "Alt", "Meta", "Shift"]
@@ -152,7 +152,9 @@ export const ShortcutsSettings = () => {
       const conflictAction = hasConflict(newShortcut, recordingAction)
       if (conflictAction) {
         setConflictWarning(
-          `Already used by "${t(shortcuts[conflictAction].label)}"`
+          t("settings.shortcuts.conflict", {
+            label: t(shortcuts[conflictAction].label)
+          })
         )
         setTimeout(() => setConflictWarning(null), 2000)
         setRecordingAction(null)
@@ -226,7 +228,8 @@ export const ShortcutsSettings = () => {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 icon-md -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search shortcuts..."
+          placeholder={t("settings.shortcuts.search_placeholder")}
+          aria-label={t("settings.shortcuts.search_placeholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9"
@@ -248,8 +251,8 @@ export const ShortcutsSettings = () => {
 
           return (
             <div key={category}>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {CATEGORY_LABELS[category]}
+              <h4 className="mb-2 text-xs font-medium text-muted-foreground">
+                {t(CATEGORY_LABEL_KEYS[category])}
               </h4>
               <div className="space-y-1">
                 {categoryShortcuts.map((shortcut) => {
@@ -258,51 +261,50 @@ export const ShortcutsSettings = () => {
                     shortcut.key !== DEFAULT_SHORTCUTS[shortcut.id].defaultKey
 
                   return (
-                    <button
-                      type="button"
+                    <div
                       key={shortcut.id}
                       data-settings-focus="true"
                       data-settings-focus-id={shortcutFocusId(shortcut.id)}
                       className={cn(
-                        "group flex w-full cursor-pointer items-center justify-between rounded-control px-3 py-2 text-left transition-colors hover:bg-state-hover",
+                        "group flex items-center gap-2 rounded-control pr-2 transition-colors hover:bg-state-hover",
                         isRecording && "bg-accent ring-2 ring-primary"
-                      )}
-                      onClick={() => {
-                        if (!isRecording) {
-                          setRecordingAction(shortcut.id)
-                        }
-                      }}>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">
-                          {t(shortcut.label)}
+                      )}>
+                      <button
+                        type="button"
+                        aria-pressed={isRecording}
+                        className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-2 rounded-control px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                        onClick={() => {
+                          if (!isRecording) {
+                            setRecordingAction(shortcut.id)
+                          }
+                        }}>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium">
+                            {t(shortcut.label)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {t(shortcut.description)}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {t(shortcut.description)}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
                         {isRecording ? (
-                          <span className="animate-pulse text-sm text-primary">
+                          <span className="animate-pulse text-sm text-primary motion-reduce:animate-none">
                             {t("settings.shortcuts.recording")}
                           </span>
                         ) : (
                           renderShortcutKeys(shortcut.key)
                         )}
-                        {isModified && !isRecording && (
-                          <TooltipActionButton
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 opacity-0 transition-opacity group-hover:opacity-100"
-                            label={t("settings.shortcuts.reset_all")}
-                            icon={<X className="icon-xs" />}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              resetShortcut(shortcut.id)
-                            }}
-                          />
-                        )}
-                      </div>
-                    </button>
+                      </button>
+                      {isModified && !isRecording && (
+                        <TooltipActionButton
+                          variant="ghost"
+                          size="icon"
+                          className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                          label={t("settings.shortcuts.reset_to_default")}
+                          icon={<X className="icon-xs" />}
+                          onClick={() => resetShortcut(shortcut.id)}
+                        />
+                      )}
+                    </div>
                   )
                 })}
               </div>

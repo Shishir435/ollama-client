@@ -19,7 +19,13 @@ import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { cn } from "@/lib/class-names"
 
 export const StatusCard = () => {
-  const { status, refresh } = useProviderModels()
+  const {
+    status,
+    refresh,
+    unavailableProviders = [],
+    ollamaEnabled
+  } = useProviderModels()
+  const unreachableName = unavailableProviders[0]?.providerName
   const { t } = useTranslation()
   const [setupOpen, setSetupOpen] = useState(false)
 
@@ -42,7 +48,9 @@ export const StatusCard = () => {
           borderClass: "border-destructive/30",
           bgClass: "bg-status-danger",
           iconFgClass: "text-status-danger-foreground",
-          title: t("welcome.status.connection_failed.title"),
+          title: t("welcome.status.connection_failed.title", {
+            provider: unreachableName ?? t("welcome.status.provider_fallback")
+          }),
           message: t("welcome.status.connection_failed.message")
         }
       case "empty":
@@ -53,7 +61,11 @@ export const StatusCard = () => {
           bgClass: "bg-status-warning",
           iconFgClass: "text-status-warning-foreground",
           title: t("welcome.status.no_models.title"),
-          message: t("welcome.status.no_models.message")
+          message: t(
+            ollamaEnabled
+              ? "welcome.status.no_models.message"
+              : "welcome.status.no_models.message_generic"
+          )
         }
       case "ready":
         return {
@@ -77,6 +89,9 @@ export const StatusCard = () => {
   return (
     <>
       <Card
+        // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A live region announcing provider status, not a calculated form output.
+        role="status"
+        aria-live="polite"
         className={cn(
           "mb-4 min-h-min w-full max-w-xl shadow-sm ring-0 border",
           statusConfig.borderClass

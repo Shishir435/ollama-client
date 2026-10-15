@@ -22,7 +22,7 @@ import { ChunkFeedbackButton } from "./chunk-feedback-button"
 import { CopyButton } from "./copy-button"
 import type { SourceItem } from "./message-sources-sheet"
 import { PreviewSheet } from "./preview-sheet"
-import { hostOf, SearchEngineBadge } from "./web-search-sources-button"
+import { hostOf, SearchEngineBadge } from "./search-engine-badge"
 
 export type SourceGroup = "local" | "knowledge" | "web"
 
@@ -156,15 +156,18 @@ const SourceDetails = ({
             {item.content}
           </span>
         )}
-        {group !== "web" && (item.sectionPath || item.source) && (
-          <span className="block truncate text-nano text-foreground-tertiary">
-            {[item.sectionPath, item.source !== "rag" ? item.source : null]
-              .filter(Boolean)
-              .join(" · ")}
+        {group !== "web" && item.sectionPath && (
+          <span className="block truncate text-micro text-muted-foreground">
+            {item.sectionPath}
+          </span>
+        )}
+        {group !== "web" && item.source && item.source !== "rag" && (
+          <span className="block truncate text-micro text-muted-foreground">
+            {item.source}
           </span>
         )}
         {item.publishedAt && (
-          <span className="block text-nano text-foreground-tertiary">
+          <span className="block text-micro text-muted-foreground">
             {t("chat.sources.web_published", { date: item.publishedAt })}
           </span>
         )}
@@ -270,7 +273,7 @@ const SourceSection = ({
   return (
     <section className="space-y-1.5">
       <div className="flex items-center justify-between gap-2 px-0.5">
-        <h3 className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-xs font-medium text-muted-foreground">
           {section.label}
         </h3>
         <div className="flex items-center gap-0.5">

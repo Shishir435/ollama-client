@@ -166,7 +166,11 @@ describe("handleSelectionAction", () => {
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
       failure: {
         status: 400,
-        message: "Select a model before running Selection Actions"
+        message: "No model selected for the selection action",
+        kind: "validation",
+        phase: "configuration",
+        recoveryAction: "choose-model",
+        messageKey: "selection_button.panel.no_model"
       }
     })
   })

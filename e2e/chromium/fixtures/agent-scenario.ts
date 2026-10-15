@@ -1312,7 +1312,7 @@ const runAgentScenarioAttempt = (
         .getByRole("button", { name: "Start Chatting" })
         .click({ timeout: 10_000 })
         .catch(() => {})
-      const composer = panel.getByPlaceholder("Type a message or ctrl + /")
+      const composer = panel.locator("#chat-input-textarea")
       await composer.fill(scenario.goal)
       await composer.press("Enter")
       const allowForChat = panel.getByRole("button", {

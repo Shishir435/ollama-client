@@ -380,8 +380,6 @@
     "agent_task_unchecked": "已完成，部分未核实"
   },
   "selection_button": {
-    "label": "询问本地 LLM",
-    "tooltip": "添加到本地 LLM 客户端",
     "actions": {
       "summarize": {
         "label": "总结",
@@ -439,7 +437,18 @@
       "cancel": "取消",
       "cancel_tip": "取消生成",
       "run": "运行",
-      "instruction_ph": "指令"
+      "instruction_ph": "指令",
+      "toolbar_label": "选区操作",
+      "custom_instruction_label": "自定义指令",
+      "model_label": "模型",
+      "model_placeholder": "选择模型",
+      "action_label": "操作",
+      "no_model": "请选择一个模型来运行此操作。",
+      "connection_lost": "与扩展的连接已断开。请重新运行该操作。",
+      "action_failed": "操作在完成前停止了。请重新运行。",
+      "copied": "已复制",
+      "copy_failed": "无法复制。请选中文本并按 Ctrl+C。",
+      "apply_failed": "无法更改页面文本。请改为复制结果。"
     }
   },
   "welcome": {
@@ -458,12 +467,14 @@
       },
       "no_models": {
         "title": "未找到模型",
-        "message": "请拉取一个模型以开始使用"
+        "message": "请拉取一个模型以开始使用",
+        "message_generic": "请在提供商中安装或加载聊天模型，然后再次检查。"
       },
       "ready": {
         "title": "准备就绪",
         "message": "提供方已连接，可开始使用"
-      }
+      },
+      "provider_fallback": "你的提供商"
     },
     "setup_guide": {
       "hint": "按照以下设置指南安装Ollama和模型。",
@@ -505,7 +516,6 @@
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "网页搜索需要工具调用，而此模型不支持。请在模型设置中启用工具回退以使用该功能。",
       "drop_files_here": "将文件拖到此处",
-      "attachments": "{{count}} 个附件",
       "images": {
         "remove": "移除 {{name}}",
         "too_large": "{{name}} 超过了 {{max}}MB 的图片大小限制。",
@@ -515,7 +525,13 @@
         "screenshot_failed": "无法截取此页面。某些页面无法截取。"
       },
       "screenshot": "截取屏幕",
-      "auto_screenshot": "自动附加截图"
+      "auto_screenshot": "自动附加截图",
+      "reading_tabs_title": "正在读取标签页",
+      "reading_tabs_body_one": "仍在读取 {{count}} 个标签页。请稍后再发送。",
+      "reading_tabs_body_other": "仍在读取 {{count}} 个标签页。请稍后再发送。",
+      "reading_tabs_button": "正在读取标签页…",
+      "attachments_one": "{{count}} 个附件",
+      "attachments_other": "{{count}} 个附件"
     },
     "context_preview": {
       "files": "已附加文件",
@@ -641,18 +657,11 @@
       "rag_context_label": "RAG上下文 ({{count}})",
       "char_counts": "标签字符: {{tab}} | RAG字符: {{rag}}",
       "trimmed": "已截断",
-      "view_web": "查看 {{count}} 个网络来源",
-      "view_web_plural": "查看 {{count}} 个网络来源",
       "web_engine": "来自 {{engine}}",
-      "web_no_snippet": "无可用预览。",
       "web_published": "发布于：{{date}}",
       "web_score": "评分 {{score}}",
-      "web_source": "{{count}} 个网络来源",
-      "web_source_plural": "{{count}} 个网络来源",
-      "web_title": "网络来源（{{count}}）",
       "web_unused_hint": "在设置中调高网络搜索结果数量，可向模型提供更多此类内容。",
       "web_unused_label": "也已找到 — 未发送（{{count}}）",
-      "web_used_label": "已发送给模型（{{count}}）",
       "unified_tooltip": "{{count}} 个来源",
       "unified_aria": "查看 {{count}} 个来源",
       "unified_title": "来源 ({{count}})",
@@ -796,7 +805,21 @@
       "interrupted": "响应已中断",
       "provider_auth": "提供商拒绝了访问。重新开始前，请在设置中检查其 API 密钥、凭据或账户权限。",
       "provider_cors": "本地提供商阻止了扩展来源。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，然后重试。",
-      "provider_refused": "模型拒绝了此请求。请调整任务或选择其他模型。"
+      "provider_refused": "模型拒绝了此请求。请调整任务或选择其他模型。",
+      "unknown_error_generic": "请求失败：{{message}}。请稍后重试。",
+      "provider_fallback": "提供商",
+      "model_fallback": "所选模型",
+      "provider_unreachable": "无法连接 {{provider}}。请启动它，然后重试。",
+      "provider_cors_remote": "{{provider}} 拒绝了此扩展的请求。请在服务器上设置 OLLAMA_ORIGINS=chrome-extension://*,moz-extension://* 以允许它们。",
+      "provider_cors_other": "{{provider}} 阻止了此扩展。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，参见[设置指南]({{setupGuideUrl}})。",
+      "context_too_long": "此聊天对 {{model}} 来说太长。请开始新聊天，或选择上下文更大的模型。",
+      "payment_required": "{{provider}} 使用 {{model}} 需要付费或额度。请选择本地模型或添加额度。",
+      "model_not_found": "{{provider}} 中没有 {{model}}。请拉取它或选择其他模型。",
+      "provider_server_error": "{{provider}} 运行 {{model}} 时出现内部错误。请重试；如果反复出现，请检查服务器日志。",
+      "out_of_memory": "{{model}} 需要的内存超过本机可用内存。请关闭其他应用或选择更小的模型。",
+      "model_crashed": "{{model}} 在加载时崩溃。请重试；如果反复出现，请检查 {{provider}} 日志。",
+      "ollama_cloud_signin": "{{model}} 运行在 Ollama 云端。请使用 `ollama signin` 登录，或选择本地模型。",
+      "ollama_cloud_unreachable": "无法连接到 Ollama 来运行 {{model}}。请启动 Ollama。如果它已在运行，此云端模型需要执行 `ollama signin`。"
     },
     "composer": {
       "rag": "文件",
@@ -853,6 +876,16 @@
       "allow_once": "允许一次",
       "allow_session": "在此对话中允许",
       "allow_always": "始终允许"
+    },
+    "shortcuts": {
+      "new_chat_started": "已开始新聊天",
+      "theme_dark": "已开启深色主题",
+      "theme_light": "已开启浅色主题",
+      "clear_confirm": "删除此聊天并开始新聊天？",
+      "cleared": "聊天已删除。已开始新聊天。",
+      "copied": "已复制回复",
+      "exported_json": "聊天已导出为 JSON",
+      "exported_pdf": "聊天已导出为 PDF"
     }
   },
   "file_upload": {
@@ -875,7 +908,8 @@
     },
     "area": {
       "files_ready": "{{count}} 个文件已准备就绪",
-      "files_ready_plural": "{{count}} 个文件已准备就绪"
+      "files_ready_plural": "{{count}} 个文件已准备就绪",
+      "empty_hint": "将文件拖放到此处或选择文件。"
     },
     "settings": {
       "max_file_size_label": "最大文件大小 (MB)",
@@ -918,7 +952,10 @@
         "description": "托管的 :cloud 模型。需要已登录的 Ollama，通常还需要付费套餐。"
       },
       "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。",
-      "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。"
+      "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。",
+      "no_model_match": "没有匹配的模型。",
+      "providers_unreachable": "无法连接 {{names}}。请检查服务器是否正在运行，以及提供商设置中的地址。",
+      "retry": "重试"
     },
     "version": {
       "tooltip": "Provider 版本: {{version}}"
@@ -1071,7 +1108,8 @@
       "checking": "正在检查本地 Provider...",
       "error": "本地 Provider 无法连接",
       "empty": "已连接本地 Provider，但未找到聊天模型",
-      "ready": "本地 Provider 已就绪"
+      "ready": "本地 Provider 已就绪",
+      "unreachable": "无法连接 {{provider}}"
     },
     "capabilities": {
       "edit_tooltip": "设置能力",
@@ -1145,16 +1183,14 @@
     "selector": {
       "title": "聊天会话",
       "create_new": "创建新聊天",
-      "create_new_aria": "创建新聊天",
-      "start_new": "开始新聊天",
       "search_placeholder": "按标题搜索聊天...",
       "clear_search": "清除聊天搜索",
       "no_sessions": "暂无聊天会话",
-      "no_sessions_hint": "创建您的第一个聊天即可开始",
       "no_matches": "没有匹配的聊天",
       "no_matches_hint": "请尝试其他标题。",
       "session_count": "{{count}} 个会话",
-      "session_count_plural": "{{count}} 个会话"
+      "session_count_plural": "{{count}} 个会话",
+      "select_session": "打开 {{title}}"
     },
     "delete": {
       "aria_label": "删除聊天会话: {{title}}",
@@ -1187,7 +1223,11 @@
       "action": "编辑标签"
     },
     "groups": {
-      "pinned": "已置顶"
+      "pinned": "已置顶",
+      "today": "今天",
+      "yesterday": "昨天",
+      "last7Days": "过去 7 天",
+      "older": "更早"
     }
   },
   "tabs": {
@@ -1199,7 +1239,10 @@
       "view_content": "查看提取的内容",
       "refresh_now": "立即刷新上下文",
       "select_all": "全选",
-      "clear_selection": "清除选择"
+      "clear_selection": "清除选择",
+      "no_matches": "没有与 \"{{query}}\" 匹配的标签页",
+      "all_excluded": "所有打开的标签页都已从上下文中排除。",
+      "no_tabs": "没有可读取的打开标签页。"
     },
     "context": "上下文",
     "inspector": {
@@ -1302,7 +1345,15 @@
         "description": "设置浏览器级快捷键，从任意页面打开聊天侧边栏。该绑定由浏览器管理——复制下面的地址并粘贴到地址栏中以设置或更改按键。",
         "copy": "复制地址",
         "copied": "已复制——粘贴到地址栏中"
-      }
+      },
+      "reset_to_default": "恢复默认",
+      "categories": {
+        "navigation": "导航",
+        "actions": "操作",
+        "toggles": "开关"
+      },
+      "search_placeholder": "搜索快捷键",
+      "conflict": "已被 \"{{label}}\" 使用。请选择其他按键。"
     },
     "content_extraction": {
       "title": "内容提取",
@@ -1645,7 +1696,8 @@
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
-        "api_key_required": "Enter an API key."
+        "api_key_required": "Enter an API key.",
+        "searxng_json_disabled": "SearXNG 拒绝返回 JSON 结果。请在 settings.yml 的 search.formats 中添加 json 并重启。如果它位于登录页或代理之后，请允许此扩展访问。"
       },
       "beta_badge": "Beta",
       "beta_tooltip": "Beta. If you run into issues, please report them.",
@@ -1901,6 +1953,16 @@
       "failure_notice": {
         "title": "上次重置未完成",
         "description": "上一次重置在完成前失败，部分数据可能仍然保留。请查看控制台了解详情并重试。"
+      },
+      "chat_dialog": {
+        "title": "删除所有聊天？",
+        "description": "这将删除此设备上的所有聊天并重启扩展。此操作无法撤消。",
+        "confirm": "删除聊天"
+      },
+      "module_dialog": {
+        "title": "重置{{module}}？",
+        "description": "这将清除此区域保存的内容并恢复默认值。此操作无法撤消。",
+        "confirm": "重置"
       }
     },
     "providers": {
@@ -1927,7 +1989,6 @@
         "success_description": "已成功连接到 {{url}} 上的 {{name}}。找到 {{count}} 个模型。",
         "success_description_manual": "已成功连接到 {{url}} 上的 {{name}}。它不提供模型列表，因此使用你添加的 {{count}} 个模型 ID。",
         "failed_title": "连接失败",
-        "failed_description": "无法访问 {{url}}。{{error}}",
         "no_models_title": "未找到模型",
         "no_model_list_title": "没有模型列表",
         "no_models_description": "已访问 {{url}}，但未返回任何模型。请确认提供商正在运行、基本 URL 正确，并且至少已安装或加载一个模型。",
@@ -1936,10 +1997,10 @@
         "inline_success_manual": "已连接到 {{url}}。它不提供模型列表，因此使用你添加的 {{count}} 个模型 ID。",
         "inline_no_models": "已访问 {{url}}，但未返回任何模型。请确认提供商正在运行，并且已安装或加载模型。",
         "inline_no_model_list": "已访问 {{url}}，但它不提供模型列表。请在“模型 ID”中添加要使用的模型 ID。",
-        "inline_failed": "无法访问 {{url}}。{{error}}",
         "default_url": "默认 URL",
         "api_key_required_title": "需要 API 密钥",
-        "api_key_required": "请先为 {{name}} 添加 API 密钥，然后再测试连接。"
+        "api_key_required": "请先为 {{name}} 添加 API 密钥，然后再测试连接。",
+        "failed_fallback": "无法连接 {{url}}。请检查提供商是否正在运行，以及基础 URL 是否正确。"
       },
       "add": {
         "button": "添加提供商",
@@ -1998,7 +2059,14 @@
           "120000": "每 2 分钟",
           "300000": "每 5 分钟"
         }
-      }
+      },
+      "saved_title": "已保存 {{name}}",
+      "save_failed_title": "无法保存 {{name}}",
+      "save_failed_description": "你的更改仍保留在表单中。请重新保存。",
+      "enable_failed_title": "无法开启 {{name}}",
+      "disable_failed_title": "无法关闭 {{name}}",
+      "toggle_failed_description": "已恢复到之前的状态。请稍后重试。",
+      "status_off": "关闭"
     },
     "migration": {
       "title": "数据迁移",
@@ -2240,7 +2308,9 @@
       }
     },
     "search": {
-      "placeholder": "搜索设置…"
+      "placeholder": "搜索设置…",
+      "shortcut_label": "搜索设置的快捷键",
+      "no_results": "没有与 '{{query}}' 匹配的设置"
     },
     "restore_sessions": {
       "title": "重新打开已关闭的标签页",
@@ -2251,6 +2321,11 @@
     "export_privacy": {
       "remote_images_label": "在导出中加载远程图片",
       "remote_images_hint": "允许打印和 PDF 导出从外部服务器加载图片。关闭时，导出完全离线进行，远程图片将被占位符替代。"
+    },
+    "beta_badge": "Beta",
+    "nav_label": "设置分区",
+    "more_section": {
+      "title": "提示词、语音和快捷键"
     }
   },
   "guides": {
@@ -2300,7 +2375,9 @@
   "errorBoundary": {
     "title": "出了点问题",
     "description": "发生了意外错误。我们已在内部记录此问题。",
-    "reload": "重新加载"
+    "reload": "重新加载",
+    "show_details": "显示详情",
+    "copy_details": "复制详情"
   },
   "knowledge_sets": {
     "title": "知识集",
@@ -2350,7 +2427,8 @@
       "not_found": "未找到提供商配置。",
       "provider_failed": "提供商请求失败。",
       "timeout": "后台请求超时。请重试。",
-      "internal": "后台请求失败。请重试。"
+      "internal": "后台请求失败。请重试。",
+      "upstream_not_found": "提供商有响应，但返回的不是所请求的内容。请检查基础 URL 和模型名称。"
     }
   },
   "diagnostics": {
@@ -2414,7 +2492,9 @@
       "placeholder": "Select a model",
       "use": "Use this model",
       "refresh": "刷新模型",
-      "use_unverified": "试用此模型"
+      "use_unverified": "试用此模型",
+      "none_unverified": "未找到聊天模型。请在提供商设置中检查连接，然后选择“刷新模型”。",
+      "use_failed": "无法切换到此模型。请重试，或选择其他模型。"
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2444,9 +2524,13 @@
         "not-found": "服务器已响应，但这不是有效的提供商端点。请检查端口和基础 URL。",
         "timeout": "提供商响应超时。请检查它是否运行以及端口是否正确。",
         "unavailable": "无法连接 Ollama。它可能已停止、使用其他端口或阻止扩展来源。",
-        "server-error": "提供商返回服务器错误。请检查日志后重试。"
+        "server-error": "提供商返回服务器错误。请检查日志后重试。",
+        "cors-other": "{{provider}} 正在运行，但阻止了此扩展。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，然后重启它。",
+        "rate-limited": "{{provider}} 目前正在限制请求。请稍等片刻后重试。",
+        "payment": "{{provider}} 需要付款或额度。请检查你的账户后重试。"
       },
-      "unverified": "连接尚未验证。你可以尝试已配置的模型，或打开提供商设置以检查端点。"
+      "unverified": "连接尚未验证。你可以尝试已配置的模型，或打开提供商设置以检查端点。",
+      "support_code": "支持代码"
     }
   }
 }

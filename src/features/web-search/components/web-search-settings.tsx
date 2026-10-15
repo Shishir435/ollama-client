@@ -27,6 +27,7 @@ import {
   type WebSearchExecutionSource,
   type WebSearchProviderConfig,
   type WebSearchProviderId,
+  WebSearchError,
   type WebSearchSafeSearch
 } from "@/lib/tools/web-search"
 import { useWebSearchConfig } from "../stores/web-search-config-store"
@@ -61,6 +62,9 @@ export const WebSearchSettings = () => {
   const { config, updateConfig } = useWebSearchConfig()
   const [isTesting, setIsTesting] = useState(false)
   const [testState, setTestState] = useState<"success" | "error" | null>(null)
+  const [testErrorKey, setTestErrorKey] = useState(
+    "settings.web_search.test.error"
+  )
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -89,6 +93,7 @@ export const WebSearchSettings = () => {
     try {
       const activeBackend = getWebSearchBackend(config.provider)
       if (!activeBackend) {
+        setTestErrorKey("settings.web_search.test.error")
         setTestState("error")
         toast({
           title: t("settings.web_search.test.error"),
@@ -98,9 +103,11 @@ export const WebSearchSettings = () => {
       }
       const validation = activeBackend.validateConfig(config)
       if (!validation.ok) {
+        const errorKey = validation.errorKey ?? "settings.web_search.test.error"
+        setTestErrorKey(errorKey)
         setTestState("error")
         toast({
-          title: t(validation.errorKey ?? "settings.web_search.test.error"),
+          title: t(errorKey),
           variant: "destructive"
         })
         return
@@ -121,11 +128,16 @@ export const WebSearchSettings = () => {
           count: results.length
         })
       })
-    } catch {
+    } catch (error) {
       if (signal.aborted) return
+      const errorKey =
+        error instanceof WebSearchError
+          ? error.messageKey
+          : "settings.web_search.test.error"
+      setTestErrorKey(errorKey)
       setTestState("error")
       toast({
-        title: t("settings.web_search.test.error"),
+        title: t(errorKey),
         variant: "destructive"
       })
     } finally {
@@ -376,6 +388,7 @@ export const WebSearchSettings = () => {
               variant="destructive"
               icon={TriangleAlert}
               title={t("settings.web_search.test.error_title")}
+              description={t(testErrorKey)}
             />
           )}
         </>

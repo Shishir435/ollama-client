@@ -169,7 +169,7 @@ export const VoiceSelector = ({
                   key={group.lang}
                   className={cn("px-0 py-0", groupIndex > 0 && "mt-2")}>
                   <div className="flex items-center justify-between px-3 py-2 mb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {group.lang}
                     </span>
                     <Badge

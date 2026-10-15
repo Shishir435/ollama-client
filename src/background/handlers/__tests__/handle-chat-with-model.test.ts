@@ -660,7 +660,7 @@ describe("handleChatWithModel", () => {
           model: "llama3:latest",
           baseUrl: "http://localhost:11434",
           userMessage: expect.stringContaining(
-            'Ollama at http://localhost:11434 returned HTTP 500 while generating a response with model "llama3:latest"'
+            "Ollama hit an internal error running llama3:latest."
           )
         })
       })

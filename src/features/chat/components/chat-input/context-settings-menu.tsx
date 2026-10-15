@@ -227,6 +227,7 @@ export const ContextSettingsMenu = ({
               settings.tabAccess ? (
                 <TabContextPanel
                   filteredTabOptions={tabs.filteredTabOptions}
+                  emptyReason={tabs.emptyReason}
                   allVisibleSelected={tabs.allVisibleSelected}
                   toggleAllVisible={tabs.toggleAllVisible}
                   tabContents={tabs.tabContents}

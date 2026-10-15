@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { PanelMarkdown } from "./panel-markdown"
@@ -30,11 +31,10 @@ export function PanelThinking({
       <button
         type="button"
         className="sa-thinking-header"
+        aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}>
-        {isThinking ? (
+        {isThinking && (
           <span className="sa-thinking-pulse" aria-hidden="true" />
-        ) : (
-          <span className="sa-thinking-chevron">{expanded ? "▾" : "▸"}</span>
         )}
         <span className="sa-thinking-label">
           {isThinking
@@ -42,9 +42,11 @@ export function PanelThinking({
             : t("selection_button.panel.reasoning_done")}
         </span>
         {!isThinking && (
-          <span className="sa-thinking-chevron sa-thinking-chevron-end">
-            {expanded ? "▾" : "▸"}
-          </span>
+          <ChevronRight
+            aria-hidden="true"
+            className="sa-thinking-chevron icon-xs"
+            data-expanded={expanded}
+          />
         )}
       </button>
       {expanded && (

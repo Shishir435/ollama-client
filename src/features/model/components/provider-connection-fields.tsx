@@ -1,5 +1,6 @@
-import { Save } from "lucide-react"
+import { Save, TriangleAlert } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { StatusCallout } from "@/components/feedback"
 import { SettingsActionRow, SettingsFormField } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +40,7 @@ export const ProviderConnectionFields = ({
     <>
       <SettingsFormField
         focusId="provider-base-url"
+        htmlFor="provider-base-url-input"
         label={t("settings.providers.base_url")}
         description={
           defaultBaseUrl ? (
@@ -49,6 +51,7 @@ export const ProviderConnectionFields = ({
         }>
         <SettingsActionRow>
           <Input
+            id="provider-base-url-input"
             value={activeConfig.baseUrl || ""}
             onChange={(e) => updateConfig({ baseUrl: e.target.value })}
             placeholder="https://api.example.com/v1"
@@ -62,9 +65,12 @@ export const ProviderConnectionFields = ({
           </Button>
         </SettingsActionRow>
         {isRemoteEndpoint && (
-          <p className="mt-2 text-xs text-status-warning">
-            {t("settings.providers.add.remote_notice")}
-          </p>
+          <StatusCallout
+            variant="warning"
+            icon={TriangleAlert}
+            className="mt-2 text-foreground"
+            title={t("settings.providers.add.remote_notice")}
+          />
         )}
         {cspCompatibilityHint && (
           <p className="mt-2 text-xs text-muted-foreground">
@@ -76,8 +82,10 @@ export const ProviderConnectionFields = ({
       {!isLocalProvider && (
         <SettingsFormField
           focusId="provider-api-key"
+          htmlFor="provider-api-key-input"
           label={t("settings.providers.api_key")}>
           <Input
+            id="provider-api-key-input"
             type="password"
             value={providerDraftApiKeyValue(activeConfig)}
             onChange={(e) => updateConfig({ apiKey: e.target.value })}

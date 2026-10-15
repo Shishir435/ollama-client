@@ -1,6 +1,5 @@
 export * from "./constants/config"
 export * from "./constants/defaults"
-export * from "./constants/errors"
 export * from "./constants/keys"
 export * from "./constants/prompts"
 export * from "./constants/sqlite"
