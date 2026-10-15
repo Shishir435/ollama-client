@@ -16,15 +16,21 @@ import { SectionStack } from "@/components/layout"
 import {
   ConfirmActionDialog,
   SettingsCard,
+  SettingsRow,
   StatusAlert
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { readAndClearResetFailure } from "@/lib/app-reset"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
+
+/** `APP_LIFECYCLE` → `App lifecycle`: a storage group key read as words. */
+const humanizeModuleKey = (module: string): string => {
+  const words = module.toLowerCase().replace(/_+/g, " ").trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
 
 export const ResetStorage = () => {
   const { t } = useTranslation()
@@ -97,7 +103,7 @@ export const ResetStorage = () => {
       case "FEEDBACK":
         return t("settings.reset.modules.feedback.title")
       default:
-        return module.replace("_", " ")
+        return humanizeModuleKey(module)
     }
   }
 
@@ -135,7 +141,7 @@ export const ResetStorage = () => {
             description={t("settings.reset.failure_notice.description")}
           />
         )}
-        <div className="grid gap-3">
+        <div className="divide-y divide-border">
           {Object.entries(keysByModule).map(([module, keys]) => (
             <ModuleResetItem
               key={module}
@@ -236,38 +242,36 @@ const ModuleResetItem = ({
   }
 
   return (
-    <Card
-      data-settings-focus="true"
-      data-settings-focus-id={focusId}
-      className="flex-row items-center justify-between gap-3 bg-sidebar-accent ring-0 p-3 transition-colors hover:bg-state-hover">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        {/* oxlint-disable-next-line react/static-components -- The renderer is an existing component supplied by context or the icon registry, not created during render. */}
-        <ModuleIcon className="icon-md shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h4 className="text-sm font-medium">{getModuleName(module)}</h4>
-            <Badge variant="secondary" className="text-xs">
-              {keys.length === 1
-                ? t("settings.reset.item_count", { count: keys.length })
-                : t("settings.reset.item_count_plural", { count: keys.length })}
-            </Badge>
-          </div>
-          <p className="truncate text-xs text-muted-foreground">
-            {getModuleDescription(module)}
-          </p>
-        </div>
-      </div>
-      <Button
-        size="sm"
-        variant="ghost"
-        disabled={resetState !== "idle"}
-        onClick={() => setConfirmOpen(true)}>
-        {t("settings.reset.reset_button")}{" "}
-        {resetState === "working" && (
-          <Loader2 className="icon-md animate-spin" />
-        )}
-        {resetState === "done" && <CircleCheck className="icon-md" />}
-      </Button>
+    <>
+      <SettingsRow
+        focusId={focusId}
+        leading={
+          // oxlint-disable-next-line react/static-components -- The renderer is an existing component supplied by context or the icon registry, not created during render.
+          <ModuleIcon className="icon-md shrink-0 text-muted-foreground" />
+        }
+        label={getModuleName(module)}
+        meta={
+          <Badge variant="secondary">
+            {keys.length === 1
+              ? t("settings.reset.item_count", { count: keys.length })
+              : t("settings.reset.item_count_plural", { count: keys.length })}
+          </Badge>
+        }
+        description={getModuleDescription(module)}
+        control={
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={resetState !== "idle"}
+            onClick={() => setConfirmOpen(true)}>
+            {t("settings.reset.reset_button")}{" "}
+            {resetState === "working" && (
+              <Loader2 className="icon-md animate-spin" />
+            )}
+            {resetState === "done" && <CircleCheck className="icon-md" />}
+          </Button>
+        }
+      />
       <ConfirmActionDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -291,6 +295,6 @@ const ModuleResetItem = ({
         destructive
         onConfirm={handleReset}
       />
-    </Card>
+    </>
   )
 }

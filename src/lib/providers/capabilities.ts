@@ -208,9 +208,15 @@ const detectReportedCapabilities = (
   const supportsAnyParameter = (...names: string[]) =>
     names.some((name) => supportedParameters?.includes(name))
   return {
-    text:
-      modalities?.includes("text") ??
-      (providerCaps?.chat === true || modalities === undefined),
+    /**
+     * "Text chat" is about what the model writes, so output modalities decide
+     * it when the catalog reports them: an image model takes a text prompt
+     * but never answers in text. Input modalities stand in only without them.
+     */
+    text: outputModalities
+      ? outputModalities.includes("text")
+      : (modalities?.includes("text") ??
+        (providerCaps?.chat === true || modalities === undefined)),
     vision: modalities?.includes("image") ?? false,
     imageOutput: outputModalities?.includes("image") ?? false,
     embeddings: providerCaps?.embeddings ?? false,
@@ -365,7 +371,11 @@ const metadataOwnsCapabilityFlag = (
   if (tagsAvailable) return true
   if (input.modalities?.length && (flag === "text" || flag === "vision"))
     return true
-  if (input.outputModalities?.length && flag === "imageOutput") return true
+  if (
+    input.outputModalities?.length &&
+    (flag === "imageOutput" || flag === "text")
+  )
+    return true
   if (
     input.supportedParameters?.length &&
     (flag === "toolCalling" || flag === "reasoning")

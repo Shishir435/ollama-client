@@ -1,3 +1,4 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import {
   BookOpen,
   Bot,
@@ -44,10 +45,12 @@ import {
 import type { SettingsSearchRecord } from "@/features/settings/settings-search-index"
 import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
+import { isAppError } from "@/lib/error-utils"
 import { motionSafeScrollBehavior } from "@/lib/reduced-motion"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
 import GeneralSettingsTab from "@/options/components/tabs/general-settings-tab"
+import { extensionRpcClient } from "@/protocol/extension-client"
 
 const ModelsSettingsTab = lazy(
   () => import("@/options/components/tabs/models-settings-tab")
@@ -72,6 +75,19 @@ const HelpSettingsTab = lazy(
   () => import("@/options/components/tabs/help-settings-tab")
 )
 
+/**
+ * The tab the URL asks for, if any. The registry's tab for a deep-linked
+ * focus id wins over a stale `tab`, so links survive a control moving tabs.
+ */
+const readLinkedTab = (): SettingsTab | undefined => {
+  if (typeof window === "undefined") return undefined
+  const params = new URLSearchParams(window.location.search)
+  const requestedTab = params.get("tab")?.replace(/^"+|"+$/g, "")
+  const focusId = params.get("focus")?.replace(/^"+|"+$/g, "")
+  const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
+  return entryTab || resolveSettingsTab(requestedTab)
+}
+
 export const SettingsPage = () => {
   const { t } = useTranslation()
   const desktopSearchRef = useRef<HTMLInputElement>(null)
@@ -81,21 +97,43 @@ export const SettingsPage = () => {
   const userSelectedLevelRef = useRef(false)
   const hydratedLevelRef = useRef(false)
   const promotedLevelRef = useRef<SettingsLevel>("basic")
+  /** Set once the user picks a tab; the no-provider default never overrides it. */
+  const tabChosenRef = useRef(false)
   const [settingsLevel, setSettingsLevel] = useState<SettingsLevel>("basic")
   const [activeFocusId, setActiveFocusId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
     return new URLSearchParams(window.location.search).get("focus")
   })
-  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
-    if (typeof window === "undefined") return "general"
-    const params = new URLSearchParams(window.location.search)
-    const requestedTab = params.get("tab")?.replace(/^"+|"+$/g, "")
-    // Honor the registry's tab for a deep-linked focus id so links survive a
-    // control moving tabs. The focus id's home tab wins over a stale `tab`.
-    const focusId = params.get("focus")?.replace(/^"+|"+$/g, "")
-    const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
-    return entryTab || resolveSettingsTab(requestedTab) || "general"
-  })
+  const [linkedTab] = useState(readLinkedTab)
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    linkedTab ?? "general"
+  )
+
+  /**
+   * With no usable provider there is nothing to chat with, so the page opens
+   * where that gets fixed. "Usable" is what the model menu sees: discovered
+   * plus declared models from enabled providers; the listing rejects as a
+   * provider failure when every provider failed. A tab named by the URL, or a
+   * check that never reached the background, keeps what it had.
+   */
+  useEffect(() => {
+    if (linkedTab) return
+    let active = true
+    const openProviders = () => {
+      if (active && !tabChosenRef.current) setActiveTab("models")
+    }
+    extensionRpcClient
+      .call(RpcMethod.ProvidersListModels, {})
+      .then((result) => {
+        if (result.models.length === 0) openProviders()
+      })
+      .catch((error: unknown) => {
+        if (isAppError(error) && error.kind === "provider") openProviders()
+      })
+    return () => {
+      active = false
+    }
+  }, [linkedTab])
 
   useEffect(() => {
     let active = true
@@ -174,8 +212,7 @@ export const SettingsPage = () => {
         {
           key: "knowledge",
           label: t("settings.tabs.context"),
-          icon: Brain,
-          badge: t("settings.beta_badge")
+          icon: Brain
         },
         {
           key: "browser",
@@ -212,7 +249,7 @@ export const SettingsPage = () => {
 
   const tabContent: Record<string, ReactNode> = {
     general: <GeneralSettingsTab activeFocusId={activeFocusId} />,
-    models: <ModelsSettingsTab />,
+    models: <ModelsSettingsTab activeFocusId={activeFocusId} />,
     browser: <BrowserSettingsTab />,
     ...(AgentSettingsTab ? { agent: <AgentSettingsTab /> } : {}),
     knowledge: <KnowledgeSettingsTab activeFocusId={activeFocusId} />,
@@ -326,6 +363,7 @@ export const SettingsPage = () => {
         url.searchParams.set("focus", record.focusId)
         window.history.replaceState({}, "", url.toString())
       }
+      tabChosenRef.current = true
       setActiveFocusId(record.focusId)
       revealSetting(record.focusId)
       if (record.tab !== activeTab) {
@@ -338,7 +376,9 @@ export const SettingsPage = () => {
   )
 
   const handleTabChange = useCallback((key: string) => {
-    if (isSettingsTab(key)) setActiveTab(key)
+    if (!isSettingsTab(key)) return
+    tabChosenRef.current = true
+    setActiveTab(key)
   }, [])
 
   const githubLink =
@@ -403,7 +443,7 @@ export const SettingsPage = () => {
         </PageHeader>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="hidden w-64 flex-none flex-col border-r border-sidebar-border bg-surface-sidebar lg:flex">
+          <div className="hidden w-64 flex-none flex-col border-r border-sidebar-border bg-surface-sidebar md:flex">
             <div className="p-4 pb-2">
               <SettingsSearch
                 activeTab={activeTab}
@@ -420,7 +460,7 @@ export const SettingsPage = () => {
             />
           </div>
           <div className="flex flex-col flex-1 overflow-hidden">
-            <div className="px-4 pt-4 sm:px-6 lg:hidden">
+            <div className="px-4 pt-4 sm:px-6 md:hidden">
               <SettingsSearch
                 activeTab={activeTab}
                 inputRef={mobileSearchRef}

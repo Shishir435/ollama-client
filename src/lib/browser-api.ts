@@ -52,6 +52,27 @@ export const supportsDNR = (): boolean =>
   typeof chrome !== "undefined" &&
   typeof chrome.declarativeNetRequest?.updateDynamicRules === "function"
 
+/**
+ * A blocking `webRequest.onBeforeSendHeaders` listener — Firefox, where the
+ * manifest grants `webRequest` + `webRequestBlocking` in place of DNR.
+ */
+export const supportsWebRequestHeaders = (): boolean =>
+  typeof (
+    browser as unknown as {
+      webRequest?: { onBeforeSendHeaders?: { addListener?: unknown } }
+    }
+  ).webRequest?.onBeforeSendHeaders?.addListener === "function"
+
+/**
+ * Whether this browser removes `Origin` from the extension's own requests to
+ * configured providers — DNR rules on Chromium, the header listener on
+ * Firefox. Where it does, a 401/403 from a provider is the server or a proxy
+ * refusing the request, not an origin check; only where it does not is
+ * `OLLAMA_ORIGINS` the fix.
+ */
+export const supportsProviderOriginGuard = (): boolean =>
+  supportsDNR() || supportsWebRequestHeaders()
+
 const hasBrowserNamespace = (name: string): boolean =>
   typeof (browser as unknown as Record<string, unknown>)[name] !== "undefined"
 

@@ -1,5 +1,6 @@
 import {
   Bot,
+  Cloud,
   Database,
   HardDrive,
   MessageSquare,
@@ -7,7 +8,7 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { SettingsCard } from "@/components/settings"
+import { SettingsCard, SettingsRow } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { getStorageStats } from "@/lib/embeddings/vector-store"
 import { knowledgeDb } from "@/lib/knowledge/knowledge-sets"
@@ -102,35 +103,37 @@ export const PrivacyDataInventory = () => {
       icon={ShieldCheck}
       title={t("settings.privacy_spine.inventory.title")}
       description={t("settings.privacy_spine.inventory.description")}>
-      <div className="grid gap-2">
+      <div className="divide-y divide-border">
         {rows.map((row) => {
           const Icon = row.icon
           return (
-            <div
+            <SettingsRow
               key={row.key}
-              className="flex items-center gap-3 rounded-control border border-border p-3">
-              <Icon className="icon-md shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{row.label}</p>
-                <p className="text-xs text-muted-foreground">{row.value}</p>
-              </div>
-              <Badge variant="secondary">
-                {t("settings.privacy_spine.device_local")}
-              </Badge>
-            </div>
+              leading={
+                <Icon className="icon-md shrink-0 text-muted-foreground" />
+              }
+              label={row.label}
+              description={row.value}
+              control={
+                <Badge variant="secondary">
+                  {t("settings.privacy_spine.device_local")}
+                </Badge>
+              }
+            />
           )
         })}
-        <div className="flex items-center justify-between rounded-control border border-border p-3">
-          <div>
-            <p className="text-sm font-medium">
-              {t("settings.privacy_spine.inventory.preferences")}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t("settings.privacy_spine.inventory.preferences_description")}
-            </p>
-          </div>
-          <Badge variant="outline">{t("settings.privacy_spine.synced")}</Badge>
-        </div>
+        <SettingsRow
+          leading={<Cloud className="icon-md shrink-0 text-muted-foreground" />}
+          label={t("settings.privacy_spine.inventory.preferences")}
+          description={t(
+            "settings.privacy_spine.inventory.preferences_description"
+          )}
+          control={
+            <Badge variant="outline">
+              {t("settings.privacy_spine.synced")}
+            </Badge>
+          }
+        />
       </div>
     </SettingsCard>
   )

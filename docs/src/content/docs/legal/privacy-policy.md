@@ -55,6 +55,7 @@ The extension requests browser permissions for chat UX, optional page extraction
 - `storage` — settings and local state.
 - `tabs` and content-extraction-related permissions.
 - Network / host permissions to reach configured provider endpoints.
+- `declarativeNetRequest` (Chromium) or `webRequest` and `webRequestBlocking` (Firefox), used only to remove the `Origin` header from the extension's own requests to providers you configured. Requests made by websites are not changed.
 
 ## Retention and user control
 

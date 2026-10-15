@@ -135,20 +135,3 @@ export type PortStatusFunction = () => boolean
 export interface AbortControllerMap {
   [modelName: string]: AbortController
 }
-
-export interface DNRRule {
-  id: number
-  priority: number
-  action: {
-    type: chrome.declarativeNetRequest.RuleActionType
-    requestHeaders: Array<{
-      header: string
-      operation: chrome.declarativeNetRequest.HeaderOperation
-      value: string
-    }>
-  }
-  condition: {
-    urlFilter: string
-    resourceTypes: chrome.declarativeNetRequest.ResourceType[]
-  }
-}

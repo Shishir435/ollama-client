@@ -411,10 +411,10 @@ describe("useChatStream", () => {
     })
   })
 
-  it("explains a turn that finished without any answer, and offers a retry", () => {
+  it("flags a turn that finished without any answer and leaves its content empty", () => {
     // The provider reported success with nothing in it — the shape behind
-    // "connected, model loaded, says nothing back". The turn has to read as a
-    // failure, not as a blank assistant bubble.
+    // "connected, model loaded, says nothing back". The flag is what the
+    // bubble explains it from; copy in `content` would vanish on reload.
     const { result } = renderHook(() =>
       useChatStream({ setMessages, setIsLoading, setIsStreaming })
     )
@@ -434,13 +434,13 @@ describe("useChatStream", () => {
     const finalMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
     expect(finalMessages?.at(-1)).toMatchObject({
       role: "assistant",
-      content: "chat.errors.empty_response",
+      content: "",
       metrics: { emptyResponse: true },
       done: true
     })
   })
 
-  it("shows a safe fallback when the model returns only thinking", () => {
+  it("flags a thinking-only turn and keeps its reasoning", () => {
     const { result } = renderHook(() =>
       useChatStream({
         setMessages,
@@ -465,7 +465,7 @@ describe("useChatStream", () => {
     const finalMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
     expect(finalMessages?.at(-1)).toMatchObject({
       role: "assistant",
-      content: "chat.errors.thinking_only_response",
+      content: "",
       thinking: "This is the answer.",
       metrics: {
         thinkingOnlyResponse: true

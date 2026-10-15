@@ -198,7 +198,7 @@ describe("ProviderGrid", () => {
     ).toHaveClass("sr-only")
   })
 
-  it("keeps the beta info button outside the tile button", () => {
+  it("marks a beta provider with a badge and no separate notice button", () => {
     render(
       <ProviderGrid
         providers={[
@@ -217,11 +217,12 @@ describe("ProviderGrid", () => {
       />
     )
 
-    const info = screen.getByRole("button", {
-      name: "settings.providers.beta_notice"
-    })
     const tile = screen.getByRole("button", { name: /Home server/ })
-    expect(tile.contains(info)).toBe(false)
-    expect(info.closest("button")).toBe(info)
+    expect(
+      within(tile).getByText("settings.providers.beta_badge")
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "settings.providers.beta_notice" })
+    ).toBeNull()
   })
 })

@@ -2,6 +2,7 @@ import {
   resolveToolLoopState,
   ToolLoopCoordinator
 } from "@ollama-client/chat-runtime/tool-loop-runtime"
+import { toolLimitReachedMessage } from "@/background/lib/tool-limit-message"
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
@@ -12,6 +13,7 @@ import type {
   ToolResultProvenance
 } from "@/lib/tools"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
+import { terminalChunkPayload } from "./terminal-chunk-payload"
 import {
   buildImageMessage,
   isAuthorizationIndependentParallelCall,
@@ -39,12 +41,8 @@ interface StreamChatWithToolsOptions {
 
 const DEFAULT_MAX_ITERATIONS = 5
 
-const TOOL_LIMIT_FALLBACK_MESSAGE =
-  "I reached the tool-call limit while gathering context. Please try again with a narrower request."
 const EMPTY_NATIVE_RETRY_MESSAGE =
   "Continue the previous turn. If current information is insufficient, call one of the provided tools now using the native tool-call interface. Otherwise, answer the user directly. Do not return reasoning without either a tool call or a visible answer."
-const EMPTY_NATIVE_FALLBACK_MESSAGE =
-  "The model finished without making the requested tool call or producing an answer. Please retry, or enable the non-native tool fallback for this model."
 
 interface ExecutedToolCall {
   toolMessage: ChatMessage
@@ -80,6 +78,8 @@ const consumeModelChunk = (
   }
   if (chunk.done && !chunk.error && !chunk.aborted) {
     if (chunk.metrics) state.metrics = chunk.metrics
+    const payload = terminalChunkPayload(chunk)
+    if (payload) consumeModelChunk(state, payload, onChunk)
     return
   }
   if (chunk.error || chunk.aborted) {
@@ -134,6 +134,8 @@ const consumeSynthesisChunk = (
   if (chunk.toolCalls?.length) return
   if (chunk.done && !chunk.error && !chunk.aborted) {
     if (chunk.metrics) state.metrics = chunk.metrics
+    const payload = terminalChunkPayload(chunk)
+    if (payload) consumeSynthesisChunk(state, payload, onChunk)
     return
   }
   if (chunk.error || chunk.aborted) {
@@ -174,7 +176,12 @@ const handleEmptyModelPhase = async ({
     return "retry"
   }
 
-  if (emptyThinking) onChunk({ delta: EMPTY_NATIVE_FALLBACK_MESSAGE })
+  /**
+   * Reasoning with no answer finishes as just that. The turn's reducer flags
+   * it thinking-only and the bubble says so beside the reasoning; English text
+   * written here became the answer, untranslatable and sent back to the model
+   * as something it had said.
+   */
   onChunk({
     done: true,
     metrics: phase.metrics,
@@ -341,7 +348,7 @@ export const streamChatWithTools = async ({
   )
 
   if (synthesis.stopped) return
-  if (!synthesis.emittedText) onChunk({ delta: TOOL_LIMIT_FALLBACK_MESSAGE })
+  if (!synthesis.emittedText) onChunk({ delta: toolLimitReachedMessage() })
   onChunk({
     done: true,
     metrics: synthesis.metrics,

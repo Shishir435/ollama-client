@@ -1,90 +1,40 @@
+/**
+ * The overlay's shadow-root stylesheet: the compiled app styles, then the
+ * overlay's own values.
+ *
+ * Colors are not here. They come from src/theme-tokens.css, which
+ * selection-overlay.css imports and which declares them on
+ * `#selection-actions-root` inside the shadow root, so the app and the overlay
+ * read one definition and a host page's custom properties (YouTube's `--card`,
+ * or a `*` rule that reaches the host element) cannot leak in.
+ *
+ * What is here is pinned to px, because a host page can set its root font size
+ * (`html { font-size: 62.5% }`) and every rem would follow it: the 16px base,
+ * `--spacing` (h-*, size-*, gap-*, px-*, py-*), the text sizes, and the radii.
+ * The control and panel radii are re-derived for the same reason, since the
+ * shared tokens compute them from a rem `--radius`.
+ *
+ * Comments inside the template literal ship to every page, so they stay here.
+ */
 export const buildShadowStyles = (appStyles: string): string => `
   ${appStyles}
 
-  /*
-   * Inject ALL design tokens with concrete values on the root container.
-   * This prevents host-page CSS variables (e.g. YouTube's --card) from
-   * leaking in via CSS custom property inheritance.
-   * font-size: 16px normalises rem units regardless of the host page's
-   * root font-size (some sites set html { font-size: 62.5% }).
-   */
   #selection-actions-root {
     font-size: 16px;
-
-    /*
-     * Pin Tailwind v4 CSS vars to absolute px values so rem-based host
-     * pages (e.g. YouTube: html{font-size:62.5%}) don't shrink our UI.
-     * --spacing fixes h-*, size-*, gap-*, px-*, py-* (all calc(var(--spacing)*N))
-     * --text-xs fixes button/label font sizes
-     * --radius fixes rounded-* variants
-     */
     --spacing: 4px;
     --text-xs: 12px;
     --text-xs--line-height: 1.625;
     --text-sm: 14px;
     --text-sm--line-height: 1.4286;
-
-    /* Radius */
     --radius: 10px;
     --radius-xs: 2px;
     --radius-sm: 6px;
     --radius-md: 8px;
     --radius-lg: 10px;
     --radius-xl: 14px;
-    /*
-     * Custom radius tokens used by shared primitives (Card -> rounded-panel,
-     * buttons -> rounded-control). Defined in globals.css :root, but that
-     * sheet isn't loaded in this shadow root, so pin them here or rounded-*
-     * collapses to 0 and the panel renders square corners.
-     */
     --radius-control: calc(var(--radius) - 1px);
     --radius-panel: calc(var(--radius) + 1px);
-    --radius-chip: 999rem;
-
-    /* Light mode tokens */
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.141 0.005 285.823);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.141 0.005 285.823);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.141 0.005 285.823);
-    --primary: oklch(0.21 0.006 285.885);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
-    --muted: oklch(0.967 0.001 286.375);
-    --muted-foreground: oklch(0.552 0.016 285.938);
-    --state-hover: oklch(0.21 0.006 285.885 / 7%);
-    --state-active: oklch(0.21 0.006 285.885 / 12%);
-    --state-selected: oklch(0.21 0.006 285.885 / 10%);
-    --surface-sunken: oklch(0.21 0.006 285.885 / 5%);
-    --surface-overlay: oklch(1 0 0 / 85%);
-    --scrim: oklch(0.141 0.005 285.823 / 45%);
-    --foreground-tertiary: oklch(0.62 0.014 286);
-    --accent: oklch(0.967 0.001 286.375);
-    --accent-foreground: oklch(0.21 0.006 285.885);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.985 0 0);
-    --tint-danger: oklch(0.577 0.245 27.325 / 10%);
-    --tint-danger-hover: oklch(0.577 0.245 27.325 / 20%);
-    --tint-warning: hsl(45 93% 47% / 12%);
-    --tint-info: hsl(214 84% 52% / 10%);
-    --tint-success: hsl(142 72% 33% / 10%);
-    --tint-accent: oklch(0.21 0.006 285.885 / 6%);
-    --tint-accent-strong: oklch(0.21 0.006 285.885 / 30%);
-    --primary-hover: oklch(0.21 0.006 285.885 / 80%);
-    --status-success-hover: hsl(142 72% 33% / 90%);
-    --status-danger-hover: hsl(0 84.2% 60.2% / 90%);
-    --surface-tooltip-key: oklch(1 0 0 / 20%);
-    --border: oklch(0.92 0.004 286.32);
-    --stroke-invalid: oklch(0.577 0.245 27.325);
-    --input: oklch(0.92 0.004 286.32);
-    --ring: oklch(0.705 0.015 286.067);
-    --focus-ring: oklch(0.705 0.015 286.067 / 30%);
-    --invalid-ring: oklch(0.577 0.245 27.325 / 20%);
-    --surface-ring: oklch(0.141 0.005 285.823 / 10%);
-
-    /* sa- aliases */
+    --radius-chip: 999px;
     --sa-radius-lg: var(--radius-lg);
     --sa-radius-md: var(--radius-md);
     --sa-bg: var(--background);
@@ -97,52 +47,10 @@ export const buildShadowStyles = (appStyles: string): string => `
     --sa-shadow: 0 4px 24px oklch(0.141 0.005 285.823 / 0.18);
   }
 
-  /* Dark mode: override only changed tokens */
   #selection-actions-root.dark {
-    --background: oklch(0.141 0.005 285.823);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.21 0.006 285.885);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.21 0.006 285.885);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.92 0.004 286.32);
-    --primary-foreground: oklch(0.21 0.006 285.885);
-    --secondary: oklch(0.274 0.006 286.033);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.274 0.006 286.033);
-    --muted-foreground: oklch(0.705 0.015 286.067);
-    --state-hover: oklch(1 0 0 / 8%);
-    --state-active: oklch(1 0 0 / 14%);
-    --state-selected: oklch(1 0 0 / 12%);
-    --surface-sunken: oklch(1 0 0 / 6%);
-    --surface-overlay: oklch(0.172 0.01 235 / 85%);
-    --scrim: oklch(0 0 0 / 70%);
-    --foreground-tertiary: oklch(0.6 0.014 286);
-    --accent: oklch(0.274 0.006 286.033);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --tint-danger: oklch(0.704 0.191 22.216 / 18%);
-    --tint-danger-hover: oklch(0.704 0.191 22.216 / 30%);
-    --tint-warning: hsl(45 95% 58% / 18%);
-    --tint-info: hsl(213 94% 68% / 16%);
-    --tint-success: hsl(142 67% 45% / 16%);
-    --tint-accent: oklch(0.92 0.004 286.32 / 10%);
-    --tint-accent-strong: oklch(0.92 0.004 286.32 / 30%);
-    --primary-hover: oklch(0.92 0.004 286.32 / 80%);
-    --status-success-hover: hsl(142 67% 45% / 90%);
-    --status-danger-hover: hsl(0 75% 57% / 90%);
-    --surface-tooltip-key: oklch(0.141 0.005 285.823 / 10%);
-    --border: oklch(1 0 0 / 10%);
-    --stroke-invalid: oklch(0.704 0.191 22.216 / 50%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.552 0.016 285.938);
-    --focus-ring: oklch(0.552 0.016 285.938 / 30%);
-    --invalid-ring: oklch(0.704 0.191 22.216 / 40%);
-    --surface-ring: oklch(0.985 0 0 / 10%);
     --sa-shadow: 0 4px 24px oklch(0 0 0 / 0.36);
   }
 
-  /* Tooltip overrides for shadow DOM */
   [data-slot="tooltip-content"] {
     box-sizing: border-box !important;
     border-radius: var(--radius-md) !important;
@@ -165,7 +73,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     display: none !important;
   }
 
-  /* Toolbar */
   .sa-toolbar {
     box-sizing: border-box;
     width: fit-content;
@@ -195,7 +102,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     display: none;
   }
 
-  /* Toolbar label hidden (text shown in panel mode only) */
   .sa-toolbar .sa-label {
     display: none;
   }
@@ -211,7 +117,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     stroke-linejoin: round;
   }
 
-  /* Card overrides for the panel */
   .sa-panel-card {
     width: min(470px, calc(100vw - 16px));
     gap: 0;
@@ -234,7 +139,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     padding: 0 16px 14px;
   }
 
-  /* Panel header */
   .sa-panel-header {
     display: flex;
     align-items: center;
@@ -342,7 +246,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   }
 
-  /* Result area */
   .sa-result {
     min-height: 96px;
     max-height: 240px;
@@ -368,7 +271,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     line-height: 1.4;
   }
 
-  /* Markdown prose inside panel */
   .sa-markdown { font-size: 15px; line-height: 1.55; color: var(--sa-fg); overflow-wrap: anywhere; }
   .sa-markdown p { margin: 0 0 8px; }
   .sa-markdown p:last-child { margin-bottom: 0; }
@@ -417,14 +319,12 @@ export const buildShadowStyles = (appStyles: string): string => `
     color: var(--sa-muted);
   }
 
-  /* Custom prompt form */
   .sa-custom-row {
     display: flex;
     gap: 6px;
     margin-bottom: 8px;
   }
 
-  /* Panel footer actions */
   .sa-panel-actions {
     display: flex;
     flex-wrap: nowrap;
@@ -447,7 +347,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     margin-left: auto;
   }
 
-  /* Toolbar more menu */
   .sa-menu {
     position: absolute;
     top: calc(100% + 8px);
@@ -467,7 +366,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     text-align: left;
   }
 
-  /* Thinking / reasoning section */
   .sa-thinking-section {
     border: 1px solid var(--sa-border);
     border-radius: var(--sa-radius-md);
@@ -549,7 +447,6 @@ export const buildShadowStyles = (appStyles: string): string => `
     margin-bottom: 4px;
   }
 
-  /* Honour the OS reduced-motion setting: no looping pulse, no transitions. */
   @media (prefers-reduced-motion: reduce) {
     #selection-actions-root *,
     #selection-actions-root *::before,

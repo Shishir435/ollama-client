@@ -54,6 +54,41 @@ const registryWithTools = (
 }
 
 describe("streamChatWithTools", () => {
+  it("keeps an answer that arrives on the provider's final chunk", async () => {
+    /**
+     * Ollama may put the whole reply on the `done: true` line. Treating that
+     * line as metrics-only dropped the answer and finished the turn empty.
+     */
+    const provider = scriptedProvider([
+      [
+        {
+          delta: "whole answer",
+          thinkingDelta: "brief thought",
+          done: true,
+          metrics: { eval_count: 3 }
+        }
+      ]
+    ])
+    const chunks: ChatStreamMessage[] = []
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry: registryWith(async () => ({ content: "unused" })),
+      onChunk: (chunk) => chunks.push(chunk),
+      ctx: {}
+    })
+
+    expect(provider.streamChat).toHaveBeenCalledTimes(1)
+    expect(chunks.map((chunk) => chunk.delta).join("")).toBe("whole answer")
+    expect(
+      chunks.some((chunk) => chunk.thinkingDelta === "brief thought")
+    ).toBe(true)
+    const terminal = chunks.filter((chunk) => chunk.done)
+    expect(terminal).toHaveLength(1)
+    expect(terminal[0].metrics).toEqual({ eval_count: 3 })
+  })
+
   it("retries once when a model emits only reasoning, then runs its tool", async () => {
     const provider = scriptedProvider([
       [{ thinkingDelta: "I should call echo." }, { done: true }],
@@ -681,7 +716,9 @@ describe("streamChatWithTools", () => {
       maxIterations: 1
     })
 
-    expect(chunks.find((c) => c.delta)?.delta).toContain("tool-call limit")
+    const notice = chunks.find((c) => c.delta)?.delta
+    expect(notice).toContain("tool-call limit")
+    expect(notice).not.toMatch(/\bI\b|Please/)
     expect(chunks.filter((c) => c.done)).toHaveLength(1)
   })
 

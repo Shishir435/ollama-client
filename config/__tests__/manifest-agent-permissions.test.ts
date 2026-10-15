@@ -63,4 +63,24 @@ describe("Agent perception permission placement", () => {
       expect(manifest.optional_permissions).not.toContain(permission)
     }
   })
+
+  /**
+   * Firefox has no DNR, so a blocking webRequest listener removes `Origin`
+   * from the extension's own provider requests. Chromium uses DNR rules and
+   * must not gain either permission.
+   */
+  it("requires webRequest blocking on Firefox only", () => {
+    expect(manifestFor("firefox").permissions).toEqual(
+      expect.arrayContaining(["webRequest", "webRequestBlocking"])
+    )
+    for (const permission of ["webRequest", "webRequestBlocking"]) {
+      expect(manifestFor("chrome").permissions).not.toContain(permission)
+      expect(manifestFor("chrome").optional_permissions).not.toContain(
+        permission
+      )
+      expect(manifestFor("firefox").optional_permissions).not.toContain(
+        permission
+      )
+    }
+  })
 })

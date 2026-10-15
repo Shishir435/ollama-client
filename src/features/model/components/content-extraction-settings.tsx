@@ -294,8 +294,7 @@ const ContentExtractionSettingsForm = ({
     <SettingsCard
       icon={Sparkles}
       title={t("settings.content_extraction.title")}
-      description={t("settings.content_extraction.description")}
-      badge={t("settings.beta_badge")}>
+      description={t("settings.content_extraction.description")}>
       {/* Enable/Disable Toggle */}
       <SettingsSwitch
         id="content-extraction-enabled"

@@ -2,6 +2,7 @@ import {
   resolveToolLoopState,
   ToolLoopCoordinator
 } from "@ollama-client/chat-runtime/tool-loop-runtime"
+import { toolLimitReachedMessage } from "@/background/lib/tool-limit-message"
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
@@ -19,6 +20,7 @@ import {
   NON_NATIVE_TOOL_CALL_OPEN
 } from "@/lib/tools/non-native/non-native-tool-protocol"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
+import { terminalChunkPayload } from "./terminal-chunk-payload"
 import {
   isAuthorizationIndependentParallelCall,
   type PreparedToolCall,
@@ -46,8 +48,6 @@ interface StreamChatWithNonNativeToolsOptions {
 
 const DEFAULT_MAX_ITERATIONS = 5
 let streamSeq = 0
-const TOOL_LIMIT_FALLBACK_MESSAGE =
-  "I reached the tool-call limit while gathering context. Please try again with a narrower request."
 
 const injectToolPrompt = (
   messages: ChatMessage[],
@@ -131,6 +131,8 @@ const collectNonNativeStreamChunk = (
   if (chunk.replayArtifact) state.replayArtifact = chunk.replayArtifact
   if (isSuccessfulTerminalChunk(chunk)) {
     if (chunk.metrics) state.metrics = chunk.metrics
+    const payload = terminalChunkPayload(chunk)
+    if (payload) collectNonNativeStreamChunk(payload, gate, state, onChunk)
     return
   }
   if (isStoppedChunk(chunk)) {
@@ -316,7 +318,7 @@ export const streamChatWithNonNativeTools = async ({
   if (synthesisState.stopped) return
   finalGate.flushTail()
   if (finalGate.text.trim().length === 0) {
-    onChunk({ delta: TOOL_LIMIT_FALLBACK_MESSAGE })
+    onChunk({ delta: toolLimitReachedMessage() })
   }
   onChunk({
     done: true,

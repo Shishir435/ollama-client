@@ -52,6 +52,7 @@ import {
 import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
 import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
+import { extensionRpcClient } from "@/protocol/extension-client"
 import {
   CHAT_STREAM_EVENT_TYPES,
   STREAM_PROTOCOL_VERSION
@@ -501,6 +502,21 @@ const verifyApi = {
       baseUrl,
       customModels: ["verify-model"]
     })
+  },
+
+  /** List one provider's models through the real RPC boundary, as the model
+   * menu does. `failures` names a provider whose catalog request failed. */
+  async listProviderModels(
+    providerId: string
+  ): Promise<{ models: string[]; failures: string[] }> {
+    const result = await extensionRpcClient.call(
+      RpcMethod.ProvidersListModels,
+      { providerId, enabledOnly: true }
+    )
+    return {
+      models: result.models.map((model) => model.name),
+      failures: result.failures.map((failure) => failure.code)
+    }
   },
 
   /** Reproduce the #315 sequence through the packaged background: RAG query

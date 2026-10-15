@@ -7,8 +7,13 @@ const mocks = vi.hoisted(() => ({
   addListener: vi.fn(),
   sendMessage: vi.fn().mockResolvedValue(undefined),
   createWindow: vi.fn().mockResolvedValue(undefined),
-  openSidePanel: vi.fn().mockResolvedValue(undefined)
+  openSidePanel: vi.fn().mockResolvedValue(undefined),
+  getMessage: vi.fn((key: string) =>
+    key === "askSelectionMenu" ? "Ask Ollama Client about this" : ""
+  ),
+  i18n: undefined as unknown
 }))
+mocks.i18n = { getMessage: mocks.getMessage }
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
@@ -24,6 +29,9 @@ vi.mock("@/lib/browser-api", () => ({
       lastError: undefined,
       sendMessage: mocks.sendMessage,
       getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
+    },
+    get i18n() {
+      return mocks.i18n
     },
     windows: {
       create: mocks.createWindow
@@ -55,11 +63,43 @@ describe("handle-context-menu", () => {
     // Do NOT clear create or addListener as they are called once during init
   })
 
-  it("should create context menu with correct configuration", () => {
+  it("titles the context menu from the extension's localized messages", () => {
     expect(mocks.create).toHaveBeenCalledWith({
       id: "add-to-local-llm-client",
-      title: "Ask Local LLM",
+      title: "Ask Ollama Client about this",
       contexts: ["selection"]
+    })
+  })
+
+  describe("menu title without a localized message", () => {
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+    it("falls back to the default-locale title when the catalog returns nothing", async () => {
+      const { initializeContextMenu } = await import("../handle-context-menu")
+      mocks.create.mockClear()
+      mocks.getMessage.mockReturnValueOnce("")
+      initializeContextMenu()
+      await flush()
+
+      expect(mocks.create).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Ask Ollama Client about this" })
+      )
+    })
+
+    it("does not throw when the i18n API is absent", async () => {
+      const { initializeContextMenu } = await import("../handle-context-menu")
+      mocks.create.mockClear()
+      mocks.i18n = undefined
+      try {
+        initializeContextMenu()
+        await flush()
+      } finally {
+        mocks.i18n = { getMessage: mocks.getMessage }
+      }
+
+      expect(mocks.create).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Ask Ollama Client about this" })
+      )
     })
   })
 

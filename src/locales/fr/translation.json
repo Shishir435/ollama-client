@@ -177,7 +177,7 @@
       "description": "Ce qu’une exécution peut faire sans demander, combien de contexte elle peut demander à son modèle et quand elle capture la page.",
       "enabled": {
         "label": "Autoriser le modèle de chat à utiliser l’agent du navigateur",
-        "description": "Propose browser_task, qui permet au modèle de cliquer, saisir et naviguer dans vos onglets à votre place. Expérimental : son efficacité varie beaucoup d’un modèle à l’autre."
+        "description": "Permet au modèle de cliquer, saisir du texte et naviguer dans vos onglets. Expérimental : l’efficacité varie beaucoup selon les modèles."
       },
       "context_window": {
         "label": "Fenêtre de contexte",
@@ -187,7 +187,7 @@
       },
       "vision": {
         "label": "Captures d'écran",
-        "description": "Une image coûte un préremplissage d'image dans la fenêtre du modèle à chaque étape qui en prend une. Automatique en prend une à la première étape, après une étape qui n'a pas abouti, et sur les pages que la structure ne peut pas décrire.",
+        "description": "Chaque capture d’écran occupe une partie du contexte du modèle à cette étape. En mode automatique, une capture est prise à la première étape, après une étape qui a échoué et sur les pages illisibles sous forme de texte.",
         "auto": "Quand l'étape en a besoin",
         "always": "À chaque étape",
         "never": "Jamais"
@@ -348,13 +348,12 @@
     },
     "updated_at": "Mis à jour",
     "social": {
-      "title": "Connectez-vous avec Moi",
+      "title": "Me suivre",
       "visit_profile": "Visiter mon profil {{platform}}"
     },
     "language": {
       "label": "Langue",
-      "select_label": "Langue de l'Interface",
-      "beta_badge": "Bêta",
+      "select_label": "Langue de l’interface",
       "description": "Sélectionnez votre langue préférée pour l'interface.",
       "help_text": "Les traductions sont générées par IA. Aidez-nous à améliorer en contribuant sur <0>GitHub</0> !"
     },
@@ -377,13 +376,15 @@
     "stop_browser_agent_menu": "Arrêter l’agent du navigateur",
     "agent_task_completed": "Terminé",
     "agent_task_attention": "En pause",
-    "agent_task_unchecked": "Terminé, pas tout vérifié"
+    "agent_task_unchecked": "Terminé, pas tout vérifié",
+    "ask_selection_menu": "Demander à Ollama Client",
+    "tool_limit_reached": "Arrêté à la limite d’appels d’outils avant qu’une réponse soit prête. Reposez la question de façon plus ciblée."
   },
   "selection_button": {
     "actions": {
       "summarize": {
         "label": "Résumer",
-        "short": "Résumé"
+        "short": "Résumer"
       },
       "rewrite": {
         "label": "Réécrire professionnellement",
@@ -395,7 +396,7 @@
       },
       "fix-grammar": {
         "label": "Corriger la grammaire",
-        "short": "Grammaire"
+        "short": "Corriger"
       },
       "explain": {
         "label": "Expliquer simplement",
@@ -403,11 +404,11 @@
       },
       "action-items": {
         "label": "Extraire les actions",
-        "short": "Actions"
+        "short": "Tâches"
       },
       "translate-english": {
         "label": "Traduire en anglais",
-        "short": "Anglais"
+        "short": "Traduire"
       },
       "custom": {
         "label": "Instruction personnalisée",
@@ -458,21 +459,21 @@
     "start_chatting": "Commencer à Chatter",
     "status": {
       "connecting": {
-        "title": "Connexion...",
-        "message": "Connexion au fournisseur local en cours"
+        "title": "Connexion…",
+        "message": "Vérification de vos fournisseurs."
       },
       "connection_failed": {
-        "title": "Échec de la Connexion",
-        "message": "Échec de la connexion au fournisseur. Le serveur est-il en cours d’exécution ?"
+        "title": "{{provider}} injoignable",
+        "message": "Démarrez-le, puis sélectionnez Réessayer."
       },
       "no_models": {
-        "title": "Aucun Modèle Trouvé",
-        "message": "Veuillez télécharger un modèle pour commencer",
+        "title": "Aucun modèle de chat pour l’instant",
+        "message": "Exécutez `ollama pull llama3.2`, puis vérifiez à nouveau.",
         "message_generic": "Installez ou chargez un modèle de chat dans votre fournisseur, puis vérifiez à nouveau."
       },
       "ready": {
-        "title": "Prêt à Chatter",
-        "message": "Le fournisseur est connecté et prêt"
+        "title": "Prêt à discuter",
+        "message": "Votre fournisseur est connecté."
       },
       "provider_fallback": "votre fournisseur"
     },
@@ -500,14 +501,14 @@
       }
     },
     "performance_notice": {
-      "title": "Avis de Performance",
+      "title": "Remarque sur les performances",
       "message": "Les réponses du chat proviennent du fournisseur choisi. Les embeddings intégrés sont calculés sur cet appareil. La vitesse dépend du modèle et du matériel utilisé."
     }
   },
   "chat": {
     "scroll_to_bottom": "Aller en bas",
     "input": {
-      "placeholder": "Écrivez un message ou ctrl + /",
+      "placeholder": "Posez une question",
       "switch_model": "Changer de modèle",
       "chars": "Caractères",
       "enter_to_send": "Envoyer",
@@ -595,7 +596,7 @@
         "planning": "Planification",
         "thinking": "Réflexion",
         "page": "Lecture de la page",
-        "files": "RAG",
+        "files": "Recherche dans les fichiers",
         "web": "Recherche web",
         "knowledge": "Recherche dans les connaissances",
         "tab": "Lecture de l'onglet",
@@ -633,7 +634,7 @@
         "cancel_reminder": "Annulation du rappel",
         "browser_task": "Tâche dans le navigateur"
       },
-      "debug": "Raisonnement de débogage"
+      "debug": "Afficher le raisonnement"
     },
     "feedback": {
       "helpful_tooltip": "C'était utile",
@@ -682,13 +683,12 @@
       "button_label": "Rechercher des Chats",
       "dialog_title": "Recherche Sémantique de Chat",
       "dialog_description": "Recherchez votre historique de chat par signification, pas seulement par mots-clés",
-      "beta_badge": "Bêta v0.3.0",
       "placeholder": "Rechercher des conversations par signification...",
       "scope_all": "Tous les Chats",
       "scope_current": "Chat Actuel",
       "searching": "Recherche de l'historique de chat...",
-      "no_results": "Aucun résultat trouvé. Essayez une requête de recherche différente.",
-      "no_results_description": "Essayez d'ajuster vos mots-clés ou le périmètre de recherche.",
+      "no_results": "Aucun chat ne correspond.",
+      "no_results_description": "Essayez de le décrire autrement.",
       "start_typing": "Commencez à taper pour rechercher sémantiquement dans votre historique de chat...",
       "start_typing_description": "Recherchez dans votre historique de chat via la recherche sémantique.",
       "role_you": "Vous",
@@ -759,15 +759,15 @@
         "title": "L’agent du navigateur est désactivé",
         "description": "Cela ressemble à une tâche dans le navigateur. L’agent est expérimental et fonctionne mieux avec des modèles hébergés.",
         "enable": "Activer et continuer",
-        "continue_without": "Continuer sans",
+        "continue_without": "Répondre sans l’agent",
         "manage": "Réglages de l’agent"
       }
     },
     "errors": {
-      "unknown_error": "❌ Erreur inconnue : {{message}}",
+      "unknown_error": "La requête a échoué : {{message}}. Réessayez ou vérifiez que {{provider}} fonctionne.",
       "no_message": "Aucun message",
-      "response_failed_title": "Échec de la génération de la réponse",
-      "unknown_error_description": "Une erreur inconnue est survenue",
+      "response_failed_title": "Aucune réponse obtenue",
+      "unknown_error_description": "La requête a échoué. Réessayez ou vérifiez que le fournisseur fonctionne.",
       "provider_replay_invalid": "Cette réponse ne peut pas être poursuivie en toute sécurité. Réessayez ce tour pour reconstruire le contexte du fournisseur.",
       "provider_busy": "Le point de terminaison local termine encore une requête précédente et ne peut pas en démarrer une autre. Patiente environ une minute ou redémarre-le.",
       "report_issue": "Signaler un problème",
@@ -784,17 +784,14 @@
       "issue_draft_notice": "Prérempli localement. Vérifiez avant l’envoi.",
       "preparing_issue": "Exécution des vérifications sûres…",
       "open_diagnostics": "Ouvrir le diagnostic",
-      "empty_response": "Le modèle a terminé sans envoyer de réponse. Il a peut-être été déchargé, ou la conversation n'a laissé aucune place pour répondre. Réessaie ou commence une nouvelle discussion.",
-      "thinking_only_response": "Je n'ai pas reçu de réponse finale du modèle. Réessaie, s'il te plaît.",
-      "provider_selection_required_title": "Sélection du fournisseur requise",
-      "provider_selection_required_description": "Sélectionne un fournisseur pour « {{model}} » dans le menu des modèles avant d'envoyer un message.",
+      "provider_selection_required_title": "Choisissez où exécuter {{model}}",
+      "provider_selection_required_description": "Plusieurs serveurs proposent ce modèle. Choisissez-en un dans le menu des modèles.",
       "no_model_selected_title": "Aucun modèle sélectionné",
       "no_model_selected_description": "Sélectionne un modèle dans le menu des modèles avant d'envoyer un message.",
       "chat_create_failed_title": "Impossible de démarrer la discussion",
       "chat_create_failed_description": "La création de la discussion a échoué. Réessaie, s'il te plaît.",
       "message_save_failed_title": "Impossible d'envoyer le message",
       "message_save_failed_description": "L'enregistrement du message a échoué. Réessaie, s'il te plaît.",
-      "context_preparation_failed": "Je n'ai pas pu préparer le contexte de ce message. Réessaie, ou réduis le contexte et les fichiers sélectionnés si cela persiste.",
       "context_preparation_failed_title": "Échec de la préparation du contexte",
       "context_preparation_failed_description": "Le message a été enregistré, mais l'assistant n'a pas pu démarrer car la préparation du contexte a échoué.",
       "insufficient_page_context": "Contexte de page insuffisant. Sélectionne au moins un onglet dont le contenu extrait est pertinent, puis réessaie.\n\nPour désactiver ce comportement, ouvre [{{settingsLabel}}]({{settingsLink}}).",
@@ -803,8 +800,8 @@
       "context_retrieval_warning_title": "Échec de la récupération du contexte",
       "context_retrieval_warning_description": "Une partie du contexte enregistré n’a pas pu être recherchée. Des informations pertinentes peuvent manquer dans la réponse.",
       "interrupted": "Réponse interrompue",
-      "provider_auth": "Le fournisseur a refusé l’accès. Vérifiez sa clé API, ses identifiants ou les autorisations du compte dans les paramètres avant de recommencer.",
-      "provider_cors": "Le fournisseur local a bloqué l’origine de l’extension. Autorisez chrome-extension://* et moz-extension://* dans ses paramètres CORS, puis réessayez.",
+      "provider_auth": "{{provider}} a refusé la clé API. Vérifiez-la dans les paramètres du fournisseur.",
+      "provider_cors": "{{provider}} a bloqué cette extension. Redémarrez-le avec OLLAMA_ORIGINS défini — voir le [guide d’installation]({{setupGuideUrl}}).",
       "provider_refused": "Le modèle a refusé cette demande. Adaptez la tâche ou choisissez un autre modèle.",
       "unknown_error_generic": "La requête a échoué : {{message}}. Réessayez dans un instant.",
       "provider_fallback": "Le fournisseur",
@@ -819,7 +816,8 @@
       "out_of_memory": "{{model}} nécessite plus de mémoire que cette machine n’en a de libre. Fermez d’autres applications ou choisissez un modèle plus petit.",
       "model_crashed": "{{model}} a planté pendant le chargement. Réessayez ; si cela se reproduit, consultez le journal de {{provider}}.",
       "ollama_cloud_signin": "{{model}} s’exécute sur le cloud d’Ollama. Connectez-vous avec `ollama signin` ou choisissez un modèle local.",
-      "ollama_cloud_unreachable": "Impossible de joindre Ollama pour {{model}}. Démarrez Ollama. S'il tourne déjà, ce modèle cloud nécessite `ollama signin`."
+      "ollama_cloud_unreachable": "Impossible de joindre Ollama pour {{model}}. Démarrez Ollama. S'il tourne déjà, ce modèle cloud nécessite `ollama signin`.",
+      "provider_forbidden": "{{provider}} a refusé cette requête. Vérifiez la clé API dans les paramètres du fournisseur, ou les règles d’accès du proxy placé devant."
     },
     "composer": {
       "rag": "Fichiers",
@@ -886,6 +884,10 @@
       "copied": "Réponse copiée",
       "exported_json": "Chat exporté en JSON",
       "exported_pdf": "Chat exporté en PDF"
+    },
+    "empty_reply": {
+      "no_text": "Le modèle n’a renvoyé aucun texte. Réessayez ou essayez un autre modèle.",
+      "thinking_only": "Le modèle n’a produit que du raisonnement, sans réponse. Réessayez ou essayez un autre modèle."
     }
   },
   "file_upload": {
@@ -912,9 +914,9 @@
       "empty_hint": "Déposez des fichiers ici ou choisissez des fichiers."
     },
     "settings": {
-      "max_file_size_label": "Taille Maximale de Fichier (Mo)",
+      "max_file_size_label": "Taille maximale des fichiers (Mo)",
       "max_file_size_description": "Taille maximale autorisée pour les fichiers individuels. Les fichiers plus volumineux peuvent prendre plus de temps à être traités.",
-      "max_image_size_label": "Taille maximale d'image (Mo)",
+      "max_image_size_label": "Taille maximale des images (Mo)",
       "max_image_size_description": "Taille maximale autorisée pour chaque image jointe à un message pour les modèles de vision."
     },
     "errors": {
@@ -933,7 +935,7 @@
       "checking_model": "Vérification du modèle d'incrustation RAG/recherche...",
       "error": "Impossible de vérifier l'état. Cliquez pour réessayer.",
       "required_for_rag": "Le modèle d'incrustation est requis pour les fonctionnalités RAG.",
-      "download_button": "Télécharger le Modèle",
+      "download_button": "Télécharger le modèle",
       "unavailable": "Fournisseur d’embeddings indisponible. Vérifiez la connexion et réessayez.",
       "unverified": "Modèle d’embeddings non vérifié : ce fournisseur n’a pas de liste de modèles.",
       "download_failed": "Échec du téléchargement des embeddings",
@@ -945,13 +947,13 @@
       "refresh_aria_label": "Actualiser les modèles",
       "refresh_tooltip": "Actualiser les modèles",
       "search_placeholder": "Rechercher un modèle...",
-      "no_model_found": "Aucun modèle trouvé.",
+      "no_model_found": "Aucun modèle pour l’instant. Vérifiez le fournisseur dans les paramètres ou ajoutez des ID de modèle.",
       "cloud_badge": "Cloud{{plan}}",
       "cloud_models": {
         "label": "Modèles cloud d’Ollama",
         "description": "Modèles :cloud hébergés. Nécessitent un Ollama connecté et souvent un abonnement payant."
       },
-      "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Vérifiez le fournisseur dans les paramètres ou ajoutez des identifiants de modèle manuellement.",
+      "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Ajoutez des ID de modèle dans les paramètres du fournisseur.",
       "selection_conflict": "Choisissez un fournisseur pour {{model}} — plusieurs le proposent.",
       "no_model_match": "Aucun modèle correspondant.",
       "providers_unreachable": "Impossible de joindre {{names}}. Vérifiez que le serveur fonctionne et l’adresse dans les paramètres du fournisseur.",
@@ -961,37 +963,37 @@
       "tooltip": "Version d'Provider : {{version}}"
     },
     "site_overrides": {
-      "title": "Priorités Spécifiques au Site",
+      "title": "Réglages propres à un site",
       "description": "Configurez des paramètres d'extraction personnalisés pour des sites spécifiques à l'aide de motifs regex",
-      "add_pattern_label": "Ajouter un Motif de Site",
+      "add_pattern_label": "Ajouter un motif de site",
       "pattern_placeholder": "medium.com ou ^https://twitter\\.com/.*",
       "pattern_empty_error": "Le motif de site ne peut pas être vide",
       "pattern_exists_error": "La priorité de site existe déjà",
       "pattern_invalid_error": "Motif d'expression régulière non valide",
       "examples": "Exemples : <0>medium.com</0> ou <0>^https://twitter\\.com/.*</0>",
-      "active_overrides": "Priorités Actives",
+      "active_overrides": "Réglages actifs",
       "site_count": "{{count}} site",
       "site_count_plural": "{{count}} sites",
-      "select_site_label": "Sélectionner le Site à Configurer",
+      "select_site_label": "Choisir le site à configurer",
       "select_placeholder": "Sélectionner un site...",
       "search_placeholder": "Rechercher des sites...",
       "no_sites_found": "Aucun site trouvé.",
       "no_overrides": "Aucune priorité spécifique au site configurée",
       "no_overrides_hint": "Ajoutez des motifs pour personnaliser les paramètres d'extraction pour des sites spécifiques",
-      "scroll_strategy_label": "Stratégie de Défilement",
-      "scroll_depth_label": "Profondeur de Défilement",
+      "scroll_strategy_label": "Stratégie de défilement",
+      "scroll_depth_label": "Profondeur de défilement",
       "add_button": "Ajouter"
     },
     "exclude_urls": {
       "title": "URL Exclues",
       "description": "Bloquer l'accès à l'extension depuis des pages sensibles à l'aide de motifs regex",
-      "add_pattern_label": "Ajouter un Motif d'URL",
+      "add_pattern_label": "Ajouter un motif d’URL",
       "pattern_placeholder": "^https://example\\.com/private.*",
       "pattern_empty_error": "Le motif ne peut pas être vide",
       "pattern_exists_error": "Le motif existe déjà",
       "pattern_invalid_error": "Motif d'expression régulière non valide",
       "examples": "Utilisez des expressions régulières pour faire correspondre les URLs. Exemples : <0>^https://bank\\.</0> ou <0>.*\\.private\\..*</0>",
-      "active_patterns": "Motifs Actifs",
+      "active_patterns": "Motifs actifs",
       "pattern_count": "{{count}} motif",
       "pattern_count_plural": "{{count}} motifs",
       "no_patterns": "Aucun motif d'URL configuré",
@@ -1000,67 +1002,67 @@
     },
     "embedding_config": {
       "title": "Modèle d'embedding, découpage, recherche et stockage",
-      "storage_stats_title": "Statistiques de Stockage",
+      "storage_stats_title": "Statistiques de stockage",
       "storage_stats_description": "Statistiques actuelles d’utilisation du stockage des vecteurs",
-      "total_vectors": "Vecteurs Totaux",
-      "storage_used": "Stockage Utilisé",
+      "total_vectors": "Total des embeddings",
+      "storage_used": "Stockage utilisé",
       "cache": "Cache",
       "cache_entries": "{{size}} / {{maxSize}} entrées",
-      "database_management_title": "Gestion de la Base de Données",
+      "database_management_title": "Nettoyage des connaissances enregistrées",
       "database_management_description": "Nettoyez et gérez votre base de données d'incrustations vectorielles",
-      "remove_duplicates_button": "Supprimer les Doublons",
+      "remove_duplicates_button": "Supprimer les doublons",
       "remove_duplicates_description": "Supprime les incrustations en double, en ne conservant que la première occurrence de chaque message unique",
-      "clear_chat_button": "Effacer Toutes les Incrustations de Chat",
+      "clear_chat_button": "Effacer tous les embeddings des chats",
       "clear_chat_description": "Supprime toutes les incrustations de chat. Vous pouvez les remplir (backfill) plus tard pour les régénérer",
-      "clear_all_button": "Effacer Toutes les Incrustations",
+      "clear_all_button": "Effacer tous les embeddings",
       "clear_all_description": "Supprime toutes les incrustations (chats, fichiers, pages web). Cette action est irréversible",
       "database_management": {
         "remove_duplicates_confirm": "Supprimer les embeddings en double ? Cela ne conservera que la première occurrence de chaque message unique.",
         "remove_duplicates_success": "{{deleted}} doublon(s) supprimé(s). {{kept}} embedding(s) unique(s) conservé(s).",
-        "remove_duplicates_error": "Échec de la suppression des doublons. Consultez la console pour plus de détails.",
+        "remove_duplicates_error": "Les doublons n’ont pas été supprimés. Rechargez l’extension et réessayez.",
         "clear_chat_confirm": "Effacer tous les embeddings de chat ? Cela supprimera toutes les données de recherche sémantique pour les chats. Vous pourrez effectuer un remplissage ultérieurement.",
         "clear_chat_success": "{{count}} embedding(s) de chat effacé(s).",
-        "clear_chat_error": "Échec de l'effacement des vecteurs de chat. Consultez la console pour plus de détails.",
-        "clear_all_confirm": "Effacer TOUS les embeddings ? Cela supprimera toutes les données de recherche sémantique (chats, fichiers, pages Web). Cette action ne peut pas être annulée.",
+        "clear_chat_error": "Les données de recherche des chats n’ont pas été effacées. Rechargez l’extension et réessayez.",
+        "clear_all_confirm": "Effacer tous les embeddings ? Toutes les données de recherche sémantique (chats, fichiers, pages web) seront supprimées. Cette action est irréversible.",
         "clear_all_success": "Tous les embeddings ont été effacés.",
-        "clear_all_error": "Échec de l'effacement de tous les vecteurs. Consultez la console pour plus de détails."
+        "clear_all_error": "Les données de recherche n’ont pas été effacées. Rechargez l’extension et réessayez."
       },
-      "chunking_title": "Paramètres de Fragmentation",
+      "chunking_title": "Paramètres de découpage",
       "chunking_description": "Configure la manière dont le texte est divisé en fragments pour l'incrustation",
-      "chunk_size_label": "Taille du Fragment (tokens)",
+      "chunk_size_label": "Taille des fragments (tokens)",
       "chunk_size_description": "Nombre de tokens par fragment. Les fragments plus grands conservent plus de contexte, mais peuvent être moins ciblés.",
-      "chunk_overlap_label": "Chevauchement de Fragments (tokens)",
+      "chunk_overlap_label": "Chevauchement des fragments (tokens)",
       "chunk_overlap_description": "Chevauchement entre les fragments. Aide à préserver le contexte aux limites des fragments.",
-      "chunking_strategy_label": "Stratégie de Fragmentation",
-      "strategy_fixed": "Taille Fixe",
-      "strategy_semantic": "Limites Sémantiques",
+      "chunking_strategy_label": "Stratégie de découpage",
+      "strategy_fixed": "Taille fixe",
+      "strategy_semantic": "Limites sémantiques",
       "strategy_hybrid": "Hybride",
       "strategy_markdown": "Structure Markdown",
-      "embedding_gen_title": "Génération d'Incrustation",
+      "embedding_gen_title": "Génération des embeddings",
       "embedding_gen_description": "Configure les performances de la génération d'incrustation",
-      "batch_size_label": "Taille du Lot",
+      "batch_size_label": "Taille des lots",
       "batch_size_description": "Nombre de textes à intégrer en parallèle. Les valeurs plus élevées sont plus rapides mais utilisent plus de mémoire.",
-      "enable_caching_label": "Activer la Mise en Cache",
+      "enable_caching_label": "Activer le cache",
       "enable_caching_description": "Mettre en cache les incrustations pour un contenu identique afin d'éviter la régénération",
-      "limits_title": "Limites et Stockage",
+      "limits_title": "Limites et stockage",
       "limits_description": "Configure les limites de stockage et les politiques de nettoyage",
-      "max_embeddings_label": "Max Incrustations par Fichier",
+      "max_embeddings_label": "Embeddings max. par fichier",
       "max_embeddings_description": "Maximum d'incrustations par fichier (0 = illimité). Aide à prévenir les problèmes de mémoire avec de très gros fichiers.",
-      "max_storage_label": "Taille Max. de Stockage (Mo)",
+      "max_storage_label": "Stockage max. (Mo)",
       "max_storage_description": "Taille maximale de stockage en Mo (0 = illimité). Les vecteurs les plus anciens seront supprimés lorsque la limite est atteinte.",
-      "auto_cleanup_label": "Nettoyage Automatique",
+      "auto_cleanup_label": "Nettoyage automatique",
       "auto_cleanup_description": "Supprimer automatiquement les incrustations anciennes",
-      "cleanup_age_label": "Ancienneté de Nettoyage (jours)",
+      "cleanup_age_label": "Nettoyer après (jours)",
       "cleanup_age_description": "Supprimer les incrustations plus anciennes que ce nombre de jours",
-      "search_settings_title": "Paramètres de Recherche",
+      "search_settings_title": "Paramètres de recherche",
       "search_settings_description": "Paramètres par défaut pour la recherche sémantique",
-      "search_limit_label": "Limite de Recherche par Défaut",
+      "search_limit_label": "Limite de recherche par défaut",
       "search_limit_description": "Nombre par défaut de résultats à renvoyer par la recherche sémantique",
-      "min_similarity_label": "Seuil Minimal de Similitude",
+      "min_similarity_label": "Seuil de similarité minimal",
       "min_similarity_description": "Score minimal de similarité cosinus (0-1). Pour la recherche sémantique, 0.4-0.6 est recommandé. Les valeurs plus élevées renvoient des résultats plus pertinents mais moins nombreux.",
-      "cache_ttl_label": "TTL de Cache de Recherche (minutes)",
+      "cache_ttl_label": "Durée du cache de recherche (minutes)",
       "cache_ttl_description": "Durée de mise en cache des résultats de recherche (1-60 minutes). Les requêtes mises en cache sont renvoyées instantanément.",
-      "cache_max_size_label": "Max Requêtes Mises en Cache",
+      "cache_max_size_label": "Requêtes en cache max.",
       "cache_max_size_description": "Nombre maximal de requêtes de recherche à mettre en cache (10-200). Les entrées plus anciennes sont automatiquement supprimées lorsque la limite est atteinte.",
       "ann_backend_label": "Backend ANN",
       "ann_backend_description": "Choisissez le backend de plus proches voisins approximatifs utilisé pour la recherche vectorielle.",
@@ -1068,12 +1070,12 @@
       "ann_backend_group": "Backends",
       "ann_backend_ts": "HNSW TypeScript",
       "ann_backend_bruteforce": "Force brute",
-      "ann_min_vectors_label": "Nombre minimal de vecteurs ANN",
-      "ann_min_vectors_description": "Nombre minimal de vecteurs avant utilisation de l’ANN (0 = toujours).",
-      "enhanced_chunking_label": "Découpage Amélioré",
+      "ann_min_vectors_label": "Seuil de recherche rapide",
+      "ann_min_vectors_description": "Utiliser la recherche approximative rapide dès que ce nombre de fragments est enregistré (0 = toujours).",
+      "enhanced_chunking_label": "Découpage amélioré",
       "enhanced_chunking_description": "Utiliser le découpage récursif avancé des caractères pour un meilleur contexte",
       "enhanced_chunking_info": "Le découpage amélioré divise le texte de manière hiérarchique (paragraphes → phrases → mots) pour préserver la signification sémantique. Ceci est recommandé pour le RAG.",
-      "rag_settings_title": "Paramètres RAG",
+      "rag_settings_title": "RAG (génération augmentée par récupération)",
       "rag_settings_description": "Configurez la manière dont les fichiers sont utilisés pour répondre aux questions avec le contexte récupéré",
       "rag_enable_label": "Activer le RAG",
       "rag_enable_description": "Utiliser le contexte récupéré pour répondre aux questions sur vos fichiers",
@@ -1082,13 +1084,13 @@
       "embedding_source_label": "Source de génération des embeddings",
       "embedding_source_description": "Les embeddings sont générés via votre fournisseur local (Ollama par défaut)",
       "embedding_source_default_provider": "Fournisseur par défaut (Ollama)",
-      "feedback_learning_title": "Apprentissage avec les retours utilisateur",
+      "feedback_learning_title": "Apprentissage à partir des retours",
       "feedback_learning_description": "Améliorez la qualité de recherche en apprenant de vos retours.",
-      "feedback_enable_label": "Activer la collecte de retours",
+      "feedback_enable_label": "Collecter les retours",
       "feedback_enable_description": "Mémoriser les fragments utiles pour améliorer les récupérations futures.",
       "feedback_show_chunks_label": "Afficher les fragments récupérés",
       "feedback_show_chunks_description": "Afficher les fragments sources dans le chat avec des boutons de retour.",
-      "feedback_export_button": "Exporter les données de retour",
+      "feedback_export_button": "Exporter les retours",
       "feedback_clear_button": "Effacer tous les retours",
       "feedback_privacy_note": "Tous les retours sont stockés localement. Les requêtes sont hachées pour la confidentialité. Aucune donnée ne quitte votre appareil.",
       "feedback_stats_title": "Statistiques des retours",
@@ -1098,17 +1100,17 @@
       "feedback_stats_queries": "Requêtes avec retour",
       "feedback_privacy_title": "Confidentialité des retours",
       "feedback_export_success": "Données de retour exportées",
-      "feedback_export_error": "Impossible d’exporter les données de retour",
+      "feedback_export_error": "Impossible d’exporter les retours. Réessayez.",
       "feedback_clear_confirm_title": "Effacer tous les retours ?",
       "feedback_clear_confirm_description": "Cela supprimera tous les retours enregistrés. Cette action est irréversible.",
       "feedback_clear_success": "Données de retour effacées",
-      "feedback_clear_error": "Impossible d’effacer les données de retour"
+      "feedback_clear_error": "Impossible d’effacer les retours. Réessayez."
     },
     "provider_status": {
-      "checking": "Vérification du fournisseur local...",
-      "error": "Fournisseur local inaccessible",
-      "empty": "Fournisseur local joignable, mais aucun modèle de chat trouvé",
-      "ready": "Fournisseur local prêt",
+      "checking": "Vérification des fournisseurs…",
+      "error": "Impossible de charger les modèles",
+      "empty": "Aucun modèle de chat trouvé",
+      "ready": "Modèles prêts",
       "unreachable": "Impossible de joindre {{provider}}"
     },
     "capabilities": {
@@ -1182,10 +1184,10 @@
   "sessions": {
     "selector": {
       "title": "Sessions de Chat",
-      "create_new": "Créer un Nouveau Chat",
+      "create_new": "Nouveau chat",
       "search_placeholder": "Rechercher les chats par titre...",
       "clear_search": "Effacer la recherche",
-      "no_sessions": "Aucune session de chat pour l'instant",
+      "no_sessions": "Aucun chat pour l’instant",
       "no_matches": "Aucun chat correspondant",
       "no_matches_hint": "Essayez un autre titre.",
       "session_count": "{{count}} session",
@@ -1276,7 +1278,7 @@
         "chat": "Chats",
         "chat_count": "{{sessions}} sessions · {{messages}} messages",
         "knowledge": "Connaissances et mémoire",
-        "knowledge_count": "{{files}} fichiers · {{vectors}} vecteurs",
+        "knowledge_count": "{{files}} fichiers indexés",
         "agent": "Exécutions de l’agent",
         "agent_count": "{{runs}} exécutions enregistrées et reçus de récupération",
         "settings": "Réglages locaux et secrets des fournisseurs",
@@ -1286,13 +1288,13 @@
       }
     },
     "chat_display": {
-      "title": "Affichage du Chat",
+      "title": "Affichage du chat",
       "description": "Configurer l'affichage des informations du chat",
-      "session_metrics_label": "Afficher les Métriques de Session",
+      "session_metrics_label": "Afficher les statistiques de session",
       "session_metrics_description": "Afficher l'utilisation des tokens, la durée et la vitesse dans l'en-tête du chat"
     },
     "prompt_context_limits": {
-      "title": "Limites de Contexte de Prompt",
+      "title": "Limites de contexte du prompt",
       "description": "Contrôlez la quantité de contexte d'onglet et RAG injectée dans chaque requête.",
       "max_tab_context_chars": "Caractères max de contexte d'onglet",
       "max_rag_context_chars": "Caractères max de contexte RAG",
@@ -1306,35 +1308,35 @@
       "description": "Si le contexte de page pertinent manque, l'assistant renvoie un message de contexte insuffisant au lieu de deviner."
     },
     "shortcuts": {
-      "title": "Raccourcis Clavier",
+      "title": "Raccourcis clavier",
       "description": "Personnalisez les raccourcis clavier pour un accès rapide aux fonctionnalités.",
       "recording": "Appuyez sur les touches...",
-      "reset_all": "Réinitialiser Tous les Raccourcis",
-      "new_chat": "Nouveau Chat",
+      "reset_all": "Réinitialiser tous les raccourcis",
+      "new_chat": "Nouveau chat",
       "new_chat_desc": "Créer une nouvelle session de chat",
-      "focus_input": "Focus sur l'Entrée",
+      "focus_input": "Activer la saisie",
       "focus_input_desc": "Focus sur le champ de saisie du chat",
-      "toggle_sidebar": "Basculer la Barre Latérale",
+      "toggle_sidebar": "Afficher/masquer la barre latérale",
       "toggle_sidebar_desc": "Ouvrir ou fermer la barre latérale",
-      "stop_generation": "Arrêter la Génération",
+      "stop_generation": "Arrêter la génération",
       "stop_generation_desc": "Arrêter la réponse de l'IA",
-      "open_settings": "Ouvrir les Paramètres",
+      "open_settings": "Ouvrir les paramètres",
       "open_settings_desc": "Ouvrir la page des paramètres",
-      "toggle_theme": "Changer de Thème",
+      "toggle_theme": "Changer de thème",
       "toggle_theme_desc": "Basculer entre le mode clair et sombre",
       "toggle_rag": "Basculer RAG",
       "toggle_rag_desc": "Activer ou désactiver la récupération de contexte",
-      "toggle_speech": "Basculer la Parole",
+      "toggle_speech": "Activer/désactiver la lecture vocale",
       "toggle_speech_desc": "Démarrer ou arrêter la lecture de la dernière réponse de l'IA",
-      "toggle_tabs": "Basculer les Onglets",
+      "toggle_tabs": "Afficher/masquer les onglets",
       "toggle_tabs_desc": "Activer ou désactiver l'accès aux onglets",
-      "search_messages": "Rechercher des Messages",
+      "search_messages": "Rechercher dans les messages",
       "search_messages_desc": "Ouvrir la recherche sémantique du chat",
-      "clear_chat": "Effacer le Chat",
+      "clear_chat": "Vider le chat",
       "clear_chat_desc": "Effacer la session de chat actuelle",
-      "copy_last_response": "Copier la Dernière Réponse",
+      "copy_last_response": "Copier la dernière réponse",
       "copy_last_response_desc": "Copier la dernière réponse de l'IA dans le presse-papiers",
-      "toggle_session_metrics": "Basculer les métriques de session",
+      "toggle_session_metrics": "Afficher/masquer les statistiques de session",
       "toggle_session_metrics_desc": "Afficher ou masquer la barre de métriques de session",
       "export_json": "Exporter en JSON",
       "export_json_desc": "Exporter le chat actuel en JSON",
@@ -1356,18 +1358,14 @@
       "reset_to_default": "Rétablir la valeur par défaut"
     },
     "content_extraction": {
-      "title": "Extraction de Contenu",
+      "title": "Extraction de contenu",
       "description": "Configure le comportement d'extraction de contenu par défaut pour tous les sites web.",
       "enable": {
         "label": "Autoriser l'extraction de contenu",
         "description": "Activer l'extraction de contenu améliorée avec prise en charge du chargement différé (lazy loading)"
       },
-      "selection_button": {
-        "label": "Afficher le bouton « Demander au LLM local » après la sélection",
-        "description": "Afficher un bouton d'action flottant lors de la sélection de texte pour accélérer son ajout au chat"
-      },
       "scraper": {
-        "label": "Scraper de Contenu",
+        "label": "Extracteur de contenu",
         "auto": {
           "label": "Automatique",
           "description": "Fallback intelligent : Defuddle puis Readability",
@@ -1385,7 +1383,7 @@
         }
       },
       "scroll_strategy": {
-        "label": "Stratégie de Défilement",
+        "label": "Stratégie de défilement",
         "none": "Extraction la plus rapide, chargement différé non pris en charge",
         "instant": "Le défilement rapide fonctionne bien pour le chargement différé simple",
         "gradual": "Défilement fluide équilibré avec des pauses délibérées et un mélange de vitesse et de précision",
@@ -1404,12 +1402,12 @@
         }
       },
       "scroll_depth": {
-        "label": "Profondeur de Défilement",
+        "label": "Profondeur de défilement",
         "description": "Pourcentage de page à faire défiler (plus élevé = plus de contenu, plus lent)"
       },
       "timeout": {
         "scroll_delay": "Délai de défilement en millisecondes",
-        "mutation_timeout": "Délai d'attente de Mutation Observer en millisecondes",
+        "mutation_timeout": "Délai du Mutation Observer en millisecondes",
         "network_timeout": "Délai d'inactivité du réseau en millisecondes",
         "max_wait": "Temps d'attente maximum (millisecondes)",
         "section_title": "Délais d'expiration du chargement des pages (avancé)"
@@ -1419,8 +1417,8 @@
         "active": "Actif"
       },
       "selection_actions": {
-        "description": "Afficher les actions d'IA locale lorsque du texte est sélectionné sur une page.",
-        "label": "Activer les actions de sélection"
+        "description": "Résumer, expliquer, raccourcir ou reformuler le texte sélectionné directement sur la page.",
+        "label": "Afficher une barre d’outils à la sélection de texte"
       },
       "selection_actions_list": {
         "description": "Choisissez les actions de texte locales qui apparaissent dans la barre d'outils de la page.",
@@ -1432,30 +1430,30 @@
       }
     },
     "model": {
-      "title": "Paramètres du Modèle",
+      "title": "Paramètres du modèle",
       "switch_model": "Changer de modèle",
-      "description": "Configure les paramètres pour une performance optimale.",
-      "configuration_title": "Configuration du Modèle",
+      "description": "S’applique à {{model}}.",
+      "configuration_title": "Configuration du modèle",
       "configuration_description": "Configure les paramètres de ton modèle d'IA.",
       "system": {
-        "title": "Configuration Système",
+        "title": "Configuration système",
         "description": "Configure les prompts système et les séquences d'arrêt pour contrôler le comportement du modèle.",
-        "prompt_label": "Prompt Système",
+        "prompt_label": "Prompt système",
         "prompt_placeholder": "Entrez un prompt système personnalisé pour guider le comportement du modèle...",
-        "stop_sequences_label": "Séquences d'Arrêt",
+        "stop_sequences_label": "Séquences d’arrêt",
         "stop_sequence_placeholder": "Entrez la séquence d'arrêt...",
         "add_button": "Ajouter"
       },
       "sampling": {
-        "title": "Paramètres d'Échantillonnage",
+        "title": "Paramètres d’échantillonnage",
         "description": "Contrôler l'aléatoire et la sélection des tokens."
       },
       "context": {
-        "title": "Context et Génération",
-        "description": "Paramètres de Mémoire et de Contrôle de Sortie"
+        "title": "Contexte et génération",
+        "description": "Réglages de mémoire et de sortie"
       },
       "runtime": {
-        "title": "Exécution & Préchauffage",
+        "title": "Exécution et préchargement",
         "description": "Contrôler le préchauffage du modèle et les options d'exécution.",
         "keep_alive_label": "Maintien en mémoire",
         "keep_alive_description": "Combien de temps garder le modèle chargé après une requête. Utilisez des secondes ou une durée comme 5m.",
@@ -1471,7 +1469,7 @@
           "description_reported": "Niveaux indiqués par le fournisseur de ce modèle.",
           "description_profile": "Niveaux vérifiés pour ce fournisseur et cette famille de modèles.",
           "description_unknown": "Ce fournisseur n'indique aucun contrôle fiable du raisonnement.",
-          "reset": "Réinitialiser sur Automatique",
+          "reset": "Revenir en automatique",
           "options": {
             "auto": "Automatique (valeur du fournisseur)",
             "auto_short": "Automatique",
@@ -1509,28 +1507,28 @@
           "validation_min": "Doit être au moins {{min}}"
         },
         "num_ctx": {
-          "label": "Taille du Contexte",
+          "label": "Taille du contexte",
           "validation_min": "Doit être au moins {{min}}"
         },
         "num_predict": {
-          "label": "Tokens Maximum",
+          "label": "Tokens maximum",
           "auto": "Automatique (recommandé)",
           "validation_min": "Doit être au moins {{min}}."
         },
         "repeat_penalty": {
-          "label": "Pénalité de Répétition",
+          "label": "Pénalité de répétition",
           "validation_min": "Doit être supérieur à {{min}}."
         },
         "repeat_last_n": {
-          "label": "Répéter les Derniers N",
+          "label": "Répétition sur les N derniers",
           "validation_min": "Doit être au moins {{min}}."
         }
       }
     },
     "base_url": {
-      "title": "URL de Base d'Provider",
-      "description": "Configure le point de terminaison du serveur pour votre installation Provider.",
-      "label": "Point de Terminaison du Serveur API Provider",
+      "title": "URL de base du fournisseur",
+      "description": "Configurez le point de terminaison du serveur de votre fournisseur.",
+      "label": "Point de terminaison de l’API du fournisseur",
       "error_invalid_url": "Veuillez entrer une URL valide.",
       "status_local": "Connexion au serveur local",
       "status_remote": "Connexion au serveur distant",
@@ -1552,7 +1550,7 @@
       "time_ago_hours": "il y a {{count}} heures",
       "time_ago_days": "il y a {{count}} jours",
       "title": "Modèles",
-      "title_count": "{{count}} Modèles",
+      "title_count": "{{count}} modèles",
       "retry": "Réessayer",
       "refresh": "Actualiser",
       "no_models": "Aucun modèle trouvé",
@@ -1565,20 +1563,20 @@
       }
     },
     "model_info": {
-      "title": "Informations sur le Modèle",
+      "title": "Informations sur le modèle",
       "no_data": "Aucune donnée disponible pour ce modèle.",
       "no_data_available": "Aucune donnée de modèle disponible",
       "error_fetching": "Erreur lors de la récupération des données du modèle.",
       "error_details": "Impossible de récupérer les détails du modèle.",
       "refresh_tooltip": "Actualiser les détails du modèle",
       "capabilities": "Capacités",
-      "technical_details": "Détails Techniques",
+      "technical_details": "Détails techniques",
       "unknown_file_type": "Inconnu",
-      "params_label": "Param.",
-      "context_label": "Ctx"
+      "params_label": "paramètres",
+      "context_label": "contexte"
     },
     "loaded_models": {
-      "title": "Modèles Chargés",
+      "title": "Modèles chargés",
       "count_one": "{{count}} modèle",
       "count_other": "{{count}} modèles",
       "refresh_tooltip": "Actualiser les modèles chargés",
@@ -1589,7 +1587,7 @@
     "tabs": {
       "general": "Chat",
       "prompts": "Bibliothèque de prompts",
-      "models": "Comportement du modèle",
+      "models": "Fournisseurs et modèles",
       "extraction": "Page et onglets",
       "agent": "Agent",
       "context": "Connaissances et web",
@@ -1603,12 +1601,12 @@
     },
     "context": {
       "file_upload": {
-        "title": "Ingestion de fichiers",
+        "title": "Envoi de fichiers",
         "description": "Configurez le traitement des fichiers pour la récupération de connaissances."
       },
       "embedding_health": {
-        "title": "Dimensions d’embeddings mixtes détectées",
-        "description": "Les embeddings sont stockés avec plusieurs dimensions ({{dimensions}}). La recherche et la mémoire peuvent échouer tant que tout n’a pas été reconstruit.",
+        "title": "Les connaissances enregistrées doivent être reconstruites",
+        "description": "Une partie des connaissances enregistrées a été indexée avec un autre modèle d’embedding ({{dimensions}} dimensions). La recherche et la mémoire peuvent échouer tant que vous ne les reconstruisez pas.",
         "note": "La reconstruction efface tous les embeddings et réintègre l’historique du chat. Les fichiers devront être téléversés à nouveau pour restaurer les connaissances.",
         "memory_disabled": "La mémoire est désactivée, les embeddings du chat n’ont donc pas été reconstruits.",
         "action": "Reconstruire les embeddings",
@@ -1616,7 +1614,7 @@
         "confirm": "Reconstruire les embeddings ? Cela effacera tous les embeddings et réintégrera l’historique du chat. Les fichiers devront être téléversés à nouveau pour restaurer les connaissances.",
         "progress": "Reconstruction des embeddings du chat ({{current}}/{{total}})",
         "success": "Embeddings reconstruits avec succès.",
-        "error": "Impossible de reconstruire les embeddings."
+        "error": "Impossible de reconstruire les embeddings. Vérifiez que le modèle d’embedding est joignable, puis réessayez."
       },
       "sections": {
         "conversation": "Contexte de la conversation",
@@ -1625,14 +1623,14 @@
         "files_chunking_description": "Comment les fichiers importés sont acceptés et découpés pour la récupération.",
         "grounding": "Ancrage",
         "grounding_description": "Limiter les réponses à la page que vous consultez.",
-        "prompt_budget": "Budget de prompt",
+        "prompt_budget": "Budget du prompt",
         "prompt_budget_description": "Limites sur la quantité de contexte intégrée à chaque prompt.",
         "retrieval": "Récupération",
         "retrieval_description": "Où l'assistant cherche au-delà de la conversation — le web et votre base de connaissances."
       }
     },
     "web_search": {
-      "title": "Web Search",
+      "title": "Recherche web",
       "description": "Let supported models search the web using built-in or configured search.",
       "execution_source": {
         "label": "Search source",
@@ -1699,8 +1697,6 @@
         "api_key_required": "Enter an API key.",
         "searxng_json_disabled": "SearXNG a refusé les résultats JSON. Ajoutez json à search.formats dans settings.yml, puis redémarrez-le. S'il est derrière une connexion ou un proxy, laissez passer cette extension."
       },
-      "beta_badge": "Beta",
-      "beta_tooltip": "Beta. If you run into issues, please report them.",
       "base_url": {
         "label": "API base URL",
         "description": "Shown for transparency. This endpoint is fixed by the selected provider."
@@ -1712,31 +1708,30 @@
       }
     },
     "memory": {
-      "title": "Mémoire Contextuelle",
-      "beta_badge": "Bêta",
+      "title": "Mémoire contextuelle",
       "description": "Permettre à l'IA de se souvenir des détails des conversations passées pour fournir des réponses personnalisées.",
       "enable": {
-        "label": "Activer la Mémoire",
+        "label": "Activer la mémoire",
         "description": "Lorsqu'elle est activée, l'historique des discussions est stocké localement et utilisé pour fournir du contexte."
       },
       "clear": {
-        "label": "Effacer la Mémoire",
+        "label": "Effacer la mémoire",
         "description": "Supprimer tous les souvenirs de discussion stockés.",
-        "button": "Effacer la Mémoire de Discussion",
+        "button": "Effacer la mémoire des chats",
         "button_clearing": "Effacement...",
         "confirm_dialog": "Êtes-vous sûr de vouloir effacer toute la mémoire de discussion ? Cette action est irréversible.",
         "success": "Mémoire de discussion effacée avec succès.",
-        "error": "Échec de l'effacement de la mémoire.",
+        "error": "Impossible d’effacer la mémoire. Réessayez.",
         "usage": "Utilisation : {{count}} éléments ({{size}} Mo total)"
       }
     },
     "page": {
-      "title": "Paramètres d'Ollama Client",
-      "description": "Gérez tous les aspects de votre configuration Ollama en un seul endroit. Pour des conseils et un guide de configuration, visitez l'onglet Aide."
+      "title": "Paramètres d’Ollama Client",
+      "description": "Connectez un serveur de modèles, puis choisissez le fonctionnement des chats, des pages et des connaissances."
     },
     "sections": {
       "app": "Application",
-      "ai_models": "IA et Modèles",
+      "ai_models": "IA et modèles",
       "customize": "Personnaliser",
       "system": "Système",
       "setup": "Configuration",
@@ -1747,68 +1742,68 @@
       "more": "Plus"
     },
     "speech": {
-      "title": "Paramètres de Parole",
+      "title": "Paramètres vocaux",
       "description": "Configurez les paramètres de voix, de vitesse et de tonalité de la synthèse vocale (text-to-speech).",
       "voice_label": "Voix",
-      "rate_label": "Vitesse de la Parole",
-      "pitch_label": "Tonalité de la Voix",
+      "rate_label": "Débit de parole",
+      "pitch_label": "Hauteur de la voix",
       "preview_title": "Aperçu",
-      "test_text_label": "Texte de Test",
+      "test_text_label": "Texte de test",
       "test_text_placeholder": "Testez vos paramètres vocaux en tapant ici...",
-      "test_hint_text": "Cliquez sur « Tester la Voix » pour entendre votre texte.",
+      "test_hint_text": "Sélectionnez « Tester la voix » pour écouter votre texte.",
       "test_hint_default": "Cliquez sur « Tester la Voix » pour entendre l'échantillon par défaut.",
-      "test_button": "Tester la Voix",
+      "test_button": "Tester la voix",
       "test_fallback": "Bonjour, ceci est un test de vos paramètres de parole.",
       "rate": {
-        "very_slow": "Très Lent",
+        "very_slow": "Très lent",
         "slow": "Lent",
         "normal": "Normal",
         "fast": "Rapide",
-        "very_fast": "Très Rapide"
+        "very_fast": "Très rapide"
       },
       "pitch": {
-        "very_low": "Très Basse",
+        "very_low": "Très grave",
         "low": "Basse",
         "normal": "Normale",
         "high": "Haute",
-        "very_high": "Très Haute"
+        "very_high": "Très aiguë"
       }
     },
     "embeddings": {
-      "title": "Incrustations Vectorielles",
+      "title": "Connaissances enregistrées",
       "description": "Les incrustations permettent la recherche sémantique, la génération augmentée par récupération (RAG) et des fonctionnalités sensibles au contexte pour le téléversement de fichiers et l'historique de chat.",
       "test_generation": {
-        "title": "Tester la Génération d'Incrustation",
+        "title": "Tester la génération d’embeddings",
         "description": "Générez une incrustation de test pour vérifier que le modèle d'incrustation fonctionne correctement.",
         "button": "Tester",
         "button_testing": "Test..."
       },
       "rebuild_index": {
-        "title": "Reconstruire l'index",
+        "title": "Reconstruire l’index des mots-clés",
         "description": "Forcer la reconstruction de l'index de recherche par mots-clés à partir des vecteurs existants. Utilisez ceci si les résultats de recherche sont manquants ou incohérents.",
-        "button": "Reconstruire l'index",
+        "button": "Reconstruire l’index",
         "button_rebuilding": "Reconstruction...",
         "status_starting": "Démarrage de la reconstruction...",
         "status_processing": "Traitement de {{current}} sur {{total}} éléments...",
         "success": "Reconstruction de l'index terminée avec succès !",
-        "error": "Échec de la reconstruction de l'index. Veuillez réessayer."
+        "error": "Impossible de reconstruire l’index. Réessayez."
       },
       "test_search": {
-        "title": "Recherche Sémantique",
+        "title": "Recherche sémantique",
         "description": "Vérifiez que vos fichiers téléversés sont accessibles et consultables. Entrez une requête de recherche pour trouver le contenu correspondant.",
         "placeholder": "Rechercher...",
         "results_found": "{{count}} résultats trouvés",
         "no_results": "Aucun résultat trouvé. Essayez une recherche différente ou téléversez plus de contenu."
       },
       "what_are_embeddings": {
-        "title": "Que sont les Incrustations ?",
+        "title": "Que sont les embeddings ?",
         "point_1": "Convertissent le texte en vecteurs numériques qui capturent le sens sémantique",
         "point_2": "Permettent la recherche sémantique dans votre historique de chat et vos fichiers téléversés",
         "point_3": "Alimentent RAG pour des réponses sensibles au contexte",
         "point_4": "Fournissent un contexte pertinent à partir de vos fichiers pour améliorer les réponses de l'IA"
       },
       "model_select": {
-        "label": "Modèle d'Incrustation",
+        "label": "Modèle d’embedding",
         "placeholder": "Sélectionner un modèle",
         "description": "Choisissez un modèle pour générer des incrustations. Vous devrez peut-être le télécharger d'abord.",
         "recommended_group": "Modèles recommandés",
@@ -1852,7 +1847,7 @@
       }
     },
     "prompts": {
-      "title": "Modèles de Prompt",
+      "title": "Modèles de prompts",
       "description": "Gérez votre collection de {{count}} modèles de prompt.",
       "export": "Exporter",
       "import": "Importer",
@@ -1861,17 +1856,17 @@
         "title": "Réinitialiser les modèles aux valeurs par défaut ?",
         "description": "Ceci remplacera tous vos modèles actuels par ceux par défaut. Cette action est irréversible.",
         "cancel": "Annuler",
-        "confirm": "Réinitialiser les Modèles"
+        "confirm": "Réinitialiser les modèles"
       },
       "search_placeholder": "Rechercher des modèles...",
       "category_placeholder": "Catégorie",
-      "all_categories": "Toutes les Catégories",
+      "all_categories": "Toutes les catégories",
       "sort": {
         "recent": "Récents",
         "popular": "Populaires",
         "alphabetical": "Alphabétique"
       },
-      "new_template": "Nouveau Modèle",
+      "new_template": "Nouveau modèle",
       "form": {
         "title": "Titre",
         "title_placeholder": "Titre du modèle",
@@ -1881,10 +1876,10 @@
         "description_placeholder": "Une brève description de l'objectif et de la fonctionnalité du modèle.",
         "tags": "Étiquettes",
         "tags_placeholder": "étiquette1, étiquette2, étiquette3",
-        "user_prompt": "Prompt Utilisateur",
+        "user_prompt": "Prompt utilisateur",
         "user_prompt_placeholder": "Modèle de prompt principal",
-        "system_prompt": "Prompt Système",
-        "create_button": "Créer un Modèle"
+        "system_prompt": "Prompt système",
+        "create_button": "Créer le modèle"
       },
       "delete_dialog": {
         "title": "Supprimer le modèle",
@@ -1905,17 +1900,17 @@
       }
     },
     "reset": {
-      "title": "Réinitialiser les Paramètres",
-      "description": "Effacer les données stockées par module ou tout réinitialiser aux valeurs par défaut",
+      "title": "Réinitialiser les données",
+      "description": "Rétablissez les valeurs par défaut d’une partie, ou effacez tout.",
       "danger_zone": {
-        "title": "Zone de Danger",
-        "description": "Ceci effacera toutes les données et ne peut être annulé",
-        "button": "Tout Réinitialiser"
+        "title": "Tout effacer",
+        "description": "Les chats, connaissances, paramètres et clés API de cet appareil seront supprimés. Cette action est irréversible.",
+        "button": "Effacer toutes les données"
       },
       "dialog": {
-        "title": "Confirmer la Réinitialisation",
-        "description": "Ceci effacera toutes les données et ne peut être annulé.",
-        "confirm": "Oui, Tout Réinitialiser",
+        "title": "Effacer toutes les données ?",
+        "description": "Les chats, connaissances, paramètres et clés API de cet appareil seront supprimés. Cette action est irréversible.",
+        "confirm": "Effacer toutes les données",
         "cancel": "Annuler"
       },
       "modules": {
@@ -1924,26 +1919,26 @@
           "description": "Préférences d'apparence de l'interface utilisateur"
         },
         "browser": {
-          "title": "Paramètres du Navigateur",
+          "title": "Paramètres du navigateur",
           "description": "Accès aux onglets et motifs d'URL"
         },
         "tts": {
-          "title": "Synthèse Vocale",
+          "title": "Synthèse vocale",
           "description": "Paramètres de synthèse vocale (text-to-speech)"
         },
         "chat_sessions": {
-          "title": "Historique des Chats",
+          "title": "Historique des chats",
           "description": "Historique des conversations"
         },
         "default": {
           "description": "Paramètres du module"
         },
         "provider": {
-          "title": "Paramètres du Fournisseur",
+          "title": "Paramètres des fournisseurs",
           "description": "Paramètres et configurations du modèle"
         },
         "feedback": {
-          "title": "Commentaires de l'utilisateur",
+          "title": "Retours utilisateur",
           "description": "Effacer tous les commentaires d'apprentissage et les fragments récupérés"
         }
       },
@@ -1951,8 +1946,8 @@
       "item_count_plural": "{{count}} éléments",
       "reset_button": "Réinitialiser",
       "failure_notice": {
-        "title": "La dernière réinitialisation n'a pas abouti",
-        "description": "La réinitialisation précédente a échoué avant de se terminer. Certaines données peuvent subsister. Consultez la console pour plus de détails et réessayez."
+        "title": "La dernière réinitialisation n’a pas abouti",
+        "description": "Certaines données n’ont pas été effacées. Rechargez l’extension et réessayez."
       },
       "chat_dialog": {
         "title": "Supprimer tous les chats ?",
@@ -1968,27 +1963,26 @@
     "providers": {
       "default": "Par défaut",
       "beta_badge": "Bêta",
-      "beta_notice": "Ce fournisseur est en bêta. Si vous rencontrez un problème, signalez-le ou ouvrez une issue dans le dépôt.",
       "enabled": "Activé",
       "disabled": "Désactivé",
       "inactive": "Inactif",
       "connected": "Connecté",
-      "connection_failed": "Échec de la connexion",
-      "manual_models": "ID de modèle uniquement",
+      "connection_failed": "Connexion impossible",
+      "manual_models": "Vos ID de modèle sont utilisés",
       "not_tested": "Non testé",
-      "test": "Tester",
+      "test": "Tester la connexion",
       "save": "Enregistrer",
       "saved": "Enregistré",
       "base_url": "URL de base",
       "base_url_default": "Défaut",
       "api_key": "Clé API",
-      "custom_models": "Modèles personnalisés",
+      "custom_models": "ID de modèle",
       "custom_models_description": "Ajoutez des modèles manuellement s'ils n'apparaissent pas dans la liste découverte automatiquement.",
       "test_connection": {
-        "success_title": "Connexion réussie",
+        "success_title": "Connecté",
         "success_description": "Connexion réussie à {{name}} sur {{url}}. {{count}} modèle(s) trouvé(s).",
         "success_description_manual": "Connexion réussie à {{name}} sur {{url}}. Aucune liste de modèles n’est publiée : les {{count}} identifiant(s) de modèle que vous avez ajoutés sont utilisés.",
-        "failed_title": "Échec de la connexion",
+        "failed_title": "Connexion impossible",
         "no_models_title": "Aucun modèle trouvé",
         "no_model_list_title": "Aucune liste de modèles",
         "no_models_description": "{{url}} est joignable, mais aucun modèle n’a été renvoyé. Vérifiez que le fournisseur est en cours d’exécution, que l’URL de base est correcte et qu’au moins un modèle est installé ou chargé.",
@@ -2037,7 +2031,7 @@
         "custom_badge": "Personnalisé"
       },
       "models": {
-        "title": "ID de modèles (facultatif)",
+        "title": "ID de modèle",
         "description": "Ajoutez manuellement les modèles lorsque le fournisseur ne les renvoie pas via son endpoint de découverte.",
         "add": "Ajouter",
         "remove": "Supprimer",
@@ -2045,11 +2039,11 @@
       },
       "icon_lookup": {
         "label": "Afficher les icônes de site des fournisseurs",
-        "description": "Demande son icône à un fournisseur non reconnu, pour mieux le distinguer. Seule l'adresse du fournisseur est contactée — ainsi que son site principal si cette adresse n'a pas d'icône — jamais un service d'icônes tiers. Les fournisseurs dotés d'un logo intégré ne sont jamais sollicités."
+        "description": "Afficher l’icône du site d’un fournisseur personnalisé, récupérée auprès de ce fournisseur et jamais via un service tiers."
       },
       "catalog_refresh": {
         "label": "Actualisation de la liste des modèles",
-        "description": "À quelle fréquence un panneau ouvert redemande leurs listes de modèles aux fournisseurs. Télécharger, supprimer ou modifier un fournisseur l'actualise immédiatement de toute façon ; ceci ne capte qu'un fournisseur qui apparaît ou disparaît sous vos yeux. Des valeurs plus faibles signifient plus de requêtes vers les fournisseurs distants.",
+        "description": "Fréquence à laquelle un panneau ouvert redemande leur liste de modèles à vos fournisseurs.",
         "options": {
           "0": "Désactivé",
           "10000": "Toutes les 10 secondes",
@@ -2066,10 +2060,14 @@
       "enable_failed_title": "Impossible d’activer {{name}}",
       "disable_failed_title": "Impossible de désactiver {{name}}",
       "toggle_failed_description": "Son état précédent a été rétabli. Réessayez dans un instant.",
-      "status_off": "Désactivé"
+      "status_off": "Désactivé",
+      "advanced": {
+        "title": "Avancé",
+        "summary": "Icônes des sites des fournisseurs et actualisation de la liste des modèles"
+      }
     },
     "migration": {
-      "title": "Migration de Données",
+      "title": "Migration des données",
       "description": "Exportez ou importez les réglages portables, l’historique des discussions et les bases de données d’intégration sans inclure les clés API ni l’état propre à l’appareil.",
       "export": {
         "label": "Exporter une sauvegarde respectueuse de la vie privée",
@@ -2078,7 +2076,7 @@
         "error_title": "Échec de l’exportation"
       },
       "import": {
-        "label": "Importer la Sauvegarde",
+        "label": "Importer une sauvegarde",
         "description": "Restaurez une sauvegarde ZIP actuelle ou ancienne via la liste autorisée. Les identifiants et l’état interne ne sont jamais restaurés.",
         "button": "Importer la sauvegarde"
       },
@@ -2087,15 +2085,15 @@
         "description": "Cette action écrasera les réglages portables, l’historique des discussions et les bases de données. Les clés API des fournisseurs ne sont pas restaurées et devront peut-être être saisies à nouveau. Cette action est irréversible."
       },
       "import_result": {
-        "title": "Résultats de l'Importation",
+        "title": "Résultats de l’import",
         "description": "Passez en revue l'état de votre importation de données ci-dessous :",
         "skipped_private": "Certains identifiants, réglages propres à l’appareil ou données internes de récupération ont été ignorés en toute sécurité.",
         "labels": {
-          "sync": "Préférences (Sync)",
-          "local": "Stockage Local",
-          "database": "Base de données (SQLite)",
-          "vectorDb": "Intégrations vectorielles (Dexie)",
-          "knowledgeDb": "Bases de connaissances (Dexie)"
+          "sync": "Préférences synchronisées",
+          "local": "Paramètres de l’appareil",
+          "database": "Chats et sessions",
+          "vectorDb": "Connaissances enregistrées",
+          "knowledgeDb": "Ensembles de connaissances"
         },
         "legacy_chat_backup": "Cette sauvegarde a été créée par la version 0.6.3 ou antérieure, qui stockait les discussions dans un format que l'extension ne lit plus. Ses réglages, embeddings et ensembles de connaissances ont été restaurés ; ses discussions non.",
         "status": {
@@ -2107,7 +2105,7 @@
     },
     "saved": "Enregistré",
     "presets": {
-      "error_title": "Failed to apply preset",
+      "error_title": "Impossible d’appliquer le préréglage",
       "applied": "Préréglage {{name}} appliqué",
       "apply": "Appliquer le préréglage",
       "balanced": {
@@ -2152,15 +2150,15 @@
       "title": "Préréglages"
     },
     "reset_section": {
-      "error_title": "Failed to reset section",
+      "error_title": "Impossible de réinitialiser la section",
       "button": "Réinitialiser la section",
       "description": "Cela rétablit les contrôles de cette section à leurs valeurs par défaut. Les autres paramètres ne sont pas modifiés.",
       "done": "Section réinitialisée aux valeurs par défaut",
       "title": "Réinitialiser cette section aux valeurs par défaut ?"
     },
     "permissions": {
-      "title": "Autorisations et confidentialité",
-      "description": "Consultez et contrôlez ce à quoi cette extension peut accéder. Tout reste sur votre appareil.",
+      "title": "Confidentialité et autorisations",
+      "description": "Voyez à quoi cette extension a accès et où vont vos données.",
       "overview": {
         "title": "Local par défaut",
         "description": "Les conversations, réglages, fichiers et index restent dans ce profil de navigateur. Les accès facultatifs sont visibles, révocables et jamais accordés silencieusement."
@@ -2322,28 +2320,27 @@
       "remote_images_label": "Charger les images distantes dans les exports",
       "remote_images_hint": "Autorise les exports impression et PDF à charger des images depuis des serveurs externes. Désactivé, les exports restent entièrement hors ligne et les images distantes sont remplacées par un espace réservé."
     },
-    "beta_badge": "Bêta",
     "nav_label": "Sections des paramètres",
     "more_section": {
       "title": "Prompts, voix et raccourcis"
     }
   },
   "guides": {
-    "title": "Guides et Documentation Utiles",
+    "title": "Guides et documentation",
     "description": "Besoin d'aide pour configurer Ollama Client ou explorer les fonctionnalités ? Consultez ces ressources utiles",
     "support": {
-      "title": "Soutenir le Projet",
+      "title": "Soutenir le projet",
       "description": "Aidez-nous à grandir en présentant Ollama Client sur Product Hunt",
       "image_alt": "Ollama Client - Chatez avec des LLM locaux — directement dans votre navigateur | Product Hunt"
     },
     "items": {
       "setup": {
-        "label": "Guide de Configuration d'Ollama Client",
+        "label": "Guide d’installation d’Ollama Client",
         "description": "Guide complet d'installation et de configuration",
         "badge": "Démarrage rapide"
       },
       "library": {
-        "label": "Bibliothèque Officielle de Modèles Ollama",
+        "label": "Bibliothèque officielle de modèles Ollama",
         "description": "Parcourir les modèles d'IA disponibles et la documentation",
         "badge": "Bibliothèque"
       },
@@ -2353,7 +2350,7 @@
         "badge": "Code"
       },
       "issue": {
-        "label": "Ouvrir une issue GitHub",
+        "label": "Ouvrir un ticket GitHub",
         "description": "Signalez les bugs ou problèmes avant de laisser un avis sur le store",
         "badge": "Support"
       },
@@ -2370,11 +2367,11 @@
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
-    "bug_report": "Signaler un Bogue / une Fonctionnalité"
+    "bug_report": "Signaler un bug"
   },
   "errorBoundary": {
     "title": "Une erreur est survenue",
-    "description": "Une erreur inattendue s’est produite. Nous avons consigné ce problème en interne.",
+    "description": "Une erreur s’est produite dans ce panneau. Rechargez pour continuer.",
     "reload": "Recharger",
     "show_details": "Afficher les détails",
     "copy_details": "Copier les détails"
@@ -2419,15 +2416,15 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "Impossible de récupérer les modèles",
+    "failed_to_fetch_models": "La liste des modèles ne s’est pas chargée. Vérifiez que vos fournisseurs fonctionnent, puis actualisez.",
     "rpc": {
-      "invalid_request": "La requête n’était pas valide.",
-      "invalid_response": "La réponse en arrière-plan n’était pas valide.",
+      "invalid_request": "L’extension a envoyé une requête qu’elle n’a pas pu traiter. Rechargez l’extension et réessayez.",
+      "invalid_response": "L’extension a renvoyé une réponse inattendue. Rechargez l’extension et réessayez.",
       "forbidden": "Cette action n’est pas autorisée depuis cette page.",
-      "not_found": "La configuration du fournisseur est introuvable.",
-      "provider_failed": "La requête au fournisseur a échoué.",
-      "timeout": "La requête en arrière-plan a expiré. Réessayez.",
-      "internal": "La requête en arrière-plan a échoué. Réessayez.",
+      "not_found": "Ce fournisseur n’est plus configuré. Choisissez-le à nouveau dans les paramètres.",
+      "provider_failed": "Le fournisseur n’a pas pu traiter la requête. Vérifiez qu’il fonctionne, puis réessayez.",
+      "timeout": "L’extension n’a pas répondu à temps. Réessayez ; si cela se reproduit, rechargez l’extension.",
+      "internal": "Un problème est survenu dans l’extension. Rechargez l’extension et réessayez.",
       "upstream_not_found": "Le fournisseur a répondu, mais pas avec ce qui était demandé. Vérifiez l’URL de base et le nom du modèle."
     }
   },
@@ -2442,7 +2439,7 @@
     "clear": "Clear diagnostic history",
     "copied": "Support bundle copied",
     "cleared": "Diagnostic history cleared",
-    "failed": "Diagnostics request failed",
+    "failed": "Impossible d’exécuter le diagnostic. Réessayez.",
     "privacy_notice": "Review before sharing. Bundle excludes chats, prompts, files, page content, credentials, cookies, and full endpoints.",
     "status": {
       "pass": "Pass",
@@ -2454,15 +2451,15 @@
       "runtime_version": "Runtime version",
       "browser_apis": "Browser APIs",
       "permissions": "Browser permissions",
-      "sync_storage": "Sync storage",
-      "local_storage": "Local storage",
-      "chat_repository": "Chat repository",
-      "vector_store": "Vector store",
+      "sync_storage": "Paramètres synchronisés",
+      "local_storage": "Paramètres de l’appareil",
+      "chat_repository": "Chats enregistrés",
+      "vector_store": "Connaissances enregistrées",
       "provider_discovery": "Provider and model discovery",
-      "migration": "Persistence migration",
-      "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints",
-      "turn_retention": "Durable turn retention"
+      "migration": "Mise à niveau du stockage des chats",
+      "dnr_rules": "Règle d’accès au serveur local",
+      "turn_checkpoint": "Récupération des réponses",
+      "turn_retention": "Nettoyage des réponses terminées"
     }
   },
   "onboarding": {
@@ -2488,7 +2485,7 @@
     "model": {
       "title": "Choose a chat model",
       "description": "Embedding-only models are hidden. You can change this choice later.",
-      "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
+      "none": "Connecté, mais {{provider}} n’a pas encore de modèle de chat. Installez-en un, puis sélectionnez Actualiser les modèles.",
       "placeholder": "Select a model",
       "use": "Use this model",
       "refresh": "Actualiser les modèles",
@@ -2512,22 +2509,23 @@
       "connect_title": "Check provider connection",
       "connect_description": "Connect to {{provider}} and discover its available models.",
       "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
-      "connection_failed": "Connection failed. Use this support code when asking for help.",
+      "connection_failed": "Impossible de se connecter à {{provider}}",
       "title": "Connecter un fournisseur",
       "description": "Vérifiez maintenant le point d’accès Ollama par défaut. Vous pourrez le modifier ou configurer un autre fournisseur plus tard.",
       "connected": "Connecté. {{count}} modèle(s) trouvé(s).",
       "skip": "Ignorer pour l’instant",
       "open_setup": "Configurer un fournisseur",
       "errors": {
-        "cors": "Ollama fonctionne mais bloque cette extension. Redémarrez-le avec la commande ci-dessous.",
-        "auth": "Le fournisseur a refusé la clé API ou les paramètres d’accès.",
-        "not-found": "Le serveur répond, mais ce point d’accès n’est pas valide. Vérifiez le port et l’URL de base.",
-        "timeout": "Le fournisseur met trop de temps à répondre. Vérifiez son fonctionnement et le port.",
-        "unavailable": "Ollama est inaccessible. Il peut être arrêté, utiliser un autre port ou bloquer les origines d’extension.",
-        "server-error": "Le fournisseur a renvoyé une erreur serveur. Consultez ses journaux, puis réessayez.",
+        "cors": "{{provider}} fonctionne mais a bloqué cette extension. Redémarrez-le avec la commande ci-dessous.",
+        "auth": "{{provider}} a refusé la clé API. Vérifiez-la dans les paramètres du fournisseur.",
+        "not-found": "Un service a répondu, mais ce n’est pas {{provider}}. Vérifiez le port et l’URL de base.",
+        "timeout": "{{provider}} a mis trop de temps à répondre. Vérifiez qu’il fonctionne et que le port est correct.",
+        "unavailable": "{{provider}} est injoignable. Démarrez-le, puis réessayez. S’il fonctionne, vérifiez l’URL de base.",
+        "server-error": "{{provider}} a rencontré une erreur serveur. Consultez son journal, puis réessayez.",
         "cors-other": "{{provider}} fonctionne mais bloque cette extension. Autorisez chrome-extension://* et moz-extension://* dans ses paramètres CORS, puis redémarrez-le.",
         "rate-limited": "{{provider}} limite les requêtes en ce moment. Patientez un instant, puis réessayez.",
-        "payment": "{{provider}} demande un paiement ou des crédits. Vérifiez votre compte, puis réessayez."
+        "payment": "{{provider}} demande un paiement ou des crédits. Vérifiez votre compte, puis réessayez.",
+        "refused": "{{provider}} a refusé la requête. Vérifiez la clé API dans les paramètres du fournisseur, ou les règles d’accès du proxy placé devant."
       },
       "unverified": "Connexion non vérifiée. Vous pouvez essayer un modèle configuré ou ouvrir les paramètres du fournisseur pour vérifier le point d’accès.",
       "support_code": "Code d’assistance"

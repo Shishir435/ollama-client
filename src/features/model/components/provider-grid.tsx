@@ -1,6 +1,5 @@
-import { Info, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { TooltipActionButton } from "@/components/actions"
 import { ProviderIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { MiniBadge } from "@/components/ui/mini-badge"
@@ -100,14 +99,13 @@ export const ProviderGrid = ({
                 : "settings.providers.not_tested"
 
         return (
-          <div key={provider.id} className="relative">
+          <div key={provider.id}>
             <Button
               type="button"
               aria-pressed={isSelected}
               onClick={() => onSelect(provider.id)}
               className={cn(
                 "h-11 w-full justify-start px-3 transition-colors",
-                isBeta && "pr-9",
                 isSelected
                   ? "border-primary/40 bg-state-selected text-accent-foreground"
                   : "border-border bg-card text-card-foreground hover:bg-state-hover"
@@ -153,17 +151,6 @@ export const ProviderGrid = ({
                 </span>
               </span>
             </Button>
-            {isBeta && (
-              <TooltipActionButton
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground-tertiary transition-colors hover:text-foreground"
-                variant="ghost"
-                size="icon-xs"
-                icon={Info}
-                iconClassName="icon-xs"
-                label={t("settings.providers.beta_notice")}
-                tooltipClassName="max-w-xs text-xs"
-              />
-            )}
           </div>
         )
       })}

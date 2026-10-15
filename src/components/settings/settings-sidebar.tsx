@@ -33,7 +33,7 @@ export const SettingsSidebar = ({
   return (
     <aside
       className={cn(
-        "hidden w-56 shrink-0 bg-surface-sidebar text-sidebar-foreground lg:block",
+        "hidden w-56 shrink-0 bg-surface-sidebar text-sidebar-foreground md:block",
         className
       )}>
       <nav aria-label={t("settings.nav_label")} className="h-full">

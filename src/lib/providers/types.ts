@@ -162,12 +162,23 @@ export interface ProviderCapabilities {
   toolCalling: boolean
 }
 
+/**
+ * The request fields that decide how a server loads a model, as opposed to
+ * how it samples. A warmup must send the same values the chat request will,
+ * or the server loads the model once for the warmup and again for the first
+ * chat (#315).
+ */
+export type ModelLoadOptions = Pick<
+  ChatRequest,
+  "num_ctx" | "num_gpu" | "num_batch" | "num_thread" | "keep_alive"
+>
+
 export interface ProviderModelLifecycle {
   listLoadedModels?(signal?: AbortSignal): Promise<LoadedModel[]>
   unloadModel?(model: string, signal?: AbortSignal): Promise<boolean>
   warmModel?(
     model: string,
-    keepAlive?: string | number,
+    load: ModelLoadOptions,
     signal?: AbortSignal
   ): Promise<void>
 }

@@ -8,7 +8,9 @@ import {
   buildToolSystemGuidance,
   offersTabTools
 } from "@/background/lib/build-tool-system-guidance"
+import { replayableHistory } from "@/background/lib/conversation-history"
 import { withErrorContext } from "@/background/lib/error-handler"
+import { isImageOnlyModel } from "@/background/lib/image-only-model"
 import {
   resolveModelCapabilities,
   resolveModelTools
@@ -243,7 +245,7 @@ export const handleChatWithModel = withErrorContext(
     const conversationMessages = messages.filter(
       (message) => !message.metrics?.permissionNotice
     )
-    const preparedMessages = [...conversationMessages]
+    const preparedMessages = replayableHistory(conversationMessages)
     const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
     const sessionSystemPrompt = await getSessionSystemPrompt(
       msg.payload.sessionId
@@ -266,11 +268,10 @@ export const handleChatWithModel = withErrorContext(
       provider,
       ac.signal
     )
-    const { capabilities } = resolvedCapabilities
-    const imageGenerator = capabilities.imageOutput
-      ? provider.generateImage
-      : undefined
-    if (capabilities.imageOutput && !imageGenerator) {
+    const { capabilities, states } = resolvedCapabilities
+    const imageOnly = isImageOnlyModel(capabilities, states)
+    const imageGenerator = imageOnly ? provider.generateImage : undefined
+    if (imageOnly && !imageGenerator) {
       throw createAppError("Provider does not support image generation.", {
         kind: "validation",
         status: 400,

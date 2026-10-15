@@ -1,4 +1,4 @@
-import { Check, Copy, MessageSquare, RefreshCw, SquarePen } from "lucide-react"
+import { Check, Copy, MessageSquare, RefreshCw, Replace } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { type ActionConfig, ActionGroup } from "@/components/actions"
 import { useSelectionOverlay } from "../selection-overlay-context"
@@ -69,7 +69,7 @@ export function PanelFooter() {
       label: t("selection_button.panel.replace"),
       tooltip: t("selection_button.panel.replace_tip"),
       onClick: actions.replace,
-      icon: SquarePen,
+      icon: Replace,
       showLabel: true
     },
     {

@@ -70,8 +70,12 @@ export default defineConfig({
       // tabGroups: the agent groups the tabs it opens, and the chat reads the
       // user's groups. All three arrive in 0.14.0 together, so an update from
       // 0.13.x asks for consent once rather than once per feature.
+      // webRequest + webRequestBlocking (Firefox only): Firefox has no DNR,
+      // so a blocking listener removes `Origin` from the extension's own
+      // requests to configured providers (firefox-origin-guard.ts). Neither
+      // adds a permission prompt: <all_urls> already covers the hosts.
       ...(browser === "firefox"
-        ? []
+        ? ["webRequest", "webRequestBlocking"]
         : [
             "sidePanel",
             "declarativeNetRequest",

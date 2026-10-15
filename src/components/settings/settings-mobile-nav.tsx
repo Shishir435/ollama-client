@@ -19,7 +19,7 @@ export const SettingsMobileNav = ({
   const { t } = useTranslation()
   return (
     <nav
-      className={cn("lg:hidden", className)}
+      className={cn("md:hidden", className)}
       aria-label={t("settings.nav_label")}>
       <div className="scroll-fade-x flex gap-0.5 overflow-x-auto rounded-panel bg-surface-sunken p-1 scrollbar-none">
         {items.map((item) => {
@@ -32,7 +32,7 @@ export const SettingsMobileNav = ({
               onClick={() => onTabChange(item.key)}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "inline-flex items-center gap-1.5 whitespace-nowrap rounded-control px-3 py-1.5 text-sm font-medium outline-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-focus",
+                "inline-flex items-center gap-1.5 whitespace-nowrap rounded-control px-3 py-1.5 text-sm font-medium outline-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus",
                 isActive
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground hover:bg-state-hover"

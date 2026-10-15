@@ -177,7 +177,7 @@
       "description": "実行が確認なしで行えること、モデルに要求できるコンテキストの量、ページを撮影するタイミング。",
       "enabled": {
         "label": "チャットモデルにブラウザエージェントの使用を許可",
-        "description": "browser_task を提供し、モデルがあなたの代わりにタブ内でクリック、入力、移動できるようにします。試験運用中：動作の精度はモデルによって大きく異なります。"
+        "description": "モデルがタブ内でクリック、入力、移動できるようにします。試験運用中：うまく動くかどうかはモデルによって大きく異なります。"
       },
       "context_window": {
         "label": "コンテキストウィンドウ",
@@ -187,7 +187,7 @@
       },
       "vision": {
         "label": "スクリーンショット",
-        "description": "画像を撮るステップごとに、モデルのウィンドウでイメージのプリフィル分を消費します。自動では、最初のステップ、うまくいかなかったステップの後、そしてページ構造では説明できないページで撮影します。",
+        "description": "スクリーンショットを撮るたびに、そのステップでモデルのコンテキストの一部を使います。自動では、最初のステップ、うまくいかなかったステップの後、テキストとして読み取れないページで撮影します。",
         "auto": "ステップに必要なとき",
         "always": "毎ステップ",
         "never": "撮らない"
@@ -348,13 +348,12 @@
     },
     "updated_at": "更新済み",
     "social": {
-      "title": "私とつながる",
+      "title": "つながる",
       "visit_profile": "私の {{platform}} プロフィールを見る"
     },
     "language": {
       "label": "言語",
-      "select_label": "インターフェース言語",
-      "beta_badge": "ベータ",
+      "select_label": "表示言語",
       "description": "インターフェースの優先言語を選択してください。",
       "help_text": "翻訳はAIによって生成されています。<0>GitHub</0>で改善にご協力ください！"
     },
@@ -377,7 +376,9 @@
     "stop_browser_agent_menu": "ブラウザーエージェントを停止",
     "agent_task_completed": "完了",
     "agent_task_attention": "一時停止",
-    "agent_task_unchecked": "完了（一部未確認）"
+    "agent_task_unchecked": "完了（一部未確認）",
+    "ask_selection_menu": "これについて Ollama Client に質問",
+    "tool_limit_reached": "回答の準備が整う前にツール呼び出しの上限に達したため停止しました。範囲を絞って、もう一度質問してください。"
   },
   "selection_button": {
     "actions": {
@@ -395,7 +396,7 @@
       },
       "fix-grammar": {
         "label": "文法を修正する",
-        "short": "文法"
+        "short": "修正"
       },
       "explain": {
         "label": "簡単に説明する",
@@ -403,11 +404,11 @@
       },
       "action-items": {
         "label": "アクション項目を抽出",
-        "short": "アクション"
+        "short": "ToDo"
       },
       "translate-english": {
         "label": "英語に翻訳する",
-        "short": "英訳"
+        "short": "翻訳"
       },
       "custom": {
         "label": "カスタムプロンプト",
@@ -458,21 +459,21 @@
     "start_chatting": "チャットを開始",
     "status": {
       "connecting": {
-        "title": "接続中...",
-        "message": "ローカルプロバイダーへの接続を確立しています"
+        "title": "接続中…",
+        "message": "プロバイダーを確認しています。"
       },
       "connection_failed": {
-        "title": "接続失敗",
-        "message": "プロバイダーに接続できません。サーバーは実行中ですか？"
+        "title": "{{provider}} に接続できません",
+        "message": "起動してから「再試行」を選択してください。"
       },
       "no_models": {
-        "title": "モデルが見つかりません",
-        "message": "開始するにはモデルをpull（取得）してください",
+        "title": "チャットモデルがまだありません",
+        "message": "`ollama pull llama3.2` を実行してから、もう一度確認してください。",
         "message_generic": "プロバイダーでチャットモデルをインストールまたは読み込んでから、もう一度確認してください。"
       },
       "ready": {
-        "title": "チャット準備完了",
-        "message": "プロバイダーは接続され使用可能です"
+        "title": "チャットの準備ができました",
+        "message": "プロバイダーに接続されています。"
       },
       "provider_fallback": "プロバイダー"
     },
@@ -507,7 +508,7 @@
   "chat": {
     "scroll_to_bottom": "一番下までスクロール",
     "input": {
-      "placeholder": "メッセージを入力 または ctrl + /",
+      "placeholder": "何でも質問",
       "switch_model": "モデルを切り替え",
       "chars": "文字",
       "enter_to_send": "送信",
@@ -595,7 +596,7 @@
         "planning": "計画中",
         "thinking": "思考中",
         "page": "ページを読取中",
-        "files": "RAG",
+        "files": "ファイルを検索中",
         "web": "Web検索中",
         "knowledge": "ナレッジを検索中",
         "tab": "タブを読取中",
@@ -633,7 +634,7 @@
         "cancel_reminder": "リマインダーをキャンセル中",
         "browser_task": "ブラウザータスク"
       },
-      "debug": "デバッグ推論"
+      "debug": "思考を表示"
     },
     "feedback": {
       "helpful_tooltip": "役に立った",
@@ -682,13 +683,12 @@
       "button_label": "チャット検索",
       "dialog_title": "セマンティックチャット検索",
       "dialog_description": "キーワードだけでなく、意味でチャット履歴を検索します",
-      "beta_badge": "ベータ v0.3.0",
       "placeholder": "意味で会話を検索...",
       "scope_all": "全チャット",
       "scope_current": "現在のチャット",
       "searching": "チャット履歴を検索中...",
-      "no_results": "結果が見つかりません。別の検索クエリを試してください。",
-      "no_results_description": "キーワードまたは検索範囲を調整してみてください。",
+      "no_results": "一致するチャットはありません。",
+      "no_results_description": "別の言い方で試してください。",
       "start_typing": "入力を開始してチャット履歴をセマンティック検索...",
       "start_typing_description": "セマンティック検索を使用してチャット履歴を検索します。",
       "role_you": "あなた",
@@ -759,15 +759,15 @@
         "title": "ブラウザエージェントはオフです",
         "description": "ブラウザでの操作のようです。エージェントは試験運用中で、ホスト型モデルで最もよく動作します。",
         "enable": "オンにして続行",
-        "continue_without": "使わずに続行",
+        "continue_without": "エージェントを使わずに回答",
         "manage": "エージェント設定"
       }
     },
     "errors": {
-      "unknown_error": "❌ 不明なエラー: {{message}}",
+      "unknown_error": "リクエストに失敗しました: {{message}}。再試行するか、{{provider}} が実行中か確認してください。",
       "no_message": "メッセージなし",
-      "response_failed_title": "応答の生成に失敗しました",
-      "unknown_error_description": "不明なエラーが発生しました",
+      "response_failed_title": "応答を取得できませんでした",
+      "unknown_error_description": "リクエストに失敗しました。再試行するか、プロバイダーが実行中か確認してください。",
       "provider_replay_invalid": "この応答を安全に続行できません。プロバイダーのコンテキストを再構築するため、このターンを再試行してください。",
       "provider_busy": "ローカルのエンドポイントは前のリクエストをまだ処理中で、別のリクエストを開始できません。1 分ほど待つか、再起動してください。",
       "report_issue": "問題を報告",
@@ -784,17 +784,14 @@
       "issue_draft_notice": "ローカルで入力済みです。送信前に確認してください。",
       "preparing_issue": "安全なチェックを実行中…",
       "open_diagnostics": "診断を開く",
-      "empty_response": "モデルは回答を送信せずに終了しました。モデルがアンロードされたか、会話に回答の余地が残っていなかった可能性があります。もう一度試すか、新しいチャットを開始してください。",
-      "thinking_only_response": "モデルから最終的な回答を受け取れませんでした。もう一度お試しください。",
-      "provider_selection_required_title": "モデルのプロバイダー選択が必要です",
-      "provider_selection_required_description": "メッセージを送信する前に、モデルメニューで「{{model}}」のプロバイダーを選択してください。",
+      "provider_selection_required_title": "{{model}} の実行先を選択",
+      "provider_selection_required_description": "このモデルは複数のサーバーで提供されています。モデルメニューで 1 つ選んでください。",
       "no_model_selected_title": "モデルが選択されていません",
       "no_model_selected_description": "メッセージを送信する前に、モデルメニューでモデルを選択してください。",
       "chat_create_failed_title": "チャットを開始できませんでした",
       "chat_create_failed_description": "チャットの作成に失敗しました。もう一度お試しください。",
       "message_save_failed_title": "メッセージを送信できませんでした",
       "message_save_failed_description": "メッセージの保存に失敗しました。もう一度お試しください。",
-      "context_preparation_failed": "このメッセージのコンテキストを準備できませんでした。もう一度お試しいただくか、繰り返し起きる場合は選択中のコンテキストやファイルを減らしてください。",
       "context_preparation_failed_title": "コンテキストの準備に失敗しました",
       "context_preparation_failed_description": "メッセージは保存されましたが、コンテキストの準備に失敗したためアシスタントを開始できませんでした。",
       "insufficient_page_context": "ページコンテキストが不足しています。関連する抽出済みコンテンツのあるタブを1つ以上選択して、もう一度お試しください。\n\nこの動作を無効にするには、[{{settingsLabel}}]({{settingsLink}}) を開いてください。",
@@ -803,8 +800,8 @@
       "context_retrieval_warning_title": "コンテキストの取得に失敗しました",
       "context_retrieval_warning_description": "保存済みのコンテキストの一部を検索できませんでした。回答に関連情報が含まれない可能性があります。",
       "interrupted": "応答が中断されました",
-      "provider_auth": "プロバイダーがアクセスを拒否しました。再開する前に、設定で API キー、認証情報、アカウントの権限を確認してください。",
-      "provider_cors": "ローカルプロバイダーが拡張機能のオリジンをブロックしました。CORS 設定で chrome-extension://* と moz-extension://* を許可してから再試行してください。",
+      "provider_auth": "{{provider}} が API キーを拒否しました。プロバイダー設定で確認してください。",
+      "provider_cors": "{{provider}} がこの拡張機能をブロックしました。OLLAMA_ORIGINS を設定して再起動してください。詳しくは[セットアップガイド]({{setupGuideUrl}})を参照してください。",
       "provider_refused": "モデルがこのリクエストを拒否しました。タスクを変更するか、別のモデルを選んでください。",
       "unknown_error_generic": "リクエストに失敗しました: {{message}}。しばらくしてから再試行してください。",
       "provider_fallback": "プロバイダー",
@@ -819,7 +816,8 @@
       "out_of_memory": "{{model}} には、このマシンの空きメモリより多くのメモリが必要です。他のアプリを閉じるか、より小さいモデルを選んでください。",
       "model_crashed": "{{model}} が読み込み中にクラッシュしました。再試行し、繰り返す場合は {{provider}} のログを確認してください。",
       "ollama_cloud_signin": "{{model}} は Ollama のクラウドで動作します。`ollama signin` でサインインするか、ローカルモデルを選んでください。",
-      "ollama_cloud_unreachable": "{{model}} 用の Ollama に接続できません。Ollama を起動してください。すでに起動している場合、このクラウドモデルには `ollama signin` が必要です。"
+      "ollama_cloud_unreachable": "{{model}} 用の Ollama に接続できません。Ollama を起動してください。すでに起動している場合、このクラウドモデルには `ollama signin` が必要です。",
+      "provider_forbidden": "{{provider}} がこのリクエストを拒否しました。プロバイダー設定の API キー、または前段にあるプロキシのアクセスルールを確認してください。"
     },
     "composer": {
       "rag": "ファイル",
@@ -886,6 +884,10 @@
       "copied": "応答をコピーしました",
       "exported_json": "チャットを JSON でエクスポートしました",
       "exported_pdf": "チャットを PDF でエクスポートしました"
+    },
+    "empty_reply": {
+      "no_text": "モデルからテキストが返されませんでした。再試行するか、別のモデルを試してください。",
+      "thinking_only": "モデルは推論だけを出力し、回答はありませんでした。再試行するか、別のモデルを試してください。"
     }
   },
   "file_upload": {
@@ -945,13 +947,13 @@
       "refresh_aria_label": "モデルを更新",
       "refresh_tooltip": "モデルを更新",
       "search_placeholder": "モデルを検索...",
-      "no_model_found": "モデルが見つかりません。",
+      "no_model_found": "モデルがまだありません。設定でプロバイダーを確認するか、モデル ID を追加してください。",
       "cloud_badge": "クラウド{{plan}}",
       "cloud_models": {
         "label": "Ollama クラウドモデル",
         "description": "ホスト型の :cloud モデル。サインイン済みの Ollama と、多くの場合は有料プランが必要です。"
       },
-      "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。",
+      "providers_unavailable": "{{names}} からモデルが返されませんでした。プロバイダー設定でモデル ID を追加してください。",
       "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。",
       "no_model_match": "一致するモデルはありません。",
       "providers_unreachable": "{{names}} に接続できません。サーバーが実行中か、プロバイダー設定のアドレスが正しいかを確認してください。",
@@ -961,7 +963,7 @@
       "tooltip": "Providerバージョン: {{version}}"
     },
     "site_overrides": {
-      "title": "サイト固有の上書き設定",
+      "title": "サイトごとの上書き設定",
       "description": "正規表現パターンを使用して、特定のサイトのカスタム抽出設定を構成します",
       "add_pattern_label": "サイトパターンを追加",
       "pattern_placeholder": "medium.com または ^https://twitter\\.com/.*",
@@ -969,7 +971,7 @@
       "pattern_exists_error": "サイトの上書き設定は既に存在します",
       "pattern_invalid_error": "無効な正規表現パターンです",
       "examples": "例: <0>medium.com</0> または <0>^https://twitter\\.com/.*</0>",
-      "active_overrides": "アクティブな上書き",
+      "active_overrides": "有効な上書き設定",
       "site_count": "{{count}} サイト",
       "site_count_plural": "{{count}} サイト",
       "select_site_label": "設定するサイトを選択",
@@ -978,20 +980,20 @@
       "no_sites_found": "サイトが見つかりません。",
       "no_overrides": "サイト固有の上書き設定が構成されていません",
       "no_overrides_hint": "パターンを追加して、特定のサイトの抽出設定をカスタマイズします",
-      "scroll_strategy_label": "スクロール戦略",
+      "scroll_strategy_label": "スクロール方法",
       "scroll_depth_label": "スクロール深度",
       "add_button": "追加"
     },
     "exclude_urls": {
       "title": "除外URL",
       "description": "正規表現パターンを使用して、機密ページからの拡張機能アクセスをブロックします",
-      "add_pattern_label": "URLパターンを追加",
+      "add_pattern_label": "URL パターンを追加",
       "pattern_placeholder": "^https://example\\.com/private.*",
       "pattern_empty_error": "パターンを空にすることはできません",
       "pattern_exists_error": "パターンは既に存在します",
       "pattern_invalid_error": "無効な正規表現パターンです",
       "examples": "正規表現を使用してURLを一致させます。例: <0>^https://bank\\.</0> または <0>.*\\.private\\..*</0>",
-      "active_patterns": "アクティブなパターン",
+      "active_patterns": "有効なパターン",
       "pattern_count": "{{count}} パターン",
       "pattern_count_plural": "{{count}} パターン",
       "no_patterns": "URLパターンが構成されていません",
@@ -1002,65 +1004,65 @@
       "title": "埋め込みモデル、チャンク分割、検索、ストレージ",
       "storage_stats_title": "ストレージ統計",
       "storage_stats_description": "ベクトルストレージの現在の使用状況",
-      "total_vectors": "総ベクトル数",
-      "storage_used": "使用ストレージ",
+      "total_vectors": "エンベディング総数",
+      "storage_used": "使用中のストレージ",
       "cache": "キャッシュ",
       "cache_entries": "{{size}} / {{maxSize}} エントリ",
-      "database_management_title": "データベース管理",
+      "database_management_title": "保存済みナレッジの整理",
       "database_management_description": "ベクトルエンベディングデータベースのクリーンアップと管理",
       "remove_duplicates_button": "重複を削除",
       "remove_duplicates_description": "重複するエンベディングを削除し、各ユニークメッセージの最初の出現のみを保持します",
-      "clear_chat_button": "全チャットエンベディングをクリア",
+      "clear_chat_button": "チャットのエンベディングをすべて消去",
       "clear_chat_description": "すべてのチャットエンベディングを削除します。後でバックフィルして再生成できます",
-      "clear_all_button": "全エンベディングをクリア",
+      "clear_all_button": "すべてのエンベディングを消去",
       "clear_all_description": "すべてのエンベディング（チャット、ファイル、Webページ）を削除します。この操作は取り消せません",
       "database_management": {
         "remove_duplicates_confirm": "重複した埋め込みを削除しますか？各ユニークなメッセージの最初の出現のみが保持されます。",
         "remove_duplicates_success": "{{deleted}}個の重複を削除しました。{{kept}}個のユニークな埋め込みを保持しました。",
-        "remove_duplicates_error": "重複の削除に失敗しました。詳細はコンソールを確認してください。",
+        "remove_duplicates_error": "重複を削除できませんでした。拡張機能を再読み込みして、もう一度お試しください。",
         "clear_chat_confirm": "すべてのチャットの埋め込みを消去しますか？これにより、チャットのすべてのセマンティック検索データが削除されます。後でバックフィルが可能です。",
         "clear_chat_success": "{{count}}個のチャットの埋め込みを消去しました。",
-        "clear_chat_error": "チャットベクトルの消去に失敗しました。詳細はコンソールを確認してください。",
-        "clear_all_confirm": "すべての埋め込みを消去しますか？これにより、すべてのセマンティック検索データ（チャット、ファイル、ウェブページ）が削除されます。この操作は取り消せません。",
+        "clear_chat_error": "チャットの検索データを消去できませんでした。拡張機能を再読み込みして、もう一度お試しください。",
+        "clear_all_confirm": "すべてのエンベディングを消去しますか？セマンティック検索データ（チャット、ファイル、ウェブページ）がすべて削除され、元に戻せません。",
         "clear_all_success": "すべての埋め込みを消去しました。",
-        "clear_all_error": "すべてのベクトルの消去に失敗しました。詳細はコンソールを確認してください。"
+        "clear_all_error": "検索データを消去できませんでした。拡張機能を再読み込みして、もう一度お試しください。"
       },
       "chunking_title": "チャンク設定",
       "chunking_description": "テキストをエンベディング用にチャンク分割する方法を設定します",
       "chunk_size_label": "チャンクサイズ (トークン)",
       "chunk_size_description": "チャンクごとのトークン数。大きなチャンクはより多くの文脈を保持しますが、焦点が絞られにくくなる場合があります。",
-      "chunk_overlap_label": "チャンクオーバーラップ (トークン)",
+      "chunk_overlap_label": "チャンクの重なり (トークン)",
       "chunk_overlap_description": "チャンク間の重複。チャンクの境界を越えて文脈を保持するのに役立ちます。",
-      "chunking_strategy_label": "チャンク戦略",
+      "chunking_strategy_label": "チャンク分割方法",
       "strategy_fixed": "固定サイズ",
-      "strategy_semantic": "セマンティック境界",
+      "strategy_semantic": "意味の区切り",
       "strategy_hybrid": "ハイブリッド",
       "strategy_markdown": "Markdown 構造",
       "embedding_gen_title": "エンベディング生成",
       "embedding_gen_description": "エンベディング生成のパフォーマンスを設定します",
       "batch_size_label": "バッチサイズ",
       "batch_size_description": "並行して埋め込むテキストの数。値が高いほど高速ですが、より多くのメモリを使用します。",
-      "enable_caching_label": "キャッシュを有効化",
+      "enable_caching_label": "キャッシュを有効にする",
       "enable_caching_description": "再生成を避けるため、同一コンテンツのエンベディングをキャッシュします",
-      "limits_title": "制限とストレージ",
+      "limits_title": "上限とストレージ",
       "limits_description": "ストレージ制限とクリーンアップポリシーを設定します",
-      "max_embeddings_label": "ファイルごとの最大エンベディング",
+      "max_embeddings_label": "ファイルあたりの最大エンベディング数",
       "max_embeddings_description": "ファイルごとの最大エンベディング数（0 = 無制限）。非常に大きなファイルでのメモリ問題を防ぐのに役立ちます。",
       "max_storage_label": "最大ストレージサイズ (MB)",
       "max_storage_description": "MB単位の最大ストレージサイズ（0 = 無制限）。制限に達すると、最も古いベクトルが削除されます。",
       "auto_cleanup_label": "自動クリーンアップ",
       "auto_cleanup_description": "古いエンベディングを自動的に削除します",
-      "cleanup_age_label": "クリーンアップ期間 (日)",
+      "cleanup_age_label": "クリーンアップまでの日数",
       "cleanup_age_description": "指定した日数より古いエンベディングを削除します",
       "search_settings_title": "検索設定",
       "search_settings_description": "セマンティック検索のデフォルトパラメータ",
-      "search_limit_label": "デフォルト検索件数",
+      "search_limit_label": "デフォルトの検索件数",
       "search_limit_description": "セマンティック検索から返す結果のデフォルト数",
-      "min_similarity_label": "最小類似度しきい値",
+      "min_similarity_label": "類似度の最小しきい値",
       "min_similarity_description": "最小コサイン類似度スコア (0-1)。セマンティック検索の場合、0.4-0.6が推奨されます。値が高いほど関連性は高くなりますが、結果は少なくなります。",
-      "cache_ttl_label": "検索キャッシュTTL (分)",
+      "cache_ttl_label": "検索キャッシュの TTL (分)",
       "cache_ttl_description": "検索結果をキャッシュする時間（1-60分）。キャッシュされたクエリは即座に返されます。",
-      "cache_max_size_label": "最大キャッシュクエリ数",
+      "cache_max_size_label": "キャッシュするクエリの最大数",
       "cache_max_size_description": "キャッシュする検索クエリの最大数（10-200）。制限に達すると、古いエントリは自動的に削除されます。",
       "ann_backend_label": "ANN バックエンド",
       "ann_backend_description": "ベクトル検索で使う近似最近傍探索バックエンドを選択します。",
@@ -1068,28 +1070,28 @@
       "ann_backend_group": "バックエンド",
       "ann_backend_ts": "TypeScript HNSW",
       "ann_backend_bruteforce": "総当たり",
-      "ann_min_vectors_label": "ANN 最小ベクトル数",
-      "ann_min_vectors_description": "ANN を使用する前に必要な最小ベクトル数（0 = 常に使用）。",
-      "enhanced_chunking_label": "拡張チャンキング",
+      "ann_min_vectors_label": "高速検索のしきい値",
+      "ann_min_vectors_description": "保存済みチャンクがこの数に達したら高速な近似検索を使います（0 = 常に使用）。",
+      "enhanced_chunking_label": "拡張チャンク分割",
       "enhanced_chunking_description": "高度な再帰的文字分割を使用して、より良いコンテキストを維持します",
       "enhanced_chunking_info": "拡張チャンキングは、テキストを階層的に分割（段落→文→単語）し、セマンティックな意味を保持します。RAGに推奨されます。",
-      "rag_settings_title": "RAG (検索拡張生成)",
+      "rag_settings_title": "RAG（検索拡張生成）",
       "rag_settings_description": "取得されたコンテキストを使用して、ファイルに関する質問に答える方法を設定します",
       "rag_enable_label": "RAGを有効にする",
       "rag_enable_description": "取得されたコンテキストを使用して、ファイルに関する質問に答えます",
       "reranking_label": "関連度の再スコアリング",
       "reranking_description": "クエリとの埋め込み類似度に基づいて検索結果を再スコアリングします。ごくわずかなコストで並び順を改善します。",
-      "embedding_source_label": "Embedding 生成元",
+      "embedding_source_label": "エンベディングの生成元",
       "embedding_source_description": "埋め込みはローカルプロバイダー（既定はOllama）で生成されます",
       "embedding_source_default_provider": "既定のプロバイダー（Ollama）",
       "feedback_learning_title": "ユーザーフィードバック学習",
       "feedback_learning_description": "フィードバックから学習して検索品質を改善します。",
-      "feedback_enable_label": "フィードバック収集を有効化",
+      "feedback_enable_label": "フィードバック収集を有効にする",
       "feedback_enable_description": "どのチャンクが役立ったかを記憶し、今後の検索を改善します。",
       "feedback_show_chunks_label": "取得したチャンクを表示",
       "feedback_show_chunks_description": "チャット内にソースチャンクとフィードバックボタンを表示します。",
       "feedback_export_button": "フィードバックデータをエクスポート",
-      "feedback_clear_button": "すべてのフィードバックを削除",
+      "feedback_clear_button": "すべてのフィードバックを消去",
       "feedback_privacy_note": "すべてのフィードバックはローカルに保存されます。クエリはプライバシー保護のためハッシュ化されます。データがデバイス外に出ることはありません。",
       "feedback_stats_title": "フィードバック統計",
       "feedback_stats_total": "フィードバック合計",
@@ -1098,17 +1100,17 @@
       "feedback_stats_queries": "フィードバック付きクエリ",
       "feedback_privacy_title": "フィードバックのプライバシー",
       "feedback_export_success": "フィードバックデータをエクスポートしました",
-      "feedback_export_error": "フィードバックデータをエクスポートできませんでした",
+      "feedback_export_error": "フィードバックをエクスポートできませんでした。もう一度お試しください。",
       "feedback_clear_confirm_title": "すべてのフィードバックを削除しますか？",
       "feedback_clear_confirm_description": "保存済みのフィードバックデータがすべて削除されます。この操作は元に戻せません。",
       "feedback_clear_success": "フィードバックデータを削除しました",
-      "feedback_clear_error": "フィードバックデータを削除できませんでした"
+      "feedback_clear_error": "フィードバックを消去できませんでした。もう一度お試しください。"
     },
     "provider_status": {
-      "checking": "ローカルプロバイダーを確認中...",
-      "error": "ローカルプロバイダーに接続できません",
-      "empty": "ローカルプロバイダーに接続しましたが、チャットモデルが見つかりません",
-      "ready": "ローカルプロバイダー準備完了",
+      "checking": "プロバイダーを確認中…",
+      "error": "モデルを読み込めませんでした",
+      "empty": "チャットモデルが見つかりません",
+      "ready": "モデルの準備完了",
       "unreachable": "{{provider}} に接続できません"
     },
     "capabilities": {
@@ -1182,10 +1184,10 @@
   "sessions": {
     "selector": {
       "title": "チャットセッション",
-      "create_new": "新しいチャットを作成",
+      "create_new": "新しいチャット",
       "search_placeholder": "タイトルでチャットを検索...",
       "clear_search": "チャット検索をクリア",
-      "no_sessions": "チャットセッションはまだありません",
+      "no_sessions": "チャットはまだありません",
       "no_matches": "一致するチャットはありません",
       "no_matches_hint": "別のタイトルを試してください。",
       "session_count": "{{count}} セッション",
@@ -1276,7 +1278,7 @@
         "chat": "チャット",
         "chat_count": "{{sessions}} セッション · {{messages}} メッセージ",
         "knowledge": "ナレッジとメモリ",
-        "knowledge_count": "{{files}} ファイル · {{vectors}} ベクトル",
+        "knowledge_count": "{{files}} 件のファイルをインデックス済み",
         "agent": "エージェント実行",
         "agent_count": "保存済み実行と復旧記録 {{runs}} 件",
         "settings": "ローカル設定とプロバイダーの秘密情報",
@@ -1288,11 +1290,11 @@
     "chat_display": {
       "title": "チャット表示",
       "description": "チャット情報の表示方法を設定",
-      "session_metrics_label": "セッションメトリクスを表示",
+      "session_metrics_label": "セッションの指標を表示",
       "session_metrics_description": "チャットヘッダーにトークン使用量、時間、速度を表示"
     },
     "prompt_context_limits": {
-      "title": "プロンプトコンテキスト制限",
+      "title": "プロンプトのコンテキスト上限",
       "description": "各リクエストに挿入されるタブとRAGコンテキストの量を制御します。",
       "max_tab_context_chars": "最大タブコンテキスト文字数",
       "max_rag_context_chars": "最大RAGコンテキスト文字数",
@@ -1312,29 +1314,29 @@
       "reset_all": "すべてのショートカットをリセット",
       "new_chat": "新しいチャット",
       "new_chat_desc": "新しいチャットセッションを作成",
-      "focus_input": "入力にフォーカス",
+      "focus_input": "入力欄にフォーカス",
       "focus_input_desc": "チャット入力フィールドにフォーカス",
-      "toggle_sidebar": "サイドバー切り替え",
+      "toggle_sidebar": "サイドバーの切り替え",
       "toggle_sidebar_desc": "サイドバーを開く/閉じる",
       "stop_generation": "生成を停止",
       "stop_generation_desc": "AI応答を停止",
       "open_settings": "設定を開く",
       "open_settings_desc": "設定ページを開く",
-      "toggle_theme": "テーマ切り替え",
+      "toggle_theme": "テーマの切り替え",
       "toggle_theme_desc": "ライト/ダークモードを切り替え",
       "toggle_rag": "RAG切り替え",
       "toggle_rag_desc": "コンテキスト取得を有効/無効にする",
-      "toggle_speech": "音声切り替え",
+      "toggle_speech": "読み上げの切り替え",
       "toggle_speech_desc": "最後のAI応答の読み上げを開始/停止",
-      "toggle_tabs": "タブ切り替え",
+      "toggle_tabs": "タブの切り替え",
       "toggle_tabs_desc": "タブアクセスを有効/無効にする",
-      "search_messages": "メッセージ検索",
+      "search_messages": "メッセージを検索",
       "search_messages_desc": "セマンティックチャット検索を開く",
-      "clear_chat": "チャットをクリア",
+      "clear_chat": "チャットを消去",
       "clear_chat_desc": "現在のチャットセッションをクリア",
       "copy_last_response": "最後の応答をコピー",
       "copy_last_response_desc": "最後のAI応答をクリップボードにコピー",
-      "toggle_session_metrics": "セッション統計を切り替え",
+      "toggle_session_metrics": "セッションの指標の切り替え",
       "toggle_session_metrics_desc": "セッションメトリクスバーを表示または非表示にする",
       "export_json": "JSONとしてエクスポート",
       "export_json_desc": "現在のチャットをJSONファイルとしてエクスポート",
@@ -1362,10 +1364,6 @@
         "label": "コンテンツ抽出を許可",
         "description": "遅延読み込みをサポートする拡張コンテンツ抽出を有効にする"
       },
-      "selection_button": {
-        "label": "選択後に「ローカルLLMに聞く」ボタンを表示",
-        "description": "テキスト選択時にフローティングアクションボタンを表示し、チャットへの追加を迅速化します"
-      },
       "scraper": {
         "label": "コンテンツスクレイパー",
         "auto": {
@@ -1385,7 +1383,7 @@
         }
       },
       "scroll_strategy": {
-        "label": "スクロール戦略",
+        "label": "スクロール方法",
         "none": "抽出が最速ですが、遅延読み込みはサポートされません",
         "instant": "高速スクロールは単純な遅延読み込みに適しています",
         "gradual": "速度と精度のバランスが取れた、意図的な一時停止を伴うスムーズなスクロール",
@@ -1409,7 +1407,7 @@
       },
       "timeout": {
         "scroll_delay": "スクロール遅延（ミリ秒）",
-        "mutation_timeout": "Mutation Observerタイムアウト（ミリ秒）",
+        "mutation_timeout": "Mutation Observer のタイムアウト（ミリ秒）",
         "network_timeout": "ネットワークアイドルタイムアウト（ミリ秒）",
         "max_wait": "最大待機時間（ミリ秒）",
         "section_title": "ページ読み込みのタイムアウト（詳細設定）"
@@ -1419,8 +1417,8 @@
         "active": "アクティブ"
       },
       "selection_actions": {
-        "description": "ページ上でテキストを選択したときにローカル AI アクションを表示します。",
-        "label": "選択アクションを有効にする"
+        "description": "選択したテキストをページ上でそのまま要約、説明、短縮、書き換えできます。",
+        "label": "テキスト選択時にツールバーを表示"
       },
       "selection_actions_list": {
         "description": "ページツールバーに表示するローカルテキストアクションを選択します。",
@@ -1434,7 +1432,7 @@
     "model": {
       "title": "モデル設定",
       "switch_model": "モデルを切り替える",
-      "description": "最適なパフォーマンスのためのパラメータを設定します。",
+      "description": "{{model}} に適用されます。",
       "configuration_title": "モデル構成",
       "configuration_description": "AIモデルのパラメータを設定します。",
       "system": {
@@ -1452,7 +1450,7 @@
       },
       "context": {
         "title": "コンテキストと生成",
-        "description": "メモリと出力制御の設定"
+        "description": "メモリと出力の制御設定"
       },
       "runtime": {
         "title": "ランタイムとウォームアップ",
@@ -1471,7 +1469,7 @@
           "description_reported": "このモデルのプロバイダーが報告したレベルです。",
           "description_profile": "このプロバイダーとモデルファミリーで確認済みのレベルです。",
           "description_unknown": "このプロバイダーは信頼できる推論制御を公開していません。",
-          "reset": "自動にリセット",
+          "reset": "自動に戻す",
           "options": {
             "auto": "自動（プロバイダーの既定値）",
             "auto_short": "自動",
@@ -1522,15 +1520,15 @@
           "validation_min": "{{min}} より大きい必要があります。"
         },
         "repeat_last_n": {
-          "label": "Repeat Last N",
+          "label": "繰り返し判定の範囲 (直近 N)",
           "validation_min": "少なくとも {{min}} である必要があります。"
         }
       }
     },
     "base_url": {
-      "title": "ProviderベースURL",
-      "description": "Providerインストールのサーバーエンドポイントを設定します。",
-      "label": "Provider API サーバーエンドポイント",
+      "title": "プロバイダーのベース URL",
+      "description": "プロバイダーのサーバーエンドポイントを設定します。",
+      "label": "プロバイダー API サーバーのエンドポイント",
       "error_invalid_url": "有効なURLを入力してください。",
       "status_local": "ローカルサーバー接続",
       "status_remote": "リモートサーバー接続",
@@ -1552,7 +1550,7 @@
       "time_ago_hours": "{{count}} 時間前",
       "time_ago_days": "{{count}} 日前",
       "title": "モデル",
-      "title_count": "{{count}} モデル",
+      "title_count": "{{count}} 個のモデル",
       "retry": "再試行",
       "refresh": "更新",
       "no_models": "モデルが見つかりません",
@@ -1572,13 +1570,13 @@
       "error_details": "モデルの詳細を取得できませんでした。",
       "refresh_tooltip": "モデル詳細を更新",
       "capabilities": "機能",
-      "technical_details": "技術詳細",
+      "technical_details": "技術的な詳細",
       "unknown_file_type": "不明",
       "params_label": "パラメータ",
       "context_label": "コンテキスト"
     },
     "loaded_models": {
-      "title": "ロードされたモデル",
+      "title": "読み込み済みのモデル",
       "count_one": "{{count}} モデル",
       "count_other": "{{count}} モデル",
       "refresh_tooltip": "ロードされたモデルを更新",
@@ -1589,7 +1587,7 @@
     "tabs": {
       "general": "チャット",
       "prompts": "プロンプトライブラリ",
-      "models": "モデルの挙動",
+      "models": "プロバイダーとモデル",
       "extraction": "ページとタブ",
       "agent": "エージェント",
       "context": "ナレッジとウェブ",
@@ -1603,12 +1601,12 @@
     },
     "context": {
       "file_upload": {
-        "title": "ファイル取り込み",
+        "title": "ファイルのアップロード",
         "description": "知識検索のためにファイルを処理する方法を設定します。"
       },
       "embedding_health": {
-        "title": "異なる Embedding 次元が検出されました",
-        "description": "Embedding が複数の次元（{{dimensions}}）で保存されています。すべてを再構築するまで、検索やメモリが失敗する可能性があります。",
+        "title": "保存済みナレッジの再構築が必要です",
+        "description": "一部の保存済みナレッジは別のエンベディングモデル（{{dimensions}} 次元）でインデックスされています。再構築するまで、検索とメモリが失敗することがあります。",
         "note": "再構築するとすべての Embedding が削除され、チャット履歴が再度 Embedding 化されます。知識を復元するにはファイルを再アップロードする必要があります。",
         "memory_disabled": "メモリがオフのため、チャット Embedding は再構築されませんでした。",
         "action": "Embedding を再構築",
@@ -1616,7 +1614,7 @@
         "confirm": "Embedding を再構築しますか？すべての Embedding が削除され、チャット履歴が再度 Embedding 化されます。知識を復元するにはファイルを再アップロードする必要があります。",
         "progress": "チャット Embedding を再構築中（{{current}}/{{total}}）",
         "success": "Embedding を正常に再構築しました。",
-        "error": "Embedding を再構築できませんでした。"
+        "error": "エンベディングを再構築できませんでした。エンベディングモデルに接続できるか確認して、もう一度お試しください。"
       },
       "sections": {
         "conversation": "会話コンテキスト",
@@ -1625,14 +1623,14 @@
         "files_chunking_description": "アップロードされたファイルの受け入れ方法と、検索のための分割方法。",
         "grounding": "グラウンディング",
         "grounding_description": "回答を現在表示しているページに限定します。",
-        "prompt_budget": "プロンプトバジェット",
+        "prompt_budget": "プロンプトの予算",
         "prompt_budget_description": "各プロンプトに詰め込むコンテキスト量の上限。",
         "retrieval": "検索（リトリーバル）",
         "retrieval_description": "アシスタントが会話の外で参照する範囲 — ウェブとナレッジベース。"
       }
     },
     "web_search": {
-      "title": "Web Search",
+      "title": "ウェブ検索",
       "description": "Let supported models search the web using built-in or configured search.",
       "execution_source": {
         "label": "Search source",
@@ -1699,8 +1697,6 @@
         "api_key_required": "Enter an API key.",
         "searxng_json_disabled": "SearXNG が JSON 形式の結果を拒否しました。settings.yml の search.formats に json を追加して再起動してください。ログインやプロキシの背後にある場合は、この拡張機能のアクセスを許可してください。"
       },
-      "beta_badge": "Beta",
-      "beta_tooltip": "Beta. If you run into issues, please report them.",
       "base_url": {
         "label": "API base URL",
         "description": "Shown for transparency. This endpoint is fixed by the selected provider."
@@ -1713,7 +1709,6 @@
     },
     "memory": {
       "title": "コンテキストメモリ",
-      "beta_badge": "ベータ",
       "description": "AIが過去の会話の詳細を記憶し、パーソナライズされた応答を提供できるようにします。",
       "enable": {
         "label": "メモリを有効にする",
@@ -1722,21 +1717,21 @@
       "clear": {
         "label": "メモリを消去",
         "description": "保存されたすべてのチャットメモリを削除します。",
-        "button": "チャットメモリを消去",
+        "button": "チャットのメモリを消去",
         "button_clearing": "消去中...",
         "confirm_dialog": "すべてのチャットメモリを消去してもよろしいですか？この操作は取り消せません。",
         "success": "チャットメモリが正常に消去されました。",
-        "error": "メモリの消去に失敗しました。",
+        "error": "メモリを消去できませんでした。もう一度お試しください。",
         "usage": "使用状況: {{count}} 項目 (合計 {{size}} MB)"
       }
     },
     "page": {
-      "title": "Ollama Client設定",
-      "description": "Ollamaセットアップのあらゆる側面を1か所で管理します。ヒントやセットアップのガイダンスについては、ヘルプタブをご覧ください。"
+      "title": "Ollama Client の設定",
+      "description": "モデルサーバーに接続し、チャット、ページ、ナレッジの動作を選びます。"
     },
     "sections": {
       "app": "アプリ",
-      "ai_models": "AI・モデル",
+      "ai_models": "AI とモデル",
       "customize": "カスタマイズ",
       "system": "システム",
       "setup": "セットアップ",
@@ -1747,35 +1742,35 @@
       "more": "その他"
     },
     "speech": {
-      "title": "音声設定",
+      "title": "読み上げ設定",
       "description": "テキスト読み上げの音声、速度、ピッチの設定を構成します。",
       "voice_label": "音声",
       "rate_label": "読み上げ速度",
-      "pitch_label": "声の高さ（ピッチ）",
+      "pitch_label": "声の高さ",
       "preview_title": "プレビュー",
-      "test_text_label": "テストテキスト",
+      "test_text_label": "テスト用テキスト",
       "test_text_placeholder": "ここに入力して音声設定をテストします...",
-      "test_hint_text": "「音声をテスト」をクリックしてテキストを聞きます。",
+      "test_hint_text": "「音声をテスト」を選択すると、テキストを読み上げます。",
       "test_hint_default": "「音声をテスト」をクリックしてデフォルトのサンプルを聞きます。",
       "test_button": "音声をテスト",
       "test_fallback": "こんにちは、これは音声設定のテストです。",
       "rate": {
-        "very_slow": "非常に遅い",
+        "very_slow": "とても遅い",
         "slow": "遅い",
         "normal": "標準",
         "fast": "速い",
-        "very_fast": "非常に速い"
+        "very_fast": "とても速い"
       },
       "pitch": {
-        "very_low": "非常に低い",
+        "very_low": "とても低い",
         "low": "低い",
         "normal": "標準",
         "high": "高い",
-        "very_high": "非常に高い"
+        "very_high": "とても高い"
       }
     },
     "embeddings": {
-      "title": "ベクトルエンベディング",
+      "title": "保存済みナレッジ",
       "description": "エンベディングにより、セマンティック検索、RAG（検索拡張生成）、およびファイルアップロードやチャット履歴のコンテキスト認識機能が可能になります。",
       "test_generation": {
         "title": "エンベディング生成をテスト",
@@ -1784,14 +1779,14 @@
         "button_testing": "テスト中..."
       },
       "rebuild_index": {
-        "title": "インデックスを再構築",
+        "title": "キーワードインデックスを再構築",
         "description": "既存のベクトルからキーワード検索インデックスを強制的に再構築します。検索結果が欠落しているか、一貫性がない場合に使用してください。",
         "button": "インデックスを再構築",
         "button_rebuilding": "再構築中...",
         "status_starting": "再構築を開始しています...",
         "status_processing": "{{total}} 件中 {{current}} 件を処理中...",
         "success": "インデックスの再構築が正常に完了しました！",
-        "error": "インデックスの再構築に失敗しました。もう一度お試しください。"
+        "error": "インデックスを再構築できませんでした。もう一度お試しください。"
       },
       "test_search": {
         "title": "セマンティック検索",
@@ -1801,7 +1796,7 @@
         "no_results": "結果が見つかりません。別の検索を試すか、さらにコンテンツをアップロードしてください。"
       },
       "what_are_embeddings": {
-        "title": "エンベディングとは何ですか？",
+        "title": "エンベディングとは？",
         "point_1": "テキストを意味的な意味を捉えた数値ベクトルに変換します",
         "point_2": "チャット履歴やアップロードされたファイル全体でセマンティック検索を有効にします",
         "point_3": "コンテキスト認識応答のためのRAGを強化します",
@@ -1865,13 +1860,13 @@
       },
       "search_placeholder": "テンプレートを検索...",
       "category_placeholder": "カテゴリー",
-      "all_categories": "全カテゴリー",
+      "all_categories": "すべてのカテゴリー",
       "sort": {
         "recent": "最近",
         "popular": "人気",
         "alphabetical": "アルファベット順"
       },
-      "new_template": "新規テンプレート",
+      "new_template": "新しいテンプレート",
       "form": {
         "title": "タイトル",
         "title_placeholder": "テンプレートのタイトル",
@@ -1905,17 +1900,17 @@
       }
     },
     "reset": {
-      "title": "設定をリセット",
-      "description": "モジュールごとに保存されたデータをクリアするか、すべてをデフォルトにリセットします",
+      "title": "データのリセット",
+      "description": "項目ごとにデフォルトに戻すか、すべてを消去します。",
       "danger_zone": {
-        "title": "危険ゾーン",
-        "description": "これによりすべてのデータがクリアされ、元に戻すことはできません",
-        "button": "すべてリセット"
+        "title": "すべてを消去",
+        "description": "このデバイス上のチャット、ナレッジ、設定、API キーが削除されます。元に戻せません。",
+        "button": "すべてのデータを消去"
       },
       "dialog": {
-        "title": "リセットの確認",
-        "description": "これによりすべてのデータがクリアされ、元に戻すことはできません。",
-        "confirm": "はい、すべてリセットします",
+        "title": "すべてのデータを消去しますか？",
+        "description": "このデバイス上のチャット、ナレッジ、設定、API キーが削除されます。元に戻せません。",
+        "confirm": "すべてのデータを消去",
         "cancel": "キャンセル"
       },
       "modules": {
@@ -1952,7 +1947,7 @@
       "reset_button": "リセット",
       "failure_notice": {
         "title": "前回のリセットが完了しませんでした",
-        "description": "前回のリセットは完了前に失敗しました。一部のデータが残っている可能性があります。詳細はコンソールを確認して、もう一度お試しください。"
+        "description": "一部のデータが消去されていません。拡張機能を再読み込みして、もう一度お試しください。"
       },
       "chat_dialog": {
         "title": "すべてのチャットを削除しますか？",
@@ -1968,27 +1963,26 @@
     "providers": {
       "default": "デフォルト",
       "beta_badge": "ベータ",
-      "beta_notice": "このプロバイダーはベータ版です。問題が発生した場合は、報告するかリポジトリで issue を作成してください。",
       "enabled": "有効",
       "disabled": "無効",
       "inactive": "非アクティブ",
       "connected": "接続済み",
-      "connection_failed": "接続失敗",
-      "manual_models": "モデルIDのみ",
+      "connection_failed": "接続できませんでした",
+      "manual_models": "指定したモデル ID を使用中",
       "not_tested": "未テスト",
-      "test": "テスト",
+      "test": "接続をテスト",
       "save": "保存",
       "saved": "保存済み",
       "base_url": "ベースURL",
       "base_url_default": "デフォルト",
-      "api_key": "APIキー",
-      "custom_models": "カスタムモデル",
+      "api_key": "API キー",
+      "custom_models": "モデル ID",
       "custom_models_description": "自動検出リストに表示されない場合は、モデルを手動で追加してください。",
       "test_connection": {
-        "success_title": "接続成功",
+        "success_title": "接続しました",
         "success_description": "{{url}} の {{name}} に正常に接続しました。{{count}} 個のモデルが見つかりました。",
         "success_description_manual": "{{url}} の {{name}} に正常に接続しました。モデル一覧は公開されていないため、追加した {{count}} 件のモデルIDを使用します。",
-        "failed_title": "接続失敗",
+        "failed_title": "接続できませんでした",
         "no_models_title": "モデルが見つかりません",
         "no_model_list_title": "モデル一覧がありません",
         "no_models_description": "{{url}} には到達できましたが、モデルは返されませんでした。プロバイダーが実行中で、ベースURLが正しく、少なくとも1つのモデルがインストールまたはロードされていることを確認してください。",
@@ -2037,7 +2031,7 @@
         "custom_badge": "カスタム"
       },
       "models": {
-        "title": "モデルID（任意）",
+        "title": "モデル ID",
         "description": "プロバイダーの検出エンドポイントから返らないモデルを手動で追加します。",
         "add": "追加",
         "remove": "削除",
@@ -2045,11 +2039,11 @@
       },
       "icon_lookup": {
         "label": "プロバイダーのサイトアイコンを表示",
-        "description": "認識できないプロバイダーにアイコンを問い合わせ、見分けやすくします。接続先はそのプロバイダーのアドレスのみで、そこにアイコンがない場合は本体サイトまで。第三者のアイコンサービスは使いません。組み込みのロゴがあるプロバイダーには問い合わせません。"
+        "description": "カスタムプロバイダー自身のサイトアイコンを表示します。アイコンはそのプロバイダーから取得し、第三者のサービスは使いません。"
       },
       "catalog_refresh": {
         "label": "モデル一覧の更新",
-        "description": "開いているパネルがプロバイダーにモデル一覧を問い合わせる間隔です。モデルの取得・削除やプロバイダーの編集では即座に更新されるため、これは見ている間に立ち上がった／落ちたプロバイダーを捉えるためだけのものです。短くするほどリモートプロバイダーへの要求が増えます。",
+        "description": "開いているパネルがプロバイダーにモデル一覧を再取得する間隔です。",
         "options": {
           "0": "オフ",
           "10000": "10 秒ごと",
@@ -2066,13 +2060,17 @@
       "enable_failed_title": "{{name}} をオンにできませんでした",
       "disable_failed_title": "{{name}} をオフにできませんでした",
       "toggle_failed_description": "以前の状態に戻りました。しばらくしてから再試行してください。",
-      "status_off": "オフ"
+      "status_off": "オフ",
+      "advanced": {
+        "title": "詳細設定",
+        "summary": "プロバイダーのサイトアイコンとモデル一覧の更新"
+      }
     },
     "migration": {
       "title": "データ移行",
       "description": "APIキーや端末固有の状態を含めず、移行可能な設定、チャット履歴、埋め込みデータベースをエクスポートまたはインポートします。",
       "export": {
-        "label": "プライバシー保護バックアップをエクスポート",
+        "label": "プライバシーに配慮したバックアップをエクスポート",
         "description": "移行可能な設定とユーザーデータをZIPでダウンロードします。APIキー、承認、内部復旧データは除外されます。",
         "button": "バックアップをエクスポート",
         "error_title": "エクスポートに失敗しました"
@@ -2091,11 +2089,11 @@
         "description": "以下のデータインポートのステータスを確認してください:",
         "skipped_private": "一部の認証情報、端末固有の設定、または内部復旧データは安全にスキップされました。",
         "labels": {
-          "sync": "環境設定 (Sync)",
-          "local": "ローカルストレージ",
-          "database": "データベース (SQLite)",
-          "vectorDb": "ベクトル埋め込み (Dexie)",
-          "knowledgeDb": "ナレッジセット (Dexie)"
+          "sync": "同期された設定",
+          "local": "デバイスの設定",
+          "database": "チャットとセッション",
+          "vectorDb": "保存済みナレッジ",
+          "knowledgeDb": "ナレッジセット"
         },
         "legacy_chat_backup": "このバックアップはバージョン 0.6.3 以前で作成され、拡張機能がもう読み取らない形式でチャットを保存しています。設定、埋め込み、ナレッジセットは復元されましたが、チャットは復元されていません。",
         "status": {
@@ -2107,7 +2105,7 @@
     },
     "saved": "保存済み",
     "presets": {
-      "error_title": "Failed to apply preset",
+      "error_title": "プリセットを適用できませんでした",
       "applied": "{{name}} プリセットを適用しました",
       "apply": "プリセットを適用",
       "balanced": {
@@ -2152,15 +2150,15 @@
       "title": "プリセット"
     },
     "reset_section": {
-      "error_title": "Failed to reset section",
+      "error_title": "セクションをリセットできませんでした",
       "button": "セクションをリセット",
       "description": "このセクションのコントロールをデフォルト値に戻します。他の設定は変更されません。",
       "done": "セクションをデフォルトにリセットしました",
       "title": "このセクションをデフォルトにリセットしますか？"
     },
     "permissions": {
-      "title": "権限とプライバシー",
-      "description": "この拡張機能がアクセスできる範囲を確認・管理できます。すべてのデータはお使いのデバイス内に留まります。",
+      "title": "プライバシーと権限",
+      "description": "この拡張機能がアクセスできる範囲と、データの送信先を確認できます。",
       "overview": {
         "title": "標準でローカル",
         "description": "チャット、設定、ファイル、インデックスはこのブラウザープロファイル内に保存されます。任意アクセスは表示され、取り消し可能で、無断では付与されません。"
@@ -2322,14 +2320,13 @@
       "remote_images_label": "エクスポートでリモート画像を読み込む",
       "remote_images_hint": "印刷・PDF エクスポートが外部サーバーから画像を読み込むことを許可します。オフの場合、エクスポートは完全にオフラインのまま行われ、リモート画像はプレースホルダーに置き換えられます。"
     },
-    "beta_badge": "ベータ",
     "nav_label": "設定のセクション",
     "more_section": {
       "title": "プロンプト、音声、ショートカット"
     }
   },
   "guides": {
-    "title": "役立つガイドとドキュメント",
+    "title": "ガイドとドキュメント",
     "description": "Ollama Clientのセットアップや機能の探索で助けが必要ですか？これらの役立つリソースを確認してください",
     "support": {
       "title": "プロジェクトを支援",
@@ -2338,22 +2335,22 @@
     },
     "items": {
       "setup": {
-        "label": "Ollama Clientセットアップガイド",
+        "label": "Ollama Client セットアップガイド",
         "description": "完全なインストールと構成ガイド",
         "badge": "ガイド"
       },
       "library": {
-        "label": "公式Ollamaモデルライブラリ",
+        "label": "公式 Ollama モデルライブラリ",
         "description": "利用可能なAIモデルとドキュメントを閲覧",
         "badge": "ライブラリ"
       },
       "github": {
-        "label": "GitHubリポジトリ",
+        "label": "GitHub リポジトリ",
         "description": "ソースコード、リリース、貢献ガイドライン",
         "badge": "コード"
       },
       "issue": {
-        "label": "GitHub Issueを開く",
+        "label": "GitHub で Issue を作成",
         "description": "ストアレビューの前にバグや問題を報告してください",
         "badge": "サポート"
       },
@@ -2365,16 +2362,16 @@
     }
   },
   "social": {
-    "github": "GitHubページ",
+    "github": "GitHub ページ",
     "portfolio": "ポートフォリオ",
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
-    "bug_report": "バグ報告 / 機能リクエスト"
+    "bug_report": "バグを報告"
   },
   "errorBoundary": {
     "title": "問題が発生しました",
-    "description": "予期しないエラーが発生しました。この問題は内部的に記録されました。",
+    "description": "このパネルでエラーが発生しました。再読み込みして続けてください。",
     "reload": "再読み込み",
     "show_details": "詳細を表示",
     "copy_details": "詳細をコピー"
@@ -2419,15 +2416,15 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "モデルの取得に失敗しました",
+    "failed_to_fetch_models": "モデル一覧を読み込めませんでした。プロバイダーが実行中か確認してから、更新してください。",
     "rpc": {
-      "invalid_request": "リクエストが無効です。",
-      "invalid_response": "バックグラウンドの応答が無効です。",
+      "invalid_request": "拡張機能が処理できないリクエストを送信しました。拡張機能を再読み込みして再試行してください。",
+      "invalid_response": "拡張機能から予期しない応答が返されました。拡張機能を再読み込みして再試行してください。",
       "forbidden": "このページからこの操作は許可されていません。",
-      "not_found": "プロバイダー設定が見つかりません。",
-      "provider_failed": "プロバイダーへのリクエストに失敗しました。",
-      "timeout": "バックグラウンドのリクエストがタイムアウトしました。もう一度お試しください。",
-      "internal": "バックグラウンドのリクエストに失敗しました。もう一度お試しください。",
+      "not_found": "そのプロバイダーは設定されていません。設定でもう一度選択してください。",
+      "provider_failed": "プロバイダーがリクエストを完了できませんでした。実行中か確認してから再試行してください。",
+      "timeout": "拡張機能が時間内に応答しませんでした。再試行してください。繰り返し発生する場合は、拡張機能を再読み込みしてください。",
+      "internal": "拡張機能内で問題が発生しました。拡張機能を再読み込みして再試行してください。",
       "upstream_not_found": "プロバイダーは応答しましたが、要求した内容ではありませんでした。ベース URL とモデル名を確認してください。"
     }
   },
@@ -2442,7 +2439,7 @@
     "clear": "Clear diagnostic history",
     "copied": "Support bundle copied",
     "cleared": "Diagnostic history cleared",
-    "failed": "Diagnostics request failed",
+    "failed": "診断を実行できませんでした。もう一度お試しください。",
     "privacy_notice": "Review before sharing. Bundle excludes chats, prompts, files, page content, credentials, cookies, and full endpoints.",
     "status": {
       "pass": "Pass",
@@ -2454,15 +2451,15 @@
       "runtime_version": "Runtime version",
       "browser_apis": "Browser APIs",
       "permissions": "Browser permissions",
-      "sync_storage": "Sync storage",
-      "local_storage": "Local storage",
-      "chat_repository": "Chat repository",
-      "vector_store": "Vector store",
+      "sync_storage": "同期された設定",
+      "local_storage": "デバイスの設定",
+      "chat_repository": "保存済みチャット",
+      "vector_store": "保存済みナレッジ",
       "provider_discovery": "Provider and model discovery",
-      "migration": "Persistence migration",
-      "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints",
-      "turn_retention": "Durable turn retention"
+      "migration": "チャットストレージのアップグレード",
+      "dnr_rules": "ローカルサーバーへのアクセスルール",
+      "turn_checkpoint": "応答の復旧",
+      "turn_retention": "完了した応答の整理"
     }
   },
   "onboarding": {
@@ -2488,7 +2485,7 @@
     "model": {
       "title": "Choose a chat model",
       "description": "Embedding-only models are hidden. You can change this choice later.",
-      "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
+      "none": "接続しましたが、{{provider}} にはまだチャットモデルがありません。モデルをインストールしてから「モデル一覧を更新」を選択してください。",
       "placeholder": "Select a model",
       "use": "Use this model",
       "refresh": "モデル一覧を更新",
@@ -2512,22 +2509,23 @@
       "connect_title": "Check provider connection",
       "connect_description": "Connect to {{provider}} and discover its available models.",
       "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
-      "connection_failed": "Connection failed. Use this support code when asking for help.",
+      "connection_failed": "{{provider}} に接続できませんでした",
       "title": "プロバイダーを接続",
       "description": "既定の Ollama エンドポイントを確認します。後で変更したり、別のプロバイダーを設定したりできます。",
       "connected": "接続しました。{{count}} 個のモデルが見つかりました。",
       "skip": "今はスキップ",
       "open_setup": "プロバイダーを設定",
       "errors": {
-        "cors": "Ollama は動作していますが、この拡張機能を拒否しました。以下のコマンドで再起動してください。",
-        "auth": "プロバイダーが API キーまたはアクセス設定を拒否しました。",
-        "not-found": "サーバーは応答しましたが、有効なエンドポイントではありません。ポートとベース URL を確認してください。",
-        "timeout": "プロバイダーの応答がタイムアウトしました。動作状況とポートを確認してください。",
-        "unavailable": "Ollama に接続できません。停止中、別ポート、または拡張機能オリジンの拒否が考えられます。",
-        "server-error": "プロバイダーでサーバーエラーが発生しました。ログを確認して再試行してください。",
+        "cors": "{{provider}} は実行中ですが、この拡張機能をブロックしました。以下のコマンドで再起動してください。",
+        "auth": "{{provider}} が API キーを拒否しました。プロバイダー設定で確認してください。",
+        "not-found": "応答はありましたが、{{provider}} ではありません。ポートとベース URL を確認してください。",
+        "timeout": "{{provider}} の応答に時間がかかりすぎました。実行中か、ポートが正しいか確認してください。",
+        "unavailable": "{{provider}} に接続できません。起動してから再試行してください。実行中の場合は、ベース URL を確認してください。",
+        "server-error": "{{provider}} でサーバーエラーが発生しました。ログを確認してから再試行してください。",
         "cors-other": "{{provider}} は動作していますが、この拡張機能をブロックしました。CORS 設定で chrome-extension://* と moz-extension://* を許可してから再起動してください。",
         "rate-limited": "{{provider}} は現在リクエストを制限しています。少し待ってから再試行してください。",
-        "payment": "{{provider}} には支払いまたはクレジットが必要です。アカウントを確認してから再試行してください。"
+        "payment": "{{provider}} には支払いまたはクレジットが必要です。アカウントを確認してから再試行してください。",
+        "refused": "{{provider}} がリクエストを拒否しました。プロバイダー設定の API キー、または前段にあるプロキシのアクセスルールを確認してください。"
       },
       "unverified": "接続は未確認です。設定済みのモデルを試すか、プロバイダー設定を開いて接続先を確認してください。",
       "support_code": "サポートコード"

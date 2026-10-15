@@ -5,14 +5,12 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { SectionStack } from "@/components/layout"
 import { SettingsCard, SettingsLevelGate } from "@/components/settings"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
 import { ModelInfo } from "@/features/model/components/model-info"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ModelParametersCard } from "@/features/model/components/model-parameters-card"
 import { ModelPerformanceCard } from "@/features/model/components/model-performance-card"
 import { ModelSystemCard } from "@/features/model/components/model-system-card"
-import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
 import { ProviderVersion } from "@/features/model/components/provider-version"
 import { useModelConfig } from "@/features/model/hooks/use-model-config"
@@ -187,10 +185,7 @@ export const ModelSettingsForm = () => {
           icon={Settings}
           title={t("settings.model.configuration_title")}
           description={t("settings.model.configuration_description")}>
-          <div className="space-y-4">
-            <ModelMenu tooltipTextContent={t("settings.model.switch_model")} />
-            <ProviderSettings />
-          </div>
+          <ModelMenu tooltipTextContent={t("settings.model.switch_model")} />
         </SettingsCard>
       </SectionStack>
     )
@@ -211,16 +206,17 @@ export const ModelSettingsForm = () => {
               <ModelMenu
                 tooltipTextContent={t("settings.model.switch_model")}
               />
-              <ThemeToggle />
               <ProviderStatusIndicator />
               <ProviderVersion />
             </>
           }>
-          <ModelInfo
-            selectedModel={selectedModel}
-            selectedProviderId={selectedProviderId}
-          />
-          <LoadedModelsInfo />
+          <div className="divide-y divide-border">
+            <ModelInfo
+              selectedModel={selectedModel}
+              selectedProviderId={selectedProviderId}
+            />
+            <LoadedModelsInfo />
+          </div>
         </SettingsCard>
         <ModelSystemCard
           config={config}

@@ -36,7 +36,7 @@ Examples:
 - "Answer from my uploaded files."
 - "Search the web for the latest release notes."
 
-Page selections use an explicit handoff: highlight text and choose **Ask Local LLM** from the context menu to place it in the sidebar composer. The temporary handoff is cleared after insertion; it is not a model-callable tool or a history of page selections.
+Page selections use an explicit handoff: highlight text and choose **Ask Ollama Client about this** from the context menu to place it in the sidebar composer. The temporary handoff is cleared after insertion; it is not a model-callable tool or a history of page selections.
 
 Current internal tools:
 

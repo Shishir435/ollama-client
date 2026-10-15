@@ -9,6 +9,57 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.15.0]
+
+### Changed
+
+- Agent outcomes are graded: verified, supported by the completion reviewer,
+  or claimed. A run with any claimed outcome settles as **Reported, not
+  checked** instead of done. Rejected submissions, toasts standing in for a
+  save, and quotes from the wrong row no longer count as completion.
+- Every reset asks first; deleting chat history no longer runs on one click.
+- The selection toolbar works from the keyboard, returns focus, and stops the
+  model when closed. Reduced motion is honoured across the panel, settings and
+  toolbar, and settings search works with the arrow keys.
+- Connection failures name the cause (not running, blocked origin, sign-in,
+  not found, timeout, payment) and show the `OLLAMA_ORIGINS` command to copy.
+  Chat failures are one sentence with one action, without a duplicate toast.
+- English copy rewritten in plain user language across the extension.
+- Linting and formatting moved from Biome to Oxlint and Oxfmt.
+- Settings: "Model behavior" is now **Providers & models**, and settings opens
+  there when no provider works. Rarely needed preferences sit under
+  **Advanced**; Beta badges stay only on the agent and beta providers.
+- A reply with no text says so, with Retry, instead of showing an empty
+  bubble. Empty replies are no longer sent back to the model as history.
+- Each selection action has its own icon, and the selection toolbar's colors
+  come from the same theme as the app.
+- Bug reports ask for the provider version and server log lines.
+
+### Security
+
+- The network rule that lets the extension reach local Ollama applied to
+  requests from any website, so a page could use a local Ollama through it.
+  Origin handling now applies only to the extension's own requests, on
+  Chromium and Firefox, and the old rule is removed on update.
+
+### Fixed
+
+- Short answers could disappear after they finished: a delayed save from the
+  panel overwrote the saved reply with empty text (#171).
+- Text in Ollama's final stream chunk is no longer dropped when tools are on,
+  and a reply ending in a partial tag keeps its last characters.
+- Model listing now gets the same Origin handling as chat, so Ollama behind a
+  proxy no longer answers listing with 403 (#464). Firefox gets the same fix
+  through `webRequest`.
+- Warming a model uses the same context settings as chat, so the first message
+  no longer reloads it.
+- Models that write both text and images, such as an LM Studio model with image
+  output turned on, chat normally instead of failing every turn with "invalid
+  image generation response" (#454).
+- SearXNG explains when it refuses JSON results (#437).
+- Production dependency audit findings (DOMPurify, markdown-it, PostCSS,
+  Mermaid, KaTeX and others).
+
 ## [0.14.0]
 
 ### Added

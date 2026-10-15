@@ -151,15 +151,15 @@ export const LoadedModelsInfo = () => {
   const totalSize = models.reduce((acc, model) => acc + model.sizeBytes, 0)
 
   return (
-    <Card className="w-full py-0">
+    <section className="w-full py-1">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger
           render={
-            <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-state-hover" />
+            <div className="-mx-2 flex cursor-pointer items-center justify-between rounded-control px-2 py-1 transition-colors hover:bg-state-hover" />
           }>
           <div className="flex items-center gap-2">
             <Brain className="icon-md text-muted-foreground" />
-            <h3 className="text-lg font-semibold">
+            <h3 className="text-sm font-semibold">
               {t("settings.loaded_models.title")}
             </h3>
             {loading && (
@@ -213,7 +213,7 @@ export const LoadedModelsInfo = () => {
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="border-t border-border px-4 pb-4">
+          <div className="pb-2">
             {models.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <Brain className="mb-2 icon-3xl text-foreground-tertiary" />
@@ -279,7 +279,7 @@ export const LoadedModelsInfo = () => {
           </div>
         </CollapsibleContent>
       </Collapsible>
-    </Card>
+    </section>
   )
 }
 

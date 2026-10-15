@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Local AI Chat for Ollama, LM Studio, llama.cpp",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Local-first browser extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local or remote providers, with local RAG, web search, and page context.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -68,6 +68,7 @@
     "verify:opfs-migration": "tsx tools/verify/verify-opfs-migration.ts",
     "verify:agent-endpoints": "tsx tools/verify/verify-agent-endpoints.ts",
     "verify:firefox-opfs-migration": "tsx tools/verify/verify-firefox-opfs-migration.ts",
+    "verify:firefox-origin-guard": "tsx tools/verify/verify-firefox-origin-guard.ts",
     "verify:sw-turn-recovery": "tsx tools/verify/verify-sw-turn-recovery.ts",
     "verify:sw-agent-recovery": "tsx tools/verify/verify-sw-agent-recovery.ts",
     "verify:extraction-inert": "tsx tools/verify/verify-extraction-inert.ts",

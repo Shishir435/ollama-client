@@ -54,6 +54,10 @@ import {
   type ProviderDraftInput,
   ProvidersListResultSchema
 } from "@ollama-client/contracts/provider-rpc"
+import {
+  applyProviderOriginRules,
+  clearProviderOriginRules
+} from "@/lib/dnr-rules"
 import { createAppError } from "@/lib/error-utils"
 import {
   clearModelCatalogSupport,
@@ -199,6 +203,92 @@ describe("ProviderRpcService", () => {
       modelListSupported: true
     })
     expect(result).not.toHaveProperty("apiKey")
+  })
+
+  describe("a draft test's Origin rule", () => {
+    let installed: chrome.declarativeNetRequest.Rule[] = []
+    const filters = () => installed.map((rule) => rule.condition.urlFilter)
+
+    beforeEach(async () => {
+      installed = []
+      Object.assign(chrome, {
+        declarativeNetRequest: {
+          getDynamicRules: vi.fn(async () => installed),
+          updateDynamicRules: vi.fn(
+            async ({
+              removeRuleIds = [],
+              addRules = []
+            }: chrome.declarativeNetRequest.UpdateRuleOptions) => {
+              installed = [
+                ...installed.filter((rule) => !removeRuleIds.includes(rule.id)),
+                ...addRules
+              ]
+            }
+          ),
+          RuleActionType: { MODIFY_HEADERS: "modifyHeaders" },
+          HeaderOperation: { SET: "set", REMOVE: "remove" },
+          ResourceType: { XMLHTTPREQUEST: "xmlhttprequest" }
+        }
+      })
+      await applyProviderOriginRules(["http://localhost:11434"])
+      return async () => {
+        await clearProviderOriginRules()
+        delete (chrome as { declarativeNetRequest?: unknown })
+          .declarativeNetRequest
+      }
+    })
+
+    const unsavedDraft = () =>
+      draft({ ...configs[1], baseUrl: "https://unsaved.example/v1" })
+
+    it("is removed once the test settles", async () => {
+      let duringTest: (string | undefined)[] = []
+      mocks.getProviderWithConfig.mockImplementation(async (config) => ({
+        id: config.id,
+        getModels: async () => {
+          duringTest = filters()
+          return [model("draft-model")]
+        }
+      }))
+
+      await ProviderRpcService.testConnection({
+        target: "draft",
+        config: unsavedDraft()
+      })
+
+      expect(duringTest).toContain("|https://unsaved.example/")
+      expect(filters()).toEqual(["|http://localhost:11434/"])
+    })
+
+    it("is removed when the test fails", async () => {
+      mocks.getProviderWithConfig.mockImplementation(async (config) => ({
+        id: config.id,
+        getModels: async () => {
+          throw createAppError("Server error", {
+            kind: "provider",
+            status: 500
+          })
+        }
+      }))
+
+      await expect(
+        ProviderRpcService.testConnection({
+          target: "draft",
+          config: unsavedDraft()
+        })
+      ).rejects.toBeTruthy()
+
+      expect(filters()).toEqual(["|http://localhost:11434/"])
+    })
+
+    it("stays for an origin a configured provider uses", async () => {
+      await ProviderRpcService.testConnection({
+        target: "draft",
+        config: draft(configs[0])
+      })
+
+      expect(filters()).toEqual(["|http://localhost:11434/"])
+    })
   })
 
   it("confirms a catalog-less endpoint against chat before calling it reachable", async () => {

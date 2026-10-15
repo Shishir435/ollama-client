@@ -177,7 +177,7 @@
       "description": "运行在不询问的情况下可以做什么、可向模型请求多少上下文，以及何时为页面截图。",
       "enabled": {
         "label": "允许聊天模型使用浏览器代理",
-        "description": "提供 browser_task，让模型代你在标签页中点击、输入和导航。实验性功能：效果因模型而异，差别很大。"
+        "description": "让模型在你的标签页中点击、输入和导航。实验性功能：效果因模型而异，差别很大。"
       },
       "context_window": {
         "label": "上下文窗口",
@@ -187,7 +187,7 @@
       },
       "vision": {
         "label": "屏幕截图",
-        "description": "每个拍照的步骤都会在模型窗口中付出一次图像预填充的代价。自动模式会在第一步、在某一步未落实之后，以及在页面结构无法描述的页面上拍照。",
+        "description": "每张截图都会占用模型在该步骤的一部分上下文。自动模式会在第一步、某一步未成功之后，以及无法以文本读取的页面上截图。",
         "auto": "步骤需要时",
         "always": "每一步",
         "never": "从不"
@@ -354,7 +354,6 @@
     "language": {
       "label": "语言",
       "select_label": "界面语言",
-      "beta_badge": "测试版",
       "description": "选择您偏好的界面语言。",
       "help_text": "翻译由 AI 生成。请在 <0>GitHub</0> 上贡献，帮助我们改进！"
     },
@@ -377,7 +376,9 @@
     "stop_browser_agent_menu": "停止浏览器代理",
     "agent_task_completed": "已完成",
     "agent_task_attention": "已暂停",
-    "agent_task_unchecked": "已完成，部分未核实"
+    "agent_task_unchecked": "已完成，部分未核实",
+    "ask_selection_menu": "向 Ollama Client 询问此内容",
+    "tool_limit_reached": "在答案准备好之前已达到工具调用上限，已停止。请缩小问题范围后再问一次。"
   },
   "selection_button": {
     "actions": {
@@ -395,7 +396,7 @@
       },
       "fix-grammar": {
         "label": "修正语法",
-        "short": "语法"
+        "short": "修正"
       },
       "explain": {
         "label": "简单解释",
@@ -403,11 +404,11 @@
       },
       "action-items": {
         "label": "提取行动项",
-        "short": "行动"
+        "short": "待办"
       },
       "translate-english": {
         "label": "翻译成英文",
-        "short": "英文"
+        "short": "翻译"
       },
       "custom": {
         "label": "自定义提示",
@@ -458,21 +459,21 @@
     "start_chatting": "开始聊天",
     "status": {
       "connecting": {
-        "title": "正在连接...",
-        "message": "正在建立与本地提供方的连接"
+        "title": "正在连接…",
+        "message": "正在检查你的提供商。"
       },
       "connection_failed": {
-        "title": "连接失败",
-        "message": "连接提供方失败。服务器是否正在运行？"
+        "title": "无法连接 {{provider}}",
+        "message": "请先启动它，然后选择“重试”。"
       },
       "no_models": {
-        "title": "未找到模型",
-        "message": "请拉取一个模型以开始使用",
+        "title": "还没有聊天模型",
+        "message": "运行 `ollama pull llama3.2`，然后再检查一次。",
         "message_generic": "请在提供商中安装或加载聊天模型，然后再次检查。"
       },
       "ready": {
-        "title": "准备就绪",
-        "message": "提供方已连接，可开始使用"
+        "title": "可以开始聊天了",
+        "message": "提供商已连接。"
       },
       "provider_fallback": "你的提供商"
     },
@@ -507,7 +508,7 @@
   "chat": {
     "scroll_to_bottom": "滚动到底部",
     "input": {
-      "placeholder": "输入消息 或 ctrl + /",
+      "placeholder": "随便问点什么",
       "switch_model": "切换模型",
       "chars": "字符",
       "enter_to_send": "发送",
@@ -595,7 +596,7 @@
         "planning": "规划",
         "thinking": "思考中",
         "page": "读取页面",
-        "files": "RAG",
+        "files": "正在搜索文件",
         "web": "搜索网页",
         "knowledge": "搜索知识库",
         "tab": "读取标签页",
@@ -633,7 +634,7 @@
         "cancel_reminder": "正在取消提醒",
         "browser_task": "浏览器任务"
       },
-      "debug": "调试推理"
+      "debug": "显示思考过程"
     },
     "feedback": {
       "helpful_tooltip": "很有帮助",
@@ -682,13 +683,12 @@
       "button_label": "搜索聊天",
       "dialog_title": "语义聊天搜索",
       "dialog_description": "通过语义搜索您的聊天记录，而不仅仅是关键词",
-      "beta_badge": "测试版 v0.3.0",
       "placeholder": "通过语义搜索对话...",
       "scope_all": "所有聊天",
       "scope_current": "当前聊天",
       "searching": "正在搜索聊天记录...",
-      "no_results": "未找到结果。请尝试不同的搜索查询。",
-      "no_results_description": "请尝试调整您的关键词或搜索范围。",
+      "no_results": "没有匹配的聊天。",
+      "no_results_description": "试试换一种描述方式。",
       "start_typing": "开始输入以语义搜索您的聊天记录...",
       "start_typing_description": "通过语义搜索在您的聊天记录中进行查找。",
       "role_you": "您",
@@ -759,15 +759,15 @@
         "title": "浏览器代理已关闭",
         "description": "这看起来是需要在浏览器中完成的任务。代理为实验性功能，搭配托管模型效果最好。",
         "enable": "开启并继续",
-        "continue_without": "不使用并继续",
+        "continue_without": "不使用智能体直接回答",
         "manage": "代理设置"
       }
     },
     "errors": {
-      "unknown_error": "❌ 未知错误: {{message}}",
+      "unknown_error": "请求失败：{{message}}。请重试，或检查 {{provider}} 是否正在运行。",
       "no_message": "无消息",
-      "response_failed_title": "响应生成失败",
-      "unknown_error_description": "发生未知错误",
+      "response_failed_title": "未能获取回复",
+      "unknown_error_description": "请求失败。请重试，或检查提供商是否正在运行。",
       "provider_replay_invalid": "无法安全地继续此响应。请重试本轮，以重新建立提供商上下文。",
       "provider_busy": "本地端点仍在处理上一个请求，无法开始新的请求。请等待约一分钟，或重启它。",
       "report_issue": "报告问题",
@@ -784,17 +784,14 @@
       "issue_draft_notice": "已在本地预填。提交前请检查。",
       "preparing_issue": "正在运行安全检查…",
       "open_diagnostics": "打开诊断",
-      "empty_response": "模型结束了本轮，但没有发送任何回答。可能是模型已被卸载，或者对话没有留出回答的空间。请重试，或新建一个对话。",
-      "thinking_only_response": "没有收到模型的最终回答。请重试。",
-      "provider_selection_required_title": "需要选择模型提供商",
-      "provider_selection_required_description": "发送消息前，请在模型菜单中为“{{model}}”选择一个提供商。",
+      "provider_selection_required_title": "选择运行 {{model}} 的位置",
+      "provider_selection_required_description": "有多个服务器提供此模型。请在模型菜单中选择一个。",
       "no_model_selected_title": "未选择模型",
       "no_model_selected_description": "发送消息前，请在模型菜单中选择一个模型。",
       "chat_create_failed_title": "无法开始对话",
       "chat_create_failed_description": "创建对话失败。请重试。",
       "message_save_failed_title": "无法发送消息",
       "message_save_failed_description": "保存消息失败。请重试。",
-      "context_preparation_failed": "无法为这条消息准备上下文。请重试；如果反复出现，请减少所选的上下文或文件。",
       "context_preparation_failed_title": "上下文准备失败",
       "context_preparation_failed_description": "消息已保存，但由于上下文准备失败，助手无法开始回答。",
       "insufficient_page_context": "页面上下文不足。请至少选择一个含有相关提取内容的标签页，然后重试。\n\n如需关闭该行为，请打开 [{{settingsLabel}}]({{settingsLink}})。",
@@ -803,8 +800,8 @@
       "context_retrieval_warning_title": "上下文检索失败",
       "context_retrieval_warning_description": "无法搜索部分已保存的上下文。回答可能缺少相关信息。",
       "interrupted": "响应已中断",
-      "provider_auth": "提供商拒绝了访问。重新开始前，请在设置中检查其 API 密钥、凭据或账户权限。",
-      "provider_cors": "本地提供商阻止了扩展来源。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，然后重试。",
+      "provider_auth": "{{provider}} 拒绝了 API 密钥。请在提供商设置中检查。",
+      "provider_cors": "{{provider}} 阻止了此扩展。请设置 OLLAMA_ORIGINS 后重启它，详见[设置指南]({{setupGuideUrl}})。",
       "provider_refused": "模型拒绝了此请求。请调整任务或选择其他模型。",
       "unknown_error_generic": "请求失败：{{message}}。请稍后重试。",
       "provider_fallback": "提供商",
@@ -819,7 +816,8 @@
       "out_of_memory": "{{model}} 需要的内存超过本机可用内存。请关闭其他应用或选择更小的模型。",
       "model_crashed": "{{model}} 在加载时崩溃。请重试；如果反复出现，请检查 {{provider}} 日志。",
       "ollama_cloud_signin": "{{model}} 运行在 Ollama 云端。请使用 `ollama signin` 登录，或选择本地模型。",
-      "ollama_cloud_unreachable": "无法连接到 Ollama 来运行 {{model}}。请启动 Ollama。如果它已在运行，此云端模型需要执行 `ollama signin`。"
+      "ollama_cloud_unreachable": "无法连接到 Ollama 来运行 {{model}}。请启动 Ollama。如果它已在运行，此云端模型需要执行 `ollama signin`。",
+      "provider_forbidden": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。"
     },
     "composer": {
       "rag": "文件",
@@ -886,6 +884,10 @@
       "copied": "已复制回复",
       "exported_json": "聊天已导出为 JSON",
       "exported_pdf": "聊天已导出为 PDF"
+    },
+    "empty_reply": {
+      "no_text": "模型没有返回任何文本。请重试，或换一个模型。",
+      "thinking_only": "模型只输出了推理过程，没有给出答案。请重试，或换一个模型。"
     }
   },
   "file_upload": {
@@ -945,13 +947,13 @@
       "refresh_aria_label": "刷新模型",
       "refresh_tooltip": "刷新模型",
       "search_placeholder": "搜索模型...",
-      "no_model_found": "未找到模型。",
+      "no_model_found": "还没有模型。请在设置中检查提供商，或添加模型 ID。",
       "cloud_badge": "云端{{plan}}",
       "cloud_models": {
         "label": "Ollama 云端模型",
         "description": "托管的 :cloud 模型。需要已登录的 Ollama，通常还需要付费套餐。"
       },
-      "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。",
+      "providers_unavailable": "{{names}} 未返回任何模型。请在提供商设置中添加模型 ID。",
       "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。",
       "no_model_match": "没有匹配的模型。",
       "providers_unreachable": "无法连接 {{names}}。请检查服务器是否正在运行，以及提供商设置中的地址。",
@@ -969,7 +971,7 @@
       "pattern_exists_error": "站点覆盖设置已存在",
       "pattern_invalid_error": "无效的正则表达式模式",
       "examples": "示例: <0>medium.com</0> 或 <0>^https://twitter\\.com/.*</0>",
-      "active_overrides": "活动覆盖设置",
+      "active_overrides": "生效的覆盖设置",
       "site_count": "{{count}} 个站点",
       "site_count_plural": "{{count}} 个站点",
       "select_site_label": "选择要配置的站点",
@@ -991,7 +993,7 @@
       "pattern_exists_error": "模式已存在",
       "pattern_invalid_error": "无效的正则表达式模式",
       "examples": "使用正则表达式匹配 URL。示例: <0>^https://bank\\.</0> 或 <0>.*\\.private\\..*</0>",
-      "active_patterns": "活动模式",
+      "active_patterns": "生效的模式",
       "pattern_count": "{{count}} 个模式",
       "pattern_count_plural": "{{count}} 个模式",
       "no_patterns": "未配置 URL 模式",
@@ -1002,11 +1004,11 @@
       "title": "嵌入模型、分块、搜索与存储",
       "storage_stats_title": "存储统计",
       "storage_stats_description": "当前向量存储使用统计",
-      "total_vectors": "总向量数",
+      "total_vectors": "嵌入总数",
       "storage_used": "已用存储空间",
       "cache": "缓存",
       "cache_entries": "{{size}} / {{maxSize}} 个条目",
-      "database_management_title": "数据库管理",
+      "database_management_title": "已保存知识清理",
       "database_management_description": "清理和管理您的向量嵌入数据库",
       "remove_duplicates_button": "移除重复项",
       "remove_duplicates_description": "移除重复的嵌入，只保留每条唯一消息的第一次出现",
@@ -1017,13 +1019,13 @@
       "database_management": {
         "remove_duplicates_confirm": "删除重复的嵌入？这将仅保留每个唯一消息的第一次出现。",
         "remove_duplicates_success": "已删除 {{deleted}} 个重复项。保留了 {{kept}} 个唯一的嵌入。",
-        "remove_duplicates_error": "删除重复项失败。有关详细信息，请查看控制台。",
+        "remove_duplicates_error": "未能移除重复项。请重新加载扩展后重试。",
         "clear_chat_confirm": "清除所有聊天嵌入？这将删除聊天的所有语义搜索数据。您稍后可以进行回填。",
         "clear_chat_success": "已清除 {{count}} 个聊天嵌入。",
-        "clear_chat_error": "清除聊天向量失败。有关详细信息，请查看控制台。",
-        "clear_all_confirm": "清除所有嵌入？这将删除所有语义搜索数据（聊天、文件、网页）。此操作无法撤销。",
+        "clear_chat_error": "未能清除聊天搜索数据。请重新加载扩展后重试。",
+        "clear_all_confirm": "清除所有嵌入？这将删除所有语义搜索数据（聊天、文件、网页），且无法撤销。",
         "clear_all_success": "所有嵌入已清除。",
-        "clear_all_error": "清除所有向量失败。有关详细信息，请查看控制台。"
+        "clear_all_error": "未能清除搜索数据。请重新加载扩展后重试。"
       },
       "chunking_title": "分块设置",
       "chunking_description": "配置如何将文本拆分成块以进行嵌入",
@@ -1054,7 +1056,7 @@
       "cleanup_age_description": "删除超过此天数的嵌入",
       "search_settings_title": "搜索设置",
       "search_settings_description": "语义搜索的默认参数",
-      "search_limit_label": "默认搜索限制",
+      "search_limit_label": "默认搜索数量上限",
       "search_limit_description": "语义搜索返回结果的默认数量",
       "min_similarity_label": "最小相似度阈值",
       "min_similarity_description": "最小余弦相似度分数 (0-1)。对于语义搜索，建议 0.4-0.6。值越高返回结果越相关，但数量越少。",
@@ -1068,8 +1070,8 @@
       "ann_backend_group": "后端",
       "ann_backend_ts": "TypeScript HNSW",
       "ann_backend_bruteforce": "暴力搜索",
-      "ann_min_vectors_label": "ANN 最小向量数",
-      "ann_min_vectors_description": "使用 ANN 前所需的最小向量数量（0 = 始终使用）。",
+      "ann_min_vectors_label": "快速搜索阈值",
+      "ann_min_vectors_description": "已保存的块达到此数量后使用快速近似搜索（0 = 始终使用）。",
       "enhanced_chunking_label": "增强分块",
       "enhanced_chunking_description": "使用高级递归字符分割以获得更好的上下文",
       "enhanced_chunking_info": "增强分块以分层方式分割文本（段落 → 句子 → 单词）以保留语义。建议用于 RAG。",
@@ -1079,7 +1081,7 @@
       "rag_enable_description": "使用检索上下文来回答有关您文件的问题",
       "reranking_label": "相关性重评分",
       "reranking_description": "根据与查询的嵌入相似度对检索结果重新评分。以极小的开销改善排序。",
-      "embedding_source_label": "Embedding 生成来源",
+      "embedding_source_label": "嵌入生成来源",
       "embedding_source_description": "嵌入由本地提供方生成（默认 Ollama）",
       "embedding_source_default_provider": "默认提供方（Ollama）",
       "feedback_learning_title": "用户反馈学习",
@@ -1098,17 +1100,17 @@
       "feedback_stats_queries": "带反馈的查询",
       "feedback_privacy_title": "反馈隐私",
       "feedback_export_success": "反馈数据已导出",
-      "feedback_export_error": "无法导出反馈数据",
+      "feedback_export_error": "无法导出反馈。请重试。",
       "feedback_clear_confirm_title": "清除所有反馈？",
       "feedback_clear_confirm_description": "这将删除所有已保存的反馈数据。此操作无法撤销。",
       "feedback_clear_success": "反馈数据已清除",
-      "feedback_clear_error": "无法清除反馈数据"
+      "feedback_clear_error": "无法清除反馈。请重试。"
     },
     "provider_status": {
-      "checking": "正在检查本地 Provider...",
-      "error": "本地 Provider 无法连接",
-      "empty": "已连接本地 Provider，但未找到聊天模型",
-      "ready": "本地 Provider 已就绪",
+      "checking": "正在检查提供商…",
+      "error": "无法加载模型",
+      "empty": "未找到聊天模型",
+      "ready": "模型已就绪",
       "unreachable": "无法连接 {{provider}}"
     },
     "capabilities": {
@@ -1182,10 +1184,10 @@
   "sessions": {
     "selector": {
       "title": "聊天会话",
-      "create_new": "创建新聊天",
+      "create_new": "新聊天",
       "search_placeholder": "按标题搜索聊天...",
       "clear_search": "清除聊天搜索",
-      "no_sessions": "暂无聊天会话",
+      "no_sessions": "还没有聊天",
       "no_matches": "没有匹配的聊天",
       "no_matches_hint": "请尝试其他标题。",
       "session_count": "{{count}} 个会话",
@@ -1276,7 +1278,7 @@
         "chat": "聊天",
         "chat_count": "{{sessions}} 个会话 · {{messages}} 条消息",
         "knowledge": "知识和记忆",
-        "knowledge_count": "{{files}} 个文件 · {{vectors}} 个向量",
+        "knowledge_count": "已索引 {{files}} 个文件",
         "agent": "智能体运行",
         "agent_count": "{{runs}} 个已保存运行和恢复记录",
         "settings": "本地设置和提供商密钥",
@@ -1312,7 +1314,7 @@
       "reset_all": "重置所有快捷键",
       "new_chat": "新聊天",
       "new_chat_desc": "创建新的聊天会话",
-      "focus_input": "聚焦输入",
+      "focus_input": "聚焦输入框",
       "focus_input_desc": "聚焦到聊天输入框",
       "toggle_sidebar": "切换侧边栏",
       "toggle_sidebar_desc": "打开或关闭侧边栏",
@@ -1324,7 +1326,7 @@
       "toggle_theme_desc": "在浅色和深色模式之间切换",
       "toggle_rag": "切换RAG",
       "toggle_rag_desc": "启用或禁用上下文检索",
-      "toggle_speech": "切换语音",
+      "toggle_speech": "切换朗读",
       "toggle_speech_desc": "开始或停止朗读最后一条AI响应",
       "toggle_tabs": "切换标签页",
       "toggle_tabs_desc": "启用或禁用标签页访问",
@@ -1332,7 +1334,7 @@
       "search_messages_desc": "打开语义聊天搜索",
       "clear_chat": "清除聊天",
       "clear_chat_desc": "清除当前聊天会话",
-      "copy_last_response": "复制最后响应",
+      "copy_last_response": "复制最后一条回复",
       "copy_last_response_desc": "复制最后一条AI响应到剪贴板",
       "toggle_session_metrics": "切换会话指标",
       "toggle_session_metrics_desc": "显示或隐藏会话指标栏",
@@ -1362,12 +1364,8 @@
         "label": "允许内容提取",
         "description": "启用支持懒加载的增强内容提取"
       },
-      "selection_button": {
-        "label": "选中文字后显示“询问本地 LLM”按钮",
-        "description": "选中文字时显示浮动操作按钮，以加快将其添加到聊天的速度"
-      },
       "scraper": {
-        "label": "内容爬取器",
+        "label": "内容抓取器",
         "auto": {
           "label": "自动",
           "description": "智能回退：Defuddle 然后 Readability",
@@ -1409,7 +1407,7 @@
       },
       "timeout": {
         "scroll_delay": "滚动延迟（毫秒）",
-        "mutation_timeout": "变动观察器超时（毫秒）",
+        "mutation_timeout": "Mutation Observer 超时（毫秒）",
         "network_timeout": "网络空闲超时（毫秒）",
         "max_wait": "最长等待时间（毫秒）",
         "section_title": "页面加载超时（高级）"
@@ -1419,8 +1417,8 @@
         "active": "活动"
       },
       "selection_actions": {
-        "description": "在页面上选中文本时显示本地 AI 操作。",
-        "label": "启用划词操作"
+        "description": "直接在页面上总结、解释、缩短或改写选中的文本。",
+        "label": "选中文本时显示工具栏"
       },
       "selection_actions_list": {
         "description": "选择页面工具栏中显示哪些本地文本操作。",
@@ -1434,7 +1432,7 @@
     "model": {
       "title": "模型设置",
       "switch_model": "切换模型",
-      "description": "配置参数以获得最佳性能。",
+      "description": "应用于 {{model}}。",
       "configuration_title": "模型配置",
       "configuration_description": "配置您的 AI 模型参数。",
       "system": {
@@ -1522,15 +1520,15 @@
           "validation_min": "必须大于 {{min}}。"
         },
         "repeat_last_n": {
-          "label": "重复最后 N 个",
+          "label": "重复检测范围（最近 N 个）",
           "validation_min": "必须至少为 {{min}}。"
         }
       }
     },
     "base_url": {
-      "title": "Provider 基础 URL",
-      "description": "配置您的 Provider 安装服务器端点。",
-      "label": "Provider API 服务器端点",
+      "title": "提供商基础 URL",
+      "description": "配置提供商的服务器端点。",
+      "label": "提供商 API 服务器端点",
       "error_invalid_url": "请输入有效的 URL。",
       "status_local": "本地服务器连接",
       "status_remote": "远程服务器连接",
@@ -1589,7 +1587,7 @@
     "tabs": {
       "general": "聊天",
       "prompts": "提示词库",
-      "models": "模型行为",
+      "models": "提供商与模型",
       "extraction": "页面和标签页",
       "agent": "代理",
       "context": "知识与网络",
@@ -1603,12 +1601,12 @@
     },
     "context": {
       "file_upload": {
-        "title": "文件摄取",
+        "title": "文件上传",
         "description": "配置文件如何被处理以用于知识检索。"
       },
       "embedding_health": {
-        "title": "检测到混合 Embedding 维度",
-        "description": "Embedding 以多个维度存储（{{dimensions}}）。在全部重建之前，搜索和记忆可能会失败。",
+        "title": "已保存的知识需要重建",
+        "description": "部分已保存的知识是用另一个嵌入模型（{{dimensions}} 维）索引的。重建之前，搜索和记忆可能会失败。",
         "note": "重建会清除所有 Embedding，并重新嵌入聊天历史。文件上传需要重新上传，才能恢复知识。",
         "memory_disabled": "记忆已关闭，因此未重建聊天 Embedding。",
         "action": "重建 Embedding",
@@ -1616,7 +1614,7 @@
         "confirm": "要重建 Embedding 吗？这会清除所有 Embedding，并重新嵌入聊天历史。文件上传需要重新上传，才能恢复知识。",
         "progress": "正在重建聊天 Embedding（{{current}}/{{total}}）",
         "success": "Embedding 重建成功。",
-        "error": "无法重建 Embedding。"
+        "error": "无法重建嵌入。请确认嵌入模型可以访问，然后重试。"
       },
       "sections": {
         "conversation": "对话上下文",
@@ -1632,7 +1630,7 @@
       }
     },
     "web_search": {
-      "title": "Web Search",
+      "title": "网页搜索",
       "description": "Let supported models search the web using built-in or configured search.",
       "execution_source": {
         "label": "Search source",
@@ -1699,8 +1697,6 @@
         "api_key_required": "Enter an API key.",
         "searxng_json_disabled": "SearXNG 拒绝返回 JSON 结果。请在 settings.yml 的 search.formats 中添加 json 并重启。如果它位于登录页或代理之后，请允许此扩展访问。"
       },
-      "beta_badge": "Beta",
-      "beta_tooltip": "Beta. If you run into issues, please report them.",
       "base_url": {
         "label": "API base URL",
         "description": "Shown for transparency. This endpoint is fixed by the selected provider."
@@ -1713,7 +1709,6 @@
     },
     "memory": {
       "title": "上下文记忆",
-      "beta_badge": "测试版",
       "description": "允许 AI 记住过去对话的细节，以提供个性化的回复。",
       "enable": {
         "label": "启用记忆",
@@ -1726,13 +1721,13 @@
         "button_clearing": "清除中...",
         "confirm_dialog": "您确定要清除所有聊天记忆吗？此操作无法撤销。",
         "success": "聊天记忆已成功清除。",
-        "error": "清除记忆失败。",
+        "error": "无法清除记忆。请重试。",
         "usage": "使用情况：{{count}} 个项目（共 {{size}} MB）"
       }
     },
     "page": {
-      "title": "Ollama 客户端设置",
-      "description": "在一个地方管理您的 Ollama 设置的所有方面。有关提示和设置指南，请访问“帮助”标签页。"
+      "title": "Ollama Client 设置",
+      "description": "连接模型服务器，然后选择聊天、页面和知识的工作方式。"
     },
     "sections": {
       "app": "应用",
@@ -1755,7 +1750,7 @@
       "preview_title": "预览",
       "test_text_label": "测试文本",
       "test_text_placeholder": "在此处输入文字以测试您的语音设置...",
-      "test_hint_text": "点击“测试声音”听取您的文字。",
+      "test_hint_text": "选择“测试声音”即可听到你的文本。",
       "test_hint_default": "点击“测试声音”听取默认样本。",
       "test_button": "测试声音",
       "test_fallback": "你好，这是对你的语音设置的测试。",
@@ -1775,7 +1770,7 @@
       }
     },
     "embeddings": {
-      "title": "向量嵌入",
+      "title": "已保存的知识",
       "description": "嵌入功能支持语义搜索、检索增强生成和文件上传与聊天记录的上下文感知功能。",
       "test_generation": {
         "title": "测试嵌入生成",
@@ -1784,14 +1779,14 @@
         "button_testing": "测试中..."
       },
       "rebuild_index": {
-        "title": "重建索引",
+        "title": "重建关键词索引",
         "description": "强制从现有向量重建关键字搜索索引。如果搜索结果丢失或不一致，请使用此选项。",
         "button": "重建索引",
         "button_rebuilding": "正在重建...",
         "status_starting": "开始重建...",
         "status_processing": "正在处理 {{total}} 项中的 {{current}} 项...",
         "success": "索引重建成功完成！",
-        "error": "重建索引失败。请重试。"
+        "error": "无法重建索引。请重试。"
       },
       "test_search": {
         "title": "语义搜索",
@@ -1819,7 +1814,7 @@
       "model_change_confirm": {
         "title": "现在重建嵌入吗？",
         "description": "更换嵌入模型可能导致现有向量不兼容。重建索引以保持搜索结果准确，或直接切换不重建。",
-        "switch_only": "直接切换不重建",
+        "switch_only": "切换但不重建",
         "switch_and_rebuild": "切换并重建"
       },
       "bundled": {
@@ -1905,17 +1900,17 @@
       }
     },
     "reset": {
-      "title": "重置设置",
-      "description": "按模块清除存储的数据或将所有内容重置为默认值",
+      "title": "重置数据",
+      "description": "将某一部分恢复为默认值，或清除全部内容。",
       "danger_zone": {
-        "title": "危险区域",
-        "description": "这将清除所有数据且无法撤消",
-        "button": "全部重置"
+        "title": "清除全部内容",
+        "description": "这将删除此设备上的聊天、知识、设置和 API 密钥，且无法撤销。",
+        "button": "清除所有数据"
       },
       "dialog": {
-        "title": "确认重置",
-        "description": "这将清除所有数据且无法撤消。",
-        "confirm": "是，全部重置",
+        "title": "清除所有数据？",
+        "description": "这将删除此设备上的聊天、知识、设置和 API 密钥，且无法撤销。",
+        "confirm": "清除所有数据",
         "cancel": "取消"
       },
       "modules": {
@@ -1939,7 +1934,7 @@
           "description": "模块设置"
         },
         "provider": {
-          "title": "服务商设置",
+          "title": "提供商设置",
           "description": "模型设置和配置"
         },
         "feedback": {
@@ -1952,7 +1947,7 @@
       "reset_button": "重置",
       "failure_notice": {
         "title": "上次重置未完成",
-        "description": "上一次重置在完成前失败，部分数据可能仍然保留。请查看控制台了解详情并重试。"
+        "description": "部分数据未被清除。请重新加载扩展后重试。"
       },
       "chat_dialog": {
         "title": "删除所有聊天？",
@@ -1968,27 +1963,26 @@
     "providers": {
       "default": "默认",
       "beta_badge": "测试版",
-      "beta_notice": "此提供商仍处于测试版。如果遇到任何问题，请报告或在仓库中提交 issue。",
       "enabled": "已启用",
       "disabled": "已禁用",
       "inactive": "未激活",
       "connected": "已连接",
-      "connection_failed": "连接失败",
-      "manual_models": "仅模型 ID",
+      "connection_failed": "无法连接",
+      "manual_models": "使用你的模型 ID",
       "not_tested": "未测试",
-      "test": "测试",
+      "test": "测试连接",
       "save": "保存",
       "saved": "已保存",
       "base_url": "基本 URL",
       "base_url_default": "默认",
       "api_key": "API 密钥",
-      "custom_models": "自定义模型",
+      "custom_models": "模型 ID",
       "custom_models_description": "如果模型未出现在自动发现列表中，请手动添加。",
       "test_connection": {
-        "success_title": "连接成功",
+        "success_title": "已连接",
         "success_description": "已成功连接到 {{url}} 上的 {{name}}。找到 {{count}} 个模型。",
         "success_description_manual": "已成功连接到 {{url}} 上的 {{name}}。它不提供模型列表，因此使用你添加的 {{count}} 个模型 ID。",
-        "failed_title": "连接失败",
+        "failed_title": "无法连接",
         "no_models_title": "未找到模型",
         "no_model_list_title": "没有模型列表",
         "no_models_description": "已访问 {{url}}，但未返回任何模型。请确认提供商正在运行、基本 URL 正确，并且至少已安装或加载一个模型。",
@@ -2037,7 +2031,7 @@
         "custom_badge": "自定义"
       },
       "models": {
-        "title": "模型 ID（可选）",
+        "title": "模型 ID",
         "description": "当提供商未从发现端点返回模型时，手动添加模型。",
         "add": "添加",
         "remove": "移除",
@@ -2045,11 +2039,11 @@
       },
       "icon_lookup": {
         "label": "显示提供方站点图标",
-        "description": "向未识别的提供方索取图标，便于区分。仅访问该提供方自己的地址，若该地址没有图标则访问其主站点，绝不使用第三方图标服务。已内置标识的提供方不会被访问。"
+        "description": "显示自定义提供商自己的网站图标，图标从该提供商获取，绝不使用第三方服务。"
       },
       "catalog_refresh": {
         "label": "模型列表刷新",
-        "description": "已打开的面板多久向提供方重新索取一次模型列表。拉取、删除模型或修改提供方都会立即刷新，因此这只用于发现在你查看期间上线或掉线的提供方。数值越小，向远程提供方发出的请求越多。",
+        "description": "已打开的面板多久向提供商重新获取一次模型列表。",
         "options": {
           "0": "关闭",
           "10000": "每 10 秒",
@@ -2066,7 +2060,11 @@
       "enable_failed_title": "无法开启 {{name}}",
       "disable_failed_title": "无法关闭 {{name}}",
       "toggle_failed_description": "已恢复到之前的状态。请稍后重试。",
-      "status_off": "关闭"
+      "status_off": "关闭",
+      "advanced": {
+        "title": "高级",
+        "summary": "提供商网站图标和模型列表刷新"
+      }
     },
     "migration": {
       "title": "数据迁移",
@@ -2091,11 +2089,11 @@
         "description": "查看下面您的数据导入状态：",
         "skipped_private": "备份中的部分凭据、仅限设备的设置或内部恢复数据已被安全跳过。",
         "labels": {
-          "sync": "偏好设置 (Sync)",
-          "local": "本地存储",
-          "database": "数据库 (SQLite)",
-          "vectorDb": "向量嵌入 (Dexie)",
-          "knowledgeDb": "知识库 (Dexie)"
+          "sync": "同步的偏好设置",
+          "local": "设备设置",
+          "database": "聊天和会话",
+          "vectorDb": "已保存的知识",
+          "knowledgeDb": "知识集"
         },
         "legacy_chat_backup": "此备份由 0.6.3 或更早版本创建，其聊天记录使用扩展已不再读取的格式。备份中的设置、嵌入和知识集已恢复，聊天记录未恢复。",
         "status": {
@@ -2107,7 +2105,7 @@
     },
     "saved": "已保存",
     "presets": {
-      "error_title": "Failed to apply preset",
+      "error_title": "无法应用预设",
       "applied": "已应用 {{name}} 预设",
       "apply": "应用预设",
       "balanced": {
@@ -2152,15 +2150,15 @@
       "title": "预设"
     },
     "reset_section": {
-      "error_title": "Failed to reset section",
+      "error_title": "无法重置此部分",
       "button": "重置此部分",
       "description": "此操作会将此部分的控件恢复为默认值。其他设置不受影响。",
       "done": "此部分已重置为默认值",
       "title": "将此部分重置为默认值？"
     },
     "permissions": {
-      "title": "权限与隐私",
-      "description": "查看并控制此扩展可以访问的内容。所有数据都保留在你的设备上。",
+      "title": "隐私与权限",
+      "description": "查看此扩展可以访问哪些内容，以及你的数据会发送到哪里。",
       "overview": {
         "title": "默认本地",
         "description": "聊天、设置、文件和索引保留在此浏览器配置文件中。可选访问权限始终可见、可撤销，且绝不会静默授予。"
@@ -2322,14 +2320,13 @@
       "remote_images_label": "在导出中加载远程图片",
       "remote_images_hint": "允许打印和 PDF 导出从外部服务器加载图片。关闭时，导出完全离线进行，远程图片将被占位符替代。"
     },
-    "beta_badge": "Beta",
     "nav_label": "设置分区",
     "more_section": {
       "title": "提示词、语音和快捷键"
     }
   },
   "guides": {
-    "title": "有用的指南和文档",
+    "title": "指南和文档",
     "description": "需要帮助设置 Ollama 客户端或探索功能？查看这些有用的资源",
     "support": {
       "title": "支持项目",
@@ -2338,7 +2335,7 @@
     },
     "items": {
       "setup": {
-        "label": "Ollama 客户端设置指南",
+        "label": "Ollama Client 设置指南",
         "description": "完整的安装和配置指南",
         "badge": "指南"
       },
@@ -2353,7 +2350,7 @@
         "badge": "代码"
       },
       "issue": {
-        "label": "打开 GitHub Issue",
+        "label": "提交 GitHub Issue",
         "description": "在商店评价前报告错误或使用问题",
         "badge": "支持"
       },
@@ -2370,11 +2367,11 @@
     "linkedin": "领英",
     "twitter": "推特",
     "instagram": "Instagram",
-    "bug_report": "报告错误 / 功能"
+    "bug_report": "报告错误"
   },
   "errorBoundary": {
     "title": "出了点问题",
-    "description": "发生了意外错误。我们已在内部记录此问题。",
+    "description": "此面板出错了。请重新加载以继续。",
     "reload": "重新加载",
     "show_details": "显示详情",
     "copy_details": "复制详情"
@@ -2419,15 +2416,15 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "无法获取模型",
+    "failed_to_fetch_models": "模型列表未能加载。请检查提供商是否正在运行，然后刷新。",
     "rpc": {
-      "invalid_request": "请求无效。",
-      "invalid_response": "后台响应无效。",
+      "invalid_request": "扩展发送了一个无法处理的请求。请重新加载扩展后重试。",
+      "invalid_response": "扩展返回了意外的内容。请重新加载扩展后重试。",
       "forbidden": "此页面不允许执行该操作。",
-      "not_found": "未找到提供商配置。",
-      "provider_failed": "提供商请求失败。",
-      "timeout": "后台请求超时。请重试。",
-      "internal": "后台请求失败。请重试。",
+      "not_found": "该提供商已不再配置。请在设置中重新选择。",
+      "provider_failed": "提供商无法完成此请求。请检查它是否正在运行，然后重试。",
+      "timeout": "扩展未能及时响应。请重试；如果反复出现，请重新加载扩展。",
+      "internal": "扩展内部出错了。请重新加载扩展后重试。",
       "upstream_not_found": "提供商有响应，但返回的不是所请求的内容。请检查基础 URL 和模型名称。"
     }
   },
@@ -2442,7 +2439,7 @@
     "clear": "Clear diagnostic history",
     "copied": "Support bundle copied",
     "cleared": "Diagnostic history cleared",
-    "failed": "Diagnostics request failed",
+    "failed": "无法运行诊断。请重试。",
     "privacy_notice": "Review before sharing. Bundle excludes chats, prompts, files, page content, credentials, cookies, and full endpoints.",
     "status": {
       "pass": "Pass",
@@ -2454,15 +2451,15 @@
       "runtime_version": "Runtime version",
       "browser_apis": "Browser APIs",
       "permissions": "Browser permissions",
-      "sync_storage": "Sync storage",
-      "local_storage": "Local storage",
-      "chat_repository": "Chat repository",
-      "vector_store": "Vector store",
+      "sync_storage": "同步的设置",
+      "local_storage": "设备设置",
+      "chat_repository": "已保存的聊天",
+      "vector_store": "已保存的知识",
       "provider_discovery": "Provider and model discovery",
-      "migration": "Persistence migration",
-      "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints",
-      "turn_retention": "Durable turn retention"
+      "migration": "聊天存储升级",
+      "dnr_rules": "本地服务器访问规则",
+      "turn_checkpoint": "回复恢复",
+      "turn_retention": "已完成回复的清理"
     }
   },
   "onboarding": {
@@ -2488,7 +2485,7 @@
     "model": {
       "title": "Choose a chat model",
       "description": "Embedding-only models are hidden. You can change this choice later.",
-      "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
+      "none": "已连接，但 {{provider}} 还没有聊天模型。请安装一个模型，然后选择“刷新模型”。",
       "placeholder": "Select a model",
       "use": "Use this model",
       "refresh": "刷新模型",
@@ -2512,22 +2509,23 @@
       "connect_title": "Check provider connection",
       "connect_description": "Connect to {{provider}} and discover its available models.",
       "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
-      "connection_failed": "Connection failed. Use this support code when asking for help.",
+      "connection_failed": "无法连接到 {{provider}}",
       "title": "连接提供商",
       "description": "立即检查默认 Ollama 端点。您可以修改它，也可以稍后配置其他提供商。",
       "connected": "已连接。找到 {{count}} 个模型。",
       "skip": "暂时跳过",
       "open_setup": "设置提供商",
       "errors": {
-        "cors": "Ollama 正在运行，但阻止了此扩展。请使用下面的命令重启。",
-        "auth": "提供商拒绝了 API 密钥或访问设置。",
-        "not-found": "服务器已响应，但这不是有效的提供商端点。请检查端口和基础 URL。",
-        "timeout": "提供商响应超时。请检查它是否运行以及端口是否正确。",
-        "unavailable": "无法连接 Ollama。它可能已停止、使用其他端口或阻止扩展来源。",
-        "server-error": "提供商返回服务器错误。请检查日志后重试。",
+        "cors": "{{provider}} 正在运行，但阻止了此扩展。请使用下面的命令重启。",
+        "auth": "{{provider}} 拒绝了 API 密钥。请在提供商设置中检查。",
+        "not-found": "有服务响应了，但不是 {{provider}}。请检查端口和基础 URL。",
+        "timeout": "{{provider}} 响应时间过长。请检查它是否正在运行以及端口是否正确。",
+        "unavailable": "无法连接 {{provider}}。请启动它后重试。如果它已在运行，请检查基础 URL。",
+        "server-error": "{{provider}} 发生服务器错误。请检查其日志，然后重试。",
         "cors-other": "{{provider}} 正在运行，但阻止了此扩展。请在其 CORS 设置中允许 chrome-extension://* 和 moz-extension://*，然后重启它。",
         "rate-limited": "{{provider}} 目前正在限制请求。请稍等片刻后重试。",
-        "payment": "{{provider}} 需要付款或额度。请检查你的账户后重试。"
+        "payment": "{{provider}} 需要付款或额度。请检查你的账户后重试。",
+        "refused": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。"
       },
       "unverified": "连接尚未验证。你可以尝试已配置的模型，或打开提供商设置以检查端点。",
       "support_code": "支持代码"
