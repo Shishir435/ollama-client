@@ -576,6 +576,7 @@ describe("reviewing reads the judge could only take on the model's word", () => 
     expect(run.state().outcome).toEqual({
       met: ["r1"],
       unmet: [],
+      graded: true,
       supported: ["r1"]
     })
   })

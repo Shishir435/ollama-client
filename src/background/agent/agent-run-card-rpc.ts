@@ -21,6 +21,16 @@ import {
 import { normalizeGrantOrigin } from "@/lib/tools/approval/approval-policy"
 import { toAgentStepRecords } from "./agent-step-records"
 
+/** A requirement's grade once the run settled, when its judge graded. */
+const cardTier = (
+  state: AgentRunState,
+  id: string
+): { tier?: ReturnType<typeof agentRequirementTier> & string } => {
+  if (!state.outcome || !isTerminalAgentStatus(state.status)) return {}
+  const tier = agentRequirementTier(state.outcome, id)
+  return tier ? { tier } : {}
+}
+
 /**
  * Project a run onto what its chat card shows.
  *
@@ -73,9 +83,7 @@ export const toAgentRunCard = (
             requirements: state.requirements.map((requirement) => ({
               id: requirement.id,
               text: requirement.text,
-              ...(state.outcome && isTerminalAgentStatus(state.status)
-                ? { tier: agentRequirementTier(state.outcome, requirement.id) }
-                : {}),
+              ...cardTier(state, requirement.id),
               ...(requirement.origin ? { origin: requirement.origin } : {})
             })),
             constraints: (state.constraints ?? []).map((constraint) => ({

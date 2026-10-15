@@ -176,16 +176,11 @@ export const buildAgentConversationHandoff = (
               requirement.text,
               MAX_AGENT_REQUIREMENT_CHARS
             )
+            const tier = state.outcome
+              ? agentRequirementTier(state.outcome, requirement.id)
+              : ("unmet" as const)
             return text
-              ? [
-                  {
-                    id: requirement.id,
-                    text,
-                    tier: state.outcome
-                      ? agentRequirementTier(state.outcome, requirement.id)
-                      : ("unmet" as const)
-                  }
-                ]
+              ? [{ id: requirement.id, text, ...(tier ? { tier } : {}) }]
               : []
           })
         }

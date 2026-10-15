@@ -310,6 +310,10 @@ describe("Agent observation builder", () => {
       <p id="email-error">Enter a complete address.</p>
       <label for="name">Name</label><input id="name" required>
       <label for="city">City</label><input id="city" aria-invalid="false">
+      <label for="notes">Notes</label><input id="notes" aria-invalid="spelling">
+      <label for="pin">PIN</label>
+      <input id="pin" type="password" aria-invalid="true" aria-errormessage="pin-error">
+      <p id="pin-error">You are currently using 3 characters.</p>
     `
     const elements = build().elements
     const email = elements.find((element) => element.name === "Email")
@@ -324,6 +328,14 @@ describe("Agent observation builder", () => {
     expect(
       elements.find((element) => element.name === "City")?.invalid
     ).toBeUndefined()
+    /** A spell-check underline is not a rejected value. */
+    expect(
+      elements.find((element) => element.name === "Notes")?.invalid
+    ).toBeUndefined()
+    /** A sensitive control says it was rejected, never why: the why can measure it. */
+    const pin = elements.find((element) => element.name === "PIN")
+    expect(pin).toMatchObject({ invalid: true })
+    expect(pin?.invalidMessage).toBeUndefined()
   })
 
   it("previews the query a search form would send", () => {

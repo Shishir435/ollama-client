@@ -149,7 +149,7 @@ describe("completion review scope", () => {
     expect(judgement.review).toEqual({
       requirementIds: ["r1"],
       constraintIds: [],
-      outcome: { met: [], unmet: [] }
+      outcome: { met: [], unmet: [], graded: true }
     })
   })
 
@@ -163,7 +163,11 @@ describe("completion review scope", () => {
         ]
       })
     )
-    expect(judgement.review.outcome).toEqual({ met: [], unmet: ["r3"] })
+    expect(judgement.review.outcome).toEqual({
+      met: [],
+      unmet: ["r3"],
+      graded: true
+    })
   })
 
   it("puts a limit with no deterministic support in the same scope", () => {
@@ -284,7 +288,12 @@ describe("itemized requirements under review", () => {
     expect(agentCompletionNeedsReview(judgement)).toBe(false)
     expect(judgement).toEqual({
       type: "unmet",
-      outcome: { met: [], unmet: ["r2"], items: [{ id: "r2", met: [] }] }
+      outcome: {
+        met: [],
+        unmet: ["r2"],
+        graded: true,
+        items: [{ id: "r2", met: [] }]
+      }
     })
   })
 
@@ -330,7 +339,7 @@ describe("applying a completion review", () => {
       /** A reviewer's verdict reaches supported, never verified. */
       judgement: {
         type: "accepted",
-        outcome: { met: ["r1"], unmet: [], supported: ["r1"] }
+        outcome: { met: ["r1"], unmet: [], graded: true, supported: ["r1"] }
       }
     })
   })
@@ -555,7 +564,7 @@ describe("applying a completion review", () => {
       ]).judgement
     ).toEqual({
       type: "partial",
-      outcome: { met: ["r1"], unmet: ["r3"], supported: ["r1"] }
+      outcome: { met: ["r1"], unmet: ["r3"], graded: true, supported: ["r1"] }
     })
   })
 

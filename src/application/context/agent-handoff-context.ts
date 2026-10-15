@@ -123,7 +123,7 @@ const renderHandoff = (handoff: AgentConversationHandoff): string => {
       "Outcomes (verified: checked by the runtime; supported: judged by a reviewer; claimed: the agent's word only, not checked; unmet):",
       ...handoff.requirements.map(
         (requirement) =>
-          `- ${requirement.id} ${requirement.tier}: ${inert(requirement.text)}`
+          `- ${requirement.id} ${requirement.tier ?? "met, not graded"}: ${inert(requirement.text)}`
       )
     )
   }

@@ -181,7 +181,12 @@ export const agentClaimedReviewScope = (
   judgement: AgentCompletionJudgement,
   requirements: readonly AgentTaskRequirement[] | undefined
 ): NeedsReview | undefined => {
-  if (judgement.type === "refused") return undefined
+  /**
+   * An accepted completion only. A partial one goes on to be challenged as
+   * early or settles partial whatever a review says, and a review spent on it
+   * is one a later undecided claim cannot have.
+   */
+  if (judgement.type !== "accepted") return undefined
   /**
    * Reads only. A save is claimed because nothing read it back, and no
    * verdict on the facts already gathered can supply a page never loaded.
@@ -238,7 +243,7 @@ export const applyAgentClaimedReview = (
   const outcome = judgement.outcome ?? { met: [], unmet: [] }
   const supported = [...new Set([...(outcome.supported ?? []), ...carried])]
   const claimed = (outcome.claimed ?? []).filter((id) => !carried.includes(id))
-  const { met, unmet, items, visual } = outcome
+  const { met, unmet, items, visual, graded } = outcome
   return {
     disagreements: pending.review.requirementIds.length - carried.length,
     judgement: {
@@ -249,7 +254,8 @@ export const applyAgentClaimedReview = (
         ...(items ? { items } : {}),
         ...(visual ? { visual } : {}),
         ...(supported.length ? { supported } : {}),
-        ...(claimed.length ? { claimed } : {})
+        ...(claimed.length ? { claimed } : {}),
+        ...(graded ? { graded } : {})
       }
     }
   }

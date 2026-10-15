@@ -708,7 +708,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1", "r2", "r3"], unmet: [] }
+      outcome: { met: ["r1", "r2", "r3"], unmet: [], graded: true }
     })
   })
 
@@ -894,7 +894,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
           { id: "r2", met: false }
         ]
       })
-    ).toEqual({ type: "partial", outcome: { met: ["r1"], unmet: ["r2"] } })
+    ).toEqual({
+      type: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"], graded: true }
+    })
   })
 
   /**
@@ -963,7 +966,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
           { id: "r2", met: false }
         ]
       })
-    ).toEqual({ type: "unmet", outcome: { met: [], unmet: ["r1", "r2"] } })
+    ).toEqual({
+      type: "unmet",
+      outcome: { met: [], unmet: ["r1", "r2"], graded: true }
+    })
   })
 
   /**
@@ -1003,7 +1009,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], claimed: ["r1"] }
+      outcome: { met: ["r1"], unmet: [], graded: true, claimed: ["r1"] }
     })
   })
 
@@ -1064,7 +1070,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
       })
     expect(judge("read", "KV-305")).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+      outcome: { met: ["r1"], unmet: [], graded: true, visual: ["r1"] }
     })
     /** Only what it read, exactly; and only off the current picture. */
     expect(judge("read", "KV-306").type).toBe("refused")
@@ -1085,7 +1091,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
       ])
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], claimed: ["r1"] }
+      outcome: { met: ["r1"], unmet: [], claimed: ["r1"], graded: true }
     })
   })
 
@@ -1275,7 +1281,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         requirements: checkboxRequirement,
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("accepts a planned checkbox quoting its own label", () => {
@@ -1286,7 +1295,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         requirements: checkboxRequirement,
         outcomes: [{ id: "r1", met: true, evidence: "Agree" }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("does not accept a whole plan on one verification", () => {
@@ -1422,7 +1434,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("does not let a bound receipt satisfy another requirement", () => {
@@ -2387,7 +2402,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("does not bind typed value to a substring", () => {
@@ -2771,7 +2789,12 @@ describe("itemized requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0, 1] }] }
+      outcome: {
+        met: ["r1"],
+        unmet: [],
+        graded: true,
+        items: [{ id: "r1", met: [0, 1] }]
+      }
     })
   })
 
@@ -2883,7 +2906,12 @@ describe("itemized requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0] }] }
+      outcome: {
+        met: ["r1"],
+        unmet: [],
+        graded: true,
+        items: [{ id: "r1", met: [0] }]
+      }
     })
   })
 
@@ -3064,7 +3092,7 @@ describe("release review evidence regressions", () => {
     })
     expect(result).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+      outcome: { met: ["r1"], unmet: [], graded: true, visual: ["r1"] }
     })
   })
 })

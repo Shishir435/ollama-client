@@ -737,7 +737,14 @@ export const AgentRunOutcomeSchema = z
     claimed: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
       .max(MAX_AGENT_REQUIREMENTS)
-      .optional()
+      .optional(),
+    /**
+     * Set by a judge that grades. Without it the two lists above say nothing:
+     * a run settled before tiers existed met its reads on a quote alone, and
+     * reading the absence of `claimed` there as "verified" would show every
+     * one of them as checked.
+     */
+    graded: z.literal(true).optional()
   })
   .strict()
 export type AgentRunOutcome = z.infer<typeof AgentRunOutcomeSchema>
@@ -748,14 +755,19 @@ export type AgentRequirementTier =
   | "claimed"
   | "unmet"
 
-/** One requirement's tier, read off a settled outcome. */
+/**
+ * One requirement's tier, read off a settled outcome. Undefined for a met
+ * requirement of an outcome no grading judge wrote: how it was met is not
+ * known, and guessing "verified" is the overclaim tiers exist to stop.
+ */
 export const agentRequirementTier = (
   outcome: AgentRunOutcome,
   id: string
-): AgentRequirementTier => {
+): AgentRequirementTier | undefined => {
   if (!outcome.met.includes(id)) return "unmet"
   if (outcome.claimed?.includes(id) || outcome.visual?.includes(id))
     return "claimed"
+  if (!outcome.graded) return undefined
   return outcome.supported?.includes(id) ? "supported" : "verified"
 }
 
@@ -853,7 +865,9 @@ export const AgentConversationHandoffSchema = z
           .object({
             id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
             text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
-            tier: z.enum(["verified", "supported", "claimed", "unmet"])
+            tier: z
+              .enum(["verified", "supported", "claimed", "unmet"])
+              .optional()
           })
           .strict()
       )

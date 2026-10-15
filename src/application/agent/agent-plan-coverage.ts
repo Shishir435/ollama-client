@@ -56,7 +56,15 @@ const LEADING_ARTICLE =
  * not a value, and the planner already words reads.
  */
 const NOT_A_VALUE =
-  /^(?:if|whether|what|which|how|when|where|who|why|it|them|that|this|out|up|on|off|of)\b/iu
+  /^(?:if|whether|what|which|how|when|where|who|why|it|them|that|this|out|up|on|off|of|and|then|or|but|to|wait)\b/iu
+
+/**
+ * A word before the verb that makes it a noun or a key: "account type",
+ * "sort by type", "press Enter". The verb names a value only where it is
+ * a command.
+ */
+const NOT_A_COMMAND =
+  /(?:\b(?:the|a|an|by|of|press|hit|account|your|my|this|that|its|their|file|input|key|blood|data|field)\s+)$/iu
 
 /** A clause that asks for something to be found or reported. */
 const READ_CUE =
@@ -141,6 +149,7 @@ export const agentNamedValues = (utterance: string): AgentNamedValue[] => {
   for (const match of text.matchAll(VERB_OBJECT)) {
     /** A quoted object is already counted as a quotation. */
     if (/^["“”„«»「『'‘]/u.test(match[2].trim())) continue
+    if (NOT_A_COMMAND.test(text.slice(0, match.index))) continue
     matches.push({
       index: match.index,
       value: cleanValue(match[2]),

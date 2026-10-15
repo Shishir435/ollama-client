@@ -216,16 +216,17 @@ export const agentControlOnState = (
 
 /**
  * A custom listbox has no native options to read: its choice is the one
- * option the page marks selected, or the text its combobox now holds. One
- * selected option of that name in the control's frame, and no other
- * selected one beside it, is the whole answer.
+ * option the page marks selected. One selected option of that name in the
+ * control's frame, and no other selected one beside it, is the whole answer.
+ * Never the text a combobox holds: typing "Blue" into an autocomplete picks
+ * nothing, and reading the typed text as the choice verified a selection
+ * that was never made.
  */
 const ariaSelectionMatches = (
   element: AgentObservation["elements"][number],
   observation: AgentObservation,
   wanted: string
 ): boolean => {
-  if (element.value !== undefined && same(element.value, wanted)) return true
   const chosen = observation.elements.filter(
     (candidate) =>
       candidate.frameId === element.frameId &&

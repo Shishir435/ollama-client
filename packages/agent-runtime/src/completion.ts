@@ -2489,7 +2489,9 @@ const readBoundToItsRecord = (
     if (element.sensitive || !(element.visible || element.offscreen))
       return false
     const row = agentNormalizedClaim(element.rowContext ?? "")
-    return containsCompletePhrase(row, named) && row.includes(quoted)
+    return (
+      containsCompletePhrase(row, named) && agentHaystackStates(quoted, row)
+    )
   })
 }
 
@@ -2656,7 +2658,8 @@ const judgePlanned = (
     unmet,
     ...(items.length ? { items } : {}),
     ...(visual.length ? { visual } : {}),
-    ...(claimed.length ? { claimed } : {})
+    ...(claimed.length ? { claimed } : {}),
+    graded: true as const
   }
   if (review) return withReviewScope(review, requirements, reviewIds, outcome)
   if (unmet.length === 0) return { type: "accepted", outcome }

@@ -183,3 +183,13 @@ describe("planning from the user's own message", () => {
     expect(prompt).toContain(JSON.stringify({ userMessage: utterance }))
   })
 })
+
+describe("words that are not values", () => {
+  it.each([
+    "Find the account type and tell me the owner",
+    "Press Enter and wait for the results",
+    "Sort by type and show me the newest"
+  ])("finds nothing in %s", (utterance) => {
+    expect(agentNamedValues(utterance)).toEqual([])
+  })
+})

@@ -272,7 +272,7 @@ describe("P4 deterministic completion", () => {
     it("verifies a quote from the row of the record the check names", () => {
       expect(priceOf("Pro", "$29 per month")).toEqual({
         type: "accepted",
-        outcome: { met: ["r1"], unmet: [] }
+        outcome: { met: ["r1"], unmet: [], graded: true }
       })
     })
 
@@ -280,7 +280,14 @@ describe("P4 deterministic completion", () => {
       /** The wrong-row trap: grounded, exact, and the Basic plan's price. */
       expect(priceOf("Pro", "$9 per month")).toEqual({
         type: "accepted",
-        outcome: { met: ["r1"], unmet: [], claimed: ["r1"] }
+        outcome: { met: ["r1"], unmet: [], graded: true, claimed: ["r1"] }
+      })
+    })
+
+    it("does not take a quote that only appears inside a longer one", () => {
+      /** "$9 per month" sits inside nothing in the Pro row but "$29 per month". */
+      expect(priceOf("Pro", "9 per month")).toMatchObject({
+        outcome: { claimed: ["r1"] }
       })
     })
 
@@ -357,7 +364,7 @@ describe("P4 deterministic completion", () => {
     it("verifies it on a page the run loaded after the change", () => {
       expect(judgeSave([typed, reopened])).toEqual({
         type: "accepted",
-        outcome: { met: ["r1"], unmet: [] }
+        outcome: { met: ["r1"], unmet: [], graded: true }
       })
     })
 
@@ -377,7 +384,7 @@ describe("P4 deterministic completion", () => {
       })
       expect(judgeSave([typed, refusal])).toEqual({
         type: "accepted",
-        outcome: { met: ["r1"], unmet: [], claimed: ["r1"] }
+        outcome: { met: ["r1"], unmet: [], graded: true, claimed: ["r1"] }
       })
     })
 
@@ -509,6 +516,22 @@ describe("P4 deterministic completion", () => {
           ["Red", true],
           ["Blue", false]
         ]),
+        [],
+        undefined
+      )
+    ).toBe(false)
+    /** Typed into the combobox, picked from nothing: not a selection. */
+    expect(
+      checkCompletionState(
+        requirement,
+        {
+          ...listbox([["Red", false]]),
+          elements: listbox([["Red", false]]).elements.map((element) =>
+            element.role === "combobox"
+              ? { ...element, value: "Blue" }
+              : element
+          )
+        },
         [],
         undefined
       )

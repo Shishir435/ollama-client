@@ -62,7 +62,8 @@ describe("the conversation handoff a settled run leaves", () => {
         outcome: {
           met: ["r1", "r2"],
           unmet: ["r3"],
-          claimed: ["r2"]
+          claimed: ["r2"],
+          graded: true
         }
       }),
       [],
@@ -89,6 +90,24 @@ describe("the conversation handoff a settled run leaves", () => {
     expect(handoff?.actions).toEqual([
       { effect: "submission", state: "applied", control: "Save [link]" },
       { effect: "payment", state: "uncertain" }
+    ])
+  })
+
+  it("leaves the grade off an outcome no grading judge wrote", () => {
+    /** A run settled before tiers met its reads on a quote alone. */
+    const handoff = buildAgentConversationHandoff(
+      settled({
+        requirements: [
+          { id: "r1", kind: "read", text: "Report the price" },
+          { id: "r2", kind: "read", text: "Report the date" }
+        ],
+        outcome: { met: ["r1"], unmet: ["r2"] }
+      }),
+      []
+    )
+    expect(handoff?.requirements).toEqual([
+      { id: "r1", text: "Report the price" },
+      { id: "r2", text: "Report the date", tier: "unmet" }
     ])
   })
 

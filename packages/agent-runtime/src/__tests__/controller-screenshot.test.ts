@@ -557,6 +557,7 @@ describe("controller screenshots", () => {
     expect(run.state().outcome).toEqual({
       met: ["r1"],
       unmet: [],
+      graded: true,
       visual: ["r1"]
     })
     const durable = JSON.stringify([run.written, run.state()])

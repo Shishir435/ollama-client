@@ -1499,10 +1499,12 @@ already gathered can supply a page that was never loaded.
   what the user typed, before any retrieved context was joined to it, as
   `userUtterance`; `browser_task` hands it to the run, bounded at
   `MAX_AGENT_UTTERANCE_CHARS` with its whole length recorded. The planner
-  may quote it, its limits are read by rule like the goal's, it counts as
-  authored text for egress, and each plan entry records whether it rests on
+  may quote it, its limits are read by rule like the goal's, and each
+  plan entry records whether it rests on
   the user's words (`origin: "user"`) or only the chat model's goal
-  (`"delegated"`). A value the message names — in quotation marks, or as the
+  (`"delegated"`). It is not authored text for the egress rule: a message
+  can carry a selection the user added from a page, and exempting that from
+  the provenance check is the approvals work's to decide. A value the message names — in quotation marks, or as the
   object of select, choose, pick, enter, type, tick, toggle, switch or set …
   to — that no planned outcome, item, check or limit mentions is refused
   once with the values named; missed again, each becomes a requirement of

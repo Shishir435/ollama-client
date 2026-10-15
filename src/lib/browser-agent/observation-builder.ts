@@ -1636,13 +1636,25 @@ const userInvalid = (element: Element): boolean => {
 }
 
 const invalidState = (
-  element: Element
+  element: Element,
+  /** Whether the reason may be read: shown, and not a sensitive control. */
+  readable: boolean
 ): Pick<AgentElement, "invalid" | "invalidMessage"> => {
-  const aria = element.getAttribute("aria-invalid")?.trim().toLowerCase()
+  /**
+   * Only "true". "spelling" and "grammar" are an editor's underline, not a
+   * rejected value, and reading them as one failed every field check in a
+   * document with a typo in it.
+   */
   const invalid =
-    (aria !== undefined && aria !== "" && aria !== "false") ||
+    element.getAttribute("aria-invalid")?.trim().toLowerCase() === "true" ||
     userInvalid(element)
   if (!invalid) return {}
+  /**
+   * A browser's own message can echo the value ("'ada' is missing an '@'")
+   * or measure it ("you are currently using 5 characters"), so a reason is
+   * read only where the value itself could be.
+   */
+  if (!readable) return { invalid: true }
   const native = normalizedText(
     (element as Partial<HTMLInputElement>).validationMessage ?? ""
   )
@@ -1652,7 +1664,10 @@ const invalidState = (
   return { invalid: true, ...(message ? { invalidMessage: message } : {}) }
 }
 
-const ariaStateFields = (element: Element): Partial<AgentElement> => {
+const ariaStateFields = (
+  element: Element,
+  readable: boolean
+): Partial<AgentElement> => {
   const role = element.getAttribute("role")?.trim().toLowerCase() ?? ""
   const ariaChecked =
     !isCheckableInput(element) && ARIA_CHECKED_ROLES.has(role)
@@ -1661,25 +1676,29 @@ const ariaStateFields = (element: Element): Partial<AgentElement> => {
   const pressed = ariaTristate(element, "aria-pressed")
   const expanded = ariaBoolean(element, "aria-expanded")
   const selected = ariaBoolean(element, "aria-selected")
-  const activeOption = referencedText(element, "aria-activedescendant")
+  const activeOption = readable
+    ? referencedText(element, "aria-activedescendant")
+    : undefined
   return {
     ...(ariaChecked !== undefined ? { ariaChecked } : {}),
     ...(pressed !== undefined ? { pressed } : {}),
     ...(expanded !== undefined ? { expanded } : {}),
     ...(selected !== undefined ? { selected } : {}),
     ...(activeOption ? { activeOption } : {}),
-    ...invalidState(element)
+    ...invalidState(element, readable)
   }
 }
 
 const observedControlFields = (
   element: Element,
   value: string | undefined,
-  href: string | undefined
+  href: string | undefined,
+  /** Shown and not sensitive: where a value, and so its reasons, may be read. */
+  readable: boolean
 ): Partial<AgentElement> => {
   const options = selectOptions(element)
   return {
-    ...ariaStateFields(element),
+    ...ariaStateFields(element, readable),
     ...(value !== undefined
       ? {
           value: truncate(value, AGENT_OBSERVATION_LIMITS.elementValueChars)
@@ -1782,7 +1801,7 @@ const buildElementObservation = (
       : {}),
     tag: element.tagName.toLowerCase(),
     type: elementType(element),
-    ...observedControlFields(element, value, href),
+    ...observedControlFields(element, value, href, visible && !sensitive),
     ...(value !== undefined &&
     value.length > AGENT_OBSERVATION_LIMITS.elementValueChars
       ? { valueTruncated: true }
