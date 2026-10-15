@@ -2,9 +2,14 @@ import { z } from "zod"
 import {
   AgentErrorSchema,
   AgentPauseReasonSchema,
+  AgentPlanEntryOriginSchema,
   AgentRunStatusSchema,
   MAX_AGENT_ALLOWED_ORIGINS,
-  MAX_AGENT_OBSERVATIONS
+  MAX_AGENT_CONSTRAINTS,
+  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_REQUIREMENT_CHARS,
+  MAX_AGENT_REQUIREMENT_ID_CHARS,
+  MAX_AGENT_REQUIREMENTS
 } from "./agent"
 import { AgentModelReadinessSchema, AgentStepRecordSchema } from "./agent-panel"
 
@@ -111,6 +116,42 @@ export const AgentRunCardSchema = z
     tabOrigins: z
       .array(z.string().min(1))
       .max(MAX_AGENT_ALLOWED_ORIGINS)
+      .optional(),
+    /**
+     * What the run was asked to do, as it planned it: each outcome with how
+     * it was established once the run settled, and the limits it kept. Shown
+     * on every card, so the user reads the run's contract and its grades
+     * rather than only the chat model's account of them.
+     */
+    contract: z
+      .object({
+        requirements: z
+          .array(
+            z
+              .object({
+                id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+                text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+                tier: z
+                  .enum(["verified", "supported", "claimed", "unmet"])
+                  .optional(),
+                origin: AgentPlanEntryOriginSchema.optional()
+              })
+              .strict()
+          )
+          .max(MAX_AGENT_REQUIREMENTS),
+        constraints: z
+          .array(
+            z
+              .object({
+                id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+                text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+                origin: AgentPlanEntryOriginSchema.optional()
+              })
+              .strict()
+          )
+          .max(MAX_AGENT_CONSTRAINTS)
+      })
+      .strict()
       .optional(),
     updatedAt: z.number().int().nonnegative()
   })

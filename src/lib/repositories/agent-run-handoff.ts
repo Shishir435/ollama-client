@@ -1,8 +1,16 @@
-import { boundAgentEvidence } from "@ollama-client/agent-runtime"
+import {
+  type AgentStepWrite,
+  boundAgentEvidence,
+  isAppliedAgentStepStatus
+} from "@ollama-client/agent-runtime"
 import {
   type AgentEvidenceRecord,
   type AgentRunState,
+  agentRequirementTier,
   MAX_AGENT_FINDING_CHARS,
+  MAX_AGENT_HANDOFF_ACTIONS,
+  MAX_AGENT_HANDOFF_CONTROL_CHARS,
+  MAX_AGENT_REQUIREMENT_CHARS,
   MAX_AGENT_SOURCE_QUOTE_CHARS
 } from "@ollama-client/contracts"
 import {
@@ -68,6 +76,47 @@ export const handoffPlainText = (value: string, limit: number): string => {
     : `${cleaned.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
 }
 
+type HandoffAction = NonNullable<AgentConversationHandoff["actions"]>[number]
+
+/**
+ * The consequential things a run did, from its receipts: one per step, at
+ * the step's last receipt, newest last. A step that was only proposed or
+ * refused did nothing and is left out; one whose effect is unknown is kept
+ * as uncertain, because a later turn has to say so rather than repeat it.
+ */
+export const agentHandoffActions = (
+  steps: readonly Pick<
+    AgentStepWrite,
+    "stepId" | "status" | "consequential" | "target"
+  >[]
+): HandoffAction[] => {
+  const latest = new Map<string, (typeof steps)[number]>()
+  for (const step of steps) {
+    latest.delete(step.stepId)
+    latest.set(step.stepId, step)
+  }
+  return [...latest.values()]
+    .filter(
+      (step) =>
+        (step.consequential?.length ?? 0) > 0 &&
+        (step.status === "uncertain" || isAppliedAgentStepStatus(step.status))
+    )
+    .flatMap((step) => {
+      const control = step.target?.name
+        ? handoffPlainText(step.target.name, MAX_AGENT_HANDOFF_CONTROL_CHARS)
+        : ""
+      return (step.consequential ?? []).map((effect) => ({
+        effect,
+        state:
+          step.status === "uncertain"
+            ? ("uncertain" as const)
+            : ("applied" as const),
+        ...(control ? { control } : {})
+      }))
+    })
+    .slice(-MAX_AGENT_HANDOFF_ACTIONS)
+}
+
 const isHandoffStatus = (
   status: AgentRunState["status"]
 ): status is AgentConversationHandoff["status"] =>
@@ -85,7 +134,8 @@ const isHandoffStatus = (
 export const buildAgentConversationHandoff = (
   state: AgentRunState,
   findings: readonly string[],
-  evidenceLedger: readonly AgentEvidenceRecord[] = []
+  evidenceLedger: readonly AgentEvidenceRecord[] = [],
+  actions: readonly HandoffAction[] = []
 ): AgentConversationHandoff | undefined => {
   if (!isHandoffStatus(state.status)) return undefined
   const goal = handoffPlainText(state.goal, MAX_AGENT_HANDOFF_GOAL_CHARS)
@@ -119,6 +169,28 @@ export const buildAgentConversationHandoff = (
         }
       : {}),
     ...(state.error ? { failure: state.error.code } : {}),
+    ...(state.requirements?.length
+      ? {
+          requirements: state.requirements.flatMap((requirement) => {
+            const text = handoffPlainText(
+              requirement.text,
+              MAX_AGENT_REQUIREMENT_CHARS
+            )
+            return text
+              ? [
+                  {
+                    id: requirement.id,
+                    text,
+                    tier: state.outcome
+                      ? agentRequirementTier(state.outcome, requirement.id)
+                      : ("unmet" as const)
+                  }
+                ]
+              : []
+          })
+        }
+      : {}),
+    ...(actions.length ? { actions: [...actions] } : {}),
     findings: notes,
     ...(evidenceLedger.length
       ? {

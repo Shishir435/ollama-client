@@ -391,6 +391,17 @@ const appliedReviewedAction = (step: AgentStepReadout): AgentReviewedAction => {
   }
 }
 
+/**
+ * Which budget ran out. One code for three causes told a user whose run hit
+ * its time limit that it had used its whole step budget, which pointed them
+ * at the wrong fix; the code still says a budget ended the run.
+ */
+const AGENT_BUDGET_MESSAGE_KEYS = {
+  steps: "agent.failure.budget_exhausted",
+  time: "agent.failure.budget_exhausted_time",
+  tokens: "agent.failure.budget_exhausted_tokens"
+} as const
+
 export const createAgentController = (
   dependencies: AgentControllerDependencies
 ): AgentController => {
@@ -3031,13 +3042,15 @@ export const createAgentController = (
     if (!deadline) return false
     const expired = expiredAgentDeadline(deadline, dependencies.clock.now())
     if (!expired) return false
-    await fail(
-      state,
-      "budget_exhausted",
-      expired === "run"
-        ? "The Agent run exceeded its active time budget."
-        : "This Agent step exceeded its active time budget."
-    )
+    await failWith(state, {
+      ...agentFailure(
+        "budget_exhausted",
+        expired === "run"
+          ? "The Agent run exceeded its active time budget."
+          : "This Agent step exceeded its active time budget."
+      ),
+      messageKey: AGENT_BUDGET_MESSAGE_KEYS.time
+    })
     return true
   }
 
@@ -3224,11 +3237,13 @@ export const createAgentController = (
         agentTelemetryTokens(pendingTelemetry) >=
       MAX_AGENT_RUN_TOKENS
     ) {
-      await fail(
-        state,
-        "budget_exhausted",
-        "The Agent cumulative token budget is exhausted."
-      )
+      await failWith(state, {
+        ...agentFailure(
+          "budget_exhausted",
+          "The Agent cumulative token budget is exhausted."
+        ),
+        messageKey: AGENT_BUDGET_MESSAGE_KEYS.tokens
+      })
       return true
     }
     if (agentObservationNeedsHuman(observation)) {
@@ -3673,11 +3688,13 @@ export const createAgentController = (
     let entered = false
     while (!controller.signal.aborted) {
       if (state.observationCount >= MAX_AGENT_OBSERVATIONS) {
-        await fail(
-          state,
-          "budget_exhausted",
-          "The Agent observation budget is exhausted."
-        )
+        await failWith(state, {
+          ...agentFailure(
+            "budget_exhausted",
+            "The Agent observation budget is exhausted."
+          ),
+          messageKey: AGENT_BUDGET_MESSAGE_KEYS.steps
+        })
         return
       }
       /**

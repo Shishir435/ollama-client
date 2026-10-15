@@ -46,7 +46,10 @@ import {
   type SqlExecutor,
   withTransaction
 } from "@/lib/sqlite/db"
-import { buildAgentConversationHandoff } from "./agent-run-handoff"
+import {
+  agentHandoffActions,
+  buildAgentConversationHandoff
+} from "./agent-run-handoff"
 import { decodeRow, decodeRows, type RowDecodeContext } from "./row-decoder"
 
 export const MAX_AGENT_CHECKPOINT_BYTES = 64 * 1024
@@ -718,6 +721,29 @@ const listRunFindings = async (
   return [...latest.values()]
 }
 
+/** The run's consequential actions for its handoff; unreadable rows add none. */
+const listRunActions = async (
+  tx: Pick<SqlExecutor, "query">,
+  runId: string
+) => {
+  const rows = await tx.query(
+    "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id ASC",
+    [runId]
+  )
+  return agentHandoffActions(
+    rows.flatMap((row) => {
+      try {
+        const parsed = AgentStepReceiptSchema.safeParse(
+          JSON.parse(String(row.receipt))
+        )
+        return parsed.success ? [parsed.data] : []
+      } catch {
+        return []
+      }
+    })
+  )
+}
+
 const listRunEvidence = async (
   tx: Pick<SqlExecutor, "query">,
   state: AgentRunState
@@ -782,7 +808,8 @@ const settleLinkedMessage = async (
   const handoff = buildAgentConversationHandoff(
     state,
     await listRunFindings(tx, state.id),
-    await listRunEvidence(tx, state)
+    await listRunEvidence(tx, state),
+    await listRunActions(tx, state.id)
   )
   /**
    * A run a chat model delegated reports into a row its turn is still
@@ -1368,7 +1395,8 @@ const writeMissingHandoffs = async (
     const handoff = buildAgentConversationHandoff(
       run.state,
       await listRunFindings(tx, run.id),
-      await listRunEvidence(tx, run.state)
+      await listRunEvidence(tx, run.state),
+      await listRunActions(tx, run.id)
     )
     if (!handoff) continue
     await tx.run(

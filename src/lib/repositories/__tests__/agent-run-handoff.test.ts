@@ -7,6 +7,7 @@ import {
 } from "@ollama-client/contracts/agent-handoff"
 import { describe, expect, it } from "vitest"
 import {
+  agentHandoffActions,
   buildAgentConversationHandoff,
   handoffPlainText
 } from "../agent-run-handoff"
@@ -47,6 +48,48 @@ describe("the conversation handoff a settled run leaves", () => {
       findings: ["Plan A: $12"],
       settledAt: 9
     })
+  })
+
+  it("grades each planned outcome and lists what cannot be undone", () => {
+    const handoff = buildAgentConversationHandoff(
+      settled({
+        status: "completed_unverified",
+        requirements: [
+          { id: "r1", kind: "change", text: "Address is saved" },
+          { id: "r2", kind: "read", text: "Report the price" },
+          { id: "r3", kind: "read", text: "Report the date" }
+        ],
+        outcome: {
+          met: ["r1", "r2"],
+          unmet: ["r3"],
+          claimed: ["r2"]
+        }
+      }),
+      [],
+      [],
+      agentHandoffActions([
+        { stepId: "s1", status: "planned", consequential: ["submission"] },
+        {
+          stepId: "s1",
+          status: "verified",
+          consequential: ["submission"],
+          target: { name: "Save https://evil.example/x" }
+        },
+        { stepId: "s2", status: "uncertain", consequential: ["payment"] },
+        { stepId: "s3", status: "rejected", consequential: ["destructive"] },
+        { stepId: "s4", status: "verified" }
+      ])
+    )
+    expect(handoff?.requirements).toEqual([
+      { id: "r1", text: "Address is saved", tier: "verified" },
+      { id: "r2", text: "Report the price", tier: "claimed" },
+      { id: "r3", text: "Report the date", tier: "unmet" }
+    ])
+    /** One per step at its last receipt; refused steps did nothing. */
+    expect(handoff?.actions).toEqual([
+      { effect: "submission", state: "applied", control: "Save [link]" },
+      { effect: "payment", state: "uncertain" }
+    ])
   })
 
   it("writes none for a run that has not settled", () => {

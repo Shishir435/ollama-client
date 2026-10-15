@@ -765,6 +765,9 @@ export const MAX_AGENT_HANDOFF_GOAL_CHARS = 1_000
 export const MAX_AGENT_HANDOFF_RESULT_CHARS = 2_000
 /** The run's own notes carried forward, newest last. */
 export const MAX_AGENT_HANDOFF_FINDINGS = 6
+/** Consequential actions a later turn is told about, newest last. */
+export const MAX_AGENT_HANDOFF_ACTIONS = 6
+export const MAX_AGENT_HANDOFF_CONTROL_CHARS = 80
 
 /**
  * The most text one handoff can hold, derived from its parts so a later bound
@@ -774,7 +777,30 @@ export const MAX_AGENT_HANDOFF_CHARS =
   MAX_AGENT_HANDOFF_GOAL_CHARS +
   MAX_AGENT_HANDOFF_RESULT_CHARS +
   MAX_AGENT_HANDOFF_FINDINGS * MAX_AGENT_FINDING_CHARS +
+  MAX_AGENT_REQUIREMENTS * MAX_AGENT_REQUIREMENT_CHARS +
+  MAX_AGENT_HANDOFF_ACTIONS * MAX_AGENT_HANDOFF_CONTROL_CHARS +
   MAX_AGENT_LEDGER_BYTES
+
+/**
+ * The effects that cannot be taken back by doing them again.
+ *
+ * A second click on a tab or a second value in a field costs nothing; a
+ * second submission posts the comment twice, a second payment pays twice, a
+ * second delete removes the next row. These are the classes a follow-up must
+ * never repeat on the strength of a model's reading of an earlier record.
+ */
+export const AGENT_CONSEQUENTIAL_EFFECTS = [
+  "submission",
+  "destructive",
+  "payment",
+  "download"
+] as const
+export const AgentConsequentialEffectSchema = z.enum(
+  AGENT_CONSEQUENTIAL_EFFECTS
+)
+export type AgentConsequentialEffect = z.infer<
+  typeof AgentConsequentialEffectSchema
+>
 
 /** Settled statuses only: a handoff is written by the commit that settles. */
 export const AGENT_HANDOFF_STATUSES = [
@@ -816,6 +842,44 @@ export const AgentConversationHandoffSchema = z
       .strict()
       .optional(),
     failure: AgentErrorSchema.shape.code.optional(),
+    /**
+     * Each planned outcome and how it was established, so a later turn can
+     * say which answers were checked rather than repeating them all as done.
+     * Absent on handoffs written before tiers existed.
+     */
+    requirements: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+            text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+            tier: z.enum(["verified", "supported", "claimed", "unmet"])
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * The things the run did that cannot be taken back by doing them again,
+     * from its receipts: what kind, on which control, and whether it is known
+     * to have landed. What a later turn must not repeat or forget to mention.
+     */
+    actions: z
+      .array(
+        z
+          .object({
+            effect: AgentConsequentialEffectSchema,
+            state: z.enum(["applied", "uncertain"]),
+            control: z
+              .string()
+              .min(1)
+              .max(MAX_AGENT_HANDOFF_CONTROL_CHARS)
+              .optional()
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_HANDOFF_ACTIONS)
+      .optional(),
     findings: z
       .array(z.string().min(1).max(MAX_AGENT_FINDING_CHARS))
       .max(MAX_AGENT_HANDOFF_FINDINGS),
@@ -837,27 +901,6 @@ export type AgentConversationHandoff = z.infer<
 export const AGENT_FOLLOW_UP_MODES = ["continue", "retry"] as const
 export const AgentFollowUpModeSchema = z.enum(AGENT_FOLLOW_UP_MODES)
 export type AgentFollowUpMode = z.infer<typeof AgentFollowUpModeSchema>
-
-/**
- * The effects that cannot be taken back by doing them again.
- *
- * A second click on a tab or a second value in a field costs nothing; a
- * second submission posts the comment twice, a second payment pays twice, a
- * second delete removes the next row. These are the classes a follow-up must
- * never repeat on the strength of a model's reading of an earlier record.
- */
-export const AGENT_CONSEQUENTIAL_EFFECTS = [
-  "submission",
-  "destructive",
-  "payment",
-  "download"
-] as const
-export const AgentConsequentialEffectSchema = z.enum(
-  AGENT_CONSEQUENTIAL_EFFECTS
-)
-export type AgentConsequentialEffect = z.infer<
-  typeof AgentConsequentialEffectSchema
->
 
 /**
  * What the goal says must not happen, kept apart from what it asks for.

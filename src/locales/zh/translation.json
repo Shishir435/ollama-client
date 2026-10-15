@@ -72,6 +72,8 @@
     },
     "failure": {
       "budget_exhausted": "运行已用完全部步骤预算。请缩小目标，或从页面当前状态重新开始。",
+      "budget_exhausted_time": "运行已达到时间上限。请缩小目标，或从页面当前状态重新设置。",
+      "budget_exhausted_tokens": "运行已用完全部令牌预算。请缩小目标，或从页面当前状态重新设置。",
       "command_refused": "模型反复指定页面并不提供的控件——隐藏的、屏幕外的，或已经消失的。请先滚动到需要的位置，或改用能更仔细读取页面的模型。",
       "goal_failed": "模型表示无法完成。请把目标写得更清楚，或换一个模型。",
       "invalid_decision": "模型反复以无法使用的形式作答。改用支持工具调用的更大模型通常可以解决。",
@@ -216,7 +218,24 @@
       "step_count_one": "{{count}} 个步骤",
       "step_count_other": "{{count}} 个步骤",
       "page_count_one": "{{count}} 个页面",
-      "page_count_other": "{{count}} 个页面"
+      "page_count_other": "{{count}} 个页面",
+      "contract": {
+        "title": "任务要求的内容",
+        "limit": "限制",
+        "delegated": "（助手的措辞）",
+        "tier": {
+          "verified": "已核实",
+          "supported": "已审查",
+          "claimed": "未核实",
+          "unmet": "未完成"
+        }
+      },
+      "banner": {
+        "completed_unverified": "部分答案未经核实，请视为未确认。",
+        "partial": "任务只完成了一部分。",
+        "failed": "任务未完成。",
+        "cancelled": "运行在完成前被停止。"
+      }
     },
     "follow_up": {
       "continue_message": "继续这个浏览器任务。",

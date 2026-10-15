@@ -85,6 +85,95 @@ const AgentRunRecord = ({ run }: { run: AgentRunCard }) => {
   )
 }
 
+/** A requirement's grade, colored by what it lets the user rely on. */
+const TIER_CLASS: Record<
+  NonNullable<AgentRunContractRequirement["tier"]>,
+  string
+> = {
+  verified: "bg-tint-success text-status-success",
+  supported: "bg-tint-success text-status-success",
+  claimed: "bg-tint-warning text-status-warning",
+  unmet: "bg-tint-danger text-status-danger"
+}
+
+type AgentRunContractRequirement = NonNullable<
+  AgentRunCard["contract"]
+>["requirements"][number]
+
+/**
+ * What the run was asked to do, and how each part was established.
+ *
+ * On every card, because the chat model's answer below is its own account
+ * of the run and can round "not checked" up to "done". Folded when that
+ * answer exists, open when the card is all the user has.
+ */
+const AgentRunContract = ({
+  contract,
+  open
+}: {
+  contract: NonNullable<AgentRunCard["contract"]>
+  open: boolean
+}) => {
+  const { t } = useTranslation()
+  return (
+    <details className="group/contract mt-1.5" open={open}>
+      <summary className="flex cursor-pointer list-none items-center gap-1 rounded-control text-micro text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
+        <ChevronDown
+          className="icon-xs -rotate-90 transition-transform group-open/contract:rotate-0"
+          aria-hidden="true"
+        />
+        {t("agent.card.contract.title")}
+      </summary>
+      <ul className="mt-1 flex flex-col gap-1">
+        {contract.requirements.map((requirement) => (
+          <li key={requirement.id} className="flex min-w-0 items-start gap-1.5">
+            {requirement.tier && (
+              <span
+                className={cn(
+                  "shrink-0 rounded-chip px-1.5 text-micro",
+                  TIER_CLASS[requirement.tier]
+                )}>
+                {t(`agent.card.contract.tier.${requirement.tier}`)}
+              </span>
+            )}
+            <span className="min-w-0 break-words">
+              {requirement.text}
+              {requirement.origin === "delegated" && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  {t("agent.card.contract.delegated")}
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+        {contract.constraints.map((constraint) => (
+          <li
+            key={constraint.id}
+            className="flex min-w-0 items-start gap-1.5 text-muted-foreground">
+            <span className="shrink-0 rounded-chip border border-border-subtle px-1.5 text-micro">
+              {t("agent.card.contract.limit")}
+            </span>
+            <span className="min-w-0 break-words">{constraint.text}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+/**
+ * Settled statuses that are not plain success, each with a fixed sentence.
+ * Drawn from the run's status alone, whatever the chat answer says, so a
+ * reply that rounds a partial run up to "done" still sits under the truth.
+ */
+const BANNER_STATUSES: readonly AgentRunCard["status"][] = [
+  "completed_unverified",
+  "partial",
+  "failed",
+  "cancelled"
+]
+
 /**
  * Which follow-up a settled run offers. A run that got somewhere is carried
  * on from; one that stopped short is tried again. Either way the child plans
@@ -94,6 +183,7 @@ const FOLLOW_UP_FOR: Partial<
   Record<AgentRunCard["status"], AgentFollowUpMode>
 > = {
   completed: "continue",
+  completed_unverified: "continue",
   partial: "continue",
   failed: "retry",
   cancelled: "retry"
@@ -288,6 +378,22 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
         <p className="mt-1.5 text-muted-foreground">
           {t("agent.card.missing")}
         </p>
+      )}
+
+      {run && settled && BANNER_STATUSES.includes(run.status) && (
+        <p
+          className={cn(
+            "mt-1.5 rounded-chip px-1.5 py-1 text-micro",
+            run.status === "failed"
+              ? "bg-tint-danger text-status-danger"
+              : "bg-tint-warning text-status-warning"
+          )}>
+          {t(`agent.card.banner.${run.status}`)}
+        </p>
+      )}
+
+      {run?.contract && run.contract.requirements.length > 0 && (
+        <AgentRunContract contract={run.contract} open={!answered} />
       )}
 
       {run && !supervised && (
