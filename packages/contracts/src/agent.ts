@@ -634,6 +634,13 @@ export const AgentTaskRequirementSchema = z
     /** Current-state questions cannot be answered from a document left behind. */
     freshness: z.enum(["current", "historical"]).optional(),
     /**
+     * A change the user expects to still be there after a reload: a save, a
+     * create, an update, a rename, a delete. Such a change is verified only
+     * on a page loaded after it — a toast, or the same page still holding
+     * the edit, is the site reporting success, not the record showing it.
+     */
+    persist: z.literal(true).optional(),
+    /**
      * The words of the goal — or of a user's answer — this outcome answers,
      * quoted. Checked against them when the plan is parsed, so an outcome
      * nobody asked for cannot enter the plan dressed as one somebody did.

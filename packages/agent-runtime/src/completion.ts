@@ -130,6 +130,7 @@ export type AgentCompletionJudgement =
         | "premature_unmet"
         | "needs_review"
         | "contradicted_state"
+        | "readback_required"
       /** Written for the model, from templates and its own words only. */
       feedback: string
       /**
@@ -298,6 +299,76 @@ const allChanges = (steps: readonly AgentStepReadout[]): AgentStepReadout[] => {
     .sort((first, second) => first.sequence - second.sequence)
     .filter(isChange)
 }
+
+/**
+ * Whether the page the run reads now was loaded after the change a saved
+ * outcome rests on. A toast, or the edited page still holding the edit, is
+ * the site reporting success: an optimistic save that the server then
+ * rejected looks exactly like that. A page loaded afterwards shows what the
+ * site kept — a navigation or a new tab the run opened after the change, or
+ * a submission the site accepted by moving on to a new page. `back` is not
+ * one: a cached page can come back holding exactly what it showed before.
+ */
+const readBackAfterChange = (
+  requirement: AgentTaskRequirement,
+  steps: readonly AgentStepReadout[] | undefined
+): boolean => {
+  if (!steps) return false
+  const latest = new Map<string, AgentStepReadout>()
+  for (const step of [...steps].sort(
+    (first, second) => first.sequence - second.sequence
+  ))
+    latest.set(step.stepId, step)
+  const ordered = [...latest.values()].sort(
+    (first, second) => first.sequence - second.sequence
+  )
+  const changes = allChanges(steps)
+  const bound = changes.filter((step) => step.requirementId === requirement.id)
+  const last = (bound.length ? bound : changes).at(-1)
+  /** Nothing this run changed: there is no save of its own to read back. */
+  if (!last) return true
+  const evidence = last.verification?.evidence
+  if (
+    last.verification?.outcome === "confirmed" &&
+    evidence?.kind === "submission" &&
+    evidence.acceptance === "accepted"
+  )
+    return true
+  return ordered.some(
+    (step) =>
+      step.sequence > last.sequence &&
+      (step.command?.type === "navigate" ||
+        step.command?.type === "open_tab") &&
+      step.verification?.outcome === "confirmed"
+  )
+}
+
+/**
+ * The refusal that asks for the read back carries its ids in a fixed
+ * template, so whether it was already asked is read from the run's own
+ * receipts and survives a restart. Asked once per outcome: a run that
+ * cannot read the record back settles it as claimed rather than looping.
+ */
+const READBACK_FEEDBACK_PREFIX = "Read back "
+
+const readbackFeedback = (ids: readonly string[]): string =>
+  `${READBACK_FEEDBACK_PREFIX}${ids.join(", ")}: the site only reported ${ids.length === 1 ? "this change" : "these changes"} on the page where ${ids.length === 1 ? "it was" : "they were"} made, which is not proof it was kept. Open the record again — navigate to its page, or open_tab with its address — and complete from what the freshly loaded page shows. Do not make the change again.`
+
+const readbackAsked = (
+  id: string,
+  steps: readonly AgentStepReadout[] | undefined
+): boolean =>
+  steps?.some((step) => {
+    const summary = step.verification?.evidence.summary ?? ""
+    return (
+      step.stepId.includes(":completion:") &&
+      summary.startsWith(READBACK_FEEDBACK_PREFIX) &&
+      summary
+        .slice(READBACK_FEEDBACK_PREFIX.length, summary.indexOf(":"))
+        .split(", ")
+        .includes(id)
+    )
+  }) === true
 
 /** Every change the run applied, oldest first; see `allChanges`. */
 export const agentAppliedChanges = (
@@ -2519,6 +2590,25 @@ const judgePlanned = (
     if (judged) return judged
     met.push(requirement.id)
   }
+  /**
+   * A kept change verified on the page it was made on is asked to be read
+   * back once; asked already, it stands as the model's claim.
+   */
+  const unreadSaves = met.filter((id) => {
+    const requirement = requirements.find((entry) => entry.id === id)
+    return (
+      requirement?.kind === "change" &&
+      requirement.persist === true &&
+      !readBackAfterChange(requirement, input.steps)
+    )
+  })
+  const toAsk = unreadSaves.filter((id) => !readbackAsked(id, input.steps))
+  if (toAsk.length > 0)
+    return {
+      type: "refused",
+      reason: "readback_required",
+      feedback: readbackFeedback(toAsk)
+    }
   const visual = met.filter((id) => {
     const requirement = requirements.find((entry) => entry.id === id)
     if (requirement?.kind !== "read") return false
@@ -2547,6 +2637,7 @@ const judgePlanned = (
    * else is the model's claim until a reviewer supports it.
    */
   const claimed = met.filter((id) => {
+    if (unreadSaves.includes(id)) return true
     const requirement = requirements.find((entry) => entry.id === id)
     if (
       requirement?.kind !== "read" ||

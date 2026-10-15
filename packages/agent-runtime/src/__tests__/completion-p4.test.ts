@@ -291,6 +291,116 @@ describe("P4 deterministic completion", () => {
     })
   })
 
+  describe("a kept change is read back from a page loaded after it", () => {
+    const saved = {
+      id: "r1",
+      kind: "change" as const,
+      text: "Name holds Ada",
+      persist: true as const,
+      check: { type: "field" as const, name: "Name", value: "Ada" }
+    }
+    const step = (
+      sequence: number,
+      overrides: Partial<AgentStepReadout>
+    ): AgentStepReadout => ({
+      runId: "run-1",
+      stepId: `run-1:${sequence}`,
+      sequence,
+      status: "verified",
+      at: sequence,
+      ...overrides
+    })
+    const typed = step(1, {
+      command: {
+        type: "clear_and_type",
+        ref: "e1",
+        snapshotId: "s1",
+        generation: 1,
+        text: "Ada"
+      },
+      requirementId: "r1",
+      mutating: true,
+      target: { ref: "e1", tag: "input", name: "Name" },
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "field", summary: "Field holds Ada", observedAt: 1 }
+      }
+    })
+    const reopened = step(2, {
+      command: {
+        type: "navigate",
+        url: "https://example.com/invoice/1",
+        snapshotId: "s1",
+        generation: 1
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "navigation", summary: "Arrived", observedAt: 2 }
+      }
+    })
+    const judgeSave = (steps: AgentStepReadout[]) =>
+      judgeAgentCompletion({
+        steps,
+        observation: page,
+        requirements: [saved],
+        outcomes: [{ id: "r1", met: true }]
+      })
+
+    it("asks once for the record to be read back when only the edited page shows it", () => {
+      /** The optimistic-save trap: the page holds Ada whether or not the server kept it. */
+      expect(judgeSave([typed])).toMatchObject({
+        type: "refused",
+        reason: "readback_required"
+      })
+    })
+
+    it("verifies it on a page the run loaded after the change", () => {
+      expect(judgeSave([typed, reopened])).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [] }
+      })
+    })
+
+    it("settles it as claimed when the run was asked and still did not read it back", () => {
+      const asked = judgeSave([typed])
+      const refusal = step(3, {
+        stepId: "run-1:completion:3",
+        status: "rejected",
+        verification: {
+          outcome: "negative",
+          evidence: {
+            kind: "completion",
+            summary: asked.type === "refused" ? asked.feedback : "",
+            observedAt: 3
+          }
+        }
+      })
+      expect(judgeSave([typed, refusal])).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], claimed: ["r1"] }
+      })
+    })
+
+    it("counts a submission the site accepted by moving on as the read back", () => {
+      const submitted = step(2, {
+        command: { type: "click", ref: "e5", snapshotId: "s1", generation: 1 },
+        requirementId: "r1",
+        mutating: true,
+        consequential: ["submission"],
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "submission",
+            summary: "Form committed its resolved destination",
+            observedAt: 2,
+            acceptance: "accepted"
+          }
+        }
+      })
+      expect(judgeSave([typed, submitted])).toMatchObject({ type: "accepted" })
+    })
+  })
+
   it("never counts a field the page marked invalid as holding its value", () => {
     const rejected: AgentObservation = {
       ...page,

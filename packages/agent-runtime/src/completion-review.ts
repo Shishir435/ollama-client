@@ -178,16 +178,26 @@ type Settled = Exclude<AgentCompletionJudgement, { type: "refused" }>
  * ledger record could support them.
  */
 export const agentClaimedReviewScope = (
-  judgement: AgentCompletionJudgement
+  judgement: AgentCompletionJudgement,
+  requirements: readonly AgentTaskRequirement[] | undefined
 ): NeedsReview | undefined => {
-  if (judgement.type === "refused" || !judgement.outcome?.claimed?.length)
-    return undefined
+  if (judgement.type === "refused") return undefined
+  /**
+   * Reads only. A save is claimed because nothing read it back, and no
+   * verdict on the facts already gathered can supply a page never loaded.
+   */
+  const reads = (judgement.outcome?.claimed ?? []).filter(
+    (id) =>
+      requirements?.find((requirement) => requirement.id === id)?.kind ===
+      "read"
+  )
+  if (!reads.length || !judgement.outcome) return undefined
   return {
     type: "refused",
     reason: "needs_review",
     feedback: "",
     review: {
-      requirementIds: [...judgement.outcome.claimed],
+      requirementIds: reads,
       constraintIds: [],
       outcome: judgement.outcome
     }

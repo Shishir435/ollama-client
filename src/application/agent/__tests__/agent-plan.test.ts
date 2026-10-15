@@ -1257,3 +1257,43 @@ describe("review round five", () => {
     expect(plan.constraints).toBeUndefined()
   })
 })
+
+describe("changes the site must keep", () => {
+  it("keeps the planner's persist flag on a change and drops it from a read", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          { text: "The address is saved", kind: "change", persist: true },
+          { text: "Report the total", kind: "read", persist: true }
+        ]
+      })
+    ])
+    expect(plan.requirements.map((entry) => entry.persist)).toEqual([
+      true,
+      undefined
+    ])
+  })
+
+  it("reads it by rule from a saved or deleted record check", () => {
+    const plan = parseAgentTaskPlan([
+      call({
+        requirements: [
+          {
+            text: "Invoice 1 is saved",
+            kind: "change",
+            check: { type: "record_state", record: "Invoice 1", state: "saved" }
+          },
+          {
+            text: "Invoice 2 is open",
+            kind: "change",
+            check: { type: "record_state", record: "Invoice 2", state: "open" }
+          }
+        ]
+      })
+    ])
+    expect(plan.requirements.map((entry) => entry.persist)).toEqual([
+      true,
+      undefined
+    ])
+  })
+})

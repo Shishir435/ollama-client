@@ -2389,7 +2389,7 @@ export const createAgentController = (
      * reads asks how far they are believed. Both take the same budget, the
      * same request and the same runtime checks of every verdict.
      */
-    const claimedScope = agentClaimedReviewScope(judgement)
+    const claimedScope = agentClaimedReviewScope(judgement, state.requirements)
     const pending = agentCompletionNeedsReview(judgement)
       ? judgement
       : claimedScope
