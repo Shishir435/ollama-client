@@ -1,4 +1,4 @@
-import { Copy, MessageSquare, RefreshCw, SquarePen } from "lucide-react"
+import { Check, Copy, MessageSquare, RefreshCw, SquarePen } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { type ActionConfig, ActionGroup } from "@/components/actions"
 import { useSelectionOverlay } from "../selection-overlay-context"
@@ -10,19 +10,24 @@ export function PanelFooter() {
     resultText,
     canReplace,
     canInsert,
+    notice,
     tooltipContainer,
     actions
   } = useSelectionOverlay()
 
+  const copied = notice === "copied"
   const utilityActions: ActionConfig[] = [
     {
       key: "copy",
       variant: "outline",
-      size: "icon",
-      label: t("selection_button.panel.copy"),
+      size: copied ? "default" : "icon",
+      label: copied
+        ? t("selection_button.panel.copied")
+        : t("selection_button.panel.copy"),
+      showLabel: copied,
       disabled: !resultText.trim(),
       onClick: actions.copy,
-      icon: Copy
+      icon: copied ? Check : Copy
     },
     {
       key: "retry",

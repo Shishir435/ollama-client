@@ -201,7 +201,7 @@ describe("error-handler", () => {
         baseUrl: "http://localhost:11434",
         message: expect.not.stringContaining("raw upstream failure"),
         userMessage: expect.stringContaining(
-          'Ollama at http://localhost:11434 returned HTTP 500 while generating a response with model "llama3.2"'
+          "Ollama hit an internal error running llama3.2."
         )
       })
     })

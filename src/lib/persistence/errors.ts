@@ -34,10 +34,14 @@ export type PersistenceFailureReason =
   | "invalid-response"
 
 const SAFE_TEXT: Record<PersistenceFailureReason, string> = {
-  "not-delivered": "Local storage was unavailable, so nothing was saved.",
-  timeout: "Local storage did not respond in time.",
-  "owner-error": "Local storage rejected the change.",
-  "invalid-response": "Local storage returned an unexpected response."
+  "not-delivered":
+    "Chat storage wasn't available, so nothing was saved. Reload the extension and try again.",
+  timeout:
+    "Chat storage didn't answer in time, so your last change may not have saved. Reload the extension and check.",
+  "owner-error":
+    "Couldn't read or save your chats. Reload the extension and try again.",
+  "invalid-response":
+    "Chat storage sent back something unexpected. Reload the extension and try again."
 }
 
 export interface PersistenceErrorOptions {

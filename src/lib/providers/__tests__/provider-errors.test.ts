@@ -5,12 +5,16 @@ import {
   getSafeClientEnvironment
 } from "@/lib/error-report"
 import { isAppError, sanitizeModelIdentifier } from "@/lib/error-utils"
+import { createAppError } from "@/lib/error-utils"
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
 import {
+  applyProviderErrorContext,
   classifyProviderError,
   isLocalProviderBaseUrl,
-  providerErrorUserMessage
+  isOllamaCloudModel,
+  providerErrorUserMessage,
+  providerFailureMessageKey
 } from "../provider-errors"
 import { type ProviderConfig, ProviderType } from "../types"
 
@@ -36,12 +40,10 @@ describe("providerErrorUserMessage", () => {
       model: "gemma.gguf"
     })
 
-    expect(msg).toContain(
-      'llama.cpp returned HTTP 500 while generating a response with model "gemma.gguf"'
+    expect(msg).toBe(
+      "llama.cpp hit an internal error running gemma.gguf. Retry; if it repeats, check the server log."
     )
-    expect(msg).toContain("llama.cpp is running")
-    expect(msg).toContain('model "gemma.gguf" is loaded')
-    expect(msg).toContain("base URL/port")
+    expect(msg).not.toContain("HTTP 500")
     expect(msg).not.toContain("http")
     expect(msg).not.toContain("[open an issue]")
 
@@ -133,10 +135,10 @@ describe("providerErrorUserMessage", () => {
       baseUrl: "http://localhost:1234/v1"
     })
 
-    expect(msg).toContain("CORS")
-    expect(msg).toContain("provider's CORS or origin settings")
+    expect(msg).toContain("blocked this extension")
+    expect(msg).toContain("CORS settings")
     expect(msg).not.toContain("OLLAMA_ORIGINS")
-    expect(msg).not.toContain("Check the API key")
+    expect(msg).not.toContain("API key")
   })
 
   it("keeps credential guidance for remote 401/403 responses", () => {
@@ -144,12 +146,26 @@ describe("providerErrorUserMessage", () => {
       baseUrl: "https://api.example.com/v1"
     })
 
-    expect(msg).toContain("credentials")
+    expect(msg).toBe(
+      "The provider rejected the API key. Check it in provider settings."
+    )
     expect(msg).not.toContain("OLLAMA_ORIGINS")
   })
 
+  it("tells a remote Ollama to allow the extension origin, not check a key", () => {
+    const msg = providerErrorUserMessage(403, {
+      baseUrl: "https://ollama.example.com",
+      providerName: "Ollama",
+      ollama: true
+    })
+
+    expect(msg).toBe(
+      "Ollama refused this extension's requests. Allow it by setting OLLAMA_ORIGINS=chrome-extension://*,moz-extension://* on the server."
+    )
+  })
+
   it("distinguishes hosted payment, overload, and retry timing", () => {
-    expect(providerErrorUserMessage(402)).toContain("insufficient credits")
+    expect(providerErrorUserMessage(402)).toContain("needs payment or credits")
     expect(providerErrorUserMessage(529)).toContain("overloaded")
     expect(providerErrorUserMessage(429, { retryAfterMs: 42_000 })).toContain(
       "42 seconds"
@@ -159,7 +175,7 @@ describe("providerErrorUserMessage", () => {
         baseUrl: "https://openrouter.ai/api/v1",
         retryAfterMs: 2_000
       })
-    ).toContain("hosted provider")
+    ).toContain("temporarily unavailable")
   })
 
   it("classifies safe provider reasons without returning raw text", () => {
@@ -170,8 +186,30 @@ describe("providerErrorUserMessage", () => {
       )
     ).toEqual({
       code: "OLC-OUT-OF-MEMORY",
-      reason: "Provider could not allocate enough memory for this model.",
+      reason:
+        "The model needs more memory than this machine has free. Close other apps or pick a smaller model.",
       recoveryAction: "choose-model"
+    })
+  })
+
+  it("recognizes Ollama's memory and runner-crash 500 bodies", () => {
+    expect(
+      classifyProviderError(
+        500,
+        '{"error":"model requires more system memory (12.3 GiB) than is available (4.1 GiB)"}'
+      ).code
+    ).toBe("OLC-OUT-OF-MEMORY")
+    expect(
+      classifyProviderError(
+        500,
+        '{"error":"llama runner process has terminated: exit status 2"}'
+      )
+    ).toEqual({
+      code: "OLC-PROVIDER-HTTP",
+      reason:
+        "The model crashed while loading. Retry; if it repeats, check the provider's log.",
+      recoveryAction: "retry",
+      messageKey: "chat.errors.model_crashed"
     })
   })
 
@@ -320,9 +358,10 @@ describe("custom provider connection errors", () => {
           baseUrl: "http://localhost:8080/v1",
           retryable: true
         })
-        expect(error.userMessage).toContain(
-          'My LocalAI at http://localhost:8080/v1 could not be reached while requesting a response with model "qwen3"'
+        expect(error.userMessage).toBe(
+          "Can't reach My LocalAI at http://localhost:8080/v1. Start it, then retry. If it's running, check the base URL."
         )
+        expect(error.messageKey).toBe("chat.errors.provider_unreachable")
         expect(error.userMessage).not.toContain("Failed to fetch")
       }
     }
@@ -362,8 +401,8 @@ describe("custom provider connection errors", () => {
           phase: "read-stream",
           recoveryAction: "retry"
         })
-        expect(error.userMessage).toContain(
-          'My LocalAI at http://localhost:8080/v1 connection dropped while reading the response with model "qwen3"'
+        expect(error.userMessage).toBe(
+          "The connection to My LocalAI dropped mid-answer. Retry to get a fresh response."
         )
         expect(error.userMessage).not.toContain("socket closed")
       }
@@ -395,10 +434,10 @@ describe("provider-specific server errors", () => {
     } catch (error) {
       expect(isAppError(error)).toBe(true)
       if (isAppError(error)) {
-        expect(error.userMessage).toContain(
-          'llama.cpp at http://localhost:8000/v1 returned HTTP 500 while generating a response with model "gemma.gguf"'
+        expect(error.userMessage).toBe(
+          "llama.cpp hit an internal error running gemma.gguf. Retry; if it repeats, check the server log."
         )
-        expect(error.userMessage).toContain('model "gemma.gguf" is loaded')
+        expect(error.messageKey).toBe("chat.errors.provider_server_error")
         expect(error.userMessage).not.toContain("template failure")
       }
     }
@@ -429,7 +468,7 @@ describe("provider-specific server errors", () => {
       code: "OLC-OUT-OF-MEMORY",
       recoveryAction: "choose-model",
       userMessage: expect.stringContaining(
-        "Provider could not allocate enough memory for this model."
+        "The model needs more memory than this machine has free."
       )
     })
 
@@ -493,7 +532,7 @@ describe("wedged local provider (503)", () => {
     })
     expect(
       providerErrorUserMessage(503, { baseUrl: "https://api.example.com/v1" })
-    ).toContain("hosted provider")
+    ).toContain("temporarily unavailable")
   })
 
   it("tells the user to wait or restart, without quoting the provider", () => {
@@ -534,5 +573,157 @@ describe("wedged local provider (503)", () => {
         expect(error.debug).toContain("chat-completions:req_")
       }
     }
+  })
+})
+
+describe("provider failure message keys", () => {
+  it("names each classified failure with its own key", () => {
+    expect(providerFailureMessageKey({ code: "OLC-AUTH-FAILED" })).toBe(
+      "chat.errors.provider_auth"
+    )
+    expect(providerFailureMessageKey({ code: "OLC-PAYMENT-REQUIRED" })).toBe(
+      "chat.errors.payment_required"
+    )
+    expect(
+      providerFailureMessageKey({ code: "OLC-CONTEXT-TOO-LARGE", status: 400 })
+    ).toBe("chat.errors.context_too_long")
+    expect(providerFailureMessageKey({ code: "OLC-MODEL-NOT-FOUND" })).toBe(
+      "chat.errors.model_not_found"
+    )
+    expect(
+      providerFailureMessageKey({
+        code: "OLC-PROVIDER-HTTP",
+        status: 500,
+        baseUrl: "http://localhost:11434"
+      })
+    ).toBe("chat.errors.provider_server_error")
+    expect(
+      providerFailureMessageKey({ code: "OLC-PROVIDER-UNREACHABLE", status: 0 })
+    ).toBe("chat.errors.provider_unreachable")
+  })
+
+  it("mentions OLLAMA_ORIGINS only for Ollama", () => {
+    expect(
+      providerFailureMessageKey({
+        code: "OLC-CORS-BLOCKED",
+        providerId: "ollama",
+        baseUrl: "http://localhost:11434"
+      })
+    ).toBe("chat.errors.provider_cors")
+    expect(
+      providerFailureMessageKey({
+        code: "OLC-CORS-BLOCKED",
+        providerId: "ollama",
+        baseUrl: "https://ollama.example.com"
+      })
+    ).toBe("chat.errors.provider_cors_remote")
+    expect(
+      providerFailureMessageKey({
+        code: "OLC-CORS-BLOCKED",
+        providerId: "lmstudio",
+        baseUrl: "http://localhost:1234/v1"
+      })
+    ).toBe("chat.errors.provider_cors_other")
+  })
+})
+
+describe("Ollama cloud models", () => {
+  it("recognizes :cloud and -cloud tags only", () => {
+    expect(isOllamaCloudModel("glm-5.3:cloud")).toBe(true)
+    expect(isOllamaCloudModel("gpt-oss:120b-cloud")).toBe(true)
+    expect(isOllamaCloudModel("llama3.2:latest")).toBe(false)
+    expect(isOllamaCloudModel("cloud-model")).toBe(false)
+    expect(isOllamaCloudModel(undefined)).toBe(false)
+  })
+
+  it("names both start and signin when a cloud model cannot be reached (#420)", () => {
+    const error = applyProviderErrorContext(
+      createAppError("Ollama connection failed: Failed to fetch", {
+        kind: "provider",
+        status: 0,
+        providerId: "ollama",
+        code: "OLC-PROVIDER-UNREACHABLE"
+      }),
+      {
+        providerId: "ollama",
+        providerName: "Ollama",
+        model: "glm-5.3:cloud",
+        baseUrl: "http://localhost:11434"
+      }
+    )
+
+    expect(error.messageKey).toBe("chat.errors.ollama_cloud_unreachable")
+    expect(error.userMessage).toBe(
+      "Can't reach Ollama for glm-5.3:cloud. Start Ollama. If it's already running, this cloud model needs `ollama signin`."
+    )
+  })
+
+  it("keeps the origin fix for a 403 on a cloud model", () => {
+    const error = applyProviderErrorContext(
+      createAppError("Forbidden", {
+        kind: "provider",
+        status: 403,
+        providerId: "ollama",
+        code: "OLC-CORS-BLOCKED"
+      }),
+      {
+        providerId: "ollama",
+        providerName: "Ollama",
+        model: "glm-5.3:cloud",
+        baseUrl: "http://localhost:11434"
+      }
+    )
+
+    expect(error.messageKey).not.toMatch(/ollama_cloud/)
+  })
+
+  it("treats a 401 on a cloud model as sign-in, not CORS", () => {
+    const error = applyProviderErrorContext(
+      createAppError("Ollama Error (401): unauthorized", {
+        kind: "provider",
+        status: 401,
+        providerId: "ollama",
+        code: "OLC-CORS-BLOCKED",
+        messageKey: "chat.errors.provider_cors"
+      }),
+      {
+        providerId: "ollama",
+        providerName: "Ollama",
+        model: "gpt-oss:120b-cloud",
+        baseUrl: "http://localhost:11434"
+      }
+    )
+
+    expect(error.messageKey).toBe("chat.errors.ollama_cloud_signin")
+  })
+
+  it("leaves a local model's unreachable failure as unreachable", () => {
+    const error = applyProviderErrorContext(
+      createAppError("Ollama connection failed", {
+        kind: "provider",
+        status: 0,
+        providerId: "ollama",
+        code: "OLC-PROVIDER-UNREACHABLE"
+      }),
+      { providerId: "ollama", providerName: "Ollama", model: "llama3.2" }
+    )
+
+    expect(error.messageKey).toBe("chat.errors.provider_unreachable")
+  })
+
+  it("keys a runner crash from the response body", () => {
+    const error = applyProviderErrorContext(
+      createAppError("Ollama Error (500)", {
+        kind: "provider",
+        status: 500,
+        providerId: "ollama",
+        debug: '{"error":"llama runner process has terminated: signal: killed"}'
+      }),
+      { providerId: "ollama", providerName: "Ollama", model: "qwen3:32b" }
+    )
+
+    expect(error.messageKey).toBe("chat.errors.model_crashed")
+    expect(error.userMessage).toContain("crashed while loading")
+    expect(error.userMessage).not.toContain("HTTP")
   })
 })

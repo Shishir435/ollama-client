@@ -163,8 +163,10 @@ export const ChatInputBox = ({
       ).length
       if (tabAccess && pendingTabCount > 0) {
         toast({
-          title: "Preparing tab context",
-          description: `Still extracting ${pendingTabCount} selected tab${pendingTabCount > 1 ? "s" : ""}. Please wait a moment.`
+          title: t("chat.input.reading_tabs_title"),
+          description: t("chat.input.reading_tabs_body", {
+            count: pendingTabCount
+          })
         })
         return
       }
@@ -459,8 +461,15 @@ export const ChatInputBox = ({
             onSend={handleSend}
             stopGeneration={stopGeneration}
             disabledSend={isPreparingTabContext}
+            hasContent={
+              input.trim().length > 0 ||
+              images.length > 0 ||
+              successfulFiles.length > 0
+            }
             sendLabel={
-              isPreparingTabContext ? "Preparing tab context..." : undefined
+              isPreparingTabContext
+                ? t("chat.input.reading_tabs_button")
+                : undefined
             }
           />
         </div>

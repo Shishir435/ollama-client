@@ -8,6 +8,7 @@ const messages: Record<string, string> = {
   "settings.tabs.context": "Context",
   "settings.tabs.extraction": "Extraction",
   "settings.search.placeholder": "Search settings…",
+  "settings.search.shortcut_label": "Shortcut to search settings",
   "settings.prompt_context_limits.max_tool_result_chars":
     "Max tool result chars",
   "settings.grounding_mode.label": "Answer only from selected page context",
@@ -98,7 +99,7 @@ describe("SettingsSearch", () => {
   it("can show the mobile shortcut hint", () => {
     render(<SettingsSearch onSelect={() => {}} showShortcutHint />)
     expect(
-      screen.getByLabelText("Search settings shortcut")
+      screen.getByLabelText("Shortcut to search settings")
     ).toBeInTheDocument()
     expect(screen.queryByText("Search settings")).toBeNull()
   })
@@ -108,9 +109,7 @@ describe("SettingsSearch", () => {
     render(<SettingsSearch onSelect={onSelect} />)
     const input = screen.getByRole("combobox") as HTMLInputElement
     fireEvent.change(input, { target: { value: "answer only" } })
-    fireEvent.mouseDown(
-      screen.getByText("Answer only from selected page context")
-    )
+    fireEvent.click(screen.getByText("Answer only from selected page context"))
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         entryId: "grounded-only-mode",
@@ -136,6 +135,56 @@ describe("SettingsSearch", () => {
 
   it("shows nothing for an empty query", () => {
     render(<SettingsSearch onSelect={() => {}} />)
-    expect(screen.queryByRole("list")).toBeNull()
+    expect(screen.queryByRole("listbox")).toBeNull()
+  })
+
+  it("exposes listbox semantics with an accessible name", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox", { name: "Search settings…" })
+    expect(input).toHaveAttribute("aria-expanded", "false")
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: "bookmarks" } })
+    expect(input).toHaveAttribute("aria-expanded", "true")
+    expect(screen.getByRole("listbox")).toBeInTheDocument()
+    const options = screen.getAllByRole("option")
+    expect(options[0]).toHaveAttribute("aria-selected", "true")
+    expect(input).toHaveAttribute("aria-activedescendant", options[0].id)
+  })
+
+  it("moves the active option with the arrow keys and selects it on Enter", () => {
+    const onSelect = vi.fn()
+    render(<SettingsSearch onSelect={onSelect} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "prese" } })
+    const options = screen.getAllByRole("option")
+    expect(options.length).toBeGreaterThan(1)
+
+    fireEvent.keyDown(input, { key: "ArrowDown" })
+    expect(input).toHaveAttribute("aria-activedescendant", options[1].id)
+    expect(options[1]).toHaveAttribute("aria-selected", "true")
+
+    fireEvent.keyDown(input, { key: "ArrowUp" })
+    fireEvent.keyDown(input, { key: "ArrowUp" })
+    const last = options[options.length - 1]
+    expect(input).toHaveAttribute("aria-activedescendant", last.id)
+
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps focus in the input when a result is pressed", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "bookmarks" } })
+    const pressed = fireEvent.mouseDown(screen.getAllByRole("option")[0])
+    expect(pressed).toBe(false)
+  })
+
+  it("says so when nothing matches", () => {
+    render(<SettingsSearch onSelect={() => {}} />)
+    const input = screen.getByRole("combobox")
+    fireEvent.change(input, { target: { value: "zzzqqqxxx" } })
+    expect(screen.queryAllByRole("option")).toHaveLength(0)
+    expect(screen.getByText("settings.search.no_results")).toBeInTheDocument()
   })
 })

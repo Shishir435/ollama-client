@@ -1,4 +1,5 @@
 import { GripHorizontal, MessageSquare, MoreHorizontal, X } from "lucide-react"
+import type { PointerEvent as ReactPointerEvent } from "react"
 import { useTranslation } from "react-i18next"
 import {
   type ActionConfig,
@@ -11,6 +12,16 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { selectionActionCommand } from "../action-commands"
 import { SELECTION_ACTIONS } from "../actions"
 import { useSelectionOverlay } from "../selection-overlay-context"
+
+/**
+ * Pressing a toolbar button must not move focus or collapse the page
+ * selection the action is about to read, so pointerdown is swallowed. The
+ * action itself runs on click, which Enter and Space also produce.
+ */
+const keepPageSelection = (event: ReactPointerEvent<HTMLElement>) => {
+  event.preventDefault()
+  event.stopPropagation()
+}
 
 export function SelectionToolbar() {
   const { t } = useTranslation()
@@ -38,11 +49,8 @@ export function SelectionToolbar() {
       labelKey: selectionActionCommand(action.id).shortLabelKey,
       variant: action.id === currentAction ? "default" : "ghost",
       size: "icon",
-      onPointerDown: (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        overlayActions.runAction(action.id)
-      },
+      onPointerDown: keepPageSelection,
+      onClick: () => overlayActions.runAction(action.id),
       showLabel: true,
       labelClassName: "sa-label"
     })
@@ -52,11 +60,8 @@ export function SelectionToolbar() {
       key: "more",
       label: t("selection_button.panel.more"),
       "aria-expanded": isMoreMenuOpen,
-      onPointerDown: (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        overlayActions.toggleMore()
-      },
+      onPointerDown: keepPageSelection,
+      onClick: () => overlayActions.toggleMore(),
       icon: MoreHorizontal,
       showLabel: true,
       labelClassName: "sa-label"
@@ -64,11 +69,8 @@ export function SelectionToolbar() {
     {
       key: "open-chat",
       label: t("selection_button.panel.open_chat"),
-      onPointerDown: (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        overlayActions.openChat()
-      },
+      onPointerDown: keepPageSelection,
+      onClick: () => overlayActions.openChat(),
       icon: MessageSquare,
       showLabel: true,
       labelClassName: "sa-label"
@@ -76,18 +78,18 @@ export function SelectionToolbar() {
     {
       key: "close",
       label: t("selection_button.panel.close"),
-      onPointerDown: (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        overlayActions.close()
-      },
+      onPointerDown: keepPageSelection,
+      onClick: () => overlayActions.close(),
       icon: X
     }
   ]
 
   return (
     <TooltipProvider>
-      <div className="sa-toolbar" role="toolbar" aria-label="Selection actions">
+      <div
+        className="sa-toolbar"
+        role="toolbar"
+        aria-label={t("selection_button.panel.toolbar_label")}>
         <div className="sa-toolbar-strip">
           <TooltipActionButton
             trigger={
@@ -123,16 +125,10 @@ export function SelectionToolbar() {
                 variant="ghost"
                 size="sm"
                 className="sa-menu-item"
-                aria-label={t(
-                  `selection_button.actions.${action.id}.label`,
-                  action.label
-                )}
-                onPointerDown={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  overlayActions.runAction(action.id)
-                }}>
-                {t(`selection_button.actions.${action.id}.label`, action.label)}
+                role="menuitem"
+                onPointerDown={keepPageSelection}
+                onClick={() => overlayActions.runAction(action.id)}>
+                {t(`selection_button.actions.${action.id}.label`)}
               </Button>
             ))}
           </div>

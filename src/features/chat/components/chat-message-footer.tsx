@@ -88,7 +88,7 @@ export const ChatMessageFooter = ({
             variant="ghost"
             ariaLabel={t("chat.actions.previous_branch")}
             size="icon"
-            className="size-5 rounded-control"
+            className={chatIconBtnCls}
             disabled={siblingIndex <= 0}
             onClick={() => {
               if (siblingIndex > 0) navigateToSibling(siblingIndex - 1)
@@ -102,7 +102,7 @@ export const ChatMessageFooter = ({
             variant="ghost"
             ariaLabel={t("chat.actions.next_branch")}
             size="icon"
-            className="size-5 rounded-control"
+            className={chatIconBtnCls}
             disabled={siblingIndex >= siblingIds.length - 1}
             onClick={() => {
               if (siblingIndex < siblingIds.length - 1)

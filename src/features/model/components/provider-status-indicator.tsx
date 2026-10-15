@@ -26,7 +26,12 @@ const iconMap = {
 
 export const ProviderStatusIndicator = () => {
   const { t } = useTranslation()
-  const { status: rawStatus, refresh, error } = useProviderModels()
+  const {
+    status: rawStatus,
+    refresh,
+    error,
+    unavailableProviders = []
+  } = useProviderModels()
   const status = rawStatus as keyof typeof iconMap
 
   const getLabelMap = () => ({
@@ -75,6 +80,19 @@ export const ProviderStatusIndicator = () => {
               {error}
             </div>
           )}
+          {status !== "loading" &&
+            unavailableProviders.map((failure) => (
+              <div
+                key={failure.providerId}
+                className={cn(
+                  "mt-1 max-w-xs text-xs",
+                  STATUS_STYLES.danger.text
+                )}>
+                {t("model.provider_status.unreachable", {
+                  provider: failure.providerName ?? failure.providerId
+                })}
+              </div>
+            ))}
         </>
       }
     />

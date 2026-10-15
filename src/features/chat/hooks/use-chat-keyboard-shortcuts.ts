@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -25,6 +26,7 @@ export const useChatKeyboardShortcuts = ({
   createSession,
   deleteSession
 }: UseChatKeyboardShortcutsParams) => {
+  const { t } = useTranslation()
   const { toggle: toggleSpeech } = useSpeechSynthesis()
   const { toast } = useToast()
   const { sessions } = useChatSessions()
@@ -34,7 +36,7 @@ export const useChatKeyboardShortcuts = ({
     newChat: (e) => {
       e.preventDefault()
       createSession()
-      toast({ description: "Started new chat session" })
+      toast({ description: t("chat.shortcuts.new_chat_started") })
     },
     settings: (e) => {
       e.preventDefault()
@@ -45,7 +47,13 @@ export const useChatKeyboardShortcuts = ({
       const { theme, setTheme } = useThemeStore.getState()
       const nextTheme = theme === "dark" ? "light" : "dark"
       setTheme(nextTheme)
-      toast({ description: `Switched to ${nextTheme} mode` })
+      toast({
+        description: t(
+          nextTheme === "dark"
+            ? "chat.shortcuts.theme_dark"
+            : "chat.shortcuts.theme_light"
+        )
+      })
     },
     toggleSpeech: (e) => {
       e.preventDefault()
@@ -63,10 +71,10 @@ export const useChatKeyboardShortcuts = ({
     },
     clearChat: (e) => {
       e.preventDefault()
-      if (currentSessionId && confirm("Clear this chat session?")) {
+      if (currentSessionId && confirm(t("chat.shortcuts.clear_confirm"))) {
         deleteSession(currentSessionId)
         createSession()
-        toast({ description: "Chat session cleared" })
+        toast({ description: t("chat.shortcuts.cleared") })
       }
     },
     copyLastResponse: (e) => {
@@ -76,7 +84,7 @@ export const useChatKeyboardShortcuts = ({
         .find((m) => m.role === "assistant")
       if (lastAssistantMessage) {
         navigator.clipboard.writeText(lastAssistantMessage.content)
-        toast({ description: "Copied to clipboard" })
+        toast({ description: t("chat.shortcuts.copied") })
       }
     },
     exportJson: (e) => {
@@ -84,7 +92,7 @@ export const useChatKeyboardShortcuts = ({
       const session = sessions.find((s) => s.id === currentSessionId)
       if (session) {
         exportSessionAsJson(session)
-        toast({ description: "Chat exported as JSON" })
+        toast({ description: t("chat.shortcuts.exported_json") })
       }
     },
     exportPdf: (e) => {
@@ -92,7 +100,7 @@ export const useChatKeyboardShortcuts = ({
       const session = sessions.find((s) => s.id === currentSessionId)
       if (session) {
         exportSessionAsPdf(session)
-        toast({ description: "Chat exported as PDF" })
+        toast({ description: t("chat.shortcuts.exported_pdf") })
       }
     }
   })

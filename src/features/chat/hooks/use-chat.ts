@@ -17,6 +17,7 @@ import {
   parsePerSiteProfileSettings,
   resolveGroundedOnlyModeForUrls
 } from "@/lib/per-site-profiles"
+import { motionSafeScrollBehavior } from "@/lib/reduced-motion"
 import { SETTINGS } from "@/lib/storage/settings"
 
 const EMPTY_PROFILE_LIST: PerSiteProfileSettings["profiles"] = []
@@ -69,7 +70,7 @@ export const useChat = () => {
   })
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" })
+    scrollRef.current?.scrollIntoView({ behavior: motionSafeScrollBehavior() })
   }, [])
 
   useEffect(() => {

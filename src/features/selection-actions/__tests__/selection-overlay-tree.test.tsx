@@ -45,6 +45,8 @@ const renderOverlay = (
     isMoreMenuOpen: false,
     resultText: "A summary",
     errorText: "",
+    errorKey: "",
+    notice: null,
     isThinking: false,
     thinkingText: "",
     availableModels: [],
@@ -76,7 +78,9 @@ describe("SelectionActionsOverlay mode switch", () => {
   it("renders the toolbar in toolbar mode", () => {
     renderOverlay({ mode: "toolbar" })
     expect(
-      screen.getByRole("toolbar", { name: "Selection actions" })
+      screen.getByRole("toolbar", {
+        name: "selection_button.panel.toolbar_label"
+      })
     ).toBeInTheDocument()
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
@@ -186,7 +190,7 @@ describe("panel reaches the context actions", () => {
 
     fireEvent.submit(
       screen
-        .getByLabelText("Custom prompt instruction")
+        .getByLabelText("selection_button.panel.custom_instruction_label")
         .closest("form") as HTMLFormElement
     )
 
@@ -198,15 +202,44 @@ describe("toolbar reaches the context actions", () => {
   it("wires close and the more toggle", () => {
     const { actions } = renderOverlay({ mode: "toolbar" })
 
-    fireEvent.pointerDown(
+    fireEvent.click(
       screen.getByRole("button", { name: "selection_button.panel.close" })
     )
-    fireEvent.pointerDown(
+    fireEvent.click(
       screen.getByRole("button", { name: "selection_button.panel.more" })
     )
 
     expect(actions.close).toHaveBeenCalledOnce()
     expect(actions.toggleMore).toHaveBeenCalledOnce()
+  })
+
+  /**
+   * Enter and Space on a button dispatch click, never pointerdown, so an
+   * action bound to pointerdown alone was unreachable from the keyboard.
+   */
+  it("runs actions on click (keyboard activation), not on pointerdown alone", () => {
+    const { actions } = renderOverlay({
+      mode: "toolbar",
+      isMoreMenuOpen: true,
+      enabledActionIds: ["summarize", "shorten"]
+    })
+    const summarize = screen.getByRole("button", {
+      name: "selection_button.actions.summarize.short"
+    })
+
+    const pointerDown = fireEvent.pointerDown(summarize)
+    expect(pointerDown).toBe(false)
+    expect(actions.runAction).not.toHaveBeenCalled()
+
+    fireEvent.click(summarize)
+    expect(actions.runAction).toHaveBeenCalledWith("summarize")
+
+    fireEvent.click(
+      screen.getByRole("menuitem", {
+        name: "selection_button.actions.shorten.label"
+      })
+    )
+    expect(actions.runAction).toHaveBeenCalledWith("shorten")
   })
 
   it("renders the more menu only when it is open", () => {
@@ -219,6 +252,99 @@ describe("toolbar reaches the context actions", () => {
 
     renderOverlay({ mode: "toolbar", isMoreMenuOpen: true })
     expect(screen.getByRole("menu")).toBeInTheDocument()
+  })
+})
+
+describe("panel accessibility and feedback", () => {
+  it("is a non-modal dialog that takes focus on open", () => {
+    renderOverlay()
+    const dialog = screen.getByRole("dialog")
+    expect(dialog).toHaveAttribute("aria-modal", "false")
+    expect(dialog.contains(document.activeElement)).toBe(true)
+  })
+
+  it("names both header selects", () => {
+    renderOverlay({
+      availableModels: [
+        {
+          name: "llama3",
+          model: "llama3",
+          providerId: "ollama"
+        } as SelectionOverlayContextValue["availableModels"][number]
+      ]
+    })
+    expect(
+      screen.getByRole("combobox", {
+        name: "selection_button.panel.action_label"
+      })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("combobox", {
+        name: "selection_button.panel.model_label"
+      })
+    ).toBeInTheDocument()
+  })
+
+  it("shows a placeholder instead of the first model when none is chosen", () => {
+    renderOverlay({
+      panelModel: "",
+      availableModels: [
+        {
+          name: "gemma3:4b",
+          model: "gemma3:4b",
+          providerId: "ollama"
+        } as SelectionOverlayContextValue["availableModels"][number]
+      ]
+    })
+    const select = screen.getByRole("combobox", {
+      name: "selection_button.panel.model_label"
+    }) as HTMLSelectElement
+    expect(select.value).toBe("")
+    expect(select.selectedOptions[0]?.textContent).toBe(
+      "selection_button.panel.model_placeholder"
+    )
+  })
+
+  it("renders a keyed failure as an alert in the overlay's own words", () => {
+    renderOverlay({
+      panelState: "error",
+      resultText: "",
+      errorText: "",
+      errorKey: "selection_button.panel.no_model"
+    })
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "selection_button.panel.no_model"
+    )
+  })
+
+  it("exposes the reasoning toggle's state", () => {
+    renderOverlay({ thinkingText: "Considering the text" })
+    const toggle = screen.getByRole("button", {
+      name: "selection_button.panel.reasoning_done"
+    })
+    expect(toggle).toHaveAttribute("aria-expanded", "false")
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute("aria-expanded", "true")
+  })
+
+  it("marks the result busy while streaming", () => {
+    const { container } = renderOverlay({ panelState: "streaming" })
+    const result = container.querySelector(".sa-result")
+    expect(result).toHaveAttribute("aria-live", "polite")
+    expect(result).toHaveAttribute("aria-busy", "true")
+  })
+
+  it("confirms a copy and reports a failed one", () => {
+    const { unmount } = renderOverlay({ notice: "copied" })
+    expect(
+      screen.getByRole("button", { name: "selection_button.panel.copied" })
+    ).toBeInTheDocument()
+    unmount()
+
+    renderOverlay({ notice: "copy_failed" })
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "selection_button.panel.copy_failed"
+    )
   })
 })
 

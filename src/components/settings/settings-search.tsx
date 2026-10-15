@@ -69,10 +69,25 @@ export const SettingsSearch = ({
         : [],
     [activeTab, query, records]
   )
+  const [requestedIndex, setActiveIndex] = useState(0)
+  /** Results can shrink without a keystroke (records load late, tab changes). */
+  const activeIndex = Math.max(0, Math.min(requestedIndex, results.length - 1))
+  const hasQuery = query.trim().length > 0
+  const listOpen = open && hasQuery
+  const activeRecord = listOpen ? results[activeIndex] : undefined
+  const optionId = (index: number) => `${listId}-option-${index}`
+
+  useEffect(() => {
+    if (!listOpen) return
+    document
+      .getElementById(`${listId}-option-${activeIndex}`)
+      ?.scrollIntoView?.({ block: "nearest" })
+  }, [activeIndex, listId, listOpen])
 
   const choose = (record: SettingsSearchRecord) => {
     onSelect(record)
     setQuery("")
+    setActiveIndex(0)
     setOpen(false)
   }
 
@@ -91,12 +106,18 @@ export const SettingsSearch = ({
           ref={inputRef}
           type="search"
           role="combobox"
-          aria-expanded={open && results.length > 0}
+          aria-label={t("settings.search.placeholder")}
+          aria-autocomplete="list"
+          aria-expanded={listOpen}
           aria-controls={listId}
+          aria-activedescendant={
+            activeRecord ? optionId(activeIndex) : undefined
+          }
           value={query}
           placeholder={t("settings.search.placeholder")}
           onChange={(e) => {
             setQuery(e.target.value)
+            setActiveIndex(0)
             setOpen(true)
           }}
           onFocus={() => setOpen(true)}
@@ -107,9 +128,21 @@ export const SettingsSearch = ({
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               setQuery("")
+              setActiveIndex(0)
               setOpen(false)
-            } else if (e.key === "Enter" && results[0]) {
-              choose(results[0])
+            } else if (e.key === "ArrowDown" && results.length > 0) {
+              e.preventDefault()
+              setOpen(true)
+              setActiveIndex((activeIndex + 1) % results.length)
+            } else if (e.key === "ArrowUp" && results.length > 0) {
+              e.preventDefault()
+              setOpen(true)
+              setActiveIndex(
+                (activeIndex - 1 + results.length) % results.length
+              )
+            } else if (e.key === "Enter" && results[activeIndex]) {
+              e.preventDefault()
+              choose(results[activeIndex])
             }
           }}
           className={cn(
@@ -119,7 +152,7 @@ export const SettingsSearch = ({
         />
         {showShortcutHint && (
           <KbdGroup
-            aria-label="Search settings shortcut"
+            aria-label={t("settings.search.shortcut_label")}
             className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
             <Kbd>{modKey}</Kbd>
             <Kbd>K</Kbd>
@@ -127,22 +160,37 @@ export const SettingsSearch = ({
         )}
       </div>
 
-      {open && results.length > 0 && (
-        <ul
+      {listOpen && (
+        <div
           id={listId}
+          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- An ARIA combobox popup; a native select cannot sit under a free-text input.
+          role="listbox"
+          aria-label={t("settings.search.placeholder")}
           className="absolute z-50 mt-1 max-h-80 w-full overflow-y-auto rounded-control border border-border bg-popover p-1 shadow-md">
-          {results.map((record) => (
-            <li
-              key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}>
-              <button
-                type="button"
-                // mousedown fires before input blur, so the click survives.
+          {results.length === 0 ? (
+            <p className="px-2 py-1.5 text-sm text-muted-foreground">
+              {t("settings.search.no_results", { query: query.trim() })}
+            </p>
+          ) : (
+            results.map((record, index) => (
+              // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus -- Focus stays in the combobox input, which handles arrows and Enter via aria-activedescendant.
+              <div
+                key={`${record.entryId}:${record.sourceType}:${record.sourceOrder}`}
+                id={optionId(index)}
+                // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Options of the combobox popup above.
+                role="option"
+                aria-selected={index === activeIndex}
+                // Keep focus in the input so the blur timer never races the click.
                 onMouseDown={(e) => {
                   e.preventDefault()
                   if (blurTimer.current) window.clearTimeout(blurTimer.current)
-                  choose(record)
                 }}
-                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent">
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => choose(record)}
+                className={cn(
+                  "grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
+                  index === activeIndex && "bg-accent"
+                )}>
                 <span className="truncate">{record.displayLabel}</span>
                 <MiniBadge
                   text={t(TAB_LABEL_KEYS[record.tab] ?? record.tab)}
@@ -153,10 +201,10 @@ export const SettingsSearch = ({
                     {record.displayContext}
                   </span>
                 )}
-              </button>
-            </li>
-          ))}
-        </ul>
+              </div>
+            ))
+          )}
+        </div>
       )}
     </div>
   )

@@ -203,7 +203,9 @@ export const ModelSettingsForm = () => {
           className="bg-card"
           icon={Settings}
           title={t("settings.model.title")}
-          description={t("settings.model.description")}
+          description={t("settings.model.description", {
+            model: selectedModel
+          })}
           headerActions={
             <>
               <ModelMenu

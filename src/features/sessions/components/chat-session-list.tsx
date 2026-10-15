@@ -16,6 +16,7 @@ export interface ChatSessionListProps {
   currentSessionId: string | null
   onSelect: (id: string) => void
   onDelete: (id: string) => void
+  onCreate?: () => void
 }
 
 export const ChatSessionList = ({
@@ -23,7 +24,8 @@ export const ChatSessionList = ({
   query = "",
   currentSessionId,
   onSelect,
-  onDelete
+  onDelete,
+  onCreate
 }: ChatSessionListProps) => {
   const filteredSessions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase()
@@ -44,7 +46,7 @@ export const ChatSessionList = ({
     [filteredSessions]
   )
 
-  if (sessions.length === 0) return <ChatSessionEmpty />
+  if (sessions.length === 0) return <ChatSessionEmpty onCreate={onCreate} />
   if (filteredSessions.length === 0) {
     return <ChatSessionEmpty variant="search" />
   }

@@ -81,7 +81,9 @@ export const SettingsCard = ({
             <div className="flex items-center gap-3">{headerActions}</div>
           )}
         </div>
-        <CardDescription className="text-sm">{description}</CardDescription>
+        <CardDescription className="max-w-prose text-sm">
+          {description}
+        </CardDescription>
       </CardHeader>
       <CardContent className={contentClassName || "space-y-4"}>
         {children}

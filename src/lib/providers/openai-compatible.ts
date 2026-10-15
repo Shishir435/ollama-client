@@ -89,6 +89,32 @@ const extractOpenAIOutputParts = (
   return { text: text.join(""), imageData }
 }
 
+/**
+ * A server can answer a route it does not implement with HTTP 200 and an error
+ * body: LM Studio replies `{"error":"Unexpected endpoint or method. (POST
+ * /v1/images/generations)"}`. Read that as the missing Images endpoint it is,
+ * not as a malformed image response.
+ */
+const MISSING_ENDPOINT_ERROR =
+  /unexpected endpoint|unknown (?:endpoint|route|path)|no such (?:endpoint|route)|route not found|endpoint not found/i
+
+/**
+ * The error a successful-status image response carries instead of `data`, or
+ * undefined when the body is not an error envelope. An error object without a
+ * message reads as an empty string, so it still counts as an error.
+ */
+const imageResponseErrorMessage = (payload: unknown): string | undefined => {
+  if (typeof payload !== "object" || payload === null) return undefined
+  const record = payload as Record<string, unknown>
+  if (Array.isArray(record.data) || record.error === undefined) return undefined
+  if (typeof record.error === "string") return record.error
+  const message =
+    typeof record.error === "object" && record.error !== null
+      ? (record.error as Record<string, unknown>).message
+      : undefined
+  return typeof message === "string" ? message : ""
+}
+
 const OpenAIImageGenerationResponseSchema = z
   .object({
     data: z
@@ -631,7 +657,29 @@ export class OpenAICompatibleProvider implements LLMProvider {
       })
     )
 
-    if ([404, 405, 501].includes(response.status)) {
+    const missingEndpoint = [404, 405, 501].includes(response.status)
+    if (!missingEndpoint && !response.ok) {
+      await this.responseError(
+        response,
+        "Image generation error",
+        baseUrl,
+        request.model
+      )
+    }
+    const embeddedError = missingEndpoint
+      ? undefined
+      : imageResponseErrorMessage(
+          await response
+            .clone()
+            .json()
+            .catch(() => undefined)
+        )
+
+    if (
+      missingEndpoint ||
+      (embeddedError !== undefined &&
+        MISSING_ENDPOINT_ERROR.test(embeddedError))
+    ) {
       // Some OpenAI-compatible servers generate images as multimodal chat
       // output instead of implementing the Images endpoint. Reuse the normal
       // stream adapter so inline image parts still reach the shared contract.
@@ -651,13 +699,17 @@ export class OpenAICompatibleProvider implements LLMProvider {
       )
       return
     }
-    if (!response.ok) {
-      await this.responseError(
-        response,
-        "Image generation error",
+    if (embeddedError !== undefined) {
+      throw createAppError(`Image generation error: ${embeddedError}`, {
+        kind: "provider",
+        code: "OLC-PROVIDER-HTTP",
+        phase: "response",
+        providerId: this.id,
+        providerName: this.config.name,
+        model: request.model,
         baseUrl,
-        request.model
-      )
+        userMessage: `${this.config.name} reported an error instead of an image for model "${request.model}". Check its server logs, or turn off image output for this model if it only writes text.`
+      })
     }
 
     const result = await decodeProviderJson(

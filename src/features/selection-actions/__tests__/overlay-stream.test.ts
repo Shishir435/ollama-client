@@ -162,7 +162,7 @@ describe("connectSelectionStream", () => {
     )
   })
 
-  it("calls onError with fallback when error message is missing", () => {
+  it("calls onError with the translatable key when the error is missing", () => {
     const port = makeMockPort()
     vi.mocked(chrome.runtime.connect).mockReturnValue(
       port as unknown as chrome.runtime.Port
@@ -177,7 +177,10 @@ describe("connectSelectionStream", () => {
 
     port._emit({ type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR })
 
-    expect(onError).toHaveBeenCalledWith("Selection action failed. Try again.")
+    expect(onError).toHaveBeenCalledWith(
+      "Selection action failed. Try again.",
+      "selection_button.panel.action_failed"
+    )
   })
 
   it("calls onError on port disconnect with runtime.lastError", () => {
@@ -200,7 +203,10 @@ describe("connectSelectionStream", () => {
 
     port._disconnect()
 
-    expect(onError).toHaveBeenCalledWith("Connection lost. Try again.")
+    expect(onError).toHaveBeenCalledWith(
+      "",
+      "selection_button.panel.connection_lost"
+    )
 
     Object.defineProperty(chrome.runtime, "lastError", {
       value: undefined,

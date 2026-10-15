@@ -126,8 +126,8 @@ describe("ProviderSettings", () => {
 
     expect(screen.getAllByText("Ollama")).toHaveLength(2)
     expect(
-      screen.getByText("settings.providers.not_tested")
-    ).toBeInTheDocument()
+      screen.getAllByText("settings.providers.not_tested").length
+    ).toBeGreaterThan(0)
     expect(
       container.querySelector('[data-settings-focus-id="provider-picker"]')
     ).toBeInTheDocument()
@@ -143,10 +143,12 @@ describe("ProviderSettings", () => {
       )
     ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "OpenAI Compatible" }))
+    fireEvent.click(screen.getByRole("button", { name: /^OpenAI Compatible/ }))
     expect(actions.setSelectedId).toHaveBeenCalledWith(ProviderId.OPENAI)
 
-    fireEvent.click(screen.getByRole("button", { name: /test/i }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.providers.test" })
+    )
     expect(actions.handleTestConnection).toHaveBeenCalled()
 
     fireEvent.change(screen.getByDisplayValue("http://localhost:11434"), {

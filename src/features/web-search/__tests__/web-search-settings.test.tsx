@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { WebSearchProviderConfig } from "@/lib/tools/web-search"
+import {
+  getWebSearchBackend,
+  WebSearchError,
+  type WebSearchProviderConfig
+} from "@/lib/tools/web-search"
 import { WebSearchSettings } from "../components/web-search-settings"
 
 let config: WebSearchProviderConfig
@@ -150,5 +154,56 @@ describe("WebSearchSettings", () => {
         screen.getByText("settings.web_search.test.error_title")
       ).toBeInTheDocument()
     })
+  })
+
+  it("shows why a test search failed", async () => {
+    config = { ...config, enabled: true }
+    const backend = getWebSearchBackend("searxng")
+    if (!backend) throw new Error("missing searxng backend")
+    const search = vi
+      .spyOn(backend, "search")
+      .mockRejectedValueOnce(
+        new WebSearchError(
+          "json disabled",
+          "settings.web_search.errors.searxng_json_disabled"
+        )
+      )
+
+    render(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings.web_search.test.button"
+      })
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("settings.web_search.errors.searxng_json_disabled")
+      ).toBeInTheDocument()
+    })
+    search.mockRestore()
+  })
+
+  it("falls back to the generic message for an unknown failure", async () => {
+    config = { ...config, enabled: true }
+    const backend = getWebSearchBackend("searxng")
+    if (!backend) throw new Error("missing searxng backend")
+    const search = vi
+      .spyOn(backend, "search")
+      .mockRejectedValueOnce(new Error("boom"))
+
+    render(<WebSearchSettings />)
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings.web_search.test.button"
+      })
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("settings.web_search.test.error")
+      ).toBeInTheDocument()
+    })
+    search.mockRestore()
   })
 })

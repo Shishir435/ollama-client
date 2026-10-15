@@ -249,26 +249,23 @@ export const ModelInfo = ({
 
           <div className="flex items-center gap-2">
             {modelInfo && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                {primaryEntries.map(([key, val], index) => (
-                  <React.Fragment key={key}>
-                    <span className="font-mono text-xs">
-                      {key.includes("parameter")
+              <span className="text-xs text-muted-foreground">
+                {primaryEntries
+                  .map(([key, val]) =>
+                    key.includes("parameter")
+                      ? typeof val === "number"
+                        ? `${formatCompactNumber(val)} ${t("settings.model_info.params_label")}`
+                        : String(val)
+                      : key.includes("context")
                         ? typeof val === "number"
-                          ? `${formatCompactNumber(val)} ${t("settings.model_info.params_label")}`
+                          ? `${formatCompactNumber(val)} ${t("settings.model_info.context_label")}`
                           : String(val)
-                        : key.includes("context")
-                          ? typeof val === "number"
-                            ? `${formatCompactNumber(val)} ${t("settings.model_info.context_label")}`
-                            : String(val)
-                          : key.includes("file_type") && typeof val === "number"
-                            ? (fileTypeMap[val] ?? val)
-                            : String(val)}
-                    </span>
-                    {index < primaryEntries.length - 1 && <span>•</span>}
-                  </React.Fragment>
-                ))}
-              </div>
+                        : key.includes("file_type") && typeof val === "number"
+                          ? (fileTypeMap[val] ?? String(val))
+                          : String(val)
+                  )
+                  .join(", ")}
+              </span>
             )}
 
             <div className="flex items-center gap-1">

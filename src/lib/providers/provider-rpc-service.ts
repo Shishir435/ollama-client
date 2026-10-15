@@ -18,6 +18,7 @@ import {
   type PublicProviderConfig
 } from "@ollama-client/contracts/provider-rpc"
 import { createAppError, isAbortError, isAppError } from "@/lib/error-utils"
+import { providerConnectionError } from "@/lib/onboarding/provider-connection"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ProviderModel } from "@/types/model"
 import {
@@ -50,6 +51,14 @@ import {
   ProviderServiceProfile,
   ProviderType
 } from "./types"
+
+/**
+ * A provider id that no longer names a stored config. The RPC boundary reports
+ * only this as `not_found`; an upstream 404 is the provider's answer, not ours.
+ */
+const PROVIDER_CONFIG_NOT_FOUND_KEY = "errors.rpc.not_found"
+const PROVIDER_CONFIG_NOT_FOUND_TEXT =
+  "That provider isn't set up any more. Choose it again in settings."
 
 const providerTypeFromDraft = (
   type: ProviderDraftInput["type"]
@@ -430,7 +439,14 @@ export const ProviderRpcService = {
       signal,
       { force: request.target === "draft" }
     )
-    if (catalog === "failed") throw error
+    /*
+     * The catalog request's own failure is a fetch TypeError or a bare status,
+     * and the RPC boundary would report either as "the background request
+     * failed". Classify it here, where the config says what was asked of whom.
+     */
+    if (catalog === "failed") {
+      throw providerConnectionError(error, config, String(provider.id))
+    }
 
     const merged = config ? mergeProviderModels(models, config) : models
     /*
@@ -478,7 +494,8 @@ export const ProviderRpcService = {
         kind: "provider",
         status: 404,
         providerId: id,
-        userMessage: "Provider configuration was not found"
+        messageKey: PROVIDER_CONFIG_NOT_FOUND_KEY,
+        userMessage: PROVIDER_CONFIG_NOT_FOUND_TEXT
       })
     }
     if (request.config.type !== existing.type) {
@@ -516,7 +533,8 @@ export const ProviderRpcService = {
         kind: "provider",
         status: 404,
         providerId,
-        userMessage: "Provider configuration was not found"
+        messageKey: PROVIDER_CONFIG_NOT_FOUND_KEY,
+        userMessage: PROVIDER_CONFIG_NOT_FOUND_TEXT
       })
     }
     // Partial update: everything except `enabled` — including the API key the
@@ -560,7 +578,8 @@ export const ProviderRpcService = {
         kind: "provider",
         status: 404,
         providerId: request.providerId,
-        userMessage: "Provider configuration was not found"
+        messageKey: PROVIDER_CONFIG_NOT_FOUND_KEY,
+        userMessage: PROVIDER_CONFIG_NOT_FOUND_TEXT
       })
     }
 

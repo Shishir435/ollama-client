@@ -442,6 +442,34 @@ describe("RPC server", () => {
     )
 
     expect(sendResponse.mock.calls[0][0].error).toMatchObject({
+      code: RpcErrorCode.ProviderFailed,
+      messageKey: "errors.rpc.upstream_not_found"
+    })
+  })
+
+  it("reserves not_found for a provider config that no longer exists", async () => {
+    mocks.testConnection.mockRejectedValue(
+      createAppError("Provider remote not found", {
+        kind: "provider",
+        status: 404,
+        providerId: "remote",
+        messageKey: "errors.rpc.not_found"
+      })
+    )
+    const sendResponse = vi.fn()
+
+    await handleRpcRequest(
+      request(RpcMethod.ProvidersTestConnection, {
+        target: "stored",
+        providerId: "remote"
+      }),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      sendResponse
+    )
+
+    expect(sendResponse.mock.calls[0][0].error).toMatchObject({
       code: RpcErrorCode.NotFound,
       messageKey: "errors.rpc.not_found"
     })

@@ -66,7 +66,9 @@ export const SettingsControlCard = ({
           {label}
         </Label>
         {description && (
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="max-w-prose text-sm text-muted-foreground">
+            {description}
+          </p>
         )}
       </CardContent>
       <div className={cn("mr-3 shrink-0", controlClassName)}>{control}</div>

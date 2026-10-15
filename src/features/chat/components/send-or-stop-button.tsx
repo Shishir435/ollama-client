@@ -7,33 +7,37 @@ export const SendOrStopButton = ({
   onSend,
   stopGeneration,
   disabledSend = false,
+  hasContent = false,
   sendLabel
 }: {
   onSend: () => void
   stopGeneration: () => void
   disabledSend?: boolean
+  /** Whether the composer holds something to send; promotes Send to the primary action. */
+  hasContent?: boolean
   sendLabel?: string
 }) => {
   const { t } = useTranslation()
   const { isLoading, isStreaming } = useLoadStream()
-  const label =
-    isStreaming || isLoading
-      ? t("chat.send.stop_generation")
-      : sendLabel || t("chat.send.send_message")
+  const isBusy = isStreaming || isLoading
+  const label = isBusy
+    ? t("chat.send.stop_generation")
+    : sendLabel || t("chat.send.send_message")
+  const isPrimary = !isBusy && hasContent && !disabledSend
 
   return (
     <TooltipActionButton
-      onClick={isStreaming || isLoading ? stopGeneration : () => onSend()}
-      variant="ghost"
+      onClick={isBusy ? stopGeneration : () => onSend()}
+      variant={isPrimary ? "default" : "ghost"}
       size="icon"
       className="rounded-control"
-      disabled={!isStreaming && !isLoading && disabledSend}
+      disabled={!isBusy && disabledSend}
       label={label}
       icon={
-        isStreaming || isLoading ? (
-          <StopCircle size={16} className="text-status-danger" />
+        isBusy ? (
+          <StopCircle aria-hidden className="icon-sm text-status-danger" />
         ) : (
-          <SendHorizontal size={16} />
+          <SendHorizontal aria-hidden className="icon-sm" />
         )
       }
     />

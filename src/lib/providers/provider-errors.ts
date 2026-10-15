@@ -17,6 +17,8 @@ export interface ProviderErrorClassification {
   code: AppErrorCode
   reason?: string
   recoveryAction: AppErrorRecoveryAction
+  /** A sharper localized key than the code alone names, when the text gave one. */
+  messageKey?: string
 }
 
 /**
@@ -29,34 +31,122 @@ const LOCAL_PROVIDER_BUSY_REASON =
 const LOCAL_PROVIDER_BUSY_ADVICE = "Wait about a minute, or restart it."
 const LOCAL_PROVIDER_BUSY_MESSAGE_KEY = "chat.errors.provider_busy"
 
+/**
+ * An Ollama model served from ollama.com rather than this machine: the tag is
+ * `:cloud`, or a size tag ending `-cloud` (`gpt-oss:120b-cloud`). Only the
+ * local server answers for it, so a refused or dropped request usually means
+ * the server is not signed in, not that it is down.
+ */
+export const isOllamaCloudModel = (model?: string): boolean => {
+  const tag = model?.trim().toLowerCase().split(":").at(1)
+  return tag === "cloud" || Boolean(tag?.endsWith("-cloud"))
+}
+
+const OLLAMA_PROVIDER_ID = "ollama"
+
+export interface ProviderFailureKeyInput {
+  code: AppErrorCode
+  status?: number
+  model?: string
+  providerId?: string
+  baseUrl?: string
+}
+
+/**
+ * The localized key for a classified failure. Every key reads `{{provider}}`
+ * and `{{model}}` (and `{{setupGuideUrl}}` for the origins fix), which the
+ * chat surface fills from the failure's own context.
+ */
+export const providerFailureMessageKey = ({
+  code,
+  status,
+  model,
+  providerId,
+  baseUrl
+}: ProviderFailureKeyInput): string | undefined => {
+  if (providerId === OLLAMA_PROVIDER_ID && isOllamaCloudModel(model)) {
+    /**
+     * Only a 401 says "not signed in". A 403 is the origin block, which has
+     * its own fix, and a dropped request cannot tell a stopped server from
+     * one that refused the cloud model, so that copy names both causes.
+     */
+    if (status === 401 || (code === "OLC-AUTH-FAILED" && status !== 403)) {
+      return "chat.errors.ollama_cloud_signin"
+    }
+    if (code === "OLC-PROVIDER-UNREACHABLE") {
+      return "chat.errors.ollama_cloud_unreachable"
+    }
+  }
+  switch (code) {
+    case "OLC-PROVIDER-BUSY":
+      return LOCAL_PROVIDER_BUSY_MESSAGE_KEY
+    case "OLC-AUTH-FAILED":
+      return "chat.errors.provider_auth"
+    case "OLC-CORS-BLOCKED":
+      if (providerId !== OLLAMA_PROVIDER_ID)
+        return "chat.errors.provider_cors_other"
+      return isLocalProviderBaseUrl(baseUrl)
+        ? "chat.errors.provider_cors"
+        : "chat.errors.provider_cors_remote"
+    case "OLC-MODEL-REFUSED":
+      return "chat.errors.provider_refused"
+    case "OLC-PROVIDER-UNREACHABLE":
+      return status ? undefined : "chat.errors.provider_unreachable"
+    case "OLC-CONTEXT-TOO-LARGE":
+      return status === 413 ? undefined : "chat.errors.context_too_long"
+    case "OLC-PAYMENT-REQUIRED":
+      return "chat.errors.payment_required"
+    case "OLC-MODEL-NOT-FOUND":
+      return "chat.errors.model_not_found"
+    case "OLC-OUT-OF-MEMORY":
+      return "chat.errors.out_of_memory"
+    case "OLC-PROVIDER-HTTP":
+      return status !== undefined &&
+        status >= 500 &&
+        isLocalProviderBaseUrl(baseUrl)
+        ? "chat.errors.provider_server_error"
+        : undefined
+    default:
+      return undefined
+  }
+}
+
 /** The localized key for a classification, where one reads better than prose. */
 export const providerErrorMessageKey = (
-  code: AppErrorCode
-): string | undefined =>
-  (
-    ({
-      "OLC-PROVIDER-BUSY": LOCAL_PROVIDER_BUSY_MESSAGE_KEY,
-      "OLC-AUTH-FAILED": "chat.errors.provider_auth",
-      "OLC-CORS-BLOCKED": "chat.errors.provider_cors",
-      "OLC-MODEL-REFUSED": "chat.errors.provider_refused"
-    }) as Partial<Record<AppErrorCode, string>>
-  )[code]
+  code: AppErrorCode,
+  context: Omit<ProviderFailureKeyInput, "code"> = {}
+): string | undefined => providerFailureMessageKey({ ...context, code })
 
 const reasonForCode = (code: AppErrorCode): string | undefined => {
-  if (code === "OLC-CONTEXT-TOO-LARGE")
-    return "Request exceeds model context limit."
-  if (code === "OLC-OUT-OF-MEMORY")
-    return "Provider could not allocate enough memory for this model."
-  if (code === "OLC-MODEL-NOT-FOUND")
-    return "Provider could not find selected model."
-  if (code === "OLC-MODEL-NOT-LOADED")
-    return "Selected model is not loaded by provider."
-  if (code === "OLC-MODEL-LOADING") return "Selected model is still loading."
-  if (code === "OLC-INPUT-UNSUPPORTED")
-    return "Selected model does not support part of this request."
+  if (code === "OLC-CONTEXT-TOO-LARGE") return CONTEXT_TOO_LONG_REASON
+  if (code === "OLC-OUT-OF-MEMORY") return OUT_OF_MEMORY_REASON
+  if (code === "OLC-MODEL-NOT-FOUND") return MODEL_NOT_FOUND_REASON
+  if (code === "OLC-MODEL-NOT-LOADED") return MODEL_NOT_LOADED_REASON
+  if (code === "OLC-MODEL-LOADING") return MODEL_LOADING_REASON
+  if (code === "OLC-INPUT-UNSUPPORTED") return INPUT_UNSUPPORTED_REASON
   if (code === "OLC-PROVIDER-BUSY") return LOCAL_PROVIDER_BUSY_REASON
   return undefined
 }
+
+/*
+ * Safe reasons: what went wrong and what to do, in words that hold without a
+ * provider or model name. Named copy for the same causes lives under
+ * `chat.errors.*` and is preferred wherever the UI can translate.
+ */
+const CONTEXT_TOO_LONG_REASON =
+  "This chat is too long for the model. Start a new chat or pick a model with a larger context."
+const OUT_OF_MEMORY_REASON =
+  "The model needs more memory than this machine has free. Close other apps or pick a smaller model."
+const MODEL_CRASHED_REASON =
+  "The model crashed while loading. Retry; if it repeats, check the provider's log."
+const MODEL_NOT_FOUND_REASON =
+  "The provider doesn't have this model. Pull it or pick another model."
+const MODEL_NOT_LOADED_REASON =
+  "The model isn't loaded. Load it in the provider, then retry."
+const MODEL_LOADING_REASON =
+  "The model is still loading. Wait a moment, then retry."
+const INPUT_UNSUPPORTED_REASON =
+  "The model can't handle part of this request, such as images or tools. Remove them or pick another model."
 
 const includesAny = (value: string, patterns: RegExp[]) =>
   patterns.some((pattern) => pattern.test(value))
@@ -85,7 +175,7 @@ export const classifyProviderError = (
   ) {
     return {
       code: "OLC-CONTEXT-TOO-LARGE",
-      reason: "Request exceeds model context limit.",
+      reason: CONTEXT_TOO_LONG_REASON,
       recoveryAction: "reduce-input"
     }
   }
@@ -93,14 +183,33 @@ export const classifyProviderError = (
     includesAny(value, [
       /out of memory/i,
       /insufficient (?:system |video |gpu )?memory/i,
+      /requires more (?:system |video |gpu )?memory/i,
       /cuda.{0,20}memory/i,
       /failed to allocate/i
     ])
   ) {
     return {
       code: "OLC-OUT-OF-MEMORY",
-      reason: "Provider could not allocate enough memory for this model.",
+      reason: OUT_OF_MEMORY_REASON,
       recoveryAction: "choose-model"
+    }
+  }
+  /**
+   * Ollama's runner is a child process; when it dies loading or running a
+   * model the server answers 500 with this text. The server is fine — the
+   * model crashed — so "check that it is running" would be the wrong advice.
+   */
+  if (
+    includesAny(value, [
+      /llama runner process (?:has )?terminated/i,
+      /runner process (?:has )?(?:terminated|exited|crashed)/i
+    ])
+  ) {
+    return {
+      code: "OLC-PROVIDER-HTTP",
+      reason: MODEL_CRASHED_REASON,
+      recoveryAction: "retry",
+      messageKey: "chat.errors.model_crashed"
     }
   }
   if (
@@ -112,7 +221,7 @@ export const classifyProviderError = (
   ) {
     return {
       code: "OLC-MODEL-NOT-FOUND",
-      reason: "Provider could not find selected model.",
+      reason: MODEL_NOT_FOUND_REASON,
       recoveryAction: "choose-model"
     }
   }
@@ -130,7 +239,7 @@ export const classifyProviderError = (
   ) {
     return {
       code: "OLC-MODEL-NOT-LOADED",
-      reason: "Selected model is not loaded by provider.",
+      reason: MODEL_NOT_LOADED_REASON,
       recoveryAction: "test-connection"
     }
   }
@@ -142,7 +251,7 @@ export const classifyProviderError = (
   ) {
     return {
       code: "OLC-MODEL-LOADING",
-      reason: "Selected model is still loading.",
+      reason: MODEL_LOADING_REASON,
       recoveryAction: "wait-retry"
     }
   }
@@ -155,7 +264,7 @@ export const classifyProviderError = (
   ) {
     return {
       code: "OLC-INPUT-UNSUPPORTED",
-      reason: "Selected model does not support part of this request.",
+      reason: INPUT_UNSUPPORTED_REASON,
       recoveryAction: "reduce-input"
     }
   }
@@ -198,7 +307,8 @@ export const classifyProviderError = (
   if (status === 413) {
     return {
       code: "OLC-CONTEXT-TOO-LARGE",
-      reason: "Request is larger than provider accepts.",
+      reason:
+        "The request is too large for the provider. Try a smaller image or a shorter message.",
       recoveryAction: "reduce-input"
     }
   }
@@ -236,16 +346,16 @@ export const classifyProviderError = (
   }
 }
 
+const OLLAMA_ORIGINS_VALUE = "chrome-extension://*,moz-extension://*"
+
 /**
  * A 401/403 from a LOCAL provider (Ollama et al.) is almost always a CORS/origin
  * rejection, not bad credentials — most often on Firefox, which can't rewrite the
  * request origin the way Chromium's declarativeNetRequest does. Point the user at
  * the origins fix and the setup guide instead of a misleading "check your API key".
  */
-export const localCorsForbiddenMessage = (status = 403): string =>
-  `Your local provider blocked this request (${status} ${
-    status === 401 ? "Unauthorized" : "Forbidden"
-  }). This is likely a CORS / origin block — most common on Firefox, which can't rewrite the request origin the way Chromium does. Allow chrome-extension://* and moz-extension://* in your provider's CORS or origin settings, then retry. Provider-specific setup: ${EXTERNAL_URLS.SETUP_GUIDE}`
+export const localCorsForbiddenMessage = (_status = 403): string =>
+  `Your local provider blocked this extension. Allow ${OLLAMA_ORIGINS_VALUE.replace(",", " and ")} in its CORS settings, then retry. Setup guide: ${EXTERNAL_URLS.SETUP_GUIDE}`
 
 export const isLocalProviderBaseUrl = (baseUrl?: string): boolean => {
   if (!baseUrl) return true
@@ -263,14 +373,18 @@ export const isLocalProviderBaseUrl = (baseUrl?: string): boolean => {
   }
 }
 
-interface ProviderUserMessageContext {
-  lead: string
-  reason: string
-  provider: string
-  providerLower: string
-  selectedModel: string
+interface ProviderUserMessageOptions {
   baseUrl?: string
   retryAfterMs?: number
+  providerName?: string
+  model?: string
+  reason?: string
+  /**
+   * The provider speaks Ollama's wire. A browser always sends `Origin` on a
+   * POST, and Ollama refuses an extension origin unless `OLLAMA_ORIGINS`
+   * allows it — behind a reverse proxy as much as on localhost.
+   */
+  ollama?: boolean
 }
 
 const retryDelayMessage = (
@@ -282,99 +396,83 @@ const retryDelayMessage = (
     : fallback
 
 const authFailureMessage = (
-  lead: string,
-  baseUrl: string | undefined
-): string =>
-  isLocalProviderBaseUrl(baseUrl)
-    ? `${lead} This is likely a CORS/origin block. Allow chrome-extension://* and moz-extension://* in the provider's CORS or origin settings, then retry. Provider-specific setup: ${EXTERNAL_URLS.SETUP_GUIDE}`
-    : `${lead} Check its credentials, API key, or account access.`
-
-const serverFailureMessage = ({
-  lead,
-  reason,
-  providerLower,
-  selectedModel,
-  baseUrl,
-  retryAfterMs
-}: ProviderUserMessageContext): string => {
-  if (!isLocalProviderBaseUrl(baseUrl)) {
-    return `${lead}${reason} The hosted provider is temporarily unavailable.${retryDelayMessage(
-      retryAfterMs,
-      " Try again shortly."
-    )}`
+  provider: string,
+  options: ProviderUserMessageOptions
+): string => {
+  if (options.ollama && !isLocalProviderBaseUrl(options.baseUrl)) {
+    return `${provider} refused this extension's requests. Allow it by setting OLLAMA_ORIGINS=${OLLAMA_ORIGINS_VALUE} on the server.`
   }
-  return `${lead}${reason} Check that ${providerLower} is running, the ${selectedModel} is loaded, and its base URL/port are correct.`
+  if (isLocalProviderBaseUrl(options.baseUrl)) {
+    return options.ollama
+      ? `${provider} blocked this extension. Restart it with OLLAMA_ORIGINS set. Setup guide: ${EXTERNAL_URLS.SETUP_GUIDE}`
+      : `${provider} blocked this extension. Allow ${OLLAMA_ORIGINS_VALUE.replace(",", " and ")} in its CORS settings, then retry. Setup guide: ${EXTERNAL_URLS.SETUP_GUIDE}`
+  }
+  return `${provider} rejected the API key. Check it in provider settings.`
 }
 
 /**
- * Map a provider HTTP status to a clean, user-facing message. Keeps raw
- * provider response bodies (which can be JSON or stack traces) out of the chat
- * UI — those stay in the error's `debug` field for diagnostics.
+ * Map a provider HTTP status to a clean, user-facing message: what happened
+ * and what to do. The status itself stays in the error's `status` and
+ * diagnostics; raw response bodies stay in `debug`. Translated copy for the
+ * same causes lives under `chat.errors.*` (see {@link providerFailureMessageKey}).
  */
 export const providerErrorUserMessage = (
   status: number,
-  options: {
-    baseUrl?: string
-    retryAfterMs?: number
-    providerName?: string
-    model?: string
-    reason?: string
-  } = {}
+  options: ProviderUserMessageOptions = {}
 ): string => {
-  const providerName = options.providerName?.trim()
-  const provider = providerName || "The provider"
-  const providerLower = providerName || "the provider"
-  const model = options.model?.trim()
-  const selectedModel = model ? `model "${model}"` : "selected model"
-  const baseUrl = sanitizeProviderBaseUrl(options.baseUrl)
-  const endpoint = baseUrl ? ` at ${baseUrl}` : ""
-  const operation = model
-    ? ` while generating a response with model "${model}"`
-    : " while generating a response"
-  const lead = `${provider}${endpoint} returned HTTP ${status}${operation}.`
-  const reason = options.reason ? ` ${options.reason}` : ""
-  const context: ProviderUserMessageContext = {
-    lead,
-    reason,
-    provider,
-    providerLower,
-    selectedModel,
-    baseUrl: options.baseUrl,
-    retryAfterMs: options.retryAfterMs
-  }
+  const provider = options.providerName?.trim() || "The provider"
+  const model = options.model?.trim() || "the selected model"
+  const reason = options.reason
 
   if (status === 400) {
-    return `${lead}${reason || ` The ${selectedModel} may not support this input — for example, images on a model without vision support.`}`
+    return (
+      reason ??
+      `${provider} couldn't use this request with ${model}. The model may not support part of it — for example, images on a model without vision.`
+    )
   }
   if (status === 401 || status === 403) {
-    return authFailureMessage(lead, options.baseUrl)
-  }
-  if (status === 404) {
-    return `${lead}${reason || ` ${provider} could not find the ${selectedModel} or endpoint.`} Check the model name and ${providerLower}'s base URL.`
-  }
-  if (status === 408 || status === 504) {
-    return `${lead} Check that its server is responsive and try again.`
-  }
-  if (status === 413) {
-    return `${lead}${reason || " The request was too large."} Try a smaller image or shorter message.`
+    return authFailureMessage(provider, options)
   }
   if (status === 402) {
-    return `${lead} The provider account has insufficient credits or requires payment. Add credits or choose another provider.`
+    return `${provider} needs payment or credits for ${model}. Choose a local model or add credits.`
+  }
+  if (status === 404) {
+    return (
+      reason ??
+      `${provider} doesn't have ${model}, or this isn't its address. Check the model name and the base URL.`
+    )
+  }
+  if (status === 408 || status === 504) {
+    return `${provider} took too long to answer. Check that it's responsive, then retry.`
+  }
+  if (status === 413) {
+    return (
+      reason ??
+      `The request is too large for ${provider}. Try a smaller image or a shorter message.`
+    )
   }
   if (status === 429) {
-    return `${lead} The provider is rate-limiting requests.${retryDelayMessage(
+    return `${provider} is limiting requests.${retryDelayMessage(
       options.retryAfterMs,
-      " Wait a moment and try again."
+      " Wait a moment, then retry."
     )}`
   }
   if (status === 529) {
-    return `${lead} The hosted provider is temporarily overloaded. Wait a moment and try again.`
+    return `${provider} is overloaded. Wait a moment, then retry.`
   }
   if (status === 503 && isLocalProviderBaseUrl(options.baseUrl)) {
-    return `${lead} ${LOCAL_PROVIDER_BUSY_REASON} ${LOCAL_PROVIDER_BUSY_ADVICE}`
+    return `${LOCAL_PROVIDER_BUSY_REASON} ${LOCAL_PROVIDER_BUSY_ADVICE}`
   }
-  if (status >= 500) return serverFailureMessage(context)
-  return `${lead}${reason} Check ${providerLower}, the ${selectedModel}, and its server logs.`
+  if (reason) return reason
+  if (status >= 500) {
+    return isLocalProviderBaseUrl(options.baseUrl)
+      ? `${provider} hit an internal error running ${model}. Retry; if it repeats, check the server log.`
+      : `${provider} is temporarily unavailable.${retryDelayMessage(
+          options.retryAfterMs,
+          " Retry shortly."
+        )}`
+  }
+  return `${provider} couldn't answer with ${model}. Check its server log, then retry.`
 }
 
 export interface ProviderErrorContext {
@@ -394,7 +492,6 @@ export const throwProviderConnectionError = (
   const baseUrl = sanitizeProviderBaseUrl(context.baseUrl)
   const endpoint = baseUrl ? ` at ${baseUrl}` : ""
   const model = context.model?.trim()
-  const modelContext = model ? ` with model "${model}"` : ""
 
   throw createAppError(
     `${providerName}${endpoint} connection failed: ${getErrorMessage(error)}`,
@@ -409,7 +506,12 @@ export const throwProviderConnectionError = (
       code: "OLC-PROVIDER-UNREACHABLE",
       phase: "connect",
       recoveryAction: "test-connection",
-      userMessage: `${providerName}${endpoint} could not be reached while requesting a response${modelContext}. Check that the provider is running and the configured base URL is correct.`,
+      messageKey: providerFailureMessageKey({
+        code: "OLC-PROVIDER-UNREACHABLE",
+        model,
+        providerId: context.providerId
+      }),
+      userMessage: `Can't reach ${providerName}${endpoint}. Start it, then retry. If it's running, check the base URL.`,
       debug: getErrorMessage(error),
       cause: error
     }
@@ -426,8 +528,6 @@ export const readProviderStreamChunk = async (
     if (isAbortError(error)) throw error
     const providerName = context.providerName?.trim() || "The provider"
     const baseUrl = sanitizeProviderBaseUrl(context.baseUrl)
-    const endpoint = baseUrl ? ` at ${baseUrl}` : ""
-    const model = context.model ? ` with model "${context.model}"` : ""
     throw createAppError(
       `${providerName} stream failed: ${getErrorMessage(error)}`,
       {
@@ -441,7 +541,7 @@ export const readProviderStreamChunk = async (
         model: context.model,
         baseUrl,
         retryable: true,
-        userMessage: `${providerName}${endpoint} connection dropped while reading the response${model}. Retry to continue with a fresh response.`,
+        userMessage: `The connection to ${providerName} dropped mid-answer. Retry to get a fresh response.`,
         debug: getErrorMessage(error),
         cause: error
       }
@@ -463,10 +563,16 @@ export const applyProviderErrorContext = (
     typeof error.debug === "string" ? error.debug : undefined,
     context.baseUrl || error.baseUrl
   )
+  /*
+   * The Ollama adapter stamps its own id on every error; a custom provider
+   * id from the resolved config replaces it below, so read it first.
+   */
+  const ollama =
+    error.providerId === OLLAMA_PROVIDER_ID ||
+    context.providerId === OLLAMA_PROVIDER_ID
   if (error.code === "OLC-UNKNOWN") error.code = classification.code
   if (!error.recoveryAction)
     error.recoveryAction = classification.recoveryAction
-  if (!error.messageKey) error.messageKey = providerErrorMessageKey(error.code)
   if (error.phase === "unknown") error.phase = "response"
   error.providerId = context.providerId || error.providerId
   error.providerName = context.providerName || error.providerName
@@ -475,19 +581,42 @@ export const applyProviderErrorContext = (
     sanitizeProviderBaseUrl(context.baseUrl) ||
     sanitizeProviderBaseUrl(error.baseUrl)
 
-  if (error.status) {
+  const keyInput: ProviderFailureKeyInput = {
+    code: error.code,
+    status: error.status,
+    model: error.model,
+    providerId: ollama ? OLLAMA_PROVIDER_ID : error.providerId,
+    baseUrl: context.baseUrl || error.baseUrl
+  }
+  const cloudKey =
+    ollama && isOllamaCloudModel(error.model)
+      ? providerFailureMessageKey(keyInput)
+      : undefined
+  error.messageKey =
+    (cloudKey === "chat.errors.ollama_cloud_signin" ||
+    cloudKey === "chat.errors.ollama_cloud_unreachable"
+      ? cloudKey
+      : undefined) ??
+    classification.messageKey ??
+    providerFailureMessageKey(keyInput) ??
+    error.messageKey
+
+  if (error.messageKey === "chat.errors.ollama_cloud_signin") {
+    error.userMessage = `${error.model} runs on Ollama's cloud. Sign in with \`ollama signin\` or pick a local model.`
+  } else if (error.messageKey === "chat.errors.ollama_cloud_unreachable") {
+    error.userMessage = `Can't reach Ollama for ${error.model}. Start Ollama. If it's already running, this cloud model needs \`ollama signin\`.`
+  } else if (error.status) {
     error.userMessage = providerErrorUserMessage(error.status, {
       retryAfterMs: error.retryAfterMs,
       providerName: error.providerName,
       model: error.model,
       baseUrl: error.baseUrl,
-      reason: reasonForCode(error.code) || classification.reason
+      reason: reasonForCode(error.code) || classification.reason,
+      ollama
     })
   } else if (!error.userMessage) {
     const provider = error.providerName || "The provider"
-    const endpoint = error.baseUrl ? ` at ${error.baseUrl}` : ""
-    const model = error.model ? ` with model "${error.model}"` : ""
-    error.userMessage = `${provider}${endpoint} returned an error while generating a response${model}. Check its server logs and configuration.`
+    error.userMessage = `${provider} couldn't finish the answer. Check its server log, then retry.`
   }
 
   return error
@@ -535,7 +664,15 @@ export const throwProviderResponseError = async (
     retryable: isRetryableProviderStatus(response.status),
     retryAfterMs,
     code: classification.code,
-    messageKey: providerErrorMessageKey(classification.code),
+    messageKey:
+      classification.messageKey ??
+      providerFailureMessageKey({
+        code: classification.code,
+        status: response.status,
+        model: options.model,
+        providerId: options.providerId,
+        baseUrl: options.baseUrl
+      }),
     phase: "response",
     recoveryAction: classification.recoveryAction,
     userMessage: providerErrorUserMessage(response.status, {

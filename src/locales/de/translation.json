@@ -359,8 +359,6 @@
     "agent_task_attention": "Pausiert"
   },
   "selection_button": {
-    "label": "Lokalen LLM fragen",
-    "tooltip": "Zum Local LLM Client hinzufügen",
     "actions": {
       "summarize": {
         "label": "Zusammenfassen",
@@ -418,7 +416,18 @@
       "cancel": "Abbrechen",
       "cancel_tip": "Generierung abbrechen",
       "run": "Ausführen",
-      "instruction_ph": "Anweisung"
+      "instruction_ph": "Anweisung",
+      "toolbar_label": "Auswahlaktionen",
+      "custom_instruction_label": "Eigene Anweisung",
+      "model_label": "Modell",
+      "model_placeholder": "Modell wählen",
+      "action_label": "Aktion",
+      "no_model": "Wähle ein Modell, um diese Aktion auszuführen.",
+      "connection_lost": "Die Verbindung zur Erweiterung wurde getrennt. Führe die Aktion erneut aus.",
+      "action_failed": "Die Aktion wurde vor dem Ende abgebrochen. Führe sie erneut aus.",
+      "copied": "Kopiert",
+      "copy_failed": "Kopieren nicht möglich. Markiere den Text und drücke Strg+C.",
+      "apply_failed": "Der Seitentext konnte nicht geändert werden. Kopiere stattdessen das Ergebnis."
     }
   },
   "welcome": {
@@ -437,12 +446,14 @@
       },
       "no_models": {
         "title": "Keine Modelle gefunden",
-        "message": "Bitte laden Sie ein Modell herunter, um zu beginnen"
+        "message": "Bitte laden Sie ein Modell herunter, um zu beginnen",
+        "message_generic": "Installiere oder lade ein Chat-Modell in deinem Anbieter und prüfe dann erneut."
       },
       "ready": {
         "title": "Bereit zum Chatten",
         "message": "Provider ist verbunden und einsatzbereit"
-      }
+      },
+      "provider_fallback": "deinem Anbieter"
     },
     "setup_guide": {
       "hint": "Befolgen Sie die Einrichtungsanleitung unten, um Ollama und Modelle zu installieren.",
@@ -484,7 +495,6 @@
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "Websuche benötigt Tool-Aufrufe, die dieses Modell nicht unterstützt. Aktiviere den Tool-Fallback in den Modelleinstellungen.",
       "drop_files_here": "Dateien hier ablegen",
-      "attachments": "{{count}} Anhänge",
       "images": {
         "remove": "{{name}} entfernen",
         "too_large": "{{name}} überschreitet das Bildlimit von {{max}} MB.",
@@ -494,7 +504,13 @@
         "screenshot_failed": "Diese Seite konnte nicht aufgenommen werden. Manche Seiten lassen sich nicht erfassen."
       },
       "screenshot": "Screenshot aufnehmen",
-      "auto_screenshot": "Screenshot automatisch anhängen"
+      "auto_screenshot": "Screenshot automatisch anhängen",
+      "reading_tabs_title": "Tabs werden gelesen",
+      "reading_tabs_body_one": "{{count}} Tab wird noch gelesen. Sende gleich noch einmal.",
+      "reading_tabs_body_other": "{{count}} Tabs werden noch gelesen. Sende gleich noch einmal.",
+      "reading_tabs_button": "Tabs werden gelesen…",
+      "attachments_one": "{{count}} Anhang",
+      "attachments_other": "{{count}} Anhänge"
     },
     "context_preview": {
       "files": "Angehängte Dateien",
@@ -620,18 +636,11 @@
       "rag_context_label": "RAG-Kontext ({{count}})",
       "char_counts": "Tab-Zeichen: {{tab}} | RAG-Zeichen: {{rag}}",
       "trimmed": "gekürzt",
-      "view_web": "{{count}} Web-Quelle anzeigen",
-      "view_web_plural": "{{count}} Web-Quellen anzeigen",
       "web_engine": "über {{engine}}",
-      "web_no_snippet": "Keine Vorschau verfügbar.",
       "web_published": "Veröffentlicht: {{date}}",
       "web_score": "Bewertung {{score}}",
-      "web_source": "{{count}} Web-Quelle",
-      "web_source_plural": "{{count}} Web-Quellen",
-      "web_title": "Web-Quellen ({{count}})",
       "web_unused_hint": "Erhöhe die Anzahl der Web-Suchergebnisse in den Einstellungen, um dem Modell mehr davon bereitzustellen.",
       "web_unused_label": "Ebenfalls gefunden – nicht gesendet ({{count}})",
-      "web_used_label": "An das Modell gesendet ({{count}})",
       "unified_tooltip": "{{count}} Quellen",
       "unified_aria": "{{count}} Quellen anzeigen",
       "unified_title": "Quellen ({{count}})",
@@ -775,7 +784,21 @@
       "interrupted": "Antwort unterbrochen",
       "provider_auth": "Der Anbieter hat den Zugriff abgelehnt. Prüfe vor dem Neustart den API-Schlüssel, die Zugangsdaten oder die Kontoberechtigungen in den Einstellungen.",
       "provider_cors": "Der lokale Anbieter hat den Erweiterungsursprung blockiert. Erlaube chrome-extension://* und moz-extension://* in seinen CORS-Einstellungen und versuche es erneut.",
-      "provider_refused": "Das Modell hat diese Anfrage abgelehnt. Passe die Aufgabe an oder wähle ein anderes Modell."
+      "provider_refused": "Das Modell hat diese Anfrage abgelehnt. Passe die Aufgabe an oder wähle ein anderes Modell.",
+      "unknown_error_generic": "Die Anfrage ist fehlgeschlagen: {{message}}. Versuche es gleich noch einmal.",
+      "provider_fallback": "Der Anbieter",
+      "model_fallback": "das ausgewählte Modell",
+      "provider_unreachable": "{{provider}} ist nicht erreichbar. Starte ihn und versuche es dann erneut.",
+      "provider_cors_remote": "{{provider}} hat die Anfragen dieser Erweiterung abgelehnt. Erlaube sie, indem du OLLAMA_ORIGINS=chrome-extension://*,moz-extension://* auf dem Server setzt.",
+      "provider_cors_other": "{{provider}} hat diese Erweiterung blockiert. Erlaube chrome-extension://* und moz-extension://* in den CORS-Einstellungen – siehe die [Einrichtungsanleitung]({{setupGuideUrl}}).",
+      "context_too_long": "Dieser Chat ist zu lang für {{model}}. Starte einen neuen Chat oder wähle ein Modell mit größerem Kontext.",
+      "payment_required": "{{provider}} verlangt für {{model}} eine Zahlung oder Guthaben. Wähle ein lokales Modell oder lade Guthaben auf.",
+      "model_not_found": "{{provider}} hat {{model}} nicht. Lade es herunter oder wähle ein anderes Modell.",
+      "provider_server_error": "{{provider}} hatte beim Ausführen von {{model}} einen internen Fehler. Versuche es erneut; tritt er wieder auf, prüfe das Serverprotokoll.",
+      "out_of_memory": "{{model}} braucht mehr Arbeitsspeicher, als auf diesem Gerät frei ist. Schließe andere Apps oder wähle ein kleineres Modell.",
+      "model_crashed": "{{model}} ist beim Laden abgestürzt. Versuche es erneut; tritt es wieder auf, prüfe das Protokoll von {{provider}}.",
+      "ollama_cloud_signin": "{{model}} läuft in der Cloud von Ollama. Melde dich mit `ollama signin` an oder wähle ein lokales Modell.",
+      "ollama_cloud_unreachable": "Ollama ist für {{model}} nicht erreichbar. Starte Ollama. Falls es schon läuft, braucht dieses Cloud-Modell `ollama signin`."
     },
     "composer": {
       "rag": "Dateien",
@@ -832,6 +855,16 @@
       "allow_once": "Einmal zulassen",
       "allow_session": "Für diesen Chat zulassen",
       "allow_always": "Immer zulassen"
+    },
+    "shortcuts": {
+      "new_chat_started": "Neuer Chat gestartet",
+      "theme_dark": "Dunkles Design aktiv",
+      "theme_light": "Helles Design aktiv",
+      "clear_confirm": "Diesen Chat löschen und einen neuen starten?",
+      "cleared": "Chat gelöscht. Neuer Chat gestartet.",
+      "copied": "Antwort kopiert",
+      "exported_json": "Chat als JSON exportiert",
+      "exported_pdf": "Chat als PDF exportiert"
     }
   },
   "file_upload": {
@@ -854,7 +887,8 @@
     },
     "area": {
       "files_ready": "{{count}} Datei bereit",
-      "files_ready_plural": "{{count}} Dateien bereit"
+      "files_ready_plural": "{{count}} Dateien bereit",
+      "empty_hint": "Dateien hier ablegen oder auswählen."
     },
     "settings": {
       "max_file_size_label": "Maximale Dateigröße (MB)",
@@ -897,7 +931,10 @@
         "description": "Gehostete :cloud-Modelle. Erfordern ein angemeldetes Ollama und oft ein kostenpflichtiges Abo."
       },
       "providers_unavailable": "{{names}} hat keine Modelle zurückgegeben. Prüfe den Anbieter in den Einstellungen oder füge Modell-IDs manuell hinzu.",
-      "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit."
+      "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit.",
+      "no_model_match": "Keine passenden Modelle.",
+      "providers_unreachable": "{{names}} nicht erreichbar. Prüfe, ob der Server läuft und die Adresse in den Anbietereinstellungen stimmt.",
+      "retry": "Erneut versuchen"
     },
     "version": {
       "tooltip": "Provider-Version: {{version}}"
@@ -1050,7 +1087,8 @@
       "checking": "Lokaler Provider wird geprüft...",
       "error": "Lokaler Provider nicht erreichbar",
       "empty": "Lokaler Provider erreichbar, aber keine Chat-Modelle gefunden",
-      "ready": "Lokaler Provider bereit"
+      "ready": "Lokaler Provider bereit",
+      "unreachable": "{{provider}} nicht erreichbar"
     },
     "capabilities": {
       "edit_tooltip": "Fähigkeiten festlegen",
@@ -1124,16 +1162,14 @@
     "selector": {
       "title": "Chat-Sitzungen",
       "create_new": "Neuen Chat erstellen",
-      "create_new_aria": "Neuen Chat erstellen",
-      "start_new": "Neuen Chat starten",
       "search_placeholder": "Chats nach Titel durchsuchen...",
       "clear_search": "Chatsuche löschen",
       "no_sessions": "Noch keine Chat-Sitzungen",
-      "no_sessions_hint": "Erstellen Sie Ihren ersten Chat, um zu beginnen",
       "no_matches": "Keine passenden Chats",
       "no_matches_hint": "Versuchen Sie einen anderen Titel.",
       "session_count": "{{count}} Sitzung",
-      "session_count_plural": "{{count}} Sitzungen"
+      "session_count_plural": "{{count}} Sitzungen",
+      "select_session": "{{title}} öffnen"
     },
     "delete": {
       "aria_label": "Chat-Sitzung löschen: {{title}}",
@@ -1166,7 +1202,11 @@
       "action": "Tags bearbeiten"
     },
     "groups": {
-      "pinned": "Angeheftet"
+      "pinned": "Angeheftet",
+      "today": "Heute",
+      "yesterday": "Gestern",
+      "last7Days": "Letzte 7 Tage",
+      "older": "Älter"
     }
   },
   "tabs": {
@@ -1178,7 +1218,10 @@
       "view_content": "Extrahierten Inhalt anzeigen",
       "refresh_now": "Kontext jetzt aktualisieren",
       "select_all": "Alle auswählen",
-      "clear_selection": "Auswahl aufheben"
+      "clear_selection": "Auswahl aufheben",
+      "no_matches": "Keine Tabs passen zu \"{{query}}\"",
+      "all_excluded": "Alle offenen Tabs sind vom Kontext ausgeschlossen.",
+      "no_tabs": "Keine offenen Tabs zum Lesen."
     },
     "context": "Kontext",
     "inspector": {
@@ -1281,7 +1324,15 @@
         "description": "Lege einen browserweiten Shortcut fest, um das Chat-Seitenpanel von jeder Seite aus zu öffnen. Der Browser verwaltet diese Belegung – kopiere die Adresse unten und füge sie in die Adressleiste ein, um die Taste festzulegen oder zu ändern.",
         "copy": "Adresse kopieren",
         "copied": "Kopiert – füge sie in die Adressleiste ein"
-      }
+      },
+      "categories": {
+        "navigation": "Navigation",
+        "actions": "Aktionen",
+        "toggles": "Schalter"
+      },
+      "search_placeholder": "Kürzel suchen",
+      "conflict": "Bereits belegt durch \"{{label}}\". Wähle eine andere Taste.",
+      "reset_to_default": "Auf Standard zurücksetzen"
     },
     "content_extraction": {
       "title": "Inhaltsextraktion",
@@ -1624,7 +1675,8 @@
       },
       "errors": {
         "endpoint_required": "Enter a valid SearXNG endpoint.",
-        "api_key_required": "Enter an API key."
+        "api_key_required": "Enter an API key.",
+        "searxng_json_disabled": "SearXNG hat JSON-Ergebnisse abgelehnt. Füge json zu search.formats in settings.yml hinzu und starte es neu. Liegt es hinter einer Anmeldung oder einem Proxy, lass diese Erweiterung durch."
       },
       "beta_badge": "Beta",
       "beta_tooltip": "Beta. If you run into issues, please report them.",
@@ -1880,6 +1932,16 @@
       "failure_notice": {
         "title": "Letzter Reset nicht abgeschlossen",
         "description": "Der letzte Reset ist vor dem Abschluss fehlgeschlagen. Einige Daten sind möglicherweise noch vorhanden. Prüfe die Konsole für Details und versuche es erneut."
+      },
+      "chat_dialog": {
+        "title": "Alle Chats löschen?",
+        "description": "Dadurch werden alle Chats auf diesem Gerät gelöscht und die Erweiterung neu gestartet. Das kann nicht rückgängig gemacht werden.",
+        "confirm": "Chats löschen"
+      },
+      "module_dialog": {
+        "title": "{{module}} zurücksetzen?",
+        "description": "Dadurch wird gelöscht, was für diesen Bereich gespeichert ist, und die Standardwerte werden wiederhergestellt. Das kann nicht rückgängig gemacht werden.",
+        "confirm": "Zurücksetzen"
       }
     },
     "providers": {
@@ -1906,7 +1968,6 @@
         "success_description": "Erfolgreich mit {{name}} unter {{url}} verbunden. {{count}} Modell(e) gefunden.",
         "success_description_manual": "Erfolgreich mit {{name}} unter {{url}} verbunden. Es wird keine Modellliste veröffentlicht, daher werden die {{count}} von dir hinzugefügten Modell-ID(s) verwendet.",
         "failed_title": "Verbindung fehlgeschlagen",
-        "failed_description": "{{url}} konnte nicht erreicht werden. {{error}}",
         "no_models_title": "Keine Modelle gefunden",
         "no_model_list_title": "Keine Modellliste",
         "no_models_description": "{{url}} wurde erreicht, aber es wurden keine Modelle zurückgegeben. Stelle sicher, dass der Anbieter läuft, die Basis-URL korrekt ist und mindestens ein Modell installiert oder geladen ist.",
@@ -1915,10 +1976,10 @@
         "inline_success_manual": "Mit {{url}} verbunden. Es wird keine Modellliste veröffentlicht, daher werden die {{count}} von dir hinzugefügten Modell-ID(s) verwendet.",
         "inline_no_models": "{{url}} wurde erreicht, aber es wurden keine Modelle zurückgegeben. Prüfe, ob der Anbieter läuft und Modelle installiert oder geladen sind.",
         "inline_no_model_list": "{{url}} wurde erreicht, aber es wird keine Modellliste veröffentlicht. Füge die gewünschten Modell-IDs unter „Modell-IDs“ hinzu.",
-        "inline_failed": "{{url}} konnte nicht erreicht werden. {{error}}",
         "default_url": "Standard-URL",
         "api_key_required_title": "API-Schlüssel erforderlich",
-        "api_key_required": "Füge einen API-Schlüssel für {{name}} hinzu, bevor du die Verbindung testest."
+        "api_key_required": "Füge einen API-Schlüssel für {{name}} hinzu, bevor du die Verbindung testest.",
+        "failed_fallback": "{{url}} konnte nicht erreicht werden. Prüfe, ob der Anbieter läuft und die Basis-URL korrekt ist."
       },
       "add": {
         "button": "Anbieter hinzufügen",
@@ -1977,7 +2038,14 @@
           "120000": "Alle 2 Minuten",
           "300000": "Alle 5 Minuten"
         }
-      }
+      },
+      "saved_title": "{{name}} gespeichert",
+      "save_failed_title": "{{name}} konnte nicht gespeichert werden",
+      "save_failed_description": "Deine Änderungen sind noch im Formular. Speichere erneut.",
+      "enable_failed_title": "{{name}} konnte nicht aktiviert werden",
+      "disable_failed_title": "{{name}} konnte nicht deaktiviert werden",
+      "toggle_failed_description": "Der vorherige Zustand ist wiederhergestellt. Versuche es gleich noch einmal.",
+      "status_off": "Aus"
     },
     "migration": {
       "title": "Datenmigration",
@@ -2219,7 +2287,9 @@
       }
     },
     "search": {
-      "placeholder": "Einstellungen durchsuchen…"
+      "placeholder": "Einstellungen durchsuchen…",
+      "shortcut_label": "Tastaturkürzel für die Einstellungssuche",
+      "no_results": "Keine Einstellungen passen zu '{{query}}'"
     },
     "restore_sessions": {
       "title": "Geschlossene Tabs wieder öffnen",
@@ -2230,6 +2300,11 @@
     "export_privacy": {
       "remote_images_label": "Externe Bilder in Exporten laden",
       "remote_images_hint": "Erlaubt Druck- und PDF-Exporten, Bilder von externen Servern zu laden. Wenn deaktiviert, bleiben Exporte vollständig offline und externe Bilder werden durch einen Platzhalter ersetzt."
+    },
+    "beta_badge": "Beta",
+    "nav_label": "Einstellungsbereiche",
+    "more_section": {
+      "title": "Prompts, Sprache und Kürzel"
     }
   },
   "guides": {
@@ -2279,7 +2354,9 @@
   "errorBoundary": {
     "title": "Etwas ist schiefgelaufen",
     "description": "Ein unerwarteter Fehler ist aufgetreten. Wir haben dieses Problem intern protokolliert.",
-    "reload": "Neu laden"
+    "reload": "Neu laden",
+    "show_details": "Details anzeigen",
+    "copy_details": "Details kopieren"
   },
   "knowledge_sets": {
     "title": "Wissenssammlungen",
@@ -2329,7 +2406,8 @@
       "not_found": "Die Anbieterkonfiguration wurde nicht gefunden.",
       "provider_failed": "Die Anbieteranfrage ist fehlgeschlagen.",
       "timeout": "Die Hintergrundanfrage hat zu lange gedauert. Bitte versuche es erneut.",
-      "internal": "Die Hintergrundanfrage ist fehlgeschlagen. Bitte versuche es erneut."
+      "internal": "Die Hintergrundanfrage ist fehlgeschlagen. Bitte versuche es erneut.",
+      "upstream_not_found": "Der Anbieter hat geantwortet, aber nicht mit dem Angefragten. Prüfe die Basis-URL und den Modellnamen."
     }
   },
   "diagnostics": {
@@ -2393,7 +2471,9 @@
       "placeholder": "Select a model",
       "use": "Use this model",
       "refresh": "Modelle aktualisieren",
-      "use_unverified": "Dieses Modell ausprobieren"
+      "use_unverified": "Dieses Modell ausprobieren",
+      "none_unverified": "Keine Chat-Modelle gefunden. Prüfe die Verbindung in der Anbietereinrichtung und wähle dann Modelle aktualisieren.",
+      "use_failed": "Zu diesem Modell konnte nicht gewechselt werden. Versuche es erneut oder wähle ein anderes."
     },
     "test_chat": {
       "title": "Send your first message",
@@ -2423,9 +2503,13 @@
         "not-found": "Der Server antwortet, aber dies ist kein gültiger Anbieter-Endpunkt. Prüfe Port und Basis-URL.",
         "timeout": "Der Anbieter antwortet zu langsam. Prüfe, ob er läuft und der Port stimmt.",
         "unavailable": "Ollama ist nicht erreichbar. Es ist möglicherweise gestoppt, nutzt einen anderen Port oder blockiert Erweiterungs-Ursprünge.",
-        "server-error": "Der Anbieter meldete einen Serverfehler. Prüfe seine Logs und versuche es erneut."
+        "server-error": "Der Anbieter meldete einen Serverfehler. Prüfe seine Logs und versuche es erneut.",
+        "cors-other": "{{provider}} läuft, blockiert aber diese Erweiterung. Erlaube chrome-extension://* und moz-extension://* in den CORS-Einstellungen und starte ihn dann neu.",
+        "rate-limited": "{{provider}} begrenzt gerade die Anfragen. Warte kurz und versuche es dann erneut.",
+        "payment": "{{provider}} benötigt eine Zahlung oder Guthaben. Prüfe dein Konto und versuche es dann erneut."
       },
-      "unverified": "Verbindung nicht bestätigt. Du kannst ein konfiguriertes Modell ausprobieren oder den Endpunkt in den Anbietereinstellungen prüfen."
+      "unverified": "Verbindung nicht bestätigt. Du kannst ein konfiguriertes Modell ausprobieren oder den Endpunkt in den Anbietereinstellungen prüfen.",
+      "support_code": "Supportcode"
     }
   }
 }

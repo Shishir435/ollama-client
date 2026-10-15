@@ -301,6 +301,13 @@ export const buildShadowStyles = (appStyles: string): string => `
   .sa-model-inline:focus {
     outline: none;
   }
+  .sa-model-inline:focus-visible,
+  .sa-action-select:focus-visible,
+  .sa-thinking-header:focus-visible {
+    outline: none;
+    border-radius: var(--radius-xs);
+    box-shadow: 0 0 0 1px var(--ring), 0 0 0 3px var(--focus-ring);
+  }
   .sa-model-name {
     font-size: 12px;
     color: var(--sa-muted);
@@ -354,6 +361,11 @@ export const buildShadowStyles = (appStyles: string): string => `
   }
   .sa-error {
     color: var(--sa-danger);
+  }
+  .sa-notice {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   /* Markdown prose inside panel */
@@ -485,11 +497,13 @@ export const buildShadowStyles = (appStyles: string): string => `
     min-width: 0;
   }
   .sa-thinking-chevron {
-    font-size: 8px;
-    opacity: 0.6;
-  }
-  .sa-thinking-chevron-end {
     margin-left: auto;
+    opacity: 0.6;
+    flex-shrink: 0;
+    transition: transform 150ms ease;
+  }
+  .sa-thinking-chevron[data-expanded="true"] {
+    transform: rotate(90deg);
   }
   @keyframes sa-pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
@@ -533,5 +547,15 @@ export const buildShadowStyles = (appStyles: string): string => `
   .sa-thinking-body .sa-markdown ul,
   .sa-thinking-body .sa-markdown ol {
     margin-bottom: 4px;
+  }
+
+  /* Honour the OS reduced-motion setting: no looping pulse, no transitions. */
+  @media (prefers-reduced-motion: reduce) {
+    #selection-actions-root *,
+    #selection-actions-root *::before,
+    #selection-actions-root *::after {
+      animation: none !important;
+      transition: none !important;
+    }
   }
 `

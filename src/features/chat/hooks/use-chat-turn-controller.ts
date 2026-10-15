@@ -113,7 +113,7 @@ export const useChatTurnController = ({
   const showTurnToast = (turnToast: TurnToast) => {
     toast({
       ...(turnToast.variant ? { variant: turnToast.variant } : {}),
-      title: t(turnToast.titleKey),
+      title: t(turnToast.titleKey, turnToast.descriptionValues),
       ...(turnToast.descriptionKey
         ? {
             description: t(

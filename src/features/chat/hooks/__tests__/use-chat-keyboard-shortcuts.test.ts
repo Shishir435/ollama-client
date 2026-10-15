@@ -17,6 +17,10 @@ const mocks = vi.hoisted(() => ({
   setTheme: vi.fn()
 }))
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key })
+}))
+
 vi.mock("@/hooks/use-keyboard-shortcuts", () => ({
   useKeyboardShortcuts: vi.fn((handlers: ShortcutHandlers) => {
     capturedHandlers = handlers
@@ -118,7 +122,7 @@ describe("useChatKeyboardShortcuts", () => {
     expect(mockCreateSession).toHaveBeenCalledOnce()
     expect(mocks.toast).toHaveBeenCalledWith(
       expect.objectContaining({
-        description: expect.stringContaining("new chat")
+        description: "chat.shortcuts.new_chat_started"
       })
     )
   })
@@ -134,7 +138,7 @@ describe("useChatKeyboardShortcuts", () => {
     capturedHandlers.toggleTheme(fakeEvent())
     expect(mocks.setTheme).toHaveBeenCalledWith("light")
     expect(mocks.toast).toHaveBeenCalledWith(
-      expect.objectContaining({ description: expect.stringContaining("light") })
+      expect.objectContaining({ description: "chat.shortcuts.theme_light" })
     )
   })
 
@@ -171,7 +175,7 @@ describe("useChatKeyboardShortcuts", () => {
     expect(mockWriteText).toHaveBeenCalledWith("Hi there")
     expect(mocks.toast).toHaveBeenCalledWith(
       expect.objectContaining({
-        description: expect.stringContaining("Copied")
+        description: "chat.shortcuts.copied"
       })
     )
   })
@@ -194,7 +198,7 @@ describe("useChatKeyboardShortcuts", () => {
     capturedHandlers.exportJson(fakeEvent())
     expect(mocks.exportSessionAsJson).toHaveBeenCalledWith(sessions[0])
     expect(mocks.toast).toHaveBeenCalledWith(
-      expect.objectContaining({ description: expect.stringContaining("JSON") })
+      expect.objectContaining({ description: "chat.shortcuts.exported_json" })
     )
   })
 
@@ -223,7 +227,7 @@ describe("useChatKeyboardShortcuts", () => {
     expect(mockCreateSession).toHaveBeenCalledOnce()
     expect(mocks.toast).toHaveBeenCalledWith(
       expect.objectContaining({
-        description: expect.stringContaining("cleared")
+        description: "chat.shortcuts.cleared"
       })
     )
 

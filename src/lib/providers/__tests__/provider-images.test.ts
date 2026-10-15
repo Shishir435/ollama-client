@@ -191,4 +191,65 @@ describe("provider image output", () => {
     )
     expect(chunks.at(-1)?.done).toBe(true)
   })
+  it("falls back to chat when a 200 body reports the Images endpoint is missing", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        Response.json({
+          error: "Unexpected endpoint or method. (POST /v1/images/generations)"
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "hi" } }] })}\n\ndata: [DONE]\n\n`,
+          { status: 200 }
+        )
+      )
+    const chunks: ChatStreamMessage[] = []
+
+    await new OpenAICompatibleProvider(openaiConfig).generateImage?.(
+      { model: "google/gemma-4-26b-a4b", prompt: "hello" },
+      (chunk) => chunks.push(chunk)
+    )
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://localhost:8000/v1/chat/completions",
+      expect.objectContaining({ method: "POST" })
+    )
+    expect(chunks.at(-1)?.done).toBe(true)
+  })
+
+  it("reports a server error carried in a 200 image response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ error: { message: "Model failed to load" } })
+    )
+
+    await expect(
+      new OpenAICompatibleProvider(openaiConfig).generateImage?.(
+        { model: "image-model", prompt: "a fox" },
+        () => {}
+      )
+    ).rejects.toMatchObject({
+      kind: "provider",
+      message: "Image generation error: Model failed to load",
+      userMessage: expect.stringContaining(
+        "reported an error instead of an image"
+      )
+    })
+  })
+
+  it("surfaces an HTTP 500 from the Images endpoint as a server error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("boom", { status: 500 })
+    )
+
+    const failure = await new OpenAICompatibleProvider(openaiConfig)
+      .generateImage?.({ model: "image-model", prompt: "a fox" }, () => {})
+      .catch((error: unknown) => error)
+
+    expect(failure).toMatchObject({ kind: "provider", status: 500 })
+    expect((failure as { userMessage?: string }).userMessage).not.toContain(
+      "invalid image generation response"
+    )
+  })
 })

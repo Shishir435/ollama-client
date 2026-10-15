@@ -18,7 +18,8 @@ const timeoutError = (method: RpcMethod) =>
     status: 408,
     messageKey: "errors.rpc.timeout",
     messageParams: { method },
-    userMessage: "The background request timed out. Please try again.",
+    userMessage:
+      "The extension didn't respond in time. Retry; if it keeps happening, reload the extension.",
     retryable: true
   })
 
@@ -107,7 +108,8 @@ export const extensionRpcClient = {
           kind: "validation",
           status: 502,
           messageKey: "errors.rpc.invalid_response",
-          userMessage: "The background response was invalid"
+          userMessage:
+            "The extension sent back something unexpected. Reload the extension and retry."
         })
       }
       if (!parsedResponse.data.ok) {
@@ -136,7 +138,8 @@ export const extensionRpcClient = {
         status: 503,
         messageKey: "errors.rpc.internal",
         messageParams: { method },
-        userMessage: "The background request failed. Please try again.",
+        userMessage:
+          "Something in the extension went wrong. Reload the extension and retry.",
         retryable: true
       })
     } finally {

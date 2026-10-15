@@ -7,6 +7,7 @@ import type { PermissionResumeResult } from "@/features/chat/lib/resume-permissi
 import { useSetting } from "@/hooks/use-setting"
 import { cn } from "@/lib/class-names"
 import { DEFAULT_EMBEDDING_CONFIG } from "@/lib/constants"
+import { motionSafeScrollBehavior } from "@/lib/reduced-motion"
 import { SETTINGS } from "@/lib/storage/settings"
 import type { ActivityEvent, ChatMessage } from "@/types"
 import { ChatMessageBubble } from "./chat-message-bubble"
@@ -182,6 +183,7 @@ export const ChatMessageList = ({
                 <ChatMessageBubble
                   msg={msg}
                   sessionId={sessionId}
+                  announceError={isLastAssistantMessage}
                   isBusy={isLoading || isStreaming}
                   isLoading={isLoading && isLastAssistantMessage}
                   isStreaming={isStreaming && isLastAssistantMessage}
@@ -225,7 +227,7 @@ export const ChatMessageList = ({
               virtuosoRef.current?.scrollToIndex({
                 index: lastVirtualIndex,
                 align: "end",
-                behavior: "smooth"
+                behavior: motionSafeScrollBehavior()
               })
             }}
           />

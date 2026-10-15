@@ -1,5 +1,12 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
-import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState
+} from "react"
 import type { SelectionActionId } from "@/application/selection-actions/types"
 import { SelectionActionsOverlay } from "@/features/selection-actions/components/selection-actions-overlay"
 import {
@@ -24,6 +31,7 @@ import {
 } from "@/features/selection-actions/overlay-state"
 import {
   type SelectionOverlayContextValue,
+  type SelectionOverlayNotice,
   SelectionOverlayProvider
 } from "@/features/selection-actions/selection-overlay-context"
 import { MESSAGE_KEYS } from "@/lib/constants"
@@ -42,6 +50,8 @@ interface OverlayAppProps {
   onModelChange: (model: string, providerId?: string) => void
   onClose: () => void
 }
+
+const COPIED_NOTICE_MS = 1500
 
 // oxlint-disable react/refs -- The content controller owns these snapshot refs and explicitly remounts or rerenders the overlay when they change.
 export function SelectionOverlayApp({
@@ -70,6 +80,26 @@ export function SelectionOverlayApp({
   const modelsLoadedRef = useRef(modelsRef.current.length > 0)
   const [availableModels, setAvailableModels] = useState(modelsRef.current)
   const placedRef = useRef(false)
+  const [notice, setNotice] = useState<SelectionOverlayNotice | null>(null)
+  const noticeTimerRef = useRef<number | undefined>(undefined)
+  /**
+   * The model select writes through to `panelModelRef`, which React cannot
+   * see; without a re-render the controlled select snaps back to the old
+   * value while the next request already uses the new one.
+   */
+  const [, bumpModelVersion] = useReducer((n: number) => n + 1, 0)
+
+  const showNotice = useCallback((next: SelectionOverlayNotice | null) => {
+    window.clearTimeout(noticeTimerRef.current)
+    setNotice(next)
+    if (next === "copied") {
+      noticeTimerRef.current = window.setTimeout(
+        () => setNotice(null),
+        COPIED_NOTICE_MS
+      )
+    }
+  }, [])
+  useEffect(() => () => window.clearTimeout(noticeTimerRef.current), [])
 
   // ── Fetch models only after the toolbar expands ──────────────────────
   useEffect(() => {
@@ -87,8 +117,11 @@ export function SelectionOverlayApp({
   }, [state.mode, modelsRef])
 
   // ── Cleanup stream on unmount ────────────────────────────────────────
+  /** A start queued for the next tick must not open a port after unmount. */
+  const startTimerRef = useRef<number | undefined>(undefined)
   useEffect(() => {
     return () => {
+      window.clearTimeout(startTimerRef.current)
       streamPortRef.current = stopSelectionStream(streamPortRef.current)
     }
   }, [])
@@ -111,11 +144,7 @@ export function SelectionOverlayApp({
 
       // oxlint-disable-next-line react/immutability -- This effect controls the content controller-owned DOM host, not React state or a data prop.
       container.style.display = "block"
-      placeSelectionOverlay(
-        container,
-        capture.rect.bottom + 10,
-        capture.rect.left + capture.rect.width / 2
-      )
+      placeSelectionOverlay(container, capture.rect)
     }
   }, [isHidden, state.isPinned, container, captureRef])
 
@@ -129,11 +158,17 @@ export function SelectionOverlayApp({
   }, [state.panelState, state.mode, container])
 
   // ── Handlers ─────────────────────────────────────────────────────────
+  const scheduleStart = () => {
+    window.clearTimeout(startTimerRef.current)
+    startTimerRef.current = window.setTimeout(startStream, 0)
+  }
+
   const runAction = (actionId: SelectionActionId) => {
+    showNotice(null)
     dispatch({ type: "action.open", actionId })
 
     if (actionId !== "custom") {
-      setTimeout(startStream, 0)
+      scheduleStart()
     }
   }
 
@@ -168,7 +203,9 @@ export function SelectionOverlayApp({
   }
 
   const handleCopy = () => {
-    void copySelectionResult(stateRef.current.resultText)
+    void copySelectionResult(stateRef.current.resultText).then((copied) =>
+      showNotice(copied ? "copied" : "copy_failed")
+    )
   }
 
   const handleReplace = () => {
@@ -178,7 +215,9 @@ export function SelectionOverlayApp({
       replaceCapturedSelection(capture, stateRef.current.resultText)
     ) {
       onClose()
+      return
     }
+    showNotice("apply_failed")
   }
 
   const handleInsert = () => {
@@ -188,7 +227,14 @@ export function SelectionOverlayApp({
       insertBelowCapturedSelection(capture, stateRef.current.resultText)
     ) {
       onClose()
+      return
     }
+    showNotice("apply_failed")
+  }
+
+  const handleModelChange = (model: string, providerId?: string) => {
+    onModelChange(model, providerId)
+    bumpModelVersion()
   }
 
   const handleOpenChat = () => {
@@ -217,9 +263,10 @@ export function SelectionOverlayApp({
   }
 
   const handleRetry = () => {
+    showNotice(null)
     stopStream()
     dispatch({ type: "panel.cancel" })
-    setTimeout(startStream, 0)
+    scheduleStart()
   }
 
   const handleCancel = () => {
@@ -229,7 +276,7 @@ export function SelectionOverlayApp({
 
   const handleRunCustom = () => {
     stopStream()
-    setTimeout(startStream, 0)
+    scheduleStart()
   }
 
   // ── Derived props ────────────────────────────────────────────────────
@@ -257,6 +304,8 @@ export function SelectionOverlayApp({
     isMoreMenuOpen: state.isMoreMenuOpen,
     resultText: state.resultText,
     errorText: state.errorText,
+    errorKey: state.errorKey,
+    notice,
     isThinking: state.isThinking,
     thinkingText: state.thinkingText,
     availableModels,
@@ -271,7 +320,7 @@ export function SelectionOverlayApp({
       // operation — both run the action — so this replaces the previous
       // onRunAction / onActionChange pair that pointed at one function.
       runAction,
-      changeModel: onModelChange,
+      changeModel: handleModelChange,
       toggleMore: () => dispatch({ type: "menu.toggle" }),
       togglePin: () => dispatch({ type: "pin.toggle" }),
       copy: handleCopy,
@@ -281,6 +330,7 @@ export function SelectionOverlayApp({
       retry: handleRetry,
       cancel: handleCancel,
       back: handleBack,
+      /** Closing unmounts this tree (the content script's `hide`), whose cleanup stops the stream. */
       close: onClose,
       setCustomInstruction: (value) => dispatch({ type: "custom.set", value }),
       runCustom: handleRunCustom,

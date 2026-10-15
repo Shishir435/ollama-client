@@ -89,7 +89,7 @@ describe("SettingsPage", () => {
 
     const mobileSearch = screen.getAllByRole("combobox")[1]
     const nav = screen.getAllByRole("navigation", {
-      name: "Settings navigation"
+      name: "settings.nav_label"
     })[1]
 
     expect(
@@ -124,7 +124,7 @@ describe("SettingsPage", () => {
     const search = screen.getAllByRole("combobox")[0]
 
     fireEvent.change(search, { target: { value: "base url" } })
-    fireEvent.mouseDown(screen.getAllByText("settings.providers.base_url")[0])
+    fireEvent.click(screen.getAllByText("settings.providers.base_url")[0])
 
     const params = new URLSearchParams(window.location.search)
     expect(params.get("tab")).toBe("models")
@@ -162,8 +162,7 @@ describe("SettingsPage", () => {
   it("shows power-only settings when the Power tab is selected", async () => {
     render(<SettingsPage />)
 
-    const powerSummary =
-      "settings.tabs.prompts · settings.tabs.voices · settings.tabs.shortcuts"
+    const powerSummary = "settings.more_section.title"
     expect(screen.queryByText(powerSummary)).toBeNull()
 
     fireEvent.click(

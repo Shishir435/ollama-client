@@ -59,11 +59,18 @@ export function PanelHeader() {
     availableModels.length > 0 ? (
       <select
         className="sa-model-inline"
+        aria-label={t("selection_button.panel.model_label")}
         value={panelModel}
         onChange={(e) => {
           const m = availableModels.find((x) => x.model === e.target.value)
           actions.changeModel(e.target.value, m?.providerId)
         }}>
+        {/* An empty value would otherwise display the first model while the request carries none. */}
+        {!panelModel && (
+          <option value="" disabled>
+            {t("selection_button.panel.model_placeholder")}
+          </option>
+        )}
         {panelModel && !availableModels.find((m) => m.model === panelModel) && (
           <option value={panelModel}>{panelModel}</option>
         )}
@@ -88,13 +95,14 @@ export function PanelHeader() {
       <div className="sa-title-row">
         <select
           className="sa-action-select"
+          aria-label={t("selection_button.panel.action_label")}
           value={currentAction}
           onChange={(e) =>
             actions.runAction(e.target.value as SelectionActionId)
           }>
           {enabledActions.map((a) => (
             <option key={a.id} value={a.id}>
-              {t(`selection_button.actions.${a.id}.label`, a.label)}
+              {t(`selection_button.actions.${a.id}.label`)}
             </option>
           ))}
         </select>

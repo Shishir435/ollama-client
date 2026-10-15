@@ -18,6 +18,7 @@ interface StatusCalloutProps {
   icon?: LucideIcon
   actions?: React.ReactNode
   className?: string
+  role?: "alert" | "status"
 }
 
 const variantStyles: Record<StatusCalloutVariant, string> = {
@@ -50,9 +51,11 @@ export const StatusCallout = ({
   description,
   icon: Icon,
   actions,
-  className
+  className,
+  role
 }: StatusCalloutProps) => (
   <Card
+    role={role}
     className={cn(
       "border px-4 py-3 ring-0",
       variantStyles[variant],

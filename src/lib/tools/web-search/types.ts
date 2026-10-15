@@ -60,3 +60,18 @@ export interface WebSearchBackend {
   ): Promise<WebSearchResult[]>
   validateConfig(config: WebSearchProviderConfig): WebSearchConfigValidation
 }
+
+/**
+ * A search failure the settings test can explain. `message` is English for the
+ * model and the logs; `messageKey` is the i18n key the UI shows instead of the
+ * generic "test failed" copy.
+ */
+export class WebSearchError extends Error {
+  readonly messageKey: string
+
+  constructor(message: string, messageKey: string) {
+    super(message)
+    this.name = "WebSearchError"
+    this.messageKey = messageKey
+  }
+}

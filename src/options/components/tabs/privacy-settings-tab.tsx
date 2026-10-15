@@ -10,10 +10,10 @@ export default function PrivacySettingsTab() {
   return (
     <SectionStack>
       <PrivacyDataInventory />
-      <DataMigrationSettings />
       <PermissionsPanel />
-      <ExportPrivacySettings />
       <RestoreSessionsLimitSettings />
+      <DataMigrationSettings />
+      <ExportPrivacySettings />
       <ResetStorage />
     </SectionStack>
   )

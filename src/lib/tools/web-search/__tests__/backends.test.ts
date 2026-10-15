@@ -57,6 +57,42 @@ describe("web search backends", () => {
     ])
   })
 
+  it.each([
+    [
+      "403 for format=json",
+      new Response("Forbidden", {
+        status: 403,
+        headers: { "Content-Type": "text/html" }
+      })
+    ],
+    [
+      "an HTML page",
+      new Response("<!doctype html><title>SearXNG</title>", {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" }
+      })
+    ]
+  ])(
+    "explains disabled SearXNG JSON output on %s",
+    async (_label, response) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response))
+
+      await expect(
+        searxngBackend.search(
+          { query: "local search" },
+          {
+            provider: "searxng",
+            enabled: true,
+            endpoint: "http://localhost:8080"
+          }
+        )
+      ).rejects.toMatchObject({
+        name: "WebSearchError",
+        messageKey: "settings.web_search.errors.searxng_json_disabled"
+      })
+    }
+  )
+
   it("fetches configured SearXNG pages and caps returned results", async () => {
     const fetchMock = vi
       .fn()

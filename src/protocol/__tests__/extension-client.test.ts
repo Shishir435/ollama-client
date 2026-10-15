@@ -139,7 +139,8 @@ describe("extension RPC client", () => {
     ).rejects.toMatchObject({
       status: 503,
       messageKey: "errors.rpc.internal",
-      userMessage: "The background request failed. Please try again.",
+      userMessage:
+        "Something in the extension went wrong. Reload the extension and retry.",
       retryable: true
     })
   })

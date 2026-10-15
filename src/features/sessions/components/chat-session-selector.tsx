@@ -68,43 +68,44 @@ export const ChatSessionSelector = () => {
           <div className="space-y-2 p-2">
             <Button
               onClick={createSession}
-              className="flex h-9 w-full items-center justify-start rounded-control bg-sidebar-primary text-sidebar-primary-foreground transition-colors duration-200 hover:opacity-90"
-              aria-label={t("sessions.selector.create_new_aria")}>
-              {t("sessions.selector.start_new")}
+              className="flex h-9 w-full items-center justify-start rounded-control bg-sidebar-primary text-sidebar-primary-foreground transition-colors duration-200 hover:opacity-90">
+              {t("sessions.selector.create_new")}
             </Button>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 icon-sm -translate-y-1/2 text-sidebar-foreground/50" />
-              <Input
-                type="search"
-                value={sessionQuery}
-                onChange={(event) => setSessionQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return
-                  event.preventDefault()
-                  const query = sessionQuery.trim()
-                  if (!query) return
-                  // Escalate the title filter to full semantic search over
-                  // message content, then close the sidebar so the dialog is clear.
-                  openSearchDialog(query)
-                  handleOpenChange(false)
-                }}
-                placeholder={t("sessions.selector.search_placeholder")}
-                aria-label={t("sessions.selector.search_placeholder")}
-                className="h-9 bg-surface-sunken pl-8 pr-8 [&::-webkit-search-cancel-button]:appearance-none"
-              />
-              {sessionQuery && (
-                <TooltipActionButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  label={t("sessions.selector.clear_search")}
-                  onClick={() => setSessionQuery("")}
-                  className="absolute right-1 top-1/2 size-7 -translate-y-1/2 text-sidebar-foreground/60"
-                  icon={X}
-                  iconClassName="icon-xs"
+            {sessions.length > 0 && (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 icon-sm -translate-y-1/2 text-sidebar-foreground/50" />
+                <Input
+                  type="search"
+                  value={sessionQuery}
+                  onChange={(event) => setSessionQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return
+                    event.preventDefault()
+                    const query = sessionQuery.trim()
+                    if (!query) return
+                    // Escalate the title filter to full semantic search over
+                    // message content, then close the sidebar so the dialog is clear.
+                    openSearchDialog(query)
+                    handleOpenChange(false)
+                  }}
+                  placeholder={t("sessions.selector.search_placeholder")}
+                  aria-label={t("sessions.selector.search_placeholder")}
+                  className="h-9 bg-surface-sunken pl-8 pr-8 [&::-webkit-search-cancel-button]:appearance-none"
                 />
-              )}
-            </div>
+                {sessionQuery && (
+                  <TooltipActionButton
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    label={t("sessions.selector.clear_search")}
+                    onClick={() => setSessionQuery("")}
+                    className="absolute right-1 top-1/2 size-7 -translate-y-1/2 text-sidebar-foreground/60"
+                    icon={X}
+                    iconClassName="icon-xs"
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           <div className="h-full flex-1 px-2">
@@ -114,6 +115,7 @@ export const ChatSessionSelector = () => {
               currentSessionId={currentSessionId}
               onSelect={setCurrentSessionId}
               onDelete={deleteSession}
+              onCreate={createSession}
             />
           </div>
 
