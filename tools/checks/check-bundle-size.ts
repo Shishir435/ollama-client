@@ -49,7 +49,12 @@ const sharedBudgets: Budget[] = [
    * 236,119 -> 236,738 in both browsers. Preserve the prior 131-byte
    * headroom; all other content-script ceilings remain unchanged.
    */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 236_869 },
+  /**
+   * The UX audit fixes — keyboard activation, focus return, copy feedback,
+   * live regions, reduced motion and flip-above placement — measure 237,561
+   * in both browsers.
+   */
+  { metric: "selectionOverlay", field: "gzipBytes", max: 237_561 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
@@ -260,7 +265,8 @@ const budgets: Budget[] = [
     // Security updates add 2,759 Chrome bytes, preserving existing headroom.
     /** The agent readiness line and its nine-locale copy measure Chrome at 48,589,345; read-only readiness and its evidence refresh, 48,590,811. */
     /** Structured terminal refusals add 87 bytes to Chrome's measured total. */
-    max: isFirefox ? 50_300_000 : 48_590_898
+    /** UX audit fixes — classified failure copy, the origins command, rewritten and newly translated nine-locale strings — measure Chrome at 48,658,078. */
+    max: isFirefox ? 50_300_000 : 48_658_078
   },
   {
     metric: "zip",
@@ -580,7 +586,8 @@ const budgets: Budget[] = [
     /** Stop retry and committing-label approvals (nine-locale word lists) measure Chrome at 343,829. */
     /** Turn-terminal browser_task refusals and the readiness RPC measure Chrome at 344,208 and Firefox at 222,652; read-only readiness, 344,345 and 222,662. */
     /** Structured terminal refusals add 30 gzip bytes to Chrome's background. */
-    max: isFirefox ? 222_662 : 344_375
+    /** UX audit fixes — connection-failure classes, provider failure keys for cloud models, memory and runner crashes, the SearXNG and LM Studio cases — measure Chrome at 345,998 and Firefox at 224,229. */
+    max: isFirefox ? 224_229 : 345_998
   }
 ]
 
