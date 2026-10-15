@@ -72,6 +72,8 @@
     },
     "failure": {
       "budget_exhausted": "L'exécution a épuisé son budget d'étapes. Restreignez l'objectif ou reprenez depuis l'état actuel de la page.",
+      "budget_exhausted_time": "L’exécution a atteint sa limite de temps. Précisez l’objectif, ou relancez-le depuis l’état actuel de la page.",
+      "budget_exhausted_tokens": "L’exécution a épuisé son budget de jetons. Précisez l’objectif, ou relancez-le depuis l’état actuel de la page.",
       "command_refused": "Le modèle a continué à désigner des contrôles que la page ne propose pas : masqués, hors écran ou déjà disparus. Faites d'abord défiler jusqu'à ce dont vous avez besoin, ou essayez un modèle qui lit les pages plus attentivement.",
       "goal_failed": "Le modèle indique qu'il ne peut pas le faire. Essayez un objectif plus clair ou un autre modèle.",
       "invalid_decision": "Le modèle a répondu de façon inexploitable à plusieurs reprises. Un modèle plus grand, capable d'appeler des outils, résout généralement cela.",
@@ -117,6 +119,7 @@
       "paused": "En pause",
       "cancelling": "Arrêt",
       "completed": "Terminé",
+      "completed_unverified": "Terminé, pas tout vérifié",
       "partial": "Partiellement effectué",
       "failed": "Échec",
       "cancelled": "Arrêté"
@@ -215,7 +218,24 @@
       "step_count_one": "{{count}} étape",
       "step_count_other": "{{count}} étapes",
       "page_count_one": "{{count}} page",
-      "page_count_other": "{{count}} pages"
+      "page_count_other": "{{count}} pages",
+      "contract": {
+        "title": "Ce que la tâche demandait",
+        "limit": "Limite",
+        "delegated": "(formulation de l’assistant)",
+        "tier": {
+          "verified": "Vérifié",
+          "supported": "Examiné",
+          "claimed": "Non vérifié",
+          "unmet": "Non fait"
+        }
+      },
+      "banner": {
+        "completed_unverified": "Certaines réponses n’ont pas été vérifiées. Considérez-les comme non confirmées.",
+        "partial": "Une partie seulement de la tâche a été faite.",
+        "failed": "La tâche n’a pas été faite.",
+        "cancelled": "L’exécution a été arrêtée avant la fin."
+      }
     },
     "follow_up": {
       "continue_message": "Poursuis la tâche dans le navigateur.",
@@ -356,7 +376,8 @@
     "action_default_title": "Ouvrir Ollama Client",
     "stop_browser_agent_menu": "Arrêter l’agent du navigateur",
     "agent_task_completed": "Terminé",
-    "agent_task_attention": "En pause"
+    "agent_task_attention": "En pause",
+    "agent_task_unchecked": "Terminé, pas tout vérifié"
   },
   "selection_button": {
     "label": "Demander au LLM local",

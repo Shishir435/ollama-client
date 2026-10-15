@@ -4,6 +4,17 @@ import type {
 } from "@ollama-client/contracts"
 import type { AgentCompletionOutcomeClaim } from "./completion"
 
+/**
+ * How a met requirement was established, in the words the handoff and the
+ * user read. Only the runtime's own check says "Verified".
+ */
+const metLabel = (judged: AgentRunOutcome | undefined, id: string): string =>
+  judged?.claimed?.includes(id)
+    ? "Reported, not checked"
+    : judged?.supported?.includes(id)
+      ? "Supported by review"
+      : "Verified"
+
 /** The run record's own ceiling; the summary is cut before anything is added. */
 const MAX_RESULT_CHARS = 20_000
 
@@ -51,7 +62,7 @@ export const agentRunResult = (
                   supported && requirement.kind === "read"
                     ? answer?.evidence
                     : undefined
-                return `${supported ? (seen ? "Seen in screenshot" : "Verified") : "Not verified"} item: ${item}${evidence ? `\n${evidence}` : ""}`
+                return `${supported ? (seen ? "Seen in screenshot" : metLabel(judged, requirement.id)) : "Not verified"} item: ${item}${evidence ? `\n${evidence}` : ""}`
               })
               .join("\n")
           : ""
@@ -59,7 +70,7 @@ export const agentRunResult = (
         verified && requirement.kind === "read" && !requirement.items?.length
           ? [claim?.evidence].filter(Boolean).join("\n")
           : ""
-      return `${verified ? (visual ? "Seen in screenshot" : "Verified") : "Not verified"}: ${requirement.text}${evidence ? `\n${evidence}` : ""}${itemReport ? `\n${itemReport}` : ""}`
+      return `${verified ? (visual ? "Seen in screenshot" : metLabel(judged, requirement.id)) : "Not verified"}: ${requirement.text}${evidence ? `\n${evidence}` : ""}${itemReport ? `\n${itemReport}` : ""}`
     })
     .join("\n")
     .slice(0, MAX_RESULT_CHARS)

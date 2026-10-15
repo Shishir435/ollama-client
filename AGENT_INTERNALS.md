@@ -1081,18 +1081,23 @@ for every other id. Rules, all load-bearing:
 
 - **Only undecidable claims are reviewed.** A deterministic failure returns
   before a scope is built, so a reviewer never sees one and cannot override
-  it. An accepted completion never pays for a review. A broken limit wins
+  it. An accepted completion pays for a review only when it carries claimed
+  reads (see [Outcome tiers](#outcome-tiers)); a verified outcome is never
+  put to one. A broken limit wins
   over a reviewable one whatever order they were planned in. Missing effect
   classes are an evidence gap, not a question of meaning, and carry no scope.
 - **A paraphrased read goes to review only if something could answer it.**
   The ledger has to hold a grounded observed fact bound to that requirement.
   With nothing bound, the read is still `absent_evidence`.
 - **Fresh context, no effects.** The reviewer sees the goal, the scoped
-  requirements and limits, the acting model's claims for those ids, and the
-  grounded ledger records only — no history, page, screenshot or reasoning.
-  It has no browser, approval or plan port. The prompt keeps all
-  page-derived text in one JSON data block, with `<` escaped so a quotation
-  cannot close it.
+  requirements and limits, the acting model's proposed answer for those ids,
+  the grounded ledger records, and the title and a bounded excerpt of the
+  page the run completed on — no history, screenshot, summary, notes or
+  reasoning. The page excerpt is context: only a ledger record can be cited.
+  It lists each outcome's key points before its verdict; they are its
+  working and never read as support. It has no browser, approval or plan
+  port. The prompt keeps all page-derived text in one JSON data block, with
+  `<` escaped so a quotation cannot close it.
 - **The runtime checks every verdict.** `supported` counts only with a cited
   ledger record that is grounded, `current` or `historical`, and bound to
   exactly the id under review. An unbound fact is plausible evidence of
@@ -1150,6 +1155,79 @@ for every other id. Rules, all load-bearing:
   `:review:` step written when the review settled the run. The benchmark
   sums them per attempt. Read them against task predicates, because a
   reviewer can be wrong in both directions.
+
+### Outcome tiers
+
+A met requirement is not one answer but three, and the run records which.
+
+- **`verified`**: a check the runtime ran itself held on fresh evidence — a
+  typed predicate on the current page, a result-verified receipt, an
+  accepted submission bound to it, a read whose quote lies in the row of the
+  record its `row` check names, an itemized read whose quote names its item.
+- **`supported`**: an independent reviewer judged it from grounded facts.
+  The most a model's verdict can reach; nothing a reviewer says mints
+  `verified`.
+- **`claimed`**: the acting model's word. A read whose grounded quote nothing
+  tied to the question — a quote proves where words came from, not that they
+  answer it, and an exact quote from the wrong row is grounded too — a read
+  taken off a screenshot, and a kept change that was never read back.
+
+`AgentRunOutcome.supported` and `.claimed` list the ids; a met id in neither
+is verified, and `visual` still marks the screenshot reads (claimed). A
+completion with any claimed outcome settles as **`completed_unverified`**,
+reached only from `deciding`: amber on the card, "Reported, not checked" in
+the result, and the benchmark scores it as a success claim, so a wrong one
+is still a false completion. Claimed reads go to the completion reviewer
+before settling; each one it supports with a citable record bound to it
+moves to supported, a contradiction refuses the completion, anything else
+leaves it claimed. A claimed save is not offered: no verdict on facts
+already gathered can supply a page that was never loaded.
+
+- **A submission that went is not one the site took.** The verifier records
+  `acceptance` on a confirmed submission: `rejected` when a control the page
+  marks invalid is showing, `accepted` when the page moved on — a new
+  document or the named destination — with no new alert, `dispatched`
+  otherwise. Only an accepted one binds a submission requirement or carries
+  a filled field off the page; a receipt without the field counts as
+  dispatched. A field marked invalid never satisfies its check.
+- **Staleness survives a restart.** Besides the worker's baseline, a quote
+  the ledger recorded in the same document at or before the generation the
+  change was decided on is stale. Ordered by snapshot generation, never by
+  clock: the page and the worker keep different ones.
+- **A kept change is read back.** A requirement marked `persist` — by the
+  planner, or by rule from a saved or deleted `record_state` check — is
+  verified only when its typed check holds on a page loaded after its
+  change: a confirmed `navigate` or `open_tab` afterwards, or an accepted
+  submission that moved on (`back` is not one; a cached page returns what it
+  showed). A navigation alone proves nothing — a field receipt can vouch for
+  a value the reopened record lost — and a kept change with no check cannot
+  be read back by rule, so it stays claimed without the run being asked. Shown only on the page
+  where it was made, the completion is refused once with `readback_required`
+  asking the run to reopen the record through its ordinary commands, so the
+  resolver, policy, ownership and cancellation all apply and nothing is
+  resubmitted; asked already, it settles as claimed. Whether it was asked is
+  read from the refusal's fixed template in the receipts.
+- **Custom controls report their state.** The observation carries
+  `ariaChecked`, `pressed`, `expanded`, `selected`, `activeOption` and
+  `invalid` with `invalidMessage`. `checked` stays native-only, because
+  `check` and `uncheck` drive a native input; the `checked` predicate reads
+  native, then `aria-checked`, `aria-pressed`, `aria-selected`, and
+  `selected` reads `selectedOption`: the one option marked selected in the
+  listbox the control owns (itself, or the one its `aria-controls` /
+  `aria-owns` names), read in the page where ownership is known — never
+  another dropdown's choice in the same frame, never a combobox's typed text. `invalid` comes
+  from `aria-invalid` or `:user-invalid`, so an untouched required field is
+  not read as rejected. These fields are in `pageEvidence`, so flipping a
+  switch is a confirmed change rather than an ambiguous click.
+- **The user reads the grades, not only the chat's account of them.** The
+  card lists the run's contract — each outcome with its tier, each limit —
+  folded under a chat answer and open when the card stands alone, and a
+  settled run that is not plainly `completed` carries a fixed banner drawn
+  from its status alone. The handoff a later turn reads lists the same tiers
+  and the consequential actions that landed or may have (`applied`,
+  `uncertain`), so a follow-up answer can say which outcomes were checked. A
+  budget that ended the run names itself through `messageKey`: steps, time
+  or tokens.
 
 ## Screenshots
 
@@ -1423,6 +1501,24 @@ for every other id. Rules, all load-bearing:
   user's override, and when a remote provider's notice has not been
   acknowledged. The prompt shows the goal as plain text and the notices as
   keys; approving it is the acknowledgement those notices ask for.
+- **The user's own message rides beside the goal.** The durable turn carries
+  what the user typed, before any retrieved context was joined to it, as
+  `userUtterance`; `browser_task` hands it to the run, bounded at
+  `MAX_AGENT_UTTERANCE_CHARS` with its whole length recorded. The planner
+  may quote it, its limits are read by rule like the goal's, and each
+  plan entry records whether it rests on
+  the user's words (`origin: "user"`) or only the chat model's goal
+  (`"delegated"`). It is not authored text for the egress rule: a message
+  can carry a selection the user added from a page, and exempting that from
+  the provenance check is the approvals work's to decide. A value the message names — in quotation marks, or as the
+  object of select, choose, pick, enter, type, tick, toggle, switch or set …
+  to — that no planned outcome, item, check or limit mentions is refused
+  once with the values named; missed again, each becomes a requirement of
+  its own (`origin: "coverage"`). The planner may name a value in
+  `notForBrowser` when the message asks for it in chat rather than in the
+  browser ("explain what 'event loop' means"); only a value it names is set
+  aside, never one it merely left out. A goal over `MAX_GOAL_CHARS` is a tool
+  error, never cut: cutting removed the limit the user put last.
 - **A goal the model wrote after reading a page is not the user's words.**
   The run records `goalAuthor: "model_after_page"`, and `agentAuthoredText`
   leaves that goal out, so the egress rule cannot be laundered through a task
@@ -1897,7 +1993,8 @@ control transitions avoid global occurrence counting across overlapping text
 sources. A renamed control requires a verifier receipt binding its before/after
 names, document, frame and stable identity; a different Reopen button is no proof.
 Current-state reads require current source support. Item summaries consume judged
-item outcomes; screenshot-only support is labeled as seen in a screenshot.
+item outcomes; screenshot-only support is labeled as seen in a screenshot, and
+an outcome's tier decides its label (see [Outcome tiers](#outcome-tiers)).
 
 Decision system policy stays fixed. The schema stays fixed for the run's measured
 model modality; visual availability travels in the user observation and the parser

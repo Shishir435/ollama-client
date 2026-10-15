@@ -79,6 +79,7 @@ export const registerAgentAttentionBadge = (input: {
             : state.unattended &&
                 ![
                   "completed",
+                  "completed_unverified",
                   "partial",
                   "failed",
                   "cancelled",

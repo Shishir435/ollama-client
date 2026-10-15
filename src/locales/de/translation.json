@@ -72,6 +72,8 @@
     },
     "failure": {
       "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
+      "budget_exhausted_time": "Der Lauf hat sein Zeitlimit erreicht. Grenze das Ziel ein oder setze es von der aktuellen Seite aus neu.",
+      "budget_exhausted_tokens": "Der Lauf hat sein gesamtes Token-Budget verbraucht. Grenze das Ziel ein oder setze es von der aktuellen Seite aus neu.",
       "command_refused": "Das Modell nannte wiederholt Bedienelemente, die die Seite nicht anbietet – verborgen, außerhalb des Bildschirms oder bereits verschwunden. Scrollen Sie zuerst zum Gewünschten oder versuchen Sie ein Modell, das Seiten sorgfältiger liest.",
       "goal_failed": "Das Modell meldet, dass es dies nicht kann. Formulieren Sie das Ziel klarer oder wählen Sie ein anderes Modell.",
       "invalid_decision": "Das Modell antwortete wiederholt in einer unbrauchbaren Form. Ein größeres Modell mit Tool-Unterstützung hilft meist.",
@@ -117,6 +119,7 @@
       "paused": "Pausiert",
       "cancelling": "Wird gestoppt",
       "completed": "Abgeschlossen",
+      "completed_unverified": "Erledigt, nicht alles geprüft",
       "partial": "Teilweise erledigt",
       "failed": "Fehlgeschlagen",
       "cancelled": "Gestoppt"
@@ -215,7 +218,24 @@
       "step_count_one": "{{count}} Schritt",
       "step_count_other": "{{count}} Schritte",
       "page_count_one": "{{count}} Seite",
-      "page_count_other": "{{count}} Seiten"
+      "page_count_other": "{{count}} Seiten",
+      "contract": {
+        "title": "Was die Aufgabe verlangt hat",
+        "limit": "Grenze",
+        "delegated": "(Formulierung des Assistenten)",
+        "tier": {
+          "verified": "Geprüft",
+          "supported": "Begutachtet",
+          "claimed": "Nicht geprüft",
+          "unmet": "Nicht erledigt"
+        }
+      },
+      "banner": {
+        "completed_unverified": "Einige Antworten wurden nicht geprüft. Betrachte sie als unbestätigt.",
+        "partial": "Nur ein Teil der Aufgabe wurde erledigt.",
+        "failed": "Die Aufgabe wurde nicht erledigt.",
+        "cancelled": "Der Lauf wurde vor dem Ende gestoppt."
+      }
     },
     "follow_up": {
       "continue_message": "Setze die Browser-Aufgabe fort.",
@@ -356,7 +376,8 @@
     "action_default_title": "Ollama Client öffnen",
     "stop_browser_agent_menu": "Browser-Agent stoppen",
     "agent_task_completed": "Abgeschlossen",
-    "agent_task_attention": "Pausiert"
+    "agent_task_attention": "Pausiert",
+    "agent_task_unchecked": "Erledigt, nicht alles geprüft"
   },
   "selection_button": {
     "label": "Lokalen LLM fragen",

@@ -8,7 +8,10 @@ import type {
   AgentFollowUpMode,
   AgentPreviousRun
 } from "@ollama-client/contracts"
-import { buildAgentConversationHandoff } from "@/lib/repositories/agent-run-handoff"
+import {
+  agentHandoffActions,
+  buildAgentConversationHandoff
+} from "@/lib/repositories/agent-run-handoff"
 import type {
   DurableAgentRun,
   DurableAgentStep
@@ -96,7 +99,8 @@ export const resolveAgentFollowUp = async (
         }
       ],
       parent.state.allowedOrigins
-    )
+    ),
+    agentHandoffActions(steps)
   )
   if (!handoff) return { ok: false, reason: "unreadable" }
   const effects = agentInheritedEffects(

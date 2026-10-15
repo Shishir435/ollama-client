@@ -29,7 +29,7 @@ runAgentScenario({
   name: "svg",
   goal: "Click Continue and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   html: () =>
     `<!doctype html><title>Agent svg</title><main><svg role="img" aria-label="Brand" width="24" height="24"><rect width="24" height="24"></rect></svg><a role="link" href="/help">Help</a>${agentConfirmingButton()}</main>`,
   decide: clickContinue,
@@ -56,7 +56,7 @@ runAgentScenario({
   name: "starved",
   goal: "Click Continue and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   html: () =>
     `<!doctype html><title>Agent starved</title><main>${Array.from(
       { length: 2_100 },

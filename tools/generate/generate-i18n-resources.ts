@@ -31,6 +31,7 @@ type ExtensionMessages = {
   stop_browser_agent_menu: string
   agent_task_completed: string
   agent_task_attention: string
+  agent_task_unchecked: string
 }
 
 type TranslationJson = {
@@ -49,7 +50,8 @@ function assertExtensionMessages(
     "action_default_title",
     "stop_browser_agent_menu",
     "agent_task_completed",
-    "agent_task_attention"
+    "agent_task_attention",
+    "agent_task_unchecked"
   ] satisfies Array<keyof ExtensionMessages>
 
   const missingKeys = requiredKeys.filter((key) => !extension?.[key])
@@ -74,6 +76,10 @@ function toChromeMessages(extension: ExtensionMessages) {
     agentTaskAttention: {
       message: extension.agent_task_attention,
       description: "Browser task needs human attention"
+    },
+    agentTaskUnchecked: {
+      message: extension.agent_task_unchecked,
+      description: "Browser task finished with answers that were not checked"
     },
     extName: {
       message: extension.name,

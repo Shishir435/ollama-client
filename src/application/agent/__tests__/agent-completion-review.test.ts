@@ -200,6 +200,21 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("not proof by itself")
   })
 
+  it("shows the completed-on page as context and asks for key points first", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      page: { title: "Pricing", text: `Pro $29 ${hostile}` }
+    })
+    const data = prompt.slice(
+      prompt.indexOf("<data>\n") + 7,
+      prompt.lastIndexOf("\n</data>")
+    )
+    expect(JSON.parse(data).page.title).toBe("Pricing")
+    expect(data).not.toContain("</data>")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("keyPoints")
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toContain("cannot be cited")
+  })
+
   it("keeps a hostile quotation inside the data block", () => {
     const prompt = agentReviewPrompt(request)
     expect(prompt.match(/<\/data>/g)).toHaveLength(1)
@@ -232,6 +247,34 @@ describe("parseAgentCompletionReview", () => {
         }
       ])
     ).toEqual({
+      verdicts: [{ id: "r1", verdict: "supported", sources: ["fact-1"] }]
+    })
+  })
+
+  it("keeps the reviewer's key points and drops a malformed list rather than the review", () => {
+    const parse = (keyPoints: unknown) =>
+      parseAgentCompletionReview([
+        {
+          id: "c",
+          name: AGENT_REVIEW_TOOL_NAME,
+          arguments: {
+            verdicts: [
+              { id: "r1", verdict: "supported", sources: ["fact-1"], keyPoints }
+            ]
+          }
+        }
+      ])
+    expect(parse(["the price is the Pro plan's", " $29 "])).toEqual({
+      verdicts: [
+        {
+          id: "r1",
+          verdict: "supported",
+          sources: ["fact-1"],
+          keyPoints: ["the price is the Pro plan's", "$29"]
+        }
+      ]
+    })
+    expect(parse("not a list")).toEqual({
       verdicts: [{ id: "r1", verdict: "supported", sources: ["fact-1"] }]
     })
   })

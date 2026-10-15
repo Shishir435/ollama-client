@@ -859,6 +859,7 @@ try {
           final &&
           [
             "completed",
+            "completed_unverified",
             "partial",
             "failed",
             "cancelled",
@@ -925,6 +926,7 @@ try {
       const answer = chatAnswer || final?.run?.result || ""
       const completed =
         final?.run?.status === "completed" ||
+        final?.run?.status === "completed_unverified" ||
         (!delegated && chatAnswered(wire) && Boolean(chatAnswer))
       const status = wire.some((record) => record.budgetBlocked)
         ? "harness_budget_exhausted"
@@ -1001,7 +1003,10 @@ try {
             readText: chatToolText(wire),
             observedText: agentObservedText(wire, origin),
             renderedCanvasScreenshot,
-            delegated: delegated && final.run.status === "completed"
+            delegated:
+              delegated &&
+              (final.run.status === "completed" ||
+                final.run.status === "completed_unverified")
           })
       const success = scored.success
       const predicate = scored.predicate

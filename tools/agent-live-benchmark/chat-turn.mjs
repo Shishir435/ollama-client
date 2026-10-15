@@ -136,6 +136,7 @@ export const sendChatTask = async (
 /** Run statuses after which nothing more will happen without the user. */
 export const SETTLED_RUN_STATUSES = [
   "completed",
+  "completed_unverified",
   "partial",
   "failed",
   "cancelled"

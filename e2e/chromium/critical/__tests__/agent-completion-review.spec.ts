@@ -49,7 +49,13 @@ runAgentScenario({
   ],
   verify: async ({ snapshot, phases, reviews, effects }) => {
     expect(snapshot?.run?.status).toBe("completed")
-    expect(snapshot?.run?.outcome).toEqual({ met: ["r1"], unmet: [] })
+    /** A reviewer's verdict is supported, never verified. */
+    expect(snapshot?.run?.outcome).toEqual({
+      met: ["r1"],
+      unmet: [],
+      supported: ["r1"],
+      graded: true
+    })
     expect(reviews()).toBe(1)
     expect(effects()).toBe(0)
     expect(phases).toContainEqual(

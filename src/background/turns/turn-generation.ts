@@ -249,6 +249,16 @@ export const makeGenerationOwner = (): TurnGenerationOwner => ({
               agentFollowUpRunId: submission.request.context.agentFollowUpRunId
             }
           : {}),
+        ...(submission.request.userMessage.content.trim()
+          ? {
+              userUtterance: {
+                text: submission.request.userMessage.content,
+                ...(typeof userMessageId === "number"
+                  ? { messageId: userMessageId }
+                  : {})
+              }
+            }
+          : {}),
         pageContentInContext: carriesReadContent(
           submission.request.context,
           context.result

@@ -275,6 +275,91 @@ describe("Agent observation builder", () => {
     })
   })
 
+  it("reads a custom control's state from its ARIA attributes", () => {
+    document.body.innerHTML = `
+      <div role="switch" aria-checked="true">Notifications</div>
+      <button aria-pressed="false">Bold</button>
+      <button aria-expanded="true">Filters</button>
+      <div role="tab" aria-selected="true">Billing</div>
+      <div role="checkbox" aria-checked="mixed">All rows</div>
+      <input role="combobox" aria-label="Colour" aria-activedescendant="opt-blue">
+      <div role="listbox"><div role="option" id="opt-blue" aria-selected="true">Blue</div></div>
+      <input type="checkbox" role="switch" aria-checked="true" aria-label="Native">
+    `
+    const byName = (name: string) =>
+      build().elements.find((element) => element.name === name)
+
+    expect(byName("Notifications")).toMatchObject({ ariaChecked: true })
+    expect(byName("Bold")).toMatchObject({ pressed: false })
+    expect(byName("Filters")).toMatchObject({ expanded: true })
+    expect(byName("Billing")).toMatchObject({ selected: true })
+    expect(byName("All rows")).toMatchObject({ ariaChecked: "mixed" })
+    expect(byName("Colour")).toMatchObject({ activeOption: "Blue" })
+    expect(
+      build().elements.find((element) => element.role === "option")
+    ).toMatchObject({ name: "Blue", selected: true })
+    /** A native input's own state wins; the attribute is not read twice. */
+    expect(byName("Native")).toMatchObject({ checked: false })
+    expect(byName("Native")?.ariaChecked).toBeUndefined()
+  })
+
+  it("reads each dropdown's choice from the listbox it owns", () => {
+    document.body.innerHTML = `
+      <div role="combobox" aria-label="Colour" aria-controls="colours"></div>
+      <div role="listbox" id="colours">
+        <div role="option" aria-selected="false">Red</div>
+        <div role="option" aria-selected="true">Blue</div>
+      </div>
+      <div role="combobox" aria-label="Size" aria-controls="sizes"></div>
+      <div role="listbox" id="sizes">
+        <div role="option" aria-selected="false">Large</div>
+      </div>
+    `
+    const elements = build().elements
+    expect(
+      elements.find((element) => element.name === "Colour")?.selectedOption
+    ).toBe("Blue")
+    /** Nothing chosen in its own list; Blue belongs to Colour, not to Size. */
+    expect(
+      elements.find((element) => element.name === "Size")?.selectedOption
+    ).toBeUndefined()
+  })
+
+  it("marks a control the page rejected, with its reason and never its value", () => {
+    document.body.innerHTML = `
+      <label for="email">Email</label>
+      <input id="email" value="ada@" aria-invalid="true" aria-errormessage="email-error">
+      <p id="email-error">Enter a complete address.</p>
+      <label for="name">Name</label><input id="name" required>
+      <label for="city">City</label><input id="city" aria-invalid="false">
+      <label for="notes">Notes</label><input id="notes" aria-invalid="spelling">
+      <label for="pin">PIN</label>
+      <input id="pin" type="password" aria-invalid="true" aria-errormessage="pin-error">
+      <p id="pin-error">You are currently using 3 characters.</p>
+    `
+    const elements = build().elements
+    const email = elements.find((element) => element.name === "Email")
+    expect(email).toMatchObject({
+      invalid: true,
+      invalidMessage: "Enter a complete address."
+    })
+    /** Untouched and required is not rejected. */
+    expect(
+      elements.find((element) => element.name === "Name")?.invalid
+    ).toBeUndefined()
+    expect(
+      elements.find((element) => element.name === "City")?.invalid
+    ).toBeUndefined()
+    /** A spell-check underline is not a rejected value. */
+    expect(
+      elements.find((element) => element.name === "Notes")?.invalid
+    ).toBeUndefined()
+    /** A sensitive control says it was rejected, never why: the why can measure it. */
+    const pin = elements.find((element) => element.name === "PIN")
+    expect(pin).toMatchObject({ invalid: true })
+    expect(pin?.invalidMessage).toBeUndefined()
+  })
+
   it("previews the query a search form would send", () => {
     const form = document.createElement("form")
     form.action = "/search"

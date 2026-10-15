@@ -1,6 +1,7 @@
 import type {
   AgentCompletionReview,
   AgentEvidenceRecord,
+  AgentObservation,
   AgentRunState,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
@@ -87,7 +88,8 @@ export const agentCompletionReviewRequest = (
    * a scope limit instead of the windows, which keep only verified actions
    * bound to an outcome.
    */
-  appliedActions?: readonly AgentReviewedAction[]
+  appliedActions?: readonly AgentReviewedAction[],
+  observation?: Pick<AgentObservation, "title" | "visibleText">
 ): AgentCompletionReviewRequest => {
   const requirements = (state.requirements ?? []).filter((requirement) =>
     scope.requirementIds.includes(requirement.id)
@@ -150,7 +152,112 @@ export const agentCompletionReviewRequest = (
     claims: (outcomes ?? []).filter((claim) =>
       scope.requirementIds.includes(claim.id)
     ),
-    evidenceLedger: grounded
+    evidenceLedger: grounded,
+    ...(observation
+      ? {
+          page: {
+            title: observation.title.slice(0, MAX_REVIEW_PAGE_TITLE_CHARS),
+            text: observation.visibleText.slice(0, MAX_REVIEW_PAGE_TEXT_CHARS)
+          }
+        }
+      : {})
+  }
+}
+
+/** How much of the completed-on page a reviewer is shown, as context only. */
+const MAX_REVIEW_PAGE_TITLE_CHARS = 200
+const MAX_REVIEW_PAGE_TEXT_CHARS = 4_000
+
+type Settled = Exclude<AgentCompletionJudgement, { type: "refused" }>
+
+/**
+ * The scope for a completion the judge accepted with claimed outcomes: the
+ * reads whose quote nothing tied to the question. A reviewer is the only
+ * thing that can carry one further, and only to `supported`. Screenshot
+ * reads are not offered: a picture's words are the model's own, and no
+ * ledger record could support them.
+ */
+export const agentClaimedReviewScope = (
+  judgement: AgentCompletionJudgement,
+  requirements: readonly AgentTaskRequirement[] | undefined
+): NeedsReview | undefined => {
+  /**
+   * An accepted completion only. A partial one goes on to be challenged as
+   * early or settles partial whatever a review says, and a review spent on it
+   * is one a later undecided claim cannot have.
+   */
+  if (judgement.type !== "accepted") return undefined
+  /**
+   * Reads only. A save is claimed because nothing read it back, and no
+   * verdict on the facts already gathered can supply a page never loaded.
+   */
+  const reads = (judgement.outcome?.claimed ?? []).filter(
+    (id) =>
+      requirements?.find((requirement) => requirement.id === id)?.kind ===
+      "read"
+  )
+  if (!reads.length || !judgement.outcome) return undefined
+  return {
+    type: "refused",
+    reason: "needs_review",
+    feedback: "",
+    review: {
+      requirementIds: reads,
+      constraintIds: [],
+      outcome: judgement.outcome
+    }
+  }
+}
+
+/**
+ * A review of claimed outcomes. They are already met; what a review decides
+ * is how far they are believed. A supported verdict the runtime can check
+ * moves an id from claimed to supported. A contradicted one stops the
+ * completion, exactly as it would a needs-review claim. Anything else leaves
+ * it claimed: no review is not a demotion, and not a pass either.
+ */
+export const applyAgentClaimedReview = (
+  judgement: Settled,
+  pending: NeedsReview,
+  request: AgentCompletionReviewRequest,
+  review: AgentCompletionReview
+): AgentCompletionReviewResult => {
+  const whole = applyAgentCompletionReview(pending, request, review)
+  if (
+    whole.judgement.type === "refused" &&
+    whole.judgement.reason === "contradicted_state"
+  )
+    return whole
+  /**
+   * Each id on its own, through the same checks a needs-review claim gets:
+   * one unsupported read must not hold back another the reviewer did support.
+   */
+  const carried = pending.review.requirementIds.filter(
+    (id) =>
+      applyAgentCompletionReview(
+        { ...pending, review: { ...pending.review, requirementIds: [id] } },
+        request,
+        review
+      ).judgement.type !== "refused"
+  )
+  const outcome = judgement.outcome ?? { met: [], unmet: [] }
+  const supported = [...new Set([...(outcome.supported ?? []), ...carried])]
+  const claimed = (outcome.claimed ?? []).filter((id) => !carried.includes(id))
+  const { met, unmet, items, visual, graded } = outcome
+  return {
+    disagreements: pending.review.requirementIds.length - carried.length,
+    judgement: {
+      ...judgement,
+      outcome: {
+        met,
+        unmet,
+        ...(items ? { items } : {}),
+        ...(visual ? { visual } : {}),
+        ...(supported.length ? { supported } : {}),
+        ...(claimed.length ? { claimed } : {}),
+        ...(graded ? { graded } : {})
+      }
+    }
   }
 }
 
@@ -317,9 +424,18 @@ export const applyAgentCompletionReview = (
         feedback: `Independent review found no grounded support for ${idList(insufficient)}. Quote the current page text that shows it, or report it unmet. Preserve completed effects; do not repeat an action to produce evidence.`
       }
     }
+  /**
+   * What the reviewer carried is supported, never verified: the reviewer is
+   * a model, and a model's verdict is the second tier at most.
+   */
+  const supported = [
+    ...(scope.outcome.supported ?? []),
+    ...scope.requirementIds
+  ]
   const outcome = {
     ...scope.outcome,
-    met: [...scope.outcome.met, ...scope.requirementIds]
+    met: [...scope.outcome.met, ...scope.requirementIds],
+    ...(supported.length ? { supported } : {})
   }
   return {
     disagreements: 0,

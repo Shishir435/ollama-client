@@ -72,6 +72,8 @@
     },
     "failure": {
       "budget_exhausted": "L'esecuzione ha esaurito il budget di passi. Restringi l'obiettivo o riparti dallo stato attuale della pagina.",
+      "budget_exhausted_time": "L’esecuzione ha raggiunto il limite di tempo. Restringi l’obiettivo o reimpostalo dal punto in cui si trova ora la pagina.",
+      "budget_exhausted_tokens": "L’esecuzione ha esaurito il budget di token. Restringi l’obiettivo o reimpostalo dal punto in cui si trova ora la pagina.",
       "command_refused": "Il modello ha continuato a indicare controlli che la pagina non offre: nascosti, fuori schermo o già scomparsi. Scorri prima fino a ciò che ti serve, oppure prova un modello che legga le pagine con più attenzione.",
       "goal_failed": "Il modello ha dichiarato di non poterlo fare. Prova un obiettivo più chiaro o un altro modello.",
       "invalid_decision": "Il modello ha risposto ripetutamente in una forma inutilizzabile. Di solito basta un modello più grande con chiamata di strumenti.",
@@ -117,6 +119,7 @@
       "paused": "In pausa",
       "cancelling": "Interruzione",
       "completed": "Completato",
+      "completed_unverified": "Fatto, non tutto verificato",
       "partial": "Parzialmente completato",
       "failed": "Non riuscito",
       "cancelled": "Interrotto"
@@ -215,7 +218,24 @@
       "step_count_one": "{{count}} passaggio",
       "step_count_other": "{{count}} passaggi",
       "page_count_one": "{{count}} pagina",
-      "page_count_other": "{{count}} pagine"
+      "page_count_other": "{{count}} pagine",
+      "contract": {
+        "title": "Cosa chiedeva l’attività",
+        "limit": "Limite",
+        "delegated": "(parole dell’assistente)",
+        "tier": {
+          "verified": "Verificato",
+          "supported": "Rivisto",
+          "claimed": "Non verificato",
+          "unmet": "Non fatto"
+        }
+      },
+      "banner": {
+        "completed_unverified": "Alcune risposte non sono state verificate. Considerale non confermate.",
+        "partial": "È stata svolta solo una parte dell’attività.",
+        "failed": "L’attività non è stata svolta.",
+        "cancelled": "L’esecuzione è stata interrotta prima della fine."
+      }
     },
     "follow_up": {
       "continue_message": "Continua l’attività nel browser.",
@@ -356,7 +376,8 @@
     "action_default_title": "Apri Ollama Client",
     "stop_browser_agent_menu": "Arresta l’agente del browser",
     "agent_task_completed": "Completato",
-    "agent_task_attention": "In pausa"
+    "agent_task_attention": "In pausa",
+    "agent_task_unchecked": "Fatto, non tutto verificato"
   },
   "selection_button": {
     "label": "Chiedi al LLM locale",

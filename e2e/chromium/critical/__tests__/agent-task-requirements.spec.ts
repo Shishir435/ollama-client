@@ -98,7 +98,8 @@ runAgentScenario({
     expect(snapshot?.run?.status).toBe("partial")
     expect(snapshot?.run?.outcome).toEqual({
       met: ["r1", "r3"],
-      unmet: ["r2"]
+      unmet: ["r2"],
+      graded: true
     })
     /** The dishonest claim was refused before the honest one was accepted. */
     expect(
@@ -149,7 +150,11 @@ runAgentScenario({
   },
   verify: async ({ snapshot, wire }) => {
     expect(snapshot?.run?.status).toBe("completed")
-    expect(snapshot?.run?.outcome).toEqual({ met: ["r1", "r2"], unmet: [] })
+    expect(snapshot?.run?.outcome).toEqual({
+      met: ["r1", "r2"],
+      unmet: [],
+      graded: true
+    })
     /**
      * Three decisions and one plan. A planned run that goes right must not
      * cost the loop an extra lap, so this is pinned rather than described.
@@ -185,7 +190,11 @@ runAgentScenario({
   }),
   verify: async ({ snapshot }) => {
     expect(snapshot?.run?.status).toBe("failed")
-    expect(snapshot?.run?.outcome).toEqual({ met: [], unmet: ["r1", "r2"] })
+    expect(snapshot?.run?.outcome).toEqual({
+      met: [],
+      unmet: ["r1", "r2"],
+      graded: true
+    })
     expect(snapshot?.run?.error?.code).toBe("goal_failed")
   }
 })

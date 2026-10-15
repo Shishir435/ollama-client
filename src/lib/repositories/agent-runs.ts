@@ -46,7 +46,10 @@ import {
   type SqlExecutor,
   withTransaction
 } from "@/lib/sqlite/db"
-import { buildAgentConversationHandoff } from "./agent-run-handoff"
+import {
+  agentHandoffActions,
+  buildAgentConversationHandoff
+} from "./agent-run-handoff"
 import { decodeRow, decodeRows, type RowDecodeContext } from "./row-decoder"
 
 export const MAX_AGENT_CHECKPOINT_BYTES = 64 * 1024
@@ -132,7 +135,8 @@ const AgentVerificationSchema = z
               .strict()
           )
           .max(MAX_AGENT_SUBMITTED_VALUES)
-          .optional()
+          .optional(),
+        acceptance: z.enum(["dispatched", "accepted", "rejected"]).optional()
       })
       .strict()
   })
@@ -572,6 +576,7 @@ const applyPatch = (
       "observing",
       "executing",
       "completed",
+      "completed_unverified",
       "failed",
       "cancelled",
       "partial"
@@ -716,6 +721,29 @@ const listRunFindings = async (
   return [...latest.values()]
 }
 
+/** The run's consequential actions for its handoff; unreadable rows add none. */
+const listRunActions = async (
+  tx: Pick<SqlExecutor, "query">,
+  runId: string
+) => {
+  const rows = await tx.query(
+    "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id ASC",
+    [runId]
+  )
+  return agentHandoffActions(
+    rows.flatMap((row) => {
+      try {
+        const parsed = AgentStepReceiptSchema.safeParse(
+          JSON.parse(String(row.receipt))
+        )
+        return parsed.success ? [parsed.data] : []
+      } catch {
+        return []
+      }
+    })
+  )
+}
+
 const listRunEvidence = async (
   tx: Pick<SqlExecutor, "query">,
   state: AgentRunState
@@ -780,7 +808,8 @@ const settleLinkedMessage = async (
   const handoff = buildAgentConversationHandoff(
     state,
     await listRunFindings(tx, state.id),
-    await listRunEvidence(tx, state)
+    await listRunEvidence(tx, state),
+    await listRunActions(tx, state.id)
   )
   /**
    * A run a chat model delegated reports into a row its turn is still
@@ -970,7 +999,7 @@ export const getLatestAgentRun = async (): Promise<DurableAgentRun | null> => {
 export const listIncompleteAgentRuns = async (): Promise<DurableAgentRun[]> => {
   const rows = await query(
     `SELECT ${selectRunColumns} FROM agent_runs
-      WHERE status NOT IN ('completed', 'failed', 'cancelled')
+      WHERE status NOT IN ('completed', 'completed_unverified', 'failed', 'cancelled')
       ORDER BY createdAt ASC`
   )
   const result: DurableAgentRun[] = []
@@ -1065,7 +1094,7 @@ const quarantineAgentRun = async (id: string): Promise<void> => {
   await withTransaction(async (tx) => {
     const result = await tx.runWithMeta(
       `UPDATE agent_runs SET status = 'failed', checkpoint = ?, updatedAt = ?
-        WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')`,
+        WHERE id = ? AND status NOT IN ('completed', 'completed_unverified', 'failed', 'cancelled')`,
       [compactedCheckpoint(now), now, id]
     )
     if (result.changes === 0) return
@@ -1099,7 +1128,7 @@ export const pruneTerminalAgentRuns = async (
   signal?.throwIfAborted()
   const result = await runWithMeta(
     `DELETE FROM agent_runs
-      WHERE status IN ('completed', 'failed', 'cancelled')
+      WHERE status IN ('completed', 'completed_unverified', 'failed', 'cancelled')
         AND updatedAt < ?
         AND NOT EXISTS (
           SELECT 1 FROM agent_steps
@@ -1366,7 +1395,8 @@ const writeMissingHandoffs = async (
     const handoff = buildAgentConversationHandoff(
       run.state,
       await listRunFindings(tx, run.id),
-      await listRunEvidence(tx, run.state)
+      await listRunEvidence(tx, run.state),
+      await listRunActions(tx, run.id)
     )
     if (!handoff) continue
     await tx.run(

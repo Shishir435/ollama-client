@@ -487,6 +487,56 @@ describe("judgeAgentCompletion", () => {
     ).toEqual({ type: "accepted" })
   })
 
+  it("refuses evidence the ledger saw in this document before the change, after a restart", () => {
+    /**
+     * The baseline lives in the worker that made the change and a restart
+     * loses it. The ledger keeps what was read, with the observation it came
+     * from: "Saved" read at generation 1 was there before a change decided
+     * on generation 2, and cannot be that change's result.
+     */
+    const fact = (generation: number) => ({
+      id: `fact-${generation}`,
+      kind: "observed_fact" as const,
+      validity: "historical" as const,
+      observedAt: 1,
+      quote: "All changes saved",
+      source: {
+        tabId: 7,
+        frameId: 0,
+        documentId: "document-1",
+        snapshotId: `snapshot-${generation}`,
+        generation,
+        origin: "https://example.com"
+      }
+    })
+    const judge = (generation: number) =>
+      judgeAgentCompletion({
+        steps: [
+          unresolved({
+            sequence: 1,
+            command: {
+              type: "click",
+              ref: "e1",
+              snapshotId: "snapshot-2",
+              generation: 2
+            }
+          })
+        ],
+        observation: observation({
+          generation: 3,
+          visibleText: "All changes saved"
+        }),
+        evidence: "All changes saved",
+        evidenceLedger: [fact(generation)]
+      })
+    expect(judge(1)).toMatchObject({
+      type: "refused",
+      reason: "stale_evidence"
+    })
+    /** Read only after the change was decided: it may be the change's. */
+    expect(judge(3)).toEqual({ type: "accepted" })
+  })
+
   it("judges the last change, not an earlier one that was superseded", () => {
     const decision = judgeAgentCompletion({
       steps: [
@@ -658,7 +708,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1", "r2", "r3"], unmet: [] }
+      outcome: { met: ["r1", "r2", "r3"], unmet: [], graded: true }
     })
   })
 
@@ -844,7 +894,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
           { id: "r2", met: false }
         ]
       })
-    ).toEqual({ type: "partial", outcome: { met: ["r1"], unmet: ["r2"] } })
+    ).toEqual({
+      type: "partial",
+      outcome: { met: ["r1"], unmet: ["r2"], graded: true }
+    })
   })
 
   /**
@@ -913,7 +966,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
           { id: "r2", met: false }
         ]
       })
-    ).toEqual({ type: "unmet", outcome: { met: [], unmet: ["r1", "r2"] } })
+    ).toEqual({
+      type: "unmet",
+      outcome: { met: [], unmet: ["r1", "r2"], graded: true }
+    })
   })
 
   /**
@@ -951,7 +1007,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true, claimed: ["r1"] }
+    })
   })
 
   /**
@@ -1011,7 +1070,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
       })
     expect(judge("read", "KV-305")).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+      outcome: { met: ["r1"], unmet: [], graded: true, visual: ["r1"] }
     })
     /** Only what it read, exactly; and only off the current picture. */
     expect(judge("read", "KV-306").type).toBe("refused")
@@ -1020,13 +1079,20 @@ describe("judgeAgentCompletion with planned requirements", () => {
     )
     /** A picture never proves a change. */
     expect(judge("change", "KV-305").type).toBe("refused")
-    /** Text grounding wins: that answer is verified, not merely seen. */
+    /**
+     * Text grounding wins over the picture: the answer is page text, not a
+     * reading of a screenshot. It is still the model's claim that the text
+     * answers the question, because nothing tied it to a record.
+     */
     expect(
       judge("read", "KV-305", [
         visual("KV-305"),
         { ...observedFact("KV-305"), requirementId: "r1" }
       ])
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], claimed: ["r1"], graded: true }
+    })
   })
 
   /**
@@ -1215,7 +1281,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         requirements: checkboxRequirement,
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("accepts a planned checkbox quoting its own label", () => {
@@ -1226,7 +1295,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         requirements: checkboxRequirement,
         outcomes: [{ id: "r1", met: true, evidence: "Agree" }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("does not accept a whole plan on one verification", () => {
@@ -1362,7 +1434,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("does not let a bound receipt satisfy another requirement", () => {
@@ -1794,7 +1869,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 2
+          observedAt: 2,
+          acceptance: "accepted"
         }
       }
     })
@@ -1862,7 +1938,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 1
+          observedAt: 1,
+          acceptance: "accepted"
         }
       }
     })
@@ -1878,6 +1955,37 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused" })
   })
 
+  it("lets only a form the site accepted meet a submission requirement", () => {
+    const sent = (acceptance?: "dispatched" | "accepted" | "rejected") =>
+      step({
+        sequence: 1,
+        requirementId: "r1",
+        target: { name: "Continue" },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "submission",
+            summary: "Form submission produced an observable page change",
+            observedAt: 1,
+            ...(acceptance ? { acceptance } : {})
+          }
+        }
+      })
+    const judge = (receipt: ReturnType<typeof sent>) =>
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({ visibleText: "Details" }),
+        requirements: [{ id: "r1", text: "Click Continue", kind: "change" }],
+        outcomes: [{ id: "r1", met: true }]
+      }).type
+    expect(judge(sent("accepted"))).toBe("accepted")
+    /** The validation-rejection trap: it went, and the site said no. */
+    expect(judge(sent("rejected"))).toBe("refused")
+    expect(judge(sent("dispatched"))).toBe("refused")
+    /** A receipt from before the distinction proves only that it went. */
+    expect(judge(sent())).toBe("refused")
+  })
+
   it("lets a sent form meet only a requirement naming what its receipt holds", () => {
     const sent = (values?: { name?: string; value: string }[]) =>
       step({
@@ -1891,6 +1999,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
             kind: "submission",
             summary: "Form committed its resolved destination",
             observedAt: 2,
+            acceptance: "accepted",
             ...(values ? { values } : {})
           }
         }
@@ -2094,7 +2203,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 1
+          observedAt: 1,
+          acceptance: "accepted"
         }
       }
     })
@@ -2292,7 +2402,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], graded: true }
+    })
   })
 
   it("does not bind typed value to a substring", () => {
@@ -2676,7 +2789,12 @@ describe("itemized requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0, 1] }] }
+      outcome: {
+        met: ["r1"],
+        unmet: [],
+        graded: true,
+        items: [{ id: "r1", met: [0, 1] }]
+      }
     })
   })
 
@@ -2788,7 +2906,12 @@ describe("itemized requirements", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], items: [{ id: "r1", met: [0] }] }
+      outcome: {
+        met: ["r1"],
+        unmet: [],
+        graded: true,
+        items: [{ id: "r1", met: [0] }]
+      }
     })
   })
 
@@ -2969,7 +3092,7 @@ describe("release review evidence regressions", () => {
     })
     expect(result).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+      outcome: { met: ["r1"], unmet: [], graded: true, visual: ["r1"] }
     })
   })
 })

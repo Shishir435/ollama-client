@@ -70,8 +70,10 @@ const dropdownPage = `<!doctype html><title>Agent dropdown</title><main>
 runAgentScenario({
   name: "native dropdown",
   goal: "Choose the South region and report the status.",
-  plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  plan: [
+    { text: "report the status after choosing the South region", kind: "read" }
+  ],
+  status: "completed_unverified",
   approvalScope: "run_origin",
   html: () => dropdownPage,
   decide(observation: AgentFixtureObservation) {
@@ -138,8 +140,13 @@ const controlledPage = `<!doctype html><title>Agent controlled input</title><mai
 runAgentScenario({
   name: "native typing",
   goal: "Enter Alice as the name and report how many keys the page counted.",
-  plan: [{ text: "report how many keys the page counted", kind: "read" }],
-  status: "completed",
+  plan: [
+    {
+      text: "report how many keys the page counted for Alice",
+      kind: "read"
+    }
+  ],
+  status: "completed_unverified",
   approvalScope: "run_origin",
   html: () => controlledPage,
   decide(observation: AgentFixtureObservation) {
@@ -199,8 +206,10 @@ const listboxPage = `<!doctype html><title>Agent listbox</title><main>
 runAgentScenario({
   name: "native keyboard navigation",
   goal: "Select the Large size with the keyboard and report the status.",
-  plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  plan: [
+    { text: "report the status after selecting the Large size", kind: "read" }
+  ],
+  status: "completed_unverified",
   approvalScope: "run_origin",
   html: () => listboxPage,
   decide(observation: AgentFixtureObservation) {

@@ -1574,13 +1574,160 @@ const observedFormFields = (
   }
 }
 
+/** An ARIA tristate as the page states it; anything else says nothing. */
+const ariaTristate = (
+  element: Element,
+  attribute: string
+): boolean | "mixed" | undefined => {
+  const value = element.getAttribute(attribute)?.trim().toLowerCase()
+  if (value === "true") return true
+  if (value === "false") return false
+  return value === "mixed" ? "mixed" : undefined
+}
+
+const ariaBoolean = (
+  element: Element,
+  attribute: string
+): boolean | undefined => {
+  const value = ariaTristate(element, attribute)
+  return value === "mixed" ? undefined : value
+}
+
+/** Roles whose `aria-checked` is their on/off state. */
+const ARIA_CHECKED_ROLES = new Set([
+  "checkbox",
+  "switch",
+  "radio",
+  "menuitemcheckbox",
+  "menuitemradio"
+])
+
+const idScope = (element: Element): Document | ShadowRoot => {
+  const scope = element.getRootNode() as Partial<Document | ShadowRoot>
+  return typeof scope.getElementById === "function"
+    ? (scope as Document | ShadowRoot)
+    : element.ownerDocument
+}
+
+const referencedText = (
+  element: Element,
+  attribute: string
+): string | undefined => {
+  const id = element.getAttribute(attribute)?.trim().split(/\s+/)[0]
+  if (!id) return undefined
+  const text = normalizedText(
+    idScope(element).getElementById(id)?.textContent ?? ""
+  )
+  return text ? truncate(text, 200) : undefined
+}
+
+/**
+ * `:user-invalid` is the browser's own answer to "would this be shown as an
+ * error now": a constraint failed and the user — or a submit attempt —
+ * already touched the form. A browser without the selector throws, and then
+ * only the page's `aria-invalid` speaks.
+ */
+const userInvalid = (element: Element): boolean => {
+  try {
+    return element.matches(":user-invalid")
+  } catch {
+    return false
+  }
+}
+
+const invalidState = (
+  element: Element,
+  /** Whether the reason may be read: shown, and not a sensitive control. */
+  readable: boolean
+): Pick<AgentElement, "invalid" | "invalidMessage"> => {
+  /**
+   * Only "true". "spelling" and "grammar" are an editor's underline, not a
+   * rejected value, and reading them as one failed every field check in a
+   * document with a typo in it.
+   */
+  const invalid =
+    element.getAttribute("aria-invalid")?.trim().toLowerCase() === "true" ||
+    userInvalid(element)
+  if (!invalid) return {}
+  /**
+   * A browser's own message can echo the value ("'ada' is missing an '@'")
+   * or measure it ("you are currently using 5 characters"), so a reason is
+   * read only where the value itself could be.
+   */
+  if (!readable) return { invalid: true }
+  const native = normalizedText(
+    (element as Partial<HTMLInputElement>).validationMessage ?? ""
+  )
+  const message =
+    referencedText(element, "aria-errormessage") ||
+    (native ? truncate(native, 200) : undefined)
+  return { invalid: true, ...(message ? { invalidMessage: message } : {}) }
+}
+
+/** The listbox a combobox or listbox owns: itself, or the one it names. */
+const ownedListbox = (element: Element, role: string): Element | undefined => {
+  if (role === "listbox") return element
+  if (role !== "combobox") return undefined
+  for (const attribute of ["aria-controls", "aria-owns"]) {
+    for (const id of element.getAttribute(attribute)?.trim().split(/\s+/) ??
+      []) {
+      const owned = id ? idScope(element).getElementById(id) : null
+      if (owned?.getAttribute("role")?.trim().toLowerCase() === "listbox")
+        return owned
+    }
+  }
+  return undefined
+}
+
+const ownedSelection = (element: Element, role: string): string | undefined => {
+  const listbox = ownedListbox(element, role)
+  if (!listbox) return undefined
+  const selected = [...listbox.querySelectorAll("[role='option']")].filter(
+    (option) =>
+      option.getAttribute("aria-selected")?.trim().toLowerCase() === "true"
+  )
+  if (selected.length !== 1) return undefined
+  const text = normalizedText(selected[0].textContent ?? "")
+  return text ? truncate(text, 200) : undefined
+}
+
+const ariaStateFields = (
+  element: Element,
+  readable: boolean
+): Partial<AgentElement> => {
+  const role = element.getAttribute("role")?.trim().toLowerCase() ?? ""
+  const ariaChecked =
+    !isCheckableInput(element) && ARIA_CHECKED_ROLES.has(role)
+      ? ariaTristate(element, "aria-checked")
+      : undefined
+  const pressed = ariaTristate(element, "aria-pressed")
+  const expanded = ariaBoolean(element, "aria-expanded")
+  const selected = ariaBoolean(element, "aria-selected")
+  const activeOption = readable
+    ? referencedText(element, "aria-activedescendant")
+    : undefined
+  const selectedOption = readable ? ownedSelection(element, role) : undefined
+  return {
+    ...(ariaChecked !== undefined ? { ariaChecked } : {}),
+    ...(pressed !== undefined ? { pressed } : {}),
+    ...(expanded !== undefined ? { expanded } : {}),
+    ...(selected !== undefined ? { selected } : {}),
+    ...(activeOption ? { activeOption } : {}),
+    ...(selectedOption ? { selectedOption } : {}),
+    ...invalidState(element, readable)
+  }
+}
+
 const observedControlFields = (
   element: Element,
   value: string | undefined,
-  href: string | undefined
+  href: string | undefined,
+  /** Shown and not sensitive: where a value, and so its reasons, may be read. */
+  readable: boolean
 ): Partial<AgentElement> => {
   const options = selectOptions(element)
   return {
+    ...ariaStateFields(element, readable),
     ...(value !== undefined
       ? {
           value: truncate(value, AGENT_OBSERVATION_LIMITS.elementValueChars)
@@ -1683,7 +1830,7 @@ const buildElementObservation = (
       : {}),
     tag: element.tagName.toLowerCase(),
     type: elementType(element),
-    ...observedControlFields(element, value, href),
+    ...observedControlFields(element, value, href, visible && !sensitive),
     ...(value !== undefined &&
     value.length > AGENT_OBSERVATION_LIMITS.elementValueChars
       ? { valueTruncated: true }

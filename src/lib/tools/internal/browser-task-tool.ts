@@ -58,7 +58,12 @@ export const setBrowserTaskRunner = (next: BrowserTaskRunner | undefined) => {
 
 export const browserTaskAvailable = (): boolean => runner !== undefined
 
-const MAX_GOAL_CHARS = 2_000
+/**
+ * A goal is one instruction, not a transcript. Over the bound it is refused,
+ * never cut: cutting removed whatever came last — usually the limit the user
+ * put at the end — and the run then planned a task without it.
+ */
+export const MAX_GOAL_CHARS = 2_000
 
 /** Only an ordinary web address; anything else is dropped, not refused. */
 const webAddress = (value: unknown): string | undefined => {
@@ -73,11 +78,16 @@ const webAddress = (value: unknown): string | undefined => {
   }
 }
 
+const goalTooLong = (args: Record<string, unknown>): number | undefined => {
+  const goal = typeof args.goal === "string" ? args.goal.trim() : ""
+  return goal.length > MAX_GOAL_CHARS ? goal.length : undefined
+}
+
 const parseRequest = (
   args: Record<string, unknown>
 ): BrowserTaskRequest | undefined => {
   const goal = typeof args.goal === "string" ? args.goal.trim() : ""
-  if (!goal) return undefined
+  if (!goal || goal.length > MAX_GOAL_CHARS) return undefined
   /**
    * A model that fills every parameter — OpenAI's, through OpenRouter — sends
    * `tab_id: 0` for "none", and taken as a tab it failed every run as a
@@ -91,7 +101,7 @@ const parseRequest = (
       : undefined
   const startUrl = webAddress(args.start_url)
   return {
-    goal: goal.slice(0, MAX_GOAL_CHARS),
+    goal,
     ...(tabId !== undefined ? { tabId } : {}),
     ...(startUrl ? { startUrl } : {}),
     continuePrevious: args.continue_previous_task === true
@@ -164,6 +174,13 @@ export const runBrowserTask = async (
   args: Record<string, unknown>,
   ctx: ToolContext
 ): Promise<ToolResult> => {
+  const tooLong = goalTooLong(args)
+  if (tooLong !== undefined) {
+    return {
+      content: `browser_task's goal is ${tooLong} characters; the limit is ${MAX_GOAL_CHARS}. Call it again with a shorter goal that keeps every value and limit the user gave. The agent also reads the user's own message, so you do not need to repeat it word for word.`,
+      isError: true
+    }
+  }
   const request = parseRequest(args)
   if (!request) {
     return { content: "browser_task needs a non-empty goal.", isError: true }

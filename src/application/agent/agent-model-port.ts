@@ -86,6 +86,7 @@ import { projectAgentObservation } from "./agent-observation-projection"
 import {
   AGENT_PLAN_SYSTEM_PROMPT,
   AGENT_PLAN_TOOL,
+  AgentPlanCoverageError,
   type AgentPlanContext,
   AgentPlanOverCapError,
   agentIssuedIds,
@@ -521,6 +522,7 @@ An href shown as a path belongs to the page's own site. Follow it by clicking it
 The extension attaches snapshot identity; do not return a nested command or opaque IDs.
 Use ask_user when the goal is ambiguous. Complete only after ALL requested work is done: if asked to click a control, revealing it or being ready to click is not completion.
 Custom dropdowns, menus and tab strips are ordinary clicks: click the combobox or button that opens them, then click the option it reveals; hover reveals menus that open on pointer rest, and press_key with ArrowDown or Enter moves through a focused list.
+checked, pressed, expanded and selected show a control's current state. A switch or custom checkbox changes by click; check and uncheck work only on native checkbox and radio inputs. A control marked invalid was rejected by the page, with its reason when the page gave one: fix it before submitting again, and never treat the form as accepted while one is shown.
 A contenteditable's value is its text. type appends verbatim, including whitespace; clear_and_type replaces all; replace_text changes one exact find. Newlines never press Enter; send with press_key Enter.
 drag moves ref onto to: a board item onto a column, a row onto another row. Elements marked draggable are where a drag starts.
 observation.dialogs lists native dialogs holding the page. While one is listed the page itself is frozen: it has no controls and no other command can run. Answer it with handle_dialog, naming its dialogId; accept false dismisses it, which confirms nothing. Accepting a confirm, prompt or beforeunload dialog asks the user first, because the page's own words are the only clue to what it commits to.
@@ -638,6 +640,7 @@ const agentPageBudget = (
  */
 const agentPlanContext = (state: AgentRunState): AgentPlanContext => ({
   goal: state.goal,
+  ...(state.userUtterance ? { utterance: state.userUtterance.text } : {}),
   ...(state.answers?.length ? { answers: state.answers } : {}),
   ...(state.requirements?.length
     ? {
@@ -683,6 +686,8 @@ const agentPlanAfterFailure = (
   })
   /** An oversized amendment needs the user's answer, just like an initial plan. */
   if (lastError instanceof AgentPlanOverCapError) return overCapPlan(lastError)
+  /** The plan stands, with the values it left out as work of their own. */
+  if (lastError instanceof AgentPlanCoverageError) return lastError.plan
   /**
    * On a planner failure, apply every boundary readable by rule. If that
    * also exceeds the cap, ask the user rather than throwing or truncating.
@@ -1642,14 +1647,16 @@ export const createProviderAgentModelPort = (
       const context = agentPlanContext(state)
       const prompt = agentPlanPrompt(state.goal, state.previousRun, {
         ...(state.answers?.length ? { answers: state.answers } : {}),
-        ...(context.current ? { current: context.current } : {})
+        ...(context.current ? { current: context.current } : {}),
+        ...(context.utterance ? { utterance: context.utterance } : {})
       })
       const thinking = agentThinkingFields(await reasoningEffortFor(state))
       /** One planning request; `feedback` says what was wrong with the last. */
       const attempt = async (
         signal: AbortSignal,
-        feedback?: string
+        previous?: AgentDecisionFormatError
       ): Promise<AgentTaskPlan> => {
+        const feedback = previous?.feedback
         await assertCurrentProviderEnabled(provider, state.modelId, signal)
         const calls = new Map<string, ToolCall>()
         let streamError: ChatStreamMessage["error"]
@@ -1679,7 +1686,12 @@ export const createProviderAgentModelPort = (
             scoped.signal
           )
           if (streamError) throw streamError
-          return parseAgentTaskPlan([...calls.values()], context)
+          return parseAgentTaskPlan(
+            [...calls.values()],
+            previous instanceof AgentPlanCoverageError
+              ? { ...context, coverageAsked: true }
+              : context
+          )
         } finally {
           scoped.cleanup()
         }
@@ -1689,7 +1701,7 @@ export const createProviderAgentModelPort = (
           state,
           signal,
           malformedRetries: 1,
-          request: (signal, error) => attempt(signal, error?.feedback)
+          request: (signal, error) => attempt(signal, error)
         })
       } catch (error) {
         if (

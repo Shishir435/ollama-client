@@ -378,7 +378,9 @@ export const createBrowserTaskRunner = (
     const content =
       state.status === "completed"
         ? answer
-        : `${answer}\n\nThe browser task did not finish. Tell the user what was done and what is missing; do not start it again in this turn unless the user asks.`
+        : state.status === "completed_unverified"
+          ? `${answer}\n\nThe browser task finished, but some of its answers rest only on the agent's own reading and were not checked. Tell the user which ones, as the record marks them; do not present them as confirmed.`
+          : `${answer}\n\nThe browser task did not finish. Tell the user what was done and what is missing; do not start it again in this turn unless the user asks.`
     return {
       content,
       provenance: "web-untrusted",
@@ -582,6 +584,7 @@ export const createBrowserTaskRunner = (
         sessionId: turn.sessionId,
         messageId: turn.messageId,
         goalAuthor: turn.pageFirst ? "model_after_page" : "model",
+        ...(ctx.userUtterance ? { userUtterance: ctx.userUtterance } : {}),
         ...(turn.toolCallId ? { toolCallId: turn.toolCallId } : {}),
         allowRoutineActions: mode !== "approve_each",
         ...(searchesConsented(ctx, mode, turn.pageFirst)
