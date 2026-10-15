@@ -2286,7 +2286,10 @@ export const createAgentController = (
         ? "partial"
         : judgement.type === "unmet"
           ? "failed"
-          : "completed"
+          : judgement.outcome?.claimed?.length ||
+              judgement.outcome?.visual?.length
+            ? "completed_unverified"
+            : "completed"
     const patch: AgentStatePatch = {
       result: summary,
       ...(evidenceLedger?.length ? { evidenceLedger } : {}),

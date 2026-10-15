@@ -2398,6 +2398,30 @@ const recordUnmetItems = (
   recordJudgedItems(items, requirement, claim, judgedItems, input)
 }
 
+/**
+ * Whether a read's quote sits in the row of the record its check names. Row
+ * context is the whole row's text, so the quote has to be inside it and the
+ * row has to name the record as a complete phrase: "$9" quoted from the
+ * Basic row is not the price of the Pro plan, however exactly it was quoted.
+ */
+const readBoundToItsRecord = (
+  requirement: AgentTaskRequirement,
+  quote: string | undefined,
+  observation: AgentObservation
+): boolean => {
+  const check = requirement.check
+  const record = check && "record" in check ? check.record : undefined
+  const quoted = quote ? agentNormalizedClaim(quote) : ""
+  if (!record || !quoted) return false
+  const named = agentNormalizedClaim(record)
+  return observation.elements.some((element) => {
+    if (element.sensitive || !(element.visible || element.offscreen))
+      return false
+    const row = agentNormalizedClaim(element.rowContext ?? "")
+    return containsCompletePhrase(row, named) && row.includes(quoted)
+  })
+}
+
 const judgePlanned = (
   input: AgentCompletionInput,
   requirements: readonly AgentTaskRequirement[],
@@ -2514,11 +2538,34 @@ const judgePlanned = (
         ) && visualCompletionRead(quote, id, input.evidenceLedger) !== undefined
     )
   })
+  /**
+   * A met read rests on a grounded quote, which proves where the words came
+   * from and not that they answer the question: an exact quote from the
+   * wrong row, or from a page about something else, is grounded too. It is
+   * verified only when the runtime can tie the quote to what was asked —
+   * the item it names, or the row of the record its check names. Anything
+   * else is the model's claim until a reviewer supports it.
+   */
+  const claimed = met.filter((id) => {
+    const requirement = requirements.find((entry) => entry.id === id)
+    if (
+      requirement?.kind !== "read" ||
+      requirement.items?.length ||
+      visual.includes(id)
+    )
+      return false
+    return !readBoundToItsRecord(
+      requirement,
+      claims.get(id)?.evidence,
+      input.observation
+    )
+  })
   const outcome = {
     met,
     unmet,
     ...(items.length ? { items } : {}),
-    ...(visual.length ? { visual } : {})
+    ...(visual.length ? { visual } : {}),
+    ...(claimed.length ? { claimed } : {})
   }
   if (review) return withReviewScope(review, requirements, reviewIds, outcome)
   if (unmet.length === 0) return { type: "accepted", outcome }

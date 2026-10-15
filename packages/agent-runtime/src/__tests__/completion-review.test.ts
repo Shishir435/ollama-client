@@ -327,7 +327,11 @@ describe("applying a completion review", () => {
       ])
     ).toEqual({
       disagreements: 0,
-      judgement: { type: "accepted", outcome: { met: ["r1"], unmet: [] } }
+      /** A reviewer's verdict reaches supported, never verified. */
+      judgement: {
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], supported: ["r1"] }
+      }
     })
   })
 
@@ -549,7 +553,10 @@ describe("applying a completion review", () => {
         { id: "r3", verdict: "supported", sources: ["fact-1"] },
         { id: "r9", verdict: "contradicted" }
       ]).judgement
-    ).toEqual({ type: "partial", outcome: { met: ["r1"], unmet: ["r3"] } })
+    ).toEqual({
+      type: "partial",
+      outcome: { met: ["r1"], unmet: ["r3"], supported: ["r1"] }
+    })
   })
 
   it("needs every reviewed limit supported too", () => {

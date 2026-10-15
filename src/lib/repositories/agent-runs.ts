@@ -573,6 +573,7 @@ const applyPatch = (
       "observing",
       "executing",
       "completed",
+      "completed_unverified",
       "failed",
       "cancelled",
       "partial"
@@ -971,7 +972,7 @@ export const getLatestAgentRun = async (): Promise<DurableAgentRun | null> => {
 export const listIncompleteAgentRuns = async (): Promise<DurableAgentRun[]> => {
   const rows = await query(
     `SELECT ${selectRunColumns} FROM agent_runs
-      WHERE status NOT IN ('completed', 'failed', 'cancelled')
+      WHERE status NOT IN ('completed', 'completed_unverified', 'failed', 'cancelled')
       ORDER BY createdAt ASC`
   )
   const result: DurableAgentRun[] = []
@@ -1066,7 +1067,7 @@ const quarantineAgentRun = async (id: string): Promise<void> => {
   await withTransaction(async (tx) => {
     const result = await tx.runWithMeta(
       `UPDATE agent_runs SET status = 'failed', checkpoint = ?, updatedAt = ?
-        WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')`,
+        WHERE id = ? AND status NOT IN ('completed', 'completed_unverified', 'failed', 'cancelled')`,
       [compactedCheckpoint(now), now, id]
     )
     if (result.changes === 0) return
@@ -1100,7 +1101,7 @@ export const pruneTerminalAgentRuns = async (
   signal?.throwIfAborted()
   const result = await runWithMeta(
     `DELETE FROM agent_runs
-      WHERE status IN ('completed', 'failed', 'cancelled')
+      WHERE status IN ('completed', 'completed_unverified', 'failed', 'cancelled')
         AND updatedAt < ?
         AND NOT EXISTS (
           SELECT 1 FROM agent_steps

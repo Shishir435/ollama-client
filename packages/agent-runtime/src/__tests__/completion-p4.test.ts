@@ -224,6 +224,73 @@ describe("P4 deterministic completion", () => {
     ).toMatchObject({ type: "accepted" })
   })
 
+  describe("a read verified only when its quote answers what was asked", () => {
+    const plans: AgentObservation = {
+      ...page,
+      visibleText: "Basic $9 per month Pro $29 per month",
+      elements: [
+        {
+          ref: "b1",
+          frameId: 0,
+          tag: "button",
+          name: "Choose",
+          rowContext: "Basic $9 per month Choose",
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        },
+        {
+          ref: "b2",
+          frameId: 0,
+          tag: "button",
+          name: "Choose",
+          rowContext: "Pro $29 per month Choose",
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        }
+      ]
+    }
+    const priceOf = (record: string | undefined, evidence: string) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: plans,
+        evidenceLedger: [fact(evidence, { requirementId: "r1" })],
+        requirements: [
+          {
+            id: "r1",
+            kind: "read",
+            text: "Report the monthly price of the Pro plan",
+            ...(record ? { check: { type: "row" as const, record } } : {})
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence }]
+      })
+
+    it("verifies a quote from the row of the record the check names", () => {
+      expect(priceOf("Pro", "$29 per month")).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [] }
+      })
+    })
+
+    it("keeps an exact quote from the wrong row as the model's claim", () => {
+      /** The wrong-row trap: grounded, exact, and the Basic plan's price. */
+      expect(priceOf("Pro", "$9 per month")).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], claimed: ["r1"] }
+      })
+    })
+
+    it("keeps a quote no record ties to the question as a claim", () => {
+      expect(priceOf(undefined, "$29 per month")).toMatchObject({
+        outcome: { claimed: ["r1"] }
+      })
+    })
+  })
+
   it("never counts a field the page marked invalid as holding its value", () => {
     const rejected: AgentObservation = {
       ...page,

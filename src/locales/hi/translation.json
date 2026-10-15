@@ -117,6 +117,7 @@
       "paused": "रुका हुआ",
       "cancelling": "बंद हो रहा है",
       "completed": "पूरा हुआ",
+      "completed_unverified": "पूरा, सब जाँचा नहीं गया",
       "partial": "आंशिक रूप से पूर्ण",
       "failed": "विफल",
       "cancelled": "बंद"

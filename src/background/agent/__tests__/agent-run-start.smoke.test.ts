@@ -282,8 +282,10 @@ describe("starting an Agent run against the real engine", () => {
       await vi.waitFor(async () => {
         const snapshot = await service.snapshot("run-vertical-1")
         expect(snapshot.run).toMatchObject({
-          status: "completed",
-          result: "Verified: the pricing page is found\nPricing is available."
+          /** A read nothing tied to a record, and no reviewer: claimed. */
+          status: "completed_unverified",
+          result:
+            "Reported, not checked: the pricing page is found\nPricing is available."
         })
       })
     },

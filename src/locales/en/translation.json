@@ -117,6 +117,7 @@
       "paused": "Paused",
       "cancelling": "Stopping",
       "completed": "Completed",
+      "completed_unverified": "Done, not all checked",
       "partial": "Partly done",
       "failed": "Failed",
       "cancelled": "Stopped"

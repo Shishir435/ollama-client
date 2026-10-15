@@ -264,7 +264,9 @@ export const AgentRunMessageCard = ({ msg }: { msg: ChatMessage }) => {
                 ? "bg-tint-success text-status-success"
                 : status === "failed"
                   ? "bg-tint-danger text-status-danger"
-                  : status === "partial" || needsUser
+                  : status === "partial" ||
+                      status === "completed_unverified" ||
+                      needsUser
                     ? "bg-tint-warning text-status-warning"
                     : "bg-background text-muted-foreground"
             )}

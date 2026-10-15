@@ -1001,7 +1001,10 @@ describe("judgeAgentCompletion with planned requirements", () => {
         ],
         outcomes: [{ id: "r1", met: true, evidence: "Name: Alice" }]
       })
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], claimed: ["r1"] }
+    })
   })
 
   /**
@@ -1070,13 +1073,20 @@ describe("judgeAgentCompletion with planned requirements", () => {
     )
     /** A picture never proves a change. */
     expect(judge("change", "KV-305").type).toBe("refused")
-    /** Text grounding wins: that answer is verified, not merely seen. */
+    /**
+     * Text grounding wins over the picture: the answer is page text, not a
+     * reading of a screenshot. It is still the model's claim that the text
+     * answers the question, because nothing tied it to a record.
+     */
     expect(
       judge("read", "KV-305", [
         visual("KV-305"),
         { ...observedFact("KV-305"), requirementId: "r1" }
       ])
-    ).toEqual({ type: "accepted", outcome: { met: ["r1"], unmet: [] } })
+    ).toEqual({
+      type: "accepted",
+      outcome: { met: ["r1"], unmet: [], claimed: ["r1"] }
+    })
   })
 
   /**

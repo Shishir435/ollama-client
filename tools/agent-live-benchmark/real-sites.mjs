@@ -480,6 +480,7 @@ try {
           final &&
           [
             "completed",
+            "completed_unverified",
             "partial",
             "failed",
             "cancelled",

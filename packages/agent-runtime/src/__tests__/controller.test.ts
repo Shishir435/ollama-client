@@ -472,7 +472,7 @@ describe("agent controller", () => {
 
     expect(plan).toHaveBeenCalledTimes(1)
     expect(harness.getState()).toMatchObject({
-      status: "completed",
+      status: "completed_unverified",
       requirements: [{ id: "r1", kind: "read" }]
     })
     expect(harness.calls).toContain("transition:observing")
@@ -1483,7 +1483,7 @@ describe("agent controller", () => {
 
     await harness.controller.start("run-1")
 
-    expect(harness.getState().status).toBe("completed")
+    expect(harness.getState().status).toBe("completed_unverified")
   })
 
   /**
@@ -1556,7 +1556,9 @@ describe("agent controller", () => {
 
       await harness.controller.start("run-1")
 
-      expect(harness.getState().status === "completed").toBe(pageFirst)
+      expect(harness.getState().status === "completed_unverified").toBe(
+        pageFirst
+      )
     }
   )
 
@@ -3123,7 +3125,7 @@ describe("a requirement reported unmet with steps left", () => {
       harness.writtenSteps.find((step) => step.status === "rejected")
         ?.verification?.evidence.summary
     ).toContain("You reported r1 as not met")
-    expect(harness.getState().status).toBe("completed")
+    expect(harness.getState().status).toBe("completed_unverified")
   })
 
   it("takes the second answer as given", async () => {
@@ -3459,7 +3461,7 @@ describe("agent controller task contract", () => {
     await harness.controller.start("run-1")
 
     expect(harness.getState()).toMatchObject({
-      status: "completed",
+      status: "completed_unverified",
       constraints: [{ id: "c1", forbids: ["submission"] }],
       plan: {
         version: 1,
@@ -3518,7 +3520,7 @@ describe("agent controller task contract", () => {
       "Only the first row"
     )
     expect(harness.getState()).toMatchObject({
-      status: "completed",
+      status: "completed_unverified",
       requirements: [{ id: "r1" }]
     })
   })
@@ -3627,7 +3629,7 @@ describe("agent controller task contract", () => {
     })
     expect(plan).toHaveBeenCalledTimes(3)
     expect(harness.getState()).toMatchObject({
-      status: "completed",
+      status: "completed_unverified",
       requirements: readPlan("the hours"),
       plan: { reconciledThrough: 30 }
     })
@@ -3718,7 +3720,7 @@ describe("agent controller task contract", () => {
     expect(plan).toHaveBeenCalledTimes(1)
     expect(harness.calls).toContain("transition:planning")
     expect(harness.getState()).toMatchObject({
-      status: "completed",
+      status: "completed_unverified",
       requirements: [{ id: "r1" }]
     })
   })
@@ -3806,7 +3808,7 @@ describe("agent controller task contract", () => {
 
     expect(plan).toHaveBeenCalledTimes(2)
     expect(harness.getState()).toMatchObject({
-      status: "completed",
+      status: "completed_unverified",
       goal: "Complete the task",
       requirements: [{ id: "r1" }, { id: "r2", since: 2 }],
       plan: {
@@ -3893,7 +3895,7 @@ describe("agent controller task contract", () => {
       "newest answer has not been folded"
     )
     expect(harness.getState()).toMatchObject({
-      status: "completed",
+      status: "completed_unverified",
       requirements: [{ id: "r1" }, { id: "r2" }],
       plan: { version: 2, reconciledThrough: 20 }
     })
@@ -4005,7 +4007,7 @@ describe("agent controller task contract", () => {
     it("removes on a plain yes, as a new version", async () => {
       const harness = await askedToRemove("Yes", [completeAll("r1")])
       expect(harness.getState()).toMatchObject({
-        status: "completed",
+        status: "completed_unverified",
         requirements: readPlan("the hours"),
         plan: {
           version: 2,
@@ -4020,7 +4022,7 @@ describe("agent controller task contract", () => {
       async (answer) => {
         const harness = await askedToRemove(answer, [completeAll("r1", "r2")])
         expect(harness.getState()).toMatchObject({
-          status: "completed",
+          status: "completed_unverified",
           requirements: readPlan("the hours", "the phone")
         })
         expect(harness.getState().plan?.pending).toBeUndefined()

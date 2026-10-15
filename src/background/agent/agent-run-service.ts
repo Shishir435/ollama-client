@@ -402,6 +402,7 @@ const initialRunState = ({
  */
 const FOLLOW_UP_MODE: Partial<Record<AgentRunStatus, AgentFollowUpMode>> = {
   completed: "continue",
+  completed_unverified: "continue",
   failed: "retry",
   cancelled: "retry"
 }
@@ -700,6 +701,7 @@ export const createAgentRunService = (input?: {
         "paused",
         "cancelling",
         "completed",
+        "completed_unverified",
         "failed",
         "cancelled"
       ].includes(state.status)

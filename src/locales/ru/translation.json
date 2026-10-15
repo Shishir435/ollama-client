@@ -117,6 +117,7 @@
       "paused": "На паузе",
       "cancelling": "Остановка",
       "completed": "Завершено",
+      "completed_unverified": "Готово, проверено не всё",
       "partial": "Выполнено частично",
       "failed": "Ошибка",
       "cancelled": "Остановлено"

@@ -317,9 +317,18 @@ export const applyAgentCompletionReview = (
         feedback: `Independent review found no grounded support for ${idList(insufficient)}. Quote the current page text that shows it, or report it unmet. Preserve completed effects; do not repeat an action to produce evidence.`
       }
     }
+  /**
+   * What the reviewer carried is supported, never verified: the reviewer is
+   * a model, and a model's verdict is the second tier at most.
+   */
+  const supported = [
+    ...(scope.outcome.supported ?? []),
+    ...scope.requirementIds
+  ]
   const outcome = {
     ...scope.outcome,
-    met: [...scope.outcome.met, ...scope.requirementIds]
+    met: [...scope.outcome.met, ...scope.requirementIds],
+    ...(supported.length ? { supported } : {})
   }
   return {
     disagreements: 0,

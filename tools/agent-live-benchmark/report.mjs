@@ -70,8 +70,15 @@ export const baselineInputs = ({
  * Whether the user was told the task succeeded. A completed run claims it
  * through its own verdict; otherwise the chat reply is what the user reads.
  */
+/**
+ * A completion with answers the runtime did not check is still a completion
+ * the run reported: the user is told the task is done, with a caveat. It is
+ * scored as a claim, so a wrong one is a false completion like any other.
+ */
+const COMPLETED_STATUSES = new Set(["completed", "completed_unverified"])
+
 export const successClaim = ({ status, answer, goal }) =>
-  status === "completed" ? "claimed" : classifyClaim(answer, { goal })
+  COMPLETED_STATUSES.has(status) ? "claimed" : classifyClaim(answer, { goal })
 
 /**
  * Three answers kept apart: whether the goal was attained (`success`, from
@@ -111,7 +118,7 @@ export const classifyAttempt = ({
   }
   /** The scorer could not tell right from wrong: a person decides. */
   if (unclearOracle && success !== true) return "pending_adjudication"
-  if (status === "completed")
+  if (COMPLETED_STATUSES.has(status))
     return success === true ? "achieved" : "false_completion"
   if (status === "answered_in_chat" && success === true && claim === "claimed")
     return "achieved"
@@ -170,7 +177,7 @@ export const failureOrigin = ({ verdict, status, errorCode }) => {
   if (verdict === "admission_failure") return "admission"
   /** A run that verified itself wrongly, or a chat that misreported a run. */
   if (verdict === "false_completion")
-    return status === "completed" ? "verification" : "report"
+    return COMPLETED_STATUSES.has(status) ? "verification" : "report"
   if (errorCode === "model_unavailable") return "infrastructure"
   if (errorCode === "invalid_decision") return "plan"
   if (["verification_failed", "goal_failed"].includes(errorCode))

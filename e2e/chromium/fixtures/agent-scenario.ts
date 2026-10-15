@@ -209,7 +209,7 @@ export interface AgentScenario {
   name: string
   goal: string
   /** The terminal run status the scenario is finished at. */
-  status: "completed" | "partial" | "paused" | "failed"
+  status: "completed" | "completed_unverified" | "partial" | "paused" | "failed"
   /** Assert that an unsupported semantic outcome is explicitly deferred. */
   completionReview?: boolean
   /** Included in the hosted-model matrix, which only runs a couple of tasks. */
@@ -1408,6 +1408,7 @@ const runAgentScenarioAttempt = (
                   return scenario.completionReview ? review : !answered
                 return (
                   run?.status === "completed" ||
+                  run?.status === "completed_unverified" ||
                   run?.status === "partial" ||
                   run?.status === "failed" ||
                   run?.status === "cancelled"

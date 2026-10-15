@@ -117,6 +117,7 @@
       "paused": "一時停止",
       "cancelling": "停止中",
       "completed": "完了",
+      "completed_unverified": "完了（一部未確認）",
       "partial": "一部完了",
       "failed": "失敗",
       "cancelled": "停止済み"

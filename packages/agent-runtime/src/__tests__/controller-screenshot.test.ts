@@ -553,7 +553,7 @@ describe("controller screenshots", () => {
       ]
     })
     await run.controller.start("run-1")
-    expect(run.state().status).toBe("completed")
+    expect(run.state().status).toBe("completed_unverified")
     expect(run.state().outcome).toEqual({
       met: ["r1"],
       unmet: [],

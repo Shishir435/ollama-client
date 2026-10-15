@@ -36,6 +36,15 @@ export const AGENT_RUN_STATUSES = [
   "cancelling",
   "completed",
   /**
+   * Finished, and at least one requirement rests only on the model's word:
+   * a read whose quote nothing tied to the question, or one seen only in a
+   * screenshot. Every outcome was answered as met; not every one was
+   * checked. Its own status for the same reason `partial` is — the panel
+   * reads the status first, and a green "completed" over an unchecked
+   * answer is the false completion this exists to stop.
+   */
+  "completed_unverified",
+  /**
    * Finished having done some of what was asked, and said so.
    *
    * Separate from `completed` because the panel reads a status before it
@@ -704,10 +713,44 @@ export const AgentRunOutcomeSchema = z
     visual: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
       .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * How each met requirement was established, for the ones that were not
+     * checked by the runtime itself. A met id in neither list is `verified`:
+     * a deterministic check held on fresh evidence. `supported`: an
+     * independent reviewer judged it from the facts, which is as high as a
+     * model's verdict reaches. `claimed`: the acting model's word, backed by
+     * a quote whose relevance nothing checked, or by a screenshot reading.
+     * Absent on runs settled before tiers existed, which read as before.
+     */
+    supported: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    claimed: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
       .optional()
   })
   .strict()
 export type AgentRunOutcome = z.infer<typeof AgentRunOutcomeSchema>
+
+export type AgentRequirementTier =
+  | "verified"
+  | "supported"
+  | "claimed"
+  | "unmet"
+
+/** One requirement's tier, read off a settled outcome. */
+export const agentRequirementTier = (
+  outcome: AgentRunOutcome,
+  id: string
+): AgentRequirementTier => {
+  if (!outcome.met.includes(id)) return "unmet"
+  if (outcome.claimed?.includes(id) || outcome.visual?.includes(id))
+    return "claimed"
+  return outcome.supported?.includes(id) ? "supported" : "verified"
+}
 
 /** How much of the goal a later turn is reminded of. */
 export const MAX_AGENT_HANDOFF_GOAL_CHARS = 1_000
@@ -729,6 +772,7 @@ export const MAX_AGENT_HANDOFF_CHARS =
 /** Settled statuses only: a handoff is written by the commit that settles. */
 export const AGENT_HANDOFF_STATUSES = [
   "completed",
+  "completed_unverified",
   "partial",
   "failed",
   "cancelled"

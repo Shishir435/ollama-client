@@ -136,9 +136,11 @@ export const registerAgentUnattendedControls = (
             notified.set(id, run.status)
             /** A boundary already reached before this worker started was announced then. */
             if (!initial)
-              await notifyUnattended(id, run.status === "completed").catch(
-                () => undefined
-              )
+              await notifyUnattended(
+                id,
+                run.status === "completed" ||
+                  run.status === "completed_unverified"
+              ).catch(() => undefined)
           }
         }
       })

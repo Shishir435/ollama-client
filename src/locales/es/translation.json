@@ -117,6 +117,7 @@
       "paused": "En pausa",
       "cancelling": "Deteniendo",
       "completed": "Completado",
+      "completed_unverified": "Hecho, sin comprobar todo",
       "partial": "Parcialmente hecho",
       "failed": "Falló",
       "cancelled": "Detenido"
