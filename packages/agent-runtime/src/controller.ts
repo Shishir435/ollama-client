@@ -46,8 +46,10 @@ import {
   prematureUnmetFeedback
 } from "./completion"
 import {
+  agentClaimedReviewScope,
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
+  applyAgentClaimedReview,
   agentRecordedReviews,
   applyAgentCompletionReview,
   MAX_AGENT_COMPLETION_REVIEWS
@@ -2381,8 +2383,17 @@ export const createAgentController = (
     { judgement: AgentCompletionJudgement; reviewed: boolean } | undefined
   > => {
     const port = dependencies.review
-    if (!port || !agentCompletionNeedsReview(judgement))
-      return { judgement, reviewed: false }
+    /**
+     * Two kinds of question. A needs-review refusal asks whether an
+     * undecided claim is met at all; an accepted completion with claimed
+     * reads asks how far they are believed. Both take the same budget, the
+     * same request and the same runtime checks of every verdict.
+     */
+    const claimedScope = agentClaimedReviewScope(judgement)
+    const pending = agentCompletionNeedsReview(judgement)
+      ? judgement
+      : claimedScope
+    if (!port || !pending) return { judgement, reviewed: false }
     /**
      * The receipts are the count that survives a worker restart; memory
      * covers a review whose receipt could not be read back. The larger wins,
@@ -2401,14 +2412,15 @@ export const createAgentController = (
     reviewsByRun.set(state.id, spent + 1)
     const request = agentCompletionReviewRequest(
       state,
-      judgement.review,
+      pending.review,
       decision.outcomes,
       completionLedger(state, decision, steps, observation),
       actionWindows?.runId === state.id
         ? actionWindows.byRequirement
         : undefined,
       /** Unreadable receipts leave the list incomplete: no limit credit. */
-      steps ? agentAppliedChanges(steps).map(appliedReviewedAction) : undefined
+      steps ? agentAppliedChanges(steps).map(appliedReviewedAction) : undefined,
+      observation
     )
     const startedAt = dependencies.clock.now()
     let answer: unknown
@@ -2428,12 +2440,15 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "completion_review_malformed")
       return { judgement, reviewed: true }
     }
-    const result = applyAgentCompletionReview(judgement, request, parsed.data)
+    const result =
+      judgement.type === "refused"
+        ? applyAgentCompletionReview(pending, request, parsed.data)
+        : applyAgentClaimedReview(judgement, pending, request, parsed.data)
     measure({ reviewDisagreements: result.disagreements })
     dependencies.trace?.(state.id, "completion_reviewed", {
       asked:
-        judgement.review.requirementIds.length +
-        judgement.review.constraintIds.length,
+        pending.review.requirementIds.length +
+        pending.review.constraintIds.length,
       disagreements: result.disagreements,
       outcome:
         result.judgement.type === "refused"
@@ -2446,6 +2461,8 @@ export const createAgentController = (
   /** Fixed template: a reviewer's acceptance carries none of its own words. */
   const REVIEW_SUPPORTED_SUMMARY =
     "Independent review found grounded support for every outcome it was asked to check."
+  const REVIEW_PARTLY_SUPPORTED_SUMMARY =
+    "Independent review could not support every outcome it was asked to check; those stay unchecked."
 
   /**
    * The refusal limit is where a completion stalls, so recovery starts here:
@@ -2563,7 +2580,9 @@ export const createAgentController = (
             outcome: "confirmed",
             evidence: {
               kind: "completion",
-              summary: REVIEW_SUPPORTED_SUMMARY,
+              summary: judgement.outcome?.claimed?.length
+                ? REVIEW_PARTLY_SUPPORTED_SUMMARY
+                : REVIEW_SUPPORTED_SUMMARY,
               observedAt: now
             }
           }

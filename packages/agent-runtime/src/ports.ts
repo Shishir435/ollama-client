@@ -849,6 +849,12 @@ export interface AgentCompletionReviewRequest {
    * the limit.
    */
   actionsComplete?: boolean
+  /**
+   * The page the run completed on, as the runtime read it: its title and a
+   * bounded excerpt of its visible text. Context for judging, never a
+   * citation — only a ledger record can support a verdict.
+   */
+  page?: { title: string; text: string }
 }
 
 export interface AgentReviewedAction {

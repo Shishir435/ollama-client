@@ -536,3 +536,116 @@ describe("controller completion review", () => {
     expect(run.state().status).not.toBe("completed")
   })
 })
+
+describe("reviewing reads the judge could only take on the model's word", () => {
+  const read: AgentTaskRequirement = {
+    id: "r1",
+    kind: "read",
+    text: "Report what the help menu shows"
+  }
+  const answer = {
+    type: "complete",
+    summary: "The help menu is expanded.",
+    outcomes: [{ id: "r1", met: true, evidence: "Help menu expanded" }]
+  }
+
+  it("settles unchecked without a reviewer, and never green", async () => {
+    const run = harness({
+      initial: { requirements: [read] },
+      decisions: [answer]
+    })
+    await run.controller.start("run-1")
+    expect(run.state().status).toBe("completed_unverified")
+    expect(run.state().outcome).toMatchObject({ claimed: ["r1"] })
+  })
+
+  it("carries a read the reviewer supports to supported, and completes", async () => {
+    const run = harness({
+      initial: { requirements: [read] },
+      decisions: [answer],
+      review: supportFirstGrounded
+    })
+    await run.controller.start("run-1")
+    expect(run.requests).toHaveLength(1)
+    /** The page it completed on goes as context, bounded. */
+    expect(run.requests[0]?.page).toEqual({
+      title: "Invoice 1",
+      text: "Invoice 1 Help menu expanded"
+    })
+    expect(run.state().status).toBe("completed")
+    expect(run.state().outcome).toEqual({
+      met: ["r1"],
+      unmet: [],
+      supported: ["r1"]
+    })
+  })
+
+  it("leaves it unchecked when the reviewer cannot support it", async () => {
+    const run = harness({
+      initial: { requirements: [read] },
+      decisions: [answer],
+      review: async () => ({
+        verdicts: [{ id: "r1", verdict: "insufficient_evidence", sources: [] }]
+      })
+    })
+    await run.controller.start("run-1")
+    expect(run.state().status).toBe("completed_unverified")
+    expect(run.state().outcome).toMatchObject({ claimed: ["r1"] })
+  })
+
+  it("stops the completion when the reviewer finds it contradicted", async () => {
+    const run = harness({
+      initial: { requirements: [read] },
+      decisions: [answer],
+      review: async () => ({
+        verdicts: [{ id: "r1", verdict: "contradicted", sources: [] }]
+      })
+    })
+    await run.controller.start("run-1")
+    expect(
+      completionRefusals(run.written()).map(
+        (step) => step.verification?.evidence.summary
+      )[0]
+    ).toContain("contradicting r1")
+    expect(run.state().status).not.toBe("completed")
+  })
+})
+
+it("carries each supported read on its own, beside one that stays unchecked", async () => {
+  const reads: AgentTaskRequirement[] = [
+    { id: "r1", kind: "read", text: "Report what the help menu shows" },
+    { id: "r2", kind: "read", text: "Report which invoice is open" }
+  ]
+  const run = harness({
+    initial: { requirements: reads },
+    decisions: [
+      {
+        type: "complete",
+        summary: "Read both.",
+        outcomes: [
+          { id: "r1", met: true, evidence: "Help menu expanded" },
+          { id: "r2", met: true, evidence: "Invoice 1" }
+        ]
+      }
+    ],
+    review: async (_state, request) => ({
+      verdicts: [
+        {
+          id: "r1",
+          verdict: "supported",
+          sources: request.evidenceLedger
+            .filter((record) => record.requirementId === "r1")
+            .map((record) => record.id)
+            .slice(0, 1)
+        },
+        { id: "r2", verdict: "insufficient_evidence", sources: [] }
+      ]
+    })
+  })
+  await run.controller.start("run-1")
+  expect(run.state().status).toBe("completed_unverified")
+  expect(run.state().outcome).toMatchObject({
+    supported: ["r1"],
+    claimed: ["r2"]
+  })
+})
