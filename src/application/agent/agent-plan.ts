@@ -138,6 +138,13 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
           required: ["text", "kind", "source"]
         }
       },
+      notForBrowser: {
+        type: "array",
+        maxItems: 8,
+        description:
+          "Values the user's message names that belong to the chat conversation rather than this browser task, such as a term they asked you to explain. Leave out anything the browser task needs.",
+        items: { type: "string", maxLength: 80 }
+      },
       dropped: {
         type: "array",
         description:
@@ -730,6 +737,7 @@ const sourceFeedback = (text: string): string =>
 
 type PlanArgs = {
   requirements?: unknown
+  notForBrowser?: unknown
   constraints?: unknown
   dropped?: unknown
   clarification?: unknown
@@ -1359,7 +1367,7 @@ export const parseAgentTaskPlan = (
     ...(removals.length > 0 ? { proposedRemovals: removals } : {})
   })
   return initial && context?.utterance
-    ? withNamedValues(plan, context, identity)
+    ? withNamedValues(plan, context, identity, args.notForBrowser)
     : plan
 }
 
@@ -1373,13 +1381,25 @@ export const parseAgentTaskPlan = (
 const withNamedValues = (
   plan: AgentTaskPlan,
   context: AgentPlanContext & { utterance?: string },
-  identity: PlanIdentity
+  identity: PlanIdentity,
+  notForBrowser: unknown
 ): AgentTaskPlan => {
+  /**
+   * A message can ask for more than the browser task: "select Blue, and
+   * explain what 'event loop' means". The planner may say a value belongs to
+   * the chat, by name; it is then not the run's to track. Only a value it
+   * named is set aside, never one it merely left out.
+   */
+  const setAside = (Array.isArray(notForBrowser) ? notForBrowser : [])
+    .filter((value): value is string => typeof value === "string")
+    .slice(0, 8)
+    .map(normalized)
+    .filter(Boolean)
   const missing = agentUncoveredValues(
     context.utterance ?? "",
     plan.requirements,
     plan.constraints ?? []
-  )
+  ).filter((named) => !setAside.includes(normalized(named.value)))
   if (missing.length === 0) return plan
   const requirements = [
     ...plan.requirements,

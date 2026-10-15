@@ -176,9 +176,13 @@ export const buildAgentConversationHandoff = (
               requirement.text,
               MAX_AGENT_REQUIREMENT_CHARS
             )
+            /**
+             * No judgment, no grade: a run that failed or was stopped before
+             * it was judged has not shown its work undone, only unchecked.
+             */
             const tier = state.outcome
               ? agentRequirementTier(state.outcome, requirement.id)
-              : ("unmet" as const)
+              : undefined
             return text
               ? [{ id: requirement.id, text, ...(tier ? { tier } : {}) }]
               : []

@@ -203,3 +203,23 @@ it("reads a criterion as a criterion, not a value", () => {
     )
   ).toEqual([])
 })
+
+it("sets aside a value the planner names as the chat's, and only that one", () => {
+  const utterance =
+    'Select Blue on this page. Also explain what "event loop" means.'
+  const plan = (notForBrowser?: string[]) =>
+    parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            { text: "Colour is Blue", kind: "change", source: "Select Blue" }
+          ],
+          ...(notForBrowser ? { notForBrowser } : {})
+        })
+      ],
+      { goal: "Select Blue on this page", utterance }
+    )
+  expect(plan(["event loop"]).requirements).toHaveLength(1)
+  /** Left out without a word, it is still asked about. */
+  expect(() => plan()).toThrow(AgentPlanCoverageError)
+})

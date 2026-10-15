@@ -11,6 +11,10 @@
     "message": "一時停止",
     "description": "Browser task needs human attention"
   },
+  "agentTaskUnchecked": {
+    "message": "完了（一部未確認）",
+    "description": "Browser task finished with answers that were not checked"
+  },
   "extName": {
     "message": "Ollama Client - Ollama、LM Studio、llama.cpp のローカル AI チャット",
     "description": "Extension name shown by Chrome and Chrome Web Store"

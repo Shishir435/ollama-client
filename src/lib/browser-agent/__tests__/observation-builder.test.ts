@@ -303,6 +303,28 @@ describe("Agent observation builder", () => {
     expect(byName("Native")?.ariaChecked).toBeUndefined()
   })
 
+  it("reads each dropdown's choice from the listbox it owns", () => {
+    document.body.innerHTML = `
+      <div role="combobox" aria-label="Colour" aria-controls="colours"></div>
+      <div role="listbox" id="colours">
+        <div role="option" aria-selected="false">Red</div>
+        <div role="option" aria-selected="true">Blue</div>
+      </div>
+      <div role="combobox" aria-label="Size" aria-controls="sizes"></div>
+      <div role="listbox" id="sizes">
+        <div role="option" aria-selected="false">Large</div>
+      </div>
+    `
+    const elements = build().elements
+    expect(
+      elements.find((element) => element.name === "Colour")?.selectedOption
+    ).toBe("Blue")
+    /** Nothing chosen in its own list; Blue belongs to Colour, not to Size. */
+    expect(
+      elements.find((element) => element.name === "Size")?.selectedOption
+    ).toBeUndefined()
+  })
+
   it("marks a control the page rejected, with its reason and never its value", () => {
     document.body.innerHTML = `
       <label for="email">Email</label>

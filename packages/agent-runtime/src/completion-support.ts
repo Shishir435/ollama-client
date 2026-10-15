@@ -216,26 +216,16 @@ export const agentControlOnState = (
 
 /**
  * A custom listbox has no native options to read: its choice is the one
- * option the page marks selected. One selected option of that name in the
- * control's frame, and no other selected one beside it, is the whole answer.
- * Never the text a combobox holds: typing "Blue" into an autocomplete picks
- * nothing, and reading the typed text as the choice verified a selection
- * that was never made.
+ * option marked selected in the listbox the control owns, which the
+ * observation reads where ownership is known. Never another listbox's
+ * selection in the same frame, and never the text a combobox holds: typing
+ * "Blue" into an autocomplete picks nothing.
  */
 const ariaSelectionMatches = (
   element: AgentObservation["elements"][number],
-  observation: AgentObservation,
   wanted: string
-): boolean => {
-  const chosen = observation.elements.filter(
-    (candidate) =>
-      candidate.frameId === element.frameId &&
-      candidate.role === "option" &&
-      candidate.selected === true &&
-      !candidate.sensitive
-  )
-  return chosen.length === 1 && same(chosen[0].name ?? "", wanted)
-}
+): boolean =>
+  element.selectedOption !== undefined && same(element.selectedOption, wanted)
 
 type ControlTransitionCheck = Extract<
   NonNullable<AgentTaskRequirement["check"]>,
@@ -373,6 +363,6 @@ export const checkCompletionState = (
   if (check.type === "selected")
     return element.options
       ? selectedOptionMatches(element, check.value)
-      : ariaSelectionMatches(element, observation, check.value)
+      : ariaSelectionMatches(element, check.value)
   return element.value === check.value
 }

@@ -376,7 +376,8 @@
     "action_default_title": "打开 Ollama Client",
     "stop_browser_agent_menu": "停止浏览器代理",
     "agent_task_completed": "已完成",
-    "agent_task_attention": "已暂停"
+    "agent_task_attention": "已暂停",
+    "agent_task_unchecked": "已完成，部分未核实"
   },
   "selection_button": {
     "label": "询问本地 LLM",

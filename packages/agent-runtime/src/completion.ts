@@ -2478,15 +2478,35 @@ const recordUnmetItems = (
 const readBoundToItsRecord = (
   requirement: AgentTaskRequirement,
   quote: string | undefined,
-  observation: AgentObservation
+  input: Pick<AgentCompletionInput, "observation" | "evidenceLedger">
 ): boolean => {
   const check = requirement.check
   const record = check && "record" in check ? check.record : undefined
   const quoted = quote ? agentNormalizedClaim(quote) : ""
   if (!record || !quoted) return false
+  /**
+   * The quote has to be one the run read on this page, in the frame the row
+   * is in: a historical quote that happens to match today's row is about
+   * whatever page it was read on.
+   */
+  const fact = groundedCompletionQuote(
+    quote,
+    requirement.id,
+    input.evidenceLedger,
+    true
+  )
+  const frame = input.observation.frames.find(
+    (entry) => entry.frameId === fact?.source?.frameId
+  )
+  if (!fact?.source || frame?.documentId !== fact.source.documentId)
+    return false
   const named = agentNormalizedClaim(record)
-  return observation.elements.some((element) => {
-    if (element.sensitive || !(element.visible || element.offscreen))
+  return input.observation.elements.some((element) => {
+    if (
+      element.sensitive ||
+      !(element.visible || element.offscreen) ||
+      element.frameId !== fact.source?.frameId
+    )
       return false
     const row = agentNormalizedClaim(element.rowContext ?? "")
     return (
@@ -2593,18 +2613,37 @@ const judgePlanned = (
     met.push(requirement.id)
   }
   /**
-   * A kept change verified on the page it was made on is asked to be read
-   * back once; asked already, it stands as the model's claim.
+   * A kept change is verified only by its check holding on a page loaded
+   * after it. A later navigation alone proves nothing: a field receipt can
+   * still vouch for a value the reopened record no longer shows. A change
+   * with no check cannot be read back by rule at all, so it stays claimed
+   * and the run is not sent to try; one with a check, shown only on the page
+   * it was made on, is asked to be read back once.
    */
   const unreadSaves = met.filter((id) => {
     const requirement = requirements.find((entry) => entry.id === id)
-    return (
-      requirement?.kind === "change" &&
-      requirement.persist === true &&
-      !readBackAfterChange(requirement, input.steps)
+    if (requirement?.kind !== "change" || requirement.persist !== true)
+      return false
+    return !(
+      requirement.check &&
+      readBackAfterChange(requirement, input.steps) &&
+      checkCompletionState(
+        requirement,
+        input.observation,
+        input.evidenceLedger,
+        claims.get(id)?.evidence,
+        changes
+      ) === true
     )
   })
-  const toAsk = unreadSaves.filter((id) => !readbackAsked(id, input.steps))
+  const toAsk = unreadSaves.filter((id) => {
+    const requirement = requirements.find((entry) => entry.id === id)
+    return (
+      requirement?.check !== undefined &&
+      !readBackAfterChange(requirement, input.steps) &&
+      !readbackAsked(id, input.steps)
+    )
+  })
   if (toAsk.length > 0)
     return {
       type: "refused",
@@ -2647,11 +2686,7 @@ const judgePlanned = (
       visual.includes(id)
     )
       return false
-    return !readBoundToItsRecord(
-      requirement,
-      claims.get(id)?.evidence,
-      input.observation
-    )
+    return !readBoundToItsRecord(requirement, claims.get(id)?.evidence, input)
   })
   const outcome = {
     met,

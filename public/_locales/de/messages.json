@@ -11,6 +11,10 @@
     "message": "Pausiert",
     "description": "Browser task needs human attention"
   },
+  "agentTaskUnchecked": {
+    "message": "Erledigt, nicht alles geprüft",
+    "description": "Browser task finished with answers that were not checked"
+  },
   "extName": {
     "message": "Ollama Client - Lokaler KI-Chat mit Ollama, LM Studio, llama.cpp",
     "description": "Extension name shown by Chrome and Chrome Web Store"

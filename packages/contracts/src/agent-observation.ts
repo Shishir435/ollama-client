@@ -149,6 +149,13 @@ export const AgentElementSchema = z
     invalidMessage: z.string().min(1).max(200).optional(),
     /** The option a combobox or listbox points at (`aria-activedescendant`). */
     activeOption: z.string().min(1).max(200).optional(),
+    /**
+     * The one option marked selected in the listbox this control owns — the
+     * listbox itself, or the one its `aria-controls` or `aria-owns` names.
+     * Read where the ownership is known, so one dropdown's choice can never
+     * stand in for another's. Absent with no selection, or with several.
+     */
+    selectedOption: z.string().min(1).max(200).optional(),
     focused: z.boolean().optional(),
     href: z.url().max(2_048).optional(),
     download: z.boolean().optional(),

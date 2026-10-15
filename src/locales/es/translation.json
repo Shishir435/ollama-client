@@ -376,7 +376,8 @@
     "action_default_title": "Abrir Ollama Client",
     "stop_browser_agent_menu": "Detener el agente del navegador",
     "agent_task_completed": "Completado",
-    "agent_task_attention": "En pausa"
+    "agent_task_attention": "En pausa",
+    "agent_task_unchecked": "Hecho, sin comprobar todo"
   },
   "selection_button": {
     "label": "Preguntar al LLM local",

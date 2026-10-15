@@ -1196,9 +1196,12 @@ already gathered can supply a page that was never loaded.
   clock: the page and the worker keep different ones.
 - **A kept change is read back.** A requirement marked `persist` — by the
   planner, or by rule from a saved or deleted `record_state` check — is
-  verified only on a page loaded after its change: a confirmed `navigate` or
-  `open_tab` afterwards, or an accepted submission that moved on (`back` is
-  not one; a cached page returns what it showed). Shown only on the page
+  verified only when its typed check holds on a page loaded after its
+  change: a confirmed `navigate` or `open_tab` afterwards, or an accepted
+  submission that moved on (`back` is not one; a cached page returns what it
+  showed). A navigation alone proves nothing — a field receipt can vouch for
+  a value the reopened record lost — and a kept change with no check cannot
+  be read back by rule, so it stays claimed without the run being asked. Shown only on the page
   where it was made, the completion is refused once with `readback_required`
   asking the run to reopen the record through its ordinary commands, so the
   resolver, policy, ownership and cancellation all apply and nothing is
@@ -1209,7 +1212,10 @@ already gathered can supply a page that was never loaded.
   `invalid` with `invalidMessage`. `checked` stays native-only, because
   `check` and `uncheck` drive a native input; the `checked` predicate reads
   native, then `aria-checked`, `aria-pressed`, `aria-selected`, and
-  `selected` reads a custom listbox's one selected option. `invalid` comes
+  `selected` reads `selectedOption`: the one option marked selected in the
+  listbox the control owns (itself, or the one its `aria-controls` /
+  `aria-owns` names), read in the page where ownership is known — never
+  another dropdown's choice in the same frame, never a combobox's typed text. `invalid` comes
   from `aria-invalid` or `:user-invalid`, so an untouched required field is
   not read as rejected. These fields are in `pageEvidence`, so flipping a
   switch is a confirmed change rather than an ambiguous click.
@@ -1508,7 +1514,10 @@ already gathered can supply a page that was never loaded.
   object of select, choose, pick, enter, type, tick, toggle, switch or set …
   to — that no planned outcome, item, check or limit mentions is refused
   once with the values named; missed again, each becomes a requirement of
-  its own (`origin: "coverage"`). A goal over `MAX_GOAL_CHARS` is a tool
+  its own (`origin: "coverage"`). The planner may name a value in
+  `notForBrowser` when the message asks for it in chat rather than in the
+  browser ("explain what 'event loop' means"); only a value it names is set
+  aside, never one it merely left out. A goal over `MAX_GOAL_CHARS` is a tool
   error, never cut: cutting removed the limit the user put last.
 - **A goal the model wrote after reading a page is not the user's words.**
   The run records `goalAuthor: "model_after_page"`, and `agentAuthoredText`

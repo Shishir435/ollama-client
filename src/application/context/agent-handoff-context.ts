@@ -177,12 +177,28 @@ const compactHandoff = (
   const compact = {
     ...handoff,
     findings: [...handoff.findings],
-    evidenceLedger: [...(handoff.evidenceLedger ?? [])]
+    evidenceLedger: [...(handoff.evidenceLedger ?? [])],
+    requirements: [...(handoff.requirements ?? [])],
+    actions: [...(handoff.actions ?? [])]
   }
+  const omitted = { requirements: false, actions: false }
   const render = () =>
     renderHandoff(compact).replace(
       "</run>",
-      "Some evidence details omitted; omitted details are unavailable in this turn.\n</run>"
+      [
+        "Some evidence details omitted; omitted details are unavailable in this turn.",
+        ...(omitted.requirements
+          ? [
+              "Some outcomes omitted; treat any outcome not listed as unchecked."
+            ]
+          : []),
+        ...(omitted.actions
+          ? [
+              "Some consequential actions omitted; do not repeat any action from this run."
+            ]
+          : []),
+        "</run>"
+      ].join("\n")
     )
   while (!fits(render()) && compact.evidenceLedger.length > 1) {
     compact.evidenceLedger.shift()
@@ -210,6 +226,39 @@ const compactHandoff = (
   )
   if (fits(render())) return render()
   compact.evidenceLedger = []
+  if (fits(render())) return render()
+  /**
+   * Grades and consequential actions are what a later turn most needs, so
+   * they are reduced before the run is given up, never instead of saying so:
+   * shorter outcome text, then outcomes the runtime verified (the claimed
+   * and unmet ones are the warnings), then control names, then the oldest
+   * actions — each loss leaving its own sentence in the record.
+   */
+  compact.requirements = compact.requirements.map((requirement) => ({
+    ...requirement,
+    text: requirement.text.slice(0, 60)
+  }))
+  const dropOutcome = (keep: (tier: string | undefined) => boolean) => {
+    const index = compact.requirements.findIndex(
+      (requirement) => !keep(requirement.tier)
+    )
+    if (index < 0) return false
+    compact.requirements.splice(index, 1)
+    omitted.requirements = true
+    return true
+  }
+  while (
+    !fits(render()) &&
+    dropOutcome((tier) => tier !== "verified" && tier !== "supported")
+  );
+  compact.actions = compact.actions.map(
+    ({ control: _control, ...action }) => action
+  )
+  while (!fits(render()) && dropOutcome(() => false));
+  while (!fits(render()) && compact.actions.length > 0) {
+    compact.actions.shift()
+    omitted.actions = true
+  }
   return fits(render()) ? render() : undefined
 }
 

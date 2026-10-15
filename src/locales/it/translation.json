@@ -376,7 +376,8 @@
     "action_default_title": "Apri Ollama Client",
     "stop_browser_agent_menu": "Arresta l’agente del browser",
     "agent_task_completed": "Completato",
-    "agent_task_attention": "In pausa"
+    "agent_task_attention": "In pausa",
+    "agent_task_unchecked": "Fatto, non tutto verificato"
   },
   "selection_button": {
     "label": "Chiedi al LLM locale",

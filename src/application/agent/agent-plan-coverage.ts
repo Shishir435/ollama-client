@@ -197,12 +197,21 @@ const planText = (
     )
   )
 
+/**
+ * The same word, or the same word inflected: a shared stem of five letters or
+ * more ("select" and "selected"). A shorter prefix is not the word —
+ * "blueprint" does not name Blue, and "exp" does not name Express — and
+ * reading it as one would cover a value nothing tracks.
+ */
 const tokenIn = (token: string, plan: ReadonlySet<string>): boolean => {
-  if (/\p{N}/u.test(token)) return plan.has(token)
+  if (plan.has(token)) return true
+  if (/\p{N}/u.test(token) || token.length < 5) return false
   for (const word of plan)
     if (
       !/\p{N}/u.test(word) &&
-      (word.startsWith(token) || token.startsWith(word))
+      word.length >= 5 &&
+      word.slice(0, 5) === token.slice(0, 5) &&
+      Math.abs(word.length - token.length) <= 3
     )
       return true
   return false
@@ -228,7 +237,7 @@ export const agentCoverageFeedback = (
     .map((named) => `"${named.value}"`)
     .join(
       ", "
-    )}, and no requirement or constraint in your plan mentions ${missing.length === 1 ? "it" : "them"}. Return the whole plan again with an outcome for each, quoting the user's message in source, unless the user's message plainly says it is not part of this task.`
+    )}, and no requirement or constraint in your plan mentions ${missing.length === 1 ? "it" : "them"}. Return the whole plan again with an outcome for each, quoting the user's message in source. If one belongs to the chat conversation rather than this browser task, list it exactly in notForBrowser instead.`
 
 /**
  * The requirement a named value becomes when the planner left it out twice:

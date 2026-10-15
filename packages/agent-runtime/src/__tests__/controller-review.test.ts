@@ -650,3 +650,41 @@ it("carries each supported read on its own, beside one that stays unchecked", as
     claimed: ["r2"]
   })
 })
+
+it("reviews the claimed reads left over after settling an undecided change", async () => {
+  const run = harness({
+    initial: {
+      requirements: [
+        saved,
+        { id: "r2", kind: "read", text: "Report which invoice is open" }
+      ]
+    },
+    decisions: [
+      {
+        type: "complete",
+        summary: "Saved and read.",
+        outcomes: [
+          { id: "r1", met: true, evidence: "Help menu expanded" },
+          { id: "r2", met: true, evidence: "Invoice 1" }
+        ]
+      }
+    ],
+    review: async (_state, request) => ({
+      verdicts: request.requirements.map((requirement) => ({
+        id: requirement.id,
+        verdict: "supported" as const,
+        sources: request.evidenceLedger
+          .filter((record) => record.requirementId === requirement.id)
+          .map((record) => record.id)
+          .slice(0, 1)
+      }))
+    })
+  })
+  await run.controller.start("run-1")
+  /** One pass for the undecided change, one for the read it left claimed. */
+  expect(
+    run.requests.map((request) => request.requirements.map((r) => r.id))
+  ).toEqual([["r1"], ["r2"]])
+  expect(run.state().outcome).toMatchObject({ supported: ["r1", "r2"] })
+  expect(run.state().status).toBe("completed")
+})

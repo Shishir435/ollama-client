@@ -376,7 +376,8 @@
     "action_default_title": "Ollama Client खोलें",
     "stop_browser_agent_menu": "ब्राउज़र एजेंट रोकें",
     "agent_task_completed": "पूरा हुआ",
-    "agent_task_attention": "रुका हुआ"
+    "agent_task_attention": "रुका हुआ",
+    "agent_task_unchecked": "पूरा, सब जाँचा नहीं गया"
   },
   "selection_button": {
     "label": "स्थानीय LLM से पूछें",

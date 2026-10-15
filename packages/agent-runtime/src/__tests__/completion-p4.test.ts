@@ -388,6 +388,37 @@ describe("P4 deterministic completion", () => {
       })
     })
 
+    it("never verifies a lost save because the run navigated after it", () => {
+      /** The reopened record shows the old value: the receipt cannot vouch for it. */
+      const lost: AgentObservation = {
+        ...page,
+        elements: page.elements.map((element) =>
+          element.name === "Name" ? { ...element, value: "Bob" } : element
+        )
+      }
+      expect(
+        judgeAgentCompletion({
+          steps: [typed, reopened],
+          observation: lost,
+          requirements: [saved],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).not.toMatchObject({ type: "accepted" })
+      /** With no check, nothing can read the record back: claimed, not asked. */
+      const { check: _check, ...checkless } = saved
+      expect(
+        judgeAgentCompletion({
+          steps: [typed, reopened],
+          observation: page,
+          requirements: [{ ...checkless, text: "Name is saved as Ada" }],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).toEqual({
+        type: "accepted",
+        outcome: { met: ["r1"], unmet: [], claimed: ["r1"], graded: true }
+      })
+    })
+
     it("counts a submission the site accepted by moving on as the read back", () => {
       const submitted = step(2, {
         command: { type: "click", ref: "e5", snapshotId: "s1", generation: 1 },
@@ -463,8 +494,10 @@ describe("P4 deterministic completion", () => {
     ).toBe(false)
   })
 
-  it("reads a custom listbox's choice from its one selected option", () => {
-    const listbox = (options: [string, boolean][]): AgentObservation => ({
+  it("reads a custom listbox's choice from the option its own listbox selected", () => {
+    const combobox = (
+      overrides: Partial<AgentObservation["elements"][number]>
+    ): AgentObservation => ({
       ...page,
       elements: [
         {
@@ -476,20 +509,22 @@ describe("P4 deterministic completion", () => {
           visible: true,
           sensitive: false,
           enabled: true,
-          editable: false
+          editable: false,
+          ...overrides
         },
-        ...options.map(([name, selected], index) => ({
-          ref: `o${index}`,
+        /** Another dropdown's choice in the same frame answers nothing here. */
+        {
+          ref: "e10",
           frameId: 0,
           tag: "div",
           role: "option",
-          name,
-          selected,
+          name: "Blue",
+          selected: true,
           visible: true,
           sensitive: false,
           enabled: true,
           editable: false
-        }))
+        }
       ]
     })
     const requirement = {
@@ -498,56 +533,13 @@ describe("P4 deterministic completion", () => {
       text: "Colour holds Blue",
       check: { type: "selected", name: "Colour", value: "Blue" } as const
     }
-    expect(
-      checkCompletionState(
-        requirement,
-        listbox([
-          ["Red", false],
-          ["Blue", true]
-        ]),
-        [],
-        undefined
-      )
-    ).toBe(true)
-    expect(
-      checkCompletionState(
-        requirement,
-        listbox([
-          ["Red", true],
-          ["Blue", false]
-        ]),
-        [],
-        undefined
-      )
-    ).toBe(false)
+    const holds = (observation: AgentObservation) =>
+      checkCompletionState(requirement, observation, [], undefined)
+    expect(holds(combobox({ selectedOption: "Blue" }))).toBe(true)
+    expect(holds(combobox({ selectedOption: "Red" }))).toBe(false)
+    expect(holds(combobox({}))).toBe(false)
     /** Typed into the combobox, picked from nothing: not a selection. */
-    expect(
-      checkCompletionState(
-        requirement,
-        {
-          ...listbox([["Red", false]]),
-          elements: listbox([["Red", false]]).elements.map((element) =>
-            element.role === "combobox"
-              ? { ...element, value: "Blue" }
-              : element
-          )
-        },
-        [],
-        undefined
-      )
-    ).toBe(false)
-    /** Two selected options answer nothing. */
-    expect(
-      checkCompletionState(
-        requirement,
-        listbox([
-          ["Blue", true],
-          ["Red", true]
-        ]),
-        [],
-        undefined
-      )
-    ).toBe(false)
+    expect(holds(combobox({ value: "Blue" }))).toBe(false)
   })
 
   it("routes prose about saving to review even when it names the exact invoice", () => {
@@ -1822,4 +1814,39 @@ describe("renamed-control receipt binding", () => {
     expect(judge("Reopen changes to Close")).not.toBe("accepted")
     expect(judge("Reopen replaces Close")).not.toBe("accepted")
   })
+})
+
+it("labels the items of a claimed requirement as claimed, not verified", () => {
+  const result = agentRunResult(
+    "Done",
+    [
+      {
+        id: "r1",
+        kind: "change",
+        text: "Invoices are saved",
+        persist: true,
+        items: ["Invoice 1", "Invoice 2"]
+      }
+    ],
+    [
+      {
+        id: "r1",
+        met: true,
+        items: [
+          { index: 0, met: true },
+          { index: 1, met: true }
+        ]
+      }
+    ],
+    ["r1"],
+    {
+      met: ["r1"],
+      unmet: [],
+      claimed: ["r1"],
+      graded: true,
+      items: [{ id: "r1", met: [0, 1] }]
+    }
+  )
+  expect(result).toContain("Reported, not checked item: Invoice 1")
+  expect(result).not.toContain("Verified")
 })

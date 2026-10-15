@@ -111,6 +111,20 @@ describe("the conversation handoff a settled run leaves", () => {
     ])
   })
 
+  it("grades nothing for a run that settled before it was judged", () => {
+    const handoff = buildAgentConversationHandoff(
+      settled({
+        status: "failed",
+        requirements: [{ id: "r1", kind: "change", text: "Address is saved" }],
+        outcome: undefined
+      }),
+      []
+    )
+    expect(handoff?.requirements).toEqual([
+      { id: "r1", text: "Address is saved" }
+    ])
+  })
+
   it("writes none for a run that has not settled", () => {
     expect(
       buildAgentConversationHandoff(settled({ status: "executing" }), [])

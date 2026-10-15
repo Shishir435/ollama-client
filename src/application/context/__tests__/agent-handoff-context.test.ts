@@ -345,3 +345,31 @@ describe("the budget the agent records may claim", () => {
     ).toBe(0)
   })
 })
+
+it("keeps a graded run in a small window by shortening its lists, and says what it left out", () => {
+  const tiers = ["verified", "verified", "supported", "claimed"] as const
+  const record = handoff("run-1", {
+    status: "completed_unverified",
+    goal: "g".repeat(200),
+    result: "r".repeat(200),
+    requirements: Array.from({ length: 8 }, (_, index) => ({
+      id: `r${index + 1}`,
+      text: `${"outcome ".repeat(24)}${index}`,
+      tier: tiers[index % tiers.length]
+    })),
+    actions: Array.from({ length: 6 }, (_, index) => ({
+      effect: "submission" as const,
+      state: "applied" as const,
+      control: `${"Submit ".repeat(10)}${index}`
+    }))
+  })
+  const { block, runIds } = renderAgentHandoffContext(
+    [agentRow(1, record)],
+    2_048
+  )
+  expect(runIds).toEqual(["run-1"])
+  expect(block?.length).toBeLessThanOrEqual(2_048)
+  /** The warnings survive: claimed outcomes outlast verified ones. */
+  expect(block).toContain(" claimed: ")
+  expect(block).toContain("Some outcomes omitted")
+})

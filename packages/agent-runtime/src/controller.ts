@@ -2554,7 +2554,7 @@ export const createAgentController = (
     let reviewed = false
     if (outstanding) judgement = outstanding
     else {
-      const review = await reviewCompletion(
+      let review = await reviewCompletion(
         state,
         settled.judgement,
         decision,
@@ -2563,6 +2563,27 @@ export const createAgentController = (
         signal
       )
       if (!review) return undefined
+      /**
+       * A review that settled an undecided claim can leave reads that are
+       * still only claimed; they get their own pass, within the same budget,
+       * rather than settling unasked beside the ones the reviewer supported.
+       */
+      if (
+        review.reviewed &&
+        settled.judgement.type === "refused" &&
+        agentClaimedReviewScope(review.judgement, state.requirements)
+      ) {
+        const again = await reviewCompletion(
+          state,
+          review.judgement,
+          decision,
+          steps,
+          observation,
+          signal
+        )
+        if (!again) return undefined
+        review = { judgement: again.judgement, reviewed: true }
+      }
       reviewed = review.reviewed
       judgement = challengeEarlyUnmet(state, review.judgement)
     }

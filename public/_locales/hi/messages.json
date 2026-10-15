@@ -11,6 +11,10 @@
     "message": "रुका हुआ",
     "description": "Browser task needs human attention"
   },
+  "agentTaskUnchecked": {
+    "message": "पूरा, सब जाँचा नहीं गया",
+    "description": "Browser task finished with answers that were not checked"
+  },
   "extName": {
     "message": "Ollama Client - Ollama, LM Studio, llama.cpp के साथ लोकल AI चैट",
     "description": "Extension name shown by Chrome and Chrome Web Store"

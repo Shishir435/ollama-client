@@ -62,7 +62,7 @@ export const agentRunResult = (
                   supported && requirement.kind === "read"
                     ? answer?.evidence
                     : undefined
-                return `${supported ? (seen ? "Seen in screenshot" : "Verified") : "Not verified"} item: ${item}${evidence ? `\n${evidence}` : ""}`
+                return `${supported ? (seen ? "Seen in screenshot" : metLabel(judged, requirement.id)) : "Not verified"} item: ${item}${evidence ? `\n${evidence}` : ""}`
               })
               .join("\n")
           : ""

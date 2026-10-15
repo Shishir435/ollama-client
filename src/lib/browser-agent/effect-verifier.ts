@@ -824,6 +824,7 @@ const pageEvidence = (observation: AgentObservation): string =>
       selected: element.selected,
       invalid: element.invalid,
       activeOption: element.activeOption,
+      selectedOption: element.selectedOption,
       href: element.href,
       visible: element.visible,
       enabled: element.enabled

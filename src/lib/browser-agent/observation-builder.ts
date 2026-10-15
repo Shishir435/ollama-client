@@ -1664,6 +1664,33 @@ const invalidState = (
   return { invalid: true, ...(message ? { invalidMessage: message } : {}) }
 }
 
+/** The listbox a combobox or listbox owns: itself, or the one it names. */
+const ownedListbox = (element: Element, role: string): Element | undefined => {
+  if (role === "listbox") return element
+  if (role !== "combobox") return undefined
+  for (const attribute of ["aria-controls", "aria-owns"]) {
+    for (const id of element.getAttribute(attribute)?.trim().split(/\s+/) ??
+      []) {
+      const owned = id ? idScope(element).getElementById(id) : null
+      if (owned?.getAttribute("role")?.trim().toLowerCase() === "listbox")
+        return owned
+    }
+  }
+  return undefined
+}
+
+const ownedSelection = (element: Element, role: string): string | undefined => {
+  const listbox = ownedListbox(element, role)
+  if (!listbox) return undefined
+  const selected = [...listbox.querySelectorAll("[role='option']")].filter(
+    (option) =>
+      option.getAttribute("aria-selected")?.trim().toLowerCase() === "true"
+  )
+  if (selected.length !== 1) return undefined
+  const text = normalizedText(selected[0].textContent ?? "")
+  return text ? truncate(text, 200) : undefined
+}
+
 const ariaStateFields = (
   element: Element,
   readable: boolean
@@ -1679,12 +1706,14 @@ const ariaStateFields = (
   const activeOption = readable
     ? referencedText(element, "aria-activedescendant")
     : undefined
+  const selectedOption = readable ? ownedSelection(element, role) : undefined
   return {
     ...(ariaChecked !== undefined ? { ariaChecked } : {}),
     ...(pressed !== undefined ? { pressed } : {}),
     ...(expanded !== undefined ? { expanded } : {}),
     ...(selected !== undefined ? { selected } : {}),
     ...(activeOption ? { activeOption } : {}),
+    ...(selectedOption ? { selectedOption } : {}),
     ...invalidState(element, readable)
   }
 }

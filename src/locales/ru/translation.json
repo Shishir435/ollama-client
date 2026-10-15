@@ -386,7 +386,8 @@
     "action_default_title": "Открыть Ollama Client",
     "stop_browser_agent_menu": "Остановить агент браузера",
     "agent_task_completed": "Завершено",
-    "agent_task_attention": "На паузе"
+    "agent_task_attention": "На паузе",
+    "agent_task_unchecked": "Готово, проверено не всё"
   },
   "selection_button": {
     "label": "Спросить локальный LLM",

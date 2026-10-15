@@ -39,6 +39,7 @@ export interface AgentProjectedElement {
   /** The page rejected this control's value, with its reason when given. */
   invalid?: string | true
   activeOption?: string
+  selectedOption?: string
   focused?: boolean
   scroll?: AgentElement["scroll"]
   href?: string
@@ -285,6 +286,9 @@ export const projectAgentElement = (
     ...(element.selected !== undefined ? { selected: element.selected } : {}),
     ...(element.invalid ? { invalid: element.invalidMessage ?? true } : {}),
     ...(element.activeOption ? { activeOption: element.activeOption } : {}),
+    ...(element.selectedOption
+      ? { selectedOption: element.selectedOption }
+      : {}),
     ...(element.focused ? { focused: true } : {}),
     ...(href ? { href } : {}),
     ...(options ? { options } : {}),
