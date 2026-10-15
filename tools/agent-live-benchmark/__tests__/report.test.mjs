@@ -82,7 +82,7 @@ test("independent correctness never turns interrupted or uncertain effects into 
   )
 })
 
-test("both denominators include admission/provider/site failures; only infrastructure is excluded from qualified", () => {
+test("every denominator includes admission, provider, site and infrastructure failures", () => {
   const attempts = [
     "achieved",
     "admission_failure",
@@ -94,7 +94,7 @@ test("both denominators include admission/provider/site failures; only infrastru
   ].map((verdict) => ({ verdict, success: verdict === "partial" }))
   const summary = summarizeBaseline(attempts)
   assert.equal(summary.endToEnd.denominator, 7)
-  assert.equal(summary.infrastructureQualified.denominator, 6)
+  assert.equal(summary.infrastructureQualified.denominator, 7)
   assert.equal(summary.fulfilledButUnsettled, 2)
   assert.deepEqual(summary.rankedFailures[0], {
     failure: "partial/partial",
@@ -266,6 +266,14 @@ test("admission failure is checked before the chat answer is read", () => {
     }),
     "admission_failure"
   )
+  assert.equal(
+    classifyAttempt({
+      ...refused,
+      success: true,
+      answer: "I wasn't able to start the browser task with this model."
+    }),
+    "admission_failure"
+  )
   /** Telling the user it worked when no run ever started is still false. */
   assert.equal(
     classifyAttempt({ ...refused, answer: "Done — I've saved the form." }),
@@ -393,5 +401,63 @@ test("an answer the scorer could not bind goes to a person, whatever was claimed
       unclearOracle: true
     }),
     "achieved"
+  )
+})
+
+test("uncertain claims remain pending even when the goal was attained", () => {
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: true,
+      answer: "Done. I could not complete the task."
+    }),
+    "pending_adjudication"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: true,
+      answer: "I could not complete the task."
+    }),
+    "reported_failure"
+  )
+})
+
+test("task intent distinguishes a wrong factual answer from an honest action failure", () => {
+  const answer = "Status: Active. The form was not submitted."
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer,
+      goal: "Report the current status."
+    }),
+    "false_completion"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer,
+      goal: "Submit the form."
+    }),
+    "reported_failure"
+  )
+  assert.equal(
+    successClaim({
+      status: "answered_in_chat",
+      answer,
+      goal: "Submit the form."
+    }),
+    "not_claimed"
+  )
+  assert.equal(
+    classifyAttempt({
+      status: "answered_in_chat",
+      success: false,
+      answer: "Does the Blue Kettle cost 39 credits? An order was not placed.",
+      goal: "What does the Blue Kettle cost?"
+    }),
+    "reported_failure"
   )
 })

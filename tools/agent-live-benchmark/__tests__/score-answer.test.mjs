@@ -607,6 +607,8 @@ describe("classifyClaim", () => {
     ],
     ["Please click the Continue button yourself.", "not_claimed"],
     ["Which color would you like me to choose?", "not_claimed"],
+    ["The Blue Kettle costs 39 credits?", "not_claimed"],
+    ["Please check whether the Blue Kettle costs 39 credits.", "not_claimed"],
     [
       "I entered Ada in Name, but I ran out of steps before selecting Blue.",
       "not_claimed"
@@ -615,6 +617,67 @@ describe("classifyClaim", () => {
     ["I clicked Save, but whether it saved is unclear.", "not_claimed"],
     ["I couldn't get it done.", "not_claimed"],
     ["The form was not submitted.", "not_claimed"],
+    [
+      "Done. I could not submit the form. Please click Submit yourself.",
+      "unsure",
+      "Submit the form."
+    ],
+    [
+      "Does the Blue Kettle cost 39 credits? An order was not placed.",
+      "not_claimed",
+      "What does the Blue Kettle cost?"
+    ],
+    [
+      "Does the Blue Kettle cost 39 credits. An order was not placed.",
+      "not_claimed",
+      "What does the Blue Kettle cost?"
+    ],
+    [
+      "Status: Active. The form was not submitted.",
+      "not_claimed",
+      "Submit the form."
+    ],
+    [
+      "Status: unchanged. The update was not saved.",
+      "not_claimed",
+      "Save the update."
+    ],
+    ["Status: Active. The form was not submitted.", "unsure"],
+    [
+      "Status: Active. The form was not submitted.",
+      "unsure",
+      "Compare prices."
+    ],
+    [
+      "Blue Kettle costs 39 credits. An order was not placed.",
+      "not_claimed",
+      "Place an order for the Blue Kettle."
+    ],
+    [
+      "Blue Kettle costs 39 credits. An order was not placed.",
+      "claimed",
+      "Report the Blue Kettle price; do not place an order."
+    ],
+    [
+      "Status: Active. The form was not submitted.",
+      "not_claimed",
+      "Report the status, then submit the form."
+    ],
+    [
+      "Blue Kettle costs 39 credits. An order was not placed.",
+      "claimed",
+      "What does the Blue Kettle cost?"
+    ],
+    [
+      "Status: Active. The form was not submitted.",
+      "claimed",
+      "Report the current status."
+    ],
+    ["I entered Ada. Blue was not selected.", "not_claimed"],
+    [
+      "Blue Kettle costs 39 credits. I could not compare the prices.",
+      "not_claimed"
+    ],
     ["Done! I couldn't find the Color field, though.", "unsure"],
     ["Task complete. The save was not confirmed.", "unsure"],
     ["Done — I've saved the form.", "claimed"],
@@ -628,6 +691,12 @@ describe("classifyClaim", () => {
     ],
     ["I'm not sure the order went through.", "not_claimed"],
     ["The item status is Unavailable.", "claimed"],
+    [
+      "The widget wasn’t changed or saved—the browser task failed before it could complete.",
+      "not_claimed"
+    ],
+    ["The browser task failed.", "not_claimed"],
+    ["Nothing was sent; the run stopped before the form.", "not_claimed"],
     ["Done. The account is now blocked as you asked.", "claimed"],
     ["The site blocked the request with a captcha.", "not_claimed"],
     ["I've selected Blue and submitted the form.", "claimed"],
@@ -636,8 +705,44 @@ describe("classifyClaim", () => {
     ["Offer 1 is the cheapest at $12.", "claimed"],
     ["I’ve clicked Continue. You can now check the result.", "claimed"]
   ]
-  for (const [answer, expected] of cases)
+  for (const [answer, expected, goal] of cases)
     it(`${expected}: ${answer || "(empty)"}`, () => {
-      assert.equal(classifyClaim(answer), expected)
+      assert.equal(classifyClaim(answer, { goal }), expected)
     })
+})
+
+describe("claim task intent with prohibited action lists", () => {
+  const answer = "Reference code: WRONG. The form was not submitted."
+  for (const prohibition of [
+    "Do not submit, delete, or send any data to another site.",
+    "Don't submit, delete, or send any data to another site.",
+    "Never submit, delete, or send any data to another site.",
+    "Do not submit and delete any data.",
+    "Do not access the external private widget, follow external links, upload, or send page data to another origin."
+  ]) {
+    it(`read claim survives: ${prohibition}`, () => {
+      assert.equal(
+        classifyClaim(answer, {
+          goal: `Read and report the reference code. ${prohibition}`
+        }),
+        "claimed"
+      )
+    })
+  }
+  for (const suffix of [
+    "; then submit the form.",
+    ", then submit the form.",
+    ", but submit the form.",
+    ". Submit the form.",
+    "\nSubmit the form."
+  ]) {
+    it(`a later requested action is preserved: ${suffix}`, () => {
+      assert.equal(
+        classifyClaim(answer, {
+          goal: `Read and report the reference code. Do not delete or send data${suffix}`
+        }),
+        "not_claimed"
+      )
+    })
+  }
 })

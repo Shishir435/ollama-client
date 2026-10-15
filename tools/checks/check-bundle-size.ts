@@ -259,7 +259,8 @@ const budgets: Budget[] = [
     /** Stop retry and committing-label approvals measure Chrome at 48,575,482. */
     // Security updates add 2,759 Chrome bytes, preserving existing headroom.
     /** The agent readiness line and its nine-locale copy measure Chrome at 48,589,345; read-only readiness and its evidence refresh, 48,590,811. */
-    max: isFirefox ? 50_300_000 : 48_590_811
+    /** Structured terminal refusals add 87 bytes to Chrome's measured total. */
+    max: isFirefox ? 50_300_000 : 48_590_898
   },
   {
     metric: "zip",
@@ -578,7 +579,8 @@ const budgets: Budget[] = [
     /** Supplied text matched on word edges measures Chrome at 342,737. */
     /** Stop retry and committing-label approvals (nine-locale word lists) measure Chrome at 343,829. */
     /** Turn-terminal browser_task refusals and the readiness RPC measure Chrome at 344,208 and Firefox at 222,652; read-only readiness, 344,345 and 222,662. */
-    max: isFirefox ? 222_662 : 344_345
+    /** Structured terminal refusals add 30 gzip bytes to Chrome's background. */
+    max: isFirefox ? 222_662 : 344_375
   }
 ]
 

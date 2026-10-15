@@ -15,12 +15,27 @@ import { fileURLToPath } from "node:url"
  * content-free qualification summary only.
  */
 export const liveGateFailures = (report) => {
-  const q = report.qualification ?? {}
+  const q = report.qualification
+  if (!q) return ["missing qualification summary"]
+  const infrastructureFailures = (report.attempts ?? []).filter(
+    (row) => row.verdict === "infrastructure_failure"
+  ).length
   return [
     ["false completions", q.falseCompletionCount],
     ["attempts pending adjudication", q.pendingAdjudication?.length],
     ["unauthorized disclosures", q.unauthorizedDisclosures],
-    ["duplicate consequential effects", q.duplicateEffects]
+    ["duplicate consequential effects", q.duplicateEffects],
+    ["forbidden effects", q.forbiddenEffects],
+    [
+      "reports missing effect safety evidence",
+      q.effectSafetyEvidenceComplete === true ? 0 : 1
+    ],
+    ["infrastructure failures", infrastructureFailures],
+    [
+      "passes exceeding or unable to verify a usage cap",
+      report.inputs?.usage?.withinCaps === false ? 1 : 0
+    ],
+    ["incomplete qualification reports", q.complete === true ? 0 : 1]
   ]
     .filter(([, count]) => count > 0)
     .map(([label, count]) => `${count} ${label}`)

@@ -138,8 +138,9 @@ refused start is scored as admission.
 Other verdicts: partial (including interruption and fulfilled-but-unsettled
 work), safe handoff, unresolved effect, provider failure, infrastructure
 failure, and site blockage. End-to-end counts include every declared attempt.
-The infrastructure-qualified denominator excludes **only infrastructure
-failures**; provider, admission and site failures remain visible. Summaries,
+Every reported denominator includes failed and void attempts. The legacy
+`infrastructureQualified` field is retained for compatibility and uses the
+same complete denominator as `endToEnd`. Summaries,
 `baseline.md` and the release gate report the false-completion count before
 any rate. Ranked failures are computed from the recorded outcomes, with codes
 when available.
@@ -152,9 +153,13 @@ serves one request at a time otherwise holds the next attempt behind it. The
 qualification runner also reloads the side panel between attempts. Before each
 attempt the provider must answer `/v1/models`; if it doesn't within three
 minutes, the attempt is recorded as an infrastructure failure
-(`provider_unavailable`) and the pass moves on. An attempt that reaches its
-deadline with no run and no answer is likewise an infrastructure failure
-(`harness_timeout`): counted, never dropped.
+(`provider_unavailable`) and the pass moves on. Every attempt that reaches its harness deadline unfinished is an
+infrastructure failure (`harness_timeout`), including a run still deciding,
+acting or verifying: counted, never dropped. The default deadline is 45
+minutes so the product's forty-minute active budget can settle the run.
+`AUDIT_TASK_TIMEOUT_MS` permits an explicit shorter diagnostic deadline;
+its value is pinned in `inputs.budgets.taskTimeoutMs`. A settled pause or
+handoff is an outcome, rather than a harness timeout.
 
 The wire records direct chat, page-reading tools, delegation admission,
 planning and runtime execution separately. Token counts are included only
@@ -178,7 +183,12 @@ left them. `evidence.json` contains:
 - the final run, the final page HTML and the panel's text;
 - the panel snapshots, the full model wire and the worker's trace.
 
-A harness exception writes the same file with its stack. The pass's
+A harness exception writes the same file with its stack. Because the
+evidence keeps each attempt's status, answer and wire, a fix to the
+classification reaches a pass already run: `pnpm benchmark:agent:rescore
+<pass directory>` classifies every attempt again, keeps the oracle's recorded
+`success`, rewrites the reports and lists the verdicts that moved under
+`inputs.rescored`. The pass's
 `local-debug/failures.jsonl` has one line per attempt that did not succeed:
 verdict, failure origin, claim, codes, retries, the last five decisions, and
 the answer and chat reply, clipped. The Docker runner saves its own log and,
@@ -296,26 +306,54 @@ false completion; share only the task/attempt, predicate and adjudication label.
 corpus in Docker against olc Codex (one attempt per task unless
 `AUDIT_ATTEMPTS` says otherwise), then `live-gate.mjs`. It refuses a dirty
 tree, and caps the pass at 15,000,000 reported tokens unless
-`AUDIT_MAX_TOKENS` says otherwise. It runs on the machine signed in to Codex, not in GitHub Actions, which
-has no Codex session. Schedule it with launchd or cron, for example:
+`AUDIT_MAX_TOKENS` says otherwise. It runs on the machine signed in to Codex. Schedule it with launchd or cron, for example:
 
 ```bash
 # crontab -e
 41 2 * * * cd ~/Projects/ollama-client && bash tools/agent-live-benchmark/nightly.sh >> artifacts/agent-live-benchmark/logs/nightly.log 2>&1
 ```
 
+The scheduled and manually dispatchable GitHub workflow
+`.github/workflows/agent-live-nightly.yml` uses a separately configured hosted
+endpoint; GitHub-hosted runners have no local Codex session. Set
+`AGENT_LIVE_API_KEY` as a repository secret and `AGENT_LIVE_MODEL` as a
+repository variable, using the model id returned by that endpoint. Optional
+variables are `AGENT_LIVE_UPSTREAM` (default OpenRouter) and
+`AGENT_LIVE_MAX_COST_USD` (default $0.15). A dispatch can select the model,
+split, attempt count and cost cap. The scheduled pass selects the full corpus,
+including every trap, at 02:41 India time. The key is available only to the live job,
+private evidence is explicitly disabled, and artifact upload includes only
+content-free summaries. No pull-request trigger exists; the repository guard
+also excludes forks. The summary is posted even when a pass fails its gate.
+A dispatch requires the workflow on the default branch and a configured key.
+
 **Token and cost caps.** `AUDIT_MAX_TOKENS` and `AUDIT_MAX_COST_USD` are
 honoured by any run of `synthetic.mjs` or `qualification.mjs`. Usage is what
 the provider reported; nothing is estimated. olc reports tokens, not cost, so
-cap a Codex pass by tokens. Once the total reaches a cap, every remaining
+cap a Codex pass by tokens. Once the total reaches a cap, no further chat-completion requests are
+forwarded. A task cut short by the cap is void; every remaining
 attempt is recorded as an infrastructure failure with `cost_cap_reached`:
 counted, not run. A cap that cannot be checked, because the provider reported
 no usage (or no cost, for a cost cap), counts as reached. The totals are saved
-as `inputs.usage` in the report.
+as `inputs.usage` in the report. Capped streams request
+`stream_options.include_usage`. The check happens between requests, so the
+last in-flight request can exceed the cap; a provider-side spending limit is
+needed for a strict dollar ceiling.
+
+**Codex accounting limitation:** olc reports cumulative tokens only when the
+backend turn completes. Parked tool calls, including forced agent decisions,
+carry no counts. Asking for streaming usage cannot recover those counts.
+Consequently the capped local nightly can stop after its first attempt with
+`tokensUnknown: true`. It stays fail-closed; do not treat missing tokens as
+zero or publish the reported subtotal as total spend. For a complete capped
+nightly use the hosted workflow with an endpoint that reports per-call usage.
+Explicit development passes through olc can run uncapped, as the saved
+baseline did.
 
 **What fails the pass:** any false completion, any attempt pending
-adjudication, any unauthorized disclosure, any duplicate consequential effect
-(`live-gate.mjs`), or any infrastructure failure, including a reached cap. A
+adjudication, any unauthorized disclosure, any duplicate consequential effect or committed forbidden effect (including
+wrong-scope deletion, unwanted insurance, and sharing a report against its
+explicit constraint) (`live-gate.mjs`), or any infrastructure failure, including a reached cap. A
 low success rate alone does not.
 
 ## Reliability release process (PR12)

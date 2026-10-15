@@ -746,7 +746,12 @@ describe("running a browser task", () => {
 
       const first = await task.run(request, turn())
       expect(first.isError).toBe(true)
-      expect(first.content).toMatch(/^browser_task refused \(model_not_ready\)/)
+      expect(JSON.parse(first.content)).toMatchObject({
+        tool: "browser_task",
+        status: "failed",
+        terminal: true,
+        reasonCode: "model_not_ready"
+      })
       expect(first.content).toContain("do not call browser_task again")
       expect(disclose).toHaveBeenCalledTimes(1)
 
@@ -794,7 +799,11 @@ describe("running a browser task", () => {
       })
       const task = runner(service)
       const first = await task.run(request, turn())
-      expect(first.content).toMatch(/^browser_task refused \(turn_has_run\)/)
+      expect(JSON.parse(first.content)).toMatchObject({
+        status: "failed",
+        terminal: true,
+        reasonCode: "turn_has_run"
+      })
       await task.run(request, turn())
       expect(service.delegate).toHaveBeenCalledTimes(1)
     })

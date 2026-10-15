@@ -95,7 +95,13 @@ const terminalFailure = (
   content: string
 ): ToolResult =>
   failure(
-    `browser_task refused (${code}). ${content} This will not change during this turn: do not call browser_task again in this turn. Tell the user why it could not start.`
+    JSON.stringify({
+      tool: "browser_task",
+      status: "failed",
+      terminal: true,
+      reasonCode: code,
+      message: `browser_task refused (${code}). ${content} This will not change during this turn: do not call browser_task again in this turn. Tell the user why it could not start.`
+    })
   )
 
 /**

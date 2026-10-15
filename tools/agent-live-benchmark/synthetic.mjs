@@ -3,6 +3,7 @@ import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright"
+import { attemptTimedOut, taskTimeoutFromEnv } from "./attempt-deadline.mjs"
 import {
   agentObservedText,
   agentSawRenderedCanvas,
@@ -66,18 +67,18 @@ import {
   waitForProvider
 } from "./upstream.mjs"
 import {
-  createUsageBudget,
+  createWireUsageBudget,
   usageCapsFromEnv,
-  wireUsage,
   withUsageAccounting
 } from "./usage.mjs"
 
 /** Checked before any case runs, so a key bound for plain HTTP stops the run. */
+const TASK_TIMEOUT_MS = taskTimeoutFromEnv()
 const UPSTREAM = process.env.AUDIT_UPSTREAM ?? "http://127.0.0.1:8084"
 const AUTHORIZATION = upstreamAuthorization(UPSTREAM, process.env.AUDIT_API_KEY)
 /** Checked before any case runs too, so a malformed cap stops the pass. */
 const USAGE_CAPS = usageCapsFromEnv()
-const usageBudget = createUsageBudget(USAGE_CAPS)
+const usageBudget = createWireUsageBudget(USAGE_CAPS)
 
 const qualification = process.env.AUDIT_SUITE === "qualification"
 const suite = qualification ? "qualification" : "synthetic"
@@ -153,6 +154,7 @@ const inputs = baselineInputs({
     "tools/agent-live-benchmark/synthetic.mjs",
     "tools/agent-live-benchmark/score-answer.mjs",
     "tools/agent-live-benchmark/chat-turn.mjs",
+    "tools/agent-live-benchmark/attempt-deadline.mjs",
     "tools/agent-live-benchmark/report.mjs",
     ...(qualification
       ? [
@@ -173,7 +175,7 @@ const inputs = baselineInputs({
   visionMode: "capability_resolved",
   budgets: {
     attempts: attemptCount,
-    taskTimeoutMs: 150000,
+    taskTimeoutMs: TASK_TIMEOUT_MS,
     answerTimeoutMs: 45000
   },
   policy: {
@@ -237,13 +239,15 @@ let profile,
       ? {
           family: qualificationTasks.find((task) => task.id === fields[0])
             .family,
+          forbiddenEffects: 0,
           split: qualificationTasks.find((task) => task.id === fields[0]).split
         }
       : {}),
     attempt,
     status: "not_attempted",
     verdict: "infrastructure_failure",
-    failureCode: "harness_not_reached"
+    failureCode: "harness_not_reached",
+    failureOrigin: "infrastructure"
   }))
 writeBaseline(out, inputs, results)
 /** Start pages that are fixed markup, with no per-task wiring. */
@@ -423,6 +427,20 @@ const server = createServer(async (req, res) => {
           rec.request,
           process.env.AUDIT_REASONING_EFFORT
         )
+      if (path.endsWith("/chat/completions") && usageBudget.exceeded()) {
+        rec.status = 429
+        rec.injected = true
+        rec.budgetBlocked = true
+        rec.response = JSON.stringify({
+          error: {
+            type: "benchmark_budget_exhausted",
+            message: "Benchmark usage cap reached"
+          }
+        })
+        res.writeHead(429, { "Content-Type": "application/json" })
+        res.end(rec.response)
+        return
+      }
       if (
         qualification &&
         current?.qualification &&
@@ -491,6 +509,7 @@ const server = createServer(async (req, res) => {
         res.write(chunk)
       }
       rec.elapsedMs = Date.now() - rec.started
+      usageBudget.charge(rec)
       res.end()
       return
     }
@@ -511,6 +530,7 @@ const server = createServer(async (req, res) => {
     /** Unreachable after every retry, or cut off by the attempt's end. */
     if (rec && rec.status === undefined) rec.status = 502
     if (!res.headersSent) res.statusCode = 502
+    usageBudget.charge(rec)
     res.end(JSON.stringify({ error: { message: String(e) } }))
   }
 })
@@ -721,7 +741,7 @@ try {
        * cancelled. Past the cap, this and every later attempt is recorded
        * as not run: counted, never dropped, and the pass exits non-zero.
        */
-      usageBudget.add(wireUsage(wire))
+      usageBudget.settle(wire)
       wire = []
       if (usageBudget.exceeded()) {
         results[index] = {
@@ -822,7 +842,16 @@ try {
        * run is the end of the case rather than a wait for the deadline.
        */
       let idleSince
-      while (sent.started && Date.now() - sentAt < 150000) {
+      let deadlineReached = false
+      while (sent.started) {
+        if (wire.some((record) => record.budgetBlocked)) {
+          reason = "cost_cap_reached"
+          break
+        }
+        if (Date.now() - sentAt >= TASK_TIMEOUT_MS) {
+          deadlineReached = true
+          break
+        }
         final = messages
           .filter((m) => (m.snapshot?.run?.createdAt ?? 0) >= started)
           .at(-1)?.snapshot
@@ -832,6 +861,7 @@ try {
             "completed",
             "partial",
             "failed",
+            "cancelled",
             "paused",
             "awaiting_takeover"
           ].includes(final.run.status)
@@ -884,7 +914,7 @@ try {
        * answer with both. Scoring the run alone failed a case whose reply
        * carried everything asked for, so a settled run waits for that reply.
        */
-      if (delegated && ["completed", "failed"].includes(final.run.status)) {
+      if (delegated && SETTLED_RUN_STATUSES.includes(final.run.status)) {
         await waitForChatState(
           () => readChatTurn(panel, goal),
           (chat) => !chat.busy && chatAnswered(wire),
@@ -896,15 +926,16 @@ try {
       const completed =
         final?.run?.status === "completed" ||
         (!delegated && chatAnswered(wire) && Boolean(chatAnswer))
-      const status =
-        final?.run?.status ??
-        (!sent.started
-          ? sent.invalid
-            ? "harness_invalid"
-            : "turn_not_started"
-          : chatAnswered(wire) && chatAnswer
-            ? "answered_in_chat"
-            : "harness_timeout")
+      const status = wire.some((record) => record.budgetBlocked)
+        ? "harness_budget_exhausted"
+        : (final?.run?.status ??
+          (!sent.started
+            ? sent.invalid
+              ? "harness_invalid"
+              : "turn_not_started"
+            : chatAnswered(wire) && chatAnswer
+              ? "answered_in_chat"
+              : "harness_timeout"))
       // The opener page never shows the status for open_tab; the new tab must.
       let openTabActive = false
       if (kind === "open_tab") {
@@ -983,28 +1014,27 @@ try {
           wireTelemetry(wire).executionStages.includes(
             "browser_task_admission"
           ))
-      /**
-       * A deadline with no run and no answer is the harness's problem: the
-       * chat never got a turn through, so nothing about the agent was
-       * measured. It stays in the end-to-end denominator as an
-       * infrastructure failure. A run still going at the deadline is the
-       * agent's, and a chat that kept asking admission is admission's.
-       */
-      const timedOut = status === "harness_timeout" && !admissionFailure
+      /** Every unfinished attempt stopped by the harness is void, even with a live run. */
+      const timedOut = attemptTimedOut({ status, deadlineReached })
       const providerDown = wire.some((w) => w.status >= 500 && !w.injected)
-      const failureCode = timedOut
-        ? providerDown
-          ? "provider_unavailable"
-          : "harness_timeout"
-        : undefined
+      const capBlocked = wire.some((record) => record.budgetBlocked)
+      const failureCode = capBlocked
+        ? "cost_cap_reached"
+        : timedOut
+          ? providerDown
+            ? "provider_unavailable"
+            : "harness_timeout"
+          : undefined
       const verdict = classifyAttempt({
         status,
         success,
         answer,
+        goal,
         expectedPause,
         pauseReason: final?.run?.pauseReason,
         errorCode: final?.run?.error?.code,
-        infrastructureFailure: status === "harness_invalid" || timedOut,
+        infrastructureFailure:
+          status === "harness_invalid" || timedOut || capBlocked,
         admissionFailure,
         providerFailure: wire.some((w) => w.status >= 400),
         siteBlocked: isSiteChallenge(body),
@@ -1017,6 +1047,7 @@ try {
               family: current.qualification.task.family,
               split: current.qualification.task.split,
               duplicateEffects: scored.duplicateEffects,
+              forbiddenEffects: scored.forbiddenEffects,
               unauthorizedDisclosures: scored.unauthorizedDisclosures,
               adjudication: scored.adjudication,
               faultInjected: scored.faultInjected
@@ -1030,13 +1061,13 @@ try {
         model,
         success,
         verdict,
-        successClaimed: successClaim({ status, answer }),
+        successClaimed: successClaim({ status, answer, goal }),
         failureOrigin: failureOrigin({
           verdict,
           status,
           errorCode: final?.run?.error?.code
         }),
-        ...(failureCode ? { failureCode } : {}),
+        ...(failureCode ? { failureCode, harnessTimedOut: timedOut } : {}),
         predicate,
         ...(kind === "canvas" ? { renderedCanvasScreenshot } : {}),
         /** Decisions that asked for a fresh picture; see the canvas task. */
@@ -1198,9 +1229,14 @@ try {
   process.exitCode = 1
 } finally {
   attemptScope.abort()
-  usageBudget.add(wireUsage(wire))
+  usageBudget.settle(wire)
   /** Content-free totals; kept out of `budgets` so caps never unmatch reports. */
-  inputs.usage = { caps: USAGE_CAPS, ...usageBudget.spent }
+  inputs.usage = {
+    caps: USAGE_CAPS,
+    ...usageBudget.spent,
+    withinCaps: usageBudget.withinCaps()
+  }
+  if (!usageBudget.withinCaps()) process.exitCode = 1
   if (results.some((row) => row.verdict === "infrastructure_failure"))
     process.exitCode = 1
   writeBaseline(out, inputs, results)

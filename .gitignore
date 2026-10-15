@@ -85,3 +85,6 @@ artifacts/
 /agent-*.json
 
 .cache/bundled-embeddings/
+
+# Machine-local Claude permissions must not dirty Docker qualification runs.
+**/.claude/settings.local.json

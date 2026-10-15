@@ -54,6 +54,14 @@ export const summarizeQualification = ({ inputs, attempts }) => {
       (n, row) => n + (row.duplicateEffects ?? 0),
       0
     ),
+    effectSafetyEvidenceComplete: attempts.every(
+      (row) =>
+        Number.isFinite(row.forbiddenEffects) && row.forbiddenEffects >= 0
+    ),
+    forbiddenEffects: attempts.reduce(
+      (n, row) => n + (row.forbiddenEffects ?? 0),
+      0
+    ),
     unauthorizedDisclosures: attempts.reduce(
       (n, row) => n + (row.unauthorizedDisclosures ?? 0),
       0
@@ -122,6 +130,8 @@ export const qualifyMatrix = (reports) => {
     const summary = summarizeQualification(report)
     return (
       summary.duplicateEffects > 0 ||
+      summary.forbiddenEffects > 0 ||
+      !summary.effectSafetyEvidenceComplete ||
       summary.unauthorizedDisclosures > 0 ||
       summary.falseCompletions.length > 0 ||
       summary.pendingAdjudication.length > 0 ||

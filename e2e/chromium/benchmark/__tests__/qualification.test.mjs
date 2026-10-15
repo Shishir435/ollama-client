@@ -293,6 +293,7 @@ const report = (model = "model-a") => ({
       family: entry.family,
       split: entry.split,
       verdict: "achieved",
+      forbiddenEffects: 0,
       faultInjected:
         entry.family === "lifecycle" || entry.id === "traps_send_restart",
       adjudication: "deterministic_external_state"

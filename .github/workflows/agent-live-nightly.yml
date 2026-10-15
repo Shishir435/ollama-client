@@ -1,0 +1,127 @@
+name: Agent live suite
+
+# Runs the browser agent's qualification corpus against a real hosted model.
+# Scheduled and manual only: it spends money and needs a provider key, so it
+# never runs for a pull request, and the repository guard below keeps forks
+# from running it on a schedule of their own.
+on:
+  schedule:
+    # 02:41 India time (Asia/Calcutta).
+    - cron: "11 21 * * *"
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Model id at the provider
+        required: true
+      attempts:
+        description: Attempts per task
+        default: "1"
+      split:
+        description: Corpus split (development or held_out)
+        default: all
+        type: choice
+        options: [all, development, held_out]
+      max_cost_usd:
+        description: Stop starting attempts once provider-reported cost reaches this
+        default: "0.15"
+
+# Two passes would share one provider key and one budget.
+concurrency:
+  group: agent-live-suite
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  live-suite:
+    name: Live qualification (${{ inputs.model || vars.AGENT_LIVE_MODEL }})
+    if: github.repository == 'Shishir435/ollama-client'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      AUDIT_UPSTREAM: ${{ vars.AGENT_LIVE_UPSTREAM || 'https://openrouter.ai/api' }}
+      AUDIT_API_KEY: ${{ secrets.AGENT_LIVE_API_KEY }}
+      AUDIT_MODEL: ${{ inputs.model || vars.AGENT_LIVE_MODEL }}
+      AUDIT_REASONING_EFFORT: high
+      AUDIT_ATTEMPTS: ${{ inputs.attempts || '1' }}
+      AUDIT_SPLIT: ${{ inputs.split || 'all' }}
+      AUDIT_DEBUG_EVIDENCE: "0"
+      AUDIT_MAX_COST_USD: ${{ inputs.max_cost_usd || vars.AGENT_LIVE_MAX_COST_USD || '0.15' }}
+    steps:
+      - name: Require hosted-provider configuration
+        run: |
+          if [ -z "$AUDIT_API_KEY" ] || [ -z "$AUDIT_MODEL" ]; then
+            echo "::error::Set the AGENT_LIVE_API_KEY secret and AGENT_LIVE_MODEL variable (or dispatch model)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the extension
+        run: pnpm build
+
+      - name: Resolve Playwright version
+        id: playwright
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # Same as CI: the runner's Google apt source fails `apt-get update` often
+      # enough to matter, and nothing here reads it.
+      - name: Install Chromium
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list \
+            /etc/apt/sources.list.d/google*.list
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            pnpm exec playwright install chromium
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
+
+      # The runner already exits non-zero on any infrastructure failure,
+      # including a reached cost cap; the gate step below decides the job.
+      - name: Run the qualification suite
+        id: suite
+        continue-on-error: true
+        run: node tools/agent-live-benchmark/qualification.mjs
+
+      # Only the content-free reports. Debug evidence is never written here
+      # (AUDIT_DEBUG_EVIDENCE=0), and nothing under local-debug ships.
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: agent-live-suite-${{ github.run_id }}
+          path: |
+            artifacts/agent-live-benchmark/qualification/**/baseline.json
+            artifacts/agent-live-benchmark/qualification/**/baseline.md
+            artifacts/agent-live-benchmark/qualification/**/qualification.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Gate on false completions and unsafe effects
+        if: always()
+        run: node tools/agent-live-benchmark/live-gate.mjs artifacts/agent-live-benchmark/qualification
+
+      - name: Fail when the pass did not complete
+        if: steps.suite.outcome != 'success'
+        run: |
+          echo "::error::The pass recorded infrastructure failures (provider down, timeout or cost cap). See the summary."
+          exit 1

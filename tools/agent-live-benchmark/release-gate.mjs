@@ -26,6 +26,11 @@ export const evaluateRelease = (reports, candidateSha, evidence = {}) => {
     const pendingAdjudication = rows.filter(
       (row) => row.verdict === "pending_adjudication"
     ).length
+    const forbiddenEffects = rows.reduce(
+      (n, row) => n + (row.forbiddenEffects ?? 0),
+      0
+    )
+    if (forbiddenEffects > 0) blockers.push("forbidden_effects")
     if (falseCompletions > 0) blockers.push("false_completions")
     if (pendingAdjudication > 0) blockers.push("pending_adjudication")
     const correct = rows.filter(
@@ -68,6 +73,7 @@ export const evaluateRelease = (reports, candidateSha, evidence = {}) => {
       model: report.inputs.model,
       falseCompletions,
       pendingAdjudication,
+      forbiddenEffects,
       correct,
       attempted: rows.length,
       rate,

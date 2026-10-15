@@ -1,10 +1,9 @@
 /**
  * What a pass has spent upstream, and the cap that stops it.
  *
- * A live pass pays per token. The cap is checked between attempts: once the
- * provider-reported usage so far reaches it, every remaining attempt is
- * recorded as not run rather than started, so a scheduled pass cannot spend
- * past what its owner set aside.
+ * A live pass pays per token. The cap is checked between requests; remaining
+ * attempts stay counted as void. An already admitted request may cross the
+ * cap, so a strict dollar ceiling also needs a provider-side spending limit.
  */
 
 /** The usage objects a recorded response carries, streamed or not. */
@@ -48,18 +47,21 @@ export const wireUsage = (wire) => {
   let tokens = 0
   let unreported = 0
   let uncosted = 0
+  let incompleteTokens = 0
   let costUsd
   for (const record of wire ?? []) {
     if (!record.path?.endsWith("/chat/completions") || record.injected) continue
     const usage = usageFrames(record.response).at(-1)
     if (!usage) {
       /** An answered call with no usage still cost something unknown. */
-      if (record.status === 200) unreported += 1
+      unreported += 1 + (record.retries ?? 0)
       continue
     }
-    tokens +=
-      (finite(usage.prompt_tokens) ?? 0) +
-      (finite(usage.completion_tokens) ?? 0)
+    unreported += record.retries ?? 0
+    const prompt = finite(usage.prompt_tokens)
+    const completion = finite(usage.completion_tokens)
+    if (prompt === undefined || completion === undefined) incompleteTokens += 1
+    tokens += (prompt ?? 0) + (completion ?? 0)
     const cost = finite(usage.cost)
     if (cost !== undefined) costUsd = (costUsd ?? 0) + cost
     else uncosted += 1
@@ -68,6 +70,7 @@ export const wireUsage = (wire) => {
     tokens,
     unreported,
     uncosted,
+    ...(incompleteTokens ? { incompleteTokens } : {}),
     ...(costUsd === undefined ? {} : { costUsd })
   }
 }
@@ -111,6 +114,7 @@ export const createUsageBudget = ({ maxCostUsd, maxTokens } = {}) => {
     spent,
     add(usage) {
       spent.tokens += usage.tokens ?? 0
+      if (usage.incompleteTokens > 0) spent.tokensUnknown = true
       if (usage.unreported > 0) {
         spent.tokensUnknown = true
         spent.costUnknown = true
@@ -119,6 +123,14 @@ export const createUsageBudget = ({ maxCostUsd, maxTokens } = {}) => {
       if (usage.costUsd === undefined) {
         if (usage.tokens > 0) spent.costUnknown = true
       } else spent.costUsd += usage.costUsd
+    },
+    withinCaps() {
+      return (
+        (maxTokens === undefined ||
+          (!spent.tokensUnknown && spent.tokens <= maxTokens)) &&
+        (maxCostUsd === undefined ||
+          (!spent.costUnknown && spent.costUsd <= maxCostUsd))
+      )
     },
     exceeded() {
       if (
@@ -135,21 +147,43 @@ export const createUsageBudget = ({ maxCostUsd, maxTokens } = {}) => {
 }
 
 /**
- * OpenRouter reports a request's cost only when asked, through
- * `usage: { include: true }`. Added to chat completions sent to it, and only
- * to it, when a cost cap is set: another provider may reject a field it does
- * not know. Any other body is forwarded untouched.
+ * Request streaming token accounting when capped. OpenRouter additionally
+ * needs its own usage flag for cost. Missing accounting still stops the pass;
+ * in particular, olc cannot report the cost of a parked Codex tool call.
  */
 export const withUsageAccounting = (path, body, upstream, caps) => {
   if (
-    caps?.maxCostUsd === undefined ||
     !path.endsWith("/chat/completions") ||
-    new URL(upstream).hostname !== "openrouter.ai"
+    (caps?.maxTokens === undefined && caps?.maxCostUsd === undefined)
   )
     return body
   try {
-    return JSON.stringify({ ...JSON.parse(body), usage: { include: true } })
+    const request = JSON.parse(body)
+    const tokenAccounting = request.stream === true
+    const costAccounting =
+      caps?.maxCostUsd !== undefined &&
+      new URL(upstream).hostname === "openrouter.ai"
+    if (!tokenAccounting && !costAccounting) return body
+    return JSON.stringify({
+      ...request,
+      ...(tokenAccounting
+        ? { stream_options: { ...request.stream_options, include_usage: true } }
+        : {}),
+      ...(costAccounting ? { usage: { ...request.usage, include: true } } : {})
+    })
   } catch {
     return body
   }
+}
+
+/** Charges finished or cancelled wire records once, so caps apply between requests. */
+export const createWireUsageBudget = (caps) => {
+  const budget = createUsageBudget(caps)
+  const accounted = new WeakSet()
+  const charge = (record) => {
+    if (!record || accounted.has(record)) return
+    accounted.add(record)
+    budget.add(wireUsage([record]))
+  }
+  return { ...budget, charge, settle: (wire) => wire.forEach(charge) }
 }

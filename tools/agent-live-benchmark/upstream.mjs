@@ -13,7 +13,12 @@
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /** Statuses a provider sends when it may answer if asked again. */
-export const RETRYABLE_STATUSES = [408, 425, 429, 500, 502, 503, 504]
+export const RETRYABLE_STATUSES = [
+  408,
+  425,
+  429,
+  ...Array.from({ length: 100 }, (_, index) => 500 + index)
+]
 
 /**
  * Milliseconds to wait before try `retry` (1-based): `Retry-After` when the
