@@ -2257,7 +2257,7 @@
       },
       "icon_lookup": {
         "label": "Show provider site icons",
-        "description": "Show each provider's own site icon. Only that provider's address is contacted."
+        "description": "Show each provider's own site icon. Try the provider's address first, then its main domain and www host if no icon is found. No third-party icon service is contacted."
       },
       "catalog_refresh": {
         "label": "Model list refresh",

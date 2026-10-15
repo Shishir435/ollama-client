@@ -601,6 +601,13 @@ export const applyProviderErrorContext = (
     providerFailureMessageKey(keyInput) ??
     error.messageKey
 
+  if (
+    error.status === 413 &&
+    error.messageKey === "chat.errors.context_too_long"
+  ) {
+    error.messageKey = undefined
+  }
+
   if (error.messageKey === "chat.errors.ollama_cloud_signin") {
     error.userMessage = `${error.model} runs on Ollama's cloud. Sign in with \`ollama signin\` or pick a local model.`
   } else if (error.messageKey === "chat.errors.ollama_cloud_unreachable") {
@@ -611,7 +618,10 @@ export const applyProviderErrorContext = (
       providerName: error.providerName,
       model: error.model,
       baseUrl: error.baseUrl,
-      reason: reasonForCode(error.code) || classification.reason,
+      reason:
+        error.status === 413
+          ? undefined
+          : reasonForCode(error.code) || classification.reason,
       ollama
     })
   } else if (!error.userMessage) {

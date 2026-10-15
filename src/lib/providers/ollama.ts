@@ -633,7 +633,7 @@ export class OllamaProvider implements LLMProvider {
         retryable: isRetryableProviderStatus(response.status),
         retryAfterMs,
         code,
-        messageKey: providerErrorMessageKey(code),
+        messageKey: providerErrorMessageKey(code, { status: response.status }),
         phase: "response",
         recoveryAction: classification.recoveryAction,
         userMessage:

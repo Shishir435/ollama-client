@@ -32,6 +32,15 @@ export const decodeProviderJson = async <T>(
     )
   }
 
+  return decodeProviderPayload(payload, schema, context)
+}
+
+/** Validate a parsed provider payload without reading its response body again. */
+export const decodeProviderPayload = <T>(
+  payload: unknown,
+  schema: z.ZodType<T>,
+  context: ProviderResponseContext
+): T => {
   const parsed = schema.safeParse(payload)
   if (!parsed.success) {
     throw createAppError(`Provider returned an invalid ${context.label}`, {

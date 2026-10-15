@@ -186,12 +186,12 @@ const budgets: Budget[] = [
   {
     metric: "total",
     field: "bytes",
-
     // Security updates add 2,759 Chrome bytes, preserving existing headroom.
     /** The agent readiness line and its nine-locale copy measure Chrome at 48,589,345; read-only readiness and its evidence refresh, 48,590,811. */
     /** Structured terminal refusals add 87 bytes to Chrome's measured total. */
     /** UX audit fixes — classified failure copy, the origins command, rewritten and newly translated nine-locale strings — measure Chrome at 48,658,078. */
-    max: isFirefox ? 50_300_000 : 48_658_078
+    /** Merged #468 and UX review fixes measure Chrome at 48,694,919 bytes. */
+    max: isFirefox ? 50_300_000 : 48_694_919
   },
   {
     metric: "zip",
@@ -201,9 +201,9 @@ const budgets: Budget[] = [
   {
     metric: "background",
     field: "gzipBytes",
-    
     /** UX audit fixes — connection-failure classes, provider failure keys for cloud models, memory and runner crashes, the SearXNG and LM Studio cases — measure Chrome at 345,998 and Firefox at 224,229. */
-    max: isFirefox ? 224_229 : 345_998
+    /** Merged #468 and UX review fixes measure Chrome at 351,845 gzip bytes and Firefox at 224,674. */
+    max: isFirefox ? 224_674 : 351_845
   }
 ]
 

@@ -1,3 +1,4 @@
+import { MODEL_DISCOVERY_FAILURE } from "@ollama-client/contracts/provider-rpc"
 import {
   AlertTriangle,
   Loader2,
@@ -88,9 +89,13 @@ export const ProviderStatusIndicator = () => {
                   "mt-1 max-w-xs text-xs",
                   STATUS_STYLES.danger.text
                 )}>
-                {t("model.provider_status.unreachable", {
-                  provider: failure.providerName ?? failure.providerId
-                })}
+                {t(
+                  failure.code ===
+                    MODEL_DISCOVERY_FAILURE.MODEL_LIST_UNSUPPORTED
+                    ? "model.menu.providers_unavailable"
+                    : "model.menu.providers_unreachable",
+                  { names: failure.providerName ?? failure.providerId }
+                )}
               </div>
             ))}
         </>

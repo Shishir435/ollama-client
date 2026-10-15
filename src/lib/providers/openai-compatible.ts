@@ -34,7 +34,7 @@ import {
   isReasoningEffortActive,
   resolveReasoningEffortSupport
 } from "./reasoning-effort"
-import { decodeProviderJson } from "./response-decoding"
+import { decodeProviderJson, decodeProviderPayload } from "./response-decoding"
 import {
   getOpenAIServiceCompatibility,
   resolveProviderServiceProfile
@@ -666,14 +666,17 @@ export class OpenAICompatibleProvider implements LLMProvider {
         request.model
       )
     }
-    const embeddedError = missingEndpoint
+    const imageResponseContext = {
+      providerId: this.id,
+      providerName: this.config.name,
+      baseUrl,
+      label: "image generation response",
+      userMessage: "The provider returned an invalid image generation response."
+    }
+    const payload = missingEndpoint
       ? undefined
-      : imageResponseErrorMessage(
-          await response
-            .clone()
-            .json()
-            .catch(() => undefined)
-        )
+      : await decodeProviderJson(response, z.unknown(), imageResponseContext)
+    const embeddedError = imageResponseErrorMessage(payload)
 
     if (
       missingEndpoint ||
@@ -712,17 +715,10 @@ export class OpenAICompatibleProvider implements LLMProvider {
       })
     }
 
-    const result = await decodeProviderJson(
-      response,
+    const result = decodeProviderPayload(
+      payload,
       OpenAIImageGenerationResponseSchema,
-      {
-        providerId: this.id,
-        providerName: this.config.name,
-        baseUrl,
-        label: "image generation response",
-        userMessage:
-          "The provider returned an invalid image generation response."
-      }
+      imageResponseContext
     )
     const generatedImages = result.data.flatMap((item, index) => {
       if (!item.b64_json) return []

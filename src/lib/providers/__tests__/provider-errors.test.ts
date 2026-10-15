@@ -6,6 +6,7 @@ import {
 } from "@/lib/error-report"
 import { isAppError, sanitizeModelIdentifier } from "@/lib/error-utils"
 import { createAppError } from "@/lib/error-utils"
+import { AnthropicProvider } from "../anthropic"
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
 import {
@@ -725,5 +726,79 @@ describe("Ollama cloud models", () => {
     expect(error.messageKey).toBe("chat.errors.model_crashed")
     expect(error.userMessage).toContain("crashed while loading")
     expect(error.userMessage).not.toContain("HTTP")
+  })
+})
+
+describe("oversized requests", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const context = {
+    providerId: "ollama",
+    providerName: "Ollama",
+    model: "m",
+    baseUrl: "http://localhost:11434"
+  }
+
+  it("clears a stale context-window key and keeps size advice at the background boundary", () => {
+    const error = applyProviderErrorContext(
+      createAppError("Request too large", {
+        kind: "provider",
+        status: 413,
+        code: "OLC-CONTEXT-TOO-LARGE",
+        messageKey: "chat.errors.context_too_long"
+      }),
+      context
+    )
+    expect(error.messageKey).toBeUndefined()
+    expect(error.userMessage).toContain("smaller image or a shorter message")
+    expect(error.userMessage).not.toContain("new chat")
+  })
+
+  it("keeps Ollama's HTTP 413 advice through background enrichment", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("request too large", { status: 413 })
+    )
+    const error = await new OllamaProvider({
+      ...context,
+      id: "ollama",
+      name: "Ollama",
+      type: ProviderType.OLLAMA,
+      enabled: true
+    })
+      .streamChat({ model: "m", messages: [] }, () => {})
+      .catch((error) => error)
+    expect(error).toMatchObject({ status: 413, code: "OLC-CONTEXT-TOO-LARGE" })
+    expect(error.messageKey).toBeUndefined()
+    expect(applyProviderErrorContext(error, context).userMessage).toContain(
+      "smaller image or a shorter message"
+    )
+  })
+
+  it("keeps Anthropic's streamed 413 advice through background enrichment", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        'event: error\ndata: {"type":"error","error":{"type":"request_too_large","message":"Request too large"}}\n\n',
+        { status: 200 }
+      )
+    )
+    const config = {
+      id: "custom:anthropic:test",
+      name: "Claude",
+      baseUrl: "https://api.anthropic.com/v1",
+      type: ProviderType.ANTHROPIC,
+      enabled: true
+    }
+    const error = await new AnthropicProvider(config)
+      .streamChat({ model: "claude", messages: [] }, () => {})
+      .catch((error) => error)
+    expect(error).toMatchObject({ status: 413, code: "OLC-CONTEXT-TOO-LARGE" })
+    expect(error.messageKey).toBeUndefined()
+    expect(
+      applyProviderErrorContext(error, {
+        providerId: config.id,
+        providerName: config.name,
+        baseUrl: config.baseUrl
+      }).userMessage
+    ).toContain("smaller image or a shorter message")
   })
 })

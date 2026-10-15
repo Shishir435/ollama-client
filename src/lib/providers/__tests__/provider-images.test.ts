@@ -108,6 +108,40 @@ describe("provider image input", () => {
 describe("provider image output", () => {
   afterEach(() => vi.restoreAllMocks())
 
+  it("reads a successful image body once without cloning it", async () => {
+    const response = Response.json({ data: [{ b64_json: ONE_PIXEL_PNG }] })
+    const json = vi.spyOn(response, "json")
+    const clone = vi.spyOn(response, "clone")
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(response)
+    const onChunk = vi.fn()
+    await new OpenAICompatibleProvider(openaiConfig).generateImage(
+      { model: "image-model", prompt: "a fox" },
+      onChunk
+    )
+    expect(json).toHaveBeenCalledOnce()
+    expect(clone).not.toHaveBeenCalled()
+    expect(onChunk).toHaveBeenCalledWith(
+      expect.objectContaining({ generatedImages: expect.any(Array) })
+    )
+  })
+
+  it.each(["not JSON", JSON.stringify({ data: "invalid" })])(
+    "rejects malformed image payloads safely: %s",
+    async (body) => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(body))
+      await expect(
+        new OpenAICompatibleProvider(openaiConfig).generateImage(
+          { model: "image-model", prompt: "a fox" },
+          () => {}
+        )
+      ).rejects.toMatchObject({
+        kind: "provider",
+        userMessage:
+          "The provider returned an invalid image generation response."
+      })
+    }
+  )
+
   it("normalizes OpenAI-compatible image generations into chat chunks", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ data: [{ b64_json: ONE_PIXEL_PNG }] }), {
