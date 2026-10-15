@@ -72,6 +72,8 @@
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",
+      "budget_exhausted_time": "La ejecución alcanzó su límite de tiempo. Acota el objetivo o vuelve a plantearlo desde donde está la página ahora.",
+      "budget_exhausted_tokens": "La ejecución usó todo su presupuesto de tokens. Acota el objetivo o vuelve a plantearlo desde donde está la página ahora.",
       "command_refused": "El modelo siguió nombrando controles que la página no ofrece: ocultos, fuera de pantalla o ya desaparecidos. Desplácese primero hasta lo que necesita, o pruebe un modelo que lea las páginas con más cuidado.",
       "goal_failed": "El modelo indicó que no puede hacerlo. Pruebe un objetivo más claro u otro modelo.",
       "invalid_decision": "El modelo respondió repetidamente en un formato inutilizable. Un modelo mayor con llamadas a herramientas suele resolverlo.",
@@ -117,6 +119,7 @@
       "paused": "En pausa",
       "cancelling": "Deteniendo",
       "completed": "Completado",
+      "completed_unverified": "Hecho, sin comprobar todo",
       "partial": "Parcialmente hecho",
       "failed": "Falló",
       "cancelled": "Detenido"
@@ -215,7 +218,24 @@
       "step_count_one": "{{count}} paso",
       "step_count_other": "{{count}} pasos",
       "page_count_one": "{{count}} página",
-      "page_count_other": "{{count}} páginas"
+      "page_count_other": "{{count}} páginas",
+      "contract": {
+        "title": "Lo que pedía la tarea",
+        "limit": "Límite",
+        "delegated": "(redacción del asistente)",
+        "tier": {
+          "verified": "Comprobado",
+          "supported": "Revisado",
+          "claimed": "Sin comprobar",
+          "unmet": "No hecho"
+        }
+      },
+      "banner": {
+        "completed_unverified": "Algunas respuestas no se comprobaron. Tómalas como no confirmadas.",
+        "partial": "Solo se hizo una parte de la tarea.",
+        "failed": "La tarea no se hizo.",
+        "cancelled": "La ejecución se detuvo antes de terminar."
+      }
     },
     "follow_up": {
       "continue_message": "Continúa la tarea en el navegador.",
@@ -356,7 +376,8 @@
     "action_default_title": "Abrir Ollama Client",
     "stop_browser_agent_menu": "Detener el agente del navegador",
     "agent_task_completed": "Completado",
-    "agent_task_attention": "En pausa"
+    "agent_task_attention": "En pausa",
+    "agent_task_unchecked": "Hecho, sin comprobar todo"
   },
   "selection_button": {
     "actions": {

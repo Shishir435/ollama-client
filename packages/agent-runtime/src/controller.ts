@@ -46,8 +46,10 @@ import {
   prematureUnmetFeedback
 } from "./completion"
 import {
+  agentClaimedReviewScope,
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
+  applyAgentClaimedReview,
   agentRecordedReviews,
   applyAgentCompletionReview,
   MAX_AGENT_COMPLETION_REVIEWS
@@ -388,6 +390,17 @@ const appliedReviewedAction = (step: AgentStepReadout): AgentReviewedAction => {
     ...(key ? { key } : {})
   }
 }
+
+/**
+ * Which budget ran out. One code for three causes told a user whose run hit
+ * its time limit that it had used its whole step budget, which pointed them
+ * at the wrong fix; the code still says a budget ended the run.
+ */
+const AGENT_BUDGET_MESSAGE_KEYS = {
+  steps: "agent.failure.budget_exhausted",
+  time: "agent.failure.budget_exhausted_time",
+  tokens: "agent.failure.budget_exhausted_tokens"
+} as const
 
 export const createAgentController = (
   dependencies: AgentControllerDependencies
@@ -2286,7 +2299,10 @@ export const createAgentController = (
         ? "partial"
         : judgement.type === "unmet"
           ? "failed"
-          : "completed"
+          : judgement.outcome?.claimed?.length ||
+              judgement.outcome?.visual?.length
+            ? "completed_unverified"
+            : "completed"
     const patch: AgentStatePatch = {
       result: summary,
       ...(evidenceLedger?.length ? { evidenceLedger } : {}),
@@ -2378,8 +2394,17 @@ export const createAgentController = (
     { judgement: AgentCompletionJudgement; reviewed: boolean } | undefined
   > => {
     const port = dependencies.review
-    if (!port || !agentCompletionNeedsReview(judgement))
-      return { judgement, reviewed: false }
+    /**
+     * Two kinds of question. A needs-review refusal asks whether an
+     * undecided claim is met at all; an accepted completion with claimed
+     * reads asks how far they are believed. Both take the same budget, the
+     * same request and the same runtime checks of every verdict.
+     */
+    const claimedScope = agentClaimedReviewScope(judgement, state.requirements)
+    const pending = agentCompletionNeedsReview(judgement)
+      ? judgement
+      : claimedScope
+    if (!port || !pending) return { judgement, reviewed: false }
     /**
      * The receipts are the count that survives a worker restart; memory
      * covers a review whose receipt could not be read back. The larger wins,
@@ -2398,14 +2423,15 @@ export const createAgentController = (
     reviewsByRun.set(state.id, spent + 1)
     const request = agentCompletionReviewRequest(
       state,
-      judgement.review,
+      pending.review,
       decision.outcomes,
       completionLedger(state, decision, steps, observation),
       actionWindows?.runId === state.id
         ? actionWindows.byRequirement
         : undefined,
       /** Unreadable receipts leave the list incomplete: no limit credit. */
-      steps ? agentAppliedChanges(steps).map(appliedReviewedAction) : undefined
+      steps ? agentAppliedChanges(steps).map(appliedReviewedAction) : undefined,
+      observation
     )
     const startedAt = dependencies.clock.now()
     let answer: unknown
@@ -2425,12 +2451,15 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "completion_review_malformed")
       return { judgement, reviewed: true }
     }
-    const result = applyAgentCompletionReview(judgement, request, parsed.data)
+    const result =
+      judgement.type === "refused"
+        ? applyAgentCompletionReview(pending, request, parsed.data)
+        : applyAgentClaimedReview(judgement, pending, request, parsed.data)
     measure({ reviewDisagreements: result.disagreements })
     dependencies.trace?.(state.id, "completion_reviewed", {
       asked:
-        judgement.review.requirementIds.length +
-        judgement.review.constraintIds.length,
+        pending.review.requirementIds.length +
+        pending.review.constraintIds.length,
       disagreements: result.disagreements,
       outcome:
         result.judgement.type === "refused"
@@ -2443,6 +2472,8 @@ export const createAgentController = (
   /** Fixed template: a reviewer's acceptance carries none of its own words. */
   const REVIEW_SUPPORTED_SUMMARY =
     "Independent review found grounded support for every outcome it was asked to check."
+  const REVIEW_PARTLY_SUPPORTED_SUMMARY =
+    "Independent review could not support every outcome it was asked to check; those stay unchecked."
 
   /**
    * The refusal limit is where a completion stalls, so recovery starts here:
@@ -2523,7 +2554,7 @@ export const createAgentController = (
     let reviewed = false
     if (outstanding) judgement = outstanding
     else {
-      const review = await reviewCompletion(
+      let review = await reviewCompletion(
         state,
         settled.judgement,
         decision,
@@ -2532,6 +2563,27 @@ export const createAgentController = (
         signal
       )
       if (!review) return undefined
+      /**
+       * A review that settled an undecided claim can leave reads that are
+       * still only claimed; they get their own pass, within the same budget,
+       * rather than settling unasked beside the ones the reviewer supported.
+       */
+      if (
+        review.reviewed &&
+        settled.judgement.type === "refused" &&
+        agentClaimedReviewScope(review.judgement, state.requirements)
+      ) {
+        const again = await reviewCompletion(
+          state,
+          review.judgement,
+          decision,
+          steps,
+          observation,
+          signal
+        )
+        if (!again) return undefined
+        review = { judgement: again.judgement, reviewed: true }
+      }
       reviewed = review.reviewed
       judgement = challengeEarlyUnmet(state, review.judgement)
     }
@@ -2560,7 +2612,9 @@ export const createAgentController = (
             outcome: "confirmed",
             evidence: {
               kind: "completion",
-              summary: REVIEW_SUPPORTED_SUMMARY,
+              summary: judgement.outcome?.claimed?.length
+                ? REVIEW_PARTLY_SUPPORTED_SUMMARY
+                : REVIEW_SUPPORTED_SUMMARY,
               observedAt: now
             }
           }
@@ -3009,13 +3063,15 @@ export const createAgentController = (
     if (!deadline) return false
     const expired = expiredAgentDeadline(deadline, dependencies.clock.now())
     if (!expired) return false
-    await fail(
-      state,
-      "budget_exhausted",
-      expired === "run"
-        ? "The Agent run exceeded its active time budget."
-        : "This Agent step exceeded its active time budget."
-    )
+    await failWith(state, {
+      ...agentFailure(
+        "budget_exhausted",
+        expired === "run"
+          ? "The Agent run exceeded its active time budget."
+          : "This Agent step exceeded its active time budget."
+      ),
+      messageKey: AGENT_BUDGET_MESSAGE_KEYS.time
+    })
     return true
   }
 
@@ -3202,11 +3258,13 @@ export const createAgentController = (
         agentTelemetryTokens(pendingTelemetry) >=
       MAX_AGENT_RUN_TOKENS
     ) {
-      await fail(
-        state,
-        "budget_exhausted",
-        "The Agent cumulative token budget is exhausted."
-      )
+      await failWith(state, {
+        ...agentFailure(
+          "budget_exhausted",
+          "The Agent cumulative token budget is exhausted."
+        ),
+        messageKey: AGENT_BUDGET_MESSAGE_KEYS.tokens
+      })
       return true
     }
     if (agentObservationNeedsHuman(observation)) {
@@ -3651,11 +3709,13 @@ export const createAgentController = (
     let entered = false
     while (!controller.signal.aborted) {
       if (state.observationCount >= MAX_AGENT_OBSERVATIONS) {
-        await fail(
-          state,
-          "budget_exhausted",
-          "The Agent observation budget is exhausted."
-        )
+        await failWith(state, {
+          ...agentFailure(
+            "budget_exhausted",
+            "The Agent observation budget is exhausted."
+          ),
+          messageKey: AGENT_BUDGET_MESSAGE_KEYS.steps
+        })
         return
       }
       /**

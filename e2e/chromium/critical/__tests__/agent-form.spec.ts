@@ -11,8 +11,13 @@ const formPage =
 runAgentScenario({
   name: "form",
   goal: "Enter Alice in the Name field, continue, and tell me the status.",
-  plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  plan: [
+    {
+      text: "report the status after entering Alice and continuing",
+      kind: "read"
+    }
+  ],
+  status: "completed_unverified",
   hosted: true,
   html: (path) => (path.startsWith("/details") ? AGENT_DETAILS_PAGE : formPage),
   decide(observation) {
@@ -155,7 +160,7 @@ runAgentScenario({
   name: "search-enter-formdata-rewrite",
   goal: "Search the catalog for atlas and tell me what the results say.",
   plan: [{ text: "report what the results say", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   html: (path) => {
     searchPaths.push(path)
     return path.startsWith("/search")

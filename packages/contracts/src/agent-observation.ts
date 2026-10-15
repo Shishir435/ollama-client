@@ -127,6 +127,35 @@ export const AgentElementSchema = z
     valueTruncated: z.boolean().optional(),
     scroll: AgentScrollStateSchema.optional(),
     checked: z.boolean().optional(),
+    /**
+     * The state a custom control declares through ARIA, read off the page as
+     * the page states it. `checked` stays native-only because `check` and
+     * `uncheck` drive a native input; a switch or a toggle button is changed
+     * by clicking it, and these fields are how its result is seen at all —
+     * without them flipping a switch looked like a click that did nothing.
+     */
+    ariaChecked: z.union([z.boolean(), z.literal("mixed")]).optional(),
+    pressed: z.union([z.boolean(), z.literal("mixed")]).optional(),
+    expanded: z.boolean().optional(),
+    selected: z.boolean().optional(),
+    /**
+     * The page rejected this control's value: `aria-invalid`, or a native
+     * constraint the browser reports after an attempt to submit
+     * (`:user-invalid`). A required field nobody has touched yet is not
+     * invalid here, so a fresh form does not read as a rejected one.
+     */
+    invalid: z.literal(true).optional(),
+    /** Why, in the page's or the browser's own words. Never the value. */
+    invalidMessage: z.string().min(1).max(200).optional(),
+    /** The option a combobox or listbox points at (`aria-activedescendant`). */
+    activeOption: z.string().min(1).max(200).optional(),
+    /**
+     * The one option marked selected in the listbox this control owns — the
+     * listbox itself, or the one its `aria-controls` or `aria-owns` names.
+     * Read where the ownership is known, so one dropdown's choice can never
+     * stand in for another's. Absent with no selection, or with several.
+     */
+    selectedOption: z.string().min(1).max(200).optional(),
     focused: z.boolean().optional(),
     href: z.url().max(2_048).optional(),
     download: z.boolean().optional(),

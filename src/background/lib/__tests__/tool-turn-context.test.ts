@@ -20,7 +20,8 @@ describe("buildToolContext", () => {
         sessionId: "chat-1",
         assistantMessageId: 42,
         browserTabId: 7,
-        agentFollowUpRunId: "run-3"
+        agentFollowUpRunId: "run-3",
+        userUtterance: { text: "Find the pricing page", messageId: 41 }
       }),
       [ask],
       signal
@@ -34,6 +35,7 @@ describe("buildToolContext", () => {
       assistantMessageId: 42,
       browserTabId: 7,
       followUpRunId: "run-3",
+      userUtterance: { text: "Find the pricing page", messageId: 41 },
       pageContentInContext: false
     })
   })

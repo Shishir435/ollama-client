@@ -186,7 +186,10 @@ export const recordBenchmarkAttempt = async (input: {
     ...(met === undefined
       ? {}
       : {
-          falseCompletion: status === "completed" && !met && !scoringFailed
+          falseCompletion:
+            (status === "completed" || status === "completed_unverified") &&
+            !met &&
+            !scoringFailed
         }),
     /**
      * The steps' own durable telemetry first: it covers every provider rather

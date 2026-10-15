@@ -72,6 +72,8 @@
     },
     "failure": {
       "budget_exhausted": "実行がステップの上限をすべて使い切りました。目標を絞るか、現在のページの状態から始め直してください。",
+      "budget_exhausted_time": "実行が時間の上限に達しました。目標を絞り込むか、現在のページの状態から設定し直してください。",
+      "budget_exhausted_tokens": "実行がトークン予算をすべて使い切りました。目標を絞り込むか、現在のページの状態から設定し直してください。",
       "command_refused": "モデルがページにない要素を選び続けました — 非表示、画面外、あるいはすでに消えたものです。必要な位置までスクロールするか、ページをより丁寧に読むモデルをお試しください。",
       "goal_failed": "モデルがこれはできないと報告しました。目標をより明確にするか、別のモデルを試してください。",
       "invalid_decision": "モデルが使用できない形式で応答し続けました。ツール呼び出しに対応した大きめのモデルにすると解決することが多いです。",
@@ -117,6 +119,7 @@
       "paused": "一時停止",
       "cancelling": "停止中",
       "completed": "完了",
+      "completed_unverified": "完了（一部未確認）",
       "partial": "一部完了",
       "failed": "失敗",
       "cancelled": "停止済み"
@@ -215,7 +218,24 @@
       "step_count_one": "{{count}} ステップ",
       "step_count_other": "{{count}} ステップ",
       "page_count_one": "{{count}} ページ",
-      "page_count_other": "{{count}} ページ"
+      "page_count_other": "{{count}} ページ",
+      "contract": {
+        "title": "タスクが求めたこと",
+        "limit": "制限",
+        "delegated": "（アシスタントの表現）",
+        "tier": {
+          "verified": "確認済み",
+          "supported": "レビュー済み",
+          "claimed": "未確認",
+          "unmet": "未完了"
+        }
+      },
+      "banner": {
+        "completed_unverified": "一部の回答は確認されていません。未確定として扱ってください。",
+        "partial": "タスクの一部だけが完了しました。",
+        "failed": "タスクは完了しませんでした。",
+        "cancelled": "実行は完了前に停止されました。"
+      }
     },
     "follow_up": {
       "continue_message": "ブラウザータスクを続けてください。",
@@ -356,7 +376,8 @@
     "action_default_title": "Ollama Client を開く",
     "stop_browser_agent_menu": "ブラウザーエージェントを停止",
     "agent_task_completed": "完了",
-    "agent_task_attention": "一時停止"
+    "agent_task_attention": "一時停止",
+    "agent_task_unchecked": "完了（一部未確認）"
   },
   "selection_button": {
     "actions": {

@@ -9,6 +9,8 @@ import {
   AgentCompletionReviewSchema,
   MAX_AGENT_CONSTRAINTS,
   MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_REVIEW_KEY_POINT_CHARS,
+  MAX_AGENT_REVIEW_KEY_POINTS,
   MAX_AGENT_REVIEW_SOURCES
 } from "@ollama-client/contracts"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
@@ -33,6 +35,16 @@ export const AGENT_REVIEW_TOOL: ToolDefinition = {
               type: "string",
               description: "The id of the outcome or limit, such as r1 or c1."
             },
+            keyPoints: {
+              type: "array",
+              maxItems: MAX_AGENT_REVIEW_KEY_POINTS,
+              items: {
+                type: "string",
+                maxLength: MAX_AGENT_REVIEW_KEY_POINT_CHARS
+              },
+              description:
+                "First, what the outcome needs to be true, as short points. Then check each against the evidence before choosing the verdict."
+            },
             verdict: {
               type: "string",
               enum: [...AGENT_COMPLETION_REVIEW_VERDICTS],
@@ -47,7 +59,7 @@ export const AGENT_REVIEW_TOOL: ToolDefinition = {
                 "Ids of evidence records that decide the verdict. Never a quotation."
             }
           },
-          required: ["id", "verdict", "sources"]
+          required: ["id", "keyPoints", "verdict", "sources"]
         }
       }
     },
@@ -64,6 +76,7 @@ export const AGENT_REVIEW_TOOL: ToolDefinition = {
 export const AGENT_REVIEW_SYSTEM_PROMPT = `You are the independent completion reviewer of a supervised browser agent.
 Return exactly one call to the ${AGENT_REVIEW_TOOL_NAME} tool and no prose.
 Another model ran the task and claims some outcomes are met. Decide, for each listed id, whether the evidence records support the claim.
+Work in order for each id: list in keyPoints what the outcome needs to be true — for a read, that the answer is about the thing asked (the right item, row, record, date or page) and that it answers the question; then check each point against the evidence; then give the verdict. A claim is the other model's proposed answer, never evidence. page is the current page as the runtime read it: use it to judge, but it cannot be cited.
 supported: a cited record, read on its own, shows the outcome. A paraphrase is fine; a record about a different item, record, value or page is not.
 contradicted: a cited record shows the outcome is not met, or that a limit was broken.
 insufficient_evidence: anything else. When unsure, choose this. Never guess supported.
@@ -115,6 +128,7 @@ export const agentReviewPrompt = (
       text: constraint.text,
       kind: constraint.kind
     })),
+    ...(request.page ? { page: request.page } : {}),
     claims: request.claims.map((claim) => ({
       id: claim.id,
       met: claim.met,
@@ -160,6 +174,20 @@ const decoded = (value: unknown): unknown => {
   }
 }
 
+/**
+ * Key points are the reviewer's working, never support, so a malformed list
+ * is dropped rather than costing the review: bounded strings only.
+ */
+const keyPointsOf = (value: unknown): { keyPoints?: string[] } => {
+  if (!Array.isArray(value)) return {}
+  const points = value
+    .filter((point): point is string => typeof point === "string")
+    .map((point) => point.trim().slice(0, MAX_AGENT_REVIEW_KEY_POINT_CHARS))
+    .filter((point) => point.length > 0)
+    .slice(0, MAX_AGENT_REVIEW_KEY_POINTS)
+  return points.length ? { keyPoints: points } : {}
+}
+
 export const parseAgentCompletionReview = (
   calls: readonly ToolCall[]
 ): AgentCompletionReview => {
@@ -177,7 +205,10 @@ export const parseAgentCompletionReview = (
             ? {
                 id: (verdict as { id?: unknown }).id,
                 verdict: (verdict as { verdict?: unknown }).verdict,
-                sources: decoded((verdict as { sources?: unknown }).sources)
+                sources: decoded((verdict as { sources?: unknown }).sources),
+                ...keyPointsOf(
+                  decoded((verdict as { keyPoints?: unknown }).keyPoints)
+                )
               }
             : verdict
         )

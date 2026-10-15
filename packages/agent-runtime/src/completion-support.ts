@@ -126,6 +126,12 @@ export const AGENT_PAGE_LEAVING_ACTIVATIONS = new Set([
 const leftThePage = (step: AgentStepReadout): boolean => {
   const verification = step.verification
   if (verification?.outcome !== "confirmed") return false
+  /** A form the site turned away left its fields where they were. */
+  if (
+    verification.evidence.kind === "submission" &&
+    verification.evidence.acceptance !== "accepted"
+  )
+    return false
   return (
     PAGE_LEAVING_KINDS.has(verification.evidence.kind) ||
     (verification.evidence.kind === "activation" &&
@@ -189,6 +195,37 @@ const selectedOptionMatches = (
       !option.disabled &&
       (option.value === wanted || same(option.label, wanted))
   ) === true
+
+/**
+ * A control's on/off state, whichever way the page declares it: a native
+ * checkbox, then a custom one's `aria-checked`, a toggle button's
+ * `aria-pressed`, a tab's or option's `aria-selected`. "mixed" is neither.
+ */
+export const agentControlOnState = (
+  element: AgentObservation["elements"][number]
+): boolean | undefined => {
+  for (const state of [
+    element.checked,
+    element.ariaChecked,
+    element.pressed,
+    element.selected
+  ])
+    if (typeof state === "boolean") return state
+  return undefined
+}
+
+/**
+ * A custom listbox has no native options to read: its choice is the one
+ * option marked selected in the listbox the control owns, which the
+ * observation reads where ownership is known. Never another listbox's
+ * selection in the same frame, and never the text a combobox holds: typing
+ * "Blue" into an autocomplete picks nothing.
+ */
+const ariaSelectionMatches = (
+  element: AgentObservation["elements"][number],
+  wanted: string
+): boolean =>
+  element.selectedOption !== undefined && same(element.selectedOption, wanted)
 
 type ControlTransitionCheck = Extract<
   NonNullable<AgentTaskRequirement["check"]>,
@@ -318,9 +355,14 @@ export const checkCompletionState = (
     return true
   if (matches.length !== 1) return false
   const element = matches[0]
-  if (check.type === "checked") return element.checked === check.checked
+  /** The page rejected what the control holds; it does not hold it as asked. */
+  if (element.invalid) return false
+  if (check.type === "checked")
+    return agentControlOnState(element) === check.checked
   if (element.valueTruncated) return false
   if (check.type === "selected")
-    return selectedOptionMatches(element, check.value)
+    return element.options
+      ? selectedOptionMatches(element, check.value)
+      : ariaSelectionMatches(element, check.value)
   return element.value === check.value
 }

@@ -454,7 +454,9 @@ export const summarizeAttempts = (
         backend: records[0].backend,
         attempts: records.length,
         completed: records.filter(
-          (record) => record.terminalStatus === "completed"
+          (record) =>
+            record.terminalStatus === "completed" ||
+            record.terminalStatus === "completed_unverified"
         ).length,
         succeeded: records.filter((record) => record.succeeded === true).length,
         falseCompletions: records.filter(
@@ -464,7 +466,8 @@ export const summarizeAttempts = (
           (record) =>
             record.succeeded === true &&
             record.expectedStatus === "completed" &&
-            record.terminalStatus !== "completed"
+            record.terminalStatus !== "completed" &&
+            record.terminalStatus !== "completed_unverified"
         ).length,
         medianWallMs: median(records.map((record) => record.wallMs)),
         repeatedTargets: records.reduce(

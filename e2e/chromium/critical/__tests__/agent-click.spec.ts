@@ -28,7 +28,7 @@ runAgentScenario({
   name: "click",
   goal: "Click Continue and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   html: () => page(agentConfirmingButton()),
   decide: clickContinue,
   async verify({ page: fixture, snapshot, wire, effects }) {
@@ -49,7 +49,7 @@ runAgentScenario({
   name: "stale",
   goal: "Click Continue and report the status.",
   plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   html: () => page(agentConfirmingButton()),
   async decide(observation, { step, page: fixture }) {
     const decision = clickContinue(observation)

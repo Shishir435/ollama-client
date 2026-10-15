@@ -16,7 +16,8 @@ import {
   MAX_AGENT_REQUIREMENT_ITEM_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
-  MAX_AGENT_REQUIREMENTS
+  MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 import { AgentWorkflowSchema } from "./agent-workflow"
 
@@ -34,6 +35,15 @@ export const AGENT_RUN_STATUSES = [
   "paused",
   "cancelling",
   "completed",
+  /**
+   * Finished, and at least one requirement rests only on the model's word:
+   * a read whose quote nothing tied to the question, or one seen only in a
+   * screenshot. Every outcome was answered as met; not every one was
+   * checked. Its own status for the same reason `partial` is — the panel
+   * reads the status first, and a green "completed" over an unchecked
+   * answer is the false completion this exists to stop.
+   */
+  "completed_unverified",
   /**
    * Finished having done some of what was asked, and said so.
    *
@@ -140,7 +150,8 @@ export {
   MAX_AGENT_REQUIREMENT_ITEM_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
-  MAX_AGENT_REQUIREMENTS
+  MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 
 export const AgentDecisionSchema = z.discriminatedUnion("type", [
@@ -594,6 +605,21 @@ export const MAX_AGENT_SCOPED_TABS = 25
  * model proposes it from the goal alone — it has not seen the page yet, so it
  * cannot yet know which outcome will be inconvenient.
  */
+/**
+ * Whose words a plan entry rests on. `user`: the user's own message or one of
+ * their answers. `delegated`: only the chat model's goal, which is a proposal
+ * about what the user meant rather than what they said. `coverage`: added by
+ * rule because the user named a value no planned outcome mentioned. Absent on
+ * runs started without the user's message, which is every run before it was
+ * carried and every run started outside a chat turn.
+ */
+export const AgentPlanEntryOriginSchema = z.enum([
+  "user",
+  "delegated",
+  "coverage"
+])
+export type AgentPlanEntryOrigin = z.infer<typeof AgentPlanEntryOriginSchema>
+
 export const AgentTaskRequirementSchema = z
   .object({
     id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
@@ -607,6 +633,13 @@ export const AgentTaskRequirementSchema = z
     check: AgentCompletionCheckSchema.optional(),
     /** Current-state questions cannot be answered from a document left behind. */
     freshness: z.enum(["current", "historical"]).optional(),
+    /**
+     * A change the user expects to still be there after a reload: a save, a
+     * create, an update, a rename, a delete. Such a change is verified only
+     * on a page loaded after it — a toast, or the same page still holding
+     * the edit, is the site reporting success, not the record showing it.
+     */
+    persist: z.literal(true).optional(),
     /**
      * The words of the goal — or of a user's answer — this outcome answers,
      * quoted. Checked against them when the plan is parsed, so an outcome
@@ -632,7 +665,8 @@ export const AgentTaskRequirementSchema = z
       .max(MAX_AGENT_REQUIREMENT_ITEMS)
       .optional(),
     /** The plan version that introduced it; absent means the first. */
-    since: z.number().int().min(1).optional()
+    since: z.number().int().min(1).optional(),
+    origin: AgentPlanEntryOriginSchema.optional()
   })
   .strict()
 export type AgentTaskRequirement = z.infer<typeof AgentTaskRequirementSchema>
@@ -686,10 +720,56 @@ export const AgentRunOutcomeSchema = z
     visual: z
       .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
       .max(MAX_AGENT_REQUIREMENTS)
-      .optional()
+      .optional(),
+    /**
+     * How each met requirement was established, for the ones that were not
+     * checked by the runtime itself. A met id in neither list is `verified`:
+     * a deterministic check held on fresh evidence. `supported`: an
+     * independent reviewer judged it from the facts, which is as high as a
+     * model's verdict reaches. `claimed`: the acting model's word, backed by
+     * a quote whose relevance nothing checked, or by a screenshot reading.
+     * Absent on runs settled before tiers existed, which read as before.
+     */
+    supported: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    claimed: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * Set by a judge that grades. Without it the two lists above say nothing:
+     * a run settled before tiers existed met its reads on a quote alone, and
+     * reading the absence of `claimed` there as "verified" would show every
+     * one of them as checked.
+     */
+    graded: z.literal(true).optional()
   })
   .strict()
 export type AgentRunOutcome = z.infer<typeof AgentRunOutcomeSchema>
+
+export type AgentRequirementTier =
+  | "verified"
+  | "supported"
+  | "claimed"
+  | "unmet"
+
+/**
+ * One requirement's tier, read off a settled outcome. Undefined for a met
+ * requirement of an outcome no grading judge wrote: how it was met is not
+ * known, and guessing "verified" is the overclaim tiers exist to stop.
+ */
+export const agentRequirementTier = (
+  outcome: AgentRunOutcome,
+  id: string
+): AgentRequirementTier | undefined => {
+  if (!outcome.met.includes(id)) return "unmet"
+  if (outcome.claimed?.includes(id) || outcome.visual?.includes(id))
+    return "claimed"
+  if (!outcome.graded) return undefined
+  return outcome.supported?.includes(id) ? "supported" : "verified"
+}
 
 /** How much of the goal a later turn is reminded of. */
 export const MAX_AGENT_HANDOFF_GOAL_CHARS = 1_000
@@ -697,6 +777,9 @@ export const MAX_AGENT_HANDOFF_GOAL_CHARS = 1_000
 export const MAX_AGENT_HANDOFF_RESULT_CHARS = 2_000
 /** The run's own notes carried forward, newest last. */
 export const MAX_AGENT_HANDOFF_FINDINGS = 6
+/** Consequential actions a later turn is told about, newest last. */
+export const MAX_AGENT_HANDOFF_ACTIONS = 6
+export const MAX_AGENT_HANDOFF_CONTROL_CHARS = 80
 
 /**
  * The most text one handoff can hold, derived from its parts so a later bound
@@ -706,11 +789,35 @@ export const MAX_AGENT_HANDOFF_CHARS =
   MAX_AGENT_HANDOFF_GOAL_CHARS +
   MAX_AGENT_HANDOFF_RESULT_CHARS +
   MAX_AGENT_HANDOFF_FINDINGS * MAX_AGENT_FINDING_CHARS +
+  MAX_AGENT_REQUIREMENTS * MAX_AGENT_REQUIREMENT_CHARS +
+  MAX_AGENT_HANDOFF_ACTIONS * MAX_AGENT_HANDOFF_CONTROL_CHARS +
   MAX_AGENT_LEDGER_BYTES
+
+/**
+ * The effects that cannot be taken back by doing them again.
+ *
+ * A second click on a tab or a second value in a field costs nothing; a
+ * second submission posts the comment twice, a second payment pays twice, a
+ * second delete removes the next row. These are the classes a follow-up must
+ * never repeat on the strength of a model's reading of an earlier record.
+ */
+export const AGENT_CONSEQUENTIAL_EFFECTS = [
+  "submission",
+  "destructive",
+  "payment",
+  "download"
+] as const
+export const AgentConsequentialEffectSchema = z.enum(
+  AGENT_CONSEQUENTIAL_EFFECTS
+)
+export type AgentConsequentialEffect = z.infer<
+  typeof AgentConsequentialEffectSchema
+>
 
 /** Settled statuses only: a handoff is written by the commit that settles. */
 export const AGENT_HANDOFF_STATUSES = [
   "completed",
+  "completed_unverified",
   "partial",
   "failed",
   "cancelled"
@@ -747,6 +854,58 @@ export const AgentConversationHandoffSchema = z
       .strict()
       .optional(),
     failure: AgentErrorSchema.shape.code.optional(),
+    /**
+     * Each planned outcome and how it was established, so a later turn can
+     * say which answers were checked rather than repeating them all as done.
+     * Absent on handoffs written before tiers existed.
+     */
+    requirements: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
+            text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+            /**
+             * `unjudged`: the run ended before its completion was judged, so
+             * nothing was established either way. `met`: met by a run settled
+             * before grading existed, with no grade to say how.
+             */
+            tier: z
+              .enum([
+                "verified",
+                "supported",
+                "claimed",
+                "unmet",
+                "unjudged",
+                "met"
+              ])
+              .optional()
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * The things the run did that cannot be taken back by doing them again,
+     * from its receipts: what kind, on which control, and whether it is known
+     * to have landed. What a later turn must not repeat or forget to mention.
+     */
+    actions: z
+      .array(
+        z
+          .object({
+            effect: AgentConsequentialEffectSchema,
+            state: z.enum(["applied", "uncertain"]),
+            control: z
+              .string()
+              .min(1)
+              .max(MAX_AGENT_HANDOFF_CONTROL_CHARS)
+              .optional()
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_HANDOFF_ACTIONS)
+      .optional(),
     findings: z
       .array(z.string().min(1).max(MAX_AGENT_FINDING_CHARS))
       .max(MAX_AGENT_HANDOFF_FINDINGS),
@@ -768,27 +927,6 @@ export type AgentConversationHandoff = z.infer<
 export const AGENT_FOLLOW_UP_MODES = ["continue", "retry"] as const
 export const AgentFollowUpModeSchema = z.enum(AGENT_FOLLOW_UP_MODES)
 export type AgentFollowUpMode = z.infer<typeof AgentFollowUpModeSchema>
-
-/**
- * The effects that cannot be taken back by doing them again.
- *
- * A second click on a tab or a second value in a field costs nothing; a
- * second submission posts the comment twice, a second payment pays twice, a
- * second delete removes the next row. These are the classes a follow-up must
- * never repeat on the strength of a model's reading of an earlier record.
- */
-export const AGENT_CONSEQUENTIAL_EFFECTS = [
-  "submission",
-  "destructive",
-  "payment",
-  "download"
-] as const
-export const AgentConsequentialEffectSchema = z.enum(
-  AGENT_CONSEQUENTIAL_EFFECTS
-)
-export type AgentConsequentialEffect = z.infer<
-  typeof AgentConsequentialEffectSchema
->
 
 /**
  * What the goal says must not happen, kept apart from what it asks for.
@@ -821,7 +959,8 @@ export const AgentTaskConstraintSchema = z
       .min(1)
       .max(MAX_AGENT_REQUIREMENT_SOURCE_CHARS)
       .optional(),
-    since: z.number().int().min(1).optional()
+    since: z.number().int().min(1).optional(),
+    origin: AgentPlanEntryOriginSchema.optional()
   })
   .strict()
 export type AgentTaskConstraint = z.infer<typeof AgentTaskConstraintSchema>
@@ -1107,6 +1246,23 @@ export type AgentPreviousRun = z.infer<typeof AgentPreviousRunSchema>
 export const AgentGoalAuthorSchema = z.enum(["model", "model_after_page"])
 export type AgentGoalAuthor = z.infer<typeof AgentGoalAuthorSchema>
 
+/**
+ * The message the user sent in the turn that delegated the run, verbatim and
+ * never rewritten by the chat model. The goal is the chat model's reading of
+ * it and stays a proposal; this is what a plan entry may quote as the user's
+ * own words. Page text, tool output and the turn's retrieved context never
+ * enter it. `chars` is the message's whole length, so a message cut at the
+ * bound says by how much.
+ */
+export const AgentUserUtteranceSchema = z
+  .object({
+    text: z.string().min(1).max(MAX_AGENT_UTTERANCE_CHARS),
+    messageId: z.number().int().nonnegative().optional(),
+    chars: z.number().int().nonnegative()
+  })
+  .strict()
+export type AgentUserUtterance = z.infer<typeof AgentUserUtteranceSchema>
+
 export const AgentPendingSupervisionSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -1215,6 +1371,7 @@ export const AgentRunStateSchema = z
      * the egress rule.
      */
     goalAuthor: AgentGoalAuthorSchema.optional(),
+    userUtterance: AgentUserUtteranceSchema.optional(),
     /**
      * The chat tool call that delegated the run. A call replayed after a worker
      * restart names the same id and finds this run; any other call from the

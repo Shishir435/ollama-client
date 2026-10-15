@@ -72,6 +72,8 @@
     },
     "failure": {
       "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",
+      "budget_exhausted_time": "The run reached its time limit. Narrow the goal, or set it again from where the page is now.",
+      "budget_exhausted_tokens": "The run used its whole token budget. Narrow the goal, or set it again from where the page is now.",
       "command_refused": "The model kept naming controls the page does not offer — hidden, off-screen or already gone. Scroll to what you need first, or try a model that reads pages more carefully.",
       "goal_failed": "The model reported it cannot do this. Try a clearer goal, or a different model.",
       "invalid_decision": "The model kept answering in a form the run could not use. A larger or tool-calling model usually fixes this.",
@@ -117,6 +119,7 @@
       "paused": "Paused",
       "cancelling": "Stopping",
       "completed": "Completed",
+      "completed_unverified": "Done, not all checked",
       "partial": "Partly done",
       "failed": "Failed",
       "cancelled": "Stopped"
@@ -215,7 +218,24 @@
       "step_count_one": "{{count}} step",
       "step_count_other": "{{count}} steps",
       "page_count_one": "{{count}} page",
-      "page_count_other": "{{count}} pages"
+      "page_count_other": "{{count}} pages",
+      "contract": {
+        "title": "What the task asked for",
+        "limit": "Limit",
+        "delegated": "(assistant's wording)",
+        "tier": {
+          "verified": "Checked",
+          "supported": "Reviewed",
+          "claimed": "Not checked",
+          "unmet": "Not done"
+        }
+      },
+      "banner": {
+        "completed_unverified": "Some answers were not checked. Treat them as unconfirmed.",
+        "partial": "Only part of the task was done.",
+        "failed": "The task was not done.",
+        "cancelled": "The run was stopped before it finished."
+      }
     },
     "follow_up": {
       "continue_message": "Continue the browser task.",
@@ -356,7 +376,8 @@
     "action_default_title": "Open Ollama Client",
     "stop_browser_agent_menu": "Stop browser agent",
     "agent_task_completed": "Completed",
-    "agent_task_attention": "Paused"
+    "agent_task_attention": "Paused",
+    "agent_task_unchecked": "Done, not all checked"
   },
   "selection_button": {
     "actions": {

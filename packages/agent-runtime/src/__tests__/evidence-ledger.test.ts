@@ -731,7 +731,7 @@ describe("grounded evidence ledger", () => {
       })
     ).toEqual({
       type: "accepted",
-      outcome: { met: ["r1"], unmet: [], visual: ["r1"] }
+      outcome: { met: ["r1"], unmet: [], graded: true, visual: ["r1"] }
     })
   })
 
@@ -801,6 +801,7 @@ describe("grounded evidence ledger", () => {
         outcome: {
           met: ["r1"],
           unmet: [],
+          graded: true,
           visual: ["r1"],
           items: [{ id: "r1", met: [0, 1], visual: mixed ? [1] : [0, 1] }]
         }

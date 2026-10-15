@@ -317,9 +317,12 @@ describe("Agent step telemetry against the real engine", () => {
 
       await vi.waitFor(async () => {
         const snapshot = await service.snapshot("run-telemetry-1")
-        expect(["completed", "failed", "paused"]).toContain(
-          snapshot.run?.status
-        )
+        expect([
+          "completed",
+          "completed_unverified",
+          "failed",
+          "paused"
+        ]).toContain(snapshot.run?.status)
       })
       const settled = await service.snapshot("run-telemetry-1")
       expect({
@@ -328,7 +331,7 @@ describe("Agent step telemetry against the real engine", () => {
         reason: settled.run?.pauseReason,
         question: settled.run?.question
       }).toEqual({
-        status: "completed",
+        status: "completed_unverified",
         error: undefined,
         reason: undefined,
         question: undefined

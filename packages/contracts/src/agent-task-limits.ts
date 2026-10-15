@@ -16,3 +16,9 @@ export const MAX_AGENT_CONSTRAINTS = 8
 export const MAX_AGENT_PLAN_LIMITATION_CHARS = 1_000
 /** Amendments a run records; each one is a user answer the plan absorbed. */
 export const MAX_AGENT_PLAN_AMENDMENTS = 10
+/**
+ * The user's own message, carried verbatim beside the chat model's goal. Long
+ * enough for a pasted form or a list of rows; a longer message keeps its
+ * opening and records how long it was, so the cut is never silent.
+ */
+export const MAX_AGENT_UTTERANCE_CHARS = 8_000

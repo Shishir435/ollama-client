@@ -76,7 +76,9 @@ const familyStats = (attempts: AgentAttemptRecord[]) => ({
   goalMet: count(attempts, (attempt) => attempt.succeeded === true),
   reportedComplete: count(
     attempts,
-    (attempt) => attempt.terminalStatus === "completed"
+    (attempt) =>
+      attempt.terminalStatus === "completed" ||
+      attempt.terminalStatus === "completed_unverified"
   ),
   falseCompletions: count(
     attempts,

@@ -1,6 +1,12 @@
-import { agentStepSourceUrl } from "@ollama-client/agent-runtime"
+import {
+  agentStepSourceUrl,
+  isTerminalAgentStatus
+} from "@ollama-client/agent-runtime"
 import type { AgentRunState } from "@ollama-client/contracts"
-import { MAX_AGENT_OBSERVATIONS } from "@ollama-client/contracts"
+import {
+  agentRequirementTier,
+  MAX_AGENT_OBSERVATIONS
+} from "@ollama-client/contracts"
 import type {
   AgentGetRunRequest,
   AgentGetRunResult,
@@ -15,11 +21,22 @@ import {
 import { normalizeGrantOrigin } from "@/lib/tools/approval/approval-policy"
 import { toAgentStepRecords } from "./agent-step-records"
 
+/** A requirement's grade once the run settled, when its judge graded. */
+const cardTier = (
+  state: AgentRunState,
+  id: string
+): { tier?: ReturnType<typeof agentRequirementTier> & string } => {
+  if (!state.outcome || !isTerminalAgentStatus(state.status)) return {}
+  const tier = agentRequirementTier(state.outcome, id)
+  return tier ? { tier } : {}
+}
+
 /**
  * Project a run onto what its chat card shows.
  *
- * The outcome travels as counts: the requirement ids are the judge's
- * vocabulary, and a card says "3 of 4 done", not which ids those were.
+ * The outcome travels as counts for the summary line, and the contract
+ * beside it lists each outcome with its grade: "3 of 4 done" says how much,
+ * and only the list says which of the three were checked.
  */
 export const toAgentRunCard = (
   state: AgentRunState,
@@ -57,6 +74,23 @@ export const toAgentRunCard = (
             ...(state.outcome.visual?.length
               ? { visual: state.outcome.visual.length }
               : {})
+          }
+        }
+      : {}),
+    ...(state.requirements?.length
+      ? {
+          contract: {
+            requirements: state.requirements.map((requirement) => ({
+              id: requirement.id,
+              text: requirement.text,
+              ...cardTier(state, requirement.id),
+              ...(requirement.origin ? { origin: requirement.origin } : {})
+            })),
+            constraints: (state.constraints ?? []).map((constraint) => ({
+              id: constraint.id,
+              text: constraint.text,
+              ...(constraint.origin ? { origin: constraint.origin } : {})
+            }))
           }
         }
       : {}),

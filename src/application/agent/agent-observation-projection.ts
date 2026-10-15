@@ -31,7 +31,15 @@ export interface AgentProjectedElement {
   type?: string
   value?: string
   valueTruncated?: boolean
-  checked?: boolean
+  checked?: boolean | "mixed"
+  /** A toggle button's state, from `aria-pressed`. */
+  pressed?: boolean | "mixed"
+  expanded?: boolean
+  selected?: boolean
+  /** The page rejected this control's value, with its reason when given. */
+  invalid?: string | true
+  activeOption?: string
+  selectedOption?: string
   focused?: boolean
   scroll?: AgentElement["scroll"]
   href?: string
@@ -266,7 +274,21 @@ export const projectAgentElement = (
     ...(element.value ? { value: element.value } : {}),
     ...(element.valueTruncated ? { valueTruncated: true } : {}),
     ...(element.scroll ? { scroll: element.scroll } : {}),
-    ...(element.checked !== undefined ? { checked: element.checked } : {}),
+    /**
+     * One `checked` for both kinds of control: the model reads a switch and a
+     * checkbox the same way, and changes the custom one by clicking it.
+     */
+    ...((element.checked ?? element.ariaChecked) !== undefined
+      ? { checked: element.checked ?? element.ariaChecked }
+      : {}),
+    ...(element.pressed !== undefined ? { pressed: element.pressed } : {}),
+    ...(element.expanded !== undefined ? { expanded: element.expanded } : {}),
+    ...(element.selected !== undefined ? { selected: element.selected } : {}),
+    ...(element.invalid ? { invalid: element.invalidMessage ?? true } : {}),
+    ...(element.activeOption ? { activeOption: element.activeOption } : {}),
+    ...(element.selectedOption
+      ? { selectedOption: element.selectedOption }
+      : {}),
     ...(element.focused ? { focused: true } : {}),
     ...(href ? { href } : {}),
     ...(options ? { options } : {}),

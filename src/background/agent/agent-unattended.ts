@@ -1,4 +1,5 @@
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
+import type { AgentRunStatus } from "@ollama-client/contracts"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -18,13 +19,23 @@ const updateWakeAlarm = async (working: boolean) => {
   }
 }
 
-const notifyUnattended = async (id: string, completed: boolean) => {
+/**
+ * What the notification says, by status. A user who closed the panel reads
+ * only this, so a run finished with unchecked answers must not say
+ * "Completed" the way a checked one does.
+ */
+const NOTIFICATION_MESSAGE: Partial<Record<AgentRunStatus, string>> = {
+  completed: "agentTaskCompleted",
+  completed_unverified: "agentTaskUnchecked"
+}
+
+const notifyUnattended = async (id: string, status: AgentRunStatus) => {
   if (!(await hasPermission("notifications"))) return
   await browser.notifications.create(`agent-${id}`, {
     type: "basic",
     title: browser.i18n.getMessage("actionDefaultTitle"),
     message: browser.i18n.getMessage(
-      completed ? "agentTaskCompleted" : "agentTaskAttention"
+      NOTIFICATION_MESSAGE[status] ?? "agentTaskAttention"
     ),
     iconUrl: browser.runtime.getURL("/assets/icon-128.png")
   })
@@ -136,9 +147,7 @@ export const registerAgentUnattendedControls = (
             notified.set(id, run.status)
             /** A boundary already reached before this worker started was announced then. */
             if (!initial)
-              await notifyUnattended(id, run.status === "completed").catch(
-                () => undefined
-              )
+              await notifyUnattended(id, run.status).catch(() => undefined)
           }
         }
       })

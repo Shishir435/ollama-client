@@ -29,7 +29,7 @@ const SRCDOC_PAGE = `<!doctype html>
 runAgentScenario({
   name: "reads and acts inside a srcdoc panel",
   goal: "Click Continue inside the panel and report the status.",
-  status: "completed",
+  status: "completed_unverified",
   timeoutMs: 120_000,
   allowRoutineActions: true,
   approvalScope: "run_origin",
@@ -65,7 +65,7 @@ runAgentScenario({
     await expect(
       page.frameLocator("iframe").getByText("Status: Active")
     ).toBeVisible()
-    expect(snapshot?.run?.status).toBe("completed")
+    expect(snapshot?.run?.status).toBe("completed_unverified")
   }
 })
 

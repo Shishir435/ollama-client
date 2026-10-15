@@ -306,7 +306,11 @@ export const scoreVerdict = ({ status, success, pauseReason, body }) => {
   if (status === "harness_invalid" || status === "turn_not_started")
     return "invalid"
   /** A chat that answered without delegating a run is judged like a run. */
-  if (status === "completed" || status === "answered_in_chat")
+  if (
+    status === "completed" ||
+    status === "completed_unverified" ||
+    status === "answered_in_chat"
+  )
     return success ? "achieved" : "false_completed"
   /**
    * The site refused the browser, and the run asked the user to clear it or

@@ -2,6 +2,7 @@ import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
 
 export const TERMINAL_AGENT_STATUSES = [
   "completed",
+  "completed_unverified",
   "partial",
   "failed",
   "cancelled"
@@ -78,6 +79,12 @@ export const AGENT_STATUS_PREDECESSORS = {
    * otherwise sent the run back to work it had finished.
    */
   completed: ["deciding", "cancelling", "paused"],
+  /**
+   * Only from `deciding`: it is the judge's answer about a completion the
+   * model claimed. A user who confirms an unresolved effect is done says
+   * `completed` in their own words, and a stop is not a completion at all.
+   */
+  completed_unverified: ["deciding"],
   /**
    * Only from `deciding`, and only on the model's own word that an outcome
    * was not met. A cancelled or failed run is not a partial one: partial

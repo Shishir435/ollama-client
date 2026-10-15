@@ -461,3 +461,26 @@ test("task intent distinguishes a wrong factual answer from an honest action fai
     "reported_failure"
   )
 })
+
+test("a completion with unchecked answers is scored as the claim it is", () => {
+  assert.equal(
+    successClaim({ status: "completed_unverified", answer: "" }),
+    "claimed"
+  )
+  assert.equal(
+    classifyAttempt({ status: "completed_unverified", success: true }),
+    "achieved"
+  )
+  /** Flagged amber or not, a wrong answer reported as done is false. */
+  assert.equal(
+    classifyAttempt({ status: "completed_unverified", success: false }),
+    "false_completion"
+  )
+  assert.equal(
+    failureOrigin({
+      verdict: "false_completion",
+      status: "completed_unverified"
+    }),
+    "verification"
+  )
+})

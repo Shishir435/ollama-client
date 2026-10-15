@@ -435,3 +435,85 @@ describe("AgentRunMessageCard", () => {
     expect(container.querySelectorAll("li")).toHaveLength(2)
   })
 })
+
+describe("the run's contract and its grades", () => {
+  const contract: AgentRunCard["contract"] = {
+    requirements: [
+      { id: "r1", text: "Name holds Ada", tier: "verified", origin: "user" },
+      {
+        id: "r2",
+        text: "Report the Pro price",
+        tier: "claimed",
+        origin: "user"
+      },
+      { id: "r3", text: "Fill in the form", tier: "unmet", origin: "delegated" }
+    ],
+    constraints: [{ id: "c1", text: "Do not submit", origin: "user" }]
+  }
+
+  it("lists every outcome with its grade, and the limits beside them", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "completed_unverified", contract })
+    })
+    render(<AgentRunMessageCard msg={message()} />)
+
+    expect(screen.getByText("agent.card.contract.title")).toBeInTheDocument()
+    expect(
+      screen.getByText("agent.card.contract.tier.verified")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("agent.card.contract.tier.claimed")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("agent.card.contract.tier.unmet")
+    ).toBeInTheDocument()
+    expect(screen.getByText("Do not submit")).toBeInTheDocument()
+    /** Words only the chat model's goal said are marked as its reading. */
+    expect(
+      screen.getByText("agent.card.contract.delegated")
+    ).toBeInTheDocument()
+  })
+
+  it("folds the contract under a chat answer and opens it when the card stands alone", () => {
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "completed", contract })
+    })
+    const { container, rerender } = render(
+      <AgentRunMessageCard msg={message("All done.")} />
+    )
+    const details = () =>
+      container.querySelector("details.group\\/contract") as HTMLDetailsElement
+    expect(details().open).toBe(false)
+    rerender(<AgentRunMessageCard msg={message()} />)
+    expect(details().open).toBe(true)
+  })
+
+  it("states an unchecked or unfinished run under any chat answer", () => {
+    for (const status of [
+      "completed_unverified",
+      "partial",
+      "failed",
+      "cancelled"
+    ] as const) {
+      useAgentRunCard.mockReturnValue({
+        kind: "ready",
+        run: card({ status, contract })
+      })
+      const { unmount } = render(
+        <AgentRunMessageCard msg={message("Everything worked.")} />
+      )
+      expect(
+        screen.getByText(`agent.card.banner.${status}`)
+      ).toBeInTheDocument()
+      unmount()
+    }
+    useAgentRunCard.mockReturnValue({
+      kind: "ready",
+      run: card({ status: "completed", contract })
+    })
+    render(<AgentRunMessageCard msg={message("Everything worked.")} />)
+    expect(screen.queryByText(/agent\.card\.banner\./)).toBeNull()
+  })
+})
