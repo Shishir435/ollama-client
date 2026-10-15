@@ -86,7 +86,22 @@ const STOP_WORDS = new Set([
   "box",
   "field",
   "option",
-  "button"
+  "button",
+  /**
+   * Words that pick by a criterion rather than name a value: "pick the right
+   * account" asks the run to find one, and the account it finds is the value.
+   */
+  "right",
+  "correct",
+  "best",
+  "cheapest",
+  "first",
+  "last",
+  "latest",
+  "newest",
+  "oldest",
+  "appropriate",
+  "matching"
 ])
 
 const normalized = (text: string): string =>

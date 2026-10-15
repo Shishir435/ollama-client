@@ -107,7 +107,7 @@ runAgentScenario({
   hosted: true,
   goal: "Read the document through to its end and report the final reference code.",
   plan: [{ text: "report the final reference code", kind: "read" }],
-  status: "completed",
+  status: "completed_unverified",
   html: () =>
     `<!doctype html><title>Long document</title><main><p>${"ordinary text ".repeat(3000)}Final reference code: ZEBRA-742.</p></main>`,
   decide(observation) {
@@ -192,7 +192,7 @@ runAgentScenario({
       check: { type: "record_state", record: "Document", state: "saved" }
     }
   ],
-  status: "completed",
+  status: "completed_unverified",
   html: () =>
     `<!doctype html><title>Save document</title><main><p id="status" role="status">Unsaved</p><button onclick="this.disabled=true;document.getElementById('status').textContent='Saving';setTimeout(()=>document.getElementById('status').textContent='Document saved',1200)">Save</button></main>`,
   decide(observation, { step }) {

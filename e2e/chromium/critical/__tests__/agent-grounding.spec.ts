@@ -14,8 +14,10 @@ import { expect } from "../../fixtures/extension"
 runAgentScenario({
   name: "grounding",
   goal: "Tick the newsletter box and report the status.",
-  plan: [{ text: "report the status", kind: "read" }],
-  status: "completed",
+  plan: [
+    { text: "report the status after ticking the newsletter box", kind: "read" }
+  ],
+  status: "completed_unverified",
   html: () =>
     '<!doctype html><title>Agent grounding</title><main><h1>Preferences</h1><label for="news">Newsletter</label><input id="news" type="checkbox" onchange="document.querySelector(\'main\').insertAdjacentHTML(\'beforeend\',\'<p>Status: Active</p>\')"></main>',
   decide(observation: AgentFixtureObservation, { step }) {

@@ -193,3 +193,13 @@ describe("words that are not values", () => {
     expect(agentNamedValues(utterance)).toEqual([])
   })
 })
+
+it("reads a criterion as a criterion, not a value", () => {
+  expect(
+    agentUncoveredValues(
+      "Pick the right account and report the selected account.",
+      [{ id: "r1", kind: "read", text: "report the selected account" }],
+      []
+    )
+  ).toEqual([])
+})
