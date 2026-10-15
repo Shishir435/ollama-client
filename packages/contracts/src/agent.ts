@@ -865,8 +865,20 @@ export const AgentConversationHandoffSchema = z
           .object({
             id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
             text: z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS),
+            /**
+             * `unjudged`: the run ended before its completion was judged, so
+             * nothing was established either way. `met`: met by a run settled
+             * before grading existed, with no grade to say how.
+             */
             tier: z
-              .enum(["verified", "supported", "claimed", "unmet"])
+              .enum([
+                "verified",
+                "supported",
+                "claimed",
+                "unmet",
+                "unjudged",
+                "met"
+              ])
               .optional()
           })
           .strict()

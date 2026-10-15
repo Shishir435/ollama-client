@@ -120,10 +120,10 @@ const renderHandoff = (handoff: AgentConversationHandoff): string => {
    */
   if (handoff.requirements?.length) {
     lines.push(
-      "Outcomes (verified: checked by the runtime; supported: judged by a reviewer; claimed: the agent's word only, not checked; unmet):",
+      "Outcomes (verified: checked by the runtime; supported: judged by a reviewer; claimed: the agent's word only, not checked; unmet: not done; unjudged: the run ended before checking anything, so not established; met: met before grading existed, not graded):",
       ...handoff.requirements.map(
         (requirement) =>
-          `- ${requirement.id} ${requirement.tier ?? "met, not graded"}: ${inert(requirement.text)}`
+          `- ${requirement.id} ${requirement.tier ?? "unjudged"}: ${inert(requirement.text)}`
       )
     )
   }

@@ -373,3 +373,14 @@ it("keeps a graded run in a small window by shortening its lists, and says what 
   expect(block).toContain(" claimed: ")
   expect(block).toContain("Some outcomes omitted")
 })
+
+it("tells a later turn an unjudged outcome was not established, never met", () => {
+  const block = renderAgentHandoffBlock(
+    handoff("run-1", {
+      status: "failed",
+      requirements: [{ id: "r1", text: "Address is saved", tier: "unjudged" }]
+    })
+  )
+  expect(block).toContain("- r1 unjudged: Address is saved")
+  expect(block).not.toMatch(/r1 met/)
+})

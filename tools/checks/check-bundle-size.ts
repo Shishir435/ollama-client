@@ -262,7 +262,8 @@ const budgets: Budget[] = [
     /** Structured terminal refusals add 87 bytes to Chrome's measured total. */
     /** Graded outcomes, submission acceptance, readback, ARIA state and the card's contract (nine-locale copy) measure Chrome at 48,622,829. */
     /** Review fixes — owned listbox selections, readback on the record's own check, the unchecked notification — measure Chrome at 48,627,205. */
-    max: isFirefox ? 50_300_000 : 48_627_205
+    /** Unjudged outcomes named as such in the handoff measure Chrome at 48,627,392. */
+    max: isFirefox ? 50_300_000 : 48_627_392
   },
   {
     metric: "zip",
@@ -584,7 +585,8 @@ const budgets: Budget[] = [
     /** Structured terminal refusals add 30 gzip bytes to Chrome's background. */
     /** Graded outcomes, submission acceptance, readback, the user's message in planning and the reviewer's page context measure Chrome at 349,616 and Firefox at 223,081. */
     /** Their review fixes measure Chrome at 350,146 and Firefox at 223,085. */
-    max: isFirefox ? 223_085 : 350_146
+    /** Unjudged outcomes named as such measure Chrome at 350,208 and Firefox at 223,093. */
+    max: isFirefox ? 223_093 : 350_208
   }
 ]
 

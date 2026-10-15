@@ -177,15 +177,16 @@ export const buildAgentConversationHandoff = (
               MAX_AGENT_REQUIREMENT_CHARS
             )
             /**
-             * No judgment, no grade: a run that failed or was stopped before
-             * it was judged has not shown its work undone, only unchecked.
+             * No judgment is not "done": a run that failed or was stopped
+             * before it was judged established nothing, and saying so is
+             * what keeps a later turn from reporting the work as met. A
+             * met outcome from before grading says it was met, ungraded.
              */
             const tier = state.outcome
-              ? agentRequirementTier(state.outcome, requirement.id)
-              : undefined
-            return text
-              ? [{ id: requirement.id, text, ...(tier ? { tier } : {}) }]
-              : []
+              ? (agentRequirementTier(state.outcome, requirement.id) ??
+                ("met" as const))
+              : ("unjudged" as const)
+            return text ? [{ id: requirement.id, text, tier }] : []
           })
         }
       : {}),

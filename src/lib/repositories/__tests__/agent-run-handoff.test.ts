@@ -106,7 +106,7 @@ describe("the conversation handoff a settled run leaves", () => {
       []
     )
     expect(handoff?.requirements).toEqual([
-      { id: "r1", text: "Report the price" },
+      { id: "r1", text: "Report the price", tier: "met" },
       { id: "r2", text: "Report the date", tier: "unmet" }
     ])
   })
@@ -120,8 +120,9 @@ describe("the conversation handoff a settled run leaves", () => {
       }),
       []
     )
+    /** Not met, not unmet: nothing was established. */
     expect(handoff?.requirements).toEqual([
-      { id: "r1", text: "Address is saved" }
+      { id: "r1", text: "Address is saved", tier: "unjudged" }
     ])
   })
 
