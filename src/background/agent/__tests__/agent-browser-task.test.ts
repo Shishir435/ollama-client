@@ -231,6 +231,21 @@ describe("running a browser task", () => {
     expect(done.content).not.toContain("did not finish")
   })
 
+  it("hands the run the user's own message beside the model's goal", async () => {
+    const service = serviceStub()
+    await runner(service).run(
+      request,
+      turn({ userUtterance: { text: "where is pricing?", messageId: 41 } })
+    )
+
+    expect(service.delegate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        goal: "Find the pricing page",
+        userUtterance: { text: "where is pricing?", messageId: 41 }
+      })
+    )
+  })
+
   it("marks a goal written after reading a page as the model's, not the user's", async () => {
     const service = serviceStub()
     await runner(service).run(

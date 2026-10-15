@@ -1,6 +1,7 @@
 import type {
   AgentAnswer,
   AgentConsequentialEffect,
+  AgentPlanEntryOrigin,
   AgentPlanRemoval,
   AgentPreviousRequirement,
   AgentPreviousRun,
@@ -27,6 +28,11 @@ import {
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import { AGENT_COMPLETION_CHECK_PARAMETERS } from "./agent-completion-check-parameters"
 import { AgentDecisionFormatError } from "./agent-decision-parser"
+import {
+  agentCoverageFeedback,
+  agentCoverageRequirement,
+  agentUncoveredValues
+} from "./agent-plan-coverage"
 import {
   AGENT_PREVIOUS_RUN_PROMPT,
   agentPreviousRunRecord
@@ -170,7 +176,7 @@ List the outcomes the goal asks for, not the steps you would take to reach them.
 Mark an outcome "change" when something on a page must end up different, and "read" when the goal asks you to report something.
 The same outcome for several rows, records or recipients is one requirement with items, not one requirement each.
 Put what the goal forbids or bounds in constraints, not requirements: "fill it in but don't submit" is one requirement and one exclude constraint.
-Quote, in source, the user's own words each entry comes from.
+Quote, in source, the user's own words each entry comes from: the user's message when one is given, otherwise the goal.
 When one exact observable predicate fully answers an outcome, include check: field (name, value), checked (name, checked; also a switch, toggle button or tab), selected (name, value; also a custom listbox or combobox), url (url), row (record), record_state (record, state: saved, submitted, open, closed, merged, approved or deleted), or control_transition (from, to, optional record and frameId; for a requested renamed-control outcome). Include record for controls in a named row. Copy the requested value and identity from the goal. For read outcomes asking about current state, set freshness to current; historical is only for retained facts that the user did not ask to refresh. Omit check for semantic claims, composite outcomes or itemized requirements; never replace a requested outcome with an easier predicate.
 Be exact and be brief. Do not invent outcomes the goal does not ask for; each extra one is something the run must later evidence.
 Ask a clarification instead of planning only when the goal could mean materially different things. Give a limitation only when the task cannot be done in a browser at all.
@@ -204,9 +210,33 @@ export class AgentPlanOverCapError extends AgentDecisionFormatError {
   }
 }
 
+/**
+ * A plan that left out a value the user named. The port asks once more with
+ * the gap named; `plan` is what the run gets if it is left out again — the
+ * planner's own plan plus a requirement per missing value, so the omission
+ * becomes work the run must show rather than work nobody tracks.
+ */
+export class AgentPlanCoverageError extends AgentDecisionFormatError {
+  readonly plan: AgentTaskPlan
+
+  constructor(feedback: string, plan: AgentTaskPlan) {
+    super("The agent_plan call left out a value the user named", feedback)
+    this.name = "AgentPlanCoverageError"
+    this.plan = plan
+  }
+}
+
 /** What a plan is answerable to, and what it may keep or amend. */
 export interface AgentPlanContext {
   goal: string
+  /**
+   * The user's own message, when the run was delegated from a chat turn. It
+   * is authority beside the goal: an entry may quote it, its boundaries are
+   * read by rule, and every value it names must reach the plan.
+   */
+  utterance?: string
+  /** Set on the retry after a coverage refusal: a second gap is not refused. */
+  coverageAsked?: boolean
   /** The user's answers. Only their text is authority; the questions are not. */
   answers?: readonly AgentAnswer[]
   /** The plan in force, when this call amends it. */
@@ -267,9 +297,16 @@ export const agentPlanPrompt = (
   amendment?: {
     answers?: readonly AgentAnswer[]
     current?: AgentPlanContext["current"]
+    /** The user's own message, when the chat model wrote the goal from it. */
+    utterance?: string
   }
 ): string => {
-  const parts = [`The user's goal:\n${goal}`]
+  const parts = amendment?.utterance
+    ? [
+        `The goal, as the chat assistant wrote it from the user's message:\n${goal}`,
+        `The user's own message, verbatim. It is the authority over the goal: plan every outcome and limit it states for this task, and quote it in source. It may also say things unrelated to the browser task; leave those out.\n${JSON.stringify({ userMessage: amendment.utterance })}`
+      ]
+    : [`The user's goal:\n${goal}`]
   if (amendment?.answers?.length) {
     parts.push(
       `The user has since answered. Each userAnswer is the user's own words; askedByAgent is the agent's question, context only.\n${JSON.stringify({ userAnswers: userAnswersRecord(amendment.answers) })}`
@@ -739,9 +776,11 @@ interface KnownEntry {
 const planIdentity = (context: AgentPlanContext | undefined) => {
   const current = context?.current
   const answers = context?.answers ?? []
-  const authority = context
-    ? [context.goal, ...answers.map((answer) => answer.text)]
-    : []
+  const userWords = [
+    ...(context?.utterance ? [context.utterance] : []),
+    ...answers.map((answer) => answer.text)
+  ]
+  const authority = context ? [context.goal, ...userWords] : []
   const newestAnswers = answers
     .filter((answer) => answer.answeredAt > (current?.reconciledThrough ?? -1))
     .map((answer) => answer.text)
@@ -800,6 +839,15 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
     authority,
     newestAnswers,
     used,
+    /**
+     * Whose words an entry rests on. Only answered with the user's message
+     * in hand: without it every entry quotes the goal, and calling all of
+     * them delegated would say nothing.
+     */
+    origin(source: string | undefined): AgentPlanEntryOrigin | undefined {
+      if (!context?.utterance) return undefined
+      return source && agentQuotes(source, userWords) ? "user" : "delegated"
+    },
     /**
      * The quote an entry rests on. A new entry must have one, from the user's
      * words, about the entry; a kept entry may fall back to the quote it was
@@ -893,7 +941,8 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
           `The item "${unquoted.slice(0, 80)}" is not a row, record or recipient the user named. List as items exactly the ones the user named, in the user's words — every one of them, and no others.`
         )
     },
-    nextConstraintId: (): string => `c${++issued.constraints}`
+    nextConstraintId: (): string => `c${++issued.constraints}`,
+    nextRequirementId: (): string => `r${++issued.requirements}`
   }
 }
 
@@ -936,6 +985,7 @@ const parsedRequirements = (
      * confirm.
      */
     const kept = [...new Set([...(prior?.items ?? []), ...items])]
+    const origin = identity.origin(source)
     return [
       {
         id,
@@ -944,7 +994,8 @@ const parsedRequirements = (
         ...(check ? { check } : {}),
         ...(freshness ? { freshness } : {}),
         ...(source ? { source } : {}),
-        ...(kept.length > 0 ? { items: kept } : {})
+        ...(kept.length > 0 ? { items: kept } : {}),
+        ...(origin ? { origin } : {})
       }
     ]
   })
@@ -974,6 +1025,7 @@ const parsedConstraints = (
       : "exclude"
     const { id, prior } = identity.id(entry, "constraint", text)
     const source = identity.source(entry, text, prior)
+    const origin = identity.origin(source)
     /**
      * A kept constraint keeps its words and what it forbids. The planner is
      * never shown `forbids` and cannot return it, so rebuilding a kept entry
@@ -986,7 +1038,8 @@ const parsedConstraints = (
         text: prior?.text ?? text,
         kind,
         ...(source ? { source } : {}),
-        ...(prior?.forbids?.length ? { forbids: [...prior.forbids] } : {})
+        ...(prior?.forbids?.length ? { forbids: [...prior.forbids] } : {}),
+        ...(origin ? { origin } : {})
       }
     ]
   })
@@ -1076,12 +1129,14 @@ const withUserBoundaries = (
     )
     if (stated && boundary.forbids.every((effect) => enforced.has(effect)))
       continue
+    const origin = identity.origin(boundary.clause)
     constraints.push({
       id: identity.nextConstraintId(),
       text: boundary.clause.slice(0, MAX_AGENT_REQUIREMENT_CHARS),
       kind: boundary.kind,
       source: boundary.clause,
-      ...(boundary.forbids.length > 0 ? { forbids: boundary.forbids } : {})
+      ...(boundary.forbids.length > 0 ? { forbids: boundary.forbids } : {}),
+      ...(origin ? { origin } : {})
     })
   }
   return constraints
@@ -1275,11 +1330,44 @@ export const parseAgentTaskPlan = (
       removals
     )
   }
-  return AgentTaskPlanSchema.parse({
+  const plan = AgentTaskPlanSchema.parse({
     requirements,
     ...(constraints.length > 0 ? { constraints } : {}),
     ...(removals.length > 0 ? { proposedRemovals: removals } : {})
   })
+  return initial && context?.utterance
+    ? withNamedValues(plan, context, identity)
+    : plan
+}
+
+/**
+ * An initial plan carries every value the user's message named. The first
+ * gap is refused with the values named, the way any malformed plan is; the
+ * second becomes requirements of its own. An amendment is not checked here:
+ * the user's newest answer is read by the planner, and the values of the
+ * first message were reconciled when it was planned.
+ */
+const withNamedValues = (
+  plan: AgentTaskPlan,
+  context: AgentPlanContext & { utterance?: string },
+  identity: PlanIdentity
+): AgentTaskPlan => {
+  const missing = agentUncoveredValues(
+    context.utterance ?? "",
+    plan.requirements,
+    plan.constraints ?? []
+  )
+  if (missing.length === 0) return plan
+  const requirements = [
+    ...plan.requirements,
+    ...missing.map((named) =>
+      agentCoverageRequirement(named, identity.nextRequirementId())
+    )
+  ]
+  assertWithinCaps(requirements, plan.constraints ?? [])
+  const covered = AgentTaskPlanSchema.parse({ ...plan, requirements })
+  if (context.coverageAsked) return covered
+  throw new AgentPlanCoverageError(agentCoverageFeedback(missing), covered)
 }
 
 /**

@@ -582,6 +582,7 @@ export const createBrowserTaskRunner = (
         sessionId: turn.sessionId,
         messageId: turn.messageId,
         goalAuthor: turn.pageFirst ? "model_after_page" : "model",
+        ...(ctx.userUtterance ? { userUtterance: ctx.userUtterance } : {}),
         ...(turn.toolCallId ? { toolCallId: turn.toolCallId } : {}),
         allowRoutineActions: mode !== "approve_each",
         ...(searchesConsented(ctx, mode, turn.pageFirst)

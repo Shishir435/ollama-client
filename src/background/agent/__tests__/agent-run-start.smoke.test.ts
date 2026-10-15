@@ -512,10 +512,23 @@ describe("starting an Agent run against the real engine", () => {
         modelId: "qwen3",
         sessionId: "chat-1",
         messageId: assistantId,
-        goalAuthor: "model" as const
+        goalAuthor: "model" as const,
+        userUtterance: {
+          text: `  where is pricing? ${"x".repeat(9_000)}`,
+          messageId: userId
+        }
       }
       const state = await service.delegate(request)
       expect(state).toMatchObject({ id: "run-turn-1", goalAuthor: "model" })
+      /** Kept verbatim to the bound, with its whole length said beside it. */
+      expect(state.userUtterance).toMatchObject({
+        messageId: userId,
+        chars: 9_018
+      })
+      expect(state.userUtterance?.text).toHaveLength(8_000)
+      expect(state.userUtterance?.text.startsWith("where is pricing?")).toBe(
+        true
+      )
 
       /**
        * A tool call replayed after a worker restart finds the run it already

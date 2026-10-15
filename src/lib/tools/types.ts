@@ -232,6 +232,11 @@ export interface ToolContext {
   previousAgentRunId?: string
   /** The run whose card drafted this message, when the user followed one up. */
   followUpRunId?: string
+  /**
+   * What the user typed for this turn, without the retrieved context joined
+   * to it. Absent on the legacy port path, which has no separate copy.
+   */
+  userUtterance?: { text: string; messageId?: number }
 }
 
 /**

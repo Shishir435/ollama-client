@@ -53,6 +53,7 @@ export const buildToolContext = (
     ...(previousRunId ? { previousAgentRunId: previousRunId } : {}),
     ...(payload.agentFollowUpRunId
       ? { followUpRunId: payload.agentFollowUpRunId }
-      : {})
+      : {}),
+    ...(payload.userUtterance ? { userUtterance: payload.userUtterance } : {})
   }
 }

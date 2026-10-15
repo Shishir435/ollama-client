@@ -16,7 +16,8 @@ import {
   MAX_AGENT_REQUIREMENT_ITEM_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
-  MAX_AGENT_REQUIREMENTS
+  MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 import { AgentWorkflowSchema } from "./agent-workflow"
 
@@ -140,7 +141,8 @@ export {
   MAX_AGENT_REQUIREMENT_ITEM_CHARS,
   MAX_AGENT_REQUIREMENT_ITEMS,
   MAX_AGENT_REQUIREMENT_SOURCE_CHARS,
-  MAX_AGENT_REQUIREMENTS
+  MAX_AGENT_REQUIREMENTS,
+  MAX_AGENT_UTTERANCE_CHARS
 } from "./agent-task-limits"
 
 export const AgentDecisionSchema = z.discriminatedUnion("type", [
@@ -594,6 +596,21 @@ export const MAX_AGENT_SCOPED_TABS = 25
  * model proposes it from the goal alone — it has not seen the page yet, so it
  * cannot yet know which outcome will be inconvenient.
  */
+/**
+ * Whose words a plan entry rests on. `user`: the user's own message or one of
+ * their answers. `delegated`: only the chat model's goal, which is a proposal
+ * about what the user meant rather than what they said. `coverage`: added by
+ * rule because the user named a value no planned outcome mentioned. Absent on
+ * runs started without the user's message, which is every run before it was
+ * carried and every run started outside a chat turn.
+ */
+export const AgentPlanEntryOriginSchema = z.enum([
+  "user",
+  "delegated",
+  "coverage"
+])
+export type AgentPlanEntryOrigin = z.infer<typeof AgentPlanEntryOriginSchema>
+
 export const AgentTaskRequirementSchema = z
   .object({
     id: z.string().min(1).max(MAX_AGENT_REQUIREMENT_ID_CHARS),
@@ -632,7 +649,8 @@ export const AgentTaskRequirementSchema = z
       .max(MAX_AGENT_REQUIREMENT_ITEMS)
       .optional(),
     /** The plan version that introduced it; absent means the first. */
-    since: z.number().int().min(1).optional()
+    since: z.number().int().min(1).optional(),
+    origin: AgentPlanEntryOriginSchema.optional()
   })
   .strict()
 export type AgentTaskRequirement = z.infer<typeof AgentTaskRequirementSchema>
@@ -821,7 +839,8 @@ export const AgentTaskConstraintSchema = z
       .min(1)
       .max(MAX_AGENT_REQUIREMENT_SOURCE_CHARS)
       .optional(),
-    since: z.number().int().min(1).optional()
+    since: z.number().int().min(1).optional(),
+    origin: AgentPlanEntryOriginSchema.optional()
   })
   .strict()
 export type AgentTaskConstraint = z.infer<typeof AgentTaskConstraintSchema>
@@ -1107,6 +1126,23 @@ export type AgentPreviousRun = z.infer<typeof AgentPreviousRunSchema>
 export const AgentGoalAuthorSchema = z.enum(["model", "model_after_page"])
 export type AgentGoalAuthor = z.infer<typeof AgentGoalAuthorSchema>
 
+/**
+ * The message the user sent in the turn that delegated the run, verbatim and
+ * never rewritten by the chat model. The goal is the chat model's reading of
+ * it and stays a proposal; this is what a plan entry may quote as the user's
+ * own words. Page text, tool output and the turn's retrieved context never
+ * enter it. `chars` is the message's whole length, so a message cut at the
+ * bound says by how much.
+ */
+export const AgentUserUtteranceSchema = z
+  .object({
+    text: z.string().min(1).max(MAX_AGENT_UTTERANCE_CHARS),
+    messageId: z.number().int().nonnegative().optional(),
+    chars: z.number().int().nonnegative()
+  })
+  .strict()
+export type AgentUserUtterance = z.infer<typeof AgentUserUtteranceSchema>
+
 export const AgentPendingSupervisionSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -1215,6 +1251,7 @@ export const AgentRunStateSchema = z
      * the egress rule.
      */
     goalAuthor: AgentGoalAuthorSchema.optional(),
+    userUtterance: AgentUserUtteranceSchema.optional(),
     /**
      * The chat tool call that delegated the run. A call replayed after a worker
      * restart names the same id and finds this run; any other call from the

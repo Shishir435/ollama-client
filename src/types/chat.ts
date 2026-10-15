@@ -409,6 +409,12 @@ export interface ChatWithModelMessage {
     pageContentInContext?: boolean
     /** Durable turns only: the run whose card drafted this message. */
     agentFollowUpRunId?: string
+    /**
+     * Durable turns only: what the user typed for this turn, before any
+     * retrieved page, file or memory text was joined to it. The last user
+     * message in `messages` carries that context; this does not.
+     */
+    userUtterance?: { text: string; messageId?: number }
   }
 }
 

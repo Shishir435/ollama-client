@@ -14,7 +14,8 @@ import type {
 } from "@ollama-client/contracts"
 import {
   AGENT_ROUTINE_GRANT_EFFECTS,
-  AgentRunStateSchema
+  AgentRunStateSchema,
+  MAX_AGENT_UTTERANCE_CHARS
 } from "@ollama-client/contracts"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
@@ -75,6 +76,8 @@ export interface StartAgentRunInput {
   allowExperimentalModel?: boolean
   /** Set when a chat model wrote the goal; absent means the user did. */
   goalAuthor?: AgentGoalAuthor
+  /** What the user typed in the turn that delegated the run. */
+  userUtterance?: { text: string; messageId?: number }
   /** Where the run's card is drawn; a new turn of its own by default. */
   placement?: AgentRunPlacement
   toolCallId?: string
@@ -318,6 +321,26 @@ const unattendedTabOrigin = (url: string | undefined): string | undefined => {
  * one run, and nothing here can say which of two runs a page effect served.
  */
 /**
+ * The user's message as the run keeps it: verbatim up to the bound, with its
+ * whole length recorded beside it. A blank message is no message.
+ */
+const userUtteranceRecord = (
+  utterance: StartAgentRunInput["userUtterance"]
+): Pick<AgentRunState, "userUtterance"> => {
+  const text = utterance?.text.trim()
+  if (!utterance || !text) return {}
+  return {
+    userUtterance: {
+      text: text.slice(0, MAX_AGENT_UTTERANCE_CHARS),
+      ...(utterance.messageId !== undefined
+        ? { messageId: utterance.messageId }
+        : {}),
+      chars: text.length
+    }
+  }
+}
+
+/**
  * A run as it is admitted: its own tab and origin, the routine grants its
  * start was given, and nothing inherited but what a follow-up must not repeat.
  */
@@ -366,6 +389,7 @@ const initialRunState = ({
      */
     ...(previousRun ? { previousRun } : {}),
     ...(request.goalAuthor ? { goalAuthor: request.goalAuthor } : {}),
+    ...userUtteranceRecord(request.userUtterance),
     ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
     createdAt: startedAt,
     updatedAt: startedAt
@@ -1133,6 +1157,9 @@ export const createAgentRunService = (input?: {
         modelId: request.modelId,
         sessionId: request.sessionId,
         goalAuthor: request.goalAuthor,
+        ...(request.userUtterance
+          ? { userUtterance: request.userUtterance }
+          : {}),
         ...(request.toolCallId ? { toolCallId: request.toolCallId } : {}),
         placement: { kind: "turn", messageId: request.messageId },
         ...(request.allowRoutineActions ? { allowRoutineActions: true } : {}),

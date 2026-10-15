@@ -86,6 +86,7 @@ import { projectAgentObservation } from "./agent-observation-projection"
 import {
   AGENT_PLAN_SYSTEM_PROMPT,
   AGENT_PLAN_TOOL,
+  AgentPlanCoverageError,
   type AgentPlanContext,
   AgentPlanOverCapError,
   agentIssuedIds,
@@ -639,6 +640,7 @@ const agentPageBudget = (
  */
 const agentPlanContext = (state: AgentRunState): AgentPlanContext => ({
   goal: state.goal,
+  ...(state.userUtterance ? { utterance: state.userUtterance.text } : {}),
   ...(state.answers?.length ? { answers: state.answers } : {}),
   ...(state.requirements?.length
     ? {
@@ -684,6 +686,8 @@ const agentPlanAfterFailure = (
   })
   /** An oversized amendment needs the user's answer, just like an initial plan. */
   if (lastError instanceof AgentPlanOverCapError) return overCapPlan(lastError)
+  /** The plan stands, with the values it left out as work of their own. */
+  if (lastError instanceof AgentPlanCoverageError) return lastError.plan
   /**
    * On a planner failure, apply every boundary readable by rule. If that
    * also exceeds the cap, ask the user rather than throwing or truncating.
@@ -1643,14 +1647,16 @@ export const createProviderAgentModelPort = (
       const context = agentPlanContext(state)
       const prompt = agentPlanPrompt(state.goal, state.previousRun, {
         ...(state.answers?.length ? { answers: state.answers } : {}),
-        ...(context.current ? { current: context.current } : {})
+        ...(context.current ? { current: context.current } : {}),
+        ...(context.utterance ? { utterance: context.utterance } : {})
       })
       const thinking = agentThinkingFields(await reasoningEffortFor(state))
       /** One planning request; `feedback` says what was wrong with the last. */
       const attempt = async (
         signal: AbortSignal,
-        feedback?: string
+        previous?: AgentDecisionFormatError
       ): Promise<AgentTaskPlan> => {
+        const feedback = previous?.feedback
         await assertCurrentProviderEnabled(provider, state.modelId, signal)
         const calls = new Map<string, ToolCall>()
         let streamError: ChatStreamMessage["error"]
@@ -1680,7 +1686,12 @@ export const createProviderAgentModelPort = (
             scoped.signal
           )
           if (streamError) throw streamError
-          return parseAgentTaskPlan([...calls.values()], context)
+          return parseAgentTaskPlan(
+            [...calls.values()],
+            previous instanceof AgentPlanCoverageError
+              ? { ...context, coverageAsked: true }
+              : context
+          )
         } finally {
           scoped.cleanup()
         }
@@ -1690,7 +1701,7 @@ export const createProviderAgentModelPort = (
           state,
           signal,
           malformedRetries: 1,
-          request: (signal, error) => attempt(signal, error?.feedback)
+          request: (signal, error) => attempt(signal, error)
         })
       } catch (error) {
         if (

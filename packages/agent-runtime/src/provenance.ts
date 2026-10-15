@@ -128,7 +128,10 @@ const authoredByCommand = (
  * every answer they gave it, and the text it has typed or selected.
  */
 export const agentAuthoredText = (
-  state: Pick<AgentRunState, "goal" | "answers" | "goalAuthor">,
+  state: Pick<
+    AgentRunState,
+    "goal" | "answers" | "goalAuthor" | "userUtterance"
+  >,
   steps: readonly AgentStepReadout[] = []
 ): string[] => {
   /**
@@ -143,6 +146,8 @@ export const agentAuthoredText = (
    */
   const authored = new Set<string>([
     ...(state.goalAuthor === "model_after_page" ? [] : [state.goal]),
+    /** The user's own message is theirs whoever wrote the goal from it. */
+    ...(state.userUtterance ? [state.userUtterance.text] : []),
     ...(state.answers ?? []).map((answer) => answer.text),
     ...(state.answers ?? []).flatMap((answer) =>
       answer.question ? [answer.question] : []
