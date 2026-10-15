@@ -190,6 +190,46 @@ const selectedOptionMatches = (
       (option.value === wanted || same(option.label, wanted))
   ) === true
 
+/**
+ * A control's on/off state, whichever way the page declares it: a native
+ * checkbox, then a custom one's `aria-checked`, a toggle button's
+ * `aria-pressed`, a tab's or option's `aria-selected`. "mixed" is neither.
+ */
+export const agentControlOnState = (
+  element: AgentObservation["elements"][number]
+): boolean | undefined => {
+  for (const state of [
+    element.checked,
+    element.ariaChecked,
+    element.pressed,
+    element.selected
+  ])
+    if (typeof state === "boolean") return state
+  return undefined
+}
+
+/**
+ * A custom listbox has no native options to read: its choice is the one
+ * option the page marks selected, or the text its combobox now holds. One
+ * selected option of that name in the control's frame, and no other
+ * selected one beside it, is the whole answer.
+ */
+const ariaSelectionMatches = (
+  element: AgentObservation["elements"][number],
+  observation: AgentObservation,
+  wanted: string
+): boolean => {
+  if (element.value !== undefined && same(element.value, wanted)) return true
+  const chosen = observation.elements.filter(
+    (candidate) =>
+      candidate.frameId === element.frameId &&
+      candidate.role === "option" &&
+      candidate.selected === true &&
+      !candidate.sensitive
+  )
+  return chosen.length === 1 && same(chosen[0].name ?? "", wanted)
+}
+
 type ControlTransitionCheck = Extract<
   NonNullable<AgentTaskRequirement["check"]>,
   { type: "control_transition" }
@@ -318,9 +358,12 @@ export const checkCompletionState = (
     return true
   if (matches.length !== 1) return false
   const element = matches[0]
-  if (check.type === "checked") return element.checked === check.checked
+  if (check.type === "checked")
+    return agentControlOnState(element) === check.checked
   if (element.valueTruncated) return false
   if (check.type === "selected")
-    return selectedOptionMatches(element, check.value)
+    return element.options
+      ? selectedOptionMatches(element, check.value)
+      : ariaSelectionMatches(element, observation, check.value)
   return element.value === check.value
 }

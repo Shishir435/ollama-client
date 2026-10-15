@@ -812,6 +812,17 @@ const pageEvidence = (observation: AgentObservation): string =>
       type: element.type,
       value: element.value,
       checked: element.checked,
+      /**
+       * A switch, a toggle button or a disclosure changes nothing but its own
+       * ARIA state. Leaving these out read flipping one as a click that did
+       * nothing, and paused the run on an effect it had in fact made.
+       */
+      ariaChecked: element.ariaChecked,
+      pressed: element.pressed,
+      expanded: element.expanded,
+      selected: element.selected,
+      invalid: element.invalid,
+      activeOption: element.activeOption,
       href: element.href,
       visible: element.visible,
       enabled: element.enabled

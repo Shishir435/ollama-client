@@ -170,6 +170,21 @@ describe("Agent effect settle window", () => {
     expect(result.outcome).toBe("confirmed")
   })
 
+  it("confirms a switch whose only change is its ARIA state", async () => {
+    /**
+     * A custom switch adds no words and changes no value: before the
+     * observation carried `aria-checked`, flipping one looked like a click
+     * that did nothing, and the run paused as an unresolved effect.
+     */
+    const off = element({ role: "switch", name: "Alerts", ariaChecked: false })
+    const { result } = await verify(
+      [observation({ elements: [{ ...off, ariaChecked: true }] })],
+      {},
+      observation({ elements: [off] })
+    )
+    expect(result.outcome).toBe("confirmed")
+  })
+
   it("returns the moment the effect is there rather than sleeping", async () => {
     const { result, looks, waits } = await verify([
       observation({ visibleText: "Save — All changes saved" })

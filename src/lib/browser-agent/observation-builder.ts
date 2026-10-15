@@ -1574,6 +1574,104 @@ const observedFormFields = (
   }
 }
 
+/** An ARIA tristate as the page states it; anything else says nothing. */
+const ariaTristate = (
+  element: Element,
+  attribute: string
+): boolean | "mixed" | undefined => {
+  const value = element.getAttribute(attribute)?.trim().toLowerCase()
+  if (value === "true") return true
+  if (value === "false") return false
+  return value === "mixed" ? "mixed" : undefined
+}
+
+const ariaBoolean = (
+  element: Element,
+  attribute: string
+): boolean | undefined => {
+  const value = ariaTristate(element, attribute)
+  return value === "mixed" ? undefined : value
+}
+
+/** Roles whose `aria-checked` is their on/off state. */
+const ARIA_CHECKED_ROLES = new Set([
+  "checkbox",
+  "switch",
+  "radio",
+  "menuitemcheckbox",
+  "menuitemradio"
+])
+
+const idScope = (element: Element): Document | ShadowRoot => {
+  const scope = element.getRootNode() as Partial<Document | ShadowRoot>
+  return typeof scope.getElementById === "function"
+    ? (scope as Document | ShadowRoot)
+    : element.ownerDocument
+}
+
+const referencedText = (
+  element: Element,
+  attribute: string
+): string | undefined => {
+  const id = element.getAttribute(attribute)?.trim().split(/\s+/)[0]
+  if (!id) return undefined
+  const text = normalizedText(
+    idScope(element).getElementById(id)?.textContent ?? ""
+  )
+  return text ? truncate(text, 200) : undefined
+}
+
+/**
+ * `:user-invalid` is the browser's own answer to "would this be shown as an
+ * error now": a constraint failed and the user — or a submit attempt —
+ * already touched the form. A browser without the selector throws, and then
+ * only the page's `aria-invalid` speaks.
+ */
+const userInvalid = (element: Element): boolean => {
+  try {
+    return element.matches(":user-invalid")
+  } catch {
+    return false
+  }
+}
+
+const invalidState = (
+  element: Element
+): Pick<AgentElement, "invalid" | "invalidMessage"> => {
+  const aria = element.getAttribute("aria-invalid")?.trim().toLowerCase()
+  const invalid =
+    (aria !== undefined && aria !== "" && aria !== "false") ||
+    userInvalid(element)
+  if (!invalid) return {}
+  const native = normalizedText(
+    (element as Partial<HTMLInputElement>).validationMessage ?? ""
+  )
+  const message =
+    referencedText(element, "aria-errormessage") ||
+    (native ? truncate(native, 200) : undefined)
+  return { invalid: true, ...(message ? { invalidMessage: message } : {}) }
+}
+
+const ariaStateFields = (element: Element): Partial<AgentElement> => {
+  const role = element.getAttribute("role")?.trim().toLowerCase() ?? ""
+  const ariaChecked =
+    !isCheckableInput(element) && ARIA_CHECKED_ROLES.has(role)
+      ? ariaTristate(element, "aria-checked")
+      : undefined
+  const pressed = ariaTristate(element, "aria-pressed")
+  const expanded = ariaBoolean(element, "aria-expanded")
+  const selected = ariaBoolean(element, "aria-selected")
+  const activeOption = referencedText(element, "aria-activedescendant")
+  return {
+    ...(ariaChecked !== undefined ? { ariaChecked } : {}),
+    ...(pressed !== undefined ? { pressed } : {}),
+    ...(expanded !== undefined ? { expanded } : {}),
+    ...(selected !== undefined ? { selected } : {}),
+    ...(activeOption ? { activeOption } : {}),
+    ...invalidState(element)
+  }
+}
+
 const observedControlFields = (
   element: Element,
   value: string | undefined,
@@ -1581,6 +1679,7 @@ const observedControlFields = (
 ): Partial<AgentElement> => {
   const options = selectOptions(element)
   return {
+    ...ariaStateFields(element),
     ...(value !== undefined
       ? {
           value: truncate(value, AGENT_OBSERVATION_LIMITS.elementValueChars)

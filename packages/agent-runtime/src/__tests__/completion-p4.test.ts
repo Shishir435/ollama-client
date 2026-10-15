@@ -224,6 +224,117 @@ describe("P4 deterministic completion", () => {
     ).toMatchObject({ type: "accepted" })
   })
 
+  it("reads a custom switch, toggle button or tab as checked by its ARIA state", () => {
+    const custom = (
+      overrides: Partial<AgentObservation["elements"][number]>
+    ): AgentObservation => ({
+      ...page,
+      elements: [
+        {
+          ref: "e9",
+          frameId: 0,
+          tag: "div",
+          name: "Alerts",
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false,
+          ...overrides
+        }
+      ]
+    })
+    const on = { type: "checked", name: "Alerts", checked: true } as const
+    for (const state of [
+      { role: "switch", ariaChecked: true },
+      { tag: "button", pressed: true },
+      { role: "tab", selected: true }
+    ])
+      expect(judge(on, custom(state), "")).toMatchObject({ type: "accepted" })
+    expect(
+      judge(on, custom({ role: "switch", ariaChecked: false }), "")
+    ).not.toMatchObject({ type: "accepted" })
+    /** Mixed is neither on nor off. */
+    expect(
+      checkCompletionState(
+        { id: "r1", kind: "change", text: "Alerts is checked", check: on },
+        custom({ role: "checkbox", ariaChecked: "mixed" }),
+        [],
+        undefined
+      )
+    ).toBe(false)
+  })
+
+  it("reads a custom listbox's choice from its one selected option", () => {
+    const listbox = (options: [string, boolean][]): AgentObservation => ({
+      ...page,
+      elements: [
+        {
+          ref: "e9",
+          frameId: 0,
+          tag: "div",
+          role: "combobox",
+          name: "Colour",
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        },
+        ...options.map(([name, selected], index) => ({
+          ref: `o${index}`,
+          frameId: 0,
+          tag: "div",
+          role: "option",
+          name,
+          selected,
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        }))
+      ]
+    })
+    const requirement = {
+      id: "r1",
+      kind: "change" as const,
+      text: "Colour holds Blue",
+      check: { type: "selected", name: "Colour", value: "Blue" } as const
+    }
+    expect(
+      checkCompletionState(
+        requirement,
+        listbox([
+          ["Red", false],
+          ["Blue", true]
+        ]),
+        [],
+        undefined
+      )
+    ).toBe(true)
+    expect(
+      checkCompletionState(
+        requirement,
+        listbox([
+          ["Red", true],
+          ["Blue", false]
+        ]),
+        [],
+        undefined
+      )
+    ).toBe(false)
+    /** Two selected options answer nothing. */
+    expect(
+      checkCompletionState(
+        requirement,
+        listbox([
+          ["Blue", true],
+          ["Red", true]
+        ]),
+        [],
+        undefined
+      )
+    ).toBe(false)
+  })
+
   it("routes prose about saving to review even when it names the exact invoice", () => {
     expect(
       judge(
