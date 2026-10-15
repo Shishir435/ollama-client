@@ -487,6 +487,56 @@ describe("judgeAgentCompletion", () => {
     ).toEqual({ type: "accepted" })
   })
 
+  it("refuses evidence the ledger saw in this document before the change, after a restart", () => {
+    /**
+     * The baseline lives in the worker that made the change and a restart
+     * loses it. The ledger keeps what was read, with the observation it came
+     * from: "Saved" read at generation 1 was there before a change decided
+     * on generation 2, and cannot be that change's result.
+     */
+    const fact = (generation: number) => ({
+      id: `fact-${generation}`,
+      kind: "observed_fact" as const,
+      validity: "historical" as const,
+      observedAt: 1,
+      quote: "All changes saved",
+      source: {
+        tabId: 7,
+        frameId: 0,
+        documentId: "document-1",
+        snapshotId: `snapshot-${generation}`,
+        generation,
+        origin: "https://example.com"
+      }
+    })
+    const judge = (generation: number) =>
+      judgeAgentCompletion({
+        steps: [
+          unresolved({
+            sequence: 1,
+            command: {
+              type: "click",
+              ref: "e1",
+              snapshotId: "snapshot-2",
+              generation: 2
+            }
+          })
+        ],
+        observation: observation({
+          generation: 3,
+          visibleText: "All changes saved"
+        }),
+        evidence: "All changes saved",
+        evidenceLedger: [fact(generation)]
+      })
+    expect(judge(1)).toMatchObject({
+      type: "refused",
+      reason: "stale_evidence"
+    })
+    /** Read only after the change was decided: it may be the change's. */
+    expect(judge(3)).toEqual({ type: "accepted" })
+  })
+
   it("judges the last change, not an earlier one that was superseded", () => {
     const decision = judgeAgentCompletion({
       steps: [
@@ -1794,7 +1844,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 2
+          observedAt: 2,
+          acceptance: "accepted"
         }
       }
     })
@@ -1862,7 +1913,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 1
+          observedAt: 1,
+          acceptance: "accepted"
         }
       }
     })
@@ -1878,6 +1930,37 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused" })
   })
 
+  it("lets only a form the site accepted meet a submission requirement", () => {
+    const sent = (acceptance?: "dispatched" | "accepted" | "rejected") =>
+      step({
+        sequence: 1,
+        requirementId: "r1",
+        target: { name: "Continue" },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "submission",
+            summary: "Form submission produced an observable page change",
+            observedAt: 1,
+            ...(acceptance ? { acceptance } : {})
+          }
+        }
+      })
+    const judge = (receipt: ReturnType<typeof sent>) =>
+      judgeAgentCompletion({
+        steps: [receipt],
+        observation: observation({ visibleText: "Details" }),
+        requirements: [{ id: "r1", text: "Click Continue", kind: "change" }],
+        outcomes: [{ id: "r1", met: true }]
+      }).type
+    expect(judge(sent("accepted"))).toBe("accepted")
+    /** The validation-rejection trap: it went, and the site said no. */
+    expect(judge(sent("rejected"))).toBe("refused")
+    expect(judge(sent("dispatched"))).toBe("refused")
+    /** A receipt from before the distinction proves only that it went. */
+    expect(judge(sent())).toBe("refused")
+  })
+
   it("lets a sent form meet only a requirement naming what its receipt holds", () => {
     const sent = (values?: { name?: string; value: string }[]) =>
       step({
@@ -1891,6 +1974,7 @@ describe("judgeAgentCompletion with planned requirements", () => {
             kind: "submission",
             summary: "Form committed its resolved destination",
             observedAt: 2,
+            acceptance: "accepted",
             ...(values ? { values } : {})
           }
         }
@@ -2094,7 +2178,8 @@ describe("judgeAgentCompletion with planned requirements", () => {
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
-          observedAt: 1
+          observedAt: 1,
+          acceptance: "accepted"
         }
       }
     })

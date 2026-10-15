@@ -126,6 +126,12 @@ export const AGENT_PAGE_LEAVING_ACTIVATIONS = new Set([
 const leftThePage = (step: AgentStepReadout): boolean => {
   const verification = step.verification
   if (verification?.outcome !== "confirmed") return false
+  /** A form the site turned away left its fields where they were. */
+  if (
+    verification.evidence.kind === "submission" &&
+    verification.evidence.acceptance !== "accepted"
+  )
+    return false
   return (
     PAGE_LEAVING_KINDS.has(verification.evidence.kind) ||
     (verification.evidence.kind === "activation" &&
@@ -358,6 +364,8 @@ export const checkCompletionState = (
     return true
   if (matches.length !== 1) return false
   const element = matches[0]
+  /** The page rejected what the control holds; it does not hold it as asked. */
+  if (element.invalid) return false
   if (check.type === "checked")
     return agentControlOnState(element) === check.checked
   if (element.valueTruncated) return false

@@ -1,5 +1,6 @@
 import type {
   AgentCancellationSignal,
+  AgentSubmissionAcceptance,
   AgentVerificationInput,
   AgentVerificationResult,
   ResolvedAgentBatchField
@@ -1090,6 +1091,60 @@ const waitForSubmissionNavigation = async (
   if (signal.aborted) throw new Error("Agent submission verification cancelled")
 }
 
+/**
+ * Whether the site took a submission, from the page it left behind.
+ *
+ * A form that went and a form the site accepted used to be one answer, so a
+ * validation error drawn on the same page — a changed page — verified as a
+ * submission and the run reported success. A control the page marks invalid
+ * is the site saying no. A new alert may be an error or a success toast, and
+ * nothing here can tell which, so it leaves the answer at dispatched. Only a
+ * page that moved on — a new document, or the destination the form named —
+ * with neither is accepted; one that stayed put said nothing conclusive.
+ */
+export const agentSubmissionAcceptance = (
+  before: AgentObservation,
+  after: AgentObservation,
+  movedOn: boolean
+): AgentSubmissionAcceptance => {
+  const showing = (element: AgentObservation["elements"][number]) =>
+    element.visible || element.offscreen
+  if (after.elements.some((element) => element.invalid && showing(element)))
+    return "rejected"
+  const alertsBefore = new Set(
+    before.elements
+      .filter((element) => element.role === "alert")
+      .map((element) => element.name ?? "")
+  )
+  const newAlert = after.elements.some(
+    (element) =>
+      element.role === "alert" &&
+      showing(element) &&
+      Boolean(element.name) &&
+      !alertsBefore.has(element.name ?? "")
+  )
+  return movedOn && !newAlert ? "accepted" : "dispatched"
+}
+
+/** Read the landed page for acceptance; an unreadable one proves only dispatch. */
+const acceptanceAfter = async (
+  input: AgentVerificationInput,
+  adapter: AgentEffectVerifierAdapter,
+  signal: AgentCancellationSignal,
+  movedOn: boolean
+): Promise<AgentSubmissionAcceptance> => {
+  try {
+    const after = await observeAfter(input, adapter, signal)
+    return agentSubmissionAcceptance(
+      input.before,
+      after,
+      movedOn || after.documentId !== input.before.documentId
+    )
+  } catch {
+    return "dispatched"
+  }
+}
+
 const verifySubmission: Verifier = async (input, adapter, signal) => {
   const tabId = input.effect.snapshotIdentity.tabId
   await waitForSubmissionNavigation(input, adapter, signal)
@@ -1112,13 +1167,15 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
       (await adapter.classifyAccess(tab.url)) === "ok"
     ) {
       const values = submittedValues(input)
+      const acceptance = await acceptanceAfter(input, adapter, signal, true)
       return {
         outcome: "confirmed",
         evidence: {
           kind: "submission",
           summary: "Form committed its resolved destination",
           observedAt: adapter.now(),
-          ...(values.length ? { values } : {})
+          ...(values.length ? { values } : {}),
+          acceptance
         }
       }
     }
@@ -1140,12 +1197,19 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
         after.origin === input.effect.destination.origin &&
         after.documentId !== input.before.documentId
       ) {
-        return result(
+        const confirmed = result(
           "confirmed",
           "submission",
           "Form submission reached a new document on its approved origin",
           adapter.now()
         )
+        return {
+          ...confirmed,
+          evidence: {
+            ...confirmed.evidence,
+            acceptance: agentSubmissionAcceptance(input.before, after, true)
+          }
+        }
       }
     }
     return result(
@@ -1171,7 +1235,12 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
       ...confirmed,
       evidence: {
         ...confirmed.evidence,
-        ...(transition ? { controlTransition: transition } : {})
+        ...(transition ? { controlTransition: transition } : {}),
+        acceptance: agentSubmissionAcceptance(
+          input.before,
+          after,
+          after.documentId !== input.before.documentId
+        )
       }
     }
   }

@@ -7,6 +7,7 @@ import type { AgentElement, AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
   type AgentEffectVerifierAdapter,
+  agentSubmissionAcceptance,
   verifyDomMutationAgentEffect
 } from "../effect-verifier"
 
@@ -343,5 +344,48 @@ describe("intercepted form navigation deadline", () => {
       verifyDomMutationAgentEffect({ verification, adapter, signal })
     ).rejects.toThrow("cancelled")
     expect(looks).toHaveLength(1)
+  })
+})
+
+describe("whether the site took a submission", () => {
+  const email = element({ tag: "input", name: "Email", value: "ada@" })
+
+  it("reads a control the page marked invalid as rejected", () => {
+    /**
+     * The validation-rejection trap: the form went, the page changed to show
+     * the error, and the run used to report the submission verified.
+     */
+    const after = observation({
+      elements: [
+        { ...email, invalid: true, invalidMessage: "Enter a whole address" }
+      ]
+    })
+    expect(
+      agentSubmissionAcceptance(observation({ elements: [email] }), after, true)
+    ).toBe("rejected")
+  })
+
+  it("accepts only a page that moved on with no new alert", () => {
+    const before = observation({ elements: [email] })
+    const moved = observation({ documentId: "document-2", elements: [] })
+    expect(agentSubmissionAcceptance(before, moved, true)).toBe("accepted")
+    /** Same document, same place: the form went, and nothing says more. */
+    expect(agentSubmissionAcceptance(before, before, false)).toBe("dispatched")
+    const alerted = observation({
+      documentId: "document-2",
+      elements: [element({ tag: "div", role: "alert", name: "Payment failed" })]
+    })
+    expect(agentSubmissionAcceptance(before, alerted, true)).toBe("dispatched")
+  })
+
+  it("counts no alert that was already showing before the submit", () => {
+    const standing = element({ tag: "div", role: "alert", name: "Beta site" })
+    expect(
+      agentSubmissionAcceptance(
+        observation({ elements: [standing] }),
+        observation({ documentId: "document-2", elements: [standing] }),
+        true
+      )
+    ).toBe("accepted")
   })
 })

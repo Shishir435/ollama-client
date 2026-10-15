@@ -1444,6 +1444,11 @@ const isBoundSubmission = (
   receipt.requirementId === requirement.id &&
   receipt.verification?.outcome === "confirmed" &&
   receipt.verification.evidence.kind === "submission" &&
+  /**
+   * A form that went is not a form the site took: a validation error drawn
+   * on the same page used to verify as a submission and complete the run.
+   */
+  receipt.verification.evidence.acceptance === "accepted" &&
   claimsOnlyAct(
     requirement,
     SUBMISSION_ACT_WORDS,
@@ -1671,8 +1676,9 @@ const judgeEvidence = (
       feedback: SELF_EVIDENCE_FEEDBACK
     }
   if (
-    input.baselineText !== undefined &&
-    agentHaystackStates(quoted, input.baselineText)
+    (input.baselineText !== undefined &&
+      agentHaystackStates(quoted, input.baselineText)) ||
+    (change !== "unreadable" && observedBeforeChange(quoted, change, input))
   )
     return {
       type: "refused",
@@ -1680,6 +1686,38 @@ const judgeEvidence = (
       feedback: STALE_EVIDENCE_FEEDBACK
     }
   return undefined
+}
+
+/**
+ * The durable half of the staleness rule. The baseline above lives only in
+ * the worker that made the change, so a restart skipped the check; the
+ * ledger survives, and a fact it recorded in this same document no later
+ * than the observation the change was decided on was already on the page
+ * and cannot be the change's result. Ordered by snapshot generation, not by
+ * clock: the page and the worker keep different ones.
+ */
+const observedBeforeChange = (
+  quoted: string,
+  change: AgentStepReadout,
+  input: AgentCompletionInput
+): boolean => {
+  const decided =
+    change.command && "generation" in change.command
+      ? change.command.generation
+      : undefined
+  if (decided === undefined) return false
+  return (
+    input.evidenceLedger?.some(
+      (record) =>
+        record.kind === "observed_fact" &&
+        record.quote !== undefined &&
+        record.source?.tabId === input.observation.tabId &&
+        record.source.frameId === input.observation.frameId &&
+        record.source.documentId === input.observation.documentId &&
+        record.source.generation <= decided &&
+        agentNormalizedClaim(record.quote) === agentNormalizedClaim(quoted)
+    ) === true
+  )
 }
 
 /**
@@ -2928,8 +2966,9 @@ export const judgeAgentCompletion = (
     }
   }
   if (
-    input.baselineText !== undefined &&
-    agentHaystackStates(evidence, input.baselineText)
+    (input.baselineText !== undefined &&
+      agentHaystackStates(evidence, input.baselineText)) ||
+    (change !== "unreadable" && observedBeforeChange(evidence, change, input))
   ) {
     return {
       type: "refused",

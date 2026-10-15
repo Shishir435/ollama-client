@@ -224,6 +224,21 @@ describe("P4 deterministic completion", () => {
     ).toMatchObject({ type: "accepted" })
   })
 
+  it("never counts a field the page marked invalid as holding its value", () => {
+    const rejected: AgentObservation = {
+      ...page,
+      elements: page.elements.map((element) =>
+        element.name === "Name" ? { ...element, invalid: true } : element
+      )
+    }
+    expect(
+      judge({ type: "field", name: "Name", value: "Ada" }, page, "")
+    ).toMatchObject({ type: "accepted" })
+    expect(
+      judge({ type: "field", name: "Name", value: "Ada" }, rejected, "")
+    ).not.toMatchObject({ type: "accepted" })
+  })
+
   it("reads a custom switch, toggle button or tab as checked by its ARIA state", () => {
     const custom = (
       overrides: Partial<AgentObservation["elements"][number]>
@@ -586,7 +601,12 @@ describe("P4 deterministic completion", () => {
   describe("checks that outlive the page they were made on", () => {
     const confirmed = (kind: string) => ({
       outcome: "confirmed" as const,
-      evidence: { kind, summary: kind, observedAt: 1 }
+      evidence: {
+        kind,
+        summary: kind,
+        observedAt: 1,
+        ...(kind === "submission" ? { acceptance: "accepted" as const } : {})
+      }
     })
     const write = (
       overrides: Partial<AgentStepReadout> = {}
@@ -1115,7 +1135,12 @@ describe("P4 deterministic completion", () => {
         target: { ref: "e5", tag: "button", name: "Submit" },
         verification: {
           outcome: "confirmed",
-          evidence: { kind: "submission", summary: "submitted", observedAt: 1 }
+          evidence: {
+            kind: "submission",
+            summary: "submitted",
+            observedAt: 1,
+            acceptance: "accepted"
+          }
         }
       })
     const filled = selected({
@@ -1158,6 +1183,7 @@ describe("P4 deterministic completion", () => {
                   kind: "submission",
                   summary: "submitted",
                   observedAt: 2,
+                  acceptance: "accepted",
                   values: [{ name: "Search", value: "Alice" }]
                 }
               }
@@ -1266,7 +1292,8 @@ describe("P4 deterministic completion", () => {
                 evidence: {
                   kind: "submission",
                   summary: "submitted",
-                  observedAt: 1
+                  observedAt: 1,
+                  acceptance: "accepted"
                 }
               }
             })

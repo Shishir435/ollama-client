@@ -132,7 +132,8 @@ const AgentVerificationSchema = z
               .strict()
           )
           .max(MAX_AGENT_SUBMITTED_VALUES)
-          .optional()
+          .optional(),
+        acceptance: z.enum(["dispatched", "accepted", "rejected"]).optional()
       })
       .strict()
   })

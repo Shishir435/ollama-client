@@ -449,7 +449,19 @@ export interface AgentVerificationEvidence {
    * Absent for a POST, or a form with a hidden or sensitive control.
    */
   values?: { name?: string; value: string }[]
+  /**
+   * What a confirmed submission proves about the site's answer, as distinct
+   * from the form having gone. `dispatched`: it went, and nothing the page
+   * shows says whether the site took it. `accepted`: the page moved on and
+   * shows no rejected control and no new alert. `rejected`: a control the
+   * page marks invalid is showing. Only an accepted one completes anything;
+   * absent, on a receipt written before the distinction existed, counts as
+   * dispatched.
+   */
+  acceptance?: AgentSubmissionAcceptance
 }
+
+export type AgentSubmissionAcceptance = "dispatched" | "accepted" | "rejected"
 
 export type AgentVerificationResult =
   | { outcome: "confirmed"; evidence: AgentVerificationEvidence }
