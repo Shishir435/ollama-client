@@ -454,15 +454,9 @@
     }
   },
   "welcome": {
-    "title": "Willkommen beim Local LLM Chat",
-    "subtitle": "Lokale KI-Gespräche leicht gemacht",
-    "badge": "Lokaler Chat zuerst",
-    "start_chatting": "Mit dem Chatten beginnen",
+    "title": "Ollama Client",
+    "subtitle": "Lokaler LLM-Chat und Browser-Agent",
     "status": {
-      "connecting": {
-        "title": "Verbinden…",
-        "message": "Ihre Anbieter werden geprüft."
-      },
       "connection_failed": {
         "title": "{{provider}} nicht erreichbar",
         "message": "Starten Sie ihn und wählen Sie dann „Erneut versuchen“."
@@ -472,34 +466,12 @@
         "message": "Führen Sie `ollama pull llama3.2` aus und prüfen Sie dann erneut.",
         "message_generic": "Installiere oder lade ein Chat-Modell in deinem Anbieter und prüfe dann erneut."
       },
-      "ready": {
-        "title": "Bereit zum Chatten",
-        "message": "Ihr Anbieter ist verbunden."
-      },
       "provider_fallback": "deinem Anbieter"
     },
     "setup_guide": {
       "hint": "Befolgen Sie die Einrichtungsanleitung unten, um Ollama und Modelle zu installieren.",
       "full_guide_link": "Vollständige Einrichtungsanleitung",
       "help_prefix": "Brauchen Sie Hilfe?"
-    },
-    "features": {
-      "private": {
-        "title": "100% Privat",
-        "description": "Ihre Daten bleiben lokal"
-      },
-      "offline": {
-        "title": "Funktioniert offline",
-        "description": "Kein Internet erforderlich"
-      },
-      "local_processing": {
-        "title": "Lokale Verarbeitung",
-        "description": "Volle Kontrolle"
-      },
-      "embeddings": {
-        "title": "Vektor-Embeddings",
-        "description": "Bereit für die semantische Suche"
-      }
     },
     "performance_notice": {
       "title": "Hinweis zur Leistung",

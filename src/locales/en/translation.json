@@ -454,15 +454,9 @@
     }
   },
   "welcome": {
-    "title": "Welcome to Local LLM Chat",
-    "subtitle": "Private, local-first chat with your own models",
-    "badge": "Local-first chat",
-    "start_chatting": "Start Chatting",
+    "title": "Ollama Client",
+    "subtitle": "Local LLM chat and browser agent",
     "status": {
-      "connecting": {
-        "title": "Connecting…",
-        "message": "Checking your providers."
-      },
       "connection_failed": {
         "title": "Can't reach {{provider}}",
         "message": "Start it, then select Retry."
@@ -472,34 +466,12 @@
         "message": "Run `ollama pull llama3.2`, then check again.",
         "message_generic": "Install or load a chat model in your provider, then check again."
       },
-      "ready": {
-        "title": "Ready to chat",
-        "message": "Your provider is connected."
-      },
       "provider_fallback": "your provider"
     },
     "setup_guide": {
       "hint": "Follow the setup guide below to install Ollama and models.",
       "full_guide_link": "Full Setup Guide",
       "help_prefix": "Need help?"
-    },
-    "features": {
-      "private": {
-        "title": "100% Private",
-        "description": "Your data stays local"
-      },
-      "offline": {
-        "title": "Works Offline",
-        "description": "No internet needed"
-      },
-      "local_processing": {
-        "title": "Local Processing",
-        "description": "Full control"
-      },
-      "embeddings": {
-        "title": "Vector Embeddings",
-        "description": "Semantic search ready"
-      }
     },
     "performance_notice": {
       "title": "Performance notice",

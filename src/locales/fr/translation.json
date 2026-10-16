@@ -454,15 +454,9 @@
     }
   },
   "welcome": {
-    "title": "Bienvenue sur le chat LLM local",
-    "subtitle": "Conversations IA locales simplifiées",
-    "badge": "Chat local d’abord",
-    "start_chatting": "Commencer à Chatter",
+    "title": "Ollama Client",
+    "subtitle": "Chat LLM local et agent de navigateur",
     "status": {
-      "connecting": {
-        "title": "Connexion…",
-        "message": "Vérification de vos fournisseurs."
-      },
       "connection_failed": {
         "title": "{{provider}} injoignable",
         "message": "Démarrez-le, puis sélectionnez Réessayer."
@@ -472,34 +466,12 @@
         "message": "Exécutez `ollama pull llama3.2`, puis vérifiez à nouveau.",
         "message_generic": "Installez ou chargez un modèle de chat dans votre fournisseur, puis vérifiez à nouveau."
       },
-      "ready": {
-        "title": "Prêt à discuter",
-        "message": "Votre fournisseur est connecté."
-      },
       "provider_fallback": "votre fournisseur"
     },
     "setup_guide": {
       "hint": "Suivez le guide de configuration ci-dessous pour installer Ollama et les modèles.",
       "full_guide_link": "Guide de Configuration Complet",
       "help_prefix": "Besoin d’aide ?"
-    },
-    "features": {
-      "private": {
-        "title": "100 % Privé",
-        "description": "Vos données restent locales"
-      },
-      "offline": {
-        "title": "Fonctionne Hors Ligne",
-        "description": "Pas besoin d'Internet"
-      },
-      "local_processing": {
-        "title": "Traitement Local",
-        "description": "Contrôle total"
-      },
-      "embeddings": {
-        "title": "Incrustations Vectorielles",
-        "description": "Prêt pour la recherche sémantique"
-      }
     },
     "performance_notice": {
       "title": "Remarque sur les performances",

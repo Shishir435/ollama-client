@@ -1,6 +1,7 @@
-import { AlertTriangle, CheckCircle, RefreshCw } from "lucide-react"
+import { AlertTriangle, RefreshCw } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { SetupGuideLink } from "@/components/setup-guide-link"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -18,7 +19,11 @@ import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { cn } from "@/lib/class-names"
 
-export const StatusCard = () => {
+/**
+ * Why the panel can't chat yet, with the way out. Says nothing while
+ * connecting or once a provider answers: the composer is the ready state.
+ */
+export const ProviderStatusCard = () => {
   const {
     status,
     refresh,
@@ -31,16 +36,6 @@ export const StatusCard = () => {
 
   const getStatusConfig = () => {
     switch (status) {
-      case "loading":
-        return {
-          icon: RefreshCw,
-          iconClass: "animate-spin",
-          borderClass: "border-border",
-          bgClass: "bg-status-info",
-          iconFgClass: "text-status-info-foreground",
-          title: t("welcome.status.connecting.title"),
-          message: t("welcome.status.connecting.message")
-        }
       case "error":
         return {
           icon: AlertTriangle,
@@ -67,16 +62,6 @@ export const StatusCard = () => {
               : "welcome.status.no_models.message_generic"
           )
         }
-      case "ready":
-        return {
-          icon: CheckCircle,
-          iconClass: "",
-          borderClass: "border-status-success/30",
-          bgClass: "bg-status-success",
-          iconFgClass: "text-status-success-foreground",
-          title: t("welcome.status.ready.title"),
-          message: t("welcome.status.ready.message")
-        }
       default:
         return null
     }
@@ -93,7 +78,7 @@ export const StatusCard = () => {
         role="status"
         aria-live="polite"
         className={cn(
-          "mb-4 min-h-min w-full max-w-xl shadow-sm ring-0 border",
+          "min-h-min w-full max-w-xl shadow-sm ring-0 border",
           statusConfig.borderClass
         )}>
         <CardContent className="flex items-center gap-3">
@@ -139,6 +124,7 @@ export const StatusCard = () => {
                 </Button>
               </div>
             )}
+            <SetupGuideLink className="h-auto px-0 text-xs" />
           </div>
         </CardContent>
       </Card>
