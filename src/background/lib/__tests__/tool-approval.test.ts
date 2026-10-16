@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const grantStore = vi.hoisted(() => new Map<string, unknown>())
 
@@ -19,42 +19,92 @@ import {
 import {
   addSessionGrant,
   clearSessionGrants,
-  hasSessionGrant
+  hasSessionGrant,
+  resetSessionGrantCacheForTests
 } from "../tool-session-grants"
 
 describe("tool session grants", () => {
   beforeEach(() => clearSessionGrants())
 
-  it("scopes grants to session + tool", () => {
-    addSessionGrant("s1", "restore_session")
+  it("scopes grants to session + tool", async () => {
+    await addSessionGrant("s1", "restore_session")
 
-    expect(hasSessionGrant("s1", "restore_session")).toBe(true)
-    expect(hasSessionGrant("s2", "restore_session")).toBe(false)
-    expect(hasSessionGrant("s1", "cancel_reminder")).toBe(false)
-    expect(hasSessionGrant(undefined, "restore_session")).toBe(false)
+    expect(await hasSessionGrant("s1", "restore_session")).toBe(true)
+    expect(await hasSessionGrant("s2", "restore_session")).toBe(false)
+    expect(await hasSessionGrant("s1", "cancel_reminder")).toBe(false)
+    expect(await hasSessionGrant(undefined, "restore_session")).toBe(false)
   })
 
-  it("invalidates a session grant when untrusted input advances", () => {
-    addSessionGrant("s1", "save_artifact", undefined, 0)
+  it("invalidates a session grant when untrusted input advances", async () => {
+    await addSessionGrant("s1", "save_artifact", { taintGeneration: 0 })
 
-    expect(hasSessionGrant("s1", "save_artifact", undefined, 0)).toBe(true)
-    expect(hasSessionGrant("s1", "save_artifact", undefined, 1)).toBe(false)
+    expect(
+      await hasSessionGrant("s1", "save_artifact", { taintGeneration: 0 })
+    ).toBe(true)
+    expect(
+      await hasSessionGrant("s1", "save_artifact", { taintGeneration: 1 })
+    ).toBe(false)
   })
 
-  it("clears one session's grants without touching others", () => {
-    addSessionGrant("s1", "restore_session")
-    addSessionGrant("s2", "restore_session")
+  it("clears one session's grants without touching others", async () => {
+    await addSessionGrant("s1", "restore_session")
+    await addSessionGrant("s2", "restore_session")
 
-    clearSessionGrants("s1")
+    await clearSessionGrants("s1")
 
-    expect(hasSessionGrant("s1", "restore_session")).toBe(false)
-    expect(hasSessionGrant("s2", "restore_session")).toBe(true)
+    expect(await hasSessionGrant("s1", "restore_session")).toBe(false)
+    expect(await hasSessionGrant("s2", "restore_session")).toBe(true)
+  })
+})
+
+describe("a chat grant across a worker restart", () => {
+  const area = new Map<string, unknown>()
+  const storage = chrome.storage as unknown as { session?: unknown }
+  beforeEach(() => {
+    area.clear()
+    storage.session = {
+      get: vi.fn(async (key: string) =>
+        area.has(key) ? { [key]: area.get(key) } : {}
+      ),
+      set: vi.fn(async (items: Record<string, unknown>) => {
+        for (const [key, value] of Object.entries(items)) area.set(key, value)
+      })
+    }
+    resetSessionGrantCacheForTests()
+  })
+  afterEach(() => {
+    delete storage.session
+    resetSessionGrantCacheForTests()
+  })
+
+  it("is still there when a fresh worker reads it back", async () => {
+    await addSessionGrant("s1", "browser_task", { chat: true })
+    resetSessionGrantCacheForTests()
+    expect(await hasSessionGrant("s1", "browser_task", { chat: true })).toBe(
+      true
+    )
+  })
+
+  it("covers the chat on any site and after a page read, and nothing else", async () => {
+    await addSessionGrant("s1", "browser_task", { chat: true })
+    expect(await hasSessionGrant("s1", "browser_task", { chat: true })).toBe(
+      true
+    )
+    expect(
+      await hasSessionGrant("s1", "browser_task", {
+        origin: "https://other.example",
+        taintGeneration: 1
+      })
+    ).toBe(false)
+    expect(await hasSessionGrant("s2", "browser_task", { chat: true })).toBe(
+      false
+    )
   })
 })
 
 describe("confirmation scopes", () => {
-  beforeEach(() => {
-    clearSessionGrants()
+  beforeEach(async () => {
+    await clearSessionGrants()
     clearPendingConfirmations()
     grantStore.clear()
   })
@@ -67,7 +117,7 @@ describe("confirmation scopes", () => {
     resolveToolConfirmation("call1", true, "session")
 
     await expect(pending).resolves.toBe(true)
-    expect(hasSessionGrant("s1", "restore_session")).toBe(true)
+    expect(await hasSessionGrant("s1", "restore_session")).toBe(true)
   })
 
   it("persists an always grant when approved always", async () => {
@@ -81,7 +131,7 @@ describe("confirmation scopes", () => {
     await vi.waitFor(async () => {
       expect(await hasAlwaysGrant("cancel_reminder")).toBe(true)
     })
-    expect(hasSessionGrant("s1", "cancel_reminder")).toBe(false)
+    expect(await hasSessionGrant("s1", "cancel_reminder")).toBe(false)
   })
 
   it("does not persist an always grant from a tainted turn", async () => {
@@ -111,7 +161,7 @@ describe("confirmation scopes", () => {
     resolveToolConfirmation("call4", false, "always")
     await expect(deny).resolves.toBe(false)
 
-    expect(hasSessionGrant("s1", "restore_session")).toBe(false)
+    expect(await hasSessionGrant("s1", "restore_session")).toBe(false)
     expect(await hasAlwaysGrant("restore_session")).toBe(false)
     expect(grantStore.get(STORAGE_KEYS.TOOLS.APPROVAL_GRANTS) ?? {}).toEqual({})
   })
@@ -126,7 +176,7 @@ describe("confirmation scopes", () => {
     controller.abort()
 
     await expect(pending).resolves.toBe(false)
-    expect(hasSessionGrant("s1", "restore_session")).toBe(false)
+    expect(await hasSessionGrant("s1", "restore_session")).toBe(false)
   })
 
   it("binds grants to the resolved origin for origin-scoped tools", async () => {
@@ -168,7 +218,7 @@ describe("confirmation scopes", () => {
     resolveToolConfirmation("call-noorigin-2", true, "always")
     await expect(always).resolves.toBe(true)
 
-    expect(hasSessionGrant("s1", "capture_screenshot")).toBe(false)
+    expect(await hasSessionGrant("s1", "capture_screenshot")).toBe(false)
     expect(await hasAlwaysGrant("capture_screenshot")).toBe(false)
     expect(grantStore.get(STORAGE_KEYS.TOOLS.APPROVAL_GRANTS) ?? {}).toEqual({})
   })
@@ -181,6 +231,6 @@ describe("confirmation scopes", () => {
     })
 
     await expect(pending).resolves.toBe(true)
-    expect(hasSessionGrant("s1", "restore_session")).toBe(true)
+    expect(await hasSessionGrant("s1", "restore_session")).toBe(true)
   })
 })

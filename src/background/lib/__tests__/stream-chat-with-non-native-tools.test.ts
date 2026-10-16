@@ -294,8 +294,8 @@ describe("streamChatWithNonNativeTools", () => {
   })
 
   it("re-prompts a batched gated call after untrusted non-native output", async () => {
-    clearSessionGrants()
-    addSessionGrant("non-native-taint", "egress", undefined, 0)
+    await clearSessionGrants()
+    await addSessionGrant("non-native-taint", "egress", { taintGeneration: 0 })
     const readDef: ToolDefinition = {
       name: "read",
       description: "read",
@@ -353,7 +353,7 @@ describe("streamChatWithNonNativeTools", () => {
     await promise
 
     expect(run.mock.calls.map(([name]) => name)).toEqual(["read", "egress"])
-    clearSessionGrants()
+    await clearSessionGrants()
   })
 
   it("aborts immediately when the signal is already aborted", async () => {

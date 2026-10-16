@@ -9,6 +9,18 @@ export interface StorageKeyMetadata {
 }
 
 export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
+  [STORAGE_KEYS.TOOLS.SESSION_GRANTS]: {
+    key: STORAGE_KEYS.TOOLS.SESSION_GRANTS,
+    scope: "device-local",
+    reason:
+      '"Allow for this chat" tool grants. Must stay in chrome.storage.session: they survive a worker restart and end with the browser session, never synced or kept on disk.'
+  },
+  [STORAGE_KEYS.TOOLS.CHAT_AGENT_CONSENT]: {
+    key: STORAGE_KEYS.TOOLS.CHAT_AGENT_CONSENT,
+    scope: "device-local",
+    reason:
+      "Routine browser-task consent (clicks, typing, searches per site) a chat carries from one run to the next. chrome.storage.session only, so it ends with the browser session; critical consent is never stored."
+  },
   [STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION]: {
     key: STORAGE_KEYS.AGENT.UNATTENDED_BROWSER_SESSION,
     scope: "device-local",

@@ -14,6 +14,7 @@ import type {
   AgentBrowserSessionInterruption,
   AgentBrowserSessionManager
 } from "../agent-browser-session-manager"
+import { createAgentChatConsent } from "../agent-chat-consent"
 import type { BuildAgentController } from "../agent-run-controller"
 import { createAgentRunService } from "../agent-run-service"
 import { createAgentSupervision } from "../agent-supervision"
@@ -210,6 +211,64 @@ describe("Agent run service", () => {
         grantedAt: 1_000,
         searches: true
       }
+    ])
+  })
+
+  it("carries the chat's routine consent into its next run, adding no site", async () => {
+    const chatConsent = createAgentChatConsent(undefined)
+    await chatConsent.remember("chat-1", [
+      {
+        origin: "https://shop.example",
+        effects: ["activation", "form_mutation", "submission"],
+        grantedAt: 500,
+        searches: true
+      }
+    ])
+    const { service: agent } = service({ chatConsent })
+    const state = await agent.start({
+      ...startInput,
+      sessionId: "chat-1",
+      allowRoutineActions: true
+    })
+    expect(state.grants).toEqual([
+      {
+        origin: "https://example.com",
+        effects: ["activation", "form_mutation"],
+        grantedAt: 1_000
+      },
+      {
+        origin: "https://shop.example",
+        effects: ["activation", "form_mutation"],
+        grantedAt: 500,
+        searches: true
+      }
+    ])
+    expect(state.allowedOrigins).toEqual(["https://example.com"])
+    expect(await chatConsent.read("chat-1")).toContainEqual({
+      origin: "https://example.com",
+      effects: ["activation", "form_mutation"],
+      grantedAt: 1_000
+    })
+  })
+
+  it("carries nothing into a goal written after a page was read", async () => {
+    const chatConsent = createAgentChatConsent(undefined)
+    await chatConsent.remember("chat-1", [
+      {
+        origin: "https://shop.example",
+        effects: ["activation"],
+        grantedAt: 500
+      }
+    ])
+    const { service: agent } = service({ chatConsent })
+    const state = await agent.start({
+      ...startInput,
+      sessionId: "chat-1",
+      allowRoutineActions: true,
+      goalAuthor: "model_after_page"
+    })
+    expect(state.grants?.map((grant) => grant.origin)).toEqual([
+      "https://example.com"
     ])
   })
 
