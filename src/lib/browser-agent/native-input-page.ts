@@ -269,6 +269,25 @@ export const prepareAgentNativeInputInDocument = (input: {
     return prepareDrag(input.effect, element, input.references, input.watch)
   }
   /**
+   * A key for the page itself goes wherever the keyboard already points.
+   * There is nothing to aim at, so no point is sampled; the body still has to
+   * hold focus, since a plan for an unfocused target clicks it first, and a
+   * click on the body lands on whatever covers it.
+   */
+  if (
+    input.effect.command.type === "press_key" &&
+    element === element.ownerDocument.body
+  ) {
+    const active = element.ownerDocument.activeElement
+    if (active !== null && active !== element) {
+      throw new AgentEffectNotAppliedError(
+        agentRejectionMessage(AGENT_EFFECT_REJECTIONS.targetChanged)
+      )
+    }
+    input.watch.arm(element)
+    return { point: { x: 0, y: 0 }, focused: true }
+  }
+  /**
    * A named point is used as named, never re-sampled: the run approved a
    * click there. It has to still land on the control, though — scrolling is
    * skipped so the point stays meaningful, and a layout that moved the control

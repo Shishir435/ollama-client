@@ -140,6 +140,41 @@ const dispatchFormEvents = (element: Element, includeChange: boolean): void => {
   }
 }
 
+/**
+ * Whether leaving the field would close something the run is about to use:
+ * a combobox, an autocomplete or a datalist shows its suggestions while the
+ * field holds focus, and the next step is often a click on one.
+ */
+const keepsFocusForSuggestions = (element: Element): boolean =>
+  element.getAttribute("role")?.trim().toLowerCase() === "combobox" ||
+  element.hasAttribute("aria-autocomplete") ||
+  element.hasAttribute("list") ||
+  (element instanceof HTMLInputElement && element.type === "search")
+
+/**
+ * A value set by script is finished the way a person finishes one: `change`
+ * after `input`, then focus leaves. Pages that validate or commit on
+ * `change` or `blur` — most framework forms, every "saved when you leave the
+ * field" control — saw only `input` and kept the old value, and the run
+ * read back a field that looked right and was not.
+ */
+const commitTextValue = (
+  effect: AgentDomMutationInstruction,
+  element: HTMLElement
+): void => {
+  dispatchFormEvents(element, true)
+  /**
+   * A field Enter would submit keeps focus: the next step is usually that
+   * Enter, and a key is only sent to a control that holds focus.
+   */
+  if (
+    !effect.target.maySubmit &&
+    element.ownerDocument.activeElement === element &&
+    !keepsFocusForSuggestions(element)
+  )
+    element.blur()
+}
+
 export type AgentDomMutationInstruction = Pick<
   AuthorizedAgentEffect,
   "command" | "target" | "snapshotIdentity"
@@ -361,7 +396,7 @@ const executeTextMutation = (
     )
   }
   setNativeValue(element, effect.target.expectedValue)
-  dispatchFormEvents(element, false)
+  commitTextValue(effect, element)
 }
 
 const executeSelectionMutation = (
@@ -378,7 +413,12 @@ const executeSelectionMutation = (
   if (expected === undefined || matches.length !== 1) {
     throw new Error("Agent select option changed after approval")
   }
-  setNativeValue(element, expected)
+  /**
+   * A multiple select keeps what is already chosen: assigning `value` would
+   * clear every other option, so the one named is added instead.
+   */
+  if (element.multiple) matches[0].selected = true
+  else setNativeValue(element, expected)
   dispatchFormEvents(element, true)
 }
 

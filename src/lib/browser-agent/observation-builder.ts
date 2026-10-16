@@ -86,6 +86,55 @@ const INTERACTIVE_SELECTOR = [
   "[draggable='true']"
 ].join(",")
 
+/**
+ * A `<label>` standing in for a checkbox or radio the page hid. Custom
+ * toggles draw the label and hide the input; the input is then not
+ * observable, and the label is the only thing a pointer can reach.
+ */
+const labelledCheckable = (element: Element): HTMLInputElement | undefined => {
+  if (element.localName !== "label") return undefined
+  const control = (element as HTMLLabelElement).control
+  return control?.localName === "input" &&
+    ["checkbox", "radio"].includes((control as HTMLInputElement).type)
+    ? (control as HTMLInputElement)
+    : undefined
+}
+
+/**
+ * The document body while it holds focus and an overlay is open: where
+ * Escape goes when no control has focus. Listed only then — a page with
+ * nothing to dismiss has no use for a key aimed at itself, and every other
+ * observation would carry an element that names nothing.
+ */
+const isFocusSink = (element: Element): boolean => {
+  const document = element.ownerDocument
+  return (
+    element === document.body &&
+    (document.activeElement === null ||
+      document.activeElement === document.body) &&
+    document.querySelector(
+      "dialog[open], [role='dialog'], [role='alertdialog'], [aria-modal='true']"
+    ) !== null
+  )
+}
+
+/**
+ * What the walk observes: the selector's controls, a `<details>` summary, a
+ * label standing in for a hidden checkbox or radio, and the body while it is
+ * where keys go.
+ */
+const isInteractiveCandidate = (
+  element: Element,
+  pass: AgentObservationPass
+): boolean => {
+  if (element.matches(INTERACTIVE_SELECTOR)) return true
+  if (element.localName === "summary")
+    return element.parentElement?.localName === "details"
+  const control = labelledCheckable(element)
+  if (control) return !isVisible(control, pass)
+  return isFocusSink(element)
+}
+
 const truncate = (value: string, limit: number): string =>
   value.length <= limit ? value : value.slice(0, limit)
 
@@ -1081,7 +1130,8 @@ const selectOptions = (
         normalizedText(option.label || option.textContent || option.value),
         AGENT_OBSERVATION_LIMITS.selectOptionLabelChars
       ),
-      disabled: option.disabled
+      disabled: option.disabled,
+      ...(element.multiple && option.selected ? { selected: true } : {})
     }))
 }
 
@@ -1438,6 +1488,8 @@ const accessibleName = (
    * `getElementById`, and the duck-typed check stays sound across a child
    * frame's realm.
    */
+  /** The body's text is the page, not a name; it stands for where keys go. */
+  if (element === element.ownerDocument.body) return undefined
   const scope = element.getRootNode() as Partial<Document | ShadowRoot>
   const byId: Document | ShadowRoot =
     typeof scope.getElementById === "function"
@@ -1750,6 +1802,7 @@ const ariaStateFields = (
     !isCheckableInput(element) && ARIA_CHECKED_ROLES.has(role)
       ? ariaTristate(element, "aria-checked")
       : undefined
+  const standIn = labelledCheckable(element)
   const pressed = ariaTristate(element, "aria-pressed")
   const expanded = ariaBoolean(element, "aria-expanded")
   const selected = ariaBoolean(element, "aria-selected")
@@ -1757,8 +1810,16 @@ const ariaStateFields = (
     ? referencedText(element, "aria-activedescendant")
     : undefined
   const selectedOption = readable ? ownedSelection(element, role) : undefined
+  /** A summary's state is whether its details are open. */
+  const disclosed =
+    element.localName === "summary" &&
+    element.parentElement?.localName === "details"
+      ? (element.parentElement as HTMLDetailsElement).open
+      : undefined
   return {
     ...(ariaChecked !== undefined ? { ariaChecked } : {}),
+    ...(standIn ? { ariaChecked: standIn.checked } : {}),
+    ...(disclosed !== undefined ? { expanded: disclosed } : {}),
     ...(pressed !== undefined ? { pressed } : {}),
     ...(expanded !== undefined ? { expanded } : {}),
     ...(selected !== undefined ? { selected } : {}),
@@ -2027,7 +2088,7 @@ const selectScopedCandidates = (
 
   for (const node of composedDescendants(document.documentElement)) {
     const candidate = asElement(node)
-    if (!candidate?.matches(INTERACTIVE_SELECTOR)) continue
+    if (!candidate || !isInteractiveCandidate(candidate, pass)) continue
     if (pass.exhausted())
       return { matches, nextOffset: offset + matches.length, cut: true }
     const hit =
@@ -2153,7 +2214,7 @@ const selectLookupCandidates = (
 
   for (const node of composedDescendants(document.documentElement)) {
     const candidate = asElement(node)
-    if (!candidate?.matches(INTERACTIVE_SELECTOR)) continue
+    if (!candidate || !isInteractiveCandidate(candidate, pass)) continue
     if (pass.exhausted()) {
       markUnfinishedGroups(groups, perQuery)
       return {
@@ -2187,7 +2248,7 @@ const selectObservedCandidates = (
     const candidate = asElement(node)
     if (
       !candidate ||
-      (!candidate.matches(INTERACTIVE_SELECTOR) &&
+      (!isInteractiveCandidate(candidate, pass) &&
         !scrollState(candidate, pass))
     )
       continue

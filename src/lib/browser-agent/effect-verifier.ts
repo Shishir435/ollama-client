@@ -941,6 +941,29 @@ const sameFieldValue = (
 const verifyValueMutation: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
   const target = mutationTargetAfter(input, after)
+  /**
+   * A multiple select reports its first chosen option as its value, so the
+   * one this step added is read from the option list instead.
+   */
+  if (
+    target.type === "one" &&
+    input.effect.command.type === "select" &&
+    target.element.type?.toLowerCase() === "select-multiple"
+  ) {
+    const option = target.element.options?.find(
+      (entry) => entry.value === input.effect.target.expectedValue
+    )
+    return option?.selected
+      ? result("confirmed", "field", "The option is selected", adapter.now())
+      : result(
+          option ? "negative" : "ambiguous",
+          "field",
+          option
+            ? "The option is not selected"
+            : "The option is no longer listed",
+          adapter.now()
+        )
+  }
   if (target.type !== "one") {
     return result(
       "ambiguous",

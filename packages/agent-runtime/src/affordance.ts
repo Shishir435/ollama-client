@@ -35,6 +35,10 @@ export const AGENT_AFFORDANCE_REASONS = [
   "use_click_instead",
   "image_submit",
   "not_focused",
+  /** A key the page itself may not be sent while nothing holds focus. */
+  "body_key",
+  /** A date, time, range or colour input, set whole rather than appended to. */
+  "use_clear_and_type",
   /** Editing: the text a command names is not there, or the field cannot hold it. */
   "newline_in_single_line",
   "missing_text_separator",
@@ -167,6 +171,22 @@ const reportable = (
 }
 
 const TEXT_INPUT_TYPES = ["email", "number", "search", "tel", "text", "url"]
+/**
+ * Inputs whose value is a formatted string the browser parses rather than
+ * text a keyboard builds: a date, a time, a slider's number, a colour. They
+ * are set whole — `clear_and_type` with the value in the input's own format
+ * — and read back, which is what tells a value the browser rejected (it
+ * empties the field) from one it took. Appending to one means nothing.
+ */
+export const AGENT_VALUE_INPUT_TYPES = [
+  "date",
+  "datetime-local",
+  "month",
+  "week",
+  "time",
+  "range",
+  "color"
+]
 const CLICKABLE_INPUT_TYPES = ["button", "image", "reset", "submit"]
 /**
  * Widget roles a pointer activates. Custom dropdowns, tab strips and tree
@@ -175,6 +195,13 @@ const CLICKABLE_INPUT_TYPES = ["button", "image", "reset", "submit"]
  */
 const CLICKABLE_ROLES = [
   "button",
+  /**
+   * A custom checkbox or radio drawn from a `div`. Native ones answer to
+   * `check` and `uncheck`, which state the value; these have no value to
+   * set, only a pointer, and the ARIA state read back says what it did.
+   */
+  "checkbox",
+  "radio",
   "link",
   "menuitem",
   "menuitemcheckbox",
@@ -311,8 +338,30 @@ const classifyReplacement = (
   return occurrences > 1 ? refusal("text_ambiguous", element) : undefined
 }
 
+/**
+ * Keys that may go to the page itself when nothing holds focus: they move
+ * focus, scroll, or close an overlay. Enter is never one — on the body it
+ * means nothing, and wherever it lands it may be a submission.
+ */
+const BODY_KEYS = new Set([
+  "Escape",
+  "Tab",
+  "Shift+Tab",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight"
+])
+
+const isValueInput = (element: AgentElement): boolean =>
+  element.tag === "input" &&
+  AGENT_VALUE_INPUT_TYPES.includes(inputType(element))
+
 const isClickable = (element: AgentElement): boolean =>
   element.tag === "button" ||
+  /** A disclosure's summary, and a label standing in for a hidden toggle. */
+  element.tag === "summary" ||
+  element.tag === "label" ||
   (element.tag === "input" &&
     CLICKABLE_INPUT_TYPES.includes(inputType(element))) ||
   CLICKABLE_ROLES.includes(element.role?.toLowerCase() ?? "")
@@ -371,8 +420,11 @@ const classifyTarget = (
     case "hover":
       return undefined
     case "type":
+      if (isValueInput(element)) return refusal("use_clear_and_type", element)
       return classifyAppendedText(element, command.text)
     case "clear_and_type":
+      if (isValueInput(element))
+        return element.editable ? undefined : refusal("not_text_field", element)
       return classifyTypedText(element, command.text)
     case "replace_text":
       return classifyReplacement(element, command)
@@ -398,6 +450,10 @@ const classifyTarget = (
         : undefined
     }
     case "press_key":
+      if (element.tag === "body")
+        return element.focused && BODY_KEYS.has(command.key)
+          ? undefined
+          : refusal("body_key", element)
       return element.focused ? undefined : refusal("not_focused", element)
     default:
       return undefined
@@ -641,7 +697,7 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
     case "disabled_target":
       return `${ref} is disabled. Choose an enabled element, or do what the page needs to enable it.`
     case "not_text_field":
-      return `${ref} is ${described(refused)} and does not accept typed text. Type only into a text input or a textarea.`
+      return `${ref} is ${described(refused)} and does not accept typed text. Type only into a text input, a textarea, or a date, time, range or colour input.`
     case "not_select":
       return `${ref} is ${described(refused)} and is not a dropdown. Use select only on a <select> element.`
     case "option_unavailable":
@@ -660,6 +716,10 @@ const affordanceReason = (refused: AgentAffordanceRefusal): string => {
       return `${ref} is an image submit control, which this agent cannot activate. Use a different control.`
     case "not_focused":
       return `${ref} is not focused, so a key press would not reach it. Click or type into it first.`
+    case "body_key":
+      return `${ref} is the page itself, which holds focus because no control does. Only Escape, Tab, Shift+Tab and the arrow keys may be sent to it. To press Enter, click or type into the control it belongs to first.`
+    case "use_clear_and_type":
+      return `${ref} is ${described(refused)}, whose value is set whole. Use clear_and_type with the complete value in the input's own format (for a date, YYYY-MM-DD).`
     case "newline_in_single_line":
       return `${ref} is a single-line field, so typed text cannot contain a line break. Type the text without it; to confirm or send, use press_key with Enter on the focused field.`
     case "missing_text_separator":

@@ -372,3 +372,65 @@ describe("AgentGroundingError", () => {
     )
   })
 })
+
+describe("affordances a pointer or key can reach without a native control", () => {
+  const command = (fields: Record<string, unknown>) =>
+    ({ snapshotId: "snapshot-1", generation: 1, ...fields }) as AgentCommand
+  const classifyOne = (given: Record<string, unknown>, target: AgentElement) =>
+    classifyAgentAffordance(command(given), observation([target]))
+
+  it.each([
+    ["a <summary>", element({ tag: "summary", name: "Details" })],
+    ["a label standing in for a hidden toggle", element({ tag: "label" })],
+    ["a div checkbox", element({ tag: "div", role: "checkbox" })],
+    ["a div radio", element({ tag: "div", role: "radio" })]
+  ])("lets click reach %s", (_label, target) => {
+    expect(classifyOne({ type: "click", ref: "e1" }, target)).toBeUndefined()
+  })
+
+  it.each(["Escape", "Tab", "Shift+Tab", "ArrowDown"])(
+    "sends %s to the page while nothing else holds focus",
+    (key) => {
+      expect(
+        classifyOne(
+          { type: "press_key", ref: "e1", key },
+          element({ tag: "body", name: undefined, focused: true })
+        )
+      ).toBeUndefined()
+    }
+  )
+
+  it.each(["Enter", "Control+a", "a"])(
+    "never sends %s to the page itself",
+    (key) => {
+      expect(
+        classifyOne(
+          { type: "press_key", ref: "e1", key },
+          element({ tag: "body", name: undefined, focused: true })
+        )
+      ).toMatchObject({ reason: "body_key" })
+    }
+  )
+
+  it("refuses a key for a page that no longer holds focus", () => {
+    expect(
+      classifyOne(
+        { type: "press_key", ref: "e1", key: "Escape" },
+        element({ tag: "body", name: undefined })
+      )
+    ).toMatchObject({ reason: "body_key" })
+  })
+
+  it("sets a date whole and refuses to append to one", () => {
+    const date = element({ tag: "input", type: "date", editable: true })
+    expect(
+      classifyOne(
+        { type: "clear_and_type", ref: "e1", text: "2026-10-17" },
+        date
+      )
+    ).toBeUndefined()
+    expect(
+      classifyOne({ type: "type", ref: "e1", text: "17" }, date)
+    ).toMatchObject({ reason: "use_clear_and_type" })
+  })
+})

@@ -98,7 +98,9 @@ export const AgentSelectOptionSchema = z
   .object({
     value: z.string().max(2_000),
     label: z.string().max(500),
-    disabled: z.boolean()
+    disabled: z.boolean(),
+    /** Set on a multiple select's chosen options; a single select reports its value instead. */
+    selected: z.literal(true).optional()
   })
   .strict()
 export type AgentSelectOption = z.infer<typeof AgentSelectOptionSchema>

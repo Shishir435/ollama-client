@@ -1,8 +1,9 @@
-import type {
-  AgentCancellationSignal,
-  AgentInputBackend,
-  AgentInputDelivery,
-  AuthorizedAgentEffect
+import {
+  AGENT_VALUE_INPUT_TYPES,
+  type AgentCancellationSignal,
+  type AgentInputBackend,
+  type AgentInputDelivery,
+  type AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
 import {
   type AgentCommand,
@@ -783,6 +784,7 @@ export interface AgentInputBackendChoice {
     | "guarded_submission"
     | "action_not_native"
     | "key_not_native"
+    | "value_input"
     | "no_native_control"
     | "frame_unmapped"
 }
@@ -854,6 +856,17 @@ export const chooseAgentInputBackend = (input: {
   }
   if (command.type === "press_key" && chordLacksNativeKey(command.key)) {
     return { backend: "dom", reason: "key_not_native" }
+  }
+  /**
+   * A date, time, range or colour input is not typed into: keys land in one
+   * segment of the browser's own picker, not in the value. The DOM path sets
+   * the value whole, and the verifier reads back what the browser accepted.
+   */
+  if (
+    (command.type === "type" || command.type === "clear_and_type") &&
+    AGENT_VALUE_INPUT_TYPES.includes(target.inputType?.toLowerCase() ?? "")
+  ) {
+    return { backend: "dom", reason: "value_input" }
   }
   if (!input.cdpControl || !input.attached) {
     return { backend: "dom", reason: "no_native_control" }
