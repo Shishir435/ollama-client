@@ -142,6 +142,8 @@ export type AgentCompletionJudgement =
        * recorded effect classes is not something reading can supply.
        */
       review?: AgentCompletionReviewScope
+      /** Set on a `readback_required` refusal: the outcomes to read back. */
+      readback?: readonly string[]
     }
 
 /**
@@ -354,6 +356,13 @@ const READBACK_FEEDBACK_PREFIX = "Read back "
 
 const readbackFeedback = (ids: readonly string[]): string =>
   `${READBACK_FEEDBACK_PREFIX}${ids.join(", ")}: the site only reported ${ids.length === 1 ? "this change" : "these changes"} on the page where ${ids.length === 1 ? "it was" : "they were"} made, which is not proof it was kept. Open the record again — navigate to its page, or open_tab with its address — and complete from what the freshly loaded page shows. Do not make the change again.`
+
+/**
+ * The same refusal when the runtime reopens the record itself. It keeps the
+ * prefix, so it counts as the one ask.
+ */
+export const agentReadbackProbeFeedback = (ids: readonly string[]): string =>
+  `${READBACK_FEEDBACK_PREFIX}${ids.join(", ")}: the site only reported ${ids.length === 1 ? "this change" : "these changes"} on the page where ${ids.length === 1 ? "it was" : "they were"} made, which is not proof it was kept. The runtime is opening that page again in a new tab. Complete from what the freshly loaded page shows. Do not make the change again.`
 
 const readbackAsked = (
   id: string,
@@ -2747,7 +2756,8 @@ const judgePlanned = (
     return {
       type: "refused",
       reason: "readback_required",
-      feedback: readbackFeedback(toAsk)
+      feedback: readbackFeedback(toAsk),
+      readback: toAsk
     }
   const visual = met.filter((id) => {
     const requirement = requirements.find((entry) => entry.id === id)

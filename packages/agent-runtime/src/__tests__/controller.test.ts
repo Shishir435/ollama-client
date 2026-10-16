@@ -5673,3 +5673,106 @@ describe("agent controller stall counters", () => {
     expect(harness.getState().stall?.planFailures).toMatchObject({ count: 3 })
   })
 })
+
+describe("agent controller read-back probe", () => {
+  const saved = {
+    id: "r1",
+    text: "the project name is Atlas",
+    kind: "change" as const,
+    persist: true as const,
+    check: { type: "field" as const, name: "Project name", value: "Atlas" }
+  }
+  const page = (index: number, url = "https://example.com/project") =>
+    observation({
+      snapshotId: `snapshot-${index}`,
+      generation: index,
+      url,
+      visibleText: `Project name Atlas saved ${index}`,
+      elements: [
+        {
+          ref: "e1",
+          frameId: 0,
+          tag: "input",
+          name: "Project name",
+          value: "Atlas",
+          visible: true,
+          enabled: true,
+          editable: true,
+          sensitive: false
+        }
+      ]
+    })
+  const rename = {
+    type: "command",
+    requirementId: "r1",
+    command: {
+      type: "clear_and_type",
+      ref: "e1",
+      text: "Atlas",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+  }
+  const complete = {
+    type: "complete",
+    summary: "Renamed",
+    outcomes: [{ id: "r1", met: true, evidence: "Project name Atlas" }]
+  }
+
+  /**
+   * A save shown only on the page it was made on is read back by the
+   * runtime: it opens that page again itself, through the same resolver and
+   * policy as any step, instead of asking a model that tends to wait.
+   */
+  it("reopens the record itself instead of asking the model to", async () => {
+    const commands: string[] = []
+    const harness = createHarness({
+      plan: async () => ({ requirements: [saved] }),
+      decisions: [rename, complete, complete],
+      observations: [page(1), page(2), page(3), page(4)],
+      verification: [confirmedValue, confirmed, confirmed],
+      effect: async (current, at) => {
+        commands.push(current.type)
+        return resolvedEffect(at, current, {
+          semanticEffects:
+            current.type === "open_tab" ? ["navigation"] : ["form_mutation"],
+          ...(current.type === "open_tab"
+            ? {
+                destination: {
+                  url: "https://example.com/project",
+                  origin: "https://example.com",
+                  source: "model"
+                }
+              }
+            : {})
+        } as Partial<ResolvedAgentEffect>)
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(commands).toEqual(["clear_and_type", "open_tab"])
+    const asked = harness.writtenSteps.find((step) =>
+      step.stepId.includes(":completion:")
+    )
+    expect(asked?.verification?.evidence.summary).toMatch(
+      /^Read back r1: .*The runtime is opening that page again/
+    )
+  })
+
+  it("does not reload the page a form posted to", async () => {
+    const commands: string[] = []
+    const harness = createHarness({
+      plan: async () => ({ requirements: [saved] }),
+      decisions: [rename, complete, complete],
+      observations: [page(1), page(2), page(3), page(4)],
+      verification: [confirmedValue, confirmed],
+      effect: async (current, at) => {
+        commands.push(current.type)
+        return resolvedEffect(at, current, {
+          semanticEffects: ["form_mutation", "submission"]
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(commands).toEqual(["clear_and_type"])
+  })
+})

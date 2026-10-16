@@ -44,6 +44,7 @@ import type { AgentCompletionJudgement } from "./completion"
 import {
   agentAppliedChanges,
   agentEffectChangesPage,
+  agentReadbackProbeFeedback,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
   judgeAgentCompletion,
@@ -2861,6 +2862,52 @@ export const createAgentController = (
     return undefined
   }
 
+  /**
+   * The read-back the runtime can run for a refused save: the page the
+   * change was made on, opened again in a new tab. None for a page that is
+   * not plain http(s), or for a change that was a submission — reloading the
+   * page a form posted to would ask the site for something else.
+   */
+  const readbackProbe = (
+    judgement: AgentCompletionJudgement,
+    observation: AgentObservation,
+    steps: readonly AgentStepReadout[] | undefined
+  ):
+    | {
+        ids: readonly string[]
+        decision: Extract<AgentDecision, { type: "command" }>
+      }
+    | undefined => {
+    if (
+      judgement.type !== "refused" ||
+      judgement.reason !== "readback_required" ||
+      !judgement.readback?.length ||
+      !steps
+    )
+      return undefined
+    const ids = judgement.readback
+    if (!/^https?:\/\//i.test(observation.url)) return undefined
+    const changes = agentAppliedChanges(steps)
+    const bound = changes.filter((step) =>
+      ids.includes(step.requirementId ?? "")
+    )
+    const last = (bound.length ? bound : changes).at(-1)
+    if (!last || last.consequential?.includes("submission")) return undefined
+    return {
+      ids,
+      decision: {
+        type: "command",
+        requirementId: ids[0],
+        command: {
+          type: "open_tab",
+          url: observation.url,
+          snapshotId: observation.snapshotId,
+          generation: observation.generation
+        }
+      }
+    }
+  }
+
   const processCompletion = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
@@ -3021,6 +3068,7 @@ export const createAgentController = (
       reason: judgement.reason,
       refusals
     })
+    const probe = readbackProbe(judgement, observation, steps)
     await appendStep({
       runId: state.id,
       stepId: `${state.id}:completion:${state.observationCount}`,
@@ -3030,11 +3078,27 @@ export const createAgentController = (
         outcome: "negative",
         evidence: {
           kind: "completion",
-          summary: judgement.feedback,
+          summary: probe
+            ? agentReadbackProbeFeedback(probe.ids)
+            : judgement.feedback,
           observedAt: now
         }
       }
     })
+    /**
+     * The runtime reads the record back itself rather than asking the model
+     * to: a model told to reopen a record waited on the page it had saved
+     * instead, and the save was never checked. The probe is an ordinary
+     * `open_tab` of the page the change was made on, so it passes the same
+     * resolver, policy, approval and verifier as one the model chose, and
+     * the next completion is judged on the freshly loaded page.
+     */
+    if (probe) {
+      dependencies.trace?.(state.id, "readback_probe", {
+        outcomes: probe.ids.length
+      })
+      return processCommand(state, probe.decision, observation, signal, {})
+    }
     /**
      * A refusal must not be able to consume the run. Looking again is the
      * right answer the first time — the indicator may simply not have
