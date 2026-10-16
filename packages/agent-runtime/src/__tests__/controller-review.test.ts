@@ -359,8 +359,10 @@ describe("controller completion review", () => {
     expect(run.requests[0]).toMatchObject({
       goal: "Save invoice 1",
       requirements: [saved],
-      claims: [{ id: "r1", met: true, evidence: "Help menu expanded" }]
+      /** A change's claim reaches the reviewer without the claimant's own words. */
+      claims: [{ id: "r1", met: true }]
     })
+    expect(run.requests[0].claims[0]).not.toHaveProperty("evidence")
     expect(
       run.requests[0].evidenceLedger.every(
         (record) =>

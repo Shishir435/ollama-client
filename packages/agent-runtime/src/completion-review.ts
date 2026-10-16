@@ -149,9 +149,32 @@ export const agentCompletionReviewRequest = (
     constraints: (state.constraints ?? []).filter((constraint) =>
       scope.constraintIds.includes(constraint.id)
     ),
-    claims: (outcomes ?? []).filter((claim) =>
-      scope.requirementIds.includes(claim.id)
-    ),
+    /**
+     * For a change, the claim is whether the other model says it is met, and
+     * no more: its evidence text is its own words, and a reviewer handed
+     * "Saved successfully, as the page shows" is being argued with, not
+     * shown a fact. What the page said reaches it through the ledger. A read
+     * keeps its text, because there the text is the answer being judged.
+     */
+    claims: (outcomes ?? [])
+      .filter((claim) => scope.requirementIds.includes(claim.id))
+      .map((claim) =>
+        requirements.find((requirement) => requirement.id === claim.id)
+          ?.kind === "read"
+          ? claim
+          : {
+              id: claim.id,
+              met: claim.met,
+              ...(claim.items?.length
+                ? {
+                    items: claim.items.map(({ index, met }) => ({
+                      index,
+                      met
+                    }))
+                  }
+                : {})
+            }
+      ),
     evidenceLedger: grounded,
     ...(observation
       ? {
