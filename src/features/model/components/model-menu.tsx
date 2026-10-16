@@ -121,13 +121,14 @@ export const ModelMenu = ({
   showStatusPopup: _showStatusPopup = true
 }: ModelMenuProps) => {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
+  const [open, setOpenState] = useState(false)
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const {
     models,
     refresh,
     refreshProvider,
+    refreshStale,
     isLoading,
     selectedModel,
     selectedModelRef,
@@ -137,6 +138,11 @@ export const ModelMenu = ({
     unavailableProviders,
     ollamaEnabled
   } = useProviderModels()
+  /** Opening the menu re-asks any provider whose list has gone stale. */
+  const setOpen = (next: boolean) => {
+    setOpenState(next)
+    if (next) void refreshStale()
+  }
 
   const providerFailureNames = (unreachable: boolean) =>
     unavailableProviders

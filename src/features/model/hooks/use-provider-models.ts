@@ -338,6 +338,21 @@ export const useProviderModels = () => {
     [queryClientInstance]
   )
 
+  /**
+   * Every catalog whose cache has gone stale, for the model menu opening.
+   * Remote catalogs are not polled, so without this a model added while the
+   * panel stayed open would be missing until a manual refresh.
+   */
+  const refreshStale = useCallback(
+    () =>
+      queryClientInstance.refetchQueries({
+        queryKey: queryKeys.model.providerModelLists(),
+        stale: true,
+        type: "active"
+      }),
+    [queryClientInstance]
+  )
+
   const { mutateAsync: deleteModel } = useMutation({
     mutationFn: async (
       target: { modelName: string; providerId?: string } | string
@@ -415,6 +430,7 @@ export const useProviderModels = () => {
     error,
     refresh,
     refreshProvider,
+    refreshStale,
     status,
     version: isOllama ? version : null,
     versionError,

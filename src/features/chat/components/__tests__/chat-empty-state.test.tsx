@@ -42,6 +42,14 @@ describe("ChatEmptyState", () => {
     expect(screen.queryByRole("status")).toBeNull()
   })
 
+  it("keeps the blocker through a background poll", () => {
+    providerModels.value = { ...providerModels.value, status: "error" }
+    const { rerender } = render(<ChatEmptyState />)
+    providerModels.value = { ...providerModels.value, status: "loading" }
+    rerender(<ChatEmptyState />)
+    expect(screen.getByRole("status")).toBeTruthy()
+  })
+
   it("shows the blocker with retry, setup and the guide when no provider answers", () => {
     providerModels.value = { ...providerModels.value, status: "error" }
     render(<ChatEmptyState />)

@@ -24,6 +24,8 @@ export const queryKeys = {
      * One provider's models. Per provider on purpose: editing one provider's
      * endpoint or declared ids must not re-discover everybody else's catalog.
      */
+    /** Matches every provider's model list. */
+    providerModelLists: () => ["model", "provider-list"] as const,
     providerModels: (providerId: string) =>
       ["model", "provider-list", providerId] as const,
 
