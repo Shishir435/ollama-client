@@ -302,6 +302,19 @@ const detectModelCapabilities = (
 export const getModelCapabilities = (
   input: ModelCapabilityInput
 ): ModelCapabilities => {
+  // This adapter has fixed operations; a metadata override cannot add an API.
+  if (input.providerId === ProviderId.BROWSER) {
+    return {
+      text: true,
+      vision: false,
+      imageOutput: false,
+      embeddings: false,
+      toolCalling: false,
+      reasoning: false,
+      source: "provider-default",
+      confidence: "low"
+    }
+  }
   const detected = detectModelCapabilities(input)
   const merged: ModelCapabilities = { ...detected }
   const override = input.override
@@ -472,6 +485,14 @@ export const getModelCapabilityStates = (
   const providerCaps = getProviderCapabilities(input.providerId)
 
   for (const flag of flags) {
+    if (input.providerId === ProviderId.BROWSER) {
+      states[flag] = {
+        status: capabilityStatus(resolved[flag]),
+        source: "provider-default",
+        confidence: "low"
+      }
+      continue
+    }
     const explicit = explicitCapabilityState(flag, input)
     if (explicit) {
       states[flag] = explicit
@@ -515,6 +536,11 @@ export const ANTHROPIC_PROVIDER_CAPABILITIES: ProviderCapabilities = {
 }
 
 export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
+  [ProviderId.BROWSER]: {
+    ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES,
+    embeddings: false,
+    toolCalling: false
+  },
   [ProviderId.OLLAMA]: {
     chat: true,
     embeddings: true,

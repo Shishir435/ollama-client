@@ -197,7 +197,8 @@ const budgets: Budget[] = [
     /** Greptile review fixes (images through tool loops, polyfill-free origin-guard checks) measure Chrome at 48,707,304. */
     /** rc validation fixes (image errors, stream timings, rebuild hang, accessibility) measure Chrome at 48,712,006 and Firefox at 50,303,447. */
     /** Session speed over timed replies only adds 34 bytes: Chrome 48,712,040, Firefox 50,303,481. */
-    max: isFirefox ? 50_303_481 : 48_712_040
+    /** Browser Prompt API adapter, host bridge, opt-in controls and localized copy measure Chrome at 48,726,546 and Firefox at 50,311,958. */
+    max: isFirefox ? 50_311_958 : 48_726_546
   },
   {
     metric: "zip",
@@ -213,7 +214,8 @@ const budgets: Budget[] = [
     /** Review fixes (alternating-role history, image-only overrides, serialized reconciles, draft-rule release, guarded menu title) measure Chrome at 353,788 and Firefox at 226,864. */
     /** Greptile review fixes (images through tool loops, polyfill-free origin-guard checks) measure Chrome at 353,866 and Firefox at 226,965. */
     /** rc validation fixes (image errors, stream timings, rebuild hang, accessibility) measure Chrome at 354,300 and Firefox at 227,378. */
-    max: isFirefox ? 227_378 : 354_300
+    /** Browser Prompt API routing and lifecycle support measure Chrome at 356,340 and Firefox at 229,002 gzip bytes. */
+    max: isFirefox ? 229_002 : 356_340
   }
 ]
 

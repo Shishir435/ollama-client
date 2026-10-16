@@ -9,6 +9,7 @@ import type {
 } from "@/types"
 
 export enum ProviderType {
+  BROWSER = "browser",
   OLLAMA = "ollama",
   OPENAI = "openai",
   ANTHROPIC = "anthropic",
@@ -16,6 +17,7 @@ export enum ProviderType {
 }
 
 export enum ProviderId {
+  BROWSER = "browser-built-in",
   OLLAMA = "ollama",
   LM_STUDIO = "lm studio",
   LLAMA_CPP = "llamacpp",

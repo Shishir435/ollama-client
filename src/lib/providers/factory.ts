@@ -1,6 +1,10 @@
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { AnthropicProvider } from "./anthropic"
+import {
+  BrowserBuiltInProvider,
+  BROWSER_MODEL_ID
+} from "./browser-built-in/provider"
 import { KoboldCppProvider } from "./koboldcpp"
 import { LlamaCppProvider } from "./llama-cpp"
 import { LMStudioProvider } from "./lm-studio"
@@ -32,6 +36,8 @@ const OPENAI_COMPAT_CONSTRUCTORS: Record<string, ProviderConstructor> = {
 
 function instantiate(config: ProviderConfig): LLMProvider {
   switch (config.type) {
+    case ProviderType.BROWSER:
+      return new BrowserBuiltInProvider(config)
     case ProviderType.OLLAMA:
       return new OllamaProvider(config)
     case ProviderType.ANTHROPIC:
@@ -61,6 +67,9 @@ export const ProviderFactory = {
     if (mapping) {
       return ProviderFactory.getProvider(mapping.providerId)
     }
+    if (modelId === BROWSER_MODEL_ID)
+      return ProviderFactory.getProvider(ProviderId.BROWSER)
+
     return ProviderFactory.getProvider(DEFAULT_PROVIDER_ID)
   },
 

@@ -783,9 +783,13 @@ describe("ProviderRpcService", () => {
       enabled: true
     })
 
-    expect(mocks.updateProviderConfig).toHaveBeenCalledWith("ollama", {
-      enabled: true
-    })
+    expect(mocks.updateProviderConfig).toHaveBeenCalledWith(
+      "ollama",
+      {
+        enabled: true
+      },
+      undefined
+    )
     expect(result.provider).toMatchObject({ id: "ollama", hasApiKey: true })
     expect(result.provider).not.toHaveProperty("apiKey")
   })

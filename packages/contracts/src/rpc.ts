@@ -8,6 +8,7 @@ export const RPC_CANCEL_MESSAGE_TYPE = "app-rpc-cancel" as const
 
 /** Stable RPC wire names; never duplicate these strings at call sites. */
 export enum RpcMethod {
+  BrowserModelStatus = "providers.browserModelStatus",
   ProvidersList = "providers.list",
   ProvidersTestConnection = "providers.testConnection",
   ProvidersListModels = "providers.listModels",

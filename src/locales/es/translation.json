@@ -2033,6 +2033,25 @@
       "advanced": {
         "title": "Avanzado",
         "summary": "Iconos de sitio de proveedores y actualización de la lista de modelos"
+      },
+      "browser_builtin": {
+        "name": "Integrado en el navegador",
+        "description": "Chat de texto opcional con un modelo gestionado por el navegador. Puede requerir una descarga. No admite imágenes, herramientas ni el agente del navegador. El navegador gestiona el muestreo y el contexto.",
+        "unavailable": "No disponible en este navegador o dispositivo.",
+        "downloadable": "Se requiere descargar el modelo.",
+        "downloading": "El navegador está descargando el modelo.",
+        "available": "Listo para el chat de texto.",
+        "preparing": "Preparando el modelo del navegador…",
+        "enable": "Activar para chat",
+        "disable": "Desactivar para chat",
+        "download": "Descargar y activar",
+        "failed": "No se pudo iniciar la IA del navegador. Comprueba su disponibilidad en los ajustes de proveedores e inténtalo de nuevo.",
+        "text_only": "El modelo del navegador solo admite chat de texto. Las imágenes y conversaciones con herramientas requieren otro modelo.",
+        "not_ready": "El modelo del navegador necesita una descarga. Prepáralo en los ajustes de proveedores.",
+        "context_too_large": "Esta conversación supera el límite de contexto del modelo del navegador. Inicia un chat más corto.",
+        "busy": "El modelo del navegador está ocupado. Espera a que termine otra respuesta e inténtalo de nuevo.",
+        "timeout": "El modelo del navegador tardó demasiado. Inténtalo de nuevo.",
+        "unsupported": "La IA del navegador no admite esta solicitud o formato de API."
       }
     },
     "migration": {

@@ -2245,6 +2245,25 @@
       "advanced": {
         "title": "Advanced",
         "summary": "Provider site icons and model list refresh"
+      },
+      "browser_builtin": {
+        "name": "Browser built-in",
+        "description": "Optional text chat using a model managed by your browser. A model download may be required. Images, tools and the browser agent are not supported. Sampling and context settings are managed by the browser.",
+        "unavailable": "Unavailable on this browser or device.",
+        "downloadable": "Model download required.",
+        "downloading": "The browser is downloading the model.",
+        "available": "Ready for text chat.",
+        "preparing": "Preparing the browser model…",
+        "enable": "Enable for chat",
+        "disable": "Disable for chat",
+        "download": "Download and enable for chat",
+        "failed": "Browser built-in AI could not start. Check availability in provider settings and try again.",
+        "text_only": "Browser built-in supports text chat only; images and tool conversations require another model.",
+        "not_ready": "The browser model needs a download. Prepare it in provider settings.",
+        "context_too_large": "This conversation exceeds the browser model’s context limit. Start a shorter chat.",
+        "busy": "The browser model is busy. Wait for another response to finish and retry.",
+        "timeout": "The browser model took too long to respond. Please retry.",
+        "unsupported": "Browser built-in AI does not support this request or API format."
       }
     },
     "migration": {

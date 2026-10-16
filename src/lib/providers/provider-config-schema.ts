@@ -2,6 +2,7 @@ import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import {
   type ProviderConfig,
+  ProviderId,
   ProviderServiceProfile,
   ProviderType
 } from "./types"
@@ -30,7 +31,8 @@ export const ProviderConfigSchema = z
       ProviderType.OLLAMA,
       ProviderType.OPENAI,
       ProviderType.ANTHROPIC,
-      ProviderType.CUSTOM
+      ProviderType.CUSTOM,
+      ProviderType.BROWSER
     ]),
     enabled: z.boolean(),
     baseUrl: OptionalStringSchema,
@@ -50,6 +52,21 @@ export const ProviderConfigSchema = z
     compatibility: OpenAICompatibilityOptionsSchema.optional().catch(undefined)
   })
   .passthrough()
+  .refine(
+    (config) =>
+      (config.id === ProviderId.BROWSER) ===
+      (config.type === ProviderType.BROWSER)
+  )
+  .transform((config) =>
+    config.id === ProviderId.BROWSER
+      ? {
+          id: ProviderId.BROWSER,
+          type: ProviderType.BROWSER,
+          name: "Browser built-in",
+          enabled: config.enabled
+        }
+      : config
+  )
 
 export interface StoredProviderConfigParseResult {
   providers: ProviderConfig[]

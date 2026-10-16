@@ -21,6 +21,12 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
     name: "llama.cpp",
     enabled: false,
     baseUrl: "http://localhost:8000/v1"
+  },
+  {
+    id: ProviderId.BROWSER,
+    type: ProviderType.BROWSER,
+    name: "Browser built-in",
+    enabled: false
   }
 ]
 

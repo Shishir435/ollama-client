@@ -2033,6 +2033,25 @@
       "advanced": {
         "title": "Avancé",
         "summary": "Icônes des sites des fournisseurs et actualisation de la liste des modèles"
+      },
+      "browser_builtin": {
+        "name": "Intégré au navigateur",
+        "description": "Chat texte facultatif avec un modèle géré par le navigateur. Un téléchargement peut être nécessaire. Images, outils et agent du navigateur non pris en charge. Le navigateur gère l’échantillonnage et le contexte.",
+        "unavailable": "Indisponible sur ce navigateur ou cet appareil.",
+        "downloadable": "Téléchargement du modèle requis.",
+        "downloading": "Le navigateur télécharge le modèle.",
+        "available": "Prêt pour le chat texte.",
+        "preparing": "Préparation du modèle du navigateur…",
+        "enable": "Activer pour le chat",
+        "disable": "Désactiver pour le chat",
+        "download": "Télécharger et activer",
+        "failed": "Impossible de démarrer l’IA du navigateur. Vérifiez sa disponibilité dans les paramètres des fournisseurs et réessayez.",
+        "text_only": "Le modèle du navigateur prend uniquement en charge le chat texte. Les images et conversations avec outils nécessitent un autre modèle.",
+        "not_ready": "Le modèle du navigateur doit être téléchargé. Préparez-le dans les paramètres des fournisseurs.",
+        "context_too_large": "Cette conversation dépasse la limite de contexte du modèle du navigateur. Démarrez un chat plus court.",
+        "busy": "Le modèle du navigateur est occupé. Attendez la fin d’une autre réponse et réessayez.",
+        "timeout": "Le modèle du navigateur a mis trop de temps à répondre. Réessayez.",
+        "unsupported": "L’IA du navigateur ne prend pas en charge cette requête ou ce format d’API."
       }
     },
     "migration": {

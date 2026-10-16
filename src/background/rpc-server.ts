@@ -30,8 +30,11 @@ import { isAppError } from "@/lib/error-utils"
 import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
+import { browserModelAvailability } from "@/lib/providers/browser-built-in/bridge"
+import { ProviderManager } from "@/lib/providers/manager"
 import { ModelRpcService } from "@/lib/providers/model-rpc-service"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
+import { ProviderId } from "@/lib/providers/types"
 import type { RpcMap, RpcRequest, RpcResponse } from "@/protocol/rpc-map"
 import { RPC_METHOD_DEFINITIONS } from "@/protocol/rpc-registry"
 
@@ -43,6 +46,12 @@ type RpcHandlers = {
 }
 
 const handlers = {
+  [RpcMethod.BrowserModelStatus]: async (_request, signal) => ({
+    availability: await browserModelAvailability(signal),
+    enabled:
+      (await ProviderManager.getProviderConfig(ProviderId.BROWSER))?.enabled ??
+      false
+  }),
   [RpcMethod.EmbeddingsNativeGenerate]: async (request, signal) => ({
     embedding: await generateInNativeWorker(request.text, signal)
   }),
@@ -54,10 +63,10 @@ const handlers = {
     ProviderRpcService.testConnection(request, signal),
   [RpcMethod.ProvidersListModels]: async (request, signal) =>
     ProviderRpcService.listModels(request, signal),
-  [RpcMethod.ProvidersUpsert]: async (request) =>
-    ProviderRpcService.upsert(request),
-  [RpcMethod.ProvidersSetEnabled]: async (request) =>
-    ProviderRpcService.setEnabled(request),
+  [RpcMethod.ProvidersUpsert]: async (request, signal) =>
+    ProviderRpcService.upsert(request, signal),
+  [RpcMethod.ProvidersSetEnabled]: async (request, signal) =>
+    ProviderRpcService.setEnabled(request, signal),
   [RpcMethod.ProvidersRemove]: async (request) =>
     ProviderRpcService.remove(request),
   [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>

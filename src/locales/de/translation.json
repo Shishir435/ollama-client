@@ -2033,6 +2033,25 @@
       "advanced": {
         "title": "Erweitert",
         "summary": "Website-Symbole der Anbieter und Aktualisierung der Modellliste"
+      },
+      "browser_builtin": {
+        "name": "Browser-intern",
+        "description": "Optionaler Textchat mit einem vom Browser verwalteten Modell. Ein Download kann nötig sein. Bilder, Werkzeuge und Browser-Agent werden nicht unterstützt. Der Browser verwaltet Sampling und Kontext.",
+        "unavailable": "In diesem Browser oder auf diesem Gerät nicht verfügbar.",
+        "downloadable": "Modell muss heruntergeladen werden.",
+        "downloading": "Der Browser lädt das Modell herunter.",
+        "available": "Bereit für Textchat.",
+        "preparing": "Browser-Modell wird vorbereitet…",
+        "enable": "Für Chat aktivieren",
+        "disable": "Für Chat deaktivieren",
+        "download": "Herunterladen und aktivieren",
+        "failed": "Die Browser-KI konnte nicht starten. Verfügbarkeit in den Anbietereinstellungen prüfen und erneut versuchen.",
+        "text_only": "Das Browser-Modell unterstützt nur Textchat. Bilder und Werkzeugverläufe benötigen ein anderes Modell.",
+        "not_ready": "Das Browser-Modell muss heruntergeladen werden. Bereiten Sie es in den Anbietereinstellungen vor.",
+        "context_too_large": "Diese Unterhaltung überschreitet das Kontextlimit des Browser-Modells. Starten Sie einen kürzeren Chat.",
+        "busy": "Das Browser-Modell ist ausgelastet. Warten Sie auf den Abschluss einer anderen Antwort und versuchen Sie es erneut.",
+        "timeout": "Das Browser-Modell hat zu lange gebraucht. Versuchen Sie es erneut.",
+        "unsupported": "Die Browser-KI unterstützt diese Anfrage oder dieses API-Format nicht."
       }
     },
     "migration": {

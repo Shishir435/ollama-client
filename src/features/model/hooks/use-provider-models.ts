@@ -217,7 +217,9 @@ export const useProviderModels = () => {
        * demand, never on a timer against someone else's rate limit.
        */
       refetchInterval:
-        catalogRefreshMs > 0 && isLocalProviderBaseUrl(provider.baseUrl)
+        catalogRefreshMs > 0 &&
+        (provider.id === ProviderId.BROWSER ||
+          isLocalProviderBaseUrl(provider.baseUrl))
           ? catalogRefreshMs
           : (false as const)
     })),

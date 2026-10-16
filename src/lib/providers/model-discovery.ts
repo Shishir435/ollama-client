@@ -57,11 +57,12 @@ export const discoverModels = async (
   options: { force?: boolean; record?: boolean } = {}
 ): Promise<ModelDiscoveryResult> => {
   const remember = (supported: boolean) =>
-    config && options.record !== false
+    config && config.type !== "browser" && options.record !== false
       ? recordModelCatalogSupport(config, supported)
       : Promise.resolve()
   if (
     config &&
+    config.type !== "browser" &&
     !options.force &&
     (await shouldSkipModelCatalog(config).catch(() => false))
   ) {

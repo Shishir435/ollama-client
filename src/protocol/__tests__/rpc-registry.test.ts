@@ -12,6 +12,7 @@ import { RPC_METHOD_DEFINITIONS } from "../rpc-registry"
 describe("RPC method registry", () => {
   const methods = Object.values(RpcMethod)
   const reviewedQueryMethods = [
+    RpcMethod.BrowserModelStatus,
     RpcMethod.ProvidersList,
     RpcMethod.ProvidersListModels,
     RpcMethod.ModelsGetDetails,

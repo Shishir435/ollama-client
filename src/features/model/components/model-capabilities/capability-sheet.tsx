@@ -20,6 +20,7 @@ import type {
 } from "@/lib/providers/capabilities"
 import type { CapabilityProbeResult } from "@/lib/providers/capability-probe"
 import { getProviderDisplayName } from "@/lib/providers/registry"
+import { ProviderId } from "@/lib/providers/types"
 import type { ReasoningEffortSupport } from "@/types/model"
 import { ReasoningEffortField } from "../reasoning-effort-field"
 import { CAPABILITY_META, type CapabilityFlag } from "./capability-meta"
@@ -111,8 +112,10 @@ export const ModelCapabilitySheet = ({
    *   has no reasoning vocabulary at all)
    * - anything else → nothing was reported
    */
-  const reportNoteKey =
-    detected.source === "model-metadata"
+  const browserBuiltIn = providerId === ProviderId.BROWSER
+  const reportNoteKey = browserBuiltIn
+    ? "settings.providers.browser_builtin.description"
+    : detected.source === "model-metadata"
       ? detected.confidence === "high"
         ? "model.capabilities.sheet.note_self_report"
         : "model.capabilities.sheet.note_partial"
@@ -257,7 +260,7 @@ export const ModelCapabilitySheet = ({
             <span>{t(reportNoteKey, { provider: providerName })}</span>
           </div>
 
-          {onProbe && (
+          {onProbe && !browserBuiltIn && (
             <div className="mb-2 flex items-center justify-between gap-3 rounded-control border border-border px-3 py-2.5">
               <div className="flex min-w-0 flex-col">
                 <span className="text-sm font-medium text-foreground">
@@ -282,7 +285,7 @@ export const ModelCapabilitySheet = ({
             </div>
           )}
 
-          {reasoningSupport && (
+          {reasoningSupport && !browserBuiltIn && (
             <div className="mb-2 rounded-control border border-border px-3 py-2.5">
               <ReasoningEffortField
                 value={modelConfig.reasoning_effort}
@@ -315,6 +318,7 @@ export const ModelCapabilitySheet = ({
                 <Switch
                   id={switchId}
                   checked={draft[flag]}
+                  disabled={browserBuiltIn}
                   onCheckedChange={(checked) =>
                     setDraft((prev) => ({ ...prev, [flag]: checked }))
                   }
@@ -332,7 +336,10 @@ export const ModelCapabilitySheet = ({
             disabled={!canReset}>
             {t("model.capabilities.sheet.reset")}
           </Button>
-          <Button size="sm" disabled={saving} onClick={handleSave}>
+          <Button
+            size="sm"
+            disabled={saving || browserBuiltIn}
+            onClick={handleSave}>
             {t("model.capabilities.sheet.save")}
           </Button>
         </SheetFooter>

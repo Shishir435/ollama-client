@@ -43,6 +43,10 @@ import {
   ModelsWarmupResultSchema
 } from "@ollama-client/contracts/model-rpc"
 import {
+  BrowserModelStatusRequestSchema,
+  BrowserModelStatusResultSchema
+} from "@ollama-client/contracts/provider-rpc"
+import {
   ProvidersIconsRequestSchema,
   ProvidersIconsResultSchema,
   ProvidersListModelsRequestSchema,
@@ -78,6 +82,13 @@ const extensionPagesOnly = ["extension-page"] as const
  * may perform cold-start or pull work, while ordinary queries stay bounded.
  */
 export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
+  [RpcMethod.BrowserModelStatus]: {
+    request: BrowserModelStatusRequestSchema,
+    response: BrowserModelStatusResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 40000,
+    operation: "query"
+  },
   [RpcMethod.EmbeddingsNativeGenerate]: {
     request: EmbeddingsNativeGenerateRequestSchema,
     response: EmbeddingsNativeGenerateResultSchema,

@@ -33,6 +33,11 @@ const FALLBACK_PROVIDER_META: ProviderMeta = {
 }
 
 export const PROVIDER_REGISTRY: Record<string, ProviderMeta> = {
+  [ProviderId.BROWSER]: {
+    id: ProviderId.BROWSER,
+    displayName: "Browser built-in",
+    icon: { kind: "lucide", icon: Cpu }
+  },
   [ProviderId.OLLAMA]: {
     id: ProviderId.OLLAMA,
     displayName: "Ollama",

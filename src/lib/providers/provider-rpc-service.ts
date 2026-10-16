@@ -28,6 +28,8 @@ import { providerConnectionError } from "@/lib/onboarding/provider-connection"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ProviderModel } from "@/types/model"
 import { resolveProviderBaseUrl } from "./base-url"
+import { prepareBrowserModelHost } from "./browser-built-in/bridge"
+import { browserModelError } from "./browser-built-in/errors"
 import {
   probeReasoning,
   probeToolCalling,
@@ -55,6 +57,7 @@ import {
 import {
   type LLMProvider,
   type ProviderConfig,
+  ProviderId,
   ProviderServiceProfile,
   ProviderType
 } from "./types"
@@ -109,6 +112,8 @@ const providerTypeFromDraft = (
   type: ProviderDraftInput["type"]
 ): ProviderType => {
   switch (type) {
+    case "browser":
+      return ProviderType.BROWSER
     case "ollama":
       return ProviderType.OLLAMA
     case "openai":
@@ -371,7 +376,9 @@ const mergeProviderModels = (
   config: ProviderConfig
 ): ProviderModel[] => {
   const byName = new Map(models.map((model) => [model.name, model]))
-  for (const name of config.customModels ?? []) {
+  for (const name of config.type === ProviderType.BROWSER
+    ? []
+    : (config.customModels ?? [])) {
     if (!byName.has(name)) byName.set(name, customModel(name, config))
   }
   /*
@@ -397,10 +404,21 @@ const mergeProviderModels = (
   })
 }
 
+/** Only the latest browser enable/disable intent may pass its persistence lock. */
+let browserEnableIntent: AbortController | undefined
+
 export const ProviderRpcService = {
   async list(): Promise<ProvidersListResult> {
     const providers = await ProviderManager.getProviders()
-    return { providers: providers.map(toPublicConfig) }
+    return {
+      providers: providers
+        .filter(
+          (provider) =>
+            provider.id !== ProviderId.BROWSER ||
+            (!__FIREFOX_BG_OWNER__ && provider.enabled)
+        )
+        .map(toPublicConfig)
+    }
   },
 
   /**
@@ -425,6 +443,7 @@ export const ProviderRpcService = {
     const providers = await ProviderManager.getProviders()
     const candidates = providers.filter(
       (config) =>
+        config.type !== ProviderType.BROWSER &&
         config.enabled &&
         !resolveProviderBrand({
           id: String(config.id),
@@ -529,7 +548,8 @@ export const ProviderRpcService = {
   },
 
   async upsert(
-    request: ProvidersUpsertRequest
+    request: ProvidersUpsertRequest,
+    signal?: AbortSignal
   ): Promise<ProvidersUpsertResult> {
     if (request.target === "new") {
       const config = await ProviderManager.addCustomProvider(
@@ -550,6 +570,15 @@ export const ProviderRpcService = {
         messageKey: PROVIDER_CONFIG_NOT_FOUND_KEY,
         userMessage: PROVIDER_CONFIG_NOT_FOUND_TEXT
       })
+    }
+    if (existing.id === ProviderId.BROWSER) {
+      return ProviderRpcService.setEnabled(
+        {
+          providerId: ProviderId.BROWSER,
+          enabled: request.config.enabled
+        },
+        signal
+      )
     }
     if (request.config.type !== existing.type) {
       throw createAppError("A provider's wire protocol cannot be changed", {
@@ -577,32 +606,58 @@ export const ProviderRpcService = {
   },
 
   async setEnabled(
-    request: ProvidersSetEnabledRequest
+    request: ProvidersSetEnabledRequest,
+    signal?: AbortSignal
   ): Promise<ProvidersSetEnabledResult> {
     const { providerId, enabled } = request
-    const existing = await ProviderManager.getProviderConfig(providerId)
-    if (!existing) {
-      throw createAppError(`Provider ${providerId} not found`, {
-        kind: "provider",
-        status: 404,
-        providerId,
-        messageKey: PROVIDER_CONFIG_NOT_FOUND_KEY,
-        userMessage: PROVIDER_CONFIG_NOT_FOUND_TEXT
-      })
+    signal?.throwIfAborted()
+    const controller =
+      providerId === ProviderId.BROWSER ? new AbortController() : undefined
+    const abort = () => controller?.abort(signal?.reason)
+    if (controller) {
+      browserEnableIntent?.abort()
+      browserEnableIntent = controller
+      signal?.addEventListener("abort", abort, { once: true })
+      if (signal?.aborted) abort()
     }
-    // Partial update: everything except `enabled` — including the API key the
-    // caller never receives — stays exactly as stored.
-    await ProviderManager.updateProviderConfig(providerId, { enabled })
-    const saved = await ProviderManager.getProviderConfig(providerId)
-    if (!saved) {
-      throw createAppError(`Provider ${providerId} disappeared after update`, {
-        kind: "provider",
-        status: 500,
+    const operationSignal = controller?.signal ?? signal
+    try {
+      if (controller && enabled) await prepareBrowserModelHost(operationSignal)
+      operationSignal?.throwIfAborted()
+      const existing = await ProviderManager.getProviderConfig(providerId)
+      if (!existing) {
+        throw createAppError(`Provider ${providerId} not found`, {
+          kind: "provider",
+          status: 404,
+          providerId,
+          messageKey: PROVIDER_CONFIG_NOT_FOUND_KEY,
+          userMessage: PROVIDER_CONFIG_NOT_FOUND_TEXT
+        })
+      }
+      // Partial update: everything except `enabled` — including the API key the
+      // caller never receives — stays exactly as stored.
+      await ProviderManager.updateProviderConfig(
         providerId,
-        userMessage: "Provider configuration could not be saved"
-      })
+        { enabled },
+        operationSignal
+      )
+      const saved = await ProviderManager.getProviderConfig(providerId)
+      if (!saved) {
+        throw createAppError(
+          `Provider ${providerId} disappeared after update`,
+          {
+            kind: "provider",
+            status: 500,
+            providerId,
+            userMessage: "Provider configuration could not be saved"
+          }
+        )
+      }
+      return { provider: toPublicConfig(saved) }
+    } finally {
+      signal?.removeEventListener("abort", abort)
+      if (browserEnableIntent === controller) browserEnableIntent = undefined
     }
-    return { provider: toPublicConfig(saved) }
   },
 
   async remove(
@@ -714,6 +769,8 @@ export const ProviderRpcService = {
     signal?: AbortSignal
   ): Promise<ProvidersProbeModelCapabilitiesResult> {
     const provider = await ProviderFactory.getProvider(request.providerId)
+    if (provider.id === ProviderId.BROWSER)
+      throw browserModelError("unsupported")
 
     /*
      * One probe at a time, on purpose.
