@@ -1093,8 +1093,7 @@ export const createAgentRunService = (input?: {
           patch: {
             error: {
               code: "observation_failed",
-              message: "Agent could not attach browser control.",
-              retryable: true
+              message: "Agent could not attach browser control."
             },
             updatedAt: now()
           }

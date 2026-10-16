@@ -506,6 +506,35 @@ describe("createProviderAgentModelPort", () => {
     expect(streamChat).toHaveBeenCalledTimes(9)
   })
 
+  it("does not charge the run budget for a pixel command on a step without a picture", async () => {
+    const pointerChunk: ChatStreamMessage = {
+      toolCalls: [
+        {
+          id: "call-1",
+          name: AGENT_DECISION_TOOL_NAME,
+          arguments: { type: "click_point", x: 1, y: 2 }
+        }
+      ],
+      done: true
+    }
+    let calls = 0
+    const streamChat = vi.fn(async (_request, emit) => {
+      calls += 1
+      emit(calls % 2 === 1 ? pointerChunk : validChunk)
+    })
+    const port = modelPort(streamChat, { ...supported, vision: true })
+
+    for (let index = 0; index < 8; index += 1) {
+      await expect(
+        port.decide(
+          { state, observation, visual: { available: true } },
+          { aborted: false }
+        )
+      ).resolves.toEqual({ type: "complete", summary: "Done" })
+    }
+    expect(streamChat).toHaveBeenCalledTimes(16)
+  })
+
   it("does not classify provider errors as malformed output", async () => {
     const streamChat = vi.fn(async () => {
       throw new Error("offline")

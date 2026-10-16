@@ -25,11 +25,25 @@ export const AGENT_DECISION_TOOL_NAME = "agent_decision"
  */
 export class AgentDecisionFormatError extends AgentMalformedDecisionError {
   readonly feedback?: string
+  /**
+   * Whether the answer counts against the run's malformed budget. A visual
+   * command on a step without the picture it needs is well formed: the tool
+   * schema stays the same on every step so the provider's prompt cache holds,
+   * which means it offers those commands on steps that cannot honour them.
+   * Charging the run for using what it was offered drained the budget of a
+   * model doing nothing wrong. The per-decision retry bound still applies.
+   */
+  readonly charged: boolean
 
-  constructor(message: string, feedback?: string) {
+  constructor(
+    message: string,
+    feedback?: string,
+    options: { charged?: boolean } = {}
+  ) {
     super(message)
     this.name = "AgentDecisionFormatError"
     if (feedback) this.feedback = feedback
+    this.charged = options.charged ?? true
   }
 }
 
@@ -63,7 +77,8 @@ const visualRefusal = (
       "The agent decision asked for a screenshot it was not offered",
       visual
         ? agentVisualUnavailableSentence(visual.reason)
-        : NO_SCREENSHOT_FEEDBACK
+        : NO_SCREENSHOT_FEEDBACK,
+      { charged: false }
     )
   }
   if (!VISUAL_COMMANDS.has(type) || options.screenshot) return undefined
@@ -73,7 +88,8 @@ const visualRefusal = (
       ? NO_SCREENSHOT_FEEDBACK
       : visual.available
         ? LOOK_FIRST_FEEDBACK
-        : agentVisualUnavailableSentence(visual.reason)
+        : agentVisualUnavailableSentence(visual.reason),
+    { charged: false }
   )
 }
 

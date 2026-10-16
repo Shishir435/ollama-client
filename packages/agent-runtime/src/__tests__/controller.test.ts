@@ -446,8 +446,7 @@ describe("agent controller", () => {
       error: {
         code: "model_unavailable",
         messageKey: "provider.errors.serverUnavailable",
-        message: "The provider is temporarily unavailable.",
-        retryable: true
+        message: "The provider is temporarily unavailable."
       }
     })
     expect(harness.calls).not.toContain("observe:0")
@@ -2936,8 +2935,7 @@ describe("agent controller", () => {
     expect(harness.getState().error).toEqual({
       code: "model_unavailable",
       message: "The local provider is busy with another request.",
-      messageKey: "errors.provider.busy",
-      retryable: true
+      messageKey: "errors.provider.busy"
     })
   })
 
@@ -5570,5 +5568,108 @@ describe("bounded entity phases", () => {
       status: "completed",
       stepCount: 3
     })
+  })
+})
+
+describe("agent controller stall counters", () => {
+  const changePlan = async () => ({
+    requirements: [
+      { id: "r1", text: "the record is saved", kind: "change" as const }
+    ]
+  })
+  const at = (index: number) =>
+    observation({
+      snapshotId: `snapshot-${index}`,
+      generation: index,
+      url: `https://example.com/${index}`,
+      visibleText: `Page ${index}`
+    })
+  const untagged = (index: number) => ({
+    type: "command",
+    command: command(index)
+  })
+
+  /**
+   * A refusal after resolution — here a page-changing command naming no
+   * requirement — used to find the count already reset by the resolve and
+   * never reached the ceiling.
+   */
+  it("counts refusals that come after resolution toward the ceiling", async () => {
+    const harness = createHarness({
+      plan: changePlan,
+      decisions: [untagged(1), untagged(2), untagged(3)],
+      observations: [at(1), at(2), at(3)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1")
+    expect(
+      harness.writtenSteps
+        .map((step) => step.stepId)
+        .filter((id) => id.includes(":refused:"))
+    ).toEqual(["run-1:refused:1:1", "run-1:refused:2:2", "run-1:refused:3:3"])
+  })
+
+  it("keeps the refusal count across a worker restart", async () => {
+    const harness = createHarness({
+      state: { ...runState(), stall: { refusedCommands: 2 } },
+      plan: changePlan,
+      decisions: [untagged(1)],
+      observations: [at(1)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1")
+    expect(
+      harness.writtenSteps
+        .map((step) => step.stepId)
+        .filter((id) => id.includes(":refused:"))
+    ).toEqual(["run-1:refused:1:3"])
+  })
+
+  it("writes the counters it holds into the checkpoint", async () => {
+    const harness = createHarness({
+      plan: changePlan,
+      decisions: [untagged(1), untagged(2)],
+      observations: [at(1), at(2), at(3)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().stall).toMatchObject({ refusedCommands: 2 })
+    expect(JSON.stringify(harness.getState().stall)).not.toContain("Page")
+  })
+
+  /**
+   * A planner that is down is asked again on the next observation, then
+   * after two, then after four — not on every step, each of which could
+   * spend several provider attempts.
+   */
+  it("backs off a failing plan amendment", async () => {
+    const plan = vi
+      .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
+      .mockResolvedValueOnce({
+        requirements: [{ id: "r1", text: "the hours", kind: "read" as const }]
+      })
+      .mockRejectedValue(new Error("provider down"))
+    let now = 10
+    const reads = Array.from({ length: 7 }, (_, index) => ({
+      type: "command",
+      command: command(index + 2)
+    }))
+    const harness = createHarness({
+      plan,
+      clock: () => now,
+      decisions: [{ type: "ask_user", question: "Anything else?" }, ...reads],
+      observations: Array.from({ length: 8 }, (_, index) => at(index + 1)),
+      verification: Array(8).fill(confirmed)
+    })
+    await harness.controller.start("run-1")
+    now = 20
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: harness.getState().question?.id ?? "",
+      text: "Also the phone number"
+    })
+    /** The first plan, then amendments on the 1st, 2nd and 4th observation after the answer. */
+    expect(plan).toHaveBeenCalledTimes(4)
+    expect(harness.getState().stall?.planFailures).toMatchObject({ count: 3 })
   })
 })

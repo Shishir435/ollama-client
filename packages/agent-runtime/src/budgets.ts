@@ -177,7 +177,18 @@ export const agentRemainingBudget = (
 export interface AgentProgressPoint {
   url: string
   snapshotHash: string
-  decision: AgentDecision
+  /**
+   * The decision behind the point. Absent on a point restored from the
+   * checkpoint, which keeps only its fingerprint.
+   */
+  decision?: AgentDecision
+  /**
+   * The decision as compared, hashed: refs replaced by the control they named
+   * when the observation was at hand. Refs are positional, so a list that
+   * gained a row renumbered the same button and the third click on it read
+   * as a new action.
+   */
+  fingerprint?: string
   /**
    * What the page's visible text gained and lost since the previous point,
    * hashed; absent when it did not change or there is no previous point.
@@ -206,16 +217,70 @@ export interface AgentNoProgressResult {
   count: number
 }
 
-const decisionFingerprint = (decision: AgentDecision): string => {
-  if (decision.type === "complete") return "complete"
-  if (decision.type !== "command") return JSON.stringify(decision)
+/**
+ * A control as the run would recognise it again on the next snapshot: its
+ * frame, kind, name, destination and row, never its positional ref.
+ */
+const controlIdentity = (element: AgentElement): string =>
+  JSON.stringify([
+    element.frameId,
+    element.tag,
+    element.role ?? "",
+    element.type ?? "",
+    element.name ?? "",
+    element.href ?? "",
+    element.group ?? "",
+    element.rowContext ?? ""
+  ])
+
+const keyedRefs = (
+  command: Record<string, unknown>,
+  observation: Pick<AgentObservation, "elements"> | undefined
+): Record<string, unknown> => {
+  if (!observation) return command
+  const identity = (ref: unknown): unknown => {
+    if (typeof ref !== "string") return ref
+    const element = observation.elements.find((entry) => entry.ref === ref)
+    return element ? controlIdentity(element) : ref
+  }
+  const keyed: Record<string, unknown> = { ...command }
+  if ("ref" in keyed) keyed.ref = identity(keyed.ref)
+  if ("to" in keyed) keyed.to = identity(keyed.to)
+  if (Array.isArray(keyed.fields))
+    keyed.fields = keyed.fields.map((field: unknown) =>
+      field && typeof field === "object" && "ref" in field
+        ? { ...field, ref: identity((field as { ref: unknown }).ref) }
+        : field
+    )
+  return keyed
+}
+
+/**
+ * What two decisions are compared by. With the observation the decision was
+ * made on, each ref is replaced by the control it named.
+ */
+export const agentDecisionFingerprint = (
+  decision: AgentDecision,
+  observation?: Pick<AgentObservation, "elements">
+): string => {
+  if (decision.type === "complete") return fnv1a("complete")
+  if (decision.type !== "command") return fnv1a(JSON.stringify(decision))
   const {
     snapshotId: _snapshotId,
     generation: _generation,
     ...command
   } = decision.command
-  return JSON.stringify({ type: "command", command })
+  return fnv1a(
+    JSON.stringify({
+      type: "command",
+      command: keyedRefs(command, observation)
+    })
+  )
 }
+
+const fingerprintOf = (point: AgentProgressPoint): string | undefined =>
+  point.fingerprint ??
+  (point.decision ? agentDecisionFingerprint(point.decision) : undefined)
 
 const fnv1a = (value: string): string => {
   let hash = 0x811c9dc5
@@ -326,18 +391,19 @@ export const agentTextChangeSignature = (
 export const classifyNoProgress = (
   input: AgentNoProgressInput
 ): AgentNoProgressResult => {
-  if (input.current.decision.type === "command") {
+  if (input.current.decision?.type === "command") {
     if (input.current.decision.command.type === "wait") {
       return { noProgress: false, count: input.previousCount ?? 0 }
     }
   }
   const candidates = input.recent ?? (input.previous ? [input.previous] : [])
   const change = input.current.changeSignature
+  const current = fingerprintOf(input.current)
   const same = candidates.some(
     (previous) =>
       previous.url === input.current.url &&
-      decisionFingerprint(previous.decision) ===
-        decisionFingerprint(input.current.decision) &&
+      current !== undefined &&
+      fingerprintOf(previous) === current &&
       (previous.snapshotHash === input.current.snapshotHash ||
         (change !== undefined && previous.changeSignature === change))
   )

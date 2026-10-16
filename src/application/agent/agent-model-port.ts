@@ -1288,7 +1288,9 @@ const retryUntilWellFormed = async (input: {
       malformedRetries: MAX_RETRIES_PER_DECISION,
       onMalformed(error) {
         feedback = error.feedback
-        const malformed = (malformedByRun.get(state.id) ?? 0) + 1
+        if (!error.charged) return true
+        const malformed =
+          (malformedByRun.get(state.id) ?? state.stall?.malformed ?? 0) + 1
         malformedByRun.set(state.id, malformed)
         return malformed < MAX_MALFORMED_PER_RUN
       },
@@ -1459,6 +1461,9 @@ export const createProviderAgentModelPort = (
   }
 
   return {
+    malformedResponses(runId) {
+      return malformedByRun.get(runId)
+    },
     decisionTelemetry(runId) {
       /**
        * Consumed, not read. What it holds belongs to the decision that just
@@ -1733,7 +1738,10 @@ export const createProviderAgentModelPort = (
       signal
     ) {
       thinkingByRun.delete(state.id)
-      if ((malformedByRun.get(state.id) ?? 0) >= MAX_MALFORMED_PER_RUN) {
+      if (
+        (malformedByRun.get(state.id) ?? state.stall?.malformed ?? 0) >=
+        MAX_MALFORMED_PER_RUN
+      ) {
         throw new AgentDecisionFormatError(
           "The Agent malformed-response budget is exhausted"
         )

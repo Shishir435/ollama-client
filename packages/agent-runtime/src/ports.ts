@@ -663,6 +663,7 @@ export type AgentStatePatch = Partial<
     | "requirements"
     | "result"
     | "scopedTabIds"
+    | "stall"
     | "stepCount"
     | "workflow"
     | "updatedAt"
@@ -864,6 +865,12 @@ export interface AgentModelPort {
    * that streamed none, or a port that does not collect it, returns nothing.
    */
   decisionThinking?(runId: string): string | undefined
+  /**
+   * Malformed answers the run has spent from its budget so far, so the
+   * controller can keep the count across a worker restart. The port reads the
+   * count back from `state.stall.malformed` when it has none of its own.
+   */
+  malformedResponses?(runId: string): number | undefined
   /**
    * What the goal asks for, decided before the run looks at anything.
    *
@@ -1109,9 +1116,8 @@ export interface AgentControllerDependencies {
 
 export const agentFailure = (
   code: AgentError["code"],
-  message: string,
-  retryable = false
-): AgentError => ({ code, message, retryable })
+  message: string
+): AgentError => ({ code, message })
 
 const textProperty = (value: unknown, key: string): string | undefined => {
   if (typeof value !== "object" || value === null) return undefined
@@ -1126,8 +1132,8 @@ const textProperty = (value: unknown, key: string): string | undefined => {
  *
  * Read structurally, not by instance: this package knows nothing about the
  * host's error classes and must not start. What it takes is what the layer
- * below chose to say to a user — its i18n key, its user-facing sentence and
- * whether it is worth retrying — and nothing else; a provider's raw text can
+ * below chose to say to a user — its i18n key and its user-facing sentence —
+ * and nothing else; a provider's raw text can
  * carry a URL or a key, so only these declared fields travel.
  *
  * Collapsing all of it into one sentence is how a wedged local proxy
@@ -1141,12 +1147,10 @@ export const agentProviderFailure = (
 ): AgentError => {
   const messageKey = textProperty(error, "messageKey")
   const userMessage = textProperty(error, "userMessage")
-  const retryable = (error as { retryable?: unknown } | null)?.retryable
   return {
     code,
     message: userMessage ?? fallbackMessage,
-    ...(messageKey ? { messageKey } : {}),
-    retryable: retryable === true
+    ...(messageKey ? { messageKey } : {})
   }
 }
 

@@ -511,7 +511,12 @@ export const AgentErrorSchema = z
      * still says which part of the run stopped.
      */
     messageKey: z.string().min(1).max(200).optional(),
-    retryable: z.boolean()
+    /**
+     * Accepted on rows written before it was dropped, and never written or
+     * read since: nothing ever offered a retry from it, and a flag no reader
+     * honours reads as a promise.
+     */
+    retryable: z.boolean().optional()
   })
   .strict()
 export type AgentError = z.infer<typeof AgentErrorSchema>
@@ -1352,6 +1357,54 @@ export type AgentPendingSupervisionRecord = z.infer<
   typeof AgentPendingSupervisionSchema
 >
 
+/** How many recent progress points the no-progress guard compares. */
+export const MAX_AGENT_PROGRESS_POINTS = 6
+
+/**
+ * The run's stall counters, as the controller last left them. They lived in
+ * the worker's memory, so a worker restart handed a run that was looping a
+ * fresh budget for each of them — and a restart is what a stuck MV3 worker
+ * gets. Hashes only: no page text, no decision.
+ */
+export const AgentStallStateSchema = z
+  .object({
+    noProgress: z.number().int().nonnegative().max(1_000).optional(),
+    refusedCommands: z.number().int().nonnegative().max(1_000).optional(),
+    refusedCompletion: z
+      .object({
+        reason: z.string().min(1).max(200),
+        count: z.number().int().nonnegative().max(1_000)
+      })
+      .strict()
+      .optional(),
+    malformed: z.number().int().nonnegative().max(1_000).optional(),
+    /** Consecutive plan amendments that failed, and the observation the next may run at. */
+    planFailures: z
+      .object({
+        count: z.number().int().positive().max(1_000),
+        /** The newest answer the failed amendment was asked about. */
+        answeredAt: z.number().int().nonnegative(),
+        retryAt: z.number().int().nonnegative()
+      })
+      .strict()
+      .optional(),
+    recent: z
+      .array(
+        z
+          .object({
+            url: z.string().max(2_048),
+            snapshotHash: z.string().min(1).max(32),
+            fingerprint: z.string().min(1).max(32),
+            changeSignature: z.string().min(1).max(32).optional()
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_PROGRESS_POINTS)
+      .optional()
+  })
+  .strict()
+export type AgentStallState = z.infer<typeof AgentStallStateSchema>
+
 export const AgentRunStateSchema = z
   .object({
     version: z.literal(1),
@@ -1432,6 +1485,8 @@ export const AgentRunStateSchema = z
     unreceiptedTokens: z.number().int().nonnegative().optional(),
     /** Absent on rows written before recovery existed, and on runs that never needed it. */
     recovery: AgentRecoveryStateSchema.optional(),
+    /** Absent on rows written before stall counters were durable, and on runs that never stalled. */
+    stall: AgentStallStateSchema.optional(),
     /** The settled run this one follows, when it was started as a follow-up. */
     previousRun: AgentPreviousRunSchema.optional(),
     /**

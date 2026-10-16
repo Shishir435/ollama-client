@@ -9,6 +9,7 @@ import {
   AGENT_DECISION_TIMEOUT_MS,
   AGENT_RUN_ACTIVE_BUDGET_MS,
   AGENT_STEP_ACTIVE_BUDGET_MS,
+  agentDecisionFingerprint,
   agentRemainingBudget,
   agentTextChangeSignature,
   beginAgentStepDeadline,
@@ -163,6 +164,63 @@ describe("agent budgets", () => {
       observationsRemaining: 0,
       stepsRemaining: 0
     })
+  })
+
+  it("compares a click by the control it named, not by its positional ref", () => {
+    const button = (ref: string, rowContext: string): AgentElement =>
+      ({
+        ref,
+        frameId: 0,
+        tag: "button",
+        role: "button",
+        name: "Mark paid",
+        rowContext,
+        visible: true,
+        enabled: true,
+        sensitive: false
+      }) as AgentElement
+    const click = (ref: string): AgentDecision => ({
+      type: "command",
+      command: { type: "click", ref, snapshotId: "s", generation: 1 }
+    })
+    const before = { elements: [button("e3", "Invoice A")] }
+    const renumbered = {
+      elements: [button("e2", "New row"), button("e4", "Invoice A")]
+    }
+    expect(agentDecisionFingerprint(click("e3"), before)).toBe(
+      agentDecisionFingerprint(click("e4"), renumbered)
+    )
+    expect(agentDecisionFingerprint(click("e3"), before)).not.toBe(
+      agentDecisionFingerprint(click("e2"), renumbered)
+    )
+    const point = (decision: AgentDecision, elements: typeof before) => ({
+      url: "https://example.com",
+      snapshotHash: "same",
+      decision,
+      fingerprint: agentDecisionFingerprint(decision, elements)
+    })
+    expect(
+      classifyNoProgress({
+        previous: point(click("e3"), before),
+        current: point(click("e4"), renumbered),
+        previousCount: 1
+      })
+    ).toEqual({ noProgress: true, count: 2 })
+  })
+
+  it("restores a checkpointed point that carries only its fingerprint", () => {
+    const restored = {
+      url: "https://example.com",
+      snapshotHash: "same",
+      fingerprint: agentDecisionFingerprint(complete)
+    }
+    expect(
+      classifyNoProgress({
+        recent: [restored],
+        current: { ...restored, decision: complete },
+        previousCount: 2
+      })
+    ).toEqual({ noProgress: true, count: 3 })
   })
 
   it("exempts wait from no-progress", () => {
