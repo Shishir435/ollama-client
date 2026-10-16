@@ -2,7 +2,6 @@ import {
   isRetryableProviderStatus,
   parseRetryAfter
 } from "@ollama-client/runtime-core/retry"
-import { supportsProviderOriginGuard } from "@/lib/browser-api"
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
 import {
   type AppError,
@@ -13,6 +12,7 @@ import {
   isAbortError,
   sanitizeProviderBaseUrl
 } from "@/lib/error-utils"
+import { supportsProviderOriginGuard } from "@/lib/origin-guard-support"
 
 export interface ProviderErrorClassification {
   code: AppErrorCode

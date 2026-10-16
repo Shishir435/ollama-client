@@ -113,6 +113,8 @@ class ToolCallStreamGate {
 type StreamCollectionState = {
   metrics?: ChatStreamMessage["metrics"]
   replayArtifact?: ChatStreamMessage["replayArtifact"]
+  /** Generated images are an answer even when no text arrives. */
+  sawImages?: boolean
   stopped: boolean
 }
 
@@ -145,6 +147,10 @@ const collectNonNativeStreamChunk = (
   }
   if (chunk.webCitations?.length) {
     onChunk({ webCitations: chunk.webCitations })
+  }
+  if (chunk.generatedImages?.length) {
+    state.sawImages = true
+    onChunk({ generatedImages: chunk.generatedImages })
   }
   if (typeof chunk.delta === "string") gate.push(chunk.delta)
 }
@@ -317,7 +323,7 @@ export const streamChatWithNonNativeTools = async ({
 
   if (synthesisState.stopped) return
   finalGate.flushTail()
-  if (finalGate.text.trim().length === 0) {
+  if (finalGate.text.trim().length === 0 && !synthesisState.sawImages) {
     onChunk({ delta: toolLimitReachedMessage() })
   }
   onChunk({

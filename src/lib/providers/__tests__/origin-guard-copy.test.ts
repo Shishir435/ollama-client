@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const guard = vi.hoisted(() => ({ active: true }))
 
-vi.mock("@/lib/browser-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/browser-api")>()),
+vi.mock("@/lib/origin-guard-support", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/origin-guard-support")>()),
   supportsProviderOriginGuard: () => guard.active
 }))
 

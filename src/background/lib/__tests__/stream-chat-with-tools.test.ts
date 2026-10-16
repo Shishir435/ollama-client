@@ -53,6 +53,14 @@ const registryWithTools = (
   return reg
 }
 
+const generatedImage = {
+  imageId: "img-1",
+  fileName: "image.png",
+  mimeType: "image/png",
+  size: 4,
+  base64: "AAAA"
+}
+
 describe("streamChatWithTools", () => {
   it("keeps an answer that arrives on the provider's final chunk", async () => {
     /**
@@ -720,6 +728,49 @@ describe("streamChatWithTools", () => {
     expect(notice).toContain("tool-call limit")
     expect(notice).not.toMatch(/\bI\b|Please/)
     expect(chunks.filter((c) => c.done)).toHaveLength(1)
+  })
+
+  it("treats an image-only cap synthesis as an answer", async () => {
+    const provider = scriptedProvider([
+      [
+        { toolCalls: [{ id: "c", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ generatedImages: [generatedImage] }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [] },
+      registry: registryWith(async () => ({ content: "tool result" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {},
+      maxIterations: 1
+    })
+
+    expect(chunks.flatMap((c) => c.generatedImages ?? [])).toHaveLength(1)
+    expect(chunks.some((c) => c.delta?.includes("tool-call limit"))).toBe(false)
+  })
+
+  it("does not retry an image answer that came with reasoning only", async () => {
+    const provider = scriptedProvider([
+      [
+        { thinkingDelta: "planning the picture" },
+        { generatedImages: [generatedImage] },
+        { done: true }
+      ]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "draw" }] },
+      registry: registryWith(async () => ({ content: "unused" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+
+    expect(provider.streamChat).toHaveBeenCalledTimes(1)
+    expect(chunks.flatMap((c) => c.generatedImages ?? [])).toHaveLength(1)
   })
 
   it("keeps final metrics when the iteration cap stops the loop", async () => {

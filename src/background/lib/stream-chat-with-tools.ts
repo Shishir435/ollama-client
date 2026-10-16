@@ -56,6 +56,8 @@ interface ModelPhaseState {
   metrics?: ChatStreamMessage["metrics"]
   replayArtifact?: ChatStreamMessage["replayArtifact"]
   sawThinking: boolean
+  /** Generated images are an answer, so an image-only phase is not empty. */
+  sawImages: boolean
   stopped: boolean
 }
 
@@ -63,6 +65,7 @@ const createModelPhaseState = (): ModelPhaseState => ({
   pendingToolCalls: [],
   content: "",
   sawThinking: false,
+  sawImages: false,
   stopped: false
 })
 
@@ -88,6 +91,7 @@ const consumeModelChunk = (
     return
   }
   if (chunk.thinkingDelta?.length) state.sawThinking = true
+  if (chunk.generatedImages?.length) state.sawImages = true
   if (typeof chunk.delta === "string") state.content += chunk.delta
   onChunk(chunk)
 }
@@ -143,7 +147,11 @@ const consumeSynthesisChunk = (
     onChunk(chunk)
     return
   }
-  if (chunk.delta?.trim() || chunk.thinkingDelta?.trim())
+  if (
+    chunk.delta?.trim() ||
+    chunk.thinkingDelta?.trim() ||
+    chunk.generatedImages?.length
+  )
     state.emittedText = true
   onChunk(chunk)
 }
@@ -165,7 +173,8 @@ const handleEmptyModelPhase = async ({
 }): Promise<"retry" | "done" | null> => {
   if (phase.pendingToolCalls.length > 0) return null
 
-  const emptyThinking = phase.sawThinking && phase.content.trim().length === 0
+  const emptyThinking =
+    phase.sawThinking && !phase.sawImages && phase.content.trim().length === 0
   if (emptyThinking && (state.emptyModelRetries ?? 0) < 1) {
     state.emptyModelRetries = (state.emptyModelRetries ?? 0) + 1
     workingMessages.push({
