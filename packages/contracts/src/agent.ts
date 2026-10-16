@@ -800,12 +800,19 @@ export const MAX_AGENT_HANDOFF_CHARS =
  * second submission posts the comment twice, a second payment pays twice, a
  * second delete removes the next row. These are the classes a follow-up must
  * never repeat on the strength of a model's reading of an earlier record.
+ *
+ * `potential_commit` is a click on a control labelled as ordering, paying,
+ * sending or publishing that no form classifies: a script does the
+ * committing, so whether it was a submission or a payment cannot be told from
+ * the page. The label only raises a click to this class — it proves nothing
+ * landed — and a constraint forbidding a submission or a payment forbids it.
  */
 export const AGENT_CONSEQUENTIAL_EFFECTS = [
   "submission",
   "destructive",
   "payment",
-  "download"
+  "download",
+  "potential_commit"
 ] as const
 export const AgentConsequentialEffectSchema = z.enum(
   AGENT_CONSEQUENTIAL_EFFECTS
@@ -1203,7 +1210,14 @@ export const AgentPriorEffectSchema = z
     form: z.string().min(1).max(MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS).optional(),
     role: z.string().max(60).optional(),
     tag: z.string().max(40).optional(),
-    name: z.string().max(120).optional()
+    name: z.string().max(120).optional(),
+    /**
+     * The row the control sat in, minus the control's own label: what tells
+     * "Mark paid" on one invoice from the same button on the next. Page text,
+     * bounded like the receipt's own row context and absent for a sensitive
+     * control or one in no row.
+     */
+    row: z.string().min(1).max(MAX_AGENT_ROW_CONTEXT_CHARS).optional()
   })
   .strict()
 export type AgentPriorEffect = z.infer<typeof AgentPriorEffectSchema>

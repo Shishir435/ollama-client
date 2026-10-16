@@ -22,6 +22,7 @@ import type {
   AgentStepReadout,
   ResolvedAgentEffect
 } from "./ports"
+import { agentForbidsEffect } from "./prior-effects"
 
 /**
  * The semantic classes that change the page rather than read it.
@@ -1122,7 +1123,9 @@ const noSubmissionEvidence = (
     input.steps.some(
       (receipt) =>
         isAppliedAgentStepStatus(receipt.status) &&
-        receipt.consequential?.includes("submission")
+        receipt.consequential?.some(
+          (effect) => effect === "submission" || effect === "potential_commit"
+        )
     )
   ) {
     return {
@@ -2849,7 +2852,7 @@ const judgeConstraints = (
         (receipt) =>
           isAppliedAgentStepStatus(receipt.status) &&
           receipt.consequential?.some((effect) =>
-            constraint.forbids?.includes(effect)
+            agentForbidsEffect(constraint.forbids, effect)
           )
       )
     )

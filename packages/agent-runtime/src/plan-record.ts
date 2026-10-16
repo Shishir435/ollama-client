@@ -8,8 +8,12 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import { MAX_AGENT_PLAN_AMENDMENTS } from "@ollama-client/contracts"
-import type { AgentStatePatch, ResolvedAgentEffect } from "./ports"
-import { agentConsequentialEffects } from "./prior-effects"
+import type { AgentStatePatch } from "./ports"
+import {
+  type AgentConsequentialSource,
+  agentConsequentialEffects,
+  agentForbidsEffect
+} from "./prior-effects"
 
 const idNumber = (id: string, prefix: "r" | "c"): number => {
   const match = new RegExp(`^${prefix}(\\d+)$`).exec(id)
@@ -335,7 +339,7 @@ export const agentConfirmedRemovalPatch = (
  * is the submission it is.
  */
 export const agentForbiddingConstraints = (
-  effect: Pick<ResolvedAgentEffect, "semanticEffects">,
+  effect: AgentConsequentialSource,
   constraints: readonly AgentTaskConstraint[] | undefined
 ): {
   constraint: AgentTaskConstraint
@@ -352,7 +356,8 @@ export const agentForbiddingConstraints = (
       constraint.kind === "scope" ||
       (constraint.kind === "limit" && classes.includes("payment"))
     const effects = classes.filter(
-      (effect) => unprovenBound || constraint.forbids?.includes(effect)
+      (effect) =>
+        unprovenBound || agentForbidsEffect(constraint.forbids, effect)
     )
     return effects.length > 0 ? [{ constraint, effects }] : []
   })

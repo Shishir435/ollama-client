@@ -4,24 +4,64 @@ import {
   type AgentPriorEffect,
   type AgentStepStatus,
   MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS,
-  MAX_AGENT_PRIOR_EFFECTS
+  MAX_AGENT_PRIOR_EFFECTS,
+  MAX_AGENT_ROW_CONTEXT_CHARS
 } from "@ollama-client/contracts"
 import { agentStepSourceUrl, agentStepTargetFrom } from "./history"
-import type { AgentStepReadout, ResolvedAgentEffect } from "./ports"
+import type {
+  AgentStepReadout,
+  AgentStepTarget,
+  ResolvedAgentEffect
+} from "./ports"
+import { agentRowContextBeyond } from "./row-context"
 
 const isConsequential = (
   semantic: string
 ): semantic is AgentConsequentialEffect =>
   (AGENT_CONSEQUENTIAL_EFFECTS as readonly string[]).includes(semantic)
 
-/** The classes of an effect a repeat would double; empty for a routine one. */
+/** What the consequential classes are read from: the effect and its control. */
+export type AgentConsequentialSource = Pick<
+  ResolvedAgentEffect,
+  "semanticEffects"
+> & { target?: Pick<ResolvedAgentEffect["target"], "committingLabel"> }
+
+/**
+ * The classes of an effect a repeat would double; empty for a routine one.
+ *
+ * A click on a committing-labelled control no form classifies is a
+ * `potential_commit`: recorded on its receipt, guarded against repeats and
+ * held to the constraints like a submission, because a script button orders
+ * or sends as surely as a submitter does. The label only ever adds the class.
+ */
 export const agentConsequentialEffects = (
-  effect: Pick<ResolvedAgentEffect, "semanticEffects">
-): AgentConsequentialEffect[] => effect.semanticEffects.filter(isConsequential)
+  effect: AgentConsequentialSource
+): AgentConsequentialEffect[] => {
+  const classes: AgentConsequentialEffect[] = []
+  for (const semantic of effect.semanticEffects)
+    if (isConsequential(semantic)) classes.push(semantic)
+  return classes.length === 0 && effect.target?.committingLabel === true
+    ? ["potential_commit"]
+    : classes
+}
 
 export const agentEffectIsConsequential = (
-  effect: Pick<ResolvedAgentEffect, "semanticEffects">
+  effect: AgentConsequentialSource
 ): boolean => agentConsequentialEffects(effect).length > 0
+
+/**
+ * Whether a constraint's forbidden classes rule out an effect class. A
+ * possible commit is a submission or a payment the page did not say which,
+ * so forbidding either forbids it.
+ */
+export const agentForbidsEffect = (
+  forbids: readonly AgentConsequentialEffect[] | undefined,
+  effect: AgentConsequentialEffect
+): boolean =>
+  forbids !== undefined &&
+  (forbids.includes(effect) ||
+    (effect === "potential_commit" &&
+      (forbids.includes("submission") || forbids.includes("payment"))))
 
 /**
  * Where a consequential effect sent its form, origin and path only — the
@@ -79,8 +119,15 @@ const priorEffect = (step: AgentStepReadout): AgentPriorEffect | undefined => {
       : {}),
     ...(target?.role ? { role: target.role } : {}),
     ...(target?.tag ? { tag: target.tag } : {}),
-    ...(target?.name ? { name: target.name } : {})
+    ...(target?.name ? { name: target.name } : {}),
+    ...rowOf(target)
   }
+}
+
+/** The row beside the control, without the control's own label. */
+const rowOf = (target: AgentStepTarget | undefined): { row?: string } => {
+  const row = agentRowContextBeyond(target?.name, target?.rowContext)
+  return row ? { row: row.slice(0, MAX_AGENT_ROW_CONTEXT_CHARS) } : {}
 }
 
 const normalized = (value: string | undefined): string =>
@@ -99,13 +146,47 @@ const sameForm = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
     (effect) => sendsForm(effect) && (b.effects ?? []).includes(effect)
   )
 
-/** The same command on the same control: a repeat, refused outright. */
+/** The words of a row that carry a digit: ids, numbers, amounts, dates. */
+const identifiers = (row: string): Set<string> =>
+  new Set(
+    normalized(row)
+      .split(" ")
+      .map((word) => word.replaceAll(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+      .filter((word) => /\p{N}/u.test(word))
+  )
+
+/**
+ * Whether two rows are plainly different records: both name something with a
+ * digit in it — an invoice number, a record id, an amount — and they share
+ * none of it. "Record 5 Due" and "Record 6 Due" are two records; "INV-1 $120
+ * Due" and "INV-1 $0 Paid" are one record before and after the click, which
+ * is the repeat this guard exists for. A row with no such word, or no row at
+ * all, proves nothing, and the match stays as coarse as it always was.
+ *
+ * Residual: a list that renumbers on change and shows nothing else with a
+ * digit reads its moved row as a new one. That repeat still meets policy's
+ * own approval for the class; it loses only the repeat notice.
+ */
+const distinctRows = (a: AgentPriorEffect, b: AgentPriorEffect): boolean => {
+  if (!a.row || !b.row) return false
+  const left = identifiers(a.row)
+  const right = identifiers(b.row)
+  if (left.size === 0 || right.size === 0) return false
+  for (const word of left) if (right.has(word)) return false
+  return true
+}
+
+/**
+ * The same command on the same control in the same record: a repeat,
+ * refused outright.
+ */
 const sameControl = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
   a.action === b.action &&
   normalized(a.role) === normalized(b.role) &&
   normalized(a.tag) === normalized(b.tag) &&
   normalized(a.name) === normalized(b.name) &&
-  (a.page === undefined || b.page === undefined || a.page === b.page)
+  (a.page === undefined || b.page === undefined || a.page === b.page) &&
+  !distinctRows(a, b)
 
 /**
  * The consequential effects a run committed, in the order it committed them,
@@ -253,7 +334,8 @@ const candidateFor = (effect: ResolvedAgentEffect): AgentPriorEffect => {
     ...(form ? { form } : {}),
     ...(target?.role ? { role: target.role.slice(0, 60) } : {}),
     ...(target?.tag ? { tag: target.tag.slice(0, 40) } : {}),
-    ...(target?.name ? { name: target.name.slice(0, 120) } : {})
+    ...(target?.name ? { name: target.name.slice(0, 120) } : {}),
+    ...rowOf(target)
   }
 }
 
