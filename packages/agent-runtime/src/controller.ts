@@ -334,39 +334,72 @@ export const agentPlanIsReadOnly = (
 const MAX_PLAN_APPROVAL_EVIDENCE_CHARS = 1_000
 
 /**
+ * The planned change a step traces to, when the user approved it on a plan
+ * card in these exact words. A reworded outcome is a different outcome.
+ */
+const planApprovedFor = (
+  state: Pick<AgentRunState, "planApproved" | "requirements">,
+  requirementId: string | undefined
+): boolean => {
+  const requirement = state.requirements?.find(
+    (entry) => entry.id === requirementId
+  )
+  return Boolean(requirement && state.planApproved?.includes(requirement.text))
+}
+
+/**
  * The one approval plan consent asks for: the plan itself, its outcomes and
- * limits listed as the run holds them, before its first planned step. The
- * start prompt could only show the goal, because the plan did not exist yet.
+ * limits listed as the run holds them, before the first planned step it does
+ * not yet cover. The start prompt could only show the goal, because the plan
+ * did not exist yet. The step's own outcome is listed first and the other
+ * changes after it, so what the card cannot fit is never what it approves:
+ * approving covers exactly the changes listed, and the rest ask again.
  */
 const planApprovalRequest = (
   state: AgentRunState,
   risk: AgentRisk,
+  requirementId: string | undefined,
   now: number
-): AgentApprovalRequest => {
-  const lines = [
-    ...(state.requirements ?? []).map((entry) => `• ${entry.text}`),
-    ...(state.constraints ?? []).map((entry) => `✕ ${entry.text}`)
+): { request: AgentApprovalRequest; approved: string[] } => {
+  const requirements = state.requirements ?? []
+  const changes = requirements.filter((entry) => entry.kind === "change")
+  const lines: { text: string; change?: string }[] = [
+    ...changes
+      .filter((entry) => entry.id === requirementId)
+      .concat(changes.filter((entry) => entry.id !== requirementId))
+      .map((entry) => ({ text: `• ${entry.text}`, change: entry.text })),
+    ...(state.constraints ?? []).map((entry) => ({ text: `✕ ${entry.text}` })),
+    ...requirements
+      .filter((entry) => entry.kind !== "change")
+      .map((entry) => ({ text: `• ${entry.text}` }))
   ]
   let evidence = ""
+  const listed = new Set(state.planApproved ?? [])
   for (const line of lines) {
-    const next = evidence ? `${evidence}\n${line}` : line
+    const next = evidence ? `${evidence}\n${line.text}` : line.text
     if (next.length > MAX_PLAN_APPROVAL_EVIDENCE_CHARS) break
     evidence = next
+    if (line.change) listed.add(line.change)
   }
   return {
-    id: `${state.id}:plan:${state.plan?.version ?? 1}`,
-    runId: state.id,
-    stepId: `${state.id}:plan`,
-    risk: risk === "low" ? "medium" : risk,
-    action: "Run this plan without asking at each step",
-    consequence:
-      "Steps that follow the outcomes below run without asking, including a send or an order the plan names. Anything outside the plan, deleting, signing in and paying still ask. Reject to pause and be asked at every step.",
-    display: {
-      action: { key: "agent.approval_text.approve_plan" },
-      consequence: [{ key: "agent.approval_text.approve_plan_consequence" }]
+    request: {
+      id: `${state.id}:plan:${state.plan?.version ?? 1}:${state.planApproved?.length ?? 0}`,
+      runId: state.id,
+      stepId: `${state.id}:plan`,
+      risk: risk === "low" ? "medium" : risk,
+      action: "Run this plan without asking at each step",
+      consequence:
+        "Steps that follow the outcomes below run without asking, including a send or an order the plan names. Anything outside the plan, deleting, signing in and paying still ask. Reject to pause and be asked at every step.",
+      display: {
+        action: { key: "agent.approval_text.approve_plan" },
+        consequence: [{ key: "agent.approval_text.approve_plan_consequence" }]
+      },
+      ...(evidence ? { pageEvidence: evidence } : {}),
+      createdAt: now
     },
-    ...(evidence ? { pageEvidence: evidence } : {}),
-    createdAt: now
+    approved: changes
+      .map((entry) => entry.text)
+      .filter((text) => listed.has(text))
   }
 }
 
@@ -821,6 +854,7 @@ export const createAgentController = (
       AgentPolicyDecision,
       { type: "allow" | "granted" | "approval_required" }
     >,
+    requirementId: string | undefined,
     signal: AgentCancellationController["signal"]
   ): Promise<
     | {
@@ -836,11 +870,14 @@ export const createAgentController = (
       state.deadline ?? initialAgentDeadlineState(state.createdAt),
       now
     )
-    /** The plan itself, asked for once before the first step it covers. */
-    const planRequest =
-      decision.type === "allow" && decision.planned && !state.planApproved
-        ? planApprovalRequest(state, decision.risk, now)
+    /** The plan itself, asked for before the first step it does not cover. */
+    const planAsk =
+      decision.type === "allow" &&
+      decision.planned &&
+      !planApprovedFor(state, requirementId)
+        ? planApprovalRequest(state, decision.risk, requirementId, now)
         : undefined
+    const planRequest = planAsk?.request
     const asked =
       decision.type === "approval_required" ? decision.request : planRequest
     const checkpoint = await claim(state, "awaiting_approval", {
@@ -852,16 +889,19 @@ export const createAgentController = (
     })
     if (!checkpoint) return undefined
 
-    if (planRequest) {
+    if (planAsk && planRequest) {
       const answer = await dependencies.approval.request(planRequest, signal)
       if (answer.type !== "approved") {
         /**
-         * The plan is not approved, so nothing runs on it: consent is dropped
-         * in the same write that pauses, and after Resume every step asks.
+         * The plan is not approved, so nothing runs on it: consent and the
+         * run's routine grants are dropped in the same write that pauses, so
+         * after Resume every step asks, as the card said it would.
          */
         await pause(checkpoint, "user", {
           humanDecision: undefined,
-          planConsent: undefined
+          planConsent: undefined,
+          planApproved: undefined,
+          grants: undefined
         })
         return undefined
       }
@@ -871,7 +911,7 @@ export const createAgentController = (
           type: "policy",
           risk: decision.risk,
           authorizedAt: dependencies.clock.now(),
-          planApproved: true
+          planApproved: planAsk.approved
         }
       }
     }
@@ -1695,7 +1735,7 @@ export const createAgentController = (
       return undefined
     }
 
-    const authorized = await authorize(state, policy, signal)
+    const authorized = await authorize(state, policy, requirementId, signal)
     if (!authorized) return undefined
     return { ...authorized, policy }
   }
@@ -1913,7 +1953,7 @@ export const createAgentController = (
       ...allowedOriginsPatch(state, effect, authorization),
       ...(grants ? { grants } : {}),
       ...(authorization.type === "policy" && authorization.planApproved
-        ? { planApproved: true as const }
+        ? { planApproved: [...authorization.planApproved] }
         : {}),
       stepCount: stepNumber,
       updatedAt: dependencies.clock.now()

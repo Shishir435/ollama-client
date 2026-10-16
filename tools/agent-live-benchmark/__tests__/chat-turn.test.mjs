@@ -279,6 +279,23 @@ describe("agentObservedText", () => {
       ),
       "QP-719"
     )
+    /** A fixture spread over several origins counts each of them. */
+    assert.equal(
+      agentObservedText(
+        [
+          on("http://127.0.0.1:5000/a", "Kettle $40"),
+          on("http://127.0.0.1:6000/b", "Kettle $35"),
+          on("http://localhost:5000/c", "Kettle $38"),
+          on("https://elsewhere.example/d", "Kettle $1")
+        ],
+        [
+          "http://127.0.0.1:5000",
+          "http://127.0.0.1:6000",
+          "http://localhost:5000"
+        ]
+      ),
+      "Kettle $40\nKettle $35\nKettle $38"
+    )
   })
 
   it("reads the text part of a request that carries a screenshot", () => {

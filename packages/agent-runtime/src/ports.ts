@@ -374,8 +374,11 @@ export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
         authorizedAt: number
         /** Allowed by browse mode; its destination joins the allowlist. */
         browse?: true
-        /** The user approved the plan just now; recorded as the step executes. */
-        planApproved?: true
+        /**
+         * The planned changes the user approved just now, as the card listed
+         * them; recorded as the step executes.
+         */
+        planApproved?: readonly string[]
       }
     | {
         type: "approval"

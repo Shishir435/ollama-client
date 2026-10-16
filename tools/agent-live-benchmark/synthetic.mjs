@@ -997,7 +997,12 @@ try {
             wire,
             observedText: [
               chatToolText(wire),
-              agentObservedText(wire, origin)
+              agentObservedText(
+                wire,
+                current.qualification.shopOrigins
+                  ? Object.values(current.qualification.shopOrigins)
+                  : origin
+              )
             ].join("\n"),
             renderedCanvasScreenshot
           })

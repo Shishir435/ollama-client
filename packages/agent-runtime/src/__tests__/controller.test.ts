@@ -1,4 +1,5 @@
 import type {
+  AgentApprovalRequest,
   AgentCommand,
   AgentDecision,
   AgentObservation,
@@ -182,7 +183,9 @@ interface HarnessOptions {
   policy?:
     | AgentPolicyDecision
     | ((input: AgentPolicyInput) => AgentPolicyDecision)
-  approval?: AgentApprovalDecision | (() => Promise<AgentApprovalDecision>)
+  approval?:
+    | AgentApprovalDecision
+    | ((request: AgentApprovalRequest) => Promise<AgentApprovalDecision>)
   takeover?: AgentTakeoverDecision
   failClaim?: AgentRunStatus
   /** Loses one claim on demand, as a pause or stop winning the race would. */
@@ -342,10 +345,10 @@ const createHarness = (options: HarnessOptions = {}) => {
       }
     },
     approval: {
-      async request() {
+      async request(request) {
         calls.push("approval")
         return typeof options.approval === "function"
-          ? options.approval()
+          ? options.approval(request)
           : (options.approval ?? { type: "approved" })
       }
     },
@@ -633,12 +636,67 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(harness.calls.filter((call) => call === "approval")).toHaveLength(1)
     expect(harness.calls.filter((call) => call === "execute")).toHaveLength(2)
-    expect(harness.getState().planApproved).toBe(true)
+    expect(harness.getState().planApproved).toEqual(["The comment is posted"])
   })
 
-  it("pauses and stops running on the plan when the user rejects it", async () => {
+  it("approves only the planned changes its card could list, and asks again for the rest", async () => {
+    const long = (n: number) => `Change ${n} is saved ${"x".repeat(180)}`
+    const requirements = Array.from({ length: 8 }, (_, index) => ({
+      id: `r${index + 1}`,
+      text: long(index + 1),
+      kind: "change" as const
+    }))
+    const shown: string[] = []
+    const harness = createHarness({
+      state: runState({ planConsent: true, requirements }),
+      observations: [observation(), observation(), observation()],
+      decisions: [
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "command", command: command(), requirementId: "r8" },
+        { type: "complete", summary: "Done" }
+      ],
+      approval: async (request) => {
+        shown.push(request.pageEvidence ?? "")
+        return { type: "approved" }
+      },
+      policy: () => ({ type: "allow", risk: "high", planned: true })
+    })
+    await harness.controller.start("run-1")
+    expect(shown).toHaveLength(2)
+    expect(shown[0]).not.toContain(long(8))
+    expect(shown[1]?.startsWith(`• ${long(8)}`)).toBe(true)
+    expect(harness.getState().planApproved).toContain(long(8))
+  })
+
+  it("asks again when an amendment rewords an approved outcome", async () => {
     const harness = createHarness({
       state: runState({
+        planConsent: true,
+        planApproved: ["The comment is posted"],
+        requirements: [
+          { id: "r1", text: "The comment is posted twice", kind: "change" }
+        ]
+      }),
+      decisions: [
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "complete", summary: "Done" }
+      ],
+      policy: () => ({ type: "allow", risk: "high", planned: true })
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls).toContain("approval")
+  })
+
+  it("pauses and stops running on the plan or its grants when the user rejects it", async () => {
+    const harness = createHarness({
+      state: runState({
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation", "form_mutation"],
+            grantedAt: 1
+          }
+        ],
         planConsent: true,
         requirements: [
           { id: "r1", text: "The comment is posted", kind: "change" }
@@ -655,6 +713,7 @@ describe("agent controller", () => {
       pauseReason: "user"
     })
     expect(harness.getState().planConsent).toBeUndefined()
+    expect(harness.getState().grants).toBeUndefined()
   })
 
   it("drops plan consent and browse mode for good once a page reads like an injection", async () => {

@@ -884,11 +884,14 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   the wire). Sensitive values are withheld. A value the plan's field,
   checkbox or selection check disagrees with carries `planned`.
 - **Plan consent (`follow_plan`) is opt-in.** The first step it would
-  cover asks for the plan itself instead, once: the card lists the outcomes
-  and limits (`planApprovalRequest`), approving sets `planApproved` in the
-  write that executes that step, and rejecting pauses the run with plan
-  consent dropped. After that, a step bound to a planned change on an allowed
-  site runs unasked; a submission or
+  cover asks for the plan itself instead: the card lists the step's own
+  outcome first, then the other changes, limits and reads
+  (`planApprovalRequest`). Approving records the changes the card actually
+  listed, word for word, in `planApproved` in the write that executes that
+  step; a change the card could not fit, or one an amendment reworded, asks
+  again on a card that lists it. Rejecting pauses the run with plan consent
+  and the run's routine grants dropped. After that, a step bound to an
+  approved change on an allowed site runs unasked; a submission or
   committing click only when the outcome it advances is itself a send, an
   order or a save (`COMMITTING_OUTCOME`). Repeats, critical effects, new
   sites and anything off the plan still ask. `model_after_page` goals never

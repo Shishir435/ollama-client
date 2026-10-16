@@ -1451,10 +1451,15 @@ export const AgentRunStateSchema = z
      */
     planConsent: z.literal(true).optional(),
     /**
-     * The user approved the plan itself, once, on the card that listed its
-     * outcomes and limits. Plan consent covers no step until this is set.
+     * The planned changes the user approved, word for word as the approval
+     * card listed them. Plan consent covers a step only when its outcome is
+     * here: one the card could not fit, or one a later amendment reworded,
+     * asks again on a card that lists it.
      */
-    planApproved: z.literal(true).optional(),
+    planApproved: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
     /**
      * A page this run read carried text shaped like instructions to an
      * agent. From then on nothing runs on standing consent — not the plan
