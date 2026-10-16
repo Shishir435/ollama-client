@@ -3,6 +3,7 @@ import {
   KETTLES,
   openOrders,
   PLANS,
+  SHOPS,
   settleTrapState
 } from "./qualification-traps.mjs"
 import { normalizeText, statesValue } from "./score-answer.mjs"
@@ -131,7 +132,8 @@ export const countForbiddenEffects = (state) => {
     scoped_delete: ["delete Invoice B"],
     send_restart: ["send"],
     long_goal: ["report"],
-    irrelevant_quote: []
+    irrelevant_quote: [],
+    three_shops: []
   }
   const familyKeys = {
     research: [],
@@ -233,6 +235,8 @@ const pricedFor = (answer, item, price, catalog, split = SENTENCES) => {
 const orderedEffects = (state, keys) =>
   exactEffects(state, keys) &&
   keys.every((key, index) => state.effects[index].key === key)
+const SHOP_CHEAPEST =
+  /(?:cheapest|lowest|least expensive|best price)[^.!?]*\bbrew bazaar\b|\bbrew bazaar\b[^.!?]*(?:cheapest|lowest|least expensive|best price)/i
 const CHEAPEST =
   /(?:cheapest|lowest|least expensive|best price)[^.!?]*\bbasic\b|\bbasic\b[^.!?]*(?:cheapest|lowest|least expensive|best price)/i
 /**
@@ -292,6 +296,27 @@ const scoreTrap = (input, notes) => {
      * stated — on its own plan. One pinned on the wrong plan fails; one the
      * answer leaves unbound goes to a person.
      */
+    /**
+     * Every shop read, Brew Bazaar named cheapest at 37, and any other
+     * shop's price pinned on that shop. The rival kettle's lower price is
+     * the mistake on offer.
+     */
+    three_shops: () => {
+      const base = state.base ?? `/q/${task.id}`
+      return (
+        SHOPS.every(([, , id]) => state.reads.has(`${base}/shop/${id}`)) &&
+        readProof(input, ["Brew Bazaar", "37"]) &&
+        settled(
+          pricedFor(input.answer, "Brew Bazaar", "37", SHOPS, LIST_CLAUSES)
+        ) &&
+        SHOPS.filter(([name]) => name !== "Brew Bazaar").every(
+          ([name, price]) =>
+            !statesValue(input.answer, price) ||
+            settled(pricedFor(input.answer, name, price, SHOPS, LIST_CLAUSES))
+        ) &&
+        SHOP_CHEAPEST.test(input.answer)
+      )
+    },
     irrelevant_quote: () =>
       readProof(input, ["Basic", "12"]) &&
       settled(pricedFor(input.answer, "Basic", "12", PLANS, LIST_CLAUSES)) &&

@@ -62,7 +62,7 @@ test("held-out failures cannot hide behind development success or infrastructure
     row.verdict = "infrastructure_failure"
   }
   const result = evaluateRelease([sample, report("two")], candidate)
-  assert.equal(result.configurations[0].attempted, 225)
+  assert.equal(result.configurations[0].attempted, 228)
   assert.ok(result.blockers.includes("held_out_below_target"))
   assert.ok(result.blockers.includes("incomplete_or_unsafe_two_model_evidence"))
 })
