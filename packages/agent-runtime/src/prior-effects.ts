@@ -155,41 +155,52 @@ const sameForm = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
 
 /**
  * A word that changes when the record does rather than naming it: an amount
- * ("$120", "1,250.00", "€9"), a percentage, a time. "Balance $120 Due" and
- * "Balance $0 Paid" are one record before and after a payment.
+ * ("$120", "1,250.00", "€9"), a percentage, a time, a quantity with its unit
+ * ("10am", "3x", "5kg"). "Balance $120 Due" and "Balance $0 Paid" are one
+ * record before and after a payment.
  */
-const VOLATILE_WORD = /[$€£¥₹%:]|\d[.,]\d/u
+const VOLATILE_WORD =
+  /[$€£¥₹%:]|\d[.,]\d|^\d+(?:am|pm|h|hrs?|min|mins|s|d|x|k|kg|g|km|mi|lbs?|pcs?)$/iu
 
 /**
- * The words of a row that name it, in order: ids and numbers with a digit
- * (amounts, percentages and times left out), and a capital standing alone,
- * the way "Invoice A" and "Invoice B" are told apart. Case is read off the
- * page's own text, so an article ("a") never names a record; "I" never does.
+ * The words of a row that name it, in order: an id mixing letters and digits
+ * ("INV-001", "A12"), a capital standing alone, the way "Invoice A" and
+ * "Invoice B" are told apart, and a bare number only where an id column
+ * puts it — first in the row, or marked "#" or "№". Anywhere else a bare
+ * number is as likely a balance, a count or a stock level as an id, and the
+ * click under test is exactly what changes those. Amounts, percentages and
+ * times never count. Case is read off the page's own text, so an article
+ * ("a") never names a record; "I" never does.
  */
 const identifiers = (row: string): string[] =>
   row
     .replaceAll(/\s+/g, " ")
     .trim()
     .split(" ")
-    .filter((raw) => !VOLATILE_WORD.test(raw))
-    .map((raw) => raw.replaceAll(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
-    .filter(
-      (word) => /\p{N}/u.test(word) || (/^\p{Lu}$/u.test(word) && word !== "I")
-    )
-    .map((word) => word.toLocaleLowerCase())
+    .flatMap((raw, index) => {
+      if (VOLATILE_WORD.test(raw)) return []
+      const word = raw.replaceAll(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
+      const named =
+        (/\p{N}/u.test(word) && /\p{L}/u.test(word)) ||
+        (/^\p{N}+$/u.test(word) && (index === 0 || /^[#№]/u.test(raw))) ||
+        (/^\p{Lu}$/u.test(word) && word !== "I")
+      return named ? [word.toLocaleLowerCase()] : []
+    })
 
 /**
  * Whether two rows are plainly different records: each leads with an
- * identifier — an id, a record number, a lone capital — the two lead with
- * different ones, and they share none at all. "Record 5 Due" and "Record 6
- * Due" are two records; "INV-1 $120 Due" and "INV-1 $0 Paid" are one record
- * before and after the click, which is the repeat this guard exists for. A
- * row with no identifier, or no row at all, proves nothing, and the match
- * stays as coarse as it always was.
+ * identifier — an id, a marked record number, a lone capital — the two lead
+ * with different ones, and they share none at all. "#5 Due" and "#6 Due" are
+ * two records; "INV-1 $120 Due" and "INV-1 $0 Paid", or "Balance 120 Due" and
+ * "Balance 0 Paid", are one record before and after the click, which is the
+ * repeat this guard exists for. A row with no identifier, or no row at all,
+ * proves nothing, and the match stays as coarse as it always was.
  *
- * Residual: a list that renumbers on change and shows nothing else that
- * names the record reads its moved row as a new one. That repeat still meets
- * policy's own approval for the class; it loses only the repeat notice.
+ * Residual: "Record 5" and "Record 6" name no record by these rules, so the
+ * second asks as a repeat — the safe direction. A list that renumbers on
+ * change and shows nothing else that names the record reads its moved row
+ * as a new one; that repeat still meets policy's own approval for the
+ * class, and loses only the repeat notice.
  */
 const distinctRows = (a: AgentPriorEffect, b: AgentPriorEffect): boolean => {
   if (!a.row || !b.row) return false

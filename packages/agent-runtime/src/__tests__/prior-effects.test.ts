@@ -479,9 +479,15 @@ describe("a repeat in a list of records", () => {
     })
 
   it("lets the next record's button through", () => {
-    const steps = [done("Record 5 Due Mark paid")]
     expect(
-      agentOwnEffectSettlement(markPaid("Record 6 Due Mark paid"), steps)
+      agentOwnEffectSettlement(markPaid("#6 Due Mark paid"), [
+        done("#5 Due Mark paid")
+      ])
+    ).toBeUndefined()
+    expect(
+      agentOwnEffectSettlement(markPaid("1043 Beta Due Mark paid"), [
+        done("1042 Acme Due Mark paid")
+      ])
     ).toBeUndefined()
     expect(
       agentRepeatsPriorEffect(
@@ -524,6 +530,22 @@ describe("a repeat in a list of records", () => {
         done("Balance $120 Due Mark paid")
       ])
     ).toBe("confirmed")
+    /** A bare number in the middle of a row is a balance or a count. */
+    expect(
+      agentOwnEffectSettlement(markPaid("Balance 0 Paid Mark paid"), [
+        done("Balance 120 Due Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(markPaid("Kettle 2 left Mark paid"), [
+        done("Kettle 3 left Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(markPaid("Slot 11am Mark paid"), [
+        done("Slot 10am Mark paid")
+      ])
+    ).toBe("confirmed")
     expect(
       agentOwnEffectSettlement(markPaid("Paid in 2.5 days Mark paid"), [
         done("Due in 1.5 days Mark paid")
@@ -537,6 +559,12 @@ describe("a repeat in a list of records", () => {
   })
 
   it("stays coarse when either side cannot name its record", () => {
+    /** An unmarked number after a label could be either; it asks. */
+    expect(
+      agentOwnEffectSettlement(markPaid("Record 6 Due Mark paid"), [
+        done("Record 5 Due Mark paid")
+      ])
+    ).toBe("confirmed")
     expect(
       agentOwnEffectSettlement(markPaid("Acme Due Mark paid"), [
         done("Beta Due Mark paid")

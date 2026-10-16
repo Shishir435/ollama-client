@@ -865,9 +865,15 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   control asks as a repeat, and no constraint forbids it.
 - **The repeat guard knows which record it touched.** A prior effect keeps
   its row (`row`, the row context minus the control's label). Two rows are
-  different records only when both carry words with a digit and share none
-  ("Record 5" / "Record 6"); a row with none, or no row, keeps the coarse
-  match. A list that renumbers on change loses only the repeat notice.
+  different records only when both lead with an identifier, the leads
+  differ, and they share none: an id mixing letters and digits ("INV-001"),
+  a lone capital ("Invoice A"), or a bare number that leads the row or is
+  marked `#`. A bare number anywhere else is a balance or a count and never
+  names a record, so "Balance 120 Due" / "Balance 0 Paid" stays one record,
+  and so does "Record 5" / "Record 6" (it asks). Amounts, times and
+  quantities with units never count. A row with no identifier, or no row,
+  keeps the coarse match. A list that renumbers on change loses only the
+  repeat notice.
 - **Browse mode: a read-only plan asks for almost nothing.** When every
   requirement is a read (`agentPlanIsReadOnly`), policy (`browseAllows`)
   lets navigation to any http(s) site, search forms, search boxes, filters
@@ -892,8 +898,10 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   again on a card that lists it. Rejecting pauses the run with plan consent
   and the run's routine grants dropped. After that, a step bound to an
   approved change on an allowed site runs unasked; a submission or
-  committing click only when the outcome it advances is itself a send, an
-  order or a save (`COMMITTING_OUTCOME`). Repeats, critical effects, new
+  committing click only when the outcome's own text states a finished send,
+  order or save (`COMMITTING_OUTCOME`, past forms only, since the bare ones
+  double as nouns) — never the goal words it quotes, and never an outcome
+  checked as a field, box or option, which is a fill. Repeats, critical effects, new
   sites and anything off the plan still ask. `model_after_page` goals never
   get it. A page shaped like an injection sets `injectionSuspected`
   durably, and from then on neither plan consent nor browse mode applies.

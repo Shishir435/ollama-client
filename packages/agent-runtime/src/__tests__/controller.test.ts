@@ -582,6 +582,9 @@ describe("agent controller", () => {
   it.each([
     ["The comment is posted", [], true],
     ["The comment field holds Hello", [], false],
+    ["Comment field contains Hello", [], false],
+    ["The submit button shows the order form", [], false],
+    ["The order is placed", [], true],
     ["The draft is saved, not posted", [], false],
     ["Reply is written without sending it", [], false],
     [
@@ -615,6 +618,41 @@ describe("agent controller", () => {
     })
     await harness.controller.start("run-1")
     expect(seen[0]).toEqual({ commits })
+  })
+
+  it("never lets a fill outcome submit, whatever its words or the goal it quotes", async () => {
+    const seen: (AgentPolicyInput["planned"] | undefined)[] = []
+    const harness = createHarness({
+      state: runState({
+        planConsent: true,
+        requirements: [
+          {
+            id: "r1",
+            text: "The reply is sent",
+            kind: "change",
+            check: { type: "field", name: "Reply", value: "Hello" }
+          },
+          {
+            id: "r2",
+            text: "Reply field contains Hello",
+            kind: "change",
+            source: "write Hello and send it"
+          }
+        ]
+      }),
+      observations: [observation(), observation(), observation()],
+      decisions: [
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "command", command: command(), requirementId: "r2" },
+        { type: "complete", summary: "Done" }
+      ],
+      policy: (input) => {
+        seen.push(input.planned)
+        return { type: "allow", risk: "high" }
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(seen.slice(0, 2)).toEqual([{ commits: false }, { commits: false }])
   })
 
   it("asks for the plan once, before its first covered step, and not again", async () => {

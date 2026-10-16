@@ -404,27 +404,40 @@ const planApprovalRequest = (
 }
 
 /**
- * Verbs of sending, ordering, posting, booking or saving, as actions: a
- * planned outcome stated with one may submit; any other may only prepare.
- * Nouns are left out — "the comment field holds Hello" is a fill, not a
- * post — and so is "post" itself, which names a thing as often as an act.
- * English, like the plan's own boundary rules; a plan in another language
- * keeps asking at the send, which is the safe direction.
+ * Outcomes of sending, ordering, posting, booking or saving, stated as the
+ * state they leave: a planned outcome that reads as one may submit; any other
+ * may only prepare. Only the finished forms count, because a plan states
+ * outcomes rather than steps, and the bare forms double as nouns — "the
+ * submit button", "the order form", "the booking register", "the save
+ * slot". English, like the plan's own boundary rules; a plan in another
+ * language keeps asking at the send, which is the safe direction.
  */
 const COMMITTING_VERBS =
-  "submit|submits|submitted|send|sends|sent|posted|publish|publishes|published|place the order|place an order|placed the order|placed an order|order it|ordered|purchase|purchased|buy|bought|book|booked|reserve|reserved|register|registered|sign up|signed up|subscribe|subscribed|confirm|confirmed|check out|checked out|apply|applied|save|saves|saved|create|created|add to|added to"
+  "submitted|sent|posted|published|placed (?:the|an|my|your) order|order (?:is|was|has been) placed|ordered|purchased|bought|booked|reserved|registered|signed up|subscribed|confirmed|checked out|applied|saved|created|added to"
 const COMMITTING_OUTCOME = new RegExp(`\\b(?:${COMMITTING_VERBS})\\b`, "i")
 /** The same verbs denied: "saved, not posted", "without submitting". */
 const DENIED_OUTCOME = new RegExp(
-  `(?:\\b(?:not|never|without|no)\\b|n't)[^.;]{0,40}\\b(?:${COMMITTING_VERBS}|submitting|sending|posting|publishing|ordering|buying|booking|saving)\\b`,
+  `(?:\\b(?:not|never|without|no)\\b|n't)[^.;]{0,40}\\b(?:${COMMITTING_VERBS}|submit|submitting|send|sending|post|posting|publish|publishing|order|ordering|buy|buying|book|booking|save|saving)\\b`,
   "i"
 )
 
 /**
+ * A check that reads a control's value, box or option: the outcome is a
+ * filled form, whatever its words say, and filling one never submits it.
+ */
+const FILL_CHECKS: ReadonlySet<string> = new Set([
+  "field",
+  "checked",
+  "selected"
+])
+
+/**
  * The plan consent a step carries into policy: the run has it, no page has
  * looked like an injection, and the step names a planned change. Whether it
- * may submit reads the outcome's own verb, never a denial of one, and never
- * while any planned constraint forbids a submission or a payment.
+ * may submit reads the outcome's own text — never the goal words it quotes,
+ * which can ask for a send the outcome itself only prepares — and never a
+ * denial, a fill check, or a run whose constraints forbid a submission or a
+ * payment.
  */
 const plannedConsentFor = (
   state: Pick<
@@ -439,7 +452,6 @@ const plannedConsentFor = (
     (entry) => entry.id === requirementId && entry.kind === "change"
   )
   if (!requirement) return {}
-  const words = `${requirement.text} ${requirement.source ?? ""}`
   const forbidden = (state.constraints ?? []).some((constraint) =>
     constraint.forbids?.some(
       (effect) => effect === "submission" || effect === "payment"
@@ -449,8 +461,9 @@ const plannedConsentFor = (
     planned: {
       commits:
         !forbidden &&
-        COMMITTING_OUTCOME.test(words) &&
-        !DENIED_OUTCOME.test(words)
+        !(requirement.check && FILL_CHECKS.has(requirement.check.type)) &&
+        COMMITTING_OUTCOME.test(requirement.text) &&
+        !DENIED_OUTCOME.test(requirement.text)
     }
   }
 }
