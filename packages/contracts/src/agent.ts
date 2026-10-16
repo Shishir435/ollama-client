@@ -430,7 +430,9 @@ export const AgentApprovalRequestSchema = z
         entries: z
           .array(AgentApprovalValueSchema)
           .min(1)
-          .max(MAX_AGENT_APPROVAL_VALUES)
+          .max(MAX_AGENT_APPROVAL_VALUES),
+        /** Controls the list could not hold, so the card can say so. */
+        omitted: z.number().int().positive().optional()
       })
       .strict()
       .optional(),

@@ -518,6 +518,24 @@ describe("a repeat in a list of records", () => {
     ).toBe("confirmed")
   })
 
+  it("does not read a changed amount or an article as a new record", () => {
+    expect(
+      agentOwnEffectSettlement(markPaid("Balance $0 Paid Mark paid"), [
+        done("Balance $120 Due Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(markPaid("Paid in 2.5 days Mark paid"), [
+        done("Due in 1.5 days Mark paid")
+      ])
+    ).toBe("confirmed")
+    expect(
+      agentOwnEffectSettlement(markPaid("Beta is a supplier Mark paid"), [
+        done("Acme is a supplier Mark paid")
+      ])
+    ).toBe("confirmed")
+  })
+
   it("stays coarse when either side cannot name its record", () => {
     expect(
       agentOwnEffectSettlement(markPaid("Acme Due Mark paid"), [

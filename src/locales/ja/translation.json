@@ -54,7 +54,9 @@
         "checked": "オン",
         "unchecked": "オフ",
         "empty": "（空）",
-        "planned": "計画の値: {{value}}"
+        "planned": "計画の値: {{value}}",
+        "omitted_one": "表示されていない項目があと {{count}} 件",
+        "omitted_other": "表示されていない項目があと {{count}} 件"
       }
     },
     "browser_disconnected": "ブラウザー制御が切断されたため、Agent を一時停止しました。再開前にページを確認してください。",

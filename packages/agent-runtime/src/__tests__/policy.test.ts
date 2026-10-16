@@ -1376,11 +1376,63 @@ describe("browse mode for a read-only plan", () => {
       })
     ],
     ["a delete", effect(["activation", "destructive"])],
-    ["a download", effect(["navigation", "download"])]
+    ["a download", effect(["navigation", "download"])],
+    [
+      "a saving button",
+      effect(["activation"], {
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          role: "button",
+          accessibleName: "Speichern",
+          savingLabel: true
+        }
+      })
+    ],
+    [
+      "a checkbox in no form",
+      effect(["form_mutation"], {
+        command: {
+          type: "check",
+          ref: "e1",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          accessibleName: "Email me"
+        }
+      })
+    ]
   ])("still asks for %s", (_name, resolved) => {
     expect(
       evaluateAgentPolicy(input(resolved, { browse: true })).type
     ).not.toBe("allow")
+  })
+
+  it("ticks a filter in a form that only queries", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["form_mutation"], {
+            command: {
+              type: "check",
+              ref: "e1",
+              snapshotId: "snapshot-1",
+              generation: 1
+            },
+            target: {
+              sensitive: false,
+              maySubmit: false,
+              accessibleName: "16 GB",
+              formMethod: "get"
+            }
+          }),
+          { browse: true }
+        )
+      ).type
+    ).toBe("allow")
   })
 })
 

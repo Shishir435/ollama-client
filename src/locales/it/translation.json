@@ -54,7 +54,9 @@
         "checked": "Selezionato",
         "unchecked": "Non selezionato",
         "empty": "(vuoto)",
-        "planned": "Il piano prevede: {{value}}"
+        "planned": "Il piano prevede: {{value}}",
+        "omitted_one": "{{count}} altro campo non mostrato",
+        "omitted_other": "{{count}} altri campi non mostrati"
       }
     },
     "browser_disconnected": "Il controllo del browser si è disconnesso, quindi Agent è in pausa. Controlla la pagina prima di riprendere.",

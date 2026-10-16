@@ -336,7 +336,11 @@ export interface ResolvedAgentEffect {
    * page order, so its approval can show the whole form rather than the
    * button. Absent for anything that does not submit a form.
    */
-  submitted?: { fields: readonly AgentSubmittedField[] }
+  submitted?: {
+    fields: readonly AgentSubmittedField[]
+    /** Controls past the listed ones, counted rather than dropped silently. */
+    omitted?: number
+  }
   /** WebMCP descriptor bound to the document and schema the model saw. */
   pageTool?: AgentPageTool
   destination?: AgentDestination

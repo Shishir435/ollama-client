@@ -780,29 +780,30 @@ const MAX_SUBMITTED_FIELDS = 24
 const MAX_SUBMITTED_VALUE_CHARS = 500
 
 /**
- * The other controls of the form a submission sends, in page order, for the
- * approval that asks about it. A form is the observation's own fingerprint,
- * so two forms on one page are never mixed; a control in no recognized form
- * contributes nothing rather than a guess.
+ * The controls of the form a submission sends, in page order, for the
+ * approval that asks about it: every value control, including the field
+ * Enter was pressed in, and never the button that submits. A form is the
+ * observation's own fingerprint, so two forms on one page are never mixed;
+ * a control in no recognized form contributes nothing rather than a guess.
+ * A long value keeps an ellipsis and the fields past the cap are counted,
+ * so a partial list never reads as everything the form will send.
  */
 const submittedFields = (
   element: AgentElement,
   observation: AgentObservation
-): AgentSubmittedField[] => {
+): { fields: AgentSubmittedField[]; omitted: number } => {
   const form = element.formFingerprint
-  if (!form) return []
-  return observation.elements
-    .filter(
-      (candidate) =>
-        candidate.ref !== element.ref &&
-        candidate.formFingerprint === form &&
-        candidate.frameId === element.frameId &&
-        !candidate.submitter &&
-        ["input", "select", "textarea"].includes(candidate.tag) &&
-        !UNSENT_INPUT_TYPES.has(candidate.type?.toLowerCase() ?? "")
-    )
-    .slice(0, MAX_SUBMITTED_FIELDS)
-    .map((candidate) => {
+  if (!form) return { fields: [], omitted: 0 }
+  const controls = observation.elements.filter(
+    (candidate) =>
+      candidate.formFingerprint === form &&
+      candidate.frameId === element.frameId &&
+      !candidate.submitter &&
+      ["input", "select", "textarea"].includes(candidate.tag) &&
+      !UNSENT_INPUT_TYPES.has(candidate.type?.toLowerCase() ?? "")
+  )
+  return {
+    fields: controls.slice(0, MAX_SUBMITTED_FIELDS).map((candidate) => {
       const name =
         candidate.name?.trim() ||
         candidate.placeholder?.trim() ||
@@ -812,11 +813,18 @@ const submittedFields = (
       const type = candidate.type?.toLowerCase()
       if (type === "checkbox" || type === "radio")
         return { name, checked: candidate.checked === true }
+      const value = candidate.value ?? ""
       return {
         name,
-        value: (candidate.value ?? "").slice(0, MAX_SUBMITTED_VALUE_CHARS)
+        value:
+          value.length > MAX_SUBMITTED_VALUE_CHARS ||
+          candidate.valueTruncated === true
+            ? `${value.slice(0, MAX_SUBMITTED_VALUE_CHARS - 1)}…`
+            : value
       }
-    })
+    }),
+    omitted: Math.max(0, controls.length - MAX_SUBMITTED_FIELDS)
+  }
 }
 
 const isDomMutationAction = (type: string): type is DomMutationAgentAction =>
@@ -1481,7 +1489,7 @@ export const resolveDomMutationAgentEffect = async (input: {
 
   const submitted = effects.includes("submission")
     ? submittedFields(element, observation)
-    : []
+    : { fields: [], omitted: 0 }
   return {
     command,
     target: {
@@ -1492,7 +1500,14 @@ export const resolveDomMutationAgentEffect = async (input: {
       ...committingLabelOf(effects, element),
       ...savingLabelOf(effects, element)
     },
-    ...(submitted.length ? { submitted: { fields: submitted } } : {}),
+    ...(submitted.fields.length
+      ? {
+          submitted: {
+            fields: submitted.fields,
+            ...(submitted.omitted ? { omitted: submitted.omitted } : {})
+          }
+        }
+      : {}),
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],
     snapshotIdentity: rootAgentSnapshotIdentity(observation),

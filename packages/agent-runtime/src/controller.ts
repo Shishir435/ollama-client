@@ -371,22 +371,32 @@ const planApprovalRequest = (
 }
 
 /**
- * Words naming a step that sends, orders, posts or books something. A
- * planned outcome in these words may submit; any other may only prepare.
+ * Verbs of sending, ordering, posting, booking or saving, as actions: a
+ * planned outcome stated with one may submit; any other may only prepare.
+ * Nouns are left out — "the comment field holds Hello" is a fill, not a
+ * post — and so is "post" itself, which names a thing as often as an act.
  * English, like the plan's own boundary rules; a plan in another language
  * keeps asking at the send, which is the safe direction.
  */
-const COMMITTING_OUTCOME =
-  /\b(?:submit\w*|send\w*|sent|post\w*|publish\w*|reply|replies|comment\w*|order\w*|purchase\w*|buy\w*|book\w*|reserve\w*|reservation|register\w*|sign\w* up|subscribe\w*|confirm\w*|place[sd]?|checkout|check out|apply|applied|save[sd]?|saving|create[sd]?|add(?:ed)? to)\b/i
+const COMMITTING_VERBS =
+  "submit|submits|submitted|send|sends|sent|posted|publish|publishes|published|place the order|place an order|placed the order|placed an order|order it|ordered|purchase|purchased|buy|bought|book|booked|reserve|reserved|register|registered|sign up|signed up|subscribe|subscribed|confirm|confirmed|check out|checked out|apply|applied|save|saves|saved|create|created|add to|added to"
+const COMMITTING_OUTCOME = new RegExp(`\\b(?:${COMMITTING_VERBS})\\b`, "i")
+/** The same verbs denied: "saved, not posted", "without submitting". */
+const DENIED_OUTCOME = new RegExp(
+  `(?:\\b(?:not|never|without|no)\\b|n't)[^.;]{0,40}\\b(?:${COMMITTING_VERBS}|submitting|sending|posting|publishing|ordering|buying|booking|saving)\\b`,
+  "i"
+)
 
 /**
  * The plan consent a step carries into policy: the run has it, no page has
- * looked like an injection, and the step names a planned change.
+ * looked like an injection, and the step names a planned change. Whether it
+ * may submit reads the outcome's own verb, never a denial of one, and never
+ * while any planned constraint forbids a submission or a payment.
  */
 const plannedConsentFor = (
   state: Pick<
     AgentRunState,
-    "planConsent" | "injectionSuspected" | "requirements"
+    "planConsent" | "injectionSuspected" | "requirements" | "constraints"
   >,
   requirementId: string | undefined
 ): { planned?: { commits: boolean } } => {
@@ -396,11 +406,18 @@ const plannedConsentFor = (
     (entry) => entry.id === requirementId && entry.kind === "change"
   )
   if (!requirement) return {}
+  const words = `${requirement.text} ${requirement.source ?? ""}`
+  const forbidden = (state.constraints ?? []).some((constraint) =>
+    constraint.forbids?.some(
+      (effect) => effect === "submission" || effect === "payment"
+    )
+  )
   return {
     planned: {
-      commits: COMMITTING_OUTCOME.test(
-        `${requirement.text} ${requirement.source ?? ""}`
-      )
+      commits:
+        !forbidden &&
+        COMMITTING_OUTCOME.test(words) &&
+        !DENIED_OUTCOME.test(words)
     }
   }
 }
@@ -1622,7 +1639,13 @@ export const createAgentController = (
       effect,
       allowedOrigins: state.allowedOrigins,
       scopedTabIds: agentTabScope(state),
-      ...(state.grants?.length ? { grants: state.grants } : {}),
+      /**
+       * A page shaped like an injection ends every standing consent, grants
+       * included: from then on each step that would have run on one asks.
+       */
+      ...(state.grants?.length && !state.injectionSuspected
+        ? { grants: state.grants }
+        : {}),
       ...(authoredText?.length ? { authoredText } : {}),
       ...(state.previousRun &&
       agentRepeatsPriorForm(effect, state.previousRun.effects)

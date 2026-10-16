@@ -789,7 +789,12 @@ export const createAgentRunService = (input?: {
   const settle = async (runId: string) => {
     const state = await persistence.load(runId)
     if (!state || !isTerminalAgentStatus(state.status)) return
-    const chat = runChats.get(runId)
+    /**
+     * A run resumed after a worker restart was never started in this worker,
+     * so its chat is read from the durable link rather than lost with memory.
+     */
+    const chat =
+      runChats.get(runId) ?? (await readRun(runId).catch(() => null))?.sessionId
     runChats.delete(runId)
     if (chat) await rememberConsent(chat, state)
     await detachBrowserSession(runId)

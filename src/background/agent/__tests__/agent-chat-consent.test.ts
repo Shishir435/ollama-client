@@ -89,3 +89,18 @@ describe("routine consent a chat carries", () => {
     ])
   })
 })
+
+it("keeps both of two writes that land together", async () => {
+  const store = area()
+  const consent = createAgentChatConsent(store)
+  await Promise.all([
+    consent.remember("one", [
+      { origin: "https://a.example", effects: ["activation"], grantedAt: 1 }
+    ]),
+    consent.remember("two", [
+      { origin: "https://b.example", effects: ["activation"], grantedAt: 2 }
+    ])
+  ])
+  expect(await consent.read("one")).toHaveLength(1)
+  expect(await consent.read("two")).toHaveLength(1)
+})

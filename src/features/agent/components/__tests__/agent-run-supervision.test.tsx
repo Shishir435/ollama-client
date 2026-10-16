@@ -185,7 +185,8 @@ describe("AgentRunSupervision", () => {
             { field: "Newsletter", checked: false },
             { field: "Card", masked: true },
             { field: "Note", value: "" }
-          ]
+          ],
+          omitted: 3
         }
       }
     })
@@ -196,6 +197,9 @@ describe("AgentRunSupervision", () => {
     ).toBeInTheDocument()
     expect(screen.getByText("agent.approval.values.masked")).toBeInTheDocument()
     expect(screen.getByText("agent.approval.values.empty")).toBeInTheDocument()
+    expect(
+      screen.getByText('agent.approval.values.omitted:{"count":3}')
+    ).toBeInTheDocument()
     expect(
       screen.getByText(
         'agent.approval.values.planned:{"value":"grace@example.com"}'

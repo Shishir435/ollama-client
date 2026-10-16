@@ -154,37 +154,51 @@ const sameForm = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
   )
 
 /**
- * The words of a row that name it: anything with a digit — ids, numbers,
- * amounts, dates — and a lone letter, the way "Invoice A" and "Invoice B"
- * are told apart.
+ * A word that changes when the record does rather than naming it: an amount
+ * ("$120", "1,250.00", "€9"), a percentage, a time. "Balance $120 Due" and
+ * "Balance $0 Paid" are one record before and after a payment.
  */
-const identifiers = (row: string): Set<string> =>
-  new Set(
-    normalized(row)
-      .split(" ")
-      .map((word) => word.replaceAll(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
-      .filter((word) => /\p{N}/u.test(word) || /^\p{L}$/u.test(word))
-  )
+const VOLATILE_WORD = /[$€£¥₹%:]|\d[.,]\d/u
 
 /**
- * Whether two rows are plainly different records: both name something with a
- * digit in it — an invoice number, a record id, an amount — or a lone letter,
- * and they share none of it. "Record 5 Due" and "Record 6 Due" are two records; "INV-1 $120
- * Due" and "INV-1 $0 Paid" are one record before and after the click, which
- * is the repeat this guard exists for. A row with no such word, or no row at
- * all, proves nothing, and the match stays as coarse as it always was.
+ * The words of a row that name it, in order: ids and numbers with a digit
+ * (amounts, percentages and times left out), and a capital standing alone,
+ * the way "Invoice A" and "Invoice B" are told apart. Case is read off the
+ * page's own text, so an article ("a") never names a record; "I" never does.
+ */
+const identifiers = (row: string): string[] =>
+  row
+    .replaceAll(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter((raw) => !VOLATILE_WORD.test(raw))
+    .map((raw) => raw.replaceAll(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+    .filter(
+      (word) => /\p{N}/u.test(word) || (/^\p{Lu}$/u.test(word) && word !== "I")
+    )
+    .map((word) => word.toLocaleLowerCase())
+
+/**
+ * Whether two rows are plainly different records: each leads with an
+ * identifier — an id, a record number, a lone capital — the two lead with
+ * different ones, and they share none at all. "Record 5 Due" and "Record 6
+ * Due" are two records; "INV-1 $120 Due" and "INV-1 $0 Paid" are one record
+ * before and after the click, which is the repeat this guard exists for. A
+ * row with no identifier, or no row at all, proves nothing, and the match
+ * stays as coarse as it always was.
  *
- * Residual: a list that renumbers on change and shows nothing else with a
- * digit reads its moved row as a new one. That repeat still meets policy's
- * own approval for the class; it loses only the repeat notice.
+ * Residual: a list that renumbers on change and shows nothing else that
+ * names the record reads its moved row as a new one. That repeat still meets
+ * policy's own approval for the class; it loses only the repeat notice.
  */
 const distinctRows = (a: AgentPriorEffect, b: AgentPriorEffect): boolean => {
   if (!a.row || !b.row) return false
   const left = identifiers(a.row)
   const right = identifiers(b.row)
-  if (left.size === 0 || right.size === 0) return false
-  for (const word of left) if (right.has(word)) return false
-  return true
+  if (left.length === 0 || right.length === 0) return false
+  if (left[0] === right[0]) return false
+  const seen = new Set(right)
+  return !left.some((word) => seen.has(word))
 }
 
 /**

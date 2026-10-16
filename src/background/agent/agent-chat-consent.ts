@@ -88,6 +88,16 @@ export const createAgentChatConsent = (
     | undefined
 ): AgentChatConsent => {
   let memory: Consent = {}
+  /**
+   * Writes run one after another: two runs settling together each read the
+   * same snapshot, and the later save would drop the earlier one's grants.
+   */
+  let queue: Promise<unknown> = Promise.resolve()
+  const serial = <T>(work: () => Promise<T>): Promise<T> => {
+    const next = queue.then(work, work)
+    queue = next.catch(() => undefined)
+    return next
+  }
   const load = async (): Promise<Consent> => {
     if (!area) return memory
     try {
@@ -116,24 +126,28 @@ export const createAgentChatConsent = (
         return routine ? [routine] : []
       })
     },
-    async remember(sessionId, grants) {
+    remember(sessionId, grants) {
       const routine = grants.flatMap((grant) => {
         const part = routinePart(grant)
         return part ? [part] : []
       })
-      if (routine.length === 0) return
-      const consent = await load()
-      const { [sessionId]: previous = [], ...others } = consent
-      const kept = Object.entries(others).slice(-(MAX_CHATS - 1))
-      await save({
-        ...Object.fromEntries(kept),
-        [sessionId]: mergeAgentGrants(routine, previous)
+      if (routine.length === 0) return Promise.resolve()
+      return serial(async () => {
+        const consent = await load()
+        const { [sessionId]: previous = [], ...others } = consent
+        const kept = Object.entries(others).slice(-(MAX_CHATS - 1))
+        await save({
+          ...Object.fromEntries(kept),
+          [sessionId]: mergeAgentGrants(routine, previous)
+        })
       })
     },
-    async forget(sessionId) {
-      if (sessionId === undefined) return save({})
-      const { [sessionId]: _dropped, ...others } = await load()
-      await save(others)
+    forget(sessionId) {
+      return serial(async () => {
+        if (sessionId === undefined) return save({})
+        const { [sessionId]: _dropped, ...others } = await load()
+        await save(others)
+      })
     }
   }
 }

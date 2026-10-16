@@ -54,7 +54,9 @@
         "checked": "Ausgewählt",
         "unchecked": "Nicht ausgewählt",
         "empty": "(leer)",
-        "planned": "Laut Plan: {{value}}"
+        "planned": "Laut Plan: {{value}}",
+        "omitted_one": "{{count}} weiteres Feld nicht angezeigt",
+        "omitted_other": "{{count}} weitere Felder nicht angezeigt"
       }
     },
     "browser_disconnected": "Die Browsersteuerung wurde getrennt, daher wurde Agent pausiert. Prüfen Sie die Seite vor dem Fortsetzen.",

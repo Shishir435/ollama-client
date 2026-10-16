@@ -54,7 +54,9 @@
         "checked": "Coché",
         "unchecked": "Non coché",
         "empty": "(vide)",
-        "planned": "Le plan prévoit : {{value}}"
+        "planned": "Le plan prévoit : {{value}}",
+        "omitted_one": "{{count}} champ supplémentaire non affiché",
+        "omitted_other": "{{count}} champs supplémentaires non affichés"
       }
     },
     "browser_disconnected": "Le contrôle du navigateur s’est déconnecté. Agent est donc en pause. Vérifiez la page avant de reprendre.",

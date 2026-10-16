@@ -178,6 +178,13 @@ export const AgentApprovalCard = ({
               <ApprovalValue entry={entry} key={id} />
             ))}
           </dl>
+          {request.values.omitted ? (
+            <p className="mt-0.5 italic text-muted-foreground">
+              {t("agent.approval.values.omitted", {
+                count: request.values.omitted
+              })}
+            </p>
+          ) : null}
         </div>
       )}
       <div className="mt-2 flex gap-1.5">

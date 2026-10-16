@@ -136,12 +136,21 @@ describe("the browser task's start prompt", () => {
 
     const demand = await task.confirmation(request, turn())
     expect(demand.notes).toContain("agent.start_gate.plan")
-    await task.run(request, turn())
+    await task.run(
+      request,
+      turn({ userConfirmed: true, confirmedNotes: demand.notes })
+    )
     expect(service.delegate).toHaveBeenLastCalledWith(
       expect.objectContaining({
         allowRoutineActions: true,
         allowPlannedActions: true
       })
+    )
+
+    /** A start an earlier grant covered showed no prompt and gets none. */
+    await task.run(request, turn())
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowPlannedActions: expect.anything() })
     )
 
     const read = await task.confirmation(

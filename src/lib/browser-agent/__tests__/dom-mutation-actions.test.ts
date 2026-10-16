@@ -2210,3 +2210,45 @@ describe("a script button's label", () => {
     }).toEqual(expected)
   })
 })
+
+describe("what Enter in a field sends", () => {
+  it("lists the field Enter was pressed in, and marks a cut value", async () => {
+    const form = {
+      formFingerprint: "0000abcd",
+      formAction: new URL("/subscribe", location.href).href,
+      formMethod: "post" as const
+    }
+    const before = observation({
+      elements: [
+        element({
+          ref: "e1",
+          tag: "input",
+          name: "Email",
+          editable: true,
+          value: "ada@example.com",
+          maySubmit: true,
+          focused: true,
+          ...form
+        }),
+        element({
+          ref: "e2",
+          tag: "textarea",
+          name: "Note",
+          editable: true,
+          value: "x".repeat(600),
+          ...form
+        })
+      ]
+    })
+    const effect = await resolve(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      before
+    )
+    expect(effect.submitted?.fields[0]).toEqual({
+      name: "Email",
+      value: "ada@example.com"
+    })
+    expect(effect.submitted?.fields[1]?.value?.endsWith("…")).toBe(true)
+    expect(effect.submitted?.fields[1]?.value).toHaveLength(500)
+  })
+})

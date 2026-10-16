@@ -54,7 +54,9 @@
         "checked": "Checked",
         "unchecked": "Not checked",
         "empty": "(empty)",
-        "planned": "The plan says: {{value}}"
+        "planned": "The plan says: {{value}}",
+        "omitted_one": "{{count}} more field not shown",
+        "omitted_other": "{{count}} more fields not shown"
       }
     },
     "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",

@@ -54,7 +54,9 @@
         "checked": "Marcado",
         "unchecked": "Sin marcar",
         "empty": "(vacío)",
-        "planned": "El plan indica: {{value}}"
+        "planned": "El plan indica: {{value}}",
+        "omitted_one": "{{count}} campo más no mostrado",
+        "omitted_other": "{{count}} campos más no mostrados"
       }
     },
     "browser_disconnected": "El control del navegador se desconectó, por lo que Agent se pausó. Revisa la página antes de continuar.",

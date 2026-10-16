@@ -610,10 +610,16 @@ const approvalValues = (
             ? { checked: field.checked }
             : { value: clipped(field.value ?? "") })
       }))
+    const omitted =
+      (effect.submitted?.omitted ?? 0) +
+      Math.max(0, submitted.length - MAX_AGENT_APPROVAL_VALUES)
     return {
       values: {
         kind: "sent",
-        entries: entries.map((entry) => withPlanned(entry, input.plannedValues))
+        entries: entries.map((entry) =>
+          withPlanned(entry, input.plannedValues)
+        ),
+        ...(omitted ? { omitted } : {})
       }
     }
   }
@@ -902,7 +908,9 @@ const browsesWithControl = (input: AgentPolicyInput): boolean => {
 
 /**
  * A field a read-only plan may fill: a search box, or a filter or sort
- * control outside any form that posts. Typing anywhere else is writing.
+ * control in a form that only queries (GET). A checkbox or select in no such
+ * form may be a setting the page saves as it changes — "Email me" outside
+ * any form — so it asks. Typing anywhere but a search box is writing.
  */
 const browsesWithField = (input: AgentPolicyInput): boolean => {
   const { command, target } = input.effect
@@ -911,9 +919,10 @@ const browsesWithField = (input: AgentPolicyInput): boolean => {
   if (command.type === "type" || command.type === "clear_and_type")
     return target.searchForm === true || target.inputType === "search"
   return (
-    command.type === "select" ||
-    command.type === "check" ||
-    command.type === "uncheck"
+    (command.type === "select" ||
+      command.type === "check" ||
+      command.type === "uncheck") &&
+    (target.searchForm === true || target.formMethod === "get")
   )
 }
 
@@ -932,7 +941,12 @@ const browsesWithField = (input: AgentPolicyInput): boolean => {
 const browseAllows = (input: AgentPolicyInput, risk: AgentRisk): boolean => {
   if (risk === "critical") return false
   const { target, semanticEffects, destination } = input.effect
-  if (target.sensitive || target.committingLabel === true) return false
+  if (
+    target.sensitive ||
+    target.committingLabel === true ||
+    target.savingLabel === true
+  )
+    return false
   if (!semanticEffects.every((effect) => BROWSE_EFFECTS.has(effect)))
     return false
   if (adoptsTab(input) !== undefined) return false

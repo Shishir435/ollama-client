@@ -54,7 +54,9 @@
         "checked": "已勾选",
         "unchecked": "未勾选",
         "empty": "（空）",
-        "planned": "计划中的值：{{value}}"
+        "planned": "计划中的值：{{value}}",
+        "omitted_one": "另有 {{count}} 个字段未显示",
+        "omitted_other": "另有 {{count}} 个字段未显示"
       }
     },
     "browser_disconnected": "浏览器控制已断开，因此 Agent 已暂停。请检查页面后再继续。",

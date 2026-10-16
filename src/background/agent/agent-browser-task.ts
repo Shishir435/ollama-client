@@ -47,8 +47,11 @@ const ROUTINE_NOTE = "agent.start_gate.routine"
 const PLAN_NOTE = "agent.start_gate.plan"
 
 /**
- * Whether a run starts with plan consent: the user chose it in settings, and
- * the goal is not one the chat model wrote after reading a page.
+ * Whether the start prompt offers plan consent: the user chose it in
+ * settings, and the goal is not one the chat model wrote after reading a
+ * page. The run gets it only from a prompt the user answered that carried
+ * the note, and only while the setting still allows it — like search
+ * consent, a start an earlier grant covered showed nothing and gets nothing.
  */
 const followsPlan = (mode: unknown, pageFirst: boolean): boolean =>
   mode === "follow_plan" && !pageFirst
@@ -599,7 +602,9 @@ export const createBrowserTaskRunner = (
         ...(searchesConsented(ctx, mode, turn.pageFirst)
           ? { allowSearches: true }
           : {}),
-        ...(followsPlan(mode, turn.pageFirst)
+        ...(followsPlan(mode, turn.pageFirst) &&
+        ctx.userConfirmed === true &&
+        ctx.confirmedNotes?.includes(PLAN_NOTE) === true
           ? { allowPlannedActions: true }
           : {}),
         ...(admitted.experimental ? { allowExperimentalModel: true } : {}),

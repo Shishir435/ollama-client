@@ -576,6 +576,44 @@ describe("agent controller", () => {
     expect(seen[0]).toEqual({ commits: true })
   })
 
+  it.each([
+    ["The comment is posted", [], true],
+    ["The comment field holds Hello", [], false],
+    ["The draft is saved, not posted", [], false],
+    ["Reply is written without sending it", [], false],
+    [
+      "The order is placed",
+      [
+        {
+          id: "c1",
+          text: "Do not pay",
+          kind: "exclude" as const,
+          forbids: ["payment" as const]
+        }
+      ],
+      false
+    ]
+  ])("reads %s as committing: %s", async (text, constraints, commits) => {
+    const seen: (AgentPolicyInput["planned"] | undefined)[] = []
+    const harness = createHarness({
+      state: runState({
+        planConsent: true,
+        requirements: [{ id: "r1", text, kind: "change" }],
+        ...(constraints.length ? { constraints } : {})
+      }),
+      decisions: [
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "complete", summary: "Done" }
+      ],
+      policy: (input) => {
+        seen.push(input.planned)
+        return { type: "allow", risk: "high" }
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(seen[0]).toEqual({ commits })
+  })
+
   it("asks for the plan once, before its first covered step, and not again", async () => {
     const harness = createHarness({
       state: runState({
@@ -621,8 +659,16 @@ describe("agent controller", () => {
 
   it("drops plan consent and browse mode for good once a page reads like an injection", async () => {
     const seen: [boolean, boolean][] = []
+    const grantsSeen: boolean[] = []
     const harness = createHarness({
       state: runState({
+        grants: [
+          {
+            origin: "https://example.com",
+            effects: ["activation", "form_mutation"],
+            grantedAt: 1
+          }
+        ],
         planConsent: true,
         requirements: [
           { id: "r1", text: "The comment is posted", kind: "change" }
@@ -639,6 +685,7 @@ describe("agent controller", () => {
         { type: "complete", summary: "Done" }
       ],
       policy: (input) => {
+        grantsSeen.push(input.grants !== undefined)
         seen.push([input.planned !== undefined, input.browse === true])
         return { type: "allow", risk: "high" }
       }
@@ -646,6 +693,7 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(seen[0]).toEqual([false, false])
     expect(harness.getState().injectionSuspected).toBe(true)
+    expect(grantsSeen[0]).toBe(false)
   })
 
   it("does not browse when the plan changes anything", async () => {
