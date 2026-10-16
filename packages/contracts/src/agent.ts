@@ -108,6 +108,20 @@ export type AgentStepStatus = z.infer<typeof AgentStepStatusSchema>
  */
 export const MAX_AGENT_OBSERVATIONS = 50
 
+/**
+ * The most observations any run may have, however large its plan. A run's
+ * own budget starts at `MAX_AGENT_OBSERVATIONS` and grows with the outcomes
+ * and items its plan names (`agentObservationBudget`); every bound that has
+ * to hold for every run — receipt counts, step numbers, the panel's list —
+ * reads this one.
+ */
+export const MAX_AGENT_OBSERVATION_CEILING = 120
+
+/** Observations a plan earns for each outcome past its first. */
+export const AGENT_OBSERVATIONS_PER_OUTCOME = 12
+/** Observations a plan earns for each item past the first of an outcome. */
+export const AGENT_OBSERVATIONS_PER_ITEM = 6
+
 export const MAX_AGENT_FINDING_CHARS = 500
 
 /**
@@ -627,7 +641,7 @@ export const AgentRecoveryStateSchema = z
           .number()
           .int()
           .positive()
-          .max(MAX_AGENT_OBSERVATIONS + 5)
+          .max(MAX_AGENT_OBSERVATION_CEILING + 5)
           .optional()
       })
       .strict()
@@ -1428,7 +1442,11 @@ export const AgentRunStateSchema = z
       })
       .strict()
       .optional(),
-    stepCount: z.number().int().nonnegative().max(MAX_AGENT_OBSERVATIONS),
+    stepCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(MAX_AGENT_OBSERVATION_CEILING),
     observationCount: z.number().int().nonnegative(),
     controlledTabId: z.number().int().nonnegative(),
     providerId: z.string().min(1),
@@ -1532,3 +1550,28 @@ export const AgentRunStateSchema = z
   })
   .strict()
 export type AgentRunState = z.infer<typeof AgentRunStateSchema>
+
+/**
+ * How many observations this run may spend: the base, plus what its plan
+ * earns for each further outcome and each further item, under the ceiling.
+ * A three-site comparison is three items of one outcome and needed more
+ * than fifty looks; a runaway loop on a one-line task still stops at fifty.
+ * Read from the plan alone, so the runtime and the panel agree.
+ */
+export const agentObservationBudget = (
+  state: Pick<AgentRunState, "requirements">
+): number => {
+  const requirements = state.requirements ?? []
+  const outcomes = Math.max(0, requirements.length - 1)
+  const items = requirements.reduce(
+    (total, requirement) =>
+      total + Math.max(0, (requirement.items?.length ?? 1) - 1),
+    0
+  )
+  return Math.min(
+    MAX_AGENT_OBSERVATION_CEILING,
+    MAX_AGENT_OBSERVATIONS +
+      outcomes * AGENT_OBSERVATIONS_PER_OUTCOME +
+      items * AGENT_OBSERVATIONS_PER_ITEM
+  )
+}

@@ -105,6 +105,7 @@
       "remote_notice_screenshots": "Page observations and viewport screenshots will be sent continuously to this remote provider while Agent runs."
     },
     "progress": "{{count}} of {{budget}} observations",
+    "workflowProgress": "{{done}} of {{total}} parts done",
     "question": {
       "title": "Agent needs an answer",
       "inputLabel": "Your answer",

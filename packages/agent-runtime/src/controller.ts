@@ -5,6 +5,7 @@ import type {
 } from "@ollama-client/contracts"
 import {
   AGENT_ROUTINE_GRANT_EFFECTS,
+  agentObservationBudget,
   AgentCompletionReviewSchema,
   type AgentDecision,
   AgentDecisionSchema,
@@ -24,13 +25,14 @@ import {
   MAX_AGENT_ANSWER_CHARS,
   MAX_AGENT_ANSWERS,
   MAX_AGENT_GRANTS,
-  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_OBSERVATION_CEILING,
   MAX_AGENT_PROGRESS_POINTS,
   MAX_AGENT_SCOPED_TABS
 } from "@ollama-client/contracts"
 import {
   type AgentProgressPoint,
   agentDecisionFingerprint,
+  agentRunActiveBudgetMs,
   agentTextChangeSignature,
   beginAgentStepDeadline,
   classifyNoProgress,
@@ -165,7 +167,7 @@ const AGENT_USER_CONFIRMED_RESULT =
   "The user reviewed the page and confirmed the task is done."
 
 /** Two runs' worth of steps: the live one and one just settled. */
-const MAX_LIVE_COMMANDS = MAX_AGENT_OBSERVATIONS * 2
+const MAX_LIVE_COMMANDS = MAX_AGENT_OBSERVATION_CEILING * 2
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
 
@@ -1269,7 +1271,7 @@ export const createAgentController = (
     if (carried) {
       telemetryByStep.set(write.stepId, carried)
       /** One run cannot grow this past its own step ceiling. */
-      if (telemetryByStep.size > MAX_AGENT_OBSERVATIONS + 5) {
+      if (telemetryByStep.size > MAX_AGENT_OBSERVATION_CEILING + 5) {
         const oldest = telemetryByStep.keys().next().value
         if (oldest !== undefined) telemetryByStep.delete(oldest)
       }
@@ -2704,7 +2706,8 @@ export const createAgentController = (
   ): AgentCompletionJudgement => {
     if (judgement.type !== "partial" && judgement.type !== "unmet")
       return judgement
-    if (MAX_AGENT_OBSERVATIONS - state.observationCount < 2) return judgement
+    if (agentObservationBudget(state) - state.observationCount < 2)
+      return judgement
     const asked = challengedUnmet.get(state.id) ?? new Set<string>()
     const fresh = judgement.outcome.unmet.filter((id) => !asked.has(id))
     if (fresh.length === 0) return judgement
@@ -3532,7 +3535,9 @@ export const createAgentController = (
   ): Promise<boolean> => {
     const deadline = state.deadline
     if (!deadline) return false
-    const expired = expiredAgentDeadline(deadline, dependencies.clock.now())
+    const expired = expiredAgentDeadline(deadline, dependencies.clock.now(), {
+      runMs: agentRunActiveBudgetMs(state)
+    })
     if (!expired) return false
     await failWith(state, {
       ...agentFailure(
@@ -4209,7 +4214,7 @@ export const createAgentController = (
     // that step cannot be claimed back into observation.
     let entered = false
     while (!controller.signal.aborted) {
-      if (state.observationCount >= MAX_AGENT_OBSERVATIONS) {
+      if (state.observationCount >= agentObservationBudget(state)) {
         await failWith(state, {
           ...agentFailure(
             "budget_exhausted",

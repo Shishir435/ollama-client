@@ -121,6 +121,46 @@ describe("AgentRunSupervision", () => {
     ).toBeInTheDocument()
   })
 
+  it("grows the budget with the plan and shows how many parts are done", () => {
+    const entry = (itemIndex: number, status: "verified" | "pending") => ({
+      requirementId: "r1",
+      itemIndex,
+      status,
+      evidenceIds: []
+    })
+    supervise({
+      run: run("observing", {
+        requirements: [
+          {
+            id: "r1",
+            text: "each shop's price is read",
+            kind: "read",
+            items: ["Shop A", "Shop B", "Shop C"]
+          }
+        ],
+        workflow: {
+          version: 1,
+          planVersion: 1,
+          throughSequence: 2,
+          entries: [
+            entry(0, "verified"),
+            entry(1, "pending"),
+            entry(2, "pending")
+          ],
+          phase: { index: 1, total: 3, kind: "read" }
+        }
+      })
+    })
+    expect(
+      screen.getByText(
+        `agent.progress:{"count":2,"budget":${MAX_AGENT_OBSERVATIONS + 12}}`
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('agent.workflowProgress:{"done":1,"total":3}')
+    ).toBeInTheDocument()
+  })
+
   /**
    * Twice on purpose: the line above the log and the last line in it are
    * the same label, so the two can never disagree about what is happening.

@@ -3,13 +3,18 @@ import type {
   AgentElement,
   AgentObservation
 } from "@ollama-client/contracts"
-import { MAX_AGENT_OBSERVATIONS } from "@ollama-client/contracts"
+import {
+  agentObservationBudget,
+  MAX_AGENT_OBSERVATION_CEILING,
+  MAX_AGENT_OBSERVATIONS
+} from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
   AGENT_DECISION_TIMEOUT_MS,
   AGENT_RUN_ACTIVE_BUDGET_MS,
   AGENT_STEP_ACTIVE_BUDGET_MS,
   agentDecisionFingerprint,
+  agentRunActiveBudgetMs,
   agentRemainingBudget,
   agentTextChangeSignature,
   beginAgentStepDeadline,
@@ -157,6 +162,37 @@ describe("agent budgets", () => {
       maxObservations: 50,
       stepsRemaining: 46
     })
+  })
+
+  it("grows a run's budgets with its plan, under one ceiling", () => {
+    const read = (id: string, items?: string[]) => ({
+      id,
+      text: "a price is read",
+      kind: "read" as const,
+      ...(items ? { items } : {})
+    })
+    expect(agentObservationBudget({})).toBe(MAX_AGENT_OBSERVATIONS)
+    expect(agentObservationBudget({ requirements: [read("r1")] })).toBe(
+      MAX_AGENT_OBSERVATIONS
+    )
+    const threeShops = {
+      requirements: [read("r1", ["Shop A", "Shop B", "Shop C"]), read("r2")]
+    }
+    expect(agentObservationBudget(threeShops)).toBe(
+      MAX_AGENT_OBSERVATIONS + 12 + 2 * 6
+    )
+    expect(agentRunActiveBudgetMs(threeShops)).toBeGreaterThan(
+      AGENT_RUN_ACTIVE_BUDGET_MS
+    )
+    const huge = {
+      requirements: Array.from({ length: 8 }, (_, index) =>
+        read(
+          `r${index}`,
+          Array.from({ length: 20 }, (_, item) => `i${item}`)
+        )
+      )
+    }
+    expect(agentObservationBudget(huge)).toBe(MAX_AGENT_OBSERVATION_CEILING)
   })
 
   it("never reports a negative remainder", () => {

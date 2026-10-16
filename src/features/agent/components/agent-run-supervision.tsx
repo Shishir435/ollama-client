@@ -4,7 +4,7 @@ import {
   type AgentStepRecord,
   type AgentTakeoverRequest,
   MAX_AGENT_ANSWER_CHARS,
-  MAX_AGENT_OBSERVATIONS
+  agentObservationBudget
 } from "@ollama-client/contracts"
 import {
   CircleAlert,
@@ -142,18 +142,48 @@ const useFollowLatest = (rows: number) => {
 /** Enough of a raw error to recognise it, not enough to become the card. */
 const AGENT_FAILURE_DETAIL_LIMIT = 300
 
-const AgentProgressBar = ({ used }: { used: number }) => (
+const AgentProgressBar = ({
+  used,
+  budget
+}: {
+  used: number
+  budget: number
+}) => (
   <div
     className="my-2 h-1 overflow-hidden rounded-full bg-muted"
     aria-hidden="true">
     <div
       className="h-full rounded-full bg-app-agent transition-[width] duration-500"
       style={{
-        width: `${Math.min(100, Math.round((used / MAX_AGENT_OBSERVATIONS) * 100))}%`
+        width: `${Math.min(100, Math.round((used / budget) * 100))}%`
       }}
     />
   </div>
 )
+
+/**
+ * How many parts of a plan with more than one are done, from the durable
+ * workflow the runtime keeps per outcome and item: what "three of five sites"
+ * looks like on a long task, where the observation count says only how much
+ * of the budget is gone.
+ */
+const AGENT_WORKFLOW_DONE = new Set([
+  "verified",
+  "supported",
+  "effect_confirmed"
+])
+
+const agentWorkflowDone = (
+  run: AgentRunState
+): { done: number; total: number } | undefined => {
+  const entries = run.workflow?.entries ?? []
+  if (entries.length < 2) return undefined
+  return {
+    done: entries.filter((entry) => AGENT_WORKFLOW_DONE.has(entry.status))
+      .length,
+    total: entries.length
+  }
+}
 
 /**
  * A live run, supervised from the message that reports it.
@@ -253,6 +283,7 @@ export const AgentRunSupervision = ({
   const pauseNotice = pauseNoticeFor(run.pauseReason)
   const workLog = toAgentWorkLog(steps)
   const log = useFollowLatest(workLog.length)
+  const workflowDone = agentWorkflowDone(run)
 
   return (
     <div className="mt-1.5">
@@ -264,10 +295,18 @@ export const AgentRunSupervision = ({
       <p className="text-micro text-muted-foreground">
         {t("agent.progress", {
           count: run.observationCount,
-          budget: MAX_AGENT_OBSERVATIONS
+          budget: agentObservationBudget(run)
         })}
       </p>
-      <AgentProgressBar used={run.observationCount} />
+      <AgentProgressBar
+        used={run.observationCount}
+        budget={agentObservationBudget(run)}
+      />
+      {workflowDone && (
+        <p className="text-micro text-muted-foreground">
+          {t("agent.workflowProgress", workflowDone)}
+        </p>
+      )}
 
       {/**
        * Above everything that grows. Pause and Stop were the last row of a

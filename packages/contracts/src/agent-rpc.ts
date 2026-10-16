@@ -6,7 +6,7 @@ import {
   AgentRunStatusSchema,
   MAX_AGENT_ALLOWED_ORIGINS,
   MAX_AGENT_CONSTRAINTS,
-  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_OBSERVATION_CEILING,
   MAX_AGENT_REQUIREMENT_CHARS,
   MAX_AGENT_REQUIREMENT_ID_CHARS,
   MAX_AGENT_REQUIREMENTS
@@ -87,7 +87,7 @@ export const AgentRunCardSchema = z
      */
     steps: z
       .array(AgentStepRecordSchema.omit({ telemetry: true, sourceUrl: true }))
-      .max(MAX_AGENT_OBSERVATIONS)
+      .max(MAX_AGENT_OBSERVATION_CEILING)
       .optional(),
     /** Distinct pages the run acted or read on, origin and path. */
     pages: z.number().int().nonnegative().optional(),

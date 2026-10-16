@@ -105,6 +105,7 @@
       "remote_notice_screenshots": "Seitenbeobachtungen und Viewport-Screenshots werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet."
     },
     "progress": "{{count}} von {{budget}} Beobachtungen",
+    "workflowProgress": "{{done}} von {{total}} Teilen erledigt",
     "question": {
       "title": "Agent benötigt eine Antwort",
       "inputLabel": "Ihre Antwort",
