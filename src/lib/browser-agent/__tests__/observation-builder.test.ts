@@ -205,6 +205,43 @@ describe("Agent observation builder", () => {
     expect(build().elements[0]).not.toHaveProperty("value")
   })
 
+  it.each([
+    ["an IBAN label", '<label for="f">IBAN</label><input id="f" value="DE89">'],
+    [
+      "a German password label",
+      '<label for="f">Passwort</label><input id="f" value="x">'
+    ],
+    [
+      "a Japanese card label",
+      '<label for="f">カード番号</label><input id="f" value="4111">'
+    ],
+    [
+      "a labelledby PIN",
+      '<span id="l">Your PIN</span><input aria-labelledby="l" value="1234">'
+    ],
+    ["an API key placeholder", '<input placeholder="API key" value="sk-1">'],
+    [
+      "a wrapping label",
+      "<label>Social security number <input value='078-05'></label>"
+    ]
+  ])("treats %s as sensitive", (_label, html) => {
+    document.body.innerHTML = html
+    const field = build().elements.find((element) => element.tag === "input")
+    expect(field).toMatchObject({ sensitive: true })
+    expect(field).not.toHaveProperty("value")
+  })
+
+  it("does not mistake a spinner or a keyword box for a secret", () => {
+    document.body.innerHTML =
+      '<label for="a">Spinner speed</label><input id="a" value="3">' +
+      '<label for="b">Palabra clave</label><input id="b" value="laptop">'
+    expect(
+      build()
+        .elements.filter((element) => element.tag === "input")
+        .map((element) => element.sensitive)
+    ).toEqual([false, false])
+  })
+
   it("keeps bounded non-sensitive values", () => {
     const input = document.createElement("input")
     input.value = "safe value"

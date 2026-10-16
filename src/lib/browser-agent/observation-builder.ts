@@ -758,6 +758,26 @@ const frameStyleFacts = (
   return { supported, pixelSpill }
 }
 
+/**
+ * Words naming data the run must not read or type for the user, in the
+ * attributes a page sets and the label a user reads. English terms match on
+ * word edges, so "pin" is not "spinner"; the other eight locales' terms are
+ * matched as written, since their scripts have no ASCII word edge.
+ */
+const SENSITIVE_TERMS =
+  /(?:one-time|otp|verification|passcode|password|card|cc-|cvv|cvc|captcha|\biban\b|\bssn\b|social security|\btax id\b|\bpin\b|api[ _-]?key|access[ _-]?key|secret|routing number|account number|security code|passwort|kennwort|kartennummer|prüfnummer|geheimzahl|steuer-?id|sozialversicherungsnummer|contraseña|clave de acceso|tarjeta|seguro social|mot de passe|carte bancaire|code secret|sécurité sociale|codice fiscale|parola d'ordine|пароль|номер карты|код подтверждения|снилс|\bинн\b|パスワード|暗証番号|カード番号|セキュリティコード|マイナンバー|密码|卡号|验证码|身份证|安全码|पासवर्ड|कार्ड नंबर|ओटीपी|पिन|आधार)/u
+
+/** The text a user reads as this control's label: `<label>`s and `aria-labelledby`. */
+const labelText = (element: Element): string => {
+  const labels = (element as HTMLInputElement).labels
+  const owned = labels ? [...labels].map((label) => label.textContent) : []
+  const referenced = (element.getAttribute("aria-labelledby") ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((id) => element.ownerDocument.getElementById(id)?.textContent)
+  return [...owned, ...referenced].filter(Boolean).join(" ").slice(0, 500)
+}
+
 export const isSensitiveAgentElement = (element: Element): boolean => {
   const input = element as HTMLInputElement
   const type = input.type?.toLowerCase()
@@ -766,14 +786,14 @@ export const isSensitiveAgentElement = (element: Element): boolean => {
     element.getAttribute("autocomplete"),
     element.getAttribute("name"),
     element.getAttribute("id"),
-    element.getAttribute("aria-label")
+    element.getAttribute("aria-label"),
+    element.getAttribute("placeholder"),
+    labelText(element)
   ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase()
-  return /(?:one-time|otp|verification|passcode|password|card|cc-|cvv|cvc|captcha)/.test(
-    evidence
-  )
+  return SENSITIVE_TERMS.test(evidence)
 }
 
 /**
