@@ -301,6 +301,28 @@ Read the section your change touches; you do not need the whole file.
   - `classifyNoProgress` took a `verificationOutcome` input that reset the
     count on `confirmed`. Nothing ever passed it, and wiring it as written
     would have made the loop unkillable. It is gone; do not reintroduce it.
+  - A decision is compared by the control it named, not its ref
+    (`agentDecisionFingerprint`): refs are positional, so a list that gained
+    a row renumbered the same button and the third click on it read as new.
+- **The stall counters are durable.** No-progress points (hashes only),
+  refused commands, refused completions, malformed answers and failed plan
+  amendments ride in `AgentRunState.stall`, written with every claim and
+  transition that moves them and read back once per run per worker. A worker
+  restart used to hand a looping run a fresh budget for each. A reset —
+  steering, an answer, a resolved effect — marks the run restored so the
+  checkpoint cannot undo it. The refused-command count resets where a command
+  is carried out, not where it resolves: the refusals after resolution
+  (missing requirement, repeat, limit, wrong row) used to find it zeroed.
+- **A failed plan amendment backs off.** It is asked again on the next
+  observation, then after two, four and at most eight; a newer answer from the
+  user is asked about at once. Each amendment can spend several provider
+  attempts, and a planner that is down stays down longer than a step.
+- **A pixel command without a picture costs a retry, not the run's budget.**
+  The decision tool's schema is the same on every step so the provider's
+  prompt cache holds, which means it offers `click_point` and `zoom` on steps
+  that carry no screenshot. Answering with one is refused with feedback and
+  retried within the decision's own bound, uncharged to the run's
+  malformed-answer budget.
 - **A refused command is told to the model, not made fatal.** The resolver
   refusing to ground a command means nothing was attempted, so the run has
   lost nothing: it records a rejected step carrying the affordance layer's own
@@ -336,9 +358,9 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   episode: trigger, current strategy, strategies tried, and the last verified
   history step. It is written in the same claim that sends the run back to
   observing, so a worker restart reads the spent count back. The controller's
-  progress and refusal counters are still memory-only; what a restart cannot
+  progress and refusal counters were memory-only then; what a restart cannot
   do is refund an attempt. Terminal compaction keeps `attempts` and drops the
-  episode.
+  episode. The progress and refusal counters are durable too now; see above.
 - **A strategy is guidance or a fresh read, never an action.**
   `fresh_observation`, `targeted_read`, `wait_for_condition`,
   `request_vision`, `alternate_route` and `revise_approach` reach the model as
@@ -467,15 +489,26 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
 - **Native input is chosen before the action and never swapped after it.**
   `chooseAgentInputBackend` (`native-input.ts`) decides `cdp` or `dom` from the
   command, the resolved target and whether the run holds the tab's debugger
-  and can place the target's frame. Link activation, form submission,
+  and can place the target's frame. Form submission,
   Enter-on-a-submitting-field and a newline typed into one stay on the
   guarded DOM paths whatever is attached — those paths exist so page handlers
   cannot redirect an approved destination, and a native click or Enter would
-  hand it back to the page. A chord on a character the key table cannot press
-  has no native form and goes to the DOM path too. Once a
-  native step has been sent, a failure is an unresolved effect; it is not
+  hand it back to the page. Links follow the rule below. A chord on a
+  character the key table cannot press has no native form and goes to the DOM
+  path too. Once a native step has been sent, a failure is an unresolved effect; it is not
   completed through the content script. Only a plan the debugger refused from
   its first step is a clean `AgentEffectNotAppliedError`.
+- **A plain link is pressed, and the page it lands on is checked.** A link
+  whose only effect is navigation and whose label does not read as committing
+  or saving (`agentLinkTakesNativeClick`) gets a real CDP click where the
+  debugger is attached, so a single-page app's router sees its own click —
+  following the address bypassed it, and `spa_link` never loaded its view.
+  `verifyNativeLink` tells three outcomes apart by the document the tab holds:
+  the same document means the page handled the press, credited only on a
+  changed page; a new document must be the link's own address, and anything
+  else committed pauses as unresolved; an opened tab answers with the tab. A
+  link labelled "Place order", and every link without a debugger, is still
+  followed by address, its handler never run.
 - **A native plan is a sequence the runner owes a release for.**
   `runAgentNativeInputPlan` sends one step at a time, checks cancellation
   between steps, and on abort or dispatcher failure releases every held button
@@ -507,13 +540,36 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   `press_key` accepts chords (`Shift+Tab`, `Control+a`) through the grammar in
   `packages/contracts/src/agent-keys.ts`. Select-all and move-to-end travel as
   CDP editing commands, not platform shortcuts, so a plan is the same on every
-  OS. Native `<select>`, `check` and `uncheck` stay synthetic: a native option
-  popup cannot be driven, and a checked state is stated, not toggled.
+  OS. Native `<select>` stays synthetic: a native option popup
+  cannot be driven. `check` and `uncheck` press the box natively when it was
+  observed in the opposite state — frameworks that own a box's state listen
+  for the click, and a stated value left a controlled checkbox unticked on
+  the server's record — and otherwise run on the DOM path, which now clicks
+  too and leaves a box already in the asked-for state alone. A value set by
+  script finishes with `change` and `blur`, except in a field Enter would
+  submit or one whose suggestions the next step may use.
 - Firefox has no debugger: `double_click` and `hover` degrade to synthetic
   events there, the receipt says `backend: "dom"`, and the hover verifier
   then needs page evidence, since no delivery record exists.
 
 ## Forms, editors and drags
+
+- **What a pointer or key can reach without a native control.** The
+  observation lists a `<details>` summary with `expanded` set from whether its
+  details are open, a label standing in for a hidden checkbox or radio with
+  that control's state as `ariaChecked`, and the body while an overlay is open
+  and nothing else has focus. Clicks reach summaries, those labels and `div`
+  checkboxes and radios, verified by the state read back. Escape, Tab,
+  Shift+Tab and the arrows may go to a focused body (`body_key` refuses the
+  rest); Enter never does. A native plan for a body key samples no point.
+- **A date, time, range or colour input is set whole.** `clear_and_type` with
+  the value in the input's own format runs on the DOM path and is read back,
+  because typed keys land in one segment of the browser's picker; `type` on
+  one is refused as `use_clear_and_type`. A browser that rejects the value
+  empties the field, and the verifier says so.
+- **A multiple select gains the option named.** `select` on one adds that
+  option rather than clearing the others, and is verified from the option
+  list, whose chosen entries carry `selected`.
 
 - **A batch changes who asks, never what is checked.** `fill_form` sets up to
   twelve controls from one decision, because a decision costs seconds and an
@@ -1106,6 +1162,15 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   other two: fifty steps at live decision latency need the better part of
   half an hour, and what bounds a runaway run is the observation ceiling and
   the no-progress guard, not the clock.
+- **A run's budget grows with its plan, under one ceiling.**
+  `agentObservationBudget` gives fifty, plus twelve per outcome past the first
+  and six per item past the first, capped at `MAX_AGENT_OBSERVATION_CEILING`
+  (120); the active-time budget grows in the same proportion. A three-site
+  comparison needed more than fifty looks, and a runaway loop on a one-line
+  task still stops at fifty. Every bound that must hold for any run — receipt
+  counts, step numbers, the panel's list, `MAX_AGENT_STEPS` — reads the
+  ceiling; the loop and the panel read the run's own budget. The card also
+  shows how many parts of a multi-part plan the durable workflow has done.
 
 ### Provider resilience
 
@@ -1150,7 +1215,11 @@ for every other id. Rules, all load-bearing:
   requirements and limits, the acting model's proposed answer for those ids,
   the grounded ledger records, and the title and a bounded excerpt of the
   page the run completed on — no history, screenshot, summary, notes or
-  reasoning. The page excerpt is context: only a ledger record can be cited.
+  reasoning. For a change, the proposed answer is only whether the model
+  says it is met: its evidence text is its own argument, and the page's words
+  reach the reviewer through the ledger. A read keeps its text, because there
+  the text is the answer being judged. The page excerpt is context: only a
+  ledger record can be cited.
   It lists each outcome's key points before its verdict; they are its
   working and never read as support. It has no browser, approval or plan
   port. The prompt keeps all page-derived text in one JSON data block, with
@@ -1260,10 +1329,28 @@ already gathered can supply a page that was never loaded.
   a value the reopened record lost — and a kept change with no check cannot
   be read back by rule, so it stays claimed without the run being asked. Shown only on the page
   where it was made, the completion is refused once with `readback_required`
-  asking the run to reopen the record through its ordinary commands, so the
-  resolver, policy, ownership and cancellation all apply and nothing is
-  resubmitted; asked already, it settles as claimed. Whether it was asked is
+  and the runtime reopens the record itself (`readbackProbe`): an ordinary
+  `open_tab` of the page the change was made on, so the resolver, policy,
+  approval, ownership and cancellation all apply and nothing is resubmitted.
+  Asking the model to reopen it did not work — models waited on the saved
+  page. A change that was a submission is never probed, since reloading the
+  page a form posted to asks the site for something else; that case is still
+  asked once. Asked already, it settles as claimed. Whether it was asked is
   read from the refusal's fixed template in the receipts.
+- **A superlative read is computed, not taken.** For each item of a planned
+  read the run says it met, the grounded quote it cited and the one number
+  that quote holds form the collected records (`collected-records.ts`). A
+  read asking for the cheapest or the highest is computed from them when one
+  itemized read covers every item with a number and the winner is unique: an
+  answer naming the computed item, at the computed number if it states one,
+  is verified without a quote of its own, and one naming another collected
+  item is refused with the computed answer. Anything less is not a
+  computation and stays with the reviewer.
+- **A whole status message is evidence for its own item.** A change
+  quotation has to lead with its item, so a cut from the middle of a row
+  cannot credit the next one. A `status` or `alert` message quoted whole is
+  one message about one thing whatever its word order ("Order placed for
+  Blue Kettle"), and counts when it names the item and no other.
 - **Custom controls report their state.** The observation carries
   `ariaChecked`, `pressed`, `expanded`, `selected`, `activeOption` and
   `invalid` with `invalidMessage`. `checked` stays native-only, because
@@ -1839,6 +1926,20 @@ run that produced it can always be repeated.
   entry with no quote, a fabricated one, or a genuine but unrelated one is
   refused, so an outcome nobody asked for cannot enter dressed as one
   somebody did.
+- **A record a step is about is read off its row.** `agentRequirementRecords`
+  names what an outcome is about: its items and its check's record. A step
+  whose control sits in a row naming another planned record and not its own
+  is refused before policy (`agentWrongRowRecord`) — the "Mark paid" on
+  Invoice A's row for a step about Invoice B. A `scope` limit ("keep every
+  other invoice") is proven for a consequential step only when the control's
+  row names exactly one of its requirement's records; without that it still
+  refuses. A row that merely fails to repeat the record's wording is never
+  refused, only one naming a different planned record.
+- **A check-less outcome binds to the control, not only the tag.** A receipt
+  the model tagged with a requirement id binds to a requirement with no check
+  only when the control it acted on shares a content word with it. A
+  `fill_form` field named by the last word of a qualified name ("Address" for
+  "Billing address") binds when that word picks out one field on the page.
 - **An id keeps its meaning.** `keep` is honoured only for an entry that
   reads like the one it names, and an entry restated word for word keeps its
   id unasked — otherwise a planner that forgot `keep` put the same outcome in

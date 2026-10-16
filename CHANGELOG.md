@@ -34,6 +34,17 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Each selection action has its own icon, and the selection toolbar's colors
   come from the same theme as the app.
 - Bug reports ask for the provider version and server log lines.
+- The agent presses plain links and checkboxes with real input where it can,
+  so single-page apps and framework-controlled checkboxes respond. It can
+  also open disclosures, use labels that stand in for hidden toggles, close
+  overlays with Escape, set date, time, range and colour inputs, and add to
+  multiple selects.
+- The agent reopens a record itself to confirm a save, computes "cheapest"
+  and "highest" answers from the values it collected, and refuses a step on
+  another record's row.
+- Longer tasks get a larger step and time budget, up to a fixed ceiling, and
+  the run card shows how many parts are done. Loop and refusal limits now
+  survive a background worker restart.
 
 ### Security
 
