@@ -406,6 +406,8 @@ const compactedCheckpoint = (
               workflow: undefined,
               deadline: undefined,
               pauseReason: undefined,
+              /** Stall counters steer a live run; a settled one has none to steer. */
+              stall: undefined,
               /** The spent count is the record; an open episode has nothing left to steer. */
               ...(state.recovery
                 ? { recovery: { attempts: state.recovery.attempts } }

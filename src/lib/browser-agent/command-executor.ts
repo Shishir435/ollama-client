@@ -1436,6 +1436,36 @@ const executeElementAction = async (
   }
 }
 
+/**
+ * A box pressed natively where it can be, and set on the DOM path where the
+ * press never left. Custom toggles often draw the box at a pixel or none, so
+ * no point on it can be hit; a press refused before anything was sent
+ * changed nothing, and the DOM path's own click is the one that still
+ * reaches it. A press that may have been sent is never repeated.
+ */
+const executeToggle = async (
+  effect: AuthorizedAgentEffect,
+  adapter: AgentCommandExecutorAdapter,
+  signal: AgentCancellationSignal
+): Promise<AgentExecutionReceipt> => {
+  const chosen = await chooseBackend(effect, adapter)
+  if (chosen.choice.backend !== "cdp")
+    return executeElementAction(effect, adapter, signal, chosen)
+  try {
+    return await executeElementAction(effect, adapter, signal, chosen)
+  } catch (error) {
+    if (
+      !(error instanceof AgentEffectNotAppliedError) ||
+      signal.aborted ||
+      adapter.openDialogId?.(effect)
+    )
+      throw error
+    return executeElementAction(effect, adapter, signal, {
+      choice: { backend: "dom", reason: "no_native_control" }
+    })
+  }
+}
+
 /** How long a native wheel is given to settle before the page is re-observed. */
 const WHEEL_SETTLE_MS = 150
 
@@ -1771,11 +1801,11 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
   },
   async check(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
-    return executeElementAction(effect, adapter, signal)
+    return executeToggle(effect, adapter, signal)
   },
   async uncheck(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
-    return executeElementAction(effect, adapter, signal)
+    return executeToggle(effect, adapter, signal)
   },
   async press_key(effect, adapter, signal) {
     await assertSource(effect, adapter, true)

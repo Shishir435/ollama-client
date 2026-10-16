@@ -698,6 +698,12 @@ export const createAgentController = (
   >()
   /** Runs whose counters were read back from the checkpoint, or reset since. */
   const stallRestored = new Set<string>()
+  /**
+   * The malformed count the checkpoint held when this worker took the run.
+   * The model port counts on from it, but reports nothing until the run's
+   * next malformed answer, and the checkpoint must not lose it meanwhile.
+   */
+  const malformedRestored = new Map<string, number>()
 
   /**
    * Counters a worker restart would otherwise lose, read back from the
@@ -716,6 +722,7 @@ export const createAgentController = (
     if (stall.refusedCompletion)
       refusedCompletions.set(state.id, { ...stall.refusedCompletion })
     if (stall.planFailures) planFailures.set(state.id, stall.planFailures)
+    if (stall.malformed) malformedRestored.set(state.id, stall.malformed)
     if (stall.recent?.length) {
       const points = stall.recent.map((point) => ({ ...point }))
       recentProgress.set(state.id, points)
@@ -737,7 +744,9 @@ export const createAgentController = (
     const noProgress = noProgressCounts.get(runId)
     const refusedCommands = refusedCommandCounts.get(runId)
     const refusedCompletion = refusedCompletions.get(runId)
-    const malformed = dependencies.model.malformedResponses?.(runId)
+    const malformed =
+      dependencies.model.malformedResponses?.(runId) ??
+      malformedRestored.get(runId)
     const failures = planFailures.get(runId)
     const recent = (recentProgress.get(runId) ?? []).flatMap((point) => {
       const fingerprint =

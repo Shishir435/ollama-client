@@ -5625,6 +5625,21 @@ describe("agent controller stall counters", () => {
     ).toEqual(["run-1:refused:1:3"])
   })
 
+  it("keeps a restored malformed count the model port has not reported yet", async () => {
+    const harness = createHarness({
+      state: { ...runState(), stall: { malformed: 3 } },
+      plan: changePlan,
+      decisions: [untagged(1), untagged(2)],
+      observations: [at(1), at(2), at(3)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().stall).toMatchObject({
+      malformed: 3,
+      refusedCommands: 2
+    })
+  })
+
   it("writes the counters it holds into the checkpoint", async () => {
     const harness = createHarness({
       plan: changePlan,

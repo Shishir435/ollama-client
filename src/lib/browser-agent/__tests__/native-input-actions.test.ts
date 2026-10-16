@@ -677,3 +677,75 @@ describe("a plain link pressed for real", () => {
     })
   })
 })
+
+describe("a checkbox pressed for real", () => {
+  const box = (checked: boolean) =>
+    observation({
+      elements: [
+        element({ tag: "input", type: "checkbox", name: "Agree", checked })
+      ]
+    })
+
+  it("presses an unticked box natively to tick it", async () => {
+    const executor = adapter()
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(
+        command({ type: "check", ref: "e1" }),
+        box(false)
+      ),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("cdp")
+    expect(executor.mutate).not.toHaveBeenCalled()
+  })
+
+  it("leaves a ticked box to the DOM path, which states the value", async () => {
+    const executor = adapter()
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(command({ type: "check", ref: "e1" }), box(true)),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("dom")
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+  })
+
+  it("sets a box no point can hit on the DOM path instead", async () => {
+    const executor = adapter({
+      prepareNativeInput: vi.fn(async () => {
+        throw new AgentEffectNotAppliedError("target covered")
+      })
+    })
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(
+        command({ type: "check", ref: "e1" }),
+        box(false)
+      ),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("dom")
+    expect(executor.mutate).toHaveBeenCalledOnce()
+  })
+
+  it("never repeats a press that may have been sent", async () => {
+    const { AgentNativeInputFailedError } = await import("../native-input")
+    const executor = adapter({
+      dispatchNativeInput: vi.fn(async () => {
+        throw new AgentNativeInputFailedError(1, new Error("detached"))
+      })
+    })
+    await expect(
+      executeDomMutationAgentEffect({
+        effect: await authorize(
+          command({ type: "check", ref: "e1" }),
+          box(false)
+        ),
+        adapter: executor,
+        signal
+      })
+    ).rejects.toBeInstanceOf(AgentNativeInputFailedError)
+    expect(executor.mutate).not.toHaveBeenCalled()
+  })
+})

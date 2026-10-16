@@ -299,6 +299,16 @@ describe("durable job rows decode as their writers wrote them", () => {
               tried: ["targeted_read", "wait_for_condition"],
               startedAt: 2
             }
+          },
+          stall: {
+            refusedCommands: 1,
+            recent: [
+              {
+                url: "https://example.com/a",
+                snapshotHash: "aaaa0000",
+                fingerprint: "bbbb0000"
+              }
+            ]
           }
         }
       })
@@ -328,6 +338,9 @@ describe("durable job rows decode as their writers wrote them", () => {
       })
       expect(
         JSON.parse(String(rows[0]?.checkpoint)).state.recovery.active
+      ).toBeUndefined()
+      expect(
+        JSON.parse(String(rows[0]?.checkpoint)).state.stall
       ).toBeUndefined()
       await expect(repo.getAgentRun("agent-terminal-1")).resolves.toMatchObject(
         {
