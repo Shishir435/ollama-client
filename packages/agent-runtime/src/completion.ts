@@ -2227,7 +2227,7 @@ const judgeItemizedRequirement = (
       claim !== undefined &&
       namesItem(claim, item) &&
       (requirement.kind !== "change" ||
-        quotesOnlyItsItem(claim, item, requirement.items)) &&
+        quotesOnlyItsItem(claim, item, requirement.items, input.observation)) &&
       !quoted.has(claim)
     /**
      * A quotation not bound to its item is set aside, not fatal: the item's
@@ -2292,14 +2292,40 @@ const judgeItemizedRequirement = (
 const quotesOnlyItsItem = (
   claim: string,
   item: string,
-  items: readonly string[]
+  items: readonly string[],
+  observation: AgentObservation
 ): boolean => {
   const phrase = agentNormalizedClaim(item)
-  if (!phrase || !claim.startsWith(phrase)) return false
+  if (!phrase) return false
+  const alone = items.every(
+    (other) => other === item || !namesItem(claim, other)
+  )
+  /**
+   * A status or alert message quoted whole is one message about one thing,
+   * whatever order its words come in: "Order placed for Blue Kettle" puts
+   * the state first and the item last, and no row boundary can cut through
+   * it. Only the whole message counts — a run of text that starts or ends
+   * inside one is exactly the cut this rule exists to refuse.
+   */
+  if (wholeStatusMessage(claim, observation))
+    return namesItem(claim, item) && alone
+  if (!claim.startsWith(phrase)) return false
   const rest = claim.slice(phrase.length)
   if (!/^[^\p{L}\p{N}]/u.test(rest) || !/[\p{L}\p{N}]/u.test(rest)) return false
-  return items.every((other) => other === item || !namesItem(claim, other))
+  return alone
 }
+
+/** Whether the claim is the whole text of a status or alert the page announced. */
+const wholeStatusMessage = (
+  claim: string,
+  observation: AgentObservation
+): boolean =>
+  observation.elements.some(
+    (element) =>
+      ["status", "alert"].includes(element.role?.toLowerCase() ?? "") &&
+      element.name !== undefined &&
+      agentNormalizedClaim(element.name) === claim
+  )
 
 /** Whether normalized text names an item as a whole phrase, not a prefix. */
 const namesItem = (text: string, item: string): boolean => {

@@ -2915,6 +2915,55 @@ describe("itemized requirements", () => {
     })
   })
 
+  /**
+   * "Order placed for Blue Kettle" puts the state first. Quoted whole from
+   * the status the page announced, it is one message about one item.
+   */
+  it("takes a whole status message about its item, whatever its word order", () => {
+    const status = (name: string) =>
+      observation({
+        visibleText: `Checkout ${name}`,
+        elements: [
+          {
+            ref: "e9",
+            frameId: 0,
+            tag: "p",
+            role: "status",
+            name,
+            visible: true,
+            enabled: true,
+            editable: false,
+            sensitive: false
+          }
+        ]
+      })
+    const order = {
+      id: "r1",
+      text: "one order is placed",
+      kind: "change" as const,
+      items: ["Blue Kettle"]
+    }
+    const claim = (evidence: string) => [
+      { id: "r1", met: true, items: [{ index: 0, met: true, evidence }] }
+    ]
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: status("Order placed for Blue Kettle"),
+        requirements: [order],
+        outcomes: claim("Order placed for Blue Kettle")
+      })
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: status("Order placed for Blue Kettle Lid"),
+        requirements: [order],
+        outcomes: claim("Order placed for Blue Kettle")
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
   /** "Paid Invoice 2" quotes invoice 1's state beside invoice 2's name. */
   it("refuses a change quotation whose state does not follow its item", () => {
     expect(
