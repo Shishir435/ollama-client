@@ -737,6 +737,24 @@ const isSavingLabel = (value?: string): boolean =>
   Boolean(value && SAVING_LABELS.some((pattern) => pattern.test(value)))
 
 /**
+ * Whether a link may be pressed with a real pointer rather than followed by
+ * address. A real press runs the page's own click handlers — the router of a
+ * single-page app, which a followed address bypasses — so it is offered only
+ * to a plain link: one whose only effect is navigation, and whose label does
+ * not read as committing or storing something. A link labelled "Place order"
+ * may do more than lead somewhere, and its handler is not run on a guess.
+ */
+export const agentLinkTakesNativeClick = (effect: {
+  semanticEffects: readonly AgentSemanticEffect[]
+  target: { href?: string; accessibleName?: string }
+}): boolean =>
+  Boolean(effect.target.href) &&
+  effect.semanticEffects.length === 1 &&
+  effect.semanticEffects[0] === "navigation" &&
+  !isConsequentialLabel(effect.target.accessibleName) &&
+  !isSavingLabel(effect.target.accessibleName)
+
+/**
  * The target's `committingLabel` evidence: an activation whose control is
  * labelled as committing, and only one no form already classifies as a
  * submission.

@@ -574,3 +574,106 @@ describe("frame visual execution revalidation", () => {
     expect(executor.mutate).not.toHaveBeenCalled()
   })
 })
+
+describe("a plain link pressed for real", () => {
+  const link = (name = "Orders") =>
+    observation({
+      elements: [
+        element({
+          tag: "a",
+          role: "link",
+          name,
+          href: "https://example.com/help"
+        })
+      ]
+    })
+
+  it("presses a plain link natively so the page's router runs", async () => {
+    const executor = adapter()
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(command({ type: "click", ref: "e1" }), link()),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("cdp")
+    expect(executor.dispatchNativeInput).toHaveBeenCalledOnce()
+    expect(executor.navigate).not.toHaveBeenCalled()
+  })
+
+  it("follows the address without a debugger", async () => {
+    const executor = adapter({
+      nativeControl: vi.fn(async () => facts({ cdpControl: false }))
+    })
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(command({ type: "click", ref: "e1" }), link()),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("dom")
+    expect(executor.navigate).toHaveBeenCalledWith(
+      7,
+      "https://example.com/help"
+    )
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+  })
+
+  it("never runs the handler of a link labelled as committing something", async () => {
+    const executor = adapter()
+    await executeDomMutationAgentEffect({
+      effect: await authorize(
+        command({ type: "click", ref: "e1" }),
+        link("Place order")
+      ),
+      adapter: executor,
+      signal
+    })
+    expect(executor.navigate).toHaveBeenCalledOnce()
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+  })
+
+  const pressed = { executedAt: 3, backend: "cdp" as const }
+
+  it("confirms a press the page routed itself, in the same document", async () => {
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      pressed,
+      observation({
+        url: "https://example.com/orders",
+        visibleText: "Open orders: 4",
+        elements: link().elements
+      }),
+      link()
+    )
+    expect(result).toMatchObject({
+      outcome: "confirmed",
+      evidence: { summary: "The page handled the link itself" }
+    })
+  })
+
+  it("does not confirm a press that changed nothing", async () => {
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      pressed,
+      link(),
+      link()
+    )
+    expect(result.outcome).toBe("ambiguous")
+  })
+
+  it("holds a new document to the link's own address", async () => {
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      pressed,
+      observation({
+        documentId: "document-2",
+        url: "https://example.com/elsewhere",
+        visibleText: "Elsewhere"
+      }),
+      link()
+    )
+    expect(result).toMatchObject({
+      outcome: "ambiguous",
+      evidence: { summary: "A different destination committed" }
+    })
+  })
+})

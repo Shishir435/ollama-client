@@ -1340,10 +1340,72 @@ const controlTransition = (
   }
 }
 
+/**
+ * A link pressed with a real pointer, which runs the page's own handlers.
+ *
+ * Three outcomes, told apart by the document the tab holds afterwards. The
+ * same document means the page handled the press itself — a router pushing
+ * its own address, a hash, a panel opening — and only a changed page counts.
+ * A new document must be the link's own address, held to the same rule as a
+ * followed link: anything else committed is paused, never retried. A press
+ * that opened a tab answers with the tab.
+ */
+const verifyNativeLink: Verifier = async (input, adapter, signal) => {
+  if (input.receipt.openedTabIds?.length)
+    return result(
+      "confirmed",
+      "activation",
+      "Control opened a new tab",
+      adapter.now()
+    )
+  const tabId = input.effect.snapshotIdentity.tabId
+  try {
+    await adapter.waitForNavigation?.(
+      tabId,
+      input.effect.sourceUrl,
+      input.effect.destination?.url ?? input.effect.sourceUrl,
+      signal,
+      input.before.documentId
+    )
+  } catch (error) {
+    if (signal.aborted || !(error instanceof AgentNavigationTimeoutError))
+      throw error
+  }
+  const after = await observeAfter(input, adapter, signal)
+  if (after.documentId !== input.before.documentId)
+    return verifyCommittedDestination(
+      input,
+      adapter,
+      tabId,
+      "activation",
+      signal
+    )
+  return after.url !== input.before.url ||
+    pageEvidence(after) !== pageEvidence(input.before)
+    ? result(
+        "confirmed",
+        "activation",
+        "The page handled the link itself",
+        adapter.now()
+      )
+    : result(
+        "ambiguous",
+        "activation",
+        "Control activation produced no conclusive page evidence",
+        adapter.now()
+      )
+}
+
 const verifyActivation: Verifier = async (input, adapter, signal) => {
   if (input.effect.semanticEffects.includes("submission")) {
     return verifySubmission(input, adapter, signal)
   }
+  if (
+    input.receipt.backend === "cdp" &&
+    input.effect.target.href &&
+    input.effect.destination
+  )
+    return verifyNativeLink(input, adapter, signal)
   if (input.effect.destination) {
     return verifyCommittedDestination(
       input,
@@ -1717,8 +1779,8 @@ export const DOM_MUTATION_AGENT_VERIFIERS = {
   replace_text: withDelivery("field", settling(verifyValueMutation)),
   drag: withDelivery("arrangement", settling(verifyDrag)),
   select: settling(verifyValueMutation),
-  check: settling(verifyCheckedMutation),
-  uncheck: settling(verifyCheckedMutation),
+  check: withDelivery("checked", settling(verifyCheckedMutation)),
+  uncheck: withDelivery("checked", settling(verifyCheckedMutation)),
   press_key: withDelivery("keyboard", settling(verifyKey))
 } satisfies Record<DomMutationAgentAction, Verifier>
 

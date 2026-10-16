@@ -51,11 +51,12 @@ import {
   buildAgentElementObservation,
   resolveAgentFormSubmitter
 } from "./observation-builder"
-import type {
-  DialogAgentAction,
-  DomMutationAgentAction,
-  NavigationAgentAction,
-  ReadOnlyAgentAction
+import {
+  agentLinkTakesNativeClick,
+  type DialogAgentAction,
+  type DomMutationAgentAction,
+  type NavigationAgentAction,
+  type ReadOnlyAgentAction
 } from "./resolved-effect"
 
 /** The same directional displacement for document and nested-pane scrolling. */
@@ -117,18 +118,6 @@ const setNativeValue = (
   const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set
   if (!setter) throw new Error("Agent control has no native value setter")
   setter.call(element, value)
-}
-
-const setNativeChecked = (
-  element: HTMLInputElement,
-  checked: boolean
-): void => {
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLInputElement.prototype,
-    "checked"
-  )?.set
-  if (!setter) throw new Error("Agent control has no native checked setter")
-  setter.call(element, checked)
 }
 
 const dispatchFormEvents = (element: Element, includeChange: boolean): void => {
@@ -433,8 +422,14 @@ const executeCheckedMutation = (
   if (expected === undefined) {
     throw new Error("Agent check effect has no resolved state")
   }
-  setNativeChecked(element, expected)
-  dispatchFormEvents(element, true)
+  if (element.checked === expected) return
+  /**
+   * Pressed, not assigned: the click is what a framework that owns the
+   * box's state listens for, and it fires `input` and `change` itself. A
+   * page that refuses the press leaves the box as it was, and the verifier
+   * reads that back.
+   */
+  element.click()
 }
 
 const associatedForm = (element: Element): HTMLFormElement | null =>
@@ -1250,7 +1245,8 @@ const receipt = (
  */
 const chooseBackend = async (
   effect: AuthorizedAgentEffect,
-  adapter: AgentCommandExecutorAdapter
+  adapter: AgentCommandExecutorAdapter,
+  nativeLink = false
 ): Promise<{
   choice: AgentInputBackendChoice
   facts?: AgentNativeControlFacts
@@ -1261,7 +1257,8 @@ const chooseBackend = async (
         effect,
         cdpControl: false,
         attached: false,
-        frameMapped: false
+        frameMapped: false,
+        nativeLink
       })
     }
   }
@@ -1272,7 +1269,8 @@ const chooseBackend = async (
       effect,
       cdpControl: facts.cdpControl,
       attached: facts.attached,
-      frameMapped: facts.frameMapped && facts.frameOffset !== undefined
+      frameMapped: facts.frameMapped && facts.frameOffset !== undefined,
+      nativeLink
     })
   }
 }
@@ -1394,11 +1392,12 @@ const executeSynthetic = async (
 const executeElementAction = async (
   effect: AuthorizedAgentEffect,
   adapter: AgentCommandExecutorAdapter,
-  signal: AgentCancellationSignal
+  signal: AgentCancellationSignal,
+  chosen?: Awaited<ReturnType<typeof chooseBackend>>
 ): Promise<AgentExecutionReceipt> => {
   if (adapter.openDialogId?.(effect))
     throw new AgentEffectNotAppliedError("A native dialog opened before input")
-  const { choice, facts } = await chooseBackend(effect, adapter)
+  const { choice, facts } = chosen ?? (await chooseBackend(effect, adapter))
   let dispatchStarted = false
   const onDispatch = () => {
     if (signal.aborted || adapter.openDialogId?.(effect))
@@ -1716,6 +1715,18 @@ const executeClick: Executor = async (effect, adapter, signal) => {
     effect.semanticEffects.includes("navigation") &&
     !effect.semanticEffects.includes("submission")
   ) {
+    /**
+     * A plain link is pressed for real where the debugger is attached, so a
+     * single-page app's router sees its own click. The address is still the
+     * one approved: the verifier pauses a press that committed a different
+     * document. Without the debugger, or for a link whose label reads as
+     * more than navigation, the address is followed as before.
+     */
+    if (agentLinkTakesNativeClick(effect)) {
+      const chosen = await chooseBackend(effect, adapter, true)
+      if (chosen.choice.backend === "cdp")
+        return executeElementAction(effect, adapter, signal, chosen)
+    }
     await adapter.navigate(
       effect.snapshotIdentity.tabId,
       effect.destination.url
@@ -1760,13 +1771,11 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
   },
   async check(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
-    await adapter.mutate(effect, signal)
-    return receipt(adapter, "check")
+    return executeElementAction(effect, adapter, signal)
   },
   async uncheck(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
-    await adapter.mutate(effect, signal)
-    return receipt(adapter, "uncheck")
+    return executeElementAction(effect, adapter, signal)
   },
   async press_key(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
