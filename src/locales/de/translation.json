@@ -46,7 +46,15 @@
       },
       "allow": "Einmal erlauben",
       "reject": "Ablehnen",
-      "allowForRun": "Diese Art von Aktion auf {{origin}} für diesen Lauf immer erlauben"
+      "allowForRun": "Diese Art von Aktion auf {{origin}} für diesen Lauf immer erlauben",
+      "values": {
+        "entered": "Was eingegeben wird",
+        "sent": "Was das Formular sendet",
+        "masked": "Ausgeblendet (vertraulich)",
+        "checked": "Ausgewählt",
+        "unchecked": "Nicht ausgewählt",
+        "empty": "(leer)"
+      }
     },
     "browser_disconnected": "Die Browsersteuerung wurde getrennt, daher wurde Agent pausiert. Prüfen Sie die Seite vor dem Fortsetzen.",
     "controls": {

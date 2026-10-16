@@ -46,7 +46,15 @@
       },
       "allow": "今回のみ許可",
       "reject": "拒否",
-      "allowForRun": "この実行中は {{origin}} でこの種の操作を常に許可する"
+      "allowForRun": "この実行中は {{origin}} でこの種の操作を常に許可する",
+      "values": {
+        "entered": "入力される内容",
+        "sent": "フォームが送信する内容",
+        "masked": "非表示（機密）",
+        "checked": "オン",
+        "unchecked": "オフ",
+        "empty": "（空）"
+      }
     },
     "browser_disconnected": "ブラウザー制御が切断されたため、Agent を一時停止しました。再開前にページを確認してください。",
     "controls": {

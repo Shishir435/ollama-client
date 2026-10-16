@@ -46,7 +46,15 @@
       },
       "allow": "允许一次",
       "reject": "拒绝",
-      "allowForRun": "本次运行始终允许在 {{origin}} 上执行此类操作"
+      "allowForRun": "本次运行始终允许在 {{origin}} 上执行此类操作",
+      "values": {
+        "entered": "将输入的内容",
+        "sent": "表单将发送的内容",
+        "masked": "已隐藏（敏感）",
+        "checked": "已勾选",
+        "unchecked": "未勾选",
+        "empty": "（空）"
+      }
     },
     "browser_disconnected": "浏览器控制已断开，因此 Agent 已暂停。请检查页面后再继续。",
     "controls": {

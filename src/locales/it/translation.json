@@ -46,7 +46,15 @@
       },
       "allow": "Consenti una volta",
       "reject": "Rifiuta",
-      "allowForRun": "Consenti sempre questo tipo di azione su {{origin}} per questa esecuzione"
+      "allowForRun": "Consenti sempre questo tipo di azione su {{origin}} per questa esecuzione",
+      "values": {
+        "entered": "Cosa verrà inserito",
+        "sent": "Cosa invierà il modulo",
+        "masked": "Nascosto (sensibile)",
+        "checked": "Selezionato",
+        "unchecked": "Non selezionato",
+        "empty": "(vuoto)"
+      }
     },
     "browser_disconnected": "Il controllo del browser si è disconnesso, quindi Agent è in pausa. Controlla la pagina prima di riprendere.",
     "controls": {

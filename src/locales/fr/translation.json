@@ -46,7 +46,15 @@
       },
       "allow": "Autoriser une fois",
       "reject": "Refuser",
-      "allowForRun": "Toujours autoriser ce type d'action sur {{origin}} pour cette exécution"
+      "allowForRun": "Toujours autoriser ce type d'action sur {{origin}} pour cette exécution",
+      "values": {
+        "entered": "Ce qui sera saisi",
+        "sent": "Ce que le formulaire enverra",
+        "masked": "Masqué (sensible)",
+        "checked": "Coché",
+        "unchecked": "Non coché",
+        "empty": "(vide)"
+      }
     },
     "browser_disconnected": "Le contrôle du navigateur s’est déconnecté. Agent est donc en pause. Vérifiez la page avant de reprendre.",
     "controls": {

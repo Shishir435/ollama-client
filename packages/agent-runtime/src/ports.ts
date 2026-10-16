@@ -294,6 +294,18 @@ export interface ResolvedAgentBatchField {
   target: ResolvedAgentTarget
 }
 
+/**
+ * One control a submission will send, as the observation showed it. Approval
+ * evidence only: never sent to the page, never written to a receipt. A
+ * sensitive control is named and its value withheld.
+ */
+export interface AgentSubmittedField {
+  name: string
+  value?: string
+  checked?: boolean
+  sensitive?: true
+}
+
 export interface ResolvedAgentEffect {
   command: AgentCommand
   /**
@@ -311,6 +323,12 @@ export interface ResolvedAgentEffect {
    * verified as another.
    */
   batch?: { fields: readonly ResolvedAgentBatchField[] }
+  /**
+   * What a submission sends: every other control of the submitted form, in
+   * page order, so its approval can show the whole form rather than the
+   * button. Absent for anything that does not submit a form.
+   */
+  submitted?: { fields: readonly AgentSubmittedField[] }
   /** WebMCP descriptor bound to the document and schema the model saw. */
   pageTool?: AgentPageTool
   destination?: AgentDestination

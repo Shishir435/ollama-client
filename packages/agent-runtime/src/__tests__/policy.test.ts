@@ -1383,3 +1383,88 @@ describe("browse mode for a read-only plan", () => {
     ).not.toBe("allow")
   })
 })
+
+describe("values on an approval", () => {
+  const typing = (text: string, sensitive = false) =>
+    effect(["form_mutation"], {
+      command: {
+        type: "clear_and_type",
+        ref: "e1",
+        text,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      target: { sensitive, maySubmit: false, accessibleName: "Comment" }
+    })
+
+  it("shows the text a step will type", () => {
+    const decision = evaluateAgentPolicy(input(typing("account 4111")))
+    expect(decision.type).toBe("approval_required")
+    if (decision.type === "approval_required")
+      expect(decision.request.values).toEqual({
+        kind: "entered",
+        entries: [{ field: "Comment", value: "account 4111" }]
+      })
+  })
+
+  it("lists every field of a batch fill with its value", () => {
+    const field = (ref: string, accessibleName: string) => ({
+      ref,
+      sensitive: false,
+      maySubmit: false,
+      accessibleName
+    })
+    const fill = {
+      type: "fill_form",
+      fields: [
+        { type: "clear_and_type", ref: "e1", text: "Ada" },
+        { type: "check", ref: "e2" }
+      ],
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as AgentCommand
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["form_mutation"], {
+          command: fill,
+          target: field("e1", "Name"),
+          batch: {
+            fields: [
+              {
+                command: {
+                  type: "clear_and_type",
+                  ref: "e1",
+                  text: "Ada",
+                  snapshotId: "snapshot-1",
+                  generation: 1
+                },
+                target: field("e1", "Name")
+              },
+              {
+                command: {
+                  type: "check",
+                  ref: "e2",
+                  snapshotId: "snapshot-1",
+                  generation: 1
+                },
+                target: field("e2", "Terms")
+              }
+            ]
+          }
+        })
+      )
+    )
+    if (decision.type !== "approval_required") throw new Error(decision.type)
+    expect(decision.request.values?.entries).toEqual([
+      { field: "Name", value: "Ada" },
+      { field: "Terms", checked: true }
+    ])
+  })
+
+  it("never puts a sensitive control's value on the card", () => {
+    const decision = evaluateAgentPolicy(
+      input(typing("hunter2", true), { effect: typing("hunter2", true) })
+    )
+    expect(JSON.stringify(decision)).not.toContain("hunter2")
+  })
+})

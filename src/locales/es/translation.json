@@ -46,7 +46,15 @@
       },
       "allow": "Permitir una vez",
       "reject": "Rechazar",
-      "allowForRun": "Permitir siempre este tipo de acción en {{origin}} durante esta ejecución"
+      "allowForRun": "Permitir siempre este tipo de acción en {{origin}} durante esta ejecución",
+      "values": {
+        "entered": "Lo que se escribirá",
+        "sent": "Lo que enviará el formulario",
+        "masked": "Oculto (confidencial)",
+        "checked": "Marcado",
+        "unchecked": "Sin marcar",
+        "empty": "(vacío)"
+      }
     },
     "browser_disconnected": "El control del navegador se desconectó, por lo que Agent se pausó. Revisa la página antes de continuar.",
     "controls": {

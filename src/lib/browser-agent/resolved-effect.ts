@@ -6,6 +6,7 @@ import {
   type AgentResolutionContext,
   type AgentSemanticEffect,
   AgentStaleObservationError,
+  type AgentSubmittedField,
   AgentUnreadablePageError,
   classifyAgentAffordance,
   type ResolvedAgentEffect,
@@ -720,6 +721,62 @@ const committingLabelOf = (
     ? { committingLabel: true }
     : {}
 
+/** Controls a form carries that hold nothing of the user's to show. */
+const UNSENT_INPUT_TYPES = new Set([
+  "button",
+  "submit",
+  "reset",
+  "image",
+  "hidden",
+  "file"
+])
+
+/** How many of a form's controls one approval lists. */
+const MAX_SUBMITTED_FIELDS = 24
+
+/** How much of one control's value an approval shows. */
+const MAX_SUBMITTED_VALUE_CHARS = 500
+
+/**
+ * The other controls of the form a submission sends, in page order, for the
+ * approval that asks about it. A form is the observation's own fingerprint,
+ * so two forms on one page are never mixed; a control in no recognized form
+ * contributes nothing rather than a guess.
+ */
+const submittedFields = (
+  element: AgentElement,
+  observation: AgentObservation
+): AgentSubmittedField[] => {
+  const form = element.formFingerprint
+  if (!form) return []
+  return observation.elements
+    .filter(
+      (candidate) =>
+        candidate.ref !== element.ref &&
+        candidate.formFingerprint === form &&
+        candidate.frameId === element.frameId &&
+        !candidate.submitter &&
+        ["input", "select", "textarea"].includes(candidate.tag) &&
+        !UNSENT_INPUT_TYPES.has(candidate.type?.toLowerCase() ?? "")
+    )
+    .slice(0, MAX_SUBMITTED_FIELDS)
+    .map((candidate) => {
+      const name =
+        candidate.name?.trim() ||
+        candidate.placeholder?.trim() ||
+        candidate.type ||
+        candidate.tag
+      if (candidate.sensitive) return { name, sensitive: true as const }
+      const type = candidate.type?.toLowerCase()
+      if (type === "checkbox" || type === "radio")
+        return { name, checked: candidate.checked === true }
+      return {
+        name,
+        value: (candidate.value ?? "").slice(0, MAX_SUBMITTED_VALUE_CHARS)
+      }
+    })
+}
+
 const isDomMutationAction = (type: string): type is DomMutationAgentAction =>
   (DOM_MUTATION_AGENT_ACTIONS as readonly string[]).includes(type)
 
@@ -1380,6 +1437,9 @@ export const resolveDomMutationAgentEffect = async (input: {
     frame ? new URL(frame.url) : undefined
   )
 
+  const submitted = effects.includes("submission")
+    ? submittedFields(element, observation)
+    : []
   return {
     command,
     target: {
@@ -1389,6 +1449,7 @@ export const resolveDomMutationAgentEffect = async (input: {
       ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {}),
       ...committingLabelOf(effects, element)
     },
+    ...(submitted.length ? { submitted: { fields: submitted } } : {}),
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],
     snapshotIdentity: rootAgentSnapshotIdentity(observation),

@@ -46,7 +46,15 @@
       },
       "allow": "Allow once",
       "reject": "Reject",
-      "allowForRun": "Always allow this kind of action on {{origin}} for this run"
+      "allowForRun": "Always allow this kind of action on {{origin}} for this run",
+      "values": {
+        "entered": "What will be entered",
+        "sent": "What the form will send",
+        "masked": "Hidden (sensitive)",
+        "checked": "Checked",
+        "unchecked": "Not checked",
+        "empty": "(empty)"
+      }
     },
     "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",
     "controls": {

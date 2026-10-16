@@ -369,6 +369,26 @@ export const AgentAnswerSchema = z
   .strict()
 export type AgentAnswer = z.infer<typeof AgentAnswerSchema>
 
+/** How many controls one approval lists with their values. */
+export const MAX_AGENT_APPROVAL_VALUES = 24
+/** How much of one value an approval shows. */
+export const MAX_AGENT_APPROVAL_VALUE_CHARS = 500
+
+/**
+ * One control and what the step will put in it, or what the form will send
+ * from it. Text the model composed or the page holds, so the panel flattens
+ * it; `masked` names a sensitive control without its value.
+ */
+export const AgentApprovalValueSchema = z
+  .object({
+    field: z.string().min(1).max(200),
+    value: z.string().max(MAX_AGENT_APPROVAL_VALUE_CHARS).optional(),
+    checked: z.boolean().optional(),
+    masked: z.literal(true).optional()
+  })
+  .strict()
+export type AgentApprovalValue = z.infer<typeof AgentApprovalValueSchema>
+
 export const AgentApprovalRequestSchema = z
   .object({
     id: z.string().min(1),
@@ -385,6 +405,23 @@ export const AgentApprovalRequestSchema = z
       .strict()
       .optional(),
     pageEvidence: z.string().max(1_000).optional(),
+    /**
+     * What the user is approving, value by value: the text a step types,
+     * the option it picks, or — for a submission — everything the form will
+     * send. `entered` for the first two, `sent` for the third. An approval
+     * that named only the control asked the user to approve text they could
+     * not see.
+     */
+    values: z
+      .object({
+        kind: z.enum(["entered", "sent"]),
+        entries: z
+          .array(AgentApprovalValueSchema)
+          .min(1)
+          .max(MAX_AGENT_APPROVAL_VALUES)
+      })
+      .strict()
+      .optional(),
     /**
      * The origin this effect happens on, and the classes the user may widen
      * to for the rest of the run. Absent means widening is not on offer —

@@ -2,6 +2,10 @@ import {
   AGENT_GRANTABLE_EFFECTS,
   AGENT_ROUTINE_GRANT_EFFECTS,
   type AgentApprovalRequest,
+  type AgentApprovalValue,
+  type AgentCommand,
+  MAX_AGENT_APPROVAL_VALUE_CHARS,
+  MAX_AGENT_APPROVAL_VALUES,
   type AgentDisplayText,
   type AgentGrant,
   type AgentTakeoverRequest
@@ -317,10 +321,9 @@ const MAX_EVIDENCE_CHARS = 1_000
  * user is owed the count they are approving even where the page will not say
  * what a control is called.
  *
- * The values are not listed, exactly as they are not for a lone edit. They
- * are model-composed or page-derived text of up to a thousand characters
- * each, and a prompt the user has to read past to reach the buttons is a
- * prompt they stop reading.
+ * The values travel separately, in `values`, where the card can list them
+ * beside their controls: a prompt naming the control without the text it
+ * gets asked the user to approve something they could not see.
  */
 /**
  * The control and the row it sits in, so one of five identical Delete
@@ -512,8 +515,84 @@ const makeBaseApprovalRequest = (
             : "The browser will perform the resolved page effect shown below."),
     display: approvalDisplay(input),
     pageEvidence: batchEvidence(input) ?? rowEvidence(input),
+    ...approvalValues(input),
     createdAt: input.now
   }
+}
+
+const clipped = (value: string): string =>
+  value.length > MAX_AGENT_APPROVAL_VALUE_CHARS
+    ? `${value.slice(0, MAX_AGENT_APPROVAL_VALUE_CHARS - 1)}…`
+    : value
+
+const fieldName = (target: ResolvedAgentEffect["target"]): string =>
+  (
+    target.accessibleName?.trim() ||
+    target.role ||
+    target.inputType ||
+    target.tag ||
+    "control"
+  ).slice(0, 200)
+
+/** What one command writes into its control, if it writes anything. */
+const commandValue = (
+  command: AgentCommand,
+  target: ResolvedAgentEffect["target"]
+): AgentApprovalValue | undefined => {
+  const field = fieldName(target)
+  if (
+    command.type !== "type" &&
+    command.type !== "clear_and_type" &&
+    command.type !== "replace_text" &&
+    command.type !== "select" &&
+    command.type !== "check" &&
+    command.type !== "uncheck"
+  )
+    return undefined
+  if (target.sensitive) return { field, masked: true }
+  if (command.type === "check" || command.type === "uncheck")
+    return { field, checked: command.type === "check" }
+  return {
+    field,
+    value: clipped(command.type === "select" ? command.value : command.text)
+  }
+}
+
+/**
+ * The values an approval shows. A batch lists every field it sets; a lone
+ * edit its one value; a submission everything its form will send. A
+ * sensitive control is listed by name with its value withheld.
+ */
+const approvalValues = (
+  input: AgentPolicyInput
+): Pick<AgentApprovalRequest, "values"> => {
+  const { effect } = input
+  const submitted = effect.semanticEffects.includes("submission")
+    ? effect.submitted?.fields
+    : undefined
+  if (submitted?.length) {
+    const entries = submitted
+      .slice(0, MAX_AGENT_APPROVAL_VALUES)
+      .map((field): AgentApprovalValue => ({
+        field: field.name.slice(0, 200) || "control",
+        ...(field.sensitive
+          ? { masked: true }
+          : field.checked !== undefined
+            ? { checked: field.checked }
+            : { value: clipped(field.value ?? "") })
+      }))
+    return { values: { kind: "sent", entries } }
+  }
+  const entries = (
+    effect.batch?.fields.length
+      ? effect.batch.fields.map((field) =>
+          commandValue(field.command, field.target)
+        )
+      : [commandValue(effect.command, effect.target)]
+  )
+    .filter((entry): entry is AgentApprovalValue => entry !== undefined)
+    .slice(0, MAX_AGENT_APPROVAL_VALUES)
+  return entries.length ? { values: { kind: "entered", entries } } : {}
 }
 
 /** The takeover request's own bound on its instruction. */
