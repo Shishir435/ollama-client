@@ -1152,23 +1152,53 @@ const RECORD_TAGS = "div, section, article"
 
 /**
  * Whether an element is one of several same-tag siblings that each carry a
- * link: the shape of a list of records. The nearest such ancestor is the
+ * link, or each carry a copy of the control being described: the shape of a
+ * list of records. The nearest such ancestor is the
  * record, so a wrapper holding several records is never reached, whatever
  * controls those records hold.
  */
 const repeatsAsRecord = (
   current: Element,
+  pass: AgentObservationPass,
+  element: Element
+): boolean => {
+  if (!current.matches(RECORD_TAGS)) return false
+  const linked = current.querySelector("a[href]") !== null
+  const key = controlKey(element)
+  return Array.from(current.parentElement?.children ?? [])
+    .slice(0, MAX_RECORD_SIBLINGS)
+    .some(
+      (sibling) =>
+        sibling !== current &&
+        sibling.tagName === current.tagName &&
+        !isChainHidden(sibling, pass) &&
+        ((linked && sibling.querySelector("a[href]") !== null) ||
+          holdsCopyOf(sibling, element, key, pass))
+    )
+}
+
+/**
+ * Siblings read when deciding whether a block is one of several records: a
+ * page of many sections need not be walked whole for every control in it.
+ */
+const MAX_RECORD_SIBLINGS = 50
+
+/**
+ * A sibling block holding its own rendered copy of this control — the
+ * "Mark paid" under each invoice heading, with no link in either. That is
+ * the shape of a list of records as surely as repeated links are.
+ */
+const holdsCopyOf = (
+  sibling: Element,
+  element: Element,
+  key: string,
   pass: AgentObservationPass
-): boolean =>
-  current.matches(RECORD_TAGS) &&
-  current.querySelector("a[href]") !== null &&
-  Array.from(current.parentElement?.children ?? []).some(
-    (sibling) =>
-      sibling !== current &&
-      sibling.tagName === current.tagName &&
-      !isChainHidden(sibling, pass) &&
-      sibling.querySelector("a[href]") !== null
-  )
+): boolean => {
+  for (const candidate of sibling.querySelectorAll(element.tagName))
+    if (controlKey(candidate) === key && !isChainHidden(candidate, pass))
+      return true
+  return false
+}
 
 /** A bounded row label beside repeated controls such as Delete buttons. */
 const rowContextOf = (
@@ -1183,7 +1213,7 @@ const rowContextOf = (
   ) {
     if (current.matches("li, tr, [role='row'], [role='listitem']"))
       return collectVisibleText(current, 140, pass, scope) || undefined
-    if (!repeatsAsRecord(current, pass)) continue
+    if (!repeatsAsRecord(current, pass, element)) continue
     /**
      * A record holding a second rendered copy of this control is really a
      * wrapper around several records. Checked only once a record is found:

@@ -85,6 +85,27 @@ describe("Agent observation builder", () => {
     ])
   })
 
+  it("labels linkless sections that each carry the same control", () => {
+    document.body.innerHTML =
+      "<main><h1>Invoices</h1><section><h2>Invoice A</h2><p>Due</p><button>Mark paid</button></section><section><h2>Invoice B</h2><p>Due</p><button>Mark paid</button></section></main>"
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "Invoice A Due Mark paid",
+      "Invoice B Due Mark paid"
+    ])
+  })
+
+  it("does not call a lone linkless section a record", () => {
+    document.body.innerHTML =
+      "<main><section><h2>Profile</h2><button>Save</button></section><section><h2>Help</h2><p>Ask us</p></section></main>"
+    const [button] = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(button.rowContext).toBeUndefined()
+  })
+
   it("keeps a row's label when a hidden twin of its control sits beside it", () => {
     document.body.innerHTML =
       '<div><div><a href="/pull/1">Fix parser</a> <button>Delete</button><button style="display:none">Delete</button></div><div><a href="/pull/2">Add docs</a> <button>Delete</button></div></div>'
