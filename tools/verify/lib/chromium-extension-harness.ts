@@ -105,7 +105,21 @@ export class PageSession {
     })) as { sessionId: string }
     page.sessionId = attached.sessionId
     await page.send("Runtime.enable")
-    return page
+    try {
+      // A new target can still be about:blank, whose readyState is already complete.
+      await poll(
+        () =>
+          page.evaluate<boolean>(
+            `location.href === ${JSON.stringify(url)} && document.readyState === "complete"`
+          ),
+        Boolean,
+        "requested extension document"
+      )
+      return page
+    } catch (error) {
+      await page.closeTarget().catch(() => page.close())
+      throw error
+    }
   }
 
   private onMessage(data: string): void {

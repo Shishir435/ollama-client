@@ -179,14 +179,18 @@ const getSearchParts = (entry: SettingsEntry, translate?: Translate) => {
  */
 export const searchSettings = (
   query: string,
-  translate?: Translate
+  translate?: Translate,
+  browserBuiltInVisible = false
 ): SettingsEntry[] => {
-  return rankSettings(query, translate).map((result) => result.entry)
+  return rankSettings(query, translate, browserBuiltInVisible).map(
+    (result) => result.entry
+  )
 }
 
 export const rankSettings = (
   query: string,
-  translate?: Translate
+  translate?: Translate,
+  browserBuiltInVisible = false
 ): RankedSettingsEntry[] => {
   const normalizedQuery = normalizeSettingsSearchText(query)
   const tokens = normalizedQuery.split(/\s+/).filter(Boolean)
@@ -209,7 +213,11 @@ export const rankSettings = (
       index
     }
   })
-    .filter((result) => result.score > 0)
+    .filter(
+      (result) =>
+        result.score > 0 &&
+        (result.entry.id !== "browser-built-in" || browserBuiltInVisible)
+    )
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map(({ entry, score }) => ({ entry, score }))
 }

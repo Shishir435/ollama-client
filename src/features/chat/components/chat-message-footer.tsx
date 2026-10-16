@@ -15,7 +15,9 @@ import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
 import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import { cn } from "@/lib/class-names"
+import { BROWSER_MODEL_ID } from "@/lib/providers/browser-built-in/constants"
 import { resolveModelBrand } from "@/lib/providers/provider-brand"
+import { ProviderId } from "@/lib/providers/types"
 import type { ChatMessage } from "@/types"
 import { CopyButton } from "./copy-button"
 import { RegenerateButton } from "./regenerate-button"
@@ -215,7 +217,12 @@ export const ChatMessageFooter = ({
               <span className="inline-flex h-6 min-w-0 max-w-[clamp(5rem,24vw,14rem)] items-center gap-1 rounded-control px-1 text-micro text-foreground-tertiary hover:bg-state-hover hover:text-foreground">
                 {/* The vendor the model id names, so the reply is attributed
                     with the same mark the model menu shows. */}
-                {resolveModelBrand(msg.model) ? (
+                {msg.model === BROWSER_MODEL_ID ? (
+                  <ProviderIcon
+                    providerId={ProviderId.BROWSER}
+                    className="icon-xs shrink-0"
+                  />
+                ) : resolveModelBrand(msg.model) ? (
                   <ProviderIcon
                     brand={resolveModelBrand(msg.model)}
                     className="icon-xs shrink-0"

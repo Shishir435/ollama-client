@@ -3,7 +3,7 @@
 This opt-in provider uses the current `window.LanguageModel` Prompt API shape.
 Ollama remains the default. Settings → Providers offers preparation only when
 both the visible extension page and the existing Chromium persistence host expose
-the API and the host reports a usable text configuration. There is no UA sniffing,
+the API and the host reports a usable text configuration. Support detection never uses browser identity. There is no
 legacy `window.ai` fallback, origin-trial permission, or required experimental flag.
 Firefox builds report unavailable without opening an offscreen document.
 
@@ -73,3 +73,8 @@ detection, rather than relying on worker availability in any particular browser.
 Static checks/builds do not establish live model execution or cross-browser
 support. Manual acceptance on eligible hardware must still cover download,
 streaming, Stop, panel closure, worker recovery, and absent/removed models.
+
+The provider, model picker, selected model and chat footer use the same monochrome
+icon. An explicit `Google Chrome` brand in `navigator.userAgentData.brands` selects
+the Chrome glyph; missing hints or other brands retain the neutral browser glyph.
+This display-only hint never enables the provider or names the underlying model.

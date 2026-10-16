@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { SettingsEntry } from "../settings-registry"
+import { searchSettings, type SettingsEntry } from "../settings-registry"
 import {
   buildSettingsSearchRecords,
   rankSettingsSearchRecords
@@ -114,5 +114,30 @@ describe("settings-search-index", () => {
     const records = buildSettingsSearchRecords(entries, localeT)
     const [hit] = rankSettingsSearchRecords("equilibrado", records)
     expect(hit.record.displayLabel).toBe("Equilibrado")
+  })
+})
+
+describe("optional browser model search", () => {
+  it("only indexes the optional control after runtime support is established", () => {
+    expect(
+      searchSettings("Prompt API").some(
+        (entry) => entry.id === "browser-built-in"
+      )
+    ).toBe(false)
+    expect(
+      searchSettings("Prompt API", undefined, true).some(
+        (entry) => entry.id === "browser-built-in"
+      )
+    ).toBe(true)
+    expect(
+      buildSettingsSearchRecords().some(
+        (record) => record.entryId === "browser-built-in"
+      )
+    ).toBe(false)
+    expect(
+      buildSettingsSearchRecords(undefined, undefined, true).some(
+        (record) => record.entryId === "browser-built-in"
+      )
+    ).toBe(true)
   })
 })

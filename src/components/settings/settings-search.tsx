@@ -3,6 +3,7 @@ import { type Ref, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { MiniBadge } from "@/components/ui/mini-badge"
+import { useBrowserBuiltInVisible } from "@/features/model/hooks/use-browser-built-in-visible"
 import type { SettingsTab } from "@/features/settings/settings-registry"
 import {
   buildSettingsSearchRecords,
@@ -56,9 +57,10 @@ export const SettingsSearch = ({
       ? "⌘"
       : "Ctrl"
 
+  const browserBuiltInVisible = useBrowserBuiltInVisible()
   const records = useMemo(() => {
-    return buildSettingsSearchRecords(undefined, t)
-  }, [t])
+    return buildSettingsSearchRecords(undefined, t, browserBuiltInVisible)
+  }, [t, browserBuiltInVisible])
 
   const results = useMemo(
     () =>

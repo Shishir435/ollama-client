@@ -1,10 +1,8 @@
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { AnthropicProvider } from "./anthropic"
-import {
-  BrowserBuiltInProvider,
-  BROWSER_MODEL_ID
-} from "./browser-built-in/provider"
+import { BROWSER_MODEL_ID } from "./browser-built-in/constants"
+import { BrowserBuiltInProvider } from "./browser-built-in/provider"
 import { KoboldCppProvider } from "./koboldcpp"
 import { LlamaCppProvider } from "./llama-cpp"
 import { LMStudioProvider } from "./lm-studio"

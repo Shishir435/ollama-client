@@ -10,14 +10,14 @@ import {
 } from "../types"
 import type { PromptMessage } from "./api"
 import { browserModelAvailability, callBrowserModelHost } from "./bridge"
+import { BROWSER_MODEL_ID } from "./constants"
 import { browserModelError } from "./errors"
-
-export const BROWSER_MODEL_ID = "browser-built-in/text"
 
 /** Text chat only. Browser-managed weights are independent of the RAG embedder. */
 export class BrowserBuiltInProvider implements LLMProvider {
   readonly id = ProviderId.BROWSER
   readonly capabilities = getProviderCapabilities(ProviderId.BROWSER)!
+  /** Retain the explicit browser configuration; never adopt a server identity. */
   constructor(readonly config: ProviderConfig) {
     if (config.id !== ProviderId.BROWSER)
       throw createAppError("Invalid browser provider identity", {
@@ -25,6 +25,7 @@ export class BrowserBuiltInProvider implements LLMProvider {
       })
   }
 
+  /** Synthesize one text model only after opt-in and host readiness. */
   async getModels(signal?: AbortSignal): Promise<ProviderModel[]> {
     signal?.throwIfAborted()
     if (!this.config.enabled) return []
@@ -59,10 +60,12 @@ export class BrowserBuiltInProvider implements LLMProvider {
     ]
   }
 
+  /** Browser chat provides no embedding operation or vector space. */
   async getEmbeddingSupport() {
     return { supported: false, mode: "none" as const }
   }
 
+  /** Reject unsupported input before opening a cancellable host stream. */
   async streamChat(
     request: ChatRequest,
     onChunk: (chunk: ChatStreamMessage) => void,

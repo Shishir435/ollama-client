@@ -48,6 +48,7 @@ export const TEXT_OPTIONS: PromptOptions = {
   expectedOutputs: [{ type: "text" }]
 }
 
+/** Treat absent, rejected, and unknown API states as unavailable. */
 export const promptAvailability = async (): Promise<Availability> => {
   try {
     const parsed = BrowserModelAvailabilitySchema.safeParse(

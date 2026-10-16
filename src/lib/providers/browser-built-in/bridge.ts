@@ -96,6 +96,7 @@ export const callBrowserModelHost = async (
   })
 }
 
+/** Query host availability without triggering browser model preparation. */
 export const browserModelAvailability = async (
   signal?: AbortSignal
 ): Promise<Availability> => {
