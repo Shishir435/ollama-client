@@ -224,8 +224,8 @@ export const createAgentBrowserAdapters = (input: {
    * so a field that is ours rather than the page's is a parse failure before a
    * byte is sent — and the step then reads as an effect that may have
    * happened. `frame` travels on the instruction and `point` beside it;
-   * `noSubmitStep`, `committingLabel`, `rowContext` and `searchForm` are
-   * approval evidence. One
+   * `noSubmitStep`, `committingLabel`, `savingLabel`, `rowContext` and
+   * `searchForm` are approval evidence. One
    * helper for every instruction: two hand-kept copies of this list drifted,
    * and a batch fill on any search box paused as unresolved.
    */
@@ -240,6 +240,7 @@ export const createAgentBrowserAdapters = (input: {
       visual: _visual,
       noSubmitStep: _noSubmitStep,
       committingLabel: _committingLabel,
+      savingLabel: _savingLabel,
       rowContext: _rowContext,
       searchForm: _searchForm,
       ...wire

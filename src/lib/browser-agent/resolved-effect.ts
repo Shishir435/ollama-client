@@ -707,6 +707,36 @@ const isConsequentialLabel = (value?: string): boolean =>
   Boolean(value && CONSEQUENTIAL_LABELS.some((pattern) => pattern.test(value)))
 
 /**
+ * Labels of controls that store something: a save, an update, a status
+ * change on a record. A second press stores it twice — four identical drafts
+ * from a run that kept re-saving while it looked for proof — so the click is
+ * recorded as a possible commit and a repeat is put to the user. The first
+ * press is still covered by the run's standing consent: storing an edit the
+ * run was asked to make is what the task is.
+ */
+const SAVING_LABELS = [
+  labelWords([
+    "save",
+    "save (?:changes|draft|all)",
+    "update",
+    "apply changes",
+    "create",
+    "mark (?:as )?(?:paid|done|complete|completed|resolved|read)"
+  ]),
+  labelWords(["speichern", "aktualisieren", "erstellen"]),
+  labelWords(["guardar", "actualizar", "crear"]),
+  labelWords(["enregistrer", "mettre à jour", "créer"]),
+  labelWords(["salva", "aggiorna", "crea"]),
+  labelWords(["сохранить", "обновить", "создать"]),
+  /(?:保存|更新|作成)/u,
+  /(?:保存|更新|创建)/u,
+  /(?:सहेजें|अपडेट करें|बनाएं)/u
+] as const
+
+const isSavingLabel = (value?: string): boolean =>
+  Boolean(value && SAVING_LABELS.some((pattern) => pattern.test(value)))
+
+/**
  * The target's `committingLabel` evidence: an activation whose control is
  * labelled as committing, and only one no form already classifies as a
  * submission.
@@ -719,6 +749,18 @@ const committingLabelOf = (
   !effects.includes("submission") &&
   isConsequentialLabel(element.name)
     ? { committingLabel: true }
+    : {}
+
+/** The target's `savingLabel` evidence, for a click no other label class took. */
+const savingLabelOf = (
+  effects: readonly AgentSemanticEffect[],
+  element: AgentElement
+): { savingLabel?: true } =>
+  effects.includes("activation") &&
+  !effects.includes("submission") &&
+  !isConsequentialLabel(element.name) &&
+  isSavingLabel(element.name)
+    ? { savingLabel: true }
     : {}
 
 /** Controls a form carries that hold nothing of the user's to show. */
@@ -1447,7 +1489,8 @@ export const resolveDomMutationAgentEffect = async (input: {
       ...(point ? { point, visual } : {}),
       ...(drop ? { drop: drop.drop } : {}),
       ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {}),
-      ...committingLabelOf(effects, element)
+      ...committingLabelOf(effects, element),
+      ...savingLabelOf(effects, element)
     },
     ...(submitted.length ? { submitted: { fields: submitted } } : {}),
     ...(destination ? { destination } : {}),

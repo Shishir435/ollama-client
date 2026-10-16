@@ -855,13 +855,19 @@ export const MAX_AGENT_HANDOFF_CHARS =
  * committing, so whether it was a submission or a payment cannot be told from
  * the page. The label only raises a click to this class — it proves nothing
  * landed — and a constraint forbidding a submission or a payment forbids it.
+ *
+ * `save` is a click on a control labelled as storing something ("Save",
+ * "Update", "Mark as paid"). Recorded so a second press is caught as a
+ * repeat; no constraint forbids it, since "don't publish" is not "don't
+ * save".
  */
 export const AGENT_CONSEQUENTIAL_EFFECTS = [
   "submission",
   "destructive",
   "payment",
   "download",
-  "potential_commit"
+  "potential_commit",
+  "save"
 ] as const
 export const AgentConsequentialEffectSchema = z.enum(
   AGENT_CONSEQUENTIAL_EFFECTS

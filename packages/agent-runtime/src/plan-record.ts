@@ -355,9 +355,15 @@ export const agentForbiddingConstraints = (
     const unprovenBound =
       constraint.kind === "scope" ||
       (constraint.kind === "limit" && classes.includes("payment"))
+    /**
+     * A save is only ever recorded to catch its own repeat; it was a routine
+     * click before it had a class, and a bound it has no record identity for
+     * must not start refusing it now.
+     */
     const effects = classes.filter(
       (effect) =>
-        unprovenBound || agentForbidsEffect(constraint.forbids, effect)
+        (unprovenBound && effect !== "save") ||
+        agentForbidsEffect(constraint.forbids, effect)
     )
     return effects.length > 0 ? [{ constraint, effects }] : []
   })

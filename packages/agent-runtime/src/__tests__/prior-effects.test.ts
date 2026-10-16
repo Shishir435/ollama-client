@@ -519,3 +519,36 @@ describe("a repeat in a list of records", () => {
     ).toBe("confirmed")
   })
 })
+
+describe("a script button labelled as saving", () => {
+  const save = effect({
+    semanticEffects: ["activation"],
+    target: {
+      ref: "e2",
+      role: "button",
+      tag: "button",
+      accessibleName: "Save",
+      sensitive: false,
+      maySubmit: false,
+      savingLabel: true
+    }
+  })
+
+  it("is recorded as a save, which no constraint forbids", () => {
+    expect(agentConsequentialEffects(save)).toEqual(["save"])
+    expect(agentForbidsEffect(["submission", "payment"], "save")).toBe(false)
+  })
+
+  it("is caught when pressed again", () => {
+    const pressed = receipt({
+      runId: "run",
+      stepId: "run:2",
+      status: "verified",
+      command: click,
+      target: { role: "button", tag: "button", name: "Save" },
+      consequential: ["save"],
+      sourceUrl: "https://forum.example/thread/7"
+    })
+    expect(agentOwnEffectSettlement(save, [pressed])).toBe("confirmed")
+  })
+})

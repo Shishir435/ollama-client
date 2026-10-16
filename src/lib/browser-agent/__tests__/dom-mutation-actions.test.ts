@@ -2191,3 +2191,22 @@ describe("what a submission will send", () => {
     expect(effect.submitted).toBeUndefined()
   })
 })
+
+describe("a script button's label", () => {
+  it.each([
+    ["Save", { savingLabel: true }],
+    ["Speichern", { savingLabel: true }],
+    ["Mark as paid", { savingLabel: true }],
+    ["Place order", { committingLabel: true }],
+    ["Sort by price", {}]
+  ])("reads %s", async (name, expected) => {
+    const effect = await resolve(
+      command({ type: "click", ref: "e1" }),
+      observation({ elements: [element({ name })] })
+    )
+    expect({
+      ...(effect.target.savingLabel ? { savingLabel: true } : {}),
+      ...(effect.target.committingLabel ? { committingLabel: true } : {})
+    }).toEqual(expected)
+  })
+})

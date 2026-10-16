@@ -238,6 +238,14 @@ export interface ResolvedAgentTarget {
    * Evidence, not a decision: policy never lets standing consent cover it.
    */
   committingLabel?: boolean
+  /**
+   * Set on an activation whose control is labelled as storing something
+   * ("Save", "Update", "Mark as paid") that no form classifies. Evidence for
+   * the repeat guard only: the click is recorded as a possible commit, so a
+   * second press of the same control asks; standing consent still covers
+   * the first.
+   */
+  savingLabel?: boolean
 }
 
 /** The destination of a drag, in the terms its later recheck compares. */

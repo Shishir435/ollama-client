@@ -24,7 +24,12 @@ const isConsequential = (
 export type AgentConsequentialSource = Pick<
   ResolvedAgentEffect,
   "semanticEffects"
-> & { target?: Pick<ResolvedAgentEffect["target"], "committingLabel"> }
+> & {
+  target?: Pick<
+    ResolvedAgentEffect["target"],
+    "committingLabel" | "savingLabel"
+  >
+}
 
 /**
  * The classes of an effect a repeat would double; empty for a routine one.
@@ -32,7 +37,8 @@ export type AgentConsequentialSource = Pick<
  * A click on a committing-labelled control no form classifies is a
  * `potential_commit`: recorded on its receipt, guarded against repeats and
  * held to the constraints like a submission, because a script button orders
- * or sends as surely as a submitter does. The label only ever adds the class.
+ * or sends as surely as a submitter does. A saving-labelled one is a `save`,
+ * guarded against repeats only. The label only ever adds the class.
  */
 export const agentConsequentialEffects = (
   effect: AgentConsequentialSource
@@ -40,9 +46,10 @@ export const agentConsequentialEffects = (
   const classes: AgentConsequentialEffect[] = []
   for (const semantic of effect.semanticEffects)
     if (isConsequential(semantic)) classes.push(semantic)
-  return classes.length === 0 && effect.target?.committingLabel === true
-    ? ["potential_commit"]
-    : classes
+  if (classes.length > 0) return classes
+  if (effect.target?.committingLabel === true) return ["potential_commit"]
+  if (effect.target?.savingLabel === true) return ["save"]
+  return classes
 }
 
 export const agentEffectIsConsequential = (
