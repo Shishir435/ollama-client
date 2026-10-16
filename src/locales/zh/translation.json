@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}，切换主题"
     },
     "bug_report": {
-      "label": "错误报告",
+      "label": "报告错误",
       "aria_label": "报告错误或请求功能",
       "tooltip": "报告错误或请求功能"
     },
@@ -454,15 +454,9 @@
     }
   },
   "welcome": {
-    "title": "欢迎使用本地 LLM 聊天",
-    "subtitle": "本地 AI 对话，简单易行",
-    "badge": "本地优先聊天",
-    "start_chatting": "开始聊天",
+    "title": "Ollama Client",
+    "subtitle": "本地 LLM 聊天与浏览器代理",
     "status": {
-      "connecting": {
-        "title": "正在连接…",
-        "message": "正在检查你的提供商。"
-      },
       "connection_failed": {
         "title": "无法连接 {{provider}}",
         "message": "请先启动它，然后选择“重试”。"
@@ -472,34 +466,11 @@
         "message": "运行 `ollama pull llama3.2`，然后再检查一次。",
         "message_generic": "请在提供商中安装或加载聊天模型，然后再次检查。"
       },
-      "ready": {
-        "title": "可以开始聊天了",
-        "message": "提供商已连接。"
-      },
       "provider_fallback": "你的提供商"
     },
     "setup_guide": {
-      "hint": "按照以下设置指南安装Ollama和模型。",
       "full_guide_link": "完整设置指南",
       "help_prefix": "需要帮助？"
-    },
-    "features": {
-      "private": {
-        "title": "100% 私密",
-        "description": "您的数据保留在本地"
-      },
-      "offline": {
-        "title": "离线工作",
-        "description": "无需互联网"
-      },
-      "local_processing": {
-        "title": "本地处理",
-        "description": "完全控制"
-      },
-      "embeddings": {
-        "title": "向量嵌入",
-        "description": "支持语义搜索"
-      }
     },
     "performance_notice": {
       "title": "性能提示",
@@ -2041,7 +2012,7 @@
       },
       "catalog_refresh": {
         "label": "模型列表刷新",
-        "description": "已打开的面板多久向提供商重新获取一次模型列表。",
+        "description": "打开的面板多久向本设备上的提供方重新获取一次模型列表。远程提供方会在你回到面板时刷新。",
         "options": {
           "0": "关闭",
           "10000": "每 10 秒",

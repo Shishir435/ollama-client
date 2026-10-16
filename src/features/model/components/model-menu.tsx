@@ -121,13 +121,14 @@ export const ModelMenu = ({
   showStatusPopup: _showStatusPopup = true
 }: ModelMenuProps) => {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
+  const [open, setOpenState] = useState(false)
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const {
     models,
     refresh,
     refreshProvider,
+    refreshStale,
     isLoading,
     selectedModel,
     selectedModelRef,
@@ -137,6 +138,11 @@ export const ModelMenu = ({
     unavailableProviders,
     ollamaEnabled
   } = useProviderModels()
+  /** Opening the menu re-asks any provider whose list has gone stale. */
+  const setOpen = (next: boolean) => {
+    setOpenState(next)
+    if (next) void refreshStale()
+  }
 
   const providerFailureNames = (unreachable: boolean) =>
     unavailableProviders
@@ -411,13 +417,18 @@ export const ModelMenu = ({
                         <SelectedModelIcon className="icon-md shrink-0 text-muted-foreground" />
                       )
                     })()}
-                    <span className="truncate font-medium">
+                    <span className="max-w-36 truncate font-medium">
                       {(() => {
                         const name =
                           models.find((m) => m.name === selectedModel)?.name ||
                           selectedModel
-                        return name.length > 15
-                          ? `${name.slice(0, 15)}...`
+                        /**
+                         * A vendor prefix the mark beside it already shows is
+                         * dropped, so the narrow trigger spends its width on
+                         * the model. The tooltip keeps the full id.
+                         */
+                        return resolveModelBrand(name)
+                          ? name.slice(name.indexOf("/") + 1)
                           : name
                       })()}
                     </span>

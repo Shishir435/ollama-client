@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}, toggle theme"
     },
     "bug_report": {
-      "label": "Bug",
+      "label": "Report a bug",
       "aria_label": "Report a bug or request a feature",
       "tooltip": "Report a bug or request a feature"
     },
@@ -454,15 +454,9 @@
     }
   },
   "welcome": {
-    "title": "Welcome to Local LLM Chat",
-    "subtitle": "Private, local-first chat with your own models",
-    "badge": "Local-first chat",
-    "start_chatting": "Start Chatting",
+    "title": "Ollama Client",
+    "subtitle": "Local LLM chat and browser agent",
     "status": {
-      "connecting": {
-        "title": "Connecting…",
-        "message": "Checking your providers."
-      },
       "connection_failed": {
         "title": "Can't reach {{provider}}",
         "message": "Start it, then select Retry."
@@ -472,34 +466,11 @@
         "message": "Run `ollama pull llama3.2`, then check again.",
         "message_generic": "Install or load a chat model in your provider, then check again."
       },
-      "ready": {
-        "title": "Ready to chat",
-        "message": "Your provider is connected."
-      },
       "provider_fallback": "your provider"
     },
     "setup_guide": {
-      "hint": "Follow the setup guide below to install Ollama and models.",
       "full_guide_link": "Full Setup Guide",
       "help_prefix": "Need help?"
-    },
-    "features": {
-      "private": {
-        "title": "100% Private",
-        "description": "Your data stays local"
-      },
-      "offline": {
-        "title": "Works Offline",
-        "description": "No internet needed"
-      },
-      "local_processing": {
-        "title": "Local Processing",
-        "description": "Full control"
-      },
-      "embeddings": {
-        "title": "Vector Embeddings",
-        "description": "Semantic search ready"
-      }
     },
     "performance_notice": {
       "title": "Performance notice",
@@ -2253,7 +2224,7 @@
       },
       "catalog_refresh": {
         "label": "Model list refresh",
-        "description": "How often an open panel asks your providers for their model lists again.",
+        "description": "How often an open panel asks providers on this device for their model lists again. Remote providers refresh when you come back to the panel.",
         "options": {
           "0": "Off",
           "10000": "Every 10 seconds",

@@ -1,4 +1,4 @@
-import { Brain, ChevronDown, RotateCcw } from "lucide-react"
+import { Brain, RotateCcw } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions/tooltip-action-button"
 import { Button } from "@/components/ui/button"
@@ -95,12 +95,11 @@ const ReasoningEffortControl = ({
             role="combobox"
             aria-label={controlLabel}
             title={`${controlLabel}: ${triggerLabel}`}
-            className="h-8 w-24 shrink-0 justify-between gap-1 rounded-panel px-2 font-medium"
+            className="h-8 shrink-0 gap-1 rounded-panel px-2 font-medium"
           />
         }>
         <Brain className="icon-sm shrink-0 text-muted-foreground" />
-        <span className="min-w-0 truncate">{triggerLabel}</span>
-        <ChevronDown className="icon-sm shrink-0 text-muted-foreground" />
+        <span className="whitespace-nowrap">{triggerLabel}</span>
       </PopoverTrigger>
       <PopoverContent
         side="top"

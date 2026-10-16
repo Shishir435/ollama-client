@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}、テーマを切り替える"
     },
     "bug_report": {
-      "label": "バグ",
+      "label": "バグ報告",
       "aria_label": "バグ報告または機能リクエスト",
       "tooltip": "バグ報告または機能リクエスト"
     },
@@ -454,15 +454,9 @@
     }
   },
   "welcome": {
-    "title": "ローカルLLMチャットへようこそ",
-    "subtitle": "ローカルAIとの会話をシンプルに",
-    "badge": "ローカル優先チャット",
-    "start_chatting": "チャットを開始",
+    "title": "Ollama Client",
+    "subtitle": "ローカル LLM チャットとブラウザエージェント",
     "status": {
-      "connecting": {
-        "title": "接続中…",
-        "message": "プロバイダーを確認しています。"
-      },
       "connection_failed": {
         "title": "{{provider}} に接続できません",
         "message": "起動してから「再試行」を選択してください。"
@@ -472,34 +466,11 @@
         "message": "`ollama pull llama3.2` を実行してから、もう一度確認してください。",
         "message_generic": "プロバイダーでチャットモデルをインストールまたは読み込んでから、もう一度確認してください。"
       },
-      "ready": {
-        "title": "チャットの準備ができました",
-        "message": "プロバイダーに接続されています。"
-      },
       "provider_fallback": "プロバイダー"
     },
     "setup_guide": {
-      "hint": "以下のセットアップガイドに従って、Ollamaとモデルをインストールしてください。",
       "full_guide_link": "完全なセットアップガイド",
       "help_prefix": "お困りですか？"
-    },
-    "features": {
-      "private": {
-        "title": "100% プライベート",
-        "description": "データはローカルに保持されます"
-      },
-      "offline": {
-        "title": "オフライン動作",
-        "description": "インターネット接続は不要です"
-      },
-      "local_processing": {
-        "title": "ローカル処理",
-        "description": "完全なコントロール"
-      },
-      "embeddings": {
-        "title": "ベクトルエンベディング",
-        "description": "セマンティック検索対応"
-      }
     },
     "performance_notice": {
       "title": "パフォーマンスに関する注意",
@@ -2041,7 +2012,7 @@
       },
       "catalog_refresh": {
         "label": "モデル一覧の更新",
-        "description": "開いているパネルがプロバイダーにモデル一覧を再取得する間隔です。",
+        "description": "開いているパネルが、このデバイス上のプロバイダーにモデル一覧を再取得する間隔です。リモートのプロバイダーはパネルに戻ったときに更新されます。",
         "options": {
           "0": "オフ",
           "10000": "10 秒ごと",

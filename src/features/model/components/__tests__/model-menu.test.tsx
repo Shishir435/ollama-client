@@ -102,6 +102,7 @@ describe("ModelMenu", () => {
       ],
       refresh: vi.fn(),
       refreshProvider: vi.fn(async () => undefined),
+      refreshStale: vi.fn(async () => undefined),
       isLoading: false,
       selectedModel: "gemma-local",
       selectedModelRef: { providerId: "ollama", modelId: "gemma-local" },
@@ -147,6 +148,20 @@ describe("ModelMenu", () => {
     }
     await waitFor(() => expect(refreshProvider).toHaveBeenCalledWith("ollama"))
     expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it("re-asks stale catalogs when the menu opens", () => {
+    render(
+      <ModelMenu
+        trigger={<button type="button">Choose model</button>}
+        tooltipTextContent="Choose model"
+      />
+    )
+    const { refreshStale } = useProviderModelsMock.mock.results.at(-1)!
+      .value as { refreshStale: ReturnType<typeof vi.fn> }
+    expect(refreshStale).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+    expect(refreshStale).toHaveBeenCalledTimes(1)
   })
 
   it("switches provider catalogs while the row renderer stays virtualized", async () => {

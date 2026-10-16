@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}, basculer le thème"
     },
     "bug_report": {
-      "label": "Bogue",
+      "label": "Signaler un bogue",
       "aria_label": "Signaler un bogue ou demander une fonctionnalité",
       "tooltip": "Signaler un bogue ou demander une fonctionnalité"
     },
@@ -454,15 +454,9 @@
     }
   },
   "welcome": {
-    "title": "Bienvenue sur le chat LLM local",
-    "subtitle": "Conversations IA locales simplifiées",
-    "badge": "Chat local d’abord",
-    "start_chatting": "Commencer à Chatter",
+    "title": "Ollama Client",
+    "subtitle": "Chat LLM local et agent de navigateur",
     "status": {
-      "connecting": {
-        "title": "Connexion…",
-        "message": "Vérification de vos fournisseurs."
-      },
       "connection_failed": {
         "title": "{{provider}} injoignable",
         "message": "Démarrez-le, puis sélectionnez Réessayer."
@@ -472,34 +466,11 @@
         "message": "Exécutez `ollama pull llama3.2`, puis vérifiez à nouveau.",
         "message_generic": "Installez ou chargez un modèle de chat dans votre fournisseur, puis vérifiez à nouveau."
       },
-      "ready": {
-        "title": "Prêt à discuter",
-        "message": "Votre fournisseur est connecté."
-      },
       "provider_fallback": "votre fournisseur"
     },
     "setup_guide": {
-      "hint": "Suivez le guide de configuration ci-dessous pour installer Ollama et les modèles.",
       "full_guide_link": "Guide de Configuration Complet",
       "help_prefix": "Besoin d’aide ?"
-    },
-    "features": {
-      "private": {
-        "title": "100 % Privé",
-        "description": "Vos données restent locales"
-      },
-      "offline": {
-        "title": "Fonctionne Hors Ligne",
-        "description": "Pas besoin d'Internet"
-      },
-      "local_processing": {
-        "title": "Traitement Local",
-        "description": "Contrôle total"
-      },
-      "embeddings": {
-        "title": "Incrustations Vectorielles",
-        "description": "Prêt pour la recherche sémantique"
-      }
     },
     "performance_notice": {
       "title": "Remarque sur les performances",
@@ -2041,7 +2012,7 @@
       },
       "catalog_refresh": {
         "label": "Actualisation de la liste des modèles",
-        "description": "Fréquence à laquelle un panneau ouvert redemande leur liste de modèles à vos fournisseurs.",
+        "description": "Fréquence à laquelle un panneau ouvert redemande leur liste de modèles aux fournisseurs de cet appareil. Les fournisseurs distants se mettent à jour quand vous revenez au panneau.",
         "options": {
           "0": "Désactivé",
           "10000": "Toutes les 10 secondes",

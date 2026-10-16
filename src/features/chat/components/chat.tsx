@@ -16,9 +16,9 @@ import { cn } from "@/lib/class-names"
 import { requestPermissions } from "@/lib/permissions"
 import { writeSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
-import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
 import type { ChatMessage } from "@/types"
+import { ChatEmptyState } from "./chat-empty-state"
 import { ChatHeader } from "./chat-header"
 import { ChatInputBox } from "./chat-input-box"
 import { ChatMessageList } from "./chat-message-list"
@@ -245,7 +245,9 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
     }
   }
 
-  const hasSession = !!currentSessionId
+  /** A new chat, or none yet, shows the empty state until its first turn starts. */
+  const showMessages =
+    !!currentSessionId && (messages.length > 0 || isLoading || isStreaming)
 
   return (
     <div
@@ -255,38 +257,33 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
       )}>
       <ChatHeader messages={messages} />
 
-      {hasSession ? (
-        <>
-          <ChatMessageList
-            messages={messages}
-            sessionId={currentSessionId ?? undefined}
-            pendingActivityEvents={pendingActivityEvents}
-            isLoading={isLoading}
-            isStreaming={isStreaming}
-            highlightedMessage={highlightedMessage}
-            onUpdateMessage={handleUpdateMessage}
-            onForkMessage={handleForkMessage}
-            onDeleteMessage={handleDeleteMessage}
-            onResolvePermission={handleResolvePermission}
-            onRegenerate={handleRegenerate}
-            hasMore={hasMore}
-            onLoadMore={onLoadMore}
-            onNavigate={handleNavigateBranch}
-          />
-
-          <div className="sticky bottom-0 z-10 w-full border-t border-border-subtle bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
-            <PendingToolConfirmation messages={messages} />
-            <div className="mx-auto max-w-4xl px-2">
-              <ChatInputBox
-                onSend={sendMessage}
-                stopGeneration={stopGeneration}
-              />
-            </div>
-          </div>
-        </>
+      {showMessages ? (
+        <ChatMessageList
+          messages={messages}
+          sessionId={currentSessionId ?? undefined}
+          pendingActivityEvents={pendingActivityEvents}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          highlightedMessage={highlightedMessage}
+          onUpdateMessage={handleUpdateMessage}
+          onForkMessage={handleForkMessage}
+          onDeleteMessage={handleDeleteMessage}
+          onResolvePermission={handleResolvePermission}
+          onRegenerate={handleRegenerate}
+          hasMore={hasMore}
+          onLoadMore={onLoadMore}
+          onNavigate={handleNavigateBranch}
+        />
       ) : (
-        <WelcomeScreen />
+        <ChatEmptyState />
       )}
+
+      <div className="sticky bottom-0 z-10 w-full border-t border-border-subtle bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
+        <PendingToolConfirmation messages={messages} />
+        <div className="mx-auto max-w-4xl px-2">
+          <ChatInputBox onSend={sendMessage} stopGeneration={stopGeneration} />
+        </div>
+      </div>
       <SemanticChatSearchDialog
         open={isSearchOpen}
         onClose={closeSearchDialog}

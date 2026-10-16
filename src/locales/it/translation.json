@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}, attiva/disattiva tema"
     },
     "bug_report": {
-      "label": "Bug",
+      "label": "Segnala un bug",
       "aria_label": "Segnala un bug o richiedi una funzionalità",
       "tooltip": "Segnala un bug o richiedi una funzionalità"
     },
@@ -454,15 +454,9 @@
     }
   },
   "welcome": {
-    "title": "Benvenuto nel chat LLM locale",
-    "subtitle": "Conversazioni IA locali rese semplici",
-    "badge": "Chat local-first",
-    "start_chatting": "Inizia a Chiacchierare",
+    "title": "Ollama Client",
+    "subtitle": "Chat con LLM locali e agente del browser",
     "status": {
-      "connecting": {
-        "title": "Connessione…",
-        "message": "Verifica dei provider in corso."
-      },
       "connection_failed": {
         "title": "{{provider}} non raggiungibile",
         "message": "Avvialo, poi seleziona Riprova."
@@ -472,34 +466,11 @@
         "message": "Esegui `ollama pull llama3.2`, poi controlla di nuovo.",
         "message_generic": "Installa o carica un modello di chat nel tuo provider, poi controlla di nuovo."
       },
-      "ready": {
-        "title": "Pronto per la chat",
-        "message": "Il tuo provider è connesso."
-      },
       "provider_fallback": "il tuo provider"
     },
     "setup_guide": {
-      "hint": "Segui la guida di configurazione qui sotto per installare Ollama e i modelli.",
       "full_guide_link": "Guida Completa alla Configurazione",
       "help_prefix": "Ti serve aiuto?"
-    },
-    "features": {
-      "private": {
-        "title": "100% Privato",
-        "description": "I tuoi dati rimangono locali"
-      },
-      "offline": {
-        "title": "Funziona Offline",
-        "description": "Nessuna connessione Internet necessaria"
-      },
-      "local_processing": {
-        "title": "Elaborazione Locale",
-        "description": "Controllo completo"
-      },
-      "embeddings": {
-        "title": "Embeddings Vettoriali",
-        "description": "Pronto per la ricerca semantica"
-      }
     },
     "performance_notice": {
       "title": "Avviso sulle prestazioni",
@@ -2041,7 +2012,7 @@
       },
       "catalog_refresh": {
         "label": "Aggiornamento dell'elenco dei modelli",
-        "description": "Con quale frequenza un pannello aperto richiede di nuovo ai tuoi provider i loro elenchi di modelli.",
+        "description": "Ogni quanto un pannello aperto richiede di nuovo l’elenco dei modelli ai provider su questo dispositivo. I provider remoti si aggiornano quando torni al pannello.",
         "options": {
           "0": "Disattivato",
           "10000": "Ogni 10 secondi",
