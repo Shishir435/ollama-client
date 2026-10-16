@@ -193,7 +193,8 @@ const budgets: Budget[] = [
     /** Merged #468 and UX review fixes measure Chrome at 48,694,919 bytes. */
     /** 0.15.0-rc.1 hardening (Origin guard on both browsers, refusal copy, warmup load options) with this branch's other fixes measures Chrome at 48,701,078. */
     /** Review fixes (alternating-role history, image-only overrides, serialized reconciles, draft-rule release, guarded menu title) measure Chrome at 48,707,067. */
-    max: isFirefox ? 50_300_000 : 48_707_067
+    /** Greptile review fixes (images through tool loops, polyfill-free origin-guard checks) measure Chrome at 48,707,304. */
+    max: isFirefox ? 50_300_000 : 48_707_304
   },
   {
     metric: "zip",
@@ -207,7 +208,8 @@ const budgets: Budget[] = [
     /** Merged #468 and UX review fixes measure Chrome at 351,845 gzip bytes and Firefox at 224,674. */
     /** 0.15.0-rc.1 hardening — Firefox's Origin listener, fail-closed DNR, refusal copy, history filter, warmup load options — measures Chrome at 353,180 and Firefox at 226,018. */
     /** Review fixes (alternating-role history, image-only overrides, serialized reconciles, draft-rule release, guarded menu title) measure Chrome at 353,788 and Firefox at 226,864. */
-    max: isFirefox ? 226_864 : 353_788
+    /** Greptile review fixes (images through tool loops, polyfill-free origin-guard checks) measure Chrome at 353,866 and Firefox at 226,965. */
+    max: isFirefox ? 226_965 : 353_866
   }
 ]
 
