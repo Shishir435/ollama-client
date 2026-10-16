@@ -272,6 +272,25 @@ describe("Agent run service", () => {
     ])
   })
 
+  it("records plan consent only beside routine consent", async () => {
+    const { service: agent } = service()
+    expect(
+      (
+        await agent.start({
+          ...startInput,
+          allowRoutineActions: true,
+          allowPlannedActions: true
+        })
+      ).planConsent
+    ).toBe(true)
+    runs.clear()
+    const { service: other } = service()
+    expect(
+      (await other.start({ ...startInput, allowPlannedActions: true }))
+        .planConsent
+    ).toBeUndefined()
+  })
+
   it("never hands over search consent without routine consent", async () => {
     const { service: agent } = service()
     const state = await agent.start({ ...startInput, allowSearches: true })

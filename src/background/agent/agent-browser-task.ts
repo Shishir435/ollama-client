@@ -43,6 +43,15 @@ export const BROWSER_TASK_WAIT_MS = 45 * 60_000
  */
 /** The start prompt's note that its approval covers searches on the site. */
 const ROUTINE_NOTE = "agent.start_gate.routine"
+/** The start prompt's note that the plan's own steps run without asking. */
+const PLAN_NOTE = "agent.start_gate.plan"
+
+/**
+ * Whether a run starts with plan consent: the user chose it in settings, and
+ * the goal is not one the chat model wrote after reading a page.
+ */
+const followsPlan = (mode: unknown, pageFirst: boolean): boolean =>
+  mode === "follow_plan" && !pageFirst
 
 const REFUSALS: Record<AgentRunFailureReason, string> = {
   already_running:
@@ -590,6 +599,9 @@ export const createBrowserTaskRunner = (
         ...(searchesConsented(ctx, mode, turn.pageFirst)
           ? { allowSearches: true }
           : {}),
+        ...(followsPlan(mode, turn.pageFirst)
+          ? { allowPlannedActions: true }
+          : {}),
         ...(admitted.experimental ? { allowExperimentalModel: true } : {}),
         ...followedRun(request, turn)
       })
@@ -714,10 +726,8 @@ export const createBrowserTaskRunner = (
         request.tabId !== undefined && request.tabId !== ctx.browserTabId
       const afterPage = readPageFirst(ctx)
       const experimental = provider?.readiness?.status === "experimental"
-      const covers = startCoversSearches(
-        await readSetting(SETTINGS.AGENT_PERMISSION_MODE),
-        afterPage
-      )
+      const mode = await readSetting(SETTINGS.AGENT_PERMISSION_MODE)
+      const covers = startCoversSearches(mode, afterPage)
       const notes = [
         ...(afterPage ? ["agent.start_gate.after_page"] : []),
         ...(experimental ? ["agent.start_gate.experimental_model"] : []),
@@ -728,7 +738,8 @@ export const createBrowserTaskRunner = (
             ? ["agent.privacy.remote_notice"]
             : []),
         "agent.start_gate.supervised",
-        ...(covers ? [ROUTINE_NOTE] : [])
+        ...(covers ? [ROUTINE_NOTE] : []),
+        ...(followsPlan(mode, afterPage) ? [PLAN_NOTE] : [])
       ]
       return {
         always:

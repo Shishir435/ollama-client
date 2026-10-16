@@ -16,6 +16,7 @@ export {
   buildAgentEvidenceLedger
 } from "./evidence-ledger"
 export * from "./history"
+export * from "./injection"
 export * from "./observed-text"
 export * from "./plan-record"
 export * from "./policy"

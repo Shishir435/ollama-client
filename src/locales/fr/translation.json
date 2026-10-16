@@ -203,9 +203,10 @@
       },
       "permission_mode": {
         "label": "Actions courantes",
-        "description": "Indique si chaque nouvelle exécution peut cliquer et saisir du texte sur le site de départ sans demander. L’envoi, la suppression, la connexion, le paiement et les nouveaux sites sont toujours soumis à confirmation, et rien n’est reporté à l’exécution suivante.",
+        "description": "Indique si chaque nouvelle exécution peut cliquer et saisir du texte sur le site de départ sans demander. L’envoi, la suppression, la connexion, le paiement et les nouveaux sites sont soumis à confirmation, et ce que vous autorisez ne s’applique qu’aux tâches suivantes de la même conversation. « Demander seulement hors du plan » permet aussi à une exécution d’effectuer sans demander les étapes que son plan nomme, y compris l’envoi ou la commande qu’il nomme.",
         "allow_routine": "Autoriser sur le site de départ",
-        "approve_each": "Approuver chaque action"
+        "approve_each": "Approuver chaque action",
+        "follow_plan": "Demander seulement hors du plan"
       },
       "completion_reviewer": {
         "label": "Vérificateur de fin de tâche",
@@ -297,6 +298,7 @@
       "other_tab": "Cette tâche s’exécute dans un autre onglet que celui que vous regardez.",
       "supervised": "L’agent agit sur la page étape par étape et demande avant toute action importante. Chrome affiche un bandeau de débogage pendant ce temps.",
       "routine": "Sur ce site, les clics, la saisie et les recherches de cette tâche s’exécutent sans nouvelle demande. Publier ou envoyer d’autres formulaires, se connecter, payer, supprimer et ouvrir d’autres sites demandent toujours.",
+      "plan": "Les étapes qui suivent le plan de cette tâche s’exécutent sans demander, y compris un envoi ou une commande que le plan nomme. Les étapes hors du plan, la connexion, le paiement, la suppression et l’ouverture d’autres sites demandent toujours, et l’exécution redemande si une page tente de lui donner des instructions.",
       "experimental_model": "Les appels d’outils sont activés pour ce modèle parce que vous l’avez choisi, pas parce que le modèle l’indique. Un modèle incapable d’appeler des outils n’ira pas loin."
     },
     "steer": {

@@ -74,6 +74,7 @@ import {
   previousAgentVerification
 } from "./history"
 import { agentObservationNeedsHuman } from "./human-boundary"
+import { agentPageLooksInjected } from "./injection"
 import { agentObservationHaystack } from "./observed-text"
 import {
   agentAmendedPlanPatch,
@@ -324,6 +325,41 @@ export const agentPlanIsReadOnly = (
 ): boolean =>
   (state.requirements?.length ?? 0) > 0 &&
   (state.requirements ?? []).every((requirement) => requirement.kind === "read")
+
+/**
+ * Words naming a step that sends, orders, posts or books something. A
+ * planned outcome in these words may submit; any other may only prepare.
+ * English, like the plan's own boundary rules; a plan in another language
+ * keeps asking at the send, which is the safe direction.
+ */
+const COMMITTING_OUTCOME =
+  /\b(?:submit\w*|send\w*|sent|post\w*|publish\w*|reply|replies|comment\w*|order\w*|purchase\w*|buy\w*|book\w*|reserve\w*|reservation|register\w*|sign\w* up|subscribe\w*|confirm\w*|place[sd]?|checkout|check out|apply|applied|save[sd]?|saving|create[sd]?|add(?:ed)? to)\b/i
+
+/**
+ * The plan consent a step carries into policy: the run has it, no page has
+ * looked like an injection, and the step names a planned change.
+ */
+const plannedConsentFor = (
+  state: Pick<
+    AgentRunState,
+    "planConsent" | "injectionSuspected" | "requirements"
+  >,
+  requirementId: string | undefined
+): { planned?: { commits: boolean } } => {
+  if (!state.planConsent || state.injectionSuspected || !requirementId)
+    return {}
+  const requirement = state.requirements?.find(
+    (entry) => entry.id === requirementId && entry.kind === "change"
+  )
+  if (!requirement) return {}
+  return {
+    planned: {
+      commits: COMMITTING_OUTCOME.test(
+        `${requirement.text} ${requirement.source ?? ""}`
+      )
+    }
+  }
+}
 
 /** The values the plan's checks name, for the approval to compare against. */
 const plannedValuesFor = (
@@ -1490,7 +1526,8 @@ export const createAgentController = (
     effect: ResolvedAgentEffect,
     stepId: string,
     stepNumber: number,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    requirementId?: string
   ): Promise<
     | {
         state: AgentRunState
@@ -1521,7 +1558,10 @@ export const createAgentController = (
         ? { repeatsPriorForm: true }
         : {}),
       ...ownEffectPolicyFlags(ownEffect),
-      ...(agentPlanIsReadOnly(state) ? { browse: true } : {}),
+      ...(agentPlanIsReadOnly(state) && !state.injectionSuspected
+        ? { browse: true }
+        : {}),
+      ...plannedConsentFor(state, requirementId),
       ...plannedValuesFor(state),
       now: dependencies.clock.now()
     })
@@ -2129,7 +2169,8 @@ export const createAgentController = (
       effect,
       stepId,
       stepNumber,
-      signal
+      signal,
+      decision.requirementId
     )
     if (!authorized) return undefined
     return executeAndVerify(
@@ -3157,6 +3198,13 @@ export const createAgentController = (
     const deciding = await claim(state, "deciding", {
       ...(progress ?? { workflow: undefined }),
       observationCount: state.observationCount + 1,
+      /**
+       * Durable before the decision it would affect, so a worker restart
+       * cannot hand the run its shortcuts back.
+       */
+      ...(!state.injectionSuspected && agentPageLooksInjected(observation)
+        ? { injectionSuspected: true as const }
+        : {}),
       ...(steering?.length ? { answers } : {}),
       /**
        * A correction is the user choosing the approach, so the open recovery

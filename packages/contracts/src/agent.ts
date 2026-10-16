@@ -1436,6 +1436,19 @@ export const AgentRunStateSchema = z
     goalAuthor: AgentGoalAuthorSchema.optional(),
     userUtterance: AgentUserUtteranceSchema.optional(),
     /**
+     * The user opted into running the plan's own steps without a prompt
+     * each, and the start prompt that said so was the one they answered.
+     * Steps that trace to a planned outcome then run unasked; anything off
+     * the plan, and anything critical, still asks.
+     */
+    planConsent: z.literal(true).optional(),
+    /**
+     * A page this run read carried text shaped like instructions to an
+     * agent. From then on nothing runs on standing consent — not the plan
+     * consent, not browse mode — and every step asks. Never cleared.
+     */
+    injectionSuspected: z.literal(true).optional(),
+    /**
      * The chat tool call that delegated the run. A call replayed after a worker
      * restart names the same id and finds this run; any other call from the
      * same turn is a second task, not a replay.

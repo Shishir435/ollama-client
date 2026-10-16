@@ -203,9 +203,10 @@
       },
       "permission_mode": {
         "label": "Acciones rutinarias",
-        "description": "Si cada nueva ejecución puede hacer clic y escribir en el sitio donde empieza sin preguntar. Enviar, eliminar, iniciar sesión, pagar y los sitios nuevos siempre se preguntan, y nada pasa a la siguiente ejecución.",
+        "description": "Indica si cada nueva ejecución puede hacer clic y escribir en el sitio de inicio sin preguntar. Enviar, eliminar, iniciar sesión, pagar y los sitios nuevos se consultan, y lo que permitas solo se mantiene para tareas posteriores del mismo chat. «Preguntar solo fuera del plan» también permite que una ejecución realice sin preguntar los pasos que nombra su plan, incluido el envío o el pedido que nombra.",
         "allow_routine": "Permitir en el sitio inicial",
-        "approve_each": "Aprobar cada acción"
+        "approve_each": "Aprobar cada acción",
+        "follow_plan": "Preguntar solo fuera del plan"
       },
       "completion_reviewer": {
         "label": "Revisor de finalización",
@@ -297,6 +298,7 @@
       "other_tab": "Esta tarea se ejecuta en una pestaña distinta de la que estás viendo.",
       "supervised": "El agente trabaja en la página paso a paso y pregunta antes de cualquier acción importante. Chrome muestra un aviso de depuración mientras trabaja.",
       "routine": "En este sitio, los clics, la escritura y las búsquedas de esta tarea se ejecutan sin volver a preguntar. Publicar o enviar otros formularios, iniciar sesión, pagar, eliminar y abrir otros sitios siguen pidiendo permiso.",
+      "plan": "Los pasos que siguen el plan de esta tarea se ejecutan sin preguntar, incluido un envío o un pedido que el plan nombre. Los pasos fuera del plan, iniciar sesión, pagar, eliminar y abrir otros sitios siguen requiriendo confirmación, y la ejecución vuelve a preguntar si una página intenta darle instrucciones.",
       "experimental_model": "Las llamadas a herramientas están activadas para este modelo porque tú lo configuraste, no porque el modelo lo indique. Un modelo que no sabe llamar herramientas no llegará lejos."
     },
     "steer": {

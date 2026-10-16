@@ -577,6 +577,13 @@ export interface AgentPolicyInput {
    * nothing.
    */
   plannedValues?: readonly AgentPlannedValue[]
+  /**
+   * The step traces to a planned change and the user consented to the plan
+   * running unasked. `commits` says the outcome it advances is itself a
+   * submission, an order or a send, which is the only thing that lets a
+   * submitting step through. See `plannedAllows` in `policy.ts`.
+   */
+  planned?: { commits: boolean }
   now: number
 }
 
@@ -626,6 +633,7 @@ export type AgentStatePatch = Partial<
     | "evidenceLedger"
     | "grants"
     | "humanDecision"
+    | "injectionSuspected"
     | "observationCount"
     | "outcome"
     | "pauseReason"

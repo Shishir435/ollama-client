@@ -129,6 +129,40 @@ describe("the browser task's start prompt", () => {
     })
   })
 
+  it("says the plan's steps run unasked only when the user chose it, and never after a page", async () => {
+    const service = serviceStub()
+    const task = runner(service)
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "follow_plan")
+
+    const demand = await task.confirmation(request, turn())
+    expect(demand.notes).toContain("agent.start_gate.plan")
+    await task.run(request, turn())
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        allowRoutineActions: true,
+        allowPlannedActions: true
+      })
+    )
+
+    const read = await task.confirmation(
+      request,
+      turn({ pageContentInContext: true })
+    )
+    expect(read.notes).not.toContain("agent.start_gate.plan")
+    await task.run(
+      request,
+      turn({ pageContentInContext: true, userConfirmed: true })
+    )
+    expect(service.delegate).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ allowPlannedActions: expect.anything() })
+    )
+
+    settings.values.set(STORAGE_KEYS.AGENT.PERMISSION_MODE, "allow_routine")
+    expect((await task.confirmation(request, turn())).notes).not.toContain(
+      "agent.start_gate.plan"
+    )
+  })
+
   it("says nothing of searches when each action is approved, or after a page", async () => {
     const task = runner(serviceStub())
 

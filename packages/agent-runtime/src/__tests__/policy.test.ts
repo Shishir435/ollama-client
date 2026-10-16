@@ -1502,3 +1502,82 @@ describe("a value the plan disagrees with", () => {
     ])
   })
 })
+
+describe("consent to the plan", () => {
+  const click = (overrides: Partial<ResolvedAgentEffect["target"]> = {}) =>
+    effect(["activation"], {
+      target: {
+        sensitive: false,
+        maySubmit: false,
+        role: "button",
+        accessibleName: "Next",
+        ...overrides
+      }
+    })
+  const submit = effect(["form_mutation", "submission"], {
+    target: {
+      sensitive: false,
+      maySubmit: true,
+      accessibleName: "Post comment",
+      formMethod: "post"
+    },
+    destination: {
+      url: "https://example.com/comments",
+      origin: "https://example.com",
+      source: "observed"
+    }
+  })
+
+  it("runs a planned step on an allowed site without asking", () => {
+    expect(
+      evaluateAgentPolicy(input(click(), { planned: { commits: false } }))
+    ).toEqual({ type: "allow", risk: "high" })
+  })
+
+  it("sends only when the planned outcome is itself the send", () => {
+    expect(
+      evaluateAgentPolicy(input(submit, { planned: { commits: true } })).type
+    ).toBe("allow")
+    expect(
+      evaluateAgentPolicy(input(submit, { planned: { commits: false } })).type
+    ).toBe("approval_required")
+    expect(
+      evaluateAgentPolicy(
+        input(click({ accessibleName: "Place order", committingLabel: true }), {
+          planned: { commits: false }
+        })
+      ).type
+    ).toBe("approval_required")
+  })
+
+  it.each([
+    ["a delete", effect(["activation", "destructive"])],
+    ["a sensitive field", click({ sensitive: true })],
+    [
+      "a new site",
+      effect(["navigation"], {
+        destination: {
+          url: "https://other.example/",
+          origin: "https://other.example",
+          source: "observed"
+        }
+      })
+    ],
+    ["a download", effect(["navigation", "download"])]
+  ])("still asks for %s", (_name, resolved) => {
+    expect(
+      evaluateAgentPolicy(input(resolved, { planned: { commits: true } })).type
+    ).not.toBe("allow")
+  })
+
+  it("still asks about a repeat", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(submit, {
+          planned: { commits: true },
+          repeatsCommittedEffect: true
+        })
+      ).type
+    ).toBe("approval_required")
+  })
+})

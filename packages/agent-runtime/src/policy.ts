@@ -976,6 +976,47 @@ const userWroteDestination = (
     ? isAgentAuthoredDestination(destination.url, authoredText)
     : destination.pageDataEvidence === undefined
 
+/**
+ * Whether the user's consent to the plan covers a step: one that advances a
+ * planned change, on a site the run is already allowed on, through a
+ * control that is neither sensitive nor critical. A submission, or a click
+ * on a control labelled as ordering or sending, passes only when the
+ * outcome it advances is itself that kind of step — "post the comment" may
+ * post it, "fill in the form" may not send it.
+ */
+const plannedAllows = (
+  input: AgentPolicyInput,
+  commits: boolean,
+  risk: AgentRisk
+): boolean => {
+  if (risk === "critical") return false
+  const { target, semanticEffects, destination } = input.effect
+  if (target.sensitive) return false
+  if (!semanticEffects.every((effect) => BROWSE_EFFECTS.has(effect)))
+    return false
+  if (adoptsTab(input) !== undefined) return false
+  if (!input.allowedOrigins.includes(actingOrigin(input))) return false
+  if (
+    input.effect.frameOrigin !== undefined &&
+    !input.allowedOrigins.includes(input.effect.frameOrigin)
+  )
+    return false
+  if (
+    (semanticEffects.includes("submission") ||
+      target.committingLabel === true) &&
+    !commits
+  )
+    return false
+  if (
+    destination &&
+    (!input.allowedOrigins.includes(destination.origin) ||
+      (destination.source !== "observed" &&
+        !userWroteDestination(destination, input.authoredText)))
+  )
+    return false
+  return true
+}
+
 export const evaluateAgentPolicy = (
   input: AgentPolicyInput
 ): AgentPolicyDecision => {
@@ -1069,6 +1110,9 @@ export const evaluateAgentPolicy = (
 
   if (input.browse && browseAllows(input, risk))
     return { type: "allow", risk, browse: true }
+
+  if (input.planned && plannedAllows(input, input.planned.commits, risk))
+    return { type: "allow", risk }
 
   if (risk === "low") return { type: "allow", risk }
   if (

@@ -79,6 +79,11 @@ export interface StartAgentRunInput {
    * never from a setting alone.
    */
   allowSearches?: boolean
+  /**
+   * The plan's own steps run without asking (`AgentRunState.planConsent`).
+   * Only with routine actions, and only from the user's own setting.
+   */
+  allowPlannedActions?: boolean
   allowExperimentalModel?: boolean
   /** Set when a chat model wrote the goal; absent means the user did. */
   goalAuthor?: AgentGoalAuthor
@@ -391,6 +396,9 @@ const initialRunState = ({
             chatConsent
           )
         }
+      : {}),
+    ...(request.allowRoutineActions && request.allowPlannedActions
+      ? { planConsent: true as const }
       : {}),
     scopedTabIds: [request.tabId],
     deadline: createInitialAgentDeadline(startedAt),
