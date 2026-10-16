@@ -85,6 +85,27 @@ describe("Agent observation builder", () => {
     ])
   })
 
+  it("labels linkless sections that each carry the same control", () => {
+    document.body.innerHTML =
+      "<main><h1>Invoices</h1><section><h2>Invoice A</h2><p>Due</p><button>Mark paid</button></section><section><h2>Invoice B</h2><p>Due</p><button>Mark paid</button></section></main>"
+    const buttons = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(buttons.map((button) => button.rowContext)).toEqual([
+      "Invoice A Due Mark paid",
+      "Invoice B Due Mark paid"
+    ])
+  })
+
+  it("does not call a lone linkless section a record", () => {
+    document.body.innerHTML =
+      "<main><section><h2>Profile</h2><button>Save</button></section><section><h2>Help</h2><p>Ask us</p></section></main>"
+    const [button] = build().elements.filter(
+      (element) => element.tag === "button"
+    )
+    expect(button.rowContext).toBeUndefined()
+  })
+
   it("keeps a row's label when a hidden twin of its control sits beside it", () => {
     document.body.innerHTML =
       '<div><div><a href="/pull/1">Fix parser</a> <button>Delete</button><button style="display:none">Delete</button></div><div><a href="/pull/2">Add docs</a> <button>Delete</button></div></div>'
@@ -203,6 +224,43 @@ describe("Agent observation builder", () => {
     document.body.append(input)
     expect(build().elements[0]).toMatchObject({ sensitive: true })
     expect(build().elements[0]).not.toHaveProperty("value")
+  })
+
+  it.each([
+    ["an IBAN label", '<label for="f">IBAN</label><input id="f" value="DE89">'],
+    [
+      "a German password label",
+      '<label for="f">Passwort</label><input id="f" value="x">'
+    ],
+    [
+      "a Japanese card label",
+      '<label for="f">カード番号</label><input id="f" value="4111">'
+    ],
+    [
+      "a labelledby PIN",
+      '<span id="l">Your PIN</span><input aria-labelledby="l" value="1234">'
+    ],
+    ["an API key placeholder", '<input placeholder="API key" value="sk-1">'],
+    [
+      "a wrapping label",
+      "<label>Social security number <input value='078-05'></label>"
+    ]
+  ])("treats %s as sensitive", (_label, html) => {
+    document.body.innerHTML = html
+    const field = build().elements.find((element) => element.tag === "input")
+    expect(field).toMatchObject({ sensitive: true })
+    expect(field).not.toHaveProperty("value")
+  })
+
+  it("does not mistake a spinner or a keyword box for a secret", () => {
+    document.body.innerHTML =
+      '<label for="a">Spinner speed</label><input id="a" value="3">' +
+      '<label for="b">Palabra clave</label><input id="b" value="laptop">'
+    expect(
+      build()
+        .elements.filter((element) => element.tag === "input")
+        .map((element) => element.sensitive)
+    ).toEqual([false, false])
   })
 
   it("keeps bounded non-sensitive values", () => {

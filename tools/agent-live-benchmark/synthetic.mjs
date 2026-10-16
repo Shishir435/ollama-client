@@ -784,6 +784,17 @@ try {
         ...(task ? { qualification: createQualificationState(task) } : {})
       }
       if (task) current.qualification.base = `/q/${kind}/a${attempt}`
+      /**
+       * Three sites for the shop comparison: this origin, the external one,
+       * and this one again under `localhost`, which the browser treats as a
+       * different site.
+       */
+      if (task?.family === "traps" && task.variant === "three_shops")
+        current.qualification.shopOrigins = {
+          a: origin,
+          b: externalOrigin,
+          c: origin.replace("127.0.0.1", "localhost")
+        }
       await panel.evaluate(
         (allowed) => {
           window.auditAllowedOrigins = allowed
@@ -986,7 +997,12 @@ try {
             wire,
             observedText: [
               chatToolText(wire),
-              agentObservedText(wire, origin)
+              agentObservedText(
+                wire,
+                current.qualification.shopOrigins
+                  ? Object.values(current.qualification.shopOrigins)
+                  : origin
+              )
             ].join("\n"),
             renderedCanvasScreenshot
           })

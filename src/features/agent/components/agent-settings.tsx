@@ -31,7 +31,11 @@ const SAME_AS_RUN = "same"
 
 const reviewerKey = (providerId: string, modelId: string): string =>
   JSON.stringify([providerId, modelId])
-const PERMISSION_MODES = ["allow_routine", "approve_each"] as const
+const PERMISSION_MODES = [
+  "allow_routine",
+  "follow_plan",
+  "approve_each"
+] as const
 
 /**
  * What a run may do unasked, and the two knobs its cost is made of.

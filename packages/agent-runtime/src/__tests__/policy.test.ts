@@ -1198,3 +1198,438 @@ describe("a control this run already committed through", () => {
     })
   })
 })
+
+describe("browse mode for a read-only plan", () => {
+  const navigate = (
+    url: string,
+    overrides: Partial<NonNullable<ResolvedAgentEffect["destination"]>> = {}
+  ): ResolvedAgentEffect =>
+    effect(["navigation"], {
+      command: { type: "navigate", url } as AgentCommand,
+      destination: {
+        url,
+        origin: /^[a-z]+:\/\/[^/?#]+/.exec(url)?.[0] ?? url,
+        source: "model",
+        ...overrides
+      }
+    })
+
+  it("goes to a new site and searches it without asking", () => {
+    const decision = evaluateAgentPolicy(
+      input(navigate("https://shop.example/s?k=rtx+4060+laptop"), {
+        browse: true,
+        authoredText: ["find the cheapest rtx 4060 laptop"]
+      })
+    )
+    expect(decision).toEqual({ type: "allow", risk: "high", browse: true })
+  })
+
+  it("still asks outside browse mode", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(navigate("https://shop.example/s?k=rtx+4060+laptop"), {
+          authoredText: ["find the cheapest rtx 4060 laptop"]
+        })
+      ).type
+    ).toBe("approval_required")
+  })
+
+  it("asks when a new site's address carries words nobody in the run wrote", () => {
+    const decision = evaluateAgentPolicy(
+      input(navigate("https://sink.example/?d=account+4111222233334444"), {
+        browse: true,
+        authoredText: ["summarize the reviews on this page"]
+      })
+    )
+    expect(decision.type).toBe("approval_required")
+    if (decision.type === "approval_required")
+      expect(decision.request.action).toContain(
+        "https://sink.example/?d=account+4111222233334444"
+      )
+  })
+
+  it("keeps page text the user did not write in a composed address critical", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        navigate("https://example.com/search?q=account+4111222233334444", {
+          pageDataEvidence: "visible_text"
+        }),
+        { browse: true, authoredText: ["summarize the reviews"] }
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("critical")
+  })
+
+  it("does not escalate the user's own words because the page echoes them", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        navigate("https://example.com/search?q=ollama+browser+extension", {
+          pageDataEvidence: "visible_text"
+        }),
+        { authoredText: ["search for ollama browser extension"] }
+      )
+    )
+    expect(decision.risk).toBe("high")
+  })
+
+  it("submits a search form and types into its box", () => {
+    const search = {
+      sensitive: false,
+      maySubmit: true,
+      accessibleName: "Search",
+      formMethod: "get" as const,
+      searchForm: true
+    }
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["form_mutation", "submission"], {
+            target: search,
+            destination: {
+              url: "https://example.com/search?q=lisbon",
+              origin: "https://example.com",
+              source: "observed"
+            }
+          }),
+          { browse: true }
+        )
+      ).type
+    ).toBe("allow")
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["form_mutation"], {
+            command: {
+              type: "clear_and_type",
+              ref: "e1",
+              text: "lisbon",
+              snapshotId: "snapshot-1",
+              generation: 1
+            },
+            target: search
+          }),
+          { browse: true }
+        )
+      ).type
+    ).toBe("allow")
+  })
+
+  it("follows a filter button but asks before keeping anything", () => {
+    const button = (accessibleName: string) =>
+      effect(["activation"], {
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          role: "button",
+          tag: "button",
+          accessibleName
+        }
+      })
+    expect(
+      evaluateAgentPolicy(input(button("Sort by price"), { browse: true })).type
+    ).toBe("allow")
+    expect(
+      evaluateAgentPolicy(input(button("Add to cart"), { browse: true })).type
+    ).toBe("approval_required")
+  })
+
+  it.each([
+    [
+      "a form that posts",
+      effect(["form_mutation", "submission"], {
+        target: {
+          sensitive: false,
+          maySubmit: true,
+          accessibleName: "Send",
+          formMethod: "post"
+        }
+      })
+    ],
+    [
+      "typing outside a search box",
+      effect(["form_mutation"], {
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "hello",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          accessibleName: "Comment"
+        }
+      })
+    ],
+    [
+      "a committing script button",
+      effect(["activation"], {
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          role: "button",
+          accessibleName: "Place order",
+          committingLabel: true
+        }
+      })
+    ],
+    ["a delete", effect(["activation", "destructive"])],
+    ["a download", effect(["navigation", "download"])],
+    [
+      "a saving button",
+      effect(["activation"], {
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          role: "button",
+          accessibleName: "Speichern",
+          savingLabel: true
+        }
+      })
+    ],
+    [
+      "a checkbox in no form",
+      effect(["form_mutation"], {
+        command: {
+          type: "check",
+          ref: "e1",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          accessibleName: "Email me"
+        }
+      })
+    ]
+  ])("still asks for %s", (_name, resolved) => {
+    expect(
+      evaluateAgentPolicy(input(resolved, { browse: true })).type
+    ).not.toBe("allow")
+  })
+
+  it("ticks a filter in a form that only queries", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["form_mutation"], {
+            command: {
+              type: "check",
+              ref: "e1",
+              snapshotId: "snapshot-1",
+              generation: 1
+            },
+            target: {
+              sensitive: false,
+              maySubmit: false,
+              accessibleName: "16 GB",
+              formMethod: "get"
+            }
+          }),
+          { browse: true }
+        )
+      ).type
+    ).toBe("allow")
+  })
+})
+
+describe("values on an approval", () => {
+  const typing = (text: string, sensitive = false) =>
+    effect(["form_mutation"], {
+      command: {
+        type: "clear_and_type",
+        ref: "e1",
+        text,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      target: { sensitive, maySubmit: false, accessibleName: "Comment" }
+    })
+
+  it("shows the text a step will type", () => {
+    const decision = evaluateAgentPolicy(input(typing("account 4111")))
+    expect(decision.type).toBe("approval_required")
+    if (decision.type === "approval_required")
+      expect(decision.request.values).toEqual({
+        kind: "entered",
+        entries: [{ field: "Comment", value: "account 4111" }]
+      })
+  })
+
+  it("lists every field of a batch fill with its value", () => {
+    const field = (ref: string, accessibleName: string) => ({
+      ref,
+      sensitive: false,
+      maySubmit: false,
+      accessibleName
+    })
+    const fill = {
+      type: "fill_form",
+      fields: [
+        { type: "clear_and_type", ref: "e1", text: "Ada" },
+        { type: "check", ref: "e2" }
+      ],
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as AgentCommand
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["form_mutation"], {
+          command: fill,
+          target: field("e1", "Name"),
+          batch: {
+            fields: [
+              {
+                command: {
+                  type: "clear_and_type",
+                  ref: "e1",
+                  text: "Ada",
+                  snapshotId: "snapshot-1",
+                  generation: 1
+                },
+                target: field("e1", "Name")
+              },
+              {
+                command: {
+                  type: "check",
+                  ref: "e2",
+                  snapshotId: "snapshot-1",
+                  generation: 1
+                },
+                target: field("e2", "Terms")
+              }
+            ]
+          }
+        })
+      )
+    )
+    if (decision.type !== "approval_required") throw new Error(decision.type)
+    expect(decision.request.values?.entries).toEqual([
+      { field: "Name", value: "Ada" },
+      { field: "Terms", checked: true }
+    ])
+  })
+
+  it("never puts a sensitive control's value on the card", () => {
+    const decision = evaluateAgentPolicy(
+      input(typing("hunter2", true), { effect: typing("hunter2", true) })
+    )
+    expect(JSON.stringify(decision)).not.toContain("hunter2")
+  })
+})
+
+describe("a value the plan disagrees with", () => {
+  it("is marked on the approval, and an agreeing one is not", () => {
+    const fill = (text: string) =>
+      effect(["form_mutation"], {
+        command: {
+          type: "clear_and_type",
+          ref: "e1",
+          text,
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        target: { sensitive: false, maySubmit: false, accessibleName: "Name" }
+      })
+    const planned = [
+      { name: "name", value: "R. Diaz" },
+      { name: "Billing name", value: "Ada" }
+    ]
+    const wrong = evaluateAgentPolicy(
+      input(fill("Ada"), { plannedValues: planned })
+    )
+    if (wrong.type !== "approval_required") throw new Error(wrong.type)
+    expect(wrong.request.values?.entries).toEqual([
+      { field: "Name", value: "Ada", planned: { value: "R. Diaz" } }
+    ])
+    const right = evaluateAgentPolicy(
+      input(fill("r.  diaz"), { plannedValues: planned })
+    )
+    if (right.type !== "approval_required") throw new Error(right.type)
+    expect(right.request.values?.entries).toEqual([
+      { field: "Name", value: "r.  diaz" }
+    ])
+  })
+})
+
+describe("consent to the plan", () => {
+  const click = (overrides: Partial<ResolvedAgentEffect["target"]> = {}) =>
+    effect(["activation"], {
+      target: {
+        sensitive: false,
+        maySubmit: false,
+        role: "button",
+        accessibleName: "Next",
+        ...overrides
+      }
+    })
+  const submit = effect(["form_mutation", "submission"], {
+    target: {
+      sensitive: false,
+      maySubmit: true,
+      accessibleName: "Post comment",
+      formMethod: "post"
+    },
+    destination: {
+      url: "https://example.com/comments",
+      origin: "https://example.com",
+      source: "observed"
+    }
+  })
+
+  it("runs a planned step on an allowed site without asking", () => {
+    expect(
+      evaluateAgentPolicy(input(click(), { planned: { commits: false } }))
+    ).toEqual({ type: "allow", risk: "high", planned: true })
+  })
+
+  it("sends only when the planned outcome is itself the send", () => {
+    expect(
+      evaluateAgentPolicy(input(submit, { planned: { commits: true } })).type
+    ).toBe("allow")
+    expect(
+      evaluateAgentPolicy(input(submit, { planned: { commits: false } })).type
+    ).toBe("approval_required")
+    expect(
+      evaluateAgentPolicy(
+        input(click({ accessibleName: "Place order", committingLabel: true }), {
+          planned: { commits: false }
+        })
+      ).type
+    ).toBe("approval_required")
+  })
+
+  it.each([
+    ["a delete", effect(["activation", "destructive"])],
+    ["a sensitive field", click({ sensitive: true })],
+    [
+      "a new site",
+      effect(["navigation"], {
+        destination: {
+          url: "https://other.example/",
+          origin: "https://other.example",
+          source: "observed"
+        }
+      })
+    ],
+    ["a download", effect(["navigation", "download"])]
+  ])("still asks for %s", (_name, resolved) => {
+    expect(
+      evaluateAgentPolicy(input(resolved, { planned: { commits: true } })).type
+    ).not.toBe("allow")
+  })
+
+  it("still asks about a repeat", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(submit, {
+          planned: { commits: true },
+          repeatsCommittedEffect: true
+        })
+      ).type
+    ).toBe("approval_required")
+  })
+})

@@ -164,6 +164,33 @@ describe("agent plan record", () => {
     ).toEqual([])
   })
 
+  it("lets a save through a no-submit constraint and an unproven scope", () => {
+    const save = {
+      semanticEffects: ["activation" as const],
+      target: { savingLabel: true }
+    }
+    expect(agentForbiddingConstraints(save, planned.constraints)).toEqual([])
+    expect(
+      agentForbiddingConstraints(save, [
+        { id: "c2", text: "Only Record 6", kind: "scope" }
+      ])
+    ).toEqual([])
+  })
+
+  it("refuses a committing-labelled script button under a no-submit constraint", () => {
+    expect(
+      agentForbiddingConstraints(
+        {
+          semanticEffects: ["activation"],
+          target: { committingLabel: true }
+        },
+        planned.constraints
+      )
+    ).toEqual([
+      { constraint: planned.constraints?.[0], effects: ["potential_commit"] }
+    ])
+  })
+
   it("refuses consequential scope and payment bounds without authoritative bindings", () => {
     const scope = { id: "c1", text: "Only Record 42", kind: "scope" as const }
     const limit = {

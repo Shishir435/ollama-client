@@ -153,6 +153,60 @@ describe("AgentRunSupervision", () => {
     expect(screen.getByText("agent.controls.stop")).toBeInTheDocument()
   })
 
+  it("shows the text a step will type and what a form will send", () => {
+    const { rerender } = supervise({
+      run: run("awaiting_approval"),
+      approval: {
+        ...approval,
+        values: {
+          kind: "entered",
+          entries: [{ field: "Comment", value: "<b>account 4111</b>" }]
+        }
+      }
+    })
+    expect(
+      screen.getByText("agent.approval.values.entered")
+    ).toBeInTheDocument()
+    expect(screen.getByText("Comment")).toBeInTheDocument()
+    expect(screen.getByText("<b>account 4111</b>")).toBeInTheDocument()
+    expect(document.querySelector("b")).toBeNull()
+
+    rerender({
+      approval: {
+        ...approval,
+        values: {
+          kind: "sent",
+          entries: [
+            {
+              field: "Email",
+              value: "ada@example.com",
+              planned: { value: "grace@example.com" }
+            },
+            { field: "Newsletter", checked: false },
+            { field: "Card", masked: true },
+            { field: "Note", value: "" }
+          ],
+          omitted: 3
+        }
+      }
+    })
+    expect(screen.getByText("agent.approval.values.sent")).toBeInTheDocument()
+    expect(screen.getByText("ada@example.com")).toBeInTheDocument()
+    expect(
+      screen.getByText("agent.approval.values.unchecked")
+    ).toBeInTheDocument()
+    expect(screen.getByText("agent.approval.values.masked")).toBeInTheDocument()
+    expect(screen.getByText("agent.approval.values.empty")).toBeInTheDocument()
+    expect(
+      screen.getByText('agent.approval.values.omitted:{"count":3}')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'agent.approval.values.planned:{"value":"grace@example.com"}'
+      )
+    ).toBeInTheDocument()
+  })
+
   it("offers to widen only an approval that came with an offer", () => {
     const { onApprove, rerender } = supervise({
       run: run("awaiting_approval"),

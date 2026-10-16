@@ -224,8 +224,8 @@ export const createAgentBrowserAdapters = (input: {
    * so a field that is ours rather than the page's is a parse failure before a
    * byte is sent — and the step then reads as an effect that may have
    * happened. `frame` travels on the instruction and `point` beside it;
-   * `noSubmitStep`, `committingLabel`, `rowContext` and `searchForm` are
-   * approval evidence. One
+   * `noSubmitStep`, `committingLabel`, `savingLabel`, `rowContext` and
+   * `searchForm` are approval evidence. One
    * helper for every instruction: two hand-kept copies of this list drifted,
    * and a batch fill on any search box paused as unresolved.
    */
@@ -240,6 +240,7 @@ export const createAgentBrowserAdapters = (input: {
       visual: _visual,
       noSubmitStep: _noSubmitStep,
       committingLabel: _committingLabel,
+      savingLabel: _savingLabel,
       rowContext: _rowContext,
       searchForm: _searchForm,
       ...wire
@@ -876,7 +877,23 @@ export const createAgentBrowserAdapters = (input: {
               )?.id
           }
         : {}),
+      /**
+       * Through the debugger when the run holds the tab, so a step back is
+       * one entry; see `AgentBrowserSessionManager.goHistory`. The tabs API
+       * is the fallback for a run without one, and nothing is sent when the
+       * debugger says there is no entry that way.
+       */
       async goHistory(tabId, direction) {
+        const stepped = await input.browserSessions?.goHistory(
+          input.runId,
+          tabId,
+          direction
+        )
+        if (stepped === "navigated") return
+        if (stepped === "no_entry")
+          throw new AgentEffectNotAppliedError(
+            `No history entry to go ${direction} to`
+          )
         if (direction === "back") {
           await browser.tabs.goBack(tabId)
           return

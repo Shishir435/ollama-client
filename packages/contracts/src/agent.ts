@@ -369,6 +369,38 @@ export const AgentAnswerSchema = z
   .strict()
 export type AgentAnswer = z.infer<typeof AgentAnswerSchema>
 
+/** How many controls one approval lists with their values. */
+export const MAX_AGENT_APPROVAL_VALUES = 24
+/** How much of one value an approval shows. */
+export const MAX_AGENT_APPROVAL_VALUE_CHARS = 500
+
+/**
+ * One control and what the step will put in it, or what the form will send
+ * from it. Text the model composed or the page holds, so the panel flattens
+ * it; `masked` names a sensitive control without its value.
+ */
+export const AgentApprovalValueSchema = z
+  .object({
+    field: z.string().min(1).max(200),
+    value: z.string().max(MAX_AGENT_APPROVAL_VALUE_CHARS).optional(),
+    checked: z.boolean().optional(),
+    masked: z.literal(true).optional(),
+    /**
+     * What the plan says this control should hold, when it says something
+     * else: the one place a wrong value in the right form shows itself
+     * before it is sent. Absent when the plan names nothing for it or agrees.
+     */
+    planned: z
+      .object({
+        value: z.string().max(MAX_AGENT_APPROVAL_VALUE_CHARS).optional(),
+        checked: z.boolean().optional()
+      })
+      .strict()
+      .optional()
+  })
+  .strict()
+export type AgentApprovalValue = z.infer<typeof AgentApprovalValueSchema>
+
 export const AgentApprovalRequestSchema = z
   .object({
     id: z.string().min(1),
@@ -385,6 +417,25 @@ export const AgentApprovalRequestSchema = z
       .strict()
       .optional(),
     pageEvidence: z.string().max(1_000).optional(),
+    /**
+     * What the user is approving, value by value: the text a step types,
+     * the option it picks, or — for a submission — everything the form will
+     * send. `entered` for the first two, `sent` for the third. An approval
+     * that named only the control asked the user to approve text they could
+     * not see.
+     */
+    values: z
+      .object({
+        kind: z.enum(["entered", "sent"]),
+        entries: z
+          .array(AgentApprovalValueSchema)
+          .min(1)
+          .max(MAX_AGENT_APPROVAL_VALUES),
+        /** Controls the list could not hold, so the card can say so. */
+        omitted: z.number().int().positive().optional()
+      })
+      .strict()
+      .optional(),
     /**
      * The origin this effect happens on, and the classes the user may widen
      * to for the rest of the run. Absent means widening is not on offer —
@@ -800,12 +851,25 @@ export const MAX_AGENT_HANDOFF_CHARS =
  * second submission posts the comment twice, a second payment pays twice, a
  * second delete removes the next row. These are the classes a follow-up must
  * never repeat on the strength of a model's reading of an earlier record.
+ *
+ * `potential_commit` is a click on a control labelled as ordering, paying,
+ * sending or publishing that no form classifies: a script does the
+ * committing, so whether it was a submission or a payment cannot be told from
+ * the page. The label only raises a click to this class — it proves nothing
+ * landed — and a constraint forbidding a submission or a payment forbids it.
+ *
+ * `save` is a click on a control labelled as storing something ("Save",
+ * "Update", "Mark as paid"). Recorded so a second press is caught as a
+ * repeat; no constraint forbids it, since "don't publish" is not "don't
+ * save".
  */
 export const AGENT_CONSEQUENTIAL_EFFECTS = [
   "submission",
   "destructive",
   "payment",
-  "download"
+  "download",
+  "potential_commit",
+  "save"
 ] as const
 export const AgentConsequentialEffectSchema = z.enum(
   AGENT_CONSEQUENTIAL_EFFECTS
@@ -1203,7 +1267,14 @@ export const AgentPriorEffectSchema = z
     form: z.string().min(1).max(MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS).optional(),
     role: z.string().max(60).optional(),
     tag: z.string().max(40).optional(),
-    name: z.string().max(120).optional()
+    name: z.string().max(120).optional(),
+    /**
+     * The row the control sat in, minus the control's own label: what tells
+     * "Mark paid" on one invoice from the same button on the next. Page text,
+     * bounded like the receipt's own row context and absent for a sensitive
+     * control or one in no row.
+     */
+    row: z.string().min(1).max(MAX_AGENT_ROW_CONTEXT_CHARS).optional()
   })
   .strict()
 export type AgentPriorEffect = z.infer<typeof AgentPriorEffectSchema>
@@ -1372,6 +1443,29 @@ export const AgentRunStateSchema = z
      */
     goalAuthor: AgentGoalAuthorSchema.optional(),
     userUtterance: AgentUserUtteranceSchema.optional(),
+    /**
+     * The user opted into running the plan's own steps without a prompt
+     * each, and the start prompt that said so was the one they answered.
+     * Steps that trace to a planned outcome then run unasked; anything off
+     * the plan, and anything critical, still asks.
+     */
+    planConsent: z.literal(true).optional(),
+    /**
+     * The planned changes the user approved, word for word as the approval
+     * card listed them. Plan consent covers a step only when its outcome is
+     * here: one the card could not fit, or one a later amendment reworded,
+     * asks again on a card that lists it.
+     */
+    planApproved: z
+      .array(z.string().min(1).max(MAX_AGENT_REQUIREMENT_CHARS))
+      .max(MAX_AGENT_REQUIREMENTS)
+      .optional(),
+    /**
+     * A page this run read carried text shaped like instructions to an
+     * agent. From then on nothing runs on standing consent — not the plan
+     * consent, not browse mode — and every step asks. Never cleared.
+     */
+    injectionSuspected: z.literal(true).optional(),
     /**
      * The chat tool call that delegated the run. A call replayed after a worker
      * restart names the same id and finds this run; any other call from the

@@ -941,8 +941,8 @@ describe("streamChatWithTools", () => {
   })
 
   it("re-prompts a batched gated call after preceding untrusted output", async () => {
-    clearSessionGrants()
-    addSessionGrant("taint-session", "egress", undefined, 0)
+    await clearSessionGrants()
+    await addSessionGrant("taint-session", "egress", { taintGeneration: 0 })
     const provider = scriptedProvider([
       [
         {
@@ -1014,7 +1014,7 @@ describe("streamChatWithTools", () => {
         )
       )
     ).toBe(true)
-    clearSessionGrants()
+    await clearSessionGrants()
   })
 
   it("skips a gated tool when the user denies it", async () => {

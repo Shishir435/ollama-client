@@ -4,24 +4,71 @@ import {
   type AgentPriorEffect,
   type AgentStepStatus,
   MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS,
-  MAX_AGENT_PRIOR_EFFECTS
+  MAX_AGENT_PRIOR_EFFECTS,
+  MAX_AGENT_ROW_CONTEXT_CHARS
 } from "@ollama-client/contracts"
 import { agentStepSourceUrl, agentStepTargetFrom } from "./history"
-import type { AgentStepReadout, ResolvedAgentEffect } from "./ports"
+import type {
+  AgentStepReadout,
+  AgentStepTarget,
+  ResolvedAgentEffect
+} from "./ports"
+import { agentRowContextBeyond } from "./row-context"
 
 const isConsequential = (
   semantic: string
 ): semantic is AgentConsequentialEffect =>
   (AGENT_CONSEQUENTIAL_EFFECTS as readonly string[]).includes(semantic)
 
-/** The classes of an effect a repeat would double; empty for a routine one. */
+/** What the consequential classes are read from: the effect and its control. */
+export type AgentConsequentialSource = Pick<
+  ResolvedAgentEffect,
+  "semanticEffects"
+> & {
+  target?: Pick<
+    ResolvedAgentEffect["target"],
+    "committingLabel" | "savingLabel"
+  >
+}
+
+/**
+ * The classes of an effect a repeat would double; empty for a routine one.
+ *
+ * A click on a committing-labelled control no form classifies is a
+ * `potential_commit`: recorded on its receipt, guarded against repeats and
+ * held to the constraints like a submission, because a script button orders
+ * or sends as surely as a submitter does. A saving-labelled one is a `save`,
+ * guarded against repeats only. The label only ever adds the class.
+ */
 export const agentConsequentialEffects = (
-  effect: Pick<ResolvedAgentEffect, "semanticEffects">
-): AgentConsequentialEffect[] => effect.semanticEffects.filter(isConsequential)
+  effect: AgentConsequentialSource
+): AgentConsequentialEffect[] => {
+  const classes: AgentConsequentialEffect[] = []
+  for (const semantic of effect.semanticEffects)
+    if (isConsequential(semantic)) classes.push(semantic)
+  if (classes.length > 0) return classes
+  if (effect.target?.committingLabel === true) return ["potential_commit"]
+  if (effect.target?.savingLabel === true) return ["save"]
+  return classes
+}
 
 export const agentEffectIsConsequential = (
-  effect: Pick<ResolvedAgentEffect, "semanticEffects">
+  effect: AgentConsequentialSource
 ): boolean => agentConsequentialEffects(effect).length > 0
+
+/**
+ * Whether a constraint's forbidden classes rule out an effect class. A
+ * possible commit is a submission or a payment the page did not say which,
+ * so forbidding either forbids it.
+ */
+export const agentForbidsEffect = (
+  forbids: readonly AgentConsequentialEffect[] | undefined,
+  effect: AgentConsequentialEffect
+): boolean =>
+  forbids !== undefined &&
+  (forbids.includes(effect) ||
+    (effect === "potential_commit" &&
+      (forbids.includes("submission") || forbids.includes("payment"))))
 
 /**
  * Where a consequential effect sent its form, origin and path only — the
@@ -79,8 +126,15 @@ const priorEffect = (step: AgentStepReadout): AgentPriorEffect | undefined => {
       : {}),
     ...(target?.role ? { role: target.role } : {}),
     ...(target?.tag ? { tag: target.tag } : {}),
-    ...(target?.name ? { name: target.name } : {})
+    ...(target?.name ? { name: target.name } : {}),
+    ...rowOf(target)
   }
+}
+
+/** The row beside the control, without the control's own label. */
+const rowOf = (target: AgentStepTarget | undefined): { row?: string } => {
+  const row = agentRowContextBeyond(target?.name, target?.rowContext)
+  return row ? { row: row.slice(0, MAX_AGENT_ROW_CONTEXT_CHARS) } : {}
 }
 
 const normalized = (value: string | undefined): string =>
@@ -99,13 +153,76 @@ const sameForm = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
     (effect) => sendsForm(effect) && (b.effects ?? []).includes(effect)
   )
 
-/** The same command on the same control: a repeat, refused outright. */
+/**
+ * A word that changes when the record does rather than naming it: an amount
+ * ("$120", "1,250.00", "€9"), a percentage, a time, a quantity with its unit
+ * ("10am", "3x", "5kg"). "Balance $120 Due" and "Balance $0 Paid" are one
+ * record before and after a payment.
+ */
+const VOLATILE_WORD =
+  /[$€£¥₹%:]|\d[.,]\d|^\d+(?:am|pm|h|hrs?|min|mins|s|d|x|k|kg|g|km|mi|lbs?|pcs?)$/iu
+
+/**
+ * The words of a row that name it, in order: an id mixing letters and digits
+ * ("INV-001", "A12"), a capital standing alone, the way "Invoice A" and
+ * "Invoice B" are told apart, and a bare number only where an id column
+ * puts it — first in the row, or marked "#" or "№". Anywhere else a bare
+ * number is as likely a balance, a count or a stock level as an id, and the
+ * click under test is exactly what changes those. Amounts, percentages and
+ * times never count. Case is read off the page's own text, so an article
+ * ("a") never names a record; "I" never does.
+ */
+const identifiers = (row: string): string[] =>
+  row
+    .replaceAll(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .flatMap((raw, index) => {
+      if (VOLATILE_WORD.test(raw)) return []
+      const word = raw.replaceAll(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
+      const named =
+        (/\p{N}/u.test(word) && /\p{L}/u.test(word)) ||
+        (/^\p{N}+$/u.test(word) && (index === 0 || /^[#№]/u.test(raw))) ||
+        (/^\p{Lu}$/u.test(word) && word !== "I")
+      return named ? [word.toLocaleLowerCase()] : []
+    })
+
+/**
+ * Whether two rows are plainly different records: each leads with an
+ * identifier — an id, a marked record number, a lone capital — the two lead
+ * with different ones, and they share none at all. "#5 Due" and "#6 Due" are
+ * two records; "INV-1 $120 Due" and "INV-1 $0 Paid", or "Balance 120 Due" and
+ * "Balance 0 Paid", are one record before and after the click, which is the
+ * repeat this guard exists for. A row with no identifier, or no row at all,
+ * proves nothing, and the match stays as coarse as it always was.
+ *
+ * Residual: "Record 5" and "Record 6" name no record by these rules, so the
+ * second asks as a repeat — the safe direction. A list that renumbers on
+ * change and shows nothing else that names the record reads its moved row
+ * as a new one; that repeat still meets policy's own approval for the
+ * class, and loses only the repeat notice.
+ */
+const distinctRows = (a: AgentPriorEffect, b: AgentPriorEffect): boolean => {
+  if (!a.row || !b.row) return false
+  const left = identifiers(a.row)
+  const right = identifiers(b.row)
+  if (left.length === 0 || right.length === 0) return false
+  if (left[0] === right[0]) return false
+  const seen = new Set(right)
+  return !left.some((word) => seen.has(word))
+}
+
+/**
+ * The same command on the same control in the same record: a repeat,
+ * refused outright.
+ */
 const sameControl = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
   a.action === b.action &&
   normalized(a.role) === normalized(b.role) &&
   normalized(a.tag) === normalized(b.tag) &&
   normalized(a.name) === normalized(b.name) &&
-  (a.page === undefined || b.page === undefined || a.page === b.page)
+  (a.page === undefined || b.page === undefined || a.page === b.page) &&
+  !distinctRows(a, b)
 
 /**
  * The consequential effects a run committed, in the order it committed them,
@@ -253,7 +370,8 @@ const candidateFor = (effect: ResolvedAgentEffect): AgentPriorEffect => {
     ...(form ? { form } : {}),
     ...(target?.role ? { role: target.role.slice(0, 60) } : {}),
     ...(target?.tag ? { tag: target.tag.slice(0, 40) } : {}),
-    ...(target?.name ? { name: target.name.slice(0, 120) } : {})
+    ...(target?.name ? { name: target.name.slice(0, 120) } : {}),
+    ...rowOf(target)
   }
 }
 
@@ -290,4 +408,25 @@ export const agentRepeatsPriorForm = (
   if (prior.length === 0 || !agentEffectIsConsequential(effect)) return false
   const candidate = candidateFor(effect)
   return prior.some((existing) => sameForm(existing, candidate))
+}
+
+/**
+ * Whether the run was already told, by a refusal carrying `feedback`, not to
+ * repeat this effect on this control. Read from the refusal receipts, so a
+ * worker restart remembers it.
+ */
+export const agentRepeatWasRefused = (
+  effect: ResolvedAgentEffect,
+  steps: readonly AgentStepReadout[],
+  feedback: string
+): boolean => {
+  const candidate = candidateFor(effect)
+  return steps.some((step) => {
+    if (step.status !== "rejected") return false
+    const evidence = step.verification?.evidence
+    if (!evidence || !("summary" in evidence) || evidence.summary !== feedback)
+      return false
+    const prior = priorEffect(step)
+    return prior !== undefined && sameControl(prior, candidate)
+  })
 }

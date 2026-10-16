@@ -6,6 +6,7 @@ import {
   type AgentResolutionContext,
   type AgentSemanticEffect,
   AgentStaleObservationError,
+  type AgentSubmittedField,
   AgentUnreadablePageError,
   classifyAgentAffordance,
   type ResolvedAgentEffect,
@@ -706,6 +707,36 @@ const isConsequentialLabel = (value?: string): boolean =>
   Boolean(value && CONSEQUENTIAL_LABELS.some((pattern) => pattern.test(value)))
 
 /**
+ * Labels of controls that store something: a save, an update, a status
+ * change on a record. A second press stores it twice — four identical drafts
+ * from a run that kept re-saving while it looked for proof — so the click is
+ * recorded as a possible commit and a repeat is put to the user. The first
+ * press is still covered by the run's standing consent: storing an edit the
+ * run was asked to make is what the task is.
+ */
+const SAVING_LABELS = [
+  labelWords([
+    "save",
+    "save (?:changes|draft|all)",
+    "update",
+    "apply changes",
+    "create",
+    "mark (?:as )?(?:paid|done|complete|completed|resolved|read)"
+  ]),
+  labelWords(["speichern", "aktualisieren", "erstellen"]),
+  labelWords(["guardar", "actualizar", "crear"]),
+  labelWords(["enregistrer", "mettre à jour", "créer"]),
+  labelWords(["salva", "aggiorna", "crea"]),
+  labelWords(["сохранить", "обновить", "создать"]),
+  /(?:保存|更新|作成)/u,
+  /(?:保存|更新|创建)/u,
+  /(?:सहेजें|अपडेट करें|बनाएं)/u
+] as const
+
+const isSavingLabel = (value?: string): boolean =>
+  Boolean(value && SAVING_LABELS.some((pattern) => pattern.test(value)))
+
+/**
  * The target's `committingLabel` evidence: an activation whose control is
  * labelled as committing, and only one no form already classifies as a
  * submission.
@@ -719,6 +750,82 @@ const committingLabelOf = (
   isConsequentialLabel(element.name)
     ? { committingLabel: true }
     : {}
+
+/** The target's `savingLabel` evidence, for a click no other label class took. */
+const savingLabelOf = (
+  effects: readonly AgentSemanticEffect[],
+  element: AgentElement
+): { savingLabel?: true } =>
+  effects.includes("activation") &&
+  !effects.includes("submission") &&
+  !isConsequentialLabel(element.name) &&
+  isSavingLabel(element.name)
+    ? { savingLabel: true }
+    : {}
+
+/** Controls a form carries that hold nothing of the user's to show. */
+const UNSENT_INPUT_TYPES = new Set([
+  "button",
+  "submit",
+  "reset",
+  "image",
+  "hidden",
+  "file"
+])
+
+/** How many of a form's controls one approval lists. */
+const MAX_SUBMITTED_FIELDS = 24
+
+/** How much of one control's value an approval shows. */
+const MAX_SUBMITTED_VALUE_CHARS = 500
+
+/**
+ * The controls of the form a submission sends, in page order, for the
+ * approval that asks about it: every value control, including the field
+ * Enter was pressed in, and never the button that submits. A form is the
+ * observation's own fingerprint, so two forms on one page are never mixed;
+ * a control in no recognized form contributes nothing rather than a guess.
+ * A long value keeps an ellipsis and the fields past the cap are counted,
+ * so a partial list never reads as everything the form will send.
+ */
+const submittedFields = (
+  element: AgentElement,
+  observation: AgentObservation
+): { fields: AgentSubmittedField[]; omitted: number } => {
+  const form = element.formFingerprint
+  if (!form) return { fields: [], omitted: 0 }
+  const controls = observation.elements.filter(
+    (candidate) =>
+      candidate.formFingerprint === form &&
+      candidate.frameId === element.frameId &&
+      !candidate.submitter &&
+      ["input", "select", "textarea"].includes(candidate.tag) &&
+      !UNSENT_INPUT_TYPES.has(candidate.type?.toLowerCase() ?? "")
+  )
+  return {
+    fields: controls.slice(0, MAX_SUBMITTED_FIELDS).map((candidate) => {
+      const name =
+        candidate.name?.trim() ||
+        candidate.placeholder?.trim() ||
+        candidate.type ||
+        candidate.tag
+      if (candidate.sensitive) return { name, sensitive: true as const }
+      const type = candidate.type?.toLowerCase()
+      if (type === "checkbox" || type === "radio")
+        return { name, checked: candidate.checked === true }
+      const value = candidate.value ?? ""
+      return {
+        name,
+        value:
+          value.length > MAX_SUBMITTED_VALUE_CHARS ||
+          candidate.valueTruncated === true
+            ? `${value.slice(0, MAX_SUBMITTED_VALUE_CHARS - 1)}…`
+            : value
+      }
+    }),
+    omitted: Math.max(0, controls.length - MAX_SUBMITTED_FIELDS)
+  }
+}
 
 const isDomMutationAction = (type: string): type is DomMutationAgentAction =>
   (DOM_MUTATION_AGENT_ACTIONS as readonly string[]).includes(type)
@@ -1380,6 +1487,9 @@ export const resolveDomMutationAgentEffect = async (input: {
     frame ? new URL(frame.url) : undefined
   )
 
+  const submitted = effects.includes("submission")
+    ? submittedFields(element, observation)
+    : { fields: [], omitted: 0 }
   return {
     command,
     target: {
@@ -1387,8 +1497,17 @@ export const resolveDomMutationAgentEffect = async (input: {
       ...(point ? { point, visual } : {}),
       ...(drop ? { drop: drop.drop } : {}),
       ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {}),
-      ...committingLabelOf(effects, element)
+      ...committingLabelOf(effects, element),
+      ...savingLabelOf(effects, element)
     },
+    ...(submitted.fields.length
+      ? {
+          submitted: {
+            fields: submitted.fields,
+            ...(submitted.omitted ? { omitted: submitted.omitted } : {})
+          }
+        }
+      : {}),
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],
     snapshotIdentity: rootAgentSnapshotIdentity(observation),

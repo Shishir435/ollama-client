@@ -2114,3 +2114,141 @@ describe("delegated submit ownership", () => {
     }
   })
 })
+
+describe("what a submission will send", () => {
+  it("lists every other control of the submitted form for the approval", async () => {
+    const form = { formFingerprint: "0000abcd" }
+    const before = observation({
+      elements: [
+        element({
+          type: "submit",
+          name: "Register",
+          formAction: new URL("/register", location.href).href,
+          formMethod: "post",
+          maySubmit: true,
+          submitter: true,
+          ...form
+        }),
+        element({
+          ref: "e2",
+          tag: "input",
+          name: "Email",
+          editable: true,
+          value: "ada@example.com",
+          ...form
+        }),
+        element({
+          ref: "e3",
+          tag: "input",
+          type: "checkbox",
+          name: "Newsletter",
+          checked: false,
+          ...form
+        }),
+        element({
+          ref: "e4",
+          tag: "input",
+          type: "hidden",
+          name: "csrf",
+          value: "token",
+          ...form
+        }),
+        element({
+          ref: "e5",
+          tag: "input",
+          name: "Elsewhere",
+          value: "other form",
+          formFingerprint: "ffff0000"
+        })
+      ]
+    })
+    const effect = await resolve(command({ type: "click", ref: "e1" }), before)
+    expect(effect.submitted?.fields).toEqual([
+      { name: "Email", value: "ada@example.com" },
+      { name: "Newsletter", checked: false }
+    ])
+    const decision = evaluateAgentPolicy({
+      runId: "run-1",
+      stepId: "step-1",
+      effect,
+      allowedOrigins: [location.origin],
+      scopedTabIds: [7],
+      now: 1
+    })
+    expect(decision.type).toBe("approval_required")
+    if (decision.type === "approval_required")
+      expect(decision.request.values).toEqual({
+        kind: "sent",
+        entries: [
+          { field: "Email", value: "ada@example.com" },
+          { field: "Newsletter", checked: false }
+        ]
+      })
+  })
+
+  it("says nothing about a click that submits no form", async () => {
+    const effect = await resolve(command({ type: "click", ref: "e1" }))
+    expect(effect.submitted).toBeUndefined()
+  })
+})
+
+describe("a script button's label", () => {
+  it.each([
+    ["Save", { savingLabel: true }],
+    ["Speichern", { savingLabel: true }],
+    ["Mark as paid", { savingLabel: true }],
+    ["Place order", { committingLabel: true }],
+    ["Sort by price", {}]
+  ])("reads %s", async (name, expected) => {
+    const effect = await resolve(
+      command({ type: "click", ref: "e1" }),
+      observation({ elements: [element({ name })] })
+    )
+    expect({
+      ...(effect.target.savingLabel ? { savingLabel: true } : {}),
+      ...(effect.target.committingLabel ? { committingLabel: true } : {})
+    }).toEqual(expected)
+  })
+})
+
+describe("what Enter in a field sends", () => {
+  it("lists the field Enter was pressed in, and marks a cut value", async () => {
+    const form = {
+      formFingerprint: "0000abcd",
+      formAction: new URL("/subscribe", location.href).href,
+      formMethod: "post" as const
+    }
+    const before = observation({
+      elements: [
+        element({
+          ref: "e1",
+          tag: "input",
+          name: "Email",
+          editable: true,
+          value: "ada@example.com",
+          maySubmit: true,
+          focused: true,
+          ...form
+        }),
+        element({
+          ref: "e2",
+          tag: "textarea",
+          name: "Note",
+          editable: true,
+          value: "x".repeat(600),
+          ...form
+        })
+      ]
+    })
+    const effect = await resolve(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      before
+    )
+    expect(effect.submitted?.fields[0]).toEqual({
+      name: "Email",
+      value: "ada@example.com"
+    })
+    expect(effect.submitted?.fields[1]?.value?.endsWith("…")).toBe(true)
+    expect(effect.submitted?.fields[1]?.value).toHaveLength(500)
+  })
+})

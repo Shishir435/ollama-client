@@ -773,3 +773,42 @@ describe("native dialogs the debugger holds", () => {
     await manager.dispose()
   })
 })
+
+describe("a step through the tab's history", () => {
+  it("goes exactly one entry back, not where the toolbar would skip to", async () => {
+    const host = harness()
+    host.debuggerApi.sendCommand.mockImplementation(
+      (target, method, params, callback) => {
+        host.commands.push({ target, method, params })
+        callback(
+          method === "Page.getNavigationHistory"
+            ? {
+                currentIndex: 2,
+                entries: [
+                  { id: 10, url: "about:blank" },
+                  { id: 11, url: "http://127.0.0.1/hub" },
+                  { id: 12, url: "http://127.0.0.1/shop" }
+                ]
+              }
+            : {}
+        )
+      }
+    )
+    const manager = createAgentBrowserSessionManager({
+      debugger: host.debuggerApi,
+      tabs: host.tabs,
+      classifyAccess: async () => "ok",
+      readLastError: host.readLastError
+    })
+    await manager.attach("run-1", 7)
+    expect(await manager.goHistory("run-1", 7, "back")).toBe("navigated")
+    expect(
+      host.commands.find(
+        (entry) => entry.method === "Page.navigateToHistoryEntry"
+      )?.params
+    ).toEqual({ entryId: 11 })
+    expect(await manager.goHistory("run-1", 7, "forward")).toBe("no_entry")
+    expect(await manager.goHistory("run-1", 8, "back")).toBe("unavailable")
+    await manager.dispose()
+  })
+})

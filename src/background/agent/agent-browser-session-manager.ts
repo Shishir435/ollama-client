@@ -232,6 +232,20 @@ export interface AgentBrowserSessionManager {
     tabId: number,
     answer: { dialogId: string; accept: boolean; promptText?: string }
   ): Promise<"answered" | "not_open">
+  /**
+   * One step back or forward in the run's tab, through the debugger.
+   * `chrome.tabs.goBack` behaves like the toolbar button, and the toolbar
+   * skips entries the user never interacted with: after a link the run
+   * clicked without a user gesture, it jumped two entries, to the tab's
+   * initial `about:blank`, and the run lost the tab. The protocol steps one
+   * entry. `unavailable` means the run does not hold the tab's debugger;
+   * `no_entry` means there is nothing that way.
+   */
+  goHistory(
+    runId: string,
+    tabId: number,
+    direction: "back" | "forward"
+  ): Promise<"navigated" | "no_entry" | "unavailable">
   dispose(): Promise<void>
 }
 
@@ -1489,6 +1503,25 @@ export const createAgentBrowserSessionManager = (input?: {
         }
       )
       return "answered"
+    },
+    async goHistory(runId, tabId, direction) {
+      const attachment = attachments.get(runId)
+      if (!attachment?.attached || attachment.tabId !== tabId)
+        return "unavailable"
+      const history = (await send(
+        attachment.target,
+        "Page.getNavigationHistory"
+      )) as { currentIndex?: number; entries?: { id?: number }[] } | undefined
+      const index = history?.currentIndex
+      const entry =
+        typeof index === "number"
+          ? history?.entries?.[index + (direction === "back" ? -1 : 1)]
+          : undefined
+      if (typeof entry?.id !== "number") return "no_entry"
+      await send(attachment.target, "Page.navigateToHistoryEntry", {
+        entryId: entry.id
+      })
+      return "navigated"
     },
     async dispose() {
       cdp?.onDetach.removeListener(onDebuggerDetach)

@@ -241,6 +241,19 @@ export const TRAP_SOLUTIONS = Object.freeze({
       return page
     }
   },
+  three_shops: {
+    cheat: async (env) => {
+      for (const id of ["a", "b", "c"]) await observePage(env, `/shop/${id}`)
+      env.answer(
+        "Brew Bazaar is the cheapest at 37 credits for the Blue Kettle. Kettle Corner charges 41 credits and Teapot Town 44 credits."
+      )
+    },
+    /** The rival kettle's price, read off the first shop, called the cheapest. */
+    trap: async (env) => {
+      await observePage(env, "/shop/a")
+      env.answer("The cheapest is Kettle Corner at 19 credits.")
+    }
+  },
   irrelevant_quote: {
     cheat: async (env) => {
       await observePage(env)

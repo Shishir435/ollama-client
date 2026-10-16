@@ -53,9 +53,10 @@ const sharedBudgets: Budget[] = [
    * The UX audit fixes — keyboard activation, focus return, copy feedback,
    * live regions, reduced motion and flip-above placement — measure 237,561
    * in both browsers. Shadow-DOM focus rings (the `@property` fallback) and
-   * returning focus to the selection after close bring it to 238,177.
+   * returning focus to the selection after close bring it to 238,177. The
+   * shared contracts' approval values and run flags bring it to 238,421.
    */
-  { metric: "selectionOverlay", field: "gzipBytes", max: 238_177 },
+  { metric: "selectionOverlay", field: "gzipBytes", max: 238_421 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
   { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
   { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
@@ -199,7 +200,10 @@ const budgets: Budget[] = [
     /** Session speed over timed replies only adds 34 bytes: Chrome 48,712,040, Firefox 50,303,481. */
     /** Browser Prompt API adapter, host bridge, opt-in controls and localized copy measure Chrome at 48,726,546 and Firefox at 50,311,958. */
     /** Review fixes and consistent browser icons measure Chrome at 48,727,697 and Firefox at 50,313,391; content-script budgets remain unchanged. */
-    max: isFirefox ? 50_313_391 : 48_727_697
+    /** Browse mode, plan consent, chat consent, approval values and the repeat classes measure Chrome at 48,754,338 and Firefox at 50,326,334. */
+    /** Review fixes, the plan approval, the confirmed-repeat refusal and history stepping through the debugger measure Chrome at 48,765,560 and Firefox at 50,332,976. */
+    /** Plan approval by listed outcome, stable row ids and finished-outcome sends measure Chrome at 48,766,029; Firefox is unchanged. */
+    max: isFirefox ? 50_332_976 : 48_766_029
   },
   {
     metric: "zip",
@@ -217,7 +221,10 @@ const budgets: Budget[] = [
     /** rc validation fixes (image errors, stream timings, rebuild hang, accessibility) measure Chrome at 354,300 and Firefox at 227,378. */
     /** Browser Prompt API routing and lifecycle support measure Chrome at 356,340 and Firefox at 229,002 gzip bytes. */
     /** Shared browser glyph metadata measures Chrome at 356,391 and Firefox at 228,996 gzip bytes. */
-    max: isFirefox ? 228_996 : 356_391
+    /** Browse mode, plan consent, chat consent, approval values and the repeat classes measure Chrome at 360,269 and Firefox at 229,597 gzip bytes. */
+    /** Review fixes, the plan approval, the confirmed-repeat refusal and history stepping through the debugger measure Chrome at 361,551 and Firefox at 229,612 gzip bytes. */
+    /** Plan approval by listed outcome, stable row ids and finished-outcome sends measure Chrome at 361,734 and Firefox at 229,621 gzip bytes. */
+    max: isFirefox ? 229_621 : 361_734
   }
 ]
 

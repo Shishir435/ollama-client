@@ -46,7 +46,18 @@
       },
       "allow": "Permitir una vez",
       "reject": "Rechazar",
-      "allowForRun": "Permitir siempre este tipo de acción en {{origin}} durante esta ejecución"
+      "allowForRun": "Permitir siempre este tipo de acción en {{origin}} durante esta ejecución",
+      "values": {
+        "entered": "Lo que se escribirá",
+        "sent": "Lo que enviará el formulario",
+        "masked": "Oculto (confidencial)",
+        "checked": "Marcado",
+        "unchecked": "Sin marcar",
+        "empty": "(vacío)",
+        "planned": "El plan indica: {{value}}",
+        "omitted_one": "{{count}} campo más no mostrado",
+        "omitted_other": "{{count}} campos más no mostrados"
+      }
     },
     "browser_disconnected": "El control del navegador se desconectó, por lo que Agent se pausó. Revisa la página antes de continuar.",
     "controls": {
@@ -194,9 +205,10 @@
       },
       "permission_mode": {
         "label": "Acciones rutinarias",
-        "description": "Si cada nueva ejecución puede hacer clic y escribir en el sitio donde empieza sin preguntar. Enviar, eliminar, iniciar sesión, pagar y los sitios nuevos siempre se preguntan, y nada pasa a la siguiente ejecución.",
+        "description": "Indica si cada nueva ejecución puede hacer clic y escribir en el sitio de inicio sin preguntar. Enviar, eliminar, iniciar sesión, pagar y los sitios nuevos se consultan, y lo que permitas solo se mantiene para tareas posteriores del mismo chat. «Preguntar solo fuera del plan» también permite que una ejecución realice sin preguntar los pasos que nombra su plan, incluido el envío o el pedido que nombra.",
         "allow_routine": "Permitir en el sitio inicial",
-        "approve_each": "Aprobar cada acción"
+        "approve_each": "Aprobar cada acción",
+        "follow_plan": "Preguntar solo fuera del plan"
       },
       "completion_reviewer": {
         "label": "Revisor de finalización",
@@ -243,6 +255,8 @@
     },
     "paused_panel_closed": "En pausa porque se cerró el panel lateral. Reanuda cuando quieras.",
     "approval_text": {
+      "approve_plan": "Ejecutar este plan sin preguntar en cada paso",
+      "approve_plan_consequence": "Los pasos que siguen los resultados indicados abajo se ejecutan sin preguntar, incluido un envío o un pedido que el plan nombre. Todo lo que esté fuera del plan, eliminar, iniciar sesión y pagar sigue requiriendo confirmación. Rechazar pausa la ejecución y después se preguntará en cada paso.",
       "accept_dialog": "Aceptar el {{kind}} de la página",
       "accept_dialog_origin": "Aceptar el {{kind}} de {{origin}}",
       "dismiss_dialog": "Descartar el {{kind}} de la página",
@@ -288,6 +302,7 @@
       "other_tab": "Esta tarea se ejecuta en una pestaña distinta de la que estás viendo.",
       "supervised": "El agente trabaja en la página paso a paso y pregunta antes de cualquier acción importante. Chrome muestra un aviso de depuración mientras trabaja.",
       "routine": "En este sitio, los clics, la escritura y las búsquedas de esta tarea se ejecutan sin volver a preguntar. Publicar o enviar otros formularios, iniciar sesión, pagar, eliminar y abrir otros sitios siguen pidiendo permiso.",
+      "plan": "Los pasos que siguen el plan de esta tarea se ejecutan sin preguntar, incluido un envío o un pedido que el plan nombre. Los pasos fuera del plan, iniciar sesión, pagar, eliminar y abrir otros sitios siguen requiriendo confirmación, y la ejecución vuelve a preguntar si una página intenta darle instrucciones. Apruebas el plan una vez, antes de su primer paso.",
       "experimental_model": "Las llamadas a herramientas están activadas para este modelo porque tú lo configuraste, no porque el modelo lo indique. Un modelo que no sabe llamar herramientas no llegará lejos."
     },
     "steer": {

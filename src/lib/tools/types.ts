@@ -107,6 +107,13 @@ export interface ToolDefinition {
    * without a resolver intentionally keep the wildcard (they act on no
    * specific site).
    */
+  /**
+   * `chat` keys this tool's "Allow for this chat" grant by chat and tool
+   * alone: neither the site nor a later page read withdraws it. Only for a
+   * tool whose `confirmation` asks with `always` whenever its input could
+   * carry page text, since that is what the taint generation stood for.
+   */
+  sessionGrantScope?: "chat"
   grantScopeResolver?: (
     args: Record<string, unknown>,
     ctx: ToolContext

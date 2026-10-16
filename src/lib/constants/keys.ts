@@ -228,7 +228,11 @@ export const STORAGE_KEYS = {
     // 0.12.x approval boundary: persisted "Always allow" grants, keyed
     // `${toolName}::${origin}` ("*" when a tool has no origin). Device-local:
     // an approval to act on this machine should not follow the account.
-    APPROVAL_GRANTS: "tools-approval-grants"
+    APPROVAL_GRANTS: "tools-approval-grants",
+    /** "Allow for this chat" grants; chrome.storage.session only. */
+    SESSION_GRANTS: "tools-session-grants-v1",
+    /** Routine browser-task consent carried between runs of one chat; session only. */
+    CHAT_AGENT_CONSENT: "tools-chat-agent-consent-v1"
   },
   EMBEDDINGS: {
     BUNDLED_NOTICE_DISMISSED: "embeddings-bundled-notice-dismissed",

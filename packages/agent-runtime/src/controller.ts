@@ -1,4 +1,5 @@
 import type {
+  AgentApprovalRequest,
   AgentCommand,
   AgentObservationScope
 } from "@ollama-client/contracts"
@@ -74,6 +75,7 @@ import {
   previousAgentVerification
 } from "./history"
 import { agentObservationNeedsHuman } from "./human-boundary"
+import { agentPageLooksInjected } from "./injection"
 import { agentObservationHaystack } from "./observed-text"
 import {
   agentAmendedPlanPatch,
@@ -90,9 +92,11 @@ import type {
   AgentExecutionReceipt,
   AgentInspectionFocus,
   AgentModelInput,
+  AgentPlannedValue,
   AgentPolicyDecision,
   AgentResolutionContext,
   AgentReviewedAction,
+  AgentRisk,
   AgentStatePatch,
   AgentStepReadout,
   AgentStepWrite,
@@ -116,10 +120,12 @@ import {
   agentEffectIsConsequential,
   agentOwnEffectSettlement,
   agentRepeatsPriorEffect,
+  agentRepeatWasRefused,
   agentRepeatsPriorForm
 } from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
 import {
+  AGENT_CONFIRMED_REPEAT_FEEDBACK,
   AGENT_RECOVERY_REPEAT_FEEDBACK,
   planAgentRecovery,
   settledAgentRecovery
@@ -305,12 +311,181 @@ const MAX_CONSECUTIVE_REFUSED_COMPLETIONS = 2
 
 /**
  * An origin joins a run's allowlist only when the user approved travelling to
- * it, and only in the durable write that opens execution — the same boundary
+ * it — or, for a read-only plan, when browse mode let the run go there, which
+ * is the user's start approval covering looking around — and only in the
+ * durable write that opens execution — the same boundary
  * that owns the effect the approval authorized. A policy `allow`, a page, and
  * a model decision each contribute none, and the run's own cap is honoured by
  * declining to grow rather than by evicting an origin the user already
  * approved: a full allowlist costs another prompt, never a silent grant.
  */
+/**
+ * Every planned outcome is a read, so the run is browsing. A run with no
+ * plan yet, or one still owing an unresolved requirement, is not: browse
+ * mode is earned by a plan the user's start approval covered.
+ */
+export const agentPlanIsReadOnly = (
+  state: Pick<AgentRunState, "requirements">
+): boolean =>
+  (state.requirements?.length ?? 0) > 0 &&
+  (state.requirements ?? []).every((requirement) => requirement.kind === "read")
+
+/** How much of the plan the approval lists, from the request's own bound. */
+const MAX_PLAN_APPROVAL_EVIDENCE_CHARS = 1_000
+
+/**
+ * The planned change a step traces to, when the user approved it on a plan
+ * card in these exact words. A reworded outcome is a different outcome.
+ */
+const planApprovedFor = (
+  state: Pick<AgentRunState, "planApproved" | "requirements">,
+  requirementId: string | undefined
+): boolean => {
+  const requirement = state.requirements?.find(
+    (entry) => entry.id === requirementId
+  )
+  return Boolean(requirement && state.planApproved?.includes(requirement.text))
+}
+
+/**
+ * The one approval plan consent asks for: the plan itself, its outcomes and
+ * limits listed as the run holds them, before the first planned step it does
+ * not yet cover. The start prompt could only show the goal, because the plan
+ * did not exist yet. The step's own outcome is listed first and the other
+ * changes after it, so what the card cannot fit is never what it approves:
+ * approving covers exactly the changes listed, and the rest ask again.
+ */
+const planApprovalRequest = (
+  state: AgentRunState,
+  risk: AgentRisk,
+  requirementId: string | undefined,
+  now: number
+): { request: AgentApprovalRequest; approved: string[] } => {
+  const requirements = state.requirements ?? []
+  const changes = requirements.filter((entry) => entry.kind === "change")
+  const lines: { text: string; change?: string }[] = [
+    ...changes
+      .filter((entry) => entry.id === requirementId)
+      .concat(changes.filter((entry) => entry.id !== requirementId))
+      .map((entry) => ({ text: `• ${entry.text}`, change: entry.text })),
+    ...(state.constraints ?? []).map((entry) => ({ text: `✕ ${entry.text}` })),
+    ...requirements
+      .filter((entry) => entry.kind !== "change")
+      .map((entry) => ({ text: `• ${entry.text}` }))
+  ]
+  let evidence = ""
+  const listed = new Set(state.planApproved ?? [])
+  for (const line of lines) {
+    const next = evidence ? `${evidence}\n${line.text}` : line.text
+    if (next.length > MAX_PLAN_APPROVAL_EVIDENCE_CHARS) break
+    evidence = next
+    if (line.change) listed.add(line.change)
+  }
+  return {
+    request: {
+      id: `${state.id}:plan:${state.plan?.version ?? 1}:${state.planApproved?.length ?? 0}`,
+      runId: state.id,
+      stepId: `${state.id}:plan`,
+      risk: risk === "low" ? "medium" : risk,
+      action: "Run this plan without asking at each step",
+      consequence:
+        "Steps that follow the outcomes below run without asking, including a send or an order the plan names. Anything outside the plan, deleting, signing in and paying still ask. Reject to pause and be asked at every step.",
+      display: {
+        action: { key: "agent.approval_text.approve_plan" },
+        consequence: [{ key: "agent.approval_text.approve_plan_consequence" }]
+      },
+      ...(evidence ? { pageEvidence: evidence } : {}),
+      createdAt: now
+    },
+    approved: changes
+      .map((entry) => entry.text)
+      .filter((text) => listed.has(text))
+  }
+}
+
+/**
+ * Outcomes of sending, ordering, posting, booking or saving, stated as the
+ * state they leave: a planned outcome that reads as one may submit; any other
+ * may only prepare. Only the finished forms count, because a plan states
+ * outcomes rather than steps, and the bare forms double as nouns — "the
+ * submit button", "the order form", "the booking register", "the save
+ * slot". English, like the plan's own boundary rules; a plan in another
+ * language keeps asking at the send, which is the safe direction.
+ */
+const COMMITTING_VERBS =
+  "submitted|sent|posted|published|placed (?:the|an|my|your) order|order (?:is|was|has been) placed|ordered|purchased|bought|booked|reserved|registered|signed up|subscribed|confirmed|checked out|applied|saved|created|added to"
+const COMMITTING_OUTCOME = new RegExp(`\\b(?:${COMMITTING_VERBS})\\b`, "i")
+/** The same verbs denied: "saved, not posted", "without submitting". */
+const DENIED_OUTCOME = new RegExp(
+  `(?:\\b(?:not|never|without|no)\\b|n't)[^.;]{0,40}\\b(?:${COMMITTING_VERBS}|submit|submitting|send|sending|post|posting|publish|publishing|order|ordering|buy|buying|book|booking|save|saving)\\b`,
+  "i"
+)
+
+/**
+ * A check that reads a control's value, box or option: the outcome is a
+ * filled form, whatever its words say, and filling one never submits it.
+ */
+const FILL_CHECKS: ReadonlySet<string> = new Set([
+  "field",
+  "checked",
+  "selected"
+])
+
+/**
+ * The plan consent a step carries into policy: the run has it, no page has
+ * looked like an injection, and the step names a planned change. Whether it
+ * may submit reads the outcome's own text — never the goal words it quotes,
+ * which can ask for a send the outcome itself only prepares — and never a
+ * denial, a fill check, or a run whose constraints forbid a submission or a
+ * payment.
+ */
+const plannedConsentFor = (
+  state: Pick<
+    AgentRunState,
+    "planConsent" | "injectionSuspected" | "requirements" | "constraints"
+  >,
+  requirementId: string | undefined
+): { planned?: { commits: boolean } } => {
+  if (!state.planConsent || state.injectionSuspected || !requirementId)
+    return {}
+  const requirement = state.requirements?.find(
+    (entry) => entry.id === requirementId && entry.kind === "change"
+  )
+  if (!requirement) return {}
+  const forbidden = (state.constraints ?? []).some((constraint) =>
+    constraint.forbids?.some(
+      (effect) => effect === "submission" || effect === "payment"
+    )
+  )
+  return {
+    planned: {
+      commits:
+        !forbidden &&
+        !(requirement.check && FILL_CHECKS.has(requirement.check.type)) &&
+        COMMITTING_OUTCOME.test(requirement.text) &&
+        !DENIED_OUTCOME.test(requirement.text)
+    }
+  }
+}
+
+/** The values the plan's checks name, for the approval to compare against. */
+const plannedValuesFor = (
+  state: Pick<AgentRunState, "requirements">
+): { plannedValues?: AgentPlannedValue[] } => {
+  const planned = (state.requirements ?? []).flatMap(
+    (requirement): AgentPlannedValue[] => {
+      const check = requirement.check
+      if (!check) return []
+      if (check.type === "field" || check.type === "selected")
+        return [{ name: check.name, value: check.value }]
+      if (check.type === "checked")
+        return [{ name: check.name, checked: check.checked }]
+      return []
+    }
+  )
+  return planned.length ? { plannedValues: planned } : {}
+}
+
 const allowedOriginsPatch = (
   state: AgentRunState,
   effect: ResolvedAgentEffect,
@@ -318,7 +493,8 @@ const allowedOriginsPatch = (
 ): AgentStatePatch => {
   const origin = effect.destination?.origin
   if (
-    authorization.type !== "approval" ||
+    (authorization.type !== "approval" &&
+      !(authorization.type === "policy" && authorization.browse)) ||
     !origin ||
     state.allowedOrigins.includes(origin) ||
     state.allowedOrigins.length >= MAX_AGENT_ALLOWED_ORIGINS
@@ -691,6 +867,7 @@ export const createAgentController = (
       AgentPolicyDecision,
       { type: "allow" | "granted" | "approval_required" }
     >,
+    requirementId: string | undefined,
     signal: AgentCancellationController["signal"]
   ): Promise<
     | {
@@ -706,18 +883,51 @@ export const createAgentController = (
       state.deadline ?? initialAgentDeadlineState(state.createdAt),
       now
     )
+    /** The plan itself, asked for before the first step it does not cover. */
+    const planAsk =
+      decision.type === "allow" &&
+      decision.planned &&
+      !planApprovedFor(state, requirementId)
+        ? planApprovalRequest(state, decision.risk, requirementId, now)
+        : undefined
+    const planRequest = planAsk?.request
+    const asked =
+      decision.type === "approval_required" ? decision.request : planRequest
     const checkpoint = await claim(state, "awaiting_approval", {
-      humanDecision:
-        decision.type === "approval_required"
-          ? { kind: "approval", request: decision.request }
-          : undefined,
-      deadline:
-        decision.type === "approval_required"
-          ? suspendAgentDeadlines(deadline, "approval", now)
-          : deadline,
+      humanDecision: asked ? { kind: "approval", request: asked } : undefined,
+      deadline: asked
+        ? suspendAgentDeadlines(deadline, "approval", now)
+        : deadline,
       updatedAt: now
     })
     if (!checkpoint) return undefined
+
+    if (planAsk && planRequest) {
+      const answer = await dependencies.approval.request(planRequest, signal)
+      if (answer.type !== "approved") {
+        /**
+         * The plan is not approved, so nothing runs on it: consent and the
+         * run's routine grants are dropped in the same write that pauses, so
+         * after Resume every step asks, as the card said it would.
+         */
+        await pause(checkpoint, "user", {
+          humanDecision: undefined,
+          planConsent: undefined,
+          planApproved: undefined,
+          grants: undefined
+        })
+        return undefined
+      }
+      return {
+        state: checkpoint,
+        authorization: {
+          type: "policy",
+          risk: decision.risk,
+          authorizedAt: dependencies.clock.now(),
+          planApproved: planAsk.approved
+        }
+      }
+    }
 
     if (decision.type === "allow") {
       return {
@@ -725,7 +935,8 @@ export const createAgentController = (
         authorization: {
           type: "policy",
           risk: decision.risk,
-          authorizedAt: dependencies.clock.now()
+          authorizedAt: dependencies.clock.now(),
+          ...(decision.browse ? { browse: true as const } : {})
         }
       }
     }
@@ -1456,7 +1667,8 @@ export const createAgentController = (
     effect: ResolvedAgentEffect,
     stepId: string,
     stepNumber: number,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    requirementId?: string
   ): Promise<
     | {
         state: AgentRunState
@@ -1480,13 +1692,24 @@ export const createAgentController = (
       effect,
       allowedOrigins: state.allowedOrigins,
       scopedTabIds: agentTabScope(state),
-      ...(state.grants?.length ? { grants: state.grants } : {}),
+      /**
+       * A page shaped like an injection ends every standing consent, grants
+       * included: from then on each step that would have run on one asks.
+       */
+      ...(state.grants?.length && !state.injectionSuspected
+        ? { grants: state.grants }
+        : {}),
       ...(authoredText?.length ? { authoredText } : {}),
       ...(state.previousRun &&
       agentRepeatsPriorForm(effect, state.previousRun.effects)
         ? { repeatsPriorForm: true }
         : {}),
       ...ownEffectPolicyFlags(ownEffect),
+      ...(agentPlanIsReadOnly(state) && !state.injectionSuspected
+        ? { browse: true }
+        : {}),
+      ...plannedConsentFor(state, requirementId),
+      ...plannedValuesFor(state),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {
@@ -1525,7 +1748,7 @@ export const createAgentController = (
       return undefined
     }
 
-    const authorized = await authorize(state, policy, signal)
+    const authorized = await authorize(state, policy, requirementId, signal)
     if (!authorized) return undefined
     return { ...authorized, policy }
   }
@@ -1742,6 +1965,9 @@ export const createAgentController = (
       ),
       ...allowedOriginsPatch(state, effect, authorization),
       ...(grants ? { grants } : {}),
+      ...(authorization.type === "policy" && authorization.planApproved
+        ? { planApproved: [...authorization.planApproved] }
+        : {}),
       stepCount: stepNumber,
       updatedAt: dependencies.clock.now()
     })
@@ -2056,6 +2282,14 @@ export const createAgentController = (
         AGENT_RECOVERY_REPEAT_FEEDBACK[repeat],
         signal
       )
+    if (await firstConfirmedRepeat(state, effect))
+      return refuseCommand(
+        state,
+        decision.command,
+        AGENT_CONFIRMED_REPEAT_FEEDBACK,
+        signal,
+        effect
+      )
     /** Before policy, like a repeat: see `refusalByTaskContract`. */
     const contract = refusalByTaskContract(state, decision, effect)
     if (contract)
@@ -2093,7 +2327,8 @@ export const createAgentController = (
       effect,
       stepId,
       stepNumber,
-      signal
+      signal,
+      decision.requirementId
     )
     if (!authorized) return undefined
     return executeAndVerify(
@@ -2697,7 +2932,13 @@ export const createAgentController = (
     state: AgentRunState,
     command: AgentCommand,
     feedback: string,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    /**
+     * The control the refused command named, when knowing it later matters:
+     * its target and page only, never its classes, so the refusal is never
+     * read as an effect that was applied.
+     */
+    effect?: ResolvedAgentEffect
   ): Promise<AgentRunState | undefined> => {
     const refusals = (refusedCommandCounts.get(state.id) ?? 0) + 1
     refusedCommandCounts.set(state.id, refusals)
@@ -2708,6 +2949,7 @@ export const createAgentController = (
       stepId: `${state.id}:refused:${state.observationCount}:${refusals}`,
       status: "rejected",
       command,
+      ...(effect ? refusedTarget(effect) : {}),
       at: now,
       verification: {
         outcome: "negative",
@@ -2955,6 +3197,39 @@ export const createAgentController = (
    * that cannot be read cannot show the earlier attempt missed, so the
    * answer is `unknown`.
    */
+  /**
+   * A consequential effect this run already applied and saw confirmed, asked
+   * for again, and not yet refused for: the model is told before the user is
+   * asked. Unreadable receipts answer no, which leaves the repeat to policy's
+   * own notice rather than to a guess.
+   */
+  const firstConfirmedRepeat = async (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect
+  ): Promise<boolean> => {
+    if (!agentEffectIsConsequential(effect)) return false
+    try {
+      const steps = await dependencies.persistence.steps(state.id)
+      return (
+        agentOwnEffectSettlement(effect, steps) === "confirmed" &&
+        !agentRepeatWasRefused(effect, steps, AGENT_CONFIRMED_REPEAT_FEEDBACK)
+      )
+    } catch {
+      return false
+    }
+  }
+
+  /** What a refusal records of its control: the target and page. */
+  const refusedTarget = (
+    effect: ResolvedAgentEffect
+  ): Pick<AgentStepWrite, "target" | "sourceUrl"> => {
+    const { target, sourceUrl } = stepEvidence(effect)
+    return {
+      ...(target ? { target } : {}),
+      ...(sourceUrl ? { sourceUrl } : {})
+    }
+  }
+
   const recoveringRepeat = async (
     state: AgentRunState,
     effect: ResolvedAgentEffect
@@ -3121,6 +3396,13 @@ export const createAgentController = (
     const deciding = await claim(state, "deciding", {
       ...(progress ?? { workflow: undefined }),
       observationCount: state.observationCount + 1,
+      /**
+       * Durable before the decision it would affect, so a worker restart
+       * cannot hand the run its shortcuts back.
+       */
+      ...(!state.injectionSuspected && agentPageLooksInjected(observation)
+        ? { injectionSuspected: true as const }
+        : {}),
       ...(steering?.length ? { answers } : {}),
       /**
        * A correction is the user choosing the approach, so the open recovery

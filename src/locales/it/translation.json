@@ -46,7 +46,18 @@
       },
       "allow": "Consenti una volta",
       "reject": "Rifiuta",
-      "allowForRun": "Consenti sempre questo tipo di azione su {{origin}} per questa esecuzione"
+      "allowForRun": "Consenti sempre questo tipo di azione su {{origin}} per questa esecuzione",
+      "values": {
+        "entered": "Cosa verrà inserito",
+        "sent": "Cosa invierà il modulo",
+        "masked": "Nascosto (sensibile)",
+        "checked": "Selezionato",
+        "unchecked": "Non selezionato",
+        "empty": "(vuoto)",
+        "planned": "Il piano prevede: {{value}}",
+        "omitted_one": "{{count}} altro campo non mostrato",
+        "omitted_other": "{{count}} altri campi non mostrati"
+      }
     },
     "browser_disconnected": "Il controllo del browser si è disconnesso, quindi Agent è in pausa. Controlla la pagina prima di riprendere.",
     "controls": {
@@ -194,9 +205,10 @@
       },
       "permission_mode": {
         "label": "Azioni di routine",
-        "description": "Se ogni nuova esecuzione può fare clic e digitare sul sito da cui parte senza chiedere. Invio, eliminazione, accesso, pagamento e nuovi siti vengono sempre chiesti, e nulla passa all’esecuzione successiva.",
+        "description": "Indica se ogni nuova esecuzione può fare clic e scrivere sul sito di partenza senza chiedere. Invio, eliminazione, accesso, pagamento e nuovi siti vengono chiesti, e ciò che consenti vale solo per le attività successive della stessa chat. «Chiedi solo fuori dal piano» consente inoltre a un'esecuzione di svolgere senza chiedere i passaggi indicati dal suo piano, compreso l'invio o l'ordine che indica.",
         "allow_routine": "Consenti sul sito iniziale",
-        "approve_each": "Approva ogni azione"
+        "approve_each": "Approva ogni azione",
+        "follow_plan": "Chiedi solo fuori dal piano"
       },
       "completion_reviewer": {
         "label": "Revisore del completamento",
@@ -243,6 +255,8 @@
     },
     "paused_panel_closed": "In pausa perché il pannello laterale è stato chiuso. Riprendi quando vuoi.",
     "approval_text": {
+      "approve_plan": "Esegui questo piano senza chiedere a ogni passaggio",
+      "approve_plan_consequence": "I passaggi che seguono i risultati qui sotto vengono eseguiti senza chiedere, compreso un invio o un ordine indicato dal piano. Tutto ciò che è fuori dal piano, l'eliminazione, l'accesso e il pagamento vengono ancora chiesti. Rifiutare mette in pausa l'esecuzione e poi verrà chiesto a ogni passaggio.",
       "accept_dialog": "Accetta la {{kind}} della pagina",
       "accept_dialog_origin": "Accetta la {{kind}} di {{origin}}",
       "dismiss_dialog": "Chiudi la {{kind}} della pagina",
@@ -288,6 +302,7 @@
       "other_tab": "Questa attività viene eseguita in una scheda diversa da quella che stai guardando.",
       "supervised": "L’agente lavora sulla pagina un passo alla volta e chiede prima di qualsiasi azione importante. Nel frattempo Chrome mostra un banner di debug.",
       "routine": "Su questo sito, clic, digitazione e ricerche per questa attività vengono eseguiti senza chiedere di nuovo. Pubblicare o inviare altri moduli, accedere, pagare, eliminare e aprire altri siti richiedono ancora conferma.",
+      "plan": "I passaggi che seguono il piano di questa attività vengono eseguiti senza chiedere, compreso un invio o un ordine indicato dal piano. I passaggi fuori dal piano, l'accesso, il pagamento, l'eliminazione e l'apertura di altri siti vengono ancora chiesti, e l'esecuzione torna a chiedere se una pagina prova a darle istruzioni. Approvi il piano una volta, prima del suo primo passaggio.",
       "experimental_model": "Le chiamate agli strumenti sono attive per questo modello perché le hai abilitate tu, non perché il modello le dichiari. Un modello che non sa chiamare strumenti non andrà lontano."
     },
     "steer": {

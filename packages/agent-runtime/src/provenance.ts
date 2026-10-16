@@ -124,11 +124,31 @@ const authoredByCommand = (
 }
 
 /**
+ * The user's own message, when it can be read as theirs alone.
+ *
+ * A page selection reaches the composer as a quoted block, and only its first
+ * paragraph is quoted: the rest arrives as plain lines no reader can tell from
+ * typing. So a message holding any quoted line may be carrying page text and
+ * is not counted at all, rather than counted minus the part that looks quoted.
+ */
+const userWords = (
+  utterance: AgentRunState["userUtterance"]
+): string | undefined => {
+  const text = utterance?.text
+  if (!text?.trim()) return undefined
+  return text.split("\n").some((line) => /^\s*>/.test(line)) ? undefined : text
+}
+
+/**
  * The words this run may be said to have supplied itself: the user's goal,
- * every answer they gave it, and the text it has typed or selected.
+ * their own message, every answer they gave it, and the text it has typed or
+ * selected.
  */
 export const agentAuthoredText = (
-  state: Pick<AgentRunState, "goal" | "answers" | "goalAuthor">,
+  state: Pick<
+    AgentRunState,
+    "goal" | "answers" | "goalAuthor" | "userUtterance"
+  >,
   steps: readonly AgentStepReadout[] = []
 ): string[] => {
   /**
@@ -140,13 +160,16 @@ export const agentAuthoredText = (
    * have copied a field value off that page into the task, and counting the
    * task as authored would let the run carry that value into a URL as though
    * the user had typed it — the laundering this rule exists to stop.
+   *
+   * The question an answer replied to is left out for the same reason: the
+   * model wrote it, after reading the page, and a "no" to it would otherwise
+   * have authored every word it asked about.
    */
+  const user = userWords(state.userUtterance)
   const authored = new Set<string>([
     ...(state.goalAuthor === "model_after_page" ? [] : [state.goal]),
-    ...(state.answers ?? []).map((answer) => answer.text),
-    ...(state.answers ?? []).flatMap((answer) =>
-      answer.question ? [answer.question] : []
-    )
+    ...(user ? [user] : []),
+    ...(state.answers ?? []).map((answer) => answer.text)
   ])
   for (const step of steps) {
     const value = authoredByCommand(step.command)
@@ -165,6 +188,10 @@ export const agentAuthoredText = (
  * A destination with no long spans at all is authored by nobody and needs no
  * defence — it carried no page data, which is why it never reached here.
  */
+/** Whether a destination carries any span long enough to be judged. */
+export const agentDestinationCarriesWords = (url: string): boolean =>
+  destinationSpans(url).length > 0
+
 export const isAgentAuthoredDestination = (
   url: string,
   authoredText: readonly string[] = []

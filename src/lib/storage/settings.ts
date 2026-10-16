@@ -117,17 +117,19 @@ export const SETTINGS = {
   ),
   /**
    * `allow_routine` lets each new run click and type on the site it starts on
-   * without asking; `approve_each` asks for every step. Read once per start:
-   * the run gets its own grants from it, so no grant outlives a run and
-   * submissions, deletions, sign-in and payment are asked about either way.
+   * without asking; `approve_each` asks for every step; `follow_plan` adds
+   * the plan's own steps — a send or an order included when the plan names
+   * one — to what runs unasked. Read once per start: the run gets its own
+   * grants and plan consent from it, and deletions, sign-in, payment and
+   * anything off the plan are asked about either way. Off by default: no
+   * model has a recorded qualification pass yet.
    */
-  AGENT_PERMISSION_MODE: defineSetting<"allow_routine" | "approve_each">(
-    STORAGE_KEYS.AGENT.PERMISSION_MODE,
-    {
-      defaultValue: "allow_routine",
-      parser: z.enum(["allow_routine", "approve_each"])
-    }
-  ),
+  AGENT_PERMISSION_MODE: defineSetting<
+    "allow_routine" | "approve_each" | "follow_plan"
+  >(STORAGE_KEYS.AGENT.PERMISSION_MODE, {
+    defaultValue: "allow_routine",
+    parser: z.enum(["allow_routine", "approve_each", "follow_plan"])
+  }),
   /**
    * Who reads a completion the deterministic judge could not decide. `null`
    * is the run's own model, already authorized for everything a review sees.

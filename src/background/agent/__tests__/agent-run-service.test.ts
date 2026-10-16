@@ -14,6 +14,7 @@ import type {
   AgentBrowserSessionInterruption,
   AgentBrowserSessionManager
 } from "../agent-browser-session-manager"
+import { createAgentChatConsent } from "../agent-chat-consent"
 import type { BuildAgentController } from "../agent-run-controller"
 import { createAgentRunService } from "../agent-run-service"
 import { createAgentSupervision } from "../agent-supervision"
@@ -131,6 +132,7 @@ const browserSessions = () => {
     nativeInput: vi.fn(() => undefined),
     openDialog: vi.fn(() => undefined),
     handleDialog: vi.fn(async () => "not_open" as const),
+    goHistory: vi.fn(async () => "unavailable" as const),
     dispose: vi.fn(async () => undefined)
   } satisfies AgentBrowserSessionManager
   return {
@@ -211,6 +213,120 @@ describe("Agent run service", () => {
         searches: true
       }
     ])
+  })
+
+  it("carries the chat's routine consent into its next run, adding no site", async () => {
+    const chatConsent = createAgentChatConsent(undefined)
+    await chatConsent.remember("chat-1", [
+      {
+        origin: "https://shop.example",
+        effects: ["activation", "form_mutation", "submission"],
+        grantedAt: 500,
+        searches: true
+      }
+    ])
+    const { service: agent } = service({ chatConsent })
+    const state = await agent.start({
+      ...startInput,
+      sessionId: "chat-1",
+      allowRoutineActions: true
+    })
+    expect(state.grants).toEqual([
+      {
+        origin: "https://example.com",
+        effects: ["activation", "form_mutation"],
+        grantedAt: 1_000
+      },
+      {
+        origin: "https://shop.example",
+        effects: ["activation", "form_mutation"],
+        grantedAt: 500,
+        searches: true
+      }
+    ])
+    expect(state.allowedOrigins).toEqual(["https://example.com"])
+    expect(await chatConsent.read("chat-1")).toContainEqual({
+      origin: "https://example.com",
+      effects: ["activation", "form_mutation"],
+      grantedAt: 1_000
+    })
+  })
+
+  it("remembers consent for a run this worker did not start, from its saved chat", async () => {
+    const chatConsent = createAgentChatConsent(undefined)
+    const { service: agent } = service({
+      chatConsent,
+      readRun: vi.fn(async (id: string) => ({
+        id,
+        status: "completed" as const,
+        sessionId: "chat-9",
+        compacted: false,
+        createdAt: 1,
+        updatedAt: 2
+      })),
+      buildController: vi.fn(({ persistence: port, runId }) => ({
+        start: vi.fn(async () => {
+          await port.transition({ runId, from: "submitted", to: "completed" })
+        }),
+        requestPause: vi.fn(async () => undefined),
+        resume: vi.fn(async () => undefined),
+        requestCancel: vi.fn(async () => undefined),
+        completeTakeover: vi.fn(async () => undefined),
+        resolveEffect: vi.fn(async () => undefined),
+        finishReviewed: vi.fn(async () => undefined),
+        answerQuestion: vi.fn(async () => undefined)
+      })) as never
+    })
+    await agent.start({ ...startInput, allowRoutineActions: true })
+    await vi.waitFor(async () =>
+      expect(await chatConsent.read("chat-9")).toEqual([
+        {
+          origin: "https://example.com",
+          effects: ["activation", "form_mutation"],
+          grantedAt: 1_000
+        }
+      ])
+    )
+  })
+
+  it("carries nothing into a goal written after a page was read", async () => {
+    const chatConsent = createAgentChatConsent(undefined)
+    await chatConsent.remember("chat-1", [
+      {
+        origin: "https://shop.example",
+        effects: ["activation"],
+        grantedAt: 500
+      }
+    ])
+    const { service: agent } = service({ chatConsent })
+    const state = await agent.start({
+      ...startInput,
+      sessionId: "chat-1",
+      allowRoutineActions: true,
+      goalAuthor: "model_after_page"
+    })
+    expect(state.grants?.map((grant) => grant.origin)).toEqual([
+      "https://example.com"
+    ])
+  })
+
+  it("records plan consent only beside routine consent", async () => {
+    const { service: agent } = service()
+    expect(
+      (
+        await agent.start({
+          ...startInput,
+          allowRoutineActions: true,
+          allowPlannedActions: true
+        })
+      ).planConsent
+    ).toBe(true)
+    runs.clear()
+    const { service: other } = service()
+    expect(
+      (await other.start({ ...startInput, allowPlannedActions: true }))
+        .planConsent
+    ).toBeUndefined()
   })
 
   it("never hands over search consent without routine consent", async () => {

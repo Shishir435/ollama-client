@@ -159,6 +159,13 @@ export const browserTaskDefinition: ToolDefinition = {
     timeoutMs: BROWSER_TASK_TIMEOUT_MS,
     parallelizable: false
   },
+  /**
+   * "Allow for this chat" means starting browser tasks in this chat, on any
+   * site: the start gate asks regardless whenever the goal could be a page's
+   * words, another tab's, or an experimental model's, so the grant does not
+   * have to be withdrawn by the site or by a page read to stay safe.
+   */
+  sessionGrantScope: "chat",
   grantScopeResolver: async (args, ctx) => {
     const request = parseRequest(args)
     return request && runner ? runner.origin(request, ctx) : undefined

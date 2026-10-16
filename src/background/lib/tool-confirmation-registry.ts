@@ -31,6 +31,8 @@ export interface ConfirmationMeta {
    * approved them. Persisted grants are never created from a tainted turn.
    */
   taintGeneration?: number
+  /** A chat-scoped session grant: chat and tool only. */
+  chatScoped?: boolean
 }
 
 interface PendingConfirmation {
@@ -65,13 +67,23 @@ export const awaitToolConfirmation = (
       // grant of any scope — the in-hand approval still covers this one call.
       const grantable = !meta.originScoped || meta.origin !== undefined
 
-      if (approved && scope === "session" && meta.sessionId && grantable) {
+      if (
+        approved &&
+        scope === "session" &&
+        meta.sessionId &&
+        (grantable || meta.chatScoped)
+      ) {
         addSessionGrant(
           meta.sessionId,
           meta.toolName,
-          meta.origin,
-          meta.taintGeneration
-        )
+          meta.chatScoped
+            ? { chat: true }
+            : { origin: meta.origin, taintGeneration: meta.taintGeneration }
+        ).catch((error) => {
+          logger.warn("Failed to record chat grant", "ToolApproval", {
+            error: error instanceof Error ? error.name : typeof error
+          })
+        })
       }
       if (
         approved &&

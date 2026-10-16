@@ -238,6 +238,14 @@ export interface ResolvedAgentTarget {
    * Evidence, not a decision: policy never lets standing consent cover it.
    */
   committingLabel?: boolean
+  /**
+   * Set on an activation whose control is labelled as storing something
+   * ("Save", "Update", "Mark as paid") that no form classifies. Evidence for
+   * the repeat guard only: the click is recorded as a possible commit, so a
+   * second press of the same control asks; standing consent still covers
+   * the first.
+   */
+  savingLabel?: boolean
 }
 
 /** The destination of a drag, in the terms its later recheck compares. */
@@ -294,6 +302,18 @@ export interface ResolvedAgentBatchField {
   target: ResolvedAgentTarget
 }
 
+/**
+ * One control a submission will send, as the observation showed it. Approval
+ * evidence only: never sent to the page, never written to a receipt. A
+ * sensitive control is named and its value withheld.
+ */
+export interface AgentSubmittedField {
+  name: string
+  value?: string
+  checked?: boolean
+  sensitive?: true
+}
+
 export interface ResolvedAgentEffect {
   command: AgentCommand
   /**
@@ -311,6 +331,16 @@ export interface ResolvedAgentEffect {
    * verified as another.
    */
   batch?: { fields: readonly ResolvedAgentBatchField[] }
+  /**
+   * What a submission sends: every other control of the submitted form, in
+   * page order, so its approval can show the whole form rather than the
+   * button. Absent for anything that does not submit a form.
+   */
+  submitted?: {
+    fields: readonly AgentSubmittedField[]
+    /** Controls past the listed ones, counted rather than dropped silently. */
+    omitted?: number
+  }
   /** WebMCP descriptor bound to the document and schema the model saw. */
   pageTool?: AgentPageTool
   destination?: AgentDestination
@@ -338,7 +368,18 @@ export interface ResolvedAgentEffect {
 
 export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
   authorization:
-    | { type: "policy"; risk: AgentRisk; authorizedAt: number }
+    | {
+        type: "policy"
+        risk: AgentRisk
+        authorizedAt: number
+        /** Allowed by browse mode; its destination joins the allowlist. */
+        browse?: true
+        /**
+         * The planned changes the user approved just now, as the card listed
+         * them; recorded as the step executes.
+         */
+        planApproved?: readonly string[]
+      }
     | {
         type: "approval"
         risk: AgentRisk
@@ -482,7 +523,13 @@ export type AgentPolicyBlockReason =
   | "unsupported_effect"
 
 export type AgentPolicyDecision =
-  | { type: "allow"; risk: AgentRisk }
+  /**
+   * `browse` marks an allow only browse mode gave: a read-only plan going
+   * somewhere a change task would have asked about. Its destination joins
+   * the run's allowlist the way an approved navigation's does.
+   */
+  /** `planned` marks an allow only the user's plan consent gave. */
+  | { type: "allow"; risk: AgentRisk; browse?: true; planned?: true }
   /** Allowed only because a grant covers it, which the receipt records. */
   | { type: "granted"; risk: AgentRisk; origin: string }
   | {
@@ -536,7 +583,32 @@ export interface AgentPolicyInput {
   repeatsCommittedEffect?: boolean
   /** Durable history could not prove whether this effect was already done. */
   committedEffectsUnknown?: boolean
+  /**
+   * Every planned outcome is a read. Browsing, searching and following links
+   * then run without asking; anything that could change a site still asks.
+   * See `browseAllows` in `policy.ts`.
+   */
+  browse?: boolean
+  /**
+   * What the plan's field, checkbox and selection checks say named controls
+   * should hold. The approval marks a value that disagrees; it decides
+   * nothing.
+   */
+  plannedValues?: readonly AgentPlannedValue[]
+  /**
+   * The step traces to a planned change and the user consented to the plan
+   * running unasked. `commits` says the outcome it advances is itself a
+   * submission, an order or a send, which is the only thing that lets a
+   * submitting step through. See `plannedAllows` in `policy.ts`.
+   */
+  planned?: { commits: boolean }
   now: number
+}
+
+export interface AgentPlannedValue {
+  name: string
+  value?: string
+  checked?: boolean
 }
 
 export type AgentApprovalDecision =
@@ -579,7 +651,10 @@ export type AgentStatePatch = Partial<
     | "evidenceLedger"
     | "grants"
     | "humanDecision"
+    | "injectionSuspected"
     | "observationCount"
+    | "planApproved"
+    | "planConsent"
     | "outcome"
     | "pauseReason"
     | "plan"

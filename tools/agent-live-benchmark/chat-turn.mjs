@@ -14,10 +14,10 @@ import { statesValue } from "./score-answer.mjs"
 
 export const CHAT_LABELS = {
   sessions: "Chat Sessions",
-  newChat: "Create New Chat",
+  newChat: "New chat",
   stop: "Stop generation",
   send: "Send message",
-  composer: "Type a message or ctrl + /"
+  composer: "Ask anything"
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -298,8 +298,8 @@ const messageText = (content) =>
  * decision request: the visible text the run was shown, never the task, its
  * history or anything the model wrote. A delegated run reads pages through
  * these, so an answer is checked against them rather than trusted. With an
- * origin, only pages on that origin count: the fixture's text, not a page
- * elsewhere that happens to carry the same words.
+ * origin, or a list of the fixture's origins, only pages on those count: the
+ * fixture's text, not a page elsewhere that happens to carry the same words.
  */
 export const agentObservedText = (wire, origin) =>
   wire
@@ -318,7 +318,12 @@ export const agentObservedText = (wire, origin) =>
             const observation = JSON.parse(
               messageText(message.content)
             )?.observation
-            if (origin && !sameOrigin(observation?.url, origin)) return []
+            const origins = [origin].flat().filter(Boolean)
+            if (
+              origins.length &&
+              !origins.some((entry) => sameOrigin(observation?.url, entry))
+            )
+              return []
             /**
              * The projection sends the page as `text`, and `documentText`
              * for a page read further in; `visibleText` is the raw shape
