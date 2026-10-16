@@ -712,6 +712,52 @@ describe("judgeAgentCompletion with planned requirements", () => {
     })
   })
 
+  it("binds a bare field word to the one qualified field the page has", () => {
+    const filled = (names: string[]) =>
+      step({
+        sequence: 1,
+        requirementId: "r1",
+        command: {
+          type: "fill_form",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          fields: names.map((_, index) => ({
+            type: "clear_and_type" as const,
+            ref: `e${index + 1}`,
+            text: "[redacted]"
+          }))
+        },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "fields",
+            summary: "The fields hold their values",
+            observedAt: 1,
+            fields: names.map((name) => ({ name }))
+          }
+        }
+      })
+    const judge = (names: string[]) =>
+      judgeAgentCompletion({
+        steps: [filled(names)],
+        observation: observation({
+          visibleText: "Checkout",
+          elements: names.map((name) => ({
+            name,
+            value: "1 Main St"
+          })) as AgentObservation["elements"]
+        }),
+        requirements: [
+          { id: "r1", text: "the address is 1 Main St", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    expect(judge(["Billing address"])).toMatchObject({ type: "accepted" })
+    expect(judge(["Billing address", "Shipping address"]).type).not.toBe(
+      "accepted"
+    )
+  })
+
   it("refuses a no-submit claim after the run submitted", () => {
     expect(
       judgeAgentCompletion({

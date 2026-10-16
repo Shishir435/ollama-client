@@ -502,14 +502,85 @@ const requirementNamesReceiptTarget = (
   requirement: AgentTaskRequirement,
   receipt: AgentStepReadout
 ): boolean => {
-  if (receipt.requirementId !== undefined)
-    return receipt.requirementId === requirement.id
   const name = receipt.target?.name
+  const text = agentNormalizedClaim(requirement.text)
+  if (receipt.requirementId !== undefined) {
+    if (receipt.requirementId !== requirement.id) return false
+    /**
+     * The tag is the model's word for which outcome a step advanced. On a
+     * requirement with a check, the check binds the evidence; without one,
+     * the tag alone let any change the model labelled vouch for it. The
+     * control it acted on has to share a word with the requirement, which a
+     * brief label and a longer accessible name do ("email" and "Work email
+     * address") and an unrelated control does not.
+     */
+    return (
+      requirement.check !== undefined ||
+      name === undefined ||
+      sharesContentWord(text, agentNormalizedClaim(name))
+    )
+  }
   if (name === undefined) return false
   const want = agentNormalizedClaim(name)
-  const text = agentNormalizedClaim(requirement.text)
   return (
     want.length > 0 && text.length > 0 && containsCompletePhrase(text, want)
+  )
+}
+
+/** Words too common to tie a control to an outcome. */
+const BINDING_STOP_WORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "from",
+  "into",
+  "this",
+  "that",
+  "your",
+  "our",
+  "new",
+  "all",
+  "set",
+  "add",
+  "button",
+  "field",
+  "page"
+])
+
+const contentWords = (text: string): string[] =>
+  text
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 3 && !BINDING_STOP_WORDS.has(word))
+
+const sharesContentWord = (text: string, name: string): boolean => {
+  const words = new Set(contentWords(text))
+  return contentWords(name).some((word) => words.has(word))
+}
+
+/**
+ * Whether a requirement names a field: by its whole name, or by the last
+ * word of a qualified one when that word picks out exactly one field on the
+ * page. "Address" names "Billing address" on a form with no other address;
+ * on a form that also has "Shipping address" it names neither.
+ */
+const requirementNamesField = (
+  text: string,
+  name: string,
+  observation: AgentObservation
+): boolean => {
+  const want = agentNormalizedClaim(name)
+  if (!want) return false
+  if (containsCompletePhrase(text, want)) return true
+  const head = contentWords(want).at(-1)
+  if (!head || head === want || !containsCompletePhrase(text, head))
+    return false
+  return (
+    observation.elements.filter(
+      (element) =>
+        !element.sensitive &&
+        contentWords(agentNormalizedClaim(element.name ?? "")).at(-1) === head
+    ).length === 1
   )
 }
 
@@ -793,8 +864,7 @@ const matchingBatchField = (
     const key = `${receipt.stepId}:field:${index}`
     if (consumed.has(key)) return false
     const name = names[index]?.name
-    if (!name || !containsCompletePhrase(text, agentNormalizedClaim(name)))
-      return false
+    if (!name || !requirementNamesField(text, name, observation)) return false
     const matches = observation.elements.filter(
       (element) =>
         !element.sensitive &&
