@@ -2840,21 +2840,24 @@ describe("a control this run already committed through", () => {
     }) as AgentCommand
 
   /**
-   * The second click on a Delete this run already pressed is asked about as
-   * a repeat, not refused and not asked as though it were the first: two
-   * rows can share the label, and the user is the one who knows.
+   * A second click on a Delete this run already pressed and saw confirmed is
+   * refused back to the model once; if it asks again, the user decides, told
+   * it is a repeat — never asked as though it were the first. Two rows can
+   * share the label, and the user is the one who knows.
    */
-  it("tells policy the second time, and only the second time", async () => {
+  it("tells the model first, then policy, and never as the first time", async () => {
     const seen: AgentPolicyInput[] = []
     const harness = createHarness({
       decisions: [
         { type: "command", command: click(1) },
         { type: "command", command: click(2) },
+        { type: "command", command: click(3) },
         { type: "complete", summary: "Deleted." }
       ],
       observations: [
         observation(),
-        observation({ snapshotId: "snapshot-2", generation: 2 })
+        observation({ snapshotId: "snapshot-2", generation: 2 }),
+        observation({ snapshotId: "snapshot-3", generation: 3 })
       ],
       policy: (input) => {
         seen.push(input)
@@ -2868,6 +2871,7 @@ describe("a control this run already committed through", () => {
     expect(seen).toHaveLength(2)
     expect(seen[0]?.repeatsCommittedEffect).toBeUndefined()
     expect(seen[1]?.repeatsCommittedEffect).toBe(true)
+    expect(harness.steps.join("\n")).toContain("rejected")
   })
 
   it("marks prior effects unknown when the run's receipts cannot be read", async () => {

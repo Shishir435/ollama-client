@@ -68,6 +68,16 @@ export const AGENT_RECOVERY_REPEAT_FEEDBACK: Record<
     "This run already attempted this and it is not known whether it took effect. It is not attempted again. Read the page for evidence of the result, complete if the goal is met, or ask_user."
 }
 
+/**
+ * Told to the model the first time it reaches for a consequential effect this
+ * run already applied and saw confirmed. Asking the user straight away put a
+ * "Save again?" in front of someone who approves prompts by habit, and the
+ * report was saved twice; the model, told, usually goes on. If it asks for
+ * the same effect again, the user decides, told it is a repeat.
+ */
+export const AGENT_CONFIRMED_REPEAT_FEEDBACK =
+  "This run already did this and the page confirmed it. Do not do it again unless the task asks for it a second time; if it does, issue the same command once more and the user will be asked. Otherwise go on: read the page for the result, take the next step, or complete."
+
 export interface AgentRecoveryStart {
   trigger: AgentRecoveryTrigger
   now: number

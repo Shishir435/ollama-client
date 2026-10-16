@@ -118,10 +118,12 @@ import {
   agentEffectIsConsequential,
   agentOwnEffectSettlement,
   agentRepeatsPriorEffect,
+  agentRepeatWasRefused,
   agentRepeatsPriorForm
 } from "./prior-effects"
 import { agentAuthoredText } from "./provenance"
 import {
+  AGENT_CONFIRMED_REPEAT_FEEDBACK,
   AGENT_RECOVERY_REPEAT_FEEDBACK,
   planAgentRecovery,
   settledAgentRecovery
@@ -2132,6 +2134,14 @@ export const createAgentController = (
         AGENT_RECOVERY_REPEAT_FEEDBACK[repeat],
         signal
       )
+    if (await firstConfirmedRepeat(state, effect))
+      return refuseCommand(
+        state,
+        decision.command,
+        AGENT_CONFIRMED_REPEAT_FEEDBACK,
+        signal,
+        effect
+      )
     /** Before policy, like a repeat: see `refusalByTaskContract`. */
     const contract = refusalByTaskContract(state, decision, effect)
     if (contract)
@@ -2774,7 +2784,13 @@ export const createAgentController = (
     state: AgentRunState,
     command: AgentCommand,
     feedback: string,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    /**
+     * The control the refused command named, when knowing it later matters:
+     * its target and page only, never its classes, so the refusal is never
+     * read as an effect that was applied.
+     */
+    effect?: ResolvedAgentEffect
   ): Promise<AgentRunState | undefined> => {
     const refusals = (refusedCommandCounts.get(state.id) ?? 0) + 1
     refusedCommandCounts.set(state.id, refusals)
@@ -2785,6 +2801,7 @@ export const createAgentController = (
       stepId: `${state.id}:refused:${state.observationCount}:${refusals}`,
       status: "rejected",
       command,
+      ...(effect ? refusedTarget(effect) : {}),
       at: now,
       verification: {
         outcome: "negative",
@@ -3032,6 +3049,39 @@ export const createAgentController = (
    * that cannot be read cannot show the earlier attempt missed, so the
    * answer is `unknown`.
    */
+  /**
+   * A consequential effect this run already applied and saw confirmed, asked
+   * for again, and not yet refused for: the model is told before the user is
+   * asked. Unreadable receipts answer no, which leaves the repeat to policy's
+   * own notice rather than to a guess.
+   */
+  const firstConfirmedRepeat = async (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect
+  ): Promise<boolean> => {
+    if (!agentEffectIsConsequential(effect)) return false
+    try {
+      const steps = await dependencies.persistence.steps(state.id)
+      return (
+        agentOwnEffectSettlement(effect, steps) === "confirmed" &&
+        !agentRepeatWasRefused(effect, steps, AGENT_CONFIRMED_REPEAT_FEEDBACK)
+      )
+    } catch {
+      return false
+    }
+  }
+
+  /** What a refusal records of its control: the target and page. */
+  const refusedTarget = (
+    effect: ResolvedAgentEffect
+  ): Pick<AgentStepWrite, "target" | "sourceUrl"> => {
+    const { target, sourceUrl } = stepEvidence(effect)
+    return {
+      ...(target ? { target } : {}),
+      ...(sourceUrl ? { sourceUrl } : {})
+    }
+  }
+
   const recoveringRepeat = async (
     state: AgentRunState,
     effect: ResolvedAgentEffect

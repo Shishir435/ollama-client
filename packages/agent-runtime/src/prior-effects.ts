@@ -384,3 +384,24 @@ export const agentRepeatsPriorForm = (
   const candidate = candidateFor(effect)
   return prior.some((existing) => sameForm(existing, candidate))
 }
+
+/**
+ * Whether the run was already told, by a refusal carrying `feedback`, not to
+ * repeat this effect on this control. Read from the refusal receipts, so a
+ * worker restart remembers it.
+ */
+export const agentRepeatWasRefused = (
+  effect: ResolvedAgentEffect,
+  steps: readonly AgentStepReadout[],
+  feedback: string
+): boolean => {
+  const candidate = candidateFor(effect)
+  return steps.some((step) => {
+    if (step.status !== "rejected") return false
+    const evidence = step.verification?.evidence
+    if (!evidence || !("summary" in evidence) || evidence.summary !== feedback)
+      return false
+    const prior = priorEffect(step)
+    return prior !== undefined && sameControl(prior, candidate)
+  })
+}
