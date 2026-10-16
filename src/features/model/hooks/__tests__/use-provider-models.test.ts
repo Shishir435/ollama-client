@@ -232,6 +232,35 @@ describe("useProviderModels", () => {
       )
     })
 
+    it("polls a local provider's catalog but not a remote one's", async () => {
+      const remote = {
+        id: "custom:openai:remote",
+        type: "openai",
+        enabled: true,
+        baseUrl: "https://router.example.com/v1",
+        name: "Remote",
+        hasApiKey: true
+      }
+      mockRpc({ models: [], failures: [] }, [
+        { ...mockOllamaProvider.config, hasApiKey: false },
+        remote
+      ])
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } }
+      })
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper(queryClient)
+      })
+      const interval = (providerId: string) =>
+        queryClient
+          .getQueryCache()
+          .findAll({ queryKey: queryKeys.model.providerModels(providerId) })[0]
+          ?.observers[0]?.options.refetchInterval
+      await waitFor(() => expect(interval("ollama")).toBe(60_000))
+      expect(result.current.isLoading).toBe(false)
+      expect(interval(remote.id)).toBe(false)
+    })
+
     it("returns a large remote catalog without writing model mappings", async () => {
       const remoteModels = Array.from({ length: 455 }, (_, index) => ({
         name: `remote/model-${index}`,

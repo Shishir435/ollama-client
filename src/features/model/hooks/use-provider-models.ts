@@ -21,6 +21,7 @@ import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
+import { isLocalProviderBaseUrl } from "@/lib/providers/provider-errors"
 import {
   isSelectedModelRef,
   resolveModelRefFromModels,
@@ -210,8 +211,15 @@ export const useProviderModels = () => {
           providerId: provider.id
         }),
       staleTime: catalogStaleTimeMs(catalogRefreshMs),
+      /**
+       * Only a provider on this machine is polled: a pulled model shows up
+       * without a click. A remote catalog refreshes when stale on open and on
+       * demand, never on a timer against someone else's rate limit.
+       */
       refetchInterval:
-        catalogRefreshMs > 0 ? catalogRefreshMs : (false as const)
+        catalogRefreshMs > 0 && isLocalProviderBaseUrl(provider.baseUrl)
+          ? catalogRefreshMs
+          : (false as const)
     })),
     combine: combineProviderModels
   })
