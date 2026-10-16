@@ -14,10 +14,10 @@ import { statesValue } from "./score-answer.mjs"
 
 export const CHAT_LABELS = {
   sessions: "Chat Sessions",
-  newChat: "Create New Chat",
+  newChat: "New chat",
   stop: "Stop generation",
   send: "Send message",
-  composer: "Type a message or ctrl + /"
+  composer: "Ask anything"
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
