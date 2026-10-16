@@ -196,7 +196,8 @@ const budgets: Budget[] = [
     /** Review fixes (alternating-role history, image-only overrides, serialized reconciles, draft-rule release, guarded menu title) measure Chrome at 48,707,067. */
     /** Greptile review fixes (images through tool loops, polyfill-free origin-guard checks) measure Chrome at 48,707,304. */
     /** rc validation fixes (image errors, stream timings, rebuild hang, accessibility) measure Chrome at 48,712,006 and Firefox at 50,303,447. */
-    max: isFirefox ? 50_303_447 : 48_712_006
+    /** Session speed over timed replies only adds 34 bytes: Chrome 48,712,040, Firefox 50,303,481. */
+    max: isFirefox ? 50_303_481 : 48_712_040
   },
   {
     metric: "zip",

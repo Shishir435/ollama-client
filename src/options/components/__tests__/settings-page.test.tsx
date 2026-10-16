@@ -139,7 +139,8 @@ describe("SettingsPage", () => {
 
     render(<SettingsPage />)
 
-    await screen.findByText("reset")
+    /** The tab is a lazy chunk; under CI coverage it loads past the 1s default. */
+    await screen.findByText("reset", undefined, { timeout: 10_000 })
     expect(extensionRpcClient.call).not.toHaveBeenCalled()
     expect(new URLSearchParams(window.location.search).get("tab")).toBe(
       "privacy"

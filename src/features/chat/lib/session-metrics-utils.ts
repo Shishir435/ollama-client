@@ -29,6 +29,8 @@ export function calculateSessionMetrics(
   let promptTokens = 0
   let generatedTokens = 0
   let totalEvalDuration = 0
+  /** Tokens from replies whose generation time was measured. */
+  let timedTokens = 0
   let messageCount = 0
 
   for (const msg of messages) {
@@ -52,8 +54,13 @@ export function calculateSessionMetrics(
       generatedTokens += m.eval_count
     }
 
-    if (m.eval_duration && m.eval_duration >= MIN_EVAL_DURATION_FOR_SPEED_NS) {
+    if (
+      m.eval_count &&
+      m.eval_duration &&
+      m.eval_duration >= MIN_EVAL_DURATION_FOR_SPEED_NS
+    ) {
       totalEvalDuration += m.eval_duration
+      timedTokens += m.eval_count
     }
   }
 
@@ -62,7 +69,7 @@ export function calculateSessionMetrics(
   // Calculate average speed: tokens / seconds
   // eval_duration is in nanoseconds, convert to seconds
   const evalSeconds = totalEvalDuration / 1_000_000_000
-  const rawAverageSpeed = evalSeconds > 0 ? generatedTokens / evalSeconds : 0
+  const rawAverageSpeed = evalSeconds > 0 ? timedTokens / evalSeconds : 0
   const averageSpeed =
     rawAverageSpeed > 0 && rawAverageSpeed <= MAX_REASONABLE_TOKENS_PER_SECOND
       ? rawAverageSpeed

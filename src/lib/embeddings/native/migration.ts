@@ -75,6 +75,12 @@ const enqueue = <T>(
   commands = work
   return work
 }
+/**
+ * The step-level primitive the driver loop and tests use. It never drives a
+ * rebuild itself: production starts go through
+ * `requestNativeEmbeddingCommand`, which drives the rebuild it starts and
+ * recovers the one it replaced when a start fails.
+ */
 export const nativeEmbeddingCommand = (
   action: NativeEmbeddingAction,
   signal?: AbortSignal

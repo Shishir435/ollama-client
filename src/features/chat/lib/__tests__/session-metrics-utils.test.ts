@@ -89,6 +89,17 @@ describe("calculateSessionMetrics", () => {
     expect(result.averageSpeed).toBeCloseTo(40, 1)
   })
 
+  it("rates speed only over replies whose generation time was measured", () => {
+    const timed = makeAssistantMsg({
+      metrics: { eval_count: 100, eval_duration: 1_000_000_000 }
+    })
+    /** A burst reply: tokens counted, no measured window. */
+    const burst = makeAssistantMsg({ metrics: { eval_count: 100 } })
+    const result = calculateSessionMetrics([timed, burst])
+    expect(result.generatedTokens).toBe(200)
+    expect(result.averageSpeed).toBeCloseTo(100, 5)
+  })
+
   it("returns averageSpeed=0 when eval_duration is zero", () => {
     const msg = makeAssistantMsg({
       metrics: {
