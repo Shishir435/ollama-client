@@ -411,13 +411,18 @@ export const ModelMenu = ({
                         <SelectedModelIcon className="icon-md shrink-0 text-muted-foreground" />
                       )
                     })()}
-                    <span className="truncate font-medium">
+                    <span className="max-w-36 truncate font-medium">
                       {(() => {
                         const name =
                           models.find((m) => m.name === selectedModel)?.name ||
                           selectedModel
-                        return name.length > 15
-                          ? `${name.slice(0, 15)}...`
+                        /**
+                         * A vendor prefix the mark beside it already shows is
+                         * dropped, so the narrow trigger spends its width on
+                         * the model. The tooltip keeps the full id.
+                         */
+                        return resolveModelBrand(name)
+                          ? name.slice(name.indexOf("/") + 1)
                           : name
                       })()}
                     </span>

@@ -469,7 +469,6 @@
       "provider_fallback": "your provider"
     },
     "setup_guide": {
-      "hint": "Follow the setup guide below to install Ollama and models.",
       "full_guide_link": "Full Setup Guide",
       "help_prefix": "Need help?"
     },
@@ -2225,7 +2224,7 @@
       },
       "catalog_refresh": {
         "label": "Model list refresh",
-        "description": "How often an open panel asks your providers for their model lists again.",
+        "description": "How often an open panel asks providers on this device for their model lists again. Remote providers refresh when you come back to the panel.",
         "options": {
           "0": "Off",
           "10000": "Every 10 seconds",

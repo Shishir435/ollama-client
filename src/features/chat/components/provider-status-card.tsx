@@ -1,14 +1,8 @@
-import { AlertTriangle, RefreshCw } from "lucide-react"
+import { PackageOpen, RefreshCw, ServerOff } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SetupGuideLink } from "@/components/setup-guide-link"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardTitle
-} from "@/components/ui/card"
 import {
   Sheet,
   SheetContent,
@@ -22,6 +16,8 @@ import { cn } from "@/lib/class-names"
 /**
  * Why the panel can't chat yet, with the way out. Says nothing while
  * connecting or once a provider answers: the composer is the ready state.
+ * Drawn like an onboarding step — a quiet card with a tinted glyph — because
+ * a stopped local server is a setup step, not an alarm.
  */
 export const ProviderStatusCard = () => {
   const {
@@ -34,100 +30,56 @@ export const ProviderStatusCard = () => {
   const { t } = useTranslation()
   const [setupOpen, setSetupOpen] = useState(false)
 
-  const getStatusConfig = () => {
-    switch (status) {
-      case "error":
-        return {
-          icon: AlertTriangle,
-          iconClass: "",
-          borderClass: "border-destructive/30",
-          bgClass: "bg-status-danger",
-          iconFgClass: "text-status-danger-foreground",
-          title: t("welcome.status.connection_failed.title", {
-            provider: unreachableName ?? t("welcome.status.provider_fallback")
-          }),
-          message: t("welcome.status.connection_failed.message")
-        }
-      case "empty":
-        return {
-          icon: AlertTriangle,
-          iconClass: "",
-          borderClass: "border-status-warning/30",
-          bgClass: "bg-status-warning",
-          iconFgClass: "text-status-warning-foreground",
-          title: t("welcome.status.no_models.title"),
-          message: t(
-            ollamaEnabled
-              ? "welcome.status.no_models.message"
-              : "welcome.status.no_models.message_generic"
-          )
-        }
-      default:
-        return null
-    }
-  }
+  if (status !== "error" && status !== "empty") return null
 
-  const statusConfig = getStatusConfig()
-
-  if (!statusConfig) return null
+  const unreachable = status === "error"
+  const Icon = unreachable ? ServerOff : PackageOpen
+  const title = unreachable
+    ? t("welcome.status.connection_failed.title", {
+        provider: unreachableName ?? t("welcome.status.provider_fallback")
+      })
+    : t("welcome.status.no_models.title")
+  const message = unreachable
+    ? t("welcome.status.connection_failed.message")
+    : t(
+        ollamaEnabled
+          ? "welcome.status.no_models.message"
+          : "welcome.status.no_models.message_generic"
+      )
 
   return (
     <>
-      <Card
+      <div
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A live region announcing provider status, not a calculated form output.
         role="status"
         aria-live="polite"
-        className={cn(
-          "min-h-min w-full max-w-xl shadow-sm ring-0 border",
-          statusConfig.borderClass
-        )}>
-        <CardContent className="flex items-center gap-3">
+        className="flex w-full max-w-sm flex-col gap-4 rounded-panel border border-border bg-card p-4 text-card-foreground shadow-sm">
+        <div className="flex items-start gap-3">
           <div
             className={cn(
-              "shrink-0 rounded-full p-2",
-              statusConfig.bgClass,
-              statusConfig.iconFgClass
+              "flex size-9 shrink-0 items-center justify-center rounded-control",
+              unreachable
+                ? "bg-tint-danger text-destructive"
+                : "bg-tint-warning text-foreground"
             )}>
-            <statusConfig.icon
-              className={cn("icon-md", statusConfig.iconClass)}
-            />
+            <Icon className="icon-md" />
           </div>
-          <div className="flex-1 text-left space-y-1">
-            <CardTitle className="font-semibold">
-              {statusConfig.title}
-            </CardTitle>
-            <CardDescription className={cn(status === "error" && "mb-3")}>
-              {statusConfig.message}
-            </CardDescription>
-            {status === "error" && (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => refresh()}
-                  className="border-destructive/40 text-destructive hover:bg-tint-danger-hover">
-                  <RefreshCw className="mr-1 icon-xs" />
-                  {t("common.actions.retry")}
-                </Button>
-                <Button size="sm" onClick={() => setSetupOpen(true)}>
-                  {t("onboarding.provider.open_setup")}
-                </Button>
-              </div>
-            )}
-            {status === "empty" && (
-              <div className="space-y-2">
-                <CardDescription>
-                  {t("welcome.setup_guide.hint")}
-                </CardDescription>
-                <Button size="sm" onClick={() => setSetupOpen(true)}>
-                  {t("onboarding.provider.open_setup")}
-                </Button>
-              </div>
-            )}
-            <SetupGuideLink className="h-auto px-0 text-xs" />
+          <div className="min-w-0 space-y-1">
+            <p className="text-sm font-semibold">{title}</p>
+            <p className="text-xs text-muted-foreground">{message}</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="flex gap-2">
+          <Button className="flex-1" onClick={() => setSetupOpen(true)}>
+            {t("onboarding.provider.open_setup")}
+          </Button>
+          <Button variant="outline" onClick={() => refresh()}>
+            <RefreshCw className="icon-xs" />
+            {t("common.actions.retry")}
+          </Button>
+        </div>
+        <SetupGuideLink className="h-auto self-center px-0 text-xs" />
+      </div>
       <Sheet open={setupOpen} onOpenChange={setSetupOpen}>
         <SheetContent
           side="right"

@@ -469,7 +469,6 @@
       "provider_fallback": "你的提供商"
     },
     "setup_guide": {
-      "hint": "按照以下设置指南安装Ollama和模型。",
       "full_guide_link": "完整设置指南",
       "help_prefix": "需要帮助？"
     },
@@ -2013,7 +2012,7 @@
       },
       "catalog_refresh": {
         "label": "模型列表刷新",
-        "description": "已打开的面板多久向提供商重新获取一次模型列表。",
+        "description": "打开的面板多久向本设备上的提供方重新获取一次模型列表。远程提供方会在你回到面板时刷新。",
         "options": {
           "0": "关闭",
           "10000": "每 10 秒",

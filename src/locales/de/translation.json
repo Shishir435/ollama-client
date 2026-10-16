@@ -469,7 +469,6 @@
       "provider_fallback": "deinem Anbieter"
     },
     "setup_guide": {
-      "hint": "Befolgen Sie die Einrichtungsanleitung unten, um Ollama und Modelle zu installieren.",
       "full_guide_link": "Vollständige Einrichtungsanleitung",
       "help_prefix": "Brauchen Sie Hilfe?"
     },
@@ -2013,7 +2012,7 @@
       },
       "catalog_refresh": {
         "label": "Aktualisierung der Modellliste",
-        "description": "Wie oft ein geöffnetes Panel Ihre Anbieter erneut nach ihren Modelllisten fragt.",
+        "description": "Wie oft ein geöffnetes Panel Anbieter auf diesem Gerät erneut nach ihren Modelllisten fragt. Entfernte Anbieter werden aktualisiert, wenn Sie zum Panel zurückkehren.",
         "options": {
           "0": "Aus",
           "10000": "Alle 10 Sekunden",

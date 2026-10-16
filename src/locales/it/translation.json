@@ -469,7 +469,6 @@
       "provider_fallback": "il tuo provider"
     },
     "setup_guide": {
-      "hint": "Segui la guida di configurazione qui sotto per installare Ollama e i modelli.",
       "full_guide_link": "Guida Completa alla Configurazione",
       "help_prefix": "Ti serve aiuto?"
     },
@@ -2013,7 +2012,7 @@
       },
       "catalog_refresh": {
         "label": "Aggiornamento dell'elenco dei modelli",
-        "description": "Con quale frequenza un pannello aperto richiede di nuovo ai tuoi provider i loro elenchi di modelli.",
+        "description": "Ogni quanto un pannello aperto richiede di nuovo l’elenco dei modelli ai provider su questo dispositivo. I provider remoti si aggiornano quando torni al pannello.",
         "options": {
           "0": "Disattivato",
           "10000": "Ogni 10 secondi",
