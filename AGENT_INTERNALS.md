@@ -783,7 +783,12 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   deliberately narrower than `AGENT_GRANTABLE_EFFECTS`) for the starting
   origin in that run, and `approve_each` keeps per-step review. A remembered
   preference is not a carried grant: changing it never widens a run already
-  going, and a new run receives no previous run's grants. Destruction, new
+  going. What a chat carries is its runs' routine grants
+  (`agent-chat-consent.ts`, `chrome.storage.session`): clicks, typing and
+  search consent per site, merged into the next run's grants in the same
+  chat. A carried grant adds no site to the allowlist, never carries a
+  widened submission, and is not carried into a `model_after_page` goal.
+  Destruction, new
   origins, sensitive controls and buttons labelled as committing retain
   their own gates — a submission is
   widened only from an approval the user was shown, never in advance from a
@@ -832,9 +837,12 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   control, so a run that typed the user's own query and then followed the
   site's own search URL was killed for exfiltrating it — the one thing the
   task had asked for. `provenance.ts` answers authorship from the run's own
-  words: the goal, the user's answers, and the text it typed or selected on
-  its own durable receipts (never `replace_text.find`, which is a quotation
-  of what the page already held). Every long span of the URL must be
+  words: the goal, the user's own message (unless it holds a quoted line,
+  which is how a page selection arrives), the user's answers — never the
+  question the model asked — and the text it typed or selected on its own
+  durable receipts (never `replace_text.find`, which is a quotation of what
+  the page already held). The same words exempt a search from the
+  visible-text escalation when the page merely echoes them. Every long span of the URL must be
   accounted for by those words, containment one way only, or the block
   stands; no authored words at all is no claim, and the rule stays as strict
   as it was. The destination raises are untouched, so a model-composed URL
@@ -847,7 +855,41 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   resolves to a plain activation that routine consent would cover. The
   resolver marks such a target `committingLabel` from its accessible name
   (nine locales, whole words), and policy never covers it with a grant.
-  Raise-only: a miss changes nothing, a false match costs one prompt.
+  Raise-only: a miss changes nothing, a false match costs one prompt. The
+  click is also recorded as the consequential class `potential_commit`, so
+  its receipt, the repeat guard, recovery and constraints see it: a
+  constraint forbidding a submission or a payment forbids it.
+- **A script "Save" is recorded so its repeat is caught.** `savingLabel`
+  (Save, Update, Mark as paid; nine locales) makes the click a `save`: the
+  first press stays covered by routine consent, a second press of the same
+  control asks as a repeat, and no constraint forbids it.
+- **The repeat guard knows which record it touched.** A prior effect keeps
+  its row (`row`, the row context minus the control's label). Two rows are
+  different records only when both carry words with a digit and share none
+  ("Record 5" / "Record 6"); a row with none, or no row, keeps the coarse
+  match. A list that renumbers on change loses only the repeat notice.
+- **Browse mode: a read-only plan asks for almost nothing.** When every
+  requirement is a read (`agentPlanIsReadOnly`), policy (`browseAllows`)
+  lets navigation to any http(s) site, search forms, search boxes, filters
+  outside posting forms, links and non-keeping buttons through, and the
+  sites reached join the allowlist (`authorization.browse`). Posting forms,
+  typing elsewhere, committing or keeping labels, sensitive controls,
+  critical effects, other tabs and unknown frames still ask. A URL the model
+  composed for a site not yet allowed must be made of the user's or the
+  run's own words (`userWroteDestination`), whatever page the rest came
+  from — the check is authorship, not what the current page shows.
+- **Approvals show values.** `values` on the request lists what a step
+  types or selects, every field of a batch, or — for a submission — every
+  control the form will send (`effect.submitted`, resolver-side, never on
+  the wire). Sensitive values are withheld. A value the plan's field,
+  checkbox or selection check disagrees with carries `planned`.
+- **Plan consent (`follow_plan`) is opt-in.** With it, a step bound to a
+  planned change on an allowed site runs unasked; a submission or
+  committing click only when the outcome it advances is itself a send, an
+  order or a save (`COMMITTING_OUTCOME`). Repeats, critical effects, new
+  sites and anything off the plan still ask. `model_after_page` goals never
+  get it. A page shaped like an injection sets `injectionSuspected`
+  durably, and from then on neither plan consent nor browse mode applies.
 
 ## Follow-up runs
 
@@ -1489,10 +1531,12 @@ already gathered can supply a page that was never loaded.
   agent's (`agent-browser-task.ts`), installed by the composition, so a build
   without the agent — Firefox — offers no tool. Its result is the run's
   handoff, fenced as untrusted page data exactly as a later turn receives it.
-- **The start is asked about once per chat and site, and always when it
-  could be carrying page text.** The tool is `medium` risk with an
-  origin-scoped grant resolver, so the tool loop's own approval asks before
-  the first run on a site in a chat. `confirmation` forces the prompt,
+- **The start is asked about once per chat, and always when it could be
+  carrying page text.** The tool is `medium` risk with
+  `sessionGrantScope: "chat"`: "Allow for this chat" is keyed by chat and
+  tool alone, kept in `chrome.storage.session` so a worker restart keeps it,
+  and neither the site nor a later page read withdraws it — the forced
+  prompt below is what stands in for both. `confirmation` forces the prompt,
   whatever grant exists, when the turn's context carried something read off a
   page (an attached tab or file, retrieved documents, a previous run's record,
   in this turn or anywhere earlier in the history the model reads:
