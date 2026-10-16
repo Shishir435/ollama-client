@@ -15,6 +15,10 @@ import { Virtuoso } from "react-virtuoso"
 import { TooltipActionButton } from "@/components/actions"
 import { ProviderIcon } from "@/components/icons"
 import { ListRow, ListRowTitleButton } from "@/components/layout/list-row"
+import {
+  SCROLL_REGION_FOCUS_CLASS,
+  scrollRegionProps
+} from "@/components/layout/scroll-region"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -430,6 +434,7 @@ export const ModelMenu = ({
         />
 
         <PopoverContent
+          aria-label={t("chat.input.switch_model")}
           className="w-[calc(100vw-1rem)] max-w-96 overflow-hidden p-0"
           align="start">
           <div className="flex h-96 min-h-0 overflow-hidden rounded-panel bg-popover text-popover-foreground">
@@ -612,7 +617,8 @@ export const ModelMenu = ({
                 ) : (
                   <Virtuoso
                     data={visibleModels}
-                    className="h-full scrollbar-none"
+                    {...scrollRegionProps(t("model.menu.models_label"))}
+                    className={`h-full scrollbar-none ${SCROLL_REGION_FOCUS_CLASS}`}
                     computeItemKey={(_index, model) =>
                       `${model.providerId || DEFAULT_PROVIDER_ID}:${model.name}`
                     }

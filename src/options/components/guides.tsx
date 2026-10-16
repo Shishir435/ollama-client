@@ -57,11 +57,12 @@ export const Guides = () => {
                     }
                     target="_blank"
                     rel="noreferrer"
+                    aria-label={t(labelKey)}
                     className={cn(
                       buttonVariants({ variant: "link" }),
                       "flex items-center justify-center"
                     )}>
-                    <ExternalLink className="icon-xs" />
+                    <ExternalLink className="icon-xs" aria-hidden="true" />
                   </a>
                 </CardContent>
               </Card>

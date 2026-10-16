@@ -233,68 +233,68 @@ export const ModelInfo = ({
   return (
     <section className="w-full py-1">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CollapsibleTrigger
-          render={
-            <div className="-mx-2 flex cursor-pointer items-center justify-between rounded-control px-2 py-1 transition-colors hover:bg-state-hover" />
-          }>
-          <div className="flex items-center gap-2">
-            <Cpu className="icon-md text-muted-foreground" />
-            <h3 className="text-sm font-semibold">
-              {t("settings.model_info.title")}
-            </h3>
-            {loading && (
-              <Loader2 className="icon-md animate-spin text-muted-foreground" />
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {modelInfo && (
-              <span className="text-xs text-muted-foreground">
-                {primaryEntries
-                  .map(([key, val]) =>
-                    key.includes("parameter")
-                      ? typeof val === "number"
-                        ? `${formatCompactNumber(val)} ${t("settings.model_info.params_label")}`
-                        : String(val)
-                      : key.includes("context")
-                        ? typeof val === "number"
-                          ? `${formatCompactNumber(val)} ${t("settings.model_info.context_label")}`
-                          : String(val)
-                        : key.includes("file_type") && typeof val === "number"
-                          ? (fileTypeMap[val] ?? String(val))
-                          : String(val)
-                  )
-                  .join(", ")}
-              </span>
-            )}
-
-            <div className="flex items-center gap-1">
-              <TooltipActionButton
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRefresh()
-                }}
-                disabled={refreshing}
-                className="size-8 p-0"
-                label={t("settings.model_info.refresh_tooltip")}
-                icon={
-                  <RefreshCw
-                    className={cn("icon-md", refreshing && "animate-spin")}
-                  />
-                }
-              />
-
-              <ChevronDown
-                className={cn(
-                  "icon-md transition-transform duration-200",
-                  isExpanded && "rotate-180"
+        <div className="-mx-2 flex items-center gap-1 rounded-control px-2 py-1 transition-colors hover:bg-state-hover">
+          <h3 className="min-w-0 flex-1 text-sm">
+            <CollapsibleTrigger
+              nativeButton
+              className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-control text-left outline-none focus-visible:ring-2 focus-visible:ring-focus">
+              <span className="flex items-center gap-2">
+                <Cpu className="icon-md text-muted-foreground" />
+                <span className="font-semibold">
+                  {t("settings.model_info.title")}
+                </span>
+                {loading && (
+                  <Loader2 className="icon-md animate-spin text-muted-foreground" />
                 )}
+              </span>
+              <span className="flex items-center gap-2">
+                {modelInfo && (
+                  <span className="text-xs text-muted-foreground">
+                    {primaryEntries
+                      .map(([key, val]) =>
+                        key.includes("parameter")
+                          ? typeof val === "number"
+                            ? `${formatCompactNumber(val)} ${t("settings.model_info.params_label")}`
+                            : String(val)
+                          : key.includes("context")
+                            ? typeof val === "number"
+                              ? `${formatCompactNumber(val)} ${t("settings.model_info.context_label")}`
+                              : String(val)
+                            : key.includes("file_type") &&
+                                typeof val === "number"
+                              ? (fileTypeMap[val] ?? String(val))
+                              : String(val)
+                      )
+                      .join(", ")}
+                  </span>
+                )}
+
+                <ChevronDown
+                  className={cn(
+                    "icon-md transition-transform duration-200",
+                    isExpanded && "rotate-180"
+                  )}
+                />
+              </span>
+            </CollapsibleTrigger>
+          </h3>
+          <TooltipActionButton
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleRefresh()
+            }}
+            disabled={refreshing}
+            className="size-8 p-0"
+            label={t("settings.model_info.refresh_tooltip")}
+            icon={
+              <RefreshCw
+                className={cn("icon-md", refreshing && "animate-spin")}
               />
-            </div>
-          </div>
-        </CollapsibleTrigger>
+            }
+          />
+        </div>
 
         <CollapsibleContent>
           <div className="pb-2 pt-3">

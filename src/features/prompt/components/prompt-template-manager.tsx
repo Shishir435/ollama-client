@@ -178,7 +178,9 @@ export const PromptTemplateManager = () => {
             onValueChange={(value) => {
               if (value !== null) setSelectedCategory(value)
             }}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger
+              className="w-40"
+              aria-label={t("settings.prompts.category_placeholder")}>
               <SelectValue
                 placeholder={t("settings.prompts.category_placeholder")}
               />

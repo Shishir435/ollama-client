@@ -497,6 +497,64 @@ describe("background rebuild driver", () => {
     expect((await readNativeIndexState()).failed).toBeUndefined()
   })
 
+  it("drives a start requested while the previous rebuild's batch was failing", async () => {
+    /**
+     * Seen on every browser: an external rebuild against an unreachable
+     * provider, then "use bundled" before the failure landed. The old loop's
+     * failure mark was skipped (its snapshot was gone) and it still held the
+     * driver slot when the start asked for one, so the new rebuild sat at
+     * "building", total 0, until a restart.
+     */
+    await vectorDb.vectors.add(source(1))
+    let failBatch: (error: Error) => void = () => {}
+    externalEmbed.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failBatch = reject
+        })
+    )
+    await requestNativeEmbeddingCommand("external")
+    await vi.waitFor(() => expect(externalEmbed).toHaveBeenCalledTimes(1))
+
+    const started = requestNativeEmbeddingCommand("start")
+    failBatch(new TypeError("NetworkError when attempting to fetch resource."))
+    await started
+
+    await vi.waitFor(async () =>
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    )
+    const state = await readNativeIndexState()
+    expect(state.migration).toBe("idle")
+    expect(state.failed).toBeUndefined()
+    expect(embed).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps driving the current rebuild when a start fails before resetting", async () => {
+    for (let id = 1; id <= 3; id++) await vectorDb.vectors.add(source(id))
+    let releaseFirst: () => void = () => {}
+    embed.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseFirst = () => resolve(vector())
+        })
+    )
+    await requestNativeEmbeddingCommand("start")
+    await vi.waitFor(() => expect(embed).toHaveBeenCalledTimes(1))
+    const { resolveEmbeddingPlan } = await import("../../embedding-strategy")
+    vi.mocked(resolveEmbeddingPlan).mockResolvedValueOnce({
+      fingerprint: "none",
+      attempts: []
+    } as never)
+    const refused = requestNativeEmbeddingCommand("external")
+    releaseFirst()
+    await expect(refused).rejects.toThrow("No external embedding provider")
+
+    await vi.waitFor(async () =>
+      expect((await nativeEmbeddingStatus()).mode).toBe("bundled")
+    )
+    expect((await readNativeIndexState()).failed).toBeUndefined()
+  })
+
   it("resumes an interrupted rebuild at startup", async () => {
     for (let id = 1; id <= 3; id++) await vectorDb.vectors.add(source(id))
     await nativeEmbeddingCommand("start")

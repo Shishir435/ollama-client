@@ -223,3 +223,50 @@ export const insertAfterContentEditableSelection = (
   dispatchEditEvents(root)
   return true
 }
+
+/**
+ * Put focus back where the user was reading when the overlay closes.
+ *
+ * A selection made with the mouse leaves focus on `<body>`, so there is no
+ * control to return to, and closing the panel from the keyboard dropped focus
+ * there: the next Tab started from the top of the page. The element holding
+ * the selection takes a temporary `tabindex="-1"`, which lets it hold focus
+ * without joining the tab order, and gives it back on blur. An element that
+ * already declares a tabindex keeps its own. The selection is left alone:
+ * re-adding it would fire `selectionchange` and bring the toolbar back.
+ */
+export const focusSelectionAnchor = (range: Range | undefined): boolean => {
+  if (!range) return false
+  const node = range.commonAncestorContainer
+  const element =
+    node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement
+  if (!(element instanceof HTMLElement) || !element.isConnected) return false
+  if (!element.hasAttribute("tabindex")) {
+    element.setAttribute("tabindex", "-1")
+    element.addEventListener(
+      "blur",
+      () => element.removeAttribute("tabindex"),
+      { once: true }
+    )
+  }
+  element.focus({ preventScroll: true })
+  return element.ownerDocument.activeElement === element
+}
+
+/**
+ * The control to hand focus back to when the overlay closes: the field the
+ * text was selected in, else whatever held focus. `<body>` is not a control —
+ * "returning" to it is how focus got lost — so it counts as none, and the
+ * caller falls back to the selection's own element.
+ */
+export const pickReturnFocusTarget = (
+  capture: Pick<SelectionCapture, "editableTarget">,
+  active: Element | null,
+  overlayHost: Element | null
+): HTMLElement | null =>
+  capture.editableTarget ??
+  (active instanceof HTMLElement &&
+  active !== overlayHost &&
+  active !== active.ownerDocument.body
+    ? active
+    : null)

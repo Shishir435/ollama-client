@@ -16,8 +16,44 @@
  *
  * Comments inside the template literal ship to every page, so they stay here.
  */
+/**
+ * Chrome ignores `@property` inside a shadow tree, so every Tailwind variable
+ * registered there starts unset instead of at its initial value. Ring, shadow
+ * and outline utilities compose several of them into one `box-shadow` or
+ * `outline-style`; a single unset part invalidates the whole declaration and
+ * a focused button draws nothing. Tailwind ships the same fallback for
+ * browsers without `@property`, but gates it on a feature query Chrome does
+ * not match. This restates each registration as a plain declaration in the
+ * lowest layer, so any utility on the element still wins.
+ */
+export const registeredPropertyFallback = (appStyles: string): string => {
+  const inherited: string[] = []
+  const local: string[] = []
+  for (const [, name, body] of appStyles.matchAll(
+    /@property\s+(--[\w-]+)\s*\{([^}]*)\}/g
+  )) {
+    const initial = /initial-value:\s*([^;]+)/.exec(body)?.[1].trim()
+    const isLength = /syntax:\s*["']<length>["']/.test(body)
+    const value =
+      initial === undefined
+        ? "initial"
+        : isLength && initial === "0"
+          ? "0px"
+          : initial
+    const target = /inherits:\s*true/.test(body) ? inherited : local
+    target.push(`${name}:${value}`)
+  }
+  if (inherited.length === 0 && local.length === 0) return ""
+  const rules = [
+    inherited.length > 0 ? `:host{${inherited.join(";")}}` : "",
+    local.length > 0 ? `*,::before,::after,::backdrop{${local.join(";")}}` : ""
+  ]
+  return `@layer properties{${rules.join("")}}`
+}
+
 export const buildShadowStyles = (appStyles: string): string => `
   ${appStyles}
+  ${registeredPropertyFallback(appStyles)}
 
   #selection-actions-root {
     font-size: 16px;

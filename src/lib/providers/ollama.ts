@@ -633,53 +633,7 @@ export class OllamaProvider implements LLMProvider {
       })
     )
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
-      const classification = classifyProviderError(
-        response.status,
-        errorText,
-        resolveProviderBaseUrl(this.config)
-      )
-      /**
-       * A 401/403 is the origin check only where the browser could not remove
-       * `Origin`; with the guard in place it is the server's or a proxy's own
-       * refusal and keeps the classification's code and copy.
-       */
-      const originBlocked =
-        (response.status === 401 || response.status === 403) &&
-        forbiddenMayBeOriginBlock()
-      const code = originBlocked ? "OLC-CORS-BLOCKED" : classification.code
-      throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
-        kind: "provider",
-        status: response.status,
-        providerId: ProviderId.OLLAMA,
-        providerName: this.config.name,
-        model,
-        baseUrl,
-        retryable: isRetryableProviderStatus(response.status),
-        retryAfterMs,
-        code,
-        messageKey: providerErrorMessageKey(code, {
-          status: response.status,
-          providerId: ProviderId.OLLAMA,
-          baseUrl
-        }),
-        phase: "response",
-        recoveryAction: classification.recoveryAction,
-        userMessage: originBlocked
-          ? localCorsForbiddenMessage(response.status)
-          : providerErrorUserMessage(response.status, {
-              baseUrl,
-              retryAfterMs,
-              providerName: this.config.name,
-              model,
-              reason: classification.reason,
-              ollama: true
-            }),
-        debug: errorText
-      })
-    }
+    if (!response.ok) await this.throwResponseError(response, model, baseUrl)
 
     const reader = response.body?.getReader()
     if (!reader) {
@@ -733,26 +687,7 @@ export class OllamaProvider implements LLMProvider {
     }
 
     const throwStreamError = (data: OllamaStreamData): void => {
-      if (!data.error) return
-      const message =
-        typeof data.error === "string"
-          ? data.error
-          : "The provider reported an error while generating the response."
-      const classification = classifyProviderError(undefined, message)
-      throw createAppError(message, {
-        kind: "provider",
-        providerId: ProviderId.OLLAMA,
-        providerName: this.config.name,
-        model,
-        baseUrl,
-        code: classification.code,
-        phase: "read-stream",
-        recoveryAction: classification.recoveryAction,
-        userMessage: classification.reason
-          ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
-          : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
-        debug: typeof data.error === "string" ? data.error : undefined
-      })
+      if (data.error) throw this.streamError(data.error, model, baseUrl)
     }
 
     const emitThinking = (data: OllamaStreamData): void => {
@@ -875,23 +810,8 @@ export class OllamaProvider implements LLMProvider {
       })
     )
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
-        kind: "provider",
-        status: response.status,
-        providerId: this.id,
-        providerName: this.config.name,
-        model: request.model,
-        baseUrl,
-        phase: "response",
-        userMessage: providerErrorUserMessage(response.status, {
-          providerName: this.config.name,
-          model: request.model
-        }),
-        debug: errorText
-      })
-    }
+    if (!response.ok)
+      await this.throwResponseError(response, request.model, baseUrl)
 
     const reader = response.body?.getReader()
     if (!reader) {
@@ -907,11 +827,13 @@ export class OllamaProvider implements LLMProvider {
     const processLine = (line: string) => {
       if (!line.trim()) return
       const data = JSON.parse(line) as {
+        error?: unknown
         image?: string
         completed?: number
         total?: number
         done?: boolean
       }
+      if (data.error) throw this.streamError(data.error, request.model, baseUrl)
       if (!data.image) return
       const image = generatedImageFromBase64(data.image, {
         providerId: this.id,
@@ -1000,6 +922,95 @@ export class OllamaProvider implements LLMProvider {
       mode: "native",
       notes: "Uses Ollama embedding endpoints (/api/embed or /api/embeddings)."
     }
+  }
+
+  /**
+   * A refused request, classified from its body: the status alone reads
+   * Ollama's "image generation models are not currently supported" as a
+   * generic 400, and the body is what names the cause.
+   */
+  private async throwResponseError(
+    response: Response,
+    model: string,
+    baseUrl: string
+  ): Promise<never> {
+    const errorText = await response.text()
+    const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
+    const classification = classifyProviderError(
+      response.status,
+      errorText,
+      baseUrl
+    )
+    /**
+     * A 401/403 is the origin check only where the browser could not remove
+     * `Origin`; with the guard in place it is the server's or a proxy's own
+     * refusal and keeps the classification's code and copy.
+     */
+    const originBlocked =
+      (response.status === 401 || response.status === 403) &&
+      forbiddenMayBeOriginBlock()
+    const code = originBlocked ? "OLC-CORS-BLOCKED" : classification.code
+    throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
+      kind: "provider",
+      status: response.status,
+      providerId: ProviderId.OLLAMA,
+      providerName: this.config.name,
+      model,
+      baseUrl,
+      retryable: isRetryableProviderStatus(response.status),
+      retryAfterMs,
+      code,
+      messageKey:
+        (originBlocked ? undefined : classification.messageKey) ??
+        providerErrorMessageKey(code, {
+          status: response.status,
+          providerId: ProviderId.OLLAMA,
+          baseUrl
+        }),
+      phase: "response",
+      recoveryAction: classification.recoveryAction,
+      userMessage: originBlocked
+        ? localCorsForbiddenMessage(response.status)
+        : providerErrorUserMessage(response.status, {
+            baseUrl,
+            retryAfterMs,
+            providerName: this.config.name,
+            model,
+            reason: classification.reason,
+            ollama: true
+          }),
+      debug: errorText
+    })
+  }
+
+  /**
+   * An `{"error": ...}` NDJSON line. Ollama reports a failure after the
+   * response has started this way — the runner dying, memory running out —
+   * with a 200 already sent, so the line is the only evidence there is.
+   */
+  private streamError(error: unknown, model: string, baseUrl: string) {
+    const message =
+      typeof error === "string"
+        ? error
+        : "The provider reported an error while generating the response."
+    const classification = classifyProviderError(undefined, message)
+    return createAppError(message, {
+      kind: "provider",
+      providerId: ProviderId.OLLAMA,
+      providerName: this.config.name,
+      model,
+      baseUrl,
+      code: classification.code,
+      ...(classification.messageKey
+        ? { messageKey: classification.messageKey }
+        : {}),
+      phase: "read-stream",
+      recoveryAction: classification.recoveryAction,
+      userMessage: classification.reason
+        ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+        : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
+      debug: typeof error === "string" ? error : undefined
+    })
   }
 
   private embeddingContext(baseUrl: string) {

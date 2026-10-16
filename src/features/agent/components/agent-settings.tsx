@@ -121,6 +121,7 @@ export const AgentSettings = () => {
 
       <SettingsFormField
         focusId="agent-permission-mode"
+        htmlFor="agent-permission-mode-select"
         label={t("agent.settings.permission_mode.label")}
         description={t("agent.settings.permission_mode.description")}>
         <Select
@@ -128,7 +129,7 @@ export const AgentSettings = () => {
           onValueChange={(next) =>
             setPermissionMode(next as (typeof PERMISSION_MODES)[number])
           }>
-          <SelectTrigger>
+          <SelectTrigger id="agent-permission-mode-select">
             <SelectValue>
               {() =>
                 t(
@@ -149,6 +150,7 @@ export const AgentSettings = () => {
 
       <SettingsFormField
         focusId="agent-context-window"
+        htmlFor="agent-context-window-select"
         label={t("agent.settings.context_window.label")}
         description={t("agent.settings.context_window.description")}>
         <div className="grid gap-2 min-w-0">
@@ -157,7 +159,7 @@ export const AgentSettings = () => {
             onValueChange={(next) =>
               setContextWindow(next === "auto" ? "auto" : 32_768)
             }>
-            <SelectTrigger>
+            <SelectTrigger id="agent-context-window-select">
               <SelectValue>
                 {() =>
                   t(
@@ -179,6 +181,7 @@ export const AgentSettings = () => {
           </Select>
           {isAuto ? null : (
             <Input
+              aria-label={t("agent.settings.context_window.label")}
               type="number"
               min={AGENT_CONTEXT_MIN_TOKENS}
               max={AGENT_CONTEXT_MAX_TOKENS}
@@ -202,6 +205,7 @@ export const AgentSettings = () => {
       <SettingsLevelGate settingId="agent-completion-reviewer">
         <SettingsFormField
           focusId="agent-completion-reviewer"
+          htmlFor="agent-completion-reviewer-select"
           label={t("agent.settings.completion_reviewer.label")}
           description={t("agent.settings.completion_reviewer.description")}>
           <Select
@@ -214,7 +218,7 @@ export const AgentSettings = () => {
                   : null
               )
             }}>
-            <SelectTrigger>
+            <SelectTrigger id="agent-completion-reviewer-select">
               <SelectValue>
                 {() =>
                   reviewers.find((entry) => entry.key === reviewerValue)
@@ -240,6 +244,7 @@ export const AgentSettings = () => {
       <SettingsLevelGate settingId="agent-vision">
         <SettingsFormField
           focusId="agent-vision"
+          htmlFor="agent-vision-select"
           label={t("agent.settings.vision.label")}
           description={t("agent.settings.vision.description")}>
           <Select
@@ -247,7 +252,7 @@ export const AgentSettings = () => {
             onValueChange={(next) =>
               setVision(next as (typeof VISION_MODES)[number])
             }>
-            <SelectTrigger>
+            <SelectTrigger id="agent-vision-select">
               <SelectValue>
                 {() => t(`agent.settings.vision.${vision ?? "auto"}`)}
               </SelectValue>

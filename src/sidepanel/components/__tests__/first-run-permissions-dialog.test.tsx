@@ -132,6 +132,21 @@ describe("FirstRunPermissionsDialog", () => {
     })
   })
 
+  it("hands focus to the composer when Escape closes it", async () => {
+    const composer = document.createElement("textarea")
+    composer.id = "chat-input-textarea"
+    document.body.append(composer)
+    try {
+      render(<FirstRunPermissionsDialog />)
+      const dialog = await screen.findByRole("dialog")
+      fireEvent.keyDown(dialog, { key: "Escape" })
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+      await waitFor(() => expect(document.activeElement).toBe(composer))
+    } finally {
+      composer.remove()
+    }
+  })
+
   it("stays hidden for completed onboarding", async () => {
     onboarding.get.mockResolvedValue({
       version: 2,

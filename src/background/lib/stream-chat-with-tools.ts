@@ -2,6 +2,7 @@ import {
   resolveToolLoopState,
   ToolLoopCoordinator
 } from "@ollama-client/chat-runtime/tool-loop-runtime"
+import { EMPTY_REPLY_PLACEHOLDER } from "@/background/lib/conversation-history"
 import { toolLimitReachedMessage } from "@/background/lib/tool-limit-message"
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
@@ -177,6 +178,21 @@ const handleEmptyModelPhase = async ({
     phase.sawThinking && !phase.sawImages && phase.content.trim().length === 0
   if (emptyThinking && (state.emptyModelRetries ?? 0) < 1) {
     state.emptyModelRetries = (state.emptyModelRetries ?? 0) + 1
+    /**
+     * The empty reply sat after a user turn — the question itself, a
+     * user-mode tool result or a tool's image — and the retry instruction is
+     * another one. Strict chat templates (Gemma, Mistral under llama.cpp
+     * `--jinja`, LM Studio, vLLM) reject two user turns in a row, so the
+     * reply stands in as the same neutral marker replayed history uses. It
+     * carries none of the reasoning: that was never an answer.
+     */
+    if (workingMessages.at(-1)?.role === "user") {
+      workingMessages.push({
+        role: "assistant",
+        content: EMPTY_REPLY_PLACEHOLDER,
+        done: true
+      })
+    }
     workingMessages.push({
       role: "user",
       content: EMPTY_NATIVE_RETRY_MESSAGE

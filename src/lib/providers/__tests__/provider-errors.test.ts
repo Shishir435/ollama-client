@@ -296,6 +296,158 @@ describe("Ollama streamChat error", () => {
   })
 })
 
+const ollamaConfig: ProviderConfig = {
+  id: "ollama",
+  type: ProviderType.OLLAMA,
+  enabled: true,
+  baseUrl: "http://localhost:11434",
+  name: "Ollama"
+}
+
+const ndjson = (...lines: string[]) =>
+  new Response(lines.map((line) => `${line}\n`).join(""), {
+    status: 200,
+    headers: { "Content-Type": "application/x-ndjson" }
+  })
+
+const caught = async (run: () => Promise<unknown>) => {
+  try {
+    await run()
+  } catch (error) {
+    return error
+  }
+  throw new Error("expected a rejection")
+}
+
+describe("Ollama image generation models", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  /** Ollama's exact refusal: `server/routes.go`, HTTP 400. */
+  const REFUSAL =
+    '{"error":"image generation models are not currently supported"}'
+
+  it("reads olc's Codex 400s as image generation not offered", () => {
+    /** `packages/olc/src/backends/codex/index.ts` resolveModel errors. */
+    for (const message of [
+      "The active Codex model provider does not support image generation",
+      "Codex returned no model that can drive image generation"
+    ]) {
+      expect(
+        classifyProviderError(400, JSON.stringify({ error: { message } }))
+          .messageKey
+      ).toBe("chat.errors.image_generation_not_offered")
+    }
+  })
+
+  it("names the cause instead of the generic 400 copy", () => {
+    expect(classifyProviderError(400, REFUSAL)).toEqual({
+      code: "OLC-INPUT-UNSUPPORTED",
+      reason:
+        "This Ollama version can't generate images. Choose a chat model, or use an Ollama version that supports image models.",
+      recoveryAction: "choose-model",
+      messageKey: "chat.errors.image_generation_unsupported"
+    })
+    expect(
+      classifyProviderError(400, "Image generation model is not supported")
+        .messageKey
+    ).toBe("chat.errors.image_generation_unsupported")
+  })
+
+  it("keeps the specific copy through chat and the background boundary", async () => {
+    for (const run of [
+      (provider: OllamaProvider) =>
+        provider.streamChat(
+          {
+            model: "x/z-image-turbo",
+            messages: [{ role: "user", content: "a cat" }]
+          },
+          () => {}
+        ),
+      (provider: OllamaProvider) =>
+        provider.generateImage(
+          { model: "x/z-image-turbo", prompt: "a cat" },
+          () => {}
+        )
+    ]) {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(REFUSAL, { status: 400 })
+      )
+      const error = await caught(() => run(new OllamaProvider(ollamaConfig)))
+      expect(isAppError(error)).toBe(true)
+      if (!isAppError(error)) return
+      expect(error.messageKey).toBe("chat.errors.image_generation_unsupported")
+      expect(error.userMessage).toContain("can't generate images")
+      applyProviderErrorContext(error, {
+        providerId: "ollama",
+        providerName: "Ollama",
+        model: "x/z-image-turbo",
+        baseUrl: "http://localhost:11434"
+      })
+      expect(error.messageKey).toBe("chat.errors.image_generation_unsupported")
+      expect(error.userMessage).toContain("can't generate images")
+      expect(error.userMessage).not.toContain(
+        "images on a model without vision"
+      )
+    }
+  })
+})
+
+describe("Ollama mid-stream error lines", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it("fails an image generation stream that reports an error", async () => {
+    /**
+     * A 200 already went out; the runner then died. Dropping the line ended
+     * the stream as "returned no generated image" and hid the cause.
+     */
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      ndjson(
+        '{"model":"x/flux2-klein","created_at":"2026-10-16T08:00:00Z","completed":1,"total":4,"done":false}',
+        '{"error":"llama runner process has terminated: signal: killed"}'
+      )
+    )
+    const error = await caught(() =>
+      new OllamaProvider(ollamaConfig).generateImage(
+        { model: "x/flux2-klein", prompt: "a cat" },
+        () => {}
+      )
+    )
+    expect(isAppError(error)).toBe(true)
+    if (!isAppError(error)) return
+    expect(error.phase).toBe("read-stream")
+    expect(error.messageKey).toBe("chat.errors.model_crashed")
+    expect(error.debug).toContain("runner process has terminated")
+  })
+
+  it("classifies an out-of-memory line after chat content started", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      ndjson(
+        '{"model":"qwen3:0.6b","message":{"role":"assistant","content":"Hel"},"done":false}',
+        '{"error":"model requires more system memory (12.3 GiB) than is available (4.1 GiB)"}'
+      )
+    )
+    const chunks: string[] = []
+    const error = await caught(() =>
+      new OllamaProvider(ollamaConfig).streamChat(
+        { model: "qwen3:0.6b", messages: [{ role: "user", content: "hi" }] },
+        (chunk) => {
+          if (chunk.delta) chunks.push(chunk.delta)
+        }
+      )
+    )
+    expect(chunks).toEqual(["Hel"])
+    expect(isAppError(error)).toBe(true)
+    if (!isAppError(error)) return
+    expect(error.code).toBe("OLC-OUT-OF-MEMORY")
+    applyProviderErrorContext(error, {
+      providerId: "ollama",
+      providerName: "Ollama",
+      model: "qwen3:0.6b"
+    })
+    expect(error.messageKey).toBe("chat.errors.out_of_memory")
+  })
+})
+
 describe("hosted provider retry metadata", () => {
   afterEach(() => vi.restoreAllMocks())
 

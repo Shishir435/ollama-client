@@ -165,3 +165,22 @@ describe("LoadedModelsInfo concurrent fetches", () => {
     })
   })
 })
+
+describe("LoadedModelsInfo header", () => {
+  it("keeps the refresh button outside the expand trigger", async () => {
+    mockedCall.mockResolvedValue({ models: [model("m")] } as never)
+    render(<LoadedModelsInfo />)
+    const trigger = await screen.findByRole("button", {
+      name: /settings\.loaded_models\.title/
+    })
+    expect(trigger).toHaveAttribute("aria-expanded", "false")
+    expect(trigger.querySelector("button, [tabindex]")).toBeNull()
+    expect(
+      screen.getByRole("button", {
+        name: "settings.loaded_models.refresh_tooltip"
+      })
+    ).not.toBe(trigger)
+    fireEvent.click(trigger)
+    expect(trigger).toHaveAttribute("aria-expanded", "true")
+  })
+})

@@ -6,7 +6,7 @@ import {
   Tag,
   Trash2
 } from "lucide-react"
-import { useState } from "react"
+import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
@@ -33,6 +33,8 @@ export const ChatSessionItem = ({
   const { t } = useTranslation()
   const { sessions, togglePinSession, setSessionTags } = useChatSessions()
   const [tagsOpen, setTagsOpen] = useState(false)
+  const titleId = useId()
+  const detailId = useId()
   const { exportSessionAsPdf, exportSessionAsJson } = useChatExport()
 
   const current = sessions.find((s) => s.id === session.id)
@@ -71,10 +73,8 @@ export const ChatSessionItem = ({
       <button
         type="button"
         className="flex min-w-0 flex-1 items-center gap-1 rounded-control p-1.5 text-left select-none outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-        onClick={() => onClick(session.id)}
-        aria-label={t("sessions.selector.select_session", {
-          title: session.title
-        })}>
+        aria-labelledby={`${titleId} ${detailId}`}
+        onClick={() => onClick(session.id)}>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <div
             className={cn(
@@ -97,11 +97,16 @@ export const ChatSessionItem = ({
               {isPinned && (
                 <Pin className="icon-xs shrink-0 text-sidebar-foreground/45" />
               )}
-              <div className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
+              <div
+                id={titleId}
+                className="truncate text-xs font-medium leading-tight transition-[mask] group-hover:mask-[linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
                 {session.title}
               </div>
             </div>
-            <div className="mt-0.5 truncate text-micro text-muted-foreground">
+            {/* Keeps the title and detail two words apart in the read-out text. */}{" "}
+            <div
+              id={detailId}
+              className="mt-0.5 truncate text-micro text-muted-foreground">
               {session.tags?.length
                 ? session.tags.map((tag) => `#${tag}`).join(" · ")
                 : session.modelId || updatedTime}

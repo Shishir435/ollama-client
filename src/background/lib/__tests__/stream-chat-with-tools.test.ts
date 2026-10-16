@@ -4,6 +4,7 @@ import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
 import type { ToolDefinition, ToolResult } from "@/lib/tools"
 import { ToolRegistry } from "@/lib/tools"
 import type { ChatStreamMessage } from "@/types"
+import { EMPTY_REPLY_PLACEHOLDER } from "../conversation-history"
 import { streamChatWithTools } from "../stream-chat-with-tools"
 import { resolveToolConfirmation } from "../tool-confirmation-registry"
 import { addSessionGrant, clearSessionGrants } from "../tool-session-grants"
@@ -121,6 +122,86 @@ describe("streamChatWithTools", () => {
     expect(chunks.some((chunk) => chunk.toolRuns?.length)).toBe(true)
     expect(chunks.find((chunk) => chunk.delta === "final answer")).toBeTruthy()
     expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
+  })
+
+  it("keeps roles alternating when it retries a reasoning-only reply", async () => {
+    /**
+     * The retry instruction is a user turn. Appended straight after the
+     * question it made the request end user, user, which strict chat templates
+     * (Gemma, Mistral under llama.cpp `--jinja`, LM Studio, vLLM) refuse.
+     */
+    const sentRoles: string[][] = []
+    const scripts: ChatStreamMessage[][] = [
+      [{ thinkingDelta: "I should call echo." }, { done: true }],
+      [{ delta: "answer" }, { done: true }]
+    ]
+    let call = 0
+    const provider: LLMProvider = {
+      id: "test",
+      config: {} as LLMProvider["config"],
+      capabilities: {} as LLMProvider["capabilities"],
+      streamChat: vi.fn(async (req, onChunk) => {
+        sentRoles.push(
+          req.messages.map((message: { role: string }) => message.role)
+        )
+        for (const chunk of scripts[call] ?? [{ done: true }]) onChunk(chunk)
+        call++
+      }),
+      getModels: async () => []
+    }
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry: registryWith(async () => ({ content: "tool result" })),
+      onChunk: () => {},
+      ctx: {}
+    })
+
+    expect(sentRoles[1]).toEqual(["user", "assistant", "user"])
+    const retried = (provider.streamChat as ReturnType<typeof vi.fn>).mock
+      .calls[1][0].messages
+    expect(retried[1]).toMatchObject({
+      role: "assistant",
+      content: EMPTY_REPLY_PLACEHOLDER
+    })
+    expect(retried[1].thinking).toBeUndefined()
+  })
+
+  it("adds no placeholder when the reasoning-only reply followed a tool result", async () => {
+    const sentRoles: string[][] = []
+    const scripts: ChatStreamMessage[][] = [
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ thinkingDelta: "thinking about it" }, { done: true }],
+      [{ delta: "answer" }, { done: true }]
+    ]
+    let call = 0
+    const provider: LLMProvider = {
+      id: "test",
+      config: {} as LLMProvider["config"],
+      capabilities: {} as LLMProvider["capabilities"],
+      streamChat: vi.fn(async (req, onChunk) => {
+        sentRoles.push(
+          req.messages.map((message: { role: string }) => message.role)
+        )
+        for (const chunk of scripts[call] ?? [{ done: true }]) onChunk(chunk)
+        call++
+      }),
+      getModels: async () => []
+    }
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry: registryWith(async () => ({ content: "tool result" })),
+      onChunk: () => {},
+      ctx: {}
+    })
+
+    expect(sentRoles[2]).toEqual(["user", "assistant", "tool", "user"])
   })
 
   it("runs a tool, re-streams, and finalizes with the answer + trace", async () => {

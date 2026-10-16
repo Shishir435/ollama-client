@@ -56,6 +56,7 @@ vi.mock("react-i18next", () => ({
     ) =>
       ({
         "tabs.context": "Context",
+        "chat.context.button_label": `Context: ${values?.count ?? 0}`,
         "chat.context.rows.tabs": "Page & tab context",
         "tabs.select.placeholder": "Select open tabs",
         "tabs.select.search_placeholder": "Search tabs...",
@@ -170,7 +171,7 @@ describe("ContextSettingsMenu", () => {
   it("keeps controls searchable and opens page preview in bounded dialog", () => {
     render(<ContextSettingsMenu />)
 
-    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))
 
     // One stable label per row; the checkmark carries the on/off state.
     expect(screen.getByText("Page & tab context")).toBeInTheDocument()
@@ -207,7 +208,7 @@ describe("ContextSettingsMenu", () => {
 
   it("controls the per-device web-search flag from the unified context tray", () => {
     render(<ContextSettingsMenu />)
-    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))
     fireEvent.click(screen.getByRole("button", { name: "Web search" }))
 
     // Only the device-local active flag flips; the settings-level enable
@@ -218,7 +219,7 @@ describe("ContextSettingsMenu", () => {
 
   it("fades permission rows at the bounded sub-view edges", () => {
     render(<ContextSettingsMenu />)
-    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))
     fireEvent.click(
       screen.getByRole("button", { name: /Permissions & privacy/ })
     )
@@ -230,7 +231,7 @@ describe("ContextSettingsMenu", () => {
 
   it("selects every listed tab from the list header", () => {
     render(<ContextSettingsMenu />)
-    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))
 
     expect(screen.getByText("1/2 tabs ready")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "Select all" }))
@@ -241,7 +242,7 @@ describe("ContextSettingsMenu", () => {
   it("offers to clear instead once every listed tab is selected", () => {
     mocks.selectedTabIds = ["7", "9"]
     render(<ContextSettingsMenu />)
-    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))
 
     expect(screen.getByText("2/2 tabs ready")).toBeInTheDocument()
     expect(
@@ -255,7 +256,7 @@ describe("ContextSettingsMenu", () => {
   it("keeps select-all scoped to the tabs the search leaves visible", () => {
     mocks.selectedTabIds = []
     render(<ContextSettingsMenu />)
-    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))
 
     fireEvent.change(screen.getByLabelText("Search tabs..."), {
       target: { value: "current" }
@@ -282,7 +283,7 @@ describe("ContextSettingsMenu", () => {
     }
 
     render(<ContextSettingsMenu />)
-    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))
 
     expect(screen.queryByText("Current page")).not.toBeInTheDocument()
     expect(mocks.setSelectedTabIds).toHaveBeenCalledWith([])
@@ -334,7 +335,7 @@ describe("ContextSettingsMenu", () => {
     }
 
     render(<ContextSettingsMenu />)
-    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+    fireEvent.click(screen.getByRole("button", { name: /^Context: \d+$/ }))
 
     expect(screen.getByText("Current page")).toBeInTheDocument()
     expect(screen.queryByText("Private page")).not.toBeInTheDocument()

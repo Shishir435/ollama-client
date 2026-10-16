@@ -329,7 +329,8 @@
       "toggle_aria_label": "Toggle theme",
       "light": "Light",
       "dark": "Dark",
-      "system": "System"
+      "system": "System",
+      "current_aria_label": "{{theme}}, toggle theme"
     },
     "bug_report": {
       "label": "Bug",
@@ -337,7 +338,7 @@
       "tooltip": "Report a bug or request a feature"
     },
     "settings": {
-      "label": "Setting",
+      "label": "Settings",
       "aria_label": "Extension Settings",
       "tooltip": "Extension Settings"
     },
@@ -777,7 +778,8 @@
       "loading": "Loading...",
       "images": {
         "view": "View {{name}}"
-      }
+      },
+      "list_label": "Conversation"
     },
     "permissions": {
       "disabled_notice": "{{feature}} access is available but currently disabled.",
@@ -807,7 +809,6 @@
       "open_issue": "Open an issue",
       "issue_draft_notice": "Prefilled locally. Review before submitting.",
       "preparing_issue": "Running safe checks…",
-      "open_diagnostics": "Open diagnostics",
       "copy_diagnostics": "Copy diagnostics",
       "diagnostics_copied": "Diagnostics copied",
       "enable_provider": "Enable {{provider}}",
@@ -825,11 +826,6 @@
       "chat_create_failed_description": "Creating the chat failed. Please try again.",
       "message_save_failed_title": "Couldn't send message",
       "message_save_failed_description": "Saving the message failed. Please try again.",
-      "context_preparation_failed_title": "Context preparation failed",
-      "context_preparation_failed_description": "The message was saved, but the assistant could not start because context preparation failed.",
-      "insufficient_page_context": "Insufficient page context. Select at least one tab with relevant extracted content and try again.\n\nTo turn this off, open [{{settingsLabel}}]({{settingsLink}}).",
-      "context_trimmed_title": "Context trimmed",
-      "context_trimmed_description": "Extracted tab context exceeded your limit and was trimmed before sending.",
       "context_retrieval_warning_title": "Context retrieval failed",
       "context_retrieval_warning_description": "Some saved context could not be searched. The answer may be missing relevant information.",
       "interrupted": "Response interrupted",
@@ -850,7 +846,9 @@
       "model_crashed": "{{model}} crashed while loading. Retry; if it repeats, check the {{provider}} log.",
       "ollama_cloud_signin": "{{model}} runs on Ollama's cloud. Sign in with `ollama signin` or pick a local model.",
       "ollama_cloud_unreachable": "Can't reach Ollama for {{model}}. Start Ollama. If it's already running, this cloud model needs `ollama signin`.",
-      "provider_forbidden": "{{provider}} refused this request. Check the API key in provider settings, or the access rules of any proxy in front of it."
+      "provider_forbidden": "{{provider}} refused this request. Check the API key in provider settings, or the access rules of any proxy in front of it.",
+      "image_generation_unsupported": "This Ollama version can't generate images. Choose a chat model, or use an Ollama version that supports image models.",
+      "image_generation_not_offered": "{{provider}} can't generate images with {{model}}. Choose a chat model, or a provider and model that generate images."
     },
     "composer": {
       "rag": "Files",
@@ -870,7 +868,8 @@
         "knowledge": "Search uploaded files",
         "web": "Web search",
         "agent": "Browser agent (experimental)"
-      }
+      },
+      "button_label": "Context: {{count}}"
     },
     "artifacts": {
       "empty": "No artifact content"
@@ -1191,8 +1190,7 @@
       "no_matches": "No matching chats",
       "no_matches_hint": "Try a different title.",
       "session_count": "{{count}} session",
-      "session_count_plural": "{{count}} sessions",
-      "select_session": "Open {{title}}"
+      "session_count_plural": "{{count}} sessions"
     },
     "delete": {
       "aria_label": "Delete chat session: {{title}}",

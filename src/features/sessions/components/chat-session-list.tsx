@@ -1,5 +1,10 @@
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { Virtuoso } from "react-virtuoso"
+import {
+  SCROLL_REGION_FOCUS_CLASS,
+  scrollRegionProps
+} from "@/components/layout/scroll-region"
 import { ChatSessionEmpty } from "@/features/sessions/components/chat-session-empty"
 import { ChatSessionGroupLabel } from "@/features/sessions/components/chat-session-group-label"
 import { ChatSessionItem } from "@/features/sessions/components/chat-session-item"
@@ -27,6 +32,7 @@ export const ChatSessionList = ({
   onDelete,
   onCreate
 }: ChatSessionListProps) => {
+  const { t } = useTranslation()
   const filteredSessions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase()
     if (!normalizedQuery) return sessions
@@ -54,7 +60,8 @@ export const ChatSessionList = ({
   return (
     <Virtuoso
       data={rows}
-      className="scrollbar-none"
+      {...scrollRegionProps(t("sessions.selector.title"))}
+      className={`scrollbar-none ${SCROLL_REGION_FOCUS_CLASS}`}
       itemContent={(_index, row) =>
         row.type === "group" ? (
           <ChatSessionGroupLabel id={row.id} />

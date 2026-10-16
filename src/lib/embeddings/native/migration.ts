@@ -84,6 +84,14 @@ export const nativeEmbeddingCommand = (
     activeCommand?.abort()
     driver?.abort()
   }
+  /**
+   * A new snapshot supersedes the loop driving the old one. Left running, a
+   * loop whose batch failed while this command waited skipped its failure
+   * mark (the snapshot it failed against is gone) and still held the driver
+   * slot when the new rebuild asked for one, so nothing drove it: "building",
+   * total 0, until the next restart.
+   */
+  if (action === "start" || action === "external") driver?.abort()
   return enqueue((run) => runCommand(action, run), signal)
 }
 
@@ -145,12 +153,22 @@ export const requestNativeEmbeddingCommand = async (
 ) => {
   const starting =
     action === "start" || action === "external" || action === "resume"
-  const status = await nativeEmbeddingCommand(
-    action,
-    starting ? undefined : signal
-  )
-  if (starting && status.migration === "building") driveNativeMigration()
-  return status
+  try {
+    const status = await nativeEmbeddingCommand(
+      action,
+      starting ? undefined : signal
+    )
+    if (starting && status.migration === "building") driveNativeMigration()
+    return status
+  } catch (error) {
+    /**
+     * A start that failed before resetting — no external provider, say —
+     * already stopped the loop driving the rebuild it was meant to replace.
+     * That rebuild is still the one on record, so it keeps being driven.
+     */
+    if (starting) await resumeNativeMigration().catch(() => undefined)
+    throw error
+  }
 }
 
 /** Startup: continue a rebuild the worker was running when it stopped. */
