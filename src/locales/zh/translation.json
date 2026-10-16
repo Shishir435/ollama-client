@@ -329,7 +329,8 @@
       "toggle_aria_label": "切换主题",
       "light": "浅色",
       "dark": "深色",
-      "system": "系统"
+      "system": "系统",
+      "current_aria_label": "{{theme}}，切换主题"
     },
     "bug_report": {
       "label": "错误报告",
@@ -744,7 +745,8 @@
       "loading": "加载中...",
       "images": {
         "view": "查看 {{name}}"
-      }
+      },
+      "list_label": "对话"
     },
     "permissions": {
       "disabled_notice": "{{feature}}访问功能可用，但目前未启用。",
@@ -783,7 +785,6 @@
       "diagnostics_copy_failed_description": "剪贴板访问被拒绝。请聚焦此面板后重试。",
       "issue_draft_notice": "已在本地预填。提交前请检查。",
       "preparing_issue": "正在运行安全检查…",
-      "open_diagnostics": "打开诊断",
       "provider_selection_required_title": "选择运行 {{model}} 的位置",
       "provider_selection_required_description": "有多个服务器提供此模型。请在模型菜单中选择一个。",
       "no_model_selected_title": "未选择模型",
@@ -792,11 +793,6 @@
       "chat_create_failed_description": "创建对话失败。请重试。",
       "message_save_failed_title": "无法发送消息",
       "message_save_failed_description": "保存消息失败。请重试。",
-      "context_preparation_failed_title": "上下文准备失败",
-      "context_preparation_failed_description": "消息已保存，但由于上下文准备失败，助手无法开始回答。",
-      "insufficient_page_context": "页面上下文不足。请至少选择一个含有相关提取内容的标签页，然后重试。\n\n如需关闭该行为，请打开 [{{settingsLabel}}]({{settingsLink}})。",
-      "context_trimmed_title": "上下文已裁剪",
-      "context_trimmed_description": "提取的标签页上下文超出了你的限制，已在发送前裁剪。",
       "context_retrieval_warning_title": "上下文检索失败",
       "context_retrieval_warning_description": "无法搜索部分已保存的上下文。回答可能缺少相关信息。",
       "interrupted": "响应已中断",
@@ -817,7 +813,9 @@
       "model_crashed": "{{model}} 在加载时崩溃。请重试；如果反复出现，请检查 {{provider}} 日志。",
       "ollama_cloud_signin": "{{model}} 运行在 Ollama 云端。请使用 `ollama signin` 登录，或选择本地模型。",
       "ollama_cloud_unreachable": "无法连接到 Ollama 来运行 {{model}}。请启动 Ollama。如果它已在运行，此云端模型需要执行 `ollama signin`。",
-      "provider_forbidden": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。"
+      "provider_forbidden": "{{provider}} 拒绝了此请求。请检查提供商设置中的 API 密钥，或其前面代理的访问规则。",
+      "image_generation_unsupported": "此版本的 Ollama 无法生成图像。请选择聊天模型，或使用支持图像模型的 Ollama 版本。",
+      "image_generation_not_offered": "{{provider}} 无法使用 {{model}} 生成图像。请选择聊天模型，或选择能生成图像的提供方和模型。"
     },
     "composer": {
       "rag": "文件",
@@ -837,7 +835,8 @@
         "knowledge": "搜索已上传的文件",
         "web": "网页搜索",
         "agent": "浏览器代理（实验性）"
-      }
+      },
+      "button_label": "上下文：{{count}}"
     },
     "artifacts": {
       "empty": "没有工件内容"
@@ -1191,8 +1190,7 @@
       "no_matches": "没有匹配的聊天",
       "no_matches_hint": "请尝试其他标题。",
       "session_count": "{{count}} 个会话",
-      "session_count_plural": "{{count}} 个会话",
-      "select_session": "打开 {{title}}"
+      "session_count_plural": "{{count}} 个会话"
     },
     "delete": {
       "aria_label": "删除聊天会话: {{title}}",

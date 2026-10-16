@@ -1,5 +1,5 @@
 import { PanelLeftOpen, Search, X } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,8 @@ export const ChatSessionSelector = () => {
   const openSearchDialog = useSearchDialogStore((s) => s.openSearchDialog)
   const [isOpen, setIsOpen] = useState(false)
   const [sessionQuery, setSessionQuery] = useState("")
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const createButtonRef = useRef<HTMLButtonElement>(null)
   const {
     sessions,
     currentSessionId,
@@ -58,6 +60,12 @@ export const ChatSessionSelector = () => {
       <SheetContent
         side="left"
         showCloseButton={false}
+        /**
+         * Land on the search field (or the create button when there is
+         * nothing to search), not the header's first icon: focusing that
+         * opens its tooltip, and the first Escape then only closes the tooltip.
+         */
+        initialFocus={() => searchInputRef.current ?? createButtonRef.current}
         className="w-80 border-r border-sidebar-border bg-surface-sidebar p-0 text-sidebar-foreground">
         <div className="flex h-full flex-col">
           <ChatSessionSidebarHeader
@@ -67,6 +75,7 @@ export const ChatSessionSelector = () => {
 
           <div className="space-y-2 p-2">
             <Button
+              ref={createButtonRef}
               onClick={createSession}
               className="flex h-9 w-full items-center justify-start rounded-control bg-sidebar-primary text-sidebar-primary-foreground transition-colors duration-200 hover:opacity-90">
               {t("sessions.selector.create_new")}
@@ -75,6 +84,7 @@ export const ChatSessionSelector = () => {
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 icon-sm -translate-y-1/2 text-sidebar-foreground/50" />
                 <Input
+                  ref={searchInputRef}
                   type="search"
                   value={sessionQuery}
                   onChange={(event) => setSessionQuery(event.target.value)}

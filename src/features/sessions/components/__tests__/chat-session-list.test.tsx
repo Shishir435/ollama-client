@@ -14,11 +14,14 @@ vi.mock("react-i18next", () => ({
 vi.mock("react-virtuoso", () => ({
   Virtuoso: ({
     data,
-    itemContent
+    itemContent,
+    ...rest
   }: {
     data: unknown[]
     itemContent: (index: number, item: unknown) => React.ReactNode
-  }) => <div>{data.map((item, index) => itemContent(index, item))}</div>
+  } & React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...rest}>{data.map((item, index) => itemContent(index, item))}</div>
+  )
 }))
 
 vi.mock("@/features/sessions/components/chat-session-actions", () => ({
@@ -83,12 +86,13 @@ describe("ChatSessionList", () => {
       />
     )
 
+    const list = screen.getByRole("region", { name: "sessions.selector.title" })
+    expect(list).toHaveAttribute("tabindex", "0")
+    expect(list.className).toContain("focus-visible:outline-2")
     expect(screen.getByText("sessions.groups.today")).toBeInTheDocument()
     expect(screen.getByText("sessions.groups.older")).toBeInTheDocument()
 
-    const todayButton = screen.getAllByRole("button", {
-      name: "sessions.selector.select_session"
-    })[0]
+    const todayButton = screen.getByRole("button", { name: /^today/ })
     expect(todayButton.parentElement).toHaveClass("bg-app-primary-soft")
     fireEvent.click(todayButton)
     expect(onSelect).toHaveBeenCalledWith("today")

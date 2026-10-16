@@ -273,6 +273,7 @@ export const RAGSettings = () => {
           <AccordionContent className="space-y-6 pt-4">
             <SettingsFormField
               focusId="active-knowledge-set"
+              htmlFor="active-knowledge-set-select"
               label={t("knowledge_sets.active_label")}
               description={t("knowledge_sets.active_description")}>
               <Select
@@ -280,7 +281,7 @@ export const RAGSettings = () => {
                 onValueChange={(value) => {
                   if (value !== null) void handleKnowledgeSetChange(value)
                 }}>
-                <SelectTrigger>
+                <SelectTrigger id="active-knowledge-set-select">
                   <SelectValue
                     placeholder={t("knowledge_sets.active_placeholder")}
                   />

@@ -329,7 +329,8 @@
       "toggle_aria_label": "Alternar tema",
       "light": "Claro",
       "dark": "Oscuro",
-      "system": "Sistema"
+      "system": "Sistema",
+      "current_aria_label": "{{theme}}, alternar tema"
     },
     "bug_report": {
       "label": "Error",
@@ -744,7 +745,8 @@
       "loading": "Cargando...",
       "images": {
         "view": "Ver {{name}}"
-      }
+      },
+      "list_label": "Conversación"
     },
     "permissions": {
       "disabled_notice": "El acceso a {{feature}} está disponible, pero está desactivado.",
@@ -783,7 +785,6 @@
       "diagnostics_copy_failed_description": "Se denegó el acceso al portapapeles. Enfoca este panel e inténtalo de nuevo.",
       "issue_draft_notice": "Rellenado localmente. Revísalo antes de enviarlo.",
       "preparing_issue": "Ejecutando comprobaciones seguras…",
-      "open_diagnostics": "Abrir diagnósticos",
       "provider_selection_required_title": "Elige dónde ejecutar {{model}}",
       "provider_selection_required_description": "Más de un servidor ofrece este modelo. Elige uno en el menú de modelos.",
       "no_model_selected_title": "Ningún modelo seleccionado",
@@ -792,11 +793,6 @@
       "chat_create_failed_description": "No se pudo crear el chat. Inténtalo de nuevo.",
       "message_save_failed_title": "No se pudo enviar el mensaje",
       "message_save_failed_description": "No se pudo guardar el mensaje. Inténtalo de nuevo.",
-      "context_preparation_failed_title": "Falló la preparación del contexto",
-      "context_preparation_failed_description": "El mensaje se guardó, pero el asistente no pudo empezar porque falló la preparación del contexto.",
-      "insufficient_page_context": "Contexto de página insuficiente. Selecciona al menos una pestaña con contenido extraído relevante e inténtalo de nuevo.\n\nPara desactivarlo, abre [{{settingsLabel}}]({{settingsLink}}).",
-      "context_trimmed_title": "Contexto recortado",
-      "context_trimmed_description": "El contexto extraído de las pestañas superó tu límite y se recortó antes de enviarlo.",
       "context_retrieval_warning_title": "Falló la recuperación de contexto",
       "context_retrieval_warning_description": "No se pudo buscar en parte del contexto guardado. La respuesta podría omitir información relevante.",
       "interrupted": "Respuesta interrumpida",
@@ -817,7 +813,9 @@
       "model_crashed": "{{model}} falló al cargarse. Vuelve a intentarlo; si se repite, revisa el registro de {{provider}}.",
       "ollama_cloud_signin": "{{model}} se ejecuta en la nube de Ollama. Inicia sesión con `ollama signin` o elige un modelo local.",
       "ollama_cloud_unreachable": "No se puede conectar con Ollama para {{model}}. Inicia Ollama. Si ya está en marcha, este modelo en la nube necesita `ollama signin`.",
-      "provider_forbidden": "{{provider}} rechazó esta solicitud. Revisa la clave API en la configuración del proveedor o las reglas de acceso del proxy que tenga delante."
+      "provider_forbidden": "{{provider}} rechazó esta solicitud. Revisa la clave API en la configuración del proveedor o las reglas de acceso del proxy que tenga delante.",
+      "image_generation_unsupported": "Esta versión de Ollama no puede generar imágenes. Elige un modelo de chat o usa una versión de Ollama compatible con modelos de imagen.",
+      "image_generation_not_offered": "{{provider}} no puede generar imágenes con {{model}}. Elige un modelo de chat, o un proveedor y un modelo que generen imágenes."
     },
     "composer": {
       "rag": "Archivos",
@@ -837,7 +835,8 @@
         "knowledge": "Buscar en archivos subidos",
         "web": "Búsqueda web",
         "agent": "Agente del navegador (experimental)"
-      }
+      },
+      "button_label": "Contexto: {{count}}"
     },
     "artifacts": {
       "empty": "Sin contenido de artefacto"
@@ -1191,8 +1190,7 @@
       "no_matches": "No hay chats coincidentes",
       "no_matches_hint": "Prueba con otro título.",
       "session_count": "{{count}} sesión",
-      "session_count_plural": "{{count}} sesiones",
-      "select_session": "Abrir {{title}}"
+      "session_count_plural": "{{count}} sesiones"
     },
     "delete": {
       "aria_label": "Eliminar sesión de chat: {{title}}",

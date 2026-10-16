@@ -67,9 +67,7 @@ export const StatusCallout = ({
         <div className="space-y-1">
           <p className="text-sm font-medium">{title}</p>
           {description && (
-            <div className="text-xs text-muted-foreground opacity-90">
-              {description}
-            </div>
+            <div className="text-xs text-muted-foreground">{description}</div>
           )}
         </div>
       </div>

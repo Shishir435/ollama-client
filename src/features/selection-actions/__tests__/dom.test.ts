@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
 import {
+  focusSelectionAnchor,
   getRangeRect,
+  pickReturnFocusTarget,
   getSelectionCapture,
   insertAfterContentEditableSelection,
   insertAfterEditableSelection,
@@ -281,5 +283,59 @@ describe("selection action DOM helpers", () => {
 
     expect(getRangeRect(range)).toBeNull()
     div.remove()
+  })
+})
+
+describe("focusSelectionAnchor", () => {
+  it("focuses the element holding the selection and releases it on blur", () => {
+    const paragraph = document.createElement("p")
+    paragraph.textContent = "Tide pools are small basins."
+    document.body.append(paragraph)
+    const range = document.createRange()
+    range.setStart(paragraph.firstChild as Text, 0)
+    range.setEnd(paragraph.firstChild as Text, 4)
+
+    expect(focusSelectionAnchor(range)).toBe(true)
+    expect(document.activeElement).toBe(paragraph)
+    expect(paragraph.getAttribute("tabindex")).toBe("-1")
+
+    paragraph.blur()
+    expect(paragraph.hasAttribute("tabindex")).toBe(false)
+    paragraph.remove()
+  })
+
+  it("keeps an element's own tabindex", () => {
+    const region = document.createElement("div")
+    region.setAttribute("tabindex", "0")
+    region.textContent = "Selectable"
+    document.body.append(region)
+    const range = document.createRange()
+    range.selectNodeContents(region)
+
+    expect(focusSelectionAnchor(range)).toBe(true)
+    region.blur()
+    expect(region.getAttribute("tabindex")).toBe("0")
+    region.remove()
+  })
+
+  it("does nothing without a range", () => {
+    expect(focusSelectionAnchor(undefined)).toBe(false)
+  })
+})
+
+describe("pickReturnFocusTarget", () => {
+  it("treats body focus as nothing to return to", () => {
+    expect(pickReturnFocusTarget({}, document.body, null)).toBeNull()
+  })
+
+  it("prefers the edited field, then the focused control, never the overlay host", () => {
+    const field = document.createElement("textarea")
+    const button = document.createElement("button")
+    const host = document.createElement("div")
+    expect(pickReturnFocusTarget({ editableTarget: field }, button, host)).toBe(
+      field
+    )
+    expect(pickReturnFocusTarget({}, button, host)).toBe(button)
+    expect(pickReturnFocusTarget({}, host, host)).toBeNull()
   })
 })

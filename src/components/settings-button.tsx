@@ -33,7 +33,11 @@ export const SettingsButton = ({
       onClick={() => {
         void openOptionsInTab()
       }}
-      ariaLabel={t("common.settings.aria_label")}
+      /**
+       * With the label shown, it is the name: speech input says what it sees,
+       * and "Extension Settings" does not start with "Settings".
+       */
+      ariaLabel={showText ? undefined : t("common.settings.aria_label")}
       tooltip={t("common.settings.tooltip")}
       label={t("common.settings.label")}
       showLabel={showText}

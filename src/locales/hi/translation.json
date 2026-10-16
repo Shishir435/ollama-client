@@ -329,7 +329,8 @@
       "toggle_aria_label": "थीम टॉगल करें",
       "light": "लाइट",
       "dark": "डार्क",
-      "system": "सिस्टम"
+      "system": "सिस्टम",
+      "current_aria_label": "{{theme}}, थीम टॉगल करें"
     },
     "bug_report": {
       "label": "बग",
@@ -337,7 +338,7 @@
       "tooltip": "बग रिपोर्ट करें या सुविधा का अनुरोध करें"
     },
     "settings": {
-      "label": "सेटिंग",
+      "label": "सेटिंग्स",
       "aria_label": "एक्सटेंशन सेटिंग्स",
       "tooltip": "एक्सटेंशन सेटिंग्स"
     },
@@ -744,7 +745,8 @@
       "loading": "लोड हो रहा है...",
       "images": {
         "view": "{{name}} देखें"
-      }
+      },
+      "list_label": "बातचीत"
     },
     "permissions": {
       "disabled_notice": "{{feature}} की सुविधा उपलब्ध है, लेकिन अभी बंद है।",
@@ -783,7 +785,6 @@
       "diagnostics_copy_failed_description": "क्लिपबोर्ड एक्सेस अस्वीकृत। इस पैनल पर फ़ोकस करें और पुनः प्रयास करें।",
       "issue_draft_notice": "स्थानीय रूप से पहले से भरा गया। भेजने से पहले जाँचें।",
       "preparing_issue": "सुरक्षित जाँच चल रही है…",
-      "open_diagnostics": "डायग्नोस्टिक्स खोलें",
       "provider_selection_required_title": "चुनें कि {{model}} कहाँ चलाना है",
       "provider_selection_required_description": "यह मॉडल एक से ज़्यादा सर्वर पर उपलब्ध है। मॉडल मेनू में एक चुनें।",
       "no_model_selected_title": "कोई मॉडल चयनित नहीं",
@@ -792,11 +793,6 @@
       "chat_create_failed_description": "चैट बनाना विफल रहा। कृपया दोबारा कोशिश करें।",
       "message_save_failed_title": "संदेश भेजा नहीं जा सका",
       "message_save_failed_description": "संदेश सहेजना विफल रहा। कृपया दोबारा कोशिश करें।",
-      "context_preparation_failed_title": "संदर्भ तैयार करना विफल",
-      "context_preparation_failed_description": "संदेश सहेज लिया गया, लेकिन संदर्भ तैयार न होने के कारण असिस्टेंट शुरू नहीं हो सका।",
-      "insufficient_page_context": "पर्याप्त पृष्ठ संदर्भ नहीं है। प्रासंगिक निकाली गई सामग्री वाला कम से कम एक टैब चुनें और दोबारा कोशिश करें।\n\nइसे बंद करने के लिए [{{settingsLabel}}]({{settingsLink}}) खोलें।",
-      "context_trimmed_title": "संदर्भ छाँटा गया",
-      "context_trimmed_description": "निकाला गया टैब संदर्भ आपकी सीमा से अधिक था और भेजने से पहले छाँट दिया गया।",
       "context_retrieval_warning_title": "संदर्भ प्राप्त करना विफल",
       "context_retrieval_warning_description": "कुछ सहेजे गए संदर्भ में खोज नहीं हो सकी। उत्तर में प्रासंगिक जानकारी छूट सकती है।",
       "interrupted": "उत्तर बाधित हो गया",
@@ -817,7 +813,9 @@
       "model_crashed": "{{model}} लोड होते समय क्रैश हो गया। फिर से आज़माएँ; दोबारा हो तो {{provider}} लॉग जाँचें।",
       "ollama_cloud_signin": "{{model}} Ollama के क्लाउड पर चलता है। `ollama signin` से साइन इन करें या कोई स्थानीय मॉडल चुनें।",
       "ollama_cloud_unreachable": "{{model}} के लिए Ollama तक नहीं पहुँच सके। Ollama शुरू करें। अगर यह पहले से चल रहा है, तो इस क्लाउड मॉडल के लिए `ollama signin` ज़रूरी है।",
-      "provider_forbidden": "{{provider}} ने यह अनुरोध अस्वीकार कर दिया। प्रदाता सेटिंग्स में API कुंजी जाँचें, या इसके आगे लगे किसी प्रॉक्सी के एक्सेस नियम।"
+      "provider_forbidden": "{{provider}} ने यह अनुरोध अस्वीकार कर दिया। प्रदाता सेटिंग्स में API कुंजी जाँचें, या इसके आगे लगे किसी प्रॉक्सी के एक्सेस नियम।",
+      "image_generation_unsupported": "Ollama का यह संस्करण इमेज नहीं बना सकता। कोई चैट मॉडल चुनें, या Ollama का ऐसा संस्करण इस्तेमाल करें जो इमेज मॉडल सपोर्ट करता हो।",
+      "image_generation_not_offered": "{{provider}} {{model}} से इमेज नहीं बना सकता। कोई चैट मॉडल चुनें, या ऐसा प्रोवाइडर और मॉडल चुनें जो इमेज बनाते हों।"
     },
     "composer": {
       "rag": "फ़ाइलें",
@@ -837,7 +835,8 @@
         "knowledge": "अपलोड की गई फ़ाइलें खोजें",
         "web": "वेब खोज",
         "agent": "ब्राउज़र एजेंट (प्रायोगिक)"
-      }
+      },
+      "button_label": "संदर्भ: {{count}}"
     },
     "artifacts": {
       "empty": "कोई आर्टिफ़ैक्ट सामग्री नहीं"
@@ -1191,8 +1190,7 @@
       "no_matches": "कोई मेल खाती चैट नहीं",
       "no_matches_hint": "कोई दूसरा शीर्षक आज़माएँ।",
       "session_count": "{{count}} सेशन",
-      "session_count_plural": "{{count}} सेशन",
-      "select_session": "{{title}} खोलें"
+      "session_count_plural": "{{count}} सेशन"
     },
     "delete": {
       "aria_label": "चैट सेशन हटाएँ: {{title}}",

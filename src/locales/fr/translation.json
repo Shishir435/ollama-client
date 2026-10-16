@@ -329,7 +329,8 @@
       "toggle_aria_label": "Basculer le thème",
       "light": "Clair",
       "dark": "Sombre",
-      "system": "Système"
+      "system": "Système",
+      "current_aria_label": "{{theme}}, basculer le thème"
     },
     "bug_report": {
       "label": "Bogue",
@@ -337,7 +338,7 @@
       "tooltip": "Signaler un bogue ou demander une fonctionnalité"
     },
     "settings": {
-      "label": "Paramètre",
+      "label": "Paramètres",
       "aria_label": "Paramètres de l'Extension",
       "tooltip": "Paramètres de l'Extension"
     },
@@ -744,7 +745,8 @@
       "loading": "Chargement...",
       "images": {
         "view": "Afficher {{name}}"
-      }
+      },
+      "list_label": "Conversation"
     },
     "permissions": {
       "disabled_notice": "L’accès à {{feature}} est disponible, mais actuellement désactivé.",
@@ -783,7 +785,6 @@
       "diagnostics_copy_failed_description": "L'accès au presse-papiers a été refusé. Active ce panneau et réessaie.",
       "issue_draft_notice": "Prérempli localement. Vérifiez avant l’envoi.",
       "preparing_issue": "Exécution des vérifications sûres…",
-      "open_diagnostics": "Ouvrir le diagnostic",
       "provider_selection_required_title": "Choisissez où exécuter {{model}}",
       "provider_selection_required_description": "Plusieurs serveurs proposent ce modèle. Choisissez-en un dans le menu des modèles.",
       "no_model_selected_title": "Aucun modèle sélectionné",
@@ -792,11 +793,6 @@
       "chat_create_failed_description": "La création de la discussion a échoué. Réessaie, s'il te plaît.",
       "message_save_failed_title": "Impossible d'envoyer le message",
       "message_save_failed_description": "L'enregistrement du message a échoué. Réessaie, s'il te plaît.",
-      "context_preparation_failed_title": "Échec de la préparation du contexte",
-      "context_preparation_failed_description": "Le message a été enregistré, mais l'assistant n'a pas pu démarrer car la préparation du contexte a échoué.",
-      "insufficient_page_context": "Contexte de page insuffisant. Sélectionne au moins un onglet dont le contenu extrait est pertinent, puis réessaie.\n\nPour désactiver ce comportement, ouvre [{{settingsLabel}}]({{settingsLink}}).",
-      "context_trimmed_title": "Contexte réduit",
-      "context_trimmed_description": "Le contexte extrait des onglets dépassait ta limite et a été réduit avant l'envoi.",
       "context_retrieval_warning_title": "Échec de la récupération du contexte",
       "context_retrieval_warning_description": "Une partie du contexte enregistré n’a pas pu être recherchée. Des informations pertinentes peuvent manquer dans la réponse.",
       "interrupted": "Réponse interrompue",
@@ -817,7 +813,9 @@
       "model_crashed": "{{model}} a planté pendant le chargement. Réessayez ; si cela se reproduit, consultez le journal de {{provider}}.",
       "ollama_cloud_signin": "{{model}} s’exécute sur le cloud d’Ollama. Connectez-vous avec `ollama signin` ou choisissez un modèle local.",
       "ollama_cloud_unreachable": "Impossible de joindre Ollama pour {{model}}. Démarrez Ollama. S'il tourne déjà, ce modèle cloud nécessite `ollama signin`.",
-      "provider_forbidden": "{{provider}} a refusé cette requête. Vérifiez la clé API dans les paramètres du fournisseur, ou les règles d’accès du proxy placé devant."
+      "provider_forbidden": "{{provider}} a refusé cette requête. Vérifiez la clé API dans les paramètres du fournisseur, ou les règles d’accès du proxy placé devant.",
+      "image_generation_unsupported": "Cette version d’Ollama ne peut pas générer d’images. Choisissez un modèle de chat ou utilisez une version d’Ollama qui prend en charge les modèles d’image.",
+      "image_generation_not_offered": "{{provider}} ne peut pas générer d’images avec {{model}}. Choisissez un modèle de chat, ou un fournisseur et un modèle qui génèrent des images."
     },
     "composer": {
       "rag": "Fichiers",
@@ -837,7 +835,8 @@
         "knowledge": "Rechercher dans les fichiers importés",
         "web": "Recherche web",
         "agent": "Agent du navigateur (expérimental)"
-      }
+      },
+      "button_label": "Contexte : {{count}}"
     },
     "artifacts": {
       "empty": "Aucun contenu d'artefact"
@@ -1191,8 +1190,7 @@
       "no_matches": "Aucun chat correspondant",
       "no_matches_hint": "Essayez un autre titre.",
       "session_count": "{{count}} session",
-      "session_count_plural": "{{count}} sessions",
-      "select_session": "Ouvrir {{title}}"
+      "session_count_plural": "{{count}} sessions"
     },
     "delete": {
       "aria_label": "Supprimer la session de chat : {{title}}",

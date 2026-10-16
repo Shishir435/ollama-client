@@ -3,6 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { TooltipActionButton } from "@/components/actions"
+import {
+  SCROLL_REGION_FOCUS_CLASS,
+  scrollRegionProps
+} from "@/components/layout/scroll-region"
 import type { PermissionResumeResult } from "@/features/chat/lib/resume-permission-turn"
 import { useSetting } from "@/hooks/use-setting"
 import { cn } from "@/lib/class-names"
@@ -142,7 +146,8 @@ export const ChatMessageList = ({
         }}
         followOutput={isStreaming && !userDetachedFromBottom ? "auto" : false}
         alignToBottom={false}
-        className="scrollbar-none"
+        {...scrollRegionProps(t("chat.message.list_label"))}
+        className={`scrollbar-none ${SCROLL_REGION_FOCUS_CLASS}`}
         // Treat "within ~a few lines of the end" as at-bottom so the
         // scroll-to-bottom button doesn't show when a small gap remains.
         atBottomThreshold={120}

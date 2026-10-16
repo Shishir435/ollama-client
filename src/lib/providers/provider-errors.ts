@@ -149,6 +149,10 @@ const MODEL_NOT_LOADED_REASON =
   "The model isn't loaded. Load it in the provider, then retry."
 const MODEL_LOADING_REASON =
   "The model is still loading. Wait a moment, then retry."
+const IMAGE_GENERATION_UNSUPPORTED_REASON =
+  "This Ollama version can't generate images. Choose a chat model, or use an Ollama version that supports image models."
+const IMAGE_GENERATION_NOT_OFFERED_REASON =
+  "Image generation isn't available here. Choose a chat model, or a provider and model that generate images."
 const INPUT_UNSUPPORTED_REASON =
   "The model can't handle part of this request, such as images or tools. Remove them or pick another model."
 
@@ -257,6 +261,42 @@ export const classifyProviderError = (
       code: "OLC-MODEL-LOADING",
       reason: MODEL_LOADING_REASON,
       recoveryAction: "wait-retry"
+    }
+  }
+  /**
+   * Ollama dropped image generation and refuses an image model with this
+   * text and a 400. Read as unsupported input it told the user to remove
+   * images they never attached; the model itself is what can't run.
+   */
+  if (
+    includesAny(value, [
+      /image generation models? (?:are|is) not (?:currently )?supported/i
+    ])
+  ) {
+    return {
+      code: "OLC-INPUT-UNSUPPORTED",
+      reason: IMAGE_GENERATION_UNSUPPORTED_REASON,
+      recoveryAction: "choose-model",
+      messageKey: "chat.errors.image_generation_unsupported"
+    }
+  }
+  /**
+   * A server, backend or model that has no image operation at all — olc's
+   * 501 for a backend without one, its 400 when the Codex provider lost the
+   * capability or no Codex model can drive it. The generic unsupported-input
+   * copy would ask the user to remove images.
+   */
+  if (
+    includesAny(value, [
+      /does(?: not|n't) support image generation/i,
+      /no model that can drive image generation/i
+    ])
+  ) {
+    return {
+      code: "OLC-INPUT-UNSUPPORTED",
+      reason: IMAGE_GENERATION_NOT_OFFERED_REASON,
+      recoveryAction: "choose-model",
+      messageKey: "chat.errors.image_generation_not_offered"
     }
   }
   if (
@@ -654,6 +694,13 @@ export const applyProviderErrorContext = (
   } else if (error.messageKey === "chat.errors.ollama_cloud_unreachable") {
     error.userMessage = `Can't reach Ollama for ${error.model}. Start Ollama. If it's already running, this cloud model needs \`ollama signin\`.`
   } else if (error.status) {
+    /**
+     * A reason that came with its own key names the cause more sharply than
+     * the code's generic reason does.
+     */
+    const keyedReason = classification.messageKey
+      ? classification.reason
+      : undefined
     error.userMessage = providerErrorUserMessage(error.status, {
       retryAfterMs: error.retryAfterMs,
       providerName: error.providerName,
@@ -662,7 +709,7 @@ export const applyProviderErrorContext = (
       reason:
         error.status === 413
           ? undefined
-          : reasonForCode(error.code) || classification.reason,
+          : keyedReason || reasonForCode(error.code) || classification.reason,
       ollama
     })
   } else if (!error.userMessage) {

@@ -36,17 +36,17 @@
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
+  --muted-foreground: oklch(0.48 0.016 285.938);
   --state-hover: oklch(0.21 0.006 285.885 / 7%);
   --state-active: oklch(0.21 0.006 285.885 / 12%);
   --state-selected: oklch(0.21 0.006 285.885 / 10%);
   --surface-sunken: oklch(0.21 0.006 285.885 / 5%);
   --surface-overlay: oklch(1 0 0 / 85%);
   --scrim: oklch(0.141 0.005 285.823 / 45%);
-  --foreground-tertiary: oklch(0.62 0.014 286);
+  --foreground-tertiary: oklch(0.515 0.014 286);
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: oklch(0.5 0.2 27.325);
   --destructive-foreground: hsl(0 0% 98%);
 
   --status-success: hsl(142 72% 33%);
@@ -55,10 +55,10 @@
   --status-warning-foreground: hsl(28 84% 18%);
   --status-info: hsl(214 84% 52%);
   --status-info-foreground: hsl(0 0% 98%);
-  --status-danger: hsl(0 84.2% 60.2%);
+  --status-danger: hsl(0 72% 42%);
   --status-danger-foreground: hsl(0 0% 98%);
-  --tint-danger: oklch(0.577 0.245 27.325 / 10%);
-  --tint-danger-hover: oklch(0.577 0.245 27.325 / 20%);
+  --tint-danger: oklch(0.5 0.2 27.325 / 10%);
+  --tint-danger-hover: oklch(0.5 0.2 27.325 / 20%);
   --tint-warning: hsl(45 93% 47% / 12%);
   --tint-info: hsl(214 84% 52% / 10%);
   --tint-success: hsl(142 72% 33% / 10%);
@@ -66,17 +66,17 @@
   --tint-accent-strong: oklch(0.21 0.006 285.885 / 30%);
   --primary-hover: oklch(0.21 0.006 285.885 / 80%);
   --status-success-hover: hsl(142 72% 33% / 90%);
-  --status-danger-hover: hsl(0 84.2% 60.2% / 90%);
+  --status-danger-hover: hsl(0 72% 42% / 90%);
   --surface-tooltip-key: oklch(1 0 0 / 20%);
 
   --stroke-subtle: oklch(0.92 0.004 286.32 / 50%);
   --border: oklch(0.92 0.004 286.32);
   --stroke-strong: oklch(0.87 0.006 286.32);
-  --stroke-invalid: oklch(0.577 0.245 27.325);
+  --stroke-invalid: oklch(0.5 0.2 27.325);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
   --focus-ring: oklch(0.705 0.015 286.067 / 30%);
-  --invalid-ring: oklch(0.577 0.245 27.325 / 20%);
+  --invalid-ring: oklch(0.5 0.2 27.325 / 20%);
   --surface-ring: oklch(0.141 0.005 285.823 / 10%);
 
   --app-primary: var(--primary);
@@ -130,7 +130,7 @@
   --surface-sunken: oklch(1 0 0 / 6%);
   --surface-overlay: oklch(0.172 0.01 235 / 85%);
   --scrim: oklch(0 0 0 / 70%);
-  --foreground-tertiary: oklch(0.6 0.014 286);
+  --foreground-tertiary: oklch(0.66 0.014 286);
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
@@ -142,8 +142,8 @@
   --status-warning-foreground: hsl(0 0% 8%);
   --status-info: hsl(213 94% 68%);
   --status-info-foreground: hsl(0 0% 8%);
-  --status-danger: hsl(0 75% 57%);
-  --status-danger-foreground: hsl(0 0% 98%);
+  --status-danger: hsl(0 90% 68%);
+  --status-danger-foreground: hsl(0 0% 8%);
   --tint-danger: oklch(0.704 0.191 22.216 / 18%);
   --tint-danger-hover: oklch(0.704 0.191 22.216 / 30%);
   --tint-warning: hsl(45 95% 58% / 18%);
@@ -153,7 +153,7 @@
   --tint-accent-strong: oklch(0.92 0.004 286.32 / 30%);
   --primary-hover: oklch(0.92 0.004 286.32 / 80%);
   --status-success-hover: hsl(142 67% 45% / 90%);
-  --status-danger-hover: hsl(0 75% 57% / 90%);
+  --status-danger-hover: hsl(0 90% 68% / 90%);
   --surface-tooltip-key: oklch(0.128 0.01 235 / 10%);
 
   --stroke-subtle: oklch(1 0 0 / 5%);

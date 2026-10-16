@@ -339,7 +339,8 @@
       "toggle_aria_label": "Переключить тему",
       "light": "Светлая",
       "dark": "Темная",
-      "system": "Системная"
+      "system": "Системная",
+      "current_aria_label": "{{theme}}, переключить тему"
     },
     "bug_report": {
       "label": "Баг",
@@ -764,7 +765,8 @@
       "loading": "Загрузка...",
       "images": {
         "view": "Посмотреть {{name}}"
-      }
+      },
+      "list_label": "Переписка"
     },
     "permissions": {
       "disabled_notice": "Доступ к функции «{{feature}}» поддерживается, но сейчас отключён.",
@@ -803,7 +805,6 @@
       "diagnostics_copy_failed_description": "Доступ к буферу обмена отклонён. Сделайте панель активной и повторите.",
       "issue_draft_notice": "Заполнено локально. Проверьте перед отправкой.",
       "preparing_issue": "Выполняются безопасные проверки…",
-      "open_diagnostics": "Открыть диагностику",
       "provider_selection_required_title": "Выберите, где запускать {{model}}",
       "provider_selection_required_description": "Эту модель предлагают несколько серверов. Выберите один в меню моделей.",
       "no_model_selected_title": "Модель не выбрана",
@@ -812,11 +813,6 @@
       "chat_create_failed_description": "Не удалось создать чат. Попробуйте снова.",
       "message_save_failed_title": "Не удалось отправить сообщение",
       "message_save_failed_description": "Не удалось сохранить сообщение. Попробуйте снова.",
-      "context_preparation_failed_title": "Не удалось подготовить контекст",
-      "context_preparation_failed_description": "Сообщение сохранено, но помощник не смог начать работу из-за сбоя подготовки контекста.",
-      "insufficient_page_context": "Недостаточно контекста страницы. Выберите хотя бы одну вкладку с подходящим извлечённым содержимым и попробуйте снова.\n\nЧтобы отключить это, откройте [{{settingsLabel}}]({{settingsLink}}).",
-      "context_trimmed_title": "Контекст сокращён",
-      "context_trimmed_description": "Извлечённый контекст вкладок превысил ваш лимит и был сокращён перед отправкой.",
       "context_retrieval_warning_title": "Не удалось получить контекст",
       "context_retrieval_warning_description": "Не удалось выполнить поиск в части сохранённого контекста. В ответе может не хватать важной информации.",
       "interrupted": "Ответ прерван",
@@ -837,7 +833,9 @@
       "model_crashed": "{{model}}: сбой при загрузке. Повторите попытку; если сбой повторится, проверьте журнал {{provider}}.",
       "ollama_cloud_signin": "{{model}} работает в облаке Ollama. Войдите с помощью `ollama signin` или выберите локальную модель.",
       "ollama_cloud_unreachable": "Не удаётся подключиться к Ollama для {{model}}. Запустите Ollama. Если она уже запущена, этой облачной модели нужен `ollama signin`.",
-      "provider_forbidden": "{{provider}} отклонил этот запрос. Проверьте API-ключ в настройках провайдера или правила доступа прокси перед ним."
+      "provider_forbidden": "{{provider}} отклонил этот запрос. Проверьте API-ключ в настройках провайдера или правила доступа прокси перед ним.",
+      "image_generation_unsupported": "Эта версия Ollama не умеет генерировать изображения. Выберите чат-модель или используйте версию Ollama с поддержкой моделей изображений.",
+      "image_generation_not_offered": "{{provider}} не может генерировать изображения с {{model}}. Выберите чат-модель или провайдера и модель, которые генерируют изображения."
     },
     "composer": {
       "rag": "Файлы",
@@ -857,7 +855,8 @@
         "knowledge": "Искать в загруженных файлах",
         "web": "Веб-поиск",
         "agent": "Браузерный агент (экспериментально)"
-      }
+      },
+      "button_label": "Контекст: {{count}}"
     },
     "artifacts": {
       "empty": "Нет содержимого артефакта"
@@ -1211,8 +1210,7 @@
       "no_matches": "Подходящих чатов нет",
       "no_matches_hint": "Попробуйте другое название.",
       "session_count": "{{count}} сессия",
-      "session_count_plural": "{{count}} сессий",
-      "select_session": "Открыть {{title}}"
+      "session_count_plural": "{{count}} сессий"
     },
     "delete": {
       "aria_label": "Удалить сессию чата: {{title}}",

@@ -106,7 +106,9 @@ export const ContextSettingsMenu = ({
                 variant="ghost"
                 size="icon"
                 className="shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground"
-                aria-label={t("tabs.context")}
+                aria-label={t("chat.context.button_label", {
+                  count: contextCount
+                })}
               />
             }
           />

@@ -110,6 +110,18 @@ const ModelConnectionNotice = ({
   )
 }
 
+/**
+ * Onboarding opens on its own, not from a control, so closing it would hand
+ * focus back to `<body>` and leave a keyboard user nowhere. The composer is
+ * where the next action is; before a chat exists, the panel's first control.
+ */
+const onboardingFinalFocus = (): HTMLElement | boolean =>
+  document.getElementById("chat-input-textarea") ??
+  document.querySelector<HTMLElement>(
+    "#app button:not([disabled]), #app a[href]"
+  ) ??
+  true
+
 export const FirstRunPermissionsDialog = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -327,7 +339,7 @@ export const FirstRunPermissionsDialog = () => {
         onOpenChange={(next) => {
           setOpen(next)
         }}>
-        <DialogContent>
+        <DialogContent finalFocus={onboardingFinalFocus}>
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div className="flex size-9 items-center justify-center rounded-control bg-app-primary-soft text-app-agent">
@@ -467,7 +479,9 @@ export const FirstRunPermissionsDialog = () => {
                   <Select
                     value={modelId}
                     onValueChange={(value) => setModelId(value ?? "")}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger
+                      className="w-full"
+                      aria-label={t("onboarding.model.title")}>
                       <SelectValue
                         placeholder={t("onboarding.model.placeholder")}
                       />

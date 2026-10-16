@@ -329,7 +329,8 @@
       "toggle_aria_label": "テーマを切り替える",
       "light": "ライト",
       "dark": "ダーク",
-      "system": "システム"
+      "system": "システム",
+      "current_aria_label": "{{theme}}、テーマを切り替える"
     },
     "bug_report": {
       "label": "バグ",
@@ -744,7 +745,8 @@
       "loading": "読み込み中...",
       "images": {
         "view": "{{name}} を表示"
-      }
+      },
+      "list_label": "会話"
     },
     "permissions": {
       "disabled_notice": "{{feature}}へのアクセスは利用できますが、現在無効です。",
@@ -783,7 +785,6 @@
       "diagnostics_copy_failed_description": "クリップボードへのアクセスが拒否されました。このパネルをフォーカスして再試行してください。",
       "issue_draft_notice": "ローカルで入力済みです。送信前に確認してください。",
       "preparing_issue": "安全なチェックを実行中…",
-      "open_diagnostics": "診断を開く",
       "provider_selection_required_title": "{{model}} の実行先を選択",
       "provider_selection_required_description": "このモデルは複数のサーバーで提供されています。モデルメニューで 1 つ選んでください。",
       "no_model_selected_title": "モデルが選択されていません",
@@ -792,11 +793,6 @@
       "chat_create_failed_description": "チャットの作成に失敗しました。もう一度お試しください。",
       "message_save_failed_title": "メッセージを送信できませんでした",
       "message_save_failed_description": "メッセージの保存に失敗しました。もう一度お試しください。",
-      "context_preparation_failed_title": "コンテキストの準備に失敗しました",
-      "context_preparation_failed_description": "メッセージは保存されましたが、コンテキストの準備に失敗したためアシスタントを開始できませんでした。",
-      "insufficient_page_context": "ページコンテキストが不足しています。関連する抽出済みコンテンツのあるタブを1つ以上選択して、もう一度お試しください。\n\nこの動作を無効にするには、[{{settingsLabel}}]({{settingsLink}}) を開いてください。",
-      "context_trimmed_title": "コンテキストを短縮しました",
-      "context_trimmed_description": "抽出したタブのコンテキストが上限を超えたため、送信前に短縮しました。",
       "context_retrieval_warning_title": "コンテキストの取得に失敗しました",
       "context_retrieval_warning_description": "保存済みのコンテキストの一部を検索できませんでした。回答に関連情報が含まれない可能性があります。",
       "interrupted": "応答が中断されました",
@@ -817,7 +813,9 @@
       "model_crashed": "{{model}} が読み込み中にクラッシュしました。再試行し、繰り返す場合は {{provider}} のログを確認してください。",
       "ollama_cloud_signin": "{{model}} は Ollama のクラウドで動作します。`ollama signin` でサインインするか、ローカルモデルを選んでください。",
       "ollama_cloud_unreachable": "{{model}} 用の Ollama に接続できません。Ollama を起動してください。すでに起動している場合、このクラウドモデルには `ollama signin` が必要です。",
-      "provider_forbidden": "{{provider}} がこのリクエストを拒否しました。プロバイダー設定の API キー、または前段にあるプロキシのアクセスルールを確認してください。"
+      "provider_forbidden": "{{provider}} がこのリクエストを拒否しました。プロバイダー設定の API キー、または前段にあるプロキシのアクセスルールを確認してください。",
+      "image_generation_unsupported": "このバージョンの Ollama では画像を生成できません。チャットモデルを選ぶか、画像モデルに対応した Ollama のバージョンを使用してください。",
+      "image_generation_not_offered": "{{provider}} は {{model}} で画像を生成できません。チャットモデルを選ぶか、画像を生成できるプロバイダーとモデルを選んでください。"
     },
     "composer": {
       "rag": "ファイル",
@@ -837,7 +835,8 @@
         "knowledge": "アップロードしたファイルを検索",
         "web": "ウェブ検索",
         "agent": "ブラウザエージェント（試験運用）"
-      }
+      },
+      "button_label": "コンテキスト：{{count}}"
     },
     "artifacts": {
       "empty": "アーティファクトの内容がありません"
@@ -1191,8 +1190,7 @@
       "no_matches": "一致するチャットはありません",
       "no_matches_hint": "別のタイトルを試してください。",
       "session_count": "{{count}} セッション",
-      "session_count_plural": "{{count}} セッション",
-      "select_session": "{{title}} を開く"
+      "session_count_plural": "{{count}} セッション"
     },
     "delete": {
       "aria_label": "チャットセッションを削除: {{title}}",

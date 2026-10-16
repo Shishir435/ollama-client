@@ -329,7 +329,8 @@
       "toggle_aria_label": "Thema umschalten",
       "light": "Hell",
       "dark": "Dunkel",
-      "system": "System"
+      "system": "System",
+      "current_aria_label": "{{theme}}, Thema umschalten"
     },
     "bug_report": {
       "label": "Fehler",
@@ -337,7 +338,7 @@
       "tooltip": "Einen Fehler melden oder eine Funktion anfordern"
     },
     "settings": {
-      "label": "Einstellung",
+      "label": "Einstellungen",
       "aria_label": "Erweiterungseinstellungen",
       "tooltip": "Erweiterungseinstellungen"
     },
@@ -744,7 +745,8 @@
       "loading": "Lädt...",
       "images": {
         "view": "{{name}} anzeigen"
-      }
+      },
+      "list_label": "Unterhaltung"
     },
     "permissions": {
       "disabled_notice": "Der Zugriff auf {{feature}} ist verfügbar, aber derzeit deaktiviert.",
@@ -783,7 +785,6 @@
       "diagnostics_copy_failed_description": "Zugriff auf die Zwischenablage verweigert. Fokussiere dieses Panel und versuche es erneut.",
       "issue_draft_notice": "Lokal vorausgefüllt. Vor dem Absenden prüfen.",
       "preparing_issue": "Sichere Prüfungen laufen…",
-      "open_diagnostics": "Diagnose öffnen",
       "provider_selection_required_title": "Wählen Sie, wo {{model}} laufen soll",
       "provider_selection_required_description": "Mehrere Server bieten dieses Modell an. Wählen Sie einen im Modellmenü.",
       "no_model_selected_title": "Kein Modell ausgewählt",
@@ -792,11 +793,6 @@
       "chat_create_failed_description": "Das Erstellen des Chats ist fehlgeschlagen. Bitte versuche es erneut.",
       "message_save_failed_title": "Nachricht konnte nicht gesendet werden",
       "message_save_failed_description": "Das Speichern der Nachricht ist fehlgeschlagen. Bitte versuche es erneut.",
-      "context_preparation_failed_title": "Kontextvorbereitung fehlgeschlagen",
-      "context_preparation_failed_description": "Die Nachricht wurde gespeichert, aber der Assistent konnte nicht starten, weil die Kontextvorbereitung fehlgeschlagen ist.",
-      "insufficient_page_context": "Nicht genügend Seitenkontext. Wähle mindestens einen Tab mit relevantem extrahierten Inhalt und versuche es erneut.\n\nUm das abzuschalten, öffne [{{settingsLabel}}]({{settingsLink}}).",
-      "context_trimmed_title": "Kontext gekürzt",
-      "context_trimmed_description": "Der extrahierte Tab-Kontext hat dein Limit überschritten und wurde vor dem Senden gekürzt.",
       "context_retrieval_warning_title": "Kontextabruf fehlgeschlagen",
       "context_retrieval_warning_description": "Ein Teil des gespeicherten Kontexts konnte nicht durchsucht werden. Der Antwort könnten relevante Informationen fehlen.",
       "interrupted": "Antwort unterbrochen",
@@ -817,7 +813,9 @@
       "model_crashed": "{{model}} ist beim Laden abgestürzt. Versuche es erneut; tritt es wieder auf, prüfe das Protokoll von {{provider}}.",
       "ollama_cloud_signin": "{{model}} läuft in der Cloud von Ollama. Melde dich mit `ollama signin` an oder wähle ein lokales Modell.",
       "ollama_cloud_unreachable": "Ollama ist für {{model}} nicht erreichbar. Starte Ollama. Falls es schon läuft, braucht dieses Cloud-Modell `ollama signin`.",
-      "provider_forbidden": "{{provider}} hat diese Anfrage abgelehnt. Prüfen Sie den API-Schlüssel in den Anbietereinstellungen oder die Zugriffsregeln eines vorgeschalteten Proxys."
+      "provider_forbidden": "{{provider}} hat diese Anfrage abgelehnt. Prüfen Sie den API-Schlüssel in den Anbietereinstellungen oder die Zugriffsregeln eines vorgeschalteten Proxys.",
+      "image_generation_unsupported": "Diese Ollama-Version kann keine Bilder erzeugen. Wähle ein Chat-Modell oder nutze eine Ollama-Version, die Bildmodelle unterstützt.",
+      "image_generation_not_offered": "{{provider}} kann mit {{model}} keine Bilder erzeugen. Wähle ein Chat-Modell oder einen Anbieter und ein Modell, die Bilder erzeugen."
     },
     "composer": {
       "rag": "Dateien",
@@ -837,7 +835,8 @@
         "knowledge": "Hochgeladene Dateien durchsuchen",
         "web": "Websuche",
         "agent": "Browser-Agent (experimentell)"
-      }
+      },
+      "button_label": "Kontext: {{count}}"
     },
     "artifacts": {
       "empty": "Kein Artefakt-Inhalt"
@@ -1191,8 +1190,7 @@
       "no_matches": "Keine passenden Chats",
       "no_matches_hint": "Versuchen Sie einen anderen Titel.",
       "session_count": "{{count}} Sitzung",
-      "session_count_plural": "{{count}} Sitzungen",
-      "select_session": "{{title}} öffnen"
+      "session_count_plural": "{{count}} Sitzungen"
     },
     "delete": {
       "aria_label": "Chat-Sitzung löschen: {{title}}",

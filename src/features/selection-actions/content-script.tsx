@@ -10,7 +10,9 @@ import {
   watchSystemTheme
 } from "@/features/selection-actions/content-settings"
 import {
+  focusSelectionAnchor,
   getSelectionCapture,
+  pickReturnFocusTarget,
   type SelectionCapture
 } from "@/features/selection-actions/dom"
 import { buildShadowStyles } from "@/features/selection-actions/overlay-shadow-styles"
@@ -153,8 +155,12 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         container.style.display = "none"
         panelActiveRef.current = false
         if (wasShown) root?.render(null)
-        if (focusWasInside && returnFocusTarget?.isConnected) {
-          returnFocusTarget.focus({ preventScroll: true })
+        if (focusWasInside) {
+          if (returnFocusTarget?.isConnected) {
+            returnFocusTarget.focus({ preventScroll: true })
+          } else {
+            focusSelectionAnchor(captureRef.current?.range)
+          }
         }
       }
 
@@ -187,12 +193,11 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
           ...capture,
           range: capture.range?.cloneRange()
         }
-        const active = document.activeElement
-        returnFocusTarget =
-          capture.editableTarget ??
-          (active instanceof HTMLElement && active !== ui.shadowHost
-            ? active
-            : null)
+        returnFocusTarget = pickReturnFocusTarget(
+          capture,
+          document.activeElement,
+          ui.shadowHost
+        )
         selectionKey++
         renderApp()
       }

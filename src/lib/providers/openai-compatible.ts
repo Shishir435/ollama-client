@@ -98,6 +98,13 @@ const extractOpenAIOutputParts = (
 const MISSING_ENDPOINT_ERROR =
   /unexpected endpoint|unknown (?:endpoint|route|path)|no such (?:endpoint|route)|route not found|endpoint not found/i
 
+/** Shortest output window a client-side generation speed is computed over. */
+const MIN_MEASURABLE_EVAL_MS = 100
+
+/** A 501 body saying the server has no image operation, as olc's does. */
+const IMAGE_GENERATION_REFUSED =
+  /does(?: not|n't) support image generation|"UnsupportedOperation"/i
+
 /**
  * The error a successful-status image response carries instead of `data`, or
  * undefined when the body is not an error envelope. An error object without a
@@ -657,7 +664,17 @@ export class OpenAICompatibleProvider implements LLMProvider {
       })
     )
 
-    const missingEndpoint = [404, 405, 501].includes(response.status)
+    /**
+     * A 501 that says image generation itself is unavailable is an answer,
+     * not a missing route: olc sends it when its backend has no image
+     * operation, and retrying the prompt as chat would have a text model
+     * answer an image request in words.
+     */
+    const refusedOperation =
+      response.status === 501 &&
+      IMAGE_GENERATION_REFUSED.test(await response.clone().text())
+    const missingEndpoint =
+      [404, 405, 501].includes(response.status) && !refusedOperation
     if (!missingEndpoint && !response.ok) {
       await this.responseError(
         response,
@@ -804,6 +821,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
       body[compatibility.maxTokensField] = outputTokens
     }
 
+    /**
+     * Timed from the request, not the response: a server or proxy that holds
+     * its headers until it has an answer would otherwise report only the
+     * milliseconds it took to read an already-finished body.
+     */
+    const startTime = Date.now()
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: this.headers(),
@@ -822,7 +845,6 @@ export class OpenAICompatibleProvider implements LLMProvider {
       await this.responseError(response, "OpenAI Error", baseUrl, model)
     }
 
-    const startTime = Date.now()
     await this.processSSE(response, onChunk, startTime, model)
   }
 
@@ -843,6 +865,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const decoder = new TextDecoder()
     let buffer = ""
     let firstTokenTime: number | null = null
+    /** Whether any reasoning arrived as deltas, i.e. inside the timed window. */
+    let reasoningStreamed = false
     let latestMetrics: ChatStreamMessage["metrics"] | undefined
     const toolCalls = new ToolCallAccumulator()
     let toolCallsEmitted = false
@@ -1027,7 +1051,11 @@ export class OpenAICompatibleProvider implements LLMProvider {
         delta?.reasoning_content ||
         delta?.thinking ||
         delta?.thoughts
-      if (thinkingDelta) onChunk({ thinkingDelta, done: false })
+      if (thinkingDelta) {
+        firstTokenTime ??= Date.now()
+        reasoningStreamed = true
+        onChunk({ thinkingDelta, done: false })
+      }
     }
 
     const emitOutput = (
@@ -1081,12 +1109,38 @@ export class OpenAICompatibleProvider implements LLMProvider {
       toolCalls.add(fragments)
     }
 
+    /**
+     * Reasoning a server counts but never streams (Codex through olc) was
+     * generated before the window opened, so the window timed only the
+     * visible tokens. The duration is extended in proportion, which makes
+     * `eval_count / eval_duration` the visible rate actually observed rather
+     * than every completion token divided by the visible text's time.
+     */
+    const hiddenReasoningScale = (
+      usage: NonNullable<OpenAiSseData["usage"]>
+    ): number => {
+      if (reasoningStreamed) return 1
+      const completion = positiveNumber(usage.completion_tokens)
+      const reasoning = positiveNumber(
+        asRecord(usage.completion_tokens_details)?.reasoning_tokens
+      )
+      if (!completion || !reasoning || reasoning >= completion) return 1
+      return completion / (completion - reasoning)
+    }
+
     const updateUsage = (usage: OpenAiSseData["usage"]): void => {
       if (!usage) return
       const totalDurationNs = (Date.now() - startTime) * 1_000_000
-      const evalDurationNs = firstTokenTime
-        ? (Date.now() - firstTokenTime) * 1_000_000
-        : 1
+      const evalWindowMs = firstTokenTime ? Date.now() - firstTokenTime : 0
+      /**
+       * Generation speed needs a window the client actually watched. Output
+       * that arrived in one burst, or no output at all, has none, and a
+       * near-zero divisor reported millions of tokens per second.
+       */
+      const evalDurationNs =
+        evalWindowMs >= MIN_MEASURABLE_EVAL_MS
+          ? evalWindowMs * 1_000_000 * hiddenReasoningScale(usage)
+          : undefined
       const promptEvalDurationNs = firstTokenTime
         ? (firstTokenTime - startTime) * 1_000_000
         : totalDurationNs

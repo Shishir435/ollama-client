@@ -86,13 +86,14 @@ export const TextSplittingSettings = () => {
 
       <SettingsFormField
         focusId="chunking-strategy"
+        htmlFor="chunking-strategy-select"
         label={t("model.embedding_config.chunking_strategy_label")}>
         <Select
           value={config.chunkingStrategy}
           onValueChange={(value) => {
             if (value !== null) handleStrategyChange(value as ChunkingStrategy)
           }}>
-          <SelectTrigger>
+          <SelectTrigger id="chunking-strategy-select">
             <SelectValue>
               {() =>
                 t(`model.embedding_config.strategy_${config.chunkingStrategy}`)

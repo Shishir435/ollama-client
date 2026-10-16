@@ -206,7 +206,7 @@ export const ChatMessageBubble = memo(
               <div
                 role={announceError ? "alert" : undefined}
                 className="mt-0.5 w-full border-l-2 border-destructive/50 pl-2">
-                <div className="flex items-center gap-1.5 px-2 pb-0.5 text-micro font-medium text-destructive/80">
+                <div className="flex items-center gap-1.5 px-2 pb-0.5 text-micro font-medium text-destructive">
                   <TriangleAlert className="icon-xs shrink-0" />
                   <span>{t("chat.errors.response_failed_title")}</span>
                 </div>

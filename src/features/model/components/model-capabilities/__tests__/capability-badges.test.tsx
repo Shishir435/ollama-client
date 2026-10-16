@@ -26,17 +26,24 @@ describe("ModelCapabilityBadges", () => {
     )
 
     expect(
-      screen.getByLabelText("model.capabilities.flags.vision.label")
+      screen.getByText("model.capabilities.flags.vision.label")
     ).toBeInTheDocument()
     expect(
-      screen.getByLabelText("model.capabilities.flags.toolCalling.label")
+      screen.getByText("model.capabilities.flags.toolCalling.label")
     ).toBeInTheDocument()
+  })
+
+  it("names each badge with text, not an aria-label on a span", () => {
+    render(<ModelCapabilityBadges caps={caps({ vision: true })} />)
+    const label = screen.getByText("model.capabilities.flags.vision.label")
+    expect(label).toHaveClass("sr-only")
+    expect(label.closest("[aria-label]")).toBeNull()
   })
 
   it("renders a completion/text badge (mirrors Ollama's chips)", () => {
     render(<ModelCapabilityBadges caps={caps({ text: true })} />)
     expect(
-      screen.getByLabelText("model.capabilities.flags.text.label")
+      screen.getByText("model.capabilities.flags.text.label")
     ).toBeInTheDocument()
   })
 
@@ -53,7 +60,7 @@ describe("ModelCapabilityBadges", () => {
     )
     for (const flag of ["text", "vision", "toolCalling", "reasoning"]) {
       expect(
-        screen.getByLabelText(`model.capabilities.flags.${flag}.label`)
+        screen.getByText(`model.capabilities.flags.${flag}.label`)
       ).toBeInTheDocument()
     }
   })

@@ -127,7 +127,7 @@ export const SiteSpecificOverrides = ({
         onValueChange={(next) => {
           if (next !== null) onValueChange(next as PerSiteRuleMode)
         }}>
-        <SelectTrigger className="h-9">
+        <SelectTrigger className="h-9" aria-label={label}>
           <SelectValue>
             {() => t(`settings.permissions.siteProfiles.modes.${value}`)}
           </SelectValue>
