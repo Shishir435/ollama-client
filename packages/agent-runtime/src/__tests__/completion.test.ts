@@ -3191,3 +3191,68 @@ describe("release review evidence regressions", () => {
     })
   })
 })
+
+describe("superlative reads computed from collected records", () => {
+  const shops = ["Shop A", "Shop B", "Shop C"]
+  const prices = {
+    id: "r1",
+    text: "the Blue Kettle's price at each shop",
+    kind: "read" as const,
+    items: shops
+  }
+  const cheapest = {
+    id: "r2",
+    text: "which shop is cheapest and what it charges",
+    kind: "read" as const
+  }
+  const quotes = [
+    "Shop A Blue Kettle 41 credits",
+    "Shop B Blue Kettle 35 credits",
+    "Shop C Blue Kettle 39 credits"
+  ]
+  const judge = (answer: string) =>
+    judgeAgentCompletion({
+      steps: [],
+      observation: observation({
+        visibleText: "Shop C Blue Kettle 39 credits"
+      }),
+      evidenceLedger: quotes.map((quote) => ({
+        ...observedFact(quote, "historical"),
+        requirementId: "r1"
+      })),
+      requirements: [prices, cheapest],
+      outcomes: [
+        {
+          id: "r1",
+          met: true,
+          items: quotes.map((evidence, index) => ({
+            index,
+            met: true,
+            evidence
+          }))
+        },
+        { id: "r2", met: true, evidence: answer }
+      ]
+    })
+
+  it("verifies an answer naming the item the collected values pick", () => {
+    const judged = judge("Shop B is cheapest at 35 credits")
+    expect(judged.type).toBe("accepted")
+    if (judged.type !== "accepted") return
+    expect(judged.outcome?.claimed ?? []).not.toContain("r2")
+  })
+
+  it("sends back an answer naming another collected item", () => {
+    expect(judge("Shop C is cheapest at 39 credits")).toMatchObject({
+      type: "refused",
+      reason: "contradicted_state",
+      feedback: expect.stringContaining('"Shop B" (35)')
+    })
+  })
+
+  it("leaves an answer naming no item to the reviewer, as before", () => {
+    const judged = judge("The cheapest is 35 credits")
+    if (judged.type !== "accepted") return
+    expect(judged.outcome?.claimed).toContain("r2")
+  })
+})

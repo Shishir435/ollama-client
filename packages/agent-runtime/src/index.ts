@@ -2,6 +2,7 @@ export * from "./action-label"
 export * from "./affordance"
 export * from "./artifacts"
 export * from "./budgets"
+export * from "./collected-records"
 export * from "./completion"
 export {
   agentReviewRecordCitable,

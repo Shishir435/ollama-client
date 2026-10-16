@@ -8,6 +8,12 @@ import type {
   AgentTaskRequirement
 } from "@ollama-client/contracts"
 import {
+  type AgentCollectedRecord,
+  agentAnswerAgainstCompared,
+  agentCollectedRecords,
+  agentComparedAnswer
+} from "./collected-records"
+import {
   checkCompletionState,
   groundedCompletionQuote,
   visualCompletionRead
@@ -2583,6 +2589,16 @@ const recordUnmetItems = (
  * row has to name the record as a complete phrase: "$9" quoted from the
  * Basic row is not the price of the Pro plan, however exactly it was quoted.
  */
+/**
+ * Told to the model when its superlative answer names the wrong item. The
+ * item is the plan's own wording and the value a number the page showed.
+ */
+const comparedAnswerFeedback = (
+  id: string,
+  winner: AgentCollectedRecord
+): string =>
+  `${id}: the values collected for each item say "${winner.item}" (${winner.value}) is the answer, not the item your answer names. Check the collected quotes and complete again.`
+
 const readBoundToItsRecord = (
   requirement: AgentTaskRequirement,
   quote: string | undefined,
@@ -2672,6 +2688,37 @@ const judgePlanned = (
   let review: Extract<AgentCompletionJudgement, { type: "refused" }> | undefined
   const reviewIds: string[] = []
   const items: NonNullable<AgentRunOutcome["items"]> = []
+  /**
+   * A superlative read — the cheapest, the highest — is computed from what
+   * the run collected for each item of the plan's itemized read, not taken
+   * from the model. An answer naming the computed item is verified without a
+   * quote of its own — it is a computation over quotes already grounded —
+   * and one naming another collected item is sent back with the computed one.
+   */
+  const collected = agentCollectedRecords(
+    requirements,
+    input.outcomes,
+    input.evidenceLedger
+  )
+  const compared = new Set<string>()
+  for (const requirement of requirements) {
+    const id = requirement.id
+    if (!claims.get(id)?.met) continue
+    const winner = agentComparedAnswer(requirement, collected, requirements)
+    if (!winner) continue
+    const stance = agentAnswerAgainstCompared(
+      claims.get(id)?.evidence,
+      winner,
+      collected
+    )
+    if (stance === "disagrees")
+      return {
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: comparedAnswerFeedback(id, winner)
+      }
+    if (stance === "agrees") compared.add(id)
+  }
   for (const requirement of requirements) {
     const claim = claims.get(requirement.id)
     if (!claim?.met) {
@@ -2685,6 +2732,10 @@ const judgePlanned = (
         changes,
         consumed
       )
+      continue
+    }
+    if (compared.has(requirement.id)) {
+      met.push(requirement.id)
       continue
     }
     const judgedItems: number[] = []
@@ -2792,7 +2843,8 @@ const judgePlanned = (
     if (
       requirement?.kind !== "read" ||
       requirement.items?.length ||
-      visual.includes(id)
+      visual.includes(id) ||
+      compared.has(id)
     )
       return false
     return !readBoundToItsRecord(requirement, claims.get(id)?.evidence, input)
