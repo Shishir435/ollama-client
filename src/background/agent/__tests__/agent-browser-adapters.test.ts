@@ -302,6 +302,7 @@ describe("observing a tab a native dialog is holding", () => {
       nativeInput: () => undefined,
       openDialog: vi.fn(() => dialog),
       handleDialog: vi.fn(async () => "answered" as const),
+      goHistory: vi.fn(async () => "unavailable" as const),
       dispose: vi.fn()
     }
     const extension = browser as unknown as Record<string, unknown>
@@ -530,5 +531,48 @@ describe("what a targeted read carries to the page", () => {
       { aborted: false }
     )
     expect(observe.mock.calls[0]?.[0]).not.toHaveProperty("lookup")
+  })
+})
+
+describe("a step back in the run's tab", () => {
+  const build = (stepped: "navigated" | "no_entry" | "unavailable") => {
+    const goBack = vi.fn(async () => undefined)
+    const extension = browser as unknown as Record<string, unknown>
+    extension.tabs = { goBack, goForward: vi.fn(async () => undefined) }
+    const goHistory = vi.fn(async () => stepped)
+    const adapters = createAgentBrowserAdapters({
+      runId: "run-1",
+      sessions: createAgentControlSessionRegistry({
+        open: (async () => {
+          throw new Error("no session in this test")
+        }) as never
+      }),
+      browserSessions: { goHistory } as never,
+      history: createAgentTabHistory(),
+      imageEditor: undefined,
+      now: () => 5
+    })
+    return { adapters, goBack, goHistory }
+  }
+
+  it("goes through the debugger, which steps one entry", async () => {
+    const { adapters, goBack, goHistory } = build("navigated")
+    await adapters.executor.goHistory?.(7, "back")
+    expect(goHistory).toHaveBeenCalledWith("run-1", 7, "back")
+    expect(goBack).not.toHaveBeenCalled()
+  })
+
+  it("falls back to the tabs API only without a debugger", async () => {
+    const { adapters, goBack } = build("unavailable")
+    await adapters.executor.goHistory?.(7, "back")
+    expect(goBack).toHaveBeenCalledWith(7)
+  })
+
+  it("sends nothing when there is no entry that way", async () => {
+    const { adapters, goBack } = build("no_entry")
+    await expect(adapters.executor.goHistory?.(7, "back")).rejects.toThrow(
+      "No history entry"
+    )
+    expect(goBack).not.toHaveBeenCalled()
   })
 })

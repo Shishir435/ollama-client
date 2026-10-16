@@ -515,6 +515,8 @@ export const createAgentRunService = (input?: {
       /** No debugger, so no dialog is ever intercepted or answerable. */
       openDialog: () => undefined,
       handleDialog: async () => "not_open" as const,
+      /** No debugger: history steps go through the tabs API. */
+      goHistory: async () => "unavailable" as const,
       dispose: async () => undefined
     } satisfies AgentBrowserSessionManager)
 

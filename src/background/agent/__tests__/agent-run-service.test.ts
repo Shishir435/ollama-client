@@ -132,6 +132,7 @@ const browserSessions = () => {
     nativeInput: vi.fn(() => undefined),
     openDialog: vi.fn(() => undefined),
     handleDialog: vi.fn(async () => "not_open" as const),
+    goHistory: vi.fn(async () => "unavailable" as const),
     dispose: vi.fn(async () => undefined)
   } satisfies AgentBrowserSessionManager
   return {
@@ -249,6 +250,43 @@ describe("Agent run service", () => {
       effects: ["activation", "form_mutation"],
       grantedAt: 1_000
     })
+  })
+
+  it("remembers consent for a run this worker did not start, from its saved chat", async () => {
+    const chatConsent = createAgentChatConsent(undefined)
+    const { service: agent } = service({
+      chatConsent,
+      readRun: vi.fn(async (id: string) => ({
+        id,
+        status: "completed" as const,
+        sessionId: "chat-9",
+        compacted: false,
+        createdAt: 1,
+        updatedAt: 2
+      })),
+      buildController: vi.fn(({ persistence: port, runId }) => ({
+        start: vi.fn(async () => {
+          await port.transition({ runId, from: "submitted", to: "completed" })
+        }),
+        requestPause: vi.fn(async () => undefined),
+        resume: vi.fn(async () => undefined),
+        requestCancel: vi.fn(async () => undefined),
+        completeTakeover: vi.fn(async () => undefined),
+        resolveEffect: vi.fn(async () => undefined),
+        finishReviewed: vi.fn(async () => undefined),
+        answerQuestion: vi.fn(async () => undefined)
+      })) as never
+    })
+    await agent.start({ ...startInput, allowRoutineActions: true })
+    await vi.waitFor(async () =>
+      expect(await chatConsent.read("chat-9")).toEqual([
+        {
+          origin: "https://example.com",
+          effects: ["activation", "form_mutation"],
+          grantedAt: 1_000
+        }
+      ])
+    )
   })
 
   it("carries nothing into a goal written after a page was read", async () => {

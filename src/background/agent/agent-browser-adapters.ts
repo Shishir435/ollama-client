@@ -877,7 +877,23 @@ export const createAgentBrowserAdapters = (input: {
               )?.id
           }
         : {}),
+      /**
+       * Through the debugger when the run holds the tab, so a step back is
+       * one entry; see `AgentBrowserSessionManager.goHistory`. The tabs API
+       * is the fallback for a run without one, and nothing is sent when the
+       * debugger says there is no entry that way.
+       */
       async goHistory(tabId, direction) {
+        const stepped = await input.browserSessions?.goHistory(
+          input.runId,
+          tabId,
+          direction
+        )
+        if (stepped === "navigated") return
+        if (stepped === "no_entry")
+          throw new AgentEffectNotAppliedError(
+            `No history entry to go ${direction} to`
+          )
         if (direction === "back") {
           await browser.tabs.goBack(tabId)
           return
