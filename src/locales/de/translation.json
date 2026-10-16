@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}, Thema umschalten"
     },
     "bug_report": {
-      "label": "Fehler",
+      "label": "Einen Fehler melden",
       "aria_label": "Einen Fehler melden oder eine Funktion anfordern",
       "tooltip": "Einen Fehler melden oder eine Funktion anfordern"
     },

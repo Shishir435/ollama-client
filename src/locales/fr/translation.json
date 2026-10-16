@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}, basculer le thème"
     },
     "bug_report": {
-      "label": "Bogue",
+      "label": "Signaler un bogue",
       "aria_label": "Signaler un bogue ou demander une fonctionnalité",
       "tooltip": "Signaler un bogue ou demander une fonctionnalité"
     },

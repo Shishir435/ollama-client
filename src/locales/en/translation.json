@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}, toggle theme"
     },
     "bug_report": {
-      "label": "Bug",
+      "label": "Report a bug",
       "aria_label": "Report a bug or request a feature",
       "tooltip": "Report a bug or request a feature"
     },

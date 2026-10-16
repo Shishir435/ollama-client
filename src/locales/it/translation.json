@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}, attiva/disattiva tema"
     },
     "bug_report": {
-      "label": "Bug",
+      "label": "Segnala un bug",
       "aria_label": "Segnala un bug o richiedi una funzionalità",
       "tooltip": "Segnala un bug o richiedi una funzionalità"
     },

@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}，切换主题"
     },
     "bug_report": {
-      "label": "错误报告",
+      "label": "报告错误",
       "aria_label": "报告错误或请求功能",
       "tooltip": "报告错误或请求功能"
     },

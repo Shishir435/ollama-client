@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}、テーマを切り替える"
     },
     "bug_report": {
-      "label": "バグ",
+      "label": "バグ報告",
       "aria_label": "バグ報告または機能リクエスト",
       "tooltip": "バグ報告または機能リクエスト"
     },

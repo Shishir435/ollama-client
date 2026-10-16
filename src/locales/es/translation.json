@@ -333,7 +333,7 @@
       "current_aria_label": "{{theme}}, alternar tema"
     },
     "bug_report": {
-      "label": "Error",
+      "label": "Reportar un error",
       "aria_label": "Reportar un error o solicitar una función",
       "tooltip": "Reportar un error o solicitar una función"
     },
