@@ -5,7 +5,10 @@ import {
   isAppError,
   isNamedError
 } from "@/lib/error-utils"
-import { isLocalProviderBaseUrl } from "@/lib/providers/provider-errors"
+import {
+  forbiddenMayBeOriginBlock,
+  isLocalProviderBaseUrl
+} from "@/lib/providers/provider-errors"
 import type { ProviderConfig } from "@/lib/providers/types"
 import { ProviderType } from "@/lib/providers/types"
 
@@ -19,6 +22,7 @@ export const OLLAMA_CORS_COMMAND =
  */
 export type ProviderConnectionFailureKind =
   | "cors"
+  | "refused"
   | "auth"
   | "not-found"
   | "timeout"
@@ -55,13 +59,18 @@ export const classifyProviderConnectionFailure = (
   const status = statusOf(error)
   if (status === 401 || status === 403) {
     /**
-     * Ollama sends no API key, and a local server has no account to reject:
-     * a 401/403 from either is the server refusing the extension's origin.
+     * Ollama sends no API key, and a local server has no account to reject.
+     * Where the browser cannot remove `Origin`, a 401/403 from either is the
+     * server refusing the extension's origin. Where it can, the server never
+     * saw one, so the refusal is its own or a proxy's.
      */
-    return config?.type === ProviderType.OLLAMA ||
+    if (
+      config?.type === ProviderType.OLLAMA ||
       isLocalProviderBaseUrl(config?.baseUrl)
-      ? "cors"
-      : "auth"
+    ) {
+      return forbiddenMayBeOriginBlock() ? "cors" : "refused"
+    }
+    return "auth"
   }
   if (status === 429) return "rate-limited"
   if (status === 402) return "payment"
@@ -92,6 +101,8 @@ const FALLBACK_TEXT: Record<
 > = {
   cors: (provider) =>
     `${provider} is running but blocked this extension. Allow chrome-extension://* and moz-extension://* in its CORS settings, then restart it.`,
+  refused: (provider) =>
+    `${provider} refused the request. Check the API key in provider settings, or the access rules of any proxy in front of it.`,
   auth: (provider) =>
     `${provider} rejected the API key. Check it in provider settings.`,
   "not-found": (provider) =>
@@ -129,7 +140,7 @@ export const providerConnectionError = (
     code:
       kind === "cors"
         ? "OLC-CORS-BLOCKED"
-        : kind === "auth"
+        : kind === "auth" || kind === "refused"
           ? "OLC-AUTH-FAILED"
           : kind === "timeout"
             ? "OLC-PROVIDER-TIMEOUT"

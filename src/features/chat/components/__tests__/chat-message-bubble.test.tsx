@@ -123,6 +123,82 @@ describe("ChatMessageBubble", () => {
     ).toBeInTheDocument()
   })
 
+  it("says a finished turn returned no text and offers a Retry", () => {
+    const retry = vi.fn()
+    render(
+      <ChatMessageBubble
+        msg={{
+          role: "assistant",
+          content: "",
+          done: true,
+          timestamp: 1,
+          metrics: { eval_count: 40 }
+        }}
+        onRegenerate={retry}
+      />
+    )
+
+    expect(screen.getByText("chat.empty_reply.no_text")).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole("button", { name: "common.actions.retry" })
+    )
+    expect(retry).toHaveBeenCalledOnce()
+    // One Retry, beside the explanation, not a second one in the footer.
+    expect(screen.queryByRole("button", { name: "footer retry" })).toBeNull()
+  })
+
+  it("says a turn produced only reasoning, and keeps that reasoning", () => {
+    render(
+      <ChatMessageBubble
+        msg={{
+          role: "assistant",
+          content: "",
+          thinking: "weighing it up",
+          done: true,
+          timestamp: 1,
+          metrics: { thinkingOnlyResponse: true }
+        }}
+        onRegenerate={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.getByText("chat.empty_reply.thinking_only")
+    ).toBeInTheDocument()
+    expect(screen.queryByText("chat.empty_reply.no_text")).toBeNull()
+  })
+
+  it("explains nothing while the turn is still running or was stopped", () => {
+    const { rerender } = render(
+      <ChatMessageBubble
+        msg={{ role: "assistant", content: "", done: false, timestamp: 1 }}
+        isStreaming
+      />
+    )
+    expect(screen.queryByText("chat.empty_reply.no_text")).toBeNull()
+
+    rerender(
+      <ChatMessageBubble
+        msg={{
+          role: "assistant",
+          content: "",
+          done: true,
+          timestamp: 1,
+          metrics: { interrupted: true }
+        }}
+      />
+    )
+    expect(screen.queryByText("chat.empty_reply.no_text")).toBeNull()
+
+    // Stopped by the user before the first token: no completion was reported.
+    rerender(
+      <ChatMessageBubble
+        msg={{ role: "assistant", content: "", done: true, timestamp: 1 }}
+      />
+    )
+    expect(screen.queryByText("chat.empty_reply.no_text")).toBeNull()
+  })
+
   it("does not re-announce an older failure as an alert", () => {
     render(
       <ChatMessageBubble

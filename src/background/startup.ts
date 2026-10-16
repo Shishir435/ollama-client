@@ -109,7 +109,7 @@ const registerInstallHandlers = () => {
   })
   if (!isChromiumBased()) {
     logger.warn(
-      "DNR not available: skipping CORS workaround (likely Firefox)",
+      "DNR not available: the Origin guard reconciles on boot and on provider changes instead",
       "BackgroundSW"
     )
     return

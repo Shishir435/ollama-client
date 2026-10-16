@@ -47,7 +47,34 @@ const deltasOf = (chunks: ChatStreamMessage[]) =>
     .filter((d): d is string => typeof d === "string")
     .join("")
 
+const generatedImage = {
+  imageId: "img-1",
+  fileName: "image.png",
+  mimeType: "image/png",
+  size: 4,
+  base64: "AAAA"
+}
+
 describe("streamChatWithNonNativeTools", () => {
+  it("keeps an answer that arrives on the provider's final chunk", async () => {
+    const provider = scriptedProvider([
+      [{ delta: "whole answer", done: true, metrics: { eval_count: 3 } }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+
+    await streamChatWithNonNativeTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      tools: [echoDef],
+      registry: registryWith(async () => ({ content: "unused" })),
+      onChunk: (chunk) => chunks.push(chunk),
+      ctx: {}
+    })
+
+    expect(deltasOf(chunks)).toBe("whole answer")
+    expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
+  })
+
   it("parses a <tool_call> turn, runs the tool, and finalizes the answer", async () => {
     const provider = scriptedProvider([
       [
@@ -161,6 +188,50 @@ describe("streamChatWithNonNativeTools", () => {
     })
     expect(provider.streamChat).toHaveBeenCalledTimes(1)
     expect(deltasOf(chunks)).toBe("direct answer")
+  })
+
+  it("forwards generated images from a mixed text-and-image model", async () => {
+    const provider = scriptedProvider([
+      [{ generatedImages: [generatedImage] }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithNonNativeTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "draw" }] },
+      tools: [echoDef],
+      registry: registryWith(async () => ({ content: "unused" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {}
+    })
+
+    expect(chunks.flatMap((c) => c.generatedImages ?? [])).toEqual([
+      generatedImage
+    ])
+    expect(chunks.filter((c) => c.done)).toHaveLength(1)
+  })
+
+  it("treats an image-only synthesis as an answer, not the tool-limit notice", async () => {
+    const toolTurn: ChatStreamMessage[] = [
+      { delta: '<tool_call>{"name":"echo","arguments":{}}</tool_call>' },
+      { done: true }
+    ]
+    const provider = scriptedProvider([
+      toolTurn,
+      [{ generatedImages: [generatedImage] }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    await streamChatWithNonNativeTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      tools: [echoDef],
+      registry: registryWith(async () => ({ content: "r" })),
+      onChunk: (c) => chunks.push(c),
+      ctx: {},
+      maxIterations: 1
+    })
+
+    expect(chunks.flatMap((c) => c.generatedImages ?? [])).toHaveLength(1)
+    expect(deltasOf(chunks)).not.toContain("tool-call limit")
   })
 
   it("hits the iteration cap and still produces a final answer", async () => {

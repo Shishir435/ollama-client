@@ -159,15 +159,12 @@ export const useChatStream = ({
     terminal: Exclude<Terminal, { type: "error" }>,
     options: TerminalOptions
   ): void => {
-    const message = terminal.emptyReason
-      ? {
-          ...terminal.message,
-          content:
-            terminal.emptyReason === "thinking-only"
-              ? t("chat.errors.thinking_only_response")
-              : t("chat.errors.empty_response")
-        }
-      : terminal.message
+    /**
+     * An empty answer stays empty. Its explanation is drawn by the bubble from
+     * the row's own flags, so it reads the same live and after a reload, and
+     * never enters the conversation as words the model is shown to have said.
+     */
+    const message = terminal.message
     Promise.resolve(renderAssistant(message, options))
       .then(async () => {
         await onSuccessfulResponse?.(message)

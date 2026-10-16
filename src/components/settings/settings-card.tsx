@@ -8,18 +8,13 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { MiniBadge } from "@/components/ui/mini-badge"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
+import { SettingsRowSurface } from "./settings-row"
 
 export interface SettingsCardProps {
   icon?: LucideIcon
   title: string
   description: string
   badge?: React.ReactNode
-  badgeTooltip?: React.ReactNode
   children?: React.ReactNode
   className?: string
   focusId?: string
@@ -41,7 +36,6 @@ export interface SettingsCardProps {
  *   icon={Globe}
  *   title={t("settings.language.title")}
  *   description={t("settings.language.description")}
- *   badge="Beta"
  * >
  *   <LanguageSelector />
  * </SettingsCard>
@@ -52,7 +46,6 @@ export const SettingsCard = ({
   title,
   description,
   badge,
-  badgeTooltip,
   children,
   className,
   focusId,
@@ -67,15 +60,7 @@ export const SettingsCard = ({
           <div className="flex items-center gap-2">
             {Icon && <Icon className="icon-lg text-muted-foreground" />}
             <CardTitle className="text-lg">{title}</CardTitle>
-            {badge &&
-              (badgeTooltip ? (
-                <Tooltip>
-                  <TooltipTrigger render={<MiniBadge text={badge} />} />
-                  <TooltipContent side="top">{badgeTooltip}</TooltipContent>
-                </Tooltip>
-              ) : (
-                <MiniBadge text={badge} />
-              ))}
+            {badge && <MiniBadge text={badge} />}
           </div>
           {headerActions && (
             <div className="flex items-center gap-3">{headerActions}</div>
@@ -86,7 +71,7 @@ export const SettingsCard = ({
         </CardDescription>
       </CardHeader>
       <CardContent className={contentClassName || "space-y-4"}>
-        {children}
+        <SettingsRowSurface>{children}</SettingsRowSurface>
       </CardContent>
     </Card>
   )

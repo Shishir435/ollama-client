@@ -168,7 +168,17 @@ export const ModelRpcService = {
       assertProviderEnabled(provider, request.model)
       const warmModel = provider.modelLifecycle?.warmModel
       if (warmModel) {
-        await warmModel(request.model, config.keep_alive, signal)
+        await warmModel(
+          request.model,
+          {
+            num_ctx: config.num_ctx,
+            num_gpu: config.num_gpu,
+            num_batch: config.num_batch,
+            num_thread: config.num_thread,
+            keep_alive: config.keep_alive
+          },
+          signal
+        )
         warmupCache.record(warmupKey, keepAliveMs)
         warmed = true
         logger.info("Model warmup triggered", "ModelRpcService", {

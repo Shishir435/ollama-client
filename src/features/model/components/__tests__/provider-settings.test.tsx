@@ -51,10 +51,10 @@ const remoteProvider = {
   customModels: ["remote-model"]
 }
 
-const renderProviderSettings = () =>
+const renderProviderSettings = (activeFocusId: string | null = null) =>
   render(
     <TooltipProvider>
-      <ProviderSettings />
+      <ProviderSettings activeFocusId={activeFocusId} />
     </TooltipProvider>
   )
 
@@ -165,10 +165,26 @@ describe("ProviderSettings", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("mounts the catalog refresh control the settings registry deep-links to", () => {
+  it("keeps the advanced provider preferences collapsed until asked", () => {
     mockProviderState()
 
     const { container } = renderProviderSettings()
+
+    expect(
+      container.querySelector('[data-settings-focus-id="provider-icon-lookup"]')
+    ).toBeNull()
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.providers.advanced.title" })
+    )
+    expect(
+      container.querySelector('[data-settings-focus-id="provider-icon-lookup"]')
+    ).toBeInTheDocument()
+  })
+
+  it("mounts the catalog refresh control the settings registry deep-links to", () => {
+    mockProviderState()
+
+    const { container } = renderProviderSettings("provider-catalog-refresh")
 
     const field = container.querySelector(
       '[data-settings-focus-id="provider-catalog-refresh"]'

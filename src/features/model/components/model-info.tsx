@@ -198,7 +198,7 @@ export const ModelInfo = ({
 
   if (loading) {
     return (
-      <div className="rounded-panel border bg-card p-3">
+      <div className="py-2">
         <Skeleton className="h-8 w-full" />
       </div>
     )
@@ -206,7 +206,7 @@ export const ModelInfo = ({
 
   if (error) {
     return (
-      <div className="rounded-panel border bg-card p-3">
+      <div className="py-2">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs text-destructive">
             <Info className="icon-xs" />
@@ -231,15 +231,15 @@ export const ModelInfo = ({
   }
 
   return (
-    <Card className="w-full py-0">
+    <section className="w-full py-1">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger
           render={
-            <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-state-hover" />
+            <div className="-mx-2 flex cursor-pointer items-center justify-between rounded-control px-2 py-1 transition-colors hover:bg-state-hover" />
           }>
           <div className="flex items-center gap-2">
             <Cpu className="icon-md text-muted-foreground" />
-            <h3 className="text-lg font-semibold">
+            <h3 className="text-sm font-semibold">
               {t("settings.model_info.title")}
             </h3>
             {loading && (
@@ -297,7 +297,7 @@ export const ModelInfo = ({
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="border-t border-border px-4 pb-4 pt-4">
+          <div className="pb-2 pt-3">
             {!modelInfo || error ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <Cpu className="mb-2 icon-3xl text-foreground-tertiary" />
@@ -356,6 +356,6 @@ export const ModelInfo = ({
           </div>
         </CollapsibleContent>
       </Collapsible>
-    </Card>
+    </section>
   )
 }

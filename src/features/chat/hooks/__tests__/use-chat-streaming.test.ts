@@ -191,6 +191,45 @@ describe("useChatStreaming", () => {
     )
   })
 
+  it("never lets the durable turn's empty start shell reach SQLite", async () => {
+    const { options, spies } = mkOptions()
+    const { result } = renderHook(() => useChatStreaming(options))
+    result.current.currentStreamingMessageIdRef.current = 33
+    /**
+     * The real session renders the empty assistant shell synchronously from
+     * inside start(), before start() returns. A debounced write scheduled from
+     * that render landed a second later as `content: ""`, wiping an answer
+     * the background had already finished and persisted.
+     */
+    const { useChatStream } =
+      await import("@/features/chat/hooks/use-chat-stream")
+    const config = vi.mocked(useChatStream).mock.calls.at(-1)?.[0]
+    const startStream = vi.mocked(useChatStream).mock.results.at(-1)?.value
+      .startStream as ReturnType<typeof vi.fn>
+    startStream.mockImplementationOnce(() => {
+      void config?.setMessages([
+        { id: 33, role: "assistant", content: "", done: false }
+      ])
+      return true
+    })
+
+    result.current.startStream({
+      durableTurn: {}
+    } as Parameters<typeof result.current.startStream>[0])
+    await capturedSetMessages?.([{ id: 33, content: "answer", done: true }])
+    await vi.advanceTimersByTimeAsync(16_000)
+
+    expect(
+      spies.updateMessage.mock.calls.filter((call) => call[2] === false)
+    ).toHaveLength(0)
+    expect(spies.updateMessage).toHaveBeenLastCalledWith(
+      33,
+      expect.objectContaining({ content: "answer", done: true }),
+      true
+    )
+    expect(touchMessageActivity).not.toHaveBeenCalled()
+  })
+
   it("publishes generated images to the live assistant message", async () => {
     const { options, spies } = mkOptions()
     const { result } = renderHook(() => useChatStreaming(options))

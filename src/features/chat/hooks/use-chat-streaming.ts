@@ -128,6 +128,11 @@ export const useChatStreaming = ({
       // background has persisted a newer or terminal snapshot. Keep Zustand
       // immediate, but leave SQLite exclusively to the durable owner.
       if (backgroundOwnsPersistenceRef.current) {
+        if (dbUpdateTimeoutRef.current) {
+          clearTimeout(dbUpdateTimeoutRef.current)
+          dbUpdateTimeoutRef.current = null
+        }
+        stopLivenessBeat()
         if (streamedMsg.done) {
           if (currentSessionId) {
             embedMessages(newMessages, currentSessionId, false).catch((err) => {
@@ -198,11 +203,18 @@ export const useChatStreaming = ({
     releaseStreamClaim
   } = chatStream
 
+  /**
+   * Ownership is decided before the session starts, not after: `start()`
+   * renders the empty assistant shell synchronously, and a shell rendered
+   * while the flag still said "legacy" scheduled a debounced `content: ""`
+   * write. On an answer that finished inside that second, the write landed
+   * after the background's final one and the bubble came back empty.
+   */
   const startStream: typeof baseStartStream = (options, claim) => {
+    const previousOwner = backgroundOwnsPersistenceRef.current
+    backgroundOwnsPersistenceRef.current = Boolean(options.durableTurn)
     const started = baseStartStream(options, claim)
-    if (started) {
-      backgroundOwnsPersistenceRef.current = Boolean(options.durableTurn)
-    }
+    if (!started) backgroundOwnsPersistenceRef.current = previousOwner
     return started
   }
 

@@ -376,6 +376,10 @@ const main = (): void => {
   expectPermission(firefoxManifest, "contextMenus", "Firefox")
   expectNoPermission(firefoxManifest, "sidePanel", "Firefox")
   expectNoPermission(firefoxManifest, "declarativeNetRequest", "Firefox")
+  expectPermission(firefoxManifest, "webRequest", "Firefox")
+  expectPermission(firefoxManifest, "webRequestBlocking", "Firefox")
+  expectNoPermission(chromeManifest, "webRequest", "Chrome")
+  expectNoPermission(chromeManifest, "webRequestBlocking", "Chrome")
   assert(
     firefoxManifest.browser_specific_settings?.gecko?.data_collection_permissions?.required?.includes(
       "none"

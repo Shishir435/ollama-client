@@ -78,9 +78,7 @@ export const ContextSettings = () => {
           <SettingsCard
             icon={Globe}
             title={t("settings.web_search.title")}
-            description={t("settings.web_search.description")}
-            badge={t("settings.web_search.beta_badge")}
-            badgeTooltip={t("settings.web_search.beta_tooltip")}>
+            description={t("settings.web_search.description")}>
             <WebSearchSettings />
           </SettingsCard>
           <SettingsCard

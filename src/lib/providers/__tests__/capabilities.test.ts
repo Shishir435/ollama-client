@@ -66,6 +66,7 @@ describe("getModelCapabilities", () => {
   })
 
   it("detects image output independently from vision input", () => {
+    /** Ollama's image-generation models (x/z-image, x/flux2) report only `image`. */
     const ollama = getModelCapabilities({
       providerId: ProviderId.OLLAMA,
       ollamaCapabilities: ["image"]
@@ -77,9 +78,28 @@ describe("getModelCapabilities", () => {
     })
 
     expect(ollama.imageOutput).toBe(true)
+    expect(ollama.text).toBe(false)
     expect(ollama.vision).toBe(false)
     expect(compatible.imageOutput).toBe(true)
     expect(compatible.vision).toBe(true)
+  })
+
+  it("reads text chat from output modalities when a catalog reports them", () => {
+    const imageOnly = getModelCapabilities({
+      providerId: "custom",
+      modalities: ["text"],
+      outputModalities: ["image"]
+    })
+    const textAndImage = getModelCapabilities({
+      providerId: "custom",
+      modalities: ["text", "image"],
+      outputModalities: ["image", "text"]
+    })
+
+    expect(imageOnly.text).toBe(false)
+    expect(imageOnly.imageOutput).toBe(true)
+    expect(textAndImage.text).toBe(true)
+    expect(textAndImage.imageOutput).toBe(true)
   })
 
   it("treats an embedding-only Ollama model as non-chat", () => {

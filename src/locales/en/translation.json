@@ -352,13 +352,12 @@
     },
     "updated_at": "Updated",
     "social": {
-      "title": "Connect With Me",
+      "title": "Connect with me",
       "visit_profile": "Visit my {{platform}} profile"
     },
     "language": {
       "label": "Language",
-      "select_label": "Interface Language",
-      "beta_badge": "Beta",
+      "select_label": "Interface language",
       "description": "Select your preferred language for the interface.",
       "help_text": "Translations are AI-generated. Help us improve by contributing on <0>GitHub</0>!"
     },
@@ -377,7 +376,9 @@
     "stop_browser_agent_menu": "Stop browser agent",
     "agent_task_completed": "Completed",
     "agent_task_attention": "Paused",
-    "agent_task_unchecked": "Done, not all checked"
+    "agent_task_unchecked": "Done, not all checked",
+    "ask_selection_menu": "Ask Ollama Client about this",
+    "tool_limit_reached": "Stopped at the tool-call limit before an answer was ready. Ask again with a narrower request."
   },
   "selection_button": {
     "actions": {
@@ -500,7 +501,7 @@
       }
     },
     "performance_notice": {
-      "title": "Performance Notice",
+      "title": "Performance notice",
       "message": "Chat answers come from your chosen provider. Built-in embeddings run on this device. Speed depends on the model and the hardware running it."
     }
   },
@@ -715,7 +716,6 @@
       "button_label": "Search Chats",
       "dialog_title": "Semantic Chat Search",
       "dialog_description": "Search your chat history by meaning, not just keywords",
-      "beta_badge": "Beta",
       "placeholder": "Search conversations by meaning...",
       "scope_all": "All Chats",
       "scope_current": "Current Chat",
@@ -817,8 +817,6 @@
       "retry_in": "Retry in {{seconds}}s",
       "diagnostics_copy_failed_title": "Could not copy diagnostics",
       "diagnostics_copy_failed_description": "Clipboard access was refused. Focus this panel and try again.",
-      "empty_response": "The model finished without sending an answer. It may have been unloaded, or the conversation may have left no room to reply. Try again, or start a new chat.",
-      "thinking_only_response": "I did not receive a final answer from the model. Please try again.",
       "provider_selection_required_title": "Choose where to run {{model}}",
       "provider_selection_required_description": "More than one server offers this model. Pick one in the model menu.",
       "no_model_selected_title": "No model selected",
@@ -827,7 +825,6 @@
       "chat_create_failed_description": "Creating the chat failed. Please try again.",
       "message_save_failed_title": "Couldn't send message",
       "message_save_failed_description": "Saving the message failed. Please try again.",
-      "context_preparation_failed": "Couldn't read the selected tabs or files. Retry with fewer attached.",
       "context_preparation_failed_title": "Context preparation failed",
       "context_preparation_failed_description": "The message was saved, but the assistant could not start because context preparation failed.",
       "insufficient_page_context": "Insufficient page context. Select at least one tab with relevant extracted content and try again.\n\nTo turn this off, open [{{settingsLabel}}]({{settingsLink}}).",
@@ -852,7 +849,8 @@
       "out_of_memory": "{{model}} needs more memory than this machine has free. Close other apps or pick a smaller model.",
       "model_crashed": "{{model}} crashed while loading. Retry; if it repeats, check the {{provider}} log.",
       "ollama_cloud_signin": "{{model}} runs on Ollama's cloud. Sign in with `ollama signin` or pick a local model.",
-      "ollama_cloud_unreachable": "Can't reach Ollama for {{model}}. Start Ollama. If it's already running, this cloud model needs `ollama signin`."
+      "ollama_cloud_unreachable": "Can't reach Ollama for {{model}}. Start Ollama. If it's already running, this cloud model needs `ollama signin`.",
+      "provider_forbidden": "{{provider}} refused this request. Check the API key in provider settings, or the access rules of any proxy in front of it."
     },
     "composer": {
       "rag": "Files",
@@ -886,6 +884,10 @@
       "copied": "Response copied",
       "exported_json": "Chat exported as JSON",
       "exported_pdf": "Chat exported as PDF"
+    },
+    "empty_reply": {
+      "no_text": "The model returned no text. Retry, or try another model.",
+      "thinking_only": "The model only produced reasoning, no answer. Retry, or try another model."
     }
   },
   "file_upload": {
@@ -912,9 +914,9 @@
       "empty_hint": "Drop files here or choose files."
     },
     "settings": {
-      "max_file_size_label": "Maximum File Size (MB)",
+      "max_file_size_label": "Maximum file size (MB)",
       "max_file_size_description": "Maximum allowed size for individual files. Larger files may take longer to process.",
-      "max_image_size_label": "Maximum Image Size (MB)",
+      "max_image_size_label": "Maximum image size (MB)",
       "max_image_size_description": "Maximum allowed size for each image attached to a message for vision models."
     },
     "errors": {
@@ -933,7 +935,7 @@
       "checking_model": "Checking RAG/search embedding model...",
       "error": "Unable to check status. Click to retry.",
       "required_for_rag": "The embedding model is required for RAG features.",
-      "download_button": "Download Model",
+      "download_button": "Download model",
       "unavailable": "Embedding provider unavailable. Check the connection and try again.",
       "unverified": "Embedding model not verified: this provider has no model list.",
       "download_failed": "Embedding download failed",
@@ -1008,37 +1010,37 @@
       "tooltip": "Provider version: {{version}}"
     },
     "site_overrides": {
-      "title": "Site-Specific Overrides",
+      "title": "Site-specific overrides",
       "description": "Configure custom extraction settings for specific sites using regex patterns",
-      "add_pattern_label": "Add Site Pattern",
+      "add_pattern_label": "Add site pattern",
       "pattern_placeholder": "medium.com or ^https://twitter\\.com/.*",
       "pattern_empty_error": "Site pattern cannot be empty",
       "pattern_exists_error": "Site override already exists",
       "pattern_invalid_error": "Invalid regular expression pattern",
       "examples": "Examples: <0>medium.com</0> or <0>^https://twitter\\.com/.*</0>",
-      "active_overrides": "Active Overrides",
+      "active_overrides": "Active overrides",
       "site_count": "{{count}} site",
       "site_count_plural": "{{count}} sites",
-      "select_site_label": "Select Site to Configure",
+      "select_site_label": "Select site to configure",
       "select_placeholder": "Select a site...",
       "search_placeholder": "Search sites...",
       "no_sites_found": "No sites found.",
       "no_overrides": "No site-specific overrides configured",
       "no_overrides_hint": "Add patterns to customize extraction settings for specific sites",
-      "scroll_strategy_label": "Scroll Strategy",
-      "scroll_depth_label": "Scroll Depth",
+      "scroll_strategy_label": "Scroll strategy",
+      "scroll_depth_label": "Scroll depth",
       "add_button": "Add"
     },
     "exclude_urls": {
       "title": "Excluded URLs",
       "description": "Block extension access from sensitive pages using regex patterns",
-      "add_pattern_label": "Add URL Pattern",
+      "add_pattern_label": "Add URL pattern",
       "pattern_placeholder": "^https://example\\.com/private.*",
       "pattern_empty_error": "Pattern cannot be empty",
       "pattern_exists_error": "Pattern already exists",
       "pattern_invalid_error": "Invalid regular expression pattern",
       "examples": "Use regular expressions to match URLs. Examples: <0>^https://bank\\.</0> or <0>.*\\.private\\..*</0>",
-      "active_patterns": "Active Patterns",
+      "active_patterns": "Active patterns",
       "pattern_count": "{{count}} pattern",
       "pattern_count_plural": "{{count}} patterns",
       "no_patterns": "No URL patterns configured",
@@ -1047,19 +1049,19 @@
     },
     "embedding_config": {
       "title": "Embedding model, chunking, search and storage",
-      "storage_stats_title": "Storage Statistics",
+      "storage_stats_title": "Storage statistics",
       "storage_stats_description": "Current vector storage usage statistics",
-      "total_vectors": "Total Vectors",
-      "storage_used": "Storage Used",
+      "total_vectors": "Total embeddings",
+      "storage_used": "Storage used",
       "cache": "Cache",
       "cache_entries": "{{size}} / {{maxSize}} entries",
-      "database_management_title": "Database Management",
+      "database_management_title": "Saved knowledge cleanup",
       "database_management_description": "Clean up and manage your vector embeddings database",
-      "remove_duplicates_button": "Remove Duplicates",
+      "remove_duplicates_button": "Remove duplicates",
       "remove_duplicates_description": "Remove duplicate embeddings, keeping only the first occurrence of each unique message",
-      "clear_chat_button": "Clear All Chat Embeddings",
+      "clear_chat_button": "Clear all chat embeddings",
       "clear_chat_description": "Delete all chat embeddings. You can backfill later to regenerate them",
-      "clear_all_button": "Clear All Embeddings",
+      "clear_all_button": "Clear all embeddings",
       "clear_all_description": "Delete all embeddings (chats, files, webpages). This action cannot be undone",
       "database_management": {
         "remove_duplicates_confirm": "Remove duplicate embeddings? This will keep only the first occurrence of each unique message.",
@@ -1068,75 +1070,75 @@
         "clear_chat_confirm": "Clear all chat embeddings? This will delete all semantic search data for chats. You can backfill later.",
         "clear_chat_success": "Cleared {{count}} chat embedding(s).",
         "clear_chat_error": "Chat search data wasn't cleared. Reload the extension and try again.",
-        "clear_all_confirm": "Clear ALL embeddings? This will delete all semantic search data (chats, files, webpages). This action cannot be undone.",
+        "clear_all_confirm": "Clear all embeddings? This deletes all semantic search data (chats, files, webpages) and can't be undone.",
         "clear_all_success": "All embeddings cleared.",
         "clear_all_error": "Search data wasn't cleared. Reload the extension and try again."
       },
-      "chunking_title": "Chunking Settings",
+      "chunking_title": "Chunking settings",
       "chunking_description": "Configure how text is split into chunks for embedding",
-      "chunk_size_label": "Chunk Size (tokens)",
+      "chunk_size_label": "Chunk size (tokens)",
       "chunk_size_description": "Number of tokens per chunk. Larger chunks preserve more context but may be less focused.",
-      "chunk_overlap_label": "Chunk Overlap (tokens)",
+      "chunk_overlap_label": "Chunk overlap (tokens)",
       "chunk_overlap_description": "Overlap between chunks. Helps preserve context across chunk boundaries.",
-      "chunking_strategy_label": "Chunking Strategy",
-      "strategy_fixed": "Fixed Size",
-      "strategy_semantic": "Semantic Boundaries",
+      "chunking_strategy_label": "Chunking strategy",
+      "strategy_fixed": "Fixed size",
+      "strategy_semantic": "Semantic boundaries",
       "strategy_hybrid": "Hybrid",
       "strategy_markdown": "Markdown structure",
-      "embedding_gen_title": "Embedding Generation",
+      "embedding_gen_title": "Embedding generation",
       "embedding_gen_description": "Configure embedding generation performance",
-      "batch_size_label": "Batch Size",
+      "batch_size_label": "Batch size",
       "batch_size_description": "Number of texts to embed in parallel. Higher values are faster but use more memory.",
-      "enable_caching_label": "Enable Caching",
+      "enable_caching_label": "Enable caching",
       "enable_caching_description": "Cache embeddings for identical content to avoid regenerating",
-      "limits_title": "Limits & Storage",
+      "limits_title": "Limits & storage",
       "limits_description": "Configure storage limits and cleanup policies",
-      "max_embeddings_label": "Max Embeddings Per File",
+      "max_embeddings_label": "Max embeddings per file",
       "max_embeddings_description": "Maximum embeddings per file (0 = unlimited). Helps prevent memory issues with very large files.",
-      "max_storage_label": "Max Storage Size (MB)",
+      "max_storage_label": "Max storage size (MB)",
       "max_storage_description": "Maximum storage size in MB (0 = unlimited). Oldest vectors will be deleted when limit is reached.",
-      "auto_cleanup_label": "Auto Cleanup",
+      "auto_cleanup_label": "Auto cleanup",
       "auto_cleanup_description": "Automatically delete old embeddings",
-      "cleanup_age_label": "Cleanup Age (days)",
+      "cleanup_age_label": "Cleanup age (days)",
       "cleanup_age_description": "Delete embeddings older than this many days",
-      "search_settings_title": "Search Settings",
+      "search_settings_title": "Search settings",
       "search_settings_description": "Default parameters for semantic search",
-      "search_limit_label": "Default Search Limit",
+      "search_limit_label": "Default search limit",
       "search_limit_description": "Default number of results to return from semantic search",
-      "min_similarity_label": "Minimum Similarity Threshold",
+      "min_similarity_label": "Minimum similarity threshold",
       "min_similarity_description": "Minimum cosine similarity score (0-1). For semantic search, 0.4-0.6 is recommended. Higher values return more relevant but fewer results.",
-      "cache_ttl_label": "Search Cache TTL (minutes)",
+      "cache_ttl_label": "Search cache TTL (minutes)",
       "cache_ttl_description": "How long to cache search results (1-60 minutes). Cached queries return instantly.",
-      "cache_max_size_label": "Max Cached Queries",
+      "cache_max_size_label": "Max cached queries",
       "cache_max_size_description": "Maximum number of search queries to cache (10-200). Older entries are automatically removed when limit is reached.",
-      "ann_backend_label": "ANN Backend",
+      "ann_backend_label": "ANN backend",
       "ann_backend_description": "Choose the approximate nearest neighbor backend used for vector search.",
       "ann_backend_placeholder": "Select a backend",
       "ann_backend_group": "Backends",
       "ann_backend_ts": "TypeScript HNSW",
-      "ann_backend_bruteforce": "Brute Force",
+      "ann_backend_bruteforce": "Brute force",
       "ann_min_vectors_label": "Fast search threshold",
       "ann_min_vectors_description": "Use fast approximate search once this many chunks are saved (0 = always).",
-      "enhanced_chunking_label": "Enhanced Chunking",
+      "enhanced_chunking_label": "Enhanced chunking",
       "enhanced_chunking_description": "Use advanced recursive character splitting for better context",
       "enhanced_chunking_info": "Enhanced chunking splits text hierarchically (paragraphs → sentences → words) to preserve semantic meaning. This is recommended for RAG.",
-      "rag_settings_title": "RAG (Retrieval Augmented Generation)",
+      "rag_settings_title": "RAG (retrieval-augmented generation)",
       "rag_settings_description": "Configure how files are used to answer questions with retrieved context",
       "rag_enable_label": "Enable RAG",
       "rag_enable_description": "Use retrieved context to answer questions about your files",
       "reranking_label": "Relevance re-scoring",
       "reranking_description": "Re-scores retrieved results by embedding similarity to your query. Improves ordering at negligible cost.",
-      "embedding_source_label": "Embedding Generation Source",
+      "embedding_source_label": "Embedding generation source",
       "embedding_source_description": "Embeddings are generated using your local provider (Ollama by default)",
       "embedding_source_default_provider": "Default provider (Ollama)",
-      "feedback_learning_title": "User Feedback Learning",
+      "feedback_learning_title": "User feedback learning",
       "feedback_learning_description": "Improve search quality by learning from your feedback",
-      "feedback_enable_label": "Enable Feedback Collection",
+      "feedback_enable_label": "Enable feedback collection",
       "feedback_enable_description": "Remember which chunks were helpful to improve future retrieval",
-      "feedback_show_chunks_label": "Show Retrieved Chunks",
+      "feedback_show_chunks_label": "Show retrieved chunks",
       "feedback_show_chunks_description": "Display source chunks in chat with feedback buttons",
-      "feedback_export_button": "Export Feedback Data",
-      "feedback_clear_button": "Clear All Feedback",
+      "feedback_export_button": "Export feedback data",
+      "feedback_clear_button": "Clear all feedback",
       "feedback_privacy_note": "All feedback is stored locally. Queries are hashed for privacy. No data leaves your device.",
       "feedback_stats_title": "Feedback statistics",
       "feedback_stats_total": "Total feedback",
@@ -1145,11 +1147,11 @@
       "feedback_stats_queries": "Unique queries",
       "feedback_privacy_title": "Privacy",
       "feedback_export_success": "Feedback exported",
-      "feedback_export_error": "Failed to export feedback",
+      "feedback_export_error": "Couldn't export feedback. Try again.",
       "feedback_clear_confirm_title": "Clear feedback?",
       "feedback_clear_confirm_description": "This will permanently delete all feedback. This cannot be undone.",
       "feedback_clear_success": "Feedback cleared",
-      "feedback_clear_error": "Failed to clear feedback"
+      "feedback_clear_error": "Couldn't clear feedback. Try again."
     },
     "provider_status": {
       "checking": "Checking providers…",
@@ -1286,13 +1288,13 @@
       }
     },
     "chat_display": {
-      "title": "Chat Display",
+      "title": "Chat display",
       "description": "Configure how chat information is displayed",
-      "session_metrics_label": "Show Session Metrics",
+      "session_metrics_label": "Show session metrics",
       "session_metrics_description": "Display token usage, duration, and speed in the chat header"
     },
     "prompt_context_limits": {
-      "title": "Prompt Context Limits",
+      "title": "Prompt context limits",
       "description": "Control how much tab and RAG context is injected into each request.",
       "max_tab_context_chars": "Max tab context chars",
       "max_rag_context_chars": "Max RAG context chars",
@@ -1322,31 +1324,31 @@
         "copy": "Copy address",
         "copied": "Copied — paste it into your address bar"
       },
-      "new_chat": "New Chat",
+      "new_chat": "New chat",
       "new_chat_desc": "Create a new chat session",
-      "focus_input": "Focus Input",
+      "focus_input": "Focus input",
       "focus_input_desc": "Focus the chat input field",
-      "toggle_sidebar": "Toggle Sidebar",
+      "toggle_sidebar": "Toggle sidebar",
       "toggle_sidebar_desc": "Open or close the sidebar",
-      "stop_generation": "Stop Generation",
+      "stop_generation": "Stop generation",
       "stop_generation_desc": "Stop the AI response",
-      "open_settings": "Open Settings",
+      "open_settings": "Open settings",
       "open_settings_desc": "Open the settings page",
-      "toggle_theme": "Toggle Theme",
+      "toggle_theme": "Toggle theme",
       "toggle_theme_desc": "Switch between light and dark mode",
       "toggle_rag": "Toggle RAG",
       "toggle_rag_desc": "Enable or disable context retrieval",
-      "toggle_speech": "Toggle Speech",
+      "toggle_speech": "Toggle speech",
       "toggle_speech_desc": "Start or stop speaking the last AI response",
-      "toggle_tabs": "Toggle Tabs",
+      "toggle_tabs": "Toggle tabs",
       "toggle_tabs_desc": "Enable or disable tab access",
-      "search_messages": "Search Messages",
+      "search_messages": "Search messages",
       "search_messages_desc": "Open semantic chat search",
-      "clear_chat": "Clear Chat",
+      "clear_chat": "Clear chat",
       "clear_chat_desc": "Clear the current chat session",
-      "copy_last_response": "Copy Last Response",
+      "copy_last_response": "Copy last response",
       "copy_last_response_desc": "Copy the last AI response to clipboard",
-      "toggle_session_metrics": "Toggle Session Metrics",
+      "toggle_session_metrics": "Toggle session metrics",
       "toggle_session_metrics_desc": "Show or hide the session metrics bar",
       "export_json": "Export as JSON",
       "export_json_desc": "Export current chat as JSON file",
@@ -1362,15 +1364,15 @@
       "conflict": "Already used by \"{{label}}\". Pick another key."
     },
     "content_extraction": {
-      "title": "Content Extraction",
+      "title": "Content extraction",
       "description": "Configure default content extraction behavior for all websites.",
       "enable": {
         "label": "Allow content extraction",
         "description": "Enable enhanced content extraction with lazy loading support"
       },
       "selection_actions": {
-        "label": "Enable Selection Actions",
-        "description": "Show local AI actions when text is selected on a page."
+        "label": "Show a toolbar when you select text",
+        "description": "Summarize, explain, shorten or rewrite selected text right on the page."
       },
       "selection_actions_min_chars": {
         "label": "Minimum selected characters",
@@ -1380,12 +1382,8 @@
         "label": "Selection action list",
         "description": "Choose which local text actions appear in the page toolbar."
       },
-      "selection_button": {
-        "label": "Show \"Ask Local LLM\" button after selection",
-        "description": "Show a floating action button when selecting text to speed up adding it to chat"
-      },
       "scraper": {
-        "label": "Content Scraper",
+        "label": "Content scraper",
         "auto": {
           "label": "Auto",
           "description": "Smart fallback: Defuddle then Readability",
@@ -1403,7 +1401,7 @@
         }
       },
       "scroll_strategy": {
-        "label": "Scroll Strategy",
+        "label": "Scroll strategy",
         "none": "Fastest extraction, lazy loading not supported",
         "instant": "Fast scrolling works well for simple lazy loading",
         "gradual": "Balanced smooth scrolling with deliberate pauses and a mix of speed and precision",
@@ -1422,13 +1420,13 @@
         }
       },
       "scroll_depth": {
-        "label": "Scroll Depth",
+        "label": "Scroll depth",
         "description": "Percentage of page to scroll (higher = more content, slower)"
       },
       "timeout": {
         "section_title": "Page-load timeouts (advanced)",
         "scroll_delay": "Scroll delay in milliseconds",
-        "mutation_timeout": "Mutation Observer timeout in milliseconds",
+        "mutation_timeout": "Mutation observer timeout in milliseconds",
         "network_timeout": "Network idle timeout in milliseconds",
         "max_wait": "Maximum wait time (milliseconds)"
       },
@@ -1441,27 +1439,27 @@
       "title": "Model settings",
       "switch_model": "Switch model",
       "description": "Applies to {{model}}.",
-      "configuration_title": "Model Configuration",
+      "configuration_title": "Model configuration",
       "configuration_description": "Configure your AI model parameters.",
       "system": {
-        "title": "System Configuration",
+        "title": "System configuration",
         "description": "Configure system prompts and stop sequences to control model behavior.",
-        "prompt_label": "System Prompt",
+        "prompt_label": "System prompt",
         "prompt_placeholder": "Enter a custom system prompt to guide the model's behavior...",
-        "stop_sequences_label": "Stop Sequences",
+        "stop_sequences_label": "Stop sequences",
         "stop_sequence_placeholder": "Enter stop sequence...",
         "add_button": "Add"
       },
       "sampling": {
-        "title": "Sampling Parameters",
+        "title": "Sampling parameters",
         "description": "Control randomness and token selection."
       },
       "context": {
-        "title": "Context and Generation",
-        "description": "Memory and Output Control Settings"
+        "title": "Context and generation",
+        "description": "Memory and output control settings"
       },
       "runtime": {
-        "title": "Runtime & Warmup",
+        "title": "Runtime & warmup",
         "description": "Control model warmup and runtime options.",
         "keep_alive_label": "Keep alive",
         "keep_alive_description": "How long to keep the model loaded after a request. Use seconds or a duration like 5m.",
@@ -1477,7 +1475,7 @@
           "description_reported": "Levels reported by this model's provider.",
           "description_profile": "Levels verified for this provider and model family.",
           "description_unknown": "This provider does not advertise a reliable reasoning control.",
-          "reset": "Reset to Auto",
+          "reset": "Reset to auto",
           "options": {
             "auto": "Auto (provider default)",
             "auto_short": "Auto",
@@ -1515,28 +1513,28 @@
           "validation_min": "Must be at least {{min}}"
         },
         "num_ctx": {
-          "label": "Context Size",
+          "label": "Context size",
           "validation_min": "Must be at least {{min}}"
         },
         "num_predict": {
-          "label": "Maximum Tokens",
+          "label": "Maximum tokens",
           "auto": "Auto (recommended)",
           "validation_min": "Must be at least {{min}}."
         },
         "repeat_penalty": {
-          "label": "Repeat Penalty",
+          "label": "Repeat penalty",
           "validation_min": "Must be greater than {{min}}."
         },
         "repeat_last_n": {
-          "label": "Repeat Last N",
+          "label": "Repeat last N",
           "validation_min": "Must be at least {{min}}."
         }
       }
     },
     "base_url": {
-      "title": "Provider Base URL",
-      "description": "Configure the server endpoint for your Provider installation.",
-      "label": "Provider API Server Endpoint",
+      "title": "Provider base URL",
+      "description": "Configure the server endpoint for your provider.",
+      "label": "Provider API server endpoint",
       "error_invalid_url": "Please enter a valid URL.",
       "status_local": "Local server connection",
       "status_remote": "Remote server connection",
@@ -1558,7 +1556,7 @@
       "time_ago_hours": "{{count}} hours ago",
       "time_ago_days": "{{count}} days ago",
       "title": "Models",
-      "title_count": "{{count}} Models",
+      "title_count": "{{count}} models",
       "retry": "Retry",
       "refresh": "Refresh",
       "no_models": "No models found",
@@ -1571,20 +1569,20 @@
       }
     },
     "model_info": {
-      "title": "Model Information",
+      "title": "Model information",
       "no_data": "No data available for this model.",
       "no_data_available": "No model data available",
       "error_fetching": "Error fetching model data.",
       "error_details": "Could not retrieve model details.",
       "refresh_tooltip": "Refresh model details",
       "capabilities": "Capabilities",
-      "technical_details": "Technical Details",
+      "technical_details": "Technical details",
       "unknown_file_type": "Unknown",
       "params_label": "parameters",
       "context_label": "context"
     },
     "loaded_models": {
-      "title": "Loaded Models",
+      "title": "Loaded models",
       "count_one": "{{count}} model",
       "count_other": "{{count}} models",
       "refresh_tooltip": "Refresh loaded models",
@@ -1595,7 +1593,7 @@
     "tabs": {
       "general": "Chat",
       "prompts": "Prompt library",
-      "models": "Model behavior",
+      "models": "Providers & models",
       "extraction": "Page & tabs",
       "agent": "Agent",
       "context": "Knowledge & web",
@@ -1783,11 +1781,11 @@
         "confirm": "Rebuild embeddings? This will clear all embeddings and re-embed chat history. File uploads will need to be re-uploaded to restore knowledge.",
         "progress": "Rebuilding chat embeddings ({{current}}/{{total}})",
         "success": "Embeddings rebuilt successfully.",
-        "error": "Failed to rebuild embeddings."
+        "error": "Couldn't rebuild embeddings. Check that the embedding model is reachable, then try again."
       }
     },
     "web_search": {
-      "title": "Web Search",
+      "title": "Web search",
       "description": "Let supported models search the web using built-in or configured search.",
       "execution_source": {
         "label": "Search source",
@@ -1854,8 +1852,6 @@
         "api_key_required": "Enter an API key.",
         "searxng_json_disabled": "SearXNG refused JSON results. Add json to search.formats in settings.yml and restart it. If it sits behind a login or proxy, let this extension through."
       },
-      "beta_badge": "Beta",
-      "beta_tooltip": "Beta. If you run into issues, please report them.",
       "base_url": {
         "label": "API base URL",
         "description": "Shown for transparency. This endpoint is fixed by the selected provider."
@@ -1867,26 +1863,25 @@
       }
     },
     "memory": {
-      "title": "Contextual Memory",
-      "beta_badge": "Beta",
+      "title": "Contextual memory",
       "description": "Allow the AI to remember details from past conversations to provide personalized responses.",
       "enable": {
-        "label": "Enable Memory",
+        "label": "Enable memory",
         "description": "When enabled, chat history is stored locally and used to provide context."
       },
       "clear": {
-        "label": "Clear Memory",
+        "label": "Clear memory",
         "description": "Delete all stored chat memories.",
-        "button": "Clear Chat Memory",
+        "button": "Clear chat memory",
         "button_clearing": "Clearing...",
         "confirm_dialog": "Are you sure you want to clear all chat memory? This cannot be undone.",
         "success": "Chat memory cleared successfully.",
-        "error": "Failed to clear memory.",
+        "error": "Couldn't clear memory. Try again.",
         "usage": "Usage: {{count}} items ({{size}} MB total)"
       }
     },
     "page": {
-      "title": "Ollama Client Settings",
+      "title": "Ollama Client settings",
       "description": "Connect a model server, then choose how chats, pages and knowledge work."
     },
     "search": {
@@ -1899,7 +1894,7 @@
       "description": "Apply a tuned combination in one click. You can still adjust any individual setting afterward.",
       "apply": "Apply preset",
       "applied": "Applied the {{name}} preset",
-      "error_title": "Failed to apply preset",
+      "error_title": "Couldn't apply preset",
       "preview_title": "Apply {{name}}",
       "preview_hint": "These settings will change:",
       "footer_note": "You can fine-tune any of these afterward in Settings.",
@@ -1944,11 +1939,11 @@
       "title": "Reset this section to defaults?",
       "description": "This restores the controls in this section to their default values. Other settings are untouched.",
       "done": "Section reset to defaults",
-      "error_title": "Failed to reset section"
+      "error_title": "Couldn't reset section"
     },
     "sections": {
       "app": "App",
-      "ai_models": "AI & Models",
+      "ai_models": "AI & models",
       "customize": "Customize",
       "system": "System",
       "setup": "Setup",
@@ -1959,80 +1954,80 @@
       "more": "More"
     },
     "speech": {
-      "title": "Speech Settings",
+      "title": "Speech settings",
       "description": "Configure your text-to-speech voice, speed, and tone settings.",
       "voice_label": "Voice",
-      "rate_label": "Speech Rate",
-      "pitch_label": "Voice Pitch",
+      "rate_label": "Speech rate",
+      "pitch_label": "Voice pitch",
       "preview_title": "Preview",
-      "test_text_label": "Test Text",
+      "test_text_label": "Test text",
       "test_text_placeholder": "Test your voice settings by typing here...",
-      "test_hint_text": "Click \"Test Voice\" to hear your text.",
+      "test_hint_text": "Select \"Test voice\" to hear your text.",
       "test_hint_default": "Click \"Test Voice\" to hear the default sample.",
-      "test_button": "Test Voice",
+      "test_button": "Test voice",
       "test_fallback": "Hello, this is a test of your speech settings.",
       "rate": {
-        "very_slow": "Very Slow",
+        "very_slow": "Very slow",
         "slow": "Slow",
         "normal": "Normal",
         "fast": "Fast",
-        "very_fast": "Very Fast"
+        "very_fast": "Very fast"
       },
       "pitch": {
-        "very_low": "Very Low",
+        "very_low": "Very low",
         "low": "Low",
         "normal": "Normal",
         "high": "High",
-        "very_high": "Very High"
+        "very_high": "Very high"
       }
     },
     "embeddings": {
       "title": "Saved knowledge",
       "description": "Embeddings enable semantic search, retrieval augmented generation, and context-aware features for file uploads and chat history.",
       "test_generation": {
-        "title": "Test Embedding Generation",
+        "title": "Test embedding generation",
         "description": "Generate a test embedding to verify the embedding model is working correctly.",
         "button": "Test",
         "button_testing": "Testing..."
       },
       "rebuild_index": {
-        "title": "Rebuild Keyword Index",
+        "title": "Rebuild keyword index",
         "description": "Force a rebuild of the keyword search index from existing vectors. Use this if search results are missing or inconsistent.",
-        "button": "Rebuild Index",
+        "button": "Rebuild index",
         "button_rebuilding": "Rebuilding...",
         "status_starting": "Starting rebuild...",
         "status_processing": "Processing {{current}} of {{total}} items...",
         "success": "Index rebuild completed successfully!",
-        "error": "Failed to rebuild index. Please try again."
+        "error": "Couldn't rebuild the index. Try again."
       },
       "test_search": {
-        "title": "Semantic Search",
+        "title": "Semantic search",
         "description": "Verify your uploaded files are accessible and searchable. Enter a search query to find matching content.",
         "placeholder": "Search...",
         "results_found": "Found {{count}} results",
         "no_results": "No results found. Try a different search or upload more content."
       },
       "what_are_embeddings": {
-        "title": "What are Embeddings?",
+        "title": "What are embeddings?",
         "point_1": "Convert text into numerical vectors that capture semantic meaning",
         "point_2": "Enable semantic search across your chat history and uploaded files",
         "point_3": "Power RAG for context-aware responses",
         "point_4": "Provide relevant context from your files to improve AI responses"
       },
       "model_select": {
-        "label": "Embedding Model",
+        "label": "Embedding model",
         "placeholder": "Select a model",
         "description": "Choose a model to generate embeddings. You may need to download it first.",
-        "recommended_group": "Recommended Models",
-        "all_models_group": "All Models",
+        "recommended_group": "Recommended models",
+        "all_models_group": "All models",
         "show_advanced_label": "Show all provider models",
         "show_advanced_description": "Enable advanced selection for any embedding model exposed by your providers. Recommended models give the most consistent search quality."
       },
       "model_change_confirm": {
         "title": "Rebuild embeddings now?",
         "description": "Changing embedding models can make existing vectors incompatible. Rebuild the index to keep search results accurate, or switch without rebuilding.",
-        "switch_only": "Switch Without Rebuild",
-        "switch_and_rebuild": "Switch & Rebuild"
+        "switch_only": "Switch without rebuild",
+        "switch_and_rebuild": "Switch & rebuild"
       },
       "bundled": {
         "provider_hint": "Choose an embedding model from Ollama, LM Studio, llama.cpp, or another local or hosted provider. Language support depends on the model you choose.",
@@ -2064,7 +2059,7 @@
       }
     },
     "prompts": {
-      "title": "Prompt Templates",
+      "title": "Prompt templates",
       "description": "Manage your collection of {{count}} prompt templates.",
       "export": "Export",
       "import": "Import",
@@ -2073,17 +2068,17 @@
         "title": "Reset templates to defaults?",
         "description": "This will replace all of your current templates with the default ones. This action cannot be undone.",
         "cancel": "Cancel",
-        "confirm": "Reset Templates"
+        "confirm": "Reset templates"
       },
       "search_placeholder": "Search templates...",
       "category_placeholder": "Category",
-      "all_categories": "All Categories",
+      "all_categories": "All categories",
       "sort": {
         "recent": "Recent",
         "popular": "Popular",
         "alphabetical": "A-Z"
       },
-      "new_template": "New Template",
+      "new_template": "New template",
       "form": {
         "title": "Title",
         "title_placeholder": "Template title",
@@ -2093,10 +2088,10 @@
         "description_placeholder": "A brief description of the template's purpose and functionality.",
         "tags": "Tags",
         "tags_placeholder": "tag1, tag2, tag3",
-        "user_prompt": "User Prompt",
+        "user_prompt": "User prompt",
         "user_prompt_placeholder": "Main prompt template",
-        "system_prompt": "System Prompt",
-        "create_button": "Create Template"
+        "system_prompt": "System prompt",
+        "create_button": "Create template"
       },
       "delete_dialog": {
         "title": "Delete template",
@@ -2136,26 +2131,26 @@
           "description": "UI appearance preferences"
         },
         "browser": {
-          "title": "Browser Settings",
+          "title": "Browser settings",
           "description": "Tab access & URL patterns"
         },
         "tts": {
-          "title": "Text to Speech",
+          "title": "Text to speech",
           "description": "Text-to-speech settings"
         },
         "chat_sessions": {
-          "title": "Chat History",
+          "title": "Chat history",
           "description": "Conversation history"
         },
         "default": {
           "description": "Module settings"
         },
         "provider": {
-          "title": "Provider Settings",
+          "title": "Provider settings",
           "description": "Model settings & configurations"
         },
         "feedback": {
-          "title": "User Feedback",
+          "title": "User feedback",
           "description": "Clear all learning and retrieved chunk feedback"
         }
       },
@@ -2180,7 +2175,6 @@
     "providers": {
       "default": "Default",
       "beta_badge": "Beta",
-      "beta_notice": "Beta. Report problems on GitHub.",
       "enabled": "Enabled",
       "disabled": "Disabled",
       "inactive": "Inactive",
@@ -2257,11 +2251,11 @@
       },
       "icon_lookup": {
         "label": "Show provider site icons",
-        "description": "Show each provider's own site icon. Try the provider's address first, then its main domain and www host if no icon is found. No third-party icon service is contacted."
+        "description": "Show a custom provider's own site icon, fetched from that provider and never from a third-party service."
       },
       "catalog_refresh": {
         "label": "Model list refresh",
-        "description": "How often an open panel checks your providers for new models.",
+        "description": "How often an open panel asks your providers for their model lists again.",
         "options": {
           "0": "Off",
           "10000": "Every 10 seconds",
@@ -2278,36 +2272,40 @@
       "enable_failed_title": "Couldn't turn on {{name}}",
       "disable_failed_title": "Couldn't turn off {{name}}",
       "toggle_failed_description": "It's back to its previous state. Retry in a moment.",
-      "status_off": "Off"
+      "status_off": "Off",
+      "advanced": {
+        "title": "Advanced",
+        "summary": "Provider site icons and model list refresh"
+      }
     },
     "migration": {
-      "title": "Data Migration",
+      "title": "Data migration",
       "description": "Export or import portable settings, chat history, and embedding databases without including API keys or device-only state.",
       "export": {
-        "label": "Export Privacy-Safe Backup",
+        "label": "Export privacy-safe backup",
         "description": "Download portable settings and user data as a ZIP file. API keys, approval grants, temporary handoffs, and recovery state are excluded.",
-        "button": "Export Backup",
+        "button": "Export backup",
         "error_title": "Export failed"
       },
       "import": {
-        "label": "Import Backup",
+        "label": "Import backup",
         "description": "Restore a current or legacy ZIP backup through the privacy-safe allowlist. Credentials and internal state are never restored.",
-        "button": "Import Backup"
+        "button": "Import backup"
       },
       "import_confirm": {
         "title": "Are you absolutely sure?",
         "description": "This action will overwrite portable preferences, chat history, and databases. Provider API keys are not restored and may need to be entered again. This action cannot be undone."
       },
       "import_result": {
-        "title": "Import Results",
+        "title": "Import results",
         "description": "Review the status of your data import below:",
         "skipped_private": "Some credentials, device-only settings, or internal recovery data in this backup were safely skipped.",
         "labels": {
-          "sync": "Preferences (Sync)",
-          "local": "Local Storage",
-          "database": "Database (SQLite)",
+          "sync": "Synced preferences",
+          "local": "Device settings",
+          "database": "Chats and sessions",
           "vectorDb": "Saved knowledge",
-          "knowledgeDb": "Knowledge Sets (Dexie)"
+          "knowledgeDb": "Knowledge sets"
         },
         "legacy_chat_backup": "This backup was made by version 0.6.3 or earlier, which stored chats in a format the extension no longer reads. Its settings, embeddings, and knowledge sets were restored; its chats were not.",
         "status": {
@@ -2322,38 +2320,37 @@
       "remote_images_label": "Load remote images in exports",
       "remote_images_hint": "Allow print and PDF exports to load images from external servers. When off, exports stay fully offline and remote images are replaced with a placeholder."
     },
-    "beta_badge": "Beta",
     "nav_label": "Settings sections",
     "more_section": {
       "title": "Prompts, speech and shortcuts"
     }
   },
   "guides": {
-    "title": "Helpful Guides & Documentation",
+    "title": "Guides & documentation",
     "description": "Need help setting up Ollama Client or exploring features? Check out these useful resources",
     "support": {
-      "title": "Support the Project",
+      "title": "Support the project",
       "description": "Help us grow by featuring Ollama Client on Product Hunt",
       "image_alt": "Ollama Client - Chat with local LLMs — right inside your browser | Product Hunt"
     },
     "items": {
       "setup": {
-        "label": "Ollama Client Setup Guide",
+        "label": "Ollama Client setup guide",
         "description": "Complete installation and configuration guide",
         "badge": "Guide"
       },
       "library": {
-        "label": "Official Ollama Model Library",
+        "label": "Official Ollama model library",
         "description": "Browse available AI models and documentation",
         "badge": "Library"
       },
       "github": {
-        "label": "GitHub Repo",
+        "label": "GitHub repository",
         "description": "Source code, releases, and contribution guidelines",
         "badge": "Code"
       },
       "issue": {
-        "label": "Open a GitHub Issue",
+        "label": "Open a GitHub issue",
         "description": "Report bugs or rough edges before leaving a store review",
         "badge": "Support"
       },
@@ -2365,12 +2362,12 @@
     }
   },
   "social": {
-    "github": "GitHub Page",
+    "github": "GitHub page",
     "portfolio": "Portfolio",
     "linkedin": "LinkedIn",
     "twitter": "Twitter",
     "instagram": "Instagram",
-    "bug_report": "Report Bug / Feature"
+    "bug_report": "Report a bug"
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -2380,7 +2377,7 @@
     "copy_details": "Copy details"
   },
   "knowledge_sets": {
-    "title": "Knowledge Sets",
+    "title": "Knowledge sets",
     "active_label": "Active knowledge set",
     "active_description": "Select which knowledge set to use when no files are attached.",
     "active_placeholder": "Select a knowledge set",
@@ -2442,7 +2439,7 @@
     "clear": "Clear diagnostic history",
     "copied": "Support bundle copied",
     "cleared": "Diagnostic history cleared",
-    "failed": "Diagnostics request failed",
+    "failed": "Couldn't run diagnostics. Try again.",
     "privacy_notice": "Review before sharing. Bundle excludes chats, prompts, files, page content, credentials, cookies, and full endpoints.",
     "status": {
       "pass": "Pass",
@@ -2454,12 +2451,12 @@
       "runtime_version": "Runtime version",
       "browser_apis": "Browser APIs",
       "permissions": "Browser permissions",
-      "sync_storage": "Sync storage",
-      "local_storage": "Local storage",
+      "sync_storage": "Synced settings",
+      "local_storage": "Device settings",
       "chat_repository": "Saved chats",
-      "vector_store": "Vector store",
+      "vector_store": "Saved knowledge",
       "provider_discovery": "Provider and model discovery",
-      "migration": "Persistence migration",
+      "migration": "Chat storage upgrade",
       "dnr_rules": "Local server access rule",
       "turn_checkpoint": "Reply recovery",
       "turn_retention": "Finished replies cleanup"
@@ -2527,7 +2524,8 @@
         "server-error": "{{provider}} hit a server error. Check its log, then retry.",
         "cors-other": "{{provider}} is running but blocked this extension. Allow chrome-extension://* and moz-extension://* in its CORS settings, then restart it.",
         "rate-limited": "{{provider}} is limiting requests right now. Wait a moment, then retry.",
-        "payment": "{{provider}} needs payment or credits. Check your account, then retry."
+        "payment": "{{provider}} needs payment or credits. Check your account, then retry.",
+        "refused": "{{provider}} refused the request. Check the API key in provider settings, or the access rules of any proxy in front of it."
       },
       "unverified": "Connection not verified. You can try a configured model, or open provider setup to check the endpoint.",
       "support_code": "Support code"

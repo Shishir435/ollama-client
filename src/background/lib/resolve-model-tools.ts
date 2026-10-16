@@ -3,7 +3,10 @@ import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import {
   getModelCapabilities,
-  type ModelCapabilities
+  getModelCapabilityStates,
+  type ModelCapabilities,
+  type ModelCapabilityInput,
+  type ModelCapabilityStates
 } from "@/lib/providers/capabilities"
 import type { CapabilityProbeResult } from "@/lib/providers/capability-probe"
 import { getCapabilityProbe } from "@/lib/providers/capability-probe"
@@ -60,6 +63,8 @@ export interface ResolvedModelTools {
 
 export interface ResolvedModelCapabilities {
   capabilities: ModelCapabilities
+  /** Per-flag attribution: which source decided each capability. */
+  states: ModelCapabilityStates
   probed: CapabilityProbeResult | null
 }
 
@@ -142,19 +147,21 @@ export const resolveModelCapabilities = async (
     getModelCapabilityOverride(resolvedProviderId, model),
     getCapabilityProbe(resolvedProviderId, model)
   ])
+  const capabilityInput: ModelCapabilityInput = {
+    providerId: resolvedProviderId,
+    ollamaCapabilities: metadata.tags,
+    lmStudioModelType: metadata.modelType,
+    capabilityTags: metadata.capabilityTags,
+    contextLength: metadata.contextLength,
+    modalities: metadata.modalities,
+    outputModalities: metadata.outputModalities,
+    supportedParameters: metadata.supportedParameters,
+    override,
+    probed
+  }
   return {
-    capabilities: getModelCapabilities({
-      providerId: resolvedProviderId,
-      ollamaCapabilities: metadata.tags,
-      lmStudioModelType: metadata.modelType,
-      capabilityTags: metadata.capabilityTags,
-      contextLength: metadata.contextLength,
-      modalities: metadata.modalities,
-      outputModalities: metadata.outputModalities,
-      supportedParameters: metadata.supportedParameters,
-      override,
-      probed
-    }),
+    capabilities: getModelCapabilities(capabilityInput),
+    states: getModelCapabilityStates(capabilityInput),
     probed
   }
 }

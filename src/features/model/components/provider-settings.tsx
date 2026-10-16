@@ -1,10 +1,13 @@
-import { CheckCircle2, Info, Loader2, Trash2, XCircle, Zap } from "lucide-react"
+import { CheckCircle2, Loader2, Trash2, XCircle, Zap } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
 import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
-import { SettingsControlCard, SettingsSwitch } from "@/components/settings"
+import {
+  AdvancedSection,
+  SettingsRow,
+  SettingsSwitch
+} from "@/components/settings"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,7 +52,18 @@ import { isBetaProvider } from "@/lib/providers/registry"
 import { ProviderId } from "@/lib/providers/types"
 import { SETTINGS } from "@/lib/storage/settings"
 
-export const ProviderSettings = () => {
+/** Settings that live in the collapsed "Advanced" group below the config. */
+const ADVANCED_PROVIDER_SETTINGS = new Set([
+  "provider-icon-lookup",
+  "provider-catalog-refresh"
+])
+
+export const ProviderSettings = ({
+  activeFocusId = null
+}: {
+  /** The deep-linked setting, so a link into the advanced group opens it. */
+  activeFocusId?: string | null
+}) => {
   const { t } = useTranslation()
   const {
     providers,
@@ -129,18 +143,7 @@ export const ProviderSettings = () => {
                 <CardTitle className="flex items-center gap-2">
                   {activeConfig.name}
                   {isBetaProvider(activeConfig.id) && (
-                    <>
-                      <MiniBadge text={t("settings.providers.beta_badge")} />
-                      <TooltipActionButton
-                        trigger={
-                          <span className="inline-flex text-muted-foreground hover:text-foreground" />
-                        }
-                        icon={Info}
-                        iconClassName="icon-sm"
-                        label={t("settings.providers.beta_notice")}
-                        tooltipClassName="max-w-xs"
-                      />
-                    </>
+                    <MiniBadge text={t("settings.providers.beta_badge")} />
                   )}
                 </CardTitle>
                 <CardDescription>
@@ -247,48 +250,61 @@ export const ProviderSettings = () => {
         </Card>
       )}
 
-      <SettingsSwitch
-        id="provider-icon-lookup"
-        label={t("settings.providers.icon_lookup.label")}
-        description={t("settings.providers.icon_lookup.description")}
-        checked={iconLookup}
-        onCheckedChange={setIconLookup}
-      />
+      <AdvancedSection
+        title={t("settings.providers.advanced.title")}
+        summary={t("settings.providers.advanced.summary")}
+        forceOpen={
+          activeFocusId !== null &&
+          ADVANCED_PROVIDER_SETTINGS.has(activeFocusId)
+        }>
+        <SectionStack>
+          <SettingsSwitch
+            id="provider-icon-lookup"
+            label={t("settings.providers.icon_lookup.label")}
+            description={t("settings.providers.icon_lookup.description")}
+            checked={iconLookup}
+            onCheckedChange={setIconLookup}
+          />
 
-      <SettingsControlCard
-        id="provider-catalog-refresh"
-        label={t("settings.providers.catalog_refresh.label")}
-        description={t("settings.providers.catalog_refresh.description")}
-        control={
-          <Select
-            // The same normalization the queries poll on, so a value synced
-            // from another device cannot leave the trigger blank or disagree
-            // with the interval actually in force.
-            value={String(normalizeCatalogRefreshMs(catalogRefreshMs))}
-            onValueChange={(next) => {
-              if (next !== null) {
-                setCatalogRefreshMs(normalizeCatalogRefreshMs(Number(next)))
-              }
-            }}>
-            <SelectTrigger id="provider-catalog-refresh" className="w-48">
-              <SelectValue>
-                {() =>
-                  t(
-                    `settings.providers.catalog_refresh.options.${normalizeCatalogRefreshMs(catalogRefreshMs)}`
-                  )
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {CATALOG_REFRESH_CHOICES_MS.map((option) => (
-                <SelectItem key={option} value={String(option)}>
-                  {t(`settings.providers.catalog_refresh.options.${option}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-      />
+          <SettingsRow
+            focusId="provider-catalog-refresh"
+            htmlFor="provider-catalog-refresh"
+            label={t("settings.providers.catalog_refresh.label")}
+            description={t("settings.providers.catalog_refresh.description")}
+            control={
+              <Select
+                // The same normalization the queries poll on, so a value synced
+                // from another device cannot leave the trigger blank or disagree
+                // with the interval actually in force.
+                value={String(normalizeCatalogRefreshMs(catalogRefreshMs))}
+                onValueChange={(next) => {
+                  if (next !== null) {
+                    setCatalogRefreshMs(normalizeCatalogRefreshMs(Number(next)))
+                  }
+                }}>
+                <SelectTrigger id="provider-catalog-refresh" className="w-48">
+                  <SelectValue>
+                    {() =>
+                      t(
+                        `settings.providers.catalog_refresh.options.${normalizeCatalogRefreshMs(catalogRefreshMs)}`
+                      )
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {CATALOG_REFRESH_CHOICES_MS.map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {t(
+                        `settings.providers.catalog_refresh.options.${option}`
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            }
+          />
+        </SectionStack>
+      </AdvancedSection>
 
       {pendingRemoval && (
         <AlertDialog

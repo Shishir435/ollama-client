@@ -30,5 +30,13 @@
   "actionDefaultTitle": {
     "message": "Ollama Client を開く",
     "description": "Toolbar action title"
+  },
+  "askSelectionMenu": {
+    "message": "これについて Ollama Client に質問",
+    "description": "Context menu item that sends selected text to the chat"
+  },
+  "toolLimitReached": {
+    "message": "回答の準備が整う前にツール呼び出しの上限に達したため停止しました。範囲を絞って、もう一度質問してください。",
+    "description": "Reply text when a tool loop stopped at its limit with no answer"
   }
 }

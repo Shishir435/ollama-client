@@ -47,10 +47,11 @@ const hasChromeNamespace = (name: string): boolean =>
 /** Native side panel (Chromium). Firefox falls back to a popup window. */
 export const supportsSidePanel = (): boolean => hasChromeNamespace("sidePanel")
 
-/** declarativeNetRequest dynamic rules — used for localhost-provider CORS (Chromium). */
-export const supportsDNR = (): boolean =>
-  typeof chrome !== "undefined" &&
-  typeof chrome.declarativeNetRequest?.updateDynamicRules === "function"
+export {
+  supportsDNR,
+  supportsProviderOriginGuard,
+  supportsWebRequestHeaders
+} from "@/lib/origin-guard-support"
 
 const hasBrowserNamespace = (name: string): boolean =>
   typeof (browser as unknown as Record<string, unknown>)[name] !== "undefined"

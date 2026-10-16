@@ -191,7 +191,10 @@ const budgets: Budget[] = [
     /** Structured terminal refusals add 87 bytes to Chrome's measured total. */
     /** UX audit fixes — classified failure copy, the origins command, rewritten and newly translated nine-locale strings — measure Chrome at 48,658,078. */
     /** Merged #468 and UX review fixes measure Chrome at 48,694,919 bytes. */
-    max: isFirefox ? 50_300_000 : 48_694_919
+    /** 0.15.0-rc.1 hardening (Origin guard on both browsers, refusal copy, warmup load options) with this branch's other fixes measures Chrome at 48,701,078. */
+    /** Review fixes (alternating-role history, image-only overrides, serialized reconciles, draft-rule release, guarded menu title) measure Chrome at 48,707,067. */
+    /** Greptile review fixes (images through tool loops, polyfill-free origin-guard checks) measure Chrome at 48,707,304. */
+    max: isFirefox ? 50_300_000 : 48_707_304
   },
   {
     metric: "zip",
@@ -203,7 +206,10 @@ const budgets: Budget[] = [
     field: "gzipBytes",
     /** UX audit fixes — connection-failure classes, provider failure keys for cloud models, memory and runner crashes, the SearXNG and LM Studio cases — measure Chrome at 345,998 and Firefox at 224,229. */
     /** Merged #468 and UX review fixes measure Chrome at 351,845 gzip bytes and Firefox at 224,674. */
-    max: isFirefox ? 224_674 : 351_845
+    /** 0.15.0-rc.1 hardening — Firefox's Origin listener, fail-closed DNR, refusal copy, history filter, warmup load options — measures Chrome at 353,180 and Firefox at 226,018. */
+    /** Review fixes (alternating-role history, image-only overrides, serialized reconciles, draft-rule release, guarded menu title) measure Chrome at 353,788 and Firefox at 226,864. */
+    /** Greptile review fixes (images through tool loops, polyfill-free origin-guard checks) measure Chrome at 353,866 and Firefox at 226,965. */
+    max: isFirefox ? 226_965 : 353_866
   }
 ]
 

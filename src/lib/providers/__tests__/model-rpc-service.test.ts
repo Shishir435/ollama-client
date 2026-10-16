@@ -210,6 +210,29 @@ describe("ModelRpcService.warmup", () => {
     expect(ollama.modelLifecycle.warmModel).toHaveBeenCalledTimes(1)
   })
 
+  it("warms with the context and load options the chat request uses", async () => {
+    mocks.storageGet.mockResolvedValue({
+      "ctx-model": {
+        warm_on_select: true,
+        keep_alive: "30m",
+        num_ctx: 65536,
+        num_gpu: 99
+      }
+    })
+
+    await ModelRpcService.warmup({ model: "ctx-model" })
+
+    expect(ollama.modelLifecycle.warmModel).toHaveBeenCalledWith(
+      "ctx-model",
+      expect.objectContaining({
+        num_ctx: 65536,
+        num_gpu: 99,
+        keep_alive: "30m"
+      }),
+      undefined
+    )
+  })
+
   it("releases the previous model when it is configured to unload on switch", async () => {
     mocks.storageGet.mockResolvedValue({
       "new-model": { warm_on_select: false },

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { EMPTY_REPLY_PLACEHOLDER } from "@/background/lib/conversation-history"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import type { ChatMessage, ChatWithModelMessage } from "@/types"
@@ -742,6 +743,71 @@ describe("handleChatWithModel", () => {
       expect(mockStreamChat).not.toHaveBeenCalled()
     })
 
+    it("keeps chatting with a model that writes text as well as images", async () => {
+      mockProvider.getModelDetails.mockResolvedValueOnce({
+        capabilities: ["completion", "image"]
+      })
+      mockProvider.generateImage = undefined as never
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "text-and-image-model",
+          messages: [
+            { role: "user", content: "hi" },
+            { role: "assistant", content: "Hello" },
+            { role: "user", content: "what did I say?" }
+          ]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockGenerateImage).not.toHaveBeenCalled()
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "text-and-image-model",
+          messages: expect.arrayContaining([
+            expect.objectContaining({ role: "assistant", content: "Hello" })
+          ])
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+      expect(mockPort.postMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.anything() })
+      )
+    })
+
+    it("routes an id-only model the user marked as image output to the image operation", async () => {
+      const storage = await import("@/lib/plasmo-global-storage")
+      vi.mocked(storage.getPlasmoStoredValue).mockImplementation(
+        async (key: string) =>
+          key === STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
+            ? { "ollama::dall-e-3": { imageOutput: true } }
+            : undefined
+      )
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "dall-e-3",
+          providerId: "ollama",
+          messages: [{ role: "user", content: "a fox in the snow" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockGenerateImage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "dall-e-3",
+          prompt: "a fox in the snow"
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+      expect(mockStreamChat).not.toHaveBeenCalled()
+    })
+
     it("rejects image output when the provider has no generation operation", async () => {
       mockProvider.getModelDetails.mockResolvedValueOnce({
         capabilities: ["image"]
@@ -818,6 +884,53 @@ describe("handleChatWithModel", () => {
           })
         ])
       )
+    })
+
+    it("never sends an empty or reasoning-only reply back, and keeps roles alternating", async () => {
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [
+            { role: "user", content: "first" },
+            {
+              role: "assistant",
+              content: "",
+              done: true,
+              metrics: { emptyResponse: true }
+            },
+            { role: "user", content: "second" },
+            {
+              role: "assistant",
+              content: "",
+              thinking: "only reasoning",
+              done: true,
+              metrics: { thinkingOnlyResponse: true }
+            },
+            { role: "user", content: "third" }
+          ]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      const request = mockStreamChat.mock.calls[0][0]
+      const history = request.messages.filter(
+        (entry: { role: string }) => entry.role !== "system"
+      )
+      expect(
+        history.map((entry: { role: string; content: string }) => [
+          entry.role,
+          entry.content
+        ])
+      ).toEqual([
+        ["user", "first"],
+        ["assistant", EMPTY_REPLY_PLACEHOLDER],
+        ["user", "second"],
+        ["assistant", EMPTY_REPLY_PLACEHOLDER],
+        ["user", "third"]
+      ])
+      expect(JSON.stringify(request.messages)).not.toContain("only reasoning")
     })
   })
 })

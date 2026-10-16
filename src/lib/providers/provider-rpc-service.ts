@@ -17,10 +17,17 @@ import {
   type ProviderTestConnectionResult,
   type PublicProviderConfig
 } from "@ollama-client/contracts/provider-rpc"
+import { supportsDNR } from "@/lib/browser-api"
+import { ensureProviderOriginRule } from "@/lib/dnr-rules"
 import { createAppError, isAbortError, isAppError } from "@/lib/error-utils"
+import {
+  addStrippedProviderOrigin,
+  supportsOriginStripListener
+} from "@/lib/firefox-origin-guard"
 import { providerConnectionError } from "@/lib/onboarding/provider-connection"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ProviderModel } from "@/types/model"
+import { resolveProviderBaseUrl } from "./base-url"
 import {
   probeReasoning,
   probeToolCalling,
@@ -51,6 +58,44 @@ import {
   ProviderServiceProfile,
   ProviderType
 } from "./types"
+
+/**
+ * A draft's base URL is not saved yet, so the reconciled Origin rules do not
+ * cover it, and an unsaved Ollama behind a proxy would answer the test's chat
+ * probe with 403 that saving would then fix. Best effort: a test that runs
+ * without the rule is still a test.
+ *
+ * Returns the release the caller runs once the test settles, so a URL the
+ * user tried and never saved does not keep a rule. A configured provider's
+ * origin keeps its rule; the guard decides that, not this caller.
+ */
+const coverDraftOrigin = async (
+  config: ProviderConfig
+): Promise<() => Promise<void>> => {
+  const nothingToRelease = async () => undefined
+  try {
+    if (supportsDNR()) {
+      return await ensureProviderOriginRule(resolveProviderBaseUrl(config))
+    }
+    if (supportsOriginStripListener()) {
+      const release = addStrippedProviderOrigin(resolveProviderBaseUrl(config))
+      return async () => release()
+    }
+  } catch {
+    return nothingToRelease
+  }
+  return nothingToRelease
+}
+
+const releaseDraftOrigin = async (
+  release: (() => Promise<void>) | undefined
+): Promise<void> => {
+  try {
+    await release?.()
+  } catch {
+    /** The next reconcile replaces the whole set anyway. */
+  }
+}
 
 /**
  * A provider id that no longer names a stored config. The RPC boundary reports
@@ -409,69 +454,77 @@ export const ProviderRpcService = {
     signal?: AbortSignal
   ): Promise<ProviderTestConnectionResult> {
     const startedAt = performance.now()
-    const resolved =
-      request.target === "draft"
-        ? await (async () => {
-            const stored =
-              request.config.apiKey.state === "unchanged"
-                ? await ProviderManager.getProviderConfig(request.config.id)
-                : undefined
-            const config = providerConfigFromDraft(request.config, stored)
-            return {
-              config,
-              provider: await ProviderFactory.getProviderWithConfig(config)
+    let releaseDraft: (() => Promise<void>) | undefined
+    try {
+      const resolved =
+        request.target === "draft"
+          ? await (async () => {
+              const stored =
+                request.config.apiKey.state === "unchanged"
+                  ? await ProviderManager.getProviderConfig(request.config.id)
+                  : undefined
+              const config = providerConfigFromDraft(request.config, stored)
+              releaseDraft = await coverDraftOrigin(config)
+              return {
+                config,
+                provider: await ProviderFactory.getProviderWithConfig(config)
+              }
+            })()
+          : {
+              config: await ProviderManager.getProviderConfig(
+                request.providerId
+              ),
+              provider: await ProviderFactory.getProvider(request.providerId)
             }
-          })()
-        : {
-            config: await ProviderManager.getProviderConfig(request.providerId),
-            provider: await ProviderFactory.getProvider(request.providerId)
-          }
-    const { config, provider } = resolved
-    /*
-     * A draft test is the user pressing Test, usually right after editing the
-     * config, so it always goes to the network. A stored test is the background
-     * health check, which honours the remembered answer — that is what stops a
-     * chat-only endpoint from collecting a 404 every few seconds forever.
-     */
-    const { models, catalog, error } = await discoverModels(
-      config,
-      async () => provider,
-      signal,
-      { force: request.target === "draft" }
-    )
-    /*
-     * The catalog request's own failure is a fetch TypeError or a bare status,
-     * and the RPC boundary would report either as "the background request
-     * failed". Classify it here, where the config says what was asked of whom.
-     */
-    if (catalog === "failed") {
-      throw providerConnectionError(error, config, String(provider.id))
-    }
+      const { config, provider } = resolved
+      /*
+       * A draft test is the user pressing Test, usually right after editing the
+       * config, so it always goes to the network. A stored test is the background
+       * health check, which honours the remembered answer — that is what stops a
+       * chat-only endpoint from collecting a 404 every few seconds forever.
+       */
+      const { models, catalog, error } = await discoverModels(
+        config,
+        async () => provider,
+        signal,
+        { force: request.target === "draft" }
+      )
+      /*
+       * The catalog request's own failure is a fetch TypeError or a bare status,
+       * and the RPC boundary would report either as "the background request
+       * failed". Classify it here, where the config says what was asked of whom.
+       */
+      if (catalog === "failed") {
+        throw providerConnectionError(error, config, String(provider.id))
+      }
 
-    const merged = config ? mergeProviderModels(models, config) : models
-    /*
-     * Declared model ids count toward what this endpoint can be used with,
-     * exactly as they do in `listModels`. A hosted router that only implements
-     * `/chat/completions` is not broken — it just has nothing to discover.
-     *
-     * "Nothing to discover" is not the same as "works", though, and the
-     * catalog request cannot tell the difference: a mistyped base URL answers
-     * 404 exactly like a chat-only gateway does. So an explicit test confirms
-     * the endpoint the user actually needs before reporting it reachable, and
-     * a test that cannot confirm it does not claim to have.
-     */
-    const reachable =
-      catalog === "present" ||
-      (request.target === "draft" &&
-        merged.length > 0 &&
-        (await confirmChatEndpoint(provider, config, merged[0].name, signal)))
+      const merged = config ? mergeProviderModels(models, config) : models
+      /*
+       * Declared model ids count toward what this endpoint can be used with,
+       * exactly as they do in `listModels`. A hosted router that only implements
+       * `/chat/completions` is not broken — it just has nothing to discover.
+       *
+       * "Nothing to discover" is not the same as "works", though, and the
+       * catalog request cannot tell the difference: a mistyped base URL answers
+       * 404 exactly like a chat-only gateway does. So an explicit test confirms
+       * the endpoint the user actually needs before reporting it reachable, and
+       * a test that cannot confirm it does not claim to have.
+       */
+      const reachable =
+        catalog === "present" ||
+        (request.target === "draft" &&
+          merged.length > 0 &&
+          (await confirmChatEndpoint(provider, config, merged[0].name, signal)))
 
-    return {
-      providerId: String(provider.id),
-      reachable,
-      modelCount: merged.length,
-      modelListSupported: catalog === "present",
-      latencyMs: Math.max(0, performance.now() - startedAt)
+      return {
+        providerId: String(provider.id),
+        reachable,
+        modelCount: merged.length,
+        modelListSupported: catalog === "present",
+        latencyMs: Math.max(0, performance.now() - startedAt)
+      }
+    } finally {
+      await releaseDraftOrigin(releaseDraft)
     }
   },
 

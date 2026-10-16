@@ -175,26 +175,23 @@ describe("PermissionsPanel", () => {
     const permissionCard = document.querySelector(
       '[data-settings-focus-id="permissions"]'
     )
-    const permissionRow = document
-      .getElementById("permission-bookmarks")
-      ?.closest('[data-slot="card"]')
-    expect(permissionCard).toHaveClass("ring-0")
-    expect(permissionRow).toHaveClass(
-      "ring-0",
-      "rounded-none",
-      "hover:bg-transparent"
+    const permissionRow = document.querySelector(
+      '[data-settings-focus-id="permission-bookmarks"]'
     )
+    expect(permissionCard).toHaveClass("ring-0")
+    expect(permissionRow).not.toHaveAttribute("data-slot", "card")
+    expect(permissionRow).toHaveClass("rounded-none")
 
     await waitFor(() =>
       expect(
         document.querySelector('[data-settings-focus-id="model-tools"]')
       ).toHaveClass("ring-0")
     )
-    expect(
-      document
-        .getElementById("model-tools-master")
-        ?.closest('[data-slot="card"]')
-    ).toHaveClass("ring-0", "rounded-none", "hover:bg-transparent")
+    const modelToolsRow = document.querySelector(
+      '[data-settings-focus-id="model-tools-master"]'
+    )
+    expect(modelToolsRow).not.toHaveAttribute("data-slot", "card")
+    expect(modelToolsRow).toHaveClass("rounded-none")
   })
 
   it("requests the API permission when its switch is enabled", () => {

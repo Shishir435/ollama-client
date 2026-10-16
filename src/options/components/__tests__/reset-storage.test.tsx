@@ -22,7 +22,8 @@ vi.mock("@/lib/app-reset", () => ({
 vi.mock("@/lib/get-all-reset-keys", () => ({
   getAllResetKeys: () => ({
     THEME: ["theme"],
-    CHAT_SESSIONS: ["CHAT_SESSIONS"]
+    CHAT_SESSIONS: ["CHAT_SESSIONS"],
+    APP_LIFECYCLE: ["lifecycle"]
   })
 }))
 
@@ -94,5 +95,12 @@ describe("ResetStorage", () => {
     )
 
     await waitFor(() => expect(reset).toHaveBeenCalledWith("all"))
+  })
+
+  it("names a storage group without a title in words, not its key", () => {
+    render(<ResetStorage />)
+
+    expect(screen.getByText("App lifecycle")).toBeInTheDocument()
+    expect(screen.queryByText("APP LIFECYCLE")).toBeNull()
   })
 })

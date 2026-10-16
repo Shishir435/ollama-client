@@ -7,8 +7,8 @@ import type {
 import { browser, supportsDNR } from "@/lib/browser-api"
 import { getSafeClientEnvironment } from "@/lib/client-environment"
 import {
-  localProviderOriginRuleMatches,
-  readLocalProviderOriginRule
+  providerOriginRulesCover,
+  readProviderOriginRules
 } from "@/lib/dnr-rules"
 import { vectorDb } from "@/lib/embeddings/db"
 import {
@@ -215,9 +215,10 @@ const resolveLocalProviderOrigin = async (): Promise<string | undefined> => {
  * rule that lets the extension reach it was never installed. So read the rule
  * set, not the namespace.
  *
- * A rule installed for a base URL the user has since changed is the third
- * state, and the most confusing one in a report: API present, rule present,
- * requests still rejected.
+ * A rule installed for a base URL the user has since changed — or one left by
+ * an older version that is not pinned to the extension as initiator — is the
+ * third state, and the most confusing one in a report: API present, rule
+ * present, requests still rejected.
  *
  * Firefox has no DNR equivalent and asks the user to configure the origin on
  * the server instead, so the rule's absence there is correct rather than a
@@ -234,16 +235,14 @@ const runDnrTest = async (): Promise<DiagnosticTestResult> => {
   }
 
   const result = await runTest("dnr_rules", async () => {
-    const state = await readLocalProviderOriginRule()
-    if (!state.installed) return { result: "missing" }
+    const states = await readProviderOriginRules()
+    if (states.length === 0) return { result: "missing" }
     const origin = await resolveLocalProviderOrigin()
     // No resolvable local provider means there is nothing for the rule to be
     // stale against; presence is all this can honestly claim.
     if (!origin) return { result: "installed" }
     return {
-      result: localProviderOriginRuleMatches(state, origin)
-        ? "installed"
-        : "stale"
+      result: providerOriginRulesCover(states, origin) ? "installed" : "stale"
     }
   })
 

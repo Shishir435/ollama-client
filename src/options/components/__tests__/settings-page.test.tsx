@@ -7,11 +7,19 @@ import {
 } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
 import {
   getPlasmoStoredValue,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import { extensionRpcClient } from "@/protocol/extension-client"
 import { SettingsPage } from "../settings-page"
+
+vi.mock("@/protocol/extension-client", () => ({
+  extensionRpcClient: {
+    call: vi.fn(async () => ({ models: [{ name: "llama3" }], failures: [] }))
+  }
+}))
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ i18n: { language: "en" }, t: (key: string) => key })
@@ -71,6 +79,81 @@ vi.mock("@/options/components/shortcuts-settings", () => ({
 describe("SettingsPage", () => {
   afterEach(() => {
     window.history.replaceState({}, "", "/")
+  })
+
+  it("opens on chat settings when a provider has models", async () => {
+    render(<SettingsPage />)
+
+    await waitFor(() => expect(extensionRpcClient.call).toHaveBeenCalled())
+    expect(new URLSearchParams(window.location.search).get("tab")).toBe(
+      "general"
+    )
+  })
+
+  it("opens on providers and models when no provider has a model", async () => {
+    vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+      models: [],
+      failures: []
+    })
+
+    render(<SettingsPage />)
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("tab")).toBe(
+        "models"
+      )
+    })
+  })
+
+  it("opens on providers and models when every provider fails", async () => {
+    vi.mocked(extensionRpcClient.call).mockRejectedValueOnce(
+      createAppError("Failed to fetch models", { kind: "provider" })
+    )
+
+    render(<SettingsPage />)
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("tab")).toBe(
+        "models"
+      )
+    })
+  })
+
+  it("keeps chat settings when the background does not answer", async () => {
+    vi.mocked(extensionRpcClient.call).mockRejectedValueOnce(
+      createAppError("RPC timed out", { kind: "network" })
+    )
+
+    render(<SettingsPage />)
+
+    await waitFor(() => expect(extensionRpcClient.call).toHaveBeenCalled())
+    await Promise.resolve()
+    expect(new URLSearchParams(window.location.search).get("tab")).toBe(
+      "general"
+    )
+  })
+
+  it("keeps a tab named by the URL even with no provider", async () => {
+    vi.mocked(extensionRpcClient.call).mockClear()
+    window.history.replaceState({}, "", "/?tab=privacy")
+
+    render(<SettingsPage />)
+
+    await screen.findByText("reset")
+    expect(extensionRpcClient.call).not.toHaveBeenCalled()
+    expect(new URLSearchParams(window.location.search).get("tab")).toBe(
+      "privacy"
+    )
+  })
+
+  it("resolves a legacy tab name to its current tab", () => {
+    window.history.replaceState({}, "", "/?tab=model-behavior")
+
+    render(<SettingsPage />)
+
+    expect(new URLSearchParams(window.location.search).get("tab")).toBe(
+      "models"
+    )
   })
 
   it("focuses settings search with Ctrl+K", () => {

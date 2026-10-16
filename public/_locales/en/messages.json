@@ -30,5 +30,13 @@
   "actionDefaultTitle": {
     "message": "Open Ollama Client",
     "description": "Toolbar action title"
+  },
+  "askSelectionMenu": {
+    "message": "Ask Ollama Client about this",
+    "description": "Context menu item that sends selected text to the chat"
+  },
+  "toolLimitReached": {
+    "message": "Stopped at the tool-call limit before an answer was ready. Ask again with a narrower request.",
+    "description": "Reply text when a tool loop stopped at its limit with no answer"
   }
 }

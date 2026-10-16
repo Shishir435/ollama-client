@@ -11,6 +11,7 @@ import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
   classifyProviderError,
+  forbiddenMayBeOriginBlock,
   localCorsForbiddenMessage,
   providerErrorMessageKey,
   providerErrorUserMessage,
@@ -40,9 +41,34 @@ import {
   type EmbeddingSupport,
   type ImageGenerationRequest,
   type LLMProvider,
+  type ModelLoadOptions,
   type ProviderConfig,
   ProviderId
 } from "./types"
+
+/**
+ * The `options` Ollama compares against a loaded runner to decide whether it
+ * has to reload the model. Chat and warmup both build them here, so a warmed
+ * model is the one the next chat finds already loaded.
+ */
+const ollamaLoadOptions = ({
+  num_ctx,
+  num_gpu,
+  num_batch,
+  num_thread
+}: ModelLoadOptions) => ({ num_ctx, num_gpu, num_batch, num_thread })
+
+/** Drop unset options; `undefined` when none is left, so the field is omitted. */
+const definedOptions = <T extends Record<string, unknown>>(
+  options: T
+): Partial<T> | undefined => {
+  const entries = Object.entries(options).filter(
+    ([, value]) => value !== undefined
+  )
+  return entries.length > 0
+    ? (Object.fromEntries(entries) as Partial<T>)
+    : undefined
+}
 
 /**
  * Ceiling on the per-list `/api/show` fan-out that recovers metadata missing
@@ -232,9 +258,10 @@ export class OllamaProvider implements LLMProvider {
     },
     warmModel: async (
       model: string,
-      keepAlive?: string | number,
+      load: ModelLoadOptions,
       signal?: AbortSignal
     ) => {
+      const options = definedOptions(ollamaLoadOptions(load))
       await fetch(`${resolveProviderBaseUrl(this.config)}/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -242,7 +269,8 @@ export class OllamaProvider implements LLMProvider {
           model,
           prompt: "",
           stream: false,
-          keep_alive: keepAlive
+          keep_alive: load.keep_alive,
+          options
         }),
         signal
       })
@@ -533,23 +561,17 @@ export class OllamaProvider implements LLMProvider {
       repeat_penalty,
       repeat_last_n,
       seed,
-      num_ctx,
+      ...ollamaLoadOptions({ num_ctx, num_gpu, num_batch, num_thread }),
       // `-1` is the app's Auto sentinel. Local Ollama accepts it, but hosted
       // Ollama models reject it with HTTP 400. Omitting the option lets the
       // daemon choose its local or cloud-safe default in both cases. Preserve
       // every other value so existing local-model behavior does not change.
       num_predict: num_predict === -1 ? undefined : num_predict,
       min_p,
-      stop,
-      num_thread,
-      num_gpu,
-      num_batch
+      stop
     }
 
-    // Remove undefined values to keep payload concise
-    const filteredOptions = Object.fromEntries(
-      Object.entries(options).filter(([, value]) => value !== undefined)
-    )
+    const filteredOptions = definedOptions(options) ?? {}
 
     // Map to Ollama's wire shape. Vision models take image input as raw base64
     // strings (no data: prefix) on the `images` field of a message. Tool turns
@@ -619,10 +641,15 @@ export class OllamaProvider implements LLMProvider {
         errorText,
         resolveProviderBaseUrl(this.config)
       )
-      const code =
-        response.status === 401 || response.status === 403
-          ? "OLC-CORS-BLOCKED"
-          : classification.code
+      /**
+       * A 401/403 is the origin check only where the browser could not remove
+       * `Origin`; with the guard in place it is the server's or a proxy's own
+       * refusal and keeps the classification's code and copy.
+       */
+      const originBlocked =
+        (response.status === 401 || response.status === 403) &&
+        forbiddenMayBeOriginBlock()
+      const code = originBlocked ? "OLC-CORS-BLOCKED" : classification.code
       throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
         kind: "provider",
         status: response.status,
@@ -633,18 +660,23 @@ export class OllamaProvider implements LLMProvider {
         retryable: isRetryableProviderStatus(response.status),
         retryAfterMs,
         code,
-        messageKey: providerErrorMessageKey(code, { status: response.status }),
+        messageKey: providerErrorMessageKey(code, {
+          status: response.status,
+          providerId: ProviderId.OLLAMA,
+          baseUrl
+        }),
         phase: "response",
         recoveryAction: classification.recoveryAction,
-        userMessage:
-          response.status === 401 || response.status === 403
-            ? localCorsForbiddenMessage(response.status)
-            : providerErrorUserMessage(response.status, {
-                retryAfterMs,
-                providerName: this.config.name,
-                model,
-                reason: classification.reason
-              }),
+        userMessage: originBlocked
+          ? localCorsForbiddenMessage(response.status)
+          : providerErrorUserMessage(response.status, {
+              baseUrl,
+              retryAfterMs,
+              providerName: this.config.name,
+              model,
+              reason: classification.reason,
+              ollama: true
+            }),
         debug: errorText
       })
     }
@@ -774,9 +806,11 @@ export class OllamaProvider implements LLMProvider {
       })
     }
 
+    let sawDone = false
     const processLine = (line: string): void => {
       const data = parseStreamLine(line)
       if (!data) return
+      if (data.done) sawDone = true
       throwStreamError(data)
       emitThinking(data)
       emitToolCalls(data)
@@ -796,7 +830,11 @@ export class OllamaProvider implements LLMProvider {
           // Flush a final line left without a trailing newline at EOF.
           if (buffer.trim()) processLine(buffer)
           buffer = ""
-          onChunk({ done: true })
+          /**
+           * The `done` line already finished the turn with its metrics; a
+           * second, bare terminal re-finalized it without them.
+           */
+          if (!sawDone) onChunk({ done: true })
           break
         }
 

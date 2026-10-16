@@ -12,6 +12,7 @@ import {
   isAbortError,
   sanitizeProviderBaseUrl
 } from "@/lib/error-utils"
+import { supportsProviderOriginGuard } from "@/lib/origin-guard-support"
 
 export interface ProviderErrorClassification {
   code: AppErrorCode
@@ -66,9 +67,9 @@ export const providerFailureMessageKey = ({
 }: ProviderFailureKeyInput): string | undefined => {
   if (providerId === OLLAMA_PROVIDER_ID && isOllamaCloudModel(model)) {
     /**
-     * Only a 401 says "not signed in". A 403 is the origin block, which has
-     * its own fix, and a dropped request cannot tell a stopped server from
-     * one that refused the cloud model, so that copy names both causes.
+     * Only a 401 says "not signed in". A 403 is a refusal with its own copy,
+     * and a dropped request cannot tell a stopped server from one that
+     * refused the cloud model, so that copy names both causes.
      */
     if (status === 401 || (code === "OLC-AUTH-FAILED" && status !== 403)) {
       return "chat.errors.ollama_cloud_signin"
@@ -81,9 +82,12 @@ export const providerFailureMessageKey = ({
     case "OLC-PROVIDER-BUSY":
       return LOCAL_PROVIDER_BUSY_MESSAGE_KEY
     case "OLC-AUTH-FAILED":
-      return "chat.errors.provider_auth"
+      return status === 403 ||
+        (status === 401 && isLocalProviderBaseUrl(baseUrl))
+        ? "chat.errors.provider_forbidden"
+        : "chat.errors.provider_auth"
     case "OLC-CORS-BLOCKED":
-      if (providerId !== OLLAMA_PROVIDER_ID)
+      if (providerId !== OLLAMA_PROVIDER_ID && !isOllamaPortBaseUrl(baseUrl))
         return "chat.errors.provider_cors_other"
       return isLocalProviderBaseUrl(baseUrl)
         ? "chat.errors.provider_cors"
@@ -348,11 +352,39 @@ export const classifyProviderError = (
 
 const OLLAMA_ORIGINS_VALUE = "chrome-extension://*,moz-extension://*"
 
+/** Ollama's default port, which a custom provider pointing at Ollama keeps. */
+const OLLAMA_DEFAULT_PORT = "11434"
+
 /**
- * A 401/403 from a LOCAL provider (Ollama et al.) is almost always a CORS/origin
- * rejection, not bad credentials — most often on Firefox, which can't rewrite the
- * request origin the way Chromium's declarativeNetRequest does. Point the user at
- * the origins fix and the setup guide instead of a misleading "check your API key".
+ * Whether a base URL is on Ollama's default port. Evidence that a custom
+ * OpenAI-compatible provider is Ollama, and so subject to `OLLAMA_ORIGINS`,
+ * without claiming it is: anything else could listen there.
+ */
+export const isOllamaPortBaseUrl = (baseUrl?: string): boolean => {
+  if (!baseUrl) return false
+  try {
+    return new URL(baseUrl).port === OLLAMA_DEFAULT_PORT
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether a 401/403 can be the server refusing the extension's `Origin`.
+ * Where the browser removes the header from the extension's provider requests
+ * (DNR on Chromium, the header listener on Firefox), it cannot: the server saw
+ * no origin, so the refusal is its own or a proxy's, and `OLLAMA_ORIGINS`
+ * advice would send the user to fix something that is not broken.
+ */
+export const forbiddenMayBeOriginBlock = (): boolean =>
+  !supportsProviderOriginGuard()
+
+/**
+ * A 401/403 from a LOCAL provider (Ollama et al.) where the browser cannot
+ * remove the request's `Origin` is almost always an origin rejection, not bad
+ * credentials. Point the user at the origins fix and the setup guide instead
+ * of a misleading "check your API key". Callers check
+ * {@link forbiddenMayBeOriginBlock} first.
  */
 export const localCorsForbiddenMessage = (_status = 403): string =>
   `Your local provider blocked this extension. Allow ${OLLAMA_ORIGINS_VALUE.replace(",", " and ")} in its CORS settings, then retry. Setup guide: ${EXTERNAL_URLS.SETUP_GUIDE}`
@@ -380,9 +412,10 @@ interface ProviderUserMessageOptions {
   model?: string
   reason?: string
   /**
-   * The provider speaks Ollama's wire. A browser always sends `Origin` on a
-   * POST, and Ollama refuses an extension origin unless `OLLAMA_ORIGINS`
-   * allows it — behind a reverse proxy as much as on localhost.
+   * The provider speaks Ollama's wire. Without the origin guard a browser
+   * sends `Origin` on a POST, and Ollama refuses an extension origin unless
+   * `OLLAMA_ORIGINS` allows it — behind a reverse proxy as much as on
+   * localhost.
    */
   ollama?: boolean
 }
@@ -397,12 +430,20 @@ const retryDelayMessage = (
 
 const authFailureMessage = (
   provider: string,
+  status: number,
   options: ProviderUserMessageOptions
 ): string => {
-  if (options.ollama && !isLocalProviderBaseUrl(options.baseUrl)) {
+  const local = isLocalProviderBaseUrl(options.baseUrl)
+  if (!forbiddenMayBeOriginBlock()) {
+    return status === 403 || local || options.ollama
+      ? `${provider} refused this request. Check the API key in provider settings, or the access rules of any proxy in front of it.`
+      : `${provider} rejected the API key. Check it in provider settings.`
+  }
+  const ollama = options.ollama || isOllamaPortBaseUrl(options.baseUrl)
+  if (ollama && !local) {
     return `${provider} refused this extension's requests. Allow it by setting OLLAMA_ORIGINS=${OLLAMA_ORIGINS_VALUE} on the server.`
   }
-  if (isLocalProviderBaseUrl(options.baseUrl)) {
+  if (local) {
     return options.ollama
       ? `${provider} blocked this extension. Restart it with OLLAMA_ORIGINS set. Setup guide: ${EXTERNAL_URLS.SETUP_GUIDE}`
       : `${provider} blocked this extension. Allow ${OLLAMA_ORIGINS_VALUE.replace(",", " and ")} in its CORS settings, then retry. Setup guide: ${EXTERNAL_URLS.SETUP_GUIDE}`
@@ -431,7 +472,7 @@ export const providerErrorUserMessage = (
     )
   }
   if (status === 401 || status === 403) {
-    return authFailureMessage(provider, options)
+    return authFailureMessage(provider, status, options)
   }
   if (status === 402) {
     return `${provider} needs payment or credits for ${model}. Choose a local model or add credits.`
@@ -639,7 +680,7 @@ export const applyProviderErrorContext = (
  * `Retry-After`, and map the status to a safe user message. Raw response
  * bodies stay in `debug`, never in `userMessage`.
  *
- * Ollama keeps its own local-provider 401/403 CORS advice.
+ * Ollama keeps its own local-provider 401/403 advice.
  */
 export const throwProviderResponseError = async (
   response: Response,
@@ -660,7 +701,9 @@ export const throwProviderResponseError = async (
   )
   if (
     (response.status === 401 || response.status === 403) &&
-    isLocalProviderBaseUrl(options.baseUrl)
+    forbiddenMayBeOriginBlock() &&
+    (isLocalProviderBaseUrl(options.baseUrl) ||
+      isOllamaPortBaseUrl(options.baseUrl))
   ) {
     classification.code = "OLC-CORS-BLOCKED"
   }

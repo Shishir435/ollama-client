@@ -1,0 +1,198 @@
+/**
+ * Theme tokens: the one definition of every color, radius and surface value.
+ *
+ * Two stylesheets read this file. globals.css imports it for the extension's
+ * pages, where `:root` applies. The selection overlay's shadow root imports it
+ * too (selection-overlay.css), where `:root` matches nothing and the tokens
+ * land on `#selection-actions-root`, the element inside the shadow root that
+ * holds the whole overlay. Not on `:host`: the host element sits in the page's
+ * own tree, so a page rule such as `* { --background: red }` reaches it and
+ * beats a `:host` rule, and the overlay inherits the page's colors. Nothing in
+ * the page can select an element inside the shadow root. The dark block names
+ * the same id so it still outranks the light one there.
+ *
+ * Keeping one copy is what stops the overlay drifting from the app;
+ * selection-overlay-tokens.test.ts fails if a second copy appears.
+ */
+:root,
+#selection-actions-root {
+  --radius: 0.4375rem;
+  --radius-control: calc(var(--radius) - 1px);
+  --radius-panel: calc(var(--radius) + 1px);
+  --radius-chip: 999rem;
+  --radius-message: calc(var(--radius) + 1px);
+  --control-height-sm: 1.75rem;
+  --control-height-md: 2.25rem;
+  --control-height-lg: 2.75rem;
+
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --state-hover: oklch(0.21 0.006 285.885 / 7%);
+  --state-active: oklch(0.21 0.006 285.885 / 12%);
+  --state-selected: oklch(0.21 0.006 285.885 / 10%);
+  --surface-sunken: oklch(0.21 0.006 285.885 / 5%);
+  --surface-overlay: oklch(1 0 0 / 85%);
+  --scrim: oklch(0.141 0.005 285.823 / 45%);
+  --foreground-tertiary: oklch(0.62 0.014 286);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: hsl(0 0% 98%);
+
+  --status-success: hsl(142 72% 33%);
+  --status-success-foreground: hsl(0 0% 98%);
+  --status-warning: hsl(45 93% 47%);
+  --status-warning-foreground: hsl(28 84% 18%);
+  --status-info: hsl(214 84% 52%);
+  --status-info-foreground: hsl(0 0% 98%);
+  --status-danger: hsl(0 84.2% 60.2%);
+  --status-danger-foreground: hsl(0 0% 98%);
+  --tint-danger: oklch(0.577 0.245 27.325 / 10%);
+  --tint-danger-hover: oklch(0.577 0.245 27.325 / 20%);
+  --tint-warning: hsl(45 93% 47% / 12%);
+  --tint-info: hsl(214 84% 52% / 10%);
+  --tint-success: hsl(142 72% 33% / 10%);
+  --tint-accent: oklch(0.21 0.006 285.885 / 6%);
+  --tint-accent-strong: oklch(0.21 0.006 285.885 / 30%);
+  --primary-hover: oklch(0.21 0.006 285.885 / 80%);
+  --status-success-hover: hsl(142 72% 33% / 90%);
+  --status-danger-hover: hsl(0 84.2% 60.2% / 90%);
+  --surface-tooltip-key: oklch(1 0 0 / 20%);
+
+  --stroke-subtle: oklch(0.92 0.004 286.32 / 50%);
+  --border: oklch(0.92 0.004 286.32);
+  --stroke-strong: oklch(0.87 0.006 286.32);
+  --stroke-invalid: oklch(0.577 0.245 27.325);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.705 0.015 286.067);
+  --focus-ring: oklch(0.705 0.015 286.067 / 30%);
+  --invalid-ring: oklch(0.577 0.245 27.325 / 20%);
+  --surface-ring: oklch(0.141 0.005 285.823 / 10%);
+
+  --app-primary: var(--primary);
+  --app-primary-soft: var(--secondary);
+  --app-agent: var(--primary);
+  --app-tool: oklch(0.53 0.12 265);
+  --app-user: oklch(0.48 0.13 225);
+  --surface-sidebar: oklch(0.985 0.006 195);
+  --surface-chat: oklch(0.995 0.002 195);
+  --surface-composer: oklch(0.99 0.004 195);
+  --surface-message: oklch(0.98 0.004 195);
+
+  --chart-1: oklch(0.871 0.006 286.286);
+  --chart-2: oklch(0.552 0.016 285.938);
+  --chart-3: oklch(0.442 0.017 285.786);
+  --chart-4: oklch(0.37 0.013 285.805);
+  --chart-5: oklch(0.274 0.006 286.033);
+
+  --sidebar: var(--surface-sidebar);
+  --sidebar-foreground: oklch(0.141 0.005 285.823);
+  --sidebar-primary: oklch(0.21 0.006 285.885);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.967 0.001 286.375);
+  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-border: oklch(0.92 0.004 286.32);
+  --sidebar-ring: oklch(0.705 0.015 286.067);
+
+  --feature-1: hsl(142 72% 33%);
+  --feature-2: hsl(214 84% 52%);
+  --feature-3: hsl(262 83% 58%);
+  --feature-4: hsl(226 70% 55%);
+}
+
+.dark,
+#selection-actions-root.dark {
+  --background: oklch(0.128 0.01 235);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.172 0.01 235);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.172 0.01 235);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.92 0.004 286.32);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --state-hover: oklch(1 0 0 / 8%);
+  --state-active: oklch(1 0 0 / 14%);
+  --state-selected: oklch(1 0 0 / 12%);
+  --surface-sunken: oklch(1 0 0 / 6%);
+  --surface-overlay: oklch(0.172 0.01 235 / 85%);
+  --scrim: oklch(0 0 0 / 70%);
+  --foreground-tertiary: oklch(0.6 0.014 286);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: hsl(0 0% 98%);
+
+  --status-success: hsl(142 67% 45%);
+  --status-success-foreground: hsl(0 0% 8%);
+  --status-warning: hsl(45 95% 58%);
+  --status-warning-foreground: hsl(0 0% 8%);
+  --status-info: hsl(213 94% 68%);
+  --status-info-foreground: hsl(0 0% 8%);
+  --status-danger: hsl(0 75% 57%);
+  --status-danger-foreground: hsl(0 0% 98%);
+  --tint-danger: oklch(0.704 0.191 22.216 / 18%);
+  --tint-danger-hover: oklch(0.704 0.191 22.216 / 30%);
+  --tint-warning: hsl(45 95% 58% / 18%);
+  --tint-info: hsl(213 94% 68% / 16%);
+  --tint-success: hsl(142 67% 45% / 16%);
+  --tint-accent: oklch(0.92 0.004 286.32 / 10%);
+  --tint-accent-strong: oklch(0.92 0.004 286.32 / 30%);
+  --primary-hover: oklch(0.92 0.004 286.32 / 80%);
+  --status-success-hover: hsl(142 67% 45% / 90%);
+  --status-danger-hover: hsl(0 75% 57% / 90%);
+  --surface-tooltip-key: oklch(0.128 0.01 235 / 10%);
+
+  --stroke-subtle: oklch(1 0 0 / 5%);
+  --border: oklch(1 0 0 / 10%);
+  --stroke-strong: oklch(1 0 0 / 18%);
+  --stroke-invalid: oklch(0.704 0.191 22.216 / 50%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.552 0.016 285.938);
+  --focus-ring: oklch(0.552 0.016 285.938 / 30%);
+  --invalid-ring: oklch(0.704 0.191 22.216 / 40%);
+  --surface-ring: oklch(0.985 0 0 / 10%);
+
+  --app-primary: var(--primary);
+  --app-primary-soft: var(--secondary);
+  --app-agent: var(--primary);
+  --app-tool: oklch(0.76 0.11 265);
+  --app-user: oklch(0.78 0.12 225);
+  --surface-sidebar: oklch(0.148 0.011 235);
+  --surface-chat: oklch(0.118 0.009 235);
+  --surface-composer: oklch(0.168 0.012 235);
+  --surface-message: oklch(0.182 0.01 235);
+
+  --chart-1: oklch(0.871 0.006 286.286);
+  --chart-2: oklch(0.552 0.016 285.938);
+  --chart-3: oklch(0.442 0.017 285.786);
+  --chart-4: oklch(0.37 0.013 285.805);
+  --chart-5: oklch(0.274 0.006 286.033);
+
+  --sidebar: var(--surface-sidebar);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.442 0.017 285.786);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.552 0.016 285.938);
+
+  --feature-1: hsl(142 67% 45%);
+  --feature-2: hsl(213 94% 68%);
+  --feature-3: hsl(262 90% 73%);
+  --feature-4: hsl(226 85% 70%);
+}

@@ -1,6 +1,6 @@
 import type React from "react"
 import { Switch } from "@/components/ui/switch"
-import { SettingsControlCard } from "./settings-control-card"
+import { SettingsRow } from "./settings-row"
 
 interface SettingsSwitchProps {
   label: React.ReactNode
@@ -19,8 +19,9 @@ export const SettingsSwitch = ({
   id,
   className
 }: SettingsSwitchProps) => (
-  <SettingsControlCard
-    id={id}
+  <SettingsRow
+    focusId={id}
+    htmlFor={id}
     label={label}
     description={description}
     className={className}

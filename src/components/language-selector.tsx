@@ -15,8 +15,7 @@ export const LanguageSelector = () => {
     <SettingsCard
       icon={Globe}
       title={t("common.language.label")}
-      description={t("common.language.description")}
-      badge={t("common.language.beta_badge")}>
+      description={t("common.language.description")}>
       {(() => {
         const languageMap = new Map(
           LANGUAGES.map((lang) => [
