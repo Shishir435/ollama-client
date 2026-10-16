@@ -370,6 +370,8 @@ export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
         authorizedAt: number
         /** Allowed by browse mode; its destination joins the allowlist. */
         browse?: true
+        /** The user approved the plan just now; recorded as the step executes. */
+        planApproved?: true
       }
     | {
         type: "approval"
@@ -519,7 +521,8 @@ export type AgentPolicyDecision =
    * somewhere a change task would have asked about. Its destination joins
    * the run's allowlist the way an approved navigation's does.
    */
-  | { type: "allow"; risk: AgentRisk; browse?: true }
+  /** `planned` marks an allow only the user's plan consent gave. */
+  | { type: "allow"; risk: AgentRisk; browse?: true; planned?: true }
   /** Allowed only because a grant covers it, which the receipt records. */
   | { type: "granted"; risk: AgentRisk; origin: string }
   | {
@@ -643,6 +646,8 @@ export type AgentStatePatch = Partial<
     | "humanDecision"
     | "injectionSuspected"
     | "observationCount"
+    | "planApproved"
+    | "planConsent"
     | "outcome"
     | "pauseReason"
     | "plan"

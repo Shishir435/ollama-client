@@ -1531,7 +1531,7 @@ describe("consent to the plan", () => {
   it("runs a planned step on an allowed site without asking", () => {
     expect(
       evaluateAgentPolicy(input(click(), { planned: { commits: false } }))
-    ).toEqual({ type: "allow", risk: "high" })
+    ).toEqual({ type: "allow", risk: "high", planned: true })
   })
 
   it("sends only when the planned outcome is itself the send", () => {

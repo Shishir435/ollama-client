@@ -253,6 +253,8 @@
     },
     "paused_panel_closed": "En pause car le panneau latéral a été fermé. Reprenez quand vous voulez.",
     "approval_text": {
+      "approve_plan": "Exécuter ce plan sans demander à chaque étape",
+      "approve_plan_consequence": "Les étapes qui suivent les résultats ci-dessous s’exécutent sans demander, y compris un envoi ou une commande que le plan nomme. Tout ce qui sort du plan, la suppression, la connexion et le paiement demandent toujours. Refuser met l’exécution en pause, puis chaque étape sera demandée.",
       "accept_dialog": "Accepter la {{kind}} de la page",
       "accept_dialog_origin": "Accepter la {{kind}} de {{origin}}",
       "dismiss_dialog": "Fermer la {{kind}} de la page",
@@ -298,7 +300,7 @@
       "other_tab": "Cette tâche s’exécute dans un autre onglet que celui que vous regardez.",
       "supervised": "L’agent agit sur la page étape par étape et demande avant toute action importante. Chrome affiche un bandeau de débogage pendant ce temps.",
       "routine": "Sur ce site, les clics, la saisie et les recherches de cette tâche s’exécutent sans nouvelle demande. Publier ou envoyer d’autres formulaires, se connecter, payer, supprimer et ouvrir d’autres sites demandent toujours.",
-      "plan": "Les étapes qui suivent le plan de cette tâche s’exécutent sans demander, y compris un envoi ou une commande que le plan nomme. Les étapes hors du plan, la connexion, le paiement, la suppression et l’ouverture d’autres sites demandent toujours, et l’exécution redemande si une page tente de lui donner des instructions.",
+      "plan": "Les étapes qui suivent le plan de cette tâche s’exécutent sans demander, y compris un envoi ou une commande que le plan nomme. Les étapes hors du plan, la connexion, le paiement, la suppression et l’ouverture d’autres sites demandent toujours, et l’exécution redemande si une page tente de lui donner des instructions. Vous approuvez le plan une fois, avant sa première étape.",
       "experimental_model": "Les appels d’outils sont activés pour ce modèle parce que vous l’avez choisi, pas parce que le modèle l’indique. Un modèle incapable d’appeler des outils n’ira pas loin."
     },
     "steer": {

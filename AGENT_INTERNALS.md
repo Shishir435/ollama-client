@@ -883,8 +883,12 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   control the form will send (`effect.submitted`, resolver-side, never on
   the wire). Sensitive values are withheld. A value the plan's field,
   checkbox or selection check disagrees with carries `planned`.
-- **Plan consent (`follow_plan`) is opt-in.** With it, a step bound to a
-  planned change on an allowed site runs unasked; a submission or
+- **Plan consent (`follow_plan`) is opt-in.** The first step it would
+  cover asks for the plan itself instead, once: the card lists the outcomes
+  and limits (`planApprovalRequest`), approving sets `planApproved` in the
+  write that executes that step, and rejecting pauses the run with plan
+  consent dropped. After that, a step bound to a planned change on an allowed
+  site runs unasked; a submission or
   committing click only when the outcome it advances is itself a send, an
   order or a save (`COMMITTING_OUTCOME`). Repeats, critical effects, new
   sites and anything off the plan still ask. `model_after_page` goals never

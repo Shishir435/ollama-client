@@ -1112,7 +1112,7 @@ export const evaluateAgentPolicy = (
     return { type: "allow", risk, browse: true }
 
   if (input.planned && plannedAllows(input, input.planned.commits, risk))
-    return { type: "allow", risk }
+    return { type: "allow", risk, planned: true }
 
   if (risk === "low") return { type: "allow", risk }
   if (

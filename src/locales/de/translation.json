@@ -253,6 +253,8 @@
     },
     "paused_panel_closed": "Pausiert, weil die Seitenleiste geschlossen wurde. Fortsetzen, wenn du bereit bist.",
     "approval_text": {
+      "approve_plan": "Diesen Plan ohne Rückfrage bei jedem Schritt ausführen",
+      "approve_plan_consequence": "Schritte, die den unten genannten Ergebnissen folgen, laufen ohne Rückfrage, auch ein Senden oder Bestellen, das der Plan nennt. Alles außerhalb des Plans, Löschen, Anmelden und Bezahlen wird weiterhin abgefragt. Ablehnen pausiert den Lauf, danach wird bei jedem Schritt gefragt.",
       "accept_dialog": "{{kind}} der Seite bestätigen",
       "accept_dialog_origin": "{{kind}} von {{origin}} bestätigen",
       "dismiss_dialog": "{{kind}} der Seite schließen",
@@ -298,7 +300,7 @@
       "other_tab": "Diese Aufgabe läuft in einem anderen Tab als dem, den Sie gerade ansehen.",
       "supervised": "Der Agent arbeitet Schritt für Schritt auf der Seite und fragt vor allem Folgenreichen nach. Chrome zeigt währenddessen einen Debugging-Hinweis an.",
       "routine": "Auf dieser Website laufen Klicks, Eingaben und Suchen für diese Aufgabe ohne erneute Nachfrage. Das Absenden anderer Formulare, Anmelden, Bezahlen, Löschen und das Öffnen anderer Websites werden weiterhin abgefragt.",
-      "plan": "Schritte, die dem Plan dieser Aufgabe folgen, laufen ohne Rückfrage, auch ein Senden oder Bestellen, das der Plan nennt. Schritte außerhalb des Plans, Anmelden, Bezahlen, Löschen und das Öffnen anderer Websites werden weiterhin abgefragt, und der Lauf fragt wieder, sobald eine Seite ihm Anweisungen geben will.",
+      "plan": "Schritte, die dem Plan dieser Aufgabe folgen, laufen ohne Rückfrage, auch ein Senden oder Bestellen, das der Plan nennt. Schritte außerhalb des Plans, Anmelden, Bezahlen, Löschen und das Öffnen anderer Websites werden weiterhin abgefragt, und der Lauf fragt wieder, sobald eine Seite ihm Anweisungen geben will. Du bestätigst den Plan einmal vor seinem ersten Schritt.",
       "experimental_model": "Tool-Aufrufe sind für dieses Modell aktiv, weil Sie sie eingeschaltet haben, nicht weil das Modell sie meldet. Ein Modell ohne Tool-Aufrufe kommt nicht weit."
     },
     "steer": {

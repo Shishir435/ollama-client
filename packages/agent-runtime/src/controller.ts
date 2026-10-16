@@ -1,4 +1,5 @@
 import type {
+  AgentApprovalRequest,
   AgentCommand,
   AgentObservationScope
 } from "@ollama-client/contracts"
@@ -95,6 +96,7 @@ import type {
   AgentPolicyDecision,
   AgentResolutionContext,
   AgentReviewedAction,
+  AgentRisk,
   AgentStatePatch,
   AgentStepReadout,
   AgentStepWrite,
@@ -327,6 +329,46 @@ export const agentPlanIsReadOnly = (
 ): boolean =>
   (state.requirements?.length ?? 0) > 0 &&
   (state.requirements ?? []).every((requirement) => requirement.kind === "read")
+
+/** How much of the plan the approval lists, from the request's own bound. */
+const MAX_PLAN_APPROVAL_EVIDENCE_CHARS = 1_000
+
+/**
+ * The one approval plan consent asks for: the plan itself, its outcomes and
+ * limits listed as the run holds them, before its first planned step. The
+ * start prompt could only show the goal, because the plan did not exist yet.
+ */
+const planApprovalRequest = (
+  state: AgentRunState,
+  risk: AgentRisk,
+  now: number
+): AgentApprovalRequest => {
+  const lines = [
+    ...(state.requirements ?? []).map((entry) => `• ${entry.text}`),
+    ...(state.constraints ?? []).map((entry) => `✕ ${entry.text}`)
+  ]
+  let evidence = ""
+  for (const line of lines) {
+    const next = evidence ? `${evidence}\n${line}` : line
+    if (next.length > MAX_PLAN_APPROVAL_EVIDENCE_CHARS) break
+    evidence = next
+  }
+  return {
+    id: `${state.id}:plan:${state.plan?.version ?? 1}`,
+    runId: state.id,
+    stepId: `${state.id}:plan`,
+    risk: risk === "low" ? "medium" : risk,
+    action: "Run this plan without asking at each step",
+    consequence:
+      "Steps that follow the outcomes below run without asking, including a send or an order the plan names. Anything outside the plan, deleting, signing in and paying still ask. Reject to pause and be asked at every step.",
+    display: {
+      action: { key: "agent.approval_text.approve_plan" },
+      consequence: [{ key: "agent.approval_text.approve_plan_consequence" }]
+    },
+    ...(evidence ? { pageEvidence: evidence } : {}),
+    createdAt: now
+  }
+}
 
 /**
  * Words naming a step that sends, orders, posts or books something. A
@@ -777,18 +819,45 @@ export const createAgentController = (
       state.deadline ?? initialAgentDeadlineState(state.createdAt),
       now
     )
+    /** The plan itself, asked for once before the first step it covers. */
+    const planRequest =
+      decision.type === "allow" && decision.planned && !state.planApproved
+        ? planApprovalRequest(state, decision.risk, now)
+        : undefined
+    const asked =
+      decision.type === "approval_required" ? decision.request : planRequest
     const checkpoint = await claim(state, "awaiting_approval", {
-      humanDecision:
-        decision.type === "approval_required"
-          ? { kind: "approval", request: decision.request }
-          : undefined,
-      deadline:
-        decision.type === "approval_required"
-          ? suspendAgentDeadlines(deadline, "approval", now)
-          : deadline,
+      humanDecision: asked ? { kind: "approval", request: asked } : undefined,
+      deadline: asked
+        ? suspendAgentDeadlines(deadline, "approval", now)
+        : deadline,
       updatedAt: now
     })
     if (!checkpoint) return undefined
+
+    if (planRequest) {
+      const answer = await dependencies.approval.request(planRequest, signal)
+      if (answer.type !== "approved") {
+        /**
+         * The plan is not approved, so nothing runs on it: consent is dropped
+         * in the same write that pauses, and after Resume every step asks.
+         */
+        await pause(checkpoint, "user", {
+          humanDecision: undefined,
+          planConsent: undefined
+        })
+        return undefined
+      }
+      return {
+        state: checkpoint,
+        authorization: {
+          type: "policy",
+          risk: decision.risk,
+          authorizedAt: dependencies.clock.now(),
+          planApproved: true
+        }
+      }
+    }
 
     if (decision.type === "allow") {
       return {
@@ -1820,6 +1889,9 @@ export const createAgentController = (
       ),
       ...allowedOriginsPatch(state, effect, authorization),
       ...(grants ? { grants } : {}),
+      ...(authorization.type === "policy" && authorization.planApproved
+        ? { planApproved: true as const }
+        : {}),
       stepCount: stepNumber,
       updatedAt: dependencies.clock.now()
     })

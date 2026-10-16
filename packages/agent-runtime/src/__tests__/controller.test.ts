@@ -576,6 +576,49 @@ describe("agent controller", () => {
     expect(seen[0]).toEqual({ commits: true })
   })
 
+  it("asks for the plan once, before its first covered step, and not again", async () => {
+    const harness = createHarness({
+      state: runState({
+        planConsent: true,
+        requirements: [
+          { id: "r1", text: "The comment is posted", kind: "change" }
+        ]
+      }),
+      observations: [observation(), observation(), observation()],
+      decisions: [
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "complete", summary: "Done" }
+      ],
+      policy: () => ({ type: "allow", risk: "high", planned: true })
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls.filter((call) => call === "approval")).toHaveLength(1)
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(2)
+    expect(harness.getState().planApproved).toBe(true)
+  })
+
+  it("pauses and stops running on the plan when the user rejects it", async () => {
+    const harness = createHarness({
+      state: runState({
+        planConsent: true,
+        requirements: [
+          { id: "r1", text: "The comment is posted", kind: "change" }
+        ]
+      }),
+      approval: { type: "rejected" },
+      decisions: [{ type: "command", command: command(), requirementId: "r1" }],
+      policy: () => ({ type: "allow", risk: "high", planned: true })
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls).not.toContain("execute")
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "user"
+    })
+    expect(harness.getState().planConsent).toBeUndefined()
+  })
+
   it("drops plan consent and browse mode for good once a page reads like an injection", async () => {
     const seen: [boolean, boolean][] = []
     const harness = createHarness({

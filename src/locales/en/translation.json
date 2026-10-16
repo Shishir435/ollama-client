@@ -253,6 +253,8 @@
     },
     "paused_panel_closed": "Paused because the side panel closed. Resume when you’re ready.",
     "approval_text": {
+      "approve_plan": "Run this plan without asking at each step",
+      "approve_plan_consequence": "Steps that follow the outcomes below run without asking, including a send or an order the plan names. Anything outside the plan, deleting, signing in and paying still ask. Reject to pause and be asked at every step.",
       "accept_dialog": "Accept the page’s {{kind}}",
       "accept_dialog_origin": "Accept the {{kind}} from {{origin}}",
       "dismiss_dialog": "Dismiss the page’s {{kind}}",
@@ -298,7 +300,7 @@
       "other_tab": "This task runs on a different tab from the one you are looking at.",
       "supervised": "The agent works on the page step by step and asks before anything consequential. Chrome shows a debugging banner while it works.",
       "routine": "On this site, clicks, typing and searches for this task run without asking again. Posting or sending other forms, signing in, paying, deleting and opening other sites still ask.",
-      "plan": "Steps that follow this task's plan run without asking, including a send or an order the plan names. Steps outside the plan, signing in, paying, deleting and opening other sites still ask, and the run goes back to asking if a page tries to give it instructions.",
+      "plan": "Steps that follow this task's plan run without asking, including a send or an order the plan names. Steps outside the plan, signing in, paying, deleting and opening other sites still ask, and the run goes back to asking if a page tries to give it instructions. You approve the plan once, before its first step.",
       "experimental_model": "Tool calling is on for this model because you set it, not because the model reported it. A model that cannot call tools will not get far."
     },
     "steer": {
