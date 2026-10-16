@@ -2033,6 +2033,25 @@
       "advanced": {
         "title": "Avanzate",
         "summary": "Icone dei siti dei provider e aggiornamento dell'elenco modelli"
+      },
+      "browser_builtin": {
+        "name": "Integrato nel browser",
+        "description": "Chat testuale facoltativa con un modello gestito dal browser. Potrebbe essere necessario scaricarlo. Immagini, strumenti e agente del browser non sono supportati. Il browser gestisce campionamento e contesto.",
+        "unavailable": "Non disponibile su questo browser o dispositivo.",
+        "downloadable": "È necessario scaricare il modello.",
+        "downloading": "Il browser sta scaricando il modello.",
+        "available": "Pronto per la chat testuale.",
+        "preparing": "Preparazione del modello del browser…",
+        "enable": "Abilita per la chat",
+        "disable": "Disabilita per la chat",
+        "download": "Scarica e abilita",
+        "failed": "Impossibile avviare l’IA del browser. Controlla la disponibilità nelle impostazioni dei fornitori e riprova.",
+        "text_only": "Il modello del browser supporta solo la chat testuale. Immagini e conversazioni con strumenti richiedono un altro modello.",
+        "not_ready": "Il modello del browser richiede un download. Preparalo nelle impostazioni dei fornitori.",
+        "context_too_large": "Questa conversazione supera il limite di contesto del modello del browser. Avvia una chat più breve.",
+        "busy": "Il modello del browser è occupato. Attendi la fine di un’altra risposta e riprova.",
+        "timeout": "Il modello del browser ha impiegato troppo tempo. Riprova.",
+        "unsupported": "L’IA del browser non supporta questa richiesta o questo formato API."
       }
     },
     "migration": {

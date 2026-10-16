@@ -7,6 +7,8 @@ import {
   Sparkles,
   Zap
 } from "lucide-react"
+import { BROWSER_MODEL_ID } from "@/lib/providers/browser-built-in/constants"
+import { getBrowserBuiltInIcon } from "@/lib/providers/browser-built-in/icon"
 
 const MODEL_ICON_FAMILIES: ReadonlyArray<readonly [string, LucideIcon]> = [
   ["codellama", Code],
@@ -35,6 +37,7 @@ const MODEL_ICON_FAMILIES: ReadonlyArray<readonly [string, LucideIcon]> = [
  * dependence on ordering; the list stays specific-first only for readability.
  */
 export const getModelIcon = (modelName: string): LucideIcon => {
+  if (modelName === BROWSER_MODEL_ID) return getBrowserBuiltInIcon()
   // Checked first: an embedding model's name usually carries a family too
   // ("mxbai-embed-large", "qwen3-embedding"), and what it is matters more than
   // who made it.

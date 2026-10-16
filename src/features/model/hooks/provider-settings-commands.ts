@@ -50,7 +50,9 @@ export const loadProviderDrafts = async (): Promise<ProviderDraft[]> => {
     RpcMethod.ProvidersList,
     {}
   )
-  return providers.map(providerDraftFromPublic)
+  return providers
+    .filter((provider) => provider.id !== "browser-built-in")
+    .map(providerDraftFromPublic)
 }
 
 export const saveProviderDraft = async (

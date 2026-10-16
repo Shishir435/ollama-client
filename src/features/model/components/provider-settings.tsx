@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { AddProviderDialog } from "@/features/model/components/add-provider-dialog"
+import { BrowserBuiltInCard } from "@/features/model/components/browser-built-in-card"
 import { OllamaOriginsCommand } from "@/features/model/components/ollama-origins-command"
 import { ProviderConnectionFields } from "@/features/model/components/provider-connection-fields"
 import { ProviderCustomModels } from "@/features/model/components/provider-custom-models"
@@ -111,6 +112,7 @@ export const ProviderSettings = ({
 
   return (
     <SectionStack>
+      <BrowserBuiltInCard />
       <div data-settings-focus="true" data-settings-focus-id="provider-picker">
         <ProviderGrid
           providers={providers}

@@ -97,11 +97,13 @@ const makeRecord = ({
 
 export const buildSettingsSearchRecords = (
   entries: SettingsEntry[] = SETTINGS_REGISTRY,
-  translate?: SearchTranslate
+  translate?: SearchTranslate,
+  browserBuiltInVisible = false
 ): SettingsSearchRecord[] => {
   const records: SettingsSearchRecord[] = []
 
   entries.forEach((entry, registryOrder) => {
+    if (entry.id === "browser-built-in" && !browserBuiltInVisible) return
     const parentLabel = resolveText(entry.labelKey, translate) ?? entry.labelKey
     let sourceOrder = 0
 

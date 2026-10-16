@@ -60,6 +60,10 @@ import type {
   ModelsWarmupRequest,
   ModelsWarmupResult
 } from "@ollama-client/contracts/model-rpc"
+import {
+  BrowserModelStatusRequestSchema,
+  BrowserModelStatusResultSchema
+} from "@ollama-client/contracts/provider-rpc"
 import type {
   ProvidersIconsRequest,
   ProvidersIconsResult,
@@ -83,6 +87,10 @@ import type { z } from "zod"
 
 /** Application-wide composition of package-owned RPC method contracts. */
 export interface RpcMap {
+  [RpcMethod.BrowserModelStatus]: RpcDefinition<
+    z.input<typeof BrowserModelStatusRequestSchema>,
+    z.infer<typeof BrowserModelStatusResultSchema>
+  >
   [RpcMethod.EmbeddingsNativeGenerate]: RpcDefinition<
     z.input<typeof EmbeddingsNativeGenerateRequestSchema>,
     z.infer<typeof EmbeddingsNativeGenerateResultSchema>

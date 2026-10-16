@@ -1,6 +1,12 @@
 import { z } from "zod"
 
-const ProviderTypeSchema = z.enum(["ollama", "openai", "anthropic", "custom"])
+const ProviderTypeSchema = z.enum([
+  "ollama",
+  "openai",
+  "anthropic",
+  "custom",
+  "browser"
+])
 const ProviderServiceProfileSchema = z.enum([
   "generic",
   "openai",
@@ -489,3 +495,18 @@ export type ProvidersProbeModelCapabilitiesRequest = z.input<
 export type ProvidersProbeModelCapabilitiesResult = z.infer<
   typeof ProvidersProbeModelCapabilitiesResultSchema
 >
+
+/** Document-host availability; querying never downloads or enables the model. */
+export const BrowserModelStatusRequestSchema = z.object({}).strict()
+export const BrowserModelAvailabilitySchema = z.enum([
+  "unavailable",
+  "downloadable",
+  "downloading",
+  "available"
+])
+export const BrowserModelStatusResultSchema = z
+  .object({
+    availability: BrowserModelAvailabilitySchema,
+    enabled: z.boolean()
+  })
+  .strict()

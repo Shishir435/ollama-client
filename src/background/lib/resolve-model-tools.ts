@@ -76,8 +76,13 @@ export const resolveModelCapabilities = async (
   signal?: AbortSignal
 ): Promise<ResolvedModelCapabilities> => {
   throwIfAborted(signal)
-  const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
-  const providerUrl = resolveProviderBaseUrl(provider.config)
+  const resolvedProviderId =
+    providerId ||
+    (provider.config.type === "browser" ? provider.id : DEFAULT_PROVIDER_ID)
+  const providerUrl =
+    provider.config.type === "browser"
+      ? ""
+      : resolveProviderBaseUrl(provider.config)
   const cacheKey = `${resolvedProviderId}::${providerUrl}::${model}`
 
   let metadata: Omit<CapabilityTagsCacheEntry, "expiresAt"> = {
@@ -187,6 +192,7 @@ export const resolveModelTools = async (
   signal?: AbortSignal
 ): Promise<ResolvedModelTools | undefined> => {
   throwIfAborted(signal)
+  if (provider.config.type === "browser") return undefined
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
   const { capabilities, probed } =
     resolvedCapabilities ??

@@ -34,13 +34,15 @@ export const providerDraftFromPublic = (
 ): ProviderDraft => ({
   id: provider.id,
   type:
-    provider.type === "ollama"
-      ? ProviderType.OLLAMA
-      : provider.type === "openai"
-        ? ProviderType.OPENAI
-        : provider.type === "anthropic"
-          ? ProviderType.ANTHROPIC
-          : ProviderType.CUSTOM,
+    provider.type === "browser"
+      ? ProviderType.BROWSER
+      : provider.type === "ollama"
+        ? ProviderType.OLLAMA
+        : provider.type === "openai"
+          ? ProviderType.OPENAI
+          : provider.type === "anthropic"
+            ? ProviderType.ANTHROPIC
+            : ProviderType.CUSTOM,
   enabled: provider.enabled,
   name: provider.name,
   hasApiKey: provider.hasApiKey,

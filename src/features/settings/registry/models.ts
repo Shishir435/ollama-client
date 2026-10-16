@@ -1,6 +1,17 @@
 import type { SettingsEntryDefinition } from "./types"
 
 export const MODELS_SETTINGS = [
+  {
+    id: "browser-built-in",
+    sectionId: "providers",
+    labelKey: "settings.providers.browser_builtin.name",
+    descriptionKey: "settings.providers.browser_builtin.description",
+    searchKeys: [
+      "settings.providers.browser_builtin.download",
+      "settings.providers.browser_builtin.enable"
+    ],
+    aliases: ["Prompt API", "LanguageModel"]
+  },
   // ---- Models: system ----------------------------------------------------
   {
     id: "system-prompt",

@@ -104,7 +104,8 @@ export const ProviderManager = {
    */
   async updateProviderConfig(
     id: string,
-    updates: Partial<ProviderConfig>
+    updates: Partial<ProviderConfig>,
+    signal?: AbortSignal
   ): Promise<void> {
     if (updates.baseUrl !== undefined) {
       validateProviderBaseUrl(updates.baseUrl)
@@ -118,9 +119,11 @@ export const ProviderManager = {
       if (index === -1) return
 
       previousBaseUrl = providers[index].baseUrl
+      signal?.throwIfAborted()
       const nextConfig = { ...providers[index], ...updates }
       validateHostedProfileConfig(nextConfig)
       providers[index] = nextConfig
+      signal?.throwIfAborted()
       await persistProviderConfigsUnlocked(providers)
       updated = true
     })
