@@ -1,2 +1,4 @@
-# Mechanical Oxfmt formatting and import ordering.
-03ab29dd4f5aa92a120f7baeb44e136449b7e872
+# Biome to Oxlint and Oxfmt (#463). The PR was squash-merged, so the
+# mechanical reformat lives in this commit together with that PR's hand edits;
+# blame skips both. Merge, don't squash, a future reformat PR.
+0d6ea5b347bd40ba516d25807747d8427f2bcc48

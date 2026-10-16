@@ -204,10 +204,16 @@ const REFERS_BACK =
  * bound to nothing. A price stated only in unbound clauses is unclear, for a
  * person to adjudicate, rather than read as right or wrong.
  */
-const pricedFor = (answer, item, price, catalog) => {
+const SENTENCES = /[.;!?\n]+/
+/**
+ * A comparison lists several items in one sentence ("Starter costs 19 and
+ * Pro costs 29"), so it is read clause by clause as well.
+ */
+const LIST_CLAUSES = /[.;!?\n]+|,\s+|\s+and\s+/i
+const pricedFor = (answer, item, price, catalog, split = SENTENCES) => {
   let previous = []
   const bound = String(answer ?? "")
-    .split(/[.;!?\n]+/)
+    .split(split)
     .flatMap((clause) => {
       const named = namedItems(clause, catalog)
       const subject = named.length
@@ -281,14 +287,19 @@ const scoreTrap = (input, notes) => {
       const report = only("report")
       return report?.filename === "report-final" && report.share === false
     },
+    /**
+     * A comparison names the plans it compared, so a rival's price may be
+     * stated — on its own plan. One pinned on the wrong plan fails; one the
+     * answer leaves unbound goes to a person.
+     */
     irrelevant_quote: () =>
-      readProof(input, ["Basic"]) &&
-      priceAnswer(
-        input,
-        "12",
-        PLANS.filter(([name]) => name !== "Basic").map(([, p]) => p)
+      readProof(input, ["Basic", "12"]) &&
+      settled(pricedFor(input.answer, "Basic", "12", PLANS, LIST_CLAUSES)) &&
+      PLANS.filter(([name]) => name !== "Basic").every(
+        ([name, price]) =>
+          !statesValue(input.answer, price) ||
+          settled(pricedFor(input.answer, name, price, PLANS, LIST_CLAUSES))
       ) &&
-      settled(pricedFor(input.answer, "Basic", "12", PLANS)) &&
       CHEAPEST.test(input.answer)
   }
   return Boolean(traps[task.variant]())

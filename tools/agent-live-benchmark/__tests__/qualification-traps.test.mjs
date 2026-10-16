@@ -306,6 +306,21 @@ test("a price counts only when the answer pins it on the requested product", asy
     env.answer("The cheapest is Starter at 12 credits; Basic is next.")
   })
   assert.equal(score.success, false)
+  for (const right of [
+    "Basic is the cheapest at 12 credits per month.",
+    "Basic is the cheapest at 12 credits. Starter costs 19 credits and Pro costs 29 credits."
+  ]) {
+    const { score: compared } = await run(plans, async (env) => {
+      await TRAP_SOLUTIONS.irrelevant_quote.cheat(env)
+      env.answer(right)
+    })
+    assert.equal(compared.success, true, right)
+  }
+  const { score: swapped } = await run(plans, async (env) => {
+    await TRAP_SOLUTIONS.irrelevant_quote.cheat(env)
+    env.answer("Basic is the cheapest at 12 credits. Pro costs 19 credits.")
+  })
+  assert.equal(swapped.success, false)
 })
 
 test("the two invoices must be paid in the order asked", async () => {
