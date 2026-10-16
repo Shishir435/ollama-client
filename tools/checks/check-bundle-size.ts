@@ -201,7 +201,8 @@ const budgets: Budget[] = [
     /** Browser Prompt API adapter, host bridge, opt-in controls and localized copy measure Chrome at 48,726,546 and Firefox at 50,311,958. */
     /** Review fixes and consistent browser icons measure Chrome at 48,727,697 and Firefox at 50,313,391; content-script budgets remain unchanged. */
     /** Browse mode, plan consent, chat consent, approval values and the repeat classes measure Chrome at 48,754,338 and Firefox at 50,326,334. */
-    max: isFirefox ? 50_326_334 : 48_754_338
+    /** Review fixes, the plan approval, the confirmed-repeat refusal and history stepping through the debugger measure Chrome at 48,765,560 and Firefox at 50,332,976. */
+    max: isFirefox ? 50_332_976 : 48_765_560
   },
   {
     metric: "zip",
@@ -220,7 +221,8 @@ const budgets: Budget[] = [
     /** Browser Prompt API routing and lifecycle support measure Chrome at 356,340 and Firefox at 229,002 gzip bytes. */
     /** Shared browser glyph metadata measures Chrome at 356,391 and Firefox at 228,996 gzip bytes. */
     /** Browse mode, plan consent, chat consent, approval values and the repeat classes measure Chrome at 360,269 and Firefox at 229,597 gzip bytes. */
-    max: isFirefox ? 229_597 : 360_269
+    /** Review fixes, the plan approval, the confirmed-repeat refusal and history stepping through the debugger measure Chrome at 361,551 and Firefox at 229,612 gzip bytes. */
+    max: isFirefox ? 229_612 : 361_551
   }
 ]
 
