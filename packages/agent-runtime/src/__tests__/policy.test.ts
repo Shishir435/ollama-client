@@ -1198,3 +1198,188 @@ describe("a control this run already committed through", () => {
     })
   })
 })
+
+describe("browse mode for a read-only plan", () => {
+  const navigate = (
+    url: string,
+    overrides: Partial<NonNullable<ResolvedAgentEffect["destination"]>> = {}
+  ): ResolvedAgentEffect =>
+    effect(["navigation"], {
+      command: { type: "navigate", url } as AgentCommand,
+      destination: {
+        url,
+        origin: /^[a-z]+:\/\/[^/?#]+/.exec(url)?.[0] ?? url,
+        source: "model",
+        ...overrides
+      }
+    })
+
+  it("goes to a new site and searches it without asking", () => {
+    const decision = evaluateAgentPolicy(
+      input(navigate("https://shop.example/s?k=rtx+4060+laptop"), {
+        browse: true,
+        authoredText: ["find the cheapest rtx 4060 laptop"]
+      })
+    )
+    expect(decision).toEqual({ type: "allow", risk: "high", browse: true })
+  })
+
+  it("still asks outside browse mode", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(navigate("https://shop.example/s?k=rtx+4060+laptop"), {
+          authoredText: ["find the cheapest rtx 4060 laptop"]
+        })
+      ).type
+    ).toBe("approval_required")
+  })
+
+  it("asks when a new site's address carries words nobody in the run wrote", () => {
+    const decision = evaluateAgentPolicy(
+      input(navigate("https://sink.example/?d=account+4111222233334444"), {
+        browse: true,
+        authoredText: ["summarize the reviews on this page"]
+      })
+    )
+    expect(decision.type).toBe("approval_required")
+    if (decision.type === "approval_required")
+      expect(decision.request.action).toContain(
+        "https://sink.example/?d=account+4111222233334444"
+      )
+  })
+
+  it("keeps page text the user did not write in a composed address critical", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        navigate("https://example.com/search?q=account+4111222233334444", {
+          pageDataEvidence: "visible_text"
+        }),
+        { browse: true, authoredText: ["summarize the reviews"] }
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("critical")
+  })
+
+  it("does not escalate the user's own words because the page echoes them", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        navigate("https://example.com/search?q=ollama+browser+extension", {
+          pageDataEvidence: "visible_text"
+        }),
+        { authoredText: ["search for ollama browser extension"] }
+      )
+    )
+    expect(decision.risk).toBe("high")
+  })
+
+  it("submits a search form and types into its box", () => {
+    const search = {
+      sensitive: false,
+      maySubmit: true,
+      accessibleName: "Search",
+      formMethod: "get" as const,
+      searchForm: true
+    }
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["form_mutation", "submission"], {
+            target: search,
+            destination: {
+              url: "https://example.com/search?q=lisbon",
+              origin: "https://example.com",
+              source: "observed"
+            }
+          }),
+          { browse: true }
+        )
+      ).type
+    ).toBe("allow")
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["form_mutation"], {
+            command: {
+              type: "clear_and_type",
+              ref: "e1",
+              text: "lisbon",
+              snapshotId: "snapshot-1",
+              generation: 1
+            },
+            target: search
+          }),
+          { browse: true }
+        )
+      ).type
+    ).toBe("allow")
+  })
+
+  it("follows a filter button but asks before keeping anything", () => {
+    const button = (accessibleName: string) =>
+      effect(["activation"], {
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          role: "button",
+          tag: "button",
+          accessibleName
+        }
+      })
+    expect(
+      evaluateAgentPolicy(input(button("Sort by price"), { browse: true })).type
+    ).toBe("allow")
+    expect(
+      evaluateAgentPolicy(input(button("Add to cart"), { browse: true })).type
+    ).toBe("approval_required")
+  })
+
+  it.each([
+    [
+      "a form that posts",
+      effect(["form_mutation", "submission"], {
+        target: {
+          sensitive: false,
+          maySubmit: true,
+          accessibleName: "Send",
+          formMethod: "post"
+        }
+      })
+    ],
+    [
+      "typing outside a search box",
+      effect(["form_mutation"], {
+        command: {
+          type: "type",
+          ref: "e1",
+          text: "hello",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          accessibleName: "Comment"
+        }
+      })
+    ],
+    [
+      "a committing script button",
+      effect(["activation"], {
+        target: {
+          sensitive: false,
+          maySubmit: false,
+          role: "button",
+          accessibleName: "Place order",
+          committingLabel: true
+        }
+      })
+    ],
+    ["a delete", effect(["activation", "destructive"])],
+    ["a download", effect(["navigation", "download"])]
+  ])("still asks for %s", (_name, resolved) => {
+    expect(
+      evaluateAgentPolicy(input(resolved, { browse: true })).type
+    ).not.toBe("allow")
+  })
+})

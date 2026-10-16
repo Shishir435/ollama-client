@@ -338,7 +338,13 @@ export interface ResolvedAgentEffect {
 
 export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
   authorization:
-    | { type: "policy"; risk: AgentRisk; authorizedAt: number }
+    | {
+        type: "policy"
+        risk: AgentRisk
+        authorizedAt: number
+        /** Allowed by browse mode; its destination joins the allowlist. */
+        browse?: true
+      }
     | {
         type: "approval"
         risk: AgentRisk
@@ -482,7 +488,12 @@ export type AgentPolicyBlockReason =
   | "unsupported_effect"
 
 export type AgentPolicyDecision =
-  | { type: "allow"; risk: AgentRisk }
+  /**
+   * `browse` marks an allow only browse mode gave: a read-only plan going
+   * somewhere a change task would have asked about. Its destination joins
+   * the run's allowlist the way an approved navigation's does.
+   */
+  | { type: "allow"; risk: AgentRisk; browse?: true }
   /** Allowed only because a grant covers it, which the receipt records. */
   | { type: "granted"; risk: AgentRisk; origin: string }
   | {
@@ -536,6 +547,12 @@ export interface AgentPolicyInput {
   repeatsCommittedEffect?: boolean
   /** Durable history could not prove whether this effect was already done. */
   committedEffectsUnknown?: boolean
+  /**
+   * Every planned outcome is a read. Browsing, searching and following links
+   * then run without asking; anything that could change a site still asks.
+   * See `browseAllows` in `policy.ts`.
+   */
+  browse?: boolean
   now: number
 }
 

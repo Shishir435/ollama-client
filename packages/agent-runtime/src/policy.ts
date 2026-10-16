@@ -11,9 +11,13 @@ import type {
   AgentPolicyDecision,
   AgentPolicyInput,
   AgentRisk,
-  AgentSemanticEffect
+  AgentSemanticEffect,
+  ResolvedAgentEffect
 } from "./ports"
-import { isAgentAuthoredDestination } from "./provenance"
+import {
+  agentDestinationCarriesWords,
+  isAgentAuthoredDestination
+} from "./provenance"
 import { agentRowContextBeyond } from "./row-context"
 
 const RISK_ORDER: readonly AgentRisk[] = ["low", "medium", "high", "critical"]
@@ -741,6 +745,123 @@ const baselineRisk = (input: AgentPolicyInput): AgentRisk => {
   return risk
 }
 
+/** What a read-only plan may do without asking: look, move and search. */
+const BROWSE_EFFECTS: ReadonlySet<AgentSemanticEffect> = new Set([
+  "read",
+  "scroll",
+  "hover",
+  "navigation",
+  "activation",
+  "form_mutation",
+  "submission"
+])
+
+/** Controls that show something else without changing anything. */
+const BROWSE_ROLES: ReadonlySet<string> = new Set([
+  "link",
+  "tab",
+  "option",
+  "treeitem",
+  "menuitemradio"
+])
+
+/**
+ * Button labels that keep something on the site even though no form says so:
+ * a cart, a list, a vote. English only, and only ever a reason to ask —
+ * a label it misses is a button a read-only plan had no business pressing.
+ */
+const KEEPING_LABEL =
+  /\b(?:add to|cart|basket|bag|wish ?list|save|like|follow|subscribe|vote|rate|review|apply|book|reserve|join|enrol|enroll|claim|accept|agree|allow|install|connect)\b/i
+
+const browsesWithControl = (input: AgentPolicyInput): boolean => {
+  const { command, target } = input.effect
+  if (command.type !== "click") return false
+  if (target.formMethod === "post") return false
+  const role = target.role?.toLowerCase()
+  if (role && BROWSE_ROLES.has(role)) return true
+  if (target.tag?.toLowerCase() === "summary") return true
+  return (
+    (role === "button" || target.tag?.toLowerCase() === "button") &&
+    !KEEPING_LABEL.test(target.accessibleName ?? "")
+  )
+}
+
+/**
+ * A field a read-only plan may fill: a search box, or a filter or sort
+ * control outside any form that posts. Typing anywhere else is writing.
+ */
+const browsesWithField = (input: AgentPolicyInput): boolean => {
+  const { command, target } = input.effect
+  if (target.formMethod === "post" || target.formHasSensitiveControl)
+    return false
+  if (command.type === "type" || command.type === "clear_and_type")
+    return target.searchForm === true || target.inputType === "search"
+  return (
+    command.type === "select" ||
+    command.type === "check" ||
+    command.type === "uncheck"
+  )
+}
+
+/**
+ * Whether browse mode covers an effect: a run whose every planned outcome
+ * is a read may look, move between sites, search and filter without asking.
+ *
+ * What still asks: anything critical, a sensitive or committing control, a
+ * tab the run does not drive, a frame on a site it was never sent to, a
+ * form that posts, typing outside a search box, and a destination the model
+ * composed for a site the run has not been to that carries words neither the
+ * user nor the run wrote. That last one is the exfiltration shape, whatever
+ * page the words were read from, so it is judged against authorship rather
+ * than against what the current page happens to show.
+ */
+const browseAllows = (input: AgentPolicyInput, risk: AgentRisk): boolean => {
+  if (risk === "critical") return false
+  const { target, semanticEffects, destination } = input.effect
+  if (target.sensitive || target.committingLabel === true) return false
+  if (!semanticEffects.every((effect) => BROWSE_EFFECTS.has(effect)))
+    return false
+  if (adoptsTab(input) !== undefined) return false
+  if (
+    input.effect.frameOrigin !== undefined &&
+    !input.allowedOrigins.includes(input.effect.frameOrigin)
+  )
+    return false
+  if (semanticEffects.includes("submission") && !isShownSearch(input))
+    return false
+  if (
+    semanticEffects.includes("form_mutation") &&
+    !semanticEffects.includes("submission") &&
+    !browsesWithField(input)
+  )
+    return false
+  if (semanticEffects.includes("activation") && !browsesWithControl(input))
+    return false
+  if (
+    destination &&
+    destination.source !== "observed" &&
+    (destination.pageDataEvidence !== undefined ||
+      !input.allowedOrigins.includes(destination.origin)) &&
+    !userWroteDestination(destination, input.authoredText)
+  )
+    return false
+  return true
+}
+
+/**
+ * Whether the words a composed destination carries are the user's or the
+ * run's own. A destination too short to judge counts only when the resolver
+ * found no page data in it either: its span rule is not this one, and a
+ * short span it flagged is not cleared by being too short to read here.
+ */
+const userWroteDestination = (
+  destination: NonNullable<ResolvedAgentEffect["destination"]>,
+  authoredText: readonly string[] | undefined
+): boolean =>
+  agentDestinationCarriesWords(destination.url)
+    ? isAgentAuthoredDestination(destination.url, authoredText)
+    : destination.pageDataEvidence === undefined
+
 export const evaluateAgentPolicy = (
   input: AgentPolicyInput
 ): AgentPolicyDecision => {
@@ -822,7 +943,8 @@ export const evaluateAgentPolicy = (
      */
     if (
       destination.source !== "observed" &&
-      destination.pageDataEvidence === "visible_text"
+      destination.pageDataEvidence === "visible_text" &&
+      !userWroteDestination(destination, input.authoredText)
     ) {
       risk = raiseRisk(risk, "critical")
     }
@@ -830,6 +952,9 @@ export const evaluateAgentPolicy = (
 
   const notice = repeatNotice(input)
   if (notice) return repeatApproval(input, risk, notice)
+
+  if (input.browse && browseAllows(input, risk))
+    return { type: "allow", risk, browse: true }
 
   if (risk === "low") return { type: "allow", risk }
   if (

@@ -529,6 +529,53 @@ describe("agent controller", () => {
     ])
   })
 
+  it("lets a read-only plan browse to a new site and keeps that site", async () => {
+    const seen: boolean[] = []
+    const harness = createHarness({
+      state: runState({
+        requirements: [{ id: "r1", text: "Read the price", kind: "read" }]
+      }),
+      decisions: [
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "complete", summary: "Done" }
+      ],
+      policy: (input) => {
+        seen.push(input.browse === true)
+        return { type: "allow", risk: "high", browse: true }
+      },
+      effectOverrides: newOriginEffect
+    })
+    await harness.controller.start("run-1")
+    expect(seen[0]).toBe(true)
+    expect(harness.calls).not.toContain("approval")
+    expect(harness.getState().allowedOrigins).toEqual([
+      "https://example.com",
+      "https://other.example"
+    ])
+  })
+
+  it("does not browse when the plan changes anything", async () => {
+    const seen: boolean[] = []
+    const harness = createHarness({
+      state: runState({
+        requirements: [
+          { id: "r1", text: "Read the price", kind: "read" },
+          { id: "r2", text: "The cart holds it", kind: "change" }
+        ]
+      }),
+      decisions: [
+        { type: "command", command: command(), requirementId: "r1" },
+        { type: "complete", summary: "Done" }
+      ],
+      policy: (input) => {
+        seen.push(input.browse === true)
+        return { type: "allow", risk: "medium" }
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(seen[0]).toBe(false)
+  })
+
   it("does not add an origin the user was never asked about", async () => {
     const harness = createHarness({ effectOverrides: newOriginEffect })
     await harness.controller.start("run-1")

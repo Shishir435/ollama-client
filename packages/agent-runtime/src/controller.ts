@@ -305,12 +305,25 @@ const MAX_CONSECUTIVE_REFUSED_COMPLETIONS = 2
 
 /**
  * An origin joins a run's allowlist only when the user approved travelling to
- * it, and only in the durable write that opens execution — the same boundary
+ * it — or, for a read-only plan, when browse mode let the run go there, which
+ * is the user's start approval covering looking around — and only in the
+ * durable write that opens execution — the same boundary
  * that owns the effect the approval authorized. A policy `allow`, a page, and
  * a model decision each contribute none, and the run's own cap is honoured by
  * declining to grow rather than by evicting an origin the user already
  * approved: a full allowlist costs another prompt, never a silent grant.
  */
+/**
+ * Every planned outcome is a read, so the run is browsing. A run with no
+ * plan yet, or one still owing an unresolved requirement, is not: browse
+ * mode is earned by a plan the user's start approval covered.
+ */
+export const agentPlanIsReadOnly = (
+  state: Pick<AgentRunState, "requirements">
+): boolean =>
+  (state.requirements?.length ?? 0) > 0 &&
+  (state.requirements ?? []).every((requirement) => requirement.kind === "read")
+
 const allowedOriginsPatch = (
   state: AgentRunState,
   effect: ResolvedAgentEffect,
@@ -318,7 +331,8 @@ const allowedOriginsPatch = (
 ): AgentStatePatch => {
   const origin = effect.destination?.origin
   if (
-    authorization.type !== "approval" ||
+    (authorization.type !== "approval" &&
+      !(authorization.type === "policy" && authorization.browse)) ||
     !origin ||
     state.allowedOrigins.includes(origin) ||
     state.allowedOrigins.length >= MAX_AGENT_ALLOWED_ORIGINS
@@ -725,7 +739,8 @@ export const createAgentController = (
         authorization: {
           type: "policy",
           risk: decision.risk,
-          authorizedAt: dependencies.clock.now()
+          authorizedAt: dependencies.clock.now(),
+          ...(decision.browse ? { browse: true as const } : {})
         }
       }
     }
@@ -1487,6 +1502,7 @@ export const createAgentController = (
         ? { repeatsPriorForm: true }
         : {}),
       ...ownEffectPolicyFlags(ownEffect),
+      ...(agentPlanIsReadOnly(state) ? { browse: true } : {}),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {
