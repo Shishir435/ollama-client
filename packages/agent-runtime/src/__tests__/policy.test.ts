@@ -1468,3 +1468,37 @@ describe("values on an approval", () => {
     expect(JSON.stringify(decision)).not.toContain("hunter2")
   })
 })
+
+describe("a value the plan disagrees with", () => {
+  it("is marked on the approval, and an agreeing one is not", () => {
+    const fill = (text: string) =>
+      effect(["form_mutation"], {
+        command: {
+          type: "clear_and_type",
+          ref: "e1",
+          text,
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        target: { sensitive: false, maySubmit: false, accessibleName: "Name" }
+      })
+    const planned = [
+      { name: "name", value: "R. Diaz" },
+      { name: "Billing name", value: "Ada" }
+    ]
+    const wrong = evaluateAgentPolicy(
+      input(fill("Ada"), { plannedValues: planned })
+    )
+    if (wrong.type !== "approval_required") throw new Error(wrong.type)
+    expect(wrong.request.values?.entries).toEqual([
+      { field: "Name", value: "Ada", planned: { value: "R. Diaz" } }
+    ])
+    const right = evaluateAgentPolicy(
+      input(fill("r.  diaz"), { plannedValues: planned })
+    )
+    if (right.type !== "approval_required") throw new Error(right.type)
+    expect(right.request.values?.entries).toEqual([
+      { field: "Name", value: "r.  diaz" }
+    ])
+  })
+})

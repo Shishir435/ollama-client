@@ -12,6 +12,7 @@ import {
 } from "@ollama-client/contracts"
 import { agentCommandDisplay } from "./action-label"
 import type {
+  AgentPlannedValue,
   AgentPolicyDecision,
   AgentPolicyInput,
   AgentRisk,
@@ -558,6 +559,34 @@ const commandValue = (
   }
 }
 
+const plainWords = (value: string): string =>
+  value.replaceAll(/\s+/g, " ").trim().toLocaleLowerCase()
+
+/**
+ * The plan's value for a control, attached when it disagrees with the one
+ * about to be entered or sent. Matched on the control's name only, so a
+ * plan naming "Name" says nothing about "Billing name".
+ */
+const withPlanned = (
+  entry: AgentApprovalValue,
+  planned: readonly AgentPlannedValue[] | undefined
+): AgentApprovalValue => {
+  if (entry.masked || !planned?.length) return entry
+  const plan = planned.find(
+    (candidate) => plainWords(candidate.name) === plainWords(entry.field)
+  )
+  if (!plan) return entry
+  if (plan.checked !== undefined && entry.checked !== undefined)
+    return plan.checked === entry.checked
+      ? entry
+      : { ...entry, planned: { checked: plan.checked } }
+  if (plan.value !== undefined && entry.value !== undefined)
+    return plainWords(plan.value) === plainWords(entry.value)
+      ? entry
+      : { ...entry, planned: { value: clipped(plan.value) } }
+  return entry
+}
+
 /**
  * The values an approval shows. A batch lists every field it sets; a lone
  * edit its one value; a submission everything its form will send. A
@@ -581,7 +610,12 @@ const approvalValues = (
             ? { checked: field.checked }
             : { value: clipped(field.value ?? "") })
       }))
-    return { values: { kind: "sent", entries } }
+    return {
+      values: {
+        kind: "sent",
+        entries: entries.map((entry) => withPlanned(entry, input.plannedValues))
+      }
+    }
   }
   const entries = (
     effect.batch?.fields.length
@@ -592,6 +626,7 @@ const approvalValues = (
   )
     .filter((entry): entry is AgentApprovalValue => entry !== undefined)
     .slice(0, MAX_AGENT_APPROVAL_VALUES)
+    .map((entry) => withPlanned(entry, input.plannedValues))
   return entries.length ? { values: { kind: "entered", entries } } : {}
 }
 

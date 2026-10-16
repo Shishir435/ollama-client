@@ -53,7 +53,8 @@
         "masked": "Hidden (sensitive)",
         "checked": "Checked",
         "unchecked": "Not checked",
-        "empty": "(empty)"
+        "empty": "(empty)",
+        "planned": "The plan says: {{value}}"
       }
     },
     "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",

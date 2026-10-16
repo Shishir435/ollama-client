@@ -90,6 +90,7 @@ import type {
   AgentExecutionReceipt,
   AgentInspectionFocus,
   AgentModelInput,
+  AgentPlannedValue,
   AgentPolicyDecision,
   AgentResolutionContext,
   AgentReviewedAction,
@@ -323,6 +324,24 @@ export const agentPlanIsReadOnly = (
 ): boolean =>
   (state.requirements?.length ?? 0) > 0 &&
   (state.requirements ?? []).every((requirement) => requirement.kind === "read")
+
+/** The values the plan's checks name, for the approval to compare against. */
+const plannedValuesFor = (
+  state: Pick<AgentRunState, "requirements">
+): { plannedValues?: AgentPlannedValue[] } => {
+  const planned = (state.requirements ?? []).flatMap(
+    (requirement): AgentPlannedValue[] => {
+      const check = requirement.check
+      if (!check) return []
+      if (check.type === "field" || check.type === "selected")
+        return [{ name: check.name, value: check.value }]
+      if (check.type === "checked")
+        return [{ name: check.name, checked: check.checked }]
+      return []
+    }
+  )
+  return planned.length ? { plannedValues: planned } : {}
+}
 
 const allowedOriginsPatch = (
   state: AgentRunState,
@@ -1503,6 +1522,7 @@ export const createAgentController = (
         : {}),
       ...ownEffectPolicyFlags(ownEffect),
       ...(agentPlanIsReadOnly(state) ? { browse: true } : {}),
+      ...plannedValuesFor(state),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {

@@ -53,7 +53,8 @@
         "masked": "Nascosto (sensibile)",
         "checked": "Selezionato",
         "unchecked": "Non selezionato",
-        "empty": "(vuoto)"
+        "empty": "(vuoto)",
+        "planned": "Il piano prevede: {{value}}"
       }
     },
     "browser_disconnected": "Il controllo del browser si è disconnesso, quindi Agent è in pausa. Controlla la pagina prima di riprendere.",

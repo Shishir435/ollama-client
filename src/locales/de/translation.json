@@ -53,7 +53,8 @@
         "masked": "Ausgeblendet (vertraulich)",
         "checked": "Ausgewählt",
         "unchecked": "Nicht ausgewählt",
-        "empty": "(leer)"
+        "empty": "(leer)",
+        "planned": "Laut Plan: {{value}}"
       }
     },
     "browser_disconnected": "Die Browsersteuerung wurde getrennt, daher wurde Agent pausiert. Prüfen Sie die Seite vor dem Fortsetzen.",

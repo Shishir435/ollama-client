@@ -41,18 +41,43 @@ const ApprovalValue = ({ entry }: { entry: AgentApprovalValue }) => {
       : entry.value
         ? agentPlainText(entry.value, AGENT_EVIDENCE_TEXT_LIMIT)
         : t("agent.approval.values.empty")
+  const planned = entry.planned
+  const plannedText =
+    planned?.checked !== undefined
+      ? t(
+          planned.checked
+            ? "agent.approval.values.checked"
+            : "agent.approval.values.unchecked"
+        )
+      : planned?.value !== undefined
+        ? planned.value
+          ? agentPlainText(planned.value, AGENT_PAGE_TEXT_LIMIT)
+          : t("agent.approval.values.empty")
+        : undefined
   return (
-    <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2">
+    <div
+      className={
+        plannedText !== undefined
+          ? "grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2 rounded-control border border-status-warning/60 px-1"
+          : "grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2"
+      }>
       <dt className="wrap-break-word text-muted-foreground">
         {agentPlainText(entry.field, AGENT_PAGE_TEXT_LIMIT)}
       </dt>
-      <dd
-        className={
-          entry.value && !entry.masked
-            ? "wrap-break-word font-mono"
-            : "wrap-break-word italic"
-        }>
-        {shown}
+      <dd>
+        <span
+          className={
+            entry.value && !entry.masked
+              ? "wrap-break-word font-mono"
+              : "wrap-break-word italic"
+          }>
+          {shown}
+        </span>
+        {plannedText !== undefined && (
+          <span className="block wrap-break-word font-medium text-foreground">
+            {t("agent.approval.values.planned", { value: plannedText })}
+          </span>
+        )}
       </dd>
     </div>
   )

@@ -53,7 +53,8 @@
         "masked": "已隐藏（敏感）",
         "checked": "已勾选",
         "unchecked": "未勾选",
-        "empty": "（空）"
+        "empty": "（空）",
+        "planned": "计划中的值：{{value}}"
       }
     },
     "browser_disconnected": "浏览器控制已断开，因此 Agent 已暂停。请检查页面后再继续。",

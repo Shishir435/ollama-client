@@ -53,7 +53,8 @@
         "masked": "Oculto (confidencial)",
         "checked": "Marcado",
         "unchecked": "Sin marcar",
-        "empty": "(vacío)"
+        "empty": "(vacío)",
+        "planned": "El plan indica: {{value}}"
       }
     },
     "browser_disconnected": "El control del navegador se desconectó, por lo que Agent se pausó. Revisa la página antes de continuar.",

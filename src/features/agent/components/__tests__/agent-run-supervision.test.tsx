@@ -177,7 +177,11 @@ describe("AgentRunSupervision", () => {
         values: {
           kind: "sent",
           entries: [
-            { field: "Email", value: "ada@example.com" },
+            {
+              field: "Email",
+              value: "ada@example.com",
+              planned: { value: "grace@example.com" }
+            },
             { field: "Newsletter", checked: false },
             { field: "Card", masked: true },
             { field: "Note", value: "" }
@@ -192,6 +196,11 @@ describe("AgentRunSupervision", () => {
     ).toBeInTheDocument()
     expect(screen.getByText("agent.approval.values.masked")).toBeInTheDocument()
     expect(screen.getByText("agent.approval.values.empty")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'agent.approval.values.planned:{"value":"grace@example.com"}'
+      )
+    ).toBeInTheDocument()
   })
 
   it("offers to widen only an approval that came with an offer", () => {

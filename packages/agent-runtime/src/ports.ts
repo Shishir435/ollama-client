@@ -571,7 +571,19 @@ export interface AgentPolicyInput {
    * See `browseAllows` in `policy.ts`.
    */
   browse?: boolean
+  /**
+   * What the plan's field, checkbox and selection checks say named controls
+   * should hold. The approval marks a value that disagrees; it decides
+   * nothing.
+   */
+  plannedValues?: readonly AgentPlannedValue[]
   now: number
+}
+
+export interface AgentPlannedValue {
+  name: string
+  value?: string
+  checked?: boolean
 }
 
 export type AgentApprovalDecision =

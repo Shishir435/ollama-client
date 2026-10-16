@@ -53,7 +53,8 @@
         "masked": "Masqué (sensible)",
         "checked": "Coché",
         "unchecked": "Non coché",
-        "empty": "(vide)"
+        "empty": "(vide)",
+        "planned": "Le plan prévoit : {{value}}"
       }
     },
     "browser_disconnected": "Le contrôle du navigateur s’est déconnecté. Agent est donc en pause. Vérifiez la page avant de reprendre.",

@@ -384,7 +384,19 @@ export const AgentApprovalValueSchema = z
     field: z.string().min(1).max(200),
     value: z.string().max(MAX_AGENT_APPROVAL_VALUE_CHARS).optional(),
     checked: z.boolean().optional(),
-    masked: z.literal(true).optional()
+    masked: z.literal(true).optional(),
+    /**
+     * What the plan says this control should hold, when it says something
+     * else: the one place a wrong value in the right form shows itself
+     * before it is sent. Absent when the plan names nothing for it or agrees.
+     */
+    planned: z
+      .object({
+        value: z.string().max(MAX_AGENT_APPROVAL_VALUE_CHARS).optional(),
+        checked: z.boolean().optional()
+      })
+      .strict()
+      .optional()
   })
   .strict()
 export type AgentApprovalValue = z.infer<typeof AgentApprovalValueSchema>
