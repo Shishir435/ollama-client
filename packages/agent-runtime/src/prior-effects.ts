@@ -153,19 +153,23 @@ const sameForm = (a: AgentPriorEffect, b: AgentPriorEffect): boolean =>
     (effect) => sendsForm(effect) && (b.effects ?? []).includes(effect)
   )
 
-/** The words of a row that carry a digit: ids, numbers, amounts, dates. */
+/**
+ * The words of a row that name it: anything with a digit — ids, numbers,
+ * amounts, dates — and a lone letter, the way "Invoice A" and "Invoice B"
+ * are told apart.
+ */
 const identifiers = (row: string): Set<string> =>
   new Set(
     normalized(row)
       .split(" ")
       .map((word) => word.replaceAll(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
-      .filter((word) => /\p{N}/u.test(word))
+      .filter((word) => /\p{N}/u.test(word) || /^\p{L}$/u.test(word))
   )
 
 /**
  * Whether two rows are plainly different records: both name something with a
- * digit in it — an invoice number, a record id, an amount — and they share
- * none of it. "Record 5 Due" and "Record 6 Due" are two records; "INV-1 $120
+ * digit in it — an invoice number, a record id, an amount — or a lone letter,
+ * and they share none of it. "Record 5 Due" and "Record 6 Due" are two records; "INV-1 $120
  * Due" and "INV-1 $0 Paid" are one record before and after the click, which
  * is the repeat this guard exists for. A row with no such word, or no row at
  * all, proves nothing, and the match stays as coarse as it always was.

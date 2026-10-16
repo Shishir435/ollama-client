@@ -491,6 +491,19 @@ describe("a repeat in a list of records", () => {
     ).toBe(false)
   })
 
+  it("tells records apart by a lone letter", () => {
+    expect(
+      agentOwnEffectSettlement(markPaid("Invoice B Due Mark paid"), [
+        done("Invoice A Due Mark paid")
+      ])
+    ).toBeUndefined()
+    expect(
+      agentOwnEffectSettlement(markPaid("Invoice A Paid Mark paid"), [
+        done("Invoice A Due Mark paid")
+      ])
+    ).toBe("confirmed")
+  })
+
   it("still refuses the same record, even after its row changed", () => {
     expect(
       agentRepeatsPriorEffect(
