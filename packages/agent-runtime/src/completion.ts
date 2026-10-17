@@ -937,8 +937,19 @@ const matchingBatchField = (
     const name = names[index]?.name
     if (!name) return false
     const set = batchFieldValue(field)
+    /**
+     * Only for a requirement naming no other field of the batch: "Name is
+     * Alice" is about Name, and Email holding Alice cannot answer it.
+     */
+    const namesAnother = names.some(
+      (entry, other) =>
+        other !== index &&
+        entry?.name !== undefined &&
+        requirementNamesField(text, entry.name, observation)
+    )
     const byValue =
       set !== undefined &&
+      !namesAnother &&
       batchFieldWithValue(fields, set) === index &&
       valueAssertedWithoutNegation(text, set)
     if (!byValue && !requirementNamesField(text, name, observation))

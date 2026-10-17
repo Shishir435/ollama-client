@@ -2045,6 +2045,54 @@ describe("judgeAgentCompletion with planned requirements", () => {
     ).toMatchObject({ type: "refused" })
   })
 
+  it("does not credit a batch value held by another field than the one named", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [
+          { ref: "e1", type: "clear_and_type", text: "Alice" },
+          { ref: "e2", type: "clear_and_type", text: "Bob" }
+        ]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "All 2 fields hold the resolved value",
+          observedAt: 1,
+          fields: [{ name: "Email" }, { name: "Name" }]
+        }
+      }
+    })
+    const field = (ref: string, name: string, value: string) => ({
+      ref,
+      frameId: 0,
+      tag: "input",
+      name,
+      value,
+      visible: true,
+      enabled: true,
+      editable: true,
+      sensitive: false
+    })
+    for (const elements of [
+      [field("e1", "Email", "Alice"), field("e2", "Name", "Bob")],
+      []
+    ])
+      expect(
+        judgeAgentCompletion({
+          steps: [filled],
+          observation: observation({ visibleText: "Contact saved", elements }),
+          requirements: [{ id: "r1", text: "Name is Alice", kind: "change" }],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).toMatchObject({ type: "refused" })
+  })
+
   it("does not let a sent form vouch for what sending it was meant to achieve", () => {
     const submitted = step({
       sequence: 1,
