@@ -5210,6 +5210,34 @@ describe("bounded recovery", () => {
 
     expect(harness.getState().recovery).toEqual({ attempts: 2 })
   })
+
+  it("keeps the run-wide counters a correction after a restart does not reset", async () => {
+    const harness = createHarness({
+      state: runState({
+        status: "paused",
+        pauseReason: "user",
+        updatedAt: 20,
+        stall: {
+          malformed: 3,
+          refusedCommands: 2,
+          planFailures: { count: 2, answeredAt: 1, retryAt: 9 }
+        }
+      }),
+      decisions: [{ type: "ask_user", question: "Continue?" }]
+    })
+
+    await harness.controller.resume("run-1", {
+      text: "Use the menu instead",
+      pausedAt: 20
+    })
+
+    const stall = harness.getState().stall
+    expect(stall).toMatchObject({
+      malformed: 3,
+      planFailures: { count: 2 }
+    })
+    expect(stall?.refusedCommands).toBeUndefined()
+  })
 })
 
 describe("durable workflow resume", () => {

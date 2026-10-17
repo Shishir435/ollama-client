@@ -741,8 +741,14 @@ export const createAgentController = (
    * against the answer it was made under, and the malformed budget is
    * run-wide on purpose, like the port's own count.
    */
-  const forgetStall = (runId: string): void => {
-    stallRestored.add(runId)
+  const forgetStall = (state: AgentRunState): void => {
+    /**
+     * Restored first: a correction after a restart must keep the malformed
+     * count and planner failures the checkpoint holds, not mark the run
+     * restored with nothing loaded.
+     */
+    restoreStall(state)
+    const runId = state.id
     previousProgress.delete(runId)
     recentProgress.delete(runId)
     noProgressCounts.delete(runId)
@@ -3905,7 +3911,7 @@ export const createAgentController = (
      */
     const steering = pendingSteering.get(state.id)
     /** Reset before the claim, so the claim's own write carries it. */
-    if (steering?.length) forgetStall(state.id)
+    if (steering?.length) forgetStall(state)
     const claimed = await claimDeciding(
       state,
       steering,
@@ -4480,7 +4486,7 @@ export const createAgentController = (
        * carries the reset counters and a restart cannot bring the old ones
        * back.
        */
-      forgetStall(state.id)
+      forgetStall(state)
       const recorded = await transition(state, resumedPhase(state), {
         ...(state.deadline
           ? {
@@ -4522,7 +4528,7 @@ export const createAgentController = (
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
       clearBoundRequirement(state.id)
-      forgetStall(state.id)
+      forgetStall(state)
       const answers = [
         ...(state.answers ?? []),
         {
@@ -4605,7 +4611,7 @@ export const createAgentController = (
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
       clearBoundRequirement(state.id)
-      forgetStall(state.id)
+      forgetStall(state)
       minimumGeneration.set(runId, (lastGeneration.get(runId) ?? 0) + 1)
       if (!(await recordReviewedDisposition(state.id))) return
       const recorded = await transition(state, "observing", {
