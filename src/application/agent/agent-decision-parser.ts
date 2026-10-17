@@ -283,6 +283,30 @@ const invalidFieldsFeedback = (
 }
 
 /**
+ * The two slips that ended four long runs in one live pass, each with only
+ * one reading: a `wait` with no timeout, and a `find` whose text arrived
+ * under `find` — the field `replace_text` uses — rather than `query`. Both
+ * commands only read, and every other part of the answer is still
+ * validated. Long plans run long enough that a per-run malformed budget
+ * spent on these ran out before the work did.
+ */
+const DEFAULT_WAIT_TIMEOUT_MS = 10_000
+
+const repairUnambiguousCommand = (
+  command: Record<string, unknown>,
+  record: Record<string, unknown>
+): void => {
+  if (command.type === "wait" && command.timeoutMs === undefined)
+    command.timeoutMs = DEFAULT_WAIT_TIMEOUT_MS
+  if (
+    command.type === "find" &&
+    command.query === undefined &&
+    typeof record.find === "string"
+  )
+    command.query = record.find
+}
+
+/**
  * A key goes to whatever holds focus, and a model pressing Tab says so by
  * leaving the ref out. Measured on gpt-6-luna: three Tab presses without one
  * were refused as invalid and the run failed on a page that showed exactly
@@ -324,6 +348,7 @@ const normalizeDecisionArguments = (
       if (record[field] !== undefined) command[field] = record[field]
     }
     fillFocusedKeyTarget(command, observation)
+    repairUnambiguousCommand(command, record)
     /** These fields belong to the decision, not the command's wire shape. */
     return {
       type: "command",
