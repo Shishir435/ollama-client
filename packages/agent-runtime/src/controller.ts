@@ -3904,6 +3904,8 @@ export const createAgentController = (
      * decision after the resume, rather than accepted and then dropped.
      */
     const steering = pendingSteering.get(state.id)
+    /** Reset before the claim, so the claim's own write carries it. */
+    if (steering?.length) forgetStall(state.id)
     const claimed = await claimDeciding(
       state,
       steering,
@@ -3923,7 +3925,6 @@ export const createAgentController = (
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
       clearBoundRequirement(state.id)
-      forgetStall(state.id)
     }
     if (claimed.stop && (await stopsBeforePlanning(deciding, claimed.stop)))
       return undefined
@@ -4195,8 +4196,10 @@ export const createAgentController = (
       state.observationCount < failed.retryAt
     )
       return { patch: {} }
+    /** A newer answer starts its own sequence rather than inheriting one. */
     const recordFailure = () => {
-      const count = (failed?.count ?? 0) + 1
+      const count =
+        (failed && failed.answeredAt >= answeredAt ? failed.count : 0) + 1
       planFailures.set(state.id, {
         count,
         answeredAt,
@@ -4472,6 +4475,12 @@ export const createAgentController = (
         state.updatedAt !== correction.pausedAt
       )
         return
+      /**
+       * Before the transition, so the write that records the correction
+       * carries the reset counters and a restart cannot bring the old ones
+       * back.
+       */
+      forgetStall(state.id)
       const recorded = await transition(state, resumedPhase(state), {
         ...(state.deadline
           ? {
@@ -4498,7 +4507,6 @@ export const createAgentController = (
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
       clearBoundRequirement(state.id)
-      forgetStall(state.id)
       await run(recorded.id, false, true)
     },
     async answerQuestion({ runId, questionId, text }) {

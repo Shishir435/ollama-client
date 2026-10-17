@@ -5657,7 +5657,13 @@ describe("agent controller stall counters", () => {
    * after two, then after four — not on every step, each of which could
    * spend several provider attempts.
    */
-  it("backs off a failing plan amendment", async () => {
+  it.each([
+    ["", undefined],
+    [
+      ", starting again for a newer answer",
+      { planFailures: { count: 3, answeredAt: 1, retryAt: 999 } }
+    ]
+  ] as const)("backs off a failing plan amendment%s", async (_, stall) => {
     const plan = vi
       .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
       .mockResolvedValueOnce({
@@ -5670,6 +5676,7 @@ describe("agent controller stall counters", () => {
       command: command(index + 2)
     }))
     const harness = createHarness({
+      ...(stall ? { state: { ...runState(), stall } } : {}),
       plan,
       clock: () => now,
       decisions: [{ type: "ask_user", question: "Anything else?" }, ...reads],
