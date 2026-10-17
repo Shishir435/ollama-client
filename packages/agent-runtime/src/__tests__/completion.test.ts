@@ -3250,9 +3250,14 @@ describe("superlative reads computed from collected records", () => {
     })
   })
 
-  it("leaves an answer naming no item to the reviewer, as before", () => {
-    const judged = judge("The cheapest is 35 credits")
-    if (judged.type !== "accepted") return
-    expect(judged.outcome?.claimed).toContain("r2")
+  it.each([
+    ["names no item", "The cheapest is 35 credits"],
+    ["names the item without its value", "Shop B is cheapest"],
+    ["states several numbers for the item", "Shop B is cheapest at 99 for 2"]
+  ])("never verifies an answer that %s", (_case, answer) => {
+    const judged = judge(answer)
+    if (judged.type === "accepted")
+      expect(judged.outcome?.claimed).toContain("r2")
+    else expect(judged).toMatchObject({ type: "refused" })
   })
 })

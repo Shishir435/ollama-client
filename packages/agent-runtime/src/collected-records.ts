@@ -29,25 +29,68 @@ export interface AgentCollectedRecord {
 /** The most records one run's table holds; one per planned item at most. */
 export const MAX_AGENT_COLLECTED_RECORDS = 40
 
+/** Letters and digits in any script: what a name boundary must not touch. */
+const WORD = /[\p{L}\p{N}_]/u
+
+/** `text` with every whole-word occurrence of `name` blanked out. */
+const withoutName = (text: string, name: string): string => {
+  const needle = name.trim().toLocaleLowerCase()
+  if (!needle) return text
+  const lower = text.toLocaleLowerCase()
+  let out = ""
+  let from = 0
+  let at = lower.indexOf(needle)
+  while (at !== -1) {
+    const before = lower[at - 1]
+    const after = lower[at + needle.length]
+    if (
+      (before === undefined || !WORD.test(before)) &&
+      (after === undefined || !WORD.test(after))
+    ) {
+      out += `${text.slice(from, at)} `
+      from = at + needle.length
+    }
+    at = lower.indexOf(needle, at + 1)
+  }
+  return out + text.slice(from)
+}
+
 /**
- * The one number a quote states, or none when it states several or none.
- * Digits inside the item's own name ("Invoice 2", "Plan 3") are not the
- * value. Thousands separators are read as such only in groups of three.
+ * Every distinct number a text states, signed. Digits inside the item's own
+ * name ("Invoice 2", "Plan 3") are not values, and the name is matched as a
+ * whole word, so "Plan 3" leaves "Plan 30" alone. A minus is a sign only
+ * where it stands before the number on its own — "-10", "(−4)" — never the
+ * hyphen of an id such as ORD-1042 or a range such as 10-20. Thousands
+ * separators count only in groups of three.
  */
+export const agentQuotedNumbers = (text: string, item?: string): number[] => {
+  const rest = item ? withoutName(text, item) : text
+  const numbers: number[] = []
+  for (const match of rest.matchAll(
+    /([-\u2212])?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/g
+  )) {
+    const index = match.index ?? 0
+    const sign = match[1] !== undefined
+    const before = rest[index - 1]
+    const signed = sign && (before === undefined || !WORD.test(before))
+    /** A digit run glued to a word (ORD-1042, 4K) is part of a name. */
+    const glued = !sign && before !== undefined && WORD.test(before)
+    if (glued) continue
+    if (sign && !signed && before !== undefined && /\p{L}/u.test(before))
+      continue
+    const value = Number(match[2].replaceAll(",", ""))
+    if (Number.isFinite(value)) numbers.push(signed ? -value : value)
+  }
+  return [...new Set(numbers)]
+}
+
+/** The one number a quote states, or none when it states several or none. */
 export const agentQuotedValue = (
   quote: string,
   item?: string
 ): number | undefined => {
-  let text = quote
-  if (item) {
-    const name = item.trim()
-    if (name) text = text.split(name).join(" ")
-  }
-  const numbers = [
-    ...text.matchAll(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g)
-  ].map((match) => Number(match[0].replaceAll(",", "")))
-  const distinct = [...new Set(numbers.filter(Number.isFinite))]
-  return distinct.length === 1 ? distinct[0] : undefined
+  const numbers = agentQuotedNumbers(quote, item)
+  return numbers.length === 1 ? numbers[0] : undefined
 }
 
 /**
@@ -90,15 +133,60 @@ export const agentCollectedRecords = (
 const LOWEST =
   /\b(?:cheapest|lowest|least expensive|smallest|fewest|minimum|least)\b/i
 const HIGHEST =
-  /\b(?:most expensive|highest|largest|biggest|most|maximum|greatest)\b/i
+  /\b(?:most expensive|priciest|highest|largest|biggest|most|maximum|greatest)\b/i
+/** The words that name a price, for a superlative that implies one. */
+const PRICE_WORDS = [
+  "price",
+  "cost",
+  "charge",
+  "fee",
+  "fare",
+  "rate",
+  "credit",
+  "dollar",
+  "euro",
+  "pound",
+  "rupee",
+  "yen"
+]
+
+/**
+ * What a superlative compares: price for "cheapest" or "most expensive",
+ * otherwise the word after the superlative ("highest rating" is rating).
+ * Undefined when the question names no measure, which leaves it to review.
+ */
+const measureOf = (text: string): readonly string[] | undefined => {
+  if (/\b(?:cheapest|least expensive|most expensive|priciest)\b/i.test(text))
+    return PRICE_WORDS
+  const named =
+    /\b(?:highest|lowest|largest|smallest|biggest|greatest|most|fewest|least|maximum|minimum)\s+([\p{L}]{3,})/iu.exec(
+      text
+    )?.[1]
+  if (!named) return undefined
+  const word = named.toLocaleLowerCase()
+  return PRICE_WORDS.some((entry) => word.startsWith(entry))
+    ? PRICE_WORDS
+    : [word]
+}
+
+/** Whether a read's own text says it measures one of `measure`'s words. */
+const measures = (text: string, measure: readonly string[]): boolean => {
+  const words = text.toLocaleLowerCase().split(/[^\p{L}]+/u)
+  return measure.some((entry) => {
+    const stem = entry.slice(0, Math.max(4, entry.length - 2))
+    return words.some((word) => word.startsWith(stem))
+  })
+}
 
 /**
  * What a superlative read asks for, computed from the table rather than
  * taken from the model: the item whose collected value is lowest or
- * highest. Only when the question reads as one direction, one itemized read
- * covers at least two items, every one of its items has a number, and the
- * winner is unique — anything less is not a computation, and the read stays
- * with the reviewer.
+ * highest. Only when the question reads as one direction over a measure
+ * the one itemized read covering at least two items says it collected,
+ * every one of its items has a number, and the winner is unique — anything
+ * less is not a computation, and the read stays with the reviewer. A plan
+ * that collected prices cannot answer "which has the highest rating" from
+ * them.
  */
 export const agentComparedAnswer = (
   requirement: AgentTaskRequirement,
@@ -109,11 +197,14 @@ export const agentComparedAnswer = (
   const lowest = LOWEST.test(requirement.text)
   const highest = HIGHEST.test(requirement.text)
   if (lowest === highest) return undefined
+  const measure = measureOf(requirement.text)
+  if (!measure) return undefined
   const sources = requirements.filter(
     (entry) => entry.kind === "read" && (entry.items?.length ?? 0) >= 2
   )
   if (sources.length !== 1) return undefined
   const source = sources[0]
+  if (!measures(source.text, measure)) return undefined
   const rows = collected.filter((record) => record.requirementId === source.id)
   if (
     rows.length !== source.items?.length ||
@@ -134,31 +225,72 @@ export const agentComparedAnswer = (
     : undefined
 }
 
+const SENTENCES = /[.;!?\n]+/
+/** One entry of a list a sentence makes. */
+const CLAUSES = /,\s+|\s+and\s+/i
+
 /**
- * How an answer stands against the computed one: it names the winning item
- * (and, if it states a number, the winning number), it names another
- * collected item or the wrong number, or it names none of them.
+ * The parts of an answer that speak of `item` alone: a sentence naming it
+ * and no rival, or, in a sentence that lists several, the clauses from its
+ * name up to the next item named ("Shop B at 35, Shop A at 41").
+ */
+const partsAbout = (
+  answer: string,
+  item: string,
+  rivals: readonly string[]
+): string[] => {
+  const names = (text: string, name: string) => agentTextNamesRecord(text, name)
+  return answer.split(SENTENCES).flatMap((sentence) => {
+    if (!names(sentence, item)) return []
+    if (!rivals.some((rival) => names(sentence, rival))) return [sentence]
+    let subject: string | undefined
+    return sentence.split(CLAUSES).filter((clause) => {
+      if (names(clause, item)) subject = item
+      else if (rivals.some((rival) => names(clause, rival))) subject = undefined
+      return subject === item && !rivals.some((rival) => names(clause, rival))
+    })
+  })
+}
+
+/**
+ * How an answer stands against the computed one.
+ *
+ * - `agrees`: it names the winning item, and the clauses about that item
+ *   state exactly one number, the winning one.
+ * - `disagrees`: those clauses state exactly one other number, or the
+ *   answer names another collected item and not the winner.
+ * - `named`: it names the winner but states no number for it — right as
+ *   far as it goes, not a computed match for a question that also asked
+ *   for the value.
+ * - `unrelated`: anything else, including clauses stating several numbers
+ *   ("Shop B costs 99 credits for 2 units"), which no rule here can read.
  */
 export const agentAnswerAgainstCompared = (
   answer: string | undefined,
   winner: AgentCollectedRecord,
   collected: readonly AgentCollectedRecord[]
-): "agrees" | "disagrees" | "unrelated" => {
+): "agrees" | "disagrees" | "named" | "unrelated" => {
   const text = answer ? agentNormalizedClaim(answer) : ""
   if (!text) return "unrelated"
-  if (agentTextNamesRecord(text, winner.item)) {
-    /** The right item at the wrong price is not the computed answer. */
-    const stated = agentQuotedValue(answer ?? "", winner.item)
-    return stated === undefined || stated === winner.value
-      ? "agrees"
-      : "disagrees"
-  }
-  return collected.some(
+  const rivals = collected.filter(
     (record) =>
       record.requirementId === winner.requirementId &&
-      record.item !== winner.item &&
-      agentTextNamesRecord(text, record.item)
+      record.item !== winner.item
   )
+  if (agentTextNamesRecord(text, winner.item)) {
+    const about = partsAbout(
+      answer ?? "",
+      winner.item,
+      rivals.map((record) => record.item)
+    )
+    const numbers = [
+      ...new Set(about.flatMap((part) => agentQuotedNumbers(part, winner.item)))
+    ]
+    if (numbers.length === 0) return "named"
+    if (numbers.length > 1) return "unrelated"
+    return numbers[0] === winner.value ? "agrees" : "disagrees"
+  }
+  return rivals.some((record) => agentTextNamesRecord(text, record.item))
     ? "disagrees"
     : "unrelated"
 }
