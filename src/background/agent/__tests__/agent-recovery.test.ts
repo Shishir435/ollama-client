@@ -42,6 +42,52 @@ describe("agent startup recovery", () => {
     }))
   })
 
+  it("settles the other runs when one run's recovery throws", async () => {
+    const row = (id: string, status: AgentRunState["status"]) => ({
+      id,
+      status,
+      state: { ...state(status), id },
+      compacted: false,
+      createdAt: 1,
+      updatedAt: 2
+    })
+    repo.listIncompleteAgentRuns.mockResolvedValueOnce([
+      row("agent-bad", "executing"),
+      row("agent-good", "cancelling")
+    ])
+    repo.markInterruptedAgentEffectUncertain.mockRejectedValueOnce(
+      new Error("Interrupted agent effect has no durable step claim")
+    )
+
+    await expect(recoverAndPruneAgentRuns()).resolves.toBeUndefined()
+
+    expect(repo.transitionAgentRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "agent-good", to: "cancelled" })
+    )
+    expect(repo.pruneTerminalAgentRuns).toHaveBeenCalled()
+  })
+
+  it("still stops at an abort, whichever run it lands in", async () => {
+    const controller = new AbortController()
+    repo.listIncompleteAgentRuns.mockResolvedValueOnce([
+      {
+        id: "agent-1",
+        status: "executing",
+        state: state("executing"),
+        compacted: false,
+        createdAt: 1,
+        updatedAt: 2
+      }
+    ])
+    repo.markInterruptedAgentEffectUncertain.mockImplementationOnce(
+      async () => {
+        controller.abort()
+        throw new Error("aborted mid-write")
+      }
+    )
+    await expect(recoverAgentRuns(controller.signal)).rejects.toThrow()
+  })
+
   it.each(["executing", "verifying"] as const)(
     "marks %s effects uncertain and never resumes work",
     async (status) => {

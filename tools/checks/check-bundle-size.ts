@@ -203,7 +203,8 @@ const budgets: Budget[] = [
     /** Browse mode, plan consent, chat consent, approval values and the repeat classes measure Chrome at 48,754,338 and Firefox at 50,326,334. */
     /** Review fixes, the plan approval, the confirmed-repeat refusal and history stepping through the debugger measure Chrome at 48,765,560 and Firefox at 50,332,976. */
     /** Plan approval by listed outcome, stable row ids and finished-outcome sends measure Chrome at 48,766,029; Firefox is unchanged. */
-    max: isFirefox ? 50_332_976 : 48_766_029
+    /** Trusted link and checkbox presses, durable stall counters, the read-back probe, collected records and plan-sized budgets measure Chrome at 48,782,264 and Firefox at 50,337,513. */
+    max: isFirefox ? 50_338_443 : 48_789_942
   },
   {
     metric: "zip",
@@ -224,7 +225,8 @@ const budgets: Budget[] = [
     /** Browse mode, plan consent, chat consent, approval values and the repeat classes measure Chrome at 360,269 and Firefox at 229,597 gzip bytes. */
     /** Review fixes, the plan approval, the confirmed-repeat refusal and history stepping through the debugger measure Chrome at 361,551 and Firefox at 229,612 gzip bytes. */
     /** Plan approval by listed outcome, stable row ids and finished-outcome sends measure Chrome at 361,734 and Firefox at 229,621 gzip bytes. */
-    max: isFirefox ? 229_621 : 361_734
+    /** Trusted link and checkbox presses, durable stall counters, the read-back probe, collected records and plan-sized budgets measure Chrome at 365,060 and Firefox at 230,446 gzip bytes. */
+    max: isFirefox ? 230_784 : 367_271
   }
 ]
 

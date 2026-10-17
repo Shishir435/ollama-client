@@ -108,6 +108,20 @@ export type AgentStepStatus = z.infer<typeof AgentStepStatusSchema>
  */
 export const MAX_AGENT_OBSERVATIONS = 50
 
+/**
+ * The most observations any run may have, however large its plan. A run's
+ * own budget starts at `MAX_AGENT_OBSERVATIONS` and grows with the outcomes
+ * and items its plan names (`agentObservationBudget`); every bound that has
+ * to hold for every run — receipt counts, step numbers, the panel's list —
+ * reads this one.
+ */
+export const MAX_AGENT_OBSERVATION_CEILING = 120
+
+/** Observations a plan earns for each outcome past its first. */
+export const AGENT_OBSERVATIONS_PER_OUTCOME = 12
+/** Observations a plan earns for each item past the first of an outcome. */
+export const AGENT_OBSERVATIONS_PER_ITEM = 6
+
 export const MAX_AGENT_FINDING_CHARS = 500
 
 /**
@@ -511,7 +525,12 @@ export const AgentErrorSchema = z
      * still says which part of the run stopped.
      */
     messageKey: z.string().min(1).max(200).optional(),
-    retryable: z.boolean()
+    /**
+     * Accepted on rows written before it was dropped, and never written or
+     * read since: nothing ever offered a retry from it, and a flag no reader
+     * honours reads as a promise.
+     */
+    retryable: z.boolean().optional()
   })
   .strict()
 export type AgentError = z.infer<typeof AgentErrorSchema>
@@ -622,7 +641,7 @@ export const AgentRecoveryStateSchema = z
           .number()
           .int()
           .positive()
-          .max(MAX_AGENT_OBSERVATIONS + 5)
+          .max(MAX_AGENT_OBSERVATION_CEILING + 5)
           .optional()
       })
       .strict()
@@ -1352,6 +1371,54 @@ export type AgentPendingSupervisionRecord = z.infer<
   typeof AgentPendingSupervisionSchema
 >
 
+/** How many recent progress points the no-progress guard compares. */
+export const MAX_AGENT_PROGRESS_POINTS = 6
+
+/**
+ * The run's stall counters, as the controller last left them. They lived in
+ * the worker's memory, so a worker restart handed a run that was looping a
+ * fresh budget for each of them — and a restart is what a stuck MV3 worker
+ * gets. Hashes only: no page text, no decision.
+ */
+export const AgentStallStateSchema = z
+  .object({
+    noProgress: z.number().int().nonnegative().max(1_000).optional(),
+    refusedCommands: z.number().int().nonnegative().max(1_000).optional(),
+    refusedCompletion: z
+      .object({
+        reason: z.string().min(1).max(200),
+        count: z.number().int().nonnegative().max(1_000)
+      })
+      .strict()
+      .optional(),
+    malformed: z.number().int().nonnegative().max(1_000).optional(),
+    /** Consecutive plan amendments that failed, and the observation the next may run at. */
+    planFailures: z
+      .object({
+        count: z.number().int().positive().max(1_000),
+        /** The newest answer the failed amendment was asked about. */
+        answeredAt: z.number().int().nonnegative(),
+        retryAt: z.number().int().nonnegative()
+      })
+      .strict()
+      .optional(),
+    recent: z
+      .array(
+        z
+          .object({
+            url: z.string().max(2_048),
+            snapshotHash: z.string().min(1).max(32),
+            fingerprint: z.string().min(1).max(32),
+            changeSignature: z.string().min(1).max(32).optional()
+          })
+          .strict()
+      )
+      .max(MAX_AGENT_PROGRESS_POINTS)
+      .optional()
+  })
+  .strict()
+export type AgentStallState = z.infer<typeof AgentStallStateSchema>
+
 export const AgentRunStateSchema = z
   .object({
     version: z.literal(1),
@@ -1375,7 +1442,11 @@ export const AgentRunStateSchema = z
       })
       .strict()
       .optional(),
-    stepCount: z.number().int().nonnegative().max(MAX_AGENT_OBSERVATIONS),
+    stepCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(MAX_AGENT_OBSERVATION_CEILING),
     observationCount: z.number().int().nonnegative(),
     controlledTabId: z.number().int().nonnegative(),
     providerId: z.string().min(1),
@@ -1432,6 +1503,8 @@ export const AgentRunStateSchema = z
     unreceiptedTokens: z.number().int().nonnegative().optional(),
     /** Absent on rows written before recovery existed, and on runs that never needed it. */
     recovery: AgentRecoveryStateSchema.optional(),
+    /** Absent on rows written before stall counters were durable, and on runs that never stalled. */
+    stall: AgentStallStateSchema.optional(),
     /** The settled run this one follows, when it was started as a follow-up. */
     previousRun: AgentPreviousRunSchema.optional(),
     /**
@@ -1477,3 +1550,28 @@ export const AgentRunStateSchema = z
   })
   .strict()
 export type AgentRunState = z.infer<typeof AgentRunStateSchema>
+
+/**
+ * How many observations this run may spend: the base, plus what its plan
+ * earns for each further outcome and each further item, under the ceiling.
+ * A three-site comparison is three items of one outcome and needed more
+ * than fifty looks; a runaway loop on a one-line task still stops at fifty.
+ * Read from the plan alone, so the runtime and the panel agree.
+ */
+export const agentObservationBudget = (
+  state: Pick<AgentRunState, "requirements">
+): number => {
+  const requirements = state.requirements ?? []
+  const outcomes = Math.max(0, requirements.length - 1)
+  const items = requirements.reduce(
+    (total, requirement) =>
+      total + Math.max(0, (requirement.items?.length ?? 1) - 1),
+    0
+  )
+  return Math.min(
+    MAX_AGENT_OBSERVATION_CEILING,
+    MAX_AGENT_OBSERVATIONS +
+      outcomes * AGENT_OBSERVATIONS_PER_OUTCOME +
+      items * AGENT_OBSERVATIONS_PER_ITEM
+  )
+}

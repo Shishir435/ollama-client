@@ -768,14 +768,33 @@ describe("Agent DOM mutation resolution and policy", () => {
     ).rejects.toThrow("cannot be unchecked")
     await expect(
       resolve(
-        command({ type: "clear_and_type", ref: "e1", text: "#000000" }),
+        command({ type: "type", ref: "e1", text: "#000000" }),
         observation({
           elements: [
             element({ tag: "input", type: "color", editable: true, value: "" })
           ]
         })
       )
-    ).rejects.toThrow("does not accept typed text")
+    ).rejects.toThrow("is set whole")
+  })
+
+  it.each([
+    ["date", "2026-10-17"],
+    ["time", "09:40"],
+    ["range", "50"],
+    ["color", "#000000"]
+  ])("sets a %s input whole with clear_and_type", async (type, text) => {
+    await expect(
+      resolve(
+        command({ type: "clear_and_type", ref: "e1", text }),
+        observation({
+          elements: [element({ tag: "input", type, editable: true, value: "" })]
+        })
+      )
+    ).resolves.toMatchObject({
+      semanticEffects: ["form_mutation"],
+      target: { expectedValue: text }
+    })
   })
 
   it("classifies a reset control as form mutation", async () => {
@@ -1039,6 +1058,95 @@ describe("Agent DOM mutation execution", () => {
       signal
     })
     expect(checkbox.checked).toBe(true)
+  })
+
+  it("adds an option to a multiple select without clearing the others", async () => {
+    const select = document.createElement("select")
+    select.multiple = true
+    for (const value of ["red", "green", "blue"]) {
+      const option = document.createElement("option")
+      option.value = value
+      option.textContent = value
+      select.append(option)
+    }
+    select.options[0].selected = true
+    const selected = await liveEffect(
+      command({ type: "select", ref: "e1", value: "blue" }),
+      select
+    )
+    executeAgentDomMutationInDocument({
+      effect: selected.effect,
+      document,
+      references: selected.references,
+      signal
+    })
+    expect(
+      Array.from(select.selectedOptions).map((option) => option.value)
+    ).toEqual(["red", "blue"])
+    expect(
+      buildAgentElementObservation(select, "e1", 0).options?.map(
+        (option) => option.selected === true
+      )
+    ).toEqual([true, false, true])
+  })
+
+  it("finishes a typed value with change and blur, the way a person leaves a field", async () => {
+    const input = document.createElement("input")
+    const seen: string[] = []
+    for (const type of ["input", "change", "blur"])
+      input.addEventListener(type, () => seen.push(type))
+    document.body.append(input)
+    input.focus()
+    const typed = await liveEffect(
+      command({ type: "clear_and_type", ref: "e1", text: "Ada" }),
+      input
+    )
+    executeAgentDomMutationInDocument({
+      effect: typed.effect,
+      document,
+      references: typed.references,
+      signal
+    })
+    expect(input.value).toBe("Ada")
+    expect(seen).toEqual(["input", "change", "blur"])
+  })
+
+  it("keeps focus in a field whose suggestions the next step may click", async () => {
+    const input = document.createElement("input")
+    input.setAttribute("role", "combobox")
+    const seen: string[] = []
+    for (const type of ["input", "change", "blur"])
+      input.addEventListener(type, () => seen.push(type))
+    document.body.append(input)
+    input.focus()
+    const typed = await liveEffect(
+      command({ type: "clear_and_type", ref: "e1", text: "Lis" }),
+      input
+    )
+    executeAgentDomMutationInDocument({
+      effect: typed.effect,
+      document,
+      references: typed.references,
+      signal
+    })
+    expect(seen).toEqual(["input", "change"])
+    expect(document.activeElement).toBe(input)
+  })
+
+  it("sets a date input whole", async () => {
+    const input = document.createElement("input")
+    input.type = "date"
+    const typed = await liveEffect(
+      command({ type: "clear_and_type", ref: "e1", text: "2026-10-17" }),
+      input
+    )
+    executeAgentDomMutationInDocument({
+      effect: typed.effect,
+      document,
+      references: typed.references,
+      signal
+    })
+    expect(input.value).toBe("2026-10-17")
   })
 
   it("rejects stale references and targets changed after approval", async () => {

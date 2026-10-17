@@ -712,6 +712,52 @@ describe("judgeAgentCompletion with planned requirements", () => {
     })
   })
 
+  it("binds a bare field word to the one qualified field the page has", () => {
+    const filled = (names: string[]) =>
+      step({
+        sequence: 1,
+        requirementId: "r1",
+        command: {
+          type: "fill_form",
+          snapshotId: "snapshot-1",
+          generation: 1,
+          fields: names.map((_, index) => ({
+            type: "clear_and_type" as const,
+            ref: `e${index + 1}`,
+            text: "[redacted]"
+          }))
+        },
+        verification: {
+          outcome: "confirmed",
+          evidence: {
+            kind: "fields",
+            summary: "The fields hold their values",
+            observedAt: 1,
+            fields: names.map((name) => ({ name }))
+          }
+        }
+      })
+    const judge = (names: string[]) =>
+      judgeAgentCompletion({
+        steps: [filled(names)],
+        observation: observation({
+          visibleText: "Checkout",
+          elements: names.map((name) => ({
+            name,
+            value: "1 Main St"
+          })) as AgentObservation["elements"]
+        }),
+        requirements: [
+          { id: "r1", text: "the address is 1 Main St", kind: "change" }
+        ],
+        outcomes: [{ id: "r1", met: true }]
+      })
+    expect(judge(["Billing address"])).toMatchObject({ type: "accepted" })
+    expect(judge(["Billing address", "Shipping address"]).type).not.toBe(
+      "accepted"
+    )
+  })
+
   it("refuses a no-submit claim after the run submitted", () => {
     expect(
       judgeAgentCompletion({
@@ -1900,6 +1946,76 @@ describe("judgeAgentCompletion with planned requirements", () => {
     })
   })
 
+  /**
+   * Measured live: "enter Ada and select Blue, then save" planned as one
+   * outcome per value, filled in one batch tagged for the first, then saved
+   * onto a result page that shows neither field. Every completion was
+   * refused until the run paused with a question.
+   */
+  describe("a batch whose fields left the page with the save", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [
+          { ref: "e1", type: "clear_and_type", text: "Ada" },
+          { ref: "e2", type: "select", value: "Blue" }
+        ]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "All 2 fields hold the resolved value",
+          observedAt: 1,
+          fields: [{ name: "Name" }, { name: "Color" }]
+        }
+      }
+    })
+    const requirements: AgentTaskRequirement[] = [
+      { id: "r1", text: "Enter Ada.", kind: "change", items: ["Ada"] },
+      { id: "r2", text: "Select Blue.", kind: "change", items: ["Blue"] }
+    ]
+    const judge = (steps = [filled], items = ["Ada", "Blue"]) =>
+      judgeAgentCompletion({
+        steps,
+        observation: observation({ visibleText: "Record 9 Saved" }),
+        requirements: requirements.map((requirement, index) => ({
+          ...requirement,
+          items: [items[index]]
+        })),
+        outcomes: ["r1", "r2"].map((id) => ({
+          id,
+          met: true,
+          items: [{ index: 0, met: true, evidence: "Record 9 Saved" }]
+        }))
+      })
+
+    it("credits each outcome with the field its confirmed value names", () => {
+      expect(judge()).toMatchObject({ type: "accepted" })
+    })
+
+    it("credits no outcome whose value no field was set to", () => {
+      expect(judge([filled], ["Ada", "Green"])).toMatchObject({
+        type: "refused"
+      })
+    })
+
+    it("credits nothing from a batch that did not verify", () => {
+      const unverified = {
+        ...filled,
+        verification: {
+          ...filled.verification,
+          outcome: "ambiguous"
+        }
+      } as typeof filled
+      expect(judge([unverified])).toMatchObject({ type: "refused" })
+    })
+  })
+
   it("does not let a filled value vouch for a requirement naming another", () => {
     const filled = step({
       sequence: 1,
@@ -1927,6 +2043,54 @@ describe("judgeAgentCompletion with planned requirements", () => {
         outcomes: [{ id: "r1", met: true, evidence: "Alice" }]
       })
     ).toMatchObject({ type: "refused" })
+  })
+
+  it("does not credit a batch value held by another field than the one named", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [
+          { ref: "e1", type: "clear_and_type", text: "Alice" },
+          { ref: "e2", type: "clear_and_type", text: "Bob" }
+        ]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "All 2 fields hold the resolved value",
+          observedAt: 1,
+          fields: [{ name: "Email" }, { name: "Name" }]
+        }
+      }
+    })
+    const field = (ref: string, name: string, value: string) => ({
+      ref,
+      frameId: 0,
+      tag: "input",
+      name,
+      value,
+      visible: true,
+      enabled: true,
+      editable: true,
+      sensitive: false
+    })
+    for (const elements of [
+      [field("e1", "Email", "Alice"), field("e2", "Name", "Bob")],
+      []
+    ])
+      expect(
+        judgeAgentCompletion({
+          steps: [filled],
+          observation: observation({ visibleText: "Contact saved", elements }),
+          requirements: [{ id: "r1", text: "Name is Alice", kind: "change" }],
+          outcomes: [{ id: "r1", met: true }]
+        })
+      ).toMatchObject({ type: "refused" })
   })
 
   it("does not let a sent form vouch for what sending it was meant to achieve", () => {
@@ -2915,6 +3079,55 @@ describe("itemized requirements", () => {
     })
   })
 
+  /**
+   * "Order placed for Blue Kettle" puts the state first. Quoted whole from
+   * the status the page announced, it is one message about one item.
+   */
+  it("takes a whole status message about its item, whatever its word order", () => {
+    const status = (name: string) =>
+      observation({
+        visibleText: `Checkout ${name}`,
+        elements: [
+          {
+            ref: "e9",
+            frameId: 0,
+            tag: "p",
+            role: "status",
+            name,
+            visible: true,
+            enabled: true,
+            editable: false,
+            sensitive: false
+          }
+        ]
+      })
+    const order = {
+      id: "r1",
+      text: "one order is placed",
+      kind: "change" as const,
+      items: ["Blue Kettle"]
+    }
+    const claim = (evidence: string) => [
+      { id: "r1", met: true, items: [{ index: 0, met: true, evidence }] }
+    ]
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: status("Order placed for Blue Kettle"),
+        requirements: [order],
+        outcomes: claim("Order placed for Blue Kettle")
+      })
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
+    expect(
+      judgeAgentCompletion({
+        steps: changed,
+        observation: status("Order placed for Blue Kettle Lid"),
+        requirements: [order],
+        outcomes: claim("Order placed for Blue Kettle")
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
   /** "Paid Invoice 2" quotes invoice 1's state beside invoice 2's name. */
   it("refuses a change quotation whose state does not follow its item", () => {
     expect(
@@ -3094,5 +3307,75 @@ describe("release review evidence regressions", () => {
       type: "accepted",
       outcome: { met: ["r1"], unmet: [], graded: true, visual: ["r1"] }
     })
+  })
+})
+
+describe("superlative reads computed from collected records", () => {
+  const shops = ["Shop A", "Shop B", "Shop C"]
+  const prices = {
+    id: "r1",
+    text: "the Blue Kettle's price at each shop",
+    kind: "read" as const,
+    items: shops
+  }
+  const cheapest = {
+    id: "r2",
+    text: "which shop is cheapest and what it charges",
+    kind: "read" as const
+  }
+  const quotes = [
+    "Shop A Blue Kettle 41 credits",
+    "Shop B Blue Kettle 35 credits",
+    "Shop C Blue Kettle 39 credits"
+  ]
+  const judge = (answer: string) =>
+    judgeAgentCompletion({
+      steps: [],
+      observation: observation({
+        visibleText: "Shop C Blue Kettle 39 credits"
+      }),
+      evidenceLedger: quotes.map((quote) => ({
+        ...observedFact(quote, "historical"),
+        requirementId: "r1"
+      })),
+      requirements: [prices, cheapest],
+      outcomes: [
+        {
+          id: "r1",
+          met: true,
+          items: quotes.map((evidence, index) => ({
+            index,
+            met: true,
+            evidence
+          }))
+        },
+        { id: "r2", met: true, evidence: answer }
+      ]
+    })
+
+  it("verifies an answer naming the item the collected values pick", () => {
+    const judged = judge("Shop B is cheapest at 35 credits")
+    expect(judged.type).toBe("accepted")
+    if (judged.type !== "accepted") return
+    expect(judged.outcome?.claimed ?? []).not.toContain("r2")
+  })
+
+  it("sends back an answer naming another collected item", () => {
+    expect(judge("Shop C is cheapest at 39 credits")).toMatchObject({
+      type: "refused",
+      reason: "contradicted_state",
+      feedback: expect.stringContaining('"Shop B" (35)')
+    })
+  })
+
+  it.each([
+    ["names no item", "The cheapest is 35 credits"],
+    ["names the item without its value", "Shop B is cheapest"],
+    ["states several numbers for the item", "Shop B is cheapest at 99 for 2"]
+  ])("never verifies an answer that %s", (_case, answer) => {
+    const judged = judge(answer)
+    if (judged.type === "accepted")
+      expect(judged.outcome?.claimed).toContain("r2")
+    else expect(judged).toMatchObject({ type: "refused" })
   })
 })

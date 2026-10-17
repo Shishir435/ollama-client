@@ -607,6 +607,31 @@ describe("P4 deterministic completion", () => {
       })
     ).toMatchObject({ type: "accepted" })
   })
+  it("sends a status in other words to review, and one saying it failed back", () => {
+    const check = {
+      type: "record_state",
+      record: "Invoice 1",
+      state: "saved"
+    } as const
+    const status = (name: string) => ({
+      ...page,
+      visibleText: name,
+      elements: page.elements.map((element) =>
+        element.role === "status" ? { ...element, name } : element
+      )
+    })
+    const said = (name: string) =>
+      judge(check, status(name), name, [fact(name)])
+    expect(said("Changes to Invoice 1 were stored")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+    expect(said("Invoice 1 could not be saved")).toMatchObject({
+      type: "refused",
+      reason: "contradicted_state"
+    })
+  })
+
   it("checks the exact record identity and a grounded current save state", () => {
     const check = {
       type: "record_state",
@@ -790,6 +815,87 @@ describe("P4 deterministic completion", () => {
     )
   })
 
+  it.each([
+    ["Turn on email notifications", true, true],
+    ["Enable email notifications", true, true],
+    ["Switch off email notifications", false, false],
+    ["Disable email notifications", false, false]
+  ])("verifies %s by the switch's own state", (text, wanted, state) => {
+    const judged = judgeAgentCompletion({
+      steps: [],
+      observation: {
+        ...page,
+        elements: [
+          {
+            ref: "e9",
+            frameId: 0,
+            tag: "div",
+            role: "switch",
+            name: "Email notifications",
+            ariaChecked: state,
+            visible: true,
+            sensitive: false,
+            enabled: true,
+            editable: false
+          }
+        ]
+      },
+      evidenceLedger: [],
+      requirements: [
+        {
+          id: "r1",
+          kind: "change",
+          text,
+          check: {
+            type: "checked",
+            name: "Email notifications",
+            checked: wanted
+          }
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Email notifications" }]
+    })
+    expect(judged.type).toBe("accepted")
+    if (judged.type === "accepted")
+      expect(judged.outcome?.claimed ?? []).not.toContain("r1")
+  })
+
+  it("reads a check whose name the planner shortened, unless it is ambiguous", () => {
+    const box = (name: string, ref: string) => ({
+      ref,
+      frameId: 0,
+      tag: "input",
+      type: "checkbox",
+      name,
+      checked: true,
+      visible: true,
+      sensitive: false,
+      enabled: true,
+      editable: false
+    })
+    const judge = (elements: AgentObservation["elements"]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: { ...page, elements },
+        evidenceLedger: [],
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Accept the terms",
+            check: { type: "checked", name: "terms", checked: true }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "I accept the terms" }]
+      })
+    expect(judge([box("I accept the terms", "e1")])).toMatchObject({
+      type: "accepted"
+    })
+    expect(
+      judge([box("I accept the terms", "e1"), box("Email me the terms", "e2")])
+    ).toMatchObject({ type: "refused" })
+  })
+
   describe("checks that outlive the page they were made on", () => {
     const confirmed = (kind: string) => ({
       outcome: "confirmed" as const,
@@ -908,6 +1014,154 @@ describe("P4 deterministic completion", () => {
         reason: "contradicted_state"
       })
     })
+    /**
+     * Measured live: "accept the terms and continue" ticked the box, pressed
+     * Continue, and every completion was refused as contradicted, because
+     * the box was not on the page Continue opened.
+     */
+    describe("a box the run ticked and then left behind", () => {
+      const terms = {
+        id: "r1",
+        kind: "change" as const,
+        text: "Accept the terms",
+        check: { type: "checked" as const, name: "terms", checked: true }
+      }
+      const ticked = (overrides: Partial<AgentStepReadout> = {}) =>
+        write({
+          target: { ref: "e1", tag: "input", name: "terms" },
+          verification: confirmed("checked"),
+          ...overrides
+        })
+      const judgeTerms = (steps: AgentStepReadout[], elements = []) =>
+        judgeAgentCompletion({
+          steps,
+          observation: { ...leftPage, elements },
+          evidenceLedger: [],
+          requirements: [terms],
+          outcomes: [{ id: "r1", met: true }]
+        })
+
+      it("records a held state only for the planned state, confirmed", () => {
+        expect(
+          agentWriteHeldPlannedValue(
+            terms,
+            [{ accessibleName: "terms", expectedChecked: true }],
+            confirmed("checked")
+          )
+        ).toBe(true)
+        expect(
+          agentWriteHeldPlannedValue(
+            terms,
+            [{ accessibleName: "terms", expectedChecked: false }],
+            confirmed("checked")
+          )
+        ).toBe(false)
+        expect(
+          agentWriteHeldPlannedValue(
+            terms,
+            [{ accessibleName: "terms", expectedChecked: true }],
+            confirmed("activation")
+          )
+        ).toBe(false)
+      })
+
+      it("credits the box once the page that held it is gone", () => {
+        expect(judgeTerms([ticked(), submit()])).toMatchObject({
+          type: "accepted"
+        })
+      })
+
+      it("credits the box when Continue's own receipt never said it left", () => {
+        /** The click posted, changed the page, then navigated. */
+        const formUrl = "https://example.com/application"
+        const clicked = submit({
+          consequential: [],
+          sourceUrl: formUrl,
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "activation",
+              summary: "Control activation produced an observable page change",
+              observedAt: 2
+            }
+          }
+        })
+        expect(
+          judgeTerms([ticked({ sourceUrl: formUrl }), clicked])
+        ).toMatchObject({ type: "accepted" })
+        /** Still on the form: the click left it in place. */
+        expect(
+          judgeAgentCompletion({
+            steps: [ticked({ sourceUrl: formUrl }), clicked],
+            observation: { ...leftPage, url: formUrl, elements: [] },
+            evidenceLedger: [],
+            requirements: [terms],
+            outcomes: [{ id: "r1", met: true }]
+          })
+        ).toMatchObject({ type: "refused" })
+      })
+
+      it("decides by the box it left before a phrase match on the new page", () => {
+        const other = (checked: boolean) => ({
+          ref: "e9",
+          frameId: 0,
+          tag: "input",
+          type: "checkbox",
+          name: "Email me the terms",
+          checked,
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        })
+        expect(
+          judgeTerms([ticked(), submit()], [other(false)] as never)
+        ).toMatchObject({ type: "accepted" })
+        expect(
+          judgeTerms([ticked({ heldPlannedValue: undefined }), submit()], [
+            other(true)
+          ] as never)
+        ).toMatchObject({ type: "refused" })
+      })
+
+      it("reads a reopened form's box rather than the earlier write", () => {
+        const formUrl = "https://example.com/application"
+        const reopened = (checked: boolean) =>
+          judgeAgentCompletion({
+            steps: [ticked({ sourceUrl: formUrl }), submit()],
+            observation: {
+              ...leftPage,
+              url: formUrl,
+              elements: [
+                {
+                  ref: "e1",
+                  frameId: 0,
+                  tag: "input",
+                  type: "checkbox",
+                  name: "I accept the terms",
+                  checked,
+                  visible: true,
+                  sensitive: false,
+                  enabled: true,
+                  editable: false
+                }
+              ]
+            },
+            evidenceLedger: [],
+            requirements: [terms],
+            outcomes: [{ id: "r1", met: true }]
+          })
+        expect(reopened(false)).toMatchObject({ type: "refused" })
+        expect(reopened(true)).toMatchObject({ type: "accepted" })
+      })
+
+      it("credits nothing for a box never recorded as holding its state", () => {
+        expect(
+          judgeTerms([ticked({ heldPlannedValue: undefined }), submit()])
+        ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+      })
+    })
+
     it("records a held value only for the exact confirmed planned result", () => {
       const requirement = {
         id: "r1",

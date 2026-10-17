@@ -14,6 +14,7 @@ import {
   agentConsequentialEffects,
   agentForbidsEffect
 } from "./prior-effects"
+import { agentRowRecords } from "./row-context"
 
 const idNumber = (id: string, prefix: "r" | "c"): number => {
   const match = new RegExp(`^${prefix}(\\d+)$`).exec(id)
@@ -339,8 +340,15 @@ export const agentConfirmedRemovalPatch = (
  * is the submission it is.
  */
 export const agentForbiddingConstraints = (
-  effect: AgentConsequentialSource,
-  constraints: readonly AgentTaskConstraint[] | undefined
+  effect: AgentConsequentialSource & {
+    target?: { rowContext?: string }
+  },
+  constraints: readonly AgentTaskConstraint[] | undefined,
+  /**
+   * The records the step's own requirement names. A scope bound is proven
+   * for a step whose control sits in a row naming exactly one of them.
+   */
+  records: readonly string[] = []
 ): {
   constraint: AgentTaskConstraint
   effects: AgentConsequentialEffect[]
@@ -348,12 +356,29 @@ export const agentForbiddingConstraints = (
   if (!constraints?.length) return []
   const classes = agentConsequentialEffects(effect)
   if (classes.length === 0) return []
+  const withinScope = agentRowRecords(effect.target, records).length === 1
   return constraints.flatMap((constraint) => {
-    // Scope and amount limits currently have no authoritative machine-readable
-    // record identity or price binding. A model's assertion cannot authorize
-    // irreversible work within them. Keep the user's bound and hand it off.
+    /**
+     * A scope limit ("keep every other invoice") is proven only by the row
+     * the control sits in naming the one record the step's requirement is
+     * about — what the runtime read off the page, not what the model says it
+     * is clicking. Without that it stays unproven, and an amount limit on a
+     * payment has no price binding at all. A model's assertion cannot
+     * authorize irreversible work within either.
+     */
+    /**
+     * An exclusion that names no effect class says what to leave alone, not
+     * what not to do: "keep every other invoice" came back from the planner
+     * as `exclude` as often as `scope`, and as `exclude` it bound nothing —
+     * a run told to delete Invoice B deleted Invoice B-2 under it. On a step
+     * about a record it needs the same proof a scope does.
+     */
+    const leavesOthers =
+      constraint.kind === "exclude" &&
+      !constraint.forbids?.length &&
+      records.length > 0
     const unprovenBound =
-      constraint.kind === "scope" ||
+      ((constraint.kind === "scope" || leavesOthers) && !withinScope) ||
       (constraint.kind === "limit" && classes.includes("payment"))
     /**
      * A save is only ever recorded to catch its own repeat; it was a routine
@@ -378,3 +403,40 @@ export const agentConstraintRefusal = (
     .join(
       "; "
     )}). It was not attempted. Choose a different step, complete with what is done, or ask_user.`
+
+/**
+ * The records a requirement is about: its items, and the record its check
+ * names. Empty when it names none, which proves nothing about any row.
+ */
+export const agentRequirementRecords = (
+  requirement: AgentTaskRequirement | undefined
+): string[] => {
+  if (!requirement) return []
+  const check = requirement.check
+  const record = check && "record" in check ? check.record : undefined
+  return [
+    ...new Set([...(requirement.items ?? []), ...(record ? [record] : [])])
+  ]
+}
+
+/**
+ * A step bound to one record whose control sits in another record's row.
+ * The row is the page's own text around the control; the other record is
+ * one the plan itself names, so a row merely failing to repeat the record's
+ * exact wording is never refused — only a row naming a different planned
+ * record and not this one. That is the "Mark paid" on Invoice A's row for a
+ * step about Invoice B.
+ */
+export const agentWrongRowRecord = (
+  target: { rowContext?: string } | undefined,
+  requirement: AgentTaskRequirement | undefined,
+  requirements: readonly AgentTaskRequirement[] | undefined
+): string | undefined => {
+  const own = agentRequirementRecords(requirement)
+  if (!own.length || !target?.rowContext) return undefined
+  if (agentRowRecords(target, own).length) return undefined
+  const others = (requirements ?? [])
+    .flatMap(agentRequirementRecords)
+    .filter((record) => !own.includes(record))
+  return agentRowRecords(target, others)[0]
+}

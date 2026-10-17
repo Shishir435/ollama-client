@@ -78,6 +78,10 @@ export const AGENT_RECOVERY_REPEAT_FEEDBACK: Record<
 export const AGENT_CONFIRMED_REPEAT_FEEDBACK =
   "This run already did this and the page confirmed it. Do not do it again unless the task asks for it a second time; if it does, issue the same command once more and the user will be asked. Otherwise go on: read the page for the result, take the next step, or complete."
 
+/** Told to a run pressing again what it already did before it claimed done. */
+export const AGENT_REPEAT_AFTER_CLAIM_FEEDBACK =
+  "This run already pressed this control and the page confirmed it, before it reported the task done. Pressing it again would do that work twice, not show that it was done. Read the page you are on, or reopen it with open_tab, for the evidence; if the page cannot show something, report that outcome as unmet and say why."
+
 export interface AgentRecoveryStart {
   trigger: AgentRecoveryTrigger
   now: number

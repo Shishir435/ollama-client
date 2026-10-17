@@ -446,8 +446,7 @@ describe("agent controller", () => {
       error: {
         code: "model_unavailable",
         messageKey: "provider.errors.serverUnavailable",
-        message: "The provider is temporarily unavailable.",
-        retryable: true
+        message: "The provider is temporarily unavailable."
       }
     })
     expect(harness.calls).not.toContain("observe:0")
@@ -2936,8 +2935,7 @@ describe("agent controller", () => {
     expect(harness.getState().error).toEqual({
       code: "model_unavailable",
       message: "The local provider is busy with another request.",
-      messageKey: "errors.provider.busy",
-      retryable: true
+      messageKey: "errors.provider.busy"
     })
   })
 
@@ -5212,6 +5210,34 @@ describe("bounded recovery", () => {
 
     expect(harness.getState().recovery).toEqual({ attempts: 2 })
   })
+
+  it("keeps the run-wide counters a correction after a restart does not reset", async () => {
+    const harness = createHarness({
+      state: runState({
+        status: "paused",
+        pauseReason: "user",
+        updatedAt: 20,
+        stall: {
+          malformed: 3,
+          refusedCommands: 2,
+          planFailures: { count: 2, answeredAt: 1, retryAt: 9 }
+        }
+      }),
+      decisions: [{ type: "ask_user", question: "Continue?" }]
+    })
+
+    await harness.controller.resume("run-1", {
+      text: "Use the menu instead",
+      pausedAt: 20
+    })
+
+    const stall = harness.getState().stall
+    expect(stall).toMatchObject({
+      malformed: 3,
+      planFailures: { count: 2 }
+    })
+    expect(stall?.refusedCommands).toBeUndefined()
+  })
 })
 
 describe("durable workflow resume", () => {
@@ -5570,5 +5596,233 @@ describe("bounded entity phases", () => {
       status: "completed",
       stepCount: 3
     })
+  })
+})
+
+describe("agent controller stall counters", () => {
+  const changePlan = async () => ({
+    requirements: [
+      { id: "r1", text: "the record is saved", kind: "change" as const }
+    ]
+  })
+  const at = (index: number) =>
+    observation({
+      snapshotId: `snapshot-${index}`,
+      generation: index,
+      url: `https://example.com/${index}`,
+      visibleText: `Page ${index}`
+    })
+  const untagged = (index: number) => ({
+    type: "command",
+    command: command(index)
+  })
+
+  /**
+   * A refusal after resolution — here a page-changing command naming no
+   * requirement — used to find the count already reset by the resolve and
+   * never reached the ceiling.
+   */
+  it("counts refusals that come after resolution toward the ceiling", async () => {
+    const harness = createHarness({
+      plan: changePlan,
+      decisions: [untagged(1), untagged(2), untagged(3)],
+      observations: [at(1), at(2), at(3)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1")
+    expect(
+      harness.writtenSteps
+        .map((step) => step.stepId)
+        .filter((id) => id.includes(":refused:"))
+    ).toEqual(["run-1:refused:1:1", "run-1:refused:2:2", "run-1:refused:3:3"])
+  })
+
+  it("keeps the refusal count across a worker restart", async () => {
+    const harness = createHarness({
+      state: { ...runState(), stall: { refusedCommands: 2 } },
+      plan: changePlan,
+      decisions: [untagged(1)],
+      observations: [at(1)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1")
+    expect(
+      harness.writtenSteps
+        .map((step) => step.stepId)
+        .filter((id) => id.includes(":refused:"))
+    ).toEqual(["run-1:refused:1:3"])
+  })
+
+  it("keeps a restored malformed count the model port has not reported yet", async () => {
+    const harness = createHarness({
+      state: { ...runState(), stall: { malformed: 3 } },
+      plan: changePlan,
+      decisions: [untagged(1), untagged(2)],
+      observations: [at(1), at(2), at(3)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().stall).toMatchObject({
+      malformed: 3,
+      refusedCommands: 2
+    })
+  })
+
+  it("writes the counters it holds into the checkpoint", async () => {
+    const harness = createHarness({
+      plan: changePlan,
+      decisions: [untagged(1), untagged(2)],
+      observations: [at(1), at(2), at(3)],
+      effectOverrides: { semanticEffects: ["activation"] }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().stall).toMatchObject({ refusedCommands: 2 })
+    expect(JSON.stringify(harness.getState().stall)).not.toContain("Page")
+  })
+
+  /**
+   * A planner that is down is asked again on the next observation, then
+   * after two, then after four — not on every step, each of which could
+   * spend several provider attempts.
+   */
+  it.each([
+    ["", undefined],
+    [
+      ", starting again for a newer answer",
+      { planFailures: { count: 3, answeredAt: 1, retryAt: 999 } }
+    ]
+  ] as const)("backs off a failing plan amendment%s", async (_, stall) => {
+    const plan = vi
+      .fn<NonNullable<AgentControllerDependencies["model"]["plan"]>>()
+      .mockResolvedValueOnce({
+        requirements: [{ id: "r1", text: "the hours", kind: "read" as const }]
+      })
+      .mockRejectedValue(new Error("provider down"))
+    let now = 10
+    const reads = Array.from({ length: 7 }, (_, index) => ({
+      type: "command",
+      command: command(index + 2)
+    }))
+    const harness = createHarness({
+      ...(stall ? { state: { ...runState(), stall } } : {}),
+      plan,
+      clock: () => now,
+      decisions: [{ type: "ask_user", question: "Anything else?" }, ...reads],
+      observations: Array.from({ length: 8 }, (_, index) => at(index + 1)),
+      verification: Array(8).fill(confirmed)
+    })
+    await harness.controller.start("run-1")
+    now = 20
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: harness.getState().question?.id ?? "",
+      text: "Also the phone number"
+    })
+    /** The first plan, then amendments on the 1st, 2nd and 4th observation after the answer. */
+    expect(plan).toHaveBeenCalledTimes(4)
+    expect(harness.getState().stall?.planFailures).toMatchObject({ count: 3 })
+  })
+})
+
+describe("agent controller read-back probe", () => {
+  const saved = {
+    id: "r1",
+    text: "the project name is Atlas",
+    kind: "change" as const,
+    persist: true as const,
+    check: { type: "field" as const, name: "Project name", value: "Atlas" }
+  }
+  const page = (index: number, url = "https://example.com/project") =>
+    observation({
+      snapshotId: `snapshot-${index}`,
+      generation: index,
+      url,
+      visibleText: `Project name Atlas saved ${index}`,
+      elements: [
+        {
+          ref: "e1",
+          frameId: 0,
+          tag: "input",
+          name: "Project name",
+          value: "Atlas",
+          visible: true,
+          enabled: true,
+          editable: true,
+          sensitive: false
+        }
+      ]
+    })
+  const rename = {
+    type: "command",
+    requirementId: "r1",
+    command: {
+      type: "clear_and_type",
+      ref: "e1",
+      text: "Atlas",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+  }
+  const complete = {
+    type: "complete",
+    summary: "Renamed",
+    outcomes: [{ id: "r1", met: true, evidence: "Project name Atlas" }]
+  }
+
+  /**
+   * A save shown only on the page it was made on is read back by the
+   * runtime: it opens that page again itself, through the same resolver and
+   * policy as any step, instead of asking a model that tends to wait.
+   */
+  it("reopens the record itself instead of asking the model to", async () => {
+    const commands: string[] = []
+    const harness = createHarness({
+      plan: async () => ({ requirements: [saved] }),
+      decisions: [rename, complete, complete],
+      observations: [page(1), page(2), page(3), page(4)],
+      verification: [confirmedValue, confirmed, confirmed],
+      effect: async (current, at) => {
+        commands.push(current.type)
+        return resolvedEffect(at, current, {
+          semanticEffects:
+            current.type === "open_tab" ? ["navigation"] : ["form_mutation"],
+          ...(current.type === "open_tab"
+            ? {
+                destination: {
+                  url: "https://example.com/project",
+                  origin: "https://example.com",
+                  source: "model"
+                }
+              }
+            : {})
+        } as Partial<ResolvedAgentEffect>)
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(commands).toEqual(["clear_and_type", "open_tab"])
+    const asked = harness.writtenSteps.find((step) =>
+      step.stepId.includes(":completion:")
+    )
+    expect(asked?.verification?.evidence.summary).toMatch(
+      /^Read back r1: .*The runtime is opening that page again/
+    )
+  })
+
+  it("does not reload the page a form posted to", async () => {
+    const commands: string[] = []
+    const harness = createHarness({
+      plan: async () => ({ requirements: [saved] }),
+      decisions: [rename, complete, complete],
+      observations: [page(1), page(2), page(3), page(4)],
+      verification: [confirmedValue, confirmed],
+      effect: async (current, at) => {
+        commands.push(current.type)
+        return resolvedEffect(at, current, {
+          semanticEffects: ["form_mutation", "submission"]
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(commands).toEqual(["clear_and_type"])
   })
 })

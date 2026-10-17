@@ -1255,6 +1255,8 @@ describe("Agent observation builder", () => {
     expect(
       result.elements.map((element) => [element.name, element.group])
     ).toEqual([
+      /** The body, where Escape goes while the dialog is open and nothing has focus. */
+      [undefined, undefined],
       ["Open", "main"],
       ["Confirm delete", "dialog1"],
       ["Delete", "dialog1"],
@@ -1830,5 +1832,44 @@ describe("scoped reads", () => {
     /** A near miss is a miss, and answers with the page instead. */
     const near = buildScoped({ kind: "region", value: "nav" })
     expect(near.scope).toMatchObject({ returned: 0 })
+  })
+})
+
+describe("controls without a native role", () => {
+  it("observes a disclosure summary with whether it is open", () => {
+    document.body.innerHTML =
+      "<details><summary>Shipping</summary><p>Two days</p></details>"
+    const [summary] = build(0, unhurried).elements
+    expect(summary).toMatchObject({ tag: "summary", expanded: false })
+  })
+
+  it("observes a label standing in for a hidden checkbox, with its state", () => {
+    document.body.innerHTML =
+      '<input id="terms" type="checkbox" style="display:none" checked><label for="terms">I agree</label>'
+    const elements = build(0, unhurried).elements
+    expect(elements.map((element) => element.tag)).toEqual(["input", "label"])
+    expect(elements[1]).toMatchObject({
+      name: "I agree",
+      ariaChecked: true
+    })
+  })
+
+  it("does not list a label whose checkbox is itself observable", () => {
+    document.body.innerHTML =
+      '<input id="terms" type="checkbox"><label for="terms">I agree</label>'
+    expect(build(0, unhurried).elements.map((element) => element.tag)).toEqual([
+      "input"
+    ])
+  })
+
+  it("lists the body only while an overlay is open and nothing has focus", () => {
+    document.body.innerHTML = "<p>Plain page</p>"
+    expect(build(0, unhurried).elements).toEqual([])
+    document.body.innerHTML =
+      '<div role="dialog" aria-label="Cookies"><p>We use cookies</p></div>'
+    expect(build(0, unhurried).elements[0]).toMatchObject({
+      tag: "body",
+      focused: true
+    })
   })
 })

@@ -276,6 +276,27 @@ describe("fill_form on the DOM backend", () => {
     }
   }
 
+  it("ticks a box whose click handler submits, without submitting", async () => {
+    const { built, references, instruction } = await instructionFor([
+      { type: "check", ref: "e3" }
+    ])
+    const submitted = vi.fn()
+    built.form.addEventListener("submit", submitted)
+    built.agree.addEventListener("click", () => built.form.requestSubmit())
+    const outcome = executeAgentFormFillInDocument({
+      instruction: instruction as never,
+      document,
+      references,
+      signal
+    })
+    expect(outcome).toEqual({ applied: 1 })
+    expect(built.agree.checked).toBe(true)
+    expect(submitted).not.toHaveBeenCalled()
+    /** The guard is gone once the box is set. */
+    built.form.requestSubmit()
+    expect(submitted).toHaveBeenCalledTimes(1)
+  })
+
   it("does not refuse itself for the change it just made", async () => {
     /**
      * `matchesFormState` catches the submitted payload moving between the

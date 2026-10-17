@@ -111,6 +111,19 @@ describe("completion review prompt", () => {
     expect(AGENT_REVIEW_SYSTEM_PROMPT).toMatch(/cannot act in the browser/)
   })
 
+  it("lists the checked outcomes a reviewer may only contradict", () => {
+    const prompt = agentReviewPrompt({
+      ...request,
+      checked: [{ id: "r9", kind: "change", text: "Invoice 1 is saved" }]
+    })
+    expect(prompt).toContain("Checked ids, answered only if contradicted: r9.")
+    expect(prompt).toContain('"checked":[{"id":"r9"')
+    expect(AGENT_REVIEW_SYSTEM_PROMPT).toMatch(
+      /Never answer supported for a checked id/
+    )
+    expect(agentReviewPrompt(request)).not.toContain("Checked ids")
+  })
+
   /**
    * The reviewer is told which records the runtime will accept, by the
    * runtime's own rule. Without it a reviewer cited the verified click behind

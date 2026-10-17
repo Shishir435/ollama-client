@@ -941,6 +941,29 @@ const sameFieldValue = (
 const verifyValueMutation: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
   const target = mutationTargetAfter(input, after)
+  /**
+   * A multiple select reports its first chosen option as its value, so the
+   * one this step added is read from the option list instead.
+   */
+  if (
+    target.type === "one" &&
+    input.effect.command.type === "select" &&
+    target.element.type?.toLowerCase() === "select-multiple"
+  ) {
+    const option = target.element.options?.find(
+      (entry) => entry.value === input.effect.target.expectedValue
+    )
+    return option?.selected
+      ? result("confirmed", "field", "The option is selected", adapter.now())
+      : result(
+          option ? "negative" : "ambiguous",
+          "field",
+          option
+            ? "The option is not selected"
+            : "The option is no longer listed",
+          adapter.now()
+        )
+  }
   if (target.type !== "one") {
     return result(
       "ambiguous",
@@ -1317,10 +1340,93 @@ const controlTransition = (
   }
 }
 
+/**
+ * A link pressed with a real pointer, which runs the page's own handlers.
+ *
+ * Three outcomes, told apart by the document the tab holds afterwards. The
+ * same document means the page handled the press itself — a router pushing
+ * its own address, a hash, a panel opening — and only a changed page counts.
+ * A new document must be the link's own address, held to the same rule as a
+ * followed link: anything else committed is paused, never retried. A press
+ * that opened a tab answers with the tab, held to that rule too. A router
+ * that moved the address moved it to the link's, or the press is unresolved:
+ * the handler is the page's, and may send the run anywhere on its origin.
+ */
+const verifyNativeLink: Verifier = async (input, adapter, signal) => {
+  const opened = input.receipt.openedTabIds ?? []
+  if (opened.length > 1)
+    return result(
+      "ambiguous",
+      "activation",
+      "Control opened several tabs",
+      adapter.now()
+    )
+  if (opened.length === 1)
+    return verifyCommittedDestination(
+      input,
+      adapter,
+      opened[0],
+      "activation",
+      signal
+    )
+  const tabId = input.effect.snapshotIdentity.tabId
+  try {
+    await adapter.waitForNavigation?.(
+      tabId,
+      input.effect.sourceUrl,
+      input.effect.destination?.url ?? input.effect.sourceUrl,
+      signal,
+      input.before.documentId
+    )
+  } catch (error) {
+    if (signal.aborted || !(error instanceof AgentNavigationTimeoutError))
+      throw error
+  }
+  const after = await observeAfter(input, adapter, signal)
+  if (after.documentId !== input.before.documentId)
+    return verifyCommittedDestination(
+      input,
+      adapter,
+      tabId,
+      "activation",
+      signal
+    )
+  if (
+    after.url !== input.before.url &&
+    !landedAt(after.url, input.effect.destination?.url ?? "")
+  )
+    return result(
+      "ambiguous",
+      "activation",
+      "The page moved to an address the link did not name",
+      adapter.now()
+    )
+  return after.url !== input.before.url ||
+    pageEvidence(after) !== pageEvidence(input.before)
+    ? result(
+        "confirmed",
+        "activation",
+        "The page handled the link itself",
+        adapter.now()
+      )
+    : result(
+        "ambiguous",
+        "activation",
+        "Control activation produced no conclusive page evidence",
+        adapter.now()
+      )
+}
+
 const verifyActivation: Verifier = async (input, adapter, signal) => {
   if (input.effect.semanticEffects.includes("submission")) {
     return verifySubmission(input, adapter, signal)
   }
+  if (
+    input.receipt.backend === "cdp" &&
+    input.effect.target.href &&
+    input.effect.destination
+  )
+    return verifyNativeLink(input, adapter, signal)
   if (input.effect.destination) {
     return verifyCommittedDestination(
       input,
@@ -1694,8 +1800,8 @@ export const DOM_MUTATION_AGENT_VERIFIERS = {
   replace_text: withDelivery("field", settling(verifyValueMutation)),
   drag: withDelivery("arrangement", settling(verifyDrag)),
   select: settling(verifyValueMutation),
-  check: settling(verifyCheckedMutation),
-  uncheck: settling(verifyCheckedMutation),
+  check: withDelivery("checked", settling(verifyCheckedMutation)),
+  uncheck: withDelivery("checked", settling(verifyCheckedMutation)),
   press_key: withDelivery("keyboard", settling(verifyKey))
 } satisfies Record<DomMutationAgentAction, Verifier>
 

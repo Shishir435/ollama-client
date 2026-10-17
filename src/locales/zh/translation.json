@@ -105,6 +105,7 @@
       "remote_notice_screenshots": "Agent 运行期间，页面观测结果和视口截图将持续发送到此远程提供商。"
     },
     "progress": "{{budget}} 次观察中的第 {{count}} 次",
+    "workflowProgress": "已完成 {{done}}/{{total}} 部分",
     "question": {
       "title": "Agent 需要答复",
       "inputLabel": "你的答复",

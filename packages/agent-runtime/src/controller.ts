@@ -5,6 +5,7 @@ import type {
 } from "@ollama-client/contracts"
 import {
   AGENT_ROUTINE_GRANT_EFFECTS,
+  agentObservationBudget,
   AgentCompletionReviewSchema,
   type AgentDecision,
   AgentDecisionSchema,
@@ -17,17 +18,21 @@ import {
   type AgentRunState,
   type AgentRunStatus,
   type AgentScreenshot,
+  type AgentStallState,
   type AgentStepTelemetry,
   type AgentTaskPlan,
   MAX_AGENT_ALLOWED_ORIGINS,
   MAX_AGENT_ANSWER_CHARS,
   MAX_AGENT_ANSWERS,
   MAX_AGENT_GRANTS,
-  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_OBSERVATION_CEILING,
+  MAX_AGENT_PROGRESS_POINTS,
   MAX_AGENT_SCOPED_TABS
 } from "@ollama-client/contracts"
 import {
   type AgentProgressPoint,
+  agentDecisionFingerprint,
+  agentRunActiveBudgetMs,
   agentTextChangeSignature,
   beginAgentStepDeadline,
   classifyNoProgress,
@@ -41,6 +46,7 @@ import type { AgentCompletionJudgement } from "./completion"
 import {
   agentAppliedChanges,
   agentEffectChangesPage,
+  agentReadbackProbeFeedback,
   isAgentChangeReceipt,
   isAppliedAgentStepStatus,
   judgeAgentCompletion,
@@ -53,6 +59,7 @@ import {
   applyAgentClaimedReview,
   agentRecordedReviews,
   applyAgentCompletionReview,
+  applyAgentReviewDowngrades,
   MAX_AGENT_COMPLETION_REVIEWS
 } from "./completion-review"
 import { agentWriteHeldPlannedValue } from "./completion-support"
@@ -82,6 +89,8 @@ import {
   agentConfirmedRemovalPatch,
   agentConstraintRefusal,
   agentForbiddingConstraints,
+  agentRequirementRecords,
+  agentWrongRowRecord,
   agentInitialPlanPatch,
   agentPlanNeedsReconciling
 } from "./plan-record"
@@ -119,6 +128,7 @@ import {
   agentConsequentialForm,
   agentEffectIsConsequential,
   agentOwnEffectSettlement,
+  agentRepeatsBeforeClaim,
   agentRepeatsPriorEffect,
   agentRepeatWasRefused,
   agentRepeatsPriorForm
@@ -126,6 +136,7 @@ import {
 import { agentAuthoredText } from "./provenance"
 import {
   AGENT_CONFIRMED_REPEAT_FEEDBACK,
+  AGENT_REPEAT_AFTER_CLAIM_FEEDBACK,
   AGENT_RECOVERY_REPEAT_FEEDBACK,
   planAgentRecovery,
   settledAgentRecovery
@@ -159,7 +170,7 @@ const AGENT_USER_CONFIRMED_RESULT =
   "The user reviewed the page and confirmed the task is done."
 
 /** Two runs' worth of steps: the live one and one just settled. */
-const MAX_LIVE_COMMANDS = MAX_AGENT_OBSERVATIONS * 2
+const MAX_LIVE_COMMANDS = MAX_AGENT_OBSERVATION_CEILING * 2
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
 
@@ -240,7 +251,17 @@ const OUTSTANDING_EFFECT_FEEDBACK =
 const OUTSTANDING_ANSWER_FEEDBACK =
   "The user's newest answer has not been folded into the plan yet, and it may ask for more than the plan lists. Act on everything the user has asked, then complete again."
 
+/**
+ * Told to the model when a step's control sits in another planned record's
+ * row. The record is the plan's own wording, never page text.
+ */
+const wrongRowFeedback = (requirementId: string, other: string): string =>
+  `This control sits in the row for "${other}", which is not what ${requirementId} is about. It was not attempted. Use the control in the row of the record ${requirementId} names.`
+
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
+
+/** The most observations a failed plan amendment waits before it is asked again. */
+const MAX_PLAN_AMENDMENT_BACKOFF = 8
 
 /** Corrections one decision will take in at once; older ones are dropped. */
 const MAX_QUEUED_STEERING = 3
@@ -673,6 +694,117 @@ export const createAgentController = (
    * replying to a question has not refunded the calls already made.
    */
   const reviewsByRun = new Map<string, number>()
+  /** Consecutive failed plan amendments, and when the next one may run. */
+  const planFailures = new Map<
+    string,
+    NonNullable<AgentStallState["planFailures"]>
+  >()
+  /** Runs whose counters were read back from the checkpoint, or reset since. */
+  const stallRestored = new Set<string>()
+  /**
+   * The malformed count the checkpoint held when this worker took the run.
+   * The model port counts on from it, but reports nothing until the run's
+   * next malformed answer, and the checkpoint must not lose it meanwhile.
+   */
+  const malformedRestored = new Map<string, number>()
+
+  /**
+   * Counters a worker restart would otherwise lose, read back from the
+   * checkpoint once per run per worker. A reset marks the run restored, so a
+   * correction is not undone by the checkpoint it has not been written to yet.
+   */
+  const restoreStall = (state: AgentRunState): void => {
+    if (stallRestored.has(state.id)) return
+    stallRestored.add(state.id)
+    const stall = state.stall
+    if (!stall) return
+    if (stall.noProgress !== undefined)
+      noProgressCounts.set(state.id, stall.noProgress)
+    if (stall.refusedCommands !== undefined)
+      refusedCommandCounts.set(state.id, stall.refusedCommands)
+    if (stall.refusedCompletion)
+      refusedCompletions.set(state.id, { ...stall.refusedCompletion })
+    if (stall.planFailures) planFailures.set(state.id, stall.planFailures)
+    if (stall.malformed) malformedRestored.set(state.id, stall.malformed)
+    if (stall.recent?.length) {
+      const points = stall.recent.map((point) => ({ ...point }))
+      recentProgress.set(state.id, points)
+      const last = points.at(-1)
+      if (last) previousProgress.set(state.id, last)
+    }
+  }
+
+  /**
+   * What a correction, an answer or a steer resets: the loop and refusal
+   * counts. The planner's failures and the malformed count stay. A newer
+   * answer already lifts the planner's backoff, since a failure is compared
+   * against the answer it was made under, and the malformed budget is
+   * run-wide on purpose, like the port's own count.
+   */
+  const forgetStall = (state: AgentRunState): void => {
+    /**
+     * Restored first: a correction after a restart must keep the malformed
+     * count and planner failures the checkpoint holds, not mark the run
+     * restored with nothing loaded.
+     */
+    restoreStall(state)
+    const runId = state.id
+    previousProgress.delete(runId)
+    recentProgress.delete(runId)
+    noProgressCounts.delete(runId)
+    refusedCommandCounts.delete(runId)
+    refusedCompletions.delete(runId)
+  }
+
+  const stallOf = (runId: string): AgentStallState | undefined => {
+    const noProgress = noProgressCounts.get(runId)
+    const refusedCommands = refusedCommandCounts.get(runId)
+    const refusedCompletion = refusedCompletions.get(runId)
+    const malformed =
+      dependencies.model.malformedResponses?.(runId) ??
+      malformedRestored.get(runId)
+    const failures = planFailures.get(runId)
+    const recent = (recentProgress.get(runId) ?? []).flatMap((point) => {
+      const fingerprint =
+        point.fingerprint ??
+        (point.decision ? agentDecisionFingerprint(point.decision) : undefined)
+      if (fingerprint === undefined) return []
+      return [
+        {
+          url: point.url.slice(0, 2_048),
+          snapshotHash: point.snapshotHash,
+          fingerprint,
+          ...(point.changeSignature
+            ? { changeSignature: point.changeSignature }
+            : {})
+        }
+      ]
+    })
+    const stall: AgentStallState = {
+      ...(noProgress ? { noProgress } : {}),
+      ...(refusedCommands ? { refusedCommands } : {}),
+      ...(refusedCompletion ? { refusedCompletion } : {}),
+      ...(malformed ? { malformed } : {}),
+      ...(failures ? { planFailures: failures } : {}),
+      ...(recent.length ? { recent } : {})
+    }
+    return Object.keys(stall).length ? stall : undefined
+  }
+
+  /**
+   * Every durable write carries the counters as they stand, when they moved.
+   * A patch that names `stall` itself is left alone.
+   */
+  const withStall = (
+    state: AgentRunState,
+    patch: AgentStatePatch | undefined
+  ): AgentStatePatch | undefined => {
+    if (patch && "stall" in patch) return patch
+    restoreStall(state)
+    const stall = stallOf(state.id)
+    if (JSON.stringify(stall) === JSON.stringify(state.stall)) return patch
+    return { ...patch, stall }
+  }
 
   const claim = async (
     state: AgentRunState,
@@ -684,7 +816,7 @@ export const createAgentController = (
       runId: state.id,
       phase,
       expected,
-      patch
+      patch: withStall(state, patch)
     })
     return result.claimed ? result.state : undefined
   }
@@ -698,7 +830,7 @@ export const createAgentController = (
       runId: state.id,
       from: state.status,
       to,
-      patch
+      patch: withStall(state, patch)
     })
     if (!result.transitioned) return undefined
     if (isTerminalAgentStatus(result.state.status))
@@ -1164,7 +1296,7 @@ export const createAgentController = (
     if (carried) {
       telemetryByStep.set(write.stepId, carried)
       /** One run cannot grow this past its own step ceiling. */
-      if (telemetryByStep.size > MAX_AGENT_OBSERVATIONS + 5) {
+      if (telemetryByStep.size > MAX_AGENT_OBSERVATION_CEILING + 5) {
         const oldest = telemetryByStep.keys().next().value
         if (oldest !== undefined) telemetryByStep.delete(oldest)
       }
@@ -1596,7 +1728,6 @@ export const createAgentController = (
       await fail(state, failure.code, failure.message)
       return { type: "stopped" }
     }
-    refusedCommandCounts.set(state.id, 0)
     const identity = effect.snapshotIdentity
     if (
       identity.snapshotId !== observation.snapshotId ||
@@ -1958,6 +2089,13 @@ export const createAgentController = (
       risk: policy.risk,
       at: dependencies.clock.now()
     })
+    /**
+     * Reset where a command is carried out, not where it resolves: the
+     * refusals that come after resolution — a missing requirement, a repeat,
+     * a limit — used to find the count already zeroed and never reached the
+     * ceiling.
+     */
+    refusedCommandCounts.delete(state.id)
     const executing = await claim(state, "executing", {
       deadline: resumeAgentDeadlines(
         state.deadline ?? initialAgentDeadlineState(state.createdAt),
@@ -2205,7 +2343,27 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "outstanding_answer_refused", {})
       return OUTSTANDING_EFFECT_FEEDBACK
     }
-    const broken = agentForbiddingConstraints(effect, state.constraints)
+    const requirement = state.requirements?.find(
+      (entry) => entry.id === decision.requirementId
+    )
+    if (agentEffectChangesPage(effect)) {
+      const other = agentWrongRowRecord(
+        effect.target,
+        requirement,
+        state.requirements
+      )
+      if (other !== undefined) {
+        dependencies.trace?.(state.id, "wrong_row_refused", {
+          command: decision.command.type
+        })
+        return wrongRowFeedback(requirement?.id ?? "", other)
+      }
+    }
+    const broken = agentForbiddingConstraints(
+      effect,
+      state.constraints,
+      agentRequirementRecords(requirement)
+    )
     if (broken.length === 0) return undefined
     dependencies.trace?.(state.id, "constraint_refused", {
       constraints: broken.length,
@@ -2287,6 +2445,14 @@ export const createAgentController = (
         state,
         decision.command,
         AGENT_CONFIRMED_REPEAT_FEEDBACK,
+        signal,
+        effect
+      )
+    if (await repeatsBeforeClaim(state, effect))
+      return refuseCommand(
+        state,
+        decision.command,
+        AGENT_REPEAT_AFTER_CLAIM_FEEDBACK,
         signal,
         effect
       )
@@ -2547,9 +2713,7 @@ export const createAgentController = (
     if (judgement.type === "unmet") {
       patch.error = {
         code: "goal_failed",
-        message: "The Agent met none of what the task asked for.",
-        /** The run answered; trying the same goal again is the user's call. */
-        retryable: false
+        message: "The Agent met none of what the task asked for."
       }
     }
     await transition(state, settled, patch)
@@ -2575,7 +2739,8 @@ export const createAgentController = (
   ): AgentCompletionJudgement => {
     if (judgement.type !== "partial" && judgement.type !== "unmet")
       return judgement
-    if (MAX_AGENT_OBSERVATIONS - state.observationCount < 2) return judgement
+    if (agentObservationBudget(state) - state.observationCount < 2)
+      return judgement
     const asked = challengedUnmet.get(state.id) ?? new Set<string>()
     const fresh = judgement.outcome.unmet.filter((id) => !asked.has(id))
     if (fresh.length === 0) return judgement
@@ -2686,10 +2851,23 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "completion_review_malformed")
       return { judgement, reviewed: true }
     }
-    const result =
+    const applied =
       judgement.type === "refused"
         ? applyAgentCompletionReview(pending, request, parsed.data)
         : applyAgentClaimedReview(judgement, pending, request, parsed.data)
+    const lowered = applyAgentReviewDowngrades(
+      applied.judgement,
+      request,
+      parsed.data
+    )
+    const result = {
+      judgement: lowered.judgement,
+      disagreements: applied.disagreements + lowered.downgraded.length
+    }
+    if (lowered.downgraded.length)
+      dependencies.trace?.(state.id, "completion_review_downgraded", {
+        downgraded: lowered.downgraded.length
+      })
     measure({ reviewDisagreements: result.disagreements })
     dependencies.trace?.(state.id, "completion_reviewed", {
       asked:
@@ -2731,6 +2909,52 @@ export const createAgentController = (
         question: completionQuestion(state, feedback, recovery)
       })
     return undefined
+  }
+
+  /**
+   * The read-back the runtime can run for a refused save: the page the
+   * change was made on, opened again in a new tab. None for a page that is
+   * not plain http(s), or for a change that was a submission — reloading the
+   * page a form posted to would ask the site for something else.
+   */
+  const readbackProbe = (
+    judgement: AgentCompletionJudgement,
+    observation: AgentObservation,
+    steps: readonly AgentStepReadout[] | undefined
+  ):
+    | {
+        ids: readonly string[]
+        decision: Extract<AgentDecision, { type: "command" }>
+      }
+    | undefined => {
+    if (
+      judgement.type !== "refused" ||
+      judgement.reason !== "readback_required" ||
+      !judgement.readback?.length ||
+      !steps
+    )
+      return undefined
+    const ids = judgement.readback
+    if (!/^https?:\/\//i.test(observation.url)) return undefined
+    const changes = agentAppliedChanges(steps)
+    const bound = changes.filter((step) =>
+      ids.includes(step.requirementId ?? "")
+    )
+    const last = (bound.length ? bound : changes).at(-1)
+    if (!last || last.consequential?.includes("submission")) return undefined
+    return {
+      ids,
+      decision: {
+        type: "command",
+        requirementId: ids[0],
+        command: {
+          type: "open_tab",
+          url: observation.url,
+          snapshotId: observation.snapshotId,
+          generation: observation.generation
+        }
+      }
+    }
   }
 
   const processCompletion = async (
@@ -2893,6 +3117,7 @@ export const createAgentController = (
       reason: judgement.reason,
       refusals
     })
+    const probe = readbackProbe(judgement, observation, steps)
     await appendStep({
       runId: state.id,
       stepId: `${state.id}:completion:${state.observationCount}`,
@@ -2902,11 +3127,27 @@ export const createAgentController = (
         outcome: "negative",
         evidence: {
           kind: "completion",
-          summary: judgement.feedback,
+          summary: probe
+            ? agentReadbackProbeFeedback(probe.ids)
+            : judgement.feedback,
           observedAt: now
         }
       }
     })
+    /**
+     * The runtime reads the record back itself rather than asking the model
+     * to: a model told to reopen a record waited on the page it had saved
+     * instead, and the save was never checked. The probe is an ordinary
+     * `open_tab` of the page the change was made on, so it passes the same
+     * resolver, policy, approval and verifier as one the model chose, and
+     * the next completion is judged on the freshly loaded page.
+     */
+    if (probe) {
+      dependencies.trace?.(state.id, "readback_probe", {
+        outcomes: probe.ids.length
+      })
+      return processCommand(state, probe.decision, observation, signal, {})
+    }
     /**
      * A refusal must not be able to consume the run. Looking again is the
      * right answer the first time — the indicator may simply not have
@@ -3219,6 +3460,24 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * Unreadable receipts allow the press: this guard adds a refusal beside
+   * the ones that decide safety, and is not one of them.
+   */
+  const repeatsBeforeClaim = async (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect
+  ): Promise<boolean> => {
+    try {
+      return agentRepeatsBeforeClaim(
+        effect,
+        await dependencies.persistence.steps(state.id)
+      )
+    } catch {
+      return false
+    }
+  }
+
   /** What a refusal records of its control: the target and page. */
   const refusedTarget = (
     effect: ResolvedAgentEffect
@@ -3273,10 +3532,12 @@ export const createAgentController = (
       observation.visibleText
     )
     progressText.set(state.id, observation.visibleText)
+    restoreStall(state)
     const progress: AgentProgressPoint = {
       url: observation.url,
       snapshotHash: hashAgentObservation(observation, decision, picture),
       decision,
+      fingerprint: agentDecisionFingerprint(decision, observation),
       ...(changeSignature ? { changeSignature } : {})
     }
     const result = classifyNoProgress({
@@ -3288,7 +3549,9 @@ export const createAgentController = (
     previousProgress.set(state.id, progress)
     recentProgress.set(
       state.id,
-      [...(recentProgress.get(state.id) ?? []), progress].slice(-6)
+      [...(recentProgress.get(state.id) ?? []), progress].slice(
+        -MAX_AGENT_PROGRESS_POINTS
+      )
     )
     noProgressCounts.set(state.id, result.count)
     /**
@@ -3336,7 +3599,9 @@ export const createAgentController = (
   ): Promise<boolean> => {
     const deadline = state.deadline
     if (!deadline) return false
-    const expired = expiredAgentDeadline(deadline, dependencies.clock.now())
+    const expired = expiredAgentDeadline(deadline, dependencies.clock.now(), {
+      runMs: agentRunActiveBudgetMs(state)
+    })
     if (!expired) return false
     await failWith(state, {
       ...agentFailure(
@@ -3645,6 +3910,8 @@ export const createAgentController = (
      * decision after the resume, rather than accepted and then dropped.
      */
     const steering = pendingSteering.get(state.id)
+    /** Reset before the claim, so the claim's own write carries it. */
+    if (steering?.length) forgetStall(state)
     const claimed = await claimDeciding(
       state,
       steering,
@@ -3661,14 +3928,9 @@ export const createAgentController = (
      * describe the approach the user just corrected.
      */
     if (steering?.length) {
-      previousProgress.delete(state.id)
-      recentProgress.delete(state.id)
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
       clearBoundRequirement(state.id)
-      noProgressCounts.delete(state.id)
-      refusedCommandCounts.delete(state.id)
-      refusedCompletions.delete(state.id)
     }
     if (claimed.stop && (await stopsBeforePlanning(deciding, claimed.stop)))
       return undefined
@@ -3926,6 +4188,32 @@ export const createAgentController = (
     const plan = dependencies.model.plan
     const answeredAt = agentPlanNeedsReconciling(state, answers)
     if (!plan || answeredAt === undefined) return { patch: {} }
+    restoreStall(state)
+    /**
+     * A planner that failed is asked again on the next observation, then
+     * after a doubling number of them, not on every one: each call can spend several provider
+     * attempts, and a planner that is down stays down for longer than a
+     * step. A newer answer from the user is asked about at once.
+     */
+    const failed = planFailures.get(state.id)
+    if (
+      failed &&
+      failed.answeredAt >= answeredAt &&
+      state.observationCount < failed.retryAt
+    )
+      return { patch: {} }
+    /** A newer answer starts its own sequence rather than inheriting one. */
+    const recordFailure = () => {
+      const count =
+        (failed && failed.answeredAt >= answeredAt ? failed.count : 0) + 1
+      planFailures.set(state.id, {
+        count,
+        answeredAt,
+        retryAt:
+          state.observationCount +
+          Math.min(2 ** (count - 1), MAX_PLAN_AMENDMENT_BACKOFF)
+      })
+    }
     const startedAt = dependencies.clock.now()
     let amended: AgentTaskPlan
     try {
@@ -3933,6 +4221,7 @@ export const createAgentController = (
     } catch (error) {
       measure({ planMs: dependencies.clock.now() - startedAt })
       if (signal.aborted) return { patch: {} }
+      recordFailure()
       /**
        * Not reconciled: the answer may hold a prohibition, and marking it
        * absorbed when nothing absorbed it is how "don't submit" would be
@@ -3944,6 +4233,8 @@ export const createAgentController = (
       return { patch: {} }
     }
     measure({ planMs: dependencies.clock.now() - startedAt })
+    if (amended.provisional) recordFailure()
+    else planFailures.delete(state.id)
     /** A question must keep the answer outstanding and the existing plan whole. */
     if (amended.overCap || amended.clarification || amended.limitation)
       return { patch: {}, stop: amended }
@@ -3990,7 +4281,7 @@ export const createAgentController = (
     // that step cannot be claimed back into observation.
     let entered = false
     while (!controller.signal.aborted) {
-      if (state.observationCount >= MAX_AGENT_OBSERVATIONS) {
+      if (state.observationCount >= agentObservationBudget(state)) {
         await failWith(state, {
           ...agentFailure(
             "budget_exhausted",
@@ -4190,6 +4481,12 @@ export const createAgentController = (
         state.updatedAt !== correction.pausedAt
       )
         return
+      /**
+       * Before the transition, so the write that records the correction
+       * carries the reset counters and a restart cannot bring the old ones
+       * back.
+       */
+      forgetStall(state)
       const recorded = await transition(state, resumedPhase(state), {
         ...(state.deadline
           ? {
@@ -4213,14 +4510,9 @@ export const createAgentController = (
         updatedAt: dependencies.clock.now()
       })
       if (!recorded) return
-      previousProgress.delete(state.id)
-      recentProgress.delete(state.id)
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
       clearBoundRequirement(state.id)
-      noProgressCounts.delete(state.id)
-      refusedCommandCounts.delete(state.id)
-      refusedCompletions.delete(state.id)
       await run(recorded.id, false, true)
     },
     async answerQuestion({ runId, questionId, text }) {
@@ -4233,14 +4525,10 @@ export const createAgentController = (
       ) {
         return
       }
-      previousProgress.delete(state.id)
-      recentProgress.delete(state.id)
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
       clearBoundRequirement(state.id)
-      noProgressCounts.delete(state.id)
-      refusedCommandCounts.delete(state.id)
-      refusedCompletions.delete(state.id)
+      forgetStall(state)
       const answers = [
         ...(state.answers ?? []),
         {
@@ -4320,14 +4608,10 @@ export const createAgentController = (
       ) {
         return
       }
-      previousProgress.delete(state.id)
-      recentProgress.delete(state.id)
       progressText.delete(state.id)
       challengedUnmet.delete(state.id)
       clearBoundRequirement(state.id)
-      noProgressCounts.delete(state.id)
-      refusedCommandCounts.delete(state.id)
-      refusedCompletions.delete(state.id)
+      forgetStall(state)
       minimumGeneration.set(runId, (lastGeneration.get(runId) ?? 0) + 1)
       if (!(await recordReviewedDisposition(state.id))) return
       const recorded = await transition(state, "observing", {

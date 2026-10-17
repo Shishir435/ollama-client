@@ -430,3 +430,85 @@ export const agentRepeatWasRefused = (
     return prior !== undefined && sameControl(prior, candidate)
   })
 }
+
+/** Commands that press a control, which a repeat can make happen twice. */
+const PRESSES = new Set(["click", "double_click", "click_point", "press_key"])
+
+/**
+ * Whether a press repeats, on the same page, a control this run pressed and
+ * saw confirmed before it first reported the task done.
+ *
+ * A refused completion means the run's evidence fell short, not that its
+ * work did. Measured live: a checkout run stopped at payment as asked, was
+ * refused because the review page did not show the address, then went Back
+ * and pressed "Continue to payment" twice more to make the page say so —
+ * sending the shipping form three times. Nothing marked that button
+ * consequential, so no repeat guard saw it. After a claim, a press already
+ * confirmed, which moved the run to another page, is not evidence-gathering;
+ * reading is. A link that only goes
+ * somewhere is exempt, since reopening a page to read it again is exactly
+ * what a refused completion asks for. Read from the receipts, so a worker
+ * restart keeps it.
+ */
+export const agentRepeatsBeforeClaim = (
+  effect: ResolvedAgentEffect,
+  steps: readonly AgentStepReadout[]
+): boolean => {
+  if (!PRESSES.has(effect.command.type)) return false
+  if (
+    effect.semanticEffects.length > 0 &&
+    effect.semanticEffects.every((kind) => kind === "navigation")
+  )
+    return false
+  const claimedAt = steps
+    .filter(
+      (step) =>
+        step.status === "rejected" &&
+        step.verification?.evidence?.kind === "completion"
+    )
+    .reduce((first, step) => Math.min(first, step.sequence), Infinity)
+  if (claimedAt === Infinity) return false
+  const firstSeen = new Map<string, number>()
+  for (const step of steps)
+    firstSeen.set(
+      step.stepId,
+      Math.min(firstSeen.get(step.stepId) ?? Infinity, step.sequence)
+    )
+  const candidate = candidateFor(effect)
+  if (candidate.page === undefined) return false
+  const ordered = mergedSteps(steps)
+    .map(({ step }) => step)
+    .sort(
+      (a, b) =>
+        (firstSeen.get(a.stepId) ?? Infinity) -
+        (firstSeen.get(b.stepId) ?? Infinity)
+    )
+  return ordered.some((step, index) => {
+    if ((firstSeen.get(step.stepId) ?? Infinity) > claimedAt) return false
+    if (
+      step.status !== "verified" ||
+      step.verification?.outcome !== "confirmed"
+    )
+      return false
+    const prior = priorEffect(step)
+    if (
+      prior === undefined ||
+      prior.page !== candidate.page ||
+      !sameControl(prior, candidate)
+    )
+      return false
+    /**
+     * Only a press that took the run off its page did work a repeat would
+     * redo: the run's next step was somewhere else. "Load more", a tab, a
+     * disclosure — presses that leave the run where it was — show more of
+     * the page, which is what a refused completion is asking for.
+     */
+    const next = ordered
+      .slice(index + 1)
+      .find((later) => later.sourceUrl !== undefined)
+    return (
+      next?.sourceUrl !== undefined &&
+      next.sourceUrl.slice(0, MAX_AGENT_PRIOR_EFFECT_PAGE_CHARS) !== prior.page
+    )
+  })
+}

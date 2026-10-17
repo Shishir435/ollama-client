@@ -1,8 +1,9 @@
-import type {
-  AgentCancellationSignal,
-  AgentInputBackend,
-  AgentInputDelivery,
-  AuthorizedAgentEffect
+import {
+  AGENT_VALUE_INPUT_TYPES,
+  type AgentCancellationSignal,
+  type AgentInputBackend,
+  type AgentInputDelivery,
+  type AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
 import {
   type AgentCommand,
@@ -30,7 +31,15 @@ export const NATIVE_INPUT_AGENT_ACTIONS = [
   "clear_and_type",
   "replace_text",
   "drag",
-  "press_key"
+  "press_key",
+  /**
+   * A checkbox or radio whose state is the opposite of the one asked for is
+   * pressed like a person presses it. Frameworks that own the box's state
+   * listen for that click; a value set by script and a `change` event left a
+   * controlled box unticked on the page's own record while it looked ticked.
+   */
+  "check",
+  "uncheck"
 ] as const
 export type NativeInputAgentAction = (typeof NATIVE_INPUT_AGENT_ACTIONS)[number]
 
@@ -434,6 +443,8 @@ export const planAgentNativeInput = (
   switch (input.command.type) {
     case "click":
     case "click_point":
+    case "check":
+    case "uncheck":
       clickAt(builder, root, input.point, 1)
       break
     case "double_click":
@@ -783,6 +794,8 @@ export interface AgentInputBackendChoice {
     | "guarded_submission"
     | "action_not_native"
     | "key_not_native"
+    | "value_input"
+    | "state_stated"
     | "no_native_control"
     | "frame_unmapped"
 }
@@ -814,6 +827,11 @@ export const chooseAgentInputBackend = (input: {
   cdpControl: boolean
   attached: boolean
   frameMapped: boolean
+  /**
+   * A plain link may be pressed natively; the verifier then holds the
+   * committed page to the link's own address.
+   */
+  nativeLink?: boolean
 }): AgentInputBackendChoice => {
   const { command, target } = input.effect
   if (
@@ -823,7 +841,8 @@ export const chooseAgentInputBackend = (input: {
   }
   if (
     (command.type === "click" || command.type === "click_point") &&
-    target.href
+    target.href &&
+    !input.nativeLink
   ) {
     return { backend: "dom", reason: "guarded_navigation" }
   }
@@ -854,6 +873,28 @@ export const chooseAgentInputBackend = (input: {
   }
   if (command.type === "press_key" && chordLacksNativeKey(command.key)) {
     return { backend: "dom", reason: "key_not_native" }
+  }
+  /**
+   * A press toggles, so it is sent only to a box observed in the opposite
+   * state. One already in the asked-for state, or one whose state was not
+   * read, is set by the DOM path, which states the value instead.
+   */
+  if (
+    (command.type === "check" || command.type === "uncheck") &&
+    target.observedChecked !== (command.type === "uncheck")
+  ) {
+    return { backend: "dom", reason: "state_stated" }
+  }
+  /**
+   * A date, time, range or colour input is not typed into: keys land in one
+   * segment of the browser's own picker, not in the value. The DOM path sets
+   * the value whole, and the verifier reads back what the browser accepted.
+   */
+  if (
+    (command.type === "type" || command.type === "clear_and_type") &&
+    AGENT_VALUE_INPUT_TYPES.includes(target.inputType?.toLowerCase() ?? "")
+  ) {
+    return { backend: "dom", reason: "value_input" }
   }
   if (!input.cdpControl || !input.attached) {
     return { backend: "dom", reason: "no_native_control" }

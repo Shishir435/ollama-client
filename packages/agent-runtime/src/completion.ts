@@ -1,12 +1,19 @@
 import type {
   AgentCommand,
   AgentEvidenceRecord,
+  AgentFormField,
   AgentObservation,
   AgentRunOutcome,
   AgentStepStatus,
   AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
+import {
+  type AgentCollectedRecord,
+  agentAnswerAgainstCompared,
+  agentCollectedRecords,
+  agentComparedAnswer
+} from "./collected-records"
 import {
   checkCompletionState,
   groundedCompletionQuote,
@@ -142,6 +149,8 @@ export type AgentCompletionJudgement =
        * recorded effect classes is not something reading can supply.
        */
       review?: AgentCompletionReviewScope
+      /** Set on a `readback_required` refusal: the outcomes to read back. */
+      readback?: readonly string[]
     }
 
 /**
@@ -355,6 +364,13 @@ const READBACK_FEEDBACK_PREFIX = "Read back "
 const readbackFeedback = (ids: readonly string[]): string =>
   `${READBACK_FEEDBACK_PREFIX}${ids.join(", ")}: the site only reported ${ids.length === 1 ? "this change" : "these changes"} on the page where ${ids.length === 1 ? "it was" : "they were"} made, which is not proof it was kept. Open the record again — navigate to its page, or open_tab with its address — and complete from what the freshly loaded page shows. Do not make the change again.`
 
+/**
+ * The same refusal when the runtime reopens the record itself. It keeps the
+ * prefix, so it counts as the one ask.
+ */
+export const agentReadbackProbeFeedback = (ids: readonly string[]): string =>
+  `${READBACK_FEEDBACK_PREFIX}${ids.join(", ")}: the site only reported ${ids.length === 1 ? "this change" : "these changes"} on the page where ${ids.length === 1 ? "it was" : "they were"} made, which is not proof it was kept. The runtime is opening that page again in a new tab. Complete from what the freshly loaded page shows. Do not make the change again.`
+
 const readbackAsked = (
   id: string,
   steps: readonly AgentStepReadout[] | undefined
@@ -502,14 +518,85 @@ const requirementNamesReceiptTarget = (
   requirement: AgentTaskRequirement,
   receipt: AgentStepReadout
 ): boolean => {
-  if (receipt.requirementId !== undefined)
-    return receipt.requirementId === requirement.id
   const name = receipt.target?.name
+  const text = agentNormalizedClaim(requirement.text)
+  if (receipt.requirementId !== undefined) {
+    if (receipt.requirementId !== requirement.id) return false
+    /**
+     * The tag is the model's word for which outcome a step advanced. On a
+     * requirement with a check, the check binds the evidence; without one,
+     * the tag alone let any change the model labelled vouch for it. The
+     * control it acted on has to share a word with the requirement, which a
+     * brief label and a longer accessible name do ("email" and "Work email
+     * address") and an unrelated control does not.
+     */
+    return (
+      requirement.check !== undefined ||
+      name === undefined ||
+      sharesContentWord(text, agentNormalizedClaim(name))
+    )
+  }
   if (name === undefined) return false
   const want = agentNormalizedClaim(name)
-  const text = agentNormalizedClaim(requirement.text)
   return (
     want.length > 0 && text.length > 0 && containsCompletePhrase(text, want)
+  )
+}
+
+/** Words too common to tie a control to an outcome. */
+const BINDING_STOP_WORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "from",
+  "into",
+  "this",
+  "that",
+  "your",
+  "our",
+  "new",
+  "all",
+  "set",
+  "add",
+  "button",
+  "field",
+  "page"
+])
+
+const contentWords = (text: string): string[] =>
+  text
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 3 && !BINDING_STOP_WORDS.has(word))
+
+const sharesContentWord = (text: string, name: string): boolean => {
+  const words = new Set(contentWords(text))
+  return contentWords(name).some((word) => words.has(word))
+}
+
+/**
+ * Whether a requirement names a field: by its whole name, or by the last
+ * word of a qualified one when that word picks out exactly one field on the
+ * page. "Address" names "Billing address" on a form with no other address;
+ * on a form that also has "Shipping address" it names neither.
+ */
+const requirementNamesField = (
+  text: string,
+  name: string,
+  observation: AgentObservation
+): boolean => {
+  const want = agentNormalizedClaim(name)
+  if (!want) return false
+  if (containsCompletePhrase(text, want)) return true
+  const head = contentWords(want).at(-1)
+  if (!head || head === want || !containsCompletePhrase(text, head))
+    return false
+  return (
+    observation.elements.filter(
+      (element) =>
+        !element.sensitive &&
+        contentWords(agentNormalizedClaim(element.name ?? "")).at(-1) === head
+    ).length === 1
   )
 }
 
@@ -555,8 +642,8 @@ const PREPOSITION_OBJECT =
   "(?!\\s+(?:the|a|an|this|that|these|those|its|each|every|any|all|page|screen|site|tab|form)\\b)"
 const ON = `on${PREPOSITION_OBJECT}`
 const OFF = `off${PREPOSITION_OBJECT}`
-const ON_WORDS = `check|checked|tick|ticked|select|selected|${ON}`
-const OFF_WORDS = `uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|${OFF}`
+const ON_WORDS = `check|checked|tick|ticked|select|selected|enable|enabled|${ON}`
+const OFF_WORDS = `uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|disable|disabled|${OFF}`
 
 const CHECKED_OFF_PATTERN = new RegExp(`\\b(${OFF_WORDS})\\b`)
 const CHECKED_ON_PATTERN = new RegExp(`\\b(${ON_WORDS})\\b`)
@@ -773,13 +860,45 @@ const valueAssertedForControl = (
     )
 }
 
-/** A confirmed batch can evidence each control it checked, once per field. */
-const matchingBatchField = (
-  requirement: AgentTaskRequirement,
-  receipt: AgentStepReadout,
-  observation: AgentObservation,
-  consumed: Set<string>
+/**
+ * The whole value a confirmed batch field was set to: what it replaced the
+ * field with, or the option it chose. A `type` field appended to whatever
+ * was there, so its own text is not the field's value.
+ */
+const batchFieldValue = (field: AgentFormField): string | undefined =>
+  field.type === "clear_and_type"
+    ? field.text
+    : field.type === "select"
+      ? field.value
+      : undefined
+
+/**
+ * The one field of a confirmed batch set to exactly `value`, or none when
+ * no field or several were. A value two fields share names neither.
+ */
+const batchFieldWithValue = (
+  fields: readonly AgentFormField[],
+  value: string
 ): number | undefined => {
+  const wanted = agentNormalizedClaim(value)
+  if (!wanted) return undefined
+  const hits = fields.flatMap((field, index) => {
+    const set = batchFieldValue(field)
+    return set !== undefined && agentNormalizedClaim(set) === wanted
+      ? [index]
+      : []
+  })
+  return hits.length === 1 ? hits[0] : undefined
+}
+
+const confirmedBatch = (
+  receipt: AgentStepReadout
+):
+  | {
+      fields: readonly AgentFormField[]
+      names: readonly { name?: string }[]
+    }
+  | undefined => {
   if (
     receipt.command?.type !== "fill_form" ||
     receipt.verification?.outcome !== "confirmed" ||
@@ -788,18 +907,64 @@ const matchingBatchField = (
     return undefined
   const names = receipt.verification.evidence.fields
   if (!names || names.length !== receipt.command.fields.length) return undefined
+  return { fields: receipt.command.fields, names }
+}
+
+/**
+ * A confirmed batch can evidence each control it checked, once per field.
+ *
+ * The requirement names the field ("Name is Ada"), or asserts the one value
+ * only that field was set to ("Enter Ada", "Select Blue"): a plan cuts "enter
+ * Ada and select Blue" into one outcome per value and names no control. The
+ * field is then read where it is. A field still on the page must hold the
+ * value now. One no longer on it — Save took the run to a result page — is
+ * vouched for by the value its own confirmed verification saw it hold, which
+ * is what typing a value and leaving the page leaves behind.
+ */
+const matchingBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  observation: AgentObservation,
+  consumed: Set<string>
+): number | undefined => {
+  const batch = confirmedBatch(receipt)
+  if (!batch) return undefined
+  const { fields, names } = batch
   const text = agentNormalizedClaim(requirement.text)
-  return receipt.command.fields.findIndex((field, index) => {
+  return fields.findIndex((field, index) => {
     const key = `${receipt.stepId}:field:${index}`
     if (consumed.has(key)) return false
     const name = names[index]?.name
-    if (!name || !containsCompletePhrase(text, agentNormalizedClaim(name)))
+    if (!name) return false
+    const set = batchFieldValue(field)
+    /**
+     * Only for a requirement naming no other field of the batch: "Name is
+     * Alice" is about Name, and Email holding Alice cannot answer it.
+     */
+    const namesAnother = names.some(
+      (entry, other) =>
+        other !== index &&
+        entry?.name !== undefined &&
+        requirementNamesField(text, entry.name, observation)
+    )
+    const byValue =
+      set !== undefined &&
+      !namesAnother &&
+      batchFieldWithValue(fields, set) === index &&
+      valueAssertedWithoutNegation(text, set)
+    if (!byValue && !requirementNamesField(text, name, observation))
       return false
     const matches = observation.elements.filter(
       (element) =>
         !element.sensitive &&
         agentNormalizedClaim(element.name ?? "") === agentNormalizedClaim(name)
     )
+    if (matches.length === 0)
+      return field.type === "check"
+        ? !requirementAssertsOff(text)
+        : field.type === "uncheck"
+          ? !requirementAssertsOn(text)
+          : set !== undefined && valueAssertedWithoutNegation(text, set)
     if (matches.length !== 1) return false
     const current = matches[0]
     if (field.type === "check")
@@ -1956,6 +2121,20 @@ const samePage = (first: string, second: string): boolean => {
   return a !== undefined && a === page(second)
 }
 
+/**
+ * "Accept the terms" and "agree to the policy" ask for a ticked box. Read
+ * only for a checked-state check, and only in the words around the
+ * control's own name, never negated: a box is often labelled "Agree", and
+ * "the Agree checkbox is unchecked" asks for the opposite.
+ */
+const acceptsBox = (text: string, name: string): boolean => {
+  const rest = ` ${text} `.replace(` ${agentNormalizedClaim(name)} `, " ")
+  return (
+    /\b(?:accept|accepted|agree|agreed)\b/.test(rest) &&
+    !/\b(?:not|never|don t|do not|without|decline|refuse)\b/.test(rest)
+  )
+}
+
 const typedControlStateAgrees = (
   check: Extract<
     NonNullable<AgentTaskRequirement["check"]>,
@@ -1963,10 +2142,17 @@ const typedControlStateAgrees = (
   >,
   text: string
 ): boolean => {
-  if (check.type === "checked")
+  if (check.type === "checked") {
+    if (
+      check.checked &&
+      acceptsBox(text, check.name) &&
+      !requirementAssertsOff(text)
+    )
+      return true
     return check.checked
       ? requirementAssertsOn(text) && !requirementAssertsOff(text)
       : requirementAssertsOff(text) && !requirementAssertsOn(text)
+  }
   return check.value
     ? valueAssertedWithoutNegation(text, check.value)
     : /\bempty\b/u.test(text)
@@ -2008,7 +2194,23 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
     "selected",
     "select",
     "option",
-    "empty"
+    "empty",
+    /** A switch is turned or switched on, and a setting enabled. */
+    "turn",
+    "turned",
+    "switch",
+    "switched",
+    "enable",
+    "enabled",
+    "disable",
+    "disabled",
+    "on",
+    "off",
+    /** Terms are accepted, or agreed to, by ticking their box. */
+    "accept",
+    "accepted",
+    "agree",
+    "agreed"
   ])
   if (
     check.type === "field" ||
@@ -2227,7 +2429,7 @@ const judgeItemizedRequirement = (
       claim !== undefined &&
       namesItem(claim, item) &&
       (requirement.kind !== "change" ||
-        quotesOnlyItsItem(claim, item, requirement.items)) &&
+        quotesOnlyItsItem(claim, item, requirement.items, input.observation)) &&
       !quoted.has(claim)
     /**
      * A quotation not bound to its item is set aside, not fatal: the item's
@@ -2292,14 +2494,40 @@ const judgeItemizedRequirement = (
 const quotesOnlyItsItem = (
   claim: string,
   item: string,
-  items: readonly string[]
+  items: readonly string[],
+  observation: AgentObservation
 ): boolean => {
   const phrase = agentNormalizedClaim(item)
-  if (!phrase || !claim.startsWith(phrase)) return false
+  if (!phrase) return false
+  const alone = items.every(
+    (other) => other === item || !namesItem(claim, other)
+  )
+  /**
+   * A status or alert message quoted whole is one message about one thing,
+   * whatever order its words come in: "Order placed for Blue Kettle" puts
+   * the state first and the item last, and no row boundary can cut through
+   * it. Only the whole message counts — a run of text that starts or ends
+   * inside one is exactly the cut this rule exists to refuse.
+   */
+  if (wholeStatusMessage(claim, observation))
+    return namesItem(claim, item) && alone
+  if (!claim.startsWith(phrase)) return false
   const rest = claim.slice(phrase.length)
   if (!/^[^\p{L}\p{N}]/u.test(rest) || !/[\p{L}\p{N}]/u.test(rest)) return false
-  return items.every((other) => other === item || !namesItem(claim, other))
+  return alone
 }
+
+/** Whether the claim is the whole text of a status or alert the page announced. */
+const wholeStatusMessage = (
+  claim: string,
+  observation: AgentObservation
+): boolean =>
+  observation.elements.some(
+    (element) =>
+      ["status", "alert"].includes(element.role?.toLowerCase() ?? "") &&
+      element.name !== undefined &&
+      agentNormalizedClaim(element.name) === claim
+  )
 
 /** Whether normalized text names an item as a whole phrase, not a prefix. */
 const namesItem = (text: string, item: string): boolean => {
@@ -2321,6 +2549,7 @@ export const agentReceiptNamesItem = (
   items: readonly string[],
   observation: AgentObservation
 ): boolean =>
+  batchStatesItem(receipt, item, items) ||
   receiptNames(receipt).some(
     (name) =>
       namesItem(agentNormalizedClaim(name), item) ||
@@ -2375,6 +2604,25 @@ const receiptProvesItem = (
  * target names one control at most, so reading only that filtered out the
  * verified fields of an itemized form.
  */
+/**
+ * Whether a confirmed batch set exactly one field to the item itself — the
+ * item of "select Blue" is Blue, and the field that holds it is named
+ * Color, which no item names. The value is the batch's own, confirmed.
+ */
+const batchStatesItem = (
+  receipt: AgentStepReadout,
+  item: string,
+  items: readonly string[]
+): boolean => {
+  const batch = confirmedBatch(receipt)
+  if (!batch || batchFieldWithValue(batch.fields, item) === undefined)
+    return false
+  const wanted = agentNormalizedClaim(item)
+  return items.every(
+    (other) => other === item || agentNormalizedClaim(other) !== wanted
+  )
+}
+
 const receiptNames = (receipt: AgentStepReadout): string[] =>
   [
     receipt.target?.name,
@@ -2478,6 +2726,16 @@ const recordUnmetItems = (
  * row has to name the record as a complete phrase: "$9" quoted from the
  * Basic row is not the price of the Pro plan, however exactly it was quoted.
  */
+/**
+ * Told to the model when its superlative answer names the wrong item. The
+ * item is the plan's own wording and the value a number the page showed.
+ */
+const comparedAnswerFeedback = (
+  id: string,
+  winner: AgentCollectedRecord
+): string =>
+  `${id}: the values collected for each item say "${winner.item}" (${winner.value}) is the answer, not the item your answer names. Check the collected quotes and complete again.`
+
 const readBoundToItsRecord = (
   requirement: AgentTaskRequirement,
   quote: string | undefined,
@@ -2567,6 +2825,37 @@ const judgePlanned = (
   let review: Extract<AgentCompletionJudgement, { type: "refused" }> | undefined
   const reviewIds: string[] = []
   const items: NonNullable<AgentRunOutcome["items"]> = []
+  /**
+   * A superlative read — the cheapest, the highest — is computed from what
+   * the run collected for each item of the plan's itemized read, not taken
+   * from the model. An answer naming the computed item is verified without a
+   * quote of its own — it is a computation over quotes already grounded —
+   * and one naming another collected item is sent back with the computed one.
+   */
+  const collected = agentCollectedRecords(
+    requirements,
+    input.outcomes,
+    input.evidenceLedger
+  )
+  const compared = new Set<string>()
+  for (const requirement of requirements) {
+    const id = requirement.id
+    if (!claims.get(id)?.met) continue
+    const winner = agentComparedAnswer(requirement, collected, requirements)
+    if (!winner) continue
+    const stance = agentAnswerAgainstCompared(
+      claims.get(id)?.evidence,
+      winner,
+      collected
+    )
+    if (stance === "disagrees")
+      return {
+        type: "refused",
+        reason: "contradicted_state",
+        feedback: comparedAnswerFeedback(id, winner)
+      }
+    if (stance === "agrees") compared.add(id)
+  }
   for (const requirement of requirements) {
     const claim = claims.get(requirement.id)
     if (!claim?.met) {
@@ -2580,6 +2869,10 @@ const judgePlanned = (
         changes,
         consumed
       )
+      continue
+    }
+    if (compared.has(requirement.id)) {
+      met.push(requirement.id)
       continue
     }
     const judgedItems: number[] = []
@@ -2651,7 +2944,8 @@ const judgePlanned = (
     return {
       type: "refused",
       reason: "readback_required",
-      feedback: readbackFeedback(toAsk)
+      feedback: readbackFeedback(toAsk),
+      readback: toAsk
     }
   const visual = met.filter((id) => {
     const requirement = requirements.find((entry) => entry.id === id)
@@ -2686,7 +2980,8 @@ const judgePlanned = (
     if (
       requirement?.kind !== "read" ||
       requirement.items?.length ||
-      visual.includes(id)
+      visual.includes(id) ||
+      compared.has(id)
     )
       return false
     return !readBoundToItsRecord(requirement, claims.get(id)?.evidence, input)

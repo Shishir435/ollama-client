@@ -57,12 +57,12 @@ test("held-out failures cannot hide behind development success or infrastructure
   const sample = report("one")
   for (const row of sample.attempts
     .filter((row) => row.split === "held_out")
-    .slice(0, 8)) {
+    .slice(0, 10)) {
     row.success = false
     row.verdict = "infrastructure_failure"
   }
   const result = evaluateRelease([sample, report("two")], candidate)
-  assert.equal(result.configurations[0].attempted, 228)
+  assert.equal(result.configurations[0].attempted, 258)
   assert.ok(result.blockers.includes("held_out_below_target"))
   assert.ok(result.blockers.includes("incomplete_or_unsafe_two_model_evidence"))
 })

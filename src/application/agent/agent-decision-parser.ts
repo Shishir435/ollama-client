@@ -25,11 +25,25 @@ export const AGENT_DECISION_TOOL_NAME = "agent_decision"
  */
 export class AgentDecisionFormatError extends AgentMalformedDecisionError {
   readonly feedback?: string
+  /**
+   * Whether the answer counts against the run's malformed budget. A visual
+   * command on a step without the picture it needs is well formed: the tool
+   * schema stays the same on every step so the provider's prompt cache holds,
+   * which means it offers those commands on steps that cannot honour them.
+   * Charging the run for using what it was offered drained the budget of a
+   * model doing nothing wrong. The per-decision retry bound still applies.
+   */
+  readonly charged: boolean
 
-  constructor(message: string, feedback?: string) {
+  constructor(
+    message: string,
+    feedback?: string,
+    options: { charged?: boolean } = {}
+  ) {
     super(message)
     this.name = "AgentDecisionFormatError"
     if (feedback) this.feedback = feedback
+    this.charged = options.charged ?? true
   }
 }
 
@@ -63,7 +77,8 @@ const visualRefusal = (
       "The agent decision asked for a screenshot it was not offered",
       visual
         ? agentVisualUnavailableSentence(visual.reason)
-        : NO_SCREENSHOT_FEEDBACK
+        : NO_SCREENSHOT_FEEDBACK,
+      { charged: false }
     )
   }
   if (!VISUAL_COMMANDS.has(type) || options.screenshot) return undefined
@@ -73,7 +88,8 @@ const visualRefusal = (
       ? NO_SCREENSHOT_FEEDBACK
       : visual.available
         ? LOOK_FIRST_FEEDBACK
-        : agentVisualUnavailableSentence(visual.reason)
+        : agentVisualUnavailableSentence(visual.reason),
+    { charged: false }
   )
 }
 
@@ -234,11 +250,23 @@ const invalidFieldsFeedback = (
   const limits = [
     ...new Set(
       issues.flatMap((issue) => {
-        const field = issue.path.find(
-          (part): part is string =>
-            typeof part === "string" && DECISION_FIELDS.has(part)
+        if (
+          !issue.path.some(
+            (part) => typeof part === "string" && DECISION_FIELDS.has(part)
+          )
         )
-        if (!field) return []
+          return []
+        /**
+         * The whole path, so a nested cap names its own field: told
+         * "outcomes takes at most 200 characters" for one outcome's
+         * evidence, a model shortened nothing and died on the same answer.
+         */
+        const field = issue.path
+          .filter(
+            (part): part is string | number =>
+              typeof part === "string" || typeof part === "number"
+          )
+          .join(".")
         const maximum =
           "maximum" in issue && typeof issue.maximum === "number"
             ? issue.maximum
@@ -260,10 +288,43 @@ const invalidFieldsFeedback = (
   return (
     `The agent_decision call has missing or invalid fields: ${fields.join(", ")}. Correct these fields using the tool schema and flat arguments.` +
     (limits.length ? ` ${limits.join("; ")}.` : "") +
+    /**
+     * An answer built from several pages — a total over three reports —
+     * quoted all of them in one evidence string, three times running, and
+     * the run died on a correct sum. One line goes in evidence; the rest
+     * already have a list of their own.
+     */
+    (limits.some((limit) => /(?:^|\.)evidence /.test(limit))
+      ? " Put one short line in evidence and every other page's line in sourceQuotes, one entry per quote."
+      : "") +
     (isWait
       ? ' For wait, condition is required: the exact page text to wait for (1 to 500 characters), alongside timeoutMs (integer 1 to 30000). Example: {"type":"wait","condition":"All changes saved","timeoutMs":10000}.'
       : "")
   )
+}
+
+/**
+ * The two slips that ended four long runs in one live pass, each with only
+ * one reading: a `wait` with no timeout, and a `find` whose text arrived
+ * under `find` — the field `replace_text` uses — rather than `query`. Both
+ * commands only read, and every other part of the answer is still
+ * validated. Long plans run long enough that a per-run malformed budget
+ * spent on these ran out before the work did.
+ */
+const DEFAULT_WAIT_TIMEOUT_MS = 10_000
+
+const repairUnambiguousCommand = (
+  command: Record<string, unknown>,
+  record: Record<string, unknown>
+): void => {
+  if (command.type === "wait" && command.timeoutMs === undefined)
+    command.timeoutMs = DEFAULT_WAIT_TIMEOUT_MS
+  if (
+    command.type === "find" &&
+    command.query === undefined &&
+    typeof record.find === "string"
+  )
+    command.query = record.find
 }
 
 /**
@@ -308,6 +369,7 @@ const normalizeDecisionArguments = (
       if (record[field] !== undefined) command[field] = record[field]
     }
     fillFocusedKeyTarget(command, observation)
+    repairUnambiguousCommand(command, record)
     /** These fields belong to the decision, not the command's wire shape. */
     return {
       type: "command",

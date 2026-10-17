@@ -574,3 +574,215 @@ describe("frame visual execution revalidation", () => {
     expect(executor.mutate).not.toHaveBeenCalled()
   })
 })
+
+describe("a plain link pressed for real", () => {
+  const link = (name = "Orders") =>
+    observation({
+      elements: [
+        element({
+          tag: "a",
+          role: "link",
+          name,
+          href: "https://example.com/help"
+        })
+      ]
+    })
+
+  it("presses a plain link natively so the page's router runs", async () => {
+    const executor = adapter()
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(command({ type: "click", ref: "e1" }), link()),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("cdp")
+    expect(executor.dispatchNativeInput).toHaveBeenCalledOnce()
+    expect(executor.navigate).not.toHaveBeenCalled()
+  })
+
+  it("follows the address without a debugger", async () => {
+    const executor = adapter({
+      nativeControl: vi.fn(async () => facts({ cdpControl: false }))
+    })
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(command({ type: "click", ref: "e1" }), link()),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("dom")
+    expect(executor.navigate).toHaveBeenCalledWith(
+      7,
+      "https://example.com/help"
+    )
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+  })
+
+  it("never runs the handler of a link labelled as committing something", async () => {
+    const executor = adapter()
+    await executeDomMutationAgentEffect({
+      effect: await authorize(
+        command({ type: "click", ref: "e1" }),
+        link("Place order")
+      ),
+      adapter: executor,
+      signal
+    })
+    expect(executor.navigate).toHaveBeenCalledOnce()
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+  })
+
+  const pressed = { executedAt: 3, backend: "cdp" as const }
+
+  it("confirms a press the page routed itself, in the same document", async () => {
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      pressed,
+      observation({
+        url: "https://example.com/help",
+        visibleText: "Help topics",
+        elements: link().elements
+      }),
+      link()
+    )
+    expect(result).toMatchObject({
+      outcome: "confirmed",
+      evidence: { summary: "The page handled the link itself" }
+    })
+  })
+
+  it("does not confirm a router that moved somewhere the link did not name", async () => {
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      pressed,
+      observation({
+        url: "https://example.com/orders",
+        visibleText: "Open orders: 4",
+        elements: link().elements
+      }),
+      link()
+    )
+    expect(result).toMatchObject({
+      outcome: "ambiguous",
+      evidence: {
+        summary: "The page moved to an address the link did not name"
+      }
+    })
+  })
+
+  it("holds a tab the press opened to the link's own address", async () => {
+    const opened = { ...pressed, openedTabIds: [9] }
+    const landed = await verify(
+      command({ type: "click", ref: "e1" }),
+      opened,
+      observation({ url: "https://example.com/help" }),
+      link()
+    )
+    expect(landed.outcome).toBe("confirmed")
+    const elsewhere = await verify(
+      command({ type: "click", ref: "e1" }),
+      opened,
+      observation({ url: "https://example.com/elsewhere" }),
+      link()
+    )
+    expect(elsewhere.outcome).toBe("ambiguous")
+  })
+
+  it("does not confirm a press that changed nothing", async () => {
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      pressed,
+      link(),
+      link()
+    )
+    expect(result.outcome).toBe("ambiguous")
+  })
+
+  it("holds a new document to the link's own address", async () => {
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      pressed,
+      observation({
+        documentId: "document-2",
+        url: "https://example.com/elsewhere",
+        visibleText: "Elsewhere"
+      }),
+      link()
+    )
+    expect(result).toMatchObject({
+      outcome: "ambiguous",
+      evidence: { summary: "A different destination committed" }
+    })
+  })
+})
+
+describe("a checkbox pressed for real", () => {
+  const box = (checked: boolean) =>
+    observation({
+      elements: [
+        element({ tag: "input", type: "checkbox", name: "Agree", checked })
+      ]
+    })
+
+  it("presses an unticked box natively to tick it", async () => {
+    const executor = adapter()
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(
+        command({ type: "check", ref: "e1" }),
+        box(false)
+      ),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("cdp")
+    expect(executor.mutate).not.toHaveBeenCalled()
+  })
+
+  it("leaves a ticked box to the DOM path, which states the value", async () => {
+    const executor = adapter()
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(command({ type: "check", ref: "e1" }), box(true)),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("dom")
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+  })
+
+  it("sets a box no point can hit on the DOM path instead", async () => {
+    const executor = adapter({
+      prepareNativeInput: vi.fn(async () => {
+        throw new AgentEffectNotAppliedError("target covered")
+      })
+    })
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(
+        command({ type: "check", ref: "e1" }),
+        box(false)
+      ),
+      adapter: executor,
+      signal
+    })
+    expect(receipt.backend).toBe("dom")
+    expect(executor.mutate).toHaveBeenCalledOnce()
+  })
+
+  it("never repeats a press that may have been sent", async () => {
+    const { AgentNativeInputFailedError } = await import("../native-input")
+    const executor = adapter({
+      dispatchNativeInput: vi.fn(async () => {
+        throw new AgentNativeInputFailedError(1, new Error("detached"))
+      })
+    })
+    await expect(
+      executeDomMutationAgentEffect({
+        effect: await authorize(
+          command({ type: "check", ref: "e1" }),
+          box(false)
+        ),
+        adapter: executor,
+        signal
+      })
+    ).rejects.toBeInstanceOf(AgentNativeInputFailedError)
+    expect(executor.mutate).not.toHaveBeenCalled()
+  })
+})

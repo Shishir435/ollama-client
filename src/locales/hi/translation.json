@@ -105,6 +105,7 @@
       "remote_notice_screenshots": "एजेंट चलने के दौरान पेज अवलोकन और व्यूपोर्ट स्क्रीनशॉट लगातार इस रिमोट प्रदाता को भेजे जाएँगे।"
     },
     "progress": "{{budget}} में से {{count}} अवलोकन",
+    "workflowProgress": "{{total}} में से {{done}} भाग पूरे",
     "question": {
       "title": "Agent को उत्तर चाहिए",
       "inputLabel": "आपका उत्तर",

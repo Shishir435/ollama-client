@@ -1,5 +1,7 @@
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import {
+  agentLeaveTypedField,
+  agentRefuseSubmissions,
   resolveAgentDropTarget,
   resolveAgentMutationTarget
 } from "./command-executor"
@@ -102,8 +104,12 @@ const recordOf = (
 }
 
 export interface AgentInputWatch {
-  /** Starts recording trusted input against `target`; replaces any earlier watch. */
-  arm(target: Element): void
+  /**
+   * Starts recording trusted input against `target`; replaces any earlier
+   * watch. `finish` runs once the record is taken, for what the action
+   * owes the page after its input — focus leaving a typed field.
+   */
+  arm(target: Element, finish?: () => void): void
   /** Stops recording and returns what was seen since `arm`. */
   settle(): AgentInputTrace | undefined
 }
@@ -124,15 +130,25 @@ export const createAgentInputWatch = (
 ): AgentInputWatch => {
   const trusted = options?.trusted ?? ((event: Event) => event.isTrusted)
   let active:
-    | { events: AgentRecordedInputEvent[]; overflow: boolean; stop(): void }
+    | {
+        events: AgentRecordedInputEvent[]
+        overflow: boolean
+        stop(): void
+        finish?: () => void
+      }
     | undefined
 
   return {
-    arm(target) {
+    arm(target, finish) {
       active?.stop()
       const view = document.defaultView
       const events: AgentRecordedInputEvent[] = []
-      const state = { events, overflow: false, stop: () => undefined }
+      const state = {
+        events,
+        overflow: false,
+        stop: () => undefined,
+        ...(finish ? { finish } : {})
+      }
       const listener = (event: Event) => {
         if (events.length >= MAX_AGENT_RECORDED_INPUT_EVENTS) {
           state.overflow = true
@@ -154,9 +170,15 @@ export const createAgentInputWatch = (
     },
     settle() {
       if (!active) return undefined
-      const { events, overflow, stop } = active
+      const { events, overflow, stop, finish } = active
       stop()
       active = undefined
+      /** Taken after the record, so what it sets off is not mistaken for input. */
+      try {
+        finish?.()
+      } catch {
+        /** A page that throws on blur still gets its record read. */
+      }
       return { events, ...(overflow ? { overflow: true } : {}) }
     }
   }
@@ -262,11 +284,48 @@ export const prepareAgentNativeInputInDocument = (input: {
   watch: AgentInputWatch
 }): AgentNativeInputPreparation => {
   const element = resolveAgentMutationTarget(input.effect, input.references)
+  /**
+   * Text typed natively is finished on settle, the way the DOM path finishes
+   * it. A box pressed natively keeps the DOM path's submit guard from arming
+   * until the press settles.
+   */
+  const toggle =
+    input.effect.command.type === "check" ||
+    input.effect.command.type === "uncheck"
+  const watch: AgentInputWatch = {
+    arm: (target) => {
+      const release = toggle ? agentRefuseSubmissions(target) : undefined
+      input.watch.arm(target, () => {
+        release?.()
+        agentLeaveTypedField(input.effect, element)
+      })
+    },
+    settle: () => input.watch.settle()
+  }
   if (input.effect.command.type === "replace_text") {
-    return prepareReplacement(input.effect, element, input.watch)
+    return prepareReplacement(input.effect, element, watch)
   }
   if (input.effect.command.type === "drag") {
-    return prepareDrag(input.effect, element, input.references, input.watch)
+    return prepareDrag(input.effect, element, input.references, watch)
+  }
+  /**
+   * A key for the page itself goes wherever the keyboard already points.
+   * There is nothing to aim at, so no point is sampled; the body still has to
+   * hold focus, since a plan for an unfocused target clicks it first, and a
+   * click on the body lands on whatever covers it.
+   */
+  if (
+    input.effect.command.type === "press_key" &&
+    element === element.ownerDocument.body
+  ) {
+    const active = element.ownerDocument.activeElement
+    if (active !== null && active !== element) {
+      throw new AgentEffectNotAppliedError(
+        agentRejectionMessage(AGENT_EFFECT_REJECTIONS.targetChanged)
+      )
+    }
+    watch.arm(element)
+    return { point: { x: 0, y: 0 }, focused: true }
   }
   /**
    * A named point is used as named, never re-sampled: the run approved a
@@ -285,7 +344,7 @@ export const prepareAgentNativeInputInDocument = (input: {
         agentRejectionMessage(AGENT_EFFECT_REJECTIONS.visualTargetMoved)
       )
     }
-    input.watch.arm(element)
+    watch.arm(element)
     return {
       point: input.effect.point,
       focused: element === doc.activeElement
@@ -304,7 +363,7 @@ export const prepareAgentNativeInputInDocument = (input: {
       agentRejectionMessage(AGENT_EFFECT_REJECTIONS.targetCovered)
     )
   }
-  input.watch.arm(element)
+  watch.arm(element)
   return {
     point,
     focused: element === element.ownerDocument.activeElement

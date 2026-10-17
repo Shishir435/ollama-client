@@ -1,4 +1,5 @@
 import { sourceFacts } from "./qualification-fixtures.mjs"
+import { countLongForbiddenEffects, scoreLong } from "./qualification-long.mjs"
 import {
   KETTLES,
   openOrders,
@@ -117,6 +118,7 @@ const rowTargets = (task) =>
 /** Committed mutations outside the task's scope or explicit negative constraints. */
 export const countForbiddenEffects = (state) => {
   const { task } = state
+  if (task.family === "long") return countLongForbiddenEffects(state)
   const trapKeys = {
     validation: ["register"],
     toast_500: ["save"],
@@ -386,6 +388,7 @@ const scoreFamily = (input, notes) => {
       state.effects.length === 0 && readProof(input, [task.code]),
     boundary: () => state.effects.length === 0 && readProof(input, [task.code]),
     traps: () => scoreTrap(input, notes),
+    long: () => scoreLong(input),
     lifecycle: () => {
       if (task.variant === "ambiguous")
         return (

@@ -5,10 +5,33 @@ import type {
 } from "@ollama-client/contracts"
 import { agentNormalizedClaim } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
-import { agentRowContextBeyond } from "./row-context"
+import { agentRowContextBeyond, agentTextNamesRecord } from "./row-context"
 
 const same = (a: string, b: string) =>
   agentNormalizedClaim(a) === agentNormalizedClaim(b)
+/**
+ * The controls a check names: those whose label is the name exactly, or,
+ * when none is, those whose label holds the name as a whole phrase. A
+ * planner shortens labels — the check said "terms" for a box labelled "I
+ * accept the terms", and was never met on any page. Several phrase matches
+ * stay several, so an ambiguous name is still no answer.
+ */
+const namedBy = <T>(
+  items: readonly T[],
+  label: (item: T) => string | undefined,
+  name: string
+): T[] => {
+  const exact = items.filter((item) => {
+    const text = label(item)
+    return text !== undefined && same(text, name)
+  })
+  if (exact.length) return exact
+  return items.filter((item) => {
+    const text = label(item)
+    return text !== undefined && agentTextNamesRecord(text, name)
+  })
+}
+
 const escapePattern = (text: string) =>
   text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
@@ -56,6 +79,8 @@ export const visualCompletionRead = (
 
 /** A control write the verifier confirmed by the value it left behind. */
 const FIELD_WRITE_KINDS = new Set(["field", "fields"])
+/** The same for a box or switch, confirmed by the state it left behind. */
+const CHECKED_WRITE_KINDS = new Set(["checked", "fields"])
 
 /**
  * Whether a confirmed write left its control holding exactly the value the
@@ -72,6 +97,7 @@ export const agentWriteHeldPlannedValue = (
   targets: readonly {
     accessibleName?: string
     expectedValue?: string
+    expectedChecked?: boolean
     sensitive?: boolean
     frameId?: number
   }[],
@@ -80,10 +106,14 @@ export const agentWriteHeldPlannedValue = (
   const check = requirement?.check
   if (
     !check ||
-    (check.type !== "field" && check.type !== "selected") ||
+    (check.type !== "field" &&
+      check.type !== "selected" &&
+      check.type !== "checked") ||
     check.record ||
     verification.outcome !== "confirmed" ||
-    !FIELD_WRITE_KINDS.has(verification.evidence.kind)
+    !(check.type === "checked" ? CHECKED_WRITE_KINDS : FIELD_WRITE_KINDS).has(
+      verification.evidence.kind
+    )
   )
     return false
   /**
@@ -91,16 +121,20 @@ export const agentWriteHeldPlannedValue = (
    * is not the Name field the requirement named inside a frame, and the
    * receipt that later stands for it keeps no frame to tell them apart.
    */
-  const named = targets.filter(
-    (target) =>
-      target.accessibleName !== undefined &&
-      same(target.accessibleName, check.name) &&
-      (check.frameId === undefined || target.frameId === check.frameId)
+  const named = namedBy(
+    targets.filter(
+      (target) =>
+        check.frameId === undefined || target.frameId === check.frameId
+    ),
+    (target) => target.accessibleName,
+    check.name
   )
   return (
     named.length === 1 &&
     !named[0].sensitive &&
-    named[0].expectedValue === check.value
+    (check.type === "checked"
+      ? named[0].expectedChecked === check.checked
+      : named[0].expectedValue === check.value)
   )
 }
 
@@ -142,13 +176,11 @@ const leftThePage = (step: AgentStepReadout): boolean => {
 /** Whether a confirmed write of either shape set a control of this name. */
 const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
   const evidence = step.verification?.evidence
-  if (evidence?.kind === "field")
-    return step.target?.name !== undefined && same(step.target.name, name)
+  if (evidence?.kind === "field" || evidence?.kind === "checked")
+    return namedBy([step.target?.name], (label) => label, name).length === 1
   return (
     evidence?.kind === "fields" &&
-    (evidence.fields ?? []).some(
-      (field) => field.name !== undefined && same(field.name, name)
-    )
+    namedBy(evidence.fields ?? [], (field) => field.name, name).length === 1
   )
 }
 
@@ -160,22 +192,59 @@ const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
  * left it. A later write
  * to the same name replaces the earlier one, so a value cleared or retyped
  * before leaving is never credited.
+ *
+ * `credited` when it stands for the control, `unproven` when the run wrote
+ * the control and left it without that record, undefined when the run never
+ * left a control of that name behind. A run back on the page the write was
+ * made on, with a control there the name still picks out, reads that
+ * control: the form was reopened, and what it holds now is the answer.
  */
 const plannedValueLeftBehind = (
   requirementId: string,
   name: string,
-  changes: readonly AgentStepReadout[]
-): boolean => {
+  changes: readonly AgentStepReadout[],
+  currentUrl: string,
+  present: boolean
+): "credited" | "unproven" | undefined => {
   let last = -1
   for (const [index, step] of changes.entries())
     if (writesControlNamed(step, name)) last = index
-  if (last < 0) return false
+  if (last < 0) return undefined
   const write = changes[last]
-  return (
-    write.heldPlannedValue === true &&
-    write.requirementId === requirementId &&
-    changes.slice(last + 1).some(leftThePage)
+  const later = changes.slice(last + 1)
+  /**
+   * The page left when a later step says so, or when the run, after a later
+   * change, is no longer on the page the write was made on. A save button
+   * whose handler posts and then navigates is verified on the in-page change
+   * it made first, so its own receipt never says it left; the address the
+   * run is on now does.
+   */
+  const left =
+    later.some(leftThePage) ||
+    (later.length > 0 &&
+      write.sourceUrl !== undefined &&
+      !samePageAddress(write.sourceUrl, currentUrl))
+  if (!left) return undefined
+  if (
+    present &&
+    write.sourceUrl !== undefined &&
+    samePageAddress(write.sourceUrl, currentUrl)
   )
+    return undefined
+  return write.heldPlannedValue === true &&
+    write.requirementId === requirementId
+    ? "credited"
+    : "unproven"
+}
+
+/** Same scheme, host and path, read by pattern: the package has no `URL`. */
+const samePageAddress = (first: string, second: string): boolean => {
+  const page = (url: string) => {
+    const match = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)([^?#]*)/i.exec(url)
+    return match ? `${match[1].toLowerCase()}${match[2] || "/"}` : undefined
+  }
+  const a = page(first)
+  return a !== undefined && a === page(second)
 }
 
 /**
@@ -317,10 +386,26 @@ export const checkCompletionState = (
     if (!status) return undefined
     // Exact identity and asserted state together. "not saved" and another
     // row's status cannot satisfy this predicate. Other phrasing needs review.
-    return new RegExp(
-      `^(?:${record}\\s*[:—–-]?\\s*(?:is\\s+)?${check.state}|${check.state}\\s*[:—–-]?\\s*${record})[.!]?$`,
-      "u"
-    ).test(agentNormalizedClaim(fact.quote ?? ""))
+    const said = agentNormalizedClaim(fact.quote ?? "")
+    if (
+      new RegExp(
+        `^(?:${record}\\s*[:—–-]?\\s*(?:is\\s+)?${check.state}|${check.state}\\s*[:—–-]?\\s*${record})[.!]?$`,
+        "u"
+      ).test(said)
+    )
+      return true
+    /**
+     * A status naming the record and saying it failed contradicts the
+     * check. Any other wording — "Order placed for Blue Kettle" against
+     * "Blue Kettle order is submitted" — is a phrasing no rule here reads,
+     * not a contradiction, and goes to review.
+     */
+    return new RegExp(`\\b${record}\\b`, "u").test(said) &&
+      /\b(?:not|failed|failure|error|unable|could not|cannot|rejected|declined)\b/u.test(
+        said
+      )
+      ? false
+      : undefined
   }
   if (check.type === "row") {
     if (
@@ -340,19 +425,31 @@ export const checkCompletionState = (
   // rowContext is bounded whole-row text, not a distinct record label.
   // It cannot prove a scoped control belongs to the requested record.
   if (check.record) return undefined
-  const matches = observation.elements.filter(
+  const candidates = observation.elements.filter(
     (element) =>
       !element.sensitive &&
       (element.visible || element.offscreen) &&
-      same(element.name ?? "", check.name) &&
       (check.frameId === undefined || element.frameId === check.frameId)
   )
-  if (
-    matches.length === 0 &&
-    check.type !== "checked" &&
-    plannedValueLeftBehind(requirement.id, check.name, changes)
-  )
-    return true
+  /**
+   * The control left with the page: a box ticked before Continue is not on
+   * the page Continue opened. Its own confirmed write, recorded as holding
+   * the planned value or state, stands for it there, and nothing else does.
+   * Decided before a shortened name is read as a phrase, or "Email me the
+   * terms" on the new page would answer for the "terms" box the run ticked
+   * on the old one.
+   */
+  const matches = namedBy(candidates, (element) => element.name, check.name)
+  if (!candidates.some((element) => same(element.name ?? "", check.name))) {
+    const left = plannedValueLeftBehind(
+      requirement.id,
+      check.name,
+      changes,
+      observation.url,
+      matches.length > 0
+    )
+    if (left) return left === "credited"
+  }
   if (matches.length !== 1) return false
   const element = matches[0]
   /** The page rejected what the control holds; it does not hold it as asked. */

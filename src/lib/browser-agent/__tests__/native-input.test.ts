@@ -513,7 +513,36 @@ describe("native input backend choice", () => {
         ...cdp,
         effect: { command: command({ type: "check" }), target }
       })
-    ).toEqual({ backend: "dom", reason: "action_not_native" })
+    ).toEqual({ backend: "dom", reason: "state_stated" })
+  })
+
+  it("presses a checkbox natively only when it is observed in the other state", () => {
+    const box = (observedChecked?: boolean) => ({ ...target, observedChecked })
+    const choose = (type: "check" | "uncheck", observedChecked?: boolean) =>
+      chooseAgentInputBackend({
+        ...cdp,
+        effect: { command: command({ type }), target: box(observedChecked) }
+      }).backend
+    expect(choose("check", false)).toBe("cdp")
+    expect(choose("uncheck", true)).toBe("cdp")
+    expect(choose("check", true)).toBe("dom")
+    expect(choose("uncheck", false)).toBe("dom")
+    expect(choose("check")).toBe("dom")
+  })
+
+  it("presses a plain link natively and follows any other by address", () => {
+    const link = { ...target, href: "https://example.com/orders" }
+    const effect = { command: command({ type: "click" }), target: link }
+    expect(chooseAgentInputBackend({ ...cdp, effect }).reason).toBe(
+      "guarded_navigation"
+    )
+    expect(
+      chooseAgentInputBackend({ ...cdp, effect, nativeLink: true }).backend
+    ).toBe("cdp")
+  })
+
+  it("plans a checkbox press as one click", () => {
+    expect(plan({ type: "check" }).steps).toEqual(plan({ type: "click" }).steps)
   })
 })
 

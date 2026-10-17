@@ -4,7 +4,7 @@ import {
   AgentRunStateSchema,
   AgentStepStatusSchema,
   MAX_AGENT_ANSWER_CHARS,
-  MAX_AGENT_OBSERVATIONS,
+  MAX_AGENT_OBSERVATION_CEILING,
   MAX_AGENT_ROW_CONTEXT_CHARS,
   MAX_AGENT_THINKING_CHARS
 } from "./agent"
@@ -199,7 +199,7 @@ export const AgentPanelSnapshotSchema = z
      * A literal cannot be allowed to disagree with the budget again, so the
      * bound is the budget, and the sender collapses receipts to reach it.
      */
-    steps: z.array(AgentStepRecordSchema).max(MAX_AGENT_OBSERVATIONS),
+    steps: z.array(AgentStepRecordSchema).max(MAX_AGENT_OBSERVATION_CEILING),
     pending: AgentPendingSupervisionSchema.optional(),
     provider: AgentProviderDisclosureSchema.optional(),
     browser: AgentBrowserDisclosureSchema.optional(),

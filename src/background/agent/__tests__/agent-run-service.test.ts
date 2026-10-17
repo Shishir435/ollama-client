@@ -377,7 +377,7 @@ describe("Agent run service", () => {
 
     expect(runs.get("run-1")).toMatchObject({
       status: "failed",
-      error: { code: "observation_failed", retryable: true }
+      error: { code: "observation_failed" }
     })
     expect(controller.start).not.toHaveBeenCalled()
     expect(browser.manager.detach).toHaveBeenCalledWith("run-1")

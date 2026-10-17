@@ -34,6 +34,20 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Each selection action has its own icon, and the selection toolbar's colors
   come from the same theme as the app.
 - Bug reports ask for the provider version and server log lines.
+- The agent presses plain links and checkboxes with real input where it can,
+  so single-page apps and framework-controlled checkboxes respond. It can
+  also open disclosures, use labels that stand in for hidden toggles, close
+  overlays with Escape, set date, time, range and colour inputs, and add to
+  multiple selects.
+- The agent reopens a record itself to confirm a save, computes "cheapest"
+  and "highest" answers from the values it collected, and refuses a step on
+  another record's row.
+- Longer tasks get a larger step and time budget, up to a fixed ceiling, and
+  the run card shows how many parts are done. Loop and refusal limits now
+  survive a background worker restart.
+- The completion reviewer can mark a checked outcome as only claimed when the
+  evidence contradicts it, and text the agent types with real input is
+  committed when it leaves the field.
 
 ### Security
 
@@ -41,6 +55,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   requests from any website, so a page could use a local Ollama through it.
   Origin handling now applies only to the extension's own requests, on
   Chromium and Firefox, and the old rule is removed on update.
+- A link the agent presses with real input counts only when it lands on its
+  own address, in the same tab or a new one, and ticking a box can no longer
+  set off a form submission.
 
 ### Fixed
 

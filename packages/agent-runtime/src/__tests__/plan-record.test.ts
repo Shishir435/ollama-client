@@ -5,7 +5,9 @@ import {
   agentConfirmedRemovalPatch,
   agentForbiddingConstraints,
   agentInitialPlanPatch,
-  agentPlanNeedsReconciling
+  agentPlanNeedsReconciling,
+  agentRequirementRecords,
+  agentWrongRowRecord
 } from "../plan-record"
 
 const planned: Pick<
@@ -175,6 +177,126 @@ describe("agent plan record", () => {
         { id: "c2", text: "Only Record 6", kind: "scope" }
       ])
     ).toEqual([])
+  })
+
+  it("proves a scope limit only by the row naming the step's one record", () => {
+    const remove = (rowContext?: string) => ({
+      semanticEffects: ["destructive" as const],
+      target: rowContext ? { rowContext } : {}
+    })
+    const scope = [
+      { id: "c1", text: "Keep every other invoice", kind: "scope" as const }
+    ]
+    const records = agentRequirementRecords({
+      id: "r1",
+      text: "Invoice B is deleted",
+      kind: "change",
+      check: { type: "record_state", record: "Invoice B", state: "deleted" }
+    })
+    expect(records).toEqual(["Invoice B"])
+    expect(
+      agentForbiddingConstraints(remove("Invoice B $40 Delete"), scope, records)
+    ).toEqual([])
+    expect(
+      agentForbiddingConstraints(
+        remove("Invoice B2 $40 Delete"),
+        scope,
+        records
+      )
+    ).toHaveLength(1)
+    expect(
+      agentForbiddingConstraints(remove("Invoice A $12 Delete"), scope, records)
+    ).toHaveLength(1)
+    /** An id's joiner keeps it whole: Invoice B-2 is not Invoice B. */
+    for (const row of ["Invoice B-2 Delete", "Invoice B.2 Delete"])
+      expect(
+        agentForbiddingConstraints(remove(row), scope, records)
+      ).toHaveLength(1)
+    expect(
+      agentForbiddingConstraints(remove("Invoice B. Delete"), scope, records)
+    ).toEqual([])
+    expect(agentForbiddingConstraints(remove(), scope, records)).toHaveLength(1)
+    expect(
+      agentForbiddingConstraints(remove("Invoice B $40 Delete"), scope)
+    ).toHaveLength(1)
+  })
+
+  it("binds an exclusion naming no effect to the step's own record", () => {
+    const remove = (rowContext: string) => ({
+      semanticEffects: ["destructive" as const],
+      target: { rowContext }
+    })
+    const keep = [
+      { id: "c1", text: "Keep every other invoice", kind: "exclude" as const }
+    ]
+    const records = ["Invoice B"]
+    expect(
+      agentForbiddingConstraints(remove("Invoice B Delete"), keep, records)
+    ).toEqual([])
+    expect(
+      agentForbiddingConstraints(remove("Invoice B-2 Delete"), keep, records)
+    ).toHaveLength(1)
+    /** A step about no record, and an exclusion naming its class, as before. */
+    expect(
+      agentForbiddingConstraints(remove("Invoice B-2 Delete"), keep)
+    ).toEqual([])
+    expect(
+      agentForbiddingConstraints(
+        remove("Invoice B Delete"),
+        [{ ...keep[0], forbids: ["submission" as const] }],
+        records
+      )
+    ).toEqual([])
+  })
+
+  it("names another planned record's row, and nothing else, as the wrong row", () => {
+    const requirements = [
+      {
+        id: "r1",
+        text: "Invoice A is paid",
+        kind: "change" as const,
+        check: {
+          type: "control_transition" as const,
+          from: "Mark paid",
+          to: "Paid",
+          record: "Invoice A"
+        }
+      },
+      {
+        id: "r2",
+        text: "Invoice B is paid",
+        kind: "change" as const,
+        check: {
+          type: "control_transition" as const,
+          from: "Mark paid",
+          to: "Paid",
+          record: "Invoice B"
+        }
+      }
+    ]
+    const [first, second] = requirements
+    expect(
+      agentWrongRowRecord(
+        { rowContext: "Invoice A $12 Mark paid" },
+        second,
+        requirements
+      )
+    ).toBe("Invoice A")
+    expect(
+      agentWrongRowRecord(
+        { rowContext: "Invoice B $40 Mark paid" },
+        second,
+        requirements
+      )
+    ).toBeUndefined()
+    expect(
+      agentWrongRowRecord(
+        { rowContext: "INV-002 Mark paid" },
+        first,
+        requirements
+      )
+    ).toBeUndefined()
+    expect(agentWrongRowRecord({}, first, requirements)).toBeUndefined()
   })
 
   it("refuses a committing-labelled script button under a no-submit constraint", () => {

@@ -105,6 +105,7 @@
       "remote_notice_screenshots": "エージェントの実行中、ページの観測結果とビューポートのスクリーンショットがこのリモートプロバイダーへ継続的に送信されます。"
     },
     "progress": "{{budget}} 回中 {{count}} 回の観測",
+    "workflowProgress": "{{total}} 件中 {{done}} 件完了",
     "question": {
       "title": "Agent が回答を求めています",
       "inputLabel": "あなたの回答",

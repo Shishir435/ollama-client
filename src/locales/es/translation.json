@@ -105,6 +105,7 @@
       "remote_notice_screenshots": "Las observaciones de página y las capturas del área visible se enviarán continuamente a este proveedor remoto mientras el Agente se ejecuta."
     },
     "progress": "{{count}} de {{budget}} observaciones",
+    "workflowProgress": "{{done}} de {{total}} partes hechas",
     "question": {
       "title": "Agent necesita una respuesta",
       "inputLabel": "Tu respuesta",

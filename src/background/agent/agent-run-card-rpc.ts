@@ -5,7 +5,7 @@ import {
 import type { AgentRunState } from "@ollama-client/contracts"
 import {
   agentRequirementTier,
-  MAX_AGENT_OBSERVATIONS
+  MAX_AGENT_OBSERVATION_CEILING
 } from "@ollama-client/contracts"
 import type {
   AgentGetRunRequest,
@@ -42,7 +42,9 @@ export const toAgentRunCard = (
   state: AgentRunState,
   receipts: readonly DurableAgentStep[] = []
 ): AgentRunCard => {
-  const records = toAgentStepRecords(receipts).slice(-MAX_AGENT_OBSERVATIONS)
+  const records = toAgentStepRecords(receipts).slice(
+    -MAX_AGENT_OBSERVATION_CEILING
+  )
   const pages = new Set(
     records.flatMap((step) => {
       const page = step.sourceUrl && agentStepSourceUrl(step.sourceUrl)

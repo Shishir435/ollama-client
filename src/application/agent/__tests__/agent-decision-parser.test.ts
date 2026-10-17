@@ -138,7 +138,28 @@ describe("parseAgentDecisionToolCalls", () => {
      */
     expect(feedback).toContain("evidence")
     expect(feedback).toContain("at most")
+    expect(feedback).toContain("sourceQuotes")
     expect(feedback).not.toContain("codename")
+  })
+
+  it("names a nested evidence cap by its own path", () => {
+    let feedback = ""
+    try {
+      parseAgentDecisionToolCalls(
+        [
+          call({
+            type: "complete",
+            summary: "Travel total is 320 credits",
+            outcomes: [{ id: "r1", met: true, evidence: "x".repeat(400) }]
+          })
+        ],
+        observation
+      )
+    } catch (error) {
+      feedback = (error as AgentDecisionFormatError).feedback ?? ""
+    }
+    expect(feedback).toContain("outcomes.0.evidence takes at most 200")
+    expect(feedback).toContain("sourceQuotes")
   })
 
   it("tells an invalid wait which fields to repair without echoing values", () => {
@@ -169,6 +190,40 @@ describe("parseAgentDecisionToolCalls", () => {
         observation
       )
     ).toMatchObject({ type: "command", command: { type: "wait" } })
+  })
+
+  it("repairs a wait with no timeout and a find whose text came as find", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "wait", condition: "Saved" })],
+        observation
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "wait", condition: "Saved", timeoutMs: 10_000 }
+    })
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "find", find: "Travel" })],
+        observation
+      )
+    ).toMatchObject({
+      type: "command",
+      command: { type: "find", query: "Travel" }
+    })
+    /** A stated query wins; a wait with a bad timeout is still refused. */
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "find", find: "Other", query: "Travel" })],
+        observation
+      )
+    ).toMatchObject({ command: { query: "Travel" } })
+    expect(() =>
+      parseAgentDecisionToolCalls(
+        [call({ type: "wait", condition: "Saved", timeoutMs: 40_000 })],
+        observation
+      )
+    ).toThrow(AgentDecisionFormatError)
   })
 
   it("binds flat intent to the current observation without model-generated identity", () => {
