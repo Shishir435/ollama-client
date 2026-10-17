@@ -671,10 +671,19 @@ export const scoreLong = (input) => {
         ORDER_PAGES.map((_, i) => `/site/a/orders/${i + 1}`)
       ) &&
       ADA_ORDERS.every((id) => reported(input, id)) &&
-      /** Exactly her orders: every other order number named is wrong. */
-      [...String(input.answer ?? "").matchAll(/\bORD-\d+\b/gi)].every(([id]) =>
-        ADA_ORDERS.includes(id.toUpperCase())
-      ),
+      /**
+       * Exactly her orders: any other order's number named, whatever joins
+       * it to its prefix ("ORD–1043", "ORD 1043", "#1043"), is wrong.
+       */
+      ORDER_PAGES.flat()
+        .map(([id]) => id)
+        .filter((id) => !ADA_ORDERS.includes(id))
+        .every(
+          (id) =>
+            !new RegExp(`(?<!\\d)${id.replace(/\D/g, "")}(?!\\d)`).test(
+              String(input.answer ?? "")
+            )
+        ),
     crm_copy: () => {
       const contact = onlyOnce(state, "contact") && state.values.contact
       return (

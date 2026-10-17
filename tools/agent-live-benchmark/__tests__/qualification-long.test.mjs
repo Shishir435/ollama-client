@@ -105,6 +105,18 @@ test("an order list padded with other customers' orders fails", async () => {
     )
   })
   assert.equal(score.success, false)
+  for (const extra of ["ORD\u20131043", "ORD 1043", "#1043"]) {
+    const { score: joined } = await run(
+      variant("paged_orders"),
+      async (env) => {
+        await LONG_SOLUTIONS.paged_orders.cheat(env)
+        env.answer(
+          `Ada Lovelace placed ORD-1042, ORD-1187 and ORD-1290, and ${extra}.`
+        )
+      }
+    )
+    assert.equal(joined.success, false, extra)
+  }
 })
 
 test("a contact or an event written without reading its source fails", async () => {
