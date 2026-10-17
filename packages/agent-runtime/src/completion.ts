@@ -1,6 +1,7 @@
 import type {
   AgentCommand,
   AgentEvidenceRecord,
+  AgentFormField,
   AgentObservation,
   AgentRunOutcome,
   AgentStepStatus,
@@ -859,13 +860,45 @@ const valueAssertedForControl = (
     )
 }
 
-/** A confirmed batch can evidence each control it checked, once per field. */
-const matchingBatchField = (
-  requirement: AgentTaskRequirement,
-  receipt: AgentStepReadout,
-  observation: AgentObservation,
-  consumed: Set<string>
+/**
+ * The whole value a confirmed batch field was set to: what it replaced the
+ * field with, or the option it chose. A `type` field appended to whatever
+ * was there, so its own text is not the field's value.
+ */
+const batchFieldValue = (field: AgentFormField): string | undefined =>
+  field.type === "clear_and_type"
+    ? field.text
+    : field.type === "select"
+      ? field.value
+      : undefined
+
+/**
+ * The one field of a confirmed batch set to exactly `value`, or none when
+ * no field or several were. A value two fields share names neither.
+ */
+const batchFieldWithValue = (
+  fields: readonly AgentFormField[],
+  value: string
 ): number | undefined => {
+  const wanted = agentNormalizedClaim(value)
+  if (!wanted) return undefined
+  const hits = fields.flatMap((field, index) => {
+    const set = batchFieldValue(field)
+    return set !== undefined && agentNormalizedClaim(set) === wanted
+      ? [index]
+      : []
+  })
+  return hits.length === 1 ? hits[0] : undefined
+}
+
+const confirmedBatch = (
+  receipt: AgentStepReadout
+):
+  | {
+      fields: readonly AgentFormField[]
+      names: readonly { name?: string }[]
+    }
+  | undefined => {
   if (
     receipt.command?.type !== "fill_form" ||
     receipt.verification?.outcome !== "confirmed" ||
@@ -874,17 +907,53 @@ const matchingBatchField = (
     return undefined
   const names = receipt.verification.evidence.fields
   if (!names || names.length !== receipt.command.fields.length) return undefined
+  return { fields: receipt.command.fields, names }
+}
+
+/**
+ * A confirmed batch can evidence each control it checked, once per field.
+ *
+ * The requirement names the field ("Name is Ada"), or asserts the one value
+ * only that field was set to ("Enter Ada", "Select Blue"): a plan cuts "enter
+ * Ada and select Blue" into one outcome per value and names no control. The
+ * field is then read where it is. A field still on the page must hold the
+ * value now. One no longer on it — Save took the run to a result page — is
+ * vouched for by the value its own confirmed verification saw it hold, which
+ * is what typing a value and leaving the page leaves behind.
+ */
+const matchingBatchField = (
+  requirement: AgentTaskRequirement,
+  receipt: AgentStepReadout,
+  observation: AgentObservation,
+  consumed: Set<string>
+): number | undefined => {
+  const batch = confirmedBatch(receipt)
+  if (!batch) return undefined
+  const { fields, names } = batch
   const text = agentNormalizedClaim(requirement.text)
-  return receipt.command.fields.findIndex((field, index) => {
+  return fields.findIndex((field, index) => {
     const key = `${receipt.stepId}:field:${index}`
     if (consumed.has(key)) return false
     const name = names[index]?.name
-    if (!name || !requirementNamesField(text, name, observation)) return false
+    if (!name) return false
+    const set = batchFieldValue(field)
+    const byValue =
+      set !== undefined &&
+      batchFieldWithValue(fields, set) === index &&
+      valueAssertedWithoutNegation(text, set)
+    if (!byValue && !requirementNamesField(text, name, observation))
+      return false
     const matches = observation.elements.filter(
       (element) =>
         !element.sensitive &&
         agentNormalizedClaim(element.name ?? "") === agentNormalizedClaim(name)
     )
+    if (matches.length === 0)
+      return field.type === "check"
+        ? !requirementAssertsOff(text)
+        : field.type === "uncheck"
+          ? !requirementAssertsOn(text)
+          : set !== undefined && valueAssertedWithoutNegation(text, set)
     if (matches.length !== 1) return false
     const current = matches[0]
     if (field.type === "check")
@@ -2432,6 +2501,7 @@ export const agentReceiptNamesItem = (
   items: readonly string[],
   observation: AgentObservation
 ): boolean =>
+  batchStatesItem(receipt, item, items) ||
   receiptNames(receipt).some(
     (name) =>
       namesItem(agentNormalizedClaim(name), item) ||
@@ -2486,6 +2556,25 @@ const receiptProvesItem = (
  * target names one control at most, so reading only that filtered out the
  * verified fields of an itemized form.
  */
+/**
+ * Whether a confirmed batch set exactly one field to the item itself — the
+ * item of "select Blue" is Blue, and the field that holds it is named
+ * Color, which no item names. The value is the batch's own, confirmed.
+ */
+const batchStatesItem = (
+  receipt: AgentStepReadout,
+  item: string,
+  items: readonly string[]
+): boolean => {
+  const batch = confirmedBatch(receipt)
+  if (!batch || batchFieldWithValue(batch.fields, item) === undefined)
+    return false
+  const wanted = agentNormalizedClaim(item)
+  return items.every(
+    (other) => other === item || agentNormalizedClaim(other) !== wanted
+  )
+}
+
 const receiptNames = (receipt: AgentStepReadout): string[] =>
   [
     receipt.target?.name,

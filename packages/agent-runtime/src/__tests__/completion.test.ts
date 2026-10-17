@@ -1946,6 +1946,76 @@ describe("judgeAgentCompletion with planned requirements", () => {
     })
   })
 
+  /**
+   * Measured live: "enter Ada and select Blue, then save" planned as one
+   * outcome per value, filled in one batch tagged for the first, then saved
+   * onto a result page that shows neither field. Every completion was
+   * refused until the run paused with a question.
+   */
+  describe("a batch whose fields left the page with the save", () => {
+    const filled = step({
+      sequence: 1,
+      requirementId: "r1",
+      command: {
+        type: "fill_form",
+        snapshotId: "snapshot-1",
+        generation: 1,
+        fields: [
+          { ref: "e1", type: "clear_and_type", text: "Ada" },
+          { ref: "e2", type: "select", value: "Blue" }
+        ]
+      },
+      verification: {
+        outcome: "confirmed",
+        evidence: {
+          kind: "fields",
+          summary: "All 2 fields hold the resolved value",
+          observedAt: 1,
+          fields: [{ name: "Name" }, { name: "Color" }]
+        }
+      }
+    })
+    const requirements: AgentTaskRequirement[] = [
+      { id: "r1", text: "Enter Ada.", kind: "change", items: ["Ada"] },
+      { id: "r2", text: "Select Blue.", kind: "change", items: ["Blue"] }
+    ]
+    const judge = (steps = [filled], items = ["Ada", "Blue"]) =>
+      judgeAgentCompletion({
+        steps,
+        observation: observation({ visibleText: "Record 9 Saved" }),
+        requirements: requirements.map((requirement, index) => ({
+          ...requirement,
+          items: [items[index]]
+        })),
+        outcomes: ["r1", "r2"].map((id) => ({
+          id,
+          met: true,
+          items: [{ index: 0, met: true, evidence: "Record 9 Saved" }]
+        }))
+      })
+
+    it("credits each outcome with the field its confirmed value names", () => {
+      expect(judge()).toMatchObject({ type: "accepted" })
+    })
+
+    it("credits no outcome whose value no field was set to", () => {
+      expect(judge([filled], ["Ada", "Green"])).toMatchObject({
+        type: "refused"
+      })
+    })
+
+    it("credits nothing from a batch that did not verify", () => {
+      const unverified = {
+        ...filled,
+        verification: {
+          ...filled.verification,
+          outcome: "ambiguous"
+        }
+      } as typeof filled
+      expect(judge([unverified])).toMatchObject({ type: "refused" })
+    })
+  })
+
   it("does not let a filled value vouch for a requirement naming another", () => {
     const filled = step({
       sequence: 1,
