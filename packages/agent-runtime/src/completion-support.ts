@@ -56,6 +56,8 @@ export const visualCompletionRead = (
 
 /** A control write the verifier confirmed by the value it left behind. */
 const FIELD_WRITE_KINDS = new Set(["field", "fields"])
+/** The same for a box or switch, confirmed by the state it left behind. */
+const CHECKED_WRITE_KINDS = new Set(["checked", "fields"])
 
 /**
  * Whether a confirmed write left its control holding exactly the value the
@@ -72,6 +74,7 @@ export const agentWriteHeldPlannedValue = (
   targets: readonly {
     accessibleName?: string
     expectedValue?: string
+    expectedChecked?: boolean
     sensitive?: boolean
     frameId?: number
   }[],
@@ -80,10 +83,14 @@ export const agentWriteHeldPlannedValue = (
   const check = requirement?.check
   if (
     !check ||
-    (check.type !== "field" && check.type !== "selected") ||
+    (check.type !== "field" &&
+      check.type !== "selected" &&
+      check.type !== "checked") ||
     check.record ||
     verification.outcome !== "confirmed" ||
-    !FIELD_WRITE_KINDS.has(verification.evidence.kind)
+    !(check.type === "checked" ? CHECKED_WRITE_KINDS : FIELD_WRITE_KINDS).has(
+      verification.evidence.kind
+    )
   )
     return false
   /**
@@ -100,7 +107,9 @@ export const agentWriteHeldPlannedValue = (
   return (
     named.length === 1 &&
     !named[0].sensitive &&
-    named[0].expectedValue === check.value
+    (check.type === "checked"
+      ? named[0].expectedChecked === check.checked
+      : named[0].expectedValue === check.value)
   )
 }
 
@@ -142,7 +151,7 @@ const leftThePage = (step: AgentStepReadout): boolean => {
 /** Whether a confirmed write of either shape set a control of this name. */
 const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
   const evidence = step.verification?.evidence
-  if (evidence?.kind === "field")
+  if (evidence?.kind === "field" || evidence?.kind === "checked")
     return step.target?.name !== undefined && same(step.target.name, name)
   return (
     evidence?.kind === "fields" &&
@@ -347,9 +356,13 @@ export const checkCompletionState = (
       same(element.name ?? "", check.name) &&
       (check.frameId === undefined || element.frameId === check.frameId)
   )
+  /**
+   * The control left with the page: a box ticked before Continue is not on
+   * the page Continue opened. Its own confirmed write, recorded as holding
+   * the planned value or state, stands for it there.
+   */
   if (
     matches.length === 0 &&
-    check.type !== "checked" &&
     plannedValueLeftBehind(requirement.id, check.name, changes)
   )
     return true

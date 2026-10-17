@@ -642,8 +642,8 @@ const PREPOSITION_OBJECT =
   "(?!\\s+(?:the|a|an|this|that|these|those|its|each|every|any|all|page|screen|site|tab|form)\\b)"
 const ON = `on${PREPOSITION_OBJECT}`
 const OFF = `off${PREPOSITION_OBJECT}`
-const ON_WORDS = `check|checked|tick|ticked|select|selected|${ON}`
-const OFF_WORDS = `uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|${OFF}`
+const ON_WORDS = `check|checked|tick|ticked|select|selected|enable|enabled|${ON}`
+const OFF_WORDS = `uncheck|unchecked|untick|unticked|deselect|deselected|clear|cleared|disable|disabled|${OFF}`
 
 const CHECKED_OFF_PATTERN = new RegExp(`\\b(${OFF_WORDS})\\b`)
 const CHECKED_ON_PATTERN = new RegExp(`\\b(${ON_WORDS})\\b`)
@@ -2162,7 +2162,18 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
     "selected",
     "select",
     "option",
-    "empty"
+    "empty",
+    /** A switch is turned or switched on, and a setting enabled. */
+    "turn",
+    "turned",
+    "switch",
+    "switched",
+    "enable",
+    "enabled",
+    "disable",
+    "disabled",
+    "on",
+    "off"
   ])
   if (
     check.type === "field" ||

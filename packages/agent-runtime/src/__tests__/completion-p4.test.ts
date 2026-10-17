@@ -790,6 +790,51 @@ describe("P4 deterministic completion", () => {
     )
   })
 
+  it.each([
+    ["Turn on email notifications", true, true],
+    ["Enable email notifications", true, true],
+    ["Switch off email notifications", false, false],
+    ["Disable email notifications", false, false]
+  ])("verifies %s by the switch's own state", (text, wanted, state) => {
+    const judged = judgeAgentCompletion({
+      steps: [],
+      observation: {
+        ...page,
+        elements: [
+          {
+            ref: "e9",
+            frameId: 0,
+            tag: "div",
+            role: "switch",
+            name: "Email notifications",
+            ariaChecked: state,
+            visible: true,
+            sensitive: false,
+            enabled: true,
+            editable: false
+          }
+        ]
+      },
+      evidenceLedger: [],
+      requirements: [
+        {
+          id: "r1",
+          kind: "change",
+          text,
+          check: {
+            type: "checked",
+            name: "Email notifications",
+            checked: wanted
+          }
+        }
+      ],
+      outcomes: [{ id: "r1", met: true, evidence: "Email notifications" }]
+    })
+    expect(judged.type).toBe("accepted")
+    if (judged.type === "accepted")
+      expect(judged.outcome?.claimed ?? []).not.toContain("r1")
+  })
+
   describe("checks that outlive the page they were made on", () => {
     const confirmed = (kind: string) => ({
       outcome: "confirmed" as const,
@@ -908,6 +953,70 @@ describe("P4 deterministic completion", () => {
         reason: "contradicted_state"
       })
     })
+    /**
+     * Measured live: "accept the terms and continue" ticked the box, pressed
+     * Continue, and every completion was refused as contradicted, because
+     * the box was not on the page Continue opened.
+     */
+    describe("a box the run ticked and then left behind", () => {
+      const terms = {
+        id: "r1",
+        kind: "change" as const,
+        text: "Accept the terms",
+        check: { type: "checked" as const, name: "terms", checked: true }
+      }
+      const ticked = (overrides: Partial<AgentStepReadout> = {}) =>
+        write({
+          target: { ref: "e1", tag: "input", name: "terms" },
+          verification: confirmed("checked"),
+          ...overrides
+        })
+      const judgeTerms = (steps: AgentStepReadout[], elements = []) =>
+        judgeAgentCompletion({
+          steps,
+          observation: { ...leftPage, elements },
+          evidenceLedger: [],
+          requirements: [terms],
+          outcomes: [{ id: "r1", met: true }]
+        })
+
+      it("records a held state only for the planned state, confirmed", () => {
+        expect(
+          agentWriteHeldPlannedValue(
+            terms,
+            [{ accessibleName: "terms", expectedChecked: true }],
+            confirmed("checked")
+          )
+        ).toBe(true)
+        expect(
+          agentWriteHeldPlannedValue(
+            terms,
+            [{ accessibleName: "terms", expectedChecked: false }],
+            confirmed("checked")
+          )
+        ).toBe(false)
+        expect(
+          agentWriteHeldPlannedValue(
+            terms,
+            [{ accessibleName: "terms", expectedChecked: true }],
+            confirmed("activation")
+          )
+        ).toBe(false)
+      })
+
+      it("credits the box once the page that held it is gone", () => {
+        expect(judgeTerms([ticked(), submit()])).toMatchObject({
+          type: "accepted"
+        })
+      })
+
+      it("credits nothing for a box never recorded as holding its state", () => {
+        expect(
+          judgeTerms([ticked({ heldPlannedValue: undefined }), submit()])
+        ).toMatchObject({ type: "refused", reason: "contradicted_state" })
+      })
+    })
+
     it("records a held value only for the exact confirmed planned result", () => {
       const requirement = {
         id: "r1",
