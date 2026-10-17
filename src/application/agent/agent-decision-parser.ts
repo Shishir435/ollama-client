@@ -250,11 +250,23 @@ const invalidFieldsFeedback = (
   const limits = [
     ...new Set(
       issues.flatMap((issue) => {
-        const field = issue.path.find(
-          (part): part is string =>
-            typeof part === "string" && DECISION_FIELDS.has(part)
+        if (
+          !issue.path.some(
+            (part) => typeof part === "string" && DECISION_FIELDS.has(part)
+          )
         )
-        if (!field) return []
+          return []
+        /**
+         * The whole path, so a nested cap names its own field: told
+         * "outcomes takes at most 200 characters" for one outcome's
+         * evidence, a model shortened nothing and died on the same answer.
+         */
+        const field = issue.path
+          .filter(
+            (part): part is string | number =>
+              typeof part === "string" || typeof part === "number"
+          )
+          .join(".")
         const maximum =
           "maximum" in issue && typeof issue.maximum === "number"
             ? issue.maximum
@@ -276,6 +288,15 @@ const invalidFieldsFeedback = (
   return (
     `The agent_decision call has missing or invalid fields: ${fields.join(", ")}. Correct these fields using the tool schema and flat arguments.` +
     (limits.length ? ` ${limits.join("; ")}.` : "") +
+    /**
+     * An answer built from several pages — a total over three reports —
+     * quoted all of them in one evidence string, three times running, and
+     * the run died on a correct sum. One line goes in evidence; the rest
+     * already have a list of their own.
+     */
+    (limits.some((limit) => /(?:^|\.)evidence /.test(limit))
+      ? " Put one short line in evidence and every other page's line in sourceQuotes, one entry per quote."
+      : "") +
     (isWait
       ? ' For wait, condition is required: the exact page text to wait for (1 to 500 characters), alongside timeoutMs (integer 1 to 30000). Example: {"type":"wait","condition":"All changes saved","timeoutMs":10000}.'
       : "")

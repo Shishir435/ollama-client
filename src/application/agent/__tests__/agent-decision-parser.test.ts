@@ -138,7 +138,28 @@ describe("parseAgentDecisionToolCalls", () => {
      */
     expect(feedback).toContain("evidence")
     expect(feedback).toContain("at most")
+    expect(feedback).toContain("sourceQuotes")
     expect(feedback).not.toContain("codename")
+  })
+
+  it("names a nested evidence cap by its own path", () => {
+    let feedback = ""
+    try {
+      parseAgentDecisionToolCalls(
+        [
+          call({
+            type: "complete",
+            summary: "Travel total is 320 credits",
+            outcomes: [{ id: "r1", met: true, evidence: "x".repeat(400) }]
+          })
+        ],
+        observation
+      )
+    } catch (error) {
+      feedback = (error as AgentDecisionFormatError).feedback ?? ""
+    }
+    expect(feedback).toContain("outcomes.0.evidence takes at most 200")
+    expect(feedback).toContain("sourceQuotes")
   })
 
   it("tells an invalid wait which fields to repair without echoing values", () => {
