@@ -386,6 +386,13 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   whose own earlier attempt is `confirmed` or `unknown` is refused before
   policy. Only one known not to have applied may be tried again. Receipts that
   cannot be read count as `unknown`.
+- **An id's joiner keeps it whole.** A record name matches only as a whole
+  phrase, and a hyphen, dot or slash between letters or digits continues
+  the word: "Invoice B" is not named by "Invoice B-2" or "Invoice B.2". An
+  `exclude` that forbids no effect class ("keep every other invoice") binds
+  a step about a record the way a `scope` does: the control's row must name
+  that record. The planner returned that sentence as either kind, and as
+  `exclude` it bound nothing; a run deleted Invoice B-2 beside Invoice B.
 - **A claim ends pressing what already worked.** Once a run has reported
   the task done and been refused, a press (`click`, `double_click`,
   `click_point`, `press_key`) on the same page and control as one it saw

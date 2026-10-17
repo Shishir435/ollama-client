@@ -366,8 +366,19 @@ export const agentForbiddingConstraints = (
      * payment has no price binding at all. A model's assertion cannot
      * authorize irreversible work within either.
      */
+    /**
+     * An exclusion that names no effect class says what to leave alone, not
+     * what not to do: "keep every other invoice" came back from the planner
+     * as `exclude` as often as `scope`, and as `exclude` it bound nothing —
+     * a run told to delete Invoice B deleted Invoice B-2 under it. On a step
+     * about a record it needs the same proof a scope does.
+     */
+    const leavesOthers =
+      constraint.kind === "exclude" &&
+      !constraint.forbids?.length &&
+      records.length > 0
     const unprovenBound =
-      (constraint.kind === "scope" && !withinScope) ||
+      ((constraint.kind === "scope" || leavesOthers) && !withinScope) ||
       (constraint.kind === "limit" && classes.includes("payment"))
     /**
      * A save is only ever recorded to catch its own repeat; it was a routine

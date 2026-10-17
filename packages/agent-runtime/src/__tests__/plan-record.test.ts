@@ -207,10 +207,46 @@ describe("agent plan record", () => {
     expect(
       agentForbiddingConstraints(remove("Invoice A $12 Delete"), scope, records)
     ).toHaveLength(1)
+    /** An id's joiner keeps it whole: Invoice B-2 is not Invoice B. */
+    for (const row of ["Invoice B-2 Delete", "Invoice B.2 Delete"])
+      expect(
+        agentForbiddingConstraints(remove(row), scope, records)
+      ).toHaveLength(1)
+    expect(
+      agentForbiddingConstraints(remove("Invoice B. Delete"), scope, records)
+    ).toEqual([])
     expect(agentForbiddingConstraints(remove(), scope, records)).toHaveLength(1)
     expect(
       agentForbiddingConstraints(remove("Invoice B $40 Delete"), scope)
     ).toHaveLength(1)
+  })
+
+  it("binds an exclusion naming no effect to the step's own record", () => {
+    const remove = (rowContext: string) => ({
+      semanticEffects: ["destructive" as const],
+      target: { rowContext }
+    })
+    const keep = [
+      { id: "c1", text: "Keep every other invoice", kind: "exclude" as const }
+    ]
+    const records = ["Invoice B"]
+    expect(
+      agentForbiddingConstraints(remove("Invoice B Delete"), keep, records)
+    ).toEqual([])
+    expect(
+      agentForbiddingConstraints(remove("Invoice B-2 Delete"), keep, records)
+    ).toHaveLength(1)
+    /** A step about no record, and an exclusion naming its class, as before. */
+    expect(
+      agentForbiddingConstraints(remove("Invoice B-2 Delete"), keep)
+    ).toEqual([])
+    expect(
+      agentForbiddingConstraints(
+        remove("Invoice B Delete"),
+        [{ ...keep[0], forbids: ["submission" as const] }],
+        records
+      )
+    ).toEqual([])
   })
 
   it("names another planned record's row, and nothing else, as the wrong row", () => {

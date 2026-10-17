@@ -25,11 +25,31 @@ export const agentRowContextBeyond = (
 }
 
 const RECORD_WORD_CHARACTER = /[\p{L}\p{N}_]/u
+/** A joiner inside an id: B-2, INV-001, 2024/03, v1.2. */
+const RECORD_JOINER = /[-./\u2010\u2011\u2013]/u
+
+/**
+ * Whether the text continues past `index` into the same word: a letter or
+ * digit, or a joiner with one on its far side.
+ */
+const continuesAt = (text: string, index: number, step: 1 | -1): boolean => {
+  const next = text[index]
+  if (next === undefined) return false
+  if (RECORD_WORD_CHARACTER.test(next)) return true
+  const beyond = text[index + step]
+  return (
+    RECORD_JOINER.test(next) &&
+    beyond !== undefined &&
+    RECORD_WORD_CHARACTER.test(beyond)
+  )
+}
 
 /**
  * Whether row text names a record as a whole phrase, ignoring case and
  * spacing: "Invoice B" is named by "Invoice B · $40 · Mark paid" and not by
- * "Invoice B2".
+ * "Invoice B2" or "Invoice B-2". A joiner between letters or digits keeps
+ * an id whole; measured live, a run told to delete Invoice B and keep the
+ * rest deleted Invoice B-2 as well, because its row read as Invoice B's.
  */
 export const agentTextNamesRecord = (
   text: string | undefined,
@@ -40,11 +60,9 @@ export const agentTextNamesRecord = (
   if (!haystack || !needle) return false
   let start = haystack.indexOf(needle)
   while (start !== -1) {
-    const before = haystack[start - 1]
-    const after = haystack[start + needle.length]
     if (
-      (before === undefined || !RECORD_WORD_CHARACTER.test(before)) &&
-      (after === undefined || !RECORD_WORD_CHARACTER.test(after))
+      !continuesAt(haystack, start - 1, -1) &&
+      !continuesAt(haystack, start + needle.length, 1)
     )
       return true
     start = haystack.indexOf(needle, start + 1)
