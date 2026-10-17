@@ -1071,6 +1071,36 @@ describe("P4 deterministic completion", () => {
         })
       })
 
+      it("credits the box when Continue's own receipt never said it left", () => {
+        /** The click posted, changed the page, then navigated. */
+        const formUrl = "https://example.com/application"
+        const clicked = submit({
+          consequential: [],
+          sourceUrl: formUrl,
+          verification: {
+            outcome: "confirmed",
+            evidence: {
+              kind: "activation",
+              summary: "Control activation produced an observable page change",
+              observedAt: 2
+            }
+          }
+        })
+        expect(
+          judgeTerms([ticked({ sourceUrl: formUrl }), clicked])
+        ).toMatchObject({ type: "accepted" })
+        /** Still on the form: the click left it in place. */
+        expect(
+          judgeAgentCompletion({
+            steps: [ticked({ sourceUrl: formUrl }), clicked],
+            observation: { ...leftPage, url: formUrl, elements: [] },
+            evidenceLedger: [],
+            requirements: [terms],
+            outcomes: [{ id: "r1", met: true }]
+          })
+        ).toMatchObject({ type: "refused" })
+      })
+
       it("credits nothing for a box never recorded as holding its state", () => {
         expect(
           judgeTerms([ticked({ heldPlannedValue: undefined }), submit()])

@@ -196,18 +196,42 @@ const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
 const plannedValueLeftBehind = (
   requirementId: string,
   name: string,
-  changes: readonly AgentStepReadout[]
+  changes: readonly AgentStepReadout[],
+  currentUrl: string
 ): boolean => {
   let last = -1
   for (const [index, step] of changes.entries())
     if (writesControlNamed(step, name)) last = index
   if (last < 0) return false
   const write = changes[last]
+  const later = changes.slice(last + 1)
+  /**
+   * The page left when a later step says so, or when the run, after a later
+   * change, is no longer on the page the write was made on. A save button
+   * whose handler posts and then navigates is verified on the in-page change
+   * it made first, so its own receipt never says it left; the address the
+   * run is on now does.
+   */
+  const left =
+    later.some(leftThePage) ||
+    (later.length > 0 &&
+      write.sourceUrl !== undefined &&
+      !samePageAddress(write.sourceUrl, currentUrl))
   return (
     write.heldPlannedValue === true &&
     write.requirementId === requirementId &&
-    changes.slice(last + 1).some(leftThePage)
+    left
   )
+}
+
+/** Same scheme, host and path, read by pattern: the package has no `URL`. */
+const samePageAddress = (first: string, second: string): boolean => {
+  const page = (url: string) => {
+    const match = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)([^?#]*)/i.exec(url)
+    return match ? `${match[1].toLowerCase()}${match[2] || "/"}` : undefined
+  }
+  const a = page(first)
+  return a !== undefined && a === page(second)
 }
 
 /**
@@ -405,7 +429,7 @@ export const checkCompletionState = (
    */
   if (
     matches.length === 0 &&
-    plannedValueLeftBehind(requirement.id, check.name, changes)
+    plannedValueLeftBehind(requirement.id, check.name, changes, observation.url)
   )
     return true
   if (matches.length !== 1) return false
