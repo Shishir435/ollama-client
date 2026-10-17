@@ -657,10 +657,38 @@ describe("a press repeated after the run claimed done", () => {
       }
     } as Partial<AgentStepReadout>)
 
+  /** The step after the press, on the page it led to. */
+  const arrived = (url = "https://shop.example/site/a/review") =>
+    receipt({
+      runId: "run",
+      stepId: "run:5",
+      command: click,
+      sourceUrl: agentStepSourceUrl(url),
+      status: "planned"
+    })
+
   it("refuses pressing a confirmed control again once the run claimed done", () => {
     expect(
-      agentRepeatsBeforeClaim(shipping, [...pressed("run:4"), claimed()])
+      agentRepeatsBeforeClaim(shipping, [
+        ...pressed("run:4"),
+        arrived(),
+        claimed()
+      ])
     ).toBe(true)
+  })
+
+  it("allows pressing again a control that left the run on its page", () => {
+    /** Load more, a tab, a disclosure: the run stayed where it was. */
+    expect(
+      agentRepeatsBeforeClaim(shipping, [
+        ...pressed("run:4"),
+        arrived(shipping.sourceUrl),
+        claimed()
+      ])
+    ).toBe(false)
+    expect(
+      agentRepeatsBeforeClaim(shipping, [...pressed("run:4"), claimed()])
+    ).toBe(false)
   })
 
   it("allows the same press before any claim, or one first made after it", () => {
@@ -671,7 +699,7 @@ describe("a press repeated after the run claimed done", () => {
   })
 
   it("allows a press on another page, a plain link, and reading", () => {
-    const steps = [...pressed("run:4"), claimed()]
+    const steps = [...pressed("run:4"), arrived(), claimed()]
     expect(
       agentRepeatsBeforeClaim(
         { ...shipping, sourceUrl: "https://shop.example/site/a/cart" },
@@ -697,6 +725,8 @@ describe("a press repeated after the run claimed done", () => {
 
   it("does not count a press that never verified", () => {
     const [planned] = pressed("run:4")
-    expect(agentRepeatsBeforeClaim(shipping, [planned, claimed()])).toBe(false)
+    expect(
+      agentRepeatsBeforeClaim(shipping, [planned, arrived(), claimed()])
+    ).toBe(false)
   })
 })

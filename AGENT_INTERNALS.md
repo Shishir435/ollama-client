@@ -389,7 +389,10 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
 - **A claim ends pressing what already worked.** Once a run has reported
   the task done and been refused, a press (`click`, `double_click`,
   `click_point`, `press_key`) on the same page and control as one it saw
-  confirmed before that claim is refused (`agentRepeatsBeforeClaim`). The
+  confirmed before that claim, and that took the run to another page, is
+  refused (`agentRepeatsBeforeClaim`). A press that left the run where it
+  was — "Load more", a tab, a disclosure — shows more of the page and stays
+  allowed. The
   refusal sends the run to read or reopen the page instead. A refused
   completion means the evidence fell short, not the work. A checkout run
   that stopped at payment, as asked, went Back and sent its shipping form
