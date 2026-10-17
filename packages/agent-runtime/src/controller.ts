@@ -59,6 +59,7 @@ import {
   applyAgentClaimedReview,
   agentRecordedReviews,
   applyAgentCompletionReview,
+  applyAgentReviewDowngrades,
   MAX_AGENT_COMPLETION_REVIEWS
 } from "./completion-review"
 import { agentWriteHeldPlannedValue } from "./completion-support"
@@ -2827,10 +2828,23 @@ export const createAgentController = (
       dependencies.trace?.(state.id, "completion_review_malformed")
       return { judgement, reviewed: true }
     }
-    const result =
+    const applied =
       judgement.type === "refused"
         ? applyAgentCompletionReview(pending, request, parsed.data)
         : applyAgentClaimedReview(judgement, pending, request, parsed.data)
+    const lowered = applyAgentReviewDowngrades(
+      applied.judgement,
+      request,
+      parsed.data
+    )
+    const result = {
+      judgement: lowered.judgement,
+      disagreements: applied.disagreements + lowered.downgraded.length
+    }
+    if (lowered.downgraded.length)
+      dependencies.trace?.(state.id, "completion_review_downgraded", {
+        downgraded: lowered.downgraded.length
+      })
     measure({ reviewDisagreements: result.disagreements })
     dependencies.trace?.(state.id, "completion_reviewed", {
       asked:

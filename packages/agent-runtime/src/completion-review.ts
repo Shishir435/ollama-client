@@ -140,9 +140,24 @@ export const agentCompletionReviewRequest = (
           }))
         )
       : undefined
+  /**
+   * The outcomes already met at a higher tier than claimed, for a reviewer
+   * to contradict if it can. Only from a graded outcome: on an ungraded one
+   * every met id would read as verified.
+   */
+  const claimedIds = new Set(scope.outcome.claimed ?? [])
+  const checked = scope.outcome.graded
+    ? (state.requirements ?? []).filter(
+        (requirement) =>
+          scope.outcome.met.includes(requirement.id) &&
+          !claimedIds.has(requirement.id) &&
+          !scope.requirementIds.includes(requirement.id)
+      )
+    : []
   return {
     ...(appearedAfterAction ? { appearedAfterAction } : {}),
     ...(actions?.length ? { actions } : {}),
+    ...(checked.length ? { checked } : {}),
     ...(limits ? { actionsComplete: true } : {}),
     goal: state.goal,
     requirements,
@@ -278,6 +293,65 @@ export const applyAgentClaimedReview = (
         ...(visual ? { visual } : {}),
         ...(supported.length ? { supported } : {}),
         ...(claimed.length ? { claimed } : {}),
+        ...(graded ? { graded } : {})
+      }
+    }
+  }
+}
+
+/**
+ * A review's downgrades: every checked outcome the reviewer called
+ * contradicted, once and citing at least one record the request carried,
+ * moved from verified or supported to claimed. A reviewer can lower any
+ * tier this way, never raise one, and never turn an accepted completion
+ * into a refusal over an outcome the runtime itself checked — the runtime's
+ * check still happened; what the review takes away is the confidence shown
+ * for it.
+ */
+export const applyAgentReviewDowngrades = (
+  judgement: AgentCompletionJudgement,
+  request: AgentCompletionReviewRequest,
+  review: AgentCompletionReview
+): { judgement: AgentCompletionJudgement; downgraded: string[] } => {
+  if (judgement.type === "refused" || !judgement.outcome || !request.checked)
+    return { judgement, downgraded: [] }
+  const ledger = new Set(request.evidenceLedger.map((record) => record.id))
+  const counts = new Map<string, number>()
+  for (const verdict of review.verdicts)
+    counts.set(verdict.id, (counts.get(verdict.id) ?? 0) + 1)
+  const outcome = judgement.outcome
+  const downgraded = request.checked
+    .map((requirement) => requirement.id)
+    .filter(
+      (id) =>
+        counts.get(id) === 1 &&
+        outcome.met.includes(id) &&
+        review.verdicts.some(
+          (verdict) =>
+            verdict.id === id &&
+            verdict.verdict === "contradicted" &&
+            verdict.sources
+              .slice(0, MAX_AGENT_REVIEW_SOURCES)
+              .some((source) => ledger.has(source))
+        )
+    )
+  if (!downgraded.length) return { judgement, downgraded }
+  const supported = (outcome.supported ?? []).filter(
+    (id) => !downgraded.includes(id)
+  )
+  const claimed = [...new Set([...(outcome.claimed ?? []), ...downgraded])]
+  const { met, unmet, items, visual, graded } = outcome
+  return {
+    downgraded,
+    judgement: {
+      ...judgement,
+      outcome: {
+        met,
+        unmet,
+        ...(items ? { items } : {}),
+        ...(visual ? { visual } : {}),
+        ...(supported.length ? { supported } : {}),
+        claimed,
         ...(graded ? { graded } : {})
       }
     }

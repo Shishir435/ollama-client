@@ -1,6 +1,7 @@
 import type {
   AgentEvidenceRecord,
   AgentObservation,
+  AgentRunOutcome,
   AgentTaskConstraint,
   AgentTaskRequirement
 } from "@ollama-client/contracts"
@@ -14,7 +15,8 @@ import {
   agentCompletionNeedsReview,
   agentCompletionReviewRequest,
   agentReviewRecordCitable,
-  applyAgentCompletionReview
+  applyAgentCompletionReview,
+  applyAgentReviewDowngrades
 } from "../completion-review"
 import type { AgentReviewedAction } from "../ports"
 
@@ -797,5 +799,82 @@ describe("what a citation can support", () => {
       expect(request.actions).toEqual([...applied, untagged])
       expect(request.actionsComplete).toBe(true)
     })
+  })
+})
+
+describe("a reviewer lowering an outcome the runtime checked", () => {
+  const outcome: AgentRunOutcome = {
+    met: ["r1", "r2"],
+    unmet: [],
+    claimed: ["r2"],
+    graded: true
+  }
+  const accepted: AgentCompletionJudgement = { type: "accepted", outcome }
+  const ledger = [record("fact-1", { requirementId: "r1" })]
+  const request = (scopeOutcome = outcome) =>
+    agentCompletionReviewRequest(
+      { goal: "Save invoice 1", requirements: [saved, answered] },
+      { requirementIds: ["r2"], constraintIds: [], outcome: scopeOutcome },
+      [{ id: "r2", met: true, evidence: QUOTE }],
+      ledger
+    )
+  const lower = (
+    verdicts: {
+      id: string
+      verdict: "supported" | "contradicted" | "insufficient_evidence"
+      sources?: string[]
+    }[],
+    built = request()
+  ) =>
+    applyAgentReviewDowngrades(accepted, built, {
+      verdicts: verdicts.map((entry) => ({ sources: [], ...entry }))
+    })
+
+  it("shows the reviewer the checked outcomes outside its scope", () => {
+    expect(request().checked?.map((requirement) => requirement.id)).toEqual([
+      "r1"
+    ])
+    const { graded: _graded, ...ungraded } = outcome
+    expect(request(ungraded).checked).toBeUndefined()
+  })
+
+  it("moves a contradicted checked outcome to claimed, never to a refusal", () => {
+    const result = lower([
+      { id: "r1", verdict: "contradicted", sources: ["fact-1"] }
+    ])
+    expect(result.downgraded).toEqual(["r1"])
+    expect(result.judgement).toEqual({
+      type: "accepted",
+      outcome: { ...outcome, claimed: ["r2", "r1"] }
+    })
+  })
+
+  it("lowers a supported outcome as well as a verified one", () => {
+    const result = applyAgentReviewDowngrades(
+      { type: "accepted", outcome: { ...outcome, supported: ["r1"] } },
+      request(),
+      {
+        verdicts: [{ id: "r1", verdict: "contradicted", sources: ["fact-1"] }]
+      }
+    )
+    expect(
+      result.judgement.type === "accepted" && result.judgement.outcome
+    ).toEqual({ ...outcome, claimed: ["r2", "r1"] })
+  })
+
+  it("needs a cited record and one answer, and never raises an outcome", () => {
+    for (const verdicts of [
+      [{ id: "r1", verdict: "contradicted" as const }],
+      [{ id: "r1", verdict: "contradicted" as const, sources: ["made-up"] }],
+      [{ id: "r1", verdict: "supported" as const, sources: ["fact-1"] }],
+      [
+        { id: "r1", verdict: "contradicted" as const, sources: ["fact-1"] },
+        { id: "r1", verdict: "supported" as const, sources: ["fact-1"] }
+      ]
+    ]) {
+      const result = lower(verdicts)
+      expect(result.downgraded).toEqual([])
+      expect(result.judgement).toBe(accepted)
+    }
   })
 })

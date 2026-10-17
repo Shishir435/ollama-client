@@ -937,6 +937,14 @@ export interface AgentCompletionReviewRequest {
    * citation — only a ledger record can support a verdict.
    */
   page?: { title: string; text: string }
+  /**
+   * Outcomes the runtime already graded verified or supported, outside the
+   * ids under review. Shown so a reviewer that sees one contradicted can say
+   * so: a contradiction backed by a ledger record lowers that outcome to
+   * claimed. Nothing a reviewer says about one can raise it or refuse the
+   * completion over it.
+   */
+  checked?: readonly AgentTaskRequirement[]
 }
 
 export interface AgentReviewedAction {
