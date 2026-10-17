@@ -445,7 +445,31 @@ const executeCheckedMutation = (
    * page that refuses the press leaves the box as it was, and the verifier
    * reads that back.
    */
-  element.click()
+  pressWithoutSubmitting(element)
+}
+
+/**
+ * A click on a box, with any form submission it sets off refused. Setting a
+ * box — alone or inside `fill_form` — is approved as setting a field, and a
+ * page whose click handler calls `requestSubmit()` would otherwise turn that
+ * approval into a submission nobody approved. The click's handlers run
+ * synchronously, so a `submit` event they raise arrives while the guard
+ * listens, from either the page's world or this one; the guard is removed
+ * before anything else runs.
+ */
+const pressWithoutSubmitting = (element: HTMLInputElement): void => {
+  const view = element.ownerDocument.defaultView
+  const scope: EventTarget = view ?? element.ownerDocument
+  const refuse = (event: Event) => {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }
+  scope.addEventListener("submit", refuse, { capture: true })
+  try {
+    element.click()
+  } finally {
+    scope.removeEventListener("submit", refuse, { capture: true })
+  }
 }
 
 const associatedForm = (element: Element): HTMLFormElement | null =>
