@@ -96,3 +96,40 @@ test("a total, a price or an order number must be the page's, not a guess", asyn
   })
   assert.equal(byron.success, false)
 })
+
+test("an order list padded with other customers' orders fails", async () => {
+  const { score } = await run(variant("paged_orders"), async (env) => {
+    await LONG_SOLUTIONS.paged_orders.cheat(env)
+    env.answer(
+      "Ada Lovelace placed ORD-1042, ORD-1187 and ORD-1290. Also ORD-1043 and ORD-1150."
+    )
+  })
+  assert.equal(score.success, false)
+})
+
+test("a contact or an event written without reading its source fails", async () => {
+  const { score: contact } = await run(variant("crm_copy"), async (env) => {
+    const form = await env.page("/site/b/contact")
+    form.fill("name", "Ada Lovelace")
+    form.fill("phone", "+44 20 7946 0123")
+    form.fill("city", "London")
+    await form.press("Save contact")
+  })
+  assert.equal(contact.success, false)
+  const { score: events } = await run(
+    variant("inbox_calendar"),
+    async (env) => {
+      for (const [title, date, time] of [
+        ["Budget review", "2026-11-04", "10:00"],
+        ["Design sync", "2026-11-05", "14:30"]
+      ]) {
+        const page = await env.page("/site/b/calendar")
+        page.fill("title", title)
+        page.fill("date", date)
+        page.fill("time", time)
+        await page.press("Add event")
+      }
+    }
+  )
+  assert.equal(events.success, false)
+})

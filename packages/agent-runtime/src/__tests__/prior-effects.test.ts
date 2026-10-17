@@ -1,6 +1,7 @@
 import type { AgentPriorEffect } from "@ollama-client/contracts"
 import { MAX_AGENT_PRIOR_EFFECTS } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
+import { agentStepSourceUrl, agentStepTargetFrom } from "../history"
 import type { AgentStepReadout, ResolvedAgentEffect } from "../ports"
 import {
   agentCommittedEffects,
@@ -10,6 +11,7 @@ import {
   agentEffectSettlement,
   agentInheritedEffects,
   agentOwnEffectSettlement,
+  agentRepeatsBeforeClaim,
   agentRepeatsPriorEffect,
   agentRepeatsPriorForm
 } from "../prior-effects"
@@ -609,5 +611,92 @@ describe("a script button labelled as saving", () => {
       sourceUrl: "https://forum.example/thread/7"
     })
     expect(agentOwnEffectSettlement(save, [pressed])).toBe("confirmed")
+  })
+})
+
+describe("a press repeated after the run claimed done", () => {
+  const shipping = effect({
+    target: {
+      ref: "e3",
+      role: "button",
+      tag: "button",
+      accessibleName: "Continue to payment",
+      sensitive: false,
+      maySubmit: false
+    },
+    semanticEffects: ["activation"],
+    sourceUrl: "https://shop.example/site/a/shipping"
+  } as Partial<ResolvedAgentEffect>)
+  const pressed = (stepId: string, url = shipping.sourceUrl) => [
+    receipt({
+      runId: "run",
+      stepId,
+      command: click,
+      target: agentStepTargetFrom(shipping.target),
+      sourceUrl: agentStepSourceUrl(url ?? ""),
+      status: "planned"
+    }),
+    receipt({
+      runId: "run",
+      stepId,
+      status: "verified",
+      verification: {
+        outcome: "confirmed",
+        evidence: { kind: "page", summary: "changed", observedAt: 1 }
+      }
+    } as Partial<AgentStepReadout>)
+  ]
+  const claimed = () =>
+    receipt({
+      runId: "run",
+      stepId: "run:completion:9",
+      status: "rejected",
+      verification: {
+        outcome: "negative",
+        evidence: { kind: "completion", summary: "refused", observedAt: 1 }
+      }
+    } as Partial<AgentStepReadout>)
+
+  it("refuses pressing a confirmed control again once the run claimed done", () => {
+    expect(
+      agentRepeatsBeforeClaim(shipping, [...pressed("run:4"), claimed()])
+    ).toBe(true)
+  })
+
+  it("allows the same press before any claim, or one first made after it", () => {
+    expect(agentRepeatsBeforeClaim(shipping, pressed("run:4"))).toBe(false)
+    expect(
+      agentRepeatsBeforeClaim(shipping, [claimed(), ...pressed("run:10")])
+    ).toBe(false)
+  })
+
+  it("allows a press on another page, a plain link, and reading", () => {
+    const steps = [...pressed("run:4"), claimed()]
+    expect(
+      agentRepeatsBeforeClaim(
+        { ...shipping, sourceUrl: "https://shop.example/site/a/cart" },
+        steps
+      )
+    ).toBe(false)
+    expect(
+      agentRepeatsBeforeClaim(
+        { ...shipping, semanticEffects: ["navigation"] },
+        steps
+      )
+    ).toBe(false)
+    expect(
+      agentRepeatsBeforeClaim(
+        {
+          ...shipping,
+          command: { type: "extract_text", snapshotId: "s", generation: 1 }
+        } as ResolvedAgentEffect,
+        steps
+      )
+    ).toBe(false)
+  })
+
+  it("does not count a press that never verified", () => {
+    const [planned] = pressed("run:4")
+    expect(agentRepeatsBeforeClaim(shipping, [planned, claimed()])).toBe(false)
   })
 })

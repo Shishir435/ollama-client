@@ -620,7 +620,9 @@ export const scoreLong = (input) => {
         reported(input, String(total))
       )
     },
+    /** The invitation pages hold the dates and times; the inbox list does not. */
     inbox_calendar: () =>
+      readAll(state, base, ["/site/a/m/1", "/site/a/m/3"]) &&
       exactly(
         state,
         INVITES.map(([title]) => `event ${title}`)
@@ -648,6 +650,9 @@ export const scoreLong = (input) => {
         base,
         EXPENSES.map(([id]) => `/site/${id}/report`)
       ) &&
+      EXPENSES.flatMap(([, , lines]) => lines)
+        .filter(([kind]) => kind === "Travel")
+        .every(([, amount]) => observed(input, amount)) &&
       statesValue(input.answer, String(TRAVEL_TOTAL)),
     hotel_book: () =>
       exactly(state, ["book Garden Hotel"]) &&
@@ -666,11 +671,15 @@ export const scoreLong = (input) => {
         ORDER_PAGES.map((_, i) => `/site/a/orders/${i + 1}`)
       ) &&
       ADA_ORDERS.every((id) => reported(input, id)) &&
-      !statesValue(input.answer, "ORD-1111"),
+      /** Exactly her orders: every other order number named is wrong. */
+      [...String(input.answer ?? "").matchAll(/\bORD-\d+\b/gi)].every(([id]) =>
+        ADA_ORDERS.includes(id.toUpperCase())
+      ),
     crm_copy: () => {
       const contact = onlyOnce(state, "contact") && state.values.contact
       return (
         exactly(state, ["contact"]) &&
+        readAll(state, base, ["/site/a/people/ada-lovelace"]) &&
         normalizeText(contact.name) === "ada lovelace" &&
         digits(contact.phone) === digits(PEOPLE[0][2]) &&
         normalizeText(contact.city) === "london"

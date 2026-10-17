@@ -128,6 +128,7 @@ import {
   agentConsequentialForm,
   agentEffectIsConsequential,
   agentOwnEffectSettlement,
+  agentRepeatsBeforeClaim,
   agentRepeatsPriorEffect,
   agentRepeatWasRefused,
   agentRepeatsPriorForm
@@ -135,6 +136,7 @@ import {
 import { agentAuthoredText } from "./provenance"
 import {
   AGENT_CONFIRMED_REPEAT_FEEDBACK,
+  AGENT_REPEAT_AFTER_CLAIM_FEEDBACK,
   AGENT_RECOVERY_REPEAT_FEEDBACK,
   planAgentRecovery,
   settledAgentRecovery
@@ -732,6 +734,13 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * What a correction, an answer or a steer resets: the loop and refusal
+   * counts. The planner's failures and the malformed count stay. A newer
+   * answer already lifts the planner's backoff, since a failure is compared
+   * against the answer it was made under, and the malformed budget is
+   * run-wide on purpose, like the port's own count.
+   */
   const forgetStall = (runId: string): void => {
     stallRestored.add(runId)
     previousProgress.delete(runId)
@@ -2433,6 +2442,14 @@ export const createAgentController = (
         signal,
         effect
       )
+    if (await repeatsBeforeClaim(state, effect))
+      return refuseCommand(
+        state,
+        decision.command,
+        AGENT_REPEAT_AFTER_CLAIM_FEEDBACK,
+        signal,
+        effect
+      )
     /** Before policy, like a repeat: see `refusalByTaskContract`. */
     const contract = refusalByTaskContract(state, decision, effect)
     if (contract)
@@ -3431,6 +3448,24 @@ export const createAgentController = (
       return (
         agentOwnEffectSettlement(effect, steps) === "confirmed" &&
         !agentRepeatWasRefused(effect, steps, AGENT_CONFIRMED_REPEAT_FEEDBACK)
+      )
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Unreadable receipts allow the press: this guard adds a refusal beside
+   * the ones that decide safety, and is not one of them.
+   */
+  const repeatsBeforeClaim = async (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect
+  ): Promise<boolean> => {
+    try {
+      return agentRepeatsBeforeClaim(
+        effect,
+        await dependencies.persistence.steps(state.id)
       )
     } catch {
       return false

@@ -386,6 +386,16 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   whose own earlier attempt is `confirmed` or `unknown` is refused before
   policy. Only one known not to have applied may be tried again. Receipts that
   cannot be read count as `unknown`.
+- **A claim ends pressing what already worked.** Once a run has reported
+  the task done and been refused, a press (`click`, `double_click`,
+  `click_point`, `press_key`) on the same page and control as one it saw
+  confirmed before that claim is refused (`agentRepeatsBeforeClaim`). The
+  refusal sends the run to read or reopen the page instead. A refused
+  completion means the evidence fell short, not the work. A checkout run
+  that stopped at payment, as asked, went Back and sent its shipping form
+  twice more to make the review page show the address. Links that only go
+  somewhere are exempt, since reopening a page is what a refused completion
+  asks for.
 - **An unresolved effect gets evidence only.** An ambiguous verification is
   asked once more against the same before-picture, charged as an
   `unresolved_effect` attempt. Nothing is executed again. Confirmed advances,
@@ -545,7 +555,10 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   observed in the opposite state — frameworks that own a box's state listen
   for the click, and a stated value left a controlled checkbox unticked on
   the server's record — and otherwise run on the DOM path, which now clicks
-  too and leaves a box already in the asked-for state alone. A value set by
+  too and leaves a box already in the asked-for state alone. That click,
+  alone or inside `fill_form`, refuses any `submit` event it sets off: a
+  box is approved as a field, and a handler calling `requestSubmit()` must
+  not turn it into a submission. A value set by
   script finishes with `change` and `blur`, except in a field Enter would
   submit or one whose suggestions the next step may use. Text typed through
   the debugger is finished the same way on settle, after the input record is
