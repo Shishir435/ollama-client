@@ -5,10 +5,33 @@ import type {
 } from "@ollama-client/contracts"
 import { agentNormalizedClaim } from "./observed-text"
 import type { AgentStepReadout } from "./ports"
-import { agentRowContextBeyond } from "./row-context"
+import { agentRowContextBeyond, agentTextNamesRecord } from "./row-context"
 
 const same = (a: string, b: string) =>
   agentNormalizedClaim(a) === agentNormalizedClaim(b)
+/**
+ * The controls a check names: those whose label is the name exactly, or,
+ * when none is, those whose label holds the name as a whole phrase. A
+ * planner shortens labels — the check said "terms" for a box labelled "I
+ * accept the terms", and was never met on any page. Several phrase matches
+ * stay several, so an ambiguous name is still no answer.
+ */
+const namedBy = <T>(
+  items: readonly T[],
+  label: (item: T) => string | undefined,
+  name: string
+): T[] => {
+  const exact = items.filter((item) => {
+    const text = label(item)
+    return text !== undefined && same(text, name)
+  })
+  if (exact.length) return exact
+  return items.filter((item) => {
+    const text = label(item)
+    return text !== undefined && agentTextNamesRecord(text, name)
+  })
+}
+
 const escapePattern = (text: string) =>
   text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
@@ -98,11 +121,13 @@ export const agentWriteHeldPlannedValue = (
    * is not the Name field the requirement named inside a frame, and the
    * receipt that later stands for it keeps no frame to tell them apart.
    */
-  const named = targets.filter(
-    (target) =>
-      target.accessibleName !== undefined &&
-      same(target.accessibleName, check.name) &&
-      (check.frameId === undefined || target.frameId === check.frameId)
+  const named = namedBy(
+    targets.filter(
+      (target) =>
+        check.frameId === undefined || target.frameId === check.frameId
+    ),
+    (target) => target.accessibleName,
+    check.name
   )
   return (
     named.length === 1 &&
@@ -152,12 +177,10 @@ const leftThePage = (step: AgentStepReadout): boolean => {
 const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
   const evidence = step.verification?.evidence
   if (evidence?.kind === "field" || evidence?.kind === "checked")
-    return step.target?.name !== undefined && same(step.target.name, name)
+    return namedBy([step.target?.name], (label) => label, name).length === 1
   return (
     evidence?.kind === "fields" &&
-    (evidence.fields ?? []).some(
-      (field) => field.name !== undefined && same(field.name, name)
-    )
+    namedBy(evidence.fields ?? [], (field) => field.name, name).length === 1
   )
 }
 
@@ -326,10 +349,26 @@ export const checkCompletionState = (
     if (!status) return undefined
     // Exact identity and asserted state together. "not saved" and another
     // row's status cannot satisfy this predicate. Other phrasing needs review.
-    return new RegExp(
-      `^(?:${record}\\s*[:—–-]?\\s*(?:is\\s+)?${check.state}|${check.state}\\s*[:—–-]?\\s*${record})[.!]?$`,
-      "u"
-    ).test(agentNormalizedClaim(fact.quote ?? ""))
+    const said = agentNormalizedClaim(fact.quote ?? "")
+    if (
+      new RegExp(
+        `^(?:${record}\\s*[:—–-]?\\s*(?:is\\s+)?${check.state}|${check.state}\\s*[:—–-]?\\s*${record})[.!]?$`,
+        "u"
+      ).test(said)
+    )
+      return true
+    /**
+     * A status naming the record and saying it failed contradicts the
+     * check. Any other wording — "Order placed for Blue Kettle" against
+     * "Blue Kettle order is submitted" — is a phrasing no rule here reads,
+     * not a contradiction, and goes to review.
+     */
+    return new RegExp(`\\b${record}\\b`, "u").test(said) &&
+      /\b(?:not|failed|failure|error|unable|could not|cannot|rejected|declined)\b/u.test(
+        said
+      )
+      ? false
+      : undefined
   }
   if (check.type === "row") {
     if (
@@ -349,12 +388,15 @@ export const checkCompletionState = (
   // rowContext is bounded whole-row text, not a distinct record label.
   // It cannot prove a scoped control belongs to the requested record.
   if (check.record) return undefined
-  const matches = observation.elements.filter(
-    (element) =>
-      !element.sensitive &&
-      (element.visible || element.offscreen) &&
-      same(element.name ?? "", check.name) &&
-      (check.frameId === undefined || element.frameId === check.frameId)
+  const matches = namedBy(
+    observation.elements.filter(
+      (element) =>
+        !element.sensitive &&
+        (element.visible || element.offscreen) &&
+        (check.frameId === undefined || element.frameId === check.frameId)
+    ),
+    (element) => element.name,
+    check.name
   )
   /**
    * The control left with the page: a box ticked before Continue is not on

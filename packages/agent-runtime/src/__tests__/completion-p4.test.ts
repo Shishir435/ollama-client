@@ -607,6 +607,31 @@ describe("P4 deterministic completion", () => {
       })
     ).toMatchObject({ type: "accepted" })
   })
+  it("sends a status in other words to review, and one saying it failed back", () => {
+    const check = {
+      type: "record_state",
+      record: "Invoice 1",
+      state: "saved"
+    } as const
+    const status = (name: string) => ({
+      ...page,
+      visibleText: name,
+      elements: page.elements.map((element) =>
+        element.role === "status" ? { ...element, name } : element
+      )
+    })
+    const said = (name: string) =>
+      judge(check, status(name), name, [fact(name)])
+    expect(said("Changes to Invoice 1 were stored")).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+    expect(said("Invoice 1 could not be saved")).toMatchObject({
+      type: "refused",
+      reason: "contradicted_state"
+    })
+  })
+
   it("checks the exact record identity and a grounded current save state", () => {
     const check = {
       type: "record_state",
@@ -833,6 +858,42 @@ describe("P4 deterministic completion", () => {
     expect(judged.type).toBe("accepted")
     if (judged.type === "accepted")
       expect(judged.outcome?.claimed ?? []).not.toContain("r1")
+  })
+
+  it("reads a check whose name the planner shortened, unless it is ambiguous", () => {
+    const box = (name: string, ref: string) => ({
+      ref,
+      frameId: 0,
+      tag: "input",
+      type: "checkbox",
+      name,
+      checked: true,
+      visible: true,
+      sensitive: false,
+      enabled: true,
+      editable: false
+    })
+    const judge = (elements: AgentObservation["elements"]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: { ...page, elements },
+        evidenceLedger: [],
+        requirements: [
+          {
+            id: "r1",
+            kind: "change",
+            text: "Accept the terms",
+            check: { type: "checked", name: "terms", checked: true }
+          }
+        ],
+        outcomes: [{ id: "r1", met: true, evidence: "I accept the terms" }]
+      })
+    expect(judge([box("I accept the terms", "e1")])).toMatchObject({
+      type: "accepted"
+    })
+    expect(
+      judge([box("I accept the terms", "e1"), box("Email me the terms", "e2")])
+    ).toMatchObject({ type: "refused" })
   })
 
   describe("checks that outlive the page they were made on", () => {

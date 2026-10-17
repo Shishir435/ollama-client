@@ -2110,6 +2110,20 @@ const samePage = (first: string, second: string): boolean => {
   return a !== undefined && a === page(second)
 }
 
+/**
+ * "Accept the terms" and "agree to the policy" ask for a ticked box. Read
+ * only for a checked-state check, and only in the words around the
+ * control's own name, never negated: a box is often labelled "Agree", and
+ * "the Agree checkbox is unchecked" asks for the opposite.
+ */
+const acceptsBox = (text: string, name: string): boolean => {
+  const rest = ` ${text} `.replace(` ${agentNormalizedClaim(name)} `, " ")
+  return (
+    /\b(?:accept|accepted|agree|agreed)\b/.test(rest) &&
+    !/\b(?:not|never|don t|do not|without|decline|refuse)\b/.test(rest)
+  )
+}
+
 const typedControlStateAgrees = (
   check: Extract<
     NonNullable<AgentTaskRequirement["check"]>,
@@ -2117,10 +2131,17 @@ const typedControlStateAgrees = (
   >,
   text: string
 ): boolean => {
-  if (check.type === "checked")
+  if (check.type === "checked") {
+    if (
+      check.checked &&
+      acceptsBox(text, check.name) &&
+      !requirementAssertsOff(text)
+    )
+      return true
     return check.checked
       ? requirementAssertsOn(text) && !requirementAssertsOff(text)
       : requirementAssertsOff(text) && !requirementAssertsOn(text)
+  }
   return check.value
     ? valueAssertedWithoutNegation(text, check.value)
     : /\bempty\b/u.test(text)
@@ -2173,7 +2194,12 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
     "disable",
     "disabled",
     "on",
-    "off"
+    "off",
+    /** Terms are accepted, or agreed to, by ticking their box. */
+    "accept",
+    "accepted",
+    "agree",
+    "agreed"
   ])
   if (
     check.type === "field" ||
