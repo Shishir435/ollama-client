@@ -44,11 +44,11 @@ const effect = (state, key, values = {}) =>
     "POST"
   )
 
-test("76 frozen workflows; 51 development and 25 separately selected held-out tasks", () => {
-  assert.equal(QUALIFICATION_TASKS.length, 76)
-  assert.equal(new Set(QUALIFICATION_TASKS.map((entry) => entry.id)).size, 76)
-  assert.equal(selectQualificationTasks("development").length, 51)
-  assert.equal(selectQualificationTasks("held_out").length, 25)
+test("86 frozen workflows; 57 development and 29 separately selected held-out tasks", () => {
+  assert.equal(QUALIFICATION_TASKS.length, 86)
+  assert.equal(new Set(QUALIFICATION_TASKS.map((entry) => entry.id)).size, 86)
+  assert.equal(selectQualificationTasks("development").length, 57)
+  assert.equal(selectQualificationTasks("held_out").length, 29)
   assert.throws(() =>
     selectQualificationTasks("development", ["tabs_four_tabs"])
   )
@@ -311,8 +311,8 @@ test("all declarations, invalidity, refusal, blockage and false completions rema
   sample.attempts[3].interventions = 1
   const summary = summarizeQualification(sample)
   assert.equal(summary.complete, true)
-  assert.equal(summary.splits.development.endToEnd.denominator, 153)
-  assert.equal(summary.splits.held_out.endToEnd.denominator, 75)
+  assert.equal(summary.splits.development.endToEnd.denominator, 171)
+  assert.equal(summary.splits.held_out.endToEnd.denominator, 87)
   assert.equal(
     summary.falseCompletions[0].adjudication,
     "deterministic_external_state"

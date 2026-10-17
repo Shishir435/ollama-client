@@ -217,7 +217,7 @@ research/comparison, multi-page forms, rich editors, authorized widgets
 (including a canvas requiring coordinate input), multi-tab evidence, repeated
 rows, delayed saves, injection, origin boundaries and lifecycle faults.
 
-The `traps` family (15 tasks, five held out) is built so that the obvious
+The `traps` family (16 tasks, five held out) is built so that the obvious
 evidence is wrong, and is where false completions show up first: a
 submission the server rejects while the page changes, an optimistic "Saved"
 toast over a server 500, a commit that lands seconds after the request, a
@@ -233,7 +233,22 @@ solution and the trap's own mistake for each; the tests drive both through
 the real pages and require the solution to pass, the mistake to fail, and an
 agent that does nothing to fail. The Send trap needs the harness to stop the
 extension's service worker over CDP; if that fails, the attempt is reported
-under `faultCasesNotExercised` rather than passed. The long-history task has four reports behind
+under `faultCasesNotExercised` rather than passed.
+
+The `long` family (10 tasks, four held out) runs over three sites on three
+origins, with the facts a run needs spread across pages it must reach in
+turn: two kettles priced at three shops, three suppliers' lead times then a
+purchase request, a checkout with a coupon from another site that must stop
+before paying, an inbox whose invitations go to a calendar (minus a
+cancelled one), a paged inventory restocked on a supplier site, a travel
+total over three expense reports, the cheapest hotel above a rating, Ada
+Lovelace's orders across five pages, a directory card copied into a CRM,
+and a return started on one order among look-alikes. Pages, server rules
+and scoring are in `qualification-long.mjs`; solutions and each task's own
+mistake are in `qualification-long-cheats.mjs`, held to the same three tests
+as the traps.
+
+The long-history task has four reports behind
 four intermediate pages each, exceeding the twelve-step recent-history window.
 All mutations affect disposable fixture state; no live accounts or production
 records are needed. The independent scorer reads actual entered values, effect

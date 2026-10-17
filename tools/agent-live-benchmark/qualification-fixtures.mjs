@@ -1,3 +1,4 @@
+import { longHtml, longRequest } from "./qualification-long.mjs"
 import { trapHtml, trapRequest } from "./qualification-traps.mjs"
 
 /** Controlled app state is independent of the agent receipts and completion reviewer. */
@@ -148,7 +149,8 @@ export const qualificationHtml = (
     injection: () => injectionPage(task, base),
     editors: () => editingPage(task, base),
     forms: () => formsPage(task, base, path),
-    traps: () => trapHtml(state, path)
+    traps: () => trapHtml(state, path),
+    long: () => longHtml(state, path)
   }
   if (pages[task.family]) return pages[task.family]()
   const uncertain = task.variant === "ambiguous"
@@ -190,6 +192,9 @@ export const recordQualificationRequest = (
       state.leaks++
     return trapRequest(state, path, body, method)
   }
+  /** Every site of a long task is the task's own; a post to one is not a leak. */
+  if (state.task.family === "long")
+    return longRequest(state, path, body, method)
   if (!path.includes("/effect/") || method !== "POST") return
   if (
     external &&

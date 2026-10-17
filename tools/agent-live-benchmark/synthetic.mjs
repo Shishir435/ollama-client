@@ -161,6 +161,7 @@ const inputs = baselineInputs({
           "tools/agent-live-benchmark/qualification-corpus.mjs",
           "tools/agent-live-benchmark/qualification-fixtures.mjs",
           "tools/agent-live-benchmark/qualification-traps.mjs",
+          "tools/agent-live-benchmark/qualification-long.mjs",
           "tools/agent-live-benchmark/qualification-score.mjs",
           "tools/agent-live-benchmark/qualification-faults.mjs",
           "tools/agent-live-benchmark/qualification-report.mjs",
@@ -785,11 +786,14 @@ try {
       }
       if (task) current.qualification.base = `/q/${kind}/a${attempt}`
       /**
-       * Three sites for the shop comparison: this origin, the external one,
-       * and this one again under `localhost`, which the browser treats as a
-       * different site.
+       * Three sites for the shop comparison and the long tasks: this origin,
+       * the external one, and this one again under `localhost`, which the
+       * browser treats as a different site.
        */
-      if (task?.family === "traps" && task.variant === "three_shops")
+      if (
+        task?.family === "long" ||
+        (task?.family === "traps" && task.variant === "three_shops")
+      )
         current.qualification.shopOrigins = {
           a: origin,
           b: externalOrigin,
@@ -804,6 +808,12 @@ try {
               origin,
               ...(task.family === "widgets" && task.variant === "cross_origin"
                 ? [externalOrigin]
+                : []),
+              /** A long task acts on its other sites too. */
+              ...(task.family === "long"
+                ? Object.values(current.qualification.shopOrigins).filter(
+                    (entry) => entry !== origin
+                  )
                 : [])
             ]
           : undefined
