@@ -211,3 +211,93 @@ describe("native input preparation for a visual point", () => {
     ).toThrow(AgentEffectNotAppliedError)
   })
 })
+
+describe("finishing natively typed text", () => {
+  const typed = (inForm: boolean, attributes: Record<string, string> = {}) => {
+    const input = document.createElement("input")
+    input.setAttribute("aria-label", "City")
+    for (const [name, value] of Object.entries(attributes))
+      input.setAttribute(name, value)
+    if (inForm) {
+      const form = document.createElement("form")
+      form.append(input)
+      document.body.append(form)
+    } else document.body.append(input)
+    const references = createAgentElementReferenceStore({
+      documentId: identity.documentId,
+      frameId: 0
+    })
+    const snapshot = references.beginSnapshot({
+      minimumGeneration: 0,
+      createSnapshotId: () => identity.snapshotId
+    })
+    const ref = snapshot.reference(input)
+    const element = buildAgentElementObservation(input, ref, 0)
+    const instruction: AgentDomMutationInstruction = {
+      command: {
+        type: "type",
+        snapshotId: identity.snapshotId,
+        generation: 1,
+        ref,
+        text: "London"
+      },
+      target: {
+        ref,
+        frameId: 0,
+        tag: element.tag,
+        accessibleName: element.name,
+        inputType: element.type,
+        observedValue: element.value,
+        observedChecked: element.checked,
+        observedFocused: element.focused,
+        ...(element.role ? { role: element.role } : {}),
+        ...(element.formAction ? { formAction: element.formAction } : {}),
+        ...(element.formMethod ? { formMethod: element.formMethod } : {}),
+        ...(element.formFingerprint
+          ? { formFingerprint: element.formFingerprint }
+          : {}),
+        ...(element.formHasSensitiveControl !== undefined
+          ? { formHasSensitiveControl: element.formHasSensitiveControl }
+          : {}),
+        sensitive: false,
+        maySubmit: Boolean(element.maySubmit)
+      },
+      snapshotIdentity: identity,
+      frame: identity
+    }
+    expect(Boolean(element.maySubmit)).toBe(inForm)
+    document.elementFromPoint = () => input
+    const watch = createAgentInputWatch(document, { trusted: () => true })
+    prepareAgentNativeInputInDocument({
+      effect: instruction,
+      references,
+      watch
+    })
+    /** The debugger's click and keystrokes, which leave the field focused. */
+    input.focus()
+    input.value = "London"
+    return { input, watch }
+  }
+
+  it("moves focus out of the field once the record is taken", () => {
+    const { input, watch } = typed(false)
+    const blurred = vi.fn()
+    input.addEventListener("blur", blurred)
+    expect(document.activeElement).toBe(input)
+    expect(watch.settle()?.events).toEqual([])
+    expect(blurred).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).not.toBe(input)
+  })
+
+  it("keeps focus in a field Enter submits or one showing suggestions", () => {
+    for (const [inForm, attributes] of [
+      [true, {}],
+      [false, { role: "combobox" }]
+    ] as const) {
+      const { input, watch } = typed(inForm, attributes)
+      watch.settle()
+      expect(document.activeElement).toBe(input)
+      document.body.replaceChildren()
+    }
+  })
+})

@@ -547,7 +547,10 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   the server's record — and otherwise run on the DOM path, which now clicks
   too and leaves a box already in the asked-for state alone. A value set by
   script finishes with `change` and `blur`, except in a field Enter would
-  submit or one whose suggestions the next step may use.
+  submit or one whose suggestions the next step may use. Text typed through
+  the debugger is finished the same way on settle, after the input record is
+  taken: focus leaves the field and the browser fires its own trusted
+  `change`, so nothing synthetic is sent on that path.
 - Firefox has no debugger: `double_click` and `hover` degrade to synthetic
   events there, the receipt says `backend: "dom"`, and the hover verifier
   then needs page evidence, since no delivery record exists.
@@ -1308,6 +1311,15 @@ before settling; each one it supports with a citable record bound to it
 moves to supported, a contradiction refuses the completion, anything else
 leaves it claimed. A claimed save is not offered: no verdict on facts
 already gathered can supply a page that was never loaded.
+
+A reviewer can lower any tier, never raise one past `supported`. Every
+review request lists, as `checked`, the outcomes already graded verified or
+supported outside its scope. A `contradicted` verdict on one of them, given
+once and citing a record the request carried, moves it to claimed
+(`applyAgentReviewDowngrades`), so the run settles amber rather than green.
+It never refuses the completion: the runtime's check still happened, and a
+model's word alone does not undo it. No review is ever requested just to
+look for downgrades; they ride on a review the run was already paying for.
 
 - **A submission that went is not one the site took.** The verifier records
   `acceptance` on a confirmed submission: `rejected` when a control the page

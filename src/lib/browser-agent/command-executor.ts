@@ -152,11 +152,27 @@ const commitTextValue = (
   element: HTMLElement
 ): void => {
   dispatchFormEvents(element, true)
-  /**
-   * A field Enter would submit keeps focus: the next step is usually that
-   * Enter, and a key is only sent to a control that holds focus.
-   */
+  agentLeaveTypedField(effect, element)
+}
+
+const TEXT_ENTRY_COMMANDS = new Set(["type", "clear_and_type", "replace_text"])
+
+/**
+ * Focus leaves a field once text is in it, as it does when a person moves
+ * on. On the native path that is all it takes: the text arrived as real
+ * keystrokes, so the browser fires its own trusted `change` as the field
+ * loses focus, and nothing synthetic is sent. A field Enter would submit
+ * keeps focus — the next step is usually that Enter, and a key is only sent
+ * to a control that holds focus — and so does one showing suggestions.
+ */
+export const agentLeaveTypedField = (
+  effect: Pick<AgentDomMutationInstruction, "command" | "target">,
+  element: Element
+): void => {
   if (
+    TEXT_ENTRY_COMMANDS.has(effect.command.type) &&
+    (element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement) &&
     !effect.target.maySubmit &&
     element.ownerDocument.activeElement === element &&
     !keepsFocusForSuggestions(element)

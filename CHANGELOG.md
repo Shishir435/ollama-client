@@ -45,6 +45,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Longer tasks get a larger step and time budget, up to a fixed ceiling, and
   the run card shows how many parts are done. Loop and refusal limits now
   survive a background worker restart.
+- The completion reviewer can mark a checked outcome as only claimed when the
+  evidence contradicts it, and text the agent types with real input is
+  committed when it leaves the field.
 
 ### Security
 
