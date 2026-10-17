@@ -195,13 +195,16 @@ const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
  *
  * `credited` when it stands for the control, `unproven` when the run wrote
  * the control and left it without that record, undefined when the run never
- * left a control of that name behind.
+ * left a control of that name behind. A run back on the page the write was
+ * made on, with a control there the name still picks out, reads that
+ * control: the form was reopened, and what it holds now is the answer.
  */
 const plannedValueLeftBehind = (
   requirementId: string,
   name: string,
   changes: readonly AgentStepReadout[],
-  currentUrl: string
+  currentUrl: string,
+  present: boolean
 ): "credited" | "unproven" | undefined => {
   let last = -1
   for (const [index, step] of changes.entries())
@@ -222,6 +225,12 @@ const plannedValueLeftBehind = (
       write.sourceUrl !== undefined &&
       !samePageAddress(write.sourceUrl, currentUrl))
   if (!left) return undefined
+  if (
+    present &&
+    write.sourceUrl !== undefined &&
+    samePageAddress(write.sourceUrl, currentUrl)
+  )
+    return undefined
   return write.heldPlannedValue === true &&
     write.requirementId === requirementId
     ? "credited"
@@ -430,16 +439,17 @@ export const checkCompletionState = (
    * terms" on the new page would answer for the "terms" box the run ticked
    * on the old one.
    */
+  const matches = namedBy(candidates, (element) => element.name, check.name)
   if (!candidates.some((element) => same(element.name ?? "", check.name))) {
     const left = plannedValueLeftBehind(
       requirement.id,
       check.name,
       changes,
-      observation.url
+      observation.url,
+      matches.length > 0
     )
     if (left) return left === "credited"
   }
-  const matches = namedBy(candidates, (element) => element.name, check.name)
   if (matches.length !== 1) return false
   const element = matches[0]
   /** The page rejected what the control holds; it does not hold it as asked. */

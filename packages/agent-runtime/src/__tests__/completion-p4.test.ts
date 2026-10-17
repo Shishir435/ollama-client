@@ -1124,6 +1124,37 @@ describe("P4 deterministic completion", () => {
         ).toMatchObject({ type: "refused" })
       })
 
+      it("reads a reopened form's box rather than the earlier write", () => {
+        const formUrl = "https://example.com/application"
+        const reopened = (checked: boolean) =>
+          judgeAgentCompletion({
+            steps: [ticked({ sourceUrl: formUrl }), submit()],
+            observation: {
+              ...leftPage,
+              url: formUrl,
+              elements: [
+                {
+                  ref: "e1",
+                  frameId: 0,
+                  tag: "input",
+                  type: "checkbox",
+                  name: "I accept the terms",
+                  checked,
+                  visible: true,
+                  sensitive: false,
+                  enabled: true,
+                  editable: false
+                }
+              ]
+            },
+            evidenceLedger: [],
+            requirements: [terms],
+            outcomes: [{ id: "r1", met: true }]
+          })
+        expect(reopened(false)).toMatchObject({ type: "refused" })
+        expect(reopened(true)).toMatchObject({ type: "accepted" })
+      })
+
       it("credits nothing for a box never recorded as holding its state", () => {
         expect(
           judgeTerms([ticked({ heldPlannedValue: undefined }), submit()])
