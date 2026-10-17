@@ -301,3 +301,87 @@ describe("finishing natively typed text", () => {
     }
   })
 })
+
+describe("a box pressed natively", () => {
+  const pressed = () => {
+    const form = document.createElement("form")
+    const box = document.createElement("input")
+    box.type = "checkbox"
+    box.setAttribute("aria-label", "Agree")
+    form.append(box)
+    document.body.append(form)
+    const references = createAgentElementReferenceStore({
+      documentId: identity.documentId,
+      frameId: 0
+    })
+    const snapshot = references.beginSnapshot({
+      minimumGeneration: 0,
+      createSnapshotId: () => identity.snapshotId
+    })
+    const ref = snapshot.reference(box)
+    const element = buildAgentElementObservation(box, ref, 0)
+    const instruction: AgentDomMutationInstruction = {
+      command: {
+        type: "check",
+        snapshotId: identity.snapshotId,
+        generation: 1,
+        ref
+      },
+      target: {
+        ref,
+        frameId: 0,
+        tag: element.tag,
+        accessibleName: element.name,
+        inputType: element.type,
+        observedChecked: element.checked,
+        ...(element.formAction ? { formAction: element.formAction } : {}),
+        ...(element.formMethod ? { formMethod: element.formMethod } : {}),
+        ...(element.formFingerprint
+          ? { formFingerprint: element.formFingerprint }
+          : {}),
+        ...(element.formHasSensitiveControl !== undefined
+          ? { formHasSensitiveControl: element.formHasSensitiveControl }
+          : {}),
+        sensitive: false,
+        maySubmit: Boolean(element.maySubmit)
+      },
+      snapshotIdentity: identity,
+      frame: identity
+    }
+    document.elementFromPoint = () => box
+    const watch = createAgentInputWatch(document, { trusted: () => true })
+    prepareAgentNativeInputInDocument({
+      effect: instruction,
+      references,
+      watch
+    })
+    const submitted = vi.fn()
+    form.addEventListener("submit", (event) => {
+      submitted()
+      event.preventDefault()
+    })
+    return { form, watch, submitted }
+  }
+
+  it("refuses a submission the press sets off until it settles", () => {
+    const { form, watch, submitted } = pressed()
+    /** The page's click handler, run by the debugger's press. */
+    form.requestSubmit()
+    expect(submitted).not.toHaveBeenCalled()
+    watch.settle()
+    form.requestSubmit()
+    expect(submitted).toHaveBeenCalledOnce()
+  })
+
+  it("lifts the guard on its own when the press never settles", () => {
+    vi.useFakeTimers()
+    try {
+      const { form, submitted } = pressed()
+      vi.advanceTimersByTime(5_000)
+      form.requestSubmit()
+      expect(submitted).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

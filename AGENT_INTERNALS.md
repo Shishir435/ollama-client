@@ -525,8 +525,10 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   following the address bypassed it, and `spa_link` never loaded its view.
   `verifyNativeLink` tells three outcomes apart by the document the tab holds:
   the same document means the page handled the press, credited only on a
-  changed page; a new document must be the link's own address, and anything
-  else committed pauses as unresolved; an opened tab answers with the tab. A
+  changed page and, when the router moved the address, only on the link's
+  own; a new document must be the link's own address, and anything else
+  committed pauses as unresolved; one opened tab is held to that same rule,
+  and several are unresolved. A
   link labelled "Place order", and every link without a debugger, is still
   followed by address, its handler never run.
 - **A native plan is a sequence the runner owes a release for.**
@@ -566,9 +568,12 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   for the click, and a stated value left a controlled checkbox unticked on
   the server's record — and otherwise run on the DOM path, which now clicks
   too and leaves a box already in the asked-for state alone. That click,
-  alone or inside `fill_form`, refuses any `submit` event it sets off: a
-  box is approved as a field, and a handler calling `requestSubmit()` must
-  not turn it into a submission. A value set by
+  alone, inside `fill_form` or pressed natively, refuses any `submit` event
+  it sets off: a box is approved as a field, and a handler calling
+  `requestSubmit()` must not turn it into a submission. A native press holds
+  the guard until it settles, five seconds at most. `form.submit()` fires no
+  event and a `fetch` is the page's own, so neither is caught; the verifier
+  reads what they leave. A value set by
   script finishes with `change` and `blur`, except in a field Enter would
   submit or one whose suggestions the next step may use. Text typed through
   the debugger is finished the same way on settle, after the input record is

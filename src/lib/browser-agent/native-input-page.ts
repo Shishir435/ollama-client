@@ -1,6 +1,7 @@
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import {
   agentLeaveTypedField,
+  agentRefuseSubmissions,
   resolveAgentDropTarget,
   resolveAgentMutationTarget
 } from "./command-executor"
@@ -283,12 +284,22 @@ export const prepareAgentNativeInputInDocument = (input: {
   watch: AgentInputWatch
 }): AgentNativeInputPreparation => {
   const element = resolveAgentMutationTarget(input.effect, input.references)
-  /** Text typed natively is finished on settle, the way the DOM path finishes it. */
+  /**
+   * Text typed natively is finished on settle, the way the DOM path finishes
+   * it. A box pressed natively keeps the DOM path's submit guard from arming
+   * until the press settles.
+   */
+  const toggle =
+    input.effect.command.type === "check" ||
+    input.effect.command.type === "uncheck"
   const watch: AgentInputWatch = {
-    arm: (target) =>
-      input.watch.arm(target, () =>
+    arm: (target) => {
+      const release = toggle ? agentRefuseSubmissions(target) : undefined
+      input.watch.arm(target, () => {
+        release?.()
         agentLeaveTypedField(input.effect, element)
-      ),
+      })
+    },
     settle: () => input.watch.settle()
   }
   if (input.effect.command.type === "replace_text") {

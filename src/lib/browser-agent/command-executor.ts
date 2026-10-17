@@ -449,15 +449,24 @@ const executeCheckedMutation = (
 }
 
 /**
- * A click on a box, with any form submission it sets off refused. Setting a
- * box — alone or inside `fill_form` — is approved as setting a field, and a
- * page whose click handler calls `requestSubmit()` would otherwise turn that
- * approval into a submission nobody approved. The click's handlers run
- * synchronously, so a `submit` event they raise arrives while the guard
- * listens, from either the page's world or this one; the guard is removed
- * before anything else runs.
+ * Refuses every `submit` event the document raises until the returned
+ * function is called, or `ms` has passed, whichever comes first. Setting a
+ * box — alone, inside `fill_form`, or pressed natively — is approved as
+ * setting a field, and a page whose click handler calls `requestSubmit()`
+ * would otherwise turn that approval into a submission nobody approved. The
+ * guard listens in the capture phase on the window, so a `submit` raised
+ * from either the page's world or this one reaches it first. The timeout
+ * bounds a guard whose native press never settled, so a page is never left
+ * unable to submit.
+ *
+ * `form.submit()` raises no event and is not covered; neither is a handler
+ * that posts with `fetch`. Both are the page's own behaviour, which an
+ * isolated world cannot intercept, and the verifier reads what they leave.
  */
-const pressWithoutSubmitting = (element: HTMLInputElement): void => {
+export const agentRefuseSubmissions = (
+  element: Element,
+  ms = AGENT_SUBMIT_GUARD_MS
+): (() => void) => {
   const view = element.ownerDocument.defaultView
   const scope: EventTarget = view ?? element.ownerDocument
   const refuse = (event: Event) => {
@@ -465,10 +474,31 @@ const pressWithoutSubmitting = (element: HTMLInputElement): void => {
     event.stopImmediatePropagation()
   }
   scope.addEventListener("submit", refuse, { capture: true })
+  let released = false
+  const release = () => {
+    if (released) return
+    released = true
+    clearTimeout(timer)
+    scope.removeEventListener("submit", refuse, { capture: true })
+  }
+  const timer = setTimeout(release, ms)
+  return release
+}
+
+/** How long a submit guard may outlive a press that never settled. */
+const AGENT_SUBMIT_GUARD_MS = 5_000
+
+/**
+ * A click on a box, with any form submission it sets off refused. The
+ * click's handlers run synchronously, so the guard is removed before
+ * anything else runs.
+ */
+const pressWithoutSubmitting = (element: HTMLInputElement): void => {
+  const release = agentRefuseSubmissions(element)
   try {
     element.click()
   } finally {
-    scope.removeEventListener("submit", refuse, { capture: true })
+    release()
   }
 }
 

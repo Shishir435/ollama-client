@@ -638,8 +638,8 @@ describe("a plain link pressed for real", () => {
       command({ type: "click", ref: "e1" }),
       pressed,
       observation({
-        url: "https://example.com/orders",
-        visibleText: "Open orders: 4",
+        url: "https://example.com/help",
+        visibleText: "Help topics",
         elements: link().elements
       }),
       link()
@@ -648,6 +648,43 @@ describe("a plain link pressed for real", () => {
       outcome: "confirmed",
       evidence: { summary: "The page handled the link itself" }
     })
+  })
+
+  it("does not confirm a router that moved somewhere the link did not name", async () => {
+    const result = await verify(
+      command({ type: "click", ref: "e1" }),
+      pressed,
+      observation({
+        url: "https://example.com/orders",
+        visibleText: "Open orders: 4",
+        elements: link().elements
+      }),
+      link()
+    )
+    expect(result).toMatchObject({
+      outcome: "ambiguous",
+      evidence: {
+        summary: "The page moved to an address the link did not name"
+      }
+    })
+  })
+
+  it("holds a tab the press opened to the link's own address", async () => {
+    const opened = { ...pressed, openedTabIds: [9] }
+    const landed = await verify(
+      command({ type: "click", ref: "e1" }),
+      opened,
+      observation({ url: "https://example.com/help" }),
+      link()
+    )
+    expect(landed.outcome).toBe("confirmed")
+    const elsewhere = await verify(
+      command({ type: "click", ref: "e1" }),
+      opened,
+      observation({ url: "https://example.com/elsewhere" }),
+      link()
+    )
+    expect(elsewhere.outcome).toBe("ambiguous")
   })
 
   it("does not confirm a press that changed nothing", async () => {

@@ -55,6 +55,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   requests from any website, so a page could use a local Ollama through it.
   Origin handling now applies only to the extension's own requests, on
   Chromium and Firefox, and the old rule is removed on update.
+- A link the agent presses with real input counts only when it lands on its
+  own address, in the same tab or a new one, and ticking a box can no longer
+  set off a form submission.
 
 ### Fixed
 
