@@ -164,7 +164,7 @@ const measureOf = (text: string): readonly string[] | undefined => {
     )?.[1]
   if (!named) return undefined
   const word = named.toLocaleLowerCase()
-  return PRICE_WORDS.some((entry) => word.startsWith(entry))
+  return PRICE_WORDS.some((entry) => word === entry || word === `${entry}s`)
     ? PRICE_WORDS
     : [word]
 }
@@ -225,7 +225,8 @@ export const agentComparedAnswer = (
     : undefined
 }
 
-const SENTENCES = /[.;!?\n]+/
+/** A period ends a sentence unless a digit follows it, as in 35.50. */
+const SENTENCES = /[;!?\n]+|\.(?!\d)/
 /** One entry of a list a sentence makes. */
 const CLAUSES = /,\s+|\s+and\s+/i
 

@@ -77,6 +77,27 @@ describe("collected records", () => {
     expect(
       agentComparedAnswer(read("r2", "Which is best"), collected, [prices])
     ).toBeUndefined()
+    for (const text of [
+      "Which shop is the highest rated",
+      "Which shop has the highest feedback"
+    ]) {
+      const asked = read("r2", text)
+      expect(
+        agentComparedAnswer(asked, collected, [prices, asked]),
+        text
+      ).toBeUndefined()
+    }
+  })
+
+  it("keeps a decimal price whole when splitting sentences", () => {
+    const decimals = [record("Shop A", 41.25), record("Shop B", 35.5)]
+    expect(
+      agentAnswerAgainstCompared(
+        "Shop B is cheapest at 35.50. Shop A charges 41.25.",
+        decimals[1],
+        decimals
+      )
+    ).toBe("agrees")
   })
 
   it("compares signed values as signed", () => {
