@@ -192,17 +192,21 @@ const writesControlNamed = (step: AgentStepReadout, name: string): boolean => {
  * left it. A later write
  * to the same name replaces the earlier one, so a value cleared or retyped
  * before leaving is never credited.
+ *
+ * `credited` when it stands for the control, `unproven` when the run wrote
+ * the control and left it without that record, undefined when the run never
+ * left a control of that name behind.
  */
 const plannedValueLeftBehind = (
   requirementId: string,
   name: string,
   changes: readonly AgentStepReadout[],
   currentUrl: string
-): boolean => {
+): "credited" | "unproven" | undefined => {
   let last = -1
   for (const [index, step] of changes.entries())
     if (writesControlNamed(step, name)) last = index
-  if (last < 0) return false
+  if (last < 0) return undefined
   const write = changes[last]
   const later = changes.slice(last + 1)
   /**
@@ -217,11 +221,11 @@ const plannedValueLeftBehind = (
     (later.length > 0 &&
       write.sourceUrl !== undefined &&
       !samePageAddress(write.sourceUrl, currentUrl))
-  return (
-    write.heldPlannedValue === true &&
-    write.requirementId === requirementId &&
-    left
-  )
+  if (!left) return undefined
+  return write.heldPlannedValue === true &&
+    write.requirementId === requirementId
+    ? "credited"
+    : "unproven"
 }
 
 /** Same scheme, host and path, read by pattern: the package has no `URL`. */
@@ -412,26 +416,30 @@ export const checkCompletionState = (
   // rowContext is bounded whole-row text, not a distinct record label.
   // It cannot prove a scoped control belongs to the requested record.
   if (check.record) return undefined
-  const matches = namedBy(
-    observation.elements.filter(
-      (element) =>
-        !element.sensitive &&
-        (element.visible || element.offscreen) &&
-        (check.frameId === undefined || element.frameId === check.frameId)
-    ),
-    (element) => element.name,
-    check.name
+  const candidates = observation.elements.filter(
+    (element) =>
+      !element.sensitive &&
+      (element.visible || element.offscreen) &&
+      (check.frameId === undefined || element.frameId === check.frameId)
   )
   /**
    * The control left with the page: a box ticked before Continue is not on
    * the page Continue opened. Its own confirmed write, recorded as holding
-   * the planned value or state, stands for it there.
+   * the planned value or state, stands for it there, and nothing else does.
+   * Decided before a shortened name is read as a phrase, or "Email me the
+   * terms" on the new page would answer for the "terms" box the run ticked
+   * on the old one.
    */
-  if (
-    matches.length === 0 &&
-    plannedValueLeftBehind(requirement.id, check.name, changes, observation.url)
-  )
-    return true
+  if (!candidates.some((element) => same(element.name ?? "", check.name))) {
+    const left = plannedValueLeftBehind(
+      requirement.id,
+      check.name,
+      changes,
+      observation.url
+    )
+    if (left) return left === "credited"
+  }
+  const matches = namedBy(candidates, (element) => element.name, check.name)
   if (matches.length !== 1) return false
   const element = matches[0]
   /** The page rejected what the control holds; it does not hold it as asked. */

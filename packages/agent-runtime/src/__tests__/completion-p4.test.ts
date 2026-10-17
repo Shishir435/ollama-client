@@ -1101,6 +1101,29 @@ describe("P4 deterministic completion", () => {
         ).toMatchObject({ type: "refused" })
       })
 
+      it("decides by the box it left before a phrase match on the new page", () => {
+        const other = (checked: boolean) => ({
+          ref: "e9",
+          frameId: 0,
+          tag: "input",
+          type: "checkbox",
+          name: "Email me the terms",
+          checked,
+          visible: true,
+          sensitive: false,
+          enabled: true,
+          editable: false
+        })
+        expect(
+          judgeTerms([ticked(), submit()], [other(false)] as never)
+        ).toMatchObject({ type: "accepted" })
+        expect(
+          judgeTerms([ticked({ heldPlannedValue: undefined }), submit()], [
+            other(true)
+          ] as never)
+        ).toMatchObject({ type: "refused" })
+      })
+
       it("credits nothing for a box never recorded as holding its state", () => {
         expect(
           judgeTerms([ticked({ heldPlannedValue: undefined }), submit()])
