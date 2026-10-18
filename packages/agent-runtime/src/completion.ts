@@ -2650,7 +2650,7 @@ const receiptNames = (receipt: AgentStepReadout): string[] =>
   ].filter((name): name is string => name !== undefined && name.length > 0)
 
 const itemEvidenceFeedback = (index: number, item: string): string =>
-  `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's.`
+  `The quotation for item ${index} ("${item.slice(0, 80)}") has to name that item and be its own: quote the page text that shows it, not another item's. Do not repeat an action to produce evidence.`
 
 /**
  * An itemized requirement is met only item by item, and a review answers for

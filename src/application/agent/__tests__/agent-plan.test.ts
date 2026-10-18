@@ -1139,6 +1139,69 @@ describe("prohibitions read by rule", () => {
       ).constraints ?? []
     ).flatMap((constraint) => constraint.forbids ?? [])
 
+  it.each([
+    [
+      "Book the cheapest of the three hotels linked on this page",
+      "the three hotels linked on this page"
+    ],
+    [
+      "List all orders placed by Ada Lovelace across every page",
+      "All orders placed by Ada Lovelace"
+    ],
+    [
+      "Add the Blue Kettle from Kettle Corner to the cart",
+      "Blue Kettle from Kettle Corner"
+    ]
+  ])("drops a lone item that describes rows: %s", (goal, item) => {
+    const [requirement] = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "The task is done",
+              kind: "read",
+              source: goal,
+              items: [item]
+            }
+          ]
+        })
+      ],
+      { goal }
+    ).requirements
+    expect(requirement.items).toBeUndefined()
+    expect(requirement.text).toContain(item)
+  })
+
+  it("keeps a lone item that names a row, and a list of descriptions", () => {
+    const goal =
+      "Mark invoice 2 paid, then report totals for the March report and the April report"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Invoice 2 shows Paid",
+              kind: "change",
+              source: "Mark invoice 2 paid",
+              items: ["invoice 2"]
+            },
+            {
+              text: "Each report total is reported",
+              kind: "read",
+              source: goal,
+              items: ["the March report", "the April report"]
+            }
+          ]
+        })
+      ],
+      { goal }
+    )
+    expect(plan.requirements.map((entry) => entry.items)).toEqual([
+      ["invoice 2"],
+      ["the March report", "the April report"]
+    ])
+  })
+
   /** Conditions mean "not now"; reading them as permission was unsafe. */
   it.each([
     ["Don't submit until I say so", ["submission"]],

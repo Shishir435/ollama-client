@@ -98,7 +98,7 @@ export const AGENT_PLAN_TOOL: ToolDefinition = {
               type: "array",
               maxItems: MAX_AGENT_REQUIREMENT_ITEMS,
               description:
-                "The rows, records or recipients the user named that this one outcome covers, copied exactly as the user wrote them. Leave out when the user did not name them.",
+                "The rows, records or recipients the user named that this one outcome covers, each by its name, copied exactly as the user wrote it ('Invoice 2', 'March report'). Never a description, count or filter ('the three hotels linked here', 'all orders by Ada'). Leave out when the user did not name them one by one, or when the outcome is about one record.",
               items: {
                 type: "string",
                 maxLength: MAX_AGENT_REQUIREMENT_ITEM_CHARS
@@ -186,7 +186,7 @@ List the outcomes the goal asks for, not the steps you would take to reach them.
 "Fill in the form and submit it" is two outcomes: the fields hold the requested values, and the form is submitted.
 "Find the cheapest flight and tell me the price" is one read outcome.
 Mark an outcome "change" when something on a page must end up different, and "read" when the goal asks you to report something.
-The same outcome for several rows, records or recipients is one requirement with items, not one requirement each.
+The same outcome for several rows, records or recipients is one requirement with items, not one requirement each. Each item is the name the user gave one row ("Invoice 2", "March report"), never a description or a count ("the three hotels linked on this page"); an outcome about one record, or about rows the user did not name, has no items.
 Put what the goal forbids or bounds in constraints, not requirements: "fill it in but don't submit" is one requirement and one exclude constraint.
 Quote, in source, the user's own words each entry comes from: the user's message when one is given, otherwise the goal.
 When one exact observable predicate fully answers an outcome, include check: field (name, value), checked (name, checked; also a switch, toggle button or tab), selected (name, value; also a custom listbox or combobox), url (url), row (record), record_state (record, state: saved, submitted, open, closed, merged, approved or deleted), or control_transition (from, to, optional record and frameId; for a requested renamed-control outcome). Include record for controls in a named row. Copy the requested value and identity from the goal. Set persist: true on a change the site must keep — a save, create, update, rename or delete — so it is checked on a page loaded after it. For a read about one named record or row ("the Pro plan's price"), include check: row (record) so the answer can be tied to that row. For read outcomes asking about current state, set freshness to current; historical is only for retained facts that the user did not ask to refresh. Omit check for semantic claims, composite outcomes or itemized requirements; never replace a requested outcome with an easier predicate.
@@ -966,6 +966,23 @@ const planIdentity = (context: AgentPlanContext | undefined) => {
 
 type PlanIdentity = ReturnType<typeof planIdentity>
 
+/**
+ * A lone item that describes rows rather than naming one: "the three hotels
+ * linked on this page", "All orders placed by Ada Lovelace", "Blue Kettle
+ * from Kettle Corner". An item's quotation must name it whole, and no page
+ * writes a description, so a requirement carrying one could never be met and
+ * the run went back and forth looking for text that does not exist. One item
+ * is no list anyway: the outcome is the requirement's own. A determiner or
+ * count first, a relation word, or more than four words reads as a
+ * description; a name such as "Invoice 2" or "March report" stays.
+ */
+const DESCRIBING_ITEM =
+  /^(?:the|a|an|all|every|each|any|both|these|those|this|that|some|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s|\s(?:from|by|for|of|in|on|at|with|linked|listed|shown|placed|named|called)\s/
+const describesRows = (item: string): boolean => {
+  const words = normalized(item)
+  return DESCRIBING_ITEM.test(`${words} `) || words.split(" ").length > 4
+}
+
 const parsedRequirements = (
   raw: readonly RawEntry[],
   identity: PlanIdentity
@@ -1002,7 +1019,12 @@ const parsedRequirements = (
      * items; taking one out is a removal, and a removal is the user's to
      * confirm.
      */
-    const kept = [...new Set([...(prior?.items ?? []), ...items])]
+    const listed = [...new Set([...(prior?.items ?? []), ...items])]
+    const lone =
+      !prior?.items?.length && listed.length === 1 && describesRows(listed[0])
+        ? listed[0]
+        : undefined
+    const kept = lone ? [] : listed
     const origin = identity.origin(source)
     /**
      * Asked of the planner, and read by rule from a saved or deleted record
@@ -1019,7 +1041,10 @@ const parsedRequirements = (
     return [
       {
         id,
-        text: wording,
+        text:
+          lone && !normalized(wording).includes(normalized(lone))
+            ? `${wording} (${lone})`.slice(0, MAX_AGENT_REQUIREMENT_CHARS)
+            : wording,
         kind,
         ...(check ? { check } : {}),
         ...(freshness ? { freshness } : {}),
