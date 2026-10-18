@@ -2306,6 +2306,8 @@ describe("a script button's label", () => {
     ["Speichern", { savingLabel: true }],
     ["Mark as paid", { savingLabel: true }],
     ["Place order", { committingLabel: true }],
+    ["Add to cart", { committingLabel: true }],
+    ["In den Warenkorb", { committingLabel: true }],
     ["Continue to payment", { savingLabel: true }],
     ["Weiter zur Zahlung", { savingLabel: true }],
     ["Continue shopping", {}],

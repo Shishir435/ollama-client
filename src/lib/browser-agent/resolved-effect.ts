@@ -700,7 +700,22 @@ const CONSEQUENTIAL_LABELS = [
   ]),
   /(?:注文|購入|支払|送信|送金|振込|投稿|予約|確定)/u,
   /(?:下单|购买|支付|付款|发送|转账|发布|订阅|预订|确认|提交)/u,
-  /(?:खरीदें|भुगतान|भेजें|ट्रांसफर|प्रकाशित|ऑर्डर|बुक करें|पुष्टि)/u
+  /(?:खरीदें|भुगतान|भेजें|ट्रांसफर|प्रकाशित|ऑर्डर|बुक करें|पुष्टि)/u,
+  /**
+   * Adding to a cart is the first step of buying, and the server keeps it.
+   * Unclassified, it ran under "Don't buy anything", which forbids payments
+   * and therefore a possible commit, and the cart held a kettle the user
+   * never asked for.
+   */
+  labelWords([
+    "add to (?:the )?(?:cart|basket|bag|trolley)",
+    "in den warenkorb",
+    "(?:añadir|agregar) al (?:carrito|cesta)",
+    "ajouter au panier",
+    "aggiungi al carrello",
+    "(?:добавить )?в корзину"
+  ]),
+  /(?:カートに入れる|カートに追加|加入购物车|添加到购物车|कार्ट में जोड़ें)/u
 ] as const
 
 const isConsequentialLabel = (value?: string): boolean =>
