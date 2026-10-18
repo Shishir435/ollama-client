@@ -791,6 +791,35 @@ describe("review: a plan cannot lose or bend the user's words", () => {
     }
   })
 
+  it("accepts a quote whose words begin the entry's", () => {
+    const goal =
+      "Buy the kettle, stop at the payment step without paying and tell me the total"
+    const plan = parseAgentTaskPlan(
+      [
+        call({
+          requirements: [
+            {
+              text: "Report the total",
+              kind: "read",
+              source: "tell me the total"
+            }
+          ],
+          constraints: [
+            {
+              text: "Do not pay or complete the purchase",
+              kind: "exclude",
+              source: "stop at the payment step without paying"
+            }
+          ]
+        })
+      ],
+      { goal }
+    )
+    expect(plan.constraints?.[0]?.source).toBe(
+      "stop at the payment step without paying"
+    )
+  })
+
   /** "Submit the form" elsewhere does not license sending the email. */
   it("keeps an exclusion that another clause's permission does not lift", () => {
     const plan = parseAgentTaskPlan(

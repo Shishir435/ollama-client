@@ -440,8 +440,24 @@ const stemOverlap = (left: string, right: string): number => {
  * user's but names nothing the entry names — "Monday" beside "every record is
  * deleted" — vouches for nothing, however genuine it is.
  */
-const supports = (source: string, entry: string): boolean =>
-  stemOverlap(source, entry) > 0
+const supports = (source: string, entry: string): boolean => {
+  if (stemOverlap(source, entry) > 0) return true
+  /**
+   * Five-letter stems keep "pay" from "paying" and "payment", so "Do not pay"
+   * quoted from "stop at the payment step without paying" read as resting on
+   * nothing, and the planner's retry, told so, gave up on quoting at all. A
+   * word that begins another, three letters or more, is the same word here;
+   * only this relevance check reads it so, never keep matching.
+   */
+  const entryWords = [...stems(entry)]
+  return [...stems(source)].some((word) =>
+    entryWords.some(
+      (other) =>
+        Math.min(word.length, other.length) >= 3 &&
+        (word.startsWith(other) || other.startsWith(word))
+    )
+  )
+}
 
 /**
  * An item's words as the user may have written them: numbers exactly, other
