@@ -1319,6 +1319,15 @@ const retryUntilWellFormed = async (input: {
         })
       }
     })
+  } catch (error) {
+    /**
+     * Retries spent on a command the page refused: hand it on, and let the
+     * resolver refuse it as a step the model hears about rather than end the
+     * run. Only a refusal the parser marked; malformed output still fails.
+     */
+    if (error instanceof AgentDecisionFormatError && error.refusedDecision)
+      return error.refusedDecision
+    throw error
   } finally {
     input.report(
       agentStepTelemetry({

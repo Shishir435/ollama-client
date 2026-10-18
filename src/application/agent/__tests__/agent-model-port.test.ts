@@ -653,6 +653,44 @@ describe("createProviderAgentModelPort", () => {
     )
   })
 
+  it("hands a command the page keeps refusing on to the resolver instead of failing the run", async () => {
+    const prompts: string[] = []
+    const stale = {
+      toolCalls: [
+        {
+          id: "call-1",
+          name: AGENT_DECISION_TOOL_NAME,
+          arguments: { type: "click", ref: "e1" }
+        }
+      ],
+      done: true
+    }
+    const streamChat = vi.fn(
+      async (
+        request: ChatRequest,
+        emit: (chunk: ChatStreamMessage) => void
+      ) => {
+        prompts.push(String(request.messages.at(-1)?.content))
+        emit(stale)
+      }
+    )
+    const port = modelPort(streamChat)
+    const empty = { ...observation, elements: [] }
+
+    for (let run = 0; run < 3; run += 1)
+      await expect(
+        port.decide({ state, observation: empty }, { aborted: false })
+      ).resolves.toMatchObject({
+        type: "command",
+        command: { type: "click", ref: "e1" }
+      })
+    /** Three retries a decision, three decisions: none charged as malformed. */
+    expect(prompts).toHaveLength(9)
+    expect(JSON.parse(prompts[1]).previousAttemptRefused).toContain(
+      "This page lists no controls"
+    )
+  })
+
   it("keeps page strings out of the text it sends back", async () => {
     const prompts: string[] = []
     const streamChat = vi.fn(

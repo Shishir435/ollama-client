@@ -675,11 +675,21 @@ const described = (refused: AgentAffordanceRefusal): string => {
  * page chose, because this text is about to become part of a prompt.
  */
 export const agentAffordanceFeedback = (
-  refused: AgentAffordanceRefusal
-): string =>
-  refused.field === undefined
-    ? affordanceReason(refused)
-    : `Field ${refused.field + 1} of the batch: ${affordanceReason(refused)}`
+  refused: AgentAffordanceRefusal,
+  observation?: Pick<AgentObservation, "elements">
+): string => {
+  const reason =
+    refused.field === undefined
+      ? affordanceReason(refused)
+      : `Field ${refused.field + 1} of the batch: ${affordanceReason(refused)}`
+  /**
+   * A page listing no controls at all answers every ref the same way, and a
+   * model told only to use a listed one kept naming the one it remembered.
+   */
+  return refused.reason === "unknown_ref" && observation?.elements.length === 0
+    ? `${reason} This page lists no controls: read it with extract_text, or use back or navigate to continue.`
+    : reason
+}
 
 const affordanceReason = (refused: AgentAffordanceRefusal): string => {
   const ref = refused.ref ? `Ref "${refused.ref}"` : "That element"

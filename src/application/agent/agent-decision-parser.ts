@@ -34,16 +34,26 @@ export class AgentDecisionFormatError extends AgentMalformedDecisionError {
    * model doing nothing wrong. The per-decision retry bound still applies.
    */
   readonly charged: boolean
+  /**
+   * A well-formed command the page cannot take — a ref no longer listed, a
+   * hidden control. Asked again here because a retry is cheaper than a step,
+   * but once the retries are spent it goes on to the resolver, which refuses
+   * it as a rejected step the model is told about. Failing the whole run on
+   * it broke the rule that a refused command is never fatal: a run on a page
+   * listing no controls ended after three steps of ninety-eight.
+   */
+  readonly refusedDecision?: AgentDecision
 
   constructor(
     message: string,
     feedback?: string,
-    options: { charged?: boolean } = {}
+    options: { charged?: boolean; refusedDecision?: AgentDecision } = {}
   ) {
     super(message)
     this.name = "AgentDecisionFormatError"
     if (feedback) this.feedback = feedback
     this.charged = options.charged ?? true
+    if (options.refusedDecision) this.refusedDecision = options.refusedDecision
   }
 }
 
@@ -422,7 +432,8 @@ const assertGroundedDecision = (
     if (refused) {
       throw new AgentDecisionFormatError(
         `The agent decision was refused: ${refused.reason}`,
-        agentAffordanceFeedback(refused)
+        agentAffordanceFeedback(refused, observation),
+        { charged: false, refusedDecision: decision }
       )
     }
   }
