@@ -3251,6 +3251,43 @@ describe("release review evidence regressions", () => {
     ).toMatchObject({ type: "refused" })
   })
 
+  it("sends a read answered twice for one listed item to review", () => {
+    const judge = (indexes: number[]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          observedFact("Blue Kettle 41 credits"),
+          observedFact("Blue Kettle 37 credits")
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the Blue Kettle's price at each shop",
+            kind: "read",
+            items: ["Blue Kettle"]
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: indexes.map((index, at) => ({
+              index,
+              met: true,
+              evidence:
+                at === 0 ? "Blue Kettle 41 credits" : "Blue Kettle 37 credits"
+            }))
+          }
+        ]
+      })
+    expect(judge([0, 0])).toMatchObject({
+      type: "refused",
+      reason: "needs_review"
+    })
+    expect(judge([0])).toMatchObject({ type: "accepted" })
+  })
+
   describe("a current-state read over pages this run has left", () => {
     const read = (steps: AgentStepReadout[], observedAt: number) =>
       judgeAgentCompletion({

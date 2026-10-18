@@ -2047,7 +2047,10 @@ run that produced it can always be repeated.
   that describes rows instead of naming one (a determiner or count first, a
   relation word, more than four words) is folded into the requirement's
   text: no page writes "the two flights listed on this page", so it could
-  never be quoted. A receipt stands in for an
+  never be quoted. A read answered more than once for one item was
+  itemized along the wrong axis (each shop's price, planned as the one
+  product) and goes to review once its quotations are grounded, since the
+  last answer would otherwise stand for all of them. A receipt stands in for an
   item only when its target, row, or — for a verified batch — one of its
   checked fields names the item; every item shares the requirement's id.
   If the item extends a control's name with a value or state, the confirmed

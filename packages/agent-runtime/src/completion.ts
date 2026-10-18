@@ -1907,6 +1907,9 @@ const isSelfEvidence = (
 const MISSING_ITEM_OUTCOMES_FEEDBACK =
   "A requirement that lists items is answered item by item: give items in its outcome, one per item by position from 0, each saying whether it is met and quoting the page text that shows it."
 
+const UNLISTED_PARTS_FEEDBACK =
+  "This read was answered in parts the plan did not list, so which quote answers which part needs independent review. Preserve completed effects; do not repeat an action to produce evidence."
+
 const MISSING_OUTCOMES_FEEDBACK =
   "Answer every requirement the task was planned with, by id, saying for each whether it is met and quoting the page text that shows it."
 
@@ -2377,8 +2380,7 @@ const judgeMetRequirement = (
     return {
       type: "refused",
       reason: "needs_review",
-      feedback:
-        "This read was answered in parts the plan did not list, so which quote answers which part needs independent review. Preserve completed effects; do not repeat an action to produce evidence."
+      feedback: UNLISTED_PARTS_FEEDBACK
     }
   }
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
@@ -2475,6 +2477,26 @@ const judgeItemizedRequirement = (
   | Extract<AgentCompletionJudgement, { type: "refused" }>
   | "unmet"
   | undefined => {
+  /**
+   * A read answered more than once for one item was itemized along the
+   * wrong axis: "each of the three shops" planned as the one product they
+   * sell, answered with three prices for item 0. The last answer would
+   * stand for all of them, so the run goes to review instead, once every
+   * quotation it gave is grounded.
+   */
+  const indexes = (claim.items ?? []).map((item) => item.index)
+  if (requirement.kind === "read" && new Set(indexes).size < indexes.length) {
+    for (const part of claim.items ?? []) {
+      if (!part.met) continue
+      const refused = refusePlannedReadClaim(part.evidence, input, requirement)
+      if (refused) return refused
+    }
+    return {
+      type: "refused",
+      reason: "needs_review",
+      feedback: UNLISTED_PARTS_FEEDBACK
+    }
+  }
   const answers = new Map((claim.items ?? []).map((item) => [item.index, item]))
   if (requirement.items.some((_, index) => !answers.has(index)))
     return {
