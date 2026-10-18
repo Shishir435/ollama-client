@@ -420,6 +420,15 @@ export const READ_ONLY_AGENT_VERIFIERS = {
     if (input.effect.command.type !== "wait")
       throw new Error("Invalid wait effect")
     const { condition, timeoutMs } = input.effect.command
+    /**
+     * Whether the page moved at all while it was watched. A condition absent
+     * from a page that never changed was not late; it was never going to be
+     * there — most often a description of the page ("the price appears")
+     * rather than text it shows — and saying so is what stops a run from
+     * waiting for it again and again.
+     */
+    let first: string | undefined
+    let moved = false
     return pollUntilSettled(
       adapter,
       signal,
@@ -430,6 +439,9 @@ export const READ_ONLY_AGENT_VERIFIERS = {
       },
       async (poll) => {
         const after = await observeAfter(input, adapter, signal)
+        const seen = JSON.stringify([after.url, after.visibleText])
+        if (first === undefined) first = seen
+        else if (seen !== first) moved = true
         return agentObservationStates(condition, after)
           ? result(
               "confirmed",
@@ -442,7 +454,9 @@ export const READ_ONLY_AGENT_VERIFIERS = {
           : result(
               "negative",
               "condition",
-              "Named wait condition is absent after timeout",
+              moved || poll === 1
+                ? "Named wait condition is absent after timeout"
+                : "Condition absent and the page did not change while waiting. Waiting again will not help: wait only for exact text the page will show",
               adapter.now()
             )
       },

@@ -1371,8 +1371,13 @@ export type AgentPendingSupervisionRecord = z.infer<
   typeof AgentPendingSupervisionSchema
 >
 
-/** How many recent progress points the no-progress guard compares. */
-export const MAX_AGENT_PROGRESS_POINTS = 6
+/**
+ * How many recent progress points the no-progress guard compares. Wide
+ * enough for two laps of a three-page click, Back cycle: at six, one lap
+ * filled the window, and a lap with a read in it pushed the first click out
+ * before it came round again.
+ */
+export const MAX_AGENT_PROGRESS_POINTS = 12
 
 /**
  * The run's stall counters, as the controller last left them. They lived in

@@ -406,9 +406,25 @@ export const agentTextChangeSignature = (
 export const classifyNoProgress = (
   input: AgentNoProgressInput
 ): AgentNoProgressResult => {
+  /**
+   * A wait keeps the count it found: holding for a condition is not a
+   * repeat. A wait on a page identical to the one the last decision saw is
+   * different — nothing it could be waiting for has happened, and a run
+   * waiting for a description of the page ("the price appears") did so
+   * seventeen times for free.
+   */
   if (input.current.decision?.type === "command") {
     if (input.current.decision.command.type === "wait") {
-      return { noProgress: false, count: input.previousCount ?? 0 }
+      const last = input.recent?.at(-1) ?? input.previous
+      const unchanged =
+        last !== undefined &&
+        last.url === input.current.url &&
+        last.snapshotHash === input.current.snapshotHash &&
+        last.decision?.type === "command" &&
+        last.decision.command.type === "wait"
+      return unchanged
+        ? { noProgress: true, count: (input.previousCount ?? 0) + 1 }
+        : { noProgress: false, count: input.previousCount ?? 0 }
     }
   }
   const candidates = input.recent ?? (input.previous ? [input.previous] : [])
