@@ -57,7 +57,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Comparisons and checks of boxes, switches and accepted terms understand
   German, Spanish, French, Italian, Russian and Hindi; comparisons also
   understand Japanese and Chinese.
-- Pressing "Continue to payment" again asks first.
+- Pressing "Continue to payment" again asks first, and "Add to cart" is held
+  to the same limits as placing an order.
 
 ### Security
 
