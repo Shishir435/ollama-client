@@ -45,23 +45,44 @@ export const agentEvidenceSource = (
   return parsed.success ? parsed.data : undefined
 }
 
-/** Retention is bounded even when a single malformed/restored row is huge. */
+/**
+ * Retention is bounded even when a single malformed/restored row is huge.
+ *
+ * What goes first when the ledger is full: a receipt that a navigation or
+ * an activation landed, then any other record, then the ones the caller
+ * protects — oldest first within each. Every step adds a receipt and few add
+ * a fact, so dropping by age alone left a forty-step comparison holding
+ * forty "navigation committed" receipts and none of the five prices it had
+ * read; the model then reported them all missing. The receipts stay
+ * durable in the step rows either way.
+ */
 export const boundAgentEvidence = (
-  records: readonly AgentEvidenceRecord[]
+  records: readonly AgentEvidenceRecord[],
+  protectedIds: readonly string[] = []
 ): AgentEvidenceRecord[] => {
   const unique = new Map<string, AgentEvidenceRecord>()
   for (const record of records) {
     const parsed = AgentEvidenceRecordSchema.safeParse(record)
     if (parsed.success) unique.set(record.id, parsed.data)
   }
-  const kept = [...unique.values()].slice(-MAX_AGENT_LEDGER_RECORDS)
+  const kept = [...unique.values()]
+  const protectedSet = new Set(protectedIds)
+  const evictionRank = (record: AgentEvidenceRecord): number =>
+    protectedSet.has(record.id) ? 2 : record.kind === "verified_effect" ? 0 : 1
+  const evict = () => {
+    let victim = 0
+    for (let index = 1; index < kept.length; index += 1)
+      if (evictionRank(kept[index]) < evictionRank(kept[victim])) victim = index
+    kept.splice(victim, 1)
+  }
+  while (kept.length > MAX_AGENT_LEDGER_RECORDS) evict()
   // UTF-8 uses at most three bytes per UTF-16 code unit. This conservative
   // bound also covers supplementary characters and JSON escape sequences.
   while (
     kept.length &&
     JSON.stringify(kept).length * 3 > MAX_AGENT_LEDGER_BYTES
   )
-    kept.shift()
+    evict()
   return kept
 }
 
@@ -316,7 +337,8 @@ export const buildAgentEvidenceLedger = (
           return index < 0 ? 0 : priorityIds.length - index
         }
         return rank(a.id) - rank(b.id)
-      })
+      }),
+    priorityIds
   )
 
 /** User answers are already durable; retain references, never their contents. */

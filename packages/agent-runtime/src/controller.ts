@@ -2553,32 +2553,35 @@ export const createAgentController = (
     /** Held for this decision only; its records keep none of the image. */
     screenshot?: AgentScreenshot
   ) =>
-    boundAgentEvidence([
-      ...buildAgentEvidenceLedger(
-        [
-          {
-            runId: state.id,
-            stepId: "retained",
-            sequence: 0,
-            status: "verified",
-            at: 0,
-            evidenceLedger: state.evidenceLedger
-          },
-          ...(steps ?? [])
-        ],
-        state.allowedOrigins,
-        observation,
-        state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
-      ),
-      ...agentCompletionEvidence(
-        state,
-        observation,
-        decision,
-        steps,
-        `${state.id}:answer:${state.observationCount}`,
-        screenshot
-      )
-    ])
+    boundAgentEvidence(
+      [
+        ...buildAgentEvidenceLedger(
+          [
+            {
+              runId: state.id,
+              stepId: "retained",
+              sequence: 0,
+              status: "verified",
+              at: 0,
+              evidenceLedger: state.evidenceLedger
+            },
+            ...(steps ?? [])
+          ],
+          state.allowedOrigins,
+          observation,
+          state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
+        ),
+        ...agentCompletionEvidence(
+          state,
+          observation,
+          decision,
+          steps,
+          `${state.id}:answer:${state.observationCount}`,
+          screenshot
+        )
+      ],
+      state.workflow?.entries.flatMap((entry) => entry.evidenceIds)
+    )
 
   const settleCompletion = async (
     state: AgentRunState,
