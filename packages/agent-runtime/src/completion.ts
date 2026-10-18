@@ -2358,25 +2358,28 @@ const judgeMetRequirement = (
      * lead time of each of the three suppliers", one quote per supplier.
      * There is no single string to judge, and refusing for the missing one
      * sent a run that had every fact round the same refusal until it asked
-     * the user. Each quote is judged as the read's own; one that fails
-     * refuses the read.
+     * the user. But nothing ties each quote to the item the model filed it
+     * under: "Blue Kettle 41 credits" names no shop, and accepted as claimed
+     * it reached the user as a price from an unnamed shop. Every quote must
+     * be grounded, and then a reviewer reads them against the question.
      */
     const parts = (claim.items ?? []).filter((item) => item.met)
     if (
-      !claim.evidence?.trim() &&
-      parts.length > 0 &&
-      !requirement.items?.length
+      claim.evidence?.trim() ||
+      parts.length === 0 ||
+      requirement.items?.length
     )
-      for (const part of parts) {
-        const refused = refusePlannedReadClaim(
-          part.evidence,
-          input,
-          requirement
-        )
-        if (refused) return refused
-      }
-    else return refusePlannedReadClaim(claim.evidence, input, requirement)
-    return undefined
+      return refusePlannedReadClaim(claim.evidence, input, requirement)
+    for (const part of parts) {
+      const refused = refusePlannedReadClaim(part.evidence, input, requirement)
+      if (refused) return refused
+    }
+    return {
+      type: "refused",
+      reason: "needs_review",
+      feedback:
+        "This read was answered in parts the plan did not list, so which quote answers which part needs independent review. Preserve completed effects; do not repeat an action to produce evidence."
+    }
   }
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
     const refusal = noSubmissionEvidence(input)

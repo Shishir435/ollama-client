@@ -3245,7 +3245,7 @@ describe("release review evidence regressions", () => {
       })
     expect(
       judge(["Supplier A lead time 12 days", "Supplier B lead time 7 days"])
-    ).toMatchObject({ type: "accepted", outcome: { claimed: ["r1"] } })
+    ).toMatchObject({ type: "refused", reason: "needs_review" })
     expect(
       judge(["Supplier A lead time 12 days", "Supplier C lead time 3 days"])
     ).toMatchObject({ type: "refused" })
