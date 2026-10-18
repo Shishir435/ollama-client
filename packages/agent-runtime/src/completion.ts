@@ -30,6 +30,13 @@ import type {
   ResolvedAgentEffect
 } from "./ports"
 import { agentForbidsEffect } from "./prior-effects"
+import {
+  isLocaleNegationWord,
+  isLocaleStateClaimWord,
+  localeAccepts,
+  localeAssertsOff,
+  localeAssertsOn
+} from "./state-words"
 
 /**
  * The semantic classes that change the page rather than read it.
@@ -600,7 +607,7 @@ const requirementNamesField = (
   )
 }
 
-const CLAIM_WORD_CHARACTER = /[\p{L}\p{N}_]/u
+const CLAIM_WORD_CHARACTER = /[\p{L}\p{M}\p{N}_]/u
 
 /**
  * Every occurrence whose neighbours are punctuation, whitespace, or string
@@ -677,7 +684,7 @@ const VALUE_NEGATED_AFTER_PATTERN =
 
 /** The state the requirement asserts, once negations flip what they scope. */
 const requirementAssertsOff = (text: string): boolean => {
-  if (NEGATED_ON_PATTERN.test(text)) return true
+  if (NEGATED_ON_PATTERN.test(text) || localeAssertsOff(text)) return true
   const unnegated = text
     .replace(NEGATED_ON_PATTERN_GLOBAL, " ")
     .replace(NEGATED_OFF_PATTERN_GLOBAL, " ")
@@ -685,7 +692,7 @@ const requirementAssertsOff = (text: string): boolean => {
 }
 
 const requirementAssertsOn = (text: string): boolean => {
-  if (NEGATED_OFF_PATTERN.test(text)) return true
+  if (NEGATED_OFF_PATTERN.test(text) || localeAssertsOn(text)) return true
   const unnegated = text
     .replace(NEGATED_ON_PATTERN_GLOBAL, " ")
     .replace(NEGATED_OFF_PATTERN_GLOBAL, " ")
@@ -1141,12 +1148,12 @@ const compactFieldWord = (word: string): string =>
  */
 const fieldNameWordOccurrences = (text: string, name: string): PhraseSpan[] => {
   const words = new Set(
-    (name.match(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu) ?? [])
+    (name.match(/[\p{L}\p{N}][\p{L}\p{M}\p{N}_'’-]*/gu) ?? [])
       .map(compactFieldWord)
       .filter((word) => word.length >= 3 && !FIELD_NAME_FILLER.has(word))
   )
   if (words.size === 0) return []
-  return [...text.matchAll(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu)].flatMap(
+  return [...text.matchAll(/[\p{L}\p{N}][\p{L}\p{M}\p{N}_'’-]*/gu)].flatMap(
     (match) =>
       words.has(compactFieldWord(match[0]))
         ? [{ start: match.index, end: match.index + match[0].length }]
@@ -1443,7 +1450,10 @@ const claimsOnlyAct = (
 
 /** Lowercased words, compared without hyphens or apostrophes. */
 const claimWords = (text: string): string[] =>
-  (agentNormalizedClaim(text).match(/[\p{L}\p{N}][\p{L}\p{N}_'’-]*/gu) ?? [])
+  (
+    agentNormalizedClaim(text).match(/[\p{L}\p{N}][\p{L}\p{M}\p{N}_'’-]*/gu) ??
+    []
+  )
     .map(compactFieldWord)
     .filter(Boolean)
 
@@ -1478,7 +1488,9 @@ const factWords = (values: readonly (string | undefined)[]): Set<string> =>
   new Set(
     values
       .flatMap((value) => (value ? claimWords(value) : []))
-      .filter((word) => !NEGATION_WORDS.has(word))
+      .filter(
+        (word) => !NEGATION_WORDS.has(word) && !isLocaleNegationWord(word)
+      )
   )
 
 /**
@@ -2130,7 +2142,8 @@ const samePage = (first: string, second: string): boolean => {
 const acceptsBox = (text: string, name: string): boolean => {
   const rest = ` ${text} `.replace(` ${agentNormalizedClaim(name)} `, " ")
   return (
-    /\b(?:accept|accepted|agree|agreed)\b/.test(rest) &&
+    (/\b(?:accept|accepted|agree|agreed)\b/.test(rest) ||
+      localeAccepts(rest)) &&
     !/\b(?:not|never|don t|do not|without|decline|refuse)\b/.test(rest)
   )
 }
@@ -2227,7 +2240,10 @@ const typedCheckAgrees = (requirement: AgentTaskRequirement): boolean => {
     ])
     return claimWords(text).every(
       (word) =>
-        verbs.has(word) || CLAIM_FUNCTION_WORDS.has(word) || facts.has(word)
+        verbs.has(word) ||
+        CLAIM_FUNCTION_WORDS.has(word) ||
+        (check.type === "checked" && isLocaleStateClaimWord(word)) ||
+        facts.has(word)
     )
   }
   if (check.type === "control_transition") {

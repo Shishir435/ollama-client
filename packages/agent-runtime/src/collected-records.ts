@@ -151,18 +151,150 @@ const PRICE_WORDS = [
 ]
 
 /**
+ * The other eight locales' words, as stems. A stem in a spaced script must
+ * begin a word and may run on, so one stem covers its inflections
+ * ("günstigste", "günstigsten"); Japanese and Chinese have no word edge, so
+ * theirs match where they stand. The first two lists name a price by
+ * themselves, as "cheapest" does.
+ */
+const localeStems = (spaced: readonly string[], unspaced: readonly string[]) =>
+  new RegExp(
+    `(?<![\\p{L}\\p{M}\\p{N}])(?:${spaced.join("|")})|${unspaced.join("|")}`,
+    "iu"
+  )
+const LOCALE_CHEAPEST = localeStems(
+  [
+    "günstigst",
+    "billigst",
+    "preiswertest",
+    "más barat",
+    "moins ch[eè]re?",
+    "più economic",
+    "meno car(?:o|a|i|e)(?![\\p{L}])",
+    "самы\\p{L}* деш[её]в",
+    "дешевле всего",
+    "सबसे सस्त"
+  ],
+  ["最安", "一番安", "最も安", "いちばん安", "最便宜"]
+)
+const LOCALE_PRICIEST = localeStems(
+  [
+    "teuerst",
+    "más car(?:o|a|os|as)(?![\\p{L}])",
+    "plus ch[eè]re?",
+    "più car(?:o|a|i|e)(?![\\p{L}])",
+    "самы\\p{L}* дорог",
+    "дороже всего",
+    "सबसे महंग",
+    "सबसे मँहग"
+  ],
+  ["最も高価", "一番高価", "最贵"]
+)
+const LOCALE_LOWEST = localeStems(
+  [
+    "niedrigst",
+    "kleinst",
+    "wenigst",
+    "geringst",
+    "más baj",
+    "menor",
+    "mínim",
+    "plus bas",
+    "plus petit",
+    "più bass",
+    "minor",
+    "minim",
+    "наименьш",
+    "минимальн",
+    "самы\\p{L}* низк",
+    "самы\\p{L}* мал",
+    "सबसे कम",
+    "न्यूनतम"
+  ],
+  ["最低", "最小", "最少", "一番低", "最も低", "一番少な", "最も少な"]
+)
+const LOCALE_HIGHEST = localeStems(
+  [
+    "höchst",
+    "größt",
+    "meist",
+    "más alt",
+    "mayor",
+    "máxim",
+    "plus élevé",
+    "plus haut",
+    "plus grand",
+    "più alt",
+    "maggior",
+    "massim",
+    "наибольш",
+    "максимальн",
+    "самы\\p{L}* высок",
+    "самы\\p{L}* больш",
+    "सबसे ज़्याद",
+    "सबसे ज्याद",
+    "सबसे अधिक",
+    "अधिकतम",
+    "सबसे बड़"
+  ],
+  ["最高", "最大", "最多", "一番高", "最も高", "一番多", "最も多"]
+)
+const LOCALE_PRICE = localeStems(
+  [
+    "preis",
+    "kosten",
+    "kostet",
+    "gebühr",
+    "tarif",
+    "precio",
+    "coste",
+    "costo",
+    "cuota",
+    "prix",
+    "coût",
+    "frais",
+    "prezz",
+    "цен(?:а|ы|у|ой|е|ам|ами|ах)?(?![\\p{L}])",
+    "стоимост",
+    "рубл",
+    "कीमत",
+    "दाम",
+    "मूल्य",
+    "शुल्क",
+    "रुपय",
+    "रुपए"
+  ],
+  ["価格", "値段", "料金", "費用", "円", "价", "费用"]
+)
+
+/** Which direction a question's superlative asks for, in any locale. */
+const directionOf = (text: string) => ({
+  lowest:
+    LOWEST.test(text) || LOCALE_CHEAPEST.test(text) || LOCALE_LOWEST.test(text),
+  highest:
+    HIGHEST.test(text) ||
+    LOCALE_PRICIEST.test(text) ||
+    LOCALE_HIGHEST.test(text)
+})
+
+/**
  * What a superlative compares: price for "cheapest" or "most expensive",
  * otherwise the word after the superlative ("highest rating" is rating).
- * Undefined when the question names no measure, which leaves it to review.
+ * The other locales put the measure on either side of the superlative
+ * ("el precio más bajo", "最も安い価格"), so there a price word anywhere in
+ * the question names price, and any other measure is not read. Undefined
+ * when the question names no measure, which leaves it to review.
  */
 const measureOf = (text: string): readonly string[] | undefined => {
   if (/\b(?:cheapest|least expensive|most expensive|priciest)\b/i.test(text))
+    return PRICE_WORDS
+  if (LOCALE_CHEAPEST.test(text) || LOCALE_PRICIEST.test(text))
     return PRICE_WORDS
   const named =
     /\b(?:highest|lowest|largest|smallest|biggest|greatest|most|fewest|least|maximum|minimum)\s+([\p{L}]{3,})/iu.exec(
       text
     )?.[1]
-  if (!named) return undefined
+  if (!named) return LOCALE_PRICE.test(text) ? PRICE_WORDS : undefined
   const word = named.toLocaleLowerCase()
   return PRICE_WORDS.some((entry) => word === entry || word === `${entry}s`)
     ? PRICE_WORDS
@@ -171,7 +303,8 @@ const measureOf = (text: string): readonly string[] | undefined => {
 
 /** Whether a read's own text says it measures one of `measure`'s words. */
 const measures = (text: string, measure: readonly string[]): boolean => {
-  const words = text.toLocaleLowerCase().split(/[^\p{L}]+/u)
+  if (measure === PRICE_WORDS && LOCALE_PRICE.test(text)) return true
+  const words = text.toLocaleLowerCase().split(/[^\p{L}\p{M}]+/u)
   return measure.some((entry) => {
     const stem = entry.slice(0, Math.max(4, entry.length - 2))
     return words.some((word) => word.startsWith(stem))
@@ -194,8 +327,7 @@ export const agentComparedAnswer = (
   requirements: readonly AgentTaskRequirement[]
 ): AgentCollectedRecord | undefined => {
   if (requirement.kind !== "read" || requirement.items?.length) return undefined
-  const lowest = LOWEST.test(requirement.text)
-  const highest = HIGHEST.test(requirement.text)
+  const { lowest, highest } = directionOf(requirement.text)
   if (lowest === highest) return undefined
   const measure = measureOf(requirement.text)
   if (!measure) return undefined
@@ -225,10 +357,16 @@ export const agentComparedAnswer = (
     : undefined
 }
 
-/** A period ends a sentence unless a digit follows it, as in 35.50. */
-const SENTENCES = /[;!?\n]+|\.(?!\d)/
-/** One entry of a list a sentence makes. */
-const CLAUSES = /,\s+|\s+and\s+/i
+/**
+ * A period ends a sentence unless a digit follows it, as in 35.50; so do
+ * the full-width stops Japanese and Chinese write.
+ */
+const SENTENCES = /[;!?\n。！？；]+|\.(?!\d)/
+/**
+ * One entry of a list a sentence makes: a comma, an ideographic comma, or a
+ * spaced "and" in any of the nine locales.
+ */
+const CLAUSES = /,\s+|[、，]\s*|\s+(?:and|und|y|et|e|и|और)\s+/iu
 
 /**
  * The parts of an answer that speak of `item` alone: a sentence naming it

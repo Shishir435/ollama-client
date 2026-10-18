@@ -111,4 +111,66 @@ describe("collected records", () => {
       cities[1]
     )
   })
+
+  it.each([
+    ["Welcher Shop ist am günstigsten?", 1],
+    ["¿Qué tienda es la más barata?", 1],
+    ["Quelle boutique est la moins chère ?", 1],
+    ["Quale negozio è il più economico?", 1],
+    ["Какой магазин самый дешёвый?", 1],
+    ["कौन सी दुकान सबसे सस्ती है?", 1],
+    ["どの店が一番安いですか", 1],
+    ["哪家店最便宜", 1],
+    ["Welcher Shop ist am teuersten?", 0],
+    ["¿Qué tienda es la más cara?", 0],
+    ["Quelle boutique est la plus chère ?", 0],
+    ["Какой магазин самый дорогой?", 0],
+    ["कौन सी दुकान सबसे महंगी है?", 0],
+    ["哪家店最贵", 0],
+    ["¿Qué tienda tiene el precio más bajo?", 1],
+    ["Welcher Shop hat den niedrigsten Preis?", 1],
+    ["価格が最も高い店はどれですか", 0]
+  ] as const)("computes %s in its own language", (text, winner) => {
+    const prices = read("r1", "Read each shop's price", ["Shop A", "Shop B"])
+    const asked = read("r2", text)
+    expect(agentComparedAnswer(asked, collected, [prices, asked])).toBe(
+      collected[winner]
+    )
+  })
+
+  it("reads a price measure written in another language", () => {
+    const prices = read("r1", "Lies den Preis jedes Shops", [
+      "Shop A",
+      "Shop B"
+    ])
+    const asked = read("r2", "Which shop is cheapest")
+    expect(agentComparedAnswer(asked, collected, [prices, asked])).toBe(
+      collected[1]
+    )
+  })
+
+  it.each([
+    "¿Qué tienda tiene la valoración más alta?",
+    "Welcher Shop hat die höchste Bewertung?",
+    "评分最高的是哪家店",
+    "Welcher Shop ist am günstigsten und hat die höchste Bewertung?",
+    "Какой центр самый большой?"
+  ])("leaves %s to review", (text) => {
+    const prices = read("r1", "Read each shop's price", ["Shop A", "Shop B"])
+    const asked = read("r2", text)
+    expect(
+      agentComparedAnswer(asked, collected, [prices, asked])
+    ).toBeUndefined()
+  })
+
+  it.each([
+    ["Shop B ist am günstigsten mit 35 Credits. Shop A kostet 41.", "agrees"],
+    ["Shop B a 35, et Shop A a 41", "agrees"],
+    ["Shop B 35、Shop A 41。", "agrees"],
+    ["Shop B costa 41 crediti", "disagrees"]
+  ] as const)("judges %s in another language", (answer, stance) => {
+    expect(agentAnswerAgainstCompared(answer, collected[1], collected)).toBe(
+      stance
+    )
+  })
 })
