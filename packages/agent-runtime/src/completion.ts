@@ -2352,8 +2352,32 @@ const judgeMetRequirement = (
   const unopened = refuseUnopenedTab(requirement, input)
   if (unopened) return unopened
   if (openedTabMeets(requirement, input, consumed)) return undefined
-  if (requirement.kind === "read")
-    return refusePlannedReadClaim(claim.evidence, input, requirement)
+  if (requirement.kind === "read") {
+    /**
+     * A read the plan gave no items, answered item by item anyway — "the
+     * lead time of each of the three suppliers", one quote per supplier.
+     * There is no single string to judge, and refusing for the missing one
+     * sent a run that had every fact round the same refusal until it asked
+     * the user. Each quote is judged as the read's own; one that fails
+     * refuses the read.
+     */
+    const parts = (claim.items ?? []).filter((item) => item.met)
+    if (
+      !claim.evidence?.trim() &&
+      parts.length > 0 &&
+      !requirement.items?.length
+    )
+      for (const part of parts) {
+        const refused = refusePlannedReadClaim(
+          part.evidence,
+          input,
+          requirement
+        )
+        if (refused) return refused
+      }
+    else return refusePlannedReadClaim(claim.evidence, input, requirement)
+    return undefined
+  }
   if (NO_SUBMISSION_MENTION_PATTERN.test(requirement.text)) {
     const refusal = noSubmissionEvidence(input)
     if (refusal) return refusal

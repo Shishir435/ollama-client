@@ -3215,6 +3215,42 @@ describe("release review evidence regressions", () => {
     })
     expect(result).toMatchObject({ type: "refused", reason: "absent_evidence" })
   })
+  it("judges a read without items that was answered item by item", () => {
+    const judge = (quotes: string[]) =>
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidenceLedger: [
+          observedFact("Supplier A lead time 12 days"),
+          observedFact("Supplier B lead time 7 days")
+        ],
+        requirements: [
+          {
+            id: "r1",
+            text: "Read the lead time of each supplier",
+            kind: "read"
+          }
+        ],
+        outcomes: [
+          {
+            id: "r1",
+            met: true,
+            items: quotes.map((evidence, index) => ({
+              index,
+              met: true,
+              evidence
+            }))
+          }
+        ]
+      })
+    expect(
+      judge(["Supplier A lead time 12 days", "Supplier B lead time 7 days"])
+    ).toMatchObject({ type: "accepted", outcome: { claimed: ["r1"] } })
+    expect(
+      judge(["Supplier A lead time 12 days", "Supplier C lead time 3 days"])
+    ).toMatchObject({ type: "refused" })
+  })
+
   describe("a current-state read over pages this run has left", () => {
     const read = (steps: AgentStepReadout[], observedAt: number) =>
       judgeAgentCompletion({
