@@ -304,6 +304,15 @@ Read the section your change touches; you do not need the whole file.
   - A decision is compared by the control it named, not its ref
     (`agentDecisionFingerprint`): refs are positional, so a list that gained
     a row renumbered the same button and the third click on it read as new.
+  - The guard compares the last `MAX_AGENT_PROGRESS_POINTS` (twelve) points.
+    At six, one lap of a click → read → Back cycle over three pages filled
+    the window and pushed the first click out before it came round again.
+  - A `wait` keeps the count it found, except a wait on a page whose hash has
+    not moved since the previous wait: nothing it could hold for has
+    happened. Waits for a description of the page ("the results appear")
+    were free and ran seventeen times. The verifier also says when the page
+    never changed while it watched, so the model hears that waiting again
+    cannot help.
 - **The stall counters are durable.** No-progress points (hashes only),
   refused commands, refused completions, malformed answers and failed plan
   amendments ride in `AgentRunState.stall`, written with every claim and
@@ -323,6 +332,19 @@ Read the section your change touches; you do not need the whole file.
   that carry no screenshot. Answering with one is refused with feedback and
   retried within the decision's own bound, uncharged to the run's
   malformed-answer budget.
+- **A command the page refuses is asked again, then handed on, never made
+  fatal at the parser.** `assertGroundedDecision` refuses an unlisted,
+  hidden or disabled target so a retry can fix it for free, uncharged to
+  the malformed budget. Once the decision's retries are spent the port
+  returns that decision instead of failing, and the resolver refuses it as
+  the rejected step described next. Failing there ended a run on a page that
+  listed no controls after three of its ninety-eight steps; on such a page
+  the feedback now says there are no controls and points to `extract_text`,
+  `back` or `navigate`.
+- **The model sees every page the run has been on.** History keeps twelve
+  steps, so `buildAgentVisitedPages` adds a bounded `visited` list (origin and
+  path, arrivals, steps) read from all receipts. Without it a long run forgot
+  the pages it had read and opened them again.
 - **A refused command is told to the model, not made fatal.** The resolver
   refusing to ground a command means nothing was attempted, so the run has
   lost nothing: it records a rejected step carrying the affordance layer's own
@@ -497,6 +519,13 @@ first (`recovery.ts`), and only an exhausted budget reaches the user.
   refresh. Without a live observation, retained support is historical. This
   records provenance, not semantic satisfaction of the task: completion checking
   and independent review are separate work.
+- A read asking for current state (`requiresCurrentState`) still accepts a
+  historical fact this run read, at or after its first step, when no change
+  was applied after the reading and no effect is uncertain
+  (`readableLedger`). The run is the present the user asked about; requiring
+  each page to be open again sent a three-site comparison round the sites
+  indefinitely. `requires_refresh` never counts, and a change after the
+  reading returns the fact to history.
 - The settled chat handoff and follow-up carry the same bounded references as
   untrusted data. Excluded origins contribute nothing. A quote changed by
   handoff redaction is incomplete. `current_tab` and `read_tab` provide reference
@@ -1271,7 +1300,13 @@ for every other id. Rules, all load-bearing:
   a limit's id and no page quote can show which key was pressed, so without
   this every method limit could only be refused; the reviewer still judges
   the limit against the full action list, and a spending cap or other
-  non-`scope` limit keeps the bound-quotation rule.
+  non-`scope` limit keeps the bound-quotation rule. An `exclude` ("don't
+  reorder anything else") is answered the same way, by the actions.
+  Before review, an `exclude` about changing things ("don't approve or change
+  anything") is settled by the receipts alone when the run applied no change
+  and nothing is uncertain; one that also speaks of where the run goes stays
+  with review, and one that excludes change itself still needs that, or a
+  reviewer, even when the planner forbade a class for part of it.
   Ids nobody asked about are ignored. A skipped or doubled answer is
   insufficient. `contradicted` becomes `contradicted_state`, citations or
   not, because it can only stop a success.
@@ -2008,7 +2043,11 @@ run that produced it can always be repeated.
   state after it, and name no other item ("Paid Invoice 2" and "Invoice 1
   Due Invoice 2 Paid" each quote the wrong item's state). Items themselves
   must be rows the user named — whole phrases of the goal or an answer — so
-  "all nine invoices" is one outcome, not nine invented rows. A receipt stands in for an
+  "all nine invoices" is one outcome, not nine invented rows. A lone item
+  that describes rows instead of naming one (a determiner or count first, a
+  relation word, more than four words) is folded into the requirement's
+  text: no page writes "the two flights listed on this page", so it could
+  never be quoted. A receipt stands in for an
   item only when its target, row, or — for a verified batch — one of its
   checked fields names the item; every item shares the requirement's id.
   If the item extends a control's name with a value or state, the confirmed
