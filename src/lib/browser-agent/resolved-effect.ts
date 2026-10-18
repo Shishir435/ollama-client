@@ -715,7 +715,27 @@ const CONSEQUENTIAL_LABELS = [
     "aggiungi al carrello",
     "(?:добавить )?в корзину"
   ]),
-  /(?:カートに入れる|カートに追加|加入购物车|添加到购物车|कार्ट में जोड़ें)/u
+  /(?:カートに入れる|カートに追加|加入购物车|添加到购物车|कार्ट में जोड़ें)/u,
+  /**
+   * Approving signs off a record for someone else to act on, and the server
+   * keeps the decision. Unclassified, "Approve report" ran as a routine
+   * activation under "Don't approve or change anything".
+   */
+  labelWords([
+    "approve",
+    "authori[sz]e",
+    "genehmigen",
+    "aprobar",
+    "autorizar",
+    "approuver",
+    "autoriser",
+    "approva",
+    "approvare",
+    "autorizza",
+    "одобрить",
+    "утвердить"
+  ]),
+  /(?:承認|批准|审批|स्वीकृत करें|मंज़ूर करें|मंजूर करें)/u
 ] as const
 
 const isConsequentialLabel = (value?: string): boolean =>
