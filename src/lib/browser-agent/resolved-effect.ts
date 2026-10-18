@@ -737,6 +737,43 @@ const isSavingLabel = (value?: string): boolean =>
   Boolean(value && SAVING_LABELS.some((pattern) => pattern.test(value)))
 
 /**
+ * Script buttons that move a multi-step form on and store what it holds on
+ * the way: "Continue to payment" sends the shipping address. Pressed again
+ * after Back, it sent it again — a run did so twice to prove an address it
+ * had not read. Recorded like a save, so the first press is the task and a
+ * repeat is put to the user. Buttons only: a link with this label only
+ * leads somewhere, and keeps its native click.
+ */
+const ADVANCING_LABELS = [
+  labelWords([
+    "(?:continue|proceed|go) to (?:payment|checkout|shipping|delivery|billing|review)",
+    "save and continue"
+  ]),
+  labelWords([
+    "weiter zur (?:zahlung|kasse|lieferung)",
+    "speichern und weiter"
+  ]),
+  labelWords([
+    "continuar (?:al pago|con el pago|al envío)",
+    "ir al pago",
+    "guardar y continuar"
+  ]),
+  labelWords([
+    "continuer vers (?:le paiement|la livraison)",
+    "passer au paiement",
+    "enregistrer et continuer"
+  ]),
+  labelWords([
+    "(?:procedi|continua) (?:al pagamento|alla spedizione)",
+    "salva e continua"
+  ]),
+  labelWords(["перейти к (?:оплате|доставке)", "сохранить и продолжить"])
+] as const
+
+const isAdvancingLabel = (value?: string): boolean =>
+  Boolean(value && ADVANCING_LABELS.some((pattern) => pattern.test(value)))
+
+/**
  * Whether a link may be pressed with a real pointer rather than followed by
  * address. A real press runs the page's own click handlers — the router of a
  * single-page app, which a followed address bypasses — so it is offered only
@@ -777,7 +814,7 @@ const savingLabelOf = (
   effects.includes("activation") &&
   !effects.includes("submission") &&
   !isConsequentialLabel(element.name) &&
-  isSavingLabel(element.name)
+  (isSavingLabel(element.name) || isAdvancingLabel(element.name))
     ? { savingLabel: true }
     : {}
 

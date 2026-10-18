@@ -2306,6 +2306,9 @@ describe("a script button's label", () => {
     ["Speichern", { savingLabel: true }],
     ["Mark as paid", { savingLabel: true }],
     ["Place order", { committingLabel: true }],
+    ["Continue to payment", { savingLabel: true }],
+    ["Weiter zur Zahlung", { savingLabel: true }],
+    ["Continue shopping", {}],
     ["Sort by price", {}]
   ])("reads %s", async (name, expected) => {
     const effect = await resolve(
